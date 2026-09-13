@@ -50,6 +50,7 @@ function harness(options?: {
     const applied: Payload[] = [];
     const previews: Array<{ accountName: string; payload: unknown }> = [];
     const blocked: boolean[] = [];
+    const ryoAdoptions: Array<{ accountName: string; ryo: number }> = [];
     let allowApply = true;
 
     const persistence = createSavePersistence<Payload>({
@@ -80,6 +81,7 @@ function harness(options?: {
         },
         writePreview: (accountName, payload) => previews.push({ accountName, payload }),
         setBlocked: (value) => blocked.push(value),
+        onAuthoritativeRyo: (accountName, ryo) => ryoAdoptions.push({ accountName, ryo }),
     });
 
     return {
@@ -94,6 +96,7 @@ function harness(options?: {
         applied,
         previews,
         blocked,
+        ryoAdoptions,
         rejectSnapshots: () => { allowApply = false; },
     };
 }
@@ -117,6 +120,46 @@ const requiredSave = (overrides?: Partial<{
     echoVersion: overrides?.echoVersion ?? true,
     isStillCurrent: overrides?.isStillCurrent ?? (() => true),
     onCommitted: overrides?.onCommitted ?? (() => undefined),
+});
+
+describe("server-owned ryo on save acknowledgements", () => {
+    it("adopts the stored ryo an autosave acknowledgement carries", async () => {
+        const h = harness({ latestVersion: 5 });
+        globalThis.fetch = (async () => jsonResponse(200, { ok: true, _saveVersion: 6, ryo: 4_800 })) as typeof fetch;
+        await h.persistence.persistAutosave(snapshot());
+        assert.equal(h.latestVersion.current, 6);
+        assert.deepEqual(h.ryoAdoptions, [{ accountName: "Kaya", ryo: 4_800 }]);
+    });
+
+    it("adopts the stored ryo a required-save acknowledgement carries", async () => {
+        const h = harness({ latestVersion: 5 });
+        globalThis.fetch = (async () => jsonResponse(200, { ok: true, _saveVersion: 6, ryo: 250 })) as typeof fetch;
+        await h.persistence.persistRequired(() => requiredSave());
+        assert.deepEqual(h.ryoAdoptions, [{ accountName: "Kaya", ryo: 250 }]);
+    });
+
+    it("ignores an acknowledgement that a newer versioned write already superseded", async () => {
+        const h = harness({ latestVersion: 5 });
+        const gate = deferred<Response>();
+        globalThis.fetch = (async () => gate.promise) as typeof fetch;
+        const write = h.persistence.persistAutosave(snapshot());
+        // A server mutation (a mission claim, say) installs version 9 while the
+        // autosave is in flight. Its version-6 wallet is older than that write's.
+        h.latestVersion.current = 9;
+        gate.resolve(jsonResponse(200, { ok: true, _saveVersion: 6, ryo: 100 }));
+        await write;
+        assert.equal(h.latestVersion.current, 9);
+        assert.deepEqual(h.ryoAdoptions, [], "an older wallet must never roll back a newer one");
+    });
+
+    it("does nothing when the acknowledgement carries no usable ryo", async () => {
+        for (const ack of [{ ok: true, _saveVersion: 6 }, { ok: true, _saveVersion: 6, ryo: -1 }, { ok: true, _saveVersion: 6, ryo: "5" }]) {
+            const h = harness({ latestVersion: 5 });
+            globalThis.fetch = (async () => jsonResponse(200, ack)) as typeof fetch;
+            await h.persistence.persistAutosave(snapshot());
+            assert.deepEqual(h.ryoAdoptions, [], JSON.stringify(ack));
+        }
+    });
 });
 
 describe("extracted save persistence", () => {

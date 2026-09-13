@@ -186,6 +186,20 @@ test("a delayed save acknowledgement cannot adopt a version into the next accoun
     assert.equal(scope.isCurrent(), false); assert.equal(scope.signal.aborted, true);
 });
 
+test("a save acknowledgement's stored ryo patches only the wallet, and only when it differs", async () => {
+    const f = fixture();
+    const ack = (version: number, ryo: number) => new Response(JSON.stringify({ ok: true, _saveVersion: version, ryo }), { status: 200 });
+    assert.notEqual(f.initial.ryo, 777);
+    globalThis.fetch = async () => ack(6, 777);
+    await f.owner.pushSaveToServer(f.fields.buildPlayerSavePayload, f.initial, f.initial.name);
+    assert.equal(f.characterRef.current?.ryo, 777, "a drifted local wallet converges on the stored balance");
+    assert.deepEqual({ ...f.characterRef.current, ryo: f.initial.ryo }, f.initial, "nothing but the wallet changes");
+    const converged = f.characterRef.current!;
+    globalThis.fetch = async () => ack(7, 777);
+    await f.owner.pushSaveToServer(f.fields.buildPlayerSavePayload, converged, converged.name);
+    assert.equal(f.characterRef.current, converged, "an agreeing wallet does not replace the character (no extra autosave)");
+});
+
 test("a failed autosave arms retry; a successful required save clears the pending debounce timer", async () => {
     const f = fixture();
     globalThis.fetch = async () => new Response("offline", { status: 503 });
