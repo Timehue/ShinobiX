@@ -542,13 +542,13 @@ test("rotation retains the region and dragging a sector never starts travel", as
                 await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: start.x - step * 9, y: start.y - step * 5, id: 1 }] });
                 await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
             }
-            // Come to rest before lifting. A touch that leaves while still
-            // moving makes Chromium start a fling, and the next tap only stops
-            // that fling, so by design it produces no click. These steps are
-            // frame-paced, so the release speed depends on how light the page
-            // is: under Reduce Motion (the lite presentation) the drag took
-            // ~280ms instead of ~500ms, flung, and the region tap below was
-            // swallowed in about 7 runs of 10.
+            // Come to rest before lifting, so this stays a plain pan however
+            // light the page is: the steps are frame-paced, so their release
+            // speed depends on the page. A release while still moving is
+            // covered by "a flick released mid-motion leaves the next tap
+            // working". Before the map cancelled its pan's touchmoves, such a
+            // release started a hidden Chromium fling, and under Reduce Motion
+            // the region tap below was swallowed in about 7 runs of 10.
             await page.waitForTimeout(200);
             await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: start.x - 54, y: start.y - 30, id: 1 }] });
             await page.waitForTimeout(50);
@@ -568,5 +568,53 @@ test("rotation retains the region and dragging a sector never starts travel", as
         expect(errors).toEqual([]);
     } finally {
         await session?.detach();
+    }
+});
+
+test("a flick released mid-motion leaves the next tap working", async ({ page }, testInfo) => {
+    // Chromium starts a fling when a pan ends with the finger still moving, even
+    // on this `touch-action: none` map, and the touch-down that stops a fling is
+    // never a tap. Unless the map stops that fling from starting, the first
+    // region-chip tap after a flick gets its pointerdown but no click.
+    test.skip(!testInfo.project.name.startsWith("chromium") || !phoneProjects.includes(testInfo.project.name),
+        "drives Chromium's own touch gesture pipeline through CDP");
+    const errors = await bootWorldMap(page);
+    const destinations: number[] = [];
+    await page.route("**/api/player/travel", async (route) => {
+        destinations.push(Number(route.request().postDataJSON().destinationSector));
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ arrivalAt: Date.now(), travelMs: 0, arrivalTile: 78 }) });
+    });
+    await chooseRegion(page, "storm");
+    const sector = page.getByRole("button", { name: /Travel to Harbor Gates \(Sector 1\)/ });
+    await expect(sector).toBeVisible();
+    const rect = (await sector.boundingBox())!;
+    const start = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+    const before = await page.locator(".generated-world-map").evaluate((map) => getComputedStyle(map).transform);
+    const session = await page.context().newCDPSession(page);
+    try {
+        // A finger's timing: six moves 16ms apart, lifted 8ms after the last.
+        // Explicit timestamps set the release speed, so it does not depend on
+        // the CDP round trip or on how heavy the page is.
+        const t0 = Date.now();
+        const at = async (ms: number) => {
+            const wait = t0 + ms - Date.now();
+            if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+            return (t0 + ms) / 1000;
+        };
+        const sent: Promise<unknown>[] = [session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ ...start, id: 1 }], timestamp: await at(0) })];
+        for (let step = 1; step <= 6; step += 1) {
+            const timestamp = await at(step * 16);
+            sent.push(session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: start.x - step * 9, y: start.y - step * 5, id: 1 }], timestamp }));
+        }
+        sent.push(session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [], timestamp: await at(6 * 16 + 8) }));
+        await Promise.all(sent);
+        await expect.poll(() => page.locator(".generated-world-map").evaluate((map) => getComputedStyle(map).transform)).not.toBe(before);
+        const frost = page.locator('.wm-village-chip[data-region="frost"]');
+        await frost.tap();
+        await expect(frost, "the first tap after a flick must still activate the region chip").toHaveAttribute("aria-pressed", "true");
+        expect(destinations, "a flick originating on a sector must not travel").toEqual([]);
+        expect(errors).toEqual([]);
+    } finally {
+        await session.detach();
     }
 });
