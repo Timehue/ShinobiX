@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import type { Character } from "../types/character";
 import type { Pet } from "../types/pet";
 import { activeCarriedPets } from "../lib/entitlements";
+import { lazyWithRetry } from "../lib/lazyWithRetry";
 import { fetchRankedPetDuel, type RankedPetWatch } from "../lib/pet-ranked-watch-api";
 import {
     petRankedQueue,
@@ -10,7 +11,14 @@ import {
     startRankedPetMatch,
     type PetRankedQueueState,
 } from "../lib/pet-ranked-queue-api";
-import { PetShowdownReplay } from "./PetShowdownReplay";
+
+// The replay carries PetShowdownBattle, react-three-fiber, drei and the
+// three-vendor chunk. Imported statically, that whole stack had to arrive
+// before this panel could paint or send its first discovery poll. It is
+// fetched once a match exists instead, which is still well before playback.
+const loadShowdownReplay = () => import("./PetShowdownReplay");
+const preloadShowdownReplay = () => { void loadShowdownReplay().catch(() => undefined); };
+const PetShowdownReplay = lazyWithRetry(() => loadShowdownReplay().then((m) => ({ default: m.PetShowdownReplay })));
 
 /*
  * Live ranked pet matchmaking.
@@ -75,6 +83,12 @@ export function PetLadderQueuePanel({ character, sharedImages = {}, onVersionedC
         const id = window.setInterval(() => { void refresh(); }, state.state === "paired" ? 800 : 2_500);
         return () => window.clearInterval(id);
     }, [refresh, state.state, busy]);
+
+    // Only a match can reach playback, so start fetching the renderer as soon
+    // as one exists. The token handshake and the watch request then cover
+    // most of its download.
+    const matchFound = state.state === "paired" || state.state === "active" || state.state === "completed";
+    useEffect(() => { if (matchFound) preloadShowdownReplay(); }, [matchFound]);
 
     // The initiator mints the sealed token once both sides are paired.
     useEffect(() => {
@@ -144,18 +158,7 @@ export function PetLadderQueuePanel({ character, sharedImages = {}, onVersionedC
         }
     };
 
-    if (watch) {
-        return (
-            <PetShowdownReplay
-                script={watch.script}
-                playerPets={playerPets}
-                sharedImages={sharedImages}
-                onExit={() => { if (state.state === "active" || state.state === "completed") void closeReplay(state.matchToken); }}
-            />
-        );
-    }
-
-    return (
+    const queueBox = (
         <div className="summary-box" data-testid="pet-ladder-queue" style={{ padding: "0.9rem", marginBottom: "0.9rem" }}>
             <h3 className="pl-h" style={{ marginTop: 0 }}>Ranked live queue</h3>
             {error && <p className="hint" role="alert" style={{ color: "var(--red-400)" }}>{error}</p>}
@@ -202,4 +205,21 @@ export function PetLadderQueuePanel({ character, sharedImages = {}, onVersionedC
             )}
         </div>
     );
+
+    if (watch) {
+        // If the renderer is still arriving, the box keeps showing the
+        // "Loading your rated duel" line it showed a moment ago.
+        return (
+            <Suspense fallback={queueBox}>
+                <PetShowdownReplay
+                    script={watch.script}
+                    playerPets={playerPets}
+                    sharedImages={sharedImages}
+                    onExit={() => { if (state.state === "active" || state.state === "completed") void closeReplay(state.matchToken); }}
+                />
+            </Suspense>
+        );
+    }
+
+    return queueBox;
 }
