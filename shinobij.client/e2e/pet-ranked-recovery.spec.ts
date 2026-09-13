@@ -25,7 +25,9 @@ for (const mode of ['active', 'completed', 'without-webgl2'] as const) {
         test.setTimeout(90_000);
         const errors: string[] = [];
         page.on('pageerror', error => errors.push(error.message));
+        const modelRequests: string[] = [];
         if (withoutWebGL2) {
+            page.on('request', request => { if (new URL(request.url()).pathname.endsWith('.glb')) modelRequests.push(request.url()); });
             await page.addInitScript(() => {
                 const original = HTMLCanvasElement.prototype.getContext;
                 HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, contextId: string, ...args: unknown[]) {
@@ -138,6 +140,9 @@ for (const mode of ['active', 'completed', 'without-webgl2'] as const) {
             const spoken = lines.findIndex(line => line.includes(actionLine));
             expect(lines[spoken]).toContain('takes');
             expect(spoken).toBeLessThan(lines.findIndex(line => line.startsWith(`${verdict}.`)));
+            // Warming follows the same probe as mounting: a stage that cannot
+            // draw a model never waits on downloading one.
+            expect(modelRequests).toEqual([]);
         }
         expect(settlementRequests).toBe(completed ? 0 : 2);
         await page.getByRole('button', { name: 'Leave the Showdown', exact: true }).click();
