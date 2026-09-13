@@ -27,8 +27,8 @@ import { retryDynamicImport } from "./lazyWithRetry";
  * Chromium, Firefox and WebKit (see ./lazyWithRetry). These loaders are awaited
  * outside React, so no error boundary sees the rejection and nothing reloads on
  * its own: every call site catches it and asks the player to try again. That
- * can work after a timeout, but after a failed fetch only reloading the page
- * loads the chunk.
+ * can work after a timeout, but after a failed fetch nothing short of
+ * reloading the page can load the chunk.
  */
 export function loadHollowGateGenerator() {
     return retryDynamicImport(() => import("./hollow-gate-dungeon"));

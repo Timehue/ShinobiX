@@ -22,7 +22,7 @@ import { retryDynamicImport } from "./lazyWithRetry";
  * settles, so an awaiting caller never settles either. Neither form recovers a
  * chunk whose fetch FAILED (a dropped request, or a deploy that rotated the
  * asset hashes under an open tab): the browser caches that failure for the
- * page, and only a reload fetches it again (see ./lazyWithRetry).
+ * page, and nothing short of a reload can fetch it again (see ./lazyWithRetry).
  */
 export function loadPlayerApi() {
     return retryDynamicImport(() => import("./player-api"));
