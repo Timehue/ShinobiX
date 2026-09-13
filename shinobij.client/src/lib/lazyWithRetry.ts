@@ -25,9 +25,9 @@ import { lazy, type ComponentType, type LazyExoticComponent } from "react";
  *    helper inserts first is enough to poison it too. So on a failed fetch the
  *    retries only hold the error back for the backoff, ~3.6 s at the defaults.
  *  - It DOES settle a hung fetch: the per-attempt timeout turns the stall into
- *    a failure. An attempt made while the first download is still in flight
- *    can still succeed (Chromium and Firefox attach it to that same request;
- *    WebKit starts a second one).
+ *    a failure, and an attempt made while the first download is still in
+ *    flight can still succeed. (A click landing mid-download on a warmed
+ *    screen attached to that same request in all three engines.)
  *  - One failure a retry does get past is a screen's own CSS file. Vite's
  *    preload helper rejects when that stylesheet fails, but it remembers every
  *    dep it has linked and skips it on the next attempt, so attempt two
@@ -37,10 +37,12 @@ import { lazy, type ComponentType, type LazyExoticComponent } from "react";
  * The real recovery is a page reload, which starts a fresh module map. After
  * the last attempt, the error is re-thrown with a chunk-load-shaped message so
  * components/ScreenErrorBoundary or the top-level ErrorBoundary recognises it
- * and does its automatic reload (lib/chunk-load-recovery). In WebKit one reload
- * was not always enough: after a failed modulepreload, reloads in the next
- * ~30 s got the same failure without a request (a failed bare import()
- * recovered on the first reload).
+ * and does its automatic reload (lib/chunk-load-recovery). In WebKit a reload
+ * onto the SAME chunk URL was not always enough: on this lazy-screen path,
+ * later reloads kept getting the failure without a request (~30 s after an
+ * aborted request; still failing 100 s later after a no-store 404). A real
+ * deploy recovers in one reload, because the reloaded page names new chunk
+ * URLs.
  */
 /**
  * Exported because the timeout and the chunk-shaped final error are NOT
@@ -49,8 +51,8 @@ import { lazy, type ComponentType, type LazyExoticComponent } from "react";
  * lib/hollow-gate-generator-loader — route through this for the same timeout.
  * Outside React.lazy no error boundary sees the rejection, so nothing reloads
  * on its own and the caller has to handle it. Letting the player try again in
- * the same page can work after a timeout, but after a failed fetch only a
- * reload loads the chunk.
+ * the same page can work after a timeout, but after a failed fetch nothing
+ * short of a reload can load the chunk.
  */
 export function retryDynamicImport<T>(
     factory: () => Promise<T>,

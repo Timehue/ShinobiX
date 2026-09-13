@@ -18,8 +18,8 @@
  *    moment later. Best-effort: a failure is swallowed here, but it is not
  *    private to the warm-up. The browser caches a failed chunk fetch for the
  *    page, so the click's lazyWithRetry load then rejects from that same
- *    failure without a new request, and only the screen boundary's reload
- *    fetches it again (see lib/lazyWithRetry). The one cost is timing: the
+ *    failure without a new request, and nothing short of a page reload can
+ *    fetch it again (see lib/lazyWithRetry). The one cost is timing: the
  *    fetch starts ~100–300 ms earlier, so a blip that brief can fail a load the
  *    click alone might have survived.
  *
@@ -97,7 +97,7 @@ export function preloadScreen(screen: Screen, storyVillage?: string): void {
             // Forget the failed warm-up so a later press calls load() again.
             // That cannot re-download the chunk: the browser has cached the
             // failure for this page, so the new import() rejects at once with
-            // no request. Only a page reload fetches it again.
+            // no request. Nothing short of a page reload can fetch it again.
             preloadPromises.delete(screen);
         });
         preloadPromises.set(screen, pending);
