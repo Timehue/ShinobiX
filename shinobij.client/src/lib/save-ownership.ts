@@ -31,7 +31,7 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     'level', 'village', 'rank', 'specialty', 'storyProgress', 'maxHp', 'maxChakra', 'maxStamina',
     'customTitle', 'profession', 'professionRank', 'professionXp', 'professionRespecUsed',
     // Wallet & currencies
-    'bankRyo', 'lastBankInterestAt', 'honorSeals', 'fateShards', 'chroniclePoints', 'boneCharms',
+    'ryo', 'bankRyo', 'lastBankInterestAt', 'honorSeals', 'fateShards', 'chroniclePoints', 'boneCharms',
     'auraStones', 'auraDust', 'mythicSeals', 'hollowShards',
     // Stats & progression ledger
     'xp', 'experience', 'stats', 'unspentStats', 'totalStatsTrained', 'rankTitle',

@@ -133,7 +133,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('professionRespecUsed', 'character', 'server-owned', 'profession', ['strict-ledger-char', 'always-ledger-char', 'combat-strip-char'], 'legacy audit latch from the retired free-change system'),
 
     // ── Wallet & currencies ─────────────────────────────────────────────────
-    f('ryo', 'character', 'server-clamped', 'currency', ['strict-ledger-char', 'combat-strip-char'], 'decrease free; gain ≤1,000/save until strict flip, then frozen'),
+    f('ryo', 'character', 'server-ledger', 'currency', ['strict-ledger-char', 'combat-strip-char'], 'generic saves re-assert stored (increase → 409); ALLOW_CLIENT_RYO_DECREASE=1 restores decrease-free'),
     f('bankRyo', 'character', 'server-ledger', 'currency', ['strict-ledger-char', 'always-ledger-char', 'combat-strip-char'], 'bank endpoints only'),
     f('lastBankInterestAt', 'character', 'server-payout-stamp', 'currency', ['payout-char', 'combat-strip-char']),
     f('honorSeals', 'character', 'server-ledger', 'currency', ['strict-ledger-char', 'currency-zero-gain', 'combat-strip-char']),
