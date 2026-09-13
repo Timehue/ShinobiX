@@ -62,10 +62,10 @@ test("the awaited pet-duel path warms the chunk before it blocks on it", () => {
 });
 
 test("the loader keeps the retry/timeout policy instead of a bare import()", () => {
-    // A bare import() here would reintroduce the two failures lazyWithRetry
-    // exists to prevent: a hung fetch that never settles (so the awaiting duel
-    // acceptance never settles either) and a rotated chunk hash after a deploy
-    // that fails every later attempt with no recovery.
+    // A bare import() here would reintroduce the failure lazyWithRetry's
+    // timeout exists to prevent: a hung fetch that never settles, so the
+    // awaiting duel acceptance never settles either. (Neither form recovers a
+    // chunk whose fetch failed; the browser caches that for the page.)
     assert.match(loader, /retryDynamicImport\(\s*\(\)\s*=>\s*import\(["']\.\/player-api["']\)\s*\)/);
     assert.match(loader, /import\s+\{\s*retryDynamicImport\s*\}\s+from\s+["']\.\/lazyWithRetry["']/);
 });
