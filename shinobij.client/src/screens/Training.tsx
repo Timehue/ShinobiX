@@ -58,12 +58,13 @@ function formatTrainingRemaining(ms: number): string {
 export function Training({ character, onVersionedCharacter, activeTraining, setActiveTraining, onBack }: { character: Character; onVersionedCharacter: VersionedCharacterCommit; activeTraining: ActiveTraining | null; setActiveTraining: (training: ActiveTraining | null) => void; onBack: () => void }) {
     const [selectedStat, setSelectedStat] = useState<keyof Stats>("strength");
     const [trainingBusy, setTrainingBusy] = useState(false);
+    const [trainingNotice, setTrainingNotice] = useState<string | null>(null);
     const trainingBusyRef = useRef(false);
     // Live 1s tick so the Active Training box shows a real countdown (not a static
     // end-time) and the Collect button unlocks the moment training is ready.
-    const [now, setNow] = useState(Date.now());
+    const [now, setNow] = useState(() => serverNow());
     useEffect(() => {
-        const id = setInterval(() => setNow(Date.now()), 1000);
+        const id = setInterval(() => setNow(serverNow()), 1000);
         return () => clearInterval(id);
     }, []);
     const STAT_LABELS: Record<string, { label: string; icon: React.ReactNode }> = {
@@ -103,12 +104,14 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
         if (character.stamina < timer.staminaCost) return alert("Not enough stamina.");
         trainingBusyRef.current = true;
         setTrainingBusy(true);
+        setTrainingNotice(null);
         try {
             const res = await fetch('/api/training/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, stat: selectedStat, tierId: timer.id }) });
             const data = await res.json().catch(() => ({})) as { token?: string; character?: Character; activeTraining?: ActiveTraining; _saveVersion?: number; error?: string };
             if (!res.ok || !data?.token || !data?.character || !data?.activeTraining) throw new Error(String(data?.error ?? 'Training could not be started.'));
             if (!onVersionedCharacter(data.character, data._saveVersion)) return;
             setActiveTraining(data.activeTraining as ActiveTraining);
+            setTrainingNotice(`${data.activeTraining.label} started. You can keep playing while it runs.`);
         } catch (err) {
             alert(err instanceof Error ? err.message : 'Training could not be started. Please retry.');
         } finally {
@@ -137,7 +140,7 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
             const applied = Math.max(0, Math.floor(Number(data.applied) || 0));
             const overflow = Math.max(0, Math.floor(Number(data.overflow) || 0));
             const pooled = overflow > 0 ? ` +${overflow} to your unspent pool.` : "";
-            alert(`Training cancelled. ${applied > 0 ? `+${applied} ${formatStatName(activeTraining.stat)} banked.` : "Not enough progress to bank a stat point."}${pooled}`);
+            setTrainingNotice(`Training cancelled. ${applied > 0 ? `+${applied} ${formatStatName(activeTraining.stat)} banked.` : "Not enough progress to bank a stat point."}${pooled} Stamina spent was not refunded.`);
         } catch (err) {
             alert(err instanceof Error ? err.message : 'Training could not be cancelled. Please retry.');
         } finally {
@@ -166,7 +169,7 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
             // out-earn the Academy cap, and silence reads as "my points vanished".
             const overflow = Math.max(0, Math.floor(Number(data.overflow) || 0));
             const pooled = overflow > 0 ? ` +${overflow} to your unspent pool (${formatStatName(activeTraining.stat)} is at its rank cap of ${cap}) — spend it on any stat.` : "";
-            alert(`${activeTraining.label} complete. ${applied > 0 ? `+${applied} ${formatStatName(activeTraining.stat)}.` : `${formatStatName(activeTraining.stat)} is already at your rank cap (${cap}).`}${pooled}`);
+            setTrainingNotice(`${activeTraining.label} complete. ${applied > 0 ? `+${applied} ${formatStatName(activeTraining.stat)}.` : `${formatStatName(activeTraining.stat)} is already at your rank cap (${cap}).`}${pooled}`);
         } catch (err) {
             alert(err instanceof Error ? err.message : 'Training could not be collected. Please retry.');
         } finally {
@@ -181,6 +184,7 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
             <BackToVillageButton onClick={onBack} label="← Back" />
             <h2 id="training-ground-title">Training Grounds</h2>
             <p>Stamina: {character.stamina}/{character.maxStamina} · Growth Bonus: <strong>{trainingXpBonus.toFixed(2)}%</strong></p>
+            {trainingNotice && <p className="training-feedback" role="status">{trainingNotice}</p>}
 
             <div className="training-guide-panel">
                 <strong>Training Plan</strong>
@@ -199,7 +203,9 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
                     <p>{trainingReady
                         ? <strong style={{ color: "#4ade80" }}>Ready to collect!</strong>
                         : <>Time remaining: <strong>{formatTrainingRemaining(remainingMs)}</strong> · ends {new Date(activeTraining.endsAt).toLocaleTimeString()}</>}</p>
-                    <p className="hint">Next: collect this training, then spend your new strength on an E-Rank Drill or rookie mission.</p>
+                    <p className="hint">{trainingReady
+                        ? "Collect your stat points, then start another session or return to your next activity."
+                        : "Training continues while you play or log out. Return when it is ready to collect."}</p>
                     <button onClick={completeTraining} disabled={!trainingReady || trainingBusy}>{trainingBusy ? "Settling…" : trainingReady ? "Collect Training" : "Training…"}</button>
                     <button onClick={cancelTraining} disabled={trainingBusy} style={{ marginLeft: 8 }}>Cancel (keep prorated stats)</button>
                 </div>
@@ -274,6 +280,7 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
                             <span className="tile-icon">{timer.icon}</span>
                             <span>{trainingBusy ? "Saving…" : `Start ${timer.label}`}</span>
                             <small>+{gain} {formatStatName(selectedStat)}</small>
+                            <small>{timer.staminaCost} stamina{character.stamina < timer.staminaCost ? ` · need ${timer.staminaCost - character.stamina} more` : ""}</small>
                         </button>
                     );
                 })}
@@ -480,7 +487,7 @@ export function JutsuTrainingHall({
     const [selectedJutsuId, setSelectedJutsuId] = useState(
         (academyJutsuStep ? academyUntrainedJutsuId : "") || availableJutsus[0]?.id || "",
     );
-    const [now, setNow] = useState(Date.now());
+    const [now, setNow] = useState(() => serverNow());
     const [jutsuAction, setJutsuAction] = useState<string | null>(null);
     const [jutsuNotice, setJutsuNotice] = useState<JutsuHallNotice | null>(null);
     const [mobileJutsuInfoId, setMobileJutsuInfoId] = useState<string | null>(null);
@@ -495,7 +502,7 @@ export function JutsuTrainingHall({
     const ryoTrainCap = jutsuRyoTrainCap(character.level);
 
     useEffect(() => {
-        const interval = setInterval(() => setNow(Date.now()), 1000);
+        const interval = setInterval(() => setNow(serverNow()), 1000);
         return () => clearInterval(interval);
     }, []);
 

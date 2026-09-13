@@ -1,4 +1,6 @@
-export type AcademyNarrativeAction = "incident" | "trace" | "seal" | "complete" | "skip";
+import { offerFirstContract, readFirstContract, isFirstContractRoute, firstContractReturnedLater } from '../../shared/first-contract.js';
+export const ACADEMY_NARRATIVE_ACTIONS = ['incident', 'trace', 'seal', 'complete', 'skip', 'combat', 'discovery', 'companion', 'contract-acknowledge', 'contract-return'] as const;
+export type AcademyNarrativeAction = typeof ACADEMY_NARRATIVE_ACTIONS[number];
 
 type Character = Record<string, unknown>;
 type SaveRecord = Record<string, unknown>;
@@ -35,11 +37,31 @@ export function applyAcademyNarrativeAction(
     record: SaveRecord,
     action: AcademyNarrativeAction,
     rawSector?: unknown,
+    rawRoute?: unknown,
 ): AcademyNarrativeResult {
+    if (rawRoute !== undefined && (action !== 'complete' || !isFirstContractRoute(rawRoute))) {
+        return { ok: false, status: 400, error: 'Invalid first assignment route.' };
+    }
     const step = onboardingStep(character);
+    if (isFirstContractRoute(action) || action === 'contract-acknowledge' || action === 'contract-return') {
+        const state = readFirstContract(character.firstContract);
+        if (step !== 'done' || !state) return { ok: false, status: 409, error: 'Finish or skip the Academy before choosing your first assignment.' };
+        const now = Date.now();
+        if (isFirstContractRoute(action)) {
+            if (state.completedAt || state.route === action) return { ok: true, character, changed: false };
+            if (action === 'companion' && (!Array.isArray(character.pets) || !character.pets.length)) {
+                return { ok: false, status: 409, error: 'Choose combat or discovery until you have a companion.' };
+            }
+            return { ok: true, character: { ...character, firstContract: { ...state, route: action, selectedAt: now } }, changed: true };
+        }
+        if (!state.completedAt) return { ok: false, status: 409, error: 'Complete your assignment before closing its journal entry.' };
+        if (action === 'contract-return' && (!firstContractReturnedLater(state, now) || state.returnedAt)) return { ok: true, character, changed: false };
+        if (action === 'contract-acknowledge' && state.acknowledgedAt) return { ok: true, character, changed: false };
+        return { ok: true, character: { ...character, firstContract: { ...state, [action === 'contract-return' ? 'returnedAt' : 'acknowledgedAt']: now } }, changed: true };
+    }
     if (action === "skip") {
         if (step === "done") return { ok: true, character, changed: false };
-        return { ok: true, character: { ...character, onboardingStep: "done" }, changed: true };
+        return { ok: true, character: offerFirstContract({ ...character, onboardingStep: "done" }, 'skip'), changed: true };
     }
     if (action === "incident") {
         if (character.academyIncidentSeen === true) return { ok: true, character, changed: false };
@@ -77,7 +99,12 @@ export function applyAcademyNarrativeAction(
         if (step !== "sectorReturn" || character.academySectorVisited !== true || character.academyFieldSeal !== true) {
             return { ok: false, status: 409, error: "Accept the field seal before completing the Academy path." };
         }
-        return { ok: true, character: { ...character, onboardingStep: "done" }, changed: true };
+        const graduated: Character = offerFirstContract({ ...character, onboardingStep: "done" }, 'academy');
+        if (isFirstContractRoute(rawRoute) && readFirstContract(graduated.firstContract)) {
+            const selected = applyAcademyNarrativeAction(graduated, record, rawRoute);
+            return selected.ok ? { ...selected, changed: true } : selected;
+        }
+        return { ok: true, character: graduated, changed: true };
     }
     return { ok: false, status: 400, error: "Unknown Academy narrative action." };
 }

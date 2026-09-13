@@ -90,6 +90,8 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
     onConflictSnapshot: (snapshot: TPayload & { _saveVersion?: number }, submittedRevision: number) => boolean;
     writePreview: (accountName: string, payload: unknown) => void;
     setBlocked: (blocked: boolean) => void;
+    /** Receives the stored ryo a save acknowledgement carries (ryo is server-owned). */
+    onAuthoritativeRyo?: (accountName: string, ryo: number) => void;
     requestTimeoutMs?: number;
 }) {
     const conflictFlights = new Map<string, Promise<boolean>>();
@@ -125,6 +127,19 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
 
     const clearUnresolvedPost = (entry: { sequence: number }) => {
         if (unresolvedPost?.sequence === entry.sequence) unresolvedPost = null;
+    };
+
+    /**
+     * A generic save re-asserts the stored ryo, and its acknowledgement carries
+     * that balance. Adopt it only while this acknowledgement is still the newest
+     * authority the client has seen: an older response must never roll back a
+     * balance that a later versioned write already installed.
+     */
+    const adoptAcknowledgedRyo = (accountName: string, acknowledgement: { _saveVersion?: number; ryo?: unknown } | null) => {
+        const ryo = acknowledgement?.ryo;
+        if (typeof ryo !== "number" || !Number.isFinite(ryo) || ryo < 0) return;
+        if (params.latestVersion.current !== acknowledgement?._saveVersion) return;
+        params.onAuthoritativeRyo?.(accountName, ryo);
     };
 
     const getUnresolvedPost = (): UnresolvedSavePost | null => {
@@ -246,7 +261,7 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
                 const acknowledgement = await response.json().catch((error: unknown) => {
                     if (signal.aborted) throw error;
                     return null;
-                }) as { _saveVersion?: number; persisted?: boolean; reason?: string } | null;
+                }) as { _saveVersion?: number; persisted?: boolean; reason?: string; ryo?: number } | null;
                 if (!params.isCurrentSession(accountKey, epoch)) return;
                 if (acknowledgement?.persisted === false) throw new Error(`Save deferred by the server (${acknowledgement.reason ?? "locked"}).`);
                 if (!validAcknowledgementVersion(acknowledgement?._saveVersion)) throw new Error("Save acknowledgement did not include a valid authoritative version.");
@@ -255,6 +270,7 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
                 if (isCurrentSavePayloadRevision(snapshot.revision, params.latestPayloadRevision.current)) {
                     params.writePreview(snapshot.name, { ...snapshot.payload, _saveVersion: params.latestVersion.current });
                 }
+                adoptAcknowledgedRyo(snapshot.name, acknowledgement);
                 if (params.failureCount.current) {
                     params.failureCount.current = 0;
                     params.setBlocked(false);
@@ -325,6 +341,7 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
             _saveVersion?: number;
             persisted?: boolean;
             reason?: string;
+            ryo?: number;
         } | null;
         if (save.echoVersion && !params.isCurrentSession(accountKey, epoch)) {
             throw new Error("The active save account changed before this write completed.");
@@ -337,6 +354,7 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
         if (!validAcknowledgementVersion(acknowledgement?._saveVersion)) throw new Error("Save acknowledgement did not include a valid authoritative version.");
         clearUnresolvedPost(pending);
         params.latestVersion.current = adoptSaveVersion(params.latestVersion.current, acknowledgement?._saveVersion);
+        adoptAcknowledgedRyo(save.name, acknowledgement);
         if (params.failureCount.current) { params.failureCount.current = 0; params.setBlocked(false); }
         if (isCurrentSavePayloadRevision(save.revision, params.latestPayloadRevision.current) && save.isStillCurrent()) {
             params.dirty.current = false;

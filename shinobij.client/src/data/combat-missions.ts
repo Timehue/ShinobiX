@@ -71,7 +71,7 @@ export function combatMissionByKey(key: string): CombatMission | undefined {
 // level's natural HP (~340), so without a floor the foe dies in one tap. The
 // floor only binds at low levels (above ~lvl 13 the natural HP already exceeds
 // it); higher ranks start high enough that it never binds. The difficulty BANDS
-// in lib/pve-difficulty supply the easy/medium/hard scaling on top.
+// in api/_pve-difficulty.ts supply the easy/medium/hard scaling on top.
 const MISSION_AI_RANK_STAT_BONUS: Record<string, number> = {
     // E-Rank is the onboarding "guaranteed win": no stat bonus at all (0 is the
     // floor — relevelBuiltinAi/normalizeAiProfile lifts any negative back to the

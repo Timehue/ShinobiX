@@ -4,13 +4,14 @@ import { authedPlayerOrAdmin } from "../_auth.js";
 import { enforceRateLimitKv } from "../_ratelimit.js";
 import { cors, safeName } from "../_utils.js";
 import { mutatePlayerSave } from "../save/_mutate-player-save.js";
-import { academyNarrativeRecordPatch, applyAcademyNarrativeAction, type AcademyNarrativeAction } from "./_academy-narrative.js";
+import { ACADEMY_NARRATIVE_ACTIONS, academyNarrativeRecordPatch, applyAcademyNarrativeAction, type AcademyNarrativeAction } from "./_academy-narrative.js";
+import { captureServerProductEvent } from '../_product-analytics.js';
 import { kv } from '../_storage.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { engagedInWorldDuel } from '../_realtime/world-duel-engagement.js';
 import { getTravelLease, settleMaturedTravelForAction, travelLeaseReceipt } from '../_realtime/travel-lease.js';
 
-const ACTIONS = new Set<AcademyNarrativeAction>(["incident", "trace", "seal", "complete", "skip"]);
+const ACTIONS = new Set<AcademyNarrativeAction>(ACADEMY_NARRATIVE_ACTIONS);
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -27,7 +28,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && !(await enforceRateLimitKv(req, res, "academy-narrative", 30, 60_000, identity.name))) return;
         if (action === 'trace' || action === 'complete') await settleMaturedTravelForAction(playerName);
         const result = await mutatePlayerSave(playerName, async ({ character, record }) => {
-            const applied = applyAcademyNarrativeAction(character, record, action, body.sector);
+            const applied = applyAcademyNarrativeAction(character, record, action, body.sector, body.route);
             if (!applied.ok) return applied;
             // A completed ceremony is a replay, not a reusable field escape.
             const recordPatch = applied.changed ? academyNarrativeRecordPatch(record, action) : undefined;
@@ -50,6 +51,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
+        if (!result.value.replayed) captureServerProductEvent('first_hour_milestone', { source: 'academy', stateCategory: action });
         if (action === 'complete' && !result.value.replayed) {
             const live = onlineStore.get(playerName);
             if (live) live.locationUnverified = true;
