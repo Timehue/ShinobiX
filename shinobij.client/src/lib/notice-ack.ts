@@ -47,6 +47,20 @@ export function noteHeartbeatDelivery(data: { pendingHeal?: { id?: unknown } | n
 }
 
 /**
+ * Keep these notices out of the next beat's acknowledgement, so the server
+ * keeps delivering them. App calls this when the chunk holding the notice copy
+ * fails to load: the notices arrived but could not be shown. They are shown
+ * once that chunk loads, which usually means after the page reloads, since
+ * browsers keep a failed module fetch for the life of the page. Only the
+ * latest delivery is ever acknowledged, so this edits that list. It cannot
+ * recall a notice that an earlier beat has already acknowledged.
+ */
+export function withholdNoticeAck(notices: unknown): void {
+    const withheld = new Set(noticeIdsOf(notices));
+    deliveredIds = deliveredIds.filter((id) => !withheld.has(id));
+}
+
+/**
  * The notices not yet shown this session, marking them shown. An entry without
  * an id (a server that predates the protocol) is always fresh — the legacy
  * server consumed it on delivery, so it can only ever arrive once anyway.
