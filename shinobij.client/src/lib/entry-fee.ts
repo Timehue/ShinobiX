@@ -1,12 +1,8 @@
 /*
- * Entry-fee quotes for repeatable PvE modes. Battle Towers and Pet Gauntlet
- * debit the stored wallet in their server start endpoints; these calculations
- * are only an immediate UI preview. Endless Tower still uses its legacy flow.
- *
- * Why client-side: ryo is client-owned — the client autosaves character.ryo — so
- * a SERVER-side debit would be clobbered by the client's next autosave of its
- * stale (un-debited) ryo. Debiting client-side is the same trust model as every
- * other spend in the game (shop, jutsu training).
+ * Entry-fee quotes for repeatable PvE modes. Endless Tower, Battle Towers and
+ * Pet Gauntlet all debit the stored wallet in their server start endpoints
+ * (api/endless/_run.ts, api/towers/_entry-fee.ts, api/pet/_gauntlet-entry.ts);
+ * these calculations are only an immediate UI preview. Nothing here spends ryo.
  *
  * Each mode keeps its OWN daily {count, date} stamp rather than the shared
  * character.lastDailyReset, so charging one mode can never reset another mode's
@@ -27,19 +23,6 @@ const ENDLESS_FEE_STEP = 3000;
 export function endlessEntryCost(character: Character): number {
     const used = character.dailyEndlessDate === todayKey() ? (character.dailyEndlessRuns ?? 0) : 0;
     return used * ENDLESS_FEE_STEP;
-}
-
-/**
- * Returns the character with the Endless entry fee debited + the daily fresh-run
- * counter bumped, or null if they can't afford it (the caller surfaces
- * endlessEntryCost to the player). Call this ONLY when starting a fresh run.
- */
-export function payEndlessEntry(character: Character): Character | null {
-    const cost = endlessEntryCost(character);
-    if ((character.ryo ?? 0) < cost) return null;
-    const day = todayKey();
-    const used = character.dailyEndlessDate === day ? (character.dailyEndlessRuns ?? 0) : 0;
-    return { ...character, ryo: (character.ryo ?? 0) - cost, dailyEndlessRuns: used + 1, dailyEndlessDate: day };
 }
 
 // ── Battle Tower ─────────────────────────────────────────────────────────────
