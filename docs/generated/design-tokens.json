@@ -2297,6 +2297,17 @@
       {
         "direction": "max",
         "axis": "width",
+        "valuePx": 370,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/components/first-contract.css",
+            "line": 280
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
         "valuePx": 380,
         "occurrences": [
           {
@@ -3189,6 +3200,10 @@
           {
             "source": "shinobij.client/src/components/academy-story-moments.css",
             "line": 1
+          },
+          {
+            "source": "shinobij.client/src/components/first-contract.css",
+            "line": 253
           },
           {
             "source": "shinobij.client/src/screens/FirstPact.css",
