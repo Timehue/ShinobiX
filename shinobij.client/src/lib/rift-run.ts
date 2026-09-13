@@ -114,7 +114,9 @@ export async function completeRiftRun(
     }
     apply((prev) => belongsToAccount(prev) ? ({
         ...prev,
-        ryo: (prev.ryo ?? 0) + (resp.ryo ?? 0),
+        // The server wrote the post-credit balance; adopt it rather than re-adding
+        // the delta to a local balance that may already be stale.
+        ryo: typeof resp.totalRyo === "number" ? resp.totalRyo : (prev.ryo ?? 0) + (resp.ryo ?? 0),
         fateShards: (prev.fateShards ?? 0) + (resp.fateShards ?? 0),
         boneCharms: (prev.boneCharms ?? 0) + (resp.boneCharms ?? 0),
         activeRiftQuest: null,

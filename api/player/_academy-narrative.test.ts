@@ -83,6 +83,10 @@ describe("Academy narrative milestones", () => {
     it("lets a player explicitly skip from any active Academy step", () => {
         const result = applyAcademyNarrativeAction({ onboardingStep: "inventory", hp: 12 }, {}, "skip");
         assert.equal(result.ok, true);
-        if (result.ok) assert.deepEqual(result.character, { onboardingStep: "done", hp: 12 });
+        if (result.ok) {
+            assert.equal(result.character.onboardingStep, 'done');
+            assert.equal(result.character.hp, 12);
+            assert.equal((result.character.firstContract as { source: string }).source, 'skip');
+        }
     });
 });

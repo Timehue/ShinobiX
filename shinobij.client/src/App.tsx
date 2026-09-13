@@ -244,6 +244,7 @@ const OnboardingCoach = lazyWithRetry(() => import("./components/OnboardingCoach
 const ScreenHint = lazyWithRetry(() => import("./components/ScreenHint").then(m => ({ default: m.ScreenHint })));
 const LiveServiceNotice = lazyWithRetry(() => import("./components/LiveServiceNotice").then(m => ({ default: m.LiveServiceNotice })));
 const NextGoalPin = lazyWithRetry(() => import("./components/NextGoalPin").then(m => ({ default: m.NextGoalPin })));
+const FirstContractHost = lazyWithRetry(() => import("./components/FirstContractHost").then(m => ({ default: m.FirstContractHost })));
 const Village = lazyWithRetry(() => import("./screens/Village").then(m => ({ default: m.Village })));
 import {
     type Profession,
@@ -5986,6 +5987,7 @@ export default function App() {
 
                 {!activeTriggeredEvent && character && <Suspense fallback={null}><CircuitReturnRibbon name={character.name} screen={screen} onReturn={() => navigate('dojoCircuit')} /></Suspense>}
                 {!activeTriggeredEvent && screen === 'dojoCircuit' && character && <DojoCircuit key={character.name} character={character} setScreen={navigate} />}
+                {character?.firstContract && <Suspense fallback={null}><FirstContractHost key={character.name} character={character} screen={screen} blocked={Boolean(activeTriggeredEvent) || hideBattleChrome || introCinematicActive} navigate={navigate} onVersionedCharacter={commitVersionedCharacter} activeTraining={activeTraining} /></Suspense>}
                 {!activeTriggeredEvent && screen === "village" && character && (<>
                     <Suspense fallback={null}>
                         <NextGoalPin character={character} navigate={navigate} />
@@ -6272,6 +6274,7 @@ export default function App() {
                         onVersionedCharacter={commitVersionedCharacter}
                         onDeleteCharacter={deleteCharacter}
                         onOpenBattle={(battleId) => { setViewedBattleId(battleId); setScreen("battleLog"); }}
+                        onTrainJutsu={() => navigate("jutsuTraining")}
                     />
                 )}
                 {!activeTriggeredEvent && screen === "battleLog" && character && viewedBattleId && (
