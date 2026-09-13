@@ -1,15 +1,22 @@
 /*
- * Intent-based screen prefetch for the nav menus (RightMenu / MobileNav).
+ * Intent-based screen prefetch.
  *
  * Every game screen is a lazyWithRetry() dynamic import (see App.tsx), so the
  * FIRST time a screen is opened the browser must download + parse its chunk
- * (100–400 KB for the heavy ones) before it can paint. This warms that chunk on
- * pointer-DOWN — the press, ~100–300 ms before the click's navigate() fires — so
- * by the time the screen mounts there is usually nothing left to fetch.
+ * (100–400 KB for the heavy ones) before it can paint. The nav menus
+ * (RightMenu / MobileNav) warm that chunk on pointer-DOWN — the press,
+ * ~100–300 ms before the click's navigate() fires — so by the time the screen
+ * mounts there is usually nothing left to fetch. App's navigate() calls this
+ * too, on every screen switch.
  *
- * Why this is (nearly) zero-downside:
- *  - Press, not hover: we only ever warm the button actually being activated, so
- *    there are no speculative/wasted downloads from a mouse sweeping the menu.
+ * The Village map's facility tiles (screens/Village) go further: they warm on
+ * pointer-enter and focus as well as the press (added 2026-07-10 for load
+ * time). That part IS speculative. Sweeping a mouse across the map, or tabbing
+ * through it, downloads the chunk of every facility it passes, opened or not.
+ *
+ * Why the menus' press-time warming is (nearly) zero-downside:
+ *  - Press, not hover: a menu only warms the button actually being activated,
+ *    so a mouse sweeping the menu downloads nothing.
  *  - Same chunk, not a duplicate: each specifier below resolves to the exact same
  *    file App.tsx lazy-imports, so Vite/Rollup dedupe them into one chunk — the
  *    warm-up is a cache hit for the real <Suspense> render, never a second fetch.
