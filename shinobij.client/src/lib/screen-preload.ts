@@ -7,7 +7,7 @@
  * pointer-DOWN — the press, ~100–300 ms before the click's navigate() fires — so
  * by the time the screen mounts there is usually nothing left to fetch.
  *
- * Why this is zero-downside:
+ * Why this is (nearly) zero-downside:
  *  - Press, not hover: we only ever warm the button actually being activated, so
  *    there are no speculative/wasted downloads from a mouse sweeping the menu.
  *  - Same chunk, not a duplicate: each specifier below resolves to the exact same
@@ -15,8 +15,13 @@
  *    warm-up is a cache hit for the real <Suspense> render, never a second fetch.
  *  - Pure module warming: importing a screen module just defines its component
  *    (no network writes, no side effects) — identical to what the click does a
- *    moment later. Best-effort: any failure is swallowed and the click still
- *    triggers the normal lazyWithRetry load path.
+ *    moment later. Best-effort: a failure is swallowed here, but it is not
+ *    private to the warm-up. The browser caches a failed chunk fetch for the
+ *    page, so the click's lazyWithRetry load then rejects from that same
+ *    failure without a new request, and only the screen boundary's reload
+ *    fetches it again (see lib/lazyWithRetry). The one cost is timing: the
+ *    fetch starts ~100–300 ms earlier, so a blip that brief can fail a load the
+ *    click alone might have survived.
  *
  * The literal import() strings must stay in sync with App.tsx's lazy declarations
  * so both sides resolve to the same module. A stale entry can't break navigation
@@ -89,7 +94,10 @@ export function preloadScreen(screen: Screen, storyVillage?: string): void {
     if (!load || preloadPromises.has(screen)) return;
     try {
         const pending = load().catch(() => {
-            // Let a later hover/click try again after a transient failure.
+            // Forget the failed warm-up so a later press calls load() again.
+            // That cannot re-download the chunk: the browser has cached the
+            // failure for this page, so the new import() rejects at once with
+            // no request. Only a page reload fetches it again.
             preloadPromises.delete(screen);
         });
         preloadPromises.set(screen, pending);

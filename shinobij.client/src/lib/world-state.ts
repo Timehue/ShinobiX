@@ -486,10 +486,19 @@ export function notifySharedWorldStateLateChange(): void {
 // Lazy import: village-intel drags village-stores (~3 KB gz) into the startup
 // graph if imported statically, and the module self-throttles + no-ops when
 // nobody is signed in, so this stays a cheap nudge on every world poll.
+//
+// A failed chunk is NOT retried by the next poll. The browser caches a failed
+// chunk fetch for the page, so every later import() here rejects at once with
+// no request (see ./lazyWithRetry), and Village Intel stops refreshing until a
+// reload. WorldMap and VillageWarMap import village-intel statically, so the
+// same cached failure breaks them too: measured 2026-09-13 in Chromium, Firefox
+// and WebKit, one aborted nudge request made the World Map's own load fail
+// later, dropping it to the screen error boundary (whose reload is what
+// finally loads it).
 function nudgeVillageIntel(): void {
     void import("./village-intel")
         .then((m) => m.maybeRefreshVillageIntel())
-        .catch(() => { /* chunk fetch failed; the next poll retries */ });
+        .catch(() => { /* chunk fetch failed; only a page reload fetches it again */ });
 }
 
 export function hydrateSharedWorldState(data: { territories?: Partial<SectorTerritory>[]; wars?: (Partial<VillageWar> & { villages?: [string, string] })[]; standings?: Partial<WarStandingRecord>[]; sectorPools?: unknown; sectorPoolCaps?: unknown }): boolean {
