@@ -1,42 +1,13 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { expect, test as base, type APIRequestContext, type Locator, type Page, type Request as BrowserRequest, type TestInfo } from '@playwright/test';
+import { expect, type APIRequestContext, type Locator, type Page, type Request as BrowserRequest, type TestInfo } from '@playwright/test';
 import { AURA_SPHERE_ITEM_ID, AURA_SPHERE_VN_ID } from '../src/constants/game';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 import { v2JutsuResourceCost } from '../src/lib/jutsu-scaling';
 import { accountKey } from '../src/lib/player-accounts';
 import { TOWER_TURN_AFK_MS } from '../src/lib/towers-api';
-
-// Playwright's API client pools keep-alive sockets with no idle limit: its Node
-// agent sets no timeout, so it never acts on the `Keep-Alive: timeout=5` hint
-// Express sends. Express keeps Node's default 5s keepAliveTimeout, and on Node
-// 22.23 the server closed an idle socket 6.03-6.08s after its last response. A
-// request that picks up a pooled socket at that instant fails with ECONNRESET
-// ("read ECONNRESET" or "socket hang up") before the server reads it: 9 of 38
-// requests sent after 5.95-6.05s idle failed that way, and 0 of 38 with one
-// retry. Many calls here follow browser-only work of arbitrary length, so every
-// call through `request` gets Playwright's own reconnect: `maxRetries` retries
-// ECONNRESET alone, after 250ms. An HTTP error response or a refused connection
-// (a crashed server) still fails at once.
-const API_CONNECTION_RETRIES = 1;
-const RETRYING_API_METHODS = new Set(['fetch', 'get', 'post', 'put', 'patch', 'delete', 'head']);
-const test = base.extend({
-    // Playwright's fixture callback, named `provide` so the React `use` hook
-    // lint rule does not mistake it for one.
-    request: async ({ request }, provide) => {
-        await provide(new Proxy(request, {
-            get(target, property) {
-                const value: unknown = Reflect.get(target, property);
-                if (typeof value !== 'function') return value;
-                if (typeof property === 'string' && RETRYING_API_METHODS.has(property)) {
-                    return (urlOrRequest: unknown, options?: object) =>
-                        value.call(target, urlOrRequest, { maxRetries: API_CONNECTION_RETRIES, ...options });
-                }
-                return value.bind(target);
-            },
-        }));
-    },
-});
+// Many calls here follow browser-only work of arbitrary length; see the helper.
+import { API_CONNECTION_RETRIES, test } from './helpers/reconnecting-request';
 
 // The loadout's scroll container. Phones wrap basic commands and the loadout in
 // one `.combat-action-tray` scrollport; elsewhere the tray is `display:

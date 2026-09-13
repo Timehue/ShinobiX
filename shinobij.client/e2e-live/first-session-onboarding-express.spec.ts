@@ -176,7 +176,8 @@ test(`a new player completes the full persisted Academy first session against bu
         // Let achievement sync supersede an already committed starter grant.
         // Its older response must not cancel the cinematic's persistence handoff.
         await page.route('**/api/pet/choose-starter', async (route) => {
-            const response = await route.fetch();
+            // The same keep-alive reset guard as the persistence poll above.
+            const response = await route.fetch({ maxRetries: 2 });
             await new Promise((resolve) => setTimeout(resolve, grantDelayMs));
             await route.fulfill({ response });
         });
