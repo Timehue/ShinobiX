@@ -14,8 +14,8 @@ import { readFileSync } from "node:fs";
  *   3. chapter theming    → the chapter-seal sting fires for a training dummy
  *
  * Guards, not behaviour: the rules with real logic (the opponent, eligibility,
- * the settle) are behaviour-tested in api/story/_academy-spar.test.ts and
- * scripts/academy-spar-parity.test.ts. A grep only answers "is this hooked up".
+ * the settle) are behaviour-tested in api/story/_academy-spar.test.ts. A grep
+ * only answers "is this hooked up".
  */
 
 const host = readFileSync(new URL("../components/StoryBossFightHost.tsx", import.meta.url), "utf8");
