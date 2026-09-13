@@ -42,6 +42,16 @@ describe('live Pet Ranked UI', () => {
         assert.doesNotMatch(ladder, /PetDuelLiveHost|queuedAgainst|autoAcceptFrom/);
     });
 
+    it('paints and polls without waiting on a battle renderer', () => {
+        // The replay pulls in PetShowdownBattle, react-three-fiber and three.js.
+        // A static import anywhere on this path makes that whole stack arrive
+        // before the queue can paint or send its first discovery poll.
+        const staticRenderer = /^import\s+(?!type\b)[^;]*from\s+["'][^"']*(PetShowdownReplay|PetShowdownBattle|PetWarfrontRite)["']/m;
+        assert.doesNotMatch(panel, staticRenderer);
+        assert.doesNotMatch(ladder, staticRenderer);
+        assert.match(panel, /import\("\.\/PetShowdownReplay"\)/);
+    });
+
     it('routes both settlement and recovery snapshots through the current App versioned commit', () => {
         assert.match(app, /<PetLadder\b[^>]*onVersionedCharacter=\{commitVersionedCharacter\}/);
         assert.match(ladder, /<PetLadderQueuePanel\b[^>]*onVersionedCharacter=\{onVersionedCharacter\}/);

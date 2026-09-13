@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type CDPSession, type Page } from "@playwright/test";
 import { writeFileSync } from "node:fs";
 import { installUiAuditRuntime, uiAuditSave, type UiAuditSave } from "./helpers/ui-audit-runtime";
 import { expectViewportSafe } from "./helpers/adaptive-assertions";
@@ -209,6 +209,132 @@ function uncoveredMapCells(views: Footprint[]) {
     return gaps;
 }
 
+const mapControls = "button, a, input, select, textarea, [role='button']";
+// The whole world packs all 67 pins into a phone's width, so its clearest
+// background point sits only 18-28px from a pin on the phone projects. 16px
+// still keeps a CDP touch (1px radius) well off every pin's 6px hit ring.
+const tapClearance = 16;
+type ScreenPoint = { x: number; y: number };
+
+/** The point on the painted map background farthest from every control
+ * (sector, landmark, marker), with that distance as its `clearance`, so a
+ * double-tap there is a camera gesture and not a press. With
+ * `landmarkInWholeWorld`, only points that the whole-world view covers with a
+ * landmark count. That view fits the map to the viewport and centres it, and
+ * pins counter-scale with the camera, so each pin keeps its screen size and
+ * only its centre moves. */
+async function clearMapPoint(page: Page, landmarkInWholeWorld: boolean): Promise<(ScreenPoint & { clearance: number }) | null> {
+    return page.locator(".world-map-scroll").evaluate((viewport, { controls, landmarkInWholeWorld }) => {
+        const edge = 24;
+        const stage = viewport as HTMLElement;
+        const map = stage.querySelector<HTMLElement>(".generated-world-map")!;
+        const frame = stage.getBoundingClientRect();
+        const left = frame.left + stage.clientLeft;
+        const top = frame.top + stage.clientTop;
+        const width = stage.clientWidth;
+        const height = stage.clientHeight;
+        const targets = [...document.querySelectorAll(controls)].map((control) => control.getBoundingClientRect())
+            .filter((rect) => rect.width > 0 && rect.height > 0);
+        const clearanceAt = ({ x, y }: { x: number; y: number }) => {
+            if (x < left + edge || x > left + width - edge || y < top + edge || y > top + height - edge) return -1;
+            const hit = document.elementFromPoint(x, y);
+            if (!hit || !map.contains(hit) || hit.closest(controls)) return -1;
+            return Math.min(...targets.map((rect) => Math.hypot(Math.max(rect.left - x, 0, x - rect.right), Math.max(rect.top - y, 0, y - rect.bottom))));
+        };
+        const candidates: { x: number; y: number }[] = [];
+        if (landmarkInWholeWorld) {
+            const painted = map.getBoundingClientRect();
+            const camera = new DOMMatrixReadOnly(getComputedStyle(map).transform);
+            const zoom = Math.min(1, height / map.offsetHeight);
+            const whole = {
+                left: painted.left - camera.e + (width - map.offsetWidth * zoom) / 2,
+                top: painted.top - camera.f + (height - map.offsetHeight * zoom) / 2,
+                width: map.offsetWidth * zoom,
+                height: map.offsetHeight * zoom,
+            };
+            for (const landmark of map.querySelectorAll(".atlas-landmark")) {
+                const pin = landmark.getBoundingClientRect();
+                const x = whole.left + (pin.left + pin.width / 2 - painted.left) / painted.width * whole.width;
+                const y = whole.top + (pin.top + pin.height / 2 - painted.top) / painted.height * whole.height;
+                // Stay well inside the pin's predicted box.
+                for (const dx of [0, -0.25, 0.25]) for (const dy of [0, -0.25, 0.25]) candidates.push({ x: x + dx * pin.width, y: y + dy * pin.height });
+            }
+        } else {
+            for (let y = top; y <= top + height; y += 4) for (let x = left; x <= left + width; x += 4) candidates.push({ x, y });
+        }
+        let best: { x: number; y: number; clearance: number } | null = null;
+        for (const point of candidates) {
+            const clearance = clearanceAt(point);
+            if (clearance >= 0 && clearance > (best?.clearance ?? -1)) best = { ...point, clearance };
+        }
+        return best;
+    }, { controls: mapControls, landmarkInWholeWorld });
+}
+
+/** The camera zoom, and the zoom of the whole-world view it toggles with; null
+ * once the atlas has closed. */
+async function mapCamera(page: Page) {
+    return page.evaluate(() => {
+        const stage = document.querySelector<HTMLElement>(".world-map-scroll");
+        const map = stage?.querySelector<HTMLElement>(".generated-world-map");
+        if (!stage || !map) return null;
+        return { zoom: new DOMMatrixReadOnly(getComputedStyle(map).transform).a, wholeWorld: Math.min(1, stage.clientHeight / map.offsetHeight) };
+    });
+}
+
+/** Start a fresh record of each tap's click, and of the map content it reached,
+ * if any. The window listener runs before React's root listener, so it sees a
+ * click the viewport's capture handler swallows. The map sits below that
+ * handler, so a swallowed click never reaches it. */
+async function recordTapClicks(page: Page) {
+    await page.evaluate(() => {
+        type TapClick = { detail: number; reached: string | null };
+        const scope = window as unknown as { tapClicks?: TapClick[] };
+        if (scope.tapClicks) {
+            scope.tapClicks.length = 0;
+            return;
+        }
+        const clicks: TapClick[] = [];
+        const entries = new WeakMap<Event, TapClick>();
+        scope.tapClicks = clicks;
+        window.addEventListener("click", (event) => {
+            const entry: TapClick = { detail: event.detail, reached: null };
+            entries.set(event, entry);
+            clicks.push(entry);
+        }, true);
+        document.querySelector(".generated-world-map")!.addEventListener("click", (event) => {
+            const target = event.target as Element;
+            const entry = entries.get(event);
+            if (entry) entry.reached = [target.tagName.toLowerCase(), ...(target.getAttribute("class") ?? "").split(/\s+/).filter(Boolean)].join(".");
+        }, true);
+    });
+    return () => page.evaluate(() => (window as unknown as { tapClicks: { detail: number; reached: string | null }[] }).tapClicks);
+}
+
+/** The map control that holds focus, if any. */
+async function focusedMapControl(page: Page) {
+    return page.evaluate((controls) => {
+        const active = document.activeElement;
+        return active?.closest(".generated-world-map") && active.closest(controls) ? active.getAttribute("aria-label") : null;
+    }, mapControls);
+}
+
+/** A finger's double-tap: two 40ms touches that start 160ms apart. The explicit
+ * timestamps become each pointer event's `timeStamp`, which both Chromium's
+ * gesture detector and the hook's 320ms window read, so the touches go out back
+ * to back and neither a slow CDP round trip nor a long task can stretch the
+ * gesture. `lateMs` holds the second tap back in real time, as a long task
+ * would, while its timestamps keep the spacing. The schedule is backdated so
+ * no timestamp lies in the future. */
+async function doubleTap(session: CDPSession, { x, y }: ScreenPoint, lateMs = 0) {
+    const start = Date.now() / 1000 - 0.2 - lateMs / 1000;
+    for (const at of [0, 0.16]) {
+        if (at && lateMs) await new Promise((resolve) => setTimeout(resolve, lateMs));
+        await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y, id: 1 }], timestamp: start + at });
+        await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [], timestamp: start + at + 0.04 });
+    }
+}
+
 test("six spatial region views fit the screen and cover every sector and map edge", async ({ page }, testInfo) => {
     const errors = await bootWorldMap(page);
     if ((page.viewportSize()?.width ?? 0) >= 980) {
@@ -308,6 +434,67 @@ test("integration: a cancelled touch drag permits keyboard sector activation", a
     await sector.press("Enter");
     await expect.poll(() => destinations, { message: "keyboard activation must not be swallowed after a cancelled touch drag" }).toEqual([1]);
     expect(errors).toEqual([]);
+});
+
+test("integration: a background double-tap moves the camera without pressing what lands under the finger", async ({ page }, testInfo) => {
+    test.skip(!testInfo.project.name.startsWith("chromium") || !testInfo.project.use.hasTouch || (page.viewportSize()?.width ?? 0) >= 980,
+        "Chromium turns CDP touches into taps, and only a phone or tablet map zooms");
+    const errors = await bootWorldMap(page);
+    const destinations: number[] = [];
+    await page.route("**/api/player/travel", async (route) => {
+        destinations.push(Number(route.request().postDataJSON().destinationSector));
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ arrivalAt: Date.now(), travelMs: 0, arrivalTile: 78 }) });
+    });
+    await chooseRegion(page, "storm");
+    const region = (await mapCamera(page))!;
+    expect(region.zoom, "a region view sits above the whole-world zoom").toBeGreaterThan(region.wholeWorld + 0.05);
+    const outward = await clearMapPoint(page, true);
+    expect(outward?.clearance, "a clear background point that the whole-world view covers with a landmark").toBeGreaterThanOrEqual(tapClearance);
+    const atlas = page.locator(".generated-world-map");
+    const session = await page.context().newCDPSession(page);
+    try {
+        // Zoom out. The camera changes on the second tap's pointer-up, and the
+        // compatibility mouse events and click Chromium sends for that same tap
+        // then land on whatever the whole-world view put under the finger:
+        // here, a landmark.
+        let tapClicks = await recordTapClicks(page);
+        await doubleTap(session, outward!);
+        await expect.poll(async () => (await tapClicks()).length, { message: "Chromium synthesizes a click for each tap" }).toBe(2);
+        expect((await tapClicks())[1].reached, "the double-tap's own click must not press what the new camera put under the finger").toBeNull();
+        expect(await focusedMapControl(page), "the double-tap must not focus what the new camera put under the finger").toBeNull();
+        await expect(atlas, "the atlas stays open").toBeVisible();
+        const whole = (await mapCamera(page))!;
+        expect(whole.zoom, "a double-tap on a region returns to the whole world").toBeCloseTo(whole.wholeWorld, 2);
+        await expect(page.locator('.wm-village-chip[data-region="storm"]')).toHaveAttribute("aria-pressed", "false");
+        expect(await page.evaluate(({ x, y, controls }) => Boolean(document.elementFromPoint(x, y)?.closest(controls)), { ...outward!, controls: mapControls }),
+            "the whole-world view must put a control under the finger, or this double-tap proves nothing").toBe(true);
+
+        // Zoom back in, toward the detail view, with the second tap reaching
+        // the page 400ms late: past the 320ms window in real time, but not by
+        // its own timestamps. The clearest point lies at the map's edge, where
+        // the zoom clamps its pan and can slide a pin under the finger (at
+        // 390x844 and 844x390 it does). A focused pin at the camera's edge
+        // would also make the keyboard reveal pan a second time.
+        const inward = await clearMapPoint(page, false);
+        expect(inward?.clearance, "a clear background point in the whole-world view").toBeGreaterThanOrEqual(tapClearance);
+        tapClicks = await recordTapClicks(page);
+        await doubleTap(session, inward!, 400);
+        await expect.poll(async () => (await tapClicks()).length, { message: "Chromium synthesizes a click for each tap" }).toBe(2);
+        expect((await mapCamera(page))?.zoom, "a late double-tap on the whole world still zooms in to detail").toBeCloseTo(2.6, 2);
+        expect((await tapClicks())[1].reached, "the zoom-in double-tap's own click must not reach the map either").toBeNull();
+        expect(await focusedMapControl(page), "the zoom-in double-tap must not focus a pin either").toBeNull();
+        await expect(atlas).toBeVisible();
+        expect(destinations, "no double-tap travels").toEqual([]);
+
+        // Keyboard activation still works after the gesture.
+        const harbor = page.getByRole("button", { name: /Travel to Harbor Gates \(Sector 1\)/ });
+        await harbor.focus();
+        await harbor.press("Enter");
+        await expect.poll(() => destinations, { message: "keyboard activation after a double-tap" }).toEqual([1]);
+        expect(errors).toEqual([]);
+    } finally {
+        await session.detach();
+    }
 });
 
 test("integration: sector travel and atlas return restore landscape navigation", async ({ page }, testInfo) => {
@@ -542,13 +729,13 @@ test("rotation retains the region and dragging a sector never starts travel", as
                 await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: start.x - step * 9, y: start.y - step * 5, id: 1 }] });
                 await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
             }
-            // Come to rest before lifting. A touch that leaves while still
-            // moving makes Chromium start a fling, and the next tap only stops
-            // that fling, so by design it produces no click. These steps are
-            // frame-paced, so the release speed depends on how light the page
-            // is: under Reduce Motion (the lite presentation) the drag took
-            // ~280ms instead of ~500ms, flung, and the region tap below was
-            // swallowed in about 7 runs of 10.
+            // Come to rest before lifting, so this stays a plain pan however
+            // light the page is: the steps are frame-paced, so their release
+            // speed depends on the page. A release while still moving is
+            // covered by "a flick released mid-motion leaves the next tap
+            // working". Before the map cancelled its pan's touchmoves, such a
+            // release started a hidden Chromium fling, and under Reduce Motion
+            // the region tap below was swallowed in about 7 runs of 10.
             await page.waitForTimeout(200);
             await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: start.x - 54, y: start.y - 30, id: 1 }] });
             await page.waitForTimeout(50);
@@ -568,5 +755,53 @@ test("rotation retains the region and dragging a sector never starts travel", as
         expect(errors).toEqual([]);
     } finally {
         await session?.detach();
+    }
+});
+
+test("a flick released mid-motion leaves the next tap working", async ({ page }, testInfo) => {
+    // Chromium starts a fling when a pan ends with the finger still moving, even
+    // on this `touch-action: none` map, and the touch-down that stops a fling is
+    // never a tap. Unless the map stops that fling from starting, the first
+    // region-chip tap after a flick gets its pointerdown but no click.
+    test.skip(!testInfo.project.name.startsWith("chromium") || !phoneProjects.includes(testInfo.project.name),
+        "drives Chromium's own touch gesture pipeline through CDP");
+    const errors = await bootWorldMap(page);
+    const destinations: number[] = [];
+    await page.route("**/api/player/travel", async (route) => {
+        destinations.push(Number(route.request().postDataJSON().destinationSector));
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ arrivalAt: Date.now(), travelMs: 0, arrivalTile: 78 }) });
+    });
+    await chooseRegion(page, "storm");
+    const sector = page.getByRole("button", { name: /Travel to Harbor Gates \(Sector 1\)/ });
+    await expect(sector).toBeVisible();
+    const rect = (await sector.boundingBox())!;
+    const start = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+    const before = await page.locator(".generated-world-map").evaluate((map) => getComputedStyle(map).transform);
+    const session = await page.context().newCDPSession(page);
+    try {
+        // A finger's timing: six moves 16ms apart, lifted 8ms after the last.
+        // Explicit timestamps set the release speed, so it does not depend on
+        // the CDP round trip or on how heavy the page is.
+        const t0 = Date.now();
+        const at = async (ms: number) => {
+            const wait = t0 + ms - Date.now();
+            if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+            return (t0 + ms) / 1000;
+        };
+        const sent: Promise<unknown>[] = [session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ ...start, id: 1 }], timestamp: await at(0) })];
+        for (let step = 1; step <= 6; step += 1) {
+            const timestamp = await at(step * 16);
+            sent.push(session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: start.x - step * 9, y: start.y - step * 5, id: 1 }], timestamp }));
+        }
+        sent.push(session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [], timestamp: await at(6 * 16 + 8) }));
+        await Promise.all(sent);
+        await expect.poll(() => page.locator(".generated-world-map").evaluate((map) => getComputedStyle(map).transform)).not.toBe(before);
+        const frost = page.locator('.wm-village-chip[data-region="frost"]');
+        await frost.tap();
+        await expect(frost, "the first tap after a flick must still activate the region chip").toHaveAttribute("aria-pressed", "true");
+        expect(destinations, "a flick originating on a sector must not travel").toEqual([]);
+        expect(errors).toEqual([]);
+    } finally {
+        await session.detach();
     }
 });

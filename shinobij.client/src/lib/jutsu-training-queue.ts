@@ -4,6 +4,7 @@ import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { ActiveJutsuTraining } from "../types/combat";
 import { mutateJutsuRyoTraining } from "./jutsu-ryo-api";
 import { isServerSettlementReady } from "./server-settlement-gate";
+import { serverNow } from "./server-clock";
 
 export function jutsuRyoTrainCap(level: number): number {
     return Math.min(JUTSU_TRAINING_CAP, jutsuLevelCapForLevel(level));
@@ -84,8 +85,16 @@ export function useJutsuTrainingQueueRunner(
             if (!commitCharacter(result.character, result._saveVersion)) return;
             setActiveJutsuTraining(result.activeJutsuTraining ?? null);
         };
-        const delay = Math.max(250, activeJutsuTraining.endsAt - Date.now() + 250);
-        timer = window.setTimeout(() => { void reconcile(); }, delay);
+        // The first heartbeat may correct the clock after this effect mounts.
+        // Re-check locally while waiting; only ask the server once the lesson
+        // is due. A device clock change cannot advance or delay the queue.
+        const waitUntilDue = () => {
+            if (cancelled) return;
+            const remaining = activeJutsuTraining.endsAt - serverNow();
+            if (remaining <= 0) { void reconcile(); return; }
+            timer = window.setTimeout(waitUntilDue, Math.min(1000, remaining + 50));
+        };
+        timer = window.setTimeout(waitUntilDue, 250);
         return () => {
             cancelled = true;
             window.clearTimeout(timer);

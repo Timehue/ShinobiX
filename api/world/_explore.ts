@@ -1,4 +1,5 @@
 import { gainXp } from '../_xp-engine.js';
+import { recordFirstContractActivity } from '../../shared/first-contract.js';
 import { isWildSector, sectorBiomeOf } from '../../shared/sector-geo.js';
 
 export const DAILY_SECTOR_EXPLORE_LIMIT = 150;
@@ -108,13 +109,13 @@ export function applySectorExploreReward(
     return {
         ok: true as const,
         reward: paid,
-        character: {
+        character: recordFirstContractActivity({
             ...leveled,
             ryo: Math.max(0, Number(leveled.ryo) || 0) + paid.ryo,
             totalTilesExplored: Math.max(0, Math.floor(Number(leveled.totalTilesExplored) || 0)) + 1,
             dailyTilesExplored: count + 1,
             serverExploreDate: today,
             serverExploresToday: count + 1,
-        },
+        }, 'discovery', { kind: 'field-explore', sector: reward.sector }),
     };
 }

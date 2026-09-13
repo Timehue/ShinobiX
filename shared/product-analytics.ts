@@ -6,6 +6,7 @@ export const PRODUCT_EVENT_NAMES = [
     'recoverable_ui_error_shown',
     'account_registered',
     'character_created',
+    'first_hour_milestone',
     'mission_started',
     'mission_settled',
     'shop_purchase_settled',

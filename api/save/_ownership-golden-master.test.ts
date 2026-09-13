@@ -129,8 +129,8 @@ function incomingAutosave(): Record<string, unknown> {
     const stored = storedSave();
     const char = { ...(stored.character as Record<string, unknown>) };
     Object.assign(char, {
-        // Legitimate: spending and preferences.
-        ryo: 4_200,                          // spend 800 — allowed
+        // A stale wallet (800 below stored) plus legitimate preference edits.
+        ryo: 4_200,                          // re-asserted to stored: ryo is server-owned
         nindo: 'A new creed.', nindoBg: 'frost',
         // Tamper: server-ledger / payout / counters.
         xp: 999_999, bankRyo: 999_999, lastBankInterestAt: 1,
@@ -263,9 +263,9 @@ const autosaveOut = () => withStrictLedger('0', () => sanitizeCharacterSave(inco
 const charOf = (save: Record<string, unknown>) => save.character as Record<string, unknown>;
 
 describe('server-ledger fields survive a tampered autosave (scenarios 13/16)', () => {
-    it('re-asserts stored currency/ledger values and allows legitimate spending', () => {
+    it('re-asserts stored currency/ledger values, ryo included', () => {
         const c = charOf(autosaveOut());
-        assert.equal(c.ryo, 4_200, 'spending ryo is allowed');
+        assert.equal(c.ryo, 5_000, 'a stale lower ryo is re-asserted to stored');
         assert.equal(c.xp, 500, 'xp is frozen to stored');
         assert.equal(c.bankRyo, 2_000, 'bankRyo is server-owned');
         assert.equal(c.lastBankInterestAt, 1_700_000_000_000);
