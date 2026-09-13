@@ -343,8 +343,8 @@ import {
 } from "./constants/hunter";
 
 import type { Achievement } from "./constants/achievements";
-import { claimAchievementSync, createAchievementSyncGate, planAchievementSync, releaseAchievementSync, syncedToastIds, versionedAchievementMutationFromSync, type AchievementSyncResponse } from "./lib/achievement-sync";
-import { markAchievementsToasted, unseenAchievements } from "./lib/achievement-toast-ledger";
+import { createAchievementSyncGate } from "./lib/achievement-sync";
+import { runAchievementSyncPass } from "./lib/achievement-sync-pass";
 
 export type { PetArenaFrame, PetBattleFighter, PetBattleRecord } from "./types/pet-arena";
 
@@ -512,7 +512,7 @@ export type { EventEncounterBattle } from "./lib/triggered-event-battle";
 // defaultVnPortrait + defaultVnScene moved to ./lib/vn.
 
 // Achievement types live in ./constants/achievements; the runtime catalog is
-// dynamically imported by the server-sync effect after gameplay opens.
+// loaded on demand by lib/achievement-sync-pass after gameplay opens.
 // STARTING_STAT_POINTS / CHARACTER_XP_GAIN_MULTIPLIER / AWAKENING_*_ID /
 // AWAKENING_ELEMENTS / STUN_AP_PENALTY moved to ./constants/game.
 // STAT_KEYS + the character stat/level math moved to ./lib/stats (imported
@@ -957,54 +957,19 @@ export default function App() {
     // loop (dirty save → server discards → re-hydrate reverts → effect re-fires),
     // which drove /api/save into 409s then 429s and re-rendered mid-combat. The
     // gate guarantees one request per distinct divergence — see lib/achievement-sync.ts.
+    // Each pass runs in lib/achievement-sync-pass.ts, which also survives a
+    // catalog chunk that fails to load.
     const [achievementToasts, setAchievementToasts] = useState<Achievement[]>([]);
     const achievementGateRef = useRef(createAchievementSyncGate());
     useEffect(() => {
         const playerName = character?.name;
         if (!gameplayMutationsOpen || !character || !playerName) return;
         let cancelled = false;
-        void (async () => {
-            // The server is authoritative; the presentation catalog is only
-            // needed after gameplay opens. Deferring it keeps 135 descriptions
-            // and predicates out of the render-blocking startup graph.
-            const { ACHIEVEMENTS, titlesForAchievementIds } = await import("./constants/achievements");
-            if (cancelled) return;
-            const eligibleIds = ACHIEVEMENTS.filter(a => a.check(character)).map(a => a.id);
-            const plan = planAchievementSync({
-                eligibleIds,
-                unlocked: character.unlockedAchievements,
-                earnedTitles: character.earnedTitles,
-                titlesForUnlocked: titlesForAchievementIds(eligibleIds),
-            });
-            // First-ever sync for this save: the server seeds its claim ledger
-            // so existing progress pays no retroactive windfall.
-            const silent = plan.uninitialized;
-            if (!claimAchievementSync(achievementGateRef.current, playerName, plan)) return;
-            try {
-                const res = await fetch('/api/achievements/sync', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ playerName }),
-                });
-                if (!res.ok) return;
-                const data = await res.json() as AchievementSyncResponse;
-                const mutation = versionedAchievementMutationFromSync(characterRef.current, data);
-                if (!mutation || mutation.character.name.toLowerCase() !== playerName.toLowerCase()) return;
-                if (!commitVersionedCharacter(mutation.character, mutation._saveVersion)) return;
-                if (silent) { markAchievementsToasted(playerName, mutation.character.unlockedAchievements); return; }
-                const toastIds = unseenAchievements(playerName, syncedToastIds(data));
-                if (toastIds.length === 0) return;
-                markAchievementsToasted(playerName, toastIds);
-                setAchievementToasts(prev => [...prev, ...toastIds
-                    .map(id => ACHIEVEMENTS.find(a => a.id === id))
-                    .filter((a): a is Achievement => !!a)]);
-            } catch {
-                // Offline / auth blip: retries on the next unlock or page load.
-                // Deliberately no immediate retry — that was the loop.
-            } finally {
-                releaseAchievementSync(achievementGateRef.current);
-            }
-        })();
+        void runAchievementSyncPass({
+            playerName, character, gate: achievementGateRef.current, isCancelled: () => cancelled,
+            characterRef, commitVersionedCharacter,
+            onToasts: (toasts) => setAchievementToasts(prev => [...prev, ...toasts]),
+        });
         return () => { cancelled = true; };
     }, [character, gameplayMutationsOpen]);
 
