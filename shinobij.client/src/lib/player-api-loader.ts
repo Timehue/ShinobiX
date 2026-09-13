@@ -18,11 +18,11 @@ import { retryDynamicImport } from "./lazyWithRetry";
  * server round-trip, so the import costs no extra wait in practice.
  *
  * This goes through retryDynamicImport (./lazyWithRetry) rather than a bare
- * `import()` for the reasons documented there: a bare import that HANGS never
- * settles, so an awaiting caller never settles either, and a deploy that
- * rotated the asset hashes under an open tab fails every later attempt with no
- * recovery. The wrapper retries with backoff and treats a hung request as a
- * failure via a per-attempt timeout.
+ * `import()` for its per-attempt timeout: a bare import that HANGS never
+ * settles, so an awaiting caller never settles either. Neither form recovers a
+ * chunk whose fetch FAILED (a dropped request, or a deploy that rotated the
+ * asset hashes under an open tab): the browser caches that failure for the
+ * page, and only a reload fetches it again (see ./lazyWithRetry).
  */
 export function loadPlayerApi() {
     return retryDynamicImport(() => import("./player-api"));
@@ -40,9 +40,10 @@ export function loadPlayerApi() {
  * introducing. Warming at the top of that handler overlaps the fetch with the
  * server round-trips already in flight, so the awaited call finds it resolved.
  *
- * Swallowing the rejection is safe only because loadPlayerApi() re-issues its
- * own import(): a warm-up that gave up cannot hand its failure to the real call,
- * which retries independently.
+ * Swallowing the rejection hides nothing from the awaited call. A warm-up that
+ * only timed out leaves it free to make its own attempt, which can still
+ * succeed; a failed fetch is cached for the page, per URL, so the awaited call
+ * rejects with that same failure.
  */
 export function warmPlayerApi(): void {
     void loadPlayerApi().catch(() => { /* the awaited call site reports the real failure */ });
