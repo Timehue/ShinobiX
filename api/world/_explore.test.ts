@@ -15,6 +15,14 @@ import {
 import { MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
 
 describe('sector exploration settlement', () => {
+    it('records a selected discovery contract only on an accepted exploration', () => {
+        const firstContract = { version: 1, offeredAt: 1000, source: 'academy', route: 'discovery', selectedAt: 1100 };
+        const settled = applySectorExploreReward({ level: 1, firstContract }, 4, '2026-09-11');
+        assert.equal(settled.ok, true);
+        if (settled.ok) assert.deepEqual(((settled.character as Record<string, unknown>).firstContract as { evidence: unknown }).evidence, { kind: 'field-explore', sector: 4 });
+        assert.equal(applySectorExploreReward({ firstContract }, 0, '2026-09-11').ok, false);
+        assert.equal(applySectorExploreReward({ firstContract, serverExploreDate: '2026-09-11', serverExploresToday: DAILY_SECTOR_EXPLORE_LIMIT }, 4, '2026-09-11').ok, false);
+    });
     it('server-selects the authored chest, battle, and quiet outcomes', () => {
         const sequence = (...values: number[]) => {
             let index = 0;

@@ -15,7 +15,9 @@ import { petPvpGearById, petConsumableById } from "../data/pet-config";
 // Keep both battle renderers out of the ladder's initial load.
 const PetWarfrontRite = lazy(() => import("../components/PetWarfrontRite").then((m) => ({ default: m.PetWarfrontRite })));
 const PetShowdownReplay = lazy(() => import("../components/PetShowdownReplay").then((m) => ({ default: m.PetShowdownReplay })));
-const PetLadderQueuePanel = lazy(() => import("../components/PetLadderQueuePanel").then((m) => ({ default: m.PetLadderQueuePanel })));
+// Static: the queue panel defers its own replay, so it paints and starts its
+// discovery poll with the ladder instead of behind a chunk of its own.
+import { PetLadderQueuePanel } from "../components/PetLadderQueuePanel";
 import { defaultWarfrontLadderPlan, parseWarfrontLadderPlan, type WarfrontLadderPlan } from "../lib/pet-ladder-setup";
 import { WarfrontLadderFormation } from "../components/WarfrontLadderFormation";
 import { petCardImage } from "../lib/pet-battle-anim";
@@ -296,7 +298,7 @@ function PetLadderSession({ character, setScreen, sharedImages, onVersionedChara
                 and replayed to both players; the asynchronous Coliseum and
                 Tactical ladder modes below remain authoritative on their own. */}
             {mode === "coliseum" && (
-                <Suspense fallback={<LoadingState />}><PetLadderQueuePanel character={character} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} /></Suspense>
+                <PetLadderQueuePanel character={character} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} />
             )}
 
             {/* Two columns: defense + challenge (left) | the ladder (right) */}
