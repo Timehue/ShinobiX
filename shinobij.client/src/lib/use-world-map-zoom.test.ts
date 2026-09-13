@@ -76,6 +76,23 @@ test("the Academy map focus re-aims on Find the trail on both map paths", () => 
     assert.match(source, /\.atlas-sector\.academy-click-target"\)\s*\?\.scrollIntoView\(\{ block: "center", inline: "center" \}\)/);
 });
 
+test("a claimed pan cancels its touchmoves so no hidden fling swallows the next tap", () => {
+    const source = readFileSync(new URL("./use-world-map-zoom.ts", import.meta.url), "utf8");
+    // Native and explicitly non-passive: React attaches touchmove passively, so a
+    // preventDefault from a React handler would be ignored.
+    assert.match(source, /addEventListener\("touchmove", onTouchMove, \{ passive: false \}\)/);
+    // Only a gesture the hook has claimed, and only an event that can be cancelled.
+    assert.match(source, /if \(suppressClick\.current && event\.cancelable\) event\.preventDefault\(\);/);
+    // Attached only in zoom mode, and re-synced when the mode changes. Removing
+    // the listener must also clear the flag, or a later sync would believe the
+    // removed guard is still attached and never restore it.
+    assert.match(source, /if \(activeRef\.current === touchGuardAttached\) return;/);
+    assert.match(source, /activeRef\.current = active;[\s\S]*?syncTouchGuardRef\.current\(\);/);
+    assert.match(source, /removeEventListener\("touchmove", onTouchMove\);\s*touchGuardAttached = false;/);
+    // Never a touchstart or touchend: cancelling either would cost controls their click.
+    assert.doesNotMatch(source, /addEventListener\("touch(start|end)"/);
+});
+
 test("the mount focus survives activation and the address-bar resize", () => {
     const source = readFileSync(new URL("./use-world-map-zoom.ts", import.meta.url), "utf8");
     // The ref callback measures in the LEGACY layout; the zoom class changes the
