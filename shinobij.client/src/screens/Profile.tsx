@@ -62,6 +62,7 @@ export function Profile({
     creatorItems,
     onDeleteCharacter,
     onOpenBattle,
+    onTrainJutsu,
     onVersionedCharacter,
 }: {
     character: Character;
@@ -72,6 +73,7 @@ export function Profile({
     onDeleteCharacter?: () => void;
     /** Opens the durable read-only battle record (Screen "battleLog"). */
     onOpenBattle?: (battleId: string) => void;
+    onTrainJutsu?: () => void;
     onVersionedCharacter: VersionedCharacterCommit;
 }) {
     const legacyAvailable = useLegacyAvailability();
@@ -875,7 +877,8 @@ export function Profile({
                             <h2>Jutsu Loadout</h2>
                             <p className="hint">{learnedAnyJutsus.length
                                 ? "Your learned jutsu are locked behind elements you do not currently have."
-                                : "You haven't trained any jutsu yet. Visit the Training Grounds to learn them."}</p>
+                                : "You haven't learned any jutsu yet. Unlock a technique at the Jutsu Training Hall, then equip it here."}</p>
+                            {onTrainJutsu && <button type="button" onClick={onTrainJutsu}>Go to Jutsu Training Hall</button>}
                         </section>
                     );
                 }
