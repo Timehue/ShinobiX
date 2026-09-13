@@ -15,7 +15,7 @@ import { readFileSync } from "node:fs";
  * The wrapper does not make a FAILED fetch retryable in the same page: the
  * browser caches the failure per URL, so every later import() rejects without
  * a request (measured 2026-09-13, see ./lazyWithRetry). Nothing here guards
- * that case; only a page reload recovers it.
+ * that case; nothing short of a page reload can recover it.
  *
  * A source check, because the failure it guards is the absence of a wrapper —
  * exactly what a mocked-module test would paper over.
