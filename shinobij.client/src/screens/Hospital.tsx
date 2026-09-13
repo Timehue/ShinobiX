@@ -28,15 +28,8 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
     const topUpCost = isHealer ? 0 : discountCost(50, hospitalDiscount);
     const academyRecoveryStep = normalizeOnboardingStep(character.onboardingStep) === "academySpar";
     const hpPercent = Math.max(0, Math.min(100, character.maxHp > 0 ? (character.hp / character.maxHp) * 100 : 0));
-    // Free-checkout timer is driven by the SERVER-stamped hospitalizedUntil
-    // (persisted in the save), so it survives a page refresh — the old client-
-    // only entry-time was lost on reload and the free-checkout button never
-    // reappeared, trapping admitted players in a refresh loop. When the stamp
-    // hasn't reached the client yet (a fresh in-session KO, before the save
-    // round-trips), we fall back to a DISPLAY-ONLY 60s count from when the
-    // screen opened. This fallback never writes to the server, so it can't
-    // accidentally re-hospitalize a player the server already discharged; the
-    // discharge endpoint remains the sole authority on whether the timer is up.
+    // The persisted server admission stamp survives refreshes. Until it arrives,
+    // show a pending state instead of inventing a local discharge deadline.
     const serverUntil = Number(character.hospitalizedUntil ?? 0);
     // null = the server stamp has not arrived yet, so there is NOTHING to count.
     // A local 60s guess could only ever run down to a check-out the server then
@@ -45,6 +38,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
     const effectiveUntil: number | null = serverUntil > 0 ? serverUntil : null;
     const [now, setNow] = useState(() => serverNow());
     const [busy, setBusy] = useState(false);
+    const [checkoutError, setCheckoutError] = useState<string | null>(null);
     const busyRef = useRef(false);
     const autoCheckoutStartedRef = useRef(false);
 
@@ -75,14 +69,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
     // can't read a stale timer.
     function applyDischargeAndLeave(data: HospitalDischargeResponse, chargedRyo: number) {
         if (!adoptHospitalDischarge(data, onVersionedCharacter, (screen, authoritativeCharacter) => setScreen(screen, authoritativeCharacter))) return false;
-        // Confirm a paid discharge (chargedRyo > 0). Free checkouts and Healer
-        // self-discharges (chargedRyo === 0) leave silently as before.
-        if (chargedRyo > 0) {
-            // The hospital treats INJURY: discharge restores HP, not chakra or stamina
-            // (api/player/heal.ts). Say that, rather than promising a full refill the
-            // server no longer performs.
-            gameToast(`💰 You paid ${chargedRyo.toLocaleString()} ryo and were released — wounds treated. Chakra and stamina return with rest, or instantly at the Cafeteria.`);
-        }
+        gameToast(`${chargedRyo > 0 ? `Discharged for ${chargedRyo.toLocaleString()} ryo.` : "Discharged free."} HP restored. Chakra and stamina recover with rest or a meal at the Cafeteria.`, { kind: "success" });
         return true;
     }
 
@@ -133,13 +120,11 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
     // Free check-out after timer expires. Server still owns the discharge
     // decision (validator will reject if timer hasn't actually expired), so
     // we route through the same endpoint with paySkip=false.
-    async function freeCheckout(automatic = false) {
-        if (busyRef.current) {
-            if (automatic) autoCheckoutStartedRef.current = false;
-            return;
-        }
+    async function freeCheckout() {
+        if (busyRef.current) return;
         busyRef.current = true;
         setBusy(true);
+        setCheckoutError(null);
         try {
             const res = await fetch('/api/player/heal', {
                 method: 'POST',
@@ -148,39 +133,29 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
-                // Already discharged server-side → leave instead of trapping them.
-                if (res.status === 400 && /not hospitalized/i.test(String(data.error ?? ''))) {
-                    if (automatic) autoCheckoutStartedRef.current = false;
-                    else alert("Your discharge state changed. Refresh to load the server record.");
-                    return;
-                }
-                if (automatic) autoCheckoutStartedRef.current = false;
-                else alert(data.error ?? 'Failed to check out.');
+                setCheckoutError(`${String(data.error ?? 'Your discharge could not be confirmed.')} Choose Check out free to try again.`);
                 return;
             }
             if (!applyDischargeAndLeave(data, 0)) {
-                if (automatic) autoCheckoutStartedRef.current = false;
-                else alert("The server did not return an accepted discharge state. Refresh and try again.");
+                setCheckoutError("Your treatment status is still syncing. Choose Check out free to try again.");
             }
         } catch {
-            if (automatic) autoCheckoutStartedRef.current = false;
-            else alert('Network error — check-out failed.');
+            setCheckoutError("Connection lost while checking out. Choose Check out free to try again.");
         } finally {
             busyRef.current = false;
             setBusy(false);
         }
     }
 
-    // Waiting out the admission timer should release the player automatically;
-    // the free button below remains as a fallback if the request ever fails.
+    // One automatic attempt per admission. Failures stay visible beside the
+    // existing retry button instead of silently retrying every second.
     useEffect(() => {
+        if (!character.hospitalized) { autoCheckoutStartedRef.current = false; return; }
         if (!freeCheckoutReady || isHealer || autoCheckoutStartedRef.current) return;
         autoCheckoutStartedRef.current = true;
-        void freeCheckout(true);
-        // `now` intentionally provides a once-per-second retry opportunity after
-        // a transient network/server failure resets autoCheckoutStartedRef.
+        void freeCheckout();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [freeCheckoutReady, isHealer, now]);
+    }, [character.hospitalized, freeCheckoutReady, isHealer]);
 
     async function topUp() {
         if (busyRef.current) return;
@@ -250,6 +225,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
                         <div className="facility-resource-track facility-resource-track--hp"><span style={{ width: `${hpPercent}%` }} /></div>
                     </div>
 
+                    {checkoutError && <p className="facility-inline-warning" role="alert">{checkoutError}</p>}
                     <div className="hospital-release-grid">
                         <article className="hospital-release-option hospital-release-option--priority">
                             <GameIcon name="sparkle" size={24} />
@@ -276,7 +252,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
                                         className={`facility-secondary-action hospital-free-checkout${academyRecoveryStep ? " academy-click-target" : ""}`}
                                         data-academy-hint={academyRecoveryStep ? "Next · check out" : undefined}
                                         data-academy-autoscroll={academyRecoveryStep ? "true" : undefined}
-                                        onClick={() => void freeCheckout(false)}
+                                        onClick={() => void freeCheckout()}
                                         disabled={busy}
                                     >
                                         {busy ? "Checking out…" : "Check out free"}
