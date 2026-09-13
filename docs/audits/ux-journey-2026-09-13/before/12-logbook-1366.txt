@@ -1,0 +1,164 @@
+Journeyu09auk8
+Academy Student
+HP 500/500
+Chakra 1000/1000
+Stamina 1000/1000
+Sector 0
+Weather Clear Skies
+Ryo
+2060
+Honor Seals
+0
+Aura Dust
+0
+Fate Shards
+0
+Aura Stones
+0
+Mythic Seals
+0
+Bone Charms
+0
+Tiles
+0/150
+Missions
+0/20
+Hunts
+0/20
+Fate Spins
+0/5
+Reset In
+03:40:43
+Lv 1  ·  45 / 200 pts
+15 Minutes strength Training
+14m 17s
+HIDE MENU
+MAIN MENU
+WORLD
+02
+Travel
+Tavern
+ACTIVITIES
+04
+Missions
+Training
+Jutsu
+Logbook
+CHARACTER
+04
+Character
+Inventory
+Pet Home
+Professions
+SOCIAL
+02
+Users
+Mail
+SUPPORT
+03
+Guides
+Discord
+Premium Shop
+SYSTEM
+01
+Logout
+LOGBOOK
+
+Progression exams: 0 · Prestige milestones: 0 · Daily missions: 0 · Events: 0 · Raids: 0 · Assigned missions: 0
+
+ACADEMY TRAINING
+
+Complete these goals to learn the core loop, then follow the Path to Genin chapters.
+
+OPEN
+AWAKEN YOUR FIRST ELEMENT
+
+Incomplete | Free roll at Level 2
+
+Awakening Stone
+DONE
+EQUIP YOUR JUTSU LOADOUT
+
+4/4 | Add a 4th jutsu
+
+OPEN
+WIN YOUR FIRST COMBAT MISSION
+
+Incomplete | Complete the E-Rank Drill or another Arena or hunt fight
+
+Go Arena
+OPEN
+TRAIN AT THE GROUNDS
+
+0/5 | Train a stat at the Training Grounds
+
+Go Train
+DONE
+COMPLETE YOUR FIRST MISSION
+
+Complete | Claim the Academy Trial or a rookie mission reward
+
+OPEN
+SHARPEN A JUTSU (MASTERY LV 3)
+
+1/3 | Using a jutsu in battle levels it
+
+Go Arena
+PATH TO GENIN
+
+Follow these chapters after the tutorial. You become Genin at level 15; the Genin Advancement Exam is the level-20 progression hold.
+
+FIRST STEPS AS A SHINOBI
+
+Repeat the core loop: fight, claim rewards, train, and keep your loadout ready.
+
+LVL 1+
+OPEN
+REACH LEVEL 3
+
+1/3 | Train stats and run your dailies — every point levels you
+
+Go Train
+OPEN
+WIN 3 AI BATTLES
+
+0/3 | Combat missions count after you claim them
+
+Go Combat
+OPEN
+COMPLETE 3 MISSIONS
+
+1/3 | Return to Mission Hall to claim rewards
+
+Go Missions
+OPEN
+TRAIN 18 STAT POINTS
+
+0/18 | Three short sessions is enough
+
+Go Train
+DONE
+EQUIP 4 JUTSU
+
+4/4 | Keep a full starter loadout
+
+DONE
+CHECK YOUR STARTER COMPANION
+
+Complete | Your companion grows with you; deep pet battles can wait
+
+Academy Help - quick basics
+ASSIGNED MISSIONS
+NO ACTIVE ASSIGNMENTS
+
+Accept a fetch mission from the Mission Hall to track it here.
+
+Open Mission Hall
+CINDER CUB — YOUR COMPANION · PHASE 3/3: FIRST FIELD ASSIGNMENT · STEP 9/9
+Skip
+
+Follow Shiranui's foxfire on the World Map and travel to any numbered sector.
+
+Follow Shiranui's foxfire on the World Map and travel to any numbered sector.
+FOLLOW THE GOLD PULSE
+OPEN WORLD MAP

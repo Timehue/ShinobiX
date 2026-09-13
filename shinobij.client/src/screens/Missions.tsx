@@ -1,4 +1,5 @@
 import { gainXp } from "../lib/character-level-projection";
+import { gameToast } from "../components/GameToast";
 import { useCallback, useEffect, useRef, useState } from "react";
 import "../styles/hub-screens-skin.css";
 import type React from "react";
@@ -274,7 +275,7 @@ export function Missions({
         if (result === null) return alert("Could not reach the server. Try again.");
         if (result.applied === false) return alert(claimReasonMessage(result.reason));
         if (!applySuccessfulMissionClaim(result)) return;
-        alert(`Academy Trial complete! ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character)}. Now open your Logbook to see your goals.`);
+        gameToast(`Academy Trial complete! ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character)}. Now open your Logbook to see your goals.`, { kind: "success" });
     }
     const showAcademyTrial = normalizeOnboardingStep(character.onboardingStep) === "firstMission" && !character.academyTrialClaimed;
     function startCreatorMissionBattle(_mission: CreatorMission) {
