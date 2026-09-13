@@ -1,0 +1,103 @@
+You
+Travel
+Village
+Items
+Menu
+←
+Journeyu09auk8
+Lv 1
+500
+1000
+1000
+2030
+0
+← Back
+VILLAGE OPERATIONS DESK
+MISSION HALL
+
+Choose the work, read the route, then return to settle the posted reward.
+
+TOWN HALL REWARD BONUS +0.0%
+DAILY
+0/20
+ACADEMY TRIAL
+
+Your first official mission. Claim this one-time reward, then open your Logbook for the next Academy checklist.
+
+✅ Won your first Academy spar
+✅ Started stat training
+✅ Unlocked / equipped a jutsu
+
+Reward: stat points, ryo, and stamina. This does not use one of today's mission slots.
+
+CLAIM ACADEMY TRIAL REWARD
+COMBAT
+FIELD
+WEEKLY
+WORLD
+COMBAT MISSIONS
+
+Defeat the assigned enemy, then return here to claim your reward. New shinobi should start with the E-Rank Drill.
+
+E-RANK
+RECOMMENDED FIRST MISSION
+E-Rank Drill
+Academy Sparring Partner
+LV 1+
+10 ryo
+BEGIN MISSION
+›
+D-RANK
+D
+D-Rank Errand
+Mist Sentinel
+A supply runner needs the east footpath reopened. A mist sentinel has claimed the culvert and turns every pack back.
+LV 5+
+20 ryo
+LV 5 REQUIRED
+›
+C-RANK
+C
+C-Rank Patrol
+Ember Duelist
+The relief watch cannot pass a marker held by an ember duelist. Break the blockade and reopen the patrol turn.
+LV 15+
+60 ryo
+LV 15 REQUIRED
+›
+B-RANK
+B
+B-Rank Escort
+Frost Sealer
+A courier train is waiting at a rope bridge iced shut by a frost sealer. Clear the crossing before the weather closes it.
+LV 30+
+125 ryo
+LV 30 REQUIRED
+›
+A-RANK
+A
+A-Rank Hunt
+Shadow Weaver
+A shadow weaver is nesting in abandoned signal posts and blinding the watch. Track it before another signal goes dark.
+LV 50+
+250 ryo
+LV 50 REQUIRED
+›
+S-RANK
+S
+S-Rank Crisis
+Central Champion
+A Central response crew is evacuating workers from a damaged approach. Hold its champion at the breach until the route clears.
+LV 70+
+600 ryo
+LV 70 REQUIRED
+›
+CINDER CUB — YOUR COMPANION · PHASE 2/3: THE GATE STIRS · STEP 7/9
+Skip
+
+Claim the Academy Trial at the Mission Hall. The reward is real. So was what happened to that dummy.
+
+Claim the Academy Trial at the Mission Hall. The reward is real. So was what happened to that dummy.
+FOLLOW THE GOLD PULSE
+
+Up next: Read the field assignment

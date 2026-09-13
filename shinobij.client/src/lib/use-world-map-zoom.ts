@@ -64,8 +64,16 @@ export function isWorldMapZoomEnabled(): boolean {
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 interface Pt { x: number; y: number }
+interface TapMark extends Pt { t: number }
 interface Size { w: number; h: number }
 interface MapView { zoom: number; tx: number; ty: number }
+
+/** Whether a tap at `p` completes the double-tap `prev` began. Times are the
+ *  input events' own timestamps, not when a handler ran: a long task between
+ *  the two taps would otherwise stretch a quick double-tap past the window. */
+function completesDoubleTap(prev: TapMark | null, p: Pt, now: number): boolean {
+    return prev !== null && now - prev.t < DOUBLE_TAP_MS && Math.hypot(p.x - prev.x, p.y - prev.y) < 40;
+}
 
 function clampPanForSize(size: Size, zoom: number, tx: number, ty: number): Pt {
     const { w, h } = size;
@@ -110,8 +118,9 @@ export interface WorldMapZoomApi {
     /** Attach to the map div itself. The pan/zoom transform is written straight
      *  onto this node (see `applyView`), never through React or a CSS variable. */
     contentRef: (el: HTMLDivElement | null) => void;
-    /** Pointer handlers for the viewport (no-ops when inactive). Wheel zoom is
-     *  installed natively by viewportRef so it can be explicitly non-passive. */
+    /** Pointer handlers for the viewport (no-ops when inactive). Wheel zoom and
+     *  the pan's touchmove guard are installed natively by viewportRef so they
+     *  can be explicitly non-passive. */
     viewportHandlers: {
         onPointerDown: (e: React.PointerEvent) => void;
         onPointerMove: (e: React.PointerEvent) => void;
@@ -186,12 +195,15 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
     const elRef = useRef<HTMLDivElement | null>(null);
     const contentElRef = useRef<HTMLDivElement | null>(null);
     const resizeCleanupRef = useRef<(() => void) | null>(null);
-    const wheelCleanupRef = useRef<(() => void) | null>(null);
+    const nativeListenerCleanupRef = useRef<(() => void) | null>(null);
     const wheelHandlerRef = useRef<(event: WheelEvent) => void>(() => undefined);
     const sizeRef = useRef({ w: 0, h: 0 });
     // The viewport measurer, so the activation effect can re-measure the moment
     // the `wm-zoom` class lands (see that effect for why the order matters).
     const measureRef = useRef<() => void>(() => undefined);
+    // Attaches or detaches the pan's touchmove guard to match zoom mode, so the
+    // activation effect can re-sync it (see viewportRef for why it exists).
+    const syncTouchGuardRef = useRef<() => void>(() => undefined);
     // ── The camera lives in a ref, NOT in React state ────────────────────────
     // A finger drag produces a pointermove every frame, and this hook is called
     // from WorldMap — a 5k-line owner rendering 67 sector markers, 95 road paths
@@ -284,11 +296,12 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
     useEffect(() => {
         activeRef.current = active;
         applyView(false);
+        syncTouchGuardRef.current();
     }, [active, applyView]);
 
     const pointers = useRef<Map<number, Pt>>(new Map());
     const pinch = useRef<{ dist: number; mid: Pt } | null>(null);
-    const lastTap = useRef<{ t: number; x: number; y: number } | null>(null);
+    const lastTap = useRef<TapMark | null>(null);
     const moved = useRef(0);
     const suppressClick = useRef(false);
 
@@ -337,11 +350,12 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
     const viewportRef = useCallback((el: HTMLDivElement | null) => {
         resizeCleanupRef.current?.();
         resizeCleanupRef.current = null;
-        wheelCleanupRef.current?.();
-        wheelCleanupRef.current = null;
+        nativeListenerCleanupRef.current?.();
+        nativeListenerCleanupRef.current = null;
         elRef.current = el;
         if (!el) {
             measureRef.current = () => undefined;
+            syncTouchGuardRef.current = () => undefined;
             pointers.current.clear();
             pinch.current = null;
             lastTap.current = null;
@@ -350,7 +364,37 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
         }
         const onWheel = (event: WheelEvent) => wheelHandlerRef.current(event);
         el.addEventListener("wheel", onWheel, { passive: false });
-        wheelCleanupRef.current = () => el.removeEventListener("wheel", onWheel);
+        // A pan released while the finger is still moving makes Chromium start
+        // a fling, and `touch-action: none` does not prevent it. The browser's
+        // fling controller takes the fling before its touch-action filter, and
+        // that filter only discards the scroll updates the fling then produces.
+        // The fling therefore runs unseen, and the touch-down that stops a fling
+        // is by design never a tap: the first tap after a flick (on a region
+        // chip, a marker or the nav bar) reaches its button and never clicks.
+        // Cancelling the pan's touchmoves drops its scroll updates, and Chromium
+        // starts no fling when the last scroll update was dropped. Only a
+        // gesture this hook has claimed (a drag past the slop, or a pinch) is
+        // cancelled. A tap's touchmoves, and every touchstart and touchend, are
+        // left alone, so controls keep their clicks. The guard is attached only
+        // in zoom mode. Outside zoom mode a touch on the map scrolls natively,
+        // and a non-passive touch listener would make that scroll wait for script.
+        const onTouchMove = (event: TouchEvent) => {
+            if (suppressClick.current && event.cancelable) event.preventDefault();
+        };
+        let touchGuardAttached = false;
+        const syncTouchGuard = () => {
+            if (activeRef.current === touchGuardAttached) return;
+            touchGuardAttached = activeRef.current;
+            if (touchGuardAttached) el.addEventListener("touchmove", onTouchMove, { passive: false });
+            else el.removeEventListener("touchmove", onTouchMove);
+        };
+        syncTouchGuardRef.current = syncTouchGuard;
+        syncTouchGuard();
+        nativeListenerCleanupRef.current = () => {
+            el.removeEventListener("wheel", onWheel);
+            el.removeEventListener("touchmove", onTouchMove);
+            touchGuardAttached = false;
+        };
         let animationFrame = 0;
         const measure = () => {
             const previousSize = sizeRef.current;
@@ -413,8 +457,8 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
     useEffect(() => () => {
         resizeCleanupRef.current?.();
         resizeCleanupRef.current = null;
-        wheelCleanupRef.current?.();
-        wheelCleanupRef.current = null;
+        nativeListenerCleanupRef.current?.();
+        nativeListenerCleanupRef.current = null;
     }, []);
 
     const clampPan = useCallback((zoom: number, tx: number, ty: number) => {
@@ -484,11 +528,22 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
         if (!activeRef.current) return;
         // Track a gesture even when it starts on a marker, but keep a clean
         // tap's native target. Capture it only once it becomes an actual drag.
-        if (!isWorldMapControlTarget(e.target)) {
+        const onControl = isWorldMapControlTarget(e.target);
+        if (!onControl) {
             (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
         }
         if (pointers.current.size === 0) suppressClick.current = false;
         const p = localPt(e);
+        // The likely second tap of a background double-tap. A touch tap's
+        // compatibility mouse events arrive after its pointer-up, when the
+        // double-tap has already moved the camera, so they would focus what
+        // now sits under the finger, and focusing a marker at the edge makes
+        // onFocusCapture pan again. Cancelling the pointer-down withholds them;
+        // a click can still come, and endPointer arms onClickCapture to swallow
+        // it. A mouse sends its events before the pointer-up, on the old
+        // camera, so it is left alone.
+        if (!onControl && e.pointerType !== "mouse" && pointers.current.size === 0
+            && completesDoubleTap(lastTap.current, p, e.timeStamp)) e.preventDefault();
         pointers.current.set(e.pointerId, p);
         moved.current = 0;
         if (pointers.current.size === 2) {
@@ -552,13 +607,18 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
 
         // Double-tap toggle (only a clean tap — little finger travel).
         if (moved.current <= TAP_SLOP_PX && !suppressClick.current && !isWorldMapControlTarget(e.target)) {
-            const now = typeof performance !== "undefined" ? performance.now() : 0;
-            const prev = lastTap.current;
-            if (prev && now - prev.t < DOUBLE_TAP_MS
-                && Math.hypot(p.x - prev.x, p.y - prev.y) < 40) {
+            const now = e.timeStamp;
+            if (completesDoubleTap(lastTap.current, p, now)) {
                 // A background double-tap toggles detail and the entire world.
                 if (viewRef.current.zoom <= coverZoom() + 0.05) zoomAt(DOUBLE_TAP_ZOOM, p.x, p.y);
                 else { releaseRegion(); commitView(coverView(), true); }
+                // A browser can still send this tap's click after the
+                // pointer-up, and the new camera can have put a landmark or
+                // sector under the finger. The tap was a camera gesture, so
+                // onClickCapture swallows that click. The next pointer-down
+                // clears the flag if none comes, and keyboard activation
+                // (detail 0) always passes.
+                suppressClick.current = true;
                 lastTap.current = null;
                 return;
             }
