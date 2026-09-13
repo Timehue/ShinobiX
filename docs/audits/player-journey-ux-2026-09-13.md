@@ -131,3 +131,7 @@ The audit harness now puts motion settings under Playwright's `contextOptions`, 
 ### CI follow-up
 
 The first main push (`28cb89954`) passed Production Image, but CI caught two test-maintenance issues: the browser suites' empty fixture destructuring violated lint, and the existing `GameToast.test.ts` spot-check still required the former hospital payment wording. The browser hooks now use the Chromium fixture explicitly, and the toast check matches the current paid-discharge confirmation. These corrections change only tests and this record. Lint on the corrected files, all six toast tests, and three focused runtime checks of both browser-suite hooks passed. The previously verified game source and production bundle are unchanged.
+
+The subsequent CI run passed those checks and exposed the generated design-token handoff's stale breakpoint inventory. Running the repository's `export-tooling-handoffs.mjs` producer refreshed only `docs/generated/design-tokens.json`; the economy exports were unchanged. Its `--check` verification passed. This follow-up updates generated breakpoint occurrences and source line numbers without changing token values or game code.
+
+CI for `eea0e4bb2` subsequently completed with all 17 other jobs passing, including every application-test and browser matrix. The final aggregate was blocked solely by that generated-inventory check.
