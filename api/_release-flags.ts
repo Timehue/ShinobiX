@@ -143,3 +143,21 @@ export function pooledVitalRegenEnabled(env: NodeJS.ProcessEnv = process.env): b
 export function openWorldContinuousVitalsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
     return env.DISABLE_OPEN_WORLD_CONTINUOUS_VITALS !== '1';
 }
+
+/**
+ * Ryo is server-owned: a generic save re-asserts the stored balance instead of
+ * accepting a lower one. Default: server-owned (this returns false).
+ *
+ * Every live spend already settles through a server endpoint, so the old
+ * "decreases pass" rule no longer carried any spend. What it still did was let
+ * a stale client erase a server credit — a tab that adopted a newer save
+ * version without the new balance would echo the older, lower ryo on its next
+ * autosave, and the sanitizer accepted that as a spend.
+ *
+ * ALLOW_CLIENT_RYO_DECREASE=1 is the rollback valve: it restores the old rule
+ * if a client-side spend turns out to have been missed. Increases are refused
+ * with a 409 either way.
+ */
+export function clientRyoDecreaseAllowed(env: NodeJS.ProcessEnv = process.env): boolean {
+    return env.ALLOW_CLIENT_RYO_DECREASE === '1';
+}

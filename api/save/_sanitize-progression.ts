@@ -12,7 +12,7 @@ import { preserveStatPointEntitlement } from './_stat-entitlement.js';
 import { earnedStatPoints, earnedForLevel, applyDerivedLevel } from '../_xp-engine.js';
 import { parseStoryFieldRecords } from '../../shared/story-field-work.js';
 import { auraRegenBonus, vitalRegenPerTick } from '../_elapsed-state.js';
-import { pooledVitalRegenEnabled } from '../_release-flags.js';
+import { clientRyoDecreaseAllowed, pooledVitalRegenEnabled } from '../_release-flags.js';
 import {
     strictRawSaveLedgerEnabled,
     rankFromXp,
@@ -46,15 +46,17 @@ export function sanitizeProgression(
         char.experience = Math.max(0, Number(exChar.experience) || 0);
     } else delete char.experience;
 
-    // Wallet values may decrease through existing client-side sinks, but all
-    // increases must already exist in the stored save from a domain command.
-    // This is intentionally unconditional. The old compatibility window
-    // allowed a client-originated positive ryo delta when
-    // STRICT_RAW_SAVE_LEDGER was absent; that made a deployment flag part of
-    // the security boundary. Generic saves are now never a currency faucet.
+    // Ryo is server-owned. Every credit and every spend is written to the
+    // stored save by a domain endpoint under the save lock, so a generic save
+    // may only re-assert the stored balance. Accepting a lower value (the old
+    // rule) no longer carried any spend; it only let a stale client erase a
+    // server credit by echoing an older balance. Increases never pass either
+    // way: the handler rejects them with RYO_SERVER_AUTHORITY before this runs.
+    // ALLOW_CLIENT_RYO_DECREASE=1 restores the old decrease-free rule as a
+    // rollback valve (clientRyoDecreaseAllowed in api/_release-flags.ts).
     const exRyo = Math.max(0, Number(exChar.ryo ?? 0));
     const inRyo = Math.max(0, Number(char.ryo ?? 0));
-    char.ryo = isFirstSave ? inRyo : Math.min(inRyo, exRyo);
+    char.ryo = isFirstSave ? inRyo : clientRyoDecreaseAllowed() ? Math.min(inRyo, exRyo) : exRyo;
 
     // Bank principal and its interest clock are server-owned. Deposits,
     // withdrawals, and interest claims all mutate the versioned save under its

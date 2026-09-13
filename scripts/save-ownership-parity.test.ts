@@ -92,9 +92,15 @@ test('client-owned state stays restorable', () => {
     for (const path of [['currentBiome'], ['acceptedMissionIds'], ['missionProgress'], ['triggeredEvents']]) {
         assert.equal(isServerOwnedSavePath(path), false, `${path.join('.')} must remain restorable`);
     }
-    for (const field of ['inventory', 'equipment', 'ryo', 'nindo', 'battleHistory', 'equippedJutsuIds']) {
+    for (const field of ['inventory', 'equipment', 'nindo', 'battleHistory', 'equippedJutsuIds']) {
         assert.equal(isServerOwnedSavePath(['character', field]), false, `character.${field} must remain restorable`);
     }
+});
+
+test('ryo is not restorable: a generic save re-asserts the stored balance', () => {
+    // A device draft whose only difference is a lower ryo holds no progress —
+    // the sanitizer would discard that wallet anyway — so it must not be kept.
+    assert.equal(isServerOwnedSavePath(['character', 'ryo']), true);
 });
 
 test('world position and loading masks cannot be restored through a generic autosave', () => {
