@@ -127,3 +127,7 @@ Release verification on this combined source passed:
 - Visual inspection confirmed clear mission-reward controls and short-landscape guidance: [mobile mission](ux-journey-2026-09-13/live-main/11-first-mission-390.png), [mobile combat](ux-journey-2026-09-13/live-main/08-first-combat-390.png), [short landscape](ux-journey-2026-09-13/live-main/26-shell-844x390.png). The release breakpoint evidence also covers [360px](ux-journey-2026-09-13/live-main/26-shell-360x640.png), [979px](ux-journey-2026-09-13/live-main/26-shell-979x768.png), and [980px](ux-journey-2026-09-13/live-main/26-shell-980x768.png).
 
 The audit harness now puts motion settings under Playwright's `contextOptions`, matching the current repository contract. The Academy and added breakpoint checks explicitly exercise full motion. Browser and certification accounts use only the guarded local in-memory backend.
+
+### CI follow-up
+
+The first main push (`28cb89954`) passed Production Image, but CI caught two test-maintenance issues: the browser suites' empty fixture destructuring violated lint, and the existing `GameToast.test.ts` spot-check still required the former hospital payment wording. The browser hooks now use the Chromium fixture explicitly, and the toast check matches the current paid-discharge confirmation. These corrections change only tests and this record. Lint on the corrected files, all six toast tests, and three focused runtime checks of both browser-suite hooks passed. The previously verified game source and production bundle are unchanged.
