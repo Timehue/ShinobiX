@@ -1,0 +1,157 @@
+Journeyu0cm8sn
+Academy Student
+HP 478/500
+Chakra 1000/1000
+Stamina 1000/1000
+Sector 0
+Weather Clear Skies
+Ryo
+2130
+Honor Seals
+0
+Aura Dust
+0
+Fate Shards
+0
+Aura Stones
+0
+Mythic Seals
+0
+Bone Charms
+0
+Tiles
+0/150
+Missions
+0/20
+Hunts
+0/20
+Fate Spins
+0/5
+Reset In
+02:07:44
+Lv 1  ·  40 / 200 pts
+15 Minutes strength Training
+14m 11s
+HIDE MENU
+MAIN MENU
+WORLD
+02
+Travel
+Tavern
+ACTIVITIES
+04
+Missions
+Training
+Jutsu
+Logbook
+CHARACTER
+04
+Character
+Inventory
+Pet Home
+Professions
+SOCIAL
+02
+Users
+Mail
+SUPPORT
+03
+Guides
+Discord
+Premium Shop
+SYSTEM
+01
+Logout
+← Village
+
+STORMVEIL VILLAGE · COMMONS
+
+Cafeteria
+
+Hot food, fast recovery, and a place to reset before the next mission.
+
+WALLET
+2,130 ryo
+LOWEST VITAL
+96%
+SERVICE
+Open
+HP
+478 / 500
+CHAKRA
+1,000 / 1,000
+STAMINA
+1,000 / 1,000
+
+TONIGHT'S SERVICE
+
+Choose a meal
+
+Meals restore immediately. Recovery never exceeds your maximum vitals.
+
+LIGHT RECOVERY
+
+QUICK BOWL
+
+Small Ramen
+
+A light broth for patching up after training or a short patrol.
+
++10% HP
++5% Chakra
++5% Stamina
+Order Small Ramen
+20
+BEST VALUE
+
+FIELD PLATE
+
+Shinobi Meal
+
+A balanced village meal built to restore a working shinobi.
+
++25% HP
++15% Chakra
++15% Stamina
+Order Shinobi Meal
+50
+FULL RESTORE
+
+VICTORY FEAST
+
+Feast
+
+The full spread. Restores every vital resource to maximum.
+
+All vitals to 100%
+Order Feast
+100
+Cook for the village
+
+Turn hunt spoils into ration packs, then donate them at the Town Hall — they feed your village’s sieges, mercenary bands and garrisons.
+
+Cooked today: 0/40 rations. Resets at midnight UTC.
+
+BEAST MEAT
+0
+FROST PELT
+0
+ASH SCALE
+0
+RATION PACKS
+0
+
+You’re carrying no hunt spoils. Beast Meat and pelts drop from hunting beasts in the wilds — bring some back and the kitchen will turn them into rations.
+
+Shinobi Journey stores data on your device for sign-in, preferences, and saving your progress. It uses no advertising or third-party tracking cookies. Learn more.
+
+Got it
+CINDER CUB — YOUR COMPANION · PHASE 2/3: THE GATE STIRS · STEP 6/9
+Skip
+
+The spar cost you HP. Recover in the Cafeteria before we move on.
+
+The spar cost you HP. Recover in the Cafeteria before we move on.
+FOLLOW THE GOLD PULSE
+
+Up next: Claim the Academy Trial
