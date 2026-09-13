@@ -170,7 +170,7 @@ export function OnboardingCoach({
     onReturnToVillage?: () => void;
     updateCharacter: (c: Character) => void;
     onVersionedCharacter?: VersionedCharacterCommit;
-    commitNarrativeAction?: (action: AcademyNarrativeAction, sector?: number) => Promise<void>;
+    commitNarrativeAction?: (action: AcademyNarrativeAction, sector?: number, route?: import('../../../shared/first-contract').FirstContractRoute) => Promise<void>;
     onStartSpar: () => void;
     onOpenAwakening?: () => void;
 }) {
@@ -183,9 +183,9 @@ export function OnboardingCoach({
     const equipmentBaselineRef = useRef<number | null>(null);
     const reduced = prefersReducedMotion();
     const liteFx = isLowEndMobile();
-    const persistNarrativeAction = async (action: AcademyNarrativeAction, sector?: number) => {
-        if (commitNarrativeAction) { await commitNarrativeAction(action, sector); return; }
-        const result = await commitAcademyNarrativeAction(character.name, action, sector);
+    const persistNarrativeAction = async (action: AcademyNarrativeAction, sector?: number, route?: import('../../../shared/first-contract').FirstContractRoute) => {
+        if (commitNarrativeAction) { await commitNarrativeAction(action, sector, route); return; }
+        const result = await commitAcademyNarrativeAction(character.name, action, sector, route);
         if (!onVersionedCharacter?.(result.character, result._saveVersion)) {
             throw new Error("A newer Academy save is already active. Reopen this moment and try again.");
         }

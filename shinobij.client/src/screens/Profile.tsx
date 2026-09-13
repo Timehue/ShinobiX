@@ -39,6 +39,7 @@ import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
 import { academyVowDefinition } from "../lib/academy-narrative";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
+import { useFirstContractLoadoutTab } from "../lib/use-first-contract-loadout-tab";
 import academyFieldSealArt from "../assets/academy/onboarding/shiranui-field-seal.webp";
 
 type ProfileDossierRow = {
@@ -175,7 +176,7 @@ export function Profile({
     const legacyLive = legacyAvailable;
     const TITLE_COST = 10;
     const academyLoadoutStep = normalizeOnboardingStep(character.onboardingStep) === "jutsuLoadout";
-    const [mobileTab, setMobileTab] = useState<'overview' | 'stats' | 'jutsu' | 'achievements' | 'battlelogs' | 'legacy'>(academyLoadoutStep ? 'jutsu' : 'overview');
+    const [mobileTab, setMobileTab] = useFirstContractLoadoutTab<'overview' | 'stats' | 'jutsu' | 'achievements' | 'battlelogs' | 'legacy'>(character, 'profile', academyLoadoutStep ? 'jutsu' : 'overview', 'jutsu');
     const visibleMobileTab = !legacyAvailable && mobileTab === 'legacy' ? 'overview' : mobileTab;
     const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
     const [achievementCategory, setAchievementCategory] = useState<AchievementCategory | "All">("All");
