@@ -6,7 +6,13 @@
  * only the active village after this small rules chunk resolves, so story data
  * remains off startup and no player downloads another village speculatively.
  *
- * A failed module import clears the cache so the next story beat retries. Idle
+ * A failed import clears the cached promise, so the next story beat calls
+ * import() again, but that cannot re-download the chunk: the browser caches a
+ * failed chunk fetch for the page, and the re-issued import() rejects at once
+ * with no request (see ./lazyWithRetry). After a failed fetch, no story beat
+ * can load these rules until the page reloads. Measured 2026-09-13 in
+ * Chromium, Firefox and WebKit: with this chunk's first request aborted, the
+ * first-chapter VN never opened and the chunk was never requested again. Idle
  * prefetch warms only these rules, never a narrative payload.
  */
 
