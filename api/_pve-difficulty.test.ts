@@ -10,7 +10,11 @@ import {
     pveIsBurstJutsuAp,
     pveEasyBandHoldsBurst,
     pveEasyBandAllowsLethal,
-} from "./pve-difficulty";
+} from "./_pve-difficulty.js";
+
+// Moved from shinobij.client/src/lib/pve-difficulty.test.ts when the client copy
+// of the curve was deleted: nothing in the client imported it, and the server
+// (api/_pve-difficulty.ts) is the only engine that applies these bands.
 
 // ── Band brackets (the agreed difficulty curve, inclusive upper bounds) ──────
 // 1–30 easy (protected onboarding) · 31–50 medium · 51–90 hard · 91–100 peer.
