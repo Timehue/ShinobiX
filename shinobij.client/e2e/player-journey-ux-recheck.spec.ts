@@ -5,8 +5,8 @@ import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from './helpers
 
 test.use({ contextOptions: { reducedMotion: 'no-preference' } });
 
-test.beforeEach(({}, info) => {
-    test.skip(!['chromium-desktop', 'chromium-desktop-live'].includes(info.project.name), 'This suite owns its viewport matrix.');
+test.beforeEach(({ browserName }, info) => {
+    test.skip(browserName !== 'chromium' || !['chromium-desktop', 'chromium-desktop-live'].includes(info.project.name), 'This suite owns its viewport matrix.');
 });
 
 for (const viewport of [{ width: 360, height: 640 }, { width: 844, height: 390 }, { width: 979, height: 768 }, { width: 980, height: 768 }]) {
