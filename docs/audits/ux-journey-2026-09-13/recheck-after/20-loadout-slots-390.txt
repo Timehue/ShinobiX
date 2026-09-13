@@ -1,0 +1,135 @@
+You
+Travel
+Village
+Items
+Menu
+AU
+AuditNinja
+Lv 85
+9000
+9000
+9000
+10m
+9999
+PROFILE
+STATS
+JUTSU
+ACHIEVEMENTS
+BATTLES
+LEGACY
+JUTSU LOADOUT
+1 / 12
+Unequip All
+LOADOUT
+1/12
+LEARNED JUTSU
+1
+Effect preview:
+Auto · Ninjutsu
+Ninjutsu
+Taijutsu
+Genjutsu
+Bukijutsu
+Auto follows equipped 60 AP jutsu, then your highest offense. Preview only — combat uses each jutsu's actual discipline.
+YOUR LOADOUT i
+
+Drag equipped jutsu to reorder your battle action bar.
+
+♛
+SUBSCRIBER BONUS
+Unlock 3 additional slots.
+1
+術
+1
+Flicker
+×
+2
++
+3
++
+4
++
+5
++
+6
++
+7
++
+8
++
+9
++
+10
++
+11
++
+12
++
+13
+🔒
+♛
+Subscriber Slot
+Unlocks with subscription
+14
+🔒
+♛
+Subscriber Slot
+Unlocks with subscription
+15
+🔒
+♛
+Subscriber Slot
+Unlocks with subscription
+JUTSU DETAILS
+術
+1
+TAIJUTSU · NONE
+Flicker
+20
+AP
+MASTERY
+1/50
+RANGE
+5
+POWER
+3
+COOLDOWN
+2
+
+A short-range body flicker that repositions the user in an instant.
+
+Single Target — Affects a single target — no area splash.
+
+Effects
+
+Moves the user on the battlefield.
+
+Move
+Instant
+
+Moves the user on the battlefield.
+
+Value: Always
+Target: Self
+Always lets the user choose an open tile within the jutsu range.
+Unequip Jutsu
+HOW IT WORKS
+Equip jutsu instantly from the Learned Jutsu tab.
+Click a slot to preview the jutsu.
+Drag filled slots to reorder; use × to remove.
+♛ SUBSCRIPTION BENEFITS
+Unlock 3 additional loadout slots (13–15) for PvE.
+Human PvP seals both players to the first 12 slots for fairness.
+ELEMENT LEGEND
+火
+Fire
+水
+Water
+風
+Wind
+雷
+Lightning
+土
+Earth
+術
+Other

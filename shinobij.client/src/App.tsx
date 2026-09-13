@@ -6239,6 +6239,7 @@ export default function App() {
                         onVersionedCharacter={commitVersionedCharacter}
                         onDeleteCharacter={deleteCharacter}
                         onOpenBattle={(battleId) => { setViewedBattleId(battleId); setScreen("battleLog"); }}
+                        onTrainJutsu={() => navigate("jutsuTraining")}
                     />
                 )}
                 {!activeTriggeredEvent && screen === "battleLog" && character && viewedBattleId && (

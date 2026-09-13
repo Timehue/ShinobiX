@@ -1,0 +1,98 @@
+AU
+AuditNinja
+Special Jonin
+HP 0/9000
+Chakra 9000/9000
+Stamina 9000/9000
+Sector 0
+Weather Clear Skies
+Ryo
+10m
+Honor Seals
+0
+Aura Dust
+0
+Fate Shards
+9999
+Aura Stones
+9999
+Mythic Seals
+9999
+Bone Charms
+9999
+Tiles
+0/150
+Missions
+0/20
+Hunts
+0/20
+Fate Spins
+0/5
+Reset In
+02:16:39
+Lv 85  ·  874 / 21,970 pts
+HIDE MENU
+MAIN MENU
+WORLD
+02
+Travel
+Tavern
+ACTIVITIES
+04
+Missions
+Training
+Jutsu
+Logbook
+CHARACTER
+04
+Character
+Inventory
+Pet Home
+Vanguard
+SOCIAL
+02
+Users
+Mail
+SUPPORT
+03
+Guides
+Discord
+Premium Shop
+SYSTEM
+01
+Logout
+
+STORMVEIL VILLAGE · EMERGENCY WARD
+
+Village Hospital
+
+You are stable and under medical watch. Choose an immediate release or wait for complimentary discharge.
+
+PATIENT STATUS
+Admitted
+VITAL CONDITION
+0 / 9000 HP
+VILLAGE DISCOUNT
+0.00%
+
+RECOVERY IN PROGRESS
+
+You are currently admitted
+
+Your wounds are treated at discharge; chakra and stamina return with rest, or instantly at the Cafeteria. Pay for an immediate release or wait for the free checkout.
+
+HP recovery
+0 / 9,000
+
+Treatment service unavailable. Choose Check out free to try again.
+
+IMMEDIATE RELEASE
+2,500 ryo
+Wounds treated · leave now
+Pay & discharge
+COMPLIMENTARY RELEASE
+Ready now
+No charge · wounds treated
+Check out free
+?
+Tip
