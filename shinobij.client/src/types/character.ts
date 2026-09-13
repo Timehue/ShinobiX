@@ -877,6 +877,8 @@ export type Character = {
         | "spar"
         | "tour";
     academyChecklistClaimed?: boolean;
+    /** Server-confirmed first independent activity; carries no additional rewards. */
+    firstContract?: import("../../../shared/first-contract").FirstContract;
     // One-time claim gate for the onboarding "Academy Trial" mission (Workstream F).
     academyTrialClaimed?: boolean;
     // Persisted milestone for the final "sectorReturn" onboarding beat: set true when

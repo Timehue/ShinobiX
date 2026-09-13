@@ -268,6 +268,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
 
     // ── One-time boolean latches ────────────────────────────────────────────
     f('academySparClaimed', 'character', 'server-payout-stamp', 'academy', ['boolean-latch-char'], 'story/settle'),
+    f('firstContract', 'character', 'server-owned', 'academy', ['server-mirror-char', 'combat-strip-char'], 'First independent activity journal; no reward entitlement'),
     f('starterPetClaimed', 'character', 'server-payout-stamp', 'pets', ['boolean-latch-char']),
     f('starterCardsClaimed', 'character', 'server-payout-stamp', 'card-clash', ['boolean-latch-char'], 'card-clash/claim-starter'),
 
