@@ -1,4 +1,5 @@
-import { expect, test, type APIRequestContext } from '@playwright/test';
+import { expect, type APIRequestContext } from '@playwright/test';
+import { test } from './helpers/reconnecting-request';
 
 const village = 'Frostfang Village';
 const admin = { 'x-admin-password': 'live-express-e2e-admin' };
