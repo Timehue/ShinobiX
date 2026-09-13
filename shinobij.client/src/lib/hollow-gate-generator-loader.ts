@@ -15,14 +15,20 @@ import { retryDynamicImport } from "./lazyWithRetry";
  *
  * BOTH loaders go through retryDynamicImport (./lazyWithRetry) rather than a
  * bare `import()`. A bare import inside an awaited run-critical path is the
- * worst possible place for the two classic chunk failures: a HUNG fetch never
- * settles, so the awaiting caller (the move-fx drain, the descend) never
- * settles either and the run silently stops responding for the life of the
- * page; and a deploy that rotated the asset hashes under an open tab fails
- * every attempt with no recovery short of a reload. The wrapper retries with
- * backoff, treats a hung request as a failure via a per-attempt timeout, and —
- * because it re-issues import() itself instead of handing the SAME promise back
- * — never memoizes a rejection the way a caller-cached promise would.
+ * worst possible place for a HUNG fetch: it never settles, so the awaiting
+ * caller (the move-fx drain, the descend) never settles either and the run
+ * silently stops responding for the life of the page. The wrapper's
+ * per-attempt timeout turns that stall into a rejection the caller can handle.
+ *
+ * The wrapper does NOT re-download a chunk whose fetch FAILED (a dropped
+ * request, or a 404 after a deploy rotated the asset hashes under an open tab).
+ * The browser keeps that failure in the page's module map, and every later
+ * import() of the URL rejects from it without a network request — measured in
+ * Chromium, Firefox and WebKit (see ./lazyWithRetry). These loaders are awaited
+ * outside React, so no error boundary sees the rejection and nothing reloads on
+ * its own: every call site catches it and asks the player to try again. That
+ * can work after a timeout, but after a failed fetch nothing short of
+ * reloading the page can load the chunk.
  */
 export function loadHollowGateGenerator() {
     return retryDynamicImport(() => import("./hollow-gate-dungeon"));
@@ -45,12 +51,11 @@ export function loadHollowGateTileRuntime() {
  * live run — so both chunks are already in memory by the time a floor has to be
  * generated or a tile has to resolve.
  *
- * Swallowing the rejection here is safe ONLY because of the retry wrapper
- * above: each loadX() call issues its own import(), so a warm-up that gave up
- * cannot hand its failure to the later awaited call. With a bare import() it
- * could: a rejected module record may persist in the ESM module map, and the
- * real call site would then re-throw the warm-up's error rather than make a
- * fresh attempt of its own.
+ * Swallowing the rejection here hides nothing from the awaited call. If the
+ * warm-up only timed out, the awaited call makes its own attempt, which can
+ * still succeed. If the fetch FAILED, the browser has cached that failure for
+ * the page — per URL, not per promise, so no wrapper can keep it from the later
+ * call — and the awaited call rejects with it and reports it.
  */
 export function warmHollowGateGenerator(): void {
     const swallow = () => { /* the awaited call site reports the real failure */ };

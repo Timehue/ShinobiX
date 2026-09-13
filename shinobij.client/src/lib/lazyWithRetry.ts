@@ -1,33 +1,58 @@
 import { lazy, type ComponentType, type LazyExoticComponent } from "react";
 
 /**
- * Drop-in replacement for React.lazy that survives a flaky network.
+ * Drop-in replacement for React.lazy that keeps a HUNG chunk load from
+ * stranding a screen.
  *
- * Plain `React.lazy` caches the FIRST promise its factory returns. So if that
- * dynamic import() rejects once — a single dropped request on a spotty mobile
- * connection, or a chunk that 404s for a few seconds during a deploy — the lazy
- * component can NEVER recover for the life of the page: every later attempt to
- * render it re-throws the cached rejection, and the screen is stuck behind the
- * <Suspense> fallback or kicked to the error boundary. Worse, a fetch that
- * *hangs* (connection lost mid-download) leaves the promise un-settled, so the
- * "Loading…" fallback shows forever with nothing to recover from. This is the
- * classic "the page sometimes just doesn't load on mobile" failure.
+ * Plain `React.lazy` caches the FIRST promise its factory returns. A fetch that
+ * *hangs* (connection lost mid-download) leaves that promise un-settled, so the
+ * "Loading…" fallback shows forever with nothing to recover from — the classic
+ * "the page sometimes just doesn't load on mobile" failure. A chunk that fails
+ * outright (a dropped request, or a 404 while a deploy rotates the hashes) is
+ * no better: the lazy component re-throws that rejection on every render.
  *
- * `lazyWithRetry` wraps the import in a retry loop: each attempt re-issues
- * import() (modern browsers re-fetch a previously-failed module), with a short
- * backoff between tries and a per-attempt timeout so a hung request is treated
- * as a failure and retried instead of stalling indefinitely. A transient blip
- * now self-heals WITHOUT a full page reload. If every attempt fails, the error
- * is re-thrown with a chunk-load-shaped message so the top-level ErrorBoundary
- * recognises it and does its one-shot reload (see components/ErrorBoundary).
+ * What the retry loop below can and cannot do, measured 2026-09-13 against a
+ * real `npm run build` in Playwright's Chromium, Firefox and WebKit, with the
+ * first request for a screen chunk aborted and every later one allowed:
+ *
+ *  - It CANNOT rescue a chunk whose fetch failed. The browser keeps the failed
+ *    fetch in the page's module map, so every later import() of that URL
+ *    rejects at once without a network request. The chunk was requested
+ *    exactly once; all four attempts rejected, and the module never loaded in
+ *    that page. import() itself holds the failure (a bare import() with no
+ *    preload link behaves the same), a 404 is held the same way, and in
+ *    Chromium and Firefox the `<link rel=modulepreload>` that Vite's preload
+ *    helper inserts first is enough to poison it too. So on a failed fetch the
+ *    retries only hold the error back for the backoff, ~3.6 s at the defaults.
+ *  - It DOES settle a hung fetch: the per-attempt timeout turns the stall into
+ *    a failure, and an attempt made while the first download is still in
+ *    flight can still succeed. (A click landing mid-download on a warmed
+ *    screen attached to that same request in all three engines.)
+ *  - One failure a retry does get past is a screen's own CSS file. Vite's
+ *    preload helper rejects when that stylesheet fails, but it remembers every
+ *    dep it has linked and skips it on the next attempt, so attempt two
+ *    resolves and the screen renders WITHOUT that CSS: no reload, no error.
+ *    (Measured with HallOfLegends' stylesheet in all three engines.)
+ *
+ * The real recovery is a page reload, which starts a fresh module map. After
+ * the last attempt, the error is re-thrown with a chunk-load-shaped message so
+ * components/ScreenErrorBoundary or the top-level ErrorBoundary recognises it
+ * and does its automatic reload (lib/chunk-load-recovery). In WebKit a reload
+ * onto the SAME chunk URL was not always enough: on this lazy-screen path,
+ * later reloads kept getting the failure without a request (~30 s after an
+ * aborted request; still failing 100 s later after a no-store 404). A real
+ * deploy recovers in one reload, because the reloaded page names new chunk
+ * URLs.
  */
 /**
- * Exported because the retry/backoff/timeout policy above is NOT specific to
- * React.lazy: any bare `import()` in the app has the same three failure modes
- * (a one-shot rejection that a caller memoizes, a hung fetch that never
- * settles, and a chunk whose hash rotated under a still-open tab). Library-level
- * deferrals — e.g. lib/hollow-gate-generator-loader — route through this so they
- * inherit the same self-healing instead of re-inventing a weaker version.
+ * Exported because the timeout and the chunk-shaped final error are NOT
+ * specific to React.lazy: any bare `import()` can hang, and a caller that
+ * awaits it then never settles either. Library-level deferrals — e.g.
+ * lib/hollow-gate-generator-loader — route through this for the same timeout.
+ * Outside React.lazy no error boundary sees the rejection, so nothing reloads
+ * on its own and the caller has to handle it. Letting the player try again in
+ * the same page can work after a timeout, but after a failed fetch nothing
+ * short of a reload can load the chunk.
  */
 export function retryDynamicImport<T>(
     factory: () => Promise<T>,
