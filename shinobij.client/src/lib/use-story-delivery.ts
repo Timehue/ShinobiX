@@ -5,7 +5,27 @@ import { loadStoryTrigger } from "./story-trigger-loader";
 import { nextNarrativeDelivery } from "./story-history";
 import { acknowledgeStoryReport, nextPendingStoryReport, recordStoryReportConflict } from "./story-history-mutations";
 
-/** Retry narrative bookkeeping and recover a pending zero-reward aftermath. */
+/**
+ * Retry narrative bookkeeping and recover a pending zero-reward aftermath.
+ *
+ * The 6 s retries below do real work for a report the server refused or never
+ * received (both report functions turn a network error into `{ ok: false }`),
+ * and for a story or epilogue content download that failed (both content
+ * loaders forget a failed fetch, so the next attempt requests it again).
+ *
+ * They cannot recover a CODE chunk that failed to load: story-trigger,
+ * story-road-events, story-epilogue-loader or hollow-rifts. The browser caches
+ * that failure for the page, so each retry rejects at once without a request
+ * (see ./lazyWithRetry), and all it costs is a timer and an empty render every
+ * 6 s. Nothing is lost: the pending work is saved on the character
+ * (pendingStoryReports, storyEpilogues, riftFirstClears), and the next page
+ * load picks it up. Forcing a reload from this background effect would
+ * interrupt whatever the player is doing, for bookkeeping they never see.
+ * Note that WorldMap imports story-road-events and hollow-rifts statically
+ * (Missions imports hollow-rifts too), so a failure here also breaks those
+ * screens for the page, as world-state's nudgeVillageIntel documents for
+ * village-intel.
+ */
 export function useStoryDelivery({
     character,
     activeEvent,
