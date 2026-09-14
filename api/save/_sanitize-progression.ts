@@ -8,7 +8,7 @@ import {
     LIFETIME_COUNTERS,
 } from './_state-ownership.js';
 import { STAT_CAP_FIELDS } from '../combat-core/formulas.js';
-import { preserveStatPointEntitlement } from './_stat-entitlement.js';
+import { preserveStatPointEntitlement, STAT_RESPEC_FATE_COST } from './_stat-entitlement.js';
 import { earnedStatPoints, earnedForLevel, applyDerivedLevel } from '../_xp-engine.js';
 import { parseStoryFieldRecords } from '../../shared/story-field-work.js';
 import { auraRegenBonus, vitalRegenPerTick } from '../_elapsed-state.js';
@@ -64,7 +64,8 @@ export function sanitizeProgression(
     char.bankRyo = Math.max(0, Math.floor(Number(exChar.bankRyo) || 0));
     char.lastBankInterestAt = Math.max(0, Math.floor(Number(exChar.lastBankInterestAt) || 0));
 
-    // Premium/material currencies: decreases pass, increases do not.
+    // Material currencies retain the existing zero-gain boundary. Fate Shards
+    // are re-asserted below after validating the legacy paid stat-reset intent.
     for (const [key, maxGain] of Object.entries(CURRENCY_CAPS)) {
         const exVal = Math.max(0, Number(exChar[key] ?? 0));
         const inVal = Math.max(0, Number(char[key] ?? 0));
@@ -164,6 +165,7 @@ export function sanitizeProgression(
     const existingStatKeys = exChar.stats && typeof exChar.stats === 'object'
         ? Object.keys(exChar.stats as Record<string, unknown>)
         : [];
+    let paidLegacyStatReset = false;
     if (!strictLedger && existingStatKeys.length < STAT_CAP_FIELDS.length) {
         char.stats = inChar.stats;
         char.unspentStats = Math.max(0, Math.min(Number(inChar.unspentStats) || 0, Number(exChar.unspentStats) || 0));
@@ -171,7 +173,16 @@ export function sanitizeProgression(
         const statEntitlement = preserveStatPointEntitlement(char, exChar);
         char.stats = statEntitlement.stats;
         char.unspentStats = statEntitlement.unspentStats;
+        paidLegacyStatReset = !strictLedger && statEntitlement.accepted === 'respec';
     }
+    // Domain endpoints already commit shard credits/debits under this save's
+    // lock. An ordinary stale wallet must not erase a credit or undo a spend
+    // merely because another mutation supplied a newer base version. Preserve
+    // the supported legacy full-stat-reset intent, charging its exact cost only
+    // when the conserved point allocation above accepted the reset. Strict mode
+    // continues to require its existing profile endpoint for that operation.
+    char.fateShards = Math.max(0, Number(exChar.fateShards) || 0)
+        - (paidLegacyStatReset ? STAT_RESPEC_FATE_COST : 0);
     // ── Stat-derived level (leveling-without-xp map) ────────────────────────
     // One-time ledger migration: an XP-era save whose earned points don't yet
     // cover its stored level gets the difference as pool points, so nobody
