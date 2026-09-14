@@ -162,13 +162,13 @@ test("rewarded Warfront exit is blocked from its first result frame through sett
 });
 
 test("a rewarded Warfront keeps authoritative Witness progress and its final Chronicle ceremony on the result screen", () => {
-    const warfront = readFileSync(new URL("../components/PetWarfrontMatch.tsx", import.meta.url), "utf8");
+    const warfront = readFileSync(new URL("../components/PetWarfrontRite.tsx", import.meta.url), "utf8");
     assert.match(arenaSource, /resultSupplement=\{chronicleProgress \|\| chronicleCeremony \? \([\s\S]*chronicleProgress \? <PetChronicleProgress receipt=\{chronicleProgress\} \/> : null[\s\S]*chronicleCeremony \? \([\s\S]*<PetChronicleCeremony/);
     assert.match(arenaSource, /resultActionsLocked=\{warfrontResultActionsLocked\}/);
     assert.match(arenaSource, /petBattleSettlementBlocksExit\([\s\S]*Boolean\(arenaMatch\?\.vsAi\)/);
     assert.match(warfront, /\{resultSupplement\}/);
     assert.match(warfront, /disabled=\{resultActionsLocked\}/);
-    assert.match(warfront, /disabled=\{settlementPending\}/);
+    assert.match(warfront, /\{settlementPending \?/);
     // Fight Again survives only on the WARFRONT result screen, which is what
     // this test is about. The duel screen no longer offers it at all: every
     // fight it starts is spent when it resolves (a challenge is consumed, a
