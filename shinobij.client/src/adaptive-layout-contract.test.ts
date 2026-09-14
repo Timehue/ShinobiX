@@ -173,6 +173,8 @@ test('world-map resize, pointer loss, and observers have bounded cleanup', () =>
     assert.match(mapHook, /addEventListener\("wheel", onWheel, \{ passive: false \}\)/);
     assert.match(mapHook, /removeEventListener\("wheel", onWheel\)/);
     assert.match(mapHook, /removeEventListener\("touchmove", onTouchMove\)/);
+    assert.match(mapHook, /window\.removeEventListener\("pointerup", onWindowRelease, true\)/);
+    assert.match(mapHook, /window\.removeEventListener\("pointercancel", onWindowRelease, true\)/);
     assert.doesNotMatch(mapHook, /window\.addEventListener\("resize"/);
 });
 

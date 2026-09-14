@@ -112,3 +112,20 @@ test("a touch tap's focus never pans the camera out from under the finger", () =
     assert.match(source, /const onMouseUpCapture = useCallback\(\(\) => \{ mousePressed\.current = false; \}, \[\]\);/);
     assert.match(source, /onFocusCapture,\s*onMouseDownCapture,\s*onMouseUpCapture,/);
 });
+
+test("a press released outside the map still ends its gesture", () => {
+    const source = readFileSync(new URL("./use-world-map-zoom.ts", import.meta.url), "utf8");
+    // Controls are never captured, so their release can land outside the map.
+    assert.match(source, /if \(!onControl\) \{\s*\(e\.currentTarget as HTMLElement\)\.setPointerCapture\?\.\(e\.pointerId\);/);
+    // Capture-phase listeners on window, attached only in zoom mode, catch it.
+    assert.match(source, /useEffect\(\(\) => \{\s*if \(!active\) return;\s*const onWindowRelease = /);
+    assert.match(source, /window\.addEventListener\("pointerup", onWindowRelease, true\);\s*window\.addEventListener\("pointercancel", onWindowRelease, true\);/);
+    // A release that reaches the map is left to endPointer, so taps, drags and
+    // double-taps are unchanged.
+    assert.match(source, /if \(viewport && event\.target instanceof Node && viewport\.contains\(event\.target\)\) return;/);
+    // It ends the gesture and the press mark, which WebKit never consumes.
+    assert.match(source, /pointers\.current\.delete\(event\.pointerId\);\s*if \(pointers\.current\.size < 2\) pinch\.current = null;[^}]*?mousePressed\.current = false;\s*\};/);
+    // Leaving zoom mode removes those listeners, and endPointer then ignores
+    // pointer-ups, so the switch itself ends every gesture in flight.
+    assert.match(source, /if \(!next\) \{\s*viewRef\.current = \{ zoom: MIN_ZOOM, tx: 0, ty: 0 \};[\s\S]*?pointers\.current\.clear\(\);\s*pinch\.current = null;\s*mousePressed\.current = false;\s*\}/);
+});
