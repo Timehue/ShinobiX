@@ -1,11 +1,13 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { expect, test, type APIRequestContext, type Locator, type Page, type Request as BrowserRequest, type TestInfo } from '@playwright/test';
+import { expect, type APIRequestContext, type Locator, type Page, type Request as BrowserRequest, type TestInfo } from '@playwright/test';
 import { AURA_SPHERE_ITEM_ID, AURA_SPHERE_VN_ID } from '../src/constants/game';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 import { v2JutsuResourceCost } from '../src/lib/jutsu-scaling';
 import { accountKey } from '../src/lib/player-accounts';
 import { TOWER_TURN_AFK_MS } from '../src/lib/towers-api';
+// Many calls here follow browser-only work of arbitrary length; see the helper.
+import { API_CONNECTION_RETRIES, test } from './helpers/reconnecting-request';
 
 // The loadout's scroll container. Phones wrap basic commands and the loadout in
 // one `.combat-action-tray` scrollport; elsewhere the tray is `display:
@@ -2094,7 +2096,8 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
     expect(clockSession.turnStartedAt).toBeGreaterThan(0);
     const geometryTime = Number(clockSession.turnStartedAt) + 1_000;
     await page.route('**/api/player/heartbeat', async (route) => {
-        const response = await route.fetch();
+        // Shares the same pooled sockets as `request`.
+        const response = await route.fetch({ maxRetries: API_CONNECTION_RETRIES });
         if (!response.ok()) { await route.fulfill({ response }); return; }
         await route.fulfill({ response, json: { ...await response.json(), serverNow: geometryTime } });
     });
