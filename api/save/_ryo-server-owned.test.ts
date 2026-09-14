@@ -116,7 +116,7 @@ after(async () => {
 test('a stale lower ryo keeps the stored balance, and the acknowledgement carries it', async () => {
     const out = await autosave('ryo-stale-echo', 500, 200);
     assert.equal(out.statusCode, 200);
-    assert.deepEqual(out.body, { ok: true, _saveVersion: 5, ryo: 500 });
+    assert.deepEqual(out.body, { ok: true, _saveVersion: 5, ryo: 500, fateShards: 0 });
     assert.equal(out.stored.character.ryo, 500, 'a server credit is never erased by an older wallet');
     assert.equal(out.stored._saveVersion, 5);
 });
@@ -124,7 +124,7 @@ test('a stale lower ryo keeps the stored balance, and the acknowledgement carrie
 test('an agreeing ryo is a normal write that echoes the same balance', async () => {
     const out = await autosave('ryo-agreeing', 750, 750);
     assert.equal(out.statusCode, 200);
-    assert.deepEqual(out.body, { ok: true, _saveVersion: 5, ryo: 750 });
+    assert.deepEqual(out.body, { ok: true, _saveVersion: 5, ryo: 750, fateShards: 0 });
 });
 
 test('a higher ryo is still rejected atomically with the authoritative balance', async () => {
@@ -142,7 +142,7 @@ test('ALLOW_CLIENT_RYO_DECREASE=1 restores the old decrease-free rule', async ()
     try {
         const out = await autosave('ryo-rollback', 500, 200);
         assert.equal(out.statusCode, 200);
-        assert.deepEqual(out.body, { ok: true, _saveVersion: 5, ryo: 200 });
+        assert.deepEqual(out.body, { ok: true, _saveVersion: 5, ryo: 200, fateShards: 0 });
         assert.equal(out.stored.character.ryo, 200);
     } finally {
         if (previous === undefined) delete process.env.ALLOW_CLIENT_RYO_DECREASE;
