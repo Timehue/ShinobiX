@@ -99,3 +99,17 @@ test('a reader with JavaScript disabled is not covered by the boot splash', () =
         rmSync(dir, { recursive: true, force: true });
     }
 });
+
+test('external deletion contact is exempt from Cloudflare script-dependent email obfuscation', () => {
+    const { dir } = runPrerender();
+    try {
+        const html = readFileSync(path.join(dir, 'prerendered', 'delete-account.html'), 'utf8');
+        const publicContent = html.match(/<!--email_off-->([\s\S]*?)<!--\/email_off-->/)?.[1] ?? '';
+        ok(visibleText(publicContent).includes('support@shinobijourney.com'),
+            'the readable address must be inside Cloudflare’s documented email_off boundary');
+        ok(publicContent.includes('href="mailto:support@shinobijourney.com"'),
+            'the contact link must also remain usable without a decode script');
+    } finally {
+        rmSync(dir, { recursive: true, force: true });
+    }
+});

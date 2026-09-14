@@ -51,6 +51,8 @@ function harness(options?: {
     const previews: Array<{ accountName: string; payload: unknown }> = [];
     const blocked: boolean[] = [];
     const ryoAdoptions: Array<{ accountName: string; ryo: number }> = [];
+    const shardAdoptions: Array<{ accountName: string; fateShards: number }> = [];
+    const acknowledgedSnapshots: Payload[] = [];
     let allowApply = true;
 
     const persistence = createSavePersistence<Payload>({
@@ -82,6 +84,8 @@ function harness(options?: {
         writePreview: (accountName, payload) => previews.push({ accountName, payload }),
         setBlocked: (value) => blocked.push(value),
         onAuthoritativeRyo: (accountName, ryo) => ryoAdoptions.push({ accountName, ryo }),
+        onAuthoritativeFateShards: (accountName, fateShards) => shardAdoptions.push({ accountName, fateShards }),
+        onAcknowledgedSnapshot: snapshot => acknowledgedSnapshots.push(snapshot.payload),
     });
 
     return {
@@ -97,6 +101,8 @@ function harness(options?: {
         previews,
         blocked,
         ryoAdoptions,
+        shardAdoptions,
+        acknowledgedSnapshots,
         rejectSnapshots: () => { allowApply = false; },
     };
 }
@@ -123,6 +129,26 @@ const requiredSave = (overrides?: Partial<{
 });
 
 describe("server-owned ryo on save acknowledgements", () => {
+    it("adopts valid stored shards for autosave and required save without requiring a Ryo field", async () => {
+        for (const required of [false, true]) {
+            const h = harness({ latestVersion: 5 });
+            globalThis.fetch = async () => jsonResponse(200, { ok: true, _saveVersion: 6, fateShards: 25 });
+            if (required) await h.persistence.persistRequired(() => requiredSave());
+            else await h.persistence.persistAutosave(snapshot());
+            assert.deepEqual(h.shardAdoptions, [{ accountName: "Kaya", fateShards: 25 }]);
+            assert.equal(h.acknowledgedSnapshots.length, 1);
+            assert.deepEqual(h.captured, [], 'a wallet correction needs no conflict banner');
+        }
+    });
+
+    it("ignores malformed shard acknowledgements and legacy responses without shards", async () => {
+        for (const fateShards of [undefined, null, -1, 2.5, "25"]) {
+            const h = harness({ latestVersion: 5 });
+            globalThis.fetch = async () => jsonResponse(200, { ok: true, _saveVersion: 6, fateShards });
+            await h.persistence.persistAutosave(snapshot());
+            assert.deepEqual(h.shardAdoptions, []);
+        }
+    });
     it("adopts the stored ryo an autosave acknowledgement carries", async () => {
         const h = harness({ latestVersion: 5 });
         globalThis.fetch = (async () => jsonResponse(200, { ok: true, _saveVersion: 6, ryo: 4_800 })) as typeof fetch;
@@ -146,10 +172,12 @@ describe("server-owned ryo on save acknowledgements", () => {
         // A server mutation (a mission claim, say) installs version 9 while the
         // autosave is in flight. Its version-6 wallet is older than that write's.
         h.latestVersion.current = 9;
-        gate.resolve(jsonResponse(200, { ok: true, _saveVersion: 6, ryo: 100 }));
+        gate.resolve(jsonResponse(200, { ok: true, _saveVersion: 6, ryo: 100, fateShards: 20 }));
         await write;
         assert.equal(h.latestVersion.current, 9);
         assert.deepEqual(h.ryoAdoptions, [], "an older wallet must never roll back a newer one");
+        assert.deepEqual(h.shardAdoptions, []);
+        assert.deepEqual(h.acknowledgedSnapshots, [], "an older acknowledgement cannot replace the pending-edit baseline");
     });
 
     it("does nothing when the acknowledgement carries no usable ryo", async () => {

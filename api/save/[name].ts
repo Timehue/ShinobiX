@@ -1248,9 +1248,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // local balance drifted (it adopted a newer version without the
                     // new ryo) converges on every successful autosave.
                     const persistedRyo = Number(((payload as Record<string, unknown>).character as Record<string, unknown> | undefined)?.ryo);
+                    const persistedFateShards = Number(((payload as Record<string, unknown>).character as Record<string, unknown> | undefined)?.fateShards);
                     return res.status(200).json(isClanSave
                         ? { ok: true }
-                        : { ok: true, _saveVersion: nextVersion, ...(Number.isFinite(persistedRyo) ? { ryo: persistedRyo } : {}) });
+                        : { ok: true, _saveVersion: nextVersion,
+                            ...(Number.isFinite(persistedRyo) ? { ryo: persistedRyo } : {}),
+                            ...(Number.isFinite(persistedFateShards) ? { fateShards: persistedFateShards } : {}) });
                     }, { failClosed: true });
                     return; // the locked closure already sent the response
                 } catch (lockErr) {

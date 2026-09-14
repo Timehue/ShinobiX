@@ -233,9 +233,6 @@
 .pet-arena-lobby .pet-matchup-hint { border-radius: 11px; background: rgba(2,8,16,.48); padding: .55rem .7rem; }
 
 /* Opponent switch + search */
-.pet-arena-lobby .pet-arena-selector .pet-arena-mode-toggle { border-color: rgba(173,207,224,.12) !important; border-radius: 12px !important; background: rgba(2,8,16,.55) !important; padding: .3rem !important; }
-.pet-arena-lobby .pet-arena-selector .pet-arena-mode-toggle button { min-height: 38px; border-radius: 9px !important; color: #718995 !important; font-size: .6rem !important; }
-.pet-arena-lobby .pet-arena-selector .pet-arena-mode-toggle button.active { border-color: rgba(102,224,223,.45) !important; color: #cffffb !important; background: rgba(20,87,94,.46) !important; box-shadow: none; }
 .pet-player-search { display: grid; gap: .4rem; margin-top: .2rem; }
 .pet-player-search > label { color: #78909c; font-size: .55rem; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; }
 .pet-player-search-field { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: .65rem; min-height: 50px; border: 1px solid rgba(102,224,223,.26); border-radius: 12px; color: var(--arena-cyan); background: rgba(2,8,16,.68); padding: 0 .8rem; transition: border-color .16s ease,box-shadow .16s ease; }
@@ -293,11 +290,6 @@
 .pet-arena-destination-action { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: .45rem; border-left: 1px solid rgba(240,202,121,.18); color: #e7c77f; padding-left: .85rem; font-size: .59rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
 .is-training .pet-arena-destination-action { border-left-color: rgba(102,224,223,.18); color: #8be4df; }
 .pet-arena-destination-action b { font-size: 1.05rem; }
-
-/* Selected exhibition contract */
-
-.pet-arena-lobby .pet-coliseum-contender { min-height: 94px; }
-.pet-arena-lobby button.pet-exhibition-start { min-height: 94px; border-left-color: rgba(240,202,121,.28); background: linear-gradient(135deg,#a95418,#d67a24); }
 
 /* Compact battle feed until a fight exists. */
 .pet-arena-lobby .pet-arena-log { width: min(1320px,calc(100% - 2rem)); max-height: 330px; margin: .8rem auto 0; border: 1px solid var(--arena-line) !important; border-left: 1px solid var(--arena-line) !important; border-radius: 15px !important; background: rgba(4,11,21,.78) !important; padding: .75rem .9rem !important; }
@@ -368,7 +360,6 @@
     .pet-party-toggle em { grid-column: 3; justify-self: start; }
     .pet-arena-destination { min-height: 155px; padding: .85rem; }
     .pet-arena-destination-icon { width: 46px; height: 46px; }
-    .pet-arena-lobby button.pet-exhibition-start { grid-column: 1 / -1; min-height: 62px; border-top: 1px solid rgba(240,202,121,.3); border-left: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

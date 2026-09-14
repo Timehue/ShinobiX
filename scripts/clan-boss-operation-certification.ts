@@ -245,6 +245,16 @@ async function runSoloCompatibility(kv: Json): Promise<void> {
         const attemptsBefore = Number(before.body.myClan?.myAttemptsLeft);
         if (!check(before.status === 200 && Number.isFinite(attemptsBefore), 'weekly Clan Boss remains readable while parties are disabled')) return;
 
+        const staleParty = await http('/api/clan-boss/assault-start', {
+            method: 'POST', token: player!.token,
+            body: { hostName: player!.name, requestId: requestId('stale-party'), partyId: `cbp-${'0'.repeat(32)}`, hostLoadout: {} },
+        });
+        check(staleParty.status === 409 && staleParty.body.errorCode === 'parties-unavailable' && !staleParty.body.runId,
+            'a stale explicit party request is rejected instead of silently starting solo');
+        const afterStale = await http(`/api/clan-boss/get?player=${encodeURIComponent(player!.name)}`, { token: player!.token });
+        check(Number(afterStale.body.myClan?.myAttemptsLeft) === attemptsBefore,
+            'rejecting a disabled party consumes no weekly attempt');
+
         const startBody = { hostName: player!.name, requestId: requestId('solo-start'), hostLoadout: {} };
         const starts = await Promise.all([
             http('/api/clan-boss/assault-start', { method: 'POST', token: player!.token, body: startBody }),
