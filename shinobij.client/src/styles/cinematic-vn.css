@@ -301,12 +301,14 @@
     color: rgba(255, 224, 224, .76);
 }
 
-.cvn-quiet-control:hover,
-.cvn-icon-control:hover,
-.cvn-skip:hover {
-    border-color: color-mix(in srgb, var(--cvn-accent) 65%, transparent);
-    background: rgba(19, 25, 31, .88);
-    color: #fff;
+@media (hover: hover) {
+    .cvn-quiet-control:hover,
+    .cvn-icon-control:hover,
+    .cvn-skip:hover {
+        border-color: color-mix(in srgb, var(--cvn-accent) 65%, transparent);
+        background: rgba(19, 25, 31, .88);
+        color: #fff;
+    }
 }
 
 .cvn-title-card {
@@ -716,10 +718,12 @@
     text-transform: none;
 }
 
-.cvn-dialogue-footer button:hover,
-.cvn-dialogue-footer .vn-choice-btn:hover {
-    border-color: color-mix(in srgb, var(--cvn-accent) 72%, transparent);
-    background: color-mix(in srgb, var(--cvn-accent) 13%, rgba(18, 25, 32, .94));
+@media (hover: hover) {
+    .cvn-dialogue-footer button:hover,
+    .cvn-dialogue-footer .vn-choice-btn:hover {
+        border-color: color-mix(in srgb, var(--cvn-accent) 72%, transparent);
+        background: color-mix(in srgb, var(--cvn-accent) 13%, rgba(18, 25, 32, .94));
+    }
 }
 
 .cvn-dialogue-footer .vn-choices {

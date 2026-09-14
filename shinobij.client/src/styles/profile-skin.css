@@ -75,9 +75,11 @@
     cursor: pointer;
     transition: color 120ms, background 120ms, border-color 120ms;
 }
-.profile-mobile-tabs button:hover,
-.inventory-tabs button:hover {
-    color: var(--bsv2-gold-bright) !important;
+@media (hover: hover) {
+    .profile-mobile-tabs button:hover,
+    .inventory-tabs button:hover {
+        color: var(--bsv2-gold-bright) !important;
+    }
 }
 /* The active-tab treatment now belongs to veiled-steel.css (steel surface +
    spirit underline; village accent on selected navigation per the contract).
@@ -403,10 +405,12 @@
     cursor: pointer;
     box-shadow: inset 0 1px rgba(255,255,255,0.3), 0 0 8px rgba(209,167,88,0.22);
 }
-.stat-add-btn:hover,
-.stat-card-input-row button:hover {
-    filter: brightness(1.08);
-    box-shadow: inset 0 1px rgba(255,255,255,0.32), 0 0 12px rgba(209,167,88,0.4);
+@media (hover: hover) {
+    .stat-add-btn:hover,
+    .stat-card-input-row button:hover {
+        filter: brightness(1.08);
+        box-shadow: inset 0 1px rgba(255,255,255,0.32), 0 0 12px rgba(209,167,88,0.4);
+    }
 }
 .stat-add-btn:disabled,
 .stat-card-input-row button:disabled {
@@ -581,9 +585,11 @@
     text-transform: uppercase;
     cursor: pointer;
 }
-.profile-page-card .profile-title-btn:hover {
-    border-color: var(--bsv2-gold-bright) !important;
-    transform: translateY(-1px);
+@media (hover: hover) {
+    .profile-page-card .profile-title-btn:hover {
+        border-color: var(--bsv2-gold-bright) !important;
+        transform: translateY(-1px);
+    }
 }
 .profile-title-input {
     background: rgba(0,0,0,0.4) !important;
@@ -681,9 +687,11 @@
     cursor: pointer;
     transition: color 120ms, background 120ms, border-color 120ms;
 }
-.profile-page-card .profile-mobile-tabs .pmtab:hover {
-    color: #e8d496 !important;
-    background: rgba(196,162,90,0.06) !important;
+@media (hover: hover) {
+    .profile-page-card .profile-mobile-tabs .pmtab:hover {
+        color: #e8d496 !important;
+        background: rgba(196,162,90,0.06) !important;
+    }
 }
 /* .pmtab-active intentionally has no rule here — veiled-steel.css owns the
    selected-tab material (spirit tint). */
@@ -918,9 +926,11 @@
     letter-spacing: 0.14em;
     text-transform: uppercase;
 }
-.profile-page-card .sic-avatar-upload-button:hover {
-    border-color: rgba(147,197,253,0.9);
-    box-shadow: 0 0 14px rgba(78,168,255,0.36);
+@media (hover: hover) {
+    .profile-page-card .sic-avatar-upload-button:hover {
+        border-color: rgba(147,197,253,0.9);
+        box-shadow: 0 0 14px rgba(78,168,255,0.36);
+    }
 }
 .profile-page-card .sic-avatar-upload-button input {
     display: none;
@@ -1296,7 +1306,9 @@
     text-align: left;
     font: inherit;
 }
-.bh-card-header:hover { background: rgba(196,162,90,0.06); }
+@media (hover: hover) {
+    .bh-card-header:hover { background: rgba(196,162,90,0.06); }
+}
 .bh-chevron { color: #7c8496; font-size: 11px; width: 12px; flex: 0 0 auto; }
 .bh-badge {
     font-weight: 800;
@@ -1351,9 +1363,11 @@
 .inventory-page .character-equip-slot {
     transition: border-color 120ms, box-shadow 120ms !important;
 }
-.inventory-page .character-equip-slot:hover {
-    border-color: rgba(78,168,255,0.85) !important;
-    box-shadow: 0 0 10px rgba(78,168,255,0.25) !important;
+@media (hover: hover) {
+    .inventory-page .character-equip-slot:hover {
+        border-color: rgba(78,168,255,0.85) !important;
+        box-shadow: 0 0 10px rgba(78,168,255,0.25) !important;
+    }
 }
 /* Center-column slots keep their translateX(-50%) on hover/active states */
 .inventory-page .slot-head,
@@ -1363,17 +1377,21 @@
 .inventory-page .slot-feet {
     transform: translateX(-50%) !important;
 }
-.inventory-page .slot-head:hover,
-.inventory-page .slot-chest:hover,
-.inventory-page .slot-waist:hover,
-.inventory-page .slot-legs:hover,
-.inventory-page .slot-feet:hover,
 .inventory-page .slot-head.slot-filter-active,
 .inventory-page .slot-chest.slot-filter-active,
 .inventory-page .slot-waist.slot-filter-active,
 .inventory-page .slot-legs.slot-filter-active,
 .inventory-page .slot-feet.slot-filter-active {
     transform: translateX(-50%) !important;
+}
+@media (hover: hover) {
+    .inventory-page .slot-head:hover,
+    .inventory-page .slot-chest:hover,
+    .inventory-page .slot-waist:hover,
+    .inventory-page .slot-legs:hover,
+    .inventory-page .slot-feet:hover {
+        transform: translateX(-50%) !important;
+    }
 }
 .inventory-page .character-equip-slot.slot-filter-active {
     border-color: #4ea8ff !important;
@@ -1413,8 +1431,10 @@
     text-transform: uppercase !important;
     cursor: pointer;
 }
-.inventory-page .slot-filter-bar button:hover {
-    border-color: #e8d496 !important;
+@media (hover: hover) {
+    .inventory-page .slot-filter-bar button:hover {
+        border-color: #e8d496 !important;
+    }
 }
 
 /* ---- Backpack category tab strip (Gear / Consumables / Pet / … / Event) ---- */
@@ -1443,9 +1463,11 @@
     cursor: pointer;
     transition: color 120ms, background 120ms, border-color 120ms;
 }
-.inventory-page .inventory-category-bar button:hover {
-    color: var(--bsv2-gold-bright) !important;
-    border-color: var(--bsv2-gold-soft) !important;
+@media (hover: hover) {
+    .inventory-page .inventory-category-bar button:hover {
+        color: var(--bsv2-gold-bright) !important;
+        border-color: var(--bsv2-gold-soft) !important;
+    }
 }
 .inventory-page .inventory-category-bar button.active {
     color: var(--bsv2-player) !important;
@@ -1523,8 +1545,10 @@
     width: 100%;
     color: var(--blue-300);
 }
-.inventory-page .inventory-search-clear:hover {
-    color: var(--bsv2-gold-bright) !important;
+@media (hover: hover) {
+    .inventory-page .inventory-search-clear:hover {
+        color: var(--bsv2-gold-bright) !important;
+    }
 }
 
 /* ---- Backpack item cards: tighten image fit, reduce icon size ---- */
@@ -1829,9 +1853,11 @@
     cursor: pointer;
     transition: background 120ms, border-color 120ms, box-shadow 120ms;
 }
-.profile-page-card .aura-sphere-inline-button:hover:not(:disabled) {
-    border-color: var(--bsv2-gold-bright);
-    box-shadow: 0 0 12px rgba(232,212,150,0.25);
+@media (hover: hover) {
+    .profile-page-card .aura-sphere-inline-button:hover:not(:disabled) {
+        border-color: var(--bsv2-gold-bright);
+        box-shadow: 0 0 12px rgba(232,212,150,0.25);
+    }
 }
 .profile-page-card .aura-sphere-inline-button:disabled {
     opacity: 0.5;
@@ -1884,9 +1910,11 @@
     border-radius: 4px;
     transition: color 120ms, background 120ms;
 }
-.achievement-detail-close:hover {
-    color: var(--bsv2-gold-bright);
-    background: rgba(196,162,90,0.12);
+@media (hover: hover) {
+    .achievement-detail-close:hover {
+        color: var(--bsv2-gold-bright);
+        background: rgba(196,162,90,0.12);
+    }
 }
 .achievement-detail-badge {
     position: relative;
@@ -2217,10 +2245,12 @@
     box-shadow: none;
 }
 
-.profile-page-card .jutsu-workbench-tabs button:hover {
-    color: #d9e2ec;
-    border-color: rgba(141, 197, 211, 0.32);
-    background: linear-gradient(180deg, rgba(31, 49, 69, 0.72), rgba(10, 21, 34, 0.48));
+@media (hover: hover) {
+    .profile-page-card .jutsu-workbench-tabs button:hover {
+        color: #d9e2ec;
+        border-color: rgba(141, 197, 211, 0.32);
+        background: linear-gradient(180deg, rgba(31, 49, 69, 0.72), rgba(10, 21, 34, 0.48));
+    }
 }
 
 .profile-page-card .jutsu-workbench-tabs button.is-active {
@@ -2503,9 +2533,11 @@
     cursor: pointer;
 }
 
-.profile-page-card .jutsu-slot-remove:hover {
-    color: #fff;
-    background: #94363c;
+@media (hover: hover) {
+    .profile-page-card .jutsu-slot-remove:hover {
+        color: #fff;
+        background: #94363c;
+    }
 }
 
 .profile-page-card .jutsu-slot-select {
@@ -2891,9 +2923,11 @@
     cursor: pointer;
 }
 
-.profile-page-card .jutsu-quick-equip:hover {
-    color: #071018;
-    background: #8dc5d3;
+@media (hover: hover) {
+    .profile-page-card .jutsu-quick-equip:hover {
+        color: #071018;
+        background: #8dc5d3;
+    }
 }
 
 .profile-page-card .jutsu-quick-equip:disabled {
@@ -3403,17 +3437,21 @@
     min-width: 0;
     width: 100%;
 }
-.user-hub-screen .user-hub-row:hover {
-    transform: translateY(-1px);
-    border-color: rgba(196,162,90,0.55);
-    box-shadow: 0 0 12px rgba(196,162,90,0.18);
+@media (hover: hover) {
+    .user-hub-screen .user-hub-row:hover {
+        transform: translateY(-1px);
+        border-color: rgba(196,162,90,0.55);
+        box-shadow: 0 0 12px rgba(196,162,90,0.18);
+    }
 }
 .user-hub-screen .user-hub-row.online {
     border-color: rgba(74,222,128,0.45);
     box-shadow: 0 0 10px rgba(74,222,128,0.15), inset 0 1px 0 rgba(255,255,255,0.04);
 }
-.user-hub-screen .user-hub-row.online:hover {
-    box-shadow: 0 0 18px rgba(74,222,128,0.3);
+@media (hover: hover) {
+    .user-hub-screen .user-hub-row.online:hover {
+        box-shadow: 0 0 18px rgba(74,222,128,0.3);
+    }
 }
 .user-hub-screen .user-hub-avatar {
     width: 48px;

@@ -382,11 +382,13 @@
 
 .jutsu-training-screen .technique-card.is-bloodline { border-color: rgba(167, 139, 250, 0.55) !important; }
 
-.jutsu-training-screen .technique-card:hover:not(:disabled) {
-    translate: 0 -2px;
-    border-color: rgba(96, 165, 250, 0.72) !important;
-    background: linear-gradient(180deg, #172640, #0b1730) !important;
-    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.34), 0 0 16px rgba(59, 130, 246, 0.12) !important;
+@media (hover: hover) {
+    .jutsu-training-screen .technique-card:hover:not(:disabled) {
+        translate: 0 -2px;
+        border-color: rgba(96, 165, 250, 0.72) !important;
+        background: linear-gradient(180deg, #172640, #0b1730) !important;
+        box-shadow: 0 8px 18px rgba(0, 0, 0, 0.34), 0 0 16px rgba(59, 130, 246, 0.12) !important;
+    }
 }
 
 .jutsu-training-screen .technique-card.selected {

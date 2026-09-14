@@ -1011,8 +1011,10 @@
         cursor: not-allowed;
     }
 
-    .rank-up-btn:not(:disabled):hover {
-        opacity: 0.85;
+    @media (hover: hover) {
+        .rank-up-btn:not(:disabled):hover {
+            opacity: 0.85;
+        }
     }
 
 .hunt-rank-section {
@@ -1166,9 +1168,11 @@
     justify-content: center;
 }
 
-    .weapon-info-btn:hover {
-        background: rgba(59,130,246,.3);
-        border-color: var(--blue-300);
+    @media (hover: hover) {
+        .weapon-info-btn:hover {
+            background: rgba(59,130,246,.3);
+            border-color: var(--blue-300);
+        }
     }
 
 /* ─── GameAlert (styled replacement for window.alert) ───────────────────── */
@@ -1319,9 +1323,11 @@
     transition: transform 80ms ease, box-shadow 120ms ease, filter 120ms ease;
 }
 
-    .game-alert-ok:hover {
-        filter: brightness(1.07);
-        box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3), 0 0 18px rgba(250, 204, 21, 0.55);
+    @media (hover: hover) {
+        .game-alert-ok:hover {
+            filter: brightness(1.07);
+            box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3), 0 0 18px rgba(250, 204, 21, 0.55);
+        }
     }
 
     .game-alert-ok:active {
@@ -1350,7 +1356,9 @@
     transition: transform 80ms ease, filter 120ms ease;
 }
 
-    .game-alert-cancel:hover { filter: brightness(1.1); }
+    @media (hover: hover) {
+        .game-alert-cancel:hover { filter: brightness(1.1); }
+    }
     .game-alert-cancel:active { transform: translateY(1px); }
     .game-alert-cancel:focus-visible { outline: 2px solid var(--text-dim); outline-offset: 2px; }
 
@@ -1361,8 +1369,10 @@
         box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3), 0 0 12px rgba(220, 38, 38, 0.4);
     }
 
-    .game-alert-ok.danger:hover {
-        box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3), 0 0 18px rgba(220, 38, 38, 0.6);
+    @media (hover: hover) {
+        .game-alert-ok.danger:hover {
+            box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3), 0 0 18px rgba(220, 38, 38, 0.6);
+        }
     }
 
 @media (max-width: 600px) {
@@ -1404,7 +1414,9 @@
     line-height: 1;
 }
 
-    .modal-close-btn:hover { color: var(--slate-200); }
+    @media (hover: hover) {
+        .modal-close-btn:hover { color: var(--slate-200); }
+    }
 
 .weapon-info-modal {
     max-width: 320px;
@@ -1717,7 +1729,9 @@
         outline-offset 0.15s;
 }
 
-.council-tab:hover { border-color: rgba(139, 92, 246, 0.5); color: #d1d5db; }
+@media (hover: hover) {
+    .council-tab:hover { border-color: rgba(139, 92, 246, 0.5); color: #d1d5db; }
+}
 
 .council-tab-active {
     background: rgba(109, 40, 217, 0.25);
@@ -1870,9 +1884,11 @@
     white-space: nowrap;
 }
 
-.hol-tab:hover {
-    border-color: rgba(202, 138, 4, 0.5);
-    color: #d6d3d1;
+@media (hover: hover) {
+    .hol-tab:hover {
+        border-color: rgba(202, 138, 4, 0.5);
+        color: #d6d3d1;
+    }
 }
 
 .hol-tab-active {
@@ -2244,9 +2260,11 @@
     transition: filter 0.12s, box-shadow 0.12s;
 }
 
-.tavern-send-btn:hover:not(:disabled) {
-    filter: brightness(1.12);
-    box-shadow: 0 3px 14px rgba(202, 138, 4, 0.55);
+@media (hover: hover) {
+    .tavern-send-btn:hover:not(:disabled) {
+        filter: brightness(1.12);
+        box-shadow: 0 3px 14px rgba(202, 138, 4, 0.55);
+    }
 }
 
 .tavern-send-btn:disabled {
@@ -2277,12 +2295,19 @@
 
 .tavern-message:hover .tavern-reply-btn { opacity: 1; }
 
-.tavern-reply-btn:hover,
 .tavern-reply-btn:active {
     opacity: 1;
     background: rgba(202, 138, 4, 0.16);
     border-color: rgba(202, 138, 4, 0.45);
     color: var(--gold-300);
+}
+@media (hover: hover) {
+    .tavern-reply-btn:hover {
+        opacity: 1;
+        background: rgba(202, 138, 4, 0.16);
+        border-color: rgba(202, 138, 4, 0.45);
+        color: var(--gold-300);
+    }
 }
 
 /* No hover on touch devices — keep the action visible so it's discoverable. */
@@ -2379,10 +2404,15 @@
     transition: background 0.12s, color 0.12s;
 }
 
-.tavern-reply-cancel:hover,
 .tavern-reply-cancel:active {
     background: rgba(202, 138, 4, 0.2);
     color: var(--gold-300);
+}
+@media (hover: hover) {
+    .tavern-reply-cancel:hover {
+        background: rgba(202, 138, 4, 0.2);
+        color: var(--gold-300);
+    }
 }
 
 
@@ -2455,9 +2485,11 @@
     transition: filter 0.15s, box-shadow 0.15s, transform 0.08s;
 }
 
-.council-claim-btn:hover:not(:disabled) {
-    filter: brightness(1.08);
-    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35), 0 0 26px rgba(250, 204, 21, 0.45);
+@media (hover: hover) {
+    .council-claim-btn:hover:not(:disabled) {
+        filter: brightness(1.08);
+        box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35), 0 0 26px rgba(250, 204, 21, 0.45);
+    }
 }
 
 .council-claim-btn:active:not(:disabled) { transform: translateY(1px); }
