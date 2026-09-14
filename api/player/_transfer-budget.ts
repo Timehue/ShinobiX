@@ -58,6 +58,52 @@ export function transferBudgetKey(slug: string, currency: TradeCurrency): string
     return `xfer:out:${slug}:${currency}`;
 }
 
+/**
+ * The per-sender lock that makes check-then-charge one step.
+ *
+ * A send reads the ledger (`checkOutboundBudget`) and only writes it
+ * (`chargeOutboundBudget`) once the transfer has committed, so that a refusal
+ * never eats budget. The price is that two sends from one sender must not
+ * interleave between those two steps: if they do, both pass the same check and
+ * jointly overshoot the ceiling. The treasury doors lock the TREASURY row and
+ * the RECIPIENT's save, and neither of those is the sender's, so a burst of
+ * simultaneous gifts all read one ledger before any of them charged. Every
+ * send door holds this gate from before its check until after its charge, so
+ * same-sender sends queue behind each other whichever door they came through.
+ *
+ * Lock order is gate → save/row locks → ledger lock (innermost). The gate is
+ * only ever taken first, by code holding no other lock, so it cannot close a
+ * cycle with either.
+ *
+ * It is a different key from the ledger's own lock because `withKvLock` is not
+ * re-entrant: `chargeOutboundBudget` takes the ledger lock inside this one, and
+ * on a shared key it would spend its retries waiting on itself and then drop
+ * the stamp silently.
+ */
+export function transferGateKey(slug: string, currency: TradeCurrency): string {
+    return `xfer:gate:${slug}:${currency}`;
+}
+
+// The gate is held across a whole settlement: two nested row locks, each of
+// which may wait up to ~0.8 s, plus a dozen or more storage round trips. It
+// therefore needs a longer lease than the 5 s default. If a slow holder's lease
+// ran out, the next send could read the ledger before this one charged. A
+// crashed holder still frees the gate after this.
+const GATE_TTL_SEC = 15;
+// A waiter queues behind a whole send rather than one read-modify-write, so it
+// gets ~3 s of retries before failing closed instead of ~0.8 s. Ordinary play
+// never waits here: both treasury clients refuse a second gift until the first
+// has answered.
+const GATE_MAX_ATTEMPTS = 7;
+
+export async function withOutboundBudgetGate<T>(
+    slug: string, currency: TradeCurrency, fn: () => Promise<T>,
+): Promise<T> {
+    return withKvLock(transferGateKey(slug, currency), fn, {
+        failClosed: true, ttlSec: GATE_TTL_SEC, maxAttempts: GATE_MAX_ATTEMPTS,
+    });
+}
+
 export function outboundLimit(currency: TradeCurrency, tier: TransferTier): number {
     return (tier === 'restricted' ? RESTRICTED_OUTBOUND : TRUSTED_OUTBOUND)[currency];
 }
@@ -99,6 +145,12 @@ export async function senderTrustTier(slug: string, character: Record<string, un
     const createdAt = Math.floor(Number(character.createdAt ?? 0)) || 0;
     if (createdAt > 0 && Date.now() - createdAt < ACCOUNT_AGE_MIN_MS) return 'restricted';
     return 'trusted';
+}
+
+/** {@link senderTrustTier} for a sender whose save the caller has not loaded. */
+export async function senderTrustTierBySlug(slug: string): Promise<TransferTier> {
+    const record = await kv.get<Record<string, unknown>>(`save:${slug}`);
+    return senderTrustTier(slug, (record?.character ?? null) as Record<string, unknown> | null);
 }
 
 export type BudgetCheck =
@@ -170,10 +222,14 @@ function boundStamps(kept: Stamp[]): Stamp[] {
  * was not one, which is the exact failure this whole module was written to fix.
  *
  * ⚠ This lock must stay INNERMOST. /api/player/trade calls this while holding
- * the sender and recipient save locks, so anything that took the ledger lock
- * and then reached for a save lock would close a deadlock cycle. Nothing inside
- * here acquires another lock, and no caller should hold this one across a
- * settlement.
+ * the sender and recipient save locks, and every door calls it while holding
+ * the sender's gate (`withOutboundBudgetGate`), so anything that took the
+ * ledger lock and then reached for a save lock or a gate would close a deadlock
+ * cycle. Nothing inside here acquires another lock, and no caller should hold
+ * this one across a settlement.
+ *
+ * This lock only keeps concurrent CHARGES from losing stamps. It does not stop
+ * two sends from passing the same check, which is the gate's job.
  *
  * Still best-effort on failure: the transfer has already committed by the time
  * this runs, so losing a stamp must never fail the transfer.
