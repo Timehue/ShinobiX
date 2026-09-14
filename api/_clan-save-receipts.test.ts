@@ -40,6 +40,21 @@ test('ordinary clan edits retain the server treasury evidence', () => {
     assert.deepEqual(withoutReceipts, ordinary);
 });
 
+test('clan saves cannot rewrite the weekly Clan Boss reward receipts', () => {
+    // The weekly settlement pays a clan once by committing the week id here in
+    // the same write as the treasury credit. Dropping it would let a resumed
+    // settlement pay that week again; adding one would skip a real payout.
+    const paid = ['2026-W29', '2026-W30'];
+    for (const ctx of [{ callerName: 'founder', isAdmin: false }, { callerName: 'member', isAdmin: false }, { callerName: 'admin', isAdmin: true }]) {
+        for (const incoming of [undefined, [], ['2026-W29'], [...paid, '2026-W31']]) {
+            const next = validateClanSaveWrite({ ...prior, clanBossRewardReceipts: paid }, { ...prior, clanBossRewardReceipts: incoming }, ctx).next;
+            assert.deepEqual(next.clanBossRewardReceipts, paid);
+        }
+    }
+    const bootstrap = validateClanSaveWrite(null, { ...prior, clanBossRewardReceipts: ['2026-W30'] }, { callerName: 'founder', isAdmin: false }).next;
+    assert.equal(bootstrap.clanBossRewardReceipts, undefined);
+});
+
 test('clan bootstrap cannot inject a source-debit receipt', () => {
     const next = validateClanSaveWrite(null, { ...prior, settlementReceipts: forged }, { callerName: 'founder', isAdmin: false }).next;
     assert.equal(next.settlementReceipts, undefined);
