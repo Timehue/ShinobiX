@@ -15,6 +15,7 @@ import { test as base, type APIRequestContext } from '@playwright/test';
 // Import `test` from here instead of '@playwright/test' and the `request`
 // fixture reconnects. `page.request` and `route.fetch` use the same pooled
 // sockets but are not that fixture: pass them `maxRetries: API_CONNECTION_RETRIES`.
+// scripts/live-e2e-reconnect.test.mjs fails a live spec that does neither.
 export const API_CONNECTION_RETRIES = 1;
 const RETRYING_API_METHODS = new Set(['fetch', 'get', 'post', 'put', 'patch', 'delete', 'head']);
 
