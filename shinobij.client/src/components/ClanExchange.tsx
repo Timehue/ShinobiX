@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { useCallback, useEffect, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { GameIcon, type GameIconName } from "./icons/GameIcon";
 import { ClanImageMark } from "./Marks";
 import { clanExchangeItemArt } from "./ClanExchangeItemArt";
@@ -10,6 +10,7 @@ import type { ClanTreasury, EnhancedClanData } from "../types/clan";
 import type { GameItem } from "../types/combat";
 import { cleanClanTreasury, enhanceClanData } from "../lib/clan-math";
 import { postClanExchangePurchase, type ClanExchangePurchaseResponse } from "../lib/player-api";
+import { paidPendingClanExchangeRequests, recoverPaidClanExchangePurchase, type PaidClanExchangeRequest } from "../lib/clan-exchange-recovery";
 
 type ExchangeLimit =
     | { kind: "weekly"; count: number }
@@ -208,6 +209,24 @@ export function ClanExchange({
     const [busyItem, setBusyItem] = useState<string | null>(null);
     const [reveal, setReveal] = useState<ClanExchangePurchaseResponse["reveal"] | null>(null);
     const purchaseBusyRef = useRef(false);
+    const recoveryCommit = useRef({onVersionedCharacter, setClanData});
+    useEffect(() => { recoveryCommit.current = {onVersionedCharacter, setClanData}; }, [onVersionedCharacter, setClanData]);
+    const paidRequests = JSON.stringify(paidPendingClanExchangeRequests(character, clanData.name));
+    useEffect(() => {
+        let mounted = true;
+        // An already-paid grant can exhaust the card's balance/stock and disable
+        // its normal button. Finish that exact request without another player action.
+        const resume = async () => {
+            for (const {itemId, requestId} of JSON.parse(paidRequests) as PaidClanExchangeRequest[]) {
+                if (!mounted) return;
+                const result = await recoverPaidClanExchangePurchase(character.name, clanData.name, itemId, requestId);
+                if (mounted && result) applyExchangeResponse(result, recoveryCommit.current.onVersionedCharacter, recoveryCommit.current.setClanData);
+            }
+        };
+        void resume();
+        window.addEventListener('online', resume);
+        return () => { mounted = false; window.removeEventListener('online', resume); };
+    }, [character.name, clanData.name, paidRequests]);
     const clanPoints = num(character.clanPoints);
     const statusPriority = { ready: 0, "need-points": 1, "limit-reached": 2, unavailable: 3, "level-locked": 4, "coming-soon": 5 } as const;
     const unlockedItems = EXCHANGE_ITEMS
