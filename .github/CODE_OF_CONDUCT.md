@@ -21,7 +21,7 @@ which is the fuller statement if you want one.
 
 ## Reporting
 
-Message a maintainer privately in the [Discord](https://discord.gg/bCQGs8r6SK).
+Message a maintainer privately in the [Discord](https://discord.gg/usr3vzykBh).
 Please do not put a report in a public issue — that is bad for the person
 reporting and bad for the person reported.
 
