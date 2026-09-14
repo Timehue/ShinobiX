@@ -113,8 +113,11 @@ test('combat handoffs select Combat for profession players, including an already
 });
 test('Inventory can open the journal in place and restores keyboard focus', async ({ page }) => {
     await setup(page, {}, 'inventory');
-    const rail = page.locator('.fc-rail');
-    const trigger = await rail.isVisible() ? rail : page.locator('.fc-ribbon button');
+    // adaptive-shell.css swaps the desktop rails for the phone nav at 980px, so
+    // the width decides which trigger exists. A one-shot isVisible() sample
+    // usually ran before the lazy rail mounted and fell back to the ribbon,
+    // which hid a dropped rail click at boot. click() waits for the rail.
+    const trigger = (page.viewportSize()?.width ?? 0) >= 980 ? page.locator('.fc-rail') : page.locator('.fc-ribbon button');
     await trigger.click();
     const journal = page.getByRole('dialog', { name: 'First Contract field journal' });
     await expect(journal).toBeVisible();

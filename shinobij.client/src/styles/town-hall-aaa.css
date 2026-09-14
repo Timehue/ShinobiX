@@ -124,11 +124,13 @@
     transition: opacity 150ms ease, transform 150ms ease;
 }
 
-.app-shell.screen-townHall .town-tabs > button:hover {
-    border-color: rgba(120, 201, 232, 0.22);
-    background: rgba(120, 201, 232, 0.06);
-    color: #e8f4fa;
-    transform: translateY(-1px);
+@media (hover: hover) {
+    .app-shell.screen-townHall .town-tabs > button:hover {
+        border-color: rgba(120, 201, 232, 0.22);
+        background: rgba(120, 201, 232, 0.06);
+        color: #e8f4fa;
+        transform: translateY(-1px);
+    }
 }
 
 .app-shell.screen-townHall .town-tabs > button:is(.active, [aria-pressed="true"]) {
@@ -572,10 +574,12 @@
     color: #eef6fa;
 }
 
-.app-shell.screen-townHall .elder-card > button:not(:disabled):hover {
-    border-color: var(--elder-accent);
-    background: color-mix(in srgb, var(--elder-accent) 15%, #111c27);
-    color: #fff;
+@media (hover: hover) {
+    .app-shell.screen-townHall .elder-card > button:not(:disabled):hover {
+        border-color: var(--elder-accent);
+        background: color-mix(in srgb, var(--elder-accent) 15%, #111c27);
+        color: #fff;
+    }
 }
 
 .app-shell.screen-townHall .town-elder-selected {
