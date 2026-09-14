@@ -235,8 +235,10 @@
     text-overflow: ellipsis !important;
 }
 
-.combat-jutsu-button:hover {
-    transform: none !important;
+@media (hover: hover) {
+    .combat-jutsu-button:hover {
+        transform: none !important;
+    }
 }
 /* ===== Darker combat jutsu background ===== */
 
@@ -452,10 +454,12 @@
     z-index: 4 !important;
 }
 
-    .combat-jutsu-help:hover {
-        transform: none !important;
-        background: var(--gold) !important;
-        color: #111827 !important;
+    @media (hover: hover) {
+        .combat-jutsu-help:hover {
+            transform: none !important;
+            background: var(--gold) !important;
+            color: #111827 !important;
+        }
     }
 
 .combat-jutsu-detail-popover {

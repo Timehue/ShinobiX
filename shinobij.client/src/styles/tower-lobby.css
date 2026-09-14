@@ -71,10 +71,15 @@
     text-align: left;
 }
 
-.tower-route-option:hover,
 .tower-route-option:focus-visible {
     border-color: rgba(125, 211, 252, 0.7);
     background: rgba(14, 116, 144, 0.18);
+}
+@media (hover: hover) {
+    .tower-route-option:hover {
+        border-color: rgba(125, 211, 252, 0.7);
+        background: rgba(14, 116, 144, 0.18);
+    }
 }
 
 .tower-route-option.is-selected {
@@ -672,7 +677,9 @@
     cursor: pointer;
     transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
 }
-.tower-story-floor-card:hover { border-color: color-mix(in srgb, var(--tower-floor-accent) 70%, #64748b); }
+@media (hover: hover) {
+    .tower-story-floor-card:hover { border-color: color-mix(in srgb, var(--tower-floor-accent) 70%, #64748b); }
+}
 .tower-story-floor-card:focus-visible { outline: 3px solid #f8fafc; outline-offset: 2px; }
 .tower-story-floor-card.is-selected {
     border-color: var(--tower-floor-accent);
@@ -871,7 +878,9 @@
     transition: border-color 140ms ease, box-shadow 140ms ease, filter 140ms ease, transform 140ms ease;
 }
 
-.tower-ready-room button:not(:disabled):hover { filter: brightness(1.12); }
+@media (hover: hover) {
+    .tower-ready-room button:not(:disabled):hover { filter: brightness(1.12); }
+}
 .tower-ready-room button:not(:disabled):active { transform: translateY(1px); }
 .tower-ready-room button:disabled {
     cursor: not-allowed;

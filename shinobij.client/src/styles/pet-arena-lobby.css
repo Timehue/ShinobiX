@@ -111,7 +111,9 @@
     backdrop-filter: blur(12px);
 }
 
-.pet-arena-return:hover { border-color: rgba(240,202,121,.75); background: rgba(12,22,33,.9); }
+@media (hover: hover) {
+    .pet-arena-return:hover { border-color: rgba(240,202,121,.75); background: rgba(12,22,33,.9); }
+}
 .pet-arena-return-arrow { display: grid; flex: 0 0 auto; place-items: center; width: 31px; height: 31px; border-radius: 8px; color: #06101a; background: var(--arena-gold); font-size: 1rem; font-weight: 950; }
 .pet-arena-return > span:last-child { display: grid; min-width: 0; gap: .08rem; text-align: left; }
 .pet-arena-return small { color: #7e93a0; font-size: .54rem; font-weight: 900; letter-spacing: .15em; text-transform: uppercase; }
@@ -164,7 +166,9 @@
     transition: transform .16s ease,border-color .16s ease,background .16s ease;
 }
 
-.pet-arena-activity-nav button:hover:not(:disabled) { transform: translateY(-2px); border-color: rgba(240,202,121,.48); background: rgba(12,24,36,.9); }
+@media (hover: hover) {
+    .pet-arena-activity-nav button:hover:not(:disabled) { transform: translateY(-2px); border-color: rgba(240,202,121,.48); background: rgba(12,24,36,.9); }
+}
 .pet-arena-activity-nav button.active { border-color: rgba(102,224,223,.7); color: #e9ffff; background: linear-gradient(135deg,rgba(22,83,92,.88),rgba(7,27,40,.9)); box-shadow: 0 0 0 1px rgba(102,224,223,.14) inset,0 10px 28px rgba(0,0,0,.2); }
 .pet-arena-activity-nav button:disabled { opacity: .5; cursor: not-allowed; }
 .pet-arena-activity-icon { display: grid; place-items: center; overflow: hidden; width: 39px; height: 39px; border: 1px solid rgba(240,202,121,.24); border-radius: 10px; color: var(--arena-gold); background: rgba(240,202,121,.07); }
@@ -211,7 +215,9 @@
 .pet-arena-lobby .pet-arena-selector .pet-pick-panel { border-color: rgba(173,207,224,.12) !important; border-radius: 14px !important; background: rgba(2,8,16,.56) !important; padding: .65rem !important; box-shadow: inset 0 0 28px rgba(0,0,0,.28); }
 .pet-arena-lobby .pet-arena-selector .pet-pick-strip { grid-template-columns: repeat(auto-fit,minmax(105px,1fr)) !important; max-height: 236px; gap: .55rem !important; }
 .pet-arena-lobby .pet-arena-selector .pet-pick { min-width: 0; gap: .35rem; border: 1px solid rgba(173,207,224,.14) !important; border-radius: 13px !important; background: linear-gradient(180deg,rgba(18,31,46,.88),rgba(5,12,23,.94)) !important; padding: .65rem .45rem .58rem !important; box-shadow: none; }
-.pet-arena-lobby .pet-arena-selector .pet-pick:hover:not(:disabled) { border-color: rgba(240,202,121,.45) !important; box-shadow: 0 10px 24px rgba(0,0,0,.24); }
+@media (hover: hover) {
+    .pet-arena-lobby .pet-arena-selector .pet-pick:hover:not(:disabled) { border-color: rgba(240,202,121,.45) !important; box-shadow: 0 10px 24px rgba(0,0,0,.24); }
+}
 .pet-arena-lobby .pet-arena-selector .pet-pick.selected { border-color: var(--arena-cyan) !important; background: linear-gradient(180deg,rgba(20,93,99,.5),rgba(5,28,39,.92)) !important; box-shadow: 0 0 0 1px rgba(102,224,223,.15),0 0 26px rgba(102,224,223,.13); }
 .pet-arena-lobby .pet-arena-selector .pet-pick-img { width: 68px; height: 68px; border: 1px solid rgba(240,202,121,.32); background: radial-gradient(circle,rgba(102,224,223,.16),rgba(3,9,18,.8)); object-fit: contain; }
 .pet-arena-lobby .pet-arena-selector .pet-pick-name { font-size: .66rem !important; }
@@ -268,8 +274,12 @@
 .pet-arena-destination { position: relative; display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: .9rem; min-width: 0; min-height: 132px; overflow: hidden; border: 1px solid rgba(240,202,121,.28); border-radius: 18px; color: #f6ead0; background: radial-gradient(circle at 0 50%,rgba(240,202,121,.13),transparent 35%),linear-gradient(135deg,rgba(27,27,33,.98),rgba(8,15,27,.98)); padding: 1rem; text-align: left; box-shadow: 0 16px 40px rgba(0,0,0,.24); transition: transform .18s ease,border-color .18s ease,box-shadow .18s ease; }
 .pet-arena-destination.is-training { border-color: rgba(102,224,223,.25); background: radial-gradient(circle at 0 50%,rgba(102,224,223,.12),transparent 35%),linear-gradient(135deg,rgba(11,33,45,.98),rgba(7,15,27,.98)); }
 .pet-arena-destination::after { content: ""; position: absolute; top: 0; right: 0; width: 32%; height: 100%; opacity: .18; background: repeating-linear-gradient(135deg,transparent 0 12px,rgba(255,255,255,.08) 12px 13px); pointer-events: none; }
-.pet-arena-destination:hover { transform: translateY(-3px); border-color: rgba(240,202,121,.7); box-shadow: 0 22px 50px rgba(0,0,0,.35),0 0 28px rgba(240,202,121,.08); }
-.pet-arena-destination.is-training:hover { border-color: rgba(102,224,223,.68); box-shadow: 0 22px 50px rgba(0,0,0,.35),0 0 28px rgba(102,224,223,.08); }
+@media (hover: hover) {
+    .pet-arena-destination:hover { transform: translateY(-3px); border-color: rgba(240,202,121,.7); box-shadow: 0 22px 50px rgba(0,0,0,.35),0 0 28px rgba(240,202,121,.08); }
+}
+@media (hover: hover) {
+    .pet-arena-destination.is-training:hover { border-color: rgba(102,224,223,.68); box-shadow: 0 22px 50px rgba(0,0,0,.35),0 0 28px rgba(102,224,223,.08); }
+}
 .pet-arena-destination-icon { display: grid; place-items: center; width: 55px; height: 55px; border: 1px solid rgba(240,202,121,.36); border-radius: 15px; color: var(--arena-gold); background: rgba(240,202,121,.08); }
 .is-training .pet-arena-destination-icon { border-color: rgba(102,224,223,.35); color: var(--arena-cyan); background: rgba(102,224,223,.08); }
 .pet-arena-destination-copy { display: grid; min-width: 0; gap: .22rem; }
@@ -372,7 +382,9 @@
     letter-spacing: .04em;
 }
 
-.pet-arena-guide-button:hover { border-color: #f4b860; background: rgba(244, 184, 96, .15); }
+@media (hover: hover) {
+    .pet-arena-guide-button:hover { border-color: #f4b860; background: rgba(244, 184, 96, .15); }
+}
 .pet-arena-guide-button:focus-visible { outline: 3px solid #f6d18f; outline-offset: 3px; }
 
 @media (max-width: 600px) {
