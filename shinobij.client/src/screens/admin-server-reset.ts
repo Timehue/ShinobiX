@@ -20,6 +20,12 @@ export type ResetPreview = {
     sessionsRevoked?: number;
     wouldDeleteByNamespace?: Record<string, number>;
     wouldPreserveByNamespace?: Record<string, number>;
+    // Paid Tebex supporter subscriptions on the saves being deleted. The reset
+    // cancels them first, since the save holds the only copy of each reference.
+    subscriptionsToCancel?: string[];
+    subscriptionCancelConfigured?: boolean;
+    subscriptionsCancelled?: string[];
+    subscriptionsParked?: Array<{ slug: string; reason: string }>;
 };
 
 export type ServerResetDeps = {
@@ -41,12 +47,29 @@ export function formatResetNamespaces(counts: Record<string, number> | undefined
     return shown.join("\n");
 }
 
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+export function subscriptionConfirmLines(preview: ResetPreview): string {
+    const names = preview.subscriptionsToCancel;
+    // Absent means the server did not check, which is not the same as "none".
+    if (!names) return "";
+    if (names.length === 0) return "No paid Supporter subscriptions are on the accounts being deleted.\n\n";
+    return `💳 ${plural(names.length, "paid Supporter subscription")} will be CANCELLED at Tebex first `
+        + `(${names.join(", ")}), so nobody keeps paying for a character that no longer exists.\n`
+        + (preview.subscriptionCancelConfigured === false
+            ? "⚠️ TEBEX_CHECKOUT_API_KEY is not set, so none can be cancelled automatically. They will be "
+                + "listed in tebex:orphaned-subscriptions for you to cancel in the Tebex dashboard.\n"
+            : "")
+        + "\n";
+}
+
 export function resetConfirmMessage(preview: ResetPreview): string {
     return "⚠️ FULL SERVER RESET ⚠️\n\n"
         + `${preview.deletedCount} of ${preview.totalKeys} stored records will be DELETED.\n`
         + `${preview.preservedCount} will be KEPT.\n\n`
         + `Largest groups being deleted:\n${formatResetNamespaces(preview.wouldDeleteByNamespace)}\n\n`
         + `Largest groups being kept:\n${formatResetNamespaces(preview.wouldPreserveByNamespace)}\n\n`
+        + subscriptionConfirmLines(preview)
         + "Every player starts fresh at Level 1 and picks their village again. Kage seats, "
         + "village wars, clans, ladders, tower clears, legacy progress and passwords all reset.\n\n"
         + "KEPT: your uploaded images, admin-created content, save snapshots, moderation "
@@ -54,10 +77,28 @@ export function resetConfirmMessage(preview: ResetPreview): string {
         + "This CANNOT be undone. Are you absolutely sure?";
 }
 
+function subscriptionDoneNote(data: ResetPreview): string {
+    const cancelled = data.subscriptionsCancelled ?? [];
+    const parked = data.subscriptionsParked ?? [];
+    let note = "";
+    if (cancelled.length > 0) {
+        note += ` 💳 Cancelled ${plural(cancelled.length, "Supporter subscription")} (${cancelled.join(", ")}).`;
+    }
+    if (parked.length > 0) {
+        // The reset has already run, so this is the only place the admin learns
+        // that someone is still being billed. It must read as an action item.
+        note += ` ⚠️ ${plural(parked.length, "subscription")} could NOT be cancelled `
+            + `(${parked.map((p) => `${p.slug}: ${p.reason}`).join(", ")}). Cancel them in the Tebex dashboard;`
+            + " they are listed in tebex:orphaned-subscriptions.";
+    }
+    return note;
+}
+
 export function resetDoneMessage(data: ResetPreview): string {
     return `✅ Server reset complete — ${data.deletedCount ?? 0} records wiped, ${data.preservedCount ?? 0} kept`
         + `${data.sessionsRevoked ? `, ${data.sessionsRevoked} sessions revoked` : ""}.`
         + " Images, admin content and save snapshots preserved. Players start fresh on next login."
+        + subscriptionDoneNote(data)
         // The ranked season goes with the old world, and the cron rollover
         // no-ops ('inactive') until one exists — so the new world has no ranked
         // ladder until someone presses Start. Easy to forget; say it here.
