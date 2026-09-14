@@ -161,11 +161,51 @@ describe('the outbound budget', () => {
     it('serialises concurrent charges instead of losing all but one', async () => {
         // Unlocked, this was a read-modify-write race: twenty pipelined gifts
         // each read the same ledger and the last write won, so the budget never
-        // accumulated and the cap did nothing. Both treasury doors charge
-        // outside any settlement lock, so this is their only protection.
+        // accumulated and the cap did nothing. The treasury doors now also
+        // charge under the sender's gate, but the ledger lock is the charge's
+        // own guarantee and must not depend on each caller remembering the gate.
         await Promise.all(Array.from({ length: 20 }, (_, i) =>
             mod.chargeOutboundBudget(SENDER, 'ryo', 10_000, NOW + i)));
         const seen = await mod.checkOutboundBudget(SENDER, 'ryo', 1, 'trusted', NOW + 60_000);
         assert.equal(seen.spent, 200_000, 'all twenty charges must survive');
+    });
+});
+
+describe('the send gate', () => {
+    it('makes check-then-charge one step for concurrent sends', async () => {
+        // The ledger lock alone keeps charges from being lost, but it cannot
+        // stop two sends passing the same CHECK: each reads the ledger, then
+        // spends time settling before it charges. Only a lock held across both
+        // steps closes that, which is what the treasury doors lacked.
+        await mod.chargeOutboundBudget(SENDER, 'ryo', 800_000, NOW);
+        const send = () => mod.withOutboundBudgetGate(SENDER, 'ryo', async () => {
+            const check = await mod.checkOutboundBudget(SENDER, 'ryo', 200_000, 'trusted', NOW);
+            if (!check.ok) return false;
+            await new Promise((resolve) => setTimeout(resolve, 5)); // the settlement
+            await mod.chargeOutboundBudget(SENDER, 'ryo', 200_000, NOW);
+            return true;
+        });
+        const results = await Promise.all([send(), send(), send()]);
+        assert.equal(results.filter(Boolean).length, 1, 'only the send that fits goes through');
+        const seen = await mod.checkOutboundBudget(SENDER, 'ryo', 1, 'trusted', NOW);
+        assert.equal(seen.spent, mod.TRUSTED_OUTBOUND.ryo);
+    });
+
+    it('lets a charge made inside it land', async () => {
+        // withKvLock is not re-entrant. Were the gate the ledger's own lock
+        // key, the charge inside it would wait out its retries on itself and
+        // then drop the stamp silently, since a charge never fails its transfer.
+        await mod.withOutboundBudgetGate(SENDER, 'ryo', () => mod.chargeOutboundBudget(SENDER, 'ryo', 1_000, NOW));
+        const seen = await mod.checkOutboundBudget(SENDER, 'ryo', 1, 'trusted', NOW);
+        assert.equal(seen.spent, 1_000);
+    });
+
+    it('does not make one currency wait on another', async () => {
+        const order: string[] = [];
+        await mod.withOutboundBudgetGate(SENDER, 'ryo', async () => {
+            await mod.withOutboundBudgetGate(SENDER, 'fateShards', async () => { order.push('shards'); });
+            order.push('ryo');
+        });
+        assert.deepEqual(order, ['shards', 'ryo'], 'each budget has its own gate');
     });
 });
