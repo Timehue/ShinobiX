@@ -1,4 +1,5 @@
-import { expect, test } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { test } from './helpers/reconnecting-request';
 
 test('Express preserves API aliases, CORS preflight and JSON failures', async ({ request }) => {
     const health = await request.get('/health');

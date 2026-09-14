@@ -1,4 +1,5 @@
-import { expect, test, type APIRequestContext, type Locator, type Page, type TestInfo } from '@playwright/test';
+import { expect, type APIRequestContext, type Locator, type Page, type TestInfo } from '@playwright/test';
+import { API_CONNECTION_RETRIES, test } from './helpers/reconnecting-request';
 
 /*
  * Village Stores — the player loop, driven end to end in a real browser against
@@ -452,7 +453,7 @@ test('a village cook turns hunt spoils into Provisions and Materials the server 
             // Never a 304: the browser would fall back to a frame this route never saw.
             const headers = { ...route.request().headers() };
             delete headers['if-none-match'];
-            const response = await route.fetch({ headers });
+            const response = await route.fetch({ headers, maxRetries: API_CONNECTION_RETRIES });
             if (!response.ok()) return route.fulfill({ response });
             const body = await response.json() as { villageStates?: Record<string, Record<string, unknown>> };
             const entry = body.villageStates?.[VILLAGE_STATE_KEY];

@@ -1,4 +1,5 @@
-import { expect, test, type APIRequestContext, type Page, type TestInfo } from '@playwright/test';
+import { expect, type APIRequestContext, type Page, type TestInfo } from '@playwright/test';
+import { API_CONNECTION_RETRIES, test } from './helpers/reconnecting-request';
 
 type Session = {
     sessionId: string;
@@ -501,13 +502,13 @@ test('real built client completes and recovers a server-owned combat mission', a
     await page.route('**/api/missions/queue-combat-claim', async (route) => {
         settlementRequestCount += 1;
         if (settlementRequestCount === 1) {
-            const committed = await route.fetch();
+            const committed = await route.fetch({ maxRetries: API_CONNECTION_RETRIES });
             resolveLostCommit(await committed.json() as Record<string, unknown>);
             await route.abort('failed');
             return;
         }
         if (settlementRequestCount === 2) {
-            const recovered = await route.fetch();
+            const recovered = await route.fetch({ maxRetries: API_CONNECTION_RETRIES });
             const recoveredBody = await recovered.json() as Record<string, unknown>;
             resolveRecoveredRetry(recoveredBody);
             await route.fulfill({
