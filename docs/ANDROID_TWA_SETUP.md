@@ -97,6 +97,30 @@ unrecoverable in different directions.
 - **Testing-track reviews are private.** Ratings and reviews from closed and open
   testing never reach the public listing, so an open test is a safe place to
   find the Android-specific bugs before the store rating can be affected.
+- **A new build does not reset the 14-day clock.** The clock counts testers who
+  stay opted in, not versions. Upload with "Create new release" on the *same*
+  closed track. What does reset it is dropping below 12 opted-in testers,
+  swapping the tester list, or moving testers to a new track.
+- **Keep `androidbrowserhelper` at 2.7.3 or later** in `app/build.gradle`.
+  Bubblewrap 1.25.0's template still pins 2.6.2, whose splash screen colors the
+  system bars with the APIs Android 15 deprecated. 2.7.3's `LauncherActivity`
+  turns on edge-to-edge instead, which is what Play's "Edge-to-edge may not
+  display for all users" notice asks for. Every `bubblewrap update` rewrites
+  `app/build.gradle` and puts 2.6.2 back, so re-apply the one-line bump after an
+  update and before building.
+- **`bubblewrap build` can undo hand edits.** It compares the SHA-1 of
+  `twa-manifest.json` with `manifest-checksum.txt`. On a mismatch it offers to
+  update the project, with Yes as the default, and that regenerates
+  `app/build.gradle` without saying so. Bump the version with
+  `bubblewrap update` first, make the edit, then build.
+- **Play's "deprecated APIs for edge-to-edge" notice is expected to stay.**
+  Google's own `WindowCompat.enableEdgeToEdge()` in `androidx.core`, which 2.7.3
+  calls, still calls `setStatusBarColor`, `setNavigationBarColor` and
+  `setDecorFitsSystemWindows` on every Android version. On Android 15 and later
+  the color calls are ignored and the layout call only restates the default.
+  The WebView fallback screen, unused here because `fallbackType` is
+  `customtabs`, keeps its own version-guarded calls too. The notice is a recommendation, not a release
+  blocker, and clearing it would mean forking Google's libraries.
 
 ## Surface split (app vs website)
 
