@@ -310,6 +310,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('redeemedStoryReckonings', 'character', 'server-payout-stamp', 'story', ['progression-entitlement-char']),
     f('storyFieldRecords', 'character', 'server-owned', 'story', ['progression-entitlement-char', 'combat-strip-char'], 'bounded field-route decisions; sector/story-reckoning only'),
     f('activeStoryReckoning', 'character', 'server-owned', 'story', ['progression-entitlement-char', 'combat-strip-char'], 'active mirror of the sealed reckoning; preserved through stale or partial autosaves'),
+    f('storyVillage', 'character', 'server-owned', 'story', [], 'the home village on the first save; stored value (else the stored home village) wins afterwards. Gates own-village story reckonings (sector/_story-reckoning.ts) and seeds interlude/road story records'),
     f('villageUpgrades', 'character', 'server-clamped', 'village', [], 'MIRROR of the SHARED village-state .upgrades (village upgrades are village-wide infrastructure bought from the treasury seal pool, api/village/_upgrade.ts); cross-validated against game:village-state:<slug> whenever it changes. Drives bank interest, mission rewards, shop discount, training rate and more'),
 
     // ── Lifetime / leaderboard counters (client delta 0) ────────────────────
@@ -362,7 +363,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('dailyHollowGateRuns', 'character', 'server-clamped', 'hollow-gate', [], 'floored at stored within the same UTC day'),
     f('dailyPetWins', 'character', 'server-clamped', 'dailies', ['combat-strip-char'], 'floored at stored within the same UTC day; bounds the pet-arena ryo faucet'),
     f('dailyTilesExplored', 'character', 'client-state', 'dailies', ['combat-strip-char']),
-    f('dailyFateSpins', 'character', 'client-state', 'dailies', ['combat-strip-char']),
+    f('dailyFateSpins', 'character', 'server-clamped', 'dailies', ['combat-strip-char'], 'floored at stored within the same UTC day; bounds the free Sunscar Fate Dice (api/festival/sunscar.ts)'),
     f('pvpKillMonth', 'character', 'server-owned', 'pvp', ['server-mirror-char', 'combat-strip-char'], 'PvP settlement owns the month paired with monthlyPvpKills; clients cannot roll old kills into a new ANBU month'),
     f('villageWarMissionDate', 'character', 'server-payout-stamp', 'village-war', ['strict-ledger-char', 'always-ledger-char', 'combat-strip-char'], 'server-owned daily war-ground progress day; claim-rewards and village war-mission only'),
     f('villageWarRaidProgress', 'character', 'server-payout-stamp', 'village-war', ['strict-ledger-char', 'always-ledger-char', 'combat-strip-char'], 'server-owned war-ground progress; cannot be forged through generic save'),
