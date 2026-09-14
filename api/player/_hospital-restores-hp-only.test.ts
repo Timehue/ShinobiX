@@ -48,7 +48,7 @@ async function call(body: Json) {
     const { out, res } = response();
     await heal({
         method: 'POST',
-        body: { targetName: PLAYER, ...body },
+        body: { targetName: PLAYER, hospitalizedAt: 0, ...body },
         query: {},
         headers: { 'content-type': 'application/json', 'x-player-name': PLAYER, 'x-player-token': token, 'x-forwarded-for': ip },
         socket: { remoteAddress: ip },

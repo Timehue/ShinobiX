@@ -211,37 +211,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             //       so players paid ryo for nothing. Now the server applies
             //       both the charge AND the discharge in one transaction.
             if (!targetHospitalized) return res.status(200).json({ ok: true, kind: 'self', chargedRyo: 0, alreadyDischarged: true, character: targetChar, _saveVersion: Number(targetRecord._saveVersion ?? 0) });
-            const until = Number(targetChar.hospitalizedUntil ?? 0);
-            const timerExpired = !until || Date.now() >= until;
-            const selfIsHealer = targetChar.profession === 'healer';
-            // Discounted discharge fee (Town Hall Hospital + clan Medical Wing),
-            // matching the price shown in the Hospital UI.
-            const dischargeCost = discountedDischargeCost(targetChar);
-            if (!identity.admin && !timerExpired) {
-                if (selfIsHealer) {
-                    // Healers self-heal & discharge INSTANTLY for free — it is the
-                    // profession perk, and the button literally reads "Free Self-Heal
-                    // & Discharge (Healer)". No timer wait and no charge; we
-                    // fall through to the discharge write below.
-                    //
-                    // Previously a rank-scaled hospital timer (r1=60s … r10=15s) gated
-                    // this, so the free-discharge button 429'd until that timer elapsed
-                    // — locking healers out of their own hospital, worst at low ranks
-                    // where the "shortened" timer was the full 60s. (The Restoration
-                    // mastery that shortened it was repurposed into Conservation, a
-                    // heal chakra-cost discount.)
-                } else if (paySkip) {
-                    const curRyo = Number(targetChar.ryo ?? 0);
-                    if (curRyo < dischargeCost) {
-                        return res.status(402).json({ error: `Need ${dischargeCost} ryo to pay-skip discharge.` });
-                    }
-                } else {
-                    return res.status(429).json({
-                        error: 'Hospital timer not yet expired.',
-                        retryAfterMs: until - Date.now(),
-                    });
-                }
-            }
             // Wrap the discharge write under the save lock. Without it a
             // concurrent /api/save POST (auto-save fired in the same tick
             // as the discharge button press) can wipe the ryo charge or
@@ -263,6 +232,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             alreadyDischarged: true,
                             character: freshChar,
                             _saveVersion: Number(fresh._saveVersion ?? 0),
+                        },
+                    };
+                }
+                // A delayed request from a prior stay must not buy treatment for
+                // a new defeat. Use the existing server-minted admission stamp,
+                // checked under the same lock as the debit and discharge. Zero
+                // explicitly supports legacy saves that predate that stamp.
+                const requestedAdmission = body.hospitalizedAt;
+                if (typeof requestedAdmission !== 'number'
+                    || !Number.isSafeInteger(requestedAdmission)
+                    || requestedAdmission < 0
+                    || requestedAdmission !== Number(freshChar.hospitalizedAt ?? 0)) {
+                    return {
+                        status: 409 as const,
+                        body: {
+                            error: 'Your hospital admission changed. Refresh to review your current treatment before trying again.',
+                            reason: 'hospital-admission-changed',
                         },
                     };
                 }

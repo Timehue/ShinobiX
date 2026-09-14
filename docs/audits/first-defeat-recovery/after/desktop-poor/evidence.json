@@ -1,0 +1,401 @@
+[
+  {
+    "moment": "before",
+    "save": {
+      "_saveVersion": 3,
+      "currentSector": 33,
+      "character": {
+        "name": "defeatdmu0nzf2b",
+        "level": 3,
+        "hp": 40,
+        "maxHp": 700,
+        "chakra": 35,
+        "maxChakra": 1181,
+        "stamina": 45,
+        "maxStamina": 1181,
+        "ryo": 100,
+        "xp": 0,
+        "inventory": [],
+        "itemStacks": []
+      }
+    }
+  },
+  {
+    "moment": "immediatelyBeforeCombat",
+    "save": {
+      "_saveVersion": 5,
+      "currentSector": 33,
+      "character": {
+        "name": "defeatdmu0nzf2b",
+        "level": 3,
+        "hp": 42,
+        "maxHp": 700,
+        "chakra": 37,
+        "maxChakra": 1181,
+        "stamina": 47,
+        "maxStamina": 1181,
+        "ryo": 100,
+        "xp": 0,
+        "inventory": [],
+        "itemStacks": []
+      }
+    }
+  },
+  {
+    "moment": "start",
+    "status": 200,
+    "body": {
+      "ok": true,
+      "session": {
+        "version": 1,
+        "continuousVitals": true,
+        "player": {
+          "name": "defeatdmu0nzf2b",
+          "hp": 42,
+          "maxHp": 700,
+          "chakra": 37,
+          "maxChakra": 1181,
+          "stamina": 47,
+          "maxStamina": 1181
+        }
+      }
+    }
+  },
+  {
+    "url": "http://127.0.0.1:25423/api/missions/report-ai-fight",
+    "status": 200,
+    "body": {
+      "_saveVersion": 8,
+      "character": {
+        "name": "defeatdmu0nzf2b",
+        "level": 3,
+        "hp": 0,
+        "maxHp": 700,
+        "chakra": 40,
+        "maxChakra": 1181,
+        "stamina": 50,
+        "maxStamina": 1181,
+        "ryo": 100,
+        "xp": 0,
+        "hospitalized": true,
+        "hospitalizedAt": 1789355369247,
+        "hospitalizedUntil": 1789355429247,
+        "inventory": [],
+        "itemStacks": []
+      },
+      "ok": true
+    }
+  },
+  {
+    "moment": "settled",
+    "save": {
+      "_saveVersion": 10,
+      "currentSector": 0,
+      "character": {
+        "name": "defeatdmu0nzf2b",
+        "level": 3,
+        "hp": 0,
+        "maxHp": 700,
+        "chakra": 40,
+        "maxChakra": 1181,
+        "stamina": 50,
+        "maxStamina": 1181,
+        "ryo": 100,
+        "xp": 0,
+        "hospitalized": true,
+        "hospitalizedAt": 1789355369247,
+        "hospitalizedUntil": 1789355429247,
+        "inventory": [],
+        "itemStacks": []
+      }
+    }
+  },
+  {
+    "dialog": ""
+  },
+  {
+    "dialog": ""
+  },
+  {
+    "moment": "stalePreDefeatSave",
+    "status": 409,
+    "body": {
+      "error": "Save conflict — another tab or device wrote first."
+    }
+  },
+  {
+    "moment": "invalid",
+    "status": 409,
+    "body": {
+      "error": "You are in the hospital. Recover before starting a fight.",
+      "reason": "hospitalized"
+    }
+  },
+  {
+    "url": "http://127.0.0.1:25423/api/player/heal",
+    "status": 200,
+    "body": {
+      "_saveVersion": 16,
+      "character": {
+        "name": "defeatdmu0nzf2b",
+        "level": 3,
+        "hp": 700,
+        "maxHp": 700,
+        "chakra": 40,
+        "maxChakra": 1181,
+        "stamina": 50,
+        "maxStamina": 1181,
+        "ryo": 100,
+        "xp": 0,
+        "hospitalized": false,
+        "hospitalizedAt": 0,
+        "hospitalizedUntil": 0,
+        "lastDischargeAt": 1789355430243,
+        "inventory": [],
+        "itemStacks": []
+      },
+      "ok": true,
+      "chargedRyo": 0
+    }
+  },
+  {
+    "moment": "recovered",
+    "save": {
+      "_saveVersion": 16,
+      "currentSector": 0,
+      "character": {
+        "name": "defeatdmu0nzf2b",
+        "level": 3,
+        "hp": 700,
+        "maxHp": 700,
+        "chakra": 41,
+        "maxChakra": 1181,
+        "stamina": 51,
+        "maxStamina": 1181,
+        "ryo": 100,
+        "xp": 0,
+        "hospitalized": false,
+        "hospitalizedAt": 0,
+        "hospitalizedUntil": 0,
+        "lastDischargeAt": 1789355430243,
+        "inventory": [],
+        "itemStacks": []
+      }
+    }
+  },
+  {
+    "moment": "terminalReplayAfterRecovery",
+    "status": 200,
+    "body": {
+      "_saveVersion": 16,
+      "character": {
+        "name": "defeatdmu0nzf2b",
+        "level": 3,
+        "hp": 700,
+        "maxHp": 700,
+        "chakra": 41,
+        "maxChakra": 1181,
+        "stamina": 51,
+        "maxStamina": 1181,
+        "ryo": 100,
+        "xp": 0,
+        "hospitalized": false,
+        "hospitalizedAt": 0,
+        "hospitalizedUntil": 0,
+        "lastDischargeAt": 1789355430243,
+        "inventory": [],
+        "itemStacks": []
+      },
+      "ok": true
+    }
+  },
+  {
+    "moment": "staleHospitalSave",
+    "status": 409
+  },
+  {
+    "url": "http://127.0.0.1:25423/api/player/heal",
+    "status": 200,
+    "body": {
+      "_saveVersion": 17,
+      "character": {
+        "name": "defeatdmu0nzf2b",
+        "level": 3,
+        "hp": 700,
+        "maxHp": 700,
+        "chakra": 41,
+        "maxChakra": 1181,
+        "stamina": 51,
+        "maxStamina": 1181,
+        "ryo": 100,
+        "xp": 0,
+        "hospitalized": false,
+        "hospitalizedAt": 0,
+        "hospitalizedUntil": 0,
+        "lastDischargeAt": 1789355430243,
+        "inventory": [],
+        "itemStacks": []
+      },
+      "ok": true,
+      "chargedRyo": 0,
+      "alreadyDischarged": true
+    }
+  },
+  {
+    "moment": "recoveredReload",
+    "save": {
+      "_saveVersion": 17,
+      "currentSector": 0,
+      "character": {
+        "name": "defeatdmu0nzf2b",
+        "level": 3,
+        "hp": 700,
+        "maxHp": 700,
+        "chakra": 42,
+        "maxChakra": 1181,
+        "stamina": 52,
+        "maxStamina": 1181,
+        "ryo": 100,
+        "xp": 0,
+        "hospitalized": false,
+        "hospitalizedAt": 0,
+        "hospitalizedUntil": 0,
+        "lastDischargeAt": 1789355430243,
+        "inventory": [],
+        "itemStacks": []
+      }
+    }
+  },
+  {
+    "url": "http://127.0.0.1:25423/api/player/heal",
+    "status": 200,
+    "body": {
+      "_saveVersion": 19,
+      "character": {
+        "name": "defeatdmu0nzf2b",
+        "level": 3,
+        "hp": 700,
+        "maxHp": 700,
+        "chakra": 45,
+        "maxChakra": 1181,
+        "stamina": 55,
+        "maxStamina": 1181,
+        "ryo": 100,
+        "xp": 0,
+        "hospitalized": false,
+        "hospitalizedAt": 0,
+        "hospitalizedUntil": 0,
+        "lastDischargeAt": 1789355430243,
+        "inventory": [],
+        "itemStacks": []
+      },
+      "ok": true,
+      "chargedRyo": 0,
+      "alreadyDischarged": true
+    }
+  },
+  {
+    "url": "http://127.0.0.1:25423/api/missions/report-ai-fight",
+    "status": 200,
+    "body": {
+      "_saveVersion": 20,
+      "character": {
+        "name": "defeatdmu0nzf2b",
+        "level": 3,
+        "hp": 630,
+        "maxHp": 700,
+        "chakra": 45,
+        "maxChakra": 1181,
+        "stamina": 55,
+        "maxStamina": 1181,
+        "ryo": 100,
+        "xp": 0,
+        "hospitalized": false,
+        "hospitalizedAt": 0,
+        "hospitalizedUntil": 0,
+        "lastDischargeAt": 1789355430243,
+        "inventory": [],
+        "itemStacks": []
+      },
+      "ok": true
+    }
+  },
+  {
+    "moment": "nextActivity",
+    "save": {
+      "_saveVersion": 20,
+      "currentSector": 0,
+      "character": {
+        "name": "defeatdmu0nzf2b",
+        "level": 3,
+        "hp": 630,
+        "maxHp": 700,
+        "chakra": 45,
+        "maxChakra": 1181,
+        "stamina": 55,
+        "maxStamina": 1181,
+        "ryo": 100,
+        "xp": 0,
+        "hospitalized": false,
+        "hospitalizedAt": 0,
+        "hospitalizedUntil": 0,
+        "lastDischargeAt": 1789355430243,
+        "inventory": [],
+        "itemStacks": []
+      }
+    }
+  },
+  {
+    "url": "http://127.0.0.1:25423/api/player/heal",
+    "status": 200,
+    "body": {
+      "_saveVersion": 21,
+      "character": {
+        "name": "defeatdmu0nzf2b",
+        "level": 3,
+        "hp": 634,
+        "maxHp": 700,
+        "chakra": 49,
+        "maxChakra": 1181,
+        "stamina": 59,
+        "maxStamina": 1181,
+        "ryo": 100,
+        "xp": 0,
+        "hospitalized": false,
+        "hospitalizedAt": 0,
+        "hospitalizedUntil": 0,
+        "lastDischargeAt": 1789355430243,
+        "inventory": [],
+        "itemStacks": []
+      },
+      "ok": true,
+      "chargedRyo": 0,
+      "alreadyDischarged": true
+    }
+  },
+  {
+    "moment": "loggedInAgain",
+    "save": {
+      "_saveVersion": 21,
+      "currentSector": 0,
+      "character": {
+        "name": "defeatdmu0nzf2b",
+        "level": 3,
+        "hp": 634,
+        "maxHp": 700,
+        "chakra": 49,
+        "maxChakra": 1181,
+        "stamina": 59,
+        "maxStamina": 1181,
+        "ryo": 100,
+        "xp": 0,
+        "hospitalized": false,
+        "hospitalizedAt": 0,
+        "hospitalizedUntil": 0,
+        "lastDischargeAt": 1789355430243,
+        "inventory": [],
+        "itemStacks": []
+      }
+    }
+  }
+]

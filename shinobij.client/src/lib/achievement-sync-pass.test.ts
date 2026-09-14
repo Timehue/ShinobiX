@@ -29,7 +29,7 @@ const chunkFailure = () => Promise.reject(new TypeError(
 ));
 
 const character = (over: Record<string, unknown> = {}) =>
-    ({ name: "Rill", unlockedAchievements: [], earnedTitles: [], ...over }) as unknown as Character;
+    ({ name: "Rill", hp: 700, maxHp: 700, chakra: 35, maxChakra: 1181, stamina: 45, maxStamina: 1181, unlockedAchievements: [], earnedTitles: [], ...over }) as unknown as Character;
 
 function pass(over: Partial<AchievementSyncPassInput> = {}) {
     const committed: Array<{ character: Character; version: unknown }> = [];
@@ -51,7 +51,7 @@ function pass(over: Partial<AchievementSyncPassInput> = {}) {
 
 const syncReply = (unlocked: string[], newlyUnlocked: string[] = unlocked) => new Response(JSON.stringify({
     _saveVersion: 7,
-    character: { unlockedAchievements: unlocked, achievementUnlockedAt: {}, earnedTitles: [], ryo: 150, fateShards: 0 },
+    character: character({ unlockedAchievements: unlocked, achievementUnlockedAt: {}, earnedTitles: [], ryo: 150, fateShards: 0 }),
     newlyUnlocked,
 }), { status: 200, headers: { "Content-Type": "application/json" } });
 

@@ -1,0 +1,165 @@
+{
+  "baseMainCommit": "1320d2962fba2fc643130e700977f7545756aae9",
+  "liveHealthBeforeRelease": {
+    "ok": true,
+    "commit": "1320d2962fba2fc643130e700977f7545756aae9"
+  },
+  "recordedAt": "2026-09-14T03:56:38.352Z",
+  "focusedChecksPassed": 261,
+  "browserJourneysPassed": 18,
+  "browserSummary": "18 passed (5.5m)",
+  "playwrightRetries": 0,
+  "serverBuild": "passed",
+  "clientTypecheck": "passed",
+  "clientBuild": "passed",
+  "changedClientLint": "passed",
+  "productionBuildAndSizecheck": "passed; public production-length arguments from Production Image workflow",
+  "productionProductJsCssBytes": 8292517,
+  "deploymentStatus": "pre-push validation; confirm the published commit through GitHub CI and live /health",
+  "journeys": [
+    {
+      "test": "first-defeat-recovery-expr-18f94--defeat-and-recovery-healer-chromium-desktop-live",
+      "charge": 0,
+      "recoveredHP": 700,
+      "hospitalizedAfterLogin": false,
+      "walletAfterLogin": 10000,
+      "logoutProtectedRetries": 0
+    },
+    {
+      "test": "first-defeat-recovery-expr-18f94--defeat-and-recovery-healer-chromium-mobile-live",
+      "charge": 0,
+      "recoveredHP": 700,
+      "hospitalizedAfterLogin": false,
+      "walletAfterLogin": 10000,
+      "logoutProtectedRetries": 0
+    },
+    {
+      "test": "first-defeat-recovery-expr-1ab91-ld-defeat-and-recovery-poor-chromium-desktop-live",
+      "charge": 0,
+      "recoveredHP": 700,
+      "hospitalizedAfterLogin": false,
+      "walletAfterLogin": 100,
+      "logoutProtectedRetries": 0
+    },
+    {
+      "test": "first-defeat-recovery-expr-1ab91-ld-defeat-and-recovery-poor-chromium-mobile-live",
+      "charge": 0,
+      "recoveredHP": 700,
+      "hospitalizedAfterLogin": false,
+      "walletAfterLogin": 100,
+      "logoutProtectedRetries": 0
+    },
+    {
+      "test": "first-defeat-recovery-expr-1b595-t-and-recovery-paid-timeout-chromium-desktop-live",
+      "charge": 2500,
+      "recoveredHP": 700,
+      "hospitalizedAfterLogin": false,
+      "walletAfterLogin": 7500,
+      "logoutProtectedRetries": 0
+    },
+    {
+      "test": "first-defeat-recovery-expr-1b595-t-and-recovery-paid-timeout-chromium-mobile-live",
+      "charge": 2500,
+      "recoveredHP": 700,
+      "hospitalizedAfterLogin": false,
+      "walletAfterLogin": 7500,
+      "logoutProtectedRetries": 0
+    },
+    {
+      "test": "first-defeat-recovery-expr-29db3-feat-and-recovery-paid-lost-chromium-desktop-live",
+      "charge": 2500,
+      "recoveredHP": 700,
+      "hospitalizedAfterLogin": false,
+      "walletAfterLogin": 7500,
+      "logoutProtectedRetries": 0
+    },
+    {
+      "test": "first-defeat-recovery-expr-29db3-feat-and-recovery-paid-lost-chromium-mobile-live",
+      "charge": 2500,
+      "recoveredHP": 700,
+      "hospitalizedAfterLogin": false,
+      "walletAfterLogin": 7500,
+      "logoutProtectedRetries": 0
+    },
+    {
+      "test": "first-defeat-recovery-expr-417d0-efeat-and-recovery-external-chromium-desktop-live",
+      "charge": 0,
+      "recoveredHP": 700,
+      "hospitalizedAfterLogin": false,
+      "walletAfterLogin": 10000,
+      "logoutProtectedRetries": 0
+    },
+    {
+      "test": "first-defeat-recovery-expr-417d0-efeat-and-recovery-external-chromium-mobile-live",
+      "charge": 0,
+      "recoveredHP": 700,
+      "hospitalizedAfterLogin": false,
+      "walletAfterLogin": 10000,
+      "logoutProtectedRetries": 0
+    },
+    {
+      "test": "first-defeat-recovery-expr-56060-ld-defeat-and-recovery-free-chromium-desktop-live",
+      "charge": 0,
+      "recoveredHP": 700,
+      "hospitalizedAfterLogin": false,
+      "walletAfterLogin": 10000,
+      "logoutProtectedRetries": 0
+    },
+    {
+      "test": "first-defeat-recovery-expr-56060-ld-defeat-and-recovery-free-chromium-mobile-live",
+      "charge": 0,
+      "recoveredHP": 700,
+      "hospitalizedAfterLogin": false,
+      "walletAfterLogin": 10000,
+      "logoutProtectedRetries": 0
+    },
+    {
+      "test": "first-defeat-recovery-expr-7af34--and-recovery-terminal-lost-chromium-desktop-live",
+      "charge": 2500,
+      "recoveredHP": 700,
+      "hospitalizedAfterLogin": false,
+      "walletAfterLogin": 7500,
+      "logoutProtectedRetries": 0
+    },
+    {
+      "test": "first-defeat-recovery-expr-7af34--and-recovery-terminal-lost-chromium-mobile-live",
+      "charge": 2500,
+      "recoveredHP": 700,
+      "hospitalizedAfterLogin": false,
+      "walletAfterLogin": 7500,
+      "logoutProtectedRetries": 0
+    },
+    {
+      "test": "first-defeat-recovery-expr-8ede2-ld-defeat-and-recovery-paid-chromium-desktop-live",
+      "charge": 2500,
+      "recoveredHP": 700,
+      "hospitalizedAfterLogin": false,
+      "walletAfterLogin": 7500,
+      "logoutProtectedRetries": 0
+    },
+    {
+      "test": "first-defeat-recovery-expr-8ede2-ld-defeat-and-recovery-paid-chromium-mobile-live",
+      "charge": 2500,
+      "recoveredHP": 700,
+      "hospitalizedAfterLogin": false,
+      "walletAfterLogin": 7500,
+      "logoutProtectedRetries": 0
+    },
+    {
+      "test": "first-defeat-recovery-expr-bd684-and-recovery-external-stale-chromium-desktop-live",
+      "charge": 2500,
+      "recoveredHP": 700,
+      "hospitalizedAfterLogin": false,
+      "walletAfterLogin": 7500,
+      "logoutProtectedRetries": 0
+    },
+    {
+      "test": "first-defeat-recovery-expr-bd684-and-recovery-external-stale-chromium-mobile-live",
+      "charge": 2500,
+      "recoveredHP": 700,
+      "hospitalizedAfterLogin": false,
+      "walletAfterLogin": 7500,
+      "logoutProtectedRetries": 0
+    }
+  ]
+}

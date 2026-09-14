@@ -12,6 +12,7 @@ let kv: typeof import('../_storage.js').kv;
 let onlineStore: typeof import('../_realtime/online-store.js').onlineStore;
 let token = '';
 let healerToken = '';
+let admissionAt = 0;
 const PLAYER = 'hospitalpayer';
 const SAVE_KEY = `save:${PLAYER}`;
 const HEALER = 'receiptmedic';
@@ -28,6 +29,7 @@ before(async () => {
 
 beforeEach(async () => {
     onlineStore.remove(TARGET);
+    admissionAt = Date.now();
     await kv.set(SAVE_KEY, {
         _saveVersion: 1,
         character: {
@@ -41,7 +43,7 @@ beforeEach(async () => {
             stamina: 1,
             maxStamina: 100,
             hospitalized: true,
-            hospitalizedAt: Date.now(),
+            hospitalizedAt: admissionAt,
             hospitalizedUntil: Date.now() + 60_000,
         },
     });
@@ -55,7 +57,7 @@ after(() => {
 function request() {
     return {
         method: 'POST',
-        body: { targetName: PLAYER, paySkip: true },
+        body: { targetName: PLAYER, paySkip: true, hospitalizedAt: admissionAt },
         headers: { 'content-type': 'application/json', 'x-player-token': token },
         socket: { remoteAddress: '127.0.0.1' },
     } as never;
@@ -89,6 +91,98 @@ test('concurrent paid discharge debits exactly once', { concurrency: false }, as
         assert.equal(character.ryo, 7_500);
         assert.equal(character.hospitalized, false);
     }
+});
+
+test('a delayed discharge cannot charge or clear a later admission', { concurrency: false }, async () => {
+    const first = response();
+    await handler(request(), first.res);
+    assert.equal(first.out.body?.chargedRyo, 2500);
+    const discharged = (await kv.get<Record<string, unknown>>(SAVE_KEY))!;
+    const nextAdmission = {
+        ...discharged, _saveVersion: 3,
+        character: { ...(discharged.character as Record<string, unknown>), hp: 0, hospitalized: true, hospitalizedAt: admissionAt + 1, hospitalizedUntil: Date.now() + 60_000 },
+    };
+    await kv.set(SAVE_KEY, nextAdmission);
+    const delayed = response();
+    await handler(request(), delayed.res);
+    assert.equal(delayed.out.statusCode, 409);
+    assert.equal(delayed.out.body?.reason, 'hospital-admission-changed');
+    assert.deepEqual(await kv.get(SAVE_KEY), nextAdmission, 'neither payment nor treatment touches the new stay');
+});
+
+test('missing admission proof asks an older client to refresh without charging', { concurrency: false }, async () => {
+    const original = await kv.get(SAVE_KEY);
+    const req = request() as unknown as { body: Record<string, unknown> };
+    delete req.body.hospitalizedAt;
+    const out = response();
+    await handler(req as never, out.res);
+    assert.equal(out.out.statusCode, 409);
+    assert.match(String(out.out.body?.error), /Refresh/);
+    assert.deepEqual(await kv.get(SAVE_KEY), original);
+});
+
+test('insufficient funds and a failed save write do not debit or discharge', { concurrency: false }, async () => {
+    const save = (await kv.get<Record<string, unknown>>(SAVE_KEY))!;
+    const poor = { ...save, character: { ...(save.character as Record<string, unknown>), ryo: 100 } };
+    await kv.set(SAVE_KEY, poor);
+    const refused = response();
+    await handler(request(), refused.res);
+    assert.equal(refused.out.statusCode, 402);
+    assert.deepEqual(await kv.get(SAVE_KEY), poor);
+
+    await kv.set(SAVE_KEY, save);
+    const originalSet = kv.set;
+    kv.set = (async (key: string, ...args: unknown[]) => {
+        if (key === SAVE_KEY) throw new Error('injected recovery write failure');
+        return (originalSet as Function).call(kv, key, ...args);
+    }) as typeof kv.set;
+    try {
+        const failed = response();
+        await handler(request(), failed.res);
+        assert.equal(failed.out.statusCode, 500);
+        assert.deepEqual(await kv.get(SAVE_KEY), save);
+    } finally { kv.set = originalSet; }
+    const retry = response();
+    await handler(request(), retry.res);
+    assert.equal(retry.out.body?.chargedRyo, 2500);
+});
+
+test('a lost discharge response can be retried without another charge or healing write', { concurrency: false }, async () => {
+    await handler(request(), response().res); // response never reaches the browser
+    const committed = await kv.get(SAVE_KEY);
+    const retry = response();
+    await handler(request(), retry.res);
+    assert.equal(retry.out.statusCode, 200);
+    assert.equal(retry.out.body?.alreadyDischarged, true);
+    assert.equal(retry.out.body?.chargedRyo, 0);
+    assert.deepEqual(await kv.get(SAVE_KEY), committed);
+});
+
+test('free and healer discharge also reject a previous admission stamp', { concurrency: false }, async () => {
+    const save = (await kv.get<Record<string, unknown>>(SAVE_KEY))!;
+    for (const profession of ['vanguard', 'healer']) {
+        const current = { ...save, character: { ...(save.character as Record<string, unknown>), profession, hospitalizedAt: admissionAt + 1, hospitalizedUntil: Date.now() - 1 } };
+        await kv.set(SAVE_KEY, current);
+        const req = request() as unknown as { body: Record<string, unknown> };
+        req.body.paySkip = false;
+        const out = response();
+        await handler(req as never, out.res);
+        assert.equal(out.out.statusCode, 409);
+        assert.deepEqual(await kv.get(SAVE_KEY), current);
+    }
+});
+
+test('an explicitly observed legacy zero stamp can discharge a legacy stay', { concurrency: false }, async () => {
+    const save = (await kv.get<Record<string, unknown>>(SAVE_KEY))!;
+    const character: Record<string, unknown> = { ...(save.character as Record<string, unknown>), hospitalizedUntil: Date.now() - 1 };
+    delete character.hospitalizedAt;
+    await kv.set(SAVE_KEY, { ...save, character });
+    const req = request() as unknown as { body: Record<string, unknown> };
+    req.body.hospitalizedAt = 0;
+    const out = response();
+    await handler(req as never, out.res);
+    assert.equal(out.out.statusCode, 200);
+    assert.equal(out.out.body?.chargedRyo, 0);
 });
 
 test('self top-up returns the version that was actually persisted', { concurrency: false }, async () => {
