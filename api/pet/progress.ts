@@ -6,7 +6,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { masteryBonus } from '../_profession-mastery.js';
-import { applyPetSummonCost, gainServerPetXp, PET_FEED_XP, PET_TRAINING_DURATIONS, PET_TRAINING_FOCI, removePetItem, settleFinishedTraining } from './_progress.js';
+import { applyPetSummonCost, gainServerPetXp, PET_FEED_XP, PET_TRAINING_DURATIONS, PET_TRAINING_FOCI, petTrainingUpgradeBonusPct, removePetItem, settleFinishedTraining } from './_progress.js';
 import { grantPetHappiness, petFreeInteraction, settlePetHappiness } from './_happiness.js';
 import {
     PET_HAPPINESS_DAILY_PET_BUDGET,
@@ -97,12 +97,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // pet is neglected (shared/pet-happiness.ts).
                     const mult = (workingPet.trait === 'Loyal' ? 1.5 : 1) * petHappinessTrainingMult(clampHappiness(workingPet.happiness));
                     const masteryXp = character.profession === 'petTamer' ? masteryBonus(character.profession, character.masterySpec, 'petTrainXpPct') : 0;
+                    const trainingXpBonus = masteryXp + petTrainingUpgradeBonusPct(character);
                     // Village war MORALE at the SEAL. Pet training is server-settled,
                     // so the client-side multiplier this used to rely on had no seam
                     // to act on and the whole XP half of both morale windows was inert.
                     const petMorale = await moraleForCharacter(character, now);
                     const sealedXp = applyMoraleToGain(
-                        Math.max(15, Math.round(baseXp * mult * (1 + masteryXp / 100))),
+                        Math.max(15, Math.round(baseXp * mult * (1 + trainingXpBonus / 100))),
                         petMorale.xpMult,
                     );
                     nextPet = { ...workingPet, training: { type: focus, startedAt: now, endsAt: now + effectiveMs, durationMs, sealedXp } };
