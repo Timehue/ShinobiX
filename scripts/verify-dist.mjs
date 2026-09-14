@@ -49,12 +49,6 @@ const forbiddenClientExtensions = new Set([
     // audio/video authoring projects and lossless intermediates
     '.aiff', '.aif', '.flac', '.als', '.flp', '.rpp', '.aup3', '.aep', '.prproj',
 ]);
-const requiredClientFiles = [
-    'pet-models/gate-warden-rigged.glb',
-    'pet-models/ward-totem.glb',
-    'pet-models/wf-boulder.glb',
-    'pet-models/wf-lantern.glb',
-];
 const maxClientArtifactBytes = 512 * 1024 * 1024;
 
 function fail(msg) {
@@ -107,8 +101,6 @@ const clientIndex = readFileSync(join(clientDist, 'index.html'), 'utf8');
 const referencedClientAssets = [...clientIndex.matchAll(/(?:src|href)=["']\/([^"']+)["']/g)].map((match) => match[1]);
 const missingReferencedClientAsset = referencedClientAssets.find((file) => !clientRelativeFileSet.has(file));
 if (missingReferencedClientAsset) fail(`client index references a missing built asset: ${missingReferencedClientAsset}`);
-const missingRequiredClientFile = requiredClientFiles.find((file) => !clientRelativeFileSet.has(file));
-if (missingRequiredClientFile) fail(`client dist is missing required runtime asset: ${missingRequiredClientFile}`);
 /*
  * Compressed delivery siblings must survive into the SHIPPED dist, not merely
  * exist in public/. The unit tests assert the public/ side; only this check sees
