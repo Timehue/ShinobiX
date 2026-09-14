@@ -1,0 +1,252 @@
+{
+  "capturedAt": "2026-09-14T16:13:56.033Z",
+  "runtime": "v22.23.2",
+  "reviewedStartingCommit": "50964ac9d",
+  "codeCommit": "645323855f36afa5911c4816ff8d4851ebf80568",
+  "auditedBase": "ecd8d6ccaba017a6791ec0ec94f822c10658984d",
+  "scope": "Second integration review of the approved recovery implementation; local checks only.",
+  "reproducedBeforeFix": [
+    {
+      "file": "second-review-browser-before.log",
+      "result": "One failed browser test: zero recovery requests with a saved debit and exhausted points/stock."
+    },
+    {
+      "file": "second-review-storage-before.log",
+      "result": "Two new get/mget authority tests failed; ten existing tests passed."
+    }
+  ],
+  "correctedGaps": [
+    "Exchange entry/online continuation for a retained ID whose protected save receipt shows an existing debit; no automatic unpaid purchase.",
+    "Private mission/Exchange receipt reads bypass the process cache so recovery sees another worker's commit."
+  ],
+  "exchangeMarkupComparison": "Identical main render, card components and dialogs to the second-review starting commit.",
+  "testSetupCorrections": [
+    "Initial browser fixture referenced a nonexistent helper; corrected before the meaningful red reproduction.",
+    "Reconnect response listener initially attached after the default Exchange tab sent its request; moved before navigation. Same production build then passed all six focused mobile cases."
+  ],
+  "finalDiffCorrection": "A new regression test found that the intent extraction skipped the original session-storage write on a retry after storage recovered. Restored that write, passed the regression, and restarted all required validation. Superseded broad runs were deliberately interrupted and are not counted as completed gates.",
+  "root": {
+    "command": "npm test",
+    "exitCode": 0,
+    "tests": 10470,
+    "pass": 10470,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "duration_ms": 409495.8372
+  },
+  "focused": {
+    "tests": 64,
+    "pass": 64,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "duration_ms": 1945.4208
+  },
+  "build": {
+    "command": "npm run build",
+    "exitCode": 0,
+    "distAndSize": "PASS; no threshold changes"
+  },
+  "lint": {
+    "command": "npm run lint (client)",
+    "exitCode": 0,
+    "errors": 0,
+    "existingWarnings": 14
+  },
+  "focusedBrowser": {
+    "passed": 6,
+    "skipped": 0,
+    "failed": 0
+  },
+  "fullBrowser": {
+    "passed": 660,
+    "skipped": 512,
+    "failed": 2
+  },
+  "villageRetry": {
+    "passed": 1,
+    "skipped": 0,
+    "failed": 0,
+    "reason": "The broad Chromium-desktop Village case reported repeated net::ERR_NETWORK_CHANGED and failed to import an existing chunk. The exact unchanged case passed on a fresh preview.",
+    "asset": "assets/c-PTi7pRjH.js",
+    "buildAndSnapshotSha256": "e00f466b68efbdcb8a0b3b47a3d89ba054d1a6d9e9aa2ee43af7051d7f8835f5"
+  },
+  "ceremonyRetry": {
+    "passed": 1,
+    "skipped": 0,
+    "failed": 0,
+    "reason": "Firefox first-contract ceremony timed out at page.goto networkidle before assertions. Screenshot showed the complete ceremony; the exact unchanged case passed on a fresh preview."
+  },
+  "strictCombat": {
+    "passed": 20,
+    "skipped": 10,
+    "failed": 0,
+    "capturePhase": "after",
+    "strict": true
+  },
+  "sourceHashes": {
+    "api/_clan-points.ts": "c7cb085f72a278a47476695af6cecc37d7a4a38a668aa4eb118aefbcc2b0ef1f",
+    "api/_clan-save-validate.ts": "be6abe4fc8367c94156ca4b3c18223f843010c1b5f852ef3405c237045a9c2db",
+    "api/clan/_exchange.ts": "b2758eac344548db076bdcdca3887ff86eb04406e490b3ba25a270c63906924a",
+    "api/clan/exchange/purchase.ts": "f653f451a5d7080edc8d79aebb995652c2536db7aa7dd8096224820ecd004942",
+    "api/clan/exchange/_settlement.ts": "5eafaaec91c5a6a958b55e3561c253acfb4b4a484cbae2416d9be876ccb0532d",
+    "api/clan/mission/claim.ts": "fdb2fa05bf2f898c589360f14f3a9f1296a64e19e97a2edee05eafe7ee49ea0e",
+    "api/clan/mission/_settlement.ts": "3dab34b88fce6b94b3e7474b6bba1439fd885554adaff844a90fb778402557a5",
+    "api/pet/_progress.ts": "909eb2ef207231de3fb57f3fd7d9aec9b51314ffbac01cae12081e7ed8ca2328",
+    "api/pet/progress.ts": "20dd06d808b2998edc10408c0e27017d3e6477ec55b0c99ea6fae4d14616766a",
+    "api/save/_state-ownership.ts": "ff7fa6a830711856644e8f117add15b217d46c504c423c28dc24924a57b8b0f1",
+    "shared/clan-exchange-intent.ts": "edd939980f91411082f903c10913a45f8cc6776b5080ed1312f77ff54f39e7e8",
+    "shinobij.client/src/lib/clan-exchange-intent.ts": "c037de14dae78dcc1d16ca418a8f8fdebecc0e7dacaa5d347d78a2a2e7eed3de",
+    "shinobij.client/src/lib/player-api.ts": "d3933cc5b7ff026ab227157ae7033d04af34f83ddbcfa09be893723967796ca8",
+    "shinobij.client/src/lib/save-ownership.ts": "2c36090d213c9285c51ed2bc767d9ab69a3ea55c209ed9dc4f79479ad6470e24",
+    "api/clan/_reward-recovery.test.ts": "525039e89101d11c665b8272a726e0411756281f8c3de585499d5d758256e735",
+    "api/pet/training-clan-bonus.test.ts": "8701260abe459f3d0c9b63538d5c8cf06810651eb11326b4735a9265be0f517f",
+    "api/_clan-save-receipts.test.ts": "235c9afcb64fce2fb4e802095ba8bc22d7b54d609488c8103a9903f39f48312f",
+    "api/_settlement-contract.test.ts": "b76e29faa27a636cdc0ecd8404daeac858a6a65fad58b51174b9d4338fa0bd83",
+    "api/save/_sanitize-clan-points.test.ts": "7e84d408c23f891c76fd93e774e9eabbd2fac1008e73cb52326222fe447a3839",
+    "api/save/_state-ownership-parity.test.ts": "8db678465d39c28e5eaaadd366801ac719b595d40921a026eb084649cad81594",
+    "shinobij.client/src/lib/clan-exchange-retry.test.ts": "21637d3c8c9852da45bd3298b42a8eddf28082642ddac90cec6828552e189eea",
+    "api/_storage.ts": "c074043fe63e01e201c17e8712663f5e44712d9f79b1ba5f2cb2d770ccc4f21d",
+    "api/_storage-save-authority.test.ts": "4ff1f32fc4666b49f6f4397f0009d2c12fa4aaee35360b0db2e8b40e0bab8b6d",
+    "shinobij.client/src/components/ClanExchange.tsx": "a3618ca6f52dc647b2cf21f528c761f14e83d036d22166bf3a4f99dbba7bca3f",
+    "shinobij.client/src/lib/clan-exchange-recovery.ts": "e8b2e1ffab70727f08a6ba13c7bf1850f7a393c8040edea5cc37741c14911ecd",
+    "shinobij.client/src/lib/clan-exchange-recovery.test.ts": "217079f3132a7606e53d224f1797b7329cae30df1b98700e47d3ea2ca97654bf",
+    "shinobij.client/e2e/clan-exchange-recovery.spec.ts": "2869dc8b21939effd7ebd91ad33828eb9b0e3f0ca063b8210845d62db853dbdf",
+    "api/missions/_mission-catalog.ts": "0382cc61ae818f1f7497848eb708157d9fbe9469f6a02a97953cc4be52bf428a"
+  },
+  "apiInventoryVerification": {
+    "matchedFiles": 812,
+    "changedSinceSecondReviewStart": [
+      "api/_storage.ts"
+    ]
+  },
+  "logs": [
+    {
+      "file": "second-review-browser-after-before-fallback.log",
+      "bytes": 3990,
+      "sha256": "d8fc882897875128045f9744682171222676e51d6ab71a434b288fa068b39a0f"
+    },
+    {
+      "file": "second-review-browser-after.log",
+      "bytes": 3986,
+      "sha256": "94feabee513ea225b72631003bc533c1c4ecd47e9fc2f69b56c7bab541ef1a40"
+    },
+    {
+      "file": "second-review-browser-before.log",
+      "bytes": 6420,
+      "sha256": "aa99efd663372c5e4638eae4147fd9b4a33511f5e1eadc7895619dfbf7486177"
+    },
+    {
+      "file": "second-review-browser-listener-setup.log",
+      "bytes": 10944,
+      "sha256": "dcf97b31ad8c741f42e894855106c953d1498a60726b538014a7abddb4848ca3"
+    },
+    {
+      "file": "second-review-browser-setup.log",
+      "bytes": 2741,
+      "sha256": "bff1f51e8d87d7683850091d0ac95324b1c96b9e5dd339c6ec407a0682971968"
+    },
+    {
+      "file": "second-review-browser-test-lint-before-fallback.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "second-review-browser-test-lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "second-review-build-before-fallback.log",
+      "bytes": 169131,
+      "sha256": "44272b84c7d119b3467f2724c05bcec512fc9611d3275b7fd9d1fa2989943f4e"
+    },
+    {
+      "file": "second-review-build.log",
+      "bytes": 169130,
+      "sha256": "02fc0ea8ea251f5e55903e3c4d44ca74e21230e66c91580b5ed3538c1032a4b4"
+    },
+    {
+      "file": "second-review-ceremony-retry.log",
+      "bytes": 2685,
+      "sha256": "3031cac934e0acf7ce4f8915266d5a85feea7abe16dd251f24e72e6111a513ed"
+    },
+    {
+      "file": "second-review-focused.log",
+      "bytes": 16486,
+      "sha256": "77be33f3b0db1a56e1c2754116af4d30fd5a33918cb659a694d38e02b9b511d3"
+    },
+    {
+      "file": "second-review-full-browser-before-fallback.log",
+      "bytes": 16680,
+      "sha256": "14b779a78f8373067f5a9bd5fc452e801220dccd931905baaad484706a9d009e"
+    },
+    {
+      "file": "second-review-full-browser.log",
+      "bytes": 189571,
+      "sha256": "395be6e0f4b3a30731805b1e305d1d6db7085a45bfafa716cf66ca6ae782fc5b"
+    },
+    {
+      "file": "second-review-lint-before-fallback.log",
+      "bytes": 4057,
+      "sha256": "8213da0e8e945424a026797514a7eadcf429ffac7e80e5195e6507240e08d8c6"
+    },
+    {
+      "file": "second-review-lint.log",
+      "bytes": 4057,
+      "sha256": "8213da0e8e945424a026797514a7eadcf429ffac7e80e5195e6507240e08d8c6"
+    },
+    {
+      "file": "second-review-root-tests-before-fallback.log",
+      "bytes": 1070799,
+      "sha256": "5d458862854fa1fd5294befc0a8c6ac678e598104597857db1d04985b5925d57"
+    },
+    {
+      "file": "second-review-root-tests.log",
+      "bytes": 1070946,
+      "sha256": "195f44512b2e9ff6f8c3b21a2e0693b9926989b06817407fc519e387911b6465"
+    },
+    {
+      "file": "second-review-storage-before.log",
+      "bytes": 4941,
+      "sha256": "bfdc8e3be3443182b8318d4dda99ee0955ebce1fec560829f15bf120ded3bddb"
+    },
+    {
+      "file": "second-review-storage-fallback-before.log",
+      "bytes": 2588,
+      "sha256": "65846b6fcb31d57f960738ce3683ae95be4f332632167c788bfcdca86eb30cf8"
+    },
+    {
+      "file": "second-review-strict-combat-before-fallback.log",
+      "bytes": 1580,
+      "sha256": "5e9ded01466aa3c8baec057a193022b4a5c9131282ca24e7d5d31cd4c119d484"
+    },
+    {
+      "file": "second-review-strict-combat.log",
+      "bytes": 6011,
+      "sha256": "598814e8fff35371c9adf3d3aeeab15e8c2b5f4839fffabd4eac8b9965d9fb55"
+    },
+    {
+      "file": "second-review-typecheck.log",
+      "bytes": 102,
+      "sha256": "5894b706ebedc89d760496b5cb558f4895da9cc3076704a877c5fee37ccb6718"
+    },
+    {
+      "file": "second-review-village-retry.log",
+      "bytes": 2699,
+      "sha256": "f8c473646346e0617911c7ebd7fd6136accb9af374e5019834d3485d660d2084"
+    }
+  ],
+  "preserved": "No markup/CSS, prices, rewards, limits, visible interaction, authorization, deployment or schema change.",
+  "limitations": [
+    "Historical ambiguous transactions and old training rewards are untouched.",
+    "Legacy no-ID Exchange callers cannot distinguish lost final success from a genuine second purchase.",
+    "Session-storage identity does not promise cross-device/closed-session recovery.",
+    "Current-week mission admission does not automatically reconcile prior-week pending work.",
+    "Deployed storage, restore, process restart, compatible-image rollback and physical Android certification remain unexecuted by owner choice.",
+    "Original browser evidence does not certify newer main CSS; combined integration gates remain required.",
+    "Automatic Exchange recovery needs the retained session ID and a saved debit; it runs on Exchange entry or reconnect, with no polling.",
+    "Mocked Postgres query tests certify cache behavior, not a real database restart/restore."
+  ]
+}

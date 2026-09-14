@@ -1,0 +1,24 @@
+{
+  "sourceReferenceValidation": "PASS",
+  "perCellClassificationValidation": "PASS",
+  "valueRegistryFieldValidation": "PASS",
+  "contractRows": 74,
+  "contractsPerRow": 33,
+  "contractCellsByClassification": {
+    "INTENTIONAL MODE RULE": 902,
+    "UNRESOLVED": 816,
+    "SHARED CONTRACT": 259,
+    "NOT APPLICABLE": 465
+  },
+  "valueSourceRows": 471,
+  "valueFamilies": 20,
+  "mobileRows": 70,
+  "mobileCoverage": {
+    "A": 36,
+    "B": 11,
+    "C": 1,
+    "D": 1,
+    "E": 21
+  },
+  "limitation": "This validates artifact consistency and source-path existence, not gameplay behavior or completeness of individual authority proofs."
+}

@@ -9,7 +9,7 @@ import { withKvLock } from '../_lock.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { planTrade, isTradeCurrency } from './_trade-core.js';
-import { chargeOutboundBudget, checkOutboundBudget, senderTrustTier } from './_transfer-budget.js';
+import { chargeOutboundBudget, checkOutboundBudget, senderTrustTier, withOutboundBudgetGate } from './_transfer-budget.js';
 import { recordEconomyTxn } from '../_economy.js';
 import { makeEconomyTxId, reserveEconomyTx, markEconomyTx, completeEconomyTx, failEconomyTx } from '../_economy-tx.js';
 
@@ -157,7 +157,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const recipientKey = `save:${toSlug}`;
         const [k1, k2] = [senderKey, recipientKey].sort();
 
-        const out = await withKvLock<{ status: number; body: Record<string, unknown> }>(k1, async () =>
+        const settle = () => withKvLock<{ status: number; body: Record<string, unknown> }>(k1, async () =>
             withKvLock<{ status: number; body: Record<string, unknown> }>(k2, async () => {
                 const senderRec = await kv.get<Record<string, unknown>>(senderKey);
                 const senderChar = (senderRec?.character ?? null) as Record<string, unknown> | null;
@@ -273,6 +273,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return { status: 200, body: { ok: true, currency, debit: plan.debit, credit: plan.credit, burned: plan.burned, toPlayer: toDisplay, senderBalance } };
             }, { failClosed: true }),
         { failClosed: true });
+        // The save locks above serialise one sender's TRADES, but the treasury
+        // gifts that sender authorises draw on the same budget under other locks
+        // (the treasury row and the member's save). Without the shared gate a
+        // trade and a gift could both pass the check before either charged.
+        // The gate is taken before the save locks and held until after the
+        // charge inside them, so the budget sees one send at a time whichever
+        // door it came through.
+        const out = identity.admin ? await settle() : await withOutboundBudgetGate(playerName, currency, settle);
 
         if (out.status === 200) {
             // Record the idempotency receipt only on success: a retry of THIS

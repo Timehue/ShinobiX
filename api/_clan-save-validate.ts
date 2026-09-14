@@ -101,10 +101,14 @@ export function validateClanSaveWrite(
     const suppressed: string[] = [];
     const prev: ClanBlob = existing ?? {};
     const next: ClanBlob = { ...prev, ...incoming };
-    // Server-owned PvP Clan War XP journal. Client clan-save payloads can
-    // neither forge nor clear the marker that is co-written with XP.
-    if (prev.pvpWarXpReceipts !== undefined) next.pvpWarXpReceipts = prev.pvpWarXpReceipts;
-    else delete next.pvpWarXpReceipts;
+    // Server-owned journals: recovery trusts these as proof that the XP grant
+    // or treasury debit was co-written. A client clan save cannot forge, clear,
+    // or replace that evidence, including on the first write.
+    // clanBossRewardReceipts is the weekly Clan Boss settlement's pay-once ledger.
+    for (const field of ['pvpWarXpReceipts', 'settlementReceipts', 'clanMissionSettlements', 'clanExchangeSettlements', 'clanBossRewardReceipts']) {
+        if (prev[field] !== undefined) next[field] = prev[field];
+        else delete next[field];
+    }
 
     const role = callerRole(prev, ctx.callerName);
 

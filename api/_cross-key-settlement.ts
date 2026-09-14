@@ -4,7 +4,13 @@ import { beginDurableSettlement, cancelDurableSettlement, completeDurableSettlem
 import { appendSettlementReceipt as appendPlayerReceipt, inspectSettlementReceipt as inspectPlayerReceipt, type ServerSettlementReceipt } from './_settlement-receipts.js';
 
 export class SettlementValidationError extends Error {
-    constructor(public readonly status: number, message: string) {
+    /**
+     * `details` are extra response fields a caller wants beside `error` — the
+     * transfer budget's `reason`/`remaining`/`limit`, so a refusal raised from
+     * inside the saga answers with the same body it had when it was raised
+     * before the saga.
+     */
+    constructor(public readonly status: number, message: string, public readonly details?: Record<string, unknown>) {
         super(message);
         this.name = 'SettlementValidationError';
     }

@@ -52,6 +52,8 @@ const FROZEN = {
         'editablePets', 'petEncounterVn', 'ancientChestVn', 'hollowGateEventConfig',
     ],
     COMBAT_STRIP_CHAR_FIELDS: [
+        // Approved clan recovery evidence is private, co-written server state.
+        'clanExchangeSettlements', 'clanMissionPointReceipts',
         'inventory', 'itemStacks', 'tileCards', 'savedTileDeck',
         'missions', 'missionLog', 'completedMissions', 'activeMissions', 'questLog', 'bankLog',
         'storyTraits', 'storyChoices', 'storyScene', 'pendingStoryReports', 'storyEpilogues', 'storyTitle', 'storyFieldRecords', 'activeStoryReckoning',
@@ -111,6 +113,7 @@ const FROZEN = {
         'petEncounterVn', 'ancientChestVn', 'editablePets',
     ],
     STRICT_SERVER_LEDGER_CHARACTER_FIELDS: [
+        'clanExchangeSettlements', 'clanMissionPointReceipts',
         'level', 'xp', 'experience', 'ryo', 'bankRyo',
         'honorSeals', 'fateShards', 'chroniclePoints', 'boneCharms', 'auraStones', 'auraDust',
         'mythicSeals', 'hollowShards',
@@ -131,6 +134,7 @@ const FROZEN = {
         'worldAiChainWins', 'worldAiChainHeals', 'worldAiContextWins', 'worldAiPendingChain', 'worldAiPendingOutcome', 'serverHuntTrails', 'serverFieldMissionRuns', 'raidProgressionSettlements', 'serverFreeDungeonProbeReceipts',
     ],
     ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS: [
+        'clanExchangeSettlements', 'clanMissionPointReceipts',
         'bankRyo', 'rankedRating', 'petRankedRating', 'rankedSeasonSettlementReceipts',
         'professionXp', 'professionRank', 'serverSettlementReceipts', 'pvpRewardSettlementReceipts',
         'warGroundBountyDate', 'villageWarMissionDate', 'villageWarRaidProgress',

@@ -1,0 +1,245 @@
+{
+  "capturedAt": "2026-09-14T17:07:24.7506425Z",
+  "runtime": "v22.23.2",
+  "baseMain": "100aa421855b4ca99c507886ed88820b804d380a",
+  "combinedCode": "22345b387c28b2b4a2484fb6c4a74f5dc9f23d13",
+  "root": {
+    "durationMs": 361891.9188,
+    "cancelled": 0,
+    "failed": 0,
+    "exitCode": 0,
+    "passed": 10490,
+    "skipped": 0
+  },
+  "build": {
+    "exitCode": 0,
+    "distAndSizeChecks": "pass"
+  },
+  "lint": {
+    "errors": 0,
+    "exitCode": 0,
+    "existingWarnings": 14
+  },
+  "fullBrowser": {
+    "exitCode": 0,
+    "skipped": 512,
+    "exchangeRecoveryCasesPassed": 21,
+    "passed": 662,
+    "minutes": 34.2,
+    "port": 14651,
+    "workers": 2,
+    "retryInvocations": 0,
+    "failed": 0
+  },
+  "strictCombat": {
+    "skipped": 10,
+    "port": 22650,
+    "minutes": 33.5,
+    "passed": 20,
+    "strict": true,
+    "retryInvocations": 0,
+    "exitCode": 0,
+    "failed": 0
+  },
+  "releaseContracts": [
+    "deployment",
+    "rollback-readiness",
+    "mission-eligibility",
+    "release-assets",
+    "pet-breeding-odds",
+    "tooling-handoffs"
+  ],
+  "sourceHashes": [
+    {
+      "sha256": "c7cb085f72a278a47476695af6cecc37d7a4a38a668aa4eb118aefbcc2b0ef1f",
+      "file": "api/_clan-points.ts"
+    },
+    {
+      "sha256": "235c9afcb64fce2fb4e802095ba8bc22d7b54d609488c8103a9903f39f48312f",
+      "file": "api/_clan-save-receipts.test.ts"
+    },
+    {
+      "sha256": "be6abe4fc8367c94156ca4b3c18223f843010c1b5f852ef3405c237045a9c2db",
+      "file": "api/_clan-save-validate.ts"
+    },
+    {
+      "sha256": "b76e29faa27a636cdc0ecd8404daeac858a6a65fad58b51174b9d4338fa0bd83",
+      "file": "api/_settlement-contract.test.ts"
+    },
+    {
+      "sha256": "4ff1f32fc4666b49f6f4397f0009d2c12fa4aaee35360b0db2e8b40e0bab8b6d",
+      "file": "api/_storage-save-authority.test.ts"
+    },
+    {
+      "sha256": "c074043fe63e01e201c17e8712663f5e44712d9f79b1ba5f2cb2d770ccc4f21d",
+      "file": "api/_storage.ts"
+    },
+    {
+      "sha256": "b2758eac344548db076bdcdca3887ff86eb04406e490b3ba25a270c63906924a",
+      "file": "api/clan/_exchange.ts"
+    },
+    {
+      "sha256": "525039e89101d11c665b8272a726e0411756281f8c3de585499d5d758256e735",
+      "file": "api/clan/_reward-recovery.test.ts"
+    },
+    {
+      "sha256": "5eafaaec91c5a6a958b55e3561c253acfb4b4a484cbae2416d9be876ccb0532d",
+      "file": "api/clan/exchange/_settlement.ts"
+    },
+    {
+      "sha256": "f653f451a5d7080edc8d79aebb995652c2536db7aa7dd8096224820ecd004942",
+      "file": "api/clan/exchange/purchase.ts"
+    },
+    {
+      "sha256": "3dab34b88fce6b94b3e7474b6bba1439fd885554adaff844a90fb778402557a5",
+      "file": "api/clan/mission/_settlement.ts"
+    },
+    {
+      "sha256": "fdb2fa05bf2f898c589360f14f3a9f1296a64e19e97a2edee05eafe7ee49ea0e",
+      "file": "api/clan/mission/claim.ts"
+    },
+    {
+      "sha256": "0382cc61ae818f1f7497848eb708157d9fbe9469f6a02a97953cc4be52bf428a",
+      "file": "api/missions/_mission-catalog.ts"
+    },
+    {
+      "sha256": "909eb2ef207231de3fb57f3fd7d9aec9b51314ffbac01cae12081e7ed8ca2328",
+      "file": "api/pet/_progress.ts"
+    },
+    {
+      "sha256": "20dd06d808b2998edc10408c0e27017d3e6477ec55b0c99ea6fae4d14616766a",
+      "file": "api/pet/progress.ts"
+    },
+    {
+      "sha256": "8701260abe459f3d0c9b63538d5c8cf06810651eb11326b4735a9265be0f517f",
+      "file": "api/pet/training-clan-bonus.test.ts"
+    },
+    {
+      "sha256": "7e84d408c23f891c76fd93e774e9eabbd2fac1008e73cb52326222fe447a3839",
+      "file": "api/save/_sanitize-clan-points.test.ts"
+    },
+    {
+      "sha256": "8db678465d39c28e5eaaadd366801ac719b595d40921a026eb084649cad81594",
+      "file": "api/save/_state-ownership-parity.test.ts"
+    },
+    {
+      "sha256": "46277b7c074f6fb36d53f14f60bf25111d1d9928cf299e0f2be454838fe53f2a",
+      "file": "api/save/_state-ownership.ts"
+    },
+    {
+      "sha256": "51658ed1e1101d46df8af0a007ee60539b0085793582afbf59a0d26f6aea0f55",
+      "file": "package-lock.json"
+    },
+    {
+      "sha256": "1f6df99f913cc6f321af19442b4224fd2e8a0014a96c551294dbfbf3e7842b3b",
+      "file": "package.json"
+    },
+    {
+      "sha256": "9b9f4301a8f8bdfd651b4a9e0362a2641a2fb10ba26d77514bdcf1042b3d7bd5",
+      "file": "scripts/clan-doctrine-parity.test.mjs"
+    },
+    {
+      "sha256": "edd939980f91411082f903c10913a45f8cc6776b5080ed1312f77ff54f39e7e8",
+      "file": "shared/clan-exchange-intent.ts"
+    },
+    {
+      "sha256": "2869dc8b21939effd7ebd91ad33828eb9b0e3f0ca063b8210845d62db853dbdf",
+      "file": "shinobij.client/e2e/clan-exchange-recovery.spec.ts"
+    },
+    {
+      "sha256": "977f6138b84481ec2a04e1ae2714c80efcce6d5945e3395726de7b8427a5f394",
+      "file": "shinobij.client/package-lock.json"
+    },
+    {
+      "sha256": "a3618ca6f52dc647b2cf21f528c761f14e83d036d22166bf3a4f99dbba7bca3f",
+      "file": "shinobij.client/src/components/ClanExchange.tsx"
+    },
+    {
+      "sha256": "c037de14dae78dcc1d16ca418a8f8fdebecc0e7dacaa5d347d78a2a2e7eed3de",
+      "file": "shinobij.client/src/lib/clan-exchange-intent.ts"
+    },
+    {
+      "sha256": "217079f3132a7606e53d224f1797b7329cae30df1b98700e47d3ea2ca97654bf",
+      "file": "shinobij.client/src/lib/clan-exchange-recovery.test.ts"
+    },
+    {
+      "sha256": "e8b2e1ffab70727f08a6ba13c7bf1850f7a393c8040edea5cc37741c14911ecd",
+      "file": "shinobij.client/src/lib/clan-exchange-recovery.ts"
+    },
+    {
+      "sha256": "21637d3c8c9852da45bd3298b42a8eddf28082642ddac90cec6828552e189eea",
+      "file": "shinobij.client/src/lib/clan-exchange-retry.test.ts"
+    },
+    {
+      "sha256": "d3933cc5b7ff026ab227157ae7033d04af34f83ddbcfa09be893723967796ca8",
+      "file": "shinobij.client/src/lib/player-api.ts"
+    },
+    {
+      "sha256": "2c36090d213c9285c51ed2bc767d9ab69a3ea55c209ed9dc4f79479ad6470e24",
+      "file": "shinobij.client/src/lib/save-ownership.ts"
+    }
+  ],
+  "logHashes": [
+    {
+      "sha256": "f2777203b13e25b9dd25e14c781c27e20a27c1220f8dd9b7f1b9326e3ac74a98",
+      "bytes": 169224,
+      "file": "live-main-build.log"
+    },
+    {
+      "sha256": "8b6cfeb91c02d96719970fc2c020f21947049e8c831f71a8694f2b7e2a346e15",
+      "bytes": 409,
+      "file": "live-main-check-deployment.log"
+    },
+    {
+      "sha256": "b97ec1afdbde55c5451e1e9db037dce9a06c6d6f0d610cfb9306280a79e236d7",
+      "bytes": 161,
+      "file": "live-main-check-rollback-readiness.log"
+    },
+    {
+      "sha256": "dbee093ce96b8d03163314a6c7a3b9b5fb2c1e807cbf273036f3e69080887778",
+      "bytes": 157,
+      "file": "live-main-check-tooling-handoffs.log"
+    },
+    {
+      "sha256": "858cf653e363ef57bf2aa69c4b962ba856abe36d9c8668860a89becb4acedbe7",
+      "bytes": 180010,
+      "file": "live-main-full-browser.log"
+    },
+    {
+      "sha256": "a1591c599c78beccae3645d078044f69b5d0c2808e74ca7bd5b3aa994b37f962",
+      "bytes": 150,
+      "file": "live-main-install.log"
+    },
+    {
+      "sha256": "8213da0e8e945424a026797514a7eadcf429ffac7e80e5195e6507240e08d8c6",
+      "bytes": 4057,
+      "file": "live-main-lint.log"
+    },
+    {
+      "sha256": "86c03e2e05bc25999e53392fa964e9220ce74ac9dfd8b7ca83e0a22c8355918e",
+      "bytes": 1073082,
+      "file": "live-main-root-tests.log"
+    },
+    {
+      "sha256": "8ecff34c6e17ca3ee9137634dc38b62593c1cf42f868af2cf6ae5f106f371736",
+      "bytes": 6174,
+      "file": "live-main-strict-combat.log"
+    },
+    {
+      "sha256": "e9552ed086b96b3196331f8cc7818c02a78c7e847ef71047b9526b1c56e514bb",
+      "bytes": 140,
+      "file": "live-main-test-mission-eligibility.log"
+    },
+    {
+      "sha256": "b4cfb1a291371cc9bf079ae23373d1714090a2ba23dc07987716d91826ef4154",
+      "bytes": 275,
+      "file": "live-main-test-pet-breeding-odds.log"
+    },
+    {
+      "sha256": "df2ceb7a62e3a1126814405dd1f2274a5f45f8fea4e50bc780ead805636943fc",
+      "bytes": 188,
+      "file": "live-main-test-release-assets.log"
+    }
+  ],
+  "boundary": "Pre-push validation; remote main acceptance and production deployment are separate observations. No destructive production drill or physical Android certification."
+}

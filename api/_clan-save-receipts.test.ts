@@ -1,0 +1,72 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { validateClanSaveWrite } from './_clan-save-validate.js';
+
+const prior = { name: 'Audit Clan', founderName: 'founder', members: [{ name: 'founder' }], treasury: { ryo: 1000 } };
+const real = [{ transactionId: 'real-transaction', fingerprint: 'real-fingerprint', resource: 'ryo', amount: 100, appliedAt: 1 }];
+const forged = [{ transactionId: 'forged-transaction', fingerprint: 'forged-fingerprint', resource: 'ryo', amount: 100, appliedAt: 1 }];
+
+for (const field of ['clanMissionSettlements', 'clanExchangeSettlements']) {
+    test(`clan saves cannot forge, clear, or replace ${field}`, () => {
+        const ctx = {callerName:'founder',isAdmin:false};
+        assert.equal(validateClanSaveWrite(null,{...prior,[field]:forged},ctx).next[field],undefined);
+        for(const incoming of [undefined,[],forged]) {
+            assert.deepEqual(validateClanSaveWrite({...prior,[field]:real},{...prior,[field]:incoming},ctx).next[field],real);
+        }
+    });
+}
+
+for (const callerName of ['founder', 'member']) {
+    test(`${callerName} cannot forge a treasury debit receipt in a clan save`, () => {
+        const next = validateClanSaveWrite(prior, { ...prior, settlementReceipts: forged }, { callerName, isAdmin: false }).next;
+        assert.equal(next.settlementReceipts, undefined);
+    });
+
+    test(`${callerName} cannot clear or replace existing treasury debit evidence`, () => {
+        for (const incoming of [[], forged]) {
+            const next = validateClanSaveWrite({ ...prior, settlementReceipts: real }, { ...prior, settlementReceipts: incoming }, { callerName, isAdmin: false }).next;
+            assert.deepEqual(next.settlementReceipts, real);
+        }
+    });
+}
+
+test('ordinary clan edits retain the server treasury evidence', () => {
+    const next = validateClanSaveWrite({ ...prior, settlementReceipts: real }, { ...prior }, { callerName: 'founder', isAdmin: false }).next;
+    assert.deepEqual(next.settlementReceipts, real);
+    // Existing normalization fills missing treasury currencies and roster data.
+    // The receipt guard must leave that ordinary edit behavior unchanged.
+    const ordinary = validateClanSaveWrite(prior, { ...prior }, { callerName: 'founder', isAdmin: false }).next;
+    const { settlementReceipts: _receipts, ...withoutReceipts } = next;
+    assert.deepEqual(withoutReceipts, ordinary);
+});
+
+test('clan saves cannot rewrite the weekly Clan Boss reward receipts', () => {
+    // The weekly settlement pays a clan once by committing the week id here in
+    // the same write as the treasury credit. Dropping it would let a resumed
+    // settlement pay that week again; adding one would skip a real payout.
+    const paid = ['2026-W29', '2026-W30'];
+    for (const ctx of [{ callerName: 'founder', isAdmin: false }, { callerName: 'member', isAdmin: false }, { callerName: 'admin', isAdmin: true }]) {
+        for (const incoming of [undefined, [], ['2026-W29'], [...paid, '2026-W31']]) {
+            const next = validateClanSaveWrite({ ...prior, clanBossRewardReceipts: paid }, { ...prior, clanBossRewardReceipts: incoming }, ctx).next;
+            assert.deepEqual(next.clanBossRewardReceipts, paid);
+        }
+    }
+    const bootstrap = validateClanSaveWrite(null, { ...prior, clanBossRewardReceipts: ['2026-W30'] }, { callerName: 'founder', isAdmin: false }).next;
+    assert.equal(bootstrap.clanBossRewardReceipts, undefined);
+});
+
+test('clan bootstrap cannot inject a source-debit receipt', () => {
+    const next = validateClanSaveWrite(null, { ...prior, settlementReceipts: forged }, { callerName: 'founder', isAdmin: false }).next;
+    assert.equal(next.settlementReceipts, undefined);
+    assert.equal(next.founderName, 'founder');
+});
+
+test('generic admin clan saves preserve applied-side evidence just like the existing XP journal', () => {
+    const next = validateClanSaveWrite(
+        { ...prior, settlementReceipts: real, pvpWarXpReceipts: ['war-receipt'] },
+        { ...prior, settlementReceipts: forged, pvpWarXpReceipts: [] },
+        { callerName: 'admin', isAdmin: true },
+    ).next;
+    assert.deepEqual(next.settlementReceipts, real);
+    assert.deepEqual(next.pvpWarXpReceipts, ['war-receipt']);
+});

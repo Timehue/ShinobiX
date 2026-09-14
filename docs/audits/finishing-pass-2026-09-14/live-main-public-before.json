@@ -1,0 +1,32 @@
+[
+  {
+    "status": 200,
+    "contentType": "text/html; charset=utf-8",
+    "path": "/",
+    "bytes": 10356
+  },
+  {
+    "status": 200,
+    "contentType": "application/manifest+json; charset=utf-8",
+    "path": "/manifest.webmanifest",
+    "bytes": 789
+  },
+  {
+    "status": 200,
+    "contentType": "text/javascript; charset=utf-8",
+    "path": "/sw.js",
+    "bytes": 7373
+  },
+  {
+    "status": 200,
+    "contentType": "text/html; charset=utf-8",
+    "path": "/privacy",
+    "bytes": 19990
+  },
+  {
+    "status": 200,
+    "contentType": "text/html; charset=utf-8",
+    "path": "/terms",
+    "bytes": 16406
+  }
+]

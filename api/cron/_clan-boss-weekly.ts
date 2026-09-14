@@ -23,6 +23,7 @@ import {
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { mergePreservingImages } from '../_utils.js';
 import { clanBossEnabled } from '../_release-flags.js';
+import { safeLogValue } from '../_safe-log.js';
 
 const ARCHIVE_TTL_SEC = 400 * 24 * 60 * 60;
 
@@ -113,16 +114,23 @@ async function settleWeek(week: ClanBossWeek, now: number): Promise<boolean> {
                 const engagedXp = clanBossEngagedXp(damageByClan.get(entry.clanName) ?? 0);
                 reward = engagedXp > 0 ? { ryo: 0, fateShards: 0, boneCharms: 0, clanXp: engagedXp } : null;
             }
-            if (reward && !(await creditClanTreasury(entry.clanName, reward, week.weekId))) {
-                // Keep the week open for a retry. Previously credited clan records
-                // replay safely because the receipt lives in the same blob.
-                return false;
+            if (!reward) continue;
+            // A storage or lock failure throws and keeps the week open for a retry.
+            // Previously credited clan records replay safely because the receipt
+            // lives in the same blob.
+            if (await creditClanTreasury(entry.clanName, reward, week.weekId) === 'clan-missing') {
+                // Dissolving a clan deletes its record but leaves this week's progress,
+                // so the clan still ranks. Its share is DROPPED, not redistributed:
+                // every other clan keeps the rank and reward it earned. Holding the
+                // week open instead blocked settlement for every clan on every retry.
+                console.warn(`[clan-boss-weekly] ${week.weekId}: dropped the rank ${entry.rank} clan reward for ${safeLogValue(entry.clanName)}; its clan record no longer exists.`);
             }
         }
 
         // Personal payouts for every clan that fought, podium or not — the clan rewards
         // above are treasury-only and gave individual members nothing to show for a
-        // week of assaults. Per-member receipts make a retry safe.
+        // week of assaults. A dissolved clan's former members are still paid: their
+        // saves outlive the clan record. Per-member receipts make a retry safe.
         for (const progress of progressList) {
             if (!(await creditMemberRewards(progress, week.weekId))) return false;
         }
@@ -138,7 +146,7 @@ async function settleWeek(week: ClanBossWeek, now: number): Promise<boolean> {
                 type: 'clan-boss-results', importance: 'high',
                 title: `🏆 Clan Boss Week Over — ${winner.clanName} takes #1!`,
                 message: 'The clan boss week has ended and the top clans have been rewarded. A fresh boss appears now.',
-            });
+            }, { receiptId: `clan-boss-results:${week.weekId}` }); // a resumed run announces once
         }
 
         await kv.set(clanBossWeekKey(week.weekId), { ...fresh, settled: true });
@@ -188,15 +196,16 @@ async function creditMemberRewards(progress: ClanBossProgress, weekId: string): 
     return true;
 }
 
-async function creditClanTreasury(clanName: string, reward: ClanBossReward, weekId: string): Promise<boolean> {
+/** 'clan-missing' means no clan record exists (the clan dissolved), so nothing was paid. */
+async function creditClanTreasury(clanName: string, reward: ClanBossReward, weekId: string): Promise<'credited' | 'clan-missing'> {
     const clanKey = `save:clan-${clanSlug(clanName)}`;
     const receiptKey = `clan-boss-reward:${weekId}:${clanSlug(clanName)}`;
     return withKvLock(clanKey, async () => {
         // Honor receipts written by older deployments before using the embedded,
         // same-record receipt used by the current path.
-        if (await kv.get(receiptKey)) return true;
+        if (await kv.get(receiptKey)) return 'credited';
         const rec = await kv.get<Record<string, unknown>>(clanKey);
-        if (!rec) return false;
+        if (!rec) return 'clan-missing';
         // Member-scaled clan XP (10–15 members = 1.0×; small clans dampened,
         // capped) so a tiny clan can't rush hall tiers off the weekly boss.
         const applied = applyClanBossRewardToRecord(rec, reward, weekId);
@@ -204,6 +213,6 @@ async function creditClanTreasury(clanName: string, reward: ClanBossReward, week
         // Preserve the legacy marker for operational visibility. Correctness no
         // longer depends on this best-effort secondary write.
         await kv.set(receiptKey, '1', { ex: ARCHIVE_TTL_SEC }).catch(() => undefined);
-        return true;
+        return 'credited';
     }, { failClosed: true });
 }
