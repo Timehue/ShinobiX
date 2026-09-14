@@ -3821,7 +3821,7 @@
         "api/pet/_progress.ts",
         "api/pet/evolve.ts"
       ],
-      "interpretation": "Pet XP and growth are distinct from shinobi stats; sealed timers protect completion. C2: displayed Pet Den/Yard XP bonus omitted at start."
+      "interpretation": "Pet XP and growth are distinct from shinobi stats; sealed timers protect completion. C2 fixed with owner-approved additive Den/Yard bonus on new sessions; old sealed sessions retain their reward."
     },
     {
       "mode": "pet-breeding-and-sanctuary",
@@ -4008,11 +4008,13 @@
       },
       "evidence": [
         "api/clan/mission/claim.ts",
+        "api/clan/mission/_settlement.ts",
         "api/clan/upgrade/purchase.ts",
         "api/clan/mentor.ts",
-        "api/clan/exchange/purchase.ts"
+        "api/clan/exchange/purchase.ts",
+        "api/clan/exchange/_settlement.ts"
       ],
-      "interpretation": "Clan XP, treasury, War Supply and Clan Points are distinct stores; economic authority does not imply cross-key crash recovery. C3/C4 document proven interruptions."
+      "interpretation": "Clan XP, treasury, War Supply and Clan Points are distinct stores. C3/C4 fixed for new protocols with server-bound co-written proofs and local interruption tests; historical ambiguity remains unresolved."
     },
     {
       "mode": "legacy-and-hall",

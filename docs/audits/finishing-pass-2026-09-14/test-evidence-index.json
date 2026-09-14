@@ -730,6 +730,38 @@
     ]
   },
   {
+    "file": "api/clan/_reward-recovery.test.ts",
+    "tests": [
+      "mission resumes a new-protocol interruption before shared credit, once",
+      "mission lost shared-write acknowledgement never credits the clan twice",
+      "historical pending mission receipts cannot authorize another shared or personal grant",
+      "new mission receipt keeps personal credit once even after the display history is full",
+      "Exchange recovers ${boundary} clan credit without refunding an uncertain debit",
+      "Exchange exact retry and two genuine purchases retain their distinct identity",
+      "Exchange rejects reusing an intent for another item or clan",
+      "Exchange still serves legacy callers without a request ID",
+      "Exchange resumes ${boundary} its player debit",
+      "simultaneous Exchange retries settle once",
+      "a suspended Exchange writer cannot overwrite a successor after its lock expires",
+      "Exchange retry across weekly rollover uses the original debit and permits a genuinely new weekly purchase",
+      "expired and future Exchange request identities cannot authorize value",
+      "Exchange ignores forged price and reward fields and rejects a wrong actor before debit",
+      "a legacy Exchange caller resumes an interrupted debit without a new charge",
+      "mission point interruption retries the sealed contributor set even after contributions change",
+      "new weekly mission claims remain distinct from prior-week receipts",
+      "a clan mission proof pre-seeded before the new field was protected cannot mint personal points",
+      "a pre-seeded Exchange debit field without a server-minted journal cannot authorize treasury credit",
+      "an interrupted Exchange reservation revalidates the actual debit week without stranding future purchases",
+      "Exchange refuses a ${tamper} mismatch against its private reservation",
+      "Exchange recovers ${boundary} its final journal write without another debit or credit",
+      "mission refuses a mismatched server owner before personal credit",
+      "mission recovers ${boundary} its private reservation write",
+      "mission recovers ${boundary} its final receipt commit",
+      "simultaneous mission retries do not duplicate shared or personal value",
+      "mission CAS fences a suspended shared writer after both lock and active receipt lease expire"
+    ]
+  },
+  {
     "file": "api/clan/_save-version-echo.test.ts",
     "tests": [
       "clan full-character mutation version echoes",
@@ -2209,6 +2241,14 @@
       "an archive that commits before a lost reply does not consume the unpaid new win",
       "a lost progress-write reply remains exactly once through later receipt churn",
       "a rejected progress CAS leaves a terminal win available for retry"
+    ]
+  },
+  {
+    "file": "api/pet/training-clan-bonus.test.ts",
+    "tests": [
+      "new training applies ${label} without changing its duration",
+      "bonuses add to mastery before Loyal and happiness multiplication",
+      "finishing an existing session pays its sealed amount without recalculation"
     ]
   },
   {
@@ -4609,6 +4649,7 @@
   {
     "file": "api/save/_sanitize-clan-points.test.ts",
     "tests": [
+      "${field} cannot be forged or erased through an ordinary player save",
       "clan point fields cannot be forged on a first save",
       "clan point fields preserve the stored server-owned copy"
     ]
@@ -7247,6 +7288,7 @@
   {
     "file": "api/_clan-save-receipts.test.ts",
     "tests": [
+      "clan saves cannot forge, clear, or replace ${field}",
       "${callerName} cannot forge a treasury debit receipt in a clan save",
       "${callerName} cannot clear or replace existing treasury debit evidence",
       "ordinary clan edits retain the server treasury evidence",
@@ -12509,6 +12551,15 @@
       "each doctrine grants its own domain bonus and nothing else",
       "'none' grants nothing across the board",
       "exposes exactly the four pickable doctrines"
+    ]
+  },
+  {
+    "file": "shinobij.client/src/lib/clan-exchange-retry.test.ts",
+    "tests": [
+      "a lost Exchange response retains its intent; a later genuine purchase gets a new one",
+      "ambiguous malformed success keeps the same treasury intent on retry",
+      "personal-only Exchange purchases keep their existing request shape",
+      "Exchange uses the established server clock when the player clock is ahead"
     ]
   },
   {

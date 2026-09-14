@@ -2,23 +2,23 @@
 
 ## 1 — Executive result
 
-Task-start checkout: `e3c09fe10988badc2a4b6a96f1f1bf4c085428b3`, with substantial pre-existing and actively changing work. That checkout was preserved. The actual finishing pass uses an isolated worktree on GitHub main as observed during this task: **`ecd8d6ccaba017a6791ec0ec94f822c10658984d`**, branch `codex/coherence-integrity-closeout-20260914`. The branch adds only the two narrow production corrections below and their tests. No deployment or production mutation was performed.
+Task-start checkout: `e3c09fe10988badc2a4b6a96f1f1bf4c085428b3`, with substantial pre-existing and actively changing work. That checkout was preserved. The finishing pass uses an isolated worktree on main as observed during this task: **`ecd8d6ccaba017a6791ec0ec94f822c10658984d`**, branch `codex/coherence-integrity-closeout-20260914`. It contains five narrow corrections and their regression tests. No deployment or production mutation was performed.
 
 At closeout, GitHub main had advanced to `21e2cc39262422cf2333b068b0588640352226b7` (10 commits, 57 changed paths: dead client source/art/CSS cleanup and related ratchets). The backend, shared code, server routes, root dependencies and the client doctrine/village helpers used by these patches are unchanged between those commits. This branch deliberately retains its tested base. Its browser captures/results certify that base plus these fixes, **not the newer CSS**; integrating with newer main requires the appropriate combined-branch checks.
 
-The two fixes and 19 new behavioral tests are isolated in local commit **`83df471d2eede0265bfad1f6a4fb89e97d33c721`**. Audit documents are a separate commit on the same branch. Neither has been pushed or deployed.
+The initial C1/C5 fixes and 19 new behavioral tests are isolated in local commit **`83df471d2eede0265bfad1f6a4fb89e97d33c721`**. The owner subsequently approved C3/C4's narrow recovery protocols and C2's additive formula, and requested **local checks only**. Those approvals are implemented in **`337b4db7cb84ebc36cafc63c5a50a635df8cd903`**, adding 49 behavioral tests and two settlement inventory checks; audit documents are separate. Nothing has been pushed or deployed.
 
-**Assessment: two proven defects corrected; release integrity is not fully certified.** Five defects were reproduced/proved: C1 and C5 fixed; C2–C4 deliberately remain explicit owner decisions. No proven mobile blocker was established, and no production UI file was changed. Multiple combat engines, mode-specific consequences, economy magnitudes and established-player activity choice were preserved.
+**Assessment: all five identified defects corrected within the approved scope; release integrity is not fully certified.** C2 applies only to new training; C3/C4 recovery applies to new server-bound protocols, with historical ambiguity left untouched. No proven mobile blocker was established. No screen, component or CSS changed; the existing Exchange request gained an invisible retry identity. Multiple engines, mode-specific consequences and established-player activity choice were preserved.
 
 | Finding | Evidence and impact | Disposition |
 |---|---|---|
 | C1 — Scholars mission bonus missing on server | Client preview and declared server mirror disagreed. New parity test failed before correction. | **FIXED.** Existing 5% applies only to clan members with Scholars; no new bonus magnitude. |
-| C2 — Pet Den / Pet Yard training bonus displayed but omitted | Memory handler probe: baseline, Den level 50 and Yard level 50 all seal 460 XP for identical 4-hour/happiness 100 training; displayed bonuses are 0%, 15%, 12.5%. | **NEEDS OWNER DECISION.** Stacking/rounding with mastery, Loyal, happiness and morale must be specified before changing progression. Old sealed sessions must retain their contract. |
-| C3 — interrupted clan-mission claim strands shared reward | Injected failure before clan write: initial HTTP 500, retry HTTP 200 after lease expiry; clan ryo stays 1,000 and XP 0, but response says claimed and personal Clan Points are granted. | **NEEDS OWNER DECISION.** A durable atomic shared-credit proof/recovery protocol is needed. Never replay an ambiguous historical pending receipt blindly. |
-| C4 — Exchange refunds after successful treasury credit with lost acknowledgement | Injected post-write failure: War Supply 10 → 1,510 while personal Clan Points remain 4,000 after refund; limit is also refunded. | **NEEDS OWNER DECISION.** Stop treating a thrown write acknowledgement as proof that credit failed. A durable intent/applied-side receipt is needed before automatic refund/resume. |
+| C2 — Pet Den / Pet Yard training bonus displayed but omitted | Before: baseline, Den50 and Yard50 all sealed 460 XP. After: baseline 460, Den 529, Yard 517, both 586 under the existing JS arithmetic/rounding. | **FIXED, OWNER APPROVED.** Den/Yard percentages add to mastery before the existing multipliers/rounding/morale. Old sealed sessions retain their reward. |
+| C3 — interrupted clan-mission claim strands shared reward | Before: pre-clan-write failure later reports claimed and awards personal points without shared value. | **FIXED FOR NEW PROTOCOL.** Server reservation seals the grant; shared credit/proof and each personal credit/proof are co-written with CAS. Historical pending cannot authorize a grant and remains untouched. |
+| C4 — Exchange refunds after successful treasury credit with lost acknowledgement | Before: post-clan-write failure grants 1,500 War Supply at zero net points cost and refunds allowance. | **FIXED FOR NEW PROTOCOL.** Stable client intent, private journal token, co-written debit/credit proofs, and no blind refund. Genuine repeat purchases remain distinct; legacy no-ID final-response ambiguity remains. |
 | C5 — clan-save payload can alter treasury debit receipts | Pre-fix behavioral probe: 4 desired security assertions fail, 1 ordinary-edit assertion passes. Treasury recovery trusts the source `settlementReceipts` field. | **FIXED.** Pin that existing field to stored server evidence, just like the existing clan-war XP journal. No auth role or storage structure changed. |
 
-The unresolved findings are not permission to tune rewards, add UI warnings everywhere, or rebuild storage. Release decisions should treat C3/C4 and any uncertified high-value path as explicit blockers to a claim of universal recovery safety.
+Unresolved evidence is not permission to tune rewards or rebuild storage. Remaining high-value gaps and real storage drills still prevent universal recovery certification. Follow-up recheck verified all **810 prior API source hashes and 21 retained log hashes** before implementing the approved changes. Main was then `87466c3e412c13f440ad55bdf1b371bb9c652b73`; the three additional commits removed retired client Warfront workers/tests, leaving these backend surfaces unchanged. Prior browser captures still do not certify newer main CSS.
 
 Human evidence still required: real storage/commit/health and cache, one scheduled-job owner, lost-response/process-restart settlement, fresh backup+isolated restore, retained-image rollback/newer-save compatibility/forward deploy, staffed war/Clan Boss, both admin roles and creator moderation, and the actual Android build/device.
 
@@ -27,9 +27,9 @@ Finding locations and reproduction evidence:
 | Finding | Authoritative source | Reproduction / regression evidence |
 |---|---|---|
 | C1 | `api/missions/_mission-catalog.ts:missionRewardBonusPct`, used by `api/missions/claim-mission.ts` | `scripts/clan-doctrine-parity.test.mjs`; `scholars-before.log` and `main-scholars-after.log` |
-| C2 | `api/pet/progress.ts`, `start-training` XP seal; client `src/lib/village-upgrades.ts:getPetXpBonus` | `clan-probes.mjs`, `clan-probe-results.json:petTraining` |
-| C3 | `api/clan/mission/claim.ts`, receipt reservation and replay branch before shared grant; `api/_economic-receipt.ts` | `clan-probe-results.json:clanMission` — failure before the shared write, followed by the same claim after 61 seconds |
-| C4 | `api/clan/exchange/purchase.ts`, treasury credit catch and `refundPlayerTreasuryPurchase` | `clan-probe-results.json:clanExchangeLostAck` — shared write commits, then its acknowledgement throws |
+| C2 | `api/pet/progress.ts`, `api/pet/_progress.ts:petTrainingUpgradeBonusPct` | Original `clan-probe-results.json:petTraining`; new `api/pet/training-clan-bonus.test.ts` |
+| C3 | `api/clan/mission/claim.ts`, `mission/_settlement.ts`, `api/_clan-points.ts` | Original `clan-probe-results.json:clanMission`; new `api/clan/_reward-recovery.test.ts` |
+| C4 | `api/clan/exchange/purchase.ts`, `exchange/_settlement.ts`, client `lib/clan-exchange-intent.ts` | Original `clan-probe-results.json:clanExchangeLostAck`; new recovery and client retry tests |
 | C5 | `api/_clan-save-validate.ts:validateClanSaveWrite`; recovery consumer `api/_cross-key-settlement.ts` | `clan-receipt-guard-before.log`, `api/_clan-save-receipts.test.ts`, `clan-receipt-guard-after-corrected-fixture.log` |
 
 Fault-injection probes run only against disposable memory and preserve the pre-C5 result. They reproduce application write-boundary behavior; they do not substitute for a real database restart/restore drill. Logs, screenshots and traces are local execution evidence in this audit directory; the source-controlled report and matrices preserve the conclusions and test counts.
@@ -55,11 +55,11 @@ Accidental divergence corrected: C1. `api/missions/_mission-catalog.ts:missionRe
 
 New test: `scripts/clan-doctrine-parity.test.mjs` compares actual client/server helpers for all doctrines with/without clan membership and village/Aura combinations; 12 assertions. The initial desired contract failed 2/12 before the fix; focused catalog/saga/parity coverage passed 60/60 afterwards.
 
-Unresolved intent: pet-training stacking (C2); some caller-specific location and secondary-credit contracts; retained legacy pet-ranked presentation mismatch flagged by the current registry. The latter is **not counted as a newly reproduced defect**; new challenge admission is retired and current ranked Showdown must not be confused with compatibility notices. The Hollow Gate pet long-term engine choice remains owner-controlled.
+Unresolved intent: some caller-specific location and secondary-credit contracts; retained legacy pet-ranked presentation mismatch flagged by the current registry. The latter is **not counted as a newly reproduced defect**; new challenge admission is retired and current ranked Showdown must not be confused with compatibility notices. The Hollow Gate pet long-term engine choice remains owner-controlled. C2's formula is now owner-approved and implemented.
 
 ## 3 — Integrity
 
-[Value-path registry](value-path-registry.json): **469 source/route rows**, covering 279 mounted routes plus 347 syntactically discovered value-mutation candidate files, grouped into 20 economic/progression families. Each row carries endpoint/source, actor/activity binding, value authority, client inputs, eligibility, expiry, replay, atomic boundary, receipt, retries, recovery, admin search, tests and flags. Discovery includes pure projections and unclassified callsites; this is deliberately **not a certificate that all 469 rows grant value or all are safe**. Dynamic writes, socket/job callsites and each remaining UNRESOLVED field must be reviewed before universal release signoff.
+[Value-path registry](value-path-registry.json): **471 source/route rows**, covering 279 mounted routes plus 349 syntactically discovered value-mutation candidate files, grouped into 20 economic/progression families. The two added recovery helpers are included. Each row carries endpoint/source, actor/activity binding, value authority, client inputs, eligibility, expiry, replay, atomic boundary, receipt, retries, recovery, admin search, tests and flags. Discovery includes projections and unclassified callsites; this is **not a certificate that all 471 rows grant value or all are safe**. Dynamic writes, socket/job callsites and remaining UNRESOLVED fields still need callsite review.
 
 Coverage includes ryo, Fate Shards, Bone Charms, Aura Stones, Honor/Mythic Seals, Chronicle collection/currencies, gear/items/consumables, stat/jutsu/profession/pet progression, clan XP/treasury/Clan Points/War Supply, rating, territory/war control, Hollow Gate, creator/events/story, bosses/missions, crafting/banking/premium and Legacy/Hall grants. Generic save sanitization, privileged corrections and scheduled awards are included as separate boundaries.
 
@@ -73,7 +73,7 @@ Important current evidence:
 - Missions seal authority at start/terminal, compute canonical rewards and preserve claim identity. Bosses bind to stored spawn/operation/party/player/clan and parent terminal. The full staging boss/weekly matrix is still required.
 - Direct trade requires a nonce by default; concurrent duplicate and different-payload replay tests exist. The `ALLOW_NONCELESS_TRANSFERS` override removes that guarantee and must stay off for certification. Post-debit ambiguity is not automatically refunded.
 - Treasury gifts use lexically ordered locks, durable intent and applied-side receipts, with recovery tests. C5 now prevents ordinary clan saves from clearing/forging the clan-side evidence. Legacy clients without `requestId` still conflate genuinely separate identical gifts with replay for the journal window; changing that client protocol is outside these patches.
-- Donations, supply collection and some bounded purchase flows have different journals/atomic boundaries. A random transaction ID or “needs-reconcile” log is not exactly-once automatic recovery. C3/C4 are executable counterexamples to a blanket green claim.
+- Donations, supply collection and some bounded purchase flows have different journals/atomic boundaries. A random transaction ID or “needs-reconcile” log is not proof of automatic recovery. C3/C4 now have local regression evidence for the approved protocols; that evidence does not certify other paths or old ambiguous transactions.
 
 Current historical P1 dispositions:
 
@@ -81,7 +81,7 @@ Current historical P1 dispositions:
 |---|---|---|
 | [#19](https://github.com/Timehue/ShinobiX/issues/19), Hollow Gate linkage | **FIXED ALREADY** | Current combat/session/parent validators and `_combat-session.test.ts` confirm exact linkage and once-only settle; owner comment also records closure of #13. No old replatform recommendation applied. |
 | #19, client/creator can define arbitrary story/event value | **NOT REPRODUCIBLE** in reviewed current claim paths | Canonical story settlement and built-in-only event grant, negative authored-ID and wrong-player tests. This does not certify every creator upload/moderation operation. |
-| #19, live retry and recovery | **STILL PRESENT** | C3/C4 memory fault injection; additional per-path NOT ESTABLISHED cases. C5 receipt-authoring hole corrected but does not repair historical ambiguous transactions. |
+| #19, live retry and recovery | **PARTIALLY PRESENT** | C3/C4 fixed for new protocols with local fault tests; additional per-path NOT ESTABLISHED cases and deployed recovery drills remain. C5 protection does not repair historical ambiguous transactions. |
 | #19, receipt search | **PARTIALLY PRESENT** | Full-admin Battle Receipts accepts PvP and HG combat IDs; Economy Settlements lists state/limit and scans stale transactions. It has no universal player/activity/transaction/time query. No admin architecture/auth changes made. |
 | #19 overall | **PARTIALLY PRESENT** | Authority has substantially improved, but universal recovery/search acceptance is not met. Do not close the issue from this pass. |
 | [#10](https://github.com/Timehue/ShinobiX/issues/10), deployment/release health | **HUMAN CERTIFICATION REQUIRED** | Local topology, rollback-readiness, build and 90-check memory API certification pass. Real commit/store/cache/jobs/backup/restart/rollback/newer-save proof is not supplied. |
@@ -91,7 +91,7 @@ Current historical P1 dispositions:
 | [#16](https://github.com/Timehue/ShinobiX/issues/16), creator/AI readiness | **PARTIALLY PRESENT** | Reviewed reward boundaries refuse authored value; staffing, publish/removal, disabled-save compatibility, upload/cost and live rollback certification remain. No public enablement. |
 | [#9](https://github.com/Timehue/ShinobiX/issues/9), staffed war | **HUMAN CERTIFICATION REQUIRED** | Shared authority is not a staffed-event result. Preserve configured disabled state outside approved windows; no speculative population/economy changes. |
 
-Operator lookup recommendation, **design only**: extend the existing full-admin Economy Settlements filter path with actor, activity/transaction/source and time range, retaining role policy and returning receipt state/applied-side evidence. Before implementation, review query/index/retention costs and negative-role tests. This pass does not add a separate admin product or weaken access controls. [Concrete recovery decisions](RECOVERY-DECISIONS.md) specify the smallest proposed C2–C4 scopes, failure tests and historical-state safeguards.
+Operator lookup recommendation, **design only**: extend the existing full-admin Economy Settlements filter path with actor, activity/transaction/source and time range, retaining role policy and returning applied-side evidence. Review query/index/retention costs and negative-role tests before implementation. This pass does not change admin access. [Approved recovery scope](RECOVERY-DECISIONS.md) records C2–C4 implementation, failure tests and historical-state safeguards.
 
 [Operator checklist](OPERATOR-CHECKLIST.md) specifies safe target identity, storage, health/login/first save, representative settlement, lost response, interruption/reconnect, jobs, backup/isolated restore and record verification, restart, retained-image rollback, newer-save compatibility and forward deployment. No destructive production action was performed.
 
@@ -106,7 +106,7 @@ The current system is substantial: Clan Hall/creation/browse/recruitment; roster
 | Scholars | +5% training/mission bonus; mission mirror fixed in C1 | Training Grounds 0.2%/level, missions, existing Sensei/Student |
 | Medics | −5% hospital cost | Medical Wing 0.3%/level, existing support/recovery/boss identity |
 
-Pet Den 0.3%/level (15% cap) currently suffers C2. Building cap 50, existing costs/percent caps preserved. Hall tiers remain Camp 1/Dojo 7/Compound 15/Fortress 25/Citadel 40. Scout tiers remain position 1 / level 15 / name 30 during active war outside safe village. Other numeric maxima and exact feature/source inventory are in [Clan truth/design](CLAN-DESIGN.md).
+Pet Den 0.3%/level (15% cap) now applies to new training under C2's approved formula, alongside Pet Yard 0.25%/level. Building cap 50 and existing costs/percent caps are preserved. Hall tiers remain Camp 1 / Dojo 7 / Compound 15 / Fortress 25 / Citadel 40. Scout tiers remain position 1 / level 15 / name 30 during active war outside safe village. Full source inventory is in [Clan truth/design](CLAN-DESIGN.md).
 
 Doctrine identity is already visible through Clan Hall, creator choice, and clan browsing/crest/pitch. Do not create another page. The backend permits founder doctrine changes; do not describe a historical choice as universally immutable. Nonetheless, a future change in its mechanical meaning needs fairness protection.
 
@@ -130,7 +130,7 @@ Screens inspected by source/test mapping and deliberately unchanged: every entry
 
 [Actual Android checklist](OPERATOR-CHECKLIST.md#actual-android--google-play-build-smoke) covers install/update, login/creation, all major gameplay families, Android back/keyboard/orientation/system bars, touch/scroll, suspension/reconnect and measured real-device performance. **It has not been run on a physical device in this task.**
 
-### Validation evidence
+### Original C1/C5 validation evidence
 
 | Gate | Result |
 |---|---|
@@ -150,7 +150,15 @@ Screens inspected by source/test mapping and deliberately unchanged: every entry
 
 Logs named `main-*` and the specific gate logs describe the isolated checkout. Preliminary `root-tests*`, `build.log`, and task-start status relate to the original dirty checkout and are not release evidence. No pass from that moving checkout is substituted for this branch's checks.
 
-`validation-results.json` records final outcomes and SHA-256 hashes for the retained local logs. Run `node --import tsx docs/audits/finishing-pass-2026-09-14/contracts.mjs`, the inventory/value/mobile generators, and `verify-artifacts.mjs` from the repository root to regenerate source-derived artifacts. Artifact validation checks structure and source references; it does not turn untested cases into passes.
+`validation-results.json` preserves original C1/C5 outcomes and log hashes. `recheck-evidence.json` records the follow-up check before C2–C4 implementation; `api-source-hashes-before-recovery.json` preserves that source snapshot. Current source-derived matrices include the approved recovery helpers. Run the inventory/contract/value/mobile generators and `verify-artifacts.mjs` from the repository root to regenerate them. Artifact validation checks structure and source references; it does not turn untested cases into passes.
+
+### Approved C2–C4 follow-up validation
+
+The follow-up uses Node 22.23.2 and disposable memory only. The focused group passes **147/147**, including new real-handler interruption, concurrency, rollover, server-proof spoofing, ownership and client retry checks. Full server/client build, asset/dist and size gates pass with no budget increase. Client lint passes with zero errors and the same 14 existing warnings. Existing clan interaction/mobile-roster browser tests pass **4 tests, 17 intentional skips**, across their configured projects. This is focused follow-up coverage; the original full-browser/gauntlet/combat outcomes above remain accurately scoped to C1/C5.
+
+**Final root `npm test`: 10,461/10,461 passed, zero failures/cancellations/skips, 336.1 seconds.** This run includes both corrected inventories and all final recovery tests. The last active worker was the existing pet cinematic engine parity test; it completed without modification. All approved local fixes are committed. Actual deployed storage/rollback and physical Android certification remain explicitly unexecuted.
+
+The new protocol's own migration review also reproduced two unsafe prototype cases before finalization: pre-seeded mission and Exchange fields without private authorization. Both are now rejected before value writes. These are regression tests of this uncommitted implementation, not additional shipped defects. The first full follow-up run passed 10,451/10,453 tests, exposing the old Exchange inventory marker and a missing client ownership mirror for the two new receipts. The mirror was corrected to prevent spurious device-draft recovery banners; the inventory now pins both recovery helpers. Local Express/memory certification also passed 90/90. Final root-suite results and source/log hashes are recorded in `recovery-validation.json`.
 
 ## 6 — Regression risk
 
@@ -158,21 +166,23 @@ Logs named `main-*` and the specific gate logs describe the isolated checkout. P
 |---|---|---|---|
 | `api/missions/_mission-catalog.ts:missionRewardBonusPct` | Restore declared client/server parity for the existing Scholars 5%. Eligible member receives the already displayed mission bonus without a new action. | Non-members, other doctrines, village/Aura stacking, caps/rounding, ryo-only combat claims, fixed capstone rewards and sealed prior reservations. | Actual helper parity 12 checks, mission catalog/saga 60, full root suite. No doctrine magnitude, UI, economy table or proof change. |
 | `api/_clan-save-validate.ts:validateClanSaveWrite` | Protect existing treasury debit evidence from client clan-save overwrite. Normal members/leadership continue their existing actions. | Clan bootstrap, founder/member edits, existing XP journal, source receipt retention, treasury recovery and generic admin save behavior. Direct server treasury writes remain authoritative. | Before 4 failing guard assertions; 7 new production regression tests and 54 focused existing/new checks pass. Final full root suite passed. |
+| Pet training start | Apply the approved existing Den/Yard benefits to newly sealed sessions. | Membership, caps, mastery/Loyal/happiness, rounding/morale, old sessions and duration. | New handler tests and existing pet/progression suite; old sealed reward remains unchanged. |
+| Clan mission settlement and protected personal proof | Resume new interrupted shared/personal settlement without repeating value. | Existing weekly admission, historical pending, storage failures, save versions and display-history churn. | Co-written CAS proofs bound to the private server owner; fault/forgery/history tests. |
+| Exchange treasury settlement and client intent | Retain an uncertain debit and finish missing credit with the same purchase identity. | Genuine repeat purchases, old clients, allowance rollover, clock skew, lock expiry, lost acknowledgements and retained-image rollback. | Server-token-bound journal/proofs, no automatic refund, local adversarial/client tests; live rollback remains uncertified. |
 
-No new route, currency, timer, warning, modal, confirmation, mandatory tutorial, notification, engine, schema, storage structure, role/rate/IP change, or layout tweak was introduced. These fixes cannot determine whether an old ambiguous transaction paid; no historical compensation or receipt deletion was attempted. The isolated worktree protects the user's concurrent original-checkout edits.
+No new route, currency, visible timer, warning, modal, confirmation, tutorial, notification, engine, schema, role/rate/IP change or layout tweak was introduced. The owner-approved recovery fields extend existing saves/journals; no storage engine was replaced. Prices/rewards/limits remain unchanged except the specifically approved prospective pet bonus correction. Historical compensation and receipt deletion were not attempted. The isolated worktree protects concurrent original-checkout edits. Before deployment, verify rollback uses a compatible retained image; old blind-refund workers must not process new pending Exchange operations.
 
 ## 7 — Final owner handoff
 
 ### SAFE / COMPLETE
 
-- C1/C5 narrowly corrected with failing-before/passing-after evidence and regression tests; final gates are listed above.
+- C1–C5 corrected within the approved scope, with reproduction evidence and regression tests. C2 is prospective and C3/C4 apply to new server-bound protocols; gates and limitations are listed above.
 - Mode/contract inventory, value-path and adversarial evidence, current P1 disposition, complete clan truth/future-safe design, mobile coverage/gallery and precise certification checklists delivered.
 - Intentional mode differences, current mobile layout, existing doctrine magnitudes and level 50–100 player choice preserved. No deployed change or destructive operation.
 
 ### NEEDS OWNER DECISION
 
-- C2: exact prospective pet-training bonus stacking/rounding; retain old sealed timers and decide historical remediation separately.
-- C3/C4: approve a small durable recovery design and release containment for ambiguous clan shared-value writes; no blind replay/refund. Unresolved legacy transactions need authoritative evidence before correction.
+- Historical remediation only: old ambiguous clan transactions and any old pet compensation need authoritative evidence and a separate decision. C2's formula and C3/C4's narrow recovery design are already approved and implemented; no repeated approval is needed.
 - Unified existing-admin receipt search and remaining UNRESOLVED high-value adversarial cells. Do not advertise universal exactly-once recovery or close #19 yet.
 - The gauntlet's subpixel World Map measurement discrepancy. No player blocker was proven, and no test threshold was relaxed; the gate remains explicitly red.
 - Retained legacy pet-ranked presentation and long-term Hollow Gate pet authority choice; no speculative engine migration.

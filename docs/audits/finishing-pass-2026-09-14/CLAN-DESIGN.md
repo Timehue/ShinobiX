@@ -1,6 +1,6 @@
 # Clan truth and future specialization — design only
 
-Audited base: `ecd8d6ccaba017a6791ec0ec94f822c10658984d`. Current executable code takes priority over descriptions in old plans. Nothing proposed below is implemented in this pass.
+Audited base: `ecd8d6ccaba017a6791ec0ec94f822c10658984d`, with the approved C1–C5 corrections described in REPORT.md. Current executable code takes priority over old plans. The future specialization proposal below remains design only.
 
 ## Current system inventory
 
@@ -10,8 +10,8 @@ Audited base: `ecd8d6ccaba017a6791ec0ec94f822c10658984d`. Current executable cod
 | Roster, founder/leadership/officer roles, contribution ordering, role overrides, kick/leave | `api/clan/kick.ts`, `api/clan/leave.ts`, clan save validator | Contributions and authority are distinct; preserve role rules. |
 | Notices and clan chat | clan validator; `api/clan/chat/get.ts`, `send.ts` | Existing channels can carry voluntary identity/flavor without a new notification system. |
 | Currency and item treasury, donations and leadership gifts | `api/clan/treasury/*`, `api/_treasury-stores-donate.ts` | Real cross-player economy; C5 source-receipt trust and interrupted-transfer recovery matter. |
-| Clan Exchange | `api/clan/_exchange.ts`, `exchange/purchase.ts` | Personal Clan Points buy catalog currency/items/caches/War Supply with hall gates and weekly/monthly/one-time limits. C4 affects treasury-credit refunds. |
-| Eight weekly missions; clan XP/level, member-scaled mission XP | `api/clan/_mission-catalog.ts`, `mission/claim.ts` | C3 can strand the shared reward while still awarding personal points. Existing activity sources should retain their identity. |
+| Clan Exchange | `api/clan/_exchange.ts`, `exchange/purchase.ts`, `exchange/_settlement.ts` | Personal Clan Points buy catalog currency/items/caches/War Supply with existing gates and limits. C4 adds server-bound recovery for new treasury purchases without blind refunds. |
+| Eight weekly missions; clan XP/level, member-scaled mission XP | `api/clan/_mission-catalog.ts`, `mission/claim.ts`, `mission/_settlement.ts` | C3 adds co-written shared/personal proofs for new weekly claims; historical ambiguous transactions remain untouched. Activity sources retain their identity. |
 | Hall tiers: Camp 1, Dojo 7, Compound 15, Fortress 25, Citadel 40 | client clan constants/math and Exchange table | Already reinforces long-term shared identity; no new bar needed. |
 | Seven upgrade buildings, funded by treasury ryo and War Supply | `api/clan/upgrade/purchase.ts`, client `lib/clan-upgrades.ts` | All cap at 50. Next level costs 2,500×(current+1) ryo and 5×(current+1) War Supply. |
 | Territory, guards, scroll allocation, supply collection, reconnaissance | `api/clan/territory/*`, sector/war helpers | Shared world state and its recovery are materially valuable; do not treat collection as a cosmetic interaction. |
@@ -31,7 +31,7 @@ Audited base: `ecd8d6ccaba017a6791ec0ec94f822c10658984d`. Current executable cod
 | Scholars | +5% stat training and mission bonus | Training Grounds 0.2%/level (10% cap), missions, Sensei | Training applies doctrine already. C1: mission server mirror omitted the client's 5%; corrected with behavioral parity tests. Combat-mission ryo and field/hunt stat rules remain distinct. |
 | Medics | −5% hospital cost | Medical Wing 0.3%/level (15% cap); healer/support and boss activities | Existing hospital calculation applies it. This is cost, not a shorter hospital timer, extra combat healing, or an automatic support payout. |
 
-Pet Den is independent of these four doctrines: 0.3% pet-training XP/level (15% cap). C2 proves the displayed bonus is absent from sealed training XP; village Pet Yard is also omitted. At a 4-hour base of 400, happiness 100, each of baseline, Den level 50 and Yard level 50 sealed 460 XP. UI shows 0%, 15%, 12.5% respectively. Existing mastery, Loyal, happiness, morale, rounding and sealed old timers prevent guessing a new formula or compensating old sessions without an owner decision.
+Pet Den is independent of these doctrines: 0.3% pet-training XP per level (15% cap). C2 originally proved the displayed Den and village Pet Yard bonuses were omitted. The owner approved adding both percentages to mastery before the existing multipliers, rounding and morale. For new 4-hour training with happiness 100, tests now seal baseline 460, Den50 529, Yard50 517 and both 586 XP using the existing JavaScript arithmetic. Old sealed timers remain unchanged; no historical compensation or doctrine expansion was implemented.
 
 Scout Network reveals active-war enemy positions at 1, level at 15 and name at 30, only while enemies are outside their village. This is existing strategic information, not a license to expand tracking.
 

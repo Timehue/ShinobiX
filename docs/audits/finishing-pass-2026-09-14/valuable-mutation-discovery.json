@@ -631,19 +631,41 @@
     ],
     "candidateEvidence": [
       {
-        "line": 197,
+        "line": 104,
+        "kind": "mutation-or-settlement-call",
+        "symbol": "settleClanExchangeTreasury"
+      },
+      {
+        "line": 136,
         "kind": "value-write-or-projection",
         "field": "xp"
       },
       {
-        "line": 198,
+        "line": 137,
         "kind": "value-write-or-projection",
         "field": "level"
       },
       {
-        "line": 199,
+        "line": 138,
         "kind": "value-write-or-projection",
         "field": "treasury"
+      }
+    ],
+    "classification": "REVIEW REQUIRED — syntactic discovery includes projections; see reviewed value-path registry"
+  },
+  {
+    "file": "api/clan/exchange/_settlement.ts",
+    "routes": [],
+    "candidateEvidence": [
+      {
+        "line": 56,
+        "kind": "mutation-or-settlement-call",
+        "symbol": "settlementTransactionId"
+      },
+      {
+        "line": 57,
+        "kind": "mutation-or-settlement-call",
+        "symbol": "settlementFingerprint"
       }
     ],
     "classification": "REVIEW REQUIRED — syntactic discovery includes projections; see reviewed value-path registry"
@@ -689,79 +711,96 @@
     ],
     "candidateEvidence": [
       {
-        "line": 205,
-        "kind": "value-write-or-projection",
-        "field": "xp"
+        "line": 188,
+        "kind": "mutation-or-settlement-call",
+        "symbol": "settleMissionCredit"
       },
       {
-        "line": 206,
-        "kind": "value-write-or-projection",
-        "field": "level"
-      },
-      {
-        "line": 207,
+        "line": 196,
         "kind": "value-write-or-projection",
         "field": "treasury"
       },
       {
-        "line": 225,
-        "kind": "value-write-or-projection",
-        "field": "xp"
+        "line": 223,
+        "kind": "mutation-or-settlement-call",
+        "symbol": "awardClanPointsToPlayerSave"
       },
       {
-        "line": 225,
-        "kind": "value-write-or-projection",
-        "field": "level"
+        "line": 230,
+        "kind": "mutation-or-settlement-call",
+        "symbol": "awardClanPointsToPlayerSave"
       },
       {
-        "line": 225,
-        "kind": "value-write-or-projection",
-        "field": "treasury"
-      },
-      {
-        "line": 232,
-        "kind": "value-write-or-projection",
-        "field": "xp"
-      },
-      {
-        "line": 233,
-        "kind": "value-write-or-projection",
-        "field": "level"
-      },
-      {
-        "line": 234,
-        "kind": "value-write-or-projection",
-        "field": "treasury"
+        "line": 243,
+        "kind": "mutation-or-settlement-call",
+        "symbol": "awardClanPointsToPlayerSave"
       },
       {
         "line": 263,
-        "kind": "mutation-or-settlement-call",
-        "symbol": "awardClanPointsToPlayerSave"
-      },
-      {
-        "line": 269,
-        "kind": "mutation-or-settlement-call",
-        "symbol": "awardClanPointsToPlayerSave"
-      },
-      {
-        "line": 281,
-        "kind": "mutation-or-settlement-call",
-        "symbol": "awardClanPointsToPlayerSave"
-      },
-      {
-        "line": 296,
         "kind": "value-write-or-projection",
         "field": "xp"
       },
       {
-        "line": 297,
+        "line": 264,
         "kind": "value-write-or-projection",
         "field": "level"
       },
       {
-        "line": 298,
+        "line": 265,
         "kind": "value-write-or-projection",
         "field": "treasury"
+      }
+    ],
+    "classification": "REVIEW REQUIRED — syntactic discovery includes projections; see reviewed value-path registry"
+  },
+  {
+    "file": "api/clan/mission/_settlement.ts",
+    "routes": [],
+    "candidateEvidence": [
+      {
+        "line": 28,
+        "kind": "mutation-or-settlement-call",
+        "symbol": "grantFrom"
+      },
+      {
+        "line": 40,
+        "kind": "value-write-or-projection",
+        "field": "xp"
+      },
+      {
+        "line": 40,
+        "kind": "value-write-or-projection",
+        "field": "level"
+      },
+      {
+        "line": 41,
+        "kind": "value-write-or-projection",
+        "field": "treasury"
+      },
+      {
+        "line": 55,
+        "kind": "mutation-or-settlement-call",
+        "symbol": "grantFrom"
+      },
+      {
+        "line": 62,
+        "kind": "mutation-or-settlement-call",
+        "symbol": "grantFrom"
+      },
+      {
+        "line": 73,
+        "kind": "mutation-or-settlement-call",
+        "symbol": "grantFrom"
+      },
+      {
+        "line": 78,
+        "kind": "value-write-or-projection",
+        "field": "xp"
+      },
+      {
+        "line": 78,
+        "kind": "value-write-or-projection",
+        "field": "level"
       }
     ],
     "classification": "REVIEW REQUIRED — syntactic discovery includes projections; see reviewed value-path registry"
@@ -1306,22 +1345,22 @@
         "field": "treasury"
       },
       {
-        "line": 528,
+        "line": 531,
         "kind": "mutation-or-settlement-call",
         "symbol": "purchaseCount"
       },
       {
-        "line": 529,
+        "line": 532,
         "kind": "mutation-or-settlement-call",
         "symbol": "purchaseLimitCount"
       },
       {
-        "line": 534,
+        "line": 537,
         "kind": "mutation-or-settlement-call",
         "symbol": "applyReward"
       },
       {
-        "line": 535,
+        "line": 538,
         "kind": "value-write-or-projection",
         "field": "clanPoints"
       }
@@ -4550,47 +4589,47 @@
         "symbol": "settleFinishedTraining"
       },
       {
-        "line": 114,
+        "line": 115,
         "kind": "mutation-or-settlement-call",
         "symbol": "settleFinishedTraining"
       },
       {
-        "line": 130,
+        "line": 131,
         "kind": "mutation-or-settlement-call",
         "symbol": "gainServerPetXp"
       },
       {
-        "line": 133,
+        "line": 134,
         "kind": "mutation-or-settlement-call",
         "symbol": "grantPetHappiness"
       },
       {
-        "line": 150,
+        "line": 151,
         "kind": "value-write-or-projection",
         "field": "fateShards"
       },
       {
-        "line": 176,
+        "line": 177,
         "kind": "value-write-or-projection",
         "field": "inventory"
       },
       {
-        "line": 199,
+        "line": 200,
         "kind": "value-write-or-projection",
         "field": "pets"
       },
       {
-        "line": 218,
+        "line": 219,
         "kind": "value-write-or-projection",
         "field": "pets"
       },
       {
-        "line": 221,
+        "line": 222,
         "kind": "value-write-or-projection",
         "field": "pets"
       },
       {
-        "line": 239,
+        "line": 240,
         "kind": "mutation-or-settlement-call",
         "symbol": "reportMissionEvent"
       }
@@ -6516,27 +6555,27 @@
     "routes": [],
     "candidateEvidence": [
       {
-        "line": 82,
+        "line": 92,
         "kind": "mutation-or-settlement-call",
         "symbol": "gainServerPetXp"
       },
       {
-        "line": 86,
+        "line": 96,
         "kind": "mutation-or-settlement-call",
         "symbol": "grantPetHappiness"
       },
       {
-        "line": 102,
+        "line": 112,
         "kind": "value-write-or-projection",
         "field": "inventory"
       },
       {
-        "line": 106,
+        "line": 116,
         "kind": "value-write-or-projection",
         "field": "xp"
       },
       {
-        "line": 118,
+        "line": 128,
         "kind": "mutation-or-settlement-call",
         "symbol": "gainServerPetXp"
       }
@@ -12306,12 +12345,12 @@
     "routes": [],
     "candidateEvidence": [
       {
-        "line": 144,
+        "line": 150,
         "kind": "value-write-or-projection",
         "field": "clanPoints"
       },
       {
-        "line": 172,
+        "line": 179,
         "kind": "mutation-or-settlement-call",
         "symbol": "awardClanPoints"
       }
