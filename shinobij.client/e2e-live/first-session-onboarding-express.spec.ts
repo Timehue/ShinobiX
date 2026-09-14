@@ -139,14 +139,6 @@ async function playToTerminal(page: Page, playerName: string, initial: Session):
     return session;
 }
 
-async function dismissNotice(page: Page, expectedMessage: string | RegExp) {
-    const notice = page.getByRole('alertdialog', { name: 'Notice' });
-    await expect(notice).toBeVisible();
-    await expect(notice.locator('.game-alert-message')).toHaveText(expectedMessage);
-    await notice.getByRole('button', { name: 'OK' }).click();
-    await expect(notice).toBeHidden();
-}
-
 async function createCharacter(page: Page, playerName: string, password: string) {
     await page.goto('/', { waitUntil: 'networkidle' });
     await page.getByTestId('start-create').click();
@@ -322,7 +314,27 @@ test(`a new player completes the full persisted Academy first session against bu
     expect(started.session.sessionId).toBe(started.runId);
     await expect(page.locator('.mission-arena-fight')).toBeVisible();
 
-    const terminal = await playToTerminal(page, playerName, started.session);
+    // Learn the actual command/target interaction before the persistence solver
+    // finishes the match. The guide occupies the existing feedback band, so it
+    // cannot cover the vitals or the action tray on a phone.
+    await expect(page.locator('.combat-action-notice .spar-coach-hint')).toContainText('Move');
+    await expect(page.locator('body > .spar-coach-banner')).toHaveCount(0);
+    await page.getByRole('button', { name: /^Move/ }).click();
+    const moveReply = page.waitForResponse(response => response.request().method() === 'POST'
+        && new URL(response.url()).pathname === '/api/solo-pve/action');
+    await page.getByRole('button', { name: /move target/ }).first().click();
+    const moved = await (await moveReply).json() as { session: Session; applied: boolean };
+    expect(moved.applied).toBe(true);
+    expect(moved.session.player.pos).not.toBe(started.session.player.pos);
+    await page.locator('.combat-jutsu-button').filter({ hasText: 'Flicker' }).click();
+    const jutsuReply = page.waitForResponse(response => response.request().method() === 'POST'
+        && new URL(response.url()).pathname === '/api/solo-pve/action');
+    await page.getByRole('button', { name: /jutsu move destination/ }).first().click();
+    const flickered = await (await jutsuReply).json() as { session: Session; applied: boolean };
+    expect(flickered.applied).toBe(true);
+    expect(flickered.session.player.pos).not.toBe(moved.session.player.pos);
+
+    const terminal = await playToTerminal(page, playerName, flickered.session);
     expect(terminal.status).toBe('done');
     expect(terminal.winner).toBe('player');
 
@@ -363,7 +375,7 @@ test(`a new player completes the full persisted Academy first session against bu
         && new URL(response.url()).pathname === '/api/player/cafeteria');
     await page.getByRole('button', { name: /Feast/ }).click();
     expect((await cafeteriaResponse).status()).toBe(200);
-    await expect(page.getByRole('status')).toContainText('Feast restored your resources.');
+    await expect(page.locator('.game-toast-stack')).toContainText('Feast restored your resources.');
     await expect(page.getByRole('button', { name: 'Go to Mission Hall' })).toBeVisible();
     await waitForPersisted(page, playerName, (save) => save.character?.onboardingStep === 'firstMission',
         'full recovery and the mission handoff must persist');
@@ -374,7 +386,8 @@ test(`a new player completes the full persisted Academy first session against bu
         && new URL(response.url()).pathname === '/api/missions/claim-mission');
     await page.getByRole('button', { name: 'Claim Academy Trial Reward' }).click();
     expect((await missionResponse).status()).toBe(200);
-    await dismissNotice(page, /^Academy Trial complete!/);
+    await expect(page.locator('.game-toast-stack')).toContainText('Academy Trial complete!');
+    await expect(page.getByRole('alertdialog', { name: 'Notice' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Open Logbook' })).toBeVisible();
     await waitForPersisted(page, playerName, (save) => (
         save.character?.onboardingStep === 'logbook'

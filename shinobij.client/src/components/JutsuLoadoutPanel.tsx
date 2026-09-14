@@ -303,7 +303,7 @@ export function JutsuLoadoutPanel({
                     <header className="jutsu-workbench-header">
                         <div className="jutsu-workbench-heading">
                             <h2>Jutsu Loadout</h2>
-                            <strong>{equippedCount} / {LOADOUT_CAP_SUB}</strong>
+                            <strong>{equippedCount} / {unlockedSlots}</strong>
                         </div>
                         <button
                             type="button"

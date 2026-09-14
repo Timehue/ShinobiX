@@ -310,8 +310,25 @@ export function OnboardingCoach({
     useEffect(() => {
         if (!bannerVisible) return;
         document.body.classList.add("coach-banner-open");
-        return () => document.body.classList.remove("coach-banner-open");
-    }, [bannerVisible]);
+        const guide = document.querySelector<HTMLElement>(".onboarding-coach-banner");
+        const reserveSpace = () => {
+            if (!guide) return;
+            const clearance = Math.ceil(window.innerHeight - guide.getBoundingClientRect().top + 12);
+            document.documentElement.style.setProperty("--academy-guide-clearance", `${clearance}px`);
+        };
+        const observer = new ResizeObserver(reserveSpace);
+        if (guide) observer.observe(guide);
+        const notice = document.querySelector(".storage-notice");
+        if (notice) observer.observe(notice);
+        window.addEventListener("resize", reserveSpace);
+        reserveSpace();
+        return () => {
+            document.body.classList.remove("coach-banner-open");
+            document.documentElement.style.removeProperty("--academy-guide-clearance");
+            observer.disconnect();
+            window.removeEventListener("resize", reserveSpace);
+        };
+    }, [bannerVisible, screen, step]);
 
     // Bring an off-screen Academy target into view after navigation. Observe for
     // late targets as well: lazy screen chunks can take longer than one timeout,
@@ -331,11 +348,18 @@ export function OnboardingCoach({
             || (step === "sectorReturn" && !character.academySectorVisited && screen === "worldMap");
         if (!screenOwnsTarget) return;
         let observer: MutationObserver | null = null;
+        let observedTarget: HTMLElement | undefined;
+        const layoutObserver = new ResizeObserver(() => { revealTarget(); });
         const revealTarget = () => {
             const target = Array.from(document.querySelectorAll<HTMLElement>(
                 ".academy-click-target[data-academy-autoscroll='true']",
             )).find((candidate) => candidate.offsetParent !== null);
             if (!target) return false;
+            if (target !== observedTarget) {
+                if (observedTarget) layoutObserver.unobserve(observedTarget);
+                layoutObserver.observe(target);
+                observedTarget = target;
+            }
             const rect = target.getBoundingClientRect();
             // Measure the banner rather than assume it. Its height follows the
             // length of the current coaching line — 148px to 218px at 390x844 —
@@ -351,15 +375,35 @@ export function OnboardingCoach({
             // Clamped so a banner taller than the viewport (or one not mounted
             // yet) degrades to "scroll it to the middle", never to a dead zone.
             const clearOfBanner = Math.max(120, Math.min(window.innerHeight - 16, bannerTop - 12));
-            const comfortablyVisible = rect.top >= 16
+            const hudBottom = document.querySelector<HTMLElement>(".mobile-top-hud")?.getBoundingClientRect().bottom ?? 0;
+            const clearTop = Math.max(16, hudBottom + 12);
+            const comfortablyVisible = rect.top >= clearTop
                 && rect.bottom <= clearOfBanner
                 && rect.left >= 16
                 && rect.right <= window.innerWidth - 16;
             if (!comfortablyVisible) {
-                target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+                target.scrollIntoView({ behavior: "instant", block: "center" });
+                // Viewport-centering alone can put a tall target behind the
+                // guide. Center in the space between the mobile HUD and guide,
+                // allowing nested scroll areas to pass any remaining movement
+                // to their parent when they reach a scroll limit.
+                for (let parent = target.parentElement; parent; parent = parent.parentElement) {
+                    // The document still scrolls when its computed overflow is
+                    // visible, unlike an ordinary nested container.
+                    if (parent.scrollHeight <= parent.clientHeight || (parent !== document.scrollingElement && !/(auto|scroll)/.test(getComputedStyle(parent).overflowY))) continue;
+                    const bounds = target.getBoundingClientRect();
+                    const desiredTop = Math.max(clearTop, (clearTop + clearOfBanner - bounds.height) / 2);
+                    parent.scrollTop += bounds.top - desiredTop;
+                    const moved = target.getBoundingClientRect();
+                    if (moved.top >= clearTop && moved.bottom <= clearOfBanner) break;
+                }
             }
             return true;
         };
+        const guideElement = document.querySelector(".onboarding-coach-banner");
+        const noticeElement = document.querySelector(".storage-notice");
+        if (guideElement) layoutObserver.observe(guideElement);
+        if (noticeElement) layoutObserver.observe(noticeElement);
         observer = new MutationObserver(() => {
             if (revealTarget()) observer?.disconnect();
         });
@@ -367,9 +411,20 @@ export function OnboardingCoach({
         const timeout = window.setTimeout(() => {
             if (revealTarget()) observer?.disconnect();
         }, 180);
+        // A rotation can move a previously revealed target behind the guide.
+        // Recheck after responsive layout settles, without fighting user scroll.
+        let resizeTimeout: number | undefined;
+        const revealAfterResize = () => {
+            window.clearTimeout(resizeTimeout);
+            resizeTimeout = window.setTimeout(revealTarget, 180);
+        };
+        window.addEventListener("resize", revealAfterResize);
         return () => {
             window.clearTimeout(timeout);
+            window.clearTimeout(resizeTimeout);
+            window.removeEventListener("resize", revealAfterResize);
             observer?.disconnect();
+            layoutObserver.disconnect();
         };
     }, [bannerVisible, character.academySectorVisited, reduced, screen, sparKnockedOut, step]);
 

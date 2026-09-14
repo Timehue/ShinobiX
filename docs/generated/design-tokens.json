@@ -2444,7 +2444,11 @@
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 264
+            "line": 277
+          },
+          {
+            "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
+            "line": 367
           },
           {
             "source": "shinobij.client/src/styles/world-map-mobile.css",
@@ -2626,7 +2630,7 @@
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 354
+            "line": 401
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-stages.css",
@@ -3440,10 +3444,6 @@
             "line": 468
           },
           {
-            "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 346
-          },
-          {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
             "line": 334
           },
@@ -3790,7 +3790,15 @@
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 200
+            "line": 199
+          },
+          {
+            "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
+            "line": 213
+          },
+          {
+            "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
+            "line": 367
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-stages.css",
@@ -3888,7 +3896,7 @@
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 193
+            "line": 206
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
@@ -4233,7 +4241,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 193
+            "line": 206
           }
         ]
       },

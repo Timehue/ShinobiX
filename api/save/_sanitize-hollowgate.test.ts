@@ -251,9 +251,11 @@ test('level: generic saves cannot originate a gain', () => {
     assert.equal(sanitize({ level: 999 }, { level: 98 }).level, 98);
 });
 
-test('ryo: generic saves may spend but cannot originate a gain', () => {
+test('ryo: generic saves can neither originate a gain nor lower the stored balance', () => {
     assert.equal(sanitize({ ryo: 9_999_999 }, { ryo: 1000 }).ryo, 1000);
-    assert.equal(sanitize({ ryo: 900 }, { ryo: 1000 }).ryo, 900);
+    // Every ryo spend settles through a server endpoint; a lower value here is
+    // a stale client, and accepting it would erase a server credit.
+    assert.equal(sanitize({ ryo: 900 }, { ryo: 1000 }).ryo, 1000);
 });
 
 test('soft currencies: generic saves may spend but cannot originate gains', () => {
