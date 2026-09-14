@@ -157,10 +157,41 @@ test('keeps admin-authored content and the exact admin content slots', () => {
         'shared:legacy-defs',
         'game:village-leadership-images',
         'game:weekly-boss-override',
+        'game:dojo-circuit:enabled',
         'forged-item:abc',
     ]) {
         assert.equal(isPreservedKey(key), true, `${key} must survive a full reset`);
     }
+});
+
+test('the Dojo Circuit keeps only its admin switch', () => {
+    // The switch is admin config. The event board beside it holds the old
+    // era's entrants, attempts and champions, so it resets.
+    assert.equal(isPreservedKey('game:dojo-circuit:enabled'), true);
+    assert.equal(isPreservedKey('game:dojo-circuit:state'), false);
+    assert.equal(isPreservedKey('game:dojo-circuit:archive:6f1c2a9e-0000-4000-8000-000000000000'), false);
+});
+
+test('namespaces added since the 2026-09-03 audit are wiped', () => {
+    // Found by diffing the key builders on main from 2026-09-03 to 2026-09-14.
+    // All are per-player or per-era world state, so the default is right.
+    for (const key of [
+        'first-pact-standing-receipt:someplayer:proof-1',
+        'sd-fp:someplayer:session-1',
+        'battle-state:someplayer',
+        'walked-tile:someplayer',
+        'world-effects:someplayer',
+        'village:elder-council:stormveilvillage',
+        'sector-card-garrison:war-1',
+        'sector-pet-garrison:war-1',
+        'pet:ranked-completed:someplayer',
+        'heal:self:someplayer',
+        'xfer:out:someplayer:ryo',
+    ]) {
+        assert.equal(isPreservedKey(key), false, `${key} must NOT survive a full reset`);
+    }
+    // …while a new audit row is a record and is kept.
+    assert.equal(isPreservedKey('audit:clan-leave:someplayer:1786730882483'), true);
 });
 
 test('save:admin is matched exactly, not as a prefix', () => {

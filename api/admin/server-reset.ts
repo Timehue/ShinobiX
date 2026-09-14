@@ -69,6 +69,12 @@ export const PRESERVE_PATTERNS: readonly string[] = [
     'shared:legacy-defs',               // authored legacy definitions
     'game:village-leadership-images',   // Village Leaders tab config (names + portraits)
     'game:weekly-boss-override',        // admin's chosen weekly boss
+    // The Dojo Circuit on/off switch: full-admin-only, the same gate as the
+    // weekly-boss override (api/game-state.ts fullAdminOnlyKinds). EXACT key —
+    // the Circuit's `state` (entrants, attempts, history) and `archive:*`
+    // (past events and their champions) are previous-era world state and are
+    // wiped. Losing the switch would silently turn the Circuit off.
+    'game:dojo-circuit:enabled',
     // Permanent forged/named-item DEFINITIONS. Keyed by item id, not by player,
     // so they cannot be scoped to a protected account — and a protected account
     // that keeps its save would otherwise be left holding gear whose definition
