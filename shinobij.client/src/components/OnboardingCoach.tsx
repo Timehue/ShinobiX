@@ -47,6 +47,7 @@ import { companionStepMeta } from "../lib/journey-guide";
 import { academyStoryMomentFor, academyVowDefinition } from "../lib/academy-narrative";
 import { commitAcademyNarrativeAction, type AcademyNarrativeAction } from "../lib/academy-narrative-api";
 import { petPoseImage } from "../lib/pet-battle-anim";
+import { requestAcademyTrailFocus } from "../lib/academy-trail-focus";
 import { isLowEndMobile, prefersReducedMotion } from "../lib/device-tier";
 import type { Pet } from "../types/pet";
 import type { Character, Screen } from "../App";
@@ -126,6 +127,14 @@ const guideWrapStyle: React.CSSProperties = {
     zIndex: 9000,
 };
 
+// The World Map chip shares the banner's anchor but sizes to its content, so a
+// narrow phone wraps its buttons onto a second row instead of clipping them.
+const trailChipWrapStyle: React.CSSProperties = {
+    ...guideWrapStyle,
+    width: "max-content",
+    maxWidth: "calc(100% - 16px)",
+};
+
 const skipStyle: React.CSSProperties = {
     background: "none",
     border: "none",
@@ -161,7 +170,7 @@ export function OnboardingCoach({
     onReturnToVillage?: () => void;
     updateCharacter: (c: Character) => void;
     onVersionedCharacter?: VersionedCharacterCommit;
-    commitNarrativeAction?: (action: AcademyNarrativeAction, sector?: number) => Promise<void>;
+    commitNarrativeAction?: (action: AcademyNarrativeAction, sector?: number, route?: import('../../../shared/first-contract').FirstContractRoute) => Promise<void>;
     onStartSpar: () => void;
     onOpenAwakening?: () => void;
 }) {
@@ -174,9 +183,9 @@ export function OnboardingCoach({
     const equipmentBaselineRef = useRef<number | null>(null);
     const reduced = prefersReducedMotion();
     const liteFx = isLowEndMobile();
-    const persistNarrativeAction = async (action: AcademyNarrativeAction, sector?: number) => {
-        if (commitNarrativeAction) { await commitNarrativeAction(action, sector); return; }
-        const result = await commitAcademyNarrativeAction(character.name, action, sector);
+    const persistNarrativeAction = async (action: AcademyNarrativeAction, sector?: number, route?: import('../../../shared/first-contract').FirstContractRoute) => {
+        if (commitNarrativeAction) { await commitNarrativeAction(action, sector, route); return; }
+        const result = await commitAcademyNarrativeAction(character.name, action, sector, route);
         if (!onVersionedCharacter?.(result.character, result._saveVersion)) {
             throw new Error("A newer Academy save is already active. Reopen this moment and try again.");
         }
@@ -301,8 +310,25 @@ export function OnboardingCoach({
     useEffect(() => {
         if (!bannerVisible) return;
         document.body.classList.add("coach-banner-open");
-        return () => document.body.classList.remove("coach-banner-open");
-    }, [bannerVisible]);
+        const guide = document.querySelector<HTMLElement>(".onboarding-coach-banner");
+        const reserveSpace = () => {
+            if (!guide) return;
+            const clearance = Math.ceil(window.innerHeight - guide.getBoundingClientRect().top + 12);
+            document.documentElement.style.setProperty("--academy-guide-clearance", `${clearance}px`);
+        };
+        const observer = new ResizeObserver(reserveSpace);
+        if (guide) observer.observe(guide);
+        const notice = document.querySelector(".storage-notice");
+        if (notice) observer.observe(notice);
+        window.addEventListener("resize", reserveSpace);
+        reserveSpace();
+        return () => {
+            document.body.classList.remove("coach-banner-open");
+            document.documentElement.style.removeProperty("--academy-guide-clearance");
+            observer.disconnect();
+            window.removeEventListener("resize", reserveSpace);
+        };
+    }, [bannerVisible, screen, step]);
 
     // Bring an off-screen Academy target into view after navigation. Observe for
     // late targets as well: lazy screen chunks can take longer than one timeout,
@@ -322,21 +348,62 @@ export function OnboardingCoach({
             || (step === "sectorReturn" && !character.academySectorVisited && screen === "worldMap");
         if (!screenOwnsTarget) return;
         let observer: MutationObserver | null = null;
+        let observedTarget: HTMLElement | undefined;
+        const layoutObserver = new ResizeObserver(() => { revealTarget(); });
         const revealTarget = () => {
             const target = Array.from(document.querySelectorAll<HTMLElement>(
                 ".academy-click-target[data-academy-autoscroll='true']",
             )).find((candidate) => candidate.offsetParent !== null);
             if (!target) return false;
+            if (target !== observedTarget) {
+                if (observedTarget) layoutObserver.unobserve(observedTarget);
+                layoutObserver.observe(target);
+                observedTarget = target;
+            }
             const rect = target.getBoundingClientRect();
-            const comfortablyVisible = rect.top >= 16
-                && rect.bottom <= window.innerHeight - 180
+            // Measure the banner rather than assume it. Its height follows the
+            // length of the current coaching line — 148px to 218px at 390x844 —
+            // and on a phone it floats ~80px above the viewport bottom, so it
+            // owns 228-298px of screen. The flat 180px reserve this used to
+            // subtract could therefore call a target "comfortably visible"
+            // while the speech bubble was sitting directly on top of it: the
+            // same failure as the bubble covering the Inventory popup's Equip
+            // button, arrived at by scroll position instead of by z-index.
+            const bannerTop = document
+                .querySelector<HTMLElement>(".onboarding-coach-banner")
+                ?.getBoundingClientRect().top ?? window.innerHeight - 180;
+            // Clamped so a banner taller than the viewport (or one not mounted
+            // yet) degrades to "scroll it to the middle", never to a dead zone.
+            const clearOfBanner = Math.max(120, Math.min(window.innerHeight - 16, bannerTop - 12));
+            const hudBottom = document.querySelector<HTMLElement>(".mobile-top-hud")?.getBoundingClientRect().bottom ?? 0;
+            const clearTop = Math.max(16, hudBottom + 12);
+            const comfortablyVisible = rect.top >= clearTop
+                && rect.bottom <= clearOfBanner
                 && rect.left >= 16
                 && rect.right <= window.innerWidth - 16;
             if (!comfortablyVisible) {
-                target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+                target.scrollIntoView({ behavior: "instant", block: "center" });
+                // Viewport-centering alone can put a tall target behind the
+                // guide. Center in the space between the mobile HUD and guide,
+                // allowing nested scroll areas to pass any remaining movement
+                // to their parent when they reach a scroll limit.
+                for (let parent = target.parentElement; parent; parent = parent.parentElement) {
+                    // The document still scrolls when its computed overflow is
+                    // visible, unlike an ordinary nested container.
+                    if (parent.scrollHeight <= parent.clientHeight || (parent !== document.scrollingElement && !/(auto|scroll)/.test(getComputedStyle(parent).overflowY))) continue;
+                    const bounds = target.getBoundingClientRect();
+                    const desiredTop = Math.max(clearTop, (clearTop + clearOfBanner - bounds.height) / 2);
+                    parent.scrollTop += bounds.top - desiredTop;
+                    const moved = target.getBoundingClientRect();
+                    if (moved.top >= clearTop && moved.bottom <= clearOfBanner) break;
+                }
             }
             return true;
         };
+        const guideElement = document.querySelector(".onboarding-coach-banner");
+        const noticeElement = document.querySelector(".storage-notice");
+        if (guideElement) layoutObserver.observe(guideElement);
+        if (noticeElement) layoutObserver.observe(noticeElement);
         observer = new MutationObserver(() => {
             if (revealTarget()) observer?.disconnect();
         });
@@ -344,9 +411,20 @@ export function OnboardingCoach({
         const timeout = window.setTimeout(() => {
             if (revealTarget()) observer?.disconnect();
         }, 180);
+        // A rotation can move a previously revealed target behind the guide.
+        // Recheck after responsive layout settles, without fighting user scroll.
+        let resizeTimeout: number | undefined;
+        const revealAfterResize = () => {
+            window.clearTimeout(resizeTimeout);
+            resizeTimeout = window.setTimeout(revealTarget, 180);
+        };
+        window.addEventListener("resize", revealAfterResize);
         return () => {
             window.clearTimeout(timeout);
+            window.clearTimeout(resizeTimeout);
+            window.removeEventListener("resize", revealAfterResize);
             observer?.disconnect();
+            layoutObserver.disconnect();
         };
     }, [bannerVisible, character.academySectorVisited, reduced, screen, sparKnockedOut, step]);
 
@@ -544,6 +622,32 @@ export function OnboardingCoach({
         document.body,
     );
 
+    // The World Map beat is the one screen where the bubble has nothing to say
+    // that the map is not already saying: the target sector wears the pulsing
+    // "Next · travel here" badge and the camera opens on it. On a phone the
+    // 148-218px bubble sat over the bottom ~40% of the map viewport and hid the
+    // region chips under it entirely, so here the banner collapses to a one-line
+    // chip. "Find the trail" re-aims the camera for a player who panned away; it
+    // never travels them (menus never move you). Same .onboarding-coach-banner
+    // class, so the bottom-nav clearance, the dialog stand-down and the coach's
+    // own reveal measurement all keep working unchanged.
+    const renderTrailChip = () => createPortal(
+        <div className="onboarding-coach-banner coach-trail-chip" style={trailChipWrapStyle} role="group" aria-label={guideProgressLabel}>
+            <div className="coach-trail-chip-pill">
+                {guideArt && guidePet && (
+                    <img className="coach-trail-chip-pet" src={guideArt} alt="" />
+                )}
+                <p className="coach-trail-chip-line" aria-hidden="true">
+                    <i /><span>Follow the foxfire to any numbered sector.</span>
+                </p>
+                <span className="coach-guide-sr" aria-live="polite">{bannerText}</span>
+                <button type="button" className="coach-trail-chip-find" onClick={requestAcademyTrailFocus}>Find the trail</button>
+                <button type="button" className="coach-skip-link" onClick={requestSkip}>Skip</button>
+            </div>
+        </div>,
+        document.body,
+    );
+
     if (step === "training") {
         return renderGuideBanner(screen !== "training" && (
             <button className="start-primary-btn" onClick={() => setScreen("training")}>Go to Training Grounds</button>
@@ -650,9 +754,10 @@ export function OnboardingCoach({
     }
 
     if (step === "sectorReturn") {
+        if (!visitedSector && screen === "worldMap") return renderTrailChip();
         return renderGuideBanner(
             <>
-                {!visitedSector && screen !== "worldMap" && (
+                {!visitedSector && (
                     <button className="start-primary-btn" onClick={() => setScreen("worldMap")}>Open World Map</button>
                 )}
                 {visitedSector && (

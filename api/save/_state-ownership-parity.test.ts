@@ -54,17 +54,18 @@ const FROZEN = {
     COMBAT_STRIP_CHAR_FIELDS: [
         'inventory', 'itemStacks', 'tileCards', 'savedTileDeck',
         'missions', 'missionLog', 'completedMissions', 'activeMissions', 'questLog', 'bankLog',
-        'storyTraits', 'storyTitle',
+        'storyTraits', 'storyChoices', 'storyScene', 'pendingStoryReports', 'storyEpilogues', 'storyTitle', 'storyFieldRecords', 'activeStoryReckoning',
         // Academy identity and first-session records are private narrative state,
         // not fighter inputs. This is an intentional, reviewed extension of the
         // pre-manifest combat projection as the authored onboarding arc expands.
         'onboardingStep', 'academySectorVisited', 'academyVow',
-        'academyIncidentSeen', 'academyTraceSector', 'academyFieldSeal',
+        'academyIncidentSeen', 'academyTraceSector', 'academyFieldSeal', 'firstContract',
         'petTutorialProgress',
         'weeklyBossKills', 'claimedWarCrateIds',
         'unlockedAchievements', 'achievementUnlockedAt',
         'battleHistory',
         'hollowGateRun', 'hollowGateWardenKills', 'hollowGateIntroSeen', 'hollowGateAttunement', 'lastHollowGateStart',
+        'riftFirstClears', 'riftQuestBossReceipt',
         'endlessTowerRun', 'endlessTowerBestWave',
         'battleTowerBestFloor', 'battleTowerRating', 'battleTowerClearedFloors',
         'battleTowerClaimedRewards', 'battleTowerAssistRewardsClaimed', 'battleTowerMilestones',
@@ -74,7 +75,7 @@ const FROZEN = {
         // Relic-survey quest bookkeeping — non-combat, so stripped from the
         // sealed fighter snapshot like every other progress counter.
         'relicSurvey', 'relicSurveyCount',
-        'totalPvpKills', 'monthlyPvpKills', 'pvpKillMonth',
+        'totalPvpKills', 'monthlyPvpKills', 'pvpKillMonth', 'elderWinDays', 'elderRankedWinReceipts',
         'dailyAiKills', 'dailyPetWins', 'dailyTilesExplored', 'dailyMissionsCompleted',
         'dailyFateSpins', 'lastDailyReset',
         'claimedVillageAgendaDate', 'claimedMapControlDate', 'warGroundBountyDate',
@@ -93,7 +94,7 @@ const FROZEN = {
         'petBreedingHatchReceipts', 'petBreedingProgressReceipts',
         'ryo', 'honorSeals', 'fateShards', 'chroniclePoints', 'boneCharms', 'auraStones', 'mythicSeals', 'auraDust', 'hollowShards',
         // Echoes of War campaign record — non-combat bookkeeping.
-        'echoesOfWar',
+        'echoesOfWar', 'echoesWitnessChoices',
         'rankedWins', 'rankedLosses', 'rankedSeasonSettlementReceipts', 'pvpRewardSettlementReceipts',
         'petRankedSettlementStamp', 'playerRankedSettlementStamp', 'vanguardRewardSettlementStamp', 'warDeclarationFundingReceipts', 'warMercenaryHireReceipts',
         'aiFightRewardSettlements', 'combatMissionClaimSettlements',
@@ -105,7 +106,7 @@ const FROZEN = {
     COMBAT_STRIP_TOPLEVEL_FIELDS: [
         'currentBiome', 'activeTraining', 'activeJutsuTraining',
         'acceptedMissionIds', 'missionProgress',
-        'triggeredEvents', 'pendingAiProfileId', 'currentSector',
+        'triggeredEvents', 'pendingAiProfileId', 'currentSector', 'worldTravelReceipt',
         'creatorAis', 'creatorEvents', 'creatorMissions', 'creatorRaids', 'creatorCards',
         'petEncounterVn', 'ancientChestVn', 'editablePets',
     ],
@@ -155,6 +156,7 @@ const FROZEN = {
         'dailyBattleFloors', 'dailyBattleDate', 'lastTaxDate',
     ],
     SERVER_LEDGER_TOPLEVEL_FIELDS: [
+        'currentSector', 'currentTile', 'worldTravelReceipt', 'pendingTravel',
         '_trainingReceipts', 'activeTraining',
         'activeWandererQuestSeal', 'activeStoryReckoningSeal',
         'activeRiftQuestSeal', 'activeQuestbookSeal',
@@ -182,6 +184,9 @@ const FROZEN = {
     // (exploration trio, chest trio, achievements quad, endless seven) — now
     // one uniform mirror loop; semantics per group were identical.
     SERVER_MIRRORED_CHARACTER_FIELDS: [
+        'firstContract', // journal milestones are committed by existing authoritative actions, never generic saves
+        'elderWinDays', 'elderRankedWinReceipts',
+        'pvpKillMonth', // Monthly ANBU rankings must not accept a client-written reset month.
         'serverExploreDate', 'serverExploresToday', 'serverFreeDungeonProbeDate', 'serverFreeDungeonProbesToday', 'redeemedSectorExplorations',
         'serverChestDate', 'serverChestsToday', 'redeemedAncientChests',
         // Relic survey: world/explore appends the biome, quest accept resets it.
@@ -193,7 +198,8 @@ const FROZEN = {
         // Village Stores daily cook/donate counters (api/village-stores/*).
         'rationsCookedDate', 'rationsCookedToday', 'storesDonatedDate', 'rationsDonatedToday', 'craftPointsDonatedToday',
         // Echoes of War campaign record (card-clash/ai-move echoes settle).
-        'echoesOfWar',
+        'echoesOfWar', 'echoesWitnessChoices',
+        'riftFirstClears', 'riftQuestBossReceipt',
     ],
     PROGRESSION_ENTITLEMENT_CHARACTER_FIELDS: [
         'auraSphereLevel', 'redeemedAuraFeeds', 'battleTowerAscension', 'rankedSeasonsWon',
@@ -206,7 +212,7 @@ const FROZEN = {
         'petGauntletBoneClaimed', 'petGauntletEntryDate', 'petGauntletEntryCount',
         'redeemedWandererQuests', 'redeemedWandererAmbushes',
         'wandererAmbushRewardDate', 'wandererAmbushRewardCount', 'redeemedQuestbookRuns',
-        'storyReckoningRewardDate', 'storyReckoningRewardCount', 'redeemedStoryReckonings',
+        'storyReckoningRewardDate', 'storyReckoningRewardCount', 'redeemedStoryReckonings', 'storyFieldRecords', 'activeStoryReckoning',
         // `villageUpgrades` LEFT this list on 2026-08-17 (owner ruling): village
         // upgrades became SHARED village infrastructure bought from the treasury
         // seal pool, so the character field is now a cross-validated mirror of

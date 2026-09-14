@@ -81,6 +81,11 @@ jobs:
         run: npm run test:ci 2>&1 | tee .ci-evidence/server-contracts-${{ matrix.shard }}/root-tests.log
       - name: Retain server contract shard evidence
         if: always()
+        # Evidence is diagnostic, never a release gate: nothing downstream downloads it,
+        # and a refusal from GitHub's artifact blob service (a 403 on FinalizeArtifact
+        # cancelled three consecutive main rollouts on 2026-09-08 while every test was
+        # green) must not fail the job that produced the evidence.
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
@@ -143,6 +148,7 @@ jobs:
           test "$SHARDS" = success
       - name: Retain server contract evidence
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
@@ -153,7 +159,10 @@ jobs:
   server_build_security:
     name: CI / server-build-security
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # 15 was enough until the audit step learned to retry (see below). A single
+    # failing audit attempt cost 5m of npm's own internal retrying, so three of
+    # them plus install, backup tests and the server build no longer fit.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -170,7 +179,40 @@ jobs:
       - name: Backup and restore safety
         run: npm run test:backup 2>&1 | tee .ci-evidence/server-build-security/backup-tests.log
       - name: Root dependency audit
-        run: npm audit --audit-level=high 2>&1 | tee .ci-evidence/server-build-security/root-audit.log
+        # The gate is unchanged: one high-severity advisory still fails the job,
+        # on the first attempt, with no retry. What is new is the handling of npm
+        # answering with no verdict at all. On 2026-09-04 the audit endpoint
+        # returned `400 Bad Request - Invalid package tree` for the very lockfile
+        # it had accepted 100 minutes earlier on the #118 merge; the step failed,
+        # and because every e2e suite, concurrency-smoke, release-artifact and
+        # release-certification hang off this job, the whole suite went red and
+        # Railway skipped the deploy of a commit whose code was fine. Re-running
+        # the identical commit passed all 19 jobs. A registry blip should not
+        # cost a production deploy, and retrying costs nothing when npm is well.
+        run: |
+          log=.ci-evidence/server-build-security/root-audit.log
+          attempt_out="$(mktemp)"
+          : > "$log"
+          for attempt in 1 2 3; do
+            printf '=== attempt %s of 3 ===\n' "$attempt" | tee -a "$log"
+            if npm audit --audit-level=high > "$attempt_out" 2>&1; then
+              tee -a "$log" < "$attempt_out"
+              exit 0
+            fi
+            tee -a "$log" < "$attempt_out"
+            # A real advisory is a verdict. Fail on it now rather than burning
+            # 10 more minutes to be told the same thing twice.
+            if ! grep -qE 'audit endpoint returned an error|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|ERR_SOCKET_TIMEOUT' "$attempt_out"; then
+              echo "::error::npm audit reported a high-severity advisory."
+              exit 1
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "::warning::npm audit endpoint errored on attempt $attempt/3; retrying in 30s."
+              sleep 30
+            fi
+          done
+          echo "::error::npm audit endpoint returned no verdict in 3 attempts."
+          exit 1
       - name: Build server once
         run: npm run build:server 2>&1 | tee .ci-evidence/server-build-security/server-build.log
       - name: Package immutable server artifact
@@ -191,6 +233,7 @@ jobs:
           retention-days: 14
       - name: Retain server build evidence
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
@@ -202,7 +245,9 @@ jobs:
   client_quality:
     name: CI / client-quality
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Raised with the audit retry below, on the same reasoning as
+    # server-build-security: three failing audit attempts are ~15m on their own.
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -238,7 +283,33 @@ jobs:
       - name: Visual-baseline size gate
         run: npm run test:e2e:visual:size --prefix shinobij.client 2>&1 | tee .ci-evidence/client-quality/visual-size.log
       - name: Client dependency audit
-        run: npm audit --prefix shinobij.client --audit-level=high 2>&1 | tee .ci-evidence/client-quality/client-audit.log
+        # Same contract as the root audit in server-build-security: a real
+        # advisory fails immediately, npm failing to answer is retried. This one
+        # happened to pass on 2026-09-04 while the root audit did not, which is
+        # the clearest evidence available that the failure was the registry's
+        # and not the lockfile's.
+        run: |
+          log=.ci-evidence/client-quality/client-audit.log
+          attempt_out="$(mktemp)"
+          : > "$log"
+          for attempt in 1 2 3; do
+            printf '=== attempt %s of 3 ===\n' "$attempt" | tee -a "$log"
+            if npm audit --prefix shinobij.client --audit-level=high > "$attempt_out" 2>&1; then
+              tee -a "$log" < "$attempt_out"
+              exit 0
+            fi
+            tee -a "$log" < "$attempt_out"
+            if ! grep -qE 'audit endpoint returned an error|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|ERR_SOCKET_TIMEOUT' "$attempt_out"; then
+              echo "::error::npm audit reported a high-severity advisory."
+              exit 1
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "::warning::npm audit endpoint errored on attempt $attempt/3; retrying in 30s."
+              sleep 30
+            fi
+          done
+          echo "::error::npm audit endpoint returned no verdict in 3 attempts."
+          exit 1
       - name: Package immutable client artifact
         run: |
           mkdir -p .ci-artifacts/client
@@ -257,6 +328,7 @@ jobs:
           retention-days: 14
       - name: Retain client quality evidence
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
@@ -336,6 +408,7 @@ jobs:
           retention-days: 14
       - name: Retain release artifact evidence
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
@@ -392,6 +465,7 @@ jobs:
         run: npm run certify:release 2>&1 | tee .ci-evidence/release-certification/certification.log
       - name: Retain release certification evidence
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
@@ -445,6 +519,7 @@ jobs:
         run: npm run soak:smoke 2>&1 | tee .ci-evidence/concurrency-smoke/soak.log
       - name: Retain concurrency evidence
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
@@ -483,6 +558,10 @@ jobs:
         run: |
           echo "release-artifact=${{ needs.release_artifact.result }}" | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/upstream-results.log
           exit 1
+      # Ranked browser fixtures load the compiled server resolver, whose imports
+      # include storage runtime packages resolved from the repository root.
+      - name: Install server runtime dependencies
+        run: npm ci --omit=dev 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/root-install.log
       - name: Install client dependencies
         run: npm ci --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/client-install.log
       - name: Download joined release artifact
@@ -507,6 +586,7 @@ jobs:
         run: npm run test:e2e --prefix shinobij.client -- --shard=${{ matrix.shard }}/2 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/playwright.log
       - name: Retain responsive browser evidence
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
@@ -535,6 +615,7 @@ jobs:
           test "$RESPONSIVE_MATRIX" = success
       - name: Retain responsive aggregate evidence
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
@@ -611,6 +692,7 @@ jobs:
         run: npm run test:e2e:combat-layout --prefix shinobij.client -- ${{ matrix.projects }} 2>&1 | tee .ci-evidence/e2e-combat-${{ matrix.shard }}/playwright.log
       - name: Retain combat browser evidence
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
@@ -639,6 +721,7 @@ jobs:
           test "$COMBAT_MATRIX" = success
       - name: Retain combat aggregate evidence
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
@@ -652,7 +735,11 @@ jobs:
     needs: release_artifact
     if: ${{ always() }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # This is a seven-project browser matrix that also renders eight real skinned
+    # rigs, so it belongs on the same 29-minute budget as the other two browser
+    # matrices rather than the 20 it was given: observed green runs already take
+    # 14-17 minutes, which left the job less headroom than one slow runner uses.
+    timeout-minutes: 29
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -693,6 +780,7 @@ jobs:
         run: npm run test:e2e:warfront --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-warfront/playwright.log
       - name: Retain Warfront browser evidence
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
@@ -710,7 +798,9 @@ jobs:
     needs: release_artifact
     if: ${{ always() }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # The recovery matrix exercises real admission timers on both viewports in
+    # addition to the existing economy, Academy and route journeys.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -753,12 +843,17 @@ jobs:
           (( artifact_attempt <= GITHUB_RUN_ATTEMPT ))
           cd ../..
           tar -xzf .ci-artifacts/release/release-dist.tgz
-      - name: Install Village Stores browser
+      - name: Install live Express browser
         run: npx --prefix shinobij.client playwright install --with-deps chromium 2>&1 | tee .ci-evidence/e2e-village-stores/browser-install.log
-      - name: Village Stores economy loop
-        run: npm run test:e2e:live --prefix shinobij.client -- village-stores-express.spec.ts --project=chromium-desktop-live 2>&1 | tee .ci-evidence/e2e-village-stores/playwright.log
+      # Keep the required check name stable while covering the shared server
+      # routing and save lifecycle used by the economy and Academy journeys.
+      - name: Live Express economy, Academy persistence and route wiring
+        run: npm run test:e2e:live --prefix shinobij.client -- village-stores-express.spec.ts first-session-onboarding-express.spec.ts server-route-smoke-express.spec.ts --project=chromium-desktop-live 2>&1 | tee .ci-evidence/e2e-village-stores/playwright.log
+      - name: Live Express defeat and daily reward recovery on desktop and mobile
+        run: npm run test:e2e:live --prefix shinobij.client -- first-defeat-recovery-express.spec.ts daily-login-recovery-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --workers=2 --output=test-results/defeat-recovery-ci 2>&1 | tee .ci-evidence/e2e-village-stores/defeat-recovery.log
       - name: Retain Village Stores browser evidence
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
@@ -826,6 +921,7 @@ jobs:
           test "$E2E_VILLAGE_STORES" = success
       - name: Retain compatibility aggregate evidence
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true

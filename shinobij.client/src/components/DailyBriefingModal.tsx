@@ -22,9 +22,9 @@ import type { Screen } from "../types/core";
 import { currentDateKey } from "../lib/utils";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { useSharedNow } from "../lib/use-shared-now";
-import { claimDailyLogin, type DailyLoginResult } from "../lib/daily-login-api";
+import { claimDailyLogin, type DailyLoginResult, type DailyLoginCommitFactory } from "../lib/daily-login-api";
 import { fetchAnnouncements, fetchEras, fetchLegacyStatus, useLegacyAvailability, type AnnouncementView, type EraView } from "../lib/legacy";
-import { nextUnseenRumorMilestone, markLevelRumorSeen, recordRumorHeard, rumorForCategory } from "../lib/legacy-rumors";
+import { nextUnseenRumorMilestone, markLevelRumorSeen, recordRumorHeard, rememberedRumorCategory, rumorForCategory } from "../lib/legacy-rumors";
 import { worldReport } from "../lib/daily-briefing";
 import { dailyLoginRyo, STREAK_SHARD_INTERVAL, STREAK_SHARD_REWARD } from "../lib/daily-login-preview";
 import briefingBg from "../assets/daily-briefing.webp";
@@ -40,11 +40,11 @@ const MIN_LEVEL = 5;
 
 export function DailyBriefingModal({
     character,
-    updateCharacter,
+    beginDailyLogin,
     navigate,
 }: {
     character: Character;
-    updateCharacter: (c: Character | ((prev: Character | null) => Character | null)) => void;
+    beginDailyLogin: DailyLoginCommitFactory;
     navigate: (s: Screen) => void;
 }) {
     const now = useSharedNow(); // ticks once a second so the training countdowns stay live
@@ -66,6 +66,11 @@ export function DailyBriefingModal({
     const [claim, setClaim] = useState<DailyLoginResult | null>(null);
     const [claiming, setClaiming] = useState(false);
     const claimingRef = useRef(false);
+    const aliveRef = useRef(false);
+    useEffect(() => {
+        aliveRef.current = true;
+        return () => { aliveRef.current = false; };
+    }, []);
 
     // World news is a shared live-service feed, not a Legacy-only surface.
     const [worldNews, setWorldNews] = useState<AnnouncementView[]>([]);
@@ -93,17 +98,19 @@ export function DailyBriefingModal({
     const [rumor, setRumor] = useState<{ milestone: number; text: string } | null>(null);
     useEffect(() => {
         if (!shouldShow || !legacyAvailable) return;
-        if (character.level >= 50 || character.legacy) return;
-        const milestone = nextUnseenRumorMilestone(character.level);
+        if (character.legacy) return;
+        const milestone = nextUnseenRumorMilestone(character.level, character.name);
         if (milestone == null) return;
         let alive = true;
         void fetchLegacyStatus(character.name).then((s) => {
             if (!alive) return;
-            const top = s?.strongest?.[0];
-            const text = rumorForCategory(top?.category, milestone, { playerName: character.name, tier: top?.tier });
+            if (!s || s.legacy) return;
+            const top = s.strongest?.[0];
+            const category = rememberedRumorCategory(character.name, top?.category);
+            const text = rumorForCategory(category, milestone, { playerName: character.name, tier: top?.tier });
             setRumor({ milestone, text });
-            markLevelRumorSeen(milestone);
-            recordRumorHeard(milestone, text);
+            markLevelRumorSeen(character.name, milestone);
+            recordRumorHeard(character.name, milestone, text);
         });
         return () => { alive = false; };
     }, [shouldShow, legacyAvailable, character.level, character.name, character.legacy]);
@@ -116,22 +123,11 @@ export function DailyBriefingModal({
         if (claimingRef.current || claim || alreadyClaimedToday) return;
         claimingRef.current = true;
         setClaiming(true);
-        void claimDailyLogin(character.name).then((res) => {
+        void claimDailyLogin(character.name, beginDailyLogin, () => aliveRef.current).then((res) => {
+            if (!aliveRef.current) return;
             setClaiming(false);
             if (!res) { claimingRef.current = false; return; } // let the player retry on error
             setClaim(res);
-            if (!res.alreadyClaimed && (res.granted.ryo || res.granted.fateShards)) {
-                updateCharacter((prev) => {
-                    if (!prev) return prev;
-                    return {
-                        ...prev,
-                        ryo: res.balances.ryo,
-                        fateShards: res.balances.fateShards,
-                        loginStreak: res.streak,
-                        lastLoginRewardDate: today,
-                    };
-                });
-            }
         });
     };
 

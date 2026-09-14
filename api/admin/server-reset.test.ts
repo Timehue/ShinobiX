@@ -20,6 +20,8 @@ import {
     PRESERVE_PATTERNS,
     EPHEMERAL_PREFIXES,
     authNamesRequiringRevocation,
+    deleteDoomedKeys,
+    isFirstPactStateKey,
     isPreservedKey,
     isProtectedKey,
     isProtectedAccountKey,
@@ -43,6 +45,7 @@ test('wipes every player-scoped namespace found in the live store', () => {
         'legacy:sage-offer:dopey',
         'legacy:sage-roll:dopey:2026-09-03',
         'story:someplayer',
+        'first-pact:someplayer',              // must not survive name reuse (see First Pact ordering below)
         // Permanent per-player receipts — the worst class: a returning player
         // could never earn the reward again.
         'tower-firstclear:dopey:1',
@@ -217,16 +220,76 @@ test('protected accounts keep their account AND their side-car state', () => {
         'friends:rill',
         'pet-sanctuary:rill:meta',
         'petladder:coliseum:def:rill',
+        'first-pact:rill',
         'save:shanks', 'auth:shanks', 'training-start-count:shanks:2026-09-03',
     ]) {
         assert.equal(isPreservedKey(key), true, `${key} belongs to a protected account`);
     }
-    // Ordinary players are wiped clean on all three of the original three.
+    // The back-compat predicate still answers for the save and both story stores.
     assert.equal(isProtectedKey('save:rill'), true);
     assert.equal(isProtectedKey('auth:rill'), true);
     assert.equal(isProtectedKey('story:rill'), true);
+    assert.equal(isProtectedKey('first-pact:rill'), true);
+    // Ordinary players are wiped clean across the save and both story stores.
     assert.equal(isProtectedKey('save:someplayer'), false);
     assert.equal(isProtectedKey('story:someplayer'), false);
+    assert.equal(isProtectedKey('first-pact:someplayer'), false);
+});
+
+// ─── First Pact ordering ─────────────────────────────────────────────────────
+// First Pact progress lives outside `save:<slug>` under its own story lock, so
+// the reset clears it through that lock, and before anything else is deleted.
+
+test('First Pact reset selection preserves only the reserved account', () => {
+    const keys = ['first-pact:rill', 'first-pact:someplayer', 'first-pact:another'];
+    assert.deepEqual(keys.filter((key) => !isPreservedKey(key)), [
+        'first-pact:someplayer',
+        'first-pact:another',
+    ]);
+});
+
+test('First Pact reset targets compose the serialized account cleanup', async () => {
+    const names: string[] = [];
+    await deleteDoomedKeys(
+        ['first-pact:someplayer', 'save:someplayer', 'first-pact:another', 'first-pact-standing-receipt:another:p1'],
+        async (name) => { names.push(name); return `first-pact:${name}`; },
+        async () => {},
+    );
+    // Only the progress rows take the lock; the standing receipt is an
+    // ordinary per-player row and goes with the sweep.
+    assert.deepEqual(names.sort(), ['another', 'someplayer']);
+    assert.equal(isFirstPactStateKey('first-pact-standing-receipt:another:p1'), false);
+});
+
+test('full reset clears First Pact state before deleting player saves', async () => {
+    const calls: string[] = [];
+    const doomed = ['save:someplayer', 'first-pact:someplayer', 'save:another', 'first-pact:another'];
+    await deleteDoomedKeys(
+        doomed,
+        async (name) => { calls.push(`pact:${name}`); return `first-pact:${name}`; },
+        async (keys) => { calls.push(...keys); },
+    );
+    assert.deepEqual(calls.slice(0, 2).sort(), ['pact:another', 'pact:someplayer']);
+    // The sweep still covers every doomed key, First Pact rows included, so a
+    // row re-created by a writer queued on the lock cannot outlive its save.
+    assert.deepEqual(calls.slice(2).sort(), [...doomed].sort());
+});
+
+test('a First Pact cleanup failure aborts reset before any player save deletion', async () => {
+    const swept: string[] = [];
+    await assert.rejects(() => deleteDoomedKeys(
+        ['save:someplayer', 'first-pact:someplayer'],
+        async () => { throw new Error('story lock unavailable'); },
+        async (keys) => { swept.push(...keys); },
+    ), /story lock unavailable/);
+    assert.deepEqual(swept, []);
+});
+
+test('the sweep deletes in bounded batches', async () => {
+    const batches: number[] = [];
+    const doomed = Array.from({ length: 450 }, (_, i) => `save:player${i}`);
+    await deleteDoomedKeys(doomed, async () => null, async (keys) => { batches.push(keys.length); });
+    assert.deepEqual(batches, [200, 200, 50]);
 });
 
 test('protected accounts do NOT keep ephemeral session state', () => {

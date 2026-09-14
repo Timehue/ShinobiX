@@ -18,6 +18,8 @@ import { kv } from './_storage.js';
 import { getActiveSilence } from './admin/moderation.js';
 import { sanitizeUserText, TEXT_LIMITS } from './_text-moderation.js';
 import { cleanTreasuryItems } from './_treasury-donate.js';
+import { safeName } from './_utils.js';
+import { villageOrderRole } from './_village-order-role.js';
 
 // Loose shape — we don't want to depend on the client's exact union of
 // nested types here, just enough structure for the rule engine.
@@ -50,17 +52,17 @@ type ValidatorContext = {
 // pass + /api/village/war-structure — same rule as the currencies below.
 const TREASURY_KEYS = ['ryo', 'honorSeals', 'fateShards', 'boneCharms', 'auraStones', 'mythicSeals', 'provisions', 'materialPoints'] as const;
 
-// #17 — village-treasury currencies are CREDITED ONLY by server endpoints now,
-// not the save blob: player donations via /api/village/treasury/donate, and the
-// daily-agenda reward via /api/village/claim-daily-agenda. Both atomically move
-// the source → treasury, and the client re-asserts the returned treasury at a
-// zero delta, so a save-blob currency INCREASE here is credit-without-debit and
-// is rejected below (admin bypasses). contributionPoints stays client-credited
-// (a per-player stat, not the shared currency pool) and keeps its per-call cap.
+// #17 — village-treasury currencies move ONLY through server endpoints, never
+// the save blob: donations via /api/village/treasury/donate, the daily-agenda
+// reward via /api/village/claim-daily-agenda, Kage gifts via
+// /api/village/treasury/transfer. Each moves source and treasury atomically,
+// so a blob delta in either direction is rejected below (admin bypasses): an
+// increase is credit-without-debit, a decrease is a stale re-assert.
+// contributionPoints stays client-credited (a per-player stat, not the shared
+// currency pool) and keeps its per-call cap.
 
 const MAX_CONTRIBUTION_INCREASE_PER_CALL = 5_000;
 const MAX_NOTICE_POSTS = 60;     // matches client cap
-const MAX_ANBU_APPOINTEES = 12;
 
 function num(v: unknown, fallback = 0): number {
     const n = Number(v);
@@ -76,11 +78,9 @@ function lower(v: unknown): string {
  * and the authoritative `village:kage:<slug>` record. Returns the merged
  * next-state and any suppressed-field reasons (for logging).
  *
- * Note: for currency *increases* we trust the caller's claim that they
- * also debited their own save — the client does this. A malicious caller
- * who skips the debit only "donates" fake money, which the seatedKage
- * cannot extract because withdrawals are bounded and gated. The escape
- * hatch is the per-call ceiling above.
+ * The treasury is server-owned: a non-admin blob can neither credit nor
+ * debit it (see the treasury block below), so its value is always the one
+ * the server endpoints last wrote.
  */
 export async function validateVillageStateWrite(
     existing: VillageStateBlob | null,
@@ -93,67 +93,39 @@ export async function validateVillageStateWrite(
     const prev: VillageStateBlob = existing ?? {};
     const next: VillageStateBlob = { ...prev, ...incoming };
 
-    const authoritativeSeatedKage = lower(kageState?.seatedKage);
+    // Appointments must validate real village players through /village/elder-focus.
+    // Pin even Kage/admin blob writes so stale council caches cannot restore cleared seats.
+    if (incoming.elderAppointees !== undefined && JSON.stringify(incoming.elderAppointees) !== JSON.stringify(prev.elderAppointees ?? null)) {
+        suppressed.push('elderAppointees (use the elder appointment endpoint)');
+    }
+    if (prev.elderAppointees !== undefined) next.elderAppointees = prev.elderAppointees;
+    else delete next.elderAppointees;
+    delete next.elderTerm;
+
+    const authoritativeSeatedKage = safeName(String(kageState?.seatedKage ?? ''));
     const callerIsSeatedKage = ctx.isAdmin || (!!ctx.callerName && ctx.callerName === authoritativeSeatedKage);
 
     // ── seatedKage / firstLiberator / kageSystemUnlocked ────────────
     // Mirror the authoritative source. Whatever the client sent is
     // overwritten by what /api/village/kage says.
-    if (kageState) {
-        next.seatedKage = kageState.seatedKage ?? prev.seatedKage;
-        next.kageSystemUnlocked = kageState.kageSystemUnlocked ?? prev.kageSystemUnlocked;
-        next.firstLiberator = kageState.firstLiberator ?? prev.firstLiberator;
-        if (lower(incoming.seatedKage) !== lower(next.seatedKage)) {
-            suppressed.push('seatedKage (mirrored from /api/village/kage)');
-        }
-    }
+    next.seatedKage = kageState?.seatedKage;
+    next.kageSystemUnlocked = Boolean(kageState?.kageSystemUnlocked);
+    next.firstLiberator = kageState?.firstLiberator;
+    if (lower(incoming.seatedKage) !== lower(next.seatedKage)) suppressed.push('seatedKage (mirrored from /api/village/kage)');
 
-    // ── anbuAppointees ──────────────────────────────────────────────
-    // Only the seatedKage (or admin) may change this list. Anyone else
-    // gets the existing list preserved.
-    const incomingAnbu = Array.isArray(incoming.anbuAppointees) ? incoming.anbuAppointees.slice(0, MAX_ANBU_APPOINTEES) : undefined;
-    if (incomingAnbu !== undefined) {
-        const sameAsBefore = Array.isArray(prev.anbuAppointees)
-            && prev.anbuAppointees.length === incomingAnbu.length
-            && prev.anbuAppointees.every((n, i) => lower(n) === lower(incomingAnbu[i]));
-        if (!sameAsBefore && !callerIsSeatedKage) {
-            next.anbuAppointees = prev.anbuAppointees ?? [];
-            suppressed.push('anbuAppointees (only seatedKage may change)');
-        } else {
-            next.anbuAppointees = incomingAnbu;
-        }
-    }
+    // Appointments change only through the atomic /village/anbu action.
+    if (incoming.anbuAppointees !== undefined && JSON.stringify(incoming.anbuAppointees) !== JSON.stringify(prev.anbuAppointees ?? [])) suppressed.push('anbuAppointees (use the ANBU appointment endpoint)');
+    next.anbuAppointees = prev.anbuAppointees ?? [];
+    // Earned seats are computed from server-owned monthly PvP results.
+    delete next.anbuEarned;
+    delete next.anbuMembers;
 
-    // ── hollowGateUnlockedUntil (30-day timed village unlock) ────────
-    // A seated Kage / admin may EXTEND the unlock window into the future
-    // (the client pays 10k Honor Seals per 30 days). Each write is CLAMPED
-    // to at most ~31 days beyond the later of {now, previous expiry}, so a
-    // tampered client can't buy a perpetual unlock in one write — stacking
-    // requires repeated legitimate purchases. LOWERING the expiry (an early
-    // re-lock) is admin-only; otherwise it's pinned to the previous value,
-    // which also makes the unlock immune to a stale client clobbering it
-    // back to "locked".
-    const HG_MAX_EXTENSION_MS = 31 * 24 * 60 * 60 * 1000;
+    // The paid endpoint debits the player's seals. A blob write cannot buy time.
     const hgNow = Date.now();
     const prevUntil = Math.max(0, num(prev.hollowGateUnlockedUntil, 0));
     const inUntil = Math.max(0, num(incoming.hollowGateUnlockedUntil, prevUntil));
-    if (inUntil > prevUntil) {
-        if (!callerIsSeatedKage) {
-            next.hollowGateUnlockedUntil = prevUntil;
-            suppressed.push('hollowGateUnlockedUntil extend (only seatedKage may unlock)');
-        } else {
-            next.hollowGateUnlockedUntil = Math.min(inUntil, Math.max(prevUntil, hgNow) + HG_MAX_EXTENSION_MS);
-        }
-    } else if (inUntil < prevUntil) {
-        if (!ctx.isAdmin) {
-            next.hollowGateUnlockedUntil = prevUntil;
-            suppressed.push('hollowGateUnlockedUntil decrease (admin only)');
-        } else {
-            next.hollowGateUnlockedUntil = inUntil;
-        }
-    } else {
-        next.hollowGateUnlockedUntil = prevUntil;
-    }
+    next.hollowGateUnlockedUntil = ctx.isAdmin ? inUntil : prevUntil;
+    if (!ctx.isAdmin && inUntil !== prevUntil) suppressed.push('hollowGateUnlockedUntil (use the paid unlock endpoint)');
 
     // ── warLossDebuffUntil (legacy name; comeback rally window) ─────
     // Set ONLY by the server at war settlement (api/world-state.ts). The client
@@ -186,9 +158,6 @@ export async function validateVillageStateWrite(
         }
     }
 
-    // ── treasury ────────────────────────────────────────────────────
-    // For each currency: positive deltas are bounded by per-call max;
-    // negative deltas (withdrawals) require seatedKage.
     // ── Village upgrades: SERVER-OWNED, never client-writable ───────
     // Village upgrades are shared infrastructure bought from the treasury seal
     // pool by /api/village/upgrade, which writes this key directly. The blob
@@ -206,6 +175,18 @@ export async function validateVillageStateWrite(
         }
     }
 
+    // ── treasury: SERVER-OWNED ──────────────────────────────────────
+    // Every treasury movement has its own server endpoint now: donations
+    // (/api/village/treasury/donate), Kage gifts of currency AND items
+    // (/api/village/treasury/transfer), upgrades (/api/village/upgrade), the
+    // daily agenda (claim-daily-agenda), and the stores drains (the daily pass,
+    // /api/village/war-structure). The blob only ever RE-ASSERTS a treasury the
+    // client read, and that read can be seconds stale (the /api/game-state frame
+    // sits behind a process cache and the client polls on a cadence). So the
+    // blob may not move the treasury in EITHER direction. A stale LOWER figure
+    // used to be accepted from the seated Kage (the retired blob-withdrawal path)
+    // and, for items, from any villager, which erased donations that landed
+    // after that client's last poll. Stored always wins; admin bypasses.
     if (incoming.treasury && typeof incoming.treasury === 'object') {
         const prevTreasury = (prev.treasury ?? {}) as Record<string, unknown>;
         const inTreasury = incoming.treasury as Record<string, unknown>;
@@ -213,51 +194,34 @@ export async function validateVillageStateWrite(
         for (const key of TREASURY_KEYS) {
             const before = num(prevTreasury[key], 0);
             const after = num(inTreasury[key], before);
-            const delta = after - before;
-            if (delta > 0) {
-                // #17 lockdown: village-treasury currencies are credited ONLY by
-                // server endpoints (treasury/donate, claim-daily-agenda), which
-                // the client re-asserts at a zero delta — a save-blob INCREASE is
-                // credit-without-debit. Reject it (keep prev); admin bypasses.
-                if (ctx.isAdmin) {
-                    outTreasury[key] = after;
-                } else {
-                    outTreasury[key] = before;
-                    suppressed.push(`treasury.${key} increase via save blob blocked — use the server endpoint`);
-                }
-            } else if (delta < 0) {
-                if (!callerIsSeatedKage) {
-                    outTreasury[key] = before;
-                    suppressed.push(`treasury.${key} decrease (only seatedKage may withdraw)`);
-                } else {
-                    outTreasury[key] = Math.max(0, after);
-                }
+            if (ctx.isAdmin) {
+                outTreasury[key] = Math.max(0, after);
             } else {
                 outTreasury[key] = before;
+                if (after > before) suppressed.push(`treasury.${key} increase via save blob blocked — use the server endpoint`);
+                else if (after < before) suppressed.push(`treasury.${key} decrease via save blob blocked — use the server endpoint`);
             }
         }
-        // items: net-new additions must come from the atomic donate endpoint
-        // (/api/village/treasury/donate), which verifies the donor actually
-        // owned the item. The save blob may only RE-ASSERT the current items
-        // (the migrated client re-saves the endpoint-credited treasury verbatim
-        // → no delta) or REMOVE them (Kage withdrawals/sends). Any itemId whose
-        // count rises — or a brand-new itemId — is a mint attempt and is
-        // rejected (revert to prev). Admin bypasses. No gameplay reward adds
-        // treasury items via the save blob, so this only blocks abuse. Closes
-        // audit item #16's treasury.items minting hole.
+        // items: additions come from the atomic donate endpoint (which verifies
+        // the donor owned the item) and removals from the transfer endpoint, so a
+        // non-admin blob may only re-assert them. A rising count or a brand-new
+        // itemId is a mint (audit item #16); a falling or missing one is a stale
+        // list that would delete another villager's donation.
         const prevRawItems = Array.isArray(prevTreasury.items) ? prevTreasury.items : [];
-        if (Array.isArray(inTreasury.items)) {
-            const prevCounts = new Map(cleanTreasuryItems(prevRawItems).map((s) => [s.itemId, s.count]));
-            const incomingStacks = cleanTreasuryItems(inTreasury.items);
-            const minted = ctx.isAdmin ? [] : incomingStacks.filter((s) => s.count > (prevCounts.get(s.itemId) ?? 0));
-            if (minted.length > 0) {
-                outTreasury.items = prevRawItems.slice(0, 200);
-                suppressed.push(`village treasury.items net-new [${minted.map((s) => s.itemId).join(',')}] blocked — donate via /api/village/treasury/donate`);
-            } else {
-                outTreasury.items = incomingStacks.slice(0, 200);
-            }
+        if (Array.isArray(inTreasury.items) && ctx.isAdmin) {
+            outTreasury.items = cleanTreasuryItems(inTreasury.items).slice(0, 200);
         } else {
             outTreasury.items = prevRawItems.slice(0, 200);
+            if (Array.isArray(inTreasury.items)) {
+                const prevStacks = cleanTreasuryItems(prevRawItems);
+                const incomingStacks = cleanTreasuryItems(inTreasury.items);
+                const prevCounts = new Map(prevStacks.map((s) => [s.itemId, s.count]));
+                const incomingCounts = new Map(incomingStacks.map((s) => [s.itemId, s.count]));
+                const minted = incomingStacks.filter((s) => s.count > (prevCounts.get(s.itemId) ?? 0));
+                const dropped = prevStacks.filter((s) => s.count > (incomingCounts.get(s.itemId) ?? 0));
+                if (minted.length > 0) suppressed.push(`village treasury.items net-new [${minted.map((s) => s.itemId).join(',')}] blocked — donate via /api/village/treasury/donate`);
+                if (dropped.length > 0) suppressed.push(`village treasury.items removal [${dropped.map((s) => s.itemId).join(',')}] blocked — send via /api/village/treasury/transfer`);
+            }
         }
         next.treasury = outTreasury;
     }
@@ -278,32 +242,50 @@ export async function validateVillageStateWrite(
     }
 
     // ── noticePosts ─────────────────────────────────────────────────
-    // Adds: new entries (any not in prev) must have author === caller
-    // (or admin); "order" type requires seatedKage; caller must not be
-    // silenced. Removes: only seatedKage.
-    if (Array.isArray(incoming.noticePosts)) {
+    // Every category on the Village Orders board requires a current player
+    // leadership seat. A focus preference or a client-authored title is not a role.
+    if (Object.prototype.hasOwnProperty.call(incoming, 'noticePosts')) {
         const prevPosts = Array.isArray(prev.noticePosts) ? prev.noticePosts : [];
-        const prevIds = new Set(prevPosts.map((p) => String((p as Record<string, unknown>).id ?? '')).filter(Boolean));
-        const incomingPosts = incoming.noticePosts.slice(0, MAX_NOTICE_POSTS);
+        const role = JSON.stringify(incoming.noticePosts) === JSON.stringify(prevPosts) || ctx.isAdmin
+            ? null : await villageOrderRole(ctx.callerName, ctx.village, prev, kageState);
+        const canManage = (post: Record<string, unknown>) => ctx.isAdmin || role === 'Kage'
+            || (role !== null && safeName(String(post.author ?? '')) === ctx.callerName);
+        const prevById = new Map(prevPosts.map(post => [String(post.id ?? ''), post]));
+        const incomingPosts = Array.isArray(incoming.noticePosts) ? incoming.noticePosts.slice(0, MAX_NOTICE_POSTS) : [];
 
-        // Detect removals — if any prev post is missing from incoming and
-        // caller isn't seatedKage, reject the whole list change.
-        const incomingIds = new Set(incomingPosts.map((p) => String((p as Record<string, unknown>).id ?? '')).filter(Boolean));
-        const removed = [...prevIds].filter((id) => !incomingIds.has(id));
-        if (removed.length > 0 && !callerIsSeatedKage) {
+        const incomingIds = new Set(incomingPosts.map(post => String(post?.id ?? '')).filter(Boolean));
+        const removed = prevPosts.filter(post => !incomingIds.has(String(post.id ?? '')));
+        if (!Array.isArray(incoming.noticePosts)) {
             next.noticePosts = prevPosts;
-            suppressed.push(`noticePosts removed ${removed.length} entries (only seatedKage may delete)`);
+            suppressed.push('noticePosts rejected (expected an order list)');
+        } else if (JSON.stringify(incoming.noticePosts) === JSON.stringify(prevPosts)) {
+            next.noticePosts = prevPosts;
+        } else if (!ctx.isAdmin && role === null) {
+            next.noticePosts = prevPosts;
+            suppressed.push('noticePosts rejected (only seated Kage, ANBU, or current Elders may post or manage orders)');
+        } else if (removed.some(post => !canManage(post))) {
+            next.noticePosts = prevPosts;
+            suppressed.push('noticePosts removal rejected (only Kage or a current leadership author may delete)');
         } else {
-            // Validate additions one by one.
-            const silence = ctx.isAdmin ? null : await getActiveSilence(ctx.callerName).catch(() => null);
+            const silence = ctx.isAdmin ? null : await getActiveSilence(ctx.callerName);
             const cleaned: typeof incomingPosts = [];
+            const seen = new Set<string>();
             for (const raw of incomingPosts) {
-                const post = (raw ?? {}) as Record<string, unknown>;
+                const post = { ...(raw ?? {}) } as Record<string, unknown>;
                 const id = String(post.id ?? '');
-                if (id && prevIds.has(id)) {
-                    // Existing post — keep as-is (the client may legitimately
-                    // change pinned status or similar; we don't validate here).
-                    cleaned.push(post);
+                if (!id || seen.has(id)) {
+                    suppressed.push('noticePost rejected (missing or duplicate id)');
+                    continue;
+                }
+                seen.add(id);
+                const previous = prevById.get(id);
+                if (previous) {
+                    // The board only offers pin/unpin and delete. Reassert stored
+                    // text and attribution so an echoed ID cannot rewrite an order.
+                    const pinned = post.pinned === undefined ? Boolean(previous.pinned) : Boolean(post.pinned);
+                    const canPin = canManage(previous) && !silence;
+                    if (pinned !== Boolean(previous.pinned) && !canPin) suppressed.push('noticePost pin rejected (leadership author or Kage required)');
+                    cleaned.push(canPin ? { ...previous, pinned } : previous);
                     continue;
                 }
                 // New post.
@@ -311,17 +293,19 @@ export async function validateVillageStateWrite(
                     suppressed.push('noticePost rejected (caller silenced)');
                     continue;
                 }
-                const author = lower(post.author);
+                const author = safeName(String(post.author ?? ''));
                 const type = String(post.type ?? 'general');
                 if (!ctx.isAdmin) {
-                    if (author && author !== ctx.callerName) {
+                    if (!author || author !== ctx.callerName) {
                         suppressed.push(`noticePost rejected (author "${author}" ≠ caller)`);
                         continue;
                     }
-                    if (type === 'order' && !callerIsSeatedKage) {
-                        suppressed.push('noticePost type=order rejected (only seatedKage)');
+                    if (!['order', 'raid', 'guard', 'medic', 'trade', 'general'].includes(type)) {
+                        suppressed.push('noticePost rejected (invalid village order type)');
                         continue;
                     }
+                    post.authorRole = role;
+                    post.createdAt = Date.now();
                 }
                 // Moderate user-supplied notice text. Admin bypasses (so
                 // System / Narrator posts with intentional URLs survive).

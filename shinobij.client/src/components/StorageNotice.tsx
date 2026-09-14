@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 
 /*
  * Slim, one-time data-storage transparency notice.
@@ -79,6 +79,22 @@ const button: CSSProperties = {
 
 export function StorageNotice() {
     const [dismissed, setDismissed] = useState(readAck);
+    const noticeRef = useRef<HTMLDivElement>(null);
+    useLayoutEffect(() => {
+        const notice = noticeRef.current;
+        if (dismissed || !notice) return;
+        const measure = () => {
+            const rect = notice.getBoundingClientRect();
+            document.documentElement.style.setProperty('--storage-notice-height', `${Math.ceil(rect.height + 8)}px`);
+        };
+        measure();
+        const observer = new ResizeObserver(measure);
+        observer.observe(notice);
+        return () => {
+            observer.disconnect();
+            document.documentElement.style.removeProperty('--storage-notice-height');
+        };
+    }, [dismissed]);
     if (dismissed) return null;
 
     function dismiss() {
@@ -91,7 +107,7 @@ export function StorageNotice() {
     }
 
     return (
-        <div className="storage-notice" role="region" aria-label="Data storage notice" style={wrap}>
+        <div ref={noticeRef} className="storage-notice" role="region" aria-label="Data storage notice" style={wrap}>
             <div style={inner}>
                 <p style={text}>
                     Shinobi Journey stores data on your device for sign-in, preferences, and saving your

@@ -125,9 +125,17 @@ test("dungeon Wardens use character art and never the scene backdrop", () => {
 
 test("the image resolvers stay wired into both combat screens", () => {
     const app = readFileSync(join(clientRoot, "src", "App.tsx"), "utf8");
+    const triggeredBattle = readFileSync(join(clientRoot, "src", "lib", "triggered-event-battle.ts"), "utf8");
     const towerFight = readFileSync(join(clientRoot, "src", "screens", "BattleTowerFight.tsx"), "utf8");
-    assert.match(app, /resolveDungeonWardenPortrait\(activeDungeonEvent, sharedImages\)/);
-    assert.match(app, /creatorEventPracticeOpponent\(event\.aiProfileId, battle\?\.aiProfileId/,
+    const dungeonStart = app.slice(app.indexOf("async function startDungeonAiFight"), app.indexOf("function startAcademySparringMatch"));
+    assert.match(dungeonStart, /await import\("\.\/lib\/ai-fight-art"\)/,
+        "Dungeon-only portrait resolution must stay off the initial application graph");
+    assert.match(dungeonStart, /characterRef\.current\?\.name !== owner/);
+    assert.ok(dungeonStart.indexOf("characterRef.current?.name !== owner") < dungeonStart.indexOf("resolveDungeonWardenPortrait(event, sharedImages)"),
+        "the deferred portrait load must remain account-fenced before launching with captured Dungeon art");
+    assert.match(app, /launchTriggeredEventBattle\(\{/,
+        "App must route triggered-event combat through the extracted sealed launcher");
+    assert.match(triggeredBattle, /creatorEventPracticeOpponent\(event\.aiProfileId, battle\?\.aiProfileId/,
         "creator-road flavor fights must use the published profile whose sealed identity supplies combat art");
     assert.doesNotMatch(app, /image:\s*event\.avatarImage\s*\|\|\s*event\.image/);
     assert.match(towerFight, /resolveTowerCombatantArt\(visual, sharedImages\)\.src/);

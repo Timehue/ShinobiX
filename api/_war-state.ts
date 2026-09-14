@@ -10,6 +10,7 @@
  * and enforces the max-7-per-win-condition diversity rule on read.
  */
 
+import { leadershipNameKey } from '../shared/village-anbu.js';
 import {
     VILLAGE_STRUCTURE_MAX_LEVEL,
     WR_POOL_CAP,
@@ -267,6 +268,24 @@ export function canAssignWinCondition(record: VillageWarRecord, sector: number, 
 /** How many sectors' terrain a given player currently owns the pick for. */
 export function terrainSetCountFor(record: VillageWarRecord, player: string): number {
     return Object.values(record.terrainSetBy).filter((p) => p === player).length;
+}
+
+/** Keep terrain itself, but release offices held by former leaders. A demoted
+ * Kage retains at most the current role's quota, in stable sector order. */
+export function reconcileTerrainLeadership(record: VillageWarRecord, kage: string, elders: string[]): void {
+    const leader = leadershipNameKey(kage);
+    const council = new Set(elders.map(leadershipNameKey).filter(Boolean));
+    const counts = new Map<string, number>();
+    const assignments: Record<string, string> = {};
+    for (const [sector, owner] of Object.entries(record.terrainSetBy).sort(([a], [b]) => Number(a) - Number(b))) {
+        const name = leadershipNameKey(owner);
+        const quota = name && name === leader ? TERRAIN_QUOTA_KAGE : council.has(name) ? TERRAIN_QUOTA_ELDER : 0;
+        const used = counts.get(name) ?? 0;
+        if (used >= quota) continue;
+        assignments[sector] = name;
+        counts.set(name, used + 1);
+    }
+    record.terrainSetBy = assignments;
 }
 
 /** Whether `player` (acting as `role`) may set `sector`'s terrain under the

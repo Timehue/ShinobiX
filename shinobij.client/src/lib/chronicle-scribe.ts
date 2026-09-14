@@ -99,23 +99,24 @@ const SCRIBE_PAGES: ScribePage[] = [
         scene: "She unbuckles the satchel. Hundreds of cards sit inside, sorted with string.",
         dialogue: [
             "You've seen the cards around. Kids trade them in the tavern. Gamblers fleece each other with them on the roads.",
-            "Don't let that fool you. Every card points to something real. A tyrant that fell. A beast that took the colosseum sand. A shinobi worth remembering. We don't trap them in paper. We record what witnesses saw.",
+            "Player: If every card points to something real, who decides what belongs on one?",
+            "Witnesses argue. I record what witnesses saw and leave the disagreement attached. Nobody fits on one card; that is why the satchel weighs this much.",
         ],
     },
     {
         title: "Older Than Your Village",
         scene: "She holds up a card so worn the art is only shadows.",
         dialogue: [
-            "The Chronicle is older than your village. Older than all four. It started in the Sunken Court's last age, when the Hollow Gate was a civic engine people could walk right up and petition, if they were desperate.",
-            "The first scribes pressed records of choices the Court's ledgers kept erasing, and of the people, beasts, and places that witnessed them. This one's from then. Don't breathe on it.",
+            "The Chronicle began in the Sunken Court's last age, when the Hollow Gate was a civic engine and people witnessed choices the Court's ledgers kept erasing.",
+            "The first scribes pressed those disputed records onto cards that could travel. This one's from then. Don't breathe on it.",
         ],
     },
     {
         title: "Why Cards",
         scene: "She wraps the old card away again, gentle as a splint.",
         dialogue: [
-            "Why cards, you're wondering. Because the Hollow burns archives first. Every single time. A library is one fire.",
-            "Cards scatter. You can't burn what's in a thousand pockets. So the record lives, and it changes as the world does. A Kage falls, we press the card. Your beast makes a name on the sand, we press that too. The Chronicle doesn't close.",
+            "A library is one fire. You can't burn what's in a thousand pockets.",
+            "So the record changes as the world does. A Kage falls, we press the card. A beast makes a name on the sand, we press that too. The Chronicle doesn't close.",
         ],
     },
     {

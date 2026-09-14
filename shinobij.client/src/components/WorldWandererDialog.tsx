@@ -6,6 +6,7 @@ import {
     metricLabel,
     questbookEntry,
     questbookStage,
+    questbookStageText,
     timeLeftLabel,
 } from "../lib/questbook";
 import {
@@ -215,7 +216,7 @@ export function WorldWandererDialog({
                             <>
                                 <p style={{ fontSize: ".82rem", margin: "0 0 2px", fontWeight: 700, color: "#c4b5fd" }}>📖 {entry.title}</p>
                                 <p style={{ fontSize: ".7rem", color: "#9aa3b2", margin: "0 0 6px" }}>Stage {epic.stage + 1} of {entry.stages.length}</p>
-                                <p style={{ fontSize: ".8rem", margin: "0 0 8px" }}>{stage.text}</p>
+                                <p style={{ fontSize: ".8rem", margin: "0 0 8px" }}>{questbookStageText(stage, epic.choices)}</p>
                                 {left && <p style={{ fontSize: ".78rem", margin: "0 0 8px", fontWeight: 700, color: expired ? "var(--red-400)" : "#fbbf24" }}>{expired ? "⏳ The bell rang — your next attempt resets this stage." : `⏳ ${left} before the bell rings`}</p>}
                                 {stage.choice ? (
                                     <>
@@ -275,7 +276,7 @@ export function WorldWandererDialog({
                 return (
                     <>
                         <p style={{ fontSize: ".8rem", margin: "0 0 10px" }}>Task: {def.label}</p>
-                        {offer && <p style={{ fontSize: ".74rem", color: "#c4b5fd", margin: "0 0 10px" }}>📖 Epic available: “{offer.title}” — a long, hard tale in stages.</p>}
+                        {offer && <p style={{ fontSize: ".74rem", color: "#c4b5fd", margin: "0 0 10px" }}>📖 {wandererDialog.w.name} carries {offer.giver}'s sealed request: “{offer.title}” — a long, hard tale in stages.</p>}
                         <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
                             <button disabled={wandererDialog.busy} onClick={() => acceptWandererQuest(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Accept task"}</button>
                             {offer && <button disabled={wandererDialog.busy} onClick={() => acceptEpic(wandererDialog.w, offer.id)} style={{ background: "linear-gradient(#3b2f6b,#1e1b3a)", borderColor: "#a78bfa" }}>{wandererDialog.busy ? "…" : "Begin epic"}</button>}

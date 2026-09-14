@@ -34,7 +34,7 @@ import { applyMercVillageWarDamage, listActiveVillageWars } from './world-state.
 import { sealTowerFighter } from './towers/_seal.js';
 import { resolveMercBattle, type MercBattleResult } from './towers/_merc-fighters.js';
 import { claimMercFromBand } from './_war-merc.js';
-import { isMercTargetOnCooldown, setMercTargetCooldown, pickMercTarget, type RoamTarget } from './_merc-roam.js';
+import { isMercTargetOnCooldown, mercTargetsOnCooldown, setMercTargetCooldown, pickMercTarget, type RoamTarget } from './_merc-roam.js';
 import { wrMercTierById } from './_war-economy.js';
 import { recordWarEcoEvent } from './_war-telemetry.js';
 import { villageWarMapEnabled } from './_release-flags.js';
@@ -424,18 +424,20 @@ async function clearMercSkip(village: string, tierId: string, player: string): P
  *  are alive and NOT inside the 15-min merc cooldown (so the cron picks the next
  *  mark instead of wasting a deploy on someone just hit). HP comes from the save —
  *  presence carries no reliable HP. */
-async function liveMercTargets(names: readonly string[], enemyVillage: string, now: number): Promise<RoamTarget[]> {
+export async function liveMercTargets(names: readonly string[], enemyVillage: string, now: number): Promise<RoamTarget[]> {
+    if (!names.length) return [];
+    const slugs = names.map(safeName);
+    const saves = await kv.mget<{ character?: Record<string, unknown> }[]>(...slugs.map(slug => `save:${slug}`));
     const out: RoamTarget[] = [];
-    for (const name of names) {
-        const safe = safeName(name);
-        const save = await kv.get<{ character?: Record<string, unknown> }>(`save:${safe}`);
-        const ch = save?.character;
+    for (let index = 0; index < slugs.length; index++) {
+        const safe = slugs[index];
+        const ch = saves[index]?.character;
         if (!ch || String(ch.village ?? '').trim() !== enemyVillage) continue;
-        if (await isMercTargetOnCooldown(safe, now)) continue;
         const hp = Number(ch.hp);
         out.push({ name: safe, village: enemyVillage, hp, maxHp: Number(ch.maxHp) || hp });
     }
-    return out;
+    const coolingDown = await mercTargetsOnCooldown(out.map(target => target.name), now);
+    return out.filter(target => !coolingDown.has(target.name));
 }
 
 /** One autonomous tick. Sector wars: a merc snipes the lowest-HP enemy defender in

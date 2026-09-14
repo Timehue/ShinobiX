@@ -1,0 +1,24 @@
+You
+Travel
+Village
+Items
+Menu
+AU
+AuditNinja
+Lv 85
+9000
+9000
+9000
+10m
+9999
+PROFILE
+STATS
+JUTSU
+ACHIEVEMENTS
+BATTLES
+LEGACY
+JUTSU LOADOUT
+
+You haven't learned any jutsu yet. Unlock a technique at the Jutsu Training Hall, then equip it here.
+
+Go to Jutsu Training Hall

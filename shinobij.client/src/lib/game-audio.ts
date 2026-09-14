@@ -203,6 +203,8 @@ const AMBIENCE_PATHS: Record<GameAmbienceCue, string> = {
 type Voice = {
   source: AudioBufferSourceNode;
   startedAt: number;
+  channel?: string;
+  priority: number;
 };
 
 type AmbienceVoice = {
@@ -224,6 +226,11 @@ const buffers = new Map<string, AudioBuffer>();
 const loading = new Map<string, Promise<AudioBuffer | null>>();
 const lastPlayedAt = new Map<GameSfxCue, number>();
 const voicesByGroup = new Map<AudioCueDefinition["group"], Voice[]>();
+const voicesByChannel = new Map<string, Voice>();
+
+export function shouldPreemptGameSfxChannel(incomingPriority: number, incumbentPriority: number): boolean {
+  return incomingPriority >= incumbentPriority;
+}
 
 function audioContext(): AudioContext | null {
   if (typeof window === "undefined") return null;
@@ -357,6 +364,7 @@ function stopAllVoices(): void {
     }
   }
   voicesByGroup.clear();
+  voicesByChannel.clear();
 }
 
 function startSfx(
@@ -364,10 +372,27 @@ function startSfx(
   buffer: AudioBuffer,
   gainScale: number,
   playbackRate?: number,
+  pan = 0,
+  channel?: string,
+  priority = 0,
 ): void {
   const ctx = audioContext();
   if (!ctx || isAudioMuted()) return;
   const definition = SFX_DEFINITIONS[cue];
+  const incumbent = channel ? voicesByChannel.get(channel) : undefined;
+  if (channel && incumbent) {
+    const stillActive = incumbent.startedAt + (incumbent.source.buffer?.duration ?? 0) > performance.now() / 1_000;
+    if (stillActive && !shouldPreemptGameSfxChannel(priority, incumbent.priority)) return;
+    try {
+      incumbent.source.stop();
+    } catch {
+      // The ended handler may have won this race.
+    }
+    voicesByChannel.delete(channel);
+    for (const [group, groupVoices] of voicesByGroup) {
+      voicesByGroup.set(group, groupVoices.filter((voice) => voice !== incumbent));
+    }
+  }
   const voices = activeVoices(definition);
   if (voices.length >= definition.voiceLimit) return;
 
@@ -383,14 +408,25 @@ function startSfx(
   );
   gain.gain.value = definition.gain * Math.max(0, Math.min(2, gainScale));
   source.connect(gain);
-  gain.connect(output(ctx));
+  const panner = typeof ctx.createStereoPanner === "function"
+    ? ctx.createStereoPanner()
+    : null;
+  if (panner) {
+    panner.pan.value = Math.max(-0.65, Math.min(0.65, pan));
+    gain.connect(panner);
+    panner.connect(output(ctx));
+  } else {
+    gain.connect(output(ctx));
+  }
 
-  const voice = { source, startedAt: performance.now() / 1_000 };
+  const voice = { source, startedAt: performance.now() / 1_000, channel, priority };
   voices.push(voice);
   voicesByGroup.set(definition.group, voices);
+  if (channel) voicesByChannel.set(channel, voice);
   source.addEventListener("ended", () => {
     source.disconnect();
     gain.disconnect();
+    panner?.disconnect();
     const groupVoices = voicesByGroup.get(definition.group);
     if (groupVoices) {
       voicesByGroup.set(
@@ -398,6 +434,7 @@ function startSfx(
         groupVoices.filter((candidate) => candidate !== voice),
       );
     }
+    if (channel && voicesByChannel.get(channel) === voice) voicesByChannel.delete(channel);
   });
   source.start();
 }
@@ -428,7 +465,7 @@ export function primeGameAudio(
 
 export function playGameSfx(
   cue: GameSfxCue,
-  options: { gain?: number; playbackRate?: number } = {},
+  options: { gain?: number; playbackRate?: number; pan?: number; channel?: string; priority?: number } = {},
 ): void {
   if (isAudioMuted()) return;
   const definition = SFX_DEFINITIONS[cue];
@@ -439,14 +476,14 @@ export function playGameSfx(
 
   const cached = buffers.get(definition.path);
   if (cached) {
-    startSfx(cue, cached, options.gain ?? 1, options.playbackRate);
+    startSfx(cue, cached, options.gain ?? 1, options.playbackRate, options.pan, options.channel, options.priority);
     return;
   }
 
   const requestedAt = now;
   void loadBuffer(definition.path).then((buffer) => {
     if (!buffer || performance.now() - requestedAt > 180) return;
-    startSfx(cue, buffer, options.gain ?? 1, options.playbackRate);
+    startSfx(cue, buffer, options.gain ?? 1, options.playbackRate, options.pan, options.channel, options.priority);
   });
 }
 

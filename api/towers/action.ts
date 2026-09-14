@@ -8,7 +8,8 @@ import { activeActor } from './_tower-session.js';
 import { applyAction, endTurn, runAiUntilHuman, type TowerAction } from './_engine.js';
 import { isTowerActionType } from './_action-types.js';
 import { makeRng } from './_sim.js';
-import { isPublicTowerRun, isSpireRun, readSession, writeSession } from './_tower-store.js';
+import { isPublicTowerRun, isSpireRun, readSession, isTowerRunLapsed, writeSession } from './_tower-store.js';
+import { reconcileLapsedBattle } from '../_battle-lapse.js';
 import { autoPassAfkHumans, stampTurnClock } from './_tower-mp.js';
 import { recordClanBossContribution, snapshotContributionState } from '../clan-boss/_contribution.js';
 import {
@@ -86,6 +87,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // /state AFK-pass or /join can't clobber this turn write (lost-update / board
         // desync in a 2+ human run). Re-read INSIDE the fail-closed lock so we
         // mutate the freshest session or reject cleanly before any action/receipt.
+        // F08: a run past its gameplay expiry is forfeit. Reconciled BEFORE the
+        // mutation lock (the reconciler takes it), so the read below sees the
+        // terminal row and answers `session-done` like any finished run.
+        const peek = await readSession(runId);
+        if (peek && isTowerRunLapsed(peek)) {
+            await reconcileLapsedBattle({ kind: 'tower', sessionId: runId }, identity.admin ? undefined : identity.name);
+        }
         const outcome = await withTowerSessionMutation(runId, async (): Promise<{ status: number; body: unknown }> => {
             const session = await readSession(runId);
             if (!session) return { status: 404, body: { error: 'Run not found.' } };

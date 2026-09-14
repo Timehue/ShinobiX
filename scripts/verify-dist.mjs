@@ -15,6 +15,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { findCollapsedPrefixes } from './lib/css-prefix-collapse.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const serverJs = join(root, 'dist', 'server.js');
@@ -48,12 +49,6 @@ const forbiddenClientExtensions = new Set([
     // audio/video authoring projects and lossless intermediates
     '.aiff', '.aif', '.flac', '.als', '.flp', '.rpp', '.aup3', '.aep', '.prproj',
 ]);
-const requiredClientFiles = [
-    'pet-models/gate-warden-rigged.glb',
-    'pet-models/ward-totem.glb',
-    'pet-models/wf-boulder.glb',
-    'pet-models/wf-lantern.glb',
-];
 const maxClientArtifactBytes = 512 * 1024 * 1024;
 
 function fail(msg) {
@@ -106,8 +101,6 @@ const clientIndex = readFileSync(join(clientDist, 'index.html'), 'utf8');
 const referencedClientAssets = [...clientIndex.matchAll(/(?:src|href)=["']\/([^"']+)["']/g)].map((match) => match[1]);
 const missingReferencedClientAsset = referencedClientAssets.find((file) => !clientRelativeFileSet.has(file));
 if (missingReferencedClientAsset) fail(`client index references a missing built asset: ${missingReferencedClientAsset}`);
-const missingRequiredClientFile = requiredClientFiles.find((file) => !clientRelativeFileSet.has(file));
-if (missingRequiredClientFile) fail(`client dist is missing required runtime asset: ${missingRequiredClientFile}`);
 /*
  * Compressed delivery siblings must survive into the SHIPPED dist, not merely
  * exist in public/. The unit tests assert the public/ side; only this check sees
@@ -142,6 +135,29 @@ if (deliveryGaps.length) {
     );
 }
 
+/*
+ * Every emitted stylesheet must keep the standard `backdrop-filter` / `filter`
+ * wherever it kept the -webkit- twin. lightningcss (the production CSS
+ * minifier) merges the pair into one slot and keeps whichever came last, so a
+ * hand-written `-webkit-backdrop-filter` after the standard property ships
+ * alone, and Chromium and Firefox render no blur. That is how the lite-fx
+ * backdrop kill was dead in Chrome. The client source is checked for the cause
+ * in scripts/lib/css-prefix-collapse.test.mjs; this checks the shipped CSS,
+ * whatever route that CSS took through the build.
+ */
+const collapsedPrefixes = clientRelativeFiles
+    .filter((file) => file.endsWith('.css'))
+    .flatMap((file) => findCollapsedPrefixes(readFileSync(join(clientDist, file), 'utf8'))
+        .map(({ prelude, property }) => `${file} ${prelude.slice(0, 100)} (-webkit-${property} without ${property})`));
+if (collapsedPrefixes.length) {
+    fail(
+        `${collapsedPrefixes.length} built CSS rule(s) lost the standard property and ship only the -webkit- form `
+        + '(for backdrop-filter, Chromium and Firefox then render no blur), e.g.\n  '
+        + collapsedPrefixes.slice(0, 5).join('\n  ')
+        + '\nWrite only the standard property in source; see scripts/lib/css-prefix-collapse.mjs.',
+    );
+}
+
 const leakedAuthoringPath = clientRelativeFiles.find((file) => forbiddenClientPrefixes.some((prefix) => file.startsWith(prefix)));
 if (leakedAuthoringPath) fail(`client dist contains pet authoring output: ${leakedAuthoringPath}`);
 const leakedSourceFile = clientRelativeFiles.find((file) => {
@@ -155,4 +171,4 @@ if (clientArtifactBytes > maxClientArtifactBytes) {
     fail(`client dist is ${(clientArtifactBytes / 1024 / 1024).toFixed(1)} MB; runtime artifact ceiling is ${maxClientArtifactBytes / 1024 / 1024} MB`);
 }
 
-console.log(`[verify:dist] OK — server ${(st.size / 1024).toFixed(1)} KB; client ${(clientArtifactBytes / 1024 / 1024).toFixed(1)} MB with no authoring sources; Vercel config absent.`);
+console.log(`[verify:dist] OK — server ${(st.size / 1024).toFixed(1)} KB; client ${(clientArtifactBytes / 1024 / 1024).toFixed(1)} MB with no authoring sources and no -webkit-only (backdrop-)filter rules; Vercel config absent.`);

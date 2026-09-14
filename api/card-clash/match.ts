@@ -1,6 +1,8 @@
 import type { VercelRequest, VercelResponse } from "../_vercel.js";
 import { kv } from "../_storage.js";
+import { recordCircuitVerifiedVictory } from '../dojo-circuit/_store.js';
 import { cors, safeName } from "../_utils.js";
+import { syncCardDuelPresence } from "./_presence.js";
 import { authedPlayerOrAdmin } from "../_auth.js";
 import { enforceRateLimitKv } from "../_ratelimit.js";
 import { withKvLock } from "../_lock.js";
@@ -75,6 +77,7 @@ function optionalIndex(value: unknown): number | undefined {
 }
 async function saveSession(session: FreePlaySession) {
   await kv.set(sessionKey(session.matchId), session, { ex: SESSION_TTL_SEC });
+  await syncCardDuelPresence(kv, sessionKey(session.matchId), session, SESSION_TTL_SEC); // F01: a live duel is provable presence
 }
 
 async function serverDeck(
@@ -94,6 +97,9 @@ async function persistTerminalAndRepair(
   // best-effort Legacy write. A later state poll repairs pending delivery.
   if (terminalStateChanged || creditPrepared) await saveSession(session);
   if (await repairFreePlayLegacyCredit(session)) await saveSession(session);
+  if (session.legacyCredit && session.legacyCredit.status !== 'skipped' && session.participation) {
+    await recordCircuitVerifiedVictory(session.legacyCredit.winnerName, 'cards', session.participation.startedAt, session.updatedAt);
+  }
 }
 
 function autoAdvance(session: FreePlaySession, now: number): boolean {

@@ -21,8 +21,8 @@ export function buildSageVnEvent(offer: SageOfferView, playerName: string): Crea
     // the signature it yields, so the VN isn't a flat echo of the offer cards.
     // Uses only fields already on the offer (no rank/rarity).
     const offerLines = offer.offers.map((o) => {
-        const villagePart = o.villageAffinity ? ` ${o.villageAffinity} has field reports from shinobi who repeated it.` : "";
-        const sigPart = o.signature ? ` Accept the name and pass its trial, and I will teach you ${o.signature.name}.` : "";
+        const villagePart = o.villageAffinity ? ` I found the clearest reports of it in ${o.villageAffinity}.` : "";
+        const sigPart = o.signature ? ` If you take the name and pass its trial, I will teach you ${o.signature.name}.` : "";
         return `${SPEAKER}: ${o.name}. ${o.flavor}${villagePart}${sigPart}`;
     });
     const pages: NonNullable<CreatorEvent["vnPages"]> = [
@@ -31,8 +31,9 @@ export function buildSageVnEvent(offer: SageOfferView, playerName: string): Crea
             scene: SCENE,
             speaker: SPEAKER,
             dialogue: [
-                `${SPEAKER}: I asked three witnesses about you, ${playerName}. One called you cautious. One called you reckless. The third refused to answer me.`,
-                `${SPEAKER}: Good. A Legacy is not a reputation everyone agrees on. It is a choice you keep making when the cost changes. Your field record shows several such patterns.`,
+                `${SPEAKER}: I walked a long way checking the reports tied to your name, ${playerName}. The witnesses disagree about what your choices mean. Good.`,
+                `Player: Then what are you measuring?`,
+                `${SPEAKER}: What you choose again when the cost changes. Your record shows several such patterns, so I brought the names that fit.`,
             ],
         },
         {
@@ -40,7 +41,7 @@ export function buildSageVnEvent(offer: SageOfferView, playerName: string): Crea
             scene: SCENE,
             speaker: SPEAKER,
             dialogue: [
-                `${SPEAKER}: These are the names that fit what you have actually done. Listen before you decide:`,
+                `${SPEAKER}: These are the names your deeds can honestly carry. Hear them before you decide:`,
                 ...offerLines,
             ],
         },
@@ -49,9 +50,9 @@ export function buildSageVnEvent(offer: SageOfferView, playerName: string): Crea
             scene: SCENE,
             speaker: SPEAKER,
             dialogue: [
-                `${SPEAKER}: Before you touch a seal, understand the terms. You may accept one Legacy in your lifetime. It names a pattern in your deeds; it does not place an ancestor, soul, or Bloodline inside you.`,
-                `${SPEAKER}: If its trial defeats you, train and return. The trial may be repeated. The accepted name may not be exchanged for another.`,
-                `${SPEAKER}: You may also refuse every name here. I will leave, and if your deeds change the reading, I may bring different names next time.`,
+                `${SPEAKER}: Before you touch a seal, hear the terms plainly. You may accept one Legacy in your lifetime. It names a pattern in your deeds; no ancestor, soul, or Bloodline enters you.`,
+                `${SPEAKER}: If the trial defeats you, train and return. You may repeat the trial. You may not exchange the name once you accept it.`,
+                `${SPEAKER}: You may refuse every name here. I will leave. If later deeds change the reading, I may return with different names.`,
             ],
         },
     ];

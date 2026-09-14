@@ -124,11 +124,13 @@
     transition: opacity 150ms ease, transform 150ms ease;
 }
 
-.app-shell.screen-townHall .town-tabs > button:hover {
-    border-color: rgba(120, 201, 232, 0.22);
-    background: rgba(120, 201, 232, 0.06);
-    color: #e8f4fa;
-    transform: translateY(-1px);
+@media (hover: hover) {
+    .app-shell.screen-townHall .town-tabs > button:hover {
+        border-color: rgba(120, 201, 232, 0.22);
+        background: rgba(120, 201, 232, 0.06);
+        color: #e8f4fa;
+        transform: translateY(-1px);
+    }
 }
 
 .app-shell.screen-townHall .town-tabs > button:is(.active, [aria-pressed="true"]) {
@@ -411,6 +413,32 @@
     transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
 }
 
+.app-shell.screen-townHall .town-elder-locked {
+    width: 100%;
+    padding: 12px;
+    box-sizing: border-box;
+    border: 1px solid #34424e;
+    border-radius: 8px;
+    color: #94a8b7;
+    text-align: center;
+    grid-column: 1 / -1;
+}
+
+.app-shell.screen-townHall .town-elder-appointment {
+    display: grid;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    padding-top: 12px;
+    border-top: 1px solid #34424e;
+    grid-column: 1 / -1;
+}
+
+.app-shell.screen-townHall .town-elder-appointment label { font-size: 0.75rem; }
+.app-shell.screen-townHall .town-elder-appointment select { width: 100%; min-width: 0; }
+.app-shell.screen-townHall .town-elder-appointment .menu { display: flex; gap: 8px; }
+.app-shell.screen-townHall .town-elder-appointment button { flex: 1; }
+
 .app-shell.screen-townHall .elder-seat-grid .elder-card[data-focus="war"] { --elder-accent: #e27166; }
 .app-shell.screen-townHall .elder-seat-grid .elder-card[data-focus="trade"] { --elder-accent: #6bc6df; }
 .app-shell.screen-townHall .elder-seat-grid .elder-card[data-focus="training"] { --elder-accent: #c99a62; }
@@ -546,10 +574,12 @@
     color: #eef6fa;
 }
 
-.app-shell.screen-townHall .elder-card > button:not(:disabled):hover {
-    border-color: var(--elder-accent);
-    background: color-mix(in srgb, var(--elder-accent) 15%, #111c27);
-    color: #fff;
+@media (hover: hover) {
+    .app-shell.screen-townHall .elder-card > button:not(:disabled):hover {
+        border-color: var(--elder-accent);
+        background: color-mix(in srgb, var(--elder-accent) 15%, #111c27);
+        color: #fff;
+    }
 }
 
 .app-shell.screen-townHall .town-elder-selected {

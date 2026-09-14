@@ -18,8 +18,9 @@ shape.)
   `_auth.ts`, `_utils.ts` (CORS, etc.), `_storage.ts`, `_ratelimit.ts`,
   `_lock.ts`, `_text-moderation.ts`, `_player-ips.ts`, and the `_*-validate.ts`
   validators. Import from these; don't add a route file starting with `_`.
-- **`server.ts`** (repo root) — the Express server (Railway). It imports
-  the `api/**` handlers unchanged and registers each on **both** the bare path and
+- **`server.ts`** (repo root) — the Express server (Railway). Its
+  `server-api-routes.ts` registration module imports the `api/**` handlers unchanged;
+  the server's route adapter registers each on **both** the bare path and
   the `/api`-prefixed path (a dormant holdover from Passenger, which may or may not
   have stripped `/api`; harmless on Railway). It also serves
   the React SPA static build and provides `/health` and `/restart`. Compiles to
@@ -81,7 +82,8 @@ retired Vercel project starts reporting GitHub statuses again, disconnect or
 delete that project outside the repo instead.)
 
 Note: there is **no folder-convention auto-routing** anymore — every `api/**`
-handler must be imported and `route()`-registered in `server.ts` or it is
+handler must be imported and `route()`-registered in `server-api-routes.ts`,
+which `server.ts` invokes through its existing dual-path adapter, or it is
 unreachable. `server-routes.test.ts` enforces this both ways
 (client call ↔ registration, and handler file ↔ wiring).
 
@@ -104,6 +106,12 @@ unreachable. `server-routes.test.ts` enforces this both ways
   short explicit list at the top of that script — which is why the two repo-root
   files (`cpanel-dns.test.cjs`, `server-routes.test.ts`) are listed there. Put new
   tests under a scan root, or they silently never run.
+- **A test FILE going red with every subtest green** (`✖ api/x.test.ts` + the bare
+  `'test failed'` at `1:1`) means the child process exited non-zero, not that a test
+  failed. The runner prints `child process exited with code N (0xHEX)` under it;
+  a code in the `0xC0000000` range is a native node.exe crash. Traced 2026-09-08 to
+  running the suite on Node 24.15.0 on Windows (the repo pins 22 in `.nvmrc`) —
+  run local tests on the pinned major before suspecting the file.
 - Frontend conventions (the App.tsx drain rule and its line-budget ratchet) live
   in `shinobij.client/CLAUDE.md`, loaded when working under that directory.
 
@@ -146,7 +154,7 @@ Full details in `docs/auth-and-anti-cheat-patterns.md`. The load-bearing invaria
 - A new client-reported reward/currency endpoint must be **server-authoritative** — recompute the reward, or use the mint-token pattern (see `docs/auth-and-anti-cheat-patterns.md`); never pay out from client-supplied amounts/outcomes.
 - Do not remove Railway support when changing API handlers. (cPanel/Passenger is retired; its dormant `app.js` and the dual-path `route()` registration can stay but need not be maintained.)
 - When adding a new API endpoint, you must BOTH create the `api/**` handler AND
-  import + `route()`-register it in `server.ts` — there is no auto-routing, so an
+  import + `route()`-register it in `server-api-routes.ts` — there is no auto-routing, so an
   unregistered handler is unreachable.
 - **Do NOT commit `dist/`.** Railway self-builds from source on every push to
   `main`, and cPanel (which used to serve committed `dist/`) is retired — so a
@@ -168,8 +176,11 @@ Full details in `docs/auth-and-anti-cheat-patterns.md`. The load-bearing invaria
   - `npm run test:e2e` — the cross-browser responsive + accessibility smoke
     (`e2e/`, 5 browser projects). ~2 min locally, ~5 min in CI.
   - `npm run test:e2e:combat-layout` — the combat layout / jutsu-arming matrix
-    (`e2e-live/combat-layout-matrix.spec.ts`). **~11 min locally** — budget for
-    it; it is much slower than its CI wall time suggests. Run it as
+    (`e2e-live/combat-layout-matrix.spec.ts`). **30–50 min locally**, depending
+    on what else is running (measured 2026-09-10) — budget for it; it is much
+    slower than its CI wall time suggests. It starts
+    `node ../dist/server.js`, so it needs `npm run build:server` as well as the
+    client build. Run it as
     `COMBAT_LAYOUT_CAPTURE_PHASE=after COMBAT_LAYOUT_STRICT=1 npm run
     test:e2e:combat-layout`; without those two you are running a laxer check
     than the gate does.
@@ -177,6 +188,16 @@ Full details in `docs/auth-and-anti-cheat-patterns.md`. The load-bearing invaria
   For a narrow change, `npx playwright test <spec> --project=<name>` is seconds
   rather than minutes and is enough to clear a specific suspicion — but only the
   full suites match what CI will actually say.
+
+  **The e2e suites run with Reduce Motion on** (`use.contextOptions.reducedMotion:
+  'reduce'`; a bare top-level `reducedMotion` key is silently ignored by
+  Playwright, and `scripts/playwright-context-options.test.mjs` fails on one). In
+  this app that selects the lite presentation: `html.lite-fx`, no WebGL
+  backdrops, trimmed combat VFX, and cinematics hidden or jumped to their end.
+  A spec that certifies motion itself must opt out with
+  `test.use({ contextOptions: { reducedMotion: 'no-preference' } })`, as the
+  Awakening Stone cinematic and the mobile UI gallery capture do. The visual
+  suite and warfront run full motion.
 
   Two things that will stop you before any test runs, both verified 2026-08-16:
   - **Delete `shinobij.client/.playwright-dist-*` between runs.** The preview
@@ -194,9 +215,12 @@ Full details in `docs/auth-and-anti-cheat-patterns.md`. The load-bearing invaria
     ```bash
     npx playwright test --config=playwright.combat-layout.config.ts --project=webkit-layout
     ```
-    A single webkit spec is ~30s, so there is no excuse for shipping blind. If
-    webkit ever does fail to launch again, re-check this before believing it —
-    the failure below is far more common and looks identical.
+    It is minutes, not seconds: on Windows, WebKit takes 2–8 min for the Solo
+    matrix and 4–11 for the Tower sweep, far slower than Linux CI (see the
+    comments on `layoutRetryBudget` and the Tower test). That is still no excuse
+    for shipping blind. If webkit ever does fail to launch again, re-check this
+    before believing it — the failure below is far more common and looks
+    identical.
   - **A leftover preview server masquerades as a browser failure.** The harness
     dies with `http://127.0.0.1:<port>/health is already used` before a single
     spec executes — which reads exactly like a catastrophic browser regression.
@@ -223,8 +247,9 @@ Full details in `docs/auth-and-anti-cheat-patterns.md`. The load-bearing invaria
   re-run it locally before reverting anything. Two consecutive `main` runs in
   2026-08 failed on two *different* unrelated specs, and the first one passed on
   re-run. Read the failing assertion before believing the failure is yours.
-  (The other suites — `test:e2e:live`, `:visual`, `:warfront` — are NOT in CI.
-  Run them when touching what they cover, but they gate nothing.)
+  CI also runs `test:e2e:warfront` and the desktop live Express Village Stores,
+  Academy persistence and route-wiring cases. The remaining `test:e2e:live`
+  cases and `:visual` are local checks; run them when touching what they cover.
 
 ## Refactoring Rules
 

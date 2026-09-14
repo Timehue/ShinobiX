@@ -1,8 +1,21 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { versionedPlayerRecord } from './_mutate-player-save.js';
+import { versionedPlayerRecord, writeVersionedPlayerSaveWithStore } from './_mutate-player-save.js';
+import { _makeMemoryKv } from '../_storage.js';
 
 describe('_mutate-player-save', () => {
+    it('commits council wins atomically with counter gains and rejects stale replays', async () => {
+        const store = _makeMemoryKv();
+        const before = { _saveVersion: 1, character: { name: 'Rin', village: 'Frostfang Village', totalAiKills: 1234, totalPvpKills: 900 } };
+        await store.set('save:rin', before);
+        const won = { ...before.character, totalAiKills: 1235, totalPvpKills: 901 };
+        const committed = await writeVersionedPlayerSaveWithStore(store, 'save:rin', before, won);
+        await assert.rejects(writeVersionedPlayerSaveWithStore(store, 'save:rin', before, won), /player-save-version-conflict/);
+        const saved = await store.get<Record<string, any>>('save:rin');
+        assert.deepEqual(saved, committed.record);
+        assert.deepEqual((saved!.character as Record<string, unknown>).elderWinDays, [{ day: new Date().toISOString().slice(0, 10), village: 'frostfangvillage', pvp: 1, pve: 1 }]);
+        assert.equal(before.character.hasOwnProperty('elderWinDays'), false);
+    });
     it('bumps the stored player save version', () => {
         const current = { _saveVersion: 7, character: { name: 'Old', ryo: 10 } };
         const nextCharacter = { name: 'Old', ryo: 20 };

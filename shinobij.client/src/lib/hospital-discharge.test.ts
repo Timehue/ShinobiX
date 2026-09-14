@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import test from "node:test";
 import type { Character } from "../types/character";
-import { adoptHospitalDischarge } from "./hospital-discharge";
+import { adoptHospitalDischarge, adoptHealerSnapshot, hospitalDischargeMessage, reconcileHealerSnapshot } from "./hospital-discharge";
 
 const admitted = { name: "Patient", hp: 0, maxHp: 100, hospitalized: true } as Character;
 const discharged = { ...admitted, hp: 100, hospitalized: false, hospitalizedUntil: 0 };
@@ -22,4 +22,68 @@ test("a stale or still-admitted snapshot cannot escape the hospital guard", () =
     assert.equal(adoptHospitalDischarge({ character: admitted, _saveVersion: 8 }, () => true, () => { navigations++; }), false);
     assert.equal(adoptHospitalDischarge({ character: discharged, _saveVersion: 7 }, () => false, () => { navigations++; }), false);
     assert.equal(navigations, 0);
+});
+
+test('a delayed healer notice cannot clear a later authoritative admission', () => {
+    let state = admitted;
+    let exits = 0;
+    const accepted = adoptHealerSnapshot({ character: admitted, _saveVersion: 12 }, next => { state = next; return true; }, () => exits++);
+    assert.equal(accepted, true, 'the reconciled notification can be acknowledged');
+    assert.equal(state.hp, 0);
+    assert.equal(state.hospitalized, true);
+    assert.equal(exits, 0);
+});
+
+test('healer recovery adopts the exact save before leaving, and rejects stale versions', () => {
+    const events: string[] = [];
+    assert.equal(adoptHealerSnapshot({ character: discharged, _saveVersion: 8 }, () => false, () => events.push('exit')), false);
+    assert.equal(adoptHealerSnapshot({}, () => true, () => events.push('exit')), false);
+    assert.equal(adoptHealerSnapshot({ character: discharged, _saveVersion: 9 }, next => { events.push(`hp:${next.hp}`); return true; }, () => events.push('exit')), true);
+    assert.deepEqual(events, ['hp:100', 'exit']);
+});
+
+test('a replay confirms discharge without claiming the earlier payment was free', () => {
+    assert.match(hospitalDischargeMessage({ chargedRyo: 2500 }), /2,500 ryo/);
+    assert.match(hospitalDischargeMessage({ chargedRyo: 0 }), /Discharged free/);
+    const replay = hospitalDischargeMessage({ alreadyDischarged: true, chargedRyo: 0 });
+    assert.match(replay, /Discharge confirmed/);
+    assert.doesNotMatch(replay, /free/i);
+});
+
+test('healer reconciliation retires stale sessions before requesting or adopting a delayed JSON body', async (t) => {
+    let current = true;
+    let requests = 0;
+    let commits = 0;
+    let exits = 0;
+    t.mock.method(globalThis, 'fetch', async (url: string, init: RequestInit) => {
+        requests++;
+        assert.equal(url, '/api/save/patient%20one');
+        assert.ok(init.signal instanceof AbortSignal);
+        return { ok: true, json: async () => {
+            current = false;
+            return { character: discharged, _saveVersion: 9 };
+        } };
+    });
+    const commit = () => { commits++; return true; };
+    assert.equal(await reconcileHealerSnapshot('patient one', () => false, commit, () => exits++), false);
+    assert.equal(requests, 0);
+    assert.equal(await reconcileHealerSnapshot('patient one', () => current, commit, () => exits++), false);
+    assert.equal(requests, 1);
+    assert.equal(commits, 0);
+    assert.equal(exits, 0);
+});
+
+test('healer reconciliation retains notices on read failure and commits a healthy read before feedback', async (t) => {
+    const events: string[] = [];
+    let ok = false;
+    t.mock.method(globalThis, 'fetch', async () => ({
+        ok, json: async () => ({ character: discharged, _saveVersion: 10 }),
+    }));
+    const commit = () => { events.push('commit'); return true; };
+    const feedback = () => { events.push('feedback'); };
+    assert.equal(await reconcileHealerSnapshot('patient', () => true, commit, feedback), false);
+    assert.deepEqual(events, []);
+    ok = true;
+    assert.equal(await reconcileHealerSnapshot('patient', () => true, commit, feedback), true);
+    assert.deepEqual(events, ['commit', 'feedback']);
 });

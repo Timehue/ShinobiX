@@ -1,22 +1,34 @@
 /*
- * Intent-based screen prefetch for the nav menus (RightMenu / MobileNav).
+ * Intent-based screen prefetch.
  *
  * Every game screen is a lazyWithRetry() dynamic import (see App.tsx), so the
  * FIRST time a screen is opened the browser must download + parse its chunk
- * (100–400 KB for the heavy ones) before it can paint. This warms that chunk on
- * pointer-DOWN — the press, ~100–300 ms before the click's navigate() fires — so
- * by the time the screen mounts there is usually nothing left to fetch.
+ * (100–400 KB for the heavy ones) before it can paint. The nav menus
+ * (RightMenu / MobileNav) warm that chunk on pointer-DOWN — the press,
+ * ~100–300 ms before the click's navigate() fires — so by the time the screen
+ * mounts there is usually nothing left to fetch. App's navigate() calls this
+ * too, on every screen switch.
  *
- * Why this is zero-downside:
- *  - Press, not hover: we only ever warm the button actually being activated, so
- *    there are no speculative/wasted downloads from a mouse sweeping the menu.
+ * The Village map's facility tiles (screens/Village) go further: they warm on
+ * pointer-enter and focus as well as the press (added 2026-07-10 for load
+ * time). That part IS speculative. Sweeping a mouse across the map, or tabbing
+ * through it, downloads the chunk of every facility it passes, opened or not.
+ *
+ * Why the menus' press-time warming is (nearly) zero-downside:
+ *  - Press, not hover: a menu only warms the button actually being activated,
+ *    so a mouse sweeping the menu downloads nothing.
  *  - Same chunk, not a duplicate: each specifier below resolves to the exact same
  *    file App.tsx lazy-imports, so Vite/Rollup dedupe them into one chunk — the
  *    warm-up is a cache hit for the real <Suspense> render, never a second fetch.
  *  - Pure module warming: importing a screen module just defines its component
  *    (no network writes, no side effects) — identical to what the click does a
- *    moment later. Best-effort: any failure is swallowed and the click still
- *    triggers the normal lazyWithRetry load path.
+ *    moment later. Best-effort: a failure is swallowed here, but it is not
+ *    private to the warm-up. The browser caches a failed chunk fetch for the
+ *    page, so the click's lazyWithRetry load then rejects from that same
+ *    failure without a new request, and nothing short of a page reload can
+ *    fetch it again (see lib/lazyWithRetry). The one cost is timing: the
+ *    fetch starts ~100–300 ms earlier, so a blip that brief can fail a load the
+ *    click alone might have survived.
  *
  * The literal import() strings must stay in sync with App.tsx's lazy declarations
  * so both sides resolve to the same module. A stale entry can't break navigation
@@ -33,6 +45,7 @@ const SCREEN_PRELOADERS: Partial<Record<Screen, () => Promise<unknown>>> = {
     battleArena: () => import("../screens/Arena"),
     arena: () => import("../screens/Arena"),
     arenaDistrict: () => import("../screens/Arena"),
+    dojoCircuit: () => import("../screens/DojoCircuit"),
     storyHall: () => import("../screens/StoryBoss"),
     storyBoss: () => import("../screens/StoryBoss"),
     townHall: () => import("../screens/TownHall"),
@@ -46,6 +59,7 @@ const SCREEN_PRELOADERS: Partial<Record<Screen, () => Promise<unknown>>> = {
     centralHub: () => import("../screens/CentralHub"),
     petArena: () => import("../screens/PetArena"),
     petShowdown: () => import("../screens/PetShowdown"),
+    firstPact: () => import("../screens/FirstPact"),
     hallOfLegends: () => import("../screens/HallOfLegends"),
     worldMap: () => import("../screens/WorldMap"),
     worldCrisis: () => import("../screens/WorldCrisis"),
@@ -87,7 +101,10 @@ export function preloadScreen(screen: Screen, storyVillage?: string): void {
     if (!load || preloadPromises.has(screen)) return;
     try {
         const pending = load().catch(() => {
-            // Let a later hover/click try again after a transient failure.
+            // Forget the failed warm-up so a later press calls load() again.
+            // That cannot re-download the chunk: the browser has cached the
+            // failure for this page, so the new import() rejects at once with
+            // no request. Nothing short of a page reload can fetch it again.
             preloadPromises.delete(screen);
         });
         preloadPromises.set(screen, pending);

@@ -89,6 +89,7 @@ export function academyStoryMomentFor({
 export type AcademyCeremony = {
     rite: string;
     witness: string;
+    fieldReport: string;
     opening: string;
     villagePromise: string;
 };
@@ -97,25 +98,29 @@ const CEREMONIES: Record<string, AcademyCeremony> = {
     "Stormveil Village": {
         rite: "Stormveil First-Return Rite",
         witness: "Keeper of the Challenge Board",
-        opening: "For one minute, the arena bell stays quiet. I turned the challenge board over so the blank wood could face you.",
+        fieldReport: "You describe three moving rings around an old road marker. Your companion confirms that they shifted when you repeated your vow.",
+        opening: "I copied the rings onto the board's back and sent a rigger to mark the stone. For one minute, the arena bell stays quiet while the blank wood faces you.",
         villagePromise: "Stormveil trusts you to answer a challenge without letting the crowd choose your reason.",
     },
     "Ashen Leaf Village": {
         rite: "Ashen Leaf First-Return Rite",
         witness: "Keeper of the Branch Register",
-        opening: "I left one line in the Branch Register unfinished. This warm field seal is yours to carry instead.",
+        fieldReport: "You describe three moving rings around an old road marker. Your companion confirms that they shifted when you repeated your vow.",
+        opening: "I pressed the ring pattern into a clay margin for the road surveyor. I left your line in the Branch Register unfinished. Carry this warm field seal instead.",
         villagePromise: "Ashen Leaf will record what you do. What you become is still yours to write.",
     },
     "Frostfang Village": {
         rite: "Frostfang First-Return Rite",
         witness: "Warden of the Storm Bell",
-        opening: "The storm bell sounded once when you crossed back through the gate. I counted your name, and your companion's beside it.",
+        fieldReport: "You describe three moving rings around an old road marker. Your companion confirms that they shifted when you repeated your vow.",
+        opening: "I marked the sector on the rescue chart and warned the next patrol not to touch the light. The storm bell sounded once when you returned. I counted both your names.",
         villagePromise: "Frostfang trusts you to cross the rope line and bring everyone in your care home again.",
     },
     "Moonshadow Village": {
         rite: "Moonshadow First-Return Rite",
         witness: "Custodian of Sealed Roads",
-        opening: "I closed one file without making a copy. The only record of that road is the seal in your hand.",
+        fieldReport: "You describe three moving rings around an old road marker. Your companion confirms that they shifted when you repeated your vow.",
+        opening: "I indexed the road and the three rings, without your vow or either name. The fuller account remains in the seal you carry.",
         villagePromise: "Moonshadow trusts you with a truth that does not belong in our archives. Not yet.",
     },
 };
@@ -123,6 +128,7 @@ const CEREMONIES: Record<string, AcademyCeremony> = {
 const FALLBACK_CEREMONY: AcademyCeremony = {
     rite: "First Field-Return Rite",
     witness: "Village Field Warden",
+    fieldReport: "You describe three moving rings around an old road marker. Your companion confirms that they shifted when you repeated your vow.",
     opening: "I waited at the gate until you and your companion crossed the threshold together.",
     villagePromise: "Your village trusts you to cross its walls, make a judgment, and return with the truth.",
 };

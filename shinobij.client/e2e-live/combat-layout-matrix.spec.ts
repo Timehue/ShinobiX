@@ -1,10 +1,13 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { expect, test, type APIRequestContext, type Locator, type Page, type Request as BrowserRequest, type TestInfo } from '@playwright/test';
+import { expect, type APIRequestContext, type Locator, type Page, type Request as BrowserRequest, type TestInfo } from '@playwright/test';
 import { AURA_SPHERE_ITEM_ID, AURA_SPHERE_VN_ID } from '../src/constants/game';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 import { v2JutsuResourceCost } from '../src/lib/jutsu-scaling';
 import { accountKey } from '../src/lib/player-accounts';
+import { TOWER_TURN_AFK_MS } from '../src/lib/towers-api';
+// Many calls here follow browser-only work of arbitrary length; see the helper.
+import { API_CONNECTION_RETRIES, test } from './helpers/reconnecting-request';
 
 // The loadout's scroll container. Phones wrap basic commands and the loadout in
 // one `.combat-action-tray` scrollport; elsewhere the tray is `display:
@@ -231,7 +234,7 @@ async function seedSharedOrdinaryPvpOpponent(request: APIRequestContext) {
     // Re-registering a throwaway opponent in every project pushed this single
     // no-retry matrix over the real household registration budget (25/15m).
     // Verify-first avoids spending a registration attempt on an existing name;
-    // the admin reseed below restores a deterministic, lease-free combat save.
+    // afterEach finishes and settles the prior match before this account is reused.
     const name = 'layout-pvp-opponent';
     const password = 'LayoutMatrix!1234';
     let authenticated = await request.post('/api/player-auth', {
@@ -262,10 +265,8 @@ async function seedSharedOrdinaryPvpOpponent(request: APIRequestContext) {
         data: { playerName: name, eventId: AURA_SPHERE_VN_ID },
     });
     expect(claimed.status(), JSON.stringify(await claimed.json())).toBe(200);
-    // This shared account may have won the previous project's PvP coin flip.
-    // Closing that browser leaves its short-lived in-memory presence marked in
-    // battle; after the admin reset + authenticated save acknowledgement, publish
-    // the same ordinary out-of-battle heartbeat a returned client would send.
+    // A save reset and a client heartbeat cannot clear an authoritative PvP
+    // session. The previous test's teardown must have settled the real duel.
     await fetchAuthoritativeSave(request, { name, token });
     const clearedPresence = await request.post('/api/player/heartbeat', {
         headers,
@@ -285,6 +286,46 @@ async function seedSharedOrdinaryPvpOpponent(request: APIRequestContext) {
     ).toMatchObject({ sector: presence.sector, inBattle: false });
     return { name, token };
 }
+
+let ordinaryLayoutDuel: {
+    battleId: string;
+    p1: { name: string; token: string };
+    p2: { name: string; token: string };
+} | null = null;
+
+test.afterEach(async ({ page, request }) => {
+    const duel = ordinaryLayoutDuel;
+    ordinaryLayoutDuel = null;
+    if (!duel) return;
+    await page.goto('about:blank');
+    type Projection = { status: string; activePlayer: 'p1' | 'p2'; winner: 'p1' | 'p2' | 'draw'; rejected?: unknown };
+    const headers = (role: 'p1' | 'p2') => ({ 'x-player-name': duel[role].name, 'x-player-token': duel[role].token });
+    const move = async (role: 'p1' | 'p2', action: 'join' | 'wait') => {
+        const response = await request.post('/api/pvp/move', {
+            headers: headers(role), data: { battleId: duel.battleId, role, action },
+        });
+        const projection = await response.json() as Projection;
+        expect(response.status(), JSON.stringify(projection)).toBe(200);
+        expect(projection.rejected, 'layout cleanup must apply its authoritative move').toBeUndefined();
+        return projection;
+    };
+    await move('p1', 'join');
+    let session = await move('p2', 'join');
+    // Normal waits reach the server's round limit deterministically. Do not
+    // depend on a random Flee roll or overwrite the server's battle pointer.
+    for (let turn = 0; session.status !== 'done' && turn < 60; turn++) session = await move(session.activePlayer, 'wait');
+    expect(session.status, 'layout duel must terminalize before reusing its opponent').toBe('done');
+    for (const role of ['p1', 'p2'] as const) {
+        const body = {
+            battleId: duel.battleId, playerName: duel[role].name,
+            outcome: session.winner === 'draw' ? 'draw' : session.winner === role ? 'win' : 'loss', completionVersion: 1,
+        };
+        for (const data of [body, { ...body, completionAck: true }]) {
+            const receipt = await request.post('/api/pvp/claim-rewards', { headers: headers(role), data });
+            expect(receipt.status(), JSON.stringify(await receipt.json())).toBe(200);
+        }
+    }
+});
 
 async function seedActiveTowerPvpMatch(request: APIRequestContext, testInfo: TestInfo) {
     const accounts: Array<{ name: string; token: string }> = [];
@@ -835,7 +876,10 @@ type LayoutMeasurement = {
     actionScroll: { scrollTop: number; clientHeight: number; scrollHeight: number } | null;
     tileCenterBounds: Rect | null;
     minCommandTouchTarget: number | null;
+    /** Command-deck text spilling out of its own button, `label:part+Npx`. */
+    commandTextOverflows: string[];
     boardActionOverlap: boolean;
+    boardTabOverlap: boolean;
     boardDossierOverlap: boolean;
     terrainNoticeOverlap: boolean;
     dualApTextOverlap: boolean;
@@ -924,6 +968,33 @@ async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurem
         const tileCentersHitTheirTile = tileCenterHitCount === tiles.length;
         const commandButtons = [...(root?.querySelectorAll<HTMLElement>('.shinobi-command-bar button, .battle-tab') ?? [])]
             .map(rect).filter((value): value is Rect => value !== null);
+        /*
+         * A command button lays its icon+label and its cost line out as a
+         * centred grid, so content taller than the button spills out BOTH ends
+         * rather than pushing the box open — and the deck's `overflow: hidden`
+         * then cuts the label in half at the top and the cooldown at the bottom.
+         * The desktop command centre is where this bites: its commands row is a
+         * fixed 60px track, so the button is pinned to exactly 48px and a second
+         * line of cost text has nowhere to go. Nothing else here catches it:
+         * the button keeps its size and its touch target, and the text stays
+         * hit-testable while being visually sliced.
+         *
+         * 1px of tolerance, deliberately: sub-pixel line-box rounding differs
+         * per engine (Firefox reports 43.99997 where Chromium reports 44), and
+         * a zero-tolerance geometry assertion here would be flaky, not strict.
+         */
+        const commandTextOverflows = [...(root?.querySelectorAll<HTMLElement>('.shinobi-command-bar button') ?? [])]
+            .flatMap((button) => {
+                const box = button.getBoundingClientRect();
+                if (box.width === 0 || box.height === 0) return [];
+                const label = button.querySelector('span')?.textContent?.trim() ?? '?';
+                return [...button.querySelectorAll<HTMLElement>(':scope > span, :scope > small, :scope > .cmd-icon')]
+                    .flatMap((part) => {
+                        const value = part.getBoundingClientRect();
+                        const spill = Math.max(box.top - value.top, value.bottom - box.bottom);
+                        return spill > 1 ? [`${label}:${part.tagName.toLowerCase()}+${spill.toFixed(1)}px`] : [];
+                    });
+            });
         /*
          * Geometry probe: prefer an ENABLED jutsu, but fall back to any jutsu.
          *
@@ -1036,7 +1107,9 @@ async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurem
             } : null,
             tileCenterBounds,
             minCommandTouchTarget: commandButtons.length ? Math.min(...commandButtons.map((value) => Math.min(value.width, value.height))) : null,
+            commandTextOverflows,
             boardActionOverlap: overlap(boardRect, actionRect),
+            boardTabOverlap: overlap(boardRect, rect(tabNode)),
             boardDossierOverlap: dossiers.some((value) => overlap(boardRect, value)),
             terrainNoticeOverlap: overlap(rect(terrainNode), rect(noticeNode)),
             dualApTextOverlap,
@@ -1052,8 +1125,45 @@ async function settleLayout(page: Page): Promise<void> {
     }));
 }
 
+/*
+ * A viewport change reaches the board in two hops, not one: a ResizeObserver
+ * reports the new container, and only the React render that follows rebuilds the
+ * fitted scale and the centering offset the grid transform is built from.
+ * settleLayout's two frames cover both hops on a quiet machine. Under load the
+ * render lands later, and then the board's answer to the RESIZE arrives during
+ * the next interaction, where the frame trace reads it as though arming a jutsu
+ * moved the board: every traced frame agrees with every other and only the
+ * baseline disagrees. Wait for the rendered grid to hold still instead of
+ * assuming a frame count, so the baseline is the settled board.
+ */
+async function settleBoardGeometry(page: Page, rootSelector: string): Promise<void> {
+    await page.locator(rootSelector).evaluate(async (root) => {
+        await document.fonts.ready;
+        await Promise.all(root.getAnimations({ subtree: true })
+            .filter((animation) => Number.isFinite(animation.effect?.getComputedTiming().endTime))
+            .map((animation) => animation.finished.catch(() => undefined)));
+    });
+    const sampleGrid = () => page.evaluate((selector) => {
+        const layer = document.querySelector(selector)?.querySelector('.hex-grid-layer');
+        if (!layer) return '';
+        const box = layer.getBoundingClientRect();
+        return [box.x, box.y, box.width, box.height, getComputedStyle(layer).transform].join('|');
+    }, rootSelector);
+    let previous = await sampleGrid();
+    // Four agreements cover a deferred responsive commit even when the first
+    // pair of samples still describes the previous viewport under browser load.
+    for (let attempt = 0, agreements = 0; attempt < 24 && agreements < 4; attempt += 1) {
+        await settleLayout(page);
+        await page.waitForTimeout(50);
+        const current = await sampleGrid();
+        agreements = current !== '' && current === previous ? agreements + 1 : 0;
+        previous = current;
+    }
+}
+
 async function measureStable(page: Page, rootSelector: string): Promise<LayoutMeasurement> {
     await settleLayout(page);
+    await settleBoardGeometry(page, rootSelector);
     let current = await measure(page, rootSelector);
     for (let attempt = 0; attempt < 8 && (!current.tileCentersInsideBoard || current.visibleTileCount !== 120); attempt += 1) {
         await page.waitForTimeout(90);
@@ -1072,6 +1182,32 @@ async function measureStable(page: Page, rootSelector: string): Promise<LayoutMe
      * removing the race instead of racing it.
      */
     return current;
+}
+
+/*
+ * How long captureMatrix's toPass may spend measuring and re-measuring one
+ * viewport, sized in measurements rather than a fixed number of seconds.
+ *
+ * measureStable is counted in animation frames: settleLayout plus four agreeing
+ * grid samples is at least ten. Chromium renders those in about half a second,
+ * so 10s allows many attempts. Playwright's WebKit on Windows does not on the
+ * solo arena: it repaints the whole view each time that screen's 1 Hz round
+ * countdown ticks, and at desktop widths that repaint takes about a second, so
+ * a single measurement costs about 10s. A flat 10s budget then ran out while
+ * the first attempt was still measuring, with every bound satisfied, and toPass
+ * reported a bare timeout. Measured 2026-09-10: 1.0-1.35s to paint one tick at
+ * 1920x1080 against 12ms in Chromium on the same machine, and 53 fps once the
+ * countdown was frozen. (The PvP matrix pins its countdown, and the Tower shell
+ * stays near 60 fps while its countdown ticks.) CI's Linux WebKit runs the whole
+ * Solo test in about two minutes. Scaling by what the viewport's first
+ * measurement cost leaves a slow renderer room for at least two full
+ * re-measurements; the floor leaves fast engines exactly where they were.
+ */
+const LAYOUT_RETRY_FLOOR_MS = 10_000;
+const LAYOUT_RETRY_MEASUREMENTS = 3;
+
+function layoutRetryBudget(measurementMs: number): number {
+    return Math.max(LAYOUT_RETRY_FLOOR_MS, LAYOUT_RETRY_MEASUREMENTS * measurementMs);
 }
 
 type SelectionGeometry = {
@@ -1131,11 +1267,14 @@ async function startTransitionTrace(page: Page, rootSelector: string): Promise<v
             trace.started = true;
             root?.removeEventListener('pointerdown', beginTrace, true);
             document.removeEventListener('keydown', beginTrace, true);
-            let sampledFrames = 0;
+            let framesAfterSelectionChange = 0;
             const sampleFrame = (timestamp: number) => {
-                trace.samples.push(capture(timestamp));
-                sampledFrames += 1;
-                if (sampledFrames >= frameCount) trace.complete = true;
+                const sample = capture(timestamp);
+                trace.samples.push(sample);
+                if (framesAfterSelectionChange > 0 || sample.selected !== trace.samples[0].selected) {
+                    framesAfterSelectionChange += 1;
+                }
+                if (framesAfterSelectionChange >= frameCount) trace.complete = true;
                 else requestAnimationFrame(sampleFrame);
             };
             requestAnimationFrame(sampleFrame);
@@ -1143,6 +1282,8 @@ async function startTransitionTrace(page: Page, rootSelector: string): Promise<v
         // Anchor the consecutive-frame window to the real user interaction.
         // Starting rAFs before Playwright dispatches input can let a busy WebKit
         // process consume the entire trace before pointerdown reaches the page.
+        // Keep every frame through selection and twelve frames afterward: input
+        // dispatch can also stall between pointerdown and the activating click.
         const root = document.querySelector(selector);
         root?.addEventListener('pointerdown', beginTrace, true);
         document.addEventListener('keydown', beginTrace, true);
@@ -1292,7 +1433,7 @@ function expectTransitionTraceStable(
     selectedBefore: boolean,
     selectedAfter: boolean,
 ): void {
-    expect(trace, `${label} frame trace`).toHaveLength(TRANSITION_TRACE_FRAMES + 1);
+    expect(trace.length, `${label} frame trace`).toBeGreaterThanOrEqual(TRANSITION_TRACE_FRAMES + 1);
     expect(trace[0]?.selected, `${label} selection at trace start`).toBe(selectedBefore);
     expect(trace.some(sample => sample.selected === selectedAfter), `${label} must span the interaction state change`).toBe(true);
     const expectRectNear = (actualRect: Rect | null, expectedRect: Rect | null, rectLabel: string, frame: number) => {
@@ -1361,6 +1502,7 @@ async function assertJutsuSelectionGeometryStable(
         await actionTray.evaluate(resetTrayScroll);
         await page.mouse.move(0, 0);
         await settleLayout(page);
+        await settleBoardGeometry(page, rootSelector);
         const before = await selectionGeometry(page, rootSelector);
         const isTower = rootSelector.toLowerCase().includes('tower');
         const captureDirectory = captureSlug && viewport.width === 512 && viewport.height === 384
@@ -1621,10 +1763,12 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
         ).toBe(current.visibleTileCount);
         expect(current.dossierResourcesContained, `${label} dossier resources clipped: ${current.dossierContentMisses.join(', ')}`).toBe(true);
         expect(current.boardActionOverlap, `${label} action overlap`).toBe(false);
+        expect(current.boardTabOverlap, `${label} tab touch-area overlap`).toBe(false);
         expect(current.boardDossierOverlap, `${label} dossier overlap`).toBe(false);
         expect(current.terrainNoticeOverlap, `${label} terrain/action-notice overlap`).toBe(false);
         expect(current.dualApTextOverlap, `${label} AP/timer labels overlap`).toBe(false);
         expect(current.minCommandTouchTarget ?? 0, `${label} touch target`).toBeGreaterThanOrEqual(44);
+        expect(current.commandTextOverflows, `${label} command text clipped by its button: ${current.commandTextOverflows.join(', ')}`).toEqual([]);
         expect(current.actions?.height ?? 0, `${label} selected action panel height`).toBeGreaterThanOrEqual(44);
         expect(
             current.firstJutsuCenterVisibleAndHit,
@@ -1717,11 +1861,9 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
         if (browser === 'chromium' && mode === 'pvp' && width === 390 && height === 844) {
             await assertEdgeActionPopovers(page, rootSelector);
         }
-        const current = await measureStable(page, rootSelector);
-        measurements.push(current);
-        if (browser === 'chromium') {
-            await writeScreenshotWithRetry(page, resolve(directory, `${width}x${height}.png`));
-        }
+        const measurementStarted = Date.now();
+        let current = await measureStable(page, rootSelector);
+        const measurementMs = Date.now() - measurementStarted;
         if (STRICT) {
             if (width >= 1280 && height >= 700) {
                 if (mode === 'solo') {
@@ -1735,7 +1877,26 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
                     await expect(root.locator('.combat-companion-panel')).toHaveCount(0);
                 }
             }
-            assertLayout(current, `${mode} ${width}x${height}`);
+            // Equal grid samples can precede a delayed responsive render. Keep
+            // every layout bound and capture the settled, validated measurement.
+            // The grid settled moments ago, so the first attempt re-reads the
+            // layout one frame pair after the checks above instead of paying for
+            // a second full settle; any failed attempt re-measures from scratch.
+            let attempt = 0;
+            await expect(async () => {
+                attempt += 1;
+                if (attempt === 1) {
+                    await settleLayout(page);
+                    current = await measure(page, rootSelector);
+                } else {
+                    current = await measureStable(page, rootSelector);
+                }
+                assertLayout(current, `${mode} ${width}x${height}`);
+            }).toPass({ timeout: layoutRetryBudget(measurementMs) });
+        }
+        measurements.push(current);
+        if (browser === 'chromium') {
+            await writeScreenshotWithRetry(page, resolve(directory, `${width}x${height}.png`));
         }
     }
     await writeArtifactWithRetry(page, resolve(directory, 'measurements.json'), `${JSON.stringify(measurements, null, 2)}\n`);
@@ -1780,15 +1941,28 @@ test('Solo-PvE combat layout viewport matrix', async ({ page, request }, testInf
         enemyMarkers: 0,
         minimumEnemySprites: 1,
     });
+    // Linux WebKit in CI runs this whole test in about two minutes. Playwright's
+    // WebKit on Windows has needed almost eight on a loaded machine, because the
+    // solo arena's live countdown makes every desktop-width frame cost about a
+    // second (see layoutRetryBudget), and the suite-wide 240s would end a
+    // healthy run. Extend the allowance from here, where the frame-bound work
+    // (the arming traces, then the viewport matrix) begins, so a hang while
+    // signing in or starting the mission still fails at 240s. setTimeout counts
+    // from the test's start, so 600s is the whole test's total.
+    test.setTimeout(600_000);
     await assertJutsuSelectionGeometryStable(page, '.mission-arena-fight', true);
     await page.setViewportSize({ width: 1440, height: 900 });
     const soloRoot = page.locator('.mission-arena-fight');
     const battleLog = soloRoot.locator('.combat-text-log');
     await expect(battleLog).toBeVisible();
     expect((await battleLog.boundingBox())?.height ?? 0, 'desktop Battle Log must be a readable panel').toBeGreaterThanOrEqual(140);
-    const soloBoard = await soloRoot.locator('.hex-battlefield').boundingBox();
-    const soloGrid = await soloRoot.locator('.hex-grid-layer').boundingBox();
-    expect((soloGrid?.width ?? 0) / Math.max(1, soloBoard?.width ?? 0), 'desktop hex grid should use most of the battlefield art').toBeGreaterThanOrEqual(0.6);
+    // The grid fits itself after viewport changes. Read both widths in one
+    // frame and wait for that fit rather than measuring the previous viewport.
+    await expect.poll(() => soloRoot.evaluate((root) => {
+        const board = root.querySelector('.hex-battlefield')!.getBoundingClientRect();
+        const grid = root.querySelector('.hex-grid-layer')!.getBoundingClientRect();
+        return grid.width / Math.max(1, board.width);
+    }), { message: 'desktop hex grid should use most of the battlefield art' }).toBeGreaterThanOrEqual(0.6);
     const soloArtwork = await soloRoot.locator('.combat-jutsu-thumb img').evaluateAll((images) => images.map((image) => {
         const art = image as HTMLImageElement;
         const artRect = art.getBoundingClientRect();
@@ -1858,6 +2032,18 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
     expect(created.status(), JSON.stringify(creation)).toBe(200);
     const battleId = String(creation.battleId ?? '');
     expect(battleId.length).toBeGreaterThan(10);
+    ordinaryLayoutDuel = { battleId, p1, p2 };
+    // Seat both real fighters so either coin-flip outcome starts a live turn.
+    // Previously a P1 win could leave the clock waiting for the absent P2.
+    for (const [role, account] of [['p1', p1], ['p2', p2]] as const) {
+        const joined = await request.post('/api/pvp/move', {
+            headers: { 'x-player-name': account.name, 'x-player-token': account.token },
+            data: { battleId, role, action: 'join' },
+        });
+        const projection = await joined.json() as { rejected?: unknown };
+        expect(joined.status(), JSON.stringify(projection)).toBe(200);
+        expect(projection.rejected, 'both layout fighters must join authoritatively').toBeUndefined();
+    }
     const activeRole = creation.session?.activePlayer;
     expect(activeRole, 'PvP session must declare the coin-flip winner').toMatch(/^p[12]$/);
     const activeAccount = activeRole === 'p2' ? p2 : p1;
@@ -1875,7 +2061,6 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
     await page.goto('/#/pvpBattle', { waitUntil: 'domcontentloaded' });
     await dismissNotices(page);
     await resolveSaveConflict(page);
-    await expect(page.locator('.pvp-countdown-overlay')).toBeHidden({ timeout: 10_000 });
     const battleVisible = await page.locator('.pvp-battle-layout').waitFor({ state: 'visible', timeout: 20_000 })
         .then(() => true, () => false);
     if (!battleVisible) {
@@ -1892,11 +2077,31 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
         throw new Error(`PvP restore diagnostic: ${JSON.stringify(debug)}`);
     }
     await expect(page.locator('.pvp-battle-layout')).toBeVisible();
+    await expect(page.locator('.pvp-countdown-overlay')).toBeHidden({ timeout: 10_000 });
     await assertBattlefieldActorPresentation(page, '.pvp-battle-layout', {
         playerMarkers: 1,
         enemyMarkers: 1,
         minimumEnemySprites: 0,
     });
+    // This geometry sweep holds one real turn longer than its 45-second clock.
+    // DISABLE_PVP_TURN_DEADLINE holds the server, but the browser still sends an
+    // auto-wait when its countdown expires. Pin Date without freezing animation
+    // frames, and keep heartbeat clock samples on that same fixture time. All
+    // battle state and actions still come from Express; no turn state is forged.
+    const clockResponse = await request.get(`/api/pvp/session?id=${encodeURIComponent(battleId)}`, {
+        headers: { 'x-player-name': activeAccount.name, 'x-player-token': activeAccount.token },
+    });
+    expect(clockResponse.status()).toBe(200);
+    const clockSession = await clockResponse.json() as { turnStartedAt?: number };
+    expect(clockSession.turnStartedAt).toBeGreaterThan(0);
+    const geometryTime = Number(clockSession.turnStartedAt) + 1_000;
+    await page.route('**/api/player/heartbeat', async (route) => {
+        // Shares the same pooled sockets as `request`.
+        const response = await route.fetch({ maxRetries: API_CONNECTION_RETRIES });
+        if (!response.ok()) { await route.fulfill({ response }); return; }
+        await route.fulfill({ response, json: { ...await response.json(), serverNow: geometryTime } });
+    });
+    await page.clock.setFixedTime(geometryTime);
     await assertJutsuSelectionGeometryStable(page, '.pvp-battle-layout', false);
     await captureMatrix(page, 'pvp', '.pvp-battle-layout', testInfo);
 
@@ -1907,7 +2112,11 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
     const toggle = chat.locator('.battle-chat-toggle');
     const log = pvpRoot.locator('.combat-text-log');
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    // The preceding mobile zoom capture hides the log. Wait for the desktop
+    // layout before taking a baseline; a missing box is not a zero-width log.
+    await expect(log).toBeVisible();
     const openLog = await log.boundingBox();
+    if (!openLog) throw new Error('Visible battle log has no measurable baseline');
     const draftInput = chat.locator('.battle-chat-input-row input');
     const draftEnabled = await draftInput.isEnabled();
     if (draftEnabled) await draftInput.fill('unsent tactical draft');
@@ -1917,8 +2126,8 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
     await expect(chat).toHaveClass(/battle-chat-hidden/);
     await expect(layout).toHaveClass(/combat-log-wide/);
     const collapsedLog = await log.boundingBox();
-    expect((collapsedLog?.width ?? 0) - (openLog?.width ?? 0), 'collapsed chat must release its lower-right space to the battle log').toBeGreaterThan(120);
-    const openLogRight = (openLog?.x ?? 0) + (openLog?.width ?? 0);
+    expect((collapsedLog?.width ?? 0) - openLog.width, 'collapsed chat must release its lower-right space to the battle log').toBeGreaterThan(120);
+    const openLogRight = openLog.x + openLog.width;
     const collapsedLogRight = (collapsedLog?.x ?? 0) + (collapsedLog?.width ?? 0);
     expect(collapsedLogRight - openLogRight, 'expanded battle log must reach into the former chat area').toBeGreaterThan(120);
     expect((await chat.locator('.battle-side-header').boundingBox())?.height ?? 0, 'collapsed chat reopen control').toBeGreaterThanOrEqual(44);
@@ -1929,7 +2138,7 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
     await expect(layout).not.toHaveClass(/combat-log-wide/);
     if (draftEnabled) await expect(draftInput).toHaveValue('unsent tactical draft');
     const restoredLog = await log.boundingBox();
-    expect(Math.abs((restoredLog?.width ?? 0) - (openLog?.width ?? 0)), 'reopened chat must restore the split log geometry').toBeLessThanOrEqual(3);
+    expect(Math.abs((restoredLog?.width ?? 0) - openLog.width), 'reopened chat must restore the split log geometry').toBeLessThanOrEqual(3);
     expect(await chat.locator('.battle-chat-messages').evaluate((feed) => feed.scrollHeight - feed.scrollTop - feed.clientHeight), 'reopened chat feed should stay at its newest message').toBeLessThanOrEqual(2);
 
     const pvpArtwork = await pvpRoot.locator('.combat-jutsu-thumb img').evaluateAll((images) => images.map((image) => {
@@ -1941,12 +2150,6 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
 });
 
 test('Tower combat shell keeps jutsu selection geometry stable', async ({ page, request }, testInfo) => {
-    // WebKit needs roughly five minutes to exercise all 22 base viewports,
-    // six zoom equivalents, and both 12-frame arm/cancel traces; slower Windows
-    // GPU runners can approach eight. Keep this exhaustive test no-retry, but
-    // do not let the suite-wide 240s budget terminate a healthy final-viewport
-    // run before the zoom checks complete.
-    test.setTimeout(600_000);
     const { name, token } = await seedAccount(request, testInfo, 'tower');
     const savePreview = await fetchAuthoritativeSave(request, { name, token });
     await installSession(page, name, token, { acknowledgeEstablishedNotices: true, savePreview });
@@ -1958,8 +2161,12 @@ test('Tower combat shell keeps jutsu selection geometry stable', async ({ page, 
     const firstFloor = page.locator('button[aria-describedby="tower-story-floor-1-details"]');
     await expect(firstFloor).toBeVisible();
     await firstFloor.click();
+    const started = page.waitForResponse(response => response.url().includes('/api/towers/start') && response.request().method() === 'POST');
     await page.getByRole('button', { name: /Enter Floor 1/ }).click();
+    const launch = await (await started).json() as { session: { turnStartedAt: number } };
     await expect(page.locator('.screen-battleTowerFight')).toBeVisible();
+    // Check the launch turn before the long viewport sweep can advance it.
+    await assertTowerCountdownGeometryStable(page, testInfo, launch.session.turnStartedAt);
     await assertBattlefieldActorPresentation(page, '.screen-battleTowerFight', {
         playerMarkers: 1,
         enemyMarkers: 0,
@@ -1968,6 +2175,20 @@ test('Tower combat shell keeps jutsu selection geometry stable', async ({ page, 
 
     // BattleTowerFight is also the shared party-MPvE host. The authoritative
     // team-PvP variant gets its own real exact-2v2 journey below.
+    //
+    // The sweep covers 22 base viewports, six zoom equivalents and 12-frame
+    // arm/cancel traces at each. Linux WebKit in CI runs the whole test in about
+    // two minutes. Playwright's WebKit on Windows needed about four and a half
+    // minutes with five other Playwright runs sharing the machine, and on
+    // 2026-09-10 a saturated run reached its last viewport at 550s and was cut
+    // off at 600s with no action hung. Timing each phase (2026-09-10) put
+    // WebKit's sweep at 1.75 times Chromium's: the frame waits right after a
+    // resize, an arm and a cancel took three to four times as long, and no
+    // single phase dominates. Unlike the solo countdown, nothing idle drives that
+    // cost, so there is nothing to hold still. Keep this exhaustive test
+    // no-retry, but extend the allowance only here, so a hang during setup still
+    // fails at the suite's 240s. setTimeout counts from the test's start.
+    test.setTimeout(900_000);
     await assertJutsuSelectionGeometryStable(
         page,
         '.screen-battleTowerFight',
@@ -1976,6 +2197,41 @@ test('Tower combat shell keeps jutsu selection geometry stable', async ({ page, 
         true,
     );
 });
+
+async function assertTowerCountdownGeometryStable(page: Page, testInfo: TestInfo, turnStartedAt: number): Promise<void> {
+    const deadline = turnStartedAt + TOWER_TURN_AFK_MS;
+    const root = page.locator('.screen-battleTowerFight');
+    const timer = root.getByRole('timer');
+    await expect(timer).toBeVisible();
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.clock.setFixedTime(deadline - 22_000 + 50);
+    await expect(timer).toHaveAttribute('aria-label', '22 seconds remaining');
+    // A freshly mounted board can still carry its old scale after the viewport
+    // resize. Wait for the fit before recording the baseline; countdown-driven
+    // geometry changes below retain their immediate one-pixel assertions.
+    await expect(async () => {
+        await settleLayout(page);
+        expectCombatBoardUsable(await selectionGeometry(page, '.screen-battleTowerFight'), 'Tower countdown baseline', true);
+    }).toPass({ timeout: 5_000 });
+    const before = await selectionGeometry(page, '.screen-battleTowerFight');
+    const headerBefore = await root.locator('.tower-fight-header').boundingBox();
+    const timerBefore = await timer.boundingBox();
+    expectCombatBoardUsable(before, 'Tower countdown baseline', true);
+    // Proportional 22/21/20/19 digits used to add/remove an entire header row.
+    // The single-digit transition must keep that same reserved width as well.
+    for (const remaining of [21, 20, 19, 11, 10, 9, 1, 0]) {
+        await page.clock.setFixedTime(deadline - remaining * 1_000 + 50);
+        await expect(timer).toHaveAttribute('aria-label', `${remaining} seconds remaining`);
+        await settleLayout(page);
+        const header = await root.locator('.tower-fight-header').boundingBox();
+        const timerBox = await timer.boundingBox();
+        expect(Math.abs(header!.height - headerBefore!.height), `header height at ${remaining}s`).toBeLessThanOrEqual(1);
+        expect(Math.abs(timerBox!.width - timerBefore!.width), `countdown width at ${remaining}s`).toBeLessThanOrEqual(1);
+        expectGeometryNear(await selectionGeometry(page, '.screen-battleTowerFight'), before, `Tower countdown at ${remaining}s`);
+    }
+    await page.screenshot({ path: testInfo.outputPath('tower-countdown-1024x768.png'), animations: 'disabled' });
+    await page.clock.setSystemTime(Date.now());
+}
 
 test('Tower party-MPvE authoritative variant keeps jutsu selection geometry stable', async ({ page, request }, testInfo) => {
     test.skip(testInfo.project.name !== 'chromium-layout',

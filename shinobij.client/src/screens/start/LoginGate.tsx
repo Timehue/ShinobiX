@@ -15,7 +15,7 @@ import { AccountRecoveryForm } from "../../components/AccountRecoveryForm";
  * password form last, because by then it is the least likely thing you need.
  */
 
-const DISCORD_URL = "https://discord.gg/bCQGs8r6SK";
+const DISCORD_URL = "https://discord.gg/usr3vzykBh";
 
 /** Google's mark, drawn inline: the CSP blocks their hosted button script. */
 function GoogleMark() {

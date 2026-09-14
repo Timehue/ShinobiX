@@ -218,10 +218,12 @@ test("authenticated player can open every Central Hub system", async ({ page }, 
         ["serious", "critical"].includes(violation.impact ?? ""))).toEqual([]);
 });
 
+// poisonCeiling mirrors POISON_CAP_BY_RANK (api/combat-core/formulas.ts): creator
+// Poison resolves at the rank's Poison ceiling whatever strength is stored.
 const bloodlineAwakeningContracts = [
-    { rank: "B Rank", rankClass: "rank-b", currency: "boneCharms", jutsuCount: 4, pointBudget: 7, percentChoices: ["25%", "30%"] },
-    { rank: "A Rank", rankClass: "rank-a", currency: "auraStones", jutsuCount: 5, pointBudget: 10, percentChoices: ["25%", "30%"] },
-    { rank: "S Rank", rankClass: "rank-s", currency: "mythicSeals", jutsuCount: 5, pointBudget: 11, percentChoices: ["30%", "35%"] },
+    { rank: "B Rank", rankClass: "rank-b", currency: "boneCharms", jutsuCount: 4, pointBudget: 7, percentChoices: ["25%", "30%"], poisonCeiling: 12 },
+    { rank: "A Rank", rankClass: "rank-a", currency: "auraStones", jutsuCount: 5, pointBudget: 10, percentChoices: ["25%", "30%"], poisonCeiling: 12 },
+    { rank: "S Rank", rankClass: "rank-s", currency: "mythicSeals", jutsuCount: 5, pointBudget: 11, percentChoices: ["30%", "35%"], poisonCeiling: 14 },
 ] as const;
 
 for (const contract of bloodlineAwakeningContracts) {
@@ -287,14 +289,24 @@ for (const contract of bloodlineAwakeningContracts) {
 
         await page.locator(".bloodline-wizard-step").filter({ hasText: "Jutsu 1" }).click();
         await expect(page.getByRole("heading", { name: `Jutsu 1 of ${contract.jutsuCount}` })).toBeVisible();
-        await page.locator(".tag-picker select:not(.tag-percent-select)").first().selectOption("Poison");
+        const tagSelect = page.locator(".tag-picker select:not(.tag-percent-select)").first();
 
+        // Poison's potency has its own rank ceiling in combat, so every creator
+        // strength plays the same: the picker states that value instead of
+        // offering a choice that changes nothing.
+        await tagSelect.selectOption("Poison");
+        await expect(page.locator(".tag-percent-select")).toHaveCount(0);
+        await expect(page.locator(".tag-picker").first().locator(".tag-effect-help")).toContainText(`Poisons the target at ${contract.poisonCeiling}% for 2 rounds`);
+
+        // Rank-specific tag power is certified on a tag whose strength really varies.
+        await tagSelect.selectOption("Decrease Damage Given");
         const percentSelect = page.locator(".tag-percent-select").first();
         await expect(percentSelect).toBeVisible();
         await expect(percentSelect.locator("option")).toHaveText([...contract.percentChoices]);
         await expect(percentSelect).toHaveValue(contract.percentChoices.at(-1)!.replace("%", ""));
-        await expect(page.locator(".bloodline-points-total")).toHaveText("Jutsu Points: 0.5");
-        await expect(page.locator(".bloodline-awakening-build-meter b")).toHaveText(`0.5 / ${contract.pointBudget}`);
+        // An amp/DR tag at the creator cap pays the at-cap price.
+        await expect(page.locator(".bloodline-points-total")).toHaveText("Jutsu Points: 0.75");
+        await expect(page.locator(".bloodline-awakening-build-meter b")).toHaveText(`0.75 / ${contract.pointBudget}`);
         await expect(page.getByLabel("Jutsu target")).toHaveValue("OPPONENT");
         await expect(page.getByLabel("Jutsu method")).toHaveValue("SINGLE");
         await expect(page.getByRole("button", { name: "40 AP Utility" })).toBeVisible();
@@ -339,9 +351,9 @@ for (const contract of bloodlineAwakeningContracts) {
         const savedBloodline = (api.getSave()?.savedBloodlines as Array<Record<string, unknown>>)[0]!;
         const savedJutsus = savedBloodline.jutsus as Array<Record<string, unknown>>;
         const savedTags = savedJutsus[0]!.tags as Array<Record<string, unknown>>;
-        expect(savedBloodline.totalPoints).toBe(0.5);
+        expect(savedBloodline.totalPoints).toBe(0.75);
         expect(savedJutsus).toHaveLength(contract.jutsuCount);
-        expect(savedTags[0]).toMatchObject({ name: "Poison", percent: Number(contract.percentChoices.at(-1)!.replace("%", "")) });
+        expect(savedTags[0]).toMatchObject({ name: "Decrease Damage Given", percent: Number(contract.percentChoices.at(-1)!.replace("%", "")) });
         const savedCharacter = api.getSave()?.character as Record<string, unknown>;
         expect(savedCharacter.equippedBloodlineId).toBe(savedBloodline.id);
         expect(savedCharacter.equippedJutsuIds).toEqual(preAwakeningEquipped);

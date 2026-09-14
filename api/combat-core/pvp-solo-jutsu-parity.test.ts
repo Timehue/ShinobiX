@@ -146,8 +146,11 @@ function pvpSession(id: string, jutsu: CombatJutsu): PvpSession {
         joined: { p1: true, p2: true },
         status: 'active',
         winner: null,
-        createdAt: 1_700_000_000_000,
-        lastMoveAt: 1_700_000_000_000,
+        // A LIVE duel. A frozen 2023 clock reads as a lapsed duel (F08,
+        // api/pvp/_lapse-rules.ts) and would be terminalized as a draw before
+        // the move under test is ever judged.
+        createdAt: Date.now() - 5_000,
+        lastMoveAt: Date.now() - 1_000,
         biome: 'central',
         weatherPositiveElement: '',
         weatherNegativeElement: '',

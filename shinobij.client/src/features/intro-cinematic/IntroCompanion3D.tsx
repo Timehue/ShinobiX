@@ -1,5 +1,6 @@
 import { Component, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ErrorInfo, type ReactNode } from "react";
-import { Canvas } from "@react-three/fiber";
+import { Canvas } from "@react-three/fiber";
+import { decorativeCanvasEvents } from "../../lib/decorative-canvas-events";
 import { ContactShadows, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { DEFAULT_PET_MODEL_FRAME, PetModel3D, type PetModelFrame } from "../../components/PetModel3D";
@@ -134,6 +135,13 @@ export function IntroCompanion3D({
                         key={closeUp ? "close-up" : "full-body"}
                         className="icx-companion-canvas"
                         aria-hidden="true"
+                        // Decorative and aria-hidden, and the `key` above flips mid-cinematic,
+                        // so this Canvas fully remounts while the intro is still advancing.
+                        // Without an events override R3F binds pointer listeners in onCreated
+                        // against gl.domElement.parentNode, which is already null by then —
+                        // an uncaught "Cannot read properties of null (reading
+                        // 'addEventListener')" in a new player's very first session.
+                        events={decorativeCanvasEvents}
                         dpr={[1, 2]}
                         camera={{
                             position: closeUp ? [0, 1.62, 3.72] : needsHeadroom ? [0, 1.65, 4.85] : [0, 1.65, 4.35],

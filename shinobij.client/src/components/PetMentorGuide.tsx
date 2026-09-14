@@ -51,7 +51,7 @@ function storyBeat(completed: number, total: number) {
     if (completed === 0) return {
         kicker: "Field chronicle · Prologue",
         title: "A trail found at blue hour",
-        body: "Kuro caught your companion's scent three roads back. His second tail answered the first a heartbeat later—the Bondwake sign of a mature partnership Tomoe never ignores.",
+        body: "Kuro caught your companion's scent three roads back. His own second tail lifted while he followed it, an old habit since his Bondwake. Tomoe wants to compare notes before either of you mistakes attention for practice.",
         image: tomoePrologue,
         imageAlt: "Tamer Tomoe and Kuro studying a fresh trail beside their lantern-lit road camp.",
         finale: false,
@@ -59,7 +59,7 @@ function storyBeat(completed: number, total: number) {
     if (completed < Math.ceil(total / 2)) return {
         kicker: "Field chronicle · The road",
         title: "The bell between lessons",
-        body: "Each finished field note earns one ring of Tomoe's brass bell. Kuro's second tail no longer tests your scent; it mirrors the timing of a companion learning to answer you.",
+        body: "Each chapter you finish discussing earns one ring of Tomoe's brass bell. She marks the questions you carried forward and leaves the performance claims blank for the field to answer.",
         image: tomoePrologue,
         imageAlt: "Tamer Tomoe and Kuro keeping watch beside their lantern-lit road camp.",
         finale: false,
@@ -67,7 +67,7 @@ function storyBeat(completed: number, total: number) {
     if (completed < total) return {
         kicker: "Field chronicle · The last pages",
         title: "A camp packed lighter",
-        body: "Only the hard chapters remain. Tomoe has rolled the spare maps; Kuro waits at the ridge path. They will not leave before the final lesson is truly yours.",
+        body: "Only the last chapters remain. Tomoe has rolled the spare maps; Kuro waits at the ridge path. They will leave after the reading, and the practice will still be yours to do.",
         image: tomoePrologue,
         imageAlt: "Tamer Tomoe and Kuro preparing for the final lessons at their forest-road camp.",
         finale: false,
@@ -75,7 +75,7 @@ function storyBeat(completed: number, total: number) {
     return {
         kicker: "Field chronicle · Epilogue",
         title: "The bell at dawn",
-        body: "Tomoe leaves the field journal in your keeping. Kuro looks back once from the ridge. The next lesson is no longer theirs to give—it is yours to teach.",
+        body: "Tomoe leaves the field journal in your keeping. Kuro looks back once from the ridge. Their notes end here. Your next test begins when a real field decision refuses to match the page.",
         image: tomoeFinale,
         imageAlt: "Tamer Tomoe and Kuro departing at dawn after leaving a brass bell and field journal by the road.",
         finale: true,

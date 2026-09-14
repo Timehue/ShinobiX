@@ -1,3 +1,8 @@
+import { readElderCouncil } from './village/_elder-council.js';
+import { readVillageAnbu } from './village/_anbu.js';
+import { readPublicPlayerIndex } from './player/_public-index-store.js';
+import { WAR_VILLAGES } from './_war-map-sectors.js';
+import { leadershipVillageKey } from '../shared/village-anbu.js';
 import { safeLogValue } from './_safe-log.js';
 import { createHash } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from './_vercel.js';
@@ -10,6 +15,7 @@ import { withKvLock, LockContendedError } from './_lock.js';
 import { validateVillageStateWrite, loadAuthoritativeKage } from './_village-state-validate.js';
 import { mutatePlayerSave } from './save/_mutate-player-save.js';
 import { applyTournamentVictory } from './achievements/_tournament.js';
+import { setCircuitEnabled } from './dojo-circuit/_store.js';
 
 const LEADERSHIP_IMAGES_KEY = 'game:village-leadership-images';
 const VILLAGE_STATE_PREFIX = 'game:village-state:';
@@ -17,11 +23,17 @@ const ARENA_TOURNAMENT_KEY = 'game:arena:tournament';
 const ARENA_ACTIVE_FIGHTS_KEY = 'game:arena:active-fights';
 const CLAN_PET_BATTLE_PREFIX = 'game:clan-pet-battle:';
 const WEEKLY_BOSS_OVERRIDE_KEY = 'game:weekly-boss-override';
+const DOJO_CIRCUIT_ENABLED_KEY = 'game:dojo-circuit:enabled';
 // Process-local cache for the hot ~5s frame: bounds the two keyspace scans to
 // once per 3s no matter how many clients poll. s-maxage is dropped 8->5 below to
 // offset this window, so proc ttl (3s) + CDN (5s) = the original 8s worst-case
 // staleness — a village-state write from another handler surfaces no later than
-// it did before this cache existed.
+// it did before this cache existed. The village endpoints that write the row
+// (orders, leadership, treasury donate/transfer, upgrade, agenda, Hollow Gate,
+// war-structure) also drop the entry, so the next poll after one of them
+// rebuilds instead of serving the pre-write frame. The villageState POST below
+// deliberately does NOT: it is free to call, so dropping the entry there would
+// let any player force a rebuild of this shared frame on demand.
 const GAME_STATE_TTL_MS = 3000;
 
 function clanPetBattleKey(clanName: string) {
@@ -51,34 +63,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // GAME_STATE_TTL_MS, regardless of how many poll at once. Safe on the
             // single-process Railway host (see api/_realtime/online-store.ts).
             const { payload, etag } = await cachedFor('game-state:frame', GAME_STATE_TTL_MS, async () => {
-                const [villageStateKeys, arenaTournament, arenaActiveFights, clanPetBattleKeys, weeklyBossAiId] = await Promise.all([
+                const [storedVillageStateKeys, arenaTournament, arenaActiveFights, clanPetBattleKeys, weeklyBossAiId, dojoCircuitEnabled] = await Promise.all([
                     kv.keys(`${VILLAGE_STATE_PREFIX}*`),
                     kv.get<unknown>(ARENA_TOURNAMENT_KEY),
                     kv.get<unknown[]>(ARENA_ACTIVE_FIGHTS_KEY),
                     kv.keys(`${CLAN_PET_BATTLE_PREFIX}*`),
                     kv.get<string>(WEEKLY_BOSS_OVERRIDE_KEY),
+                    kv.get<boolean>(DOJO_CIRCUIT_ENABLED_KEY),
                 ]);
 
+                // Leadership has its own authority rows. A newly initialized
+                // village must be visible before its first shared-state write.
+                const villageStateKeys = [...new Set([...storedVillageStateKeys,
+                    ...WAR_VILLAGES.map(village => `${VILLAGE_STATE_PREFIX}${leadershipVillageKey(village)}`)])];
+
+                // Both collections are independent indexed reads. One batch
+                // avoids a second round trip and a serial wait on cache misses.
+                const villageNames = villageStateKeys.map(key => {
+                    const slug = key.slice(VILLAGE_STATE_PREFIX.length);
+                    return WAR_VILLAGES.find(village => leadershipVillageKey(village) === slug) ?? slug;
+                });
+                const kageKeys = villageNames.map(village => `village:kage:${village.toLowerCase().replace(/\s+/g, '-')}`);
+                const stateKeys = [...villageStateKeys, ...clanPetBattleKeys, ...kageKeys];
+                const stateValues = stateKeys.length ? await kv.mget<unknown[]>(...stateKeys) : [];
+                const candidates = villageStateKeys.length ? [...(await readPublicPlayerIndex({ backfill: true, logContext: 'game-state-anbu' })).entries.values()] : [];
                 const villageStates: Record<string, unknown> = {};
                 if (villageStateKeys.length > 0) {
-                    // mget fetches all values in one round-trip instead of N individual gets.
-                    const stateValues = await kv.mget<unknown[]>(...villageStateKeys);
-                    villageStateKeys.forEach((k, i) => {
-                        if (stateValues[i] != null) {
-                            const name = k.slice(VILLAGE_STATE_PREFIX.length);
-                            setSafeRecordValue(villageStates, name, stateValues[i]);
-                        }
-                    });
+                    await Promise.all(villageStateKeys.map(async (k, i) => {
+                        const name = k.slice(VILLAGE_STATE_PREFIX.length);
+                        const state = (stateValues[i] ?? {}) as Record<string, unknown>;
+                        const kage = stateValues[villageStateKeys.length + clanPetBattleKeys.length + i] as { seatedKage?: string; kageSystemUnlocked?: boolean; firstLiberator?: string } | null;
+                        const [elders, anbu] = await Promise.all([
+                            readElderCouncil(name, state),
+                            readVillageAnbu(name, state, kv, candidates),
+                        ]);
+                        setSafeRecordValue(villageStates, name, { ...state, seatedKage: kage?.seatedKage,
+                            kageSystemUnlocked: Boolean(kage?.kageSystemUnlocked), firstLiberator: kage?.firstLiberator,
+                            elderAppointees: elders.seats, elderTerm: elders, anbuAppointees: anbu.appointed, anbuEarned: anbu.earned, anbuMembers: anbu.members });
+                    }));
                 }
 
                 const clanPetBattles: Record<string, unknown> = {};
                 if (clanPetBattleKeys.length > 0) {
-                    // mget fetches all values in one round-trip instead of N individual gets.
-                    const battleValues = await kv.mget<unknown[]>(...clanPetBattleKeys);
                     clanPetBattleKeys.forEach((k, i) => {
-                        if (battleValues[i] != null) {
+                        const value = stateValues[villageStateKeys.length + i];
+                        if (value != null) {
                             const name = k.slice(CLAN_PET_BATTLE_PREFIX.length);
-                            setSafeRecordValue(clanPetBattles, name, battleValues[i]);
+                            setSafeRecordValue(clanPetBattles, name, value);
                         }
                     });
                 }
@@ -89,6 +120,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     arenaActiveFights: Array.isArray(arenaActiveFights) ? arenaActiveFights : [],
                     clanPetBattles,
                     weeklyBossAiId: weeklyBossAiId ?? null,
+                    dojoCircuitEnabled: dojoCircuitEnabled === true,
                 };
                 const builtEtag = `W/"${createHash('sha256').update(JSON.stringify(built)).digest('base64')}"`;
                 return { payload: built, etag: builtEtag };
@@ -130,8 +162,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // so they pass the basic admin check. But for the kinds Admin 2
             // shouldn't touch (arenaTournament, weeklyBossOverride — neither
             // is exposed by their UI), require the full admin password.
-            const adminOnlyKinds = new Set(['villageLeadershipImages', 'arenaTournament', 'arenaTournamentWinner', 'weeklyBossOverride']);
-            const fullAdminOnlyKinds = new Set(['arenaTournament', 'arenaTournamentWinner', 'weeklyBossOverride']);
+            const adminOnlyKinds = new Set(['villageLeadershipImages', 'arenaTournament', 'arenaTournamentWinner', 'weeklyBossOverride', 'dojoCircuitEnabled']);
+            const fullAdminOnlyKinds = new Set(['arenaTournament', 'arenaTournamentWinner', 'weeklyBossOverride', 'dojoCircuitEnabled']);
             if (adminOnlyKinds.has(String(kind)) && !identity.admin) {
                 return res.status(403).json({ error: 'Admin only.' });
             }
@@ -211,8 +243,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(200).json({ ok: true });
             }
 
+            if (kind === 'dojoCircuitEnabled') {
+                const { enabled } = body as { enabled?: unknown };
+                if (typeof enabled !== 'boolean') return res.status(400).json({ error: 'Dojo Circuit enabled must be a boolean.' });
+                await setCircuitEnabled(enabled);
+                return res.status(200).json({ ok: true, enabled });
+            }
+
             if (kind === 'arenaTournament') {
                 const { tournament } = body as { tournament?: unknown };
+                if (tournament != null && await kv.get<boolean>(DOJO_CIRCUIT_ENABLED_KEY) !== true) {
+                    return res.status(409).json({ error: 'The Dojo Circuit is disabled.' });
+                }
                 if (tournament == null) {
                     await kv.del(ARENA_TOURNAMENT_KEY);
                 } else {
@@ -222,6 +264,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             if (kind === 'arenaTournamentWinner') {
+                if (await kv.get<boolean>(DOJO_CIRCUIT_ENABLED_KEY) !== true) {
+                    return res.status(409).json({ error: 'The Dojo Circuit is disabled.' });
+                }
                 const { tournamentId, winnerName } = body as { tournamentId?: unknown; winnerName?: unknown };
                 const id = String(tournamentId ?? '').trim();
                 const winnerSlug = safeName(String(winnerName ?? ''));

@@ -1,6 +1,7 @@
 import { Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Character, BattleHistoryEntry } from "../types/character";
 import type { SoloPveSession } from "../lib/solo-pve-api";
+import { aiFightExitScreen, aiFightNonWinMessage } from "../lib/ai-fight-result";
 import type { SavedBloodline, Jutsu, GameItem } from "../types/combat";
 import { lazyWithRetry } from "../lib/lazyWithRetry";
 import {
@@ -28,6 +29,7 @@ import {
 import { playerSlug } from "../lib/utils";
 import { completeWorldRewardOperation, readPendingWorldRewards } from "../lib/world-reward-recovery";
 import { completeAiRaidLaunch } from "../lib/ai-raid-api";
+import { requestForResumedGenericFight, rememberCircuitCombatSession, forgetCircuitCombatSession } from '../lib/ai-fight-navigation';
 
 // AI fights render through MissionArenaFight — the SAME server-authoritative arena
 // shell combat missions and story bosses use. The standalone transport submits
@@ -37,6 +39,7 @@ import { completeAiRaidLaunch } from "../lib/ai-raid-api";
 // always live; the screen is code-split and warmed on the request, in parallel with
 // the start round-trip, so it is resident by the time the session opens.
 const MissionArenaFight = lazyWithRetry(() => import("../screens/MissionArenaFight").then((m) => ({ default: m.MissionArenaFight })));
+const CircuitCombatResult = lazyWithRetry(() => import('../features/dojo-circuit/CircuitCombatResult').then(m => ({ default: m.CircuitCombatResult })));
 
 type ActiveFight = {
     request: AiFightRequest;
@@ -85,21 +88,6 @@ function requestForPendingWorldChain(
         // The durable server handoff is the authority. Relaunch it byte-for-byte;
         // never infer stage/chainId from a local kill counter or hunt marker.
         worldEncounter: pending.request,
-    };
-}
-
-function requestForResumedGenericFight(started: AiFightStart): AiFightRequest | null {
-    if (!started.opponentId || !started.opponentName || !started.battleKind || started.worldContext) return null;
-    return {
-        opponentId: started.opponentId,
-        opponentLevel: Math.max(1, Number(started.session.enemy.character.level) || 1),
-        battleKind: started.battleKind,
-        opponentName: started.opponentName,
-        ...(typeof started.sector === "number" ? { sector: started.sector } : {}),
-        ...(started.worldExploreRequestId ? { worldExploreRequestId: started.worldExploreRequestId } : {}),
-        ...(started.dungeonRunToken ? { dungeonRunToken: started.dungeonRunToken } : {}),
-        ...((started.battleKind === "raidAi" || started.battleKind === "explore") ? { returnScreen: "worldMap" }
-            : started.battleKind === "dungeon" ? { returnScreen: "dungeon" } : {}),
     };
 }
 
@@ -292,7 +280,7 @@ export function AiFightHost({
                         || !mountedRef.current
                         || startRequestIdRef.current !== requestId
                         || activePlayerKeyRef.current !== originatingPlayerKey) return;
-                    const resumedRequest = requestForResumedGenericFight(generic);
+                    const resumedRequest = requestForResumedGenericFight(generic, originatingPlayerName);
                     if (!resumedRequest) throw new Error("The resumed AI encounter has no sealed request identity.");
                     acknowledgeExploreFightStart(originatingPlayerName, generic);
                     acknowledgeRaidFightStart(originatingPlayerName, generic);
@@ -413,7 +401,9 @@ export function AiFightHost({
             const requestId = ++startRequestIdRef.current;
             settledRef.current = false;
             setStartFailure(null);
-            void import("../screens/MissionArenaFight");
+            // Warm-up only. A failed load resurfaces through the lazy MissionArenaFight
+            // above (retries, then ErrorBoundary); it must not also escape unhandled here.
+            void import("../screens/MissionArenaFight").catch(() => {});
             startAiFight({
                 playerName: originatingPlayerName,
                 opponentId: request.opponentId,
@@ -444,6 +434,7 @@ export function AiFightHost({
                         ? requestForResumedWorldFight(started, sealedWorldMatchesRequest ? request.enemyAvatar : undefined)
                         : requestForStartedGenericFight(started, request);
                     if (!sealedRequest) throw new Error("The combat server did not return a sealed encounter identity.");
+                    if (sealedRequest.returnScreen === 'dojoCircuit' && started.battleKind === 'practice') rememberCircuitCombatSession(originatingPlayerName, started.sessionId);
                     acknowledgeExploreFightStart(originatingPlayerName, started, request.worldExploreRequestId);
                     acknowledgeRaidFightStart(originatingPlayerName, started, request.raidToken);
                     if (started.worldContext) ensureWandererFightPending(originatingPlayerName, started.worldContext, sealedRequest.enemyAvatar);
@@ -573,16 +564,17 @@ export function AiFightHost({
     async function closeFight() {
         if (closeInFlightRef.current) return;
         const active = currentFight;
-        const returnScreen = active?.request.returnScreen;
+        let returnScreen = aiFightExitScreen(!!latestCharacter.current?.hospitalized, active?.request.returnScreen);
         // Leaving an UNSETTLED fight is a forfeit, not an escape. Without this a
         // player about to lose could close the screen and take no damage at all,
         // making every fight free to retry — strictly better than winning
-        // carefully. The server scores it: an `active` session settles as a
-        // forfeit and hospitalizes, exactly like a defeat.
+        // carefully. The server applies the forfeit cost and carries the actual
+        // remaining HP; only a zero-HP outcome causes hospital admission.
         if (shouldSettleOnClose(!!active, settledRef.current) && active) {
             closeInFlightRef.current = true;
             try {
-                await settle(active.sessionId, active.originatingPlayerName);
+                const result = await settle(active.sessionId, active.originatingPlayerName);
+                returnScreen = aiFightExitScreen(!!result.character?.hospitalized, active.request.returnScreen);
             } catch {
                 closeInFlightRef.current = false;
                 window.setTimeout(() => alert("The fight is still syncing with the combat server. Retry Return when the connection recovers."), 40);
@@ -591,6 +583,7 @@ export function AiFightHost({
         }
         closeInFlightRef.current = false;
         activeRef.current = false;
+        if (active) forgetCircuitCombatSession(active.originatingPlayerName, active.sessionId);
         setFight((current) => current?.requestId === active?.requestId ? null : current);
         if (activePlayerKeyRef.current === originatingPlayerKey) onClose?.(returnScreen);
         const queued = queuedWorldRequestRef.current;
@@ -606,6 +599,7 @@ export function AiFightHost({
                 character={character}
                 runId={currentFight.sessionId}
                 initialSession={soloPveSessionForArena(currentFight.session)}
+                eventLabel={request.returnScreen === 'dojoCircuit' ? 'Dojo Circuit' : undefined}
                 transport={soloPveArenaTransport}
                 sharedImages={sharedImages}
                 savedBloodlines={savedBloodlines}
@@ -616,10 +610,10 @@ export function AiFightHost({
                 // the server or it costs the player nothing.
                 settleOnAnyDone
                 onRecordBattle={onRecordBattle}
-                recordMode={currentFight.worldContext ? "World Encounter" : request.battleKind === "practice" ? "Practice" : "AI Fight"}
+                recordMode={request.returnScreen === 'dojoCircuit' ? 'Dojo Circuit' : currentFight.worldContext ? "World Encounter" : request.battleKind === "practice" ? "Practice" : "AI Fight"}
                 enemyAvatarOverride={request.enemyAvatar}
                 onExit={closeFight}
-                renderResult={(ctx) => (
+                renderResult={(ctx) => request.returnScreen === 'dojoCircuit' ? <Suspense fallback={null}><CircuitCombatResult playerName={character.name} won={ctx.won} draw={ctx.draw} settleState={ctx.settleState} onRetry={ctx.retry} onExit={closeFight} /></Suspense> : (
                     <AiFightResultCard
                         won={ctx.won}
                         draw={ctx.draw}
@@ -662,10 +656,8 @@ function AiFightResultCard({
                 <div className="story-fight-complete-card">
                     <p className="story-fight-complete-kicker">{draw ? "Stalemate" : "Defeated"}</p>
                     <h2>{opponentName}</h2>
-                    <p className="story-fight-complete-boss">
-                        {draw
-                            ? "Neither side could finish it. No reward was earned."
-                            : `${opponentName} stands over you. You are carried to the hospital — no reward was earned.`}
+                    <p className="story-fight-complete-boss" role={settleState === "failed" ? "alert" : "status"}>
+                        {aiFightNonWinMessage(settleState, settleResult?.character, draw)}
                     </p>
                     {/* "failed" must keep an EXIT, not just a Retry. The 12s-per-
                         attempt race above fixed the stalled-connection case, but a
@@ -677,7 +669,7 @@ function AiFightResultCard({
                         settles on a later attempt. Same reasoning as the PvP
                         result screen. */}
                     {settleState === "failed" && <button onClick={onRetry}>Retry</button>}
-                    <button disabled={settleState === "pending"} onClick={onExit}>Return</button>
+                    <button disabled={settleState === "pending"} onClick={onExit}>{settleResult?.character?.hospitalized ? "Go to Hospital" : "Return"}</button>
                 </div>
             </div>
         );

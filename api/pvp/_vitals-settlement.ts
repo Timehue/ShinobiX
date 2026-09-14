@@ -1,6 +1,8 @@
+import { createHash } from 'node:crypto';
 import { RECEIPT_TTL_SEC } from '../_receipts.js';
 import { mergePreservingImages, safeName } from '../_utils.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { appendSettlementReceipt, inspectSettlementReceipt } from '../_settlement-receipts.js';
 import type { KvLike } from '../_storage.js';
 import type { PvpFighter, PvpSession } from './session.js';
 
@@ -24,6 +26,23 @@ import type { PvpFighter, PvpSession } from './session.js';
 
 /** The stay every other defeat path applies (player/heal.ts, _ai-fight-outcome.ts). */
 export const PVP_HOSPITAL_DURATION_MS = 60_000;
+
+/**
+ * "Field Recovery" — how long after a human-PvP defeat (or a sleeper KO) a
+ * player cannot be raided again. 120 s = the 60 s hospital stay plus 60 s to
+ * actually leave the sector once discharged.
+ *
+ * Deliberately SHORT. On a 100-200 player server, opponent availability is
+ * already the binding constraint on Honor Seals (see the tuning note in
+ * api/pvp/_vanguard-rewards.ts), so a long immunity would starve legitimate
+ * sector PvP to stop a grief the reward caps already make unprofitable. This is
+ * a regrouping window, not a punishment for winning.
+ *
+ * Server-owned: written only by settlement code here and in sleeper-kill, and
+ * preserved verbatim by the save sanitizer. A client-writable version would be
+ * permanent self-immunity — exactly the F01 `inBattle` bug.
+ */
+export const PVP_RAID_SHIELD_MS = 120_000;
 
 function num(value: unknown): number {
     return Math.max(0, Math.floor(Number(value) || 0));
@@ -90,9 +109,16 @@ export function applyPvpVitalsToCharacter(
     now: number,
 ): Record<string, unknown> {
     const fighter: PvpFighter = side === 'p1' ? session.p1 : session.p2;
-    // Chakra and stamina are spent either way: the hospital restores all three
-    // on discharge, so recording what the fight burned costs an admitted player
-    // nothing and keeps the two branches reading the same.
+    // Chakra and stamina are spent either way, so both branches read the same.
+    //
+    // ⚠ This used to be free for the admitted branch, because discharge refilled
+    // all three bars. It is not any more (MMORPG behavior audit F1: the hospital
+    // treats injury, and exhaustion is rested off or bought back at the
+    // Cafeteria), so the spend recorded here now actually persists through a
+    // defeat. That is deliberate — losing a fight should not refund the chakra
+    // it cost — but it is a real consequence, not the no-op the old comment
+    // claimed. It is also why the Field Recovery shield exists: it covers the
+    // window in which a discharged loser walks out of the sector.
     const spent = {
         chakra: clampVital(fighter.chakra, character.maxChakra),
         stamina: clampVital(fighter.stamina, character.maxStamina),
@@ -105,6 +131,12 @@ export function applyPvpVitalsToCharacter(
             hospitalized: true,
             hospitalizedAt: now,
             hospitalizedUntil: now + PVP_HOSPITAL_DURATION_MS,
+            // Field Recovery: the 60 s admission plus 60 s to get clear of the
+            // sector that just beat you. Without it a defeated player popped back
+            // to full HP in the same wild sector and was immediately re-raidable
+            // — the attacker's own rate limit (6/min) was the only brake, and
+            // rewards are capped where attacks are not. See PVP_RAID_SHIELD_MS.
+            pvpShieldUntil: now + PVP_RAID_SHIELD_MS,
         };
     }
     return { ...character, ...spent, hp: Math.max(1, clampVital(fighter.hp, character.maxHp)) };
@@ -113,6 +145,33 @@ export function applyPvpVitalsToCharacter(
 /** Per-fighter proof that this exact battle already moved this save's vitals. */
 export function pvpVitalsReceiptKey(battleId: string, slug: string): string {
     return `pvp:vitals:${battleId}:${slug}`;
+}
+
+/**
+ * The IN-SAVE receipt identity for one fighter of one battle. Lives in the
+ * character's `serverSettlementReceipts` (the convention every other
+ * server-authoritative settlement uses), so the consequence and the proof that
+ * it was applied land in the SAME save write. The fingerprint seals the exact
+ * vitals and result the terminal session carried, so a same-battle request
+ * that somehow disagrees is refused rather than re-applied.
+ */
+export function pvpVitalsReceiptIdentity(session: PvpSession, side: 'p1' | 'p2'): { requestId: string; fingerprint: string } {
+    const fighter = side === 'p1' ? session.p1 : session.p2;
+    const slug = safeName(fighter.name);
+    const sha = (value: string) => createHash('sha256').update(value).digest('hex');
+    return {
+        requestId: `pvpvitals_${sha(`${session.battleId}:${slug}`).slice(0, 32)}`,
+        fingerprint: sha(JSON.stringify({
+            battleId: session.battleId,
+            side,
+            slug,
+            winner: session.winner ?? null,
+            fleedBy: session.fleedBy ?? null,
+            hp: num(fighter.hp),
+            chakra: num(fighter.chakra),
+            stamina: num(fighter.stamina),
+        })),
+    };
 }
 
 type VitalsStore = Pick<KvLike, 'get' | 'set' | 'compareSet' | 'del'>;
@@ -147,23 +206,44 @@ async function settleFighterVitals(
         // re-writing its vitals is idempotent in VALUE and catastrophic in
         // EFFECT: PvP reward completion legitimately replays for up to 48h
         // (PVP_REWARD_RECOVERY_TTL_SECONDS), which is long enough to span a
-        // hospital discharge and another fight. Claimed before the save write
-        // and released if that write fails, so a failure cannot strand the
-        // claim and silently cost the fight its consequence.
-        const claimed = await store.compareSet(
-            receiptKey,
-            null,
-            { battleId: session.battleId, side, name: fighter.name, settledAt: now },
-            { ex: RECEIPT_TTL_SEC },
-        );
-        if (!claimed) return;
-        try {
-            const updated = { ...fresh, character: applyPvpVitalsToCharacter(freshChar, session, side, now) };
-            await store.set(saveKey, mergePreservingImages(bumpSaveVersion<Record<string, unknown>>(updated), fresh));
-        } catch (error) {
-            await store.del(receiptKey).catch(() => undefined);
-            throw error;
+        // hospital discharge and another fight.
+        //
+        // The proof used to be a KV key CLAIMED BEFORE the save write and
+        // released on a thrown write. A process death between the claim and the
+        // write (the one failure a try/catch cannot see) left the claim standing
+        // and the fight's consequence never applied — and every replay then read
+        // the claim as "already settled". The proof is now written IN the save,
+        // in the same write as the consequence, so the two can only ever land
+        // together. The KV marker is kept purely for compatibility with rows
+        // settled by the previous generation, and is written AFTER the save.
+        const legacyMarker = await store.get(receiptKey);
+        if (legacyMarker) return;
+        const identity = pvpVitalsReceiptIdentity(session, side);
+        const inspected = inspectSettlementReceipt(freshChar, identity.requestId, identity.fingerprint);
+        if (inspected.status === 'replay') return;
+        if (inspected.status === 'conflict' || inspected.status === 'invalid') {
+            // The same battle cannot legitimately present different vitals: the
+            // session is terminal and frozen. Leave the save alone and say so.
+            console.error('[pvp/vitals] receipt conflict', { battleId: session.battleId, slug, status: inspected.status });
+            return;
         }
+        const settled = appendSettlementReceipt(
+            applyPvpVitalsToCharacter(freshChar, session, side, now),
+            inspected.receipts,
+            {
+                requestId: identity.requestId,
+                fingerprint: identity.fingerprint,
+                value: { kind: 'pvp-vitals', battleId: session.battleId, side },
+                settledAt: now,
+            },
+        );
+        const updated = { ...fresh, character: settled };
+        await store.set(saveKey, mergePreservingImages(bumpSaveVersion<Record<string, unknown>>(updated), fresh));
+        // Compatibility marker for readers of the previous generation. The save
+        // above is already durable, so a failure here changes nothing: the next
+        // replay finds the in-save receipt and stops there.
+        await store.set(receiptKey, { battleId: session.battleId, side, name: fighter.name, settledAt: now }, { ex: RECEIPT_TTL_SEC })
+            .catch(() => undefined);
     });
 }
 

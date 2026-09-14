@@ -19,25 +19,6 @@
     gap: 12px;
 }
 
-.pet-arena-mode-toggle {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-}
-
-.pet-arena-mode-toggle button {
-    border: 1px solid rgba(148, 163, 184, 0.35);
-    background: rgba(15, 23, 42, 0.72);
-    color: var(--slate-300);
-}
-
-.pet-arena-mode-toggle button.active {
-    border-color: rgba(250, 204, 21, 0.78);
-    background: linear-gradient(180deg, rgba(146, 64, 14, 0.9), rgba(69, 26, 3, 0.92));
-    color: #fef3c7;
-    box-shadow: 0 0 12px rgba(250, 204, 21, 0.22);
-}
-
 .pet-arena-card {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
@@ -296,13 +277,6 @@
     background: rgba(239, 68, 68, 0.38);
     overflow: hidden;
     border: 1px solid rgba(255, 255, 255, 0.08);
-}
-.pet-momentum-bar i.player-momentum {
-    display: block;
-    height: 100%;
-    background: linear-gradient(90deg, var(--success), var(--green-300));
-    border-radius: 4px;
-    transition: width 0.55s ease;
 }
 
 /* ── Status badges ─────────────────────────────── */
@@ -926,12 +900,6 @@
 
 /* Whole-stage camera shake — fires on crit hits and KOs. Stronger than the
    existing HP-bar shake so it reads as "the world reacted to this blow." */
-.pet-park-stage.pet-stage-shake-light {
-    animation: petStageShakeLight 0.45s cubic-bezier(.36,.07,.19,.97) both;
-}
-.pet-park-stage.pet-stage-shake-heavy {
-    animation: petStageShakeHeavy 0.7s cubic-bezier(.36,.07,.19,.97) both;
-}
 @keyframes petStageShakeLight {
     10%, 90%   { transform: translate3d(-2px, 0, 0); }
     20%, 80%   { transform: translate3d( 3px, -1px, 0); }
@@ -1114,7 +1082,9 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
     transition: border-color 0.15s, transform 0.1s;
 }
-.pet-sfx-toggle:hover { border-color: rgba(250, 204, 21, 0.85); transform: translateY(-1px); }
+@media (hover: hover) {
+    .pet-sfx-toggle:hover { border-color: rgba(250, 204, 21, 0.85); transform: translateY(-1px); }
+}
 
 /* Right-menu header: "Hide Menu" + the global audio mute button on one row.
    High-specificity + !important so it overrides whatever full-width button
@@ -1144,8 +1114,10 @@
     color: #fff;
     cursor: pointer;
 }
-.right-menu-panel .right-menu-header-row .audio-mute-btn:hover {
-    filter: brightness(1.12);
+@media (hover: hover) {
+    .right-menu-panel .right-menu-header-row .audio-mute-btn:hover {
+        filter: brightness(1.12);
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {

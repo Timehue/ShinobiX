@@ -124,21 +124,29 @@ export async function getEraState(): Promise<EraState> {
 }
 
 export async function readEraContributions(): Promise<Record<EraMetric, number>> {
+    const keys = ERA_METRICS.flatMap(metric => [
+        contribKey(metric), idempotentContribKey(metric),
+        ...(RECEIPT_BACKED_METRICS.has(metric) ? [contributionReceiptKey(metric)] : []),
+    ]);
+    // All counters/receipts are uncached authority keys. Read the independent
+    // rows together instead of serializing 15 network/database round trips.
+    const values = await kv.mget<unknown[]>(...keys);
+    const rows = new Map(keys.map((key, index) => [key, values[index]]));
     const out = {} as Record<EraMetric, number>;
     for (const m of ERA_METRICS) {
-        const raw = Math.max(0, Math.floor(Number(await kv.get(contribKey(m))) || 0));
+        const raw = Math.max(0, Math.floor(Number(rows.get(contribKey(m))) || 0));
         // Receipt-backed contributions use one hash field per authoritative
         // settlement. HSET is atomic at the field level, so a retry overwrites
         // the same field rather than incrementing twice, and a crash cannot
         // strand a pre-claimed marker ahead of the actual contribution.
         const receiptMap = RECEIPT_BACKED_METRICS.has(m)
-            ? await kv.hgetall<Record<string, unknown>>(contributionReceiptKey(m))
+            ? rows.get(contributionReceiptKey(m)) as Record<string, unknown> | null
             : null;
         const receipted = Object.values(receiptMap ?? {}).reduce<number>(
             (sum, value) => sum + Math.max(0, Math.floor(Number(value) || 0)),
             0,
         );
-        const exact = parseIdempotentContributions(await kv.get(idempotentContribKey(m)));
+        const exact = parseIdempotentContributions(rows.get(idempotentContribKey(m)));
         out[m] = raw + receipted + exact.compactedTotal
             + exact.pending.reduce((sum, entry) => sum + entry.amount, 0);
     }
@@ -308,11 +316,13 @@ export function buildEraViews(
 }
 
 export async function getEraViews(): Promise<EraView[]> {
-    const [state, counters] = await Promise.all([getEraState(), readEraContributions()]);
+    const triggeredDefs = ERA_DEFS.filter(def => def.trigger);
+    const [state, counters, triggerRows] = await Promise.all([
+        getEraState(), readEraContributions(),
+        triggeredDefs.length ? kv.mget<EraTriggerRecord[]>(...triggeredDefs.map(def => triggerKey(def.id))) : [],
+    ]);
     const triggers: Record<string, EraTriggerRecord | null> = {};
-    for (const def of ERA_DEFS) {
-        triggers[def.id] = def.trigger ? await kv.get<EraTriggerRecord>(triggerKey(def.id)) : null;
-    }
+    triggeredDefs.forEach((def, index) => { triggers[def.id] = triggerRows[index] ?? null; });
     return buildEraViews(state, counters, triggers);
 }
 

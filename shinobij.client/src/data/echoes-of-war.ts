@@ -6,9 +6,10 @@
 // scripts/generate-story-content.mts + lib/echoes-content-loader.ts, so the
 // campaign script stays out of the budgeted route chunk.
 //
-// ZERO imports on purpose: api/card-clash/_echoes-catalog.test.ts imports this
+// ZERO runtime imports on purpose: api/card-clash/_echoes-catalog.test.ts imports this
 // file directly under node/tsx to hold the client display data and the server
 // encounter table (decks, floors, rewards) in lockstep.
+import type { EchoesBattleBeat, EchoesWitnessChoiceId } from "../../../shared/echoes-witness";
 
 export type EchoesScenePage = {
     title: string;
@@ -78,6 +79,30 @@ export type EchoesEra = {
 /** The intro VN pages for one age (mirrors EchoesScenePage). */
 export type EchoesEraIntro = EchoesScenePage[];
 
+export type EchoesWitnessChoiceCopy = {
+    id: EchoesWitnessChoiceId;
+    /** Short button label. */
+    label: string;
+    /** The exact bounded record shown after the answer is sealed. */
+    record: string;
+};
+
+/** Player-facing witness prompts and callbacks. This entire object ships in
+ * the lazy content asset; the initial route bundle only carries stable ids. */
+export type EchoesWitnessEraContent = {
+    prompt: EchoesScenePage;
+    choices: EchoesWitnessChoiceCopy[];
+    battleCallbacks: Record<EchoesBattleBeat, EchoesScenePage>;
+    /** Shiranui's first-page response in the following Age, keyed by the
+     * preceding Age's sealed answer. Empty for the final Age. */
+    nextEraAcknowledgements: Partial<Record<EchoesWitnessChoiceId, EchoesScenePage>>;
+    /** One brief line Halden can answer from the record already carried into
+     * his chamber. Empty for the final Age, whose choice follows his scene. */
+    haldenAcknowledgements: Partial<Record<EchoesWitnessChoiceId, string>>;
+};
+
+export type EchoesWitnessContent = Record<string, EchoesWitnessEraContent>;
+
 /** Display mirror of the server reward table (api/card-clash/_echoes-catalog.ts).
  * The parity test fails the build if these drift. */
 export const ECHOES_REWARD_DISPLAY = {
@@ -141,7 +166,7 @@ export const ECHOES_OPPONENTS: readonly EchoesOpponent[] = [
         lockedHint: "Finish the Bell Keeper's Showdown to open this memory.",
         portrait: "/portraits/vetta.webp",
         sceneImage: scene("vetta"),
-        chronicleNote: "Food deliveries were being redirected toward the workers assigned below the city. The official ration totals never explained how much those crews consumed.",
+        chronicleNote: "Doran took the missing grain to a shelter by the kiln yards, where children waited for parents assigned below the city. Vetta knew and called him a thief to keep inspectors from opening her books.",
     },
     {
         id: "echoes-3-aya", floor: 3, name: "Aya", title: "The Courier",
@@ -174,7 +199,7 @@ export const ECHOES_OPPONENTS: readonly EchoesOpponent[] = [
         lockedHint: "Finish the Ledger Clerk's Showdown to open this memory.",
         portrait: "/portraits/sela.webp",
         sceneImage: scene("sela"),
-        chronicleNote: "The patients had no infection to cure. They were emptied of chakra itself, and no medicine restores what something else is still draining.",
+        chronicleNote: "The patients had no fever, rash, or spread Sela could map. Even full doses remained in their blood while their strength continued to fail.",
     },
     {
         id: "echoes-6-korin", floor: 6, name: "Korin", title: "The Watch Captain",
@@ -214,7 +239,7 @@ export const ECHOES_OPPONENTS: readonly EchoesOpponent[] = [
         deckName: "Gate Feedback",
         deckTheme: "Big output, ugly costs. Power drawn from somewhere it should not be.",
         difficultyLabel: "Difficult",
-        shortDescription: "She kept the Hollow Gate running for eleven years, then spent the rest of her life trying to say one true thing about it at a fair table.",
+        shortDescription: "She kept the Hollow Gate running for eleven years. For three early winters she called the warning signs acceptable variance; later, the Court rigged the table where she tried to expose them.",
         lockedHint: "Finish the Chronicle Arbiter's Showdown to open this memory.",
         portrait: "/portraits/lyra.webp",
         sceneImage: scene("lyra"),
@@ -294,7 +319,7 @@ export function echoesEraCleared(progress: EchoesClientProgress, era: EchoesEra)
     return echoesEraOpponents(era).filter((opponent) => (progress[opponent.id]?.wins ?? 0) > 0).length;
 }
 
-export type EchoesClientProgress = Record<string, { wins: number; firstClearAt?: number }>;
+export type EchoesClientProgress = Record<string, { wins: number; firstClearAt?: number; firstClearBattleBeat?: EchoesBattleBeat }>;
 
 /** Read the server-owned campaign record off the character, defensively. */
 export function echoesClientProgress(raw: unknown): EchoesClientProgress {
@@ -303,7 +328,16 @@ export function echoesClientProgress(raw: unknown): EchoesClientProgress {
     for (const [id, entry] of Object.entries(raw as Record<string, unknown>)) {
         if (!entry || typeof entry !== "object") continue;
         const wins = Math.max(0, Math.floor(Number((entry as { wins?: unknown }).wins) || 0));
-        if (ECHOES_OPPONENTS.some((opponent) => opponent.id === id)) out[id] = { wins };
+        const firstClearAt = Number((entry as { firstClearAt?: unknown }).firstClearAt);
+        const rawBeat = (entry as { firstClearBattleBeat?: unknown }).firstClearBattleBeat;
+        const firstClearBattleBeat = typeof rawBeat === "string" && ["denied-attack", "recovered-ground", "rebuilt-line", "unrecorded"].includes(rawBeat)
+            ? rawBeat as EchoesBattleBeat
+            : rawBeat == null ? undefined : "unrecorded";
+        if (ECHOES_OPPONENTS.some((opponent) => opponent.id === id)) out[id] = {
+            wins,
+            ...(Number.isFinite(firstClearAt) && firstClearAt > 0 ? { firstClearAt } : {}),
+            ...(firstClearBattleBeat ? { firstClearBattleBeat } : {}),
+        };
     }
     return out;
 }

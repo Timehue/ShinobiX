@@ -144,3 +144,13 @@ test("plain combat log exposes an accessible empty state", () => {
     assert.match(html, /class="plain-combat-log-empty">Nothing recorded\.<\/p>/);
     assert.doesNotMatch(html, /plain-combat-log-round/);
 });
+
+test("plain combat log can suppress duplicate live announcements", () => {
+    const html = renderToStaticMarkup(React.createElement(PlainCombatBattleLog, {
+        lines: ["Rill waits."],
+        turnLabel: "Roku's Turn",
+        ariaLive: "off",
+    }));
+
+    assert.match(html, /role="log" aria-live="off" aria-label="Battle log"/);
+});

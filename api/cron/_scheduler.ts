@@ -1,3 +1,5 @@
+import { runKageChallengeClocks } from '../village/_kage-clock.js';
+import { runElderElections } from '../village/_elder-council.js';
 /**
  * In-process daily scheduler for the save-snapshot backup.
  *
@@ -32,12 +34,15 @@ import { runKageInactivityPass } from '../village/_kage-inactivity.js';
 import { sweepClanBossPartyRegistry } from '../clan-boss/_party.js';
 import { clanBossWeekId } from '../clan-boss/_storage.js';
 import { runTerritoryLifecycleSweep } from '../_territory-lifecycle-store.js';
+import { runBattleLapseSweep } from './_battle-lapse-sweep.js';
 
+const KAGE_CLOCK_TICK_MS = 15_000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MERC_TICK_MS = 10 * 60_000; // village-war mercenary auto-snipe cadence
 const SETTLEMENT_RECONCILIATION_TICK_MS = 5 * 60_000;
 const CLAN_BOSS_PARTY_SWEEP_TICK_MS = 5 * 60_000;
 const TERRITORY_LIFECYCLE_TICK_MS = 5 * 60_000;
+const BATTLE_LAPSE_TICK_MS = 10 * 60_000; // F08 backstop: fights nobody came back to
 const TARGET_UTC_HOUR = 3; // 03:00 UTC — matches the retired Vercel schedule "0 3 * * *".
 // No serverless timeout here, so give the nightly pass a generous budget to
 // snapshot every player in one run rather than leaning on next-day catch-up.
@@ -55,19 +60,24 @@ const LEASE_TTL = {
     settlementReconciliation: 4 * 60,
     clanBossPartySweep: 4 * 60,
     territoryLifecycle: 4 * 60,
+    battleLapse: 9 * 60,
     guestSweep: 20 * 60 * 60,
     kageInactivity: 20 * 60 * 60,
 } as const;
 
 let _timeout: ReturnType<typeof setTimeout> | null = null;
+let _kageClockInterval: ReturnType<typeof setInterval> | null = null;
+let _kageClockRunning = false;
 let _interval: ReturnType<typeof setInterval> | null = null;
 let _mercInterval: ReturnType<typeof setInterval> | null = null;
 let _settlementInterval: ReturnType<typeof setInterval> | null = null;
 let _clanBossPartySweepInterval: ReturnType<typeof setInterval> | null = null;
 let _territoryLifecycleInterval: ReturnType<typeof setInterval> | null = null;
+let _battleLapseInterval: ReturnType<typeof setInterval> | null = null;
 let _settlementScanRunning = false;
 let _clanBossPartySweepRunning = false;
 let _territoryLifecycleRunning = false;
+let _battleLapseRunning = false;
 
 async function runLeasedJob<T>(jobName: string, ttlSec: number, fn: () => Promise<T>): Promise<T | null> {
     const leased = await withScheduledJobLease(jobName, fn, { ttlSec, holdUntilExpiryOnSuccess: true });
@@ -139,6 +149,28 @@ async function fireTerritoryLifecycleSweep(): Promise<void> {
         console.error('[cron-scheduler] territory lifecycle sweep threw:', (err as Error).message);
     } finally {
         _territoryLifecycleRunning = false;
+    }
+}
+
+async function fireBattleLapseSweep(): Promise<void> {
+    if (_battleLapseRunning) return;
+    _battleLapseRunning = true;
+    try {
+        const leased = await withScheduledJobLease(
+            'battle-lapse-sweep',
+            () => runBattleLapseSweep(),
+            { ttlSec: LEASE_TTL.battleLapse, holdUntilExpiryOnSuccess: true },
+        );
+        if (!leased.acquired) return;
+        const result = leased.value;
+        if (result.lapsed > 0 || result.errors.length > 0) {
+            console.log(`[cron-scheduler] battle lapse sweep: ${result.scanned} projections scanned, ${result.lapsed} lapsed, ${result.transitioned} terminalized, ${result.settled} settled${result.truncated ? ' (budget reached; continuing next tick)' : ''}${result.errors.length ? `, ${result.errors.length} errors` : ''}.`);
+            if (result.errors.length) console.warn(`[cron-scheduler] battle lapse sweep errors: ${result.errors.slice(0, 5).join('; ')}`);
+        }
+    } catch (err) {
+        console.error('[cron-scheduler] battle lapse sweep threw:', (err as Error).message);
+    } finally {
+        _battleLapseRunning = false;
     }
 }
 
@@ -224,6 +256,9 @@ async function fire(): Promise<void> {
     } catch (err) {
         console.error('[cron-scheduler] village-war daily pass threw:', (err as Error).message);
     }
+    // Council reads/actions also catch up immediately at the exact 30-day boundary.
+    try { await runLeasedJob('elder-elections', LEASE_TTL.kageInactivity, () => runElderElections()); }
+    catch (err) { console.error('[cron-scheduler] elder elections failed:', (err as Error).message); }
     // An ABSENT Kage loses the seat: close any reign whose Kage has not
     // autosaved in 10 days and leave the seat open (fail-safe on unreadable saves).
     try {
@@ -269,6 +304,18 @@ export function startSnapshotCron(): void {
         console.log('[cron-scheduler] all scheduled jobs disabled via DISABLE_SCHEDULED_JOBS=1');
         return;
     }
+    if (!_kageClockInterval) {
+        const tick = async () => {
+            if (_kageClockRunning) return;
+            _kageClockRunning = true;
+            try { await runKageChallengeClocks(); }
+            catch (error) { console.warn('[cron-scheduler] Kage clocks:', String(error)); }
+            finally { _kageClockRunning = false; }
+        };
+        _kageClockInterval = setInterval(() => void tick(), KAGE_CLOCK_TICK_MS);
+        _kageClockInterval.unref?.();
+        void tick();
+    }
     if (!_settlementInterval) {
         if (process.env.DISABLE_SETTLEMENT_RECONCILIATION !== '1') {
             _settlementInterval = setInterval(() => void fireSettlementReconciliation(), SETTLEMENT_RECONCILIATION_TICK_MS);
@@ -287,6 +334,13 @@ export function startSnapshotCron(): void {
         _territoryLifecycleInterval = setInterval(() => void fireTerritoryLifecycleSweep(), TERRITORY_LIFECYCLE_TICK_MS);
         _territoryLifecycleInterval.unref?.();
         void fireTerritoryLifecycleSweep();
+    }
+    if (!_battleLapseInterval) {
+        _battleLapseInterval = setInterval(() => void fireBattleLapseSweep(), BATTLE_LAPSE_TICK_MS);
+        _battleLapseInterval.unref?.();
+        // First pass a minute after boot: a deploy's restart is the classic way
+        // for fights to be left behind, and the sweep is cheap.
+        setTimeout(() => void fireBattleLapseSweep(), 60_000).unref?.();
     }
     const snapshotDisabled = process.env.DISABLE_SNAPSHOT_CRON === '1';
     if (snapshotDisabled) {
@@ -325,12 +379,14 @@ export function startSnapshotCron(): void {
 
 /** Stop the scheduler (tests / graceful shutdown). */
 export function stopSnapshotCron(): void {
+    if (_kageClockInterval) { clearInterval(_kageClockInterval); _kageClockInterval = null; }
     if (_timeout) { clearTimeout(_timeout); _timeout = null; }
     if (_interval) { clearInterval(_interval); _interval = null; }
     if (_mercInterval) { clearInterval(_mercInterval); _mercInterval = null; }
     if (_settlementInterval) { clearInterval(_settlementInterval); _settlementInterval = null; }
     if (_clanBossPartySweepInterval) { clearInterval(_clanBossPartySweepInterval); _clanBossPartySweepInterval = null; }
     if (_territoryLifecycleInterval) { clearInterval(_territoryLifecycleInterval); _territoryLifecycleInterval = null; }
+    if (_battleLapseInterval) { clearInterval(_battleLapseInterval); _battleLapseInterval = null; }
     _settlementScanRunning = false;
     _clanBossPartySweepRunning = false;
     _territoryLifecycleRunning = false;

@@ -15,9 +15,13 @@
  * Sector numbers follow the 2026-07 region-block renumbering (shared/sector-geo.ts);
  * each shrine stands in the same PLACE (same floor art via artKey) as before.
  * `left`/`top` are the standee's percent position on the sector board — each was
- * placed against its sector's actual floor art (composited QA renders, see
- * scripts/gen-sector-art.mjs) onto open, walkable-reading ground, clear of the
- * rift structure anchor (50%, 32%) and the war-vault anchor (72%, 38%).
+ * placed against its sector's actual floor art onto open, walkable-reading ground.
+ * The Rift and the Sector Stronghold used to have one fixed anchor each, and these
+ * were placed clear of those; since 2026-09-10 both have per-sector placements of
+ * their own (shinobij.client/src/data/sector-structure-placements.ts), and it is
+ * that file's test that keeps them clear of every shrine here. MOVING A SHRINE can
+ * therefore fail sector-structure-placements.test.ts — re-place the marker, not the
+ * test.
  */
 
 export type ShrineTheme = 'village' | 'hollow-gate' | 'ancients';
@@ -84,7 +88,7 @@ export const SHRINE_DEFS: readonly ShrineDef[] = [
     {
         id: 'ancients', sector: 44, name: 'Shrine of the Ancients', theme: 'ancients',
         region: 'the Watchruin Ridge',
-        lore: 'Raised in the Sunken Court’s age. A hundred worn glyphs circle its base, one for each action-pattern Legacy traced to the Ancients who refused cession, the people later called the Withheld.',
+        lore: 'A weathered dedication dates the shrine to the Sunken Court’s age. A hundred worn glyphs circle its base. A later brass plaque interprets them as action-pattern Legacies and attributes them to the Ancients who refused cession, the people later called the Withheld.',
         blessing: 'May your next deed be freely chosen and faithfully witnessed.',
         left: 48, top: 45,
     },

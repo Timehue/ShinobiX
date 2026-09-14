@@ -106,15 +106,16 @@ export const CombatBattleLogPanel = forwardRef<HTMLDivElement, DivProps & {
     turnLabel: ReactNode;
     headerMeta?: ReactNode;
     headerActions?: ReactNode;
+    ariaLive?: "off" | "polite";
 }>(
-    function CombatBattleLogPanel({ children, className, turnLabel, headerMeta, headerActions, role = "log", ...props }, ref) {
+    function CombatBattleLogPanel({ children, className, turnLabel, headerMeta, headerActions, ariaLive = "polite", role = "log", ...props }, ref) {
         return (
             <div
                 ref={ref}
                 {...props}
                 className={classNames("combat-text-log", className)}
                 role={role}
-                aria-live={role === "log" ? "polite" : undefined}
+                aria-live={role === "log" ? ariaLive : undefined}
                 aria-label="Battle log"
             >
                 <div className="combat-log-header">
@@ -144,6 +145,7 @@ export const PlainCombatBattleLog = memo(function PlainCombatBattleLog({
     newestFirst = true,
     emptyMessage = "No entries yet.",
     className,
+    ariaLive = "polite",
 }: {
     lines: readonly string[];
     turnLabel: ReactNode;
@@ -152,6 +154,7 @@ export const PlainCombatBattleLog = memo(function PlainCombatBattleLog({
     newestFirst?: boolean;
     emptyMessage?: string;
     className?: string;
+    ariaLive?: "off" | "polite";
 }) {
     const rounds = useMemo(() => groupPlainCombatLog(lines, selfName, oppName), [lines, selfName, oppName]);
     const visibleRounds = useMemo(
@@ -202,6 +205,7 @@ export const PlainCombatBattleLog = memo(function PlainCombatBattleLog({
                 ref={panelRef}
                 className={classNames(`plain-combat-battle-log${expanded ? " is-expanded" : ""}`, className)}
                 turnLabel={turnLabel}
+                ariaLive={ariaLive}
                 role={expanded ? "dialog" : "log"}
                 aria-modal={expanded || undefined}
                 headerMeta={rounds.length > 0 ? `${roundSummary} · ${eventSummary}` : undefined}

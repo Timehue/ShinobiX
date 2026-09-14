@@ -33,6 +33,8 @@ export type PublicPlayerIndexEntry = {
     petRankedWins: number;
     petRankedLosses: number;
     totalPvpKills: number;
+    monthlyPvpKills: number;
+    pvpKillMonth: string;
     xp: number;
     totalPetWins: number;
     totalEndlessTowerWins: number;
@@ -135,6 +137,7 @@ type NumberField = {
         | 'petRankedWins'
         | 'petRankedLosses'
         | 'totalPvpKills'
+        | 'monthlyPvpKills'
         | 'xp'
         | 'totalPetWins'
         | 'totalEndlessTowerWins'
@@ -155,6 +158,7 @@ const NUMBER_FIELDS: readonly NumberField[] = [
     { key: 'petRankedWins', fallback: 0 },
     { key: 'petRankedLosses', fallback: 0 },
     { key: 'totalPvpKills', fallback: 0 },
+    { key: 'monthlyPvpKills', fallback: 0 },
     { key: 'xp', fallback: 0 },
     { key: 'totalPetWins', fallback: 0 },
     { key: 'totalEndlessTowerWins', fallback: 0 },
@@ -164,7 +168,7 @@ const NUMBER_FIELDS: readonly NumberField[] = [
     { key: 'battleTowerRating', fallback: 0 },
 ];
 
-const STRING_FIELDS = ['name', 'village', 'specialty', 'clan'] as const;
+const STRING_FIELDS = ['name', 'village', 'specialty', 'clan', 'pvpKillMonth'] as const;
 const MAX_PUBLIC_NUMBER = 9_000_000_000_000;
 const NON_PUBLIC_PLAYER_KEYS = new Set(['admin', 'admin1', 'admin2', 'system', 'server']);
 
@@ -218,6 +222,8 @@ export function buildPublicPlayerIndexEntry(
         petRankedWins: publicNumber(char.petRankedWins, 0),
         petRankedLosses: publicNumber(char.petRankedLosses, 0),
         totalPvpKills: publicNumber(char.totalPvpKills, 0),
+        monthlyPvpKills: publicNumber(char.monthlyPvpKills, 0),
+        pvpKillMonth: publicString(char.pvpKillMonth),
         // Earned stat points (allocated + pool) when built from a full character;
         // falls back to the stored entry value when re-parsing an index row
         // (rows carry no stats object). Field name stays `xp` to avoid an index

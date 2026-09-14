@@ -85,7 +85,7 @@ test("the demoted call sites are actually using gameToast", () => {
         ["screens/Bank.tsx", /gameToast\(`Sent \$\{/],
         ["screens/CentralHub.tsx", /gameToast\(`Crafted \$\{/],
         ["screens/ClanHall.tsx", /gameToast\(`Collected \$\{/],
-        ["screens/Hospital.tsx", /gameToast\(`\u{1F4B0} You paid \$\{/u],
+        ["screens/Hospital.tsx", /gameToast\(hospitalDischargeMessage\(data\),\s*\{ kind: "success" \}\)/],
         ["screens/PetYard.tsx", /gameToast\(`Collected \$\{/],
     ];
     for (const [file, rx] of expectations) {

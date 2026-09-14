@@ -9,10 +9,10 @@ import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-    canDeclareChallenge, isChallengeExpired, newChallenge, applyPress,
+    canDeclareChallenge, newChallenge, applyPress, acceptKageChallenge, normalizeChallengeClock, applyChallengerForfeit,
     applySeatTransfer, applyDefense, applyExpiry, applyAdminReset,
-    openReign, closeCurrentReign, incrementDefense, resolveDuelDecision, resolveAcceptDecision,
-    KAGE_ACCEPT_OBLIGATION_MS, KAGE_CHALLENGE_EXPIRY_MS, KAGE_POST_DEFENSE_GRACE_MS,
+    openReign, closeCurrentReign, incrementDefense, resolveDuelDecision,
+    KAGE_ACCEPT_OBLIGATION_MS, KAGE_POST_DEFENSE_GRACE_MS,
     KAGE_LOSS_COOLDOWN_MS, KAGE_PRESS_MAX_STEP_MS, KAGE_MIN_CHALLENGER_LEVEL,
     KAGE_MIN_MERIT, KAGE_DECLARE_RYO_COST, KAGE_MIN_ACCOUNT_AGE_MS,
     type DeclareInput, type KageStateLike, type KageChallenge,
@@ -77,9 +77,9 @@ describe('canDeclareChallenge — eligibility gates', () => {
         const state = { ...baseState(), challenge: chal('Someone', NOW) };
         assert.equal(canDeclareChallenge(declareInput({ state })).ok, false);
     });
-    it('allows when the existing challenge is already expired', () => {
-        const state = { ...baseState(), challenge: chal('Someone', NOW - KAGE_CHALLENGE_EXPIRY_MS - 1) };
-        assert.equal(canDeclareChallenge(declareInput({ state })).ok, true);
+    it('keeps an old challenge active until its response clock or duel resolves', () => {
+        const state = { ...baseState(), challenge: chal('Someone', NOW - (7 * 24 * 60 * 60_000) - 1) };
+        assert.equal(canDeclareChallenge(declareInput({ state })).ok, false);
     });
     it('blocks during the post-defense / post-transfer grace', () => {
         const state = { ...baseState(), postDefenseGraceUntil: NOW + 1000 };
@@ -88,13 +88,6 @@ describe('canDeclareChallenge — eligibility gates', () => {
     it('blocks a challenger on loss cooldown', () => {
         const state = { ...baseState(), challengerCooldowns: { rill: NOW + 1000 } };
         assert.equal(canDeclareChallenge(declareInput({ state })).ok, false);
-    });
-});
-
-describe('isChallengeExpired', () => {
-    it('false within the window, true past 48h', () => {
-        assert.equal(isChallengeExpired(chal('Rill', NOW - 1000), NOW), false);
-        assert.equal(isChallengeExpired(chal('Rill', NOW - KAGE_CHALLENGE_EXPIRY_MS - 1), NOW), true);
     });
 });
 
@@ -124,11 +117,11 @@ describe('applyPress — overlap obligation', () => {
         assert.equal(r.burnedMs, 40_000);
         assert.equal(r.challenge.obligationRemainingMs, KAGE_ACCEPT_OBLIGATION_MS - 40_000);
     });
-    it('caps a single press at KAGE_PRESS_MAX_STEP_MS', () => {
+    it('never charges an unobserved gap beyond KAGE_PRESS_MAX_STEP_MS', () => {
         let c = chal('Rill', NOW);
         c = applyPress(c, NOW, true).challenge;
         const r = applyPress(c, NOW + 10 * 60_000, true);  // 10 min gap
-        assert.equal(r.burnedMs, KAGE_PRESS_MAX_STEP_MS);
+        assert.equal(r.burnedMs, 0);
     });
     it('does NOT burn when the parties are not both online (the AFK case)', () => {
         let c = chal('Rill', NOW);
@@ -138,7 +131,7 @@ describe('applyPress — overlap obligation', () => {
         assert.equal(r.challenge.obligationRemainingMs, KAGE_ACCEPT_OBLIGATION_MS);
     });
     it('forfeits once the obligation is exhausted', () => {
-        const c = chal('Rill', NOW, { obligationRemainingMs: 30_000, lastPressAt: NOW });
+        const c = chal('Rill', NOW, { obligationRemainingMs: 30_000, lastPressAt: NOW, clockRunning: true });
         const r = applyPress(c, NOW + 60_000, true);       // burns the capped 60s -> <= 0
         assert.equal(r.forfeited, true);
         assert.equal(r.challenge.obligationRemainingMs, 0);
@@ -173,7 +166,7 @@ describe('seat transitions — grace, defense, expiry', () => {
         assert.equal(next.history?.[0].defenseCount, 2, 'open reign entry tracks defenses');
     });
     it('applyExpiry clears the challenge and cooldowns the abandoning challenger', () => {
-        const state = { ...baseState(), challenge: chal('Rill', NOW - KAGE_CHALLENGE_EXPIRY_MS - 1) };
+        const state = { ...baseState(), challenge: chal('Rill', NOW - (7 * 24 * 60 * 60_000) - 1) };
         const next = applyExpiry(state, NOW);
         assert.equal(next.challenge, null);
         assert.equal(next.challengerCooldowns?.rill, NOW + KAGE_LOSS_COOLDOWN_MS);
@@ -290,45 +283,6 @@ describe('resolveDuelDecision — official-duel settlement (pure)', () => {
     });
 });
 
-describe('resolveAcceptDecision — anti-stall accept guard (pure)', () => {
-    const pending = chal('Rill', NOW); // status pending
-    const base = {
-        challenge: pending,
-        seatNorm: 'raiko',
-        challengerNorm: 'rill',
-        callerNorm: 'raiko',   // the seated Kage
-        isAdmin: false,
-        battleId: 'pvp-1',
-        sessionFighters: ['raiko', 'rill'],
-    };
-    it('seals a real duel between the Kage and challenger', () => {
-        assert.deepEqual(resolveAcceptDecision(base), { kind: 'seal' });
-    });
-    it('rejects when there is no active challenge', () => {
-        assert.equal(resolveAcceptDecision({ ...base, challenge: null }).kind, 'reject');
-    });
-    it('rejects a caller who is not the seated Kage', () => {
-        assert.equal(resolveAcceptDecision({ ...base, callerNorm: 'rill' }).kind, 'reject');
-    });
-    it('allows an admin caller', () => {
-        assert.equal(resolveAcceptDecision({ ...base, callerNorm: 'someadmin', isAdmin: true }).kind, 'seal');
-    });
-    it('rejects a bogus battleId with no live session (the freeze exploit)', () => {
-        assert.equal(resolveAcceptDecision({ ...base, sessionFighters: null }).kind, 'reject');
-    });
-    it('rejects a real session that is not between the two parties', () => {
-        assert.equal(resolveAcceptDecision({ ...base, sessionFighters: ['raiko', 'stranger'] }).kind, 'reject');
-    });
-    it('idempotently re-accepts the SAME sealed duel', () => {
-        const accepted = chal('Rill', NOW, { status: 'accepted', battleId: 'pvp-1' });
-        assert.equal(resolveAcceptDecision({ ...base, challenge: accepted }).kind, 'idempotent');
-    });
-    it('rejects re-accepting a DIFFERENT duel once sealed', () => {
-        const accepted = chal('Rill', NOW, { status: 'accepted', battleId: 'pvp-1' });
-        assert.equal(resolveAcceptDecision({ ...base, challenge: accepted, battleId: 'pvp-2' }).kind, 'reject');
-    });
-});
-
 describe('Kage challenge cost — server/client parity', () => {
     const read = (rel: string) => readFileSync(join(process.cwd(), ...rel.split('/')), 'utf8');
 
@@ -411,5 +365,57 @@ describe('Kage challenge cost — server/client parity', () => {
         assert.match(handler, /ryo: num\(c\.ryo\) \+ KAGE_DECLARE_RYO_COST/);
         assert.match(handler, /resource: 'ryo'/);
         assert.doesNotMatch(handler, /honorSeals/);
+    });
+});
+
+describe('separate 24-hour response clocks', () => {
+    it('charges a full 24 hours of shared online time before Kage forfeit', () => {
+        let c = applyPress(chal('Rill', NOW), NOW, true).challenge;
+        for (let minute = 1; minute <= 1440; minute++) {
+            const tick = applyPress(c, NOW + minute * KAGE_PRESS_MAX_STEP_MS, true);
+            assert.equal(tick.forfeited, minute === 1440);
+            c = tick.challenge;
+            if (minute === 1440) assert.equal(tick.forfeitedBy, 'kage');
+        }
+        assert.equal(c.challengerRemainingMs, 86_400_000);
+    });
+    it('freezes the Kage clock after acceptance and burns only the challenger clock', () => {
+        let c = applyPress(chal('Rill', NOW), NOW, true).challenge;
+        c = applyPress(c, NOW + 30_000, true).challenge;
+        c = acceptKageChallenge(c, NOW + 30_000);
+        c = applyPress(c, NOW + 40_000, true).challenge;
+        const tick = applyPress(c, NOW + 50_000, true);
+        assert.equal(tick.challenge.obligationRemainingMs, 86_400_000 - 30_000);
+        assert.equal(tick.challenge.challengerRemainingMs, 86_400_000 - 10_000);
+        assert.deepEqual(acceptKageChallenge(tick.challenge, NOW + 60_000), tick.challenge, 'retry cannot replenish time');
+    });
+    it('does not charge the offline gap after either participant reconnects', () => {
+        let c = applyPress(chal('Rill', NOW), NOW, true).challenge;
+        c = applyPress(c, NOW + 10_000, false).challenge;
+        assert.equal(c.lastPressAt, undefined);
+        c = applyPress(c, NOW + 20_000, true).challenge;
+        assert.equal(c.obligationRemainingMs, 86_400_000);
+        assert.equal(applyPress(c, NOW + 25_000, true).burnedMs, 5_000);
+    });
+    it('challenger timeout keeps the incumbent without creating a duel defense', () => {
+        const c = chal('Rill', NOW, { kageAcceptedAt: NOW, challengerRemainingMs: 1,
+            lastPressAt: NOW, clockRunning: true });
+        assert.equal(applyPress(c, NOW + 1, true).forfeitedBy, 'challenger');
+        const next = applyChallengerForfeit({ ...baseState(), challenge: c, defenseCount: 2 }, NOW + 1);
+        assert.equal(next.seatedKage, 'Raiko');
+        assert.equal(next.defenseCount, 2);
+        assert.equal(next.challenge, null);
+        assert.equal(next.challengerCooldowns?.rill, NOW + 1 + KAGE_LOSS_COOLDOWN_MS);
+    });
+    it('migrates old pending clocks once and preserves already accepted duels', () => {
+        const old = { challengeId: CID, challenger: 'Rill', status: 'pending' as const, createdAt: NOW - 7 * 86400000,
+            obligationRemainingMs: 10, lastPressAt: NOW - 86400000 };
+        const migrated = normalizeChallengeClock(old);
+        assert.equal(migrated.obligationRemainingMs, 86_400_000);
+        assert.equal(migrated.challengerRemainingMs, 86_400_000);
+        assert.equal(migrated.lastPressAt, undefined);
+        assert.equal(normalizeChallengeClock(migrated), migrated);
+        const duel = { ...old, status: 'accepted' as const, battleId: 'official' };
+        assert.equal(normalizeChallengeClock(duel), duel);
     });
 });

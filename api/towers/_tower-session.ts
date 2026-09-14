@@ -171,6 +171,14 @@ export type TowerSession = {
     recentMoveReceipts?: Array<{ token: string; fingerprint: string }>;
     rewardSettlementState: 'pending' | 'settled';
     log: string[];
+    /** Solo Story route sealed at entry. It can affect encounter stats and the
+     * final score, but is never accepted again from an action request. */
+    routeChoice?: {
+        id: 'rest-shrine' | 'focused-assault' | 'elite-shortcut';
+        label: string;
+        summary: string;
+        scoreMultiplier: number;
+    };
     /**
      * Cosmetic combat VFX for the plates the client draws. Authored by the
      * engine alongside each resolved action / DoT tick and REPLACED wholesale
@@ -184,6 +192,15 @@ export type TowerSession = {
     vfxSeq?: number;
     createdAt: number;
     lastActionAt: number;
+    /**
+     * Gameplay expiry (ms epoch): the moment an ACTIVE run lapses unattended.
+     * Stamped by the store on every active write (lastActionAt + the session
+     * TTL) and deliberately NOT the row's storage TTL, which now outlives it
+     * (F08). A row that predates the field lapses at lastActionAt + TTL.
+     */
+    expiresAt?: number;
+    /** Set only when the run was terminalized because it lapsed (F08): its expiry. */
+    lapsedAt?: number;
     /** wall-clock when the CURRENT human's turn began (handler-set). Drives the co-op
      *  AFK auto-pass so a live run never deadlocks on an absent player. */
     turnStartedAt?: number;

@@ -31,6 +31,8 @@ import type { PlayerRecord } from '../types/character';
 
 export type PresenceFrame = {
     sector: number;
+    /** Explicit navigation intent; a stale sector-0 report is not town entry. */
+    enterTown?: boolean;
     /** Already slimmed by presenceCharacter() before it reaches here. */
     character: unknown;
     travelingUntil?: number;

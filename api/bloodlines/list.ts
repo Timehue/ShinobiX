@@ -3,6 +3,7 @@ import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { cachedFor } from '../_proc-cache.js';
+import { readKvProjection } from '../_storage-projection.js';
 
 const BLOODLINE_LIST_CACHE_KEY = 'bloodlines:list:public';
 const BLOODLINE_LIST_CACHE_TTL_MS = 60_000;
@@ -40,16 +41,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'GET') return res.status(405).end();
 
-    // Auth gate: this endpoint mget's EVERY player save in the registry
-    // (expensive) and returns the full list of (ownerName, ownerKey,
+    // Auth gate: this endpoint reads gallery fields from every registered save
+    // and returns the full list of (ownerName, ownerKey,
     // bloodlines) — useful for stalking and player enumeration. Auth
     // required so the cost can't be triggered by anonymous traffic.
     const identity = await authedPlayerOrAdmin(req);
     if (!identity) return res.status(401).json({ error: 'Authentication required.' });
 
     try {
-        // The public gallery changes slowly, but deriving it scans every
-        // registered player save through the remote save proxy. Single-flight
+        // The public gallery changes slowly, but deriving it visits every
+        // registered player's bloodline fields. Single-flight
         // concurrent callers and reuse the immutable snapshot for one minute.
         const bloodlines = await cachedFor<PublicBloodlineEntry[]>(
             BLOODLINE_LIST_CACHE_KEY,
@@ -60,8 +61,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // for one final read+delete in a future migration step. Reading it
         // on every list call cost a multi-KB transfer per request that
         // never contributed entries the hash didn't already have.
-        const [registry, bloodlineHashImages] = await Promise.all([
-            kv.hgetall<Record<string, unknown>>(REGISTRY_KEY),
+        const [registryKeys, bloodlineHashImages] = await Promise.all([
+            kv.hkeys(REGISTRY_KEY),
             kv.hgetall<Record<string, string>>(bloodlineImageHashKey),
         ]);
         const sharedBloodlineImages = bloodlineHashImages ?? {};
@@ -69,15 +70,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Derive the save keys from the player registry instead of scanning the
         // whole save:* keyspace (every saved player is in the registry — see the
-        // REGISTRY_KEY note). Then batch-fetch in a single mget instead of N
-        // individual get() calls, keeping pool usage to one query regardless of
-        // player count. Clan saves (save:clan-*) carry no savedBloodlines, so
+        // REGISTRY_KEY note). Fetch just owner name and authored bloodlines in
+        // one database projection; unrelated character/catalog/image data stays
+        // in storage. Compatibility backends keep the original batched read.
+        // Clan saves (save:clan-*) carry no savedBloodlines, so
         // excluding them is output-identical and saves wasted reads.
-        const nonAdminKeys = Object.keys(registry ?? {})
+        const nonAdminKeys = registryKeys
             .filter((slug) => !ADMIN_CONTENT_SLOTS.has(slug.toLowerCase()) && !slug.toLowerCase().startsWith('clan-'))
             .map(slug => `save:${slug}`);
         const snapshots = nonAdminKeys.length
-            ? await kv.mget<Record<string, unknown>[]>(...nonAdminKeys)
+            ? await readKvProjection(kv, nonAdminKeys, {
+                ownerName: ['character', 'name'],
+                savedBloodlines: ['savedBloodlines'],
+            })
             : [];
 
         const bloodlines: PublicBloodlineEntry[] = [];
@@ -85,8 +90,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const key = nonAdminKeys[i]!;
             const snap = snapshots[i] ?? null;
             const ownerKey = key.replace('save:', '');
-            const char = snap?.character as Record<string, unknown> | undefined;
-            const ownerName = (char?.name as string) ?? ownerKey;
+            const ownerName = (snap?.ownerName as string) ?? ownerKey;
             const rawBloodlines = snap?.savedBloodlines as RawBloodline[] | undefined;
             if (!Array.isArray(rawBloodlines)) continue;
             for (const bloodline of rawBloodlines) {

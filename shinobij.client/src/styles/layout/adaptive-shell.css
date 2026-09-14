@@ -190,6 +190,19 @@ body {
   overscroll-behavior: contain;
 }
 
+/* Persistent notices and Academy guidance share one measured bottom stack. */
+html body.coach-banner-open .onboarding-coach-banner.coach-guide,
+html body.coach-banner-open .onboarding-coach-banner.coach-trail-chip {
+  bottom: calc(16px + var(--storage-notice-height, 0px) + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+@media (max-width: 979px) {
+  html body.coach-banner-open .onboarding-coach-banner.coach-guide,
+  html body.coach-banner-open .onboarding-coach-banner.coach-trail-chip {
+    bottom: calc(var(--shell-mobile-nav-height, 70px) + var(--storage-notice-height, 0px) + env(safe-area-inset-bottom, 0px) + 8px) !important;
+  }
+}
+
 @media (min-width: 980px) and (max-width: 1179px) {
   .app-shell[data-shell="adaptive"] {
     --shell-left-current: var(--shell-left-rail-compact);
@@ -255,6 +268,25 @@ body {
       var(--mobile-aaa-gutter)
       calc(var(--mobile-aaa-nav-height) + env(safe-area-inset-bottom, 0px) + var(--sp-5));
     line-height: 1.55;
+  }
+
+  html.wm-zoom .app-shell[data-shell="adaptive"].screen-worldMap > .center-game:has(> .world-atlas-card) {
+    padding-inline-start: max(var(--mobile-aaa-gutter, 12px), env(safe-area-inset-left, 0px));
+    padding-inline-end: max(var(--mobile-aaa-gutter, 12px), env(safe-area-inset-right, 0px));
+  }
+  @media (orientation: landscape) and (max-height: 480px) {
+    /* In short landscape the atlas becomes the focus surface. Its back button
+       remains available; global chrome returns as soon as the atlas closes. */
+    html.wm-zoom .app-shell[data-shell="adaptive"].screen-worldMap:has(.world-atlas-card) :is(.mobile-top-hud, .mobile-bottom-nav, .mobile-notif-bar) {
+      display: none !important;
+    }
+
+    html.wm-zoom .app-shell[data-shell="adaptive"].screen-worldMap > .center-game:has(> .world-atlas-card) {
+      inline-size: 100%;
+      max-inline-size: none;
+      padding-block-start: max(0px, env(safe-area-inset-top, 0px));
+      padding-block-end: max(0px, env(safe-area-inset-bottom, 0px));
+    }
   }
 
   /* Fixed-surface exceptions remain part of the shell contract: Tavern owns a
@@ -324,11 +356,45 @@ body {
   }
 }
 
-@media (max-width: 800px) {
-  /* The coach banner is taller than the fixed nav. Reserve its measured
-     footprint here so lazy-loaded feature CSS cannot change shell geometry. */
-  body.coach-banner-open .app-shell[data-shell="adaptive"] > .center-game {
-    padding-block-end: calc(230px + env(safe-area-inset-bottom, 0px)) !important;
+/* Reserve the whole measured stack in both document and desktop scrollers.
+   Match the noncombat skin's specificity so lazy CSS cannot reduce it. */
+html body.coach-banner-open .app-shell[data-shell="adaptive"][data-ui-mode="noncombat"] > .center-game {
+  padding-block-end: var(--academy-guide-clearance, 300px) !important;
+}
+
+/* Keep the current instruction and its actions usable in short landscape.
+   The progress ornament and next-step preview return with portrait height. */
+@media (max-width: 979px) and (max-height: 480px) {
+  html body.coach-banner-open .coach-guide-pet,
+  html body.coach-banner-open .coach-guide-label,
+  html body.coach-banner-open .coach-guide-progress,
+  html body.coach-banner-open .coach-guide-target-key,
+  html body.coach-banner-open .coach-guide-next {
+    display: none !important;
+  }
+
+  html body.coach-banner-open .coach-guide-head {
+    margin: 0;
+    block-size: 0;
+  }
+
+  html body.coach-banner-open .coach-guide-head .coach-skip-link {
+    position: absolute;
+    inset-block-start: 4px;
+    inset-inline-end: 4px;
+    min-inline-size: 44px;
+    min-block-size: 44px;
+    margin: 0;
+  }
+
+  html body.coach-banner-open .coach-guide-bubble {
+    padding: 8px 54px 8px 10px;
+    min-block-size: 52px;
+  }
+
+  html body.coach-banner-open .coach-guide-line {
+    min-block-size: 0;
+    min-height: 0;
   }
 }
 

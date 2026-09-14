@@ -80,6 +80,8 @@ describe('guest sweep', () => {
         seed('wanderer', { guest: true, createdAt: LONG_AGO, sessionEpoch: 0 }, { lastSeen: LONG_AGO });
         store.set('friends:wanderer', ['someone']);
         store.set('player-friends:wanderer', ['someone']);
+        store.set('first-pact:wanderer', { mainStep: 'complete' });
+        store.set('first-pact:someone', { mainStep: 'meet-scribe-vey' });
 
         const result = await runGuestSweep(NOW);
         assert.deepEqual(result.expired, ['wanderer']);
@@ -87,6 +89,8 @@ describe('guest sweep', () => {
         assert.equal(store.has('save:wanderer'), false);
         assert.equal(store.has('friends:wanderer'), false);
         assert.equal(store.has('player-friends:wanderer'), false);
+        assert.equal(store.has('first-pact:wanderer'), false, 'the reclaimed name must lose its standalone story state');
+        assert.equal(store.has('first-pact:someone'), true, 'sweeping one guest must not touch another account');
         assert.equal((hashes.get('player:registry') ?? {}).wanderer, undefined, 'must not linger on the leaderboard');
         assert.deepEqual(result.failures, []);
     });

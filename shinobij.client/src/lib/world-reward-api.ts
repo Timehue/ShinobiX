@@ -53,6 +53,8 @@ export type SectorExploreResult = {
     error?: string;
     status?: number;
     retryable?: boolean;
+    /** `pending-battle-discovery`: the ambush this player already rolled and must fight first. */
+    pendingBattle?: { requestId: string; sector: number };
 };
 
 function worldRewardFailure(
@@ -64,6 +66,9 @@ function worldRewardFailure(
     // definitive 4xx responses therefore prove no payout committed and can be
     // retired; transport, auth-refresh, throttling, malformed success, and 5xx
     // remain parked on the same operation id.
+    // `pending-battle-discovery` names an ambush the player rolled earlier and
+    // never fought; the caller launches that exact encounter, so the refused
+    // request is not something to retry on its own.
     const pendingExternalDiscovery = error === "pending-pet-discovery" || error === "pending-dungeon-discovery";
     // `sector-depleted` is a TIME-BOXED refusal (the shared per-sector pool
     // resets at midnight UTC), so what it means depends on whether anything was
@@ -111,7 +116,7 @@ export async function recordSectorExplore(
             }),
         });
         const data = await response.json().catch(() => null) as
-            { reward?: { sector: number; xp: number; ryo: number }; outcome?: SectorExploreOutcome; replayed?: boolean; character?: Character; fieldProgress?: FieldExploreProgress[]; _saveVersion?: number; sectorPool?: SectorPoolView; error?: string } | null;
+            { reward?: { sector: number; xp: number; ryo: number }; outcome?: SectorExploreOutcome; replayed?: boolean; character?: Character; fieldProgress?: FieldExploreProgress[]; _saveVersion?: number; sectorPool?: SectorPoolView; error?: string; requestId?: string; sector?: number } | null;
         // Both the payout and a 'sector-depleted' refusal carry the live pool.
         if (data?.sectorPool) noteSectorPoolView(sector, data.sectorPool);
         // The server ticks contract progress off this same explore receipt, so
@@ -120,7 +125,13 @@ export async function recordSectorExplore(
         // response, and a replayed one is safe to re-read (it did not tick).
         bumpSectorContractRevision();
         if (!response.ok || !data?.character) {
-            return worldRewardFailure(data?.error || 'explore-failed', response.ok ? undefined : response.status);
+            const failure = worldRewardFailure(data?.error || 'explore-failed', response.ok ? undefined : response.status);
+            const pendingBattle = data?.error === 'pending-battle-discovery'
+                && typeof data.requestId === 'string' && data.requestId
+                && Number.isFinite(Number(data.sector))
+                ? { requestId: data.requestId, sector: Math.floor(Number(data.sector)) }
+                : null;
+            return pendingBattle ? { ...failure, pendingBattle } : failure;
         }
         const fieldProgress = Array.isArray(data.fieldProgress)
             ? data.fieldProgress.filter((entry): entry is FieldExploreProgress => Boolean(entry)

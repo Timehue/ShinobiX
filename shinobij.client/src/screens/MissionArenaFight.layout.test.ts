@@ -1,6 +1,7 @@
 import { strict as assert } from "node:assert";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { jutsuDetailDescription } from "../lib/jutsu-effects";
 
 const missionSource = readFileSync(new URL("./MissionArenaFight.tsx", import.meta.url), "utf8");
 const missionCss = readFileSync(new URL("../styles/mission-arena-fight.css", import.meta.url), "utf8");
@@ -44,7 +45,8 @@ test("mission fight reserves a row for its action notice instead of displacing t
     );
     assert.ok(wrapper, "the notices must be wrapped in a single .combat-action-notice grid child");
     assert.match(wrapper![1], /className=\{`combat-targeting-hint/, "the targeting hint belongs in the wrapper");
-    assert.match(wrapper![1], /actionNotice \|\| "\\u00a0"/, "the idle row must remain mounted");
+    assert.match(wrapper![1], /actionNotice \? <span>\{actionNotice\}<\/span>/, "action feedback takes precedence over Academy guidance");
+    assert.match(wrapper![1], /: <span>\{"\\u00a0"\}<\/span>/, "the idle row must remain mounted");
 
     // Nothing may render either notice as a direct child of .combat-main-area.
     assert.equal(
@@ -278,6 +280,34 @@ test("mission jutsu cards expose the same accessible detail dialog as PvP", () =
     );
 });
 
+// The Bloodline Maker writes its battle line into `description` too, and the
+// server keeps it, so a player-authored jutsu can carry `%target` there. Printed
+// raw, the token showed up verbatim in every combat inspect dialog. All three
+// now fill it through the helper the Training Hall and Profile panels use, and
+// a jutsu with no prose at all still renders no paragraph.
+test("every combat jutsu dialog fills battle tokens instead of printing the description raw", () => {
+    for (const [name, source, jutsuVar, proseVar] of [
+        ["pvp", pvpSource, "inspectedJutsu", "detailDescription"],
+        ["mission", missionSource, "detailJutsu", "detailDescription"],
+        ["tower", towerSource, "inspectedLoadoutJutsu", "inspectedLoadoutDescription"],
+    ] as const) {
+        assert.match(source, new RegExp(`const ${proseVar} = [^;\\n]*jutsuDetailDescription\\(${jutsuVar}\\)`),
+            `${name} must build its dialog prose with jutsuDetailDescription`);
+        assert.match(source, new RegExp(`\\{${proseVar} && <p className="combat-jutsu-detail-desc">\\{${proseVar}\\}</p>\\}`),
+            `${name} must render the filled prose, and nothing when it is empty`);
+        assert.doesNotMatch(source, new RegExp(`${jutsuVar}\\.description\\b`),
+            `${name} must not print the jutsu's raw description`);
+    }
+
+    // The Tower's session jutsu is loosely typed: every field optional, and the
+    // target a plain string. It must pass to the helper as it is.
+    assert.equal(
+        jutsuDetailDescription({ description: "Iron dust hardens around %target.", target: "OPPONENT" }),
+        "Iron dust hardens around the target.",
+    );
+    assert.equal(jutsuDetailDescription({}), "", "a jutsu with no prose leaves the guard nothing to render");
+});
+
 // PvE lost its whole targeting telegraph when the browser reducer was retired:
 // the CSS survived but no screen applied it, so an armed AOE showed nothing and
 // the enemy hex was the only in-range tile with no fill. Both halves are easy to
@@ -391,14 +421,13 @@ test("Solo and Tower submit highlighted movement-jutsu tiles through the jutsu p
     }
 });
 
-test("Tower keeps target guidance geometry stable and disables off-turn actions semantically", () => {
-    assert.match(towerSource, /id="tower-action-guidance" className=\{`tower-action-state/, "Tower must render one persistent guidance row");
-    assert.match(towerSource, /: "Choose an action"/, "the idle guidance row must remain mounted");
-    assert.match(
-        towerTacticalCss,
-        /\.tower-action-state\s*\{[^}]*height:\s*58px;[^}]*min-height:\s*58px;[^}]*max-height:\s*58px;/,
-        "Tower guidance must reserve one fixed track so arming cannot resize the board",
-    );
+test("Tower keeps target guidance non-visual and disables off-turn actions semantically", () => {
+    assert.match(towerSource, /id="tower-action-guidance" className="tower-sr-only"/, "Tower must announce target guidance without reserving a visible row");
+    assert.match(towerSource, /: "Choose an action\."/, "the idle guidance announcement must remain mounted");
+    assert.doesNotMatch(towerTacticalCss, /\.tower-action-state\s*\{/,
+        "the removed guidance panel must not retain layout geometry");
+    assert.ok(towerSource.indexOf('className="tower-resource-rail tower-header-resource-rail"') < towerSource.indexOf('className="tower-action-dock"'),
+        "the compact combat-resource rail must be in the fight header");
     assert.match(towerSource, /function armJutsuCard[\s\S]*?if \(busy \|\| !myTurn\) return;/,
         "Tower's handler must reject keyboard/programmatic off-turn arming");
     assert.ok((towerSource.match(/disabled=\{!myTurn \|\|/g) ?? []).length >= 9,
@@ -514,7 +543,7 @@ test("every live shinobi fight uses the shared viewport-level combat instance", 
         "the shared PvP/Solo presentation shell must retain the viewport-level combat boundary",
     );
 
-    assert.match(towerSource, /<CombatInstance(?:\s|>)/, "tower PvE/PvP must render through CombatInstance");
+    assert.match(towerSource, /<ShinobiCombatShell(?:\s|>)/, "tower PvE/PvP must render through the shared shell");
     assert.match(missionSource, /<ShinobiCombatShell(?:\s|>)/, "mission PvE must render through the shared solo shell");
     assert.match(pvpSource, /<ShinobiCombatShell(?:\s|>)/, "session PvP must render through ShinobiCombatShell");
 

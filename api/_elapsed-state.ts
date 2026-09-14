@@ -1,3 +1,4 @@
+import { reconcileElderFocus } from './village/_elders.js';
 import { kv } from './_storage.js';
 import { withKvLock } from './_lock.js';
 import { mergePreservingImages, safeName } from './_utils.js';
@@ -7,9 +8,10 @@ import { remapLegacySector, sectorBiomeOf, WORLD_GEO_VERSION } from '../shared/s
 import { migrateCharacterOwnedPets } from './pet/_owned-pet.js';
 import { settlePetBreedingSession } from './pet/_breeding-requirements.js';
 import { settleCharacterPetHappiness } from './pet/_happiness.js';
+import { pooledVitalRegenEnabled } from './_release-flags.js';
 
 const AURA_SPHERE_ITEM_ID = 'aura-sphere';
-const VITAL_REGEN_MS = 1000;
+export const VITAL_REGEN_MS = 1000;
 const BATTLE_LOCK_PREFIX = 'battle-lock:';
 
 export type SaveRecord = Record<string, unknown>;
@@ -155,6 +157,34 @@ export function auraRegenBonus(character: Record<string, unknown>): number {
     return 0;
 }
 
+/**
+ * True when a character is too hurt to start something new — the ONE definition
+ * of "hospitalized" that every activity gate reads, so the rule cannot drift
+ * between handlers the way it had by 2026-09 (enforced in four handlers, absent
+ * from ranked queue, tower entry, dive start and guard signup).
+ *
+ * The predicate matches what `api/hollow-gate/combat-start.ts` had already
+ * settled on: the admission flag, an admission timer that has not run out, or
+ * authoritative zero HP. A KO'd character can be carrying `hospitalized:false`
+ * for a beat while a settlement lands, so HP is checked too.
+ *
+ * Fails OPEN on a missing character or a missing `hp` (defaults to alive): a
+ * record that predates a field must never lose the ability to play, which is
+ * the same call `presence-gating.ts` makes for an unknown level.
+ *
+ * ⚠ Deliberately NOT reused inside `canRegenVitals` below. That function must
+ * keep regenerating a character sitting at 0 HP who was never admitted —
+ * folding the `hp <= 0` clause into it would strand them at zero forever.
+ */
+export function isIncapacitated(character: unknown, now: number = Date.now()): boolean {
+    if (!character || typeof character !== 'object') return false;
+    const char = character as Record<string, unknown>;
+    if (char.hospitalized === true) return true;
+    const hospitalizedUntil = floorEpoch(char.hospitalizedUntil);
+    if (hospitalizedUntil && now < hospitalizedUntil) return true;
+    return num(char.hp, 1) <= 0;
+}
+
 function canRegenVitals(character: Record<string, unknown>, battleLocked: boolean, now: number): boolean {
     if (battleLocked) return false;
     if (hasActiveHollowGateRun(character)) return false;
@@ -164,10 +194,119 @@ function canRegenVitals(character: Record<string, unknown>, battleLocked: boolea
     return true;
 }
 
+/** Seconds an EMPTY pool takes to refill by idle recovery alone, at any level. */
+export const REGEN_FULL_BAR_SEC = 1800;
+
+/**
+ * Idle recovery per tick for one vital, as a share of that vital's own pool.
+ *
+ * The old rule was a flat 1 point per second shared by all three vitals. It
+ * predates the v2 pool curve (COMBAT_RESOURCES_V2), which raised every pool by
+ * roughly 5-100x — level 1 holds 500 HP / 1000 chakra and level 100 holds
+ * 10,000 of each. Against a flat 1/sec that made a full bar 2h46m at level 100,
+ * so resting was dead content across most of the level range. It is the same
+ * flat-number drift the owner corrected for cafeteria meals on 2026-07-31
+ * (api/player/_cafeteria.ts, whose "~100-HP pools" note refers to the PRE-v2
+ * era — do not read it as a current pool size).
+ *
+ * Measured effect, HP bar from empty: L1 8.3m (unchanged), L20 40m -> 20m,
+ * L50 90m -> 30m, L100 2h46m -> 27.8m. Floored at 1, so this can only ever be
+ * a speed-up — levels 1-19 keep exactly the rate they had, because their pools
+ * are already under REGEN_FULL_BAR_SEC. The Aura Sphere bonus adds on top,
+ * unchanged.
+ *
+ * ⚠ Two mirrors must move with this or vitals appear to FALL on save:
+ * the autosave gain ceiling in api/save/[name].ts, and the client's own idle
+ * clock in shinobij.client/src/lib/loaded-vitals.ts. `vitalRegenPerTick` is
+ * exported so both read this function rather than restating the arithmetic.
+ */
+export function vitalRegenPerTick(maxPool: unknown, auraBonus = 0, pooled = true): number {
+    if (!pooled) return 1 + auraBonus;
+    const max = Math.max(0, Math.floor(num(maxPool, 0)));
+    return Math.max(1, Math.ceil(max / REGEN_FULL_BAR_SEC)) + auraBonus;
+}
+
 function regenVital(character: Record<string, unknown>, key: 'hp' | 'chakra' | 'stamina', maxKey: 'maxHp' | 'maxChakra' | 'maxStamina', amount: number): number {
     const max = Math.max(0, Math.floor(num(character[maxKey], 0)));
     const current = Math.max(0, Math.floor(num(character[key], max)));
     return Math.min(max, current + amount);
+}
+
+/**
+ * The regeneration cursor: the instant up to which idle recovery has been
+ * credited. `_regenAt` is server-owned and carries the sub-second remainder
+ * (`cursor + ticks * VITAL_REGEN_MS`, never `now`); a record that predates it
+ * falls back to `_saveAt`, exactly the clock regen used before — so migration
+ * grants nothing.
+ */
+export function regenCursorOf(record: SaveRecord): number {
+    return floorEpoch(record._regenAt) || floorEpoch(record._saveAt);
+}
+
+export type VitalsRegenSettlement<T extends SaveRecord = SaveRecord> = {
+    record: T;
+    changed: boolean;
+    /** Recovery was not eligible (battle lock, Hollow Gate run, hospital). */
+    excluded: boolean;
+    /** The cursor a follow-up write should carry to keep the remainder; 0 when the record has no clock yet. */
+    cursor: number;
+};
+
+/**
+ * Credit the idle recovery that elapsed since the cursor. Pure.
+ *
+ * Why a cursor and not `_saveAt` (F13): `_saveAt` is the general mutation
+ * timestamp — every server write and every autosave moves it — so a mutation
+ * that landed without an owner read first silently discarded all the recovery
+ * earned since the last settle, and each settle floored the elapsed seconds
+ * and then reset the clock to `now`, dropping up to a second every time. The
+ * cursor advances by whole ticks only, so equal elapsed time yields the same
+ * recovery whether it is settled in one read or many.
+ *
+ * Exclusions read real state: a battle lock, an open Hollow Gate run, or an
+ * admission. Recovery after a stay counts from `hospitalizedUntil`, never from
+ * the admission.
+ */
+export function settleVitalsRegen<T extends SaveRecord>(
+    record: T,
+    opts: { now: number; battleLocked: boolean },
+): VitalsRegenSettlement<T> {
+    const now = Math.max(0, Math.floor(opts.now));
+    const char = record.character && typeof record.character === 'object'
+        ? record.character as Record<string, unknown>
+        : null;
+    const stored = regenCursorOf(record);
+    if (!char) return { record, changed: false, excluded: false, cursor: stored };
+    if (!canRegenVitals(char, Boolean(opts.battleLocked), now)) return { record, changed: false, excluded: true, cursor: stored };
+    if (!stored) return { record, changed: false, excluded: false, cursor: 0 };
+    const hospitalizedUntil = floorEpoch(char.hospitalizedUntil);
+    const cursor = hospitalizedUntil > stored ? hospitalizedUntil : stored;
+    const ticks = Math.floor(Math.max(0, now - cursor) / VITAL_REGEN_MS);
+    if (ticks <= 0) return { record, changed: false, excluded: false, cursor };
+    const nextCursor = cursor + ticks * VITAL_REGEN_MS;
+    // Per-pool, so a large pool is not left crawling at the early-game rate.
+    const aura = auraRegenBonus(char);
+    const pooled = pooledVitalRegenEnabled();
+    const hp = regenVital(char, 'hp', 'maxHp', ticks * vitalRegenPerTick(char.maxHp, aura, pooled));
+    const chakra = regenVital(char, 'chakra', 'maxChakra', ticks * vitalRegenPerTick(char.maxChakra, aura, pooled));
+    const stamina = regenVital(char, 'stamina', 'maxStamina', ticks * vitalRegenPerTick(char.maxStamina, aura, pooled));
+    if (hp === num(char.hp, hp) && chakra === num(char.chakra, chakra) && stamina === num(char.stamina, stamina)) {
+        // Already full: nothing to write, but the cursor a caller carries forward
+        // still advances — recovery is never banked while capped.
+        return { record, changed: false, excluded: false, cursor: nextCursor };
+    }
+    const next = cloneRecord(record);
+    const nextChar = cloneCharacter(char);
+    nextChar.hp = hp;
+    nextChar.chakra = chakra;
+    nextChar.stamina = stamina;
+    const writable = next as Record<string, unknown>;
+    writable.character = nextChar;
+    // `_saveAt` stays the write timestamp the autosave gain-cap anchors on;
+    // `_regenAt` keeps the remainder.
+    writable._saveAt = now;
+    writable._regenAt = nextCursor;
+    return { record: next, changed: true, excluded: false, cursor: nextCursor };
 }
 
 export function settleSaveRecord<T extends SaveRecord>(
@@ -215,47 +354,41 @@ export function settleSaveRecord<T extends SaveRecord>(
         hollowGateRunCleared = true;
     }
 
-    const travel = pendingTravelFrom(base.pendingTravel);
-    if (travel && now >= travel.arrivalAt) {
-        next = changed ? next : cloneRecord(base);
-        const writable = next as Record<string, unknown>;
-        writable.currentSector = travel.destinationSector;
-        writable.currentBiome = biomeForSettledSector(travel.destinationSector);
-        writable.pendingTravel = null;
-        changed = true;
-        travelChanged = true;
-    } else if (!travel && base.pendingTravel != null) {
+    // Old saves carried a client-authored loading mask here. It is not proof
+    // of a journey, even after its deadline. Only travel-lease.ts can commit
+    // an arrival; owner reads project its durable lease for the loading UI.
+    if (base.pendingTravel != null) {
         next = changed ? next : cloneRecord(base);
         (next as Record<string, unknown>).pendingTravel = null;
         changed = true;
         travelChanged = true;
     }
 
-    if (char && canRegenVitals(char, battleLocked, now)) {
-        const saveAt = floorEpoch(base._saveAt);
-        const elapsedMs = saveAt ? Math.max(0, now - saveAt) : 0;
-        const ticks = Math.floor(elapsedMs / VITAL_REGEN_MS);
-        if (ticks > 0) {
-            const amount = ticks * (1 + auraRegenBonus(char));
-            const hp = regenVital(char, 'hp', 'maxHp', amount);
-            const chakra = regenVital(char, 'chakra', 'maxChakra', amount);
-            const stamina = regenVital(char, 'stamina', 'maxStamina', amount);
-            if (hp !== num(char.hp, hp) || chakra !== num(char.chakra, chakra) || stamina !== num(char.stamina, stamina)) {
-                next = changed ? next : cloneRecord(record);
-                const nextChar = cloneCharacter(char);
-                nextChar.hp = hp;
-                nextChar.chakra = chakra;
-                nextChar.stamina = stamina;
-                const writable = next as Record<string, unknown>;
-                writable.character = nextChar;
-                writable._saveAt = now;
-                changed = true;
-                vitalsChanged = true;
-            }
+    if (char) {
+        // `next.character` is `char` on every path above (a cleared run assigns
+        // its clone; otherwise next === base and char === base.character).
+        const regen = settleVitalsRegen(next, { now, battleLocked });
+        if (regen.changed) {
+            next = regen.record;
+            changed = true;
+            vitalsChanged = true;
         }
     }
 
     return { record: next, changed, vitalsChanged, travelChanged, hollowGateRunCleared, geoChanged: geo.changed };
+}
+
+/**
+ * Whether ONE player holds the legacy battle lock. A single `get` rather than
+ * the roster `mget` above: the authoritative mutation path
+ * (save/_mutate-player-save.ts) settles regeneration for exactly one save at
+ * a time, and a plain get is the primitive every storage adapter and test
+ * harness provides.
+ */
+export async function battleLockedFor(name: string): Promise<boolean> {
+    const slug = safeName(name);
+    if (!slug) return false;
+    return Boolean(await kv.get(`${BATTLE_LOCK_PREFIX}${slug}`));
 }
 
 export async function battleLockFlagsForPlayers(names: string[]): Promise<Map<string, boolean>> {
@@ -298,6 +431,10 @@ export async function settleSaveRecordForRead<T extends SaveRecord>(
         hollowGateRunExpiredFor(slug, record),
     ]);
     let projected = settleSaveRecord(record, { now, battleLocked: lockFlags.get(slug) === true, hollowGateRunExpired });
+    if (projected.record.character && typeof projected.record.character === 'object') {
+        const character = await reconcileElderFocus(projected.record.character as Record<string, unknown>);
+        if (character !== projected.record.character) projected = { ...projected, record: { ...projected.record, character }, changed: true };
+    }
     if (opts.persist && projected.record.character && typeof projected.record.character === 'object') {
         const migrated = migrateCharacterOwnedPets(slug, projected.record.character as Record<string, unknown>);
         const breeding = settlePetBreedingSession(migrated.character, now);
@@ -318,6 +455,7 @@ export async function settleSaveRecordForRead<T extends SaveRecord>(
     const saveKey = `save:${slug}`;
     const persisted = await withKvLock<SettleResult<T>>(saveKey, async () => {
         let petStateChanged = false;
+        let elderFocusChanged = false;
         const fresh = await kv.get<T>(saveKey);
         if (!fresh) return projected;
         // Re-probe under the lock against the FRESH record: the run token it names
@@ -329,6 +467,11 @@ export async function settleSaveRecordForRead<T extends SaveRecord>(
             hollowGateRunExpiredFor(slug, fresh),
         ]);
         let next = settleSaveRecord(fresh, { now, battleLocked: freshFlags.get(slug) === true, hollowGateRunExpired: freshExpired });
+        if (next.record.character && typeof next.record.character === 'object') {
+            const character = await reconcileElderFocus(next.record.character as Record<string, unknown>);
+            elderFocusChanged = character !== next.record.character;
+            if (elderFocusChanged) next = { ...next, record: { ...next.record, character }, changed: true };
+        }
         if (next.record.character && typeof next.record.character === 'object') {
             const migrated = migrateCharacterOwnedPets(slug, next.record.character as Record<string, unknown>);
             const breeding = settlePetBreedingSession(migrated.character, now);
@@ -368,11 +511,15 @@ export async function settleSaveRecordForRead<T extends SaveRecord>(
         // 2"), which put the 409 loop straight back into production. `git log -S`
         // does not surface a loss inside a merge. The four discriminators below
         // exist for nothing else — if they ever go unread again, this regressed.
-        const durable = next.travelChanged || next.hollowGateRunCleared || next.geoChanged || petStateChanged;
+        const durable = next.travelChanged || next.hollowGateRunCleared || next.geoChanged || petStateChanged || elderFocusChanged;
         // A projection-only settle already carries `_saveAt = now` (set by the
         // vitals branch of settleSaveRecord), so the next read still measures
         // elapsed time from this write even though the version stands still.
-        const settled = durable ? bumpSaveVersion(next.record) : unversionedSettledRecord(next.record);
+        // A durable settle touches no vital, so it carries the regen cursor the
+        // settle computed (or the stored one) instead of fencing it to now.
+        const settled = durable
+            ? bumpSaveVersion(next.record, { regenAt: regenCursorOf(next.record) || undefined })
+            : unversionedSettledRecord(next.record);
         await kv.set(saveKey, mergePreservingImages(settled, fresh));
         return { ...next, record: settled };
     });

@@ -1,25 +1,22 @@
 /*
- * Server mirror of the PvE combat-AI perception layer —
- * `shinobij.client/src/lib/combat-ai-tactics.ts`.
+ * PvE combat-AI perception: the "is this buff worth a 60-AP Clear" vocabulary
+ * that feeds `pveAiCompetence().clearBuffThreshold`.
  *
- * PARTIAL BY DESIGN. Solo PvE now has a deterministic smart scorer and executes
- * validated authored rule programs server-side. The only client perception
- * constant mirrored here is the "is this buff worth a 60-AP Clear" list that
- * feeds `pveAiCompetence().clearBuffThreshold`.
- *
- * Why the rest is NOT needed to match the client's behaviour:
- *   • `PlayerRead.justPoweredUp` (the only field the competence gate reads) is
- *     applied as `readsBehavior && justPoweredUp ? 1 : clearBuffThreshold`.
+ * This began as a partial mirror of the client's perception layer
+ * (lib/combat-ai-tactics.ts). Solo PvE now runs a deterministic smart scorer and
+ * validated authored rule programs server-side, and nothing in the client
+ * imported that file any more, so it was deleted. Only this list ever needed to
+ * exist server-side:
+ *   • `PlayerRead.justPoweredUp` (the only other field the competence gate read)
+ *     was applied as `readsBehavior && justPoweredUp ? 1 : clearBuffThreshold`.
  *     `readsBehavior` is true only in the hard and peer bands, and BOTH of those
- *     already carry `clearBuffThreshold: 1` — so that ternary can never change
- *     the threshold. The action memory is inert for this decision on the client
- *     too, and porting it would add state that changes nothing.
+ *     already carry `clearBuffThreshold: 1` — so that ternary could never change
+ *     the threshold, and the action memory behind it was inert for this decision.
  *   • `usesSmartScorer` is consumed directly by the Solo PvE engine, including
- *     the profile's server-sealed `masterAi` flag. This module does not duplicate
- *     that scorer; it owns only the shared meaningful-buff vocabulary.
+ *     the profile's server-sealed `masterAi` flag.
  *
- * Source of truth is the client file. `scripts/pve-ai-tactics-parity.test.ts`
- * fails if the two lists drift.
+ * The list is pinned by api/_pve-ai-tactics.test.ts. Changing it is a balance
+ * change.
  */
 
 /** Buffs the AI considers worth spending a 60-AP Clear on. Trivial / cosmetic

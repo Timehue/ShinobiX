@@ -27,7 +27,7 @@ import {
 import { renderRuntimeModeDocs } from './generate-runtime-mode-docs.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const server = readFileSync(join(ROOT, 'server.ts'), 'utf8');
+const server = readFileSync(join(ROOT, 'server-api-routes.ts'), 'utf8');
 const sharedWorldAiFight = readFileSync(join(ROOT, 'shared', 'world-ai-fight.ts'), 'utf8');
 const clientCache = new Map();
 
@@ -152,7 +152,11 @@ describe('executable multi-engine runtime registry', () => {
     // Chronicle Showdown story campaign, riding the existing card-clash AI
     // routes with a sealed-encounter settlement (a conscious addition, built
     // and registered together).
-    assert.equal(ids.length, 63, 'The corrected inventory must retain the independently pinned 63-row model.');
+    // 64 as of 2026-09-04: 'celestial-first-pact' entered — the level-100
+    // Sunken Court campaign, riding the existing Showdown routes with its own
+    // durable progression record (a conscious addition, built and registered
+    // together).
+    assert.equal(ids.length, 64, 'The corrected inventory must retain the independently pinned 64-row model.');
     assert.equal(new Set(ids).size, ids.length, 'Runtime mode ids must be unique.');
     assert.equal(new Set(labels).size, labels.length, 'Runtime mode labels must be unique.');
     assert.equal(new Set(expectedIds).size, expectedIds.length, 'Independent expected mode ids must be unique.');
@@ -930,6 +934,7 @@ describe('current flat runtime-mode audit projection', () => {
 
   it('retains Dungeon Warden and creator-event sealed Solo-PvE semantics', () => {
     const app = clientSource('App.tsx');
+    const triggeredBattle = clientSource('lib/triggered-event-battle.ts');
     const aiFightStart = readFileSync(join(ROOT, 'api', 'missions', 'ai-fight-start.ts'), 'utf8');
     const genericAuthority = readFileSync(join(ROOT, 'api', 'missions', '_generic-ai-fight-authority.ts'), 'utf8');
     const aiFightOutcome = readFileSync(join(ROOT, 'api', 'missions', '_ai-fight-outcome.ts'), 'utf8');
@@ -956,7 +961,8 @@ describe('current flat runtime-mode audit projection', () => {
 
     assert.equal(creator.battleKind, 'practice');
     assert.equal(creator.rewardPolicy, 'none');
-    assert.match(app, /battleKind:\s*["']practice["']/);
+    assert.match(app, /launchTriggeredEventBattle\(\{/);
+    assert.match(triggeredBattle, /requestAiFight\(\{[\s\S]*?battleKind:\s*["']practice["']/);
     assert.match(genericAuthority, /battleKind\s*===\s*['"]practice['"]/);
     assert.match(aiFightOutcome, /battleKind\s*!==\s*['"]practice['"]\s*&&\s*battleKind\s*!==\s*['"]dungeon['"]/);
     assert.match(reportAiFight, /aiFightPaysReward\(outcome,\s*sealedBattleKind\)/);

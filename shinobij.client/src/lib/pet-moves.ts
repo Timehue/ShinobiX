@@ -12,7 +12,7 @@
 
 import type { Pet, PetJutsu } from "../types/pet";
 import type { JutsuElement } from "../types/core";
-import { elementVfxKey } from "./pet-battle-anim";
+import { elementVfxKey } from "./pet-presentation-keys";
 import type {
     PetMove, PetMoveTag, PetAnimationType, PetAiHint, PetVfxKey, PetMoveTargetType,
     PetBaseAction, BattleStatusId, BattleStatusDef, ActiveBattleStatus,

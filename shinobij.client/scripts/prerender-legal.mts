@@ -59,7 +59,9 @@ mkdirSync(outDir, { recursive: true });
 
 for (const { slug } of LEGAL_PAGE_LINKS) {
     const meta = LEGAL_DOCUMENT_META[slug];
-    const markup = renderToStaticMarkup(createElement(LegalPage, { slug }));
+    // Cloudflare must leave the public support contact readable without its
+    // email-decode script, including on the external account-deletion page.
+    const markup = `<!--email_off-->${renderToStaticMarkup(createElement(LegalPage, { slug }))}<!--/email_off-->`;
 
     const page = shell
         .replace(/<title>[\s\S]*?<\/title>/, `<title>${text(meta.title)} &mdash; Shinobi Journey</title>`)

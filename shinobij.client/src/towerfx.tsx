@@ -20,6 +20,12 @@
 // fixture: anything you can see here, the real client would render too.
 import { createRoot } from "react-dom/client";
 import "./index.css";
+import "./styles/late-normalize.css";
+import "./styles/veiled-steel.css";
+import "./styles/layout/adaptive-shell.css";
+import "./styles/layout/adaptive-stages.css";
+import "./styles/layout/adaptive-tools.css";
+import "./styles/lite-fx-compositing.css";
 import { BattleTowerFight } from "./screens/BattleTowerFight";
 import type {
     TowerSession,
@@ -54,6 +60,7 @@ const STRIKE_TILES = zone(at(3, 5));
 
 const session: TowerSession = {
     towerId: "celestial", runId: "preview", floor: 6, seed: 1, partySize: 2,
+    sealedCatalogFloor: { id: 6, name: "Warden's Crossfire", objective: "defeat-all", roundBudget: 8 },
     map: {
         width: W, height: H, biome: "forest",
         // Scattered terrain pillars (non-adjacent, like the server's scatterTerrain).
@@ -138,6 +145,12 @@ const session: TowerSession = {
     ],
     // The primed volley (violet tiles + the danger banner this round).
     bossStrike: { tiles: STRIKE_TILES, round: 3, pct: 8, kind: "volley", label: "Spire Warden's barrage" },
+    routeChoice: {
+        id: "elite-shortcut",
+        label: "Elite Shortcut",
+        summary: "Enemies gain 18% health and 10% damage; a clear earns 25% more score.",
+        scoreMultiplier: 1.25,
+    },
     log: [
         "The fight begins.",
         "A Spire Warden anchors the enemy formation.",
@@ -156,6 +169,7 @@ const session: TowerSession = {
 // Deliberately NOT a combat simulator — it exists to make the real screen
 // advance through real state transitions, not to reproduce server damage.
 const live = new URLSearchParams(window.location.search).has("live");
+const variant = new URLSearchParams(window.location.search).has("team") ? "team-pvp" : undefined;
 
 // The static board is an ART showcase: it parks the squad in its own read-safe
 // formation. Live mode starts the player adjacent to the front grunt so Attack,
@@ -273,6 +287,7 @@ const harnessStateFn = async (): Promise<TowerSession> => current;
 createRoot(document.getElementById("root")!).render(
     live
         ? <BattleTowerFight
+            variant={variant}
             character={{ name: "Rill" } as never}
             runId="preview"
             initialSession={liveSession}
@@ -280,5 +295,5 @@ createRoot(document.getElementById("root")!).render(
             actionFn={harnessActionFn}
             stateFn={harnessStateFn}
         />
-        : <BattleTowerFight character={{ name: "Rill" } as never} runId="preview" initialSession={session} onExit={() => {}} />,
+        : <BattleTowerFight variant={variant} character={{ name: "Rill" } as never} runId="preview" initialSession={session} onExit={() => {}} />,
 );

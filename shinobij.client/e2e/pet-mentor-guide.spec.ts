@@ -1,7 +1,65 @@
-import { expect, test, type Page, type Route, type TestInfo } from "@playwright/test";
+import { expect, test, type Locator, type Page, type Route, type TestInfo } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { PUBLIC_CAPABILITY_IDS } from "../../shared/public-capabilities";
 import { PET_TUTORIAL_LESSON_IDS } from "../../shared/pet-tutorial";
+
+/**
+ * Assert an <img> ships full-resolution art, waiting for it to actually decode.
+ *
+ * `toBeVisible()` only requires a non-empty layout box; it does not wait for
+ * the bytes. Reading `naturalWidth` straight afterwards therefore races the
+ * decode, and these three assertions failed under load with
+ * "Expected: >= 1200, Received: 0" while the art was perfectly intact — a
+ * 209 KB WebP that had simply not finished decoding yet. CI never saw it
+ * because it runs 2 workers per shard; a full local run uses many more.
+ *
+ * Polling `complete` is the same wait the rest of e2e/ already uses
+ * (world-crisis, pet-home-visual, item-artwork-coverage). A genuinely broken
+ * image still fails: it settles `complete === true` with `naturalWidth === 0`,
+ * so the poll never reaches the floor and times out on the message below.
+ */
+async function expectDecodedArtAtLeast(art: Locator, minimumWidth: number, label: string) {
+    await expect(art).toBeVisible();
+    await expect
+        .poll(
+            () => art.evaluate((image: HTMLImageElement) => (image.complete ? image.naturalWidth : 0)),
+            { message: `${label} must decode to at least ${minimumWidth}px wide — the full art, not a thumbnail` },
+        )
+        .toBeGreaterThanOrEqual(minimumWidth);
+}
+
+// Mirrored from shared/wanderer-roster.ts rather than imported: that module
+// reaches sideways to `./sector-geo.js`, an extension the Playwright runner's
+// TypeScript resolution refuses, so importing it fails collection outright.
+// shared/wanderer-roster.test.ts pins both values on the source side.
+const WANDERER_BUCKET_MS = 6 * 60 * 60 * 1000;
+const WANDERER_MAX_INDEX = 1;
+
+/**
+ * Keep the road empty for the sector this fixture drops the player into.
+ *
+ * The bandit archetype WALKS AT YOU and opens a blocking Fight/Flee encounter
+ * whose scrim then eats every click on the sector floor -- including Tomoe's
+ * road prompt, which is what this file is here to certify. The cast is
+ * deterministic per (sector, 6h bucket), so this is not flake that retries
+ * away: it lands on whole runs whose bucket happened to roll a bandit.
+ *
+ * The supported way to keep an NPC off the road is its own anti-farm cooldown,
+ * which is real character state the sector floor already honours. Neighbouring
+ * buckets are seeded too because the page reads the bucket off `serverNow()`,
+ * not this process's clock. Mirrors the same helper in adaptive-shell.spec.ts.
+ */
+function quietRoadCooldowns(sector: number, now = Date.now()): Record<string, number> {
+    const expiry = now + 30 * 24 * 60 * 60 * 1000;
+    const cooldowns: Record<string, number> = {};
+    for (const offset of [-1, 0, 1]) {
+        const bucket = Math.floor(now / WANDERER_BUCKET_MS) + offset;
+        for (let index = 0; index <= WANDERER_MAX_INDEX; index++) {
+            cooldowns[`w-${sector}-${bucket}-${index}`] = expiry;
+        }
+    }
+    return cooldowns;
+}
 
 function json(route: Route, body: unknown, status = 200) {
     return route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
@@ -95,7 +153,7 @@ function character(completedLessonIds: string[] = []) {
 
 async function installApi(page: Page, currentSector = 0, completedLessonIds: string[] = []) {
     let saveVersion = 1;
-    const savedCharacter = character(completedLessonIds);
+    const savedCharacter = { ...character(completedLessonIds), wandererCooldowns: quietRoadCooldowns(currentSector) };
 
     await page.addInitScript(() => {
         // WebKit rejects this large intercepted autosave before page.route can
@@ -220,8 +278,7 @@ test("Tomoe appears on the active road while a paced lesson is waiting", async (
     const roadPrompt = page.getByRole("button", { name: /Tamer Tomoe & Kuro/ });
     await expect(roadPrompt).toBeVisible();
     const roadArt = roadPrompt.locator("img");
-    await expect(roadArt).toBeVisible();
-    expect(await roadArt.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThanOrEqual(700);
+    await expectDecodedArtAtLeast(roadArt, 700, "the road prompt portrait");
     const roadAccessibility = await new AxeBuilder({ page })
         .include(".pet-mentor-road-prompt")
         .withTags(["wcag2a", "wcag2aa", "wcag2aaa", "wcag21a", "wcag21aa"])
@@ -255,8 +312,7 @@ test("Tomoe provides a complete, responsive seven-chapter pet battle course", as
     await expect(guide).toBeVisible();
     await expect(guide.getByRole("heading", { name: "Tamer Tomoe & Kuro" })).toBeVisible();
     const prologueArt = guide.getByRole("img", { name: /Tomoe and Kuro studying a fresh trail/i });
-    await expect(prologueArt).toBeVisible();
-    expect(await prologueArt.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThanOrEqual(1200);
+    await expectDecodedArtAtLeast(prologueArt, 1200, "the prologue chronicle art");
     await expect(guide.getByText("A trail found at blue hour")).toBeVisible();
     await expect(guide.getByRole("button", { name: "Close Tomoe's field guide" })).toBeFocused();
     await expect(guide.getByRole("navigation", { name: "Pet battle lessons" }).getByRole("button")).toHaveCount(7);
@@ -290,7 +346,7 @@ test("Tomoe provides a complete, responsive seven-chapter pet battle course", as
     await expect(guide.getByText("The bell between lessons")).toBeVisible();
 
     await guide.getByRole("button", { name: /Warfront/ }).click();
-    const warfrontHeading = guide.getByRole("heading", { name: "Command the Hollow Warfront" });
+    const warfrontHeading = guide.getByRole("heading", { name: "Command Beastbound Warfront" });
     await expect(warfrontHeading).toBeVisible();
     await expect(warfrontHeading).toBeInViewport();
     expect(await guide.locator(".pet-mentor-lesson").evaluate((lesson) => lesson.scrollTop)).toBeLessThanOrEqual(1);
@@ -331,9 +387,8 @@ test("the completed course reveals Tomoe and Kuro's illustrated farewell", async
     const guide = page.getByRole("dialog", { name: "Tamer Tomoe & Kuro" });
     await expect(guide.getByText("The bell at dawn")).toBeVisible();
     const finaleArt = guide.getByRole("img", { name: /Tomoe and Kuro departing at dawn/i });
-    await expect(finaleArt).toBeVisible();
-    expect(await finaleArt.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThanOrEqual(1200);
-    await expect(guide.getByText(/next lesson is no longer theirs to give/i)).toBeVisible();
+    await expectDecodedArtAtLeast(finaleArt, 1200, "the finale chronicle art");
+    await expect(guide.getByText(/Tomoe leaves the field journal in your keeping/i)).toBeVisible();
     await page.screenshot({
         path: testInfo.outputPath("tomoe-field-guide-epilogue.png"),
         fullPage: true,

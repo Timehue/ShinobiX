@@ -1,3 +1,4 @@
+import { creditElderWins } from '../../shared/elder-elections.js';
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
@@ -129,7 +130,7 @@ async function settleSealedStoryRun(params: { runId: string; playerName: string;
             return {
                 ok: true as const,
                 character: {
-                    ...settled.character,
+                    ...(isSpar ? settled.character : creditElderWins(settled.character, 0, 1)),
                     redeemedStoryBattles: [...redeemed.slice(-19), redemption],
                 },
                 value: { ...redemption, replayed: false },

@@ -38,9 +38,11 @@ import {
 export function StoryArchiveHall({
     character,
     setScreen,
+    onResumeStory,
 }: {
     character: Character;
     setScreen: (screen: Screen) => void;
+    onResumeStory?: () => void;
 }) {
     const village = character.storyVillage || character.village;
     const [section, setSection] = useState<"stories" | "chronicle">("stories");
@@ -63,7 +65,7 @@ export function StoryArchiveHall({
             </nav>
             {section === "stories" ? (
                 <StoryContentBoundary village={village} onReturn={() => setScreen("village")}>
-                    <StoryJourney character={character} onReturnToVillage={() => setScreen("village")} />
+                    <StoryJourney character={character} onReturnToVillage={() => setScreen("village")} onResumeStory={onResumeStory} />
                 </StoryContentBoundary>
             ) : (
                 <LivingChronicle key={`${character.name}:${character.clan ?? ""}`} character={character} />

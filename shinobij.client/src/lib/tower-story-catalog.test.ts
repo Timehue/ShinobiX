@@ -6,6 +6,7 @@ import {
     isTowerStoryFloorActionable,
     orderedTowerStoryFloors,
     recommendedTowerStoryFloor,
+    towerStoryFieldReport,
 } from "./tower-story-catalog";
 
 function floor(id: number, chapter?: number): TowerFloorMeta {
@@ -43,6 +44,13 @@ test("Story recommendation follows API floors beyond the former ten-floor ceilin
     assert.equal(recommendedTowerStoryFloor(floors, 10), 11);
     assert.equal(recommendedTowerStoryFloor(floors, 12), 12, "a catalog gap never recommends an unauthorized numeric floor");
     assert.equal(recommendedTowerStoryFloor(floors, 15), 15, "a completed catalog stays on its finale");
+});
+
+test("Chapter field reports require the newly settled milestone", () => {
+    assert.equal(towerStoryFieldReport(10, []), null);
+    assert.match(towerStoryFieldReport(10, ["tower-floor-10"]) ?? "", /Genin.*vanguard.*upper route/i);
+    assert.match(towerStoryFieldReport(15, ["tower-floor-15"]) ?? "", /Tower Scout.*array is dark.*extraction/i);
+    assert.equal(towerStoryFieldReport(15, ["tower-floor-10"]), null);
 });
 
 test("Story actionability mirrors level, replay, and numeric-frontier authority", () => {

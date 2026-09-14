@@ -1,4 +1,5 @@
 import { safeLogValue } from '../_safe-log.js';
+import { recordFirstContractActivity } from '../../shared/first-contract.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -153,6 +154,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const itemId = typeof body.itemId === 'string' && body.itemId ? body.itemId.slice(0, 80) : undefined;
                 const loadout = { ...(pet.loadout && typeof pet.loadout === 'object' ? pet.loadout as Record<string, unknown> : {}) };
                 const current = typeof loadout[slot] === 'string' ? String(loadout[slot]) : undefined;
+                if (itemId && itemId === current) {
+                    // Re-equipping the item already in the slot is a TRUE no-op.
+                    // The PVE branch below used to reset `pveDurability` to 20 on
+                    // every non-empty equip, so a worn item at 1 durability was
+                    // repaired for free by re-selecting it — no inventory debit,
+                    // because the `itemId !== current` guard above skipped the
+                    // removal. Nothing changes here: durability, inventory and the
+                    // save version all stay exactly as they were, so a retried
+                    // replacement (whose first attempt already landed) can neither
+                    // repair nor debit a second time.
+                    return { ok: true as const, character, value: { action, pet, settledTraining: null }, write: false as const };
+                }
                 if (itemId && itemId !== current) {
                     const owned = removePetItem(character, itemId);
                     if (!owned) return { ok: false as const, status: 409, error: 'Pet equipment is not owned.' };
@@ -215,6 +228,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 breedingEvent = { kind: 'pet-interaction', petElement: String(pet.element ?? '') };
             }
             if (breedingEvent) finalizedCharacter = recordPetBreedingProgress(finalizedCharacter, breedingEvent, now).character;
+            if (action === 'pet' || action === 'feed') finalizedCharacter = recordFirstContractActivity(finalizedCharacter, 'companion', { kind: 'companion-care' }, now);
             return { ok: true as const, character: finalizedCharacter, value: { action, pet: nextPet, settledTraining } };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });

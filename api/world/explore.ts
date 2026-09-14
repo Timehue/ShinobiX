@@ -1,4 +1,5 @@
 import { safeLogValue } from '../_safe-log.js';
+import { isIncapacitated } from '../_elapsed-state.js';
 import { randomInt } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
@@ -29,10 +30,11 @@ import {
     loadSectorPoolFrame, readSectorPool, reserveSectorPool, sectorPoolHasRoom,
     type SectorPoolFrame, type SectorPoolReservation,
 } from './_sector-pool.js';
-import { creditSectorIntel, INTEL_PER_EXPLORE } from '../_village-intel.js';
-import { creditSectorContractProgress } from '../_sector-contracts.js';
 import { villageStoresEnabled } from '../_release-flags.js';
 import { addPendingWorldReward, settlePendingWorldReward } from './_pending-rewards.js';
+import { fieldActionBlockedByClaimedBattle } from '../_sector-presence-gate.js';
+import { unresolvedExploreBattle } from './_pending-battle.js';
+import { deliverWorldEffect, drainWorldEffects } from './_effects-outbox.js';
 
 function cleanRequestId(value: unknown): string {
     const id = typeof value === 'string' ? value.trim().slice(0, 96) : '';
@@ -70,6 +72,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Exact lost-ACK replay bypasses the new-action throttle.
         if (!durable && !identity.admin && !(await enforceRateLimitKv(req, res, 'world-explore', 180, 60_000, identity.name))) return;
 
+        // Side effects an EARLIER exploration still owes (sector intel, contract
+        // progress) are delivered before this one starts — see _effects-outbox.
+        await drainWorldEffects(playerName);
+
         // The wild pays out only to someone actually standing in it — the same
         // rule attacking already follows. Without this, a client can report
         // sector 0 (unattackable town presence) and still farm the field.
@@ -105,8 +111,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             chest: SectorPoolReservation | null;
             village: string | undefined;
             frame: SectorPoolFrame | null;
-        } = { reservation: null, chest: null, village: undefined, frame: null };
+            /** Latched once the save mutation carrying this request's reward and
+             *  discovery has COMMITTED. From then on the reservation is owed:
+             *  the player holds an exploration (and possibly a chest) that the
+             *  shared counters must keep counting, and the same-id retry replays
+             *  the committed receipt without reserving again. Releasing after
+             *  this point refunded a slot nobody gave back. */
+            committed: boolean;
+        } = { reservation: null, chest: null, village: undefined, frame: null, committed: false };
         const releasePool = async () => {
+            if (pool.committed) return;
             for (const slot of ['reservation', 'chest'] as const) {
                 const held = pool[slot];
                 if (!held?.ok) continue;
@@ -216,9 +230,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // or dungeon token already proved presence at its own sector,
                 // so ACK-loss recovery may settle after movement/reconnect.
                 if (!petMissRequestId && !pendingDungeonMiss) {
+                    // A hospitalized character cannot work the field. Honest
+                    // clients never reach here (the Hospital screen holds them);
+                    // this is the server's own answer to a tampered one.
+                    if (isIncapacitated(character) && !identity.admin) {
+                        return { ok: false as const, status: 409, error: JSON.stringify({ error: 'hospitalized', reason: 'hospitalized' }) };
+                    }
+                    // An ambush this player already rolled and never fought is
+                    // an obligation: name it, and the client resumes that exact
+                    // encounter instead of rolling a fresh one (_pending-battle).
+                    const pendingBattle = await unresolvedExploreBattle(playerName, receipts, Date.now());
+                    if (pendingBattle && !identity.admin) {
+                        return {
+                            ok: false as const,
+                            status: 409,
+                            error: JSON.stringify({
+                                error: 'pending-battle-discovery',
+                                reason: 'pending-battle-discovery',
+                                requestId: pendingBattle.requestId,
+                                sector: pendingBattle.sector,
+                            }),
+                        };
+                    }
                     const presenceBlock = sectorPresenceBlock(playerName, body.sector);
                     if (presenceBlock && !identity.admin) {
                         return { ok: false as const, status: presenceBlock.status, error: presenceBlock.error };
+                    }
+                    // The server-proven `inBattle` state (F01) is held to its own
+                    // consequence: mid-battle players do not work the field.
+                    const battleBlock = fieldActionBlockedByClaimedBattle(playerName);
+                    if (battleBlock && !identity.admin) {
+                        return { ok: false as const, status: battleBlock.status, error: JSON.stringify({ error: battleBlock.reason, reason: battleBlock.reason, message: battleBlock.error }) };
                     }
                 }
             }
@@ -381,6 +423,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 },
             };
             });
+            // The primary operation is durable from here: nothing after this line
+            // may hand the shared-sector debit back (see `pool.committed`).
+            if (mutation.ok) pool.committed = true;
             if (mutation.ok && 'petMissRequestId' in mutation.value && mutation.value.petMissRequestId) {
                 const active = cleanPetEncounterPointer(await kv.get(activePetKey));
                 if (active?.outcome === 'miss' && active.requestId === mutation.value.petMissRequestId) {
@@ -424,14 +469,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // unchanged: a fresh explore scouts, a replay never did and still does not.
         if (!result.value.replayed) {
             const scoutedSector = Math.floor(Number((result.value.reward as Record<string, unknown>)?.sector ?? body.sector));
-            await creditSectorIntel(pool.village, scoutedSector, INTEL_PER_EXPLORE, Date.now(), pool.frame?.owner).catch(() => undefined);
-            // Sector Contracts ride the same receipt for the same reason: the
-            // server watched this explore land, so contract progress is never a
-            // client tally. Best-effort and outside the save lock, exactly like
-            // the intel credit above — a storage blip must not fail an explore
+            // Both are OBLIGATIONS of the committed exploration (_effects-outbox):
+            // attempted now, parked on failure, drained on the next exploration.
+            // Still outside the save lock, and still never failing an explore
             // that already paid. A replay does not tick, so a retried request
             // cannot inflate progress.
-            await creditSectorContractProgress(playerName, scoutedSector).catch(() => undefined);
+            await deliverWorldEffect(playerName, { kind: 'intel', requestId, village: pool.village, sector: scoutedSector }, { owner: pool.frame?.owner });
+            // Sector Contracts ride the same receipt for the same reason: the
+            // server watched this explore land, so contract progress is never a
+            // client tally.
+            await deliverWorldEffect(playerName, { kind: 'contract', requestId, sector: scoutedSector });
         }
         let authority = durable;
         try {
@@ -482,11 +529,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         : await readSectorPool(authority.sector, pool.village, Date.now(), pool.frame?.owner).catch(() => undefined);
             return res.status(200).json({ ok: true, ...result.value, fieldProgress, sectorPool, character: result.character, _saveVersion: result._saveVersion });
         } catch (sideEffectError) {
-            // Settlement did not complete, so hand the slots back — this is the
-            // "any failure AFTER the reservation" case the pool block above
-            // promises. The same-id retry replays off the save/durable receipt
-            // and takes no new slot, so without this release the slots would be
-            // held for the rest of the UTC day with nobody paid for them.
+            // The save mutation above has COMMITTED the reward/discovery and its
+            // receipt; only the secondary work (durable receipt, field progress,
+            // pending-chest mirror) is still owed. The slots stay debited: the
+            // player holds the exploration those slots paid for, and the same-id
+            // retry replays the committed receipt without reserving again — so a
+            // release here refunded a slot that was genuinely consumed (and a
+            // chest receipt could still say `poolReserved: true` over a counter
+            // that no longer counted it). `releasePool` is a no-op once
+            // `pool.committed` is latched; it is kept here so the pre-commit
+            // contract reads the same in both places.
             await releasePool();
             console.error('[world/explore] durable settlement pending', safeLogValue(sideEffectError));
             return res.status(503).json({ error: 'Exploration settlement is still finalizing.', retryable: true, requestId });

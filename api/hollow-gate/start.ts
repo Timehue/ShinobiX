@@ -2,10 +2,12 @@ import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
+import { publishHollowGatePresence } from './_presence.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { randomUUID } from 'node:crypto';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { isIncapacitated } from '../_elapsed-state.js';
 import {
     rollAugmentOffers,
     AUGMENT_CATALOG,
@@ -18,7 +20,7 @@ import {
     type HollowGateRunToken,
     type HgCurrencyKey,
 } from './_run-token.js';
-import { RIFT_QUESTS } from '../sector/_rift-quest.js';
+import { RIFT_QUESTS, parseRiftQuestSeal, reconcileRiftRunBinding, type RiftQuestSeal } from '../sector/_rift-quest.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
 import { loadPublishedContent } from '../_content-store.js';
 import { HOLLOW_GATE_LEDGER_ITEM_IDS, type HollowGateRewardLedger } from './_ledger.js';
@@ -194,8 +196,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'hollow-gate-start', 20, 60_000, identity.name))) return;
 
+        const preflightRecord = requestedVariantId.startsWith('rift-')
+            ? await kv.get<Record<string, unknown>>(`save:${playerName}`)
+            : null;
         const sealedRift = requestedVariantId.startsWith('rift-')
-            ? await kv.get<{ id?: string }>(`rift-quest:${playerName}`)
+            ? parseRiftQuestSeal(preflightRecord?.activeRiftQuestSeal)
+                ?? parseRiftQuestSeal(await kv.get(`rift-quest:${playerName}`))
             : null;
         const riftDef = sealedRift?.id === requestedVariantId ? RIFT_QUESTS[requestedVariantId] : undefined;
         const eventDef = await readPublishedEventGate(requestedVariantId);
@@ -206,19 +212,71 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let issued: { token: string; runToken: HollowGateRunToken; offers: ReturnType<typeof rollAugmentOffers> } | null = null;
         let replayed = false;
         let reservation: StartReservation | null = null;
-        const mutation = await mutatePlayerSave(playerName, async ({ character }) => {
+        const mutation = await mutatePlayerSave(playerName, async ({ character, record }) => {
+            let currentRiftSeal: RiftQuestSeal | null = null;
+            if (requestedVariantId.startsWith('rift-')) {
+                currentRiftSeal = parseRiftQuestSeal(record.activeRiftQuestSeal)
+                    ?? parseRiftQuestSeal(await kv.get(`rift-quest:${playerName}`));
+                if (!riftDef || currentRiftSeal?.id !== requestedVariantId || currentRiftSeal.at !== sealedRift?.at) {
+                    return { ok: false as const, status: 409, error: 'rift-quest-seal-mismatch' };
+                }
+                if (Math.floor(Number(record.currentSector)) !== currentRiftSeal.targetSector) {
+                    return { ok: false as const, status: 409, error: 'rift-quest-target-mismatch' };
+                }
+            }
             const priorStart = character.lastHollowGateStart && typeof character.lastHollowGateStart === 'object'
                 ? character.lastHollowGateStart as Record<string, unknown>
                 : null;
             if (priorStart?.requestId === requestId && typeof priorStart.token === 'string') {
-                const priorRun = await kv.get<HollowGateRunToken>(hollowGateRunKey(playerName, priorStart.token));
+                let priorRun = await kv.get<HollowGateRunToken>(hollowGateRunKey(playerName, priorStart.token));
                 if (!priorRun) return { ok: false as const, status: 409, error: 'hollow-gate-start-spent' };
+                if ((priorRun.variantId ?? '') !== requestedVariantId) {
+                    return { ok: false as const, status: 409, error: 'hollow-gate-start-request-mismatch' };
+                }
+                let repairedRiftSeal: RiftQuestSeal | null = null;
+                if (currentRiftSeal) {
+                    const savedRunToken = character.hollowGateRun && typeof character.hollowGateRun === 'object'
+                        ? (character.hollowGateRun as Record<string, unknown>).runToken
+                        : null;
+                    const binding = reconcileRiftRunBinding(currentRiftSeal, {
+                        variantId: priorRun.variantId,
+                        runToken: priorStart.token,
+                        mintedAt: priorRun.mintedAt,
+                        riftQuestAcceptedAt: priorRun.riftQuestAcceptedAt,
+                    }, savedRunToken);
+                    if (!binding) return { ok: false as const, status: 409, error: 'rift-quest-run-mismatch' };
+                    repairedRiftSeal = binding.seal;
+                    if (priorRun.riftQuestAcceptedAt !== binding.acceptedAt) {
+                        priorRun = { ...priorRun, riftQuestAcceptedAt: binding.acceptedAt };
+                        await kv.set(hollowGateRunKey(playerName, priorStart.token), priorRun);
+                    }
+                }
                 const priorOffers = priorRun.offeredAugmentIds
                     .map((id) => AUGMENT_CATALOG[id])
                     .filter((offer): offer is NonNullable<typeof offer> => Boolean(offer));
                 replayed = true;
                 issued = { token: priorStart.token, runToken: priorRun, offers: priorOffers };
-                return { ok: true as const, character, value: { token: priorStart.token } };
+                await publishHollowGatePresence(kv, playerName, priorStart.token);
+                return {
+                    ok: true as const,
+                    character,
+                    ...(repairedRiftSeal ? { recordPatch: { activeRiftQuestSeal: repairedRiftSeal } } : {}),
+                    value: { token: priorStart.token },
+                };
+            }
+            // A hospitalized diver is refused BEFORE anything is spent. Everything
+            // below this line costs the player something irreversible — a Hollow
+            // Gate key, then a slot off the daily cap — while combat-start.ts
+            // refuses every fight inside the dive for exactly this state. Starting
+            // here therefore burned a capped entry on a run that could not be
+            // played, and the open run then suppressed vitals regen as well
+            // (hasActiveHollowGateRun, api/_elapsed-state.ts).
+            //
+            // Deliberately placed AFTER the replay branch above: an idempotent
+            // retry of a dive that already started is still honored, because that
+            // run is already paid for and refusing it would strand it.
+            if (!identity.admin && isIncapacitated(character)) {
+                return { ok: false as const, status: 409, error: 'hospitalized' };
             }
             const freeEntry = Boolean(riftDef) || eventDef?.keyCost === 0;
             const afterKey = identity.admin || freeEntry ? character : consumeHollowGateKey(character);
@@ -290,6 +348,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 dailyRunOrdinal: ord,
                 ...(riftDef ? {
                     variantId: riftDef.id,
+                    riftQuestAcceptedAt: currentRiftSeal!.at,
                     bossProfileId: riftDef.bossAiId,
                     bossName: riftDef.bossName,
                 } : eventDef ? {
@@ -306,7 +365,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // A crash can leave an unguessable orphan, but never a paid save with
             // a missing run token. The request marker makes a lost response safe.
             await kv.set(hollowGateRunKey(playerName, token), runToken);
+            // F01: the dive is provable presence from this moment (api/hollow-gate/_presence.ts).
+            await publishHollowGatePresence(kv, playerName, token);
             const augmentOffers = offers.map(augmentDisplay);
+            const boundRiftSeal = currentRiftSeal ? { ...currentRiftSeal, runToken: token } : null;
             return {
                 ok: true as const,
                 character: {
@@ -333,6 +395,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         pendingFloorSeal: true,
                     },
                 },
+                ...(boundRiftSeal ? { recordPatch: { activeRiftQuestSeal: boundRiftSeal } } : {}),
                 value: { token },
             };
         }).catch(async (error: unknown) => {

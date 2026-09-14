@@ -1,9 +1,10 @@
+import { readVillageAnbu } from '../village/_anbu.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import type { ActionReceipt } from '../_receipts.js';
 import { createHash, randomUUID, randomBytes } from 'crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { kv } from '../_storage.js';
-import { isWildSector } from '../../shared/sector-geo.js';
+import { isWildSector, sectorBiomeOf } from '../../shared/sector-geo.js';
 import { resolveSectorWeather, sectorWeatherElements } from '../../shared/sector-weather.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -37,6 +38,9 @@ import {
 } from './_session-publication-tombstone.js';
 import { releaseChallengePvpReservation, reserveChallengeForPvpSession } from './_challenge-authorization.js';
 import { enforcePvpTurnDeadline } from './_turn-deadline.js';
+import { isPvpSessionLapsed } from './_lapse-rules.js';
+import { terminalizeLapsedPvpSession } from './_lapse.js';
+import { PVP_ACTIVE_ROW_TTL } from '../combat-core/constants.js';
 import {
     releaseClanWarPvpReservation,
     requireClanWarPvpReservation,
@@ -151,6 +155,8 @@ export type PvpGroundEffect = {
     activeRound?: number;
     /** Whether an in-zone target actually consumed the opener's cast-time pulse. */
     castPulseConsumed?: boolean;
+    /** Casting jutsu's bloodline rank, so a zone's Poison answers to the same rank ceiling as a direct cast. */
+    bloodlineRank?: string;
     tags: Array<{ name: string; percent?: number; amount?: number }>;
 };
 
@@ -223,6 +229,8 @@ export type PvpSession = {
     createdAt: number;
     /** Immutable server time sealed by the CAS that first terminalizes combat. */
     endedAt?: number;
+    /** Set only when the duel was terminalized because it LAPSED (F08): the expiry it lapsed at. */
+    lapsedAt?: number;
     // Stamped every time a successful move commits. Used as a crashed-tab
     // fallback by the 'claim-afk-win' action — if the active player hasn't
     // moved in 90s the inactive player can claim the win even if the
@@ -968,6 +976,7 @@ const SESSION_STRIP_CHAR_FIELDS = new Set<string>([
     'lastBankInterestAt',
     'creatorAis', 'creatorEvents', 'creatorMissions', 'creatorRaids', 'creatorCards',
     'defeatedAiIds', 'elderFocus', 'examsPassed',
+    'elderWinDays', 'elderRankedWinReceipts',
     'triggeredEvents',
     // Story-only persistence
     'storyTraits', 'storyTitle', 'storyProgress',
@@ -1290,6 +1299,8 @@ function resolveEquippedPvpItems(
 export function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>, clientCharacter: Record<string, unknown>, save: Record<string, unknown> | null = null, admin: AdminCombatContent | null = null): Record<string, unknown> {
     // Start with the save (server is authority for HP, level, stats, etc.).
     const merged: Record<string, unknown> = { ...saveCharacter };
+    // This is a session-only stamp, added after field-war authority is checked.
+    merged.elderWarDefensePct = 0;
     // For derived fields the client computes, fall back to the client value
     // only when the save doesn't have a usable value. All within safe bounds.
     const pickClamped = (saveVal: unknown, clientVal: unknown, min: number, max: number, fb: number) => {
@@ -1519,6 +1530,7 @@ function clampStatsObject(raw: unknown): Record<string, number> {
 // arena PvP-vs-AI flows that don't persist.
 function hydrateNpcCharacter(clientCharacter: Record<string, unknown>): Record<string, unknown> {
     const out: Record<string, unknown> = { ...clientCharacter };
+    out.elderWarDefensePct = 0;
     out.bloodlineMult = clampNumber(out.bloodlineMult, 1.0, 3.0, 1.0);
     out.armorFactor = clampNumber(out.armorFactor, 0.25, 1.0, 1.0);
     out.armorRawDR = clampNumber(out.armorRawDR, 0, 1.5, 0);
@@ -1672,6 +1684,29 @@ function normalizeBiome(b: unknown): string {
     if (typeof b === 'string' && VALID_BIOMES.has(b)) return b;
     return 'central';
 }
+
+/**
+ * The biome a session is sealed with — the ground the fight is actually fought on.
+ *
+ * The biome is not decoration: it decides terrainMultiplier's +10% to the
+ * matching school, and it selects which rotation table the sky is drawn from
+ * (shared/sector-weather). Taking it from the request body therefore let a
+ * tampered client pick its own ground while standing on someone else's.
+ *
+ *  - RANKED is fought on neutral ground, always ('central'). A session creator
+ *    could otherwise hold a ladder-long advantage.
+ *  - A WILD SECTOR has a server-known biome (shared/sector-geo, the same table
+ *    the world map paints from), so it is derived, never read from the body. An
+ *    honest client sends exactly this value, so real play is unaffected.
+ *  - Anything else — arena, direct challenges, story backdrops — has no ground
+ *    truth to appeal to and keeps the client-chosen environment, as before.
+ */
+export function sealedSessionBiome(rewardSector: unknown, bodyBiome: unknown, isRanked: boolean): string {
+    if (isRanked) return 'central';
+    const sector = Math.floor(Number(rewardSector));
+    if (isWildSector(sector)) return normalizeBiome(sectorBiomeOf(sector));
+    return normalizeBiome(bodyBiome);
+}
 function normalizeElement(e: unknown): string {
     if (typeof e === 'string' && VALID_ELEMENTS.has(e)) return e;
     return '';
@@ -1793,6 +1828,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return res.status(409).json({ error: 'This ranked match ended as a no-contest.' });
                 }
                 let session = liveRaw as PvpSession | null;
+                if (session && isPvpSessionLapsed(session)) {
+                    try {
+                        const lapsed = await terminalizeLapsedPvpSession(pointer.battleId);
+                        if (lapsed.ok && lapsed.session) session = lapsed.session;
+                    } catch (error) {
+                        console.error('[pvp/session] lapse terminalization failed', error);
+                    }
+                }
                 if (!session) session = await loadPvpRewardRecoverySnapshot(kv, pointer.battleId);
                 if (!session && pvpPendingReservationIsFresh(pointer)) {
                     return res.status(503).json({ error: 'PvP session publication is still finalizing.' });
@@ -1878,6 +1921,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(409).json({ error: 'This ranked match ended as a no-contest.' });
         }
         let session = sessionRaw as PvpSession;
+        // F08: a duel nobody touched for a whole session TTL is a double
+        // walk-out. It is recorded as a draw from the row's own evidence and
+        // its terminal effects replayed before anyone is shown a live fight.
+        if (isPvpSessionLapsed(session)) {
+            try {
+                const lapsed = await terminalizeLapsedPvpSession(battleId);
+                if (lapsed.ok && lapsed.session) session = lapsed.session;
+            } catch (error) {
+                console.error('[pvp/session] lapse terminalization failed', error);
+            }
+        }
         if (session.status === 'active') {
             // Server-authoritative turn expiry: a poll by EITHER player (or a
             // spectator) auto-waits a lapsed turn so a closed tab can never
@@ -2184,6 +2238,48 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (p2Hp <= 0) {
                     return res.status(400).json({ error: `${p2Name} is unconscious and cannot enter this fight.` });
                 }
+                // F5 Field Recovery, enforced HERE for the same reason the
+                // presence gate is: this endpoint is the real gate. The client
+                // creates the session BEFORE /api/player/challenge or
+                // /api/player/attack, so a shield read only in attack.ts is
+                // bypassed by pre-creating the session, and the protection
+                // evaporates against exactly the client it was written for.
+                //
+                // Only the DEFENDER (the fighter who is not the creator) is
+                // protected — the same asymmetry attack.ts uses, where a shield
+                // stops you being raided but never stops you raiding. Same 409
+                // and retryAfterMs shape so the client renders it identically.
+                if (!identity.admin) {
+                    const nowMs = Date.now();
+                    const defending: 'p1' | 'p2' | null =
+                        identity.name === p1Norm ? 'p2' : identity.name === p2Norm ? 'p1' : null;
+                    if (defending) {
+                        const defender = defending === 'p1' ? finalP1Character : finalP2Character;
+                        const defenderName = defending === 'p1' ? p1Name : p2Name;
+                        const shieldedUntil = Math.floor(Number(defender.pvpShieldUntil ?? 0)) || 0;
+                        if (shieldedUntil > nowMs) {
+                            return res.status(409).json({
+                                error: `${defenderName} is recovering from a recent defeat.`,
+                                retryAfterMs: shieldedUntil - nowMs,
+                            });
+                        }
+                    }
+                }
+            }
+
+            // Always replace this field: neither a saved/client combat stamp nor
+            // an arena invitation may manufacture a wartime council bonus.
+            finalP1Character.elderWarDefensePct = 0;
+            finalP2Character.elderWarDefensePct = 0;
+            if (useCurrentVitals === true && p1Save?.character && p2Save?.character) {
+                const { elderWarDefensePct } = await import('../village/_elder-defense.js');
+                const first = p1Save.character as Record<string, unknown>;
+                const second = p2Save.character as Record<string, unknown>;
+                const [p1Defense, p2Defense] = await Promise.all([
+                    elderWarDefensePct(first, second.village), elderWarDefensePct(second, first.village),
+                ]);
+                finalP1Character.elderWarDefensePct = p1Defense;
+                finalP2Character.elderWarDefensePct = p2Defense;
             }
 
             // ── Seal the defending guard's Town Defense bonus ────────────────
@@ -2446,13 +2542,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         : [];
                     let raidDamage = 0;
                     if (ownerClan && !controls) {
-                        const villageKey = ownerVillage.toLowerCase().replace(/[^a-z0-9]/g, '');
-                        const villageState = await kv.get<{ anbuAppointees?: unknown }>(
-                            `game:village-state:${villageKey}`,
-                        );
-                        const anbu = new Set(Array.isArray(villageState?.anbuAppointees)
-                            ? villageState.anbuAppointees.map((name) => safeName(String(name))).filter(Boolean)
-                            : []);
+                        const anbu = new Set((await readVillageAnbu(ownerVillage)).members.map(safeName));
                         const anbuCount = guards.filter((guard) => anbu.has(guard)).length;
                         raidDamage = anbuCount > 0
                             ? Math.max(50, 250 - anbuCount * 50)
@@ -2568,7 +2658,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // tampered client holding a valid match token can't pick favorable
             // terrain. Casual fights keep the client-chosen environment.
             const isRankedSession = rankedStamp.ranked === true;
-            const sealedBiome = isRankedSession ? 'central' : normalizeBiome(biome);
+            // On a WILD SECTOR the biome is a fact the server already holds
+            // (shared/sector-geo, the same table the world map paints from), so it
+            // is derived here rather than read from the body. The body's biome
+            // decides two damage terms — terrainMultiplier's +10% to the matching
+            // school, and which rotation table the sky is drawn from — so trusting
+            // it let a tampered client pick its own ground while fighting on
+            // someone else's. An honest client sends this exact value, so nothing
+            // changes for real play; only the lie is refused.
+            //
+            // Non-sector casual fights (no wild rewardSector — arena, challenges,
+            // story backdrops) have no ground truth to appeal to and deliberately
+            // keep the client-chosen environment, as before. Ranked stays neutral.
+            const rewardSectorNum = Math.floor(Number(rewardSector));
+            const sealedBiome = sealedSessionBiome(rewardSector, biome, isRankedSession);
             let sealedWeatherPos = isRankedSession ? '' : normalizeElement(weatherPositiveElement);
             let sealedWeatherNeg = isRankedSession ? '' : normalizeElement(weatherNegativeElement);
 
@@ -2581,20 +2684,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             let p1HomeTerrain = '';
             let p2HomeTerrain = '';
             if (!isRankedSession) {
-                const secNum = Math.floor(Number(rewardSector));
+                const secNum = rewardSectorNum;
                 if (Number.isFinite(secNum) && secNum > 0) {
                     let territory: Record<string, unknown> | null = null;
                     try {
                         territory = await kv.get<Record<string, unknown>>(`world:territory:${secNum}`);
                     } catch { territory = null; /* read failed — schedule still applies, no home buff */ }
-                    // World-sector weather is SERVER-derived, not client-chosen: the
-                    // same shared function the client renders from
-                    // (shared/sector-weather: biome + sector + UTC day, clan
-                    // override first), fed the server clock — so every player
-                    // fighting in this sector today is sealed the same sky and a
-                    // tampered client can't pick a favourable forecast. Non-sector
-                    // casual fights (no wild rewardSector) keep the client-chosen
-                    // environment as before.
+                    // World-sector weather is SERVER-derived rather than taken from
+                    // the body: the same shared function the client renders from
+                    // (shared/sector-weather: biome + sector + weather window, clan
+                    // override first), fed the server's own clock. The SECTOR and the
+                    // WINDOW are therefore beyond a tampered client's reach, so it
+                    // cannot wait for or claim a favourable forecast.
+                    //
+                    // The biome is not open to it either: on a wild sector
+                    // `sealedBiome` is sectorBiomeOf(rewardSector), not the body (see
+                    // where it is derived above), so the rotation table this draw
+                    // comes from is the real ground's table.
+                    //
+                    // The sky is sealed HERE, at session creation, and does not follow
+                    // the schedule mid-fight — a window turning under a live fight must
+                    // not move the damage terms both sides agreed to. Non-sector casual
+                    // fights (no wild rewardSector) keep the client-chosen environment.
                     if (isWildSector(secNum)) {
                         const weather = resolveSectorWeather(sealedBiome, secNum, Date.now(), territory);
                         const elements = sectorWeatherElements(weather);
@@ -2857,7 +2968,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     await requireClanWarPvpReservation(clanWarReservation);
                 }
                 if (rankedStamp.rankedKind === 'player' && rankedStamp.rankedMatchId) {
-                    const placed = await kv.set(sessionKey, session, { nx: true, ex: SESSION_TTL } as never);
+                    const placed = await kv.set(sessionKey, session, { nx: true, ex: PVP_ACTIVE_ROW_TTL } as never);
                     if (!placed) {
                         const rawExisting = await kv.get<unknown>(sessionKey);
                         const admission = await getPlayerRankedAdmission(kv, rankedStamp.rankedMatchId);
@@ -2871,7 +2982,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         publishedSession = existing;
                     }
                 } else {
-                    let placed = await kv.set(sessionKey, session, { nx: true, ex: SESSION_TTL } as never);
+                    let placed = await kv.set(sessionKey, session, { nx: true, ex: PVP_ACTIVE_ROW_TTL } as never);
                     if (!placed) {
                         let existing = await kv.get<unknown>(sessionKey);
                         // A fence left by an earlier rollback of THIS exact
@@ -2882,7 +2993,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         if (publicationCapability
                             && pvpSessionPublicationTombstoneMatchesCapability(existing, publicationCapability)) {
                             placed = await kv.compareSet(sessionKey, existing, session, {
-                                ex: SESSION_TTL,
+                                ex: PVP_ACTIVE_ROW_TTL,
                             }) ? 'OK' : null;
                             if (!placed) existing = await kv.get<unknown>(sessionKey);
                         }

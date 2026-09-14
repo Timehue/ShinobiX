@@ -1,5 +1,10 @@
 # Verified combat-mode authority map
 
+> September 2026 update: the request to consolidate Pet Tactical into Beastbound
+> Warfront supersedes this snapshot's standalone Tactical surface-gap finding.
+> Ranked play now resolves the Rite from saved pet stats and sealed formations;
+> see [the current Warfront specification](../hollow-warfront-rite.md).
+
 Verified against commit d8948a311680b92a2a672ae0a0b35714e73e8b4f on 2026-08-14. This is a static call-path audit of the mounted client and server code. It records what is live in this revision, not what a design document or unmounted migration module says should be live.
 
 > [!NOTE]
@@ -208,7 +213,7 @@ Clan War names <code>pvp1v1</code>, <code>pvp2v2</code>, <code>pet1v1</code>, <c
 - <code>shinobij.client/src/App.tsx:5724-5725</code> comments that story bosses are Tower sessions, while <code>/story/boss-start</code> creates Solo.
 - <code>server.ts:1182-1184</code>, <code>api/village/sector-pet.ts:23-31</code>, and <code>shinobij.client/src/screens/SectorWarPetBattle.tsx:13</code> still describe the legacy generated pet sim; the mounted handler now imports Showdown's <code>resolveWarDuel</code>.
 - <code>shinobij.client/src/lib/pet-gauntlet.ts:1-16</code> still says Gauntlet uses the continuous duel and has no rewards. The mounted UI uses <code>runPetGridBattle</code>, while <code>/pet/gauntlet</code> server-replays transcripts and pays capped rewards.
-- <code>api/arena/_lobby-core.ts</code> now states co-op replays <code>runWarfrontRite</code> in spectator mode (corrected 2026-08-31; it previously claimed <code>runPetArenaMatch</code>). The mounted client renders <code>PetWarfrontMatch</code>; the server currently seals only inputs and pays no reward.
+- <code>api/arena/_lobby-core.ts</code> now states co-op replays <code>runWarfrontRite</code> in spectator mode (corrected 2026-08-31; it previously claimed <code>runPetArenaMatch</code>). The mounted client renders <code>PetWarfrontRite</code> in spectator mode; the server currently seals only inputs and pays no reward.
 - <code>docs/pet-duel-engine-unification-scope.md</code> is a migration scope, not evidence that the ranked or Hollow Gate client cutovers are mounted.
 
 ## Verification boundary

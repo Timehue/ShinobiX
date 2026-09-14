@@ -183,29 +183,53 @@ export async function interludeChosenTrait(character: Character, interludeId: st
  * flavor bookkeeping, never rewards. Skipped scenes (no choice made) report
  * nothing. authFetch's global interceptor attaches the auth headers.
  */
-export async function reportStoryInterlude(character: Character, interludeId: string): Promise<void> {
-    const trait = await interludeChosenTrait(character, interludeId);
-    if (!trait) return;
+export type StoryReportResult = { ok: boolean; trait?: string; reason?: string; recordedTrait?: string };
+
+export async function reportStoryInterlude(character: Character, interludeId: string, exactTrait?: string): Promise<StoryReportResult> {
+    const trait = exactTrait ?? await interludeChosenTrait(character, interludeId);
+    if (!trait) return { ok: false, reason: "missing-choice" };
     const post = async (): Promise<string> => {
         const res = await fetch("/api/story/interlude", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ action: "complete", playerName: character.name, interludeId, trait }),
         });
-        const body = (await res.json().catch(() => null)) as { ok?: boolean; reason?: string } | null;
-        return body?.ok === false && typeof body.reason === "string" ? body.reason : "";
+        const body = (await res.json().catch(() => null)) as { ok?: boolean; reason?: string; trait?: string; recordedTrait?: string } | null;
+        if (res.ok && body?.ok === true) return `ok:${body.trait ?? trait}`;
+        return body?.ok === false && typeof body.reason === "string"
+            ? `${body.reason}:${body.recordedTrait ?? ""}`
+            : `http:${res.status}`;
     };
     try {
-        const reason = await post();
+        let reason = await post();
         // The server validates against the SAVED character; right after a
         // level-up or chapter win the autosave may still be in flight, so a
         // level/progress rejection gets one delayed retry.
-        if (reason === "level" || reason === "progress") {
+        if (reason.startsWith("level:") || reason.startsWith("progress:")) {
             await new Promise((resolve) => setTimeout(resolve, 6000));
-            await post();
+            reason = await post();
         }
+        if (reason.startsWith("ok:")) return { ok: true, trait: reason.slice(3) };
+        const [code, recordedTrait] = reason.split(":", 2);
+        return { ok: false, reason: code, ...(recordedTrait ? { recordedTrait } : {}) };
     } catch {
-        // Offline/flaky network: the trait mirror stays on the save; the server
-        // record simply misses this beat until a future reconcile pass.
+        return { ok: false, reason: "network" };
     }
+}
+
+/** Exact current milestone for explicit Story Hall resume intent. Optional
+ * lower-level interludes remain pending and resume their normal order later. */
+export function currentStoryChapterTriggerFromContent(character: Character, content: StoryContentPayload): StoryTriggerCandidate | null {
+    const village = character.storyVillage || character.village;
+    if (content.village !== village) return null;
+    const progress = Math.max(0, Math.floor(character.storyProgress ?? 0));
+    const step = content.chapters[progress];
+    if (!step || character.level < step.levelReq) return null;
+    const eventId = `story-${village.toLowerCase().replace(/\W+/g, "-")}-${step.levelReq}-${progress}`;
+    return { eventId, base: storyToCreatorEvent(step, village, progress), returnScreen: "storyHall" };
+}
+
+export async function currentStoryChapterTrigger(character: Character): Promise<StoryTriggerCandidate | null> {
+    const content = await contentFor(character);
+    return content ? currentStoryChapterTriggerFromContent(character, content) : null;
 }
