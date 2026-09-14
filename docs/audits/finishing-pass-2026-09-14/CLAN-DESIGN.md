@@ -6,7 +6,7 @@ Audited base: `ecd8d6ccaba017a6791ec0ec94f822c10658984d`, with the approved C1â€
 
 | Current capability | Executable entry/evidence | Audit implication |
 |---|---|---|
-| Clan Hall, creation, named doctrine, crest, recruitment/browse and join requests | `shinobij.client/src/screens/Clan.tsx`, `api/clans/list.ts`, `api/_clan-save-validate.ts` | Identity already has a home; no additional specialization page is needed. |
+| Clan Hall, creation, named doctrine, crest, recruitment/browse and join requests | `shinobij.client/src/screens/ClanHall.tsx`, `api/clans/list.ts`, `api/_clan-save-validate.ts` | Identity already has a home; no additional specialization page is needed. |
 | Roster, founder/leadership/officer roles, contribution ordering, role overrides, kick/leave | `api/clan/kick.ts`, `api/clan/leave.ts`, clan save validator | Contributions and authority are distinct; preserve role rules. |
 | Notices and clan chat | clan validator; `api/clan/chat/get.ts`, `send.ts` | Existing channels can carry voluntary identity/flavor without a new notification system. |
 | Currency and item treasury, donations and leadership gifts | `api/clan/treasury/*`, `api/_treasury-stores-donate.ts` | Real cross-player economy; C5 source-receipt trust and interrupted-transfer recovery matter. |

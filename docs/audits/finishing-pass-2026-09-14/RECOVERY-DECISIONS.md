@@ -75,6 +75,24 @@ forging or clearing the new protected fields.
 
 ## Historical state and live certification
 
+Second integration review: opening Exchange or reconnecting now quietly resumes
+only a retained request whose matching server-save receipt shows an existing
+debit. This works even when deducted points or exhausted weekly stock disable
+the normal purchase card. An unpaid intent cannot trigger an automatic purchase;
+an expired or replaced ID cannot mint a replacement. Concurrent background
+continuations share one request, and success uses the existing versioned save
+commit. The normal confirmation and visible layout are unchanged. The server
+still verifies the private journal; the client receipt is only a scheduling hint.
+Recovery remains bounded to the retained session identity and supported journal
+lifetime, and retries occur on Exchange entry or an online event rather than
+introducing polling or reminders.
+
+Private mission and Exchange receipt namespaces now bypass the process read
+cache, matching their uncached player/clan proofs. The local mocked-Postgres
+regressions reproduce stale pending evidence after another worker commits and
+check both single and batched reads. No cache policy outside those two receipt
+prefixes changed.
+
 New field protection cannot retroactively establish old data's provenance.
 The new protocols bind applied proofs to private server reservations and refuse
 conflicts. Do not delete old ambiguous receipts, replay grants or issue refunds
