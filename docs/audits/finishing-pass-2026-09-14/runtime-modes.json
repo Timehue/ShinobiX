@@ -1,0 +1,3576 @@
+[
+  {
+    "id": "casual-pvp",
+    "label": "Casual PvP",
+    "category": "shinobi-pvp",
+    "authorityEngine": "pvp",
+    "clientEntries": [
+      "screens/Arena.tsx",
+      "screens/PvpBattleScreen.tsx",
+      "lib/pvp-combat-log-api.ts",
+      "lib/pvp-reward-claim.ts"
+    ],
+    "routes": [
+      {
+        "path": "/pvp/session",
+        "handler": "pvp/session",
+        "roles": [
+          "start",
+          "state"
+        ]
+      },
+      {
+        "path": "/pvp/move",
+        "handler": "pvp/move",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/pvp/chat",
+        "handler": "pvp/chat",
+        "roles": [
+          "communication"
+        ]
+      },
+      {
+        "path": "/pvp/spectate",
+        "handler": "pvp/spectate",
+        "roles": [
+          "lifecycle",
+          "observation"
+        ]
+      },
+      {
+        "path": "/pvp/stream",
+        "handler": "pvp/stream",
+        "roles": [
+          "state",
+          "observation"
+        ]
+      },
+      {
+        "path": "/pvp/combat-log",
+        "handler": "pvp/combat-log",
+        "roles": [
+          "record"
+        ]
+      },
+      {
+        "path": "/pvp/combat-history",
+        "handler": "pvp/combat-history",
+        "roles": [
+          "record"
+        ]
+      },
+      {
+        "path": "/pvp/claim-rewards",
+        "handler": "pvp/claim-rewards",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "two-player",
+    "rewardPolicy": "none",
+    "replayKind": "durable-pvp-history",
+    "status": "match",
+    "migrationStatus": "keep",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "solo-pve",
+      "tower"
+    ]
+  },
+  {
+    "id": "direct-pvp-challenges",
+    "label": "Player challenges",
+    "category": "shinobi-pvp",
+    "authorityEngine": "pvp",
+    "clientEntries": [
+      "App.tsx",
+      "screens/Arena.tsx",
+      "screens/PvpBattleScreen.tsx",
+      "lib/pvp-combat-log-api.ts",
+      "lib/pvp-reward-claim.ts"
+    ],
+    "routes": [
+      {
+        "path": "/player/challenge",
+        "handler": "player/challenge",
+        "roles": [
+          "lifecycle"
+        ]
+      },
+      {
+        "path": "/pvp/session",
+        "handler": "pvp/session",
+        "roles": [
+          "start",
+          "state"
+        ]
+      },
+      {
+        "path": "/pvp/move",
+        "handler": "pvp/move",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/pvp/chat",
+        "handler": "pvp/chat",
+        "roles": [
+          "communication"
+        ]
+      },
+      {
+        "path": "/pvp/spectate",
+        "handler": "pvp/spectate",
+        "roles": [
+          "lifecycle",
+          "observation"
+        ]
+      },
+      {
+        "path": "/pvp/stream",
+        "handler": "pvp/stream",
+        "roles": [
+          "state",
+          "observation"
+        ]
+      },
+      {
+        "path": "/pvp/combat-log",
+        "handler": "pvp/combat-log",
+        "roles": [
+          "record"
+        ]
+      },
+      {
+        "path": "/pvp/combat-history",
+        "handler": "pvp/combat-history",
+        "roles": [
+          "record"
+        ]
+      },
+      {
+        "path": "/pvp/claim-rewards",
+        "handler": "pvp/claim-rewards",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "two-player",
+    "rewardPolicy": "none",
+    "replayKind": "durable-pvp-history",
+    "status": "match",
+    "migrationStatus": "keep",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "solo-pve",
+      "tower"
+    ]
+  },
+  {
+    "id": "ranked-shinobi-pvp",
+    "label": "Ranked PvP",
+    "category": "shinobi-pvp",
+    "authorityEngine": "pvp",
+    "clientEntries": [
+      "screens/Arena.tsx",
+      "screens/HallOfLegends.tsx",
+      "lib/player-ranked-authority.ts",
+      "lib/pvp-reward-claim.ts",
+      "screens/PvpBattleScreen.tsx",
+      "lib/pvp-combat-log-api.ts",
+      "lib/pvp-reward-claim.ts"
+    ],
+    "routes": [
+      {
+        "path": "/pvp/ranked-queue",
+        "handler": "pvp/ranked-queue",
+        "roles": [
+          "start"
+        ]
+      },
+      {
+        "path": "/ranked-season",
+        "handler": "ranked-season",
+        "roles": [
+          "leaderboard",
+          "record"
+        ]
+      },
+      {
+        "path": "/pvp/session",
+        "handler": "pvp/session",
+        "roles": [
+          "state"
+        ]
+      },
+      {
+        "path": "/pvp/move",
+        "handler": "pvp/move",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/pvp/chat",
+        "handler": "pvp/chat",
+        "roles": [
+          "communication"
+        ]
+      },
+      {
+        "path": "/pvp/spectate",
+        "handler": "pvp/spectate",
+        "roles": [
+          "lifecycle",
+          "observation"
+        ]
+      },
+      {
+        "path": "/pvp/stream",
+        "handler": "pvp/stream",
+        "roles": [
+          "state",
+          "observation"
+        ]
+      },
+      {
+        "path": "/pvp/combat-log",
+        "handler": "pvp/combat-log",
+        "roles": [
+          "record"
+        ]
+      },
+      {
+        "path": "/pvp/combat-history",
+        "handler": "pvp/combat-history",
+        "roles": [
+          "record"
+        ]
+      },
+      {
+        "path": "/pvp/claim-rewards",
+        "handler": "pvp/claim-rewards",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "two-player",
+    "rewardPolicy": "server-settled",
+    "replayKind": "durable-pvp-history",
+    "status": "match",
+    "migrationStatus": "keep",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "solo-pve",
+      "tower"
+    ]
+  },
+  {
+    "id": "village-guard-pvp-human",
+    "label": "Village Guard human challenge",
+    "category": "shinobi-pvp",
+    "authorityEngine": "pvp",
+    "clientEntries": [
+      "screens/WorldMap.tsx",
+      "screens/PvpBattleScreen.tsx",
+      "lib/pvp-combat-log-api.ts",
+      "lib/pvp-reward-claim.ts"
+    ],
+    "routes": [
+      {
+        "path": "/village-guard/challenge",
+        "handler": "village-guard/challenge",
+        "roles": [
+          "lifecycle"
+        ]
+      },
+      {
+        "path": "/pvp/session",
+        "handler": "pvp/session",
+        "roles": [
+          "start",
+          "state"
+        ]
+      },
+      {
+        "path": "/pvp/move",
+        "handler": "pvp/move",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/pvp/chat",
+        "handler": "pvp/chat",
+        "roles": [
+          "communication"
+        ]
+      },
+      {
+        "path": "/pvp/spectate",
+        "handler": "pvp/spectate",
+        "roles": [
+          "lifecycle",
+          "observation"
+        ]
+      },
+      {
+        "path": "/pvp/stream",
+        "handler": "pvp/stream",
+        "roles": [
+          "state",
+          "observation"
+        ]
+      },
+      {
+        "path": "/pvp/combat-log",
+        "handler": "pvp/combat-log",
+        "roles": [
+          "record"
+        ]
+      },
+      {
+        "path": "/pvp/combat-history",
+        "handler": "pvp/combat-history",
+        "roles": [
+          "record"
+        ]
+      },
+      {
+        "path": "/pvp/claim-rewards",
+        "handler": "pvp/claim-rewards",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "two-player",
+    "rewardPolicy": "server-settled",
+    "replayKind": "durable-pvp-history-plus-expiring-defense-marker",
+    "status": "match",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "solo-pve",
+      "tower"
+    ]
+  },
+  {
+    "id": "kage-succession-pvp",
+    "label": "Kage succession duel",
+    "category": "shinobi-pvp",
+    "authorityEngine": "pvp",
+    "clientEntries": [
+      "App.tsx",
+      "screens/TownHall.tsx",
+      "screens/PvpBattleScreen.tsx",
+      "lib/pvp-combat-log-api.ts",
+      "lib/pvp-reward-claim.ts"
+    ],
+    "routes": [
+      {
+        "path": "/village/kage-challenge",
+        "handler": "village/kage-challenge",
+        "roles": [
+          "lifecycle",
+          "settlement"
+        ]
+      },
+      {
+        "path": "/pvp/session",
+        "handler": "pvp/session",
+        "roles": [
+          "start",
+          "state"
+        ]
+      },
+      {
+        "path": "/pvp/move",
+        "handler": "pvp/move",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/pvp/chat",
+        "handler": "pvp/chat",
+        "roles": [
+          "communication"
+        ]
+      },
+      {
+        "path": "/pvp/spectate",
+        "handler": "pvp/spectate",
+        "roles": [
+          "lifecycle",
+          "observation"
+        ]
+      },
+      {
+        "path": "/pvp/stream",
+        "handler": "pvp/stream",
+        "roles": [
+          "state",
+          "observation"
+        ]
+      },
+      {
+        "path": "/pvp/combat-log",
+        "handler": "pvp/combat-log",
+        "roles": [
+          "record"
+        ]
+      },
+      {
+        "path": "/pvp/combat-history",
+        "handler": "pvp/combat-history",
+        "roles": [
+          "record"
+        ]
+      },
+      {
+        "path": "/pvp/claim-rewards",
+        "handler": "pvp/claim-rewards",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "two-player",
+    "rewardPolicy": "server-settled",
+    "replayKind": "durable-pvp-history-plus-succession-record",
+    "status": "match",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "solo-pve",
+      "tower"
+    ]
+  },
+  {
+    "id": "clan-war-pvp-1v1",
+    "label": "Clan War shinobi PvP 1v1",
+    "category": "shinobi-pvp",
+    "authorityEngine": "pvp",
+    "orchestrationOwner": "clan-war",
+    "clientEntries": [
+      "App.tsx",
+      "lib/clan-war-api.ts",
+      "screens/PvpBattleScreen.tsx",
+      "lib/pvp-combat-log-api.ts",
+      "lib/pvp-reward-claim.ts"
+    ],
+    "routes": [
+      {
+        "path": "/clan/war/challenge",
+        "handler": "clan/war/challenge",
+        "roles": [
+          "lifecycle"
+        ]
+      },
+      {
+        "path": "/pvp/session",
+        "handler": "pvp/session",
+        "roles": [
+          "start",
+          "state"
+        ]
+      },
+      {
+        "path": "/pvp/move",
+        "handler": "pvp/move",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/pvp/chat",
+        "handler": "pvp/chat",
+        "roles": [
+          "communication"
+        ]
+      },
+      {
+        "path": "/pvp/spectate",
+        "handler": "pvp/spectate",
+        "roles": [
+          "lifecycle",
+          "observation"
+        ]
+      },
+      {
+        "path": "/pvp/stream",
+        "handler": "pvp/stream",
+        "roles": [
+          "state",
+          "observation"
+        ]
+      },
+      {
+        "path": "/pvp/combat-log",
+        "handler": "pvp/combat-log",
+        "roles": [
+          "record"
+        ]
+      },
+      {
+        "path": "/pvp/combat-history",
+        "handler": "pvp/combat-history",
+        "roles": [
+          "record"
+        ]
+      },
+      {
+        "path": "/pvp/claim-rewards",
+        "handler": "pvp/claim-rewards",
+        "roles": [
+          "settlement"
+        ]
+      },
+      {
+        "path": "/clan/war/report",
+        "handler": "clan/war/report",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "two-player",
+    "rewardPolicy": "server-settled",
+    "replayKind": "durable-pvp-history",
+    "status": "match",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "solo-pve",
+      "tower"
+    ]
+  },
+  {
+    "id": "clan-war-pvp-2v2",
+    "label": "Clan War shinobi PvP 2v2",
+    "category": "shinobi-pvp",
+    "authorityEngine": "tower",
+    "intendedAuthorityEngine": "pvp",
+    "orchestrationOwner": "clan-war",
+    "clientEntries": [
+      "App.tsx",
+      "lib/clan-war-api.ts",
+      "lib/clan-war-2v2-api.ts",
+      "screens/ClanWar2v2Battle.tsx",
+      "lib/tower-pvp-api.ts"
+    ],
+    "routes": [
+      {
+        "path": "/clan/war/challenge",
+        "handler": "clan/war/challenge",
+        "roles": [
+          "lifecycle"
+        ]
+      },
+      {
+        "path": "/clan/war/pvp-2v2",
+        "handler": "clan/war/pvp-2v2",
+        "roles": [
+          "start",
+          "settlement"
+        ]
+      },
+      {
+        "path": "/towers/pvp-action",
+        "handler": "towers/pvp-action",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/towers/pvp-state",
+        "handler": "towers/pvp-state",
+        "roles": [
+          "state"
+        ]
+      }
+    ],
+    "participantModel": "party",
+    "rewardPolicy": "server-settled",
+    "replayKind": "bounded-terminal-command-ring",
+    "status": "match",
+    "statusDetail": "Runs on the four-player Tower MPvP engine with teams fixed by clan rather than skill-balanced. The engine writes no rewards; api/clan/war/_mpvp-settlement.ts applies the war HP under a durable exactly-once receipt, so the shared open-queue surface stays progression-free. DISABLE_CLAN_WAR_PVP_2V2=1 re-closes progression while leaving cleanup available.",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "solo-pve",
+      "tower"
+    ]
+  },
+  {
+    "id": "generic-catalog-ai",
+    "label": "Generic catalog AI",
+    "category": "solo-pve",
+    "authorityEngine": "solo-pve",
+    "clientEntries": [
+      "components/AiFightHost.tsx",
+      "lib/ai-fight-api.ts",
+      "lib/solo-pve-api.ts",
+      "lib/solo-pve-arena-adapter.ts"
+    ],
+    "routes": [
+      {
+        "path": "/missions/ai-fight-start",
+        "handler": "missions/ai-fight-start",
+        "roles": [
+          "start"
+        ]
+      },
+      {
+        "path": "/solo-pve/action",
+        "handler": "solo-pve/action",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/solo-pve/state",
+        "handler": "solo-pve/state",
+        "roles": [
+          "state"
+        ]
+      },
+      {
+        "path": "/missions/report-ai-fight",
+        "handler": "missions/report-ai-fight",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "server-settled",
+    "replayKind": "expiring-solo-session-log",
+    "status": "match",
+    "migrationStatus": "migrated",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "tower"
+    ]
+  },
+  {
+    "id": "temporary-creator-ai",
+    "label": "Temporary or creator AI",
+    "category": "solo-pve",
+    "authorityEngine": "solo-pve",
+    "clientEntries": [
+      "components/AiFightHost.tsx",
+      "lib/ai-fight-api.ts",
+      "lib/solo-pve-api.ts",
+      "lib/solo-pve-arena-adapter.ts"
+    ],
+    "routes": [
+      {
+        "path": "/missions/ai-fight-start",
+        "handler": "missions/ai-fight-start",
+        "roles": [
+          "start"
+        ]
+      },
+      {
+        "path": "/solo-pve/action",
+        "handler": "solo-pve/action",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/solo-pve/state",
+        "handler": "solo-pve/state",
+        "roles": [
+          "state"
+        ]
+      },
+      {
+        "path": "/missions/report-ai-fight",
+        "handler": "missions/report-ai-fight",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "none",
+    "replayKind": "expiring-solo-session-log",
+    "status": "match",
+    "migrationStatus": "migrated",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "tower"
+    ]
+  },
+  {
+    "id": "world-context-hunt-trails",
+    "label": "World-context hunt trails",
+    "category": "solo-pve",
+    "authorityEngine": "solo-pve",
+    "clientEntries": [
+      "screens/HunterBoard.tsx",
+      "screens/WorldMap.tsx",
+      "components/AiFightHost.tsx",
+      "lib/ai-fight-api.ts",
+      "lib/world-hunt-api.ts",
+      "lib/solo-pve-api.ts",
+      "lib/solo-pve-arena-adapter.ts"
+    ],
+    "routes": [
+      {
+        "path": "/missions/ai-fight-start",
+        "handler": "missions/ai-fight-start",
+        "roles": [
+          "start"
+        ]
+      },
+      {
+        "path": "/solo-pve/action",
+        "handler": "solo-pve/action",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/solo-pve/state",
+        "handler": "solo-pve/state",
+        "roles": [
+          "state"
+        ]
+      },
+      {
+        "path": "/missions/report-ai-fight",
+        "handler": "missions/report-ai-fight",
+        "roles": [
+          "settlement"
+        ]
+      },
+      {
+        "path": "/missions/hunt-trail",
+        "handler": "missions/hunt-trail",
+        "roles": [
+          "lifecycle"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "server-settled",
+    "replayKind": "expiring-solo-session-log",
+    "status": "match",
+    "migrationStatus": "migrated",
+    "compatibility": {
+      "flowDescriptor": "world-context",
+      "combatAuthority": "canonical-solo-pve",
+      "launchContract": "identity-only-server-reconstructed",
+      "settlementContract": "sealed-world-context-exact-once",
+      "settlementRoute": "/missions/report-ai-fight",
+      "settlementHandler": "missions/report-ai-fight",
+      "worldKinds": [
+        "hunt-pack",
+        "hunt-target"
+      ],
+      "lifecycleRoute": "/missions/hunt-trail",
+      "lifecycleHandler": "missions/hunt-trail"
+    },
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "tower"
+    ]
+  },
+  {
+    "id": "world-context-wanderers",
+    "label": "World-context wanderers",
+    "category": "solo-pve",
+    "authorityEngine": "solo-pve",
+    "clientEntries": [
+      "screens/WorldMap.tsx",
+      "components/AiFightHost.tsx",
+      "lib/ai-fight-api.ts",
+      "lib/solo-pve-api.ts",
+      "lib/solo-pve-arena-adapter.ts"
+    ],
+    "routes": [
+      {
+        "path": "/missions/ai-fight-start",
+        "handler": "missions/ai-fight-start",
+        "roles": [
+          "start"
+        ]
+      },
+      {
+        "path": "/solo-pve/action",
+        "handler": "solo-pve/action",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/solo-pve/state",
+        "handler": "solo-pve/state",
+        "roles": [
+          "state"
+        ]
+      },
+      {
+        "path": "/missions/report-ai-fight",
+        "handler": "missions/report-ai-fight",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "server-settled",
+    "replayKind": "expiring-solo-session-log",
+    "status": "match",
+    "migrationStatus": "migrated",
+    "compatibility": {
+      "flowDescriptor": "world-context",
+      "combatAuthority": "canonical-solo-pve",
+      "launchContract": "identity-only-server-reconstructed",
+      "settlementContract": "sealed-world-context-exact-once",
+      "settlementRoute": "/missions/report-ai-fight",
+      "settlementHandler": "missions/report-ai-fight",
+      "worldKinds": [
+        "wanderer",
+        "wanderer-ambush",
+        "patrol",
+        "bounty-hunter",
+        "questbook-boss",
+        "story-reckoning"
+      ]
+    },
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "tower"
+    ]
+  },
+  {
+    "id": "world-context-village-crisis",
+    "label": "World-context village crisis",
+    "category": "solo-pve",
+    "authorityEngine": "solo-pve",
+    "clientEntries": [
+      "screens/WorldCrisis.tsx",
+      "lib/world-crisis.ts",
+      "components/AiFightHost.tsx",
+      "lib/ai-fight-api.ts",
+      "lib/solo-pve-api.ts",
+      "lib/solo-pve-arena-adapter.ts"
+    ],
+    "routes": [
+      {
+        "path": "/missions/ai-fight-start",
+        "handler": "missions/ai-fight-start",
+        "roles": [
+          "start"
+        ]
+      },
+      {
+        "path": "/solo-pve/action",
+        "handler": "solo-pve/action",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/solo-pve/state",
+        "handler": "solo-pve/state",
+        "roles": [
+          "state"
+        ]
+      },
+      {
+        "path": "/missions/report-ai-fight",
+        "handler": "missions/report-ai-fight",
+        "roles": [
+          "settlement"
+        ]
+      },
+      {
+        "path": "/world-crisis",
+        "handler": "world-crisis",
+        "roles": [
+          "lifecycle",
+          "observation"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "server-settled",
+    "replayKind": "expiring-solo-session-log-plus-global-crisis-ledger",
+    "status": "match",
+    "migrationStatus": "migrated",
+    "compatibility": {
+      "flowDescriptor": "world-context",
+      "combatAuthority": "canonical-solo-pve",
+      "launchContract": "identity-only-server-reconstructed",
+      "settlementContract": "sealed-world-context-exact-once",
+      "settlementRoute": "/missions/report-ai-fight",
+      "settlementHandler": "missions/report-ai-fight",
+      "worldKinds": [
+        "world-crisis"
+      ],
+      "lifecycleRoute": "/world-crisis",
+      "lifecycleHandler": "world-crisis"
+    },
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "tower"
+    ]
+  },
+  {
+    "id": "world-context-hollow-gate-triad",
+    "label": "Hollow Gate Reckoning shinobi 1v3",
+    "category": "tower",
+    "authorityEngine": "tower",
+    "clientEntries": [
+      "screens/WorldCrisis80.tsx",
+      "screens/BattleTowerFight.tsx",
+      "lib/world-crisis-80.ts",
+      "lib/towers-api.ts"
+    ],
+    "routes": [
+      {
+        "path": "/world-crisis-80",
+        "handler": "world-crisis-80",
+        "roles": [
+          "lifecycle",
+          "observation"
+        ]
+      },
+      {
+        "path": "/world-crisis-80/combat-start",
+        "handler": "world-crisis-80/combat-start",
+        "roles": [
+          "start"
+        ]
+      },
+      {
+        "path": "/towers/action",
+        "handler": "towers/action",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/towers/state",
+        "handler": "towers/state",
+        "roles": [
+          "state"
+        ]
+      },
+      {
+        "path": "/world-crisis-80/combat-settle",
+        "handler": "world-crisis-80/combat-settle",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "parent-mode-settlement",
+    "replayKind": "expiring-tower-run-plus-global-crisis-proof",
+    "status": "match",
+    "statusDetail": "The Tower N-actor engine runs one player against a server-sealed three-role Collection Cell. Terminal Tower outcome is the only input accepted by the exact-once global village ledger; the event pays no duplicate combat rewards.",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "solo-pve"
+    ]
+  },
+  {
+    "id": "world-context-hollow-gate-pets",
+    "label": "Hollow Gate Reckoning companion 3v3",
+    "category": "pet-showdown",
+    "authorityEngine": "pet-showdown",
+    "clientEntries": [
+      "screens/WorldCrisis80.tsx",
+      "components/PetShowdownBattle.tsx",
+      "lib/world-crisis-80.ts"
+    ],
+    "routes": [
+      {
+        "path": "/world-crisis-80",
+        "handler": "world-crisis-80",
+        "roles": [
+          "lifecycle",
+          "observation"
+        ]
+      },
+      {
+        "path": "/pet/showdown",
+        "handler": "pet/showdown",
+        "roles": [
+          "start",
+          "action",
+          "state",
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "party",
+    "rewardPolicy": "parent-mode-settlement",
+    "replayKind": "expiring-showdown-turn-script-plus-global-crisis-proof",
+    "status": "match",
+    "statusDetail": "Exactly three ready carried companions face a server-built three-member pursuit pack. Showdown is reward-ineligible here; its terminal session ID is consumed once by the same global village ledger as the shinobi front.",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pet-warfront",
+      "pet-gauntlet-grid",
+      "pet-cinematic-duel",
+      "legacy-pet-duel",
+      "client-local-pet-duel"
+    ]
+  },
+  {
+    "id": "generic-apex-hunts",
+    "label": "Generic Apex hunts",
+    "category": "solo-pve",
+    "authorityEngine": "solo-pve",
+    "clientEntries": [
+      "screens/HunterBoard.tsx",
+      "components/AiFightHost.tsx",
+      "lib/ai-fight-api.ts",
+      "lib/solo-pve-api.ts",
+      "lib/solo-pve-arena-adapter.ts"
+    ],
+    "routes": [
+      {
+        "path": "/missions/ai-fight-start",
+        "handler": "missions/ai-fight-start",
+        "roles": [
+          "start"
+        ]
+      },
+      {
+        "path": "/solo-pve/action",
+        "handler": "solo-pve/action",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/solo-pve/state",
+        "handler": "solo-pve/state",
+        "roles": [
+          "state"
+        ]
+      },
+      {
+        "path": "/missions/report-ai-fight",
+        "handler": "missions/report-ai-fight",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "server-settled",
+    "replayKind": "expiring-solo-session-log",
+    "status": "match",
+    "migrationStatus": "migrated",
+    "compatibility": {
+      "flowDescriptor": "generic-catalog",
+      "combatAuthority": "canonical-solo-pve",
+      "launchContract": "server-published-catalog-profile",
+      "settlementContract": "sealed-ai-token-exact-once",
+      "settlementRoute": "/missions/report-ai-fight",
+      "settlementHandler": "missions/report-ai-fight",
+      "catalogSelector": "apex-ai-*"
+    },
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "tower"
+    ]
+  },
+  {
+    "id": "generic-explore-ambushes",
+    "label": "Generic explore ambushes",
+    "category": "solo-pve",
+    "authorityEngine": "solo-pve",
+    "clientEntries": [
+      "screens/WorldMap.tsx",
+      "components/AiFightHost.tsx",
+      "lib/ai-fight-api.ts",
+      "lib/solo-pve-api.ts",
+      "lib/solo-pve-arena-adapter.ts"
+    ],
+    "routes": [
+      {
+        "path": "/missions/ai-fight-start",
+        "handler": "missions/ai-fight-start",
+        "roles": [
+          "start"
+        ]
+      },
+      {
+        "path": "/solo-pve/action",
+        "handler": "solo-pve/action",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/solo-pve/state",
+        "handler": "solo-pve/state",
+        "roles": [
+          "state"
+        ]
+      },
+      {
+        "path": "/missions/report-ai-fight",
+        "handler": "missions/report-ai-fight",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "server-settled",
+    "replayKind": "expiring-solo-session-log",
+    "status": "match",
+    "migrationStatus": "migrated",
+    "compatibility": {
+      "flowDescriptor": "generic-catalog",
+      "combatAuthority": "canonical-solo-pve",
+      "launchContract": "server-published-catalog-profile",
+      "settlementContract": "sealed-ai-token-exact-once",
+      "settlementRoute": "/missions/report-ai-fight",
+      "settlementHandler": "missions/report-ai-fight",
+      "battleKind": "explore"
+    },
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "tower"
+    ]
+  },
+  {
+    "id": "generic-village-guard-raids",
+    "label": "Generic village-guard raids",
+    "category": "solo-pve",
+    "authorityEngine": "solo-pve",
+    "clientEntries": [
+      "screens/WorldMap.tsx",
+      "components/AiFightHost.tsx",
+      "lib/ai-fight-api.ts",
+      "lib/ai-raid-api.ts",
+      "lib/solo-pve-api.ts",
+      "lib/solo-pve-arena-adapter.ts"
+    ],
+    "routes": [
+      {
+        "path": "/missions/raid-start",
+        "handler": "missions/raid-start",
+        "roles": [
+          "lifecycle"
+        ]
+      },
+      {
+        "path": "/missions/ai-fight-start",
+        "handler": "missions/ai-fight-start",
+        "roles": [
+          "start"
+        ]
+      },
+      {
+        "path": "/solo-pve/action",
+        "handler": "solo-pve/action",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/solo-pve/state",
+        "handler": "solo-pve/state",
+        "roles": [
+          "state"
+        ]
+      },
+      {
+        "path": "/missions/report-ai-fight",
+        "handler": "missions/report-ai-fight",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "server-settled",
+    "replayKind": "expiring-solo-session-log",
+    "status": "match",
+    "migrationStatus": "migrated",
+    "compatibility": {
+      "flowDescriptor": "generic-catalog",
+      "combatAuthority": "canonical-solo-pve",
+      "launchContract": "server-published-catalog-profile",
+      "settlementContract": "sealed-ai-token-exact-once",
+      "settlementRoute": "/missions/report-ai-fight",
+      "settlementHandler": "missions/report-ai-fight",
+      "battleKind": "raidAi"
+    },
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "tower"
+    ]
+  },
+  {
+    "id": "creator-event-practice",
+    "label": "Creator-event practice fights",
+    "category": "solo-pve",
+    "authorityEngine": "solo-pve",
+    "clientEntries": [
+      "App.tsx",
+      "screens/WorldMap.tsx",
+      "components/AiFightHost.tsx",
+      "lib/ai-fight-api.ts",
+      "lib/solo-pve-api.ts",
+      "lib/solo-pve-arena-adapter.ts"
+    ],
+    "routes": [
+      {
+        "path": "/missions/ai-fight-start",
+        "handler": "missions/ai-fight-start",
+        "roles": [
+          "start"
+        ]
+      },
+      {
+        "path": "/solo-pve/action",
+        "handler": "solo-pve/action",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/solo-pve/state",
+        "handler": "solo-pve/state",
+        "roles": [
+          "state"
+        ]
+      },
+      {
+        "path": "/missions/report-ai-fight",
+        "handler": "missions/report-ai-fight",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "none",
+    "replayKind": "expiring-solo-session-log",
+    "status": "match",
+    "migrationStatus": "migrated",
+    "compatibility": {
+      "battleKind": "practice"
+    },
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "tower"
+    ]
+  },
+  {
+    "id": "combat-missions-ed",
+    "label": "E/D combat missions",
+    "category": "solo-pve",
+    "authorityEngine": "solo-pve",
+    "clientEntries": [
+      "screens/Missions.tsx",
+      "screens/MissionArenaFight.tsx",
+      "lib/mission-combat-claim.ts",
+      "lib/pve-outcome-api.ts",
+      "lib/solo-pve-api.ts",
+      "lib/solo-pve-arena-adapter.ts"
+    ],
+    "routes": [
+      {
+        "path": "/missions/combat-start",
+        "handler": "missions/combat-start",
+        "roles": [
+          "start"
+        ]
+      },
+      {
+        "path": "/solo-pve/action",
+        "handler": "solo-pve/action",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/solo-pve/state",
+        "handler": "solo-pve/state",
+        "roles": [
+          "state"
+        ]
+      },
+      {
+        "path": "/missions/queue-combat-claim",
+        "handler": "missions/queue-combat-claim",
+        "roles": [
+          "settlement"
+        ]
+      },
+      {
+        "path": "/pve/fight-outcome",
+        "handler": "pve/fight-outcome",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "server-settled",
+    "replayKind": "expiring-solo-session-log",
+    "status": "match",
+    "migrationStatus": "migrated",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "tower"
+    ]
+  },
+  {
+    "id": "combat-missions-cbas",
+    "label": "C/B/A/S combat missions",
+    "category": "solo-pve",
+    "authorityEngine": "solo-pve",
+    "clientEntries": [
+      "screens/Missions.tsx",
+      "screens/MissionArenaFight.tsx",
+      "lib/mission-combat-claim.ts",
+      "lib/pve-outcome-api.ts",
+      "lib/solo-pve-api.ts",
+      "lib/solo-pve-arena-adapter.ts"
+    ],
+    "routes": [
+      {
+        "path": "/missions/combat-start",
+        "handler": "missions/combat-start",
+        "roles": [
+          "start"
+        ]
+      },
+      {
+        "path": "/solo-pve/action",
+        "handler": "solo-pve/action",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/solo-pve/state",
+        "handler": "solo-pve/state",
+        "roles": [
+          "state"
+        ]
+      },
+      {
+        "path": "/missions/queue-combat-claim",
+        "handler": "missions/queue-combat-claim",
+        "roles": [
+          "settlement"
+        ]
+      },
+      {
+        "path": "/pve/fight-outcome",
+        "handler": "pve/fight-outcome",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "server-settled",
+    "replayKind": "expiring-solo-session-log",
+    "status": "match",
+    "migrationStatus": "migrated",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "tower"
+    ]
+  },
+  {
+    "id": "story-battles",
+    "label": "Story battles and bosses",
+    "category": "solo-pve",
+    "authorityEngine": "solo-pve",
+    "clientEntries": [
+      "components/StoryBossFightHost.tsx",
+      "lib/story-combat-api.ts",
+      "lib/pve-outcome-api.ts",
+      "lib/solo-pve-api.ts",
+      "lib/solo-pve-arena-adapter.ts"
+    ],
+    "routes": [
+      {
+        "path": "/story/boss-start",
+        "handler": "story/boss-start",
+        "roles": [
+          "start"
+        ]
+      },
+      {
+        "path": "/solo-pve/action",
+        "handler": "solo-pve/action",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/solo-pve/state",
+        "handler": "solo-pve/state",
+        "roles": [
+          "state"
+        ]
+      },
+      {
+        "path": "/story/settle",
+        "handler": "story/settle",
+        "roles": [
+          "settlement"
+        ]
+      },
+      {
+        "path": "/pve/fight-outcome",
+        "handler": "pve/fight-outcome",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "server-settled",
+    "replayKind": "expiring-solo-session-log",
+    "status": "match",
+    "migrationStatus": "migrated",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "tower"
+    ]
+  },
+  {
+    "id": "academy-spar",
+    "label": "Academy spar",
+    "category": "solo-pve",
+    "authorityEngine": "solo-pve",
+    "clientEntries": [
+      "components/StoryBossFightHost.tsx",
+      "lib/story-combat-api.ts",
+      "lib/pve-outcome-api.ts",
+      "lib/solo-pve-api.ts",
+      "lib/solo-pve-arena-adapter.ts"
+    ],
+    "routes": [
+      {
+        "path": "/story/spar-start",
+        "handler": "story/spar-start",
+        "roles": [
+          "start"
+        ]
+      },
+      {
+        "path": "/solo-pve/action",
+        "handler": "solo-pve/action",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/solo-pve/state",
+        "handler": "solo-pve/state",
+        "roles": [
+          "state"
+        ]
+      },
+      {
+        "path": "/story/settle",
+        "handler": "story/settle",
+        "roles": [
+          "settlement"
+        ]
+      },
+      {
+        "path": "/pve/fight-outcome",
+        "handler": "pve/fight-outcome",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "server-settled",
+    "replayKind": "expiring-solo-session-log",
+    "status": "match",
+    "migrationStatus": "migrated",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "tower"
+    ]
+  },
+  {
+    "id": "dungeon-warden",
+    "label": "Dungeon Warden",
+    "category": "solo-pve",
+    "authorityEngine": "solo-pve",
+    "orchestrationOwner": "dungeon",
+    "clientEntries": [
+      "App.tsx",
+      "components/AiFightHost.tsx",
+      "lib/ai-fight-api.ts",
+      "lib/dungeon-api.ts",
+      "lib/solo-pve-api.ts",
+      "lib/solo-pve-arena-adapter.ts"
+    ],
+    "routes": [
+      {
+        "path": "/missions/ai-fight-start",
+        "handler": "missions/ai-fight-start",
+        "roles": [
+          "start"
+        ]
+      },
+      {
+        "path": "/solo-pve/action",
+        "handler": "solo-pve/action",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/solo-pve/state",
+        "handler": "solo-pve/state",
+        "roles": [
+          "state"
+        ]
+      },
+      {
+        "path": "/missions/report-ai-fight",
+        "handler": "missions/report-ai-fight",
+        "roles": [
+          "settlement"
+        ]
+      },
+      {
+        "path": "/dungeon/run",
+        "handler": "dungeon/run",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "parent-mode-settlement",
+    "replayKind": "expiring-solo-session-log",
+    "status": "match",
+    "migrationStatus": "migrated",
+    "compatibility": {
+      "battleKind": "dungeon",
+      "startProof": "dungeonRunToken"
+    },
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "tower"
+    ]
+  },
+  {
+    "id": "weekly-boss",
+    "label": "Weekly Boss",
+    "category": "solo-pve",
+    "authorityEngine": "solo-pve",
+    "clientEntries": [
+      "screens/WeeklyBossArena.tsx",
+      "screens/WeeklyBossFight.tsx",
+      "lib/solo-pve-api.ts",
+      "lib/solo-pve-arena-adapter.ts"
+    ],
+    "routes": [
+      {
+        "path": "/weekly-boss",
+        "handler": "weekly-boss",
+        "roles": [
+          "start",
+          "settlement"
+        ]
+      },
+      {
+        "path": "/solo-pve/action",
+        "handler": "solo-pve/action",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/solo-pve/state",
+        "handler": "solo-pve/state",
+        "roles": [
+          "state"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "server-capped",
+    "replayKind": "expiring-solo-session-log",
+    "status": "match",
+    "migrationStatus": "migrated",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "tower"
+    ]
+  },
+  {
+    "id": "endless",
+    "label": "Endless",
+    "category": "solo-pve",
+    "authorityEngine": "solo-pve",
+    "clientEntries": [
+      "lib/endless-api.ts",
+      "lib/solo-pve-api.ts",
+      "lib/solo-pve-arena-adapter.ts"
+    ],
+    "routes": [
+      {
+        "path": "/endless/wave-start",
+        "handler": "endless/wave-start",
+        "roles": [
+          "start"
+        ]
+      },
+      {
+        "path": "/solo-pve/action",
+        "handler": "solo-pve/action",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/solo-pve/state",
+        "handler": "solo-pve/state",
+        "roles": [
+          "state"
+        ]
+      },
+      {
+        "path": "/endless/run",
+        "handler": "endless/run",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "server-settled",
+    "replayKind": "expiring-run-and-session",
+    "status": "match",
+    "migrationStatus": "migrated",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "tower"
+    ]
+  },
+  {
+    "id": "hollow-gate-shinobi",
+    "label": "Hollow Gate shinobi",
+    "category": "solo-pve",
+    "authorityEngine": "solo-pve",
+    "orchestrationOwner": "hollow-gate",
+    "clientEntries": [
+      "lib/hollow-gate-combat-api.ts",
+      "lib/solo-pve-api.ts",
+      "lib/solo-pve-arena-adapter.ts",
+      "screens/Arena.tsx"
+    ],
+    "routes": [
+      {
+        "path": "/hollow-gate/combat-start",
+        "handler": "hollow-gate/combat-start",
+        "roles": [
+          "start"
+        ]
+      },
+      {
+        "path": "/solo-pve/action",
+        "handler": "solo-pve/action",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/solo-pve/state",
+        "handler": "solo-pve/state",
+        "roles": [
+          "state"
+        ]
+      },
+      {
+        "path": "/hollow-gate/combat-settle",
+        "handler": "hollow-gate/combat-settle",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "parent-mode-settlement",
+    "replayKind": "expiring-run-and-session",
+    "status": "match",
+    "migrationStatus": "migrated",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "tower"
+    ]
+  },
+  {
+    "id": "anbu-infiltration",
+    "label": "Anbu infiltration",
+    "category": "solo-pve",
+    "authorityEngine": "solo-pve",
+    "capabilityKey": "anbuInfiltration",
+    "clientEntries": [
+      "features/anbuInfiltration/AnbuVaultRaid.tsx",
+      "lib/anbu-infiltration-api.ts",
+      "lib/solo-pve-api.ts",
+      "lib/solo-pve-arena-adapter.ts"
+    ],
+    "routes": [
+      {
+        "path": "/village/anbu-infiltration",
+        "handler": "village/anbu-infiltration",
+        "roles": [
+          "start",
+          "state",
+          "settlement",
+          "lifecycle"
+        ]
+      },
+      {
+        "path": "/solo-pve/action",
+        "handler": "solo-pve/action",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/solo-pve/state",
+        "handler": "solo-pve/state",
+        "roles": [
+          "state"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "server-settled",
+    "replayKind": "expiring-run-and-session-with-receipt",
+    "status": "match",
+    "migrationStatus": "migrated",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "tower"
+    ]
+  },
+  {
+    "id": "battle-towers",
+    "label": "Battle Towers",
+    "category": "tower",
+    "authorityEngine": "tower",
+    "clientEntries": [
+      "lib/towers-api.ts",
+      "components/TowerReadyRoomPanel.tsx",
+      "screens/BattleTowerFight.tsx"
+    ],
+    "routes": [
+      {
+        "path": "/towers/floors",
+        "handler": "towers/floors",
+        "roles": [
+          "catalog"
+        ]
+      },
+      {
+        "path": "/towers/party",
+        "handler": "towers/party",
+        "roles": [
+          "lifecycle"
+        ]
+      },
+      {
+        "path": "/towers/join",
+        "handler": "towers/join",
+        "roles": [
+          "lifecycle",
+          "recovery"
+        ]
+      },
+      {
+        "path": "/towers/start",
+        "handler": "towers/start",
+        "roles": [
+          "start"
+        ]
+      },
+      {
+        "path": "/towers/action",
+        "handler": "towers/action",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/towers/state",
+        "handler": "towers/state",
+        "roles": [
+          "state"
+        ]
+      },
+      {
+        "path": "/towers/settle",
+        "handler": "towers/settle",
+        "roles": [
+          "settlement"
+        ]
+      },
+      {
+        "path": "/towers/my-run",
+        "handler": "towers/my-run",
+        "roles": [
+          "recovery",
+          "state"
+        ]
+      }
+    ],
+    "participantModel": "solo-or-party",
+    "rewardPolicy": "server-settled",
+    "replayKind": "expiring-tower-run-and-log",
+    "status": "match",
+    "migrationStatus": "keep",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "solo-pve"
+    ]
+  },
+  {
+    "id": "tower-party",
+    "label": "Tower party",
+    "category": "tower",
+    "authorityEngine": "tower",
+    "clientEntries": [
+      "lib/towers-api.ts",
+      "components/TowerReadyRoomPanel.tsx",
+      "screens/BattleTowerFight.tsx"
+    ],
+    "routes": [
+      {
+        "path": "/towers/floors",
+        "handler": "towers/floors",
+        "roles": [
+          "catalog"
+        ]
+      },
+      {
+        "path": "/towers/party",
+        "handler": "towers/party",
+        "roles": [
+          "lifecycle"
+        ]
+      },
+      {
+        "path": "/towers/join",
+        "handler": "towers/join",
+        "roles": [
+          "lifecycle",
+          "recovery"
+        ]
+      },
+      {
+        "path": "/towers/start",
+        "handler": "towers/start",
+        "roles": [
+          "start"
+        ]
+      },
+      {
+        "path": "/towers/action",
+        "handler": "towers/action",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/towers/state",
+        "handler": "towers/state",
+        "roles": [
+          "state"
+        ]
+      },
+      {
+        "path": "/towers/settle",
+        "handler": "towers/settle",
+        "roles": [
+          "settlement"
+        ]
+      },
+      {
+        "path": "/towers/my-run",
+        "handler": "towers/my-run",
+        "roles": [
+          "recovery",
+          "state"
+        ]
+      }
+    ],
+    "participantModel": "party",
+    "rewardPolicy": "server-settled",
+    "replayKind": "expiring-tower-run-and-log",
+    "status": "match",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "solo-pve"
+    ]
+  },
+  {
+    "id": "endless-spire",
+    "label": "Endless Spire",
+    "category": "tower",
+    "authorityEngine": "tower",
+    "clientEntries": [
+      "lib/towers-api.ts",
+      "components/TowerReadyRoomPanel.tsx",
+      "screens/BattleTowerFight.tsx"
+    ],
+    "routes": [
+      {
+        "path": "/towers/party",
+        "handler": "towers/party",
+        "roles": [
+          "lifecycle"
+        ]
+      },
+      {
+        "path": "/towers/join",
+        "handler": "towers/join",
+        "roles": [
+          "lifecycle",
+          "recovery"
+        ]
+      },
+      {
+        "path": "/towers/start",
+        "handler": "towers/start",
+        "roles": [
+          "start"
+        ]
+      },
+      {
+        "path": "/towers/action",
+        "handler": "towers/action",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/towers/state",
+        "handler": "towers/state",
+        "roles": [
+          "state"
+        ]
+      },
+      {
+        "path": "/towers/settle",
+        "handler": "towers/settle",
+        "roles": [
+          "settlement"
+        ]
+      },
+      {
+        "path": "/towers/my-run",
+        "handler": "towers/my-run",
+        "roles": [
+          "recovery",
+          "state"
+        ]
+      },
+      {
+        "path": "/towers/spire-leaderboard",
+        "handler": "towers/spire-leaderboard",
+        "roles": [
+          "leaderboard"
+        ]
+      }
+    ],
+    "participantModel": "party",
+    "rewardPolicy": "server-capped",
+    "replayKind": "expiring-tower-run-and-log",
+    "status": "match",
+    "migrationStatus": "keep",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "solo-pve"
+    ]
+  },
+  {
+    "id": "clan-boss",
+    "label": "Clan Boss",
+    "category": "tower",
+    "authorityEngine": "tower",
+    "capabilityKey": "clanBoss",
+    "clientEntries": [
+      "screens/ClanBoss.tsx",
+      "lib/clan-boss-api.ts",
+      "lib/towers-api.ts"
+    ],
+    "routes": [
+      {
+        "path": "/clan-boss/get",
+        "handler": "clan-boss/get",
+        "roles": [
+          "state",
+          "leaderboard"
+        ]
+      },
+      {
+        "path": "/clan-boss/party",
+        "handler": "clan-boss/party",
+        "roles": [
+          "lifecycle",
+          "communication"
+        ]
+      },
+      {
+        "path": "/towers/join",
+        "handler": "towers/join",
+        "roles": [
+          "lifecycle",
+          "recovery"
+        ]
+      },
+      {
+        "path": "/clan-boss/assault-start",
+        "handler": "clan-boss/assault-start",
+        "roles": [
+          "start"
+        ]
+      },
+      {
+        "path": "/towers/action",
+        "handler": "towers/action",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/towers/state",
+        "handler": "towers/state",
+        "roles": [
+          "state"
+        ]
+      },
+      {
+        "path": "/towers/my-run",
+        "handler": "towers/my-run",
+        "roles": [
+          "recovery",
+          "state"
+        ]
+      },
+      {
+        "path": "/clan-boss/assault-settle",
+        "handler": "clan-boss/assault-settle",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "solo-or-party",
+    "rewardPolicy": "server-settled",
+    "replayKind": "expiring-tower-session-and-aggregate-standings",
+    "status": "match",
+    "migrationStatus": "keep",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "solo-pve"
+    ]
+  },
+  {
+    "id": "ranked-2v2",
+    "label": "Ranked 2v2",
+    "category": "shinobi-pvp",
+    "authorityEngine": "tower",
+    "intendedAuthorityEngine": "pvp",
+    "clientEntries": [
+      "lib/ranked-2v2-api.ts",
+      "components/Ranked2v2Panel.tsx",
+      "features/arena/components/ArenaDistrictLobby.tsx",
+      "lib/tower-pvp-api.ts"
+    ],
+    "routes": [
+      {
+        "path": "/pvp/ranked-2v2",
+        "handler": "pvp/ranked-2v2",
+        "roles": [
+          "lifecycle",
+          "start",
+          "settlement"
+        ]
+      },
+      {
+        "path": "/towers/pvp-action",
+        "handler": "towers/pvp-action",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/towers/pvp-state",
+        "handler": "towers/pvp-state",
+        "roles": [
+          "state"
+        ]
+      }
+    ],
+    "participantModel": "party",
+    "rewardPolicy": "server-settled",
+    "replayKind": "bounded-terminal-command-ring",
+    "status": "match",
+    "statusDetail": "Duo-queue ladder on its own ranked2v2Rating, separate from solo ranked. Elo is computed once from the two TEAM ratings sealed at match time and applied to both members of each side; a cancelled match rates nobody. Settlement is exactly-once per match via a durable per-save receipt.",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "solo-pve",
+      "tower"
+    ]
+  },
+  {
+    "id": "tower-pvp",
+    "label": "Team Arena 2v2",
+    "category": "tower",
+    "authorityEngine": "tower",
+    "clientEntries": [
+      "lib/tower-pvp-api.ts",
+      "components/TowerPvpPanel.tsx",
+      "components/TeamArenaSection.tsx",
+      "features/arena/components/BattleArenaLobby.tsx"
+    ],
+    "routes": [
+      {
+        "path": "/towers/pvp-queue",
+        "handler": "towers/pvp-queue",
+        "roles": [
+          "start"
+        ]
+      },
+      {
+        "path": "/towers/pvp-action",
+        "handler": "towers/pvp-action",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/towers/pvp-state",
+        "handler": "towers/pvp-state",
+        "roles": [
+          "state"
+        ]
+      },
+      {
+        "path": "/towers/pvp-settle",
+        "handler": "towers/pvp-settle",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "party",
+    "rewardPolicy": "none",
+    "replayKind": "bounded-terminal-command-ring",
+    "status": "match",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "solo-pve"
+    ]
+  },
+  {
+    "id": "world-sector-player-raid",
+    "label": "Open-world sector raid",
+    "category": "shinobi-pvp",
+    "authorityEngine": "pvp",
+    "clientEntries": [
+      "App.tsx",
+      "screens/WorldMap.tsx",
+      "components/WorldSectorCommandPanel.tsx",
+      "lib/world-attack-claim.ts",
+      "lib/village-war-map.ts",
+      "screens/PvpBattleScreen.tsx",
+      "lib/pvp-combat-log-api.ts",
+      "lib/pvp-reward-claim.ts"
+    ],
+    "routes": [
+      {
+        "path": "/pvp/session",
+        "handler": "pvp/session",
+        "roles": [
+          "start",
+          "state"
+        ]
+      },
+      {
+        "path": "/pvp/move",
+        "handler": "pvp/move",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/pvp/chat",
+        "handler": "pvp/chat",
+        "roles": [
+          "communication"
+        ]
+      },
+      {
+        "path": "/pvp/spectate",
+        "handler": "pvp/spectate",
+        "roles": [
+          "lifecycle",
+          "observation"
+        ]
+      },
+      {
+        "path": "/pvp/stream",
+        "handler": "pvp/stream",
+        "roles": [
+          "state",
+          "observation"
+        ]
+      },
+      {
+        "path": "/pvp/combat-log",
+        "handler": "pvp/combat-log",
+        "roles": [
+          "record"
+        ]
+      },
+      {
+        "path": "/pvp/combat-history",
+        "handler": "pvp/combat-history",
+        "roles": [
+          "record"
+        ]
+      },
+      {
+        "path": "/pvp/claim-rewards",
+        "handler": "pvp/claim-rewards",
+        "roles": [
+          "settlement"
+        ]
+      },
+      {
+        "path": "/player/attack",
+        "handler": "player/attack",
+        "roles": [
+          "lifecycle"
+        ]
+      },
+      {
+        "path": "/player/clear-attack",
+        "handler": "player/clear-attack",
+        "roles": [
+          "lifecycle"
+        ]
+      },
+      {
+        "path": "/player/challenge",
+        "handler": "player/challenge",
+        "roles": [
+          "lifecycle"
+        ]
+      }
+    ],
+    "participantModel": "two-player",
+    "rewardPolicy": "server-settled",
+    "replayKind": "durable-pvp-history",
+    "status": "match",
+    "migrationStatus": "keep",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "solo-pve",
+      "tower"
+    ]
+  },
+  {
+    "id": "sector-war-shinobi-human",
+    "label": "Sector war shinobi combat",
+    "category": "shinobi-pvp",
+    "authorityEngine": "pvp",
+    "orchestrationOwner": "sector-war",
+    "capabilityKey": "villageWar",
+    "clientEntries": [
+      "lib/village-war-map.ts",
+      "screens/WorldMap.tsx",
+      "screens/PvpBattleScreen.tsx",
+      "lib/pvp-combat-log-api.ts",
+      "lib/pvp-reward-claim.ts"
+    ],
+    "routes": [
+      {
+        "path": "/pvp/session",
+        "handler": "pvp/session",
+        "roles": [
+          "start",
+          "state"
+        ]
+      },
+      {
+        "path": "/pvp/move",
+        "handler": "pvp/move",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/pvp/chat",
+        "handler": "pvp/chat",
+        "roles": [
+          "communication"
+        ]
+      },
+      {
+        "path": "/pvp/spectate",
+        "handler": "pvp/spectate",
+        "roles": [
+          "lifecycle",
+          "observation"
+        ]
+      },
+      {
+        "path": "/pvp/stream",
+        "handler": "pvp/stream",
+        "roles": [
+          "state",
+          "observation"
+        ]
+      },
+      {
+        "path": "/pvp/combat-log",
+        "handler": "pvp/combat-log",
+        "roles": [
+          "record"
+        ]
+      },
+      {
+        "path": "/pvp/combat-history",
+        "handler": "pvp/combat-history",
+        "roles": [
+          "record"
+        ]
+      },
+      {
+        "path": "/pvp/claim-rewards",
+        "handler": "pvp/claim-rewards",
+        "roles": [
+          "settlement"
+        ]
+      },
+      {
+        "path": "/village/sector-war",
+        "handler": "village/sector-war",
+        "roles": [
+          "lifecycle",
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "two-player",
+    "rewardPolicy": "server-settled",
+    "replayKind": "durable-pvp-history-plus-contest-receipt",
+    "status": "match",
+    "migrationStatus": "keep",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "solo-pve",
+      "tower"
+    ]
+  },
+  {
+    "id": "sector-war-shinobi-garrison",
+    "label": "Sector War shinobi garrison fallback",
+    "category": "shinobi-pvp",
+    "authorityEngine": "pvp",
+    "orchestrationOwner": "sector-war",
+    "capabilityKey": "villageWar",
+    "clientEntries": [
+      "lib/village-war-map.ts",
+      "lib/sector-war-garrison-api.ts",
+      "screens/VillageWarMap.tsx",
+      "screens/SectorWarGarrisonAssault.tsx",
+      "lib/solo-pve-api.ts",
+      "lib/solo-pve-arena-adapter.ts"
+    ],
+    "routes": [
+      {
+        "path": "/village/sector-war",
+        "handler": "village/sector-war",
+        "roles": [
+          "start",
+          "state",
+          "settlement",
+          "lifecycle"
+        ]
+      },
+      {
+        "path": "/solo-pve/action",
+        "handler": "solo-pve/action",
+        "roles": [
+          "action"
+        ]
+      },
+      {
+        "path": "/solo-pve/state",
+        "handler": "solo-pve/state",
+        "roles": [
+          "state"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "server-settled",
+    "replayKind": "expiring-solo-session-log-plus-contest-receipt",
+    "status": "match",
+    "statusDetail": "The wrong-owner Tower fallback (resolveMercBattle/sealTowerFighter) stays retired. The garrison is resolved on the Solo PvE runtime over a sealed snapshot of the defending village's real ANBU (api/_sector-war-garrison-encounter.ts, api/_anbu-infiltration-store.ts) — content, not a live second participant — same shape as Anbu Infiltration. Its OUTCOME still feeds the sector-war contest's own scored points under api/village/sector-war.ts's lock (garrison-start/garrison-resolve), which is why this mode is labeled pvp: sector-war orchestration, not the underlying simulation engine, is what makes it the contest's authority.",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "solo-pve",
+      "tower"
+    ]
+  },
+  {
+    "id": "village-war-mercenary",
+    "label": "Village-War mercenary battle",
+    "category": "tower",
+    "authorityEngine": "tower",
+    "orchestrationOwner": "sector-war",
+    "capabilityKey": "villageWar",
+    "clientEntries": [
+      "lib/village-war-map.ts",
+      "lib/merc-ai.ts",
+      "lib/merc-roam-client.ts"
+    ],
+    "routes": [
+      {
+        "path": "/village/war-merc",
+        "handler": "village/war-merc",
+        "roles": [
+          "start",
+          "state",
+          "settlement"
+        ]
+      },
+      {
+        "path": "/sector/merc-roam",
+        "handler": "sector/merc-roam",
+        "roles": [
+          "start",
+          "state",
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "headless",
+    "rewardPolicy": "server-settled",
+    "replayKind": "contest-receipt-only",
+    "status": "match",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "solo-pve"
+    ]
+  },
+  {
+    "id": "sector-war-card",
+    "label": "Sector war card combat",
+    "category": "card",
+    "authorityEngine": "chronicle",
+    "orchestrationOwner": "sector-war",
+    "capabilityKey": "villageWar",
+    "clientEntries": [
+      "screens/SectorWarCardBattle.tsx"
+    ],
+    "routes": [
+      {
+        "path": "/village/sector-card",
+        "handler": "village/sector-card",
+        "roles": [
+          "start",
+          "action",
+          "state",
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "two-player",
+    "rewardPolicy": "server-settled",
+    "replayKind": "expiring-chronicle-projection",
+    "status": "match",
+    "migrationStatus": "keep",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "solo-pve",
+      "tower",
+      "pet-showdown",
+      "pet-warfront",
+      "pet-gauntlet-grid"
+    ]
+  },
+  {
+    "id": "sector-war-pet",
+    "label": "Sector war pet combat",
+    "category": "pet-showdown",
+    "authorityEngine": "pet-showdown",
+    "orchestrationOwner": "sector-war",
+    "capabilityKey": "villageWar",
+    "clientEntries": [
+      "screens/SectorWarPetBattle.tsx",
+      "lib/village-war-map.ts"
+    ],
+    "routes": [
+      {
+        "path": "/village/sector-pet",
+        "handler": "village/sector-pet",
+        "roles": [
+          "start",
+          "state",
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "two-player",
+    "rewardPolicy": "server-settled",
+    "replayKind": "derived-showdown-script",
+    "status": "match",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pet-warfront",
+      "pet-gauntlet-grid",
+      "pet-cinematic-duel",
+      "legacy-pet-duel",
+      "client-local-pet-duel"
+    ]
+  },
+  {
+    "id": "clan-war-tilecards",
+    "label": "Clan War Tile Cards",
+    "category": "card",
+    "authorityEngine": "chronicle",
+    "orchestrationOwner": "clan-war",
+    "clientEntries": [
+      "screens/ClanWarTileCardDuel.tsx",
+      "lib/clan-war-api.ts"
+    ],
+    "routes": [
+      {
+        "path": "/clan/war/challenge",
+        "handler": "clan/war/challenge",
+        "roles": [
+          "lifecycle"
+        ]
+      },
+      {
+        "path": "/clan/war/tilecards",
+        "handler": "clan/war/tilecards",
+        "roles": [
+          "start",
+          "action",
+          "state",
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "two-player",
+    "rewardPolicy": "server-settled",
+    "replayKind": "expiring-chronicle-projection",
+    "status": "match",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "solo-pve",
+      "tower",
+      "pet-showdown",
+      "pet-warfront",
+      "pet-gauntlet-grid"
+    ]
+  },
+  {
+    "id": "clan-war-pet",
+    "label": "Clan War pet 1v1 and 2v2",
+    "category": "pet-showdown",
+    "authorityEngine": "pet-showdown",
+    "orchestrationOwner": "clan-war",
+    "clientEntries": [
+      "App.tsx",
+      "screens/ClanWarPetBattle.tsx",
+      "lib/clan-war-pet-api.ts",
+      "lib/clan-war-api.ts"
+    ],
+    "routes": [
+      {
+        "path": "/clan/war/challenge",
+        "handler": "clan/war/challenge",
+        "roles": [
+          "lifecycle"
+        ]
+      },
+      {
+        "path": "/clan/war/pet",
+        "handler": "clan/war/pet",
+        "roles": [
+          "start",
+          "state",
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "party",
+    "rewardPolicy": "server-settled",
+    "replayKind": "derived-showdown-script",
+    "status": "match",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pet-warfront",
+      "pet-gauntlet-grid",
+      "pet-cinematic-duel",
+      "legacy-pet-duel",
+      "client-local-pet-duel"
+    ]
+  },
+  {
+    "id": "pet-showdown-practice",
+    "label": "Pet Showdown practice",
+    "category": "pet-showdown",
+    "authorityEngine": "pet-showdown",
+    "clientEntries": [
+      "screens/PetShowdown.tsx",
+      "lib/pet-showdown-api.ts"
+    ],
+    "routes": [
+      {
+        "path": "/pet/showdown",
+        "handler": "pet/showdown",
+        "roles": [
+          "start",
+          "action",
+          "state",
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "none",
+    "replayKind": "expiring-showdown-turn-script",
+    "status": "match",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pet-warfront",
+      "pet-gauntlet-grid",
+      "pet-cinematic-duel",
+      "legacy-pet-duel",
+      "client-local-pet-duel"
+    ]
+  },
+  {
+    "id": "pet-wanderer-showdown",
+    "label": "Natural sector pet wanderer",
+    "category": "pet-showdown",
+    "authorityEngine": "pet-showdown",
+    "clientEntries": [
+      "screens/WorldMap.tsx",
+      "screens/PetArena.tsx",
+      "data/pet-arena-opponents.ts"
+    ],
+    "routes": [
+      {
+        "path": "/pet/battle-start",
+        "handler": "pet/battle-start",
+        "roles": [
+          "start",
+          "recovery"
+        ]
+      },
+      {
+        "path": "/pet/battle-result",
+        "handler": "pet/battle-result",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "none",
+    "replayKind": "immutable-returned-showdown-script",
+    "status": "match",
+    "statusDetail": "The server reconstructs the exact current natural roster slot and presence, seals one NX Showdown script/outcome, then commits the wanderer cooldown. Settlement retires the proof without Coliseum progression.",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pet-warfront",
+      "pet-gauntlet-grid",
+      "pet-cinematic-duel",
+      "legacy-pet-duel",
+      "client-local-pet-duel"
+    ]
+  },
+  {
+    "id": "pet-coliseum",
+    "label": "Pet Coliseum",
+    "category": "pet-showdown",
+    "authorityEngine": "pet-showdown",
+    "clientEntries": [
+      "screens/PetArena.tsx",
+      "screens/PetShowdown.tsx",
+      "lib/pet-showdown-api.ts"
+    ],
+    "routes": [
+      {
+        "path": "/pet/showdown",
+        "handler": "pet/showdown",
+        "roles": [
+          "start",
+          "action",
+          "state",
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "server-capped",
+    "replayKind": "expiring-showdown-turn-script",
+    "status": "match",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pet-warfront",
+      "pet-gauntlet-grid",
+      "pet-cinematic-duel",
+      "legacy-pet-duel",
+      "client-local-pet-duel"
+    ]
+  },
+  {
+    "id": "pet-ladder-showdown",
+    "label": "Pet Ladder Showdown",
+    "category": "pet-showdown",
+    "authorityEngine": "pet-showdown",
+    "clientEntries": [
+      "lib/pet-ladder-client.ts",
+      "screens/HallOfLegends.tsx"
+    ],
+    "routes": [
+      {
+        "path": "/pet-ladder",
+        "handler": "pet-ladder/ladder",
+        "roles": [
+          "start",
+          "state",
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "asynchronous-defense",
+    "rewardPolicy": "server-settled",
+    "replayKind": "returned-showdown-script",
+    "status": "match",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pet-warfront",
+      "pet-gauntlet-grid",
+      "pet-cinematic-duel",
+      "legacy-pet-duel",
+      "client-local-pet-duel"
+    ]
+  },
+  {
+    "id": "pet-warfront",
+    "label": "Beastbound Warfront",
+    "category": "pet-tactical",
+    "authorityEngine": "pet-warfront",
+    "clientEntries": [
+      "screens/PetArena.tsx"
+    ],
+    "routes": [
+      {
+        "path": "/pet/warfront-start",
+        "handler": "pet/warfront-start",
+        "roles": [
+          "start",
+          "state"
+        ]
+      },
+      {
+        "path": "/pet/battle-result",
+        "handler": "pet/battle-result",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "server-capped",
+    "replayKind": "sealed-warfront-presentation-replay",
+    "status": "match",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pet-showdown",
+      "pet-gauntlet-grid",
+      "pet-cinematic-duel",
+      "legacy-pet-duel",
+      "client-local-pet-duel"
+    ]
+  },
+  {
+    "id": "tactical-arena",
+    "label": "Tactical Arena (retired)",
+    "category": "pet-legacy",
+    "authorityEngine": null,
+    "intendedAuthorityEngine": "pet-warfront",
+    "clientEntries": [
+      "screens/PetArena.tsx"
+    ],
+    "routes": [],
+    "participantModel": "solo",
+    "rewardPolicy": "none",
+    "replayKind": "none",
+    "status": "surface-gap",
+    "statusDetail": "Retired by the Beastbound Warfront consolidation. This route-less compatibility ID cannot launch; solo, co-op, and offline ranked play use Beastbound Warfront. No standalone Tactical surface is planned.",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pet-showdown",
+      "pet-gauntlet-grid",
+      "pet-cinematic-duel",
+      "legacy-pet-duel",
+      "client-local-pet-duel"
+    ]
+  },
+  {
+    "id": "coop-tactical-arena",
+    "label": "Co-op Beastbound Warfront",
+    "category": "pet-tactical",
+    "authorityEngine": "pet-warfront",
+    "clientEntries": [
+      "components/ArenaCoopLobby.tsx",
+      "screens/PetArena.tsx"
+    ],
+    "routes": [
+      {
+        "path": "/arena/lobby",
+        "handler": "arena/lobby",
+        "roles": [
+          "start",
+          "state",
+          "lifecycle"
+        ]
+      }
+    ],
+    "participantModel": "party",
+    "rewardPolicy": "none",
+    "replayKind": "client-warfront-replay-from-server-sealed-inputs",
+    "status": "match",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pet-showdown",
+      "pet-gauntlet-grid",
+      "pet-cinematic-duel",
+      "legacy-pet-duel",
+      "client-local-pet-duel"
+    ]
+  },
+  {
+    "id": "pet-ladder-warfront",
+    "label": "Ranked Beastbound Warfront",
+    "category": "pet-tactical",
+    "authorityEngine": "pet-warfront",
+    "clientEntries": [
+      "lib/pet-ladder-client.ts",
+      "screens/PetLadder.tsx",
+      "screens/HallOfLegends.tsx"
+    ],
+    "routes": [
+      {
+        "path": "/pet-ladder",
+        "handler": "pet-ladder/ladder",
+        "roles": [
+          "start",
+          "state",
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "asynchronous-defense",
+    "rewardPolicy": "server-settled",
+    "replayKind": "sealed-rite-formations-and-seed",
+    "status": "match",
+    "statusDetail": "The server resolves best-of-three 4v4 Rite clashes from saved pet stats and legal owner-chosen deployments. Both sides hold their sealed positions while offline. Historical tactical keys preserve rankings; the retired lane engine is unreachable.",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pet-showdown",
+      "pet-gauntlet-grid",
+      "pet-cinematic-duel",
+      "legacy-pet-duel",
+      "client-local-pet-duel"
+    ]
+  },
+  {
+    "id": "pet-gauntlet",
+    "label": "Pet Gauntlet",
+    "category": "pet-tactical",
+    "authorityEngine": "pet-gauntlet-grid",
+    "clientEntries": [
+      "components/PetGauntlet.tsx",
+      "lib/pet-gauntlet-api.ts",
+      "screens/PetArena.tsx"
+    ],
+    "routes": [
+      {
+        "path": "/pet/gauntlet",
+        "handler": "pet/gauntlet",
+        "roles": [
+          "start",
+          "state",
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "server-capped",
+    "replayKind": "server-replayed-decision-transcript-and-receipt",
+    "status": "match",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pet-showdown",
+      "pet-warfront",
+      "chronicle",
+      "pet-cinematic-duel",
+      "legacy-pet-duel",
+      "client-local-pet-duel"
+    ]
+  },
+  {
+    "id": "pet-arena-ai-1v1",
+    "label": "Pet Arena AI 1v1 (retired)",
+    "category": "pet-legacy",
+    "authorityEngine": null,
+    "intendedAuthorityEngine": "pet-cinematic-duel",
+    "clientEntries": [
+      "screens/PetArena.tsx"
+    ],
+    "routes": [],
+    "participantModel": "solo",
+    "rewardPolicy": "none",
+    "replayKind": "none",
+    "status": "surface-gap",
+    "statusDetail": "New user-picked cinematic AI admission is retired fail-closed. The separate issued-token compatibility row owns exact recovery and settlement of an already-active pre-cutover seal; paid Pet Coliseum progression belongs only to Showdown.",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pet-showdown",
+      "pet-warfront",
+      "pet-gauntlet-grid",
+      "legacy-pet-duel",
+      "client-local-pet-duel"
+    ]
+  },
+  {
+    "id": "pet-arena-ai-2v2",
+    "label": "Pet Arena AI 2v2 (retired)",
+    "category": "pet-legacy",
+    "authorityEngine": null,
+    "intendedAuthorityEngine": "pet-cinematic-duel",
+    "clientEntries": [
+      "screens/PetArena.tsx"
+    ],
+    "routes": [],
+    "participantModel": "solo",
+    "rewardPolicy": "none",
+    "replayKind": "none",
+    "status": "surface-gap",
+    "statusDetail": "New user-picked cinematic AI admission is retired fail-closed. The separate issued-token compatibility row owns exact recovery and settlement of an already-active pre-cutover seal; paid Pet Coliseum progression belongs only to Showdown.",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pet-showdown",
+      "pet-warfront",
+      "pet-gauntlet-grid",
+      "legacy-pet-duel",
+      "client-local-pet-duel"
+    ]
+  },
+  {
+    "id": "pet-arena-ai-issued-token-compat",
+    "label": "Pet Arena AI issued-token compatibility",
+    "category": "pet-legacy",
+    "authorityEngine": "pet-cinematic-duel",
+    "clientEntries": [
+      "screens/PetArena.tsx"
+    ],
+    "routes": [
+      {
+        "path": "/pet/battle-start",
+        "handler": "pet/battle-start",
+        "roles": [
+          "recovery"
+        ]
+      },
+      {
+        "path": "/pet/battle-result",
+        "handler": "pet/battle-result",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "server-capped",
+    "replayKind": "server-replayed-cinematic-input-log-with-receipt",
+    "status": "match",
+    "statusDetail": "Compatibility only: /pet/battle-start may recover one exact active pre-cutover token whose settlement policy is unmarked, and /pet/battle-result may settle that sealed cinematic replay with exact receipt semantics. There is no new start admission; context-free attempts fail closed.",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pet-showdown",
+      "pet-warfront",
+      "pet-gauntlet-grid",
+      "legacy-pet-duel",
+      "client-local-pet-duel"
+    ]
+  },
+  {
+    "id": "pet-arena-pvp-1v1",
+    "label": "Pet Arena live PvP 1v1",
+    "category": "pet-legacy",
+    "authorityEngine": "pet-cinematic-duel",
+    "clientEntries": [
+      "screens/PetArena.tsx",
+      "components/PetDuelLiveHost.tsx",
+      "lib/pet-duel-transport.ts"
+    ],
+    "routes": [],
+    "transports": [
+      {
+        "kind": "socket.io",
+        "channel": "petduel:*",
+        "serverHandler": "_realtime/pet-duel-socket",
+        "clientAdapter": "lib/pet-duel-transport.ts",
+        "roles": [
+          "start",
+          "action",
+          "state",
+          "settlement"
+        ],
+        "persistence": "memory-only"
+      }
+    ],
+    "participantModel": "two-player",
+    "rewardPolicy": "none",
+    "replayKind": "memory-only-server-replayed-lockstep-cinematic-log",
+    "status": "match",
+    "intentionallySeparateFrom": [
+      "pet-showdown",
+      "pet-warfront",
+      "pet-gauntlet-grid",
+      "legacy-pet-duel",
+      "client-local-pet-duel"
+    ]
+  },
+  {
+    "id": "pet-arena-pvp-2v2",
+    "label": "Pet Arena live PvP 2v2",
+    "category": "pet-legacy",
+    "authorityEngine": "pet-cinematic-duel",
+    "clientEntries": [
+      "screens/PetArena.tsx",
+      "components/PetDuelLiveHost.tsx",
+      "lib/pet-duel-transport.ts"
+    ],
+    "routes": [],
+    "transports": [
+      {
+        "kind": "socket.io",
+        "channel": "petduel:*",
+        "serverHandler": "_realtime/pet-duel-socket",
+        "clientAdapter": "lib/pet-duel-transport.ts",
+        "roles": [
+          "start",
+          "action",
+          "state",
+          "settlement"
+        ],
+        "persistence": "memory-only"
+      }
+    ],
+    "participantModel": "two-player",
+    "rewardPolicy": "none",
+    "replayKind": "memory-only-server-replayed-lockstep-cinematic-log",
+    "status": "match",
+    "intentionallySeparateFrom": [
+      "pet-showdown",
+      "pet-warfront",
+      "pet-gauntlet-grid",
+      "legacy-pet-duel",
+      "client-local-pet-duel"
+    ]
+  },
+  {
+    "id": "pet-ranked-live",
+    "label": "Pet ranked live queue",
+    "category": "pet-showdown",
+    "authorityEngine": "pet-showdown",
+    "clientEntries": [
+      "screens/PetLadder.tsx",
+      "components/PetLadderQueuePanel.tsx",
+      "lib/pet-ranked-queue-api.ts",
+      "lib/pet-ranked-watch-api.ts"
+    ],
+    "routes": [
+      {
+        "path": "/pvp/pet-ranked-queue",
+        "handler": "pvp/pet-ranked-queue",
+        "roles": [
+          "lifecycle"
+        ]
+      },
+      {
+        "path": "/pet/ranked-start",
+        "handler": "pet/ranked-start",
+        "roles": [
+          "start"
+        ]
+      },
+      {
+        "path": "/pet/ranked-watch",
+        "handler": "pet/ranked-watch",
+        "roles": [
+          "state",
+          "observation"
+        ]
+      },
+      {
+        "path": "/pet/battle-result",
+        "handler": "pet/battle-result",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "two-player",
+    "rewardPolicy": "server-settled",
+    "replayKind": "derived-showdown-script",
+    "status": "match",
+    "statusDetail": "The queue produces only a reciprocal pairing. resolveRankedPetDuel is the single resolution: /pet/ranked-watch re-derives it for BOTH players and settlement rates that same derivation, so the fight on screen is the rated fight. DISABLE_PET_RANKED_QUEUE=1 closes matchmaking; DISABLE_PET_RANKED_SERVER_V1=1 closes the whole mode.",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pet-warfront",
+      "pet-gauntlet-grid",
+      "pet-cinematic-duel",
+      "legacy-pet-duel",
+      "client-local-pet-duel"
+    ]
+  },
+  {
+    "id": "pet-ranked-legacy-compat",
+    "label": "Pet ranked legacy compatibility challenge",
+    "category": "pet-legacy",
+    "authorityEngine": "legacy-pet-duel",
+    "clientEntries": [
+      "screens/Arena.tsx",
+      "screens/PetArena.tsx"
+    ],
+    "routes": [
+      {
+        "path": "/player/challenge",
+        "handler": "player/challenge",
+        "roles": [
+          "lifecycle"
+        ]
+      },
+      {
+        "path": "/pet/ranked-start",
+        "handler": "pet/ranked-start",
+        "roles": [
+          "start",
+          "state"
+        ]
+      },
+      {
+        "path": "/pet/battle-result",
+        "handler": "pet/battle-result",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "two-player",
+    "rewardPolicy": "server-settled",
+    "replayKind": "sealed-legacy-ranked-outcome-and-receipt",
+    "status": "defect",
+    "statusDetail": "New rankedPet challenge creation is retired fail-closed. Retained notices/start tokens/results remain recoverable, but the client displays runPetDuelCinematic while settlement replays legacy runPetDuel, so a retained compatibility notice can display a winner that the server rejects. The current Pet Ladder queue does not enter this path.",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pet-showdown",
+      "pet-warfront",
+      "pet-gauntlet-grid",
+      "pet-cinematic-duel",
+      "client-local-pet-duel"
+    ]
+  },
+  {
+    "id": "hollow-gate-pet-cinematic",
+    "label": "Hollow Gate pet",
+    "category": "pet-legacy",
+    "authorityEngine": "pet-cinematic-duel",
+    "orchestrationOwner": "hollow-gate",
+    "clientEntries": [
+      "lib/hollow-gate-combat-api.ts",
+      "screens/PetArena.tsx"
+    ],
+    "routes": [
+      {
+        "path": "/hollow-gate/combat-start",
+        "handler": "hollow-gate/combat-start",
+        "roles": [
+          "lifecycle"
+        ]
+      },
+      {
+        "path": "/pet/battle-start",
+        "handler": "pet/battle-start",
+        "roles": [
+          "start",
+          "state"
+        ]
+      },
+      {
+        "path": "/pet/battle-result",
+        "handler": "pet/battle-result",
+        "roles": [
+          "lifecycle"
+        ]
+      },
+      {
+        "path": "/hollow-gate/combat-settle",
+        "handler": "hollow-gate/combat-settle",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "parent-mode-settlement",
+    "replayKind": "server-replayed-cinematic-input-log-and-parent-run-receipt",
+    "status": "owner-decision",
+    "migrationStatus": "keep",
+    "statusDetail": "Current execution preselects one exact cinematic proof in the parent binding; duplicate starts reuse it and parent settlement accepts only its versioned engine/proof receipt. New Hollow Gate Showdown admission and adoption of unbound legacy Showdown siblings fail closed; a legacy parent may recover only the unique exact active same-player/run cinematic child. That compatibility is not a second live authority. The long-term replatform choice remains owner-controlled.",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pet-showdown",
+      "pet-warfront",
+      "pet-gauntlet-grid",
+      "legacy-pet-duel",
+      "client-local-pet-duel"
+    ]
+  },
+  {
+    "id": "dungeon-pet-cinematic",
+    "label": "Dungeon pet",
+    "category": "pet-legacy",
+    "authorityEngine": "pet-cinematic-duel",
+    "orchestrationOwner": "dungeon",
+    "clientEntries": [
+      "screens/Dungeon.tsx",
+      "lib/dungeon-pet-authority.ts",
+      "lib/dungeon-api.ts"
+    ],
+    "routes": [
+      {
+        "path": "/pet/battle-start",
+        "handler": "pet/battle-start",
+        "roles": [
+          "start",
+          "state"
+        ]
+      },
+      {
+        "path": "/pet/battle-result",
+        "handler": "pet/battle-result",
+        "roles": [
+          "settlement"
+        ]
+      },
+      {
+        "path": "/dungeon/run",
+        "handler": "dungeon/run",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "parent-mode-settlement",
+    "replayKind": "server-replayed-cinematic-input-log-and-parent-run-receipt",
+    "status": "match",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pet-showdown",
+      "pet-warfront",
+      "pet-gauntlet-grid",
+      "legacy-pet-duel",
+      "client-local-pet-duel"
+    ]
+  },
+  {
+    "id": "card-clash-freeplay",
+    "label": "Card Clash",
+    "category": "card",
+    "authorityEngine": "chronicle",
+    "clientEntries": [
+      "screens/CardClashFreePlay.tsx",
+      "lib/free-play-queue-client.ts"
+    ],
+    "routes": [
+      {
+        "path": "/card-clash/queue",
+        "handler": "card-clash/queue",
+        "roles": [
+          "start",
+          "lifecycle"
+        ]
+      },
+      {
+        "path": "/card-clash/match",
+        "handler": "card-clash/match",
+        "roles": [
+          "action",
+          "state",
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "two-player",
+    "rewardPolicy": "server-progression",
+    "replayKind": "expiring-chronicle-projection",
+    "status": "match",
+    "migrationStatus": "keep",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "solo-pve",
+      "tower",
+      "pet-showdown",
+      "pet-warfront",
+      "pet-gauntlet-grid"
+    ]
+  },
+  {
+    "id": "card-clash-ai",
+    "label": "Card Clash AI",
+    "category": "card",
+    "authorityEngine": "chronicle",
+    "clientEntries": [
+      "screens/CardClashDuel.tsx",
+      "lib/chronicle-duel.ts"
+    ],
+    "routes": [
+      {
+        "path": "/card-clash/ai-start",
+        "handler": "card-clash/ai-start",
+        "roles": [
+          "start"
+        ]
+      },
+      {
+        "path": "/card-clash/ai-move",
+        "handler": "card-clash/ai-move",
+        "roles": [
+          "action",
+          "state",
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "server-capped",
+    "replayKind": "expiring-chronicle-projection",
+    "status": "match",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "solo-pve",
+      "tower",
+      "pet-showdown",
+      "pet-warfront",
+      "pet-gauntlet-grid"
+    ]
+  },
+  {
+    "id": "echoes-of-war",
+    "label": "Echoes of War campaign",
+    "category": "card",
+    "authorityEngine": "chronicle",
+    "clientEntries": [
+      "screens/EchoesOfWar.tsx",
+      "screens/CardClashDuel.tsx",
+      "lib/chronicle-duel.ts"
+    ],
+    "routes": [
+      {
+        "path": "/card-clash/ai-start",
+        "handler": "card-clash/ai-start",
+        "roles": [
+          "start"
+        ]
+      },
+      {
+        "path": "/card-clash/ai-move",
+        "handler": "card-clash/ai-move",
+        "roles": [
+          "action",
+          "state",
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "server-settled",
+    "replayKind": "expiring-chronicle-projection",
+    "status": "match",
+    "statusDetail": "The Celestial Tower Chronicle Showdown story campaign. ai-start seals the encounter (fixed opponent deck + difficulty from api/card-clash/_echoes-catalog.ts) after a floor-unlock check; the ai-move settle mutation pays Chronicle Points from the sealed definition under the standard per-session replay receipt, so duplicate settles and client-supplied rewards are both inert.",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "solo-pve",
+      "tower",
+      "pet-showdown",
+      "pet-warfront",
+      "pet-gauntlet-grid"
+    ]
+  },
+  {
+    "id": "dungeon-card",
+    "label": "Dungeon Card seal",
+    "category": "card",
+    "authorityEngine": "chronicle",
+    "orchestrationOwner": "dungeon",
+    "clientEntries": [
+      "screens/Dungeon.tsx",
+      "screens/CardClashDuel.tsx",
+      "lib/chronicle-duel.ts",
+      "lib/dungeon-api.ts"
+    ],
+    "routes": [
+      {
+        "path": "/card-clash/ai-start",
+        "handler": "card-clash/ai-start",
+        "roles": [
+          "start"
+        ]
+      },
+      {
+        "path": "/card-clash/ai-move",
+        "handler": "card-clash/ai-move",
+        "roles": [
+          "action",
+          "state",
+          "settlement"
+        ]
+      },
+      {
+        "path": "/dungeon/run",
+        "handler": "dungeon/run",
+        "roles": [
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "parent-mode-settlement",
+    "replayKind": "expiring-chronicle-projection-and-parent-run-proof-receipt",
+    "status": "match",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pvp",
+      "solo-pve",
+      "tower",
+      "pet-showdown",
+      "pet-warfront",
+      "pet-gauntlet-grid"
+    ]
+  },
+  {
+    "id": "celestial-first-pact",
+    "label": "Celestial Tower: The First Pact",
+    "category": "pet-showdown",
+    "authorityEngine": "pet-showdown",
+    "clientEntries": [
+      "screens/FirstPact.tsx",
+      "lib/first-pact-api.ts",
+      "lib/first-pact-world.ts",
+      "lib/pet-showdown-api.ts"
+    ],
+    "routes": [
+      {
+        "path": "/first-pact/state",
+        "handler": "first-pact/state",
+        "roles": [
+          "state",
+          "lifecycle",
+          "settlement"
+        ]
+      },
+      {
+        "path": "/pet/showdown",
+        "handler": "pet/showdown",
+        "roles": [
+          "start",
+          "action",
+          "state",
+          "settlement"
+        ]
+      }
+    ],
+    "participantModel": "solo",
+    "rewardPolicy": "server-progression",
+    "replayKind": "durable-campaign-plus-expiring-showdown-turn-script",
+    "status": "match",
+    "statusDetail": "Level-100 single-player RPG in one connected tile world. Exploration and NPC movement are presentation; ordered Chronicle beats, Court Standing, the optional Vale Stable tournament, the district writs, the Balancing, the Standing Court rerun, and all 2v2-plus-two-reserve battle results are server-authoritative and exact-once.",
+    "transports": [],
+    "intentionallySeparateFrom": [
+      "pet-warfront",
+      "pet-gauntlet-grid",
+      "pet-cinematic-duel",
+      "legacy-pet-duel",
+      "client-local-pet-duel"
+    ]
+  }
+]

@@ -1,0 +1,184 @@
+{
+  "auditedBase": "ecd8d6ccaba017a6791ec0ec94f822c10658984d",
+  "codeCommit": "83df471d2eede0265bfad1f6a4fb89e97d33c721",
+  "mainAtCloseout": "21e2cc39262422cf2333b068b0588640352226b7",
+  "mainAdvance": "10 commits, 57 paths. Backend/shared/routes/root dependencies and client doctrine/village helpers unchanged. Newer main CSS is outside these browser results; combined integration checks remain required.",
+  "branch": "codex/coherence-integrity-closeout-20260914",
+  "runtime": "Node 22.23.2 on Windows; disposable memory for API fault injection and local certification",
+  "finalRootTests": {
+    "command": "npm test",
+    "exitCode": 0,
+    "tests": 10410,
+    "pass": 10410,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "duration_ms": 364388.0952
+  },
+  "finalBuild": {
+    "command": "npm run build",
+    "exitCode": 0,
+    "result": "PASS; existing size warning retained; no threshold increase"
+  },
+  "lint": {
+    "command": "npm run lint (client)",
+    "exitCode": 0,
+    "errors": 0,
+    "warnings": 14
+  },
+  "fullBrowser": {
+    "command": "npm run test:e2e -- --workers=2 (client)",
+    "exitCode": 0,
+    "passed": 641,
+    "skipped": 512,
+    "failed": 0
+  },
+  "mobileGauntlet": {
+    "exitCode": 1,
+    "passed": 256,
+    "skipped": 67,
+    "failed": 2,
+    "finding": "World Map 44px assertions at 430x932 and 844x390. Reproduced; measured scaled size 43.97/43.95px. No proven inaccessible control, production layout change, or threshold relaxation."
+  },
+  "strictCombat": {
+    "exitCode": 1,
+    "passed": 19,
+    "skipped": 10,
+    "failed": 1,
+    "finding": "Firefox Solo-PvE timed out at login restoration before combat. The exact unchanged case passed on a fresh memory-server retry; the original invocation remains failed."
+  },
+  "strictCombatRetry": {
+    "exitCode": 0,
+    "passed": 1,
+    "failed": 0
+  },
+  "releaseCertification": {
+    "passed": 90,
+    "failed": 0,
+    "scope": "Local real Express with disposable memory; initial startup-only failure and successful retry both retained."
+  },
+  "productionChanges": [
+    "api/missions/_mission-catalog.ts",
+    "api/_clan-save-validate.ts"
+  ],
+  "newBehavioralTests": [
+    "scripts/clan-doctrine-parity.test.mjs (12)",
+    "api/_clan-save-receipts.test.ts (7)"
+  ],
+  "unresolved": [
+    "C2 pet bonus stacking",
+    "C3 interrupted clan mission shared credit",
+    "C4 Exchange lost acknowledgement and refund",
+    "remaining UNRESOLVED contract and adversarial cells"
+  ],
+  "humanCertification": "Not executed: real deployment/storage/backup/restore/rollback, staffed war/boss/admin/creator operations, physical Android.",
+  "logRetention": "Logs and screenshots remain local in this worktree. This manifest retains their SHA-256 and outcome; they are not source-controlled product files.",
+  "logs": [
+    {
+      "file": "scholars-before.log",
+      "bytes": 4821,
+      "sha256": "364e6051e74d133c94a0ba023ad8f705fda357708afb66e188dddce6d01d0a25"
+    },
+    {
+      "file": "main-scholars-after.log",
+      "bytes": 40329,
+      "sha256": "166fea273e35e820537a5b9ccaee55bf5db3483afa4d69fe1dac5b1a0ebb61a5"
+    },
+    {
+      "file": "main-root-tests.log",
+      "bytes": 1063996,
+      "sha256": "ce1d234d5f8c8c66b924c6e66475609244b4eddc0f37f4e2e7f6410c7c9ca49a"
+    },
+    {
+      "file": "clan-receipt-guard-before.log",
+      "bytes": 6307,
+      "sha256": "e53546ca9045cbd358ff4e7f4401b70d0de073db6f04c9fee53acaed42f738db"
+    },
+    {
+      "file": "clan-receipt-guard-after-corrected-fixture.log",
+      "bytes": 17661,
+      "sha256": "d63220b1da24fa22de8fc5b89ed47938202105ee8c12c8a22130ed699c23e322"
+    },
+    {
+      "file": "final-root-tests.log",
+      "bytes": 1063755,
+      "sha256": "ec0654eef973cbce9614b9085f57d26d91c00b1d53d9856aed13fa1c3cb2b259"
+    },
+    {
+      "file": "final-build.log",
+      "bytes": 169128,
+      "sha256": "c7440b19b2bca920a7f1e140800d5b9d88153dcd09f0a49852ec711e38b2f587"
+    },
+    {
+      "file": "final-server-typecheck.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "main-lint.log",
+      "bytes": 4057,
+      "sha256": "8213da0e8e945424a026797514a7eadcf429ffac7e80e5195e6507240e08d8c6"
+    },
+    {
+      "file": "full-e2e.log",
+      "bytes": 176664,
+      "sha256": "e32362efdd49c8e853674057b9c0f9a7528d5e17f9eba48aded3442f3fee8e6b"
+    },
+    {
+      "file": "mobile-gauntlet.log",
+      "bytes": 53474,
+      "sha256": "6b94d1e6097782ed57abc0b02e94f3a7a380dce2cf944b39425e6357fcd198c6"
+    },
+    {
+      "file": "worldmap-repro.log",
+      "bytes": 7522,
+      "sha256": "84047a5abd96077a4ae6f384bde278b15cc6ef99f127387388b4e1bc45ad4579"
+    },
+    {
+      "file": "combat-layout.log",
+      "bytes": 9905,
+      "sha256": "5e123f49f6a617f76b99758fca9f7eb44653d9b3410c5a8b3da6c51ba2258546"
+    },
+    {
+      "file": "firefox-solo-retry.log",
+      "bytes": 1071,
+      "sha256": "6a6687e959508f32fa091e7a481ec6fc67bd12dd784005f287b786f5221b72e4"
+    },
+    {
+      "file": "release-certification.log",
+      "bytes": 419,
+      "sha256": "cd94b5a0da8ba4c6661e87356deeef3ba37073a8ab2e5df345f0632a130a6968"
+    },
+    {
+      "file": "release-certification-retry.log",
+      "bytes": 7766,
+      "sha256": "485a9ad2d2670f478d24a3a77a61f82679135264ccf84947674aaa91d0a85caf"
+    },
+    {
+      "file": "topology.log",
+      "bytes": 409,
+      "sha256": "8b6cfeb91c02d96719970fc2c020f21947049e8c831f71a8694f2b7e2a346e15"
+    },
+    {
+      "file": "rollback-readiness.log",
+      "bytes": 161,
+      "sha256": "b97ec1afdbde55c5451e1e9db037dce9a06c6d6f0d610cfb9306280a79e236d7"
+    },
+    {
+      "file": "mission-eligibility.log",
+      "bytes": 140,
+      "sha256": "e9552ed086b96b3196331f8cc7818c02a78c7e847ef71047b9526b1c56e514bb"
+    },
+    {
+      "file": "release-assets.log",
+      "bytes": 188,
+      "sha256": "df2ceb7a62e3a1126814405dd1f2274a5f45f8fea4e50bc780ead805636943fc"
+    },
+    {
+      "file": "runtime-docs-check.log",
+      "bytes": 190,
+      "sha256": "01c865b699ab91a1e1e4a524a4d9683240cd5f5db77a1d2f0ee36ac5e10bea64"
+    }
+  ]
+}
