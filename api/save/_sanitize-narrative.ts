@@ -135,6 +135,24 @@ export function sanitizeNarrativeIdentity(
         ? (requestedSpecialty ?? 'Ninjutsu')
         : (storedSpecialty ?? 'Ninjutsu');
 
+    // The story village picks which village's arc a character plays, and the
+    // server reads it to decide which one-time story reckonings the character
+    // may turn in (sector/_story-reckoning.ts). Character creation sets it to
+    // the home village and nothing changes it afterwards, so it is a creation
+    // identity like the specialty above. The first save may only carry the home
+    // village. Later saves keep the stored value, or the stored home village on
+    // an older save that never recorded one; that is the fallback the client
+    // itself uses. A save that omits the field is left alone, because the save
+    // endpoint keeps stored fields that are absent from the payload.
+    if (Object.prototype.hasOwnProperty.call(char, 'storyVillage')) {
+        const text = (value: unknown) => (typeof value === 'string' && value ? value : null);
+        const lockedStoryVillage = isFirstSave
+            ? text(char.village)
+            : (text(exChar.storyVillage) ?? text(exChar.village));
+        if (lockedStoryVillage) char.storyVillage = lockedStoryVillage;
+        else delete char.storyVillage;
+    }
+
     // Optional, presentation-only recommendation preference. Unknown or retired
     // values safely fall back to Auto; older saves remain sparse until a player
     // actually chooses a focus.

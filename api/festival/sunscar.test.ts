@@ -1,4 +1,4 @@
-import { after, before, beforeEach, describe, it } from 'node:test';
+import { after, before, beforeEach, describe, it, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { beginDurableSettlement, getDurableSettlement, listPendingDurableSettlements, settlementFingerprint, settlementTransactionId } from '../_durable-settlement.js';
 
@@ -174,5 +174,49 @@ describe('sunscar Miraa handler — wager retired, in-flight stakes refunded', (
         await post({ kind: 'miraa-report', playerName: PLAYER, token });
         const pending = await listPendingDurableSettlements({ kv });
         assert.equal(pending.filter((r) => r.operationType === 'miraa-report').length, 0);
+    });
+});
+
+describe('sunscar Fate Dice handler — the daily cap survives generic saves', () => {
+    // The handler and the save sanitizer both read the UTC day from Date. Freeze
+    // it so a run that crosses midnight cannot split the draws across two days.
+    before(() => mock.timers.enable({ apis: ['Date'], now: Date.UTC(2026, 8, 14, 12, 0, 0) }));
+    after(() => mock.timers.reset());
+
+    /*
+     * Apply a generic autosave the way POST /api/save/:name does before it
+     * writes: sanitize the incoming payload against the stored record, then
+     * merge it over that record. `overrides` is what the stale or modified
+     * client sends on top of an otherwise faithful copy of the character.
+     */
+    async function genericSave(overrides: Record<string, unknown>): Promise<void> {
+        const { sanitizeCharacterSave } = await import('../save/[name].js');
+        const { mergePreservingImages } = await import('../_utils.js');
+        const stored = await kv.get<Record<string, unknown>>(SAVE_KEY);
+        const storedCharacter = (stored?.character ?? {}) as Record<string, unknown>;
+        const safe = sanitizeCharacterSave({ character: { ...storedCharacter, ...overrides } }, stored ?? null);
+        const merged = mergePreservingImages(safe, stored) as Record<string, unknown>;
+        await kv.set(SAVE_KEY, { ...merged, _saveVersion: Number(stored?._saveVersion ?? 0) + 1 });
+    }
+
+    it('refuses the sixth draw of the day even after saves that lower the count or blank the day stamp', async () => {
+        for (let draw = 1; draw <= 5; draw++) {
+            const out = await post({ kind: 'dice', playerName: PLAYER });
+            assert.equal(out.statusCode, 200, `draw ${draw} of 5 is allowed`);
+            assert.equal(out.body?.dailyUsed, draw);
+        }
+        assert.equal((await post({ kind: 'dice', playerName: PLAYER })).statusCode, 429, 'the sixth draw is refused');
+
+        for (const overrides of [
+            { dailyFateSpins: 0 },
+            { dailyFateSpins: 0, lastDailyReset: '' },
+            { dailyFateSpins: 'x' },
+        ]) {
+            await genericSave(overrides);
+            const out = await post({ kind: 'dice', playerName: PLAYER });
+            assert.equal(out.statusCode, 429, `still refused after a save carrying ${JSON.stringify(overrides)}`);
+        }
+        const rec = await kv.get<{ character?: Record<string, unknown> }>(SAVE_KEY);
+        assert.equal(rec?.character?.dailyFateSpins, 5);
     });
 });
