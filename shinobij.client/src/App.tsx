@@ -81,7 +81,7 @@ import {
 } from "./lib/live-capability-admission";
 
 import { pushLiveSectorPlayers, getLiveSectorPlayers, setLiveAvatarPrefetch, getLocalSectorTile, setLocalSectorTile, setLiveSectorContext, correctLocalSectorTile } from "./lib/presence-store";
-import { heartbeatNoticeAckFields, noteHeartbeatDelivery } from "./lib/notice-ack";
+import { heartbeatNoticeAckFields, noteHeartbeatDelivery, withholdNoticeAck } from "./lib/notice-ack";
 import { worldSectorReconcileTarget } from "./lib/sector-reconcile";
 import { mergeServerPendingWorldRewards } from "./lib/world-reward-recovery";
 import { presenceCharacter } from "./lib/presence-character";
@@ -2040,9 +2040,9 @@ export default function App() {
                     if (screenRef.current === "hospital") setScreen("village");
                 }
                 if (Array.isArray(data.pendingNotices) && data.pendingNotices.length) {
-                    // Lazy import: the notice copy strings stay off the entry graph.
+                    // Lazy import: the notice copy strings stay off the entry graph. If it fails to load, withhold the ack so the server re-delivers.
                     const notices = data.pendingNotices;
-                    void import("./lib/offline-notices").then((m) => m.applyOfflineNotices(notices));
+                    void import("./lib/offline-notices").then((m) => m.applyOfflineNotices(notices), () => withholdNoticeAck(notices));
                 }
             } catch {
                 // Server unavailable — silently skip
