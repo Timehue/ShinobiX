@@ -1,0 +1,154 @@
+You
+Travel
+Village
+Items
+Menu
+AU
+AuditNinja
+Lv 85
+9000
+9000
+9000
+10m
+9999
+← BACK
+TECHNIQUE DEVELOPMENT
+Jutsu Training Hall
+
+Study techniques with ryo through level 30. Advanced mastery from levels 31–50 is earned in battle.
+
+HALL CAP
+Lv 30
+AVAILABLE RYO
+9,999,999
+ELEMENTS
+None awakened
+SPEED BONUS
++0.00%
+
+100 techniques remain hidden until their element is awakened.
+
+ACTIVE LESSON
+FLICKER
+READY
+Lv 1
+Lv 2
+TIME REMAINING
+Complete
+RYO PAID
+3,000
+
+Lesson complete. Claim the level when ready.
+
+CLAIM JUTSU LEVEL
+QUEUE SLOT
+
+Select a technique below, then reserve its next lesson now.
+
+QUEUE FLICKER
+SELECTED CURRICULUM
+FLICKER
+LV 0
+TAI
+TAIJUTSU · NONE
+Level 0 → 1
+One complete mastery level
+TUITION
+Free
+DURATION
+Instant
+REWARD
++1 level
+ANOTHER LESSON IS ACTIVE
+
+Payments and mastery claims are settled against your server save.
+
+Honor Seal TrainingBalance: 0
+
+Skip the PvP grind for jutsu levels 30→40, or shave time off active training. Levels 40+ still require PvP.
+
+Selected jutsu is Lv 0 — train it to Lv 30 with ryo first.
+−10 MIN (1 SEAL)
+FINISH NOW (10 SEALS)
+TECHNIQUE ARCHIVE
+CHOOSE YOUR NEXT JUTSU
+
+Select a card to update the curriculum panel. Use the filters to narrow a large collection.
+
+JUTSU LIBRARY
+5/5
+GEN
+BLOOD GAZE RUPTURE
+60
+GEN
+CRIMSON HALLUCINATION
+60
+TAI
+FLICKER
+20
+ANY
+HEMATOMA VEIL
+40
+GEN
+VEIN MIRROR NIGHTMARE
+60
+NAME
+OFFENSE
+All Offenses
+Ninjutsu
+Taijutsu
+Genjutsu
+Bukijutsu
+Any
+ELEMENT
+All Elements
+Earth
+Wind
+Lightning
+Fire
+Water
+None
+EFFECTS
+All Effects
+Absorb
+Buff Prevent
+Cleanse Prevent
+Clear Prevent
+Copy
+Debuff Prevent
+Decrease Damage Given
+Decrease Damage Taken
+Drain
+Elemental Seal
+Heal
+Ignition
+Increase Damage Given
+Increase Damage Taken
+Increase Generals
+Increase Heal
+Lifesteal
+Mirror
+Move
+Poison
+Pull
+Push
+Recoil
+Reflect
+Bloodline Seal
+Shield
+Siphon
+Stun
+Stun Prevent
+Lag
+Overclock
+Wound
+SORT
+Name
+Offense
+Element
+Effects
+AP
+Range
+Effect Power
+?
+Tip

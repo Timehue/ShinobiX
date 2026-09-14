@@ -1,0 +1,129 @@
+You
+Travel
+Village
+Items
+Menu
+←
+Journeyu09auk8
+Lv 1
+500
+1000
+1000
+2100
+0
+PROFILE
+STATS
+JUTSU
+ACHIEVEMENTS
+BATTLES
+JUTSU LOADOUT
+3 / 15
+Unequip All
+LOADOUT
+3/12
+LEARNED JUTSU
+5
+◫
+3 of 12 slots equipped
+Quick equip fills the next open battle slot.
+Manage Loadout
+LEARNED JUTSU i
+
+Select a jutsu to inspect it. Use + or double-click to equip.
+
+⌕
+All Offenses
+Any
+Genjutsu
+Taijutsu
+All Elements
+Blood
+None
+All Effects
+Decrease Damage Given
+Increase Damage Taken
+Move
+Poison
+Wound
+Sort: Default
+Sort: Name
+Sort: Mastery
+Sort: AP
+Sort: Element
+▦
+☷
+術
+1
+Flicker
+Taijutsu · None
++
+● TIP:
+Click + to equip
+•
+Double-click a card for quick equip
+•
+Equipped jutsu stay visible here
+JUTSU DETAILS
+B
+1
+GENJUTSU · BLOOD
+Blood Gaze Rupture
+60
+AP
+MASTERY
+1/50
+RANGE
+4
+POWER
+12
+COOLDOWN
+7
+
+Single Target — Affects a single target — no area splash.
+
+Effects
+
+Seeds a bleed from this hit; it starts on the target's turn next round and ticks for 2 rounds.
+
+Wound
+Starts next round · 2 rounds
+
+Seeds a bleed from this hit; it starts on the target's turn next round and ticks for 2 rounds.
+
+Value: 20%
+Target: Enemy
+Each start-of-turn tick is based on capped post-shield Genjutsu damage from the applying hit. Wound supports at most 2 concurrent stacks.
+Unequip Jutsu
+HOW IT WORKS
+Equip jutsu instantly from the Learned Jutsu tab.
+Click a slot to preview the jutsu.
+Drag filled slots to reorder; use × to remove.
+♛ SUBSCRIPTION BENEFITS
+Unlock 3 additional loadout slots (13–15) for PvE.
+Human PvP seals both players to the first 12 slots for fairness.
+ELEMENT LEGEND
+火
+Fire
+水
+Water
+風
+Wind
+雷
+Lightning
+土
+Earth
+術
+Other
+
+Shinobi Journey stores data on your device for sign-in, preferences, and saving your progress. It uses no advertising or third-party tracking cookies. Learn more.
+
+Got it
+CINDER CUB — YOUR COMPANION · PHASE 1/3: ANSWER THE CALL · STEP 3/9
+Skip
+
+Now put that jutsu in your Profile loadout so it actually shows up in a fight. You also have 20 unused stat points there. Spend them before we spar.
+
+Now put that jutsu in your Profile loadout so it actually shows up in a fight. You also have 20 unused stat points there. Spend them before we spar.
+FOLLOW THE GOLD PULSE
+
+Up next: Equip your starter gear

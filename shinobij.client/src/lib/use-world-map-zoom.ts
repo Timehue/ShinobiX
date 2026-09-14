@@ -64,8 +64,16 @@ export function isWorldMapZoomEnabled(): boolean {
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 interface Pt { x: number; y: number }
+interface TapMark extends Pt { t: number }
 interface Size { w: number; h: number }
 interface MapView { zoom: number; tx: number; ty: number }
+
+/** Whether a tap at `p` completes the double-tap `prev` began. Times are the
+ *  input events' own timestamps, not when a handler ran: a long task between
+ *  the two taps would otherwise stretch a quick double-tap past the window. */
+function completesDoubleTap(prev: TapMark | null, p: Pt, now: number): boolean {
+    return prev !== null && now - prev.t < DOUBLE_TAP_MS && Math.hypot(p.x - prev.x, p.y - prev.y) < 40;
+}
 
 function clampPanForSize(size: Size, zoom: number, tx: number, ty: number): Pt {
     const { w, h } = size;
@@ -293,7 +301,7 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
 
     const pointers = useRef<Map<number, Pt>>(new Map());
     const pinch = useRef<{ dist: number; mid: Pt } | null>(null);
-    const lastTap = useRef<{ t: number; x: number; y: number } | null>(null);
+    const lastTap = useRef<TapMark | null>(null);
     const moved = useRef(0);
     const suppressClick = useRef(false);
 
@@ -520,11 +528,22 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
         if (!activeRef.current) return;
         // Track a gesture even when it starts on a marker, but keep a clean
         // tap's native target. Capture it only once it becomes an actual drag.
-        if (!isWorldMapControlTarget(e.target)) {
+        const onControl = isWorldMapControlTarget(e.target);
+        if (!onControl) {
             (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
         }
         if (pointers.current.size === 0) suppressClick.current = false;
         const p = localPt(e);
+        // The likely second tap of a background double-tap. A touch tap's
+        // compatibility mouse events arrive after its pointer-up, when the
+        // double-tap has already moved the camera, so they would focus what
+        // now sits under the finger, and focusing a marker at the edge makes
+        // onFocusCapture pan again. Cancelling the pointer-down withholds them;
+        // a click can still come, and endPointer arms onClickCapture to swallow
+        // it. A mouse sends its events before the pointer-up, on the old
+        // camera, so it is left alone.
+        if (!onControl && e.pointerType !== "mouse" && pointers.current.size === 0
+            && completesDoubleTap(lastTap.current, p, e.timeStamp)) e.preventDefault();
         pointers.current.set(e.pointerId, p);
         moved.current = 0;
         if (pointers.current.size === 2) {
@@ -588,13 +607,18 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
 
         // Double-tap toggle (only a clean tap — little finger travel).
         if (moved.current <= TAP_SLOP_PX && !suppressClick.current && !isWorldMapControlTarget(e.target)) {
-            const now = typeof performance !== "undefined" ? performance.now() : 0;
-            const prev = lastTap.current;
-            if (prev && now - prev.t < DOUBLE_TAP_MS
-                && Math.hypot(p.x - prev.x, p.y - prev.y) < 40) {
+            const now = e.timeStamp;
+            if (completesDoubleTap(lastTap.current, p, now)) {
                 // A background double-tap toggles detail and the entire world.
                 if (viewRef.current.zoom <= coverZoom() + 0.05) zoomAt(DOUBLE_TAP_ZOOM, p.x, p.y);
                 else { releaseRegion(); commitView(coverView(), true); }
+                // A browser can still send this tap's click after the
+                // pointer-up, and the new camera can have put a landmark or
+                // sector under the finger. The tap was a camera gesture, so
+                // onClickCapture swallows that click. The next pointer-down
+                // clears the flag if none comes, and keyboard activation
+                // (detail 0) always passes.
+                suppressClick.current = true;
                 lastTap.current = null;
                 return;
             }

@@ -241,15 +241,25 @@ describe("versionedAchievementMutationFromSync", () => {
     });
 
     it("wires the automatic achievement response through App's atomic character+version gate", () => {
-        const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
-        const start = app.indexOf("const data = await res.json() as AchievementSyncResponse;");
-        const end = app.indexOf("} catch", start);
+        // The response block moved to lib/achievement-sync-pass.ts; App supplies its gate.
+        const pass = readFileSync(new URL("./achievement-sync-pass.ts", import.meta.url), "utf8");
+        const start = pass.indexOf("const data = await res.json() as AchievementSyncResponse;");
+        const end = pass.indexOf("} catch", start);
         assert.ok(start >= 0 && end > start, "achievement response block must remain discoverable");
-        const responseBlock = app.slice(start, end);
+        const responseBlock = pass.slice(start, end);
         assert.match(responseBlock, /versionedAchievementMutationFromSync\(characterRef\.current, data\)/);
         assert.match(responseBlock, /commitVersionedCharacter\(mutation\.character, mutation\._saveVersion\)/);
         assert.doesNotMatch(responseBlock, /setCharacter\(/,
             "split character-only adoption recreates the v1-to-v2 first-session conflict");
+
+        const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
+        const callStart = app.indexOf("void runAchievementSyncPass({");
+        const callEnd = app.indexOf("});", callStart);
+        assert.ok(callStart >= 0 && callEnd > callStart, "App's achievement pass call must remain discoverable");
+        const call = app.slice(callStart, callEnd);
+        assert.match(call, /\bcharacterRef, commitVersionedCharacter\b/,
+            "App must hand the pass its live ref and its atomic commit, by those names");
+        assert.doesNotMatch(call, /setCharacter\b/);
     });
 });
 

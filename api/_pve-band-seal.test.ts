@@ -14,7 +14,7 @@ import type { TowerSession, TowerActor } from './towers/_tower-session.js';
 /*
  * Step B: arming the standard-PvE difficulty layer on the other server PvE modes.
  *
- * The curve itself is parity-tested in scripts/pve-difficulty-parity.test.ts and
+ * The curve itself is unit-tested in api/_pve-difficulty.test.ts and
  * the engine half in api/towers/_pve-guard.test.ts + _pve-band-ai.test.ts. What
  * THIS file pins is the seal: that it scales the right actors by the right band,
  * that it is idempotent (double-scaling would compound 0.6 x 0.6 into a trivial

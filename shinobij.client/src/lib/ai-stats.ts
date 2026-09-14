@@ -89,7 +89,7 @@ export function aiStatBudgetForLevel(level: number): number {
 // An AI's 12-stat block is the frozen linear budget above, distributed by
 // archetype — so a level-L AI equals what a level-L fully-allocated player had
 // under the old model. The PvE difficulty band multiplier
-// (lib/pve-difficulty.ts) is applied SEPARATELY by the encounter; this returns
+// (api/_pve-difficulty.ts) is applied SEPARATELY by the encounter; this returns
 // the raw block.
 export function aiStatsForLevel(level: number, jutsus: Jutsu[] = []): Stats {
     const safeLevel = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level || 1)));
