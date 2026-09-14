@@ -1,0 +1,197 @@
+{
+  "capturedAt": "2026-09-14T14:55:14.297Z",
+  "auditedBase": "ecd8d6ccaba017a6791ec0ec94f822c10658984d",
+  "priorCodeCommit": "83df471d2eede0265bfad1f6a4fb89e97d33c721",
+  "codeCommit": "337b4db7cb84ebc36cafc63c5a50a635df8cd903",
+  "branch": "codex/coherence-integrity-closeout-20260914",
+  "ownerApprovals": [
+    "Narrow C3/C4 recovery with protected receipts",
+    "Additive C2 bonus for new training",
+    "Local checks only"
+  ],
+  "runtime": "v22.23.2",
+  "initialFullRun": {
+    "tests": 10453,
+    "pass": 10451,
+    "fail": 2,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "duration_ms": 324874.4805
+  },
+  "initialFailures": [
+    "Old Exchange source inventory marker",
+    "Client ownership mirror missing two new protected receipt fields"
+  ],
+  "finalRoot": {
+    "command": "npm test",
+    "exitCode": 0,
+    "tests": 10461,
+    "pass": 10461,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "duration_ms": 336050.5552
+  },
+  "focused": {
+    "exitCode": 0,
+    "tests": 147,
+    "pass": 147,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "duration_ms": 2631.693
+  },
+  "build": {
+    "command": "npm run build",
+    "exitCode": 0,
+    "distAndSize": "PASS; no budget increase"
+  },
+  "lint": {
+    "command": "npm run lint (client)",
+    "exitCode": 0,
+    "errors": 0,
+    "existingWarnings": 14
+  },
+  "clanBrowser": {
+    "passed": 4,
+    "skipped": 17,
+    "failed": 0,
+    "scope": "Existing clan-integrity-ux and clan-mobile-roster specs; before final ownership-mirror correction, covered separately by parity and full root tests."
+  },
+  "localExpressMemoryCertification": {
+    "passed": 90,
+    "failed": 0,
+    "scope": "Built server HTTP reward/auth/persistence certification; not Postgres restart or deployed restore."
+  },
+  "originalMobileOutcomes": {
+    "gauntlet": "256 passed / 67 skipped / 2 World Map subpixel assertions",
+    "combat": "19 passed / 10 skipped / 1 login-stage Firefox timeout; unchanged isolated retry passed",
+    "fullBrowser": "641 passed / 512 skipped"
+  },
+  "sourceHashes": {
+    "api/_clan-points.ts": "c7cb085f72a278a47476695af6cecc37d7a4a38a668aa4eb118aefbcc2b0ef1f",
+    "api/_clan-save-validate.ts": "be6abe4fc8367c94156ca4b3c18223f843010c1b5f852ef3405c237045a9c2db",
+    "api/clan/_exchange.ts": "b2758eac344548db076bdcdca3887ff86eb04406e490b3ba25a270c63906924a",
+    "api/clan/exchange/purchase.ts": "f653f451a5d7080edc8d79aebb995652c2536db7aa7dd8096224820ecd004942",
+    "api/clan/exchange/_settlement.ts": "5eafaaec91c5a6a958b55e3561c253acfb4b4a484cbae2416d9be876ccb0532d",
+    "api/clan/mission/claim.ts": "fdb2fa05bf2f898c589360f14f3a9f1296a64e19e97a2edee05eafe7ee49ea0e",
+    "api/clan/mission/_settlement.ts": "3dab34b88fce6b94b3e7474b6bba1439fd885554adaff844a90fb778402557a5",
+    "api/pet/_progress.ts": "909eb2ef207231de3fb57f3fd7d9aec9b51314ffbac01cae12081e7ed8ca2328",
+    "api/pet/progress.ts": "20dd06d808b2998edc10408c0e27017d3e6477ec55b0c99ea6fae4d14616766a",
+    "api/save/_state-ownership.ts": "ff7fa6a830711856644e8f117add15b217d46c504c423c28dc24924a57b8b0f1",
+    "shared/clan-exchange-intent.ts": "edd939980f91411082f903c10913a45f8cc6776b5080ed1312f77ff54f39e7e8",
+    "shinobij.client/src/lib/clan-exchange-intent.ts": "102c94f67ba79ebe3fa4a1b8b49985a2edefc203a91b761511b243af94aecbc2",
+    "shinobij.client/src/lib/player-api.ts": "2dccd6a4622d7a3a226d37d53243d5d1266b44aeb7045a1f4b327f677f13a77e",
+    "shinobij.client/src/lib/save-ownership.ts": "2c36090d213c9285c51ed2bc767d9ab69a3ea55c209ed9dc4f79479ad6470e24",
+    "api/clan/_reward-recovery.test.ts": "525039e89101d11c665b8272a726e0411756281f8c3de585499d5d758256e735",
+    "api/pet/training-clan-bonus.test.ts": "8701260abe459f3d0c9b63538d5c8cf06810651eb11326b4735a9265be0f517f",
+    "api/_clan-save-receipts.test.ts": "235c9afcb64fce2fb4e802095ba8bc22d7b54d609488c8103a9903f39f48312f",
+    "api/_settlement-contract.test.ts": "b76e29faa27a636cdc0ecd8404daeac858a6a65fad58b51174b9d4338fa0bd83",
+    "api/save/_sanitize-clan-points.test.ts": "7e84d408c23f891c76fd93e774e9eabbd2fac1008e73cb52326222fe447a3839",
+    "api/save/_state-ownership-parity.test.ts": "8db678465d39c28e5eaaadd366801ac719b595d40921a026eb084649cad81594",
+    "shinobij.client/src/lib/clan-exchange-retry.test.ts": "21637d3c8c9852da45bd3298b42a8eddf28082642ddac90cec6828552e189eea"
+  },
+  "logs": [
+    {
+      "file": "pet-bonus-before.log",
+      "bytes": 5095,
+      "sha256": "7b58a643e030c2a4dd75aa14a02c4903b0a364a1dd229e63c1e77fbe5ba498d6"
+    },
+    {
+      "file": "recovery-after-initial.log",
+      "bytes": 5128,
+      "sha256": "8ecfb6ad3f749ccb1453b118168309bfa261dc545719dcb105efa1f6dd7d0999"
+    },
+    {
+      "file": "recovery-before.log",
+      "bytes": 18779,
+      "sha256": "a5291d751bac1c08457f5649dc3ab8fd0b8ba77470aa89de7911118027da48cb"
+    },
+    {
+      "file": "recovery-browser.log",
+      "bytes": 7414,
+      "sha256": "cbf29ecc6b1962dcf54b74a129924141b038d9a545a194f6102189b2a1ad0ab8"
+    },
+    {
+      "file": "recovery-build.log",
+      "bytes": 169131,
+      "sha256": "bdd239383e67447452fd00da258fbcda388ef61ad01b58edaa90911dcafb91a6"
+    },
+    {
+      "file": "recovery-contract-followup.log",
+      "bytes": 18134,
+      "sha256": "a55214bf0c15c50418645f3a094168028a1a513148c04b241c1f3e6722ea080a"
+    },
+    {
+      "file": "recovery-expanded.log",
+      "bytes": 28043,
+      "sha256": "f0ab535490b2593ffeefdae93d2d5a8f2dba2519f3950f7b2625efc5540b045a"
+    },
+    {
+      "file": "recovery-final-build.log",
+      "bytes": 169131,
+      "sha256": "7844b09cb70cc41192766c55a272f9baeed7e146416e30c428fc149b9da4a52d"
+    },
+    {
+      "file": "recovery-final-focused.log",
+      "bytes": 36874,
+      "sha256": "e2876ea5e5e814d015f413d640c1e5a29772f9073751e65f4febbded1fd2364c"
+    },
+    {
+      "file": "recovery-final-lint.log",
+      "bytes": 4057,
+      "sha256": "8213da0e8e945424a026797514a7eadcf429ffac7e80e5195e6507240e08d8c6"
+    },
+    {
+      "file": "recovery-final-root-tests.log",
+      "bytes": 1069847,
+      "sha256": "7e15eb530279f59854448b1ada4abd8717182f66893d5718ecf3b7a23d2d1587"
+    },
+    {
+      "file": "recovery-focused.log",
+      "bytes": 24877,
+      "sha256": "cb974078d1e79e21d94fec7429ee5f5886abecdfbc894e95f74db7dba7e93746"
+    },
+    {
+      "file": "recovery-lint.log",
+      "bytes": 4057,
+      "sha256": "8213da0e8e945424a026797514a7eadcf429ffac7e80e5195e6507240e08d8c6"
+    },
+    {
+      "file": "recovery-local-certification.log",
+      "bytes": 7766,
+      "sha256": "5af687361e02ad678438f557ba51c545b06426d12769f256a2fdc4a95443821a"
+    },
+    {
+      "file": "recovery-preseed-before.log",
+      "bytes": 7225,
+      "sha256": "a67c3ba38f6c2b665a62ccf7bd954bc8333fb5f26efe6885b891af512640c4df"
+    },
+    {
+      "file": "recovery-progress.log",
+      "bytes": 9053,
+      "sha256": "36329a1ee68c6ff136e35ffedc3dfba7cbb54551033c95e083fde92ec99e4aad"
+    },
+    {
+      "file": "recovery-root-tests.log",
+      "bytes": 1077890,
+      "sha256": "190931a1c2c23b9cf404bb15230f29e416a571ec7b0615dea461e32fdf9c97f8"
+    },
+    {
+      "file": "recovery-typecheck.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "limitations": [
+    "Historical ambiguous transactions and old training rewards are untouched.",
+    "Legacy no-ID Exchange callers cannot distinguish lost final success from a genuine second purchase.",
+    "Session-storage identity does not promise cross-device/closed-session recovery.",
+    "Current-week mission admission does not automatically reconcile prior-week pending work.",
+    "Deployed storage, restore, process restart, compatible-image rollback and physical Android certification remain unexecuted by owner choice.",
+    "Original browser evidence does not certify newer main CSS; combined integration gates remain required."
+  ]
+}

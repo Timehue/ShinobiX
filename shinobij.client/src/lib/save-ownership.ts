@@ -99,6 +99,9 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     'redeemedWandererAmbushes', 'wandererAmbushRewardDate', 'wandererAmbushRewardCount',
     'redeemedQuestbookRuns', 'storyReckoningRewardDate', 'storyReckoningRewardCount',
     'redeemedStoryReckonings', 'storyFieldRecords', 'activeStoryReckoning',
+    // `storyVillage` joined on 2026-09-14: a character-creation identity the
+    // server now keeps (it gates own-village story reckonings).
+    'storyVillage',
     // `villageUpgrades` left this list on 2026-08-17: it became `server-clamped`
     // (a cross-validated mirror of the shared village record) rather than
     // `server-owned`, and server-clamped fields are deliberately NOT mirrored
@@ -112,7 +115,7 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     'cardClashWins', 'cardClashLosses', 'cardClashDraws', 'echoesOfWar', 'echoesWitnessChoices',
     // Clan
     'clanPoints', 'weeklyClanPoints', 'weeklyClanPointsWeek', 'lifetimeClanPoints',
-    'clanPointHistory', 'clanExchangePurchases',
+    'clanPointHistory', 'clanExchangePurchases', 'clanExchangeSettlements', 'clanMissionPointReceipts',
     // Inventory, jutsu, pets, titles, legacy
     'professionChosenAt', 'jutsu', 'jutsuMastery', 'pets', 'tileCards', 'lastHollowGateStart',
     'serverTitles', 'legacy', 'masterySpec', 'examsPassed',

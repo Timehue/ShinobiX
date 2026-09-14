@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
-import { readSession, getTowerInvite, clearTowerInvite, isTowerRunLapsed } from './_tower-store.js';
+import { readSession, getTowerInvite, clearTowerInvite, isPublicTowerRun, isSpireRun, isTowerRunLapsed } from './_tower-store.js';
 import { reconcileLapsedBattle } from '../_battle-lapse.js';
 import type { TowerSession } from './_tower-session.js';
 import { isMpvpLeaseMode } from '../_tower-battle-guard.js';
@@ -113,6 +113,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // retain a local concrete type without making its false branch claim
         // that every non-discoverable (for example settled) session is null.
         const liveSession = session as TowerSession;
+        // Only runs that own the account-wide battle lease get one repaired: the
+        // same Tower/Spire/World Crisis set that /towers/state and /towers/action
+        // maintain. A Clan Boss assault shares the session and invite pointer but
+        // not the lease. Leasing it here left a battleTowers lock that the
+        // assault's next state/action refresh refused, so the fight returned 500
+        // until the lease expired.
+        if (!(liveSession.worldCrisis80 || isPublicTowerRun(liveSession) || isSpireRun(liveSession))) {
+            return res.status(200).json({ runId, session: liveSession });
+        }
         const partyId = (liveSession as TowerSession & { towerPartyId?: string }).towerPartyId;
         const lease = await ensureTowerBattleLeases({
             runId,

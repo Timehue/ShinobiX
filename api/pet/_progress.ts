@@ -10,6 +10,16 @@ export const PET_TRAINING_DURATIONS = new Map([[900_000, 30], [3_600_000, 110], 
 // New sessions use one neutral timer. settleFinishedTraining still accepts any
 // already-stored legacy type because the reward is sealed XP and focus-neutral.
 export const PET_TRAINING_FOCI = new Set(['bond']);
+
+/** Existing Pet Yard + member Pet Den percentages, mirrored by getPetXpBonus. */
+export function petTrainingUpgradeBonusPct(character: Record<string, unknown>): number {
+    const level = (raw: unknown) => Number.isFinite(Number(raw))
+        ? Math.min(50, Math.max(0, Math.floor(Number(raw)))) : 0;
+    const village = (character.villageUpgrades as Record<string, unknown> | undefined) ?? {};
+    const clan = (character.clanUpgradeLevels as Record<string, unknown> | undefined) ?? {};
+    const inClan = typeof character.clan === 'string' && character.clan.trim() !== '';
+    return level(village.petYard) * 0.25 + (inClan ? level(clan.petDen) * 0.3 : 0);
+}
 export const PET_FEED_XP: Record<string, number> = { 'pet-treat': 100, 'elemental-pet-treat': 250, 'ancient-pet-treat': 500, 'golden-apple': 2000 };
 
 const whole = (v: unknown, fallback = 0) => Number.isFinite(Number(v)) ? Math.floor(Number(v)) : fallback;

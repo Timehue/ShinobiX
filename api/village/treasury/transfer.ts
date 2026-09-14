@@ -42,7 +42,7 @@ import { recordEconomyTxn } from '../../_economy.js';
 
 const VILLAGE_STATE_PREFIX = 'game:village-state:';
 const KAGE_KEY_PREFIX = 'village:kage:';
-import { chargeOutboundBudget, checkOutboundBudget, senderTrustTier } from '../../player/_transfer-budget.js';
+import { chargeOutboundBudget, checkOutboundBudget, senderTrustTierBySlug, withOutboundBudgetGate } from '../../player/_transfer-budget.js';
 import { isTradeCurrency } from '../../player/_trade-core.js';
 const AUDIT_LOG_PREFIX = 'audit:village-treasury:';
 
@@ -163,23 +163,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (amount > cap) {
                 return res.status(400).json({ error: `amount exceeds per-call cap of ${cap}.` });
             }
-            // Shares the sender's rolling 24h transfer budget with
-            // /api/player/trade and the clan treasury (MMORPG behavior audit F8):
-            // this is the same outcome — currency landing in one named player's
-            // save — so capping only the direct-trade door would leave the wider
-            // one open. Charged to the seated Kage authorising it. `honorSeals`
-            // is outside TRADE_CURRENCIES and stays uncapped here, exactly as it
-            // is untradeable there.
-            if (!isAdmin && isTradeCurrency(currency)) {
-                const actorRec = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
-                const actorChar = (actorRec?.character ?? null) as Record<string, unknown> | null;
-                const tier = await senderTrustTier(identity.name, actorChar);
-                const budget = await checkOutboundBudget(identity.name, currency, amount, tier);
-                if (!budget.ok) {
-                    return res.status(429).json({ error: budget.error, reason: 'transfer-budget', remaining: budget.remaining, limit: budget.limit });
-                }
-            }
         }
+        // Shares the sender's rolling 24h transfer budget with
+        // /api/player/trade and the clan treasury (MMORPG behavior audit F8):
+        // this is the same outcome — currency landing in one named player's
+        // save — so capping only the direct-trade door would leave the wider
+        // one open. Charged to the seated Kage authorising it. `honorSeals`
+        // is outside TRADE_CURRENCIES and stays uncapped here, exactly as it
+        // is untradeable there.
+        //
+        // Only the tier is resolved out here. The budget is CHECKED inside the
+        // settlement (validateRecipient) and CHARGED after it commits, with the
+        // Kage's budget gate held across both — see withOutboundBudgetGate.
+        const outbound = !isAdmin && isCurrency && isTradeCurrency(currency)
+            ? { sender: identity.name, currency, tier: await senderTrustTierBySlug(identity.name) }
+            : null;
 
         // ── Authorization: caller must be the seated Kage of `village` ─
         // The authoritative source is village:kage:<slug>, not the
@@ -210,7 +208,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ? body.requestId.trim()
             : settlementFingerprint({ village: villageSlug(village), recipientName, currency: currency ?? '', itemId: itemId ?? '', amount });
         const fingerprint = settlementFingerprint({ operation: 'village-treasury-transfer', village: villageSlug(village), recipientName, currency: currency ?? '', itemId: itemId ?? '', amount });
-        const transfer = await settleCrossKeyTransfer<VillageStateRow>({
+        const settle = () => settleCrossKeyTransfer<VillageStateRow>({
             operationType: 'village-treasury-transfer',
             idempotencyKey: requestId,
             fingerprint,
@@ -281,6 +279,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const freshKage = await kv.get<VillageKageState>(kageKey(village));
                     if (!freshKage?.kageSystemUnlocked || safeName(freshKage.seatedKage ?? '') !== actorName) throw new SettlementValidationError(403, 'Only the seated Kage may transfer village treasury.');
                 }
+                // The Kage's rolling budget, checked LAST so every other refusal
+                // wins, and checked HERE because this is the last refusal point
+                // before the debit. It used to run before the settlement,
+                // unlocked, so a burst of simultaneous gifts all read the same
+                // ledger before any of them charged and all passed. What
+                // serialises them is the gate the caller holds around this whole
+                // settlement and its charge. A throw here cancels cleanly, so a
+                // refused gift moves nothing and charges nothing.
+                //
+                // Like every check in this hook, it is skipped when a crashed
+                // attempt RESUMES: that gift was already checked and debited, and
+                // refusing it now would strand the debit (see the saga).
+                if (outbound) {
+                    const budget = await checkOutboundBudget(outbound.sender, outbound.currency, amount, outbound.tier);
+                    if (!budget.ok) {
+                        throw new SettlementValidationError(429, budget.error, { reason: 'transfer-budget', remaining: budget.remaining, limit: budget.limit });
+                    }
+                }
             },
             creditRecipient: (character) => {
                 if (isCurrency) {
@@ -302,15 +318,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             },
             saveRecipient: async (record, character) => (await writeVersionedPlayerSave(recipientSaveKey, record, character)).record,
         });
-        // Charge only once the transfer has ACTUALLY moved something. A replay
-        // returns the stored result without touching either row, so charging it
-        // would bill the officer's 24h budget for a gift that sent nothing — and
-        // with no requestId from the client the idempotency key is a content
-        // fingerprint, so a repeat gift of the same amount to the same villager
-        // inside the 90-day journal TTL lands here.
-        if (!isAdmin && isCurrency && isTradeCurrency(currency) && !transfer.replayed) {
-            await chargeOutboundBudget(identity.name, currency, amount, Date.now());
-        }
+        // The gate is held from before the check inside the settlement until
+        // after the charge, so the Kage's next gift cannot read the ledger until
+        // this one is on it. The charge still comes only once the transfer has
+        // ACTUALLY moved something. A replay returns the stored result without
+        // touching either row, so charging it would bill the Kage's 24h budget
+        // for a gift that sent nothing — and with no requestId from the client
+        // the idempotency key is a content fingerprint, so a repeat gift of the
+        // same amount to the same villager inside the 90-day journal TTL lands
+        // here.
+        const transfer = outbound
+            ? await withOutboundBudgetGate(outbound.sender, outbound.currency, async () => {
+                const settled = await settle();
+                if (!settled.replayed) await chargeOutboundBudget(outbound.sender, outbound.currency, amount, Date.now());
+                return settled;
+            })
+            : await settle();
         await kv.set(`${AUDIT_LOG_PREFIX}${village.toLowerCase()}:${Date.now()}`, {
             ts: Date.now(),
             actor: actorName ?? 'admin',
@@ -335,7 +358,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ ok: true, ...transfer.result });
     } catch (err) {
         if (err instanceof SettlementValidationError) {
-            return res.status(err.status).json({ error: err.message });
+            return res.status(err.status).json({ ...err.details, error: err.message });
         }
         console.error('[village/treasury-transfer]', err);
         return res.status(500).json({ error: 'Internal server error.' });

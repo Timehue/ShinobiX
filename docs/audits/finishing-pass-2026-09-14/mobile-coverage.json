@@ -1,0 +1,700 @@
+{
+  "auditedCommit": "ecd8d6ccaba017a6791ec0ec94f822c10658984d",
+  "legend": {
+    "A": "mobile-gauntlet covered",
+    "B": "dedicated layout/interaction test covered",
+    "C": "visual-regression covered",
+    "D": "manual/device-only concern",
+    "E": "currently uncovered"
+  },
+  "viewports": [
+    [
+      360,
+      800
+    ],
+    [
+      390,
+      844
+    ],
+    [
+      430,
+      932
+    ],
+    [
+      844,
+      390
+    ],
+    [
+      1440,
+      900
+    ]
+  ],
+  "limitation": "Coverage means an existing test, not a pass in this run; execution outcomes are in the consolidated report. Screen union includes compatibility routes, not proof every surface is launch-enabled. No new CSS/layout rules or baselines introduced.",
+  "rows": [
+    {
+      "screen": "start",
+      "classification": "C",
+      "evidence": [
+        "shinobij.client/e2e-visual/release-surfaces.visual.spec.ts"
+      ],
+      "scope": "Existing pixel baselines, full-motion presentation with animation freezing/canvas masking; not device performance.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "professionPicker",
+      "classification": "B",
+      "evidence": [
+        "shinobij.client/e2e/release-smoke.spec.ts"
+      ],
+      "scope": "Dedicated interaction/layout evidence. Shared combat shell coverage does not certify every parent orchestration or lobby.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "professions",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "village",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "profile",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "inventory",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "logbook",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "training",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "jutsuTraining",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "missions",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "arena",
+      "classification": "B",
+      "evidence": [
+        "shinobij.client/e2e/arena-authenticated.spec.ts"
+      ],
+      "scope": "Dedicated interaction/layout evidence. Shared combat shell coverage does not certify every parent orchestration or lobby.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "battleArena",
+      "classification": "B",
+      "evidence": [
+        "shinobij.client/e2e/shinobi-combat-mobile.spec.ts"
+      ],
+      "scope": "Dedicated interaction/layout evidence. Shared combat shell coverage does not certify every parent orchestration or lobby.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "battleLog",
+      "classification": "E",
+      "evidence": [],
+      "scope": "No specific strong mobile test established in this audit; shared shell coverage is not credited as this screen coverage.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "arenaDistrict",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "dojoCircuit",
+      "classification": "E",
+      "evidence": [],
+      "scope": "No specific strong mobile test established in this audit; shared shell coverage is not credited as this screen coverage.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "bloodlineMaker",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "clan",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts",
+        "shinobij.client/e2e/clan-mobile-roster.spec.ts",
+        "shinobij.client/e2e/clan-integrity-ux.spec.ts",
+        "shinobij.client/e2e/clan-exchange-recovery.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "Exchange only: quietly resume a retained, already-debited purchase on entry/reconnect. No markup or layout change.",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "worldMap",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts",
+        "shinobij.client/e2e/world-map-mobile.spec.ts",
+        "shinobij.client/e2e/adaptive-shell.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "worldCrisis",
+      "classification": "B",
+      "evidence": [
+        "shinobij.client/e2e/world-crisis.spec.ts"
+      ],
+      "scope": "Dedicated interaction/layout evidence. Shared combat shell coverage does not certify every parent orchestration or lobby.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "townHall",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "bank",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "shop",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "premiumShop",
+      "classification": "E",
+      "evidence": [],
+      "scope": "No specific strong mobile test established in this audit; shared shell coverage is not credited as this screen coverage.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "grandMarketplace",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "hospital",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "cafeteria",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "storyHall",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "storyBoss",
+      "classification": "E",
+      "evidence": [],
+      "scope": "No specific strong mobile test established in this audit; shared shell coverage is not credited as this screen coverage.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "sunscarFestival",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "centralHub",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts",
+        "shinobij.client/e2e/central-hub-authenticated.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "petArena",
+      "classification": "E",
+      "evidence": [],
+      "scope": "No specific strong mobile test established in this audit; shared shell coverage is not credited as this screen coverage.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "petShowdown",
+      "classification": "E",
+      "evidence": [],
+      "scope": "No specific strong mobile test established in this audit; shared shell coverage is not credited as this screen coverage.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "firstPact",
+      "classification": "B",
+      "evidence": [
+        "shinobij.client/e2e/first-pact-rpg.spec.ts"
+      ],
+      "scope": "Dedicated interaction/layout evidence. Shared combat shell coverage does not certify every parent orchestration or lobby.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "petColiseum",
+      "classification": "E",
+      "evidence": [],
+      "scope": "No specific strong mobile test established in this audit; shared shell coverage is not credited as this screen coverage.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "petLadder",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "home",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts",
+        "shinobij.client/e2e/pet-home-visual.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "pets",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "shinobiTiles",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "eventPetBattle",
+      "classification": "E",
+      "evidence": [],
+      "scope": "No specific strong mobile test established in this audit; shared shell coverage is not credited as this screen coverage.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "eventTiles",
+      "classification": "E",
+      "evidence": [],
+      "scope": "No specific strong mobile test established in this audit; shared shell coverage is not credited as this screen coverage.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "dungeon",
+      "classification": "E",
+      "evidence": [],
+      "scope": "No specific strong mobile test established in this audit; shared shell coverage is not credited as this screen coverage.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "hunting",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "tavern",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "hallOfLegends",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "shinobiCouncil",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "userHub",
+      "classification": "B",
+      "evidence": [
+        "shinobij.client/e2e/user-hub-social-lists.spec.ts"
+      ],
+      "scope": "Dedicated interaction/layout evidence. Shared combat shell coverage does not certify every parent orchestration or lobby.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "userView",
+      "classification": "E",
+      "evidence": [],
+      "scope": "No specific strong mobile test established in this audit; shared shell coverage is not credited as this screen coverage.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "pvpBattle",
+      "classification": "B",
+      "evidence": [
+        "shinobij.client/e2e-live/combat-layout-matrix.spec.ts"
+      ],
+      "scope": "Dedicated interaction/layout evidence. Shared combat shell coverage does not certify every parent orchestration or lobby.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "hollowGateShrine",
+      "classification": "E",
+      "evidence": [],
+      "scope": "No specific strong mobile test established in this audit; shared shell coverage is not credited as this screen coverage.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "hollowGateTiles",
+      "classification": "E",
+      "evidence": [],
+      "scope": "No specific strong mobile test established in this audit; shared shell coverage is not credited as this screen coverage.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "endlessTower",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "battleTowers",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "echoesOfWar",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts",
+        "shinobij.client/e2e/echoes-witness.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "weeklyBoss",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "villageWar",
+      "classification": "E",
+      "evidence": [],
+      "scope": "No specific strong mobile test established in this audit; shared shell coverage is not credited as this screen coverage.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "villageWarMap",
+      "classification": "E",
+      "evidence": [],
+      "scope": "No specific strong mobile test established in this audit; shared shell coverage is not credited as this screen coverage.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "tilecardsDuel",
+      "classification": "E",
+      "evidence": [],
+      "scope": "No specific strong mobile test established in this audit; shared shell coverage is not credited as this screen coverage.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "sectorCard",
+      "classification": "E",
+      "evidence": [],
+      "scope": "No specific strong mobile test established in this audit; shared shell coverage is not credited as this screen coverage.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "sectorPet",
+      "classification": "E",
+      "evidence": [],
+      "scope": "No specific strong mobile test established in this audit; shared shell coverage is not credited as this screen coverage.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "sectorGarrison",
+      "classification": "E",
+      "evidence": [],
+      "scope": "No specific strong mobile test established in this audit; shared shell coverage is not credited as this screen coverage.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "clanWarPet",
+      "classification": "E",
+      "evidence": [],
+      "scope": "No specific strong mobile test established in this audit; shared shell coverage is not credited as this screen coverage.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "clanWar2v2",
+      "classification": "B",
+      "evidence": [
+        "shinobij.client/e2e-live/combat-layout-matrix.spec.ts"
+      ],
+      "scope": "Dedicated interaction/layout evidence. Shared combat shell coverage does not certify every parent orchestration or lobby.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "cardClashFreePlay",
+      "classification": "B",
+      "evidence": [
+        "shinobij.client/e2e/chronicle-duel-ux.spec.ts"
+      ],
+      "scope": "Dedicated interaction/layout evidence. Shared combat shell coverage does not certify every parent orchestration or lobby.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "guides",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "messages",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "character-creation",
+      "classification": "B",
+      "evidence": [
+        "shinobij.client/e2e/release-smoke.spec.ts",
+        "shinobij.client/e2e/player-journey-ux.spec.ts"
+      ],
+      "scope": "Creator journey at supported viewport projects; visual creator baseline is desktop.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "clan-boss-operation",
+      "classification": "B",
+      "evidence": [
+        "shinobij.client/e2e-live/combat-layout-matrix.spec.ts"
+      ],
+      "scope": "Tower party shell geometry; dedicated boss staging lifecycle still required.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "pet-warfront-and-gauntlet",
+      "classification": "E",
+      "evidence": [],
+      "scope": "Separate rendering engines: shinobi/Showdown layout success does not certify these.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "central-celestial-entry",
+      "classification": "A",
+      "evidence": [
+        "shinobij.client/e2e/non-combat-ui-audit.spec.ts"
+      ],
+      "scope": "Central modal entry is covered; Endless Tower, Battle Towers, Echoes and First Pact each retain separate destination coverage.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    },
+    {
+      "screen": "android-system-behavior",
+      "classification": "D",
+      "evidence": [],
+      "scope": "Actual build/device: back, keyboard, system bars, touch hover, rotation, update/install, background/resume, network transitions and performance.",
+      "productionChange": "NONE",
+      "manualAndroidRequired": true
+    }
+  ]
+}

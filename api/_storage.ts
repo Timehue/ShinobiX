@@ -51,6 +51,10 @@ const _noCachePrefixes = [
     // lock, and overwrite v6. Every save read (including mget/hgetall) must hit
     // the backing store; caches remain enabled for deliberately safe prefixes.
     'save:',
+    // Recovery joins these private receipts with uncached player/clan debit
+    // proofs. A worker-local pending snapshot must not hide another worker's
+    // completion or make that join disagree immediately after a retry.
+    'clan:mission-claimed:', 'economy-settlement:clan-exchange-',
     // Player deletion generations are durable cross-worker save authority.
     // They are intentionally base-primary metadata (not disk-routed), but a
     // cached floor would still let another worker resurrect an old save.
