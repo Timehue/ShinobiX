@@ -1,0 +1,247 @@
+AU
+AuditNinja
+Special Jonin
+HP 9000/9000
+Chakra 9000/9000
+Stamina 9000/9000
+Sector 0
+Weather Clear Skies
+Ryo
+10m
+Honor Seals
+0
+Aura Dust
+0
+Fate Shards
+9999
+Aura Stones
+9999
+Mythic Seals
+9999
+Bone Charms
+9999
+Tiles
+0/150
+Missions
+0/20
+Hunts
+0/20
+Fate Spins
+0/5
+Reset In
+02:52:40
+Lv 85  ·  874 / 21,970 pts
+Flicker
+1m 27s
+HIDE MENU
+MAIN MENU
+WORLD
+02
+Travel
+Tavern
+ACTIVITIES
+04
+Missions
+Training
+Jutsu
+Logbook
+CHARACTER
+04
+Character
+Inventory
+Pet Home
+Healer
+SOCIAL
+02
+Users
+Mail
+SUPPORT
+03
+Guides
+Discord
+Premium Shop
+SYSTEM
+01
+Logout
+← BACK
+TECHNIQUE DEVELOPMENT
+Jutsu Training Hall
+
+Study techniques with ryo through level 30. Advanced mastery from levels 31–50 is earned in battle.
+
+HALL CAP
+Lv 30
+AVAILABLE RYO
+9,999,999
+ELEMENTS
+None awakened
+SPEED BONUS
++0.00%
+
+100 techniques remain hidden until their element is awakened.
+
+ACTIVE LESSON
+FLICKER
+IN PROGRESS
+Lv 1
+Lv 2
+TIME REMAINING
+1m 28s
+RYO PAID
+3,000
+
+Your lesson is sealed on the server. You can leave this page safely.
+
+CLAIM WHEN READY
+CANCEL · 50% REFUND
+FINISH NOW · 1,000 RYO
+QUEUE SLOT
+
+Select a technique below, then reserve its next lesson now.
+
+QUEUE FLICKER
+SELECTED CURRICULUM
+FLICKER
+LV 0
+TAI
+TAIJUTSU · NONE
+Level 0 → 1
+One complete mastery level
+TUITION
+Free
+DURATION
+Instant
+REWARD
++1 level
+ANOTHER LESSON IS ACTIVE
+
+Payments and mastery claims are settled against your server save.
+
+Honor Seal TrainingBalance: 0
+
+Skip the PvP grind for jutsu levels 30→40, or shave time off active training. Levels 40+ still require PvP.
+
+Selected jutsu is Lv 0 — train it to Lv 30 with ryo first.
+−10 MIN (1 SEAL)
+FINISH NOW (10 SEALS)
+TECHNIQUE ARCHIVE
+CHOOSE YOUR NEXT JUTSU
+
+Select a card to update the curriculum panel. Use the filters to narrow a large collection.
+
+JUTSU LIBRARY
+5/5
+GEN
+BLOOD GAZE RUPTURE
+60
+GEN
+CRIMSON HALLUCINATION
+60
+TAI
+FLICKER
+20
+ANY
+HEMATOMA VEIL
+40
+GEN
+VEIN MIRROR NIGHTMARE
+60
+NAME
+OFFENSE
+All Offenses
+Ninjutsu
+Taijutsu
+Genjutsu
+Bukijutsu
+Any
+ELEMENT
+All Elements
+Earth
+Wind
+Lightning
+Fire
+Water
+None
+EFFECTS
+All Effects
+Absorb
+Buff Prevent
+Cleanse Prevent
+Clear Prevent
+Copy
+Debuff Prevent
+Decrease Damage Given
+Decrease Damage Taken
+Drain
+Elemental Seal
+Heal
+Ignition
+Increase Damage Given
+Increase Damage Taken
+Increase Generals
+Increase Heal
+Lifesteal
+Mirror
+Move
+Poison
+Pull
+Push
+Recoil
+Reflect
+Bloodline Seal
+Shield
+Siphon
+Stun
+Stun Prevent
+Lag
+Overclock
+Wound
+SORT
+Name
+Offense
+Element
+Effects
+AP
+Range
+Effect Power
+Flicker
+Lv 0/50
+Taijutsu
+None
+
+A short-range body flicker that repositions the user in an instant.
+
+MASTERY XP
+0/50
+ACTION POINTS
+20
+RANGE
+5
+EFFECT POWER
+3
+
+Targeting · Single Target
+Affects a single target — no area splash.
+
+Resource cost
+0 chakra · 78 stamina
+
+Tags
+Move
+
+Training route
+Free, instant level 1 unlock
+
+Effects
+Moves the user on the battlefield.
+
+Move
+Instant
+
+Moves the user on the battlefield.
+
+Value: Always
+Target: Self
+Always lets the user choose an open tile within the jutsu range.
+?
+Tip

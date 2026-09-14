@@ -1,0 +1,87 @@
+You
+Travel
+Village
+Items
+Menu
+←
+Journeyu09auk8
+Lv 1
+500
+1000
+997
+2100
+0
+← Back
+TRAINING GROUNDS
+
+Stamina: 997/1000 · Growth Bonus: 0.00%
+
+TRAINING PLAN
+Training raises the selected stat directly — and every point you earn counts toward your next level.
+Start with Strength or Speed if you want a simple first pick.
+Choose 15m while learning; longer timers run longer and show their exact gain below.
+You can return to the village while training runs, then come back to collect.
+ACTIVE TRAINING
+
+15 Minutes strength Training
+
+Time remaining: 15m 00s · ends 3:33:34 PM
+
+Next: collect this training, then spend your new strength on an E-Rank Drill or rookie mission.
+
+TRAINING…CANCEL (KEEP PRORATED STATS)
+CHOOSE STAT
+GENERAL
+Core stats used across combat and progression.
+STRENGTH
+Selected
+SPEED
+Click to select
+INTELLIGENCE
+Click to select
+WILLPOWER
+Click to select
+OFFENSE
+Damage scaling by jutsu style.
+NINJUTSU OFF.
+Click to select
+TAIJUTSU OFF.
+Click to select
+GENJUTSU OFF.
+Click to select
+BUKIJUTSU OFF.
+Click to select
+DEFENSE
+Damage resistance by incoming style.
+NINJUTSU DEF.
+Click to select
+TAIJUTSU DEF.
+Click to select
+GENJUTSU DEF.
+Click to select
+BUKIJUTSU DEF.
+Click to select
+CHOOSE TIMER
+START 15 MINUTES
++15 Strength
+START 1 HOUR
++50 Strength
+START 4 HOURS
++190 Strength
+START 8 HOURS
++360 Strength
+
+Shinobi Journey stores data on your device for sign-in, preferences, and saving your progress. It uses no advertising or third-party tracking cookies. Learn more.
+
+Got it
+CINDER CUB — YOUR COMPANION · PHASE 1/3: ANSWER THE CALL · STEP 2/9
+Skip
+
+Next, let's give you one technique your bloodline didn't hand you. Pick any untrained jutsu — the first level is free.
+
+Next, let's give you one technique your bloodline didn't hand you. Pick any untrained jutsu — the first level is free.
+FOLLOW THE GOLD PULSE
+
+Up next: Equip your jutsu loadout
+
+GO TO JUTSU TRAINING
