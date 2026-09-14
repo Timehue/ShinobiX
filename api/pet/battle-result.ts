@@ -107,20 +107,46 @@ const WARFRONT_SETTLE_CLOCK_SKEW_MS = 5_000;
  *
  * The plan is the ONLY thing the client contributes to the replay — the bands,
  * the seed and the AI's own order all come from the sealed token — so this has
- * to reject anything that is not a genuine batting order. A rejected plan
- * returns null, which falls the caller back to the sealed automatic baseline
- * rather than paying out on a fabricated one.
+ * to reject anything that is not a genuine batting order. Omission retains the
+ * sealed automatic baseline; a present but rejected transcript is a 400 so a
+ * client can never settle a different fight than the one it displayed.
  */
 function parseWarfrontRitePlan(raw: unknown): RitePlan | null {
     if (!raw || typeof raw !== 'object') return null;
-    const source = raw as { formation?: unknown; reformAfterClash?: unknown; reform?: unknown };
+    const source = raw as {
+        formation?: unknown;
+        deployment?: unknown;
+        reformAfterClash?: unknown;
+        reform?: unknown;
+        reformDeployment?: unknown;
+        reforms?: unknown;
+    };
     if (!Array.isArray(source.formation)) return null;
     const formation = source.formation.map((value) => Number(value));
+    const deployment = Array.isArray(source.deployment) ? source.deployment.map((value) => Number(value)) : undefined;
     const atRaw = source.reformAfterClash;
     const reformAfterClash = atRaw === null || atRaw === undefined ? null : Number(atRaw);
     if (reformAfterClash !== null && !Number.isInteger(reformAfterClash)) return null;
     const reform = Array.isArray(source.reform) ? source.reform.map((value) => Number(value)) : null;
-    const plan: RitePlan = { formation, reformAfterClash, reform };
+    const reformDeployment = Array.isArray(source.reformDeployment)
+        ? source.reformDeployment.map((value) => Number(value))
+        : null;
+    let reforms: RitePlan["reforms"];
+    if (source.reforms !== undefined) {
+        if (!Array.isArray(source.reforms)) return null;
+        reforms = [];
+        for (const rawReform of source.reforms) {
+            if (!rawReform || typeof rawReform !== 'object') return null;
+            const entry = rawReform as { afterClash?: unknown; formation?: unknown; deployment?: unknown };
+            if (!Array.isArray(entry.formation) || !Array.isArray(entry.deployment)) return null;
+            reforms.push({
+                afterClash: Number(entry.afterClash),
+                formation: entry.formation.map((value) => Number(value)),
+                deployment: entry.deployment.map((value) => Number(value)),
+            });
+        }
+    }
+    const plan: RitePlan = { formation, deployment, reformAfterClash, reform, reformDeployment, reforms };
     // The engine's own validator is the single source of truth for legality, so
     // the client and the server can never disagree about what a legal plan is.
     return isValidRitePlan(plan, RITE_BAND_SIZE) ? plan : null;
@@ -132,6 +158,7 @@ type RankedPetSettlementReceipt = {
     b: string;
     winnerName: string | null;
     settledAt: number;
+    replay?: RankedPetMatchToken;
 };
 
 type PetBattleOutcome = 'win' | 'loss' | 'draw';
@@ -283,6 +310,7 @@ async function writeRankedSettlementReceipt(
         b: token.b,
         winnerName,
         settledAt,
+        ...(isRankedPetMatchToken(token) ? { replay: token } : {}),
     };
     // This write is required before proof retirement. If it fails, the caller
     // returns retryable 503 and leaves the original proof live.
@@ -361,9 +389,9 @@ async function cleanupRankedMatchAuthority(
 ): Promise<void> {
     try {
         await withKvLock(PET_RANKED_QUEUE_KEY, async () => {
-            const registry = pruneRankedPetActiveRegistry(
-                await kv.get(PET_RANKED_ACTIVE_REGISTRY_KEY),
-            );
+            const registry = pruneRankedPetActiveRegistry(await kv.get(PET_RANKED_ACTIVE_REGISTRY_KEY));
+            // Presentation pointers were retained at token mint. Releasing or
+            // retrying this reservation never removes or recreates those links.
             for (const [name, pointer] of Object.entries(registry)) {
                 if (pointer.matchToken === matchToken) delete registry[name];
             }
@@ -739,11 +767,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!casualPvePlayerPets) {
                     return res.status(409).json({ error: 'Warfront token carries an invalid participating-pet snapshot.' });
                 }
+                // Old resumable Warfront seals may still contain an equipped
+                // item. This mode always resolves with applyItems=false, so its
+                // receipt must never consume that unused item.
+                casualPvePlayerPets = casualPvePlayerPets.map((pet) => ({
+                    ...pet, ...(pet.loadout ? { loadout: { ...pet.loadout, consumable: undefined } } : {}),
+                }));
                 const rivalIds = Array.isArray(tokenData.redPets)
                     ? tokenData.redPets.map((pet) => String(pet?.id ?? ''))
                     : [];
                 const rivalPets = parseSealedPetSnapshots(tokenData.redPets, rivalIds);
-                const plan = parseWarfrontRitePlan((body as Record<string, unknown>).warfrontPlan);
+                const rawPlan = (body as Record<string, unknown>).warfrontPlan;
+                const plan = parseWarfrontRitePlan(rawPlan);
+                if (rawPlan !== undefined && !plan) {
+                    return res.status(400).json({ error: 'The Warfront formation transcript is invalid.' });
+                }
                 const seed = Number(tokenData.seed);
                 let commandedSettleAfter = baselineSettleAfter;
                 if (plan && rivalPets?.length === RITE_BAND_SIZE && casualPvePlayerPets.length === RITE_BAND_SIZE
@@ -767,7 +805,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 if (Date.now() < commandedSettleAfter) {
                     return res.status(425).json({
-                        error: 'The Hollow Warfront is still in progress.',
+                        error: 'Beastbound Warfront is still in progress.',
                         retryAfterMs: commandedSettleAfter - Date.now(),
                     });
                 }

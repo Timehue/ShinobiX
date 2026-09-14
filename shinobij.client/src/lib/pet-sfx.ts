@@ -106,11 +106,20 @@ export function primePetSfx(): void {
   ]);
 }
 
-export function playPetSfx(kind: PetSfxKind): void {
+export function playPetSfx(kind: PetSfxKind, options: {
+  gain?: number;
+  playbackRate?: number;
+  pan?: number;
+  channel?: string;
+  priority?: number;
+} = {}): void {
   if (isPetSfxMuted()) return;
   const mapped = PET_CUES[kind];
   playGameSfx(mapped.cue, {
-    gain: mapped.gain,
-    playbackRate: mapped.playbackRate,
+    gain: (mapped.gain ?? 1) * (options.gain ?? 1),
+    playbackRate: options.playbackRate ?? mapped.playbackRate,
+    pan: options.pan,
+    channel: options.channel,
+    priority: options.priority,
   });
 }

@@ -5,7 +5,7 @@ The pilot protects four high-value, deterministic release surfaces: the desktop 
 ## Canonical environment
 
 - Windows, Chromium, 1366×768 unless the test sets the 390×844 mobile viewport.
-- Reduced motion and dark color scheme.
+- Full motion (`prefers-reduced-motion: no-preference`) and dark color scheme. Reduced motion is deliberately NOT emulated here: in this app it switches to the lite presentation (opaque panels, no WebGL backdrops), so baselines would stop showing what players see. CSS animation is frozen by `animations: 'disabled'` instead. Most other e2e suites do emulate it (warfront does not); see the comments in `shinobij.client/playwright.config.ts` and `playwright.visual.config.ts`.
 - A fixed wall clock, disabled CSS animation/transition timing, hidden carets, and loaded web fonts.
 - Canvas and video regions are masked because GPU output is not pixel-stable.
 - API data is a small deterministic fixture; this suite is visual-only. Real Express authority is covered by `e2e-live`.

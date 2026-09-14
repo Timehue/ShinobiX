@@ -1,4 +1,5 @@
 import { safeLogValue } from '../_safe-log.js';
+import { createHash } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName, mergePreservingImages } from '../_utils.js';
@@ -8,6 +9,7 @@ import { withKvLock } from '../_lock.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { planTrade, isTradeCurrency } from './_trade-core.js';
+import { chargeOutboundBudget, checkOutboundBudget, senderTrustTier } from './_transfer-budget.js';
 import { recordEconomyTxn } from '../_economy.js';
 import { makeEconomyTxId, reserveEconomyTx, markEconomyTx, completeEconomyTx, failEconomyTx } from '../_economy-tx.js';
 
@@ -20,22 +22,52 @@ import { makeEconomyTxId, reserveEconomyTx, markEconomyTx, completeEconomyTx, fa
  * both failClosed → currency safety), the split is recomputed from _trade-core,
  * and neither side's amount comes from the client body.
  *
- *   POST { playerName, toPlayer, currency, amount, nonce? }
+ *   POST { playerName, toPlayer, currency, amount, nonce }
  *     → { ok, currency, debit, credit, burned, toPlayer }
  *
  * Money safety:
  *   - only ryo / fateShards / boneCharms / auraStones are tradeable (honor seals
  *     are Vanguard-locked, mythic seals are top-rarity — both excluded).
  *   - VOID when sender + recipient share an IP/device (no funnelling to an alt).
- *   - optional client `nonce` makes a retried request idempotent (NX receipt).
+ *   - the client `nonce` is REQUIRED (F15, 2026-09-07): it is what makes a
+ *     retried request idempotent (NX receipt). A body without one has no replay
+ *     identity, so a lost response would turn the client's own retry into a
+ *     second, unrelated transfer; it is answered 400 with a reload hint instead.
+ *     `ALLOW_NONCELESS_TRANSFERS=1` re-admits legacy bodies without a deploy.
  */
 
 const AUDIT_PREFIX = 'audit:player-trade:';
 const NONCE_TTL_SECONDS = 24 * 60 * 60;
+const PENDING_TRANSFER_ERROR = 'A previous attempt of this transfer is still settling. It was NOT sent twice — refresh your balance before retrying.';
 
 function num(v: unknown): number {
     const n = Number(v);
     return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * What one nonce is allowed to mean. A retried request that carries the same
+ * nonce with a DIFFERENT recipient/currency/amount is not a retry — it is a
+ * second transfer wearing the first one's receipt, and is refused.
+ */
+export function tradeNonceFingerprint(toSlug: string, currency: string, amount: number): string {
+    return createHash('sha256').update(JSON.stringify({ to: toSlug, currency, amount })).digest('hex').slice(0, 32);
+}
+
+type NonceRecord = { receipt?: unknown; txId?: unknown; fp?: unknown; pending?: unknown };
+
+/**
+ * The answer a prior nonce record dictates, or null when the transfer may run.
+ * Shared by the fast pre-lock check and the authoritative re-check under both
+ * save locks, so the two can never disagree.
+ */
+function priorNonceAnswer(prior: NonceRecord | null, fingerprint: string): { status: number; body: Record<string, unknown> } | null {
+    if (!prior) return null;
+    if (typeof prior.fp === 'string' && prior.fp !== fingerprint) {
+        return { status: 409, body: { error: 'That request id was already used for a different transfer.', nonceConflict: true } };
+    }
+    if (prior.receipt) return { status: 200, body: { ...(prior.receipt as Record<string, unknown>), duplicate: true } };
+    return { status: 409, body: { error: PENDING_TRANSFER_ERROR, pending: true, txId: typeof prior.txId === 'string' ? prior.txId : undefined } };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -89,13 +121,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         //   • no prior           → first attempt (or a pre-debit failure that
         //     rolled its pending marker back); run for real.
         const nonce = typeof body.nonce === 'string' ? body.nonce.slice(0, 64).replace(/[^a-zA-Z0-9_-]/g, '') : '';
+        // F15: no nonce, no transfer. The shipped client always sends one and
+        // keeps it across retries (lib/player-trade.ts), so this only reaches a
+        // tab that predates the nonce; it is told to reload rather than run a
+        // transfer that cannot be made exactly-once.
+        if (!nonce && process.env.ALLOW_NONCELESS_TRANSFERS !== '1') {
+            return res.status(400).json({ error: 'This transfer needs a fresh session. Reload the game and try again.', reason: 'nonce-required' });
+        }
         const nonceKey = nonce ? `trade:nonce:${playerName}:${nonce}` : '';
+        const fingerprint = tradeNonceFingerprint(toSlug, currency, amount);
+        // Fast path only. The authoritative check is repeated UNDER both save
+        // locks below: this one runs before the locks, so two concurrent
+        // attempts of the same nonce could both pass it. (`nonceKey` is empty
+        // only under the legacy kill switch above.)
         if (nonceKey) {
-            const prior = await kv.get<Record<string, unknown>>(nonceKey);
+            const prior = await kv.get<NonceRecord>(nonceKey);
+            if (typeof prior?.fp === 'string' && prior.fp !== fingerprint) {
+                return res.status(409).json({ error: 'That request id was already used for a different transfer.', nonceConflict: true });
+            }
             if (prior?.receipt) return res.status(200).json({ ...(prior.receipt as Record<string, unknown>), duplicate: true });
             if (prior) {
                 return res.status(409).json({
-                    error: 'A previous attempt of this transfer is still settling. It was NOT sent twice — refresh your balance before retrying.',
+                    error: PENDING_TRANSFER_ERROR,
                     pending: true,
                     txId: typeof prior.txId === 'string' ? prior.txId : undefined,
                 });
@@ -122,6 +169,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const plan = planTrade(currency, amount, num(senderChar[currency]));
                 if (!plan.ok) return { status: 400, body: { error: plan.reason } };
 
+                // Rolling 24h SEND-side ceiling, checked under the same locks the
+                // debit runs under so two concurrent transfers cannot both pass a
+                // pre-lock check and jointly exceed it. The per-transfer cap alone
+                // left the real ceiling at 20 calls/min x 200,000 = 4,000,000 ryo a
+                // minute. Nothing is added to RECEIVING: RuneScape ran that
+                // experiment in 2008 and removed it in 2011 for breaking ordinary
+                // play. (MMORPG behavior audit F8.)
+                if (!identity.admin) {
+                    const tier = await senderTrustTier(playerName, senderChar);
+                    const budget = await checkOutboundBudget(playerName, currency, plan.debit, tier);
+                    if (!budget.ok) {
+                        return { status: 429, body: { error: budget.error, reason: 'transfer-budget', remaining: budget.remaining, limit: budget.limit } };
+                    }
+                }
+
+                // The nonce is re-checked HERE, under the serialization
+                // boundary. Two attempts of the same nonce that both passed the
+                // pre-lock check are now serialized by the save locks: the
+                // second one sees the first one's pending marker or receipt.
+                if (nonceKey) {
+                    const answer = priorNonceAnswer(await kv.get<NonceRecord>(nonceKey), fingerprint);
+                    if (answer) return answer;
+                }
+
                 // P0-2: journal the two-save settlement (reserve → debit-applied
                 // → complete / needs-reconcile) so a failure between the two
                 // writes leaves a durable reconcile trail (admin
@@ -136,8 +207,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 });
                 // Pending nonce marker BEFORE the debit: a retry of anything
                 // that fails past this point sees it and refuses to re-debit.
+                // The NX result is HONORED: the old `.catch(() => undefined)`
+                // ignored both a lost claim and a thrown write, and ran the debit
+                // regardless — which is exactly the double-debit this closes.
                 if (nonceKey) {
-                    await kv.set(nonceKey, { ts: now, txId, pending: true }, { ex: NONCE_TTL_SECONDS, nx: true } as never).catch(() => undefined);
+                    const marker = { ts: now, txId, pending: true, fp: fingerprint };
+                    let claimed: 'OK' | null;
+                    try {
+                        claimed = await kv.set(nonceKey, marker, { ex: NONCE_TTL_SECONDS, nx: true });
+                    } catch (err) {
+                        // The claim may have committed with a lost acknowledgement.
+                        const readback = await kv.get<NonceRecord>(nonceKey).catch(() => null);
+                        if (readback?.txId === txId) {
+                            claimed = 'OK';
+                        } else if (readback) {
+                            claimed = null;
+                        } else {
+                            await failEconomyTx(txId, err, { note: 'nonce claim failed; no funds moved' }).catch(() => undefined);
+                            return { status: 503, body: { error: 'The transfer could not start. Nothing was sent.', retryable: true } };
+                        }
+                    }
+                    if (claimed !== 'OK') {
+                        // Another attempt of this exact nonce won the claim. Nothing
+                        // moved here; answer from the winner's record.
+                        await failEconomyTx(txId, new Error('nonce-already-claimed'), { note: 'duplicate attempt lost the nonce claim; no funds moved' }).catch(() => undefined);
+                        const winner = await kv.get<NonceRecord>(nonceKey).catch(() => null);
+                        return priorNonceAnswer(winner, fingerprint) ?? { status: 409, body: { error: PENDING_TRANSFER_ERROR, pending: true } };
+                    }
                 }
 
                 const senderBalance = num(senderChar[currency]) - plan.debit;
@@ -164,6 +260,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return { status: 502, body: { error: 'The transfer was interrupted after the debit. It is recorded for restoration — do not resend.', txId } };
                 }
                 await completeEconomyTx(txId).catch(() => undefined);
+                // Charge the rolling window INSIDE the locks, beside the debit it
+                // records. Outside them the check above is worthless: request N+1
+                // takes the locks the moment N frees them and reads a ledger N has
+                // not written yet, so 20 pipelined calls all pass and the real
+                // ceiling stays 20 x 200,000/min — the exact number this budget
+                // exists to close. Only a COMMITTED transfer is charged, so a
+                // refusal or a replay never eats budget the player did not spend.
+                if (!identity.admin) {
+                    await chargeOutboundBudget(playerName, currency, plan.debit, Date.now());
+                }
                 return { status: 200, body: { ok: true, currency, debit: plan.debit, credit: plan.credit, burned: plan.burned, toPlayer: toDisplay, senderBalance } };
             }, { failClosed: true }),
         { failClosed: true });
@@ -173,7 +279,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // committed transfer replays it; a retry of a failed attempt (which
             // wrote no nonce) runs for real.
             if (nonceKey) {
-                await kv.set(nonceKey, { ts: now, receipt: out.body }, { ex: NONCE_TTL_SECONDS } as never).catch(() => undefined);
+                await kv.set(nonceKey, { ts: now, receipt: out.body, fp: fingerprint }, { ex: NONCE_TTL_SECONDS }).catch(() => undefined);
             }
             await kv.set(`${AUDIT_PREFIX}${now}`, { ts: now, from: playerName, to: toSlug, currency, debit: out.body.debit, credit: out.body.credit, burned: out.body.burned }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
             // Economy telemetry — the 10% trade burn is a real "currency destroyed"

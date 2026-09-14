@@ -134,6 +134,7 @@ test('real story settle handler grants one authoritative Chronicle record and re
     assert.deepEqual(first.out.body?.chronicleCards, ['story-story-ai-stormveil-village-4']);
     const character = first.out.body?.character as Record<string, unknown>;
     assert.equal(character.storyProgress, 1);
+    assert.deepEqual(character.elderWinDays, [{ day: new Date().toISOString().slice(0, 10), village: 'stormveilvillage', pvp: 0, pve: 1 }]);
     assert.equal(character.ryo, 175);
     assert.deepEqual(character.tileCards, ['story-story-ai-stormveil-village-4']);
 

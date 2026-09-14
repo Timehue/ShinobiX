@@ -34,13 +34,21 @@ export type OnlinePlayer = {
     travelDestinationTile?: number;
     /** Sector whose room saw this player before a stale, matured travel sweep. */
     departureSector?: number;
-    /** true while a PvP session is active (blocks double-battle). */
+    /**
+     * true while the SERVER can prove a fight (F01): set from the combat
+     * stores by the heartbeat (battle-authority.ts) and by fight hosts at
+     * start/terminal. Blocks double-battle, travel, external heals; confers
+     * attack immunity. Never taken from a client beat.
+     */
     inBattle?: boolean;
-    /** Within-sector tile (0..143) for live peer rendering. Display-only — no
-     * gameplay path reads it (attack/heal/challenge use sector/inBattle/travel). */
+    /** Within-sector tile (0..143) for peer rendering and road-exit proximity.
+     * Walking remains client supplied; this is not authoritative path validation. */
     tile?: number;
     /** Monotonic server sequence for within-sector movement deltas. */
     movementSeq?: number;
+    /** Boot snapshots may render a roster, but cannot authorize gameplay until
+     * the first ingress rehydrates position from the durable save/lease. */
+    locationUnverified?: boolean;
 };
 
 /** Fields a heartbeat / ping supplies to refresh presence. */
@@ -49,8 +57,11 @@ export type PresenceUpsert = {
     sector: number;
     character: Record<string, unknown> | null;
     travelingUntil?: number;
+    /** Client hint only — ignored by upsert (F01). Kept for wire compatibility. */
     inBattle?: boolean;
     tile?: number;
+    /** Sector the supplied tile belongs to; differs during stale travel beats. */
+    tileSector?: number;
 };
 
 export interface OnlineStateStore {
@@ -72,7 +83,7 @@ export interface OnlineStateStore {
     setPendingAttacker(name: string, attacker: unknown): boolean;
     /** Clear a player's queued attacker. */
     clearPendingAttacker(name: string): void;
-    /** Set/clear the inBattle flag (PvP session start/end). */
+    /** Set/clear the server-owned inBattle flag (fight start/terminal, heartbeat corroboration). */
     setInBattle(name: string, inBattle: boolean): void;
     /** Start a server-owned travel lease. Returns null if the player cannot travel. */
     startTravel(name: string, destinationSector: number, arrivalAt: number, originSector?: number, arrivalTile?: number): OnlinePlayer | null;
@@ -82,6 +93,10 @@ export interface OnlineStateStore {
     cancelTravel(name: string, arrivalAt: number): void;
     /** Consume the one-shot signal that its persisted lease may be deleted. */
     consumeSettledTravel(name: string): boolean;
+    /** Arrival publication awaiting a settle attempt on the next ingress. */
+    hasSettledTravel(name: string): boolean;
+    /** Retry a failed durable settlement without replaying live movement. */
+    retryTravelSettlement(name: string): void;
     /** Apply a within-sector movement intent and return the refreshed record. */
     moveToTile(name: string, tile: number): OnlinePlayer | null;
     /** Drop entries past the offline window. Returns the removed records. */

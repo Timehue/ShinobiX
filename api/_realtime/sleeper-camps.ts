@@ -2,7 +2,8 @@ import { kv } from '../_storage.js';
 import { safeName } from '../_utils.js';
 import type { OnlinePlayer } from './types.js';
 import { onlineStore } from './online-store.js';
-import { settleTravelLeases } from './travel-lease.js';
+import { getTravelLease, settleTravelLease, sleeperSectorForTravelLease } from './travel-lease.js';
+import { battleAuthorityKeys, battleEvidenceFrom, resolveBattleAuthority } from './battle-authority.js';
 
 export const SLEEPER_CAMPS_KEY = 'world:sleeper-camps';
 
@@ -58,7 +59,7 @@ export async function clearSleeperCamp(name: string): Promise<void> {
 }
 
 export function sleeperCampForPresence(player: OnlinePlayer, now: number): SleeperCamp | null {
-    if (player.sector < 1 || player.inBattle || (player.travelingUntil ?? 0) > now) return null;
+    if (player.locationUnverified || player.sector < 1 || player.inBattle || (player.travelingUntil ?? 0) > now) return null;
     return {
         name: player.name,
         displayName: player.displayName,
@@ -75,7 +76,24 @@ export function sleeperCampForPresence(player: OnlinePlayer, now: number): Sleep
 export async function materializeSleeperCamps(players: OnlinePlayer[]): Promise<void> {
     const patch: Record<string, SleeperCamp> = {};
     const now = Date.now();
-    for (const player of players) {
+    for (let player of players) {
+        if (onlineStore.get(player.name)) continue;
+        const lease = await getTravelLease(player.name);
+        if (lease) {
+            const sector = sleeperSectorForTravelLease(lease, now);
+            if (sector === null || !(await settleTravelLease(player.name, lease, now))) continue;
+            player = { ...player, sector, travelingUntil: undefined };
+        }
+        if (player.locationUnverified) {
+            const [saved, evidence] = await Promise.all([
+                kv.get<{ currentSector?: number; character?: { hospitalized?: boolean } }>(`save:${safeName(player.name)}`),
+                kv.mget(...battleAuthorityKeys(player.name)),
+            ]);
+            if (!saved || saved.character?.hospitalized) continue;
+            const battle = await resolveBattleAuthority(player.name, battleEvidenceFrom(evidence));
+            player = { ...player, sector: Number(saved.currentSector) || 0,
+                inBattle: battle.inBattle, locationUnverified: false };
+        }
         const camp = sleeperCampForPresence(player, now);
         if (!camp) continue;
         if (onlineStore.get(player.name)) continue;
@@ -83,10 +101,6 @@ export async function materializeSleeperCamps(players: OnlinePlayer[]): Promise<
     }
     if (!Object.keys(patch).length) return;
     await kv.hset(SLEEPER_CAMPS_KEY, patch);
-    // A stale traveler is settled to the destination by onlineStore before it
-    // reaches this function. Commit that sector to the versioned save before
-    // deleting the restart-recovery lease.
-    await settleTravelLeases(...Object.keys(patch));
     // Close the reconnect race: a heartbeat that landed while the hash write was
     // in flight wins, and its camp is removed again immediately.
     await Promise.all(Object.keys(patch).map(async (name) => {

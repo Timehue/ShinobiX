@@ -32,6 +32,7 @@ export interface CardClashDuelConfig {
   forfeitConfirm: string;
   doneNote: (won: boolean, draw: boolean) => string;
   autoJoin?: boolean;
+  eventLabel?: string;
 }
 
 const CLAN_WAR_DUEL_CONFIG: CardClashDuelConfig = {
@@ -319,6 +320,7 @@ export function CardClashDuelScreen({
             error={error}
             onExit={() => void leaveTable()}
             exitLabel={config.backLabel}
+            eventLabel={config.eventLabel}
             onAction={(intent) => void action(intent)}
           />
         </>

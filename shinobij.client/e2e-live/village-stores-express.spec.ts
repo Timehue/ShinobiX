@@ -1,4 +1,5 @@
-import { expect, test, type APIRequestContext, type Locator, type Page, type TestInfo } from '@playwright/test';
+import { expect, type APIRequestContext, type Locator, type Page, type TestInfo } from '@playwright/test';
+import { API_CONNECTION_RETRIES, test } from './helpers/reconnecting-request';
 
 /*
  * Village Stores — the player loop, driven end to end in a real browser against
@@ -35,6 +36,8 @@ const PASSWORD = 'LiveExpress!1234';
 /** Must be one of api/_war-map-sectors.ts WAR_VILLAGES — /api/village/war-map
  *  only reports stores for a war village, and the Town Hall reads it from there. */
 const VILLAGE = 'Moonshadow Village';
+/** How /api/game-state keys that village in `villageStates`. */
+const VILLAGE_STATE_KEY = 'moonshadowvillage';
 
 const FIELD_RATIONS_YIELD = 5;
 const CAMPAIGN_RATIONS_YIELD = 20;
@@ -306,6 +309,29 @@ test('a village cook turns hunt spoils into Provisions and Materials the server 
         // ── 3. Town Hall → Treasury: donate rations into Provisions (UI) ──
         const baseline = await readStores(request, name, token);
         const treasury = await openTreasuryTab(page);
+        // A normal villager sees AI seats with zero focus and a read-only order
+        // board. Direct HTTP attempts must be refused by the real Express routes.
+        const tabs = page.getByRole('navigation', { name: 'Town Hall sections' });
+        await tabs.getByRole('button', { name: 'Council', exact: true }).click();
+        const council = panelFor(page, 'Village Elder Council');
+        await expect(council.getByText('0 bonus · No focus', { exact: true })).toHaveCount(3);
+        await expect(council.getByRole('button', { name: 'Select focus', exact: true })).toHaveCount(0);
+        await expect(council.getByRole('button', { name: 'Appoint', exact: true })).toHaveCount(0);
+        await tabs.getByRole('button', { name: 'Orders', exact: true }).click();
+        const orders = panelFor(page, 'Village Orders');
+        await expect(orders.getByRole('status')).toContainText('Orders are read-only.');
+        await expect(orders.getByRole('button', { name: 'Post Order', exact: true })).toHaveCount(0);
+        const blockedActions = [
+            { path: '/api/village/elder-focus', data: { playerName: name, focus: 'training' } },
+            { path: '/api/village/elder-focus', data: { playerName: name, focus: 'war', action: 'appoint', appointee: name } },
+            { path: '/api/village/anbu', data: { playerName: name, action: 'appoint', seat: 0, appointee: name } },
+            { path: '/api/village/orders', data: { playerName: name, action: 'post', id: 'forbidden-order', type: 'order', title: 'Hold', body: 'Hold the gate.' } },
+        ];
+        for (const action of blockedActions) {
+            const blocked = await request.post(action.path, { headers: playerHeaders(name, token), data: action.data });
+            expect(blocked.status(), `${action.path} must enforce leadership on the server`).toBe(403);
+        }
+        await tabs.getByRole('button', { name: 'Treasury', exact: true }).click();
         const provisionsRow = treasury.getByText(/^Provisions:\s*[\d,]+ rations$/);
         const materialsRow = treasury.getByText(/^Materials:\s*[\d,]+ materials$/);
         await expect(provisionsRow).toHaveText(`Provisions: ${baseline.provisions.toLocaleString('en-US')} rations`);
@@ -378,6 +404,19 @@ test('a village cook turns hunt spoils into Provisions and Materials the server 
             data: { playerName: name, village: VILLAGE, currency: 'honorSeals', amount: DEPOT_L6_SEAL_COST + 16 },
         });
         expect(seals.status(), 'the treasury must be funded for the upgrades').toBe(200);
+        // The shared /api/game-state frame as it stands now: funded, but before
+        // the bulk donation and the drain. A page can still be handed exactly
+        // this after the drain — by a poll already in flight when the drain
+        // lands, or by a CDN copy — and on main CI run 34562696377, before the
+        // treasury endpoints dropped the server's frame cache, it was. Captured
+        // once it shows the seals.
+        let staleTreasury: Record<string, unknown> = {};
+        await expect.poll(async () => {
+            const frame = await (await request.get('/api/game-state')).json() as { villageStates?: Record<string, { treasury?: Record<string, unknown> }> };
+            staleTreasury = frame.villageStates?.[VILLAGE_STATE_KEY]?.treasury ?? {};
+            return Number(staleTreasury.honorSeals) || 0;
+        }, { message: 'the funded treasury must reach /api/game-state' }).toBeGreaterThan(0);
+        expect(Number(staleTreasury.materialPoints), 'the captured frame must predate the bulk donation').toBe(expectedMaterials);
         const bulk = await request.post('/api/village/treasury/donate', {
             headers: { 'x-admin-password': ADMIN_PASSWORD },
             data: { playerName: name, village: VILLAGE, itemId: 'hunt-ash-scale', count: BULK_ASH_SCALES },
@@ -403,6 +442,25 @@ test('a village cook turns hunt spoils into Provisions and Materials the server 
         expect(drained.storesLedger.length, 'the drain must write exactly one ledger row').toBe(1);
         expect(drained.storesLedger[0]).toMatchObject({ kind: 'structure', amount: SUPPLY_DEPOT_L6_MATERIALS, by: name, ref: 'supplyDepot:6' });
 
+        // Main CI run 34562696377 reloaded into that stale frame: the Materials
+        // row held the pre-drain figure for the whole expect while the Supply
+        // log below it, read from the war-map, showed the drain. Serve the page
+        // that frame on every poll, so the row can only be right if it shows
+        // the war-map read over the poll.
+        const staleSeals = Number(staleTreasury.honorSeals);
+        const gameStateFrame = (url: URL) => url.pathname === '/api/game-state' && !url.searchParams.has('images');
+        await page.route(gameStateFrame, async (route) => {
+            // Never a 304: the browser would fall back to a frame this route never saw.
+            const headers = { ...route.request().headers() };
+            delete headers['if-none-match'];
+            const response = await route.fetch({ headers, maxRetries: API_CONNECTION_RETRIES });
+            if (!response.ok()) return route.fulfill({ response });
+            const body = await response.json() as { villageStates?: Record<string, Record<string, unknown>> };
+            const entry = body.villageStates?.[VILLAGE_STATE_KEY];
+            if (entry) entry.treasury = staleTreasury;
+            await route.fulfill({ response, json: body });
+        });
+
         // Back through the player's eyes: the Supply log renders the drain.
         const reopened = await openTreasuryTab(page);
         await expect(reopened.getByRole('heading', { name: 'Supply log' })).toBeVisible();
@@ -410,8 +468,16 @@ test('a village cook turns hunt spoils into Provisions and Materials the server 
         await expect(drainRow).toHaveCount(1);
         await expect(drainRow).toContainText('Structure build −400 materials');
         await expect(drainRow).toContainText('Supply Depot L6');
+        // The seal line renders the polled treasury as-is, so it showing the
+        // stale count proves the Town Hall has adopted the stale frame: that
+        // count is above the empty default, and the upgrades have since spent
+        // seals. The Town Hall re-reads its village cache on a 10s poll, hence
+        // the budget.
+        await expect(reopened.getByText(/^Honor Seals:\s*[\d,]+$/))
+            .toHaveText(`Honor Seals: ${staleSeals.toLocaleString('en-US')}`, { timeout: 25_000 });
         await expect(reopened.getByText(/^Materials:\s*[\d,]+ materials$/))
             .toHaveText(`Materials: ${drained.materialPoints.toLocaleString('en-US')} materials`);
+        await page.unroute(gameStateFrame);
 
         expect(dialogs, 'no step in the loop may refuse').toEqual([]);
         expect(serverFailures, 'no endpoint in the loop may 5xx').toEqual([]);

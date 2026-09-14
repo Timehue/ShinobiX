@@ -13,6 +13,7 @@ import {
 } from "./logbook-objectives";
 import { buildJourneyGuide } from "./journey-guide";
 import { onboardingStepAtLeast } from "./onboarding-step";
+import { cacheVillageElders } from "./village-elder-focus";
 
 // A minimal but type-complete save: only the fields the objective builder reads
 // matter; everything else is filled to satisfy the Character shape loosely via a
@@ -241,6 +242,17 @@ test("Special Jonin 'Become Kage or Elder' honors the env context", () => {
     assert.equal(currentLogbookObjective(base, { isKage: true }), null, "optional prestige never owns the required next objective");
 });
 
+test("Special Jonin elder standing follows player appointments, never a personal focus", () => {
+    const character = makeCharacter({ level: 80, village: 'Elder standing test', name: 'Rin', elderFocus: 'training', examsPassed: ['genin', 'chunin', 'jonin'], totalPvpKills: 100 });
+    const standing = () => buildLogbookObjectives(character).find(o => o.examKey === 'specialJonin')?.requirements.find(r => r.label === 'Become Kage or Elder')?.progress;
+    cacheVillageElders(character.village, ['', '', 'Mei'], Date.now() + 86400000);
+    assert.equal(standing(), 0);
+    cacheVillageElders(character.village, ['Rin', '', 'Mei'], Date.now() + 86400000);
+    assert.equal(standing(), 1);
+    cacheVillageElders(character.village, ['', '', 'Mei'], Date.now() + 86400000);
+    assert.equal(standing(), 0);
+});
+
 test("Journey Guide starts fresh Academy players at training", () => {
     const guide = buildJourneyGuide(makeCharacter({ level: 3, onboardingStep: "academyIntro" }));
     assert.equal(guide.shouldShow, true);
@@ -331,3 +343,26 @@ test("Journey Guide hides once every first step is complete", () => {
     assert.equal(guide.shouldShow, false);
     assert.equal(guide.completedCount, guide.totalCount);
 });
+
+/*
+ * A deleted custom jutsu leaves its id in equippedJutsuIds forever (a mastery
+ * row carries it past the server's learned-id filter), and combat skips it. The
+ * raw array length therefore over-credits the loadout requirement. The caller
+ * supplies the resolved count; the raw length stays the default so every other
+ * caller keeps its current behaviour.
+ * See [[project_deleted_jutsu_wedges_loadout_cap]] — the same defect wedged the
+ * Profile loadout cap at 14 usable jutsu.
+ */
+test("the loadout requirement counts resolvable jutsu, not raw equipped ids", () => {
+    const c = makeCharacter({ level: 3, equippedJutsuIds: ["a", "b", "c", "dead-custom-jutsu"] });
+    const loadoutProgress = (ctx?: { equippedJutsuCount?: number }) =>
+        buildLogbookObjectives(c, ctx)
+            .find((o) => o.kind === "academy")
+            ?.requirements.find((r) => r.label === "Equip your jutsu loadout")?.progress;
+
+    // Default: unchanged behaviour for callers that cannot resolve the catalog.
+    assert.equal(loadoutProgress(), 4, "raw length remains the default");
+    // Supplied: the dead id no longer completes the requirement.
+    assert.equal(loadoutProgress({ equippedJutsuCount: 3 }), 3);
+});
+

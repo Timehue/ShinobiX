@@ -195,7 +195,7 @@ describe("world-map reward settlement", () => {
     });
 
     test("every endpoint the client depends on is routed", () => {
-        const routes = source("../../../server.ts");
+        const routes = source("../../../server-api-routes.ts");
         for (const path of ["/world/explore", "/world/open-chest", "/village/war-mission"]) {
             assert.ok(routes.includes(`route('${path}'`), `${path} must be registered in server.ts`);
         }

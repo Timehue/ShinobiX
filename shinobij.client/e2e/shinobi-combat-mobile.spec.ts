@@ -107,6 +107,15 @@ async function mountCombatFixture(page: Page, mode: "solo" | "pvp", viewport: { 
     await page.evaluate((width) => {
         document.documentElement.dataset.vp = width < 560 ? "xs" : width < 980 ? "sm" : width < 1180 ? "md" : width < 1400 ? "lg" : width < 2200 ? "xl" : "xxl";
     }, viewport.width);
+    // Geometry checks need the completed entrance layout, including font metrics
+    // and viewport reflow. Ambient animations continue; finite entrances finish.
+    await page.evaluate(async () => {
+        await document.fonts.ready;
+        await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+        await Promise.all(document.getAnimations()
+            .filter((animation) => Number.isFinite(animation.effect?.getComputedTiming().endTime))
+            .map((animation) => animation.finished.catch(() => undefined)));
+    });
 }
 
 async function box(page: Page, selector: string) {
@@ -216,21 +225,25 @@ for (const mode of ["solo", "pvp"] as const) {
                 expect(Math.abs(artBox!.height - castBox!.height)).toBeLessThanOrEqual(2);
                 // Phones pack five 68px cards across, so Details is a 24px-wide
                 // strip (the WCAG 2.2 AA target minimum — an owner's call over
-                // the 44px floor used elsewhere) on the card's right edge, 44px
+                // the 44px floor used elsewhere) on the card's LEFT edge, 44px
                 // tall, flush with the card. The cast surface keeps a full 44px
                 // column, so its centre never lands on the strip.
                 // Firefox can report an authored 24px box as 23.99997px after
                 // device-pixel projection, so compare the rendered pixel size.
                 expect(Math.round(detailsBox!.width)).toBeGreaterThanOrEqual(24);
                 expect(Math.round(detailsBox!.height)).toBeGreaterThanOrEqual(44);
-                // `inset: 0 0 auto auto` resolves from the wrap's padding box,
+                // `inset: 0 auto auto 0` resolves from the wrap's padding box,
                 // so the strip sits 1px (the wrap border) inside the border box
                 // that boundingBox() reports.
-                expect(Math.abs(detailsBox!.x + detailsBox!.width - (cardBox.x + cardBox.width))).toBeLessThanOrEqual(1.5);
+                expect(Math.abs(detailsBox!.x - cardBox.x)).toBeLessThanOrEqual(1.5);
                 expect(Math.abs(detailsBox!.y - cardBox.y)).toBeLessThanOrEqual(1.5);
                 expect(cardBox.width - detailsBox!.width).toBeGreaterThanOrEqual(43.9);
                 expect(glyphBox!.width).toBeLessThanOrEqual(24);
                 expect(glyphBox!.height).toBeLessThanOrEqual(24);
+                // The painted glyph hugs the corner rather than sitting halfway
+                // down the strip, which is what made players reaching for Cast
+                // hit Details instead.
+                expect(glyphBox!.y - cardBox.y).toBeLessThanOrEqual(8);
                 await expect(firstCard.locator(".combat-jutsu-thumb img")).toHaveCSS("object-fit", "cover");
             }
 
@@ -300,14 +313,17 @@ for (const mode of ["solo", "pvp"] as const) {
 
             const dossier = page.locator('[data-side="player"]');
             const effectPanel = dossier.locator(".effects-buff");
-            const effectHeading = await box(page, '[data-side="player"] .effects-buff h4');
             const effectPills = dossier.locator(".effects-buff .effect-pill");
-            const firstEffect = await effectPills.first().boundingBox();
-
             await expect(effectPanel).toHaveCSS("display", "block");
-            expect(firstEffect).not.toBeNull();
-            expect(firstEffect!.y).toBeGreaterThanOrEqual(effectHeading.y + effectHeading.height - 1);
-            expect(firstEffect!.width).toBeGreaterThanOrEqual(140);
+            // Read both boxes in one frame; the entrance animation can move
+            // the dossier between separate browser calls on slower runners.
+            const effectGeometry = await effectPanel.evaluate((panel) => {
+                const heading = panel.querySelector("h4")!.getBoundingClientRect();
+                const pill = panel.querySelector(".effect-pill")!.getBoundingClientRect();
+                return { headingBottom: heading.bottom, pillTop: pill.top, pillWidth: pill.width };
+            });
+            expect(effectGeometry.pillTop).toBeGreaterThanOrEqual(effectGeometry.headingBottom - 1);
+            expect(effectGeometry.pillWidth).toBeGreaterThanOrEqual(140);
             await expect(effectPills.first().locator("span")).toHaveCSS("word-break", "normal");
             expect(await effectPills.evaluateAll((pills) => pills.every((pill) => pill.scrollWidth <= pill.clientWidth + 1))).toBe(true);
 

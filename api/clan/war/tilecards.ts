@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { kv } from '../../_storage.js';
 import { cors, safeName } from '../../_utils.js';
+import { syncCardDuelPresence } from '../../card-clash/_presence.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock } from '../../_lock.js';
@@ -46,6 +47,7 @@ function winnerResult(session: Session, challenge: { fromClan: string }): Challe
 }
 async function persistAndFinalize(session: Session) {
     await kv.set(sessionKey(session.challengeId), session, { ex: SESSION_TTL_SEC });
+    await syncCardDuelPresence(kv, sessionKey(session.challengeId), session, SESSION_TTL_SEC); // F01
     if (session.status !== 'done' || !session.state?.winner) return;
     const warKey = `clan-war:${session.warId}`;
     const endedWar = await withKvLock(warKey, async (): Promise<ClanWar | null> => {
@@ -99,10 +101,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const lower=me.toLowerCase(); const from=(challenge.fromPlayer??'').toLowerCase()===lower||(challenge.fromPlayer2??'').toLowerCase()===lower; const to=(challenge.acceptedPlayer??'').toLowerCase()===lower||(challenge.acceptedPlayer2??'').toLowerCase()===lower;
                 if (!identity.admin && !from && !to) return {status:403 as const,body:{error:'Only an accepted participant can join.'}};
                 const clan=from?challenge.fromClan:(war.clans.find((item)=>item!==challenge.fromClan)??''); const resolution=await resolveDeck(me,submittedIds(body.deck??body.defaultDeck),identity.admin); if(!resolution)return{status:400 as const,body:{error:'No legal 40-card Chronicle deck is available.'}}; const deck=resolution.deck; const version=versionEcho(resolution);
-                if(!session){session={rulesVersion:CHRONICLE_RULES_VERSION,warId,challengeId,p1Name:me,p1Clan:clan,p1Deck:deck,status:'awaiting-p2',createdAt:now,updatedAt:now};await kv.set(sessionKey(challengeId),session,{ex:SESSION_TTL_SEC});return{status:200 as const,body:{...version,session:{rulesVersion:CHRONICLE_RULES_VERSION,status:session.status,viewerSide:'p1'}}};}
+                if(!session){session={rulesVersion:CHRONICLE_RULES_VERSION,warId,challengeId,p1Name:me,p1Clan:clan,p1Deck:deck,status:'awaiting-p2',createdAt:now,updatedAt:now};await kv.set(sessionKey(challengeId),session,{ex:SESSION_TTL_SEC});await syncCardDuelPresence(kv,sessionKey(challengeId),session,SESSION_TTL_SEC);return{status:200 as const,body:{...version,session:{rulesVersion:CHRONICLE_RULES_VERSION,status:session.status,viewerSide:'p1'}}};}
                 if(safeName(session.p1Name)===safeName(me)||session.p2Name&&safeName(session.p2Name)===safeName(me)){const side=safeName(session.p1Name)===safeName(me)?'p1':'p2';return{status:200 as const,body:{...version,session:session.state?projectMatchForViewer(session.state,side):{rulesVersion:CHRONICLE_RULES_VERSION,status:session.status,viewerSide:side}}};}
                 if(session.status!=='awaiting-p2'||session.p1Clan===clan)return{status:403 as const,body:{error:'The opposing seat is unavailable.'}};
-                session.p2Name=me;session.p2Clan=clan;session.p2Deck=deck;session.state=createMatch(session.p1Name,session.p1Deck,me,deck,Math.random,now);session.status='active';session.updatedAt=now;await kv.set(sessionKey(challengeId),session,{ex:SESSION_TTL_SEC});return{status:200 as const,body:{...version,session:projectMatchForViewer(session.state,'p2')}};
+                session.p2Name=me;session.p2Clan=clan;session.p2Deck=deck;session.state=createMatch(session.p1Name,session.p1Deck,me,deck,Math.random,now);session.status='active';session.updatedAt=now;await kv.set(sessionKey(challengeId),session,{ex:SESSION_TTL_SEC});await syncCardDuelPresence(kv,sessionKey(challengeId),session,SESSION_TTL_SEC);return{status:200 as const,body:{...version,session:projectMatchForViewer(session.state,'p2')}};
             }
             if(!session||!session.state)return{status:404 as const,body:{error:'No active duel session.'}}; const side=viewer??(identity.admin?(body.side==='p2'?'p2':'p1'):null); if(!side)return{status:403 as const,body:{error:'Only the two duelists can act.'}};
             if(!ACTIONS.has(action))return{status:400 as const,body:{error:`Unknown action: ${action}`}}; const applied=applyAction(session.state,side,actionIntent(body,action),now);if(!applied.ok)return{status:400 as const,body:{error:applied.error}};

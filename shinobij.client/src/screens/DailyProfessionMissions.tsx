@@ -121,10 +121,9 @@ export function DailyProfessionMissions({ character }: { character: Character })
                 }
             }
         }
-        void fetchMissions();
         // Re-poll every 30s so progress from server-side hooks (heal, kill)
         // shows up without requiring a full screen refresh.
-        const stop = visiblePoll(() => void fetchMissions(), 30_000);
+        const stop = visiblePoll(fetchMissions, 30_000, 0.1, { immediate: true });
         return () => { cancelled = true; stop(); };
     }, [character.profession, character.name]);
 

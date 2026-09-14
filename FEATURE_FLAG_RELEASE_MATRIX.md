@@ -40,6 +40,10 @@ Updated: August 6, 2026 (post-merge release closeout)
 - `DISABLE_CLAN_BOSS=1`: emergency switch for Clan Boss.
 - `DISABLE_CLAN_BOSS_PARTIES=1`: required on the initial closeout deploy; disables party/finder endpoints and returns Clan Boss starts to the compatible solo path without disabling the weekly boss. Retain it as the party-only emergency switch after staging approval.
 - `ENABLE_PLAYER_AI_IMAGE_GENERATION=1`: enable only with moderation, budget monitoring, and abuse response.
+- `DISABLE_HP_ONLY_DISCHARGE=1`: restores the old hospital discharge, which refilled HP **and** chakra **and** stamina for free. Only throw this if HP-only discharge is causing player-visible breakage — it re-opens the loop where dying is the cheapest and fastest full heal in the game (MMORPG behavior audit F1).
+- `DISABLE_POOLED_VITAL_REGEN=1`: restores the flat 1 point/second idle recovery in place of the per-pool rate (a full bar in 30 minutes at any level). Reverting it makes high-level resting very slow again (level 100: ~2h46m for a full bar), so pair it with `DISABLE_HP_ONLY_DISCHARGE=1` if it has to stay off for long.
+- ⛔ **`DISABLE_POOLED_VITAL_REGEN` is NOT a hot kill switch, and it is NOT the response to vitals appearing to fall on save.** It is read server-side only (`api/_elapsed-state.ts`, `api/save/[name].ts`); the client's idle clock (`shinobij.client/src/lib/loaded-vitals.ts`) is unconditionally pooled. Throwing the flag alone therefore puts the client at the pooled rate and the server at the flat one, so the autosave ceiling clamps every save — which IS the falling-bars symptom. Throwing it requires a matching client redeploy. If players report vitals falling, treat it as a mirror bug and fix the mirror; reverting only the server half makes it worse.
+- Neither flag touches stored state, so both are lossless in that sense — but see the redeploy coupling above before throwing the regen one.
 
 `ENABLE_WEEKLY_BOSS_CLIENT_DAMAGE` and
 `ENABLE_CLIENT_TRUSTED_COMBAT_MISSION_REWARDS` are retired. They cannot restore

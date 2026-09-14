@@ -9,6 +9,8 @@ import {
     resetLiveSectorPlayers,
     setLiveSectorContext,
     upsertLiveSectorPlayer,
+    correctLocalSectorTile, subscribeLocalSectorTileCorrections, getLocalSectorTile, setLocalSectorTile,
+    getPendingLocalSectorCorrection,
 } from "./presence-store";
 
 function player(name: string, sector: number, patch: Partial<PlayerRecord> = {}): PlayerRecord {
@@ -26,6 +28,38 @@ function player(name: string, sector: number, patch: Partial<PlayerRecord> = {})
 
 beforeEach(() => {
     resetLiveSectorPlayers();
+});
+
+test('server arrival corrections reach the mounted map without feeding normal walking back', () => {
+    const updates: number[] = [];
+    const unsubscribe = subscribeLocalSectorTileCorrections((tile) => updates.push(tile));
+    setLocalSectorTile(17);
+    assert.deepEqual(updates, []);
+    correctLocalSectorTile(44);
+    assert.equal(getLocalSectorTile(), 44);
+    assert.deepEqual(updates, [44]);
+    for (const invalid of [null, undefined, '17', -1, 144, NaN]) correctLocalSectorTile(invalid);
+    assert.deepEqual(updates, [44]);
+    unsubscribe();
+    correctLocalSectorTile(45);
+    assert.deepEqual(updates, [44], 'unmounted maps are not updated');
+});
+
+test('a lazy map consumes an arrival once, while navigation or account reset retires it', () => {
+    correctLocalSectorTile(44, 13);
+    setLiveSectorContext(13);
+    assert.deepEqual(getPendingLocalSectorCorrection(), { tile: 44, sector: 13 });
+    const received: unknown[] = [];
+    const unsubscribe = subscribeLocalSectorTileCorrections((tile, sector) => received.push({ tile, sector }));
+    assert.deepEqual(received, [{ tile: 44, sector: 13 }]);
+    assert.equal(getPendingLocalSectorCorrection(), null);
+    unsubscribe();
+    correctLocalSectorTile(45, 13);
+    setLiveSectorContext(14);
+    assert.equal(getPendingLocalSectorCorrection(), null);
+    correctLocalSectorTile(44, 13);
+    resetLiveSectorPlayers();
+    assert.equal(getPendingLocalSectorCorrection(), null);
 });
 
 test("live sector store rejects late snapshots from the previous sector", () => {

@@ -24,11 +24,8 @@
  * which serve items/cards from these same two keys. Load it BEFORE taking a save
  * lock — the lock should not be held across the admin reads.
  */
-import { kv } from './_storage.js';
+import { loadAdminContentRecords } from './_admin-content-records.js';
 import { safeLogValue } from './_safe-log.js';
-import { loadPublishedContent } from './_content-store.js';
-
-const ADMIN_SAVE_KEYS = ['save:admin1', 'save:admin2'] as const;
 const CACHE_TTL_MS = 60_000;
 const MAX_ID_LENGTH = 120;
 // Admin "delete" tombstone — same marker api/shop/_catalog.ts honors.
@@ -108,11 +105,7 @@ export async function loadAdminItemObjects(): Promise<ReadonlyMap<string, AdminI
             // matching this catalog's later-slot-wins rule (and its tombstone
             // handling — a published tombstone deletes exactly like a slot one).
             // Empty until the first publish, so this is a no-op until then.
-            const [slots, published] = await Promise.all([
-                Promise.all(ADMIN_SAVE_KEYS.map((key) => kv.get<AdminContentRecord>(key))),
-                loadPublishedContent().catch(() => ({}) as Record<string, unknown>),
-            ]);
-            const records = [...slots, published as AdminContentRecord];
+            const records = await loadAdminContentRecords();
             const value = buildAdminItemCatalog(records);
             cache = { at: Date.now(), value };
             return value;

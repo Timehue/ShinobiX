@@ -3,7 +3,7 @@
  * kage-finale boss falls (owner brief 2026-07-09: "ending modifiers").
  *
  * Selection: first entry whose `lane` matches the finale lane choice the
- * player fought through AND whose `requireTrait` (if any) is owned — so the
+ * player fought through AND whose trait gate (if any) is satisfied — so the
  * trait-gated variants MUST come before their ungated base entry for the same
  * lane, and every lane present must end with an ungated base entry (the
  * story-epilogues test enforces both).
@@ -26,6 +26,8 @@ export type StoryEpilogueDef = {
     lane: string;
     /** Optional story-trait gate for a more specific variant (checked first). */
     requireTrait?: string;
+    /** Optional OR gate when carried/deferred presentation share an aftermath. */
+    requireAnyTrait?: string[];
     title: string;
     pages: StoryEpiloguePage[];
 };
@@ -35,7 +37,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
         // ── Break the board (honorable) ───────────────────────────────────
         {
             lane: "honorable",
-            requireTrait: "sv88-better-storm-ready",
+            requireAnyTrait: ["sv100-proof-presented-carried", "sv100-proof-presented-deferred"],
             title: "The Honest Sky, Anchored",
             pages: [
                 {
@@ -46,7 +48,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "By morning the whole village knows the board is gone. When it broke, every reason stored in its accounts returned to the person it came from. People remember why old fights began and what those reasons meant to them.",
                         "It is loud. Old feuds wake up mid-sentence. The Harlan brothers are shouting about a field again, and crying about it, and it is theirs to shout about, every word.",
                         "The sky over the coast is honest now, which means it is dangerous again, and nobody's grudge is holding it off anybody's roof.",
-                        "The cistern under the arena has not drawn a drop since the board came down. Hollow Gate's collection ledger marks the Stormveil quarter unpaid and its intake at zero. For the first time in four hundred years, the coast is feeding it nothing at all.",
+                        "The cistern under the arena has not drawn a drop since the board came down. Hollow Gate's collection ledger marks the Stormveil quarter unpaid and this village's intake at zero.",
                     ],
                 },
                 {
@@ -91,7 +93,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
         // ── Meter the valve (suspicious) ──────────────────────────────────
         {
             lane: "suspicious",
-            requireTrait: "sv88-better-storm-ready",
+            requireAnyTrait: ["sv100-proof-presented-carried", "sv100-proof-presented-deferred"],
             title: "Two Shields",
             pages: [
                 {
@@ -102,7 +104,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "The floor still drinks, but now it drinks in public. A meter the size of a wagon wheel hangs over the arena where the odds used to be chalked, and anyone can read the draw, any hour, any day.",
                         "Posting a reason requires consent now, witnessed, written, revocable. The queues are short. It turns out very few people feed the floor when the floor has to ask.",
                         "The Guard checks the meter at every bell. So do the grandmothers, which is the part that actually keeps it honest.",
-                        "Hollow Gate still lists Stormveil's old debt as open. But the public meter shows the payment shrinking each season because fewer people consent to feed it. The debt remains on paper while its supply steadily disappears.",
+                        "The first collection after the fight found no valid consent and drew nothing. Hollow Gate still lists Stormveil's old debt as open; later lawful draws are possible, but the public meter shows how little people choose to feed it.",
                     ],
                 },
                 {
@@ -111,7 +113,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     speaker: "Mira Volt",
                     dialogue: [
                         "Two shields now. The metered floor for the worst weather, and my mother's lines for everything else. Every season the anchors take a bigger share and the meter reads a little lower.",
-                        "Vanta says at the current rate the floor drinks itself to sleep inside ten years, lawfully, on the record, witnessed. He says it like a man reading a horse the right way for once.",
+                        "Vanta refuses to chalk a closing date. The west crews missed two anchors before the last squall, and he will not bet their roofs on a date he cannot cover.",
                         "You made the machine ask permission. I get to make it obsolete. Between the two of us, I think we're winning.",
                     ],
                 },
@@ -127,8 +129,8 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     speaker: "Narrator",
                     dialogue: [
                         "The floor still drinks, but now it drinks in public, through a meter anyone can read, under a law anyone can cite.",
-                        "It is better. Everyone agrees it is better, in the flat voice people use for improvements that still cost them something.",
-                        "Because the shield still needs feeding, and the weather still comes, and every posted consent is still a reason leaving a person on schedule. Just politely now.",
+                        "Three people revoke their consent in the first week. The arena clerk has to stop a bout while the whole rim waits, impatient and watchful, for the meter to settle.",
+                        "The shield still needs feeding, the weather still comes, and each lawful draw is still a reason leaving someone on schedule.",
                         "The Hollow Gate still opens its pipe to Stormveil, but only for what the village signs over in daylight, witnessed, and fewer put their name to it every season the meter is read.",
                     ],
                 },
@@ -137,9 +139,9 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The tower office, the intake ledger open to your signature",
                     speaker: "Elder Vanta",
                     dialogue: [
-                        "You know what they call you at the rim now? The board's new clerk. Unkind, and fair, like good odds, and you knew the line when you posted it.",
-                        "Every draw needs your countersign. Every storm the shield breaks, yours to authorize. You became the law so the machine couldn't be lawless, and the law, child, is a chair a person sits in alone.",
-                        "I'll say this at your funeral if I outlast you, which I won't: it was the grown-up answer. Nobody cheers the grown-up answer. Soup's on me anyway.",
+                        "I moved my stool under the meter. Miserable view of the bouts. Excellent view of the numbers.",
+                        "Your countersign sits beside every draw now. I chalk each one before I chalk the weather line, and if the figures disagree, the bout waits. The clerks hate me already. Reassuring.",
+                        "Come eat before that chair teaches you to call being alone a duty. Soup's on me; public ledgers make poor company.",
                     ],
                 },
             ],
@@ -147,7 +149,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
         // ── Take the seat (ambitious) ─────────────────────────────────────
         {
             lane: "ambitious",
-            requireTrait: "sv88-better-storm-deferred",
+            requireTrait: "sv100-proof-presented-deferred",
             title: "The Warm Tower, Named",
             pages: [
                 {
@@ -155,28 +157,28 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The tower's storm floor, the seat's quiet hour settling on you",
                     speaker: "Narrator",
                     dialogue: [
-                        "The quiet hour arrives on schedule. Worse, you understand immediately why Raiko wanted it. The board reposts itself by morning bell.",
+                        "The quiet hour arrives on schedule. For one full hour, no grievance reaches the chair. The board reposts itself by morning bell.",
                         "In the routing office, the clerks have already changed the pressing mark to your teeth.",
                         "Down the coast, one ridge line hums over one district, holding its stretch of sky for free, signed with a dead rigger's name your board has already stopped saying.",
                         "You are now responsible for Stormveil's payments to Hollow Gate. The cistern continues draining reasons on the old schedule and has already accepted your authority. The system has not changed; only its keeper has.",
                     ],
                 },
                 {
-                    title: "What Mira Saw",
+                    title: "Her Mother Heard",
                     scene: "The tower gate, Mira not coming in",
                     speaker: "Mira Volt",
                     dialogue: [
-                        "You let me carry her in. You held the gate while I said my mother's reason to the man who buried it, and I will owe you that until I die. I want that said before anything else gets said.",
-                        "Then you watched the seat come open and sat down in it anyway.",
-                        "I said her why out loud in that tower, and the tower's new keeper filed it. That's what happened, isn't it. Strip the rigging off it and that's the load path.",
-                        "The boat leaves on the tide. I'm taking the real route this time. You're the only person alive who knows it, so I suppose we'll find out exactly what you've become by whether anyone follows me.",
+                        "You kept the guards off me while I read my mother's slate. Raiko had to hear the words he buried. I won't pretend that meant nothing to me.",
+                        "Then you took his chair. I waited outside because I wanted you to come back down and tell me I had understood you wrong.",
+                        "The ridge anchors held. I checked every one myself. Stormveil has time to choose what comes next, and I won't spend that time helping you keep the board.",
+                        "The boat leaves on the tide. I'm taking a route I have not put in any ledger. I suppose we'll find out exactly what you've become by whether anyone follows me.",
                     ],
                 },
             ],
         },
         {
             lane: "ambitious",
-            requireTrait: "sv88-better-storm-carried",
+            requireTrait: "sv100-proof-presented-carried",
             title: "The Warm Tower, Proven",
             pages: [
                 {
@@ -191,14 +193,14 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     ],
                 },
                 {
-                    title: "What Mira Saw",
+                    title: "The Packed Bag",
                     scene: "The tower gate, Mira not coming in",
                     speaker: "Mira Volt",
                     dialogue: [
-                        "You carried her up the hill. Her slate, her line, her why. You proved the sky can be held for free, in front of the whole coast. I watched you do it.",
-                        "You proved the sky holds for free. Then you took the paid seat anyway.",
-                        "I don't have rigging for that. I've been standing here since dawn trying to splice it into sense, and it won't take the knot.",
-                        "The bag's packed again. I want you to know it wasn't, for a while. That's the report from the cable department. Hold your own sky, Kage.",
+                        "I watched you put her slate beside the storm map and prove the ridge could hold. For one minute I thought we were both finally leaving that room free.",
+                        "Then you claimed Raiko's chair. You knew what the board did to my family and chose to keep your hand on it anyway.",
+                        "The new anchors are sound. Three hundred eleven roofs will make it through the next storm without your wagers.",
+                        "My bag is packed again. I want you to know it wasn't, for a while. Hold your own sky, Kage.",
                     ],
                 },
             ],
@@ -213,19 +215,19 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     speaker: "Narrator",
                     dialogue: [
                         "The sky obeys, the quiet hour is everything he promised, and nothing in the tower needs re-rigging for your hand.",
-                        "The board reposts itself by morning. The clerks do not ask questions; the clerks have never asked questions. The meter of the elders' cut finds your account within the week.",
+                        "By first bell, the routing clerks have replaced Raiko's seal with yours without lifting their eyes. The meter of the elders' cut finds your account within the week.",
                         "Somewhere below, the board chalks a fresh bout between two friends, and the odds are very good. The floor has already begun drawing out their reasons.",
                         "The cistern never went still; it only changed seats. Up the hill the Hollow Gate marks Stormveil's quarter paid, on time, by a fresh hand, exactly as it has every season since the founders stopped giving and started being taken from.",
                     ],
                 },
                 {
-                    title: "The Bookmaker's Last Line",
-                    scene: "Vanta's shack, the ledgers boxed for no one",
+                    title: "The Stool at the Rail",
+                    scene: "The arena rail, Vanta's stool set directly beneath the reposted board",
                     speaker: "Elder Vanta",
                     dialogue: [
-                        "I've chalked four Kages onto that board in my lifetime. Every one swore they'd run it kinder, and I gave every one better odds than they earned.",
-                        "Raiko asked angry people for a quieter storm for thirty years. I'll ask you the same, once a season, at the rail, in front of the crowd, for as long as my forecast runs.",
-                        "The board's posted you at even, child. Beat the line. I never once saw it happen, and I would dearly love to close my book on an upset.",
+                        "I've chalked more than one succession onto that board. Every new hand promised kinder odds. I was fool enough to price the promise.",
+                        "So I put my stool where the tower can see it. Each time the board posts two friends, I read their reasons before I chalk the purse. If you want me quiet, come down and move me yourself.",
+                        "The board has you at even, child. I erased the line. Show me a result before I quote another.",
                     ],
                 },
             ],
@@ -235,7 +237,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
         // ── Break every mark (honorable) ──────────────────────────────────
         {
             lane: "honorable",
-            requireTrait: "ff88-better-roll-ready",
+            requireAnyTrait: ["ff100-proof-presented-carried", "ff100-proof-presented-deferred"],
             title: "The Chosen Roll, Lit",
             pages: [
                 {
@@ -246,7 +248,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "By morning the whole village knows the vault is dark. It has returned forty years of stored refusals and doubts to the people it took them from. Many suddenly remember that they once wanted to leave, object, or choose differently.",
                         "It is quiet, and it is not calm. People keep touching their own wrists like a healed break. Two soldiers resigned at first bell. One asked to re-enlist an hour later, and Sova entered him with a note: BY CHOICE, and underlined it.",
                         "The hearths burn wood now. Wood runs short. The cold is honest again, which means it is dangerous again, and nobody's surrendered exit is holding it off anybody's child.",
-                        "Far below the dark Vault, the lower draw goes quiet for the first time in thirty years. No marked exit remains for it to collect.",
+                        "Far below the dark Vault, the lower draw goes quiet. No marked exit remains for it to collect.",
                     ],
                 },
                 {
@@ -254,9 +256,9 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The north ridge, the relay burning down the line into the gray",
                     speaker: "Captain Yura",
                     dialogue: [
-                        "Morning report, and it's a good one. Every district strung its own relay by second bell. Essen's gate crew taught three streets the chant. The Pale Pack came down, all of them, and answered the morning Roll, and then half of them stayed to teach knots.",
-                        "Nineteen minutes is the standard now. Anyone lost, anywhere the lamps reach, nineteen minutes. We drilled it four times today because people kept VOLUNTEERING to be lost. That's a sentence I never thought I'd file.",
-                        "It won't warm the barracks. It doesn't have to. It has to prove the Roll can hold without the vault, and it's up there proving it every bell. Come on. Sova's teaching the litany's new verse, and I want to watch you hear it.",
+                        "Morning report. Each district has begun laying out a relay. Essen's gate crew is teaching the chant. Pale Pack members and people who once left the camp are teaching knots together, by choice and with plenty of argument.",
+                        "Essen came home in nineteen minutes. The south line still tangles at the ravine, and the east crew lost the chant twice this morning. We drill those routes next.",
+                        "It won't warm the barracks. It proves a search can hold without the vault. Come on. Sova's teaching the litany's new verse, and I want to hear whether the volunteers answer it.",
                     ],
                 },
             ],
@@ -282,7 +284,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     speaker: "Captain Yura",
                     dialogue: [
                         "A hungry winter is coming. That's a fact, not a complaint. Nobody has struck their own name from the Roll yet, and that is the only report that matters. Ask me again in the deep cold; I'll answer in cadence so you can't hear my teeth.",
-                        "Every watch tonight is a volunteer. Every rescue from now on is somebody CHOOSING the cold for somebody else. We'll lose people we wouldn't have lost. We'll be people we couldn't have been. I've done that arithmetic all day and it keeps balancing, barely.",
+                        "Every watch tonight is a volunteer. Some posts are still empty. That may cost lives in a storm. I have the order in my pocket that would fill them, and I am not giving it.",
                         "Come to the roll stone at third bell. We're calling the ridge post's names in the open now, all of them. It turns out that was always allowed.",
                     ],
                 },
@@ -291,7 +293,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
         // ── Bind the vault (merciful) ─────────────────────────────────────
         {
             lane: "merciful",
-            requireTrait: "ff88-better-roll-ready",
+            requireAnyTrait: ["ff100-proof-presented-carried", "ff100-proof-presented-deferred"],
             title: "Two Warmths",
             pages: [
                 {
@@ -310,9 +312,9 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The records room, Sova's pen passed across the table",
                     speaker: "Elder Sova",
                     dialogue: [
-                        "Two warmths now. The lawful vault for the killing nights, and Coldewe's lamps for everything else. Between them, this winter is bought honestly twice over, and the meter says the vault's share shrinks every week.",
-                        "At the current rate, the last mark retires itself inside ten years, lawfully, witnessed, on the record. I intend to live to enter it. Spite has kept me alive this long; hope can take a shift.",
-                        "You made mercy into a working system, child. That is rarer than making it a litany. Now take the pen. The book chose its next hand a long time ago.",
+                        "Two kinds of safety now. The lawful vault still provides heat on the killing nights; Coldewe's lamps take searches out of its hands. The lamps do not warm one room, and the meter still runs thin.",
+                        "I will not date the last mark while the meter still thins on killing nights. Bring me each willing draw, each cord of wood, and each room that stayed warm. I will keep the count. Spite has kept me alive this long; hope can take a shift.",
+                        "Take the pen. Start with the east relay missing its chant and the south barracks short two cords. If the warm-room count disagrees with the willing marks, circle it. That is the job.",
                     ],
                 },
             ],
@@ -326,9 +328,9 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The vault hall, the meter ticking, the consent rack half empty",
                     speaker: "Narrator",
                     dialogue: [
-                        "The vault survives, caged. It may draw on a person's choice to leave only by posted, witnessed consent. It is better. Everyone agrees it is better, in the voice soldiers use for orders they intend to obey.",
-                        "Because consent, it turns out, runs thin. Eleven marks re-signed the first week. Eleven, from a village of hundreds. Surrender was always a poor fuel when somebody had to ASK.",
-                        "The wardens read the meter twice a bell. Nobody says the arithmetic out loud. Everybody does it.",
+                        "The vault survives, caged. It may draw on a person's choice to leave only by posted, witnessed consent. Every new form carries a revocation line as large as the signature.",
+                        "Eleven marks re-sign in the first week. The twelfth soldier reaches the table, reads the revocation clause twice, and takes the form home unsigned.",
+                        "The wardens read the meter twice a bell. In the barracks, spare blankets appear on bunks before anyone admits why they are needed.",
                         "The lower draw is sealed by law now, but the village feels every theft it can no longer make, an ache with no name, all winter long.",
                     ],
                 },
@@ -337,9 +339,9 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The vault door, your name first on the consent ledger's keeper line",
                     speaker: "Captain Yura",
                     dialogue: [
-                        "You know what they call you at the wall now? The warden's warden. Accurate twice, and you knew it going in.",
-                        "Every draw needs your countersign now. Every cold snap the vault can't cover, yours to answer for. You became the law so the Count couldn't be lawless, and the law, Jonin, is a post nobody relieves you from.",
-                        "It was the soldier's answer. Nobody drills a cheer for the soldier's answer, so here's mine, once, off the record. Mess tent's covered. Standing order, no expiry.",
+                        "The wall calls you the warden's warden. I don't. A post is a post, and yours has no relief bell.",
+                        "Your name countersigns every draw. Mine is first on the cold-room roster. If a consent line thins or a barracks goes dark, bring me the room before you bring me the law.",
+                        "Mess tent's covered tonight. That is not approval. It is food, and you still need it.",
                     ],
                 },
             ],
@@ -347,7 +349,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
         // ── Take the valve (ambitious) ────────────────────────────────────
         {
             lane: "ambitious",
-            requireTrait: "ff88-better-roll-carried",
+            requireTrait: "ff100-proof-presented-carried",
             title: "The Warm Door, Lit",
             pages: [
                 {
@@ -361,21 +363,21 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     ],
                 },
                 {
-                    title: "What Yura Saw",
+                    title: "The Filed Refusal",
                     scene: "The vault stair, Yura not coming down",
                     speaker: "Captain Yura",
                     dialogue: [
-                        "I watched the lanterns find a man in nineteen minutes. You proved it. You carried Dren's plans into that vault in your own hands. I stood the stair believing we'd finally built the thing he died un-thanked for.",
-                        "You lit the road out of the Count. Then you locked the door from the warm side. And the keeper controls under the Vault recognize your hand now.",
-                        "I don't have a drill for that. I've been standing here since dawn trying to write the report, and there's no format. There's no FORMAT, Jonin.",
-                        "Keep the letter. I can't carry it anymore; it reads different now. And don't send for me when the Count needs a captain, because it will, and we both already know whose script answers.",
+                        "Ridge result: nineteen minutes, zero marks, Essen alive. Dren's plans entered under Dren's name. Kael heard every figure.",
+                        "Final entry: you crossed the road out, turned at the threshold, and locked the warm door behind you. The keeper controls recognize your hand.",
+                        "There is no order that makes the last entry acceptable. I checked.",
+                        "Dren's letter goes into the ridge archive under his name. Don't send for me when the Count needs a captain. My wrist is bare, and my answer is no.",
                     ],
                 },
             ],
         },
         {
             lane: "ambitious",
-            requireTrait: "ff88-better-roll-deferred",
+            requireTrait: "ff100-proof-presented-deferred",
             title: "The Warm Door",
             pages: [
                 {
@@ -390,13 +392,13 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     ],
                 },
                 {
-                    title: "What Yura Saw",
+                    title: "The North Post",
                     scene: "The vault stair, Yura not coming down",
                     speaker: "Captain Yura",
                     dialogue: [
-                        "You let me answer his roll. You held the stair while I said Dren's name to the man who struck it, and I will carry that with the gloves and the good things. On the record, first.",
-                        "Then you watched the door open and sat down in the doorway anyway.",
-                        "I answered a dead man's roll call in that vault, and the vault's new keeper filed it. That's what happened. Strip the ceremony and that's the entry.",
+                        "Dren's letter is in the ridge archive under his own name. I read it to Kael while you held the stair, and nobody gets to strike that out again.",
+                        "Then you took the valve before the old script cooled. I waited for you to put it back. You didn't.",
+                        "I know how to obey someone I disagree with. I don't know how to follow you after that, so I won't.",
                         "I'm taking the north post. The far one. The Count doesn't reach it in winter, which as of this morning is a feature. If anyone comes for me out there, Jonin, they will have chosen it. You taught me to want that. I'm choosing to keep it.",
                     ],
                 },
@@ -418,13 +420,13 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     ],
                 },
                 {
-                    title: "Once a Season, At the Stone",
-                    scene: "The roll stone, Sova with the Count book open to a fresh page",
+                    title: "The First Name After Yours",
+                    scene: "The roll stone, Sova with the Count book open beneath the new keeper's entry",
                     speaker: "Elder Sova",
                     dialogue: [
-                        "I have entered every keeper since my girlhood in this book. Each swore the door would open differently under their hand. For a while, the book agreed with each of them.",
-                        "Kael asked the desperate for a better Roll for forty years. I will ask you the same, once a season, at this stone, in front of the Roll, for as long as the book and I last.",
-                        "There is one blank leaf saved at the back of the book, child. I have been saving it forty years for an entry that surprises me. Earn the leaf.",
+                        "Your name is entered. I ruled one line beneath it and left the next space open. The book has mistaken neatness for truth long enough.",
+                        "The first person who asks to leave will stand at this stone. I will hand you the Roll, and you will answer them where every marked wrist can hear.",
+                        "There is one blank leaf at the back, child. I kept it through forty winters. What goes on it is your work now, not my prediction.",
                     ],
                 },
             ],
@@ -434,7 +436,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
         // ── Open the tank (honorable) ─────────────────────────────────────
         {
             lane: "honorable",
-            requireTrait: "ms88-better-truth-ready",
+            requireAnyTrait: ["ms100-proof-presented-carried", "ms100-proof-presented-deferred"],
             title: "The Open Ledger, Witnessed",
             pages: [
                 {
@@ -473,7 +475,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     dialogue: [
                         "By morning the whole village knows what opened in the night. The tank is empty, and four hundred years of held truth is loose in the streets, all at once, with no give-back house rehearsed and no queue trained to wait its turn.",
                         "It is a hard season. Three brokers flee. A wedding detonates. The watch works triple bells keeping read truths from becoming settled scores.",
-                        "But every fire is the village's own, burning in the open, owned. And slowly, street by street, people learn what the dye-hand learned: most held things are smaller than their storage fees.",
+                        "But every fire is the village's own, burning in the open. Slowly, street by street, people learn how to sit beside a neighbor reading a returned page without demanding the page or an explanation.",
                         "Far below, the deeper pipe pulls once at the empty tank, finds nothing left to hold, and goes cold. The quartered circle's four-hundred-year draw on Moonshadow is over.",
                     ],
                 },
@@ -482,9 +484,9 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The square at noon, the shrine witness reading the fourth name",
                     speaker: "Nyx",
                     dialogue: [
-                        "Ugly season ahead; I've got odds posted on which neighbors stop speaking first. And still, nobody's asked me to broker a forgetting. Not one. Ask me again when the remembering really starts.",
-                        "But I watched the fourth name get read at noon today. Sold thirty years ago, everyone assumed dead. A woman in the crowd stood up and said, that's my sister, and she's not dead, she wrote to me once from a place with no name. And the whole square went LOOKING.",
-                        "That's the new economy, friend. Truth out loud, and the whole square goes looking. I can't price it. I've stopped trying. Come to the booth; the tea's honest and the drain is lead.",
+                        "Ugly season ahead; I've got odds posted on which neighbors stop speaking first. People have asked me to verify what came back. Some ask me to hold it again. I refuse that service now.",
+                        "At noon the shrine witness read one name from her copied pages. A family disputed the spelling for ten minutes, then brought out an old letter and corrected the record together.",
+                        "That is the work now: verify, witness, return, and admit when the page is incomplete. Come to the booth; the tea's honest and the drain is lead.",
                     ],
                 },
             ],
@@ -492,7 +494,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
         // ── Seal the lethal tenth (merciful) ──────────────────────────────
         {
             lane: "merciful",
-            requireTrait: "ms88-better-truth-ready",
+            requireAnyTrait: ["ms100-proof-presented-carried", "ms100-proof-presented-deferred"],
             title: "The Audited Keeper",
             pages: [
                 {
@@ -530,8 +532,8 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     speaker: "Narrator",
                     dialogue: [
                         "Nine parts in ten go home, raw and unrehearsed, and the market survives it the hard way, fire by fire.",
-                        "The last tenth sits sealed under your covenant: audited, consented, lawful. It is better than the tank. Everyone agrees it is better, in the tone of a market absorbing a new tax.",
-                        "Because a keeper is still a keeper. The audits pass, season after season, and every season the line to audit grows shorter, and trust in the keeper grows quieter, and somewhere in that quiet, a new kind of holding is learning to be comfortable.",
+                        "The last tenth sits sealed under your covenant: audited, consented, lawful. At the first noon audit, two owners demand release and one asks for another week. The glass obeys all three.",
+                        "The audits pass, season after season, and the line grows shorter. 'Trust the keeper,' people say. By the fourth audit, the last lock closes in an almost empty square, with no one near enough to hear whether an owner changed their mind.",
                         "Below the foundations, the deeper pipe opens once against the new law, finds nothing lawful left to draw, and shuts.",
                     ],
                 },
@@ -540,9 +542,9 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The audit table at noon, Iro first in line, on principle",
                     speaker: "Shade Master Iro",
                     dialogue: [
-                        "You know what they call you on the canal now? The clean spider. Unflattering, and correct, which is the only kind of price that holds its value.",
-                        "I audit you every noon I can manage. Not because I doubt the seals, friend. Because I held a shelf for forty years, and I know EXACTLY how slowly the cage builds itself around a careful keeper, and somebody who knows the architecture should watch the walls go up.",
-                        "It was the solvent answer, I'll grant. Nobody throws festivals for solvency. The tea stands. Indefinitely. At cost. Do not tell anyone I said at cost.",
+                        "I moved the audit table against the glass. Your chair is on the other side, where you can see what you are asking us to leave sealed.",
+                        "I bring one drawer's inventory at noon: owner, consent, reason held. If those three lines disagree, the drawer opens before either of us finds a graceful excuse.",
+                        "Tea remains at cost. Oversight is exhausting, and I refuse to perform it thirsty.",
                     ],
                 },
             ],
@@ -550,7 +552,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
         // ── Take the Mirror (loyal) ───────────────────────────────────────
         {
             lane: "loyal",
-            requireTrait: "ms100-nyx-named-herself",
+            requireTrait: "ms100-proof-presented-deferred",
             title: "The Unpriced Keeper, Named",
             pages: [
                 {
@@ -558,20 +560,20 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The Mirror chamber, the tank recognizing a keeper it cannot appraise",
                     speaker: "Narrator",
                     dialogue: [
-                        "The tank's registry reads your hand, finds no price on it, and settles, for the first time in four centuries, into custody it cannot bill.",
-                        "The buyer's escrow hangs unexecutable. Below the canal, Hollow Gate's collection ledger adds its first extension in four hundred years.",
+                        "The tank's registry reads your hand, finds no price on it, and settles into custody it cannot bill.",
+                        "The buyer's escrow hangs unexecutable. Below the canal, Hollow Gate's collection ledger adds an extension beside Moonshadow's account.",
                         "And in the glass's black depth, one ripple never quite stills: the copied act of trust created when a woman said her own name for free, the one entry the tank holds that it does not own.",
                         "When your hand first rests on the glass, the oldest voice in it speaks once, without heat. OWNER VERIFIED. HOLDER PRESENT. RELEASE INCOMPLETE. The First Reflection remembers Nerissa Vale. It records that the keeper's chair is occupied. It offers no opinion.",
                     ],
                 },
                 {
-                    title: "What Nyx Saw",
+                    title: "Nerissa at the Door",
                     scene: "The chamber door, Nyx not coming in",
                     speaker: "Nyx",
                     dialogue: [
-                        "You held the market open while I bought my name back with my own breath. That transaction is framed over my stall, friend, the first unpriced entry in canal history. I will owe you the frame forever. On the record, first.",
-                        "Then you watched the glass come open and sat down at it anyway.",
-                        "I said my name in front of that tank so nobody would ever hold me again. And the tank's new keeper heard it, and filed the ripple, and kept the seat. That is what happened. I don't need a market word for it.",
+                        "Nerissa Vale sounded strange the first time I said it in that chamber. Then it sounded like mine. The receipt hangs over my stall where I can check whenever I forget.",
+                        "You took the key before the echo stopped. I waited at the door for you to open the tank anyway.",
+                        "You didn't. You hurt me. Don't ask me to call it protection while my name sits behind your lock.",
                         "Nerissa Vale trades on the east canal now, daylight hours, true names only. Come by if you're ever just a person again. First tea's free. The second one, keeper, costs more than you currently have.",
                     ],
                 },
@@ -579,7 +581,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
         },
         {
             lane: "loyal",
-            requireTrait: "ms88-better-truth-ready",
+            requireTrait: "ms100-proof-presented-carried",
             title: "The Unpriced Keeper",
             pages: [
                 {
@@ -587,20 +589,19 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The Mirror chamber, the tank recognizing a keeper it cannot appraise",
                     speaker: "Narrator",
                     dialogue: [
-                        "The tank's registry reads your hand, finds no price on it, and settles, for the first time in four centuries, into custody it cannot bill.",
-                        "The buyer's escrow hangs over the glass, unexecutable, a collection notice served on a blank line. Below the canal, Hollow Gate's collection ledger adds its first extension in four hundred years.",
+                        "The tank's registry reads your hand, finds no price on it, and settles into custody it cannot bill.",
+                        "The buyer's escrow hangs over the glass, unexecutable, a collection notice served on a blank line. Below the canal, Hollow Gate's collection ledger adds an extension beside Moonshadow's account.",
                         "The market reforms by noon; markets always do. But the booths' drains run to a tank with a keeper now, and that keeper watched a returns queue teach a village to hand things back. Every new act of trust copied by the Mirror is now a choice you must make, not an automatic claim.",
                     ],
                 },
                 {
-                    title: "What Nyx Saw",
+                    title: "The Keeper's Door",
                     scene: "The chamber door, Nyx not coming in",
                     speaker: "Nyx",
                     dialogue: [
-                        "You carried my file up the tower and put the whole argument on her glass. I watched you do it. The returns, the receipts, my bad winter, all of it, argued perfectly.",
-                        "You held the whole argument, priced perfectly. And when the glass finally blinked, you bought the seat instead of the exit.",
-                        "I've run the numbers all morning and they won't close. You're holding the tank so IT can't be held, I get the theory, I priced the theory, the theory is even GOOD.",
-                        "But the ledger says my file's back in a tower, friend. Under a kinder keeper. The kindest yet. That's what the entry says, and I've never once written a false entry, so I'm leaving the page open. Make a liar of the trend line. Please. I'll pay.",
+                        "My file reached the glass under your seal. Sable had to read the bad winter into the room and answer for every return behind it.",
+                        "Then you took the seat instead of the exit. You say holding the tank keeps someone worse from taking it. I heard you. I still watched my file disappear behind a keeper's door again.",
+                        "Your name on the key doesn't make that hurt less. I haven't decided whether I can trust you with what comes next.",
                     ],
                 },
             ],
@@ -615,19 +616,19 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     speaker: "Narrator",
                     dialogue: [
                         "The glass recognizes you before the village does. The market reforms by noon, and the booths' drains resume their patient swallowing, reporting now to you.",
-                        "The Veiled Hands renew their contracts within the week. The clerks do not ask questions; the clerks have never asked questions. The quarterly buyer's mark arrives on schedule, addressed, this time, to the new holder.",
+                        "The Veiled Hands renew their contracts within the week. A clerk carries the quarterly buyer's mark to the chamber and asks where the new holder wants it filed.",
                         "Somewhere below, the Mirror registry reads a new intake half a second late and begins building the file.",
                         "Deep in the glass, an older instruction tries once to speak. The new intake drowns it out.",
                     ],
                 },
                 {
-                    title: "Once a Season, At the Booth",
-                    scene: "Nyx's stall, the good stool empty, the ledger open",
+                    title: "The Keeper's Open Account",
+                    scene: "Nyx's stall, a new account open beneath the keeper's name",
                     speaker: "Nyx",
                     dialogue: [
-                        "I've verified three keepers in my working life. Each swore new terms. Each kept them, for a while; the glass has the patience of compound interest.",
-                        "Sable asked the desperate for a safer truth for forty years. I'll bill you the same question once a season, at this stall, over tea you'll pay for, for as long as my books stay open.",
-                        "Beat the interest, friend. I've never once seen it done, and I've got a frame ready over the stall, and I would genuinely love to hang your receipt in it.",
+                        "I closed your old account and opened this one under KEEPER. Two columns: records held, records returned. No credit for intentions.",
+                        "I won't wait for a season to send the bill. When the numbers move, a runner comes to the tower. You can ignore her. The market will still know which column changed.",
+                        "The frame over my stall is empty, friend. Send me one receipt that proves somebody trusted you and got their truth back.",
                     ],
                 },
             ],
@@ -637,7 +638,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
         // ── Break the shears (honorable) ──────────────────────────────────
         {
             lane: "honorable",
-            requireTrait: "al88-better-winter-ready",
+            requireAnyTrait: ["al100-proof-presented-carried", "al100-proof-presented-deferred"],
             title: "The Honest Winter, Watered",
             pages: [
                 {
@@ -645,10 +646,10 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "Dawn over ash-house row, frost on returned paper",
                     speaker: "Narrator",
                     dialogue: [
-                        "By dawn the whole village knows what broke in the night. Forty strides of cedar stand dark for the first time in four hundred years, and the wall's lines are just names now, keeping nobody.",
+                        "By dawn the whole village knows what broke in the night. Forty strides of cedar stand dark, and the wall's lines are just names now, keeping nobody.",
                         "People stand in their doorways holding the futures that came back. Jorun has a bridge in his hands, forty years late. The weaver is reading her own school out loud to anyone who passes.",
                         "The walls groan when the wind leans on them. The ash in the mortar has stopped holding. It will be a hard winter, and an honest one.",
-                        "And far below the old kiln, where no root should reach, the lower pipe has gone cold. In Hollow Gate's collection ledger, Ashen Leaf's four-hundred-year flow now reads zero. What the people maintaining that system do about the shortfall belongs to another season.",
+                        "Far below the old kiln, where no root should reach, the lower pipe has gone cold. In Hollow Gate's collection ledger, Ashen Leaf's four-hundred-year flow now reads zero. The entry travels uphill before anyone in ash-house row knows to fear it.",
                     ],
                 },
                 {
@@ -657,7 +658,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     speaker: "Toma Reed",
                     dialogue: [
                         "The channel never stopped turning. All night, through everything, it just kept climbing. Ninety mouths, remember. It won't carry the whole village.",
-                        "It doesn't have to. It has to prove the rest can be built, and it already did. Jorun is drawing his flood-channel bridge again. Sena is nine and furious with ideas. We have until the deep cold to be clever.",
+                        "It proves this channel can be built and run. The next one still needs lumber, hands, and a route that will not flood the low fields. Jorun is drawing his bridge again. Sena is nine and furious with ideas. None of that replaces the missing heat.",
                         "Mori is on the terrace edge with a spade. He said you would understand. Something about being present for one beginning.",
                     ],
                 },
@@ -675,7 +676,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "By dawn the Register wall is dark and shows only names. The Rootfire has returned the plans, ambitions, and possible futures it stored to the people they were taken from.",
                         "There is crying in ash-house row, the good kind and the other kind. The walls groan when the wind leans on them. The granary is being counted twice.",
                         "Nobody has said thank you yet. Nobody has thrown a stone either. It is going to be close, all winter, every winter, for a while.",
-                        "Far below the kiln, where no root should reach, a pipe has gone cold. Hollow Gate's collection ledger records the missing warmth. Nobody in ash-house row knows who will read that entry yet. That is a story for another season.",
+                        "Far below the kiln, where no root should reach, a pipe has gone cold. Hollow Gate's collection ledger records the missing warmth. In ash-house row, nobody sees the entry; they are busy counting grain and splitting kindling.",
                     ],
                 },
                 {
@@ -693,7 +694,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
         // ── Bind the Rootfire (merciful) ──────────────────────────────────
         {
             lane: "merciful",
-            requireTrait: "al88-better-winter-ready",
+            requireAnyTrait: ["al100-proof-presented-carried", "al100-proof-presented-deferred"],
             title: "Two Fires",
             pages: [
                 {
@@ -704,7 +705,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "The Rootfire is small now, and clean. It burns exactly as bright as the futures people bring it, and people have been bringing carved tokens all morning, signed and given gladly, one by one.",
                         "The founders' alcove has been dusted. The iron racks stand empty, and Mori has already measured them for ordinary shelves.",
                         "Upstairs, the village is learning the new arithmetic. The fire keeps what is given freely, and only that.",
-                        "And below the floor, the lower seam has found nothing legal left to take, and gone cold. Hollow Gate's collection ledger records the missing surplus. The response from whoever maintains it is a reckoning for another season.",
+                        "Below the floor, the lower seam finds nothing legal left to take and goes cold. Hollow Gate's collection ledger records the missing surplus beside the first willing tally.",
                     ],
                 },
                 {
@@ -712,9 +713,9 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The kiln yard, steam and cold sunlight",
                     speaker: "Elder Mori",
                     dialogue: [
-                        "Two fires now, if you count the channel. The willing flame for the worst nights, and Aren's machine for the ordinary ones. Between them, this winter is bought honestly twice over.",
+                        "The willing flame may carry a kiln on the worst nights. Aren's channel feeds ninety mouths and warms none of them. I am counting firewood separately now, and every crew wants the same hands before snow.",
                         "The alcove is filling again. Slowly, the way it should. Osu of the mill line would recognize this room at last.",
-                        "You have made mercy into a working system, child. That is rarer than making it into a speech. Now come outside. There is planting to witness.",
+                        "Eleven willing tokens to catalogue, three kiln crews arguing over one cart, and a sapling waiting outside because I promised I would be present for one beginning. Bring the spade, child.",
                     ],
                 },
             ],
@@ -728,9 +729,9 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The Rootfire chamber, one small clean flame",
                     speaker: "Narrator",
                     dialogue: [
-                        "The Rootfire is small now, and clean, and honest, and everyone in the village understands exactly what that means for the cold season.",
+                        "The Rootfire is small now, and clean. The kiln yard is already cold enough for breath to show.",
                         "The willing alcove holds eleven new tokens by nightfall. Eleven, from a village of hundreds. Freely given futures were always poor fuel. They are the only fuel left.",
-                        "Nobody says the arithmetic out loud. Everyone is doing it.",
+                        "At dusk, the kiln clerk carries the eleven-token count from cold room to cold room. No one signs merely to improve it.",
                         "Far below the kiln, the lower draw has run dry and gone cold. Hollow Gate's collection ledger records the loss, but whoever reads that ledger is a colder season's problem.",
                     ],
                 },
@@ -750,7 +751,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
         //    the proof (owner FIX 12). Carried/deferred variants BEFORE base.
         {
             lane: "ambitious",
-            requireTrait: "al88-better-winter-carried",
+            requireTrait: "al100-proof-presented-carried",
             title: "The Warm Chair, Watered",
             pages: [
                 {
@@ -764,21 +765,21 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     ],
                 },
                 {
-                    title: "What Toma Saw",
+                    title: "The Chair",
                     scene: "The kiln stair door, Toma not coming in",
                     speaker: "Toma Reed",
                     dialogue: [
-                        "I watched the water climb with my own eyes. Ninety mouths, not one future burned. You proved it. You carried the proof into that room in your own hands.",
-                        "You showed her the door out and then sat down in her chair.",
-                        "I don't know what to do with that. I've been standing here trying to build a sentence out of it and there isn't one.",
-                        "Keep the model. I can't have it in the workshop. And don't send for me when the racks fill again, because they will, and you already know whose stamp goes on them.",
+                        "I watched the water climb with my own eyes. Ninety mouths, not one future burned. You carried the proof into that room and made her answer what she buried.",
+                        "Then you sat down in her chair. I kept expecting you to stand up again once the fight was over.",
+                        "You knew what the shears did to Aren. Keeping them was still your choice, and I can't make it easier for you by staying.",
+                        "Keep the reconstruction until my family asks for it. Don't send for me when the racks fill again. Your stamp will already be on them.",
                     ],
                 },
             ],
         },
         {
             lane: "ambitious",
-            requireTrait: "al88-better-winter-deferred",
+            requireTrait: "al100-proof-presented-deferred",
             title: "The Warm Chair",
             pages: [
                 {
@@ -792,14 +793,14 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     ],
                 },
                 {
-                    title: "What Toma Saw",
+                    title: "The Reed Kitchen",
                     scene: "The kiln stair door, Toma not coming in",
                     speaker: "Toma Reed",
                     dialogue: [
-                        "You let us carry him in. You let my mother stand in front of the woman who cut him quiet and say his name out loud. I will hear that for the rest of my life.",
-                        "Then you watched the door open and sat down in her chair anyway.",
-                        "I don't know what to do with that. My mother doesn't either. She hasn't said a word since we came down the hill.",
-                        "Keep the model. We don't want it back now. And don't send for us when the racks fill again, because they will, and we both know whose stamp goes on them.",
+                        "My mother said Aren's name in that chamber and Hoshina had to remember him whole. You kept the door open long enough for that.",
+                        "Now my mother keeps asking which part of the night to believe: the person who made room for her, or the new keeper sitting behind the same racks.",
+                        "I don't have an answer. She hasn't spoken since we came down the hill.",
+                        "The model stays with our family. It is not a token for your new office. Don't send for us when the racks fill again; we both know whose stamp will be on them.",
                     ],
                 },
             ],
@@ -819,13 +820,13 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     ],
                 },
                 {
-                    title: "Once a Year, To Your Face",
-                    scene: "Mori's study, the bloom charts still open",
+                    title: "The Next Black Flower",
+                    scene: "The Register hall, Mori beside a new line in the bloom chart",
                     speaker: "Elder Mori",
                     dialogue: [
-                        "Every keeper I have served stood where you are standing and believed they would be different. For a while, every one of them was. The fire is patient with new hands.",
-                        "Hoshina asked angry people for a better winter for thirty years. I will ask you the same, once a year, to your face, for as long as I last.",
-                        "The tree chose a new keeper. It always does. Prove an old man wrong, child. I would dearly like to file one surprise before I die.",
+                        "A black flower opened this morning. I wrote the family's name, what the child builds, and the hour the survey noticed. No blessing. No euphemism.",
+                        "When the gray coats come, I will bring the family to your chamber before you touch the shears. You will hear what they mean to become while the answer can still inconvenience you.",
+                        "The family is waiting outside my study now. I told them I would bring them your answer myself.",
                     ],
                 },
             ],

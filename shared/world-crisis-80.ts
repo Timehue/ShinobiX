@@ -1,9 +1,10 @@
 /**
  * Shared contract for the level-80 server-wide crisis.
  *
- * Every village's existing level-80 "Harrow's Shortcut" record independently
- * traces its civic draw to Hollow Gate. The first committed level-80 crossing
- * is the first time all four witness reports can be reconciled. Hollow Gate is
+ * Every village retains a regional report from its existing level-80
+ * "Harrow's Shortcut" account. The first committed level-80 crossing triggers
+ * the public alarm and the record keepers' comparison; it does not mean that
+ * player personally completed all four investigations. Hollow Gate is
  * Sunken Court infrastructure and a human-run collection network, never a
  * creature, spirit, god, or portal.
  */

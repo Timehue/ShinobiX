@@ -12,6 +12,15 @@ export const SOLO_PVE_RUNTIME = 'solo-pve' as const;
 export const SOLO_PVE_SCHEMA_VERSION = 1 as const;
 export const SOLO_PVE_SESSION_TTL_SECONDS = 30 * 60;
 export const SOLO_PVE_TERMINAL_TTL_SECONDS = 7 * 24 * 60 * 60;
+/**
+ * How long an ACTIVE row is kept in storage PAST its gameplay expiry (F08).
+ * `expiresAt` is when the fight lapses unattended; the row outlives that so
+ * the lapse can be terminalized from the session's own evidence (the abandon
+ * rule, at the HP the player last stood at) rather than vanishing into a
+ * "session not found" that costs nothing. Storage cleanup and gameplay
+ * expiry are deliberately different clocks.
+ */
+export const SOLO_PVE_LAPSED_RETENTION_SECONDS = 24 * 60 * 60;
 export const SOLO_PVE_MOVE_TOKEN_HISTORY = 32;
 export const SOLO_PVE_EVENT_HISTORY = 80;
 const MAX_SAFE_ROUND_BUDGET = 25;
@@ -31,6 +40,9 @@ export type SoloPveSettlementReceipt = {
 
 export type SoloPveTerminalEvidence = {
     finishedAt: number;
+    /** Present only when the fight was terminalized because it LAPSED (F08):
+     *  the gameplay expiry it lapsed at. `finishedAt` equals it. */
+    lapsedAt?: number;
     finalMoveToken: string;
     finalVersion: number;
     finalEventSeq: number;
@@ -278,6 +290,19 @@ export function createSoloPveSession(params: CreateSoloPveSessionParams): SoloPv
         expiresAt: now + activeTtlSeconds * 1000,
         ...(activeTtlSeconds !== SOLO_PVE_SESSION_TTL_SECONDS ? { activeTtlSeconds } : {}),
     };
+}
+
+/** The sealed active TTL a session was created with (clamped exactly as creation clamps it). */
+export function soloPveActiveTtlSeconds(session: Pick<SoloPveSession, 'activeTtlSeconds'>): number {
+    return Math.max(
+        SOLO_PVE_SESSION_TTL_SECONDS,
+        Math.min(2 * 60 * 60, Math.floor(Number(session.activeTtlSeconds) || SOLO_PVE_SESSION_TTL_SECONDS)),
+    );
+}
+
+/** An ACTIVE session whose gameplay expiry has passed: lapsed, not finished. */
+export function isSoloPveSessionLapsed(session: Pick<SoloPveSession, 'status' | 'expiresAt'>, now: number = Date.now()): boolean {
+    return session.status === 'active' && Number(session.expiresAt) <= now;
 }
 
 export function isSoloPveSession(value: unknown): value is SoloPveSession {

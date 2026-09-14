@@ -127,7 +127,7 @@ export function releaseAchievementSync(gate: AchievementSyncGate): void {
 /** Shape of the /api/achievements/sync reply (only the fields we consume). */
 export interface AchievementSyncResponse {
     _saveVersion?: unknown;
-    character?: {
+    character?: Partial<Record<keyof AchievementVitals, unknown>> & {
         unlockedAchievements?: unknown;
         achievementUnlockedAt?: unknown;
         earnedTitles?: unknown;
@@ -177,17 +177,50 @@ export function achievementPatchFromSync(data: AchievementSyncResponse | null | 
 }
 
 export type VersionedAchievementMutation<TCharacter extends object> = {
-    character: TCharacter & AchievementPatch;
+    character: TCharacter & AchievementPatch & AchievementVitals;
     _saveVersion: number;
 };
+
+interface AchievementVitals {
+    hp: number;
+    maxHp: number;
+    chakra: number;
+    maxChakra: number;
+    stamina: number;
+    maxStamina: number;
+    hospitalized: boolean;
+    hospitalizedAt: number;
+    hospitalizedUntil: number;
+    lastDischargeAt: number;
+}
+
+function achievementVitalsFromSync(data: AchievementSyncResponse | null | undefined): AchievementVitals | null {
+    const character = data?.character;
+    if (!character) return null;
+    const pools = ['hp', 'maxHp', 'chakra', 'maxChakra', 'stamina', 'maxStamina'] as const;
+    // The endpoint returns a full stored character. A partial response must not
+    // give stale local vitals the authority of a newer global save version.
+    if (pools.some(key => typeof character[key] !== 'number'
+        || !Number.isFinite(character[key]) || Number(character[key]) < 0)) return null;
+    const stamp = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? value : 0;
+    return {
+        hp: Number(character.hp), maxHp: Number(character.maxHp),
+        chakra: Number(character.chakra), maxChakra: Number(character.maxChakra),
+        stamina: Number(character.stamina), maxStamina: Number(character.maxStamina),
+        hospitalized: character.hospitalized === true,
+        hospitalizedAt: stamp(character.hospitalizedAt),
+        hospitalizedUntil: stamp(character.hospitalizedUntil),
+        lastDischargeAt: stamp(character.lastDischargeAt),
+    };
+}
 
 /**
  * Build the atomic character+version adoption for an achievement mutation.
  *
  * The endpoint returns the stored character, but the player can make unrelated
- * local changes while that request is in flight. Merge only the server-owned
- * achievement/wallet patch onto the current live character, and require the
- * matching authoritative save version. Advancing either half by itself makes
+ * local changes while that request is in flight. Preserve unrelated choices,
+ * but adopt the matching vitals/admission state alongside achievement/wallet
+ * fields and the authoritative save version. Advancing either half by itself makes
  * the next autosave stale (and used to produce a false conflict on account
  * creation, where the first save was v1 and the immediate backfill became v2).
  */
@@ -196,10 +229,11 @@ export function versionedAchievementMutationFromSync<TCharacter extends object>(
     data: AchievementSyncResponse | null | undefined,
 ): VersionedAchievementMutation<TCharacter> | null {
     const patch = achievementPatchFromSync(data);
+    const vitals = achievementVitalsFromSync(data);
     const saveVersion = data?._saveVersion;
-    if (!currentCharacter || !patch || !Number.isSafeInteger(saveVersion) || Number(saveVersion) <= 0) return null;
+    if (!currentCharacter || !patch || !vitals || !Number.isSafeInteger(saveVersion) || Number(saveVersion) <= 0) return null;
     return {
-        character: { ...currentCharacter, ...patch },
+        character: { ...currentCharacter, ...patch, ...vitals },
         _saveVersion: Number(saveVersion),
     };
 }

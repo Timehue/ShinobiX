@@ -160,7 +160,6 @@ const RULES: DeriveRule[] = [
     // (either the Nyx-named or player-carried route). Dialogue-callback traits for
     // future cross-village content; nothing gates endings on them.
     { grant: "ms88-first-reflection-stirred", when: (has) => has("ms88-return-proven") },
-    { grant: "ms100-first-reflection-awake", when: (has) => has("ms88-better-truth-ready") },
     // Road: completing "A Legacy Without a Name" (any register choice) means the
     // player heard the canonical Legacy explanation: the Withheld refused cession
     // to the Sunken Court, and their defining choices survived as repeatable action
@@ -174,8 +173,15 @@ const RULES: DeriveRule[] = [
  * → better-winter-ready). Returns a deduped array; content-stable input yields
  * equivalent output.
  */
-export function deriveStoryTraits(traits: readonly string[]): string[] {
+export function deriveStoryTraits(
+    traits: readonly string[],
+    storyChoices: readonly { eventId?: string; trait?: string; battle?: boolean }[] = [],
+): string[] {
+    // These composites describe changing state and therefore cannot be treated
+    // as permanent atomic choices when hydrating an old save.
     const set = new Set(traits);
+    set.delete("ms88-player-still-holds-nyx-file");
+    set.delete("ms100-first-reflection-awake");
     let changed = true;
     while (changed) {
         changed = false;
@@ -185,6 +191,10 @@ export function deriveStoryTraits(traits: readonly string[]): string[] {
                 changed = true;
             }
         }
+    }
+    if (storyChoices.some((receipt) => receipt.eventId === "story-moonshadow-village-100-8"
+        && receipt.battle === true && ["honorable", "merciful", "loyal"].includes(receipt.trait ?? ""))) {
+        set.add("ms100-first-reflection-awake");
     }
     return [...set];
 }

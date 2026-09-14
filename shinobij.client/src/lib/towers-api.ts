@@ -115,6 +115,20 @@ export type TowerGroundEffect = {
 /** A sealed Endless Spire modifier (rendered as a pre-fight manifest chip). */
 export type TowerModifier = { kind: string; value: number; label: string; variant?: string };
 
+export type TowerRouteChoiceId = 'rest-shrine' | 'focused-assault' | 'elite-shortcut';
+export type TowerRouteChoice = {
+    id: TowerRouteChoiceId;
+    label: string;
+    summary: string;
+    scoreMultiplier: number;
+};
+
+export const TOWER_ROUTE_CHOICES: readonly TowerRouteChoice[] = [
+    { id: 'rest-shrine', label: 'Rest Shrine', summary: 'Start with a 12% max-HP barrier.', scoreMultiplier: 1 },
+    { id: 'focused-assault', label: 'Focused Assault', summary: 'Deal 10% more damage for the first 3 rounds.', scoreMultiplier: 1 },
+    { id: 'elite-shortcut', label: 'Elite Shortcut', summary: 'Enemies gain 18% HP and 10% damage; clear score ×1.25.', scoreMultiplier: 1.25 },
+] as const;
+
 export type TowerFloorView = {
     id?: number;
     name?: string;
@@ -152,6 +166,8 @@ export type TowerSession = {
     status: 'active' | 'done';
     winner: TowerSide | 'draw' | null;
     log: string[];
+    /** Server-sealed solo Story route. */
+    routeChoice?: TowerRouteChoice;
     /** active persistent ground-effect zones (drawn on the board) */
     groundEffects?: TowerGroundEffect[];
     /** wall-clock when the current human's turn began (co-op AFK countdown) */
@@ -655,8 +671,8 @@ export function launchTowerPartyWithLostResponseRetry(
 }
 
 /** Start a host-only Story run. AI teammates are added only through the Story Ready Room. */
-export function startTowerRun(hostName: string, floor: number, hostLoadout?: TowerHostLoadout): Promise<{ runId: string; session: TowerSession; character?: Character; chargedRyo?: number; _saveVersion?: number }> {
-    return postJson('/api/towers/start', { hostName, floor, hostLoadout });
+export function startTowerRun(hostName: string, floor: number, hostLoadout?: TowerHostLoadout, routeChoice: TowerRouteChoiceId = 'rest-shrine'): Promise<{ runId: string; session: TowerSession; character?: Character; chargedRyo?: number; _saveVersion?: number }> {
+    return postJson('/api/towers/start', { hostName, floor, hostLoadout, routeChoice });
 }
 
 /** Admin/dev compatibility only. Regular Spire progression requires an exact-four live ready room. */

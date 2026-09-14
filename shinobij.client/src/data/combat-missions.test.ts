@@ -61,6 +61,16 @@ test("every combat mission's AI id resolves to a real builtin", () => {
     }
 });
 
+test("ranked combat contracts name a repeatable need and truthful closure", () => {
+    const authored = COMBAT_MISSIONS.filter((mission) => mission.key !== "combat-e-drill");
+    assert.equal(authored.length, 5);
+    for (const mission of authored) {
+        assert.ok((mission.brief ?? "").length >= 70, `${mission.key} needs a concrete contract circumstance`);
+        assert.ok((mission.closure ?? "").length >= 45, `${mission.key} needs an obstacle-cleared acknowledgment`);
+        assert.doesNotMatch(`${mission.brief} ${mission.closure}`, /Hollow Gate|private story|family debt/i);
+    }
+});
+
 // ── relevelBuiltinAi rebuilds a foe at the target level, preserving identity ─
 test("relevelBuiltinAi lowers a builtin to the player's level without mutating the catalog", () => {
     const sentinel = builtinAis.find((ai) => ai.id === "builtin-ai-mist-sentinel")!;

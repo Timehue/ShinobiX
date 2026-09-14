@@ -8,6 +8,7 @@ import { isWarVillage } from '../_war-map-sectors.js';
 import { normalizeVillageWarRecord, villageWarKey } from '../_war-state.js';
 import { wrMercTierById } from '../_war-economy.js';
 import { activeContestOnSector } from '../_sector-war-store.js';
+import { contestGarrisonReady, type SectorWarSession } from '../_sector-war.js';
 import { mutableVillageWarEnemiesOf } from '../world-state.js';
 import { deployOneMerc, deployMercVillageWar } from '../_merc-auto.js';
 import { villageWarMapEnabled } from '../_release-flags.js';
@@ -58,6 +59,7 @@ async function hostileBandsFor(
     sector: number,
     viewerVillage: string,
     now: number,
+    preloadedContest?: SectorWarSession | null,
 ): Promise<Array<HostileBand & { hirer: string; contestId?: string }>> {
     const out: Array<HostileBand & { hirer: string; contestId?: string }> = [];
 
@@ -72,7 +74,7 @@ async function hostileBandsFor(
     }
 
     // 2. The Combat sector-war attacker besieging THIS sector (defender == viewer).
-    const contest = await activeContestOnSector(sector);
+    const contest = preloadedContest === undefined ? await activeContestOnSector(sector) : preloadedContest;
     if (contest && contest.winCondition === 'combat' && contest.defenderVillage === viewerVillage && !enemies.includes(contest.attackerVillage)) {
         for (const band of await activeBandsOf(contest.attackerVillage, now)) {
             const tier = wrMercTierById(band.tierId);
@@ -81,6 +83,34 @@ async function hostileBandsFor(
         }
     }
     return out;
+}
+
+/** The active contest on this sector, trimmed to what the World Map needs to
+ *  decide WHICH game a sector attack opens (api/village/sector-war.ts owns the
+ *  authoritative copy; this is a read-only projection and never a permission).
+ *  Public by design — the declaration already rang the World Herald, so hiding
+ *  the contest here would only stop a defender from finding their own war. */
+function projectContestForSector(contest: SectorWarSession | null, viewerVillage: string, now: number) {
+    if (!contest) return null;
+    return {
+        id: contest.id,
+        sector: contest.sector,
+        winCondition: contest.winCondition,
+        attackerVillage: contest.attackerVillage,
+        defenderVillage: contest.defenderVillage,
+        endsAt: contest.endsAt,
+        // Whether THIS viewer may fight the sector's garrison right now, decided
+        // here rather than mirrored on the client. The rule has three moving
+        // parts (the idle unlock, the re-form window between garrison battles,
+        // and attacker-side-only) and one of them reads `appliedBattles`, which
+        // is deliberately stripped from every client projection. Shipping the
+        // verdict instead of the inputs means there is ONE implementation of the
+        // rule; the endpoints re-derive it before minting a battle regardless, so
+        // this only decides whether the button is offered.
+        garrisonReady: contest.winCondition !== 'combat'
+            && viewerVillage === contest.attackerVillage
+            && contestGarrisonReady(contest, now),
+    };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -115,8 +145,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         switch (action) {
             case 'roster': {
-                const bands = await hostileBandsFor(sector, village, Date.now());
-                return res.status(200).json({ ok: true, mercs: synthRoamingMercs(bands) });
+                const now = Date.now();
+                // ONE contest read serves both answers: the merc bands (Combat only)
+                // and the contest projection the World Map needs to route an attack
+                // to the sector's actual win-condition. Loading it here instead of
+                // inside hostileBandsFor keeps the read count identical to before.
+                const contest = await activeContestOnSector(sector, now);
+                const bands = await hostileBandsFor(sector, village, now, contest);
+                return res.status(200).json({
+                    ok: true,
+                    mercs: synthRoamingMercs(bands),
+                    contest: projectContestForSector(contest, village, now),
+                });
             }
             case 'engage': return await doEngage(req, res, identity, playerName, village, sector, body);
             default: return res.status(400).json({ error: 'Unknown action.' });

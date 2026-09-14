@@ -36,8 +36,7 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
         setLoading(false);
     }, []);
     useEffect(() => {
-        void refresh();
-        return visiblePoll(refresh, 15_000);
+        return visiblePoll(refresh, 15_000, 0.1, { immediate: true });
     }, [refresh]);
 
     const myClan = (character.clan ?? "").trim();

@@ -158,6 +158,7 @@ test('sleeper-kill handler: pays the base ryo + a PvP kill credit, and tells the
     const attacker = await charOf('raiden');
     assert.equal(attacker.ryo, 1_000 + expected, 'the ryo landed on the committed save');
     assert.equal(attacker.totalPvpKills, 5, 'PvP kill credit is applied server-side');
+    assert.deepEqual(attacker.elderWinDays, [{ day: new Date().toISOString().slice(0, 10), village: 'stormveilvillage', pvp: 1, pve: 0 }]);
     assert.equal(attacker.monthlyPvpKills, 1);
     assert.equal(typeof attacker.pvpKillMonth, 'string');
 

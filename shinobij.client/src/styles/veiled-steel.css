@@ -216,10 +216,6 @@ html body.ui-scroll-locked {
   margin-top: 0 !important;
 }
 
-.app-shell:not(.screen-start) .journey-live-stats {
-  z-index: 2;
-}
-
 /* ----------------------------------------------------------- shared materials */
 
 .ui-panel,
@@ -402,42 +398,6 @@ html body.ui-scroll-locked {
 .ui-badge--info { color: #a9c7d9; border-color: rgba(109, 159, 189, 0.46); }
 .ui-badge--spirit { color: var(--sj-spirit-bright); border-color: rgba(116, 173, 189, 0.5); }
 
-.ui-progress {
-  display: grid;
-  gap: var(--sp-1);
-}
-
-.ui-progress-meta {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--sp-3);
-  color: var(--sj-text-secondary);
-  font-size: var(--fs-xs);
-}
-
-.ui-progress-meta strong { color: var(--sj-text-primary); font-variant-numeric: tabular-nums; }
-
-.ui-progress-track {
-  height: 8px;
-  overflow: hidden;
-  background: var(--sj-void);
-  border: 1px solid var(--sj-border-faint);
-  border-radius: 2px;
-}
-
-.ui-progress-fill {
-  display: block;
-  height: 100%;
-  background: var(--sj-gold);
-  transition: width var(--motion-normal) ease;
-}
-
-.ui-progress--health .ui-progress-fill { background: var(--sj-danger); }
-.ui-progress--chakra .ui-progress-fill { background: var(--sj-info); }
-.ui-progress--stamina .ui-progress-fill { background: var(--sj-success); }
-.ui-progress--ap .ui-progress-fill { background: var(--sj-warning); }
-.ui-progress--spirit .ui-progress-fill { background: var(--sj-spirit); }
-
 /* -------------------------------------------------------- modal / toast depth */
 
 .ui-modal-backdrop,
@@ -536,9 +496,11 @@ html body.ui-scroll-locked {
   box-shadow: none;
 }
 
-.app-shell:not(.screen-start) .profile-mobile-tabs .pmtab:hover {
-  color: var(--sj-text-primary);
-  background: var(--sj-surface-low);
+@media (hover: hover) {
+  .app-shell:not(.screen-start) .profile-mobile-tabs .pmtab:hover {
+    color: var(--sj-text-primary);
+    background: var(--sj-surface-low);
+  }
 }
 
 .app-shell:not(.screen-start) .profile-mobile-tabs .pmtab-active {
@@ -596,11 +558,13 @@ html body.ui-scroll-locked {
   transition: transform var(--motion-fast) ease, border-color var(--motion-fast) ease, background var(--motion-fast) ease;
 }
 
-.app-shell:not(.screen-start) .character-equip-slot:hover,
-.app-shell:not(.screen-start) .backpack-item:hover {
-  border-color: var(--sj-border-strong);
-  background: var(--sj-surface);
-  transform: translateY(-2px);
+@media (hover: hover) {
+  .app-shell:not(.screen-start) .character-equip-slot:hover,
+  .app-shell:not(.screen-start) .backpack-item:hover {
+    border-color: var(--sj-border-strong);
+    background: var(--sj-surface);
+    transform: translateY(-2px);
+  }
 }
 
 .app-shell:not(.screen-start) .character-equip-slot.slot-filter-active {
@@ -728,10 +692,12 @@ html body.ui-scroll-locked {
   transition: transform var(--motion-fast) ease, border-color var(--motion-fast) ease, background var(--motion-fast) ease;
 }
 
-.app-shell:not(.screen-start) .location-button:hover:not(:disabled) {
-  color: var(--sj-text-primary);
-  border-color: var(--sj-border-strong);
-  transform: translateY(-2px);
+@media (hover: hover) {
+  .app-shell:not(.screen-start) .location-button:hover:not(:disabled) {
+    color: var(--sj-text-primary);
+    border-color: var(--sj-border-strong);
+    transform: translateY(-2px);
+  }
 }
 
 .app-shell:not(.screen-start) .location-button.selected,
@@ -772,12 +738,18 @@ html body.ui-scroll-locked {
   border-radius: var(--r-xs);
 }
 
-.mobile-nav-btn[aria-current="page"],
-.mobile-nav-btn:hover,
-.mobile-menu-btn:hover {
+.mobile-nav-btn[aria-current="page"] {
   color: var(--sj-text-primary);
   border-color: var(--sj-border-soft);
   background: rgba(116, 173, 189, 0.09);
+}
+@media (hover: hover) {
+  .mobile-nav-btn:hover,
+  .mobile-menu-btn:hover {
+    color: var(--sj-text-primary);
+    border-color: var(--sj-border-soft);
+    background: rgba(116, 173, 189, 0.09);
+  }
 }
 
 .mobile-nav-btn[aria-current="page"] {
@@ -1149,6 +1121,12 @@ html body.ui-scroll-locked {
   }
 }
 
+/* No transition-duration here. The initial transition-property is `all`, so a
+   universal duration turned every resize-driven value change on most elements
+   into a transition, and WebKit then kept grid `auto` rows sized for the
+   previous width. At zero specificity it never shortened a component's own
+   transition either; only that component's reduced-motion rule can.
+   universal-transition.test.ts keeps universal selectors transition-free. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -1156,7 +1134,6 @@ html body.ui-scroll-locked {
     scroll-behavior: auto;
     animation-duration: 1ms;
     animation-iteration-count: 1;
-    transition-duration: 1ms;
   }
 }
 
@@ -1381,17 +1358,6 @@ html body.ui-scroll-locked {
     font-size: 12px;
   }
 
-  html.wm-zoom .wm-zoom-controls {
-    gap: 4px;
-  }
-
-  html.wm-zoom .wm-zoom-btn {
-    width: 30px;
-    height: 30px;
-    border-radius: 7px;
-    font-size: 16px;
-  }
-
   html.wm-zoom .wm-village-bar {
     gap: 5px;
     margin-top: 7px;
@@ -1400,12 +1366,6 @@ html body.ui-scroll-locked {
   html.wm-zoom .wm-village-chip {
     padding: 5px 8px;
     font-size: 10.5px;
-  }
-
-  html.wm-zoom .wm-village-chip .wm-chip-dot {
-    width: 6px;
-    height: 6px;
-    margin-right: 4px;
   }
 
   html.wm-zoom .world-map-scroll .atlas-landmark {
@@ -1685,20 +1645,24 @@ body.coach-banner-open .coach-guide-actions .location-button {
   white-space: nowrap;
 }
 
-.app-shell:not(.screen-start) .right-menu-buttons button:hover {
-  color: var(--sj-text-primary);
-  border-color: color-mix(in srgb, var(--village-accent-soft) 48%, var(--sj-border-soft));
-  background:
-    linear-gradient(104deg, color-mix(in srgb, var(--village-accent) 16%, transparent), transparent 52%),
-    linear-gradient(180deg, rgba(42, 56, 69, 0.96), rgba(17, 24, 33, 0.98));
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.055), 0 7px 16px rgba(0, 0, 0, 0.22);
-  transform: translateY(-1px);
+@media (hover: hover) {
+  .app-shell:not(.screen-start) .right-menu-buttons button:hover {
+    color: var(--sj-text-primary);
+    border-color: color-mix(in srgb, var(--village-accent-soft) 48%, var(--sj-border-soft));
+    background:
+      linear-gradient(104deg, color-mix(in srgb, var(--village-accent) 16%, transparent), transparent 52%),
+      linear-gradient(180deg, rgba(42, 56, 69, 0.96), rgba(17, 24, 33, 0.98));
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.055), 0 7px 16px rgba(0, 0, 0, 0.22);
+    transform: translateY(-1px);
+  }
 }
 
-.app-shell:not(.screen-start) .right-menu-buttons button:hover .right-menu-action-icon {
-  color: var(--sj-text-primary);
-  background: color-mix(in srgb, var(--village-accent) 18%, rgba(3, 8, 13, 0.58));
-  transform: translateX(1px);
+@media (hover: hover) {
+  .app-shell:not(.screen-start) .right-menu-buttons button:hover .right-menu-action-icon {
+    color: var(--sj-text-primary);
+    background: color-mix(in srgb, var(--village-accent) 18%, rgba(3, 8, 13, 0.58));
+    transform: translateX(1px);
+  }
 }
 
 .app-shell:not(.screen-start) .right-menu-buttons button[aria-current="page"] {
@@ -1727,17 +1691,21 @@ body.coach-banner-open .coach-guide-actions .location-button {
   grid-column: 1 / -1;
 }
 
-.app-shell:not(.screen-start) .right-menu-buttons .right-menu-logout:hover {
-  color: #fee2e2;
-  border-color: rgba(248, 113, 113, 0.52);
-  background:
-    linear-gradient(105deg, rgba(127, 29, 29, 0.25), transparent 62%),
-    linear-gradient(180deg, rgba(48, 42, 46, 0.96), rgba(25, 17, 22, 0.98));
+@media (hover: hover) {
+  .app-shell:not(.screen-start) .right-menu-buttons .right-menu-logout:hover {
+    color: #fee2e2;
+    border-color: rgba(248, 113, 113, 0.52);
+    background:
+      linear-gradient(105deg, rgba(127, 29, 29, 0.25), transparent 62%),
+      linear-gradient(180deg, rgba(48, 42, 46, 0.96), rgba(25, 17, 22, 0.98));
+  }
 }
 
-.app-shell:not(.screen-start) .right-menu-buttons .right-menu-logout:hover .right-menu-action-icon {
-  color: #fca5a5;
-  background: rgba(127, 29, 29, 0.22);
+@media (hover: hover) {
+  .app-shell:not(.screen-start) .right-menu-buttons .right-menu-logout:hover .right-menu-action-icon {
+    color: #fca5a5;
+    background: rgba(127, 29, 29, 0.22);
+  }
 }
 
 .app-shell:not(.screen-start) .right-menu-panel :is(button, a):focus-visible {
@@ -1889,8 +1857,10 @@ body.coach-banner-open .coach-guide-actions .location-button {
   flex:1 0 auto; min-height:36px; padding:7px 15px; border:1px solid transparent; border-radius:7px; background:transparent;
   color:var(--sj-text-secondary);
 }
-.screen-facility :where(.clan-tabs,.town-tabs,.cc-tabs)>button:hover {
-  background:#151d27; color:var(--sj-text-primary);
+@media (hover: hover) {
+  .screen-facility :where(.clan-tabs,.town-tabs,.cc-tabs)>button:hover {
+    background:#151d27; color:var(--sj-text-primary);
+  }
 }
 .screen-facility :where(.clan-tabs,.town-tabs,.cc-tabs)>button:is(.active,[aria-pressed="true"]) {
   border-color:var(--facility-accent); background:#17202b; color:#fff;
@@ -1903,8 +1873,13 @@ body.coach-banner-open .coach-guide-actions .location-button {
   display:flex; flex-direction:column; align-items:center; gap:5px;
   width:max-content; max-width:112px; padding:0; border:0; background:transparent; cursor:pointer;
 }
-.facility-tile:is(:hover,:focus-visible) {
+.facility-tile:focus-visible {
   z-index:8; transform:translate(-50%,-50%) scale(1.08);
+}
+@media (hover: hover) {
+  .facility-tile:hover {
+    z-index:8; transform:translate(-50%,-50%) scale(1.08);
+  }
 }
 .stormveil-map-icon-frame {
   display:block; width:clamp(60px,4.7vw,76px); height:clamp(60px,4.7vw,76px);
@@ -1924,7 +1899,10 @@ body.coach-banner-open .coach-guide-actions .location-button {
     flex:0 0 auto!important; width:auto!important; max-width:100px!important;
     transition:filter .12s, box-shadow .12s!important;
   }
-  .facility-tile:is(:hover,:focus-visible) { transform:scale(1.06)!important; }
+  .facility-tile:focus-visible { transform:scale(1.06)!important; }
+  @media (hover: hover) {
+    .facility-tile:hover { transform:scale(1.06)!important; }
+  }
   .facility-tile .stormveil-map-icon-frame { width:clamp(64px,18vw,86px); height:clamp(64px,18vw,86px); }
   .facility-tile .stormveil-map-label { font-size:11px; }
 }
@@ -1938,8 +1916,13 @@ body.coach-banner-open .coach-guide-actions .location-button {
     max-width:calc((100% - 16px) / 3)!important;
     min-width:0!important;
   }
-  .app-shell.screen-village .facility-tile:is(:hover,:focus-visible) {
+  .app-shell.screen-village .facility-tile:focus-visible {
     transform:none!important;
+  }
+  @media (hover: hover) {
+    .app-shell.screen-village .facility-tile:hover {
+      transform:none!important;
+    }
   }
 }
 @media (min-width: 1500px) {
@@ -2022,28 +2005,6 @@ body.coach-banner-open .coach-guide-actions .location-button {
     border-radius: 8px !important;
     font-size: 12px !important;
     line-height: 1 !important;
-  }
-
-  html.wm-zoom .app-shell.screen-worldMap .wm-zoom-controls {
-    gap: 5px !important;
-  }
-
-  html.wm-zoom .app-shell.screen-worldMap .wm-zoom-btn {
-    width: 34px !important;
-    min-width: 34px !important;
-    max-width: 34px !important;
-    height: 34px !important;
-    min-height: 34px !important;
-    max-height: 34px !important;
-    padding: 0 !important;
-    border-radius: 8px !important;
-    font-size: 17px !important;
-    line-height: 1 !important;
-    box-sizing: border-box !important;
-  }
-
-  html.wm-zoom .app-shell.screen-worldMap .wm-zoom-btn[aria-label="Reset view"] {
-    font-size: 13px !important;
   }
 
   html.wm-zoom .app-shell.screen-worldMap .wm-village-chip {

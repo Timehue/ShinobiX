@@ -13,7 +13,7 @@ past regressions were one browser only, and that detail has been the difference
 between a fix in a day and a fix in a month.
 
 Player-side questions ("is this a bug or am I confused?") are usually faster in
-[Discord](https://discord.gg/bCQGs8r6SK).
+[Discord](https://discord.gg/usr3vzykBh).
 
 ## Security is different
 

@@ -17,7 +17,7 @@
  */
 import { filledDiskTiles } from '../combat-core/aoe.js';
 import { hexDistance } from '../combat-core/grid.js';
-import { applyJutsu as applyPvpJutsu, applyDoTs, tickStatuses, applyGroundEffectToFighter, tickGroundEffects, characterOwnsElement } from '../pvp/move.js';
+import { applyJutsu as applyPvpJutsu, applyDoTs, tickStatuses, applyGroundEffectToFighter, tickGroundEffects, characterOwnsElement, poisonSpendDamage } from '../pvp/move.js';
 import { resolveTowerPlayerJutsu, towerJutsuToCombatJutsu } from '../combat-adapters/clanBossAdapter.js';
 import { TOWER_PVP_TOWER_ID } from './_pvp-session.js';
 import { weatherMultiplier } from '../combat-core/formulas.js';
@@ -67,7 +67,7 @@ import {
     isSideAlive,
     activeActor,
 } from './_tower-session.js';
-import { COMBAT_RESOURCES_V2, v2ResourceRegen, v2PoisonOnSpend } from '../_combat-resources.js';
+import { COMBAT_RESOURCES_V2, v2ResourceRegen } from '../_combat-resources.js';
 import {
     DEBUFF_TAKEN_CAP, HEALCUT_MAX, EXTRA_PHASE_BLAST_PCT, SUDDEN_DEATH_WINDOW, SUDDEN_DEATH_PCT,
     DUAL_AUGMENT_HAZARD_BONUS, DUAL_AUGMENT_DEBUFF_BONUS, type TowerModifier,
@@ -114,6 +114,7 @@ type JutsuLike = {
     id?: string; name?: string; effectPower?: number; type?: string; ap?: number;
     range?: number; element?: string; chakraCost?: number; staminaCost?: number;
     cooldown?: number; isUtility?: boolean; method?: string; target?: string; tags?: unknown[];
+    bloodlineRank?: string;
     // Weapon synth sets this when the wielder lacks the weapon's element → the swing
     // gets no bloodline damage multiplier (parity with api/pvp/move.ts resolveBaseDamage).
     suppressBloodline?: boolean;
@@ -1425,6 +1426,7 @@ function layGroundZone(session: TowerSession, actor: TowerActor, jutsuId: string
         name: jutsu.name ?? 'Ground Effect',
         tiles: groundZoneTiles(tile, session.map.width, session.map.height, jutsu.method),
         rounds: 2,
+        ...(typeof jutsu.bloodlineRank === 'string' && jutsu.bloodlineRank ? { bloodlineRank: jutsu.bloodlineRank } : {}),
         tags,
     };
     session.groundEffects = [...(session.groundEffects ?? []), effect];
@@ -1793,16 +1795,11 @@ function hasActiveStatus(actor: TowerActor, name: string, round: number): boolea
 }
 // combatResourcesV2: Poison feeds on exertion — spending chakra/stamina to cast a jutsu
 // deals HP damage scaled by the spend + the actor's active Poison (turtling avoids it).
-// No-op when the flag is off, the actor isn't poisoned, or the jutsu was free. Mirrors the
-// PvP move.ts handler + the PvE Arena on-spend hooks.
+// No-op when the flag is off, the actor isn't poisoned, or the jutsu was free. The amount
+// (and its armor / Decrease Damage Taken reduction) is the shared PvP poisonSpendDamage.
 function spendPoison(session: TowerSession, actor: TowerActor, ck: number, st: number, round: number): void {
-    if (!COMBAT_RESOURCES_V2) return;
     if (objectiveBossDamageLocked(session, actor)) return;
-    const pct = activeCombatStatuses(actor.statuses, round)
-        .filter(s => canonicalTagName(s.name) === 'Poison')
-        .reduce((sum, s) => sum + (s.percent ?? 6), 0);
-    if (pct <= 0) return;
-    const dmg = v2PoisonOnSpend((ck || 0) + (st || 0), pct);
+    const dmg = poisonSpendDamage(actorToFighter(actor), (ck || 0) + (st || 0), round);
     if (dmg <= 0) return;
     actor.hp = Math.max(0, actor.hp - dmg);
     session.log.push(`${actor.name} takes ${dmg} Poison damage from exertion.`);

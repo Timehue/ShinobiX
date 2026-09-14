@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 import type { Biome, WeatherType } from "../types/core";
-import { biomeLabel, weatherEffects } from "../data/world";
+import { biomeLabel } from "../data/world";
 import { sectorRegionName } from "../data/sectors";
 import { sectorName } from "../../../shared/sector-geo";
 import type { SectorDirection, SectorExit } from "../../../shared/sector-links";
 import { DayNightSky } from "./DayNightSky";
+import { SectorSkyForecast } from "./SectorSkyForecast";
 import { RegionSplash, SectorGateMarker } from "./WorldWalkFeel";
 import { SceneAmbience } from "./SceneAmbience";
 import { SceneAmbience3D } from "./SceneAmbience3D";
@@ -93,7 +94,7 @@ export function WorldSectorCanvas({
             <div className="scene-title sector-scene-title">
                 <div>
                     <strong>{sectorName(sector) ?? `Sector ${sector}`}</strong>
-                    <span>Sector {sector} · {sectorRegionName(sector)} | {biomeLabel(biome)} | {weatherEffects[weather].name}</span>
+                    <span>Sector {sector} · {sectorRegionName(sector)} | {biomeLabel(biome)} | <SectorSkyForecast sector={sector} biome={biome} fallback={weather} variant="name" /></span>
                 </div>
                 <small>R{playerRow} C{playerCol}{isCurrent ? " | Present" : " | Scouting"}</small>
             </div>
@@ -118,7 +119,7 @@ export function WorldSectorCanvas({
                     </>
                 )}
                 {!mapMode && <SceneAmbience3D biome={ambienceBiome} />}
-                <SceneAmbience biome={ambienceBiome} weather={weather} />
+                <SceneAmbience biome={ambienceBiome} weather={weather} weatherSector={sector} weatherBiome={biome} />
                 <SceneCritters biome={ambienceBiome} />
 
                 {Array.from({ length: TILE_COUNT }).map((_, index) => {

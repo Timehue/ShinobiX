@@ -209,7 +209,7 @@ test('a released claim really is released — the target is attackable again', a
  * vitals back, so raiding and losing were both free. These two drive the real
  * handlers through to a real knockout and read the two SAVES afterwards.
  */
-test('a real KO writes both bodies: the winner keeps his damage, the loser is admitted', async () => {
+test('a real KO writes both bodies: the winner keeps his damage, the loser is admitted', async (t) => {
     const raider = 'wsraider4';
     const quarry = 'wsquarry4';
     await seed(raider, quarry);
@@ -243,6 +243,20 @@ test('a real KO writes both bodies: the winner keeps his damage, the loser is ad
         p1: { ...live.p1, pos: 62, hp: 320 },
         p2: { ...live.p2, pos: 63, hp: 1 },
     });
+
+    // Stop the clock for the killing blow. Settlement writes the fight's HP and
+    // then, in the same pass, rewards the winner through mutatePlayerSave, which
+    // first credits idle recovery (1 HP a second at this pool) for any time
+    // since that write. That credit is correct play, but under load a second
+    // passed inside the settlement and the winner read 321. With the clock
+    // stopped, only the fight can move his HP.
+    const fightEnds = Date.now();
+    t.mock.method(Date, 'now', () => fightEnds);
+    // His recovery clock last ran a minute before the knockout. Settlement must
+    // restart it there: a settlement that kept the old clock would hand him that
+    // minute back as 60 HP and he would not walk away carrying his damage.
+    const winnerSave = (await kv.get<Record<string, unknown>>(`save:${raider}`))!;
+    await kv.set(`save:${raider}`, { ...winnerSave, _regenAt: fightEnds - 60_000 });
 
     const killing = await post(moveHandler, raider, {
         battleId, role: 'p1', action: 'basicAttack', moveToken: `ko-${battleId}`,

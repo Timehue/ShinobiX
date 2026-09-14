@@ -98,7 +98,7 @@ describe('Village War Map feedback contract', () => {
     });
 
     it('3k — an ANBU appointment made mid-session lights the feed controls up', () => {
-        assert.match(screen, /const isAnbu = useMemo\(\(\) => isVillageAnbu\(character\), \[character\]\)/);
+        assert.match(screen, /const isAnbu = isVillageAnbu\(character\)/);
         assert.doesNotMatch(screen, /useState\(\(\) => isVillageAnbu/);
     });
 

@@ -1,0 +1,476 @@
+{
+  "seeds": 1,
+  "charged": true,
+  "ultimatesOnly": true,
+  "guarded": true,
+  "templates": 160,
+  "assumptions": "Same level and rarity; balanced growth; no gear or traits; every signature with full readiness and meter against a full-health target ordered to Guard (actual turn priority is preserved, so a faster attack may land before Guard). Separate fresh session per probe. Both counter and neutral/resisted matchups included.",
+  "rows": [
+    {
+      "level": 1,
+      "hits": 7500,
+      "oneShots": 0,
+      "maxHpFraction": 0.8344519015659956
+    },
+    {
+      "level": 25,
+      "hits": 7500,
+      "oneShots": 0,
+      "maxHpFraction": 0.8101472995090017
+    },
+    {
+      "level": 50,
+      "hits": 7500,
+      "oneShots": 336,
+      "maxHpFraction": 1.9539823008849557
+    },
+    {
+      "level": 100,
+      "hits": 7500,
+      "oneShots": 48,
+      "maxHpFraction": 1.4146666666666667
+    }
+  ],
+  "worst": [
+    {
+      "level": 50,
+      "attacker": "starter-fire-l",
+      "defender": "legendary-2",
+      "move": "Flame Burst",
+      "kind": "damage",
+      "power": 122,
+      "ratio": 1.9539823008849557,
+      "damage": 1104,
+      "maxHp": 565
+    },
+    {
+      "level": 50,
+      "attacker": "starter-fire-l",
+      "defender": "legendary-22",
+      "move": "Flame Burst",
+      "kind": "damage",
+      "power": 122,
+      "ratio": 1.8150684931506849,
+      "damage": 1060,
+      "maxHp": 584
+    },
+    {
+      "level": 50,
+      "attacker": "mythic-0",
+      "defender": "mythic-1",
+      "move": "Lunar Eclipse: Ninetail Requiem",
+      "kind": "damage",
+      "power": 135,
+      "ratio": 1.7710049423393739,
+      "damage": 1075,
+      "maxHp": 607
+    },
+    {
+      "level": 50,
+      "attacker": "starter-fire-r",
+      "defender": "rare-10",
+      "move": "Flame Burst",
+      "kind": "damage",
+      "power": 108,
+      "ratio": 1.743682310469314,
+      "damage": 966,
+      "maxHp": 554
+    },
+    {
+      "level": 50,
+      "attacker": "starter-fire",
+      "defender": "standard-10",
+      "move": "Flame Burst",
+      "kind": "damage",
+      "power": 96,
+      "ratio": 1.7318982387475539,
+      "damage": 885,
+      "maxHp": 511
+    },
+    {
+      "level": 50,
+      "attacker": "starter-fire-l",
+      "defender": "legendary-14",
+      "move": "Flame Burst",
+      "kind": "damage",
+      "power": 122,
+      "ratio": 1.6870860927152318,
+      "damage": 1019,
+      "maxHp": 604
+    },
+    {
+      "level": 50,
+      "attacker": "starter-fire-r",
+      "defender": "rare-38",
+      "move": "Flame Burst",
+      "kind": "damage",
+      "power": 108,
+      "ratio": 1.6802841918294849,
+      "damage": 946,
+      "maxHp": 563
+    },
+    {
+      "level": 50,
+      "attacker": "starter-fire",
+      "defender": "standard-38",
+      "move": "Flame Burst",
+      "kind": "damage",
+      "power": 96,
+      "ratio": 1.6744186046511629,
+      "damage": 864,
+      "maxHp": 516
+    },
+    {
+      "level": 50,
+      "attacker": "starter-fire",
+      "defender": "starter-wind",
+      "move": "Flame Burst",
+      "kind": "damage",
+      "power": 96,
+      "ratio": 1.6551724137931034,
+      "damage": 864,
+      "maxHp": 522
+    },
+    {
+      "level": 50,
+      "attacker": "starter-fire",
+      "defender": "standard-14",
+      "move": "Flame Burst",
+      "kind": "damage",
+      "power": 96,
+      "ratio": 1.6520076481835564,
+      "damage": 864,
+      "maxHp": 523
+    },
+    {
+      "level": 50,
+      "attacker": "standard-10",
+      "defender": "starter-lightning",
+      "move": "Gale Render",
+      "kind": "damage",
+      "power": 96,
+      "ratio": 1.6487603305785123,
+      "damage": 798,
+      "maxHp": 484
+    },
+    {
+      "level": 50,
+      "attacker": "standard-14",
+      "defender": "starter-lightning",
+      "move": "Gale Render",
+      "kind": "damage",
+      "power": 96,
+      "ratio": 1.6487603305785123,
+      "damage": 798,
+      "maxHp": 484
+    },
+    {
+      "level": 50,
+      "attacker": "standard-38",
+      "defender": "starter-lightning",
+      "move": "Gale Render",
+      "kind": "damage",
+      "power": 96,
+      "ratio": 1.6487603305785123,
+      "damage": 798,
+      "maxHp": 484
+    },
+    {
+      "level": 50,
+      "attacker": "mythic-0",
+      "defender": "mythic-8",
+      "move": "Lunar Eclipse: Ninetail Requiem",
+      "kind": "damage",
+      "power": 135,
+      "ratio": 1.645933014354067,
+      "damage": 1032,
+      "maxHp": 627
+    },
+    {
+      "level": 50,
+      "attacker": "starter-fire-r",
+      "defender": "rare-14",
+      "move": "Flame Burst",
+      "kind": "damage",
+      "power": 108,
+      "ratio": 1.644760213143872,
+      "damage": 926,
+      "maxHp": 563
+    },
+    {
+      "level": 50,
+      "attacker": "rare-3",
+      "defender": "starter-lightning-r",
+      "move": "Cyclone Render",
+      "kind": "damage",
+      "power": 108,
+      "ratio": 1.6275229357798164,
+      "damage": 887,
+      "maxHp": 545
+    },
+    {
+      "level": 50,
+      "attacker": "starter-fire-l",
+      "defender": "starter-wind-l",
+      "move": "Flame Burst",
+      "kind": "damage",
+      "power": 122,
+      "ratio": 1.6029411764705883,
+      "damage": 981,
+      "maxHp": 612
+    },
+    {
+      "level": 50,
+      "attacker": "standard-39",
+      "defender": "starter-lightning",
+      "move": "Gale Render",
+      "kind": "damage",
+      "power": 96,
+      "ratio": 1.5991735537190082,
+      "damage": 774,
+      "maxHp": 484
+    },
+    {
+      "level": 50,
+      "attacker": "starter-fire-r",
+      "defender": "starter-wind-r",
+      "move": "Flame Burst",
+      "kind": "damage",
+      "power": 108,
+      "ratio": 1.5791304347826087,
+      "damage": 908,
+      "maxHp": 575
+    },
+    {
+      "level": 50,
+      "attacker": "standard-35",
+      "defender": "starter-lightning",
+      "move": "Gale Render",
+      "kind": "damage",
+      "power": 96,
+      "ratio": 1.572314049586777,
+      "damage": 761,
+      "maxHp": 484
+    },
+    {
+      "level": 50,
+      "attacker": "rare-10",
+      "defender": "starter-lightning-r",
+      "move": "Cyclone Render",
+      "kind": "damage",
+      "power": 108,
+      "ratio": 1.5596330275229358,
+      "damage": 850,
+      "maxHp": 545
+    },
+    {
+      "level": 50,
+      "attacker": "legendary-14",
+      "defender": "starter-lightning-l",
+      "move": "Tempest Sundering",
+      "kind": "damage",
+      "power": 122,
+      "ratio": 1.5585738539898133,
+      "damage": 918,
+      "maxHp": 589
+    },
+    {
+      "level": 50,
+      "attacker": "standard-3",
+      "defender": "starter-lightning",
+      "move": "Gale Render",
+      "kind": "damage",
+      "power": 96,
+      "ratio": 1.5454545454545454,
+      "damage": 748,
+      "maxHp": 484
+    },
+    {
+      "level": 50,
+      "attacker": "rare-14",
+      "defender": "starter-lightning-r",
+      "move": "Cyclone Render",
+      "kind": "damage",
+      "power": 108,
+      "ratio": 1.5412844036697249,
+      "damage": 840,
+      "maxHp": 545
+    },
+    {
+      "level": 50,
+      "attacker": "legendary-2",
+      "defender": "starter-lightning-l",
+      "move": "Tempest Sundering",
+      "kind": "damage",
+      "power": 122,
+      "ratio": 1.5093378607809846,
+      "damage": 889,
+      "maxHp": 589
+    },
+    {
+      "level": 50,
+      "attacker": "rare-35",
+      "defender": "starter-lightning-r",
+      "move": "Cyclone Render",
+      "kind": "damage",
+      "power": 108,
+      "ratio": 1.4954128440366972,
+      "damage": 815,
+      "maxHp": 545
+    },
+    {
+      "level": 50,
+      "attacker": "rare-39",
+      "defender": "starter-lightning-r",
+      "move": "Cyclone Render",
+      "kind": "damage",
+      "power": 108,
+      "ratio": 1.473394495412844,
+      "damage": 803,
+      "maxHp": 545
+    },
+    {
+      "level": 50,
+      "attacker": "legendary-23",
+      "defender": "starter-lightning-l",
+      "move": "Tempest Sundering",
+      "kind": "damage",
+      "power": 122,
+      "ratio": 1.461799660441426,
+      "damage": 861,
+      "maxHp": 589
+    },
+    {
+      "level": 50,
+      "attacker": "standard-20",
+      "defender": "starter-lightning",
+      "move": "Gale Render",
+      "kind": "damage",
+      "power": 96,
+      "ratio": 1.4524793388429753,
+      "damage": 703,
+      "maxHp": 484
+    },
+    {
+      "level": 50,
+      "attacker": "rare-38",
+      "defender": "starter-lightning-r",
+      "move": "Cyclone Render",
+      "kind": "damage",
+      "power": 108,
+      "ratio": 1.4385321100917432,
+      "damage": 784,
+      "maxHp": 545
+    },
+    {
+      "level": 50,
+      "attacker": "starter-wind",
+      "defender": "starter-lightning",
+      "move": "Gale Slash",
+      "kind": "damage",
+      "power": 96,
+      "ratio": 1.4359504132231404,
+      "damage": 695,
+      "maxHp": 484
+    },
+    {
+      "level": 50,
+      "attacker": "legendary-6",
+      "defender": "legendary-2",
+      "move": "Inferno Communion",
+      "kind": "damage",
+      "power": 122,
+      "ratio": 1.4194690265486725,
+      "damage": 802,
+      "maxHp": 565
+    },
+    {
+      "level": 100,
+      "attacker": "starter-fire-l",
+      "defender": "legendary-2",
+      "move": "Flame Burst",
+      "kind": "damage",
+      "power": 122,
+      "ratio": 1.4146666666666667,
+      "damage": 1061,
+      "maxHp": 750
+    },
+    {
+      "level": 50,
+      "attacker": "legendary-14",
+      "defender": "legendary-10",
+      "move": "Tempest Sundering",
+      "kind": "damage",
+      "power": 122,
+      "ratio": 1.4142614601018675,
+      "damage": 833,
+      "maxHp": 589
+    },
+    {
+      "level": 50,
+      "attacker": "legendary-22",
+      "defender": "starter-lightning-l",
+      "move": "Skydancer: Gale Requiem",
+      "kind": "damage",
+      "power": 122,
+      "ratio": 1.3989813242784381,
+      "damage": 824,
+      "maxHp": 589
+    },
+    {
+      "level": 50,
+      "attacker": "standard-17",
+      "defender": "starter-lightning",
+      "move": "Gale Render",
+      "kind": "damage",
+      "power": 96,
+      "ratio": 1.396694214876033,
+      "damage": 676,
+      "maxHp": 484
+    },
+    {
+      "level": 50,
+      "attacker": "legendary-14",
+      "defender": "legendary-26",
+      "move": "Tempest Sundering",
+      "kind": "damage",
+      "power": 122,
+      "ratio": 1.3864406779661016,
+      "damage": 818,
+      "maxHp": 590
+    },
+    {
+      "level": 50,
+      "attacker": "starter-lightning",
+      "defender": "standard-2",
+      "move": "Thunder Fang",
+      "kind": "damage",
+      "power": 96,
+      "ratio": 1.3827838827838828,
+      "damage": 755,
+      "maxHp": 546
+    },
+    {
+      "level": 50,
+      "attacker": "standard-37",
+      "defender": "starter-lightning",
+      "move": "Gale Render",
+      "kind": "damage",
+      "power": 96,
+      "ratio": 1.378099173553719,
+      "damage": 667,
+      "maxHp": 484
+    },
+    {
+      "level": 50,
+      "attacker": "rare-20",
+      "defender": "starter-lightning-r",
+      "move": "Cyclone Render",
+      "kind": "damage",
+      "power": 108,
+      "ratio": 1.3743119266055046,
+      "damage": 749,
+      "maxHp": 545
+    }
+  ]
+}

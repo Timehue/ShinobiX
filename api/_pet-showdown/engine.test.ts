@@ -74,6 +74,31 @@ function makePet(id: string, overrides: Partial<Pet> = {}): Pet {
     } as Pet;
 }
 
+test('low-level counter techniques leave full-health pets alive on either side and Guard still halves the hit', () => {
+    const fixture = (templateId: string, id: string) => ({ ...PET_CATALOG[templateId], id, templateId, level: 1 }) as Pet;
+    for (const side of ['player', 'enemy'] as const) {
+        const hit = (guarding = false, hp?: number) => {
+            const attacker = fixture('mythic-0', 'kitsune'), defender = fixture('mythic-1', 'phoenix');
+            const battle = createShowdownSession({ sessionId: 'burst', playerName: 'A', enemyTeamName: 'B', format: '1v1', tier: 'warrior', seed: 7920,
+                playerPets: [side === 'player' ? attacker : defender], enemyPets: [side === 'enemy' ? attacker : defender], rewardEligible: false });
+            const actor = battle[side][0], target = battle[side === 'player' ? 'enemy' : 'player'][0];
+            if (hp !== undefined) target.hp = hp;
+            const moveIndex = actor.moves.findIndex(move => move.name === 'Moonfire Lash');
+            const commands: ShowdownCommand[] = [{ kind: 'move', petId: actor.id, targetId: target.id, moveIndex }];
+            const response: ShowdownCommand[] = [{ kind: guarding ? 'guard' : 'rest', petId: target.id }];
+            const events = resolveShowdownRound(battle, side === 'player' ? commands : response, side === 'enemy' ? commands : response);
+            const result = events.find(event => event.t === 'action' && event.actorId === actor.id);
+            assert.ok(result?.t === 'action');
+            return { hit: result.targets[0], target };
+        };
+        const normal = hit(), guarded = hit(true);
+        assert.equal(normal.hit.ko, false);
+        assert.ok(normal.hit.damage < normal.target.maxHp * 0.9);
+        assert.ok(Math.abs(guarded.hit.damage - normal.hit.damage * 0.5) <= 1);
+        assert.equal(hit(false, 200).hit.ko, true, 'the same move still finishes a wounded target');
+    }
+});
+
 function makeSession(
     playerPets: Pet[],
     enemyPets: Pet[],

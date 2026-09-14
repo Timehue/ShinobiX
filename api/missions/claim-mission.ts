@@ -1,3 +1,5 @@
+import { creditElderWinDeltas } from '../../shared/elder-elections.js';
+import { recordFirstContractActivity } from '../../shared/first-contract.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { safeName, mergePreservingImages, cors } from '../_utils.js';
@@ -717,8 +719,10 @@ async function applyReservedCombatMissionPayout(params: {
         kind: 'mission-complete',
         receipt: `mission:${settlementDay}:combat:${settlement.missionId}`,
     }).character as SaveChar;
+    next = recordFirstContractActivity(next, 'combat', { kind: 'combat-claim' });
     next = appendCombatMissionClaimSettlement(next, settlement);
 
+    next = creditElderWinDeltas((params.record.character ?? {}) as Record<string, unknown>, next);
     const updated = bumpSaveVersion<Record<string, unknown>>({
         ...params.record,
         character: next,
@@ -1232,6 +1236,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             let combatSettlement: CombatMissionClaimSettlement | null = null;
             if (combat && combatToken) {
+                next = recordFirstContractActivity(next, 'combat', { kind: 'combat-claim' });
                 const result: CombatMissionClaimResult = { reward, combat, completion: 'daily' };
                 combatSettlement = {
                     version: 1,
@@ -1265,6 +1270,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             if (missionType === 'field') next = withoutServerFieldMissionRun(next, missionId) as SaveChar;
+            next = creditElderWinDeltas(char, next);
             const updated = bumpSaveVersion<Record<string, unknown>>({
                 ...applyClaimedMissionState(record, missionType, missionId),
                 character: next,

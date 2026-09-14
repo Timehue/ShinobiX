@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#070b11">
+  <title>Beastbound Warfront · Rebuild Progress</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background:#070b11; color:#e9f2f7; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; background:radial-gradient(circle at 18% -10%,#123a4b 0,transparent 38%),radial-gradient(circle at 88% 0,#421923 0,transparent 34%),#070b11; }
+    main { width:min(1120px,100%); margin:auto; padding:clamp(18px,4vw,48px); }
+    header { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; border-bottom:1px solid #29414e; padding-bottom:20px; }
+    .eyebrow { color:#63d9ef; font-size:.72rem; letter-spacing:.22em; text-transform:uppercase; }
+    h1 { margin:.35rem 0 0; font-family:Georgia,serif; font-size:clamp(2rem,6vw,4.8rem); font-weight:500; letter-spacing:-.04em; }
+    #updated { color:#8da3ad; font-size:.78rem; }
+    .hero { display:grid; grid-template-columns:minmax(0,1fr) minmax(260px,.42fr); gap:24px; padding:28px 0; }
+    .phase { font-size:clamp(1.4rem,3vw,2.4rem); margin:.2rem 0 .7rem; }
+    .gap { margin:0; color:#ff9f8c; max-width:66ch; }
+    .meter-wrap { align-self:center; }
+    .meter-head { display:flex; justify-content:space-between; color:#afbec5; font-size:.78rem; margin-bottom:8px; }
+    .meter { height:8px; background:#18232b; overflow:hidden; }
+    .meter > span { display:block; height:100%; background:linear-gradient(90deg,#41cce4,#ff6d72); transition:width .4s ease; }
+    .benchmark { border-left:2px solid #e3bd66; padding:12px 16px; background:#10161d; margin-bottom:28px; }
+    .benchmark span { display:block; color:#e3bd66; font-size:.68rem; letter-spacing:.17em; text-transform:uppercase; margin-bottom:5px; }
+    .loops { display:grid; gap:1px; background:#22313a; border:1px solid #22313a; }
+    .loop { display:grid; grid-template-columns:28px minmax(150px,.55fr) 72px minmax(0,1fr); gap:16px; align-items:center; min-height:66px; padding:12px 16px; background:#0b1117; }
+    .index { color:#68808c; font-variant-numeric:tabular-nums; }
+    .label { font-weight:600; }
+    .round { color:#8da3ad; font-size:.78rem; text-transform:uppercase; }
+    .verdict { color:#c8d3d8; }
+    .loop[data-state="running"] { background:linear-gradient(90deg,#0f2832,#0b1117 48%); }
+    .loop[data-state="running"] .index { color:#63d9ef; }
+    .loop[data-state="won"] .index,.loop[data-state="won"] .verdict { color:#7ce2a1; }
+    .loop[data-state="failed"] .index,.loop[data-state="failed"] .verdict { color:#ff827b; }
+    h2 { font-size:.74rem; letter-spacing:.17em; text-transform:uppercase; color:#8da3ad; margin:30px 0 12px; }
+    ul { margin:0; padding-left:20px; color:#b8c5ca; line-height:1.7; }
+    .pulse { display:inline-block; width:7px; height:7px; margin-right:8px; border-radius:50%; background:#63d9ef; box-shadow:0 0 16px #63d9ef; }
+    .error { color:#ff827b; }
+    @media (max-width:700px) { header{align-items:flex-start;flex-direction:column}.hero{grid-template-columns:1fr}.loop{grid-template-columns:22px 1fr}.round{grid-column:2}.verdict{grid-column:2} }
+    @media (prefers-reduced-motion:no-preference) { .pulse { animation:pulse 1.5s infinite; } @keyframes pulse { 50% { opacity:.35; transform:scale(.75); } } }
+  </style>
+</head>
+<body>
+<main>
+  <header><div><div class="eyebrow"><span class="pulse"></span>Live build log</div><h1>Beastbound Warfront</h1></div><div id="updated">Connecting…</div></header>
+  <section class="hero"><div><div class="eyebrow">Current phase</div><div class="phase" id="phase">Loading</div><p class="gap" id="gap"></p></div><div class="meter-wrap"><div class="meter-head"><span>Overall progress</span><strong id="percent">0%</strong></div><div class="meter" role="progressbar" aria-label="Overall rebuild progress" aria-valuemin="0" aria-valuemax="100"><span id="meter"></span></div></div></section>
+  <div class="benchmark"><span>Blind comparison bar</span><strong id="benchmark">Selecting from shipped games</strong></div>
+  <div class="loops" id="loops" aria-live="polite"></div>
+  <h2>Latest evidence</h2><ul id="evidence"></ul>
+  <p id="error" class="error" role="alert"></p>
+</main>
+<script>
+  const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+  async function refresh() {
+    try {
+      const response = await fetch(`/kage-progress.json?t=${Date.now()}`, { cache:'no-store' });
+      if (!response.ok) throw new Error(`status ${response.status}`);
+      const data = await response.json();
+      document.getElementById('phase').textContent = data.phase;
+      document.getElementById('gap').textContent = data.currentGap;
+      document.getElementById('benchmark').textContent = data.benchmark;
+      document.getElementById('updated').textContent = `Updated ${new Date(data.updated).toLocaleTimeString()}`;
+      document.getElementById('percent').textContent = `${data.overall}%`;
+      const meter = document.getElementById('meter'); meter.style.width = `${data.overall}%`; meter.parentElement.setAttribute('aria-valuenow', data.overall);
+      document.getElementById('loops').innerHTML = data.loops.map((loop,index) => `<div class="loop" data-state="${escapeHtml(loop.state)}"><div class="index">${String(index+1).padStart(2,'0')}</div><div class="label">${escapeHtml(loop.label)}</div><div class="round">Round ${escapeHtml(loop.round)}</div><div class="verdict">${escapeHtml(loop.verdict)}</div></div>`).join('');
+      document.getElementById('evidence').innerHTML = data.evidence.map(item => `<li>${escapeHtml(item)}</li>`).join('');
+      document.getElementById('error').textContent = '';
+    } catch (error) { document.getElementById('error').textContent = `Progress feed unavailable: ${error.message}`; }
+  }
+  refresh(); setInterval(refresh, 2000);
+</script>
+</body>
+</html>

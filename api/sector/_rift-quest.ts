@@ -4,11 +4,10 @@
  *
  * A rift is a wandering-AI quest that sends the player into a SCALED-DOWN event
  * Hollow Gate (short 1-3 floor run) with a themed final boss. Server-authoritative:
- *   accept   → seal the Hollow-Gate-boss-kill baseline (hollowGateWardenKills) + the
- *              (deterministic) target sector
- *   complete → verify the boss was killed (the counter advanced >= 1 since baseline;
- *              the shrine boss bumps hollowGateWardenKills), pay ryo + shards, stamp a
- *              post-clear cooldown; daily-capped
+ *   accept   → seal the deterministic target sector and acceptance identity
+ *   Gate     → bind that seal to one exact variant run and boss-combat receipt
+ *   complete → verify the bound receipt, pay ryo + shards, stamp a post-clear
+ *              cooldown and first-clear story receipt; daily-capped
  * The reward is recomputed here, never trusted from the client. Nothing about the
  * Hollow Gate engine is touched.
  *
@@ -68,6 +67,16 @@ export interface RiftQuestSeal {
     baseline: number;
     at: number;
     geoV: number;
+    /** Exact Hollow Gate run minted for this accepted quest. Added at start. */
+    runToken?: string;
+}
+
+export interface RiftQuestBossReceipt {
+    riftId: string;
+    runToken: string;
+    combatRunId: string;
+    acceptedAt: number;
+    clearedAt: number;
 }
 
 /** Validate a persisted rift seal from either store; returns null if malformed.
@@ -89,7 +98,67 @@ export function parseRiftQuestSeal(raw: unknown): RiftQuestSeal | null {
         || !Number.isSafeInteger(at) || at < 0) return null;
     const targetSector = geoV >= WORLD_GEO_VERSION ? rawTarget : remapLegacySector(rawTarget);
     if (targetSector < 1 || targetSector > MAX_WILD_SECTOR) return null;
-    return { id, targetSector, baseline, at, geoV: WORLD_GEO_VERSION };
+    const runToken = typeof value.runToken === 'string' && /^[A-Za-z0-9_-]{8,96}$/.test(value.runToken)
+        ? value.runToken
+        : undefined;
+    return { id, targetSector, baseline, at, geoV: WORLD_GEO_VERSION, ...(runToken ? { runToken } : {}) };
+}
+
+export function parseRiftQuestBossReceipt(raw: unknown): RiftQuestBossReceipt | null {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+    const value = raw as Record<string, unknown>;
+    const riftId = typeof value.riftId === 'string' ? value.riftId : '';
+    const runToken = typeof value.runToken === 'string' ? value.runToken : '';
+    const combatRunId = typeof value.combatRunId === 'string' ? value.combatRunId : '';
+    const acceptedAt = Number(value.acceptedAt);
+    const clearedAt = Number(value.clearedAt);
+    if (!isRiftQuestId(riftId)
+        || !/^[A-Za-z0-9_-]{8,96}$/.test(runToken)
+        || !/^[A-Za-z0-9:_-]{8,96}$/.test(combatRunId)
+        || !Number.isSafeInteger(acceptedAt) || acceptedAt < 0
+        || !Number.isSafeInteger(clearedAt) || clearedAt < acceptedAt) return null;
+    return { riftId, runToken, combatRunId, acceptedAt, clearedAt };
+}
+
+/** A generic Alpha kill cannot close a rift. The quest, Gate run and boss receipt
+ * must all describe the same accepted operation. */
+export function riftBossReceiptMatches(seal: RiftQuestSeal, receipt: RiftQuestBossReceipt | null): boolean {
+    return Boolean(receipt
+        && seal.runToken
+        && receipt.riftId === seal.id
+        && receipt.runToken === seal.runToken
+        && receipt.acceptedAt === seal.at);
+}
+
+export interface RiftRunBindingCandidate {
+    variantId?: unknown;
+    runToken: unknown;
+    mintedAt: unknown;
+    riftQuestAcceptedAt?: unknown;
+}
+
+/**
+ * Bounded rollout repair for a run minted before exact rift binding shipped.
+ * The durable accepted seal, Gate variant, saved active token and server run
+ * token must agree, and the run cannot predate acceptance. No aggregate counter
+ * participates. The same check also validates current bindings.
+ */
+export function reconcileRiftRunBinding(
+    seal: RiftQuestSeal | null,
+    candidate: RiftRunBindingCandidate,
+    savedActiveRunToken: unknown,
+): { seal: RiftQuestSeal; acceptedAt: number } | null {
+    if (!seal) return null;
+    const runToken = typeof candidate.runToken === 'string' ? candidate.runToken : '';
+    const mintedAt = Number(candidate.mintedAt);
+    const acceptedAt = candidate.riftQuestAcceptedAt == null ? seal.at : Number(candidate.riftQuestAcceptedAt);
+    if (!/^[A-Za-z0-9_-]{8,96}$/.test(runToken)
+        || savedActiveRunToken !== runToken
+        || candidate.variantId !== seal.id
+        || !Number.isSafeInteger(mintedAt) || mintedAt < seal.at
+        || !Number.isSafeInteger(acceptedAt) || acceptedAt !== seal.at
+        || (seal.runToken != null && seal.runToken !== runToken)) return null;
+    return { seal: { ...seal, runToken }, acceptedAt: seal.at };
 }
 
 /** ryo for clearing a rift — the wanderer-quest band (level + effort scaled). */
@@ -97,7 +166,7 @@ export function riftQuestRyo(level: number, weight: number): number {
     return clamp(weight, 1, 20) * (20 + clamp(level, 1, 100) * 3);
 }
 
-/** The boss fell once the Hollow-Gate boss-kill counter advanced past the baseline. */
+/** Legacy diagnostic retained for old counter behavior tests; never reward proof. */
 export function riftBossKilled(baseline: number, current: number): boolean {
     return (Number(current) || 0) - (Number(baseline) || 0) >= 1;
 }

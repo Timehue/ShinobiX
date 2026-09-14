@@ -11,6 +11,7 @@ import { loadAdminJutsuObjects, type AdminJutsu } from '../_admin-jutsu-catalog.
 import { characterMayUseJutsu } from '../pvp/_bloodline-gate.js';
 import { moraleForCharacter } from '../_war-morale.js';
 import { LockContendedError } from '../_lock.js';
+import { jutsuTrainingBonusPct } from './_jutsu-ryo.js';
 
 const JUTSU_ID = /^[a-z0-9][a-z0-9-]{1,63}$/;
 const REQUEST_ID = /^[A-Za-z0-9-]{12,80}$/;
@@ -67,14 +68,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
             // Village war MORALE, resolved SERVER-SIDE from village-state: a
             // rallying village trains faster while legacy winner morale is neutral,
-            // independently of the client-reported bonus (which is separately clamped).
+            // independently of the player's verified village/focus/aura bonuses.
             const jutsuMorale = await moraleForCharacter(character, Date.now());
+            const trainingBonus = jutsuTrainingBonusPct(character);
             if (action === 'start') {
                 if (record.activeJutsuTraining) return { ok: false as const, status: 409, error: 'jutsu-training-already-active' };
                 const jutsuId = String(body.jutsuId ?? '').trim().toLowerCase(); if (!JUTSU_ID.test(jutsuId)) return { ok: false as const, status: 400, error: 'invalid-jutsu-id' };
                 if (!jutsuIsKnown(jutsuId)) return { ok: false as const, status: 409, error: 'unknown-or-unowned-jutsu' };
                 if (jutsuBloodlineBlocked(jutsuId)) return { ok: false as const, status: 409, error: 'bloodline-required' };
-                changed = startJutsuRyoTraining(character, jutsuId, String(body.label ?? jutsuId), randomUUID().replace(/-/g, ''), Date.now(), body.trainingBonusPct, jutsuMorale.jutsuTimeMult);
+                changed = startJutsuRyoTraining(character, jutsuId, String(body.label ?? jutsuId), randomUUID().replace(/-/g, ''), Date.now(), trainingBonus, jutsuMorale.jutsuTimeMult);
             } else {
                 const active = record.activeJutsuTraining && typeof record.activeJutsuTraining === 'object' ? record.activeJutsuTraining as ServerJutsuTraining : null;
                 // A pre-modern lease carries no serverToken at all, so token matching
@@ -93,7 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const jutsuId = String(body.jutsuId ?? '').trim().toLowerCase();
                     if (!JUTSU_ID.test(jutsuId) || !jutsuIsKnown(jutsuId)) return { ok: false as const, status: 409, error: 'unknown-or-unowned-jutsu' };
                     if (jutsuBloodlineBlocked(jutsuId)) return { ok: false as const, status: 409, error: 'bloodline-required' };
-                    changed = queueJutsuRyoTraining(character, active, jutsuId, String(body.label ?? jutsuId), randomUUID().replace(/-/g, ''), body.trainingBonusPct, jutsuMorale.jutsuTimeMult);
+                    changed = queueJutsuRyoTraining(character, active, jutsuId, String(body.label ?? jutsuId), randomUUID().replace(/-/g, ''), trainingBonus, jutsuMorale.jutsuTimeMult);
                 } else if (action === 'cancel-queue') {
                     changed = cancelQueuedJutsuRyoTraining(character, active);
                 } else if (action === 'advance') {

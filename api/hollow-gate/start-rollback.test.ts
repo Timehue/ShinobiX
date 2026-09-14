@@ -219,6 +219,37 @@ test('two failed starts rolling back out of order each decrement the aggregate e
     assert.deepEqual(await kv.keys(`hg-run:${playerName}:*`), []);
 });
 
+test('a started dive is provable presence (F01) until its run key is gone', async () => {
+    const { battleStateKey, isBattleStateProjection } = await import('../_realtime/battle-projection.js');
+    const { onlineStore } = await import('../_realtime/online-store.js');
+    const { retireHollowGatePresenceByRunKey } = await import('./_presence.js');
+    const playerName = 'hg-start-presence';
+    onlineStore.remove(playerName);
+    onlineStore.upsert({ name: playerName, sector: 9, character: null });
+    await kv.set(`save:${playerName}`, {
+        _saveVersion: 2,
+        character: { name: playerName, level: 20, hp: 500, maxHp: 500, itemStacks: [{ itemId: 'hollow-gate-key', count: 1 }] },
+    });
+
+    const started = await postStart(playerName, 'hg-start-request-presence');
+    assert.equal(started.statusCode, 200);
+    const token = String(started.body?.token ?? '');
+    assert.ok(token);
+    const projection = await kv.get(battleStateKey(playerName));
+    assert.ok(isBattleStateProjection(projection), 'start publishes the battle projection');
+    assert.equal(projection.kind, 'hollow-gate');
+    assert.equal(projection.sessionId, token, 'the projection names the run token the resolver verifies');
+    assert.equal(onlineStore.get(playerName)?.inBattle, true, 'presence follows the dive from its start');
+
+    // Every dive-ending path deletes the run key and retires by that key.
+    const runKey = `hg-run:${playerName}:${token}`;
+    await kv.del(runKey);
+    await retireHollowGatePresenceByRunKey(kv, runKey);
+    assert.equal(await kv.get(battleStateKey(playerName)), null, 'the projection is retired with the run');
+    assert.equal(onlineStore.get(playerName)?.inBattle, undefined, 'and presence ends with it');
+    onlineStore.remove(playerName);
+});
+
 test('a save CAS commit with a lost acknowledgement keeps its daily reservation and run token', async () => {
     const playerName = 'hg-start-lost-ack';
     const requestId = 'hg-start-request-lost-ack';

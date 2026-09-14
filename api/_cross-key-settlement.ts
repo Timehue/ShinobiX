@@ -13,6 +13,19 @@ export class SettlementValidationError extends Error {
 export type CrossKeySettlementResult = {
     result: Record<string, unknown>;
     transaction: DurableSettlementRecord;
+    /**
+     * True when this call moved NOTHING and simply returned the stored result of
+     * an earlier, identical settlement.
+     *
+     * Callers must consult this before charging any side effect that lives
+     * OUTSIDE the saga — a rolling transfer budget, a daily counter, telemetry.
+     * The idempotency key defaults to a content fingerprint (village/clan +
+     * recipient + item/currency + amount) whenever the client sends no
+     * requestId, and neither treasury client sends one, so two genuinely
+     * separate gifts of the same amount to the same player inside the journal's
+     * 90-day TTL are indistinguishable from a retry and resolve here.
+     */
+    replayed: boolean;
 };
 
 export type CrossKeySettlementOptions<S extends Record<string, unknown>> = {
@@ -58,7 +71,7 @@ export async function settleCrossKeyTransfer<S extends Record<string, unknown>>(
     }, { kv });
     if (started.status === 'conflict') throw new SettlementValidationError(409, 'That settlement ID is already bound to a different operation.');
     if (started.record.state === 'completed' && started.record.result) {
-        return { result: started.record.result, transaction: started.record };
+        return { result: started.record.result, transaction: started.record, replayed: true };
     }
 
     const [firstKey, secondKey] = [options.sourceKey, options.recipientKey].sort();
@@ -74,7 +87,7 @@ export async function settleCrossKeyTransfer<S extends Record<string, unknown>>(
             meta: { sourceKey: options.sourceKey, recipientKey: options.recipientKey, ...(options.meta ?? {}) },
         }, { kv });
         if (tx.status === 'conflict') throw new SettlementValidationError(409, 'That settlement ID is already bound to a different operation.');
-        if (tx.record.state === 'completed' && tx.record.result) return { result: tx.record.result, transaction: tx.record };
+        if (tx.record.state === 'completed' && tx.record.result) return { result: tx.record.result, transaction: tx.record, replayed: true };
 
         let mutationObserved = false;
         try {
@@ -143,7 +156,7 @@ export async function settleCrossKeyTransfer<S extends Record<string, unknown>>(
             }
 
             const completed = await completeDurableSettlement(transactionId, result, { kv });
-            return { result, transaction: completed };
+            return { result, transaction: completed, replayed: false };
         } catch (error) {
             if (mutationObserved) {
                 await updateDurableSettlement(transactionId, {

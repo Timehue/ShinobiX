@@ -222,9 +222,14 @@ const nonBloodlineFlavor: Record<string, { battle: string; desc: string }> = {
 };
 
 // Flat-value or binary tags carry no percent; every other starter tag uses the
-// uniform 30% creator value (which displays as 20% at mastery 0).
+// uniform 30% creator value (which displays as 20% at mastery 0) — except Poison,
+// whose percent is a potency on its own lower scale (HP lost per cast = spend ×
+// potency × 12). At the uniform 30 every starter poison hit at the old bloodline
+// tier, ~13% of max HP per 60-AP cast; 10 is the basic Poison ceiling
+// (POISON_CAP_BY_RANK in api/combat-core/formulas.ts).
 function nonBloodlineTagPercent(name: string): number {
     if (name === "Move" || name === "Shield" || name === "Drain") return 0;
+    if (name === "Poison") return 10;
     return 30;
 }
 
@@ -367,7 +372,7 @@ export const starterJutsus: Jutsu[] = [
     normalizeJutsu({ id: "starter-tai-lightning-aoe", name: "Thunderclap Shockwave", type: "Taijutsu", element: "Lightning", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Increase Damage Taken", percent: 16 }], battleDescription: "A lightning-charged clap unleashes a shockwave across the field.", description: "A thunderous burst that jolts the target and all who stand close." }),
     normalizeJutsu({ id: "starter-tai-fire-aoe", name: "Blazing Spin Kick", type: "Taijutsu", element: "Fire", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Ignition", percent: 16 }], battleDescription: "A blazing spin kick trails fire in a scorching arc.", description: "A whirling fire kick that sears the target and the ground around them." }),
     normalizeJutsu({ id: "starter-tai-water-aoe", name: "Surging Wave Palm", type: "Taijutsu", element: "Water", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Siphon", percent: 16 }], battleDescription: "A surge of water bursts from the user's palm in a crashing arc.", description: "A tidal palm strike that hurls a wave over the target and their neighbors." }),
-    normalizeJutsu({ id: "starter-gen-earth-aoe", name: "Crumbling World Illusion", type: "Genjutsu", element: "Earth", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Poison", percent: 14 }], battleDescription: "The world seems to crumble as the earth swallows the enemy's mind.", description: "An illusion of collapsing ground that buries the target and all who share their fate." }),
+    normalizeJutsu({ id: "starter-gen-earth-aoe", name: "Crumbling World Illusion", type: "Genjutsu", element: "Earth", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Poison", percent: 5 }], battleDescription: "The world seems to crumble as the earth swallows the enemy's mind.", description: "An illusion of collapsing ground that buries the target and all who share their fate." }),
     normalizeJutsu({ id: "starter-gen-wind-aoe", name: "Screaming Void", type: "Genjutsu", element: "Wind", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Decrease Damage Given", percent: 16 }], battleDescription: "A howling void tears open, screaming through the enemy's senses.", description: "A shrieking wind illusion that ruptures the minds of the target and those beside them." }),
     normalizeJutsu({ id: "starter-gen-lightning-aoe", name: "Blinding Flash Field", type: "Genjutsu", element: "Lightning", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Increase Damage Taken", percent: 16 }], battleDescription: "A blinding sheet of light detonates across the battlefield.", description: "A searing flash illusion that overloads the target and every foe near them." }),
     normalizeJutsu({ id: "starter-gen-fire-aoe", name: "Hellfire Mirage", type: "Genjutsu", element: "Fire", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Ignition", percent: 14 }], battleDescription: "Phantom hellfire erupts and consumes the enemy's world.", description: "An illusion of all-consuming fire that engulfs the target and their surroundings." }),
@@ -376,7 +381,7 @@ export const starterJutsus: Jutsu[] = [
     normalizeJutsu({ id: "starter-buki-wind-aoe", name: "Fan Blade Storm", type: "Bukijutsu", element: "Wind", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Wound", percent: 14 }], battleDescription: "A storm of wind-borne blades fans out across the field.", description: "A spread of spinning blades on the wind that shreds the target and their neighbors." }),
     normalizeJutsu({ id: "starter-buki-lightning-aoe", name: "Charged Shuriken Spread", type: "Bukijutsu", element: "Lightning", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Increase Damage Taken", percent: 16 }], battleDescription: "A fan of charged shuriken scatters and crackles on impact.", description: "A spread of electrified shuriken that arcs into the target and all beside them." }),
     normalizeJutsu({ id: "starter-buki-fire-aoe", name: "Explosive Tag Barrage", type: "Bukijutsu", element: "Fire", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Ignition", percent: 16 }], battleDescription: "A barrage of explosive tags detonates in a chain of blasts.", description: "A volley of explosive tags that erupts around the target and their surroundings." }),
-    normalizeJutsu({ id: "starter-buki-water-aoe", name: "Mist Blade Torrent", type: "Bukijutsu", element: "Water", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Poison", percent: 14 }], battleDescription: "A torrent of mist-wreathed blades sweeps across the enemy.", description: "A surging spread of water blades that slices the target and everyone nearby." }),
+    normalizeJutsu({ id: "starter-buki-water-aoe", name: "Mist Blade Torrent", type: "Bukijutsu", element: "Water", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Poison", percent: 5 }], battleDescription: "A torrent of mist-wreathed blades sweeps across the enemy.", description: "A surging spread of water blades that slices the target and everyone nearby." }),
 
     // Universal jutsus — no element, available to all
     normalizeJutsu({
@@ -417,7 +422,7 @@ export const starterSavedBloodlines: SavedBloodline[] = [
         jutsus: [
             makeStarterBloodlineDamageJutsu("ashen-eyes-blood-gaze", "Blood Gaze Rupture", "Genjutsu", "Blood", { name: "Wound", percent: 30 }, "Ashen Eyes rupture %target's chakra veins."),
             makeStarterBloodlineDamageJutsu("ashen-eyes-crimson-hall", "Crimson Hallucination", "Genjutsu", "Blood", { name: "Increase Damage Taken", percent: 35 }, "%target wanders a blood-red nightmare."),
-            makeStarterBloodlineDamageJutsu("ashen-eyes-vein-mirror", "Vein Mirror Nightmare", "Genjutsu", "Blood", { name: "Poison", percent: 30 }, "Vein mirrors poison %target's escape."),
+            makeStarterBloodlineDamageJutsu("ashen-eyes-vein-mirror", "Vein Mirror Nightmare", "Genjutsu", "Blood", { name: "Poison", percent: 12 }, "Vein mirrors poison %target's escape."),
             makeStarterBloodlineUtilityJutsu("ashen-eyes-hematoma-veil", "Hematoma Veil", "Genjutsu", "Blood", [{ name: "Increase Damage Taken", percent: 30 }, { name: "Decrease Damage Given", percent: 30 }], "A bruised veil weakens %target's senses."),
         ],
         totalPoints: 9,
@@ -445,7 +450,7 @@ export const starterSavedBloodlines: SavedBloodline[] = [
         image: "/bloodline-shadow-lotus-v2.webp",
         lore: "Descended from a sect of bukijutsu assassins who trained in perpetual darkness for generations, the Shadow Lotus bloodline channels shadow-natured chakra through weapons and thrown implements. Their techniques bloom like deadly flowers from the dark — blades that trail shadow-ribbons, senbon that multiply in dim light, and wires that vanish entirely in low visibility. Their clan temple has no lanterns. They say the darkness learned to fear them first.",
         jutsus: [
-            makeStarterBloodlineDamageJutsu("shadow-lotus-umbra-senbon", "Umbra Senbon Bloom", "Bukijutsu", "Shadow", { name: "Poison", percent: 30 }, "Shadow senbon poison %target."),
+            makeStarterBloodlineDamageJutsu("shadow-lotus-umbra-senbon", "Umbra Senbon Bloom", "Bukijutsu", "Shadow", { name: "Poison", percent: 12 }, "Shadow senbon poison %target."),
             makeStarterBloodlineDamageJutsu("shadow-lotus-night-petal", "Night Petal Cutter", "Bukijutsu", "Shadow", { name: "Decrease Damage Taken", percent: 35 }, "A night-petal blade carves %target."),
             makeStarterBloodlineDamageJutsu("shadow-lotus-eclipse-wire", "Eclipse Wire Blossom", "Bukijutsu", "Shadow", { name: "Absorb", percent: 35 }, "Eclipse wire binds %target's force."),
             makeStarterBloodlineUtilityJutsu("shadow-lotus-black-petal-guard", "Black Petal Guard", "Bukijutsu", "Shadow", [{ name: "Decrease Damage Taken", percent: 30 }, { name: "Absorb", percent: 30 }], "Black petals steal %target's momentum."),

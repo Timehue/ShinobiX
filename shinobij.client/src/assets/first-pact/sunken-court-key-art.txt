@@ -1,0 +1,13 @@
+Generated with the built-in image generation tool for Celestial Tower: The First Pact.
+
+Use case: stylized-concept
+Asset type: AAA game environment key art and visual target for a connected top-down 2D tile-based RPG overworld
+Primary request: the living Sunken Court at its height, an ancient fantasy city built around a grand circular pet colosseum, with every district visibly connected by walkable stone streets, bridges, stairs, canal paths, and gates
+Scene/backdrop: a dense mountaintop court-city before its fall; central circular beast arena, kennel ward with warm courtyards, crowded market and scribe quarter, high court terraces, bell quarter, guardian gardens, aqueduct, and ominous gateworks descending underground
+Subject: the city itself as a coherent explorable game space; clear routes and district silhouettes, no isolated floating locations
+Style/medium: premium hand-painted 2D game environment, highly polished dark fantasy with restrained East Asian architectural influence, painterly realism matching a serious shinobi browser RPG
+Composition/framing: wide 16:9 establishing image from a high three-quarter/top-down orthographic-like view; central colosseum anchors navigation; readable walkable streets and layered elevation; useful darker negative space at the far left for UI
+Lighting/mood: late blue hour, warm lanterns and gold civic light against deep navy stone, prosperous on the surface with subtle cyan machinery glowing beneath grates
+Color palette: midnight blue, charcoal stone, muted jade, aged bronze, warm amber lantern light, restrained cyan temporal glow
+Materials/textures: weathered stone paving, dark tiled roofs, bronze bells, carved beast motifs, water channels, cloth banners without symbols or writing
+Constraints: no text, no lettering, no UI, no logos, no watermark, no modern objects, no obvious real-world landmark, no characters in the foreground, all districts physically connected

@@ -4,8 +4,8 @@ import { imageEntries, imageUrl, parseImageManifest } from "./shared-image-manif
 
 describe("shared image manifest", () => {
     it("reads the versioned shape", () => {
-        const manifest = parseImageManifest({ version: "7", ids: ["jutsu:fireball", "jutsu:rasengan"] });
-        assert.deepEqual(manifest, { version: "7", ids: ["jutsu:fireball", "jutsu:rasengan"] });
+        const manifest = parseImageManifest({ version: "7", ids: ["jutsu:fireball", "jutsu:spiral-core"] });
+        assert.deepEqual(manifest, { version: "7", ids: ["jutsu:fireball", "jutsu:spiral-core"] });
     });
 
     it("still reads the bare-array shape the endpoint used to return", () => {

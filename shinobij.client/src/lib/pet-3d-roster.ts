@@ -5,7 +5,7 @@ import {
     isHollowHoundEncounterId,
 } from "../../../shared/hollow-gate-contract";
 import { petShowdownAnimationModelUrl, petShowdownAnimationYawOffset } from "./pet-showdown-animation-assets";
-import { PROPER_PET_ANIMATION_ASSET_REVISION } from "./pet-proper-animation-assets";
+import { PET_RIG_REPAIR_REVISIONS, PROPER_PET_ANIMATION_ASSET_REVISION } from "./pet-proper-animation-assets";
 
 /** Models only enter this list after generation, mesh-budget validation,
  * multi-angle review, and an in-battle pass. Keeping approval in source makes a
@@ -33,8 +33,9 @@ export const APPROVED_ROSTER_MODEL_IDS: ReadonlySet<string> = new Set(APPROVED_R
 export const ROSTER_MODEL_ASSET_REVISION = PROPER_PET_ANIMATION_ASSET_REVISION;
 
 function rosterModelUrl(id: string): string {
+    const revision = PET_RIG_REPAIR_REVISIONS[id] ?? ROSTER_MODEL_ASSET_REVISION;
     return petShowdownAnimationModelUrl(id)
-        ?? `/pet-models/roster/${id}.glb?v=${ROSTER_MODEL_ASSET_REVISION}`;
+        ?? `/pet-models/roster/${id}.glb?v=${revision}`;
 }
 
 // The three built-in Coliseum opponents predate the canonical pet roster, so

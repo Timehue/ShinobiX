@@ -1,3 +1,4 @@
+import { INVENTORY_CAP, INVENTORY_FULL_ERROR } from '../_inventory-capacity.js';
 import {
     appendSettlementReceipt,
     inspectSettlementReceipt,
@@ -36,7 +37,9 @@ const SHOP_SLOTS = new Set(['head', 'body', 'waist', 'legs', 'feet', 'hand', 'au
 const RYO_RARITIES = new Set(['common', 'uncommon', 'rare', 'epic']);
 const FATE_RARITIES = new Set(['legendary', 'mythic']);
 const MAX_STACK = 9999;
-const MAX_INVENTORY = 500;
+// Re-exported from the one capacity authority so the shop, the other grant
+// paths and the save validator can never drift to different numbers again.
+const MAX_INVENTORY = INVENTORY_CAP;
 
 type StoredItems = { inventory: string[]; stacks: Map<string, number> };
 
@@ -209,7 +212,7 @@ export function applyItemPurchase(
         if (next > MAX_STACK) return { ok: false, status: 409, error: 'That item stack is full.' };
         items.stacks.set(item.id, next);
     } else {
-        if (items.inventory.length + quantity > MAX_INVENTORY) return { ok: false, status: 409, error: 'Your inventory is full.' };
+        if (items.inventory.length + quantity > MAX_INVENTORY) return { ok: false, status: 409, error: INVENTORY_FULL_ERROR };
         for (let i = 0; i < quantity; i += 1) items.inventory.push(item.id);
     }
     const value: ShopSettlementValue = { kind: 'item-purchase', itemId: item.id, quantity, currency, totalCost };

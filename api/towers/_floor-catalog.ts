@@ -300,7 +300,7 @@ const CHAPTER_ONE_PRESENTATION = {
     chapter: 1,
     chapterTitle: 'The Spire Ascent',
     chapterSubtitle: 'Ten occupied floors separate the forest gate from the summit command post.',
-    chapterSummary: 'Take the lower platforms, bring stranded shinobi out, learn the four wardens’ tactics, and remove the self-appointed Sovereign from the summit.',
+    chapterSummary: 'Dispatcher Aya asks you to reopen the supply route and bring the shinobi trapped above the forest gate down alive. Take the lower platforms and remove the self-appointed Sovereign from the summit.',
 } as const;
 export const FLOOR_CATALOG: readonly TowerFloor[] = [
     {
@@ -557,7 +557,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         chapter: 2,
         chapterTitle: 'The Stormglass Rebellion',
         chapterSubtitle: 'Captured orders reveal a Stormveil splinter regiment holding five floors above the summit.',
-        chapterSummary: "Open the Regent's citadel, seize its route record, carry it across the lightning bridge, and shut down the storm array at the crown.",
+        chapterSummary: "Dispatcher Aya needs the upper route cleared before another extraction can climb. Open the Regent's citadel, carry its route record across the lightning bridge, and shut down the storm array at the crown.",
         artKey: 'stormglass-breach',
         briefing: {
             situation: "The Sovereign's command seal opens an upper gate. The Regent's advance guard forms three defensive lines inside it.",
@@ -585,7 +585,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         chapter: 2,
         chapterTitle: 'The Stormglass Rebellion',
         chapterSubtitle: 'Captured orders reveal a Stormveil splinter regiment holding five floors above the summit.',
-        chapterSummary: "Open the Regent's citadel, seize its route record, carry it across the lightning bridge, and shut down the storm array at the crown.",
+        chapterSummary: "Dispatcher Aya needs the upper route cleared before another extraction can climb. Open the Regent's citadel, carry its route record across the lightning bridge, and shut down the storm array at the crown.",
         artKey: 'thunder-archive',
         briefing: {
             situation: 'The Thunder Archivist locked the bridge route plate behind three barrier seals and stationed mirrored sentinels around it.',
@@ -620,7 +620,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         chapter: 2,
         chapterTitle: 'The Stormglass Rebellion',
         chapterSubtitle: 'Captured orders reveal a Stormveil splinter regiment holding five floors above the summit.',
-        chapterSummary: "Open the Regent's citadel, seize its route record, carry it across the lightning bridge, and shut down the storm array at the crown.",
+        chapterSummary: "Dispatcher Aya needs the upper route cleared before another extraction can climb. Open the Regent's citadel, carry its route record across the lightning bridge, and shut down the storm array at the crown.",
         artKey: 'thousand-bolt-bridge',
         briefing: {
             situation: 'A wounded Tower Scout carries the route to the crown. Hold the lightning bridge until the message is transmitted.',
@@ -649,7 +649,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         chapter: 2,
         chapterTitle: 'The Stormglass Rebellion',
         chapterSubtitle: 'Captured orders reveal a Stormveil splinter regiment holding five floors above the summit.',
-        chapterSummary: "Open the Regent's citadel, seize its route record, carry it across the lightning bridge, and shut down the storm array at the crown.",
+        chapterSummary: "Dispatcher Aya needs the upper route cleared before another extraction can climb. Open the Regent's citadel, carry its route record across the lightning bridge, and shut down the storm array at the crown.",
         artKey: 'broken-reflections',
         briefing: {
             situation: 'The Regiment uses mirrored screens to create overlapping firing lanes while the outer galleries close toward the central shrine.',
@@ -680,7 +680,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         chapter: 2,
         chapterTitle: 'The Stormglass Rebellion',
         chapterSubtitle: 'Captured orders reveal a Stormveil splinter regiment holding five floors above the summit.',
-        chapterSummary: "Open the Regent's citadel, seize its route record, carry it across the lightning bridge, and shut down the storm array at the crown.",
+        chapterSummary: "Dispatcher Aya needs the upper route cleared before another extraction can climb. Open the Regent's citadel, carry its route record across the lightning bridge, and shut down the storm array at the crown.",
         artKey: 'stormglass-crown',
         briefing: {
             situation: 'The Stormglass Regent uses mirrored pylons to drive a storm array over the upper spire. Clear the retainers, then shut the array down.',

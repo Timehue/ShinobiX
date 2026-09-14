@@ -87,23 +87,22 @@ test('settleSaveRecord reports geoChanged when the one-time migration runs', () 
     assert.equal(settleSaveRecord(save(), { now: NOW }).geoChanged, false);
 });
 
-test('settleSaveRecord completes expired pending travel', () => {
+test('settleSaveRecord clears an expired client loading mask without moving the player', () => {
     const result = settleSaveRecord(save({
         pendingTravel: { destinationSector: 42, arrivalAt: NOW - 1 },
     }), { now: NOW });
     assert.equal(result.travelChanged, true);
-    assert.equal(result.record.currentSector, 42);
-    assert.equal(result.record.currentBiome, biomeForSettledSector(42));
+    assert.equal(result.record.currentSector, 12);
     assert.equal(result.record.pendingTravel, null);
 });
 
-test('settleSaveRecord keeps future pending travel without changing sector', () => {
+test('settleSaveRecord cannot authorize a future client loading mask', () => {
     const result = settleSaveRecord(save({
         pendingTravel: { destinationSector: 42, arrivalAt: NOW + 1 },
     }), { now: NOW });
-    assert.equal(result.travelChanged, false);
+    assert.equal(result.travelChanged, true);
     assert.equal(result.record.currentSector, 12);
-    assert.deepEqual(result.record.pendingTravel, { destinationSector: 42, arrivalAt: NOW + 1 });
+    assert.equal(result.record.pendingTravel, null);
 });
 
 test('one-time world-geo migration remaps pre-reorg sector fields exactly once', () => {
@@ -117,8 +116,7 @@ test('one-time world-geo migration remaps pre-reorg sector fields exactly once',
     assert.equal(result.record.worldGeoV, WORLD_GEO_VERSION);
     assert.equal(result.record.currentSector, OLD_TO_NEW_SECTOR[12]);
     assert.equal(result.record.currentBiome, sectorBiomeOf(OLD_TO_NEW_SECTOR[12]!));
-    const travel = result.record.pendingTravel as { destinationSector: number };
-    assert.equal(travel.destinationSector, OLD_TO_NEW_SECTOR[42]);
+    assert.equal(result.record.pendingTravel, null, 'legacy loading masks do not survive as travel authority');
     const quest = (result.record.character as Record<string, unknown>).activeRiftQuest as { targetSector: number };
     assert.equal(quest.targetSector, OLD_TO_NEW_SECTOR[16]);
     // Idempotent: settling the migrated record again must not re-remap.

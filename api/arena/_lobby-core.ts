@@ -21,6 +21,9 @@
  * (the seal already lives in lobby.match), never trust a client-reported result.
  */
 
+import type { PetJutsu, PetSubRole, PetTrait } from '../_pet-sim/pet-types.js';
+import { SERVER_ARENA_PETS } from '../pet/_arena-ai.js';
+
 export type ArenaRole = "defender" | "tracker" | "assassin" | "sage";
 export type Team = "blue" | "red";
 
@@ -37,9 +40,20 @@ export type PetSnapshot = {
     speed: number;
     element: string;
     role?: ArenaRole;           // native combat role from the owner's save; preferred over autoArenaRoles
+    subRole?: PetSubRole;
+    trait?: PetTrait;
+    jutsus?: PetJutsu[];        // optional only for lobby snapshots saved before the Rite migration
+    templateId?: string;
+    evolutionStage?: number;
+    paletteVariantId?: string;
 };
 
 const ARENA_ROLES = new Set<ArenaRole>(["defender", "tracker", "assassin", "sage"]);
+const ARENA_SUB_ROLES = new Set<PetSubRole>(['tank', 'bruiser', 'striker', 'assassin', 'kite', 'control', 'support']);
+const JUTSU_KINDS = new Set<PetJutsu['kind']>([
+    'damage', 'buff', 'heal', 'debuff', 'dot', 'move', 'barrier', 'movelock', 'lifesteal', 'shield',
+    'absorb', 'burn', 'freeze', 'confuse', 'stun', 'crush', 'wound', 'mark', 'slow', 'haste', 'taunt', 'push', 'pull',
+]);
 
 export type LobbySlot = {
     team: Team;
@@ -131,6 +145,19 @@ const clampStat = (v: unknown, min: number, max: number, dflt: number): number =
 
 /** Freeze a raw pet (from a save) to the fields the sim/renderer use. */
 export function snapshotPet(raw: Record<string, unknown>): PetSnapshot {
+    const jutsus = (Array.isArray(raw.jutsus) ? raw.jutsus : []).slice(0, 8).map((value): PetJutsu => {
+        const move = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+        return {
+            name: String(move.name ?? 'Strike').slice(0, 80),
+            kind: JUTSU_KINDS.has(move.kind as PetJutsu['kind']) ? move.kind as PetJutsu['kind'] : 'damage',
+            power: clampStat(move.power, 0, 100_000, 80),
+            cooldown: clampStat(move.cooldown, 0, 60, 1),
+            currentCooldown: 0,
+            ...(typeof move.rounds === 'number' ? { rounds: clampStat(move.rounds, 0, 20, 0) } : {}),
+            ...(move.signature === true ? { signature: true } : {}),
+            ...(move.aoe === true ? { aoe: true } : {}),
+        };
+    });
     return {
         id: String(raw.id ?? ""),
         name: String(raw.name ?? "Pet").slice(0, 40),
@@ -142,6 +169,12 @@ export function snapshotPet(raw: Record<string, unknown>): PetSnapshot {
         speed: clampStat(raw.speed, 1, 100000, 50),
         element: String(raw.element ?? "Fire"),
         role: ARENA_ROLES.has(raw.role as ArenaRole) ? (raw.role as ArenaRole) : undefined,
+        ...(ARENA_SUB_ROLES.has(raw.subRole as PetSubRole) ? { subRole: raw.subRole as PetSubRole } : {}),
+        ...(typeof raw.trait === 'string' ? { trait: raw.trait.slice(0, 40) as PetTrait } : {}),
+        jutsus,
+        ...(typeof raw.templateId === 'string' ? { templateId: raw.templateId.slice(0, 80) } : {}),
+        ...(typeof raw.evolutionStage === 'number' ? { evolutionStage: clampStat(raw.evolutionStage, 0, 10, 0) } : {}),
+        ...(typeof raw.paletteVariantId === 'string' ? { paletteVariantId: raw.paletteVariantId.slice(0, 80) } : {}),
     };
 }
 
@@ -184,30 +217,22 @@ function pick(idx: number[], score: (i: number) => number, dir: "max" | "min"): 
 export function autoArenaRoles(pets: PetSnapshot[]): ArenaRole[] {
     if (pets.length > 0 && pets.every((p) => p.role)) return pets.map((p) => p.role!);
     const n = pets.length;
-    if (n <= 2) return pets.map((_, i) => (i === 0 ? "defender" : "assassin"));
+    if (n <= 2) return pets.map((pet, i) => pet.role ?? (i === 0 ? "defender" : "assassin"));
     const all = pets.map((_, i) => i);
     const def = pick(all, (i) => pets[i].defense, "max");
     const rest1 = all.filter((i) => i !== def);
     const asn = pick(rest1, (i) => pets[i].attack + pets[i].speed, "max");
     const rest2 = rest1.filter((i) => i !== asn);
     const sge = pick(rest2, (i) => pets[i].attack, "min");
-    return all.map((i) => (i === def ? "defender" : i === asn ? "assassin" : i === sge ? "sage" : "tracker"));
+    return all.map((i) => pets[i].role ?? (i === def ? "defender" : i === asn ? "assassin" : i === sge ? "sage" : "tracker"));
 }
 
 // Fixed AI pool for empty seats. Ids are ones the client already renders in the
 // arena (pose flipbooks exist), and stats are arena-balanced mids. Picked in
 // order across all empty seats at start, so a sealed match is fully concrete and
 // identical for every client (no client-side AI rolling → no replay divergence).
-export const AI_POOL: PetSnapshot[] = [
-    { id: "legendary-0", name: "Aegis Sentinel", rarity: "legendary", level: 30, hp: 920, attack: 84, defense: 88, speed: 64, element: "Earth", role: "defender" },
-    { id: "legendary-1", name: "Stormtalon", rarity: "legendary", level: 30, hp: 660, attack: 132, defense: 38, speed: 122, element: "Lightning", role: "assassin" },
-    { id: "legendary-2", name: "Cinderfang", rarity: "legendary", level: 30, hp: 720, attack: 124, defense: 48, speed: 96, element: "Fire", role: "assassin" },
-    { id: "legendary-3", name: "Tidepriest", rarity: "legendary", level: 30, hp: 780, attack: 78, defense: 70, speed: 72, element: "Water", role: "sage" },
-    { id: "generic-ai-pet-guardhound", name: "Guardhound", rarity: "rare", level: 28, hp: 840, attack: 92, defense: 80, speed: 70, element: "Earth", role: "defender" },
-    { id: "generic-ai-pet-emberlynx", name: "Emberlynx", rarity: "rare", level: 28, hp: 680, attack: 120, defense: 44, speed: 108, element: "Fire", role: "tracker" },
-    { id: "legendary-4", name: "Galewing", rarity: "legendary", level: 30, hp: 700, attack: 110, defense: 52, speed: 116, element: "Wind", role: "tracker" },
-    { id: "legendary-5", name: "Mossward", rarity: "legendary", level: 30, hp: 880, attack: 80, defense: 84, speed: 60, element: "Earth", role: "defender" },
-];
+export const AI_POOL: PetSnapshot[] = Object.values(SERVER_ARENA_PETS)
+    .map((pet) => snapshotPet(pet as unknown as Record<string, unknown>));
 
 /**
  * Seal the match. For each team, take its two player seats in order — each
@@ -230,7 +255,7 @@ export function resolveMatch(lobby: Lobby, seed: number): MatchPayload {
             }
         }
         const roles = autoArenaRoles(pets);
-        return pets.map((pet, i) => ({ pet, role: roles[i] }));
+        return pets.map((pet, i) => ({ pet: { ...pet, jutsus: pet.jutsus ?? [], role: roles[i] }, role: roles[i] }));
     };
     return { seed, blue: buildTeam("blue"), red: buildTeam("red") };
 }

@@ -190,7 +190,9 @@ test('a first-time Google user lands in the creator and registers without a pass
     // The nonce this browser generated before it was sent to Google.
     await page.addInitScript(() => sessionStorage.setItem('shinobix:googleNonce', 'nonce-from-this-browser'));
 
-    await page.goto('/?gauth=signup&gticket=abc123', { waitUntil: 'networkidle' });
+    // The creator can be ready while background asset requests are still active.
+    // Assert the ticket cleanup and rendered creator below instead of network idle.
+    await page.goto('/?gauth=signup&gticket=abc123', { waitUntil: 'domcontentloaded' });
 
     // The ticket is credential-shaped and must not survive in the address bar.
     await expect.poll(() => new URL(page.url()).search).toBe('');

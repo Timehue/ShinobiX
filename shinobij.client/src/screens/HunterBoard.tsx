@@ -1,3 +1,4 @@
+import { gainXp } from "../lib/character-level-projection";
 import { useEffect, useRef, useState } from "react";
 import type React from "react";
 import type { Character, VersionedCharacterCommit } from "../types/character";
@@ -28,7 +29,7 @@ import {
     isoWeekKey,
 } from "../lib/apex-contract";
 import "./HunterBoard.apex.css";
-import { gainXp } from "../App";
+
 import { rankUpHunterServer } from "../lib/hunter-rank-api";
 import { countItem } from "../lib/inventory";
 import { requireServerSettlement } from "../lib/server-settlement-gate";

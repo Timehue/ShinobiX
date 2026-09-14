@@ -143,3 +143,32 @@ describe('mirrorSlotContent', () => {
         assert.deepEqual(stored.value, [{ id: 'j2' }]);
     });
 });
+
+describe('published content batching', () => {
+    it('uses a single mget for production adapters', async () => {
+        const kv = _makeMemoryKv();
+        await publishContent('creatorItems', [{ id: 'one' }], { actor: 'admin1', kv });
+        let batches = 0;
+        const store = {
+            ...kv,
+            get: async () => { throw new Error('individual read should not run'); },
+            mget: (async (...keys: string[]) => { batches++; return kv.mget(...keys); }) as typeof kv.mget,
+        };
+        assert.deepEqual(await loadPublishedContent({ kv: store }), { creatorItems: [{ id: 'one' }] });
+        assert.equal(batches, 1);
+    });
+
+    it('falls back to individual reads after a batch failure and preserves available fields', async () => {
+        const kv = _makeMemoryKv();
+        await publishContent('creatorItems', [{ id: 'one' }], { actor: 'admin1', kv });
+        const store = {
+            ...kv,
+            mget: async () => { throw new Error('batch unavailable'); },
+            get: (async (key: string) => {
+                if (key === contentKey('creatorJutsus')) throw new Error('one field unavailable');
+                return kv.get(key);
+            }) as typeof kv.get,
+        };
+        assert.deepEqual(await loadPublishedContent({ kv: store }), { creatorItems: [{ id: 'one' }] });
+    });
+});

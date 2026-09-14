@@ -32,7 +32,7 @@ describe('Tower MPvP additive isolation contract', () => {
     });
 
     it('mounts all four isolated production routes', () => {
-        const server = source('server.ts');
+        const server = source('server-api-routes.ts');
         for (const route of ['pvp-queue', 'pvp-state', 'pvp-action', 'pvp-settle']) {
             assert.match(server, new RegExp(`route\\('/towers/${route}'`));
             assert.match(server, new RegExp(`api/towers/${route}\\.js`));
@@ -125,7 +125,8 @@ describe('Tower MPvP additive isolation contract', () => {
         // `tower:<runId>` row, so falling through reads null and confirmed-missing
         // recovery would release a live match's lease.
         const pvpBranch = myRun.indexOf('isMpvpLeaseMode(battleLease?.meta.mode)');
-        const towerRead = myRun.indexOf('const session = await readSession(runId)');
+        // `let`, not `const`, since the F08 lapse reconciliation may replace the row it read.
+        const towerRead = myRun.indexOf('session = await readSession(runId)');
         assert.ok(pvpBranch > 0 && pvpBranch < towerRead);
         assert.match(myRun, /pvpMatchId: battleLease!\.battleId/);
         assert.match(myRun, /pvpMatchKind/, 'recovery must say which surface owns the match');

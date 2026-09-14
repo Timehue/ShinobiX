@@ -473,7 +473,7 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     const readiness = page.locator(".pet-battle-readiness");
     await expect(readiness.getByRole("heading", { name: "Battle Deployment" })).toBeVisible();
     await expect(readiness).toContainText("Pet Colosseum");
-    await expect(readiness).toContainText("Hollow Warfront");
+    await expect(readiness).toContainText("Beastbound Warfront");
     await expect(readiness).toContainText("Aegis Pendant");
     await expect(readiness).toContainText("27 victories");
     await expect(readiness.getByRole("button", { name: /Deploy Sumi/ })).toBeEnabled();
@@ -482,8 +482,8 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await readiness.screenshot({ path: testInfo.outputPath("14a-battle-deployment-console.png"), animations: "disabled" });
 
     await readiness.getByRole("button", { name: /Add Sumi to Squad/ }).click();
-    await expect(page.getByRole("heading", { name: "Hollow Warfront", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Hollow Warfront/ })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("heading", { name: "Beastbound Warfront", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Beastbound Warfront/ })).toHaveAttribute("aria-current", "page");
     const deployedWarfrontPet = page.locator(".pet-pick", { hasText: "Sumi" });
     await expect(deployedWarfrontPet).toHaveClass(/selected/);
     await expect(deployedWarfrontPet.locator(".pet-pick-order")).toHaveText("1");
@@ -500,7 +500,7 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await page.getByRole("button", { name: "Pet Arena" }).click();
     await expect(page.getByRole("heading", { name: "Pet Colosseum", exact: true })).toBeVisible();
     await expect(page.locator(".pet-arena-selector")).toHaveCount(2);
-    await expect(page.getByRole("button", { name: /Hollow Warfront/ })).toBeEnabled();
+    await expect(page.getByRole("button", { name: /Beastbound Warfront/ })).toBeEnabled();
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), {
         message: "the redesigned Pet Arena must not create desktop horizontal overflow",
     }).toBe(true);
@@ -625,11 +625,11 @@ test("Pet battle readiness mirrors server admission and lineage rules", async ({
     selectedPet.training = { type: "strength", endsAt: past };
     await openHome(page);
     await page.getByRole("button", { name: "Pet Arena" }).click();
-    const warfrontTab = page.getByRole("button", { name: /Hollow Warfront/ });
+    const warfrontTab = page.getByRole("button", { name: /Beastbound Warfront/ });
     await expect(warfrontTab).toBeEnabled();
     await expect(page.locator(".pet-arena-readiness")).toContainText("5 companions");
     await warfrontTab.click();
-    await expect(page.getByRole("heading", { name: "Hollow Warfront", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Beastbound Warfront", exact: true })).toBeVisible();
     await expect(page.locator(".pet-pick", { hasText: "Sumi" })).toHaveCount(0);
     await expect(page.locator(".pet-pick")).toHaveCount(5);
     await expect(page.getByText("Your team (4/4)")).toBeVisible();
@@ -659,7 +659,7 @@ test("a base roster unlocks Tactical while lapsed Supporter overflow stays prese
     await page.getByRole("button", { name: "Pet Yard" }).click();
     await expect(page.getByText(new RegExp(`${carried(basePets.length)}/${PET_CAP_BASE} combat-carried · ${basePets.length} owned`))).toBeVisible();
     await page.getByRole("button", { name: "Pet Arena" }).click();
-    await expect(page.getByRole("button", { name: /Hollow Warfront/ })).toBeEnabled();
+    await expect(page.getByRole("button", { name: /Beastbound Warfront/ })).toBeEnabled();
     // The rendered locked copy is "Locked · N/M pets" (middle dot, from the
     // <small> in PetArena.tsx); the separate "Locked: N/M available pets" string
     // is a title ATTRIBUTE that getByText cannot see at all. This assertion was

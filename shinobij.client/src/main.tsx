@@ -20,9 +20,12 @@ import { legalPageForPath } from './data/legal.ts'
 // Keep the mobile-only product layer out of the desktop initial graph. Request
 // it immediately on phones/tablets, and once on a later desktop-to-mobile
 // resize; after loading, its own data-ui-mode gates still exclude combat.
+// If the stylesheet fails to load, phones keep the adaptive-shell layout above.
+// Vite's preload helper never requests a failed stylesheet again in this page,
+// so the rejection is dropped instead of escaping unhandled.
 const mobileProductViewport = window.matchMedia('(max-width: 979px)')
 function ensureMobileProductLayer() {
-    if (mobileProductViewport.matches) void import('./styles/mobile-noncombat-aaa.css')
+    if (mobileProductViewport.matches) void import('./styles/mobile-noncombat-aaa.css').catch(() => {})
 }
 ensureMobileProductLayer()
 mobileProductViewport.addEventListener('change', ensureMobileProductLayer)

@@ -1,3 +1,4 @@
+import { isSeatedVillageElder } from '../lib/village-elder-focus';
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useCallback, useMemo } from "react";
 import "../styles/village-war-map-skin.css";
@@ -29,6 +30,7 @@ import {
     type WrMercTierView,
     type MercLeaseView,
 } from "../lib/village-war-map";
+import { contestBackKey } from "../lib/sector-war-engagement";
 import { mercPortrait } from "../lib/merc-ai";
 import { isVillageAnbu } from "../lib/world-state";
 import { revealedIntelForSector } from "../lib/village-intel";
@@ -106,7 +108,8 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
     // ANBU appointees may toggle the garrison feed (like the war systems); the
     // server re-checks against the village's appointee list. Derived, not frozen
     // at mount — an appointment made mid-session must light the controls up.
-    const isAnbu = useMemo(() => isVillageAnbu(character), [character]);
+    const isAnbu = isVillageAnbu(character);
+    const isElder = isSeatedVillageElder(character);
 
     const myVillage = (character.village ?? "").trim();
     // Shared ticking clock — reading it in render is pure (react-hooks/purity),
@@ -119,11 +122,13 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
         // server declare / win-condition / structure endpoints check — so the Kage
         // controls only appear when the server will actually accept them (avoids the
         // "you're shown the tools but the server says you're not the Kage" mismatch).
-        fetch(`/api/village/kage?village=${encodeURIComponent(myVillage)}`, { cache: "no-store" }).then((r) => r.json()).then((d) => {
-            if (!alive) return;
-            setIsKage(String((d as { seatedKage?: string }).seatedKage ?? "").toLowerCase() === character.name.toLowerCase());
-        }).catch(() => {});
-        return () => { alive = false; };
+        setIsKage(false);
+        const refreshKage = () => fetch(`/api/village/kage?village=${encodeURIComponent(myVillage)}`, { cache: 'no-store' })
+            .then(r => r.ok ? r.json() : null).then(data => {
+                if (alive) setIsKage(String(data?.seatedKage ?? '').toLowerCase() === character.name.toLowerCase());
+            }).catch(() => { if (alive) setIsKage(false); });
+        const stop = visiblePoll(refreshKage, 12000, 0.1, { immediate: true });
+        return () => { alive = false; stop(); };
     }, [character.name, myVillage]);
 
     const refresh = useCallback(async () => {
@@ -162,7 +167,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
         } catch { /* mercs are best-effort (feature gated off / not a war village) */ }
     }, [character.name, myVillage]);
 
-    useEffect(() => { void refresh(); void loadMercs(); return visiblePoll(refresh, 15000); }, [refresh, loadMercs]);
+    useEffect(() => { void loadMercs(); return visiblePoll(refresh, 15000, 0.1, { immediate: true }); }, [refresh, loadMercs]);
 
     const myView = useMemo(() => data?.villages.find((v) => v.village === myVillage) ?? null, [data, myVillage]);
     const contestBySector = useMemo(() => {
@@ -240,13 +245,21 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
     // Card contests are fought on the interactive Sector War Card Battle screen —
     // stash the contest id and navigate; that screen auto-joins as attacker/defender.
     const launchCardBattle = useCallback((sectorWarId: string) => {
-        try { sessionStorage.setItem("sectorWarCard.v1", JSON.stringify({ sectorWarId })); } catch { /* ignore */ }
+        try {
+            sessionStorage.setItem("sectorWarCard.v1", JSON.stringify({ sectorWarId }));
+            // Clear any return target a previous world-map entry left behind, or
+            // Back from this launch would bounce to the map instead of here.
+            sessionStorage.removeItem(contestBackKey("sectorWarCard.v1"));
+        } catch { /* ignore */ }
         setScreen("sectorCard");
     }, [setScreen]);
     // Pet contests are fought on the Sector War Pet Battle screen — a server-resolved
     // deterministic duel, then a byte-identical client replay. Stash + navigate.
     const launchPetBattle = useCallback((sectorWarId: string) => {
-        try { sessionStorage.setItem("sectorWarPet.v1", JSON.stringify({ sectorWarId })); } catch { /* ignore */ }
+        try {
+            sessionStorage.setItem("sectorWarPet.v1", JSON.stringify({ sectorWarId }));
+            sessionStorage.removeItem(contestBackKey("sectorWarPet.v1"));
+        } catch { /* ignore */ }
         setScreen("sectorPet");
     }, [setScreen]);
     // Combat's liveness fallback — assault the sector's ANBU garrison when no
@@ -511,9 +524,9 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                                     🛡 Assault Garrison
                                                 </button>
                                             )}
-                                            {mine && (
+                                            {(mine || (v.village === myVillage && isElder)) && (
                                                 <div className="vwm-config">
-                                                    <select
+                                                    {mine && <select
                                                         value={sec.winCondition}
                                                         disabled={!!busy}
                                                         onChange={(e) => act(`wc-${sec.sector}`, () => setSectorWinCondition(character.name, myVillage, sec.sector, e.target.value as WinCondition))}
@@ -521,7 +534,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                                         <option value="combat">Combat</option>
                                                         <option value="card">Card</option>
                                                         <option value="pet">Pet</option>
-                                                    </select>
+                                                    </select>}
                                                     <select
                                                         value={sec.terrain}
                                                         disabled={!!busy}

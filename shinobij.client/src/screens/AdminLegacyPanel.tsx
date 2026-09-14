@@ -37,23 +37,25 @@ type EraView = {
     unlockedBy: string | null; unlockedAt: number | null;
 };
 
+async function requestLegacy(adminPw: string, body: Record<string, unknown>, signal?: AbortSignal): Promise<Record<string, unknown> | null> {
+    const res = await fetch('/api/admin/legacy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
+        body: JSON.stringify(body),
+        signal,
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(String((data as { error?: string })?.error ?? `HTTP ${res.status}`));
+    return data as Record<string, unknown> | null;
+}
+
 export function AdminLegacyPanel({ adminPw }: { adminPw: string }) {
     const [status, setStatus] = useState("");
     const [busy, setBusy] = useState(false);
 
     const post = useCallback(async (body: Record<string, unknown>): Promise<Record<string, unknown> | null> => {
         try {
-            const res = await fetch('/api/admin/legacy', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
-                body: JSON.stringify(body),
-            });
-            const data = await res.json().catch(() => null);
-            if (!res.ok) {
-                setStatus(`✗ ${String((data as { error?: string })?.error ?? `HTTP ${res.status}`)}`);
-                return null;
-            }
-            return data as Record<string, unknown>;
+            return await requestLegacy(adminPw, body);
         } catch (e) {
             setStatus(`✗ ${e instanceof Error ? e.message : 'network error'}`);
             return null;
@@ -68,19 +70,11 @@ export function AdminLegacyPanel({ adminPw }: { adminPw: string }) {
     const [changeReason, setChangeReason] = useState("");
     useEffect(() => {
         const controller = new AbortController();
-        void fetch('/api/admin/legacy', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
-            body: JSON.stringify({ action: 'definitions' }),
-            signal: controller.signal,
-        })
-            .then(async (res) => res.ok ? res.json().catch(() => null) : null)
-            .then((data: Record<string, unknown> | null) => {
-                if (data && Array.isArray(data.definitions)) {
-                    setDefs(data.definitions as AdminLegacyDef[]);
-                }
-            })
-            .catch(() => undefined);
+        void requestLegacy(adminPw, { action: 'definitions' }, controller.signal).then((data) => {
+            if (!controller.signal.aborted && data && Array.isArray(data.definitions)) setDefs(data.definitions as AdminLegacyDef[]);
+        }).catch((error: unknown) => {
+            if (!controller.signal.aborted) setStatus(`✗ ${error instanceof Error ? error.message : 'network error'}`);
+        });
         return () => controller.abort();
     }, [adminPw]);
 

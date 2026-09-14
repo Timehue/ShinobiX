@@ -322,10 +322,11 @@ onboarding or Express journeys must run it explicitly.
     New shinobi 2v2 send/join/accept progression returns `410`; retained queue
     records are cleanup-only and cannot launch. Re-admission requires one
     server-owned four-player PvP lifecycle that settles the whole challenge.
-15. **Tactical Arena is currently only a Warfront alias.** Sharing the positional
-    Tactical engine family is allowed, but the owner handoff requires Warfront and
-    Tactical Arena to remain distinct named modes. The missing independent surface
-    is an open product/route gap, not an undecided owner requirement.
+15. **Pet Tactical is retired into Beastbound Warfront.** The September 2026
+    consolidation supersedes the earlier standalone Tactical requirement. Solo,
+    co-op, and offline ranked play use the Rite. Ranked defenses keep their
+    existing standings and seal four pets with their chosen starting cells;
+    the old lane and capture-scroll modes have no production entry point.
 16. **Paid ordinary Pet Coliseum progression now has one Showdown owner.** The
     Pet Arena CTA enters `/pet/showdown`; Showdown alone owns new paid Coliseum
     admission, turn execution, capped reward, counters, witness, Chronicle, and

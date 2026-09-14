@@ -5,6 +5,9 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { readSession } from '../towers/_tower-store.js';
 import { readSoloPveSession } from '../solo-pve/_store.js';
+import { isSoloPveSession } from '../solo-pve/_session.js';
+import { abandonSoloPveSession } from '../solo-pve/_abandon.js';
+import type { AiFightSession } from '../missions/_ai-fight-outcome.js';
 import { settlePveFightOutcome } from './_fight-outcome-settlement.js';
 
 /*
@@ -66,13 +69,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const runId = cleanRunId(body.runId);
         if (!runId) return res.status(400).json({ error: 'Missing run.' });
 
-        const session = await readSoloPveSession(runId).catch(() => null)
-            ?? await readSession(runId).catch(() => null);
+        // Solo-PvE first; the legacy Tower store is consulted only after a
+        // CONFIRMED not-found. A storage failure on either read is an outage,
+        // not evidence of absence: it used to be swallowed into `null` and
+        // answered 200 `unknown`, which told the client its obligation was
+        // finished. It now answers a retryable 503 that keeps the same runId
+        // pending on the client (lib/pve-outcome-api retries on any non-2xx).
+        let session: AiFightSession | null;
+        try {
+            session = await readSoloPveSession(runId) ?? await readSession(runId);
+        } catch (err) {
+            console.error('[pve/fight-outcome] session store unavailable', safeLogValue(err));
+            return res.status(503).json({ error: 'The fight record is temporarily unavailable. Please retry.', retryable: true, runId });
+        }
         // A vanished session neither costs nor refunds. The store has a TTL, and a
         // late report is far likelier to be a slow client than a cheat — so this
         // fails toward leaving the player alone, the only side that cannot punish
         // someone who did nothing wrong.
-        if (!session) return res.status(200).json({ ok: true, outcome: 'unknown', applied: false });
+        if (!session) return res.status(200).json({ ok: true, outcome: 'unknown', applied: false, reason: 'session-not-found' });
+
+        // An ACTIVE session is not settled from its live HP. The owner walking
+        // out on a Solo-PvE fight is an intentional abandon: perform the engine's
+        // own terminal transition in the owning store first, then settle the
+        // sealed result exactly like any other terminal session. Anything else
+        // that is still active (a Tower run, which has its own lifecycle) is
+        // refused rather than given a premature physical receipt.
+        if (isSoloPveSession(session) && session.status === 'active') {
+            if (identity.admin || session.ownerSlug.toLowerCase() === playerName.toLowerCase()) {
+                const abandoned = await abandonSoloPveSession(session.sessionId, playerName);
+                if (!abandoned.ok) {
+                    return res.status(abandoned.status).json({
+                        error: abandoned.error,
+                        ...(abandoned.retryable ? { retryable: true, runId } : {}),
+                    });
+                }
+                session = abandoned.session;
+            }
+        }
+        if (session.status !== 'done') {
+            return res.status(409).json({ error: 'That run is still active. Finish or leave it through its own mode first.', reason: 'session-active', runId });
+        }
 
         // The runId is CLIENT-supplied here. Membership is the only thing stopping
         // one player from applying another's session outcome to their own save —

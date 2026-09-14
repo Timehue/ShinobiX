@@ -113,7 +113,13 @@ add("war-resource-cache", "item:war-resource-cache",
 // masked operatives, so each village gets a signature masked figure (the real
 // appointee's LOADOUT still drives combat — this is only the face). Themed to
 // the village biome. slug KEEP IN SYNC with the client's ANBU_AVATAR_BY_VILLAGE.
-const ANBU_FIGURE = "full-body three-quarter view of a masked ANBU black-ops shinobi standing in a guarded ready stance, anonymous, signature porcelain animal mask, fitted dark stealth bodysuit with arm guards and a short hooded cloak, a tanto blade sheathed across the back, painterly anime shinobi RPG style, single character centered, transparent background, no ground plane, no scene, no text, no watermark";
+// FRAMING IS PART OF THE PROMPT. The first batch said only "single character
+// centered" and gpt-image-1 composed all four edge to edge: every hood crown
+// and every boot sole was sliced off by the frame, and the boss-room portrait
+// (AnbuVaultRaid, 168px) showed a headless-looking Anbu. The shipped files were
+// repaired with scripts/fix-anbu-framing.mjs; these clauses stop a re-roll from
+// putting the bug back, and anbu-art-framing.test.ts fails the build if it does.
+const ANBU_FIGURE = "full-body three-quarter view of a masked ANBU black-ops shinobi standing in a guarded ready stance, anonymous, signature porcelain animal mask, fitted dark stealth bodysuit with arm guards and a short hooded cloak, a tanto blade sheathed across the back, painterly anime shinobi RPG style, single character centered and framed SMALLER than the canvas with a clear band of empty space above the top of the hood and below the soles of the boots, the entire figure fully inside the frame, nothing cropped and no part of the character touching any edge of the image, transparent background, no ground plane, no scene, no text, no watermark";
 const ANBU = [
     { slug: "moonshadow", theme: "a pale bone-white porcelain OWL mask with deep violet markings, indigo-and-charcoal cloak edged in cold silver, faint moonlit violet rim light" },
     { slug: "stormveil", theme: "a slate-grey porcelain HAWK mask with jade-green markings, mossy deep-green and dark slate cloak, faint teal storm-light rim glow" },

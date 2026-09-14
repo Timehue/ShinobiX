@@ -19,8 +19,8 @@ function render(tag: string, rank: Rank, percent: number): string {
 describe("TagPicker player-creator percent choices", () => {
     it("renders only 25/30 for A/B and 30/35 for S scalable tags", () => {
         for (const rank of ["B Rank", "A Rank"] as const) {
-            const html = render("Poison", rank, 25);
-            assert.match(html, /aria-label="Poison strength"/);
+            const html = render("Recoil", rank, 25);
+            assert.match(html, /aria-label="Recoil strength"/);
             assert.match(html, /<option value="25" selected="">25%<\/option>/);
             assert.match(html, /<option value="30">30%<\/option>/);
             assert.doesNotMatch(html, /<option value="35">35%<\/option>/);
@@ -36,6 +36,18 @@ describe("TagPicker player-creator percent choices", () => {
         assert.doesNotMatch(render("Heal", "S Rank", 100), /aria-label="Heal strength"/);
         assert.doesNotMatch(render("Push", "A Rank", 100), /aria-label="Push strength"/);
         assert.doesNotMatch(render("Stun", "B Rank", 100), /aria-label="Stun strength"/);
+    });
+
+    // Combat holds creator Poison to the rank's Poison ceiling (12 for A/B, 14 for
+    // S), so 25% and 30% play identically. The picker shows the real value instead
+    // of a choice that changes nothing.
+    it("shows Poison at its combat ceiling instead of a strength choice", () => {
+        for (const [rank, percent, ceiling, spend] of [["B Rank", 25, 12, 144], ["A Rank", 30, 12, 144], ["S Rank", 35, 14, 168]] as const) {
+            const html = render("Poison", rank, percent);
+            assert.doesNotMatch(html, /aria-label="Poison strength"/, `${rank} should not offer a Poison strength choice`);
+            assert.match(html, new RegExp(`Poisons the target at ${ceiling}% for 2 rounds`), `${rank} help shows the ${ceiling}% ceiling`);
+            assert.match(html, new RegExp(`${spend}% of the chakra/stamina`), `${rank} help shows the real HP share`);
+        }
     });
 });
 

@@ -7,14 +7,16 @@ import {
     GiShield,
 } from "./icons/LightweightGameIcons";
 import { TERRITORY_CONTROL_MAX, TERRITORY_HP_MAX } from "../constants/game";
-import { biomeLabel, weatherEffects } from "../data/world";
+import { biomeLabel } from "../data/world";
 import { sectorRegionName } from "../data/sectors";
 import { sectorGatherLineFor } from "../lib/sector-pool";
+import { sectorContestLabel } from "../lib/sector-war-engagement";
 import { sectorName } from "../../../shared/sector-geo";
 import { SectorTracesCard } from "./SectorTraces";
 import { SectorGatherReadout } from "./SectorGatherReadout";
 import { SectorIntelCard } from "./SectorIntelCard";
 import { SectorContractCard } from "./SectorContractCard";
+import { SectorSkyForecast } from "./SectorSkyForecast";
 
 // Row/prop shapes live in a sibling module (see its header); re-exported here
 // so every existing import of these names keeps working unchanged.
@@ -49,6 +51,8 @@ export function WorldSectorCommandPanel({
     villageWarAdmissionOpen,
     traces,
     hasLivePlayers,
+    sectorContest,
+    sectorGarrisonReady,
     players,
     hunt,
     onRaidEnemyVillage,
@@ -57,6 +61,8 @@ export function WorldSectorCommandPanel({
     onOpenShrine,
     onStrikeSleeper,
     onAttackPlayer,
+    onOpenSectorContest,
+    onFightSectorGarrison,
     onClaimContract,
     onExplore,
     onFindRicherGround,
@@ -73,12 +79,12 @@ export function WorldSectorCommandPanel({
             <header className="sector-panel-heading">
                 <div className="sector-panel-kicker">
                     <span className={`sector-biome-token sector-biome-${biome}`}>{biomeLabel(biome)}</span>
-                    <span>{weatherEffects[weather].name}</span>
+                    <span><SectorSkyForecast sector={sector} biome={biome} fallback={weather} /></span>
                 </div>
                 <h3>{sectorName(sector) ?? `Sector ${sector}`}</h3>
                 <small className="sector-panel-sub">Sector {sector} · {sectorRegionName(sector)}</small>
                 {gather && <SectorGatherReadout gather={gather} />}
-                <p>{weatherEffects[weather].effect}</p>
+                <SectorSkyForecast sector={sector} biome={biome} fallback={weather} variant="effect" />
             </header>
 
             {territory && (
@@ -161,6 +167,46 @@ export function WorldSectorCommandPanel({
                     onOpenShrine={onOpenShrine}
                 />
             )}
+            {sectorContest && (
+                <section className="sector-presence sector-panel-card">
+                    <div className="sector-panel-card-head">
+                        <h4><GiCrossedSwords aria-hidden="true" />Sector War</h4>
+                        <span className="sector-status-pill is-owned">{sectorContestLabel(sectorContest.winCondition)}</span>
+                    </div>
+                    <p className="sector-owner-line">
+                        <strong>{sectorContest.attackerVillage}</strong>
+                        <span>attacking {sectorContest.defenderVillage}</span>
+                    </p>
+                    <p className="sector-empty-note">
+                        This sector is contested with {sectorContestLabel(sectorContest.winCondition).toLowerCase()}s, so attacking here opens that table — a shinobi fight scores nothing for the war.
+                    </p>
+                    <button
+                        type="button"
+                        className="danger-button sector-action-btn is-danger"
+                        disabled={!present || !villageWarAdmissionOpen}
+                        onClick={onOpenSectorContest}
+                    >
+                        <span className="sector-action-icon" aria-hidden="true"><GiCrossedSwords /></span>
+                        <span>{sectorContestLabel(sectorContest.winCondition)}</span>
+                    </button>
+                    {sectorGarrisonReady && (
+                        <>
+                            <p className="sector-empty-note">
+                                No defender has answered for hours. Fight the garrison instead &mdash; it scores less than beating a real defender, but an absent defence no longer holds the sector for free.
+                            </p>
+                            <button
+                                type="button"
+                                className="danger-button sector-action-btn is-danger"
+                                disabled={!present || !villageWarAdmissionOpen}
+                                onClick={onFightSectorGarrison}
+                            >
+                                <span className="sector-action-icon" aria-hidden="true"><GiShield /></span>
+                                <span>Fight Garrison</span>
+                            </button>
+                        </>
+                    )}
+                </section>
+            )}
             <section className="sector-presence sector-panel-card">
                 <div className="sector-panel-card-head">
                     <h4>Players Here</h4>
@@ -189,7 +235,7 @@ export function WorldSectorCommandPanel({
                             ) : (
                                 <button type="button" className="danger-button sector-player-action" disabled={!present || player.actionDisabled} onClick={() => onAttackPlayer(player.target)}>
                                     <span className="sector-action-icon" aria-hidden="true"><GiCrossedSwords /></span>
-                                    <span>{player.status === "Traveling" ? "Traveling" : (player.status === "Fighting" ? "Fighting" : "Attack")}</span>
+                                    <span>{player.status === "Traveling" ? "Traveling" : (player.status === "Fighting" ? "Fighting" : (player.attackLabel.kind === "contest" ? sectorContestLabel(player.attackLabel.winCondition) : "Attack"))}</span>
                                 </button>
                             )}
                         </div>

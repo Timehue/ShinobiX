@@ -31,10 +31,10 @@ export function standingReaction(
 ): StandingReaction | null {
     if (archetype === "bandit") {
         if (has(standings, "goro-spared")) {
-            return { line: "“You're the one who let Goro live. He rides with us now — and he says you walk free. ...This once.”", peace: roll < 0.6 };
+            return { line: "“Goro sent word about the one who let him live. It says you walk free. ...This once.”", peace: roll < 0.6 };
         }
         if (has(standings, "goro-executed")) {
-            return { line: "“You gutted Goro where he knelt, leaf. We don't forget that.”", peace: false };
+            return { line: "“You killed Goro where he knelt, shinobi. We don't forget that.”", peace: false };
         }
         return null;
     }

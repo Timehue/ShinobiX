@@ -9,6 +9,7 @@ import {
     storyReckoningTaskComplete,
     ownedItemCount,
     parseStoryReckoningSeal,
+    storyReckoningPresenceReason,
 } from "./_story-reckoning.js";
 
 test("story reckoning eligibility follows level, village, progress, and completion trait", () => {
@@ -19,11 +20,24 @@ test("story reckoning eligibility follows level, village, progress, and completi
     assert.equal(storyReckoningEligible({ level: 25, storyVillage: "Ashen Leaf Village", storyProgress: 3, storyTraits: [] }, def), false);
     assert.equal(storyReckoningEligible({ level: 25, storyVillage: "Stormveil Village", storyProgress: 2, storyTraits: [] }, def), false);
     assert.equal(storyReckoningEligible({ level: 25, storyVillage: "Stormveil Village", storyProgress: 3, storyTraits: [def.completionTrait] }, def), false);
+    assert.equal(storyReckoningEligible({ level: 25, storyVillage: "Stormveil Village", storyProgress: 3, storyTraits: [], redeemedStoryReckonings: [{ questId: def.id }] }, def), false);
 });
 
 test("story reckoning task progress is sealed against a baseline", () => {
     assert.equal(storyReckoningTaskComplete(10, 21, 12), false);
     assert.equal(storyReckoningTaskComplete(10, 22, 12), true);
+});
+
+test("story reckoning giver presence requires a settled outskirts visit", () => {
+    const mira = STORY_RECKONINGS["story-reckoning-mira-marker"];
+    const harrow = STORY_RECKONINGS["story-reckoning-harrow-unbought"];
+    assert.equal(storyReckoningPresenceReason(mira, null, 100), "presence");
+    assert.equal(storyReckoningPresenceReason(mira, { sector: 2 }, 100), "wrong-place");
+    assert.equal(storyReckoningPresenceReason(mira, { sector: 1, travelingUntil: 101 }, 100), "traveling");
+    assert.equal(storyReckoningPresenceReason(mira, { sector: 1, inBattle: true }, 100), "in-battle");
+    assert.equal(storyReckoningPresenceReason(mira, { sector: 1 }, 100), null);
+    assert.equal(storyReckoningPresenceReason(harrow, { sector: 26 }, 100), null);
+    assert.equal(storyReckoningPresenceReason(harrow, { sector: 27 }, 100), "wrong-place");
 });
 
 test("story reckoning rewards and item ownership are stable", () => {

@@ -66,3 +66,25 @@ export function sectorPresenceBlock(playerName: string, claimedSector: unknown):
     }
     return null;
 }
+
+/**
+ * The OTHER door of the same trade (see api/_realtime/presence-gating.ts):
+ * a player who is in a battle cannot also be working the field. Since F01 the
+ * presence flag is server-owned — set from the combat stores by the heartbeat
+ * and by fight hosts at start/terminal, never from the client's beat — so this
+ * gate now holds a PROVEN fight to its consequence rather than a claim. For an
+ * honest client this is a no-op — every fight is a modal overlay, and no field
+ * request leaves the world map while one is open.
+ *
+ * `DISABLE_INBATTLE_FIELD_GATE=1` switches the gate off without a deploy.
+ */
+export function fieldActionBlockedByClaimedBattle(playerName: string): SectorPresenceBlock | null {
+    if (process.env.DISABLE_INBATTLE_FIELD_GATE === '1') return null;
+    const presence = onlineStore.get(playerName);
+    if (!presence?.inBattle) return null;
+    return {
+        status: 409,
+        error: 'Finish or resume your active battle before working the field.',
+        reason: 'battle-active',
+    };
+}

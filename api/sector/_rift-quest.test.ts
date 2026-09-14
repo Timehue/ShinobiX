@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
     RIFT_QUESTS, RIFT_DAILY_CAP, RIFT_COOLDOWN_MS,
     isRiftQuestId, riftQuestRyo, riftBossKilled, riftTargetSector,
-    parseRiftQuestSeal,
+    parseRiftQuestSeal, parseRiftQuestBossReceipt, reconcileRiftRunBinding, riftBossReceiptMatches,
 } from './_rift-quest.js';
 import { CASTLE_SECTORS, OLD_TO_NEW_SECTOR, OUTSKIRTS_SECTORS, WORLD_GEO_VERSION, MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
 
@@ -86,6 +86,44 @@ test('parseRiftQuestSeal round-trips a stamped seal and remaps a pre-reorg one',
         parseRiftQuestSeal({ id: 'rift-hollow-stalker', targetSector: 22, baseline: 7 }),
         { id: 'rift-hollow-stalker', targetSector: OLD_TO_NEW_SECTOR[22], baseline: 7, at: 0, geoV: WORLD_GEO_VERSION },
     );
+});
+
+test('rift completion proof binds the accepted quest, Gate run, and exact boss combat', () => {
+    const seal = parseRiftQuestSeal({
+        id: 'rift-beast-warren', targetSector: 22, baseline: 7,
+        at: 1_700_000_000_000, geoV: WORLD_GEO_VERSION, runToken: 'riftRunToken1234',
+    });
+    assert.ok(seal);
+    const receipt = parseRiftQuestBossReceipt({
+        riftId: 'rift-beast-warren', runToken: 'riftRunToken1234', combatRunId: 'boss:run:12345678',
+        acceptedAt: 1_700_000_000_000, clearedAt: 1_700_000_100_000,
+    });
+    assert.ok(receipt);
+    assert.equal(riftBossReceiptMatches(seal!, receipt), true);
+    assert.equal(riftBossReceiptMatches(seal!, { ...receipt!, riftId: 'rift-hollow-stalker' }), false, 'wrong rift rejected');
+    assert.equal(riftBossReceiptMatches(seal!, { ...receipt!, runToken: 'otherRunToken123' }), false, 'unrelated run rejected');
+    assert.equal(riftBossReceiptMatches({ ...seal!, runToken: undefined }, receipt), false, 'legacy counter-only seal rejected');
+});
+
+test('legacy in-flight runs reconcile only from matching server identities and time', () => {
+    const seal = parseRiftQuestSeal({
+        id: 'rift-beast-warren', targetSector: 22, baseline: 7,
+        at: 1_700_000_000_000, geoV: WORLD_GEO_VERSION,
+    });
+    assert.ok(seal);
+    const candidate = {
+        variantId: 'rift-beast-warren', runToken: 'legacyRunToken123',
+        mintedAt: 1_700_000_000_001,
+    };
+    assert.deepEqual(reconcileRiftRunBinding(seal, candidate, 'legacyRunToken123'), {
+        seal: { ...seal, runToken: 'legacyRunToken123' },
+        acceptedAt: seal!.at,
+    });
+    assert.equal(reconcileRiftRunBinding(seal, { ...candidate, variantId: undefined }, 'legacyRunToken123'), null, 'ordinary Alpha run rejected');
+    assert.equal(reconcileRiftRunBinding(seal, { ...candidate, variantId: 'rift-hollow-stalker' }, 'legacyRunToken123'), null, 'wrong rift rejected');
+    assert.equal(reconcileRiftRunBinding(seal, candidate, 'otherSavedRun123'), null, 'save/run identity mismatch rejected');
+    assert.equal(reconcileRiftRunBinding(seal, { ...candidate, mintedAt: seal!.at - 1 }, 'legacyRunToken123'), null, 'pre-acceptance run rejected');
+    assert.equal(reconcileRiftRunBinding({ ...seal!, runToken: 'differentBoundRun' }, candidate, 'legacyRunToken123'), null, 'durably bound seal cannot be rebound');
 });
 
 test('parseRiftQuestSeal rejects malformed / unknown seals', () => {

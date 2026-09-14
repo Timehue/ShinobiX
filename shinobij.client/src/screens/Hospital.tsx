@@ -1,3 +1,4 @@
+import { discountCost, getHospitalDiscountPercent } from "../lib/village-upgrades";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import type { VersionedCharacterCommit } from "../types/character";
@@ -6,12 +7,10 @@ import { clearSectorReopen } from "../lib/sector-return";
 import {
     type Character,
     type PlayerRecord,
-    type Screen,
-    discountCost,
-    getHospitalDiscountPercent,
+    type Screen
 } from "../App";
 import { gameToast } from "../components/GameToast";
-import { adoptHospitalDischarge, type HospitalDischargeResponse } from "../lib/hospital-discharge";
+import { adoptHospitalDischarge, hospitalDischargeMessage, type HospitalDischargeResponse } from "../lib/hospital-discharge";
 import { FacilityHero } from "../components/FacilityHero";
 import { serverNow } from "../lib/server-clock";
 import { GameIcon } from "../components/icons/GameIcon";
@@ -29,15 +28,8 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
     const topUpCost = isHealer ? 0 : discountCost(50, hospitalDiscount);
     const academyRecoveryStep = normalizeOnboardingStep(character.onboardingStep) === "academySpar";
     const hpPercent = Math.max(0, Math.min(100, character.maxHp > 0 ? (character.hp / character.maxHp) * 100 : 0));
-    // Free-checkout timer is driven by the SERVER-stamped hospitalizedUntil
-    // (persisted in the save), so it survives a page refresh — the old client-
-    // only entry-time was lost on reload and the free-checkout button never
-    // reappeared, trapping admitted players in a refresh loop. When the stamp
-    // hasn't reached the client yet (a fresh in-session KO, before the save
-    // round-trips), we fall back to a DISPLAY-ONLY 60s count from when the
-    // screen opened. This fallback never writes to the server, so it can't
-    // accidentally re-hospitalize a player the server already discharged; the
-    // discharge endpoint remains the sole authority on whether the timer is up.
+    // The persisted server admission stamp survives refreshes. Until it arrives,
+    // show a pending state instead of inventing a local discharge deadline.
     const serverUntil = Number(character.hospitalizedUntil ?? 0);
     // null = the server stamp has not arrived yet, so there is NOTHING to count.
     // A local 60s guess could only ever run down to a check-out the server then
@@ -46,6 +38,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
     const effectiveUntil: number | null = serverUntil > 0 ? serverUntil : null;
     const [now, setNow] = useState(() => serverNow());
     const [busy, setBusy] = useState(false);
+    const [checkoutError, setCheckoutError] = useState<string | null>(null);
     const busyRef = useRef(false);
     const autoCheckoutStartedRef = useRef(false);
 
@@ -74,13 +67,9 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
     // Mirror a successful (or already-applied) discharge into local state and
     // leave for the village. Clears the hospital stamps too so a later re-open
     // can't read a stale timer.
-    function applyDischargeAndLeave(data: HospitalDischargeResponse, chargedRyo: number) {
+    function applyDischargeAndLeave(data: HospitalDischargeResponse) {
         if (!adoptHospitalDischarge(data, onVersionedCharacter, (screen, authoritativeCharacter) => setScreen(screen, authoritativeCharacter))) return false;
-        // Confirm a paid discharge (chargedRyo > 0). Free checkouts and Healer
-        // self-discharges (chargedRyo === 0) leave silently as before.
-        if (chargedRyo > 0) {
-            gameToast(`💰 You paid ${chargedRyo.toLocaleString()} ryo and were released — fully healed and discharged.`);
-        }
+        gameToast(hospitalDischargeMessage(data), { kind: "success" });
         return true;
     }
 
@@ -89,39 +78,24 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
         if (character.ryo < dischargeCost) return alert(`Not enough ryo. You need ${dischargeCost} ryo to be discharged.`);
         busyRef.current = true;
         setBusy(true);
+        setCheckoutError(null);
         try {
-            // Up to two attempts. A 400 "not hospitalized" immediately after a fresh KO
-            // can mean the admission save just hasn't reached the server yet (the client
-            // flips hospitalized:true and flushes it a beat later). If we simply left
-            // here, that in-flight admission save would re-admit us on the next refresh.
-            // So when we still believe we're admitted, wait briefly and retry once so the
-            // discharge actually lands. A second "not hospitalized" means we are genuinely
-            // free (server already discharged us, or we were never admitted) → leave.
-            for (let attempt = 0; attempt < 2; attempt++) {
-                const res = await fetch('/api/player/heal', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ targetName: character.name, paySkip: !isHealer }),
-                });
-                const data = await res.json().catch(() => ({}));
-                if (res.ok) {
-                    if (!applyDischargeAndLeave(data, Number(data.chargedRyo ?? (isHealer ? 0 : dischargeCost)))) {
-                        alert("The server did not return an accepted discharge state. Refresh and try again.");
-                    }
-                    return;
-                }
-                if (res.status === 400 && /not hospitalized/i.test(String(data.error ?? ''))) {
-                    if (attempt === 0 && character.hospitalized) {
-                        await new Promise(resolve => setTimeout(resolve, 700)); // let the KO admission save land
-                        continue;
-                    }
-                    alert("The server did not return the authoritative discharge state. Refresh and try again."); return;
-                }
-                alert(data.error ?? 'Failed to discharge.');
+            const res = await fetch('/api/player/heal', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ targetName: character.name, paySkip: !isHealer, hospitalizedAt: Number(character.hospitalizedAt ?? 0) }),
+                signal: AbortSignal.timeout(12_000),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                setCheckoutError(String(data.error ?? 'Discharge could not be confirmed. Try again.'));
                 return;
             }
+            if (!applyDischargeAndLeave(data)) {
+                setCheckoutError("Your treatment status is still syncing. Refresh and try again.");
+            }
         } catch {
-            alert('Network error — discharge failed.');
+            setCheckoutError('Discharge could not be confirmed. Retry the discharge to check its status; the same stay cannot be charged twice.');
         } finally {
             busyRef.current = false;
             setBusy(false);
@@ -131,54 +105,43 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
     // Free check-out after timer expires. Server still owns the discharge
     // decision (validator will reject if timer hasn't actually expired), so
     // we route through the same endpoint with paySkip=false.
-    async function freeCheckout(automatic = false) {
-        if (busyRef.current) {
-            if (automatic) autoCheckoutStartedRef.current = false;
-            return;
-        }
+    async function freeCheckout() {
+        if (busyRef.current) return;
         busyRef.current = true;
         setBusy(true);
+        setCheckoutError(null);
         try {
             const res = await fetch('/api/player/heal', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ targetName: character.name, paySkip: false }),
+                body: JSON.stringify({ targetName: character.name, paySkip: false, hospitalizedAt: Number(character.hospitalizedAt ?? 0) }),
+                signal: AbortSignal.timeout(12_000),
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
-                // Already discharged server-side → leave instead of trapping them.
-                if (res.status === 400 && /not hospitalized/i.test(String(data.error ?? ''))) {
-                    if (automatic) autoCheckoutStartedRef.current = false;
-                    else alert("Your discharge state changed. Refresh to load the server record.");
-                    return;
-                }
-                if (automatic) autoCheckoutStartedRef.current = false;
-                else alert(data.error ?? 'Failed to check out.');
+                setCheckoutError(`${String(data.error ?? 'Your discharge could not be confirmed.')} Choose Check out free to try again.`);
                 return;
             }
-            if (!applyDischargeAndLeave(data, 0)) {
-                if (automatic) autoCheckoutStartedRef.current = false;
-                else alert("The server did not return an accepted discharge state. Refresh and try again.");
+            if (!applyDischargeAndLeave(data)) {
+                setCheckoutError("Your treatment status is still syncing. Choose Check out free to try again.");
             }
         } catch {
-            if (automatic) autoCheckoutStartedRef.current = false;
-            else alert('Network error — check-out failed.');
+            setCheckoutError("Connection lost while checking out. Choose Check out free to try again.");
         } finally {
             busyRef.current = false;
             setBusy(false);
         }
     }
 
-    // Waiting out the admission timer should release the player automatically;
-    // the free button below remains as a fallback if the request ever fails.
+    // One automatic attempt per admission. Failures stay visible beside the
+    // existing retry button instead of silently retrying every second.
     useEffect(() => {
+        if (!character.hospitalized) { autoCheckoutStartedRef.current = false; return; }
         if (!freeCheckoutReady || isHealer || autoCheckoutStartedRef.current) return;
         autoCheckoutStartedRef.current = true;
-        void freeCheckout(true);
-        // `now` intentionally provides a once-per-second retry opportunity after
-        // a transient network/server failure resets autoCheckoutStartedRef.
+        void freeCheckout();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [freeCheckoutReady, isHealer, now]);
+    }, [character.hospitalized, freeCheckoutReady, isHealer]);
 
     async function topUp() {
         if (busyRef.current) return;
@@ -221,7 +184,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
                     facility="hospital"
                     eyebrow={`${character.village} · Emergency Ward`}
                     title="Village Hospital"
-                    description="You are stable and under medical watch. Choose an immediate release or wait for complimentary discharge."
+                    description="Your injuries prevent travel and combat until discharge. Treatment restores full HP and returns you to the village."
                     metrics={[
                         { label: "Patient status", value: "Admitted", tone: "warning" },
                         { label: "Vital condition", value: `${character.hp} / ${character.maxHp} HP`, tone: "warning" },
@@ -236,8 +199,8 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
                             <p className="facility-eyebrow">Recovery in progress</p>
                             <h3>You are currently admitted</h3>
                             <p>{isHealer
-                                ? "Your healer training allows you to restore your own vitals and leave immediately at no cost."
-                                : "Your vitals will be fully restored at discharge. Pay for an immediate release or wait for the free checkout."}</p>
+                                ? "Your healer training closes your own wounds and releases you at no cost. Chakra and stamina recover with rest, or instantly at the Cafeteria."
+                                : "Your wounds are treated at discharge; chakra and stamina return with rest, or instantly at the Cafeteria. Pay for an immediate release or wait for the free checkout."}</p>
                         </div>
                     </div>
                     <div className="hospital-vitals-card">
@@ -248,13 +211,14 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
                         <div className="facility-resource-track facility-resource-track--hp"><span style={{ width: `${hpPercent}%` }} /></div>
                     </div>
 
+                    {checkoutError && <p className="facility-inline-warning" role="alert">{checkoutError}</p>}
                     <div className="hospital-release-grid">
                         <article className="hospital-release-option hospital-release-option--priority">
                             <GameIcon name="sparkle" size={24} />
                             <div>
                                 <span>Immediate release</span>
                                 <strong>{isHealer ? "Free for Healers" : `${dischargeCost.toLocaleString()} ryo`}</strong>
-                                <small>Full restoration · leave now</small>
+                                <small>Full HP · return to village now</small>
                             </div>
                             <button className="facility-primary-action" onClick={discharge} disabled={busy || character.ryo < dischargeCost}>
                                 {busy ? "Processing…" : isHealer ? "Self-heal & discharge" : "Pay & discharge"}
@@ -267,14 +231,14 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
                                 <div>
                                     <span>Complimentary release</span>
                                     <strong>{freeCheckoutReady ? "Ready now" : remaining == null ? "Awaiting the server’s admission timer…" : `${remaining}s remaining`}</strong>
-                                    <small>No charge · full restoration</small>
+                                    <small>No charge · full HP · return to village</small>
                                 </div>
                                 {freeCheckoutReady ? (
                                     <button
                                         className={`facility-secondary-action hospital-free-checkout${academyRecoveryStep ? " academy-click-target" : ""}`}
                                         data-academy-hint={academyRecoveryStep ? "Next · check out" : undefined}
                                         data-academy-autoscroll={academyRecoveryStep ? "true" : undefined}
-                                        onClick={() => void freeCheckout(false)}
+                                        onClick={() => void freeCheckout()}
                                         disabled={busy}
                                     >
                                         {busy ? "Checking out…" : "Check out free"}
@@ -336,7 +300,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
                                 <div><span>Healer privileges active</span><strong>Rank {healerRank} · {(character.professionXp ?? 0).toLocaleString()} XP</strong></div>
                             </div>
                             <button className="facility-primary-action" onClick={topUp} disabled={busy || hpPercent >= 100}>
-                                {busy ? "Restoring vitals…" : hpPercent >= 100 ? "Vitals already full" : "Restore all vitals · Free"}
+                                {busy ? "Closing wounds…" : hpPercent >= 100 ? "No wounds to treat" : "Close wounds · Free"}
                             </button>
                         </>
                     ) : (

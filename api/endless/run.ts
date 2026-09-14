@@ -1,3 +1,4 @@
+import { creditElderWins } from '../../shared/elder-elections.js';
 import { safeLogValue } from '../_safe-log.js';
 import { randomUUID } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
@@ -147,7 +148,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     reward: won.reward,
                     milestone: won.milestone,
                 };
-                const committed = { ...won.character, redeemedEndlessActions: [...receipts, receipt].slice(-128) };
+                const committed = { ...creditElderWins(won.character, 0, 1), redeemedEndlessActions: [...receipts, receipt].slice(-128) };
                 return {
                     ok: true as const,
                     character: committed,

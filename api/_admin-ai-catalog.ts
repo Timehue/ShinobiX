@@ -6,11 +6,8 @@
  * seal resolves the same profile the player selected. Built-in ids remain
  * source-authoritative at the caller; same-id admin entries are cosmetic only.
  */
-import { kv } from './_storage.js';
+import { loadAdminContentRecords } from './_admin-content-records.js';
 import { safeLogValue } from './_safe-log.js';
-import { loadPublishedContent } from './_content-store.js';
-
-const ADMIN_SAVE_KEYS = ['save:admin1', 'save:admin2'] as const;
 const CACHE_TTL_MS = 60_000;
 const MAX_AI_PROFILES = 500;
 
@@ -41,11 +38,7 @@ export async function loadAdminAiObjects(): Promise<ReadonlyMap<string, AdminAiP
     if (inflight) return inflight;
     inflight = (async () => {
         try {
-            const [slots, published] = await Promise.all([
-                Promise.all(ADMIN_SAVE_KEYS.map((key) => kv.get<AdminAiRecord>(key))),
-                loadPublishedContent().catch(() => ({}) as Record<string, unknown>),
-            ]);
-            const value = buildAdminAiCatalog([...slots, published as AdminAiRecord]);
+            const value = buildAdminAiCatalog(await loadAdminContentRecords());
             cache = { at: Date.now(), value };
             return value;
         } catch (error) {

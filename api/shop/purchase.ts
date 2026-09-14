@@ -1,3 +1,4 @@
+import { inventoryGrowthBlock } from '../_inventory-capacity.js';
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
@@ -32,6 +33,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (prior) return { ok: true as const, character, value: { purchase: prior.purchase, replayed: true } };
             const bought = purchaseCatalogItem(character, body.itemId, body.qty);
             if (!bought.ok) return { ok: false as const, status: 409, error: bought.reason };
+            // Reachable ONLY for non-stackable gear, which is always qty 1:
+            // `purchaseCatalogItem` routes every stackable buy into `itemStacks`,
+            // and all 7 catalog items that allow qty > 1 are stackable, so a bulk
+            // consumable order never touches `inventory[]` and can never be
+            // refused here. That ordering is load-bearing — gating the raw
+            // pre-routing result would have told a full-bag veteran "Your
+            // inventory is full." when they tried to buy a healing potion.
+            //
+            // `purchaseCatalogItem` is pure and `bought` is discarded on refusal,
+            // so the currency is never debited. (MMORPG behavior audit F7 step 2.)
+            const grew = inventoryGrowthBlock(character, bought.character);
+            if (grew) return { ok: false as const, status: grew.status, error: grew.error };
             const receipt = { id: requestId, purchase: bought.item, at: Date.now() };
             return { ok: true as const, character: { ...bought.character, redeemedShopPurchases: [...receipts.slice(-99), receipt] }, value: { purchase: bought.item, replayed: false } };
         });

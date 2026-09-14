@@ -1,4 +1,4 @@
-import { COMBAT_RESOURCES_V2, v2PoisonOnSpend, v2ResourceRegen } from '../_combat-resources.js';
+import { COMBAT_RESOURCES_V2, v2ResourceRegen } from '../_combat-resources.js';
 import {
     pveAiCompetence,
     pveEasyBandAllowsLethal,
@@ -49,6 +49,7 @@ import {
     applyDoTs,
     applyGroundEffectToFighter,
     applyJutsu,
+    poisonSpendDamage,
     tickGroundEffects,
     tickStatuses,
 } from '../pvp/move.js';
@@ -858,12 +859,8 @@ function applyCast(session: SoloPveSession, side: SoloPveSide, jutsu: SoloPveJut
 }
 
 function spendPoison(session: SoloPveSession, side: SoloPveSide, chakra: number, stamina: number): void {
-    if (!COMBAT_RESOURCES_V2) return;
     const value = fighter(session, side);
-    const pct = activeStatuses(value, session.round)
-        .filter((status) => status.name === 'Poison')
-        .reduce((sum, status) => sum + Number(status.percent ?? 6), 0);
-    const damage = pct > 0 ? v2PoisonOnSpend(chakra + stamina, pct) : 0;
+    const damage = poisonSpendDamage(value, chakra + stamina, session.round);
     if (damage <= 0) return;
     setFighter(session, side, { ...value, hp: Math.max(0, value.hp - damage) });
     session.log.push(`${value.name} takes ${damage} Poison damage from exertion.`);
@@ -908,6 +905,7 @@ function addGroundEffect(session: SoloPveSession, side: SoloPveSide, jutsu: Solo
         owner: side === 'player' ? 'p1' : 'p2',
         name: jutsu.name,
         plan,
+        bloodlineRank: jutsu.bloodlineRank,
     });
     session.groundEffects.push(effect);
     session.log.push(`${jutsu.name} creates a ground effect across ${effect.tiles.length} hexes for 2 rounds.`);

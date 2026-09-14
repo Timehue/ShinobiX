@@ -22,8 +22,8 @@ export function petMentorWandererFor(
     const order = PET_TUTORIAL_UNLOCKS.findIndex((entry) => entry.id === lesson.id) + 1;
     const home = 4 * 12 + ((sector * 11 + order * 5) % 8) + 2;
     const greeting = lesson.id === "bond"
-        ? "Kuro found your trail. His second tail only stirs for a bond worth studying—come learn why."
-        : `Kuro found your trail. You're ready for ${lesson.shortTitle.toLowerCase()} — if you're willing to learn it properly.`;
+        ? "Kuro found your companion's trail. His second tail has done that since his own Bondwake. Come hear what Tomoe wrote down."
+        : `Kuro found your trail. The next field note covers ${lesson.shortTitle.toLowerCase()}, if you're willing to work through it.`;
     return [{
         id: PET_MENTOR_WANDERER_ID,
         name: PET_MENTOR_NAME,

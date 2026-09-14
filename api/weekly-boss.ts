@@ -3,6 +3,7 @@ import { kv } from './_storage.js';
 import { cors, mergePreservingImages } from './_utils.js';
 import { authedPlayerOrAdmin, isFullAdmin } from './_auth.js';
 import { LockContendedError, withKvLock } from './_lock.js';
+import { isIncapacitated } from './_elapsed-state.js';
 import { applyDerivedLevel, type XpCharacter } from './_xp-engine.js';
 import { bumpSaveVersion } from './save/_save-version.js';
 import { bumpLegacyStats } from './_legacy-track.js';
@@ -1031,6 +1032,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     let builtThisRequest = false;
                     if (!run || !session) {
                         builtThisRequest = true;
+                        // F2: a fight-committing entry point, so it needs the
+                        // shared incapacitation gate. buildSoloPveAiEncounter
+                        // seeds `hp: currentHp` with no floor of 1, so a
+                        // hospitalized challenger enters at 0 HP and the engine
+                        // resolves the run as a loss on the first turn — after
+                        // an attempt has been reserved and 20 stamina debited.
+                        // Weekly attempts are the scarcest entry in the game:
+                        // they do not return until the next spawn.
+                        //
+                        // Deliberately INSIDE the fresh-build branch. The replay
+                        // reconnect above returns an already-paid run, and
+                        // refusing that would strand it — the same mistake F3
+                        // fixed on the Hollow Gate dive.
+                        if (!identity.admin && isIncapacitated(actorChar)) {
+                            return { status: 409 as const, body: {
+                                error: 'You are in the hospital. Recover before challenging the weekly boss.',
+                                errorCode: 'hospitalized',
+                            } };
+                        }
                         const used = boss!.attemptsByPlayer?.[actorName] ?? 0;
                         if (!identity.admin && used >= WEEKLY_BOSS_MAX_ATTEMPTS) {
                             return { status: 429 as const, body: { error: `Locked out — you've used your ${WEEKLY_BOSS_MAX_ATTEMPTS} attempts for this boss spawn.` } };

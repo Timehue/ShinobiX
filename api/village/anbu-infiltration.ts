@@ -1,3 +1,4 @@
+import { seatedKageOf } from '../_sector-war-garrison-defender.js';
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { randomUUID, randomInt } from 'node:crypto';
@@ -89,13 +90,6 @@ type Identity = NonNullable<Awaited<ReturnType<typeof authedPlayerOrAdmin>>>;
 async function villageOf(playerName: string): Promise<string> {
     const save = await kv.get<{ character?: { village?: string } }>(`save:${playerName}`);
     return String(save?.character?.village ?? '').trim();
-}
-
-/** The seated Kage of a village (a real appointed leader) — the defender fallback
- *  when a village hasn't appointed Anbu yet. Mirrors sector-war's kage key. */
-async function seatedKageOf(village: string): Promise<string> {
-    const st = await kv.get<{ seatedKage?: string }>(`village:kage:${village.toLowerCase().replace(/\s+/g, '-')}`);
-    return safeName(st?.seatedKage ?? '');
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

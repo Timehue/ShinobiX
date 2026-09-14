@@ -691,7 +691,7 @@ describe('full game simulation harness', () => {
 
     it('keeps server route and client screen coverage for the simulated game surfaces', () => {
         const root = process.cwd();
-        const serverText = readFileSync(path.join(root, 'server.ts'), 'utf8');
+        const serverText = readFileSync(path.join(root, 'server-api-routes.ts'), 'utf8');
         const routes = [
             '/player-auth',
             '/save/:name',

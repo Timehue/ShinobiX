@@ -119,15 +119,16 @@ test('floors unlock strictly in order from a fresh record', () => {
 
 test('victory settlement pays 50 on a first clear, 15 on a repeat, and 100 on the boss first clear', () => {
     const tovin = echoesEncounterById('echoes-1-tovin')!;
-    const first = applyEchoesVictory({ chroniclePoints: 0 }, tovin, 1000);
+    const first = applyEchoesVictory({ chroniclePoints: 0 }, tovin, 1000, "recovered-ground");
     assert.equal(first.summary.points, 50);
     assert.equal(first.summary.firstClear, true);
     assert.equal(first.summary.bossBonus, 0);
     assert.equal(first.summary.balance, 50);
     assert.equal(first.summary.unlockedFloor, 2);
+    assert.equal(first.summary.battleBeat, "recovered-ground");
     assert.equal((first.character.chroniclePoints as number), 50);
 
-    const repeat = applyEchoesVictory(first.character, tovin, 2000);
+    const repeat = applyEchoesVictory(first.character, tovin, 2000, "denied-attack");
     assert.equal(repeat.summary.points, 15);
     assert.equal(repeat.summary.firstClear, false);
     assert.equal(repeat.summary.balance, 65);
@@ -136,6 +137,7 @@ test('victory settlement pays 50 on a first clear, 15 on a repeat, and 100 on th
     // The first-clear stamp never moves on later wins.
     const record = echoesProgressOf(repeat.character);
     assert.equal(record['echoes-1-tovin']!.firstClearAt, 1000);
+    assert.equal(record['echoes-1-tovin']!.firstClearBattleBeat, "recovered-ground", "rematches cannot rewrite the first-clear callback");
 
     const halden = echoesEncounterById('echoes-10-halden')!;
     const boss = applyEchoesVictory({ chroniclePoints: 7 }, halden, 3000);

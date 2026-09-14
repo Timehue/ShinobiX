@@ -29,7 +29,16 @@ export default defineConfig({
         viewport: { width: 1366, height: 768 },
         colorScheme: 'dark',
         locale: 'en-US',
-        reducedMotion: 'reduce',
+        // Deliberately full motion. In this app prefers-reduced-motion selects
+        // the lite presentation, not just stopped animation: html.lite-fx swaps
+        // in opaque panel backgrounds and hides decorative layers, the WebGL
+        // backdrops stay off, and the canvas ambience draws one still frame
+        // (src/lib/device-tier.ts). Baselines
+        // taken that way stop showing what players see. `animations: 'disabled'`
+        // above already freezes CSS animation for determinism. (The old
+        // top-level `reducedMotion: 'reduce'` here was silently ignored, so the
+        // committed baselines were always full motion.)
+        contextOptions: { reducedMotion: 'no-preference' },
         serviceWorkers: 'block',
         trace: 'retain-on-failure',
         screenshot: 'only-on-failure',

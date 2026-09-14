@@ -42,8 +42,10 @@ import { recordTowerRunStarted } from './_telemetry.js';
 import { towerModeDisabled } from './_mode-control.js';
 import { battleLockKey, claimTowerBattleLeases, releaseTowerBattleLeases, towerBattleLeaseMembers } from './_battle-lease.js';
 import { isTowerBattleLock } from '../_tower-battle-guard.js';
+import { isIncapacitated } from '../_elapsed-state.js';
 import { activeClanBossConflictMembers } from './_clan-boss-conflict.js';
 import { buildGenericTowerAiCharacter, GENERIC_TOWER_AI_PROFILE } from './_generic-party-ai.js';
+import { applyTowerRouteChoice } from './_route-choice.js';
 import { kickTowerPlayers } from '../_realtime/notify.js';
 import {
     TOWER_PARTY_ID,
@@ -208,13 +210,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const unavailable: string[] = [];
         const ineligible: string[] = [];
+        const admitted: string[] = [];
         const storyMembers: { member: string; character: Record<string, unknown> }[] = [];
         let hostAscensionUnlocked = 0;
         let availableMemberCount = 0;
+        const preflightRecords = await kv.mget<Record<string, unknown>[]>(...memberSlugs.map(slug => `save:${slug}`));
         for (let index = 0; index < memberSlugs.length; index++) {
             const slug = memberSlugs[index]!;
             const record = await augmentSaveWithForgedDefs(
-                await kv.get<Record<string, unknown>>(`save:${slug}`),
+                preflightRecords[index] ?? null,
             );
             const character = record?.character as Record<string, unknown> | undefined;
             if (!character || typeof character !== 'object') {
@@ -223,12 +227,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 continue;
             }
             availableMemberCount++;
+            // A Tower run seals each actor at FULL vitals (_encounter.ts) and
+            // spends a daily-capped entry — the same reasoning that gates the
+            // ranked queue, Team Arena and the Hollow Gate dive. Admitting a
+            // hospitalized fighter would let them fight at full strength, and
+            // burn the entry doing it.
+            if (!identity.admin && isIncapacitated(character)) admitted.push(slug);
             const unlocked = Math.max(0, Math.floor(Number(character.battleTowerAscension) || 0));
             if (slug === hostName) hostAscensionUnlocked = unlocked;
             if (mode === 'spire' && authoritativeParty && !identity.admin && spireTier > unlocked + 1) ineligible.push(slug);
             if (mode === 'story' && (authoritativeParty || slug === hostName)) {
                 storyMembers.push({ member: slug, character });
             }
+        }
+        if (admitted.length) {
+            return res.status(409).json({
+                error: admitted.length === 1 && admitted[0] === hostName
+                    ? 'You are in the hospital. Recover before entering the Tower.'
+                    : 'One or more party members is in the hospital.',
+                errorCode: 'hospitalized',
+                members: admitted,
+                party: authoritativeParty ? towerPartyView(authoritativeParty) : null,
+            });
         }
         if (unavailable.length) {
             return res.status(409).json({
@@ -465,12 +485,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Seal combat snapshots only after every live account is leased. Direct
         // starts have exactly one human; AI teammates exist only in Story parties.
-        const admin = await loadAdminCombatContent();
+        const [admin, sealedRecords] = await Promise.all([
+            loadAdminCombatContent(),
+            kv.mget<Record<string, unknown>[]>(...memberSlugs.map(slug => `save:${slug}`)),
+        ]);
         const squad: SquadMemberInput[] = [];
         const unavailableAfterClaim: string[] = [];
         for (let index = 0; index < memberSlugs.length; index++) {
             const slug = memberSlugs[index]!;
-            const record = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${slug}`));
+            const record = await augmentSaveWithForgedDefs(sealedRecords[index] ?? null);
             const character = record?.character as Record<string, unknown> | undefined;
             if (!character || typeof character !== 'object') {
                 if (authoritativeParty || slug === hostName) unavailableAfterClaim.push(slug);
@@ -514,6 +537,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const now = Date.now();
         const session = buildTowerEncounter({ floor, squad, runId, seed, partySize: squad.length, now, ascension, spireBossId });
+        if (mode === 'story' && !authoritativeParty) applyTowerRouteChoice(session, body.routeChoice);
         if (authoritativeParty) {
             const bound = session as PartyBoundSession;
             bound.towerPartyId = authoritativeParty.id;

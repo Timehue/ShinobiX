@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import test from 'node:test';
@@ -63,6 +63,61 @@ test('retains and labels an incomplete direct copy when copying fails', async (t
     assert.equal(status.status, 'incomplete');
     assert.equal(status.failedStage, 'copy');
     assert.match(status.error, /injected copy failure/);
+});
+
+// Hashing runs 16-wide. If results were collected in COMPLETION order the manifest
+// — and the manifestSha256 recorded from it — would change from run to run. Large
+// files are placed EARLY in sort order and tiny ones late, so the tiny ones finish
+// first; only an input-ordered result survives that.
+test('concurrent hashing keeps the depth-first, locale-sorted manifest order', async (t) => {
+    const { source, target } = workspace(t);
+    for (const directory of ['a-big', 'b-mixed', 'b-mixed/deep', 'c-tiny']) mkdirSync(join(source, directory), { recursive: true });
+    for (let index = 0; index < 12; index += 1) writeFileSync(join(source, 'a-big', `chunk-${index}.bin`), Buffer.alloc(256 * 1024, index));
+    for (const name of ['f1', 'f10', 'f2', 'F3', 'g']) writeFileSync(join(source, 'b-mixed', name), name);
+    for (const name of ['z', 'm', 'a']) writeFileSync(join(source, 'b-mixed', 'deep', name), name);
+    for (let index = 0; index < 40; index += 1) writeFileSync(join(source, 'c-tiny', `t-${String(index).padStart(2, '0')}`), String(index));
+
+    // The expected order is computed here with a plain sequential walk, so the
+    // test does not trust the code under test to define "correct".
+    const expected = [];
+    (function walk(directory, prefix) {
+        for (const entry of readdirSync(directory, { withFileTypes: true }).sort((l, r) => l.name.localeCompare(r.name))) {
+            const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+            if (entry.isDirectory()) walk(join(directory, entry.name), relative);
+            else expected.push(relative);
+        }
+    })(source, '');
+
+    assert.deepEqual((await buildSnapshotManifest(source)).map((entry) => entry.path), expected);
+    const result = await prepareImmutableSnapshot({ sourceRoot: source, targetRoot: target, log: () => {} });
+    assert.equal(result.fileCount, expected.length);
+    assert.equal(JSON.parse(readFileSync(join(target, SNAPSHOT_STATUS_FILE), 'utf8')).status, 'ready');
+});
+
+// A snapshot that overruns Playwright's webServer timeout dies with only "Timed out
+// waiting ... from config.webServer". The phase lines are what turn that into a
+// diagnosis: the last one printed names the step that was still running.
+test('announces each phase so a stalled snapshot names the step it is stuck in', async (t) => {
+    const { source, target } = workspace(t);
+    const lines = [];
+    await prepareImmutableSnapshot({ sourceRoot: source, targetRoot: target, log: (line) => lines.push(line) });
+    assert.deepEqual(
+        lines.map((line) => line.replace(/^\[e2e\] snapshot: /, '').replace(/ done in \d+\.\ds$/, ' done')),
+        [
+            'hashing source…', 'hashing source done',
+            'copying 3 files…', 'copying 3 files done',
+            'verifying copy…', 'verifying copy done',
+        ],
+    );
+});
+
+// Playwright's webServer IGNORES a command's stdout by default, and none of our
+// configs override it. Progress printed there is silently discarded — which is how
+// this script's "announce the phase" safeguard went unseen in every CI log.
+test('reports progress on stderr, because Playwright discards webServer stdout', () => {
+    const script = readFileSync(new URL('./prepare-e2e-preview.mjs', import.meta.url), 'utf8');
+    assert.doesNotMatch(script, /\bconsole\.(log|info)\s*\(/, 'console.log/info writes to stdout, which Playwright discards');
+    assert.doesNotMatch(script, /\bprocess\.stdout\b/, 'stdout is discarded by Playwright; write progress to stderr');
 });
 
 test('detects byte corruption and never labels the snapshot ready', async (t) => {

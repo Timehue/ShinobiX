@@ -8,17 +8,18 @@ import { withKvLock } from '../_lock.js';
 import { kickPlayer } from '../_realtime/notify.js';
 import { petCombatBusyReason } from '../pet/_pet-busy.js';
 import { activeCarriedPets } from '../_entitlements.js';
+import { parseWarfrontLadderPlan, WARFRONT_LADDER_RULES } from '../../shared/warfront-ladder-plan.js';
 import {
     type Mode, type LadderEntry, type DefenseDoc, type OfferOpponent,
     petsForMode, DAILY_CHALLENGES, AI_SEED_COUNT, CLIMB_BAND,
-    chooseOwnedLadderPets, ladderRoles, petLite,
+    chooseOwnedLadderPets, hydrateLadderVisualIdentity, ladderRoles, petLite,
     buildOffer, canChallenge, applyChallenge, projectLadder,
-    resolveColiseum, coliseumScript, resolveTactical, isAiId, aiIndexOf, parseStance, parseDoctrineChoice,
+    resolveColiseum, coliseumScript, resolveLadderWarfront, ladderWarfrontPlan, isAiId, aiIndexOf,
     aiColiseumDefense, aiTacticalDefense, AI_COLISEUM, AI_TACTICAL,
 } from './_core.js';
 
 /*
- * Global Pet Ladders — Pet Coliseum (1v1) + Pet Tactical (4v4). A Sword-x-Staff
+ * Global Pet Ladders — Pet Coliseum (1v1) + Beastbound Warfront (4v4). A Sword-x-Staff
  * style positional ladder (rank 1..N over real players) with OFFLINE defense:
  *   GET  ?mode=coliseum|tactical[&top=N]   → { ladder, you, notifications }
  *   POST { action:'defense', mode, petIds } → seal your defending pet/team (owned)
@@ -42,7 +43,7 @@ const dayStamp = () => new Date().toISOString().slice(0, 10);   // UTC yyyy-mm-d
 const MAX_LIST = 200;
 const NOTIFY_TTL = 7 * 24 * 3600;
 const LAST_TTL = 48 * 3600;
-const TACTICAL_ROSTER_COPY = 'Tactical combat needs 4 eligible pets. Base account: 5 carried. Shinobi Supporter: 6 carried.';
+const TACTICAL_ROSTER_COPY = 'Beastbound Warfront needs 4 eligible pets. Base account: 5 carried. Shinobi Supporter: 6 carried.';
 
 type LadderNotify = { from: string; mode: Mode; won: boolean; at: number };
 
@@ -52,10 +53,12 @@ function aiOfferSummary(mode: Mode, i: number): OfferOpponent {
     return { kind: 'ai', id: `ai:${i}`, name: p.name, rank: null, summary: [petLite(p)] };
 }
 
-export function defenseUsesCombatReadyPets(character: Record<string, unknown>, defense: DefenseDoc): boolean {
+export function defenseUsesCombatReadyPets(character: Record<string, unknown>, defense: DefenseDoc, expectedMode: Mode = defense.mode): boolean {
     const eligibleById = new Map(activeCarriedPets<Record<string, unknown>>(character)
         .map((pet) => [String(pet.id ?? ''), pet]));
-    return defense.pets.length === petsForMode(defense.mode)
+    return defense.mode === expectedMode
+        && defense.pets.length === petsForMode(expectedMode)
+        && new Set(defense.pets.map((pet) => pet.id)).size === defense.pets.length
         && defense.pets.every((pet) => {
             const current = eligibleById.get(String(pet.id ?? ''));
             return Boolean(current && !petCombatBusyReason(character, current));
@@ -98,12 +101,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ladder: projectLadder(order).slice(0, limit),
             you: {
                 rank: myIdx >= 0 ? myIdx + 1 : null,
+                record: myIdx >= 0 ? order[myIdx].record : null,
                 hasDefense: !!myDef,
                 defense: myDef ? myDef.pets.map(petLite) : null,
-                // The rest of the tactical setup, so the screen can show what is
-                // actually stored rather than resetting the pickers to defaults.
-                stance: myDef?.stance,
-                doctrine: myDef?.doctrine,
+                defensePetIds: myDef?.pets.map((pet) => pet.id) ?? null,
+                ...(mode === 'tactical' && myDef ? { warfrontPlan: ladderWarfrontPlan(myDef) } : {}),
                 challengesLeft: Math.max(0, DAILY_CHALLENGES - usedToday),
                 band: CLIMB_BAND,
             },
@@ -131,6 +133,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const mode = asMode((body as { mode?: unknown }).mode);
         if (!mode) return res.status(400).json({ error: 'Invalid mode.' });
+        if (mode === 'tactical' && action === 'challenge' && body.warfrontRules !== WARFRONT_LADDER_RULES) {
+            return res.status(409).json({ error: 'Beastbound Warfront has replaced Pet Tactical. Refresh the game before challenging.' });
+        }
 
         // ── Set / replace your sealed defense (ownership-validated) ────────────
         if (action === 'defense') {
@@ -146,24 +151,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             const displayName = String(save?.character?.name ?? me).slice(0, 40);
             const village = typeof save?.character?.village === 'string' ? save!.character!.village : undefined;
-            // Tactical carries the full pre-match setup: team + opening formation +
-            // team doctrine. Coliseum has neither concept, so they are simply absent.
+            const warfrontPlan = mode === 'tactical' ? parseWarfrontLadderPlan(body.warfrontPlan) : null;
+            if (mode === 'tactical' && !warfrontPlan) {
+                return res.status(400).json({ error: 'Choose four unique Warfront formation cells and save your defense again.' });
+            }
             const def: DefenseDoc = {
                 slug: me, name: displayName, village, mode, pets, roles: ladderRoles(pets),
-                ...(mode === 'tactical' ? {
-                    stance: parseStance((body as { stance?: unknown }).stance),
-                    doctrine: parseDoctrineChoice((body as { doctrine?: unknown }).doctrine),
-                } : {}),
+                ...(warfrontPlan ? { warfrontPlan } : {}),
                 updatedAt: now,
             };
-            await kv.set(defKey(mode, me), def);
-            // Keep the public list summary fresh if I'm already ranked.
+            // Defense changes share the ranking lock: a contended save must not
+            // overwrite a newly committed standing through an unlocked summary.
             await withKvLock(orderKey(mode), async () => {
+                await kv.set(defKey(mode, me), def);
                 const order = (await kv.get<LadderEntry[]>(orderKey(mode))) ?? [];
                 const i = order.findIndex((e) => e.slug === me);
                 if (i >= 0) { order[i] = { ...order[i], name: displayName, village, summary: pets.map(petLite), updatedAt: now }; await kv.set(orderKey(mode), order); }
-            });
-            return res.status(200).json({ ok: true, defense: pets.map(petLite), stance: def.stance, doctrine: def.doctrine });
+            }, { failClosed: true });
+            return res.status(200).json({ ok: true, defense: pets.map(petLite), warfrontPlan: def.warfrontPlan });
         }
 
         // ── Build the 3-opponent offer (close-above humans + AI fill) ──────────
@@ -171,7 +176,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const myDef = await kv.get<DefenseDoc>(defKey(mode, me));
             if (!myDef) return res.status(400).json({ error: 'Set your defense first.' });
             const mySave = await kv.get<{ character?: Record<string, unknown> }>(`save:${me}`);
-            if (!mySave?.character || !defenseUsesCombatReadyPets(mySave.character, myDef)) {
+            if (!mySave?.character || !defenseUsesCombatReadyPets(mySave.character, myDef, mode)) {
                 return res.status(409).json({ error: mode === 'tactical' ? TACTICAL_ROSTER_COPY : 'Reset your defense with an eligible carried pet.' });
             }
             const order = (await kv.get<LadderEntry[]>(orderKey(mode))) ?? [];
@@ -184,12 +189,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (action === 'challenge') {
             if (!enforceRateLimit(req, res, 'pet-ladder-challenge', 1, 2_000, me)) return;
             const targetId = String((body as { targetId?: unknown }).targetId ?? '');
-            const myDef = await kv.get<DefenseDoc>(defKey(mode, me));
+            let myDef = await kv.get<DefenseDoc>(defKey(mode, me));
             if (!myDef) return res.status(400).json({ error: 'Set your defense first.' });
             const mySave = await kv.get<{ character?: Record<string, unknown> }>(`save:${me}`);
-            if (!mySave?.character || !defenseUsesCombatReadyPets(mySave.character, myDef)) {
+            if (!mySave?.character || !defenseUsesCombatReadyPets(mySave.character, myDef, mode)) {
                 return res.status(409).json({ error: mode === 'tactical' ? TACTICAL_ROSTER_COPY : 'Reset your defense with an eligible carried pet.' });
             }
+
+            myDef = hydrateLadderVisualIdentity(myDef, activeCarriedPets<Record<string, unknown>>(mySave.character));
 
             const order0 = (await kv.get<LadderEntry[]>(orderKey(mode))) ?? [];
             const lastTarget = (await kv.get<string>(lastKey(mode, me))) ?? undefined;
@@ -211,16 +218,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!targetDef || targetDef.pets.length === 0) return res.status(404).json({ error: 'Opponent has no defense set.' });
             if (!isAiId(targetId)) {
                 const targetSave = await kv.get<{ character?: Record<string, unknown> }>(`save:${safeName(targetId)}`);
-                if (!targetSave?.character || !defenseUsesCombatReadyPets(targetSave.character, targetDef)) {
+                if (!targetSave?.character || !defenseUsesCombatReadyPets(targetSave.character, targetDef, mode)) {
                     return res.status(409).json({ error: 'Opponent must reset an ineligible carried-pet defense.' });
                 }
+                targetDef = hydrateLadderVisualIdentity(targetDef, activeCarriedPets<Record<string, unknown>>(targetSave.character));
             }
 
             // Server-minted seed → server recomputes the winner (outside the lock).
             const seed = crypto.randomInt(1, 0x7fffffff);
-            const won = mode === 'tactical'
-                ? resolveTactical(myDef, targetDef, seed)
-                : resolveColiseum(myDef.pets[0], targetDef.pets[0], seed);
+            const warfront = mode === 'tactical' ? resolveLadderWarfront(myDef, targetDef, seed) : null;
+            const won = warfront ? warfront.winner === 'blue' : resolveColiseum(myDef.pets[0], targetDef.pets[0], seed);
 
             const myEntry: LadderEntry = order0.find((e) => e.slug === me)
                 ?? { slug: me, name: myDef.name, village: myDef.village, record: { wins: 0, losses: 0, defended: 0, defeated: 0 }, summary: myDef.pets.map(petLite), updatedAt: now };
@@ -231,41 +238,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             let used = usedBefore;
             await withKvLock(orderKey(mode), async () => {
                 const order = (await kv.get<LadderEntry[]>(orderKey(mode))) ?? [];
-                if (!canChallenge(order, me, targetId)) { const i = order.findIndex((e) => e.slug === me); rank = i >= 0 ? i + 1 : null; return; }
+                const latestTarget = (await kv.get<string>(lastKey(mode, me))) ?? undefined;
+                if (!canChallenge(order, me, targetId, latestTarget)) { const i = order.findIndex((e) => e.slug === me); rank = i >= 0 ? i + 1 : null; return; }
                 // Re-check the daily cap inside the lock (no-op early-returns above never reach here).
+                used = Number((await kv.get<number>(dKey)) ?? 0);
+                if (used >= DAILY_CHALLENGES) return;
                 used = await kv.incr(dKey, { ex: 36 * 3600 });
                 if (used > DAILY_CHALLENGES) { const i = order.findIndex((e) => e.slug === me); rank = i >= 0 ? i + 1 : null; return; }
                 const applied = applyChallenge(order, myEntry, targetId, won);
-                await kv.set(orderKey(mode), applied.order.slice(0, 1000));
+                // Bound the public list projection, never the stored standings:
+                // trimming here silently evicts the lowest players and records.
+                await kv.set(orderKey(mode), applied.order);
                 committed = true;
                 notifySlug = applied.notifySlug;
                 const i = applied.order.findIndex((e) => e.slug === me);
                 rank = i >= 0 ? i + 1 : null;
+                // Publish the rematch guard before another challenge acquires
+                // this lock; post-commit advisory failures cannot erase a win.
+                try { await kv.set(lastKey(mode, me), targetId, { ex: LAST_TTL }); }
+                catch (error) { console.error('[pet-ladder] committed rematch marker failed', error); }
             }, { failClosed: true });
 
-            // Lost a daily-cap race inside the lock — the incr already burned the slot,
-            // so it counts, but the fight was not committed. Tell the client they're out.
-            if (used > DAILY_CHALLENGES && !committed) return res.status(429).json({ error: `Out of challenges today (${DAILY_CHALLENGES}/day). Come back tomorrow.` });
+            if (!committed) {
+                if (used >= DAILY_CHALLENGES) return res.status(429).json({ error: `Out of challenges today (${DAILY_CHALLENGES}/day). Come back tomorrow.` });
+                return res.status(409).json({ error: 'The available opponents changed before this fight could be recorded. Refresh the ladder and choose again.' });
+            }
 
             // Notify the offline human defender (lightweight notify + realtime nudge).
             if (notifySlug && !isAiId(notifySlug)) {
-                await appendNotify(notifySlug, { from: myDef.name, mode, won, at: now });
+                try { await appendNotify(notifySlug, { from: myDef.name, mode, won, at: now }); }
+                catch (error) { console.error('[pet-ladder] committed defense notification failed', error); }
                 kickPlayer(notifySlug, 'challenge');
             }
 
-            // Remember this opponent so the next offer/challenge can't immediately repeat it.
-            await kv.set(lastKey(mode, me), targetId, { ex: LAST_TTL });
-
             // Sealed replay for the client cinematic (deterministic from seed + rosters).
-            const replay = mode === 'tactical'
+            const replay = warfront
                 ? {
-                    kind: 'tactical' as const, seed,
-                    blue: myDef.pets.map((p, i) => ({ pet: p, role: myDef.roles[i] })),
-                    red: targetDef.pets.map((p, i) => ({ pet: p, role: targetDef!.roles[i] })),
-                    // Without these the client would replay a DIFFERENT match than the
-                    // one the server just scored, and the banner would contradict the rank.
-                    blueStance: parseStance(myDef.stance), redStance: parseStance(targetDef.stance),
-                    blueDoctrine: parseDoctrineChoice(myDef.doctrine), redDoctrine: parseDoctrineChoice(targetDef.doctrine),
+                    kind: 'warfront' as const, seed,
+                    blue: myDef.pets.map((p, i) => ({ pet: p, role: p.role ?? myDef.roles[i] ?? 'tracker' })),
+                    red: targetDef.pets.map((p, i) => ({ pet: p, role: p.role ?? targetDef!.roles[i] ?? 'tracker' })),
+                    bluePlan: warfront.bluePlan, redPlan: warfront.redPlan,
                 }
                 // The coliseum row now ships the server's OWN derived script.
                 // The client cannot re-run this fight — Showdown has no client

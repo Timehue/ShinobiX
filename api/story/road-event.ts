@@ -58,7 +58,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const record = (await kv.get<StoryRecord>(storyKey))
                 ?? emptyStoryRecord(String(char.storyVillage || char.village || ''));
-            if (record.roadEvents?.[eventId]) return { status: 200, body: { ok: false, reason: 'done' } };
+            const existing = record.roadEvents?.[eventId];
+            if (existing) return existing.trait === trait
+                ? { status: 200, body: { ok: true, trait, lane: existing.lane, lanes: record.lanes, replayed: true } }
+                : { status: 200, body: { ok: false, reason: 'conflict', recordedTrait: existing.trait } };
             const lanes = bumpLanes(record.lanes, lane);
             const updated: StoryRecord = {
                 ...record,
@@ -67,7 +70,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
             // No TTL — permanent character history.
             await kv.set(storyKey, updated);
-            return { status: 200, body: { ok: true, lane, lanes } };
+            return { status: 200, body: { ok: true, trait, lane, lanes } };
         }, { failClosed: true });
 
         return res.status(out.status).json(out.body);

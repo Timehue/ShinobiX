@@ -1,3 +1,4 @@
+import { openWorldContinuousVitalsEnabled } from '../_release-flags.js';
 import { randomUUID } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
@@ -93,6 +94,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 now,
                 admin,
                 difficultyMode: 'MISSION',
+                // A field mission is open-world work: continuous vitals.
+                continuousVitals: openWorldContinuousVitalsEnabled(),
                 encounter: { kind: 'mission', id: mission.key, sourceId: mission.aiProfileId, bindingId: runId },
                 environment: {
                     biome: env.biome,

@@ -148,9 +148,11 @@ test('board scaling keeps one observer authority with explicit cleanup', () => {
 
 test('specialized coordinate stages preserve their source geometry', () => {
     const mapHook = readFileSync(join(srcDir, 'lib', 'use-world-map-zoom.ts'), 'utf8');
+    const mapRegions = readFileSync(join(srcDir, 'lib', 'world-map-regions.ts'), 'utf8');
     const stages = readFileSync(stageAuthority, 'utf8');
     const legacyMobile = readFileSync(join(stylesDir, 'index', '24-combat-mobile-restore.css'), 'utf8');
-    assert.match(mapHook, /WORLD_MAP_ASPECT_RATIO = 1672 \/ 941/);
+    assert.match(mapRegions, /export const WORLD_MAP_ASPECT_RATIO = 1672 \/ 941/);
+    assert.match(mapHook, /import \{[^}]*\bWORLD_MAP_ASPECT_RATIO\b[^}]*\} from ["']\.\/world-map-regions["']/);
     assert.match(mapHook, /"--wm-map-ar"[^\n]+WORLD_MAP_ASPECT_RATIO/);
     assert.match(stages, /aspect-ratio: var\(--wm-map-ar, 1672 \/ 941\)/);
     assert.match(stages, /grid-template-columns: repeat\(12, minmax\(0, 1fr\)\)/);
@@ -170,32 +172,30 @@ test('world-map resize, pointer loss, and observers have bounded cleanup', () =>
     assert.match(mapHook, /ro\?\.disconnect\(\)/);
     assert.match(mapHook, /addEventListener\("wheel", onWheel, \{ passive: false \}\)/);
     assert.match(mapHook, /removeEventListener\("wheel", onWheel\)/);
+    assert.match(mapHook, /removeEventListener\("touchmove", onTouchMove\)/);
+    assert.match(mapHook, /window\.removeEventListener\("pointerup", onWindowRelease, true\)/);
+    assert.match(mapHook, /window\.removeEventListener\("pointercancel", onWindowRelease, true\)/);
     assert.doesNotMatch(mapHook, /window\.addEventListener\("resize"/);
 });
 
 test('all full-screen pet modes use the shared takeover contract', () => {
     const petFiles = [
         join(srcDir, 'components', 'PetColiseum.tsx'),
-        join(srcDir, 'components', 'PetWarfrontMatch.tsx'),
+        join(srcDir, 'components', 'pet-coliseum', 'frame-battle.tsx'),
+        join(srcDir, 'components', 'pet-coliseum', 'arena-match.tsx'),
         join(srcDir, 'components', 'PetBoardArena.tsx'),
     ].map((file) => readFileSync(file, 'utf8')).join('\n');
     const stages = readFileSync(stageAuthority, 'utf8');
-    assert.ok((petFiles.match(/pet-combat-takeover/g) ?? []).length >= 5);
+    assert.ok((petFiles.match(/pet-combat-takeover/g) ?? []).length >= 4);
     assert.doesNotMatch(petFiles, /zIndex:\s*200/);
     assert.doesNotMatch(petFiles, /height:\s*"100vh"/);
     assert.match(stages, /\.pet-combat-takeover[\s\S]*block-size: 100dvh/);
     assert.match(stages, /z-index: var\(--z-combat\)/);
 });
 
-test('pet WebGL stages release resources while the new Warfront remains DOM-only', () => {
-    const warfront = readFileSync(join(srcDir, 'components', 'PetWarfrontMatch.tsx'), 'utf8');
+test('pet WebGL stages release resources', () => {
     const board = readFileSync(join(srcDir, 'components', 'PetBoardArena.tsx'), 'utf8');
     const stages = readFileSync(stageAuthority, 'utf8');
-    assert.doesNotMatch(warfront, /<Canvas/);
-    assert.doesNotMatch(warfront, /setPointerCapture/);
-    assert.doesNotMatch(warfront, /lostpointercapture/);
-    assert.doesNotMatch(warfront, /<WfMultiCam/);
-    assert.doesNotMatch(warfront, /window\.innerWidth/);
     assert.match(board, /useTexture\(gauntletBoard\)/);
     assert.match(board, /useTexture\.preload\(gauntletBoard\)/);
     assert.match(board, /data-arena-map="stone-lava"/);

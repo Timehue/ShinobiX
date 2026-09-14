@@ -1,8 +1,10 @@
 import type { KvLike } from '../_storage.js';
 import { safeName } from '../_utils.js';
 import type { PvpSession } from './session.js';
+import { noteBattleStarted, publishBattleProjection } from '../_realtime/battle-projection.js';
+import { SESSION_TTL } from '../combat-core/constants.js';
 
-type PendingSessionStore = Pick<KvLike, 'get' | 'compareSet' | 'delIfEqual'>;
+type PendingSessionStore = Pick<KvLike, 'get' | 'compareSet' | 'delIfEqual'> & Partial<Pick<KvLike, 'set'>>;
 
 export const PVP_PENDING_SESSION_TTL_SECONDS = 48 * 60 * 60;
 export const PVP_PENDING_PUBLICATION_LEASE_MS = 30_000;
@@ -84,6 +86,19 @@ function parsePointer(raw: unknown, expectedPlayer?: string): PvpPendingSessionP
             ? { recoveryExpiresAt: Number(pointer.recoveryExpiresAt) }
             : {}),
     };
+}
+
+/**
+ * Non-throwing read of a raw pointer value (for callers that already hold the
+ * bytes, e.g. the heartbeat's battle-authority mget). A malformed pointer is
+ * not evidence of a fight, so it reads as absent.
+ */
+export function parsePvpPendingSessionPointer(raw: unknown, expectedPlayer?: string): PvpPendingSessionPointer | null {
+    try {
+        return parsePointer(raw, expectedPlayer);
+    } catch {
+        return null;
+    }
 }
 
 export function pvpTerminalRecoveryExpiresAt(
@@ -230,7 +245,8 @@ export async function publishPvpPendingSessionPointers(
     store: PendingSessionStore,
     session: PvpSession,
 ): Promise<void> {
-    for (const pointer of pendingPointersForSession(session)) {
+    const pointers = pendingPointersForSession(session);
+    for (const pointer of pointers) {
         await publishPvpPendingSessionPointer(store, pointer);
         await activatePvpPendingSessionPointer(
             store,
@@ -239,6 +255,23 @@ export async function publishPvpPendingSessionPointers(
             pointer.createdAt,
             pointer.createRequestFingerprint,
         );
+    }
+    // F01/F08: a live duel makes both real fighters provably in battle from
+    // this moment (presence), and leaves the projection the lapse sweep reads.
+    // The projection's expiry is a hint refreshed here only; the session row's
+    // own `lastMoveAt`/`turnStartedAt` decide whether it truly lapsed.
+    if (session.status === 'active') {
+        for (const pointer of pointers) {
+            noteBattleStarted(pointer.playerName);
+            if (store.set) {
+                await publishBattleProjection(store as Parameters<typeof publishBattleProjection>[0], pointer.playerName, {
+                    kind: 'pvp',
+                    sessionId: session.battleId,
+                    startedAt: session.createdAt,
+                    expiresAt: Math.max(Number(session.lastMoveAt) || 0, Number(session.turnStartedAt) || 0, session.createdAt) + SESSION_TTL * 1000,
+                }, PVP_PENDING_SESSION_TTL_SECONDS).catch(() => undefined);
+            }
+        }
     }
 }
 

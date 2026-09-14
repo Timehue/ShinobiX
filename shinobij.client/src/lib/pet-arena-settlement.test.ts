@@ -142,7 +142,8 @@ test("every authoritative Pet Arena result exposes an idempotent retry receipt",
     }
     assert.doesNotMatch(arenaSource, /unrewarded:\$\{/);
     assert.match(arenaSource, /const canLeaveCurrentPetBattle = \(blocksExit = petSettlementBlocksExit\)[\s\S]*if \(blocksExit\)/);
-    assert.match(arenaSource, /response\.status === 425[\s\S]*PetSettlementRetryError/,
+    const receiptSource = readFileSync(new URL("./pet-battle-receipt.ts", import.meta.url), "utf8");
+    assert.match(receiptSource, /response\.status === 425[\s\S]*PetSettlementRetryError/,
         "a legitimate early Warfront settlement must preserve the server retry interval");
     assert.match(arenaSource, /window\.setTimeout\(\(\) => \{[\s\S]*runPetSettlementAttempt\(attempt\)/,
         "the pending authoritative receipt must retry automatically instead of stranding the result screen");
@@ -156,16 +157,18 @@ test("rewarded Warfront exit is blocked from its first result frame through sett
     assert.equal(petBattleSettlementBlocksExit("settled", true), false);
     assert.match(arenaSource, /settlementPending=\{warfrontSettlementBlocksExit\}/);
     assert.match(arenaSource, /canLeaveCurrentPetBattle\(warfrontSettlementBlocksExit\)/);
+    const exitGuard = arenaSource.slice(arenaSource.indexOf("const warfrontSettlementBlocksExit"), arenaSource.indexOf("const warfrontResultActionsLocked"));
+    assert.doesNotMatch(exitGuard, /vsAi/, "deployment and unfinished playback must not require a nonexistent result receipt");
 });
 
 test("a rewarded Warfront keeps authoritative Witness progress and its final Chronicle ceremony on the result screen", () => {
-    const warfront = readFileSync(new URL("../components/PetWarfrontMatch.tsx", import.meta.url), "utf8");
+    const warfront = readFileSync(new URL("../components/PetWarfrontRite.tsx", import.meta.url), "utf8");
     assert.match(arenaSource, /resultSupplement=\{chronicleProgress \|\| chronicleCeremony \? \([\s\S]*chronicleProgress \? <PetChronicleProgress receipt=\{chronicleProgress\} \/> : null[\s\S]*chronicleCeremony \? \([\s\S]*<PetChronicleCeremony/);
     assert.match(arenaSource, /resultActionsLocked=\{warfrontResultActionsLocked\}/);
     assert.match(arenaSource, /petBattleSettlementBlocksExit\([\s\S]*Boolean\(arenaMatch\?\.vsAi\)/);
     assert.match(warfront, /\{resultSupplement\}/);
     assert.match(warfront, /disabled=\{resultActionsLocked\}/);
-    assert.match(warfront, /disabled=\{settlementPending\}/);
+    assert.match(warfront, /\{settlementPending \?/);
     // Fight Again survives only on the WARFRONT result screen, which is what
     // this test is about. The duel screen no longer offers it at all: every
     // fight it starts is spent when it resolves (a challenge is consumed, a
@@ -206,10 +209,10 @@ test("rewarded Warfronts render and settle only the server-minted seed", () => {
     assert.match(arenaSource, /seal\.seed !== m\.seed[\s\S]*seal\.theme !== m\.theme[\s\S]*seal\.reportKey !== reportKey[\s\S]*seal\.stance !== m\.stance[\s\S]*seal\.doctrine !== m\.doctrine[\s\S]*seal\.buyPolicy !== m\.buyPolicy[\s\S]*seal\.opponentBuyPolicy !== m\.opponentBuyPolicy[\s\S]*seal\.opponentStance !== m\.opponentStance/);
     assert.match(arenaSource, /seal\.redPets\.map\(\(pet\) => pet\.id\)[\s\S]*rivalPetIds/);
     assert.match(arenaSource, /battleToken: seal\.token/);
-    // The whole client-side transcript: the committed order plus the swap. The
+    // The whole client-side transcript: the deployment plus all re-form locks. The
     // server re-runs the duel chain from it and pays from ITS OWN winner, so no
     // outcome, reward or duel result may appear in this payload.
-    assert.match(arenaSource, /warfrontPlan: \{[\s\S]*formation: plan\.formation,[\s\S]*reformAfterClash: plan\.reformAfterClash/);
+    assert.match(arenaSource, /warfrontPlan: \{[\s\S]*formation: plan\.formation,[\s\S]*deployment: plan\.deployment,[\s\S]*reformAfterClash: plan\.reformAfterClash,[\s\S]*reformDeployment: plan\.reformDeployment \?\? null,[\s\S]*reforms: plan\.reforms \?\? \[\]/);
     assert.match(arenaSource, /if \(!r\.ok\)[\s\S]*payload\?\.error[\s\S]*Retry-After[\s\S]*warfrontSetupErrorRef\.current/);
     assert.match(arenaSource, /Retry to recover any existing battle seal safely/);
     assert.match(arenaSource, /resumeOnly: true/);
@@ -218,21 +221,20 @@ test("rewarded Warfronts render and settle only the server-minted seed", () => {
     assert.match(arenaSource, /warfrontResumeProbeScopeRef[\s\S]*void resumeOwnedWarfront\(scope\)/);
     assert.match(arenaSource, />Warfront needs attention</);
 
-    // The lobby must describe the mode the player is about to play. The lane war
-    // shipped twice with copy nobody revisited, so pin the rules that actually
-    // decide a Rite: one ring, winner stays wounded, kills are the scoreboard.
+    // The lobby must describe the mode the player is about to play. Pin the
+    // Beastbound Warfront rules here so retired lane-war and sequential-duel copy cannot
+    // drift back onto the screen where the player commits their formation.
     const setupSource = arenaSource.slice(arenaSource.indexOf("BATTLE LAWS"), arenaSource.indexOf("Full-screen game-mode overlays"));
     assert.doesNotMatch(setupSource, /War Council|Auto-Attack|Auto-Guard|coin shop/);
     assert.doesNotMatch(setupSource, /THREE LANES|Ward Tower|Gate Warden|Hollow Omen/i,
         "the lobby must not advertise the retired three-lane mode");
-    assert.match(setupSource, /ONE RING · LAST BAND STANDING/);
-    // The laws shown must be the laws FOUGHT. This block previously pinned the
-    // copy of an earlier SEQUENTIAL design — "Winner stays in", a per-duel swap
-    // token, kills as the only scoreboard — which survived the rebuild to 4v4
-    // simultaneous and kept telling players the wrong rules on the very screen
-    // where they commit. Assert the real ones, and guard the retired wording so
-    // it cannot drift back in.
-    assert.match(setupSource, /All eight at once/, "the clash is simultaneous, not a sequence of duels");
+    assert.match(setupSource, /BEASTBOUND WARFRONT · FORMATION COMBAT/);
+    // The laws shown must be the laws FOUGHT: four freely deployed pets, ten
+    // tactical cells, terrain-aware formation combat, and ordered re-form locks.
+    assert.match(setupSource, /Deploy all four/, "the lobby must explain that the full band is deployed");
+    assert.match(setupSource, /four of ten cells/, "the lobby must advertise the real deployment freedom");
+    assert.match(setupSource, /shoji, cover, smoke, range, and roles/i,
+        "the lobby must explain why this is tactical rather than a collision brawl");
     assert.match(setupSource, /Best of three/, "the match is best-of-three clashes");
     assert.match(setupSource, /RE-FORM/, "the one mid-match decision must be advertised");
     assert.doesNotMatch(setupSource, /Winner stays in|SWAP TOKEN|batting order/i,
@@ -244,11 +246,8 @@ test("rewarded Warfronts render and settle only the server-minted seed", () => {
 });
 
 test("the retired lane war is unreachable from anything a player can open", () => {
-    // Hollow Warfront is the RITE now. The lane war it replaced survives only as
-    // the Pet Ladder's tactical engine and replay viewer, so no player-facing
-    // entry may launch it — otherwise "Hollow Warfront" means two different
-    // games depending on how you got there, which is exactly the confusion this
-    // rebuild set out to remove.
+    // Arena, co-op, and the offline ranked ladder all use the Rite now. Retained
+    // lane-war implementation files must not expose another player-facing mode.
     const coop = readFileSync(new URL("../components/ArenaCoopLobby.tsx", import.meta.url), "utf8");
     for (const source of [arenaSource, coop]) {
         assert.equal(source.includes("PetWarfrontMatch"), false,
@@ -263,15 +262,17 @@ test("the retired lane war is unreachable from anything a player can open", () =
 
 test("a Warfront challenge lets each participant command their own roster against the sealed rival defense", () => {
     const challenge = readFileSync(new URL("./arena-challenge.ts", import.meta.url), "utf8");
-    const worker = readFileSync(new URL("./pet-warfront-worker-client.ts", import.meta.url), "utf8");
 
     assert.match(arenaSource, /challengerWarfrontPlan,[\s\S]*fetch\('\/api\/player\/challenge'/);
     assert.match(arenaSource, /responderWarfrontPlan: responderPlan/);
-    assert.match(arenaSource, /startArenaMatch\(myTeam, blue,[\s\S]*\{ blue: responderPlan, red: challengerPlan \}/);
+    assert.match(arenaSource, /acceptedMatch = parseAcceptedWarfrontMatch\(payload\?\.warfrontMatch\)/);
+    assert.match(arenaSource, /if \(!acceptedMatch\) \{[\s\S]*return;[\s\S]*startArenaMatch\(acceptedMatch\.red, acceptedMatch\.blue, acceptedMatch\.seed, false,[\s\S]*\{ blue: acceptedMatch\.plans\.red, red: acceptedMatch\.plans\.blue \}/,
+        "the responder must replay the server-accepted roster, seed, and plans in their own orientation");
+    assert.doesNotMatch(arenaSource, /startArenaMatch\(myTeam, blue,/,
+        "mutable local pets must not replace the accepted server snapshots");
     assert.match(arenaSource, /if \(!response\.ok\)[\s\S]*Nothing was started/);
     assert.match(arenaSource, /startArenaMatch\(pendingArenaMatch\.blue,[\s\S]*pendingArenaMatch\.plans\)/);
     assert.match(challenge, /plans: \{ blue: bluePlan, red: redPlan \}/);
-    assert.match(worker, /redPolicy: args\.redPolicy/);
     assert.match(arenaSource, /<PetWarfrontRite[\s\S]*red=\{arenaMatch\.red\}/,
         "each participant commands their own band against the sealed rival one");
 });

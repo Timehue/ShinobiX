@@ -393,9 +393,11 @@
     cursor: pointer;
     transition: border-color 120ms, transform 80ms;
 }
-.pet-yard-screen .pet-feed-grid > button:hover:not(:disabled) {
-    border-color: rgba(232,212,150,0.85) !important;
-    transform: translateY(-1px);
+@media (hover: hover) {
+    .pet-yard-screen .pet-feed-grid > button:hover:not(:disabled) {
+        border-color: rgba(232,212,150,0.85) !important;
+        transform: translateY(-1px);
+    }
 }
 .pet-yard-screen .pet-feed-grid > button:disabled {
     opacity: 0.4; cursor: not-allowed;
@@ -461,8 +463,10 @@
     cursor: pointer;
     transition: transform 80ms, border-color 120ms;
 }
-.pet-yard-screen .pet-collar-swatch:hover {
-    transform: scale(1.14);
+@media (hover: hover) {
+    .pet-yard-screen .pet-collar-swatch:hover {
+        transform: scale(1.14);
+    }
 }
 .pet-yard-screen .pet-collar-swatch.selected {
     border-color: #fff;
@@ -546,20 +550,6 @@
     color: rgba(200,207,220,0.55) !important;
 }
 
-/* ----- Expedition lock (until level 20) ----- */
-.pet-yard-screen .pet-expedition-locked {
-    background: rgba(148,163,184,0.08) !important;
-    border: 1px solid var(--bsv2-gold-faint) !important;
-    border-radius: 8px !important;
-    padding: 12px !important;
-}
-.pet-yard-screen .pet-lock-title {
-    font: 700 13px var(--font-display) !important;
-    letter-spacing: 0.08em;
-    color: var(--bsv2-gold-bright) !important;
-    margin: 0 0 4px !important;
-}
-
 /* ----- Care actions / general buttons ----- */
 .pet-yard-screen .pet-care-actions,
 .pet-yard-screen .menu {
@@ -581,10 +571,12 @@
     box-shadow: 0 0 10px rgba(78,168,255,0.25);
     transition: transform 80ms, box-shadow 120ms;
 }
-.pet-yard-screen .pet-care-actions button:hover:not(:disabled),
-.pet-yard-screen .menu button:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: 0 0 16px rgba(78,168,255,0.45) !important;
+@media (hover: hover) {
+    .pet-yard-screen .pet-care-actions button:hover:not(:disabled),
+    .pet-yard-screen .menu button:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 0 16px rgba(78,168,255,0.45) !important;
+    }
 }
 /* The enabled gradient above is !important, so it beat the generic disabled
    style and a disabled care button still read as clickable — which the Pet
@@ -648,32 +640,6 @@
     .pet-arena-screen .pet-arena-grid {
         grid-template-columns: 1fr !important;
     }
-}
-.pet-arena-screen .pet-arena-mode-toggle {
-    display: flex; gap: 4px;
-    background: rgba(0,0,0,0.3) !important;
-    border: 1px solid var(--bsv2-gold-faint) !important;
-    border-radius: 6px !important;
-    padding: 4px !important;
-}
-.pet-arena-screen .pet-arena-mode-toggle button {
-    background: transparent !important;
-    border: 1px solid transparent !important;
-    color: rgba(196,162,90,0.65) !important;
-    padding: 6px 14px !important;
-    font: 600 11px var(--font-display) !important;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    border-radius: 4px !important;
-    cursor: pointer;
-    transition: color 120ms, background 120ms;
-}
-.pet-arena-screen .pet-arena-mode-toggle button.active,
-.pet-arena-screen .pet-arena-mode-toggle button[aria-selected="true"] {
-    color: var(--bsv2-player) !important;
-    background: linear-gradient(180deg, rgba(78,168,255,0.14), rgba(78,168,255,0.04)) !important;
-    border-color: rgba(78,168,255,0.5) !important;
-    box-shadow: inset 0 -2px 0 var(--bsv2-player), 0 0 10px rgba(78,168,255,0.2);
 }
 .pet-arena-screen .summary-box {
     background: linear-gradient(180deg, rgba(20,28,46,0.85), rgba(12,18,34,0.85)) !important;
@@ -742,10 +708,12 @@
     cursor: pointer;
     transition: border-color 130ms, transform 130ms, box-shadow 130ms, background 130ms;
 }
-.pet-arena-screen .pet-pick:hover {
-    transform: translateY(-2px);
-    border-color: var(--bsv2-gold-soft) !important;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.45);
+@media (hover: hover) {
+    .pet-arena-screen .pet-pick:hover {
+        transform: translateY(-2px);
+        border-color: var(--bsv2-gold-soft) !important;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.45);
+    }
 }
 .pet-arena-screen .pet-pick.selected {
     border-color: #22d3ee !important;

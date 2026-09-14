@@ -1,3 +1,4 @@
+import { normalizeAnbuSeats } from '../../../shared/village-anbu';
 /*
  * Pure village-state helpers — daily agenda generation, treasury defaults/
  * cleaning, and ANBU appointee normalization. Extracted verbatim from App.tsx.
@@ -13,16 +14,7 @@ import { currentDateKey } from "./utils";
 import { cleanTreasuryItems } from "./items";
 import { type VillageAgendaTask, type VillageDailyAgenda, type VillageTreasury } from "./world-state";
 
-export function normalizeAnbuAppointees(appointees?: string[]) {
-    const seen = new Set<string>();
-    return Array.from({ length: 3 }, (_, index) => {
-        const name = String(appointees?.[index] ?? "").trim();
-        const key = name.toLowerCase();
-        if (!name || seen.has(key)) return "";
-        seen.add(key);
-        return name;
-    });
-}
+export const normalizeAnbuAppointees = normalizeAnbuSeats;
 
 const villageAgendaTaskPool: Omit<VillageAgendaTask, "id">[] = [
     { kind: "control", label: "Hold controlled sectors", target: 1 },

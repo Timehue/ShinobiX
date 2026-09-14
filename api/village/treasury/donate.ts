@@ -5,6 +5,7 @@ import { cors, safeName } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../../_lock.js';
+import { invalidateProcCache } from '../../_proc-cache.js';
 import { applyTreasuryDonation, type TreasuryDonation } from '../../_treasury-donate.js';
 import { mutatePlayerSave } from '../../save/_mutate-player-save.js';
 import { meritForDonation, meritNum } from '../_village-merit.js';
@@ -193,6 +194,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             txState = 'debit-applied';
             // Credit ONLY the treasury; preserve every other village-state field.
             await kv.set(villageStateKey, { ...stateRec, treasury: debit.value.nextTreasury });
+            // Every villager's next /api/game-state poll reads the new treasury
+            // rather than a frame built before this donation.
+            invalidateProcCache('game-state:frame');
             await completeEconomyTx(txId!);
             txState = 'complete';
             return { ok: true as const, treasury: debit.value.nextTreasury, character: debit.character, _saveVersion: debit._saveVersion, routed: debit.value.routed };

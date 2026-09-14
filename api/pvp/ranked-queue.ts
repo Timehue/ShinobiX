@@ -22,6 +22,7 @@ import {
     playerRankedV2AdmissionsEnabled,
 } from './_player-ranked-rollout.js';
 import { isBelowAttackableFloor, ATTACKABLE_MIN_LEVEL } from '../_realtime/presence-gating.js';
+import { isIncapacitated } from '../_elapsed-state.js';
 import { hasRecentIpOrFpOverlapStrict } from '../_player-ips.js';
 
 export type QueueEntry = {
@@ -179,6 +180,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // entering the lock so the lock body stays fast.
             let serverLevel = 1;
             let serverElo = 1000;
+            // Fails OPEN, matching the best-effort read below: a storage hiccup
+            // must not lock a healthy player out of ranked.
+            let serverIncapacitated = false;
             if (action === 'join' && !identity.admin) {
                 try {
                     const save = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
@@ -187,9 +191,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         if (typeof char.level === 'number') serverLevel = char.level;
                         if (typeof char.rankedRating === 'number') serverElo = char.rankedRating;
                         else if (typeof char.elo === 'number') serverElo = char.elo;
+                        serverIncapacitated = isIncapacitated(char);
                     }
                 } catch {
                     // best-effort; defaults apply
+                }
+                // An admitted fighter does not queue. Ranked seals FRESH vitals
+                // (useCurrentVitals=false, api/pvp/session.ts), so a knocked-out
+                // player used to queue and fight at full strength — the hospital
+                // stay meant nothing to anyone who played ranked. Read from the
+                // same authoritative save as the level gate below.
+                if (serverIncapacitated) {
+                    return res.status(409).json({
+                        error: 'You are in the hospital. Recover before entering ranked battles.',
+                        errorCode: 'hospitalized',
+                    });
                 }
                 // #4 newcomer protection: sub-floor shinobi can't enter ranked —
                 // it would match them against far stronger players for a free loss.

@@ -120,8 +120,9 @@ test("App gates its dirty detection on the tick check", () => {
     // merely-open tab autosaves forever with no player input, which is what makes
     // two tabs trade 409s indefinitely.
     const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
+    assert.match(app, /usePlayerSaveLifecycle\(\{/);
     assert.match(
-        app,
+        readFileSync(new URL("./player-save-tracking.ts", import.meta.url), "utf8"),
         /if \(!isIdleVitalsOnlyChange\(prevCharRef\.current, character\)\) charDirtyRef\.current = true;/u,
         "App must not flip charDirtyRef for a pure idle-regen tick",
     );

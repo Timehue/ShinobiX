@@ -1,6 +1,16 @@
+import { gainXp } from "../lib/character-level-projection";
+import { getPvpJutsuLoadout } from "../lib/jutsu-loadout";
+import { normalizeNarrativeCharacter as normalizeCharacter } from "../lib/normalize-narrative-character";
+import { HollowGateEntryMenu } from './world-map/HollowGateEntryMenu';
+import { sectorBackgroundImage, sectorDepthImage, sectorMapUrl, ambienceBiomeForSector } from './world-map/sector-art';
+import { fetchVillageGuards } from "../lib/village-guard-api";
+import { useWorldTravelPresentation } from "../lib/use-world-travel-presentation";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, lazy, Suspense, type ReactNode, type CSSProperties } from "react";
 import "../styles/atlas-skin.css";
+import "../styles/world-map-mobile.css";
+import { useWorldMapLayout } from "../lib/use-world-map-layout";
+import { getWorldMapRegionForPoint, WORLD_MAP_REGIONS } from "../lib/world-map-regions";
 import { visiblePoll } from "../lib/poll";
 // The Chronicle Scribe's codex hand-off ends on the pack-opening cinematic, so
 // this screen chunk owns those two stylesheets the same way Shop does (the card
@@ -27,7 +37,7 @@ import type { Pet, PetTrait } from "../types/pet";
 import { TERRITORY_HP_MAX, TERRITORY_REBUILD_COOLDOWN_MS } from "../constants/game";
 import { getAllTileCards } from "../data/tile-cards";
 import { TriggeredVisualNovel } from "../components/TriggeredVisualNovel";
-import { addStoryTrait } from "../lib/character-progress";
+import { addStoryTrait } from "../lib/story-choice-mutations";
 import { SceneAmbience } from "../components/SceneAmbience";
 import { SectorAvatar } from "../components/SectorAvatar";
 import { WorldSectorCanvas } from "../components/WorldSectorCanvas";
@@ -65,9 +75,14 @@ import type { WorldAiFightContext, WorldAiFightKind, WorldAiFightRequest } from 
 import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
 import { makeBuiltinAi } from "../lib/combat-ai";
 import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
-import { ROAD_WANDERER_PREFIX, nextRoadEvent, synthRoadWanderer, roadEventBySynthId, roadEventToCreatorEvent, reportStoryRoadEvent } from "../lib/story-road-events";
+import { ROAD_WANDERER_PREFIX, nextRoadEvent, synthRoadWanderer, roadEventBySynthId, roadEventToCreatorEvent, reportStoryRoadEvent, applyRoadEventChoice } from "../lib/story-road-events";
+import { readStoryRoadContent } from "../lib/story-road-content-loader";
 import { STORY_RECKONING_ACCEPT_TRAIT, visibleStoryReckonings, isStoryReckoningId, isStoryReckoningReturnEventId, storyReckoningForEventId, storyReckoningIntroEvent, storyReckoningPayoffEvent, acceptStoryReckoning, reportStoryReckoning, turnInStoryReckoning, abandonStoryReckoning } from "../lib/story-reckonings";
 import type { StoryReckoning } from "../data/story-reckonings";
+import { FIELD_STORY_PREFIX, storyFieldAftermathEvent, storyFieldObjective } from "../lib/story-field-work";
+import { StoryFieldScene } from "../components/StoryFieldScene";
+import { StoryFieldJournal } from "../components/StoryFieldJournal";
+import { StoryFieldRouteBoundary } from "../components/StoryFieldRouteBoundary";
 import { RIFT_GIVER_PREFIX, RIFT_ACCEPT_MARKER, RIFT_DESCEND_MARKER, RIFT_ABANDON_MARKER, nextRift, synthRiftGiver, riftBySynthId, riftIntroEvent, riftDescentEvent, riftByDescentEventId, isRiftDescentEventId, riftTargetSector, acceptRift, abandonRift } from "../lib/hollow-rifts";
 import { hollowRiftById, type HollowRift } from "../data/hollow-rifts";
 import { SCRIBE_WANDERER_ID, SCRIBE_ACCEPT_MARKER, CODEX_FLIP_LIMIT, scribeWandererFor, scribeIntroEvent, claimTravelersCodex, codexRevealCards } from "../lib/chronicle-scribe";
@@ -91,6 +106,22 @@ import { travelMaskMs } from "../lib/travel-mask";
 import { serverNow } from "../lib/server-clock";
 import { peerIsTraveling } from "../lib/presence-character";
 
+function storyReckoningActionFailure(reason: string | undefined, arc: StoryReckoning, action: "accept" | "turn-in"): string {
+    const place = arc.crossVillage ? "an outskirts post" : `${arc.village} outskirts`;
+    if (reason === "presence" || reason === "offline") return `Reconnect to the world, then speak with ${arc.npcName} at ${place}.`;
+    if (reason === "wrong-place") return `Return to ${place} and speak with ${arc.npcName}.`;
+    if (reason === "traveling") return `Finish traveling, then speak with ${arc.npcName} at ${place}.`;
+    if (reason === "in-battle") return `Finish the battle, then speak with ${arc.npcName} at ${place}.`;
+    if (action === "accept" && reason === "busy") return "Finish the story burden you already carry first.";
+    if (action === "accept" && reason === "ineligible") return "This reckoning is not available now.";
+    if (reason === "incomplete") return `Finish the field route or battle, then return to ${arc.npcName}.`;
+    if (reason === "no-item") return `Recover ${arc.task.targetName}, then return to ${arc.npcName}.`;
+    if (reason === "daily-cap") return "You have settled enough reckonings today. Return tomorrow.";
+    if (reason === "none") return `This reckoning is no longer active. Speak with ${arc.npcName} at ${place} if it remains unsettled.`;
+    return action === "accept" ? "The reckoning could not be sealed. Reconnect and try again."
+        : "The reckoning could not be turned in. Reconnect and try again.";
+}
+
 // Anbu Vault Infiltration (anbuInfiltration.v1) — lazy so the raid (which pulls
 // in the whole BattleTowerFight screen) never weighs down the WorldMap chunk.
 const AnbuVaultRaid = lazy(() => import("../features/anbuInfiltration/AnbuVaultRaid").then(m => ({ default: m.AnbuVaultRaid })));
@@ -101,7 +132,7 @@ import { HollowGateAttunement } from "../components/HollowGateAttunement";
 import { BackToVillageButton } from "../components/BackToVillageButton";
 import { WorldToast } from "../components/WorldToast";
 import { TravelingOverlay } from "../components/TravelingOverlay";
-import { SECTOR_DEPTH_THEMES } from "../data/sector-depth-manifest";
+
 import { ATLAS_SECTOR_POINTS } from "../data/sector-points";
 import { sectorExits as roadExitsForSector, travelArrivalTile, type SectorExit } from "../../../shared/sector-links";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
@@ -126,14 +157,13 @@ import {
 } from "../lib/world-reward-recovery";
 import { DungeonProbeError, probeFreeDungeonServer } from "../lib/dungeon-api";
 import { petCardImage } from "../lib/pet-battle-anim";
-import { biomeForWorldSector, sectorRegionName, villageForOutskirtsSector, villageOutskirtsSectorNumber, weatherForBiome } from "../data/sectors";
+import { biomeForWorldSector, sectorRegionName, villageOutskirtsSectorNumber, weatherForBiome } from "../data/sectors";
 import { biomeLabel, weatherEffects } from "../data/world";
 import { builtinHuntMissions } from "../data/missions";
 import { makeId, playerSlug, sameSector } from "../lib/utils";
-import { setSectorReopen, takeSectorReopen, peekSectorReopen, consumeReloadIntoSector } from "../lib/sector-return";
+import { setSectorReopen, takeSectorReopen, consumeReloadIntoSector } from "../lib/sector-return";
 import { isRecentlyStruckDown } from "../lib/sleeper-kill";
-import { useLiveSectorRoster, setLocalSectorTile, getLocalSectorTile } from "../lib/presence-store";
-import { updateRealtimeTile } from "../lib/use-presence-socket";
+import { useLiveSectorRoster, getLocalSectorTile } from "../lib/presence-store";
 import { isSectorLivePeersEnabled } from "../components/sector-peers-flag";
 import type { SectorPeer } from "../components/SectorPeers";
 import { isWeeklyBossRoamEnabled, weeklyBossRoamState, weeklyBossRoamCooldownId, WEEKLY_BOSS_ROAM_REENGAGE_COOLDOWN_MS, type RoamingBoss } from "../lib/weekly-boss-roam";
@@ -159,14 +189,14 @@ import castleImg from "../assets/castle.webp";
 import houseImg from "../assets/house1.webp";
 import towerImg from "../assets/tower.webp";
 import moonshadowImage from "../assets/moonshadow.webp";
-import iceSectorImg from "../assets/sectors/ice.webp";
-import darkSectorImg from "../assets/sectors/dark.webp";
-import templeSectorImg from "../assets/sectors/temple.webp";
-import waterSectorImg from "../assets/sectors/water.webp";
-import forrestSectorImg from "../assets/sectors/forrest.webp";
-import meadow2SectorImg from "../assets/sectors/meadow2.webp";
-import meadowSectorImg from "../assets/sectors/meadow.webp";
-import stormveilVillageImg from "../assets/sectors/stormveil-village.webp";
+
+
+
+
+
+
+
+
 import stormveilLandmarkArt from "../assets/map-landmarks/stormveil.webp";
 import ashenLeafLandmarkArt from "../assets/map-landmarks/ashen-leaf.webp";
 import frostfangLandmarkArt from "../assets/map-landmarks/frostfang.webp";
@@ -174,16 +204,13 @@ import moonshadowLandmarkArt from "../assets/map-landmarks/moonshadow.webp";
 import centralLandmarkArt from "../assets/map-landmarks/central.webp";
 import hollowGateLandmarkArt from "../assets/map-landmarks/hollow-gate.webp";
 import {
-    gainXp,
-    getPvpJutsuLoadout,
-    normalizeCharacter,
     type CreatorEvent,
     type DuelChallenge,
     type EventEncounterBattle,
     type PvpSessionState,
-    type SharedPvpBattleContext,
+    type SharedPvpBattleContext
 } from "../App";
-import { villagePageImage } from "../lib/village-page-image";
+
 import { villageOuterTerritoryMapUrl } from "../lib/village-outer-territory-map";
 import { activeVillageWarsFor, loadSectorTerritory, territoryBreachMinsLeft, territoryIsBreached, territoryRewardsSuspended, weatherForSector, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX } from "../lib/world-state";
 import { SECTOR_DEPLETED_MESSAGE, sectorExploreRefusal, sectorPoolViewFor } from "../lib/sector-pool";
@@ -194,7 +221,8 @@ import { confirmSectorBattleRegistration, isVillageWarMapEnabled, villageAccent 
 import { useAcademyWorldMapFocus, useWorldMapZoom } from "../lib/use-world-map-zoom";
 import { SectorOwnershipOverlay } from "../components/SectorOwnershipOverlay";
 import { isMercAiId } from "../lib/merc-ai";
-import { fetchMercRoster, engageMerc, synthMercWanderer, type RoamingMercView } from "../lib/merc-roam-client";
+import { fetchSectorRoster, engageMerc, synthMercWanderer, type RoamingMercView } from "../lib/merc-roam-client";
+import { sectorEngagementFor, sectorContestEntryFor, sectorContestGarrisonReady, viewerSectorContest, beginSectorContest, type SectorWarContestView } from "../lib/sector-war-engagement";
 import { fetchBountyBoard, startBountyHunter, type BountyEntry } from "../lib/pvp-bounty";
 import { contractHunterLevel } from "../../../shared/contract-hunter";
 import { contractHunterWanderers } from "../lib/contract-hunter-wanderers";
@@ -203,7 +231,7 @@ import { homeVillageForSector } from "../data/war-map-sectors";
 import { isLegacyServerLive, useLegacyAvailability, useLegacyMutationAvailability, fetchSageState, fetchLegacyStatus, synthSageWanderer, LEGACY_SAGE_WANDERER_ID, type SageOfferView } from "../lib/legacy";
 import { rollEmissarySpawn, EMISSARY_BY_SLUG, type EmissarySlug, type EmissaryQuestDef } from "../lib/legacy-emissaries";
 import { EmissaryTrialPanel } from "../components/EmissaryTrialPanel";
-import { nextUnseenRumorMilestone, markLevelRumorSeen, recordRumorHeard, rumorForCategory } from "../lib/legacy-rumors";
+import { nextUnseenRumorMilestone, markLevelRumorSeen, recordRumorHeard, rememberedRumorCategory, rumorForCategory } from "../lib/legacy-rumors";
 import { SageWhisper } from "../components/SageWhisper";
 import { buildSageVnEvent } from "../lib/legacy-sage-vn";
 import { SageOfferModal } from "../components/SageOfferModal";
@@ -212,8 +240,8 @@ import { HUNT_PACK_STAGES, huntOpeningFor, huntPackMember, huntSignFor, type Hun
 import { postWorldHunt, type WorldHuntTrailView } from "../lib/world-hunt-api";
 import { HuntEncounterCard, type HuntEncounterView } from "../components/HuntEncounterCard";
 import { beastPortrait } from "../data/hunter-art";
-import { SECTOR_FLOOR_SECTORS } from "../data/sector-art-manifest";
-import { FESTIVAL_SECTOR, isWildSector, MAX_WILD_SECTOR, sectorArtKey, sectorName } from "../../../shared/sector-geo";
+
+import { FESTIVAL_SECTOR, isWildSector, MAX_WILD_SECTOR, sectorName } from "../../../shared/sector-geo";
 import { shrineForSector } from "../../../shared/shrines";
 import { WorldRoadsOverlay, WorldPoiPlates } from "../components/WorldRoadsOverlay";
 import "../components/world-map-charting.css";
@@ -225,105 +253,6 @@ import { fetchSectorTraces, isSectorTracesEnabled, type SectorTracesView } from 
 // Middle of the 12x12 sector board (row 6, col 6). Where a player lands after a
 // map jump that has no direction to preserve, and the initial standing tile.
 const SECTOR_CENTRE_TILE = 78;
-// Which scene-image theme each sector shows. Single source of truth shared by
-// the background image picker and the ambience-biome picker so the drifting
-// particles always match the painted scene the player is looking at.
-const SECTOR_IMAGE_GROUPS: Record<string, number[]> = {
-    ice: [52, 48, 53, 54, 50, 55],
-    dark: [2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 17, 20, 19, 18, 14, 15, 13],
-    temple: [34, 60, 59],
-    water: [23, 26, 21, 22, 27, 32, 28, 33, 42],
-    forrest: [36, 37, 38, 39, 40, 43, 46],
-    stormveil: [31, 35, 10, 16],
-    meadow2: [44, 24, 29, 30, 59, 1],
-    meadow: [25, 41, 45, 47, 57, 51],
-};
-
-function sectorImageTheme(sector: number): string {
-    for (const [theme, sectors] of Object.entries(SECTOR_IMAGE_GROUPS)) {
-        if (sectors.includes(sector)) return theme;
-    }
-    return "meadow";
-}
-
-/*
- * Backdrop for the <SectorScene> vista stack. Since the painted top-down floors
- * cover every sector, that stack now renders ONLY for a territory carrying its
- * own custom `backgroundImage` (creator/admin art), which is passed in directly —
- * so this resolver is just the shared theme fallback. The 66 bespoke per-sector
- * vistas it used to return were retired with the opt-out path (2026-07-29): they
- * were unreachable by default and 7.3 MB of deploy weight.
- */
-function sectorBackgroundImage(sector: number) {
-    if (sector === 99) return "/deathgate-sector.webp";
-
-    const village = villageForOutskirtsSector(sector);
-    if (village) return villagePageImage(village);
-
-    switch (sectorImageTheme(sector)) {
-        case "ice": return iceSectorImg;
-        case "dark": return darkSectorImg;
-        case "temple": return templeSectorImg;
-        case "water": return waterSectorImg;
-        case "stormveil": return stormveilVillageImg;
-        case "forrest": return forrestSectorImg;
-        case "meadow2": return meadow2SectorImg;
-        default: return meadowSectorImg;
-    }
-}
-
-// Depth-map URL for a sector's painted scene, when one has been baked
-// (scripts/gen-sector-depth.mjs). Mirrors sectorBackgroundImage's image choice
-// so the depth lines up with what's shown: only theme images have maps for now —
-// village outskirts, Death's Gate, and custom territory art fall back to the
-// procedural depth in SectorScene3DScene.
-function sectorDepthImage(sector: number): string | undefined {
-    if (sector === 99) return undefined;
-    if (villageForOutskirtsSector(sector)) return undefined;
-    const theme = sectorImageTheme(sector);
-    return SECTOR_DEPTH_THEMES.has(theme) ? `/sector-depth/${theme}.webp` : undefined;
-}
-
-/*
- * The painted top-down ADVENTURE MAP for a sector. Every sector 1-66 plus
- * Death's Gate (99) now has bespoke art, so this is a straight lookup — the ten
- * shared per-biome variant boards it used to fall back to were deleted
- * 2026-07-29 once s99 got its own board (it was the last consumer).
- *
- * Art files keep their pre-renumbering names, so resolve through sectorArtKey.
- */
-function sectorMapUrl(_biome: Biome, seed: number): string | undefined {
-    const artKey = sectorArtKey(seed);
-    return SECTOR_FLOOR_SECTORS.has(artKey) ? `/sector-map/s${artKey}.webp` : undefined;
-}
-
-// Ambience biome (drives drifting particles + god-ray tint) chosen to match the
-// painted scene image — NOT the territory biome, which can differ (e.g. a
-// volcano-territory sector that paints as forest). Outskirts mirror their village.
-function ambienceBiomeForSector(sector: number): Biome {
-    if (sector === 99) return "volcano";
-    // Every wild sector has painted floor art, and its painted region IS its
-    // gameplay biome now (shared/sector-geo.ts), so ambience reads straight off
-    // the registry. The village/theme fallbacks below only serve sector 0 and
-    // any id outside the registry.
-    if (sector >= 1) return biomeForWorldSector(sector);
-    const village = villageForOutskirtsSector(sector);
-    if (village === "Frostfang Village") return "snow";
-    if (village === "Moonshadow Village") return "shadow";
-    if (village === "Stormveil Village") return "forest";
-    if (village === "Ashen Leaf Village") return "volcano";
-    switch (sectorImageTheme(sector)) {
-        case "ice": return "snow";
-        case "dark": return "shadow";
-        case "temple": return "shadow";   // cherry-blossom temple → drifting petals
-        case "forrest": return "forest";
-        case "stormveil": return "forest";
-        case "water": return "central";   // soft motes over the lagoon
-        case "meadow2": return "central";
-        case "meadow": return "central";
-        default: return "central";
-    }
-}
 
 // "Return to the sector you were in" after an explore ambush is a one-shot latch
 // in ../lib/sector-return (shared so the Hospital can clear it on a KO). See that
@@ -363,7 +292,7 @@ const WORLD_FIGHT_KIND_BY_MODE: Readonly<Record<string, WorldAiFightKind>> = {
     storyReckoning: "story-reckoning",
 };
 
-export function WorldMap({
+function WorldMapContent({
     setCurrentBiome,
     setScreen,
     character,
@@ -489,6 +418,9 @@ export function WorldMap({
     // crowd in motion doesn't re-render this whole screen.
     const liveSectorPlayers = useLiveSectorRoster();
     const [selectedSector, setSelectedSector] = useState<number | null>(null);
+    const [fieldScene, setFieldScene] = useState<{ questId: string; pointId: string; review?: boolean } | null>(null);
+    const [storyReckoningAbandonBusy, setStoryReckoningAbandonBusy] = useState(false);
+    const fieldObjective = storyFieldObjective(character);
     const sectorIntelPlate = useSectorIntelPlate(selectedSector, character.village); // pure projection; the refresh is its effect, never a render
     // Only the ~6 posted sectors ever reach the network (the board itself is a
     // pure local computation over the same shared module the server uses).
@@ -661,23 +593,22 @@ export function WorldMap({
 
     useEffect(() => {
         if (!selectedVillageTerritory) { setTerritoryGuards([]); return; }
-        fetch("/api/village-guard/list", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ village: selectedVillageTerritory.name }),
-        }).then(r => r.ok ? r.json() : []).then(setTerritoryGuards).catch(() => setTerritoryGuards([]));
+        const controller = new AbortController();
+        fetchVillageGuards(selectedVillageTerritory.name, controller.signal)
+            .then(guards => { if (!controller.signal.aborted) setTerritoryGuards(guards); })
+            .catch(() => { if (!controller.signal.aborted) setTerritoryGuards([]); });
+        return () => controller.abort();
     }, [selectedVillageTerritory]);
-
     useEffect(() => {
         if (!villageWarAdmissionOpen || !selectedSector) { setSectorEnemyGuards([]); return; }
         const war = activeVillageWarsFor(character.village).find(w => w.warGroundSector === selectedSector);
         const enemyVillage = war?.villages.find(v => v !== character.village);
         if (!enemyVillage) { setSectorEnemyGuards([]); return; }
-        fetch("/api/village-guard/list", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ village: enemyVillage }),
-        }).then(r => r.ok ? r.json() : []).then(setSectorEnemyGuards).catch(() => setSectorEnemyGuards([]));
+        const controller = new AbortController();
+        fetchVillageGuards(enemyVillage, controller.signal)
+            .then(guards => { if (!controller.signal.aborted) setSectorEnemyGuards(guards); })
+            .catch(() => { if (!controller.signal.aborted) setSectorEnemyGuards([]); });
+        return () => controller.abort();
     }, [selectedSector, character.village, villageWarAdmissionOpen]);
 
     async function fetchSavedPlayerCharacter(name: string): Promise<Character | null> {
@@ -907,17 +838,21 @@ export function WorldMap({
     // hostile, wanderer-shaped NPCs. The roster is SERVER-sourced (which bands roam
     // here keys off live wars + leases); the fight is server-resolved. villageWarMap.v1 only.
     const MERC_CLIENT_HIDE_MS = 15 * 60 * 1000;
-    const [mercRoster, setMercRoster] = useState<{ sector: number; mercs: RoamingMercView[] }>({ sector: -1, mercs: [] });
+    const [mercRoster, setMercRoster] = useState<{ sector: number; mercs: RoamingMercView[]; contest: SectorWarContestView | null }>({ sector: -1, mercs: [], contest: null });
     useEffect(() => {
         const village = (character.village ?? "").trim();
         const sec = selectedSector;
         if (!villageWarViewOpen || !isVillageWarMapEnabled() || sec == null || !village) return;
         let alive = true;
-        const load = () => { void fetchMercRoster(character.name, village, sec).then(m => { if (alive) setMercRoster({ sector: sec, mercs: m }); }).catch(() => { /* roster is best-effort */ }); };
+        const load = () => { void fetchSectorRoster(character.name, village, sec).then(r => { if (alive) setMercRoster({ sector: sec, mercs: r.mercs, contest: r.contest }); }).catch(() => { /* roster is best-effort */ }); };
         load();
         const stop = visiblePoll(load, 20000);
         return () => { alive = false; stop(); };
     }, [selectedSector, character.name, character.village, villageWarViewOpen]);
+    // Only trust the contest when it was polled FOR the sector on screen (the
+    // roster lags a sector change by one poll), and narrow it to a war this
+    // player is actually IN — a bystander village keeps plain world PvP.
+    const sectorWarContest = viewerSectorContest(mercRoster.sector === selectedSector ? mercRoster.contest : null, selectedSector ?? -1, character.village, Date.now());
 
     // Roaming weekly boss (weeklyBossRoam.v1, default ON — opt out per-device
     // with `weeklyBossRoam.v1 = "off"`). Poll the boss state
@@ -1053,8 +988,8 @@ export function WorldMap({
     // Fires for the highest unseen milestone at level >= it, so leveling past
     // one offline doesn't eat the beat; heard rumors accumulate in the panel log.
     useEffect(() => {
-        if (!legacyAvailable || character.level >= 50) return;
-        const milestone = nextUnseenRumorMilestone(character.level);
+        if (!legacyAvailable) return;
+        const milestone = nextUnseenRumorMilestone(character.level, character.name);
         if (milestone == null) return;
         let alive = true;
         void fetchLegacyStatus(character.name).then(s => {
@@ -1063,15 +998,20 @@ export function WorldMap({
             // don't whisper about a system that isn't live, and don't burn the
             // one-time seen marker so the rumor still fires once it's on.
             if (!s) return;
+            if (s.legacy) {
+                markLevelRumorSeen(character.name, milestone);
+                return;
+            }
             // Pass the player name + this path's server-bucketed tier so the
             // deterministic variant pick is per-player (two players / a replay
             // never hear the identical sequence) and tier-aware.
-            const text = rumorForCategory(s.strongest?.[0]?.category, milestone, {
+            const category = rememberedRumorCategory(character.name, s.strongest?.[0]?.category);
+            const text = rumorForCategory(category, milestone, {
                 playerName: character.name,
                 tier: s.strongest?.[0]?.tier,
             });
-            markLevelRumorSeen(milestone);
-            recordRumorHeard(milestone, text);
+            markLevelRumorSeen(character.name, milestone);
+            recordRumorHeard(character.name, milestone, text);
             setWhisper({ text });
         });
         return () => { alive = false; };
@@ -1118,7 +1058,7 @@ export function WorldMap({
     // Completion is trait-presence, so the memo re-evaluates when traits change.
     const roadWanderers = useMemo(() => {
         if (!isWanderersEnabled() || selectedSector == null) return [];
-        const event = nextRoadEvent(character);
+        const event = nextRoadEvent(character, readStoryRoadContent());
         if (!event) return [];
         // Balance: the road finds them — but not in EVERY sector. The NPC walks
         // QUEST_GIVER_PRESENCE.road of sectors per 6h window (deterministic,
@@ -1857,11 +1797,11 @@ export function WorldMap({
         // A story road event opens its VN directly (no verb dialog) — same
         // pattern as the Sage. The event stays available until a choice is made.
         if (w.id.startsWith(ROAD_WANDERER_PREFIX)) {
-            const roadEvent = roadEventBySynthId(w.id);
+            const roadEvent = roadEventBySynthId(w.id, readStoryRoadContent());
             if (roadEvent && selectedSector != null) {
                 setCreatorEventPage(0);
                 setCreatorEventLine(0);
-                setSelectedCreatorEvent(roadEventToCreatorEvent(roadEvent, biomeForWorldSector(selectedSector)));
+                setSelectedCreatorEvent(roadEventToCreatorEvent(roadEvent, biomeForWorldSector(selectedSector), character));
             }
             return;
         }
@@ -1874,11 +1814,22 @@ export function WorldMap({
             const biome = biomeForWorldSector(selectedSector);
             setCreatorEventPage(0);
             setCreatorEventLine(0);
+            const aftermath = storyFieldAftermathEvent(arc.id, character, biome);
+            if (aftermath) { setSelectedCreatorEvent(aftermath); return; }
             if (active?.id === arc.id && active.stage === "return") {
-                setSelectedCreatorEvent(storyReckoningPayoffEvent(arc, biome));
+                setSelectedCreatorEvent(storyReckoningPayoffEvent(arc, biome, character));
                 return;
             }
             if (active?.id === arc.id && active.stage === "task") {
+                if (active.fieldWork) {
+                    const objective = storyFieldObjective(character);
+                    if (objective?.pointId && objective.sector === currentSector) {
+                        setFieldScene({ questId: arc.id, pointId: objective.pointId });
+                    } else if (objective?.pointId) {
+                        setWandererDialog({ w, msg: `${objective.objective} ${objective.name} · Sector ${objective.sector}.` });
+                    } else void handleStoryReckoningReport(arc, true);
+                    return;
+                }
                 if (arc.task.kind === "collect") {
                     const got = Math.max(0, ((character[arc.task.metric] as number | undefined) ?? 0) - active.baseline);
                     if (got >= active.target) {
@@ -1904,7 +1855,12 @@ export function WorldMap({
                 const targetSector = riftTargetSector(character.name, rift.id);
                 setCreatorEventPage(0);
                 setCreatorEventLine(0);
-                setSelectedCreatorEvent(riftIntroEvent(rift, targetSector, biomeForWorldSector(selectedSector)));
+                setSelectedCreatorEvent(riftIntroEvent(
+                    rift,
+                    targetSector,
+                    biomeForWorldSector(selectedSector),
+                    character.riftFirstClears ?? {},
+                ));
             }
             return;
         }
@@ -1961,7 +1917,7 @@ export function WorldMap({
                 : r.winner === "merc" ? (r.context === "village" ? "The mercenary overwhelmed you — your village bleeds for it." : "The mercenary overwhelmed you — your hold on the sector slips.")
                 : "You traded blows; the mercenary broke off.";
             setWandererDialog({ w, msg });
-            if (village) void fetchMercRoster(character.name, village, sec).then(m => setMercRoster({ sector: sec, mercs: m })).catch(() => { /* best-effort refresh */ });
+            if (village) void fetchSectorRoster(character.name, village, sec).then(r => setMercRoster({ sector: sec, mercs: r.mercs, contest: r.contest })).catch(() => { /* best-effort refresh */ });
         } catch {
             setWandererDialog({ w, msg: "You couldn't reach the contract board." });
         }
@@ -2357,16 +2313,17 @@ export function WorldMap({
         setSelectedCreatorEvent(null);
         const resp = await acceptStoryReckoning(character.name, arc.id);
         if (!resp.ok) {
-            const msg = resp.reason === "busy" ? "Finish the story burden you already carry first."
-                : resp.reason === "ineligible" ? "You are not far enough into this story yet."
-                : "The reckoning could not be sealed. Try again in a moment.";
-            setTimeout(() => alert(msg), 40);
+            if (resp.character && !onVersionedCharacter(resp.character, resp._saveVersion)) return;
+            setTimeout(() => alert(storyReckoningActionFailure(resp.reason, arc, "accept")), 40);
             return;
         }
         if (resp.character) { if (!onVersionedCharacter(resp.character, resp._saveVersion)) return; }
         else if (onServerVersion?.(resp._saveVersion) !== false) updateCharacter(prev => prev && prev.name === character.name ? ({ ...prev, activeStoryReckoning: resp.activeStoryReckoning ?? prev.activeStoryReckoning }) : prev);
         if (arc.task.kind === "hunt") {
             launchStoryReckoningFight(arc);
+        } else if (resp.character?.activeStoryReckoning?.fieldWork) {
+            const objective = storyFieldObjective(resp.character);
+            if (objective?.pointId && objective.sector === currentSector) setFieldScene({ questId: arc.id, pointId: objective.pointId });
         } else {
             setTimeout(() => alert(`Reckoning accepted: search the outskirts until you find ${arc.task.targetName}.`), 40);
         }
@@ -2388,7 +2345,7 @@ export function WorldMap({
         if (openPayoff && selectedSector != null) {
             setCreatorEventPage(0);
             setCreatorEventLine(0);
-            setSelectedCreatorEvent(storyReckoningPayoffEvent(arc, biomeForWorldSector(selectedSector)));
+            setSelectedCreatorEvent(storyReckoningPayoffEvent(arc, biomeForWorldSector(selectedSector), resp.character ?? character));
         } else {
             setTimeout(() => alert(`${recovering ? "Recovered reckoning ledger — " : ""}You recovered ${arc.task.targetName}. Return to ${arc.npcName} at the outskirts.`), 40);
         }
@@ -2398,10 +2355,7 @@ export function WorldMap({
         const resp = await turnInStoryReckoning(character.name, arc.id);
         if (!resp.ok) {
             if (resp.character && !onVersionedCharacter(resp.character, resp._saveVersion)) return;
-            const msg = resp.reason === "no-item" ? "You do not have the keepsake yet."
-                : resp.reason === "daily-cap" ? "You have settled enough reckonings today. Return tomorrow."
-                : "The reckoning could not be turned in. Try again in a moment.";
-            setTimeout(() => alert(msg), 40);
+            setTimeout(() => alert(storyReckoningActionFailure(resp.reason, arc, "turn-in")), 40);
             return;
         }
         if (resp.character) { if (!onVersionedCharacter(resp.character, resp._saveVersion)) return; }
@@ -2425,17 +2379,25 @@ export function WorldMap({
         if (resp.title) bits.push(`the title "${resp.title}"`);
         setTimeout(() => alert(`Reckoning complete: ${bits.join(", ")}.`), 40);
     }
-    async function handleStoryReckoningAbandon(w: Wanderer) {
+    async function handleStoryReckoningAbandon(w?: Wanderer) {
+        if (storyReckoningAbandonBusy) return;
         if (!(await gameConfirm("Abandon this reckoning? Your progress and recovered keepsake will remain, but the active task will be cleared.", { danger: true, confirmLabel: "Abandon" }))) return;
-        setWandererDialog({ w, busy: true });
-        const resp = await abandonStoryReckoning(character.name);
-        if (!resp.ok) {
-            setWandererDialog({ w, msg: "The reckoning could not be abandoned. Try again." });
-            return;
+        setStoryReckoningAbandonBusy(true);
+        if (w) setWandererDialog({ w, busy: true });
+        try {
+            const resp = await abandonStoryReckoning(character.name);
+            if (!resp.ok) {
+                if (w) setWandererDialog({ w, msg: "The reckoning could not be abandoned. Try again." });
+                else setTimeout(() => alert("The reckoning could not be abandoned. Try again."), 40);
+                return;
+            }
+            if (resp.character) { if (!onVersionedCharacter(resp.character, resp._saveVersion)) return; }
+            else if (onServerVersion?.(resp._saveVersion) !== false) updateCharacter(prev => prev && prev.name === character.name ? ({ ...prev, activeStoryReckoning: null }) : prev);
+            setFieldScene(null);
+            if (w) setWandererDialog({ w, msg: "The reckoning is released." });
+        } finally {
+            setStoryReckoningAbandonBusy(false);
         }
-        if (resp.character) { if (!onVersionedCharacter(resp.character, resp._saveVersion)) return; }
-        else if (onServerVersion?.(resp._saveVersion) !== false) updateCharacter(prev => prev && prev.name === character.name ? ({ ...prev, activeStoryReckoning: null }) : prev);
-        setWandererDialog({ w, msg: "The reckoning is released." });
     }
     // Tick once a second while a TIMED epic's journal is open so the countdown is live.
     const [, setEpicTick] = useState(0);
@@ -2477,16 +2439,13 @@ export function WorldMap({
     // everyone else would see you teleport as well). presence-store keeps the
     // last tile at module scope, so it survives WorldMap's unmount during the
     // battle. Peek, never take — the mount effect above owns consuming the latch.
-    const [sectorPlayerPos, setSectorPlayerPos] = useState(
-        () => (peekSectorReopen() !== null ? getLocalSectorTile() : SECTOR_CENTRE_TILE),
-    );
-    const travelRequestInFlight = useRef(false);
-    // Bridge the local player's tile to the presence store so the heartbeat (which
-    // lives in App) can broadcast it; other clients render us walking to this tile.
-    useEffect(() => {
-        setLocalSectorTile(sectorPlayerPos);
-        updateRealtimeTile(sectorPlayerPos);
-    }, [sectorPlayerPos]);
+    const { sectorPlayerPos, setSectorPlayerPos, travelRequestInFlight, travelPresentation } = useWorldTravelPresentation(character.name,
+        () => getLocalSectorTile(), // the spot the player last stood on: hydrated at boot from the owner's save read (walked tile, else the arrival tile), set on arrival, kept across a fight; the store's own default is the centre
+        (sector) => {
+            setSelectedSector(isWildSector(sector) ? sector : null);
+            setSelectedVillageTerritory(null);
+            setRouteHoverSector(null);
+        });
     const [selectedCreatorEvent, setSelectedCreatorEvent] = useState<CreatorEvent | null>(null);
     // Anbu Vault Infiltration (anbuInfiltration.v1): the walk-up prompt on the
     // sector's vault structure, and the live raid screen (portaled full-screen).
@@ -2532,7 +2491,11 @@ export function WorldMap({
     const [showAttunement, setShowAttunement] = useState(false);   // Shrine Attunement panel
     // Mobile world-map pinch/drag zoom (worldMapZoom.v1). Inert on desktop / when
     // the flag is off — the map then renders via the legacy path unchanged.
-    const wmZoom = useWorldMapZoom();
+    const mapOpeningPoint = ATLAS_SECTOR_POINTS.find((point) => point.id === currentSector)
+        ?? locations.find((location) => location.name === character.village)
+        ?? { x: 20, y: 20 };
+    const wmZoom = useWorldMapZoom(getWorldMapRegionForPoint(mapOpeningPoint.x, mapOpeningPoint.y));
+    const wmFrameRef = useWorldMapLayout(wmZoom.active);
     // Marker layout (0–100 grid), hand-curated. Each village's nearby sectors
     // cluster around its banner; neutral sectors spread across the mid-map. A
     // sector's biome / encounters are fixed by its NUMBER (biomeForSector) — the
@@ -2546,19 +2509,6 @@ export function WorldMap({
     // gameplay geography remains authoritative in shared/sector-links.ts.
     const sectorPoints = ATLAS_SECTOR_POINTS;
     const academySectorTargetId = useAcademyWorldMapFocus({ character, sectorPoints, zoomActive: wmZoom.active, focusPoint: wmZoom.focusPoint });
-    // Village quick-jump targets for the mobile zoom HUD (worldMapZoom.v1). Each
-    // chip flies the camera to the cluster centroid at a tappable zoom.
-    // Region-block numbering (shared/sector-geo.ts): each village's home block,
-    // the Castle City ring for Central, Death's Gate pinned.
-    const WM_CLUSTERS: { label: string; ids: number[]; color: string; zoom: number }[] = [
-        { label: "Frostfang", ids: [26, 27, 28, 29, 30, 31, 32, 33], color: villageAccent("Frostfang Village"), zoom: 2.6 },
-        { label: "Moonshadow", ids: [17, 18, 19, 20, 21, 22, 23, 24, 25], color: villageAccent("Moonshadow Village"), zoom: 2.6 },
-        { label: "Stormveil", ids: [1, 2, 3, 4, 5, 6, 7, 8], color: villageAccent("Stormveil Village"), zoom: 2.6 },
-        { label: "Ashen Leaf", ids: [9, 10, 11, 12, 13, 14, 15, 16], color: villageAccent("Ashen Leaf Village"), zoom: 2.6 },
-        { label: "Central", ids: [46, 47, 48, 49, 50, 51], color: "var(--slate-300)", zoom: 2.4 },
-        { label: "Death's Gate", ids: [99], color: "var(--red-400)", zoom: 2.8 },
-    ];
-
     // When the War Map is on, a sector owned by a village glows in that village's
     // accent colour (live owner from the territory cache, else its home village).
     const warMapOn = villageWarViewOpen && isVillageWarMapEnabled();
@@ -2673,6 +2623,7 @@ export function WorldMap({
         }
         prefetchTravelDestination(sector); // warm the destination during the 3s window
         travelRequestInFlight.current = true;
+        const presentation = travelPresentation.current;
         void (async () => {
             try {
                 const response = await fetch('/api/player/travel', {
@@ -2682,6 +2633,7 @@ export function WorldMap({
                     signal: AbortSignal.timeout(12_000),
                 });
                 const data = await response.json().catch(() => null) as { arrivalAt?: number; travelMs?: number; arrivalTile?: number; error?: string } | null;
+                if (!presentation.isCurrent()) return;
                 if (!response.ok || !data?.arrivalAt) {
                     setTravelToast({
                         id: Date.now(),
@@ -2710,20 +2662,21 @@ export function WorldMap({
                 setRouteHoverSector(sector);
                 setSelectedSector(null);
                 setSelectedVillageTerritory(null);
-                window.setTimeout(() => {
+                presentation.scheduleArrival(() => {
                     arrive(data.arrivalTile);
                     setPendingTravel(null);
                     setTravelingUntil(0);
                     setRouteHoverSector(null);
                 }, travelMs);
             } catch {
+                if (!presentation.isCurrent()) return;
                 setTravelToast({
                     id: Date.now(),
                     kicker: 'Travel unavailable',
                     text: 'Could not reach the travel server. Please try again.',
                 });
             } finally {
-                travelRequestInFlight.current = false;
+                if (presentation.isCurrent()) travelRequestInFlight.current = false;
             }
         })();
     }
@@ -2915,6 +2868,10 @@ export function WorldMap({
         if (!settled.character) {
             if (settled.retryable === false) {
                 completeWorldRewardOperation(character.name, operation.id);
+            }
+            if (settled.pendingBattle) { // an ambush rolled earlier is still owed: resume that exact sealed encounter
+                if (!launchResolvedExploreBattle(settled.pendingBattle.sector, settled.pendingBattle.requestId)) alert("The combat host is unavailable. Reopen the map to resume your pending encounter.");
+                return null;
             }
             if (settled.error === "sector-depleted") { gameToast(SECTOR_DEPLETED_MESSAGE, { kind: "info" }); return null; }
             alert(settled.error === "daily-limit"
@@ -3128,6 +3085,12 @@ export function WorldMap({
                             recovered = true;
                             break;
                         }
+                    }
+                    if (result.pendingBattle) { // this parked operation never committed; retire it and resume the owed ambush
+                        completeWorldRewardOperation(character.name, operation.id);
+                        if (launchResolvedExploreBattle(result.pendingBattle.sector, result.pendingBattle.requestId)) { recovered = true; break; }
+                        blocked = true;
+                        continue;
                     }
                     if (result.retryable === false) {
                         completeWorldRewardOperation(character.name, operation.id);
@@ -3687,10 +3650,28 @@ export function WorldMap({
             alert(`${player.name} is already in a battle.`);
             return;
         }
+        // §17.2: the sector's win-condition decides WHICH game an attack opens.
+        // Card/Pet route to that sector's contest table; everything else falls
+        // through to the shinobi fight this button has always launched.
+        const contestScreen = beginSectorContest(sectorEngagementFor({
+            contest: sectorWarContest, sector: environment.sector,
+            myVillage: character.village, targetVillage: player.village, now: Date.now(),
+        }), "worldMap");
+        if (contestScreen) return void setScreen(contestScreen);
         focusSectorCombat(environment.sector, environment.biome, environment.weather);
         // sectorAttackPlayer owns routing and only navigates after its sealed PvP
         // session request succeeds.
         sectorAttackPlayer(player);
+    }
+
+    // A Card/Pet contest never needed a co-located opponent — the attacker opens
+    // the table and the defender answers it. This is the sector's own way in, so
+    // the war is reachable from the ground it is fought over and not only from
+    // the War Map menu.
+    function handleOpenSectorContest(garrison = false) {
+        if (selectedSector == null) return;
+        const screen = beginSectorContest(sectorContestEntryFor(sectorWarContest, selectedSector, character.village, Date.now()), "worldMap", { garrison });
+        if (screen) setScreen(screen);
     }
 
     function handleSelectedSectorSleeperAttack(player: PlayerRecord) {
@@ -3776,6 +3757,7 @@ export function WorldMap({
         alert(event.icon + " " + event.name + "\n\n" + event.dialogue.join("\n") + "\n\n" + rewardSummary(event.ryoReward, event.staminaReward, event.currencyRewards, character));
     }
     function completeCreatorEvent(event: CreatorEvent) {
+        if (event.id.startsWith(FIELD_STORY_PREFIX)) { setSelectedCreatorEvent(null); return; }
         // A roaming giver's scene can end here as well as through onCancel (a
         // decline choice plays its goodbye and then completes), so both close paths
         // run the accept check. No-op for every other event id.
@@ -3970,6 +3952,11 @@ export function WorldMap({
         // sheet (SageOfferModal) where the permanent choice actually happens.
         return <TriggeredVisualNovel event={sageVnEvent} character={character} pageIndex={sageVnPage} lineIndex={sageVnLine} setPageIndex={setSageVnPage} setLineIndex={setSageVnLine} onCancel={() => setSageVnEvent(null)} onComplete={() => { setSageVnEvent(null); setSageChoiceOpen(true); }} onBattle={() => { /* the Sage never fights */ }} sharedImages={sharedImages} />;
     }
+    if (fieldScene) {
+        return <StoryFieldScene key={`${fieldScene.questId}:${fieldScene.pointId}:${fieldScene.review ? 'review' : 'play'}`}
+            {...fieldScene} character={character} biome={biomeForWorldSector(selectedSector ?? currentSector)}
+            sharedImages={sharedImages} onCharacter={onVersionedCharacter} onClose={() => setFieldScene(null)} />;
+    }
     if (selectedCreatorEvent) {
         return (
             <TriggeredVisualNovel
@@ -3982,7 +3969,7 @@ export function WorldMap({
                 onCancel={() => { noteGiverVnClosed(selectedCreatorEvent.id); if (selectedCreatorEvent.id === SCRIBE_WANDERER_ID) closeCodexScene(); setSelectedCreatorEvent(null); }}
                 onComplete={() => completeCreatorEvent(selectedCreatorEvent)}
                 onBattle={launchCreatorEventFight}
-                onChoice={(c) => {
+                onChoice={(c, receipt) => {
                     const ev = selectedCreatorEvent;
                     if (!ev) return;
                     if (c.trait === STORY_RECKONING_ACCEPT_TRAIT) {
@@ -4079,7 +4066,11 @@ export function WorldMap({
                         // on — so it must not also read as "turned down" when the
                         // conclusion finishes and the scene completes.
                         giverAcceptedRef.current = ev.id;
-                        updateCharacter(prev => prev ? addStoryTrait(prev, t) : prev);
+                        updateCharacter(prev => {
+                            if (!prev) return prev;
+                            if (!ev.id.startsWith(ROAD_WANDERER_PREFIX)) return addStoryTrait(prev, t);
+                            return applyRoadEventChoice(prev, ev.id, t, receipt);
+                        });
                         if (ev.id.startsWith(ROAD_WANDERER_PREFIX)) void reportStoryRoadEvent(character.name, ev.id, t);
                     }
                 }}
@@ -4324,6 +4315,10 @@ export function WorldMap({
                 status,
                 sleeping,
                 actionDisabled: traveling || fighting,
+                // Name the game the button will actually open, but only for a
+                // target who is really on the other side of this war — a
+                // bystander village still gets a plain shinobi Attack.
+                attackLabel: sectorEngagementFor({ contest: sectorWarContest, sector: selectedSector, myVillage: character.village, targetVillage: player.village, now: Date.now() }),
             };
         });
         const commandHunt: WorldSectorCommandHunt | null = activeHuntMissionForSector && activeHuntTrailForSector ? {
@@ -4408,6 +4403,10 @@ export function WorldMap({
         return (
             <div className="map-instance">
                 {petMentor.guide}
+                <StoryFieldJournal character={character} currentSector={currentSector} onLocate={setSelectedSector}
+                    onOpen={(questId, pointId) => setFieldScene({ questId, pointId })}
+                    onReview={(questId, pointId) => setFieldScene({ questId, pointId, review: true })}
+                    abandonBusy={storyReckoningAbandonBusy} onAbandon={() => void handleStoryReckoningAbandon()} />
                 <div className="instance-frame sector-instance-frame">
                     <WorldSectorCanvas
                         sector={selectedSector}
@@ -4439,6 +4438,7 @@ export function WorldMap({
                         overlayLayer={
                             <>
                             <WorldSectorOverlayLayer
+                                sector={selectedSector}
                                 biome={ambienceBiomeForSector(selectedSector)}
                                 playerTile={sectorPlayerPos}
                                 wanderers={sectorIsCurrent ? sectorOverlayWanderers : []}
@@ -4447,6 +4447,10 @@ export function WorldMap({
                                 traceSigns={sectorTraces?.signs ?? []}
                                 shrine={sectorOverlayShrine}
                                 boss={sectorOverlayBoss}
+                                fieldStory={sectorIsCurrent && fieldObjective?.pointId && fieldObjective.sector === selectedSector ? {
+                                    title: fieldObjective.name, tile: fieldObjective.tile,
+                                    onOpen: () => setFieldScene({ questId: fieldObjective.questId, pointId: fieldObjective.pointId! }),
+                                } : null}
                                 onEngageWanderer={handleWandererEngage}
                                 onOpenTrace={(signId) => setTracesModal({ view: "signs", focusSignId: signId })}
                                 onOpenShrine={() => setTracesModal({ view: "shrine" })}
@@ -4471,7 +4475,8 @@ export function WorldMap({
                                 <div style={{ position: "fixed", inset: 0, zIndex: 1000000, display: "grid", placeItems: "center", background: "rgba(4,6,12,0.72)" }} onClick={() => setVaultPrompt(null)}>
                                     <div style={{ background: "#141926", border: "1px solid #38405a", borderRadius: 14, padding: "1.1rem 1.2rem", maxWidth: 380, width: "min(92vw, 380px)", textAlign: "center" }} onClick={e => e.stopPropagation()}>
                                         <img src="/landmarks/anbu-vault.webp" alt="" style={{ width: 120, height: 120, objectFit: "contain" }} />
-                                        <h3 style={{ margin: "0.3rem 0" }}>{vaultPrompt.village} War Vault</h3>
+                                        <h3 style={{ margin: "0.3rem 0 0" }}>Sector Stronghold</h3>
+                                        <p style={{ fontSize: 12, opacity: 0.7, margin: "0.15rem 0 0" }}>{vaultPrompt.village} · Sector {vaultPrompt.sector}</p>
                                         <p style={{ fontSize: 13, opacity: 0.82, margin: "0.3rem 0 0.8rem" }}>
                                             Their war supplies sit behind that sealed door — and one of their Anbu guards it.
                                             Break through and you can bleed this sector's war economy. If you fall, you leave with nothing.
@@ -4732,7 +4737,8 @@ export function WorldMap({
                         gathering={isWildSector(selectedSector) ? sectorPoolViewFor(selectedSector, territory.ownerVillage, character.village) : null} intel={sectorIntelPlate}
                         villageWarAdmissionOpen={villageWarAdmissionOpen}
                         traces={sectorTraces}
-                        hasLivePlayers={livePlayersHere.length > 0}
+                        hasLivePlayers={livePlayersHere.length > 0} sectorContest={sectorWarContest} onOpenSectorContest={() => handleOpenSectorContest(false)}
+                        sectorGarrisonReady={sectorContestGarrisonReady(sectorWarContest, Date.now())} onFightSectorGarrison={() => handleOpenSectorContest(true)}
                         players={commandPlayers}
                         hunt={commandHunt}
                         onRaidEnemyVillage={handleSelectedSectorVillageWarRaid}
@@ -4999,18 +5005,17 @@ export function WorldMap({
     }
 
     return (
-        <div className="card">
+        <div className="card world-atlas-card">
+            {!wmZoom.active && <StoryFieldJournal character={character} currentSector={currentSector} onLocate={setSelectedSector}
+                onOpen={(questId, pointId) => setFieldScene({ questId, pointId })}
+                onReview={(questId, pointId) => setFieldScene({ questId, pointId, review: true })}
+                abandonBusy={storyReckoningAbandonBusy} onAbandon={() => void handleStoryReckoningAbandon()} />}
             {wmZoom.active ? (
                 <div className="wm-topbar">
                     <BackToVillageButton
                         onClick={() => isWildSector(currentSector) ? setSelectedSector(currentSector) : setScreen("village")}
                         label={isWildSector(currentSector) ? `\u2190 Return to Sector ${currentSector}` : "\u2190 Village"}
                     />
-                    <div className="wm-zoom-controls">
-                        <button className="wm-zoom-btn" aria-label="Zoom in" onClick={wmZoom.zoomIn}>+</button>
-                        <button className="wm-zoom-btn" aria-label="Zoom out" onClick={wmZoom.zoomOut}>−</button>
-                        <button className="wm-zoom-btn" aria-label="Reset view" style={{ fontSize: 15 }} onClick={wmZoom.reset}>⤢</button>
-                    </div>
                 </div>
             ) : (
                 <BackToVillageButton
@@ -5019,37 +5024,22 @@ export function WorldMap({
                 />
             )}
             {hollowGateMenu && (
-                <div onClick={() => setHollowGateMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 8999, background: "rgba(2,6,23,0.8)", display: "grid", placeItems: "center", padding: 16 }}>
-                    <div onClick={(e) => e.stopPropagation()} style={{ background: "#160f2b", border: "1px solid #7c3aed", borderRadius: 12, padding: 20, maxWidth: 380, width: "100%", textAlign: "center" }}>
-                        <h3 style={{ marginTop: 0, color: "#e9d5ff" }}>⛩ The Hollow Gate</h3>
-                        <p style={{ color: "#c4b5fd", fontSize: 14 }}>The broken torii waits. Steel yourself, or attune to the shrine with the Hollow Shards you've torn from its depths.</p>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                            {hollowGateEventConfig?.active && (
-                                <button
-                                    onClick={() => { setHollowGateMenu(false); onEnterHollowGateEvent?.(hollowGateEventConfig); }}
-                                    style={{ padding: 8, borderRadius: 8, border: "1px solid #fbbf24", background: "linear-gradient(#b45309,#78350f)", color: "#fef3c7", fontWeight: 700, cursor: "pointer" }}
-                                >
-                                    ⭐ Event: {hollowGateEventConfig.label || "Event Gate"}
-                                    <span style={{ display: "block", fontSize: 11, fontWeight: 400, color: "var(--gold-300)" }}>
-                                        {Math.max(1, hollowGateEventConfig.maxFloor ?? 1)} floor{(hollowGateEventConfig.maxFloor ?? 1) === 1 ? "" : "s"}
-                                        {hollowGateEventConfig.bossName ? ` · Boss: ${hollowGateEventConfig.bossName}` : ""}
-                                        {(hollowGateEventConfig.keyCost ?? 1) === 0 ? " · Free entry" : " · 1 Key"}
-                                    </span>
-                                </button>
-                            )}
-                            <button onClick={() => { setHollowGateMenu(false); onEnterHollowGate?.(); }} style={{ padding: 8, borderRadius: 8, border: "none", background: "linear-gradient(#7c3aed,#4c1d95)", color: "#fff", fontWeight: 600, cursor: "pointer" }}>Enter the Shrine</button>
-                            <button onClick={() => { setHollowGateMenu(false); setShowAttunement(true); }} style={{ padding: 8, borderRadius: 8, border: "1px solid #7c3aed", background: "transparent", color: "#e9d5ff", cursor: "pointer" }}>💎 Shrine Attunement</button>
-                            <button onClick={() => setHollowGateMenu(false)} style={{ padding: 6, borderRadius: 8, border: "1px solid var(--slate-600)", background: "transparent", color: "var(--text-dim)", cursor: "pointer" }}>Cancel</button>
-                        </div>
-                    </div>
-                </div>
+                <HollowGateEntryMenu
+                    hollowGateEventConfig={hollowGateEventConfig}
+                    onEnterHollowGateEvent={onEnterHollowGateEvent}
+                    onEnterHollowGate={onEnterHollowGate}
+                    onClose={() => setHollowGateMenu(false)}
+                    onShowAttunement={() => setShowAttunement(true)}
+                />
             )}
             {showAttunement && <HollowGateAttunement character={character} onClose={() => setShowAttunement(false)} onVersionedCharacter={onVersionedCharacter} />}
-            {/* World-map viewport. Legacy: a horizontal-scroll box on narrow
-                screens. With worldMapZoom.v1 (mobile default): a fit-to-screen
-                pinch / drag zoom surface driven by useWorldMapZoom. */}
+            {/* All map coordinates share one camera. The six mobile areas
+                overlap and re-fit to the available screen after rotation. */}
+            <div className="world-atlas-frame" ref={wmFrameRef}>
             <div
                 className="world-map-scroll"
+                role="group"
+                aria-label="World map"
                 ref={wmZoom.viewportRef}
                 {...wmZoom.viewportHandlers}
             >
@@ -5224,20 +5214,20 @@ export function WorldMap({
             </div>{/* end world-map-scroll */}
             {wmZoom.active && (
                 <div className="wm-village-bar" role="group" aria-label="Jump to region">
-                    {WM_CLUSTERS.map((cl) => {
-                        const pts = sectorPoints.filter((s) => cl.ids.includes(s.id));
-                        if (!pts.length) return null;
-                        const cx = pts.reduce((a, s) => a + s.x, 0) / pts.length;
-                        const cy = pts.reduce((a, s) => a + s.y, 0) / pts.length;
-                        return (
-                            <button key={cl.label} className="wm-village-chip" onClick={() => wmZoom.focusPoint(cx, cy, cl.zoom)}>
-                                <span className="wm-chip-dot" style={{ background: cl.color }} />{cl.label}
+                    {WORLD_MAP_REGIONS.map((region) => (
+                            <button key={region.id} type="button" className="wm-village-chip"
+                                data-region={region.id} aria-label={region.label} aria-pressed={wmZoom.selectedRegion === region.id}
+                                title={`${region.position} of the world map`}
+                                onClick={() => wmZoom.focusRegion(region.id)}>
+                                {region.id === "frost" ? <>Frost<wbr />fang</>
+                                    : region.id === "storm" ? <>Storm<wbr />veil</>
+                                        : region.id === "moon" ? <>Moon<wbr />shadow</>
+                                            : region.label}
                             </button>
-                        );
-                    })}
+                    ))}
                 </div>
             )}
-
+            </div>{/* end world-atlas-frame */}
 
             {/* Atmospheric whispers must also land on the OVERVIEW — the sage
                 roll + rumor effects fire on mount, before a sector is opened
@@ -5272,4 +5262,11 @@ export function WorldMap({
             {codexRevealOverlay}
         </div>
     );
+}
+
+type WorldMapProps = Parameters<typeof WorldMapContent>[0];
+export function WorldMap(props: WorldMapProps) {
+    return <StoryFieldRouteBoundary onReturn={() => props.setScreen("village")}>
+        <WorldMapContent {...props} />
+    </StoryFieldRouteBoundary>;
 }

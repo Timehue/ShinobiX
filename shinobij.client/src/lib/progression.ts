@@ -1,3 +1,4 @@
+import { activeElderFocus } from "./village-elder-focus";
 /*
  * Character progression helpers — XP-gain formulas and ranked-rating
  * Elo math. Pure functions; the larger `gainXp` driver that calls these
@@ -15,12 +16,12 @@ import { CHARACTER_XP_GAIN_MULTIPLIER } from "../constants/game";
 // global testing-phase multiplier and the +10% Elder training-focus
 // bonus when the character's village elder is set to "training".
 export function effectiveCharacterXpGain(
-    character: Pick<Character, "elderFocus">,
+    character: Pick<Character, "elderFocus"> & Partial<Pick<Character, "village">>,
     amount: number,
 ): number {
     const baseAmount = Math.max(0, Math.floor(amount));
     const testingBoostedAmount = Math.floor(baseAmount * CHARACTER_XP_GAIN_MULTIPLIER);
-    const trainingFocusBonus = character.elderFocus === "training"
+    const trainingFocusBonus = activeElderFocus(character) === "training"
         ? Math.floor(testingBoostedAmount * 0.1)
         : 0;
     return testingBoostedAmount + trainingFocusBonus;
@@ -31,7 +32,7 @@ export function effectiveCharacterXpGain(
 // "Reward: X XP" displays that may or may not have a character in scope.
 export function displayCharacterXpGain(
     amount: number,
-    character?: Pick<Character, "elderFocus">,
+    character?: Pick<Character, "elderFocus"> & Partial<Pick<Character, "village">>,
 ): number {
     return character
         ? effectiveCharacterXpGain(character, amount)
@@ -73,32 +74,3 @@ export type PvpWinBaseSummary = {
     // via applyStatGrowth (server wrote the same delta, so no double-count/clobber).
     statGrowth?: { allocated: Partial<Record<string, number>>; unspentGain: number };
 };
-
-// Apply a server-credited base reward onto the local character, replacing the
-// progression fields (xp / level / rank title / pool maxes / unspent stats /
-// ryo) with the server's authoritative post-credit values. Current pools are
-// refilled to the new maxes ONLY when the win produced a level-up — mirroring
-// App.tsx's gainXp, which sets hp/chakra/stamina to the new max on each level
-// gained and otherwise leaves them untouched. Every other character field is
-// preserved so the caller can still layer its client-only extras (territory
-// scrolls, auraDust, kill counters, war bounty) on top.
-export function applyServerBaseReward(character: Character, base: PvpWinBaseSummary): Character {
-    const leveledUp = base.level > (character.level ?? 0);
-    return {
-        ...character,
-        xp: base.xp,
-        level: base.level,
-        maxHp: base.maxHp,
-        maxChakra: base.maxChakra,
-        maxStamina: base.maxStamina,
-        unspentStats: base.unspentStats,
-        ryo: base.ryo,
-        ...(typeof base.auraDust === 'number' ? { auraDust: base.auraDust } : {}),
-        ...(Array.isArray(base.inventory) ? { inventory: base.inventory } : {}),
-        ...(typeof base.totalPvpKills === 'number' ? { totalPvpKills: base.totalPvpKills } : {}),
-        ...(typeof base.monthlyPvpKills === 'number' ? { monthlyPvpKills: base.monthlyPvpKills } : {}),
-        ...(typeof base.pvpKillMonth === 'string' ? { pvpKillMonth: base.pvpKillMonth } : {}),
-        ...(base.rankTitle ? { rankTitle: base.rankTitle } : {}),
-        ...(leveledUp ? { hp: base.maxHp, chakra: base.maxChakra, stamina: base.maxStamina } : {}),
-    };
-}

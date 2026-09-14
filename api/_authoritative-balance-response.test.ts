@@ -7,14 +7,10 @@ const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), 'utf8');
 
 describe('authoritative balance response migration', () => {
-    it('daily login returns stored balances and the client assigns them', () => {
-        const api = read('api/player/daily-login.ts');
-        const client = read('shinobij.client/src/components/DailyBriefingModal.tsx');
-        assert.match(api, /balances:\s*\{\s*ryo:\s*out\.totalRyo,\s*fateShards:\s*out\.totalFateShards\s*\}/);
-        assert.match(client, /ryo:\s*res\.balances\.ryo/);
-        assert.match(client, /fateShards:\s*res\.balances\.fateShards/);
-        assert.doesNotMatch(client, /ryo:\s*prev\.ryo\s*\+\s*res\.granted\.ryo/);
-    });
+    // Daily login now has real authenticated-handler/client/coordinator/save
+    // regressions in shinobij.client/src/lib/daily-login-recovery.test.mjs,
+    // discovered by the same CI runner. The former source-text check required
+    // the unsafe unversioned modal assignment those regressions replace.
 
     it('weekly claims return stored balances and the client assigns them', () => {
         const api = read('api/missions/weekly-board.ts');
@@ -124,7 +120,7 @@ describe('authoritative balance response migration', () => {
     it('story milestones consume the sealed next-boss token and adopt the committed character', () => {
         const api = read('api/story/settle.ts');
         const core = read('api/story/_settle.ts');
-        const saveApi = read('api/save/[name].ts');
+        const saveApi = read('api/save/_sanitize-progression.ts');
         const client = read('shinobij.client/src/lib/story-combat-api.ts');
         const host = read('shinobij.client/src/components/StoryBossFightHost.tsx');
         const app = read('shinobij.client/src/App.tsx');
@@ -139,8 +135,15 @@ describe('authoritative balance response migration', () => {
         assert.match(client, /fetch\('\/api\/story\/settle'/);
         assert.match(client, /body: JSON\.stringify\(\{ \.\.\.params, kind: 'storyBoss' \}\)/);
         assert.match(host, /onSettled\(settled\)/);
-        assert.match(app, /function handleServerStoryBossSettled\(result: StoryBossSettleResult\)[\s\S]{0,260}?commitVersionedCharacter\(result\.character, result\._saveVersion\)/);
-        assert.match(app, /function commitVersionedCharacter[\s\S]{0,420}?acceptVersionedSnapshot\(latestSaveVersionRef\.current, incomingVersion\)/);
+        const settleHandler = app.slice(
+            app.indexOf('function handleServerStoryBossSettled'),
+            app.indexOf('function startTriggeredEventArenaBattle'),
+        );
+        assert.match(settleHandler, /const settledCharacter = prepareStorySettlement\(/);
+        assert.ok(settleHandler.indexOf('prepareStorySettlement(') < settleHandler.indexOf('commitVersionedCharacter(settledCharacter, result._saveVersion)'),
+            'story settlement must merge its durable narrative receipt before adopting the committed character');
+        assert.match(app, /return saveCoordinator\.commitVersionedCharacter\(nextCharacter, incomingVersion\)/);
+        assert.match(readFileSync('shinobij.client/src/lib/player-save-coordinator.ts', 'utf8'), /function commitVersionedCharacter[\s\S]{0,420}?acceptVersionedSnapshot\(latestSaveVersionRef\.current, incomingVersion\)/);
     });
 
     it('war crates are consumed and rewarded by one server save mutation', () => {

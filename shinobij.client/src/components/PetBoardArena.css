@@ -385,9 +385,11 @@
     font: 900 13px Inter, system-ui, sans-serif;
 }
 
-.gauntlet-board-result__card button:hover {
-    filter: brightness(1.08);
-    transform: translateY(-1px);
+@media (hover: hover) {
+    .gauntlet-board-result__card button:hover {
+        filter: brightness(1.08);
+        transform: translateY(-1px);
+    }
 }
 
 .gauntlet-board-result__card button:focus-visible {
@@ -472,6 +474,6 @@
     .gauntlet-board-result__card,
     .gauntlet-damage-pop {
         animation-duration: 1ms !important;
-        transition-duration: 1ms !important;
+        transition-duration: 0s !important;
     }
 }

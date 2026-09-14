@@ -21,6 +21,7 @@ export async function fetchRankedPetDuel(matchToken: string): Promise<RankedPetW
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ matchToken }),
+            signal: AbortSignal.timeout(12_000),
         });
         if (!r.ok) return null;
         const data = await r.json().catch(() => null) as Partial<RankedPetWatch> | null;

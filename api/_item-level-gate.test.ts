@@ -134,7 +134,7 @@ describe('gear level ladder', () => {
 describe('gear level ladder — enforcement is wired, not decorative', () => {
     const root = process.cwd();
     const shop = readFileSync(join(root, 'api', 'shop', '_settlement.ts'), 'utf8');
-    const save = readFileSync(join(root, 'api', 'save', '[name].ts'), 'utf8');
+    const save = readFileSync(join(root, 'api', 'save', '_sanitize-ledger.ts'), 'utf8');
     const named = readFileSync(join(root, 'api', 'craft', '_named.ts'), 'utf8');
     const forge = readFileSync(join(root, 'api', 'craft', '_forge.ts'), 'utf8');
 

@@ -17,9 +17,43 @@
  *     <SceneAmbience biome={biome} weather={weather} />
  *   </div>
  */
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Biome, WeatherType } from "../types/core";
 import { isLowEndMobile } from "../lib/device-tier";
+import { FORECAST_REFRESH_MS } from "../lib/sector-forecast";
+import { weatherForSector } from "../lib/world-state";
+
+/**
+ * The sky over a world sector, re-read on a timer — or null when this scene is
+ * not standing on one (a battle backdrop, a landmark), in which case the caller's
+ * own `weather` prop is the answer and no timer runs at all.
+ *
+ * Kept beside its only consumer rather than in lib/, because it is the one place
+ * that needs a live sky WITHOUT a countdown to go with it (components/
+ * SectorSkyForecast owns the readable version).
+ */
+function useSectorWeatherTick(sector?: number, biome?: Biome): WeatherType | null {
+    // The reading is stamped with the place it was taken. Two reasons: the effect
+    // must not setState in its own body to clear a stale value (react-hooks/
+    // set-state-in-effect), and on a sector change the previous sector's sky
+    // would otherwise paint for the frame before the effect re-runs.
+    const [live, setLive] = useState<{ place: string; weather: WeatherType } | null>(null);
+    const place = sector === undefined || biome === undefined ? "" : `${sector}:${biome}`;
+    useEffect(() => {
+        if (sector === undefined || biome === undefined) return;
+        const here = `${sector}:${biome}`;
+        let timer = 0;
+        const apply = () => setLive({ place: here, weather: weatherForSector(sector, biome) });
+        apply();
+        const start = () => { if (!timer) timer = window.setInterval(apply, FORECAST_REFRESH_MS); };
+        const stop = () => { if (timer) { window.clearInterval(timer); timer = 0; } };
+        start();
+        const onVis = () => { if (document.hidden) stop(); else { apply(); start(); } };
+        document.addEventListener("visibilitychange", onVis);
+        return () => { stop(); document.removeEventListener("visibilitychange", onVis); };
+    }, [sector, biome]);
+    return live && live.place === place ? live.weather : null;
+}
 
 type Kind = "snow" | "ember" | "petal" | "leaf" | "mote" | "rain" | "ash" | "haze";
 
@@ -88,12 +122,26 @@ interface P {
 export function SceneAmbience({
     biome,
     weather,
+    weatherSector,
+    weatherBiome,
     intensity = 1,
     className,
     hazeStyle = "orbs",
 }: {
     biome: Biome;
     weather?: WeatherType;
+    /** Live-weather source: the WORLD SECTOR this scene is standing in, if any.
+     *  Pass it (with `weatherBiome`) on a world sector and the particles follow
+     *  the sector's schedule as it turns, instead of the `weather` the caller
+     *  happened to capture on arrival. Weather now rotates every 40 real minutes
+     *  (shared/sector-weather), and neither App nor WorldMap re-renders on a
+     *  timer — so without this, rain keeps falling under a plate that has already
+     *  said "Clear Skies". Omit both on a battle backdrop or landmark, whose
+     *  weather is a fixed dressing choice rather than a place on the map. */
+    weatherSector?: number;
+    /** The sector's real biome (not the art-swapped `biome` above), so the sky
+     *  looked up here is the same one the plate names and the server seals. */
+    weatherBiome?: Biome;
     /** scales particle count (0–1.5). Lower on cramped panels. */
     intensity?: number;
     className?: string;
@@ -102,8 +150,10 @@ export function SceneAmbience({
     hazeStyle?: "orbs" | "wisps";
 }) {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
-    const kinds = useMemo(() => kindsFor(biome, weather), [biome, weather]);
-    const lightning = weather === "thunderstorm";
+    const liveWeather = useSectorWeatherTick(weatherSector, weatherBiome);
+    const sky = liveWeather ?? weather;
+    const kinds = useMemo(() => kindsFor(biome, sky), [biome, sky]);
+    const lightning = sky === "thunderstorm";
 
     useEffect(() => {
         const canvas = canvasRef.current;

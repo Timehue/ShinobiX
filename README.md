@@ -221,7 +221,7 @@ described in [CLAUDE.md](CLAUDE.md).
 
 ## Community
 
-- Discord: https://discord.gg/bCQGs8r6SK
+- Discord: https://discord.gg/usr3vzykBh
 - Roadmap: [docs/ROADMAP.md](docs/ROADMAP.md)
 - Release readiness: [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)
 

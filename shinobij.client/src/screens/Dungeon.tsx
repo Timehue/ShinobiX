@@ -108,6 +108,7 @@ export function DungeonEncounter({
             <div className="card cinematic-card">
                 <p className="act-label">HIDDEN DUNGEON</p>
                 <h2>All seals verified</h2>
+                <p>“Three clean signals. No rescue rope used. Take what the vault owes you; I have the next challenger to keep breathing.”</p>
                 <p>The Warden, Chronicle, and Rare Beast proofs are bound to this run. Claim the reserved reward now; if the request is interrupted, this screen remains recoverable.</p>
                 <div className="menu">
                     <button className="admin-button" onClick={onClaimReward}>Claim Dungeon Reward</button>

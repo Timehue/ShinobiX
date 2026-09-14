@@ -1,0 +1,469 @@
+{
+  "method": "Dev-only native WebGL handle and application callback instrumentation; counts exclude the monitor polling interval. Browser fixture rounds replay real engine events, rather than extending a real fight beyond its round cap.",
+  "samples": [
+    {
+      "label": "fire warm repeated casts",
+      "metrics": {
+        "createdContexts": 1,
+        "lostContexts": 0,
+        "activeContexts": 1,
+        "handles": {
+          "buffer": 692,
+          "texture": 43,
+          "program": 33,
+          "shader": 0,
+          "framebuffer": 6,
+          "renderbuffer": 2,
+          "vertexArray": 205
+        },
+        "pendingTimers": 6,
+        "pendingFrames": 2,
+        "intervals": 0,
+        "draws": 233335,
+        "heapBytes": 24126788
+      }
+    },
+    {
+      "label": "before particle fix continued casts",
+      "metrics": {
+        "createdContexts": 1,
+        "lostContexts": 0,
+        "activeContexts": 1,
+        "handles": {
+          "buffer": 1057,
+          "texture": 43,
+          "program": 33,
+          "shader": 0,
+          "framebuffer": 6,
+          "renderbuffer": 2,
+          "vertexArray": 207
+        },
+        "pendingTimers": 5,
+        "pendingFrames": 2,
+        "intervals": 0,
+        "draws": 448918,
+        "heapBytes": 25574524
+      }
+    },
+    {
+      "label": "before particle fix unmounted",
+      "metrics": {
+        "createdContexts": 1,
+        "lostContexts": 1,
+        "activeContexts": 0,
+        "handles": {
+          "buffer": 0,
+          "texture": 0,
+          "program": 0,
+          "shader": 0,
+          "framebuffer": 0,
+          "renderbuffer": 0,
+          "vertexArray": 0
+        },
+        "pendingTimers": 0,
+        "pendingFrames": 0,
+        "intervals": 0,
+        "draws": 453354,
+        "heapBytes": 20854684
+      }
+    },
+    {
+      "label": "after particle fix warm soak",
+      "metrics": {
+        "createdContexts": 1,
+        "lostContexts": 0,
+        "activeContexts": 1,
+        "handles": {
+          "buffer": 291,
+          "texture": 43,
+          "program": 24,
+          "shader": 0,
+          "framebuffer": 6,
+          "renderbuffer": 2,
+          "vertexArray": 154
+        },
+        "pendingTimers": 7,
+        "pendingFrames": 2,
+        "intervals": 0,
+        "draws": 228523,
+        "heapBytes": 34662941
+      }
+    },
+    {
+      "label": "after particle fix continued fast soak",
+      "metrics": {
+        "createdContexts": 1,
+        "lostContexts": 0,
+        "activeContexts": 1,
+        "handles": {
+          "buffer": 320,
+          "texture": 43,
+          "program": 24,
+          "shader": 0,
+          "framebuffer": 6,
+          "renderbuffer": 2,
+          "vertexArray": 162
+        },
+        "pendingTimers": 6,
+        "pendingFrames": 2,
+        "intervals": 0,
+        "draws": 555773,
+        "heapBytes": 30360353
+      }
+    },
+    {
+      "label": "after particle fix unmounted",
+      "metrics": {
+        "createdContexts": 1,
+        "lostContexts": 1,
+        "activeContexts": 0,
+        "handles": {
+          "buffer": 0,
+          "texture": 0,
+          "program": 0,
+          "shader": 0,
+          "framebuffer": 0,
+          "renderbuffer": 0,
+          "vertexArray": 0
+        },
+        "pendingTimers": 0,
+        "pendingFrames": 0,
+        "intervals": 0,
+        "draws": 556421,
+        "heapBytes": 25663398
+      }
+    },
+    {
+      "label": "final fire settled after 3 rounds",
+      "metrics": {
+        "createdContexts": 1,
+        "lostContexts": 0,
+        "activeContexts": 1,
+        "handles": {
+          "buffer": 282,
+          "texture": 42,
+          "program": 24,
+          "shader": 0,
+          "framebuffer": 6,
+          "renderbuffer": 2,
+          "vertexArray": 150
+        },
+        "pendingTimers": 0,
+        "pendingFrames": 2,
+        "intervals": 0,
+        "draws": 331790,
+        "heapBytes": 49011229
+      }
+    },
+    {
+      "label": "final fire settled after 13 rounds",
+      "metrics": {
+        "createdContexts": 1,
+        "lostContexts": 0,
+        "activeContexts": 1,
+        "handles": {
+          "buffer": 310,
+          "texture": 43,
+          "program": 24,
+          "shader": 0,
+          "framebuffer": 6,
+          "renderbuffer": 2,
+          "vertexArray": 157
+        },
+        "pendingTimers": 0,
+        "pendingFrames": 2,
+        "intervals": 0,
+        "draws": 822922,
+        "heapBytes": 55500045
+      }
+    },
+    {
+      "label": "quality downgrade Performance settled",
+      "metrics": {
+        "createdContexts": 2,
+        "lostContexts": 1,
+        "activeContexts": 1,
+        "handles": {
+          "buffer": 189,
+          "texture": 17,
+          "program": 11,
+          "shader": 0,
+          "framebuffer": 3,
+          "renderbuffer": 0,
+          "vertexArray": 71
+        },
+        "pendingTimers": 0,
+        "pendingFrames": 2,
+        "intervals": 0,
+        "draws": 958293,
+        "heapBytes": 51911603
+      }
+    },
+    {
+      "label": "quality Balanced settled",
+      "metrics": {
+        "createdContexts": 3,
+        "lostContexts": 2,
+        "activeContexts": 1,
+        "handles": {
+          "buffer": 215,
+          "texture": 19,
+          "program": 23,
+          "shader": 0,
+          "framebuffer": 5,
+          "renderbuffer": 2,
+          "vertexArray": 144
+        },
+        "pendingTimers": 0,
+        "pendingFrames": 2,
+        "intervals": 0,
+        "draws": 1050813,
+        "heapBytes": 54422454
+      }
+    },
+    {
+      "label": "final fire settled after 20 rounds, scar cap reached",
+      "metrics": {
+        "createdContexts": 4,
+        "lostContexts": 3,
+        "activeContexts": 1,
+        "handles": {
+          "buffer": 298,
+          "texture": 39,
+          "program": 24,
+          "shader": 0,
+          "framebuffer": 6,
+          "renderbuffer": 2,
+          "vertexArray": 154
+        },
+        "pendingTimers": 0,
+        "pendingFrames": 2,
+        "intervals": 0,
+        "draws": 1438142,
+        "heapBytes": 49386445
+      }
+    },
+    {
+      "label": "final fire settled after 33 rounds",
+      "metrics": {
+        "createdContexts": 4,
+        "lostContexts": 3,
+        "activeContexts": 1,
+        "handles": {
+          "buffer": 310,
+          "texture": 42,
+          "program": 24,
+          "shader": 0,
+          "framebuffer": 6,
+          "renderbuffer": 2,
+          "vertexArray": 157
+        },
+        "pendingTimers": 0,
+        "pendingFrames": 2,
+        "intervals": 0,
+        "draws": 2261343,
+        "heapBytes": 43119409
+      }
+    },
+    {
+      "label": "failed spectator manual retry remains at two submissions",
+      "ui": "- generic: \"Reviewed rounds: 2\"\n- generic \"Lifecycle metrics\": \"{\\\"createdContexts\\\":1,\\\"lostContexts\\\":0,\\\"activeContexts\\\":1,\\\"handles\\\":{\\\"buffer\\\":172,\\\"texture\\\":14,\\\"program\\\":9,\\\"shader\\\":0,\\\"framebuffer\\\":3,\\\"renderbuffer\\\":0,\\\"vertexArray\\\":66},\\\"pendingTimers\\\":0,\\\"pendingFrames\\\":1,\\\"intervals\\\":0,\\\"draws\\\":137943,\\\"heapBytes\\\":40053141}\"\n    - generic: Playback paused\n    - generic: This round could not be loaded. Retry playback when ready.\n    - button \"Retry playback\" [active]",
+      "metrics": {
+        "createdContexts": 1,
+        "lostContexts": 0,
+        "activeContexts": 1,
+        "handles": {
+          "buffer": 172,
+          "texture": 14,
+          "program": 9,
+          "shader": 0,
+          "framebuffer": 3,
+          "renderbuffer": 0,
+          "vertexArray": 66
+        },
+        "pendingTimers": 0,
+        "pendingFrames": 1,
+        "intervals": 0,
+        "draws": 137943,
+        "heapBytes": 40053141
+      }
+    },
+    {
+      "label": "final fire settled after 41 rounds",
+      "metrics": {
+        "createdContexts": 4,
+        "lostContexts": 3,
+        "activeContexts": 1,
+        "handles": {
+          "buffer": 310,
+          "texture": 43,
+          "program": 24,
+          "shader": 0,
+          "framebuffer": 6,
+          "renderbuffer": 2,
+          "vertexArray": 157
+        },
+        "pendingTimers": 0,
+        "pendingFrames": 2,
+        "intervals": 0,
+        "draws": 2668319,
+        "heapBytes": 46391785
+      }
+    },
+    {
+      "label": "failed spectator unmounted",
+      "metrics": {
+        "createdContexts": 1,
+        "lostContexts": 1,
+        "activeContexts": 0,
+        "handles": {
+          "buffer": 0,
+          "texture": 0,
+          "program": 0,
+          "shader": 0,
+          "framebuffer": 0,
+          "renderbuffer": 0,
+          "vertexArray": 0
+        },
+        "pendingTimers": 0,
+        "pendingFrames": 0,
+        "intervals": 0,
+        "draws": 138930,
+        "heapBytes": 23767193
+      }
+    },
+    {
+      "label": "blizzard active after 3 rounds",
+      "metrics": {
+        "createdContexts": 1,
+        "lostContexts": 0,
+        "activeContexts": 1,
+        "handles": {
+          "buffer": 296,
+          "texture": 41,
+          "program": 34,
+          "shader": 0,
+          "framebuffer": 6,
+          "renderbuffer": 2,
+          "vertexArray": 211
+        },
+        "pendingTimers": 7,
+        "pendingFrames": 2,
+        "intervals": 0,
+        "draws": 228517,
+        "heapBytes": 44161075
+      }
+    },
+    {
+      "label": "final fire unmounted all four contexts retired",
+      "metrics": {
+        "createdContexts": 4,
+        "lostContexts": 4,
+        "activeContexts": 0,
+        "handles": {
+          "buffer": 0,
+          "texture": 0,
+          "program": 0,
+          "shader": 0,
+          "framebuffer": 0,
+          "renderbuffer": 0,
+          "vertexArray": 0
+        },
+        "pendingTimers": 0,
+        "pendingFrames": 0,
+        "intervals": 0,
+        "draws": 2670167,
+        "heapBytes": 31709493
+      }
+    },
+    {
+      "label": "blizzard restarted once",
+      "metrics": {
+        "createdContexts": 2,
+        "lostContexts": 1,
+        "activeContexts": 1,
+        "handles": {
+          "buffer": 287,
+          "texture": 42,
+          "program": 34,
+          "shader": 0,
+          "framebuffer": 6,
+          "renderbuffer": 2,
+          "vertexArray": 207
+        },
+        "pendingTimers": 5,
+        "pendingFrames": 2,
+        "intervals": 0,
+        "draws": 473316,
+        "heapBytes": 36468484
+      }
+    },
+    {
+      "label": "blizzard restarted twice",
+      "metrics": {
+        "createdContexts": 3,
+        "lostContexts": 2,
+        "activeContexts": 1,
+        "handles": {
+          "buffer": 299,
+          "texture": 42,
+          "program": 34,
+          "shader": 0,
+          "framebuffer": 6,
+          "renderbuffer": 2,
+          "vertexArray": 210
+        },
+        "pendingTimers": 11,
+        "pendingFrames": 2,
+        "intervals": 0,
+        "draws": 655002,
+        "heapBytes": 31567001
+      }
+    },
+    {
+      "label": "blizzard unmounted all three contexts retired",
+      "metrics": {
+        "createdContexts": 3,
+        "lostContexts": 3,
+        "activeContexts": 0,
+        "handles": {
+          "buffer": 0,
+          "texture": 0,
+          "program": 0,
+          "shader": 0,
+          "framebuffer": 0,
+          "renderbuffer": 0,
+          "vertexArray": 0
+        },
+        "pendingTimers": 0,
+        "pendingFrames": 0,
+        "intervals": 0,
+        "draws": 656634,
+        "heapBytes": 25039813
+      }
+    },
+    {
+      "label": "fire remains stopped on later check",
+      "metrics": {
+        "createdContexts": 4,
+        "lostContexts": 4,
+        "activeContexts": 0,
+        "handles": {
+          "buffer": 0,
+          "texture": 0,
+          "program": 0,
+          "shader": 0,
+          "framebuffer": 0,
+          "renderbuffer": 0,
+          "vertexArray": 0
+        },
+        "pendingTimers": 0,
+        "pendingFrames": 0,
+        "intervals": 0,
+        "draws": 2670167,
+        "heapBytes": 32002604
+      }
+    }
+  ],
+  "browserConsoleErrors": []
+}

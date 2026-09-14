@@ -316,11 +316,24 @@ export function resolveSectorBattle(playerName: string, battleId: string) {
 export function joinSectorPet(playerName: string, sectorWarId: string, petId: string) {
     return postJson("/api/village/sector-pet", { action: "join", playerName, sectorWarId, petId });
 }
-export function sectorPetState(playerName: string, sectorWarId: string) {
-    return postJson("/api/village/sector-pet", { action: "state", playerName, sectorWarId });
+/** Fight this sector's PET garrison: the defending village's sealed team stands
+ *  in for the defender who never answered. Server re-checks the idle unlock and
+ *  the attacking village; it resolves and scores in one call, like a live duel.
+ *
+ *  The action is "garrison-duel", not "garrison": the RETIRED one-shot Combat
+ *  garrison used the bare name on /api/village/sector-war, and
+ *  screens/VillageWarMap.garrison.test.ts pins that it can never come back into
+ *  this module. This is a different endpoint and a different thing — a real
+ *  server-resolved pet duel — so it takes a name of its own rather than
+ *  loosening a guard that is still protecting something real. */
+export function garrisonSectorPet(playerName: string, sectorWarId: string, petId: string) {
+    return postJson("/api/village/sector-pet", { action: "garrison-duel", playerName, sectorWarId, petId });
 }
-export function sectorPetWatch(playerName: string, sectorWarId: string) {
-    return postJson("/api/village/sector-pet", { action: "watch", playerName, sectorWarId });
+export function sectorPetState(playerName: string, sectorWarId: string, garrison = false) {
+    return postJson("/api/village/sector-pet", { action: "state", playerName, sectorWarId, ...(garrison ? { garrison: true } : {}) });
+}
+export function sectorPetWatch(playerName: string, sectorWarId: string, garrison = false) {
+    return postJson("/api/village/sector-pet", { action: "watch", playerName, sectorWarId, ...(garrison ? { garrison: true } : {}) });
 }
 export function setSectorWinCondition(playerName: string, village: string, sector: number, winCondition: WinCondition) {
     return postJson("/api/village/war-win-condition", { playerName, village, sector, winCondition });

@@ -6,6 +6,7 @@ import { applySoloPveAction } from '../solo-pve/_engine.js';
 import { assertSoloPveLoadoutCompatible } from '../solo-pve/_compatibility.js';
 import { sealTowerFighter } from '../towers/_seal.js';
 import { applyJutsu } from '../pvp/move.js';
+import { POISON_CAP_BY_RANK } from '../combat-core/formulas.js';
 import {
     hydrateCharacterFromSave,
     resolveEquippedLoadout,
@@ -165,7 +166,10 @@ describe('awakened bloodline combat integration', () => {
         assert.ok(result.opponent.hp < result.opponent.maxHp);
         const poison = result.opponent.statuses.find((status) => status.name === 'Poison');
         assert.ok(poison, 'the authored Poison tag is active in PvP');
-        assert.equal(poison.percent, 35, 'S-rank creator percentage reaches the resolver unchanged');
+        // The sealed tag keeps the 35% creator value (asserted above); the resolver
+        // holds Poison to its S-rank ceiling. 14, not the basic 10, proves the S rank
+        // reached the resolver intact.
+        assert.equal(poison.percent, POISON_CAP_BY_RANK.S, 'S-rank creator Poison resolves at the S-rank Poison ceiling');
     });
 
     it('executes the same sealed technique in PvE with weather, cooldown, status, log, and VFX', () => {
@@ -216,7 +220,7 @@ describe('awakened bloodline combat integration', () => {
         assert.equal(boostedResult.session.cooldowns.player[fixture.jutsu.id], 7);
         const poison = boostedResult.session.enemy.statuses.find((status) => status.name === 'Poison');
         assert.ok(poison, 'the authored Poison tag is active in PvE');
-        assert.equal(poison.percent, 35);
+        assert.equal(poison.percent, POISON_CAP_BY_RANK.S, 'PvE resolves S-rank creator Poison at the same S-rank ceiling as PvP');
         assert.ok(boostedResult.session.log.some((line) => line.includes('Crystal Venom')));
         assert.equal(boostedResult.event?.kind, 'action');
         if (boostedResult.event?.kind === 'action') {

@@ -46,11 +46,11 @@ export const SHOWDOWN_ELEMENT_BEATS: Readonly<Record<string, string>> = Object.f
 // with bench switching shipped as the counterplay, a gentle wheel underprices
 // the switch (the matchup delta a swap captures must beat ~2 actions of cost).
 // 1.5/0.75 (swing 2.0) sits between WoW pet battles' proven 1.5/0.66 and the
-// fan-Naruto ±25% standard: a half-flip switch pays back in ~2.7 rounds, a
+// genre's fan-consensus ±25% standard: a half-flip switch pays back in ~2.7
 // full flip in ~1.3 — switching becomes the central decision without being
 // forced every turn. The 0.75 floor (not the 0.66 reciprocal) is deliberate:
-// single-element pets have no second type to hedge a bad matchup, and canon
-// Naruto's wheel is explicitly power-can-overcome, not a hard counter.
+// single-element pets have no second type to hedge a bad matchup, and the
+// source genre's wheel is explicitly power-can-overcome, not a hard counter.
 // Cycle symmetry keeps AGGREGATE element win rates ~50% at any multiplier —
 // this sharpens individual matchups, which the bench now answers.
 export const SHOWDOWN_ELEMENT_ADVANTAGE = 1.5;
@@ -158,8 +158,10 @@ export const SHOWDOWN_HEAVY_PROMOTE_MULT = 1.35;
  *  The reference haymaker sits at 33 STA out of a ~50 pool. */
 export const SHOWDOWN_HEAVY_COST_PREMIUM = 1.3;
 
-/** Super meter: fills from combat, spent whole on the signature move. */
+/** Super meter: the first cast also charges while fielded; later casts earn
+ * their meter from combat. The full bar is spent on the signature move. */
 export const SHOWDOWN_METER_MAX = 100;
+export const SHOWDOWN_METER_FIRST_ROUND = 50;
 export const SHOWDOWN_METER_ON_HIT_DEALT = 10;
 export const SHOWDOWN_METER_ON_HIT_TAKEN = 18;
 export const SHOWDOWN_METER_ON_GUARDED_HIT = 14;
@@ -555,7 +557,8 @@ export type ShowdownEvent =
         moveName: string;
         moveKind: string;
         element: string;
-        /** Melee actions lunge; ranged actions fire a projectile. */
+        /** Melee actions lunge; ranged attacks cast from the pet's position.
+         * Formation-wide attacks are ranged even when their damage is physical. */
         delivery: "melee" | "ranged" | "self";
         /** Presentation tier. The engine builds a real jab / technique /
          *  haymaker ladder, but none of it used to reach the wire, so a
@@ -564,7 +567,10 @@ export type ShowdownEvent =
         weight: "light" | "normal" | "heavy";
         /** Full-meter signature cast — cinematic camera takeover. */
         super: boolean;
-            targets: {
+        /** Resolved aim, even when this pet dodges and has no damage entry.
+         * Optional for older scripts. Splash victims must not replace it. */
+        targetId?: string;
+        targets: {
             id: string;
             damage: number;
             heal: number;

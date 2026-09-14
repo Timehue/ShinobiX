@@ -1,5 +1,6 @@
 import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
 import { removeOwned, countOwned } from '../craft/_forge.js';
+import { canonicalEquipmentSlot, resolvedEquipmentEntries, REFERENCE_EQUIPMENT_SLOTS } from '../_equipment-ownership.js';
 
 const whole = (v: unknown) => Math.max(0, Math.floor(Number(v) || 0));
 export function sellCatalogItem(character: Record<string, unknown>, itemIdRaw: unknown, qtyRaw: unknown, equipmentSlotRaw?: unknown) {
@@ -10,12 +11,15 @@ export function sellCatalogItem(character: Record<string, unknown>, itemIdRaw: u
     const equipmentSlot = typeof equipmentSlotRaw === 'string' ? equipmentSlotRaw : '';
     let next = character; let qty = Math.max(1, Math.min(50, whole(qtyRaw) || 1));
     if (equipmentSlot) {
+        if (REFERENCE_EQUIPMENT_SLOTS.has(equipmentSlot)) return { ok: false as const, reason: 'sell-consumable-from-backpack' as const };
         const equipment = character.equipment && typeof character.equipment === 'object' ? character.equipment as Record<string, unknown> : {};
-        if (String(equipment[equipmentSlot] ?? '') !== itemId) return { ok: false as const, reason: 'item-not-equipped' as const };
-        const nextEquipment = { ...equipment, [equipmentSlot]: undefined };
-        if (equipmentSlot === 'hand') nextEquipment.weapon = undefined;
-        if (equipmentSlot === 'body') nextEquipment.armor = undefined;
-        if (equipmentSlot === 'aura') nextEquipment.accessory = undefined;
+        const canonicalSlot = canonicalEquipmentSlot(equipmentSlot);
+        const equipped = resolvedEquipmentEntries(equipment).find(([key]) => canonicalEquipmentSlot(key) === canonicalSlot);
+        if (equipped?.[1] !== itemId) return { ok: false as const, reason: 'item-not-equipped' as const };
+        const nextEquipment = { ...equipment };
+        for (const slot of Object.keys(nextEquipment)) {
+            if (canonicalEquipmentSlot(slot) === canonicalSlot) delete nextEquipment[slot];
+        }
         next = { ...character, equipment: nextEquipment }; qty = 1;
     } else {
         qty = Math.min(qty, countOwned(character, itemId));

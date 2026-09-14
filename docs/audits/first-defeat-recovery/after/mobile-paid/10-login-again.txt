@@ -1,0 +1,44 @@
+You
+Travel
+Village
+Items
+Menu
+←
+DE
+defeatmmu0o2ztl
+Lv 3
+641
+67
+77
+7500
+0
+← Village
+
+MOONSHADOW VILLAGE · MEDICAL QUARTER
+
+Village Hospital
+
+A quiet ward for recovery, triage, and the village healer corps.
+
+CURRENT HP
+641 / 700
+WALLET
+7,500 ryo
+HOSPITAL DISCOUNT
+0.00%
+
+PERSONAL CARE
+
+Vital condition
+Hit points
+92%
+
+Walk-in restoration is reserved for the Healer profession. After a knockout, the ward offers a timed free discharge or an immediate paid release.
+
+Your Town Hall hospital upgrade currently reduces eligible treatment costs by 0.00%.
+
+HEALER CORPS
+
+Injured villagers
+?
+Tip

@@ -52,6 +52,16 @@ const RIFT_GIVER_FACE: Record<RiftGiverArchetype, string> = {
     official: "wanderer-patrol",
 };
 
+const RIFT_GREETINGS: Readonly<Record<string, string>> = {
+    "rift-legacy-echo": "Senna steadies a leaning grave marker with one knee and holds a spare brush out to you.",
+    "rift-hollow-stalker": "Vessa pins a field map to the boundary stone before the wind can take it.",
+    "rift-beast-warren": "Houndmaster Bel stands beside the empty kennel runs, gripping one broken collar.",
+    "rift-engine-echo": "Recorder Sann waves you over with an open ledger whose newest line is still forming.",
+    "rift-hollow-name": "Keeper Oru raises a shrine lamp and asks you to hold it steady over a worn slate.",
+    "rift-mirror-shard": "Broker Nemo shutters his booth, checks your reflection, and then checks you.",
+    "rift-gate-heir": "Kite Harrow taps a folded pressure report against the wagon seat and makes room beside her.",
+};
+
 /** VN speaker portrait for the giver (its archetype face) and the rift boss (its
  *  512² portrait crop) — both public /portraits/*.webp paths. */
 export function riftGiverPortrait(rift: HollowRift): string {
@@ -124,7 +134,7 @@ export function synthRiftGiver(rift: HollowRift, sector: number): Wanderer {
         level: rift.levelReq,
         homeTile: home,
         waypoints: [home, home + 1, home - 1],
-        greeting: `${rift.giverName} flags you down, still shaken by whatever they saw.`,
+        greeting: RIFT_GREETINGS[rift.id] ?? `${rift.giverName} flags you down with a field report in hand.`,
         tellTint: "#a855f7",
         avatarKey: face,
     };
@@ -159,12 +169,101 @@ function mapPages(pages: RiftPage[], last: number): NonNullable<CreatorEvent["vn
     }));
 }
 
+const RIFT_REPORT_LABELS: Record<string, string> = {
+    "rift-legacy-echo": "Senna's marker rubbing",
+    "rift-hollow-stalker": "Vessa's stopped seam",
+    "rift-beast-warren": "Nara's recovery",
+    "rift-engine-echo": "Sann's signed manifest",
+    "rift-hollow-name": "Oru's condemned entry",
+    "rift-mirror-shard": "Nemo's returned names",
+};
+
+const REPEAT_REPORTS: Record<string, { title: string; scene: string; lines: string[]; decline: string }> = {
+    "rift-legacy-echo": {
+        title: "A Second Disturbance",
+        scene: "Senna compares a fresh rubbing with the first one already filed",
+        lines: ["The rubbing you brought is dry in the archive. This new break is worrying at another copy of the same refusal.", "Meet it in %sector. Bring the mark back without smearing it; I have paper waiting."],
+        decline: "Senna folds the fresh rubbing into oilskin and sets it beside the brush. The marker can wait one more night, she says, if the paper stays dry.",
+    },
+    "rift-hollow-stalker": {
+        title: "The Seam Opens Again",
+        scene: "Vessa adds a new violet line to a map whose older seam is crossed out",
+        lines: ["The seam you closed stopped widening. A new one in %sector has grown legs of its own.", "I already know you can hold your footing. I need the new break contained before it reaches the road."],
+        decline: "Vessa weights the new corner of the map with a stone. She will measure the seam again at dusk and leave the figures at this post.",
+    },
+    "rift-beast-warren": {
+        title: "A Voice From Another Warren",
+        scene: "Bel stands beside Nara, bandaged and awake, while a distant den answers her bark",
+        lines: ["Nara is home and healing. The thing in %sector is a renewed echo using the call it learned from her, not another abduction.", "She wants to follow. She is not going. Close it while I keep her here."],
+        decline: "Bel nods once and turns back to Nara before the hound can struggle to her feet again. Neither of them likes waiting.",
+    },
+    "rift-engine-echo": {
+        title: "A Fresh Column",
+        scene: "Sann lays a new manifest beside the signed original",
+        lines: ["I signed the first manifest, and it is still where we filed it. These names came from a later batch of closure bouts.", "Their Echo is standing in %sector. Close the break before the arena gives it another page."],
+        decline: "Sann leaves the new manifest open to the unfinished column. He will keep copying until you return or the ink reaches the bottom.",
+    },
+    "rift-hollow-name": {
+        title: "The Form Returns",
+        scene: "Oru sets a fresh Hall-mark shard beside the condemnation already on file",
+        lines: ["This is not the condemned shinobi returned. Another empty copy has begun the same opening form in %sector.", "Break the imitation. The deed and the warning we filed last time remain untouched."],
+        decline: "Oru turns the slate face-down and trims the shrine lamp. He will light it again when you are ready to hear the warning.",
+    },
+    "rift-mirror-shard": {
+        title: "Glass Sheds Twice",
+        scene: "Nemo shutters the booth around a new sliver of moving glass",
+        lines: ["The names from the first rim are back with their keepers. This shard in %sector wears newer reflections.", "Break it before those copies learn which faces make me hesitate."],
+        decline: "Nemo wraps the sliver without looking into it and locks it in the empty cash drawer. Tonight, he says, the money can sleep elsewhere.",
+    },
+    "rift-gate-heir": {
+        title: "The Backflow Takes Shape",
+        scene: "Harrow checks a new pressure report beneath the quartered plate already posted",
+        lines: ["The first plate remains on the waystation board. The drains backed up again and built another carrier in %sector.", "That one is already moving. I need it stopped before the pressure report becomes an obituary."],
+        decline: "Harrow writes NOT YET across the pressure report, dates it, and makes you initial the delay. Even refusal gets a receipt with her.",
+    },
+};
+
+function repeatIntroPages(rift: HollowRift): RiftPage[] {
+    const report = REPEAT_REPORTS[rift.id];
+    if (!report) return rift.intro;
+    return [{
+        title: report.title,
+        scene: report.scene,
+        speaker: rift.giverName,
+        dialogue: report.lines,
+        choices: [
+            { text: `Return to the ${rift.bossName}.`, accept: true },
+            { text: "Not yet.", conclusion: report.decline },
+        ],
+    }];
+}
+
+function harrowRiftRecord(firstClears: Readonly<Record<string, unknown>>): string {
+    const verified = Object.keys(RIFT_REPORT_LABELS).filter((id) => firstClears[id]);
+    if (!verified.length) {
+        return "My ledger holds supplied reports from six breaks. None bears your seal yet; I am hiring you on the evidence, not pretending the earlier work was yours.";
+    }
+    const labels = verified.map((id) => RIFT_REPORT_LABELS[id]);
+    return `Your verified reports cover ${labels.join(", ")}. The other entries came from their local witnesses; I keep the sources separate.`;
+}
+
 /** The giver's report VN (names the target sector via %sector). */
-export function riftIntroEvent(rift: HollowRift, targetSector: number, biome: Biome): CreatorEvent {
+export function riftIntroEvent(
+    rift: HollowRift,
+    targetSector: number,
+    biome: Biome,
+    firstClears: Readonly<Record<string, unknown>> = {},
+): CreatorEvent {
     const phrase = sectorPhrase(targetSector);
+    const sourcePages = firstClears[rift.id] ? repeatIntroPages(rift) : rift.intro;
     const pages = mapPages(
-        rift.intro.map((p) => ({ ...p, dialogue: p.dialogue.map((line) => line.replace(/%sector/g, phrase)) })),
-        rift.intro.length - 1,
+        sourcePages.map((p) => ({
+            ...p,
+            dialogue: p.dialogue.map((line) => line
+                .replace(/%sector/g, phrase)
+                .replace(/%riftRecord/g, harrowRiftRecord(firstClears))),
+        })),
+        sourcePages.length - 1,
     );
     return {
         id: `${RIFT_GIVER_PREFIX}${rift.slug}`,
@@ -173,16 +272,52 @@ export function riftIntroEvent(rift: HollowRift, targetSector: number, biome: Bi
         icon: "🌀",
         eventKind: "visualNovel",
         trigger: "manual",
-        vnTitle: rift.intro[0]?.title ?? "Rift Report",
-        vnScene: rift.intro[0]?.scene ?? "",
-        vnSpeaker: rift.intro[0]?.speaker ?? rift.giverName,
+        vnTitle: sourcePages[0]?.title ?? "Rift Report",
+        vnScene: sourcePages[0]?.scene ?? "",
+        vnSpeaker: sourcePages[0]?.speaker ?? rift.giverName,
         image: `/scenes/story/${RIFT_GIVER_PREFIX}${rift.slug}.webp`,
         vnPages: pages,
         levelReq: rift.levelReq,
         xpReward: 0,
         ryoReward: 0,
         staminaReward: 0,
-        dialogue: rift.intro.flatMap((p) => p.dialogue),
+        dialogue: pages.flatMap((p) => p.dialogue),
+    };
+}
+
+const FIRST_CLEAR_REACTIONS: Record<string, RiftPage[]> = {
+    "rift-legacy-echo": [{ title: "A Deed Kept", scene: "Senna's brush follows the recovered rubbing without touching its oldest strokes", speaker: "Senna Graveward", dialogue: ["Open hand. Closed gate. Witness mark. The rubbing survived clean enough to read.", "Read the three strokes back to me while I file it. A nameless marker still deserves a careful witness."] }],
+    "rift-hollow-stalker": [{ title: "The Line Holds", scene: "Vessa measures the dead grass beside the sealed seam", speaker: "Scout Vessa", dialogue: ["Dead grass has not moved another inch. Hold the end of this measure.", "Contained at my line. Good. I can put the ridge patrol back on the ridge instead of making them guess where the ground ends."] }],
+    "rift-beast-warren": [{ title: "Water Before Thanks", scene: "Bel kneels outside the warren as Nara breathes against her coat", speaker: "Houndmaster Bel", dialogue: ["The controlling shape let go when you broke it. Nara is hurt, but she is here. Help me get her weight onto the blanket.", "Water first. Thanks after she keeps it down. I am carrying her home; take the front edge and keep it level."] }],
+    "rift-engine-echo": [{ title: "A Name on the Manifest", scene: "Sann lays the recovered manifest flat on the waystation table", speaker: "Recorder Sann", dialogue: ["Set your hand on that corner; it keeps curling. The names are still here, and so is the cause buried beside each one.", "My signature goes under the copy. Mine, not the routing office's. Give me the pen before I find a smaller way to write it."] }],
+    "rift-hollow-name": [{ title: "Filed Beside the Warning", scene: "Oru fits the recovered Hall-mark shard below the face-down slate", speaker: "Keeper Oru", dialogue: ["Cut edge down. There. The shard fits beside the deed and the Hall's condemnation.", "The old name stays protected. Keep the lamp over the warning while I fasten this; my eyes are still old."] }],
+    "rift-mirror-shard": [{ title: "Names Returned", scene: "Nemo reads the recovered rim with the booth shutters closed", speaker: "Broker Nemo", dialogue: ["Every etched name is legible. This one passed through my brokerage; so did this one. I will not price the list.", "I copied the chain of sales in my own hand. Now I wrap the rim for return to the people it recorded."] }],
+    "rift-gate-heir": [{ title: "One Plate, Four Witnesses", scene: "A waystation board where Harrow has called witnesses from four roads", speaker: "Kite Harrow", dialogue: ["The plate matches all four reports. I gave each witness one column and a pen; they are still arguing over the ink.", "Your descent is on this copy. Keep it. Hold the plate level while I drive the second rivet."] }],
+};
+
+/** A reward-free aftermath queued only after the server returns firstClear=true
+ * for the exact accepted rift receipt. */
+export function riftFirstClearEvent(riftId: string, biome: Biome): CreatorEvent | null {
+    const rift = hollowRiftById(riftId);
+    const reaction = FIRST_CLEAR_REACTIONS[riftId];
+    if (!rift || !reaction) return null;
+    return {
+        id: `rift-first-clear-${rift.slug}`,
+        name: `Rift Report Closed: ${rift.bossName}`,
+        biome,
+        icon: "📜",
+        eventKind: "visualNovel",
+        trigger: "manual",
+        vnTitle: reaction[0]?.title ?? "Rift Report Closed",
+        vnScene: reaction[0]?.scene ?? "",
+        vnSpeaker: reaction[0]?.speaker ?? rift.giverName,
+        image: `/scenes/story/${RIFT_GIVER_PREFIX}${rift.slug}.webp`,
+        vnPages: mapPages(reaction, reaction.length - 1),
+        levelReq: rift.levelReq,
+        xpReward: 0,
+        ryoReward: 0,
+        staminaReward: 0,
+        dialogue: reaction.flatMap((p) => p.dialogue),
     };
 }
 

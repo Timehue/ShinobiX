@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import type { Character } from "../types/character";
+import type { Character, StoryChoiceReceipt, StoryCursor } from "../types/character";
 import type { CreatorEvent } from "../types/vn";
 import { AURA_SPHERE_VN_ID } from "../constants/game";
 import { rewardSummary } from "../lib/currency";
@@ -18,6 +18,7 @@ import { biomeLabel } from "../data/world";
 import { isLowEndMobile, prefersReducedMotion } from "../lib/device-tier";
 import { resolveCinematicActorImage, resolveVnPresentation } from "../lib/vn-presentation";
 import { CinematicVisualNovelStage } from "./CinematicVisualNovelStage";
+import { isReusableChoiceHub, makeStoryChoiceReceipt, recordedStoryChoices, storyChoiceId } from "../lib/story-choice-history";
 
 type VnChoice = NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number];
 
@@ -30,7 +31,7 @@ function initialClassicReader(): boolean {
     }
 }
 
-export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, setPageIndex, setLineIndex, onCancel, onComplete, onBattle, onChoice, sharedImages, surface = "immersive", readOnlyReplay = false }: { event: CreatorEvent; character: Character; pageIndex: number; lineIndex: number; setPageIndex: (index: number | ((index: number) => number)) => void; setLineIndex: (index: number | ((index: number) => number)) => void; onCancel: () => void; onComplete: () => void; onBattle: (event: CreatorEvent, battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]) => void; onChoice?: (choice: VnChoice) => void; sharedImages?: Record<string, string>; surface?: "immersive" | "preview" | "classic"; /** Story Hall playback: presentation only, with every mutation/battle affordance removed by the caller. */ readOnlyReplay?: boolean }) {
+export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, setPageIndex, setLineIndex, onCancel, onComplete, onBattle, onChoice, onProgress, sharedImages, surface = "immersive", readOnlyReplay = false }: { event: CreatorEvent; character: Character; pageIndex: number; lineIndex: number; setPageIndex: (index: number | ((index: number) => number)) => void; setLineIndex: (index: number | ((index: number) => number)) => void; onCancel: () => void; onComplete: () => void; onBattle: (event: CreatorEvent, battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]) => void; onChoice?: (choice: VnChoice, receipt: StoryChoiceReceipt) => void; onProgress?: (cursor: StoryCursor, history: StoryCursor[]) => void; sharedImages?: Record<string, string>; surface?: "immersive" | "preview" | "classic"; /** Story Hall playback: presentation only, with every mutation/battle affordance removed by the caller. */ readOnlyReplay?: boolean }) {
     // The local character object can drift out of sync with the freshly-
     // uploaded avatar (server saves strip images and re-hydrate from the
     // shared image store). Resolve once via the same path the Tavern uses:
@@ -85,15 +86,32 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
         authoredRightImage,
         event.avatarImage,
     );
-    const canBack = lineIndex > 0 || pageIndex > 0;
+    const initialResume = character.storyScene?.eventId === event.id ? character.storyScene : undefined;
+    const [navigation, setNavigation] = useState<{ eventId: string; history: StoryCursor[] }>({ eventId: event.id, history: initialResume?.history ?? [] });
+    const history = navigation.eventId === event.id ? navigation.history : (initialResume?.history ?? []);
+    const [localCommit, setLocalCommit] = useState<{ eventId: string; choices: StoryChoiceReceipt[] }>({ eventId: event.id, choices: [] });
+    const localCommittedChoices = localCommit.eventId === event.id ? localCommit.choices : [];
+    const canBack = history.length > 0;
     const isLastLine = pageIndex === pages.length - 1 && lineIndex >= pageDialogue.length - 1;
     // Trait-gated branching: a choice with requireTrait only shows if the player
     // has earned it; forbidTrait hides it once earned. Choices without either
     // field (i.e. every existing VN) are always shown — no behavior change.
     const playerTraits = character.storyTraits ?? [];
+    const reusableChoiceHub = isReusableChoiceHub(page);
+    const committedChoices = [
+        ...recordedStoryChoices(character, event, pageIndex),
+        ...localCommittedChoices.filter((row) => row.pageIndex === pageIndex),
+    ];
+    const committedChoice = reusableChoiceHub ? undefined : committedChoices[0];
+    const committedTerminalChoice = committedChoices.find((row) => row.battle);
     const pageChoices = readOnlyReplay
         ? []
-        : page.choices?.filter((c) => !!c.text && isChoiceAvailable(c, playerTraits));
+        : page.choices?.filter((c, index) => {
+            if (!c.text) return false;
+            const recorded = committedChoices.some((row) => row.choiceId === storyChoiceId(c, index));
+            if (committedChoice || (c.battle && committedTerminalChoice)) return recorded;
+            return recorded || isChoiceAvailable(c, playerTraits);
+        });
     const isAtChoicePoint = lineIndex >= pageDialogue.length - 1 && !!pageChoices?.length;
     const choicePointKey = isAtChoicePoint ? `${event.id}:${pageIndex}:${lineIndex}` : "";
     const [armedChoiceKey, setArmedChoiceKey] = useState("");
@@ -134,6 +152,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     const isStoryReckoningEvent = event.id.startsWith("story-reckoning-");
     // The Chronicle Scribe's traveler's-codex event (lib/chronicle-scribe).
     const isScribeEvent = event.id === "chronicle-scribe";
+    const isFieldStory = event.id.startsWith("story-reckoning-field:");
     const isPetEncounterEvent = event.id === "sys-pet-encounter";
     const isAncientChestEvent = event.id === "sys-ancient-chest";
     // Catch-all for pure conversation scenes: a zero-reward visualNovel event
@@ -318,13 +337,46 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
         try { window.localStorage.setItem("vnReaderMode.v1", "cinematic"); } catch { /* private mode */ }
     }
     const readerUsesClassic = surface === "classic" || (surface === "immersive" && classicReader);
-    function previousLine() { if (!canBack || !beginAction()) return; setArmedChoiceKey(""); if (lineIndex > 0) return setLineIndex((index) => index - 1); if (pageIndex > 0) { const previousPage = pages[pageIndex - 1]; setPageIndex((index) => index - 1); setLineIndex(Math.max(0, ((previousPage.dialogue.length || 1) - 1))); } }
-    function nextLine() { if (isAtChoicePoint || !beginAction()) return; setArmedChoiceKey(""); if (lineIndex < pageDialogue.length - 1) return setLineIndex((index) => index + 1); if (pageIndex < pages.length - 1) { setPageIndex((index) => index + 1); setLineIndex(0); return; } setShowFinale(true); }
+    function moveTo(nextPage: number, nextLine: number, remember = true) {
+        const nextHistory = remember ? [...history, { pageIndex, lineIndex }].slice(-256) : history;
+        setNavigation({ eventId: event.id, history: nextHistory });
+        setPageIndex(nextPage);
+        setLineIndex(nextLine);
+        onProgress?.({ pageIndex: nextPage, lineIndex: nextLine }, nextHistory);
+    }
+    function previousLine() {
+        if (!canBack || !beginAction()) return;
+        setArmedChoiceKey("");
+        const previous = history.at(-1);
+        if (!previous) return;
+        setNavigation({ eventId: event.id, history: history.slice(0, -1) });
+        moveTo(previous.pageIndex, previous.lineIndex, false);
+    }
+    function nextLine() {
+        if (isAtChoicePoint || !beginAction()) return;
+        setArmedChoiceKey("");
+        if (lineIndex < pageDialogue.length - 1) return moveTo(pageIndex, lineIndex + 1);
+        if (pageIndex < pages.length - 1) { moveTo(pageIndex + 1, 0); return; }
+        if (isFieldStory) { onComplete(); return; }
+        setShowFinale(true);
+    }
     function chooseOption(choice: VnChoice) {
         if (readOnlyReplay || !choicesArmed || !beginAction()) return;
-        // Record the trait this choice grants (additive, deduped) before doing
-        // anything else, so it persists even when the choice leads to a battle.
-        onChoice?.(choice);
+        const choiceIndex = Math.max(0, page.choices?.indexOf(choice) ?? 0);
+        const receipt = makeStoryChoiceReceipt(event, pageIndex, choiceIndex, choice);
+        const priorSame = committedChoices.find((row) => row.choiceId === receipt.choiceId);
+        if (!reusableChoiceHub && committedChoice && committedChoice.choiceId !== receipt.choiceId) return;
+        if (receipt.battle && committedTerminalChoice && committedTerminalChoice.choiceId !== receipt.choiceId) return;
+        if (!priorSame) {
+            // Record the exact decision before any conclusion/battle. The local
+            // ref closes React's same-frame window; the durable receipt closes
+            // refresh/retry and Story Hall history gaps.
+            setLocalCommit((current) => ({
+                eventId: event.id,
+                choices: current.eventId === event.id ? [...current.choices, receipt] : [receipt],
+            }));
+            onChoice?.(choice, receipt);
+        }
         const target = Math.max(0, Math.min(pages.length - 1, choice.nextPage));
         // Conclusions render for battle choices too (they used to be dead there):
         // show the aftermath beat, then launch the battle from Continue.
@@ -343,11 +395,11 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
             // The caller already holds the action lock, so complete directly.
             // The scribe ends the same way: Ihara speaks her own goodbye in the
             // choice conclusion, so a SCENE COMPLETE panel after it is filler.
-            if (isRiftEvent || isScribeEvent) { onComplete(); return; }
+            if (isRiftEvent || isScribeEvent || isFieldStory) { onComplete(); return; }
             setShowFinale(true);
             return;
         }
-        setPageIndex(target); setLineIndex(0);
+        moveTo(target, 0);
     }
     function confirmPendingChoice() {
         if (!pendingChoice || !beginAction()) return;
@@ -369,6 +421,8 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
         if (!beginAction()) return;
         setPageIndex(0);
         setLineIndex(0);
+        setNavigation({ eventId: event.id, history: [] });
+        onProgress?.({ pageIndex: 0, lineIndex: 0 }, []);
         setPendingChoice(null);
         setShowFinale(false);
     }
@@ -397,7 +451,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                 ? "Claim Aura Sphere"
                 : isSageEvent
                     ? "Hear the Sage's Offer"
-                    : isStoryInterlude
+                    : isStoryEpilogue || isStoryInterlude
                         ? "Continue"
                         : "Continue to Story Hall";
     if (showFinale && !readerUsesClassic && presentation.mode === "cinematic") return (
@@ -422,7 +476,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
             onCancel={cancelScene}
             renderFooter={(typingDone) => typingDone ? (
                 <div className="vn-controls">
-                    {!isAuraSphereEvent && !isStoryChapterEvent && !isSageEvent && !isStoryInterlude ? (
+                    {!isAuraSphereEvent && !isStoryChapterEvent && !isSageEvent && !isStoryInterlude && !isStoryEpilogue ? (
                         <>
                             <button className="admin-button" onClick={() => startBattle()}>Enter Battle</button>
                             <button onClick={cancelScene}>Leave - No Reward</button>
@@ -452,7 +506,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                 <p className="vn-scene-card">{finaleText}</p>
             </div>
             <div className="menu">
-                {!isAuraSphereEvent && !isStoryChapterEvent && !isSageEvent && !isStoryInterlude ? (
+                {!isAuraSphereEvent && !isStoryChapterEvent && !isSageEvent && !isStoryInterlude && !isStoryEpilogue ? (
                     <>
                         <button className="admin-button" onClick={() => startBattle()}>
                             Enter Battle — {biomeLabel(event.biome)}
@@ -641,9 +695,9 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                     {/* Story chapters must fight through a lane CHOICE (which seals the
                         real reward + the reckoning) — the free battle would pay the
                         zeroed event reward and skip both. */}
-                    {!isSageEvent && !isStoryInterlude && !isStoryChapterEvent && <button onClick={() => startBattle()}>Battle in {biomeLabel(event.biome)}</button>}
-                    {!isStoryChapterEvent && (
-                        <button onClick={completeScene}>{isSageEvent ? "Skip to the Offer" : isStoryInterlude ? "Continue" : "Claim Reward + Continue"}</button>
+                    {!isSageEvent && !isStoryInterlude && !isStoryEpilogue && !isStoryChapterEvent && <button onClick={() => startBattle()}>Battle in {biomeLabel(event.biome)}</button>}
+                    {(!isStoryChapterEvent || isStoryEpilogue) && !isFieldStory && (
+                        <button onClick={completeScene}>{isSageEvent ? "Skip to the Offer" : isStoryInterlude || isStoryEpilogue ? "Continue" : "Claim Reward + Continue"}</button>
                     )}
                 </div>
                 {!isSageEvent && !isStoryInterlude && !isStoryEpilogue && (

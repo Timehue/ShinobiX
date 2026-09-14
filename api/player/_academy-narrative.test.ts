@@ -33,6 +33,23 @@ describe("Academy narrative milestones", () => {
         assert.equal(applyAcademyNarrativeAction(current, { currentSector: 0 }, "trace", 0).ok, false);
     });
 
+    it("acknowledges an arrived field trace while the Logbook autosave is still pending", () => {
+        const current = { onboardingStep: "logbook", academyTrialClaimed: true, hp: 83, ryo: 700 };
+        const accepted = applyAcademyNarrativeAction(current, { currentSector: 1 }, "trace", 1);
+        assert.equal(accepted.ok, true);
+        if (!accepted.ok) return;
+        assert.deepEqual(accepted.character, { ...current, onboardingStep: "sectorReturn", academySectorVisited: true, academyTraceSector: 1 });
+        const replay = applyAcademyNarrativeAction(accepted.character, { currentSector: 1 }, "trace", 1);
+        assert.equal(replay.ok && replay.changed, false);
+        for (const invalid of [
+            { ...current, academyTrialClaimed: false },
+            { ...current, onboardingStep: "firstMission" },
+            { ...current, onboardingStep: "done" },
+        ]) assert.equal(applyAcademyNarrativeAction(invalid, { currentSector: 1 }, "trace", 1).ok, false);
+        assert.equal(applyAcademyNarrativeAction(current, { currentSector: 0 }, "trace", 1).ok, false);
+        assert.equal(applyAcademyNarrativeAction(current, { currentSector: 2 }, "trace", 1).ok, false);
+    });
+
     it("requires the trace before the seal and the seal before completion", () => {
         const step = { onboardingStep: "sectorReturn" };
         assert.equal(applyAcademyNarrativeAction(step, {}, "seal").ok, false);
@@ -66,6 +83,10 @@ describe("Academy narrative milestones", () => {
     it("lets a player explicitly skip from any active Academy step", () => {
         const result = applyAcademyNarrativeAction({ onboardingStep: "inventory", hp: 12 }, {}, "skip");
         assert.equal(result.ok, true);
-        if (result.ok) assert.deepEqual(result.character, { onboardingStep: "done", hp: 12 });
+        if (result.ok) {
+            assert.equal(result.character.onboardingStep, 'done');
+            assert.equal(result.character.hp, 12);
+            assert.equal((result.character.firstContract as { source: string }).source, 'skip');
+        }
     });
 });

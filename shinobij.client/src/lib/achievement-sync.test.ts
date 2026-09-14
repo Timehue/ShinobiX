@@ -204,6 +204,7 @@ describe("achievementPatchFromSync", () => {
 });
 
 describe("versionedAchievementMutationFromSync", () => {
+    const healthy = { hp: 700, maxHp: 700, chakra: 35, maxChakra: 1181, stamina: 45, maxStamina: 1181 };
     it("REGRESSION: a new-account v2 achievement backfill becomes the next autosave base", () => {
         // First full save committed v1. The automatic achievement backfill then
         // mutated that stored save to v2 before the dirty autosave ran.
@@ -217,6 +218,7 @@ describe("versionedAchievementMutationFromSync", () => {
         const mutation = versionedAchievementMutationFromSync(liveCharacter, {
             _saveVersion: 2,
             character: {
+                ...healthy,
                 unlockedAchievements: [],
                 achievementUnlockedAt: {},
                 earnedTitles: [],
@@ -240,16 +242,64 @@ describe("versionedAchievementMutationFromSync", () => {
         ), null);
     });
 
+    it("a newer achievement snapshot cannot resurrect stale hospitalization after recovery", () => {
+        const live = { ...healthy, hp: 0, hospitalized: true, hospitalizedAt: 1000, hospitalizedUntil: 61000, pendingLocalChoice: 'keep' };
+        const mutation = versionedAchievementMutationFromSync(live, {
+            _saveVersion: 16,
+            character: { ...healthy, hospitalized: false, hospitalizedAt: 0, hospitalizedUntil: 0, lastDischargeAt: 9000, unlockedAchievements: [], ryo: 7500 },
+        });
+        assert.ok(mutation);
+        assert.equal(mutation.character.hp, 700);
+        assert.equal(mutation.character.hospitalized, false);
+        assert.equal(mutation.character.hospitalizedAt, 0);
+        assert.equal(mutation.character.hospitalizedUntil, 0);
+        assert.equal(mutation.character.lastDischargeAt, 9000);
+        assert.equal(mutation.character.chakra, 35);
+        assert.equal(mutation.character.stamina, 45);
+        assert.equal(mutation.character.ryo, 7500);
+        assert.equal(mutation.character.pendingLocalChoice, 'keep');
+        assert.equal(mutation._saveVersion, 16);
+    });
+
+    it("a newer admission replaces a stale healthy local character with the matching consequence", () => {
+        const mutation = versionedAchievementMutationFromSync(healthy, {
+            _saveVersion: 17,
+            character: { ...healthy, hp: 0, chakra: 12, stamina: 8, hospitalized: true, hospitalizedAt: 20000, hospitalizedUntil: 80000, unlockedAchievements: [] },
+        });
+        assert.ok(mutation);
+        assert.equal(mutation.character.hp, 0);
+        assert.equal(mutation.character.chakra, 12);
+        assert.equal(mutation.character.stamina, 8);
+        assert.equal(mutation.character.hospitalized, true);
+        assert.equal(mutation.character.hospitalizedAt, 20000);
+        assert.equal(mutation.character.hospitalizedUntil, 80000);
+    });
+
+    it("rejects partial or invalid vitals rather than advancing the global version with local vitals", () => {
+        assert.equal(versionedAchievementMutationFromSync(healthy, { _saveVersion: 18, character: { unlockedAchievements: [] } }), null);
+        assert.equal(versionedAchievementMutationFromSync(healthy, { _saveVersion: 18, character: { ...healthy, hp: NaN, unlockedAchievements: [] } }), null);
+    });
+
     it("wires the automatic achievement response through App's atomic character+version gate", () => {
-        const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
-        const start = app.indexOf("const data = await res.json() as AchievementSyncResponse;");
-        const end = app.indexOf("} catch", start);
+        // The response block moved to lib/achievement-sync-pass.ts; App supplies its gate.
+        const pass = readFileSync(new URL("./achievement-sync-pass.ts", import.meta.url), "utf8");
+        const start = pass.indexOf("const data = await res.json() as AchievementSyncResponse;");
+        const end = pass.indexOf("} catch", start);
         assert.ok(start >= 0 && end > start, "achievement response block must remain discoverable");
-        const responseBlock = app.slice(start, end);
+        const responseBlock = pass.slice(start, end);
         assert.match(responseBlock, /versionedAchievementMutationFromSync\(characterRef\.current, data\)/);
         assert.match(responseBlock, /commitVersionedCharacter\(mutation\.character, mutation\._saveVersion\)/);
         assert.doesNotMatch(responseBlock, /setCharacter\(/,
             "split character-only adoption recreates the v1-to-v2 first-session conflict");
+
+        const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
+        const callStart = app.indexOf("void runAchievementSyncPass({");
+        const callEnd = app.indexOf("});", callStart);
+        assert.ok(callStart >= 0 && callEnd > callStart, "App's achievement pass call must remain discoverable");
+        const call = app.slice(callStart, callEnd);
+        assert.match(call, /\bcharacterRef, commitVersionedCharacter\b/,
+            "App must hand the pass its live ref and its atomic commit, by those names");
+        assert.doesNotMatch(call, /setCharacter\b/);
     });
 });
 

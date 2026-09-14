@@ -11,7 +11,7 @@ import { petStatCeil } from "../_pet-stat-ceil.js";
 /*
  * Pet-ladder core. Also the server-side smoke test that the resolution engines
  * load + run in the server build: resolveColiseum runs the Showdown engine
- * (api/_pet-showdown/) and resolveTactical runs the ported _arena-sim.ts.
+ * (api/_pet-showdown/) and resolveTactical runs the Beastbound Warfront Rite.
  * Determinism + stronger-wins are the invariants both must hold; the offer/swap
  * logic guards the Sword-x-Staff ladder math.
  */
@@ -150,6 +150,7 @@ test("chooseOwnedLadderPets: validates ownership + preserves loadout", () => {
     assert.equal(chooseOwnedLadderPets(owned, ["x9"], 1), null);                 // not owned
     assert.equal(chooseOwnedLadderPets(owned, ["x1", "x2"], 1), null);           // wrong count
     assert.equal(chooseOwnedLadderPets(owned, ["x1", "x1"], 2), null);           // can't pick one pet twice
+    assert.equal(chooseOwnedLadderPets([owned[0], { ...owned[0] }], ["x1", "x1"], 2), null); // malformed duplicate save ids cannot seal duplicate actors
     assert.equal(chooseOwnedLadderPets(owned, ["x1", "x2"], 2)!.length, 2);
 });
 

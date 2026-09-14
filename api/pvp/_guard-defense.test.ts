@@ -17,6 +17,7 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { applyJutsu } from './move.js';
 import type { PvpFighter } from './session.js';
+import { hydrateCharacterFromSave } from './session.js';
 
 function fighter(name: string, guardDefensePct?: number): PvpFighter {
     return {
@@ -55,6 +56,20 @@ function dealtTo(opponent: PvpFighter, attacker: PvpFighter, jutsu: ReturnType<t
 }
 
 describe('PvP Town Defense guard mitigation', () => {
+    it('never adopts a saved or client-authored elder defense stamp', () => {
+        const hydrated = hydrateCharacterFromSave({ level: 30, elderWarDefensePct: 100 }, { elderWarDefensePct: 100 });
+        assert.equal(hydrated.elderWarDefensePct, 0);
+    });
+    it('applies the sealed elder defense separately and caps it at one percent', () => {
+        const attacker = fighter('Raider');
+        const base = dealtTo(fighter('Guard'), attacker, dmgJutsu());
+        const guard = fighter('Guard');
+        guard.character.elderWarDefensePct = 1;
+        assert.equal(dealtTo(guard, attacker, dmgJutsu()), Math.floor(base * 0.99));
+        guard.character.elderWarDefensePct = 100;
+        assert.equal(dealtTo(guard, attacker, dmgJutsu()), Math.floor(base * 0.99));
+        assert.equal(dealtTo(guard, attacker, dmgJutsu([{ name: 'Pierce' }], 'pierce')), dealtTo(fighter('Guard'), attacker, dmgJutsu([{ name: 'Pierce' }], 'pierce')));
+    });
     it('reduces direct jutsu damage to a guard by their sealed guardDefensePct', () => {
         const attacker = fighter('Raider');
         const base = dealtTo(fighter('Guard'), attacker, dmgJutsu());

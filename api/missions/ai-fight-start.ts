@@ -1,4 +1,7 @@
+import { isOpenWorldBattleKind } from './_ai-fight-token.js';
+import { openWorldContinuousVitalsEnabled } from '../_release-flags.js';
 import { safeLogValue } from '../_safe-log.js';
+import { isIncapacitated } from '../_elapsed-state.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { randomUUID } from 'node:crypto';
 import { kv } from '../_storage.js';
@@ -10,6 +13,8 @@ import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { loadAiFightProfile } from './_ai-fight-encounter.js';
 import { buildSoloPveAiEncounter } from '../solo-pve/_ai-encounter.js';
 import { readSoloPveSession, soloPveSessionKey, writeSoloPveSession } from '../solo-pve/_store.js';
+import { isSoloPveSessionLapsed } from '../solo-pve/_session.js';
+import { reconcileLapsedBattle } from '../_battle-lapse.js';
 import type { SoloPveSession } from '../solo-pve/_session.js';
 import { resolveAiFightScaling } from './_ai-fight-scaling.js';
 import {
@@ -124,6 +129,14 @@ async function recoverAiFight(playerName: string): Promise<{ pointer: AiFightAct
         await kv.del(key).catch(() => undefined);
         return null;
     }
+    // F08: a session that lapsed is over, not resumable. Terminalize it with
+    // its own evidence (abandon rule at the HP it lapsed with, settled) and
+    // let the caller start afresh; the pointer no longer names a live fight.
+    if (isSoloPveSessionLapsed(session)) {
+        await reconcileLapsedBattle({ kind: 'solo-pve', sessionId: session.sessionId }, playerName);
+        await kv.del(key).catch(() => undefined);
+        return null;
+    }
     if (token.worldExploreRequestId) {
         await ensureExploreBattleMarker(
             playerName,
@@ -221,6 +234,11 @@ async function sealAiFightEncounter(
                     metadata: { sector: worldSpec.context.sector, stage: worldSpec.context.stage },
                 },
             } : {}),
+            // Open-world fights are continuous: seeded from the vitals the player
+            // actually has, and settled back the same way. Instanced and practice
+            // fights keep their fresh pool.
+            continuousVitals: openWorldContinuousVitalsEnabled()
+                && isOpenWorldBattleKind(worldSpec ? 'world' : (genericAuthority?.battleKind ?? body.battleKind)),
             admin: await loadAdminCombatContent(),
         });
         await writeSoloPveSession(session);
@@ -522,6 +540,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const save = await kv.get<Record<string, unknown>>(`save:${playerName}`);
             const character = (save?.character ?? null) as Record<string, unknown> | null;
             if (!save || !character) return { status: 404, body: { error: 'Player save not found.' } };
+            // A hospitalized character starts no NEW fight (a resume above is
+            // untouched). The Hospital screen holds honest clients; this is the
+            // server's own answer to a tampered one.
+            if (isIncapacitated(character)) {
+                return { status: 409, body: { error: 'You are in the hospital. Recover before starting a fight.', reason: 'hospitalized' } };
+            }
             let genericAuthority;
             try {
                 genericAuthority = await resolveGenericAiFightAuthority({

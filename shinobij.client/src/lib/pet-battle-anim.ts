@@ -1,3 +1,5 @@
+import { petStripVariant } from './pet-presentation-keys';
+export { elementVfxKey, petStripVariant } from './pet-presentation-keys';
 /*
  * Pet-battle PRESENTATION logic — pure functions that turn a single
  * (already-resolved, deterministic) simulator frame into:
@@ -14,7 +16,6 @@
  */
 
 import type { Pet } from "../types/pet";
-import type { JutsuElement } from "../types/core";
 import { petVisualId } from "../data/pet-evolutions";
 import { hasPetPose } from "./pet-pose-availability";
 import type {
@@ -65,11 +66,6 @@ const BREEDING_MYTHIC_POSE_ALIASES: Readonly<Record<string, string>> = {
     "mythic-13": "legendary-24",
     "mythic-14": "mythic-9",
 };
-
-/** Strip the per-encounter `-<timestamp>` suffix to recover the template id. */
-export function petStripVariant(id: string): string {
-    return id.replace(/-\d{10,}$/, "");
-}
 
 /** Stable art ids in priority order: evolved form, owned instance, template, legacy clone. */
 function petArtIds(pet: Pet): string[] {
@@ -207,18 +203,6 @@ export function petPoseImage(pet: Pet, sharedImages: Record<string, string> = {}
     const posedId = petArtIds(pet).find(hasPetPose);
     if (posedId) return idlePoseUrl(posedId);
     return petCardImage(pet, sharedImages);
-}
-
-/** Map a pet's chakra element to its VFX tint. */
-export function elementVfxKey(element?: JutsuElement | string | null): PetVfxKey {
-    switch (String(element ?? "").toLowerCase()) {
-        case "fire": return "fire";
-        case "water": return "water";
-        case "wind": return "wind";
-        case "lightning": return "lightning";
-        case "earth": return "earth";
-        default: return "none";
-    }
 }
 
 // ── Animation-event builder ─────────────────────────────────────────────────

@@ -4,7 +4,10 @@ import type { CreatorEvent } from "../types/vn";
 import type { Wanderer } from "./wanderers";
 import { villageForOutskirtsSector } from "../data/sectors";
 import { defaultVnPortrait } from "./vn";
-import { storyReckoningById, storyReckonings, type StoryReckoning, type StoryReckoningPage } from "../data/story-reckonings";
+import type { StoryReckoning, StoryReckoningPage } from "../data/story-reckonings";
+import { storyFieldJourney } from "../../../shared/story-field-work";
+import { storyFieldAftermathEvent, storyFieldBackdrop, storyFieldPages, storyFieldReckoningRedeemed } from "./story-field-work";
+import { readStoryFieldContent } from "./story-field-content-loader";
 
 export const STORY_RECKONING_ACCEPT_TRAIT = "__story-reckoning-accept";
 export const STORY_RECKONING_ABANDON_TRAIT = "__story-reckoning-abandon";
@@ -20,12 +23,13 @@ export function isStoryReckoningReturnEventId(id: string): boolean {
 
 export function storyReckoningForEventId(id: string): StoryReckoning | null {
     const base = isStoryReckoningReturnEventId(id) ? id.slice(0, -STORY_RECKONING_RETURN_SUFFIX.length) : id;
-    return storyReckoningById(base);
+    return readStoryFieldContent().reckonings.find((entry) => entry.id === base) ?? null;
 }
 
 export function storyReckoningEligible(character: Character, quest: StoryReckoning): boolean {
     const traits = character.storyTraits ?? [];
     if (traits.includes(quest.completionTrait)) return false;
+    if (storyFieldReckoningRedeemed(character, quest.id)) return false;
     if ((character.level ?? 0) < quest.levelReq) return false;
     if ((character.storyProgress ?? 0) < quest.ownProgress) return false;
     // A cross-village figure (Kite Harrow) stands at ANY village's outskirts once
@@ -37,15 +41,21 @@ export function storyReckoningEligible(character: Character, quest: StoryReckoni
 export function visibleStoryReckonings(character: Character, sector: number): Wanderer[] {
     const village = villageForOutskirtsSector(sector);
     if (!village) return [];
-    return storyReckonings
-        .filter((quest) => (quest.crossVillage === true || quest.village === village) && storyReckoningEligible(character, quest))
-        .map((quest) => synthStoryReckoningWanderer(quest, sector));
+    return readStoryFieldContent().reckonings
+        .filter((quest) => (quest.crossVillage === true || quest.village === village)
+            && (storyReckoningEligible(character, quest) || (storyFieldJourney(quest.id)
+                && ((character.storyTraits ?? []).includes(quest.completionTrait) || storyFieldReckoningRedeemed(character, quest.id)))))
+        .map((quest) => synthStoryReckoningWanderer(quest, sector, character));
 }
 
-export function synthStoryReckoningWanderer(quest: StoryReckoning, sector: number): Wanderer {
+export function synthStoryReckoningWanderer(quest: StoryReckoning, sector: number, character?: Character): Wanderer {
     let hash = 0;
     for (const ch of quest.slug) hash = (Math.imul(hash, 31) + ch.charCodeAt(0)) >>> 0;
     const home = 5 * 12 + ((sector * 7 + hash) % 8) + 2;
+    const aftermath = character ? storyFieldAftermathEvent(quest.id, character, "central") : null;
+    const greeting = aftermath?.vnPages?.find((page) => page.speaker === quest.npcName)?.dialogue[0]
+        ?? quest.intro.find((page) => page.speaker === quest.npcName)?.dialogue[0]
+        ?? quest.title;
     return {
         id: quest.id,
         name: quest.npcName,
@@ -54,7 +64,7 @@ export function synthStoryReckoningWanderer(quest: StoryReckoning, sector: numbe
         level: quest.levelReq,
         homeTile: home,
         waypoints: [home],
-        greeting: `${quest.npcName} waits at the village edge with unfinished business.`,
+        greeting,
         tellTint: "#c084fc",
         avatarKey: quest.npcName.includes("Mira") ? "pilgrim" : "sage",
         avatarImage: defaultVnPortrait(quest.npcName) || undefined,
@@ -76,6 +86,7 @@ function mapPages(pages: StoryReckoningPage[], acceptTrait: string): NonNullable
                 conclusion: choice.conclusion,
                 trait: choice.accept ? acceptTrait : choice.trait,
                 requireTrait: choice.requireTrait,
+                forbidTrait: choice.forbidTrait,
             }))
             : undefined,
     }));
@@ -93,7 +104,7 @@ export function storyReckoningIntroEvent(quest: StoryReckoning, biome: Biome): C
         vnScene: quest.intro[0]?.scene ?? "",
         vnSpeaker: quest.npcName,
         avatarImage: defaultVnPortrait(quest.npcName) || undefined,
-        image: `/scenes/story/${quest.id}.webp`,
+        image: storyFieldBackdrop(quest.id) ?? `/scenes/story/${quest.id}.webp`,
         vnPages: mapPages(quest.intro, STORY_RECKONING_ACCEPT_TRAIT),
         levelReq: quest.levelReq,
         xpReward: 0,
@@ -103,7 +114,8 @@ export function storyReckoningIntroEvent(quest: StoryReckoning, biome: Biome): C
     };
 }
 
-export function storyReckoningPayoffEvent(quest: StoryReckoning, biome: Biome): CreatorEvent {
+export function storyReckoningPayoffEvent(quest: StoryReckoning, biome: Biome, character?: Character): CreatorEvent {
+    const pages = storyFieldPages(quest.payoff, character?.storyTraits ?? []);
     return {
         id: `${quest.id}${STORY_RECKONING_RETURN_SUFFIX}`,
         name: `${quest.title} Reckoning`,
@@ -115,13 +127,13 @@ export function storyReckoningPayoffEvent(quest: StoryReckoning, biome: Biome): 
         vnScene: quest.payoff[0]?.scene ?? "",
         vnSpeaker: quest.npcName,
         avatarImage: defaultVnPortrait(quest.npcName) || undefined,
-        image: `/scenes/story/${quest.id}${STORY_RECKONING_RETURN_SUFFIX}.webp`,
-        vnPages: mapPages(quest.payoff, STORY_RECKONING_ABANDON_TRAIT),
+        image: storyFieldBackdrop(quest.id) ?? `/scenes/story/${quest.id}${STORY_RECKONING_RETURN_SUFFIX}.webp`,
+        vnPages: mapPages(pages, STORY_RECKONING_ABANDON_TRAIT),
         levelReq: quest.levelReq,
         xpReward: 0,
         ryoReward: 0,
         staminaReward: 0,
-        dialogue: quest.payoff.flatMap((page) => page.dialogue),
+        dialogue: pages.flatMap((page) => page.dialogue),
     };
 }
 

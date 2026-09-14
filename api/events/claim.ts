@@ -1,3 +1,4 @@
+import { INVENTORY_FULL_ERROR } from '../_inventory-capacity.js';
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
@@ -20,7 +21,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'event-claim', 10, 60_000, identity.name))) return;
         const result = await mutatePlayerSave(playerName, ({ character }) => {
             const claimed = claimBuiltinEvent(character, body.eventId);
-            if (!claimed.ok) return { ok: false as const, status: 409, error: claimed.reason };
+            if (!claimed.ok) {
+                return {
+                    ok: false as const,
+                    status: 409,
+                    error: claimed.reason === 'inventory-full' ? INVENTORY_FULL_ERROR : claimed.reason,
+                };
+            }
             return { ok: true as const, character: claimed.character, value: { alreadyClaimed: claimed.alreadyClaimed } };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });

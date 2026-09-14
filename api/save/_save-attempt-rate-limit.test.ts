@@ -199,7 +199,8 @@ test('ordinary save-attempt ingress is capped before lock and rejection telemetr
         character: character(retryName),
     });
     assert.equal(corrected.statusCode, 200);
-    assert.deepEqual(corrected.body, { ok: true, _saveVersion: 4 });
+    // The acknowledgement carries the stored (server-owned) ryo.
+    assert.deepEqual(corrected.body, { ok: true, _saveVersion: 4, ryo: 0, fateShards: 0 });
     assert.equal(counter('save-attempt', retryName), 2);
     assert.equal(counter('save-conflict', retryName), 1);
     assert.equal(counter('save-burst', retryName), 1);

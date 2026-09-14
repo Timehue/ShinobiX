@@ -14,7 +14,14 @@ import {
 
 async function withKvRecords<T>(records: Map<string, unknown>, run: () => Promise<T>): Promise<T> {
     const originalGet = kv.get;
-    kv.get = async <V = unknown>(key: string) => (records.get(key) ?? null) as V | null;
+    kv.get = async <V = unknown>(key: string) => {
+        if (key.startsWith('village:elder-council:')) {
+            const shared = records.get(key.replace('village:elder-council:', 'game:village-state:')) as { elderAppointees?: string[] } | undefined;
+            return { version: 1, startedAt: Date.now(), nextSelectionAt: Date.now() + 86400000,
+                seats: shared?.elderAppointees ?? ['', '', ''], winningScores: [0, 0] } as V;
+        }
+        return (records.get(key) ?? null) as V | null;
+    };
     try {
         return await run();
     } finally {

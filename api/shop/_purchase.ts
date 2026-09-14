@@ -40,6 +40,35 @@ export function purchaseCatalogItem(character: Character, itemId: unknown, qtyRa
     const totalCost = unitCost * qty;
     const balance = whole(character[currency]);
     if (balance < totalCost) return { ok: false as const, reason: 'insufficient-funds' as const };
+    // A stackable buy lands in `itemStacks`, never in `inventory[]` — the same
+    // routing api/shop/_settlement.ts, api/clan/_exchange.ts and
+    // api/craft/_forge.ts already do. This path used to push `qty` raw copies
+    // into `inventory[]` whatever the item was, and the client's
+    // normalizeInventory quietly compacted them on the next save.
+    //
+    // That was invisible until inventory gained a cap, and then it broke the
+    // wrong player twice: a 50-shuriken buy read as +50 slots, so the capacity
+    // gate refused every potion, pill and shuriken a full-bag veteran tried to
+    // buy — the combat consumables, i.e. exactly what a cap should never block —
+    // and any save landing before the client compacted ratcheted the
+    // non-destructive ceiling in api/save/[name].ts up to 550. With the routing
+    // fixed, `inventory[]` only grows for genuinely non-stackable gear, which is
+    // always qty 1, so the gate in purchase.ts now fires only when it should.
+    if (item.stackable) {
+        const stacks = Array.isArray(character.itemStacks) ? character.itemStacks as Array<Record<string, unknown>> : [];
+        const held = stacks.findIndex((s) => s?.itemId === id);
+        return {
+            ok: true as const,
+            character: {
+                ...character,
+                [currency]: balance - totalCost,
+                itemStacks: held >= 0
+                    ? stacks.map((s, i) => (i === held ? { ...s, count: whole(s.count) + qty } : s))
+                    : [...stacks, { itemId: id, count: qty }],
+            },
+            item: { id, qty, currency, unitCost, totalCost },
+        };
+    }
     const inventory = Array.isArray(character.inventory) ? character.inventory as string[] : [];
     return {
         ok: true as const,

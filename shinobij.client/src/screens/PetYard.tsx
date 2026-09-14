@@ -1,3 +1,4 @@
+import { petTamerExpeditionMult, petTamerTrainingSpeedPct } from "../lib/profession-bonuses";
 import { PetBattleReadiness } from "../components/PetBattleReadiness";
 import { useState, useEffect, useRef } from "react";
 import { visiblePoll } from "../lib/poll";
@@ -24,7 +25,7 @@ import {
 } from "../../../shared/pet-happiness";
 import { petCardImage, petPoseImage } from "../lib/pet-battle-anim";
 import { PET_PVE_DURABILITY, petCollarById, petCollarVisual, petCollars, petConsumableById, petConsumables, petExpeditionOptions, petFeedItems, petPveGear, petPveGearById, petPvpGear, petPvpGearById, petTrainingDurations, petTrainingOptions, petTraitDescriptions, ultraPetTraits } from "../data/pet-config";
-import { petTamerExpeditionMult, petTamerTrainingSpeedPct } from "../App";
+
 import { countItem, ownsItem } from "../lib/inventory";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { gameToast } from "../components/GameToast";

@@ -79,3 +79,20 @@ export function buildAcceptedArenaMatch(c: ArenaChallengeLike): ArenaMatchPayloa
     if (!blue.length || !red.length || !bluePlan || !redPlan) return null;
     return { blue, red, size: arenaSizeOf(c), seed: c.petBattleSeed ?? 1, plans: { blue: bluePlan, red: redPlan } };
 }
+
+/** Verify the bounded acceptance response before replacing either local team.
+ * The reciprocal exhibition still lets each owner command their own pets. */
+export function parseAcceptedWarfrontMatch(value: unknown): ArenaMatchPayload | null {
+    if (!value || typeof value !== 'object') return null;
+    const match = value as Partial<ArenaMatchPayload>;
+    const legalBand = (band: unknown): band is Pet[] => Array.isArray(band) && band.length === 4
+        && band.every((pet) => pet && typeof pet === 'object' && typeof pet.id === 'string' && pet.id
+            && [pet.level, pet.hp, pet.attack, pet.defense, pet.speed].every((stat) => typeof stat === 'number' && Number.isFinite(stat))
+            && Array.isArray(pet.jutsus))
+        && new Set(band.map((pet) => pet.id)).size === 4;
+    const bluePlan = parseWarfrontChallengePlan(match.plans?.blue);
+    const redPlan = parseWarfrontChallengePlan(match.plans?.red);
+    if (match.size !== 4 || !Number.isSafeInteger(match.seed) || Number(match.seed) <= 0 || Number(match.seed) >= 2 ** 31
+        || !legalBand(match.blue) || !legalBand(match.red) || !bluePlan || !redPlan) return null;
+    return { blue: match.blue, red: match.red, size: 4, seed: Number(match.seed), plans: { blue: bluePlan, red: redPlan } };
+}

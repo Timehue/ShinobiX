@@ -1,0 +1,15 @@
+Use case: stylized-concept
+Asset type: production 4-by-4 transparent top-down street-dressing sprite atlas for a 2D tile-based fantasy RPG
+References: sunken-court-key-art.webp defines the mood and materials; sunken-court-architecture-atlas.webp defines the overhead style and scale.
+
+Create sixteen distinct exterior civic props that make the living Sunken Court feel inhabited, maintained, and specific without obstructing its clear streets.
+
+Exact cell order, left to right:
+Row 1: paired aged-bronze civic lantern posts on low stone bases; single ornate amber street lantern; public record notice board with blank pinned slips; carved charcoal-stone bench.
+Row 2: low circular civic fountain with luminous cyan water; bronze guardian-beast statue on a short plinth; square stone planter with restrained jade shrubs; flowering tree in a circular bronze-rimmed planter.
+Row 3: handcart carrying folded burgundy market cloth; compact crate, basket, and ceramic goods cluster; stable hay cart with neatly hung tack; low stone animal water trough.
+Row 4: compact Gateworks pressure-valve and pipe cluster glowing cyan; flush circular aqueduct drain and bronze street mosaic; narrow archive book cart with closed ledgers; freestanding burgundy civic banner on a weighted bronze base.
+
+AAA hand-painted dark fantasy game sprites matching charcoal stone, midnight blue, aged bronze, warm amber light, burgundy cloth, restrained jade plants, and selective luminous cyan. Exactly sixteen equal cells in a rigid four-by-four atlas. Perfectly overhead orthographic camera. One isolated centered prop per cell, complete silhouette, consistent game scale, transparent padding, and compact contained shadows.
+
+Constraints: genuine alpha transparency; no ground beyond the objects' own bases; no roads; no buildings; no people; no animals; no readable writing; no UI; no labels; no grid lines; no cell borders; no logos; no watermark; no isometric perspective.

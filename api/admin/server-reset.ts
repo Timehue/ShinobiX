@@ -5,6 +5,7 @@ import { isFullAdmin, rotatePlayerSessionEpoch } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { RESERVED_USERNAMES } from '../player-auth.js';
 import { bumpImageVersion } from '../_image-version.js';
+import { deletePlayerFirstPactState } from '../_delete-player-account.js';
 
 /*
  * ── Full server reset — PRESERVE-LIST model ──────────────────────────────────
@@ -170,12 +171,13 @@ export function isPreservedKey(key: string): boolean {
 }
 
 /**
- * Back-compat wrapper for the original narrow predicate (save/auth/story rows
- * of a protected account). `isPreservedKey` is the one the handler uses.
+ * Back-compat wrapper for the original narrow predicate (save/auth/story/
+ * first-pact rows of a protected account). `isPreservedKey` is the one the
+ * handler uses.
  */
 export function isProtectedKey(key: string): boolean {
     const lower = key.toLowerCase();
-    if (!/^(save|auth|story):/.test(lower)) return false;
+    if (!/^(save|auth|story|first-pact):/.test(lower)) return false;
     return PROTECTED_NAME_SET.has(lower.slice(lower.indexOf(':') + 1));
 }
 
@@ -241,6 +243,42 @@ const SCAN_PATTERNS = ['*', 'save:*', 'shared:*'] as const;
 // on a live store, which is a multi-megabyte response nobody reads.
 const DELETED_SAMPLE_CAP = 200;
 
+const FIRST_PACT_PREFIX = 'first-pact:';
+
+/** `first-pact:<slug>` progress rows (not `first-pact-standing-receipt:`). */
+export function isFirstPactStateKey(key: string): boolean {
+    return key.toLowerCase().startsWith(FIRST_PACT_PREFIX);
+}
+
+/**
+ * Delete the doomed keys in the only order that is safe.
+ *
+ * First Pact progress lives outside `save:<slug>` and is written read-modify-
+ * write under its own story lock (api/first-pact/_state.ts). A bare delete in
+ * the sweep would race an in-flight First Pact write, which could re-create
+ * the row after the save it belongs to is gone. So those rows go FIRST, each
+ * under that lock and fail-closed (deletePlayerFirstPactState): a contended
+ * lock throws here, aborting the reset while every save still exists, and the
+ * same reset can simply be retried without leaving a split account.
+ *
+ * The sweep that follows still includes the First Pact keys. For a row the
+ * locked pass removed it is a no-op; for one a writer queued on that lock
+ * re-created in the meantime, it is what keeps the row from outliving its save.
+ */
+export async function deleteDoomedKeys(
+    doomed: readonly string[],
+    deleteFirstPact: (name: string) => Promise<string | null> = deletePlayerFirstPactState,
+    deleteBatch: (keys: string[]) => Promise<unknown> = (keys) => kv.del(...keys),
+): Promise<void> {
+    const firstPactNames = doomed
+        .filter(isFirstPactStateKey)
+        .map((key) => key.slice(FIRST_PACT_PREFIX.length));
+    await Promise.all(firstPactNames.map((name) => deleteFirstPact(name)));
+    for (let i = 0; i < doomed.length; i += DELETE_CHUNK) {
+        await deleteBatch(doomed.slice(i, i + DELETE_CHUNK));
+    }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -294,9 +332,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const authNames = authNamesRequiringRevocation(doomed);
         await Promise.all(authNames.map((name) => rotatePlayerSessionEpoch(name)));
 
-        for (let i = 0; i < doomed.length; i += DELETE_CHUNK) {
-            await kv.del(...doomed.slice(i, i + DELETE_CHUNK));
-        }
+        // First Pact rows under their story lock, then everything in batches.
+        await deleteDoomedKeys(doomed);
 
         // Re-seed registry entries for protected accounts that still have a
         // save blob so they show up in player lists immediately rather than

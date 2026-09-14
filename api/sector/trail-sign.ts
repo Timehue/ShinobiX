@@ -7,6 +7,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { isCleanText, sanitizeUserText, TEXT_LIMITS } from '../_text-moderation.js';
 import { rejectUnclaimedGuest } from '../_guest-gate.js';
+import { getActiveSilence } from '../admin/moderation.js';
 import {
     addSign,
     applySpark,
@@ -78,6 +79,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // moderate, and letting a guest cheer someone's sign is exactly the
         // kind of thing a new player should be able to do on day one.
         if (await rejectUnclaimedGuest(res, identity)) return;
+        // ...and the same silence gate the chat surfaces apply. A sign is authored
+        // text broadcast to every stranger who walks the sector, so leaving one
+        // while silenced was a working way around the moderation action. Only
+        // `leave` is gated, for the same reason `spark` skips the guest lock.
+        if (!identity.admin) {
+            const sil = await getActiveSilence(identity.name);
+            if (sil) return res.status(403).json({ error: 'You are silenced.', silence: { until: sil.until, reason: sil.reason } });
+        }
 
         // Leave a sign — moderate exactly like village chat: reject blocked content
         // outright, then sanitize (PII/profanity mask + length cap) what's stored.

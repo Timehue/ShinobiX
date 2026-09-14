@@ -3,26 +3,27 @@
  * other species OF THE SAME RARITY through the real server engine, both sides
  * driven by the same AI policy, and reports the spread:
  *
- *   node --import tsx scripts/showdown-balance.mjs [--level 50] [--seeds 3] [--bench 2]
+ *   node --import tsx scripts/showdown-balance.mjs [--level 50] [--seeds 3] [--bench 2] [--format 2v2] [--seed-offset 500000]
  *
  * What "balanced" means for Showdown (mirrors the pet-role-balance ratchet):
  *   - no ROLE outside ~40-60% overall win rate,
  *   - no ELEMENT outside ~40-60% against the field (the wheel should decide
  *     individual matchups, not the aggregate),
  *   - species outliers inside ~25-75% (kits differentiate, never dominate),
- *   - typical match length 6-12 rounds, unresolved (400-round hard-stop) games a rarity.
+ *   - pace appropriate to field/bench size; every game resolves.
  *
- * Read-only: prints the report and exits non-zero if a band is violated, so it
+ * Prints the report (optionally --report path.json) and exits non-zero if a band is violated, so it
  * can back a ratchet test. Tuning happens in api/_pet-showdown/engine.ts.
  */
 
 import { PET_CATALOG } from '../api/pet/_catalog.ts';
+import { writeFileSync } from 'node:fs';
 import {
     createShowdownSession,
     resolveShowdownRound,
 } from '../api/_pet-showdown/engine.ts';
 import { chooseShowdownAiCommands } from '../api/_pet-showdown/ai.ts';
-import { SHOWDOWN_BENCH_SIZE, SHOWDOWN_TURN_CAP } from '../shared/pet-showdown-contract.ts';
+import { SHOWDOWN_BENCH_SIZE, SHOWDOWN_FORMAT_SIZE, SHOWDOWN_TURN_CAP } from '../shared/pet-showdown-contract.ts';
 // Sim-only backstop. The engine judges every match at SHOWDOWN_TURN_CAP (25)
 // so this can only fire if the judge ever stopped firing — it is a bug tripwire,
 // not the round limit. (It predates the judge, when the engine had no cap.)
@@ -40,6 +41,14 @@ const SEEDS = flag('seeds', 3);
  * kinds act on the bench, so the release audit must keep rotation and trapping
  * live instead of measuring their degenerate no-bench fallbacks. */
 const BENCH = flag('bench', SHOWDOWN_BENCH_SIZE);
+const FORMAT = args.includes('--format') ? args[args.indexOf('--format') + 1] : '1v1';
+const FIELD_SIZE = SHOWDOWN_FORMAT_SIZE[FORMAT];
+const SEED_OFFSET = flag('seed-offset', 0);
+if (!FIELD_SIZE || !Number.isInteger(LEVEL) || LEVEL < 1 || LEVEL > 100
+    || !Number.isInteger(SEEDS) || SEEDS < 1 || !Number.isInteger(BENCH) || BENCH < 0 || BENCH > SHOWDOWN_BENCH_SIZE
+    || !Number.isSafeInteger(SEED_OFFSET)) {
+    throw new Error('Use --format 1v1|2v2|3v3, --level 1..100, --seeds >=1, --bench 0..2 and an integer --seed-offset.');
+}
 
 function balancedAllocation(level) {
     const earned = Math.max(0, level - 1);
@@ -89,22 +98,29 @@ const benchFiller = Object.values(PET_CATALOG)
     .filter((t) => t.wildSpawnable !== false && Array.isArray(t.jutsus) && t.rarity === 'standard')
     .sort((a, b) => String(a.id).localeCompare(String(b.id)))[0];
 
-function teamFor(tpl, slot) {
+function teamFor(tpl, slot, companions = []) {
     const team = [scaled(tpl, slot)];
+    companions.forEach((mate, i) => team.push(scaled(mate, `${slot}field${i}`)));
     for (let i = 0; i < BENCH; i++) team.push(scaled(benchFiller, `${slot}bench${i}`));
     return team;
 }
 
 function fight(tplA, tplB, seed) {
+    // Measure the lead's contribution in team formats. Shared allies cancel
+    // between sides, but rotate across seeds so one fixed ally cannot define
+    // every synergy/coverage matchup. The 1v1 baseline remains comparable.
+    const pool = Object.values(PET_CATALOG).filter((tpl) => tpl.wildSpawnable !== false
+        && Array.isArray(tpl.jutsus) && tpl.rarity === tplA.rarity && tpl.id !== tplA.id && tpl.id !== tplB.id);
+    const companions = Array.from({ length: FIELD_SIZE - 1 }, (_, i) => pool[(Math.abs(seed) + i * 13) % pool.length]);
     const session = createShowdownSession({
-        sessionId: 'balance', playerName: 'A', format: '1v1', tier: 'warrior', seed,
-        playerPets: teamFor(tplA, 'a'), enemyPets: teamFor(tplB, 'b'), enemyTeamName: 'B',
+        sessionId: 'balance', playerName: 'A', format: FORMAT, tier: 'warrior', seed: seed + SEED_OFFSET,
+        playerPets: teamFor(tplA, 'a', companions), enemyPets: teamFor(tplB, 'b', companions), enemyTeamName: 'B',
     });
     let rounds = 0;
     // Round COMPOSITION: what the AI actually spends its turns on. A long match
     // can mean slow kills or it can mean nobody committing; these separate the
     // two.
-    let cmds = 0, switches = 0, rests = 0, guards = 0;
+    let cmds = 0, switches = 0, rests = 0, guards = 0, judged = false;
     while (!session.finished && rounds < HARD_STOP + 1) {
         rounds += 1;
         const playerCommands = commandsFor(session, 'player');
@@ -115,8 +131,10 @@ function fight(tplA, tplB, seed) {
             else if (c.kind === 'rest') rests += 1;
             else if (c.kind === 'guard') guards += 1;
         }
-        resolveShowdownRound(session, playerCommands, enemyCommands);
+        const events = resolveShowdownRound(session, playerCommands, enemyCommands);
+        judged ||= events.some((event) => event.t === 'end' && event.byJudge);
     }
+    if (!session.finished || !session.outcome) throw new Error(`Unresolved ${FORMAT} matchup: ${tplA.id} vs ${tplB.id}, seed ${seed + SEED_OFFSET}`);
     return {
         outcome: session.outcome,
         rounds: session.round,
@@ -124,7 +142,7 @@ function fight(tplA, tplB, seed) {
         // Decided by the ROUND-CAP JUDGE rather than by a knockout. This is the
         // number that separates "matches are longer" from "nobody actually
         // wins" — a judged match ends on a tiebreak, not on a finish.
-        judged: session.round >= SHOWDOWN_TURN_CAP,
+        judged,
         cmds, switches, rests, guards,
     };
 }
@@ -199,7 +217,7 @@ const fmtMap = (map) => [...map.entries()]
     .map(([k, s]) => `${k}: ${pct(s).toFixed(1)}% (${s.n})`)
     .join('  ·  ');
 
-console.log(`\n=== Pet Showdown balance @ level ${LEVEL}, ${SEEDS} seeds, ${BENCH} reserve(s), ${totalGames} games ===`);
+console.log(`\n=== Pet Showdown balance ${FORMAT} @ level ${LEVEL}, ${SEEDS} seeds, offset ${SEED_OFFSET}, ${BENCH} reserve(s), ${totalGames} games ===`);
 console.log(`pace: avg ${(totalRounds / Math.max(1, totalGames)).toFixed(1)} rounds; unresolved at hard-stop ${(100 * unresolvedGames / Math.max(1, totalGames)).toFixed(1)}%`);
 console.log(`decided by the round-cap JUDGE (no knockout): ${(100 * judgedGames / Math.max(1, totalGames)).toFixed(1)}%`);
 {
@@ -280,7 +298,7 @@ for (const focus of ['hp', 'attack', 'defense', 'speed']) {
 // ── Cross-rarity spot check: higher rarity should win, sanely ────────────────
 const CROSS_SAMPLES = 40;
 const rarityOrder = ['standard', 'rare', 'legendary', 'mythic'];
-console.log('\nCROSS-RARITY (higher-tier win rate, sampled):');
+console.log('\nCROSS-RARITY (higher-tier lead win rate, shared allies in team formats, sampled):');
 for (let r = 0; r < rarityOrder.length - 1; r++) {
     const low = byRarity.get(rarityOrder[r]) ?? [];
     const high = byRarity.get(rarityOrder[r + 1]) ?? [];
@@ -318,6 +336,16 @@ if (focusArg) {
 console.log('Strongest 10:');
 for (const s of species.slice(-10).reverse()) console.log(`  ${pct(s).toFixed(1)}%  ${s.name} (${s.rarity} ${s.element} ${s.role}) n=${s.n}`);
 
+// Optional machine-readable evidence for comparing balance passes without
+// scraping console tables. --seed-offset supplies a held-out combat RNG set.
+const reportPath = args.includes('--report') ? args[args.indexOf('--report') + 1] : undefined;
+if (reportPath) writeFileSync(reportPath, JSON.stringify({
+    format: FORMAT, level: LEVEL, seeds: SEEDS, seedOffset: SEED_OFFSET, bench: BENCH,
+    games: totalGames, averageRounds: totalRounds / totalGames, judgedGames, unresolvedGames,
+    roles: Object.fromEntries(roleStats), elements: Object.fromEntries(elementStats),
+    species: Object.fromEntries(speciesStats),
+}, null, 2) + '\n');
+
 // Bands (mirrored by the ratchet test once tuned).
 const failures = [];
 for (const [role, s] of roleStats) if (pct(s) < 40 || pct(s) > 60) failures.push(`role ${role} at ${pct(s).toFixed(1)}%`);
@@ -327,7 +355,7 @@ const avgRounds = totalRounds / Math.max(1, totalGames);
 // Pace bands depend on the SHAPE being simulated: one fighter per side is a
 // different game from a team with reserves, and three pets legitimately take
 // about three times as long to resolve.
-const [paceLo, paceHi] = BENCH > 0 ? [13, 26] : [5, 12.5];
+const [paceLo, paceHi] = FIELD_SIZE > 1 ? [5, 26] : BENCH > 0 ? [13, 26] : [5, 12.5];
 if (avgRounds < paceLo || avgRounds > paceHi) failures.push(`avg rounds ${avgRounds.toFixed(1)} outside ${paceLo}-${paceHi}`);
 // A match should be WON, not awarded. Only meaningful with reserves in play:
 // a benchless fight cannot reach the cap.

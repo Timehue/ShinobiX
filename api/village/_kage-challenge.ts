@@ -5,22 +5,12 @@
  * be unit-tested without KV / auth / locks / presence — same pattern as
  * _kick-core.ts / _village-agenda.ts.
  *
- * Model (online-only, async, no wall-clock window):
- *   - A villager DECLARES a challenge against the seated Kage (gated on personal
- *     Village Merit + a 250,000-ryo stake, KAGE_DECLARE_RYO_COST below). One
- *     active challenge per village. Every
- *     challenge carries a unique challengeId so a superseded challenge's old
- *     battleId can never settle a newer one.
- *   - The Kage MUST ACCEPT or they lose the seat. Enforcement is an "obligation"
- *     timer that only burns down while BOTH the Kage and the challenger are
- *     online (overlap) — driven by the challenger's PRESS pings, each validated
- *     against live presence server-side. The Kage can't dodge by logging off
- *     (the clock just pauses, and they can't play); the challenger going offline
- *     also pauses it (so an AFK challenger can never steal the seat).
- *   - ACCEPT → a normal full-vitals PvP duel. Winner takes / keeps the seat
- *     (resolved server-side against the real PvpSession).
- *   - A challenge with no progress for 48h EXPIRES (slot freed, no seat change,
- *     declare stake forfeited, challenger put on cooldown).
+ * Model: two separate 24-hour response budgets, measured only while both
+ * participants are online. Pending: the Kage owes acceptance. Once the Kage
+ * accepts, only the challenger owes a response to the official duel invitation.
+ * The official duel seals both acceptances and uses normal PvP turn rules.
+ * Calendar time never expires a challenge; the existing ten-day Kage inactivity
+ * rule remains independent. The server advances clocks even outside Town Hall.
  *
  * Every seat change (first liberation, duel win, forfeit, defense, admin reset,
  * abdication) is recorded in a server-owned reign history so the Council Hall
@@ -29,11 +19,10 @@
 
 import { setSafeRecordValue } from '../_utils.js';
 
-export const KAGE_ACCEPT_OBLIGATION_MS = 30 * 60_000;        // 30 min of overlap
-export const KAGE_CHALLENGE_EXPIRY_MS = 48 * 60 * 60_000;    // 48h wall-clock
+export const KAGE_ACCEPT_OBLIGATION_MS = 24 * 60 * 60_000;   // each participant gets 24h of overlap
 export const KAGE_POST_DEFENSE_GRACE_MS = 24 * 60 * 60_000;  // 24h wall-clock
 export const KAGE_LOSS_COOLDOWN_MS = 3 * 24 * 60 * 60_000;   // 3 days wall-clock
-export const KAGE_PRESS_MAX_STEP_MS = 60_000;                // cap one press can burn
+export const KAGE_PRESS_MAX_STEP_MS = 60_000;                // longer sampling gaps charge nothing
 export const KAGE_MIN_CHALLENGER_LEVEL = 90;
 export const KAGE_MIN_MERIT = 250;                           // personal Village Merit gate
 // Declaring costs RYO, not Honor Seals (owner ruling 2026-08-17). Seals are the
@@ -66,7 +55,14 @@ export type KageChallenge = {
     status: 'pending' | 'accepted';
     createdAt: number;
     obligationRemainingMs: number; // burns down only during verified overlap
-    lastPressAt?: number;          // last overlap sample (challenger press)
+    /** Server-retained public invitation, recoverable after a normal popup expires. */
+    duelInvitation?: Record<string, unknown>;
+    clockVersion?: 2;
+    challengerRemainingMs?: number;
+    kageAcceptedAt?: number;       // switches responsibility to the challenger
+    clockPauseReason?: 'offline' | 'kage-unavailable';
+    clockRunning?: boolean;       // last server observation, never a client claim
+    lastPressAt?: number;          // last server overlap sample
     battleId?: string;             // the official duel, set on accept
 };
 
@@ -104,11 +100,6 @@ function lower(s: string): string {
     return String(s ?? '').trim().toLowerCase();
 }
 
-/** A challenge that has made no progress for KAGE_CHALLENGE_EXPIRY_MS is dead. */
-export function isChallengeExpired(challenge: KageChallenge | null | undefined, now: number): boolean {
-    return !!challenge && now - challenge.createdAt > KAGE_CHALLENGE_EXPIRY_MS;
-}
-
 export type DeclareInput = {
     now: number;
     state: KageStateLike;
@@ -124,8 +115,7 @@ export type DeclareResult = { ok: true } | { ok: false; reason: string };
 /**
  * Can `challengerName` declare a challenge right now? Pure — the endpoint feeds
  * it the authoritative save/village values and applies the 250,000-ryo debit
- * itself. An expired existing challenge does NOT block (the endpoint clears it
- * first), so callers should pass already-expired challenges through unchanged.
+ * itself. An existing challenge blocks until a response clock or duel resolves it.
  */
 export function canDeclareChallenge(input: DeclareInput): DeclareResult {
     const { now, state, challengerName, challengerRyo } = input;
@@ -135,7 +125,7 @@ export function canDeclareChallenge(input: DeclareInput): DeclareResult {
     const personal = personalSeatGate(input);
     if (!personal.ok) return personal;
     if (challengerRyo < KAGE_DECLARE_RYO_COST) return { ok: false, reason: `Challenging costs ${KAGE_DECLARE_RYO_COST.toLocaleString()} ryo.` };
-    if (state.challenge && !isChallengeExpired(state.challenge, now)) return { ok: false, reason: 'There is already an active Kage challenge in this village.' };
+    if (state.challenge) return { ok: false, reason: 'There is already an active Kage challenge in this village.' };
     if (state.postDefenseGraceUntil && now < state.postDefenseGraceUntil) return { ok: false, reason: 'The Kage just took (or defended) the seat — challenges are on a brief cooldown.' };
     const cd = state.challengerCooldowns?.[lower(challengerName)] ?? 0;
     if (cd && now < cd) return { ok: false, reason: 'You are on cooldown from a recent Kage challenge.' };
@@ -175,34 +165,58 @@ export function canClaimVacantSeat(input: ClaimInput): DeclareResult {
  * mints the challengeId (randomUUID) and passes it in so this stays pure.
  */
 export function newChallenge(challengerName: string, now: number, challengeId: string): KageChallenge {
-    return { challengeId, challenger: challengerName, status: 'pending', createdAt: now, obligationRemainingMs: KAGE_ACCEPT_OBLIGATION_MS };
+    return { challengeId, challenger: challengerName, status: 'pending', createdAt: now,
+        clockVersion: 2, obligationRemainingMs: KAGE_ACCEPT_OBLIGATION_MS,
+        challengerRemainingMs: KAGE_ACCEPT_OBLIGATION_MS, clockRunning: false };
+}
+
+/** Existing pending challenges receive the new full budgets once. Never carry
+ * an old thirty-minute countdown or offline interval into this rules change. */
+export function normalizeChallengeClock(challenge: KageChallenge): KageChallenge {
+    if (challenge.clockVersion === 2 || challenge.status === 'accepted') return challenge;
+    return { ...challenge, clockVersion: 2, obligationRemainingMs: KAGE_ACCEPT_OBLIGATION_MS,
+        challengerRemainingMs: KAGE_ACCEPT_OBLIGATION_MS, kageAcceptedAt: undefined,
+        lastPressAt: undefined, clockRunning: false };
 }
 
 export type PressResult = {
     challenge: KageChallenge;
-    forfeited: boolean; // obligation exhausted -> challenger should take the seat
+    forfeited: boolean;
+    forfeitedBy?: 'kage' | 'challenger';
     burnedMs: number;
 };
 
-/**
- * Apply one overlap "press". Only burns obligation when BOTH sides are online
- * (verified by the caller against live presence) and the challenge is still
- * pending (an accepted challenge is heading to a duel, not a forfeit). The first
- * press just stamps lastPressAt (no interval to measure yet); subsequent presses
- * burn the elapsed overlap, capped at KAGE_PRESS_MAX_STEP_MS so a long gap
- * between pings can't dump the whole obligation at once.
- */
-export function applyPress(challenge: KageChallenge, now: number, bothOnline: boolean): PressResult {
-    if (challenge.status !== 'pending' || !bothOnline) {
-        return { challenge: { ...challenge, lastPressAt: bothOnline ? now : challenge.lastPressAt }, forfeited: false, burnedMs: 0 };
-    }
-    const burnedMs = challenge.lastPressAt ? Math.min(KAGE_PRESS_MAX_STEP_MS, Math.max(0, now - challenge.lastPressAt)) : 0;
-    const remaining = Math.max(0, challenge.obligationRemainingMs - burnedMs);
+/** Charge only continuously observed overlap. An offline observation clears
+ * the baseline; a long sampling gap re-arms it instead of charging unseen time.
+ * Repeated/concurrent samples cannot accelerate either participant's budget. */
+export function applyPress(raw: KageChallenge, now: number, bothOnline: boolean): PressResult {
+    const challenge = normalizeChallengeClock(raw);
+    if (challenge.status === 'accepted') return { challenge, forfeited: false, burnedMs: 0 };
+    if (!bothOnline) return { challenge: { ...challenge, lastPressAt: undefined, clockRunning: false }, forfeited: false, burnedMs: 0 };
+    const elapsed = challenge.lastPressAt === undefined ? 0 : now - challenge.lastPressAt;
+    const burnedMs = challenge.clockRunning && elapsed > 0 && elapsed <= KAGE_PRESS_MAX_STEP_MS ? elapsed : 0;
+    const owing = challenge.kageAcceptedAt !== undefined ? 'challenger' : 'kage';
+    const remaining = Math.max(0, (owing === 'kage' ? challenge.obligationRemainingMs
+        : challenge.challengerRemainingMs ?? KAGE_ACCEPT_OBLIGATION_MS) - burnedMs);
     return {
-        challenge: { ...challenge, obligationRemainingMs: remaining, lastPressAt: now },
-        forfeited: remaining <= 0,
+        challenge: { ...challenge, ...(owing === 'kage' ? { obligationRemainingMs: remaining }
+            : { challengerRemainingMs: remaining }), lastPressAt: Math.max(now, challenge.lastPressAt ?? now), clockRunning: true },
+        forfeited: remaining === 0,
+        ...(remaining === 0 ? { forfeitedBy: owing } : {}),
         burnedMs,
     };
+}
+
+/** Readiness is one-way and idempotent: resending an invitation never resets a clock. */
+export function acceptKageChallenge(raw: KageChallenge, now: number): KageChallenge {
+    const challenge = normalizeChallengeClock(raw);
+    if (challenge.status === 'accepted' || challenge.kageAcceptedAt !== undefined) return challenge;
+    return { ...challenge, kageAcceptedAt: now, lastPressAt: undefined, clockRunning: false };
+}
+
+/** A missed challenger response keeps the incumbent without inventing a duel win. */
+export function applyChallengerForfeit(state: KageStateLike, now: number): KageStateLike {
+    return { ...applyExpiry(state, now), postDefenseGraceUntil: now + KAGE_POST_DEFENSE_GRACE_MS };
 }
 
 // ── Official-duel settlement decision (pure) ────────────────────────────────
@@ -254,52 +268,6 @@ export function resolveDuelDecision(opts: {
     if (opts.winnerNorm === opts.challengerNorm && opts.loserNorm === opts.seatNorm) return { kind: 'transfer' };
     if (opts.winnerNorm === opts.seatNorm && opts.loserNorm === opts.challengerNorm) return { kind: 'defend' };
     return { kind: 'reject', status: 400, error: 'That duel result does not match this challenge.' };
-}
-
-// ── Accept decision (pure) ──────────────────────────────────────────────────
-
-export type AcceptDecision =
-    | { kind: 'seal' }        // seal battleId + flip to accepted
-    | { kind: 'idempotent' }  // already sealed to THIS battleId (client retry)
-    | { kind: 'reject'; status: number; error: string };
-
-/**
- * Decide whether the seated Kage may ACCEPT a challenge by sealing an official
- * duel's battleId. Pure so the anti-stall guard is unit-testable; the KV/session
- * I/O lives in the endpoint. Without this validation the incumbent could seal a
- * bogus battleId to freeze the forfeit clock forever (accepted → press no-ops)
- * while no real duel can ever match it, so the challenge would die at 48h with NO
- * seat change — defeating "accept or forfeit". The sealed duel MUST be a real
- * session whose two fighters are exactly the seated Kage and the challenger.
- * `sessionFighters` = the safeName'd [p1, p2] of pvp:<battleId>, or null if the
- * session was not found.
- */
-export function resolveAcceptDecision(opts: {
-    challenge: KageChallenge | null | undefined;
-    seatNorm: string;
-    challengerNorm: string;
-    callerNorm: string;
-    isAdmin: boolean;
-    battleId: string;
-    sessionFighters: string[] | null;
-}): AcceptDecision {
-    const { challenge } = opts;
-    if (!challenge) return { kind: 'reject', status: 404, error: 'There is no active challenge to accept.' };
-    if (opts.callerNorm !== opts.seatNorm && !opts.isAdmin) {
-        return { kind: 'reject', status: 403, error: 'Only the seated Kage can accept a challenge.' };
-    }
-    // Idempotent re-accept of the SAME sealed duel (client retry) is fine;
-    // re-accepting a DIFFERENT duel once sealed is rejected.
-    if (challenge.status === 'accepted') {
-        if (challenge.battleId && challenge.battleId === opts.battleId) return { kind: 'idempotent' };
-        return { kind: 'reject', status: 409, error: 'This challenge has already sealed its official duel.' };
-    }
-    if (!opts.sessionFighters) return { kind: 'reject', status: 404, error: 'That duel session was not found or has expired.' };
-    const fighters = new Set(opts.sessionFighters);
-    if (!fighters.has(opts.seatNorm) || !fighters.has(opts.challengerNorm)) {
-        return { kind: 'reject', status: 400, error: 'That duel is not between you and the challenger.' };
-    }
-    return { kind: 'seal' };
 }
 
 // ── Reign history (server-owned permanent record) ───────────────────────────

@@ -5,7 +5,14 @@ import { createProductEvent, PRODUCT_EVENT_NAMES } from '../shared/product-analy
 describe('product analytics schema', () => {
     it('keeps the initial taxonomy intentionally small', () => {
         assert.ok(PRODUCT_EVENT_NAMES.length >= 8);
-        assert.ok(PRODUCT_EVENT_NAMES.length <= 15);
+        assert.ok(PRODUCT_EVENT_NAMES.length <= 16); // one bounded first-hour milestone event, not one event per route
+    });
+
+    it('keeps first-hour milestones anonymous and bounded', () => {
+        assert.deepEqual(createProductEvent('first_hour_milestone', {
+            source: 'first-contract', stateCategory: 'activity-completed', mode: 'combat',
+            playerName: 'Private Name', vow: 'private narrative', completedAt: 1234567,
+        }), { name: 'first_hour_milestone', properties: { source: 'first-contract', stateCategory: 'activity-completed', mode: 'combat' } });
     });
 
     it('drops unknown events, freeform properties, identifiers, and non-bucketed numbers', () => {

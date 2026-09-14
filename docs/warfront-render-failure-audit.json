@@ -1,0 +1,28 @@
+{
+  "baseURL": "http://127.0.0.1:5180",
+  "report": [
+    {
+      "failedChunk": false,
+      "recoveredOnCanvas": true,
+      "reportedAssetFailures": 1,
+      "unexpectedErrors": []
+    },
+    {
+      "failedChunk": true,
+      "recoveredOnCanvas": true,
+      "reportedAssetFailures": 0,
+      "unexpectedErrors": []
+    },
+    {
+      "missingPetModelIdentity": true,
+      "loadingFailureVisible": true,
+      "exitAvailable": true,
+      "unexpectedErrors": []
+    },
+    {
+      "stalledRendererDownload": true,
+      "preparationDeadlineRecoveredOnCanvas": true,
+      "unexpectedErrors": []
+    }
+  ]
+}

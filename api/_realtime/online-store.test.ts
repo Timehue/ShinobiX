@@ -182,6 +182,23 @@ test('clearPendingAttacker and setInBattle mutate in place', () => {
     assert.equal(store.get('rill')!.inBattle, undefined, 'false clears the flag');
 });
 
+test('a client-claimed inBattle confers NO immunity — the flag is server-owned (F01)', () => {
+    // The target-side reads of `inBattle` grant attack immunity. A beat used to
+    // set it, so a tampered client could stand in the wild un-attackable
+    // forever. upsert now ignores the claim in both directions: it cannot set
+    // the flag, and it cannot clear one a fight host set.
+    const { store } = makeStore();
+    store.upsert({ name: 'rill', sector: 1, character: null, inBattle: true });
+    assert.equal(store.get('rill')!.inBattle, undefined, 'a claim sets nothing');
+    store.setInBattle('rill', true);
+    store.upsert({ name: 'rill', sector: 1, character: null, inBattle: false });
+    assert.equal(store.get('rill')!.inBattle, true, 'a claim clears nothing a fight host set');
+    store.upsert({ name: 'rill', sector: 1, character: null });
+    assert.equal(store.get('rill')!.inBattle, true, 'and it survives an ordinary beat');
+    store.setInBattle('rill', false);
+    assert.equal(store.get('rill')!.inBattle, undefined);
+});
+
 test('a client-claimed travelingUntil confers NO immunity — only a minted lease does', () => {
     // "Target is traveling" is a hard 409 in attackBlock / sessionOpponentBlock /
     // challengeBlock, so if presence honoured a self-reported travelingUntil a
@@ -262,6 +279,27 @@ test('restore drops rows already past the offline window instead of resurrecting
     assert.equal(fresh.list().length, 0);
 });
 
+test('origin-sector tiles cannot replace a matured arrival while stale beats drain', () => {
+    const { store, advance, at } = makeStore();
+    store.upsert({ name: 'rill', sector: 12, tile: 17, character: null });
+    store.startTravel('rill', 13, at() + 3000, 12, 44);
+    advance(3000);
+    assert.equal(store.upsert({ name: 'rill', sector: 12, tile: 17, character: null }).tile, 44);
+    assert.equal(store.upsert({ name: 'rill', sector: 13, tileSector: 12, tile: 17, character: null }).tile, 44);
+    assert.equal(store.upsert({ name: 'rill', sector: 13, tileSector: 13, tile: 45, character: null }).tile, 45);
+});
+
+test('an expired boot row still emits a departure while retaining its unverified marker', () => {
+    const { store, advance } = makeStore(60_000);
+    store.restore([{ name: 'rill', displayName: 'Rill', sector: 7, lastSeenAt: 1_000, connectedAt: 1_000 }]);
+    advance(60_001);
+    const removed = store.sweepStale();
+    assert.equal(removed.length, 1);
+    assert.equal(removed[0].sector, 7);
+    assert.equal(removed[0].locationUnverified, true);
+    assert.equal(store.listSector(7).length, 0);
+});
+
 test('restore never overwrites a live heartbeat that already landed', () => {
     const { store } = makeStore();
     store.upsert({ name: 'Rill', sector: 3, character: null });
@@ -283,5 +321,6 @@ test('restore ignores malformed rows without throwing', () => {
     ];
     assert.doesNotThrow(() => fresh.restore(bad));
     // The NaN sector must land somewhere real rather than creating a NaN bucket.
-    assert.equal(fresh.get('ok')?.sector, 0);
+    assert.equal(fresh.listSector(0)[0]?.name, 'ok');
+    assert.equal(fresh.get('ok'), null, 'a display snapshot cannot authorize actions');
 });

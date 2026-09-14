@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { runWarfrontRite as serverRun } from '../_pet-sim/pet-warfront-rite.js';
 import {
     newLobby, codeFromBytes, openSeat, slotOf, chooseOwnedPets, snapshotPet,
     autoArenaRoles, resolveMatch, startBlock, publicView, AI_POOL, CODE_ALPHABET, CODE_LEN,
@@ -68,6 +69,39 @@ test('chooseOwnedPets snapshots + clamps stats (no client-injected buffs)', () =
     assert.equal(out[0].hp, 600);           // non-numeric → default
 });
 
+test('co-op snapshots retain trained stats, full move kits, native identity and no inline art', () => {
+    const raw = pet({ level: 75, hp: 2450, attack: 311, defense: 605, speed: 175,
+        role: 'sage', subRole: 'support', trait: 'Battleborn', templateId: 'rare-12', evolutionStage: 2,
+        paletteVariantId: 'jade', image: 'data:large', bodyImage: 'data:large',
+        jutsus: [{ name: 'Mend', kind: 'heal', power: 160, cooldown: 3, currentCooldown: 2 },
+            { name: 'Tidal Verdict', kind: 'slow', power: 200, cooldown: 5, signature: true, aoe: true }],
+    });
+    const snapshot = snapshotPet(raw);
+    assert.deepEqual([snapshot.level, snapshot.hp, snapshot.attack, snapshot.defense, snapshot.speed], [75, 2450, 311, 605, 175]);
+    assert.deepEqual([snapshot.role, snapshot.subRole, snapshot.trait, snapshot.templateId, snapshot.evolutionStage], ['sage', 'support', 'Battleborn', 'rare-12', 2]);
+    assert.equal(snapshot.jutsus?.[0].power, 160);
+    assert.equal(snapshot.jutsus?.[0].currentCooldown, 0);
+    assert.equal(snapshot.jutsus?.[1].signature, true);
+    assert.equal(snapshot.jutsus?.[1].aoe, true);
+    assert.ok(!('image' in snapshot) && !('bodyImage' in snapshot));
+    assert.notEqual(snapshot.jutsus, raw.jutsus);
+    assert.ok(AI_POOL.every((entry) => entry.jutsus?.length), 'AI seats must bring real techniques too');
+});
+
+test('sealed co-op kits and fallback roles participate in reproducible Warfront combat', () => {
+    const lobby = newLobby('KITS', 'host', 1);
+    slotOf(lobby, 'blue', 0).pets = [snapshotPet(pet({ id: 'sage', role: 'sage', subRole: 'support',
+        jutsus: [{ name: 'Mending Light', kind: 'heal', power: 110, cooldown: 2 }] })),
+        snapshotPet(pet({ id: 'shadow', role: 'assassin', subRole: 'assassin',
+            jutsus: [{ name: 'Shadow Mark', kind: 'wound', power: 130, cooldown: 2, signature: true }] }))];
+    const sealed = resolveMatch(lobby, 20);
+    assert.ok([...sealed.blue, ...sealed.red].every((slot) => slot.pet.role === slot.role));
+    const serverBand = (side: 'blue' | 'red') => sealed[side].map((slot) => slot.pet) as unknown as Parameters<typeof serverRun>[0];
+    const replay = serverRun(serverBand('blue'), serverBand('red'), sealed.seed);
+    assert.deepEqual(serverRun(serverBand('blue'), serverBand('red'), sealed.seed), replay);
+    assert.ok(replay.clashes.flatMap((clash) => clash.result.events).some((event) => event.move === 'Mending Light' || event.move === 'Shadow Mark'));
+});
+
 test('autoArenaRoles assigns each role once, by stats, deterministically', () => {
     const pets: PetSnapshot[] = [
         { id: 'tank', name: 'T', rarity: 'r', level: 20, hp: 900, attack: 50, defense: 95, speed: 40, element: 'Earth' },
@@ -87,11 +121,10 @@ test('autoArenaRoles uses each pet NATIVE role when present (players field their
     // An all-assassin-ish party is NOT force-rebalanced — the native roles win.
     assert.deepEqual(autoArenaRoles([s('assassin', 0), s('assassin', 1), s('defender', 2), s('sage', 3)]),
         ['assassin', 'assassin', 'defender', 'sage']);
-    // If ANY pet lacks a native role (e.g. a pre-feature save), fall back to the
-    // balanced stat-profile so the match still gets a full spread.
+    // Missing legacy roles must never rewrite the role of a modern pet.
     const mixed: PetSnapshot[] = [s('assassin', 0), s('assassin', 1), s('defender', 2),
         { id: 'p3', name: 'P', rarity: 'r', level: 20, hp: 900, attack: 50, defense: 95, speed: 40, element: 'Earth' }];
-    assert.deepEqual([...autoArenaRoles(mixed)].sort(), ['assassin', 'defender', 'sage', 'tracker']);
+    assert.deepEqual(autoArenaRoles(mixed), ['assassin', 'assassin', 'defender', 'defender']);
 });
 
 test('resolveMatch seals 4v4 — player pets used, empty seats AI-filled, pairs share a seal', () => {

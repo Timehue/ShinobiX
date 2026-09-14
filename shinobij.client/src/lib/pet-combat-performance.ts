@@ -30,6 +30,23 @@ const normalize = (x: number, z: number): [number, number] => {
 };
 const wrappedAngle = (angle: number) => Math.atan2(Math.sin(angle), Math.cos(angle));
 
+/** Advance a visible body yaw without ever taking the long way around or
+ * rotating farther than one readable frame allows. `maxFrameStep` is a hard
+ * safety rail (independent of a dropped-frame delta); `turnRate` keeps ordinary
+ * high-refresh motion smooth below that rail. */
+export function advanceCombatBodyYaw(
+    currentYaw: number,
+    wantedYaw: number,
+    deltaSeconds: number,
+    turnRate: number,
+    maxFrameStep = Math.PI / 3,
+): number {
+    if (!Number.isFinite(currentYaw) || !Number.isFinite(wantedYaw)) return Number.isFinite(currentYaw) ? currentYaw : 0;
+    const frameBudget = Math.max(0, Math.min(Math.abs(maxFrameStep), Math.max(0, deltaSeconds) * Math.max(0, turnRate)));
+    const error = wrappedAngle(wantedYaw - currentYaw);
+    return currentYaw + clamp(error, -frameBudget, frameBudget);
+}
+
 /** Exact world-space heading from one combatant to another. Keep this as the
  * single target-facing source; PetModel3D already owns the visual turn easing,
  * so smoothing the vector before it reaches the model can leave a planted pet
@@ -59,7 +76,11 @@ export function resolveCombatBodyYaw(faceX: number, faceZ: number, yawOffset = 0
 /** The generated attack take is one clip, but combat presents it as three
  * authored phases. Holding each phase at its boundary prevents anticipation
  * from reaching the clip's final raised-paw pose before contact occurs. */
-export function attackClipWindow(motion: PetCombatMotion): AttackClipWindow | null {
+export function attackClipWindow(motion: PetCombatMotion, atContact = false): AttackClipWindow | null {
+    // Showdown enters "strike" on the damage frame, after its travelling dash.
+    // The banks reach their body extension around 54%; 34% is still the swing's
+    // start and would freeze a windup in front of a fully resolved impact.
+    if (atContact && motion === "strike") return { start: 0.54, end: 0.74 };
     return ATTACK_WINDOWS[motion] ?? null;
 }
 

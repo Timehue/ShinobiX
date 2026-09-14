@@ -1,3 +1,5 @@
+import { playerLensDiscipline } from "../lib/player-lens-discipline";
+import { getAllJutsus } from "../lib/jutsu-loadout";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import "../styles/battle-skin.css";
 import { visiblePoll } from "../lib/poll";
@@ -55,13 +57,13 @@ import { BattlefieldActor } from "../components/BattlefieldActor";
 import { battlefieldFacingTowardNearest, battlefieldSpriteHeadroom } from "../lib/battlefield-sprite";
 import { jutsuImpactPreviewTiles } from "../lib/jutsu-impact-preview";
 import { getJutsuMastery, scaleJutsuByLevel } from "../lib/jutsu-scaling";
-import { jutsuTargetingLabel } from "../lib/jutsu-effects";
+import { jutsuDetailDescription, jutsuTargetingLabel } from "../lib/jutsu-effects";
 import { isImageAvatar } from "../lib/avatar";
 import { battlefieldAiSprite } from "../lib/battlefield-actor-art";
 import { resolveOwnAvatar } from "../lib/own-avatar";
 import { petCardImage, petStripVariant } from "../lib/pet-battle-anim";
 import { firstSharedImage, petVisualVariantClass, variantImageKeys } from "../lib/pet-visual-variant";
-import { getAllJutsus, playerLensDiscipline } from "../App";
+
 import { getAllItems } from "../lib/items";
 import type { Pet } from "../types/pet";
 import type { SavedBloodline, Jutsu, GameItem } from "../types/combat";
@@ -156,6 +158,7 @@ export function MissionArenaFight({
     runId,
     initialSession,
     missionName,
+    eventLabel,
     savedBloodlines,
     creatorJutsus,
     creatorItems,
@@ -180,6 +183,7 @@ export function MissionArenaFight({
     initialSession: ServerArenaSession;
     /** Mission label (e.g. "C-Rank Patrol") shown on the result banner. */
     missionName?: string;
+    eventLabel?: string;
     /** The player's own jutsu catalog — the SEALED session's jutsu carry combat
      *  fields but NO art, so card thumbnails resolve from here by id. */
     savedBloodlines?: SavedBloodline[];
@@ -711,6 +715,11 @@ export function MissionArenaFight({
     const clearCd = Number(myActor?.cooldowns?.clear ?? 0);
     const cleanseCd = Number(myActor?.cooldowns?.cleanse ?? 0);
     const enemyInMelee = myPos >= 0 && enemyPos >= 0 && towerHexDistance(myPos, enemyPos, w) <= 1;
+    const canCastJutsu = myJutsu.some(j =>
+        myAp >= adjustedActionAp(Number(j.ap ?? 0))
+        && myChakra >= Number(j.chakraCost ?? 0) && myStamina >= Number(j.staminaCost ?? 0)
+        && Number(myActor?.cooldowns?.[j.id ?? ""] ?? 0) <= 0
+        && !isElementallySealedForDisplay(myActor?.statuses, j.element, session.round));
 
     const armedWeapon = mode === "weapon" ? myWeapons.find(x => x.item.id === selWeaponId) : undefined;
     const weaponRange = armedWeapon?.range ?? 1;
@@ -947,19 +956,6 @@ export function MissionArenaFight({
             className={`pvp-battle-layout mission-arena-fight arena-bg-${biome}${storyTheme ? " story-arena-fight" : ""}`}
             style={storyTheme?.backdropImage ? { background: `linear-gradient(rgba(6,10,20,0.82), rgba(6,10,20,0.9)), url(${storyTheme.backdropImage}) center/cover fixed` } : undefined}
         >
-            {/* Onboarding coaching (display-only). Portals to document.body like the
-                fight itself, so it is given a z-index ABOVE this portal's 1000000. */}
-            {coach === "academySpar" && enemy && (
-                <SparCoach
-                    attacked={sparAttacked}
-                    casted={sparCasted}
-                    ap={myAp}
-                    enemyHp={enemy.hp}
-                    enemyMaxHp={enemy.maxHp}
-                    zIndex={1_000_001}
-                />
-            )}
-
             {/* Story flavor overlays (display-only) — float above the arena board. */}
             {storyTheme?.chapterLabel && <div className="story-fight-chapter">{storyTheme.chapterLabel}</div>}
             {storyFinalPhase && <div className="story-fight-vignette" aria-hidden="true" />}
@@ -996,7 +992,7 @@ export function MissionArenaFight({
                 <CombatHudMain activeTab={tabs.tab}>
                     <CombatHudHeader
                         title={biomeLabel(biome as Parameters<typeof biomeLabel>[0])}
-                        subtitle={<>Round {session.round} | Shinobi Duel</>}
+                        subtitle={<>Round {session.round} | {eventLabel ?? 'Shinobi Duel'}</>}
                     />
 
                     <CombatEnvironmentStrip>
@@ -1203,7 +1199,16 @@ export function MissionArenaFight({
                             aria-atomic="true"
                         >
                             {reject && <strong>Can't do that</strong>}
-                            <span>{actionNotice || "\u00a0"}</span>
+                            {actionNotice ? <span>{actionNotice}</span> : coach === "academySpar" && enemy ? (
+                                <SparCoach
+                                    attacked={sparAttacked} casted={sparCasted}
+                                    enemyHp={enemy.hp} enemyMaxHp={enemy.maxHp}
+                                    enemyInMelee={enemyInMelee} myTurn={myTurn} outOfActions={outOfActions}
+                                    canAttack={enemyInMelee && myAp >= attackAp && myStamina >= 10}
+                                    canMove={myAp >= moveAp}
+                                    canCastJutsu={canCastJutsu}
+                                />
+                            ) : <span>{"\u00a0"}</span>}
                         </div>
                     </div>
 
@@ -1377,6 +1382,7 @@ export function MissionArenaFight({
                                 const mastery = getJutsuMastery(character, detailJutsu.id);
                                 const scaled = scaleJutsuByLevel(detailJutsu, mastery.level);
                                 const targeting = jutsuTargetingLabel(detailJutsu);
+                                const detailDescription = jutsuDetailDescription(detailJutsu);
                                 return (
                                     <CombatDetailPortal
                                         id={`mission-combat-detail-jutsu-${detailJutsu.id}`}
@@ -1402,7 +1408,7 @@ export function MissionArenaFight({
                                             <span><strong>Stamina Cost:</strong> {Math.max(0, Number(detailJutsu.staminaCost) || 0)}</span>
                                         </div>
                                         <p className="combat-jutsu-detail-desc"><strong style={{ color: "var(--purple-400)" }}>Target — {targeting.short}:</strong> {targeting.detail}</p>
-                                        {detailJutsu.description && <p className="combat-jutsu-detail-desc">{detailJutsu.description}</p>}
+                                        {detailDescription && <p className="combat-jutsu-detail-desc">{detailDescription}</p>}
                                         <div className="combat-jutsu-effects-list">
                                             <JutsuEffectCards
                                                 jutsu={detailJutsu}

@@ -41,8 +41,7 @@ export function ClanChat({ playerName, clan }: { playerName: string; clan: strin
     useEffect(() => {
         let alive = true;
         const check = () => fetchClanChat(playerName, clan, sinceRef.current).then(m => { if (alive) merge(m); }).catch(() => {});
-        check();
-        const stop = visiblePoll(check, 5000);
+        const stop = visiblePoll(check, 5000, 0.1, { immediate: true });
         return () => { alive = false; stop(); };
     }, [playerName, clan, merge]);
 

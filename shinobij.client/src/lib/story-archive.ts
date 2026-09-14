@@ -4,6 +4,8 @@ import type { StoryInterlude } from "../data/story-interludes";
 import type { StoryContentPayload } from "./story-content-contract";
 import { interludeToCreatorEvent, storyToCreatorEvent } from "./story-trigger";
 import { splitDialogueLine } from "./vn";
+import { recordedStoryChoices, storyChoiceId } from "./story-choice-history";
+import { sanitizeStoryChoices } from "./story-history";
 
 export type StoryArchivePage = {
     title: string;
@@ -22,6 +24,8 @@ export type CompletedStoryArchiveEntry = {
     pages: StoryArchivePage[];
     decisions: { text: string; conclusion: string }[];
     replayEvent: CreatorEvent;
+    /** False only for migrated saves whose branch choice was never recorded. */
+    historyComplete: boolean;
 };
 
 export type StoryArchiveGuidance = {
@@ -66,7 +70,7 @@ export function storyArchiveGuidance(character: Character, content: StoryContent
             state: "ready",
             kicker: "NEXT CHAPTER READY",
             title: "The road is ready to continue",
-            body: "Return to the village. Your current chapter will begin automatically once you are outside combat.",
+            body: "Resume opens this milestone directly. Earlier optional interludes remain waiting and return to their normal order afterward.",
             actionLabel: "Return to Village",
         };
     }
@@ -88,18 +92,14 @@ function choiceIsAvailable(choice: NonNullable<StoryPage["choices"]>[number], tr
     return true;
 }
 
-function selectedChoice(page: StoryPage, traits: Set<string>) {
-    const available = (page.choices ?? []).filter((choice) => choiceIsAvailable(choice, traits));
-    return available.find((choice) => choice.trait && traits.has(choice.trait))
-        ?? (available.length === 1 ? available[0] : undefined);
-}
-
-function selectedPath(pages: StoryPage[], traits: Set<string>): StoryPage[] {
+function selectedPath(event: CreatorEvent, character: Character, traits: Set<string>): { pages: StoryPage[]; complete: boolean } {
+    const pages = event.vnPages ?? [];
     const selected: StoryPage[] = [];
-    const visited = new Set<number>();
+    const pageVisits = new Map<number, number>();
     let pageIndex = 0;
-    while (pageIndex >= 0 && pageIndex < pages.length && !visited.has(pageIndex)) {
-        visited.add(pageIndex);
+    let complete = true;
+    let steps = 0;
+    while (pageIndex >= 0 && pageIndex < pages.length && steps++ < 256) {
         const page = pages[pageIndex];
         selected.push(page);
         const choices = page.choices ?? [];
@@ -107,24 +107,45 @@ function selectedPath(pages: StoryPage[], traits: Set<string>): StoryPage[] {
             pageIndex += 1;
             continue;
         }
-        const choice = selectedChoice(page, traits);
-        if (!choice || choice.nextPage === pageIndex) break;
+        const available = choices.filter((choice) => choiceIsAvailable(choice, traits));
+        const receipts = recordedStoryChoices(character, event, pageIndex);
+        const visit = pageVisits.get(pageIndex) ?? 0;
+        pageVisits.set(pageIndex, visit + 1);
+        const receipt = visit < receipts.length ? receipts[visit] : undefined;
+        const choice = receipt
+            ? choices.find((candidate, index) => storyChoiceId(candidate, index) === receipt.choiceId)
+            : (choices.length === 1 && available.length === 1 && !available[0].requireTrait && !available[0].forbidTrait
+                ? available[0]
+                : undefined);
+        if (!choice) { complete = false; break; }
+        if (choice.conclusion?.trim()) {
+            const conclusion = choice.conclusion.trim();
+            const priorLines = page.lines?.length
+                ? page.lines
+                : page.dialogue.map((line) => splitDialogueLine(line, page.speaker || "Narrator"));
+            selected[selected.length - 1] = {
+                ...page,
+                dialogue: [...page.dialogue, conclusion],
+                lines: [...priorLines, { speaker: "Narrator", text: conclusion }],
+            };
+        }
+        if (choice.battle) break;
+        if (choice.nextPage === pageIndex) break;
         pageIndex = choice.nextPage;
     }
-    return selected;
+    return { pages: selected, complete };
 }
 
-function recordedDecisions(pages: StoryPage[], traits: Set<string>): { text: string; conclusion: string }[] {
-    const seen = new Set<string>();
-    return pages.flatMap((page) => (page.choices ?? []).flatMap((choice) => {
-        if (!choice.trait || !traits.has(choice.trait) || seen.has(choice.trait)) return [];
-        seen.add(choice.trait);
-        return [{ text: choice.text, conclusion: choice.conclusion ?? "" }];
-    }));
+function recordedDecisions(event: CreatorEvent, character: Character): { text: string; conclusion: string }[] {
+    return sanitizeStoryChoices(character.storyChoices).filter((receipt) => receipt.eventId === event.id).flatMap((receipt) => {
+        const page = event.vnPages?.[receipt.pageIndex];
+        const choice = (page?.choices ?? []).find((candidate, index) => storyChoiceId(candidate, index) === receipt.choiceId);
+        return choice ? [{ text: choice.text, conclusion: choice.conclusion ?? "" }] : [];
+    });
 }
 
-function readOnlyReplayEvent(event: CreatorEvent, traits: Set<string>): CreatorEvent {
-    const pages = selectedPath(event.vnPages ?? [], traits).map((page) => ({
+function readOnlyReplayEvent(event: CreatorEvent, character: Character, traits: Set<string>): CreatorEvent {
+    const pages = selectedPath(event, character, traits).pages.map((page) => ({
         ...page,
         // The archive has already resolved the durable choice. Removing the live
         // controls makes replay incapable of granting a trait or launching the
@@ -143,8 +164,8 @@ function readOnlyReplayEvent(event: CreatorEvent, traits: Set<string>): CreatorE
     };
 }
 
-function archivePages(pages: StoryPage[], traits: Set<string>): StoryArchivePage[] {
-    return selectedPath(pages, traits).map((page) => ({
+function archivePages(event: CreatorEvent, character: Character, traits: Set<string>): StoryArchivePage[] {
+    return selectedPath(event, character, traits).pages.map((page) => ({
         title: page.title,
         scene: page.scene,
         image: page.image,
@@ -155,20 +176,21 @@ function archivePages(pages: StoryPage[], traits: Set<string>): StoryArchivePage
     }));
 }
 
-function chapterPages(step: StoryStep, traits: Set<string>): StoryArchivePage[] {
-    const pages = step.pages?.length
-        ? step.pages
+function chapterPages(event: CreatorEvent, character: Character, traits: Set<string>): StoryArchivePage[] {
+    const stepPages = event.vnPages;
+    const pages = stepPages?.length
+        ? stepPages
         : [{
-            title: step.cinematicTitle,
-            scene: step.scene,
+            title: event.vnTitle ?? event.name,
+            scene: event.vnScene ?? "",
             speaker: "Narrator",
-            dialogue: step.dialogue,
+            dialogue: event.dialogue,
         }];
-    return archivePages(pages, traits);
+    return archivePages({ ...event, vnPages: pages }, character, traits);
 }
 
-function interludePages(interlude: StoryInterlude, traits: Set<string>): StoryArchivePage[] {
-    return archivePages(interlude.pages, traits).map((page, pageIndex) => ({
+function interludePages(interlude: StoryInterlude, event: CreatorEvent, character: Character, traits: Set<string>): StoryArchivePage[] {
+    return archivePages(event, character, traits).map((page, pageIndex) => ({
         ...page,
         image: page.image ?? (pageIndex === 0 ? `/scenes/story/${interlude.id}.webp` : undefined),
     }));
@@ -182,6 +204,8 @@ export function buildCompletedStoryArchive(character: Character, content: StoryC
         .slice(0, completedChapterCount)
         .map((step, index): CompletedStoryArchiveEntry => {
             const id = `chapter-${step.levelReq}-${index}`;
+            const event = storyToCreatorEvent(step, village, index);
+            const path = selectedPath(event, character, traits);
             return {
                 id,
                 kind: "chapter",
@@ -189,15 +213,22 @@ export function buildCompletedStoryArchive(character: Character, content: StoryC
                 title: step.title,
                 eyebrow: `Chapter ${index + 1} · ${step.bossName} defeated`,
                 icon: step.bossIcon,
-                pages: chapterPages(step, traits),
-                decisions: recordedDecisions(step.pages ?? [], traits),
-                replayEvent: readOnlyReplayEvent(storyToCreatorEvent(step, village, index), traits),
+                pages: chapterPages(event, character, traits),
+                decisions: recordedDecisions(event, character),
+                replayEvent: readOnlyReplayEvent(event, character, traits),
+                historyComplete: path.complete,
             };
         });
     const interludes = (content.village === village ? content.interludes : []).flatMap((interlude): CompletedStoryArchiveEntry[] => {
+        const event = interludeToCreatorEvent(interlude);
         const finalChoices = interlude.pages.at(-1)?.choices ?? [];
-        const picked = finalChoices.find((choice) => choice.trait && traits.has(choice.trait));
+        const finalPageIndex = Math.max(0, interlude.pages.length - 1);
+        const finalReceipt = recordedStoryChoices(character, event, finalPageIndex).find((receipt) => !!receipt.trait);
+        const picked = finalReceipt
+            ? finalChoices.find((choice, index) => storyChoiceId(choice, index) === finalReceipt.choiceId)
+            : finalChoices.find((choice) => choice.trait && traits.has(choice.trait));
         if (!picked) return [];
+        const path = selectedPath(event, character, traits);
         return [{
             id: interlude.id,
             kind: "interlude",
@@ -205,9 +236,10 @@ export function buildCompletedStoryArchive(character: Character, content: StoryC
             title: interlude.title,
             eyebrow: `Interlude · level ${interlude.levelReq}`,
             icon: "📜",
-            pages: interludePages(interlude, traits),
-            decisions: recordedDecisions(interlude.pages, traits),
-            replayEvent: readOnlyReplayEvent(interludeToCreatorEvent(interlude), traits),
+            pages: interludePages(interlude, event, character, traits),
+            decisions: recordedDecisions(event, character),
+            replayEvent: readOnlyReplayEvent(event, character, traits),
+            historyComplete: path.complete,
         }];
     });
     return [...chapters, ...interludes].sort((a, b) => a.level - b.level || a.kind.localeCompare(b.kind));

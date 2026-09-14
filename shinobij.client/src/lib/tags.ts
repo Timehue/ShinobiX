@@ -102,7 +102,42 @@ export function tagCapForRank(rank?: Rank | null): number {
     return 30; // global / no rank
 }
 
+// Poison's percent is not on the amp scale: combat turns it into HP lost per cast
+// (spend × percent × 12), so it has its own lower rank ceiling. Mirrors
+// api/combat-core/formulas.ts POISON_CAP_BY_RANK (parity-pinned).
+export const POISON_CAP_BY_RANK: Record<string, number> = {
+    basic: 10,
+    AB: 12,
+    S: 14,
+};
+// A weapon swing answers to the A/B ceiling (mirrors the server constant).
+export const WEAPON_POISON_TAG_CAP = POISON_CAP_BY_RANK.AB;
+
+// The percent a weapon's tag applies in combat, for item cards. Poison on a weapon
+// answers to WEAPON_POISON_TAG_CAP, so a blade forged before that cap (stored at
+// 15-40) shows what it actually applies rather than its original roll.
+export function weaponTagCombatPercent(name: string, percent: number): number {
+    return normalizeTagName(name) === "Poison" ? Math.min(percent, WEAPON_POISON_TAG_CAP) : percent;
+}
+
+export function poisonCapForRank(rank?: string | null): number {
+    const trimmed = (rank ?? "").trim();
+    if (/^S/i.test(trimmed)) return POISON_CAP_BY_RANK.S;
+    if (/^[AB]/i.test(trimmed)) return POISON_CAP_BY_RANK.AB;
+    return POISON_CAP_BY_RANK.basic;
+}
+
+// Mirrors api/combat-core/formulas.ts poisonPercentForTag: the authored percent
+// (default 6) clamped to the rank ceiling, then ramped two-thirds → full by mastery.
+export function effectivePoisonPercent(rawPercent: number | undefined, bloodlineRank?: string | null, level = 50): number {
+    const authored = Number(rawPercent) > 0 ? Number(rawPercent) : 6;
+    const ceiling = Math.min(authored, poisonCapForRank(bloodlineRank));
+    const mastery = Math.max(0, Math.min(50, Number(level) || 0));
+    return Math.max(1, Math.floor(ceiling * (100 + mastery) / 150));
+}
+
 export function effectiveTagPercent(tag: JutsuTag, bloodlineRank?: Rank | null, level = 50): number {
+    if (normalizeTagName(tag.name) === "Poison") return effectivePoisonPercent(tag.percent, bloodlineRank, level);
     const raw = tag.percent > 0 ? tag.percent : 30;
     // Scale linearly: level 50 = full creator value, each level below 50 subtracts 0.2
     const levelScaled = Math.max(0, raw - (50 - level) * 0.2);

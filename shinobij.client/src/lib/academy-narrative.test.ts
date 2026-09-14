@@ -29,6 +29,7 @@ describe("Academy narrative continuity", () => {
         assert.equal(new Set(rites.map((rite) => rite.rite)).size, villages.length);
         for (const rite of rites) {
             assert.ok(rite.witness.length > 0);
+            assert.match(rite.fieldReport, /three moving rings.*companion confirms/i);
             assert.ok(rite.opening.length > 30);
             assert.ok(rite.villagePromise.length > 30);
             assert.match(rite.opening, /\bI\b|\bmy\b|\bwe\b|\bour\b/i, "a named witness must speak in their own voice");

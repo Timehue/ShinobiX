@@ -1,3 +1,4 @@
+import { petTamerPveMultiplier, petTamerTrainingSpeedPct, petTamerExpeditionMult } from "../../lib/profession-bonuses";
 /*
  * Pet Tamer profession hub — the screen the right-menu "🐾 Pet Tamer" button
  * opens once a player has chosen the Pet Tamer profession. A beast-handler's
@@ -16,10 +17,7 @@ import { ProfessionRankBar } from "../ProfessionRankBar";
 import { DailyProfessionMissions } from "../DailyProfessionMissions";
 import {
     type Character,
-    type Screen,
-    petTamerPveMultiplier,
-    petTamerTrainingSpeedPct,
-    petTamerExpeditionMult,
+    type Screen
 } from "../../App";
 import type { VersionedCharacterCommit } from "../../types/character";
 

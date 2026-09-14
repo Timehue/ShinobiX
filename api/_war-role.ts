@@ -1,5 +1,7 @@
 import { kv } from './_storage.js';
 import { safeName } from './_utils.js';
+import { readVillageElders } from './village/_elders.js';
+import { readVillageAnbu } from './village/_anbu.js';
 
 /*
  * Sector-war role weights (§17.6 — role-scaled Control HP). A fighter's VILLAGE
@@ -40,7 +42,7 @@ export interface SealedWarRoleEvidence {
 function exactServerRole(value: unknown): RoleWeights | null {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
     const role = value as Partial<RoleWeights>;
-    const known = [ROLE_KAGE, ROLE_ANBU, ROLE_VILLAGER] as const;
+    const known = [ROLE_KAGE, ROLE_ELDER, ROLE_ANBU, ROLE_VILLAGER] as const;
     const match = known.find(candidate => candidate.win === role.win && candidate.loss === role.loss);
     return match ? { ...match } : null;
 }
@@ -81,10 +83,10 @@ function kageSeatKey(village: string): string {
 }
 
 interface SaveShape { character?: { village?: string } }
-interface VillageStateShape { seatedKage?: string; anbuAppointees?: string[] }
+interface VillageStateShape { seatedKage?: string; anbuAppointees?: string[]; elderAppointees?: unknown }
 
 /** Resolve a player's sector-war role weights from authoritative server state.
- *  Kage = the village's seated Kage; ANBU = an appointed ANBU; everyone else
+ *  Kage = seated leader; Elder = current appointed/elected seat; ANBU = appointed or earned seat; everyone else
  *  fights as a villager. When `expectedVillage` is supplied from a sealed battle,
  *  a later village switch cannot import the current village's seat or title weight
  *  into that older battle. Never throws — falls back to villager on any miss. */
@@ -117,8 +119,8 @@ export async function sectorWarRoleOf(playerName: string, expectedVillage?: stri
             : [null, null];
         const seatedKage = safeName(String(seat?.seatedKage ?? ''));
         if (seatedKage === name) return ROLE_KAGE;
-        const anbu = Array.isArray(vs?.anbuAppointees)
-            && vs.anbuAppointees.some((appointee) => safeName(String(appointee)) === name);
+        if ((await readVillageElders(village, { ...vs })).some(appointee => safeName(appointee) === name)) return ROLE_ELDER;
+        const anbu = (await readVillageAnbu(village, { ...vs })).members.some(appointee => safeName(appointee) === name);
         if (anbu) return ROLE_ANBU;
         return ROLE_VILLAGER;
     } catch {

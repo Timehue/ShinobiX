@@ -2,7 +2,7 @@
  * Intro-cinematic script — pure data for the post-account-creation cinematic
  * (features/intro-cinematic/IntroCinematic.tsx). A spirit fox draws the newly
  * created shinobi to a fading waterfall shrine, warns that the human-built
- * Hollow Gate lattice is active again, gifts the starter companion (the pet-selection
+ * old machinery beneath the road is active again, gifts the starter companion (the pet-selection
  * beat that used to live in the tutorial's StarterPetSelect overlay), speaks a
  * few lines of village lore (replacing the retired VillageLoreScreen wall of
  * text), and sends the player off with "Please... save this land."
@@ -40,9 +40,9 @@ export const PRE_GIFT_LINES: CinematicLine[] = [
     { speaker: "fox", label: "???", text: "Check your hands. Good. Now say your name to yourself. If you still remember it, we are doing better than I feared." },
     { speaker: "fox", text: `I am ${FOX_NAME}. I keep this waterfall shrine and the old road beneath it. These days I mostly keep the roof from falling in.` },
     { speaker: "fox", text: "An old machine beneath the road tried to identify you and pull you in. When it failed, it tried again. I brought you here before it could succeed." },
-    { speaker: "fox", vision: true, text: "People of the Sunken Court built it to end famine, war, and winter. It does not hunger. It measures. The city is gone, but their machine, the Hollow Gate, is still working." },
-    { speaker: "fox", vision: true, rumble: true, text: "Four intakes beneath the villages are feeding it again. Each takes a human choice and turns it into something useful. Useful is not the same as kind." },
-    { speaker: "fox", text: "The Gate could not decide where you belong. That is not destiny. It is an error in the records. Before anyone fixes that error for you, tell me what matters." },
+    { speaker: "fox", vision: true, text: "Sunken Court mason marks cover its housing. The shrine lintel calls it the Hollow Gate. I do not know why the Court built it. I know it measures people because I have watched the marks change." },
+    { speaker: "fox", vision: true, rumble: true, text: "When it reached for you, its slate kept clearing instead of naming a place for you. That failure bought me time to pull you free." },
+    { speaker: "fox", text: "That blank is a failed record, not a destiny. Drink from the cup, not the waterfall. Then tell me what matters before somebody else decides what it means." },
 ];
 
 // The player's answer is a narrative identity, not a build choice. It earns an
@@ -51,7 +51,6 @@ export const PRE_GIFT_LINES: CinematicLine[] = [
 export function buildVowResponseLines(vow: AcademyVow): CinematicLine[] {
     return [
         { speaker: "fox", text: academyVowDefinition(vow).shiranuiResponse },
-        { speaker: "fox", text: "Hold to that answer. Machines have long memories, but they do not understand promises." },
         { speaker: "fox", text: "You should not take that road alone. Five young companions shelter here, one for each chakra nature. Choose the one willing to choose you, {name}." },
     ];
 }
@@ -61,20 +60,20 @@ export function buildVowResponseLines(vow: AcademyVow): CinematicLine[] {
 // village names data/sectors.ts `villages` uses.
 export const VILLAGE_LORE_LINES: Record<string, [string, string]> = {
     "Stormveil Village": [
-        "Stormveil settles public grievances on a challenge board beside the arena. Post a reason, answer a bell, and everyone in the village will have an opinion by supper.",
-        "Its people are proud that nobody is chained. Listen to what fighters remember after a bout, especially when they remember the score but not the cause.",
+        "Stormveil keeps a public challenge board beside the arena. Post a reason, answer a bell, and expect half the village to argue about it by supper.",
+        "The arena road is loud and easy to find. Report to its keeper first; they can tell you which bell is meant for rookies.",
     ],
     "Ashen Leaf Village": [
-        "Ashen Leaf will ask your name, your craft, and what you intend to become. Think before you answer the last one. The Branch Register remembers exact words.",
-        "Its families keep old promises with real tenderness. Watch what the keepers prune when a new future grows beyond those promises.",
+        "Ashen Leaf will ask your name, your craft, and what you intend to become. The Branch Register keeps the words, so take your time answering.",
+        "Follow the cedar wall to its keeper. Do not lean on it; the fresh grafts stain worse than ink.",
     ],
     "Frostfang Village": [
-        "Frostfang will count you at the gate and count you again at every storm bell. No one is left behind there, and that promise has saved thousands.",
-        "A promise that strong can become a locked door. Pay attention when someone asks to leave and the whole village answers for them.",
+        "Frostfang counts arrivals at the gate and again at every storm bell. Give the roll caller both your names so nobody searches for you in a whiteout.",
+        "The rope lines lead to the training yard. Keep a glove on the line and let your companion choose the pace.",
     ],
     "Moonshadow Village": [
-        "Moonshadow keeps people safe with aliases, sealed files, and truths handed over in curtained booths. Everyone there knows the value of a secret.",
-        "Before you give anyone a true name, ask who keeps the copy. In Moonshadow, trust always leaves a receipt.",
+        "Moonshadow uses aliases, sealed files, and curtained booths. Ask which name a clerk needs before you offer one.",
+        "The canal lamps lead to the trainee desk. Keep your purse closed until somebody gives you a price in writing.",
     ],
 };
 

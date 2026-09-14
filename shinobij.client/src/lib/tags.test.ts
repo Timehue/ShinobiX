@@ -6,7 +6,44 @@
  */
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import { allTags, tagGroups, groupTags } from "./tags";
+import {
+    allTags,
+    effectivePoisonPercent,
+    effectiveTagPercent,
+    groupTags,
+    tagGroups,
+    weaponTagCombatPercent,
+    WEAPON_POISON_TAG_CAP,
+} from "./tags";
+
+// Poison's percent is a potency with its own rank ceiling (server:
+// api/combat-core/formulas.ts poisonPercentForTag). The cards must show what
+// combat applies, not the authored creator value.
+describe("poison display potency", () => {
+    it("caps authored poison at the rank ceiling, as combat does", () => {
+        assert.equal(effectivePoisonPercent(30, null, 50), 10);
+        assert.equal(effectivePoisonPercent(30, "A Rank", 50), 12);
+        assert.equal(effectivePoisonPercent(35, "S Rank", 50), 14);
+        assert.equal(effectivePoisonPercent(5, null, 50), 5);
+    });
+
+    it("ramps two-thirds to full with mastery and falls back to 6 when unset", () => {
+        assert.equal(effectivePoisonPercent(10, null, 0), 6);
+        assert.equal(effectivePoisonPercent(10, null, 25), 8);
+        assert.equal(effectivePoisonPercent(0, null, 50), 6);
+    });
+
+    it("effectiveTagPercent routes Poison through the poison ceiling, not the amp cap", () => {
+        assert.equal(effectiveTagPercent({ name: "Poison", percent: 30 }, null, 50), 10);
+        assert.equal(effectiveTagPercent({ name: "Increase Damage Given", percent: 30 }, null, 50), 30);
+    });
+
+    it("item cards show a weapon's Poison at the weapon ceiling (old forged blades rolled 15-40)", () => {
+        assert.equal(weaponTagCombatPercent("Poison", 38), WEAPON_POISON_TAG_CAP);
+        assert.equal(weaponTagCombatPercent("Poison", 10), 10);
+        assert.equal(weaponTagCombatPercent("Lifesteal", 38), 38, "only Poison changes");
+    });
+});
 
 describe("tag groups", () => {
     it("every selectable tag is categorized exactly once", () => {
