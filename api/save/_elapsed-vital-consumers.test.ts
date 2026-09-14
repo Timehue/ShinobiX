@@ -117,9 +117,15 @@ describe('durable elapsed vitals across raw-save consumers', { concurrency: fals
             'the settle persists without publishing; only the mutation bumps');
     });
 
-    it('a normal bank mutation preserves all vitals from the preceding owner settlement', async () => {
+    it('a normal bank mutation preserves all vitals from the preceding owner settlement', async (t) => {
         const playerName = `${TEST_PREFIX}bank`;
-        const settled = await seedAndSettle(playerName, Date.now());
+        // Stop the clock between the two consumers. mutatePlayerSave settles idle
+        // recovery again with its own Date.now(), so every second that passes in
+        // between credits another tick to all three bars. Carrying the owner
+        // settlement forward is only a fixed number when no time passes.
+        const now = Date.now();
+        t.mock.method(Date, 'now', () => now);
+        const settled = await seedAndSettle(playerName, now);
         const projected = settled.record.character as Json;
         assert.deepEqual(
             { hp: projected.hp, chakra: projected.chakra, stamina: projected.stamina },
