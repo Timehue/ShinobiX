@@ -1,44 +1,45 @@
 {
   "auditedCommit": "ecd8d6ccaba017a6791ec0ec94f822c10658984d",
+  "sourceState": "Audited base plus approved C1–C5 corrections; see recovery-validation.json for final source hashes.",
   "scope": "All mounted routes and syntactically discovered API value mutations. Every row has the required fields. Family evidence is explicitly distinguished from an individual endpoint certificate; computed/dynamic writes, socket-only handlers, schedules and legacy compatibility require callsite review. This is a risk inventory, not a claim every path is crash-safe.",
   "families": [
     {
       "id": "clan-mission",
       "activitySource": "Eight weekly missions; clan XP/treasury plus personal Clan Points.",
-      "actorBinding": "Authenticated clan member (admin exemption preserved).",
-      "activityBinding": "Clan slug + ISO week + mission key.",
-      "amountAuthority": "Canonical progress targets/rewards and member-count XP scaling.",
+      "actorBinding": "Authenticated clan member (admin exemption preserved); server reservation seals eligible contributors.",
+      "activityBinding": "Clan slug + ISO week + mission key; random private receipt owner binds shared proof.",
+      "amountAuthority": "Canonical progress targets/rewards and member-count XP scaling sealed in the private primary receipt.",
       "clientTrustedFields": "Requested clan/mission, never progress/amount.",
-      "eligibilityProof": "Canonical clan contribution/territory state meets target.",
-      "expiry": "Committed latch10days; pending receipt has no expiry.",
-      "singleUseReplayProtection": "NX economic receipt + clan lock; C3 proves pending is later interpreted as replay even if no credit.",
-      "atomicBoundary": "Shared clan credit and economic receipt are separate writes; personal points separate again.",
-      "durableReceipt": "clan:mission-claimed:<clan>:<week>:<mission>, listing/audit projections.",
-      "retrySemantics": "C3: after injected pre-credit failure, retry200 reports claimed while treasury remains1000 and clanXP0.",
-      "partialFailureRecovery": "STILL PRESENT: uncertainty is blocked from a second payout, but no durable atomic credit proof exists for recovery.",
-      "adminSearchability": "Manual mission receipt/clan/audit correlation.",
+      "eligibilityProof": "Canonical clan contribution/territory state meets target at reservation.",
+      "expiry": "Current-week admission only; committed primary10days, pending primary no expiry, applied shared/personal evidence21days.",
+      "singleUseReplayProtection": "NX reservation + CAS co-written shared credit/proof; dedicated personal mission receipts outlast display history.",
+      "atomicBoundary": "Clan credit+proof share one CAS; each personal point award+proof shares a versioned save CAS. Final primary commit follows personal writes.",
+      "durableReceipt": "clan:mission-claimed:<clan>:<week>:<mission>; protected clanMissionSettlements and clanMissionPointReceipts; listing/audit projections.",
+      "retrySemantics": "C3 FIXED for new protocol: expired pending resumes unpaid shared credit from sealed grant; positive shared proof resumes only private points; completed repeats do not pay again.",
+      "partialFailureRecovery": "Local fault tests cover before/after shared credit, personal interruption, history churn and server-proof spoofing. Historical pending remains untouched and cannot authorize personal points. Prior-week ambiguity requires operator evidence.",
+      "adminSearchability": "Manual mission receipt/clan/audit correlation; no new admin interface.",
       "tests": {
         "source": "test-evidence-index.json",
         "files": [],
         "limitation": "Existing tests are reused; file membership is not proof every adversarial case is covered. See adversarial-matrix.json."
       },
-      "featureKillSwitch": "No newly added switch; owner must determine release containment."
+      "featureKillSwitch": "No new switch or player action."
     },
     {
       "id": "clan-exchange",
       "activitySource": "Personal Clan Points → catalog currency/items/caches/cosmetics or clan War Supply.",
-      "actorBinding": "Authenticated member; requested clan must match stored clan.",
-      "activityBinding": "Catalog item + weekly/monthly/oneTime purchase counters, not a request nonce.",
-      "amountAuthority": "Server Exchange table, hall level, limits and costs.",
-      "clientTrustedFields": "Item ID/clan choice after validation.",
-      "eligibilityProof": "Points, hall level, membership, capacity before commitment.",
-      "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
-      "singleUseReplayProtection": "Saved spend+purchase counter+personal grant atomically; limited repeated purchases can be legitimate new buys.",
-      "atomicBoundary": "War Supply: clan lock then player lock, player spend first then clan write.",
-      "durableReceipt": "Player purchase counters, 90day audit; LOSS log is best effort.",
-      "retrySemantics": "C4: treasury write succeeds then throws; handler refunds points and purchase limit. Probe: WarSupply10→1510, ClanPoints stays4000.",
-      "partialFailureRecovery": "STILL PRESENT: blind refund treats an ambiguous acknowledgement as failed credit; retry can repeat an unpaid grant.",
-      "adminSearchability": "Manual audit:clan-exchange and LOSS records; no unified query.",
+      "actorBinding": "Authenticated member; new debit requires matching stored clan. Reserved debit stays bound to its original recipient clan.",
+      "activityBinding": "Treasury purchases use stable player request ID + clan/item fingerprint and server-generated journal token; other purchases retain existing counters.",
+      "amountAuthority": "Server Exchange table, hall level, limits and costs. Journal seals catalog quote; allowance period is fixed when the debit actually commits.",
+      "clientTrustedFields": "Item ID/clan/request identity after validation; timestamp only bounds recovery admission, never amount or eligibility.",
+      "eligibilityProof": "Points, hall level and membership before treasury debit; personal purchases retain capacity checks.",
+      "expiry": "Treasury request90days, durable journal90days refreshed on update, applied proofs100days; replay cannot outlive proof retention.",
+      "singleUseReplayProtection": "Treasury debit+purchase counter+proof share player CAS; shared War Supply+proof share clan CAS. Updated client retains request identity across uncertain responses.",
+      "atomicBoundary": "Existing clan→player locks plus CAS fences on both records; journal reserved before any debit.",
+      "durableReceipt": "economy-settlement:clan-exchange-<digest> with server token and sealed quote; protected clanExchangeSettlements on source player and clan; existing audit.",
+      "retrySemantics": "C4 FIXED for updated clients/new protocol: finish missing side without refund or second charge. Legacy no-ID callers resume unfinished debit; lost final success cannot be distinguished from a genuine new legacy purchase.",
+      "partialFailureRecovery": "Local tests cover each applied-side write, journal completion, lock expiry/concurrency, rollover, forged identity/value and pre-seeded proof fields. No reconstruction from an unbound debit or automatic historical refund.",
+      "adminSearchability": "Existing Economy Settlements journal discovery and audit correlation; no admin auth/UI change.",
       "tests": {
         "source": "test-evidence-index.json",
         "files": [
@@ -47,7 +48,7 @@
         ],
         "limitation": "Existing tests are reused; file membership is not proof every adversarial case is covered. See adversarial-matrix.json."
       },
-      "featureKillSwitch": "No new gate introduced; owner containment decision required."
+      "featureKillSwitch": "No new switch, modal or player action."
     },
     {
       "id": "clan-and-village-treasury-transfers",
@@ -511,7 +512,7 @@
       "activitySource": "Training/care, encounter/befriend/starter, breeding/hatch, evolution, sanctuary custody.",
       "actorBinding": "Authenticated pet owner; server reads roster and parent eligibility.",
       "activityBinding": "Pet IDs + sealed timer/breeding request/encounter identity and one-time starter latch.",
-      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2: Den/Yard bonus missing.",
+      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2 fixed: owner-approved additive Den/Yard bonus for new training; old sealed rewards unchanged.",
       "clientTrustedFields": "Selected owned pets/action/duration from allowed catalog; cannot choose sealed offspring or XP.",
       "eligibilityProof": "Ownership, funds, capacity, valid completed timer or encounter proof.",
       "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
@@ -533,6 +534,7 @@
           "api/pet/ranked-start-authority.test.ts",
           "api/pet/showdown.first-pact.test.ts",
           "api/pet/showdown.standing-court.test.ts",
+          "api/pet/training-clan-bonus.test.ts",
           "api/pet/wanderer-authority.test.ts",
           "api/pet/warfront-authority.test.ts",
           "api/pet/_arena-reward.test.ts",
@@ -642,6 +644,7 @@
           "api/clan/_exchange.test.ts",
           "api/clan/_kick-core.test.ts",
           "api/clan/_mentor.test.ts",
+          "api/clan/_reward-recovery.test.ts",
           "api/clan/_save-version-echo.test.ts",
           "api/clan/_succession.test.ts"
         ],
@@ -3470,12 +3473,12 @@
       "family": "save-sanitization-and-world",
       "discovery": [
         {
-          "line": 144,
+          "line": 150,
           "kind": "value-write-or-projection",
           "field": "clanPoints"
         },
         {
-          "line": 172,
+          "line": 179,
           "kind": "mutation-or-settlement-call",
           "symbol": "awardClanPoints"
         }
@@ -16842,40 +16845,40 @@
           "field": "treasury"
         },
         {
-          "line": 528,
+          "line": 531,
           "kind": "mutation-or-settlement-call",
           "symbol": "purchaseCount"
         },
         {
-          "line": 529,
+          "line": 532,
           "kind": "mutation-or-settlement-call",
           "symbol": "purchaseLimitCount"
         },
         {
-          "line": 534,
+          "line": 537,
           "kind": "mutation-or-settlement-call",
           "symbol": "applyReward"
         },
         {
-          "line": 535,
+          "line": 538,
           "kind": "value-write-or-projection",
           "field": "clanPoints"
         }
       ],
       "reviewStatus": "FAMILY EVIDENCE — consult the exact source; unproven fields remain unresolved",
       "activitySource": "Personal Clan Points → catalog currency/items/caches/cosmetics or clan War Supply.",
-      "actorBinding": "Authenticated member; requested clan must match stored clan.",
-      "activityBinding": "Catalog item + weekly/monthly/oneTime purchase counters, not a request nonce.",
-      "amountAuthority": "Server Exchange table, hall level, limits and costs.",
-      "clientTrustedFields": "Item ID/clan choice after validation.",
-      "eligibilityProof": "Points, hall level, membership, capacity before commitment.",
-      "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
-      "singleUseReplayProtection": "Saved spend+purchase counter+personal grant atomically; limited repeated purchases can be legitimate new buys.",
-      "atomicBoundary": "War Supply: clan lock then player lock, player spend first then clan write.",
-      "durableReceipt": "Player purchase counters, 90day audit; LOSS log is best effort.",
-      "retrySemantics": "C4: treasury write succeeds then throws; handler refunds points and purchase limit. Probe: WarSupply10→1510, ClanPoints stays4000.",
-      "partialFailureRecovery": "STILL PRESENT: blind refund treats an ambiguous acknowledgement as failed credit; retry can repeat an unpaid grant.",
-      "adminSearchability": "Manual audit:clan-exchange and LOSS records; no unified query.",
+      "actorBinding": "Authenticated member; new debit requires matching stored clan. Reserved debit stays bound to its original recipient clan.",
+      "activityBinding": "Treasury purchases use stable player request ID + clan/item fingerprint and server-generated journal token; other purchases retain existing counters.",
+      "amountAuthority": "Server Exchange table, hall level, limits and costs. Journal seals catalog quote; allowance period is fixed when the debit actually commits.",
+      "clientTrustedFields": "Item ID/clan/request identity after validation; timestamp only bounds recovery admission, never amount or eligibility.",
+      "eligibilityProof": "Points, hall level and membership before treasury debit; personal purchases retain capacity checks.",
+      "expiry": "Treasury request90days, durable journal90days refreshed on update, applied proofs100days; replay cannot outlive proof retention.",
+      "singleUseReplayProtection": "Treasury debit+purchase counter+proof share player CAS; shared War Supply+proof share clan CAS. Updated client retains request identity across uncertain responses.",
+      "atomicBoundary": "Existing clan→player locks plus CAS fences on both records; journal reserved before any debit.",
+      "durableReceipt": "economy-settlement:clan-exchange-<digest> with server token and sealed quote; protected clanExchangeSettlements on source player and clan; existing audit.",
+      "retrySemantics": "C4 FIXED for updated clients/new protocol: finish missing side without refund or second charge. Legacy no-ID callers resume unfinished debit; lost final success cannot be distinguished from a genuine new legacy purchase.",
+      "partialFailureRecovery": "Local tests cover each applied-side write, journal completion, lock expiry/concurrency, rollover, forged identity/value and pre-seeded proof fields. No reconstruction from an unbound debit or automatic historical refund.",
+      "adminSearchability": "Existing Economy Settlements journal discovery and audit correlation; no admin auth/UI change.",
       "tests": {
         "source": "test-evidence-index.json",
         "files": [
@@ -16884,7 +16887,7 @@
         ],
         "limitation": "Existing tests are reused; file membership is not proof every adversarial case is covered. See adversarial-matrix.json."
       },
-      "featureKillSwitch": "No new gate introduced; owner containment decision required."
+      "featureKillSwitch": "No new switch, modal or player action."
     },
     {
       "file": "api/clan/_mission-catalog.ts",
@@ -16954,24 +16957,24 @@
       ],
       "reviewStatus": "FAMILY EVIDENCE — consult the exact source; unproven fields remain unresolved",
       "activitySource": "Eight weekly missions; clan XP/treasury plus personal Clan Points.",
-      "actorBinding": "Authenticated clan member (admin exemption preserved).",
-      "activityBinding": "Clan slug + ISO week + mission key.",
-      "amountAuthority": "Canonical progress targets/rewards and member-count XP scaling.",
+      "actorBinding": "Authenticated clan member (admin exemption preserved); server reservation seals eligible contributors.",
+      "activityBinding": "Clan slug + ISO week + mission key; random private receipt owner binds shared proof.",
+      "amountAuthority": "Canonical progress targets/rewards and member-count XP scaling sealed in the private primary receipt.",
       "clientTrustedFields": "Requested clan/mission, never progress/amount.",
-      "eligibilityProof": "Canonical clan contribution/territory state meets target.",
-      "expiry": "Committed latch10days; pending receipt has no expiry.",
-      "singleUseReplayProtection": "NX economic receipt + clan lock; C3 proves pending is later interpreted as replay even if no credit.",
-      "atomicBoundary": "Shared clan credit and economic receipt are separate writes; personal points separate again.",
-      "durableReceipt": "clan:mission-claimed:<clan>:<week>:<mission>, listing/audit projections.",
-      "retrySemantics": "C3: after injected pre-credit failure, retry200 reports claimed while treasury remains1000 and clanXP0.",
-      "partialFailureRecovery": "STILL PRESENT: uncertainty is blocked from a second payout, but no durable atomic credit proof exists for recovery.",
-      "adminSearchability": "Manual mission receipt/clan/audit correlation.",
+      "eligibilityProof": "Canonical clan contribution/territory state meets target at reservation.",
+      "expiry": "Current-week admission only; committed primary10days, pending primary no expiry, applied shared/personal evidence21days.",
+      "singleUseReplayProtection": "NX reservation + CAS co-written shared credit/proof; dedicated personal mission receipts outlast display history.",
+      "atomicBoundary": "Clan credit+proof share one CAS; each personal point award+proof shares a versioned save CAS. Final primary commit follows personal writes.",
+      "durableReceipt": "clan:mission-claimed:<clan>:<week>:<mission>; protected clanMissionSettlements and clanMissionPointReceipts; listing/audit projections.",
+      "retrySemantics": "C3 FIXED for new protocol: expired pending resumes unpaid shared credit from sealed grant; positive shared proof resumes only private points; completed repeats do not pay again.",
+      "partialFailureRecovery": "Local fault tests cover before/after shared credit, personal interruption, history churn and server-proof spoofing. Historical pending remains untouched and cannot authorize personal points. Prior-week ambiguity requires operator evidence.",
+      "adminSearchability": "Manual mission receipt/clan/audit correlation; no new admin interface.",
       "tests": {
         "source": "test-evidence-index.json",
         "files": [],
         "limitation": "Existing tests are reused; file membership is not proof every adversarial case is covered. See adversarial-matrix.json."
       },
-      "featureKillSwitch": "No newly added switch; owner must determine release containment."
+      "featureKillSwitch": "No new switch or player action."
     },
     {
       "file": "api/clan/chat/get.ts",
@@ -17013,6 +17016,7 @@
           "api/clan/_exchange.test.ts",
           "api/clan/_kick-core.test.ts",
           "api/clan/_mentor.test.ts",
+          "api/clan/_reward-recovery.test.ts",
           "api/clan/_save-version-echo.test.ts",
           "api/clan/_succession.test.ts"
         ],
@@ -17060,12 +17064,53 @@
           "api/clan/_exchange.test.ts",
           "api/clan/_kick-core.test.ts",
           "api/clan/_mentor.test.ts",
+          "api/clan/_reward-recovery.test.ts",
           "api/clan/_save-version-echo.test.ts",
           "api/clan/_succession.test.ts"
         ],
         "limitation": "Existing tests are reused; file membership is not proof every adversarial case is covered. See adversarial-matrix.json."
       },
       "featureKillSwitch": "War and operation flags; territory release freeze/owner rules retained."
+    },
+    {
+      "file": "api/clan/exchange/_settlement.ts",
+      "endpoints": [],
+      "family": "clan-exchange",
+      "discovery": [
+        {
+          "line": 56,
+          "kind": "mutation-or-settlement-call",
+          "symbol": "settlementTransactionId"
+        },
+        {
+          "line": 57,
+          "kind": "mutation-or-settlement-call",
+          "symbol": "settlementFingerprint"
+        }
+      ],
+      "reviewStatus": "FAMILY EVIDENCE — consult the exact source; unproven fields remain unresolved",
+      "activitySource": "Personal Clan Points → catalog currency/items/caches/cosmetics or clan War Supply.",
+      "actorBinding": "Authenticated member; new debit requires matching stored clan. Reserved debit stays bound to its original recipient clan.",
+      "activityBinding": "Treasury purchases use stable player request ID + clan/item fingerprint and server-generated journal token; other purchases retain existing counters.",
+      "amountAuthority": "Server Exchange table, hall level, limits and costs. Journal seals catalog quote; allowance period is fixed when the debit actually commits.",
+      "clientTrustedFields": "Item ID/clan/request identity after validation; timestamp only bounds recovery admission, never amount or eligibility.",
+      "eligibilityProof": "Points, hall level and membership before treasury debit; personal purchases retain capacity checks.",
+      "expiry": "Treasury request90days, durable journal90days refreshed on update, applied proofs100days; replay cannot outlive proof retention.",
+      "singleUseReplayProtection": "Treasury debit+purchase counter+proof share player CAS; shared War Supply+proof share clan CAS. Updated client retains request identity across uncertain responses.",
+      "atomicBoundary": "Existing clan→player locks plus CAS fences on both records; journal reserved before any debit.",
+      "durableReceipt": "economy-settlement:clan-exchange-<digest> with server token and sealed quote; protected clanExchangeSettlements on source player and clan; existing audit.",
+      "retrySemantics": "C4 FIXED for updated clients/new protocol: finish missing side without refund or second charge. Legacy no-ID callers resume unfinished debit; lost final success cannot be distinguished from a genuine new legacy purchase.",
+      "partialFailureRecovery": "Local tests cover each applied-side write, journal completion, lock expiry/concurrency, rollover, forged identity/value and pre-seeded proof fields. No reconstruction from an unbound debit or automatic historical refund.",
+      "adminSearchability": "Existing Economy Settlements journal discovery and audit correlation; no admin auth/UI change.",
+      "tests": {
+        "source": "test-evidence-index.json",
+        "files": [
+          "api/clan/_exchange-parity.test.ts",
+          "api/clan/_exchange.test.ts"
+        ],
+        "limitation": "Existing tests are reused; file membership is not proof every adversarial case is covered. See adversarial-matrix.json."
+      },
+      "featureKillSwitch": "No new switch, modal or player action."
     },
     {
       "file": "api/clan/exchange/purchase.ts",
@@ -17075,35 +17120,40 @@
       "family": "clan-exchange",
       "discovery": [
         {
-          "line": 197,
+          "line": 104,
+          "kind": "mutation-or-settlement-call",
+          "symbol": "settleClanExchangeTreasury"
+        },
+        {
+          "line": 136,
           "kind": "value-write-or-projection",
           "field": "xp"
         },
         {
-          "line": 198,
+          "line": 137,
           "kind": "value-write-or-projection",
           "field": "level"
         },
         {
-          "line": 199,
+          "line": 138,
           "kind": "value-write-or-projection",
           "field": "treasury"
         }
       ],
       "reviewStatus": "FAMILY EVIDENCE — consult the exact source; unproven fields remain unresolved",
       "activitySource": "Personal Clan Points → catalog currency/items/caches/cosmetics or clan War Supply.",
-      "actorBinding": "Authenticated member; requested clan must match stored clan.",
-      "activityBinding": "Catalog item + weekly/monthly/oneTime purchase counters, not a request nonce.",
-      "amountAuthority": "Server Exchange table, hall level, limits and costs.",
-      "clientTrustedFields": "Item ID/clan choice after validation.",
-      "eligibilityProof": "Points, hall level, membership, capacity before commitment.",
-      "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
-      "singleUseReplayProtection": "Saved spend+purchase counter+personal grant atomically; limited repeated purchases can be legitimate new buys.",
-      "atomicBoundary": "War Supply: clan lock then player lock, player spend first then clan write.",
-      "durableReceipt": "Player purchase counters, 90day audit; LOSS log is best effort.",
-      "retrySemantics": "C4: treasury write succeeds then throws; handler refunds points and purchase limit. Probe: WarSupply10→1510, ClanPoints stays4000.",
-      "partialFailureRecovery": "STILL PRESENT: blind refund treats an ambiguous acknowledgement as failed credit; retry can repeat an unpaid grant.",
-      "adminSearchability": "Manual audit:clan-exchange and LOSS records; no unified query.",
+      "actorBinding": "Authenticated member; new debit requires matching stored clan. Reserved debit stays bound to its original recipient clan.",
+      "activityBinding": "Treasury purchases use stable player request ID + clan/item fingerprint and server-generated journal token; other purchases retain existing counters.",
+      "amountAuthority": "Server Exchange table, hall level, limits and costs. Journal seals catalog quote; allowance period is fixed when the debit actually commits.",
+      "clientTrustedFields": "Item ID/clan/request identity after validation; timestamp only bounds recovery admission, never amount or eligibility.",
+      "eligibilityProof": "Points, hall level and membership before treasury debit; personal purchases retain capacity checks.",
+      "expiry": "Treasury request90days, durable journal90days refreshed on update, applied proofs100days; replay cannot outlive proof retention.",
+      "singleUseReplayProtection": "Treasury debit+purchase counter+proof share player CAS; shared War Supply+proof share clan CAS. Updated client retains request identity across uncertain responses.",
+      "atomicBoundary": "Existing clan→player locks plus CAS fences on both records; journal reserved before any debit.",
+      "durableReceipt": "economy-settlement:clan-exchange-<digest> with server token and sealed quote; protected clanExchangeSettlements on source player and clan; existing audit.",
+      "retrySemantics": "C4 FIXED for updated clients/new protocol: finish missing side without refund or second charge. Legacy no-ID callers resume unfinished debit; lost final success cannot be distinguished from a genuine new legacy purchase.",
+      "partialFailureRecovery": "Local tests cover each applied-side write, journal completion, lock expiry/concurrency, rollover, forged identity/value and pre-seeded proof fields. No reconstruction from an unbound debit or automatic historical refund.",
+      "adminSearchability": "Existing Economy Settlements journal discovery and audit correlation; no admin auth/UI change.",
       "tests": {
         "source": "test-evidence-index.json",
         "files": [
@@ -17112,7 +17162,7 @@
         ],
         "limitation": "Existing tests are reused; file membership is not proof every adversarial case is covered. See adversarial-matrix.json."
       },
-      "featureKillSwitch": "No new gate introduced; owner containment decision required."
+      "featureKillSwitch": "No new switch, modal or player action."
     },
     {
       "file": "api/clan/kick.ts",
@@ -17154,6 +17204,7 @@
           "api/clan/_exchange.test.ts",
           "api/clan/_kick-core.test.ts",
           "api/clan/_mentor.test.ts",
+          "api/clan/_reward-recovery.test.ts",
           "api/clan/_save-version-echo.test.ts",
           "api/clan/_succession.test.ts"
         ],
@@ -17201,6 +17252,7 @@
           "api/clan/_exchange.test.ts",
           "api/clan/_kick-core.test.ts",
           "api/clan/_mentor.test.ts",
+          "api/clan/_reward-recovery.test.ts",
           "api/clan/_save-version-echo.test.ts",
           "api/clan/_succession.test.ts"
         ],
@@ -17274,12 +17326,85 @@
           "api/clan/_exchange.test.ts",
           "api/clan/_kick-core.test.ts",
           "api/clan/_mentor.test.ts",
+          "api/clan/_reward-recovery.test.ts",
           "api/clan/_save-version-echo.test.ts",
           "api/clan/_succession.test.ts"
         ],
         "limitation": "Existing tests are reused; file membership is not proof every adversarial case is covered. See adversarial-matrix.json."
       },
       "featureKillSwitch": "War and operation flags; territory release freeze/owner rules retained."
+    },
+    {
+      "file": "api/clan/mission/_settlement.ts",
+      "endpoints": [],
+      "family": "clan-mission",
+      "discovery": [
+        {
+          "line": 28,
+          "kind": "mutation-or-settlement-call",
+          "symbol": "grantFrom"
+        },
+        {
+          "line": 40,
+          "kind": "value-write-or-projection",
+          "field": "xp"
+        },
+        {
+          "line": 40,
+          "kind": "value-write-or-projection",
+          "field": "level"
+        },
+        {
+          "line": 41,
+          "kind": "value-write-or-projection",
+          "field": "treasury"
+        },
+        {
+          "line": 55,
+          "kind": "mutation-or-settlement-call",
+          "symbol": "grantFrom"
+        },
+        {
+          "line": 62,
+          "kind": "mutation-or-settlement-call",
+          "symbol": "grantFrom"
+        },
+        {
+          "line": 73,
+          "kind": "mutation-or-settlement-call",
+          "symbol": "grantFrom"
+        },
+        {
+          "line": 78,
+          "kind": "value-write-or-projection",
+          "field": "xp"
+        },
+        {
+          "line": 78,
+          "kind": "value-write-or-projection",
+          "field": "level"
+        }
+      ],
+      "reviewStatus": "FAMILY EVIDENCE — consult the exact source; unproven fields remain unresolved",
+      "activitySource": "Eight weekly missions; clan XP/treasury plus personal Clan Points.",
+      "actorBinding": "Authenticated clan member (admin exemption preserved); server reservation seals eligible contributors.",
+      "activityBinding": "Clan slug + ISO week + mission key; random private receipt owner binds shared proof.",
+      "amountAuthority": "Canonical progress targets/rewards and member-count XP scaling sealed in the private primary receipt.",
+      "clientTrustedFields": "Requested clan/mission, never progress/amount.",
+      "eligibilityProof": "Canonical clan contribution/territory state meets target at reservation.",
+      "expiry": "Current-week admission only; committed primary10days, pending primary no expiry, applied shared/personal evidence21days.",
+      "singleUseReplayProtection": "NX reservation + CAS co-written shared credit/proof; dedicated personal mission receipts outlast display history.",
+      "atomicBoundary": "Clan credit+proof share one CAS; each personal point award+proof shares a versioned save CAS. Final primary commit follows personal writes.",
+      "durableReceipt": "clan:mission-claimed:<clan>:<week>:<mission>; protected clanMissionSettlements and clanMissionPointReceipts; listing/audit projections.",
+      "retrySemantics": "C3 FIXED for new protocol: expired pending resumes unpaid shared credit from sealed grant; positive shared proof resumes only private points; completed repeats do not pay again.",
+      "partialFailureRecovery": "Local fault tests cover before/after shared credit, personal interruption, history churn and server-proof spoofing. Historical pending remains untouched and cannot authorize personal points. Prior-week ambiguity requires operator evidence.",
+      "adminSearchability": "Manual mission receipt/clan/audit correlation; no new admin interface.",
+      "tests": {
+        "source": "test-evidence-index.json",
+        "files": [],
+        "limitation": "Existing tests are reused; file membership is not proof every adversarial case is covered. See adversarial-matrix.json."
+      },
+      "featureKillSwitch": "No new switch or player action."
     },
     {
       "file": "api/clan/mission/claim.ts",
@@ -17289,101 +17414,66 @@
       "family": "clan-mission",
       "discovery": [
         {
-          "line": 205,
-          "kind": "value-write-or-projection",
-          "field": "xp"
+          "line": 188,
+          "kind": "mutation-or-settlement-call",
+          "symbol": "settleMissionCredit"
         },
         {
-          "line": 206,
-          "kind": "value-write-or-projection",
-          "field": "level"
-        },
-        {
-          "line": 207,
+          "line": 196,
           "kind": "value-write-or-projection",
           "field": "treasury"
         },
         {
-          "line": 225,
-          "kind": "value-write-or-projection",
-          "field": "xp"
+          "line": 223,
+          "kind": "mutation-or-settlement-call",
+          "symbol": "awardClanPointsToPlayerSave"
         },
         {
-          "line": 225,
-          "kind": "value-write-or-projection",
-          "field": "level"
+          "line": 230,
+          "kind": "mutation-or-settlement-call",
+          "symbol": "awardClanPointsToPlayerSave"
         },
         {
-          "line": 225,
-          "kind": "value-write-or-projection",
-          "field": "treasury"
-        },
-        {
-          "line": 232,
-          "kind": "value-write-or-projection",
-          "field": "xp"
-        },
-        {
-          "line": 233,
-          "kind": "value-write-or-projection",
-          "field": "level"
-        },
-        {
-          "line": 234,
-          "kind": "value-write-or-projection",
-          "field": "treasury"
+          "line": 243,
+          "kind": "mutation-or-settlement-call",
+          "symbol": "awardClanPointsToPlayerSave"
         },
         {
           "line": 263,
-          "kind": "mutation-or-settlement-call",
-          "symbol": "awardClanPointsToPlayerSave"
-        },
-        {
-          "line": 269,
-          "kind": "mutation-or-settlement-call",
-          "symbol": "awardClanPointsToPlayerSave"
-        },
-        {
-          "line": 281,
-          "kind": "mutation-or-settlement-call",
-          "symbol": "awardClanPointsToPlayerSave"
-        },
-        {
-          "line": 296,
           "kind": "value-write-or-projection",
           "field": "xp"
         },
         {
-          "line": 297,
+          "line": 264,
           "kind": "value-write-or-projection",
           "field": "level"
         },
         {
-          "line": 298,
+          "line": 265,
           "kind": "value-write-or-projection",
           "field": "treasury"
         }
       ],
       "reviewStatus": "FAMILY EVIDENCE — consult the exact source; unproven fields remain unresolved",
       "activitySource": "Eight weekly missions; clan XP/treasury plus personal Clan Points.",
-      "actorBinding": "Authenticated clan member (admin exemption preserved).",
-      "activityBinding": "Clan slug + ISO week + mission key.",
-      "amountAuthority": "Canonical progress targets/rewards and member-count XP scaling.",
+      "actorBinding": "Authenticated clan member (admin exemption preserved); server reservation seals eligible contributors.",
+      "activityBinding": "Clan slug + ISO week + mission key; random private receipt owner binds shared proof.",
+      "amountAuthority": "Canonical progress targets/rewards and member-count XP scaling sealed in the private primary receipt.",
       "clientTrustedFields": "Requested clan/mission, never progress/amount.",
-      "eligibilityProof": "Canonical clan contribution/territory state meets target.",
-      "expiry": "Committed latch10days; pending receipt has no expiry.",
-      "singleUseReplayProtection": "NX economic receipt + clan lock; C3 proves pending is later interpreted as replay even if no credit.",
-      "atomicBoundary": "Shared clan credit and economic receipt are separate writes; personal points separate again.",
-      "durableReceipt": "clan:mission-claimed:<clan>:<week>:<mission>, listing/audit projections.",
-      "retrySemantics": "C3: after injected pre-credit failure, retry200 reports claimed while treasury remains1000 and clanXP0.",
-      "partialFailureRecovery": "STILL PRESENT: uncertainty is blocked from a second payout, but no durable atomic credit proof exists for recovery.",
-      "adminSearchability": "Manual mission receipt/clan/audit correlation.",
+      "eligibilityProof": "Canonical clan contribution/territory state meets target at reservation.",
+      "expiry": "Current-week admission only; committed primary10days, pending primary no expiry, applied shared/personal evidence21days.",
+      "singleUseReplayProtection": "NX reservation + CAS co-written shared credit/proof; dedicated personal mission receipts outlast display history.",
+      "atomicBoundary": "Clan credit+proof share one CAS; each personal point award+proof shares a versioned save CAS. Final primary commit follows personal writes.",
+      "durableReceipt": "clan:mission-claimed:<clan>:<week>:<mission>; protected clanMissionSettlements and clanMissionPointReceipts; listing/audit projections.",
+      "retrySemantics": "C3 FIXED for new protocol: expired pending resumes unpaid shared credit from sealed grant; positive shared proof resumes only private points; completed repeats do not pay again.",
+      "partialFailureRecovery": "Local fault tests cover before/after shared credit, personal interruption, history churn and server-proof spoofing. Historical pending remains untouched and cannot authorize personal points. Prior-week ambiguity requires operator evidence.",
+      "adminSearchability": "Manual mission receipt/clan/audit correlation; no new admin interface.",
       "tests": {
         "source": "test-evidence-index.json",
         "files": [],
         "limitation": "Existing tests are reused; file membership is not proof every adversarial case is covered. See adversarial-matrix.json."
       },
-      "featureKillSwitch": "No newly added switch; owner must determine release containment."
+      "featureKillSwitch": "No new switch or player action."
     },
     {
       "file": "api/clan/pet-escort/cancel.ts",
@@ -17425,6 +17515,7 @@
           "api/clan/_exchange.test.ts",
           "api/clan/_kick-core.test.ts",
           "api/clan/_mentor.test.ts",
+          "api/clan/_reward-recovery.test.ts",
           "api/clan/_save-version-echo.test.ts",
           "api/clan/_succession.test.ts"
         ],
@@ -17472,6 +17563,7 @@
           "api/clan/_exchange.test.ts",
           "api/clan/_kick-core.test.ts",
           "api/clan/_mentor.test.ts",
+          "api/clan/_reward-recovery.test.ts",
           "api/clan/_save-version-echo.test.ts",
           "api/clan/_succession.test.ts"
         ],
@@ -17519,6 +17611,7 @@
           "api/clan/_exchange.test.ts",
           "api/clan/_kick-core.test.ts",
           "api/clan/_mentor.test.ts",
+          "api/clan/_reward-recovery.test.ts",
           "api/clan/_save-version-echo.test.ts",
           "api/clan/_succession.test.ts"
         ],
@@ -17572,6 +17665,7 @@
           "api/clan/_exchange.test.ts",
           "api/clan/_kick-core.test.ts",
           "api/clan/_mentor.test.ts",
+          "api/clan/_reward-recovery.test.ts",
           "api/clan/_save-version-echo.test.ts",
           "api/clan/_succession.test.ts"
         ],
@@ -17635,6 +17729,7 @@
           "api/clan/_exchange.test.ts",
           "api/clan/_kick-core.test.ts",
           "api/clan/_mentor.test.ts",
+          "api/clan/_reward-recovery.test.ts",
           "api/clan/_save-version-echo.test.ts",
           "api/clan/_succession.test.ts"
         ],
@@ -17682,6 +17777,7 @@
           "api/clan/_exchange.test.ts",
           "api/clan/_kick-core.test.ts",
           "api/clan/_mentor.test.ts",
+          "api/clan/_reward-recovery.test.ts",
           "api/clan/_save-version-echo.test.ts",
           "api/clan/_succession.test.ts"
         ],
@@ -17763,6 +17859,7 @@
           "api/clan/_exchange.test.ts",
           "api/clan/_kick-core.test.ts",
           "api/clan/_mentor.test.ts",
+          "api/clan/_reward-recovery.test.ts",
           "api/clan/_save-version-echo.test.ts",
           "api/clan/_succession.test.ts"
         ],
@@ -17816,6 +17913,7 @@
           "api/clan/_exchange.test.ts",
           "api/clan/_kick-core.test.ts",
           "api/clan/_mentor.test.ts",
+          "api/clan/_reward-recovery.test.ts",
           "api/clan/_save-version-echo.test.ts",
           "api/clan/_succession.test.ts"
         ],
@@ -17879,6 +17977,7 @@
           "api/clan/_exchange.test.ts",
           "api/clan/_kick-core.test.ts",
           "api/clan/_mentor.test.ts",
+          "api/clan/_reward-recovery.test.ts",
           "api/clan/_save-version-echo.test.ts",
           "api/clan/_succession.test.ts"
         ],
@@ -17997,6 +18096,7 @@
           "api/clan/_exchange.test.ts",
           "api/clan/_kick-core.test.ts",
           "api/clan/_mentor.test.ts",
+          "api/clan/_reward-recovery.test.ts",
           "api/clan/_save-version-echo.test.ts",
           "api/clan/_succession.test.ts"
         ],
@@ -18173,6 +18273,7 @@
           "api/clan/_exchange.test.ts",
           "api/clan/_kick-core.test.ts",
           "api/clan/_mentor.test.ts",
+          "api/clan/_reward-recovery.test.ts",
           "api/clan/_save-version-echo.test.ts",
           "api/clan/_succession.test.ts"
         ],
@@ -18224,6 +18325,7 @@
           "api/clan/_exchange.test.ts",
           "api/clan/_kick-core.test.ts",
           "api/clan/_mentor.test.ts",
+          "api/clan/_reward-recovery.test.ts",
           "api/clan/_save-version-echo.test.ts",
           "api/clan/_succession.test.ts"
         ],
@@ -18285,6 +18387,7 @@
           "api/clan/_exchange.test.ts",
           "api/clan/_kick-core.test.ts",
           "api/clan/_mentor.test.ts",
+          "api/clan/_reward-recovery.test.ts",
           "api/clan/_save-version-echo.test.ts",
           "api/clan/_succession.test.ts"
         ],
@@ -18341,6 +18444,7 @@
           "api/clan/_exchange.test.ts",
           "api/clan/_kick-core.test.ts",
           "api/clan/_mentor.test.ts",
+          "api/clan/_reward-recovery.test.ts",
           "api/clan/_save-version-echo.test.ts",
           "api/clan/_succession.test.ts"
         ],
@@ -18407,6 +18511,7 @@
           "api/clan/_exchange.test.ts",
           "api/clan/_kick-core.test.ts",
           "api/clan/_mentor.test.ts",
+          "api/clan/_reward-recovery.test.ts",
           "api/clan/_save-version-echo.test.ts",
           "api/clan/_succession.test.ts"
         ],
@@ -18478,6 +18583,7 @@
           "api/clan/_exchange.test.ts",
           "api/clan/_kick-core.test.ts",
           "api/clan/_mentor.test.ts",
+          "api/clan/_reward-recovery.test.ts",
           "api/clan/_save-version-echo.test.ts",
           "api/clan/_succession.test.ts"
         ],
@@ -18525,6 +18631,7 @@
           "api/clan/_exchange.test.ts",
           "api/clan/_kick-core.test.ts",
           "api/clan/_mentor.test.ts",
+          "api/clan/_reward-recovery.test.ts",
           "api/clan/_save-version-echo.test.ts",
           "api/clan/_succession.test.ts"
         ],
@@ -18578,6 +18685,7 @@
           "api/clan/_exchange.test.ts",
           "api/clan/_kick-core.test.ts",
           "api/clan/_mentor.test.ts",
+          "api/clan/_reward-recovery.test.ts",
           "api/clan/_save-version-echo.test.ts",
           "api/clan/_succession.test.ts"
         ],
@@ -18625,6 +18733,7 @@
           "api/clan/_exchange.test.ts",
           "api/clan/_kick-core.test.ts",
           "api/clan/_mentor.test.ts",
+          "api/clan/_reward-recovery.test.ts",
           "api/clan/_save-version-echo.test.ts",
           "api/clan/_succession.test.ts"
         ],
@@ -18683,6 +18792,7 @@
           "api/clan/_exchange.test.ts",
           "api/clan/_kick-core.test.ts",
           "api/clan/_mentor.test.ts",
+          "api/clan/_reward-recovery.test.ts",
           "api/clan/_save-version-echo.test.ts",
           "api/clan/_succession.test.ts"
         ],
@@ -18741,6 +18851,7 @@
           "api/clan/_exchange.test.ts",
           "api/clan/_kick-core.test.ts",
           "api/clan/_mentor.test.ts",
+          "api/clan/_reward-recovery.test.ts",
           "api/clan/_save-version-echo.test.ts",
           "api/clan/_succession.test.ts"
         ],
@@ -18799,6 +18910,7 @@
           "api/clan/_exchange.test.ts",
           "api/clan/_kick-core.test.ts",
           "api/clan/_mentor.test.ts",
+          "api/clan/_reward-recovery.test.ts",
           "api/clan/_save-version-echo.test.ts",
           "api/clan/_succession.test.ts"
         ],
@@ -18852,6 +18964,7 @@
           "api/clan/_exchange.test.ts",
           "api/clan/_kick-core.test.ts",
           "api/clan/_mentor.test.ts",
+          "api/clan/_reward-recovery.test.ts",
           "api/clan/_save-version-echo.test.ts",
           "api/clan/_succession.test.ts"
         ],
@@ -25982,7 +26095,7 @@
       "activitySource": "Training/care, encounter/befriend/starter, breeding/hatch, evolution, sanctuary custody.",
       "actorBinding": "Authenticated pet owner; server reads roster and parent eligibility.",
       "activityBinding": "Pet IDs + sealed timer/breeding request/encounter identity and one-time starter latch.",
-      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2: Den/Yard bonus missing.",
+      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2 fixed: owner-approved additive Den/Yard bonus for new training; old sealed rewards unchanged.",
       "clientTrustedFields": "Selected owned pets/action/duration from allowed catalog; cannot choose sealed offspring or XP.",
       "eligibilityProof": "Ownership, funds, capacity, valid completed timer or encounter proof.",
       "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
@@ -26004,6 +26117,7 @@
           "api/pet/ranked-start-authority.test.ts",
           "api/pet/showdown.first-pact.test.ts",
           "api/pet/showdown.standing-court.test.ts",
+          "api/pet/training-clan-bonus.test.ts",
           "api/pet/wanderer-authority.test.ts",
           "api/pet/warfront-authority.test.ts",
           "api/pet/_arena-reward.test.ts",
@@ -26060,7 +26174,7 @@
       "activitySource": "Training/care, encounter/befriend/starter, breeding/hatch, evolution, sanctuary custody.",
       "actorBinding": "Authenticated pet owner; server reads roster and parent eligibility.",
       "activityBinding": "Pet IDs + sealed timer/breeding request/encounter identity and one-time starter latch.",
-      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2: Den/Yard bonus missing.",
+      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2 fixed: owner-approved additive Den/Yard bonus for new training; old sealed rewards unchanged.",
       "clientTrustedFields": "Selected owned pets/action/duration from allowed catalog; cannot choose sealed offspring or XP.",
       "eligibilityProof": "Ownership, funds, capacity, valid completed timer or encounter proof.",
       "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
@@ -26082,6 +26196,7 @@
           "api/pet/ranked-start-authority.test.ts",
           "api/pet/showdown.first-pact.test.ts",
           "api/pet/showdown.standing-court.test.ts",
+          "api/pet/training-clan-bonus.test.ts",
           "api/pet/wanderer-authority.test.ts",
           "api/pet/warfront-authority.test.ts",
           "api/pet/_arena-reward.test.ts",
@@ -26133,7 +26248,7 @@
       "activitySource": "Training/care, encounter/befriend/starter, breeding/hatch, evolution, sanctuary custody.",
       "actorBinding": "Authenticated pet owner; server reads roster and parent eligibility.",
       "activityBinding": "Pet IDs + sealed timer/breeding request/encounter identity and one-time starter latch.",
-      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2: Den/Yard bonus missing.",
+      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2 fixed: owner-approved additive Den/Yard bonus for new training; old sealed rewards unchanged.",
       "clientTrustedFields": "Selected owned pets/action/duration from allowed catalog; cannot choose sealed offspring or XP.",
       "eligibilityProof": "Ownership, funds, capacity, valid completed timer or encounter proof.",
       "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
@@ -26155,6 +26270,7 @@
           "api/pet/ranked-start-authority.test.ts",
           "api/pet/showdown.first-pact.test.ts",
           "api/pet/showdown.standing-court.test.ts",
+          "api/pet/training-clan-bonus.test.ts",
           "api/pet/wanderer-authority.test.ts",
           "api/pet/warfront-authority.test.ts",
           "api/pet/_arena-reward.test.ts",
@@ -26211,7 +26327,7 @@
       "activitySource": "Training/care, encounter/befriend/starter, breeding/hatch, evolution, sanctuary custody.",
       "actorBinding": "Authenticated pet owner; server reads roster and parent eligibility.",
       "activityBinding": "Pet IDs + sealed timer/breeding request/encounter identity and one-time starter latch.",
-      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2: Den/Yard bonus missing.",
+      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2 fixed: owner-approved additive Den/Yard bonus for new training; old sealed rewards unchanged.",
       "clientTrustedFields": "Selected owned pets/action/duration from allowed catalog; cannot choose sealed offspring or XP.",
       "eligibilityProof": "Ownership, funds, capacity, valid completed timer or encounter proof.",
       "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
@@ -26233,6 +26349,7 @@
           "api/pet/ranked-start-authority.test.ts",
           "api/pet/showdown.first-pact.test.ts",
           "api/pet/showdown.standing-court.test.ts",
+          "api/pet/training-clan-bonus.test.ts",
           "api/pet/wanderer-authority.test.ts",
           "api/pet/warfront-authority.test.ts",
           "api/pet/_arena-reward.test.ts",
@@ -27879,7 +27996,7 @@
       "activitySource": "Training/care, encounter/befriend/starter, breeding/hatch, evolution, sanctuary custody.",
       "actorBinding": "Authenticated pet owner; server reads roster and parent eligibility.",
       "activityBinding": "Pet IDs + sealed timer/breeding request/encounter identity and one-time starter latch.",
-      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2: Den/Yard bonus missing.",
+      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2 fixed: owner-approved additive Den/Yard bonus for new training; old sealed rewards unchanged.",
       "clientTrustedFields": "Selected owned pets/action/duration from allowed catalog; cannot choose sealed offspring or XP.",
       "eligibilityProof": "Ownership, funds, capacity, valid completed timer or encounter proof.",
       "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
@@ -27901,6 +28018,7 @@
           "api/pet/ranked-start-authority.test.ts",
           "api/pet/showdown.first-pact.test.ts",
           "api/pet/showdown.standing-court.test.ts",
+          "api/pet/training-clan-bonus.test.ts",
           "api/pet/wanderer-authority.test.ts",
           "api/pet/warfront-authority.test.ts",
           "api/pet/_arena-reward.test.ts",
@@ -27957,7 +28075,7 @@
       "activitySource": "Training/care, encounter/befriend/starter, breeding/hatch, evolution, sanctuary custody.",
       "actorBinding": "Authenticated pet owner; server reads roster and parent eligibility.",
       "activityBinding": "Pet IDs + sealed timer/breeding request/encounter identity and one-time starter latch.",
-      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2: Den/Yard bonus missing.",
+      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2 fixed: owner-approved additive Den/Yard bonus for new training; old sealed rewards unchanged.",
       "clientTrustedFields": "Selected owned pets/action/duration from allowed catalog; cannot choose sealed offspring or XP.",
       "eligibilityProof": "Ownership, funds, capacity, valid completed timer or encounter proof.",
       "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
@@ -27979,6 +28097,7 @@
           "api/pet/ranked-start-authority.test.ts",
           "api/pet/showdown.first-pact.test.ts",
           "api/pet/showdown.standing-court.test.ts",
+          "api/pet/training-clan-bonus.test.ts",
           "api/pet/wanderer-authority.test.ts",
           "api/pet/warfront-authority.test.ts",
           "api/pet/_arena-reward.test.ts",
@@ -28030,7 +28149,7 @@
       "activitySource": "Training/care, encounter/befriend/starter, breeding/hatch, evolution, sanctuary custody.",
       "actorBinding": "Authenticated pet owner; server reads roster and parent eligibility.",
       "activityBinding": "Pet IDs + sealed timer/breeding request/encounter identity and one-time starter latch.",
-      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2: Den/Yard bonus missing.",
+      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2 fixed: owner-approved additive Den/Yard bonus for new training; old sealed rewards unchanged.",
       "clientTrustedFields": "Selected owned pets/action/duration from allowed catalog; cannot choose sealed offspring or XP.",
       "eligibilityProof": "Ownership, funds, capacity, valid completed timer or encounter proof.",
       "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
@@ -28052,6 +28171,7 @@
           "api/pet/ranked-start-authority.test.ts",
           "api/pet/showdown.first-pact.test.ts",
           "api/pet/showdown.standing-court.test.ts",
+          "api/pet/training-clan-bonus.test.ts",
           "api/pet/wanderer-authority.test.ts",
           "api/pet/warfront-authority.test.ts",
           "api/pet/_arena-reward.test.ts",
@@ -28103,7 +28223,7 @@
       "activitySource": "Training/care, encounter/befriend/starter, breeding/hatch, evolution, sanctuary custody.",
       "actorBinding": "Authenticated pet owner; server reads roster and parent eligibility.",
       "activityBinding": "Pet IDs + sealed timer/breeding request/encounter identity and one-time starter latch.",
-      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2: Den/Yard bonus missing.",
+      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2 fixed: owner-approved additive Den/Yard bonus for new training; old sealed rewards unchanged.",
       "clientTrustedFields": "Selected owned pets/action/duration from allowed catalog; cannot choose sealed offspring or XP.",
       "eligibilityProof": "Ownership, funds, capacity, valid completed timer or encounter proof.",
       "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
@@ -28125,6 +28245,7 @@
           "api/pet/ranked-start-authority.test.ts",
           "api/pet/showdown.first-pact.test.ts",
           "api/pet/showdown.standing-court.test.ts",
+          "api/pet/training-clan-bonus.test.ts",
           "api/pet/wanderer-authority.test.ts",
           "api/pet/warfront-authority.test.ts",
           "api/pet/_arena-reward.test.ts",
@@ -28176,7 +28297,7 @@
       "activitySource": "Training/care, encounter/befriend/starter, breeding/hatch, evolution, sanctuary custody.",
       "actorBinding": "Authenticated pet owner; server reads roster and parent eligibility.",
       "activityBinding": "Pet IDs + sealed timer/breeding request/encounter identity and one-time starter latch.",
-      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2: Den/Yard bonus missing.",
+      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2 fixed: owner-approved additive Den/Yard bonus for new training; old sealed rewards unchanged.",
       "clientTrustedFields": "Selected owned pets/action/duration from allowed catalog; cannot choose sealed offspring or XP.",
       "eligibilityProof": "Ownership, funds, capacity, valid completed timer or encounter proof.",
       "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
@@ -28198,6 +28319,7 @@
           "api/pet/ranked-start-authority.test.ts",
           "api/pet/showdown.first-pact.test.ts",
           "api/pet/showdown.standing-court.test.ts",
+          "api/pet/training-clan-bonus.test.ts",
           "api/pet/wanderer-authority.test.ts",
           "api/pet/warfront-authority.test.ts",
           "api/pet/_arena-reward.test.ts",
@@ -28274,7 +28396,7 @@
       "activitySource": "Training/care, encounter/befriend/starter, breeding/hatch, evolution, sanctuary custody.",
       "actorBinding": "Authenticated pet owner; server reads roster and parent eligibility.",
       "activityBinding": "Pet IDs + sealed timer/breeding request/encounter identity and one-time starter latch.",
-      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2: Den/Yard bonus missing.",
+      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2 fixed: owner-approved additive Den/Yard bonus for new training; old sealed rewards unchanged.",
       "clientTrustedFields": "Selected owned pets/action/duration from allowed catalog; cannot choose sealed offspring or XP.",
       "eligibilityProof": "Ownership, funds, capacity, valid completed timer or encounter proof.",
       "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
@@ -28296,6 +28418,7 @@
           "api/pet/ranked-start-authority.test.ts",
           "api/pet/showdown.first-pact.test.ts",
           "api/pet/showdown.standing-court.test.ts",
+          "api/pet/training-clan-bonus.test.ts",
           "api/pet/wanderer-authority.test.ts",
           "api/pet/warfront-authority.test.ts",
           "api/pet/_arena-reward.test.ts",
@@ -28357,7 +28480,7 @@
       "activitySource": "Training/care, encounter/befriend/starter, breeding/hatch, evolution, sanctuary custody.",
       "actorBinding": "Authenticated pet owner; server reads roster and parent eligibility.",
       "activityBinding": "Pet IDs + sealed timer/breeding request/encounter identity and one-time starter latch.",
-      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2: Den/Yard bonus missing.",
+      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2 fixed: owner-approved additive Den/Yard bonus for new training; old sealed rewards unchanged.",
       "clientTrustedFields": "Selected owned pets/action/duration from allowed catalog; cannot choose sealed offspring or XP.",
       "eligibilityProof": "Ownership, funds, capacity, valid completed timer or encounter proof.",
       "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
@@ -28379,6 +28502,7 @@
           "api/pet/ranked-start-authority.test.ts",
           "api/pet/showdown.first-pact.test.ts",
           "api/pet/showdown.standing-court.test.ts",
+          "api/pet/training-clan-bonus.test.ts",
           "api/pet/wanderer-authority.test.ts",
           "api/pet/warfront-authority.test.ts",
           "api/pet/_arena-reward.test.ts",
@@ -28421,27 +28545,27 @@
       "family": "pet-progression-and-custody",
       "discovery": [
         {
-          "line": 82,
+          "line": 92,
           "kind": "mutation-or-settlement-call",
           "symbol": "gainServerPetXp"
         },
         {
-          "line": 86,
+          "line": 96,
           "kind": "mutation-or-settlement-call",
           "symbol": "grantPetHappiness"
         },
         {
-          "line": 102,
+          "line": 112,
           "kind": "value-write-or-projection",
           "field": "inventory"
         },
         {
-          "line": 106,
+          "line": 116,
           "kind": "value-write-or-projection",
           "field": "xp"
         },
         {
-          "line": 118,
+          "line": 128,
           "kind": "mutation-or-settlement-call",
           "symbol": "gainServerPetXp"
         }
@@ -28450,7 +28574,7 @@
       "activitySource": "Training/care, encounter/befriend/starter, breeding/hatch, evolution, sanctuary custody.",
       "actorBinding": "Authenticated pet owner; server reads roster and parent eligibility.",
       "activityBinding": "Pet IDs + sealed timer/breeding request/encounter identity and one-time starter latch.",
-      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2: Den/Yard bonus missing.",
+      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2 fixed: owner-approved additive Den/Yard bonus for new training; old sealed rewards unchanged.",
       "clientTrustedFields": "Selected owned pets/action/duration from allowed catalog; cannot choose sealed offspring or XP.",
       "eligibilityProof": "Ownership, funds, capacity, valid completed timer or encounter proof.",
       "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
@@ -28472,6 +28596,7 @@
           "api/pet/ranked-start-authority.test.ts",
           "api/pet/showdown.first-pact.test.ts",
           "api/pet/showdown.standing-court.test.ts",
+          "api/pet/training-clan-bonus.test.ts",
           "api/pet/wanderer-authority.test.ts",
           "api/pet/warfront-authority.test.ts",
           "api/pet/_arena-reward.test.ts",
@@ -28538,7 +28663,7 @@
       "activitySource": "Training/care, encounter/befriend/starter, breeding/hatch, evolution, sanctuary custody.",
       "actorBinding": "Authenticated pet owner; server reads roster and parent eligibility.",
       "activityBinding": "Pet IDs + sealed timer/breeding request/encounter identity and one-time starter latch.",
-      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2: Den/Yard bonus missing.",
+      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2 fixed: owner-approved additive Den/Yard bonus for new training; old sealed rewards unchanged.",
       "clientTrustedFields": "Selected owned pets/action/duration from allowed catalog; cannot choose sealed offspring or XP.",
       "eligibilityProof": "Ownership, funds, capacity, valid completed timer or encounter proof.",
       "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
@@ -28560,6 +28685,7 @@
           "api/pet/ranked-start-authority.test.ts",
           "api/pet/showdown.first-pact.test.ts",
           "api/pet/showdown.standing-court.test.ts",
+          "api/pet/training-clan-bonus.test.ts",
           "api/pet/wanderer-authority.test.ts",
           "api/pet/warfront-authority.test.ts",
           "api/pet/_arena-reward.test.ts",
@@ -28661,7 +28787,7 @@
       "activitySource": "Training/care, encounter/befriend/starter, breeding/hatch, evolution, sanctuary custody.",
       "actorBinding": "Authenticated pet owner; server reads roster and parent eligibility.",
       "activityBinding": "Pet IDs + sealed timer/breeding request/encounter identity and one-time starter latch.",
-      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2: Den/Yard bonus missing.",
+      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2 fixed: owner-approved additive Den/Yard bonus for new training; old sealed rewards unchanged.",
       "clientTrustedFields": "Selected owned pets/action/duration from allowed catalog; cannot choose sealed offspring or XP.",
       "eligibilityProof": "Ownership, funds, capacity, valid completed timer or encounter proof.",
       "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
@@ -28683,6 +28809,7 @@
           "api/pet/ranked-start-authority.test.ts",
           "api/pet/showdown.first-pact.test.ts",
           "api/pet/showdown.standing-court.test.ts",
+          "api/pet/training-clan-bonus.test.ts",
           "api/pet/wanderer-authority.test.ts",
           "api/pet/warfront-authority.test.ts",
           "api/pet/_arena-reward.test.ts",
@@ -28734,7 +28861,7 @@
       "activitySource": "Training/care, encounter/befriend/starter, breeding/hatch, evolution, sanctuary custody.",
       "actorBinding": "Authenticated pet owner; server reads roster and parent eligibility.",
       "activityBinding": "Pet IDs + sealed timer/breeding request/encounter identity and one-time starter latch.",
-      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2: Den/Yard bonus missing.",
+      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2 fixed: owner-approved additive Den/Yard bonus for new training; old sealed rewards unchanged.",
       "clientTrustedFields": "Selected owned pets/action/duration from allowed catalog; cannot choose sealed offspring or XP.",
       "eligibilityProof": "Ownership, funds, capacity, valid completed timer or encounter proof.",
       "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
@@ -28756,6 +28883,7 @@
           "api/pet/ranked-start-authority.test.ts",
           "api/pet/showdown.first-pact.test.ts",
           "api/pet/showdown.standing-court.test.ts",
+          "api/pet/training-clan-bonus.test.ts",
           "api/pet/wanderer-authority.test.ts",
           "api/pet/warfront-authority.test.ts",
           "api/pet/_arena-reward.test.ts",
@@ -28807,7 +28935,7 @@
       "activitySource": "Training/care, encounter/befriend/starter, breeding/hatch, evolution, sanctuary custody.",
       "actorBinding": "Authenticated pet owner; server reads roster and parent eligibility.",
       "activityBinding": "Pet IDs + sealed timer/breeding request/encounter identity and one-time starter latch.",
-      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2: Den/Yard bonus missing.",
+      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2 fixed: owner-approved additive Den/Yard bonus for new training; old sealed rewards unchanged.",
       "clientTrustedFields": "Selected owned pets/action/duration from allowed catalog; cannot choose sealed offspring or XP.",
       "eligibilityProof": "Ownership, funds, capacity, valid completed timer or encounter proof.",
       "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
@@ -28829,6 +28957,7 @@
           "api/pet/ranked-start-authority.test.ts",
           "api/pet/showdown.first-pact.test.ts",
           "api/pet/showdown.standing-court.test.ts",
+          "api/pet/training-clan-bonus.test.ts",
           "api/pet/wanderer-authority.test.ts",
           "api/pet/warfront-authority.test.ts",
           "api/pet/_arena-reward.test.ts",
@@ -28880,7 +29009,7 @@
       "activitySource": "Training/care, encounter/befriend/starter, breeding/hatch, evolution, sanctuary custody.",
       "actorBinding": "Authenticated pet owner; server reads roster and parent eligibility.",
       "activityBinding": "Pet IDs + sealed timer/breeding request/encounter identity and one-time starter latch.",
-      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2: Den/Yard bonus missing.",
+      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2 fixed: owner-approved additive Den/Yard bonus for new training; old sealed rewards unchanged.",
       "clientTrustedFields": "Selected owned pets/action/duration from allowed catalog; cannot choose sealed offspring or XP.",
       "eligibilityProof": "Ownership, funds, capacity, valid completed timer or encounter proof.",
       "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
@@ -28902,6 +29031,7 @@
           "api/pet/ranked-start-authority.test.ts",
           "api/pet/showdown.first-pact.test.ts",
           "api/pet/showdown.standing-court.test.ts",
+          "api/pet/training-clan-bonus.test.ts",
           "api/pet/wanderer-authority.test.ts",
           "api/pet/warfront-authority.test.ts",
           "api/pet/_arena-reward.test.ts",
@@ -28953,7 +29083,7 @@
       "activitySource": "Training/care, encounter/befriend/starter, breeding/hatch, evolution, sanctuary custody.",
       "actorBinding": "Authenticated pet owner; server reads roster and parent eligibility.",
       "activityBinding": "Pet IDs + sealed timer/breeding request/encounter identity and one-time starter latch.",
-      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2: Den/Yard bonus missing.",
+      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2 fixed: owner-approved additive Den/Yard bonus for new training; old sealed rewards unchanged.",
       "clientTrustedFields": "Selected owned pets/action/duration from allowed catalog; cannot choose sealed offspring or XP.",
       "eligibilityProof": "Ownership, funds, capacity, valid completed timer or encounter proof.",
       "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
@@ -28975,6 +29105,7 @@
           "api/pet/ranked-start-authority.test.ts",
           "api/pet/showdown.first-pact.test.ts",
           "api/pet/showdown.standing-court.test.ts",
+          "api/pet/training-clan-bonus.test.ts",
           "api/pet/wanderer-authority.test.ts",
           "api/pet/warfront-authority.test.ts",
           "api/pet/_arena-reward.test.ts",
@@ -29281,7 +29412,7 @@
       "activitySource": "Training/care, encounter/befriend/starter, breeding/hatch, evolution, sanctuary custody.",
       "actorBinding": "Authenticated pet owner; server reads roster and parent eligibility.",
       "activityBinding": "Pet IDs + sealed timer/breeding request/encounter identity and one-time starter latch.",
-      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2: Den/Yard bonus missing.",
+      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2 fixed: owner-approved additive Den/Yard bonus for new training; old sealed rewards unchanged.",
       "clientTrustedFields": "Selected owned pets/action/duration from allowed catalog; cannot choose sealed offspring or XP.",
       "eligibilityProof": "Ownership, funds, capacity, valid completed timer or encounter proof.",
       "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
@@ -29303,6 +29434,7 @@
           "api/pet/ranked-start-authority.test.ts",
           "api/pet/showdown.first-pact.test.ts",
           "api/pet/showdown.standing-court.test.ts",
+          "api/pet/training-clan-bonus.test.ts",
           "api/pet/wanderer-authority.test.ts",
           "api/pet/warfront-authority.test.ts",
           "api/pet/_arena-reward.test.ts",
@@ -29361,7 +29493,7 @@
       "activitySource": "Training/care, encounter/befriend/starter, breeding/hatch, evolution, sanctuary custody.",
       "actorBinding": "Authenticated pet owner; server reads roster and parent eligibility.",
       "activityBinding": "Pet IDs + sealed timer/breeding request/encounter identity and one-time starter latch.",
-      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2: Den/Yard bonus missing.",
+      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2 fixed: owner-approved additive Den/Yard bonus for new training; old sealed rewards unchanged.",
       "clientTrustedFields": "Selected owned pets/action/duration from allowed catalog; cannot choose sealed offspring or XP.",
       "eligibilityProof": "Ownership, funds, capacity, valid completed timer or encounter proof.",
       "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
@@ -29383,6 +29515,7 @@
           "api/pet/ranked-start-authority.test.ts",
           "api/pet/showdown.first-pact.test.ts",
           "api/pet/showdown.standing-court.test.ts",
+          "api/pet/training-clan-bonus.test.ts",
           "api/pet/wanderer-authority.test.ts",
           "api/pet/warfront-authority.test.ts",
           "api/pet/_arena-reward.test.ts",
@@ -29441,7 +29574,7 @@
       "activitySource": "Training/care, encounter/befriend/starter, breeding/hatch, evolution, sanctuary custody.",
       "actorBinding": "Authenticated pet owner; server reads roster and parent eligibility.",
       "activityBinding": "Pet IDs + sealed timer/breeding request/encounter identity and one-time starter latch.",
-      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2: Den/Yard bonus missing.",
+      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2 fixed: owner-approved additive Den/Yard bonus for new training; old sealed rewards unchanged.",
       "clientTrustedFields": "Selected owned pets/action/duration from allowed catalog; cannot choose sealed offspring or XP.",
       "eligibilityProof": "Ownership, funds, capacity, valid completed timer or encounter proof.",
       "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
@@ -29463,6 +29596,7 @@
           "api/pet/ranked-start-authority.test.ts",
           "api/pet/showdown.first-pact.test.ts",
           "api/pet/showdown.standing-court.test.ts",
+          "api/pet/training-clan-bonus.test.ts",
           "api/pet/wanderer-authority.test.ts",
           "api/pet/warfront-authority.test.ts",
           "api/pet/_arena-reward.test.ts",
@@ -29516,7 +29650,7 @@
       "activitySource": "Training/care, encounter/befriend/starter, breeding/hatch, evolution, sanctuary custody.",
       "actorBinding": "Authenticated pet owner; server reads roster and parent eligibility.",
       "activityBinding": "Pet IDs + sealed timer/breeding request/encounter identity and one-time starter latch.",
-      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2: Den/Yard bonus missing.",
+      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2 fixed: owner-approved additive Den/Yard bonus for new training; old sealed rewards unchanged.",
       "clientTrustedFields": "Selected owned pets/action/duration from allowed catalog; cannot choose sealed offspring or XP.",
       "eligibilityProof": "Ownership, funds, capacity, valid completed timer or encounter proof.",
       "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
@@ -29538,6 +29672,7 @@
           "api/pet/ranked-start-authority.test.ts",
           "api/pet/showdown.first-pact.test.ts",
           "api/pet/showdown.standing-court.test.ts",
+          "api/pet/training-clan-bonus.test.ts",
           "api/pet/wanderer-authority.test.ts",
           "api/pet/warfront-authority.test.ts",
           "api/pet/_arena-reward.test.ts",
@@ -29591,7 +29726,7 @@
       "activitySource": "Training/care, encounter/befriend/starter, breeding/hatch, evolution, sanctuary custody.",
       "actorBinding": "Authenticated pet owner; server reads roster and parent eligibility.",
       "activityBinding": "Pet IDs + sealed timer/breeding request/encounter identity and one-time starter latch.",
-      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2: Den/Yard bonus missing.",
+      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2 fixed: owner-approved additive Den/Yard bonus for new training; old sealed rewards unchanged.",
       "clientTrustedFields": "Selected owned pets/action/duration from allowed catalog; cannot choose sealed offspring or XP.",
       "eligibilityProof": "Ownership, funds, capacity, valid completed timer or encounter proof.",
       "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
@@ -29613,6 +29748,7 @@
           "api/pet/ranked-start-authority.test.ts",
           "api/pet/showdown.first-pact.test.ts",
           "api/pet/showdown.standing-court.test.ts",
+          "api/pet/training-clan-bonus.test.ts",
           "api/pet/wanderer-authority.test.ts",
           "api/pet/warfront-authority.test.ts",
           "api/pet/_arena-reward.test.ts",
@@ -29660,7 +29796,7 @@
       "activitySource": "Training/care, encounter/befriend/starter, breeding/hatch, evolution, sanctuary custody.",
       "actorBinding": "Authenticated pet owner; server reads roster and parent eligibility.",
       "activityBinding": "Pet IDs + sealed timer/breeding request/encounter identity and one-time starter latch.",
-      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2: Den/Yard bonus missing.",
+      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2 fixed: owner-approved additive Den/Yard bonus for new training; old sealed rewards unchanged.",
       "clientTrustedFields": "Selected owned pets/action/duration from allowed catalog; cannot choose sealed offspring or XP.",
       "eligibilityProof": "Ownership, funds, capacity, valid completed timer or encounter proof.",
       "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
@@ -29682,6 +29818,7 @@
           "api/pet/ranked-start-authority.test.ts",
           "api/pet/showdown.first-pact.test.ts",
           "api/pet/showdown.standing-court.test.ts",
+          "api/pet/training-clan-bonus.test.ts",
           "api/pet/wanderer-authority.test.ts",
           "api/pet/warfront-authority.test.ts",
           "api/pet/_arena-reward.test.ts",
@@ -29729,7 +29866,7 @@
       "activitySource": "Training/care, encounter/befriend/starter, breeding/hatch, evolution, sanctuary custody.",
       "actorBinding": "Authenticated pet owner; server reads roster and parent eligibility.",
       "activityBinding": "Pet IDs + sealed timer/breeding request/encounter identity and one-time starter latch.",
-      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2: Den/Yard bonus missing.",
+      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2 fixed: owner-approved additive Den/Yard bonus for new training; old sealed rewards unchanged.",
       "clientTrustedFields": "Selected owned pets/action/duration from allowed catalog; cannot choose sealed offspring or XP.",
       "eligibilityProof": "Ownership, funds, capacity, valid completed timer or encounter proof.",
       "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
@@ -29751,6 +29888,7 @@
           "api/pet/ranked-start-authority.test.ts",
           "api/pet/showdown.first-pact.test.ts",
           "api/pet/showdown.standing-court.test.ts",
+          "api/pet/training-clan-bonus.test.ts",
           "api/pet/wanderer-authority.test.ts",
           "api/pet/warfront-authority.test.ts",
           "api/pet/_arena-reward.test.ts",
@@ -29809,7 +29947,7 @@
       "activitySource": "Training/care, encounter/befriend/starter, breeding/hatch, evolution, sanctuary custody.",
       "actorBinding": "Authenticated pet owner; server reads roster and parent eligibility.",
       "activityBinding": "Pet IDs + sealed timer/breeding request/encounter identity and one-time starter latch.",
-      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2: Den/Yard bonus missing.",
+      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2 fixed: owner-approved additive Den/Yard bonus for new training; old sealed rewards unchanged.",
       "clientTrustedFields": "Selected owned pets/action/duration from allowed catalog; cannot choose sealed offspring or XP.",
       "eligibilityProof": "Ownership, funds, capacity, valid completed timer or encounter proof.",
       "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
@@ -29831,6 +29969,7 @@
           "api/pet/ranked-start-authority.test.ts",
           "api/pet/showdown.first-pact.test.ts",
           "api/pet/showdown.standing-court.test.ts",
+          "api/pet/training-clan-bonus.test.ts",
           "api/pet/wanderer-authority.test.ts",
           "api/pet/warfront-authority.test.ts",
           "api/pet/_arena-reward.test.ts",
@@ -30029,47 +30168,47 @@
           "symbol": "settleFinishedTraining"
         },
         {
-          "line": 114,
+          "line": 115,
           "kind": "mutation-or-settlement-call",
           "symbol": "settleFinishedTraining"
         },
         {
-          "line": 130,
+          "line": 131,
           "kind": "mutation-or-settlement-call",
           "symbol": "gainServerPetXp"
         },
         {
-          "line": 133,
+          "line": 134,
           "kind": "mutation-or-settlement-call",
           "symbol": "grantPetHappiness"
         },
         {
-          "line": 150,
+          "line": 151,
           "kind": "value-write-or-projection",
           "field": "fateShards"
         },
         {
-          "line": 176,
+          "line": 177,
           "kind": "value-write-or-projection",
           "field": "inventory"
         },
         {
-          "line": 199,
+          "line": 200,
           "kind": "value-write-or-projection",
           "field": "pets"
         },
         {
-          "line": 218,
+          "line": 219,
           "kind": "value-write-or-projection",
           "field": "pets"
         },
         {
-          "line": 221,
+          "line": 222,
           "kind": "value-write-or-projection",
           "field": "pets"
         },
         {
-          "line": 239,
+          "line": 240,
           "kind": "mutation-or-settlement-call",
           "symbol": "reportMissionEvent"
         }
@@ -30078,7 +30217,7 @@
       "activitySource": "Training/care, encounter/befriend/starter, breeding/hatch, evolution, sanctuary custody.",
       "actorBinding": "Authenticated pet owner; server reads roster and parent eligibility.",
       "activityBinding": "Pet IDs + sealed timer/breeding request/encounter identity and one-time starter latch.",
-      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2: Den/Yard bonus missing.",
+      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2 fixed: owner-approved additive Den/Yard bonus for new training; old sealed rewards unchanged.",
       "clientTrustedFields": "Selected owned pets/action/duration from allowed catalog; cannot choose sealed offspring or XP.",
       "eligibilityProof": "Ownership, funds, capacity, valid completed timer or encounter proof.",
       "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
@@ -30100,6 +30239,7 @@
           "api/pet/ranked-start-authority.test.ts",
           "api/pet/showdown.first-pact.test.ts",
           "api/pet/showdown.standing-court.test.ts",
+          "api/pet/training-clan-bonus.test.ts",
           "api/pet/wanderer-authority.test.ts",
           "api/pet/warfront-authority.test.ts",
           "api/pet/_arena-reward.test.ts",
@@ -30253,7 +30393,7 @@
       "activitySource": "Training/care, encounter/befriend/starter, breeding/hatch, evolution, sanctuary custody.",
       "actorBinding": "Authenticated pet owner; server reads roster and parent eligibility.",
       "activityBinding": "Pet IDs + sealed timer/breeding request/encounter identity and one-time starter latch.",
-      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2: Den/Yard bonus missing.",
+      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2 fixed: owner-approved additive Den/Yard bonus for new training; old sealed rewards unchanged.",
       "clientTrustedFields": "Selected owned pets/action/duration from allowed catalog; cannot choose sealed offspring or XP.",
       "eligibilityProof": "Ownership, funds, capacity, valid completed timer or encounter proof.",
       "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
@@ -30275,6 +30415,7 @@
           "api/pet/ranked-start-authority.test.ts",
           "api/pet/showdown.first-pact.test.ts",
           "api/pet/showdown.standing-court.test.ts",
+          "api/pet/training-clan-bonus.test.ts",
           "api/pet/wanderer-authority.test.ts",
           "api/pet/warfront-authority.test.ts",
           "api/pet/_arena-reward.test.ts",
@@ -30338,7 +30479,7 @@
       "activitySource": "Training/care, encounter/befriend/starter, breeding/hatch, evolution, sanctuary custody.",
       "actorBinding": "Authenticated pet owner; server reads roster and parent eligibility.",
       "activityBinding": "Pet IDs + sealed timer/breeding request/encounter identity and one-time starter latch.",
-      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2: Den/Yard bonus missing.",
+      "amountAuthority": "Server duration/XP, costs, offspring/trait/palette roll and deterministic hatch from sealed outcome. C2 fixed: owner-approved additive Den/Yard bonus for new training; old sealed rewards unchanged.",
       "clientTrustedFields": "Selected owned pets/action/duration from allowed catalog; cannot choose sealed offspring or XP.",
       "eligibilityProof": "Ownership, funds, capacity, valid completed timer or encounter proof.",
       "expiry": "UNRESOLVED — do not infer safety from a family helper or test filename",
@@ -30360,6 +30501,7 @@
           "api/pet/ranked-start-authority.test.ts",
           "api/pet/showdown.first-pact.test.ts",
           "api/pet/showdown.standing-court.test.ts",
+          "api/pet/training-clan-bonus.test.ts",
           "api/pet/wanderer-authority.test.ts",
           "api/pet/warfront-authority.test.ts",
           "api/pet/_arena-reward.test.ts",

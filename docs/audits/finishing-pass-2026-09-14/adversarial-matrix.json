@@ -5,16 +5,31 @@
       "family": "clan-mission",
       "cases": {
         "normal success": {
-          "status": "NOT ESTABLISHED",
-          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/clan/_reward-recovery.test.ts",
+              "title": "new weekly mission claims remain distinct from prior-week receipts"
+            }
+          ]
         },
         "exact retry": {
-          "status": "NOT ESTABLISHED",
-          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/clan/_reward-recovery.test.ts",
+              "title": "mission lost shared-write acknowledgement never credits the clan twice"
+            }
+          ]
         },
         "simultaneous duplicate": {
-          "status": "NOT ESTABLISHED",
-          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/clan/_reward-recovery.test.ts",
+              "title": "simultaneous mission retries do not duplicate shared or personal value"
+            }
+          ]
         },
         "wrong player": {
           "status": "NOT ESTABLISHED",
@@ -37,30 +52,53 @@
           "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
         },
         "forged outcome": {
-          "status": "NOT ESTABLISHED",
-          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/clan/_reward-recovery.test.ts",
+              "title": "a clan mission proof pre-seeded before the new field was protected cannot mint personal points"
+            }
+          ]
         },
         "response lost after commit": {
-          "status": "NOT ESTABLISHED",
-          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/clan/_reward-recovery.test.ts",
+              "title": "mission lost shared-write acknowledgement never credits the clan twice"
+            }
+          ]
         },
         "server/process interruption": {
-          "status": "PROVEN DEFECT",
-          "evidence": "C3: injected failure before clan credit, expired pending receipt replays as success without credit",
-          "artifact": "clan-probe-results.json"
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/clan/_reward-recovery.test.ts",
+              "title": "mission resumes a new-protocol interruption before shared credit, once"
+            }
+          ]
         },
         "partial settlement": {
-          "status": "PROVEN DEFECT",
-          "evidence": "C3: personal points granted on retry while shared treasury/XP remain unpaid",
-          "artifact": "clan-probe-results.json"
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/clan/_reward-recovery.test.ts",
+              "title": "mission point interruption retries the sealed contributor set even after contributions change"
+            }
+          ]
         },
         "reconnect": {
           "status": "NOT ESTABLISHED",
           "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
         },
         "repeat claim after success": {
-          "status": "NOT ESTABLISHED",
-          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/clan/_reward-recovery.test.ts",
+              "title": "new mission receipt keeps personal credit once even after the display history is full"
+            }
+          ]
         }
       }
     },
@@ -68,62 +106,120 @@
       "family": "clan-exchange",
       "cases": {
         "normal success": {
-          "status": "NOT ESTABLISHED",
-          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/clan/_reward-recovery.test.ts",
+              "title": "Exchange exact retry and two genuine purchases retain their distinct identity"
+            }
+          ]
         },
         "exact retry": {
-          "status": "NOT ESTABLISHED",
-          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/clan/_reward-recovery.test.ts",
+              "title": "Exchange exact retry and two genuine purchases retain their distinct identity"
+            }
+          ]
         },
         "simultaneous duplicate": {
-          "status": "NOT ESTABLISHED",
-          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/clan/_reward-recovery.test.ts",
+              "title": "simultaneous Exchange retries settle once"
+            }
+          ]
         },
         "wrong player": {
           "status": "NOT ESTABLISHED",
           "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
         },
         "wrong activity/run/battle": {
-          "status": "NOT ESTABLISHED",
-          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/clan/_reward-recovery.test.ts",
+              "title": "Exchange rejects reusing an intent for another item or clan"
+            }
+          ]
         },
         "stale proof": {
           "status": "NOT ESTABLISHED",
           "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
         },
         "expired proof": {
-          "status": "NOT ESTABLISHED",
-          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/clan/_reward-recovery.test.ts",
+              "title": "expired and future Exchange request identities cannot authorize value"
+            }
+          ]
         },
         "forged amount": {
-          "status": "NOT ESTABLISHED",
-          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/clan/_reward-recovery.test.ts",
+              "title": "Exchange ignores forged price and reward fields and rejects a wrong actor before debit"
+            }
+          ]
         },
         "forged outcome": {
-          "status": "NOT ESTABLISHED",
-          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/clan/_reward-recovery.test.ts",
+              "title": "a pre-seeded Exchange debit field without a server-minted journal cannot authorize treasury credit"
+            }
+          ]
         },
         "response lost after commit": {
-          "status": "PROVEN DEFECT",
-          "evidence": "C4: treasury credit persisted, points and limit refunded",
-          "artifact": "clan-probe-results.json"
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/clan/_reward-recovery.test.ts",
+              "title": "Exchange recovers ${boundary} clan credit without refunding an uncertain debit"
+            }
+          ]
         },
         "server/process interruption": {
-          "status": "NOT ESTABLISHED",
-          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/clan/_reward-recovery.test.ts",
+              "title": "a suspended Exchange writer cannot overwrite a successor after its lock expires"
+            }
+          ]
         },
         "partial settlement": {
-          "status": "PROVEN DEFECT",
-          "evidence": "C4: WarSupply1500 granted at zero net points cost",
-          "artifact": "clan-probe-results.json"
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/clan/_reward-recovery.test.ts",
+              "title": "Exchange resumes ${boundary} its player debit"
+            }
+          ]
         },
         "reconnect": {
-          "status": "NOT ESTABLISHED",
-          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "shinobij.client/src/lib/clan-exchange-retry.test.ts",
+              "title": "a lost Exchange response retains its intent; a later genuine purchase gets a new one"
+            }
+          ]
         },
         "repeat claim after success": {
-          "status": "NOT ESTABLISHED",
-          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/clan/_reward-recovery.test.ts",
+              "title": "Exchange exact retry and two genuine purchases retain their distinct identity"
+            }
+          ]
         }
       }
     },
