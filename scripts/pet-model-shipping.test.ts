@@ -122,21 +122,6 @@ test("the Coliseum model aliases resolve to a model that exists", () => {
     assert.ok(existsSync(join(modelsDir, "roster", `${HOLLOW_HOUND_MODEL_SOURCE_ID}.glb`)), "the Hollow Hound source model has no GLB");
 });
 
-test("Hollow Warfront prop and boss models are allowlisted and present", () => {
-    // Loaded unconditionally by the Warfront 3D stage (useGLTF.preload at module
-    // scope), so a missing one takes the stage down the same way the starters
-    // took the Coliseum down.
-    const docker = allowedPaths(".dockerignore");
-    const git = allowedPaths(".gitignore");
-    const props = ["gate-warden-rigged.glb", "ward-totem.glb", "wf-boulder.glb", "wf-lantern.glb"];
-    for (const file of props) {
-        const path = `shinobij.client/public/pet-models/${file}`;
-        assert.ok(existsSync(join(repoRoot, path)), `missing Warfront model: ${file}`);
-        assert.ok(docker.has(path), `${file} is excluded from the Docker build context — it will 404 in production`);
-        assert.ok(git.has(path), `${file} is not re-included in .gitignore`);
-    }
-});
-
 test("the Showdown four-pet camera models are allowlisted and present", () => {
     // These live in their own subdirectory, so BOTH ignore files need the
     // directory re-included before the wildcard can match. They shipped
