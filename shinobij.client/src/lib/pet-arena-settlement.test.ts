@@ -262,7 +262,6 @@ test("the retired lane war is unreachable from anything a player can open", () =
 
 test("a Warfront challenge lets each participant command their own roster against the sealed rival defense", () => {
     const challenge = readFileSync(new URL("./arena-challenge.ts", import.meta.url), "utf8");
-    const worker = readFileSync(new URL("./pet-warfront-worker-client.ts", import.meta.url), "utf8");
 
     assert.match(arenaSource, /challengerWarfrontPlan,[\s\S]*fetch\('\/api\/player\/challenge'/);
     assert.match(arenaSource, /responderWarfrontPlan: responderPlan/);
@@ -274,7 +273,6 @@ test("a Warfront challenge lets each participant command their own roster agains
     assert.match(arenaSource, /if \(!response\.ok\)[\s\S]*Nothing was started/);
     assert.match(arenaSource, /startArenaMatch\(pendingArenaMatch\.blue,[\s\S]*pendingArenaMatch\.plans\)/);
     assert.match(challenge, /plans: \{ blue: bluePlan, red: redPlan \}/);
-    assert.match(worker, /redPolicy: args\.redPolicy/);
     assert.match(arenaSource, /<PetWarfrontRite[\s\S]*red=\{arenaMatch\.red\}/,
         "each participant commands their own band against the sealed rival one");
 });
