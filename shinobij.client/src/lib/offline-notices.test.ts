@@ -4,8 +4,11 @@ import {
     applyOfflineNotices,
     buildOfflineNoticeDigest,
     offlineNoticeDigestLines,
+    offlineNoticeDigestText,
     offlineNoticeMessage,
     parseOfflineNotices,
+    presentOfflineNoticeDigest,
+    type OfflineNoticeDigest,
 } from './offline-notices';
 
 const NOW = 1_700_000_000_000;
@@ -74,6 +77,40 @@ test('applyOfflineNotices ignores junk and an empty inbox', () => {
     assert.equal(applyOfflineNotices(null, (m) => shown.push(m)), 0);
     assert.equal(applyOfflineNotices([], (m) => shown.push(m)), 0);
     assert.equal(shown.length, 1, 'an empty inbox never opens a modal');
+});
+
+test('a digest host chunk that fails to load falls back to the plain-text digest', async () => {
+    // The next heartbeat acknowledges these notices whether or not they were
+    // shown, so a failed host load must not drop them. Nor may it escape as an
+    // unhandled rejection: Playwright records one as a pageerror, and a failed
+    // module fetch cannot be retried in the same page.
+    const digest = buildOfflineNoticeDigest([
+        { kind: 'merc-raid', by: 'Kenji', sector: 12, at: NOW - HOUR },
+        { kind: 'bounty-placed', by: 'Rill', sector: 0, at: NOW - DAY, amount: 500, total: 500 },
+    ], NOW);
+    const shown: string[] = [];
+    // Chromium's wording; Firefox and WebKit differ, and the fallback must not care.
+    const failedLoad = () => Promise.reject(new TypeError('Failed to fetch dynamically imported module: http://127.0.0.1:4173/assets/c-DKHtRrA8.js'));
+    await presentOfflineNoticeDigest(digest, failedLoad, (message) => shown.push(message));
+    assert.deepEqual(shown, [offlineNoticeDigestText(digest)]);
+    assert.match(shown[0], /Kenji raided your camp in Sector 12/);
+});
+
+test('a digest host that loads mounts the modal and never touches the fallback', async () => {
+    const digest = buildOfflineNoticeDigest([{ kind: 'merc-raid', by: 'Kenji', sector: 12, at: NOW - HOUR }], NOW);
+    const mounted: OfflineNoticeDigest[] = [];
+    const shown: string[] = [];
+    await presentOfflineNoticeDigest(digest, async () => ({ showOfflineNoticeDigest: (d) => { mounted.push(d); } }), (message) => shown.push(message));
+    assert.deepEqual(mounted, [digest]);
+    assert.deepEqual(shown, []);
+
+    // A host that loaded and then threw is a bug, not a failed load: it still
+    // rejects, and the plain-text fallback does not paper over it.
+    await assert.rejects(
+        presentOfflineNoticeDigest(digest, async () => ({ showOfflineNoticeDigest: () => { throw new Error('host bug'); } }), (message) => shown.push(message)),
+        /host bug/,
+    );
+    assert.deepEqual(shown, []);
 });
 
 test('the digest sorts the actionable notice first, then newest first', () => {
