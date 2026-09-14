@@ -1,6 +1,15 @@
 import { FORBIDDEN_CREATOR_CHARACTER_FIELDS, DAILY_CLAIM_DATE_FIELDS, MONOTONIC_DATE_CHARACTER_FIELDS } from './_state-ownership.js';
 import { DISCHARGE_GRACE_MS, HOSPITAL_DURATION_MS } from './_sanitize-ledger.js';
 
+// A same-day counter as the cap readers use it: a whole, non-negative, finite
+// number. Anything else becomes 0 BEFORE it meets the floor. Number('x') is NaN
+// and Math.max(n, NaN) is NaN; NaN and Infinity are both written as null, and
+// every reader turns null back into 0 with `Number(x ?? 0)`, which is an open cap.
+const dailyCount = (value: unknown): number => {
+    const n = Math.floor(Number(value ?? 0));
+    return Number.isFinite(n) && n > 0 ? n : 0;
+};
+
 export function sanitizeClaimsAndHospital(char: Record<string, unknown>, exChar: Record<string, unknown>) {
 
     // Admin-only "creator" content (jutsus / items / AIs / missions / events /
@@ -72,9 +81,7 @@ export function sanitizeClaimsAndHospital(char: Record<string, unknown>, exChar:
     // self-limiting; a fully server-authoritative cap would need a dedicated
     // server-stamped HG date field.)
     if (exChar.lastDailyReset === SERVER_UTC_DATE) {
-        const floorRuns = Math.max(0, Math.floor(Number(exChar.dailyHollowGateRuns ?? 0)));
-        const incomingRuns = Math.max(0, Math.floor(Number(char.dailyHollowGateRuns ?? 0)));
-        char.dailyHollowGateRuns = Math.max(incomingRuns, floorRuns);
+        char.dailyHollowGateRuns = Math.max(dailyCount(char.dailyHollowGateRuns), dailyCount(exChar.dailyHollowGateRuns));
     }
 
     // Daily-reset stamps (lastDailyReset / lastHuntReset) gate the per-day
@@ -94,10 +101,21 @@ export function sanitizeClaimsAndHospital(char: Record<string, unknown>, exChar:
     // clamped to SERVER_UTC_DATE before the monotonic rule runs. If the STORED
     // stamp is itself in the future (written before this clamp existed) it is
     // allowed to come back down to today rather than pin forever.
+    //
+    // An OMITTED stamp is left alone: the save endpoint merges the stored record
+    // under the incoming one (mergePreservingImages), so the stored stamp survives
+    // the write. A stamp that is PRESENT but blank or not a string is different —
+    // it would overwrite the stored stamp, and every daily cap reader checks
+    // `lastDailyReset === today`, so the day's counters would read as another
+    // day's. Such a stamp keeps the stored value instead.
     for (const field of MONOTONIC_DATE_CHARACTER_FIELDS) {
+        if (!Object.prototype.hasOwnProperty.call(char, field)) continue;
         const stored = typeof exChar[field] === 'string' ? (exChar[field] as string) : '';
         let incoming = typeof char[field] === 'string' ? (char[field] as string) : '';
-        if (!incoming) continue;
+        if (!incoming) {
+            if (stored) char[field] = stored > SERVER_UTC_DATE ? SERVER_UTC_DATE : stored;
+            continue;
+        }
         if (incoming > SERVER_UTC_DATE) incoming = SERVER_UTC_DATE;
         if (stored && stored <= SERVER_UTC_DATE && incoming < stored) incoming = stored;
         char[field] = incoming;
@@ -113,23 +131,22 @@ export function sanitizeClaimsAndHospital(char: Record<string, unknown>, exChar:
     // reset is preserved because on a real new day exChar's stamp != today, so
     // the floor is skipped and the counter is free to drop to 0.
     if (exChar.lastDailyReset === SERVER_UTC_DATE) {
-        const floorM = Math.max(0, Math.floor(Number(exChar.dailyMissionsCompleted ?? 0)));
-        const inM = Math.max(0, Math.floor(Number(char.dailyMissionsCompleted ?? 0)));
-        char.dailyMissionsCompleted = Math.max(inM, floorM);
+        char.dailyMissionsCompleted = Math.max(dailyCount(char.dailyMissionsCompleted), dailyCount(exChar.dailyMissionsCompleted));
         // dailyPetWins is the same shape of guard for the pet-arena ryo faucet:
         // api/pet/battle-result.ts and api/pet/showdown.ts read this counter
         // straight off the save to decide whether the 100/day cap is spent, so a
         // save carrying a lower value re-opens the cap for another hundred wins.
         // It does not even take a tampered client — a second tab holding a stale
         // count zeroes it on its next autosave.
-        const floorP = Math.max(0, Math.floor(Number(exChar.dailyPetWins ?? 0)));
-        const inP = Math.max(0, Math.floor(Number(char.dailyPetWins ?? 0)));
-        char.dailyPetWins = Math.max(inP, floorP);
+        char.dailyPetWins = Math.max(dailyCount(char.dailyPetWins), dailyCount(exChar.dailyPetWins));
+        // dailyFateSpins is the same guard for the free Sunscar Fate Dice:
+        // api/festival/sunscar.ts reads it off the save to decide whether the
+        // five-a-day cap is spent, and every draw pays ryo and stat points, with
+        // a Fate Shard on a triple.
+        char.dailyFateSpins = Math.max(dailyCount(char.dailyFateSpins), dailyCount(exChar.dailyFateSpins));
     }
     if (exChar.lastHuntReset === SERVER_UTC_DATE) {
-        const floorH = Math.max(0, Math.floor(Number(exChar.dailyHuntsCompleted ?? 0)));
-        const inH = Math.max(0, Math.floor(Number(char.dailyHuntsCompleted ?? 0)));
-        char.dailyHuntsCompleted = Math.max(inH, floorH);
+        char.dailyHuntsCompleted = Math.max(dailyCount(char.dailyHuntsCompleted), dailyCount(exChar.dailyHuntsCompleted));
     }
 
     // academy-trial is a one-time onboarding claim (claim-mission academy-trial
