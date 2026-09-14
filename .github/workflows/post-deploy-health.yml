@@ -10,23 +10,40 @@
 # The probe that would catch this already exists (`/health?deep=1`, and
 # scripts/release-health-check.mjs which drives it). Nothing ran it. This does.
 #
-# It cannot block the cutover — Railway has already switched by the time the new
-# container answers — so this is an ALARM, not a gate: it turns a silent
-# bad-env deploy into a failed workflow run instead of a live outage nobody is
-# paged for. Roll back from the Railway dashboard when it fires.
+# It is an ALARM, not a gate: it turns a silent bad-env deploy into a failed
+# workflow run instead of a live outage nobody is paged for. Roll back from the
+# Railway dashboard when it fires.
+#
+# ⛔ It must never be able to gate the cutover, and it can if it runs too early.
+# Railway waits until every check suite on the commit is complete and green,
+# and any workflow run tied to that commit adds a check suite to it. This
+# workflow used to start on `workflow_run` (CI completed), and such a run is tied
+# to the newest commit on main, which is the one Railway was about to deploy.
+# When anything else was still running as CI finished (a Dependabot job, a slow
+# CodeQL analysis), Railway waited for the probe while the probe waited for the
+# deploy. After 20 minutes the probe failed, and Railway cancelled the rollout
+# (100aa4218, 2026-09-14).
+#
+# So it starts on `deployment_status`: Railway posts `success` on the deployment
+# only after it has cut over, and the run is tied to that already-deployed
+# commit. By then Railway has nothing left to wait for. The trade-off: Railway
+# does not always post a GitHub deployment record, so the odd deploy goes
+# unprobed. Re-check one by hand with workflow_dispatch. There is deliberately
+# no `schedule` or `workflow_run` fallback, because both tie their run to main's
+# newest commit and would bring the deadlock back.
 name: Post-deploy health
 
 permissions:
   contents: read
 
 on:
-  # Railway builds from main after CI passes, so a completed CI run is the
-  # earliest reliable signal that a deploy is on its way.
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
-    branches: [main]
-  # Manual re-check (after a rollback, or to confirm a hotfix landed).
+  # Every status Railway posts on a deployment (in_progress, success, failure)
+  # starts a run; `inactive` does not. The jobs below pick the states they act on.
+  deployment_status:
+  # Manual re-check (after a rollback, or to confirm a hotfix landed). A manual
+  # run is tied to main's newest commit, so only start one once that commit is
+  # live or has been abandoned. Started while Railway is still waiting on it, a
+  # failing run would cancel the rollout, exactly as described above.
   workflow_dispatch:
     inputs:
       commit:
@@ -34,8 +51,12 @@ on:
         required: true
         type: string
 
+# One group per deployment state. Railway posts `in_progress` as soon as a
+# commit is pushed, so a single group would let that run cancel the probe still
+# checking the previous deploy. With per-state groups, only a newer `success`
+# replaces an older one, and by then the older commit is no longer live anyway.
 concurrency:
-  group: post-deploy-health
+  group: post-deploy-health-${{ github.event.deployment_status.state || github.event_name }}
   cancel-in-progress: true
 
 # ci.yml's note applies here too: GitHub's default `run:` shell has no pipefail,
@@ -50,12 +71,15 @@ env:
 
 jobs:
   probe:
-    # A failed CI run means Railway never deployed; probing would just re-test
-    # whatever is already live and could red-X for an unrelated reason.
+    # Only a production deployment Railway reports as live. Railway names the
+    # environment "<project> / production".
     if: >-
       github.repository == 'Timehue/ShinobiX' &&
       (github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success')
+      (github.event_name == 'deployment_status' &&
+      github.event.deployment_status.state == 'success' &&
+      (github.event.deployment.environment == 'production' ||
+      endsWith(github.event.deployment.environment, '/ production'))))
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -81,14 +105,15 @@ jobs:
             echo "configured=true" >> "$GITHUB_OUTPUT"
           fi
 
-      # Railway rebuilds the image from source, so the new revision can be
-      # minutes away. Wait for /health to report the commit we expect rather
-      # than probing whatever happens to be live and calling it a pass.
+      # Railway posts `success` once the new container has passed its health
+      # check, so this normally matches on the first attempt. The loop covers
+      # the edge of the cutover, and it still refuses to probe whatever happens
+      # to be live and call that a pass.
       - name: Wait for the new revision to serve
         if: steps.config.outputs.configured == 'true'
         env:
           PRODUCTION_URL: ${{ secrets.PRODUCTION_URL }}
-          EXPECTED_COMMIT: ${{ github.event_name == 'workflow_dispatch' && inputs.commit || github.event.workflow_run.head_sha }}
+          EXPECTED_COMMIT: ${{ github.event_name == 'workflow_dispatch' && inputs.commit || github.event.deployment.sha }}
         run: |
           base="${PRODUCTION_URL%/}"
           want="$(printf '%s' "$EXPECTED_COMMIT" | tr '[:upper:]' '[:lower:]')"
@@ -124,9 +149,35 @@ jobs:
         env:
           HEALTH_DEEP_TOKEN: ${{ secrets.HEALTH_DEEP_TOKEN }}
           PRODUCTION_URL: ${{ secrets.PRODUCTION_URL }}
-          EXPECTED_COMMIT: ${{ github.event_name == 'workflow_dispatch' && inputs.commit || github.event.workflow_run.head_sha }}
+          EXPECTED_COMMIT: ${{ github.event_name == 'workflow_dispatch' && inputs.commit || github.event.deployment.sha }}
           EXPECTED_SAVE_STORE: ${{ vars.EXPECTED_SAVE_STORE || 'base-store' }}
           REQUIRE_KNOWN_COMMIT: '1'
           REQUIRE_EXPECTED_COMMIT: '1'
           REQUIRE_FRESH_BACKUP: '1'
         run: node scripts/release-health-check.mjs "$PRODUCTION_URL"
+
+  # Railway reporting a failed production deploy is an alarm of its own. The
+  # previous release keeps serving, so nothing is down, but main has stopped
+  # shipping until someone looks. The run is tied to the failed commit, which
+  # Railway has already given up on, so it cannot hold anything up.
+  deploy-failed:
+    if: >-
+      github.repository == 'Timehue/ShinobiX' &&
+      github.event_name == 'deployment_status' &&
+      (github.event.deployment_status.state == 'failure' ||
+      github.event.deployment_status.state == 'error') &&
+      (github.event.deployment.environment == 'production' ||
+      endsWith(github.event.deployment.environment, '/ production'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Report the failed deploy
+        env:
+          STATE: ${{ github.event.deployment_status.state }}
+          DEPLOYED_SHA: ${{ github.event.deployment.sha }}
+          DESCRIPTION: ${{ github.event.deployment_status.description }}
+        run: |
+          # Railway writes the description; keep it on the one annotation line.
+          description="$(printf '%s' "${DESCRIPTION:-}" | tr '\r\n' '  ')"
+          echo "::error::Railway reported the production deployment of $DEPLOYED_SHA as '$STATE'. $description The previous release keeps serving. Check the Railway dashboard."
+          exit 1
