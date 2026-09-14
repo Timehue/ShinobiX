@@ -239,11 +239,17 @@ button {
     transition: transform .12s ease, filter .12s ease, box-shadow .12s ease, border-color .12s ease;
 }
 
-    button:hover {
-        filter: brightness(1.12);
-        transform: translateY(-1px);
-        border-color: color-mix(in srgb, var(--sj-gold) 55%, var(--sj-border-strong));
-        box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 6px 14px rgba(0,0,0,.35);
+    /* This hover is for a mouse or trackpad only. A touch browser keeps :hover on
+       whatever a tap last hit, so on a phone a tapped button stayed brightened,
+       lifted and ringed until the next touch. Desktop hover is unchanged,
+       because a media query moves neither specificity nor order. */
+    @media (hover: hover) {
+        button:hover {
+            filter: brightness(1.12);
+            transform: translateY(-1px);
+            border-color: color-mix(in srgb, var(--sj-gold) 55%, var(--sj-border-strong));
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 6px 14px rgba(0,0,0,.35);
+        }
     }
 
     button:disabled {
@@ -435,9 +441,11 @@ button {
     cursor: pointer;
 }
 
-    .technique-reorder-btn:hover:not(:disabled) {
-        border-color: var(--gold);
-        background: var(--slate-900);
+    @media (hover: hover) {
+        .technique-reorder-btn:hover:not(:disabled) {
+            border-color: var(--gold);
+            background: var(--slate-900);
+        }
     }
 
     .technique-reorder-btn:disabled {
@@ -754,8 +762,10 @@ button {
     transition: background 0.15s;
 }
 
-    .stat-add-btn:hover:not(:disabled) {
-        background: rgba(56, 189, 248, 0.35);
+    @media (hover: hover) {
+        .stat-add-btn:hover:not(:disabled) {
+            background: rgba(56, 189, 248, 0.35);
+        }
     }
 
     .stat-add-btn:disabled {

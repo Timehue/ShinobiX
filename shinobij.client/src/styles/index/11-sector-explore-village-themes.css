@@ -525,8 +525,10 @@
     color: var(--gold-300);
     cursor: pointer;
 }
-.bm-crate-open-btn:hover,
-.bm-crate-collect:hover { filter: brightness(1.12); }
+@media (hover: hover) {
+    .bm-crate-open-btn:hover,
+    .bm-crate-collect:hover { filter: brightness(1.12); }
+}
 .bm-crate-hint { margin-top: 10px; color: #cbb38a; font-style: italic; font-size: 0.85rem; }
 .bm-crate-tier { margin: 14px 0 6px; font-size: 1.5rem; letter-spacing: 0.04em; animation: bm-fade-in 0.4s ease 0.15s both; }
 .bm-crate-rewards { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 4px; animation: bm-fade-in 0.4s ease 0.3s both; }
@@ -640,9 +642,11 @@
     text-align: left;
 }
 
-    .central-card:hover {
-        transform: translateY(-2px);
-        border-color: var(--gold);
+    @media (hover: hover) {
+        .central-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--gold);
+        }
     }
 
 
@@ -703,9 +707,11 @@
     text-align: center;
 }
 
-    .celestial-option-btn:hover {
-        border-color: var(--gold);
-        transform: translateY(-2px);
+    @media (hover: hover) {
+        .celestial-option-btn:hover {
+            border-color: var(--gold);
+            transform: translateY(-2px);
+        }
     }
 
     .celestial-option-btn strong {
@@ -729,8 +735,10 @@
     border-color: rgba(139, 92, 246, 0.55) !important;
 }
 
-    .celestial-endless-btn:hover {
-        border-color: #a78bfa !important;
+    @media (hover: hover) {
+        .celestial-endless-btn:hover {
+            border-color: #a78bfa !important;
+        }
     }
 
     .celestial-endless-btn strong {
@@ -923,9 +931,11 @@
     line-height: 1;
 }
 
-    .walkable-tile:hover {
-        filter: brightness(1.25);
-        transform: scale(1.03);
+    @media (hover: hover) {
+        .walkable-tile:hover {
+            filter: brightness(1.25);
+            transform: scale(1.03);
+        }
     }
 
 .sector-player-tile {
@@ -1018,8 +1028,10 @@
     box-shadow: none !important;
 }
 
-    .transparent-sector-tile:hover {
-        background: rgba(255, 255, 255, 0.12) !important;
+    @media (hover: hover) {
+        .transparent-sector-tile:hover {
+            background: rgba(255, 255, 255, 0.12) !important;
+        }
     }
 
 .sector-player-tile {
