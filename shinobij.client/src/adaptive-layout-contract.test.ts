@@ -183,26 +183,19 @@ test('all full-screen pet modes use the shared takeover contract', () => {
         join(srcDir, 'components', 'PetColiseum.tsx'),
         join(srcDir, 'components', 'pet-coliseum', 'frame-battle.tsx'),
         join(srcDir, 'components', 'pet-coliseum', 'arena-match.tsx'),
-        join(srcDir, 'components', 'PetWarfrontMatch.tsx'),
         join(srcDir, 'components', 'PetBoardArena.tsx'),
     ].map((file) => readFileSync(file, 'utf8')).join('\n');
     const stages = readFileSync(stageAuthority, 'utf8');
-    assert.ok((petFiles.match(/pet-combat-takeover/g) ?? []).length >= 5);
+    assert.ok((petFiles.match(/pet-combat-takeover/g) ?? []).length >= 4);
     assert.doesNotMatch(petFiles, /zIndex:\s*200/);
     assert.doesNotMatch(petFiles, /height:\s*"100vh"/);
     assert.match(stages, /\.pet-combat-takeover[\s\S]*block-size: 100dvh/);
     assert.match(stages, /z-index: var\(--z-combat\)/);
 });
 
-test('pet WebGL stages release resources while the new Warfront remains DOM-only', () => {
-    const warfront = readFileSync(join(srcDir, 'components', 'PetWarfrontMatch.tsx'), 'utf8');
+test('pet WebGL stages release resources', () => {
     const board = readFileSync(join(srcDir, 'components', 'PetBoardArena.tsx'), 'utf8');
     const stages = readFileSync(stageAuthority, 'utf8');
-    assert.doesNotMatch(warfront, /<Canvas/);
-    assert.doesNotMatch(warfront, /setPointerCapture/);
-    assert.doesNotMatch(warfront, /lostpointercapture/);
-    assert.doesNotMatch(warfront, /<WfMultiCam/);
-    assert.doesNotMatch(warfront, /window\.innerWidth/);
     assert.match(board, /useTexture\(gauntletBoard\)/);
     assert.match(board, /useTexture\.preload\(gauntletBoard\)/);
     assert.match(board, /data-arena-map="stone-lava"/);

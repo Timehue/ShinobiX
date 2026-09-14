@@ -139,9 +139,10 @@ topology, or squad size changes.
 
 ## Retired lane engine
 
-`pet-warfront-sim.ts`, `PetWarfrontMatch.tsx`, and `PetWarfrontStage3D.tsx`
-are historical simulation/visual audit fixtures only. No production ladder,
-Colosseum, or co-op entry launches them. Old `?warfront=1` preview links open the
+`pet-warfront-sim.ts` is a historical simulation fixture only. The lane renderer
+that played it, `PetWarfrontMatch.tsx` and `PetWarfrontStage3D.tsx`, was deleted
+on 2026-09-14 once nothing imported it. No production ladder, Colosseum, or
+co-op entry launches the lane sim. Old `?warfront=1` preview links open the
 current Rite. The ladder, arena, and co-op use `PetWarfrontRite`; no standalone
 Pet Tactical product remains. Old recorded lane results keep their standings,
 but are not reinterpreted as Rite replays.

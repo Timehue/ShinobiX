@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFile, stat } from "node:fs/promises";
+import { stat } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 const WARFRONT_MODELS = [
@@ -46,15 +46,4 @@ test("the three-lane arena art package and reproducible prompt record ship toget
         assert.ok(info.size > 1_000, `${relative} is missing or unexpectedly empty`);
         assert.ok(info.size < 1024 * 1024, `${relative} exceeds the 1 MB delivery budget`);
     }
-});
-
-test("the production Warfront stage consumes the audited rigs, themes, and event stream", async () => {
-    const source = await readFile(new URL("../components/PetWarfrontStage3D.tsx", import.meta.url), "utf8");
-    for (const asset of ["gate-warden-rigged.glb", "ward-totem.glb", "wf-boulder.glb", "wf-lantern.glb"]) {
-        assert.match(source, new RegExp(asset.replace(".", "\\.")), `${asset} is audited but not wired into the stage`);
-    }
-    assert.match(source, /<PetModel3D\b/);
-    assert.match(source, /<WarfrontEventLayer\b/);
-    assert.match(source, /WF_THEMES\[theme\]/);
-    assert.match(source, /data-theme=\{props\.theme\}/);
 });
