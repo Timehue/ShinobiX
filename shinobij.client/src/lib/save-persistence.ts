@@ -32,6 +32,18 @@ export class SaveConflictError extends Error {
     }
 }
 
+export class SaveRateLimitError extends Error {
+    readonly retryAfterMs: number | null;
+
+    constructor(retryAfterMs?: unknown) {
+        super("Server returned 429");
+        this.name = "SaveRateLimitError";
+        this.retryAfterMs = typeof retryAfterMs === "number" && Number.isSafeInteger(retryAfterMs) && retryAfterMs >= 0
+            ? retryAfterMs
+            : null;
+    }
+}
+
 export const SAVE_PERSISTENCE_REQUEST_TIMEOUT_MS = 15_000;
 
 /**
@@ -329,6 +341,10 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
                 clearUnresolvedPost(pending);
                 throw new SaveConflictError();
             } finally { authorityGeneration += 1; }
+        }
+        if (response.status === 429) {
+            const rejection = await response.json().catch(() => null) as { retryAfterMs?: unknown } | null;
+            throw new SaveRateLimitError(rejection?.retryAfterMs);
         }
         if (!response.ok) throw new Error(`Server returned ${response.status}`);
         if (save.echoVersion && !params.isCurrentSession(accountKey, epoch)) {

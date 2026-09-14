@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 import { createSaveConflictRevision, saveConflictAccountKey, type SaveConflictDraft } from "./save-conflict";
 import { SAVE_FAILURE_BANNER_THRESHOLD, createSaveFlightCoordinator, type SaveFlightCoordinator } from "./save-flight";
-import { createSavePersistence, SaveConflictError } from "./save-persistence";
+import { createSavePersistence, SaveConflictError, SaveRateLimitError } from "./save-persistence";
 
 type Payload = {
     character: { name: string; level: number; ryo?: number };
@@ -163,6 +163,54 @@ describe("server-owned ryo on save acknowledgements", () => {
 });
 
 describe("extracted save persistence", () => {
+    it("keeps a throttled required save unresolved until a later acknowledged retry of the latest revision", async () => {
+        const h = harness({ latestVersion: 5 });
+        h.dirty.current = true;
+        const bodies: unknown[] = [];
+        let commits = 0;
+        globalThis.fetch = (async (_input, init) => {
+            bodies.push(JSON.parse(String(init?.body)));
+            return bodies.length === 1
+                ? jsonResponse(429, { error: "Rate limit exceeded.", retryAfterMs: 2501 })
+                : jsonResponse(200, { ok: true, _saveVersion: 6 });
+        }) as typeof fetch;
+
+        await assert.rejects(h.persistence.persistRequired(() => requiredSave({ onCommitted: () => { commits += 1; } })),
+            (error: unknown) => error instanceof SaveRateLimitError && error.retryAfterMs === 2501);
+        assert.equal(bodies.length, 1, "throttling must not start an automatic required-save retry loop");
+        assert.equal(h.latestVersion.current, 5);
+        assert.equal(h.dirty.current, true);
+        assert.equal(commits, 0);
+        assert.deepEqual(h.persistence.getUnresolvedPost()?.body, bodies[0], "retain the rejected body for unload protection");
+        assert.deepEqual(h.captured, [], "a rate limit must not start conflict recovery");
+        assert.deepEqual(h.applied, []);
+
+        h.latestPayloadRevision.current = 2;
+        await h.persistence.persistRequired(() => requiredSave({
+            revision: 2,
+            payload: { character: { name: "Kaya", level: 9 }, currentBiome: "coast" },
+            onCommitted: () => { commits += 1; },
+        }));
+        assert.deepEqual(bodies[1], { character: { name: "Kaya", level: 9 }, currentBiome: "coast", _baseSaveVersion: 5 });
+        assert.equal(h.latestVersion.current, 6);
+        assert.equal(h.dirty.current, false);
+        assert.equal(commits, 1);
+        assert.equal(h.persistence.getUnresolvedPost(), null);
+    });
+
+    it("keeps malformed or missing rate-limit hints retryable without inventing a duration", async () => {
+        for (const body of [null, {}, { retryAfterMs: -1 }, { retryAfterMs: "3000" }, { retryAfterMs: 1e30 }]) {
+            const h = harness();
+            globalThis.fetch = (async () => jsonResponse(429, body)) as typeof fetch;
+            await assert.rejects(h.persistence.persistRequired(() => requiredSave()),
+                (error: unknown) => error instanceof SaveRateLimitError && error.retryAfterMs === null);
+            assert.ok(h.persistence.getUnresolvedPost());
+        }
+        const h = harness();
+        globalThis.fetch = (async () => new Response("Too many requests", { status: 429 })) as typeof fetch;
+        await assert.rejects(h.persistence.persistRequired(() => requiredSave()), SaveRateLimitError);
+    });
+
     it("captures a 409 body before coalesced authoritative recovery", async () => {
         const h = harness({ latestVersion: 5, payloadRevision: 7 });
         let postedBody: Record<string, unknown> | null = null;
