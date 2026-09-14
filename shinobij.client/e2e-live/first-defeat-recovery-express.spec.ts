@@ -309,6 +309,13 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
   expect(afterActivity.character.hp).toBeGreaterThan(0);
   expect(afterActivity.character.hp).toBeLessThan(afterActivity.character.maxHp);
   events.push({ moment: 'nextActivity', save: afterActivity });
+  // Logout's required save can still meet the save-burst limit when an autosave
+  // lands inside the wait. A 429 opens "Save temporarily paused" and any other
+  // failure opens "Save Failed" (lib/logout-save-failure.ts). Retry through
+  // "Stay in game", as both dialogs tell the player to. "Log out anyway" would
+  // discard the progress this test goes on to check.
+  const loggedOut = page.getByTestId('start-create');
+  const logoutBlocked = page.getByRole('alertdialog', { name: /Save temporarily paused|Save Failed/ });
   for (let attempt = 0; attempt < 3; attempt++) {
    await page.waitForTimeout(3100); // ordinary save-burst bucket before logout
    if (info.project.name.includes('mobile')) {
@@ -317,13 +324,13 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
     }
     await page.getByRole('dialog', { name: 'Shinobi menu' }).getByRole('button', { name: 'Logout' }).click();
    } else { await page.getByRole('button', { name: 'Logout', exact: true }).click(); }
-   const saveFailed = page.getByRole('alertdialog', { name: 'Save Failed' });
-   await expect(page.getByTestId('start-create').or(saveFailed)).toBeVisible();
-   if (await page.getByTestId('start-create').isVisible()) break;
+   await expect(loggedOut.or(logoutBlocked)).toBeVisible();
+   if (await loggedOut.isVisible()) break;
    events.push({ moment: 'logoutProtectedRetry', attempt });
-   await saveFailed.getByRole('button', { name: 'Cancel', exact: true }).click();
+   await logoutBlocked.getByRole('button', { name: 'Stay in game', exact: true }).click();
+   await expect(logoutBlocked).toHaveCount(0);
   }
-  await expect(page.getByTestId('start-create')).toBeVisible();
+  await expect(loggedOut).toBeVisible();
   await page.locator('.landing-topnav').getByRole('button', { name: 'Log In', exact: true }).click();
   await page.getByRole('button', { name: 'Use a name and password' }).click();
   await page.getByLabel('Name').fill(name);
