@@ -157,7 +157,7 @@ export function huntMissionByAiProfileId(aiProfileId: string): FieldMissionDef |
 
 // ── Reward bonus % — mirror of Logbook/Missions:
 //     getMissionRewardBonus(char) + getActiveAuraSphereBonuses(char).missionRewardPercent
-//   getMissionRewardBonus = villageUpgradeBonus(missionHall) = level × 0.5
+//   getMissionRewardBonus = villageUpgradeBonus(missionHall) + active Scholars doctrine
 //   aura sphere mission % = (equipped) ? (lvl>=100 ? 1 : lvl>=50 ? 2 : 0) : 0
 type CatalogChar = Record<string, unknown>;
 
@@ -179,7 +179,11 @@ function auraSphereMissionPct(char: CatalogChar): number {
 }
 
 export function missionRewardBonusPct(char: CatalogChar): number {
-    return missionHallBonusPct(char) + auraSphereMissionPct(char);
+    // Same existing 5% member perk used by the mission preview and training.
+    // A retained mirror after leaving a clan is not membership authority.
+    const inClan = typeof char.clan === 'string' && char.clan.trim() !== '';
+    const scholars = inClan && char.clanDoctrine === 'scholars' ? 5 : 0;
+    return missionHallBonusPct(char) + scholars + auraSphereMissionPct(char);
 }
 
 // boostAmount — verbatim from village-upgrades.ts.
