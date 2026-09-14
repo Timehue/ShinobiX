@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 // Adding a :hover rule? Wrap it in @media (hover: hover). If it has to apply on
 // touch as well, raise MAX_UNGATED and say why in the commit. If you gate or
 // remove one, lower MAX_UNGATED to lock the gain in.
-const MAX_UNGATED = 72;
+const MAX_UNGATED = 63;
 
 const srcDir = fileURLToPath(new URL(".", import.meta.url));
 
