@@ -114,22 +114,6 @@
 .tavern-herald .tavern-author { color: var(--purple-400); }
 .tavern-herald .tavern-rank { color: var(--purple-400); opacity: .8; }
 
-.avatar-upload-button {
-    display: block;
-    margin-top: 10px;
-    padding: 10px;
-    text-align: center;
-    background: linear-gradient(#1e3a8a, #172554);
-    border: 1px solid var(--gold);
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 900;
-}
-
-    .avatar-upload-button input {
-        display: none;
-    }
-
 .stat-card h4 {
     color: var(--gold);
     margin: 0 0 8px;

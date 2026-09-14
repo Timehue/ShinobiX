@@ -432,10 +432,6 @@
 
 /* ── Auth panel (extends .start-card) ───────────────────────────────────── */
 
-.landing-auth {
-    width: 100%;
-}
-
 .landing-auth-card {
     width: 100%;
     max-width: 460px;

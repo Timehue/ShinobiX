@@ -761,12 +761,6 @@ textarea {
     margin: 0;
 }
 
-.battle-result-fled {
-    color: var(--text-dim);
-    font-size: 2.25rem;
-    margin: 0;
-}
-
 /* Incoming attack banner */
 .incoming-attack-banner {
     position: fixed;
@@ -1386,22 +1380,6 @@ textarea {
 
 
 
-.clan-member-row {
-    display: grid;
-    grid-template-columns: 32px 1fr auto auto;
-    align-items: center;
-    gap: 8px;
-    padding: 9px 12px;
-    border-radius: 10px;
-    background: rgba(15,23,42,0.5);
-    border: 1px solid var(--slate-800);
-    transition: border-color 0.15s;
-}
-
-    .clan-member-row:hover {
-        border-color: var(--slate-700);
-    }
-
 .clan-member-me {
     background: rgba(30,58,95,0.3);
     border-color: #3b82f680;
@@ -1601,15 +1579,6 @@ textarea {
 }
 
 
-
-/* Clan-boss party picker — real tap targets (>=40px) + no horizontal overflow on
-   narrow phones (long names truncate rather than pushing the row wide). */
-.clan-boss-party {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    max-width: 100%;
-}
 
 .clan-boss-party-btn {
     display: inline-flex;
@@ -2096,12 +2065,6 @@ textarea {
     color: var(--blue-300);
     letter-spacing: 0.02em;
     font-style: italic;
-}
-
-.vn-preview-modal .vn-overlay {
-    position: relative;
-    border-radius: 0 0 16px 16px;
-    flex: 1;
 }
 
 .aw-forge-btn:disabled {
