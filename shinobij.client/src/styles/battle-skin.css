@@ -490,16 +490,6 @@
     filter: none !important;
 }
 
-/* The blue reachable wash is intentionally suppressed on occupied cells above;
-   replace it with a distinct ring whenever the enemy is in basic melee range. */
-.arena-fullscreen .hex-tile.hex-enemy.basic-attack-ready-tile:not(.jutsu-target-tile) {
-    outline: 3px solid #fbbf24 !important;
-    box-shadow:
-        inset 0 0 22px rgba(127, 29, 29, 0.7),
-        0 0 18px rgba(251, 191, 36, 0.9) !important;
-    filter: brightness(1.16) !important;
-}
-
 /* Dash / Move-jutsu landing-tile highlight — green to distinguish from the
    blue attack-range glow. Triggered by the basic dash action AND by Move-tag
    jutsus (Flicker, Ambush, Blitz, any custom Move jutsu). Without this rule
@@ -961,11 +951,6 @@
     font-family: var(--font-display) !important;
     letter-spacing: 0.22em;
 }
-.arena-fullscreen .battle-result-fled {
-    color: var(--bsv2-gold-bright, #e8d496) !important;
-    font-family: var(--font-display) !important;
-    letter-spacing: 0.22em;
-}
 
 /* PvP result — generated key art over the existing battle-end grammar. */
 .arena-fullscreen .battle-ended-overlay.battle-ended-overlay--stage.pvp-result-overlay { background: linear-gradient(#01060d9e, #01060de8), url("/combat/results/pvp-victory-backdrop.webp") center/cover !important; }
@@ -1032,45 +1017,16 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
     color: var(--bsv2-gold-bright, #e8d496) !important;
 }
 
-.arena-fullscreen .battle-hud-sidebar .buff-list,
-.arena-fullscreen .battle-hud-sidebar .buff-banner {
-    background: transparent !important;
-}
-.arena-fullscreen .status-badge {
-    background: linear-gradient(90deg, rgba(20,28,46,0.85), rgba(12,18,34,0.85)) !important;
-    border: 1px solid rgba(196,162,90,0.18) !important;
-    border-left: 3px solid #6fd47a !important;
-    color: #c8cfdc !important;
-    font: 500 10px Inter, sans-serif !important;
-}
-
 /* =========================================================================
    Combat VFX (cosmetic) — 2.5D plate overlay + impact flash
    Cosmetic only; never affects balance/outcomes.
    ========================================================================= */
 
-/* Plate layer: fills the battlefield, sits above the board, no clicks. */
-.arena-fullscreen .arena-combat-vfx-layer {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    overflow: visible;
-    z-index: 16;
-}
-
 /* Brief bright pop on the tile a combat plate lands on. */
-.arena-fullscreen .hex-tile.jutsu-impact-flash {
-    animation: jutsu-impact-flash 0.42s ease-out;
-}
 @keyframes jutsu-impact-flash {
     0%   { box-shadow: inset 0 0 0 rgba(255, 255, 255, 0); filter: brightness(1); }
     22%  { box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.6), 0 0 14px rgba(255, 255, 255, 0.45); filter: brightness(1.55); }
     100% { box-shadow: inset 0 0 0 rgba(255, 255, 255, 0); filter: brightness(1); }
-}
-
-/* Respect reduced-motion. */
-@media (prefers-reduced-motion: reduce) {
-    .arena-fullscreen .hex-tile.jutsu-impact-flash { animation: none; }
 }
 
 /* Completed-only Story Hall archive. */
@@ -4156,14 +4112,6 @@ html body > .combat-instance.screen-battleTowerFight .tower-action-guidance.is-e
         white-space: nowrap;
     }
 
-    html body > .combat-instance.screen-battleTowerFight .tower-fight-turn {
-        grid-column: 2;
-        grid-row: 2;
-        min-width: 0;
-        height: 22px;
-        padding-block: 1px !important;
-    }
-
     html body > .combat-instance.screen-battleTowerFight .tower-fight-header > button {
         position: absolute;
         top: 2px;
@@ -4214,10 +4162,6 @@ html body > .combat-instance.screen-battleTowerFight .tower-action-guidance.is-e
         max-height: 44px;
         padding-right: 68px;
         flex-wrap: nowrap !important;
-    }
-
-    html body > .combat-instance.screen-battleTowerFight .tower-fight-turn {
-        height: 28px;
     }
 
     html body > .combat-instance.screen-battleTowerFight .tower-fight-header > button {

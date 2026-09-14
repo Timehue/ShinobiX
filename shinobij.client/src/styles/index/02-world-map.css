@@ -62,22 +62,6 @@
         justify-self: start;
     }
 
-.sector-stage {
-    min-height: 320px;
-    display: grid;
-    place-items: center;
-    gap: 8px;
-    align-content: center;
-    border: 3px solid var(--slate-700);
-    border-radius: 6px;
-    background: radial-gradient(circle at 50% 38%, rgba(255,255,255,.2), transparent 18%), linear-gradient(135deg, #0f4ca7, #092f6b);
-}
-
-    .sector-stage h2,
-    .sector-stage p {
-        margin: 0;
-    }
-
 .atlas-world-map {
     height: min(76vw, 860px, calc(100dvh - 20px));
     min-height: 560px;
@@ -468,11 +452,6 @@ html.wm-zoom .world-map-scroll .world-poi-smoke {
     gap: 10px;
     margin-bottom: 8px;
 }
-.wm-zoom-controls {
-    display: flex;
-    gap: 6px;
-    flex: 0 0 auto;
-}
 .wm-village-bar {
     display: flex;
     flex-wrap: wrap;
@@ -480,22 +459,6 @@ html.wm-zoom .world-map-scroll .world-poi-smoke {
     gap: 8px;
     margin-top: 10px;
 }
-.wm-zoom-btn {
-    width: 40px;
-    height: 40px;
-    display: grid;
-    place-items: center;
-    border-radius: 10px;
-    border: 1px solid rgba(255, 255, 255, .35);
-    background: rgba(2, 6, 23, .72);
-    color: #fef3c7;
-    font-size: 20px;
-    font-weight: 900;
-    line-height: 1;
-    cursor: pointer;
-    backdrop-filter: blur(3px);
-}
-.wm-zoom-btn:active { transform: scale(.94); }
 .wm-village-chip {
     padding: 7px 12px;
     border-radius: 999px;
@@ -507,14 +470,6 @@ html.wm-zoom .world-map-scroll .world-poi-smoke {
     cursor: pointer;
     white-space: nowrap;
     backdrop-filter: blur(3px);
-}
-.wm-village-chip .wm-chip-dot {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 999px;
-    margin-right: 6px;
-    vertical-align: middle;
 }
 
 .atlas-landmark {
@@ -660,58 +615,6 @@ html.wm-zoom .world-map-scroll .world-poi-smoke {
     font-size: clamp(10px, 2vw, 18px);
     font-weight: 900;
     text-shadow: 0 1px 2px #111827;
-}
-
-.tile-grass {
-    background: linear-gradient(135deg, #16a34a 0 50%, #15803d 50%);
-}
-
-.tile-tree {
-    background: radial-gradient(circle at 55% 35%, var(--success) 0 24%, transparent 25%), linear-gradient(135deg, #166534, #14532d);
-}
-
-.tile-water {
-    background: linear-gradient(135deg, #0ea5e9 0 50%, #0369a1 50%);
-}
-
-.tile-path {
-    background: linear-gradient(135deg, var(--gold-300) 0 50%, #f8c57e 50%);
-    color: #111827;
-    text-shadow: none;
-}
-
-.tile-rock {
-    background: linear-gradient(135deg, var(--text-muted) 0 50%, var(--slate-700) 50%);
-}
-
-.tile-snow {
-    background: linear-gradient(135deg, #f8fafc 0 50%, #bae6fd 50%);
-    color: #082f49;
-    text-shadow: none;
-}
-
-.tile-lava {
-    background: linear-gradient(135deg, var(--danger) 0 50%, #7f1d1d 50%);
-}
-
-.tile-ash {
-    background: linear-gradient(135deg, #57534e 0 50%, #292524 50%);
-}
-
-.tile-shadow {
-    background: linear-gradient(135deg, #312e81 0 50%, #111827 50%);
-}
-
-.tile-stone {
-    background: linear-gradient(135deg, var(--text-dim) 0 50%, var(--slate-600) 50%);
-}
-
-.tile-village {
-    background: linear-gradient(135deg, #b45309 0 50%, #78350f 50%);
-}
-
-.tile-castle {
-    background: linear-gradient(135deg, var(--gold) 0 50%, #16a34a 50%);
 }
 
 .instance-actions {

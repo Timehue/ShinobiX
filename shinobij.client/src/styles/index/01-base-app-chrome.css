@@ -271,23 +271,6 @@ button {
     background: linear-gradient(#ca8a04, #713f12);
 }
 
-.top-hud {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(90px, 1fr));
-    gap: 8px;
-}
-
-    .top-hud span {
-        display: block;
-        font-size: 11px;
-        color: var(--text-dim);
-        font-weight: 800;
-    }
-
-    .top-hud strong {
-        color: var(--gold);
-    }
-
 .nav {
     display: flex;
     flex-wrap: wrap;

@@ -143,10 +143,6 @@
        background so it stays readable. */
 
 
-    .journey-live-stats {
-        display: none !important;
-    }
-
     .arena-fullscreen {
         padding: 5px !important;
         border-width: 2px !important;
@@ -296,11 +292,6 @@ button.combat-jutsu-button,
 
 
 
-.journey-live-stats {
-    right: clamp(10px, 2vw, 28px) !important;
-    gap: clamp(4px, 0.5vw, 7px) !important;
-}
-
 /* Sector coordinate-stage geometry is owned by layout/adaptive-stages.css. */
 
 .arena-fullscreen {
@@ -429,10 +420,6 @@ button.combat-jutsu-button,
     }
 
 
-
-    .journey-live-stats {
-        display: none !important;
-    }
 
     /* Arena keeps 3-column layout at this breakpoint — only collapse to
        single-column on mobile (≤800px) where the compact HUD strip takes over. */

@@ -970,14 +970,6 @@
     letter-spacing: 0.06em;
 }
 
-.showdown-result-reason {
-    max-width: 34ch;
-    text-align: center;
-    font-size: 0.82rem;
-    line-height: 1.45;
-    color: #cbb99a;
-}
-
 /* ── Banners + popups ──────────────────────────────────────────────────── */
 
 /* A banner is a PLATE, not a text box. One rgba rectangle used to serve eleven
@@ -1835,7 +1827,6 @@
     .showdown-result-reward.capped { font-size: 0.76rem; }
     .showdown-result-practice,
     .showdown-result-daily { font-size: 0.74rem; padding-block: 3px; }
-    .showdown-result-reason { font-size: 0.74rem; padding: 7px 12px; }
     .showdown-recap { gap: 3px; padding: 7px 11px; }
     .showdown-recap-row { padding: 3px 8px; font-size: 0.72rem; }
     .showdown-recap-row img { width: 20px; height: 20px; }

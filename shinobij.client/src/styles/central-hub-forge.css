@@ -401,14 +401,6 @@
     box-sizing: border-box;
 }
 
-.nw-preview img {
-    width: 72px;
-    height: 72px;
-    object-fit: cover;
-    border-radius: 8px;
-    border: 1px solid rgba(251, 191, 36, 0.35);
-}
-
 .nw-commit {
     flex: 1;
     background: linear-gradient(135deg, #14532d, #16a34a);

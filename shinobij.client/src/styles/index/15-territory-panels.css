@@ -1,28 +1,3 @@
-/* ===== FIX: Territory profile on right side ===== */
-
-.sector-avatar {
-    width: 68px !important;
-    height: 68px !important;
-    min-width: 68px !important;
-    min-height: 68px !important;
-    display: grid !important;
-    place-items: center !important;
-    border-radius: 50% !important;
-    border: 3px solid var(--gold) !important;
-    background: radial-gradient(circle, #67e8f9, #1d4ed8 62%, #111827) !important;
-    color: white !important;
-    font-size: 22px !important;
-    font-weight: 900 !important;
-    overflow: hidden !important;
-}
-
-    .sector-avatar img {
-        width: 100% !important;
-        height: 100% !important;
-        object-fit: cover !important;
-        display: block !important;
-    }
-
 /* Responsive sector geometry is owned by layout/adaptive-stages.css. */
 /* ========================================================= */
 /* FINAL FIX: regular sector panel + territory profile panel */
