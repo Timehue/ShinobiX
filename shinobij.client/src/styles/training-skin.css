@@ -124,9 +124,11 @@
     gap: 4px !important;
     transition: transform 80ms, border-color 120ms, box-shadow 120ms;
 }
-.card:has(.stat-group-list) .location-button:hover:not(:disabled) {
-    border-color: rgba(232,212,150,0.85) !important;
-    transform: translateY(-1px);
+@media (hover: hover) {
+    .card:has(.stat-group-list) .location-button:hover:not(:disabled) {
+        border-color: rgba(232,212,150,0.85) !important;
+        transform: translateY(-1px);
+    }
 }
 .card:has(.stat-group-list) .location-button.selected,
 .card:has(.stat-group-list) .location-button[aria-pressed="true"] {

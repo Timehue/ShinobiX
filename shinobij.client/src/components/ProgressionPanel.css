@@ -138,4 +138,6 @@
     padding: 2px 4px;
     transition: color .12s ease;
 }
-.prog-whatsnew:hover { color: #fde047; }
+@media (hover: hover) {
+    .prog-whatsnew:hover { color: #fde047; }
+}

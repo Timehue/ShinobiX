@@ -19,21 +19,6 @@
     }
 }
 
-.starter-pet-backdrop {
-    position: fixed;
-    inset: 0;
-    background:
-        linear-gradient(180deg, rgba(7,12,27,0.80) 0%, rgba(4,6,18,0.93) 100%),
-        url('/pet-yard.webp') center / cover no-repeat;
-}
-
-@media (min-width: 981px) {
-    .starter-pet-backdrop {
-        left: 265px;
-        right: 255px;
-    }
-}
-
 .pet-yard-overlay {
     min-height: 100%;
     padding: 20px;
@@ -79,9 +64,11 @@
     transition: border-color 0.15s, transform 0.12s;
 }
 
-    .pet-slot-card:hover:not(.pet-empty) {
-        border-color: var(--gold-400);
-        transform: translateY(-2px);
+    @media (hover: hover) {
+        .pet-slot-card:hover:not(.pet-empty) {
+            border-color: var(--gold-400);
+            transform: translateY(-2px);
+        }
     }
 
     .pet-slot-card.pet-selected {

@@ -2,18 +2,6 @@
    STORMVEIL VILLAGE CSS
 ================================= */
 
-.village-screen {
-    width: 100vw;
-    height: 100vh;
-    height: 100dvh;
-    height: 100dvh;
-    background-size: cover;
-    background-position: center;
-    position: relative;
-    overflow: hidden;
-}
-/* TOP BAR */
-
 /* VILLAGE BUTTONS */
 
 /* BUTTON POSITIONS */
@@ -204,7 +192,9 @@
     cursor: pointer;
     transition: background .15s, opacity .15s;
 }
-.mh-combat-btn:hover:not(:disabled) { background: linear-gradient(135deg, #1d4ed8, #2563eb); }
+@media (hover: hover) {
+    .mh-combat-btn:hover:not(:disabled) { background: linear-gradient(135deg, #1d4ed8, #2563eb); }
+}
 .mh-combat-btn:disabled { opacity: .45; cursor: not-allowed; }
 
 /* Fetch mission cards */
@@ -291,27 +281,3 @@
     transform: translateX(-50%);
 }
 /* BOTTOM MENU */
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-.journey-live-stats {
-    position: absolute;
-    right: 42px;
-    top: 50%;
-    transform: translateY(-50%);
-    display: flex;
-    gap: 10px;
-    z-index: 5;
-}

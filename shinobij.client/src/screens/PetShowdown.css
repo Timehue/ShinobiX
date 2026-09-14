@@ -61,7 +61,9 @@
     min-block-size: var(--touch-target-min, 44px);
     transition: border-color 0.15s, background 0.15s, transform 0.1s;
 }
-.showdown-choice:hover { border-color: rgba(251, 191, 36, 0.6); }
+@media (hover: hover) {
+    .showdown-choice:hover { border-color: rgba(251, 191, 36, 0.6); }
+}
 .showdown-choice.active {
     border-color: #fbbf24;
     background: rgba(72, 48, 18, 0.9);
@@ -77,7 +79,9 @@
     border-color: rgba(96, 165, 250, 0.42);
     background: linear-gradient(120deg, rgba(23, 40, 68, 0.92), rgba(30, 22, 14, 0.86));
 }
-.showdown-choice.featured:hover { border-color: rgba(125, 211, 252, 0.7); }
+@media (hover: hover) {
+    .showdown-choice.featured:hover { border-color: rgba(125, 211, 252, 0.7); }
+}
 .showdown-choice.featured.active {
     border-color: #7dd3fc;
     background: linear-gradient(120deg, rgba(30, 58, 96, 0.95), rgba(40, 30, 18, 0.9));
@@ -113,7 +117,9 @@
     cursor: pointer;
     transition: border-color 0.15s, transform 0.12s;
 }
-.showdown-roster-card:hover:not(:disabled) { transform: translateY(-2px); border-color: rgba(251, 191, 36, 0.55); }
+@media (hover: hover) {
+    .showdown-roster-card:hover:not(:disabled) { transform: translateY(-2px); border-color: rgba(251, 191, 36, 0.55); }
+}
 .showdown-roster-card.picked {
     border-color: #fbbf24;
     box-shadow: 0 0 12px rgba(251, 191, 36, 0.3);
@@ -208,7 +214,9 @@
     min-block-size: var(--touch-target-min, 44px);
     transition: transform 0.12s, box-shadow 0.12s;
 }
-.showdown-cta:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(245, 158, 11, 0.55); }
+@media (hover: hover) {
+    .showdown-cta:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(245, 158, 11, 0.55); }
+}
 .showdown-cta:disabled { opacity: 0.45; cursor: not-allowed; }
 .showdown-cta.danger { background: linear-gradient(180deg, #f87171, #dc2626); color: #fff; box-shadow: 0 4px 18px rgba(220, 38, 38, 0.4); }
 
@@ -222,7 +230,9 @@
     cursor: pointer;
     min-block-size: 34px;
 }
-.showdown-chip:hover { border-color: rgba(251, 191, 36, 0.6); }
+@media (hover: hover) {
+    .showdown-chip:hover { border-color: rgba(251, 191, 36, 0.6); }
+}
 /* Icon-only chips are a fixed square, so a label swap can never reflow the
    HUD column the way "Muted" / "Sound" used to. */
 .showdown-chip.icon {
@@ -768,7 +778,9 @@
 .showdown-stance-chip:nth-child(2) .showdown-menu-icon { color: #86efac; box-shadow: inset 0 0 0 1px rgba(134, 239, 172, 0.4); }
 .showdown-stance-chip:nth-child(3) { border-color: rgba(251, 191, 36, 0.45); }
 .showdown-stance-chip:nth-child(3) .showdown-menu-icon { color: #fbbf24; box-shadow: inset 0 0 0 1px rgba(251, 191, 36, 0.4); }
-.showdown-stance-chip:hover:not(.is-disabled) { filter: brightness(1.15); }
+@media (hover: hover) {
+    .showdown-stance-chip:hover:not(.is-disabled) { filter: brightness(1.15); }
+}
 .showdown-stance-chip.focused {
     border-color: #fde9bd;
     box-shadow: 0 0 0 1px rgba(253, 233, 189, 0.7), 0 2px 8px rgba(0, 0, 0, 0.45);
@@ -968,14 +980,6 @@
     font-weight: 800;
     color: #fb923c;
     letter-spacing: 0.06em;
-}
-
-.showdown-result-reason {
-    max-width: 34ch;
-    text-align: center;
-    font-size: 0.82rem;
-    line-height: 1.45;
-    color: #cbb99a;
 }
 
 /* ── Banners + popups ──────────────────────────────────────────────────── */
@@ -1835,7 +1839,6 @@
     .showdown-result-reward.capped { font-size: 0.76rem; }
     .showdown-result-practice,
     .showdown-result-daily { font-size: 0.74rem; padding-block: 3px; }
-    .showdown-result-reason { font-size: 0.74rem; padding: 7px 12px; }
     .showdown-recap { gap: 3px; padding: 7px 11px; }
     .showdown-recap-row { padding: 3px 8px; font-size: 0.72rem; }
     .showdown-recap-row img { width: 20px; height: 20px; }

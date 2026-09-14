@@ -152,7 +152,9 @@
     padding: 4px 6px;
     margin: -3px -5px 0 0; /* hug the corner without shrinking the tap area */
 }
-.coach-skip-link:hover { color: var(--slate-200); }
+@media (hover: hover) {
+    .coach-skip-link:hover { color: var(--slate-200); }
+}
 
 .coach-guide-line {
     margin: 0;
@@ -305,9 +307,13 @@
     cursor: pointer;
 }
 
-.coach-trail-chip-find:hover,
 .coach-trail-chip-find:focus-visible {
     background-color: rgba(250, 204, 21, 0.22);
+}
+@media (hover: hover) {
+    .coach-trail-chip-find:hover {
+        background-color: rgba(250, 204, 21, 0.22);
+    }
 }
 
 .coach-trail-chip .coach-skip-link {

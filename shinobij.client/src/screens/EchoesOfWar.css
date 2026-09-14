@@ -159,7 +159,9 @@
     font-size: 0.78rem;
     min-height: 34px;
 }
-.echoes-ghost-btn:hover { background: rgba(217, 200, 138, 0.16); }
+@media (hover: hover) {
+    .echoes-ghost-btn:hover { background: rgba(217, 200, 138, 0.16); }
+}
 
 /* ── The Ages (century plates) ────────────────────────────────────────── */
 .echoes-ages {
@@ -209,13 +211,17 @@
 .echoes-age-plate--band-high { --band: var(--echoes-high); }
 .echoes-age-plate--band-court { --band: var(--echoes-court); }
 
-.echoes-age-plate:not(:disabled):hover {
-    transform: translateY(-3px);
-    border-color: color-mix(in srgb, var(--band) 70%, transparent);
-    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5), 0 0 20px color-mix(in srgb, var(--band) 28%, transparent);
+@media (hover: hover) {
+    .echoes-age-plate:not(:disabled):hover {
+        transform: translateY(-3px);
+        border-color: color-mix(in srgb, var(--band) 70%, transparent);
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5), 0 0 20px color-mix(in srgb, var(--band) 28%, transparent);
+    }
 }
 @media (prefers-reduced-motion: reduce) {
-    .echoes-age-plate:not(:disabled):hover { transform: none; }
+    @media (hover: hover) {
+        .echoes-age-plate:not(:disabled):hover { transform: none; }
+    }
 }
 
 .echoes-age-plate-scrim {
@@ -464,9 +470,11 @@
     color: #f2e6bf;
     min-height: 44px;
 }
-.echoes-primary:hover {
-    background: rgba(184, 160, 106, 0.3);
-    box-shadow: 0 0 12px rgba(217, 200, 138, 0.25);
+@media (hover: hover) {
+    .echoes-primary:hover {
+        background: rgba(184, 160, 106, 0.3);
+        box-shadow: 0 0 12px rgba(217, 200, 138, 0.25);
+    }
 }
 
 .echoes-footnote {
@@ -792,17 +800,6 @@
     -webkit-mask-image: radial-gradient(75% 62% at 50% 50%, #000 22%, transparent 74%);
     mask-image: radial-gradient(75% 62% at 50% 50%, #000 22%, transparent 74%);
     opacity: 0.6;
-}
-.echoes-vs-portrait--mark {
-    display: grid;
-    place-items: center;
-    background:
-        radial-gradient(circle at 40% 28%, color-mix(in srgb, var(--band, #d9c88a) 30%, transparent), transparent 45%),
-        linear-gradient(150deg, #241d12, #0b0906);
-    color: #efdda6;
-    font-family: Georgia, serif;
-    font-size: clamp(2.6rem, 9vmin, 5rem);
-    font-weight: 900;
 }
 .echoes-vs-id {
     display: grid;
