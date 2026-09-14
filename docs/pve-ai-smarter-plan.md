@@ -42,7 +42,7 @@ should be fun: readable, telegraphed, answerable.
 - **No use of:** Clear (strip player buffs), Cleanse (remove own debuffs), proactive defend,
   items, **weapons** (`CreatorAi` has only `jutsuIds` — no weapon field), Push/Pull tactics,
   telegraphing, boss phases, or behavioral adaptation.
-- **Brackets** ([pve-difficulty.ts](../shinobij.client/src/lib/pve-difficulty.ts)): easy 1–30 / medium 31–50 / hard 51–90 /
+- **Brackets** ([_pve-difficulty.ts](../api/_pve-difficulty.ts)): easy 1–30 / medium 31–50 / hard 51–90 /
   peer 91+, by *encounter* level. They scale stats, hit caps, mercy floor, mastery — but
   **not intelligence** (a hard cliff at level 30).
 
@@ -108,7 +108,7 @@ Additive extensions to [creator-ai.ts](../shinobij.client/src/types/creator-ai.t
 
 ### Phase 3 — Band intelligence ladder (the core "fit my brackets" fix)
 Replace the binary level-30 smart flip with a per-band competence profile in
-[pve-difficulty.ts](../shinobij.client/src/lib/pve-difficulty.ts) (`pveAiCompetence(level)`), layered on top of the stat bands you set:
+[_pve-difficulty.ts](../api/_pve-difficulty.ts) (`pveAiCompetence(level)`), layered on top of the stat bands you set:
 
 | Band (level) | Reads state | Reads behavior | Counterplay (Clear/Cleanse/defend) | Pick quality | Telegraph | Weapons |
 |---|---|---|---|---|---|---|
