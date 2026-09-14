@@ -104,7 +104,8 @@ export function validateClanSaveWrite(
     // Server-owned journals: recovery trusts these as proof that the XP grant
     // or treasury debit was co-written. A client clan save cannot forge, clear,
     // or replace that evidence, including on the first write.
-    for (const field of ['pvpWarXpReceipts', 'settlementReceipts', 'clanMissionSettlements', 'clanExchangeSettlements']) {
+    // clanBossRewardReceipts is the weekly Clan Boss settlement's pay-once ledger.
+    for (const field of ['pvpWarXpReceipts', 'settlementReceipts', 'clanMissionSettlements', 'clanExchangeSettlements', 'clanBossRewardReceipts']) {
         if (prev[field] !== undefined) next[field] = prev[field];
         else delete next[field];
     }
