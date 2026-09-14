@@ -20,12 +20,19 @@ import ts from "typescript";
  * warm-up swallows it; a real load falls back to something) and says so with a
  * rejection handler.
  *
- * This scans every .ts/.tsx file under src/. For each fire-and-forget statement
- * whose promise chain starts at import(), it follows the rejection outward
- * through `.then(onFulfilled)` and `.finally()` links, and requires it to reach
- * a `.catch()` or a two-argument `.then()`. It cannot see an import() that is
- * wrapped in a helper or returned from a function. Those hand the rejection to
- * their caller, which is where it has to be handled.
+ * This scans every .ts/.tsx file under src/ for two shapes of fire-and-forget
+ * statement. The first is a promise chain that starts at import(). The
+ * rejection is followed outward through `.then(onFulfilled)` and `.finally()`
+ * links, and it has to reach a `.catch()` or a two-argument `.then()`. The
+ * second is an async function called on the spot, as in
+ * `void (async () => { ... await import(...) ... })()`. Every awaited import
+ * in its own body needs an enclosing try/catch in that body, unless the call
+ * itself ends in a handler. The achievements-sync effect in App.tsx had that
+ * second shape until 2026-09-13.
+ *
+ * It cannot see an import() wrapped in a helper, or awaited in a named
+ * function that is then called with `void`. Those hand the rejection to the
+ * caller's promise, which is where it has to be handled.
  */
 
 const SRC = dirname(fileURLToPath(import.meta.url));
@@ -58,32 +65,79 @@ function unhandledFireAndForgetImports(fileName: string, text: string): Array<{ 
         return current;
     };
 
-    /** True when `node` is import() itself or a .then/.catch/.finally chain rooted at one. */
-    const rootedAtImport = (node: ts.Expression): boolean => {
+    /** The promise a .then/.catch/.finally call is made on, or undefined when `node` is not such a call. */
+    const linkReceiver = (node: ts.Expression): ts.Expression | undefined => {
         const current = unwrap(node);
-        if (!ts.isCallExpression(current)) return false;
-        if (current.expression.kind === ts.SyntaxKind.ImportKeyword) return true;
-        const callee = current.expression;
-        return ts.isPropertyAccessExpression(callee)
-            && ["then", "catch", "finally"].includes(callee.name.text)
-            && rootedAtImport(callee.expression);
+        if (!ts.isCallExpression(current) || !ts.isPropertyAccessExpression(current.expression)) return undefined;
+        return ["then", "catch", "finally"].includes(current.expression.name.text) ? current.expression.expression : undefined;
     };
 
-    /** True when some link between the import() and `node` receives the rejection. */
+    /** The expression a .then/.catch/.finally chain starts from. */
+    const chainRoot = (node: ts.Expression): ts.Expression => {
+        const receiver = linkReceiver(node);
+        return receiver ? chainRoot(receiver) : unwrap(node);
+    };
+
+    /** True when some link between the chain's root and `node` receives the rejection. */
     const handlesRejection = (node: ts.Expression): boolean => {
-        const current = unwrap(node);
-        if (!ts.isCallExpression(current) || current.expression.kind === ts.SyntaxKind.ImportKeyword) return false;
-        const callee = current.expression as ts.PropertyAccessExpression;
-        const method = callee.name.text;
-        if (method === "catch" && current.arguments.length >= 1) return true;
-        if (method === "then" && current.arguments.length >= 2) return true;
-        return handlesRejection(callee.expression);
+        const receiver = linkReceiver(node);
+        if (!receiver) return false;
+        const call = unwrap(node) as ts.CallExpression;
+        const method = (call.expression as ts.PropertyAccessExpression).name.text;
+        if (method === "catch" && call.arguments.length >= 1) return true;
+        if (method === "then" && call.arguments.length >= 2) return true;
+        return handlesRejection(receiver);
     };
 
+    const isImportCall = (node: ts.Expression): boolean =>
+        ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword;
+
+    /** The async function literal that `node` calls on the spot, as in `(async () => { ... })()`. */
+    const calledAsyncFunction = (node: ts.Expression): ts.ArrowFunction | ts.FunctionExpression | undefined => {
+        if (!ts.isCallExpression(node)) return undefined;
+        const callee = unwrap(node.expression);
+        if (!ts.isArrowFunction(callee) && !ts.isFunctionExpression(callee)) return undefined;
+        return callee.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword) ? callee : undefined;
+    };
+
+    /**
+     * Awaited imports in `fn`'s own body that no try/catch in that body receives.
+     * An await inside a nested function rejects that function's promise instead.
+     */
+    const unguardedAwaitedImports = (fn: ts.ArrowFunction | ts.FunctionExpression): ts.AwaitExpression[] => {
+        const awaited: ts.AwaitExpression[] = [];
+        const walk = (node: ts.Node, guarded: boolean): void => {
+            if (ts.isFunctionLike(node)) return;
+            if (ts.isTryStatement(node)) {
+                walk(node.tryBlock, guarded || node.catchClause !== undefined);
+                if (node.catchClause) walk(node.catchClause, guarded);
+                if (node.finallyBlock) walk(node.finallyBlock, guarded);
+                return;
+            }
+            if (!guarded && ts.isAwaitExpression(node) && isImportCall(chainRoot(node.expression)) && !handlesRejection(node.expression)) {
+                awaited.push(node);
+            }
+            ts.forEachChild(node, (child) => walk(child, guarded));
+        };
+        walk(fn.body, false);
+        return awaited;
+    };
+
+    const report = (node: ts.Node, context = "") => {
+        const { line } = source.getLineAndCharacterOfPosition(node.getStart(source));
+        found.push({ line: line + 1, code: context + node.getText(source).replace(/\s+/g, " ").slice(0, 120) });
+    };
+
+    /** A promise nobody holds, so its own chain has to handle the rejection. */
     const check = (expression: ts.Expression) => {
-        if (!rootedAtImport(expression) || handlesRejection(expression)) return;
-        const { line } = source.getLineAndCharacterOfPosition(expression.getStart(source));
-        found.push({ line: line + 1, code: expression.getText(source).replace(/\s+/g, " ").slice(0, 120) });
+        if (handlesRejection(expression)) return;
+        const root = chainRoot(expression);
+        if (isImportCall(root)) {
+            report(expression);
+            return;
+        }
+        const fn = calledAsyncFunction(root);
+        if (fn) for (const awaited of unguardedAwaitedImports(fn)) report(awaited, "(in a voided async function) ");
     };
 
     const visit = (node: ts.Node) => {
@@ -114,6 +168,13 @@ test("the checker flags an unhandled fire-and-forget import and accepts every ha
         `function f() { if (wide) void import('./styles/mobile-noncombat-aaa.css') }`,
         // .catch() with no argument registers no handler; the rejection passes through.
         `void import("./x").catch();`,
+        // App.tsx's achievements-sync effect as it stood before 2026-09-13.
+        `useEffect(() => { let cancelled = false; void (async () => { const { ACHIEVEMENTS } = await import("./constants/achievements"); if (cancelled) return; plan(ACHIEVEMENTS); })(); }, [character]);`,
+        `void (async function () { await import("./x"); })();`,
+        `(async () => { await import("./x").then(f); })();`,
+        `void (async () => await import("./x"))();`,
+        // A try without a catch clause receives nothing.
+        `void (async () => { try { await import("./x"); } finally { done(); } })();`,
     ];
     for (const code of flagged) assert.equal(unhandledFireAndForgetImports("probe.tsx", code).length, 1, code);
 
@@ -129,6 +190,11 @@ test("the checker flags an unhandled fire-and-forget import and accepts every ha
         `const load = () => import("./x");`,
         `void loadIntroCinematic();`,
         `void Promise.race([import("./x").then(f).catch(g), timeout]);`,
+        // A voided async function that handles its own awaited import.
+        `void (async () => { try { await import("./x"); } catch { return; } })();`,
+        `void (async () => { await import("./x"); })().catch(() => {});`,
+        `void (async () => { await import("./x").catch(() => null); })();`,
+        `void (async () => { await fetch("/api/x"); })();`,
     ];
     for (const code of handled) assert.deepEqual(unhandledFireAndForgetImports("probe.tsx", code), [], code);
 });
@@ -163,6 +229,7 @@ test("every fire-and-forget dynamic import in src/ handles its own rejection", a
         "A fire-and-forget import() must end in a rejection handler, or a failed chunk load escapes unhandled",
         "(a pageerror in every e2e spec that asserts none). Decide what a failed load should do there: a warm-up",
         "swallows it with .catch(() => {}); a real load shows a fallback or keeps what it would have consumed.",
+        "An import() awaited inside a voided async function needs a try/catch around it, or a .catch on the call.",
         "Do not rely on retrying the import: browsers keep a failed module fetch for the life of the page.",
         "",
         ...violations,
