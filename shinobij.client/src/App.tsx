@@ -13,6 +13,7 @@ import type * as React from "react";
 import { installAuthFetch, isTokenExpired, setActivePlayer, setActiveToken, setAdminSession, SESSION_EXPIRED_EVENT } from "./authFetch";
 import { isReleaseSafeClientEvent } from "./lib/release-safe-content";
 import { GameAlertHost, GameConfirmHost, GamePasswordPromptHost, gameConfirm } from "./components/GameAlert";
+import { logoutSaveFailure } from "./lib/logout-save-failure";
 import { GameToastHost, gameToast } from "./components/GameToast";
 import { AdaptiveGameShell } from "./components/layout/AdaptiveGameShell";
 import { MaintenanceOperatorBoundary } from "./components/MaintenanceOperatorBoundary";
@@ -4278,9 +4279,10 @@ export default function App() {
                     await pushSaveToServer(latestSaveRef.current.character, accountName, undefined, { useLatestAtExecution: true });
                 }
                 if (charDirtyRef.current) throw new Error("The save changed while logout was finishing.");
-            } catch {
+            } catch (error) {
                 charDirtyRef.current = true;
-                if (!(await gameConfirm("Your progress could not be saved to the server. Logging out now will lose everything since your last successful save. Log out anyway?", { title: "Save Failed", confirmLabel: "Log out anyway", danger: true }))) return;
+                const failure = logoutSaveFailure(error);
+                if (!(await gameConfirm(failure.message, failure.options))) return;
             }
         }
         endLocalSession();
