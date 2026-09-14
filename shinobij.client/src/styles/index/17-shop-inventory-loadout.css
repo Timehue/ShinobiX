@@ -365,9 +365,11 @@ html[data-vp="xl"] .app-shell:is([data-screen="shop"], [data-screen="grandMarket
     background: rgba(2, 6, 23, 0.45) !important;
 }
 
-.backpack-item:hover {
-    filter: brightness(1.12);
-    transform: translateY(-1px);
+@media (hover: hover) {
+    .backpack-item:hover {
+        filter: brightness(1.12);
+        transform: translateY(-1px);
+    }
 }
 /* ===== Inventory Tabs + Shinobi Tile Card Collection ===== */
 
@@ -425,9 +427,11 @@ html[data-vp="xl"] .app-shell:is([data-screen="shop"], [data-screen="grandMarket
     overflow: hidden;
 }
 
-    .tile-card-inventory-card:hover {
-        filter: brightness(1.15);
-        transform: translateY(-1px);
+    @media (hover: hover) {
+        .tile-card-inventory-card:hover {
+            filter: brightness(1.15);
+            transform: translateY(-1px);
+        }
     }
 
     .tile-card-inventory-card strong {

@@ -142,7 +142,9 @@
     color: #c7d0de;
 }
 
-.pet-mentor-curriculum button:hover:not([aria-disabled="true"]) { background: rgba(255, 255, 255, .045); border-color: rgba(244, 184, 96, .16); }
+@media (hover: hover) {
+    .pet-mentor-curriculum button:hover:not([aria-disabled="true"]) { background: rgba(255, 255, 255, .045); border-color: rgba(244, 184, 96, .16); }
+}
 .pet-mentor-curriculum button.is-active { background: linear-gradient(90deg, rgba(244, 184, 96, .16), rgba(244, 184, 96, .035)); border-color: rgba(244, 184, 96, .4); color: #fff3dc; }
 .pet-mentor-curriculum button.is-complete .pet-mentor-chapter-number { background: rgba(118, 200, 147, .18); border-color: #76c893; color: #a7f3c1; }
 .pet-mentor-curriculum button[aria-disabled="true"] { opacity: .52; cursor: not-allowed; }
