@@ -1,94 +1,89 @@
-# Concrete decisions for the remaining value defects
+# Approved recovery scope and remaining certification
 
-These are proposed scopes, not implemented migrations. Existing magnitudes and
-normal player interactions remain fixed. The repository's [CLAUDE.md](../../../CLAUDE.md#hard-rules)
-requires: “Do not change Supabase schema, SQL migration files, or storage structure
-without approval.” C3/C4 require new durable operation evidence, so the concrete
-protocols below await that approval. The handoff also forbids guessing progression
-intent, which leaves C2's stacking formula for the owner.
+The owner approved C3/C4's narrow durable recovery fixes and C2's additive
+training formula on 2026-09-14. The owner selected **local checks only for now**.
+These approvals satisfy the repository's storage-change approval requirement;
+no Supabase schema, auth, admin, role, rate-limit or IP policy changed.
 
-## C2 — prospectively apply the displayed pet-training bonus
+## C2 — new pet training sessions
 
-Decide whether the displayed clan/village percentage adds to the existing mastery
-percentage before Loyal/happiness multiplication and current rounding/morale, or
-has a separately specified stacking rule. The UI proves a missing benefit but does
-not unambiguously resolve that full formula. Only newly started training should
-seal an approved corrected amount; never recalculate a running/finished old timer.
+The server adds Pet Den (0.3% per level, member only) and village Pet Yard
+(0.25% per level) to the existing mastery percentage. Both upgrade levels cap
+at 50. Existing base XP, duration, Loyal/happiness multipliers, JavaScript
+rounding/minimum and morale processing retain their order. Old training
+sessions finish using their sealed reward; no compensation was granted.
 
-Required tests: no clan, stale doctrine/upgrades without membership, each village/
-Den level including caps, mastery/no mastery, Loyal, happiness boundaries, both
-morale windows, minimum/rounding, identical start retries, completion once, legacy
-timers and save-version conflicts. No change to training duration or base XP.
-Historical compensation is a separate evidence-based decision, not part of the
-prospective parity patch.
+`api/pet/training-clan-bonus.test.ts` exercises the real handler: baseline,
+each bonus, both bonuses, stale nonmember data, caps, mastery/Loyal and legacy
+sealed completion. Existing pet/morale/ownership tests are reused by root tests.
 
-## C3 — clan mission interrupted shared credit
+## C3 — new weekly clan mission settlements
 
-The existing pending receipt proves intent, not that the clan row was credited.
-Expired pending is therefore unsafe to translate into successful claim/Clan Points.
+1. The existing private primary receipt identifies clan/week/mission and seals
+   canonical shared value and the original eligible contributors. Its random
+   server owner binds the shared proof; a predictable fingerprint alone cannot
+   authenticate a field pre-seeded before generic-save protection existed.
+2. Shared treasury/XP and `clanMissionSettlements` are co-written by CAS under
+   the existing clan lock. A suspended worker cannot overwrite a successor.
+3. Personal points use their own protected, co-written mission receipts,
+   independent of the 30-entry display history. CAS preserves the save version.
+4. The primary becomes committed only after personal writes succeed. The
+   claimed listing is a projection of positive shared proof plus final receipt.
+5. New-protocol pending work can resume after the existing active lease expires;
+   positive shared proof resumes personal work without repeating shared value.
 
-Smallest proposed recovery contract:
+Admission remains current ISO week only. Primary committed receipts last
+10 days; pending primary rows do not expire. Applied shared/personal evidence
+is retained 21 days, longer than admission. Historical pending receipts and
+prior-week ambiguous work are not automatically replayed or deleted. Old
+committed/scalar receipts retain compatibility behavior.
 
-1. Identify the operation by clan slug, ISO week and mission key, and seal the
-   canonical grant and eligible member evidence. Do not accept a new client amount.
-2. Co-write the shared treasury/XP grant and its protected operation receipt in
-   the same clan-row mutation under the existing clan lock. Protect the field
-   from ordinary generic saves, as C5 now does for existing treasury receipts.
-3. A retry with positive shared-row proof can finish the existing listing/audit/
-   per-member points outbox without applying shared value again. Personal points
-   must not be granted merely because an intent exists.
-4. A versioned **new-protocol** pending operation with no shared credit evidence
-   can resume only under a reviewed, fenced write protocol. Historical pending
-   receipts lack that distinction and must remain explicitly unresolved.
-5. Keep old committed/scalar-latch compatibility replay-blocking. Never delete
-   an uncertain pending receipt to make the button work.
+## C4 — Exchange War Supply purchases
 
-Before approval, inspect how normal clan saves preserve the selected receipt
-field and how long a weekly proof can remain replayable. A bounded receipt ring
-must not evict evidence while its source proof can still authorize recovery.
+1. The updated client keeps a stable request ID in session storage (memory
+   fallback) through an uncertain response. A confirmed successful purchase
+   clears only that intent; a genuine subsequent purchase receives another ID.
+   The ID uses the game's existing corrected server clock.
+2. The existing durable journal is reserved before debit. It seals player,
+   clan, catalog quote and a random server proof token. A source proof without
+   this reservation never authorizes shared credit. No journal is reconstructed
+   from untrusted historical fields.
+3. Debit, allowance count and source proof share a versioned player CAS.
+   Before the debit commits, eligibility and the allowance period are rechecked
+   at actual purchase time; a pending reservation cannot strand a player on a
+   full historical week. Once debited, retry preserves that exact purchase.
+4. Shared War Supply and its token-bound proof share a clan CAS. Existing
+   clan-then-player locks remain in place. Missing acknowledgements are checked
+   against positive applied-side proof and never trigger automatic refunds.
+5. Journal completion follows both sides. Existing Economy Settlements discovery
+   can find the journal; no admin interface or permission change was introduced.
 
-Required failure tests: before reservation; lost reservation acknowledgement;
-before shared write; committed shared write with lost acknowledgement; before
-receipt commit; listing/each member point write interrupted; concurrent members;
-week rollover; membership change; invalid activity; response lost after final
-commit; old scalar/committed/pending receipts; expired lock/CAS fencing.
+Requests admit recovery for 90 days; applied proofs persist 100 days. Those
+bounds prevent replay from outliving its evidence. No visible timer was added.
+Prices, rewards, limits, personal-only purchases and the visible purchase flow
+remain unchanged. An unfinished legacy no-ID debit can resume. **A legacy
+client's lost final success cannot be distinguished from a genuine second
+purchase**; only updated clients provide that identity. Session storage also
+does not promise recovery identity across a new device or closed browser session.
 
-## C4 — Exchange War Supply acknowledgement ambiguity
+`api/clan/_reward-recovery.test.ts` injects before/after applied-side failures,
+final-journal failure, concurrent retries, expired-lock workers, rollover,
+expired/future IDs, forged value/identity and pre-seeded receipt fields. Client
+tests verify lost/malformed responses, genuine repeated purchases, corrected
+clock and unchanged personal-purchase requests. Generic-save tests prevent
+forging or clearing the new protected fields.
 
-Current behavior refunds player points and purchase allowance after **any** thrown
-clan write. The disposable probe proves that this can refund a successful credit.
-An absent acknowledgement is not sufficient evidence for a refund.
+## Historical state and live certification
 
-Smallest proposed recovery contract:
+New field protection cannot retroactively establish old data's provenance.
+The new protocols bind applied proofs to private server reservations and refuse
+conflicts. Do not delete old ambiguous receipts, replay grants or issue refunds
+without correlating source save, recipient clan and authoritative journal.
 
-1. Reuse the existing request-identity pattern invisibly in the current purchase
-   action. One click/retry is one intent; a genuinely new purchase gets a new
-   identity. No new confirmation or modal.
-2. Seal catalog item, cost, clan, actor, period/limit and authoritative reward.
-   Co-write the points debit, limit increment and its intent receipt in the
-   player save.
-3. Co-write War Supply credit and the matching protected applied-side receipt in
-   the shared clan row. A retry inspects both positive proofs and completes only
-   the missing side; it never rolls a new reward or consumes a second allowance.
-4. Refund only when the protocol can prove no shared credit was committed and
-   cancel its intent safely. Uncertain writes remain recoverable pending work,
-   not automatic refunds or an invitation to buy again.
-5. Use existing settlement/journal/diagnostic primitives where they fit, after
-   checking lock order and source/recipient types. Do not force the whole
-   Exchange through an unrelated helper merely for code reuse.
-
-Required tests: personal-only purchases unchanged; new vs repeated intent;
-simultaneous duplicate; mismatched item/clan/amount/actor; full inventory before
-debit; membership/period rollover; interruption before/after each applied-side
-write and journal update; lost response; rollback compatibility; pending receipt
-searchability. Keep current prices, limits, cache pools and War Supply amounts.
-
-## Already-deployed historical state
-
-C5 prevents future client overwrites of the existing clan treasury receipt field;
-it does not prove that every old stored receipt was valid. If vulnerable code was
-deployed, investigate source receipts against matching durable transaction and
-recipient proof before reconciling them. Do not automatically erase old receipts
-or replay transfers. The same rule applies to historical C3 pending claims and
-C4 LOSS/refund records. Capture a fresh backup before any approved correction;
-run the procedure on a distinct safe target first.
+These are local memory fault tests and browser checks, not process/database
+restore certification. The [operator checklist](OPERATOR-CHECKLIST.md) remains
+unexecuted on an isolated deployed database. Rollback must use a reviewed image
+that preserves these fields and does not run the former blind-refund Exchange
+path while recovery is pending. Test retained-image/newer-save compatibility
+before deployment. No live target, schema migration, refund, push or deployment
+was performed in this task.

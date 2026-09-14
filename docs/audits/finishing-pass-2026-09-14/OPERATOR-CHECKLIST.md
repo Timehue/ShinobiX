@@ -2,6 +2,8 @@
 
 **Status: HUMAN CERTIFICATION REQUIRED.** This file is a procedure, not evidence that it was executed. Local memory-store tests and Playwright emulation do not certify production recovery or an Android device. Do not attach passwords, tokens, raw saves or database connection strings to the report.
 
+The owner selected **local checks only for now** on 2026-09-14. C2–C4's approved local implementation is documented in [RECOVERY-DECISIONS.md](RECOVERY-DECISIONS.md). When a safe target is later authorized, include the new server-bound mission/Exchange proofs in restore and retained-image checks. An older Exchange worker with the former blind-refund path is not a compatible recovery worker for new pending operations.
+
 ## Staging / release-health checklist
 
 Record operator, UTC time, source commit, deployed image digest, exact safe hostname, distinct storage-project identity, active flags, expected store, and two disposable player aliases. Preserve redacted command output and receipt identifiers for every step. Stop on a mismatch; do not compensate by overwriting production or deleting uncertain receipts.
