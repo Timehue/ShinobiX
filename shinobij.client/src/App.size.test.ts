@@ -487,7 +487,9 @@ import { readFileSync } from "node:fs";
 // taking App.tsx from 6,563 to 6,528 (6,563 includes First Contract's two
 // wiring lines, which landed on main while this change was being made). The
 // budget is that count plus the usual five.
-const MAX_LINES = 6533;
+// → 6,521 after moving logout orchestration into lib/player-logout.ts.
+// App retains the stable owner, unmount retirement, and save/session bindings.
+const MAX_LINES = 6521;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
