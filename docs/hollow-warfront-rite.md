@@ -90,8 +90,10 @@ formation. Training changes enter a defense when the owner saves it again.
 
 ## Presentation
 
-- The playable arena is real 3D geometry: 35 stone/lacquer cells, shoji blockers,
-  cover platforms, smoke volumes, clan inlays, lanterns, rails, and torii.
+- The playable floor is flat: one slate court surface with 35 flush cell inlays
+  that match the 7x5 simulation grid. Shoji, cover and smoke are simulation
+  rules that shape sight lines and routes; the stage does not draw them as 3D
+  objects.
 - The distant moonlit fortress is background art only; no gameplay floor is baked
   into it.
 - The tactical camera is fixed. It does not orbit, cut, or follow targets.
