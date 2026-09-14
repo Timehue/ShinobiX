@@ -23,7 +23,7 @@ name.
 
 This is a live game's actual codebase, not a demo or a landing page: a React 19
 client, an Express/Supabase backend, server-authoritative reward and anti-cheat
-paths, and roughly 8,400 automated tests covering combat, missions, economy,
+paths, and more than 10,000 automated tests covering combat, missions, economy,
 PvP, saves, pets, towers, village systems and the release gates themselves.
 
 If you are here to read rather than to play, the interesting parts are
@@ -60,9 +60,9 @@ so they are still captured by hand - see [docs/MEDIA_KIT.md](docs/MEDIA_KIT.md).
 
 ShinobiX is a **live public beta**, not a 1.0 release. Its shipped player systems
 include the complete early loop plus PvP and Ranked, Towers and Spire, Hollow
-Gate, companions and their battle modes, Chronicle Showdown, clans and Clan Boss
-Operations, Village and Sector War, professions, Legacy, Hall of Legends, and
-the village story chronicles.
+Gate, companions and their battle modes, Chronicle Showdown, the Celestial Tower
+campaigns, clans and Clan Boss Operations, Village and Sector War, professions,
+Legacy, Hall of Legends, and the village story chronicles.
 
 Every system above has a kill switch, because a live game needs one. A feature
 having an emergency disable does not mean it is unreleased — the switches exist
@@ -186,7 +186,10 @@ on coherence, player guidance, safety, observability, and live-beta polish.
 
 ## Release Notes
 
-Historical draft notes for the first beta are in
+Tagged snapshots and their notes are on
+[GitHub Releases](https://github.com/Timehue/ShinobiX/releases). The current one
+is [v0.2.0-beta](https://github.com/Timehue/ShinobiX/releases/tag/v0.2.0-beta),
+tagged 2026-09-14. Historical draft notes for the first beta are in
 [docs/RELEASE_NOTES_v0.1.0-beta.md](docs/RELEASE_NOTES_v0.1.0-beta.md).
 
 ## Media Kit
