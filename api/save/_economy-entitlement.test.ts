@@ -19,7 +19,7 @@ describe('generic-save economy entitlement', () => {
         }
     });
 
-    it('continues to allow premium-wallet spending before the strict cutover', () => {
+    it('preserves Fate Shards while retaining existing material-wallet spending before the strict cutover', () => {
         const incoming = {
             ...existingCharacter,
             fateShards: 9, boneCharms: 10, auraStones: 11, auraDust: 12,
@@ -27,7 +27,7 @@ describe('generic-save economy entitlement', () => {
         };
         const result = sanitizeCharacterSave({ character: incoming }, { character: existingCharacter });
         const char = result.character as Record<string, unknown>;
-        assert.equal(char.fateShards, 9);
+        assert.equal(char.fateShards, 10);
         assert.equal(char.hollowShards, 15);
         assert.equal(char.level, 12);
         assert.equal(char.xp, 345);

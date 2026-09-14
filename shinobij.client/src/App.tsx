@@ -3833,8 +3833,8 @@ export default function App() {
         rehydrateSaveConflictDraft,
     } = saveCoordinator;
 
-    function installAuthoritativeSaveRef(snapshot: { name: string; payload: ReturnType<typeof buildPlayerSavePayload>; revision: number }) {
-        return saveCoordinator.installAuthoritativeSaveRef(snapshot);
+    function installAuthoritativeSaveRef(snapshot: { name: string; payload: ReturnType<typeof buildPlayerSavePayload>; revision: number }, baselineCharacter?: Character) {
+        return saveCoordinator.installAuthoritativeSaveRef(snapshot, baselineCharacter);
     }
 
     function scopeSaveAuthorityToAccount(accountName: string): number {
@@ -4094,7 +4094,7 @@ export default function App() {
         // Mirror the freshly-applied state to the localStorage preview cache
         // so the next login can paint instantly before the save round-trip.
         writeSavePreview(snap.character.name, snap);
-        installAuthoritativeSaveRef({ name: snap.character.name, payload: { ...snap, character: normalized }, revision: savePayloadRevisionRef.current });
+        installAuthoritativeSaveRef({ name: snap.character.name, payload: { ...snap, character: normalized }, revision: savePayloadRevisionRef.current }, serverCharacter);
         // Re-hydrate the active screen after login while keeping valid manifests.
         loadedCatsRef.current.clear();
         setTimeout(() => {
@@ -5441,6 +5441,7 @@ export default function App() {
                     <LeftProfileCard
                         character={character}
                         updateCharacter={setCharacter}
+                        beginDailyLogin={saveCoordinator.beginDailyLogin}
                         currentSector={currentSector}
                         setScreen={stableNavigate}
                         activeTraining={activeTraining}

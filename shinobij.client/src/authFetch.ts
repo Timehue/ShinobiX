@@ -348,8 +348,11 @@ export function buildSaveVersionEventDetail(
     data: unknown,
     accountName: string | null,
     source: SaveVersionEventDetail["source"],
+    request?: RequestInfo | URL,
 ): SaveVersionEventDetail | null {
     if (!data || typeof data !== "object") return null;
+    // The daily caller owns adoption even against an older balance-only API.
+    if (request !== undefined && requestPath(request) === "/api/player/daily-login") return null;
     const record = data as Record<string, unknown>;
     // Character-bearing responses must be adopted through the App's atomic
     // character+version commit. Advancing only the version here could let a
@@ -359,16 +362,16 @@ export function buildSaveVersionEventDetail(
     return { version: Number(record._saveVersion), accountName, source };
 }
 
-function isFullSaveRequest(input: RequestInfo | URL): boolean {
+function requestPath(input: RequestInfo | URL): string {
     try {
-        const path = typeof input === "string"
-            ? new URL(input, window.location.href).pathname
+        const base = typeof window === "undefined" ? "https://shinobij.invalid" : window.location.href;
+        return typeof input === "string"
+            ? new URL(input, base).pathname
             : input instanceof URL
                 ? input.pathname
-                : new URL(input.url, window.location.href).pathname;
-        return path === "/api/save" || path.startsWith("/api/save/");
+                : new URL(input.url, base).pathname;
     } catch {
-        return false;
+        return "";
     }
 }
 
@@ -377,7 +380,9 @@ function observeSaveVersion(response: Response, accountName: string | null, inpu
         const contentType = response.headers.get('content-type') ?? '';
         if (!contentType.toLowerCase().includes('application/json')) return response;
         void response.clone().json().then((data: unknown) => {
-            const detail = buildSaveVersionEventDetail(data, accountName, isFullSaveRequest(input) ? "full-save" : "mutation");
+            const path = requestPath(input);
+            const detail = buildSaveVersionEventDetail(data, accountName,
+                path === "/api/save" || path.startsWith("/api/save/") ? "full-save" : "mutation", input);
             if (!detail) return;
             window.dispatchEvent(new CustomEvent(SAVE_VERSION_EVENT, { detail }));
         }).catch(() => undefined);
