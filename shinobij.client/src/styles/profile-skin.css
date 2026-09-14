@@ -109,41 +109,6 @@
     margin-bottom: 10px;
 }
 
-/* -------- Profile summary / character card -------- */
-.profile-name {
-    font: 700 22px var(--font-display) !important;
-    color: var(--bsv2-gold-bright) !important;
-    letter-spacing: 0.08em;
-}
-.profile-rank {
-    font: 500 12px var(--font-display) !important;
-    color: var(--bsv2-player) !important;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-}
-.profile-avatar-wrap {
-    border: 2px solid var(--bsv2-gold-soft) !important;
-    border-radius: 50% !important;
-    overflow: hidden;
-    box-shadow: 0 0 18px rgba(196,162,90,0.2);
-}
-
-.profile-stat {
-    display: flex;
-    justify-content: space-between;
-    padding: 4px 0;
-    font: 400 12px Inter, sans-serif !important;
-    color: #c8cfdc !important;
-    border-bottom: 1px solid rgba(196,162,90,0.08);
-}
-.profile-stat:last-child { border-bottom: none; }
-.profile-stat strong,
-.profile-stat b {
-    color: var(--bsv2-gold-bright) !important;
-    font-family: Inter, sans-serif !important;
-    font-variant-numeric: tabular-nums;
-}
-
 /* Shinobi identity card */
 .profile-page-card .shinobi-identity-card {
     display: grid;
@@ -351,7 +316,6 @@
 }
 .stat-current { color: var(--bsv2-gold-bright) !important; font-weight: 700; }
 .stat-max { color: rgba(196,162,90,0.6) !important; font-weight: 500; }
-.stat-value { color: #f4e6c4 !important; }
 .stat-bar-track {
     height: 4px !important;
     background: rgba(0,0,0,0.5) !important;
@@ -426,15 +390,6 @@
     text-transform: uppercase;
     color: var(--bsv2-gold-bright) !important;
 }
-.stat-chip {
-    background: rgba(196,162,90,0.1) !important;
-    border: 1px solid var(--bsv2-gold-soft) !important;
-    color: var(--bsv2-gold-bright) !important;
-    padding: 3px 8px !important;
-    border-radius: 3px !important;
-    font: 600 10px var(--font-display) !important;
-    letter-spacing: 0.14em;
-}
 
 /* -------- Jutsu management — equipped row + collection grid -------- */
 .profile-page-card .equipped-jutsu-grid,
@@ -466,28 +421,6 @@
 .profile-page-card .jutsu-card[aria-selected="true"] {
     border-color: var(--bsv2-player) !important;
     box-shadow: 0 0 18px rgba(78,168,255,0.55), inset 0 0 18px rgba(0,0,0,0.45) !important;
-}
-.profile-page-card .jutsu-name {
-    font-family: var(--font-display) !important;
-    color: #f4e6c4 !important;
-    letter-spacing: 0.06em;
-    font-weight: 600;
-}
-.profile-page-card .jutsu-meta,
-.profile-page-card .jutsu-stat {
-    color: rgba(196,162,90,0.85) !important;
-    font: 500 10px Inter, sans-serif !important;
-    letter-spacing: 0.08em;
-}
-.profile-page-card .jutsu-kind-badge {
-    background: rgba(78,168,255,0.18) !important;
-    color: var(--bsv2-player) !important;
-    border: 1px solid rgba(78,168,255,0.5) !important;
-    border-radius: 3px !important;
-    padding: 2px 6px !important;
-    font: 700 9px var(--font-display) !important;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
 }
 .profile-page-card .jutsu-icon,
 .profile-page-card .jutsu-img {
@@ -538,17 +471,6 @@
     padding: 10px !important;
     transition: border-color 120ms, box-shadow 120ms, transform 120ms;
 }
-.inventory-page .item-card-wrap:hover {
-    border-color: rgba(78,168,255,0.85) !important;
-    box-shadow: 0 0 16px rgba(78,168,255,0.35), inset 0 0 16px rgba(0,0,0,0.45) !important;
-    transform: translateY(-2px);
-}
-.inventory-page .item-card-wrap.selected,
-.inventory-page .item-card-wrap.active,
-.inventory-page .item-card-wrap[aria-selected="true"] {
-    border-color: var(--bsv2-player) !important;
-    box-shadow: 0 0 18px rgba(78,168,255,0.55), inset 0 0 16px rgba(0,0,0,0.45) !important;
-}
 .inventory-page .inventory-art,
 .inventory-page .inventory-silhouette {
     background: radial-gradient(circle at center, rgba(78,168,255,0.08), transparent 70%) !important;
@@ -598,64 +520,9 @@
     font: 400 10px Inter, sans-serif !important;
 }
 
-/* -------- Pagination / pager (used in jutsu collection + backpack) -------- */
-.profile-page-card .pager,
-.profile-page-card .pagination,
-.inventory-page .pager,
-.inventory-page .pagination {
-    display: flex !important;
-    gap: 4px !important;
-    align-items: center !important;
-    justify-content: center !important;
-    margin-top: 10px !important;
-}
-.profile-page-card .pager button,
-.profile-page-card .pagination button,
-.inventory-page .pager button,
-.inventory-page .pagination button {
-    background: linear-gradient(180deg, #1a2238, #0a1020) !important;
-    border: 1px solid var(--bsv2-gold-soft) !important;
-    color: var(--bsv2-gold-bright) !important;
-    width: 28px; height: 28px;
-    padding: 0 !important;
-    border-radius: 3px !important;
-    font: 600 11px var(--font-display) !important;
-    cursor: pointer;
-}
-.profile-page-card .pager button.active,
-.profile-page-card .pagination button.active,
-.inventory-page .pager button.active,
-.inventory-page .pagination button.active {
-    background: linear-gradient(180deg, #1e3a8a, #1e40af) !important;
-    border-color: var(--bsv2-player) !important;
-    color: #fff !important;
-    box-shadow: 0 0 10px rgba(78,168,255,0.45);
-}
-
 /* =========================================================================
    Profile Skin v2 — fixes for tabs, avatar, layout
    ========================================================================= */
-
-/* Avatar — circular only on the inner image, not the upload box wrapper */
-.profile-page-card .avatar-upload-button {
-    display: inline-block !important;
-    background: linear-gradient(180deg, #1e3a8a 0%, #1e40af 100%) !important;
-    border: 1px solid rgba(78,168,255,0.5) !important;
-    color: #fff !important;
-    padding: 6px 14px !important;
-    border-radius: 4px !important;
-    font: 600 10px var(--font-display) !important;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    cursor: pointer;
-    box-shadow: 0 0 10px rgba(78,168,255,0.3);
-}
-.profile-page-card .avatar-upload-button:hover {
-    background: linear-gradient(180deg, #2853a8 0%, #2e5bd0 100%) !important;
-}
-.profile-page-card .avatar-upload-button input {
-    display: none;
-}
 
 /* Profile mobile tabs — actual class names are .pmtab / .pmtab-active */
 .profile-page-card .profile-mobile-tabs {

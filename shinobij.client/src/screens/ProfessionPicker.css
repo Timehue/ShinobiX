@@ -657,12 +657,6 @@
     color: var(--sj-text-secondary);
 }
 
-.pp-permanent {
-    color: var(--gold-300);
-    font-weight: var(--fw-bold);
-    letter-spacing: 0.04em;
-}
-
 .pp-error {
     margin: 0 0 14px;
     padding: 8px 14px;

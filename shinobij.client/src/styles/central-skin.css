@@ -1860,14 +1860,6 @@
     border-color: rgba(218, 181, 84, 0.3);
 }
 
-.app-shell[data-screen="arenaDistrict"] .arena-district-lobby {
-    border-color: rgba(246, 112, 101, 0.28);
-}
-
-.app-shell[data-screen="arenaDistrict"] .arena-district-lobby > p {
-    display: none;
-}
-
 @media (max-width: 760px) {
     .central-destination-header {
         grid-template-columns: minmax(0, 1fr) auto;

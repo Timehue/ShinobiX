@@ -491,47 +491,6 @@ html[data-vp="xl"] .app-shell:is([data-screen="shop"], [data-screen="grandMarket
 
 /* ===== JUTSU LOADOUT CARD GRID ===== */
 
-.jutsu-loadout-card-grid.known {
-    opacity: 0.92;
-}
-
-.jutsu-loadout-card.equipped {
-    border-color: var(--jutsu-type-color, #3b82f6);
-    box-shadow: 0 0 12px color-mix(in srgb, var(--jutsu-type-color, #3b82f6) 40%, transparent);
-}
-
-.jutsu-loadout-card.is-equipped {
-    border-color: rgba(74, 222, 128, 0.5);
-    background: rgba(6, 40, 18, 0.85);
-}
-
-/* Card image */
-/* AP badge — bottom-right circle overlay */
-/* Mastery level badge — top-left */
-/* Name strip */
-/* Equip/unequip toggle button */
-.jutsu-loadout-toggle-btn.unequip {
-    background: rgba(127, 29, 29, 0.75);
-    color: var(--red-300);
-    border-color: rgba(239, 68, 68, 0.5);
-}
-
-.jutsu-loadout-toggle-btn.unequip:hover {
-    background: rgba(185, 28, 28, 0.9);
-    color: #fff;
-}
-
-.jutsu-loadout-toggle-btn.equip {
-    background: rgba(6, 60, 20, 0.75);
-    color: var(--green-300);
-    border-color: rgba(74, 222, 128, 0.4);
-}
-
-.jutsu-loadout-toggle-btn.equip:hover {
-    background: rgba(20, 100, 40, 0.9);
-    color: #fff;
-}
-
 /* Info (?) button on jutsu cards */
 /* Jutsu info modal overlay */
 /* Divider between equipped and known */

@@ -832,25 +832,6 @@
         object-fit: cover;
     }
 
-.jutsu-name {
-    font-size: 12px;
-    font-weight: 900;
-    color: #111827;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.jutsu-meta {
-    font-size: 10px;
-    color: var(--slate-800);
-    line-height: 1.2;
-    min-height: 12px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
 .combat-text-log {
     margin-top: 10px;
     max-height: 220px;
@@ -1522,14 +1503,6 @@
     color: var(--slate-200);
 }
 
-/* ── Slot picker modal ── */
-.slot-picker-item.rarity-rare   { border-color: rgba(99,102,241,0.5); }
-.slot-picker-item.rarity-epic   { border-color: rgba(168,85,247,0.5); }
-.slot-picker-item.rarity-legendary { border-color: rgba(250,204,21,0.5); }
-.slot-picker-item.rarity-rare:hover   { background: rgba(99,102,241,0.12); }
-.slot-picker-item.rarity-epic:hover   { background: rgba(168,85,247,0.12); }
-.slot-picker-item.rarity-legendary:hover { background: rgba(250,204,21,0.12); }
-
 @media (max-width: 860px) {
     .inventory-page {
         grid-template-columns: 1fr;
@@ -1588,10 +1561,6 @@
 @media (max-width: 800px) {
     .hero {
         display: grid;
-    }
-
-    .top-hud {
-        grid-template-columns: repeat(2, 1fr);
     }
 
     .hex-battlefield {
