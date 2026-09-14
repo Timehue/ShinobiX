@@ -1,4 +1,5 @@
-import { test, expect, type Route } from '@playwright/test';
+import { expect, type Route } from '@playwright/test';
+import { API_CONNECTION_RETRIES, test } from './helpers/reconnecting-request';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
@@ -117,7 +118,7 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
   if (recovery === 'terminal-lost') {
    await page.route('**/api/missions/report-ai-fight', async route => {
     if (terminalDropped) { await route.abort(); return; }
-    const response = await route.fetch();
+    const response = await route.fetch({ maxRetries: API_CONNECTION_RETRIES });
     events.push({ moment: 'terminalResponseLost', body: await response.json() });
     terminalDropped = true;
     await route.abort();
@@ -223,7 +224,7 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
      stalledRoute = route;
      return; // The client's real 12-second deadline must release its busy state.
     } else {
-     const response = await route.fetch();
+     const response = await route.fetch({ maxRetries: API_CONNECTION_RETRIES });
      events.push({ moment: 'lostHealResponse', body: await response.json() });
     }
     await route.abort();
@@ -265,7 +266,7 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
    }, { name, settled });
    await page.route(`**/api/save/${name}`, async route => {
     if (route.request().method() !== 'GET') { await route.continue(); return; }
-    const response = await route.fetch();
+    const response = await route.fetch({ maxRetries: API_CONNECTION_RETRIES });
     events.push({ moment: 'ownerReadHeld', body: await response.json() });
     await page.waitForTimeout(1500);
     await route.fulfill({ response });
