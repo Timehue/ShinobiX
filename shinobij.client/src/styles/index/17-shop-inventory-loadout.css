@@ -365,9 +365,11 @@ html[data-vp="xl"] .app-shell:is([data-screen="shop"], [data-screen="grandMarket
     background: rgba(2, 6, 23, 0.45) !important;
 }
 
-.backpack-item:hover {
-    filter: brightness(1.12);
-    transform: translateY(-1px);
+@media (hover: hover) {
+    .backpack-item:hover {
+        filter: brightness(1.12);
+        transform: translateY(-1px);
+    }
 }
 /* ===== Inventory Tabs + Shinobi Tile Card Collection ===== */
 
@@ -425,9 +427,11 @@ html[data-vp="xl"] .app-shell:is([data-screen="shop"], [data-screen="grandMarket
     overflow: hidden;
 }
 
-    .tile-card-inventory-card:hover {
-        filter: brightness(1.15);
-        transform: translateY(-1px);
+    @media (hover: hover) {
+        .tile-card-inventory-card:hover {
+            filter: brightness(1.15);
+            transform: translateY(-1px);
+        }
     }
 
     .tile-card-inventory-card strong {
@@ -490,47 +494,6 @@ html[data-vp="xl"] .app-shell:is([data-screen="shop"], [data-screen="grandMarket
 
 
 /* ===== JUTSU LOADOUT CARD GRID ===== */
-
-.jutsu-loadout-card-grid.known {
-    opacity: 0.92;
-}
-
-.jutsu-loadout-card.equipped {
-    border-color: var(--jutsu-type-color, #3b82f6);
-    box-shadow: 0 0 12px color-mix(in srgb, var(--jutsu-type-color, #3b82f6) 40%, transparent);
-}
-
-.jutsu-loadout-card.is-equipped {
-    border-color: rgba(74, 222, 128, 0.5);
-    background: rgba(6, 40, 18, 0.85);
-}
-
-/* Card image */
-/* AP badge — bottom-right circle overlay */
-/* Mastery level badge — top-left */
-/* Name strip */
-/* Equip/unequip toggle button */
-.jutsu-loadout-toggle-btn.unequip {
-    background: rgba(127, 29, 29, 0.75);
-    color: var(--red-300);
-    border-color: rgba(239, 68, 68, 0.5);
-}
-
-.jutsu-loadout-toggle-btn.unequip:hover {
-    background: rgba(185, 28, 28, 0.9);
-    color: #fff;
-}
-
-.jutsu-loadout-toggle-btn.equip {
-    background: rgba(6, 60, 20, 0.75);
-    color: var(--green-300);
-    border-color: rgba(74, 222, 128, 0.4);
-}
-
-.jutsu-loadout-toggle-btn.equip:hover {
-    background: rgba(20, 100, 40, 0.9);
-    color: #fff;
-}
 
 /* Info (?) button on jutsu cards */
 /* Jutsu info modal overlay */

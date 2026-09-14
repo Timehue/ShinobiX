@@ -14,7 +14,10 @@
 .world-crisis__eyebrow, .world-crisis__orders-label, .world-crisis__section-heading span, .world-crisis__honor > span { color: #fca5a5; font-size: .65rem; font-weight: 900; letter-spacing: .18em; text-transform: uppercase; }
 .world-crisis__back, .world-crisis__news { min-height: 38px; padding: 8px 12px; color: #f8e7c0; border: 1px solid rgba(246, 196, 83, .4); border-radius: 6px; background: rgba(17, 24, 39, .84); font-weight: 800; cursor: pointer; }
 .world-crisis__news { color: #1a1204; background: linear-gradient(180deg, #f8d977, #d79e28); }
-.world-crisis__back:is(:hover, :focus-visible), .world-crisis__news:is(:hover, :focus-visible) { outline: 2px solid #fff; outline-offset: 2px; }
+.world-crisis__back:focus-visible, .world-crisis__news:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+@media (hover: hover) {
+    .world-crisis__back:hover, .world-crisis__news:hover { outline: 2px solid #fff; outline-offset: 2px; }
+}
 
 .world-crisis__status { display: flex; align-items: center; gap: 12px; max-width: 1240px; margin: 0 auto 14px; padding: 9px 12px; border: 1px solid rgba(248, 113, 113, .34); border-radius: 7px; background: rgba(69, 10, 10, .48); }
 .world-crisis__status > span { padding: 3px 8px; color: #fecaca; border: 1px solid rgba(252, 165, 165, .34); border-radius: 999px; font-size: .66rem; font-weight: 900; text-transform: uppercase; }
@@ -48,7 +51,7 @@
 .world-crisis__orders > img { width: 100%; max-height: 210px; margin: 11px 0; object-fit: cover; object-position: top; border-radius: 7px; mask-image: linear-gradient(#000 70%, transparent); }
 .world-crisis__orders h2 { margin: -5px 0 7px; color: #fff2ce; font: 800 1.25rem Georgia, serif; }.world-crisis__orders p { color: #aeb9ca; font-size: .78rem; line-height: 1.5; }
 .world-crisis__orders dl { display: grid; gap: 6px; margin: 14px 0; }.world-crisis__orders dl div { display: flex; justify-content: space-between; padding: 7px 9px; border-left: 2px solid #7f1d1d; background: rgba(255,255,255,.035); font-size: .72rem; }.world-crisis__orders dt { color: #94a3b8; }.world-crisis__orders dd { margin: 0; color: #fff4d6; font-weight: 900; }
-.world-crisis__defend { width: 100%; min-height: 48px; padding: 10px; color: #180b04; border: 1px solid #fecaca; border-radius: 7px; background: linear-gradient(180deg, #fb7185, #dc2626); box-shadow: 0 8px 24px rgba(220, 38, 38, .32); font-weight: 950; text-transform: uppercase; cursor: pointer; }.world-crisis__defend:disabled { color: #94a3b8; border-color: #334155; background: #151b25; box-shadow: none; cursor: not-allowed; }.world-crisis__defend:not(:disabled):is(:hover, :focus-visible) { outline: 2px solid #fff; outline-offset: 2px; filter: brightness(1.08); }
+.world-crisis__defend { width: 100%; min-height: 48px; padding: 10px; color: #180b04; border: 1px solid #fecaca; border-radius: 7px; background: linear-gradient(180deg, #fb7185, #dc2626); box-shadow: 0 8px 24px rgba(220, 38, 38, .32); font-weight: 950; text-transform: uppercase; cursor: pointer; }.world-crisis__defend:disabled { color: #94a3b8; border-color: #334155; background: #151b25; box-shadow: none; cursor: not-allowed; }.world-crisis__defend:not(:disabled):focus-visible { outline: 2px solid #fff; outline-offset: 2px; filter: brightness(1.08); }@media (hover: hover) { .world-crisis__defend:not(:disabled):hover { outline: 2px solid #fff; outline-offset: 2px; filter: brightness(1.08); } }
 .world-crisis__authority { display: block; margin-top: 9px; color: #778399; font-size: .63rem; line-height: 1.4; text-align: center; }
 
 .world-crisis__fronts, .world-crisis__honor { max-width: 1240px; margin: 14px auto 0; padding: 14px; border: 1px solid rgba(148, 163, 184, .2); border-radius: 9px; background: rgba(9, 13, 21, .93); }

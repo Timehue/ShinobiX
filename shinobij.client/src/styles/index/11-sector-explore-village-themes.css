@@ -282,33 +282,6 @@
         z-index: 1;
     }
 
-    /* Initials/paw placeholder behind the orb art.
-       This had NO styling at all, so it laid out as a normal in-flow block
-       inside the orb's flex box — the initials sat BESIDE the avatar and showed
-       as stray letters over the board token instead of behind it. Absolute +
-       z-index 0 puts it under the image, exactly like its side-HUD counterpart
-       `.combat-avatar-fallback`, so it is only visible when the art is missing
-       or fails to load. */
-    .avatar-orb .avatar-orb-fallback {
-        position: absolute;
-        inset: 0;
-        z-index: 0;
-        display: grid;
-        place-items: center;
-        border-radius: 50%;
-        color: #fef3c7;
-        font-weight: 900;
-        /* Fixed px, not em: the orb inherits the page font-size, so an em value
-           would render ~5px. The whole board is drawn through a CSS `scale()`
-           transform, so a px size here scales with the grid like everything
-           else. The pet orb passes its own inline size and still wins. */
-        font-size: 17px;
-        line-height: 1;
-        letter-spacing: 0.02em;
-        background: radial-gradient(circle, #334155, #0f172a);
-        pointer-events: none;
-    }
-
 /* Arena hex tile avatar — fills the hex clip-path */
 .arena-fullscreen .hex-tile .tiny-map-avatar {
     width: 34px !important;
@@ -354,19 +327,6 @@
 /* MAIN CASTLE */
 
 /* HOUSES */
-
-/* TOWERS */
-
-.tower-a {
-    left: -12px;
-    top: 12px;
-}
-
-.tower-b {
-    right: -8px;
-    top: 6px;
-}
-/* LABEL */
 
 /* THEMES */
 
@@ -525,8 +485,10 @@
     color: var(--gold-300);
     cursor: pointer;
 }
-.bm-crate-open-btn:hover,
-.bm-crate-collect:hover { filter: brightness(1.12); }
+@media (hover: hover) {
+    .bm-crate-open-btn:hover,
+    .bm-crate-collect:hover { filter: brightness(1.12); }
+}
 .bm-crate-hint { margin-top: 10px; color: #cbb38a; font-style: italic; font-size: 0.85rem; }
 .bm-crate-tier { margin: 14px 0 6px; font-size: 1.5rem; letter-spacing: 0.04em; animation: bm-fade-in 0.4s ease 0.15s both; }
 .bm-crate-rewards { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 4px; animation: bm-fade-in 0.4s ease 0.3s both; }
@@ -640,9 +602,11 @@
     text-align: left;
 }
 
-    .central-card:hover {
-        transform: translateY(-2px);
-        border-color: var(--gold);
+    @media (hover: hover) {
+        .central-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--gold);
+        }
     }
 
 
@@ -703,9 +667,11 @@
     text-align: center;
 }
 
-    .celestial-option-btn:hover {
-        border-color: var(--gold);
-        transform: translateY(-2px);
+    @media (hover: hover) {
+        .celestial-option-btn:hover {
+            border-color: var(--gold);
+            transform: translateY(-2px);
+        }
     }
 
     .celestial-option-btn strong {
@@ -729,8 +695,10 @@
     border-color: rgba(139, 92, 246, 0.55) !important;
 }
 
-    .celestial-endless-btn:hover {
-        border-color: #a78bfa !important;
+    @media (hover: hover) {
+        .celestial-endless-btn:hover {
+            border-color: #a78bfa !important;
+        }
     }
 
     .celestial-endless-btn strong {
@@ -923,9 +891,11 @@
     line-height: 1;
 }
 
-    .walkable-tile:hover {
-        filter: brightness(1.25);
-        transform: scale(1.03);
+    @media (hover: hover) {
+        .walkable-tile:hover {
+            filter: brightness(1.25);
+            transform: scale(1.03);
+        }
     }
 
 .sector-player-tile {
@@ -1018,8 +988,10 @@
     box-shadow: none !important;
 }
 
-    .transparent-sector-tile:hover {
-        background: rgba(255, 255, 255, 0.12) !important;
+    @media (hover: hover) {
+        .transparent-sector-tile:hover {
+            background: rgba(255, 255, 255, 0.12) !important;
+        }
     }
 
 .sector-player-tile {

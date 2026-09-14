@@ -41,10 +41,14 @@
     transition: filter 0.12s ease, transform 0.08s ease;
 }
 
-.notif-chip:hover { filter: brightness(1.12); }
+@media (hover: hover) {
+    .notif-chip:hover { filter: brightness(1.12); }
+}
 .notif-chip:active { transform: translateY(1px); }
 .notif-chip.static { cursor: default; }
-.notif-chip.static:hover { filter: none; }
+@media (hover: hover) {
+    .notif-chip.static:hover { filter: none; }
+}
 
 .notif-chip-icon { flex: 0 0 auto; font-size: 0.95rem; }
 .notif-chip-label {
@@ -149,7 +153,9 @@
     line-height: 1;
     cursor: pointer;
 }
-.daily-briefing-close:hover { background: rgba(220, 38, 38, 0.55); border-color: rgba(248, 113, 113, 0.6); }
+@media (hover: hover) {
+    .daily-briefing-close:hover { background: rgba(220, 38, 38, 0.55); border-color: rgba(248, 113, 113, 0.6); }
+}
 
 /* The only scroll container in the briefing. Header and footer stay pinned, so
    "Enter the village" and the close button are reachable at any viewport height
@@ -197,7 +203,9 @@
     transition: filter 0.12s ease, transform 0.08s ease;
     animation: db-claim-pulse 1.8s ease-in-out infinite;
 }
-.db-claim-btn:hover { filter: brightness(1.08); }
+@media (hover: hover) {
+    .db-claim-btn:hover { filter: brightness(1.08); }
+}
 .db-claim-btn:active { transform: translateY(1px); }
 .db-claim-btn:disabled { filter: grayscale(0.3) brightness(0.9); cursor: default; animation: none; }
 @keyframes db-claim-pulse { 0%, 100% { box-shadow: 0 2px 10px rgba(217, 119, 6, 0.45); } 50% { box-shadow: 0 2px 18px rgba(252, 211, 77, 0.75); } }
@@ -234,7 +242,9 @@
     color: #e5e7eb;
     cursor: pointer;
 }
-.db-war:hover { filter: brightness(1.15); }
+@media (hover: hover) {
+    .db-war:hover { filter: brightness(1.15); }
+}
 .db-war-tag { flex: 0 0 auto; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; padding: 3px 7px; border-radius: 999px; }
 
 .db-war-clan { background: rgba(124, 58, 237, 0.85); color: #fff; }
@@ -261,7 +271,9 @@
     font-size: 0.95rem;
     cursor: pointer;
 }
-.db-dismiss:hover { filter: brightness(1.08); }
+@media (hover: hover) {
+    .db-dismiss:hover { filter: brightness(1.08); }
+}
 
 @media (max-width: 560px) {
     .daily-briefing-card { border-radius: 14px; }
