@@ -293,6 +293,63 @@ async function runSoloCompatibility(kv: Json): Promise<void> {
     }
 }
 
+/**
+ * A finished operation must hand its member back to every other mode. Its
+ * cross-mode marker once outlived the fight: it held the member out of Battle
+ * Towers and 500'd their next assault until it expired. A my-run recovery poll
+ * could also stamp a Battle Towers lease on a live assault and break it.
+ */
+async function runCrossModeHandoff(kv: Json): Promise<void> {
+    scenario = 'cross-mode handoff';
+    const previous = process.env.DISABLE_CLAN_BOSS_PARTIES;
+    process.env.DISABLE_CLAN_BOSS_PARTIES = '1';
+    try {
+        const [player] = await registerPlayers(1, `Handoff ${SUFFIX}`, kv, 'ophand');
+        if (!check(Boolean(player), 'handoff player is seeded')) return;
+        const { name, token } = player!;
+        const statePath = (runId: string) => `/api/towers/state?runId=${encodeURIComponent(runId)}&playerName=${encodeURIComponent(name)}`;
+        const startAssault = async (label: string) => http('/api/clan-boss/assault-start', {
+            method: 'POST', token, body: { hostName: name, requestId: requestId(label), hostLoadout: {} },
+        });
+        const finishAndBank = async (runId: string, session: Json): Promise<boolean> => {
+            let actions = 0;
+            while (session?.status === 'active' && actions < 180) {
+                const acted = await http('/api/towers/action', { method: 'POST', token, body: { runId, playerName: name, type: 'wait' } });
+                if (acted.status !== 200 || acted.body.applied !== true) return check(false, `action ${actions + 1} on ${runId} is accepted`);
+                session = acted.body.session;
+                actions += 1;
+            }
+            const settled = await http('/api/clan-boss/assault-settle', { method: 'POST', token, body: { runId, playerName: name } });
+            return check(session?.status === 'done' && settled.status === 200 && settled.body.ok === true, `${runId} finishes and banks`);
+        };
+
+        const first = await startAssault('handoff-first');
+        const firstRunId = String(first.body.runId ?? '');
+        if (!check(first.status === 200 && firstRunId.startsWith('cboss-'), 'first assault starts')) return;
+        const recovery = await http(`/api/towers/my-run?playerName=${encodeURIComponent(name)}`, { token });
+        check(recovery.status === 200 && recovery.body.runId === firstRunId, 'my-run discovers the assault before its first poll');
+        check(await kv.get(`battle-lock:${name}`) === null, 'my-run leaves no Battle Towers lease on a Clan Boss assault');
+        const firstState = await http(statePath(firstRunId), { token });
+        if (!check(firstState.status === 200, 'the assault stays playable after that my-run poll')) return;
+        if (!(await finishAndBank(firstRunId, firstState.body.session))) return;
+
+        const second = await startAssault('handoff-second');
+        const secondRunId = String(second.body.runId ?? '');
+        if (!check(second.status === 200 && secondRunId.startsWith('cboss-'), 'the next assault starts')) return;
+        const secondState = await http(statePath(secondRunId), { token });
+        check(secondState.status === 200, 'the next assault accepts state polls right after the first one');
+        const busyTower = await http('/api/towers/start', { method: 'POST', token, body: { hostName: name, floor: 1, hostLoadout: {} } });
+        check(busyTower.status === 409 && busyTower.body.errorCode === 'member-busy', 'a live assault still keeps its member out of Battle Towers');
+        if (!(await finishAndBank(secondRunId, secondState.body.session ?? second.body.session))) return;
+
+        const tower = await http('/api/towers/start', { method: 'POST', token, body: { hostName: name, floor: 1, hostLoadout: {} } });
+        check(tower.status === 200 && String(tower.body.runId ?? '').startsWith('tower-'), 'a finished assault hands its member to Battle Towers at once');
+    } finally {
+        if (previous === undefined) delete process.env.DISABLE_CLAN_BOSS_PARTIES;
+        else process.env.DISABLE_CLAN_BOSS_PARTIES = previous;
+    }
+}
+
 async function main(): Promise<void> {
     let server: import('node:http').Server | null = null;
     try {
@@ -314,6 +371,7 @@ async function main(): Promise<void> {
         });
         for (const size of [1, 2, 4] as const) await runScenario(size, kv);
         await runSoloCompatibility(kv);
+        await runCrossModeHandoff(kv);
     } catch (error) {
         check(false, error instanceof Error ? error.stack ?? error.message : String(error));
     } finally {

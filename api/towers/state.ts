@@ -77,7 +77,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             && a.ownerSlug === callerSlug);
         if (!isMember) return res.status(403).json({ error: 'Not a member of this run.' });
 
-        if (session.runId.startsWith('cboss-')) {
+        // Only a live assault holds its members. Re-arming a finished one kept them
+        // out of every other battle, and refused anyone who had since moved on.
+        if (session.runId.startsWith('cboss-') && session.status === 'active') {
             await refreshClanBossBattleMarkers(runId, towerBattleLeaseMembers(session));
         }
 
