@@ -6,7 +6,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { formatResetNamespaces, resetConfirmMessage, runServerReset, type ResetPreview } from "./admin-server-reset.js";
+import { formatResetNamespaces, resetConfirmMessage, resetDoneMessage, runServerReset, type ResetPreview } from "./admin-server-reset.js";
 
 type Call = { dryRun: boolean };
 
@@ -83,6 +83,39 @@ test("the confirmation quotes the dry run's real counts", () => {
     assert.match(message, /receipt — 449/);
     assert.match(message, /save-snapshot — 6329/);
     assert.match(message, /CANNOT be undone/);
+});
+
+// Paid Supporter subscriptions are cancelled by the reset (issue #181). The
+// admin has to see who is affected before confirming, and must be told plainly
+// afterwards if anyone is still being billed.
+
+test("the confirmation names the Supporter subscriptions the reset will cancel", () => {
+    const message = resetConfirmMessage({ ...PREVIEW, subscriptionsToCancel: ["alpha", "beta"], subscriptionCancelConfigured: true });
+    assert.match(message, /2 paid Supporter subscriptions will be CANCELLED at Tebex first \(alpha, beta\)/);
+    assert.doesNotMatch(message, /TEBEX_CHECKOUT_API_KEY/);
+});
+
+test("the confirmation warns when subscriptions cannot be cancelled automatically", () => {
+    const message = resetConfirmMessage({ ...PREVIEW, subscriptionsToCancel: ["alpha"], subscriptionCancelConfigured: false });
+    assert.match(message, /1 paid Supporter subscription will be CANCELLED/);
+    assert.match(message, /TEBEX_CHECKOUT_API_KEY is not set/);
+    assert.match(message, /tebex:orphaned-subscriptions/);
+});
+
+test("the confirmation says so when no subscription is affected", () => {
+    assert.match(resetConfirmMessage({ ...PREVIEW, subscriptionsToCancel: [] }), /No paid Supporter subscriptions/);
+});
+
+test("the done message reports cancelled and uncancelled subscriptions", () => {
+    const message = resetDoneMessage({
+        ...PREVIEW,
+        subscriptionsCancelled: ["alpha"],
+        subscriptionsParked: [{ slug: "beta", reason: "unreachable" }],
+    });
+    assert.match(message, /Cancelled 1 Supporter subscription \(alpha\)/);
+    assert.match(message, /1 subscription could NOT be cancelled \(beta: unreachable\)/);
+    assert.match(message, /start a new Ranked Season/, "the ranked reminder still ends the message");
+    assert.doesNotMatch(resetDoneMessage(PREVIEW), /subscription/, "silent when there were none");
 });
 
 test("namespace formatting ranks by size and caps the list", () => {

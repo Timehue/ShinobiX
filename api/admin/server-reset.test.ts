@@ -16,11 +16,14 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import type { CancelOutcome } from '../tebex/_cancel-subscription.js';
 import {
     PRESERVE_PATTERNS,
     EPHEMERAL_PREFIXES,
     authNamesRequiringRevocation,
+    cancelDoomedSubscriptions,
     deleteDoomedKeys,
+    findDoomedSubscriptions,
     isFirstPactStateKey,
     isPreservedKey,
     isProtectedKey,
@@ -388,6 +391,61 @@ test('revokes sessions for deleted auth rows and leaves protected accounts alone
 test('session epochs survive so a rotated epoch cannot read back as zero', () => {
     assert.equal(isPreservedKey('auth-session:anyone'), true);
     assert.ok(PRESERVE_PATTERNS.includes('auth-session:*'));
+});
+
+// ─── Tebex subscriptions ─────────────────────────────────────────────────────
+// The save holds the only copy of a supporter's recurring-payment reference, so
+// the reset reads it before the sweep and cancels at Tebex (issue #181). The
+// handler-level ordering is pinned in server-reset-subscriptions.test.ts.
+
+const SUB_REF = 'tbx-r-55fff4107740a1f40d844ff89607557f45bfafb3';
+
+test('finds paid subscriptions only on the saves being deleted', async () => {
+    const flags: Record<string, Record<string, unknown>> = {
+        'save:supporter': { patreon: { active: true, userId: SUB_REF } },
+        'save:comped': { patreon: { active: true, source: 'admin' } },   // no payment behind a comp
+        'save:lapsed': { patreon: { active: false, userId: SUB_REF } },
+        'save:plain': {},
+    };
+    const read: string[][] = [];
+    const found = await findDoomedSubscriptions(
+        ['save:supporter', 'save:comped', 'save:lapsed', 'save:plain', 'ledger:currency:supporter', 'save-snapshot:supporter:1'],
+        async (keys) => { read.push(keys); return keys.map((key) => flags[key] ?? null); },
+    );
+    assert.deepEqual(found, [{ slug: 'supporter', reference: SUB_REF }]);
+    assert.deepEqual(read, [['save:supporter', 'save:comped', 'save:lapsed', 'save:plain']], 'only save rows are read');
+});
+
+test('reading subscription flags is chunked', async () => {
+    const sizes: number[] = [];
+    const doomed = Array.from({ length: 450 }, (_, i) => `save:player${i}`);
+    await findDoomedSubscriptions(doomed, async (keys) => { sizes.push(keys.length); return keys.map(() => null); });
+    assert.deepEqual(sizes, [200, 200, 50]);
+});
+
+test('reports cancelled and parked subscriptions separately', async () => {
+    const report = await cancelDoomedSubscriptions(
+        [{ slug: 'alpha', reference: `${SUB_REF}a` }, { slug: 'beta', reference: `${SUB_REF}b` }],
+        async (slug): Promise<CancelOutcome> => (slug === 'alpha'
+            ? { ok: true, status: 204 }
+            : { ok: false, reason: 'unreachable' }),
+    );
+    assert.deepEqual(report, { cancelled: ['alpha'], parked: [{ slug: 'beta', reason: 'unreachable' }] });
+});
+
+test('subscription cancellations run a few at a time', async () => {
+    let inFlight = 0;
+    let peak = 0;
+    const subscriptions = Array.from({ length: 20 }, (_, i) => ({ slug: `player${i}`, reference: `${SUB_REF}${i}` }));
+    const report = await cancelDoomedSubscriptions(subscriptions, async (): Promise<CancelOutcome> => {
+        inFlight++;
+        peak = Math.max(peak, inFlight);
+        await new Promise((resolve) => setImmediate(resolve));
+        inFlight--;
+        return { ok: true, status: 204 };
+    });
+    assert.equal(report.cancelled.length, 20);
+    assert.ok(peak <= 8, `peak concurrency ${peak} must stay bounded`);
 });
 
 // ─── dry-run reporting ───────────────────────────────────────────────────────
