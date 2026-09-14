@@ -671,10 +671,12 @@
     cursor: pointer;
 }
 
-.guide-toc-link:hover {
-    color: var(--sj-text-primary, #f0ede5);
-    background: var(--sj-surface-high, #202c38);
-    border-color: var(--sj-border-soft, rgba(221, 230, 236, .14));
+@media (hover: hover) {
+    .guide-toc-link:hover {
+        color: var(--sj-text-primary, #f0ede5);
+        background: var(--sj-surface-high, #202c38);
+        border-color: var(--sj-border-soft, rgba(221, 230, 236, .14));
+    }
 }
 
 .guide-toc-link span {

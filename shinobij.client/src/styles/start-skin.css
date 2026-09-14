@@ -213,8 +213,10 @@
     justify-content: center;
 }
 
-.start-eye-btn:hover {
-    color: var(--gold-300) !important;
+@media (hover: hover) {
+    .start-eye-btn:hover {
+        color: var(--gold-300) !important;
+    }
 }
 
 .start-eye-btn svg {
@@ -256,12 +258,14 @@
     filter: drop-shadow(0 0 6px rgba(250,204,21,0.55));
 }
 
-.start-primary-btn:hover {
-    filter: brightness(1.08);
-    box-shadow:
-        0 0 0 1px rgba(250, 204, 21, 0.22) inset,
-        0 10px 32px rgba(0,0,0,0.6),
-        0 0 30px rgba(250, 204, 21, 0.22);
+@media (hover: hover) {
+    .start-primary-btn:hover {
+        filter: brightness(1.08);
+        box-shadow:
+            0 0 0 1px rgba(250, 204, 21, 0.22) inset,
+            0 10px 32px rgba(0,0,0,0.6),
+            0 0 30px rgba(250, 204, 21, 0.22);
+    }
 }
 
 .start-primary-btn:active {
@@ -383,9 +387,11 @@
     white-space: nowrap;
 }
 
-.start-leaderboard-tab:hover {
-    border-color: rgba(202, 138, 4, 0.7);
-    color: #e7d8a8;
+@media (hover: hover) {
+    .start-leaderboard-tab:hover {
+        border-color: rgba(202, 138, 4, 0.7);
+        color: #e7d8a8;
+    }
 }
 
 .start-leaderboard-tab.is-active {
@@ -526,9 +532,11 @@
     font-size: 13px;
 }
 
-.start-back-button:hover {
-    border-color: rgba(250, 204, 21, 0.8);
-    color: var(--gold-300) !important;
+@media (hover: hover) {
+    .start-back-button:hover {
+        border-color: rgba(250, 204, 21, 0.8);
+        color: var(--gold-300) !important;
+    }
 }
 
 /* --------- Hide app banner on start screen --------- */
