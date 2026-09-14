@@ -155,7 +155,9 @@
     cursor: pointer;
     transition: filter .12s ease;
 }
-.rankup-continue:hover { filter: brightness(1.08) saturate(1.05); }
+@media (hover: hover) {
+    .rankup-continue:hover { filter: brightness(1.08) saturate(1.05); }
+}
 
 @keyframes rankup-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes rankup-spin { to { transform: translate(-50%, -50%) rotate(360deg); } }

@@ -79,9 +79,11 @@
     transition: border-color 0.15s, transform 0.12s;
 }
 
-    .pet-slot-card:hover:not(.pet-empty) {
-        border-color: var(--gold-400);
-        transform: translateY(-2px);
+    @media (hover: hover) {
+        .pet-slot-card:hover:not(.pet-empty) {
+            border-color: var(--gold-400);
+            transform: translateY(-2px);
+        }
     }
 
     .pet-slot-card.pet-selected {
