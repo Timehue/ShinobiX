@@ -6,13 +6,14 @@ import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock } from '../../_lock.js';
 import { awardClanPointsToPlayerSave, clanPointWeekKey } from '../../_clan-points.js';
-import { commitEconomicReceipt, isEconomicReceiptStorageError, reserveEconomicReceipt } from '../../_economic-receipt.js';
+import { isEconomicReceiptStorageError } from '../../_economic-receipt.js';
+import { settleMissionCredit, finishMissionReceipt, missionProofs } from './_settlement.js';
 import { territoryRewardsSuspended } from '../../_territory-lifecycle.js';
 import {
     CLAN_MISSION_TARGETS,
     CLAN_MISSION_REWARDS,
     clanMissionProgressServer,
-    addClanXpServer,
+
     scaledClanXp,
     isClanMissionKey,
     type ClanMissionKey,
@@ -28,9 +29,9 @@ import {
  * server recomputes the mission's progress from the trusted clan record
  * (member contributions, treasury) + the canonical world:territory:* sectors,
  * verifies it meets the target, then credits the SHARED clan treasury + clan XP
- * under the clan-save lock. A per-mission single-use latch (NX KV key, NOT on
- * the clan blob so the clan-save validator can't strip it) makes each clan
- * mission claimable exactly once, ever.
+ * under the clan-save lock. A weekly server reservation seals the grant;
+ * shared credit and its protected proof share a CAS write, so interrupted
+ * claims can resume personal credit without applying the shared grant twice.
  *
  * Gated at clan MEMBERSHIP (same model as treasury/donate + territory/collect-
  * supply): the reward lands in the shared pool, not personal inventory, so a
@@ -113,8 +114,17 @@ function pointEligibleMembers(
 
 async function readClaimed(slug: string, weekKey: string): Promise<ClanMissionKey[]> {
     const raw = await kv.get<unknown>(claimedSetKey(slug, weekKey)).catch(() => null);
-    if (!Array.isArray(raw)) return [];
-    return raw.filter(isClanMissionKey);
+    const claimed = Array.isArray(raw) ? raw.filter(isClanMissionKey) : [];
+    // The listing is a projection. Repair a missed listing write from positive
+    // shared credit plus the final receipt, never from a pending intent alone.
+    const clan = await kv.get<Record<string, unknown>>(clanRecordKey(slug));
+    for (const proof of clan ? missionProofs(clan) : []) {
+        if (proof.weekKey !== weekKey || !isClanMissionKey(proof.missionKey) || claimed.includes(proof.missionKey)) continue;
+        const receipt = await kv.get<{state?: string; fingerprint?: string; ownerId?: string; metadata?: {protocol?: number}}>(proof.key);
+        if (receipt?.state === 'committed' && receipt.metadata?.protocol === 2
+            && receipt.fingerprint === proof.fingerprint && proof.ownerId && receipt.ownerId === proof.ownerId) claimed.push(proof.missionKey);
+    }
+    return claimed;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -127,7 +137,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const clan = typeof req.query.clan === 'string' ? req.query.clan.trim() : '';
             const slug = clanBareSlug(clan);
             if (!slug) return res.status(400).json({ error: 'Missing clan.' });
-            const weekKey = clanPointWeekKey();
+            const weekKey = clanPointWeekKey(new Date(Date.now()));
             return res.status(200).json({ ok: true, weekKey, claimed: await readClaimed(slug, weekKey) });
         }
 
@@ -152,7 +162,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const slug = clanBareSlug(clan);
         if (!slug) return res.status(400).json({ error: 'Invalid clan name.' });
         const clanSaveKey = clanRecordKey(clan);
-        const weekKey = clanPointWeekKey();
+        const weekKey = clanPointWeekKey(new Date(Date.now()));
 
         // Membership check (admin exempt) — the caller must belong to this clan.
         if (!identity.admin) {
@@ -175,75 +185,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const clanRec = await kv.get<Record<string, unknown>>(clanSaveKey);
             if (!clanRec) return { ok: false as const, status: 404, error: 'Clan not found.' };
 
-            const progress = clanMissionProgressServer(clanRec, String(clanRec.name ?? clan), territories, missionKey);
-            if (progress < CLAN_MISSION_TARGETS[missionKey]) {
-                return { ok: false as const, status: 409, error: 'Clan mission not complete yet.' };
-            }
-
-            // Per-week single-use latch — reserve before crediting so two racing
-            // claims can't both pay out (the outer clan lock already serialises,
-            // this is the durable per-week record across calls). NX: null means
-            // already taken THIS week.
-            const receiptKey = claimLatchKey(slug, weekKey, missionKey);
-            const reservation = await reserveEconomicReceipt(kv, {
-                key: receiptKey,
+            return settleMissionCredit(clanRec, {
+                clanKey: clanSaveKey, key: claimLatchKey(slug, weekKey, missionKey),
                 fingerprint: `clan-mission:${slug}:${weekKey}:${missionKey}`,
-                ttlSeconds: CLAIM_TTL,
-                metadata: { slug, weekKey, missionKey },
+                weekKey, missionKey, ttlSeconds: CLAIM_TTL,
+                prepare: () => {
+                    const progress = clanMissionProgressServer(clanRec, String(clanRec.name ?? clan), territories, missionKey);
+                    if (progress < CLAN_MISSION_TARGETS[missionKey]) return null;
+                    const members = Array.isArray(clanRec.members) ? clanRec.members.length : 0;
+                    return {clanXp: scaledClanXp(reward.clanXp, members), treasury: reward.treasury ?? {},
+                        pointAmount: CLAN_MISSION_POINT_AMOUNTS[missionKey] ?? 0,
+                        pointMembers: pointEligibleMembers(clanRec, String(clanRec.name ?? clan), territories, missionKey)};
+                },
             });
-            if (reservation.status === 'conflict') {
-                return {
-                    ok: false as const,
-                    status: 409,
-                    error: 'Conflicting clan mission receipt exists.',
-                };
-            }
-
-            if (reservation.status === 'replay') {
-                return {
-                    ok: true as const,
-                    xp: Number(clanRec.xp ?? 0) || 0,
-                    level: Number(clanRec.level ?? 1) || 1,
-                    treasury: (clanRec.treasury ?? {}) as Record<string, unknown>,
-                    pointAmount: CLAN_MISSION_POINT_AMOUNTS[missionKey] ?? 0,
-                    pointMembers: pointEligibleMembers(clanRec, String(clanRec.name ?? clan), territories, missionKey),
-                };
-            }
-
-            // ── Credit clan XP + treasury ───────────────────────────────────
-            // Clan XP is member-scaled (10–15 members = 1.0×; small clans dampened,
-            // capped at 1.0×) so a tiny clan can't rush hall tiers.
-            const memberCount = Array.isArray(clanRec.members) ? clanRec.members.length : 0;
-            const leveled = addClanXpServer(Number(clanRec.xp ?? 0) || 0, Number(clanRec.level ?? 1) || 1, scaledClanXp(reward.clanXp, memberCount));
-            const prevTreasury = (clanRec.treasury ?? {}) as Record<string, unknown>;
-            const nextTreasury: Record<string, unknown> = { ...prevTreasury };
-            for (const [cur, amt] of Object.entries(reward.treasury ?? {})) {
-                nextTreasury[cur] = (Number(nextTreasury[cur] ?? 0) || 0) + Number(amt);
-            }
-            // A remote write can apply and then lose its acknowledgement. Once
-            // attempted, leave the durable pending receipt replay-blocking.
-            await kv.set(clanSaveKey, { ...clanRec, xp: leveled.xp, level: leveled.level, treasury: nextTreasury });
-            // If commit fails after the clan write, leave the owned pending row
-            // in place; it still blocks replay. Never roll it back post-mutation.
-            await commitEconomicReceipt(kv, receiptKey, reservation, CLAIM_TTL);
-
-            return {
-                ok: true as const,
-                xp: leveled.xp,
-                level: leveled.level,
-                treasury: nextTreasury,
-                pointAmount: CLAN_MISSION_POINT_AMOUNTS[missionKey] ?? 0,
-                pointMembers: pointEligibleMembers(clanRec, String(clanRec.name ?? clan), territories, missionKey),
-            };
         }, { failClosed: true });
 
         if (!outcome.ok) return res.status(outcome.status).json({ error: outcome.error });
 
         // Maintain the per-week listing set + audit (best-effort, off the claim's lock).
         const claimed = await readClaimed(slug, weekKey);
-        if (!claimed.includes(missionKey)) {
-            await kv.set(claimedSetKey(slug, weekKey), [...claimed, missionKey], { ex: CLAIM_TTL }).catch(() => undefined);
-        }
         await kv.set(`${AUDIT_LOG_PREFIX}${slug}:${weekKey}:${missionKey}`, {
             ts: Date.now(),
             actor: identity.admin ? 'admin' : identity.name,
@@ -260,16 +220,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (pointAmount > 0 && pointMembers.length > 0) {
             const actor = playerName;
             const others = pointMembers.filter((name) => name !== actor);
-            await Promise.allSettled(others.map((member) => awardClanPointsToPlayerSave(member, 'clanMissionContribution', pointAmount, {
+            await Promise.all(others.map((member) => awardClanPointsToPlayerSave(member, 'clanMissionContribution', pointAmount, {
                 eventId: `mission:${slug}:${weekKey}:${missionKey}:contribution:${member}`,
                 clan,
                 missionKey,
+                missionReceiptVersion: outcome.newProtocol ? 1 : undefined,
             })));
             if (pointMembers.includes(actor)) {
                 const contribution = await awardClanPointsToPlayerSave(actor, 'clanMissionContribution', pointAmount, {
                     eventId: `mission:${slug}:${weekKey}:${missionKey}:contribution:${actor}`,
                     clan,
                     missionKey,
+                    missionReceiptVersion: outcome.newProtocol ? 1 : undefined,
                 });
                 if (contribution.found) {
                     awardedCharacter = contribution.character;
@@ -282,6 +244,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 eventId: `mission:${slug}:${weekKey}:${missionKey}:claim:${playerName}`,
                 clan,
                 missionKey,
+                missionReceiptVersion: outcome.newProtocol ? 1 : undefined,
             });
             if (claimAward.found) {
                 awardedCharacter = claimAward.character;
@@ -289,6 +252,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
 
+        if (outcome.newProtocol) await finishMissionReceipt(claimLatchKey(slug, weekKey, missionKey), `clan-mission:${slug}:${weekKey}:${missionKey}`, CLAIM_TTL);
+        if (!claimed.includes(missionKey)) {
+            await kv.set(claimedSetKey(slug, weekKey), [...claimed, missionKey], { ex: CLAIM_TTL }).catch(() => undefined);
+        }
         return res.status(200).json({
             ok: true,
             missionKey,

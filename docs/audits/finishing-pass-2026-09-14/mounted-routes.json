@@ -1,0 +1,1397 @@
+[
+  {
+    "route": "/save/:name",
+    "file": "api/save/[name].ts",
+    "handler": "saveHandler"
+  },
+  {
+    "route": "/player/heartbeat",
+    "file": "api/player/heartbeat.ts",
+    "handler": "heartbeatHandler"
+  },
+  {
+    "route": "/player/travel",
+    "file": "api/player/travel.ts",
+    "handler": "travelHandler"
+  },
+  {
+    "route": "/player/challenge",
+    "file": "api/player/challenge.ts",
+    "handler": "challengeHandler"
+  },
+  {
+    "route": "/player/blocks",
+    "file": "api/player/blocks.ts",
+    "handler": "playerBlocksHandler"
+  },
+  {
+    "route": "/player/friends",
+    "file": "api/player/friends.ts",
+    "handler": "friendsHandler"
+  },
+  {
+    "route": "/player/attack",
+    "file": "api/player/attack.ts",
+    "handler": "attackHandler"
+  },
+  {
+    "route": "/player/sleeper-kill",
+    "file": "api/player/sleeper-kill.ts",
+    "handler": "sleeperKillHandler"
+  },
+  {
+    "route": "/player/clear-attack",
+    "file": "api/player/clear-attack.ts",
+    "handler": "clearAttackHandler"
+  },
+  {
+    "route": "/player/heal",
+    "file": "api/player/heal.ts",
+    "handler": "healHandler"
+  },
+  {
+    "route": "/player/cafeteria",
+    "file": "api/player/cafeteria.ts",
+    "handler": "cafeteriaHandler"
+  },
+  {
+    "route": "/player/academy-narrative",
+    "file": "api/player/academy-narrative.ts",
+    "handler": "academyNarrativeHandler"
+  },
+  {
+    "route": "/player/roster",
+    "file": "api/player/roster.ts",
+    "handler": "rosterHandler"
+  },
+  {
+    "route": "/player/leaderboards",
+    "file": "api/player/leaderboards.ts",
+    "handler": "playerLeaderboardsHandler"
+  },
+  {
+    "route": "/player/trade",
+    "file": "api/player/trade.ts",
+    "handler": "playerTradeHandler"
+  },
+  {
+    "route": "/player/activity-spine",
+    "file": "api/player/activity-spine.ts",
+    "handler": "playerActivitySpineHandler"
+  },
+  {
+    "route": "/player/capabilities",
+    "file": "api/player/capabilities.ts",
+    "handler": "playerCapabilitiesHandler"
+  },
+  {
+    "route": "/player/account-status",
+    "file": "api/player/account-status.ts",
+    "handler": "playerAccountStatusHandler"
+  },
+  {
+    "route": "/player/daily-login",
+    "file": "api/player/daily-login.ts",
+    "handler": "dailyLoginHandler"
+  },
+  {
+    "route": "/festival/black-market",
+    "file": "api/festival/black-market.ts",
+    "handler": "blackMarketHandler"
+  },
+  {
+    "route": "/festival/sunscar",
+    "file": "api/festival/sunscar.ts",
+    "handler": "sunscarFestivalHandler"
+  },
+  {
+    "route": "/pvp/session",
+    "file": "api/pvp/session.ts",
+    "handler": "pvpSessionHandler"
+  },
+  {
+    "route": "/pvp/move",
+    "file": "api/pvp/move.ts",
+    "handler": "pvpMoveHandler"
+  },
+  {
+    "route": "/images",
+    "file": "api/images.ts",
+    "handler": "imagesHandler"
+  },
+  {
+    "route": "/img",
+    "file": "api/img.ts",
+    "handler": "imgHandler"
+  },
+  {
+    "route": "/player-auth",
+    "file": "api/player-auth.ts",
+    "handler": "playerAuthHandler"
+  },
+  {
+    "route": "/admin-auth",
+    "file": "api/admin-auth.ts",
+    "handler": "adminAuthHandler"
+  },
+  {
+    "route": "/auth/google/start",
+    "file": "api/auth/google/start.ts",
+    "handler": "googleAuthStartHandler"
+  },
+  {
+    "route": "/auth/google/callback",
+    "file": "api/auth/google/callback.ts",
+    "handler": "googleAuthCallbackHandler"
+  },
+  {
+    "route": "/auth/google/claim",
+    "file": "api/auth/google/claim.ts",
+    "handler": "googleAuthClaimHandler"
+  },
+  {
+    "route": "/admin/players",
+    "file": "api/admin/players.ts",
+    "handler": "adminPlayersHandler"
+  },
+  {
+    "route": "/admin/grant-subscription",
+    "file": "api/admin/grant-subscription.ts",
+    "handler": "adminGrantSubscriptionHandler"
+  },
+  {
+    "route": "/admin/grant-item",
+    "file": "api/admin/grant-item.ts",
+    "handler": "adminGrantItemHandler"
+  },
+  {
+    "route": "/admin/player-index-health",
+    "file": "api/admin/player-index-health.ts",
+    "handler": "adminPlayerIndexHealthHandler"
+  },
+  {
+    "route": "/admin/runtime-mode-capabilities",
+    "file": "api/admin/runtime-mode-capabilities.ts",
+    "handler": "adminRuntimeModeCapabilitiesHandler"
+  },
+  {
+    "route": "/admin/server-reset",
+    "file": "api/admin/server-reset.ts",
+    "handler": "serverResetHandler"
+  },
+  {
+    "route": "/admin/ranked-season",
+    "file": "api/admin/ranked-season.ts",
+    "handler": "adminRankedSeasonHandler"
+  },
+  {
+    "route": "/admin/content-publish",
+    "file": "api/admin/content-publish.ts",
+    "handler": "adminContentPublishHandler"
+  },
+  {
+    "route": "/clans/list",
+    "file": "api/clans/list.ts",
+    "handler": "clansListHandler"
+  },
+  {
+    "route": "/village/chat",
+    "file": "api/village/chat.ts",
+    "handler": "chatHandler"
+  },
+  {
+    "route": "/village-guard/queue",
+    "file": "api/village-guard/queue.ts",
+    "handler": "guardQueueHandler"
+  },
+  {
+    "route": "/village-guard/dequeue",
+    "file": "api/village-guard/dequeue.ts",
+    "handler": "guardDequeueHandler"
+  },
+  {
+    "route": "/village-guard/list",
+    "file": "api/village-guard/list.ts",
+    "handler": "guardListHandler"
+  },
+  {
+    "route": "/village-guard/challenge",
+    "file": "api/village-guard/challenge.ts",
+    "handler": "guardChallengeHandler"
+  },
+  {
+    "route": "/generate-image",
+    "file": "api/generate-image.ts",
+    "handler": "generateImageHandler"
+  },
+  {
+    "route": "/game-state",
+    "file": "api/game-state.ts",
+    "handler": "gameStateHandler"
+  },
+  {
+    "route": "/dojo-circuit/event",
+    "file": "api/dojo-circuit/event.ts",
+    "handler": "dojoCircuitHandler"
+  },
+  {
+    "route": "/world-state",
+    "file": "api/world-state.ts",
+    "handler": "worldStateHandler"
+  },
+  {
+    "route": "/messages",
+    "file": "api/messages.ts",
+    "handler": "messagesHandler"
+  },
+  {
+    "route": "/report",
+    "file": "api/report.ts",
+    "handler": "reportHandler"
+  },
+  {
+    "route": "/perf-beacon",
+    "file": "api/perf-beacon.ts",
+    "handler": "perfBeaconHandler"
+  },
+  {
+    "route": "/village/kage",
+    "file": "api/village/kage.ts",
+    "handler": "kageHandler"
+  },
+  {
+    "route": "/village/kage-challenge",
+    "file": "api/village/kage-challenge.ts",
+    "handler": "kageChallengeHandler"
+  },
+  {
+    "route": "/village/war-debuff",
+    "file": "api/village/war-debuff.ts",
+    "handler": "villageWarDebuffHandler"
+  },
+  {
+    "route": "/bloodlines/list",
+    "file": "api/bloodlines/list.ts",
+    "handler": "bloodlinesListHandler"
+  },
+  {
+    "route": "/admin/bloodline-review",
+    "file": "api/admin/bloodline-review.ts",
+    "handler": "bloodlineReviewHandler"
+  },
+  {
+    "route": "/admin/item-review",
+    "file": "api/admin/item-review.ts",
+    "handler": "itemReviewHandler"
+  },
+  {
+    "route": "/kv/:op",
+    "file": "api/kv-proxy.ts",
+    "handler": "kvProxyHandler"
+  },
+  {
+    "route": "/admin/migrate-kv",
+    "file": "api/admin/migrate-kv.ts",
+    "handler": "migrateKvHandler"
+  },
+  {
+    "route": "/admin/migrate-to-base",
+    "file": "api/admin/migrate-to-base.ts",
+    "handler": "migrateToBaseHandler"
+  },
+  {
+    "route": "/admin/migrate-images-to-r2",
+    "file": "api/admin/migrate-images-to-r2.ts",
+    "handler": "migrateImagesToR2Handler"
+  },
+  {
+    "route": "/missions/raid-start",
+    "file": "api/missions/raid-start.ts",
+    "handler": "raidStartHandler"
+  },
+  {
+    "route": "/towers/floors",
+    "file": "api/towers/floors.ts",
+    "handler": "towersFloorsHandler"
+  },
+  {
+    "route": "/towers/start",
+    "file": "api/towers/start.ts",
+    "handler": "towersStartHandler"
+  },
+  {
+    "route": "/towers/action",
+    "file": "api/towers/action.ts",
+    "handler": "towersActionHandler"
+  },
+  {
+    "route": "/towers/state",
+    "file": "api/towers/state.ts",
+    "handler": "towersStateHandler"
+  },
+  {
+    "route": "/towers/settle",
+    "file": "api/towers/settle.ts",
+    "handler": "towersSettleHandler"
+  },
+  {
+    "route": "/towers/my-run",
+    "file": "api/towers/my-run.ts",
+    "handler": "towersMyRunHandler"
+  },
+  {
+    "route": "/towers/join",
+    "file": "api/towers/join.ts",
+    "handler": "towersJoinHandler"
+  },
+  {
+    "route": "/towers/party",
+    "file": "api/towers/party.ts",
+    "handler": "towersPartyHandler"
+  },
+  {
+    "route": "/towers/spire-leaderboard",
+    "file": "api/towers/spire-leaderboard.ts",
+    "handler": "towersSpireLeaderboardHandler"
+  },
+  {
+    "route": "/towers/pvp-queue",
+    "file": "api/towers/pvp-queue.ts",
+    "handler": "towersPvpQueueHandler"
+  },
+  {
+    "route": "/towers/pvp-state",
+    "file": "api/towers/pvp-state.ts",
+    "handler": "towersPvpStateHandler"
+  },
+  {
+    "route": "/towers/pvp-action",
+    "file": "api/towers/pvp-action.ts",
+    "handler": "towersPvpActionHandler"
+  },
+  {
+    "route": "/towers/pvp-settle",
+    "file": "api/towers/pvp-settle.ts",
+    "handler": "towersPvpSettleHandler"
+  },
+  {
+    "route": "/battle/lock",
+    "file": "api/battle/lock.ts",
+    "handler": "battleLockHandler"
+  },
+  {
+    "route": "/missions/expedition-start",
+    "file": "api/missions/expedition-start.ts",
+    "handler": "expeditionStartHandler"
+  },
+  {
+    "route": "/training/start",
+    "file": "api/training/start.ts",
+    "handler": "trainingStartHandler"
+  },
+  {
+    "route": "/training/complete",
+    "file": "api/training/complete.ts",
+    "handler": "trainingCompleteHandler"
+  },
+  {
+    "route": "/village/treasury/transfer",
+    "file": "api/village/treasury/transfer.ts",
+    "handler": "villageTreasuryTransferHandler"
+  },
+  {
+    "route": "/village/treasury/donate",
+    "file": "api/village/treasury/donate.ts",
+    "handler": "villageTreasuryDonateHandler"
+  },
+  {
+    "route": "/village/claim-daily-agenda",
+    "file": "api/village/claim-daily-agenda.ts",
+    "handler": "villageClaimDailyAgendaHandler"
+  },
+  {
+    "route": "/village/claim-map-control",
+    "file": "api/village/claim-map-control.ts",
+    "handler": "villageClaimMapControlHandler"
+  },
+  {
+    "route": "/village/hire-mercenary",
+    "file": "api/village/hire-mercenary.ts",
+    "handler": "hireMercenaryHandler"
+  },
+  {
+    "route": "/village/war-structure",
+    "file": "api/village/war-structure.ts",
+    "handler": "villageWarStructureHandler"
+  },
+  {
+    "route": "/village/war-win-condition",
+    "file": "api/village/war-win-condition.ts",
+    "handler": "villageWarWinConditionHandler"
+  },
+  {
+    "route": "/village/war-terrain",
+    "file": "api/village/war-terrain.ts",
+    "handler": "villageWarTerrainHandler"
+  },
+  {
+    "route": "/village/sector-war",
+    "file": "api/village/sector-war.ts",
+    "handler": "villageSectorWarHandler"
+  },
+  {
+    "route": "/village/sector-card",
+    "file": "api/village/sector-card.ts",
+    "handler": "villageSectorCardHandler"
+  },
+  {
+    "route": "/village/sector-pet",
+    "file": "api/village/sector-pet.ts",
+    "handler": "villageSectorPetHandler"
+  },
+  {
+    "route": "/village/anbu-infiltration",
+    "file": "api/village/anbu-infiltration.ts",
+    "handler": "anbuInfiltrationHandler"
+  },
+  {
+    "route": "/village/war-map",
+    "file": "api/village/war-map.ts",
+    "handler": "villageWarMapHandler"
+  },
+  {
+    "route": "/village/tax",
+    "file": "api/village/tax.ts",
+    "handler": "villageTaxHandler"
+  },
+  {
+    "route": "/village/intel",
+    "file": "api/village/intel.ts",
+    "handler": "villageIntelHandler"
+  },
+  {
+    "route": "/village/claim-war-crate",
+    "file": "api/village/claim-war-crate.ts",
+    "handler": "villageClaimWarCrateHandler"
+  },
+  {
+    "route": "/village/war-mission",
+    "file": "api/village/war-mission.ts",
+    "handler": "villageWarMissionHandler"
+  },
+  {
+    "route": "/war/claim-reward",
+    "file": "api/war/claim-reward.ts",
+    "handler": "warClaimRewardHandler"
+  },
+  {
+    "route": "/village/war-merc",
+    "file": "api/village/war-merc.ts",
+    "handler": "villageWarMercHandler"
+  },
+  {
+    "route": "/bank/claim-interest",
+    "file": "api/bank/claim-interest.ts",
+    "handler": "bankClaimInterestHandler"
+  },
+  {
+    "route": "/bank/transfer",
+    "file": "api/bank/transfer.ts",
+    "handler": "bankTransferHandler"
+  },
+  {
+    "route": "/profile/settle",
+    "file": "api/profile/settle.ts",
+    "handler": "profileSettleHandler"
+  },
+  {
+    "route": "/inventory/open-war-crate",
+    "file": "api/inventory/open-war-crate.ts",
+    "handler": "inventoryOpenWarCrateHandler"
+  },
+  {
+    "route": "/shop/settle",
+    "file": "api/shop/settle.ts",
+    "handler": "shopSettleHandler"
+  },
+  {
+    "route": "/inventory/sell",
+    "file": "api/inventory/sell.ts",
+    "handler": "inventorySellHandler"
+  },
+  {
+    "route": "/admin/save-snapshot",
+    "file": "api/admin/save-snapshot.ts",
+    "handler": "saveSnapshotHandler"
+  },
+  {
+    "route": "/cron/snapshot-saves",
+    "file": "api/cron/snapshot-saves.ts",
+    "handler": "snapshotSavesHandler"
+  },
+  {
+    "route": "/clan/war/list",
+    "file": "api/clan/war/list.ts",
+    "handler": "clanWarListHandler"
+  },
+  {
+    "route": "/clan/war/declare",
+    "file": "api/clan/war/declare.ts",
+    "handler": "clanWarDeclareHandler"
+  },
+  {
+    "route": "/clan/war/challenge",
+    "file": "api/clan/war/challenge.ts",
+    "handler": "clanWarChallengeHandler"
+  },
+  {
+    "route": "/clan/war/pvp-2v2",
+    "file": "api/clan/war/pvp-2v2.ts",
+    "handler": "clanWarPvp2v2Handler"
+  },
+  {
+    "route": "/clan/war/report",
+    "file": "api/clan/war/report.ts",
+    "handler": "clanWarReportHandler"
+  },
+  {
+    "route": "/clan/war/tilecards",
+    "file": "api/clan/war/tilecards.ts",
+    "handler": "clanWarTilecardsHandler"
+  },
+  {
+    "route": "/clan/war/pet",
+    "file": "api/clan/war/pet.ts",
+    "handler": "clanWarPetHandler"
+  },
+  {
+    "route": "/card-clash/queue",
+    "file": "api/card-clash/queue.ts",
+    "handler": "cardClashQueueHandler"
+  },
+  {
+    "route": "/card-clash/match",
+    "file": "api/card-clash/match.ts",
+    "handler": "cardClashMatchHandler"
+  },
+  {
+    "route": "/card-clash/ai-start",
+    "file": "api/card-clash/ai-start.ts",
+    "handler": "cardClashAiStartHandler"
+  },
+  {
+    "route": "/card-clash/ai-move",
+    "file": "api/card-clash/ai-move.ts",
+    "handler": "cardClashAiMoveHandler"
+  },
+  {
+    "route": "/card-clash/echoes-witness",
+    "file": "api/card-clash/echoes-witness.ts",
+    "handler": "cardClashEchoesWitnessHandler"
+  },
+  {
+    "route": "/clan/seal-pool/get",
+    "file": "api/clan/seal-pool/get.ts",
+    "handler": "clanSealPoolGetHandler"
+  },
+  {
+    "route": "/clan/seal-pool/donate",
+    "file": "api/clan/seal-pool/donate.ts",
+    "handler": "clanSealPoolDonateHandler"
+  },
+  {
+    "route": "/clan/seal-pool/distribute",
+    "file": "api/clan/seal-pool/distribute.ts",
+    "handler": "clanSealPoolDistributeHandler"
+  },
+  {
+    "route": "/clan/treasury/donate",
+    "file": "api/clan/treasury/donate.ts",
+    "handler": "clanTreasuryDonateHandler"
+  },
+  {
+    "route": "/clan/treasury/transfer",
+    "file": "api/clan/treasury/transfer.ts",
+    "handler": "clanTreasuryTransferHandler"
+  },
+  {
+    "route": "/clan/territory/collect-supply",
+    "file": "api/clan/territory/collect-supply.ts",
+    "handler": "clanCollectSupplyHandler"
+  },
+  {
+    "route": "/clan/territory/assign-scrolls",
+    "file": "api/clan/territory/assign-scrolls.ts",
+    "handler": "clanAssignTerritoryScrollsHandler"
+  },
+  {
+    "route": "/clan/upgrade/purchase",
+    "file": "api/clan/upgrade/purchase.ts",
+    "handler": "clanUpgradePurchaseHandler"
+  },
+  {
+    "route": "/clan/mission/claim",
+    "file": "api/clan/mission/claim.ts",
+    "handler": "clanMissionClaimHandler"
+  },
+  {
+    "route": "/clan/exchange/purchase",
+    "file": "api/clan/exchange/purchase.ts",
+    "handler": "clanExchangePurchaseHandler"
+  },
+  {
+    "route": "/clan/chat/get",
+    "file": "api/clan/chat/get.ts",
+    "handler": "clanChatGetHandler"
+  },
+  {
+    "route": "/clan/chat/send",
+    "file": "api/clan/chat/send.ts",
+    "handler": "clanChatSendHandler"
+  },
+  {
+    "route": "/clan-boss/get",
+    "file": "api/clan-boss/get.ts",
+    "handler": "clanBossGetHandler"
+  },
+  {
+    "route": "/clan-boss/party",
+    "file": "api/clan-boss/party.ts",
+    "handler": "clanBossPartyHandler"
+  },
+  {
+    "route": "/clan-boss/assault-start",
+    "file": "api/clan-boss/assault-start.ts",
+    "handler": "clanBossAssaultStartHandler"
+  },
+  {
+    "route": "/clan-boss/assault-settle",
+    "file": "api/clan-boss/assault-settle.ts",
+    "handler": "clanBossAssaultSettleHandler"
+  },
+  {
+    "route": "/hollow-gate/start",
+    "file": "api/hollow-gate/start.ts",
+    "handler": "hollowGateStartHandler"
+  },
+  {
+    "route": "/hollow-gate/descend",
+    "file": "api/hollow-gate/descend.ts",
+    "handler": "hollowGateDescendHandler"
+  },
+  {
+    "route": "/hollow-gate/choose-augment",
+    "file": "api/hollow-gate/choose-augment.ts",
+    "handler": "hollowGateChooseAugmentHandler"
+  },
+  {
+    "route": "/hollow-gate/settle",
+    "file": "api/hollow-gate/settle.ts",
+    "handler": "hollowGateSettleHandler"
+  },
+  {
+    "route": "/hollow-gate/combat-start",
+    "file": "api/hollow-gate/combat-start.ts",
+    "handler": "hollowGateCombatStartHandler"
+  },
+  {
+    "route": "/hollow-gate/combat-settle",
+    "file": "api/hollow-gate/combat-settle.ts",
+    "handler": "hollowGateCombatSettleHandler"
+  },
+  {
+    "route": "/hollow-gate/use-consumable",
+    "file": "api/hollow-gate/use-consumable.ts",
+    "handler": "hollowGateUseConsumableHandler"
+  },
+  {
+    "route": "/hollow-gate/event",
+    "file": "api/hollow-gate/event.ts",
+    "handler": "hollowGateEventHandler"
+  },
+  {
+    "route": "/hollow-gate/step",
+    "file": "api/hollow-gate/step.ts",
+    "handler": "hollowGateStepHandler"
+  },
+  {
+    "route": "/hollow-gate/floor-seal",
+    "file": "api/hollow-gate/floor-seal.ts",
+    "handler": "hollowGateFloorSealHandler"
+  },
+  {
+    "route": "/hollow-gate/attune",
+    "file": "api/hollow-gate/attune.ts",
+    "handler": "hollowGateAttuneHandler"
+  },
+  {
+    "route": "/clan/kick",
+    "file": "api/clan/kick.ts",
+    "handler": "clanKickHandler"
+  },
+  {
+    "route": "/clan/leave",
+    "file": "api/clan/leave.ts",
+    "handler": "clanLeaveHandler"
+  },
+  {
+    "route": "/clan/mentor",
+    "file": "api/clan/mentor.ts",
+    "handler": "clanMentorHandler"
+  },
+  {
+    "route": "/clan/pet-escort/list",
+    "file": "api/clan/pet-escort/list.ts",
+    "handler": "clanPetEscortListHandler"
+  },
+  {
+    "route": "/clan/pet-escort/offer",
+    "file": "api/clan/pet-escort/offer.ts",
+    "handler": "clanPetEscortOfferHandler"
+  },
+  {
+    "route": "/clan/pet-escort/cancel",
+    "file": "api/clan/pet-escort/cancel.ts",
+    "handler": "clanPetEscortCancelHandler"
+  },
+  {
+    "route": "/missions/daily",
+    "file": "api/missions/daily.ts",
+    "handler": "missionsDailyHandler"
+  },
+  {
+    "route": "/missions/weekly-board",
+    "file": "api/missions/weekly-board.ts",
+    "handler": "missionsWeeklyBoardHandler"
+  },
+  {
+    "route": "/missions/report-raid",
+    "file": "api/missions/report-raid.ts",
+    "handler": "missionsReportRaidHandler"
+  },
+  {
+    "route": "/missions/report-pvp-win",
+    "file": "api/missions/report-pvp-win.ts",
+    "handler": "missionsReportPvpWinHandler"
+  },
+  {
+    "route": "/missions/report-pet-event",
+    "file": "api/missions/report-pet-event.ts",
+    "handler": "missionsReportPetEventHandler"
+  },
+  {
+    "route": "/missions/ai-fight-start",
+    "file": "api/missions/ai-fight-start.ts",
+    "handler": "missionsAiFightStartHandler"
+  },
+  {
+    "route": "/missions/report-ai-fight",
+    "file": "api/missions/report-ai-fight.ts",
+    "handler": "missionsReportAiFightHandler"
+  },
+  {
+    "route": "/missions/hunt-trail",
+    "file": "api/missions/hunt-trail.ts",
+    "handler": "missionsHuntTrailHandler"
+  },
+  {
+    "route": "/missions/field-trail",
+    "file": "api/missions/field-trail.ts",
+    "handler": "missionsFieldTrailHandler"
+  },
+  {
+    "route": "/missions/claim-mission",
+    "file": "api/missions/claim-mission.ts",
+    "handler": "missionsClaimMissionHandler"
+  },
+  {
+    "route": "/missions/queue-combat-claim",
+    "file": "api/missions/queue-combat-claim.ts",
+    "handler": "missionsQueueCombatClaimHandler"
+  },
+  {
+    "route": "/missions/combat-start",
+    "file": "api/missions/combat-start.ts",
+    "handler": "missionsCombatStartHandler"
+  },
+  {
+    "route": "/missions/record-progress",
+    "file": "api/missions/record-progress.ts",
+    "handler": "missionsRecordProgressHandler"
+  },
+  {
+    "route": "/pve/fight-outcome",
+    "file": "api/pve/fight-outcome.ts",
+    "handler": "pveFightOutcomeHandler"
+  },
+  {
+    "route": "/solo-pve/action",
+    "file": "api/solo-pve/action.ts",
+    "handler": "soloPveActionHandler"
+  },
+  {
+    "route": "/solo-pve/state",
+    "file": "api/solo-pve/state.ts",
+    "handler": "soloPveStateHandler"
+  },
+  {
+    "route": "/tebex/webhook",
+    "file": "api/tebex/webhook.ts",
+    "handler": "tebexWebhookHandler"
+  },
+  {
+    "route": "/tebex/basket",
+    "file": "api/tebex/basket.ts",
+    "handler": "tebexBasketHandler"
+  },
+  {
+    "route": "/tebex/catalogue",
+    "file": "api/tebex/catalogue.ts",
+    "handler": "tebexCatalogueHandler"
+  },
+  {
+    "route": "/sector/wanderer-gift",
+    "file": "api/sector/wanderer-gift.ts",
+    "handler": "sectorWandererGiftHandler"
+  },
+  {
+    "route": "/sector/wanderer-quest",
+    "file": "api/sector/wanderer-quest.ts",
+    "handler": "sectorWandererQuestHandler"
+  },
+  {
+    "route": "/sector/rift-quest",
+    "file": "api/sector/rift-quest.ts",
+    "handler": "sectorRiftQuestHandler"
+  },
+  {
+    "route": "/sector/wanderer-ambush",
+    "file": "api/sector/wanderer-ambush.ts",
+    "handler": "sectorWandererAmbushHandler"
+  },
+  {
+    "route": "/sector/wanderer-service",
+    "file": "api/sector/wanderer-service.ts",
+    "handler": "sectorWandererServiceHandler"
+  },
+  {
+    "route": "/sector/questbook",
+    "file": "api/sector/questbook.ts",
+    "handler": "sectorQuestbookHandler"
+  },
+  {
+    "route": "/sector/story-reckoning",
+    "file": "api/sector/story-reckoning.ts",
+    "handler": "sectorStoryReckoningHandler"
+  },
+  {
+    "route": "/sector/merc-roam",
+    "file": "api/sector/merc-roam.ts",
+    "handler": "sectorMercRoamHandler"
+  },
+  {
+    "route": "/sector/traces",
+    "file": "api/sector/traces.ts",
+    "handler": "sectorTracesHandler"
+  },
+  {
+    "route": "/sector/trail-sign",
+    "file": "api/sector/trail-sign.ts",
+    "handler": "sectorTrailSignHandler"
+  },
+  {
+    "route": "/sector/shrine-offer",
+    "file": "api/sector/shrine-offer.ts",
+    "handler": "sectorShrineOfferHandler"
+  },
+  {
+    "route": "/sector/contract",
+    "file": "api/sector/contract.ts",
+    "handler": "sectorContractHandler"
+  },
+  {
+    "route": "/story/interlude",
+    "file": "api/story/interlude.ts",
+    "handler": "storyInterludeHandler"
+  },
+  {
+    "route": "/story/road-event",
+    "file": "api/story/road-event.ts",
+    "handler": "storyRoadEventHandler"
+  },
+  {
+    "route": "/legacy/definitions",
+    "file": "api/legacy/definitions.ts",
+    "handler": "legacyDefinitionsHandler"
+  },
+  {
+    "route": "/legacy/stats",
+    "file": "api/legacy/stats.ts",
+    "handler": "legacyStatsHandler"
+  },
+  {
+    "route": "/legacy/evaluate",
+    "file": "api/legacy/evaluate.ts",
+    "handler": "legacyEvaluateHandler"
+  },
+  {
+    "route": "/legacy/sage",
+    "file": "api/legacy/sage.ts",
+    "handler": "legacySageHandler"
+  },
+  {
+    "route": "/legacy/trial",
+    "file": "api/legacy/trial.ts",
+    "handler": "legacyTrialHandler"
+  },
+  {
+    "route": "/eras",
+    "file": "api/eras.ts",
+    "handler": "erasHandler"
+  },
+  {
+    "route": "/announcements",
+    "file": "api/announcements.ts",
+    "handler": "announcementsHandler"
+  },
+  {
+    "route": "/world-crisis",
+    "file": "api/world-crisis.ts",
+    "handler": "worldCrisisHandler"
+  },
+  {
+    "route": "/world-crisis-80",
+    "file": "api/world-crisis-80.ts",
+    "handler": "worldCrisis80Handler"
+  },
+  {
+    "route": "/world-crisis-80/combat-start",
+    "file": "api/world-crisis-80/combat-start.ts",
+    "handler": "worldCrisis80CombatStartHandler"
+  },
+  {
+    "route": "/world-crisis-80/combat-settle",
+    "file": "api/world-crisis-80/combat-settle.ts",
+    "handler": "worldCrisis80CombatSettleHandler"
+  },
+  {
+    "route": "/hall-of-legends",
+    "file": "api/hall-of-legends.ts",
+    "handler": "hallOfLegendsHandler"
+  },
+  {
+    "route": "/admin/legacy",
+    "file": "api/admin/legacy.ts",
+    "handler": "adminLegacyHandler"
+  },
+  {
+    "route": "/pvp/chat",
+    "file": "api/pvp/chat.ts",
+    "handler": "pvpChatHandler"
+  },
+  {
+    "route": "/pvp/spectate",
+    "file": "api/pvp/spectate.ts",
+    "handler": "pvpSpectateHandler"
+  },
+  {
+    "route": "/pvp/stream",
+    "file": "api/pvp/stream.ts",
+    "handler": "pvpStreamHandler"
+  },
+  {
+    "route": "/pvp/combat-log",
+    "file": "api/pvp/combat-log.ts",
+    "handler": "pvpCombatLogHandler"
+  },
+  {
+    "route": "/pvp/combat-history",
+    "file": "api/pvp/combat-history.ts",
+    "handler": "pvpCombatHistoryHandler"
+  },
+  {
+    "route": "/pvp/claim-rewards",
+    "file": "api/pvp/claim-rewards.ts",
+    "handler": "pvpClaimRewardsHandler"
+  },
+  {
+    "route": "/pvp/bounty",
+    "file": "api/pvp/bounty.ts",
+    "handler": "pvpBountyHandler"
+  },
+  {
+    "route": "/pvp/ranked-queue",
+    "file": "api/pvp/ranked-queue.ts",
+    "handler": "pvpRankedQueueHandler"
+  },
+  {
+    "route": "/pvp/pet-ranked-queue",
+    "file": "api/pvp/pet-ranked-queue.ts",
+    "handler": "pvpPetRankedQueueHandler"
+  },
+  {
+    "route": "/pvp/ranked-2v2",
+    "file": "api/pvp/ranked-2v2.ts",
+    "handler": "pvpRanked2v2Handler"
+  },
+  {
+    "route": "/pet/battle-start",
+    "file": "api/pet/battle-start.ts",
+    "handler": "petBattleStartHandler"
+  },
+  {
+    "route": "/pet/battle-result",
+    "file": "api/pet/battle-result.ts",
+    "handler": "petBattleResultHandler"
+  },
+  {
+    "route": "/pet/warfront-start",
+    "file": "api/pet/warfront-start.ts",
+    "handler": "petWarfrontStartHandler"
+  },
+  {
+    "route": "/pet/ranked-start",
+    "file": "api/pet/ranked-start.ts",
+    "handler": "petRankedStartHandler"
+  },
+  {
+    "route": "/pet/ranked-watch",
+    "file": "api/pet/ranked-watch.ts",
+    "handler": "petRankedWatchHandler"
+  },
+  {
+    "route": "/pet/evolve",
+    "file": "api/pet/evolve.ts",
+    "handler": "petEvolveHandler"
+  },
+  {
+    "route": "/weapon/apply-elemental-core",
+    "file": "api/weapon/apply-elemental-core.ts",
+    "handler": "applyElementalCoreHandler"
+  },
+  {
+    "route": "/weapon/forge-elemental-core",
+    "file": "api/weapon/forge-elemental-core.ts",
+    "handler": "forgeElementalCoreHandler"
+  },
+  {
+    "route": "/pet/gauntlet",
+    "file": "api/pet/gauntlet.ts",
+    "handler": "petGauntletHandler"
+  },
+  {
+    "route": "/pet/showdown",
+    "file": "api/pet/showdown.ts",
+    "handler": "petShowdownHandler"
+  },
+  {
+    "route": "/first-pact/state",
+    "file": "api/first-pact/state.ts",
+    "handler": "firstPactStateHandler"
+  },
+  {
+    "route": "/arena/lobby",
+    "file": "api/arena/lobby.ts",
+    "handler": "arenaLobbyHandler"
+  },
+  {
+    "route": "/pet-ladder",
+    "file": "api/pet-ladder/ladder.ts",
+    "handler": "petLadderHandler"
+  },
+  {
+    "route": "/jutsu/speedup",
+    "file": "api/jutsu/speedup.ts",
+    "handler": "jutsuSpeedupHandler"
+  },
+  {
+    "route": "/jutsu/train-with-seals",
+    "file": "api/jutsu/train-with-seals.ts",
+    "handler": "jutsuTrainWithSealsHandler"
+  },
+  {
+    "route": "/profession/choose",
+    "file": "api/profession/choose.ts",
+    "handler": "professionChooseHandler"
+  },
+  {
+    "route": "/player/injured-villagers",
+    "file": "api/player/injured-villagers.ts",
+    "handler": "injuredVillagersHandler"
+  },
+  {
+    "route": "/weekly-boss",
+    "file": "api/weekly-boss.ts",
+    "handler": "weeklyBossHandler"
+  },
+  {
+    "route": "/ranked-season",
+    "file": "api/ranked-season.ts",
+    "handler": "rankedSeasonHandler"
+  },
+  {
+    "route": "/admin/moderation",
+    "file": "api/admin/moderation.ts",
+    "handler": "moderationHandler"
+  },
+  {
+    "route": "/admin/battle-receipts",
+    "file": "api/admin/battle-receipts.ts",
+    "handler": "adminBattleReceiptsHandler"
+  },
+  {
+    "route": "/admin/asset-report",
+    "file": "api/admin/asset-report.ts",
+    "handler": "adminAssetReportHandler"
+  },
+  {
+    "route": "/admin/audit-log",
+    "file": "api/admin/audit-log.ts",
+    "handler": "adminAuditLogHandler"
+  },
+  {
+    "route": "/admin/economy",
+    "file": "api/admin/economy.ts",
+    "handler": "adminEconomyHandler"
+  },
+  {
+    "route": "/admin/economy-reconcile",
+    "file": "api/admin/economy-reconcile.ts",
+    "handler": "adminEconomyReconcileHandler"
+  },
+  {
+    "route": "/admin/economy-settlements",
+    "file": "api/admin/economy-settlements.ts",
+    "handler": "adminEconomySettlementsHandler"
+  },
+  {
+    "route": "/admin/beta-metrics",
+    "file": "api/admin/beta-metrics.ts",
+    "handler": "adminBetaMetricsHandler"
+  },
+  {
+    "route": "/admin/clan-boss-operations",
+    "file": "api/admin/clan-boss-operations.ts",
+    "handler": "adminClanBossOperationsHandler"
+  },
+  {
+    "route": "/achievements/sync",
+    "file": "api/achievements/sync.ts",
+    "handler": "achievementsSyncHandler"
+  },
+  {
+    "route": "/aura/feed",
+    "file": "api/aura/feed.ts",
+    "handler": "auraFeedHandler"
+  },
+  {
+    "route": "/awakening/roll",
+    "file": "api/awakening/roll.ts",
+    "handler": "awakeningRollHandler"
+  },
+  {
+    "route": "/bloodlines/forge",
+    "file": "api/bloodlines/forge.ts",
+    "handler": "bloodlinesForgeHandler"
+  },
+  {
+    "route": "/card-clash/open-pack",
+    "file": "api/card-clash/open-pack.ts",
+    "handler": "cardClashOpenPackHandler"
+  },
+  {
+    "route": "/card-clash/claim-starter",
+    "file": "api/card-clash/claim-starter.ts",
+    "handler": "cardClashClaimStarterHandler"
+  },
+  {
+    "route": "/card-clash/sync-progression",
+    "file": "api/card-clash/sync-progression.ts",
+    "handler": "cardClashSyncProgressionHandler"
+  },
+  {
+    "route": "/craft/forge",
+    "file": "api/craft/forge.ts",
+    "handler": "craftForgeHandler"
+  },
+  {
+    "route": "/craft/named",
+    "file": "api/craft/named.ts",
+    "handler": "craftNamedHandler"
+  },
+  {
+    "route": "/dungeon/run",
+    "file": "api/dungeon/run.ts",
+    "handler": "dungeonRunHandler"
+  },
+  {
+    "route": "/endless/run",
+    "file": "api/endless/run.ts",
+    "handler": "endlessRunHandler"
+  },
+  {
+    "route": "/endless/wave-start",
+    "file": "api/endless/wave-start.ts",
+    "handler": "endlessWaveStartHandler"
+  },
+  {
+    "route": "/events/claim",
+    "file": "api/events/claim.ts",
+    "handler": "eventsClaimHandler"
+  },
+  {
+    "route": "/exams/pass",
+    "file": "api/exams/pass.ts",
+    "handler": "examsPassHandler"
+  },
+  {
+    "route": "/hollow-gate/forge-key",
+    "file": "api/hollow-gate/forge-key.ts",
+    "handler": "hollowGateForgeKeyHandler"
+  },
+  {
+    "route": "/hollow-gate/locked-door",
+    "file": "api/hollow-gate/locked-door.ts",
+    "handler": "hollowGateLockedDoorHandler"
+  },
+  {
+    "route": "/hunter/rank-up",
+    "file": "api/hunter/rank-up.ts",
+    "handler": "hunterRankUpHandler"
+  },
+  {
+    "route": "/pet/befriend",
+    "file": "api/pet/befriend.ts",
+    "handler": "petBefriendHandler"
+  },
+  {
+    "route": "/pet/encounter-decline",
+    "file": "api/pet/encounter-decline.ts",
+    "handler": "petEncounterDeclineHandler"
+  },
+  {
+    "route": "/pet/choose-starter",
+    "file": "api/pet/choose-starter.ts",
+    "handler": "petChooseStarterHandler"
+  },
+  {
+    "route": "/pet/encounter-start",
+    "file": "api/pet/encounter-start.ts",
+    "handler": "petEncounterStartHandler"
+  },
+  {
+    "route": "/pet/progress",
+    "file": "api/pet/progress.ts",
+    "handler": "petProgressHandler"
+  },
+  {
+    "route": "/pet/breeding/status",
+    "file": "api/pet/breeding-status.ts",
+    "handler": "petBreedingStatusHandler"
+  },
+  {
+    "route": "/pet/breeding/start",
+    "file": "api/pet/breeding-start.ts",
+    "handler": "petBreedingStartHandler"
+  },
+  {
+    "route": "/pet/breeding/hatch",
+    "file": "api/pet/breeding-hatch.ts",
+    "handler": "petBreedingHatchHandler"
+  },
+  {
+    "route": "/pet/sanctuary/list",
+    "file": "api/pet/sanctuary-list.ts",
+    "handler": "petSanctuaryListHandler"
+  },
+  {
+    "route": "/pet/sanctuary/transfer",
+    "file": "api/pet/sanctuary-transfer.ts",
+    "handler": "petSanctuaryTransferHandler"
+  },
+  {
+    "route": "/player/profile-title",
+    "file": "api/player/profile-title.ts",
+    "handler": "playerProfileTitleHandler"
+  },
+  {
+    "route": "/player/stat-respec",
+    "file": "api/player/stat-respec.ts",
+    "handler": "playerStatRespecHandler"
+  },
+  {
+    "route": "/profession/mastery",
+    "file": "api/profession/mastery.ts",
+    "handler": "professionMasteryHandler"
+  },
+  {
+    "route": "/shop/purchase",
+    "file": "api/shop/purchase.ts",
+    "handler": "shopPurchaseHandler"
+  },
+  {
+    "route": "/shop/sell",
+    "file": "api/shop/sell.ts",
+    "handler": "shopSellHandler"
+  },
+  {
+    "route": "/story/settle",
+    "file": "api/story/settle.ts",
+    "handler": "storySettleHandler"
+  },
+  {
+    "route": "/story/boss-start",
+    "file": "api/story/boss-start.ts",
+    "handler": "storyBossStartHandler"
+  },
+  {
+    "route": "/story/spar-start",
+    "file": "api/story/spar-start.ts",
+    "handler": "storySparStartHandler"
+  },
+  {
+    "route": "/training/jutsu-ryo",
+    "file": "api/training/jutsu-ryo.ts",
+    "handler": "trainingJutsuRyoHandler"
+  },
+  {
+    "route": "/village/elder-focus",
+    "file": "api/village/elder-focus.ts",
+    "handler": "villageElderFocusHandler"
+  },
+  {
+    "route": "/village/orders",
+    "file": "api/village/orders.ts",
+    "handler": "villageOrdersHandler"
+  },
+  {
+    "route": "/village/anbu",
+    "file": "api/village/anbu.ts",
+    "handler": "villageAnbuHandler"
+  },
+  {
+    "route": "/village/hollow-gate-unlock",
+    "file": "api/village/hollow-gate-unlock.ts",
+    "handler": "villageHollowGateUnlockHandler"
+  },
+  {
+    "route": "/village/open-war-crate",
+    "file": "api/village/open-war-crate.ts",
+    "handler": "villageOpenWarCrateHandler"
+  },
+  {
+    "route": "/village/upgrade",
+    "file": "api/village/upgrade.ts",
+    "handler": "villageUpgradeHandler"
+  },
+  {
+    "route": "/world/explore",
+    "file": "api/world/explore.ts",
+    "handler": "worldExploreHandler"
+  },
+  {
+    "route": "/world/open-chest",
+    "file": "api/world/open-chest.ts",
+    "handler": "worldOpenChestHandler"
+  }
+]

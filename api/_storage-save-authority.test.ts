@@ -65,6 +65,18 @@ function settleInOtherProcess(key: string, value: unknown): void {
     database.set(key, structuredClone(value));
 }
 
+for (const key of ['clan:mission-claimed:shadowcell:2026-W38:missions', 'economy-settlement:clan-exchange-recovery']) {
+    test(`${key} reads current recovery evidence after another worker commits`, async () => {
+        await workerA._pgKvForTest.set(key, {state:'pending', ownerId:'sealed-owner'});
+        assert.deepEqual(await workerA._pgKvForTest.get(key), {state:'pending', ownerId:'sealed-owner'});
+        settleInOtherProcess(key, {state:'committed', ownerId:'sealed-owner'});
+        assert.deepEqual(await workerA._pgKvForTest.get(key), {state:'committed', ownerId:'sealed-owner'},
+            'recovery must see the same committed receipt as the uncached player/clan save');
+        settleInOtherProcess(key, {state:'completed', ownerId:'sealed-owner'});
+        assert.deepEqual(await workerA._pgKvForTest.mget(key), [{state:'completed', ownerId:'sealed-owner'}]);
+    });
+}
+
 async function exactVersionWrite(
     storage: StorageModule,
     key: string,

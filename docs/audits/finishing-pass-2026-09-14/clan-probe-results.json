@@ -1,0 +1,104 @@
+{
+  "base": "ecd8d6ccaba017a6791ec0ec94f822c10658984d",
+  "target": "disposable memory only",
+  "petTraining": [
+    {
+      "label": "baseline",
+      "shownBonusPercent": 0,
+      "sealedXp": 460
+    },
+    {
+      "label": "Pet Den level 50",
+      "shownBonusPercent": 15,
+      "sealedXp": 460
+    },
+    {
+      "label": "Pet Yard level 50",
+      "shownBonusPercent": 12.5,
+      "sealedXp": 460
+    }
+  ],
+  "clanMission": {
+    "injectedBeforeClanWrite": true,
+    "firstStatus": 500,
+    "retryStatus": 200,
+    "retryBody": {
+      "ok": true,
+      "missionKey": "battle",
+      "reward": {
+        "clanXp": 450,
+        "treasury": {
+          "ryo": 2500
+        }
+      },
+      "xp": 0,
+      "level": 1,
+      "treasury": {
+        "ryo": 1000
+      },
+      "character": {
+        "name": "auditmember",
+        "clan": "Audit Clan",
+        "ryo": 1000,
+        "clanPoints": 65,
+        "weeklyClanPoints": 65,
+        "weeklyClanPointsWeek": "2026-W38",
+        "lifetimeClanPoints": 65,
+        "clanPointHistory": [
+          {
+            "id": "mission:auditclan:2026-W38:battle:claim:auditmember",
+            "ts": 1789374588074,
+            "source": "clanMissionClaim",
+            "amount": 25,
+            "weekKey": "2026-W38",
+            "metadata": {
+              "eventId": "mission:auditclan:2026-W38:battle:claim:auditmember",
+              "clan": "Audit Clan",
+              "missionKey": "battle"
+            }
+          },
+          {
+            "id": "mission:auditclan:2026-W38:battle:contribution:auditmember",
+            "ts": 1789374588073,
+            "source": "clanMissionContribution",
+            "amount": 40,
+            "weekKey": "2026-W38",
+            "metadata": {
+              "eventId": "mission:auditclan:2026-W38:battle:contribution:auditmember",
+              "clan": "Audit Clan",
+              "missionKey": "battle"
+            }
+          }
+        ]
+      },
+      "_saveVersion": 3,
+      "claimed": [
+        "battle"
+      ]
+    },
+    "persistedRyo": 1000,
+    "persistedClanXp": 0,
+    "receipts": [
+      "clan:mission-claimed:auditclan:2026-W38:battle"
+    ]
+  },
+  "clanExchangeLostAck": {
+    "injected": true,
+    "status": 503,
+    "response": {
+      "error": "The clan treasury credit could not be saved, so your Clan Points were refunded. Please retry in a moment.",
+      "_saveVersion": 3
+    },
+    "warSupply": 1510,
+    "clanPoints": 4000
+  },
+  "clanReceiptWrite": {
+    "clear": [],
+    "forge": [
+      {
+        "transactionId": "forged",
+        "fingerprint": "forged"
+      }
+    ]
+  }
+}

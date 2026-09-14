@@ -1,0 +1,11 @@
+{
+  "checkedAt": "2026-09-14T13:55:39.851Z",
+  "auditedBase": "ecd8d6ccaba017a6791ec0ec94f822c10658984d",
+  "codeCommit": "83df471d2eede0265bfad1f6a4fb89e97d33c721",
+  "mainAtRecheck": "87466c3e412c13f440ad55bdf1b371bb9c652b73",
+  "sourceFiles": 810,
+  "sourceMismatches": [],
+  "logs": 21,
+  "logMismatches": [],
+  "limitation": "Hash verification proves the retained evidence/source snapshot has not changed. It does not independently certify untested gameplay or newer main UI."
+}
