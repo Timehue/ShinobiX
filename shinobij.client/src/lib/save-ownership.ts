@@ -112,7 +112,7 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     'cardClashWins', 'cardClashLosses', 'cardClashDraws', 'echoesOfWar', 'echoesWitnessChoices',
     // Clan
     'clanPoints', 'weeklyClanPoints', 'weeklyClanPointsWeek', 'lifetimeClanPoints',
-    'clanPointHistory', 'clanExchangePurchases',
+    'clanPointHistory', 'clanExchangePurchases', 'clanExchangeSettlements', 'clanMissionPointReceipts',
     // Inventory, jutsu, pets, titles, legacy
     'professionChosenAt', 'jutsu', 'jutsuMastery', 'pets', 'tileCards', 'lastHollowGateStart',
     'serverTitles', 'legacy', 'masterySpec', 'examsPassed',

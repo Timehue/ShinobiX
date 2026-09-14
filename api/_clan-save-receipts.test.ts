@@ -6,6 +6,16 @@ const prior = { name: 'Audit Clan', founderName: 'founder', members: [{ name: 'f
 const real = [{ transactionId: 'real-transaction', fingerprint: 'real-fingerprint', resource: 'ryo', amount: 100, appliedAt: 1 }];
 const forged = [{ transactionId: 'forged-transaction', fingerprint: 'forged-fingerprint', resource: 'ryo', amount: 100, appliedAt: 1 }];
 
+for (const field of ['clanMissionSettlements', 'clanExchangeSettlements']) {
+    test(`clan saves cannot forge, clear, or replace ${field}`, () => {
+        const ctx = {callerName:'founder',isAdmin:false};
+        assert.equal(validateClanSaveWrite(null,{...prior,[field]:forged},ctx).next[field],undefined);
+        for(const incoming of [undefined,[],forged]) {
+            assert.deepEqual(validateClanSaveWrite({...prior,[field]:real},{...prior,[field]:incoming},ctx).next[field],real);
+        }
+    });
+}
+
 for (const callerName of ['founder', 'member']) {
     test(`${callerName} cannot forge a treasury debit receipt in a clan save`, () => {
         const next = validateClanSaveWrite(prior, { ...prior, settlementReceipts: forged }, { callerName, isAdmin: false }).next;
