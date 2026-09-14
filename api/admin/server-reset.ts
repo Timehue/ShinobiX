@@ -6,6 +6,13 @@ import { enforceRateLimit } from '../_ratelimit.js';
 import { RESERVED_USERNAMES } from '../player-auth.js';
 import { bumpImageVersion } from '../_image-version.js';
 import { deletePlayerFirstPactState } from '../_delete-player-account.js';
+import { readKvProjection } from '../_storage-projection.js';
+import {
+    cancelOrParkSubscription,
+    isSubscriptionCancelConfigured,
+    subscriptionReferenceFromSave,
+    type CancelOutcome,
+} from '../tebex/_cancel-subscription.js';
 
 /*
  * ── Full server reset — PRESERVE-LIST model ──────────────────────────────────
@@ -290,6 +297,79 @@ export async function deleteDoomedKeys(
     }
 }
 
+/** A paid supporter subscription on a save this reset is about to delete. */
+export type DoomedSubscription = { slug: string; reference: string };
+
+export type SubscriptionCancelReport = {
+    cancelled: string[];
+    parked: Array<{ slug: string; reason: string }>;
+};
+
+const SAVE_READ_CHUNK = 200;
+// Each cancellation is one HTTPS call to Tebex with a 10 s timeout.
+const SUBSCRIPTION_CANCEL_CONCURRENCY = 8;
+
+/**
+ * The paid Tebex subscriptions carried by saves this reset will delete.
+ *
+ * The recurring-payment reference lives only in the save
+ * (`character.patreon.userId`), so it has to be read before the sweep. Only
+ * that one field is read: saves can be large, and the dry run reads it too.
+ * Admin comps and inactive flags have no payment behind them and are skipped
+ * by subscriptionReferenceFromSave.
+ */
+export async function findDoomedSubscriptions(
+    doomed: readonly string[],
+    readFlags: (saveKeys: string[]) => Promise<Array<Record<string, unknown> | null>> =
+        (saveKeys) => readKvProjection(kv, saveKeys, { patreon: ['character', 'patreon'] }),
+): Promise<DoomedSubscription[]> {
+    const saveKeys = doomed.filter((key) => key.toLowerCase().startsWith('save:'));
+    const found: DoomedSubscription[] = [];
+    for (let i = 0; i < saveKeys.length; i += SAVE_READ_CHUNK) {
+        const chunk = saveKeys.slice(i, i + SAVE_READ_CHUNK);
+        const rows = await readFlags(chunk);
+        chunk.forEach((key, j) => {
+            const reference = subscriptionReferenceFromSave({ character: { patreon: rows[j]?.patreon } });
+            if (reference) found.push({ slug: key.slice('save:'.length), reference });
+        });
+    }
+    return found;
+}
+
+/**
+ * Cancel every doomed subscription before anything is deleted. This is what
+ * account deletion already does (api/_delete-player-account.ts), applied to
+ * every account at once.
+ *
+ * Cancel rather than carry over: the reset deletes the account itself (the
+ * save, `auth:*` and `auth-google:*`), so nothing is left to carry the
+ * subscription TO. Tebex renewals find their player by the name sealed into the
+ * original basket. An uncancelled subscription would therefore keep billing,
+ * and its next renewal would hand the perks to whoever registers that name next.
+ *
+ * Fail-open, like account deletion: a failure is parked in
+ * `tebex:orphaned-subscriptions` (preserved by `tebex:*`) and reported, never
+ * fatal. Aborting instead would leave subscriptions already cancelled on saves
+ * that were never deleted.
+ */
+export async function cancelDoomedSubscriptions(
+    subscriptions: readonly DoomedSubscription[],
+    cancelOrPark: (slug: string, reference: string) => Promise<CancelOutcome> =
+        (slug, reference) => cancelOrParkSubscription(slug, reference, fetch, 'server reset'),
+): Promise<SubscriptionCancelReport> {
+    const report: SubscriptionCancelReport = { cancelled: [], parked: [] };
+    for (let i = 0; i < subscriptions.length; i += SUBSCRIPTION_CANCEL_CONCURRENCY) {
+        const batch = subscriptions.slice(i, i + SUBSCRIPTION_CANCEL_CONCURRENCY);
+        const outcomes = await Promise.all(batch.map(({ slug, reference }) => cancelOrPark(slug, reference)));
+        outcomes.forEach((outcome, j) => {
+            const { slug } = batch[j]!;
+            if (outcome.ok) report.cancelled.push(slug);
+            else report.parked.push({ slug, reason: outcome.reason });
+        });
+    }
+    return report;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -323,6 +403,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const preserved: string[] = [];
         for (const key of allKeys) (isPreservedKey(key) ? preserved : doomed).push(key);
 
+        // Paid supporter subscriptions on the saves about to go. Read on the dry
+        // run too, so the confirmation can name them. A read failure throws and
+        // aborts here, before anything is deleted.
+        const subscriptions = await findDoomedSubscriptions(doomed);
+
         if (dryRun) {
             return res.status(200).json({
                 ok: true,
@@ -332,10 +417,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 preservedCount: preserved.length,
                 wouldDeleteByNamespace: summarizeByNamespace(doomed),
                 wouldPreserveByNamespace: summarizeByNamespace(preserved),
+                subscriptionsToCancel: subscriptions.map((s) => s.slug),
+                subscriptionCancelConfigured: isSubscriptionCancelConfigured(),
                 deleted: doomed.slice(0, DELETED_SAMPLE_CAP),
                 deletedTruncated: doomed.length > DELETED_SAMPLE_CAP,
             });
         }
+
+        // Stop the billing while each save, the only copy of its reference,
+        // still exists.
+        const subscriptionReport = await cancelDoomedSubscriptions(subscriptions);
 
         // Revoke every affected account token before the first destructive
         // write. The rotated epoch deliberately survives the reset (see
@@ -424,6 +515,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             deletedCount: doomed.length,
             preservedCount: preserved.length,
             sessionsRevoked: authNames.length,
+            subscriptionsCancelled: subscriptionReport.cancelled,
+            subscriptionsParked: subscriptionReport.parked,
             deletedByNamespace: summarizeByNamespace(doomed),
             leadershipPortraitsReseeded: leaderReseed,
             deleted: doomed.slice(0, DELETED_SAMPLE_CAP),
