@@ -27,6 +27,21 @@ export function adoptHealerSnapshot(
     return true;
 }
 
+/** Read current healer state without allowing a retired account session to adopt it. */
+export async function reconcileHealerSnapshot(
+    accountKey: string,
+    isCurrent: () => boolean,
+    commit: VersionedCharacterCommit,
+    onDischarged: () => void,
+): Promise<boolean> {
+    if (!isCurrent()) return false;
+    const response = await fetch(`/api/save/${encodeURIComponent(accountKey)}`, { signal: AbortSignal.timeout(12000) });
+    if (!response.ok || !isCurrent()) return false;
+    const snapshot = await response.json() as HospitalDischargeResponse;
+    if (!isCurrent()) return false;
+    return adoptHealerSnapshot(snapshot, commit, onDischarged);
+}
+
 /** Commit the server's exact discharge snapshot before evaluating navigation. */
 export function adoptHospitalDischarge(
     response: HospitalDischargeResponse,

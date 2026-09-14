@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import test from "node:test";
 import type { Character } from "../types/character";
-import { adoptHospitalDischarge, adoptHealerSnapshot, hospitalDischargeMessage } from "./hospital-discharge";
+import { adoptHospitalDischarge, adoptHealerSnapshot, hospitalDischargeMessage, reconcileHealerSnapshot } from "./hospital-discharge";
 
 const admitted = { name: "Patient", hp: 0, maxHp: 100, hospitalized: true } as Character;
 const discharged = { ...admitted, hp: 100, hospitalized: false, hospitalizedUntil: 0 };
@@ -48,4 +48,42 @@ test('a replay confirms discharge without claiming the earlier payment was free'
     const replay = hospitalDischargeMessage({ alreadyDischarged: true, chargedRyo: 0 });
     assert.match(replay, /Discharge confirmed/);
     assert.doesNotMatch(replay, /free/i);
+});
+
+test('healer reconciliation retires stale sessions before requesting or adopting a delayed JSON body', async (t) => {
+    let current = true;
+    let requests = 0;
+    let commits = 0;
+    let exits = 0;
+    t.mock.method(globalThis, 'fetch', async (url: string, init: RequestInit) => {
+        requests++;
+        assert.equal(url, '/api/save/patient%20one');
+        assert.ok(init.signal instanceof AbortSignal);
+        return { ok: true, json: async () => {
+            current = false;
+            return { character: discharged, _saveVersion: 9 };
+        } };
+    });
+    const commit = () => { commits++; return true; };
+    assert.equal(await reconcileHealerSnapshot('patient one', () => false, commit, () => exits++), false);
+    assert.equal(requests, 0);
+    assert.equal(await reconcileHealerSnapshot('patient one', () => current, commit, () => exits++), false);
+    assert.equal(requests, 1);
+    assert.equal(commits, 0);
+    assert.equal(exits, 0);
+});
+
+test('healer reconciliation retains notices on read failure and commits a healthy read before feedback', async (t) => {
+    const events: string[] = [];
+    let ok = false;
+    t.mock.method(globalThis, 'fetch', async () => ({
+        ok, json: async () => ({ character: discharged, _saveVersion: 10 }),
+    }));
+    const commit = () => { events.push('commit'); return true; };
+    const feedback = () => { events.push('feedback'); };
+    assert.equal(await reconcileHealerSnapshot('patient', () => true, commit, feedback), false);
+    assert.deepEqual(events, []);
+    ok = true;
+    assert.equal(await reconcileHealerSnapshot('patient', () => true, commit, feedback), true);
+    assert.deepEqual(events, ['commit', 'feedback']);
 });
