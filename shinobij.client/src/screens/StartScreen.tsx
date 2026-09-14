@@ -36,7 +36,7 @@ const GuidesLibrary = lazyWithRetry(() => import("../components/GuidesLibrary").
 
 // The real community invite, matching RightMenu / MobileNav. The old
 // "discord.gg/shinobi-journey" vanity link did not resolve.
-const DISCORD_URL = "https://discord.gg/bCQGs8r6SK";
+const DISCORD_URL = "https://discord.gg/usr3vzykBh";
 
 type StartView = "main" | "create" | "login" | "leaderboard" | "guides" | `legal:${LegalPageSlug}`;
 
