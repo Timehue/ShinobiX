@@ -9111,6 +9111,7 @@
   {
     "file": "api/_storage-save-authority.test.ts",
     "tests": [
+      "${key} reads current recovery evidence after another worker commits",
       "independent pgKv process caches cannot admit a stale save guard or overwrite a newer save",
       "batched pgKv save reads are authoritative across processes too",
       "player deletion generations are base-primary and authoritative across workers",
@@ -12551,6 +12552,17 @@
       "each doctrine grants its own domain bonus and nothing else",
       "'none' grants nothing across the board",
       "exposes exactly the four pickable doctrines"
+    ]
+  },
+  {
+    "file": "shinobij.client/src/lib/clan-exchange-recovery.test.ts",
+    "tests": [
+      "an intent restored from session storage keeps its in-memory fallback",
+      "only a matching saved debit and retained intent are eligible for automatic recovery",
+      "background recovery reuses one request across concurrent mounts and clears it after success",
+      "network or server failure stays quiet and retains the paid intent for reconnect",
+      "expired recovery cannot mint a new intent or become a fresh purchase",
+      "a delayed recovery never substitutes a newer purchase intent"
     ]
   },
   {
@@ -18023,6 +18035,12 @@
     "tests": [
       "a chunk that never loads reloads once, then stays on the new-version card",
       "a stale deploy's missing chunk reloads once, then the new build's chunk loads"
+    ]
+  },
+  {
+    "file": "shinobij.client/e2e/clan-exchange-recovery.spec.ts",
+    "tests": [
+      "Exchange ${scenario}: recovery stays reachable with exhausted points and weekly stock"
     ]
   },
   {

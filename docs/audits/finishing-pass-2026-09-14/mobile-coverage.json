@@ -193,10 +193,11 @@
       "evidence": [
         "shinobij.client/e2e/non-combat-ui-audit.spec.ts",
         "shinobij.client/e2e/clan-mobile-roster.spec.ts",
-        "shinobij.client/e2e/clan-integrity-ux.spec.ts"
+        "shinobij.client/e2e/clan-integrity-ux.spec.ts",
+        "shinobij.client/e2e/clan-exchange-recovery.spec.ts"
       ],
       "scope": "Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.",
-      "productionChange": "NONE",
+      "productionChange": "Exchange only: quietly resume a retained, already-debited purchase on entry/reconnect. No markup or layout change.",
       "manualAndroidRequired": true
     },
     {

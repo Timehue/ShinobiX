@@ -19,7 +19,7 @@ const dedicated={
   clanWar2v2:'e2e-live/combat-layout-matrix.spec.ts',
 };
 const extra={
-  clan:['e2e/clan-mobile-roster.spec.ts','e2e/clan-integrity-ux.spec.ts'],
+  clan:['e2e/clan-mobile-roster.spec.ts','e2e/clan-integrity-ux.spec.ts','e2e/clan-exchange-recovery.spec.ts'],
   worldMap:['e2e/world-map-mobile.spec.ts','e2e/adaptive-shell.spec.ts'],
   home:['e2e/pet-home-visual.spec.ts'],
   echoesOfWar:['e2e/echoes-witness.spec.ts'],
@@ -30,6 +30,8 @@ const rows=screens.map(screen=>{
  const evidence=inGauntlet.has(screen)?['e2e/non-combat-ui-audit.spec.ts'] : dedicated[screen]?[dedicated[screen]]:screen==='start'?['e2e-visual/release-surfaces.visual.spec.ts']:[];
  return {screen,classification:primary,evidence:[...evidence,...extra[screen]??[]].map(p=>`shinobij.client/${p}`),scope:primary==='A'?'Representative populated route at the five gauntlet viewports; nested dialogs and all possible server states are not implied.':primary==='B'?'Dedicated interaction/layout evidence. Shared combat shell coverage does not certify every parent orchestration or lobby.':primary==='C'?'Existing pixel baselines, full-motion presentation with animation freezing/canvas masking; not device performance.':'No specific strong mobile test established in this audit; shared shell coverage is not credited as this screen coverage.',productionChange:'NONE',manualAndroidRequired:true};
 });
+const clanRow=rows.find(row=>row.screen==='clan');
+if(clanRow)clanRow.productionChange='Exchange only: quietly resume a retained, already-debited purchase on entry/reconnect. No markup or layout change.';
 for(const [screen,classification,evidence,scope] of [
  ['character-creation','B',['e2e/release-smoke.spec.ts','e2e/player-journey-ux.spec.ts'],'Creator journey at supported viewport projects; visual creator baseline is desktop.'],
  ['clan-boss-operation','B',['e2e-live/combat-layout-matrix.spec.ts'],'Tower party shell geometry; dedicated boss staging lifecycle still required.'],
