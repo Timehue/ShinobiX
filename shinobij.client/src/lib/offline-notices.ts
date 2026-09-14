@@ -186,6 +186,29 @@ export function offlineNoticeDigestText(digest: OfflineNoticeDigest): string {
     return [`${digest.title} — ${digest.subtitle}`, '', ...offlineNoticeDigestLines(digest)].join('\n');
 }
 
+type OfflineNoticeDigestHost = { showOfflineNoticeDigest: (digest: OfflineNoticeDigest) => void };
+
+/**
+ * Mount the themed digest modal from its lazy chunk. If that chunk fails to
+ * load, `fallback` receives the plain-text digest instead. The report must
+ * still reach the player: the next heartbeat acknowledges these notices
+ * whether or not they were shown, and importing the chunk again cannot help,
+ * because browsers keep a failed module fetch for the life of the page.
+ *
+ * Never rejects on a failed load. An error thrown by the host itself is not a
+ * failed load and still rejects. Both parameters after `digest` are test seams.
+ */
+export function presentOfflineNoticeDigest(
+    digest: OfflineNoticeDigest,
+    loadHost: () => Promise<OfflineNoticeDigestHost> = () => import('../components/OfflineNoticeDigestHost'),
+    fallback: (message: string) => void = (message) => alert(message),
+): Promise<void> {
+    return loadHost().then(
+        (host) => host.showOfflineNoticeDigest(digest),
+        () => fallback(offlineNoticeDigestText(digest)),
+    );
+}
+
 /**
  * Validate the heartbeat's `pendingNotices` payload and show ONE digest for the
  * whole inbox. Returns how many notices were delivered.
@@ -193,7 +216,8 @@ export function offlineNoticeDigestText(digest: OfflineNoticeDigest): string {
  * The optional `show` keeps the old string-sink shape for tests and for any
  * caller that wants the plain-text form; with no sink, the themed digest modal
  * is mounted lazily (components/OfflineNoticeDigestHost) so the copy and the
- * host stay off the entry graph, exactly as before.
+ * host stay off the entry graph, exactly as before. See
+ * presentOfflineNoticeDigest for what happens when that chunk fails to load.
  */
 export function applyOfflineNotices(notices: unknown, show?: (message: string) => void): number {
     // Under the acknowledgement protocol the server re-delivers a notice until
@@ -202,6 +226,6 @@ export function applyOfflineNotices(notices: unknown, show?: (message: string) =
     const digest = buildOfflineNoticeDigest(takeUnseenNotices(parseOfflineNotices(notices)));
     if (digest.entries.length === 0) return 0;
     if (show) show(offlineNoticeDigestText(digest));
-    else void import('../components/OfflineNoticeDigestHost').then((m) => m.showOfflineNoticeDigest(digest));
+    else void presentOfflineNoticeDigest(digest);
     return digest.entries.length;
 }

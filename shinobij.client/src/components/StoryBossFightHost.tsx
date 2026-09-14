@@ -293,7 +293,9 @@ export function StoryBossFightHost({
             returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
             // Warm the code-split combat chunk alongside the start-combat network
             // round-trip so MissionArenaFight is ready the moment the session opens.
-            void import("../screens/MissionArenaFight");
+            // A failed load resurfaces through the lazy MissionArenaFight above
+            // (retries, then ErrorBoundary); the warm-up must not also escape unhandled.
+            void import("../screens/MissionArenaFight").catch(() => {});
             const start = theme.kind === "academySpar"
                 ? startAcademySparCombat({ playerName: originatingPlayerName })
                 : startStoryBossCombat({ playerName: originatingPlayerName });
