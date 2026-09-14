@@ -1,6 +1,6 @@
 # Logout save recovery
 
-Prepared on `codex/first-contract-logout-recovery-20260913` in an isolated worktree. The release candidate includes main through `f15e5f0fe`, including the latest dynamic-import rejection handling and notice acknowledgement recovery.
+Prepared on `codex/first-contract-logout-recovery-20260913` in an isolated worktree. The release integration includes main through `33d02c47e`, preserving the latest dynamic-import recovery, world-map hover fix, and live-test reconnect guards.
 
 An immediate logout can hit the existing save burst limit after First Contract activity. Previously, the client discarded the HTTP 429 retry hint and displayed the generic loss warning. A committed contract record can already be on the server when the final generic save is rejected.
 
@@ -32,4 +32,8 @@ The new browser fixture exercises the real client with controlled server respons
 
 The local rechecks used Node 22.23.1. The results above describe focused coverage recorded before publishing the release candidate.
 
-Release verification uses the complete GitHub CI and Production Image workflows against the exact candidate commit before a fast-forward promotion to main. Deployment is verified separately by matching the production `/health` commit to the released revision; a main-branch push alone is not evidence that the live server has updated. Workflow results and the live revision are reported with the release.
+The complete [GitHub CI run](https://github.com/Timehue/ShinobiX/actions/runs/34794237410) and [Production Image run](https://github.com/Timehue/ShinobiX/actions/runs/34794239557) passed for `a86f36923e451347f894103c57b309fd6d60599f`. Every server, client, artifact, fresh-account, concurrency, combat, Warfront, and responsive release gate passed. The responsive matrix passed 628 cases, including all 42 logout recovery cases across seven browser/viewport projects.
+
+While those checks ran, main advanced to `33d02c47e` with changes confined to live-test fixtures and their guard test. That update was integrated separately, and all 136 focused tests passed, including the new fixture guard. Game source, dependencies, and build inputs remain identical to the fully certified candidate. The combined main revision receives the normal push-triggered CI and production-image checks.
+
+Deployment is verified separately by matching the production `/health` commit to the released revision; a main-branch push alone is not evidence that the live server has updated. The final main revision and live verification are reported with the release.
