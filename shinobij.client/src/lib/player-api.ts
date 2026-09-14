@@ -10,7 +10,7 @@ import type { WeatherType } from "../types/core";
 import type { SectorTerritory, TerritoryBuffStat } from "./world-state";
 import { AMBIGUOUS_ACTION_MESSAGE } from "./ambiguous-action";
 import { abortableDelay } from "./pvp-session-runtime";
-import { pendingClanExchangeIntent } from "./clan-exchange-intent";
+import { pendingClanExchangeIntent, readPendingClanExchangeIntent } from "./clan-exchange-intent";
 
 export type PlayerChallengeNoticeOptions = {
     /** Stops retries and rejects an in-flight success when its owning UI session has retired. */
@@ -165,9 +165,14 @@ export async function postClanExchangePurchase(
     playerName: string,
     clan: string,
     itemId: string,
+    recoveryRequestId?: string,
 ): Promise<ClanExchangePurchaseResponse | null> {
     const intent = itemId === 'warSupplyGrant' || itemId === 'greaterWarSupplyGrant'
-        ? pendingClanExchangeIntent(playerName, clan, itemId) : null;
+        ? recoveryRequestId !== undefined
+            ? readPendingClanExchangeIntent(playerName, clan, itemId)
+            : pendingClanExchangeIntent(playerName, clan, itemId) : null;
+    // A background continuation may only submit the exact retained request.
+    if (recoveryRequestId !== undefined && intent?.requestId !== recoveryRequestId) return null;
     try {
         const res = await fetch("/api/clan/exchange/purchase", {
             method: "POST",
@@ -177,7 +182,7 @@ export async function postClanExchangePurchase(
         const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; code?: string } & Partial<ClanExchangePurchaseResponse>;
         if (!res.ok || !data.ok || !data.character) {
             if (data.code && ['REQUEST_EXPIRED','INVALID_REQUEST_ID','INTENT_CONFLICT'].includes(data.code)) intent?.complete();
-            alert(data.error || AMBIGUOUS_ACTION_MESSAGE);
+            if (recoveryRequestId === undefined) alert(data.error || AMBIGUOUS_ACTION_MESSAGE);
             return null;
         }
         intent?.complete();
@@ -191,7 +196,7 @@ export async function postClanExchangePurchase(
             reveal: data.reveal,
         };
     } catch {
-        alert(AMBIGUOUS_ACTION_MESSAGE);
+        if (recoveryRequestId === undefined) alert(AMBIGUOUS_ACTION_MESSAGE);
         return null;
     }
 }
