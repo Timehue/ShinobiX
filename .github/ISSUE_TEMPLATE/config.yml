@@ -6,5 +6,5 @@ contact_links:
     url: https://github.com/Timehue/ShinobiX/security/advisories/new
     about: Never open a public issue for a vulnerability. This form is private between you and the maintainer; see .github/SECURITY.md for scope and testing rules.
   - name: Ask a question or report something in-game
-    url: https://discord.gg/bCQGs8r6SK
+    url: https://discord.gg/usr3vzykBh
     about: Player-side questions, account problems, and "is this a bug or am I confused" are usually faster in Discord than as an issue.
