@@ -1,5 +1,7 @@
 # Shinobi Journey finishing-pass report
 
+**Live-main follow-up:** The owner subsequently authorized checking and pushing current main. The reviewed fixes have been integrated with main `100aa421855b4ca99c507886ed88820b804d380a`; combined-code validation is recorded in [LIVE-MAIN-RELEASE.md](LIVE-MAIN-RELEASE.md). The local-only and older-main statements below describe the earlier audit stages, whose evidence is retained.
+
 ## 1 — Executive result
 
 Task-start checkout: `e3c09fe10988badc2a4b6a96f1f1bf4c085428b3`, with substantial pre-existing and actively changing work. That checkout was preserved. The finishing pass uses an isolated worktree on main as observed during this task: **`ecd8d6ccaba017a6791ec0ec94f822c10658984d`**, branch `codex/coherence-integrity-closeout-20260914`. It contains five original corrections, two subsequent recovery integration fixes, and their regression tests. No deployment or production mutation was performed.
