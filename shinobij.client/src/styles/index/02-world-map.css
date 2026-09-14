@@ -113,12 +113,19 @@
     box-shadow: 0 2px 0 #7f1d1d, 0 4px 10px rgba(0,0,0,.35);
 }
 
+/* Every sector :hover rule in this file is mouse-and-trackpad only. A touch
+   browser keeps :hover on whatever a tap last hit, which left the sector glowing
+   and raised over its neighbours until the next touch. The global button:hover
+   (01, 08), which also gives a sector its gold hover border, is gated the same
+   way. Gating one without the other would leave that rule on a tapped sector. */
+@media (hover: hover) {
     .atlas-sector:hover {
         transform: translate(-50%, -50%) scale(1.18);
         filter: brightness(1.12);
         text-shadow: 0 1px 0 rgba(255,255,255,.55);
         box-shadow: 0 2px 0 #7f1d1d, 0 0 16px rgba(250,204,21,.75);
     }
+}
 
 /* Persistent player-position marker. A labelled cyan ring remains distinct from
    gold hunt trails and orange weekly-boss pulses, so the atlas answers "where am
@@ -161,9 +168,11 @@
     animation: deaths-gate-pulse 2.2s ease-in-out infinite;
 }
 
-.atlas-sector-deaths-gate:hover {
-    transform: translate(-50%, -50%) scale(1.22);
-    box-shadow: 0 0 0 4px rgba(220,38,38,.5), 0 0 30px rgba(255,80,0,.8), 0 4px 14px rgba(0,0,0,.7);
+@media (hover: hover) {
+    .atlas-sector-deaths-gate:hover {
+        transform: translate(-50%, -50%) scale(1.22);
+        box-shadow: 0 0 0 4px rgba(220,38,38,.5), 0 0 30px rgba(255,80,0,.8), 0 4px 14px rgba(0,0,0,.7);
+    }
 }
 
 @keyframes deaths-gate-pulse {
@@ -195,10 +204,12 @@
 }
 
 /* Hovering restores it — a spent sector is still somewhere you can go. */
-.atlas-sector-pool-worked:not(.atlas-sector-current):hover,
-.atlas-sector-pool-spent:not(.atlas-sector-current):hover {
-    filter: none;
-    opacity: 1;
+@media (hover: hover) {
+    .atlas-sector-pool-worked:not(.atlas-sector-current):hover,
+    .atlas-sector-pool-spent:not(.atlas-sector-current):hover {
+        filter: none;
+        opacity: 1;
+    }
 }
 /* Posted contract — the handful of sectors carrying the day's work. Same affix
    pattern as the shrine torii, on the opposite corner so a sector can wear both.
@@ -231,9 +242,11 @@
     box-shadow: 0 0 0 3px rgba(249,115,22,.45), 0 0 20px rgba(249,115,22,.7), 0 4px 10px rgba(0,0,0,.5);
     animation: weekly-boss-sector-pulse 1.8s ease-in-out infinite;
 }
-.atlas-sector-weekly-boss:hover {
-    transform: translate(-50%, -50%) scale(1.2);
-    box-shadow: 0 0 0 4px rgba(249,115,22,.6), 0 0 30px rgba(255,140,0,.85), 0 4px 14px rgba(0,0,0,.6);
+@media (hover: hover) {
+    .atlas-sector-weekly-boss:hover {
+        transform: translate(-50%, -50%) scale(1.2);
+        box-shadow: 0 0 0 4px rgba(249,115,22,.6), 0 0 30px rgba(255,140,0,.85), 0 4px 14px rgba(0,0,0,.6);
+    }
 }
 .atlas-sector-hunt-trail {
     z-index: 10;
@@ -391,9 +404,11 @@ html.wm-zoom .world-map-scroll .atlas-sector {
     transform: translate(-50%, -50%) scale(var(--wm-marker-scale, 1)) !important;
     transform-origin: center !important;
 }
-html.wm-zoom .world-map-scroll .atlas-sector:hover {
-    transform: translate(-50%, -50%) scale(calc(var(--wm-marker-scale, 1) * 1.18)) !important;
-    z-index: 20 !important;
+@media (hover: hover) {
+    html.wm-zoom .world-map-scroll .atlas-sector:hover {
+        transform: translate(-50%, -50%) scale(calc(var(--wm-marker-scale, 1) * 1.18)) !important;
+        z-index: 20 !important;
+    }
 }
 html.wm-zoom .world-map-scroll .atlas-landmark {
     transform: translate(-50%, -50%) scale(var(--wm-marker-scale, 1)) !important;
