@@ -4,10 +4,6 @@ import { stat } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 const WARFRONT_MODELS = [
-    "../../public/pet-models/gate-warden-rigged.glb",
-    "../../public/pet-models/ward-totem.glb",
-    "../../public/pet-models/wf-boulder.glb",
-    "../../public/pet-models/wf-lantern.glb",
     "../../public/pet-models/roster/rare-24.glb",
     "../../public/pet-models/roster/rare-26.glb",
     "../../public/pet-models/roster/legendary-0.glb",
