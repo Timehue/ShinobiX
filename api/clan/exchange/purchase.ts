@@ -1,5 +1,6 @@
 import { inventoryGrowthBlock } from '../../_inventory-capacity.js';
 import { safeLogValue } from '../../_safe-log.js';
+import { settleClanExchangeTreasury } from './_settlement.js';
 import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { kv } from '../../_storage.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
@@ -7,7 +8,7 @@ import { withKvLock } from '../../_lock.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { cors, clanBareSlug, clanRecordKey, mergePreservingImages, safeName } from '../../_utils.js';
 import { bumpSaveVersion } from '../../save/_save-version.js';
-import { buyClanExchangeItem, CLAN_EXCHANGE_ITEMS, refundClanExchangeTreasuryPurchase, type ClanExchangePurchaseFailure } from '../_exchange.js';
+import { buyClanExchangeItem, CLAN_EXCHANGE_ITEMS, type ClanExchangePurchaseFailure } from '../_exchange.js';
 
 const AUDIT_LOG_PREFIX = 'audit:clan-exchange:';
 
@@ -61,25 +62,6 @@ async function commitPlayerPurchase(args: {
     }, { failClosed: true });
 }
 
-async function refundPlayerTreasuryPurchase(args: {
-    playerSaveKey: string;
-    itemId: string;
-    now: Date;
-}): Promise<{ refunded: boolean; _saveVersion?: number }> {
-    return await withKvLock(args.playerSaveKey, async () => {
-        const playerRec = await kv.get<Record<string, unknown>>(args.playerSaveKey);
-        const character = (playerRec?.character ?? null) as Record<string, unknown> | null;
-        if (!playerRec || !character) return { refunded: false };
-        const refunded = refundClanExchangeTreasuryPurchase({ character, itemId: args.itemId, now: args.now });
-        const nextRecord = bumpSaveVersion({ ...playerRec, character: refunded });
-        await kv.set(
-            args.playerSaveKey,
-            mergePreservingImages(nextRecord, playerRec),
-        );
-        return { refunded: true, _saveVersion: Number(nextRecord._saveVersion ?? 0) };
-    }, { failClosed: true });
-}
-
 /*
  * /api/clan/exchange/purchase
  *
@@ -114,56 +96,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!targetSlug) return res.status(400).json({ error: 'Invalid clan name.' });
         const clanSaveKey = clanRecordKey(clan);
         const playerSaveKey = `save:${playerName}`;
-        const purchaseNow = new Date();
+        const purchaseNow = new Date(Date.now());
 
         const creditsTreasury = exchangeItemCreditsTreasury(itemId);
+        if (!creditsTreasury && body.requestId !== undefined) return res.status(400).json({error: 'This purchase does not accept a treasury request ID.'});
         const purchase = creditsTreasury
-            ? await withKvLock(clanSaveKey, async () => {
-                const clanRec = await kv.get<Record<string, unknown>>(clanSaveKey);
-                if (!clanRec) return { ok: false as const, status: 404, error: 'Clan not found.' };
-                const playerResult = await commitPlayerPurchase({ playerSaveKey, playerName, targetSlug, clanRec, itemId, now: purchaseNow });
-                if (!playerResult.ok) return playerResult;
-                try {
-                    await kv.set(clanSaveKey, playerResult.result.clanData);
-                } catch (creditErr) {
-                    console.error(`[clan/exchange/purchase] TREASURY CREDIT FAILED after point spend - refunding ${itemId} for ${playerName} in clan "${clan}":`, creditErr);
-                    let refunded = false;
-                    // Only acknowledge the refund version after its write is
-                    // confirmed. A lost write acknowledgement is deliberately
-                    // left without a guessed stamp so the next save refetches.
-                    let refundSaveVersion: number | undefined;
-                    let refundError: string | undefined;
-                    try {
-                        const refund = await refundPlayerTreasuryPurchase({ playerSaveKey, itemId, now: purchaseNow });
-                        refunded = refund.refunded;
-                        refundSaveVersion = refund._saveVersion ?? refundSaveVersion;
-                    } catch (refundErr) {
-                        refundError = refundErr instanceof Error ? refundErr.message : String(refundErr);
-                        console.error(`[clan/exchange/purchase] TREASURY CREDIT REFUND FAILED - ${itemId} for ${playerName} in clan "${clan}":`, refundErr);
-                    }
-                    await kv.set(`${AUDIT_LOG_PREFIX}LOSS:${targetSlug}:${playerName}:${Date.now()}`, {
-                        ts: Date.now(),
-                        actor: identity.admin ? 'admin' : identity.name,
-                        playerName,
-                        clan,
-                        itemId,
-                        cost: item.cost,
-                        reward: item.reward,
-                        refunded,
-                        refundError,
-                        error: creditErr instanceof Error ? creditErr.message : String(creditErr),
-                    }, { ex: 90 * 24 * 60 * 60 }).catch(() => undefined);
-                    return {
-                        ok: false as const,
-                        status: 503,
-                        _saveVersion: refundSaveVersion,
-                        error: refunded
-                            ? 'The clan treasury credit could not be saved, so your Clan Points were refunded. Please retry in a moment.'
-                            : 'Clan Points were spent, but the clan treasury credit could not be saved. An admin can reconcile it; please do not retry this purchase.',
-                    };
-                }
-                return playerResult;
-            }, { failClosed: true })
+            ? await settleClanExchangeTreasury({playerName, clan, itemId, requestId: body.requestId})
             : await (async () => {
                 const clanRec = await kv.get<Record<string, unknown>>(clanSaveKey);
                 if (!clanRec) return { ok: false as const, status: 404, error: 'Clan not found.' };
@@ -173,6 +111,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!purchase.ok) {
             return res.status(purchase.status).json({
                 error: purchase.error,
+                ...('code' in purchase ? {code: purchase.code} : {}),
                 ...('_saveVersion' in purchase ? { _saveVersion: purchase._saveVersion } : {}),
             });
         }

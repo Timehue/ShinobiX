@@ -504,11 +504,14 @@ export function buyClanExchangeItem(args: {
     itemCatalog?: Record<string, CatalogItem>;
     now?: Date;
     rng?: () => number;
+    /** Server-sealed definition for resuming an authorized treasury purchase. */
+    definition?: ClanExchangeItemDef;
 }): ClanExchangePurchaseResult {
     const now = args.now ?? new Date();
     const rng = args.rng ?? Math.random;
     const catalog = args.itemCatalog ?? ITEM_CATALOG;
-    const item = ITEM_BY_ID.get(args.itemId as ClanExchangeItemId);
+    const item = args.definition ?? ITEM_BY_ID.get(args.itemId as ClanExchangeItemId);
+    if (item && item.id !== args.itemId) return { ok: false, code: 'unknown-item', error: 'Conflicting Clan Exchange item.' };
     if (!item) return { ok: false, code: 'unknown-item', error: 'Unknown Clan Exchange item.' };
     if (!args.character.clan) return { ok: false, code: 'not-in-clan', error: 'Join a clan before using Clan Exchange.' };
     if (!args.clanData) return { ok: false, code: 'clan-not-found', error: 'Clan data could not be found.' };

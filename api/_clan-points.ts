@@ -2,6 +2,7 @@ import { kv } from './_storage.js';
 import { withKvLock } from './_lock.js';
 import { mergePreservingImages, safeName } from './_utils.js';
 import { bumpSaveVersion } from './save/_save-version.js';
+import { writeVersionedPlayerSave } from './save/_mutate-player-save.js';
 
 export const CLAN_POINTS_WEEKLY_CAP = 1_000;
 export const CLAN_POINT_HISTORY_LIMIT = 30;
@@ -116,7 +117,12 @@ export function awardClanPoints<T extends Record<string, unknown>>(
     const eventId = typeof metadata.eventId === 'string' && metadata.eventId.trim()
         ? metadata.eventId.trim()
         : `${source}:${ts}`;
-    if (existingHistory.some((entry) => entry.id === eventId)) {
+    const sealedMission = metadata.missionReceiptVersion === 1
+        && (source === 'clanMissionContribution' || source === 'clanMissionClaim');
+    const missionReceipts = Array.isArray(character.clanMissionPointReceipts)
+        ? character.clanMissionPointReceipts as Array<{id: string; ts: number}> : [];
+    if (existingHistory.some((entry) => entry.id === eventId)
+        || (sealedMission && missionReceipts.some(entry => entry.id === eventId))) {
         return { character, awarded: 0, requested, weekKey, weeklyEarned: currentWeekly, weeklyCap: CLAN_POINTS_WEEKLY_CAP, reason: 'duplicate-event' };
     }
     if (currentWeekly >= CLAN_POINTS_WEEKLY_CAP || currentWeekly + requested > CLAN_POINTS_WEEKLY_CAP) {
@@ -146,6 +152,7 @@ export function awardClanPoints<T extends Record<string, unknown>>(
         weeklyClanPointsWeek: weekKey,
         lifetimeClanPoints: floorNonNegative(character.lifetimeClanPoints) + requested,
         clanPointHistory: [historyEntry, ...existingHistory].slice(0, CLAN_POINT_HISTORY_LIMIT),
+        ...(sealedMission ? {clanMissionPointReceipts: [{id: eventId, ts}, ...missionReceipts.filter(entry => entry.ts >= ts - 21 * 86_400_000)]} : {}),
     } as T;
 
     return { character: next, awarded: requested, requested, weekKey, weeklyEarned: currentWeekly + requested, weeklyCap: CLAN_POINTS_WEEKLY_CAP };
@@ -169,19 +176,24 @@ export async function awardClanPointsToPlayerSave(
             const weekKey = clanPointWeekKey();
             return { playerName, found: false, character: {}, awarded: 0, requested: 0, weekKey, weeklyEarned: 0, weeklyCap: CLAN_POINTS_WEEKLY_CAP };
         }
-        const result = awardClanPoints(character, source, amount, metadata);
+        const result = awardClanPoints(character, source, amount, metadata, new Date(Date.now()));
         const changed = result.character !== character;
         let saveVersion = Number(record._saveVersion ?? 0);
         if (changed) {
-            const nextRecord = bumpSaveVersion({ ...record, character: result.character });
-            await kv.set(
-                `save:${playerName}`,
-                mergePreservingImages(nextRecord, record),
-            );
-            // Return the stamp from the exact record written while this save lock
-            // is held. Callers must never re-read after releasing the lock to
-            // guess which concurrent version their response should acknowledge.
-            saveVersion = Number(nextRecord._saveVersion ?? 0);
+            if (metadata.missionReceiptVersion === 1) {
+                const saved = await writeVersionedPlayerSave(`save:${playerName}`, record, result.character);
+                saveVersion = saved._saveVersion;
+            } else {
+                const nextRecord = bumpSaveVersion({ ...record, character: result.character });
+                await kv.set(
+                    `save:${playerName}`,
+                    mergePreservingImages(nextRecord, record),
+                );
+                // Return the stamp from the exact record written while this save lock
+                // is held. Callers must never re-read after releasing the lock to
+                // guess which concurrent version their response should acknowledge.
+                saveVersion = Number(nextRecord._saveVersion ?? 0);
+            }
         }
         if (result.awarded > 0) {
             await kv.set(`audit:clan-points:${playerName}:${Date.now()}`, {
