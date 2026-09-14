@@ -650,7 +650,31 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // ~154 KB over the local measurement of this tree to absorb the ~56 KB env
 // delta, which is measured, not estimated -- main's CI build was 8,141,965 B and
 // its Production Image 8,197,935 B on the same commit.
-const TOTAL_JS_CSS_FAIL_BYTES = 8_300_000;
+// 2026-09-14 TOUCH HOVER GATE: 8,300,000 -> 8,400,000 B, for the reason the
+// 09-07 entry gives: the gate had become a tripwire again.
+//
+// Live main (424ffc2b6) measured 8,234,757 B in a credential-free build. The
+// change that crossed the gate wraps the app's button :hover rules in
+// @media (hover: hover), so a tap on a touch screen no longer leaves a button
+// lit; it adds 282 wrappers to the built CSS and 10,599 B, all of it CSS
+// (8,245,356 B locally). Production Image measured this tree at 8,303,143 B,
+// 3,143 B over. Less the change, main itself ships 8,292,544 B -- 7,456 B of
+// headroom, which the next ordinary commit from anyone would have spent.
+//
+// What it costs players: +3,225 B raw / +401 B gzip on the INITIAL graph
+// (1,443,766 -> 1,446,991 B raw; 382,575 -> 382,976 B gzip). The repeated
+// wrapper compresses to almost nothing, and INITIAL_GRAPH_FAIL_BYTES and
+// INITIAL_GRAPH_GZIP_FAIL_BYTES below are untouched and still pass.
+//
+// Checked for the usual causes before raising: budgeted JS/CSS inlines 510 B
+// of base64 in total, none of it in a payload over 5 KB. The cheapest trim
+// inside the change, writing the query as `(hover)`, would save about 1.7 KB of
+// the wrappers' 6.2 KB -- short of the 3,143 B, and it would leave main at the
+// tripwire. 100 KB restores the slack the 09-07 entry asked for.
+//
+// Production Image remains the authority: 8,400,000 leaves 96,857 B over its
+// 8,303,143 B measurement of this tree.
+const TOTAL_JS_CSS_FAIL_BYTES = 8_400_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
