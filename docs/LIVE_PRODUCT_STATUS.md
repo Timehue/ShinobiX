@@ -1,7 +1,7 @@
 # ShinobiX Live Product Status
 
-Current authority as of August 28, 2026
-Repository verification base: `d337aac8992d74df7d66ca577a2333570b150a23`
+Current authority as of September 14, 2026
+Repository verification base: `957e3ae2056ffa443b5975d067bcd91646dca59f` (tagged `v0.2.0-beta`)
 
 This file is the canonical repository authority for current product stage and player-facing availability. Dated launch recommendations, rollout matrices, release notes, and implementation reports are historical evidence; when their availability wording conflicts with this file or executable runtime behavior, this file and the runtime win.
 
@@ -16,10 +16,15 @@ The active architecture is React 19 and Vite on the client, an Express/TypeScrip
 The shipped game includes:
 
 - Academy onboarding, training, jutsu, missions, hunts, inventory, shops, banking, hospital, cafeteria, world travel, and ordinary shinobi PvE/PvP.
+- First Contract, the optional illustrated field journal that follows the Academy.
 - Ranked PvP, Battle Towers, Endless Spire, Weekly Boss, Hollow Gate, story, and village chronicles.
-- Companions, Pet Arena, Pet Ladder, Warfront, Pet Gauntlet, expeditions, and breeding.
+- The Celestial Tower campaigns: Echoes of War, which is played on the Chronicle Showdown card engine and pays Chronicle Points, and The First Pact, a level-100 companion campaign.
+- Companions, Pet Arena, Pet Coliseum, Pet Ladder, Beastbound Warfront, Pet Gauntlet, expeditions, and breeding. The ranked Pet Ladder resolves on Beastbound Warfront.
 - Shinobi Chronicle Showdown/Card Clash, including its AI, free-play, clan-war, and sector-war uses.
 - Clans, Clan Boss Operations, Village War, Sector War, professions, Legacy, and Hall of Legends.
+- Village leadership with the Kage and elected Elders, and the admin-scheduled Dojo Circuit event between the four villages.
+- An in-world day and night of two real hours, with weather that changes in steps.
+- The Premium Shop, where Fate Shards and the Shinobi Supporter subscription are sold through a Tebex web checkout. The village Shop is ryo-only, and the Android app never shows a web checkout.
 - Bloodlines, including the Bloodline Forge and the server-authoritative awakening flow.
 - Companion idle growth progression, with allocation recomputed from immutable species stats on the server.
 - The in-game player guide library.
@@ -98,6 +103,10 @@ npm audit --omit=dev --audit-level=high
 These commands cover type/build integrity, unit and integration behavior, route and deployment packaging, release certification, rollback assets, backup tooling, mission eligibility, asset integrity, browser flows, size, and dependency audits. A clean repository run does not replace credentialed checks against a deployed service.
 
 Checks requiring a safe target and credentials include fresh-account/live-save smoke, real multiplayer concurrency, authenticated admin tools, production storage/backup observations, and environment-specific Legacy availability. No current credentialed production result was established while authoring this authority; consult retained live evidence before making an incident or availability claim.
+
+## Releases
+
+Tagged snapshots and their notes are published on [GitHub Releases](https://github.com/Timehue/ShinobiX/releases). The current one is [`v0.2.0-beta`](https://github.com/Timehue/ShinobiX/releases/tag/v0.2.0-beta), tagged September 14, 2026, and it is this file's verification base. Release notes are dated evidence like the documents below; where they disagree with this file, this file wins.
 
 ## Historical evidence
 
