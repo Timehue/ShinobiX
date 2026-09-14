@@ -161,9 +161,9 @@ describe('the outbound budget', () => {
     it('serialises concurrent charges instead of losing all but one', async () => {
         // Unlocked, this was a read-modify-write race: twenty pipelined gifts
         // each read the same ledger and the last write won, so the budget never
-        // accumulated and the cap did nothing. The treasury doors now also
-        // charge under the sender's gate, but the ledger lock is the charge's
-        // own guarantee and must not depend on each caller remembering the gate.
+        // accumulated and the cap did nothing. Every door now also charges
+        // under the sender's gate, but the ledger lock is the charge's own
+        // guarantee and must not depend on each caller remembering the gate.
         await Promise.all(Array.from({ length: 20 }, (_, i) =>
             mod.chargeOutboundBudget(SENDER, 'ryo', 10_000, NOW + i)));
         const seen = await mod.checkOutboundBudget(SENDER, 'ryo', 1, 'trusted', NOW + 60_000);
