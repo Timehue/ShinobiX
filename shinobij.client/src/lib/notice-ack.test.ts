@@ -6,6 +6,7 @@ import {
     noticeIdsOf,
     resetNoticeAckState,
     takeUnseenNotices,
+    withholdNoticeAck,
 } from './notice-ack';
 import { applyOfflineNotices } from './offline-notices';
 
@@ -27,6 +28,33 @@ test('every beat declares the protocol, and acknowledges exactly the latest deli
     // A legacy server (no ids) yields nothing to acknowledge.
     noteHeartbeatDelivery({ pendingHeal: { by: 'Medic' }, pendingNotices: [{ kind: 'sleeper-kill', by: 'A', sector: 1, at: 1 }] });
     assert.deepEqual(heartbeatNoticeAckFields(), { noticeAck: true, ackNotices: [] });
+});
+
+test('a delivery that could not be shown is withheld from the next ack, and nothing else is', () => {
+    // App withholds a delivery when the chunk holding the notice copy fails to
+    // load. Acknowledging it anyway would make the server drop reports the
+    // player never saw; the server re-sends anything left unacknowledged.
+    const delivery = {
+        pendingHeal: { by: 'Medic', id: '1757138402000' },
+        pendingNotices: [{ kind: 'merc-raid', by: 'B', sector: 2, at: 2, id: 'n1' }, { kind: 'sleeper-kill', by: 'A', sector: 1, at: 1, id: 'n2' }],
+    };
+    noteHeartbeatDelivery(delivery);
+    withholdNoticeAck([delivery.pendingNotices[0]]);
+    assert.deepEqual(heartbeatNoticeAckFields(), { noticeAck: true, ackNotices: ['n2'], ackHeal: 1757138402000 }, 'the heal and the other notice are still acknowledged');
+
+    withholdNoticeAck(delivery.pendingNotices);
+    assert.deepEqual(heartbeatNoticeAckFields(), { noticeAck: true, ackNotices: [], ackHeal: 1757138402000 });
+
+    // Junk and unknown ids change nothing.
+    noteHeartbeatDelivery(delivery);
+    withholdNoticeAck('nope');
+    withholdNoticeAck([{ id: 'someone-else' }, { kind: 'merc-raid' }]);
+    assert.deepEqual(heartbeatNoticeAckFields().ackNotices, ['n1', 'n2']);
+
+    // The re-delivery is acknowledged normally once it can be shown.
+    withholdNoticeAck(delivery.pendingNotices);
+    noteHeartbeatDelivery(delivery);
+    assert.deepEqual(heartbeatNoticeAckFields().ackNotices, ['n1', 'n2']);
 });
 
 test('noticeIdsOf keeps only string ids, once each', () => {

@@ -22,7 +22,7 @@
 // host component so they share the request singleton — disable the Fast-Refresh
 // "only export components" rule for that deliberate mix.
 /* eslint-disable react-refresh/only-export-components */
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useId, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 
@@ -366,6 +366,7 @@ export type GameConfirmOptions = {
     confirmLabel?: string;
     cancelLabel?: string;
     danger?: boolean;       // red Confirm button for destructive actions
+    initialFocus?: "confirm" | "cancel";
 };
 
 type ConfirmRequest = {
@@ -401,6 +402,17 @@ export function GameConfirmHost() {
     const [queue, setQueue] = useState<ConfirmRequest[]>([]);
     const cardRef = useRef<HTMLDivElement>(null);
     const restoreFocusRef = useRef<HTMLElement | null>(null);
+    const cancelRef = useRef<HTMLButtonElement>(null);
+    const confirmRef = useRef<HTMLButtonElement>(null);
+    const descriptionId = useId();
+    const current = queue[0];
+
+    // Also honor the preferred action when a queued request replaces a dialog
+    // without unmounting its buttons (autoFocus alone only handles the mount).
+    useEffect(() => {
+        if (!current) return;
+        (current.opts?.initialFocus === "cancel" ? cancelRef : confirmRef).current?.focus();
+    }, [current]);
 
     useEffect(() => {
         activeConfirmListener = (req) => setQueue((q) => {
@@ -431,8 +443,8 @@ export function GameConfirmHost() {
 
     useEffect(() => {
         if (queue.length === 0) return;
-        // Escape = cancel. Enter "= confirm" is handled by the autoFocus'd Confirm
-        // button's native activation, so no window-level Enter handler is needed
+        // Escape = cancel. Enter activates the preferred, focused button, so
+        // no window-level Enter handler is needed
         // (which also avoids the double-settle the alert host had to guard against).
         function onKey(e: KeyboardEvent) {
             if (e.key === "Escape") { e.preventDefault(); settle(false); }
@@ -446,7 +458,6 @@ export function GameConfirmHost() {
 
     if (queue.length === 0) return null;
 
-    const current = queue[0];
     const opts = current.opts ?? {};
     const moreCount = queue.length - 1;
 
@@ -458,6 +469,7 @@ export function GameConfirmHost() {
                 role="alertdialog"
                 aria-modal="true"
                 aria-label={opts.title ?? "Confirm"}
+                aria-describedby={descriptionId}
                 tabIndex={-1}
                 onClick={(e) => e.stopPropagation()}
             >
@@ -465,21 +477,22 @@ export function GameConfirmHost() {
                     <span className="game-alert-badge">忍</span>
                     <span className="game-alert-title">{opts.title ?? "Confirm"}</span>
                 </div>
-                <p className="game-alert-message">{current.message}</p>
+                <p id={descriptionId} className="game-alert-message">{current.message}</p>
                 <div className="game-alert-footer">
                     {moreCount > 0 && (
                         <span className="game-alert-more">
                             {moreCount} more {moreCount === 1 ? "prompt" : "prompts"} queued
                         </span>
                     )}
-                    <button type="button" className="game-alert-cancel" onClick={() => settle(false)}>
+                    <button ref={cancelRef} type="button" className="game-alert-cancel" onClick={() => settle(false)} autoFocus={opts.initialFocus === "cancel"}>
                         {opts.cancelLabel ?? "Cancel"}
                     </button>
                     <button
+                        ref={confirmRef}
                         type="button"
                         className={`game-alert-ok${opts.danger ? " danger" : ""}`}
                         onClick={() => settle(true)}
-                        autoFocus
+                        autoFocus={opts.initialFocus !== "cancel"}
                     >
                         {opts.confirmLabel ?? "Confirm"}
                     </button>

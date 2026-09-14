@@ -26,6 +26,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { validateClanSaveWrite } from '../_clan-save-validate.js';
 import { isKnownEarnedTitle, appendCustomTitleLog } from '../_titles-registry.js';
 import { legacyEnabled } from '../_legacy-track.js';
+import { clientRyoDecreaseAllowed } from '../_release-flags.js';
 import { parseBaseSaveVersion, saveVersionTelemetryKey, isVersionlessPlayerSave, matchesStoredSaveVersion, nextSaveVersion, storedSaveVersion } from './_save-version.js';
 import { shouldWriteRegistry } from './_registry-throttle.js';
 import { deletePlayerFirstPactState, detachPlayerReferences } from '../_delete-player-account.js';
@@ -1033,6 +1034,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 _saveVersion: Number((existing as Record<string, unknown>)._saveVersion ?? 0),
                             });
                         }
+                        // A lower balance is re-asserted to the stored one by the
+                        // sanitizer (ryo is server-owned). Log it: a stale tab is the
+                        // expected cause, but a steady stream from one feature would
+                        // mean a client-side spend was missed — the signal to set
+                        // ALLOW_CLIENT_RYO_DECREASE=1 while it is fixed.
+                        if (requestedRyo < storedRyo && !clientRyoDecreaseAllowed()) {
+                            console.info('[save] ignored client-originated ryo decrease', { player: identityName, storedRyo, requestedRyo });
+                        }
                     }
 
                     // Custom-title review log (§11.4): every NEW free-text
@@ -1235,7 +1244,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             }
                         }
                     }
-                    return res.status(200).json(isClanSave ? { ok: true } : { ok: true, _saveVersion: nextVersion });
+                    // The persisted ryo rides back with the version so a client whose
+                    // local balance drifted (it adopted a newer version without the
+                    // new ryo) converges on every successful autosave.
+                    const persistedRyo = Number(((payload as Record<string, unknown>).character as Record<string, unknown> | undefined)?.ryo);
+                    return res.status(200).json(isClanSave
+                        ? { ok: true }
+                        : { ok: true, _saveVersion: nextVersion, ...(Number.isFinite(persistedRyo) ? { ryo: persistedRyo } : {}) });
                     }, { failClosed: true });
                     return; // the locked closure already sent the response
                 } catch (lockErr) {

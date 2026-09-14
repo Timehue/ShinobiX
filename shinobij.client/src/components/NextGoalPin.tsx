@@ -22,6 +22,7 @@
  * clutter). Self-contained inline styles; presentation only.
  */
 import { useState } from "react";
+import { firstContractVisible, openFirstContract } from '../lib/first-contract';
 import { buildAcademyHandoff } from "../lib/academy-handoff";
 import { currentLogbookObjective } from "../lib/logbook-objectives";
 import { isAcademyOnboardingActive } from "../lib/onboarding-step";
@@ -50,6 +51,7 @@ export function NextGoalPin({
     // Hiding the broader Logbook pin here prevents two valid but conflicting
     // "do this next" instructions from appearing at the same time.
     if (isAcademyOnboardingActive(character.onboardingStep ?? "")) return null;
+    if (firstContractVisible(character)) return compact ? <button type="button" className="next-goal-pin-compact fc-rail" onClick={(event) => { event.currentTarget.focus(); openFirstContract(); }}>First Contract · Open field journal →</button> : null;
     const handoff = buildAcademyHandoff(character);
     const objective = handoff ? null : currentLogbookObjective(character);
     const activeId = handoff?.id ?? objective?.id ?? null;

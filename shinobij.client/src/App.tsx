@@ -13,6 +13,7 @@ import type * as React from "react";
 import { installAuthFetch, isTokenExpired, setActivePlayer, setActiveToken, setAdminSession, SESSION_EXPIRED_EVENT } from "./authFetch";
 import { isReleaseSafeClientEvent } from "./lib/release-safe-content";
 import { GameAlertHost, GameConfirmHost, GamePasswordPromptHost, gameConfirm } from "./components/GameAlert";
+import { createPlayerLogout } from "./lib/player-logout";
 import { GameToastHost, gameToast } from "./components/GameToast";
 import { AdaptiveGameShell } from "./components/layout/AdaptiveGameShell";
 import { MaintenanceOperatorBoundary } from "./components/MaintenanceOperatorBoundary";
@@ -81,7 +82,7 @@ import {
 } from "./lib/live-capability-admission";
 
 import { pushLiveSectorPlayers, getLiveSectorPlayers, setLiveAvatarPrefetch, getLocalSectorTile, setLocalSectorTile, setLiveSectorContext, correctLocalSectorTile } from "./lib/presence-store";
-import { heartbeatNoticeAckFields, noteHeartbeatDelivery } from "./lib/notice-ack";
+import { heartbeatNoticeAckFields, noteHeartbeatDelivery, withholdNoticeAck } from "./lib/notice-ack";
 import { worldSectorReconcileTarget } from "./lib/sector-reconcile";
 import { mergeServerPendingWorldRewards } from "./lib/world-reward-recovery";
 import { presenceCharacter } from "./lib/presence-character";
@@ -244,6 +245,7 @@ const OnboardingCoach = lazyWithRetry(() => import("./components/OnboardingCoach
 const ScreenHint = lazyWithRetry(() => import("./components/ScreenHint").then(m => ({ default: m.ScreenHint })));
 const LiveServiceNotice = lazyWithRetry(() => import("./components/LiveServiceNotice").then(m => ({ default: m.LiveServiceNotice })));
 const NextGoalPin = lazyWithRetry(() => import("./components/NextGoalPin").then(m => ({ default: m.NextGoalPin })));
+const FirstContractHost = lazyWithRetry(() => import("./components/FirstContractHost").then(m => ({ default: m.FirstContractHost })));
 const Village = lazyWithRetry(() => import("./screens/Village").then(m => ({ default: m.Village })));
 import {
     type Profession,
@@ -342,8 +344,8 @@ import {
 } from "./constants/hunter";
 
 import type { Achievement } from "./constants/achievements";
-import { claimAchievementSync, createAchievementSyncGate, planAchievementSync, releaseAchievementSync, syncedToastIds, versionedAchievementMutationFromSync, type AchievementSyncResponse } from "./lib/achievement-sync";
-import { markAchievementsToasted, unseenAchievements } from "./lib/achievement-toast-ledger";
+import { createAchievementSyncGate } from "./lib/achievement-sync";
+import { runAchievementSyncPass } from "./lib/achievement-sync-pass";
 
 export type { PetArenaFrame, PetBattleFighter, PetBattleRecord } from "./types/pet-arena";
 
@@ -511,7 +513,7 @@ export type { EventEncounterBattle } from "./lib/triggered-event-battle";
 // defaultVnPortrait + defaultVnScene moved to ./lib/vn.
 
 // Achievement types live in ./constants/achievements; the runtime catalog is
-// dynamically imported by the server-sync effect after gameplay opens.
+// loaded on demand by lib/achievement-sync-pass after gameplay opens.
 // STARTING_STAT_POINTS / CHARACTER_XP_GAIN_MULTIPLIER / AWAKENING_*_ID /
 // AWAKENING_ELEMENTS / STUN_AP_PENALTY moved to ./constants/game.
 // STAT_KEYS + the character stat/level math moved to ./lib/stats (imported
@@ -956,54 +958,19 @@ export default function App() {
     // loop (dirty save → server discards → re-hydrate reverts → effect re-fires),
     // which drove /api/save into 409s then 429s and re-rendered mid-combat. The
     // gate guarantees one request per distinct divergence — see lib/achievement-sync.ts.
+    // Each pass runs in lib/achievement-sync-pass.ts, which also survives a
+    // catalog chunk that fails to load.
     const [achievementToasts, setAchievementToasts] = useState<Achievement[]>([]);
     const achievementGateRef = useRef(createAchievementSyncGate());
     useEffect(() => {
         const playerName = character?.name;
         if (!gameplayMutationsOpen || !character || !playerName) return;
         let cancelled = false;
-        void (async () => {
-            // The server is authoritative; the presentation catalog is only
-            // needed after gameplay opens. Deferring it keeps 135 descriptions
-            // and predicates out of the render-blocking startup graph.
-            const { ACHIEVEMENTS, titlesForAchievementIds } = await import("./constants/achievements");
-            if (cancelled) return;
-            const eligibleIds = ACHIEVEMENTS.filter(a => a.check(character)).map(a => a.id);
-            const plan = planAchievementSync({
-                eligibleIds,
-                unlocked: character.unlockedAchievements,
-                earnedTitles: character.earnedTitles,
-                titlesForUnlocked: titlesForAchievementIds(eligibleIds),
-            });
-            // First-ever sync for this save: the server seeds its claim ledger
-            // so existing progress pays no retroactive windfall.
-            const silent = plan.uninitialized;
-            if (!claimAchievementSync(achievementGateRef.current, playerName, plan)) return;
-            try {
-                const res = await fetch('/api/achievements/sync', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ playerName }),
-                });
-                if (!res.ok) return;
-                const data = await res.json() as AchievementSyncResponse;
-                const mutation = versionedAchievementMutationFromSync(characterRef.current, data);
-                if (!mutation || mutation.character.name.toLowerCase() !== playerName.toLowerCase()) return;
-                if (!commitVersionedCharacter(mutation.character, mutation._saveVersion)) return;
-                if (silent) { markAchievementsToasted(playerName, mutation.character.unlockedAchievements); return; }
-                const toastIds = unseenAchievements(playerName, syncedToastIds(data));
-                if (toastIds.length === 0) return;
-                markAchievementsToasted(playerName, toastIds);
-                setAchievementToasts(prev => [...prev, ...toastIds
-                    .map(id => ACHIEVEMENTS.find(a => a.id === id))
-                    .filter((a): a is Achievement => !!a)]);
-            } catch {
-                // Offline / auth blip: retries on the next unlock or page load.
-                // Deliberately no immediate retry — that was the loop.
-            } finally {
-                releaseAchievementSync(achievementGateRef.current);
-            }
-        })();
+        void runAchievementSyncPass({
+            playerName, character, gate: achievementGateRef.current, isCancelled: () => cancelled,
+            characterRef, commitVersionedCharacter,
+            onToasts: (toasts) => setAchievementToasts(prev => [...prev, ...toasts]),
+        });
         return () => { cancelled = true; };
     }, [character, gameplayMutationsOpen]);
 
@@ -2074,9 +2041,9 @@ export default function App() {
                     if (screenRef.current === "hospital") setScreen("village");
                 }
                 if (Array.isArray(data.pendingNotices) && data.pendingNotices.length) {
-                    // Lazy import: the notice copy strings stay off the entry graph.
+                    // Lazy import: the notice copy strings stay off the entry graph. If it fails to load, withhold the ack so the server re-delivers.
                     const notices = data.pendingNotices;
-                    void import("./lib/offline-notices").then((m) => m.applyOfflineNotices(notices));
+                    void import("./lib/offline-notices").then((m) => m.applyOfflineNotices(notices), () => withholdNoticeAck(notices));
                 }
             } catch {
                 // Server unavailable — silently skip
@@ -4300,24 +4267,10 @@ export default function App() {
         setScreen("start");
     }
 
-    // Logout must FINISH the save before tearing the session down —
-    // clearing the character (and its auth token) first lost the last chunk of
-    // progress. On save failure, offer to stay logged in.
+    const [playerLogout] = useState(createPlayerLogout);
+    useEffect(() => () => playerLogout.retire(), [playerLogout]);
     async function logoutPlayer() {
-        if (character) {
-            try {
-                const accountName = currentAccountName || character.name;
-                await pushSaveToServer(character, accountName, undefined, { useLatestAtExecution: true });
-                if (charDirtyRef.current && latestSaveRef.current) {
-                    await pushSaveToServer(latestSaveRef.current.character, accountName, undefined, { useLatestAtExecution: true });
-                }
-                if (charDirtyRef.current) throw new Error("The save changed while logout was finishing.");
-            } catch {
-                charDirtyRef.current = true;
-                if (!(await gameConfirm("Your progress could not be saved to the server. Logging out now will lose everything since your last successful save. Log out anyway?", { title: "Save Failed", confirmLabel: "Log out anyway", danger: true }))) return;
-            }
-        }
-        endLocalSession();
+        return playerLogout.run({ character, currentAccountName, saveCoordinator, saveSessionEpochRef, confirm: gameConfirm, endLocalSession });
     }
 
     async function recordBuiltInMissionProgress(
@@ -5986,6 +5939,7 @@ export default function App() {
 
                 {!activeTriggeredEvent && character && <Suspense fallback={null}><CircuitReturnRibbon name={character.name} screen={screen} onReturn={() => navigate('dojoCircuit')} /></Suspense>}
                 {!activeTriggeredEvent && screen === 'dojoCircuit' && character && <DojoCircuit key={character.name} character={character} setScreen={navigate} />}
+                {character?.firstContract && <Suspense fallback={null}><FirstContractHost key={character.name} character={character} screen={screen} blocked={Boolean(activeTriggeredEvent) || hideBattleChrome || introCinematicActive} navigate={navigate} onVersionedCharacter={commitVersionedCharacter} activeTraining={activeTraining} /></Suspense>}
                 {!activeTriggeredEvent && screen === "village" && character && (<>
                     <Suspense fallback={null}>
                         <NextGoalPin character={character} navigate={navigate} />
@@ -6272,6 +6226,7 @@ export default function App() {
                         onVersionedCharacter={commitVersionedCharacter}
                         onDeleteCharacter={deleteCharacter}
                         onOpenBattle={(battleId) => { setViewedBattleId(battleId); setScreen("battleLog"); }}
+                        onTrainJutsu={() => navigate("jutsuTraining")}
                     />
                 )}
                 {!activeTriggeredEvent && screen === "battleLog" && character && viewedBattleId && (

@@ -59,7 +59,7 @@ const FROZEN = {
         // not fighter inputs. This is an intentional, reviewed extension of the
         // pre-manifest combat projection as the authored onboarding arc expands.
         'onboardingStep', 'academySectorVisited', 'academyVow',
-        'academyIncidentSeen', 'academyTraceSector', 'academyFieldSeal',
+        'academyIncidentSeen', 'academyTraceSector', 'academyFieldSeal', 'firstContract',
         'petTutorialProgress',
         'weeklyBossKills', 'claimedWarCrateIds',
         'unlockedAchievements', 'achievementUnlockedAt',
@@ -184,6 +184,7 @@ const FROZEN = {
     // (exploration trio, chest trio, achievements quad, endless seven) — now
     // one uniform mirror loop; semantics per group were identical.
     SERVER_MIRRORED_CHARACTER_FIELDS: [
+        'firstContract', // journal milestones are committed by existing authoritative actions, never generic saves
         'elderWinDays', 'elderRankedWinReceipts',
         'pvpKillMonth', // Monthly ANBU rankings must not accept a client-written reset month.
         'serverExploreDate', 'serverExploresToday', 'serverFreeDungeonProbeDate', 'serverFreeDungeonProbesToday', 'redeemedSectorExplorations',

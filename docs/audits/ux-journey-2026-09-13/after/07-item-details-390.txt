@@ -1,0 +1,95 @@
+You
+Travel
+Village
+Items
+Menu
+←
+Journeyu0cm8sn
+Lv 1
+500
+1000
+1000
+2100
+0
+ACTIVE LOADOUT
+Equipped
+1
+/14
+
+Select a slot to filter compatible gear, or inspect an equipped item.
+
+AURA
+HEAD
+THROWN
+ITEM 1
+ITEM 2
+BODY
+WEAPON
+Rustfang Kunai
+WAIST
+GLOVES
+ITEM 3
+RELIC
+LEGS
+POTION
+FEET
+FIELD STORAGE
+Backpack
+
+1 UNIQUE · 1 TOTAL
+
+ITEMS
+CHRONICLE SHOWDOWN
+ALL
+1
+⚔️
+GEAR
+1
+🧪
+CONSUMABLES
+0
+🐾
+PET
+0
+🔨
+MATERIALS
+0
+🎟️
+EVENT
+0
+COMMON
+ARMOR
+Shinobi Vest
+Taijutsu Defense +20
+INSPECT DETAILS
+›
+
+Shinobi Journey stores data on your device for sign-in, preferences, and saving your progress. It uses no advertising or third-party tracking cookies. Learn more.
+
+Got it
+Shinobi Vest
+COMMON
+
+Inventory Count: 1   Source: Backpack
+
+Light armor for rookie shinobi.
+
+Type: Armor
+
+Use: Wear for passive protection
+
+Slot: Body
+
+Level: 1+
+
+Value: 180 ryo
+
+Sell Value: 90 ryo
+
+While Equipped
+
+Taijutsu Defense: +20
+
+Equip to Body
+Sell for 90 ryo
+Close

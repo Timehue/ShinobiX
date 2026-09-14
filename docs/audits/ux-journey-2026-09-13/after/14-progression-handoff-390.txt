@@ -1,0 +1,58 @@
+You
+Travel
+Village
+Items
+Menu
+←
+Journeyu0cm8sn
+Lv 1
+500
+1000
+1000
+2060
+0
+SAFE ZONE
+Cinder Cub
+Phase 3/3 · First Field Assignment · Trace the signal and return
++
+Battle Arena
+Story Hall
+Town Hall
+Bank
+Shop
+Clan Hall
+Hospital
+Mission Hall
+Cafeteria
+Tavern
+Stat Training
+Jutsu Training
+World Map
+Pet Home
+Card Hall
+
+STORMVEIL FIRST-RETURN RITE
+
+Your next step is yours.
+
+The guided route ends here. Choose one first contract to make your own. You can change direction later; your Logbook keeps the whole road visible.
+
+01
+COMBAT
+Prove your technique
+Take the E-Rank Drill on your own, then collect its reward.
+Choose this route
+→
+02
+DISCOVERY
+Beyond the village gate
+Travel to a numbered sector and explore one field tile.
+Choose this route
+→
+03
+COMPANION
+A moment for your companion
+Visit your companion in the Pet Yard and give it some attention.
+Choose this route
+→
+Stay in the village for now

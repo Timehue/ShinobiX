@@ -10,9 +10,9 @@ import { makePveEngineTestSession } from './_pve-engine-test-fixture.js';
  * (pveEasyBandHoldsBurst / pveIsBurstJutsuAp / pveEasyBandAllowsLethal /
  * pveAiCompetence) reaching the engine's action picker.
  *
- * Unit parity of the helpers themselves lives in
- * scripts/pve-difficulty-parity.test.ts, and the buff list the Clear threshold
- * reads is pinned by scripts/pve-ai-tactics-parity.test.ts. What THIS file pins
+ * Unit tests of the helpers themselves live in api/_pve-difficulty.test.ts, and
+ * the buff list the Clear threshold reads is pinned by
+ * api/_pve-ai-tactics.test.ts. What THIS file pins
  * is that they change what the AI actually DOES — and, just as importantly, that
  * they are a strict no-op for a session with no sealed `pveGuard` (every tower /
  * spire / clan-boss / mission / story run today) and for squad-side AI.
