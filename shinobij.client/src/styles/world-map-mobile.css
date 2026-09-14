@@ -146,13 +146,6 @@
         -webkit-tap-highlight-color: transparent;
     }
 
-    html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .wm-village-chip .wm-chip-dot {
-        flex: 0 0 6px;
-        width: 6px;
-        height: 6px;
-        margin: 0;
-    }
-
     html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-atlas-frame .wm-village-bar > .wm-village-chip[aria-pressed="true"] {
         border-color: #e6c477;
         background: linear-gradient(180deg, rgba(126, 93, 43, .48), rgba(42, 36, 25, .96));
@@ -234,14 +227,10 @@
         display: none;
     }
 
-    @media (hover: none) {
-        /* Touch browsers retain :hover after a tap; it must not leave a marker
-           enlarged over its neighbours until the player touches elsewhere. */
-        html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-map-scroll .atlas-sector:hover,
-        html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-map-scroll .atlas-landmark:hover {
-            transform: translate(-50%, -50%) scale(var(--wm-marker-scale, 1)) !important;
-        }
-    }
+    /* Touch browsers retain :hover after a tap. The marker hover rules are gated
+       to (hover: hover) where they are declared, in atlas-skin.css and
+       02-world-map.css, as is the global button:hover, so no touch reset is
+       needed here. */
 
     @media (prefers-reduced-motion: reduce) {
         html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .wm-village-chip {

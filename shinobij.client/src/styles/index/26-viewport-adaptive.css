@@ -336,7 +336,9 @@ html[data-vp="lg"] .battle-chat-col.battle-chat-hidden {
     line-height: 1;
 }
 
-.battle-chat-toggle:hover { color: #fbbf24; border-color: #fbbf24; }
+@media (hover: hover) {
+    .battle-chat-toggle:hover { color: #fbbf24; border-color: #fbbf24; }
+}
 
 .battle-chat-messages {
     flex: 1;
@@ -425,7 +427,9 @@ html[data-vp="lg"] .battle-chat-col.battle-chat-hidden {
 }
 
 .battle-chat-input-row button:disabled { opacity: 0.4; cursor: default; }
-.battle-chat-input-row button:hover:not(:disabled) { background: rgba(251, 191, 36, 0.3); }
+@media (hover: hover) {
+    .battle-chat-input-row button:hover:not(:disabled) { background: rgba(251, 191, 36, 0.3); }
+}
 
 html[data-vp="xl"] .arena-fullscreen,
 html[data-vp="lg"] .arena-fullscreen {

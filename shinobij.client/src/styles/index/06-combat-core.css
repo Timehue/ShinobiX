@@ -451,7 +451,9 @@
     filter: drop-shadow(0 0 1.4px rgba(0, 0, 0, 0.85)) drop-shadow(0 2px 1px rgba(0, 0, 0, 0.4));
     transition: filter 0.1s ease;
 }
-    .tower-hex-tile:hover { filter: drop-shadow(0 0 1.4px rgba(0, 0, 0, 0.85)) drop-shadow(0 2px 1px rgba(0, 0, 0, 0.4)) brightness(1.2); }
+    @media (hover: hover) {
+        .tower-hex-tile:hover { filter: drop-shadow(0 0 1.4px rgba(0, 0, 0, 0.85)) drop-shadow(0 2px 1px rgba(0, 0, 0, 0.4)) brightness(1.2); }
+    }
 /* Persistent ground-effect zone overlay — a gentle breathing pulse so the lasting hazard reads as active. */
 @keyframes towerZonePulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 0.95; } }
 /* Endless Spire hazard telegraph — a faster, more urgent pulse than a ground zone. */
@@ -554,7 +556,9 @@
     width: 40px; height: 40px; border: none; border-radius: 7px; background: transparent; color: #f0a15a;
     font-size: 1.2rem; font-weight: 800; line-height: 1; cursor: pointer; transition: background 0.12s;
 }
-.spire-stepper button:hover:not(:disabled) { background: rgba(240,161,90,0.14); }
+@media (hover: hover) {
+    .spire-stepper button:hover:not(:disabled) { background: rgba(240,161,90,0.14); }
+}
 .spire-stepper button:disabled { color: #57493a; cursor: default; }
 .spire-stepper span { min-width: 76px; text-align: center; font-size: 0.82rem; font-weight: 700; color: #d8c6b0; }
 .spire-ascend {
@@ -563,7 +567,9 @@
     background: linear-gradient(180deg, var(--boss-accent, #f0a15a), #b0430c);
     box-shadow: 0 4px 16px rgba(240,161,90,0.28); transition: transform 0.1s, box-shadow 0.2s;
 }
-.spire-ascend:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(240,161,90,0.42); }
+@media (hover: hover) {
+    .spire-ascend:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(240,161,90,0.42); }
+}
 .spire-ascend:disabled { opacity: 0.7; cursor: default; box-shadow: none; }
 .spire-ascend.locked { background: #241812; color: #d4c5b0; border-color: #3c2614; box-shadow: none; }
 
@@ -575,7 +581,9 @@
     border: 1px solid #33251a; background: linear-gradient(180deg, #17110c, #0f0a07); transition: transform 0.1s, border-color 0.15s, box-shadow 0.15s;
 }
 .spire-rung::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--band, #57493a); opacity: 0.8; }
-.spire-rung:hover:not(:disabled) { transform: translateY(-1px); border-color: var(--boss-accent, #f0a15a); }
+@media (hover: hover) {
+    .spire-rung:hover:not(:disabled) { transform: translateY(-1px); border-color: var(--boss-accent, #f0a15a); }
+}
 .spire-rung.selected { border-color: var(--boss-accent, #f0a15a); box-shadow: 0 0 0 1px var(--boss-accent, #f0a15a), 0 4px 14px rgba(240,161,90,0.25); background: linear-gradient(180deg, #221710, #140d09); }
 .spire-rung.cleared { }
 .spire-rung.cleared .spire-rung-portrait img { filter: saturate(0.75) brightness(0.92); }
@@ -832,25 +840,6 @@
         object-fit: cover;
     }
 
-.jutsu-name {
-    font-size: 12px;
-    font-weight: 900;
-    color: #111827;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.jutsu-meta {
-    font-size: 10px;
-    color: var(--slate-800);
-    line-height: 1.2;
-    min-height: 12px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
 .combat-text-log {
     margin-top: 10px;
     max-height: 220px;
@@ -1090,9 +1079,11 @@
     display: inline-block;
 }
 
-    .vn-gallery-card-actions button:hover,
-    .vn-gallery-upload-btn:hover {
-        background: rgba(255,255,255,0.15);
+    @media (hover: hover) {
+        .vn-gallery-card-actions button:hover,
+        .vn-gallery-upload-btn:hover {
+            background: rgba(255,255,255,0.15);
+        }
     }
 
 .vn-gallery-card-actions .danger-button {
@@ -1522,14 +1513,6 @@
     color: var(--slate-200);
 }
 
-/* ── Slot picker modal ── */
-.slot-picker-item.rarity-rare   { border-color: rgba(99,102,241,0.5); }
-.slot-picker-item.rarity-epic   { border-color: rgba(168,85,247,0.5); }
-.slot-picker-item.rarity-legendary { border-color: rgba(250,204,21,0.5); }
-.slot-picker-item.rarity-rare:hover   { background: rgba(99,102,241,0.12); }
-.slot-picker-item.rarity-epic:hover   { background: rgba(168,85,247,0.12); }
-.slot-picker-item.rarity-legendary:hover { background: rgba(250,204,21,0.12); }
-
 @media (max-width: 860px) {
     .inventory-page {
         grid-template-columns: 1fr;
@@ -1588,10 +1571,6 @@
 @media (max-width: 800px) {
     .hero {
         display: grid;
-    }
-
-    .top-hud {
-        grid-template-columns: repeat(2, 1fr);
     }
 
     .hex-battlefield {
