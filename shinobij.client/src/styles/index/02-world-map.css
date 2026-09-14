@@ -399,6 +399,31 @@ html.wm-zoom .world-map-scroll .atlas-landmark {
     transform: translate(-50%, -50%) scale(var(--wm-marker-scale, 1)) !important;
     transform-origin: center !important;
 }
+/* Zoom mode follows the window width alone, so a narrow desktop window has a
+   mouse too. atlas-skin.css lifts an art landmark on :hover and :active with a
+   bare `scale() !important`. That selector ties with the counter-scale above,
+   and atlas-skin.css loads later with the lazy WorldMap chunk, so it replaced
+   the counter-scale and the hovered crest jumped to about 3x its size. These
+   rules keep the same lift, multiplied into the counter-scale, and the higher
+   specificity means load order no longer decides it. The hover is for a mouse
+   only, because a touch browser keeps :hover on whatever a tap last hit.
+   :active stays ungated, so a pressed landmark keeps its counter-scale under
+   touch too. */
+@media (hover: hover) {
+    html.wm-zoom .world-map-scroll button.atlas-landmark[data-landmark-art="true"]:hover {
+        transform: translate(-50%, -50%) scale(calc(var(--wm-marker-scale, 1) * 1.12)) !important;
+    }
+}
+html.wm-zoom .world-map-scroll button.atlas-landmark[data-landmark-art="true"]:active {
+    transform: translate(-50%, -50%) scale(calc(var(--wm-marker-scale, 1) * 1.04)) !important;
+}
+/* The sector hover's z-index 20 would sink the player's own sector below its
+   resting 24 (.atlas-sector-current). Ungated, so it covers the hover rule
+   wherever that applies, and one class more specific, so it wins wherever
+   that rule is declared. */
+html.wm-zoom .world-map-scroll .atlas-sector.atlas-sector-current:hover {
+    z-index: 24 !important;
+}
 /* Village-war ownership banners/rings ride the same %-anchors — scale them in
    step so they stay pinned to their (now constant-size) sector markers. */
 html.wm-zoom .world-map-scroll .vw-sector-claim {
