@@ -86,6 +86,16 @@ export function createPlayerSaveCoordinator({
         setCharacter(mergedCharacter); return true;
     }
 
+    // Ryo is server-owned, and every save acknowledgement carries the stored
+    // balance. Patch only the wallet, and only when it differs, so a client that
+    // already agrees with the server does not schedule another autosave.
+    function applyAuthoritativeRyo(accountName: string, ryo: number): void {
+        const accountKey = saveConflictAccountKey(accountName);
+        if (!accountKey || accountKey !== activeSaveAccountKey()) return;
+        if (characterRef.current?.ryo === ryo) return;
+        setCharacter((prev) => (prev && saveConflictAccountKey(prev.name) === accountKey && prev.ryo !== ryo ? { ...prev, ryo } : prev));
+    }
+
     function pushSaveToServer(
         buildPlayerSavePayload: (character: Character, overrides?: PlayerSaveOverrides) => PlayerSavePayload,
         characterToSave: Character,
@@ -142,6 +152,7 @@ export function createPlayerSaveCoordinator({
             onConflictSnapshot: (snapshot) => applyServerSnapshot(snapshot),
             writePreview: writeSavePreview,
             setBlocked: setSaveBlocked,
+            onAuthoritativeRyo: applyAuthoritativeRyo,
         });
     }
     const persistSave = savePersistenceRef.current.persistAutosave;

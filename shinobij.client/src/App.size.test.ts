@@ -480,7 +480,16 @@ import { readFileSync } from "node:fs";
 // ./types/vn, next to the CreatorEvent it is built from. Its name joined the
 // existing ./types/vn import and re-export lines, so the move cost App no new
 // lines and changed no emitted JavaScript. Buffer back to five.
-const MAX_LINES = 6566;
+// → 6,533 LOWERED (−33, 2026-09-13). The body of the achievement-sync effect
+// moved to lib/achievement-sync-pass.ts, which now catches a catalog chunk that
+// fails to load instead of letting it escape as an unhandled rejection. App
+// keeps the effect, the gate ref and the toast state. That drained 35 lines,
+// taking App.tsx from 6,563 to 6,528 (6,563 includes First Contract's two
+// wiring lines, which landed on main while this change was being made). The
+// budget is that count plus the usual five.
+// → 6,521 after moving logout orchestration into lib/player-logout.ts.
+// App retains the stable owner, unmount retirement, and save/session bindings.
+const MAX_LINES = 6521;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");

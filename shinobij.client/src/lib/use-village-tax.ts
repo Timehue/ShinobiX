@@ -9,8 +9,8 @@ import { settleVillageTax } from "./village-tax-api";
  * creates a bounded occupation tax; half is destroyed (the anti-inflation sink)
  * and half goes to the village treasury.
  *
- * Ryo is client-owned in the save ledger, so the debit has to be ADOPTED here —
- * otherwise the next autosave would re-assert the pre-tax balance and undo it.
+ * The server writes the post-tax balance to the stored save, and a generic save
+ * can never change ryo, so adopting it here only keeps the display in step.
  * The server is idempotent per UTC day, so this call is free on repeat.
  */
 export function useVillageTax(

@@ -17,8 +17,7 @@ import { generateHollowGateFloor } from "./hollow-gate-generate";
 import { hollowGateRunMaxFloor, hollowGateVariantDims } from "./hollow-gate-variant";
 import { pickRoomTheme } from "../data/hollow-gate-atlas";
 import { HOLLOW_GATE_SHRINE_W, HOLLOW_GATE_SHRINE_H, HOLLOW_GATE_MAX_FLOOR } from "../constants/game";
-import { petTreatItems, petRarityOrder } from "../data/pet-config";
-import { starterItems } from "../data/starter-items";
+import { petRarityOrder } from "../data/pet-config";
 import { cloneEncounterPet } from "./pet-balance";
 import type { HollowGateShrineRun, HollowGateTile, HollowGateTileKind, HollowGateTerrain, HollowGateVariant } from "../types/character";
 import type { Pet, PetRarity } from "../types/pet";
@@ -792,56 +791,6 @@ function generateHollowGateShrineRunBSP(floor = 1, isFinal?: boolean, dims?: { w
 // layouts + BSP + maze + atlas) onto the startup graph. Re-exported here so
 // existing importers and tests keep working unchanged.
 export { computeHollowGateVisible } from "./hollow-gate-visibility";
-
-// Module-level Ancient Chest roll for the Hollow Gate Shrine. Mirrors the
-// WorldMap rollAncientChest behavior but is callable from the App-level shrine
-// handler. Floor scales the XP/ryo equivalent of the original "sector" input.
-type HollowGateChestLoot = {
-    xp: number;
-    ryo?: number;
-    itemId?: string;
-    fateShards?: number;
-    boneCharms?: number;
-    auraStones?: number;
-    auraDust?: number;
-};
-
-export function rollHollowGateAncientChest(floor: number): HollowGateChestLoot {
-    // Treat floor as a "sector equivalent" of 30–50 so chests feel meaningful
-    // at any shrine depth.
-    const sectorEq = 25 + floor * 5;
-    const xp = 50 + Math.floor(sectorEq * 2);
-    const ryo = Math.random() < 0.5 ? 100 + Math.floor(Math.random() * 401) : undefined;
-
-    const lootRoll = Math.random();
-    let itemId: string | undefined;
-    let fateShards: number | undefined;
-    let boneCharms: number | undefined;
-    let auraStones: number | undefined;
-    const auraDust = Math.random() < 0.2 ? 5 + Math.floor(Math.random() * 11) : undefined;
-
-    if (lootRoll < 0.2) {
-        const treat = petTreatItems[Math.floor(Math.random() * petTreatItems.length)];
-        itemId = treat?.id;
-    } else if (lootRoll < 0.55) {
-        const commons = starterItems.filter((i) => i.rarity === "common" && i.slot !== "item");
-        if (commons.length) itemId = commons[Math.floor(Math.random() * commons.length)].id;
-    } else if (lootRoll < 0.65) {
-        const rares = starterItems.filter((i) => i.rarity === "rare" && i.slot !== "item");
-        if (rares.length) itemId = rares[Math.floor(Math.random() * rares.length)].id;
-    } else if (lootRoll < 0.92) {
-        // 27% — tile cards are skipped here (shrine doesn't expose card UI),
-        // so we promote them into extra currencies for variety.
-        fateShards = 1;
-    } else if (lootRoll < 0.97) {
-        fateShards = 1;
-    } else if (lootRoll < 0.99) {
-        boneCharms = 1;
-    } else {
-        auraStones = 1;
-    }
-    return { xp, ryo, itemId, fateShards, boneCharms, auraStones, auraDust };
-}
 
 // Pick a random pet from the player's available pool (editablePets) of the
 // given rarity, falling back to lower rarities if no template of that rarity

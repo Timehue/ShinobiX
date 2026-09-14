@@ -1,76 +1,36 @@
-/*
- * SparCoach — a READ-ONLY in-battle coaching banner for the onboarding "Academy
- * spar" (the guaranteed-first-win fight). It only renders during that fight and
- * never touches combat logic: it just reads two display-only flags (did the
- * player Basic Attack yet / cast a Jutsu yet) plus current AP and enemy HP, and
- * shows the next thing to do. Pinned to the TOP of the screen so it can never
- * cover the bottom action bar; always dismissible so it can never trap.
- */
-import { useState } from "react";
-import { createPortal } from "react-dom";
-
+/** Read-only Academy guidance, rendered in the existing combat feedback band. */
 export function SparCoach({
-    attacked, casted, ap, enemyHp, enemyMaxHp, zIndex = 9000,
+    attacked, casted, enemyHp, enemyMaxHp, enemyInMelee, myTurn, outOfActions, canAttack, canMove, canCastJutsu,
 }: {
     attacked: boolean;
     casted: boolean;
-    ap: number;
     enemyHp: number;
     enemyMaxHp: number;
-    /** Stacking order for the banner, which portals to `document.body`. The
-     *  sealed Academy spar renders inside MissionArenaFight's higher overlay,
-     *  so that host supplies a value above the fight portal. Get this wrong and
-     *  the coaching is silently painted behind the fight. */
-    zIndex?: number;
+    enemyInMelee: boolean;
+    myTurn: boolean;
+    outOfActions: boolean;
+    canAttack: boolean;
+    canMove: boolean;
+    canCastJutsu: boolean;
 }) {
-    const [hidden, setHidden] = useState(false);
-    if (hidden || enemyHp <= 0) return null;
-
-    let msg: string;
-    if (enemyMaxHp > 0 && enemyHp <= enemyMaxHp * 0.25) {
-        msg = "Almost there - finish the dummy with Basic Attack or a ready jutsu.";
-    } else if (!attacked) {
-        msg = "Use Basic Attack from the action bar to strike the training dummy.";
-    } else if (!casted) {
-        msg = "Nice hit. Now use any ready jutsu from the action bar.";
-    } else if (ap < 40) {
-        msg = "Low on AP - press Wait. That ends your turn and recovers AP.";
+    if (enemyHp <= 0) return null;
+    let message: string;
+    if (!myTurn) {
+        message = "Dummy's turn. Your AP returns next turn.";
+    } else if (outOfActions || (!canAttack && !canMove && !canCastJutsu)) {
+        message = "Tap Wait to end your turn and recover AP.";
+    } else if (!attacked && !enemyInMelee && canMove) {
+        message = "Move → tap a lit tile toward the dummy.";
+    } else if (!attacked && canAttack) {
+        message = "Tap Attack to strike the nearby dummy.";
+    } else if (canCastJutsu && (!casted || !canAttack)) {
+        message = "Choose a jutsu, then its lit target.";
+    } else if (!enemyInMelee && canMove) {
+        message = "Move → tap a lit tile toward the dummy.";
+    } else if (canAttack && enemyMaxHp > 0 && enemyHp <= enemyMaxHp * 0.25) {
+        message = canCastJutsu ? "Finish the dummy with Attack or a jutsu." : "Finish the dummy with Attack.";
     } else {
-        msg = "Keep attacking - drop the dummy's HP to zero to win.";
+        message = canAttack ? "Tap Attack. Wait ends your turn." : "Tap Wait to end your turn and recover AP.";
     }
-
-    return createPortal(
-        <div
-            className="spar-coach-banner"
-            style={{
-                position: "fixed",
-                left: "50%",
-                top: "calc(8px + env(safe-area-inset-top, 0px))",
-                transform: "translateX(-50%)",
-                maxWidth: 460,
-                width: "calc(100% - 24px)",
-                background: "linear-gradient(180deg, rgba(12,18,34,0.96), rgba(6,10,22,0.98))",
-                border: "1px solid var(--bsv2-gold-bright, #e8d496)",
-                borderRadius: 12,
-                color: "#f8fafc",
-                padding: "10px 14px",
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                zIndex,
-                boxShadow: "0 6px 24px rgba(0,0,0,0.55)",
-                fontSize: 14,
-            }}
-        >
-            <span style={{ flex: 1, lineHeight: 1.4 }}><strong>Academy Spar:</strong> {msg}</span>
-            <button
-                onClick={() => setHidden(true)}
-                aria-label="Dismiss tutorial hint"
-                style={{ background: "none", border: "none", color: "#9ca3af", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "0 4px" }}
-            >
-                ×
-            </button>
-        </div>,
-        document.body,
-    );
+    return <span className="spar-coach-hint">{message}</span>;
 }

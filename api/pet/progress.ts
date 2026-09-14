@@ -1,4 +1,5 @@
 import { safeLogValue } from '../_safe-log.js';
+import { recordFirstContractActivity } from '../../shared/first-contract.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -227,6 +228,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 breedingEvent = { kind: 'pet-interaction', petElement: String(pet.element ?? '') };
             }
             if (breedingEvent) finalizedCharacter = recordPetBreedingProgress(finalizedCharacter, breedingEvent, now).character;
+            if (action === 'pet' || action === 'feed') finalizedCharacter = recordFirstContractActivity(finalizedCharacter, 'companion', { kind: 'companion-care' }, now);
             return { ok: true as const, character: finalizedCharacter, value: { action, pet: nextPet, settledTraining } };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });

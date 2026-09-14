@@ -7,6 +7,15 @@ const sanitize = (incoming: Char, existing: Char | null) => sanitizeCharacterSav
     { character: incoming }, existing ? { character: existing } : null,
 ).character as Record<string, unknown>;
 
+test('first-contract progress cannot be forged or erased through ordinary saves', () => {
+    const serverState = { version: 1, offeredAt: 1000, source: 'academy', route: 'combat' };
+    const forged = { ...serverState, completedAt: 2000, acknowledgedAt: 3000 };
+    assert.equal(sanitize({ firstContract: forged }, {}).firstContract, undefined);
+    assert.equal(sanitize({ firstContract: forged }, null).firstContract, undefined);
+    assert.deepEqual(sanitize({ firstContract: forged }, { firstContract: serverState }).firstContract, serverState);
+    assert.deepEqual(sanitize({}, { firstContract: serverState }).firstContract, serverState);
+});
+
 test("Academy narrative fields preserve authored values and remain non-economic", () => {
     const out = sanitize({
         academyVow: "seeker",
