@@ -618,3 +618,78 @@ test("a flick released mid-motion leaves the next tap working", async ({ page },
         await session.detach();
     }
 });
+
+test("integration: a mouse on the zoomed map lifts a landmark without losing its counter-scale", async ({ page }, testInfo) => {
+    // Zoom mode follows the window width alone, so a desktop window of 979px or
+    // less has counter-scaled pins AND a mouse. atlas-skin.css's landmark :hover
+    // and :active each replaced that counter-scale with a bare scale, which drew
+    // the hovered landmark at about 3x its size.
+    test.skip(!testInfo.project.name.endsWith("-desktop"), "mouse hover on the zoomed map, in each desktop engine");
+    await page.setViewportSize({ width: 800, height: 900 });
+    const errors = await bootWorldMap(page);
+    await expect(page.locator("html")).toHaveClass(/\bwm-zoom\b/);
+    expect(await page.evaluate(() => matchMedia("(hover: hover)").matches), "a desktop project must report a hovering pointer").toBe(true);
+    const exposedLandmark = () => page.evaluate(() => {
+        for (const pin of document.querySelectorAll<HTMLElement>(".generated-world-map button.atlas-landmark")) {
+            const box = pin.getBoundingClientRect();
+            const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+            if (hit === pin || (hit && pin.contains(hit))) return pin.getAttribute("aria-label")!;
+        }
+        return null;
+    });
+    await settleCamera(page);
+    let label = await exposedLandmark();
+    for (const region of regions) {
+        if (label) break;
+        await page.locator(`.wm-village-chip[data-region="${region}"]`).click();
+        await settleCamera(page);
+        label = await exposedLandmark();
+    }
+    expect(label, "some region must show a landmark with its own hit target").not.toBeNull();
+    const landmark = page.locator(`.generated-world-map button.atlas-landmark[aria-label="${label}"]`);
+    // The camera can still re-fit after boot, which moves and rescales every
+    // pin. So each sample measures the pin against itself: its on-screen width
+    // over the width the current camera zoom and counter-scale give it at rest,
+    // which is 1 at rest. It is read in the same snapshot as :hover and :active,
+    // because WebKit drops :hover after a style moves a pin off the pointer.
+    const sample = () => landmark.evaluate(async (pin) => {
+        await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+        pin.getAnimations().forEach((animation) => animation.finish());
+        const map = pin.closest<HTMLElement>(".generated-world-map")!;
+        const cameraZoom = map.getBoundingClientRect().width / Number.parseFloat(getComputedStyle(map).width);
+        const style = getComputedStyle(pin);
+        const restWidth = Number.parseFloat(style.width) * Number.parseFloat(style.getPropertyValue("--wm-marker-scale")) * cameraZoom;
+        return {
+            hovered: pin.matches(":hover"),
+            pressed: pin.matches(":active"),
+            scale: pin.getBoundingClientRect().width / restWidth,
+            filter: style.filter,
+        };
+    });
+    // Aims at the pin where it is now, not where it was found.
+    const pinCentre = async () => {
+        const box = (await landmark.boundingBox())!;
+        return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    };
+    await page.mouse.move(0, 0);
+    const rest = await sample();
+    expect(rest.hovered, `${label} must start outside :hover`).toBe(false);
+    expect(rest.scale, `${label} at rest is exactly counter-scaled`).toBeCloseTo(1, 2);
+    let hovered = rest;
+    await expect.poll(async () => {
+        const centre = await pinCentre();
+        await page.mouse.move(centre.x, centre.y);
+        return (hovered = await sample()).hovered;
+    }, { message: `${label} must be under :hover when it is measured` }).toBe(true);
+    expect(hovered.filter, `${label} still glows under a mouse`).not.toBe(rest.filter);
+    expect(hovered.scale, `${label} hover lift, as a share of its on-screen size at rest`).toBeCloseTo(1.12, 2);
+    await page.mouse.down();
+    let pressed = hovered;
+    await expect.poll(async () => (pressed = await sample()).pressed, { message: `${label} must be under :active when it is measured` }).toBe(true);
+    expect(pressed.scale, `${label} press, as a share of its on-screen size at rest`).toBeCloseTo(1.04, 2);
+    // Drag off before letting go: a pan swallows the click, so the press never enters the village.
+    const pressedAt = await pinCentre();
+    await page.mouse.move(pressedAt.x + 60, pressedAt.y + 60, { steps: 6 });
+    await page.mouse.up();
+    expect(errors).toEqual([]);
+});
