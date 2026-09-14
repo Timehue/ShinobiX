@@ -2297,6 +2297,17 @@
       {
         "direction": "max",
         "axis": "width",
+        "valuePx": 370,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/components/first-contract.css",
+            "line": 280
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
         "valuePx": 380,
         "occurrences": [
           {
@@ -2433,7 +2444,11 @@
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 264
+            "line": 277
+          },
+          {
+            "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
+            "line": 367
           },
           {
             "source": "shinobij.client/src/styles/world-map-mobile.css",
@@ -2615,7 +2630,7 @@
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 354
+            "line": 401
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-stages.css",
@@ -3191,6 +3206,10 @@
             "line": 1
           },
           {
+            "source": "shinobij.client/src/components/first-contract.css",
+            "line": 253
+          },
+          {
             "source": "shinobij.client/src/screens/FirstPact.css",
             "line": 250
           },
@@ -3425,10 +3444,6 @@
             "line": 470
           },
           {
-            "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 346
-          },
-          {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
             "line": 334
           },
@@ -3623,7 +3638,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/02-world-map.css",
-            "line": 730
+            "line": 755
           },
           {
             "source": "shinobij.client/src/styles/index/10-layout-lock-herald.css",
@@ -3775,7 +3790,15 @@
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 200
+            "line": 199
+          },
+          {
+            "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
+            "line": 213
+          },
+          {
+            "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
+            "line": 367
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-stages.css",
@@ -3873,7 +3896,7 @@
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 193
+            "line": 206
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
@@ -4218,7 +4241,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 193
+            "line": 206
           }
         ]
       },

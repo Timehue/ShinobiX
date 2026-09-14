@@ -261,3 +261,11 @@
         grid-template-columns: 1fr;
     }
 }
+/* Keep a completed session's receipt readable without another modal. */
+.training-screen .training-feedback {
+    padding: 12px 16px;
+    border-left: 3px solid var(--success, #4ade80);
+    background: rgba(74, 222, 128, 0.08);
+    color: var(--slate-200, #e2e8f0);
+    line-height: 1.5;
+}

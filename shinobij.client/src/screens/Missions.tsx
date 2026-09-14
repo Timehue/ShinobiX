@@ -1,4 +1,5 @@
 import { gainXp } from "../lib/character-level-projection";
+import { gameToast } from "../components/GameToast";
 import { useCallback, useEffect, useRef, useState } from "react";
 import "../styles/hub-screens-skin.css";
 import type React from "react";
@@ -41,6 +42,8 @@ import { postFieldTrail, type FieldTrailResult } from "../lib/field-trail-api";
 import missionHallArt from "../assets/facilities/mission-hall.webp";
 import { sectorArtKey, sectorName, sectorRegionLabel } from "../../../shared/sector-geo";
 import { handleHorizontalTabKeyDown } from "../lib/tab-keyboard";
+import { useFirstContractMissionTab } from "../lib/use-first-contract-mission-tab";
+import { ScreenHint } from "../components/ScreenHint";
 
 export function Missions({
     character,
@@ -90,9 +93,7 @@ export function Missions({
     const [fieldTrailPending, setFieldTrailPending] = useState<string | null>(null);
     // Keep every hook above the authoritative-fight early return so hook order is
     // stable while entering and leaving the inline server-resolved battle.
-    const [activeMissionTab, setActiveMissionTab] = useState<"profession" | "combat" | "field" | "weekly" | "wandering">(
-        character.profession ? "profession" : "combat"
-    );
+    const [activeMissionTab, setActiveMissionTab] = useFirstContractMissionTab(character);
 
     // One claim at a time, across every claim button on this screen.
     //
@@ -274,7 +275,7 @@ export function Missions({
         if (result === null) return alert("Could not reach the server. Try again.");
         if (result.applied === false) return alert(claimReasonMessage(result.reason));
         if (!applySuccessfulMissionClaim(result)) return;
-        alert(`Academy Trial complete! ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character)}. Now open your Logbook to see your goals.`);
+        gameToast(`Academy Trial complete! ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character)}. Now open your Logbook to see your goals.`, { kind: "success" });
     }
     const showAcademyTrial = normalizeOnboardingStep(character.onboardingStep) === "firstMission" && !character.academyTrialClaimed;
     function startCreatorMissionBattle(_mission: CreatorMission) {
@@ -416,6 +417,7 @@ export function Missions({
                     <h2>Mission Hall</h2>
                     <p className="mh-sub">Choose the work, read the route, then return to settle the posted reward.</p>
                     <span className="mh-reward-signal">Town Hall reward bonus <strong>+{missionRewardBonus.toFixed(1)}%</strong></span>
+                    {character.name !== "Admin 1" && character.name !== "Admin 2" && <ScreenHint screen="missions" character={character} updateCharacter={updateCharacter} placement="inline" />}
                 </div>
                 <div className="mh-stats">
                     <div className="mh-stat-chip">

@@ -10,8 +10,8 @@ import { makePveEngineTestSession } from './_pve-engine-test-fixture.js';
 /*
  * Step 3b wiring: the standard-PvE hit guard, end to end.
  *
- * The unit-level parity of the curve itself lives in
- * scripts/pve-difficulty-parity.test.ts. What THIS file pins is the wiring —
+ * The unit tests of the curve itself live in api/_pve-difficulty.test.ts.
+ * What THIS file pins is the wiring —
  * that the clamp actually reaches the damage the engine applies, that it lands
  * PRE-shield (so shield remains a separate mitigation on top of an already
  * capped hit, exactly as on the client), that it is metered per enemy turn, and
