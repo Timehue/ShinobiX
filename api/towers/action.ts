@@ -108,7 +108,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 && a.ownerSlug === callerSlug);
             if (!isMember) return { status: 403, body: { error: 'Not a member of this run.' } };
 
-            if (session.runId.startsWith('cboss-')) {
+            // Only a live assault holds its members (see /towers/state).
+            if (session.runId.startsWith('cboss-') && session.status === 'active') {
                 await refreshClanBossBattleMarkers(runId, towerBattleLeaseMembers(session));
             }
 
