@@ -1,0 +1,44 @@
+You
+Travel
+Village
+Items
+Menu
+DE
+defeatmmu0o2ztl
+Lv 3
+0
+47
+57
+10k
+0
+
+MOONSHADOW VILLAGE · EMERGENCY WARD
+
+Village Hospital
+
+Your injuries prevent travel and combat until discharge. Treatment restores full HP and returns you to the village.
+
+PATIENT STATUS
+Admitted
+VITAL CONDITION
+0 / 700 HP
+VILLAGE DISCOUNT
+0.00%
+
+RECOVERY IN PROGRESS
+
+You are currently admitted
+
+Your wounds are treated at discharge; chakra and stamina return with rest, or instantly at the Cafeteria. Pay for an immediate release or wait for the free checkout.
+
+HP recovery
+0 / 700
+IMMEDIATE RELEASE
+2,500 ryo
+Full HP · return to village now
+Pay & discharge
+COMPLIMENTARY RELEASE
+57s remaining
+No charge · full HP · return to village
+?
+Tip

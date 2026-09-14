@@ -1,0 +1,202 @@
+[
+  {
+    "moment": "before",
+    "save": {
+      "_saveVersion": 2,
+      "currentSector": 33,
+      "character": {
+        "name": "defeatdesktopmu0m2drl",
+        "level": 3,
+        "hp": 40,
+        "maxHp": 100,
+        "chakra": 35,
+        "maxChakra": 100,
+        "stamina": 45,
+        "maxStamina": 100,
+        "ryo": 10000,
+        "xp": 0,
+        "inventory": [],
+        "itemStacks": []
+      }
+    }
+  },
+  {
+    "moment": "immediatelyBeforeCombat",
+    "save": {
+      "_saveVersion": 5,
+      "currentSector": 33,
+      "character": {
+        "name": "defeatdesktopmu0m2drl",
+        "level": 3,
+        "hp": 54,
+        "maxHp": 700,
+        "chakra": 49,
+        "maxChakra": 1181,
+        "stamina": 59,
+        "maxStamina": 1181,
+        "ryo": 10000,
+        "xp": 0,
+        "hospitalized": false,
+        "inventory": [],
+        "itemStacks": []
+      }
+    }
+  },
+  {
+    "moment": "start",
+    "status": 200,
+    "body": {
+      "ok": true,
+      "session": {
+        "version": 1,
+        "continuousVitals": true,
+        "player": {
+          "name": "defeatdesktopmu0m2drl",
+          "hp": 54,
+          "maxHp": 700,
+          "chakra": 49,
+          "maxChakra": 1181,
+          "stamina": 59,
+          "maxStamina": 1181
+        }
+      }
+    }
+  },
+  {
+    "url": "http://127.0.0.1:25423/api/missions/report-ai-fight",
+    "status": 200,
+    "body": {
+      "_saveVersion": 8,
+      "character": {
+        "name": "defeatdesktopmu0m2drl",
+        "level": 3,
+        "hp": 0,
+        "maxHp": 700,
+        "chakra": 51,
+        "maxChakra": 1181,
+        "stamina": 61,
+        "maxStamina": 1181,
+        "ryo": 10000,
+        "xp": 0,
+        "hospitalized": true,
+        "hospitalizedAt": 1789352160673,
+        "hospitalizedUntil": 1789352220673,
+        "inventory": [],
+        "itemStacks": []
+      },
+      "ok": true
+    }
+  },
+  {
+    "moment": "settled",
+    "save": {
+      "_saveVersion": 10,
+      "currentSector": 0,
+      "character": {
+        "name": "defeatdesktopmu0m2drl",
+        "level": 3,
+        "hp": 0,
+        "maxHp": 700,
+        "chakra": 51,
+        "maxChakra": 1181,
+        "stamina": 61,
+        "maxStamina": 1181,
+        "ryo": 10000,
+        "xp": 0,
+        "hospitalized": true,
+        "hospitalizedAt": 1789352160673,
+        "hospitalizedUntil": 1789352220673,
+        "inventory": [],
+        "itemStacks": []
+      }
+    }
+  },
+  {
+    "dialog": ""
+  },
+  {
+    "moment": "invalid",
+    "status": 409,
+    "body": {
+      "error": "You are in the hospital. Recover before starting a fight.",
+      "reason": "hospitalized"
+    }
+  },
+  {
+    "url": "http://127.0.0.1:25423/api/player/heal",
+    "status": 200,
+    "body": {
+      "_saveVersion": 13,
+      "character": {
+        "name": "defeatdesktopmu0m2drl",
+        "level": 3,
+        "hp": 700,
+        "maxHp": 700,
+        "chakra": 51,
+        "maxChakra": 1181,
+        "stamina": 61,
+        "maxStamina": 1181,
+        "ryo": 10000,
+        "xp": 0,
+        "hospitalized": false,
+        "hospitalizedAt": 0,
+        "hospitalizedUntil": 0,
+        "lastDischargeAt": 1789352221381,
+        "inventory": [],
+        "itemStacks": []
+      },
+      "ok": true,
+      "chargedRyo": 0
+    }
+  },
+  {
+    "moment": "recovered",
+    "save": {
+      "_saveVersion": 13,
+      "currentSector": 0,
+      "character": {
+        "name": "defeatdesktopmu0m2drl",
+        "level": 3,
+        "hp": 700,
+        "maxHp": 700,
+        "chakra": 51,
+        "maxChakra": 1181,
+        "stamina": 61,
+        "maxStamina": 1181,
+        "ryo": 10000,
+        "xp": 0,
+        "hospitalized": false,
+        "hospitalizedAt": 0,
+        "hospitalizedUntil": 0,
+        "lastDischargeAt": 1789352221381,
+        "inventory": [],
+        "itemStacks": []
+      }
+    }
+  },
+  {
+    "moment": "recoveredReload",
+    "save": {
+      "_saveVersion": 14,
+      "currentSector": 0,
+      "character": {
+        "name": "defeatdesktopmu0m2drl",
+        "level": 3,
+        "hp": 700,
+        "maxHp": 700,
+        "chakra": 52,
+        "maxChakra": 1181,
+        "stamina": 62,
+        "maxStamina": 1181,
+        "ryo": 10000,
+        "xp": 0,
+        "hospitalized": false,
+        "hospitalizedAt": 0,
+        "hospitalizedUntil": 0,
+        "lastDischargeAt": 1789352221381,
+        "inventory": [],
+        "itemStacks": []
+      }
+    }
+  }
+]
