@@ -92,13 +92,13 @@ export const storyRoadEvents: StoryRoadEvent[] = [
             "Odd, though. I can tell you every button on the first patrol. The second lot's faces come up smooth. Like river stones.",
             "Kiln three wants feeding. Mind the sparks going down."),
         pg("Lead in the Ash", "The border stones, dusk coming", "Pell Marrow",
-            "Found this raking the ash while you were up the ridge. Lead tally-token. The Red Tally chit their bridge crews with these.",
+            "Found this raking the ash while you were up the ridge. Lead tally-token. The Red Tally pay their bridge crews with these.",
             "They hold the toll bridge at Corrom. Burn a strip here, both villages posture, and every caravan reroutes over their planks. Paying.",
             "Both patrol captains reach the stones at dusk. Frostfang's side is already drafting a protest with blood in the margins.",
             "Whatever you do with this token, do it knowing they'll both watch how it's done. Border people keep long books.",
             "Your call. I just carry things."),
     ], [
-        ch("Show both captains the token, then hunt the Tally burners", "good", "rd22-showed-the-token", "The captains countersign a joint report before the protest is finished being angry; Frostfang's patrol stands down at the stones. Pell points you up the Corrom bridge road, where the Red Tally are still counting reroute tolls.", { bossName: "Tally-Captain Brask", bossIcon: "🔥" }),
+        ch("Show both captains the token, then hunt the Tally burners", "good", "rd22-showed-the-token", "The captains countersign a joint report before the protest is finished being angry. Frostfang's patrol stands down at the stones. Pell points you up the Corrom bridge road, where the Red Tally are still counting reroute tolls.", { bossName: "Tally-Captain Brask", bossIcon: "🔥" }),
         ch("Seal the token and carry it to Elder Mori unannounced", "neutral", "rd22-sealed-for-mori", "Mori reads it twice, files it under something unrelated, and thanks you for the weather report. By morning both patrols are recalled without a reason given, and no protest is ever posted.", undefined),
         ch("Press the token into a Saltbrand freight crate at the crossing", "bad", "rd22-salted-the-crate", "Within the week both villages are paying for armed escorts against Saltbrand wagons, and an unsigned retainer finds your camp. Umi tells the story with Saltbrand in it now, and believes every word.", undefined),
     ]),
@@ -153,8 +153,8 @@ export const storyRoadEvents: StoryRoadEvent[] = [
             "And if you can't, I'd put my fee on %pet. I've watched the two of you walk all day. Not one wrong step between you.",
             "So. Your road. What do we do with it?"),
     ], [
-        ch("Track the fear backward to the man himself", "good", "rd31-calmed-the-runner", "You find Havel folded into a culvert two sectors from any print and sit with him until his breathing slows; across three sectors, frozen mud goes soft. Oren burns his rubbings without being asked.", undefined),
-        ch("Seal the freshest print into a warding charm", "neutral", "rd31-bound-the-charm", "Oren holds the wax while you press the print in; the charm twitches now whenever someone nearby is running scared. He asks, carefully, what you'd charge for a second one.", undefined),
+        ch("Track the fear backward to the man himself", "good", "rd31-calmed-the-runner", "You find Havel folded into a culvert two sectors from any print and sit with him until his breathing slows. Across three sectors, frozen mud goes soft. Oren burns his rubbings without being asked.", undefined),
+        ch("Seal the freshest print into a warding charm", "neutral", "rd31-bound-the-charm", "Oren holds the wax while you press the print in. The charm twitches now whenever someone nearby is running scared. He asks, carefully, what you'd charge for a second one.", undefined),
         ch("Study how the terror lands, and practice aiming it", "bad", "rd31-learned-the-throw", "You learn the throw: fear lands where the runner's head goes, and a head can be steered. By dark, size-nine prints walk straight through the hunters' camp, and Oren leaves without collecting his fee.", undefined),
     ]),
     roadEvent(34, "withheld-cache", "What the Withheld Kept", "Serel", "emissary", [
@@ -190,9 +190,9 @@ export const storyRoadEvents: StoryRoadEvent[] = [
     ]),
     roadEvent(38, "shrine-of-two-flags", "The Shrine That Both Sides Own", "Sefa", "pilgrim", [
         pg("The Count at the Door", "Mud road below the shrine pass", "Sefa",
-            "Sefa, shrine road. Whatever flag you carry, keep it covered while I talk; both lines are watching for an excuse.",
+            "Sefa, shrine road. Whatever flag you carry, keep it covered while I talk. Both lines are watching for an excuse.",
             "Storm banners on the west steps of the shrine. Ash banners east. Horns twice since dawn.",
-            "Nine villagers are still inside. I count sandals at the door. Eleven went up; nine pairs are still sitting there.",
+            "Nine villagers are still inside. I count sandals at the door. Eleven went up. Nine pairs are still sitting there.",
             "Old Maru's knees quit on the climb. He is not coming down without help, and I am done being polite about it."),
         pg("The Shrine Between Banners", "The narrows, under raid horns", "Narrator",
             "The shrine controls the narrowest point of the pass. Every patrol, courier, and traveler moves beneath its steps.",
@@ -215,7 +215,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
             "Dray wants the hill, Rell wants the wall, and the bowl just wants filling. Same as every dusk.",
             "Horns again. So. Are you here for the nine people, or for one of the banners?"),
     ], [
-        ch("Lead the civilians out and call both commanders down", "good", "rd38-walked-them-out", "You come down with Old Maru on your back and eight behind you, and the arrows hold, because loosing one now means shooting you. Rell grounds her banners; Dray steps into the pass and rolls her shoulders.", { bossName: "Raid Captain Hela Dray", bossIcon: "⛈️" }),
+        ch("Lead the civilians out and call both commanders down", "good", "rd38-walked-them-out", "You come down with Old Maru on your back and eight behind you, and the arrows hold, because loosing one now means shooting you. Rell grounds her banners. Dray steps into the pass and rolls her shoulders.", { bossName: "Raid Captain Hela Dray", bossIcon: "⛈️" }),
         ch("Broker terms: split hours, banners down, bowl sealed", "neutral", "rd38-split-the-hours", "Rell copies the terms into her register before Dray finishes carving her mark into the step: dawn hours west, dusk hours east, the bowl sealed in its niche behind both villages' wax. Sefa relights the lamps that night.", undefined),
         ch("Slip inside and pocket the bowl while they argue", "bad", "rd38-lifted-the-bowl", "By nightfall each village swears the other lifted it, and the pass grows two new checkpoints. Sefa counts what leaves shrines the way she counts sandals, and she watched your hands.", undefined),
     ]),
@@ -285,9 +285,9 @@ export const storyRoadEvents: StoryRoadEvent[] = [
             "You could also report me to Bellis and take the two hundred.",
             "Whatever is in the crate, I think the real cost was taken from someone who doesn't know about it."),
     ], [
-        ch("Break the seal with her; split the penalty", "good", "rd48-split-the-penalty", "Inside are clay tallies stamped with living names and RECEIVED IN FULL. Beneath them lies an older slab. Each family line appears twice: first as COMPLIANT, UNSTABLE, or LINEAGE UNCONFIRMED, then beside a single trait the Court meant to extract. Strongest. Cruelest. Most loyal. Harrow reads the list twice. 'This isn't a Legacy registry. It's an intake list. Somebody was pricing what could be taken from a person.' She copies the names, then nails the manifest to the waystation board.", undefined),
+        ch("Break the seal with her and split the penalty", "good", "rd48-split-the-penalty", "Inside are clay tallies stamped with living names and RECEIVED IN FULL. Beneath them lies an older slab. Each family line appears twice: first as COMPLIANT, UNSTABLE, or LINEAGE UNCONFIRMED, then beside a single trait the Court meant to extract. Strongest. Cruelest. Most loyal. Harrow reads the list twice. 'This isn't a Legacy registry. It's an intake list. Somebody was pricing what could be taken from a person.' She copies the names, then nails the manifest to the waystation board.", undefined),
         ch("Trade your silence for a favor in her ledger", "neutral", "rd48-favor-on-the-books", "She writes one line: favor owed, no expiry, your name spelled right, and shows you before closing the book. The crate rolls on, and the mules still won't walk ahead of it.", undefined),
-        ch("Report her to Bellis; collect the two hundred", "bad", "rd48-collected-the-fee", "Bellis counts out two hundred and voids her contract on the spot, penalty and all. Harrow watches you pocket it, then opens her ledger and writes something short.", undefined),
+        ch("Report her to Bellis and collect the two hundred", "bad", "rd48-collected-the-fee", "Bellis counts out two hundred and voids her contract on the spot, penalty and all. Harrow watches you pocket it, then opens her ledger and writes something short.", undefined),
     ]),
     roadEvent(52, "black-bridge", "Hostages at Black Bridge", "Registrar Corin Vell", "official", [
         pg("A Name Both Sides Gave", "Toll road above the Grey Fork", "Registrar Corin Vell",
@@ -314,8 +314,8 @@ export const storyRoadEvents: StoryRoadEvent[] = [
             "On the roofline, one figure, already reloading. Along both banks, low shapes moving toward the bridge mouth.",
             "Vell is still writing. His hand hasn't stopped once."),
     ], [
-        ch("Put yourself between the bolts and the chained.", "good", "rd52-shielded-the-line", "The shooter slides off the far roofline and is gone; six prisoners and one ledger-keeper crouch behind you, breathing. Vell writes your name on the exchange record's first line, above both villages.", { bossName: "Black Bridge Raiders", bossIcon: "🪓" }),
-        ch("Hold both lines to the count; track the shooter after.", "neutral", "rd52-held-the-count", "The exchange finishes ugly but whole, and by evening you've found the perch: flattened moss, a tea flask stamped with a mill mark. Vell files the exchange as clean and your finding in the margin, initialed.", undefined),
+        ch("Put yourself between the bolts and the chained.", "good", "rd52-shielded-the-line", "The shooter slides off the far roofline and is gone. Six prisoners and one ledger-keeper crouch behind you, breathing. Vell writes your name on the exchange record's first line, above both villages.", { bossName: "Black Bridge Raiders", bossIcon: "🪓" }),
+        ch("Hold both lines to the count, then track the shooter.", "neutral", "rd52-held-the-count", "The exchange finishes ugly but whole, and by evening you've found the perch: flattened moss, a tea flask stamped with a mill mark. Vell files the exchange as clean and your finding in the margin, initialed.", undefined),
         ch("Run the shooter down and price what they know.", "bad", "rd52-sold-the-hirer", "The shooter gives up the hirer's name inside an hour, and by dusk you've sold it to the delegation that paid better. Adaza opens a ledger line under your name, and that is not a courtesy.", undefined),
     ]),
     roadEvent(56, "rival-who-keeps-losing", "The Rival Who Keeps Losing", "Anji Vesk", "rival", [
@@ -343,7 +343,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
     ], [
         ch("Take the chalk. Train her like you mean it.", "good", "rd56-trained-the-rescue", "She stops asking about points and asks about Corin instead. Reach, weight, which shoulder he favors. Then she chalks a fresh ring: the lesson starts now, full speed.", { bossName: "Anji Vesk", bossIcon: "⚔️" }),
         ch("Set a price: watch rotations for every lesson.", "neutral", "rd56-rotations-for-lessons", "She pays without haggling: rotations, the relief pattern, which gate man drinks on duty. She logs each lesson against each fact in a two-column tablet, balanced, nothing owed.", undefined),
-        ch("Break her, and make Corin your leverage.", "bad", "rd56-leash-on-corin", "You say Corin's name and let it sit. The keeper pulls his shutters closed; she picks up the chalk anyway.", { bossName: "Anji Vesk", bossIcon: "🗡️" }),
+        ch("Break her, and make Corin your leverage.", "bad", "rd56-leash-on-corin", "You say Corin's name and let it sit. The keeper pulls his shutters closed. She picks up the chalk anyway.", { bossName: "Anji Vesk", bossIcon: "🗡️" }),
     ]),
     roadEvent(62, "alliance-drill", "The Alliance Drill", "Proctor Hasse", "official", [
         pg("The Neutral Nobody Meant", "Switchback road above the drill flats", "Proctor Hasse",
@@ -367,11 +367,11 @@ export const storyRoadEvents: StoryRoadEvent[] = [
             "Here is the recarved seal. The scoring hand knew both villages' work and used neither.",
             "I pulled the border smoke file on a hunch. The cold-burn line was struck from my copy. Not redacted. Struck. Somebody tidy got there before me.",
             "Forty-one on the flats. Two commands loading blame. One of me, and the record only counts what I survive to file.",
-            "So. What are you out here?"),
+            "So. What are you, out here?"),
     ], [
-        ch("Pull the trainees off the flats; show both commands the seal.", "good", "rd62-showed-both-commands", "Both marshals go quiet over one recarved seal, and the forty-first bolts for the tree line. Hasse notes the time; the cell turns to meet you.", { bossName: "The Forty-First", bossIcon: "🥷" }),
-        ch("Finish the drill clean; brief the marshals alone after.", "neutral", "rd62-briefed-the-marshals", "The drill ends on the scoreboard and the alliance holds in public. By lamplight both marshals read the seal and ask, separately, whether you have ever held a sector command.", undefined),
-        ch("Let the blame land on Frostfang; collect the drill honors.", "bad", "rd62-collected-the-honors", "Stormveil carries you off the flats while Brekka's stripes come off by nightfall. Hasse records the result exactly as witnessed, and underlines your name once.", undefined),
+        ch("Pull the trainees off the flats and show both commands the seal.", "good", "rd62-showed-both-commands", "Both marshals go quiet over one recarved seal, and the forty-first bolts for the tree line. Hasse notes the time. The cell turns to meet you.", { bossName: "The Forty-First", bossIcon: "🥷" }),
+        ch("Finish the drill clean, then brief the marshals alone.", "neutral", "rd62-briefed-the-marshals", "The drill ends on the scoreboard and the alliance holds in public. By lamplight both marshals read the seal and ask, separately, whether you have ever held a sector command.", undefined),
+        ch("Let the blame land on Frostfang and collect the drill honors.", "bad", "rd62-collected-the-honors", "Stormveil carries you off the flats while Brekka's stripes come off by nightfall. Hasse records the result exactly as witnessed, and underlines your name once.", undefined),
     ]),
     roadEvent(66, "fifth-anchor", "The Fifth Anchor", "Corvo Latch", "broker", [
         pg("A Buyer, for Once", "Toll road east of Central, dusk", "Corvo Latch",
@@ -465,16 +465,16 @@ export const storyRoadEvents: StoryRoadEvent[] = [
             "Renewal form. Same clauses, plus two: paid tips, and seizure extends to 'known associates.'",
             "Week one we pulled blasting oil off a cart. Week four we took a midwife's forceps. Same clause. Same stamp.",
             "The office calls it the quietest month on record. Quiet is being paid for. I can't find the account it comes out of.",
-            "You want to know what the seat is, from down here? Whoever's name is on the last line. They used yours for a month; you never gave it.",
+            "You want to know what the seat is, from down here? Whoever's name is on the last line. They used yours for a month. You never gave it.",
             "Anyway. Form's on the table."),
     ], [
-        ch("Read the seizure clauses aloud in the square, then tear them.", "good", "rd82-tore-the-clauses", "Denn watches you read and does not stop you; the crowd keeps the torn halves like receipts. By dusk three sealed doors are open, and the Kage's office files your name under a different heading.", undefined),
-        ch("Enforce the curfew only; copy every seizure into three ledgers.", "neutral", "rd82-three-ledgers", "One ledger to the office, one to the archive, one that never leaves your person. Denn adds his signature to all three without being asked.", undefined),
-        ch("Sign the renewal and add names of your own.", "bad", "rd82-added-names", "The new names go up at the well by morning, yours at the bottom as author. Denn stamps the form and requests reassignment the same day; the tips triple overnight, still unsigned.", undefined),
+        ch("Read the seizure clauses aloud in the square, then tear them.", "good", "rd82-tore-the-clauses", "Denn watches you read and does not stop you. The crowd keeps the torn halves like receipts. By dusk three sealed doors are open, and the Kage's office files your name under a different heading.", undefined),
+        ch("Enforce the curfew only, and copy every seizure into three ledgers.", "neutral", "rd82-three-ledgers", "One ledger to the office, one to the archive, one that never leaves your person. Denn adds his signature to all three without being asked.", undefined),
+        ch("Sign the renewal and add names of your own.", "bad", "rd82-added-names", "The new names go up at the well by morning, yours at the bottom as author. Denn stamps the form and requests reassignment the same day. The tips triple overnight, still unsigned.", undefined),
     ]),
     roadEvent(94, "last-road", "The Last Road Before the Seat", "Suma", "pilgrim", [
         pg("Forty Behind Her", "The Central road, first light", "Suma",
-            "Hold on. Suma, from the southbound camp. We have not met; your road notices reached us before you did.",
+            "Hold on. Suma, from the southbound camp. We have not met. Your road notices reached us before you did.",
             "There are forty of us walking behind me, give or take. We chose to come because the next commitment deserves witnesses.",
             "If %pet needs water, my youngest packed an extra skin. That is hospitality, not a debt.",
             "Some came to cheer you. Some came because cheering makes them nervous. I told them both reasons could walk at the same pace.",
@@ -490,7 +490,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
             "Undersecretary Corvel, joint provisioning office. I'll be brief. You're clearly making time.",
             "The councils drafted terms. Recognition of the seat, supply lines, the gate guard stands down. Standard language.",
             "Sign, and this stops being an uprising and starts being an administration.",
-            "Article nine, assets and instruments of the seat convey as-is. Boilerplate. Don't read it on the road.",
+            "Article nine, assets and instruments of the seat convey as-is. Standard clause. Don't read it on the road.",
             "The woman on the stone back there. People like her prefer paper. So do we.",
             "Keep the pen either way. We order them by the crate."),
         pg("The Last Mile", "The last mile before Central", "Narrator",
@@ -499,9 +499,9 @@ export const storyRoadEvents: StoryRoadEvent[] = [
             "Corvel's contract lies open on the table, weighted with the pen.",
             "Verah walked as far as the last milestone. No further, she said. She is still there."),
     ], [
-        ch("Ask Suma's forty to walk in front, where everyone can see", "good", "rd94-walked-with-witnesses", "Suma passes the word back and the singing stops; the counting starts instead, and it includes you. Corvel's clerk writes 'declined' in the margin and underlines it twice.", undefined),
+        ch("Ask Suma's forty to walk in front, where everyone can see", "good", "rd94-walked-with-witnesses", "Suma passes the word back and the singing stops. The counting starts instead, and it includes you. Corvel's clerk writes 'declined' in the margin and underlines it twice.", undefined),
         ch("Sign Corvel's contract and keep the copy", "neutral", "rd94-signed-on-record", "Corvel countersigns without looking at your face and dates it twice, once for each archive. From the milestone, Verah watches you take the copy and does not wave.", undefined),
-        ch("Tell the walkers to fall in and keep their eyes down", "bad", "rd94-marched-the-afraid", "The column forms fast and quiet, the way a thing forms when it has been practiced. Verah is gone from her stone before you reach it; Suma stays at the back, still counting.", undefined),
+        ch("Tell the walkers to fall in and keep their eyes down", "bad", "rd94-marched-the-afraid", "The column forms fast and quiet, the way a thing forms when it has been practiced. Verah is gone from her stone before you reach it. Suma stays at the back, still counting.", undefined),
     ]),
     roadEvent(100, "seat-of-scars", "Seat of Scars", "Amra Tull", "official", [
         pg("The List", "A mile marker outside the village gate", "Amra Tull",
