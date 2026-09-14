@@ -1,0 +1,140 @@
+You
+Travel
+Village
+Items
+Menu
+←
+Journeyu0cm8sn
+Lv 1
+478
+1000
+1000
+2130
+0
+ACTIVE LOADOUT
+Equipped
+2
+/14
+
+Select a slot to filter compatible gear, or inspect an equipped item.
+
+AURA
+HEAD
+THROWN
+ITEM 1
+ITEM 2
+BODY
+Shinobi Vest
+WEAPON
+Rustfang Kunai
+WAIST
+GLOVES
+ITEM 3
+RELIC
+LEGS
+POTION
+FEET
+FIELD STORAGE
+Backpack
+
+0 UNIQUE · 0 TOTAL
+
+ITEMS
+CHRONICLE SHOWDOWN
+ALL
+0
+⚔️
+GEAR
+0
+🧪
+CONSUMABLES
+0
+🐾
+PET
+0
+🔨
+MATERIALS
+0
+🎟️
+EVENT
+0
+
+No items in inventory.
+
+Shinobi Journey stores data on your device for sign-in, preferences, and saving your progress. It uses no advertising or third-party tracking cookies. Learn more.
+
+Got it
+Journeyu0cm8sn
+JO
+HP
+400 / 500
+CHAKRA
+1000 / 1000
+STAMINA
+990 / 1000
+TERRAIN
+Neutral ground
+0/100 | Waiting
+—
+—
+0/100 | Waiting
+JO
+400/500
+0/50
+Actions
+Battle Log
+18
+Can't do that
+The battlefield changed before that command landed. Review it and try again.
+ATTACK
+40 AP
+| 10 SP | R1
+MOVE
+30 AP
+/ tile
+HEAL
+60 AP
+| 10 CP | CD 0
+CLEAR
+60 AP
+| CD 0
+CLEANSE
+60 AP
+| CD 0
+SUMMON PET
+Unlocks at pet Lv 50 · currently Lv 1
+FLEE
+100 AP
+· escape roll
+WAIT
+End turn
+Blood Gaze Rupture
+60 AP · R4 · CD 7
+?
+Crimson Hallucination
+60 AP · R4 · CD 7
+?
+Vein Mirror Nightmare
+60 AP · R4 · CD 7
+?
+Flicker
+20 AP · R5 · CD 2
+?
+Rustfang Kunai
+40 AP | R4
+Academy Training Dummy
+AC
+HP
+0 / 50
+CHAKRA
+1000 / 1000
+STAMINA
+990 / 1000
+
+FIRST WIN
+
+Academy Sparring Match
+
++20 stat points · +30 ryo
+
+Continue

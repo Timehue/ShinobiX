@@ -45,7 +45,8 @@ test("mission fight reserves a row for its action notice instead of displacing t
     );
     assert.ok(wrapper, "the notices must be wrapped in a single .combat-action-notice grid child");
     assert.match(wrapper![1], /className=\{`combat-targeting-hint/, "the targeting hint belongs in the wrapper");
-    assert.match(wrapper![1], /actionNotice \|\| "\\u00a0"/, "the idle row must remain mounted");
+    assert.match(wrapper![1], /actionNotice \? <span>\{actionNotice\}<\/span>/, "action feedback takes precedence over Academy guidance");
+    assert.match(wrapper![1], /: <span>\{"\\u00a0"\}<\/span>/, "the idle row must remain mounted");
 
     // Nothing may render either notice as a direct child of .combat-main-area.
     assert.equal(
