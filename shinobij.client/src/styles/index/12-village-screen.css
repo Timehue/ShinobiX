@@ -2,18 +2,6 @@
    STORMVEIL VILLAGE CSS
 ================================= */
 
-.village-screen {
-    width: 100vw;
-    height: 100vh;
-    height: 100dvh;
-    height: 100dvh;
-    background-size: cover;
-    background-position: center;
-    position: relative;
-    overflow: hidden;
-}
-/* TOP BAR */
-
 /* VILLAGE BUTTONS */
 
 /* BUTTON POSITIONS */
@@ -291,27 +279,3 @@
     transform: translateX(-50%);
 }
 /* BOTTOM MENU */
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-.journey-live-stats {
-    position: absolute;
-    right: 42px;
-    top: 50%;
-    transform: translateY(-50%);
-    display: flex;
-    gap: 10px;
-    z-index: 5;
-}
