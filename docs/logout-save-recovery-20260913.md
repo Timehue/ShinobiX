@@ -1,6 +1,6 @@
 # Logout save recovery
 
-Prepared on `codex/first-contract-logout-recovery-20260913` in an isolated worktree. The integration recheck includes main through `ea8c8fb92`. Its final two commits only adjust API test clocks; the production code is identical to the main integration at `4abb875b2` used by the browser recheck.
+Prepared on `codex/first-contract-logout-recovery-20260913` in an isolated worktree. The release candidate includes main through `f15e5f0fe`, including the latest dynamic-import rejection handling and notice acknowledgement recovery.
 
 An immediate logout can hit the existing save burst limit after First Contract activity. Previously, the client discarded the HTTP 429 retry hint and displayed the generic loss warning. A committed contract record can already be on the server when the final generic save is rejected.
 
@@ -18,6 +18,7 @@ The integration review corrected three additional problems:
 
 - 112 focused recheck tests passed: logout orchestration and session races, persistence, error classification, pending save/unload protection, save queue, conflicts, account/version authority, App size, and the newly integrated main changes.
 - All 8 tests in the final two main test-clock files passed after integration.
+- The release preflight passed 134 focused tests after integrating `f15e5f0fe`, including the new dynamic-import gate and notice recovery tests.
 - The earlier 67 server and First Contract checks passed for rate limits, save versions, versioned writes, Academy ownership, contract state, and mission-claim recovery. Those server paths were not changed by the refinement.
 - Focused ESLint passed for every changed TypeScript file.
 - Server TypeScript build passed.
@@ -29,6 +30,6 @@ The integration review corrected three additional problems:
 
 The new browser fixture exercises the real client with controlled server responses, including a held acknowledgement, cancellation, explicit force-logout, missing timing hints, and contract restoration through login. These checks establish client recovery behavior; server persistence and rate-limit enforcement are covered separately.
 
-The final recheck used Node 22.23.1. The complete game-wide CI suite was not run for this local fix; the results above describe the focused coverage.
+The local rechecks used Node 22.23.1. The results above describe focused coverage recorded before publishing the release candidate.
 
-No push or production deployment was performed for this fix.
+Release verification uses the complete GitHub CI and Production Image workflows against the exact candidate commit before a fast-forward promotion to main. Deployment is verified separately by matching the production `/health` commit to the released revision; a main-branch push alone is not evidence that the live server has updated. Workflow results and the live revision are reported with the release.
