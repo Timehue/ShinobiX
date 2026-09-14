@@ -316,6 +316,29 @@ test('a First Pact cleanup failure aborts reset before any player save deletion'
     assert.deepEqual(swept, []);
 });
 
+test('First Pact rows are cleared a few at a time, all before the sweep', async () => {
+    let inFlight = 0;
+    let peak = 0;
+    const cleared: string[] = [];
+    let sweptAfter = -1;
+    const doomed = Array.from({ length: 40 }, (_, i) => `first-pact:player${i}`);
+    await deleteDoomedKeys(
+        doomed,
+        async (name) => {
+            inFlight++;
+            peak = Math.max(peak, inFlight);
+            await new Promise((resolve) => setImmediate(resolve));
+            inFlight--;
+            cleared.push(name);
+            return `first-pact:${name}`;
+        },
+        async () => { if (sweptAfter < 0) sweptAfter = cleared.length; },
+    );
+    assert.equal(cleared.length, 40);
+    assert.ok(peak <= 16, `peak concurrency ${peak} must stay bounded`);
+    assert.equal(sweptAfter, 40, 'the sweep starts only after every First Pact row is cleared');
+});
+
 test('the sweep deletes in bounded batches', async () => {
     const batches: number[] = [];
     const doomed = Array.from({ length: 450 }, (_, i) => `save:player${i}`);
