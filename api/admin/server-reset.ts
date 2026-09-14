@@ -250,6 +250,9 @@ const SCAN_PATTERNS = ['*', 'save:*', 'shared:*'] as const;
 const DELETED_SAMPLE_CAP = 200;
 
 const FIRST_PACT_PREFIX = 'first-pact:';
+// Each locked First Pact delete is ~4 store requests (acquire, delete, release),
+// so run them a few at a time rather than all at once against the pool.
+const FIRST_PACT_CONCURRENCY = 16;
 
 /** `first-pact:<slug>` progress rows (not `first-pact-standing-receipt:`). */
 export function isFirstPactStateKey(key: string): boolean {
@@ -279,7 +282,9 @@ export async function deleteDoomedKeys(
     const firstPactNames = doomed
         .filter(isFirstPactStateKey)
         .map((key) => key.slice(FIRST_PACT_PREFIX.length));
-    await Promise.all(firstPactNames.map((name) => deleteFirstPact(name)));
+    for (let i = 0; i < firstPactNames.length; i += FIRST_PACT_CONCURRENCY) {
+        await Promise.all(firstPactNames.slice(i, i + FIRST_PACT_CONCURRENCY).map((name) => deleteFirstPact(name)));
+    }
     for (let i = 0; i < doomed.length; i += DELETE_CHUNK) {
         await deleteBatch(doomed.slice(i, i + DELETE_CHUNK));
     }
