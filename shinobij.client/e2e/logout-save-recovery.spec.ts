@@ -17,9 +17,13 @@ function completedContractSave() {
     };
 }
 
+// The viewport decides which Logout a player can reach: adaptive-shell.css shows
+// the right rail from 980px and the phone bottom nav up to 979px. Both are lazy
+// chunks that can mount after boot resolves, so a one-shot isVisible() could
+// run before the rail existed and send a desktop run down the phone path.
+// click() waits for the control this width shows.
 async function logout(page: Page) {
-    const desktop = page.locator('.right-menu-logout');
-    if (await desktop.isVisible()) await desktop.click();
+    if ((page.viewportSize()?.width ?? 0) >= 980) await page.locator('.right-menu-logout').click();
     else {
         await page.locator('.mobile-bottom-nav').getByRole('button', { name: 'Menu', exact: true }).click();
         await page.getByRole('dialog', { name: 'Shinobi menu' }).getByRole('button', { name: 'Logout', exact: true }).click();
