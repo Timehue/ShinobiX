@@ -46,9 +46,11 @@
     color: #d6c081;
 }
 
-.cc-back-link:hover {
-    color: #fff7d6;
-    border-color: rgba(250, 204, 21, 0.62);
+@media (hover: hover) {
+    .cc-back-link:hover {
+        color: #fff7d6;
+        border-color: rgba(250, 204, 21, 0.62);
+    }
 }
 
 .cc-progress {
@@ -232,11 +234,13 @@
     gap: 8px;
 }
 
-.cc-village-card:hover,
-.cc-bloodline-card:hover,
-.cc-avatar-card:hover {
-    transform: translateY(-2px);
-    border-color: rgba(250, 204, 21, 0.52);
+@media (hover: hover) {
+    .cc-village-card:hover,
+    .cc-bloodline-card:hover,
+    .cc-avatar-card:hover {
+        transform: translateY(-2px);
+        border-color: rgba(250, 204, 21, 0.52);
+    }
 }
 
 .cc-village-card.is-selected,
@@ -327,9 +331,13 @@
     transition: transform 0.35s ease;
 }
 
-.cc-bloodline-card:hover .cc-bloodline-art img,
 .cc-bloodline-card.is-selected .cc-bloodline-art img {
     transform: scale(1.035);
+}
+@media (hover: hover) {
+    .cc-bloodline-card:hover .cc-bloodline-art img {
+        transform: scale(1.035);
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -607,9 +615,11 @@
     box-shadow: 0 10px 28px rgba(120, 53, 15, 0.44), inset 0 0 0 1px rgba(250, 204, 21, 0.14);
 }
 
-.cc-primary:hover:not(:disabled),
-.cc-secondary:hover {
-    filter: brightness(1.08);
+@media (hover: hover) {
+    .cc-primary:hover:not(:disabled),
+    .cc-secondary:hover {
+        filter: brightness(1.08);
+    }
 }
 
 .cc-primary:disabled {

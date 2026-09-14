@@ -65,7 +65,9 @@
 .pet-arena-screen > .pet-home-tabs { position: relative; top: auto; margin: 0 auto 1rem; }
 .pet-home-tabs button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: .48rem; min-height: 48px; border: 1px solid transparent; border-radius: 13px; color: #aebfca; background: transparent; font-weight: 800; transition: color .16s ease,background .16s ease,border-color .16s ease,transform .16s ease; }
 .pet-home-tabs button svg { flex: 0 0 auto; color: #687f8d; }
-.pet-home-tabs button:hover { color: #f4e2b5; background: rgba(255,255,255,.045); transform: translateY(-1px); }
+@media (hover: hover) {
+    .pet-home-tabs button:hover { color: #f4e2b5; background: rgba(255,255,255,.045); transform: translateY(-1px); }
+}
 .pet-home-tabs button[aria-current="page"] { border-color: rgba(255,255,255,.26); color: #08111e; background: linear-gradient(135deg, #f0ce86, #75d9be); box-shadow: 0 6px 22px rgba(120, 217, 189, .22); }
 .pet-home-tabs button[aria-current="page"] svg { color: #0a2730; }
 .pet-home-tab-label-short { display: none; }
@@ -423,7 +425,9 @@
 .pet-expedition-companions span { color: #839aa5; font-size: .62rem; font-weight: 800; text-transform: uppercase; }
 .pet-expedition-routes { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: .65rem; margin-top: .8rem; }
 .pet-expedition-routes > button { position: relative; display: grid; gap: .34rem; min-height: 180px; border: 1px solid rgba(178,210,229,.17); border-radius: 15px; color: #dce8eb; background: linear-gradient(155deg,rgba(22,43,56,.9),rgba(7,17,29,.95)); padding: .8rem; text-align: left; }
-.pet-expedition-routes > button:hover:not(:disabled) { border-color: rgba(230,189,112,.48); transform: translateY(-1px); }
+@media (hover: hover) {
+    .pet-expedition-routes > button:hover:not(:disabled) { border-color: rgba(230,189,112,.48); transform: translateY(-1px); }
+}
 .pet-expedition-routes > button.is-selected { border-color: #e6bd70; box-shadow: inset 0 0 0 1px rgba(230,189,112,.18),0 10px 28px rgba(0,0,0,.18); }
 .pet-expedition-routes strong { padding-right: 2.6rem; color: #f7e7bc; font: 700 1rem Georgia,serif; }
 .pet-expedition-routes > button > small { min-height: 2.5em; color: #8fa6b1; font-size: .68rem; line-height: 1.4; }

@@ -92,9 +92,11 @@
         0 2px 4px rgba(0,0,0,0.5);
     transition: transform 80ms, border-color 120ms, box-shadow 120ms;
 }
-.arena-fullscreen .basic-action-bar button:hover:not(:disabled) {
-    border-color: rgba(232,212,150,0.8) !important;
-    transform: translateY(-1px);
+@media (hover: hover) {
+    .arena-fullscreen .basic-action-bar button:hover:not(:disabled) {
+        border-color: rgba(232,212,150,0.8) !important;
+        transform: translateY(-1px);
+    }
 }
 /* Unaffordable / on-cooldown / not-your-turn actions read as inert at a glance
    (PvE affordance parity with PvP), instead of only logging "Not enough AP"
@@ -270,12 +272,14 @@
         inset 0 0 24px rgba(0,0,0,0.55);
     transition: border-color 120ms, box-shadow 120ms, transform 120ms;
 }
-.arena-fullscreen .combat-jutsu-button:hover {
-    border-color: rgba(78,168,255,0.85) !important;
-    box-shadow:
-        0 0 18px rgba(78,168,255,0.35),
-        inset 0 0 24px rgba(0,0,0,0.55);
-    transform: translateY(-2px);
+@media (hover: hover) {
+    .arena-fullscreen .combat-jutsu-button:hover {
+        border-color: rgba(78,168,255,0.85) !important;
+        box-shadow:
+            0 0 18px rgba(78,168,255,0.35),
+            inset 0 0 24px rgba(0,0,0,0.55);
+        transform: translateY(-2px);
+    }
 }
 .arena-fullscreen .combat-jutsu-button.selected-action {
     border-color: var(--bsv2-player) !important;
@@ -389,8 +393,10 @@
     border: none !important;
     border-radius: 0;
 }
-.arena-fullscreen .timeline-round-toggle:hover {
-    background: rgba(196,162,90,0.14) !important;
+@media (hover: hover) {
+    .arena-fullscreen .timeline-round-toggle:hover {
+        background: rgba(196,162,90,0.14) !important;
+    }
 }
 .arena-fullscreen .timeline-round-chevron {
     font-size: 8px;
@@ -818,7 +824,9 @@
     font: 700 12px/1 var(--font-display);
     cursor: pointer;
 }
-.arena-fullscreen .battle-chat-toggle:hover { border-color: #e8d496 !important; }
+@media (hover: hover) {
+    .arena-fullscreen .battle-chat-toggle:hover { border-color: #e8d496 !important; }
+}
 .arena-fullscreen .battle-chat-spectators {
     padding: 6px 12px !important;
     font: 400 10px Inter, sans-serif !important;
@@ -893,7 +901,9 @@
     text-transform: uppercase;
     cursor: pointer;
 }
-.arena-fullscreen .battle-chat-input-row button:hover { border-color: var(--bsv2-gold-bright, #e8d496) !important; }
+@media (hover: hover) {
+    .arena-fullscreen .battle-chat-input-row button:hover { border-color: var(--bsv2-gold-bright, #e8d496) !important; }
+}
 
 .pvp-countdown-overlay {
     background: rgba(5,9,18,0.85) !important;
@@ -1103,9 +1113,13 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
     color: inherit;
     text-align: left;
 }
-.story-archive-toggle:hover,
 .story-archive-toggle:focus-visible {
     background: linear-gradient(90deg, rgba(216, 181, 112, .09), transparent);
+}
+@media (hover: hover) {
+    .story-archive-toggle:hover {
+        background: linear-gradient(90deg, rgba(216, 181, 112, .09), transparent);
+    }
 }
 .story-archive-icon {
     display: grid;
@@ -2598,11 +2612,13 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
         0 0 18px rgba(78, 168, 255, 0.5) !important;
 }
 
-.arena-fullscreen.pvp-battle-layout .combat-jutsu-button:not(:disabled):hover {
-    border-color: var(--hud3-gold-soft) !important;
-    box-shadow:
-        inset 0 0 0 1px rgba(227, 199, 126, 0.4),
-        0 8px 20px rgba(0, 0, 0, 0.55) !important;
+@media (hover: hover) {
+    .arena-fullscreen.pvp-battle-layout .combat-jutsu-button:not(:disabled):hover {
+        border-color: var(--hud3-gold-soft) !important;
+        box-shadow:
+            inset 0 0 0 1px rgba(227, 199, 126, 0.4),
+            0 8px 20px rgba(0, 0, 0, 0.55) !important;
+    }
 }
 
 .arena-fullscreen.pvp-battle-layout .combat-jutsu-button:disabled {
@@ -2654,10 +2670,12 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
     opacity: 0.75;
 }
 
-.arena-fullscreen.pvp-battle-layout .combat-jutsu-help:hover {
-    opacity: 1;
-    color: #fdf6e4 !important;
-    border-color: var(--hud3-gold) !important;
+@media (hover: hover) {
+    .arena-fullscreen.pvp-battle-layout .combat-jutsu-help:hover {
+        opacity: 1;
+        color: #fdf6e4 !important;
+        border-color: var(--hud3-gold) !important;
+    }
 }
 
 /* ── Desktop (≥1024px): the full duel-dossier treatment ─────────────────── */
@@ -3164,9 +3182,11 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
         letter-spacing: inherit !important;
     }
 
-    .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button:not(:disabled):hover {
-        border-color: var(--hud3-gold-soft) !important;
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 14px rgba(227, 199, 126, 0.22) !important;
+    @media (hover: hover) {
+        .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button:not(:disabled):hover {
+            border-color: var(--hud3-gold-soft) !important;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 14px rgba(227, 199, 126, 0.22) !important;
+        }
     }
 
     .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button.selected-action {
@@ -4542,9 +4562,11 @@ html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .com
     box-shadow: none;
 }
 
-html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .combat-log-expand:hover {
-    border-color: rgba(232, 212, 150, 0.76) !important;
-    background: rgba(30, 41, 59, 0.9) !important;
+@media (hover: hover) {
+    html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .combat-log-expand:hover {
+        border-color: rgba(232, 212, 150, 0.76) !important;
+        background: rgba(30, 41, 59, 0.9) !important;
+    }
 }
 
 html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .combat-log-expand-icon {
@@ -6104,10 +6126,17 @@ body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger
     text-overflow: ellipsis;
 }
 
-body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger:is(:hover, :focus-visible) {
+body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger:focus-visible {
     border-color: #a5f3fc;
     background: linear-gradient(180deg, rgba(18, 54, 76, 0.99), rgba(5, 21, 38, 0.99));
     box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.2), 0 10px 26px rgba(0, 0, 0, 0.58);
+}
+@media (hover: hover) {
+    body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger:hover {
+        border-color: #a5f3fc;
+        background: linear-gradient(180deg, rgba(18, 54, 76, 0.99), rgba(5, 21, 38, 0.99));
+        box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.2), 0 10px 26px rgba(0, 0, 0, 0.58);
+    }
 }
 
 /* Modal's ordinary depth is intentionally below an active fight. This
@@ -6841,11 +6870,19 @@ html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-help > .combat-
     transition: border-color 120ms ease, box-shadow 120ms ease, color 120ms ease;
 }
 
-#combat .combat-jutsu-help:is(:hover, :focus-visible) > .combat-help-glyph,
-html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-help:is(:hover, :focus-visible) > .combat-help-glyph {
+#combat .combat-jutsu-help:focus-visible > .combat-help-glyph,
+html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-help:focus-visible > .combat-help-glyph {
     border-color: #fde68a;
     color: #fffbea;
     box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.2), 0 3px 9px rgba(0, 0, 0, 0.78);
+}
+@media (hover: hover) {
+    #combat .combat-jutsu-help:hover > .combat-help-glyph,
+    html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-help:hover > .combat-help-glyph {
+        border-color: #fde68a;
+        color: #fffbea;
+        box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.2), 0 3px 9px rgba(0, 0, 0, 0.78);
+    }
 }
 
 /* Phone action cards keep the full artwork as the cast surface. Earlier

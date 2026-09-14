@@ -1082,7 +1082,9 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
     transition: border-color 0.15s, transform 0.1s;
 }
-.pet-sfx-toggle:hover { border-color: rgba(250, 204, 21, 0.85); transform: translateY(-1px); }
+@media (hover: hover) {
+    .pet-sfx-toggle:hover { border-color: rgba(250, 204, 21, 0.85); transform: translateY(-1px); }
+}
 
 /* Right-menu header: "Hide Menu" + the global audio mute button on one row.
    High-specificity + !important so it overrides whatever full-width button
@@ -1112,8 +1114,10 @@
     color: #fff;
     cursor: pointer;
 }
-.right-menu-panel .right-menu-header-row .audio-mute-btn:hover {
-    filter: brightness(1.12);
+@media (hover: hover) {
+    .right-menu-panel .right-menu-header-row .audio-mute-btn:hover {
+        filter: brightness(1.12);
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {

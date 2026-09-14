@@ -346,7 +346,9 @@
     color: #dcecf3;
     cursor: pointer;
 }
-.wfr-placement-grid > button:hover { background: radial-gradient(circle, rgba(29, 107, 123, 0.68), rgba(4, 16, 21, 0.5)); border-color: #8fd4df; }
+@media (hover: hover) {
+    .wfr-placement-grid > button:hover { background: radial-gradient(circle, rgba(29, 107, 123, 0.68), rgba(4, 16, 21, 0.5)); border-color: #8fd4df; }
+}
 .wfr-placement-grid > button.is-occupied { border-color: rgba(135, 212, 223, 0.72); background: radial-gradient(circle, rgba(20, 66, 75, 0.86), rgba(4, 16, 21, 0.54)); }
 .wfr-placement-grid > button.is-selected { box-shadow: 0 0 0 2px #d5b26c, 0 0 24px rgba(104, 215, 234, 0.48), inset 0 0 16px rgba(104, 215, 234, 0.2); }
 .wfr-placement-grid > button:disabled { cursor: not-allowed; opacity: 0.48; }
@@ -402,9 +404,13 @@
     text-shadow: 0 1px 3px rgba(0,0,0,0.8);
 }
 .wfr-btn-primary:disabled { opacity: 0.45; cursor: default; }
-.wfr-btn-primary:not(:disabled):hover { background: linear-gradient(135deg, #3b9bae, #17657a 64%, #10404f); transform: translateY(-1px); }
+@media (hover: hover) {
+    .wfr-btn-primary:not(:disabled):hover { background: linear-gradient(135deg, #3b9bae, #17657a 64%, #10404f); transform: translateY(-1px); }
+}
 .wfr-btn-ghost { background: linear-gradient(180deg, rgba(26, 36, 42, 0.7), rgba(6, 12, 16, 0.8)); border-color: rgba(209, 167, 88, 0.38); color: #c5c5b8; }
-.wfr-btn-ghost:hover { background: rgba(120, 190, 215, 0.1); }
+@media (hover: hover) {
+    .wfr-btn-ghost:hover { background: rgba(120, 190, 215, 0.1); }
+}
 
 /* ── Clash HUD ─────────────────────────────────────────────────────────── */
 
@@ -748,7 +754,9 @@
     display: grid;
     place-items: center;
 }
-.wfr-exit:hover { background: rgba(20, 44, 58, 0.92); }
+@media (hover: hover) {
+    .wfr-exit:hover { background: rgba(20, 44, 58, 0.92); }
+}
 
 /* ── Mobile ────────────────────────────────────────────────────────────── */
 

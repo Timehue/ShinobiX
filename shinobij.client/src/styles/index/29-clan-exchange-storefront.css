@@ -1081,7 +1081,9 @@
     transition: transform .12s ease;
 }
 
-    .sector-trace-sign:hover { transform: translate(-50%, -85%) scale(1.12); }
+    @media (hover: hover) {
+        .sector-trace-sign:hover { transform: translate(-50%, -85%) scale(1.12); }
+    }
 
     .sector-trace-sign img { width: 100%; display: block; }
 
@@ -1139,8 +1141,10 @@
     transition: transform .15s ease;
 }
 
-    .sector-shrine-standee:hover,
     .sector-shrine-standee:focus-visible { transform: translate(-50%, -62%) scale(1.05); }
+    @media (hover: hover) {
+        .sector-shrine-standee:hover { transform: translate(-50%, -62%) scale(1.05); }
+    }
 
     /* Paired shadows read as contact + ambient occlusion against the painted
        ground. Both track the cutout silhouette, so they stay aligned on every
@@ -1215,8 +1219,10 @@
     transition: transform .15s ease;
 }
 
-    .sector-rift-standee:hover,
     .sector-rift-standee:focus-visible { transform: translate(-50%, -62%) scale(1.06); }
+    @media (hover: hover) {
+        .sector-rift-standee:hover { transform: translate(-50%, -62%) scale(1.06); }
+    }
 
     /* The rim and its outer glow are the marker's figure/ground — a lit ring always
        separates from terrain, which is the whole reason this shape was chosen over
@@ -1236,13 +1242,21 @@
         transition: box-shadow .15s ease;
     }
 
-    .sector-rift-standee:hover .sector-rift-standee-art,
     .sector-rift-standee:focus-visible .sector-rift-standee-art {
         box-shadow:
             0 0 0 2px rgba(233, 213, 255, 1),
             0 0 24px 6px rgba(192, 132, 252, .85),
             inset 0 0 12px rgba(24, 8, 40, .7),
             0 7px 10px rgba(0, 0, 0, .5);
+    }
+    @media (hover: hover) {
+        .sector-rift-standee:hover .sector-rift-standee-art {
+            box-shadow:
+                0 0 0 2px rgba(233, 213, 255, 1),
+                0 0 24px 6px rgba(192, 132, 252, .85),
+                inset 0 0 12px rgba(24, 8, 40, .7),
+                0 7px 10px rgba(0, 0, 0, .5);
+        }
     }
 
         .sector-rift-standee-art img {
@@ -1281,10 +1295,15 @@
         transition: background .15s ease, border-color .15s ease;
     }
 
-    .sector-rift-standee:hover .sector-rift-standee-name,
     .sector-rift-standee:focus-visible .sector-rift-standee-name {
         background: rgba(20, 16, 28, .92);
         border-color: rgba(216, 180, 254, .65);
+    }
+    @media (hover: hover) {
+        .sector-rift-standee:hover .sector-rift-standee-name {
+            background: rgba(20, 16, 28, .92);
+            border-color: rgba(216, 180, 254, .65);
+        }
     }
 
 /* ————— Story objective over structures ————— */
@@ -1328,8 +1347,10 @@ button.atlas-landmark.sector-story-field-marker {
     transition: transform .15s ease;
 }
 
-    .sector-vault-standee:hover,
     .sector-vault-standee:focus-visible { transform: translate(-50%, -78%) scale(1.05); }
+    @media (hover: hover) {
+        .sector-vault-standee:hover { transform: translate(-50%, -78%) scale(1.05); }
+    }
 
     /* Contact + ambient shadows track the cutout silhouette so the building sits in
        the terrain rather than floating over it; the ember glow echoes the seal
@@ -1344,12 +1365,19 @@ button.atlas-landmark.sector-story-field-marker {
         transition: filter .15s ease;
     }
 
-    .sector-vault-standee:hover img,
     .sector-vault-standee:focus-visible img {
         filter:
             drop-shadow(0 2px 1px rgba(0, 0, 0, .55))
             drop-shadow(0 7px 8px rgba(0, 0, 0, .38))
             drop-shadow(0 0 16px rgba(248, 113, 113, .6));
+    }
+    @media (hover: hover) {
+        .sector-vault-standee:hover img {
+            filter:
+                drop-shadow(0 2px 1px rgba(0, 0, 0, .55))
+                drop-shadow(0 7px 8px rgba(0, 0, 0, .38))
+                drop-shadow(0 0 16px rgba(248, 113, 113, .6));
+        }
     }
 
     /* A map nameplate at the building's foot, in the same material as the board's
@@ -1373,10 +1401,15 @@ button.atlas-landmark.sector-story-field-marker {
         transition: background .15s ease, border-color .15s ease;
     }
 
-    .sector-vault-standee:hover .sector-vault-standee-name,
     .sector-vault-standee:focus-visible .sector-vault-standee-name {
         background: rgba(20, 16, 28, .92);
         border-color: rgba(254, 202, 202, .55);
+    }
+    @media (hover: hover) {
+        .sector-vault-standee:hover .sector-vault-standee-name {
+            background: rgba(20, 16, 28, .92);
+            border-color: rgba(254, 202, 202, .55);
+        }
     }
 
 /* Command-panel card */
@@ -1562,7 +1595,9 @@ button.atlas-landmark.sector-story-field-marker {
     cursor: pointer;
 }
 
-    .sector-traces-close:hover { opacity: 1; }
+    @media (hover: hover) {
+        .sector-traces-close:hover { opacity: 1; }
+    }
 
 /* Shrine themes — the Hollow Gate ward glows violet, the Ancients' shrine glows
    old gold-white; village shrines keep the standard gold aura. */
