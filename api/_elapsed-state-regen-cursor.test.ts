@@ -116,9 +116,14 @@ describe('bumpSaveVersion — the cursor is fenced unless a settled cursor is pa
 });
 
 describe('mutatePlayerSave settles elapsed recovery before the mutation reads a vital', { concurrency: false }, () => {
-    it('a consumer sees regenerated stamina with no owner GET first, and a spend fences the cursor', async () => {
+    // mutatePlayerSave settles regen against its own Date.now(), one tick a
+    // second. On a real clock, a loaded suite that spent 500ms between the
+    // seed and that read credited an eleventh tick, so the tests that count
+    // ticks pin the clock.
+    it('a consumer sees regenerated stamina with no owner GET first, and a spend fences the cursor', async (t) => {
+        t.mock.method(Date, 'now', () => NOW);
         const key = 'save:cursorspend';
-        await kv.set(key, record({ _saveAt: Date.now() - 10_500 }, { name: 'cursorspend', stamina: 0 }));
+        await kv.set(key, record({}, { name: 'cursorspend', stamina: 0 }));
         const out = await mutatePlayerSave('cursorspend', ({ character }) => {
             assert.equal(character.stamina, 10, 'ten seconds of recovery are credited before validation');
             return { ok: true, character: { ...character, stamina: Number(character.stamina) - 4 }, value: null };
@@ -129,9 +134,10 @@ describe('mutatePlayerSave settles elapsed recovery before the mutation reads a 
         assert.equal(durable?._regenAt, durable?._saveAt, 'a vitals-changing mutation fences the cursor to the write');
     });
 
-    it('a mutation that leaves vitals alone carries the settled cursor and its remainder forward', async () => {
+    it('a mutation that leaves vitals alone carries the settled cursor and its remainder forward', async (t) => {
+        t.mock.method(Date, 'now', () => NOW);
         const key = 'save:cursorbank';
-        const startedAt = Date.now() - 10_500;
+        const startedAt = NOW - 10_500;
         await kv.set(key, record({ _saveAt: startedAt }, { name: 'cursorbank', ryo: 100 }));
         const out = await mutatePlayerSave('cursorbank', ({ character }) => ({
             ok: true,
