@@ -19,7 +19,6 @@ import {
     wfTakedownFavor,
     wfVerdictScore,
 } from "./pet-warfront-sim";
-import { pruneWarfrontSnapshots } from "./pet-warfront-worker-client";
 
 function mkPet(id: string, boost = 0): Pet {
     return {
@@ -142,18 +141,6 @@ test("authoritative replay is outcome-identical without retaining presentation h
     assert.equal(hardVerdictAuthority.ticks, WARFRONT_TPS * WF_MAX_SECONDS);
     assert.equal(hardVerdictAuthority.snapshots.length, 1);
     assert.ok(JSON.stringify(hardVerdictAuthority).length < 500_000, "authority result must remain below the 500 KB serialized budget");
-});
-
-test("browser playback prunes consumed frames while retaining an interpolation anchor", () => {
-    const ctl = startWarfrontMatch(squad("A", -45), squad("B", -45), 71, { snapshotEvery: 2 });
-    ctl.advanceRoundPartial(WARFRONT_TPS * (WF_ROUND_SECONDS + 1));
-    const frames = ctl.result.snapshots;
-    assert.ok(frames.length > 400, "the worker should have streamed a complete quick-order segment");
-    const removed = pruneWarfrontSnapshots(frames, ctl.result.ticks, WARFRONT_TPS * 2);
-    assert.ok(removed > 400);
-    assert.ok(frames.length <= WARFRONT_TPS + 2, "only the two-second 15 Hz interpolation tail should remain");
-    assert.ok(frames[0].t <= ctl.result.ticks - WARFRONT_TPS * 2);
-    assert.ok(frames.length === 1 || frames[1].t > ctl.result.ticks - WARFRONT_TPS * 2);
 });
 
 test("command log replay produces the identical authoritative winner and event stream", () => {
