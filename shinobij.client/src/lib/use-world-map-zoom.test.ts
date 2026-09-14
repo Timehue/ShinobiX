@@ -102,3 +102,13 @@ test("the mount focus survives activation and the address-bar resize", () => {
     // zoom AND cover pan), so a trail focus sitting at the floor is kept.
     assert.match(source, /const atHome = !previousSize\.w \|\| \([\s\S]*?Math\.abs\(current\.tx - previousCover\.tx\) <= 1/);
 });
+
+test("a touch tap's focus never pans the camera out from under the finger", () => {
+    const source = readFileSync(new URL("./use-world-map-zoom.ts", import.meta.url), "utf8");
+    // A touch tap's compatibility mousedown focuses after its pointer-up, so the
+    // reveal also skips a focus that arrives between a mousedown and its mouseup.
+    assert.match(source, /const pressed = pointers\.current\.size > 0 \|\| mousePressed\.current;\s*mousePressed\.current = false;/);
+    assert.match(source, /const onMouseDownCapture = useCallback\(\(\) => \{ mousePressed\.current = true; \}, \[\]\);/);
+    assert.match(source, /const onMouseUpCapture = useCallback\(\(\) => \{ mousePressed\.current = false; \}, \[\]\);/);
+    assert.match(source, /onFocusCapture,\s*onMouseDownCapture,\s*onMouseUpCapture,/);
+});
