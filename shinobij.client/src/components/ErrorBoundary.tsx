@@ -9,8 +9,9 @@
  * Behaviour:
  *   • Render error  → themed "Something went wrong" card with a Reload button.
  *   • Chunk-load error (stale deploy) → ONE automatic reload to pull the fresh
- *     index.html + hashed chunks, guarded by a sessionStorage flag so it can
- *     never loop. If the reload doesn't help, the card is shown.
+ *     index.html + hashed chunks, at most once per tab per few minutes (see
+ *     lib/chunk-load-recovery) so it can never loop. If the reload doesn't
+ *     help, the card is shown.
  *
  * Styles are inline so the boundary still renders even if the CSS bundle itself
  * is the thing that failed to load.
@@ -19,7 +20,6 @@ import { Component, type ErrorInfo, type ReactNode } from "react";
 import { RecoveryActions } from "./RecoveryActions";
 import { reportError } from "../lib/sentry";
 import {
-    clearChunkReloadFlag,
     isChunkLoadError,
     reloadClearingChunkFlag,
     reloadOnceForChunkLoadError,
@@ -38,13 +38,10 @@ export class ErrorBoundary extends Component<Props, State> {
         return { error };
     }
 
-    componentDidMount(): void {
-        // App mounted cleanly — clear the one-shot reload guard so a future
-        // (genuinely new) stale-chunk error is allowed to auto-reload again.
-        if (!this.state.error) {
-            clearChunkReloadFlag();
-        }
-    }
+    // No componentDidMount clearing the reload guard: this boundary mounts
+    // before any lazy chunk loads, so a clean mount proves nothing, and clearing
+    // there let a chunk that always fails reload the page forever. The guard
+    // expires on its own (lib/chunk-load-recovery).
 
     componentDidCatch(error: Error, info: ErrorInfo): void {
         console.error("[ErrorBoundary]", error, info?.componentStack);
