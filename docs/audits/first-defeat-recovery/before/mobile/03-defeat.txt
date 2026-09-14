@@ -1,0 +1,105 @@
+You
+Travel
+Village
+Items
+Menu
+←
+DE
+defeatmobilemu0lzd9a
+Lv 3
+0
+51
+61
+10k
+0
+
+MOONSHADOW VILLAGE · EMERGENCY WARD
+
+Village Hospital
+
+You are stable and under medical watch. Choose an immediate release or wait for complimentary discharge.
+
+PATIENT STATUS
+Admitted
+VITAL CONDITION
+0 / 700 HP
+VILLAGE DISCOUNT
+0.00%
+
+RECOVERY IN PROGRESS
+
+You are currently admitted
+
+Your wounds are treated at discharge; chakra and stamina return with rest, or instantly at the Cafeteria. Pay for an immediate release or wait for the free checkout.
+
+HP recovery
+0 / 700
+IMMEDIATE RELEASE
+2,500 ryo
+Wounds treated · leave now
+Pay & discharge
+COMPLIMENTARY RELEASE
+59s remaining
+No charge · wounds treated
+defeatmobilemu0lzd9a
+DE
+HP
+0 / 700
+CHAKRA
+77 / 1181
+STAMINA
+87 / 1181
+TERRAIN
+Neutral ground
+0/100 | Waiting
+—
+ACADEMY SPARRING PARTNER'S TURN
+60/100 | Active
+DE
+0/700
+593/593
+Actions
+Battle Log
+10
+ 
+ATTACK
+40 AP
+| 10 SP | R1
+MOVE
+30 AP
+/ tile
+HEAL
+60 AP
+| 10 CP | CD 0
+CLEAR
+60 AP
+| CD 0
+CLEANSE
+60 AP
+| CD 0
+SUMMON PET
+No eligible active pet
+FLEE
+100 AP
+· escape roll
+WAIT
+End turn
+No equipped jutsu or combat items.
+Academy Sparring Partner
+AC
+HP
+593 / 593
+CHAKRA
+1181 / 1181
+STAMINA
+1171 / 1181
+
+DEFEATED
+
+Academy Sparring Partner
+
+Academy Sparring Partner stands over you. You are carried to the hospital — no reward was earned.
+
+Return
+?
+Tip
