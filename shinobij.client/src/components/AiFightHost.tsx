@@ -400,7 +400,9 @@ export function AiFightHost({
             const requestId = ++startRequestIdRef.current;
             settledRef.current = false;
             setStartFailure(null);
-            void import("../screens/MissionArenaFight");
+            // Warm-up only. A failed load resurfaces through the lazy MissionArenaFight
+            // above (retries, then ErrorBoundary); it must not also escape unhandled here.
+            void import("../screens/MissionArenaFight").catch(() => {});
             startAiFight({
                 playerName: originatingPlayerName,
                 opponentId: request.opponentId,
