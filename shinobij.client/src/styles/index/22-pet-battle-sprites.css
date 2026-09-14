@@ -492,25 +492,6 @@
     flex-wrap: wrap;
 }
 
-.pet-victory-burst {
-    position: absolute;
-    left: 52px;
-    top: 50%;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: #fef3c7;
-    box-shadow:
-        0 -38px 0 var(--gold),
-        34px -18px 0 var(--gold-300),
-        34px 18px 0 var(--gold),
-        0 38px 0 var(--gold-300),
-        -34px 18px 0 var(--gold),
-        -34px -18px 0 var(--gold-300);
-    opacity: 0.78;
-    animation: petVictoryBurstSpin 1.8s linear infinite;
-}
-
 @keyframes petTileImpact {
     0% { transform: scale(1); filter: brightness(1); }
     35% { transform: scale(1.05); filter: brightness(1.35) saturate(1.4); }
@@ -1381,16 +1362,6 @@
         border-radius: 12px;
     }
     .game-alert-message { font-size: 0.94rem; }
-}
-
-.modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.7);
-    z-index: 200;
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
 
 .modal-box {
