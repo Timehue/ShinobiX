@@ -138,3 +138,14 @@ test('current Warfront coverage keeps low-cost interactions and real renderer au
     assert.ok(fixtures(modelLifecycleSpec).some((params) => params.get('modelresources') === '1'),
         'GPU lifecycle coverage must continue loading the real model resource harness');
 });
+
+test('required live Express CI runs defeat recovery on desktop and mobile without replacing earlier evidence', () => {
+    const job = workflow.slice(workflow.indexOf('\n  e2e_village_stores:'), workflow.indexOf('\n  test_build:'));
+    const command = job.split('\n').find(line => line.trim().startsWith('run:') && line.includes('first-defeat-recovery-express.spec.ts'));
+    assert.ok(command, 'the required live Express job must actually execute the defeat/recovery browser spec');
+    assert.ok(command.includes('--project=chromium-desktop-live'), 'desktop recovery must be covered');
+    assert.ok(command.includes('--project=chromium-mobile-live'), 'mobile Play recovery must be covered');
+    assert.ok(command.includes('--output=test-results/defeat-recovery-ci'), 'the second Playwright invocation must retain the earlier journey evidence');
+    assert.ok(command.includes('.ci-evidence/e2e-village-stores/defeat-recovery.log'));
+    assert.doesNotMatch(command, /--grep/, 'all recovery paths must run');
+});

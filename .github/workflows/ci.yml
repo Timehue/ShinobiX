@@ -798,7 +798,9 @@ jobs:
     needs: release_artifact
     if: ${{ always() }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # The recovery matrix exercises real admission timers on both viewports in
+    # addition to the existing economy, Academy and route journeys.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -847,6 +849,8 @@ jobs:
       # routing and save lifecycle used by the economy and Academy journeys.
       - name: Live Express economy, Academy persistence and route wiring
         run: npm run test:e2e:live --prefix shinobij.client -- village-stores-express.spec.ts first-session-onboarding-express.spec.ts server-route-smoke-express.spec.ts --project=chromium-desktop-live 2>&1 | tee .ci-evidence/e2e-village-stores/playwright.log
+      - name: Live Express defeat and recovery on desktop and mobile
+        run: npm run test:e2e:live --prefix shinobij.client -- first-defeat-recovery-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --workers=2 --output=test-results/defeat-recovery-ci 2>&1 | tee .ci-evidence/e2e-village-stores/defeat-recovery.log
       - name: Retain Village Stores browser evidence
         if: always()
         continue-on-error: true

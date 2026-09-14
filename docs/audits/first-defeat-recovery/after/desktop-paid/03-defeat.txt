@@ -1,0 +1,198 @@
+DE
+defeatdmu0o2yrw
+Academy Student
+HP 0/700
+Chakra 47/1181
+Stamina 57/1181
+Sector 0
+Weather Clear Skies
+Ryo
+10k
+Honor Seals
+0
+Aura Dust
+0
+Fate Shards
+0
+Aura Stones
+0
+Mythic Seals
+0
+Bone Charms
+0
+Tiles
+0/150
+Missions
+0/20
+Hunts
+0/20
+Fate Spins
+0/5
+Reset In
+20:47:35
+Lv 3  ·  120 / 600 pts
+NEXT GOAL · ACADEMY TRAINING
+✕
+Awaken your first element
+Awakening Stone →
+HIDE MENU
+MAIN MENU
+WORLD
+02
+Travel
+Tavern
+ACTIVITIES
+04
+Missions
+Training
+Jutsu
+Logbook
+CHARACTER
+04
+Character
+Inventory
+Pet Home
+Vanguard
+SOCIAL
+02
+Users
+Mail
+SUPPORT
+03
+Guides
+Discord
+Premium Shop
+SYSTEM
+01
+Logout
+
+MOONSHADOW VILLAGE · EMERGENCY WARD
+
+Village Hospital
+
+Your injuries prevent travel and combat until discharge. Treatment restores full HP and returns you to the village.
+
+PATIENT STATUS
+Admitted
+VITAL CONDITION
+0 / 700 HP
+VILLAGE DISCOUNT
+0.00%
+
+RECOVERY IN PROGRESS
+
+You are currently admitted
+
+Your wounds are treated at discharge; chakra and stamina return with rest, or instantly at the Cafeteria. Pay for an immediate release or wait for the free checkout.
+
+HP recovery
+0 / 700
+IMMEDIATE RELEASE
+2,500 ryo
+Full HP · return to village now
+Pay & discharge
+COMPLIMENTARY RELEASE
+59s remaining
+No charge · full HP · return to village
+defeatdmu0o2yrw
+MOONSHADOW VILLAGE
+WAITING
+DE
+HP
+0 / 700
+CHAKRA
+70 / 1181
+STAMINA
+80 / 1181
+ROUND 2
+BUFFS
+
+No active effects
+
+DEBUFFS
+
+No active effects
+
+CENTRAL MEADOW
+
+ROUND 2 | SHINOBI DUEL
+
+CENTRAL MEADOW
+·
+TERRAIN
+Neutral ground
+DEFEATDMU0O2YRW AP
+0/100 | Waiting
+—
+ACADEMY SPARRING PARTNER AP
+60/100 | Active
+DE
+0/700
+593/593
+ 
+ATTACK
+40 AP | 10 SP | R1
+MOVE
+30 AP / tile
+HEAL
+60 AP | 10 CP | CD 0
+CLEAR
+60 AP | CD 0
+CLEANSE
+60 AP | CD 0
+SUMMON PET
+No eligible active pet
+FLEE
+100 AP · escape roll
+WAIT
+End turn
+No equipped jutsu or combat items.
+BATTLE LOG
+2 ROUNDS · 10 EVENTS
+EXPAND
+▾
+ROUND 2
+LATEST
+4 EVENTS
+
+#2
+Academy Sparring Partner
+Basic Attack:
+
+✸140 damage to defeatdmu0o2yrw.
+
+◈Academy Sparring Partner wins.
+
+◈defeatdmu0o2yrw ends the turn.
+
+▾
+ROUND 1
+6 EVENTS
+Academy Sparring Partner
+MISSION
+ACTING
+AC
+HP
+593 / 593
+CHAKRA
+1181 / 1181
+STAMINA
+1171 / 1181
+ROUND 2
+BUFFS
+
+No active effects
+
+DEBUFFS
+
+No active effects
+
+DEFEATED
+
+Academy Sparring Partner
+
+Your HP reached zero. You were brought to the hospital for treatment. No reward was earned.
+
+Go to Hospital
+?
+Tip

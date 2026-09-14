@@ -1,0 +1,13 @@
+{
+  "first": {
+    "status": 200,
+    "charge": 2500
+  },
+  "delayed": {
+    "status": 409
+  },
+  "after": {
+    "ryo": 7500,
+    "hospitalized": true
+  }
+}

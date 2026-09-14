@@ -3,6 +3,7 @@ export { playerLensDiscipline } from './lib/player-lens-discipline';
 export { stringifyServerSavePayload } from './lib/server-save-payload';
 export { HOLLOW_GATE_KEY_DUNGEON_KEY_COST, HOLLOW_GATE_KEY_FATE_SHARD_COST, setHollowGateKeyDungeonKeyCost, setHollowGateKeyFateShardCost, HOLLOW_GATE_UNLOCK_COST, setHollowGateUnlockCost } from './lib/hollow-gate-prices';
 import { usePlayerSaveLifecycle, usePlayerSaveVersionEvents, usePlayerSaveConflictExpiry, usePlayerSaveUnload } from "./lib/use-player-save-lifecycle";
+import { adoptHealerSnapshot, type HospitalDischargeResponse } from "./lib/hospital-discharge";
 import { usePlayerSaveCoordinator } from "./lib/use-player-save-coordinator";
 import { decideBootBattleRecovery } from "./lib/boot-battle-recovery";
 import { usePlayerSaveState, isContentAdminName as snapshotContentAdminName, savedJutsuPool as restoredJutsuPool } from './lib/use-player-save-state';
@@ -2030,16 +2031,23 @@ export default function App() {
                     setIncomingAttackBanner(`${attacker.name} is attacking you!`);
                     setTimeout(() => setIncomingAttackBanner(""), 4000);
                 }
-                // A Healer discharged us from the hospital — sync local state, toast
-                // who healed us, and leave the admitted screen (we're hard-locked there
-                // otherwise). Server already cleared hospitalized; mirror it locally.
-                noteHeartbeatDelivery(data); // the next beat acknowledges exactly this delivery (lib/notice-ack)
-                if (data.pendingHeal && characterRef.current?.hospitalized) {
+                // A healer notification can outlive its admission. Reconcile the
+                // current versioned save before announcing or applying recovery.
+                // Another accepted snapshot may already have cleared the local
+                // flag. Still reconcile the notice so its feedback and hospital
+                // exit are not lost when that read wins the race.
+                if (data.pendingHeal) {
                     const by = data.pendingHeal.by || "a Healer";
-                    setCharacter(c => c ? { ...c, hp: c.maxHp, hospitalized: false, hospitalizedUntil: 0, hospitalizedAt: 0 } : c); // HP only (api/player/_cross-heal-settlement.ts): refilling chakra/stamina shows bars the autosave ceiling claws back.
-                    window.dispatchEvent(new CustomEvent('profession-mission-complete', { detail: { name: `Healed by ${by}`, xp: 0, profession: 'healer', label: '✚ You\'ve been healed' } }));
-                    if (screenRef.current === "hospital") setScreen("village");
+                    const healedSave = await fetch(`/api/save/${encodeURIComponent(heartbeatAccountKey)}`, { signal: AbortSignal.timeout(12000) });
+                    if (!healedSave.ok || !heartbeatIsCurrent()) return;
+                    const snapshot = await healedSave.json() as HospitalDischargeResponse;
+                    if (!heartbeatIsCurrent()) return;
+                    if (!adoptHealerSnapshot(snapshot, commitVersionedCharacter, () => {
+                        window.dispatchEvent(new CustomEvent('profession-mission-complete', { detail: { name: `Healed by ${by}`, xp: 0, profession: 'healer', label: '✚ You\'ve been healed' } }));
+                        if (screenRef.current === "hospital") setScreen("village");
+                    })) return;
                 }
+                noteHeartbeatDelivery(data); // acknowledge only after a successful reconciliation
                 if (Array.isArray(data.pendingNotices) && data.pendingNotices.length) {
                     // Lazy import: the notice copy strings stay off the entry graph. If it fails to load, withhold the ack so the server re-delivers.
                     const notices = data.pendingNotices;
