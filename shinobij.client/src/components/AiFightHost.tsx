@@ -1,6 +1,7 @@
 import { Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Character, BattleHistoryEntry } from "../types/character";
 import type { SoloPveSession } from "../lib/solo-pve-api";
+import { aiFightExitScreen, aiFightNonWinMessage } from "../lib/ai-fight-result";
 import type { SavedBloodline, Jutsu, GameItem } from "../types/combat";
 import { lazyWithRetry } from "../lib/lazyWithRetry";
 import {
@@ -563,16 +564,17 @@ export function AiFightHost({
     async function closeFight() {
         if (closeInFlightRef.current) return;
         const active = currentFight;
-        const returnScreen = active?.request.returnScreen;
+        let returnScreen = aiFightExitScreen(!!latestCharacter.current?.hospitalized, active?.request.returnScreen);
         // Leaving an UNSETTLED fight is a forfeit, not an escape. Without this a
         // player about to lose could close the screen and take no damage at all,
         // making every fight free to retry — strictly better than winning
-        // carefully. The server scores it: an `active` session settles as a
-        // forfeit and hospitalizes, exactly like a defeat.
+        // carefully. The server applies the forfeit cost and carries the actual
+        // remaining HP; only a zero-HP outcome causes hospital admission.
         if (shouldSettleOnClose(!!active, settledRef.current) && active) {
             closeInFlightRef.current = true;
             try {
-                await settle(active.sessionId, active.originatingPlayerName);
+                const result = await settle(active.sessionId, active.originatingPlayerName);
+                returnScreen = aiFightExitScreen(!!result.character?.hospitalized, active.request.returnScreen);
             } catch {
                 closeInFlightRef.current = false;
                 window.setTimeout(() => alert("The fight is still syncing with the combat server. Retry Return when the connection recovers."), 40);
@@ -654,10 +656,8 @@ function AiFightResultCard({
                 <div className="story-fight-complete-card">
                     <p className="story-fight-complete-kicker">{draw ? "Stalemate" : "Defeated"}</p>
                     <h2>{opponentName}</h2>
-                    <p className="story-fight-complete-boss">
-                        {draw
-                            ? "Neither side could finish it. No reward was earned."
-                            : `${opponentName} stands over you. You are carried to the hospital — no reward was earned.`}
+                    <p className="story-fight-complete-boss" role={settleState === "failed" ? "alert" : "status"}>
+                        {aiFightNonWinMessage(settleState, settleResult?.character, draw)}
                     </p>
                     {/* "failed" must keep an EXIT, not just a Retry. The 12s-per-
                         attempt race above fixed the stalled-connection case, but a
@@ -669,7 +669,7 @@ function AiFightResultCard({
                         settles on a later attempt. Same reasoning as the PvP
                         result screen. */}
                     {settleState === "failed" && <button onClick={onRetry}>Retry</button>}
-                    <button disabled={settleState === "pending"} onClick={onExit}>Return</button>
+                    <button disabled={settleState === "pending"} onClick={onExit}>{settleResult?.character?.hospitalized ? "Go to Hospital" : "Return"}</button>
                 </div>
             </div>
         );

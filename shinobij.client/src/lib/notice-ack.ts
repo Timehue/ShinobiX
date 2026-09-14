@@ -37,9 +37,10 @@ export function heartbeatNoticeAckFields(): { noticeAck: true; ackNotices: strin
 }
 
 /**
- * Record what a heartbeat response delivered. Called on every successful beat
- * BEFORE the payload is acted on, so the next beat acknowledges exactly this
- * delivery — and nothing more once the server stops re-sending it.
+ * Record a successfully processed delivery. Call only after any required healer
+ * save reconciliation succeeds; otherwise the server must redeliver the notice.
+ * The next beat acknowledges exactly this delivery, and clears the remembered
+ * ids once the server stops re-sending them.
  */
 export function noteHeartbeatDelivery(data: { pendingHeal?: { id?: unknown } | null; pendingNotices?: unknown } | null | undefined): void {
     healId = Number(idOf(data?.pendingHeal)) || 0;
