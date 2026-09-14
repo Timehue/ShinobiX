@@ -129,6 +129,8 @@ export interface WorldMapZoomApi {
         onLostPointerCapture: (e: React.PointerEvent) => void;
         onClickCapture: (e: React.MouseEvent) => void;
         onFocusCapture: (e: React.FocusEvent) => void;
+        onMouseDownCapture: () => void;
+        onMouseUpCapture: () => void;
     };
     /** Static inline style for the map div — the displayed aspect only. The
      *  transform deliberately does NOT live here: see `applyView`. */
@@ -304,6 +306,9 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
     const lastTap = useRef<TapMark | null>(null);
     const moved = useRef(0);
     const suppressClick = useRef(false);
+    // A mousedown in the map, real or a touch tap's compatibility event, whose
+    // mouseup has not arrived yet. See onFocusCapture.
+    const mousePressed = useRef(false);
 
     // ── Activation: track viewport width + the flag override ──────────────────
     useEffect(() => {
@@ -360,6 +365,7 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
             pinch.current = null;
             lastTap.current = null;
             suppressClick.current = false;
+            mousePressed.current = false;
             return;
         }
         const onWheel = (event: WheelEvent) => wheelHandlerRef.current(event);
@@ -536,9 +542,9 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
         const p = localPt(e);
         // The likely second tap of a background double-tap. A touch tap's
         // compatibility mouse events arrive after its pointer-up, when the
-        // double-tap has already moved the camera, so they would focus what
-        // now sits under the finger, and focusing a marker at the edge makes
-        // onFocusCapture pan again. Cancelling the pointer-down withholds them;
+        // double-tap has already moved the camera, so they would focus
+        // whatever marker now sits under the finger, one the player never
+        // aimed at. Cancelling the pointer-down withholds them;
         // a click can still come, and endPointer arms onClickCapture to swallow
         // it. A mouse sends its events before the pointer-up, on the old
         // camera, so it is left alone.
@@ -679,12 +685,26 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
         commitView({ zoom: z, tx: p.tx, ty: p.ty }, true);
     }, [clampPan, coverZoom, commitView, releaseRegion]);
 
+    const onMouseDownCapture = useCallback(() => { mousePressed.current = true; }, []);
+    const onMouseUpCapture = useCallback(() => { mousePressed.current = false; }, []);
+
     const onFocusCapture = useCallback((e: React.FocusEvent) => {
         const viewport = elRef.current;
         const target = e.target as HTMLElement;
         // A pointer tap keeps its destination still. Keyboard and assistive
         // focus instead reveal an off-camera marker before it is activated.
-        if (!activeRef.current || !viewport || pointers.current.size > 0
+        // A mouse focuses on its mousedown while `pointers` still holds it. A
+        // touch tap does not: the browser sends its compatibility mousedown,
+        // which does the focusing, after the pointer-up. Revealing then would
+        // slide the marker out from under the finger before the mouseup, and
+        // the click would land on the map instead. So a focus that arrives
+        // between a mousedown and its mouseup also counts as a tap. A press
+        // focuses at most once, so the focus consumes the mark: a press that
+        // focused a marker cannot leave it set, even when its mouseup lands
+        // outside the map.
+        const pressed = pointers.current.size > 0 || mousePressed.current;
+        mousePressed.current = false;
+        if (!activeRef.current || !viewport || pressed
             || !target.matches(".atlas-sector, .atlas-landmark")) return;
         // A region may still be easing toward viewRef's endpoint. Finish that
         // move before comparing painted marker bounds with camera coordinates.
@@ -730,6 +750,8 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
             onLostPointerCapture: lostPointerCapture,
             onClickCapture,
             onFocusCapture,
+            onMouseDownCapture,
+            onMouseUpCapture,
         },
         contentStyle,
         zoomIn: () => centerZoom(viewRef.current.zoom * 1.4),
