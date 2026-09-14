@@ -1,4 +1,5 @@
-import { expect, test, type APIRequestContext } from '@playwright/test';
+import { expect, type APIRequestContext } from '@playwright/test';
+import { test } from './helpers/reconnecting-request';
 
 const village = 'Frostfang Village';
 const admin = { 'x-admin-password': 'live-express-e2e-admin' };
@@ -26,13 +27,22 @@ test('Town Hall Kage acceptance hands the response to the challenger and seals a
     const suffix = Date.now().toString(36);
     const kage = await seed(request, `clockkage${suffix}`, 3);
     const challenger = await seed(request, `clockrival${suffix}`, 90);
+    // Every project and repeat shares this in-memory server, and unlock seats a
+    // Kage only on a village's first unlock. An earlier run's seated Kage and
+    // accepted challenge would block this declare ("There is already an active
+    // Kage challenge in this village."), so reset the village to sealed first.
+    const reset = await request.post('/api/village/kage', { headers: admin,
+        data: { action: 'reset', village, playerName: kage.name } });
+    expect(reset.status(), JSON.stringify(await reset.json())).toBe(200);
     const opened = await request.post('/api/village/kage', { headers: admin,
         data: { action: 'unlock', village, playerName: kage.name } });
     expect(opened.status()).toBe(200);
+    expect((await opened.json()).seatedKage, 'this run must seat its own Kage').toBe(kage.name);
     const declared = await request.post('/api/village/kage-challenge', { headers: challenger.headers,
         data: { action: 'declare', village, playerName: challenger.name } });
-    expect(declared.status()).toBe(200);
-    const political = (await declared.json()).challenge;
+    const declaration = await declared.json();
+    expect(declared.status(), JSON.stringify(declaration)).toBe(200);
+    const political = declaration.challenge;
     expect(political.obligationRemainingMs).toBe(86400000);
     expect(political.challengerRemainingMs).toBe(86400000);
 
