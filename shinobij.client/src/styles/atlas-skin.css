@@ -72,12 +72,19 @@ button.atlas-landmark.atlas-hollowGate[data-landmark-art="true"] {
     border-radius: 20% !important;
 }
 
-button.atlas-landmark[data-landmark-art="true"]:hover {
-    transform: translate(-50%, -50%) scale(1.12) !important;
-    filter:
-        drop-shadow(0 4px 4px rgba(0, 0, 0, 0.78))
-        drop-shadow(0 0 13px var(--landmark-glow))
-        brightness(1.09);
+/* This hover is for a mouse or trackpad only. A touch browser keeps :hover on
+   whatever a tap last hit, so on a phone this glow stayed on a landmark until
+   the next touch — after a double-tap zoom-out, on whichever one the new camera
+   put under the finger. The sector hovers in 02-world-map.css are gated the
+   same way. */
+@media (hover: hover) {
+    button.atlas-landmark[data-landmark-art="true"]:hover {
+        transform: translate(-50%, -50%) scale(1.12) !important;
+        filter:
+            drop-shadow(0 4px 4px rgba(0, 0, 0, 0.78))
+            drop-shadow(0 0 13px var(--landmark-glow))
+            brightness(1.09);
+    }
 }
 
 button.atlas-landmark[data-landmark-art="true"]:focus-visible {

@@ -358,9 +358,11 @@
   font-weight: 600;
   cursor: pointer;
 }
-.google-link-card button:hover:not(:disabled) {
-  border-color: rgba(250, 204, 21, 0.7);
-  background: rgba(250, 204, 21, 0.14);
+@media (hover: hover) {
+  .google-link-card button:hover:not(:disabled) {
+    border-color: rgba(250, 204, 21, 0.7);
+    background: rgba(250, 204, 21, 0.14);
+  }
 }
 .google-link-card button:disabled {
   opacity: 0.6;
@@ -440,10 +442,12 @@
   flex-shrink: 0;
   transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease, transform 150ms ease;
 }
-.user-hub-follow-star:hover {
-  border-color: rgba(250, 204, 21, 0.42);
-  color: var(--gold);
-  transform: translateY(-1px);
+@media (hover: hover) {
+  .user-hub-follow-star:hover {
+    border-color: rgba(250, 204, 21, 0.42);
+    color: var(--gold);
+    transform: translateY(-1px);
+  }
 }
 .user-hub-follow-star:focus-visible {
   outline: 2px solid rgba(250, 204, 21, 0.88);

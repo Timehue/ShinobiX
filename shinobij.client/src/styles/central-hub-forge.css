@@ -70,9 +70,11 @@
 
         .cf-tabs button svg { width: 18px; height: 18px; opacity: .85; }
 
-        .cf-tabs button:hover {
-            border-color: rgba(250,204,21,.5);
-            color: #fef3c7;
+        @media (hover: hover) {
+            .cf-tabs button:hover {
+                border-color: rgba(250,204,21,.5);
+                color: #fef3c7;
+            }
         }
 
         .cf-tabs button.active {
@@ -350,8 +352,10 @@
     cursor: not-allowed;
 }
 
-.nw-roll:hover:not(:disabled) {
-    opacity: 0.85;
+@media (hover: hover) {
+    .nw-roll:hover:not(:disabled) {
+        opacity: 0.85;
+    }
 }
 
 .nw-result {
@@ -416,8 +420,10 @@
     border: 1px solid #16a34a;
 }
 
-.nw-commit:hover {
-    opacity: 0.85;
+@media (hover: hover) {
+    .nw-commit:hover {
+        opacity: 0.85;
+    }
 }
 
 /* Keep this override beside the component styles. CentralHub is lazy-loaded,

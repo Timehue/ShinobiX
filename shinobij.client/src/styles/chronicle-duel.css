@@ -75,11 +75,17 @@
 button.chronicle-card {
   cursor: pointer;
 }
-.chronicle-tabs button[aria-pressed="true"],
-.chronicle-actions button:hover:not(:disabled) {
+.chronicle-tabs button[aria-pressed="true"] {
   border-color: #d0a85f;
   color: #f3d79f;
   background: #202817;
+}
+@media (hover: hover) {
+  .chronicle-actions button:hover:not(:disabled) {
+    border-color: #d0a85f;
+    color: #f3d79f;
+    background: #202817;
+  }
 }
 .chronicle-tabs button:focus-visible,
 .chronicle-actions button:focus-visible,
@@ -1060,10 +1066,15 @@ button.chronicle-card {
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-.chronicle-card-detail-panel__zoom:hover > span,
 .chronicle-card-detail-panel__zoom:focus-visible > span {
   border-color: #e6bd6e;
   color: #f4d89f;
+}
+@media (hover: hover) {
+  .chronicle-card-detail-panel__zoom:hover > span {
+    border-color: #e6bd6e;
+    color: #f4d89f;
+  }
 }
 .chronicle-card-detail-panel > strong {
   color: #efd39b;
@@ -1152,16 +1163,27 @@ button.chronicle-card {
   font: inherit;
   cursor: pointer;
 }
-.chronicle-pile-zone--open:hover,
 .chronicle-pile-zone--open:focus-visible {
   border-color: rgba(240, 196, 99, 0.55);
   background: rgba(18, 28, 38, 0.72);
   color: #c3d2df;
 }
-.chronicle-pile-zone--open:hover .chronicle-pile-mark,
+@media (hover: hover) {
+  .chronicle-pile-zone--open:hover {
+    border-color: rgba(240, 196, 99, 0.55);
+    background: rgba(18, 28, 38, 0.72);
+    color: #c3d2df;
+  }
+}
 .chronicle-pile-zone--open:focus-visible .chronicle-pile-mark {
   border-color: #7d6236;
   color: #cba86a;
+}
+@media (hover: hover) {
+  .chronicle-pile-zone--open:hover .chronicle-pile-mark {
+    border-color: #7d6236;
+    color: #cba86a;
+  }
 }
 .chronicle-pile-zone > span {
   font-size: 0.45rem;
@@ -1291,11 +1313,13 @@ button.chronicle-card {
 .chronicle-playmat .chronicle-zone.inspectable {
   cursor: zoom-in;
 }
-.chronicle-playmat .chronicle-zone.inspectable:hover:not(:disabled) {
-  border-color: rgba(124, 200, 255, 0.65);
-  box-shadow:
-    0 0 0 1px rgba(124, 200, 255, 0.22),
-    inset 0 0 20px rgba(74, 141, 178, 0.14);
+@media (hover: hover) {
+  .chronicle-playmat .chronicle-zone.inspectable:hover:not(:disabled) {
+    border-color: rgba(124, 200, 255, 0.65);
+    box-shadow:
+      0 0 0 1px rgba(124, 200, 255, 0.22),
+      inset 0 0 20px rgba(74, 141, 178, 0.14);
+  }
 }
 .chronicle-zone.inspected {
   border-color: #7cc8ff;
@@ -1852,8 +1876,10 @@ button.chronicle-card {
   width: clamp(88px, 12vmin, 148px);
   transition: transform 0.15s ease;
 }
-.chronicle-hand .chronicle-card:hover:not(:disabled):not(.selected) {
-  transform: translateY(-4px);
+@media (hover: hover) {
+  .chronicle-hand .chronicle-card:hover:not(:disabled):not(.selected) {
+    transform: translateY(-4px);
+  }
 }
 .chronicle-actions {
   display: flex;
@@ -1959,7 +1985,6 @@ button.chronicle-card {
   font-size: 0.82rem;
   white-space: nowrap;
 }
-.chronicle-card-inspect-trigger:hover .chronicle-card,
 .chronicle-card-inspect-trigger:focus-visible .chronicle-card {
   transform: translateY(-5px);
   box-shadow:
@@ -1967,6 +1992,16 @@ button.chronicle-card {
     inset 0 0 0 6px color-mix(in srgb, var(--chronicle-frame) 42%, #111923),
     0 0 0 3px rgba(240, 196, 99, 0.58),
     0 18px 40px rgba(0, 0, 0, 0.66);
+}
+@media (hover: hover) {
+  .chronicle-card-inspect-trigger:hover .chronicle-card {
+    transform: translateY(-5px);
+    box-shadow:
+      inset 0 0 0 2px #020406,
+      inset 0 0 0 6px color-mix(in srgb, var(--chronicle-frame) 42%, #111923),
+      0 0 0 3px rgba(240, 196, 99, 0.58),
+      0 18px 40px rgba(0, 0, 0, 0.66);
+  }
 }
 .chronicle-mobile-card-zoom {
   display: none;
@@ -2672,8 +2707,10 @@ button.chronicle-card {
   .chronicle-health-meter::after {
     transition: none;
   }
-  .chronicle-hand .chronicle-card:hover:not(:disabled):not(.selected) {
-    transform: none;
+  @media (hover: hover) {
+    .chronicle-hand .chronicle-card:hover:not(:disabled):not(.selected) {
+      transform: none;
+    }
   }
 }
 /* Reduced-motion floats: still show the number, no travel. */
@@ -3085,8 +3122,10 @@ button.chronicle-card {
 .chronicle-hand .chronicle-card {
   width: clamp(68px, 9.6vmin, 104px);
 }
-.chronicle-hand .chronicle-card:hover:not(:disabled):not(.selected) {
-  transform: translateY(-7px) scale(1.025);
+@media (hover: hover) {
+  .chronicle-hand .chronicle-card:hover:not(:disabled):not(.selected) {
+    transform: translateY(-7px) scale(1.025);
+  }
 }
 .chronicle-hand .chronicle-card.selected {
   z-index: 5;
@@ -4187,10 +4226,15 @@ button.chronicle-card {
   text-transform: uppercase;
   cursor: pointer;
 }
-.chronicle-room-banner__actions button:hover,
 .chronicle-room-banner__actions button:focus-visible {
   border-color: #e2ba70;
   color: #ffe2a8;
+}
+@media (hover: hover) {
+  .chronicle-room-banner__actions button:hover {
+    border-color: #e2ba70;
+    color: #ffe2a8;
+  }
 }
 .chronicle-sr-only {
   position: absolute !important;
@@ -4404,9 +4448,11 @@ button.chronicle-card {
 .chronicle-shell--duel-active .chronicle-utility-trigger {
   transition: border-color 160ms ease, background 160ms ease, color 160ms ease, transform 160ms ease;
 }
-.chronicle-shell--duel-active .chronicle-room-banner__actions button:hover,
-.chronicle-shell--duel-active .chronicle-utility-trigger:hover {
-  transform: translateY(-1px);
+@media (hover: hover) {
+  .chronicle-shell--duel-active .chronicle-room-banner__actions button:hover,
+  .chronicle-shell--duel-active .chronicle-utility-trigger:hover {
+    transform: translateY(-1px);
+  }
 }
 
 .chronicle-shell--duel-active .chronicle-duel-status {
@@ -4553,13 +4599,21 @@ button.chronicle-card {
     0 6px 13px rgba(0, 0, 0, 0.42),
     0 0 0 1px rgba(0, 0, 0, 0.42);
 }
-.chronicle-shell--duel-active .chronicle-playmat .chronicle-zone.inspectable:hover:not(:disabled),
 .chronicle-shell--duel-active .chronicle-playmat .chronicle-zone.inspectable:focus-visible {
   z-index: 8;
   border-color: rgba(150, 218, 233, 0.85);
   filter: brightness(1.16) saturate(1.08);
   transform: translateY(-3px) scale(1.025);
   box-shadow: 0 10px 24px rgba(0,0,0,0.52), 0 0 18px rgba(85, 183, 207, 0.22);
+}
+@media (hover: hover) {
+  .chronicle-shell--duel-active .chronicle-playmat .chronicle-zone.inspectable:hover:not(:disabled) {
+    z-index: 8;
+    border-color: rgba(150, 218, 233, 0.85);
+    filter: brightness(1.16) saturate(1.08);
+    transform: translateY(-3px) scale(1.025);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.52), 0 0 18px rgba(85, 183, 207, 0.22);
+  }
 }
 .chronicle-shell--duel-active .chronicle-field-divider {
   grid-template-columns: minmax(210px, 0.75fr) minmax(240px, 1.25fr);
@@ -4604,8 +4658,10 @@ button.chronicle-card {
   filter: drop-shadow(0 7px 6px rgba(0, 0, 0, 0.66));
   transition: transform 180ms cubic-bezier(0.2, 0.9, 0.25, 1), filter 180ms ease;
 }
-.chronicle-shell--duel-active .chronicle-hand .chronicle-card:hover:not(:disabled):not(.selected) {
-  filter: brightness(1.1) saturate(1.07) drop-shadow(0 12px 8px rgba(0, 0, 0, 0.72));
+@media (hover: hover) {
+  .chronicle-shell--duel-active .chronicle-hand .chronicle-card:hover:not(:disabled):not(.selected) {
+    filter: brightness(1.1) saturate(1.07) drop-shadow(0 12px 8px rgba(0, 0, 0, 0.72));
+  }
 }
 .chronicle-shell--duel-active .chronicle-command-context {
   border-left-color: #e0b66a;
@@ -4625,7 +4681,6 @@ button.chronicle-card {
     0 6px 18px rgba(0, 0, 0, 0.34),
     0 0 16px rgba(210, 151, 52, 0.08);
 }
-.chronicle-shell--duel-active .chronicle-command-dock button.primary:hover:not(:disabled),
 .chronicle-shell--duel-active .chronicle-command-dock button.primary:focus-visible {
   border-color: #ffd98a;
   filter: brightness(1.1);
@@ -4634,6 +4689,17 @@ button.chronicle-card {
     inset 0 1px rgba(255, 247, 215, 0.3),
     0 8px 22px rgba(0, 0, 0, 0.42),
     0 0 20px rgba(232, 180, 81, 0.2);
+}
+@media (hover: hover) {
+  .chronicle-shell--duel-active .chronicle-command-dock button.primary:hover:not(:disabled) {
+    border-color: #ffd98a;
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+    box-shadow:
+      inset 0 1px rgba(255, 247, 215, 0.3),
+      0 8px 22px rgba(0, 0, 0, 0.42),
+      0 0 20px rgba(232, 180, 81, 0.2);
+  }
 }
 .chronicle-shell--duel-active .chronicle-command-dock button:active:not(:disabled) {
   transform: translateY(1px);
@@ -5103,11 +5169,13 @@ button.chronicle-card {
   .chronicle-shell--duel-active .chronicle-health-meter::after {
     transition: none !important;
   }
-  .chronicle-shell--duel-active .chronicle-room-banner__actions button:hover,
-  .chronicle-shell--duel-active .chronicle-utility-trigger:hover,
-  .chronicle-shell--duel-active .chronicle-command-dock button:hover,
-  .chronicle-shell--duel-active .chronicle-playmat .chronicle-zone.inspectable:hover:not(:disabled) {
-    transform: none;
+  @media (hover: hover) {
+    .chronicle-shell--duel-active .chronicle-room-banner__actions button:hover,
+    .chronicle-shell--duel-active .chronicle-utility-trigger:hover,
+    .chronicle-shell--duel-active .chronicle-command-dock button:hover,
+    .chronicle-shell--duel-active .chronicle-playmat .chronicle-zone.inspectable:hover:not(:disabled) {
+      transform: none;
+    }
   }
 }
 
