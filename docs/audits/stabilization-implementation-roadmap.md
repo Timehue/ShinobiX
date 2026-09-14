@@ -227,8 +227,10 @@ data seeding), existing route-parity test.
 
 ## P1 / P2 packages (summary)
 
-- **P1-1 Concurrency consolidation:** fix lock-order inconsistency (F1: make
-  `clan/kick`/`clan/exchange/purchase` sort like `treasury/transfer`), add a
+- **P1-1 Concurrency consolidation:** fix lock-order inconsistency (F1 — done
+  2026-09-14 the other way round: the cross-key transfer now takes the clan
+  row first like kick/exchange/donate/leave/dissolve, pinned by
+  `api/clan/_lock-order.test.ts`; see the audit's follow-up note), add a
   lock-order lint/test, decide fencing strategy for >5s operations, add
   `failClosed` to `battle/lock.ts` defeat write. Depends on P0-1/P0-2 only
   loosely; can run in parallel.
