@@ -30,7 +30,7 @@ import { recordEconomyTxn } from '../../_economy.js';
  * Body (item):     { clanName, recipientName, itemId }
  */
 
-import { chargeOutboundBudget, checkOutboundBudget, senderTrustTier } from '../../player/_transfer-budget.js';
+import { chargeOutboundBudget, checkOutboundBudget, senderTrustTierBySlug, withOutboundBudgetGate } from '../../player/_transfer-budget.js';
 import { isTradeCurrency } from '../../player/_trade-core.js';
 const AUDIT_LOG_PREFIX = 'audit:clan-treasury:';
 
@@ -133,26 +133,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (amount < 1) return res.status(400).json({ error: 'amount must be ≥ 1.' });
             const cap = MAX_GIFT_PER_CALL[currency as TransferCurrency];
             if (amount > cap) return res.status(400).json({ error: `amount exceeds per-call cap of ${cap}.` });
-            // The treasury gift is a second door to the same place as a direct
-            // trade — currency landing in one named player's save — so it shares
-            // the sender's rolling 24h budget (MMORPG behavior audit F8). Capping
-            // only /api/player/trade would have constrained an ordinary player
-            // giving a friend 1M ryo a day while leaving this path, which is also
-            // reachable by contribution-derived Officers, at 30 calls/minute.
-            // Charged to the AUTHORISING OFFICER, not the clan: the budget exists
-            // to bound what one account can push out, whatever pocket it comes
-            // from. `mythicSeals` is outside TRADE_CURRENCIES and stays uncapped
-            // here, exactly as it is untradeable there.
-            if (!isAdmin && isTradeCurrency(currency)) {
-                const actorRec = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
-                const actorChar = (actorRec?.character ?? null) as Record<string, unknown> | null;
-                const tier = await senderTrustTier(identity.name, actorChar);
-                const budget = await checkOutboundBudget(identity.name, currency, amount, tier);
-                if (!budget.ok) {
-                    return res.status(429).json({ error: budget.error, reason: 'transfer-budget', remaining: budget.remaining, limit: budget.limit });
-                }
-            }
         }
+        // The treasury gift is a second door to the same place as a direct
+        // trade — currency landing in one named player's save — so it shares
+        // the sender's rolling 24h budget (MMORPG behavior audit F8). Capping
+        // only /api/player/trade would have constrained an ordinary player
+        // giving a friend 1M ryo a day while leaving this path, which is also
+        // reachable by contribution-derived Officers, at 30 calls/minute.
+        // Charged to the AUTHORISING OFFICER, not the clan: the budget exists
+        // to bound what one account can push out, whatever pocket it comes
+        // from. `mythicSeals` is outside TRADE_CURRENCIES and stays uncapped
+        // here, exactly as it is untradeable there.
+        //
+        // Only the tier is resolved out here. The budget is CHECKED inside the
+        // settlement (validateRecipient) and CHARGED after it commits, with the
+        // officer's budget gate held across both — see withOutboundBudgetGate.
+        const outbound = !isAdmin && isCurrency && isTradeCurrency(currency)
+            ? { sender: identity.name, currency, tier: await senderTrustTierBySlug(identity.name) }
+            : null;
 
         const clanKey = clanRecordKey(clanName);     // save:clan-<slug>
         const recipientKey = `save:${recipientName}`;
@@ -166,7 +164,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ? body.requestId.trim()
             : settlementFingerprint({ clanName: safeName(clanName), recipientName, currency: currency ?? '', itemId: itemId ?? '', amount });
         const fingerprint = settlementFingerprint({ operation: 'clan-treasury-transfer', clanName: safeName(clanName), recipientName, currency: currency ?? '', itemId: itemId ?? '', amount });
-        const transfer = await settleCrossKeyTransfer<ClanRecord>({
+        const settle = () => settleCrossKeyTransfer<ClanRecord>({
             operationType: 'clan-treasury-transfer',
             idempotencyKey: requestId,
             fingerprint,
@@ -253,6 +251,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         }
                     } catch (err) { if (err instanceof SettlementValidationError) throw err; }
                 }
+                // The officer's rolling budget, checked LAST so every other
+                // refusal wins, and checked HERE because this is the last refusal
+                // point before the debit. It used to run before the settlement,
+                // unlocked, so a burst of simultaneous gifts all read the same
+                // ledger before any of them charged and all passed. What
+                // serialises them is the gate the caller holds around this whole
+                // settlement and its charge. A throw here cancels cleanly, so a
+                // refused gift moves nothing and charges nothing.
+                //
+                // Like every check in this hook, it is skipped when a crashed
+                // attempt RESUMES: that gift was already checked and debited, and
+                // refusing it now would strand the debit (see the saga).
+                if (outbound) {
+                    const budget = await checkOutboundBudget(outbound.sender, outbound.currency, amount, outbound.tier);
+                    if (!budget.ok) {
+                        throw new SettlementValidationError(429, budget.error, { reason: 'transfer-budget', remaining: budget.remaining, limit: budget.limit });
+                    }
+                }
             },
             creditRecipient: (character) => {
                 if (isCurrency) {
@@ -274,15 +290,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             },
             saveRecipient: async (record, character) => (await writeVersionedPlayerSave(recipientKey, record, character)).record,
         });
-        // Charge the authorising officer's rolling window only once the transfer
-        // has actually committed, so a refusal never eats budget — and only when
-        // it MOVED something. A replay returns the stored result without touching
-        // either row; billing it would charge the officer for a gift that sent
-        // nothing, and with no requestId from the client a repeat gift of the
-        // same amount to the same member resolves as exactly that.
-        if (!isAdmin && isCurrency && isTradeCurrency(currency) && !transfer.replayed) {
-            await chargeOutboundBudget(identity.name, currency, amount, Date.now());
-        }
+        // The gate is held from before the check inside the settlement until
+        // after the charge, so the officer's next gift cannot read the ledger
+        // until this one is on it. The charge still comes only once the
+        // transfer has committed, so a refusal never eats budget, and only when
+        // it MOVED something. A replay returns the stored result without
+        // touching either row; billing it would charge the officer for a gift
+        // that sent nothing, and with no requestId from the client a repeat gift
+        // of the same amount to the same member resolves as exactly that.
+        const transfer = outbound
+            ? await withOutboundBudgetGate(outbound.sender, outbound.currency, async () => {
+                const settled = await settle();
+                if (!settled.replayed) await chargeOutboundBudget(outbound.sender, outbound.currency, amount, Date.now());
+                return settled;
+            })
+            : await settle();
         await kv.set(`${AUDIT_LOG_PREFIX}${safeName(clanName)}:${Date.now()}`, {
             ts: Date.now(),
             actor: actorName ?? 'admin',
@@ -307,7 +329,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ ok: true, ...transfer.result });
     } catch (err) {
         if (err instanceof SettlementValidationError) {
-            return res.status(err.status).json({ error: err.message });
+            return res.status(err.status).json({ ...err.details, error: err.message });
         }
         console.error('[clan/treasury-transfer]', err);
         return res.status(500).json({ error: 'Internal server error.' });
