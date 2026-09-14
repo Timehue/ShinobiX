@@ -6,17 +6,23 @@
 .vwm-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .vwm-header h1 { font-family: var(--font-display, inherit); margin: 0.4rem 0; }
 .vwm-back { background: transparent; border: 1px solid rgba(255, 255, 255, 0.2); color: inherit; border-radius: 8px; padding: 0.35rem 0.8rem; cursor: pointer; }
-.vwm-back:hover { background: rgba(255, 255, 255, 0.08); }
+@media (hover: hover) {
+    .vwm-back:hover { background: rgba(255, 255, 255, 0.08); }
+}
 /* A refusal STICKS until the player acts again or dismisses it — the 15s poll
    must never wipe an unread one, so it needs its own visible dismiss control. */
 .vwm-error { color: var(--red-400); font-weight: 600; display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
 .vwm-error-dismiss { background: transparent; border: 1px solid rgba(248, 113, 113, 0.45); color: inherit; border-radius: 999px; padding: 0.2rem 0.7rem; font: inherit; font-size: 0.76rem; font-weight: 600; cursor: pointer; }
-.vwm-error-dismiss:hover { background: rgba(248, 113, 113, 0.14); }
+@media (hover: hover) {
+    .vwm-error-dismiss:hover { background: rgba(248, 113, 113, 0.14); }
+}
 
 /* "How Sector War works" — a collapsible primer at the top of the map. */
 .vwm-info { margin: 0.55rem 0 0.9rem; border: 1px solid rgba(243, 194, 89, 0.28); border-radius: 12px; background: linear-gradient(180deg, rgba(30, 41, 59, 0.5), rgba(15, 23, 42, 0.5)); overflow: hidden; }
 .vwm-info-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; background: transparent; border: 0; color: inherit; cursor: pointer; padding: 0.62rem 0.9rem; font: inherit; font-weight: 600; }
-.vwm-info-head:hover { background: rgba(255, 255, 255, 0.04); }
+@media (hover: hover) {
+    .vwm-info-head:hover { background: rgba(255, 255, 255, 0.04); }
+}
 .vwm-info-head > span:first-child { display: flex; align-items: center; gap: 0.5rem; color: #f3c259; }
 .vwm-info-head img { height: 20px; width: 20px; border-radius: 5px; }
 .vwm-info-chevron { font-size: 0.76rem; opacity: 0.72; letter-spacing: 0.03em; white-space: nowrap; }
@@ -75,15 +81,19 @@
     cursor: pointer;
     transition: background 0.14s ease, border-color 0.14s ease;
 }
-.vwm-feed-toggle:hover:not(:disabled) { background: rgba(255, 255, 255, 0.11); border-color: rgba(255, 255, 255, 0.36); }
+@media (hover: hover) {
+    .vwm-feed-toggle:hover:not(:disabled) { background: rgba(255, 255, 255, 0.11); border-color: rgba(255, 255, 255, 0.36); }
+}
 .vwm-feed-toggle:disabled { opacity: 0.5; cursor: default; }
 /* Feeding ON reads as a held state, not a call to action. */
 .vwm-feed-toggle[aria-pressed="true"] { border-style: solid; border-color: rgba(134, 239, 172, 0.42); color: var(--green-300); background: rgba(134, 239, 172, 0.09); }
 .vwm-structures { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.6rem; }
 .vwm-structures button,
 .vwm-declare { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.18); color: inherit; border-radius: 8px; padding: 0.3rem 0.6rem; cursor: pointer; font-size: 0.85rem; }
-.vwm-structures button:hover:not(:disabled),
-.vwm-declare:hover:not(:disabled) { background: rgba(255, 255, 255, 0.14); }
+@media (hover: hover) {
+    .vwm-structures button:hover:not(:disabled),
+    .vwm-declare:hover:not(:disabled) { background: rgba(255, 255, 255, 0.14); }
+}
 .vwm-structures button:disabled,
 .vwm-declare:disabled { opacity: 0.5; cursor: default; }
 
@@ -113,7 +123,9 @@
 .vwm-merc-portrait { width: 100%; max-width: 120px; aspect-ratio: 1; object-fit: cover; border-radius: 8px; margin: 0 auto 0.35rem; display: block; }
 .vwm-merc-name { font-weight: 600; text-transform: capitalize; font-size: 0.85rem; margin-bottom: 0.35rem; }
 .vwm-merc-tier > button { width: 100%; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2); color: inherit; border-radius: 7px; padding: 0.3rem; cursor: pointer; font-size: 0.8rem; }
-.vwm-merc-tier > button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.16); }
+@media (hover: hover) {
+    .vwm-merc-tier > button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.16); }
+}
 .vwm-merc-tier > button:disabled { opacity: 0.5; cursor: default; }
 .vwm-merc-band { font-size: 0.78rem; opacity: 0.9; margin: 0.35rem 0 0.2rem; color: #fbbf24; }
 .vwm-merc-deploy { display: flex; flex-direction: column; gap: 0.25rem; margin-top: 0.3rem; }
@@ -133,7 +145,9 @@
     border-color: rgba(96, 165, 250, 0.4);
     font-weight: 600;
 }
-.vwm-declare:hover:not(:disabled) { background: linear-gradient(180deg, rgba(96, 165, 250, 0.34), rgba(30, 58, 95, 0.42)); }
+@media (hover: hover) {
+    .vwm-declare:hover:not(:disabled) { background: linear-gradient(180deg, rgba(96, 165, 250, 0.34), rgba(30, 58, 95, 0.42)); }
+}
 
 @media (max-width: 800px) {
   /* 120px could not hold a Fed/Unfed chip, a "marches hungry" line and a

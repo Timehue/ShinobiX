@@ -962,11 +962,17 @@
     cursor: pointer;
 }
 
-.tower-roster-actor-button:hover,
 .tower-roster-actor-button:focus-visible {
     border-color: #a78bfa !important;
     outline: 2px solid rgba(167, 139, 250, 0.4);
     outline-offset: 1px;
+}
+@media (hover: hover) {
+    .tower-roster-actor-button:hover {
+        border-color: #a78bfa !important;
+        outline: 2px solid rgba(167, 139, 250, 0.4);
+        outline-offset: 1px;
+    }
 }
 
 .tower-roster-intel {

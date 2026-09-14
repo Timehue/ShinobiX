@@ -441,9 +441,11 @@ button {
     cursor: pointer;
 }
 
-    .technique-reorder-btn:hover:not(:disabled) {
-        border-color: var(--gold);
-        background: var(--slate-900);
+    @media (hover: hover) {
+        .technique-reorder-btn:hover:not(:disabled) {
+            border-color: var(--gold);
+            background: var(--slate-900);
+        }
     }
 
     .technique-reorder-btn:disabled {
@@ -760,8 +762,10 @@ button {
     transition: background 0.15s;
 }
 
-    .stat-add-btn:hover:not(:disabled) {
-        background: rgba(56, 189, 248, 0.35);
+    @media (hover: hover) {
+        .stat-add-btn:hover:not(:disabled) {
+            background: rgba(56, 189, 248, 0.35);
+        }
     }
 
     .stat-add-btn:disabled {

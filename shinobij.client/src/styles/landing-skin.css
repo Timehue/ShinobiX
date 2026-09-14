@@ -185,9 +185,11 @@
     transition: filter 0.15s, transform 0.15s;
 }
 
-.landing-brand:hover {
-    filter: brightness(1.08);
-    box-shadow: none;
+@media (hover: hover) {
+    .landing-brand:hover {
+        filter: brightness(1.08);
+        box-shadow: none;
+    }
 }
 
 .landing-logo {
@@ -276,11 +278,13 @@
     white-space: nowrap;
 }
 
-.landing-navlink:hover {
-    color: #fff7d6;
-    box-shadow: none;
-    filter: none;
-    transform: none;
+@media (hover: hover) {
+    .landing-navlink:hover {
+        color: #fff7d6;
+        box-shadow: none;
+        filter: none;
+        transform: none;
+    }
 }
 
 /* ── Hero ───────────────────────────────────────────────────────────────── */
@@ -399,10 +403,12 @@
     box-shadow: 0 10px 30px rgba(120, 53, 15, 0.5), inset 0 0 0 1px rgba(250, 204, 21, 0.15), 0 0 24px rgba(250, 204, 21, 0.12);
 }
 
-.landing-cta--primary:hover {
-    filter: brightness(1.09);
-    transform: translateY(-2px);
-    box-shadow: 0 14px 40px rgba(120, 53, 15, 0.6), inset 0 0 0 1px rgba(250, 204, 21, 0.28), 0 0 34px rgba(250, 204, 21, 0.26);
+@media (hover: hover) {
+    .landing-cta--primary:hover {
+        filter: brightness(1.09);
+        transform: translateY(-2px);
+        box-shadow: 0 14px 40px rgba(120, 53, 15, 0.6), inset 0 0 0 1px rgba(250, 204, 21, 0.28), 0 0 34px rgba(250, 204, 21, 0.26);
+    }
 }
 
 .landing-cta--primary:active {
@@ -416,10 +422,12 @@
     backdrop-filter: blur(3px);
 }
 
-.landing-cta--ghost:hover {
-    color: #fff7d6;
-    border-color: rgba(250, 204, 21, 0.85);
-    transform: translateY(-2px);
+@media (hover: hover) {
+    .landing-cta--ghost:hover {
+        color: #fff7d6;
+        border-color: rgba(250, 204, 21, 0.85);
+        transform: translateY(-2px);
+    }
 }
 
 /* ── Auth panel (extends .start-card) ───────────────────────────────────── */
@@ -575,10 +583,12 @@
     transition: border-color 0.15s, color 0.15s, filter 0.15s;
 }
 
-.landing-auth-secondary:hover {
-    color: #fff7d6;
-    border-color: rgba(250, 204, 21, 0.72);
-    filter: brightness(1.05);
+@media (hover: hover) {
+    .landing-auth-secondary:hover {
+        color: #fff7d6;
+        border-color: rgba(250, 204, 21, 0.72);
+        filter: brightness(1.05);
+    }
 }
 
 .landing-auth-notice {
@@ -612,16 +622,22 @@
     transition: opacity 0.15s, color 0.15s, filter 0.15s;
 }
 
-.landing-scroll-cue:hover,
 .landing-scroll-cue:focus-visible,
 .landing-scroll-cue:active {
     transform: translateX(-50%) !important;
 }
+@media (hover: hover) {
+    .landing-scroll-cue:hover {
+        transform: translateX(-50%) !important;
+    }
+}
 
-.landing-scroll-cue:hover {
-    opacity: 1;
-    color: var(--gold-300);
-    filter: brightness(1.12);
+@media (hover: hover) {
+    .landing-scroll-cue:hover {
+        opacity: 1;
+        color: var(--gold-300);
+        filter: brightness(1.12);
+    }
 }
 
 .landing-scroll-arrow {
@@ -1077,9 +1093,11 @@
     transition: color 0.15s;
 }
 
-.landing-footer-links a:hover,
-.landing-footer-links button:hover {
-    color: var(--gold-300);
+@media (hover: hover) {
+    .landing-footer-links a:hover,
+    .landing-footer-links button:hover {
+        color: var(--gold-300);
+    }
 }
 
 .landing-footer-legal {
@@ -1446,16 +1464,20 @@
     .landing-topnav .landing-navlink:nth-last-child(-n + 2) {
         grid-column: span 3;
     }
-    .landing-topnav .landing-navlink:hover {
-        color: #fff7d6;
-        border-color: rgba(250, 204, 21, 0.52);
-        background: linear-gradient(180deg, rgba(250, 204, 21, 0.12), rgba(6, 9, 18, 0.5));
-        box-shadow: inset 0 1px 0 rgba(255, 247, 214, 0.08), 0 4px 12px rgba(0, 0, 0, 0.26);
+    @media (hover: hover) {
+        .landing-topnav .landing-navlink:hover {
+            color: #fff7d6;
+            border-color: rgba(250, 204, 21, 0.52);
+            background: linear-gradient(180deg, rgba(250, 204, 21, 0.12), rgba(6, 9, 18, 0.5));
+            box-shadow: inset 0 1px 0 rgba(255, 247, 214, 0.08), 0 4px 12px rgba(0, 0, 0, 0.26);
+        }
     }
-    .landing-topnav .landing-cta--primary:hover:not(:disabled) {
-        color: #1a1005;
-        border-color: rgba(246, 213, 142, 0.82);
-        background: linear-gradient(135deg, #f1d487, #c98b3d);
+    @media (hover: hover) {
+        .landing-topnav .landing-cta--primary:hover:not(:disabled) {
+            color: #1a1005;
+            border-color: rgba(246, 213, 142, 0.82);
+            background: linear-gradient(135deg, #f1d487, #c98b3d);
+        }
     }
 }
 
@@ -1842,10 +1864,12 @@
     transition: border-color 0.15s, filter 0.15s, transform 0.15s;
 }
 
-.login-gate .gate-account-chip:hover:not(:disabled) {
-    border-color: rgba(250, 204, 21, 0.78);
-    filter: brightness(1.08);
-    transform: translateY(-1px);
+@media (hover: hover) {
+    .login-gate .gate-account-chip:hover:not(:disabled) {
+        border-color: rgba(250, 204, 21, 0.78);
+        filter: brightness(1.08);
+        transform: translateY(-1px);
+    }
 }
 
 .login-gate .gate-account-chip:disabled {
@@ -1951,9 +1975,11 @@
     transition: filter 0.15s, box-shadow 0.15s;
 }
 
-.login-gate .gate-google-btn:hover:not(:disabled) {
-    filter: brightness(0.96);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+@media (hover: hover) {
+    .login-gate .gate-google-btn:hover:not(:disabled) {
+        filter: brightness(0.96);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
 }
 
 .login-gate .gate-google-btn:disabled {
@@ -1985,9 +2011,11 @@
     transition: border-color 0.15s, color 0.15s;
 }
 
-.login-gate .gate-guest-btn:hover:not(:disabled) {
-    color: #fff7d6;
-    border-color: rgba(250, 204, 21, 0.68);
+@media (hover: hover) {
+    .login-gate .gate-guest-btn:hover:not(:disabled) {
+        color: #fff7d6;
+        border-color: rgba(250, 204, 21, 0.68);
+    }
 }
 
 .login-gate .gate-guest-btn:disabled {

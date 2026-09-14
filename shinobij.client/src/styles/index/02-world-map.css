@@ -562,12 +562,16 @@ html.wm-zoom .world-map-scroll .world-poi-smoke {
         display: none;   /* hide both the 'HG' icon text and the 'Hollow Gate' label */
     }
 
-    .atlas-hollowGate:hover {
-        filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.75)) drop-shadow(0 2px 4px rgba(0,0,0,0.6));
+    @media (hover: hover) {
+        .atlas-hollowGate:hover {
+            filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.75)) drop-shadow(0 2px 4px rgba(0,0,0,0.6));
+        }
     }
 
-.atlas-landmark:hover {
-    transform: translate(-50%, -50%) scale(1.06);
+@media (hover: hover) {
+    .atlas-landmark:hover {
+        transform: translate(-50%, -50%) scale(1.06);
+    }
 }
 
 /* Map-instance layout is owned by layout/adaptive-stages.css. */

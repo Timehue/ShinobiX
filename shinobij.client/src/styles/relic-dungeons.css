@@ -62,12 +62,19 @@
     transition: color 150ms ease, border-color 150ms ease, transform 150ms ease;
 }
 
-.relic-dungeon-leave:hover,
 .relic-dungeon-leave:focus-visible {
     color: rgb(var(--relic-rgb));
     border-color: rgba(var(--relic-rgb), 0.7);
     outline: none;
     transform: translateX(-2px);
+}
+@media (hover: hover) {
+    .relic-dungeon-leave:hover {
+        color: rgb(var(--relic-rgb));
+        border-color: rgba(var(--relic-rgb), 0.7);
+        outline: none;
+        transform: translateX(-2px);
+    }
 }
 
 .relic-dungeon-identity {

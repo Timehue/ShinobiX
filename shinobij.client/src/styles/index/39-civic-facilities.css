@@ -314,9 +314,11 @@
     color: #e1e9f0;
 }
 
-.app-shell:not(.screen-start) .civic-facility-screen :is(.facility-primary-action, .facility-secondary-action):hover:not(:disabled) {
-    filter: brightness(1.12);
-    transform: translateY(-1px);
+@media (hover: hover) {
+    .app-shell:not(.screen-start) .civic-facility-screen :is(.facility-primary-action, .facility-secondary-action):hover:not(:disabled) {
+        filter: brightness(1.12);
+        transform: translateY(-1px);
+    }
 }
 
 .facility-fine-print {
