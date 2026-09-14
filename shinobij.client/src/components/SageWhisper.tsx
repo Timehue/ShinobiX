@@ -23,11 +23,12 @@ export function SageWhisper({ text, kicker = "A whisper on the road", onClose }:
 
     return createPortal(
         <div
+            className="sage-whisper"
             role="status"
             onClick={onClose}
             style={{
-                position: "fixed", left: "50%", bottom: 24, transform: "translateX(-50%)",
-                zIndex: 3000, maxWidth: "min(440px, calc(100vw - 28px))",
+                position: "fixed", left: "50%", transform: "translateX(-50%)",
+                zIndex: 3000, width: "min(440px, calc(100vw - 28px))", boxSizing: "border-box",
                 display: "flex", gap: 12, alignItems: "center", cursor: "pointer",
                 padding: "12px 16px", borderRadius: 14,
                 background: "linear-gradient(160deg, rgba(30,20,60,.96), rgba(2,6,23,.96))",
@@ -49,7 +50,14 @@ export function SageWhisper({ text, kicker = "A whisper on the road", onClose }:
                     “{text}”
                 </div>
             </div>
-            <style>{`@keyframes sage-whisper-in { from { opacity: 0; transform: translateX(-50%) translateY(14px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }`}</style>
+            <style>{`
+                .sage-whisper { bottom: 24px; }
+                @media (max-width: 979px) {
+                    /* Clear the 44px context tip and its 8px gaps above navigation. */
+                    .sage-whisper { bottom: calc(var(--mobile-aaa-nav-height, 72px) + env(safe-area-inset-bottom, 0px) + 60px); }
+                }
+                @keyframes sage-whisper-in { from { opacity: 0; transform: translateX(-50%) translateY(14px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+            `}</style>
         </div>,
         document.body,
     );

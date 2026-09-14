@@ -15,14 +15,16 @@
  */
 import { type CSSProperties, useEffect, useLayoutEffect, useRef } from "react";
 import type { Biome } from "../types/core";
+import { SECTOR_BOSS_SCALE, SECTOR_MARKER_ANCHOR, SECTOR_RING_AI, sectorMarkerBox } from "../lib/sector-marker";
 
 const GRID_W = 12;
 const GRID_H = 12;
 const PAD = 8;
 const GAP = 1;
-const FIGURE_W = 0.9;           // looms larger than a wanderer (0.52) or the player
-const FIGURE_H = 1.2;
-const BASE_ANCHOR = 100;        // pin tip lands on the tile centre
+// The boss is the ONE figure allowed to be bigger than everyone else, and it is
+// bigger by an explicit multiple of the shared marker size rather than by its own
+// magic numbers — so it keeps looming no matter what the base size becomes.
+const BASE_ANCHOR = SECTOR_MARKER_ANCHOR;
 const WALK_TILES_PER_SEC = 4.4; // a heavy, deliberate stalk
 const ENGAGE_TILES = 0.9;       // "it's upon you" distance → open the Stand/Flee prompt
 const ARM_DELAY_MS = 1400;      // a beat after you enter before it lunges
@@ -105,9 +107,9 @@ export function SectorWeeklyBossActor({
             };
             const fig = figRef.current;
             if (fig) {
-                const t = Math.max(0, tileSizePx());
-                fig.style.width = `${t * FIGURE_W}px`;
-                fig.style.height = `${t * FIGURE_H}px`;
+                const box = sectorMarkerBox(tileSizePx(), SECTOR_BOSS_SCALE);
+                fig.style.width = `${box.w}px`;
+                fig.style.height = `${box.h}px`;
             }
             paint();
         });
@@ -175,7 +177,7 @@ export function SectorWeeklyBossActor({
                 tabIndex={-1}
                 title={`${name} — the Weekly Boss is bearing down on you`}
                 onClick={() => onEngageRef.current()}
-                style={{ filter: "drop-shadow(0 0 10px rgba(236,91,56,.85))" } as CSSProperties}
+                style={{ filter: "drop-shadow(0 0 10px rgba(236,91,56,.85))", ["--marker-ring"]: SECTOR_RING_AI } as CSSProperties}
             >
                 <span className="sector-avatar-shadow" />
                 <span className="sector-avatar-aura" style={{ ["--aura"]: AURA[biome] } as CSSProperties} />

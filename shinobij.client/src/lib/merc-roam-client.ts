@@ -11,6 +11,7 @@
  * imports .webp portraits, which break outside Vite).
  */
 import type { Wanderer } from "./wanderers";
+import type { SectorWarContestView } from "./sector-war-engagement";
 
 export interface RoamingMercView {
     id: string;            // merc-<villageSlug>-<tierId>-<index>
@@ -34,15 +35,34 @@ export interface MercEngageResult {
 
 // ── fetch wrappers (auth rides the globally-patched window.fetch, like the rest
 //    of the war-map). roster is read-only; engage is server-authoritative. ──
-export async function fetchMercRoster(playerName: string, village: string, sector: number): Promise<RoamingMercView[]> {
+export interface SectorRosterView {
+    mercs: RoamingMercView[];
+    /** The sector war running here, if any — what decides whether an attack opens
+     *  a shinobi fight, a card duel or a pet duel (lib/sector-war-engagement.ts). */
+    contest: SectorWarContestView | null;
+}
+
+/** The one poll the World Map already runs per selected sector. It now answers
+ *  both halves of "what is happening in this sector": the hostile merc bands and
+ *  the active contest. Never throws — an empty roster is the safe render. */
+export async function fetchSectorRoster(playerName: string, village: string, sector: number): Promise<SectorRosterView> {
     const r = await fetch("/api/sector/merc-roam", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "roster", playerName, village, sector }),
     });
-    if (!r.ok) return [];
-    const data = (await r.json().catch(() => ({}))) as { mercs?: RoamingMercView[] };
-    return Array.isArray(data.mercs) ? data.mercs : [];
+    if (!r.ok) return { mercs: [], contest: null };
+    const data = (await r.json().catch(() => ({}))) as { mercs?: RoamingMercView[]; contest?: SectorWarContestView | null };
+    return {
+        mercs: Array.isArray(data.mercs) ? data.mercs : [],
+        contest: data.contest && typeof data.contest === "object" ? data.contest : null,
+    };
+}
+
+/** Kept as the original roster-only signature for callers that don't need the
+ *  contest. Same request; the wrapper just drops the second half. */
+export async function fetchMercRoster(playerName: string, village: string, sector: number): Promise<RoamingMercView[]> {
+    return (await fetchSectorRoster(playerName, village, sector)).mercs;
 }
 
 /** Resolve an encounter with a roaming merc SERVER-SIDE. Never throws on a normal

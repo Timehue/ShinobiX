@@ -1,3 +1,4 @@
+import { inventoryGrowthBlock } from '../../_inventory-capacity.js';
 import { safeLogValue } from '../../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { kv } from '../../_storage.js';
@@ -46,6 +47,10 @@ async function commitPlayerPurchase(args: {
         if (!result.ok) {
             return { ok: false as const, status: FAILURE_STATUS[result.code] ?? 400, error: result.error };
         }
+        // A purchase, so it refuses hard — and before the write below, so the
+        // clan points and the purchase latch are both untouched on refusal.
+        const grew = inventoryGrowthBlock(character, result.character);
+        if (grew) return { ok: false as const, status: grew.status, error: grew.error };
 
         const nextRecord = bumpSaveVersion({ ...playerRec, character: result.character });
         await kv.set(

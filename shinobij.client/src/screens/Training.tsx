@@ -1,3 +1,5 @@
+import { playerLensDiscipline } from "../lib/player-lens-discipline";
+import { getAllJutsus } from "../lib/jutsu-loadout";
 /**
  * Training screens — stat training (Training), jutsu seal/paid training
  * (JutsuSealPanel, JutsuTrainingHall) and the previewSealCost helper.
@@ -26,10 +28,11 @@ import {
 } from "../components/icons/LightweightGameIcons";
 import { getJutsuMastery, jutsuXpNeeded, scaleJutsuByLevel, jutsuResourceDisplay } from "../lib/jutsu-scaling";
 import { jutsuRyoTrainCap } from "../lib/jutsu-training-queue";
-import { describeJutsuEffects, jutsuDisplayAtLevel, jutsuTargetingLabel } from "../lib/jutsu-effects";
+import { describeJutsuEffects, jutsuDetailDescription, jutsuDisplayAtLevel, jutsuTargetingLabel } from "../lib/jutsu-effects";
 import { getJutsuTrainingSpeedBonus, getTrainingXpBonus } from "../lib/village-upgrades";
 import { formatStatName, earnedStatPoints, levelForEarned } from "../lib/stats";
-import { canEquipElementJutsu } from "../lib/bloodline";
+import { canEquipElementJutsu, getCharacterBloodlines } from "../lib/bloodline";
+import { bloodlineNamesByJutsuId, hasBloodlineMarker } from "../lib/bloodline-marker";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { getCharacterElements } from "../lib/elements";
 import { useVillageWarMorale } from "../lib/war-debuff";
@@ -38,7 +41,7 @@ import { mutateJutsuRyoTraining } from "../lib/jutsu-ryo-api";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
 import { JUTSU_TRAINING_CAP } from "../constants/game";
-import { getAllJutsus, playerLensDiscipline } from "../App";
+
 import { TRAINING_TIERS, trainingStatGain, rookieStatMultiplier } from "../lib/training-config";
 import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { Jutsu, JutsuMastery, Stats, SavedBloodline, ActiveTraining, ActiveJutsuTraining } from "../types/combat";
@@ -55,12 +58,13 @@ function formatTrainingRemaining(ms: number): string {
 export function Training({ character, onVersionedCharacter, activeTraining, setActiveTraining, onBack }: { character: Character; onVersionedCharacter: VersionedCharacterCommit; activeTraining: ActiveTraining | null; setActiveTraining: (training: ActiveTraining | null) => void; onBack: () => void }) {
     const [selectedStat, setSelectedStat] = useState<keyof Stats>("strength");
     const [trainingBusy, setTrainingBusy] = useState(false);
+    const [trainingNotice, setTrainingNotice] = useState<string | null>(null);
     const trainingBusyRef = useRef(false);
     // Live 1s tick so the Active Training box shows a real countdown (not a static
     // end-time) and the Collect button unlocks the moment training is ready.
-    const [now, setNow] = useState(Date.now());
+    const [now, setNow] = useState(() => serverNow());
     useEffect(() => {
-        const id = setInterval(() => setNow(Date.now()), 1000);
+        const id = setInterval(() => setNow(serverNow()), 1000);
         return () => clearInterval(id);
     }, []);
     const STAT_LABELS: Record<string, { label: string; icon: React.ReactNode }> = {
@@ -100,12 +104,14 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
         if (character.stamina < timer.staminaCost) return alert("Not enough stamina.");
         trainingBusyRef.current = true;
         setTrainingBusy(true);
+        setTrainingNotice(null);
         try {
             const res = await fetch('/api/training/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, stat: selectedStat, tierId: timer.id }) });
             const data = await res.json().catch(() => ({})) as { token?: string; character?: Character; activeTraining?: ActiveTraining; _saveVersion?: number; error?: string };
             if (!res.ok || !data?.token || !data?.character || !data?.activeTraining) throw new Error(String(data?.error ?? 'Training could not be started.'));
             if (!onVersionedCharacter(data.character, data._saveVersion)) return;
             setActiveTraining(data.activeTraining as ActiveTraining);
+            setTrainingNotice(`${data.activeTraining.label} started. You can keep playing while it runs.`);
         } catch (err) {
             alert(err instanceof Error ? err.message : 'Training could not be started. Please retry.');
         } finally {
@@ -134,7 +140,7 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
             const applied = Math.max(0, Math.floor(Number(data.applied) || 0));
             const overflow = Math.max(0, Math.floor(Number(data.overflow) || 0));
             const pooled = overflow > 0 ? ` +${overflow} to your unspent pool.` : "";
-            alert(`Training cancelled. ${applied > 0 ? `+${applied} ${formatStatName(activeTraining.stat)} banked.` : "Not enough progress to bank a stat point."}${pooled}`);
+            setTrainingNotice(`Training cancelled. ${applied > 0 ? `+${applied} ${formatStatName(activeTraining.stat)} banked.` : "Not enough progress to bank a stat point."}${pooled} Stamina spent was not refunded.`);
         } catch (err) {
             alert(err instanceof Error ? err.message : 'Training could not be cancelled. Please retry.');
         } finally {
@@ -163,7 +169,7 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
             // out-earn the Academy cap, and silence reads as "my points vanished".
             const overflow = Math.max(0, Math.floor(Number(data.overflow) || 0));
             const pooled = overflow > 0 ? ` +${overflow} to your unspent pool (${formatStatName(activeTraining.stat)} is at its rank cap of ${cap}) — spend it on any stat.` : "";
-            alert(`${activeTraining.label} complete. ${applied > 0 ? `+${applied} ${formatStatName(activeTraining.stat)}.` : `${formatStatName(activeTraining.stat)} is already at your rank cap (${cap}).`}${pooled}`);
+            setTrainingNotice(`${activeTraining.label} complete. ${applied > 0 ? `+${applied} ${formatStatName(activeTraining.stat)}.` : `${formatStatName(activeTraining.stat)} is already at your rank cap (${cap}).`}${pooled}`);
         } catch (err) {
             alert(err instanceof Error ? err.message : 'Training could not be collected. Please retry.');
         } finally {
@@ -178,6 +184,7 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
             <BackToVillageButton onClick={onBack} label="← Back" />
             <h2 id="training-ground-title">Training Grounds</h2>
             <p>Stamina: {character.stamina}/{character.maxStamina} · Growth Bonus: <strong>{trainingXpBonus.toFixed(2)}%</strong></p>
+            {trainingNotice && <p className="training-feedback" role="status">{trainingNotice}</p>}
 
             <div className="training-guide-panel">
                 <strong>Training Plan</strong>
@@ -196,7 +203,9 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
                     <p>{trainingReady
                         ? <strong style={{ color: "#4ade80" }}>Ready to collect!</strong>
                         : <>Time remaining: <strong>{formatTrainingRemaining(remainingMs)}</strong> · ends {new Date(activeTraining.endsAt).toLocaleTimeString()}</>}</p>
-                    <p className="hint">Next: collect this training, then spend your new strength on an E-Rank Drill or rookie mission.</p>
+                    <p className="hint">{trainingReady
+                        ? "Collect your stat points, then start another session or return to your next activity."
+                        : "Training continues while you play or log out. Return when it is ready to collect."}</p>
                     <button onClick={completeTraining} disabled={!trainingReady || trainingBusy}>{trainingBusy ? "Settling…" : trainingReady ? "Collect Training" : "Training…"}</button>
                     <button onClick={cancelTraining} disabled={trainingBusy} style={{ marginLeft: 8 }}>Cancel (keep prorated stats)</button>
                 </div>
@@ -271,6 +280,7 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
                             <span className="tile-icon">{timer.icon}</span>
                             <span>{trainingBusy ? "Saving…" : `Start ${timer.label}`}</span>
                             <small>+{gain} {formatStatName(selectedStat)}</small>
+                            <small>{timer.staminaCost} stamina{character.stamina < timer.staminaCost ? ` · need ${timer.staminaCost - character.stamina} more` : ""}</small>
                         </button>
                     );
                 })}
@@ -464,12 +474,20 @@ export function JutsuTrainingHall({
     const allJutsus = getAllJutsus(savedBloodlines, creatorJutsus, character);
     const availableJutsus = allJutsus.filter((jutsu) => canEquipElementJutsu(character, jutsu, savedBloodlines));
     const lockedElementCount = allJutsus.length - availableJutsus.length;
+    // Jutsu id -> granting bloodline name, for the violet bloodline marker. The
+    // same rule as the Profile Jutsu tab (lib/bloodline-marker).
+    const bloodlineJutsuNames = bloodlineNamesByJutsuId(getCharacterBloodlines(character, savedBloodlines));
+    const bloodlineLabel = (jutsu: Jutsu) => {
+        if (!hasBloodlineMarker(jutsu, bloodlineJutsuNames)) return "";
+        const name = bloodlineJutsuNames.get(jutsu.id);
+        return name ? `◆ Bloodline · ${name}` : "◆ Bloodline";
+    };
     const academyJutsuStep = normalizeOnboardingStep(character.onboardingStep) === "jutsu";
     const academyUntrainedJutsuId = availableJutsus.find((jutsu) => getJutsuMastery(character, jutsu.id).level < 1)?.id ?? "";
     const [selectedJutsuId, setSelectedJutsuId] = useState(
         (academyJutsuStep ? academyUntrainedJutsuId : "") || availableJutsus[0]?.id || "",
     );
-    const [now, setNow] = useState(Date.now());
+    const [now, setNow] = useState(() => serverNow());
     const [jutsuAction, setJutsuAction] = useState<string | null>(null);
     const [jutsuNotice, setJutsuNotice] = useState<JutsuHallNotice | null>(null);
     const [mobileJutsuInfoId, setMobileJutsuInfoId] = useState<string | null>(null);
@@ -484,7 +502,7 @@ export function JutsuTrainingHall({
     const ryoTrainCap = jutsuRyoTrainCap(character.level);
 
     useEffect(() => {
-        const interval = setInterval(() => setNow(Date.now()), 1000);
+        const interval = setInterval(() => setNow(serverNow()), 1000);
         return () => clearInterval(interval);
     }, []);
 
@@ -707,10 +725,11 @@ export function JutsuTrainingHall({
         const duration = jutsuTrainingDuration(mastery.level);
         const displayJutsu = jutsuDisplayAtLevel(jutsu, mastery.level);
         const targeting = jutsuTargetingLabel(jutsu);
+        const bloodline = bloodlineLabel(jutsu);
         return (
             <div className="jutsu-detail-stack">
-                <div className="jutsu-detail-badges"><span>Lv {mastery.level}/50</span><span>{jutsu.type}</span><span>{jutsu.element}</span></div>
-                <p className="jutsu-detail-description">{jutsu.description || jutsu.battleDescription}</p>
+                <div className="jutsu-detail-badges"><span>Lv {mastery.level}/50</span><span>{jutsu.type}</span><span>{jutsu.element}</span>{bloodline && <span className="is-bloodline">{bloodline}</span>}</div>
+                <p className="jutsu-detail-description">{jutsuDetailDescription(jutsu)}</p>
                 <div className="jutsu-detail-metrics">
                     <span><small>Mastery XP</small><strong>{mastery.xp}/{mastery.level >= 50 ? "MAX" : jutsuXpNeeded(mastery.level)}</strong></span>
                     <span><small>Action points</small><strong>{jutsu.ap}</strong></span>
@@ -852,7 +871,7 @@ export function JutsuTrainingHall({
                             <div className="jutsu-plan-preview">
                                 <span className="jutsu-plan-art">{selectedJutsu.image ? <img src={selectedJutsu.image} alt="" /> : selectedJutsu.type.slice(0, 3).toUpperCase()}</span>
                                 <div>
-                                    <span>{selectedJutsu.type} · {selectedJutsu.element}</span>
+                                    <span>{selectedJutsu.type} · {selectedJutsu.element}{bloodlineLabel(selectedJutsu) && <em className="jutsu-plan-bloodline"> · {bloodlineLabel(selectedJutsu)}</em>}</span>
                                     <strong>Level {selectedMastery.level} → {Math.min(ryoTrainCap, selectedMastery.level + 1)}</strong>
                                     <small>{selectedAtCap ? "Battle-earned mastery from here" : "One complete mastery level"}</small>
                                 </div>
@@ -904,6 +923,7 @@ export function JutsuTrainingHall({
                     selectedJutsuId={selectedJutsuId}
                     highlightJutsuId={showAcademyJutsuHint && selectedMastery?.level !== 0 ? academyUntrainedJutsuId : undefined}
                     renderDetails={renderJutsuDetails}
+                    bloodlineJutsuNames={bloodlineJutsuNames}
                     onSelectJutsu={(jutsu) => {
                         setSelectedJutsuId(jutsu.id);
                         if (typeof window !== "undefined" && window.matchMedia("(max-width: 800px)").matches) {

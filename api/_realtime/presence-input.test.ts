@@ -2,12 +2,21 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
     normalizeSector,
+    normalizeTile,
     capTravelingUntil,
     slimPresenceCharacter,
     toPlayerRecord,
     MAX_TRAVEL_WINDOW_MS,
 } from './presence-input.js';
 import type { OnlinePlayer } from './types.js';
+
+test('an absent arrival tile is not converted into tile zero', () => {
+    assert.equal(normalizeTile(null), undefined);
+    assert.equal(normalizeTile(null, 17), 17);
+    assert.equal(normalizeTile(undefined), undefined);
+    assert.equal(normalizeTile(''), undefined);
+    assert.equal(normalizeTile(0), 0);
+});
 
 test('normalizeSector: floors, clamps to >=0, falls back on garbage', () => {
     assert.equal(normalizeSector(40), 40);

@@ -1,0 +1,48 @@
+BACK
+GATE
+VILLAGE
+BLOODLINE
+AVATAR
+PREVIEW
+ACCOUNT
+
+CHOOSE YOUR VILLAGE
+
+Where Your Record Begins
+
+Village choice defines your origin and story flavor. It does not add hidden stat bonuses.
+
+STORMVEIL RECORD
+Stormveil Village
+Starting home and story village
+A highland village of storm towers, wet rooftops, and border roads. Pick it if you want your story record tied to Stormveil.
+ASHEN LEAF RECORD
+Ashen Leaf Village
+Starting home and story village
+A firelit village of old groves, ash roads, and clan traditions. Pick it if you want your story record tied to Ashen Leaf.
+FROSTFANG RECORD
+Frostfang Village
+Starting home and story village
+A northern village of snow gates, stone holds, and cold ridgelines. Pick it if you want your story record tied to Frostfang.
+MOONSHADOW RECORD
+Moonshadow Village
+Starting home and story village
+A night village of lantern paths, hidden courts, and quiet roads. Pick it if you want your story record tied to Moonshadow.
+BACK
+CHOOSE BLOODLINE
+
+ACADEMY STUDENT
+
+Preview Shinobi
+VILLAGE
+Stormveil Village
+BLOODLINE
+Ashen Eyes
+COMBAT TYPE
+Genjutsu
+STARTER JUTSU
+Blood Gaze Rupture, Crimson Hallucination, Vein Mirror Nightmare
+
+Shinobi Journey stores data on your device for sign-in, preferences, and saving your progress. It uses no advertising or third-party tracking cookies. Learn more.
+
+Got it

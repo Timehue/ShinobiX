@@ -26,12 +26,18 @@
    src/styles/css-manifest.test.ts and the 2026-07-28 revert of 93bf6ea70.
    ═══════════════════════════════════════════════════════════════════════════ */
 
+/* Only the standard property, on purpose. The production minifier
+   (lightningcss) keeps a single slot for backdrop-filter and
+   -webkit-backdrop-filter, so a prefixed twin written after this declaration
+   REPLACES it and the kill ships to Safari alone. That is what happened from
+   this file's first commit until 2026-09-10: Chrome never saw the rule. The
+   build's safari17 cssTarget makes lightningcss emit the -webkit- form itself.
+   See scripts/lib/css-prefix-collapse.mjs. */
 html.lite-fx,
 html.lite-fx *,
 html.lite-fx *::before,
 html.lite-fx *::after {
     backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
 }
 
 /* ── Contrast restoration ──────────────────────────────────────────────────

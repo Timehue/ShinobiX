@@ -252,8 +252,13 @@ test("combat cards use consistent art crops and separated overlay metadata", () 
     );
     assert.match(
         battleSkinCss,
-        /#combat \.combat-jutsu-card-wrap > \.combat-jutsu-help\s*\{[^}]*position: absolute !important;[^}]*inset: 0 -3px auto auto !important;[^}]*width: 44px !important;[^}]*height: 44px !important;/s,
-        "phone Details must remain a full-size corner target without intercepting the card's cast centre",
+        /#combat \.combat-jutsu-card-wrap > \.combat-jutsu-help\s*\{[^}]*position: absolute !important;[^}]*inset: 0 auto auto -3px !important;[^}]*width: 44px !important;[^}]*height: 44px !important;/s,
+        "phone Details must remain a full-size top-left corner target without intercepting the card's cast centre",
+    );
+    assert.match(
+        battleSkinCss,
+        /#combat \.combat-action-tray \.combat-jutsu-card-wrap > \.combat-jutsu-help\s*\{[^}]*inset: 0 auto auto 0 !important;[^}]*place-items: start center !important;/s,
+        "the phone action tray's Details strip must hug the card's top-left corner, not float mid-card",
     );
     assert.match(source, /localJutsuArtById\[jutsu\.id\][\s\S]*?localItemArtById\[item\.id\]/,
         "the local equipped catalogs must restore art stripped from the sealed PvP payload");

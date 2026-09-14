@@ -14,6 +14,7 @@ const commandPanelTypes = readFileSync(new URL("../components/WorldSectorCommand
 const commandPanelSource = commandPanelBody + "\n" + commandPanelTypes;
 const overlaySource = readFileSync(new URL("../components/WorldSectorOverlayLayer.tsx", import.meta.url), "utf8");
 const dialogSource = readFileSync(new URL("../components/WorldWandererDialog.tsx", import.meta.url), "utf8");
+const storyFieldRouteBoundarySource = readFileSync(new URL("../components/StoryFieldRouteBoundary.tsx", import.meta.url), "utf8");
 
 function lineCount(source: string): number {
     return source.trimEnd().split(/\r?\n/u).length;
@@ -73,8 +74,41 @@ test("WorldMap and its selected-sector leaves keep the projection line-budget ra
         // exhaustive chest flow, no unreachable overview fallback, live charting
         // before sector markers, and the wanderer dialog still extracted. Exact
         // achieved count, no buffer, per the convention above.
-        lineCount(worldMapSource) <= 5_355,
-        `WorldMap.tsx grew past 5,355 lines; retired overview layers must stay retired.`,
+        // 5,365 (+10): an ambush the player rolled and never fought is now an
+        // OBLIGATION the server names on the next exploration
+        // (`pending-battle-discovery`, api/world/_pending-battle.ts), and both
+        // explore result paths resume that exact sealed encounter through the
+        // existing launchResolvedExploreBattle — plus the board initializer
+        // reading the server-persisted arrival tile on a reload. Behavior wiring
+        // on the existing flows, not a retired drawing layer coming back; the
+        // structural assertions below hold unchanged. Exact achieved count, no
+        // buffer, per the convention above.
+        // 5,392 (+27): §17.2's per-type attack wiring, which was specified and
+        // never built. A sector whose war is fought with decks or pets now routes
+        // an attack to THAT table instead of silently opening a shinobi fight the
+        // server scored at zero, and the sector carries its own entry to the
+        // contest so the war is reachable from the ground it is fought over
+        // rather than only from the War Map menu. The decision itself is pure and
+        // lives in lib/sector-war-engagement.ts (with its own tests); what landed
+        // here is the poll field, one narrowing const, the branch and one handler
+        // — screen-level wiring, not a retired drawing layer coming back. The
+        // structural assertions below hold unchanged. Exact achieved count, no
+        // buffer, per the convention above.
+        // 5,393 (+1): the sector garrison entry rides the contest handler that
+        // was already here, as one extra argument and one extra prop pair.
+        // 5,279: retain main's contest/garrison wiring and the refactor's
+        // extracted sector art, ambience and gate menu. Exact merged count.
+        // 5,280 (+1): the Sector Stronghold walk-up prompt names the structure in
+        // its heading and moved the owning village and sector number to a subtitle
+        // line, so the heading stops wrapping as "<Village> Sector Stronghold".
+        // One <p> of presentation inside a prompt that was already here — no map
+        // layer, retired or otherwise. Exact achieved count, no buffer.
+        // 5,281 (+1): the overlay is handed `sector={selectedSector}` so it can look
+        // up the Rift and Sector Stronghold's per-sector placements itself. One prop
+        // line; the placement data and the lookup live outside this file, in
+        // data/sector-structure-placements.ts. Exact achieved count, no buffer.
+        lineCount(worldMapSource) <= 5_281,
+        `WorldMap.tsx grew past 5,281 lines; retired overview layers must stay retired.`,
     );
     assert.ok(
         lineCount(canvasSource) <= 220,
@@ -87,24 +121,65 @@ test("WorldMap and its selected-sector leaves keep the projection line-budget ra
         // Presentation only: the richer-ground search, the contract fetch and the
         // claim all stayed in WorldMap behind onFindRicherGround/onClaimContract,
         // and the card itself is its own leaf (SectorContractCard.tsx).
-        lineCount(commandPanelBody) <= 249,
-        `WorldSectorCommandPanel.tsx grew past 249 lines; commands and authority must remain in WorldMap.`,
+        // 277 (+28): the sector-war contest plate. A Card/Pet war on this sector
+        // is now visible where it is fought, says plainly that a shinobi fight
+        // scores nothing for it, and carries the button that opens the table.
+        // Presentation only — WorldMap still decides who may enter (it owns the
+        // viewer's village) and hands the panel an already-narrowed contest.
+        // 296 (+19): the garrison affordance. A Card/Pet war whose defence never
+        // answers can now be pressed instead of running the clock out at 0-0, and
+        // the plate says plainly that it scores less than beating a real defender.
+        // 295 (+1): the sky forecast, which is MANDATORY WIRING only — one import.
+        // Weather now turns three times per in-world day instead of once per real
+        // day (shared/sector-weather), so "what is coming" became worth printing;
+        // the readout is its own leaf (SectorSkyForecast.tsx) and holds its own
+        // tick, and it renders INSIDE the existing sky-name span rather than as a
+        // third child, so the kicker's space-between layout is untouched.
+        lineCount(commandPanelBody) <= 295,
+        `WorldSectorCommandPanel.tsx grew past 294 lines; commands and authority must remain in WorldMap.`,
     );
     assert.ok(
         // 92 (+2): the explicit presence prop keeps remote scouting read-only.
         // 90 (+8): two more command callbacks (onFindRicherGround, onClaimContract)
         // and the posted-contract row shape, with their doc lines.
-        lineCount(commandPanelTypes) <= 92,
-        `WorldSectorCommandPanel.types.ts grew past 92 lines; it holds row/prop shapes only — logic belongs in the panel, and commands in WorldMap.`,
+        // 101 (+9): the sector-war contest row, its entry command, and the
+        // per-target resolved engagement the Attack button reads its wording from.
+        // 106 (+5): the garrison-ready flag and its command, with their doc lines.
+        lineCount(commandPanelTypes) <= 106,
+        `WorldSectorCommandPanel.types.ts grew past 106 lines; it holds row/prop shapes only — logic belongs in the panel, and commands in WorldMap.`,
     );
     assert.ok(
-        lineCount(overlaySource) <= 165,
-        `WorldSectorOverlayLayer.tsx grew past 165 lines; portals and workflows must remain in WorldMap.`,
+        // 166 (+1): the Rift and the Sector Stronghold stopped wearing
+        // .atlas-landmark — the world atlas' label-card chrome — and became board
+        // structures like the shrine standee beside them: art as the marker, a
+        // nameplate pill at the foot, and (the rift) a rimmed aperture, since no
+        // rift landmark has an alpha channel to cut out. Most of the +19 gross is
+        // the two comment blocks recording WHY the atlas class must not come back;
+        // the only logic added is one boolean that steps the stronghold aside when
+        // a shrine's per-sector position would collide with its fixed one (sector
+        // 23, measured 58x49px). Presentation only — no portal, no workflow, no
+        // authority moved out of WorldMap. Exact achieved count, no buffer.
+        // 162 (-4): per-sector placements (data/sector-structure-placements.ts)
+        // replaced the one-position-plus-shrine-step-aside stopgap, which was longer
+        // than the lookup that superseded it. Tightened to lock the win in.
+        lineCount(overlaySource) <= 162,
+        `WorldSectorOverlayLayer.tsx grew past 162 lines; portals and workflows must remain in WorldMap.`,
     );
     assert.ok(
         lineCount(dialogSource) <= 375,
         `WorldWandererDialog.tsx grew past 375 lines; workflows and authority must remain in WorldMap.`,
     );
+    assert.ok(
+        lineCount(storyFieldRouteBoundarySource) <= 20,
+        `StoryFieldRouteBoundary.tsx grew past 20 lines; it owns only lazy content readiness and fallback presentation.`,
+    );
+});
+
+test("field content readiness stays in its route boundary", () => {
+    assert.match(worldMapSource, /<StoryFieldRouteBoundary onReturn=/u);
+    assert.match(storyFieldRouteBoundarySource, /readStoryFieldContent\(\)/u);
+    assert.match(storyFieldRouteBoundarySource, /<StoryFieldContentBoundary onReturn=\{onReturn\}>[\s\S]*<Suspense/u);
+    assert.doesNotMatch(storyFieldRouteBoundarySource, /\bfetch\s*\(|\b(?:localStorage|sessionStorage)\b/u);
 });
 
 test("WorldMap keeps one exhaustive early chest flow and no unreachable overview fallback", () => {
@@ -201,8 +276,8 @@ test("WorldWandererDialog preserves forced-choice dismissal and button order", (
 test("WorldSectorOverlayLayer preserves direct-grid actor and marker order", () => {
     assertOrdered(overlaySource, [
         "wanderers.map",
-        'className="atlas-landmark atlas-hollowRift sector-rift-structure"',
-        'className="atlas-landmark sector-rift-structure"',
+        'className="sector-rift-standee"',
+        'className="sector-vault-standee"',
         "<SectorTraceMarkers",
         "<SectorShrineStandee",
         "<SectorWeeklyBossActor",

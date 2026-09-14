@@ -4,6 +4,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 import { PET_COMBAT_MODEL_IDS } from "../shinobij.client/src/lib/pet-3d-models";
+import { WARFRONT_PET_LOD_MANIFEST } from "../shinobij.client/src/generated/pet-warfront-lod-manifest";
 import { APPROVED_ROSTER_MODEL_IDS, approvedRosterCombatModel } from "../shinobij.client/src/lib/pet-3d-roster";
 import { HOLLOW_HOUND_MODEL_SOURCE_ID } from "../shared/hollow-gate-contract";
 import { PET_SHOWDOWN_ANIMATION_MODEL_IDS, petShowdownAnimationModelUrl } from "../shinobij.client/src/lib/pet-showdown-animation-assets";
@@ -45,6 +46,21 @@ function allowedPaths(ignoreFile: string): Set<string> {
 
 /** Every top-level runtime model URL petCombatModel() can produce, as a repo path. */
 const starterModelPaths = PET_COMBAT_MODEL_IDS.map((id) => `shinobij.client/public/pet-models/${id}.glb`);
+
+test("every authored Warfront battle rig is shipped with its model manifest", () => {
+    const entries = Object.values(WARFRONT_PET_LOD_MANIFEST);
+    assert.ok(entries.length >= 145, "the battle rig manifest must cover the approved roster");
+    for (const entry of entries) {
+        const model = entry.lodUrl.split("?")[0];
+        assert.ok(existsSync(join(repoRoot, "shinobij.client/public", model)), `missing Warfront battle rig: ${model}`);
+    }
+    for (const ignoreFile of [".gitignore", ".dockerignore"]) {
+        const allowed = allowedPaths(ignoreFile);
+        for (const suffix of ["/", "/*.glb", "/roster/", "/roster/*.glb", "/showdown-v2/", "/showdown-v2/*.glb"]) {
+            assert.ok(allowed.has(`shinobij.client/public/pet-models/warfront-lod${suffix}`), `${ignoreFile} excludes battle rigs: ${suffix}`);
+        }
+    }
+});
 
 test("every starter combat model exists on disk", () => {
     // 15 = 5 elements x (base, -r, -l). A renamed/missing file would otherwise
@@ -104,21 +120,6 @@ test("the Coliseum model aliases resolve to a model that exists", () => {
     }
     assert.ok(APPROVED_ROSTER_MODEL_IDS.has(HOLLOW_HOUND_MODEL_SOURCE_ID), "the Hollow Hound source model is not an approved roster id");
     assert.ok(existsSync(join(modelsDir, "roster", `${HOLLOW_HOUND_MODEL_SOURCE_ID}.glb`)), "the Hollow Hound source model has no GLB");
-});
-
-test("Hollow Warfront prop and boss models are allowlisted and present", () => {
-    // Loaded unconditionally by the Warfront 3D stage (useGLTF.preload at module
-    // scope), so a missing one takes the stage down the same way the starters
-    // took the Coliseum down.
-    const docker = allowedPaths(".dockerignore");
-    const git = allowedPaths(".gitignore");
-    const props = ["gate-warden-rigged.glb", "ward-totem.glb", "wf-boulder.glb", "wf-lantern.glb"];
-    for (const file of props) {
-        const path = `shinobij.client/public/pet-models/${file}`;
-        assert.ok(existsSync(join(repoRoot, path)), `missing Warfront model: ${file}`);
-        assert.ok(docker.has(path), `${file} is excluded from the Docker build context — it will 404 in production`);
-        assert.ok(git.has(path), `${file} is not re-included in .gitignore`);
-    }
 });
 
 test("the Showdown four-pet camera models are allowlisted and present", () => {

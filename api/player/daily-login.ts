@@ -22,9 +22,8 @@ import { deliverPendingEconomyLegacyIntents } from '../_legacy-economy-outbox.js
  * in a day is a no-op that just echoes the current streak.
  *
  * The reward params are sealed server-side (api/player/_daily-login.ts) — the
- * client body carries no amounts. The client adds the returned `granted` delta
- * to its own balance (preserving concurrent ryo gains) and re-asserts via
- * autosave; the two converge.
+ * client body carries no amounts. Both a first claim and a receipt retry return
+ * the authoritative character with its version for one atomic client commit.
  *
  * Body: { playerName }. Caller MUST be the player (or admin). Rate-limited
  * 30/min per actor.
@@ -141,6 +140,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             balances: { ryo: out.totalRyo, fateShards: out.totalFateShards },
             shardInterval: STREAK_SHARD_INTERVAL,
             daysUntilShardBonus: daysUntilShardBonus(out.streak),
+            character: out.legacyCharacter,
             _saveVersion: out.saveVersion,
         });
     } catch (err) {

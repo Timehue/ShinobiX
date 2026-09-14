@@ -185,4 +185,11 @@ describe("a battle screen can never fall back out of its fight", () => {
         assert.equal(restoreScreenForSave("clanWar2v2", false, false, false, false), "clanWar2v2");
         assert.equal(restoreScreenForSave("clanWar2v2", false, false, false, true), "clanWar2v2");
     });
+
+    it("a resumed outbound journey opens the map even with a stale town bookmark", () => {
+        assert.equal(restoreScreenForSave(null, false, false, false, false, true), "worldMap");
+        assert.equal(restoreScreenForSave("village", false, false, false, false, true), "worldMap");
+        assert.equal(restoreScreenForSave("village", false, true, false, false, true), "hospital");
+        assert.equal(restoreScreenForSave("village", false, false, true, false, true), "dungeon");
+    });
 });

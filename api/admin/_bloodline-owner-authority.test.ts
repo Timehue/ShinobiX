@@ -232,7 +232,7 @@ test('a legitimate player whose slug starts with admin still receives the exact 
     assert.equal(await kv.get(`reset-signal:${ADMIN_PREFIX_PLAYER}`), 1);
 });
 
-test('admin and public projections keep save-scoped art separate from an id-only shared fallback', async () => {
+test('admin and public projections keep save-scoped art separate from an id-only shared fallback', async t => {
     const withOwnerImage = playerSave('Bloodline Owner A', 'Owner A Bloodline');
     (withOwnerImage.savedBloodlines as Json[])[0]!.image = '/api/img/player-a.webp';
     const withoutOwnerImage = playerSave('Bloodline Owner B', 'Owner B Bloodline');
@@ -260,6 +260,8 @@ test('admin and public projections keep save-scoped art separate from an id-only
     assert.equal(adminOut.statusCode, 200);
 
     const { out: publicOut, res: publicRes } = response();
+    const registryKeys = t.mock.method(kv, 'hkeys');
+    const hashes = t.mock.method(kv, 'hgetall');
     await publicBloodlinesHandler({
         method: 'GET',
         query: {},
@@ -267,6 +269,8 @@ test('admin and public projections keep save-scoped art separate from an id-only
         socket: { remoteAddress: '127.0.3.2' },
     } as never, publicRes);
     assert.equal(publicOut.statusCode, 200);
+    assert.ok(registryKeys.mock.calls.some(call => call.arguments[0] === 'player:registry'));
+    assert.ok(hashes.mock.calls.every(call => call.arguments[0] !== 'player:registry'), 'gallery needs registry names, not every leaderboard counter');
 
     for (const body of [adminOut.body, publicOut.body]) {
         const entries = body?.bloodlines as Json[];

@@ -4,6 +4,8 @@ import test from 'node:test';
 
 const workflow = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const warfrontSpec = readFileSync(new URL('../shinobij.client/e2e-warfront/warfront.spec.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+const riteSpec = readFileSync(new URL('../shinobij.client/e2e-warfront/rite.spec.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+const modelLifecycleSpec = readFileSync(new URL('../shinobij.client/e2e-warfront/model-resource-lifecycle.spec.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 
 const occurrences = (needle) => workflow.split(needle).length - 1;
 
@@ -27,7 +29,16 @@ test('split CI exposes stable required check names with bounded jobs', () => {
     assert.match(workflow, /name: CI \/ e2e-combat \/ \$\{\{ matrix\.shard \}\}/);
     const timeouts = [...workflow.matchAll(/timeout-minutes:\s*(\d+)/g)].map((match) => Number(match[1]));
     assert.ok(timeouts.length >= requiredNames.length, 'every job must declare a timeout');
-    assert.ok(timeouts.every((minutes) => minutes > 0 && minutes < 30), `ordinary CI timeout escaped the sub-30-minute policy: ${timeouts.join(', ')}`);
+    // The ceiling exists to stop a runaway job holding a runner for an hour, not
+    // to pin a specific number. It was 30 until 366afc50f gave both npm audit
+    // steps a three-attempt retry: a single failing attempt costs ~5m of npm's
+    // own internal retrying, so server-build-security needed 30 and
+    // client-quality 35 to fit three of them. That commit raised the timeouts
+    // with its reasoning written into ci.yml and left this bound at 30, which
+    // reddened main on a contract test rather than on any product code — the
+    // audit-flake fix tripping a guard that predated it. 36 clears the retry
+    // budget and still fails a job that has genuinely run away.
+    assert.ok(timeouts.every((minutes) => minutes > 0 && minutes < 36), `ordinary CI timeout escaped the sub-36-minute policy: ${timeouts.join(', ')}`);
 });
 
 test('split CI preserves every release gate and builds each artifact once', () => {
@@ -59,6 +70,17 @@ test('split CI preserves every release gate and builds each artifact once', () =
     assert.match(workflow, /NODE_VERSION:\s*22\.23\.1/);
 });
 
+test('responsive browser discovery installs the runtime used by compiled server fixtures', () => {
+    // A client-only install passes locally when an earlier root install exists,
+    // but fails while discovering the ranked replay fixture on a fresh runner.
+    const responsive = workflow.split('  e2e_responsive_matrix:\n')[1]?.split('\n  e2e_responsive:\n')[0];
+    assert.ok(responsive, 'the responsive shard job must exist');
+    const rootInstall = responsive.search(/run: npm ci(?: --omit=dev)? 2>&1/);
+    const browserRun = responsive.indexOf('run: npm run test:e2e --prefix shinobij.client');
+    assert.ok(rootInstall >= 0 && browserRun > rootInstall,
+        'fresh responsive shards must install root runtime packages before loading browser specs');
+});
+
 test('artifact consumers verify immutable provenance and failure evidence stays reachable', () => {
     const uploadCount = occurrences('actions/upload-artifact@v7');
     assert.ok(uploadCount >= 10);
@@ -81,22 +103,49 @@ test('artifact consumers verify immutable provenance and failure evidence stays 
     assert.ok(!workflow.includes('shinobij.client/.playwright-mcp/aaa-adaptive/'));
 });
 
-test('Warfront interaction coverage uses the deterministic low-cost fixture', () => {
-    assert.match(warfrontSpec, /const warfrontUrl = "[^"]*";/);
-    assert.match(warfrontSpec, /const lowWarfrontUrl = `\$\{warfrontUrl\}&petQuality=low`;/);
-    assert.equal(
-        warfrontSpec.split('${lowWarfrontUrl}&wfspeed=').length - 1,
-        2,
-        'command-window and result-lifecycle loads must share the low-cost CI fixture',
-    );
-    assert.match(
-        warfrontSpec,
-        /\$\{warfrontUrl\}&petQuality=high&wfperf=geometry/,
-        'the production renderer audit must explicitly exercise the high-quality fixture',
-    );
-    assert.match(
-        warfrontSpec,
-        /background-image[\s\S]*ground-portrait/,
-        'the responsive matrix must verify the portrait battlefield art',
-    );
+test('live Express CI includes persistence and route integration regressions', () => {
+    const command = workflow.match(/run: (npm run test:e2e:live[^\n]+)/)?.[1];
+    assert.ok(command, 'live Express CI command must exist');
+    for (const spec of [
+        'village-stores-express.spec.ts',
+        'first-session-onboarding-express.spec.ts',
+        'server-route-smoke-express.spec.ts',
+    ]) {
+        assert.ok(command.split(/\s+/).includes(spec), `${spec} must run against the joined release artifact in CI`);
+    }
+    assert.ok(command.includes('--project=chromium-desktop-live'), 'the full Academy cases require the desktop live project');
+});
+
+test('current Warfront coverage keeps low-cost interactions and real renderer audits', () => {
+    // Check the fixture's behavior, without pinning retired lane-mode variable
+    // names or command windows that the current Rite no longer exposes.
+    const fixtures = (source) => [...source.matchAll(/\/petvfx\.html\?[^"'`\s]+/g)]
+        .map(([url]) => new URL(url, 'https://warfront.invalid').searchParams);
+    assert.ok(fixtures(warfrontSpec).some((params) => params.get('warfront') === '1' && params.get('petQuality') === 'low'),
+        'saved Warfront links must be tested through the low-cost migration fixture');
+    assert.match(warfrontSpec, /\.wf3-shell[\s\S]*toHaveCount\(0\)/,
+        'the migration check must keep the retired lane renderer unreachable');
+    const riteFixtures = fixtures(riteSpec).filter((params) => params.get('rite') === '1');
+    assert.ok(riteFixtures.some((params) => params.get('petQuality') === 'low' && !params.has('ritespeed')),
+        'current formation interactions must retain the low-cost fixture');
+    assert.ok(riteFixtures.some((params) => params.get('petQuality') === 'low' && params.get('ritespeed') === '12' && params.get('riteqa') === '1'),
+        'report and rematch checks must use accelerated deterministic playback');
+    assert.ok(riteFixtures.some((params) => params.get('petQuality') === 'high' && params.get('riteforce3d') === '1'),
+        'the production renderer audit must explicitly exercise real high-quality rigs');
+    assert.match(riteSpec, /data-rite-actor-render-mode[\s\S]*skinned-3d/);
+    assert.match(riteSpec, /scrollWidth - document\.documentElement\.clientWidth/,
+        'the current responsive report must retain its viewport overflow check');
+    assert.ok(fixtures(modelLifecycleSpec).some((params) => params.get('modelresources') === '1'),
+        'GPU lifecycle coverage must continue loading the real model resource harness');
+});
+
+test('required live Express CI runs defeat recovery on desktop and mobile without replacing earlier evidence', () => {
+    const job = workflow.slice(workflow.indexOf('\n  e2e_village_stores:'), workflow.indexOf('\n  test_build:'));
+    const command = job.split('\n').find(line => line.trim().startsWith('run:') && line.includes('first-defeat-recovery-express.spec.ts'));
+    assert.ok(command, 'the required live Express job must actually execute the defeat/recovery browser spec');
+    assert.ok(command.includes('--project=chromium-desktop-live'), 'desktop recovery must be covered');
+    assert.ok(command.includes('--project=chromium-mobile-live'), 'mobile Play recovery must be covered');
+    assert.ok(command.includes('--output=test-results/defeat-recovery-ci'), 'the second Playwright invocation must retain the earlier journey evidence');
+    assert.ok(command.includes('.ci-evidence/e2e-village-stores/defeat-recovery.log'));
+    assert.doesNotMatch(command, /--grep/, 'all recovery paths must run');
 });

@@ -1,5 +1,7 @@
+import { HOLLOW_GATE_KEY_DUNGEON_KEY_COST, HOLLOW_GATE_KEY_FATE_SHARD_COST } from "../lib/hollow-gate-prices";
 /* eslint-disable react-hooks/purity */
 import { useState, useEffect, useMemo } from "react";
+import { usePublicBloodlines } from "../lib/use-public-bloodlines";
 import { serverNow } from "../lib/server-clock";
 import { NAMED_ITEM_LEVEL_REQ } from "../../../shared/item-level-gate";
 import {
@@ -35,6 +37,7 @@ import crafterForgeArt from "../assets/central/crafter-forge-v1.webp";
 import petColosseumArt from "../assets/coliseum/pet-arena-command-v2.webp";
 import relicDungeonArt from "../assets/towers/chamber.webp";
 import celestialTowerArt from "../assets/towers/battle-towers-key-art-v1.webp";
+import firstPactArt from "../assets/first-pact/sunken-court-key-art.webp";
 import weeklyAshenDragonArt from "../assets/combat-actors/creatures/apex-ai-ember-drake-idle.webp";
 import weeklyStormveilBeastArt from "../assets/combat-actors/creatures/apex-ai-ancient-chakra-beast-idle.webp";
 import weeklyDeathsgateArt from "../assets/combat-actors/bosses/tower-spectral-boss-idle.webp";
@@ -58,13 +61,11 @@ import { getAllItems } from "../lib/items";
 import { countItem } from "../lib/inventory";
 import { publishSharedImage, readImageFile } from "../lib/shared-images";
 import { starterSavedBloodlines } from "../data/jutsu";
-import { tagMatchesName } from "../lib/tags";
+import { tagMatchesName, WEAPON_POISON_TAG_CAP } from "../lib/tags";
 import { weeklyBossSchedule } from "../lib/weekly-boss";
 import { biomeLabel } from "../data/world";
 import {
-    HOLLOW_GATE_KEY_DUNGEON_KEY_COST,
-    HOLLOW_GATE_KEY_FATE_SHARD_COST,
-    type CreatorEvent,
+    type CreatorEvent
 } from "../App";
 import { sharedWeeklyBossAiIdCache } from "../lib/world-state";
 import { type VillageWarRecord } from "../lib/world-state";
@@ -203,7 +204,6 @@ export function CentralHub({
     updateCharacter,
     setScreen,
     savedBloodlines,
-    publicPlayerBloodlines,
     triggeredEvents,
     setTriggeredEvents,
     onStartDungeon,
@@ -221,7 +221,6 @@ export function CentralHub({
     updateCharacter: (character: Character) => void;
     setScreen: (screen: Screen) => void;
     savedBloodlines: SavedBloodline[];
-    publicPlayerBloodlines: ReviewBloodline[];
     triggeredEvents: string[];
     setTriggeredEvents: React.Dispatch<React.SetStateAction<string[]>>;
     onStartDungeon: (event: CreatorEvent) => void;
@@ -245,6 +244,7 @@ export function CentralHub({
         "Welcome to Central — the neutral heart of the shinobi world."
     );
     const [showArchives, setShowArchives] = useState(false);
+    const publicPlayerBloodlines = usePublicBloodlines(showArchives, character.name);
     const [showAwakening, setShowAwakening] = useState(openAwakeningOnMount);
     const [awakeningMsg, setAwakeningMsg] = useState("");
     useEffect(() => {
@@ -311,12 +311,11 @@ export function CentralHub({
                 setActiveWarBanner(mine ?? null);
             } catch { /* silent */ }
         }
-        void fetchWar();
         // 15s matches the war screen's poll cadence so the banner doesn't
         // lag the actual state by up to a minute (previously 60s, which
         // meant winners could sit on a stale "at war" banner for a full
         // poll cycle after victory).
-        const stop = visiblePoll(fetchWar, 15_000);
+        const stop = visiblePoll(fetchWar, 15_000, 0.1, { immediate: true });
         return () => { alive = false; stop(); };
     }, [character.village]);
 
@@ -852,7 +851,7 @@ export function CentralHub({
                     badge: "Companion trials",
                     art: petColosseumArt,
                     artPosition: "72% center",
-                    text: "Choose a companion for cinematic Colosseum showdowns or command a four-pet squad in Hollow Warfront.",
+                    text: "Choose a companion for cinematic Colosseum showdowns or command a four-pet squad in Beastbound Warfront.",
                     action: () => setScreen("petArena"),
                 },
                 {
@@ -1108,7 +1107,7 @@ export function CentralHub({
                 <Modal open={showCelestialPanel} onClose={() => setShowCelestialPanel(false)} bare ariaLabel="Celestial Tower" size="lg" className="central-dialog-shell">
                     <div className="celestial-panel">
                         <h2><GiStoneTower style={HDR_ICON} />Celestial Tower</h2>
-                        <p className="celestial-panel-sub">Three ways to climb: the endless gauntlet, curated Battle Tower squad floors, or the tower's preserved memories.</p>
+                        <p className="celestial-panel-sub">Four ways to climb: the endless gauntlet, curated Battle Tower squad floors, the tower's preserved memories, or a crossing into the living past.</p>
                         <div style={{ background: "rgba(15,23,42,0.5)", border: "1px solid rgba(148,163,184,0.25)", borderRadius: 6, padding: "0.7rem 0.9rem", margin: "0.4rem 0 0.8rem", fontSize: "0.85rem", lineHeight: 1.5 }}>
                             <div><strong>How it works</strong></div>
                             <div>· Each wave drops a random AI scaled to your level + current wave. Every 10th wave is a boss.</div>
@@ -1122,6 +1121,16 @@ export function CentralHub({
                             <div style={{ marginTop: 6 }}><strong>Rest stops:</strong> every 10th kill automatically restores 33% HP and 50% chakra &amp; stamina.</div>
                         </div>
                         <div className="celestial-panel-options">
+                            <button
+                                className="celestial-option-btn celestial-story-btn"
+                                style={{ "--celestial-story-art": `url(${firstPactArt})` } as CSSProperties}
+                                disabled={character.level < 100}
+                                onClick={() => { setShowCelestialPanel(false); setScreen("firstPact"); }}
+                            >
+                                <span className="celestial-option-icon"><GiTempleGate /></span>
+                                <strong>The First Pact</strong>
+                                <small>{character.level < 100 ? "Sealed until level 100." : "Enter the Sunken Court before its fall. Explore a connected RPG world and fight with two active pets plus two reserves."}</small>
+                            </button>
                             <button className="celestial-option-btn celestial-endless-btn" onClick={() => { setShowCelestialPanel(false); setScreen("endlessTower"); }}>
                                 <span className="celestial-option-icon"><GiStoneTower /></span>
                                 <strong>Enter Celestial Tower</strong>
@@ -1428,7 +1437,7 @@ export function CentralHub({
                     // Thrown weapons
                     { name: "Shuriken ×3", cost: 15, desc: "3× Shuriken (22 EP thrown)", itemId: "thrown-shuriken", per: 3 },
                     { name: "Senbon ×1", cost: 30, desc: "1× Senbon (300 dmg/round, 2 rounds)", itemId: "thrown-senbon", per: 1 },
-                    { name: "Serpent Dust ×1", cost: 40, desc: "1× Serpent Dust (55% poison, 2 rounds)", itemId: "thrown-serpent-dust", per: 1 },
+                    { name: "Serpent Dust ×1", cost: 40, desc: "1× Serpent Dust (10% poison, 2 rounds)", itemId: "thrown-serpent-dust", per: 1 },
                     // Combat items
                     { name: "Smoke Bomb ×1", cost: 25, desc: "1× Smoke Bomb (100% dmg reduction to both players, 1 round; pierce still deals full dmg)", itemId: "item-smoke-bomb", per: 1 },
                     { name: "Attack Pill ×1", cost: 20, desc: "1× Attack Pill (+15% damage dealt, 2 rounds)", itemId: "item-attack-pill", per: 1 },
@@ -2096,6 +2105,8 @@ export function CentralHub({
                                                             <span key={t} className="no-chip">{t}</span>
                                                         ))}
                                                     </div>
+                                                    {/* Poison has its own weapon ceiling, so its strength is fixed rather than rolled. */}
+                                                    <div className="no-row"><span>Poison is always {WEAPON_POISON_TAG_CAP}%, whatever the tag count rolls.</span></div>
                                                 </div>
                                                 <div className="no-section no-wide">
                                                     <div className="no-label">Tag Formula Notes</div>

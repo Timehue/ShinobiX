@@ -1,4 +1,5 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
+import { IMAGE_GUARD_ATTRIBUTE } from "../src/lib/imageErrorGuard";
 import { expectViewportSafe } from "./helpers/adaptive-assertions";
 import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from "./helpers/ui-audit-runtime";
 
@@ -45,7 +46,7 @@ type AuditMetrics = {
 };
 
 async function auditVisibleScreen(page: Page, rootSelector = ".center-game"): Promise<AuditMetrics> {
-    return page.locator(rootSelector).evaluate(async (main) => {
+    return page.locator(rootSelector).evaluate(async (main, guardAttribute) => {
         const viewportWidth = window.innerWidth;
         const visible = (element: Element) => {
             const style = getComputedStyle(element);
@@ -86,16 +87,52 @@ async function auditVisibleScreen(page: Page, rootSelector = ".center-game"): Pr
             image.src = new URL(url, document.baseURI).href;
         })))).filter((url): url is string => Boolean(url));
 
+        // The image guard (src/lib/imageErrorGuard.ts) hides a failed <img> and
+        // retries it. visible() skips a hidden element, so a permanently broken
+        // image used to pass this audit with the artwork missing from the screen.
+        // The guard marks what it hid: count a marked image when its container is
+        // on screen, and judge it by the mark rather than by its load state.
+        const guardMark = (img: HTMLImageElement) => img.getAttribute(guardAttribute);
+        const containerShown = (img: HTMLImageElement) => {
+            // A display:contents wrapper has no box, so checkVisibility() is
+            // always false for it; ask the nearest ancestor that has one.
+            let container = img.parentElement;
+            while (container && getComputedStyle(container).display === "contents") container = container.parentElement;
+            return Boolean(container?.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }));
+        };
+        const images = (Array.from(main.querySelectorAll("img")) as HTMLImageElement[])
+            .filter((img) => (guardMark(img) ? containerShown(img) : visible(img)));
+        const verdict = (img: HTMLImageElement): "ok" | "broken" | "pending" => {
+            if (guardMark(img) === "failed") return "broken";
+            if (guardMark(img) === "retrying") return "pending";
+            if (img.complete) return img.naturalWidth === 0 ? "broken" : "ok";
+            return img.loading === "lazy" ? "ok" : "pending";
+        };
+        // An image still downloading, or waiting on a guard retry, is late, not
+        // broken. Judging it from a snapshot reported healthy artwork as broken
+        // whenever the preview server was slow: the Archives modal requests its
+        // bloodline art on open and was audited ~150ms later, before the bytes
+        // arrived. Give pending images the same 5s budget as the background probe.
+        const deadline = performance.now() + 5_000;
+        while (performance.now() < deadline && images.some((img) => img.isConnected && verdict(img) === "pending")) {
+            await new Promise((resolve) => window.setTimeout(resolve, 50));
+        }
+        const brokenImages = images
+            // A re-render can detach an element mid-wait; it is no longer on screen.
+            .filter((img) => img.isConnected && verdict(img) !== "ok")
+            .map((img) => {
+                const url = new URL(img.currentSrc || img.src, document.baseURI);
+                url.searchParams.delete("__img_retry");
+                const guarded = Boolean(guardMark(img));
+                const reason = verdict(img) === "pending"
+                    ? ` (still ${guarded ? "retrying" : "loading"} after 5s)`
+                    : guarded ? " (failed to load; the image guard hid it)" : "";
+                return `${url.href}${reason}`;
+            });
+
         return {
             brokenBackgrounds,
-            brokenImages: Array.from(main.querySelectorAll("img"))
-                .filter((image) => {
-                    if (!visible(image)) return false;
-                    const img = image as HTMLImageElement;
-                    if (img.complete) return img.naturalWidth === 0;
-                    return img.loading !== "lazy";
-                })
-                .map((image) => (image as HTMLImageElement).currentSrc || (image as HTMLImageElement).src),
+            brokenImages,
             clippedControls: controls
                 .filter((control) => {
                     const rect = control.getBoundingClientRect();
@@ -110,6 +147,20 @@ async function auditVisibleScreen(page: Page, rootSelector = ".center-game"): Pr
                 // ::after ring owns the real 44px pointer target and is asserted
                 // separately in the World Map route check below.
                 .filter((control) => !control.matches(".atlas-sector, .atlas-hollowGate"))
+                // The sector board is a coordinate surface, not chrome: a figure's
+                // size states where it stands and how big it is relative to every
+                // other figure (lib/sector-marker draws them all at 0.72 tiles), and
+                // its 144 tiles are ~27.8px cells on a phone. Neither can be 44px —
+                // 144 of them do not fit in one 352px square, and inflating the
+                // clickable figures is exactly what made wanderers paint 2.2x the
+                // player on mobile while desktop drew them correctly. Same deal as
+                // the pins above: the painted box stays map-sized while a ::after
+                // pad owns the 44px pointer target. That pad is asserted in
+                // src/styles/mobile-noncombat-aaa.test.ts (node:test, runs on every
+                // `npm test`) rather than here, because the audit's worldMap route
+                // lands on the atlas overview and does not always have a sector
+                // board mounted to measure.
+                .filter((control) => !control.matches(".sector-avatar-figure, .scene-tile"))
                 .filter((control) => {
                     const rect = control.getBoundingClientRect();
                     const minimum = viewportWidth <= 979 ? 44 : 24;
@@ -118,7 +169,7 @@ async function auditVisibleScreen(page: Page, rootSelector = ".center-game"): Pr
                 .map(label),
             emptyMain: !(main.textContent || "").trim() && main.querySelectorAll("img, canvas, video").length === 0,
         };
-    });
+    }, IMAGE_GUARD_ATTRIBUTE);
 }
 
 async function capture(page: Page, testInfo: TestInfo, screen: string) {
@@ -407,6 +458,32 @@ test("mobile shell uses five anchors and a compact keyboard-safe destination cat
     await expect(menuTrigger).toBeFocused();
 });
 
+test("the Play app hardware-back stack returns across eligible routes", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "chromium-mobile", "mobile history integration is exercised once");
+    await page.addInitScript(() => {
+        window.sessionStorage.setItem("shinobix:surface.v1", "play-app");
+    });
+    const runtimeErrors = collectRuntimeErrors(page);
+    const runtime = await installUiAuditRuntime(page);
+    await expectUiAuditBoot(page, runtime, "village");
+
+    const nav = page.getByRole("navigation", { name: "Primary game navigation" });
+    await nav.getByRole("button", { name: "Travel", exact: true }).click();
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "worldMap");
+    await expect.poll(() => page.evaluate(() => window.location.hash)).toBe("#/worldMap");
+
+    await page.goBack();
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "village");
+    await expect.poll(() => page.evaluate(() => window.location.hash)).toBe("#/village");
+
+    await page.goForward();
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "worldMap");
+    await page.getByRole("button", { name: "Go back" }).click();
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "village");
+    await expect.poll(() => page.evaluate(() => window.location.hash)).toBe("#/village");
+    expect(runtimeErrors, "eligible Play app history emitted runtime errors").toEqual([]);
+});
+
 test("Inventory and Jutsu tabs keep selection, focus, and panels in sync", async ({ page }) => {
     const initialSave = uiAuditSave();
     initialSave.character = {
@@ -674,7 +751,15 @@ test("user directory routes into a production-safe public profile", async ({ pag
     }
     await users.click();
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "userHub");
-    await expectViewportSafe(page);
+    // <UserHub> owns .user-hub-tabs, which the mobile layer makes a horizontal
+    // scroller on purpose ("section counts remain reachable without wrapping into
+    // tiny pills" -- overflow-x:auto + scroll-snap + touch scrolling). A tab past
+    // the inline viewport is therefore reachable, not escaped. This file already
+    // says so twice -- the clipped-control filter in auditVisibleScreen and the
+    // NON_COMBAT_SCREENS loop both list .user-hub-tabs -- and only this call left
+    // it out, so the check flagged the last tab whenever layout settled wide. That
+    // made the spec fail about one run in three with no product change behind it.
+    await expectViewportSafe(page, { horizontalScrollers: [".user-hub-tabs"] });
     const directoryMetrics = await auditVisibleScreen(page);
     expect(directoryMetrics.emptyMain, "userHub rendered no meaningful main content").toBe(false);
     expect(directoryMetrics.brokenBackgrounds, "userHub has broken visible background artwork").toEqual([]);
@@ -686,7 +771,9 @@ test("user directory routes into a production-safe public profile", async ({ pag
     await rival.locator(".user-hub-name").click();
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "userView");
     await expect(page.locator(".center-game")).toBeVisible();
-    await expectViewportSafe(page);
+    // Same gap one screen later: <UserView> owns .profile-mobile-tabs, also an
+    // allowlisted horizontal scroller everywhere else in this file.
+    await expectViewportSafe(page, { horizontalScrollers: [".profile-mobile-tabs"] });
     const metrics = await auditVisibleScreen(page);
     expect(metrics.emptyMain, "userView rendered no meaningful main content").toBe(false);
     expect(metrics.brokenBackgrounds, "userView has broken visible background artwork").toEqual([]);
@@ -697,7 +784,11 @@ test("user directory routes into a production-safe public profile", async ({ pag
 });
 
 test.describe("Awakening Stone cinematic", () => {
-    test.use({ reducedMotion: "no-preference" });
+    // The cinematic IS the motion: under reduced motion `.ca-cinematic` is
+    // display:none (central-skin.css) and CentralAwakeningCinematic skips it.
+    // Only contextOptions reaches the browser; the bare `reducedMotion` key this
+    // used to set was silently ignored.
+    test.use({ contextOptions: { reducedMotion: "no-preference" } });
 
     test("reveals a newly awakened element returned by the server", async ({ page }) => {
         const runtimeErrors = collectRuntimeErrors(page);

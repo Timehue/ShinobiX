@@ -1,3 +1,5 @@
+import { playerLensDiscipline } from "../lib/player-lens-discipline";
+import { getAllJutsus, liveEquippedJutsuIds } from "../lib/jutsu-loadout";
 import { useState, useEffect, useMemo, useRef, type ChangeEvent, type ReactNode } from "react";
 import "../styles/profile-skin.css";
 import "../styles/training-skin.css";
@@ -24,18 +26,20 @@ import { useLiveCapabilities } from "../lib/live-capabilities-context";
 import { capabilityAdmissionAllowed } from "../lib/live-capability-admission";
 import { auraSphereDustNeeded, getActiveAuraSphereBonuses, hasEquippedAuraSphere } from "../lib/aura-sphere";
 import { feedAuraSphereServer } from "../lib/aura-feed-api";
-import { canEquipElementJutsu } from "../lib/bloodline";
+import { canEquipElementJutsu, getCharacterBloodlines } from "../lib/bloodline";
+import { bloodlineNamesByJutsuId } from "../lib/bloodline-marker";
 import { STAT_KEYS, allocatedStatPoints, capStat, earnedForLevel, earnedStatPoints, normalizeStats } from "../lib/stats";
 import { compressDataUrl, isAnimatedImageFile, publishSharedImage } from "../lib/shared-images";
 import { getAllItems, getItemById } from "../lib/items";
 import { getCharacterElements } from "../lib/elements";
 import { getJutsuMastery } from "../lib/jutsu-scaling";
-import { getAllJutsus, playerLensDiscipline } from "../App";
+
 import { settleProfileAction, type ProfileSettlementAction } from "../lib/profile-settlement";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
 import { academyVowDefinition } from "../lib/academy-narrative";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
+import { useFirstContractLoadoutTab } from "../lib/use-first-contract-loadout-tab";
 import academyFieldSealArt from "../assets/academy/onboarding/shiranui-field-seal.webp";
 
 type ProfileDossierRow = {
@@ -58,6 +62,7 @@ export function Profile({
     creatorItems,
     onDeleteCharacter,
     onOpenBattle,
+    onTrainJutsu,
     onVersionedCharacter,
 }: {
     character: Character;
@@ -68,6 +73,7 @@ export function Profile({
     onDeleteCharacter?: () => void;
     /** Opens the durable read-only battle record (Screen "battleLog"). */
     onOpenBattle?: (battleId: string) => void;
+    onTrainJutsu?: () => void;
     onVersionedCharacter: VersionedCharacterCommit;
 }) {
     const legacyAvailable = useLegacyAvailability();
@@ -76,6 +82,12 @@ export function Profile({
     const [feedingAura, setFeedingAura] = useState(false);
     const feedingAuraRef = useRef(false);
     const allJutsus = getAllJutsus(savedBloodlines, creatorJutsus, character);
+    // The slots that actually reach combat. An equipped id outlives the jutsu it
+    // points at (an admin-deleted custom jutsu is kept in the save by its mastery
+    // row), and such a dead id must not consume a loadout slot the player can
+    // never fill or see. Rebuilding the loadout from this list also prunes the
+    // dead id the next time the player edits their loadout.
+    const liveEquippedIds = liveEquippedJutsuIds(allJutsus, character.equippedJutsuIds);
     const allItems = getAllItems(creatorItems);
     // Every distinct equipped id across all slots (weapon, armor pieces, the
     // three combat-item slots, throwable, potion, aura, …). Deduped so legacy
@@ -166,7 +178,7 @@ export function Profile({
     const legacyLive = legacyAvailable;
     const TITLE_COST = 10;
     const academyLoadoutStep = normalizeOnboardingStep(character.onboardingStep) === "jutsuLoadout";
-    const [mobileTab, setMobileTab] = useState<'overview' | 'stats' | 'jutsu' | 'achievements' | 'battlelogs' | 'legacy'>(academyLoadoutStep ? 'jutsu' : 'overview');
+    const [mobileTab, setMobileTab] = useFirstContractLoadoutTab<'overview' | 'stats' | 'jutsu' | 'achievements' | 'battlelogs' | 'legacy'>(character, 'profile', academyLoadoutStep ? 'jutsu' : 'overview', 'jutsu');
     const visibleMobileTab = !legacyAvailable && mobileTab === 'legacy' ? 'overview' : mobileTab;
     const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
     const [achievementCategory, setAchievementCategory] = useState<AchievementCategory | "All">("All");
@@ -366,10 +378,10 @@ export function Profile({
         });
     }
 
-    function placeJutsuInLoadout(id: string, slotIndex = character.equippedJutsuIds.length) {
-        const equippedIndex = character.equippedJutsuIds.indexOf(id);
+    function placeJutsuInLoadout(id: string, slotIndex = liveEquippedIds.length) {
+        const equippedIndex = liveEquippedIds.indexOf(id);
         if (equippedIndex >= 0) {
-            const ids = character.equippedJutsuIds.filter((jutsuId) => jutsuId !== id);
+            const ids = liveEquippedIds.filter((jutsuId) => jutsuId !== id);
             ids.splice(Math.min(Math.max(0, slotIndex), ids.length), 0, id);
             updateCharacter({ ...character, equippedJutsuIds: ids });
             return;
@@ -388,14 +400,14 @@ export function Profile({
         }
 
         const loadoutCap = maxLoadout(character);
-        if (character.equippedJutsuIds.length >= loadoutCap) {
+        if (liveEquippedIds.length >= loadoutCap) {
             alert(loadoutCap < 15
                 ? `You can only equip ${loadoutCap} jutsu. Shinobi Supporter raises the limit to 15.`
                 : "You can only equip 15 jutsu.");
             return;
         }
 
-        const ids = [...character.equippedJutsuIds];
+        const ids = [...liveEquippedIds];
         ids.splice(Math.min(Math.max(0, slotIndex), ids.length), 0, id);
         updateCharacter({
             ...character,
@@ -452,7 +464,7 @@ export function Profile({
             title: "Progress",
             rows: [
                 { label: "Growth", value: xpLabel, detail: character.level >= MAX_LEVEL ? "level cap reached" : "stat points toward next level", tone: "gold" },
-                { label: "Jutsu", value: `${formatAmount(character.equippedJutsuIds.length)}/${maxLoadout(character)}`, detail: "equipped loadout", tone: character.equippedJutsuIds.length > 0 ? "village" : "neutral" },
+                { label: "Jutsu", value: `${formatAmount(liveEquippedIds.length)}/${maxLoadout(character)}`, detail: "equipped loadout", tone: liveEquippedIds.length > 0 ? "village" : "neutral" },
                 { label: "Equipment", value: formatAmount(equippedItems.length), detail: "equipped items" },
             ],
         },
@@ -856,13 +868,17 @@ export function Profile({
             {(() => {
                 const learnedAnyJutsus = allJutsus.filter((jutsu) => getJutsuMastery(character, jutsu.id).level >= 1);
                 const learnedJutsus = learnedAnyJutsus.filter((jutsu) => canEquipElementJutsu(character, jutsu, savedBloodlines));
+                // Jutsu id -> granting bloodline name, so the loadout panel can
+                // label bloodline jutsu and filter the collection down to them.
+                const bloodlineJutsuNames = bloodlineNamesByJutsuId(getCharacterBloodlines(character, savedBloodlines));
                 if (learnedJutsus.length === 0) {
                     return (
                         <section className="profile-build-panel jutsu-workbench-empty">
                             <h2>Jutsu Loadout</h2>
                             <p className="hint">{learnedAnyJutsus.length
                                 ? "Your learned jutsu are locked behind elements you do not currently have."
-                                : "You haven't trained any jutsu yet. Visit the Training Grounds to learn them."}</p>
+                                : "You haven't learned any jutsu yet. Unlock a technique at the Jutsu Training Hall, then equip it here."}</p>
+                            {onTrainJutsu && <button type="button" onClick={onTrainJutsu}>Go to Jutsu Training Hall</button>}
                         </section>
                     );
                 }
@@ -870,6 +886,8 @@ export function Profile({
                     <JutsuLoadoutPanel
                         character={character}
                         learnedJutsus={learnedJutsus}
+                        catalogJutsus={allJutsus}
+                        bloodlineJutsuNames={bloodlineJutsuNames}
                         onPlaceJutsu={placeJutsuInLoadout}
                         onUnequip={unequipJutsu}
                         onUnequipAll={() => updateCharacter({ ...character, equippedJutsuIds: [] })}
@@ -920,10 +938,13 @@ export function Profile({
                                         title={`${a.name} — click for details`}
                                     >
                                         <div className="achievement-icon">
+                                            {/* The image guard retries a failed badge; if the retry
+                                                loads, undo the hide so the art covers the emoji again. */}
                                             <img
                                                 src={`/badges/${a.id}.webp`}
                                                 alt=""
                                                 loading="lazy"
+                                                onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = ""; }}
                                                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
                                             />
                                             <span className="achievement-emoji" aria-hidden>{a.icon}</span>
@@ -992,6 +1013,7 @@ export function Profile({
                             <img
                                 src={`/badges/${selectedAchievement.id}.webp`}
                                 alt=""
+                                onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = ""; }}
                                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
                             />
                             <span className="achievement-detail-emoji" aria-hidden>{selectedAchievement.icon}</span>

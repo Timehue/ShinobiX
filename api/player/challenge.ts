@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
+import { warfrontMatchFromNotice } from './_warfront-response.js';
 import { randomInt } from 'node:crypto';
 import { kv } from '../_storage.js';
 import { cors, parseJsonBody, safeName } from '../_utils.js';
@@ -25,6 +26,7 @@ import {
 } from '../pvp/_player-ranked-rollout.js';
 import {
     cancelChallengeRecord,
+    isCurrentKageInvitation,
     isChallengeId,
     isPlayerChallengeMode,
     loadChallengeRecord,
@@ -190,7 +192,7 @@ async function removeFromInbox(owner: string, id: string): Promise<boolean> {
     });
 }
 
-async function enqueueChallenge(owner: string, challenge: Record<string, unknown>): Promise<void> {
+export async function enqueueChallenge(owner: string, challenge: Record<string, unknown>): Promise<void> {
     const key = challengeKey(owner);
     const id = challengeId(challenge);
     await withKvLock(key, async () => {
@@ -298,7 +300,11 @@ async function buildNewChallenge(
         return { ok: false, status: 400, error: 'Challenge recipient does not match targetName.' };
     }
     if (from === to) return { ok: false, status: 400, error: 'You cannot challenge yourself.' };
-    const blocked = await blockRelationship(from, to);
+    const hasKageAuthority = raw.kageChallengeId !== undefined || raw.kageVillage !== undefined;
+    const officialKage = hasKageAuthority && await isCurrentKageInvitation({ from, to,
+        mode: raw.mode as 'standard', challenge: raw });
+    if (hasKageAuthority && !officialKage) return { ok: false, status: 409, error: 'That official Kage invitation is not current.' };
+    const blocked = !officialKage ? await blockRelationship(from, to) : { aBlockedB: false, bBlockedA: false };
     if (blocked.aBlockedB || blocked.bBlockedA) {
         return { ok: false, status: 403, error: 'A player block prevents this challenge.' };
     }
@@ -380,11 +386,11 @@ async function buildNewChallenge(
     if (raw.arenaSize === 2 || raw.arenaSize === 4) safe.arenaSize = raw.arenaSize;
     if (raw.arenaMatch === true) {
         if (raw.arenaSize !== 4) {
-            return { ok: false, status: 400, error: 'Hollow Warfront challenges require exactly four pets per side.' };
+            return { ok: false, status: 400, error: 'Beastbound Warfront challenges require exactly four pets per side.' };
         }
         const challengerWarfrontPlan = safeWarfrontChallengePlan(raw.challengerWarfrontPlan);
         if (!challengerWarfrontPlan) {
-            return { ok: false, status: 400, error: 'Hollow Warfront challenges require a complete sealed challenger battle plan.' };
+            return { ok: false, status: 400, error: 'Beastbound Warfront challenges require a complete sealed challenger battle plan.' };
         }
         safe.challengerWarfrontPlan = challengerWarfrontPlan;
     }
@@ -532,7 +538,7 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
             if (safeName(targetName) !== record.from || safeName(boundedString(rawChallenge.fromName, 64)) !== record.to) {
                 return res.status(409).json({ error: 'Challenge response does not match the outstanding challenge.' });
             }
-            if (accepted) {
+            if (accepted && !await isCurrentKageInvitation(record, true)) {
                 const blocked = await blockRelationship(record.from, record.to);
                 if (blocked.aBlockedB || blocked.bBlockedA) {
                     return res.status(403).json({ error: 'A player block prevents accepting this challenge.' });
@@ -558,7 +564,7 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
                     ? 4
                     : null;
                 if (stored.arenaMatch === true && arenaSize === null) {
-                    return res.status(409).json({ error: 'This legacy Warfront invitation is no longer compatible with the required 4v4 three-lane rules.' });
+                    return res.status(409).json({ error: 'This legacy invitation is no longer compatible with Beastbound Warfront. Send a fresh 4v4 challenge.' });
                 }
                 if (arenaSize && (!safeWarfrontChallengePlan(stored.challengerWarfrontPlan)
                     || !safeWarfrontChallengePlan(rawChallenge.responderWarfrontPlan))) {
@@ -667,7 +673,8 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
             ]);
             await enqueueChallenge(record.from, notice);
             kickPlayer(record.from, 'challenge');
-            return res.status(200).json({ ok: true, replay: resolutionResult.replay });
+            const warfrontMatch = warfrontMatchFromNotice(notice);
+            return res.status(200).json({ ok: true, replay: resolutionResult.replay, ...(warfrontMatch ? { warfrontMatch } : {}) });
         }
 
         if (rawChallenge.accepted !== undefined || rawChallenge.declined !== undefined) {
@@ -685,7 +692,7 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
         }
         const built = await buildNewChallenge(rawChallenge, creator, targetName);
         if (!built.ok) return res.status(built.status).json({ error: built.error });
-        if (!built.challenge.battleId) {
+        if (!built.challenge.battleId && !built.challenge.kageChallengeId) {
             const block = challengeBlock(onlineStore.get(built.record.to), built.record.mode);
             if (block) return res.status(block.status).json({ error: block.error });
         }

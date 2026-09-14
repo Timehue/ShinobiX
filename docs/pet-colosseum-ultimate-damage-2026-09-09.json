@@ -1,0 +1,35 @@
+{
+  "seeds": 1,
+  "charged": true,
+  "ultimatesOnly": true,
+  "guarded": false,
+  "templates": 160,
+  "assumptions": "Same level and rarity; balanced growth; no gear or traits; every signature with full readiness and meter against a unguarded full-health target. Separate fresh session per probe. Both counter and neutral/resisted matchups included.",
+  "rows": [
+    {
+      "level": 1,
+      "hits": 7500,
+      "oneShots": 0,
+      "maxHpFraction": 0.8938992042440318
+    },
+    {
+      "level": 25,
+      "hits": 7500,
+      "oneShots": 0,
+      "maxHpFraction": 0.8907922912205567
+    },
+    {
+      "level": 50,
+      "hits": 7500,
+      "oneShots": 0,
+      "maxHpFraction": 0.8884955752212389
+    },
+    {
+      "level": 100,
+      "hits": 7500,
+      "oneShots": 0,
+      "maxHpFraction": 0.8826666666666667
+    }
+  ],
+  "worst": []
+}

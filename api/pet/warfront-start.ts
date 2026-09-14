@@ -121,7 +121,9 @@ const warfrontPetSnapshot = (pet: Pet): Pet => ({
     // displays it from this payload, so carrying it here was dead weight that only
     // invited someone to wire it in later. See shared/pet-happiness.ts.
     ...(pet.moveRange !== undefined ? { moveRange: pet.moveRange } : {}),
-    ...(pet.loadout ? { loadout: { ...pet.loadout } } : {}),
+    // Formation combat does not use equipment. Preserve cosmetics, but never
+    // seal a spendable item that this mode cannot actually activate.
+    ...(pet.loadout ? { loadout: { ...pet.loadout, consumable: undefined } } : {}),
     ...(pet.evolutionStage !== undefined ? { evolutionStage: pet.evolutionStage } : {}),
     ...(pet.role ? { role: pet.role } : {}),
     ...(pet.subRole ? { subRole: pet.subRole } : {}),
@@ -280,7 +282,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (resumeOnly) return res.status(204).end();
 
         if (playerPetIds.length !== WARFRONT_TEAM_SIZE) {
-            return res.status(400).json({ error: `Hollow Warfront requires exactly ${WARFRONT_TEAM_SIZE} distinct pets.` });
+            return res.status(400).json({ error: `Beastbound Warfront requires exactly ${WARFRONT_TEAM_SIZE} distinct pets.` });
         }
 
         // BLUE = the player's REAL pets (authoritative stats loaded from the save —
@@ -351,9 +353,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
 
                     // The sealed AUTOMATIC baseline: the Rite as it resolves with
-                    // the default batting order and no swap. It is what settlement
-                    // falls back to when a plan is missing or malformed, and it
-                    // sets the settlement clock the player's playback is gated on.
+                    // the default batting order and no player command. It is what
+                    // settlement uses when a plan is omitted; a present malformed
+                    // transcript is rejected. This also sets the playback clock.
                     const result = runWarfrontRite(
                         JSON.parse(JSON.stringify(sealedBluePets)) as Pet[],
                         JSON.parse(JSON.stringify(sealedRedPets)) as Pet[],

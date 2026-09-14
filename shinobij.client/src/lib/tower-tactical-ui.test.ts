@@ -6,6 +6,8 @@ import {
     buildTowerTileLabel,
     clampTowerPan,
     clampTowerZoom,
+    estimateTowerActionDamage,
+    projectTowerClearScore,
 } from "./tower-tactical-ui";
 
 test("story Tower milestone receipts are progression records, never wearable titles", () => {
@@ -67,4 +69,35 @@ test("threat summary orders immediate impacts before future gates", () => {
         "Next boss phase at 40% HP",
         "2 rounds remain before the floor closes",
     ]);
+});
+
+test("Tower score projection mirrors speed, survival, no-death, and elite-route stakes", () => {
+    const safe = projectTowerClearScore({
+        floor: 6, round: 3, roundBudget: 8,
+        squadHpRemaining: 9_000, squadHpMax: 10_000, deaths: 0,
+    });
+    const elite = projectTowerClearScore({
+        floor: 6, round: 3, roundBudget: 8,
+        squadHpRemaining: 9_000, squadHpMax: 10_000, deaths: 0, scoreMultiplier: 1.25,
+    });
+    assert.equal(safe.paceLabel, "5 rounds ahead of par");
+    assert.equal(safe.noDeathBonusActive, true);
+    assert.equal(elite.score, Math.round(safe.score * 1.25));
+});
+
+test("target forecast accounts for target shield before HP damage", () => {
+    const stats = {
+        strength: 100, speed: 100, intelligence: 100, willpower: 100,
+        taijutsuOffense: 100, taijutsuDefense: 100,
+    };
+    const result = estimateTowerActionDamage({
+        attacker: { hp: 1000, maxHp: 1000, character: { stats } },
+        target: { hp: 1000, maxHp: 1000, shield: 150, character: { stats } },
+        effectPower: 10,
+        type: "Taijutsu",
+        actionId: "basic-attack",
+    });
+    assert.ok(result.rawDamage > 150);
+    assert.equal(result.shieldAbsorbed, 150);
+    assert.equal(result.hpDamage, result.rawDamage - 150);
 });

@@ -66,6 +66,11 @@ feeds Sets, delete-loops, or stored-copy loops whose output lands in Postgres
 
 ## What clients may write
 
+World position is now server-owned: `currentSector`, `currentTile`,
+`pendingTravel`, and `worldTravelReceipt` use `ledger-toplevel`. See
+[persistent world position](persistent-world-position.md) for arrival authority,
+legacy loading-mask handling, and the retention migration.
+
 - Generic autosaves may write: `client-state`, `client-preference`,
   `cosmetic-ref`, `personal-authored` content (budget-clamped), and
   `server-clamped` fields within their clamps.

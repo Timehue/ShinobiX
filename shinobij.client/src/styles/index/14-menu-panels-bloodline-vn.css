@@ -111,9 +111,11 @@
     font-size: 0.78rem;
     cursor: pointer;
 }
-    .bloodline-chip:hover {
-        border-color: rgba(250, 204, 21, 0.6) !important;
-        color: var(--gold-300) !important;
+    @media (hover: hover) {
+        .bloodline-chip:hover {
+            border-color: rgba(250, 204, 21, 0.6) !important;
+            color: var(--gold-300) !important;
+        }
     }
 
 /* Quick-start template archetypes */
@@ -143,9 +145,11 @@
     background: rgba(2, 6, 23, 0.45) !important;
     cursor: pointer;
 }
-    .bloodline-template-card:hover {
-        border-color: rgba(250, 204, 21, 0.65) !important;
-        background: rgba(250, 204, 21, 0.08) !important;
+    @media (hover: hover) {
+        .bloodline-template-card:hover {
+            border-color: rgba(250, 204, 21, 0.65) !important;
+            background: rgba(250, 204, 21, 0.08) !important;
+        }
     }
     .bloodline-template-card strong {
         color: var(--gold-300);
@@ -636,8 +640,10 @@ textarea {
     cursor: pointer;
 }
 
-.left-timer-link:hover .left-timer-label,
 .left-timer-link:focus-visible .left-timer-label { color: #f4e2b5; }
+@media (hover: hover) {
+    .left-timer-link:hover .left-timer-label { color: #f4e2b5; }
+}
 
 .left-timer-icon {
     font-size: 0.75rem;
@@ -751,12 +757,6 @@ textarea {
 
 .battle-result-loss {
     color: var(--red-400);
-    font-size: 2.25rem;
-    margin: 0;
-}
-
-.battle-result-fled {
-    color: var(--text-dim);
     font-size: 2.25rem;
     margin: 0;
 }
@@ -954,9 +954,11 @@ textarea {
     width: 100%;
 }
 
-    .chest-claim-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 0 30px rgba(245,158,11,0.65);
+    @media (hover: hover) {
+        .chest-claim-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 30px rgba(245,158,11,0.65);
+        }
     }
 
 /* ── Awakening Stone ─────────────────────────────────────── */
@@ -1378,22 +1380,6 @@ textarea {
 
 
 
-.clan-member-row {
-    display: grid;
-    grid-template-columns: 32px 1fr auto auto;
-    align-items: center;
-    gap: 8px;
-    padding: 9px 12px;
-    border-radius: 10px;
-    background: rgba(15,23,42,0.5);
-    border: 1px solid var(--slate-800);
-    transition: border-color 0.15s;
-}
-
-    .clan-member-row:hover {
-        border-color: var(--slate-700);
-    }
-
 .clan-member-me {
     background: rgba(30,58,95,0.3);
     border-color: #3b82f680;
@@ -1594,15 +1580,6 @@ textarea {
 
 
 
-/* Clan-boss party picker — real tap targets (>=40px) + no horizontal overflow on
-   narrow phones (long names truncate rather than pushing the row wide). */
-.clan-boss-party {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    max-width: 100%;
-}
-
 .clan-boss-party-btn {
     display: inline-flex;
     align-items: center;
@@ -1767,8 +1744,10 @@ textarea {
     transition: opacity 0.15s;
 }
 
-    .territory-raid-btn:hover {
-        opacity: 0.85;
+    @media (hover: hover) {
+        .territory-raid-btn:hover {
+            opacity: 0.85;
+        }
     }
 
 /* ── Bulk Image Generator ────────────────────────────────────────────────── */
@@ -1845,8 +1824,10 @@ textarea {
     transition: background 0.15s;
 }
 
-    .bulk-quick-btn:hover:not(:disabled) {
-        background: rgba(71, 85, 105, 0.8);
+    @media (hover: hover) {
+        .bulk-quick-btn:hover:not(:disabled) {
+            background: rgba(71, 85, 105, 0.8);
+        }
     }
 
     .bulk-quick-btn:disabled {
@@ -2028,9 +2009,11 @@ textarea {
     transition: opacity 0.15s, transform 0.1s;
 }
 
-    .bulk-generate-btn:hover:not(:disabled) {
-        opacity: 0.9;
-        transform: translateY(-1px);
+    @media (hover: hover) {
+        .bulk-generate-btn:hover:not(:disabled) {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
     }
 
     .bulk-generate-btn:disabled {
@@ -2082,12 +2065,6 @@ textarea {
     color: var(--blue-300);
     letter-spacing: 0.02em;
     font-style: italic;
-}
-
-.vn-preview-modal .vn-overlay {
-    position: relative;
-    border-radius: 0 0 16px 16px;
-    flex: 1;
 }
 
 .aw-forge-btn:disabled {

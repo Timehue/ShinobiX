@@ -123,17 +123,6 @@ body {
     align-items: center !important;
 }
 
-/* Fix stats back to the right */
-
-
-.journey-live-stats {
-    position: absolute !important;
-    right: 42px !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
-    z-index: 5 !important;
-}
-
 /* ===== GLOBAL BACKGROUND - carries through every page ===== */
 
 body {
@@ -152,9 +141,4 @@ main,
 .top-hud {
     position: relative;
     z-index: 2;
-}
-
-.inventory-card {
-    position: relative;
-    z-index: 1;
 }

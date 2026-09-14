@@ -6,6 +6,7 @@ import { cors, safeName, mergePreservingImages } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
+import { invalidateProcCache } from '../_proc-cache.js';
 import { seededVillageAgenda, verifyAgendaCompletion } from '../_village-agenda.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { MERIT_DAILY_AGENDA, meritNum } from './_village-merit.js';
@@ -230,7 +231,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const treasuryOutcome = await withKvLock(villageStateKey, async () => {
             const state = (await kv.get<Record<string, unknown>>(villageStateKey)) ?? {};
             const applied = applyAgendaTreasuryReward(state, claimId, isVanguardClaimer);
-            if (!applied.alreadyClaimed) await kv.set(villageStateKey, applied.state);
+            if (!applied.alreadyClaimed) {
+                await kv.set(villageStateKey, applied.state);
+                invalidateProcCache('game-state:frame');
+            }
             return { alreadyClaimed: applied.alreadyClaimed, treasury: applied.treasury };
         }, { failClosed: true });
         const treasury = treasuryOutcome.treasury;

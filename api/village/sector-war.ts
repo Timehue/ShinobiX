@@ -1,3 +1,4 @@
+import { seatedKageOf as seatedKage } from '../_sector-war-garrison-defender.js';
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { randomUUID } from 'node:crypto';
@@ -160,19 +161,8 @@ const WIRED_WIN_CONDITIONS: readonly WinCondition[] = ['combat', 'card', 'pet'];
 type Identity = NonNullable<Awaited<ReturnType<typeof authedPlayerOrAdmin>>>;
 type ReadBattle = PvpSession;
 
-function kageKey(village: string): string {
-    return `village:kage:${village.toLowerCase().replace(/\s+/g, '-')}`;
-}
 async function isSeatedKage(village: string, playerName: string): Promise<boolean> {
-    const st = await kv.get<{ seatedKage?: string }>(kageKey(village));
-    return safeName(st?.seatedKage ?? '') === playerName;
-}
-/** The seated Kage of a village (a real appointed leader) — the garrison
- *  defender fallback when a village hasn't appointed ANBU yet. Mirrors
- *  api/village/anbu-infiltration.ts's own seatedKageOf. */
-async function seatedKage(village: string): Promise<string> {
-    const st = await kv.get<{ seatedKage?: string }>(kageKey(village));
-    return safeName(st?.seatedKage ?? '');
+    return (await seatedKage(village)) === playerName;
 }
 async function villageOf(playerName: string): Promise<string> {
     const save = await kv.get<{ character?: { village?: string } }>(`save:${playerName}`);
@@ -761,8 +751,20 @@ async function doAttack(req: VercelRequest, res: VercelResponse, identity: Ident
     // Most world PvP is not part of a Combat sector contest. Registration is
     // still an idempotent prerequisite for the client, so absence is a
     // canonical success/no-op rather than a permanent completion error.
-    if (!contest || contest.winCondition !== 'combat') {
-        return res.status(200).json({ ok: true, registered: false, battleId, noContest: true });
+    //
+    // `reason` distinguishes the two very different no-ops behind that shared
+    // 200. Without it the client could not tell "there is no war here" from
+    // "this sector's war is fought with decks, so the punches you just threw
+    // scored nothing" — and it told the player neither, which is the whole
+    // reason a Card/Pet sector silently ate world PvP.
+    if (!contest) {
+        return res.status(200).json({ ok: true, registered: false, battleId, noContest: true, reason: 'no-contest' });
+    }
+    if (contest.winCondition !== 'combat') {
+        return res.status(200).json({
+            ok: true, registered: false, battleId, noContest: true,
+            reason: 'win-condition', winCondition: contest.winCondition, sectorWarId: contest.id,
+        });
     }
     const { attackerVillage, defenderVillage } = contest;
 
@@ -787,7 +789,7 @@ async function doAttack(req: VercelRequest, res: VercelResponse, identity: Ident
     const v1 = sealedFighterVillage(battle, 'p1');
     const v2 = sealedFighterVillage(battle, 'p2');
     if (v1 === v2 || !(v1 === attackerVillage || v2 === attackerVillage) || !(v1 === defenderVillage || v2 === defenderVillage)) {
-        return res.status(200).json({ ok: true, registered: false, battleId, noContest: true });
+        return res.status(200).json({ ok: true, registered: false, battleId, noContest: true, reason: 'not-contest-villages' });
     }
 
     const existingToken = await loadSectorWarToken(battleId);

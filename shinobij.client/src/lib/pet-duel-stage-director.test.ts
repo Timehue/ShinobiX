@@ -114,3 +114,23 @@ test("stage director leaves party fights unchanged until multi-actor shot gramma
     };
     assert.equal(directPetDuelPresentation(partyShape), partyShape);
 });
+
+test('a completed combat beat does not cancel a later setup retreat when its long route needs an earlier start', () => {
+    const original = runPetDuelCinematic(
+        pet({ id: 'hawk', name: 'Tempest Hawk', element: 'Wind' }),
+        pet({ id: 'hound', name: 'Arena Guardhound', element: 'Earth', speed: 76 }),
+        20260601,
+    );
+    const directed = directPetDuelPresentation(original);
+    for (const tick of [94, 101]) {
+        assert.ok(original.events.some(event => event.t === tick && event.type === 'cast' && event.kind === 'buff'));
+        const [a, b] = directed.snapshots[tick].actors;
+        assert.ok(Math.hypot(a.x - b.x, a.y - b.y) >= 5.5, `completed motion blocked setup at ${tick}`);
+    }
+    // This later cast actually competes with a dodge. Preserve the dodge; do
+    // not move its combat event or force the caster onto a distant mark.
+    assert.ok(original.events.some(event => event.t === 1145 && event.type === 'cast'));
+    const caster = directed.snapshots[1145].actors.find(actor => actor.id === 'enemy-0')!;
+    assert.equal(caster.state, 'dodge');
+    assert.deepEqual(directed.events, original.events);
+});

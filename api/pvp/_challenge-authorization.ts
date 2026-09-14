@@ -58,6 +58,32 @@ export async function saveChallengeRecord(record: AuthoritativeChallengeRecord):
     return !!(await kv.set(challengeRecordKey(record.id), record, { nx: true, ex: CHALLENGE_RECORD_TTL_SECONDS }));
 }
 
+/** Political duel notices are tied to the exact incumbent/challenger pair.
+ * Social blocks cannot make an active seat challenge impossible to answer. */
+export async function isCurrentKageInvitation(
+    record: Pick<AuthoritativeChallengeRecord, 'from' | 'to' | 'mode' | 'challenge'>,
+    allowSealed = false,
+): Promise<boolean> {
+    const village = record.challenge.kageVillage;
+    const challengeId = record.challenge.kageChallengeId;
+    if (record.mode !== 'standard' || typeof village !== 'string' || typeof challengeId !== 'string'
+        || !village || !challengeId || record.challenge.sectorAttack === true
+        || record.challenge.battleId || record.challenge.arenaMatch === true
+        || Number(record.challenge.clanWarPoints ?? 0) !== 0) return false;
+    const { kageKey } = await import('../village/_kage-settle.js');
+    const [state, sender, recipient] = await Promise.all([
+        kv.get<import('../village/_kage-challenge.js').KageStateLike>(kageKey(village)),
+        kv.get<{ character?: { village?: string } }>(`save:${record.from}`),
+        kv.get<{ character?: { village?: string } }>(`save:${record.to}`),
+    ]);
+    return state?.kageSystemUnlocked === true && !!state.challenge
+        && state.challenge.challengeId === challengeId
+        && (allowSealed || state.challenge.status === 'pending')
+        && safeName(state.seatedKage ?? '') === record.from
+        && safeName(state.challenge.challenger) === record.to
+        && sender?.character?.village === village && recipient?.character?.village === village;
+}
+
 export type ChallengeSessionReservation = {
     id: string;
     from: string;
@@ -106,6 +132,16 @@ export async function reserveChallengeForPvpSession(args: {
             : '';
         if (!!kageVillage !== !!kageChallengeId) {
             throw new Error('kage-duel-challenge-authority-incomplete');
+        }
+        if (kageVillage && kageChallengeId) {
+            const { advanceKageChallengeClock } = await import('../village/_kage-clock.js');
+            const { state } = await advanceKageChallengeClock(kageVillage);
+            const councilChallenge = state?.challenge;
+            if (!await isCurrentKageInvitation(record) || !councilChallenge || councilChallenge.status !== 'pending'
+                || councilChallenge.challengeId !== kageChallengeId || councilChallenge.kageAcceptedAt === undefined
+                || record.from !== safeName(state?.seatedKage ?? '') || record.to !== safeName(councilChallenge.challenger)) {
+                throw new Error('kage-duel-requires-kage-invitation-and-challenger-acceptance');
+            }
         }
         const next: AuthoritativeChallengeRecord = {
             ...record,

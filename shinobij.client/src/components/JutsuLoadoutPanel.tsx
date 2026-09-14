@@ -3,15 +3,25 @@ import type { Character } from "../types/character";
 import type { Jutsu } from "../types/combat";
 import type { JutsuType } from "../types/core";
 import { JutsuEffectCards } from "./JutsuEffectCards";
-import { describeJutsuEffects, jutsuDisplayAtLevel, jutsuTargetingLabel } from "../lib/jutsu-effects";
+import { describeJutsuEffects, jutsuDetailDescription, jutsuDisplayAtLevel, jutsuTargetingLabel } from "../lib/jutsu-effects";
 import { getJutsuMastery } from "../lib/jutsu-scaling";
+import { orderEquippedJutsus } from "../lib/jutsu";
 import { isPatreonSubscriber, LOADOUT_CAP_BASE, LOADOUT_CAP_SUB } from "../lib/entitlements";
 import { legacySignatureFor } from "../lib/legacy-jutsu-slot";
 import { resolveLoadoutLensDiscipline } from "../lib/jutsu-loadout-lens";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
+import { useFirstContractLoadoutTab } from "../lib/use-first-contract-loadout-tab";
 import { handleHorizontalTabKeyDown } from "../lib/tab-keyboard";
+import { hasBloodlineMarker } from "../lib/bloodline-marker";
 
-type JutsuCollectionSort = "default" | "name" | "level" | "ap" | "element";
+type JutsuCollectionSort = "default" | "name" | "level" | "ap" | "element" | "bloodline";
+type JutsuSourceFilter = "All" | "Bloodline" | "Standard";
+
+/**
+ * Stable empty default for the optional bloodline lookup so a caller that
+ * omits it does not hand the panel a fresh Map on every render.
+ */
+const NO_BLOODLINE_JUTSUS: ReadonlyMap<string, string> = new Map();
 
 const ELEMENT_GLYPHS: Record<string, string> = {
     Fire: "火",
@@ -46,6 +56,8 @@ function JutsuCard({
     selected,
     equipped,
     view,
+    isBloodline,
+    bloodlineName,
     onSelect,
     onEquip,
     highlightEquip,
@@ -55,6 +67,10 @@ function JutsuCard({
     selected: boolean;
     equipped: boolean;
     view: "grid" | "list";
+    /** Is this a bloodline jutsu at all — the character's own or another's? */
+    isBloodline: boolean;
+    /** The granting bloodline's name, known only for the character's own. */
+    bloodlineName: string;
     onSelect: () => void;
     onEquip: () => void;
     highlightEquip: boolean;
@@ -62,7 +78,7 @@ function JutsuCard({
     const mastery = getJutsuMastery(character, jutsu.id);
     return (
         <div
-            className={`jutsu-collection-card ${selected ? "is-selected" : ""} ${equipped ? "is-equipped" : ""} ${view === "list" ? "is-list" : ""}`}
+            className={`jutsu-collection-card ${selected ? "is-selected" : ""} ${equipped ? "is-equipped" : ""} ${view === "list" ? "is-list" : ""} ${isBloodline ? "is-bloodline" : ""}`}
         >
             <button
                 type="button"
@@ -79,6 +95,11 @@ function JutsuCard({
                 <span className="jutsu-collection-copy">
                     <strong>{jutsu.name}</strong>
                     <small>{jutsu.type} · {jutsu.element}</small>
+                    {/* Collection cards are ~90px wide, so the card carries the
+                        generic mark and the details panel names the bloodline. */}
+                    {isBloodline && (
+                        <span className="jutsu-bloodline-chip" title={bloodlineName ? `Bloodline jutsu — ${bloodlineName}` : "Bloodline jutsu"}>◆ Bloodline</span>
+                    )}
                 </span>
             </button>
             <button
@@ -104,6 +125,8 @@ function SelectedJutsuDetails({
     lensDiscipline,
     equipped,
     loadoutFull,
+    isBloodline,
+    bloodlineName,
     onEquip,
     onUnequip,
     highlightEquip,
@@ -113,6 +136,10 @@ function SelectedJutsuDetails({
     lensDiscipline: JutsuType;
     equipped: boolean;
     loadoutFull: boolean;
+    /** Is this a bloodline jutsu at all — the character's own or another's? */
+    isBloodline: boolean;
+    /** The granting bloodline's name, known only for the character's own. */
+    bloodlineName: string;
     onEquip: () => void;
     onUnequip: () => void;
     highlightEquip: boolean;
@@ -140,6 +167,7 @@ function SelectedJutsuDetails({
                 <div>
                     <small>{jutsu.type} · {jutsu.element}</small>
                     <h3>{jutsu.name}</h3>
+                    {isBloodline && <span className="jutsu-bloodline-chip">◆ Bloodline{bloodlineName ? ` · ${bloodlineName}` : ""}</span>}
                 </div>
                 <span className="jutsu-detail-ap">{jutsu.ap}<small>AP</small></span>
             </div>
@@ -149,7 +177,7 @@ function SelectedJutsuDetails({
                 <span><small>Power</small><strong>{display.effectPower}</strong></span>
                 <span><small>Cooldown</small><strong>{jutsu.cooldown}</strong></span>
             </div>
-            <p className="jutsu-detail-description">{jutsu.description}</p>
+            <p className="jutsu-detail-description">{jutsuDetailDescription(jutsu)}</p>
             <p className="jutsu-detail-target"><strong>{targeting.short}</strong> — {targeting.detail}</p>
             <div className="jutsu-detail-effects">
                 <strong>Effects</strong>
@@ -172,12 +200,24 @@ function SelectedJutsuDetails({
 export function JutsuLoadoutPanel({
     character,
     learnedJutsus,
+    catalogJutsus,
+    bloodlineJutsuNames = NO_BLOODLINE_JUTSUS,
     onPlaceJutsu,
     onUnequip,
     onUnequipAll,
 }: {
     character: Character;
     learnedJutsus: Jutsu[];
+    // Everything the character can field, INCLUDING jutsu that are currently
+    // element-locked. Slots resolve against this rather than learnedJutsus so
+    // the grid shows exactly what combat will hand the player.
+    catalogJutsus: Jutsu[];
+    /**
+     * Jutsu id -> the name of the bloodline that grants it, for every jutsu the
+     * character's starter/equipped bloodlines carry. Drives the bloodline chips
+     * and the "Bloodline Only" source filter; an absent entry = ordinary jutsu.
+     */
+    bloodlineJutsuNames?: ReadonlyMap<string, string>;
     onPlaceJutsu: (jutsuId: string, slotIndex?: number) => void;
     onUnequip: (jutsuId: string) => void;
     onUnequipAll: () => void;
@@ -187,19 +227,23 @@ export function JutsuLoadoutPanel({
     const [typeFilter, setTypeFilter] = useState("All");
     const [elementFilter, setElementFilter] = useState("All");
     const [effectFilter, setEffectFilter] = useState("All");
+    const [sourceFilter, setSourceFilter] = useState<JutsuSourceFilter>("All");
     const [sortBy, setSortBy] = useState<JutsuCollectionSort>("default");
     const [view, setView] = useState<"grid" | "list">("grid");
     const [dragOverSlot, setDragOverSlot] = useState<number | null>(null);
     const [lensOverride, setLensOverride] = useState<JutsuType | null>(null);
     const academyLoadoutStep = normalizeOnboardingStep(character.onboardingStep) === "jutsuLoadout";
-    const [workspaceTab, setWorkspaceTab] = useState<"loadout" | "collection">(academyLoadoutStep ? "collection" : "loadout");
+    const [workspaceTab, setWorkspaceTab] = useFirstContractLoadoutTab<"loadout" | "collection">(character, 'workspace', academyLoadoutStep ? "collection" : "loadout", "collection");
     const subscriber = isPatreonSubscriber(character);
     const unlockedSlots = subscriber ? LOADOUT_CAP_SUB : LOADOUT_CAP_BASE;
-    const loadoutFull = character.equippedJutsuIds.length >= unlockedSlots;
-
-    const equippedJutsus = character.equippedJutsuIds
-        .map((id) => learnedJutsus.find((jutsu) => jutsu.id === id))
-        .filter((jutsu): jutsu is Jutsu => Boolean(jutsu));
+    // Resolve slots the way combat does (orderEquippedJutsus), against the full
+    // catalog. An ID whose jutsu no longer exists — an admin-deleted custom
+    // jutsu, kept in the save by its mastery row — resolves to nothing and must
+    // not hold a slot: counting it wedged the loadout at 14 usable jutsu while
+    // the cap check insisted all 15 were taken.
+    const equippedJutsus = orderEquippedJutsus(catalogJutsus, character.equippedJutsuIds);
+    const equippedCount = equippedJutsus.length;
+    const loadoutFull = equippedCount >= unlockedSlots;
     const automaticLensDiscipline = resolveLoadoutLensDiscipline(character, learnedJutsus);
     const lensDiscipline = lensOverride ?? automaticLensDiscipline;
     const selectedJutsu = learnedJutsus.find((jutsu) => jutsu.id === selectedId) ?? equippedJutsus[0] ?? learnedJutsus[0];
@@ -211,6 +255,16 @@ export function JutsuLoadoutPanel({
     const disciplines = Array.from(new Set(learnedJutsus.map((jutsu) => jutsu.type))).sort();
     const elements = Array.from(new Set(learnedJutsus.map((jutsu) => jutsu.element))).sort();
     const effects = Array.from(new Set(learnedJutsus.flatMap((jutsu) => jutsu.tags.map((tag) => tag.name)))).sort();
+    const bloodlineNameFor = (jutsu: Jutsu) => bloodlineJutsuNames.get(jutsu.id) ?? "";
+    // Same rule the Jutsu Training Hall uses (lib/bloodline-marker): the
+    // character's own bloodline jutsu, plus any kit getAllJutsus rank-stamped.
+    const isBloodlineJutsu = (jutsu: Jutsu) => hasBloodlineMarker(jutsu, bloodlineJutsuNames);
+    // Only offer the bloodline controls when this character actually has
+    // bloodline jutsu, and never let a stale "Bloodline Only" selection empty
+    // the grid after the bloodline is unequipped.
+    const hasBloodlineJutsus = learnedJutsus.some(isBloodlineJutsu);
+    const activeSourceFilter: JutsuSourceFilter = hasBloodlineJutsus ? sourceFilter : "All";
+    const activeSortBy: JutsuCollectionSort = sortBy === "bloodline" && !hasBloodlineJutsus ? "default" : sortBy;
     const filteredJutsus = (() => {
         const query = nameFilter.trim().toLowerCase();
         const filtered = learnedJutsus.filter((jutsu) =>
@@ -218,12 +272,17 @@ export function JutsuLoadoutPanel({
             && (typeFilter === "All" || jutsu.type === typeFilter)
             && (elementFilter === "All" || jutsu.element === elementFilter)
             && (effectFilter === "All" || jutsu.tags.some((tag) => tag.name === effectFilter))
+            && (activeSourceFilter === "All" || (activeSourceFilter === "Bloodline") === isBloodlineJutsu(jutsu))
         );
-        if (sortBy === "default") return filtered;
+        if (activeSortBy === "default") return filtered;
         return [...filtered].sort((a, b) => {
-            if (sortBy === "name") return a.name.localeCompare(b.name);
-            if (sortBy === "level") return getJutsuMastery(character, b.id).level - getJutsuMastery(character, a.id).level;
-            if (sortBy === "ap") return b.ap - a.ap;
+            if (activeSortBy === "name") return a.name.localeCompare(b.name);
+            if (activeSortBy === "level") return getJutsuMastery(character, b.id).level - getJutsuMastery(character, a.id).level;
+            if (activeSortBy === "ap") return b.ap - a.ap;
+            if (activeSortBy === "bloodline") {
+                if (isBloodlineJutsu(a) !== isBloodlineJutsu(b)) return isBloodlineJutsu(a) ? -1 : 1;
+                return bloodlineNameFor(a).localeCompare(bloodlineNameFor(b)) || a.name.localeCompare(b.name);
+            }
             return a.element.localeCompare(b.element) || a.name.localeCompare(b.name);
         });
     })();
@@ -244,7 +303,7 @@ export function JutsuLoadoutPanel({
                     <header className="jutsu-workbench-header">
                         <div className="jutsu-workbench-heading">
                             <h2>Jutsu Loadout</h2>
-                            <strong>{character.equippedJutsuIds.length} / {LOADOUT_CAP_SUB}</strong>
+                            <strong>{equippedCount} / {unlockedSlots}</strong>
                         </div>
                         <button
                             type="button"
@@ -267,7 +326,7 @@ export function JutsuLoadoutPanel({
                             onClick={() => setWorkspaceTab("loadout")}
                         >
                             <span>Loadout</span>
-                            <strong>{character.equippedJutsuIds.length}/{unlockedSlots}</strong>
+                            <strong>{equippedCount}/{unlockedSlots}</strong>
                         </button>
                         <button
                             type="button"
@@ -394,7 +453,7 @@ export function JutsuLoadoutPanel({
                     <div className="jutsu-collection-loadout-summary">
                         <span className="jutsu-collection-summary-icon" aria-hidden="true">◫</span>
                         <div>
-                            <strong>{character.equippedJutsuIds.length} of {unlockedSlots} slots equipped</strong>
+                            <strong>{equippedCount} of {unlockedSlots} slots equipped</strong>
                             <small>{loadoutFull ? "Loadout full — manage slots to make room." : "Quick equip fills the next open battle slot."}</small>
                         </div>
                         <button type="button" onClick={() => setWorkspaceTab("loadout")}>Manage Loadout</button>
@@ -423,12 +482,20 @@ export function JutsuLoadoutPanel({
                                     <option value="All">All Effects</option>
                                     {effects.map((effect) => <option key={effect} value={effect}>{effect}</option>)}
                                 </select>
-                                <select value={sortBy} onChange={(event) => setSortBy(event.target.value as JutsuCollectionSort)} aria-label="Sort jutsu">
+                                {hasBloodlineJutsus && (
+                                    <select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value as JutsuSourceFilter)} aria-label="Filter by source">
+                                        <option value="All">All Sources</option>
+                                        <option value="Bloodline">Bloodline Only</option>
+                                        <option value="Standard">Non-Bloodline</option>
+                                    </select>
+                                )}
+                                <select value={activeSortBy} onChange={(event) => setSortBy(event.target.value as JutsuCollectionSort)} aria-label="Sort jutsu">
                                     <option value="default">Sort: Default</option>
                                     <option value="name">Sort: Name</option>
                                     <option value="level">Sort: Mastery</option>
                                     <option value="ap">Sort: AP</option>
                                     <option value="element">Sort: Element</option>
+                                    {hasBloodlineJutsus && <option value="bloodline">Sort: Bloodline</option>}
                                 </select>
                                 <div className="jutsu-view-toggle" role="group" aria-label="Collection view">
                                     <button type="button" className={view === "grid" ? "active" : ""} aria-pressed={view === "grid"} onClick={() => setView("grid")} title="Grid view">▦</button>
@@ -446,6 +513,8 @@ export function JutsuLoadoutPanel({
                                     selected={selectedJutsu?.id === jutsu.id}
                                     equipped={character.equippedJutsuIds.includes(jutsu.id)}
                                     view={view}
+                                    isBloodline={isBloodlineJutsu(jutsu)}
+                                    bloodlineName={bloodlineNameFor(jutsu)}
                                     onSelect={() => setSelectedId(jutsu.id)}
                                     onEquip={() => {
                                         setSelectedId(jutsu.id);
@@ -454,7 +523,9 @@ export function JutsuLoadoutPanel({
                                     highlightEquip={academyRecommendedJutsuId === jutsu.id}
                                 />
                             )) : (
-                                <div className="jutsu-collection-empty">No jutsu match these filters.</div>
+                                <div className="jutsu-collection-empty">{activeSourceFilter === "Bloodline"
+                                    ? "No bloodline jutsu match these filters. Train them at the Training Grounds to see them here."
+                                    : "No jutsu match these filters."}</div>
                             )}
                         </div>
                     </section>
@@ -475,6 +546,8 @@ export function JutsuLoadoutPanel({
                             lensDiscipline={lensDiscipline}
                             equipped={Boolean(selectedJutsu && character.equippedJutsuIds.includes(selectedJutsu.id))}
                             loadoutFull={loadoutFull}
+                            isBloodline={Boolean(selectedJutsu && isBloodlineJutsu(selectedJutsu))}
+                            bloodlineName={selectedJutsu ? bloodlineNameFor(selectedJutsu) : ""}
                             onEquip={() => selectedJutsu && onPlaceJutsu(selectedJutsu.id)}
                             onUnequip={() => selectedJutsu && onUnequip(selectedJutsu.id)}
                             highlightEquip={Boolean(selectedJutsu && academyRecommendedJutsuId === selectedJutsu.id)}

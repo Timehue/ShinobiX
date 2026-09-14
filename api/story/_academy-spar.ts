@@ -20,15 +20,15 @@ import {
  *
  * The dummy is CONSTANT, which is why it was the cheapest of the six to move:
  * there is no run state, no scaling and no authored content to read. The
- * constants below mirror `shinobij.client/src/lib/academy-spar.ts`
- * argument-for-argument, and `scripts/academy-spar-parity.test.ts` fails if the
- * two drift — a heavier server dummy would silently break the tutorial's
- * guaranteed first win.
+ * constants below were copied from the client's old local-fallback dummy
+ * (lib/academy-spar.ts, deleted once nothing imported it). They are the only
+ * copy now, pinned by api/story/_academy-spar.test.ts — a heavier dummy would
+ * silently break the tutorial's guaranteed first win.
  *
- * ⚠ The stat sheet is deliberately NOT a scaled-down mission template. The
- * client's dummy is `aiStatsForLevel(1, jutsus)` with 50 HP and no armor; a
- * generic level-1 enemy template (240 HP, 180 offense) would be a different,
- * much longer fight for a brand-new player.
+ * ⚠ The stat sheet is deliberately NOT a scaled-down mission template. It is
+ * `aiStatsForLevel(1, jutsus)` with 50 HP and no armor; a generic level-1 enemy
+ * template (240 HP, 180 offense) would be a different, much longer fight for a
+ * brand-new player.
  */
 
 /** Stable, server-resolvable opponent id — the whole point of the migration.

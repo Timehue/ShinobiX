@@ -1,4 +1,4 @@
-/* eslint-disable react-hooks/set-state-in-effect, react-hooks/purity */
+/* eslint-disable react-hooks/purity */
 import { useState, useEffect, useCallback } from "react";
 // Compact local chrome glyphs shared with the rest of the game.
 import { GiOgre, GiTrophy, GiTombstone, GiPadlock, GiCrossedSwords } from "../components/icons/LightweightGameIcons";
@@ -76,8 +76,7 @@ export function WeeklyBossArena({
 
     useEffect(() => {
         if (!weeklyBossViewOpen) return;
-        void refresh();
-        return visiblePoll(refresh, 15000);
+        return visiblePoll(refresh, 15000, 0.1, { immediate: true });
     }, [refresh, weeklyBossViewOpen]);
 
     async function launchAuthoritativeFight() {

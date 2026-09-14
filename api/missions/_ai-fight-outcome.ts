@@ -45,6 +45,33 @@ export function aiFightPlayerActor(session: AiFightSession | null | undefined): 
     return session?.actors?.find((actor) => actor.side === 'squad' && actor.ai === false);
 }
 
+/**
+ * The fighter that IS `playerName` in this session — the body a physical
+ * outcome may be written to.
+ *
+ * `aiFightPlayerActor` answers "the human in a SOLO session", which is right for
+ * the sealed-token path (one owner, one human). It is the wrong question for a
+ * shared Tower session: with two humans in the squad it returned the FIRST one
+ * for every caller, so a teammate's settlement carried the host's HP onto the
+ * teammate's save. This resolves by canonical owner slug (case-insensitive),
+ * preferring the live human actor over an AFK-flagged one (an AFK human is
+ * marked `ai: true` but keeps its `ownerSlug`), and never a companion
+ * (`ownerSlug: null`). `undefined` means this player has no body in the run
+ * and settlement must refuse rather than guess.
+ */
+export function aiFightParticipantActor(
+    session: AiFightSession | null | undefined,
+    playerName: string,
+): AiFightPlayerCombatant | undefined {
+    if (!session || !playerName) return undefined;
+    const slug = playerName.toLowerCase();
+    if (isSoloPveSession(session)) {
+        return session.ownerSlug.toLowerCase() === slug ? session.player : undefined;
+    }
+    const owned = session.actors.filter((actor) => actor.side === 'squad' && (actor.ownerSlug ?? '').toLowerCase() === slug);
+    return owned.find((actor) => actor.ai === false) ?? owned[0];
+}
+
 /** Consumables spent by the authoritative human fighter. Settlement applies
  * this inside the same save mutation as the outcome and reward receipt. */
 export function aiFightPlayerItemsUsed(session: AiFightSession | null | undefined): Record<string, number> {
@@ -143,11 +170,25 @@ export function settlementOwnsHpOnWin(session: AiFightSession | null | undefined
  * HP on any resolved outcome, and a hospital stay when the player was knocked
  * out. All Solo PvE settlement consumers share this boundary.
  */
+/**
+ * Did this session seed the player from their CURRENT vitals (an open-world
+ * encounter) rather than a fresh full pool? Stamped on the encounter at creation
+ * by api/solo-pve/_ai-encounter.ts, so it survives storage and a settle can ask
+ * the session itself rather than re-deriving it from a battle kind.
+ */
+export function sessionUsesContinuousVitals(session: unknown): boolean {
+    const encounter = (session as { encounter?: { metadata?: Record<string, unknown> } } | null)?.encounter;
+    return encounter?.metadata?.continuousVitals === true;
+}
+
 export function applyAiFightOutcomeToCharacter(
     character: Record<string, unknown>,
     outcome: AiFightOutcome,
     playerActor: AiFightPlayerCombatant | undefined,
     now: number,
+    /** True only for an OPEN-WORLD encounter seeded from the player's current
+     *  vitals. Defaults false so every existing caller keeps HP-only behaviour. */
+    continuousVitals = false,
 ): Record<string, unknown> {
     if (outcome === 'unknown') return character;
     // No actor to read means no evidence of what the fight cost. Guessing would
@@ -162,9 +203,38 @@ export function applyAiFightOutcomeToCharacter(
     // "not a squad win" would send someone at full HP to a hospital bed for
     // surviving. Hospital admission follows authoritative zero HP, not a generic
     // non-win outcome.
+    // Chakra and stamina come back ONLY from a CONTINUOUS encounter — an
+    // open-world fight, which seeded the actor from the vitals the player
+    // actually had (api/solo-pve/_ai-encounter.ts). There, the actor's end value
+    // is genuinely what the fight cost, and carrying it back is the owner's
+    // 2026-09-08 ruling: you are put back in your spot with the HP, chakra and
+    // stamina you finished with.
+    //
+    // ⛔ NEVER carry them out of a FRESH-START encounter. A dive, a Spire wave, a
+    // story boss, an Academy spar and the weekly boss all seed the actor at the
+    // FULL pool, so its remainder is "what is left of a pool the fight handed
+    // you", unrelated to what the player held. Writing that back is a FAUCET:
+    // enter at 10% chakra, fight on a free full bar, finish at 60%, bank the 60%.
+    // That was shipped on 2026-09-08 and reverted the same day.
+    //
+    // Clamped DECREASE-ONLY as a second line of defence, so even a mislabelled
+    // encounter can only ever cost a player vitals, never mint them. HP needs no
+    // such guard: it is seeded from currentHp in every mode.
+    const carry = (actorValue: unknown, storedValue: unknown): number | undefined => {
+        if (!continuousVitals) return undefined;
+        if (typeof actorValue !== 'number' || !Number.isFinite(actorValue)) return undefined;
+        return Math.max(0, Math.min(num(storedValue), Math.floor(actorValue)));
+    };
+    const spent: Record<string, number> = {};
+    const carriedChakra = carry(playerActor.chakra, character.chakra);
+    if (carriedChakra !== undefined) spent.chakra = carriedChakra;
+    const carriedStamina = carry(playerActor.stamina, character.stamina);
+    if (carriedStamina !== undefined) spent.stamina = carriedStamina;
+
     if (num(playerActor.hp) <= 0) {
         return {
             ...character,
+            ...spent,
             hp: 0,
             hospitalized: true,
             hospitalizedAt: now,
@@ -180,5 +250,5 @@ export function applyAiFightOutcomeToCharacter(
     // Clamped to the SAVE's own maxHp so a stale session (sealed before a level
     // changed the pool) can never set HP above the real ceiling.
     const maxHp = Math.max(1, num(character.maxHp));
-    return { ...character, hp: Math.max(1, Math.min(maxHp, num(playerActor.hp))) };
+    return { ...character, ...spent, hp: Math.max(1, Math.min(maxHp, num(playerActor.hp))) };
 }

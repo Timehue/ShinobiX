@@ -31,7 +31,7 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     'level', 'village', 'rank', 'specialty', 'storyProgress', 'maxHp', 'maxChakra', 'maxStamina',
     'customTitle', 'profession', 'professionRank', 'professionXp', 'professionRespecUsed',
     // Wallet & currencies
-    'bankRyo', 'lastBankInterestAt', 'honorSeals', 'fateShards', 'chroniclePoints', 'boneCharms',
+    'ryo', 'bankRyo', 'lastBankInterestAt', 'honorSeals', 'fateShards', 'chroniclePoints', 'boneCharms',
     'auraStones', 'auraDust', 'mythicSeals', 'hollowShards',
     // Stats & progression ledger
     'xp', 'experience', 'stats', 'unspentStats', 'totalStatsTrained', 'rankTitle',
@@ -41,6 +41,10 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     'weaponElements', 'petBreeding', 'petBreedingMigrationVersion', 'petBreedingReceipts',
     'petBreedingHatchReceipts', 'petBreedingProgressReceipts', 'miraaWagerDate',
     'miraaWagerCount', 'levelLedgerMigrated', 'createdAt',
+    // Post-defeat raid shield: written only by PvP settlement and the sleeper
+    // KO (api/pvp/_vitals-settlement.ts PVP_RAID_SHIELD_MS). A device copy must
+    // never be restorable — a client-writable shield is permanent immunity.
+    'pvpShieldUntil',
     // Claim stamps & payout latches
     'lastLoginRewardDate', 'loginStreak', 'academyChecklistClaimed', 'academyTrialClaimed',
     'cardClashDailyWinDate', 'claimedWarCrateIds', 'claimedVillageAgendaDate',
@@ -82,29 +86,30 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     'chroniclePetArenaProgressReceipts', 'tournamentWinReceipts',
     // One-time boolean latches
     'academySparClaimed', 'starterPetClaimed', 'starterCardsClaimed',
+    'firstContract',
     // Progression entitlements
     'redeemedAuraFeeds', 'battleTowerAscension', 'rankedSeasonsWon', 'weeklyBossKills',
     'defeatedAiIds', 'hunterRank', 'redeemedHunterRanks', 'apexWeekClaimed', 'element',
     'elements', 'claimedAwakenings', 'redeemedAwakeningActions', 'elderFocus',
-    'activeDungeonRun', 'redeemedDungeonRuns', 'redeemedHollowGateRuns',
+    'activeDungeonRun', 'redeemedDungeonRuns', 'redeemedHollowGateRuns', 'riftFirstClears', 'riftQuestBossReceipt',
     'redeemedPetBattleTokens', 'redeemedPetExpeditionTokens', 'claimedServerMissions',
     'redeemedPetGauntletRuns', 'petGauntletRewardDate', 'petGauntletRewardCount',
     'petGauntletPremiumDate', 'petGauntletFateClaimed', 'petGauntletBoneClaimed',
     'petGauntletEntryDate', 'petGauntletEntryCount', 'redeemedWandererQuests',
     'redeemedWandererAmbushes', 'wandererAmbushRewardDate', 'wandererAmbushRewardCount',
     'redeemedQuestbookRuns', 'storyReckoningRewardDate', 'storyReckoningRewardCount',
-    'redeemedStoryReckonings',
+    'redeemedStoryReckonings', 'storyFieldRecords', 'activeStoryReckoning',
     // `villageUpgrades` left this list on 2026-08-17: it became `server-clamped`
     // (a cross-validated mirror of the shared village record) rather than
     // `server-owned`, and server-clamped fields are deliberately NOT mirrored
     // here — see the category note at the top.
     // Lifetime / leaderboard counters
     'totalPvpKills', 'totalAiKills', 'totalVillageRaids', 'warsWon', 'warMvpCount',
-    'lifetimeWarDamage', 'monthlyPvpKills', 'dailyAiKills', 'totalPetWins',
+    'lifetimeWarDamage', 'monthlyPvpKills', 'pvpKillMonth', 'elderWinDays', 'elderRankedWinReceipts', 'dailyAiKills', 'totalPetWins',
     'battleTowerBestFloor', 'battleTowerRating', 'battleTowerClearedFloors',
     'totalTournamentsCompleted', 'totalTilesExplored', 'hollowGateWardenKills',
     'rankedWins', 'rankedLosses', 'villageWarMissionsCompleted', 'totalMissionsCompleted',
-    'cardClashWins', 'cardClashLosses', 'cardClashDraws', 'echoesOfWar',
+    'cardClashWins', 'cardClashLosses', 'cardClashDraws', 'echoesOfWar', 'echoesWitnessChoices',
     // Clan
     'clanPoints', 'weeklyClanPoints', 'weeklyClanPointsWeek', 'lifetimeClanPoints',
     'clanPointHistory', 'clanExchangePurchases',
@@ -123,6 +128,9 @@ export const SERVER_OWNED_TOPLEVEL_FIELDS: ReadonlySet<string> = new Set([
     'creatorJutsus', 'creatorAis', 'creatorMissions', 'creatorEvents', 'creatorCards',
     'creatorRaids', 'editablePets', 'petEncounterVn', 'ancientChestVn',
     'hollowGateEventConfig', 'pendingBloodlineForges', 'worldGeoV', '_saveVersion', '_saveAt',
+    // Regeneration cursor and the travel-settled arrival tile: server-written,
+    // never sent by a generic save (api/_elapsed-state.ts, _realtime/travel-lease.ts).
+    '_regenAt', 'currentTile', 'currentSector', 'pendingTravel', 'worldTravelReceipt',
 ]);
 
 /**
@@ -169,7 +177,9 @@ export const CONFLICT_AREA_PATHS: ReadonlyArray<{ label: string; paths: Readonly
         label: "Story & Legacy",
         paths: [
             ["character", "storyProgress"], ["character", "storyChoices"],
-            ["character", "storyTraits"], ["character", "onboardingStep"],
+            ["character", "storyTraits"], ["character", "storyChoices"],
+            ["character", "storyScene"], ["character", "pendingStoryReports"],
+            ["character", "storyEpilogues"], ["character", "onboardingStep"],
             ["character", "legacy"], ["character", "titles"],
         ],
     },

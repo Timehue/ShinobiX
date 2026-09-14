@@ -5,7 +5,7 @@
  * small hints explain what a newly opened system is for without blocking play.
  * Dismissals live in character.seenHints and persist with the normal save.
  */
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import type { Character, Screen } from "../App";
@@ -36,7 +36,7 @@ const bannerStyle: React.CSSProperties = {
     display: "flex", alignItems: "center", color: "#e0f2fe",
     zIndex: 8500,
     // Ambient guidance is a compact help affordance, not a modal. Keeping the
-    // wrapper click-through guarantees it can never cover a gameplay control.
+    // wrapper click-through avoids intercepting input outside the trigger.
     pointerEvents: "none",
 };
 
@@ -51,13 +51,17 @@ const triggerStyle: React.CSSProperties = {
 };
 
 export function ScreenHint({
-    screen, character, updateCharacter,
+    screen, character, updateCharacter, placement = "floating",
 }: {
     screen: Screen;
     character: Character;
     updateCharacter: (c: Character) => void;
+    placement?: "floating" | "inline";
 }) {
     const [detailsOpen, setDetailsOpen] = useState(false);
+    const triggerRef = useRef<HTMLButtonElement>(null);
+    // Mission Hall owns a reserved header slot; never duplicate it over actions.
+    if (screen === "missions" && placement === "floating") return null;
     const text = HINTS[screen];
     if (!text) return null;
     // Don't compete with the guided coach; only ambient-hint once roaming freely.
@@ -70,11 +74,11 @@ export function ScreenHint({
         updateCharacter({ ...character, seenHints: [...(character.seenHints ?? []), screen] });
     };
 
-    return createPortal(
+    const content = (
         <>
             <div
-                className={`onboarding-coach-banner screen-hint-banner screen-hint-collapsed screen-hint-${screen}`}
-                style={bannerStyle}
+                className={placement === "inline" ? "screen-hint-docked" : `onboarding-coach-banner screen-hint-banner screen-hint-collapsed screen-hint-${screen}`}
+                style={placement === "inline" ? { display: "flex", marginTop: 12 } : bannerStyle}
                 role="note"
                 aria-label={`${subject} contextual tip`}
             >
@@ -96,6 +100,7 @@ export function ScreenHint({
                 <button
                     type="button"
                     className="screen-hint-battle-trigger"
+                    ref={triggerRef}
                     style={triggerStyle}
                     aria-label={`Review ${subject} tip`}
                     aria-haspopup="dialog"
@@ -109,6 +114,7 @@ export function ScreenHint({
             <Modal
                 open={detailsOpen}
                 onClose={() => setDetailsOpen(false)}
+                returnFocusRef={triggerRef}
                 title={`${subject} tip`}
                 size="sm"
                 backdropClassName="screen-hint-modal-backdrop"
@@ -117,8 +123,8 @@ export function ScreenHint({
                 <p className="screen-hint-dialog-copy">{text}</p>
                 <button type="button" className="start-primary-btn" onClick={dismiss}>Got it</button>
             </Modal>
-        </>,
-        document.body,
+        </>
     );
+    return placement === "inline" ? content : createPortal(content, document.body);
 }
 

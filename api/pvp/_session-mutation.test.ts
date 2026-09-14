@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { isDeepStrictEqual } from 'node:util';
 import { describe, it } from 'node:test';
 import { _makeMemoryKv, type KvLike } from '../_storage.js';
-import { PVP_TERMINAL_REPLAY_TTL } from '../combat-core/constants.js';
+import { PVP_LAPSED_RETENTION_SECONDS, PVP_TERMINAL_REPLAY_TTL } from '../combat-core/constants.js';
 import { makePlayerRankedAdmission, type PlayerRankedAdmission } from '../pet/_ranked-preparation.js';
 import {
     boundExactPvpSession,
@@ -99,7 +99,9 @@ describe('exact PvP session mutation authority', () => {
 
         assert.equal(result.status, 'committed');
         assert.equal(calls, 2);
-        assert.deepEqual(options, [{ ex: 77 }, { ex: 77 }]);
+        // An ACTIVE row is retained past its requested (gameplay) TTL so a
+        // lapse can be terminalized from its own evidence (F08, _lapse.ts).
+        assert.deepEqual(options, [{ ex: 77 + PVP_LAPSED_RETENTION_SECONDS }, { ex: 77 + PVP_LAPSED_RETENTION_SECONDS }]);
     });
 
     it('recovers a JSON-canonical false acknowledgement when undefined fields disappear', async () => {

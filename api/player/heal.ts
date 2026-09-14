@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
+import { hospitalDischargeRestoresHpOnly } from '../_release-flags.js';
 import { kv } from '../_storage.js';
 import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -120,7 +121,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!identity.admin && onlineStore.get(targetName)?.inBattle) {
                     return res.status(409).json({ error: 'Cannot heal while in an active battle.' });
                 }
-
+                // Self top-up gets the SAME rank-scaled cooldown a Healer's heal on
+                // anyone else already has (healerPerTargetCooldownMs, 5 min at rank
+                // 1 → 1.5 min at rank 10). Without it this was an uncapped, uncooled
+                // free restore that did not even require being hurt — a strictly
+                // better version of the loop F1 closes everywhere else.
+                //
+                // Floored at 60 s: the Full Recovery capstone zeroes the cooldown
+                // for healing OTHERS, which is the intended reward, but zeroing it
+                // here would hand that Healer an instant-refill button again.
                 const topUpResult = await withKvLock(targetKey, async () => {
                     const fresh = await kv.get<Record<string, unknown>>(targetKey) ?? targetRecord;
                     const freshChar = (fresh.character as Record<string, unknown> | undefined) ?? targetChar;
@@ -130,13 +139,48 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (freshChar.hospitalized) {
                         return { status: 400 as const, body: { error: 'Use hospital discharge while admitted.' } };
                     }
+                    // Claim the cooldown only once every refusal above is behind
+                    // us. Claiming it before the lock burned it on the 403/400
+                    // paths — the player was refused AND put on cooldown for a
+                    // top-up they never received.
+                    if (!identity.admin) {
+                        const selfRank = professionRankForXp('healer', Number(freshChar.professionXp ?? 0));
+                        const selfCooldownMs = Math.max(60_000, healerPerTargetCooldownMs(selfRank));
+                        const selfCooldownKey = `heal:self:${targetName}`;
+                        const placed = await kv.set(
+                            selfCooldownKey,
+                            { at: Date.now() },
+                            { nx: true, ex: Math.max(1, Math.ceil(selfCooldownMs / 1000)) } as never,
+                        );
+                        if (!placed) {
+                            const existing = await kv.get<{ at: number }>(selfCooldownKey);
+                            // A vanished key (TTL raced this read) must not report 0 —
+                            // the client treats 0 as "ready" and retries immediately.
+                            const elapsed = existing?.at ? Date.now() - Number(existing.at) : selfCooldownMs / 2;
+                            return {
+                                status: 429 as const,
+                                body: {
+                                    error: 'You have recently recovered. Rest before treating yourself again.',
+                                    retryAfterMs: Math.max(1_000, Math.ceil(selfCooldownMs - elapsed)),
+                                },
+                            };
+                        }
+                    }
+                    // A Healer's self top-up mends INJURY. It used to hand back
+                    // all three bars, free, with no cooldown and without even
+                    // requiring a defeat — a full restore button. Chakra and
+                    // stamina now come from resting or the Cafeteria like
+                    // everyone else's. (MMORPG behavior audit F1.)
+                    const restoresHpOnly = hospitalDischargeRestoresHpOnly();
                     const updated = {
                         ...fresh,
                         character: {
                             ...freshChar,
                             hp: freshChar.maxHp,
-                            chakra: freshChar.maxChakra,
-                            stamina: freshChar.maxStamina,
+                            ...(restoresHpOnly ? {} : {
+                                chakra: freshChar.maxChakra,
+                                stamina: freshChar.maxStamina,
+                            }),
                         },
                     };
                     const versioned = bumpSaveVersion(updated);
@@ -167,37 +211,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             //       so players paid ryo for nothing. Now the server applies
             //       both the charge AND the discharge in one transaction.
             if (!targetHospitalized) return res.status(200).json({ ok: true, kind: 'self', chargedRyo: 0, alreadyDischarged: true, character: targetChar, _saveVersion: Number(targetRecord._saveVersion ?? 0) });
-            const until = Number(targetChar.hospitalizedUntil ?? 0);
-            const timerExpired = !until || Date.now() >= until;
-            const selfIsHealer = targetChar.profession === 'healer';
-            // Discounted discharge fee (Town Hall Hospital + clan Medical Wing),
-            // matching the price shown in the Hospital UI.
-            const dischargeCost = discountedDischargeCost(targetChar);
-            if (!identity.admin && !timerExpired) {
-                if (selfIsHealer) {
-                    // Healers self-heal & discharge INSTANTLY for free — it is the
-                    // profession perk, and the button literally reads "Free Self-Heal
-                    // & Discharge (Healer)". No timer wait and no charge; we
-                    // fall through to the discharge write below.
-                    //
-                    // Previously a rank-scaled hospital timer (r1=60s … r10=15s) gated
-                    // this, so the free-discharge button 429'd until that timer elapsed
-                    // — locking healers out of their own hospital, worst at low ranks
-                    // where the "shortened" timer was the full 60s. (The Restoration
-                    // mastery that shortened it was repurposed into Conservation, a
-                    // heal chakra-cost discount.)
-                } else if (paySkip) {
-                    const curRyo = Number(targetChar.ryo ?? 0);
-                    if (curRyo < dischargeCost) {
-                        return res.status(402).json({ error: `Need ${dischargeCost} ryo to pay-skip discharge.` });
-                    }
-                } else {
-                    return res.status(429).json({
-                        error: 'Hospital timer not yet expired.',
-                        retryAfterMs: until - Date.now(),
-                    });
-                }
-            }
             // Wrap the discharge write under the save lock. Without it a
             // concurrent /api/save POST (auto-save fired in the same tick
             // as the discharge button press) can wipe the ryo charge or
@@ -222,6 +235,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         },
                     };
                 }
+                // A delayed request from a prior stay must not buy treatment for
+                // a new defeat. Use the existing server-minted admission stamp,
+                // checked under the same lock as the debit and discharge. Zero
+                // explicitly supports legacy saves that predate that stamp.
+                const requestedAdmission = body.hospitalizedAt;
+                if (typeof requestedAdmission !== 'number'
+                    || !Number.isSafeInteger(requestedAdmission)
+                    || requestedAdmission < 0
+                    || requestedAdmission !== Number(freshChar.hospitalizedAt ?? 0)) {
+                    return {
+                        status: 409 as const,
+                        body: {
+                            error: 'Your hospital admission changed. Refresh to review your current treatment before trying again.',
+                            reason: 'hospital-admission-changed',
+                        },
+                    };
+                }
                 const freshUntil = Number(freshChar.hospitalizedUntil ?? 0);
                 const freshTimerExpired = !freshUntil || Date.now() >= freshUntil;
                 const freshSelfIsHealer = freshChar.profession === 'healer';
@@ -239,13 +269,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                     freshChargedRyo = freshDischargeCost;
                 }
+                // The hospital treats INJURY. Handing back chakra and stamina too
+                // made a defeat the cheapest and fastest full restore in the game
+                // — free and in 60 s, against a 100-ryo Feast and (before the
+                // pooled-regen change) a 2h46m rest at level 100. Discharge now
+                // returns HP; exhaustion is recovered by resting or at the
+                // Cafeteria. Nothing is TAKEN on defeat: this only stops defeat
+                // being a reward. (MMORPG behavior audit F1.)
+                const restoresHpOnly = hospitalDischargeRestoresHpOnly();
                 const healed = {
                     ...fresh,
                     character: {
                         ...freshChar,
                         hp: freshChar.maxHp,
-                        chakra: freshChar.maxChakra,
-                        stamina: freshChar.maxStamina,
+                        ...(restoresHpOnly ? {} : {
+                            chakra: freshChar.maxChakra,
+                            stamina: freshChar.maxStamina,
+                        }),
                         hospitalized: false,
                         hospitalizedUntil: 0,
                         hospitalizedAt: 0,

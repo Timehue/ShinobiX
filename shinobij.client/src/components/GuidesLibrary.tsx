@@ -35,7 +35,7 @@ import towersHero from "../assets/towers/battle-towers-key-art-v1.webp";
 import gameHero from "../assets/background-image.webp";
 import "../styles/guides-skin.css";
 
-const DISCORD_URL = "https://discord.gg/bCQGs8r6SK";
+const DISCORD_URL = "https://discord.gg/usr3vzykBh";
 const GUIDE_ASSETS = {
     fieldManual: fieldManualHero,
     combat: combatHero,

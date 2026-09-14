@@ -1,3 +1,5 @@
+import { PROFESSION_MAX_RANK } from "../constants/profession";
+import { professionThresholds } from "../lib/profession-bonuses";
 // Relative-time display reads Date.now() in render by design; verbatim-moved from App.tsx (rule disabled file-wide there).
 /* eslint-disable react-hooks/purity */
 import { useEffect, useState, type ReactNode } from "react";
@@ -13,9 +15,7 @@ import {
     type LbTab,
     type PlayerRecord,
     type Profession,
-    type Screen,
-    PROFESSION_MAX_RANK,
-    professionThresholds,
+    type Screen
 } from "../App";
 import { loadArenaTournament, loadWarStandings, type WarStandingRecord } from "../lib/world-state";
 import { WORLD_STATE_API } from "../constants/game";
@@ -352,7 +352,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                         {petLadders?.coliseum.length
                             ? petLadders.coliseum.map((e) => <Row key={`plc-${e.rank}`} rank={e.rank} name={e.name} value={`${e.record.wins}W ${e.record.losses}L`} village={e.village} />)
                             : <p className="hol-empty">No challengers ranked yet.</p>}
-                        <p className="hol-board-label" style={{ marginTop: "1rem" }}><GiShield style={HOL_ICON} />Pet Tactical Ladder — Top 10</p>
+                        <p className="hol-board-label" style={{ marginTop: "1rem" }}><GiShield style={HOL_ICON} />Beastbound Warfront Ladder — Top 10</p>
                         {petLadders?.tactical.length
                             ? petLadders.tactical.map((e) => <Row key={`plt-${e.rank}`} rank={e.rank} name={e.name} value={`${e.record.wins}W ${e.record.losses}L`} village={e.village} />)
                             : <p className="hol-empty">No squads ranked yet.</p>}

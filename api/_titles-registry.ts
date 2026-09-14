@@ -79,12 +79,28 @@ export const KAGE_LIBERATOR_TITLES: Readonly<Record<string, string>> = {
     'moonshadow village': 'Moon Unmasked',
 };
 
+/** The First Pact's completion titles — server-credited by
+ *  api/first-pact/state.ts against the STORED campaign progress when the
+ *  crossing closes, and kept in the serverTitles vault. `Pactbound` is the
+ *  crossing itself; the three vow titles record which answer the player gave
+ *  the Court, so a second run through a different vow earns a different one;
+ *  `The Withheld` is the run that also answered every district writ and kept
+ *  Vale Stable on the ledger. */
+export const FIRST_PACT_TITLES: Readonly<Record<string, string>> = {
+    complete: 'Pactbound',
+    'open-road': 'Road Unclosed',
+    'shared-reason': 'Reason Kept',
+    'kept-future': 'Future Unedited',
+    thorough: 'The Withheld',
+};
+
 /** Every title the game can grant, lowercased for comparisons. */
 export const KNOWN_EARNED_TITLES: ReadonlySet<string> = new Set([
     ...ACHIEVEMENT_TITLES,
     ...ALL_LEGACY_TITLES,
     ...ERA_DEFS.flatMap((e) => (e.trigger ? [e.trigger.title] : [])),
     ...Object.values(KAGE_LIBERATOR_TITLES),
+    ...Object.values(FIRST_PACT_TITLES),
 ].map((t) => t.toLowerCase()));
 
 /**
@@ -134,11 +150,19 @@ const LIBERATOR_TITLE_SET: ReadonlySet<string> = new Set(
     Object.values(KAGE_LIBERATOR_TITLES).map((t) => t.toLowerCase()),
 );
 
+/** First Pact titles, lowercased. Like era and liberator titles they are only
+ *  ever written into the server-owned vault, so a tampered save cannot wear
+ *  one by listing it in the client-writable earnedTitles. */
+const FIRST_PACT_TITLE_SET: ReadonlySet<string> = new Set(
+    Object.values(FIRST_PACT_TITLES).map((t) => t.toLowerCase()),
+);
+
 /** Server-credited titles that require the strict (server-owned) ownership
  *  source rather than client-writable earnedTitles. */
 export function isServerCreditedTitle(text: string): boolean {
     const key = normalizeTitleKey(text);
-    return LEGACY_ONLY_TITLES.has(key) || ERA_TRIGGER_TITLES.has(key) || LIBERATOR_TITLE_SET.has(key);
+    return LEGACY_ONLY_TITLES.has(key) || ERA_TRIGGER_TITLES.has(key)
+        || LIBERATOR_TITLE_SET.has(key) || FIRST_PACT_TITLE_SET.has(key);
 }
 
 export function isLegacyOnlyTitle(text: string): boolean {

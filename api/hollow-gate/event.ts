@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { withKvLock } from '../_lock.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { cors, mergePreservingImages, safeName } from '../_utils.js';
+import { retireHollowGatePresenceByRunKey } from './_presence.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { hollowGateRunKey, hollowShardDrop, itemStackCount, rewardMultiplierForToken, HG_CLAWBACK_KEYS, type HollowGateRunToken, type HgCurrencyKey } from './_run-token.js';
 import {
@@ -238,7 +239,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             if (!roll || roll.action !== action) return { status: 409, body: { error: 'The event receipt does not match this action.' } };
             if (alreadyResolved && !recoveringSave) {
-                if (!currentChar.hollowGateRun) await kv.del(runKey).catch(() => undefined);
+                if (!currentChar.hollowGateRun) {
+                    await kv.del(runKey).catch(() => undefined);
+                    await retireHollowGatePresenceByRunKey(kv, runKey);
+                }
                 return { status: 200, body: {
                     ok: true,
                     alreadyReported: true,
@@ -318,7 +322,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 try {
                     const updated = bumpSaveVersion({ ...record, character: next }) as Record<string, unknown>;
                     await kv.set(saveKey, mergePreservingImages(updated, record));
-                    if (ended) await kv.del(runKey).catch(() => undefined);
+                    if (ended) {
+                        await kv.del(runKey).catch(() => undefined);
+                        await retireHollowGatePresenceByRunKey(kv, runKey);
+                    }
                     return { character: next, run: nextRun, damage, revived, ended, saveVersion: Number(updated._saveVersion ?? 0) };
                 } catch (error) {
                     await kv.set(runKey, run).catch(() => undefined);

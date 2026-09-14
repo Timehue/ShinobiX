@@ -9,7 +9,7 @@ const editor = read("shinobij.client/src/components/NindoEditor.tsx");
 const profile = read("shinobij.client/src/screens/Profile.tsx");
 const app = read("shinobij.client/src/App.tsx");
 const backgrounds = read("shinobij.client/src/lib/nindo-backgrounds.ts");
-const saveHandler = read("api/save/[name].ts");
+const saveHandler = read("api/save/_sanitize-narrative.ts");
 const roster = read("api/player/roster.ts");
 const userView = read("shinobij.client/src/screens/UserView.tsx");
 
@@ -17,13 +17,16 @@ test("Profile feeds both Nindo fields into the editor and writes them through ch
     assert.match(profile, /<NindoEditor[\s\S]*?value=\{\{ nindo: character\.nindo \?\? "", nindoBg: character\.nindoBg \}\}/);
     assert.match(profile, /onSave=\{\(v\) => updateCharacter\(\(prev\) => prev \? \{ \.\.\.prev, \.\.\.v \} : prev\)\}/);
     assert.match(app, /screen === "profile"[\s\S]*?<Profile[\s\S]*?updateCharacter=\{setCharacter\}/);
-    assert.match(app, /if \(character !== prevCharRef\.current\) \{[\s\S]*?charDirtyRef\.current = true;/);
+    assert.match(app, /usePlayerSaveLifecycle\(\{/);
+    assert.match(read("shinobij.client/src/lib/player-save-tracking.ts"), /if \(character !== prevCharRef\.current\) \{[\s\S]*?charDirtyRef\.current = true;/);
 });
 
 test("Clear removes both the creed and banner, and clean editors adopt server snapshots", () => {
-    assert.match(editor, /const visibleDraft = dirty \? draft : value\.nindo \?\? "";/);
-    assert.match(editor, /const visibleBg = dirty \? bg : value\.nindoBg \?\? "";/);
-    assert.match(editor, /function clear\(\) \{\s*setDraft\(""\);\s*setBg\(""\);\s*onSave\(\{ nindo: "", nindoBg: "" \}\);/s);
+    // Pristine values now derive from props instead of a cascading effect.
+    // The browser regression exercises typing, banner selection, save and clear.
+    assert.match(editor, /const draft = edit\?\.nindo \?\? value\.nindo \?\? ""/);
+    assert.match(editor, /const bg = \(edit \?\? value\)\.nindoBg \?\? ""/);
+    assert.match(editor, /function clear\(\) \{\s*onSave\(\{ nindo: "", nindoBg: "" \}\);\s*setEdit\(null\);/s);
 });
 
 test("client and server Nindo banner allowlists stay in exact parity", () => {

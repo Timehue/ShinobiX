@@ -31,9 +31,22 @@ test("the current normalized account receives the resolved story value", async (
     assert.deepEqual(await resolveStoryContinuation(async () => "chapter", " Kaya ", () => "kAyA"), { current: true, value: "chapter" });
 });
 
-test("App re-checks story authority after both lazy content seams", () => {
+test("story delivery re-checks account authority after every lazy content seam", () => {
     const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
-    assert.equal((app.match(/resolveStoryContinuation\(/g) ?? []).length, 2);
-    assert.match(app, /resolveStoryContinuation\(\(\) => nextStoryTrigger/);
-    assert.match(app, /resolveStoryContinuation\(\(\) => interludeChosenTrait/);
+    const delivery = readFileSync(new URL("./use-story-delivery.ts", import.meta.url), "utf8");
+    assert.equal((app.match(/resolveStoryContinuation\(/g) ?? []).length, 1);
+    assert.match(app, /resolveStoryContinuation\(\(\) => forcedId \? currentStoryChapterTrigger\(character\) : nextStoryTrigger\(/);
+    assert.match(delivery, /if \(stale \|\| !accountIsCurrentRef\.current\(character\.name\)\) return/);
+});
+
+test("delayed narrative delivery stays blocked for the entire Echoes battle venue", () => {
+    const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
+    const delivery = readFileSync(new URL("./use-story-delivery.ts", import.meta.url), "utf8");
+    assert.match(
+        app,
+        /blocked:\s*storyFightOpen\s*\|\|\s*isBattleFlowScreen\(screen\)\s*\|\|\s*screen === "hollowGateShrine"\s*\|\|\s*screen === "echoesOfWar"/,
+    );
+    assert.match(delivery, /if \(!character \|\| activeEvent \|\| blocked\) return/);
+    assert.match(delivery, /return \(\) => \{ stale = true; \}/);
+    assert.match(delivery, /\[activeEvent, blocked, character, retry, triggeredEvents\]/);
 });

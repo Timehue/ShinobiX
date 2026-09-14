@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import { rivalryEscalation, epicForWanderer, QUEST_BOOK } from "./questbook";
+import { rivalryEscalation, epicForWanderer, metricLabel, questbookStageText, QUEST_BOOK } from "./questbook";
 
 describe("rivalryEscalation (Kazan capstone)", () => {
     it("scales with the rivalry tier and is capped", () => {
@@ -39,5 +39,24 @@ describe("epicForWanderer gating", () => {
         assert.ok(!noRival.has("qb-ashes"), "capstone hidden without a rivalry");
         const withRival = new Set(ids.map(id => epicForWanderer(id, 80, { hasRivalry: true })?.id));
         assert.ok(withRival.has("qb-ashes"), "capstone offered with a rivalry");
+    });
+});
+
+describe("quest stage copy", () => {
+    it("names tile counters as tiles and treats general duels as preparation", () => {
+        assert.equal(metricLabel("totalTilesExplored"), "tiles explored");
+        assert.match(QUEST_BOOK["qb-bell"].stages[2].text, /4 tiles/);
+        assert.match(QUEST_BOOK["qb-caravan"].stages[0].text, /3 tiles/);
+        assert.match(QUEST_BOOK["qb-gauntlet"].stages[0].text, /prepare/i);
+        assert.doesNotMatch(QUEST_BOOK["qb-gauntlet"].stages[0].text, /Tomoe's wandering beasts/i);
+    });
+
+    it("keeps the defector's protected testimony and arrest outcomes distinct through pursuit", () => {
+        const offer = QUEST_BOOK["qb-defector"].stages[0];
+        const pursuit = QUEST_BOOK["qb-defector"].stages[1];
+        assert.match(offer.choice!.options[0].blurb, /independent waystation/i);
+        assert.match(offer.choice!.options[1].blurb, /prisoner.*intelligence office/i);
+        assert.match(questbookStageText(pursuit, { offer: "trust" }), /protected witness/i);
+        assert.match(questbookStageText(pursuit, { offer: "turnin" }), /arrested signaler/i);
     });
 });

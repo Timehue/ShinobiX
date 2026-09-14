@@ -262,6 +262,46 @@ export function storesCreditNote(stores: { provisions?: number; materialPoints?:
     return parts.join(" / ");
 }
 
+// ── Which read the Town Hall stores rows show ───────────────────────────────
+//
+// The Treasury rows have two sources, and they are not equally fresh.
+//  • The war-map read (/api/village/war-map) is `private, no-store` and reads
+//    the village row directly, so it is current when it lands. The Town Hall
+//    takes one per Treasury/Command tab entry, and a routed donation's response
+//    replaces it with the server's post-donation figures.
+//  • The polled village state (lib/world-state, hydrated from /api/game-state
+//    every ~10s) is live but can be seconds old: the poll runs on a cadence, the
+//    frame sits behind a CDN window, and a poll already in flight when a write
+//    lands still answers with the frame from before it.
+// The rows used to prefer the poll. After a drain, a frame built just before it
+// could shadow a newer war-map read for two poll cycles, while the Supply log,
+// which comes from the war-map, already showed the drain. The snapshot now wins,
+// and the poll's job is to notice that the stores MOVED and ask for a new read.
+
+export type StoresCounts = { provisions: number; materialPoints: number };
+export type PolledStores = { provisions?: number; materialPoints?: number };
+
+/** The figures the stores rows show. A war-map snapshot wins whenever one is
+ *  held; without one, each field falls back to the polled treasury, then 0.
+ *  Whether a field has been READ at all is a separate question the caller
+ *  answers per field — this never turns "unread" into "known". */
+export function storesRowValues(snapshot: StoresCounts | null, polled: PolledStores): StoresCounts {
+    return {
+        provisions: snapshot?.provisions ?? polled.provisions ?? 0,
+        materialPoints: snapshot?.materialPoints ?? polled.materialPoints ?? 0,
+    };
+}
+
+/** Whether the polled treasury contradicts the snapshot on a field the poll
+ *  actually carries (an absent key says nothing). The Town Hall asks this only
+ *  after the poll has MOVED, so a poll that was already stale when the snapshot
+ *  landed never triggers a read. */
+export function storesPollDisagrees(polled: PolledStores, snapshot: StoresCounts | null): boolean {
+    if (!snapshot) return false;
+    return (polled.provisions !== undefined && polled.provisions !== snapshot.provisions)
+        || (polled.materialPoints !== undefined && polled.materialPoints !== snapshot.materialPoints);
+}
+
 // ── Structures (materials gate) ─────────────────────────────────────────────
 
 export type MaterialsRequiredError = { error: "materials-required"; cost?: number; need: number; have: number };

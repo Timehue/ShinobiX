@@ -1,3 +1,5 @@
+import { gainXp } from "../lib/character-level-projection";
+import { gameToast } from "../components/GameToast";
 import { useCallback, useEffect, useRef, useState } from "react";
 import "../styles/hub-screens-skin.css";
 import type React from "react";
@@ -20,7 +22,7 @@ import { dailyMissionsCompleted, hasDailyMissionSlot } from "../lib/character-pr
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { builtinFetchMissions, mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement, sortFieldMissions } from "../data/missions";
 import { COMBAT_MISSIONS, type CombatMission } from "../data/combat-missions";
-import { gainXp } from "../App";
+
 import { postClaimMission, applyServerMissionReward, claimReasonMessage } from "../lib/claim-mission";
 import { commitAuthoritativeMissionClaim } from "../lib/versioned-mission-claim";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
@@ -40,6 +42,8 @@ import { postFieldTrail, type FieldTrailResult } from "../lib/field-trail-api";
 import missionHallArt from "../assets/facilities/mission-hall.webp";
 import { sectorArtKey, sectorName, sectorRegionLabel } from "../../../shared/sector-geo";
 import { handleHorizontalTabKeyDown } from "../lib/tab-keyboard";
+import { useFirstContractMissionTab } from "../lib/use-first-contract-mission-tab";
+import { ScreenHint } from "../components/ScreenHint";
 
 export function Missions({
     character,
@@ -89,9 +93,7 @@ export function Missions({
     const [fieldTrailPending, setFieldTrailPending] = useState<string | null>(null);
     // Keep every hook above the authoritative-fight early return so hook order is
     // stable while entering and leaving the inline server-resolved battle.
-    const [activeMissionTab, setActiveMissionTab] = useState<"profession" | "combat" | "field" | "weekly" | "wandering">(
-        character.profession ? "profession" : "combat"
-    );
+    const [activeMissionTab, setActiveMissionTab] = useFirstContractMissionTab(character);
 
     // One claim at a time, across every claim button on this screen.
     //
@@ -273,7 +275,7 @@ export function Missions({
         if (result === null) return alert("Could not reach the server. Try again.");
         if (result.applied === false) return alert(claimReasonMessage(result.reason));
         if (!applySuccessfulMissionClaim(result)) return;
-        alert(`Academy Trial complete! ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character)}. Now open your Logbook to see your goals.`);
+        gameToast(`Academy Trial complete! ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character)}. Now open your Logbook to see your goals.`, { kind: "success" });
     }
     const showAcademyTrial = normalizeOnboardingStep(character.onboardingStep) === "firstMission" && !character.academyTrialClaimed;
     function startCreatorMissionBattle(_mission: CreatorMission) {
@@ -380,6 +382,10 @@ export function Missions({
     const sortedFieldMissions = sortFieldMissions(mergeBuiltinMissions(creatorMissions));
     const rankColor: Record<string, string> = { "E Rank": "#14b8a6", "D Rank": "var(--success)", "C Rank": "#3b82f6", "B Rank": "var(--purple-500)", "A Rank": "#f97316", "S Rank": "var(--danger)", "Daily": "var(--gold)" };
     const todayMissions = dailyMissionsCompleted(character);
+    // Combat wins do not pay on the spot — they queue a durable claim the player
+    // settles back here. That reward is invisible unless the Hall says so, so the
+    // count drives a tab dot, the section hint, and each card's ready state.
+    const pendingCombatClaims = (character.pendingCombatMissionClaims ?? []).length;
     // Tab state: default to Profession for players who have one, Combat otherwise.
     const hasProfession = !!character.profession;
     const showRookieOrders = character.level < 20 && !(character.examsPassed ?? []).includes("genin");
@@ -411,6 +417,7 @@ export function Missions({
                     <h2>Mission Hall</h2>
                     <p className="mh-sub">Choose the work, read the route, then return to settle the posted reward.</p>
                     <span className="mh-reward-signal">Town Hall reward bonus <strong>+{missionRewardBonus.toFixed(1)}%</strong></span>
+                    {character.name !== "Admin 1" && character.name !== "Admin 2" && <ScreenHint screen="missions" character={character} updateCharacter={updateCharacter} placement="inline" />}
                 </div>
                 <div className="mh-stats">
                     <div className="mh-stat-chip">
@@ -481,7 +488,7 @@ export function Missions({
                 <button id="mission-tab-combat" type="button" role="tab" aria-controls="mission-tab-panel" aria-selected={activeMissionTab === "combat"} tabIndex={activeMissionTab === "combat" ? 0 : -1} data-tab="combat" className={activeMissionTab === "combat" ? "active" : ""} onKeyDown={handleHorizontalTabKeyDown} onClick={() => setActiveMissionTab("combat")}>
                     <span className="mh-tab-index" aria-hidden="true">{hasProfession ? "02" : "01"}</span>
                     <GameIcon className="mh-tab-icon" name="sword" size={23} />
-                    <span className="mh-tab-label">Combat</span>
+                    <span className="mh-tab-label">Combat{pendingCombatClaims > 0 && <span className="mh-tab-alert" aria-label={`${pendingCombatClaims} reward${pendingCombatClaims === 1 ? "" : "s"} ready to claim`}>•</span>}</span>
                 </button>
                 <button id="mission-tab-field" type="button" role="tab" aria-controls="mission-tab-panel" aria-selected={activeMissionTab === "field"} tabIndex={activeMissionTab === "field" ? 0 : -1} data-tab="field" className={activeMissionTab === "field" ? "active" : ""} onKeyDown={handleHorizontalTabKeyDown} onClick={() => setActiveMissionTab("field")}>
                     <span className="mh-tab-index" aria-hidden="true">{hasProfession ? "03" : "02"}</span>
@@ -522,6 +529,11 @@ export function Missions({
             <section className="mh-section">
                 <h3 className="mh-section-title">Combat Missions</h3>
                 <p className="hint">Defeat the assigned enemy, then return here to claim your reward. New shinobi should start with the E-Rank Drill.</p>
+                {pendingCombatClaims > 0 && (
+                    <p className="mh-claim-banner" role="status">
+                        {pendingCombatClaims === 1 ? "1 mission is" : `${pendingCombatClaims} missions are`} cleared and waiting — tap the highlighted card{pendingCombatClaims === 1 ? "" : "s"} below to collect the reward.
+                    </p>
+                )}
                 <div className="mh-combat-grid">
                     {COMBAT_MISSIONS.map((mission) => {
                         const ai = creatorAis.find((c) => c.id === mission.aiProfileId);
@@ -542,8 +554,11 @@ export function Missions({
                                 <div className="mh-combat-body">
                                     <strong className="mh-combat-name">{mission.name}</strong>
                                     <span className="mh-combat-enemy">{ai?.name ?? "Unknown Enemy"}</span>
+                                    {mission.brief && <small className="mh-combat-purpose">{claimable ? mission.closure : mission.brief}</small>}
                                     <div className="mh-combat-tags">
-                                        <span className="mh-tag mh-tag-req">Lv {mission.min}+</span>
+                                        {claimable
+                                            ? <span className="mh-tag mh-tag-ready">Reward ready</span>
+                                            : <span className="mh-tag mh-tag-req">Lv {mission.min}+</span>}
                                     </div>
                                     <div className="mh-combat-rewards">
                                         <span><GameIcon name="ryo" size={14} style={{ verticalAlign: "-2px", marginRight: 3 }} />{boostAmount(mission.ryo, missionRewardBonus)} ryo</span>
@@ -556,7 +571,10 @@ export function Missions({
                                         onClick={() => { void runClaim(`combat:${mission.key}`, () => claimCombatMission(mission)); }}
                                     >
                                         <span className="mh-combat-btn-label">{claimingKey === `combat:${mission.key}` ? "Claiming…" : "✅ Claim Reward"}</span>
-                                        <span className="mh-combat-btn-arrow" aria-hidden="true">›</span>
+                                        {/* The label is sr-only under 700px, where the button collapses to a
+                                            44px glyph column. A check instead of the ordinary chevron is the
+                                            only thing separating "collect" from "go" at that width. */}
+                                        <span className="mh-combat-btn-arrow" aria-hidden="true">✓</span>
                                     </button>
                                     : <button
                                         className="mh-combat-btn"
@@ -659,7 +677,10 @@ export function Missions({
                                                         onClick={() => { void runClaim(`field:${mission.id}`, () => claimFetchMission(mission)); }}
                                                     >
                                                         <span className="mh-field-primary-label">{claimingKey === `field:${mission.id}` ? "Claiming…" : "Claim Reward"}</span>
-                                                        <span className="mh-field-primary-arrow" aria-hidden="true">›</span>
+                                                        {/* Same 44px mobile collapse as the combat card: the label and
+                                                            the "Ready to claim" pill are both hidden under 700px, so the
+                                                            glyph carries the difference between "collect" and "go". */}
+                                                        <span className="mh-field-primary-arrow" aria-hidden="true">✓</span>
                                                     </button>
                                                     : <button className="mh-field-primary-action" onClick={() => setScreen("worldMap")}>
                                                         <span className="mh-field-primary-label">Go to Sector {mission.targetSector}</span>

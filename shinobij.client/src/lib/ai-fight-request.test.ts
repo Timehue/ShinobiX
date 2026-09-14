@@ -4,6 +4,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { onAiFightRequest, requestAiFight, type AiFightRequest } from "./ai-fight-request";
 import { creatorEventPracticeOpponent, creatorEventPracticeProfileIds } from "./creator-event-practice";
 import { builtinAis } from "./combat-ai";
+import { requestForResumedGenericFight } from "./ai-fight-navigation";
+import type { AiFightStart } from "./ai-fight-api";
 
 function makeRequest(overrides: Partial<AiFightRequest> = {}): AiFightRequest {
     return { opponentId: "ai-bandit", opponentLevel: 12, battleKind: "raidAi", ...overrides };
@@ -147,6 +149,7 @@ test("outer-village guard raids bind the exact virtual sector", () => {
 test("creator VN battles use canonical non-paying practice until an event receipt exists", () => {
     const worldMap = readFileSync(new URL("../screens/WorldMap.tsx", import.meta.url), "utf8");
     const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
+    const triggeredBattle = readFileSync(new URL("./triggered-event-battle.ts", import.meta.url), "utf8");
     const launch = worldMap.slice(worldMap.indexOf("function launchCreatorEventFight"), worldMap.indexOf("if (activePetEncounter"));
     const triggeredStart = app.indexOf("function startTriggeredEventArenaBattle");
     assert.ok(triggeredStart > 0, "startTriggeredEventArenaBattle is gone — this contract needs re-pointing");
@@ -162,13 +165,15 @@ test("creator VN battles use canonical non-paying practice until an event receip
         "an accepted launch must dismiss the VN covering the fight, while a missing host leaves it open for retry");
     assert.doesNotMatch(launch, /battleKind: "world"|setScreen\("arena"\)/);
     assert.doesNotMatch(worldMap, /onStartEventEncounter/);
-    assert.match(triggered, /requestAiFight\(/);
-    assert.match(triggered, /battleKind: "practice"/);
-    assert.match(triggered, /const launched = requestAiFight\([\s\S]{0,700}if \(!launched\) return alert\("The sealed practice arena is unavailable\. Your event remains open\."\);\s*setActiveTriggeredEvent\(null\);/,
+    assert.match(triggered, /launchTriggeredEventBattle\(\{/,
+        "App must route the global triggered-event path through the extracted sealed launcher");
+    assert.match(triggeredBattle, /requestAiFight\(/);
+    assert.match(triggeredBattle, /battleKind: "practice"/);
+    assert.match(triggeredBattle, /if \(!requestAiFight\(\{[\s\S]{0,700}\}\)\) return void window\.alert\("The sealed practice arena is unavailable\. Your event remains open\."\);\s*setActiveEvent\(null\);/,
         "the global triggered-event path must also dismiss its VN as soon as the combat host accepts the launch");
-    assert.doesNotMatch(triggered, /onResolved:/,
+    assert.doesNotMatch(triggeredBattle, /onResolved:/,
         "the VN must not remain mounted over combat until a later settlement callback");
-    assert.doesNotMatch(triggered, /temp-vn-ai|setPendingAiProfileId|setScreen\("arena"\)|setPendingArenaStoryBattle/);
+    assert.doesNotMatch(triggeredBattle, /temp-vn-ai|setPendingAiProfileId|setScreen\("arena"\)|setPendingArenaStoryBattle/);
 });
 
 test("legacy creator choices without an AI id use a real level-near published practice profile", () => {
@@ -202,7 +207,12 @@ test("retired pending AI ids cannot revive the local Arena reducer", () => {
     // Ends at the next function, so this stays the payload BUILDER and nothing
     // else. (It used to end at saveAccountProgress, which has since been deleted —
     // a missing marker silently widens the slice to the rest of the file.)
-    const payload = app.slice(app.indexOf("function buildPlayerSavePayload"), app.indexOf("async function pushSaveToServer"));
+    const saveState = readFileSync(new URL("./use-player-save-state.ts", import.meta.url), "utf8");
+    assert.match(app, /return playerSaveState\.buildPlayerSavePayload\(characterToSave, overrides\)/);
+    const payloadStart = saveState.indexOf("function buildPlayerSavePayload");
+    const payloadEnd = saveState.indexOf("function applyProgressSnapshot", payloadStart);
+    assert.ok(payloadStart >= 0 && payloadEnd > payloadStart);
+    const payload = saveState.slice(payloadStart, payloadEnd);
     assert.doesNotMatch(payload, /pendingAiProfileId/,
         "new saves must stop reproducing the retired browser authority");
     assert.doesNotMatch(arena, /pendingAiProfileId|startPrefight|setEnemyHp|setBattleStarted|ArenaBattlePersister/);
@@ -210,7 +220,7 @@ test("retired pending AI ids cannot revive the local Arena reducer", () => {
         "the retired browser snapshot writer must not remain importable");
     assert.match(battleSave, /lock\.kind === "arena"\) return false/,
         "legacy Arena snapshots must fail closed at the resume boundary");
-    assert.match(app, /bootLock\.kind === "arena"[\s\S]{0,700}localStorage\.removeItem\(`arena\.battle\.v3\.\$\{normalized\.name\}`\)/,
+    assert.match(app, /recovery === "arena"[\s\S]{0,700}localStorage\.removeItem\(`arena\.battle\.v3\.\$\{normalized\.name\}`\)/,
         "a server-visible legacy Arena lock must be retired without resuming local HP");
     // The reducer that produced these snapshots is deleted, so there is nothing
     // left to replay one INTO, and ArenaBattlePersister — their only writer — is
@@ -231,8 +241,13 @@ test("rolling upgrades retire every pre-cutover local Arena story breadcrumb", (
     assert.match(battleSave, /lock\.kind === "arenaStory"\) return false/,
         "every Arena story breadcrumb, including unknown old variants, must be rejected by local resume");
     const bootStart = app.indexOf("if (bootLock && bootLock.screen)");
-    const boot = app.slice(bootStart, app.indexOf("battleResumeStateExists(bootLock", bootStart));
-    assert.match(boot, /\["triggeredEvent", "academySparring"\]/);
+    const bootEnd = app.indexOf('else if (recovery === "resume")', bootStart);
+    assert.ok(bootStart >= 0 && bootEnd > bootStart);
+    const boot = app.slice(bootStart, bootEnd);
+    const decisions = readFileSync(new URL("./boot-battle-recovery.ts", import.meta.url), "utf8");
+    assert.match(app, /const recovery = decideBootBattleRecovery\(\{/);
+    assert.match(boot, /recovery === "story-event"/);
+    assert.match(decisions, /\["triggeredEvent", "academySparring"\]/);
     assert.match(boot, /localStorage\.removeItem\(arenaStoryCtxKey\(normalized\.name\)\)/);
     // The local story-settlement entry points are GONE, not merely stubbed. They
     // existed only to settle a story fight hosted by the deleted browser reducer;
@@ -275,8 +290,16 @@ test("Dungeon seal one uses the active run's server-reconstructed Warden", () =>
     assert.doesNotMatch(start, /Math\.random|temp-dungeon-ai|setPendingAiProfileId|setPendingArenaStoryBattle|setScreen\("arena"\)/);
     assert.match(api, /params\.battleKind !== "dungeon"[\s\S]{0,160}opponentId:/,
         "Dungeon start must omit client-supplied opponent identity from the request body");
-    assert.match(host, /started\.battleKind === "dungeon" \? \{ returnScreen: "dungeon" \}/);
-    assert.match(host, /started\.dungeonRunToken/);
+    // Generic recovery is shared with the Circuit refresh path. Exercise the
+    // extracted helper so moving it does not discard the sealed Dungeon route.
+    const resumed = requestForResumedGenericFight({
+        sessionId: "dungeon-sealed", opponentId: "warden", opponentName: "Warden",
+        battleKind: "dungeon", dungeonRunToken: "sealed-run",
+        session: { enemy: { character: { level: 25 } } },
+    } as AiFightStart, "Kaito");
+    assert.equal(resumed?.returnScreen, "dungeon");
+    assert.equal(resumed?.dungeonRunToken, "sealed-run");
+    assert.equal(resumed?.opponentId, "warden");
 });
 
 test("later-stage quest bosses let the server derive its sealed stage", () => {
@@ -309,7 +332,7 @@ test("resumed World fights rebuild presentation from the server seal", () => {
     assert.match(host, /resumeWorldAiFight\(originatingPlayerName\)/);
     assert.match(host, /const sealedRequest = started\.worldContext[\s\S]{0,420}requestForResumedWorldFight\(started,/);
     assert.match(host, /ensureWandererFightPending\(originatingPlayerName, started\.worldContext, sealedRequest\.enemyAvatar\)/);
-    assert.match(host, /recordMode=\{currentFight\.worldContext \? "World Encounter"/);
+    assert.match(host, /recordMode=\{request\.returnScreen === 'dojoCircuit' \? 'Dojo Circuit' : currentFight\.worldContext \? "World Encounter"/);
     assert.match(host, /recoverWandererFightAvatar\(originatingPlayerName, context\)/,
         "refresh recovery must restore the exact sealed encounter's portrait instead of showing initials");
 });
@@ -430,7 +453,7 @@ test("raid mission UI mirrors the server's exact credited mission ids", () => {
 
 test("refresh recovery handles generic fights, durable chains, and pending rewards", () => {
     assert.match(host, /resumeGenericAiFight\(originatingPlayerName\)/);
-    assert.match(host, /requestForResumedGenericFight\(generic\)/);
+    assert.match(host, /requestForResumedGenericFight\(generic, originatingPlayerName\)/);
     assert.match(host, /"pendingWorldChain" in started/);
     assert.match(host, /worldEncounter: pending\.request/);
     assert.match(host, /"pendingWorldOutcome" in started/);

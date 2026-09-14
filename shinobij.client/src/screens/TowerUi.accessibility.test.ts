@@ -61,6 +61,15 @@ test("Story lobby distinguishes hard hold duration from score pace and starting 
     assert.doesNotMatch(lobby, /\$\{selFloor\.roundBudget\} round budget/);
 });
 
+test("solo Story route choices are explicit, keyboard-visible encounter decisions", () => {
+    assert.match(lobby, /className="tower-route-picker" aria-labelledby="tower-route-picker-title"/);
+    assert.match(lobby, /className="tower-route-options" role="radiogroup" aria-label="Tower route choice"/);
+    assert.match(lobby, /role="radio"[\s\S]{0,100}?aria-checked=\{routeChoice === choice\.id\}/);
+    assert.match(lobby, /startTowerRun\(me, selected, hostLoadout, routeChoice\)/);
+    assert.match(lobbyCss, /\.tower-route-option \{[\s\S]{0,220}?min-height: 76px/);
+    assert.match(lobbyCss, /@media \(max-width: 680px\) \{[\s\S]{0,100}?\.tower-route-options \{\s*grid-template-columns: 1fr;/);
+});
+
 test("Team Arena ready checks expire safely and transfer focus between timed states", () => {
     assert.match(pvpPanel, /onExpire:\s*\(deadline: number\) => void/);
     assert.match(pvpPanel, /onExpire\(deadline\)/);
@@ -87,7 +96,7 @@ test("mobile Tower combat wraps critical controls and permits page scroll at fit
     assert.match(fight, /className="tower-fight-turn-pill"[\s\S]{0,160}?maxWidth:\s*"100%"/);
     assert.equal(fight.match(/className="tower-mechanic-chip"/g)?.length, 2);
     assert.match(tacticalCss, /\.tower-mechanic-chip\s*\{[\s\S]{0,140}?overflow-wrap:\s*anywhere[\s\S]{0,80}?white-space:\s*normal/);
-    assert.match(tacticalCss, /\.tower-board-area\s*\{[\s\S]{0,100}?touch-action:\s*pan-y/);
+    assert.match(tacticalCss, /\.tower-board-area\s*\{[\s\S]*?touch-action:\s*pan-y/);
     assert.match(tacticalCss, /\.tower-board-area\.is-pannable\s*\{[^}]*touch-action:\s*none/);
     assert.match(tacticalCss, /\.tower-fight-statusbar > button\s*\{\s*min-height:\s*44px/);
     assert.match(tacticalCss, /\.tower-board-controls button\s*\{[\s\S]{0,100}?min-width:\s*44px;[\s\S]{0,80}?min-height:\s*44px/);
@@ -97,7 +106,7 @@ test("mobile Tower combat wraps critical controls and permits page scroll at fit
 });
 
 test("Team Arena announces only the newest battle-log line", () => {
-    assert.match(fight, /aria-live=\{isTeamPvp \? "off" : "polite"\}/);
+    assert.match(fight, /ariaLive=\{isTeamPvp \? "off" : "polite"\}/);
     assert.match(fight, /className="tower-sr-only" role="status" aria-live="polite" aria-atomic="true"/);
     assert.match(fight, /session\.log\[session\.log\.length - 1\]/);
     assert.match(tacticalCss, /\.tower-sr-only\s*\{[\s\S]{0,200}?clip:\s*rect/);

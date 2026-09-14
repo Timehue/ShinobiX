@@ -1,3 +1,5 @@
+import { playerLensDiscipline } from "../lib/player-lens-discipline";
+import { normalizeNarrativeCharacter as normalizeCharacter } from "../lib/normalize-narrative-character";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
 // Compact local command-deck glyphs — one per basic action.
@@ -35,11 +37,12 @@ import { CombatJutsuMeta } from "../components/CombatJutsuMeta";
 import { CombatDetailPortal } from "../components/CombatDetailPortal";
 import { activeBarrierTilesForDisplay, combatActionAvailability, pvpCombatWardKey } from "../lib/combat-action-display";
 import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
+import { weatherFromElements } from "../../../shared/sector-weather";
 import { getJutsuMastery, scaleJutsuByLevel } from "../lib/jutsu-scaling";
 import { normalizeEquipmentSlot } from "../lib/equipment";
 import { hasAffordablePvpPaidAction } from "../lib/pvp-action-affordability";
 import { normalizeJutsu } from "../lib/jutsu";
-import { jutsuTargetingLabel } from "../lib/jutsu-effects";
+import { jutsuDetailDescription, jutsuTargetingLabel } from "../lib/jutsu-effects";
 import { normalizeTagName, tagMatchesName, pvpAffectsOpponent } from "../lib/tags";
 import { realtimeAvailable, subscribeKvKey } from "../lib/realtime";
 import { buildActionsFromPvpLog, makeBattleEntry } from "../lib/battle-log-history";
@@ -51,10 +54,8 @@ import { prefersLiteCombatFx } from "../lib/device-tier";
 import { safeCombatVfxSpec, combatVfxAnchorKey, dedupeCombatVfx, type CombatVfxSpec } from "../lib/combat-vfx";
 import { combatVfxAssetFor } from "../lib/combat-vfx-assets";
 import {
-    normalizeCharacter,
-    playerLensDiscipline,
     type PvpGroundEffectState,
-    type PvpSessionState,
+    type PvpSessionState
 } from "../App";
 import { loadArenaActiveFights, saveArenaActiveFights, unregisterLocalFight, type ArenaSpectatorFight } from "../lib/world-state";
 import type { PvpWinBaseSummary } from "../lib/progression";
@@ -1516,7 +1517,10 @@ export function PvpBattleScreen({
     const weatherSealed = session.weatherPositiveElement !== undefined || session.weatherNegativeElement !== undefined;
     const weatherPosEl = weatherSealed ? (session.weatherPositiveElement ?? "") : weatherEffects[currentWeather].positiveElement;
     const weatherNegEl = weatherSealed ? (session.weatherNegativeElement ?? "") : weatherEffects[currentWeather].negativeElement;
-    const weatherName = (weatherSealed && !weatherPosEl && !weatherNegEl) ? "Clear Skies" : weatherEffects[currentWeather].name;
+    // Name the SEALED sky too, not just its modifiers. Reading the name off
+    // `currentWeather` put the wrong label beside the right numbers whenever a
+    // weather window turned between entering the sector and starting the fight.
+    const weatherName = weatherEffects[weatherSealed ? weatherFromElements(weatherPosEl, weatherNegEl) : currentWeather].name;
     const localJutsuArtById: Record<string, string> = {};
     const localItemArtById: Record<string, string> = {};
     if (!amSpectator) {
@@ -2517,6 +2521,7 @@ export function PvpBattleScreen({
                                     {inspectedJutsu && (() => {
                                         const mastery = getJutsuMastery(character, inspectedJutsu.id);
                                         const scaled = scaleJutsuByLevel(inspectedJutsu, mastery.level);
+                                        const detailDescription = jutsuDetailDescription(inspectedJutsu);
                                         return (
                                             <CombatDetailPortal
                                                 id={`pvp-combat-detail-jutsu-${inspectedJutsu.id}`}
@@ -2539,7 +2544,7 @@ export function PvpBattleScreen({
                                                     <span><strong>Stamina Cost:</strong> {Math.max(0, Number(inspectedJutsu.staminaCost) || 0)}</span>
                                                 </div>
                                                 {(() => { const t = jutsuTargetingLabel(inspectedJutsu); return <p className="combat-jutsu-detail-desc"><strong style={{ color: "var(--purple-400)" }}>🎯 {t.short}:</strong> {t.detail}</p>; })()}
-                                                {inspectedJutsu.description && <p className="combat-jutsu-detail-desc">{inspectedJutsu.description}</p>}
+                                                {detailDescription && <p className="combat-jutsu-detail-desc">{detailDescription}</p>}
                                                 <div className="combat-jutsu-effects-list">
                                                     <JutsuEffectCards jutsu={inspectedJutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} lensDiscipline={playerLensDiscipline(character)} />
                                                 </div>

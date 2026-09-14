@@ -1,6 +1,6 @@
 import { GiCrossedSwords, GiLadder, GiPawPrint, GiTrophy, GiEyeball, GiColiseum } from "../../../components/icons/LightweightGameIcons";
 import coliseumLadderImg from "../../../assets/coliseum/coliseum-bg.webp";
-import tacticalLadderImg from "../../../assets/ladder/tactical-hero.webp";
+import tacticalLadderImg from "../../../assets/warfront-rite/warfront-rite-keyart.webp";
 import { TACTICAL_ARENA_PET_REQUIREMENT } from "../../../lib/pet";
 import type { DuelChallenge } from "../../../App";
 import type { Character, PlayerRecord } from "../../../types/character";
@@ -22,6 +22,7 @@ type ArenaDistrictLobbyProps = {
     clanWarOpponents: PlayerRecord[];
     incomingClanWarChallenges: DuelChallenge[];
     arenaTournament: ArenaTournament | null;
+    dojoCircuitEnabled?: boolean;
     tournamentRemaining: number;
     matchRemaining: number;
     isAdminTournamentManager: boolean;
@@ -59,6 +60,7 @@ export function ArenaDistrictLobby({
     clanWarOpponents,
     incomingClanWarChallenges,
     arenaTournament,
+    dojoCircuitEnabled = true,
     tournamentRemaining,
     matchRemaining,
     isAdminTournamentManager,
@@ -100,7 +102,7 @@ export function ArenaDistrictLobby({
 
             <div className="clan-tabs expanded-tabs" style={{ marginBottom: 12 }}>
                 <button className={activeTab === "clanWar" ? "active" : ""} onClick={() => onTabChange("clanWar")}><GiCrossedSwords style={ARENA_ICON} />Clan War</button>
-                <button className={activeTab === "tournaments" ? "active" : ""} onClick={() => onTabChange("tournaments")}><GiTrophy style={ARENA_ICON} />Tournaments</button>
+                {dojoCircuitEnabled && <button className={activeTab === "tournaments" ? "active" : ""} onClick={() => onTabChange("tournaments")}><GiTrophy style={ARENA_ICON} />Dojo Circuit</button>}
                 <button className={activeTab === "ranked" ? "active" : ""} onClick={() => onTabChange("ranked")}><GiLadder style={ARENA_ICON} />Ranked</button>
                 <button className={activeTab === "spectate" ? "active" : ""} onClick={() => onTabChange("spectate")}><GiEyeball style={ARENA_ICON} />Spectate</button>
                 <button
@@ -151,7 +153,7 @@ export function ArenaDistrictLobby({
                 </>
             )}
 
-            {activeTab === "tournaments" && (
+            {dojoCircuitEnabled && activeTab === "tournaments" && (
                 <ArenaTournamentPanel
                     tournament={arenaTournament}
                     tournamentRemaining={tournamentRemaining}
@@ -185,7 +187,7 @@ export function ArenaDistrictLobby({
                     {!playerRankedEnabled && <p className="hint">Ranked matchmaking is temporarily paused during the v2 authority rollout.</p>}
                     {rankedQueueActive && <p className="hint">Searching for opponent...</p>}
                     <hr style={{ border: "none", borderTop: "1px solid rgba(148,163,184,.25)", margin: "16px 0" }} />
-                    <p className="hint"><GiPawPrint style={ARENA_ICON} />Ranked pet battles moved to the <strong>Pet Battles</strong> tab — climb the global <strong>Colosseum</strong> (1v1) and <strong>Tactical</strong> (4v4) ladders.</p>
+                    <p className="hint"><GiPawPrint style={ARENA_ICON} />Ranked pet battles live in the <strong>Pet Battles</strong> tab — climb the global <strong>Colosseum</strong> (1v1) and <strong>Beastbound Warfront</strong> (4v4 offline) ladders.</p>
                 </section>
             )}
 
@@ -209,7 +211,7 @@ export function ArenaDistrictLobby({
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, margin: "12px 0" }}>
                         {[
                             { mode: "coliseum" as const, requirement: 1, img: coliseumLadderImg, emoji: <GiColiseum size={18} style={{ verticalAlign: "-0.12em" }} />, title: "Pet Colosseum", sub: "1v1 ranked ladder" },
-                            { mode: "tactical" as const, requirement: TACTICAL_ARENA_PET_REQUIREMENT, img: tacticalLadderImg, emoji: <GiCrossedSwords size={18} style={{ verticalAlign: "-0.12em" }} />, title: "Pet Tactical", sub: "4v4 ranked ladder" },
+                            { mode: "tactical" as const, requirement: TACTICAL_ARENA_PET_REQUIREMENT, img: tacticalLadderImg, emoji: <GiCrossedSwords size={18} style={{ verticalAlign: "-0.12em" }} />, title: "Beastbound Warfront", sub: "4v4 offline ranked ladder" },
                         ].map((card) => {
                             const locked = availablePetCount < card.requirement;
                             return (

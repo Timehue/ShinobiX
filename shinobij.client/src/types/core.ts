@@ -32,6 +32,7 @@ export type Screen =
     | "battleArena"
     | "battleLog"
     | "arenaDistrict"
+    | "dojoCircuit"
     | "bloodlineMaker"
     | "clan"
     | "worldMap"
@@ -52,6 +53,7 @@ export type Screen =
     | "centralHub"
     | "petArena"
     | "petShowdown"
+    | "firstPact"
     | "petColiseum"   // the PAID arena bout (Showdown engine, reward loop)
     | "petLadder"
     | "home"

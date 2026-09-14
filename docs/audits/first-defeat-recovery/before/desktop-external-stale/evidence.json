@@ -1,0 +1,178 @@
+[
+  {
+    "moment": "before",
+    "save": {
+      "_saveVersion": 2,
+      "currentSector": 33,
+      "character": {
+        "name": "defeatdesktopmu0m46eg",
+        "level": 3,
+        "hp": 40,
+        "maxHp": 100,
+        "chakra": 35,
+        "maxChakra": 100,
+        "stamina": 45,
+        "maxStamina": 100,
+        "ryo": 10000,
+        "xp": 0,
+        "inventory": [],
+        "itemStacks": []
+      }
+    }
+  },
+  {
+    "moment": "immediatelyBeforeCombat",
+    "save": {
+      "_saveVersion": 5,
+      "currentSector": 33,
+      "character": {
+        "name": "defeatdesktopmu0m46eg",
+        "level": 3,
+        "hp": 54,
+        "maxHp": 700,
+        "chakra": 49,
+        "maxChakra": 1181,
+        "stamina": 59,
+        "maxStamina": 1181,
+        "ryo": 10000,
+        "xp": 0,
+        "hospitalized": false,
+        "inventory": [],
+        "itemStacks": []
+      }
+    }
+  },
+  {
+    "moment": "start",
+    "status": 200,
+    "body": {
+      "ok": true,
+      "session": {
+        "version": 1,
+        "continuousVitals": true,
+        "player": {
+          "name": "defeatdesktopmu0m46eg",
+          "hp": 54,
+          "maxHp": 700,
+          "chakra": 49,
+          "maxChakra": 1181,
+          "stamina": 59,
+          "maxStamina": 1181
+        }
+      }
+    }
+  },
+  {
+    "url": "http://127.0.0.1:25423/api/missions/report-ai-fight",
+    "status": 200,
+    "body": {
+      "_saveVersion": 8,
+      "character": {
+        "name": "defeatdesktopmu0m46eg",
+        "level": 3,
+        "hp": 0,
+        "maxHp": 700,
+        "chakra": 51,
+        "maxChakra": 1181,
+        "stamina": 61,
+        "maxStamina": 1181,
+        "ryo": 10000,
+        "xp": 0,
+        "hospitalized": true,
+        "hospitalizedAt": 1789352244314,
+        "hospitalizedUntil": 1789352304314,
+        "inventory": [],
+        "itemStacks": []
+      },
+      "ok": true
+    }
+  },
+  {
+    "moment": "settled",
+    "save": {
+      "_saveVersion": 10,
+      "currentSector": 0,
+      "character": {
+        "name": "defeatdesktopmu0m46eg",
+        "level": 3,
+        "hp": 0,
+        "maxHp": 700,
+        "chakra": 51,
+        "maxChakra": 1181,
+        "stamina": 61,
+        "maxStamina": 1181,
+        "ryo": 10000,
+        "xp": 0,
+        "hospitalized": true,
+        "hospitalizedAt": 1789352244314,
+        "hospitalizedUntil": 1789352304314,
+        "inventory": [],
+        "itemStacks": []
+      }
+    }
+  },
+  {
+    "dialog": ""
+  },
+  {
+    "moment": "invalid",
+    "status": 409,
+    "body": {
+      "error": "You are in the hospital. Recover before starting a fight.",
+      "reason": "hospitalized"
+    }
+  },
+  {
+    "moment": "externalHealed",
+    "save": {
+      "_saveVersion": 13,
+      "currentSector": 0,
+      "character": {
+        "name": "defeatdesktopmu0m46eg",
+        "level": 3,
+        "hp": 700,
+        "maxHp": 700,
+        "chakra": 51,
+        "maxChakra": 1181,
+        "stamina": 61,
+        "maxStamina": 1181,
+        "ryo": 10000,
+        "xp": 0,
+        "hospitalized": false,
+        "hospitalizedAt": 0,
+        "hospitalizedUntil": 0,
+        "lastDischargeAt": 1789352246441,
+        "inventory": [],
+        "itemStacks": []
+      }
+    }
+  },
+  {
+    "dialog": ""
+  },
+  {
+    "moment": "staleSignal",
+    "save": {
+      "_saveVersion": 15,
+      "currentSector": 0,
+      "character": {
+        "name": "defeatdesktopmu0m46eg",
+        "level": 3,
+        "hp": 0,
+        "maxHp": 700,
+        "chakra": 51,
+        "maxChakra": 1181,
+        "stamina": 61,
+        "maxStamina": 1181,
+        "ryo": 10000,
+        "xp": 0,
+        "hospitalized": true,
+        "hospitalizedAt": 1789352246472,
+        "hospitalizedUntil": 1789352306472,
+        "lastDischargeAt": 1789352246441,
+        "inventory": [],
+        "itemStacks": []
+      }
+    }
+  }
+]

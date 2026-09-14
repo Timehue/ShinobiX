@@ -13,6 +13,13 @@ const nav = readFileSync(join(HERE, "..", "components", "MobileNav.tsx"), "utf8"
 const training = readFileSync(join(HERE, "..", "screens", "Training.tsx"), "utf8");
 const jutsuCss = readFileSync(join(HERE, "jutsu-training-skin.css"), "utf8");
 const missionCss = readFileSync(join(HERE, "hub-screens-skin.css"), "utf8");
+const sectorFigures = {
+    "SectorAvatar.tsx": readFileSync(join(HERE, "..", "components", "SectorAvatar.tsx"), "utf8"),
+    "SectorPeers.tsx": readFileSync(join(HERE, "..", "components", "SectorPeers.tsx"), "utf8"),
+    "SectorWanderer.tsx": readFileSync(join(HERE, "..", "components", "SectorWanderer.tsx"), "utf8"),
+    "SectorWeeklyBossActor.tsx": readFileSync(join(HERE, "..", "components", "SectorWeeklyBossActor.tsx"), "utf8"),
+};
+const worldSectorCanvas = readFileSync(join(HERE, "..", "components", "WorldSectorCanvas.tsx"), "utf8");
 
 test("AAA mobile layer is last and battle-gated at the shell boundary", () => {
     assert.ok(shell.includes('data-ui-mode={uiMode}'), "the adaptive shell must publish its UI mode");
@@ -76,4 +83,67 @@ test("accepted field missions keep their abandon action in mobile flow", () => {
 test("profile dossier accordions fill the mobile content width", () => {
     assert.match(css, /\.screen-profile \.profile-dossier-grid \{[\s\S]*width:\s*100% !important;[\s\S]*grid-template-columns:\s*minmax\(0, 1fr\) !important;[\s\S]*justify-items:\s*stretch !important;/);
     assert.match(css, /\.screen-profile \.profile-dossier-section,[\s\S]*\.screen-profile \.profile-dossier-rows,[\s\S]*\.screen-profile \.profile-dossier-row \{[\s\S]*width:\s*100% !important;[\s\S]*max-width:\s*none !important;/);
+});
+
+/*
+ * The mobile touch floor must not resize the sector board.
+ *
+ * lib/sector-marker exists so every figure on a 12x12 sector board is drawn at
+ * one size (c63f3b4e3). That held on desktop and broke below 980px: the blanket
+ * 44px `min-inline-size`/`min-block-size` in this layer clamps anything matching
+ * [role="button"], and of the four figure components only the two AI ones are
+ * clickable. On a 352px phone (~27.8px tiles, ~20px markers) that painted
+ * wanderers at 44px against the player's 20px, and flattened the weekly boss's
+ * deliberate 1.5x lead into the same 44px. The same floor cannot widen a
+ * `minmax(0, 1fr)` track either, so the 144 .scene-tile buttons overflowed their
+ * ~27.8px cells and overlapped, handing taps to a neighbouring tile.
+ */
+test("the mobile touch floor exempts sector-board geometry", () => {
+    const floor = css.match(
+        /\n\s*(\.app-shell\[data-ui-mode="noncombat"\] \.center-game :where\(button[^{]*?)\{\s*min-inline-size: 44px !important;\s*min-block-size: 44px !important;\s*\}/,
+    );
+    assert.ok(floor, "the 44px mobile touch floor must remain in this layer");
+
+    const selector = floor[1];
+    // Split on the comma ending each selector half, tolerating either line ending.
+    // This repo is `* text=auto` with core.autocrlf=true, so a Windows checkout
+    // hands the stylesheet back CRLF-terminated while CI reads it LF-terminated.
+    // Splitting on a literal comma+LF passed locally until a rebase re-checked-out
+    // the stylesheet as CRLF, and the split then found one half instead of two.
+    const halves = selector.split(/,\r?\n/).map((part) => part.trim()).filter(Boolean);
+    assert.equal(halves.length, 2, "the floor must keep its in-shell and portaled halves");
+    for (const half of halves) {
+        assert.match(
+            half,
+            /:not\(\.sector-avatar-figure, \.scene-tile\)$/,
+            `board geometry must be exempt from the touch floor in: ${half}`,
+        );
+    }
+});
+
+test("every clickable sector figure is reached by that exemption, and keeps a full-size hit area", () => {
+    // The exemption is keyed to .sector-avatar-figure — the same class the shared
+    // geometry sizes. A figure that carries role="button" without it would be
+    // silently re-inflated, so assert the pairing at the source.
+    for (const [file, source] of Object.entries(sectorFigures)) {
+        if (!source.includes('role="button"')) continue;
+        assert.match(
+            source,
+            /className="sector-avatar-figure sector-wanderer-figure"/,
+            `${file} is clickable, so it must carry the exempt shared figure class`,
+        );
+        assert.ok(
+            source.includes("sectorMarkerBox("),
+            `${file} must size itself from lib/sector-marker`,
+        );
+    }
+    // The board's own tiles are the other exempt selector.
+    assert.match(worldSectorCanvas, /className=\{`scene-tile walkable-tile/, "sector tiles must keep the exempt .scene-tile class");
+
+    // A11y is preserved by padding the target, not the portrait.
+    assert.match(
+        css,
+        /\.app-shell\[data-ui-mode="noncombat"\] \.center-game \.sector-wanderer-figure::after \{[\s\S]*?inline-size: max\(44px, 100%\);[\s\S]*?block-size: max\(44px, 100%\);[\s\S]*?pointer-events: auto;/,
+        "clickable sector figures must keep a transparent 44px hit area",
+    );
 });

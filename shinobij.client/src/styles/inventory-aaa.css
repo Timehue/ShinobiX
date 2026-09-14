@@ -176,12 +176,19 @@
         0 8px 18px rgba(0, 0, 0, 0.3) !important;
 }
 
-.inventory-page .character-equip-slot:hover,
 .inventory-page .character-equip-slot:focus-visible {
     border-color: var(--inventory-cyan) !important;
     box-shadow:
         inset 0 0 0 1px rgba(116, 173, 189, 0.14),
         0 0 18px rgba(116, 173, 189, 0.2) !important;
+}
+@media (hover: hover) {
+    .inventory-page .character-equip-slot:hover {
+        border-color: var(--inventory-cyan) !important;
+        box-shadow:
+            inset 0 0 0 1px rgba(116, 173, 189, 0.14),
+            0 0 18px rgba(116, 173, 189, 0.2) !important;
+    }
 }
 
 .inventory-page .character-equip-slot:focus-visible {
@@ -296,18 +303,20 @@
 .inventory-page .backpack-item.rarity-legendary { --item-rarity: #d6a64f; }
 .inventory-page .backpack-item.rarity-mythic { --item-rarity: #e56b67; }
 
-.inventory-page .backpack-item:hover {
-    z-index: 1;
-    border-color: color-mix(in srgb, var(--item-rarity) 78%, #d7e5ea) !important;
-    background:
-        linear-gradient(150deg, color-mix(in srgb, var(--item-rarity) 11%, transparent), transparent 42%),
-        linear-gradient(180deg, rgba(18, 27, 40, 0.99), rgba(8, 14, 23, 0.99)) !important;
-    box-shadow:
-        inset 0 2px 0 var(--item-rarity),
-        0 0 0 1px color-mix(in srgb, var(--item-rarity) 18%, transparent),
-        0 14px 28px rgba(0, 0, 0, 0.38) !important;
-    filter: none !important;
-    transform: translateY(-3px) !important;
+@media (hover: hover) {
+    .inventory-page .backpack-item:hover {
+        z-index: 1;
+        border-color: color-mix(in srgb, var(--item-rarity) 78%, #d7e5ea) !important;
+        background:
+            linear-gradient(150deg, color-mix(in srgb, var(--item-rarity) 11%, transparent), transparent 42%),
+            linear-gradient(180deg, rgba(18, 27, 40, 0.99), rgba(8, 14, 23, 0.99)) !important;
+        box-shadow:
+            inset 0 2px 0 var(--item-rarity),
+            0 0 0 1px color-mix(in srgb, var(--item-rarity) 18%, transparent),
+            0 14px 28px rgba(0, 0, 0, 0.38) !important;
+        filter: none !important;
+        transform: translateY(-3px) !important;
+    }
 }
 
 .inventory-page .backpack-item:focus-visible {
@@ -360,9 +369,11 @@
     transition: transform 180ms ease, filter 180ms ease;
 }
 
-.inventory-page .backpack-item:hover .backpack-item-art img {
-    filter: brightness(1.06) saturate(1.04);
-    transform: scale(1.015);
+@media (hover: hover) {
+    .inventory-page .backpack-item:hover .backpack-item-art img {
+        filter: brightness(1.06) saturate(1.04);
+        transform: scale(1.015);
+    }
 }
 
 .inventory-page .backpack-item-rarity,
@@ -482,13 +493,17 @@
     transition: transform 150ms ease;
 }
 
-.inventory-page .backpack-item:hover .backpack-item-action {
-    color: #edf4f7;
-    background: rgba(116, 173, 189, 0.09);
+@media (hover: hover) {
+    .inventory-page .backpack-item:hover .backpack-item-action {
+        color: #edf4f7;
+        background: rgba(116, 173, 189, 0.09);
+    }
 }
 
-.inventory-page .backpack-item:hover .backpack-item-action > span {
-    transform: translateX(2px);
+@media (hover: hover) {
+    .inventory-page .backpack-item:hover .backpack-item-action > span {
+        transform: translateX(2px);
+    }
 }
 
 .inventory-page .inventory-empty {

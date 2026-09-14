@@ -1,3 +1,5 @@
+import { type DisplayEntry, TeamPanel } from './pet-showdown/team-panel';
+import { ELEMENT_TINT, elementCrest, KIND_FAMILY } from './pet-showdown/presentation-tokens';
 /*
  * PetShowdownBattle — the cinematic playback layer for Pet Showdown.
  *
@@ -32,10 +34,14 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { SHOWDOWN_POST_SHADER } from "../lib/showdown-post";
+import { createShowdownLightShaftMaterial } from "../lib/showdown-light-shafts";
+import { createShowdownTimerScope } from "../lib/showdown-timers";
+import { useShowdownPointGeometry } from "./use-showdown-point-geometry";
 import { petBloomEnabled } from "../lib/pet-coliseum-flag";
 import * as THREE from "three";
 import { PetModel3D, DEFAULT_PET_MODEL_FRAME, type PetModelFrame } from "./PetModel3D";
 import { PetModelBoundary } from "./PetModelBoundary";
+import { supportsPetWebGl2 } from "../lib/pet-webgl-capability";
 import { PetGraphicsQualityControl } from "./PetGraphicsQualityControl";
 import { petCombatModel, showdownFighterIdentity, type PetCombatModelConfig } from "../lib/pet-3d-models";
 import { petDuelModelCalibration } from "../lib/pet-duel-model-presentation";
@@ -49,6 +55,8 @@ import { startBattleMusic, stopBattleMusic, setBattleMusicIntensity, isAudioMute
 import { playPetSfx, primePetSfx, petHaptic } from "../lib/pet-sfx";
 import { appendCapped, petDuelImpactStrength } from "../lib/pet-duel-presentation";
 import { promptablePets } from "../lib/showdown-turn";
+import { showdownMatchupElement } from "../lib/showdown-hud";
+import { showdownActionTargetId, showdownContactEffectKind } from "../lib/showdown-contact-vfx";
 import { prefersReducedMotion } from "../lib/device-tier";
 import {
     ShowdownVfxLayer,
@@ -67,21 +75,35 @@ import { ShowdownIcon, type ShowdownIconName } from "./icons/ShowdownIcon";
 import { SceneAmbience } from "./SceneAmbience";
 import type { Biome, WeatherType } from "../types/core";
 import { ELEMENT_ICON } from "../lib/element-icons";
-import { fitDistance, framedExtent, showdownBackdropOffset, showdownFov, shotWeight, type ShotWeight } from "../lib/showdown-camera";
+import { fitDistance, framedExtent, SHOWDOWN_PORTRAIT_FRAMING, showdownBackdropOffset, showdownCameraBlend, showdownFov, showdownPortraitComposition, shotWeight, type ShotWeight } from "../lib/showdown-camera";
 import { resolveOpponentFacing } from "../lib/pet-combat-performance";
 import { pairedShowdownOpponentId, showdownLaneFacing, showdownSlotLane } from "../lib/pet-showdown-facing";
 import {
     showdownBodyRadius,
     showdownAttackRhythm,
+    showdownAttackPhase,
+    showdownCastRelease,
+    showdownRecoveryLift,
     showdownCinematicImpulse,
     showdownDodgeOffset,
     showdownMeleeContact,
     showdownMeleeDrive,
+    showdownMeleeRoute,
+    showdownRoutePoint,
+    type ShowdownMeleeRoute,
+    type ShowdownTravelRoute,
+    showdownReserveRoute,
+    showdownTravelProgress,
+    SHOWDOWN_SWITCH_TIMING,
     showdownPerformanceVariant,
     showdownReactionAge,
     showdownReactionRecoil,
+    showdownReactionPosition,
     showdownRarityScale,
 } from "../lib/pet-showdown-choreography";
+import { showdownBeatProgress, showdownDodgeCues, showdownImpactClock, showdownPresentationEvent, type ShowdownImpactClock } from "../lib/showdown-playback";
+import { buildMovePresentations, resolveMovePresentation, showdownTechniqueHitIds, type MovePresentation } from "../lib/showdown-move-presentation";
+import { showdownTechniqueCamera } from "../lib/showdown-camera";
 import { petSignaturePerformance, type PetSignaturePerformance } from "../lib/pet-signature-performance";
 import {
     PET_VISUAL_QUALITY_PRESETS,
@@ -90,13 +112,7 @@ import {
     type PetVisualQuality,
     type PetVisualQualityConfig,
 } from "../lib/pet-visual-quality";
-import {
-    SHOWDOWN_ELEMENT_BEATS,
-    SHOWDOWN_GUARD_COST,
-    SHOWDOWN_REST_PCT,
-    SHOWDOWN_METER_ON_GUARDED_HIT,
-    SHOWDOWN_METER_ON_HIT_TAKEN,
-} from "../../../shared/pet-showdown-contract";
+import { SHOWDOWN_GUARD_COST, SHOWDOWN_REST_PCT, SHOWDOWN_METER_ON_GUARDED_HIT, SHOWDOWN_METER_ON_HIT_TAKEN } from "../../../shared/pet-showdown-contract";
 import type { Pet } from "../types/pet";
 import type {
     ShowdownCommand,
@@ -168,22 +184,6 @@ function stageForSession(sessionId: string): StageKey {
     return STAGE_KEYS[Math.abs(hash) % STAGE_KEYS.length];
 }
 
-const ELEMENT_TINT: Record<string, string> = {
-    Fire: "#ff7a35", Water: "#38bdf8", Wind: "#5eead4", Lightning: "#fde047", Earth: "#d6a76a", None: "#a5b4fc",
-};
-
-/** One authored crest per element. The painted WebP (ELEMENT_ICON) is used only
- *  at >=48px — 5-9 KB of paint turns to mud below ~32px, and only the vector
- *  tints with `color`. */
-const ELEMENT_CREST: Record<string, ShowdownIconName> = {
-    Fire: "elem-fire", Water: "elem-water", Wind: "elem-wind",
-    Lightning: "elem-lightning", Earth: "elem-earth", None: "elem-none",
-};
-
-function elementCrest(element: string): ShowdownIconName {
-    return ELEMENT_CREST[element] ?? "elem-none";
-}
-
 /** Move kinds collapse onto a smaller set of marks than there are kinds: the
  *  four directional control kinds share one glyph, and burn/dot are one idea.
  *  `aegis` (a held object, flat soak) and `veil` (a field over you) are
@@ -212,16 +212,6 @@ function kindGlyph(kind: string, element?: string): ShowdownIconName {
     return KIND_GLYPH[kind] ?? "strike";
 }
 
-/** Offense / control / support — the icon's own colour, never a background. */
-const KIND_FAMILY: Record<string, "off" | "ctl" | "sup"> = {
-    damage: "off", crush: "off", lifesteal: "off", wound: "off", burn: "off", dot: "off",
-    stun: "ctl", freeze: "ctl", confuse: "ctl", slow: "ctl", movelock: "ctl",
-    push: "ctl", pull: "ctl", mark: "ctl", taunt: "ctl", debuff: "ctl",
-    pivot: "off", protect: "sup", weather: "sup",
-    heal: "sup", shield: "sup", guard: "sup", barrier: "sup", absorb: "sup",
-    buff: "sup", haste: "sup", move: "sup", rest: "sup",
-};
-
 /** A weather technique turns the arena's sky, and it uses the SAME weather the
  *  overworld already runs (SceneAmbience) rather than a second private system:
  *  a Water sage makes it rain on the field exactly like rain in a sector, and a
@@ -246,45 +236,8 @@ const ELEMENT_WEATHER: Record<string, { weather: WeatherType; biome: Biome }> = 
     Earth: { weather: "ashfall", biome: "central" },
 };
 
-const STATUS_GLYPH: Record<string, ShowdownIconName> = {
-    burn: "pyre", wound: "rend", stun: "bind", freeze: "frost", confuse: "daze",
-    debuff: "wane", buff: "wax", shield: "aegis", mark: "mark", slow: "drag",
-    haste: "haste", crush: "crush", taunt: "provoke", steadfast: "steadfast",
-    protect: "brace",
-    // The bench is what a root denies, so the bench is what it wears.
-    movelock: "bench",
-};
-
-/** Plain English for every status the view can actually carry. `tauntGuard` is
- *  unreachable (the engine renames it in 1v1). `movelock` USED to be unreachable
- *  too — the engine aliased it to `slow` — until it became a real trap. */
-const STATUS_TITLE: Record<string, string> = {
-    burn: "Burning — takes damage each round",
-    wound: "Wounded — bleeds each round and heals for less",
-    stun: "Stunned — loses its next action",
-    freeze: "Frozen — may lose its next action",
-    confuse: "Confused — may hit itself instead",
-    debuff: "Weakened — deals less damage",
-    buff: "Empowered — deals more damage",
-    shield: "Shielded — absorbs incoming damage",
-    mark: "Marked — the next hit lands harder",
-    slow: "Slowed — acts later in the round",
-    movelock: "Trapped — cannot switch out",
-    protect: "Braced — blocks all damage this round",
-    haste: "Hastened — acts earlier in the round",
-    crush: "Crushed — defence lowered",
-    taunt: "Taunting — draws single-target attacks",
-    steadfast: "Steadfast — immune to stun and freeze",
-};
-
-function statusTitle(s: { kind: string; rounds: number; magnitude: number }): string {
-    const base = STATUS_TITLE[s.kind] ?? s.kind;
-    const pool = s.kind === "shield" && s.magnitude > 0 ? ` (${s.magnitude} left)` : "";
-    return `${base}${pool} · ${s.rounds} round${s.rounds === 1 ? "" : "s"}`;
-}
-
 // Moves that never point at an enemy (mirror of the server's routing).
-const SELF_MOVE_KINDS = new Set(["buff", "haste", "move", "shield", "barrier", "absorb", "taunt"]);
+const SELF_MOVE_KINDS = new Set(["buff", "haste", "move", "shield", "barrier", "absorb", "taunt", "protect", "weather"]);
 const ALLY_MOVE_KINDS = new Set(["heal"]);
 
 type ActionEvent = Extract<ShowdownEvent, { t: "action" }>;
@@ -360,9 +313,13 @@ function actionRhythm(event: ActionEvent) {
 // ─── Shared mutable scene state (refs — read per frame inside the Canvas) ────
 
 interface SceneBeat {
+    presentation?: MovePresentation;
     event: ShowdownEvent | null;
     startedAt: number;
     durationMs: number;
+    impact?: ShowdownImpactClock;
+    meleeRoute?: ShowdownMeleeRoute;
+    switches?: ReadonlyMap<string, { route: ShowdownTravelRoute; start: number; end: number }>;
     /** Queue position — the shot-variant seed. Deliberately NOT startedAt,
      *  which is a wall clock and would pick different framings on replay. */
     index: number;
@@ -487,19 +444,21 @@ function lineupAfterSwitch(lineup: Lineup, side: "player" | "enemy", outId: stri
  *  moment: house lights for the one beat per fight that is allowed to shout. */
 function SuperLightRig({ beatRef }: { beatRef: React.MutableRefObject<SceneBeat> }) {
     const beams = useRef<Array<THREE.Mesh | null>>([]);
+    const materials = useMemo(() => Array.from({ length: 4 }, createShowdownLightShaftMaterial), []);
+    useEffect(() => () => materials.forEach(material => material.dispose()), [materials]);
     useFrame((state) => {
         const beat = beatRef.current;
         const isSuper = beat.event?.t === "action" && beat.event.super;
-        const frac = isSuper ? Math.min(1, (performance.now() - beat.startedAt) / beat.durationMs) : 0;
+        const frac = isSuper ? showdownBeatProgress(beat, performance.now()) : 0;
         const tint = isSuper && beat.event?.t === "action" ? (ELEMENT_TINT[beat.event.element] ?? "#fde9bd") : "#fde9bd";
         beams.current.forEach((b, i) => {
             if (!b) return;
             if (!isSuper) { b.visible = false; return; }
             b.visible = true;
-            const mat = b.material as THREE.MeshBasicMaterial;
+            const mat = b.material as THREE.ShaderMaterial;
             // Rise fast, hold through the strike, die with the beat.
-            mat.opacity = (frac < 0.12 ? frac / 0.12 : frac > 0.82 ? (1 - frac) / 0.18 : 1) * 0.16;
-            mat.color.set(tint);
+            mat.uniforms.opacity.value = (frac < 0.12 ? frac / 0.12 : frac > 0.82 ? (1 - frac) / 0.18 : 1) * 0.1;
+            mat.uniforms.color.value.set(tint);
             const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
             b.position.set(Math.cos(a) * 14.2, 12.8, Math.sin(a) * 14.2);
             b.lookAt(0, 0.5, 0);
@@ -511,27 +470,20 @@ function SuperLightRig({ beatRef }: { beatRef: React.MutableRefObject<SceneBeat>
     return (
         <group>
             {Array.from({ length: 4 }, (_, i) => (
-                <mesh key={i} ref={(el) => { beams.current[i] = el; }} visible={false}>
-                    <cylinderGeometry args={[0.1, 1.9, 21, 8, 1, true]} />
-                    <meshBasicMaterial
-                        transparent
-                        opacity={0}
-                        depthWrite={false}
-                        blending={THREE.AdditiveBlending}
-                        toneMapped={false}
-                        side={THREE.DoubleSide}
-                    />
+                <mesh key={i} ref={(el) => { beams.current[i] = el; }} visible={false} material={materials[i]}>
+                    <cylinderGeometry args={[0.1, 1.9, 21, 24, 1, true]} />
                 </mesh>
             ))}
         </group>
     );
 }
 
-function StageEnvironment({ stage, beatRef, fxRef, quality }: {
+function StageEnvironment({ stage, beatRef, fxRef, quality, reduced }: {
     stage: StageKey;
     beatRef: React.MutableRefObject<SceneBeat>;
     fxRef: React.MutableRefObject<SceneFx>;
     quality: PetVisualQualityConfig;
+    reduced: boolean;
 }) {
     const art = STAGES[stage];
     const textures = useMemo(() => {
@@ -550,6 +502,7 @@ function StageEnvironment({ stage, beatRef, fxRef, quality }: {
         backdrop.offset.x = showdownBackdropOffset(WIDE_POS[0], WIDE_POS[2], BACKDROP_REPEAT);
         return { floor, backdrop };
     }, [art]);
+    useEffect(() => () => { textures.floor.dispose(); textures.backdrop.dispose(); }, [textures]);
     const ambient = useRef<THREE.AmbientLight>(null);
     const sun = useRef<THREE.DirectionalLight>(null);
     const ember = useRef<THREE.PointLight>(null);
@@ -626,10 +579,10 @@ function StageEnvironment({ stage, beatRef, fxRef, quality }: {
                 <meshStandardMaterial map={textures.floor} roughness={0.95} />
             </mesh>
             {/* Stage-tinted drifting motes — living air (embers/spores/snow). */}
-            <Sparkles count={quality.ambientParticles} scale={[16, 6, 14]} position={[0, 3, 0]} size={2.6} speed={0.28} color={art.ember} opacity={0.5} />
+            <StageSparkles count={quality.ambientParticles} color={art.ember} />
             <StageAmbient stage={stage} particleCount={quality.ambientParticles} />
             <CrowdEruption fxRef={fxRef} ember={art.ember} />
-            <SuperLightRig beatRef={beatRef} />
+            {!reduced && quality.id !== "low" && <SuperLightRig beatRef={beatRef} />}
         </group>
     );
 }
@@ -638,7 +591,19 @@ function StageEnvironment({ stage, beatRef, fxRef, quality }: {
  *  snowfall over the frost bowl, leaves drifting through the grove, embers
  *  climbing off the volcano floor, and the storm sky flashing distant
  *  lightning through the arches. The coliseum keeps its lantern motes. */
+function StageSparkles({ count, color }: { count: number; color: string }) {
+    // Drei constructs a new color attribute each render for a string color.
+    // Passing its supported typed-array form keeps the uploaded buffer stable.
+    const colors = useMemo(() => {
+        const tint = new THREE.Color(color), values = new Float32Array(count * 3);
+        for (let i = 0; i < count; i++) tint.toArray(values, i * 3);
+        return values;
+    }, [color, count]);
+    return <Sparkles count={count} scale={[16, 6, 14]} position={[0, 3, 0]} size={2.6} speed={0.28} color={colors} opacity={0.5} />;
+}
+
 function StageAmbient({ stage, particleCount }: { stage: StageKey; particleCount: number }) {
+    const geometry = useShowdownPointGeometry(particleCount);
     const points = useRef<THREE.Points>(null);
     const flash = useRef<THREE.DirectionalLight>(null);
     const nextFlash = useRef(0);
@@ -687,10 +652,7 @@ function StageAmbient({ stage, particleCount }: { stage: StageKey; particleCount
     }
     const color = kind === "snow" ? "#e8f4ff" : kind === "leaves" ? "#9fd8a0" : "#ffb066";
     return (
-        <points ref={points}>
-            <bufferGeometry>
-                <bufferAttribute attach="attributes-position" args={[new Float32Array(particleCount * 3), 3]} />
-            </bufferGeometry>
+        <points ref={points} geometry={geometry}>
             <pointsMaterial color={color} size={kind === "leaves" ? 5.5 : 4.5} transparent opacity={0.75} depthWrite={false} sizeAttenuation={false} />
         </points>
     );
@@ -720,7 +682,7 @@ function ShowdownPostStack({ fxRef, bloomIntensity, distortion }: {
         const finish = new ShaderPass(SHOWDOWN_POST_SHADER);
         const output = new OutputPass();
         finish.uniforms.glowThreshold.value = bloomIntensity >= 0.45 ? 0.86 : 0.91;
-        finish.uniforms.glowIntensity.value = bloomIntensity * 0.34;
+        finish.uniforms.glowIntensity.value = bloomIntensity * 0.2;
         composer.addPass(render);
         composer.addPass(finish);
         // Composer targets are linear. Without the final output transform,
@@ -754,8 +716,8 @@ function ShowdownPostStack({ fxRef, bloomIntensity, distortion }: {
             punch = Math.min(1, fx.shakeAmp * k * k * 4);
         }
         if (distortion) {
-            stack.finish.uniforms.offset.value.set(0.0003 + punch * 0.0034, 0.0002 + punch * 0.002);
-            stack.finish.uniforms.strength.value = punch * 0.085;
+            stack.finish.uniforms.offset.value.set(punch * 0.75, punch * 0.4);
+            stack.finish.uniforms.strength.value = punch * 0.028;
         } else {
             stack.finish.uniforms.offset.value.set(0, 0);
             stack.finish.uniforms.strength.value = 0;
@@ -773,6 +735,7 @@ function CrowdEruption({ fxRef, ember }: { fxRef: React.MutableRefObject<SceneFx
     const points = useRef<THREE.Points>(null);
     const mat = useRef<THREE.PointsMaterial>(null);
     const COUNT = 160;
+    const geometry = useShowdownPointGeometry(COUNT);
     const seedAt = useRef(0);
     const params = useRef<Array<{ angle: number; drop: number; drift: number; phase: number; ring: number }>>([]);
     const dot = useMemo(() => {
@@ -789,6 +752,7 @@ function CrowdEruption({ fxRef, ember }: { fxRef: React.MutableRefObject<SceneFx
         t.colorSpace = THREE.SRGBColorSpace;
         return t;
     }, []);
+    useEffect(() => () => dot.dispose(), [dot]);
     useFrame(() => {
         if (!points.current || !mat.current) return;
         const fx = fxRef.current;
@@ -829,10 +793,7 @@ function CrowdEruption({ fxRef, ember }: { fxRef: React.MutableRefObject<SceneFx
         mat.current.opacity = life < 0.1 ? life / 0.1 : life > 0.72 ? Math.max(0, (1 - life) / 0.28) : 1;
     });
     return (
-        <points ref={points} visible={false}>
-            <bufferGeometry>
-                <bufferAttribute attach="attributes-position" args={[new Float32Array(COUNT * 3), 3]} />
-            </bufferGeometry>
+        <points ref={points} geometry={geometry} visible={false}>
             <pointsMaterial ref={mat} map={dot} color={ember} size={5.5} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} sizeAttenuation={false} />
         </points>
     );
@@ -866,7 +827,7 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
     const shotKey = useRef("");
     // Camera + size come from the frame-callback state (not render-scope
     // useThree destructuring) so the mutation stays outside render.
-    useFrame((frameState) => {
+    useFrame((frameState, delta) => {
         const camera = frameState.camera;
         const size = frameState.size;
         const beat = beatRef.current;
@@ -884,14 +845,15 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
         // work needs around them — both feed the fit-to-frame dolly below.
         const bodies: THREE.Vector3[] = [];
         let weight: ShotWeight = "quiet";
-        if (beat.event && beat.event.t === "action" && beat.event.moveKind !== "guard" && beat.event.moveKind !== "rest") {
+        if (!reduced && beat.event && beat.event.t === "action" && beat.event.moveKind !== "guard" && beat.event.moveKind !== "rest") {
             const actorPos = posRef.current.get(beat.event.actorId);
-            const victimPos = beat.event.targets[0] ? posRef.current.get(beat.event.targets[0].id) : undefined;
+            const victimId = showdownActionTargetId(beat.event);
+            const victimPos = victimId ? posRef.current.get(victimId) : undefined;
             if (actorPos) {
                 const a = new THREE.Vector3(...actorPos);
                 const b = victimPos ? new THREE.Vector3(...victimPos) : a;
                 bodies.push(a, b);
-                const frac = Math.min(1, (now - beat.startedAt) / beat.durationMs);
+                const frac = showdownBeatProgress(beat, now);
                 // Deterministic shot seed: the QUEUE INDEX, so a replay of the
                 // same script picks the same framings every time.
                 const v = (beat.index * 2654435761) >>> 0;
@@ -905,7 +867,20 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
                     nextShot = `super:${beat.index}`;
                     weight = "super";
                     const swoop = reduced ? 1 : frac;
-                    if (enemyActing) {
+                    if (beat.presentation?.area) {
+                        targetPos.set(0, 8.6, 13.8);
+                        targetLook.set(0, 2.3, enemyActing ? .8 : -.8);
+                        for (const target of beat.event.targets) {
+                            const at = posRef.current.get(target.id);
+                            if (at) bodies.push(new THREE.Vector3(...at));
+                        }
+                    } else if (beat.presentation?.hero) {
+                        const launch = beat.meleeRoute?.points[0];
+                        const origin = launch ? [launch.x, actorPos[1], launch.z] : actorPos;
+                        const shot = showdownTechniqueCamera(origin, victimPos ?? actorPos, beat.event.element === "Earth");
+                        targetPos.set(...shot.position);
+                        targetLook.set(...shot.look);
+                    } else if (enemyActing) {
                         // Enemy signature: a high side dolly along the lane —
                         // dramatic, but unmistakably THEIR move coming at you.
                         const mid = a.clone().lerp(b, 0.5);
@@ -921,6 +896,11 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
                         targetPos = a.clone().add(behind).add(new THREE.Vector3(2.8 - swoop * 1.1, 3.6 + swoop * 0.8, 0));
                         targetLook = reduced || frac >= 0.45 ? b.clone().setY(1.1) : a.clone().setY(1.2);
                     }
+                } else if (beat.event.delivery === "self" || victimId === beat.event.actorId) {
+                    nextShot = `utility:${beat.index}`;
+                    weight = "normal";
+                    targetPos = a.clone().add(new THREE.Vector3(4.8, 3.6, enemyActing ? -5.5 : 5.5));
+                    targetLook = a.clone().setY(1.1);
                 } else {
                     // Colosseum cut sequence: a windup framing, then a HARD CUT
                     // to the impact. Ranged and melee are shot differently —
@@ -932,8 +912,11 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
                     dir.normalize();
                     const perp = new THREE.Vector3(-dir.z, 0, dir.x);
                     const ranged = beat.event.delivery === "ranged";
-                    const heavy = beat.event.targets.some((t) => t.ko || t.damage > 260);
-                    if (frac < actionRhythm(beat.event).contact * 0.92) {
+                    const heavy = beat.event.weight === "heavy" || beat.event.targets.some((t) => t.ko);
+                    const rhythm = actionRhythm(beat.event);
+                    // Establish the contact angle before the dash/release so
+                    // the cut cannot swallow the final approach to the target.
+                    if (frac < (ranged ? rhythm.windupStart : rhythm.dashStart)) {
                         const variant = v % 3;
                         nextShot = `windup:${beat.index}:${variant}`;
                         weight = "windup";
@@ -958,7 +941,8 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
                             targetLook = b.clone().setY(1.2);
                         }
                     } else {
-                        const variant = (v >> 3) % 3;
+                        // Keep the same side of the action axis across the cut.
+                        const variant = v % 3;
                         nextShot = `strike:${beat.index}:${variant}`;
                         weight = shotWeight({ superMove: false, heavy, ranged, windup: false });
                         // A heavy or lethal blow pushes the lens IN — but only
@@ -976,10 +960,25 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
                             .add(dir.clone().multiplyScalar(variant === 2 ? -4.0 : -2.8))
                             .setY(variant === 2 ? height + 0.7 : height);
                         targetLook = b.clone().setY(1.05);
+                        if (ranged) {
+                            const mid = a.clone().lerp(b, 0.5);
+                            targetPos = mid.clone().add(perp.clone().multiplyScalar(variant === 1 ? -9 : 9)).setY(4.2);
+                            targetLook = mid.setY(1.2);
+                        }
                     }
                 }
+                // Once the impact pose releases, return to the arena master
+                // shot. Staying tight on the victim cropped the attacker as
+                // it bounded home, especially during Fast playback.
+                if (beat.event.delivery === "melee" && frac >= actionRhythm(beat.event).contactEnd) {
+                    nextShot = `recover:${beat.index}`;
+                    cutOnChange = true;
+                    targetPos = new THREE.Vector3(...WIDE_POS);
+                    targetLook = new THREE.Vector3(...WIDE_LOOK);
+                    weight = "quiet";
+                }
             }
-        } else if (beat.event && beat.event.t === "switch") {
+        } else if (!reduced && beat.event && beat.event.t === "switch") {
             // The rotation is a beat of its own — track the arriving pet.
             const inPos = posRef.current.get(beat.event.inId);
             if (inPos) {
@@ -990,7 +989,7 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
                 targetPos = p.clone().add(new THREE.Vector3(6.0, 3.7, 6.0));
                 targetLook = p.clone().setY(1.1);
             }
-        } else if (beat.event && beat.event.t === "end") {
+        } else if (!reduced && beat.event && beat.event.t === "end") {
             // Orbit the survivor under the result panel — beatRef is never
             // cleared, so this keeps turning behind the scrim.
             const winners = beat.event.outcome === "win" ? lineup.playerField : lineup.enemyField;
@@ -1003,16 +1002,6 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
                 const th = (now - beat.startedAt) * 0.00045;
                 targetPos = p.clone().add(new THREE.Vector3(Math.sin(th) * 7.4, 3.6, Math.cos(th) * 7.4));
                 targetLook = p.clone().setY(1.15);
-            }
-        }
-        // The CUT: on a shot change, snap into the new framing instantly.
-        if (nextShot !== shotKey.current) {
-            shotKey.current = nextShot;
-            if (cutOnChange || nextShot === "wide") {
-                if (nextShot !== "wide") {
-                    pos.current.copy(targetPos);
-                    look.current.copy(targetLook);
-                }
             }
         }
         // Idle drift: a slow broadcast-crane sway so the wide shot never sits
@@ -1036,6 +1025,10 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
         // until that radius fits the tighter frame axis — so the authored angle
         // survives untouched and only the distance changes.
         const aspect = size.width / Math.max(1, size.height);
+        const portrait = showdownPortraitComposition(aspect);
+        if (nextShot === "wide" || nextShot.startsWith("recover:")) {
+            targetPos.lerp(new THREE.Vector3(...SHOWDOWN_PORTRAIT_FRAMING.position), portrait);
+        }
         const view = targetPos.clone().sub(targetLook);
         if (view.lengthSq() < 0.01) view.set(0, 2, 6);
         const viewDir = view.clone().normalize();
@@ -1058,9 +1051,18 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
         // a clean settle. It is lensing—not another positional shake—so heavy
         // hits gain scale without making the target unreadable.
         const fov = baseFov + lensPunch;
-        if (camera instanceof THREE.PerspectiveCamera && Math.abs(camera.fov - fov) > 0.01) {
-            camera.fov = fov;
-            camera.updateProjectionMatrix();
+        if (camera instanceof THREE.PerspectiveCamera) {
+            if (Math.abs(camera.fov - fov) > 0.01) {
+                camera.fov = fov;
+                camera.updateProjectionMatrix();
+            }
+            // Keep the optical centre above the portrait command deck. This is
+            // a lens shift, so creature poses and all world-space effects stay
+            // aligned rather than receiving independent screen offsets.
+            const offsetY = Math.round(size.height * SHOWDOWN_PORTRAIT_FRAMING.opticalShift * portrait);
+            if (offsetY && (camera.view?.offsetY !== offsetY || camera.view?.fullWidth !== size.width || camera.view?.fullHeight !== size.height)) {
+                camera.setViewOffset(size.width, size.height, 0, offsetY, size.width, size.height);
+            } else if (!offsetY && camera.view?.enabled) camera.clearViewOffset();
         }
         const needed = fitDistance(horiz, extent.vert, fov, aspect);
         if (view.length() < needed) {
@@ -1073,16 +1075,21 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
         // undoes the fix. 18 keeps the lens inside the backdrop cylinder even at
         // the wide shot's height.
         //
-        // KNOWN LIMIT: with the responsive lens every shot fits inside 18 except
-        // a SIGNATURE on a phone held upright, which wants ~22. There is nowhere
-        // to put that camera — the backdrop wall is at 19 — so the ring is
-        // cropped there. Widening the lens further is the only other lever and
-        // it fisheyes the caster. Shrinking the ring for narrow viewports in
-        // PetShowdownVfx3d is the real fix if it ever matters enough.
+        // Portrait's wider lens and elevated master shot fit inside this same
+        // shell; the offset above reserves the lower screen for the controls.
         targetPos.y = Math.max(FLOOR_Y + 1.0, targetPos.y);
         if (targetPos.length() > 18) targetPos.setLength(18);
-        pos.current.lerp(targetPos, 0.055);
-        look.current.lerp(targetLook, 0.075);
+        // Apply a cut only after fitting and containment. Cutting to the raw
+        // authored angle exposed a cropped frame, followed by a corrective zoom.
+        if (nextShot !== shotKey.current) {
+            shotKey.current = nextShot;
+            if (cutOnChange) {
+                pos.current.copy(targetPos);
+                look.current.copy(targetLook);
+            }
+        }
+        pos.current.lerp(targetPos, showdownCameraBlend(delta, 3.4));
+        look.current.lerp(targetLook, showdownCameraBlend(delta, 4.7));
         camera.position.copy(pos.current);
         // Impact shake — decaying, deterministic-feel sin mix.
         if (now < fx.shakeUntil) {
@@ -1138,13 +1145,11 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
     const selRing = useRef<THREE.Mesh>(null);
     /** Where this fighter currently stands — walks toward its assigned home. */
     const standing = useRef<[number, number, number] | null>(null);
+    const switchLanding = useRef<ShowdownTravelRoute | null>(null);
     /** Hit-stop-aware presentation clock fed to the skeletal mixer. */
     const timeline = useRef(0);
     /** Opening pet entrance begins once the VS card clears. */
     const entranceAt = useRef<number | null>(null);
-    /** Per-beat clock for root travel. Wall-clock dash progress used to keep
-     *  advancing while the skeleton froze, sliding pets inside each other. */
-    const beatClock = useRef({ index: -1, elapsedMs: 0 });
     /** When this pet went down (0 = standing) and the beat it fell on, which
      *  together decide when the body withdraws from the field. */
     const koAt = useRef(0);
@@ -1195,6 +1200,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         t.colorSpace = THREE.SRGBColorSpace;
         return t;
     }, [info.model, modelFailed, info.fallbackImage]);
+    useEffect(() => () => fallbackTexture?.dispose(), [fallbackTexture]);
 
     useFrame((_, delta) => {
         const f = frame.current;
@@ -1207,8 +1213,25 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         const home = posRef.current.get(info.view.id) ?? standing.current ?? info.basePos;
         if (!standing.current) standing.current = [home[0], home[1], home[2]];
         const stand = standing.current;
-        let walkX = 0, walkZ = 0, walking = false;
-        if (!ko) {
+        let walkX = 0, walkZ = 0, walking = false, walkSpeed = 7.2;
+        const switchMotion = beat.switches?.get(info.view.id);
+        let waitingForEntry = false;
+        if (!switchMotion && switchLanding.current) {
+            const landing = showdownRoutePoint(switchLanding.current, 1);
+            stand[0] = landing.x; stand[2] = landing.z;
+            switchLanding.current = null;
+        }
+        if (!ko && switchMotion) {
+            switchLanding.current = switchMotion.route;
+            const fraction = showdownBeatProgress(beat, now);
+            const progress = showdownTravelProgress((fraction - switchMotion.start) / (switchMotion.end - switchMotion.start));
+            const point = showdownRoutePoint(switchMotion.route, progress);
+            walkSpeed = Math.hypot(point.x - stand[0], point.z - stand[2]) / Math.max(0.001, delta);
+            stand[0] = point.x; stand[2] = point.z;
+            walkX = point.dx; walkZ = point.dz;
+            walking = fraction >= switchMotion.start && fraction < switchMotion.end;
+            waitingForEntry = fraction < switchMotion.start;
+        } else if (!ko) {
             const dx = home[0] - stand[0];
             const dz = home[2] - stand[2];
             const dist = Math.hypot(dx, dz);
@@ -1223,7 +1246,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
             }
         }
         let px = stand[0], pz = stand[2];
-        const py = home[1];
+        let py = home[1];
         const laneFacing = showdownLaneFacing(info.side);
         const restingTarget = restingTargetId ? posRef.current.get(restingTargetId) : undefined;
         let [faceX, faceZ] = restingTarget
@@ -1232,6 +1255,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         f.moving = false;
         f.speed = 0;
         f.casting = false;
+        f.attackPhaseProgress = undefined;
 
         // KO WITHDRAWAL. The fallen body holds where it dropped through the
         // fall and the KO ritual — that beat is the point — and then LEAVES.
@@ -1272,7 +1296,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         // happens exactly when a switch hands the reserve a field slot and the
         // chase starts, and the pop-out when a pulled pet reaches the tunnel.
         if (group.current) {
-            group.current.visible = !(benchedRef.current.has(info.view.id) && !walking && !ko) && !withdrawn;
+            group.current.visible = !(benchedRef.current.has(info.view.id) && !walking && !ko) && !withdrawn && !waitingForEntry;
         }
 
         // Hit-stop-aware presentation clock: skeletal time crawls during the
@@ -1280,6 +1304,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         const presentationScale = now < fx.hitStopUntil ? 0.06 : now < fx.slowUntil ? fx.slowScale : 1;
         timeline.current += delta * presentationScale;
         f.timeline = timeline.current;
+        f.contactPose = true;
         f.performanceVariant = performanceVariant;
         f.signature = signature;
         if (!introActive) {
@@ -1289,13 +1314,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
             entranceAt.current = null;
             f.entranceProgress = undefined;
         }
-        if (beatClock.current.index !== beat.index) {
-            beatClock.current.index = beat.index;
-            beatClock.current.elapsedMs = Math.max(0, now - beat.startedAt);
-        } else {
-            beatClock.current.elapsedMs += delta * 1000 * presentationScale;
-        }
-        const beatFraction = Math.min(1, beatClock.current.elapsedMs / Math.max(1, beat.durationMs));
+        const beatFraction = showdownBeatProgress(beat, now);
 
         const lastHit = fx.hitAt.get(info.view.id) ?? 0;
         const wallSinceHit = now - lastHit;
@@ -1338,11 +1357,13 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
                 f.moveStyle = actionStyle.current.style;
                 f.moveName = ev.moveName;
                 const rhythm = actionRhythm(ev);
+                f.attackPhaseProgress = showdownAttackPhase(frac, rhythm, ev.delivery === "melee");
                 // Attack take pacing and pose windows use the same weight-aware
                 // phrase as contact side effects and travel VFX.
                 f.attackPace = rhythm.attackPace;
-                const targetPos = ev.targets[0] ? posRef.current.get(ev.targets[0].id) : undefined;
-                if (targetPos && ev.targets[0].id !== info.view.id) {
+                const targetId = showdownActionTargetId(ev);
+                const targetPos = targetId ? posRef.current.get(targetId) : undefined;
+                if (targetPos && targetId && targetId !== info.view.id) {
                     const dx = targetPos[0] - stand[0];
                     const dz = targetPos[2] - stand[2];
                     const len = Math.hypot(dx, dz) || 1;
@@ -1354,12 +1375,30 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
                         const contact = showdownMeleeContact(
                             stand[0], stand[2], targetPos[0], targetPos[2],
                             radii.get(info.view.id) ?? 0.82,
-                            radii.get(ev.targets[0].id) ?? 0.82,
+                            radii.get(targetId) ?? 0.82,
                             signature.strikeDrive,
                         );
                         const drive = showdownMeleeDrive(frac, rhythm);
+                        if (frac >= rhythm.contactEnd && frac <= rhythm.recoverEnd) {
+                            py += showdownRecoveryLift(f.attackPhaseProgress, info.model?.profile ?? "quadruped", beat.meleeRoute?.length ?? contact.travel);
+                        }
                         px = stand[0] + faceX * contact.travel * drive;
                         pz = stand[2] + faceZ * contact.travel * drive;
+                        if (beat.meleeRoute) {
+                            const point = showdownRoutePoint(beat.meleeRoute, drive);
+                            // Preserve a reserve's in-progress entrance at the
+                            // start, then converge on the shared contact route.
+                            px = point.x + (stand[0] - beat.meleeRoute.points[0].x) * (1 - drive);
+                            pz = point.z + (stand[2] - beat.meleeRoute.points[0].z) * (1 - drive);
+                            if (beat.meleeRoute.detoured && frac >= rhythm.dashStart && frac < rhythm.contact) {
+                                faceX = point.dx;
+                                faceZ = point.dz;
+                            } else if (beat.meleeRoute.detoured && frac >= rhythm.contact) {
+                                const targetDistance = Math.hypot(targetPos[0] - px, targetPos[2] - pz) || 1;
+                                faceX = (targetPos[0] - px) / targetDistance;
+                                faceZ = (targetPos[2] - pz) / targetDistance;
+                            }
+                        }
                         f.motion = frac < rhythm.windupStart ? "idle"
                             : frac < rhythm.dashStart ? "windup"
                             : frac < rhythm.contact ? "dash"
@@ -1368,7 +1407,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
                         if (f.motion === "dash") { f.moving = true; f.speed = 9; f.moveX = faceX; f.moveZ = faceZ; }
                     } else {
                         f.motion = frac < rhythm.windupStart ? "idle"
-                            : frac < rhythm.contact ? "windup"
+                            : frac < showdownCastRelease(rhythm) ? "windup"
                             : frac < rhythm.contactEnd ? "strike"
                             : frac < rhythm.recoverEnd ? "recover" : "idle";
                         // Keep the dedicated cast take alive through release and
@@ -1378,7 +1417,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
                     }
                 } else {
                     f.motion = frac < rhythm.windupStart ? "idle"
-                        : frac < rhythm.contact ? "windup"
+                        : frac < (ev.delivery === "melee" ? rhythm.contact : showdownCastRelease(rhythm)) ? "windup"
                         : frac < rhythm.contactEnd ? "strike"
                         : frac < rhythm.recoverEnd ? "recover" : "idle";
                     f.casting = ev.delivery !== "melee" && frac < rhythm.recoverEnd;
@@ -1400,7 +1439,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         } else if (walking) {
             f.motion = "run";
             f.moving = true;
-            f.speed = 7.2;
+            f.speed = walkSpeed;
             f.moveX = walkX; f.moveZ = walkZ;
             faceX = walkX; faceZ = walkZ;
             f.moveStyle = baseStyle;
@@ -1418,6 +1457,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         }
         // The skeleton folds on impact; the group travels away from its source.
         // The separation remains visible through hit-stop and eases home after.
+        const reactionStartX = px, reactionStartZ = pz;
         const hitDirection = fx.hitDirection.get(info.view.id);
         if (!ko && hitDirection && lastHit > 0) {
             const recoil = showdownReactionRecoil(
@@ -1433,6 +1473,16 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
                 * THREE.MathUtils.clamp(signature.agility, 0.86, 1.18);
             px += -faceZ * offset;
             pz += faceX * offset;
+        }
+        if (px !== reactionStartX || pz !== reactionStartZ) {
+            const neighbours = [...posRef.current]
+                .filter(([id]) => id !== info.view.id && !benchedRef.current.has(id))
+                .map(([id, pos]) => ({ x: pos[0], z: pos[2], radius: radii.get(id) ?? 0.82 }));
+            const safe = showdownReactionPosition(
+                { x: reactionStartX, z: reactionStartZ }, { x: px, z: pz },
+                radii.get(info.view.id) ?? 0.82, neighbours,
+            );
+            px = safe.x; pz = safe.z;
         }
         f.faceX = faceX;
         f.faceZ = faceZ;
@@ -1580,212 +1630,6 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
                 </Html>
             ))}
         </group>
-    );
-}
-
-
-// ─── Team panel (DOM) ────────────────────────────────────────────────────────
-
-interface DisplayEntry { hp: number; stamina: number; meter: number; ko: boolean; guarding: boolean; statuses: { kind: string; rounds: number; magnitude: number }[] }
-
-/** The one numeral treatment, reused for every ratio in the HUD.
- *
- *  Numerals NEVER tween — the value snaps to what the server sent the instant it
- *  arrives, and only the bar animates. A counting tween would put numbers on
- *  screen that no event ever carried.
- *
- *  Enemy readouts show a PERCENTAGE rather than absolutes: it is honest about
- *  what the client legitimately knows, and it separates the two plate stacks
- *  without spending a second colour. Both values are already server-sent, so
- *  this implies nothing new. */
-function Num({ cur, max, pct }: { cur: number; max: number; pct?: boolean }) {
-    const safeMax = Math.max(1, Math.round(max));
-    const safeCur = Math.max(0, Math.round(cur));
-    if (pct) {
-        return <span className="sd-num pct">{Math.round((safeCur / safeMax) * 100)}<i>%</i></span>;
-    }
-    return <span className="sd-num">{safeCur}<i>/{safeMax}</i></span>;
-}
-
-/** A single ornate status plate: portrait, name/level/element, HP and Stamina
- *  read out as `cur / max`, then the signature meter. Bench members render the
- *  same plate at a reduced size so the team is always legible at a glance.
- *
- *  Plates are READOUTS, not the primary controls — you target by clicking the
- *  creature itself. The plate is still focusable while it is a legal target so
- *  keyboard players keep a path to the same choice. */
-function StatusPlate({ pet, d, side, benched, clickable, onPick, commanding, hintElement, art, hovered }: {
-    pet: ShowdownPetView;
-    d: DisplayEntry;
-    side: "player" | "enemy";
-    benched: boolean;
-    clickable: boolean;
-    onPick?: (petId: string) => void;
-    commanding: boolean;
-    hintElement?: string;
-    art?: string;
-    hovered: boolean;
-}) {
-    const hpPct = Math.max(0, (d.hp / Math.max(1, pet.maxHp)) * 100);
-    const stPct = Math.max(0, (d.stamina / Math.max(1, pet.maxStamina)) * 100);
-    const showHint = !!hintElement && !d.ko && !benched;
-    const strong = showHint && SHOWDOWN_ELEMENT_BEATS[hintElement!] === pet.element;
-    const weak = showHint && SHOWDOWN_ELEMENT_BEATS[pet.element] === hintElement;
-    const tint = ELEMENT_TINT[pet.element] ?? ELEMENT_TINT.None;
-    const Tag = clickable ? "button" : "div";
-    return (
-        <Tag
-            type={clickable ? "button" : undefined}
-            onClick={clickable && onPick ? () => onPick(pet.id) : undefined}
-            className={[
-                "showdown-plate", side,
-                d.ko ? "ko" : "",
-                benched ? "benched" : "",
-                clickable ? "targetable" : "",
-                hovered ? "hovered" : "",
-                commanding ? "commanding" : "",
-                // Threshold recolours the FILL only; the channel and the gloss
-                // ramp never change, so the bar keeps its character as it drains.
-                d.ko ? "" : hpPct < 20 ? "hp-low" : hpPct <= 50 ? "hp-mid" : "",
-            ].join(" ")}
-            style={{ "--plate-tint": tint } as React.CSSProperties}
-        >
-            <span className="showdown-plate-portrait">
-                {art
-                    ? <img src={art} alt="" loading="lazy" />
-                    : <ShowdownIcon name={elementCrest(pet.element)} size={20} />}
-                {d.ko && <span className="showdown-plate-ko"><ShowdownIcon name="ko-stamp" size={26} title="Knocked out" /></span>}
-            </span>
-            <span className="showdown-plate-body">
-                <span className="showdown-plate-title">
-                    <span className="showdown-plate-name">{pet.name}</span>
-                    <span className="showdown-plate-lv">Lv{pet.level}</span>
-                    <span className="showdown-plate-elem" style={{ color: tint }}>
-                        <ShowdownIcon name={elementCrest(pet.element)} size={14} title={pet.element} />
-                    </span>
-                </span>
-                <span className="showdown-plate-bar hp">
-                    <span className="showdown-plate-key"><ShowdownIcon name="hp" size={12} title="Health" /></span>
-                    <span className="showdown-plate-track">
-                        {/* The chip layer drains SLOWLY behind the instant fill —
-                            the classic "damage you just took" read. */}
-                        <span className="chip" style={{ width: `${hpPct}%` }} />
-                        <span className="fill" style={{ width: `${hpPct}%` }} />
-                    </span>
-                    <Num cur={d.hp} max={pet.maxHp} pct={side === "enemy"} />
-                </span>
-                <span className="showdown-plate-bar en">
-                    <span className="showdown-plate-key"><ShowdownIcon name="stamina" size={12} title="Stamina" /></span>
-                    <span className="showdown-plate-track">
-                        <span className="fill" style={{ width: `${stPct}%` }} />
-                    </span>
-                    <Num cur={d.stamina} max={pet.maxStamina} pct={side === "enemy"} />
-                </span>
-                <span className={`showdown-plate-meter ${d.meter >= 100 ? "full" : ""}`}>
-                    <span style={{ width: `${Math.max(0, Math.min(100, d.meter))}%` }} />
-                </span>
-                <span className="showdown-plate-tags">
-                    {/* The matchup readout is gated on the ELEMENT being known,
-                        never on the plate being a click target — it used to
-                        require multi-target mode, so in 1v1 (the format whose
-                        blurb sells the wheel) it could never render at all.
-                        Word + crest, never colour alone. */}
-                    {strong && (
-                        <span className="showdown-matchup up" title={`Your ${hintElement} beats ${pet.element}`}>
-                            <ShowdownIcon name={elementCrest(hintElement!)} size={11} />STRONG
-                        </span>
-                    )}
-                    {weak && (
-                        <span className="showdown-matchup down" title={`${pet.element} resists your ${hintElement}`}>
-                            <ShowdownIcon name={elementCrest(pet.element)} size={11} />RESISTED
-                        </span>
-                    )}
-                    {benched && !d.ko && (
-                        <span className="showdown-bench-tag" title="Waiting on the bench">
-                            <ShowdownIcon name="bench" size={11} />BENCH
-                        </span>
-                    )}
-                    {pet.skipsNextAction && !d.ko && (
-                        <span className="showdown-skip-tag" title="Loses its next action">
-                            <ShowdownIcon name="action-lost" size={11} />SKIP
-                        </span>
-                    )}
-                    {side === "player" && pet.trait && <span className="showdown-kit-chip trait" title="Trait">{pet.trait}</span>}
-                    {side === "player" && pet.gearName && <span className="showdown-kit-chip gear" title="Equipped gear">{pet.gearName}</span>}
-                    {/* Present only while the charge is live — the server stops
-                        publishing it once spent, so no client bookkeeping. */}
-                    {side === "player" && pet.consumableName && <span className="showdown-kit-chip consum" title="Battle item — one use">{pet.consumableName}</span>}
-                    {d.statuses.map((s) => (
-                        <span key={s.kind} className={`showdown-status-pip fam-${KIND_FAMILY[s.kind] ?? "ctl"}`} title={statusTitle(s)}>
-                            <ShowdownIcon name={STATUS_GLYPH[s.kind] ?? "mark"} size={12} />
-                            <b>{s.rounds}</b>
-                        </span>
-                    ))}
-                </span>
-            </span>
-        </Tag>
-    );
-}
-
-function TeamPanel({ side, pets, display, targeting, onPickTarget, commanderId, hintElement, art, benchedIds, benchPicking, onPickBench, hoveredId }: {
-    side: "player" | "enemy";
-    pets: ShowdownPetView[];
-    display: Record<string, DisplayEntry>;
-    targeting: boolean;
-    onPickTarget?: (petId: string) => void;
-    commanderId?: string | null;
-    /** While targeting: the commander's element, for the STRONG/RESISTED badge. */
-    hintElement?: string;
-    /** petId → portrait/card art url. */
-    art?: Record<string, string>;
-    /** Which team members currently wait on the bench. */
-    benchedIds?: ReadonlySet<string>;
-    /** Switch flow: bench plates become the pick targets. */
-    benchPicking?: boolean;
-    onPickBench?: (petId: string) => void;
-    /** Mirrors the creature the pointer is over in the 3D scene. */
-    hoveredId?: string | null;
-}) {
-    // The bench stays OFF the field until the Switch flow asks for it. A
-    // standing row of reserve plates was chrome the stage paid for every
-    // round, to present a choice that exists only inside one action — and for
-    // the ENEMY side it also leaked the full reserve roster, where a count is
-    // all the opponent has earned. The count survives as pips.
-    const benchHidden = pets.filter((pet) => (benchedIds?.has(pet.id) ?? false)
-        && !(benchPicking && side === "player"));
-    return (
-        <div className={`showdown-team-panel ${side}`}>
-            {pets.map((pet) => {
-                const d = display[pet.id] ?? { hp: pet.hp, stamina: pet.stamina, meter: pet.meter, ko: pet.ko, guarding: pet.guarding, statuses: pet.statuses };
-                const benched = benchedIds?.has(pet.id) ?? false;
-                if (benched && !(benchPicking && side === "player")) return null;
-                const clickable = !d.ko && (benchPicking ? benched : targeting && !benched);
-                return (
-                    <StatusPlate
-                        key={pet.id}
-                        pet={pet}
-                        d={d}
-                        side={side}
-                        benched={benched}
-                        clickable={clickable}
-                        onPick={benchPicking ? onPickBench : onPickTarget}
-                        commanding={commanderId === pet.id}
-                        hintElement={hintElement}
-                        art={art?.[pet.id]}
-                        hovered={hoveredId === pet.id}
-                    />
-                );
-            })}
-            {benchHidden.length > 0 && (
-                <span
-                    className="showdown-reserve-pips"
-                    title={side === "player" ? "Reserves — press Switch to send one in" : "Enemy reserves"}
-                    aria-label={`${benchHidden.length} reserve${benchHidden.length > 1 ? "s" : ""} waiting`}
-                >
-                    {benchHidden.map((pet) => <i key={pet.id} className={(display[pet.id]?.ko ?? pet.ko) ? "down" : ""} aria-hidden="true" />)}
-                </span>
-            )}
-        </div>
     );
 }
 
@@ -2045,11 +1889,14 @@ function useReclaimFocus(container: React.RefObject<HTMLElement | null>, index =
     }, [container]);
 }
 
-function ActionMenu({ rows, focus, onFocusRow, onSelect }: {
+function ActionMenu({ rows, focus, onFocusRow, onSelect, commanderName, orderNumber, orderCount }: {
     rows: MenuRowSpec[];
     focus: number;
     onFocusRow: (index: number) => void;
     onSelect: (action: MenuAction) => void;
+    commanderName: string;
+    orderNumber: number;
+    orderCount: number;
 }) {
     const rowsRef = useRef<HTMLDivElement>(null);
     useReclaimFocus(rowsRef, focus);
@@ -2107,6 +1954,10 @@ function ActionMenu({ rows, focus, onFocusRow, onSelect }: {
     );
     return (
         <div className="showdown-menu" ref={rowsRef} onKeyDown={onKeyDown}>
+            <div className="showdown-command-heading">
+                <span><small>COMMANDING</small><strong>{commanderName}</strong></span>
+                <span className="showdown-command-step">ORDER <b>{orderNumber}/{orderCount}</b></span>
+            </div>
             <div className="showdown-tech-grid">
                 {rows.map((row, i) => (row.chip ? null : renderRow(row, i)))}
             </div>
@@ -2175,12 +2026,13 @@ function TargetingPanel({ title, sub, onBack }: { title: string; sub: string; on
 }
 
 function MoveInspector({ spec, targetName }: { spec: InspectorSpec | null; targetName?: string | null }) {
+    const [detailsOpen, setDetailsOpen] = useState(false);
     if (!spec) return null;
     const element = spec.element ?? "None";
     const tint = ELEMENT_TINT[element] ?? ELEMENT_TINT.None;
     return (
         <div
-            className="showdown-inspector"
+            className={`showdown-inspector ${detailsOpen ? "details-open" : ""}`}
             style={{
                 "--insp-tint": tint,
                 // The painted crest earns its 5-9 KB here and nowhere else: one
@@ -2197,6 +2049,8 @@ function MoveInspector({ spec, targetName }: { spec: InspectorSpec | null; targe
                 )}
                 <span className="showdown-inspector-title">{spec.title}</span>
                 <span className="showdown-inspector-cat">{spec.category}</span>
+                <button type="button" className="showdown-inspector-toggle" aria-expanded={detailsOpen}
+                    onClick={() => setDetailsOpen((open) => !open)}>{detailsOpen ? "Less" : "Details"}</button>
             </div>
             <p className="showdown-inspector-desc">{spec.description}</p>
             {targetName && <p className="showdown-inspector-target">→ {targetName}</p>}
@@ -2238,7 +2092,8 @@ const SR_ONLY: React.CSSProperties = {
     border: 0,
 };
 
-export function PetShowdownBattle({ initialState, playerPets, sharedImages, submitTurn, onForfeit, onFinished, onExit, onRematch, spectator = false }: {
+export function PetShowdownBattle({ initialState, playerPets, sharedImages, submitTurn, onForfeit, onFinished, onExit, onRematch, resultNote, eventLabel, spectator = false, reducedMotion: motionPreference }: {
+    eventLabel?: string;
     initialState: ShowdownStateView;
     /** The player's real roster Pets (for 3D model + art resolution). */
     playerPets: Pet[];
@@ -2251,11 +2106,19 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
      *  behind submitTurn supplies each round's events — spectator mode is only
      *  the removal of the human from the loop, not a second playback path. */
     spectator?: boolean;
+    /** Hosts may supply their accessibility preference; otherwise use the OS. */
+    reducedMotion?: boolean;
     /** Fired once when the end event has played; settlement may carry rewards. */
     onFinished: (outcome: "win" | "loss", settlement: ShowdownTurnResponse | null) => void;
     onExit: () => void;
     onRematch: () => void;
+    /** One line of story for the result panel, chosen by the caller from the
+     *  outcome. A campaign fight is not a ladder fight: losing the Balancing
+     *  should be answered by the Court rather than by silence and a rematch
+     *  button. Modes that have nothing to say pass nothing and are unchanged. */
+    resultNote?: (outcome: "win" | "loss") => string | null | undefined;
 }) {
+    const [webGlAvailable] = useState(() => supportsPetWebGl2());
     const [qualityId, setQualityId] = useState<PetVisualQuality>(() => petVisualQuality().id);
     const renderQuality = PET_VISUAL_QUALITY_PRESETS[qualityId];
     const [stateView, setStateView] = useState(initialState);
@@ -2378,7 +2241,17 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const tallyRef = useRef<Map<string, { dmg: number; kos: number; supers: number }>>(new Map());
     const finishedNotified = useRef(false);
     const popupKey = useRef(1);
-    const timeouts = useRef<number[]>([]);
+    const beatTimers = useMemo(() => createShowdownTimerScope(window), []);
+    const effectTimers = useMemo(() => createShowdownTimerScope(window), []);
+    const mounted = useRef(false);
+    useEffect(() => {
+        mounted.current = true;
+        return () => {
+            mounted.current = false;
+            beatTimers.clear();
+            effectTimers.clear();
+        };
+    }, [beatTimers, effectTimers]);
     const speed = fast ? 2.1 : 1;
 
     const beatRef = useRef<SceneBeat>({ event: null, startedAt: 0, durationMs: 1, index: 0 });
@@ -2390,7 +2263,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         superFocus: false,
         crowdBurstAt: 0, crowdBurstKind: "super",
     });
-    const reducedMotion = prefersReducedMotion();
+    const reducedMotion = motionPreference ?? prefersReducedMotion();
     const pillarDrive = useRef<PillarDrive>({ activeUntil: 0, startedAt: 0, x: 0, z: 0, color: "#fbbf24" });
 
     // Who stands where — switches and reinforcements move pets between the
@@ -2559,6 +2432,8 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         return map;
     }, [slots]);
 
+    const fighterMoves = useMemo(() => new Map([...slots].map(([id, info]) => [id, buildMovePresentations(info.view.moves)])), [slots]);
+
     /** Spawn a one-shot painted flipbook at a pet's current position. */
     /** Elemental set-piece (tsunami / tornado / fire wash…) for the casts that
      *  earned one. Anchored on both bodies so traveling pieces have a lane.
@@ -2583,8 +2458,8 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             startedAt: performance.now(), durationMs,
             ...(superCast ? { superCast: true } : {}),
         }, Math.max(1, renderQuality.translucentLayers + 1)));
-        window.setTimeout(() => setSetPieces((list) => list.filter((s) => s.key !== key)), durationMs + 400);
-    }, [fxStretch, renderQuality.translucentLayers]);
+        effectTimers.schedule(() => setSetPieces((list) => list.filter((s) => s.key !== key)), durationMs + 400);
+    }, [effectTimers, fxStretch, renderQuality.translucentLayers]);
 
     const spawnFlipbook = useCallback((petId: string, frames: string, scale: number, durationMs: number, yLift = 1.0, aspect = 1, tint?: string, normalBlend = false) => {
         // An empty key means "this action detonates nothing" (Rest).
@@ -2597,34 +2472,30 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             pos: [at[0], at[1] + yLift, at[2]] as [number, number, number],
             startedAt: performance.now(),
         }, Math.max(6, renderQuality.impactDebris + renderQuality.impactSparks)));
-        window.setTimeout(() => setVfx((list) => list.filter((s) => s.key !== key)), durationMs + 400);
-    }, [renderQuality.impactDebris, renderQuality.impactSparks]);
+        effectTimers.schedule(() => setVfx((list) => list.filter((s) => s.key !== key)), durationMs + 400);
+    }, [effectTimers, renderQuality.impactDebris, renderQuality.impactSparks]);
 
     const clearTimers = useCallback(() => {
-        for (const id of timeouts.current) window.clearTimeout(id);
-        timeouts.current = [];
-    }, []);
-    useEffect(() => () => clearTimers(), [clearTimers]);
+        beatTimers.clear();
+    }, [beatTimers]);
 
     const later = useCallback((fn: () => void, ms: number) => {
-        timeouts.current.push(window.setTimeout(fn, ms));
-    }, []);
+        beatTimers.schedule(fn, ms);
+    }, [beatTimers]);
 
-    // Removal timers use RAW setTimeout, NOT later(): later()'s queue is
-    // cleared by the beat effect's cleanup on every beat advance, which would
-    // strand banners and leak spent popups in state. A removal firing after
-    // unmount is a harmless no-op setState.
+    // Removal timers survive beat changes so effects can finish fading. Their
+    // separate battle scope cancels them all on exit, including long residues.
     const showBanner = useCallback((text: string, cls: string, holdMs = 1100) => {
         const key = popupKey.current++;
         setBanner({ key, text, cls });
-        window.setTimeout(() => setBanner((b) => (b?.key === key ? null : b)), holdMs);
-    }, []);
+        effectTimers.schedule(() => setBanner((b) => (b?.key === key ? null : b)), holdMs);
+    }, [effectTimers]);
 
     const addPopup = useCallback((petId: string, text: string, cls: string) => {
         const key = popupKey.current++;
         setPopups((p) => [...p, { key, petId, text, cls }]);
-        window.setTimeout(() => setPopups((p) => p.filter((e) => e.key !== key)), 1250);
-    }, []);
+        effectTimers.schedule(() => setPopups((p) => p.filter((e) => e.key !== key)), 1250);
+    }, [effectTimers]);
 
     // ── Beat player ─────────────────────────────────────────────────────────
     useEffect(() => {
@@ -2665,8 +2536,49 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             return clearTimers;
         }
         const event = queue[queueIndex];
-        const durationMs = beatDurationMs(event, speed);
-        beatRef.current = { event, startedAt: performance.now(), durationMs, index: queueIndex };
+        let durationMs = beatDurationMs(event, speed);
+        let switches: SceneBeat["switches"];
+        if (event.t === "switch") {
+            const next = computeArrangement(lineupAfterSwitch(lineup, event.side, event.outId, event.inId, event.reinforcement));
+            const neighbours = [...posRef.current]
+                .filter(([id]) => id !== event.inId && id !== event.outId && !benchedRef.current.has(id) && !display[id]?.ko)
+                .map(([id, position]) => ({ x: position[0], z: position[2], radius: fighterRadii.get(id) ?? 0.82 }));
+            const motions = new Map<string, { route: ShowdownTravelRoute; start: number; end: number }>();
+            for (const id of [event.outId, event.inId]) {
+                if (id === event.outId && event.reinforcement && id !== event.inId) continue;
+                const from = posRef.current.get(id), to = next.get(id);
+                if (!from || !to) continue;
+                const entering = id === event.inId;
+                const route = showdownReserveRoute({ x: from[0], z: from[2] }, { x: to[0], z: to[2] }, fighterRadii.get(id) ?? 0.82, neighbours, event.side);
+                const start = entering ? (event.reinforcement ? SHOWDOWN_SWITCH_TIMING.reinforcementStart : SHOWDOWN_SWITCH_TIMING.entryStart) : 0;
+                const end = entering ? SHOWDOWN_SWITCH_TIMING.entryEnd : SHOWDOWN_SWITCH_TIMING.exitEnd;
+                motions.set(id, { route, start, end });
+                // Match the exchange to its travel distance; a far reserve must
+                // be planted before an attack beat starts, even at 2x playback.
+                durationMs = Math.max(durationMs, 2200 / speed, route.length / (end - start) / 10 * 1000 / speed);
+            }
+            switches = motions;
+        }
+        const presentation = event.t === "action" ? resolveMovePresentation(fighterMoves.get(event.actorId), event) : undefined;
+        const primaryTargetId = event.t === "action" ? showdownActionTargetId(event) : undefined;
+        const authoredTargets = new Set(event.t === "action" ? showdownTechniqueHitIds(presentation, event) : []);
+        const dodgeCues = showdownDodgeCues(queue);
+        beatRef.current = { event, startedAt: performance.now(), durationMs, index: queueIndex, switches, presentation };
+        if (event.t === "action" && event.delivery === "melee" && primaryTargetId !== event.actorId) {
+            const targetId = primaryTargetId;
+            const from = posRef.current.get(event.actorId);
+            const to = targetId ? posRef.current.get(targetId) : undefined;
+            if (from && to && targetId) {
+                const obstacles = [...posRef.current]
+                    .filter(([id]) => id !== event.actorId && id !== targetId && !benchedRef.current.has(id) && !display[id]?.ko)
+                    .map(([id, pos]) => ({ x: pos[0], z: pos[2], radius: fighterRadii.get(id) ?? 0.82 }));
+                beatRef.current.meleeRoute = showdownMeleeRoute(
+                    { x: from[0], z: from[2] }, { x: to[0], z: to[2] },
+                    fighterRadii.get(event.actorId) ?? 0.82, fighterRadii.get(targetId) ?? 0.82,
+                    obstacles, fighterSignatures.get(event.actorId)?.strikeDrive ?? 1,
+                );
+            }
+        }
 
         // Speak the beat as it lands. The damage figures live in popups that
         // fade in 1.25s and the verdicts live in banners — neither reaches a
@@ -2726,7 +2638,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             // Entry theater: the gallop covers most of the beat — a dust pop
             // greets the ARRIVAL, so planting on the line reads as a landing
             // instead of a walk coming to a stop.
-            later(() => spawnFlipbook(event.inId, "impact", 1.5, 380, 0.18, 1, "#d9ccb8"), durationMs * 0.86);
+            later(() => spawnFlipbook(event.inId, "impact", 1.5, 380 / speed, 0.18, 1, "#d9ccb8"), durationMs * SHOWDOWN_SWITCH_TIMING.entryEnd);
         } else if (event.t === "dot") {
             later(() => {
                 addPopup(event.targetId, `-${event.damage}`, "dot");
@@ -2753,10 +2665,10 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             // player bought; the item name goes in the banner so the purchase
             // is the thing being credited.
             later(() => {
-                addPopup(event.petId, CONSUMABLE_CALLOUT[event.effect], "proc");
+                if (!dodgeCues.attachedReactions.has(queueIndex)) addPopup(event.petId, CONSUMABLE_CALLOUT[event.effect], "proc");
                 showBanner(`${nameOf(stateView, event.petId)}'s ${event.itemName}!`, "status", durationMs * 0.8);
                 playPetSfx(event.effect === "thorns" ? "hit" : event.effect === "lifeline" ? "heal" : "buff");
-                if (event.effect === "dodge") fxRef.current.dodgeAt.set(event.petId, performance.now());
+                if (event.effect === "dodge" && !dodgeCues.attachedReactions.has(queueIndex)) fxRef.current.dodgeAt.set(event.petId, performance.now());
                 if (event.damage > 0) {
                     addPopup(event.targetId, `-${event.damage}`, "damage");
                     fxRef.current.hitAt.set(event.targetId, performance.now());
@@ -2798,6 +2710,15 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 if (event.outcome === "win") playPetSfx("crowd");
             }, durationMs * (event.byJudge ? 0.55 : 0.2));
         } else if (event.t === "action") {
+            const dodging = dodgeCues.byAction.get(queueIndex) ?? [];
+            if (dodging.length) {
+                later(() => {
+                    for (const id of dodging) fxRef.current.dodgeAt.set(id, performance.now());
+                }, Math.max(0, durationMs * actionRhythm(event).contact - 180));
+                later(() => {
+                    for (const id of dodging) addPopup(id, "DODGED!", "proc");
+                }, durationMs * actionRhythm(event).contact);
+            }
             if (event.super) {
                 later(() => {
                     setLetterbox(true);
@@ -2814,7 +2735,8 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             }
             // Windup: intent-specific paint. Utility, control and offense no
             // longer all gather the same generic aura/charge on the caster.
-            const castKey = event.super ? "charge" : castFlipbookKey(event.moveKind, event.delivery);
+            const geometricDefense = ["barrier", "shield", "protect"].includes(event.moveKind);
+            const castKey = geometricDefense ? "" : event.super ? "charge" : castFlipbookKey(event.moveKind, event.delivery);
             if (castKey) {
                 later(() => spawnFlipbook(event.actorId, castKey, event.super ? 2.6 : 1.7, durationMs * (event.delivery === "melee" ? 0.28 : 0.36), 1.05), durationMs * 0.04);
             }
@@ -2825,6 +2747,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 let anySynergy = false;
                 let bestEffect: "super" | "weak" | null = null;
                 for (const target of event.targets) {
+                    const contactKind = showdownContactEffectKind(event.moveKind, target);
                     // A hit the shield ate entirely arrives as damage 0, and the
                     // whole impact block used to be gated on damage > 0 — so the
                     // attacker lunged, and the victim reacted in no way at all.
@@ -2880,13 +2803,14 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         // — on the primary victim only (splash keeps the burst).
                         // Reduced-motion keeps the readable burst and skips the
                         // traveling/spinning layer, same policy as the flash.
-                        const staged = !reducedMotion && (event.super || event.weight === "heavy") && !target.splash && target.id !== event.actorId;
+                        const authoredTechnique = authoredTargets.has(target.id);
+                        const staged = authoredTechnique || (!reducedMotion && event.moveKind === "damage" && (event.super || event.weight === "heavy") && !target.splash && target.id !== event.actorId);
                         // Contact punctuation stays compact when a hero set
                         // piece owns the frame. Previously the full-size white
                         // spark, generic explosion and KO smoke all landed on
                         // top of the signature painting and erased its shape.
                         spawnFlipbook(target.id, "spark", burst * (staged ? 0.34 : 0.72), (staged ? 145 : 200) / speed, 1.0, 1, "#ffffff");
-                        if (staged) {
+                        if (staged && !authoredTechnique) {
                             // A signature stages its element's SUPER sequence —
                             // longer, layered, and choreographed down the lane.
                             // The painted hero art (floor takeover + multi-crest
@@ -2908,7 +2832,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                                     const residueKey = popupKey.current++;
                                     later(() => {
                                         setResidues((list) => appendCapped(list, { key: residueKey, element: event.element, x: sx, z: sz, startedAt: performance.now(), durationMs: 7000 }, renderQuality.aftermathLayers));
-                                        window.setTimeout(() => setResidues((list) => list.filter((r) => r.key !== residueKey)), 7400);
+                                        effectTimers.schedule(() => setResidues((list) => list.filter((r) => r.key !== residueKey)), 7400);
                                     }, (event.super ? 2100 : 1150) / speed);
                                 }
                             }
@@ -2923,7 +2847,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         // timed to the moment the piece ARRIVES (the wave
                         // breaking, the eruption cresting) instead of popping
                         // its own small burst at contact beside the painting.
-                        later(() => spawnFlipbook(
+                        if (!authoredTechnique) later(() => spawnFlipbook(
                             target.id,
                             impactFlipbookKey(event.element, event.moveKind, event.super),
                             staged ? burst * 1.05 : burst,
@@ -2996,8 +2920,9 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         // A chained Protect attempt arrives as `failed`: its
                         // windup may begin, but no successful shield should
                         // materialize at contact.
-                        if (target.applied !== "failed") {
-                            spawnFlipbook(target.id, impactFlipbookKey(event.element, event.moveKind, false), 1.9, 620);
+                        if (contactKind && !geometricDefense) {
+                            spawnFlipbook(target.id, impactFlipbookKey(event.element, contactKind, false), 1.9, 620 / speed, 1.0, 1, contactKind === "protect" ? "#8ecdf7" : undefined);
+                            if (target.guarded && target.applied === "protect") playPetSfx("shield");
                         }
                         if (event.moveKind === "weather" && target.applied === "weather") {
                             setWeatherPreview({ element: event.element });
@@ -3008,7 +2933,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     // accent on damage meant the Swords Dance shaft cage could
                     // never fire for an actual stat-up. Accents fire for any
                     // landed effect; streaks and debris stay damage-gated.
-                    if (!reducedMotion && !target.splash && (target.damage > 0 || target.heal > 0 || (target.applied && target.applied !== "failed"))) {
+                    if ((!target.splash || presentation?.area) && contactKind && (!authoredTargets.has(target.id) || contactKind === "protect") && (target.damage > 0 || target.heal > 0 || (target.applied && target.applied !== "failed"))) {
                         const at = posRef.current.get(target.id);
                         const from = posRef.current.get(event.actorId);
                         if (at) {
@@ -3016,11 +2941,11 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             const len = from ? Math.hypot(kx - from[0], kz - from[2]) || 1 : 1;
                             const dirX = from ? (kx - from[0]) / len : 0;
                             const dirZ = from ? (kz - from[2]) / len : 1;
-                            if (kindAccentFamily(event.moveKind)) {
+                            if (kindAccentFamily(contactKind)) {
                                 const kKey = popupKey.current++;
                                 setKindFx((list) => appendCapped(list, {
                                     key: kKey,
-                                    kind: event.moveKind,
+                                    kind: contactKind,
                                     moveName: event.moveName,
                                     element: event.element,
                                     weight: event.weight,
@@ -3032,18 +2957,19 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                                     dirZ,
                                     startedAt: performance.now(),
                                     durationMs: 1000 / speed,
+                                    reducedMotion,
                                 }, Math.max(2, renderQuality.translucentLayers * 2)));
-                                window.setTimeout(() => setKindFx((list) => list.filter((k) => k.key !== kKey)), 1400 / speed);
+                                effectTimers.schedule(() => setKindFx((list) => list.filter((k) => k.key !== kKey)), 1400 / speed);
                             }
                             if (target.damage > 0 && (event.super || event.weight === "heavy" || target.ko)) {
                                 const sKey = popupKey.current++;
                                 setStreakFx((list) => appendCapped(list, { key: sKey, element: event.element, x: kx, z: kz, startedAt: performance.now(), durationMs: 750 / speed, heavy: event.super || target.ko }, Math.max(2, Math.ceil(renderQuality.impactSparks / 2))));
-                                window.setTimeout(() => setStreakFx((list) => list.filter((s) => s.key !== sKey)), 1100 / speed);
+                                effectTimers.schedule(() => setStreakFx((list) => list.filter((s) => s.key !== sKey)), 1100 / speed);
                             }
                             if (target.damage > 0 && (event.moveKind === "crush" || (event.element === "Earth" && (event.super || event.weight === "heavy")))) {
                                 const dKey = popupKey.current++;
                                 setDebrisFx((list) => appendCapped(list, { key: dKey, element: event.element, x: kx, z: kz, startedAt: performance.now(), durationMs: 1300 / speed, heavy: event.super || event.weight === "heavy" }, Math.max(2, Math.ceil(renderQuality.impactDebris / 2))));
-                                window.setTimeout(() => setDebrisFx((list) => list.filter((d) => d.key !== dKey)), 1700 / speed);
+                                effectTimers.schedule(() => setDebrisFx((list) => list.filter((d) => d.key !== dKey)), 1700 / speed);
                             }
                         }
                     }
@@ -3088,9 +3014,11 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     if (kill || event.super) later(() => playPetSfx("crowd"), kill ? 420 : 260);
                     // Damage-scaled hit-stop (fighting-game contact freeze),
                     // heavier for Lightning per the electric-hitlag convention.
-                    fxRef.current.hitStopUntil = impactNow + cinematic.hitStopMs;
-                    fxRef.current.slowScale = cinematic.slowScale;
-                    fxRef.current.slowUntil = fxRef.current.hitStopUntil + cinematic.slowMotionMs;
+                    const impactClock = showdownImpactClock(beatRef.current, impactNow, actionRhythm(event).contact, cinematic);
+                    beatRef.current.impact = impactClock;
+                    fxRef.current.hitStopUntil = impactClock.hitStopUntil;
+                    fxRef.current.slowScale = impactClock.slowScale;
+                    fxRef.current.slowUntil = impactClock.slowUntil;
                     fxRef.current.lensStartedAt = impactNow;
                     fxRef.current.lensUntil = impactNow + (kill ? 780 : event.super ? 620 : 380);
                     fxRef.current.lensAmp = reducedMotion ? 0 : cinematic.lensDegrees;
@@ -3123,8 +3051,9 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     // Signature detonation: a light pillar on the primary
                     // target plus a restrained element wash. The element art,
                     // not a white frame, remains the hero.
-                        const primary = posRef.current.get(event.targets[0].id);
-                        if (primary) {
+                        const landedPrimary = event.targets.find(target => target.id === primaryTargetId && !target.splash && target.damage > 0);
+                        const primary = landedPrimary ? posRef.current.get(landedPrimary.id) : undefined;
+                        if (primary && !presentation?.hero && !reducedMotion) {
                             pillarDrive.current = {
                                 startedAt: performance.now(),
                                 activeUntil: performance.now() + 750,
@@ -3165,7 +3094,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 }
                 // Name the trait/gear that bent the number — these used to
                 // mutate damage with nothing on screen to attribute it to.
-                const firedProcs = [...new Set(event.targets.flatMap((t) => t.procs ?? []))];
+                const firedProcs = [...new Set(event.targets.flatMap((t) => t.procs ?? []))].filter(proc => proc !== "STAB");
                 if (firedProcs.length && event.actorSide === "player") {
                     later(() => addPopup(event.actorId, firedProcs[0], "proc"), 180);
                 }
@@ -3235,6 +3164,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     // Fire the round: called from the LAST pushCommand (event handler, not an
     // effect — every setState here runs in handler/async context).
     const submitRound = useCallback(async (commands: ShowdownCommand[]) => {
+        if (submitInFlight.current || !mounted.current) return;
         // Order matters. The stale queue from LAST round is dropped before the
         // phase flips, and the in-flight hold is raised before anything else:
         // the beat player wakes the moment phase changes, and what it must see
@@ -3247,6 +3177,9 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         setPhase("playing");
         setFailedOrders(null);
         const response = await submitTurn(commands);
+        // A response can arrive after Forfeit/Exit unmounted this battle.
+        // Leave settlement recovery to the host; never restart its old UI.
+        if (!mounted.current) return;
         submitInFlight.current = false;
         if (response && "expired" in response) {
             // Session lapsed (45-min TTL) — a distinct dead end, not a retry.
@@ -3276,7 +3209,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             if (ev.super) row.supers += 1;
             tallyRef.current.set(ev.actorId, row);
         }
-        setQueue(response.events);
+        setQueue(response.events.map(showdownPresentationEvent));
         setQueueIndex(0);
         if (!response.events.length && response.state) {
             // Finished session replay (e.g. payout retry) — no script to play.
@@ -3304,10 +3237,10 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     // delay is invisible here (the deck is hidden in spectator mode anyway) and
     // it lets the render that opened the phase finish first.
     useEffect(() => {
-        if (!spectator || phase !== "command") return;
+        if (!spectator || phase !== "command" || expired || failedOrders) return;
         const id = window.setTimeout(() => { void submitRound([]); }, 0);
         return () => window.clearTimeout(id);
-    }, [spectator, phase, submitRound]);
+    }, [spectator, phase, expired, failedOrders, submitRound]);
 
     // Drive the soft-lock guard (see `roundStalled`). Deliberately on a short
     // delay rather than instantly: the player should SEE the "no orders" panel
@@ -3498,6 +3431,11 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const pendingMoveView = commander && pendingMove
         ? (pendingMove.super ? commanderSignature : commander.moves[pendingMove.moveIndex]) ?? null
         : null;
+    const focusedAction = menuRows[focusIndex]?.action;
+    const inspectedMove = pendingMoveView ?? (!pickingSwitch && focusedAction?.t === "move" && commander
+        ? focusedAction.super ? commanderSignature : commander.moves[focusedAction.moveIndex]
+        : null);
+    const matchupElement = phase === "command" ? showdownMatchupElement(inspectedMove, commanderElement) : undefined;
     const inspectorSpec: InspectorSpec | null = pendingMoveView && commander
         ? moveInspector(pendingMoveView, commanderElement, staminaNow, commander.readiness)
         : pickingSwitch
@@ -3577,16 +3515,16 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 sat a hair flat next to the painted arenas — a slight push
                 deepens the blacks and lets the VFX (toneMapped:false) pop
                 against them without touching any material. */}
-            <Canvas
+            {webGlAvailable ? <Canvas
                 key={renderQuality.id}
                 shadows={renderQuality.modelShadows ? "percentage" : false}
                 dpr={renderQuality.dpr}
                 gl={{ antialias: true, preserveDrawingBuffer: fxStretch > 1 || captureFlag, toneMappingExposure: 1.12 }}
                 camera={{ fov: 48, position: [...WIDE_POS], near: 0.1, far: 80 }}
             >
-                <StageEnvironment stage={stage} beatRef={beatRef} fxRef={fxRef} quality={renderQuality} />
+                <StageEnvironment stage={stage} beatRef={beatRef} fxRef={fxRef} quality={renderQuality} reduced={reducedMotion} />
                 <CameraDirector beatRef={beatRef} fxRef={fxRef} posRef={posRef} lineup={lineup} reduced={reducedMotion} />
-                <BeatDrivenVfx beatRef={beatRef} posRef={posRef} radii={fighterRadii} signatures={fighterSignatures} />
+                <BeatDrivenVfx beatRef={beatRef} posRef={posRef} radii={fighterRadii} signatures={fighterSignatures} reducedMotion={reducedMotion} quality={renderQuality} />
                 <SuperPillar drive={pillarDrive} />
                 <ShowdownVfxLayer spawns={vfx} />
                 <ShowdownSetPieceLayer spawns={setPieces} quality={renderQuality} />
@@ -3598,8 +3536,8 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 <ClimateLayer element={climateElement} reduced={reducedMotion} />
                 {/* The moveset READS: casting glyph + charge orb during ranged
                     channels, per-kind accents, streak-throughs and debris. */}
-                <CastGlyphFx beatRef={beatRef} posRef={posRef} />
-                <ChargeOrbFx beatRef={beatRef} posRef={posRef} onSun={setGodRaySun} />
+                <CastGlyphFx beatRef={beatRef} posRef={posRef} reduced={reducedMotion} />
+                <ChargeOrbFx beatRef={beatRef} posRef={posRef} onSun={setGodRaySun} quality={renderQuality} reduced={reducedMotion} />
                 {kindFx.map((k) => <KindAccentFx key={k.key} spawn={k} />)}
                 {streakFx.map((s) => <StreakBurstFx key={s.key} spawn={s} budget={renderQuality.impactSparks} />)}
                 {debrisFx.map((d) => <DebrisFx key={d.key} spawn={d} budget={renderQuality.impactDebris} />)}
@@ -3644,7 +3582,20 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         onHover={setHoveredTarget}
                     />
                 ))}
-            </Canvas>
+            </Canvas> : (
+                <div
+                    data-testid="pet-showdown-render-fallback"
+                    role="status"
+                    style={{ position: "absolute", inset: 0, display: "grid", placeContent: "center", gap: 12, padding: 16, textAlign: "center", color: "#e8dcc6", pointerEvents: "none" }}
+                >
+                    <div aria-hidden="true" style={{ display: "flex", justifyContent: "center", gap: 20 }}>
+                        {[stateView.player[0], stateView.enemy[0]].map((pet) => pet && panelArt[pet.id] ? (
+                            <img key={pet.id} src={panelArt[pet.id]} alt="" style={{ width: "min(24vw, 120px)", height: "min(20vh, 120px)", objectFit: "contain" }} />
+                        ) : null)}
+                    </div>
+                    <p style={{ margin: 0, maxWidth: 320 }}>3D arena unavailable. Battle controls and results are still available.</p>
+                </div>
+            )}
 
             {/* FIELD WEATHER. Driven by the server's standing weather, so it is
                 on exactly while the technique's window is, and reduced-motion
@@ -3718,7 +3669,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         display={display}
                         targeting={!!pendingMove && !targetingAllies}
                         onPickTarget={pickTarget}
-                        hintElement={commander?.element}
+                        hintElement={matchupElement}
                         art={panelArt}
                         benchedIds={enemyBenchedIds}
                         hoveredId={activeHover}
@@ -3738,7 +3689,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         {stateView.turnDeadline !== undefined && phase === "command" && !spectator && (
                             <TurnTimer deadline={stateView.turnDeadline} onLapse={() => { void submitRound(draft); }} />
                         )}
-                        <div className="showdown-vs">{stateView.enemyTeamName}</div>
+                        <div className="showdown-vs" title={stateView.enemyTeamName}>{eventLabel ?? stateView.enemyTeamName}</div>
                         <button
                             type="button"
                             className={`showdown-chip icon ${fast ? "on" : ""}`}
@@ -3802,11 +3753,11 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         own slot — the failure is the loudest thing on screen,
                         and the orders it lists are the ones still held, so the
                         panel is also the receipt that nothing was lost. */}
-                    {failedOrders && phase === "command" && !spectator && (
+                    {failedOrders && phase === "command" && (
                         <div className="showdown-stalled" role="alert">
-                            <div className="showdown-stalled-title">Orders not sent</div>
+                            <div className="showdown-stalled-title">{spectator ? "Playback paused" : "Orders not sent"}</div>
                             <div className="showdown-stalled-body">
-                                {failedOrders.length > 0
+                                {spectator ? <>This round could not be loaded. Retry playback when ready.</> : failedOrders.length > 0
                                     ? <>The server refused this round. Your {failedOrders.length === 1 ? "order is" : `${failedOrders.length} orders are`} still here — send {failedOrders.length === 1 ? "it" : "them"} again.</>
                                     : <>The server refused this round. Nothing was lost — try resolving it again.</>}
                             </div>
@@ -3819,7 +3770,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             )}
                             <div className="showdown-result-buttons">
                                 <button type="button" className="showdown-cta" autoFocus onClick={() => { void submitRound(failedOrders); }}>
-                                    Send again
+                                    {spectator ? "Retry playback" : "Send again"}
                                 </button>
                                 {failedOrders.length > 0 && (
                                     <button type="button" className="showdown-chip" onClick={reviseOrders}>
@@ -3851,6 +3802,9 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             ) : (
                                 <ActionMenu
                                     key={commander.id}
+                                    commanderName={commander.name}
+                                    orderNumber={draft.length + 1}
+                                    orderCount={promptable.length}
                                     rows={menuRows}
                                     focus={focusIndex}
                                     onFocusRow={setFocusRow}
@@ -3880,6 +3834,9 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         </div>
                         {outcome === "win" && (settlement?.reward ?? 0) > 0 && (
                             <div className="showdown-result-reward">+{settlement?.reward} ryo</div>
+                        )}
+                        {outcome && resultNote?.(outcome) && (
+                            <p className="showdown-result-note">{resultNote(outcome)}</p>
                         )}
                         {/* Say it outright. A win that pays nothing and SAYS
                             nothing reads as a bug or a robbery — the player

@@ -1,11 +1,15 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { Character } from "../types/character";
 import type { Pet } from "../types/pet";
 import type { Screen } from "../types/core";
 import { academyCeremony, academyVowDefinition } from "../lib/academy-narrative";
 import type { AcademyNarrativeAction } from "../lib/academy-narrative-api";
-import { buildAcademyHandoff, type AcademyHandoffAction } from "../lib/academy-handoff";
+import type { FirstContractRoute } from '../../../shared/first-contract';
+import { FIRST_CONTRACT_COPY } from '../lib/first-contract';
+import { openFirstContractActivity } from '../lib/first-contract-navigation';
+import { buildAcademyHandoff } from '../lib/academy-handoff';
+import { FirstContractRoutes } from './FirstContractRoutes';
 import { petPoseImage } from "../lib/pet-battle-anim";
 import { villagePageImage } from "../lib/village-page-image";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
@@ -18,7 +22,7 @@ type SharedProps = {
     character: Character;
     guidePet: Pet | null;
     sharedImages: Record<string, string>;
-    commitMilestone: (action: AcademyNarrativeAction, sector?: number) => Promise<void>;
+    commitMilestone: (action: AcademyNarrativeAction, sector?: number, route?: FirstContractRoute) => Promise<void>;
     onSkip: () => void;
 };
 type Beat = { kicker: string; title: string; body: string; speaker?: string };
@@ -82,8 +86,8 @@ export function AcademySparOmen(props: SharedProps) {
 export function AcademyFieldTrace(props: SharedProps & { currentSector: number }) {
     useBodyScrollLock(true);
     const vow = academyVowDefinition(props.character.academyVow);
-    return <StoryMoment art={hollowTraceArt} alt="Blue foxfire tracks leading to a Hollow Gate scar on a forest road marker" variant="trace" beats={[
-        { kicker: `First Field Assignment · Sector ${props.currentSector}`, title: "The foxfire stops at an old road marker.", body: "Blue-white tracks end beneath a cut of magenta light. Wet leaves hang above it, pulled upward against the wind." },
+    return <StoryMoment art={hollowTraceArt} alt="Blue foxfire tracks leading to a Hollow Gate scar on a weathered road marker" variant="trace" beats={[
+        { kicker: `First Field Assignment · Sector ${props.currentSector}`, title: "The foxfire stops at an old road marker.", body: "Blue-white tracks end beneath a cut of magenta light. A frayed route ribbon hangs above it, pulled upward against the wind." },
         { kicker: "Hollow Gate Trace", title: "The mark is measuring the road.", speaker: props.guidePet?.name ?? "Your companion", body: `The rings moved when you said, “${vow.quote}” I saw it. Remember the shape. We're taking this back together.` },
     ]} doneLabel="Return with the evidence" onDone={() => persistMilestone(props, "trace", props.currentSector)} onSkip={props.onSkip} pet={<PetWitness pet={props.guidePet} images={props.sharedImages} />} />;
 }
@@ -95,36 +99,47 @@ export function AcademyReturnCeremony(props: SharedProps & {
     useBodyScrollLock(true);
     const [pathsOpen, setPathsOpen] = useState(Boolean(props.character.academyFieldSeal));
     const [saving, setSaving] = useState(false);
+    const [saveError, setSaveError] = useState('');
+    const saveLock = useRef(false);
+    const ceremonyRef = useRef<HTMLElement>(null);
+    useEffect(() => { if (pathsOpen) ceremonyRef.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus(); }, [pathsOpen]);
     const rite = academyCeremony(props.character.village);
     const vow = academyVowDefinition(props.character.academyVow);
     const handoff = buildAcademyHandoff({ ...props.character, onboardingStep: "done" });
-    const paths: AcademyHandoffAction[] = handoff ? [handoff.primary, handoff.secondary] : [
-        { label: "Take an E-Rank mission", screen: "missions" as Screen, detail: "Begin a real rookie assignment." },
-        { label: "Continue your story", screen: "storyHall" as Screen, detail: "Follow your village's next chapter." },
-    ];
-    const saveAction = async (action: "seal" | "complete") => {
-        if (saving) return false;
+    const saveAction = async (action: "seal" | "complete", route?: FirstContractRoute) => {
+        if (saveLock.current) return false;
+        saveLock.current = true;
+        setSaveError('');
         setSaving(true);
-        try { await persistMilestone(props, action); return true; }
-        catch (error) { alert(error instanceof Error ? error.message : "The Academy milestone could not be saved."); return false; }
-        finally { setSaving(false); }
+        try { await props.commitMilestone(action, undefined, route); return true; }
+        catch (error) { setSaveError(error instanceof Error ? error.message : "The Academy milestone could not be saved. Try again."); return false; }
+        finally { saveLock.current = false; setSaving(false); }
     };
     const acceptSeal = async () => {
         if (await saveAction("seal")) setPathsOpen(true);
     };
-    const finish = async (screen: Screen, intent?: "openAwakening") => {
-        if (!await saveAction("complete")) return;
+    const finish = async (screen: Screen, route?: FirstContractRoute, intent?: "openAwakening") => {
+        if (!await saveAction("complete", route)) return;
         if (intent === "openAwakening" && props.onOpenAwakening) props.onOpenAwakening();
+        else if (route) openFirstContractActivity(props.character, route, props.setScreen);
         else props.setScreen(screen);
     };
     return createPortal(
-        <section className="asm-root is-ceremony" role="dialog" aria-modal="true" aria-labelledby="ceremony-title">
+        <section className="asm-root is-ceremony" ref={ceremonyRef} role="dialog" aria-modal="true" aria-labelledby="ceremony-title" onKeyDown={(event) => {
+            if (event.key !== 'Tab') return;
+            const controls = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'));
+            if (!controls.length) { event.preventDefault(); return; }
+            if (event.shiftKey && document.activeElement === controls[0]) { event.preventDefault(); controls.at(-1)?.focus(); }
+            else if (!event.shiftKey && document.activeElement === controls.at(-1)) { event.preventDefault(); controls[0]?.focus(); }
+        }}>
             <div className="asm-village" style={{ backgroundImage: `url(${villagePageImage(props.character.village)})` }} />
             <article className="asm-ceremony">
                 <div className="asm-copy">
                     <p className="asm-kicker">{rite.rite}</p>
                     <h2 id="ceremony-title">{pathsOpen ? "Your next step is yours." : "Shiranui's Field Seal"}</h2>
+                    {saveError && <p className="asm-body" role="alert">{saveError}</p>}
                     {!pathsOpen ? <>
+                        <p className="asm-body">{rite.fieldReport}</p>
                         <strong className="asm-speaker">{rite.witness}</strong>
                         <p className="asm-body">{rite.opening} {rite.villagePromise}</p>
                         <blockquote>“{vow.quote}”</blockquote>
@@ -133,8 +148,9 @@ export function AcademyReturnCeremony(props: SharedProps & {
                         <button type="button" className="asm-primary" autoFocus disabled={saving} onClick={() => { void acceptSeal(); }}>{saving ? "Saving…" : "Accept the Field Seal"}</button>
                         <button type="button" className="asm-skip" onClick={props.onSkip}>Skip Academy</button>
                     </> : <>
-                        <p className="asm-body">The guided route ends here. This choice only decides where you go first; your Logbook keeps the whole road visible.</p>
-                        <div className="asm-paths">{paths.map((path) => <button type="button" disabled={saving} key={path.label} onClick={() => { void finish(path.screen, path.intent); }}><strong>{path.label}</strong><span>{path.detail}</span></button>)}</div>
+                        <p className="asm-body">The guided route ends here. Choose one first contract to make your own. You can change direction later; your Logbook keeps the whole road visible.</p>
+                        <FirstContractRoutes onChoose={(route) => { void finish(FIRST_CONTRACT_COPY[route].screen, route); }} busy={saving} hasCompanion={props.character.pets.length > 0} />
+                        {handoff?.primary.intent === 'openAwakening' && <button type="button" className="asm-skip" disabled={saving} onClick={() => { void finish('centralHub', undefined, 'openAwakening'); }}>Visit the Awakening Stone</button>}
                         <button type="button" className="asm-skip" disabled={saving} onClick={() => { void finish("village"); }}>Stay in the village for now</button>
                     </>}
                 </div>

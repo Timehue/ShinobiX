@@ -407,6 +407,22 @@ shinobij.client/public/pet-models/*
 !shinobij.client/public/pet-models/roster/*.glb
 !shinobij.client/public/pet-models/showdown-v2/
 !shinobij.client/public/pet-models/showdown-v2/*.glb
+# Certified battle-only LODs and software-render impostors are production
+# runtime assets, not disposable generator output. Keep Docker in lockstep.
+!shinobij.client/public/pet-models/warfront-lod/
+!shinobij.client/public/pet-models/warfront-lod/*.glb
+!shinobij.client/public/pet-models/warfront-lod/manifest.json
+!shinobij.client/public/pet-models/warfront-lod/roster/
+!shinobij.client/public/pet-models/warfront-lod/roster/*.glb
+!shinobij.client/public/pet-models/warfront-lod/showdown-v2/
+!shinobij.client/public/pet-models/warfront-lod/showdown-v2/*.glb
+!shinobij.client/public/pet-models/warfront-impostors/
+!shinobij.client/public/pet-models/warfront-impostors/*.webp
+!shinobij.client/public/pet-models/warfront-impostors/manifest.json
+!shinobij.client/public/pet-models/warfront-impostors/roster/
+!shinobij.client/public/pet-models/warfront-impostors/roster/*.webp
+!shinobij.client/public/pet-models/warfront-impostors/showdown-v2/
+!shinobij.client/public/pet-models/warfront-impostors/showdown-v2/*.webp
 # Stage-0 starters — the model every new player fights with before evolving.
 !shinobij.client/public/pet-models/starter-earth.glb
 !shinobij.client/public/pet-models/starter-fire.glb
@@ -423,13 +439,7 @@ shinobij.client/public/pet-models/*
 !shinobij.client/public/pet-models/starter-water-r.glb
 !shinobij.client/public/pet-models/starter-wind-l.glb
 !shinobij.client/public/pet-models/starter-wind-r.glb
-# Hollow Warfront runtime prop/boss GLBs — loaded at /pet-models/*.glb by the 3D
-# stage; MUST be published or the Warfront 404s them (SPA index.html) and crashes.
-!shinobij.client/public/pet-models/gate-warden.glb
-!shinobij.client/public/pet-models/gate-warden-rigged.glb
-!shinobij.client/public/pet-models/ward-totem.glb
-!shinobij.client/public/pet-models/wf-boulder.glb
-!shinobij.client/public/pet-models/wf-lantern.glb
+# The roster manifest records which roster/ models are approved.
 !shinobij.client/public/pet-models/roster-manifest.json
 
 # Composite badge sources — re-export from AI tool if needed; sliced output in shinobij.client/public/badges/ is committed
@@ -470,6 +480,13 @@ dist/
 shinobij.client/dist/
 shinobij.client/scripts/.restyle-board-done.json
 shinobij.client/scripts/.restyle-keyart-done.json
+
+# Local Codex worktrees and generated output
+/.codex-worktrees/
+/.worktrees/
+/output/
+/outputs/
+/shinobij.client/output/
 
 # Windows Explorer folder-settings artifact. It was tracked at the repo root
 # until 2026-08; it carries no project meaning and reappears on any machine

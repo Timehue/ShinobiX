@@ -65,6 +65,7 @@ export function usePresenceSocket({
 
         const initialFrame: PresenceFrame = {
             sector: currentSectorRef.current,
+            enterTown: false, // Connecting observes position; the heartbeat sends navigation intent.
             character: presenceCharacter(char),
             travelingUntil: 0,
             inBattle: getPresenceBattleActiveRef.current(),

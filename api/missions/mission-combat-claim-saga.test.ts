@@ -759,6 +759,8 @@ describe('mission payout receipt recovery', { concurrency: false }, () => {
     it('recovers commit-then-throw and replays the exact reward/character without a second payout', async () => {
         const player = 'missionsagaclaimack';
         await seedPlayer(player);
+        const seeded = await kv.get<Record<string, any>>(`save:${player}`);
+        await kv.set(`save:${player}`, { ...seeded, character: { ...seeded!.character, village: 'Frostfang Village' } });
         const runId = await seedWonRun(player, 'claimack');
         assert.equal((await queue(player, runId)).statusCode, 200);
         const before = Number((await savedCharacter(player)).ryo);
@@ -771,6 +773,7 @@ describe('mission payout receipt recovery', { concurrency: false }, () => {
         assert.equal(first.statusCode, 200);
         const paidCharacter = await savedCharacter(player);
         assert.equal(Number(paidCharacter.ryo) > before, true);
+        assert.deepEqual(paidCharacter.elderWinDays, [{ day: new Date().toISOString().slice(0, 10), village: 'frostfangvillage', pvp: 0, pve: 1 }]);
         assert.equal((first.body?.reward as Record<string, unknown>)?.territoryScrolls, 0);
         assert.equal((paidCharacter.inventory as string[]).includes('territory-control-scroll'), false);
         assert.equal(
@@ -830,6 +833,11 @@ describe('mission payout receipt recovery', { concurrency: false }, () => {
             const suffix = mode === 'throw-before-commit' ? 'claimreject' : 'claimnull';
             const player = `missionsaga${suffix}`;
             await seedPlayer(player);
+            const seeded = (await kv.get<Record<string, unknown>>(`save:${player}`))!;
+            await kv.set(`save:${player}`, { ...seeded, character: {
+                ...seeded.character as Record<string, unknown>,
+                firstContract: { version: 1, source: 'academy', offeredAt: Date.now() - 1000, route: 'combat' },
+            } });
             const runId = await seedWonRun(player, suffix);
             assert.equal((await queue(player, runId)).statusCode, 200);
             const before = Number((await savedCharacter(player)).ryo);
@@ -841,6 +849,7 @@ describe('mission payout receipt recovery', { concurrency: false }, () => {
             );
             assert.equal(failed.statusCode, 500);
             assert.equal(Number((await savedCharacter(player)).ryo), before);
+            assert.equal(((await savedCharacter(player)).firstContract as { completedAt?: number }).completedAt, undefined);
             const reservation = await kv.get<unknown>(tokenKey(player, MISSION_ID));
             assert.ok(parseCombatMissionClaimPaymentReservation(reservation));
             assert.equal(oldWorkerWouldAcceptToken(reservation), false,
@@ -851,8 +860,12 @@ describe('mission payout receipt recovery', { concurrency: false }, () => {
             assert.equal(retry.statusCode, 200);
             const paid = Number((await savedCharacter(player)).ryo);
             assert.equal(paid > before, true);
+            const journal = (await savedCharacter(player)).firstContract as { completedAt: number; evidence: unknown };
+            assert.ok(journal.completedAt > 0, 'recovered payout completes the journal in the same authoritative save');
+            assert.deepEqual(journal.evidence, { kind: 'combat-claim' });
             assert.equal((await claim(player)).statusCode, 200);
             assert.equal(Number((await savedCharacter(player)).ryo), paid);
+            assert.deepEqual((await savedCharacter(player)).firstContract, journal, 'replay does not rewrite the completed journal');
         });
     }
 

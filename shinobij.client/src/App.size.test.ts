@@ -437,7 +437,59 @@ import { readFileSync } from "node:fs";
 // (both parents were green alone), paid for by draining the battle-art
 // preloader to lib/battle-art-preload.ts (7,089 -> 7,069). Small buffer kept
 // so the next cross-branch merge doesn't red the gate on arithmetic alone.
-const MAX_LINES = 7_072;
+// → 2026-09-05: three spare was not a small buffer, it was one lazy-screen
+// mount. First Pact (#122) spent exactly that — a lazyWithRetry line plus its
+// render line — and landed main on 7,073 against this 7,072, reddening
+// server-contracts on its own merge and again on the next one. Paid for by
+// draining normalizeAdminCharacter to lib/admin-character.ts (7,073 -> 7,062);
+// it needed nothing from App, so the move costs no lib -> App import. Buffer
+// restored to 6, the width this comment has twice called "enough for a
+// lazy-screen mount, not a feature" — three was not.
+// → 6,943 (−119) after draining the character factory: createCharacter +
+// createAdminCharacter moved verbatim to lib/create-character.ts, next to
+// normalizeCharacter and the admin-character drain above — the same reasoning,
+// one more layer of the same onion. Both bodies are byte-identical to the
+// originals (diffed before deleting them); the only edit is the `export`
+// createAdminCharacter needed, having been App-private. createCharacter stays
+// on the "../App" surface via re-export, so AdminPanel and the character-creator
+// flow are untouched.
+//
+// Five imports went with it — baseStats, currentMonthKey, defaultVillageUpgrades
+// and STARTING_STAT_POINTS had no other caller here, and maxedStats lost its
+// last one to the MERGE rather than to either side: main moved
+// normalizeAdminCharacter out while this branch moved createAdminCharacter out,
+// and neither alone would have left it dead. Worth remembering the next time two
+// drains touch the same neighbourhood — the union can strand an import that both
+// sides individually still justify.
+//
+// The move is also what makes the factory testable at all (lib/create-character
+// .test.ts, 11 cases pinning the starting grant that api/save/
+// _first-save-baseline.ts mirrors): App imports a .webp, so node:test could
+// never load this code where it was. Buffer stays at 6, per the entry above.
+// → 6,942 after the story integration kept delivery, narrative normalization,
+// and triggered battle routing in lib modules. App only wires those boundaries.
+// The six-line merge buffer remains unchanged.
+// Boot request orchestration and save-session scoping now have focused owners.
+// Shared saved fields and ordered boot recovery decisions have dedicated owners.
+// Save authority, dirty tracking and subscriptions now share an explicit coordinator.
+// Shared level/discipline projections, save serialization and live price bindings
+// now have module owners; screens use those owners directly. Five-line buffer.
+// → 6,561 (2026-09-11). The Dojo Circuit (5ba427977) overran by four: its lazy
+// screen, its return ribbon and their two render lines put App at 6,582 against
+// 6,578. Paid for by moving the PendingArenaStoryBattle type verbatim to
+// ./types/vn, next to the CreatorEvent it is built from. Its name joined the
+// existing ./types/vn import and re-export lines, so the move cost App no new
+// lines and changed no emitted JavaScript. Buffer back to five.
+// → 6,533 LOWERED (−33, 2026-09-13). The body of the achievement-sync effect
+// moved to lib/achievement-sync-pass.ts, which now catches a catalog chunk that
+// fails to load instead of letting it escape as an unhandled rejection. App
+// keeps the effect, the gate ref and the toast state. That drained 35 lines,
+// taking App.tsx from 6,563 to 6,528 (6,563 includes First Contract's two
+// wiring lines, which landed on main while this change was being made). The
+// budget is that count plus the usual five.
+// → 6,521 after moving logout orchestration into lib/player-logout.ts.
+// App retains the stable owner, unmount retirement, and save/session bindings.
+const MAX_LINES = 6521;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");

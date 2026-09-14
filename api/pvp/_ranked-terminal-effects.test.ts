@@ -87,6 +87,43 @@ async function setup(
 }
 
 describe('unified player-ranked terminal saga', () => {
+    it('credits one council PvP win to the verified winner and recovers a lost acknowledgement without duplication', async () => {
+        const { store: base, session } = await setup();
+        for (const name of ['alice', 'bob']) {
+            const record = await base.get<Record<string, any>>(`save:${name}`);
+            await base.set(`save:${name}`, { ...record, character: { ...record!.character, village: 'Frostfang Village' } });
+        }
+        let lost = false;
+        const store: KvLike = { ...base, async compareSet(key, expected, value, options) {
+            const committed = await base.compareSet(key, expected, value, options);
+            if (committed && key === 'save:alice' && (value as any).character.elderWinDays && !lost) {
+                lost = true;
+                throw new Error('elder-win-lost-ack');
+            }
+            return committed;
+        } };
+        for (let i = 0; i < 2; i++) await confirmPlayerRankedTerminalEffects(store, session, {
+            eligible: async () => true, lock, now: NOW + 3 + i,
+        });
+        assert.equal(lost, true);
+        const winner = (await base.get<Record<string, any>>('save:alice'))!.character;
+        const loser = (await base.get<Record<string, any>>('save:bob'))!.character;
+        assert.deepEqual(winner.elderWinDays, [{ day: new Date(NOW + 3).toISOString().slice(0, 10), village: 'frostfangvillage', pvp: 1, pve: 0 }]);
+        assert.equal(winner.elderRankedWinReceipts.length, 1);
+        assert.equal(loser.elderWinDays, undefined);
+    });
+
+    it('draws and ineligible ranked matches cannot add council wins', async () => {
+        for (const [winner, eligible] of [['draw', true], ['p1', false]] as const) {
+            const { store, session } = await setup(winner);
+            for (const name of ['alice', 'bob']) {
+                const record = await store.get<Record<string, any>>(`save:${name}`);
+                await store.set(`save:${name}`, { ...record, character: { ...record!.character, village: 'Frostfang Village' } });
+            }
+            await confirmPlayerRankedTerminalEffects(store, session, { eligible: async () => eligible, lock, now: NOW + 3 });
+            for (const name of ['alice', 'bob']) assert.equal((await store.get<Record<string, any>>(`save:${name}`))!.character.elderWinDays, undefined);
+        }
+    });
     it('keeps a partial second-save failure discoverable and retry completes exactly once', async () => {
         const { store: base, session } = await setup();
         let failed = false;

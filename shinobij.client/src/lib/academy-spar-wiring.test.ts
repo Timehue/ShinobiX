@@ -14,8 +14,8 @@ import { readFileSync } from "node:fs";
  *   3. chapter theming    → the chapter-seal sting fires for a training dummy
  *
  * Guards, not behaviour: the rules with real logic (the opponent, eligibility,
- * the settle) are behaviour-tested in api/story/_academy-spar.test.ts and
- * scripts/academy-spar-parity.test.ts. A grep only answers "is this hooked up".
+ * the settle) are behaviour-tested in api/story/_academy-spar.test.ts. A grep
+ * only answers "is this hooked up".
  */
 
 const host = readFileSync(new URL("../components/StoryBossFightHost.tsx", import.meta.url), "utf8");
@@ -40,9 +40,14 @@ test("the bus never invokes client combat when no host is mounted", () => {
 test("the host reports a sealed-start failure without local combat", () => {
     const subscribe = host.indexOf("return onStoryBossFightRequest((theme)");
     assert.notEqual(subscribe, -1, "the host must still subscribe to the fight bus");
-    const start = host.slice(subscribe, subscribe + 1800);
+    const activeFight = host.indexOf("const activeFight =", subscribe);
+    assert.ok(activeFight > subscribe, "could not bound the sealed-start subscription");
+    const start = host.slice(subscribe, activeFight);
     assert.match(start, /startAcademySparCombat\(/, "the spar must start its own sealed endpoint");
-    const failure = start.slice(start.indexOf(".catch((error) =>"), start.indexOf(".finally(() =>"));
+    const catchStart = start.indexOf(".catch((error) =>");
+    const finallyStart = start.indexOf(".finally(() =>", catchStart);
+    assert.ok(catchStart >= 0 && finallyStart > catchStart, "could not isolate the sealed-start failure path");
+    const failure = start.slice(catchStart, finallyStart);
     assert.match(failure, /mountedRef\.current/);
     assert.match(failure, /startRequestIdRef\.current === requestId/);
     assert.match(failure, /activePlayerKeyRef\.current === originatingPlayerKey/);
@@ -60,12 +65,10 @@ test("a sealed spar keeps its coaching and skips the chapter presentation", () =
     assert.match(host, /storyTheme=\{isSpar \? undefined : theme\}/, "a training dummy must not fire chapter stings or wear the chapter backdrop");
 });
 
-test("the coaching banner is not painted behind the fight it coaches", () => {
-    // MissionArenaFight's portal sits at z-index 1000000 and SparCoach portals to
-    // document.body, so its default 9000 would be invisible there.
-    assert.match(coach, /zIndex = 9000/, "the default must still clear the local Arena spar");
-    const mount = arena.slice(arena.indexOf("<SparCoach"), arena.indexOf("<SparCoach") + 320);
-    assert.match(mount, /zIndex=\{1_000_001\}/, "the sealed spar must raise the banner above the fight portal");
+test("Academy guidance shares combat feedback without covering fighter vitals", () => {
+    const notice = arena.slice(arena.indexOf('<div className="combat-action-notice">'), arena.indexOf('<CombatActionTray>'));
+    assert.match(notice, /actionNotice \? <span>\{actionNotice\}<\/span>[\s\S]*<SparCoach/);
+    assert.doesNotMatch(coach, /createPortal|position:\s*["']fixed/);
 });
 
 test("the onboarding modal stands down while the sealed fight is on screen", () => {

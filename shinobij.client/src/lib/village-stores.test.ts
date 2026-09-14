@@ -19,6 +19,8 @@ import {
     storesLedgerIcon,
     storesLedgerLines,
     storesLedgerRows,
+    storesPollDisagrees,
+    storesRowValues,
     DAILY_CRAFT_POINT_DONATION_CAP,
     DAILY_RATION_DONATION_CAP,
     structureMaterialsCost,
@@ -175,6 +177,52 @@ test('storesDonationGate refuses before the request, mirroring the server 429', 
     if (!cappedPoints.ok) assert.match(cappedPoints.reason, /1,251\/1,500 materials/);
     // A fresh day clears both.
     assert.equal(storesDonationGate({ storesDonatedDate: '2023-11-13', craftPointsDonatedToday: 1_500 }, 'warforged-relic', 1, NOW).ok, true);
+});
+
+// ── Which read the stores rows show ─────────────────────────────────────
+// Main CI run 34562696377: after a 400-material structure build the Supply log
+// (war-map read) showed the drain while the Materials row held the pre-drain
+// 15 from a /api/game-state frame the drain had outrun.
+
+test('storesRowValues: a held war-map snapshot beats a stale poll', () => {
+    assert.deepEqual(
+        storesRowValues({ provisions: 1, materialPoints: 20 }, { provisions: 1, materialPoints: 15 }),
+        { provisions: 1, materialPoints: 20 },
+    );
+    // A snapshot of 0 is a real read, not an absence, and still wins.
+    assert.deepEqual(storesRowValues({ provisions: 0, materialPoints: 0 }, { provisions: 9, materialPoints: 9 }), { provisions: 0, materialPoints: 0 });
+});
+
+test('storesRowValues: with no snapshot the poll stands in field by field, then 0', () => {
+    assert.deepEqual(storesRowValues(null, { provisions: 7, materialPoints: 3 }), { provisions: 7, materialPoints: 3 });
+    assert.deepEqual(storesRowValues(null, { provisions: 7 }), { provisions: 7, materialPoints: 0 });
+    assert.deepEqual(storesRowValues(null, {}), { provisions: 0, materialPoints: 0 });
+});
+
+test('storesPollDisagrees only speaks for the fields the poll carries', () => {
+    const snapshot = { provisions: 5, materialPoints: 20 };
+    assert.equal(storesPollDisagrees({ provisions: 5, materialPoints: 20 }, snapshot), false);
+    assert.equal(storesPollDisagrees({ provisions: 5, materialPoints: 15 }, snapshot), true);
+    assert.equal(storesPollDisagrees({ provisions: 6 }, snapshot), true);
+    assert.equal(storesPollDisagrees({ materialPoints: 20 }, snapshot), false);
+    assert.equal(storesPollDisagrees({}, snapshot), false);
+    // Nothing to contradict before a read has landed.
+    assert.equal(storesPollDisagrees({ provisions: 1, materialPoints: 1 }, null), false);
+});
+
+test('the Town Hall rows show the war-map read, and a poll move re-reads rather than paints', async () => {
+    const { readFileSync } = await import('node:fs');
+    const townHall = readFileSync(new URL('../screens/TownHall.tsx', import.meta.url), 'utf8');
+    assert.match(townHall, /const storesView = storesRowValues\(storesSnapshot, state\.treasury\);/);
+    assert.doesNotMatch(townHall, /state\.treasury\.(provisions|materialPoints) \?\? storesSnapshot/, 'the poll must not shadow the snapshot again');
+    // The poll only asks for a quiet re-read, and only after it has moved.
+    assert.match(townHall, /if \(storesPollDisagrees\(\{ provisions: polledProvisions, materialPoints: polledMaterials \}, storesSnapshot\)\) readVillageStores\(true\);/);
+    // A donation or a structure build answered mid-read keeps its figures; the
+    // read may not land over them.
+    assert.equal(townHall.match(/storesWriteRef\.current \+= 1;\s*setStoresSnapshot\(/g)?.length, 2, 'the donation AND the structure build hand over their figures');
+    assert.match(townHall, /if \(writes === storesWriteRef\.current\) setStoresSnapshot\(/);
+    // And the toast's "+N" is measured from the figures the rows show.
+    assert.match(townHall, /const before = readStores\(storesView\);/);
 });
 
 test('the Town Hall Treasury tab shows the cap line and gates the donate button', async () => {

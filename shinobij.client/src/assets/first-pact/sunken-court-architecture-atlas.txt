@@ -1,0 +1,15 @@
+Use case: stylized-concept
+Asset type: production 4-by-4 transparent top-down architecture sprite atlas for a 2D tile-based fantasy RPG
+Reference: sunken-court-key-art.webp is the authoritative architectural style reference.
+
+Create sixteen distinct exterior city architecture cutouts for the living Sunken Court before its fall. These are composited over a 48-pixel tile map so its districts read unmistakably as a dense city rather than an interior floor.
+
+Exact cell order, left to right:
+Row 1: grand High Court archive roof complex; dignified civic townhouse; narrow record hall; domed council annex.
+Row 2: large timber-and-stone pet stable; smaller kennel house with fenced run; animal feed storehouse; garden keeper pavilion.
+Row 3: covered burgundy market arcade; cluster of three fabric market stalls; wealthy merchant house; compact waterside workshop.
+Row 4: monumental open bell tower; cyan-lit Gateworks engine hall; aqueduct pump house; ordinary Sunken Court residence.
+
+AAA hand-painted game environment sprites with midnight blue tiled roofs, charcoal ashlar, aged bronze trim, warm amber windows, restrained jade greenery, and cyan civic conduits. Perfectly overhead orthographic camera. One isolated centered exterior structure per cell. Complete silhouettes with transparent padding. Evening civic lantern light from the south. Exterior rooflines, ridges, eaves, chimneys, doors, and entry awnings must be readable.
+
+Constraints: true alpha transparency; no ground planes; no roads; no people; no animals; no UI; no text; no labels; no grid lines; no cell borders; no logos; no watermark; no isometric perspective.

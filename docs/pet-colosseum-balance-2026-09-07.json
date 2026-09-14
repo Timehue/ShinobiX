@@ -1,0 +1,7044 @@
+{
+  "date": "2026-09-07",
+  "method": "Same-rarity catalog matchups, warrior AI on both sides, two shared standard reserves; rotating identical allies in team formats. Combat RNG validation offset 104729 at level 50.",
+  "baselineDuel": {
+    "format": "1v1",
+    "level": 50,
+    "seeds": 12,
+    "seedOffset": 104729,
+    "bench": 2,
+    "games": 35160,
+    "averageRounds": 19.35145051194539,
+    "judgedGames": 654,
+    "unresolvedGames": 0,
+    "roles": {
+      "defender": {
+        "w": 8674,
+        "n": 18396
+      },
+      "tracker": {
+        "w": 9865,
+        "n": 18288
+      },
+      "assassin": {
+        "w": 8216,
+        "n": 16872
+      },
+      "sage": {
+        "w": 8405,
+        "n": 16764
+      }
+    },
+    "elements": {
+      "Fire": {
+        "w": 7372,
+        "n": 14064
+      },
+      "Water": {
+        "w": 7090,
+        "n": 14064
+      },
+      "Earth": {
+        "w": 6932,
+        "n": 14064
+      },
+      "Wind": {
+        "w": 6702,
+        "n": 14064
+      },
+      "Lightning": {
+        "w": 7064,
+        "n": 14064
+      }
+    },
+    "species": {
+      "standard-0": {
+        "w": 182,
+        "n": 588,
+        "name": "Red Fox",
+        "role": "defender",
+        "element": "Fire",
+        "rarity": "standard"
+      },
+      "standard-1": {
+        "w": 303,
+        "n": 588,
+        "name": "Snow Rabbit",
+        "role": "tracker",
+        "element": "Water",
+        "rarity": "standard"
+      },
+      "standard-2": {
+        "w": 295,
+        "n": 588,
+        "name": "Black Cat",
+        "role": "assassin",
+        "element": "Earth",
+        "rarity": "standard"
+      },
+      "standard-3": {
+        "w": 227,
+        "n": 588,
+        "name": "Forest Hawk",
+        "role": "sage",
+        "element": "Wind",
+        "rarity": "standard"
+      },
+      "standard-4": {
+        "w": 250,
+        "n": 588,
+        "name": "River Otter",
+        "role": "defender",
+        "element": "Water",
+        "rarity": "standard"
+      },
+      "standard-5": {
+        "w": 270,
+        "n": 588,
+        "name": "Stone Turtle",
+        "role": "tracker",
+        "element": "Earth",
+        "rarity": "standard"
+      },
+      "standard-6": {
+        "w": 316,
+        "n": 588,
+        "name": "Desert Lizard",
+        "role": "assassin",
+        "element": "Fire",
+        "rarity": "standard"
+      },
+      "standard-7": {
+        "w": 383,
+        "n": 588,
+        "name": "Ashen Crow",
+        "role": "sage",
+        "element": "Fire",
+        "rarity": "standard"
+      },
+      "standard-8": {
+        "w": 268,
+        "n": 588,
+        "name": "Blue Frog",
+        "role": "defender",
+        "element": "Water",
+        "rarity": "standard"
+      },
+      "standard-9": {
+        "w": 258,
+        "n": 588,
+        "name": "Wild Boar",
+        "role": "tracker",
+        "element": "Earth",
+        "rarity": "standard"
+      },
+      "standard-10": {
+        "w": 253,
+        "n": 588,
+        "name": "Pine Owl",
+        "role": "assassin",
+        "element": "Wind",
+        "rarity": "standard"
+      },
+      "standard-11": {
+        "w": 422,
+        "n": 588,
+        "name": "Sand Snake",
+        "role": "sage",
+        "element": "Fire",
+        "rarity": "standard"
+      },
+      "standard-12": {
+        "w": 290,
+        "n": 588,
+        "name": "Mist Ferret",
+        "role": "defender",
+        "element": "Water",
+        "rarity": "standard"
+      },
+      "standard-13": {
+        "w": 231,
+        "n": 588,
+        "name": "Iron Beetle",
+        "role": "tracker",
+        "element": "Lightning",
+        "rarity": "standard"
+      },
+      "standard-14": {
+        "w": 274,
+        "n": 588,
+        "name": "White Crane",
+        "role": "assassin",
+        "element": "Wind",
+        "rarity": "standard"
+      },
+      "standard-15": {
+        "w": 406,
+        "n": 588,
+        "name": "Cinder Rat",
+        "role": "sage",
+        "element": "Fire",
+        "rarity": "standard"
+      },
+      "standard-16": {
+        "w": 220,
+        "n": 588,
+        "name": "Meadow Deer",
+        "role": "defender",
+        "element": "Lightning",
+        "rarity": "standard"
+      },
+      "standard-17": {
+        "w": 302,
+        "n": 588,
+        "name": "Storm Gull",
+        "role": "tracker",
+        "element": "Wind",
+        "rarity": "standard"
+      },
+      "standard-18": {
+        "w": 301,
+        "n": 588,
+        "name": "Shadow Bat",
+        "role": "assassin",
+        "element": "Lightning",
+        "rarity": "standard"
+      },
+      "standard-19": {
+        "w": 338,
+        "n": 588,
+        "name": "Mud Toad",
+        "role": "sage",
+        "element": "Earth",
+        "rarity": "standard"
+      },
+      "standard-20": {
+        "w": 257,
+        "n": 588,
+        "name": "Leaf Monkey",
+        "role": "defender",
+        "element": "Wind",
+        "rarity": "standard"
+      },
+      "standard-21": {
+        "w": 373,
+        "n": 588,
+        "name": "Frost Cub",
+        "role": "tracker",
+        "element": "Water",
+        "rarity": "standard"
+      },
+      "standard-22": {
+        "w": 288,
+        "n": 588,
+        "name": "Temple Gecko",
+        "role": "assassin",
+        "element": "Lightning",
+        "rarity": "standard"
+      },
+      "standard-23": {
+        "w": 262,
+        "n": 588,
+        "name": "Rock Badger",
+        "role": "sage",
+        "element": "Earth",
+        "rarity": "standard"
+      },
+      "standard-24": {
+        "w": 311,
+        "n": 588,
+        "name": "Tiny Wolf",
+        "role": "defender",
+        "element": "Lightning",
+        "rarity": "standard"
+      },
+      "standard-25": {
+        "w": 235,
+        "n": 588,
+        "name": "Flint Jackal",
+        "role": "tracker",
+        "element": "Fire",
+        "rarity": "standard"
+      },
+      "standard-26": {
+        "w": 284,
+        "n": 588,
+        "name": "Ember Mole",
+        "role": "assassin",
+        "element": "Fire",
+        "rarity": "standard"
+      },
+      "standard-27": {
+        "w": 407,
+        "n": 588,
+        "name": "Cinder Moth",
+        "role": "sage",
+        "element": "Fire",
+        "rarity": "standard"
+      },
+      "standard-28": {
+        "w": 179,
+        "n": 588,
+        "name": "Scorch Skink",
+        "role": "defender",
+        "element": "Fire",
+        "rarity": "standard"
+      },
+      "standard-29": {
+        "w": 263,
+        "n": 588,
+        "name": "Magma Pup",
+        "role": "tracker",
+        "element": "Fire",
+        "rarity": "standard"
+      },
+      "standard-30": {
+        "w": 374,
+        "n": 588,
+        "name": "Brook Newt",
+        "role": "assassin",
+        "element": "Water",
+        "rarity": "standard"
+      },
+      "standard-31": {
+        "w": 332,
+        "n": 588,
+        "name": "Pebble Crab",
+        "role": "sage",
+        "element": "Water",
+        "rarity": "standard"
+      },
+      "standard-32": {
+        "w": 265,
+        "n": 588,
+        "name": "Tide Minnow",
+        "role": "defender",
+        "element": "Water",
+        "rarity": "standard"
+      },
+      "standard-33": {
+        "w": 350,
+        "n": 588,
+        "name": "Reed Heron",
+        "role": "tracker",
+        "element": "Water",
+        "rarity": "standard"
+      },
+      "standard-34": {
+        "w": 376,
+        "n": 588,
+        "name": "Marsh Eel",
+        "role": "assassin",
+        "element": "Water",
+        "rarity": "standard"
+      },
+      "standard-35": {
+        "w": 241,
+        "n": 588,
+        "name": "Breeze Finch",
+        "role": "sage",
+        "element": "Wind",
+        "rarity": "standard"
+      },
+      "standard-36": {
+        "w": 295,
+        "n": 588,
+        "name": "Dust Swift",
+        "role": "defender",
+        "element": "Wind",
+        "rarity": "standard"
+      },
+      "standard-37": {
+        "w": 271,
+        "n": 588,
+        "name": "Cliff Swallow",
+        "role": "tracker",
+        "element": "Wind",
+        "rarity": "standard"
+      },
+      "standard-38": {
+        "w": 239,
+        "n": 588,
+        "name": "Kite Magpie",
+        "role": "assassin",
+        "element": "Wind",
+        "rarity": "standard"
+      },
+      "standard-39": {
+        "w": 300,
+        "n": 588,
+        "name": "Glide Sparrow",
+        "role": "sage",
+        "element": "Wind",
+        "rarity": "standard"
+      },
+      "standard-40": {
+        "w": 228,
+        "n": 588,
+        "name": "Spark Shrew",
+        "role": "defender",
+        "element": "Lightning",
+        "rarity": "standard"
+      },
+      "standard-41": {
+        "w": 315,
+        "n": 588,
+        "name": "Bolt Mouse",
+        "role": "tracker",
+        "element": "Lightning",
+        "rarity": "standard"
+      },
+      "standard-42": {
+        "w": 283,
+        "n": 588,
+        "name": "Arc Vole",
+        "role": "assassin",
+        "element": "Lightning",
+        "rarity": "standard"
+      },
+      "standard-43": {
+        "w": 342,
+        "n": 588,
+        "name": "Storm Shrike",
+        "role": "sage",
+        "element": "Lightning",
+        "rarity": "standard"
+      },
+      "standard-44": {
+        "w": 242,
+        "n": 588,
+        "name": "Zap Quail",
+        "role": "defender",
+        "element": "Lightning",
+        "rarity": "standard"
+      },
+      "standard-45": {
+        "w": 312,
+        "n": 588,
+        "name": "Clay Tortoise",
+        "role": "tracker",
+        "element": "Earth",
+        "rarity": "standard"
+      },
+      "standard-46": {
+        "w": 346,
+        "n": 588,
+        "name": "Moss Hedgehog",
+        "role": "assassin",
+        "element": "Earth",
+        "rarity": "standard"
+      },
+      "standard-47": {
+        "w": 291,
+        "n": 588,
+        "name": "Dune Armadillo",
+        "role": "sage",
+        "element": "Earth",
+        "rarity": "standard"
+      },
+      "standard-48": {
+        "w": 337,
+        "n": 588,
+        "name": "Gravel Pangolin",
+        "role": "defender",
+        "element": "Earth",
+        "rarity": "standard"
+      },
+      "standard-49": {
+        "w": 313,
+        "n": 588,
+        "name": "Loam Marmot",
+        "role": "tracker",
+        "element": "Earth",
+        "rarity": "standard"
+      },
+      "rare-0": {
+        "w": 290,
+        "n": 588,
+        "name": "Crimson Fox",
+        "role": "defender",
+        "element": "Fire",
+        "rarity": "rare"
+      },
+      "rare-1": {
+        "w": 352,
+        "n": 588,
+        "name": "Frost Hare",
+        "role": "tracker",
+        "element": "Water",
+        "rarity": "rare"
+      },
+      "rare-2": {
+        "w": 204,
+        "n": 588,
+        "name": "Night Panther",
+        "role": "assassin",
+        "element": "Earth",
+        "rarity": "rare"
+      },
+      "rare-3": {
+        "w": 191,
+        "n": 588,
+        "name": "Sky Falcon",
+        "role": "sage",
+        "element": "Wind",
+        "rarity": "rare"
+      },
+      "rare-4": {
+        "w": 209,
+        "n": 588,
+        "name": "Tide Otter",
+        "role": "defender",
+        "element": "Water",
+        "rarity": "rare"
+      },
+      "rare-5": {
+        "w": 308,
+        "n": 588,
+        "name": "Ironback Turtle",
+        "role": "tracker",
+        "element": "Earth",
+        "rarity": "rare"
+      },
+      "rare-6": {
+        "w": 250,
+        "n": 588,
+        "name": "Dune Viper",
+        "role": "assassin",
+        "element": "Fire",
+        "rarity": "rare"
+      },
+      "rare-7": {
+        "w": 309,
+        "n": 588,
+        "name": "Ashwing Raven",
+        "role": "sage",
+        "element": "Fire",
+        "rarity": "rare"
+      },
+      "rare-8": {
+        "w": 225,
+        "n": 588,
+        "name": "Azure Toad",
+        "role": "defender",
+        "element": "Water",
+        "rarity": "rare"
+      },
+      "rare-9": {
+        "w": 316,
+        "n": 588,
+        "name": "Bristle Boar",
+        "role": "tracker",
+        "element": "Earth",
+        "rarity": "rare"
+      },
+      "rare-10": {
+        "w": 202,
+        "n": 588,
+        "name": "Silver Owl",
+        "role": "assassin",
+        "element": "Wind",
+        "rarity": "rare"
+      },
+      "rare-11": {
+        "w": 263,
+        "n": 588,
+        "name": "Glass Serpent",
+        "role": "sage",
+        "element": "Lightning",
+        "rarity": "rare"
+      },
+      "rare-12": {
+        "w": 284,
+        "n": 588,
+        "name": "Mist Lynx",
+        "role": "defender",
+        "element": "Water",
+        "rarity": "rare"
+      },
+      "rare-13": {
+        "w": 314,
+        "n": 588,
+        "name": "Steel Beetle",
+        "role": "tracker",
+        "element": "Lightning",
+        "rarity": "rare"
+      },
+      "rare-14": {
+        "w": 228,
+        "n": 588,
+        "name": "Pearl Crane",
+        "role": "assassin",
+        "element": "Wind",
+        "rarity": "rare"
+      },
+      "rare-15": {
+        "w": 344,
+        "n": 588,
+        "name": "Cinder Weasel",
+        "role": "sage",
+        "element": "Fire",
+        "rarity": "rare"
+      },
+      "rare-16": {
+        "w": 317,
+        "n": 588,
+        "name": "Thorn Stag",
+        "role": "defender",
+        "element": "Lightning",
+        "rarity": "rare"
+      },
+      "rare-17": {
+        "w": 319,
+        "n": 588,
+        "name": "Stormfin Gull",
+        "role": "tracker",
+        "element": "Wind",
+        "rarity": "rare"
+      },
+      "rare-18": {
+        "w": 262,
+        "n": 588,
+        "name": "Duskwings Bat",
+        "role": "assassin",
+        "element": "Lightning",
+        "rarity": "rare"
+      },
+      "rare-19": {
+        "w": 256,
+        "n": 588,
+        "name": "Mossback Toad",
+        "role": "sage",
+        "element": "Earth",
+        "rarity": "rare"
+      },
+      "rare-20": {
+        "w": 340,
+        "n": 588,
+        "name": "Bamboo Ape",
+        "role": "defender",
+        "element": "Wind",
+        "rarity": "rare"
+      },
+      "rare-21": {
+        "w": 378,
+        "n": 588,
+        "name": "Frostbite Cub",
+        "role": "tracker",
+        "element": "Water",
+        "rarity": "rare"
+      },
+      "rare-22": {
+        "w": 349,
+        "n": 588,
+        "name": "Shrine Salamander",
+        "role": "assassin",
+        "element": "Fire",
+        "rarity": "rare"
+      },
+      "rare-23": {
+        "w": 282,
+        "n": 588,
+        "name": "Granite Badger",
+        "role": "sage",
+        "element": "Earth",
+        "rarity": "rare"
+      },
+      "rare-24": {
+        "w": 359,
+        "n": 588,
+        "name": "Young Direwolf",
+        "role": "defender",
+        "element": "Lightning",
+        "rarity": "rare"
+      },
+      "rare-25": {
+        "w": 300,
+        "n": 588,
+        "name": "Magma Hyena",
+        "role": "tracker",
+        "element": "Fire",
+        "rarity": "rare"
+      },
+      "rare-26": {
+        "w": 210,
+        "n": 588,
+        "name": "Ember Ocelot",
+        "role": "assassin",
+        "element": "Fire",
+        "rarity": "rare"
+      },
+      "rare-27": {
+        "w": 225,
+        "n": 588,
+        "name": "Pyre Kestrel",
+        "role": "sage",
+        "element": "Fire",
+        "rarity": "rare"
+      },
+      "rare-28": {
+        "w": 312,
+        "n": 588,
+        "name": "Scoria Mongoose",
+        "role": "defender",
+        "element": "Fire",
+        "rarity": "rare"
+      },
+      "rare-29": {
+        "w": 326,
+        "n": 588,
+        "name": "Blaze Caracal",
+        "role": "tracker",
+        "element": "Fire",
+        "rarity": "rare"
+      },
+      "rare-30": {
+        "w": 286,
+        "n": 588,
+        "name": "Tidal Mink",
+        "role": "assassin",
+        "element": "Water",
+        "rarity": "rare"
+      },
+      "rare-31": {
+        "w": 293,
+        "n": 588,
+        "name": "Frost Seal",
+        "role": "sage",
+        "element": "Water",
+        "rarity": "rare"
+      },
+      "rare-32": {
+        "w": 239,
+        "n": 588,
+        "name": "Coral Serval",
+        "role": "defender",
+        "element": "Water",
+        "rarity": "rare"
+      },
+      "rare-33": {
+        "w": 369,
+        "n": 588,
+        "name": "Brine Cormorant",
+        "role": "tracker",
+        "element": "Water",
+        "rarity": "rare"
+      },
+      "rare-34": {
+        "w": 279,
+        "n": 588,
+        "name": "Glacier Marten",
+        "role": "assassin",
+        "element": "Water",
+        "rarity": "rare"
+      },
+      "rare-35": {
+        "w": 273,
+        "n": 588,
+        "name": "Cyclone Harrier",
+        "role": "sage",
+        "element": "Wind",
+        "rarity": "rare"
+      },
+      "rare-36": {
+        "w": 302,
+        "n": 588,
+        "name": "Zephyr Osprey",
+        "role": "defender",
+        "element": "Wind",
+        "rarity": "rare"
+      },
+      "rare-37": {
+        "w": 293,
+        "n": 588,
+        "name": "Gust Tern",
+        "role": "tracker",
+        "element": "Wind",
+        "rarity": "rare"
+      },
+      "rare-38": {
+        "w": 395,
+        "n": 588,
+        "name": "Squall Plover",
+        "role": "assassin",
+        "element": "Wind",
+        "rarity": "rare"
+      },
+      "rare-39": {
+        "w": 280,
+        "n": 588,
+        "name": "Drift Albatross",
+        "role": "sage",
+        "element": "Wind",
+        "rarity": "rare"
+      },
+      "rare-40": {
+        "w": 314,
+        "n": 588,
+        "name": "Volt Polecat",
+        "role": "defender",
+        "element": "Lightning",
+        "rarity": "rare"
+      },
+      "rare-41": {
+        "w": 313,
+        "n": 588,
+        "name": "Surge Stoat",
+        "role": "tracker",
+        "element": "Lightning",
+        "rarity": "rare"
+      },
+      "rare-42": {
+        "w": 258,
+        "n": 588,
+        "name": "Thunder Jerboa",
+        "role": "assassin",
+        "element": "Lightning",
+        "rarity": "rare"
+      },
+      "rare-43": {
+        "w": 297,
+        "n": 588,
+        "name": "Static Meerkat",
+        "role": "sage",
+        "element": "Lightning",
+        "rarity": "rare"
+      },
+      "rare-44": {
+        "w": 363,
+        "n": 588,
+        "name": "Arc Buzzard",
+        "role": "defender",
+        "element": "Lightning",
+        "rarity": "rare"
+      },
+      "rare-45": {
+        "w": 407,
+        "n": 588,
+        "name": "Granite Wombat",
+        "role": "tracker",
+        "element": "Earth",
+        "rarity": "rare"
+      },
+      "rare-46": {
+        "w": 292,
+        "n": 588,
+        "name": "Stoneback Tapir",
+        "role": "assassin",
+        "element": "Earth",
+        "rarity": "rare"
+      },
+      "rare-47": {
+        "w": 276,
+        "n": 588,
+        "name": "Quartz Aardvark",
+        "role": "sage",
+        "element": "Earth",
+        "rarity": "rare"
+      },
+      "rare-48": {
+        "w": 232,
+        "n": 588,
+        "name": "Terra Porcupine",
+        "role": "defender",
+        "element": "Earth",
+        "rarity": "rare"
+      },
+      "rare-49": {
+        "w": 415,
+        "n": 588,
+        "name": "Bramble Capybara",
+        "role": "tracker",
+        "element": "Earth",
+        "rarity": "rare"
+      },
+      "legendary-0": {
+        "w": 114,
+        "n": 348,
+        "name": "Glacier Wolf",
+        "role": "defender",
+        "element": "Water",
+        "rarity": "legendary"
+      },
+      "legendary-1": {
+        "w": 185,
+        "n": 348,
+        "name": "Tempest Hawk",
+        "role": "tracker",
+        "element": "Wind",
+        "rarity": "legendary"
+      },
+      "legendary-2": {
+        "w": 151,
+        "n": 348,
+        "name": "Umbra Fox",
+        "role": "assassin",
+        "element": "Wind",
+        "rarity": "legendary"
+      },
+      "legendary-3": {
+        "w": 138,
+        "n": 348,
+        "name": "Spirit Deer",
+        "role": "sage",
+        "element": "Earth",
+        "rarity": "legendary"
+      },
+      "legendary-4": {
+        "w": 226,
+        "n": 348,
+        "name": "Ironfang Tiger",
+        "role": "defender",
+        "element": "Fire",
+        "rarity": "legendary"
+      },
+      "legendary-5": {
+        "w": 170,
+        "n": 348,
+        "name": "Azure Kirin",
+        "role": "tracker",
+        "element": "Water",
+        "rarity": "legendary"
+      },
+      "legendary-6": {
+        "w": 206,
+        "n": 348,
+        "name": "Ember Phoenix",
+        "role": "assassin",
+        "element": "Fire",
+        "rarity": "legendary"
+      },
+      "legendary-7": {
+        "w": 130,
+        "n": 348,
+        "name": "Moon Serpent",
+        "role": "sage",
+        "element": "Earth",
+        "rarity": "legendary"
+      },
+      "legendary-8": {
+        "w": 195,
+        "n": 348,
+        "name": "Storm Lion",
+        "role": "defender",
+        "element": "Lightning",
+        "rarity": "legendary"
+      },
+      "legendary-9": {
+        "w": 131,
+        "n": 348,
+        "name": "Crystal Bear",
+        "role": "tracker",
+        "element": "Earth",
+        "rarity": "legendary"
+      },
+      "legendary-10": {
+        "w": 179,
+        "n": 348,
+        "name": "Void Raven",
+        "role": "assassin",
+        "element": "Lightning",
+        "rarity": "legendary"
+      },
+      "legendary-11": {
+        "w": 157,
+        "n": 348,
+        "name": "Thunder Drake",
+        "role": "sage",
+        "element": "Lightning",
+        "rarity": "legendary"
+      },
+      "legendary-12": {
+        "w": 163,
+        "n": 348,
+        "name": "Frost Lynx",
+        "role": "defender",
+        "element": "Water",
+        "rarity": "legendary"
+      },
+      "legendary-13": {
+        "w": 212,
+        "n": 348,
+        "name": "Armored Polar Bear",
+        "role": "tracker",
+        "element": "Fire",
+        "rarity": "legendary"
+      },
+      "legendary-14": {
+        "w": 187,
+        "n": 348,
+        "name": "Ancient Crane",
+        "role": "assassin",
+        "element": "Wind",
+        "rarity": "legendary"
+      },
+      "legendary-15": {
+        "w": 170,
+        "n": 348,
+        "name": "Inferno Chimera",
+        "role": "sage",
+        "element": "Fire",
+        "rarity": "legendary"
+      },
+      "legendary-16": {
+        "w": 227,
+        "n": 348,
+        "name": "Ash Garuda",
+        "role": "defender",
+        "element": "Fire",
+        "rarity": "legendary"
+      },
+      "legendary-17": {
+        "w": 217,
+        "n": 348,
+        "name": "Magma Behemoth",
+        "role": "tracker",
+        "element": "Fire",
+        "rarity": "legendary"
+      },
+      "legendary-18": {
+        "w": 126,
+        "n": 348,
+        "name": "Tidelord Leviathan",
+        "role": "assassin",
+        "element": "Water",
+        "rarity": "legendary"
+      },
+      "legendary-19": {
+        "w": 178,
+        "n": 348,
+        "name": "Frost Wyrm",
+        "role": "sage",
+        "element": "Water",
+        "rarity": "legendary"
+      },
+      "legendary-20": {
+        "w": 125,
+        "n": 348,
+        "name": "Abyss Kraken",
+        "role": "defender",
+        "element": "Water",
+        "rarity": "legendary"
+      },
+      "legendary-21": {
+        "w": 224,
+        "n": 348,
+        "name": "Storm Roc",
+        "role": "tracker",
+        "element": "Wind",
+        "rarity": "legendary"
+      },
+      "legendary-22": {
+        "w": 202,
+        "n": 348,
+        "name": "Tempest Pegasus",
+        "role": "assassin",
+        "element": "Wind",
+        "rarity": "legendary"
+      },
+      "legendary-23": {
+        "w": 162,
+        "n": 348,
+        "name": "Cyclone Sphinx",
+        "role": "sage",
+        "element": "Wind",
+        "rarity": "legendary"
+      },
+      "legendary-24": {
+        "w": 219,
+        "n": 348,
+        "name": "Thunder Raiju",
+        "role": "defender",
+        "element": "Lightning",
+        "rarity": "legendary"
+      },
+      "legendary-25": {
+        "w": 224,
+        "n": 348,
+        "name": "Storm Wyvern",
+        "role": "tracker",
+        "element": "Lightning",
+        "rarity": "legendary"
+      },
+      "legendary-26": {
+        "w": 179,
+        "n": 348,
+        "name": "Galvanic Manticore",
+        "role": "assassin",
+        "element": "Lightning",
+        "rarity": "legendary"
+      },
+      "legendary-27": {
+        "w": 145,
+        "n": 348,
+        "name": "Titan Golem",
+        "role": "sage",
+        "element": "Earth",
+        "rarity": "legendary"
+      },
+      "legendary-28": {
+        "w": 128,
+        "n": 348,
+        "name": "Granite Gargoyle",
+        "role": "defender",
+        "element": "Earth",
+        "rarity": "legendary"
+      },
+      "legendary-29": {
+        "w": 150,
+        "n": 348,
+        "name": "Verdant Treant",
+        "role": "tracker",
+        "element": "Earth",
+        "rarity": "legendary"
+      },
+      "mythic-0": {
+        "w": 32,
+        "n": 108,
+        "name": "Eclipse Kitsune",
+        "role": "sage",
+        "element": "Wind",
+        "rarity": "mythic"
+      },
+      "mythic-1": {
+        "w": 44,
+        "n": 108,
+        "name": "Worldstorm Dragon",
+        "role": "assassin",
+        "element": "Lightning",
+        "rarity": "mythic"
+      },
+      "mythic-2": {
+        "w": 62,
+        "n": 108,
+        "name": "Ancient Frost Titan",
+        "role": "defender",
+        "element": "Water",
+        "rarity": "mythic"
+      },
+      "mythic-3": {
+        "w": 69,
+        "n": 108,
+        "name": "Solar Stag",
+        "role": "tracker",
+        "element": "Fire",
+        "rarity": "mythic"
+      },
+      "mythic-4": {
+        "w": 52,
+        "n": 108,
+        "name": "Abyssal Oni Hound",
+        "role": "assassin",
+        "element": "Earth",
+        "rarity": "mythic"
+      },
+      "mythic-5": {
+        "w": 53,
+        "n": 108,
+        "name": "Vermillion Suzaku",
+        "role": "sage",
+        "element": "Fire",
+        "rarity": "mythic"
+      },
+      "mythic-6": {
+        "w": 57,
+        "n": 108,
+        "name": "Azure Ryujin",
+        "role": "defender",
+        "element": "Water",
+        "rarity": "mythic"
+      },
+      "mythic-7": {
+        "w": 77,
+        "n": 108,
+        "name": "Turtle Duck",
+        "role": "tracker",
+        "element": "Wind",
+        "rarity": "mythic"
+      },
+      "mythic-8": {
+        "w": 46,
+        "n": 108,
+        "name": "Stormgod Raijin",
+        "role": "assassin",
+        "element": "Lightning",
+        "rarity": "mythic"
+      },
+      "mythic-9": {
+        "w": 48,
+        "n": 108,
+        "name": "Worldroot Colossus",
+        "role": "defender",
+        "element": "Earth",
+        "rarity": "mythic"
+      }
+    }
+  },
+  "validation": [
+    {
+      "format": "1v1",
+      "level": 50,
+      "seeds": 12,
+      "seedOffset": 104729,
+      "bench": 2,
+      "games": 35160,
+      "averageRounds": 19.72929465301479,
+      "judgedGames": 679,
+      "unresolvedGames": 0,
+      "roles": {
+        "defender": {
+          "w": 8687,
+          "n": 18396
+        },
+        "tracker": {
+          "w": 9596,
+          "n": 18288
+        },
+        "assassin": {
+          "w": 8568,
+          "n": 16872
+        },
+        "sage": {
+          "w": 8309,
+          "n": 16764
+        }
+      },
+      "elements": {
+        "Fire": {
+          "w": 7402,
+          "n": 14064
+        },
+        "Water": {
+          "w": 7351,
+          "n": 14064
+        },
+        "Earth": {
+          "w": 6852,
+          "n": 14064
+        },
+        "Wind": {
+          "w": 6548,
+          "n": 14064
+        },
+        "Lightning": {
+          "w": 7007,
+          "n": 14064
+        }
+      },
+      "species": {
+        "standard-0": {
+          "w": 190,
+          "n": 588,
+          "name": "Red Fox",
+          "role": "defender",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-1": {
+          "w": 309,
+          "n": 588,
+          "name": "Snow Rabbit",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-2": {
+          "w": 291,
+          "n": 588,
+          "name": "Black Cat",
+          "role": "assassin",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-3": {
+          "w": 223,
+          "n": 588,
+          "name": "Forest Hawk",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-4": {
+          "w": 243,
+          "n": 588,
+          "name": "River Otter",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-5": {
+          "w": 253,
+          "n": 588,
+          "name": "Stone Turtle",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-6": {
+          "w": 345,
+          "n": 588,
+          "name": "Desert Lizard",
+          "role": "assassin",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-7": {
+          "w": 363,
+          "n": 588,
+          "name": "Ashen Crow",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-8": {
+          "w": 258,
+          "n": 588,
+          "name": "Blue Frog",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-9": {
+          "w": 264,
+          "n": 588,
+          "name": "Wild Boar",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-10": {
+          "w": 259,
+          "n": 588,
+          "name": "Pine Owl",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-11": {
+          "w": 342,
+          "n": 588,
+          "name": "Sand Snake",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-12": {
+          "w": 292,
+          "n": 588,
+          "name": "Mist Ferret",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-13": {
+          "w": 261,
+          "n": 588,
+          "name": "Iron Beetle",
+          "role": "tracker",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-14": {
+          "w": 273,
+          "n": 588,
+          "name": "White Crane",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-15": {
+          "w": 396,
+          "n": 588,
+          "name": "Cinder Rat",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-16": {
+          "w": 213,
+          "n": 588,
+          "name": "Meadow Deer",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-17": {
+          "w": 290,
+          "n": 588,
+          "name": "Storm Gull",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-18": {
+          "w": 321,
+          "n": 588,
+          "name": "Shadow Bat",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-19": {
+          "w": 315,
+          "n": 588,
+          "name": "Mud Toad",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-20": {
+          "w": 218,
+          "n": 588,
+          "name": "Leaf Monkey",
+          "role": "defender",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-21": {
+          "w": 376,
+          "n": 588,
+          "name": "Frost Cub",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-22": {
+          "w": 305,
+          "n": 588,
+          "name": "Temple Gecko",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-23": {
+          "w": 304,
+          "n": 588,
+          "name": "Rock Badger",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-24": {
+          "w": 277,
+          "n": 588,
+          "name": "Tiny Wolf",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-25": {
+          "w": 236,
+          "n": 588,
+          "name": "Flint Jackal",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-26": {
+          "w": 295,
+          "n": 588,
+          "name": "Ember Mole",
+          "role": "assassin",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-27": {
+          "w": 404,
+          "n": 588,
+          "name": "Cinder Moth",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-28": {
+          "w": 309,
+          "n": 588,
+          "name": "Scorch Skink",
+          "role": "defender",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-29": {
+          "w": 261,
+          "n": 588,
+          "name": "Magma Pup",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-30": {
+          "w": 393,
+          "n": 588,
+          "name": "Brook Newt",
+          "role": "assassin",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-31": {
+          "w": 332,
+          "n": 588,
+          "name": "Pebble Crab",
+          "role": "sage",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-32": {
+          "w": 260,
+          "n": 588,
+          "name": "Tide Minnow",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-33": {
+          "w": 340,
+          "n": 588,
+          "name": "Reed Heron",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-34": {
+          "w": 397,
+          "n": 588,
+          "name": "Marsh Eel",
+          "role": "assassin",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-35": {
+          "w": 241,
+          "n": 588,
+          "name": "Breeze Finch",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-36": {
+          "w": 279,
+          "n": 588,
+          "name": "Dust Swift",
+          "role": "defender",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-37": {
+          "w": 255,
+          "n": 588,
+          "name": "Cliff Swallow",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-38": {
+          "w": 238,
+          "n": 588,
+          "name": "Kite Magpie",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-39": {
+          "w": 293,
+          "n": 588,
+          "name": "Glide Sparrow",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-40": {
+          "w": 214,
+          "n": 588,
+          "name": "Spark Shrew",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-41": {
+          "w": 304,
+          "n": 588,
+          "name": "Bolt Mouse",
+          "role": "tracker",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-42": {
+          "w": 304,
+          "n": 588,
+          "name": "Arc Vole",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-43": {
+          "w": 347,
+          "n": 588,
+          "name": "Storm Shrike",
+          "role": "sage",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-44": {
+          "w": 240,
+          "n": 588,
+          "name": "Zap Quail",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-45": {
+          "w": 318,
+          "n": 588,
+          "name": "Clay Tortoise",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-46": {
+          "w": 343,
+          "n": 588,
+          "name": "Moss Hedgehog",
+          "role": "assassin",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-47": {
+          "w": 267,
+          "n": 588,
+          "name": "Dune Armadillo",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-48": {
+          "w": 309,
+          "n": 588,
+          "name": "Gravel Pangolin",
+          "role": "defender",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-49": {
+          "w": 340,
+          "n": 588,
+          "name": "Loam Marmot",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "rare-0": {
+          "w": 285,
+          "n": 588,
+          "name": "Crimson Fox",
+          "role": "defender",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-1": {
+          "w": 349,
+          "n": 588,
+          "name": "Frost Hare",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-2": {
+          "w": 253,
+          "n": 588,
+          "name": "Night Panther",
+          "role": "assassin",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-3": {
+          "w": 244,
+          "n": 588,
+          "name": "Sky Falcon",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-4": {
+          "w": 270,
+          "n": 588,
+          "name": "Tide Otter",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-5": {
+          "w": 297,
+          "n": 588,
+          "name": "Ironback Turtle",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-6": {
+          "w": 284,
+          "n": 588,
+          "name": "Dune Viper",
+          "role": "assassin",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-7": {
+          "w": 316,
+          "n": 588,
+          "name": "Ashwing Raven",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-8": {
+          "w": 242,
+          "n": 588,
+          "name": "Azure Toad",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-9": {
+          "w": 314,
+          "n": 588,
+          "name": "Bristle Boar",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-10": {
+          "w": 202,
+          "n": 588,
+          "name": "Silver Owl",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-11": {
+          "w": 243,
+          "n": 588,
+          "name": "Glass Serpent",
+          "role": "sage",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-12": {
+          "w": 281,
+          "n": 588,
+          "name": "Mist Lynx",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-13": {
+          "w": 303,
+          "n": 588,
+          "name": "Steel Beetle",
+          "role": "tracker",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-14": {
+          "w": 256,
+          "n": 588,
+          "name": "Pearl Crane",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-15": {
+          "w": 335,
+          "n": 588,
+          "name": "Cinder Weasel",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-16": {
+          "w": 302,
+          "n": 588,
+          "name": "Thorn Stag",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-17": {
+          "w": 323,
+          "n": 588,
+          "name": "Stormfin Gull",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-18": {
+          "w": 264,
+          "n": 588,
+          "name": "Duskwings Bat",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-19": {
+          "w": 278,
+          "n": 588,
+          "name": "Mossback Toad",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-20": {
+          "w": 336,
+          "n": 588,
+          "name": "Bamboo Ape",
+          "role": "defender",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-21": {
+          "w": 384,
+          "n": 588,
+          "name": "Frostbite Cub",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-22": {
+          "w": 346,
+          "n": 588,
+          "name": "Shrine Salamander",
+          "role": "assassin",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-23": {
+          "w": 289,
+          "n": 588,
+          "name": "Granite Badger",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-24": {
+          "w": 354,
+          "n": 588,
+          "name": "Young Direwolf",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-25": {
+          "w": 288,
+          "n": 588,
+          "name": "Magma Hyena",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-26": {
+          "w": 240,
+          "n": 588,
+          "name": "Ember Ocelot",
+          "role": "assassin",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-27": {
+          "w": 239,
+          "n": 588,
+          "name": "Pyre Kestrel",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-28": {
+          "w": 301,
+          "n": 588,
+          "name": "Scoria Mongoose",
+          "role": "defender",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-29": {
+          "w": 339,
+          "n": 588,
+          "name": "Blaze Caracal",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-30": {
+          "w": 325,
+          "n": 588,
+          "name": "Tidal Mink",
+          "role": "assassin",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-31": {
+          "w": 275,
+          "n": 588,
+          "name": "Frost Seal",
+          "role": "sage",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-32": {
+          "w": 255,
+          "n": 588,
+          "name": "Coral Serval",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-33": {
+          "w": 362,
+          "n": 588,
+          "name": "Brine Cormorant",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-34": {
+          "w": 296,
+          "n": 588,
+          "name": "Glacier Marten",
+          "role": "assassin",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-35": {
+          "w": 267,
+          "n": 588,
+          "name": "Cyclone Harrier",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-36": {
+          "w": 286,
+          "n": 588,
+          "name": "Zephyr Osprey",
+          "role": "defender",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-37": {
+          "w": 290,
+          "n": 588,
+          "name": "Gust Tern",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-38": {
+          "w": 367,
+          "n": 588,
+          "name": "Squall Plover",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-39": {
+          "w": 260,
+          "n": 588,
+          "name": "Drift Albatross",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-40": {
+          "w": 308,
+          "n": 588,
+          "name": "Volt Polecat",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-41": {
+          "w": 289,
+          "n": 588,
+          "name": "Surge Stoat",
+          "role": "tracker",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-42": {
+          "w": 271,
+          "n": 588,
+          "name": "Thunder Jerboa",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-43": {
+          "w": 295,
+          "n": 588,
+          "name": "Static Meerkat",
+          "role": "sage",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-44": {
+          "w": 357,
+          "n": 588,
+          "name": "Arc Buzzard",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-45": {
+          "w": 300,
+          "n": 588,
+          "name": "Granite Wombat",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-46": {
+          "w": 285,
+          "n": 588,
+          "name": "Stoneback Tapir",
+          "role": "assassin",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-47": {
+          "w": 259,
+          "n": 588,
+          "name": "Quartz Aardvark",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-48": {
+          "w": 221,
+          "n": 588,
+          "name": "Terra Porcupine",
+          "role": "defender",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-49": {
+          "w": 375,
+          "n": 588,
+          "name": "Bramble Capybara",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "legendary-0": {
+          "w": 181,
+          "n": 348,
+          "name": "Glacier Wolf",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "legendary"
+        },
+        "legendary-1": {
+          "w": 162,
+          "n": 348,
+          "name": "Tempest Hawk",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "legendary"
+        },
+        "legendary-2": {
+          "w": 139,
+          "n": 348,
+          "name": "Umbra Fox",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "legendary"
+        },
+        "legendary-3": {
+          "w": 151,
+          "n": 348,
+          "name": "Spirit Deer",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "legendary"
+        },
+        "legendary-4": {
+          "w": 171,
+          "n": 348,
+          "name": "Ironfang Tiger",
+          "role": "defender",
+          "element": "Fire",
+          "rarity": "legendary"
+        },
+        "legendary-5": {
+          "w": 154,
+          "n": 348,
+          "name": "Azure Kirin",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "legendary"
+        },
+        "legendary-6": {
+          "w": 214,
+          "n": 348,
+          "name": "Ember Phoenix",
+          "role": "assassin",
+          "element": "Fire",
+          "rarity": "legendary"
+        },
+        "legendary-7": {
+          "w": 138,
+          "n": 348,
+          "name": "Moon Serpent",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "legendary"
+        },
+        "legendary-8": {
+          "w": 188,
+          "n": 348,
+          "name": "Storm Lion",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "legendary"
+        },
+        "legendary-9": {
+          "w": 133,
+          "n": 348,
+          "name": "Crystal Bear",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "legendary"
+        },
+        "legendary-10": {
+          "w": 180,
+          "n": 348,
+          "name": "Void Raven",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "legendary"
+        },
+        "legendary-11": {
+          "w": 167,
+          "n": 348,
+          "name": "Thunder Drake",
+          "role": "sage",
+          "element": "Lightning",
+          "rarity": "legendary"
+        },
+        "legendary-12": {
+          "w": 164,
+          "n": 348,
+          "name": "Frost Lynx",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "legendary"
+        },
+        "legendary-13": {
+          "w": 207,
+          "n": 348,
+          "name": "Armored Polar Bear",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "legendary"
+        },
+        "legendary-14": {
+          "w": 195,
+          "n": 348,
+          "name": "Ancient Crane",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "legendary"
+        },
+        "legendary-15": {
+          "w": 149,
+          "n": 348,
+          "name": "Inferno Chimera",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "legendary"
+        },
+        "legendary-16": {
+          "w": 217,
+          "n": 348,
+          "name": "Ash Garuda",
+          "role": "defender",
+          "element": "Fire",
+          "rarity": "legendary"
+        },
+        "legendary-17": {
+          "w": 204,
+          "n": 348,
+          "name": "Magma Behemoth",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "legendary"
+        },
+        "legendary-18": {
+          "w": 181,
+          "n": 348,
+          "name": "Tidelord Leviathan",
+          "role": "assassin",
+          "element": "Water",
+          "rarity": "legendary"
+        },
+        "legendary-19": {
+          "w": 175,
+          "n": 348,
+          "name": "Frost Wyrm",
+          "role": "sage",
+          "element": "Water",
+          "rarity": "legendary"
+        },
+        "legendary-20": {
+          "w": 144,
+          "n": 348,
+          "name": "Abyss Kraken",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "legendary"
+        },
+        "legendary-21": {
+          "w": 205,
+          "n": 348,
+          "name": "Storm Roc",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "legendary"
+        },
+        "legendary-22": {
+          "w": 188,
+          "n": 348,
+          "name": "Tempest Pegasus",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "legendary"
+        },
+        "legendary-23": {
+          "w": 155,
+          "n": 348,
+          "name": "Cyclone Sphinx",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "legendary"
+        },
+        "legendary-24": {
+          "w": 218,
+          "n": 348,
+          "name": "Thunder Raiju",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "legendary"
+        },
+        "legendary-25": {
+          "w": 218,
+          "n": 348,
+          "name": "Storm Wyvern",
+          "role": "tracker",
+          "element": "Lightning",
+          "rarity": "legendary"
+        },
+        "legendary-26": {
+          "w": 170,
+          "n": 348,
+          "name": "Galvanic Manticore",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "legendary"
+        },
+        "legendary-27": {
+          "w": 152,
+          "n": 348,
+          "name": "Titan Golem",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "legendary"
+        },
+        "legendary-28": {
+          "w": 142,
+          "n": 348,
+          "name": "Granite Gargoyle",
+          "role": "defender",
+          "element": "Earth",
+          "rarity": "legendary"
+        },
+        "legendary-29": {
+          "w": 158,
+          "n": 348,
+          "name": "Verdant Treant",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "legendary"
+        },
+        "mythic-0": {
+          "w": 36,
+          "n": 108,
+          "name": "Eclipse Kitsune",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "mythic"
+        },
+        "mythic-1": {
+          "w": 51,
+          "n": 108,
+          "name": "Worldstorm Dragon",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "mythic"
+        },
+        "mythic-2": {
+          "w": 57,
+          "n": 108,
+          "name": "Ancient Frost Titan",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "mythic"
+        },
+        "mythic-3": {
+          "w": 67,
+          "n": 108,
+          "name": "Solar Stag",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "mythic"
+        },
+        "mythic-4": {
+          "w": 54,
+          "n": 108,
+          "name": "Abyssal Oni Hound",
+          "role": "assassin",
+          "element": "Earth",
+          "rarity": "mythic"
+        },
+        "mythic-5": {
+          "w": 59,
+          "n": 108,
+          "name": "Vermillion Suzaku",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "mythic"
+        },
+        "mythic-6": {
+          "w": 56,
+          "n": 108,
+          "name": "Azure Ryujin",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "mythic"
+        },
+        "mythic-7": {
+          "w": 68,
+          "n": 108,
+          "name": "Turtle Duck",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "mythic"
+        },
+        "mythic-8": {
+          "w": 43,
+          "n": 108,
+          "name": "Stormgod Raijin",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "mythic"
+        },
+        "mythic-9": {
+          "w": 49,
+          "n": 108,
+          "name": "Worldroot Colossus",
+          "role": "defender",
+          "element": "Earth",
+          "rarity": "mythic"
+        }
+      }
+    },
+    {
+      "format": "2v2",
+      "level": 50,
+      "seeds": 12,
+      "seedOffset": 104729,
+      "bench": 2,
+      "games": 35160,
+      "averageRounds": 12.839163822525597,
+      "judgedGames": 0,
+      "unresolvedGames": 0,
+      "roles": {
+        "defender": {
+          "w": 9032,
+          "n": 18396
+        },
+        "tracker": {
+          "w": 9887,
+          "n": 18288
+        },
+        "assassin": {
+          "w": 8031,
+          "n": 16872
+        },
+        "sage": {
+          "w": 8210,
+          "n": 16764
+        }
+      },
+      "elements": {
+        "Fire": {
+          "w": 7124,
+          "n": 14064
+        },
+        "Water": {
+          "w": 7092,
+          "n": 14064
+        },
+        "Earth": {
+          "w": 7124,
+          "n": 14064
+        },
+        "Wind": {
+          "w": 6682,
+          "n": 14064
+        },
+        "Lightning": {
+          "w": 7138,
+          "n": 14064
+        }
+      },
+      "species": {
+        "standard-0": {
+          "w": 281,
+          "n": 588,
+          "name": "Red Fox",
+          "role": "defender",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-1": {
+          "w": 292,
+          "n": 588,
+          "name": "Snow Rabbit",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-2": {
+          "w": 267,
+          "n": 588,
+          "name": "Black Cat",
+          "role": "assassin",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-3": {
+          "w": 252,
+          "n": 588,
+          "name": "Forest Hawk",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-4": {
+          "w": 277,
+          "n": 588,
+          "name": "River Otter",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-5": {
+          "w": 302,
+          "n": 588,
+          "name": "Stone Turtle",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-6": {
+          "w": 294,
+          "n": 588,
+          "name": "Desert Lizard",
+          "role": "assassin",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-7": {
+          "w": 313,
+          "n": 588,
+          "name": "Ashen Crow",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-8": {
+          "w": 285,
+          "n": 588,
+          "name": "Blue Frog",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-9": {
+          "w": 311,
+          "n": 588,
+          "name": "Wild Boar",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-10": {
+          "w": 279,
+          "n": 588,
+          "name": "Pine Owl",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-11": {
+          "w": 304,
+          "n": 588,
+          "name": "Sand Snake",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-12": {
+          "w": 305,
+          "n": 588,
+          "name": "Mist Ferret",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-13": {
+          "w": 296,
+          "n": 588,
+          "name": "Iron Beetle",
+          "role": "tracker",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-14": {
+          "w": 278,
+          "n": 588,
+          "name": "White Crane",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-15": {
+          "w": 361,
+          "n": 588,
+          "name": "Cinder Rat",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-16": {
+          "w": 251,
+          "n": 588,
+          "name": "Meadow Deer",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-17": {
+          "w": 323,
+          "n": 588,
+          "name": "Storm Gull",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-18": {
+          "w": 279,
+          "n": 588,
+          "name": "Shadow Bat",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-19": {
+          "w": 331,
+          "n": 588,
+          "name": "Mud Toad",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-20": {
+          "w": 247,
+          "n": 588,
+          "name": "Leaf Monkey",
+          "role": "defender",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-21": {
+          "w": 369,
+          "n": 588,
+          "name": "Frost Cub",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-22": {
+          "w": 283,
+          "n": 588,
+          "name": "Temple Gecko",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-23": {
+          "w": 276,
+          "n": 588,
+          "name": "Rock Badger",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-24": {
+          "w": 287,
+          "n": 588,
+          "name": "Tiny Wolf",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-25": {
+          "w": 283,
+          "n": 588,
+          "name": "Flint Jackal",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-26": {
+          "w": 250,
+          "n": 588,
+          "name": "Ember Mole",
+          "role": "assassin",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-27": {
+          "w": 298,
+          "n": 588,
+          "name": "Cinder Moth",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-28": {
+          "w": 289,
+          "n": 588,
+          "name": "Scorch Skink",
+          "role": "defender",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-29": {
+          "w": 314,
+          "n": 588,
+          "name": "Magma Pup",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-30": {
+          "w": 313,
+          "n": 588,
+          "name": "Brook Newt",
+          "role": "assassin",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-31": {
+          "w": 332,
+          "n": 588,
+          "name": "Pebble Crab",
+          "role": "sage",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-32": {
+          "w": 249,
+          "n": 588,
+          "name": "Tide Minnow",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-33": {
+          "w": 314,
+          "n": 588,
+          "name": "Reed Heron",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-34": {
+          "w": 325,
+          "n": 588,
+          "name": "Marsh Eel",
+          "role": "assassin",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-35": {
+          "w": 272,
+          "n": 588,
+          "name": "Breeze Finch",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-36": {
+          "w": 275,
+          "n": 588,
+          "name": "Dust Swift",
+          "role": "defender",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-37": {
+          "w": 300,
+          "n": 588,
+          "name": "Cliff Swallow",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-38": {
+          "w": 256,
+          "n": 588,
+          "name": "Kite Magpie",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-39": {
+          "w": 274,
+          "n": 588,
+          "name": "Glide Sparrow",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-40": {
+          "w": 258,
+          "n": 588,
+          "name": "Spark Shrew",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-41": {
+          "w": 322,
+          "n": 588,
+          "name": "Bolt Mouse",
+          "role": "tracker",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-42": {
+          "w": 266,
+          "n": 588,
+          "name": "Arc Vole",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-43": {
+          "w": 314,
+          "n": 588,
+          "name": "Storm Shrike",
+          "role": "sage",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-44": {
+          "w": 301,
+          "n": 588,
+          "name": "Zap Quail",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-45": {
+          "w": 316,
+          "n": 588,
+          "name": "Clay Tortoise",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-46": {
+          "w": 287,
+          "n": 588,
+          "name": "Moss Hedgehog",
+          "role": "assassin",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-47": {
+          "w": 314,
+          "n": 588,
+          "name": "Dune Armadillo",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-48": {
+          "w": 299,
+          "n": 588,
+          "name": "Gravel Pangolin",
+          "role": "defender",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-49": {
+          "w": 336,
+          "n": 588,
+          "name": "Loam Marmot",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "rare-0": {
+          "w": 282,
+          "n": 588,
+          "name": "Crimson Fox",
+          "role": "defender",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-1": {
+          "w": 297,
+          "n": 588,
+          "name": "Frost Hare",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-2": {
+          "w": 280,
+          "n": 588,
+          "name": "Night Panther",
+          "role": "assassin",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-3": {
+          "w": 268,
+          "n": 588,
+          "name": "Sky Falcon",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-4": {
+          "w": 298,
+          "n": 588,
+          "name": "Tide Otter",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-5": {
+          "w": 285,
+          "n": 588,
+          "name": "Ironback Turtle",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-6": {
+          "w": 256,
+          "n": 588,
+          "name": "Dune Viper",
+          "role": "assassin",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-7": {
+          "w": 287,
+          "n": 588,
+          "name": "Ashwing Raven",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-8": {
+          "w": 220,
+          "n": 588,
+          "name": "Azure Toad",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-9": {
+          "w": 302,
+          "n": 588,
+          "name": "Bristle Boar",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-10": {
+          "w": 233,
+          "n": 588,
+          "name": "Silver Owl",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-11": {
+          "w": 261,
+          "n": 588,
+          "name": "Glass Serpent",
+          "role": "sage",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-12": {
+          "w": 289,
+          "n": 588,
+          "name": "Mist Lynx",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-13": {
+          "w": 317,
+          "n": 588,
+          "name": "Steel Beetle",
+          "role": "tracker",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-14": {
+          "w": 247,
+          "n": 588,
+          "name": "Pearl Crane",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-15": {
+          "w": 338,
+          "n": 588,
+          "name": "Cinder Weasel",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-16": {
+          "w": 305,
+          "n": 588,
+          "name": "Thorn Stag",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-17": {
+          "w": 332,
+          "n": 588,
+          "name": "Stormfin Gull",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-18": {
+          "w": 273,
+          "n": 588,
+          "name": "Duskwings Bat",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-19": {
+          "w": 296,
+          "n": 588,
+          "name": "Mossback Toad",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-20": {
+          "w": 328,
+          "n": 588,
+          "name": "Bamboo Ape",
+          "role": "defender",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-21": {
+          "w": 349,
+          "n": 588,
+          "name": "Frostbite Cub",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-22": {
+          "w": 314,
+          "n": 588,
+          "name": "Shrine Salamander",
+          "role": "assassin",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-23": {
+          "w": 318,
+          "n": 588,
+          "name": "Granite Badger",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-24": {
+          "w": 346,
+          "n": 588,
+          "name": "Young Direwolf",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-25": {
+          "w": 313,
+          "n": 588,
+          "name": "Magma Hyena",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-26": {
+          "w": 214,
+          "n": 588,
+          "name": "Ember Ocelot",
+          "role": "assassin",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-27": {
+          "w": 268,
+          "n": 588,
+          "name": "Pyre Kestrel",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-28": {
+          "w": 303,
+          "n": 588,
+          "name": "Scoria Mongoose",
+          "role": "defender",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-29": {
+          "w": 304,
+          "n": 588,
+          "name": "Blaze Caracal",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-30": {
+          "w": 288,
+          "n": 588,
+          "name": "Tidal Mink",
+          "role": "assassin",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-31": {
+          "w": 254,
+          "n": 588,
+          "name": "Frost Seal",
+          "role": "sage",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-32": {
+          "w": 273,
+          "n": 588,
+          "name": "Coral Serval",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-33": {
+          "w": 329,
+          "n": 588,
+          "name": "Brine Cormorant",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-34": {
+          "w": 308,
+          "n": 588,
+          "name": "Glacier Marten",
+          "role": "assassin",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-35": {
+          "w": 242,
+          "n": 588,
+          "name": "Cyclone Harrier",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-36": {
+          "w": 306,
+          "n": 588,
+          "name": "Zephyr Osprey",
+          "role": "defender",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-37": {
+          "w": 301,
+          "n": 588,
+          "name": "Gust Tern",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-38": {
+          "w": 337,
+          "n": 588,
+          "name": "Squall Plover",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-39": {
+          "w": 251,
+          "n": 588,
+          "name": "Drift Albatross",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-40": {
+          "w": 320,
+          "n": 588,
+          "name": "Volt Polecat",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-41": {
+          "w": 355,
+          "n": 588,
+          "name": "Surge Stoat",
+          "role": "tracker",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-42": {
+          "w": 276,
+          "n": 588,
+          "name": "Thunder Jerboa",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-43": {
+          "w": 291,
+          "n": 588,
+          "name": "Static Meerkat",
+          "role": "sage",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-44": {
+          "w": 320,
+          "n": 588,
+          "name": "Arc Buzzard",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-45": {
+          "w": 317,
+          "n": 588,
+          "name": "Granite Wombat",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-46": {
+          "w": 285,
+          "n": 588,
+          "name": "Stoneback Tapir",
+          "role": "assassin",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-47": {
+          "w": 312,
+          "n": 588,
+          "name": "Quartz Aardvark",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-48": {
+          "w": 264,
+          "n": 588,
+          "name": "Terra Porcupine",
+          "role": "defender",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-49": {
+          "w": 348,
+          "n": 588,
+          "name": "Bramble Capybara",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "legendary-0": {
+          "w": 180,
+          "n": 348,
+          "name": "Glacier Wolf",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "legendary"
+        },
+        "legendary-1": {
+          "w": 166,
+          "n": 348,
+          "name": "Tempest Hawk",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "legendary"
+        },
+        "legendary-2": {
+          "w": 148,
+          "n": 348,
+          "name": "Umbra Fox",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "legendary"
+        },
+        "legendary-3": {
+          "w": 140,
+          "n": 348,
+          "name": "Spirit Deer",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "legendary"
+        },
+        "legendary-4": {
+          "w": 171,
+          "n": 348,
+          "name": "Ironfang Tiger",
+          "role": "defender",
+          "element": "Fire",
+          "rarity": "legendary"
+        },
+        "legendary-5": {
+          "w": 176,
+          "n": 348,
+          "name": "Azure Kirin",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "legendary"
+        },
+        "legendary-6": {
+          "w": 181,
+          "n": 348,
+          "name": "Ember Phoenix",
+          "role": "assassin",
+          "element": "Fire",
+          "rarity": "legendary"
+        },
+        "legendary-7": {
+          "w": 157,
+          "n": 348,
+          "name": "Moon Serpent",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "legendary"
+        },
+        "legendary-8": {
+          "w": 182,
+          "n": 348,
+          "name": "Storm Lion",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "legendary"
+        },
+        "legendary-9": {
+          "w": 177,
+          "n": 348,
+          "name": "Crystal Bear",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "legendary"
+        },
+        "legendary-10": {
+          "w": 157,
+          "n": 348,
+          "name": "Void Raven",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "legendary"
+        },
+        "legendary-11": {
+          "w": 182,
+          "n": 348,
+          "name": "Thunder Drake",
+          "role": "sage",
+          "element": "Lightning",
+          "rarity": "legendary"
+        },
+        "legendary-12": {
+          "w": 143,
+          "n": 348,
+          "name": "Frost Lynx",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "legendary"
+        },
+        "legendary-13": {
+          "w": 212,
+          "n": 348,
+          "name": "Armored Polar Bear",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "legendary"
+        },
+        "legendary-14": {
+          "w": 178,
+          "n": 348,
+          "name": "Ancient Crane",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "legendary"
+        },
+        "legendary-15": {
+          "w": 133,
+          "n": 348,
+          "name": "Inferno Chimera",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "legendary"
+        },
+        "legendary-16": {
+          "w": 214,
+          "n": 348,
+          "name": "Ash Garuda",
+          "role": "defender",
+          "element": "Fire",
+          "rarity": "legendary"
+        },
+        "legendary-17": {
+          "w": 224,
+          "n": 348,
+          "name": "Magma Behemoth",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "legendary"
+        },
+        "legendary-18": {
+          "w": 193,
+          "n": 348,
+          "name": "Tidelord Leviathan",
+          "role": "assassin",
+          "element": "Water",
+          "rarity": "legendary"
+        },
+        "legendary-19": {
+          "w": 177,
+          "n": 348,
+          "name": "Frost Wyrm",
+          "role": "sage",
+          "element": "Water",
+          "rarity": "legendary"
+        },
+        "legendary-20": {
+          "w": 142,
+          "n": 348,
+          "name": "Abyss Kraken",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "legendary"
+        },
+        "legendary-21": {
+          "w": 183,
+          "n": 348,
+          "name": "Storm Roc",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "legendary"
+        },
+        "legendary-22": {
+          "w": 170,
+          "n": 348,
+          "name": "Tempest Pegasus",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "legendary"
+        },
+        "legendary-23": {
+          "w": 135,
+          "n": 348,
+          "name": "Cyclone Sphinx",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "legendary"
+        },
+        "legendary-24": {
+          "w": 205,
+          "n": 348,
+          "name": "Thunder Raiju",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "legendary"
+        },
+        "legendary-25": {
+          "w": 216,
+          "n": 348,
+          "name": "Storm Wyvern",
+          "role": "tracker",
+          "element": "Lightning",
+          "rarity": "legendary"
+        },
+        "legendary-26": {
+          "w": 170,
+          "n": 348,
+          "name": "Galvanic Manticore",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "legendary"
+        },
+        "legendary-27": {
+          "w": 176,
+          "n": 348,
+          "name": "Titan Golem",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "legendary"
+        },
+        "legendary-28": {
+          "w": 167,
+          "n": 348,
+          "name": "Granite Gargoyle",
+          "role": "defender",
+          "element": "Earth",
+          "rarity": "legendary"
+        },
+        "legendary-29": {
+          "w": 165,
+          "n": 348,
+          "name": "Verdant Treant",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "legendary"
+        },
+        "mythic-0": {
+          "w": 33,
+          "n": 108,
+          "name": "Eclipse Kitsune",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "mythic"
+        },
+        "mythic-1": {
+          "w": 56,
+          "n": 108,
+          "name": "Worldstorm Dragon",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "mythic"
+        },
+        "mythic-2": {
+          "w": 58,
+          "n": 108,
+          "name": "Ancient Frost Titan",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "mythic"
+        },
+        "mythic-3": {
+          "w": 73,
+          "n": 108,
+          "name": "Solar Stag",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "mythic"
+        },
+        "mythic-4": {
+          "w": 41,
+          "n": 108,
+          "name": "Abyssal Oni Hound",
+          "role": "assassin",
+          "element": "Earth",
+          "rarity": "mythic"
+        },
+        "mythic-5": {
+          "w": 50,
+          "n": 108,
+          "name": "Vermillion Suzaku",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "mythic"
+        },
+        "mythic-6": {
+          "w": 57,
+          "n": 108,
+          "name": "Azure Ryujin",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "mythic"
+        },
+        "mythic-7": {
+          "w": 68,
+          "n": 108,
+          "name": "Turtle Duck",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "mythic"
+        },
+        "mythic-8": {
+          "w": 49,
+          "n": 108,
+          "name": "Stormgod Raijin",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "mythic"
+        },
+        "mythic-9": {
+          "w": 55,
+          "n": 108,
+          "name": "Worldroot Colossus",
+          "role": "defender",
+          "element": "Earth",
+          "rarity": "mythic"
+        }
+      }
+    },
+    {
+      "format": "3v3",
+      "level": 50,
+      "seeds": 12,
+      "seedOffset": 104729,
+      "bench": 2,
+      "games": 35160,
+      "averageRounds": 11.01726393629124,
+      "judgedGames": 0,
+      "unresolvedGames": 0,
+      "roles": {
+        "defender": {
+          "w": 9274,
+          "n": 18396
+        },
+        "tracker": {
+          "w": 9652,
+          "n": 18288
+        },
+        "assassin": {
+          "w": 8074,
+          "n": 16872
+        },
+        "sage": {
+          "w": 8160,
+          "n": 16764
+        }
+      },
+      "elements": {
+        "Fire": {
+          "w": 7029,
+          "n": 14064
+        },
+        "Water": {
+          "w": 7050,
+          "n": 14064
+        },
+        "Earth": {
+          "w": 7209,
+          "n": 14064
+        },
+        "Wind": {
+          "w": 6787,
+          "n": 14064
+        },
+        "Lightning": {
+          "w": 7085,
+          "n": 14064
+        }
+      },
+      "species": {
+        "standard-0": {
+          "w": 301,
+          "n": 588,
+          "name": "Red Fox",
+          "role": "defender",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-1": {
+          "w": 305,
+          "n": 588,
+          "name": "Snow Rabbit",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-2": {
+          "w": 279,
+          "n": 588,
+          "name": "Black Cat",
+          "role": "assassin",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-3": {
+          "w": 259,
+          "n": 588,
+          "name": "Forest Hawk",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-4": {
+          "w": 279,
+          "n": 588,
+          "name": "River Otter",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-5": {
+          "w": 302,
+          "n": 588,
+          "name": "Stone Turtle",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-6": {
+          "w": 255,
+          "n": 588,
+          "name": "Desert Lizard",
+          "role": "assassin",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-7": {
+          "w": 294,
+          "n": 588,
+          "name": "Ashen Crow",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-8": {
+          "w": 291,
+          "n": 588,
+          "name": "Blue Frog",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-9": {
+          "w": 291,
+          "n": 588,
+          "name": "Wild Boar",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-10": {
+          "w": 274,
+          "n": 588,
+          "name": "Pine Owl",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-11": {
+          "w": 282,
+          "n": 588,
+          "name": "Sand Snake",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-12": {
+          "w": 306,
+          "n": 588,
+          "name": "Mist Ferret",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-13": {
+          "w": 314,
+          "n": 588,
+          "name": "Iron Beetle",
+          "role": "tracker",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-14": {
+          "w": 273,
+          "n": 588,
+          "name": "White Crane",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-15": {
+          "w": 332,
+          "n": 588,
+          "name": "Cinder Rat",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-16": {
+          "w": 255,
+          "n": 588,
+          "name": "Meadow Deer",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-17": {
+          "w": 313,
+          "n": 588,
+          "name": "Storm Gull",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-18": {
+          "w": 285,
+          "n": 588,
+          "name": "Shadow Bat",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-19": {
+          "w": 330,
+          "n": 588,
+          "name": "Mud Toad",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-20": {
+          "w": 272,
+          "n": 588,
+          "name": "Leaf Monkey",
+          "role": "defender",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-21": {
+          "w": 355,
+          "n": 588,
+          "name": "Frost Cub",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-22": {
+          "w": 269,
+          "n": 588,
+          "name": "Temple Gecko",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-23": {
+          "w": 287,
+          "n": 588,
+          "name": "Rock Badger",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-24": {
+          "w": 291,
+          "n": 588,
+          "name": "Tiny Wolf",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-25": {
+          "w": 291,
+          "n": 588,
+          "name": "Flint Jackal",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-26": {
+          "w": 258,
+          "n": 588,
+          "name": "Ember Mole",
+          "role": "assassin",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-27": {
+          "w": 291,
+          "n": 588,
+          "name": "Cinder Moth",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-28": {
+          "w": 309,
+          "n": 588,
+          "name": "Scorch Skink",
+          "role": "defender",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-29": {
+          "w": 345,
+          "n": 588,
+          "name": "Magma Pup",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-30": {
+          "w": 302,
+          "n": 588,
+          "name": "Brook Newt",
+          "role": "assassin",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-31": {
+          "w": 294,
+          "n": 588,
+          "name": "Pebble Crab",
+          "role": "sage",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-32": {
+          "w": 271,
+          "n": 588,
+          "name": "Tide Minnow",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-33": {
+          "w": 309,
+          "n": 588,
+          "name": "Reed Heron",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-34": {
+          "w": 323,
+          "n": 588,
+          "name": "Marsh Eel",
+          "role": "assassin",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-35": {
+          "w": 247,
+          "n": 588,
+          "name": "Breeze Finch",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-36": {
+          "w": 250,
+          "n": 588,
+          "name": "Dust Swift",
+          "role": "defender",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-37": {
+          "w": 299,
+          "n": 588,
+          "name": "Cliff Swallow",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-38": {
+          "w": 272,
+          "n": 588,
+          "name": "Kite Magpie",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-39": {
+          "w": 272,
+          "n": 588,
+          "name": "Glide Sparrow",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-40": {
+          "w": 284,
+          "n": 588,
+          "name": "Spark Shrew",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-41": {
+          "w": 319,
+          "n": 588,
+          "name": "Bolt Mouse",
+          "role": "tracker",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-42": {
+          "w": 271,
+          "n": 588,
+          "name": "Arc Vole",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-43": {
+          "w": 307,
+          "n": 588,
+          "name": "Storm Shrike",
+          "role": "sage",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-44": {
+          "w": 316,
+          "n": 588,
+          "name": "Zap Quail",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-45": {
+          "w": 317,
+          "n": 588,
+          "name": "Clay Tortoise",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-46": {
+          "w": 334,
+          "n": 588,
+          "name": "Moss Hedgehog",
+          "role": "assassin",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-47": {
+          "w": 310,
+          "n": 588,
+          "name": "Dune Armadillo",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-48": {
+          "w": 299,
+          "n": 588,
+          "name": "Gravel Pangolin",
+          "role": "defender",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-49": {
+          "w": 316,
+          "n": 588,
+          "name": "Loam Marmot",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "rare-0": {
+          "w": 295,
+          "n": 588,
+          "name": "Crimson Fox",
+          "role": "defender",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-1": {
+          "w": 266,
+          "n": 588,
+          "name": "Frost Hare",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-2": {
+          "w": 266,
+          "n": 588,
+          "name": "Night Panther",
+          "role": "assassin",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-3": {
+          "w": 288,
+          "n": 588,
+          "name": "Sky Falcon",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-4": {
+          "w": 314,
+          "n": 588,
+          "name": "Tide Otter",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-5": {
+          "w": 293,
+          "n": 588,
+          "name": "Ironback Turtle",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-6": {
+          "w": 242,
+          "n": 588,
+          "name": "Dune Viper",
+          "role": "assassin",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-7": {
+          "w": 264,
+          "n": 588,
+          "name": "Ashwing Raven",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-8": {
+          "w": 275,
+          "n": 588,
+          "name": "Azure Toad",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-9": {
+          "w": 303,
+          "n": 588,
+          "name": "Bristle Boar",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-10": {
+          "w": 266,
+          "n": 588,
+          "name": "Silver Owl",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-11": {
+          "w": 254,
+          "n": 588,
+          "name": "Glass Serpent",
+          "role": "sage",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-12": {
+          "w": 299,
+          "n": 588,
+          "name": "Mist Lynx",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-13": {
+          "w": 321,
+          "n": 588,
+          "name": "Steel Beetle",
+          "role": "tracker",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-14": {
+          "w": 273,
+          "n": 588,
+          "name": "Pearl Crane",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-15": {
+          "w": 308,
+          "n": 588,
+          "name": "Cinder Weasel",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-16": {
+          "w": 300,
+          "n": 588,
+          "name": "Thorn Stag",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-17": {
+          "w": 336,
+          "n": 588,
+          "name": "Stormfin Gull",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-18": {
+          "w": 261,
+          "n": 588,
+          "name": "Duskwings Bat",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-19": {
+          "w": 302,
+          "n": 588,
+          "name": "Mossback Toad",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-20": {
+          "w": 302,
+          "n": 588,
+          "name": "Bamboo Ape",
+          "role": "defender",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-21": {
+          "w": 340,
+          "n": 588,
+          "name": "Frostbite Cub",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-22": {
+          "w": 326,
+          "n": 588,
+          "name": "Shrine Salamander",
+          "role": "assassin",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-23": {
+          "w": 323,
+          "n": 588,
+          "name": "Granite Badger",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-24": {
+          "w": 344,
+          "n": 588,
+          "name": "Young Direwolf",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-25": {
+          "w": 284,
+          "n": 588,
+          "name": "Magma Hyena",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-26": {
+          "w": 284,
+          "n": 588,
+          "name": "Ember Ocelot",
+          "role": "assassin",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-27": {
+          "w": 265,
+          "n": 588,
+          "name": "Pyre Kestrel",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-28": {
+          "w": 291,
+          "n": 588,
+          "name": "Scoria Mongoose",
+          "role": "defender",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-29": {
+          "w": 295,
+          "n": 588,
+          "name": "Blaze Caracal",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-30": {
+          "w": 273,
+          "n": 588,
+          "name": "Tidal Mink",
+          "role": "assassin",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-31": {
+          "w": 276,
+          "n": 588,
+          "name": "Frost Seal",
+          "role": "sage",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-32": {
+          "w": 279,
+          "n": 588,
+          "name": "Coral Serval",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-33": {
+          "w": 293,
+          "n": 588,
+          "name": "Brine Cormorant",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-34": {
+          "w": 282,
+          "n": 588,
+          "name": "Glacier Marten",
+          "role": "assassin",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-35": {
+          "w": 267,
+          "n": 588,
+          "name": "Cyclone Harrier",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-36": {
+          "w": 331,
+          "n": 588,
+          "name": "Zephyr Osprey",
+          "role": "defender",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-37": {
+          "w": 294,
+          "n": 588,
+          "name": "Gust Tern",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-38": {
+          "w": 316,
+          "n": 588,
+          "name": "Squall Plover",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-39": {
+          "w": 257,
+          "n": 588,
+          "name": "Drift Albatross",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-40": {
+          "w": 315,
+          "n": 588,
+          "name": "Volt Polecat",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-41": {
+          "w": 326,
+          "n": 588,
+          "name": "Surge Stoat",
+          "role": "tracker",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-42": {
+          "w": 258,
+          "n": 588,
+          "name": "Thunder Jerboa",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-43": {
+          "w": 282,
+          "n": 588,
+          "name": "Static Meerkat",
+          "role": "sage",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-44": {
+          "w": 341,
+          "n": 588,
+          "name": "Arc Buzzard",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-45": {
+          "w": 280,
+          "n": 588,
+          "name": "Granite Wombat",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-46": {
+          "w": 305,
+          "n": 588,
+          "name": "Stoneback Tapir",
+          "role": "assassin",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-47": {
+          "w": 319,
+          "n": 588,
+          "name": "Quartz Aardvark",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-48": {
+          "w": 288,
+          "n": 588,
+          "name": "Terra Porcupine",
+          "role": "defender",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-49": {
+          "w": 338,
+          "n": 588,
+          "name": "Bramble Capybara",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "legendary-0": {
+          "w": 183,
+          "n": 348,
+          "name": "Glacier Wolf",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "legendary"
+        },
+        "legendary-1": {
+          "w": 170,
+          "n": 348,
+          "name": "Tempest Hawk",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "legendary"
+        },
+        "legendary-2": {
+          "w": 152,
+          "n": 348,
+          "name": "Umbra Fox",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "legendary"
+        },
+        "legendary-3": {
+          "w": 158,
+          "n": 348,
+          "name": "Spirit Deer",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "legendary"
+        },
+        "legendary-4": {
+          "w": 170,
+          "n": 348,
+          "name": "Ironfang Tiger",
+          "role": "defender",
+          "element": "Fire",
+          "rarity": "legendary"
+        },
+        "legendary-5": {
+          "w": 169,
+          "n": 348,
+          "name": "Azure Kirin",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "legendary"
+        },
+        "legendary-6": {
+          "w": 187,
+          "n": 348,
+          "name": "Ember Phoenix",
+          "role": "assassin",
+          "element": "Fire",
+          "rarity": "legendary"
+        },
+        "legendary-7": {
+          "w": 164,
+          "n": 348,
+          "name": "Moon Serpent",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "legendary"
+        },
+        "legendary-8": {
+          "w": 176,
+          "n": 348,
+          "name": "Storm Lion",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "legendary"
+        },
+        "legendary-9": {
+          "w": 160,
+          "n": 348,
+          "name": "Crystal Bear",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "legendary"
+        },
+        "legendary-10": {
+          "w": 160,
+          "n": 348,
+          "name": "Void Raven",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "legendary"
+        },
+        "legendary-11": {
+          "w": 190,
+          "n": 348,
+          "name": "Thunder Drake",
+          "role": "sage",
+          "element": "Lightning",
+          "rarity": "legendary"
+        },
+        "legendary-12": {
+          "w": 172,
+          "n": 348,
+          "name": "Frost Lynx",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "legendary"
+        },
+        "legendary-13": {
+          "w": 218,
+          "n": 348,
+          "name": "Armored Polar Bear",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "legendary"
+        },
+        "legendary-14": {
+          "w": 181,
+          "n": 348,
+          "name": "Ancient Crane",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "legendary"
+        },
+        "legendary-15": {
+          "w": 145,
+          "n": 348,
+          "name": "Inferno Chimera",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "legendary"
+        },
+        "legendary-16": {
+          "w": 181,
+          "n": 348,
+          "name": "Ash Garuda",
+          "role": "defender",
+          "element": "Fire",
+          "rarity": "legendary"
+        },
+        "legendary-17": {
+          "w": 189,
+          "n": 348,
+          "name": "Magma Behemoth",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "legendary"
+        },
+        "legendary-18": {
+          "w": 166,
+          "n": 348,
+          "name": "Tidelord Leviathan",
+          "role": "assassin",
+          "element": "Water",
+          "rarity": "legendary"
+        },
+        "legendary-19": {
+          "w": 168,
+          "n": 348,
+          "name": "Frost Wyrm",
+          "role": "sage",
+          "element": "Water",
+          "rarity": "legendary"
+        },
+        "legendary-20": {
+          "w": 147,
+          "n": 348,
+          "name": "Abyss Kraken",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "legendary"
+        },
+        "legendary-21": {
+          "w": 196,
+          "n": 348,
+          "name": "Storm Roc",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "legendary"
+        },
+        "legendary-22": {
+          "w": 181,
+          "n": 348,
+          "name": "Tempest Pegasus",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "legendary"
+        },
+        "legendary-23": {
+          "w": 150,
+          "n": 348,
+          "name": "Cyclone Sphinx",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "legendary"
+        },
+        "legendary-24": {
+          "w": 182,
+          "n": 348,
+          "name": "Thunder Raiju",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "legendary"
+        },
+        "legendary-25": {
+          "w": 211,
+          "n": 348,
+          "name": "Storm Wyvern",
+          "role": "tracker",
+          "element": "Lightning",
+          "rarity": "legendary"
+        },
+        "legendary-26": {
+          "w": 160,
+          "n": 348,
+          "name": "Galvanic Manticore",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "legendary"
+        },
+        "legendary-27": {
+          "w": 173,
+          "n": 348,
+          "name": "Titan Golem",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "legendary"
+        },
+        "legendary-28": {
+          "w": 188,
+          "n": 348,
+          "name": "Granite Gargoyle",
+          "role": "defender",
+          "element": "Earth",
+          "rarity": "legendary"
+        },
+        "legendary-29": {
+          "w": 173,
+          "n": 348,
+          "name": "Verdant Treant",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "legendary"
+        },
+        "mythic-0": {
+          "w": 41,
+          "n": 108,
+          "name": "Eclipse Kitsune",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "mythic"
+        },
+        "mythic-1": {
+          "w": 57,
+          "n": 108,
+          "name": "Worldstorm Dragon",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "mythic"
+        },
+        "mythic-2": {
+          "w": 57,
+          "n": 108,
+          "name": "Ancient Frost Titan",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "mythic"
+        },
+        "mythic-3": {
+          "w": 66,
+          "n": 108,
+          "name": "Solar Stag",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "mythic"
+        },
+        "mythic-4": {
+          "w": 47,
+          "n": 108,
+          "name": "Abyssal Oni Hound",
+          "role": "assassin",
+          "element": "Earth",
+          "rarity": "mythic"
+        },
+        "mythic-5": {
+          "w": 61,
+          "n": 108,
+          "name": "Vermillion Suzaku",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "mythic"
+        },
+        "mythic-6": {
+          "w": 56,
+          "n": 108,
+          "name": "Azure Ryujin",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "mythic"
+        },
+        "mythic-7": {
+          "w": 55,
+          "n": 108,
+          "name": "Turtle Duck",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "mythic"
+        },
+        "mythic-8": {
+          "w": 36,
+          "n": 108,
+          "name": "Stormgod Raijin",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "mythic"
+        },
+        "mythic-9": {
+          "w": 64,
+          "n": 108,
+          "name": "Worldroot Colossus",
+          "role": "defender",
+          "element": "Earth",
+          "rarity": "mythic"
+        }
+      }
+    },
+    {
+      "format": "1v1",
+      "level": 1,
+      "seeds": 12,
+      "seedOffset": 0,
+      "bench": 2,
+      "games": 35160,
+      "averageRounds": 17.031484641638226,
+      "judgedGames": 119,
+      "unresolvedGames": 0,
+      "roles": {
+        "defender": {
+          "w": 8828,
+          "n": 18396
+        },
+        "tracker": {
+          "w": 9384,
+          "n": 18288
+        },
+        "assassin": {
+          "w": 9719,
+          "n": 16872
+        },
+        "sage": {
+          "w": 7229,
+          "n": 16764
+        }
+      },
+      "elements": {
+        "Fire": {
+          "w": 7556,
+          "n": 14064
+        },
+        "Water": {
+          "w": 7070,
+          "n": 14064
+        },
+        "Earth": {
+          "w": 6152,
+          "n": 14064
+        },
+        "Wind": {
+          "w": 6923,
+          "n": 14064
+        },
+        "Lightning": {
+          "w": 7459,
+          "n": 14064
+        }
+      },
+      "species": {
+        "standard-0": {
+          "w": 218,
+          "n": 588,
+          "name": "Red Fox",
+          "role": "defender",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-1": {
+          "w": 303,
+          "n": 588,
+          "name": "Snow Rabbit",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-2": {
+          "w": 266,
+          "n": 588,
+          "name": "Black Cat",
+          "role": "assassin",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-3": {
+          "w": 291,
+          "n": 588,
+          "name": "Forest Hawk",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-4": {
+          "w": 212,
+          "n": 588,
+          "name": "River Otter",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-5": {
+          "w": 234,
+          "n": 588,
+          "name": "Stone Turtle",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-6": {
+          "w": 349,
+          "n": 588,
+          "name": "Desert Lizard",
+          "role": "assassin",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-7": {
+          "w": 375,
+          "n": 588,
+          "name": "Ashen Crow",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-8": {
+          "w": 283,
+          "n": 588,
+          "name": "Blue Frog",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-9": {
+          "w": 265,
+          "n": 588,
+          "name": "Wild Boar",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-10": {
+          "w": 252,
+          "n": 588,
+          "name": "Pine Owl",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-11": {
+          "w": 349,
+          "n": 588,
+          "name": "Sand Snake",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-12": {
+          "w": 318,
+          "n": 588,
+          "name": "Mist Ferret",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-13": {
+          "w": 286,
+          "n": 588,
+          "name": "Iron Beetle",
+          "role": "tracker",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-14": {
+          "w": 318,
+          "n": 588,
+          "name": "White Crane",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-15": {
+          "w": 430,
+          "n": 588,
+          "name": "Cinder Rat",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-16": {
+          "w": 225,
+          "n": 588,
+          "name": "Meadow Deer",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-17": {
+          "w": 243,
+          "n": 588,
+          "name": "Storm Gull",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-18": {
+          "w": 305,
+          "n": 588,
+          "name": "Shadow Bat",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-19": {
+          "w": 306,
+          "n": 588,
+          "name": "Mud Toad",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-20": {
+          "w": 223,
+          "n": 588,
+          "name": "Leaf Monkey",
+          "role": "defender",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-21": {
+          "w": 373,
+          "n": 588,
+          "name": "Frost Cub",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-22": {
+          "w": 331,
+          "n": 588,
+          "name": "Temple Gecko",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-23": {
+          "w": 210,
+          "n": 588,
+          "name": "Rock Badger",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-24": {
+          "w": 312,
+          "n": 588,
+          "name": "Tiny Wolf",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-25": {
+          "w": 219,
+          "n": 588,
+          "name": "Flint Jackal",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-26": {
+          "w": 340,
+          "n": 588,
+          "name": "Ember Mole",
+          "role": "assassin",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-27": {
+          "w": 398,
+          "n": 588,
+          "name": "Cinder Moth",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-28": {
+          "w": 234,
+          "n": 588,
+          "name": "Scorch Skink",
+          "role": "defender",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-29": {
+          "w": 228,
+          "n": 588,
+          "name": "Magma Pup",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-30": {
+          "w": 393,
+          "n": 588,
+          "name": "Brook Newt",
+          "role": "assassin",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-31": {
+          "w": 368,
+          "n": 588,
+          "name": "Pebble Crab",
+          "role": "sage",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-32": {
+          "w": 270,
+          "n": 588,
+          "name": "Tide Minnow",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-33": {
+          "w": 318,
+          "n": 588,
+          "name": "Reed Heron",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-34": {
+          "w": 360,
+          "n": 588,
+          "name": "Marsh Eel",
+          "role": "assassin",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-35": {
+          "w": 297,
+          "n": 588,
+          "name": "Breeze Finch",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-36": {
+          "w": 221,
+          "n": 588,
+          "name": "Dust Swift",
+          "role": "defender",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-37": {
+          "w": 253,
+          "n": 588,
+          "name": "Cliff Swallow",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-38": {
+          "w": 276,
+          "n": 588,
+          "name": "Kite Magpie",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-39": {
+          "w": 354,
+          "n": 588,
+          "name": "Glide Sparrow",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-40": {
+          "w": 241,
+          "n": 588,
+          "name": "Spark Shrew",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-41": {
+          "w": 305,
+          "n": 588,
+          "name": "Bolt Mouse",
+          "role": "tracker",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-42": {
+          "w": 290,
+          "n": 588,
+          "name": "Arc Vole",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-43": {
+          "w": 359,
+          "n": 588,
+          "name": "Storm Shrike",
+          "role": "sage",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-44": {
+          "w": 284,
+          "n": 588,
+          "name": "Zap Quail",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-45": {
+          "w": 273,
+          "n": 588,
+          "name": "Clay Tortoise",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-46": {
+          "w": 338,
+          "n": 588,
+          "name": "Moss Hedgehog",
+          "role": "assassin",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-47": {
+          "w": 241,
+          "n": 588,
+          "name": "Dune Armadillo",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-48": {
+          "w": 251,
+          "n": 588,
+          "name": "Gravel Pangolin",
+          "role": "defender",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-49": {
+          "w": 312,
+          "n": 588,
+          "name": "Loam Marmot",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "rare-0": {
+          "w": 315,
+          "n": 588,
+          "name": "Crimson Fox",
+          "role": "defender",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-1": {
+          "w": 306,
+          "n": 588,
+          "name": "Frost Hare",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-2": {
+          "w": 305,
+          "n": 588,
+          "name": "Night Panther",
+          "role": "assassin",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-3": {
+          "w": 215,
+          "n": 588,
+          "name": "Sky Falcon",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-4": {
+          "w": 264,
+          "n": 588,
+          "name": "Tide Otter",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-5": {
+          "w": 292,
+          "n": 588,
+          "name": "Ironback Turtle",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-6": {
+          "w": 372,
+          "n": 588,
+          "name": "Dune Viper",
+          "role": "assassin",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-7": {
+          "w": 196,
+          "n": 588,
+          "name": "Ashwing Raven",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-8": {
+          "w": 203,
+          "n": 588,
+          "name": "Azure Toad",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-9": {
+          "w": 286,
+          "n": 588,
+          "name": "Bristle Boar",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-10": {
+          "w": 340,
+          "n": 588,
+          "name": "Silver Owl",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-11": {
+          "w": 171,
+          "n": 588,
+          "name": "Glass Serpent",
+          "role": "sage",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-12": {
+          "w": 213,
+          "n": 588,
+          "name": "Mist Lynx",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-13": {
+          "w": 318,
+          "n": 588,
+          "name": "Steel Beetle",
+          "role": "tracker",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-14": {
+          "w": 325,
+          "n": 588,
+          "name": "Pearl Crane",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-15": {
+          "w": 250,
+          "n": 588,
+          "name": "Cinder Weasel",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-16": {
+          "w": 387,
+          "n": 588,
+          "name": "Thorn Stag",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-17": {
+          "w": 320,
+          "n": 588,
+          "name": "Stormfin Gull",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-18": {
+          "w": 314,
+          "n": 588,
+          "name": "Duskwings Bat",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-19": {
+          "w": 194,
+          "n": 588,
+          "name": "Mossback Toad",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-20": {
+          "w": 373,
+          "n": 588,
+          "name": "Bamboo Ape",
+          "role": "defender",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-21": {
+          "w": 385,
+          "n": 588,
+          "name": "Frostbite Cub",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-22": {
+          "w": 416,
+          "n": 588,
+          "name": "Shrine Salamander",
+          "role": "assassin",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-23": {
+          "w": 196,
+          "n": 588,
+          "name": "Granite Badger",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-24": {
+          "w": 392,
+          "n": 588,
+          "name": "Young Direwolf",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-25": {
+          "w": 330,
+          "n": 588,
+          "name": "Magma Hyena",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-26": {
+          "w": 334,
+          "n": 588,
+          "name": "Ember Ocelot",
+          "role": "assassin",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-27": {
+          "w": 176,
+          "n": 588,
+          "name": "Pyre Kestrel",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-28": {
+          "w": 341,
+          "n": 588,
+          "name": "Scoria Mongoose",
+          "role": "defender",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-29": {
+          "w": 346,
+          "n": 588,
+          "name": "Blaze Caracal",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-30": {
+          "w": 368,
+          "n": 588,
+          "name": "Tidal Mink",
+          "role": "assassin",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-31": {
+          "w": 187,
+          "n": 588,
+          "name": "Frost Seal",
+          "role": "sage",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-32": {
+          "w": 216,
+          "n": 588,
+          "name": "Coral Serval",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-33": {
+          "w": 306,
+          "n": 588,
+          "name": "Brine Cormorant",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-34": {
+          "w": 379,
+          "n": 588,
+          "name": "Glacier Marten",
+          "role": "assassin",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-35": {
+          "w": 179,
+          "n": 588,
+          "name": "Cyclone Harrier",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-36": {
+          "w": 362,
+          "n": 588,
+          "name": "Zephyr Osprey",
+          "role": "defender",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-37": {
+          "w": 268,
+          "n": 588,
+          "name": "Gust Tern",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-38": {
+          "w": 386,
+          "n": 588,
+          "name": "Squall Plover",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-39": {
+          "w": 174,
+          "n": 588,
+          "name": "Drift Albatross",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-40": {
+          "w": 352,
+          "n": 588,
+          "name": "Volt Polecat",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-41": {
+          "w": 363,
+          "n": 588,
+          "name": "Surge Stoat",
+          "role": "tracker",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-42": {
+          "w": 346,
+          "n": 588,
+          "name": "Thunder Jerboa",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-43": {
+          "w": 194,
+          "n": 588,
+          "name": "Static Meerkat",
+          "role": "sage",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-44": {
+          "w": 384,
+          "n": 588,
+          "name": "Arc Buzzard",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-45": {
+          "w": 286,
+          "n": 588,
+          "name": "Granite Wombat",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-46": {
+          "w": 333,
+          "n": 588,
+          "name": "Stoneback Tapir",
+          "role": "assassin",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-47": {
+          "w": 189,
+          "n": 588,
+          "name": "Quartz Aardvark",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-48": {
+          "w": 210,
+          "n": 588,
+          "name": "Terra Porcupine",
+          "role": "defender",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-49": {
+          "w": 343,
+          "n": 588,
+          "name": "Bramble Capybara",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "legendary-0": {
+          "w": 143,
+          "n": 348,
+          "name": "Glacier Wolf",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "legendary"
+        },
+        "legendary-1": {
+          "w": 177,
+          "n": 348,
+          "name": "Tempest Hawk",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "legendary"
+        },
+        "legendary-2": {
+          "w": 198,
+          "n": 348,
+          "name": "Umbra Fox",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "legendary"
+        },
+        "legendary-3": {
+          "w": 95,
+          "n": 348,
+          "name": "Spirit Deer",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "legendary"
+        },
+        "legendary-4": {
+          "w": 222,
+          "n": 348,
+          "name": "Ironfang Tiger",
+          "role": "defender",
+          "element": "Fire",
+          "rarity": "legendary"
+        },
+        "legendary-5": {
+          "w": 176,
+          "n": 348,
+          "name": "Azure Kirin",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "legendary"
+        },
+        "legendary-6": {
+          "w": 236,
+          "n": 348,
+          "name": "Ember Phoenix",
+          "role": "assassin",
+          "element": "Fire",
+          "rarity": "legendary"
+        },
+        "legendary-7": {
+          "w": 107,
+          "n": 348,
+          "name": "Moon Serpent",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "legendary"
+        },
+        "legendary-8": {
+          "w": 175,
+          "n": 348,
+          "name": "Storm Lion",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "legendary"
+        },
+        "legendary-9": {
+          "w": 144,
+          "n": 348,
+          "name": "Crystal Bear",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "legendary"
+        },
+        "legendary-10": {
+          "w": 196,
+          "n": 348,
+          "name": "Void Raven",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "legendary"
+        },
+        "legendary-11": {
+          "w": 135,
+          "n": 348,
+          "name": "Thunder Drake",
+          "role": "sage",
+          "element": "Lightning",
+          "rarity": "legendary"
+        },
+        "legendary-12": {
+          "w": 129,
+          "n": 348,
+          "name": "Frost Lynx",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "legendary"
+        },
+        "legendary-13": {
+          "w": 209,
+          "n": 348,
+          "name": "Armored Polar Bear",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "legendary"
+        },
+        "legendary-14": {
+          "w": 238,
+          "n": 348,
+          "name": "Ancient Crane",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "legendary"
+        },
+        "legendary-15": {
+          "w": 120,
+          "n": 348,
+          "name": "Inferno Chimera",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "legendary"
+        },
+        "legendary-16": {
+          "w": 232,
+          "n": 348,
+          "name": "Ash Garuda",
+          "role": "defender",
+          "element": "Fire",
+          "rarity": "legendary"
+        },
+        "legendary-17": {
+          "w": 213,
+          "n": 348,
+          "name": "Magma Behemoth",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "legendary"
+        },
+        "legendary-18": {
+          "w": 205,
+          "n": 348,
+          "name": "Tidelord Leviathan",
+          "role": "assassin",
+          "element": "Water",
+          "rarity": "legendary"
+        },
+        "legendary-19": {
+          "w": 148,
+          "n": 348,
+          "name": "Frost Wyrm",
+          "role": "sage",
+          "element": "Water",
+          "rarity": "legendary"
+        },
+        "legendary-20": {
+          "w": 109,
+          "n": 348,
+          "name": "Abyss Kraken",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "legendary"
+        },
+        "legendary-21": {
+          "w": 178,
+          "n": 348,
+          "name": "Storm Roc",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "legendary"
+        },
+        "legendary-22": {
+          "w": 238,
+          "n": 348,
+          "name": "Tempest Pegasus",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "legendary"
+        },
+        "legendary-23": {
+          "w": 132,
+          "n": 348,
+          "name": "Cyclone Sphinx",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "legendary"
+        },
+        "legendary-24": {
+          "w": 237,
+          "n": 348,
+          "name": "Thunder Raiju",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "legendary"
+        },
+        "legendary-25": {
+          "w": 240,
+          "n": 348,
+          "name": "Storm Wyvern",
+          "role": "tracker",
+          "element": "Lightning",
+          "rarity": "legendary"
+        },
+        "legendary-26": {
+          "w": 215,
+          "n": 348,
+          "name": "Galvanic Manticore",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "legendary"
+        },
+        "legendary-27": {
+          "w": 123,
+          "n": 348,
+          "name": "Titan Golem",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "legendary"
+        },
+        "legendary-28": {
+          "w": 94,
+          "n": 348,
+          "name": "Granite Gargoyle",
+          "role": "defender",
+          "element": "Earth",
+          "rarity": "legendary"
+        },
+        "legendary-29": {
+          "w": 156,
+          "n": 348,
+          "name": "Verdant Treant",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "legendary"
+        },
+        "mythic-0": {
+          "w": 32,
+          "n": 108,
+          "name": "Eclipse Kitsune",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "mythic"
+        },
+        "mythic-1": {
+          "w": 57,
+          "n": 108,
+          "name": "Worldstorm Dragon",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "mythic"
+        },
+        "mythic-2": {
+          "w": 73,
+          "n": 108,
+          "name": "Ancient Frost Titan",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "mythic"
+        },
+        "mythic-3": {
+          "w": 70,
+          "n": 108,
+          "name": "Solar Stag",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "mythic"
+        },
+        "mythic-4": {
+          "w": 55,
+          "n": 108,
+          "name": "Abyssal Oni Hound",
+          "role": "assassin",
+          "element": "Earth",
+          "rarity": "mythic"
+        },
+        "mythic-5": {
+          "w": 38,
+          "n": 108,
+          "name": "Vermillion Suzaku",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "mythic"
+        },
+        "mythic-6": {
+          "w": 62,
+          "n": 108,
+          "name": "Azure Ryujin",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "mythic"
+        },
+        "mythic-7": {
+          "w": 60,
+          "n": 108,
+          "name": "Turtle Duck",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "mythic"
+        },
+        "mythic-8": {
+          "w": 45,
+          "n": 108,
+          "name": "Stormgod Raijin",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "mythic"
+        },
+        "mythic-9": {
+          "w": 48,
+          "n": 108,
+          "name": "Worldroot Colossus",
+          "role": "defender",
+          "element": "Earth",
+          "rarity": "mythic"
+        }
+      }
+    },
+    {
+      "format": "1v1",
+      "level": 100,
+      "seeds": 12,
+      "seedOffset": 0,
+      "bench": 2,
+      "games": 35160,
+      "averageRounds": 21.628100113765644,
+      "judgedGames": 2394,
+      "unresolvedGames": 0,
+      "roles": {
+        "defender": {
+          "w": 8671,
+          "n": 18396
+        },
+        "tracker": {
+          "w": 9787,
+          "n": 18288
+        },
+        "assassin": {
+          "w": 7598,
+          "n": 16872
+        },
+        "sage": {
+          "w": 9104,
+          "n": 16764
+        }
+      },
+      "elements": {
+        "Fire": {
+          "w": 6901,
+          "n": 14064
+        },
+        "Water": {
+          "w": 7575,
+          "n": 14064
+        },
+        "Earth": {
+          "w": 7408,
+          "n": 14064
+        },
+        "Wind": {
+          "w": 6334,
+          "n": 14064
+        },
+        "Lightning": {
+          "w": 6942,
+          "n": 14064
+        }
+      },
+      "species": {
+        "standard-0": {
+          "w": 240,
+          "n": 588,
+          "name": "Red Fox",
+          "role": "defender",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-1": {
+          "w": 329,
+          "n": 588,
+          "name": "Snow Rabbit",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-2": {
+          "w": 202,
+          "n": 588,
+          "name": "Black Cat",
+          "role": "assassin",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-3": {
+          "w": 283,
+          "n": 588,
+          "name": "Forest Hawk",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-4": {
+          "w": 282,
+          "n": 588,
+          "name": "River Otter",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-5": {
+          "w": 262,
+          "n": 588,
+          "name": "Stone Turtle",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-6": {
+          "w": 268,
+          "n": 588,
+          "name": "Desert Lizard",
+          "role": "assassin",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-7": {
+          "w": 319,
+          "n": 588,
+          "name": "Ashen Crow",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-8": {
+          "w": 280,
+          "n": 588,
+          "name": "Blue Frog",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-9": {
+          "w": 288,
+          "n": 588,
+          "name": "Wild Boar",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-10": {
+          "w": 227,
+          "n": 588,
+          "name": "Pine Owl",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-11": {
+          "w": 277,
+          "n": 588,
+          "name": "Sand Snake",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-12": {
+          "w": 313,
+          "n": 588,
+          "name": "Mist Ferret",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-13": {
+          "w": 287,
+          "n": 588,
+          "name": "Iron Beetle",
+          "role": "tracker",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-14": {
+          "w": 251,
+          "n": 588,
+          "name": "White Crane",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-15": {
+          "w": 393,
+          "n": 588,
+          "name": "Cinder Rat",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-16": {
+          "w": 246,
+          "n": 588,
+          "name": "Meadow Deer",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-17": {
+          "w": 277,
+          "n": 588,
+          "name": "Storm Gull",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-18": {
+          "w": 234,
+          "n": 588,
+          "name": "Shadow Bat",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-19": {
+          "w": 435,
+          "n": 588,
+          "name": "Mud Toad",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-20": {
+          "w": 169,
+          "n": 588,
+          "name": "Leaf Monkey",
+          "role": "defender",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-21": {
+          "w": 428,
+          "n": 588,
+          "name": "Frost Cub",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-22": {
+          "w": 282,
+          "n": 588,
+          "name": "Temple Gecko",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-23": {
+          "w": 388,
+          "n": 588,
+          "name": "Rock Badger",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-24": {
+          "w": 259,
+          "n": 588,
+          "name": "Tiny Wolf",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-25": {
+          "w": 220,
+          "n": 588,
+          "name": "Flint Jackal",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-26": {
+          "w": 251,
+          "n": 588,
+          "name": "Ember Mole",
+          "role": "assassin",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-27": {
+          "w": 362,
+          "n": 588,
+          "name": "Cinder Moth",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-28": {
+          "w": 287,
+          "n": 588,
+          "name": "Scorch Skink",
+          "role": "defender",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-29": {
+          "w": 224,
+          "n": 588,
+          "name": "Magma Pup",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "standard"
+        },
+        "standard-30": {
+          "w": 337,
+          "n": 588,
+          "name": "Brook Newt",
+          "role": "assassin",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-31": {
+          "w": 382,
+          "n": 588,
+          "name": "Pebble Crab",
+          "role": "sage",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-32": {
+          "w": 278,
+          "n": 588,
+          "name": "Tide Minnow",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-33": {
+          "w": 347,
+          "n": 588,
+          "name": "Reed Heron",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-34": {
+          "w": 343,
+          "n": 588,
+          "name": "Marsh Eel",
+          "role": "assassin",
+          "element": "Water",
+          "rarity": "standard"
+        },
+        "standard-35": {
+          "w": 292,
+          "n": 588,
+          "name": "Breeze Finch",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-36": {
+          "w": 269,
+          "n": 588,
+          "name": "Dust Swift",
+          "role": "defender",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-37": {
+          "w": 247,
+          "n": 588,
+          "name": "Cliff Swallow",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-38": {
+          "w": 230,
+          "n": 588,
+          "name": "Kite Magpie",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-39": {
+          "w": 302,
+          "n": 588,
+          "name": "Glide Sparrow",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "standard"
+        },
+        "standard-40": {
+          "w": 234,
+          "n": 588,
+          "name": "Spark Shrew",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-41": {
+          "w": 305,
+          "n": 588,
+          "name": "Bolt Mouse",
+          "role": "tracker",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-42": {
+          "w": 259,
+          "n": 588,
+          "name": "Arc Vole",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-43": {
+          "w": 377,
+          "n": 588,
+          "name": "Storm Shrike",
+          "role": "sage",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-44": {
+          "w": 252,
+          "n": 588,
+          "name": "Zap Quail",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "standard"
+        },
+        "standard-45": {
+          "w": 335,
+          "n": 588,
+          "name": "Clay Tortoise",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-46": {
+          "w": 331,
+          "n": 588,
+          "name": "Moss Hedgehog",
+          "role": "assassin",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-47": {
+          "w": 387,
+          "n": 588,
+          "name": "Dune Armadillo",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-48": {
+          "w": 308,
+          "n": 588,
+          "name": "Gravel Pangolin",
+          "role": "defender",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "standard-49": {
+          "w": 322,
+          "n": 588,
+          "name": "Loam Marmot",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "standard"
+        },
+        "rare-0": {
+          "w": 262,
+          "n": 588,
+          "name": "Crimson Fox",
+          "role": "defender",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-1": {
+          "w": 328,
+          "n": 588,
+          "name": "Frost Hare",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-2": {
+          "w": 235,
+          "n": 588,
+          "name": "Night Panther",
+          "role": "assassin",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-3": {
+          "w": 261,
+          "n": 588,
+          "name": "Sky Falcon",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-4": {
+          "w": 304,
+          "n": 588,
+          "name": "Tide Otter",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-5": {
+          "w": 307,
+          "n": 588,
+          "name": "Ironback Turtle",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-6": {
+          "w": 209,
+          "n": 588,
+          "name": "Dune Viper",
+          "role": "assassin",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-7": {
+          "w": 325,
+          "n": 588,
+          "name": "Ashwing Raven",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-8": {
+          "w": 252,
+          "n": 588,
+          "name": "Azure Toad",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-9": {
+          "w": 328,
+          "n": 588,
+          "name": "Bristle Boar",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-10": {
+          "w": 173,
+          "n": 588,
+          "name": "Silver Owl",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-11": {
+          "w": 308,
+          "n": 588,
+          "name": "Glass Serpent",
+          "role": "sage",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-12": {
+          "w": 288,
+          "n": 588,
+          "name": "Mist Lynx",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-13": {
+          "w": 318,
+          "n": 588,
+          "name": "Steel Beetle",
+          "role": "tracker",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-14": {
+          "w": 216,
+          "n": 588,
+          "name": "Pearl Crane",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-15": {
+          "w": 380,
+          "n": 588,
+          "name": "Cinder Weasel",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-16": {
+          "w": 266,
+          "n": 588,
+          "name": "Thorn Stag",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-17": {
+          "w": 306,
+          "n": 588,
+          "name": "Stormfin Gull",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-18": {
+          "w": 257,
+          "n": 588,
+          "name": "Duskwings Bat",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-19": {
+          "w": 324,
+          "n": 588,
+          "name": "Mossback Toad",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-20": {
+          "w": 301,
+          "n": 588,
+          "name": "Bamboo Ape",
+          "role": "defender",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-21": {
+          "w": 406,
+          "n": 588,
+          "name": "Frostbite Cub",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-22": {
+          "w": 323,
+          "n": 588,
+          "name": "Shrine Salamander",
+          "role": "assassin",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-23": {
+          "w": 332,
+          "n": 588,
+          "name": "Granite Badger",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-24": {
+          "w": 347,
+          "n": 588,
+          "name": "Young Direwolf",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-25": {
+          "w": 272,
+          "n": 588,
+          "name": "Magma Hyena",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-26": {
+          "w": 202,
+          "n": 588,
+          "name": "Ember Ocelot",
+          "role": "assassin",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-27": {
+          "w": 241,
+          "n": 588,
+          "name": "Pyre Kestrel",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-28": {
+          "w": 298,
+          "n": 588,
+          "name": "Scoria Mongoose",
+          "role": "defender",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-29": {
+          "w": 309,
+          "n": 588,
+          "name": "Blaze Caracal",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "rare"
+        },
+        "rare-30": {
+          "w": 282,
+          "n": 588,
+          "name": "Tidal Mink",
+          "role": "assassin",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-31": {
+          "w": 326,
+          "n": 588,
+          "name": "Frost Seal",
+          "role": "sage",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-32": {
+          "w": 241,
+          "n": 588,
+          "name": "Coral Serval",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-33": {
+          "w": 409,
+          "n": 588,
+          "name": "Brine Cormorant",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-34": {
+          "w": 285,
+          "n": 588,
+          "name": "Glacier Marten",
+          "role": "assassin",
+          "element": "Water",
+          "rarity": "rare"
+        },
+        "rare-35": {
+          "w": 219,
+          "n": 588,
+          "name": "Cyclone Harrier",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-36": {
+          "w": 276,
+          "n": 588,
+          "name": "Zephyr Osprey",
+          "role": "defender",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-37": {
+          "w": 268,
+          "n": 588,
+          "name": "Gust Tern",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-38": {
+          "w": 360,
+          "n": 588,
+          "name": "Squall Plover",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-39": {
+          "w": 265,
+          "n": 588,
+          "name": "Drift Albatross",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "rare"
+        },
+        "rare-40": {
+          "w": 268,
+          "n": 588,
+          "name": "Volt Polecat",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-41": {
+          "w": 333,
+          "n": 588,
+          "name": "Surge Stoat",
+          "role": "tracker",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-42": {
+          "w": 232,
+          "n": 588,
+          "name": "Thunder Jerboa",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-43": {
+          "w": 352,
+          "n": 588,
+          "name": "Static Meerkat",
+          "role": "sage",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-44": {
+          "w": 294,
+          "n": 588,
+          "name": "Arc Buzzard",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "rare"
+        },
+        "rare-45": {
+          "w": 338,
+          "n": 588,
+          "name": "Granite Wombat",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-46": {
+          "w": 294,
+          "n": 588,
+          "name": "Stoneback Tapir",
+          "role": "assassin",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-47": {
+          "w": 341,
+          "n": 588,
+          "name": "Quartz Aardvark",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-48": {
+          "w": 247,
+          "n": 588,
+          "name": "Terra Porcupine",
+          "role": "defender",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "rare-49": {
+          "w": 392,
+          "n": 588,
+          "name": "Bramble Capybara",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "rare"
+        },
+        "legendary-0": {
+          "w": 182,
+          "n": 348,
+          "name": "Glacier Wolf",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "legendary"
+        },
+        "legendary-1": {
+          "w": 190,
+          "n": 348,
+          "name": "Tempest Hawk",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "legendary"
+        },
+        "legendary-2": {
+          "w": 134,
+          "n": 348,
+          "name": "Umbra Fox",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "legendary"
+        },
+        "legendary-3": {
+          "w": 149,
+          "n": 348,
+          "name": "Spirit Deer",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "legendary"
+        },
+        "legendary-4": {
+          "w": 156,
+          "n": 348,
+          "name": "Ironfang Tiger",
+          "role": "defender",
+          "element": "Fire",
+          "rarity": "legendary"
+        },
+        "legendary-5": {
+          "w": 174,
+          "n": 348,
+          "name": "Azure Kirin",
+          "role": "tracker",
+          "element": "Water",
+          "rarity": "legendary"
+        },
+        "legendary-6": {
+          "w": 183,
+          "n": 348,
+          "name": "Ember Phoenix",
+          "role": "assassin",
+          "element": "Fire",
+          "rarity": "legendary"
+        },
+        "legendary-7": {
+          "w": 145,
+          "n": 348,
+          "name": "Moon Serpent",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "legendary"
+        },
+        "legendary-8": {
+          "w": 208,
+          "n": 348,
+          "name": "Storm Lion",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "legendary"
+        },
+        "legendary-9": {
+          "w": 146,
+          "n": 348,
+          "name": "Crystal Bear",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "legendary"
+        },
+        "legendary-10": {
+          "w": 166,
+          "n": 348,
+          "name": "Void Raven",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "legendary"
+        },
+        "legendary-11": {
+          "w": 173,
+          "n": 348,
+          "name": "Thunder Drake",
+          "role": "sage",
+          "element": "Lightning",
+          "rarity": "legendary"
+        },
+        "legendary-12": {
+          "w": 171,
+          "n": 348,
+          "name": "Frost Lynx",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "legendary"
+        },
+        "legendary-13": {
+          "w": 209,
+          "n": 348,
+          "name": "Armored Polar Bear",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "legendary"
+        },
+        "legendary-14": {
+          "w": 188,
+          "n": 348,
+          "name": "Ancient Crane",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "legendary"
+        },
+        "legendary-15": {
+          "w": 145,
+          "n": 348,
+          "name": "Inferno Chimera",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "legendary"
+        },
+        "legendary-16": {
+          "w": 232,
+          "n": 348,
+          "name": "Ash Garuda",
+          "role": "defender",
+          "element": "Fire",
+          "rarity": "legendary"
+        },
+        "legendary-17": {
+          "w": 214,
+          "n": 348,
+          "name": "Magma Behemoth",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "legendary"
+        },
+        "legendary-18": {
+          "w": 144,
+          "n": 348,
+          "name": "Tidelord Leviathan",
+          "role": "assassin",
+          "element": "Water",
+          "rarity": "legendary"
+        },
+        "legendary-19": {
+          "w": 188,
+          "n": 348,
+          "name": "Frost Wyrm",
+          "role": "sage",
+          "element": "Water",
+          "rarity": "legendary"
+        },
+        "legendary-20": {
+          "w": 140,
+          "n": 348,
+          "name": "Abyss Kraken",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "legendary"
+        },
+        "legendary-21": {
+          "w": 183,
+          "n": 348,
+          "name": "Storm Roc",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "legendary"
+        },
+        "legendary-22": {
+          "w": 187,
+          "n": 348,
+          "name": "Tempest Pegasus",
+          "role": "assassin",
+          "element": "Wind",
+          "rarity": "legendary"
+        },
+        "legendary-23": {
+          "w": 154,
+          "n": 348,
+          "name": "Cyclone Sphinx",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "legendary"
+        },
+        "legendary-24": {
+          "w": 192,
+          "n": 348,
+          "name": "Thunder Raiju",
+          "role": "defender",
+          "element": "Lightning",
+          "rarity": "legendary"
+        },
+        "legendary-25": {
+          "w": 223,
+          "n": 348,
+          "name": "Storm Wyvern",
+          "role": "tracker",
+          "element": "Lightning",
+          "rarity": "legendary"
+        },
+        "legendary-26": {
+          "w": 175,
+          "n": 348,
+          "name": "Galvanic Manticore",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "legendary"
+        },
+        "legendary-27": {
+          "w": 165,
+          "n": 348,
+          "name": "Titan Golem",
+          "role": "sage",
+          "element": "Earth",
+          "rarity": "legendary"
+        },
+        "legendary-28": {
+          "w": 133,
+          "n": 348,
+          "name": "Granite Gargoyle",
+          "role": "defender",
+          "element": "Earth",
+          "rarity": "legendary"
+        },
+        "legendary-29": {
+          "w": 171,
+          "n": 348,
+          "name": "Verdant Treant",
+          "role": "tracker",
+          "element": "Earth",
+          "rarity": "legendary"
+        },
+        "mythic-0": {
+          "w": 45,
+          "n": 108,
+          "name": "Eclipse Kitsune",
+          "role": "sage",
+          "element": "Wind",
+          "rarity": "mythic"
+        },
+        "mythic-1": {
+          "w": 48,
+          "n": 108,
+          "name": "Worldstorm Dragon",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "mythic"
+        },
+        "mythic-2": {
+          "w": 76,
+          "n": 108,
+          "name": "Ancient Frost Titan",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "mythic"
+        },
+        "mythic-3": {
+          "w": 31,
+          "n": 108,
+          "name": "Solar Stag",
+          "role": "tracker",
+          "element": "Fire",
+          "rarity": "mythic"
+        },
+        "mythic-4": {
+          "w": 43,
+          "n": 108,
+          "name": "Abyssal Oni Hound",
+          "role": "assassin",
+          "element": "Earth",
+          "rarity": "mythic"
+        },
+        "mythic-5": {
+          "w": 69,
+          "n": 108,
+          "name": "Vermillion Suzaku",
+          "role": "sage",
+          "element": "Fire",
+          "rarity": "mythic"
+        },
+        "mythic-6": {
+          "w": 60,
+          "n": 108,
+          "name": "Azure Ryujin",
+          "role": "defender",
+          "element": "Water",
+          "rarity": "mythic"
+        },
+        "mythic-7": {
+          "w": 61,
+          "n": 108,
+          "name": "Turtle Duck",
+          "role": "tracker",
+          "element": "Wind",
+          "rarity": "mythic"
+        },
+        "mythic-8": {
+          "w": 47,
+          "n": 108,
+          "name": "Stormgod Raijin",
+          "role": "assassin",
+          "element": "Lightning",
+          "rarity": "mythic"
+        },
+        "mythic-9": {
+          "w": 60,
+          "n": 108,
+          "name": "Worldroot Colossus",
+          "role": "defender",
+          "element": "Earth",
+          "rarity": "mythic"
+        }
+      }
+    }
+  ]
+}

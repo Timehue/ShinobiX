@@ -42,7 +42,9 @@ import { setOnSweep, setOnDuelDrop, setOnDuelExpire } from './game-loop.js';
 import { wirePetDuel, notifyPeerGone, notifyInviteExpired } from './pet-duel-socket.js';
 import { setRealtimeEmitter } from './notify.js';
 import { clearSleeperCamp } from './sleeper-camps.js';
-import { getTravelLease, settleTravelLease, travelLeaseSectorAt, type TravelLease } from './travel-lease.js';
+import { getTravelLease, settleTravelLease, travelLeaseSectorAt } from './travel-lease.js';
+import { durablePresenceSectorForWrite } from './world-duel-engagement.js';
+import { readWalkedTile, resumeTileFor } from './walked-tile.js';
 // CORS origin predicate — single source of truth in api/_utils.ts, shared with
 // cors() and the Express middleware. Even when production serves the SPA and the
 // socket from the SAME origin (Railway), the browser still sends an Origin
@@ -194,20 +196,8 @@ function wireRealtime(io: IOServer): void {
 
             socket.data.name = canonicalName;
             socket.data.sector = -1; // not yet placed in a sector room
-            const [saved, persistedTravel] = await Promise.all([
-                kv.get<{ currentSector?: number }>(`save:${canonicalName}`),
-                getTravelLease(canonicalName),
-            ]);
-            const now = Date.now();
-            socket.data.initialTravelLease = persistedTravel && now < persistedTravel.arrivalAt
-                ? persistedTravel
-                : undefined;
-            socket.data.initialSector = persistedTravel
-                ? travelLeaseSectorAt(persistedTravel, now)
-                : normalizeSector(saved?.currentSector, 40);
-            if (persistedTravel && now >= persistedTravel.arrivalAt) {
-                void settleTravelLease(canonicalName, persistedTravel, now).catch(() => undefined);
-            }
+            // Position is loaded at ingress, not handshake time: a socket may
+            // sit idle while another device travels or its presence expires.
             next();
         } catch {
             next(new Error('auth error'));
@@ -233,17 +223,39 @@ function wireRealtime(io: IOServer): void {
             return stored && safeName(stored) === name ? stored : name;
         };
 
-        const applyPresence = (payload: unknown): void => {
+        const applyPresence = async (payload: unknown): Promise<void> => {
             const p = (payload ?? {}) as {
                 sector?: unknown; character?: unknown; travelingUntil?: number;
                 inBattle?: boolean; displayName?: unknown; tile?: unknown;
+                enterTown?: boolean;
             };
-            const now = Date.now();
             const prevSector: number = socket.data.sector;
-            const previous = onlineStore.get(name);
-            const requestedSector = previous
-                ? normalizeSector(p.sector, previous.sector)
-                : normalizeSector(socket.data.initialSector, normalizeSector(p.sector, 40));
+            let previous = onlineStore.get(name);
+            let [saved, persistedTravel, walkedTile] = previous ? [null, null, null] : await Promise.all([
+                kv.get<{ currentSector?: number; currentTile?: number }>(`save:${name}`),
+                getTravelLease(name),
+                readWalkedTile(kv, name).catch(() => null),
+            ]);
+            const now = Date.now();
+            // Same rule as the HTTP heartbeat: town entry stays instant unless a
+            // world duel is engaging the player (world-duel-engagement.ts).
+            const requestedSector = await durablePresenceSectorForWrite(
+                kv,
+                name,
+                previous,
+                previous
+                    ? normalizeSector(p.sector, previous.sector)
+                    : persistedTravel ? travelLeaseSectorAt(persistedTravel, now)
+                        : normalizeSector(saved?.currentSector, 40),
+                now,
+                typeof p.enterTown === 'boolean' ? p.enterTown : undefined,
+            );
+            const latest = onlineStore.get(name);
+            const superseded = !!latest && latest !== previous;
+            if (superseded) {
+                previous = latest;
+                persistedTravel = null;
+            }
             const slim = slimPresenceCharacter(p.character) ?? previous?.character ?? null;
             const displayName = displayNameFor(
                 p.displayName ?? (slim && typeof (slim as Record<string, unknown>).name === 'string'
@@ -254,14 +266,18 @@ function wireRealtime(io: IOServer): void {
             // NAME is the authed socket identity — never the client body. No spoofing.
             let stored = onlineStore.upsert({
                 name: displayName,
-                sector: requestedSector,
+                sector: superseded ? previous!.sector : requestedSector,
                 character: slim as Record<string, unknown> | null,
                 travelingUntil: capTravelingUntil(p.travelingUntil, now),
+                // Client hint only — upsert ignores it (F01). The flag is
+                // server-owned: the HTTP heartbeat derives it from the combat
+                // stores every beat, and fight hosts set it at start/terminal.
                 inBattle: p.inBattle === true ? true : undefined,
-                tile: normalizeTile(p.tile, previous?.tile),
+                tile: superseded ? previous!.tile : previous ? normalizeTile(p.tile, previous.tile)
+                    : normalizeTile(persistedTravel && now >= persistedTravel.arrivalAt
+                        ? persistedTravel.arrivalTile : resumeTileFor(walkedTile, requestedSector, saved?.currentTile)),
+                tileSector: previous && !superseded ? normalizeSector(p.sector, previous.sector) : requestedSector,
             });
-            const persistedTravel = socket.data.initialTravelLease as TravelLease | undefined;
-            socket.data.initialTravelLease = undefined;
             if (!previous && persistedTravel) {
                 stored = onlineStore.restoreTravel(
                     name,
@@ -272,7 +288,7 @@ function wireRealtime(io: IOServer): void {
                 ) ?? stored;
             }
             if (onlineStore.consumeSettledTravel(name)) {
-                void settleTravelLease(name).catch(() => undefined);
+                void settleTravelLease(name).catch(() => onlineStore.retryTravelSettlement(name));
             }
             // Throttled cross-worker presence beat (see _realtime/_presence-beat.ts).
             stampPresenceBeat(displayName);
@@ -302,6 +318,11 @@ function wireRealtime(io: IOServer): void {
                 }
             }
         };
+        const publishPresence = (payload: unknown): void => {
+            void applyPresence(payload).catch((error) => {
+                console.warn('[socket] presence reconciliation deferred:', (error as Error).message);
+            });
+        };
 
         // Per-socket throttle for the `presence` event. Each applyPresence runs
         // an O(n) onlineStore scan plus a sector room broadcast, and — unlike the
@@ -320,7 +341,7 @@ function wireRealtime(io: IOServer): void {
             const elapsed = now - (socket.data.lastPresenceAt ?? 0);
             if (elapsed >= PRESENCE_MIN_INTERVAL_MS) {
                 socket.data.lastPresenceAt = now;
-                applyPresence(payload);
+                publishPresence(payload);
                 return;
             }
             // Inside the window: keep only the latest payload and schedule a
@@ -332,7 +353,7 @@ function wireRealtime(io: IOServer): void {
                     socket.data.lastPresenceAt = Date.now();
                     const pending = socket.data.pendingPresence;
                     socket.data.pendingPresence = undefined;
-                    applyPresence(pending);
+                    publishPresence(pending);
                 }, PRESENCE_MIN_INTERVAL_MS - elapsed);
             }
         };
@@ -342,7 +363,7 @@ function wireRealtime(io: IOServer): void {
         const initialPresence = (socket.handshake.auth as HandshakeAuth)?.presence;
         if (initialPresence) {
             socket.data.lastPresenceAt = Date.now();
-            applyPresence(initialPresence);
+            publishPresence(initialPresence);
         }
 
         socket.on('presence', onPresence);

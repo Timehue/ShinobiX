@@ -1,4 +1,5 @@
 import type { StoryStep } from "../types/vn";
+import { ECHOES_BATTLE_BEATS, ECHOES_WITNESS_ERAS } from "../../../shared/echoes-witness";
 import {
     ECHOES_CONTENT_KEY,
     ECHOES_CONTENT_SCHEMA_VERSION,
@@ -202,12 +203,41 @@ function validEchoesScenePage(value: unknown): boolean {
         && page.dialogue.every((line) => nonEmptyString(line)));
 }
 
+function validEchoesWitness(value: unknown): boolean {
+    const witness = object(value);
+    if (!witness || !exactKeys(witness, ECHOES_WITNESS_ERAS.map(({ id }) => id))) return false;
+    return ECHOES_WITNESS_ERAS.every((era, eraIndex) => {
+        const entry = object(witness[era.id]);
+        if (!entry || !exactKeys(entry, ["prompt", "choices", "battleCallbacks", "nextEraAcknowledgements", "haldenAcknowledgements"])
+            || !validEchoesScenePage(entry.prompt)) return false;
+        const choices = entry.choices;
+        if (!Array.isArray(choices) || choices.length !== era.choices.length) return false;
+        if (!choices.every((rawChoice, index) => {
+            const choice = object(rawChoice);
+            return Boolean(choice && exactKeys(choice, ["id", "label", "record"])
+                && choice.id === era.choices[index] && nonEmptyString(choice.label) && nonEmptyString(choice.record));
+        })) return false;
+        const callbacks = object(entry.battleCallbacks);
+        if (!callbacks || !exactKeys(callbacks, [...ECHOES_BATTLE_BEATS])
+            || !ECHOES_BATTLE_BEATS.every((beat) => validEchoesScenePage(callbacks[beat]))) return false;
+        const expectedAcknowledgements = eraIndex < ECHOES_WITNESS_ERAS.length - 1 ? [...era.choices] : [];
+        for (const field of ["nextEraAcknowledgements", "haldenAcknowledgements"] as const) {
+            const acknowledgements = object(entry[field]);
+            if (!acknowledgements || !exactKeys(acknowledgements, expectedAcknowledgements)) return false;
+            if (!expectedAcknowledgements.every((choiceId) => field === "nextEraAcknowledgements"
+                ? validEchoesScenePage(acknowledgements[choiceId])
+                : nonEmptyString(acknowledgements[choiceId]))) return false;
+        }
+        return true;
+    });
+}
+
 /** Shape-only, fail-closed: id parity against ECHOES_OPPONENTS is enforced by
  * the generator at build time (the payload is content-addressed, so a bundle
  * only ever fetches the payload generated from its own source tree). */
 export function validateEchoesContentPayload(value: unknown): EchoesContentPayload {
     const payload = object(value);
-    if (!payload || !exactKeys(payload, ["schemaVersion", "scope", "scenes", "eras"])
+    if (!payload || !exactKeys(payload, ["schemaVersion", "scope", "scenes", "eras", "witness"])
         || payload.schemaVersion !== ECHOES_CONTENT_SCHEMA_VERSION || payload.scope !== ECHOES_CONTENT_KEY) {
         throw new StoryContentLoadError("The Echoes of War script failed schema validation.");
     }
@@ -228,6 +258,9 @@ export function validateEchoesContentPayload(value: unknown): EchoesContentPaylo
         if (!Array.isArray(entry) || entry.length === 0 || !entry.every(validEchoesScenePage)) {
             throw new StoryContentLoadError(`The Echoes of War era intro for ${id} failed schema validation.`);
         }
+    }
+    if (!validEchoesWitness(payload.witness)) {
+        throw new StoryContentLoadError("The Echoes of War witness record failed schema validation.");
     }
     return payload as EchoesContentPayload;
 }

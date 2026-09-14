@@ -387,7 +387,7 @@ export const builtinAis: CreatorAi[] = [
     // reposition; no heal / shield / stun) so it can't out-last a learning
     // player. In a mission it re-levels to the player (floored at the E-Rank min
     // of 1) with statBonus 0 and a low HP floor (see data/combat-missions.ts),
-    // and the easy-band onboarding guards (lib/pve-difficulty.pveGuardedEnemyHit:
+    // and the easy-band onboarding guards (api/_pve-difficulty.ts pveGuardedEnemyHit:
     // per-hit/turn caps + a low-level mercy floor) keep the fight unloseable.
     makeBuiltinAi("builtin-ai-academy-sparring", "Academy Sparring Partner", "🥋", 3, "Academy Training Grounds", starterJutsus.filter((jutsu) => ["starter-nin-lightning-2", "starter-nin-fire-2", "starter-universal-flicker"].includes(jutsu.id)), 0, undefined, "balanced"),
     makeBuiltinAi("builtin-ai-mist-sentinel", "Mist Sentinel", "MS", 8, "Stormveil Patrol", aiJutsuLoadout("defender"), 30, undefined, "defender"),

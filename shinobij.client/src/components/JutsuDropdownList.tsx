@@ -10,6 +10,7 @@ import { useState, useEffect, type ReactNode } from "react";
 import { allTags } from "../lib/tags";
 import { getJutsuSelectOptions } from "../lib/jutsu-options";
 import { specialties, jutsuElements } from "../data/jutsu";
+import { hasBloodlineMarker } from "../lib/bloodline-marker";
 import type { Jutsu } from "../types/combat";
 import type { JutsuType, JutsuElement, JutsuSort } from "../types/core";
 
@@ -23,6 +24,7 @@ export function JutsuDropdownList({
     selectedJutsuId,
     highlightJutsuId,
     onReorder,
+    bloodlineJutsuNames,
 }: {
     jutsus: Jutsu[];
     label: string;
@@ -39,6 +41,13 @@ export function JutsuDropdownList({
     // hidden, and ◀/▶ buttons appear so the selected jutsu can be nudged a slot
     // at a time. `dir` is -1 (left) or +1 (right); the parent owns the order.
     onReorder?: (jutsuId: string, dir: -1 | 1) => void;
+    /**
+     * Opt-in bloodline marker: jutsu id -> granting bloodline name, as built by
+     * bloodlineNamesByJutsuId. When set, bloodline jutsu (see hasBloodlineMarker)
+     * get a corner badge naming their bloodline; when unset, as in the admin
+     * creator tools, cards render exactly as before.
+     */
+    bloodlineJutsuNames?: ReadonlyMap<string, string>;
 }) {
     const [nameFilter, setNameFilter] = useState("");
     const [typeFilter, setTypeFilter] = useState<"All" | JutsuType>("All");
@@ -108,10 +117,12 @@ export function JutsuDropdownList({
                     ) : sortedJutsus.map((jutsu) => {
                         const selected = selectedJutsu?.id === jutsu.id;
                         const image = jutsu.image;
+                        const isBloodline = Boolean(bloodlineJutsuNames && hasBloodlineMarker(jutsu, bloodlineJutsuNames));
+                        const bloodlineName = bloodlineJutsuNames?.get(jutsu.id) ?? "";
                         return (
                             <button
                                 key={jutsu.id}
-                                className={`technique-card ${selected ? "selected" : ""}${highlightJutsuId === jutsu.id ? " academy-click-target" : ""}`}
+                                className={`technique-card ${selected ? "selected" : ""}${isBloodline ? " is-bloodline" : ""}${highlightJutsuId === jutsu.id ? " academy-click-target" : ""}`}
                                 data-academy-hint={highlightJutsuId === jutsu.id ? "Next · choose this" : undefined}
                                 data-academy-autoscroll={highlightJutsuId === jutsu.id ? "true" : undefined}
                                 role="option"
@@ -126,6 +137,9 @@ export function JutsuDropdownList({
                                     {image ? <img src={image} alt="" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : <strong>{jutsu.type.slice(0, 3).toUpperCase()}</strong>}
                                 </span>
                                 <span className="technique-name">{jutsu.name}</span>
+                                {isBloodline && (
+                                    <span className="technique-bloodline" title={bloodlineName ? `Bloodline jutsu — ${bloodlineName}` : "Bloodline jutsu"}>◆ Bloodline</span>
+                                )}
                                 <span className="technique-cost" aria-label={`${jutsu.ap} action points`} title={`${jutsu.ap} action points`}>{jutsu.ap}</span>
                             </button>
                         );

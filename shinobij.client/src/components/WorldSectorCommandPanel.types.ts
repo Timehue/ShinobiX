@@ -9,6 +9,7 @@ import type { SectorTracesView } from "../lib/sector-traces";
 import type { SectorPoolPlateView } from "../lib/sector-pool";
 import type { SectorContractStatus } from "../lib/sector-contract";
 import type { SectorIntelPlateView } from "../lib/village-intel";
+import type { SectorEngagement, SectorWarContestEntryView } from "../lib/sector-war-engagement";
 import type { PlayerRecord } from "../types/character";
 import type { Biome, WeatherType } from "../types/core";
 
@@ -47,6 +48,9 @@ export type WorldSectorCommandPlayer = Readonly<{
     status: WorldSectorCommandPlayerStatus;
     sleeping: boolean;
     actionDisabled: boolean;
+    /** What attacking THIS target opens — resolved in WorldMap, which knows the
+     *  viewer's village. "combat" keeps the button's historical Attack wording. */
+    attackLabel: SectorEngagement;
 }>;
 
 export type WorldSectorCommandHunt = Readonly<{
@@ -74,6 +78,12 @@ export type WorldSectorCommandPanelProps = Readonly<{
     villageWarAdmissionOpen: boolean;
     traces: SectorTracesView | null;
     hasLivePlayers: boolean;
+    /** The sector war running here (null = none). Its win-condition is what an
+     *  attack in this sector actually opens — see lib/sector-war-engagement.ts. */
+    sectorContest: SectorWarContestEntryView | null;
+    /** True when no live defender has fought here for hours, so the attacking
+     *  side may fight the sector's sealed garrison instead of waiting forever. */
+    sectorGarrisonReady: boolean;
     players: readonly WorldSectorCommandPlayer[];
     hunt: WorldSectorCommandHunt | null;
     onRaidEnemyVillage: () => void;
@@ -82,6 +92,10 @@ export type WorldSectorCommandPanelProps = Readonly<{
     onOpenShrine: () => void;
     onStrikeSleeper: (target: PlayerRecord) => void;
     onAttackPlayer: (target: PlayerRecord) => void;
+    /** Open this sector's Card/Pet contest table (no co-located opponent needed). */
+    onOpenSectorContest: () => void;
+    /** Open this sector's contest against its sealed garrison. */
+    onFightSectorGarrison: () => void;
     onClaimContract: () => void;
     onExplore: () => void;
     /** Depleted-pool replacement for Explore — points at the nearest richer sector. */

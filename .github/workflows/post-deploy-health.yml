@@ -30,8 +30,8 @@ on:
   workflow_dispatch:
     inputs:
       commit:
-        description: "Full SHA the live server must report (blank = accept any)"
-        required: false
+        description: "Full SHA the live server must report"
+        required: true
         type: string
 
 concurrency:
@@ -53,9 +53,11 @@ jobs:
     # A failed CI run means Railway never deployed; probing would just re-test
     # whatever is already live and could red-X for an unrelated reason.
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success'
+      github.repository == 'Timehue/ShinobiX' &&
+      (github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
 
@@ -63,9 +65,8 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      # Both secrets are required to probe anything. Skipping (rather than
-      # failing) keeps this workflow from red-X-ing a fork or a checkout that
-      # was never wired to a deployment.
+      # Forks have no production deployment and are excluded at the job boundary.
+      # Missing production configuration is an actionable failure, not a pass.
       - name: Check probe configuration
         id: config
         env:
@@ -74,7 +75,8 @@ jobs:
         run: |
           if [ -z "$PRODUCTION_URL" ] || [ -z "$HEALTH_DEEP_TOKEN" ]; then
             echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Skipped — set the PRODUCTION_URL and HEALTH_DEEP_TOKEN repository secrets to enable the post-deploy probe."
+            echo "::error::Production readiness was not checked. Configure PRODUCTION_URL and HEALTH_DEEP_TOKEN repository secrets."
+            exit 1
           else
             echo "configured=true" >> "$GITHUB_OUTPUT"
           fi
@@ -90,12 +92,14 @@ jobs:
         run: |
           base="${PRODUCTION_URL%/}"
           want="$(printf '%s' "$EXPECTED_COMMIT" | tr '[:upper:]' '[:lower:]')"
-          if [ -z "$want" ]; then
-            echo "No expected commit — probing whatever is currently live."
-            exit 0
+          if [[ ! "$want" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::A full intended commit SHA is required."
+            exit 1
           fi
-          # 40 tries x 30s = 20 minutes, comfortably past a cold Docker build.
+          # Bound total wall time, including a slow/unreachable curl request.
+          deadline=$((SECONDS + 1200))
           for i in $(seq 1 40); do
+            if [ "$SECONDS" -ge "$deadline" ]; then break; fi
             # `|| true` is load-bearing: `defaults.run.shell: bash` gives -eo
             # pipefail, so an unreachable server (curl -f on a 502 mid-cutover)
             # would otherwise abort this script on the first attempt — during
@@ -119,6 +123,10 @@ jobs:
         if: steps.config.outputs.configured == 'true'
         env:
           HEALTH_DEEP_TOKEN: ${{ secrets.HEALTH_DEEP_TOKEN }}
+          PRODUCTION_URL: ${{ secrets.PRODUCTION_URL }}
+          EXPECTED_COMMIT: ${{ github.event_name == 'workflow_dispatch' && inputs.commit || github.event.workflow_run.head_sha }}
           EXPECTED_SAVE_STORE: ${{ vars.EXPECTED_SAVE_STORE || 'base-store' }}
           REQUIRE_KNOWN_COMMIT: '1'
-        run: node scripts/release-health-check.mjs "${{ secrets.PRODUCTION_URL }}"
+          REQUIRE_EXPECTED_COMMIT: '1'
+          REQUIRE_FRESH_BACKUP: '1'
+        run: node scripts/release-health-check.mjs "$PRODUCTION_URL"

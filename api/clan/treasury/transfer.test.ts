@@ -124,4 +124,53 @@ describe('clan treasury transfer settlement', () => {
         assert.equal((await kv.get<{ treasury?: { ryo?: number } }>(CLAN_KEY))?.treasury?.ryo, 75);
         assert.equal((await kv.get<{ character?: { ryo?: number } }>(RECIPIENT_KEY))?.character?.ryo, 32);
     });
+
+    it('leaves the item in the treasury when the recipient bag is full', { concurrency: false }, async () => {
+        // The saga writes the source debit before creditRecipient runs, and a
+        // throw after that write is unrecoverable — it marks the journal
+        // reconciliation-required with no rollback. A capacity check placed in
+        // creditRecipient therefore destroys the gift rather than delaying it,
+        // so it lives in validateRecipient, which runs before the debit.
+        await kv.set(CLAN_KEY, {
+            founderName: 'Founder',
+            members: [{ name: 'Founder', isFounder: true }, { name: 'Recipient' }],
+            treasury: { ryo: 100, items: [{ itemId: 'rustfang-kunai', count: 1 }] },
+        });
+        await kv.set(RECIPIENT_KEY, {
+            _saveVersion: 1,
+            character: { name: 'Recipient', clan: 'Ashwind', ryo: 10, inventory: Array.from({ length: 500 }, (_, i) => `hunt-torn-hide-${i}`) },
+        });
+
+        const refused = await post({ clanName: 'Ashwind', recipientName: 'Recipient', itemId: 'rustfang-kunai' });
+        assert.equal(refused.statusCode, 409);
+        assert.match(String(refused.body?.error), /inventory is full/i);
+        assert.match(String(refused.body?.error), /^Recipient/, 'names the blocked party, not the sender');
+
+        assert.deepEqual(
+            (await kv.get<{ treasury?: { items?: Array<{ itemId: string; count: number }> } }>(CLAN_KEY))?.treasury?.items,
+            [{ itemId: 'rustfang-kunai', count: 1 }],
+            'the gift must survive the refusal',
+        );
+        const bag = (await kv.get<{ character?: { inventory?: string[] } }>(RECIPIENT_KEY))?.character?.inventory ?? [];
+        assert.equal(bag.length, 500);
+        assert.equal(bag.includes('rustfang-kunai'), false);
+    });
+
+    it('delivers the same gift once the recipient makes room', { concurrency: false }, async () => {
+        await kv.set(CLAN_KEY, {
+            founderName: 'Founder',
+            members: [{ name: 'Founder', isFounder: true }, { name: 'Recipient' }],
+            treasury: { ryo: 100, items: [{ itemId: 'rustfang-kunai', count: 1 }] },
+        });
+        await kv.set(RECIPIENT_KEY, {
+            _saveVersion: 1,
+            character: { name: 'Recipient', clan: 'Ashwind', ryo: 10, inventory: Array.from({ length: 499 }, (_, i) => `hunt-torn-hide-${i}`) },
+        });
+        assert.equal((await post({ clanName: 'Ashwind', recipientName: 'Recipient', itemId: 'rustfang-kunai' })).statusCode, 200);
+        assert.deepEqual((await kv.get<{ treasury?: { items?: unknown[] } }>(CLAN_KEY))?.treasury?.items, []);
+        assert.equal(
+            ((await kv.get<{ character?: { inventory?: string[] } }>(RECIPIENT_KEY))?.character?.inventory ?? []).includes('rustfang-kunai'),
+            true,
+        );
+    });
 });

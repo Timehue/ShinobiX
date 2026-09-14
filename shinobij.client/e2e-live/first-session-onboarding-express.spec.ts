@@ -30,6 +30,7 @@ type SaveRecord = {
         academySectorVisited?: boolean;
         academyTraceSector?: number;
         academyFieldSeal?: boolean;
+        firstContract?: { source?: string; route?: string; completedAt?: number; acknowledgedAt?: number };
     };
 };
 
@@ -78,10 +79,15 @@ async function browserApi(page: Page, path: string, body: Record<string, unknown
 }
 
 async function readSave(page: Page, playerName: string): Promise<{ status: number; body: SaveRecord }> {
-    return page.evaluate(async (name) => {
-        const response = await fetch(`/api/save/${encodeURIComponent(name.toLowerCase())}`);
-        return { status: response.status, body: await response.json().catch(() => ({})) as SaveRecord };
-    }, playerName);
+    // Observe persistence without advancing the player's save-version stream.
+    // Owner GETs can settle elapsed state and make the app's pending retry stale.
+    const response = await page.request.get(`/api/save/${encodeURIComponent(playerName.toLowerCase())}`, {
+        headers: { 'x-admin-password': 'live-express-e2e-admin' },
+        // A keep-alive socket may close between persistence polls. Retry only
+        // that transport reset; HTTP failures and the durable predicate still fail.
+        maxRetries: 2,
+    });
+    return { status: response.status(), body: await response.json().catch(() => ({})) as SaveRecord };
 }
 
 async function waitForPersisted(
@@ -133,14 +139,6 @@ async function playToTerminal(page: Page, playerName: string, initial: Session):
     return session;
 }
 
-async function dismissNotice(page: Page, expectedMessage: string | RegExp) {
-    const notice = page.getByRole('alertdialog', { name: 'Notice' });
-    await expect(notice).toBeVisible();
-    await expect(notice.locator('.game-alert-message')).toHaveText(expectedMessage);
-    await notice.getByRole('button', { name: 'OK' }).click();
-    await expect(notice).toBeHidden();
-}
-
 async function createCharacter(page: Page, playerName: string, password: string) {
     await page.goto('/', { waitUntil: 'networkidle' });
     await page.getByTestId('start-create').click();
@@ -163,13 +161,48 @@ async function createCharacter(page: Page, playerName: string, password: string)
     await expect(page.locator('.icx-root')).toBeVisible();
 }
 
-test('a new player completes the full persisted Academy first session against built Express', async ({ page }, testInfo) => {
+// Full motion on purpose. This journey asserts that the WebGL world backdrops
+// (.sector-scene-3d, .scene-ambience-3d) never bind pointer listeners, and those
+// layers only mount when reduced motion is off (SectorScene3D.tsx,
+// SceneAmbience3D.tsx). Under the suite's reduced motion that check would pass
+// with nothing mounted to check.
+test.use({ contextOptions: { reducedMotion: 'no-preference' } });
+
+for (const grantDelayMs of [0, 500]) {
+test(`a new player completes the full persisted Academy first session against built Express (starter response delay ${grantDelayMs}ms)`, async ({ page }, testInfo) => {
+    test.setTimeout(240_000); // includes the independent contract and a second authenticated session
     test.skip(testInfo.project.name !== 'chromium-desktop-live', 'one desktop run covers the full first-session authority journey');
+    if (grantDelayMs) {
+        // Let achievement sync supersede an already committed starter grant.
+        // Its older response must not cancel the cinematic's persistence handoff.
+        await page.route('**/api/pet/choose-starter', async (route) => {
+            // The same keep-alive reset guard as the persistence poll above. It is
+            // inline, not the e2e-live helper: scripts/prepare-ux-journey-audit.mjs
+            // runs a copy of this spec from test-results/, where that import breaks.
+            const response = await route.fetch({ maxRetries: 2 });
+            await new Promise((resolve) => setTimeout(resolve, grantDelayMs));
+            await route.fulfill({ response });
+        });
+    }
 
     const playerName = `Journey${Date.now().toString(36).slice(-7)}`;
     const password = 'Journey!Pass1234';
     const runtimeErrors: string[] = [];
     const serverFailures: string[] = [];
+    const decorativeListeners: string[] = [];
+    await page.exposeFunction('__reportDecorativeListener', (type: string) => decorativeListeners.push(type));
+    await page.addInitScript(() => {
+        const addListener = EventTarget.prototype.addEventListener;
+        const pointerEvents = new Set(['click', 'contextmenu', 'dblclick', 'wheel', 'pointerdown', 'pointerup', 'pointermove', 'pointerleave', 'pointercancel', 'lostpointercapture']);
+        EventTarget.prototype.addEventListener = function (type, listener, options) {
+            if (pointerEvents.has(type) && this instanceof HTMLElement
+                && this.closest('.sector-scene-3d, .scene-ambience-3d')) {
+                void (window as unknown as { __reportDecorativeListener: (type: string) => Promise<void> })
+                    .__reportDecorativeListener(type);
+            }
+            return addListener.call(this, type, listener, options);
+        };
+    });
     let navigationInProgress = false;
     page.on('pageerror', (error) => {
         if (navigationInProgress && error.message === 'Failed to fetch') return;
@@ -284,7 +317,27 @@ test('a new player completes the full persisted Academy first session against bu
     expect(started.session.sessionId).toBe(started.runId);
     await expect(page.locator('.mission-arena-fight')).toBeVisible();
 
-    const terminal = await playToTerminal(page, playerName, started.session);
+    // Learn the actual command/target interaction before the persistence solver
+    // finishes the match. The guide occupies the existing feedback band, so it
+    // cannot cover the vitals or the action tray on a phone.
+    await expect(page.locator('.combat-action-notice .spar-coach-hint')).toContainText('Move');
+    await expect(page.locator('body > .spar-coach-banner')).toHaveCount(0);
+    await page.getByRole('button', { name: /^Move/ }).click();
+    const moveReply = page.waitForResponse(response => response.request().method() === 'POST'
+        && new URL(response.url()).pathname === '/api/solo-pve/action');
+    await page.getByRole('button', { name: /move target/ }).first().click();
+    const moved = await (await moveReply).json() as { session: Session; applied: boolean };
+    expect(moved.applied).toBe(true);
+    expect(moved.session.player.pos).not.toBe(started.session.player.pos);
+    await page.locator('.combat-jutsu-button').filter({ hasText: 'Flicker' }).click();
+    const jutsuReply = page.waitForResponse(response => response.request().method() === 'POST'
+        && new URL(response.url()).pathname === '/api/solo-pve/action');
+    await page.getByRole('button', { name: /jutsu move destination/ }).first().click();
+    const flickered = await (await jutsuReply).json() as { session: Session; applied: boolean };
+    expect(flickered.applied).toBe(true);
+    expect(flickered.session.player.pos).not.toBe(moved.session.player.pos);
+
+    const terminal = await playToTerminal(page, playerName, flickered.session);
     expect(terminal.status).toBe('done');
     expect(terminal.winner).toBe('player');
 
@@ -325,7 +378,7 @@ test('a new player completes the full persisted Academy first session against bu
         && new URL(response.url()).pathname === '/api/player/cafeteria');
     await page.getByRole('button', { name: /Feast/ }).click();
     expect((await cafeteriaResponse).status()).toBe(200);
-    await expect(page.getByRole('status')).toContainText('Feast restored your resources.');
+    await expect(page.locator('.game-toast-stack')).toContainText('Feast restored your resources.');
     await expect(page.getByRole('button', { name: 'Go to Mission Hall' })).toBeVisible();
     await waitForPersisted(page, playerName, (save) => save.character?.onboardingStep === 'firstMission',
         'full recovery and the mission handoff must persist');
@@ -336,7 +389,8 @@ test('a new player completes the full persisted Academy first session against bu
         && new URL(response.url()).pathname === '/api/missions/claim-mission');
     await page.getByRole('button', { name: 'Claim Academy Trial Reward' }).click();
     expect((await missionResponse).status()).toBe(200);
-    await dismissNotice(page, /^Academy Trial complete!/);
+    await expect(page.locator('.game-toast-stack')).toContainText('Academy Trial complete!');
+    await expect(page.getByRole('alertdialog', { name: 'Notice' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Open Logbook' })).toBeVisible();
     await waitForPersisted(page, playerName, (save) => (
         save.character?.onboardingStep === 'logbook'
@@ -406,6 +460,7 @@ test('a new player completes the full persisted Academy first session against bu
     }, 'the complete first-session contract must persist');
     expect(Number(completed._saveVersion)).toBeGreaterThan(0);
     expect(completed.currentSector).toBe(0);
+    expect(completed.character?.firstContract?.source).toBe('academy');
 
     await hardReload();
     await expect(page.locator('.icx-root')).toHaveCount(0);
@@ -416,6 +471,9 @@ test('a new player completes the full persisted Academy first session against bu
 
     // A second session must recover through the real auth path, not merely from
     // React state or a warm browser refresh.
+    // The final autosave and logout share the real 3-second save-burst bucket.
+    // Preserve the existing Academy checkpoint before beginning another activity.
+    await page.waitForTimeout(3_100);
     await page.locator('.mobile-bottom-nav').getByRole('button', { name: 'Menu', exact: true }).click();
     const mobileMenu = page.getByRole('dialog', { name: 'Shinobi menu' });
     await expect(mobileMenu).toBeVisible();
@@ -442,6 +500,29 @@ test('a new player completes the full persisted Academy first session against bu
         && save.character.academyTrialClaimed === true
         && Boolean(save.activeTraining?.token)
     ), 'a real logout/login must restore the completed Academy session');
+
+    // Begin the optional assignment in the second authenticated session. This
+    // proves the offered journal survives logout/login, then separately checks
+    // the real activity, recap and durable acknowledgement across reloads.
+    await page.locator('.fc-ribbon').getByRole('button', { name: /Choose a route/ }).click();
+    await page.screenshot({ path: testInfo.outputPath('first-contract-live-routes.png') });
+    await page.getByRole('dialog', { name: 'First Contract field journal' }).getByRole('button', { name: /Companion A moment for your companion/ }).click();
+    await waitForPersisted(page, playerName, (save) => save.character?.firstContract?.route === 'companion', 'the chosen contract must persist');
+    const care = await browserApi(page, '/api/pet/progress', { playerName, action: 'pet', petId: completed.character?.activePetId });
+    expect(care.status, JSON.stringify(care.body)).toBe(200);
+    await hardReload();
+    await page.locator('.fc-ribbon').getByRole('button', { name: 'Read your entry' }).click();
+    const journal = page.getByRole('dialog', { name: 'First Contract field journal' });
+    await expect(journal).toContainText('You took time to care for one of your companions.');
+    await page.screenshot({ path: testInfo.outputPath('first-contract-live-recap.png') });
+    await journal.getByRole('button', { name: 'Choose your next goal' }).click();
+    await waitForPersisted(page, playerName, (save) => Boolean(save.character?.firstContract?.completedAt && save.character.firstContract.acknowledgedAt), 'completion and its acknowledgement must persist');
+    await page.locator('.mobile-bottom-nav').getByRole('button', { name: 'Village', exact: true }).click();
+    await expect(page.locator('.stormveil-village-screen')).toBeVisible();
+    await hardReload();
+    await expect(page.locator('.fc-ribbon')).toHaveCount(0);
+    expect(decorativeListeners, 'world backdrop canvases must never bind pointer listeners, including during return-to-village teardown').toEqual([]);
     expect(runtimeErrors).toEqual([]);
     expect(serverFailures).toEqual([]);
 });
+}

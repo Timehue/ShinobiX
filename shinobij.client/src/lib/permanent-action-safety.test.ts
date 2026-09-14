@@ -81,7 +81,7 @@ describe("permanent action interaction safety", () => {
     test("clan document changes are shown only after persistence succeeds", () => {
         const hall = source("../screens/ClanHall.tsx");
         const save = between(hall, "async function saveClan", "\n    // Claim a completed clan mission");
-        const request = save.indexOf("await writeClanData(enhanced)");
+        const request = save.indexOf("await writeClanUpdate(enhanced)");
         const localWrite = save.indexOf("setClanData(enhanced)");
         assert.ok(request >= 0 && localWrite > request, "clan state must not optimistically claim an unpersisted save");
         assert.match(save, /return true;/);

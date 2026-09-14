@@ -2,11 +2,12 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { validateVillageStateWrite } from './_village-state-validate.js';
 
-// Audit #16 lockdown (village twin): net-new treasury.items must come from the
-// atomic /api/village/treasury/donate endpoint. The save blob may only
-// RE-ASSERT the current items or REMOVE them (Kage withdrawals/sends).
-// Currency caps are unchanged — daily-agenda / other gameplay rewards still
-// credit currencies via the save blob, so currencies are NOT hard-blocked.
+// The village treasury is server-owned. Items arrive through the atomic
+// /api/village/treasury/donate endpoint (audit #16) and leave through
+// /api/village/treasury/transfer; currencies and the stores move only through
+// their endpoints (#17). A non-admin save blob may only RE-ASSERT the treasury:
+// it cannot raise it (a mint) or lower it (a stale re-assert that would erase a
+// donation made after the client's last poll).
 //
 // Treasury-only writes with kageState=null exercise no IO (the notice/silence
 // and KV paths are gated behind other incoming fields).
@@ -29,10 +30,26 @@ describe('validateVillageStateWrite — treasury.items lockdown (#16)', () => {
         assert.equal(suppressed.some((s) => s.includes('treasury.items')), false);
     });
 
-    it('allows withdrawing items (counts only go down)', async () => {
+    it('blocks removing items through the blob (the transfer endpoint moves them)', async () => {
+        // A villager whose last poll predates a donation re-asserts a list
+        // without it. Accepting that would delete another villager's gift.
+        const prev = stateWith([{ itemId: 'ration', count: 2 }, { itemId: 'gift', count: 1 }]);
+        const { next, suppressed } = await validateVillageStateWrite(prev, stateWith([{ itemId: 'ration', count: 1 }]), villager, null);
+        assert.deepEqual(items(next), [{ itemId: 'ration', count: 2 }, { itemId: 'gift', count: 1 }]);
+        assert.ok(suppressed.some((s) => s.includes('treasury.items removal [ration,gift]')));
+    });
+
+    it('blocks removing items even for the seated Kage', async () => {
+        const prev = stateWith([{ itemId: 'gift', count: 1 }]);
+        const { next } = await validateVillageStateWrite(prev, stateWith([]), villager, { seatedKage: 'rin' });
+        assert.deepEqual(items(next), [{ itemId: 'gift', count: 1 }]);
+    });
+
+    it('lets admin remove items (bypass)', async () => {
         const prev = stateWith([{ itemId: 'ration', count: 2 }]);
-        const { next } = await validateVillageStateWrite(prev, stateWith([]), villager, null);
+        const { next, suppressed } = await validateVillageStateWrite(prev, stateWith([]), admin, null);
         assert.deepEqual(items(next), []);
+        assert.equal(suppressed.some((s) => s.includes('treasury.items')), false);
     });
 
     it('rejects a brand-new itemId (mint) and reverts to prev', async () => {
@@ -103,39 +120,39 @@ describe('validateVillageStateWrite — Hollow Gate 30-day timed unlock', () => 
     const kage = { seatedKage: 'rin' };               // matches `villager.callerName`
     const notKage = { callerName: 'jin', isAdmin: false, village: 'Leaf' };
 
-    it('lets the seated Kage open the gate (~30 days, clamped)', async () => {
+    it('requires the paid endpoint even for the seated Kage', async () => {
         const want = Date.now() + 30 * DAY;
         const { next, suppressed } = await validateVillageStateWrite({}, { hollowGateUnlockedUntil: want }, villager, kage);
         const until = next.hollowGateUnlockedUntil as number;
-        assert.ok(until >= Date.now() + 29 * DAY && until <= Date.now() + 31 * DAY, `until=${until}`);
-        assert.equal(suppressed.some((s) => s.includes('hollowGateUnlockedUntil')), false);
+        assert.equal(until, 0);
+        assert.equal(suppressed.some((s) => s.includes('paid unlock endpoint')), true);
     });
 
-    it('clamps a tampered far-future expiry to ~31 days', async () => {
+    it('rejects a tampered far-future expiry', async () => {
         const want = Date.now() + 3650 * DAY; // ~10 years
         const { next } = await validateVillageStateWrite({}, { hollowGateUnlockedUntil: want }, villager, kage);
-        assert.ok((next.hollowGateUnlockedUntil as number) <= Date.now() + 32 * DAY);
+        assert.equal(next.hollowGateUnlockedUntil, 0);
     });
 
-    it('stacks another 30 days onto an already-active window (extend across writes)', async () => {
+    it('does not extend an active window through a generic write', async () => {
         const prevUntil = Date.now() + 10 * DAY;
         const prev = { hollowGateUnlockedUntil: prevUntil };
         const { next } = await validateVillageStateWrite(prev, { hollowGateUnlockedUntil: prevUntil + 30 * DAY }, villager, kage);
         const until = next.hollowGateUnlockedUntil as number;
-        assert.ok(until >= prevUntil + 29 * DAY && until <= prevUntil + 31 * DAY, `until=${until}`);
+        assert.equal(until, prevUntil);
     });
 
     it('blocks a non-Kage from extending (pins to prev)', async () => {
         const { next, suppressed } = await validateVillageStateWrite({}, { hollowGateUnlockedUntil: Date.now() + 30 * DAY }, notKage, kage);
         assert.equal(next.hollowGateUnlockedUntil, 0);
-        assert.equal(suppressed.some((s) => s.includes('only seatedKage may unlock')), true);
+        assert.equal(suppressed.some((s) => s.includes('paid unlock endpoint')), true);
     });
 
     it('pins an active unlock when a non-admin write tries to lower it (immune to stale clobber)', async () => {
         const prevUntil = Date.now() + 20 * DAY;
         const { next, suppressed } = await validateVillageStateWrite({ hollowGateUnlockedUntil: prevUntil }, { hollowGateUnlockedUntil: 0 }, villager, kage);
         assert.equal(next.hollowGateUnlockedUntil, prevUntil);
-        assert.equal(suppressed.some((s) => s.includes('decrease (admin only)')), true);
+        assert.equal(suppressed.some((s) => s.includes('paid unlock endpoint')), true);
     });
 
     it('lets an admin re-lock early (lower the expiry)', async () => {
@@ -158,9 +175,10 @@ describe('validateVillageStateWrite — Hollow Gate 30-day timed unlock', () => 
         assert.equal(posts2.filter((p) => String(p.id).startsWith('hg-reseal-')).length, 1);
     });
 
-    it('does not post a re-seal notice when the Kage re-opens on the same write', async () => {
+    it('does not post a re-seal notice after a paid reopening', async () => {
         const expired = Date.now() - 1000;
-        const { next } = await validateVillageStateWrite({ hollowGateUnlockedUntil: expired }, { hollowGateUnlockedUntil: Date.now() + 30 * DAY }, villager, kage);
+        const paidUntil = Date.now() + 30 * DAY;
+        const { next } = await validateVillageStateWrite({ hollowGateUnlockedUntil: paidUntil }, { hollowGateUnlockedUntil: expired }, villager, kage);
         const posts = (next.noticePosts ?? []) as Array<Record<string, unknown>>;
         assert.equal(posts.filter((p) => String(p.id).startsWith('hg-reseal-')).length, 0);
     });
@@ -219,14 +237,33 @@ describe('validateVillageStateWrite - Village Stores (provisions / materialPoint
         assert.ok(suppressed.some((s) => s.includes('treasury.provisions increase')));
         assert.ok(suppressed.some((s) => s.includes('treasury.materialPoints increase')));
     });
-    it('rejects a decrease from a non-Kage, allows it from the seated Kage', async () => {
+    it('rejects a decrease from anyone but admin, the seated Kage included', async () => {
         const prev = { treasury: { provisions: 10, materialPoints: 20 } };
         const kage = { seatedKage: 'rin' };
-        const denied = await validateVillageStateWrite(prev, { treasury: { provisions: 0 } }, { ...villager, callerName: 'someone' }, kage);
-        assert.equal((denied.next.treasury as Record<string, unknown>).provisions, 10);
-        assert.ok(denied.suppressed.some((s) => s.includes('treasury.provisions decrease')));
-        const allowed = await validateVillageStateWrite(prev, { treasury: { provisions: 0, materialPoints: 5 } }, villager, kage);
-        assert.equal((allowed.next.treasury as Record<string, unknown>).provisions, 0);
-        assert.equal((allowed.next.treasury as Record<string, unknown>).materialPoints, 5);
+        const villagerWrite = await validateVillageStateWrite(prev, { treasury: { provisions: 0 } }, { ...villager, callerName: 'someone' }, kage);
+        assert.equal((villagerWrite.next.treasury as Record<string, unknown>).provisions, 10);
+        assert.ok(villagerWrite.suppressed.some((s) => s.includes('treasury.provisions decrease')));
+        const kageWrite = await validateVillageStateWrite(prev, { treasury: { provisions: 0, materialPoints: 5 } }, villager, kage);
+        assert.equal((kageWrite.next.treasury as Record<string, unknown>).provisions, 10);
+        assert.equal((kageWrite.next.treasury as Record<string, unknown>).materialPoints, 20);
+        assert.ok(kageWrite.suppressed.some((s) => s.includes('treasury.materialPoints decrease')));
+        const adminWrite = await validateVillageStateWrite(prev, { treasury: { provisions: 0, materialPoints: 5 } }, admin, kage);
+        assert.equal((adminWrite.next.treasury as Record<string, unknown>).provisions, 0);
+        assert.equal((adminWrite.next.treasury as Record<string, unknown>).materialPoints, 5);
+    });
+});
+
+// The seated Kage's Town Hall re-posts the village blob after routine actions
+// (a notice, an elder focus, a gift), built from a treasury it POLLED. If a
+// villager donated after that poll, the blob is lower than the server — and
+// the old seated-Kage withdrawal rule accepted it, erasing the donation.
+describe('validateVillageStateWrite - a stale Kage re-assert cannot erase a donation', () => {
+    it('keeps every currency, store and item a villager donated after the Kage last polled', async () => {
+        const kage = { seatedKage: 'rin' };
+        const afterDonation = { treasury: { ryo: 5_000, honorSeals: 201, fateShards: 2, boneCharms: 3, auraStones: 1, mythicSeals: 1, provisions: 41, materialPoints: 435, items: [{ itemId: 'gift', count: 1 }] } };
+        const stalePoll = { treasury: { ryo: 1_000, honorSeals: 0, fateShards: 0, boneCharms: 0, auraStones: 0, mythicSeals: 0, provisions: 1, materialPoints: 15, items: [] } };
+        const { next } = await validateVillageStateWrite(afterDonation, { ...stalePoll, notices: ['rin selected the war focus.'] }, villager, kage);
+        assert.deepEqual(next.treasury, afterDonation.treasury);
+        assert.deepEqual(next.notices, ['rin selected the war focus.'], 'the rest of the write still lands');
     });
 });
