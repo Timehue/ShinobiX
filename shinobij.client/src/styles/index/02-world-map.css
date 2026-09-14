@@ -433,11 +433,13 @@ html.wm-zoom .world-map-scroll button.atlas-landmark[data-landmark-art="true"]:a
     transform: translate(-50%, -50%) scale(calc(var(--wm-marker-scale, 1) * 1.04)) !important;
 }
 /* The sector hover's z-index 20 would sink the player's own sector below its
-   resting 24 (.atlas-sector-current). Ungated, so it covers the hover rule
-   wherever that applies, and one class more specific, so it wins wherever
+   resting 24 (.atlas-sector-current). Gated like that hover rule, so it covers
+   it wherever it applies, and one class more specific, so it wins wherever
    that rule is declared. */
-html.wm-zoom .world-map-scroll .atlas-sector.atlas-sector-current:hover {
-    z-index: 24 !important;
+@media (hover: hover) {
+    html.wm-zoom .world-map-scroll .atlas-sector.atlas-sector-current:hover {
+        z-index: 24 !important;
+    }
 }
 /* Village-war ownership banners/rings ride the same %-anchors — scale them in
    step so they stay pinned to their (now constant-size) sector markers. */
