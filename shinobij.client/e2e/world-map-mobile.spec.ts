@@ -935,6 +935,115 @@ test("integration: active notifications fit portrait and restore after landscape
     expect(errors).toEqual([]);
 });
 
+// A touch browser keeps :hover on whatever a tap last hit, so hover styles are
+// mouse-only: the pin hovers in atlas-skin.css and 02-world-map.css, and the
+// global button:hover in 01-base-app-chrome.css and 08-polish-nav-passes.css.
+// A mouse move puts a control under :hover exactly as a tap does, without
+// pressing it. The atlas back button has no hover rule of its own, so it shows
+// what the global rule alone does.
+const HOVER_PAINT = ["filter", "box-shadow", "text-shadow", "transform", "border-top-color", "opacity", "z-index"];
+type HoverTarget = "landmark" | "sector" | "back button";
+const BACK_BUTTON = ".world-atlas-card .village-back-button";
+
+/** Finds a control of this kind whose centre hits the control itself, and
+ *  returns a selector for it and that point. Sectors whose paint is inline
+ *  (war-map owner tint) or animated (boss, Death's Gate) would hide a hover
+ *  change, so only plain sectors qualify. */
+async function exposedTarget(page: Page, kind: HoverTarget, scrollIntoView: boolean) {
+    const find = () => page.evaluate(({ kind, scrollIntoView, backButton }) => {
+        const candidates = kind === "back button"
+            ? [...document.querySelectorAll<HTMLElement>(backButton)]
+            : [...document.querySelectorAll<HTMLElement>(`.generated-world-map .atlas-${kind}`)]
+                .filter((pin) => pin.getAnimations().length === 0 && !pin.style.boxShadow
+                    && !pin.classList.contains("atlas-sector-current") && !pin.classList.contains("atlas-current-location"));
+        for (const target of candidates) {
+            if (scrollIntoView) target.scrollIntoView({ block: "center", inline: "center" });
+            const box = target.getBoundingClientRect();
+            const x = box.left + box.width / 2;
+            const y = box.top + box.height / 2;
+            const hit = document.elementFromPoint(x, y);
+            if (hit !== target && !(hit && target.contains(hit))) continue;
+            const label = target.getAttribute("aria-label");
+            return label
+                ? { selector: `.generated-world-map [aria-label="${label}"]`, label, x, y }
+                : { selector: backButton, label: target.textContent!.trim(), x, y };
+        }
+        return null;
+    }, { kind, scrollIntoView, backButton: BACK_BUTTON });
+    if (kind === "back button" || scrollIntoView || !(await page.locator(".wm-village-chip").count())) return find();
+    // The zoomed map shows one region at a time, and not every region has a plain sector in view.
+    for (const region of regions) {
+        await chooseRegion(page, region);
+        const target = await find();
+        if (target) return target;
+    }
+    return null;
+}
+
+/** The control's paint and whether it matched :hover, read in one synchronous
+ *  snapshot. They must be read together: a hover style that moves a control off
+ *  the pointer makes WebKit drop :hover on its next hit test, so a separate
+ *  :hover check could pass while the paint was read at rest. */
+function hoverPaint(page: Page, selector: string) {
+    return page.locator(selector).evaluate(async (target, properties) => {
+        await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+        // Candidates have no animation at rest, so anything running now is a hover transition.
+        target.getAnimations().forEach((animation) => animation.finish());
+        const style = getComputedStyle(target);
+        return {
+            hovered: target.matches(":hover"),
+            paint: Object.fromEntries(properties.map((property) => [property, style.getPropertyValue(property)])),
+        };
+    }, HOVER_PAINT);
+}
+
+async function hoverTarget(page: Page, kind: HoverTarget, scrollIntoView: boolean) {
+    const target = await exposedTarget(page, kind, scrollIntoView);
+    expect(target, `a ${kind} with its own hit target must be reachable`).not.toBeNull();
+    const rest = await hoverPaint(page, target!.selector);
+    expect(rest.hovered, `${target!.label} must start outside :hover`).toBe(false);
+    await page.mouse.move(target!.x, target!.y);
+    let hovered = rest.paint;
+    await expect.poll(async () => {
+        const sample = await hoverPaint(page, target!.selector);
+        hovered = sample.paint;
+        return sample.hovered;
+    }, { message: `${target!.label} must be under :hover when it is measured, or this test proves nothing` }).toBe(true);
+    await page.mouse.move(0, 0);
+    return { label: target!.label, rest: rest.paint, hovered };
+}
+
+for (const map of ["zoomed", "scroll"] as const) {
+    test(`integration: on the ${map} map a pin a tap left under :hover paints as it did at rest`, async ({ page }, testInfo) => {
+        test.skip(!phoneProjects.includes(testInfo.project.name), "touch :hover in both phone engines");
+        const errors = await bootWorldMap(page, undefined, map === "scroll"
+            ? () => page.addInitScript(() => localStorage.setItem("worldMapZoom.v1", "0"))
+            : undefined);
+        if (map === "zoomed") await expect(page.locator("html")).toHaveClass(/\bwm-zoom\b/);
+        else await expect(page.locator("html")).not.toHaveClass(/\bwm-zoom\b/);
+        expect(await page.evaluate(() => matchMedia("(hover: none)").matches), "a phone project must report no hover").toBe(true);
+        for (const kind of ["landmark", "sector", "back button"] as const) {
+            const { label, rest, hovered } = await hoverTarget(page, kind, map === "scroll");
+            expect(hovered, `${label} must not keep hover styling after a tap`).toEqual(rest);
+        }
+        expect(errors).toEqual([]);
+    });
+}
+
+test("integration: a desktop mouse still lights the pin it hovers", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "chromium-desktop", "mouse hover on the desktop atlas");
+    const errors = await bootWorldMap(page);
+    await expect(page.locator("html")).not.toHaveClass(/\bwm-zoom\b/);
+    expect(await page.evaluate(() => matchMedia("(hover: hover)").matches)).toBe(true);
+    for (const kind of ["landmark", "sector", "back button"] as const) {
+        const { label, rest, hovered } = await hoverTarget(page, kind, true);
+        expect(hovered.filter, `${label} hover glow`).not.toBe(rest.filter);
+        // A sector's hover border, like the back button's, comes from the global button:hover.
+        if (kind !== "landmark") expect(hovered["border-top-color"], `${label} hover border`).not.toBe(rest["border-top-color"]);
+    }
+    expect(errors).toEqual([]);
+});
+
 test("rotation retains the region and dragging a sector never starts travel", async ({ page }, testInfo) => {
     test.skip(!phoneProjects.includes(testInfo.project.name), "exercise interaction and orientation in both phone engines");
     const errors = await bootWorldMap(page);

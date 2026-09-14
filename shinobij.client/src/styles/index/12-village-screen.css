@@ -204,7 +204,9 @@
     cursor: pointer;
     transition: background .15s, opacity .15s;
 }
-.mh-combat-btn:hover:not(:disabled) { background: linear-gradient(135deg, #1d4ed8, #2563eb); }
+@media (hover: hover) {
+    .mh-combat-btn:hover:not(:disabled) { background: linear-gradient(135deg, #1d4ed8, #2563eb); }
+}
 .mh-combat-btn:disabled { opacity: .45; cursor: not-allowed; }
 
 /* Fetch mission cards */

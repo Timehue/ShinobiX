@@ -120,11 +120,13 @@
     text-align: left;
     transition: transform 80ms, border-color 120ms, box-shadow 120ms;
 }
-.logbook-screen .location-button:hover:not(:disabled),
-.jutsu-training-screen .location-button:hover:not(:disabled) {
-    border-color: rgba(78,168,255,0.85) !important;
-    box-shadow: 0 0 16px rgba(78,168,255,0.35) !important;
-    transform: translateY(-1px);
+@media (hover: hover) {
+    .logbook-screen .location-button:hover:not(:disabled),
+    .jutsu-training-screen .location-button:hover:not(:disabled) {
+        border-color: rgba(78,168,255,0.85) !important;
+        box-shadow: 0 0 16px rgba(78,168,255,0.35) !important;
+        transform: translateY(-1px);
+    }
 }
 .logbook-screen .location-button strong,
 .logbook-screen .location-button > span:first-child {
@@ -174,16 +176,20 @@
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.3), 0 0 10px rgba(209,167,88,0.22);
     transition: transform 80ms, box-shadow 120ms;
 }
-.logbook-screen .menu button:hover:not(:disabled),
-.jutsu-training-screen button:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 0 0 1px color-mix(in srgb, var(--sj-gold) 40%, transparent) !important;
+@media (hover: hover) {
+    .logbook-screen .menu button:hover:not(:disabled),
+    .jutsu-training-screen button:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 0 0 1px color-mix(in srgb, var(--sj-gold) 40%, transparent) !important;
+    }
 }
-.mission-hall .mh-claim-btn:hover:not(:disabled),
-.mission-hall .mh-combat-btn:hover:not(:disabled),
-.mission-hall .rank-up-btn:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.32), 0 0 16px rgba(209,167,88,0.4) !important;
+@media (hover: hover) {
+    .mission-hall .mh-claim-btn:hover:not(:disabled),
+    .mission-hall .mh-combat-btn:hover:not(:disabled),
+    .mission-hall .rank-up-btn:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.32), 0 0 16px rgba(209,167,88,0.4) !important;
+    }
 }
 .logbook-screen .danger-button,
 .logbook-screen .back-btn,
@@ -686,12 +692,19 @@
 .mission-hall .clan-tabs.expanded-tabs .mh-tab-icon { display: none; }
 .mission-hall .clan-tabs.expanded-tabs .mh-tab-label { white-space: nowrap; }
 
-.mission-hall .clan-tabs.expanded-tabs > button:hover,
 .mission-hall .clan-tabs.expanded-tabs > button.active {
     border-color: rgba(87, 193, 255, 0.66) !important;
     color: #edf8ff !important;
     background: linear-gradient(180deg, rgba(26, 70, 99, 0.7), rgba(9, 25, 43, 0.92)) !important;
     box-shadow: inset 0 -2px 0 #57c1ff, 0 0 20px rgba(87, 193, 255, 0.08) !important;
+}
+@media (hover: hover) {
+    .mission-hall .clan-tabs.expanded-tabs > button:hover {
+        border-color: rgba(87, 193, 255, 0.66) !important;
+        color: #edf8ff !important;
+        background: linear-gradient(180deg, rgba(26, 70, 99, 0.7), rgba(9, 25, 43, 0.92)) !important;
+        box-shadow: inset 0 -2px 0 #57c1ff, 0 0 20px rgba(87, 193, 255, 0.08) !important;
+    }
 }
 
 .mission-hall .clan-tabs.expanded-tabs > button.active .mh-tab-index { color: #76ceff; }
@@ -1055,8 +1068,10 @@
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 0 10px rgba(78, 220, 149, 0.28) !important;
 }
 
-.mission-hall .mh-claim-btn:hover:not(:disabled) {
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.32), 0 0 16px rgba(78, 220, 149, 0.42) !important;
+@media (hover: hover) {
+    .mission-hall .mh-claim-btn:hover:not(:disabled) {
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.32), 0 0 16px rgba(78, 220, 149, 0.42) !important;
+    }
 }
 
 .mission-hall .mh-claim-banner {
@@ -1122,11 +1137,17 @@
 
     .mission-hall .clan-tabs.expanded-tabs > button:last-child { border-right: 0 !important; }
 
-    .mission-hall .clan-tabs.expanded-tabs > button:hover,
     .mission-hall .clan-tabs.expanded-tabs > button.active {
         color: #edf8ff !important;
         background: linear-gradient(180deg, rgba(20, 64, 91, 0.54), rgba(6, 20, 34, 0.72)) !important;
         box-shadow: inset 0 -2px 0 #22c7ef !important;
+    }
+    @media (hover: hover) {
+        .mission-hall .clan-tabs.expanded-tabs > button:hover {
+            color: #edf8ff !important;
+            background: linear-gradient(180deg, rgba(20, 64, 91, 0.54), rgba(6, 20, 34, 0.72)) !important;
+            box-shadow: inset 0 -2px 0 #22c7ef !important;
+        }
     }
 
     .mission-hall .clan-tabs.expanded-tabs .mh-tab-index { display: none; }
