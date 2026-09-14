@@ -90,8 +90,10 @@ formation. Training changes enter a defense when the owner saves it again.
 
 ## Presentation
 
-- The playable arena is real 3D geometry: 35 stone/lacquer cells, shoji blockers,
-  cover platforms, smoke volumes, clan inlays, lanterns, rails, and torii.
+- The playable floor is flat: one slate court surface with 35 flush cell inlays
+  that match the 7x5 simulation grid. Shoji, cover and smoke are simulation
+  rules that shape sight lines and routes; the stage does not draw them as 3D
+  objects.
 - The distant moonlit fortress is background art only; no gameplay floor is baked
   into it.
 - The tactical camera is fixed. It does not orbit, cut, or follow targets.
@@ -139,9 +141,10 @@ topology, or squad size changes.
 
 ## Retired lane engine
 
-`pet-warfront-sim.ts`, `PetWarfrontMatch.tsx`, and `PetWarfrontStage3D.tsx`
-are historical simulation/visual audit fixtures only. No production ladder,
-Colosseum, or co-op entry launches them. Old `?warfront=1` preview links open the
+`pet-warfront-sim.ts` is a historical simulation fixture only. The lane renderer
+that played it, `PetWarfrontMatch.tsx` and `PetWarfrontStage3D.tsx`, was deleted
+on 2026-09-14 once nothing imported it. No production ladder, Colosseum, or
+co-op entry launches the lane sim. Old `?warfront=1` preview links open the
 current Rite. The ladder, arena, and co-op use `PetWarfrontRite`; no standalone
 Pet Tactical product remains. Old recorded lane results keep their standings,
 but are not reinterpreted as Rite replays.

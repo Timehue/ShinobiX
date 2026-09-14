@@ -53,6 +53,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const identity = await authedPlayerOrAdmin(req, hostName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== hostName) return res.status(403).json({ error: 'Can only start your own assault.' });
+        const partyId = typeof body.partyId === 'string' ? body.partyId.trim() : '';
+        if (partyId && !clanBossPartiesEnabled()) {
+            return res.status(409).json({ error: 'Clan Boss parties are currently unavailable. No attempt was used.', errorCode: 'parties-unavailable' });
+        }
 
         const hostRec = await kv.get<Record<string, unknown>>(`save:${hostName}`);
         const hostChar = hostRec?.character as Record<string, unknown> | undefined;
@@ -75,10 +79,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const memberCount = members.length || 1;
         const memberSlugs = members.map(m => safeName(String(m?.name ?? ''))).filter(Boolean);
 
-        // New operation parties are accepted + readied server-side. If the party
-        // feature is rolled back, the compatibility path is truthful SOLO — never
-        // client-selected offline clanmates presented as live humans.
-        const partyId = clanBossPartiesEnabled() && typeof body.partyId === 'string' ? body.partyId : '';
+        // Operation parties are accepted + readied server-side. A request without
+        // a party uses solo compatibility; an explicit party request never does.
         const loadedParty = partyId ? await loadParty(partyId) : null;
         if (partyId && !loadedParty) return res.status(404).json({ error: 'That operation party no longer exists.' });
         const requestedAllies = loadedParty?.members.map((member) => member.slug).filter((slug) => slug !== hostName) ?? [];
