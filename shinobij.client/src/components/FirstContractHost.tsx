@@ -5,7 +5,7 @@ import type { Character, VersionedCharacterCommit } from '../types/character';
 import type { Screen } from '../types/core';
 import type { ActiveTraining } from '../types/combat';
 import { commitAcademyNarrativeAction, type AcademyNarrativeAction } from '../lib/academy-narrative-api';
-import { FIRST_CONTRACT_COPY, FIRST_CONTRACT_OPEN, firstContractPreparation } from '../lib/first-contract';
+import { FIRST_CONTRACT_COPY, FIRST_CONTRACT_OPEN, claimFirstContractOpen, firstContractPreparation } from '../lib/first-contract';
 import { openFirstContractActivity } from '../lib/first-contract-navigation';
 import { academyVowDefinition } from '../lib/academy-narrative';
 import { captureProductEvent } from '../lib/analytics';
@@ -36,13 +36,15 @@ export function FirstContractHost({ character, screen, blocked, navigate, onVers
     const allowed = eligible && (SAFE_SCREENS.includes(screen) || screen === 'worldMap');
     useEffect(() => {
         const show = () => {
-            if (!eligible) return;
+            if (!claimFirstContractOpen() || !eligible) return;
             // Other non-combat screens keep their journal shortcut functional
             // without opening another overlay above their own specialized UI.
             if (!allowed) navigate('logbook');
             setOpen(true); setChoosing(false);
         };
         window.addEventListener(FIRST_CONTRACT_OPEN, show);
+        // The rail can be clicked before this lazy host mounts. Answer that click now.
+        show();
         return () => window.removeEventListener(FIRST_CONTRACT_OPEN, show);
     }, [allowed, eligible, navigate]);
     const modal = open && allowed;
