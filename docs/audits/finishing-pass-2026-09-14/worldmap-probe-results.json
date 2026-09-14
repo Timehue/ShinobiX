@@ -1,0 +1,398 @@
+[
+  {
+    "width": 430,
+    "height": 932,
+    "markers": [
+      {
+        "label": "Enter Stormveil Village",
+        "rect": {
+          "x": 167.39590454101562,
+          "y": 439.7398681640625,
+          "width": 43.97248840332031,
+          "height": 43.972503662109375
+        },
+        "css": {
+          "width": "44px",
+          "height": "44px",
+          "transform": "matrix(0.369, 0, 0, 0.369, -22, -22)",
+          "pointerEvents": "auto"
+        },
+        "after": {
+          "content": "none",
+          "inset": "auto",
+          "pointerEvents": "auto"
+        },
+        "centerHit": true
+      },
+      {
+        "label": "Enter Ashen Leaf Village",
+        "rect": {
+          "x": 167.39590454101562,
+          "y": 123.7112045288086,
+          "width": 43.97248840332031,
+          "height": 43.972496032714844
+        },
+        "css": {
+          "width": "44px",
+          "height": "44px",
+          "transform": "matrix(0.369, 0, 0, 0.369, -22, -22)",
+          "pointerEvents": "auto"
+        },
+        "after": {
+          "content": "none",
+          "inset": "auto",
+          "pointerEvents": "auto"
+        },
+        "centerHit": true
+      },
+      {
+        "label": "Enter Frostfang Village",
+        "rect": {
+          "x": 791.2858276367188,
+          "y": 123.7112045288086,
+          "width": 43.97247314453125,
+          "height": 43.972496032714844
+        },
+        "css": {
+          "width": "44px",
+          "height": "44px",
+          "transform": "matrix(0.369, 0, 0, 0.369, -22, -22)",
+          "pointerEvents": "auto"
+        },
+        "after": {
+          "content": "none",
+          "inset": "auto",
+          "pointerEvents": "auto"
+        },
+        "centerHit": false
+      },
+      {
+        "label": "Enter Moonshadow Village",
+        "rect": {
+          "x": 895.2604370117188,
+          "y": 381.2144775390625,
+          "width": 43.97247314453125,
+          "height": 43.972503662109375
+        },
+        "css": {
+          "width": "44px",
+          "height": "44px",
+          "transform": "matrix(0.369, 0, 0, 0.369, -22, -22)",
+          "pointerEvents": "auto"
+        },
+        "after": {
+          "content": "none",
+          "inset": "auto",
+          "pointerEvents": "auto"
+        },
+        "centerHit": false
+      },
+      {
+        "label": "Enter Central",
+        "rect": {
+          "x": 500.1400451660156,
+          "y": 240.76199340820312,
+          "width": 43.972503662109375,
+          "height": 43.972503662109375
+        },
+        "css": {
+          "width": "44px",
+          "height": "44px",
+          "transform": "matrix(0.369, 0, 0, 0.369, -22, -22)",
+          "pointerEvents": "auto"
+        },
+        "after": {
+          "content": "none",
+          "inset": "auto",
+          "pointerEvents": "auto"
+        },
+        "centerHit": false
+      },
+      {
+        "label": "Enter Hollow Gate",
+        "rect": {
+          "x": 656.1231079101562,
+          "y": 387.0543212890625,
+          "width": 43.9725341796875,
+          "height": 43.972503662109375
+        },
+        "css": {
+          "width": "44px",
+          "height": "44px",
+          "transform": "matrix(0.369, 0, 0, 0.369, -22, -22)",
+          "pointerEvents": "auto"
+        },
+        "after": {
+          "content": "none",
+          "inset": "-10px",
+          "pointerEvents": "auto"
+        },
+        "centerHit": false
+      }
+    ]
+  },
+  {
+    "width": 844,
+    "height": 390,
+    "markers": [
+      {
+        "label": "Enter Stormveil Village",
+        "rect": {
+          "x": 272.2602233886719,
+          "y": 130.40716552734375,
+          "width": 43.954925537109375,
+          "height": 43.9549560546875
+        },
+        "css": {
+          "width": "44px",
+          "height": "44px",
+          "transform": "matrix(0.382, 0, 0, 0.382, -22, -22)",
+          "pointerEvents": "auto"
+        },
+        "after": {
+          "content": "none",
+          "inset": "auto",
+          "pointerEvents": "auto"
+        },
+        "centerHit": true
+      },
+      {
+        "label": "Enter Ashen Leaf Village",
+        "rect": {
+          "x": 272.2602233886719,
+          "y": -100.70407104492188,
+          "width": 43.954925537109375,
+          "height": 43.954933166503906
+        },
+        "css": {
+          "width": "44px",
+          "height": "44px",
+          "transform": "matrix(0.382, 0, 0, 0.382, -22, -22)",
+          "pointerEvents": "auto"
+        },
+        "after": {
+          "content": "none",
+          "inset": "auto",
+          "pointerEvents": "auto"
+        },
+        "centerHit": false
+      },
+      {
+        "label": "Enter Frostfang Village",
+        "rect": {
+          "x": 728.5578002929688,
+          "y": -100.70407104492188,
+          "width": 43.9549560546875,
+          "height": 43.954933166503906
+        },
+        "css": {
+          "width": "44px",
+          "height": "44px",
+          "transform": "matrix(0.382, 0, 0, 0.382, -22, -22)",
+          "pointerEvents": "auto"
+        },
+        "after": {
+          "content": "none",
+          "inset": "auto",
+          "pointerEvents": "auto"
+        },
+        "centerHit": false
+      },
+      {
+        "label": "Enter Moonshadow Village",
+        "rect": {
+          "x": 804.6005859375,
+          "y": 87.62544250488281,
+          "width": 43.9549560546875,
+          "height": 43.95494079589844
+        },
+        "css": {
+          "width": "44px",
+          "height": "44px",
+          "transform": "matrix(0.382, 0, 0, 0.382, -22, -22)",
+          "pointerEvents": "auto"
+        },
+        "after": {
+          "content": "none",
+          "inset": "auto",
+          "pointerEvents": "auto"
+        },
+        "centerHit": false
+      },
+      {
+        "label": "Enter Central",
+        "rect": {
+          "x": 515.6298217773438,
+          "y": -15.099746704101562,
+          "width": 43.9549560546875,
+          "height": 43.954925537109375
+        },
+        "css": {
+          "width": "44px",
+          "height": "44px",
+          "transform": "matrix(0.382, 0, 0, 0.382, -22, -22)",
+          "pointerEvents": "auto"
+        },
+        "after": {
+          "content": "none",
+          "inset": "auto",
+          "pointerEvents": "auto"
+        },
+        "centerHit": false
+      },
+      {
+        "label": "Enter Hollow Gate",
+        "rect": {
+          "x": 629.673583984375,
+          "y": 91.91586303710938,
+          "width": 43.9549560546875,
+          "height": 43.9549560546875
+        },
+        "css": {
+          "width": "44px",
+          "height": "44px",
+          "transform": "matrix(0.382, 0, 0, 0.382, -22, -22)",
+          "pointerEvents": "auto"
+        },
+        "after": {
+          "content": "none",
+          "inset": "-10px",
+          "pointerEvents": "auto"
+        },
+        "centerHit": false
+      }
+    ]
+  },
+  {
+    "width": 390,
+    "height": 844,
+    "markers": [
+      {
+        "label": "Enter Stormveil Village",
+        "rect": {
+          "x": 148.08578491210938,
+          "y": 368.67474365234375,
+          "width": 44.04121398925781,
+          "height": 44.04119873046875
+        },
+        "css": {
+          "width": "44px",
+          "height": "44px",
+          "transform": "matrix(0.374, 0, 0, 0.374, -22, -22)",
+          "pointerEvents": "auto"
+        },
+        "after": {
+          "content": "none",
+          "inset": "auto",
+          "pointerEvents": "auto"
+        },
+        "centerHit": true
+      },
+      {
+        "label": "Enter Ashen Leaf Village",
+        "rect": {
+          "x": 148.08578491210938,
+          "y": 87.07775115966797,
+          "width": 44.04121398925781,
+          "height": 44.04120635986328
+        },
+        "css": {
+          "width": "44px",
+          "height": "44px",
+          "transform": "matrix(0.374, 0, 0, 0.374, -22, -22)",
+          "pointerEvents": "auto"
+        },
+        "after": {
+          "content": "none",
+          "inset": "auto",
+          "pointerEvents": "auto"
+        },
+        "centerHit": false
+      },
+      {
+        "label": "Enter Frostfang Village",
+        "rect": {
+          "x": 704.0036010742188,
+          "y": 87.07775115966797,
+          "width": 44.04119873046875,
+          "height": 44.04120635986328
+        },
+        "css": {
+          "width": "44px",
+          "height": "44px",
+          "transform": "matrix(0.374, 0, 0, 0.374, -22, -22)",
+          "pointerEvents": "auto"
+        },
+        "after": {
+          "content": "none",
+          "inset": "auto",
+          "pointerEvents": "auto"
+        },
+        "centerHit": false
+      },
+      {
+        "label": "Enter Moonshadow Village",
+        "rect": {
+          "x": 796.6705322265625,
+          "y": 316.5287170410156,
+          "width": 44.0411376953125,
+          "height": 44.041168212890625
+        },
+        "css": {
+          "width": "44px",
+          "height": "44px",
+          "transform": "matrix(0.374, 0, 0, 0.374, -22, -22)",
+          "pointerEvents": "auto"
+        },
+        "after": {
+          "content": "none",
+          "inset": "auto",
+          "pointerEvents": "auto"
+        },
+        "centerHit": false
+      },
+      {
+        "label": "Enter Central",
+        "rect": {
+          "x": 444.5697021484375,
+          "y": 191.36984252929688,
+          "width": 44.04119873046875,
+          "height": 44.04121398925781
+        },
+        "css": {
+          "width": "44px",
+          "height": "44px",
+          "transform": "matrix(0.374, 0, 0, 0.374, -22, -22)",
+          "pointerEvents": "auto"
+        },
+        "after": {
+          "content": "none",
+          "inset": "auto",
+          "pointerEvents": "auto"
+        },
+        "centerHit": false
+      },
+      {
+        "label": "Enter Hollow Gate",
+        "rect": {
+          "x": 583.570068359375,
+          "y": 321.71405029296875,
+          "width": 44.04119873046875,
+          "height": 44.041168212890625
+        },
+        "css": {
+          "width": "44px",
+          "height": "44px",
+          "transform": "matrix(0.374, 0, 0, 0.374, -22, -22)",
+          "pointerEvents": "auto"
+        },
+        "after": {
+          "content": "none",
+          "inset": "-10px",
+          "pointerEvents": "auto"
+        },
+        "centerHit": false
+      }
+    ]
+  }
+]

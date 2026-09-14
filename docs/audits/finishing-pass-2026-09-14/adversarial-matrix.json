@@ -1,0 +1,1450 @@
+{
+  "interpretation": "Every reviewed high-value family has all14 cases. EXISTING BEHAVIORAL TEST means a specific reused assertion; it is not production storage certification. NOT ESTABLISHED remains a release/audit gap. No path-wide green is inferred from normal success.",
+  "rows": [
+    {
+      "family": "clan-mission",
+      "cases": {
+        "normal success": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "exact retry": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "simultaneous duplicate": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong player": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong activity/run/battle": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "stale proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "expired proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged amount": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged outcome": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "response lost after commit": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "server/process interruption": {
+          "status": "PROVEN DEFECT",
+          "evidence": "C3: injected failure before clan credit, expired pending receipt replays as success without credit",
+          "artifact": "clan-probe-results.json"
+        },
+        "partial settlement": {
+          "status": "PROVEN DEFECT",
+          "evidence": "C3: personal points granted on retry while shared treasury/XP remain unpaid",
+          "artifact": "clan-probe-results.json"
+        },
+        "reconnect": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "repeat claim after success": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        }
+      }
+    },
+    {
+      "family": "clan-exchange",
+      "cases": {
+        "normal success": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "exact retry": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "simultaneous duplicate": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong player": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong activity/run/battle": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "stale proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "expired proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged amount": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged outcome": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "response lost after commit": {
+          "status": "PROVEN DEFECT",
+          "evidence": "C4: treasury credit persisted, points and limit refunded",
+          "artifact": "clan-probe-results.json"
+        },
+        "server/process interruption": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "partial settlement": {
+          "status": "PROVEN DEFECT",
+          "evidence": "C4: WarSupply1500 granted at zero net points cost",
+          "artifact": "clan-probe-results.json"
+        },
+        "reconnect": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "repeat claim after success": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        }
+      }
+    },
+    {
+      "family": "clan-and-village-treasury-transfers",
+      "cases": {
+        "normal success": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/clan/treasury/transfer.test.ts",
+              "title": "debits and credits exactly once on replay"
+            }
+          ]
+        },
+        "exact retry": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/clan/treasury/transfer.test.ts",
+              "title": "debits and credits exactly once on replay"
+            }
+          ]
+        },
+        "simultaneous duplicate": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/_cross-key-settlement.test.ts",
+              "title": "serializes concurrent identical requests and moves value exactly once"
+            }
+          ]
+        },
+        "wrong player": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong activity/run/battle": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "stale proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "expired proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged amount": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged outcome": {
+          "status": "FIXED WITH REGRESSION TEST",
+          "evidence": "C5 FIXED: the new clan receipt tests reject forged/cleared source proof; before/after evidence retained",
+          "artifact": "clan-receipt-guard-after-corrected-fixture.log"
+        },
+        "response lost after commit": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/clan/treasury/transfer.test.ts",
+              "title": "recovers after the completion journal write fails without duplicating either side"
+            }
+          ]
+        },
+        "server/process interruption": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "partial settlement": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/clan/treasury/transfer.test.ts",
+              "title": "retries after recipient persistence fails without duplicating the debit"
+            }
+          ]
+        },
+        "reconnect": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "repeat claim after success": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/clan/treasury/transfer.test.ts",
+              "title": "debits and credits exactly once on replay"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "family": "direct-trade",
+      "cases": {
+        "normal success": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/player/trade.test.ts",
+              "title": "two concurrent attempts of the same nonce move the money exactly once"
+            }
+          ]
+        },
+        "exact retry": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/player/trade.test.ts",
+              "title": "a replay of the committed nonce returns the same receipt without a second debit"
+            }
+          ]
+        },
+        "simultaneous duplicate": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/player/trade.test.ts",
+              "title": "two concurrent attempts of the same nonce move the money exactly once"
+            }
+          ]
+        },
+        "wrong player": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong activity/run/battle": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/player/trade.test.ts",
+              "title": "the same nonce with a different payload is refused, not reinterpreted"
+            }
+          ]
+        },
+        "stale proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "expired proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged amount": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged outcome": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "response lost after commit": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/player/trade.test.ts",
+              "title": "a replay of the committed nonce returns the same receipt without a second debit"
+            }
+          ]
+        },
+        "server/process interruption": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/player/trade.test.ts",
+              "title": "a pre-debit write failure rolls the marker back so the SAME nonce can run for real"
+            }
+          ]
+        },
+        "partial settlement": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "reconnect": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "repeat claim after success": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/player/trade.test.ts",
+              "title": "a replay of the committed nonce returns the same receipt without a second debit"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "family": "admin-ops-cron",
+      "cases": {
+        "normal success": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "exact retry": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "simultaneous duplicate": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong player": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong activity/run/battle": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "stale proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "expired proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged amount": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged outcome": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "response lost after commit": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "server/process interruption": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "partial settlement": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "reconnect": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "repeat claim after success": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        }
+      }
+    },
+    {
+      "family": "mission-and-solo-pve",
+      "cases": {
+        "normal success": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/missions/mission-combat-claim-saga.test.ts",
+              "title": "${mode} leaves the sole token retryable and pays once"
+            }
+          ]
+        },
+        "exact retry": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/missions/mission-combat-claim-saga.test.ts",
+              "title": "a lost HTTP response replays from the atomic marker without changing the save"
+            }
+          ]
+        },
+        "simultaneous duplicate": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong player": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong activity/run/battle": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/missions/mission-combat-claim-saga.test.ts",
+              "title": "an old run token can only replay its old receipt and cannot pay a later queued run"
+            }
+          ]
+        },
+        "stale proof": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/missions/mission-combat-claim-saga.test.ts",
+              "title": "fails closed on a non-null mismatched old-delete recovery triplet"
+            }
+          ]
+        },
+        "expired proof": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/missions/mission-combat-claim-saga.test.ts",
+              "title": "preserves all 40 possible live-token markers and bounds only expired history"
+            }
+          ]
+        },
+        "forged amount": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged outcome": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "response lost after commit": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/missions/mission-combat-claim-saga.test.ts",
+              "title": "recovers commit-then-throw and replays the exact reward/character without a second payout"
+            }
+          ]
+        },
+        "server/process interruption": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/missions/mission-combat-claim-saga.test.ts",
+              "title": "recovers an old-worker delete then pre-save crash only after CAS fencing null to paying"
+            }
+          ]
+        },
+        "partial settlement": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/missions/mission-combat-claim-saga.test.ts",
+              "title": "helps Legacy counters forward after crashing between target CAS and save stamp"
+            }
+          ]
+        },
+        "reconnect": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/missions/queue-combat-claim.test.ts",
+              "title": "lost queue response replays the exact authoritative surviving HP and save version"
+            }
+          ]
+        },
+        "repeat claim after success": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/missions/mission-combat-claim-saga.test.ts",
+              "title": "retries token retirement after every effect is durable without replaying any payout"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "family": "pvp-ranked-and-vitals",
+      "cases": {
+        "normal success": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/pvp/_reward-settlement.test.ts",
+              "title": "credits exactly once, no matter how many times the claim is retried"
+            }
+          ]
+        },
+        "exact retry": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/pvp/_reward-settlement.test.ts",
+              "title": "credits exactly once, no matter how many times the claim is retried"
+            }
+          ]
+        },
+        "simultaneous duplicate": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong player": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong activity/run/battle": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/pvp/_reward-completion.test.ts",
+              "title": "binds reserve, server-credit mark, and browser ACK to one session generation"
+            }
+          ]
+        },
+        "stale proof": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/pvp/_reward-recovery.test.ts",
+              "title": "migrates a canonical v1 snapshot and seals one absolute terminal deadline without extending it"
+            }
+          ]
+        },
+        "expired proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged amount": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged outcome": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "response lost after commit": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/pvp/_reward-completion.test.ts",
+              "title": "repairs a lost claim response without any browser storage"
+            }
+          ]
+        },
+        "server/process interruption": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/pvp/_reward-settlement.test.ts",
+              "title": "a crash AFTER the atomic write leaves credit+receipt together, so the retry skips"
+            }
+          ]
+        },
+        "partial settlement": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/pvp/_reward-completion-handler.test.ts",
+              "title": "a transient Vanguard saga failure keeps completion pending and retry credits exactly once"
+            }
+          ]
+        },
+        "reconnect": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/pvp/_reward-recovery.test.ts",
+              "title": "seals one canonical session and reloads it after the live row is deleted"
+            }
+          ]
+        },
+        "repeat claim after success": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/pvp/_reward-settlement.test.ts",
+              "title": "credits exactly once, no matter how many times the claim is retried"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "family": "tower-and-spire",
+      "cases": {
+        "normal success": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "exact retry": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "simultaneous duplicate": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong player": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong activity/run/battle": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "stale proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "expired proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged amount": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged outcome": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "response lost after commit": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "server/process interruption": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "partial settlement": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "reconnect": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "repeat claim after success": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        }
+      }
+    },
+    {
+      "family": "hollow-gate",
+      "cases": {
+        "normal success": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/hollow-gate/_combat-session.test.ts",
+              "title": "Hollow Gate combat binding and Solo receipt settle once"
+            }
+          ]
+        },
+        "exact retry": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/hollow-gate/_combat-session.test.ts",
+              "title": "Hollow Gate combat binding and Solo receipt settle once"
+            }
+          ]
+        },
+        "simultaneous duplicate": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong player": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/hollow-gate/_combat-session.test.ts",
+              "title": "Hollow Gate validates exact terminal Solo PvE player, token, run, node, floor, kind, and enemy binding"
+            }
+          ]
+        },
+        "wrong activity/run/battle": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/hollow-gate/_combat-session.test.ts",
+              "title": "Hollow Gate validates exact terminal Solo PvE player, token, run, node, floor, kind, and enemy binding"
+            }
+          ]
+        },
+        "stale proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "expired proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged amount": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged outcome": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/hollow-gate/_combat-session.test.ts",
+              "title": "Hollow Gate validates exact terminal Solo PvE player, token, run, node, floor, kind, and enemy binding"
+            }
+          ]
+        },
+        "response lost after commit": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "server/process interruption": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "partial settlement": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "reconnect": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "repeat claim after success": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/hollow-gate/_combat-session.test.ts",
+              "title": "Hollow Gate combat binding and Solo receipt settle once"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "family": "story-events-and-creator",
+      "cases": {
+        "normal success": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/story/settle-handler.test.ts",
+              "title": "real story settle handler grants one authoritative Chronicle record and replays exactly once"
+            }
+          ]
+        },
+        "exact retry": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/story/settle-handler.test.ts",
+              "title": "real story settle handler grants one authoritative Chronicle record and replays exactly once"
+            }
+          ]
+        },
+        "simultaneous duplicate": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong player": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/story/settle-handler.test.ts",
+              "title": "real story settle handler rejects another account before touching the sealed run"
+            }
+          ]
+        },
+        "wrong activity/run/battle": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/story/_settle.test.ts",
+              "title": "story settlement rejects skipped, mismatched, under-level, and completed milestones"
+            }
+          ]
+        },
+        "stale proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "expired proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged amount": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/events/_claim.test.ts",
+              "title": "rejects early and user-authored reward payload ids"
+            }
+          ]
+        },
+        "forged outcome": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "response lost after commit": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "server/process interruption": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "partial settlement": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "reconnect": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "repeat claim after success": {
+          "status": "EXISTING BEHAVIORAL TEST",
+          "evidence": [
+            {
+              "file": "api/story/_settle.test.ts",
+              "title": "all four finales grant their canonical title and remain one-shot on replay"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "family": "bosses-and-endless",
+      "cases": {
+        "normal success": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "exact retry": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "simultaneous duplicate": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong player": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong activity/run/battle": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "stale proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "expired proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged amount": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged outcome": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "response lost after commit": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "server/process interruption": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "partial settlement": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "reconnect": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "repeat claim after success": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        }
+      }
+    },
+    {
+      "family": "pet-combat",
+      "cases": {
+        "normal success": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "exact retry": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "simultaneous duplicate": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong player": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong activity/run/battle": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "stale proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "expired proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged amount": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged outcome": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "response lost after commit": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "server/process interruption": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "partial settlement": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "reconnect": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "repeat claim after success": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        }
+      }
+    },
+    {
+      "family": "pet-progression-and-custody",
+      "cases": {
+        "normal success": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "exact retry": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "simultaneous duplicate": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong player": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong activity/run/battle": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "stale proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "expired proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged amount": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged outcome": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "response lost after commit": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "server/process interruption": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "partial settlement": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "reconnect": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "repeat claim after success": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        }
+      }
+    },
+    {
+      "family": "chronicle",
+      "cases": {
+        "normal success": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "exact retry": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "simultaneous duplicate": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong player": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong activity/run/battle": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "stale proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "expired proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged amount": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged outcome": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "response lost after commit": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "server/process interruption": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "partial settlement": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "reconnect": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "repeat claim after success": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        }
+      }
+    },
+    {
+      "family": "clan-other-and-territory",
+      "cases": {
+        "normal success": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "exact retry": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "simultaneous duplicate": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong player": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong activity/run/battle": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "stale proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "expired proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged amount": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged outcome": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "response lost after commit": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "server/process interruption": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "partial settlement": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "reconnect": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "repeat claim after success": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        }
+      }
+    },
+    {
+      "family": "village-war-and-sector-control",
+      "cases": {
+        "normal success": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "exact retry": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "simultaneous duplicate": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong player": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong activity/run/battle": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "stale proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "expired proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged amount": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged outcome": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "response lost after commit": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "server/process interruption": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "partial settlement": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "reconnect": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "repeat claim after success": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        }
+      }
+    },
+    {
+      "family": "training-jutsu-profession",
+      "cases": {
+        "normal success": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "exact retry": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "simultaneous duplicate": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong player": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong activity/run/battle": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "stale proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "expired proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged amount": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged outcome": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "response lost after commit": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "server/process interruption": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "partial settlement": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "reconnect": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "repeat claim after success": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        }
+      }
+    },
+    {
+      "family": "shops-crafting-inventory-premium",
+      "cases": {
+        "normal success": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "exact retry": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "simultaneous duplicate": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong player": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong activity/run/battle": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "stale proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "expired proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged amount": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged outcome": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "response lost after commit": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "server/process interruption": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "partial settlement": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "reconnect": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "repeat claim after success": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        }
+      }
+    },
+    {
+      "family": "legacy-achievements-and-dojo",
+      "cases": {
+        "normal success": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "exact retry": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "simultaneous duplicate": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong player": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong activity/run/battle": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "stale proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "expired proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged amount": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged outcome": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "response lost after commit": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "server/process interruption": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "partial settlement": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "reconnect": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "repeat claim after success": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        }
+      }
+    },
+    {
+      "family": "save-sanitization-and-world",
+      "cases": {
+        "normal success": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "exact retry": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "simultaneous duplicate": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong player": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "wrong activity/run/battle": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "stale proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "expired proof": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged amount": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "forged outcome": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "response lost after commit": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "server/process interruption": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "partial settlement": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "reconnect": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        },
+        "repeat claim after success": {
+          "status": "NOT ESTABLISHED",
+          "evidence": "Inspect family tests/callers and complete the safe-target drill before certifying this case."
+        }
+      }
+    }
+  ]
+}
