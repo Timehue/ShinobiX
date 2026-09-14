@@ -216,10 +216,6 @@ html body.ui-scroll-locked {
   margin-top: 0 !important;
 }
 
-.app-shell:not(.screen-start) .journey-live-stats {
-  z-index: 2;
-}
-
 /* ----------------------------------------------------------- shared materials */
 
 .ui-panel,
@@ -401,42 +397,6 @@ html body.ui-scroll-locked {
 .ui-badge--danger { color: #e7a0a4; border-color: rgba(198, 83, 89, 0.48); }
 .ui-badge--info { color: #a9c7d9; border-color: rgba(109, 159, 189, 0.46); }
 .ui-badge--spirit { color: var(--sj-spirit-bright); border-color: rgba(116, 173, 189, 0.5); }
-
-.ui-progress {
-  display: grid;
-  gap: var(--sp-1);
-}
-
-.ui-progress-meta {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--sp-3);
-  color: var(--sj-text-secondary);
-  font-size: var(--fs-xs);
-}
-
-.ui-progress-meta strong { color: var(--sj-text-primary); font-variant-numeric: tabular-nums; }
-
-.ui-progress-track {
-  height: 8px;
-  overflow: hidden;
-  background: var(--sj-void);
-  border: 1px solid var(--sj-border-faint);
-  border-radius: 2px;
-}
-
-.ui-progress-fill {
-  display: block;
-  height: 100%;
-  background: var(--sj-gold);
-  transition: width var(--motion-normal) ease;
-}
-
-.ui-progress--health .ui-progress-fill { background: var(--sj-danger); }
-.ui-progress--chakra .ui-progress-fill { background: var(--sj-info); }
-.ui-progress--stamina .ui-progress-fill { background: var(--sj-success); }
-.ui-progress--ap .ui-progress-fill { background: var(--sj-warning); }
-.ui-progress--spirit .ui-progress-fill { background: var(--sj-spirit); }
 
 /* -------------------------------------------------------- modal / toast depth */
 
@@ -1398,17 +1358,6 @@ html body.ui-scroll-locked {
     font-size: 12px;
   }
 
-  html.wm-zoom .wm-zoom-controls {
-    gap: 4px;
-  }
-
-  html.wm-zoom .wm-zoom-btn {
-    width: 30px;
-    height: 30px;
-    border-radius: 7px;
-    font-size: 16px;
-  }
-
   html.wm-zoom .wm-village-bar {
     gap: 5px;
     margin-top: 7px;
@@ -1417,12 +1366,6 @@ html body.ui-scroll-locked {
   html.wm-zoom .wm-village-chip {
     padding: 5px 8px;
     font-size: 10.5px;
-  }
-
-  html.wm-zoom .wm-village-chip .wm-chip-dot {
-    width: 6px;
-    height: 6px;
-    margin-right: 4px;
   }
 
   html.wm-zoom .world-map-scroll .atlas-landmark {
@@ -2062,28 +2005,6 @@ body.coach-banner-open .coach-guide-actions .location-button {
     border-radius: 8px !important;
     font-size: 12px !important;
     line-height: 1 !important;
-  }
-
-  html.wm-zoom .app-shell.screen-worldMap .wm-zoom-controls {
-    gap: 5px !important;
-  }
-
-  html.wm-zoom .app-shell.screen-worldMap .wm-zoom-btn {
-    width: 34px !important;
-    min-width: 34px !important;
-    max-width: 34px !important;
-    height: 34px !important;
-    min-height: 34px !important;
-    max-height: 34px !important;
-    padding: 0 !important;
-    border-radius: 8px !important;
-    font-size: 17px !important;
-    line-height: 1 !important;
-    box-sizing: border-box !important;
-  }
-
-  html.wm-zoom .app-shell.screen-worldMap .wm-zoom-btn[aria-label="Reset view"] {
-    font-size: 13px !important;
   }
 
   html.wm-zoom .app-shell.screen-worldMap .wm-village-chip {

@@ -62,11 +62,6 @@
 
 
 
-    .avatar-upload-button {
-        padding: 10px 14px !important;
-        font-size: 0.82rem !important;
-    }
-
     /* ── Stat cards: 2-col grid with big touch Add button ── */
     .stat-grid {
         grid-template-columns: repeat(2, 1fr) !important;
