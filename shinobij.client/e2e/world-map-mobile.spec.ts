@@ -482,7 +482,7 @@ async function openClippedSector(page: Page) {
     return { ...target!, region: region!, camera: regionCamera };
 }
 
-type PressEvent = { type: string; target: string | null; transform: string; scroll: number[] };
+type PressEvent = { type: string; target: string | null; inMap: boolean; transform: string; scroll: number[] };
 
 /** Start a fresh record of a press's mouse events and focus, with the camera
  * each one saw. The listeners run on window in the capture phase, ahead of the
@@ -504,6 +504,7 @@ async function recordPress(page: Page) {
                 log.push({
                     type,
                     target: element?.getAttribute("aria-label") ?? element?.tagName.toLowerCase() ?? null,
+                    inMap: Boolean(stage && element && stage.contains(element)),
                     transform: map ? getComputedStyle(map).transform : "unmounted",
                     scroll: stage ? [stage.scrollLeft, stage.scrollTop] : [],
                 });
@@ -511,6 +512,22 @@ async function recordPress(page: Page) {
         }
     });
     return () => page.evaluate(() => (window as unknown as { pressLog: PressEvent[] }).pressLog);
+}
+
+/** A point 12px past the map edge nearest to `point`, inside the page and off
+ * the map, where a released mouse lands outside the map. */
+async function pointOutsideMap(page: Page, point: ScreenPoint) {
+    return page.locator(".world-map-scroll").evaluate((viewport, { x, y }) => {
+        const r = viewport.getBoundingClientRect();
+        return [
+            { gap: x - r.left, x: r.left - 12, y },
+            { gap: r.right - x, x: r.right + 12, y },
+            { gap: y - r.top, x, y: r.top - 12 },
+            { gap: r.bottom - y, x, y: r.bottom + 12 },
+        ].filter((edge) => edge.x > 1 && edge.x < innerWidth - 1 && edge.y > 1 && edge.y < innerHeight - 1
+            && !viewport.contains(document.elementFromPoint(edge.x, edge.y)))
+            .sort((a, b) => a.gap - b.gap)[0] ?? null;
+    }, point);
 }
 
 test("integration: a touch or mouse tap on an edge-clipped sector travels without moving the camera", async ({ page }, testInfo) => {
@@ -565,6 +582,78 @@ test("integration: a touch or mouse tap on an edge-clipped sector travels withou
     } finally {
         await session.detach();
     }
+});
+
+test("integration: a mouse press released outside the map still lets focus reveal an off-camera sector", async ({ page }, testInfo) => {
+    test.skip(!testInfo.project.use.hasTouch || (page.viewportSize()?.width ?? 0) >= 980,
+        "only a phone or tablet map zooms, and the setup taps the map");
+    const errors = await bootWorldMap(page);
+    const destinations: number[] = [];
+    await page.route("**/api/player/travel", async (route) => {
+        destinations.push(Number(route.request().postDataJSON().destinationSector));
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ arrivalAt: Date.now(), travelMs: 0, arrivalTile: 78 }) });
+    });
+    const camera = () => page.locator(".generated-world-map").evaluate((map) => getComputedStyle(map).transform);
+    const target = await openClippedSector(page);
+    const release = await pointOutsideMap(page, target);
+    expect(release, "a point just outside the map, beside the clipped sector").not.toBeNull();
+    // Press the sector with a mouse and release it just past the map's edge. The
+    // pointer never moves past the tap slop inside the map, so the pan never
+    // claims it, and a press on a map control is never captured: nothing in the
+    // map receives this pointer-up.
+    const pressLog = await recordPress(page);
+    await page.mouse.move(target.x, target.y);
+    await page.mouse.down();
+    await page.mouse.move(release!.x, release!.y);
+    await page.mouse.up();
+    await expect.poll(async () => (await pressLog()).some((entry) => entry.type === "mouseup"), { message: "the press is released" }).toBe(true);
+    const log = await pressLog();
+    await testInfo.attach("released-outside-press", { body: JSON.stringify({ target, release, log }, null, 2), contentType: "application/json" });
+    expect(log.filter((entry) => entry.type === "mousedown").map((entry) => [entry.target, entry.inMap]), "the press starts on the sector").toEqual([[target.label, true]]);
+    expect(log.filter((entry) => entry.type === "mouseup").map((entry) => entry.inMap), "and ends outside the map").toEqual([false]);
+    expect(destinations, "a press released off the sector does not travel").toEqual([]);
+    expect(await camera(), "the press itself moves no camera").toBe(target.camera);
+    // Chromium and Firefox focused the sector on the press, so blur it first.
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    const sector = page.getByRole("button", { name: target.label, exact: true });
+    await sector.focus();
+    expect(await camera(), "after a press released outside the map, a focus without a pointer still pans the sector into view").not.toBe(target.camera);
+    // A pointer left behind would also make the next touch press the second
+    // finger of a pinch, whose click the map swallows. The focus has brought
+    // the sector fully into view, so tap it.
+    await sector.tap();
+    await expect.poll(() => destinations, { message: "the next touch tap is a tap, not half a pinch, and travels" }).toEqual([target.sector]);
+    expect(errors).toEqual([]);
+});
+
+test("integration: a press held on a marker while the map leaves zoom mode leaves the next tap working", async ({ page }, testInfo) => {
+    test.skip(!phoneProjects.includes(testInfo.project.name), "exercise the zoom-mode boundary in both phone engines");
+    const errors = await bootWorldMap(page);
+    const destinations: number[] = [];
+    await page.route("**/api/player/travel", async (route) => {
+        destinations.push(Number(route.request().postDataJSON().destinationSector));
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ arrivalAt: Date.now(), travelMs: 0, arrivalTile: 78 }) });
+    });
+    await chooseRegion(page, "storm");
+    const sector = page.getByRole("button", { name: /Travel to Harbor Gates \(Sector 1\)/ });
+    const box = (await sector.boundingBox())!;
+    // Press the marker with a mouse, cross into the desktop layout, where zoom
+    // mode is off and endPointer ignores pointer-ups, and release off the map.
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await expect(page.locator("html")).not.toHaveClass(/\bwm-zoom\b/);
+    await page.mouse.move(4, 4);
+    await page.mouse.up();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.locator("html")).toHaveClass(/\bwm-zoom\b/);
+    expect(destinations, "the held press travels nowhere").toEqual([]);
+    await chooseRegion(page, "storm");
+    // A pointer still tracked from before the boundary would make this touch
+    // the second finger of a pinch, whose click the map swallows.
+    await sector.tap();
+    await expect.poll(() => destinations, { message: "the first touch tap after the boundary travels" }).toEqual([1]);
+    expect(errors).toEqual([]);
 });
 
 test("integration: a cancelled touch drag permits keyboard sector activation", async ({ page }, testInfo) => {
