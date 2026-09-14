@@ -801,17 +801,6 @@
     mask-image: radial-gradient(75% 62% at 50% 50%, #000 22%, transparent 74%);
     opacity: 0.6;
 }
-.echoes-vs-portrait--mark {
-    display: grid;
-    place-items: center;
-    background:
-        radial-gradient(circle at 40% 28%, color-mix(in srgb, var(--band, #d9c88a) 30%, transparent), transparent 45%),
-        linear-gradient(150deg, #241d12, #0b0906);
-    color: #efdda6;
-    font-family: Georgia, serif;
-    font-size: clamp(2.6rem, 9vmin, 5rem);
-    font-weight: 900;
-}
 .echoes-vs-id {
     display: grid;
     gap: 0.3rem;
