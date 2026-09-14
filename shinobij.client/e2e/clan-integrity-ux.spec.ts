@@ -216,6 +216,10 @@ test("Clan Hall territory and dissolution controls preserve authoritative player
     await expect(confirmation).toContainText("removes every member");
     await expect(confirmation).toContainText("releases its territory");
     await expect(confirmation).toContainText("forfeits active clan wars");
+    // Logout opts into a safe initial action; ordinary confirmations retain
+    // their existing default and expose their explanation to screen readers.
+    await expect(confirmation.getByRole("button", { name: "Delete", exact: true })).toBeFocused();
+    await expect(confirmation).toHaveAccessibleDescription(/removes every member/);
     await confirmation.getByRole("button", { name: "Cancel" }).click();
     expect(deleteRequests).toBe(0);
     await expect(deleteButton).toBeEnabled();

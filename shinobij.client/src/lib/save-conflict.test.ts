@@ -463,8 +463,9 @@ describe("save-conflict App and accessibility contracts", () => {
         assert.match(push, /return savePersistenceRef\.current!\.persistRequired/);
         assert.match(persistenceSource, /params\.flight\.runRequired/);
         assert.match(persistenceSource, /if \(!await refetchAfterConflict\(save\.name, save\.revision,/);
-        const logout = appSource.slice(appSource.indexOf("async function logoutPlayer"), appSource.indexOf("function recordBuiltInMissionProgress"));
-        assert.ok(logout.indexOf("await pushSaveToServer") < logout.indexOf("endLocalSession()"));
+        const logout = readFileSync(new URL("./player-logout.ts", import.meta.url), "utf8");
+        assert.match(appSource, /playerLogout\.run\(\{ character, currentAccountName, saveCoordinator, saveSessionEpochRef, confirm: gameConfirm, endLocalSession \}\)/);
+        assert.ok(logout.indexOf("await pushSaveToServer") < logout.indexOf("params.endLocalSession()"));
         assert.match(logout, /if \(charDirtyRef\.current && latestSaveRef\.current\)/);
     });
 

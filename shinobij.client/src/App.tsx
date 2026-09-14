@@ -13,7 +13,7 @@ import type * as React from "react";
 import { installAuthFetch, isTokenExpired, setActivePlayer, setActiveToken, setAdminSession, SESSION_EXPIRED_EVENT } from "./authFetch";
 import { isReleaseSafeClientEvent } from "./lib/release-safe-content";
 import { GameAlertHost, GameConfirmHost, GamePasswordPromptHost, gameConfirm } from "./components/GameAlert";
-import { logoutSaveFailure } from "./lib/logout-save-failure";
+import { createPlayerLogout } from "./lib/player-logout";
 import { GameToastHost, gameToast } from "./components/GameToast";
 import { AdaptiveGameShell } from "./components/layout/AdaptiveGameShell";
 import { MaintenanceOperatorBoundary } from "./components/MaintenanceOperatorBoundary";
@@ -4267,25 +4267,10 @@ export default function App() {
         setScreen("start");
     }
 
-    // Logout must FINISH the save before tearing the session down —
-    // clearing the character (and its auth token) first lost the last chunk of
-    // progress. On save failure, offer to stay logged in.
+    const [playerLogout] = useState(createPlayerLogout);
+    useEffect(() => () => playerLogout.retire(), [playerLogout]);
     async function logoutPlayer() {
-        if (character) {
-            try {
-                const accountName = currentAccountName || character.name;
-                await pushSaveToServer(character, accountName, undefined, { useLatestAtExecution: true });
-                if (charDirtyRef.current && latestSaveRef.current) {
-                    await pushSaveToServer(latestSaveRef.current.character, accountName, undefined, { useLatestAtExecution: true });
-                }
-                if (charDirtyRef.current) throw new Error("The save changed while logout was finishing.");
-            } catch (error) {
-                charDirtyRef.current = true;
-                const failure = logoutSaveFailure(error);
-                if (!(await gameConfirm(failure.message, failure.options))) return;
-            }
-        }
-        endLocalSession();
+        return playerLogout.run({ character, currentAccountName, saveCoordinator, saveSessionEpochRef, confirm: gameConfirm, endLocalSession });
     }
 
     async function recordBuiltInMissionProgress(
