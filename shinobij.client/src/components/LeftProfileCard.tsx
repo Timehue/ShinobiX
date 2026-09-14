@@ -30,6 +30,7 @@ import { formatCompact, formatExact, formatRatio } from "../lib/format-number";
 import { levelProgress } from "../lib/character-progress";
 import { useOwnAvatar } from "../lib/own-avatar";
 import type { Character } from "../types/character";
+import type { DailyLoginCommitFactory } from "../lib/daily-login-api";
 import type { Screen } from "../types/core";
 import type { ActiveTraining, ActiveJutsuTraining } from "../types/combat";
 import { DAILY_MISSION_LIMIT, DAILY_HUNT_LIMIT, MAX_LEVEL } from "../constants/game";
@@ -64,11 +65,12 @@ type ProfileCardProps = {
 export const LeftProfileCard = memo(function LeftProfileCard({
     character,
     updateCharacter,
+    beginDailyLogin,
     currentSector,
     setScreen,
     activeTraining,
     activeJutsuTraining,
-}: ProfileCardProps) {
+}: ProfileCardProps & { beginDailyLogin: DailyLoginCommitFactory }) {
     return (
         <aside className="left-profile-card">
             {/* Daily Briefing — once-per-day login notice board. Self-gating
@@ -76,8 +78,9 @@ export const LeftProfileCard = memo(function LeftProfileCard({
                 appears full-screen on desktop AND mobile even though this host
                 card is CSS-hidden on mobile. */}
             <DailyBriefingModal
+                key={character.name.trim().toLowerCase()}
                 character={character}
-                updateCharacter={updateCharacter}
+                beginDailyLogin={beginDailyLogin}
                 navigate={setScreen}
             />
             {/* Global progression overlays — both portal to <body>, so they show

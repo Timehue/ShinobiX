@@ -9,9 +9,18 @@ const baseUrl = baseArg.replace(/\/+$/, '');
 const expectedSaveStore = process.env.EXPECTED_SAVE_STORE || '';
 const expectedCommit = String(process.env.EXPECTED_COMMIT || '').trim().toLowerCase();
 const deepHealthToken = String(process.env.HEALTH_DEEP_TOKEN || '').trim();
+const requestTimeoutMs = Number(process.env.HEALTH_REQUEST_TIMEOUT_MS || 15_000);
 
 if (!deepHealthToken) {
     console.error('HEALTH_DEEP_TOKEN is required for the release readiness probe.');
+    process.exit(2);
+}
+if (process.env.REQUIRE_EXPECTED_COMMIT === '1' && !/^[0-9a-f]{40}$/.test(expectedCommit)) {
+    console.error('A full EXPECTED_COMMIT is required for release certification.');
+    process.exit(2);
+}
+if (!Number.isSafeInteger(requestTimeoutMs) || requestTimeoutMs <= 0 || requestTimeoutMs > 60_000) {
+    console.error('HEALTH_REQUEST_TIMEOUT_MS must be an integer from 1 to 60000.');
     process.exit(2);
 }
 
@@ -19,7 +28,7 @@ async function fetchJson(path) {
     const url = `${baseUrl}${path}`;
     const headers = { accept: 'application/json' };
     if (deepHealthToken) headers.authorization = `Bearer ${deepHealthToken}`;
-    const res = await fetch(url, { headers });
+    const res = await fetch(url, { headers, signal: AbortSignal.timeout(requestTimeoutMs) });
     const text = await res.text();
     let body;
     try {
@@ -28,7 +37,7 @@ async function fetchJson(path) {
         throw new Error(`${url} returned non-JSON body with HTTP ${res.status}`);
     }
     if (!res.ok) {
-        throw new Error(`${url} failed with HTTP ${res.status}: ${JSON.stringify(body)}`);
+        throw new Error(`${url} failed with HTTP ${res.status}`);
     }
     return body;
 }
@@ -37,21 +46,26 @@ function assertOk(condition, message) {
     if (!condition) throw new Error(message);
 }
 
+function checkCommit(body, path) {
+    const actual = String(body.commit ?? '').trim().toLowerCase();
+    if (process.env.REQUIRE_KNOWN_COMMIT === '1' || expectedCommit) {
+        assertOk(/^[0-9a-f]{7,64}$/.test(actual), `${path} did not return a known commit`);
+    }
+    if (expectedCommit) assertOk(actual === expectedCommit, `${path} commit mismatch: expected ${expectedCommit}, got ${actual}`);
+    return actual;
+}
+
 try {
     console.log(`[release-health] Checking ${baseUrl}`);
     const shallow = await fetchJson('/health');
     assertOk(shallow.ok === true, '/health did not return ok:true');
     console.log(`[release-health] /health ok commit=${shallow.commit ?? 'unknown'} startedAt=${shallow.startedAt ?? 'unknown'}`);
-    const actualCommit = String(shallow.commit ?? 'unknown').toLowerCase();
-    if (process.env.REQUIRE_KNOWN_COMMIT === '1') {
-        assertOk(actualCommit !== 'unknown', '/health returned commit=unknown');
-    }
-    if (expectedCommit) {
-        assertOk(actualCommit === expectedCommit, `commit mismatch: expected ${expectedCommit}, got ${actualCommit}`);
-    }
+    const shallowCommit = checkCommit(shallow, '/health');
 
     const deep = await fetchJson('/health?deep=1');
     assertOk(deep.ok === true, '/health?deep=1 did not return ok:true');
+    const deepCommit = checkCommit(deep, '/health?deep=1');
+    assertOk(deepCommit === shallowCommit, 'Deployment changed between shallow and deep health; repeat the probe.');
     console.log(`[release-health] /health?deep=1 ok saveStore=${deep.saveStore ?? 'unknown'} latencyMs=${deep.latencyMs ?? 'unknown'}`);
 
     if (expectedSaveStore) {

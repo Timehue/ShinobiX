@@ -326,21 +326,6 @@
     white-space: nowrap;
   }
 
-  .app-shell[data-ui-mode="noncombat"] .center-game :where(.table-scroll, .admin-table-wrap) {
-    inline-size: 100%;
-    max-inline-size: 100%;
-    overflow-x: auto;
-    overscroll-behavior-inline: contain;
-    scrollbar-width: thin;
-    -webkit-overflow-scrolling: touch;
-    border: 1px solid var(--mobile-aaa-hairline);
-    border-radius: 9px;
-  }
-
-  .app-shell[data-ui-mode="noncombat"] .center-game :where(.table-scroll, .admin-table-wrap) table {
-    min-inline-size: max(100%, 620px);
-  }
-
   .app-shell[data-ui-mode="noncombat"] .center-game :where(.clan-request-card, .clan-guard-row, .notice-post-head, .town-panel-head, .town-section-heading, .user-hub-header, .user-hub-section-header) {
     align-items: flex-start;
     flex-wrap: wrap;
@@ -360,11 +345,6 @@
     min-inline-size: 44px !important;
     min-block-size: 44px !important;
     height: 44px !important;
-  }
-
-  html.wm-zoom .app-shell[data-ui-mode="noncombat"].screen-worldMap .wm-zoom-btn {
-    inline-size: 44px !important;
-    width: 44px !important;
   }
 
   /* The overview keeps compact painted pins; the button pseudo-hit ring is the

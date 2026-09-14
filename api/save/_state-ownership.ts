@@ -137,7 +137,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('bankRyo', 'character', 'server-ledger', 'currency', ['strict-ledger-char', 'always-ledger-char', 'combat-strip-char'], 'bank endpoints only'),
     f('lastBankInterestAt', 'character', 'server-payout-stamp', 'currency', ['payout-char', 'combat-strip-char']),
     f('honorSeals', 'character', 'server-ledger', 'currency', ['strict-ledger-char', 'currency-zero-gain', 'combat-strip-char']),
-    f('fateShards', 'character', 'server-ledger', 'currency', ['strict-ledger-char', 'currency-zero-gain', 'combat-strip-char']),
+    f('fateShards', 'character', 'server-ledger', 'currency', ['strict-ledger-char', 'currency-zero-gain', 'combat-strip-char'], 'stored balance wins; non-strict legacy full stat reset may debit its server-validated exact cost'),
     f('chroniclePoints', 'character', 'server-ledger', 'currency', ['strict-ledger-char', 'currency-zero-gain', 'combat-strip-char'], 'Echoes of War campaign currency — credited by card-clash/ai-move settle, debited by card-clash/open-pack + shop/settle'),
     f('boneCharms', 'character', 'server-ledger', 'currency', ['strict-ledger-char', 'currency-zero-gain', 'combat-strip-char']),
     f('auraStones', 'character', 'server-ledger', 'currency', ['strict-ledger-char', 'currency-zero-gain', 'combat-strip-char']),

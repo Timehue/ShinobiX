@@ -7,14 +7,10 @@ const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), 'utf8');
 
 describe('authoritative balance response migration', () => {
-    it('daily login returns stored balances and the client assigns them', () => {
-        const api = read('api/player/daily-login.ts');
-        const client = read('shinobij.client/src/components/DailyBriefingModal.tsx');
-        assert.match(api, /balances:\s*\{\s*ryo:\s*out\.totalRyo,\s*fateShards:\s*out\.totalFateShards\s*\}/);
-        assert.match(client, /ryo:\s*res\.balances\.ryo/);
-        assert.match(client, /fateShards:\s*res\.balances\.fateShards/);
-        assert.doesNotMatch(client, /ryo:\s*prev\.ryo\s*\+\s*res\.granted\.ryo/);
-    });
+    // Daily login now has real authenticated-handler/client/coordinator/save
+    // regressions in shinobij.client/src/lib/daily-login-recovery.test.mjs,
+    // discovered by the same CI runner. The former source-text check required
+    // the unsafe unversioned modal assignment those regressions replace.
 
     it('weekly claims return stored balances and the client assigns them', () => {
         const api = read('api/missions/weekly-board.ts');

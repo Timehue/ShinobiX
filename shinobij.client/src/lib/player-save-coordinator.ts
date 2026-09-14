@@ -57,8 +57,15 @@ export function createPlayerSaveCoordinator({
     const savePersistenceRef = box<ReturnType<typeof createSavePersistence<PlayerSavePayload>> | null>(null);
     const flushSaveRef = box(false);
     const saveSoonTimerRef = box<ReturnType<typeof setTimeout> | null>(null);
+    const characterBaselineRef = box<{ character: Character; epoch: number } | null>(null);
 
-    function installAuthoritativeSaveRef(snapshot: { name: string; payload: PlayerSavePayload; revision: number }) {
+    function recordCharacterBaseline(nextCharacter: Character): void {
+        if (saveConflictAccountKey(nextCharacter.name) !== activeSaveAccountKey()) return;
+        characterBaselineRef.current = { character: nextCharacter, epoch: saveSessionEpochRef.current };
+    }
+
+    function installAuthoritativeSaveRef(snapshot: { name: string; payload: PlayerSavePayload; revision: number }, baselineCharacter?: Character) {
+        if (baselineCharacter) recordCharacterBaseline(baselineCharacter);
         const normalized = normalizeAdminCharacter(snapshot.payload.character);
         latestSaveRef.current = { ...snapshot, character: normalized, payload: { ...snapshot.payload, character: normalized } };
     }
@@ -78,6 +85,7 @@ export function createPlayerSaveCoordinator({
         if (!accountKey || accountKey !== saveAuthorityAccountKeyRef.current || accountKey !== activeSaveAccountKey()) return false;
         const decision = acceptVersionedSnapshot(latestSaveVersionRef.current, incomingVersion);
         if (!decision.accepted) return false; latestSaveVersionRef.current = decision.latestVersion;
+        recordCharacterBaseline(nextCharacter);
         savePersistenceRef.current?.invalidateAuthority();
         savePayloadRevisionRef.current = nextSavePayloadRevision(savePayloadRevisionRef.current);
         const mergedCharacter = preserveAcademyCinematicState(preserveNarrativeState(nextCharacter, characterRef.current), characterRef.current);
@@ -94,6 +102,13 @@ export function createPlayerSaveCoordinator({
         if (!accountKey || accountKey !== activeSaveAccountKey()) return;
         if (characterRef.current?.ryo === ryo) return;
         setCharacter((prev) => (prev && saveConflictAccountKey(prev.name) === accountKey && prev.ryo !== ryo ? { ...prev, ryo } : prev));
+    }
+
+    function applyAuthoritativeFateShards(accountName: string, fateShards: number): void {
+        const accountKey = saveConflictAccountKey(accountName);
+        if (!accountKey || accountKey !== activeSaveAccountKey() || characterRef.current?.fateShards === fateShards) return;
+        setCharacter(prev => prev && saveConflictAccountKey(prev.name) === accountKey && prev.fateShards !== fateShards
+            ? { ...prev, fateShards } : prev);
     }
 
     function pushSaveToServer(
@@ -125,6 +140,30 @@ export function createPlayerSaveCoordinator({
         invalidateAuthority: () => savePersistenceRef.current?.invalidateAuthority(),
     });
 
+    async function beginDailyLogin(accountName: string) {
+        const scope = saveAuthority.captureCreateScope(accountName);
+        // Daily reconciliation and ownership metadata stay off the boot path.
+        const { reconcileDailyLoginCharacter } = await import("./daily-login-reconcile");
+        return { ...scope, commit: (nextCharacter: Character, incomingVersion: unknown): boolean => {
+            const baseline = characterBaselineRef.current;
+            const local = characterRef.current;
+            if (!scope.isCurrent() || !local || !baseline || baseline.epoch !== saveSessionEpochRef.current
+                || saveConflictAccountKey(nextCharacter.name) !== activeSaveAccountKey()
+                || !acceptVersionedSnapshot(latestSaveVersionRef.current, incomingVersion).accepted) return false;
+            const reconciled = reconcileDailyLoginCharacter(baseline.character, local, nextCharacter);
+            if (reconciled.conflicts.length && latestSaveRef.current) {
+                captureSaveConflictDraft(accountName, { ...latestSaveRef.current.payload, character: local });
+            }
+            if (!commitVersionedCharacter(reconciled.character, incomingVersion)) return false;
+            // Keep pending local changes distinct from the raw server baseline.
+            recordCharacterBaseline(nextCharacter);
+            if (reconciled.conflicts.length && latestSaveRef.current) {
+                void rehydrateSaveConflictDraft(accountName, latestSaveRef.current.payload);
+            }
+            return true;
+        } };
+    }
+
     if (!saveConflictStoreRef.current) {
         saveConflictStoreRef.current = createSaveConflictDraftStore({
             storage,
@@ -153,6 +192,8 @@ export function createPlayerSaveCoordinator({
             writePreview: writeSavePreview,
             setBlocked: setSaveBlocked,
             onAuthoritativeRyo: applyAuthoritativeRyo,
+            onAuthoritativeFateShards: applyAuthoritativeFateShards,
+            onAcknowledgedSnapshot: snapshot => recordCharacterBaseline(snapshot.payload.character),
         });
     }
     const persistSave = savePersistenceRef.current.persistAutosave;
@@ -179,5 +220,6 @@ export function createPlayerSaveCoordinator({
         saveSoonTimerRef,
         saveAuthority, captureSaveConflictDraft, discardSaveConflictRevision, rehydrateSaveConflictDraft, persistSave,
         installAuthoritativeSaveRef, activeSaveAccountKey, commitVersionedCharacter, pushSaveToServer,
+        recordCharacterBaseline, beginDailyLogin,
     };
 }
