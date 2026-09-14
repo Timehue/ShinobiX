@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
 
 function completedContractSave() {
@@ -50,13 +51,25 @@ for (const retryAfterMs of [2501, undefined]) {
         const dialog = page.getByRole('alertdialog', { name: 'Save temporarily paused' });
         await expect(dialog).toBeVisible();
         await expect(dialog).toContainText(retryAfterMs === undefined ? 'wait a little' : 'wait about 3 seconds');
-        await expect(dialog).toContainText('choose Logout again to retry');
-        await expect(dialog).toContainText('Progress already saved on the server is still there');
+        await expect(dialog).toContainText('use Logout to retry');
+        await expect(dialog).toContainText('Previously saved progress is unchanged');
         await expect(dialog).not.toContainText('lose everything');
-        await expect(dialog.getByRole('button', { name: 'Stay logged in' })).toBeInViewport({ ratio: 1 });
+        const stay = dialog.getByRole('button', { name: 'Stay in game' });
+        const leave = dialog.getByRole('button', { name: 'Log out anyway' });
+        await expect(stay).toBeInViewport({ ratio: 1 });
+        await expect(stay).toBeFocused();
+        await expect(dialog).toHaveAccessibleDescription(/Previously saved progress is unchanged/);
+        await page.keyboard.press('Shift+Tab');
+        await expect(leave).toBeFocused();
+        await page.keyboard.press('Tab');
+        await expect(stay).toBeFocused();
+        if (retryAfterMs !== undefined) {
+            const audit = await new AxeBuilder({ page }).include('.game-alert-card').analyze();
+            expect(audit.violations).toEqual([]);
+        }
         expect(await dialog.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
         await page.screenshot({ path: testInfo.outputPath('logout-save-paused.png') });
-        await dialog.getByRole('button', { name: 'Stay logged in' }).click();
+        await page.keyboard.press('Enter'); // the default action must keep the session
         await expect(dialog).toHaveCount(0);
         await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'village');
         expect(await page.evaluate(() => localStorage.getItem('shinobix:activeTokenPersist'))).toBe(token);
@@ -97,6 +110,7 @@ test('a non-throttling save failure retains the existing stay-or-leave guard', a
     const dialog = page.getByRole('alertdialog', { name: 'Save Failed' });
     await expect(dialog).toContainText('since your last successful save');
     await expect(dialog).not.toContainText('temporarily limiting');
+    await expect(dialog.getByRole('button', { name: 'Stay in game' })).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
     await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'village');
@@ -112,4 +126,42 @@ test('leaving after a throttled save still requires the explicit Log out anyway 
     await page.getByRole('alertdialog', { name: 'Save temporarily paused' }).getByRole('button', { name: 'Log out anyway' }).click();
     await expect(page.getByTestId('start-create')).toBeVisible();
     expect(runtime.currentVersion()).toBe(savedVersion);
+});
+
+test('repeated Logout clicks share one pending attempt and one recovery dialog', async ({ page }) => {
+    const runtime = await installUiAuditRuntime(page, completedContractSave());
+    await expectUiAuditBoot(page, runtime, 'village');
+    let release!: () => void, started!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const requestStarted = new Promise<void>((resolve) => { started = resolve; });
+    let writes = 0;
+    await page.route('**/api/save/auditninja', async (route) => {
+        if (route.request().method() !== 'POST') return route.fallback();
+        writes += 1; started(); await gate;
+        await route.fulfill({ status: 429, json: { retryAfterMs: 3000 } });
+    });
+    try {
+        await logout(page); await requestStarted;
+        await logout(page);
+        expect(writes).toBe(1);
+    } finally { release(); }
+    const dialog = page.getByRole('alertdialog', { name: 'Save temporarily paused' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.locator('.game-alert-more')).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'village');
+});
+
+test('the recovery actions remain reachable in short landscape', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 640, height: 360 });
+    const runtime = await installUiAuditRuntime(page, completedContractSave());
+    await expectUiAuditBoot(page, runtime, 'village');
+    await page.route('**/api/save/auditninja', async (route) => route.request().method() === 'POST'
+        ? route.fulfill({ status: 429, json: { retryAfterMs: 3000 } }) : route.fallback());
+    await logout(page);
+    const dialog = page.getByRole('alertdialog', { name: 'Save temporarily paused' });
+    await expect(dialog.getByRole('button', { name: 'Stay in game' })).toBeInViewport({ ratio: 1 });
+    await expect(dialog.getByRole('button', { name: 'Log out anyway' })).toBeInViewport({ ratio: 1 });
+    await page.screenshot({ path: testInfo.outputPath('logout-save-landscape.png') });
 });
