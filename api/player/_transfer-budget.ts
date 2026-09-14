@@ -67,12 +67,9 @@ export function transferBudgetKey(slug: string, currency: TradeCurrency): string
  * interleave between those two steps: if they do, both pass the same check and
  * jointly overshoot the ceiling. The treasury doors lock the TREASURY row and
  * the RECIPIENT's save, and neither of those is the sender's, so a burst of
- * simultaneous gifts all read one ledger before any of them charged. Both
- * treasury doors hold this gate from before their check until after their
- * charge, so one sender's gifts queue behind each other whichever treasury
- * they come from. /api/player/trade does not take it: it serialises one
- * sender's trades on their save lock, so a trade and a gift can still pass
- * one check together.
+ * simultaneous gifts all read one ledger before any of them charged. Every
+ * send door holds this gate from before its check until after its charge, so
+ * same-sender sends queue behind each other whichever door they came through.
  *
  * Lock order is gate → save/row locks → ledger lock (innermost). The gate is
  * only ever taken first, by code holding no other lock, so it cannot close a
@@ -225,8 +222,8 @@ function boundStamps(kept: Stamp[]): Stamp[] {
  * was not one, which is the exact failure this whole module was written to fix.
  *
  * ⚠ This lock must stay INNERMOST. /api/player/trade calls this while holding
- * the sender and recipient save locks, and the treasury doors call it while
- * holding the sender's gate (`withOutboundBudgetGate`), so anything that took the
+ * the sender and recipient save locks, and every door calls it while holding
+ * the sender's gate (`withOutboundBudgetGate`), so anything that took the
  * ledger lock and then reached for a save lock or a gate would close a deadlock
  * cycle. Nothing inside here acquires another lock, and no caller should hold
  * this one across a settlement.

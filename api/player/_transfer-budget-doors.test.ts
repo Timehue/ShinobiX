@@ -16,9 +16,9 @@ import assert from 'node:assert/strict';
  * simultaneous gifts all read the same empty ledger and every one of them was
  * paid. The per-call cap was the only thing left standing.
  *
- * Both treasury doors now hold the sender's budget gate from before their
- * check until after their charge. These tests fire real concurrent requests at
- * the mounted handlers and count what moved.
+ * Each door now holds the sender's budget gate from before its check until
+ * after its charge. These tests fire real concurrent requests at the mounted
+ * handlers and count what moved.
  */
 
 type Json = Record<string, unknown>;
@@ -341,7 +341,7 @@ for (const door of DOORS) {
     });
 }
 
-describe('one sender across both treasuries', { concurrency: false }, () => {
+describe('one sender across every send door', { concurrency: false }, () => {
     it('serialises a clan gift and a village gift on the same budget', async () => {
         // Room for exactly one more cap-sized gift. The two gifts lock
         // different treasury rows and go to different players, so they share
@@ -362,5 +362,30 @@ describe('one sender across both treasuries', { concurrency: false }, () => {
         assert.equal(await spent(), limit());
         const moved = (TREASURY - await treasuryRyo(CLAN_KEY)) + (TREASURY - await treasuryRyo(VILLAGE_KEY));
         assert.equal(moved, GIFT, 'only one treasury paid out');
+    });
+
+    it('serialises a trade with both treasury gifts on the same budget', async () => {
+        // /api/player/trade serialises one sender's trades on their save lock,
+        // which no treasury gift takes. The trade goes to a third player, so
+        // it shares no lock at all with the gifts, and without the gate it and
+        // a gift would both read 800,000 and both go through.
+        await budget.chargeOutboundBudget(officer, 'ryo', limit() - GIFT);
+        requestSeq += 1;
+        const results = await Promise.all([
+            call(tradeHandler, { playerName: officer, toPlayer: TRADE_PARTNER, currency: 'ryo', amount: GIFT, nonce: `budget-door-trade-${requestSeq}` }),
+            call(clanTransfer, DOORS[0].body()),
+            call(villageTransfer, DOORS[1].body({ recipientName: VILLAGER })),
+        ]);
+
+        const sent = results.filter((r) => r.statusCode === 200);
+        assert.equal(sent.length, 1, `exactly one of the three sends fits: ${summary(results)}`);
+        for (const refused of results.filter((r) => r.statusCode !== 200)) {
+            assert.ok(isBudgetRefusal(refused), `the other two are budget refusals: ${summary(results)}`);
+        }
+        assert.equal(await spent(), limit());
+        const moved = (TREASURY - await treasuryRyo(CLAN_KEY))
+            + (TREASURY - await treasuryRyo(VILLAGE_KEY))
+            + (TREASURY - await ryoOf(officer));
+        assert.equal(moved, GIFT, 'only one send left any pocket');
     });
 });
