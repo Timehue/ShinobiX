@@ -8,8 +8,9 @@
  * card while the side menu / mobile nav keep working — and because it's keyed by
  * screen, navigating away remounts it and clears the error automatically.
  *
- * Inline (not full-screen) fallback. A lazy-chunk error (stale deploy) is handled
- * by the top-level boundary's one-shot reload, so here it just shows the card.
+ * Inline (not full-screen) fallback. A lazy-chunk error (stale deploy) takes the
+ * same single automatic reload as the top-level boundary (lib/chunk-load-recovery);
+ * when that reload has already been spent, this shows the card instead.
  */
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { RecoveryActions } from "./RecoveryActions";
