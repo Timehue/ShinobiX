@@ -104,7 +104,9 @@
     box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3), 0 0 16px rgba(249, 115, 22, 0.45);
 }
 
-.apex-fight:hover { filter: brightness(1.08); transform: translateY(-1px); }
+@media (hover: hover) {
+    .apex-fight:hover { filter: brightness(1.08); transform: translateY(-1px); }
+}
 
 .apex-claim {
     background: rgba(250, 204, 21, 0.10);
@@ -112,7 +114,9 @@
     border: 1px solid rgba(250, 204, 21, 0.5);
 }
 
-.apex-claim:hover { border-color: rgba(250, 204, 21, 0.9); }
+@media (hover: hover) {
+    .apex-claim:hover { border-color: rgba(250, 204, 21, 0.9); }
+}
 
 .apex-done {
     font-size: 0.82rem;

@@ -253,9 +253,11 @@
     transition: background 0.15s, border-color 0.15s;
 }
 
-    .vn-choice-btn:hover {
-        background: rgba(250,204,21,.18);
-        border-color: var(--gold-400);
+    @media (hover: hover) {
+        .vn-choice-btn:hover {
+            background: rgba(250,204,21,.18);
+            border-color: var(--gold-400);
+        }
     }
 
     .vn-choice-btn:disabled,

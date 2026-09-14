@@ -26,12 +26,14 @@
   border-radius: var(--r-full);
   transition: color .12s ease, background .12s ease, border-color .12s ease;
 }
-.modal-close-btn:hover,
-.item-popup-close:hover,
-.mobile-menu-close:hover {
-  color: var(--text);
-  background: rgba(248, 113, 113, .16);
-  border-color: rgba(248, 113, 113, .5);
+@media (hover: hover) {
+  .modal-close-btn:hover,
+  .item-popup-close:hover,
+  .mobile-menu-close:hover {
+    color: var(--text);
+    background: rgba(248, 113, 113, .16);
+    border-color: rgba(248, 113, 113, .5);
+  }
 }
 
 /* ---- Back buttons: one consistent treatment across screens ---------------- */
@@ -44,11 +46,13 @@
   font-weight: var(--fw-medium);
   transition: color .12s ease, background .12s ease, border-color .12s ease;
 }
-.back-btn:hover,
-.pl-back:hover {
-  color: var(--text);
-  border-color: var(--border-strong);
-  background: rgba(148, 163, 184, .12);
+@media (hover: hover) {
+  .back-btn:hover,
+  .pl-back:hover {
+    color: var(--text);
+    border-color: var(--border-strong);
+    background: rgba(148, 163, 184, .12);
+  }
 }
 
 /* ---- Empty / placeholder text: consistent muted, centered style ----------- */

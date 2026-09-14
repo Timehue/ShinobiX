@@ -148,9 +148,11 @@
   padding: 0.5rem 0.95rem;
   cursor: pointer;
 }
-.pack-open-skip:hover {
-  border-color: #e8eef4;
-  color: #fff;
+@media (hover: hover) {
+  .pack-open-skip:hover {
+    border-color: #e8eef4;
+    color: #fff;
+  }
 }
 
 /* ---------------------------------------------------------------- the pack */
@@ -438,9 +440,11 @@
   padding: 0.55rem 1.15rem;
   cursor: pointer;
 }
-.pack-open-tearbtn:hover {
-  border-color: var(--pack-accent, #7fd4c1);
-  color: #fff;
+@media (hover: hover) {
+  .pack-open-tearbtn:hover {
+    border-color: var(--pack-accent, #7fd4c1);
+    color: #fff;
+  }
 }
 
 /* Tear completion: strip flies off, body drops, the stack rises. */
@@ -911,9 +915,13 @@
   transform: rotate(var(--fan, 0deg));
   transition: transform 0.18s ease;
 }
-.pack-summary__card:hover,
 .pack-summary__card:focus-visible {
   transform: translateY(-6px) rotate(var(--fan, 0deg)) scale(1.04);
+}
+@media (hover: hover) {
+  .pack-summary__card:hover {
+    transform: translateY(-6px) rotate(var(--fan, 0deg)) scale(1.04);
+  }
 }
 .pack-summary__card:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--pack-accent, #7fd4c1) 80%, #fff);
@@ -1044,17 +1052,21 @@
   background: linear-gradient(rgba(26, 36, 46, 0.95), rgba(12, 18, 25, 0.95));
   color: #dfe8ef;
 }
-.pack-btn:hover:not(:disabled) {
-  color: #fff;
-  border-color: #8fa3b4;
+@media (hover: hover) {
+  .pack-btn:hover:not(:disabled) {
+    color: #fff;
+    border-color: #8fa3b4;
+  }
 }
 .pack-btn.primary {
   border-color: color-mix(in srgb, var(--pack-accent, #7fd4c1) 75%, #fff);
   color: color-mix(in srgb, var(--pack-accent, #7fd4c1) 55%, #fff);
   box-shadow: 0 0 18px color-mix(in srgb, var(--pack-accent, #7fd4c1) 30%, transparent);
 }
-.pack-btn.primary:hover:not(:disabled) {
-  box-shadow: 0 0 26px color-mix(in srgb, var(--pack-accent, #7fd4c1) 45%, transparent);
+@media (hover: hover) {
+  .pack-btn.primary:hover:not(:disabled) {
+    box-shadow: 0 0 26px color-mix(in srgb, var(--pack-accent, #7fd4c1) 45%, transparent);
+  }
 }
 .pack-btn:disabled {
   opacity: 0.45;

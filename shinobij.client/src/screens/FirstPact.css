@@ -67,7 +67,10 @@
 /* Every face is clickable, near or far: close by it opens the conversation,
    across the square it walks the player over to have it. */
 button.fp-npc { appearance: none; border: 0; padding: 0; background: transparent; color: inherit; pointer-events: auto; cursor: pointer; }
-.fp-npc:hover .fp-npc-body, .fp-npc:focus-visible .fp-npc-body { border-color: color-mix(in srgb, var(--npc) 70%, #fff8e8); box-shadow: 0 6px 14px rgba(0,0,0,.66), 0 0 0 2px rgba(6,11,20,.9), 0 0 16px color-mix(in srgb, var(--npc) 45%, transparent); }
+.fp-npc:focus-visible .fp-npc-body { border-color: color-mix(in srgb, var(--npc) 70%, #fff8e8); box-shadow: 0 6px 14px rgba(0,0,0,.66), 0 0 0 2px rgba(6,11,20,.9), 0 0 16px color-mix(in srgb, var(--npc) 45%, transparent); }
+@media (hover: hover) {
+    .fp-npc:hover .fp-npc-body { border-color: color-mix(in srgb, var(--npc) 70%, #fff8e8); box-shadow: 0 6px 14px rgba(0,0,0,.66), 0 0 0 2px rgba(6,11,20,.9), 0 0 16px color-mix(in srgb, var(--npc) 45%, transparent); }
+}
 .fp-npc-body { border-color: var(--npc, #91a4b9); background: linear-gradient(155deg, color-mix(in srgb, var(--npc) 58%, #293343), #111722 64%); }
 .fp-palette-amber { --npc: #e4b464; }
 .fp-palette-jade { --npc: #67c59f; }
@@ -93,7 +96,9 @@ button.fp-npc { appearance: none; border: 0; padding: 0; background: transparent
 .fp-quest-card > strong { display: block; margin-top: 3px; font-family: Georgia, serif; font-size: 17px; font-weight: 500; }
 .fp-quest-card p { line-height: 1.45; }
 .fp-quest-card > button { margin-top: 9px; padding: 6px 9px; border: 1px solid rgba(84,215,217,.34); border-radius: 6px; color: #bfeff0; background: rgba(8,39,48,.58); font-size: 10px; font-weight: 800; cursor: pointer; }
-.fp-quest-card > button:hover { border-color: rgba(84,215,217,.7); background: rgba(10,53,63,.76); }
+@media (hover: hover) {
+    .fp-quest-card > button:hover { border-color: rgba(84,215,217,.7); background: rgba(10,53,63,.76); }
+}
 .fp-side-objective { margin-top: 11px; padding-top: 9px; border-top: 1px solid rgba(255,255,255,.08); }
 .fp-side-objective > span, .fp-side-objective > strong, .fp-side-objective > small { display: block; }
 .fp-side-objective > span { color: #d8b873; font-size: 8px; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; }
@@ -108,7 +113,9 @@ button.fp-npc { appearance: none; border: 0; padding: 0; background: transparent
 
 .fp-world-actions { position: absolute; z-index: 31; left: max(16px, env(safe-area-inset-left)); bottom: max(16px, env(safe-area-inset-bottom)); display: flex; gap: 8px; }
 .fp-world-actions button, .fp-quiet-button { border: 1px solid rgba(231,189,114,.28); border-radius: 8px; padding: 9px 12px; color: #dfe7ec; background: rgba(5,11,20,.93); font-size: 11px; font-weight: 700; cursor: pointer; }
-.fp-world-actions button:hover, .fp-quiet-button:hover { border-color: rgba(231,189,114,.65); color: #fff3d6; }
+@media (hover: hover) {
+    .fp-world-actions button:hover, .fp-quiet-button:hover { border-color: rgba(231,189,114,.65); color: #fff3d6; }
+}
 .fp-world-actions .fp-complete-crossing { color: #140f08; border-color: #f0d294; background: linear-gradient(145deg, #f0d294, #bd8445); box-shadow: 0 0 22px rgba(231,189,114,.24); }
 .fp-district-toast { position: absolute; z-index: 35; left: 50%; top: 19%; transform: translateX(-50%); padding: 10px 22px; color: #f7e6c2; border-top: 1px solid rgba(231,189,114,.58); border-bottom: 1px solid rgba(231,189,114,.58); background: linear-gradient(90deg, transparent, rgba(3,9,18,.84) 18%, rgba(3,9,18,.84) 82%, transparent); font-family: Georgia, serif; font-size: clamp(17px, 2vw, 26px); letter-spacing: .08em; animation: fp-district 2.2s ease both; }
 
@@ -150,7 +157,9 @@ button.fp-npc { appearance: none; border: 0; padding: 0; background: transparent
    touch floor every other surface in this game holds to, and the Arbiter's
    findings put a four-item stack of these under a real thumb. */
 .fp-dialogue-choices button:not(.fp-quiet-button) { display: flex; align-items: center; width: 100%; min-height: 44px; padding: 10px 13px; color: #e7edf0; text-align: left; border-color: rgba(84,215,217,.28); border-radius: 5px 12px; background: linear-gradient(135deg, rgba(84,215,217,.1), rgba(231,189,114,.06)); box-shadow: none; font: 500 13px/1.35 Georgia, serif; }
-.fp-dialogue-choices button:not(.fp-quiet-button):hover { border-color: rgba(84,215,217,.65); background: linear-gradient(135deg, rgba(84,215,217,.18), rgba(231,189,114,.1)); }
+@media (hover: hover) {
+    .fp-dialogue-choices button:not(.fp-quiet-button):hover { border-color: rgba(84,215,217,.65); background: linear-gradient(135deg, rgba(84,215,217,.18), rgba(231,189,114,.1)); }
+}
 .fp-dialogue-actions button:disabled { filter: grayscale(.8); opacity: .5; cursor: wait; }
 
 .fp-squad { width: min(980px, 100%); max-height: min(88vh, 820px); overflow: auto; border: 1px solid rgba(231,189,114,.4); border-radius: 6px 24px 6px 24px; padding: 22px; background: linear-gradient(145deg, rgba(7,13,23,.99), rgba(15,29,39,.98)); box-shadow: 0 26px 90px rgba(0,0,0,.75); }
@@ -168,7 +177,9 @@ button.fp-npc { appearance: none; border: 0; padding: 0; background: transparent
 .fp-encounter-brief span { display: block; }
 .fp-roster { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
 .fp-roster > button { position: relative; display: grid; grid-template-columns: 54px minmax(0,1fr) auto; align-items: center; gap: 10px; min-width: 0; padding: 8px; color: #e7edf0; text-align: left; border: 1px solid rgba(255,255,255,.1); border-radius: 5px 13px 5px 13px; background: rgba(255,255,255,.025); cursor: pointer; }
-.fp-roster > button:hover { border-color: rgba(231,189,114,.38); background: rgba(231,189,114,.06); }
+@media (hover: hover) {
+    .fp-roster > button:hover { border-color: rgba(231,189,114,.38); background: rgba(231,189,114,.06); }
+}
 .fp-roster > button.selected { border-color: rgba(231,189,114,.7); background: linear-gradient(135deg, rgba(231,189,114,.14), rgba(84,215,217,.06)); }
 .fp-pet-art { display: grid; place-items: center; width: 54px; height: 54px; overflow: hidden; border-radius: 50%; background: #101a26; border: 1px solid rgba(84,215,217,.3); font-size: 11px; font-weight: 900; }
 .fp-pet-art img { width: 100%; height: 100%; object-fit: cover; }
