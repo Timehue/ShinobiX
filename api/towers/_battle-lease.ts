@@ -57,6 +57,18 @@ function isClanBossBattleMarker(value: unknown): value is ClanBossBattleMarker {
         && marker.runId.startsWith('cboss-');
 }
 
+/**
+ * A Clan Boss marker holds its members only while that fight is live: its
+ * session is still active, or it is not published yet and the marker is inside
+ * the publication grace. Nothing releases a marker when a fight ends, and a
+ * finished session is kept for a day, so a finished run's marker is stale.
+ */
+async function isLiveClanBossMarker(kv: TowerKv, marker: ClanBossBattleMarker, now: number): Promise<boolean> {
+    const session = await kv.get<TowerSession>(sessionKey(marker.runId));
+    if (session) return session.status === 'active';
+    return now - marker.startedAt < TOWER_BATTLE_PUBLICATION_GRACE_MS;
+}
+
 function normalizedMembers(members: readonly string[]): string[] {
     return [...new Set(members.map(safeName).filter(Boolean))].sort();
 }
@@ -128,9 +140,7 @@ export async function claimTowerBattleLeases(input: {
         const activeClanBossMembers = new Set<string>();
         for (const row of rows) {
             if (!isClanBossBattleMarker(row.clanBossMarker)) continue;
-            const markerSession = await kv.get<TowerSession>(sessionKey(row.clanBossMarker.runId));
-            if (markerSession
-                || now() - row.clanBossMarker.startedAt < TOWER_BATTLE_PUBLICATION_GRACE_MS) {
+            if (await isLiveClanBossMarker(kv, row.clanBossMarker, now())) {
                 activeClanBossMembers.add(row.member);
             } else {
                 await kv.del(clanBossBattleMarkerKey(row.member));
@@ -337,11 +347,15 @@ export async function refreshClanBossBattleMarkers(
             const battle = await kv.get<unknown>(battleLockKey(member));
             const marker = await kv.get<unknown>(clanBossBattleMarkerKey(member));
             if (battle !== null) throw new Error(`Clan Boss member ${member} is already locked by another battle.`);
-            if (isClanBossBattleMarker(marker) && marker.runId !== runId) {
+            const current = isClanBossBattleMarker(marker) ? marker : null;
+            // A finished assault's marker is replaced rather than refused, so the
+            // member's next assault is playable at once instead of failing every
+            // state/action call until the old marker expires.
+            if (current && current.runId !== runId && await isLiveClanBossMarker(kv, current, now())) {
                 throw new Error(`Clan Boss member ${member} belongs to another operation.`);
             }
-            const next: ClanBossBattleMarker = isClanBossBattleMarker(marker)
-                ? marker
+            const next: ClanBossBattleMarker = current?.runId === runId
+                ? current
                 : {
                     kind: 'clanBoss',
                     requestId: `recover_${runId}`.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 96),

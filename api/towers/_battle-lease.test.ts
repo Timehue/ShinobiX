@@ -18,7 +18,7 @@ import {
     TOWER_BATTLE_LOCK_SCREEN,
     TOWER_BATTLE_PUBLICATION_GRACE_MS,
 } from './_battle-lease.js';
-import type { TowerKv, TowerLock } from './_tower-store.js';
+import { sessionKey, type TowerKv, type TowerLock } from './_tower-store.js';
 import type { TowerActor, TowerSession } from './_tower-session.js';
 
 function keyedLock(): TowerLock {
@@ -233,5 +233,51 @@ describe('Tower account-wide multi-member battle leases', () => {
         await bindClanBossBattleMarkers({ requestId: 'clan-request-0006', runId: 'cboss-old', members: ['alice'] }, d);
         await releaseClanBossStartMarkers('clan-request-0006', 'cboss-new-proposal', ['alice'], d);
         assert.equal((await d.kv.get<{ runId: string }>(clanBossBattleMarkerKey('alice')))?.runId, 'cboss-old');
+    });
+});
+
+// Nothing releases a Clan Boss marker when the fight ends: /towers/state and
+// /towers/action create it, and a finished run's session is kept for 24 hours.
+// The marker must therefore stop holding its members the moment its run is no
+// longer active, or it blocks every other battle until its own TTL runs out.
+describe('Clan Boss marker liveness', () => {
+    async function fightOn(d: ReturnType<typeof deps>, runId: string, status: TowerSession['status']): Promise<void> {
+        await d.kv.set(sessionKey(runId), { runId, status } as TowerSession);
+        await refreshClanBossBattleMarkers(runId, ['alice'], d);
+    }
+
+    it('lets a finished Clan Boss fight\'s members start any other battle and clears its marker', async () => {
+        const d = deps();
+        await fightOn(d, 'cboss-finished', 'done');
+        assert.deepEqual(await claimTowerBattleLeases({ runId: 'tower-after-clan', members: ['alice'] }, d), {
+            ok: true, members: ['alice'], replayed: false,
+        });
+        assert.equal(await d.kv.get(clanBossBattleMarkerKey('alice')), null);
+    });
+
+    it('keeps a live Clan Boss fight\'s members out of other battles', async () => {
+        const d = deps();
+        await fightOn(d, 'cboss-live', 'active');
+        assert.deepEqual(await claimTowerBattleLeases({ runId: 'tower-during-clan', members: ['alice'] }, d), {
+            ok: false, code: 'member-busy', members: ['alice'],
+        });
+        assert.equal((await d.kv.get<{ runId: string }>(clanBossBattleMarkerKey('alice')))?.runId, 'cboss-live');
+        assert.equal(await d.kv.get(battleLockKey('alice')), null);
+    });
+
+    it('hands a finished fight\'s marker over to the member\'s next assault', async () => {
+        const d = deps();
+        await fightOn(d, 'cboss-first', 'done');
+        await d.kv.set(sessionKey('cboss-second'), { runId: 'cboss-second', status: 'active' } as TowerSession);
+        await refreshClanBossBattleMarkers('cboss-second', ['alice'], d);
+        assert.equal((await d.kv.get<{ runId: string }>(clanBossBattleMarkerKey('alice')))?.runId, 'cboss-second');
+    });
+
+    it('still refuses a member whose other Clan Boss fight is live', async () => {
+        const d = deps();
+        await fightOn(d, 'cboss-first', 'active');
+        await d.kv.set(sessionKey('cboss-second'), { runId: 'cboss-second', status: 'active' } as TowerSession);
+        await assert.rejects(() => refreshClanBossBattleMarkers('cboss-second', ['alice'], d), /another operation/);
+        assert.equal((await d.kv.get<{ runId: string }>(clanBossBattleMarkerKey('alice')))?.runId, 'cboss-first');
     });
 });
