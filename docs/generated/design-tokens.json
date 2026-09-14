@@ -3232,7 +3232,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/01-base-app-chrome.css",
-            "line": 577
+            "line": 583
           },
           {
             "source": "shinobij.client/src/styles/index/06-combat-core.css",
@@ -3240,7 +3240,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/08-polish-nav-passes.css",
-            "line": 526
+            "line": 529
           },
           {
             "source": "shinobij.client/src/styles/index/33-hollow-gate-cinematic.css",
@@ -3382,7 +3382,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/02-world-map.css",
-            "line": 287
+            "line": 300
           },
           {
             "source": "shinobij.client/src/styles/index/06-combat-core.css",
@@ -3390,7 +3390,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/08-polish-nav-passes.css",
-            "line": 268
+            "line": 271
           },
           {
             "source": "shinobij.client/src/styles/index/11-sector-explore-village-themes.css",
@@ -3623,7 +3623,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/02-world-map.css",
-            "line": 711
+            "line": 726
           },
           {
             "source": "shinobij.client/src/styles/index/10-layout-lock-herald.css",
@@ -4207,7 +4207,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/index/08-polish-nav-passes.css",
-            "line": 533
+            "line": 536
           }
         ]
       },
