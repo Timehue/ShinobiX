@@ -2600,10 +2600,6 @@
           {
             "source": "shinobij.client/src/styles/pet-arena-lobby.css",
             "line": 329
-          },
-          {
-            "source": "shinobij.client/src/styles/pet-warfront-three-lane.css",
-            "line": 444
           }
         ]
       },
@@ -3558,14 +3554,6 @@
           {
             "source": "shinobij.client/src/styles/index/22-pet-battle-sprites.css",
             "line": 683
-          },
-          {
-            "source": "shinobij.client/src/styles/pet-warfront-three-lane.css",
-            "line": 386
-          },
-          {
-            "source": "shinobij.client/src/styles/pet-warfront-three-lane.css",
-            "line": 456
           }
         ]
       },
@@ -4003,37 +3991,6 @@
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
             "line": 1142
-          }
-        ]
-      },
-      {
-        "direction": "max",
-        "axis": "width",
-        "valuePx": 1024,
-        "occurrences": [
-          {
-            "source": "shinobij.client/src/App.css",
-            "line": 66
-          },
-          {
-            "source": "shinobij.client/src/App.css",
-            "line": 81
-          },
-          {
-            "source": "shinobij.client/src/App.css",
-            "line": 92
-          },
-          {
-            "source": "shinobij.client/src/App.css",
-            "line": 101
-          },
-          {
-            "source": "shinobij.client/src/App.css",
-            "line": 140
-          },
-          {
-            "source": "shinobij.client/src/App.css",
-            "line": 161
           }
         ]
       },
