@@ -9,7 +9,22 @@ export const FIRST_CONTRACT_COPY = {
 } satisfies Record<FirstContractRoute, { title: string; label: string; line: string; why: string; screen: Screen; action: string; success: string; next: string }>;
 
 export const FIRST_CONTRACT_OPEN = 'shinobi:first-contract-open';
-export function openFirstContract() { window.dispatchEvent(new Event(FIRST_CONTRACT_OPEN)); }
+// The desktop rail that asks for the journal and the FirstContractHost that
+// opens it load as separate lazy chunks, so a click can arrive before the host
+// is listening. The request therefore waits for a host to claim it, either from
+// the event or when the host mounts. A claim is single-use, and an unclaimed
+// request expires quickly, so an old click cannot open the journal later.
+export const FIRST_CONTRACT_OPEN_WINDOW_MS = 5_000;
+let openRequestedAt: number | null = null;
+export function openFirstContract() {
+    openRequestedAt = performance.now();
+    window.dispatchEvent(new Event(FIRST_CONTRACT_OPEN));
+}
+export function claimFirstContractOpen(now = performance.now()): boolean {
+    const requestedAt = openRequestedAt;
+    openRequestedAt = null;
+    return requestedAt !== null && now - requestedAt <= FIRST_CONTRACT_OPEN_WINDOW_MS;
+}
 export function firstContractVisible(character: Pick<Character, 'firstContract' | 'onboardingStep'>): boolean {
     const state = readFirstContract(character.firstContract);
     return character.onboardingStep === 'done' && Boolean(state && !state.acknowledgedAt);
