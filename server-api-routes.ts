@@ -24,6 +24,7 @@ import playerAccountStatusHandler from './api/player/account-status.js';
 import dailyLoginHandler  from './api/player/daily-login.js';
 import blackMarketHandler from './api/festival/black-market.js';
 import sunscarFestivalHandler from './api/festival/sunscar.js';
+import sunscarExchangeHandler from './api/festival/exchange.js';
 import pvpSessionHandler from './api/pvp/session.js';
 import pvpMoveHandler    from './api/pvp/move.js';
 import imagesHandler     from './api/images.js';
@@ -359,6 +360,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     route('/player/daily-login',  dailyLoginHandler);
     route('/festival/black-market', blackMarketHandler);
     route('/festival/sunscar', sunscarFestivalHandler);
+    route('/festival/exchange', sunscarExchangeHandler);
 
     // PvP
     route('/pvp/session', pvpSessionHandler);

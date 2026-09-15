@@ -105,6 +105,7 @@ const f = (
  * derived lists inherit table order, which is not behavior (see header).
  */
 export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
+    f('sunscarExchangeReceipts', 'character', 'server-owned', 'sunscar-exchange', ['server-array-ledger-char', 'combat-strip-char'], 'Pending escrow and delivery receipts; cleared only after the permanent listing journal commits.'),
     // ── Identity & public profile (public-char order is load-bearing) ───────
     f('name', 'character', 'server-clamped', 'identity', ['public-char'], 'length-capped display name'),
     f('level', 'character', 'derived', 'progression', ['public-char', 'strict-ledger-char'], 'recomputed from the validated stat ledger (applyDerivedLevel); client value ignored'),
