@@ -81,6 +81,8 @@ The seller can be anywhere in the game. An open Exchange refreshes its listings,
 
 The inbox retains up to 100 sale receipts independently of its 10 general reports, with the existing 14-day retention. Trade history retains the detailed sale records. Inbox reads bypass worker-local caches so delivery and acknowledgement see current storage.
 
+Heartbeat requests explicitly advertise sale-notification support. Older open tabs and legacy clients neither receive nor acknowledge sale receipts they cannot display; the receipts remain queued for an updated client. Existing general notices keep their previous delivery behavior.
+
 Verification: 85 targeted settlement, signed-player heartbeat, inbox, acknowledgement, and client delivery tests passed. The browser scenario uses a second authenticated player to buy the seller's ryo and Fate Shards listings, verifies the toast outside the Exchange, verifies exact wallet updates before feedback, and acknowledges the receipt without repetition. Desktop/mobile toast screenshots and accessibility checks passed.
 
 The full unit/integration suite passed all 10,779 tests. The final focused checks passed another 47 tests, including the realtime seller signal, App size limit, and lazy-load rejection handling. Full frontend lint finished with zero errors (14 existing warnings). The production build on current main passed server/client TypeScript, content verification, distribution verification, and size gates. Browser QA also verifies the live update of an open seller inspection and newly credited sellable resources.
