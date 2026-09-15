@@ -97,13 +97,13 @@ export function parseNoticeAcks(raw: unknown): string[] {
  * ids on a later beat. A notice pushed concurrently never matches an acked id
  * and always survives. Best-effort under contention, like the legacy clear.
  */
-export async function consumeAcknowledgedNotices(key: string, ids: readonly string[]): Promise<void> {
+export async function consumeAcknowledgedNotices(key: string, ids: readonly string[], exchangeSaleNotices = true): Promise<void> {
     if (ids.length === 0) return;
     const acked = new Set(ids);
     try {
         await withKvLock(key, async () => {
             const current = parseOfflineNotices(await kv.get(key));
-            const remaining = current.filter((n) => !acked.has(noticeId(n)));
+            const remaining = current.filter((n) => (n.kind === 'exchange-sale' && !exchangeSaleNotices) || !acked.has(noticeId(n)));
             if (remaining.length === current.length) return;
             if (remaining.length === 0) await kv.del(key);
             else await kv.set(key, remaining, { ex: OFFLINE_NOTICES_TTL_SEC });
@@ -134,7 +134,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         const body = bodyPeek; // reuse the rate-limit peek's parse — avoids a 2nd JSON.parse on the hottest endpoint
-        const { name, sector, character, travelingUntil, inBattle, tile, noticeAck, ackNotices, ackHeal } = body as {
+        const { name, sector, character, travelingUntil, inBattle, tile, noticeAck, exchangeSaleNotices, ackNotices, ackHeal } = body as {
             name?: string;
             sector?: number;
             character?: unknown;
@@ -143,6 +143,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             tile?: number;
             /** Declares the acknowledgement protocol: deliver without consuming. */
             noticeAck?: boolean;
+            /** This client can display and reconcile Exchange sale receipts. */
+            exchangeSaleNotices?: boolean;
             /** Ids (from an earlier beat's `pendingNotices[].id`) the client has shown. */
             ackNotices?: unknown;
             /** The `pendingHeal.id` the client has shown. */
@@ -152,6 +154,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Legacy bodies (no `noticeAck`) keep the consume-on-delivery behavior,
         // so an old client is never spammed with a notice it cannot acknowledge.
         const ackProtocol = noticeAck === true;
+        const supportsExchangeSales = ackProtocol && exchangeSaleNotices === true;
         const ackedNoticeIds = ackProtocol ? parseNoticeAcks(ackNotices) : [];
         const ackedHealAt = ackProtocol ? Math.max(0, Math.floor(Number(ackHeal)) || 0) : 0;
 
@@ -217,7 +220,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const resetSignal = signals[1];
         const healSignal = signals[2] as { by?: string; at?: number } | null;
         const rawNotices = signals[3];
-        const inboxNotices = parseOfflineNotices(rawNotices);
+        // Old open tabs must not silently acknowledge an unfamiliar notice kind.
+        // Keep sale receipts queued until an updated client can show them.
+        const inboxNotices = parseOfflineNotices(rawNotices).filter((n) => n.kind !== 'exchange-sale' || supportsExchangeSales);
         // Under the ack protocol the inbox is delivered WITH ids, minus what
         // this very beat acknowledges (those are removed below, in parallel).
         const ackedSet = new Set(ackedNoticeIds);
@@ -346,7 +351,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // branch is unchanged for bodies that do not declare the protocol.
         await Promise.all([
             healSignal && (healConsumeOnDelivery || healAcknowledged) ? kv.del(healSignalKey) : Promise.resolve(),
-            ackProtocol ? consumeAcknowledgedNotices(noticesKey, ackedNoticeIds) : consumeDeliveredNotices(noticesKey, pendingNotices),
+            ackProtocol ? consumeAcknowledgedNotices(noticesKey, ackedNoticeIds, supportsExchangeSales) : consumeDeliveredNotices(noticesKey, pendingNotices),
             stampPlayerIp(req, name),
         ]);
 

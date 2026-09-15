@@ -78,13 +78,20 @@ for (const currency of ['ryo', 'fateShards']) it(`delivers a completed ${currenc
     assert.equal(created.status, 200, JSON.stringify(created.body));
     const listingId = created.body.listing.id;
     assert.equal((await trade('tradebuyer', { action: 'buy', listingId, expectedPrice: 201, expectedCurrency: currency })).status, 200);
-    const beat = (ackNotices: string[] = [], name = 'tradeseller') => call(heartbeat as unknown as typeof exchange, name, { name, sector: 0, noticeAck: true, ackNotices });
+    const oldBeat = (fields: Record<string, unknown> = {}) => call(heartbeat as unknown as typeof exchange, 'tradeseller', { name: 'tradeseller', sector: 0, ...fields });
+    for (const fields of [{}, { noticeAck: true }, { noticeAck: true, exchangeSaleNotices: false }, { exchangeSaleNotices: true }]) {
+        const old = await oldBeat(fields);
+        assert.equal(old.status, 200, JSON.stringify(old.body));
+        assert.equal((old.body.pendingNotices ?? []).length, 0, 'Old clients must leave sale receipts queued until they can display and acknowledge them.');
+    }
+    const beat = (ackNotices: string[] = [], name = 'tradeseller') => call(heartbeat as unknown as typeof exchange, name, { name, sector: 0, noticeAck: true, exchangeSaleNotices: true, ackNotices });
     const first = await beat();
     assert.equal(first.status, 200, JSON.stringify(first.body));
     const notice = first.body.pendingNotices[0];
     assert.equal(notice.kind, 'exchange-sale');
     assert.equal(notice.sale.listingId, listingId); assert.equal(notice.sale.currency, currency); assert.equal(notice.sale.proceeds, 191);
     assert.equal((await stored('tradeseller')).character[currency], (currency === 'ryo' ? 10000 : 10) + 191);
+    await oldBeat({ noticeAck: true, ackNotices: [notice.id] });
     assert.deepEqual((await beat()).body.pendingNotices, first.body.pendingNotices, 'A lost heartbeat response is redelivered with the same ID.');
     assert.equal(((await beat([], 'tradebuyer')).body.pendingNotices ?? []).length, 0, 'Only the seller receives the sale receipt.');
     assert.equal(((await beat([notice.id])).body.pendingNotices ?? []).length, 0);
