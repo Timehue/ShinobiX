@@ -100,7 +100,7 @@ Five types, and the table matters:
 | `recurring-payment.started` / `.renewed` | Entitled |
 | `recurring-payment.cancellation.aborted` | Entitled (they changed their mind) |
 | `recurring-payment.cancellation.requested` | **Still entitled** — paid through the current period |
-| `recurring-payment.ended` | Revoked. The only stop signal. |
+| `recurring-payment.ended` | Revoked, but only on a save whose flag holds that reference. The only stop signal. |
 
 Revoking on `cancellation.requested` bills someone for time they never receive.
 
@@ -109,6 +109,58 @@ The flag itself is written by `applyEntitlementToSave` in `api/_subscription.ts`
 idempotent so re-delivery is free. ⛔ `character.patreon` is a **frozen storage
 key**: it is live save data, the name is provider-agnostic, and only the rail
 that writes it changed.
+
+⛔ **`ended` revokes only the subscription it names.** Every event finds its
+player by the name sealed into the original basket, not by any save, and a name
+outlives its account. After a deletion or a full reset, whoever registers the
+name next may have a subscription of their own, or an admin comp. So
+`applyEntitlementToSave` writes a revoke only over a flag whose `userId` is the
+reference that ended. Otherwise the save is not touched, and the webhook logs
+`[tebex] subscription ended — flag left alone` and answers 200 `ignored`:
+
+| Reason | The save's flag |
+|---|---|
+| `subscription-not-on-save` | Holds another reference, or none. |
+| `admin-comp-on-save` | Is a live admin comp, even one made over the reference that ended. The comp expires on its own. |
+
+Before this rule, a late `ended` replaced the new owner's live flag with an
+inactive one. That revoked perks they were paying for, until their own next
+renewal. It also erased the only record of their reference, so deleting their
+account in that window would not have cancelled it.
+
+An `ended` for a name with **no save** answers 200 `no-save` and logs
+`[tebex] subscription ended with no save` at info level. It is the normal tail
+of a deleted account whose cancellation succeeded: the entitlement went with
+the save, so there is nothing to revoke. It used to answer 500, so Tebex kept
+retrying, and a retry that landed after someone registered the name reached a
+stranger's save.
+
+⛔ **A paid event replaces an admin comp.** A `started`, `renewed` or
+`cancellation.aborted` event writes a plain paid flag over an admin comp, with
+no `expiresAt` and no `source`, and keeps `since`. A comp made over a paying
+subscriber keeps their reference as `userId`. Same-price renewals used to count
+as re-deliveries of that flag and changed nothing, so the comp's `expiresAt`
+survived them. Once it passed, the player lost their perks while still paying,
+and stayed that way until the price changed or an admin stepped in.
+
+Now such a comp lasts only until the subscriber's next renewal. After that the
+flag is an ordinary subscription, and the subscription's own `ended` revokes it,
+even if the comp had days left. Comp the player again if those days should
+stand. `admin-comp-on-save` therefore applies to a comp over a subscriber only
+when the subscription ends before its next renewal. A comp with no payment
+behind it is untouched and still lapses on its own.
+
+⚠ **One door is still open: renewals.** A `started`, `renewed` or
+`cancellation.aborted` event entitles whoever holds the name when it lands.
+With no save it answers 500 so Tebex retries, which is right for a
+player who has not finished creating a character. A parked reference is
+refused (see Account deletion below). A deleted account's reference that is
+**not** parked can still renew. That can happen when a renewal was already in
+flight when the account was deleted, when an operator deletes a parked entry
+before cancelling the subscription, or when the flag was inactive at deletion,
+for example after an admin revoke. In those cases the renewal entitles the next
+owner of the name. Closing that needs a record of every reference cancelled on
+deletion, which is a storage change awaiting a decision.
 
 ## Prices
 
@@ -148,12 +200,38 @@ holds the only copy of the `tbx-r-…` reference.
 Basic with the API key as the **username and a blank password**. 204 is success;
 404 is treated as success too, since already-gone is the state we wanted.
 
+A successful cancellation parks nothing. Tebex reports `ended` after the save is
+gone, and the webhook answers 200 `no-save`. If someone has registered the name
+by then, their save does not hold the reference, so the `ended` is refused with
+`subscription-not-on-save` and their own flag is left alone (see Subscription
+events).
+
 ⛔ **A failure never blocks the deletion** — the right to delete an account does
 not depend on a third party being reachable. But it is never swallowed either:
 the reference is written to the `tebex:orphaned-subscriptions` hash so it
 outlives the save, and an operator can cancel it in the dashboard and delete the
-key. Admin-comped subscriptions are skipped; they have no recurring payment
-behind them.
+key once it shows `endedAt` (see below). Admin-comped subscriptions are
+skipped; they have no recurring payment behind them.
+
+⛔ **A parked reference no longer entitles anyone on renewal.** Renewals find
+their player by the name sealed into the original basket, and once the account
+is gone that name belongs to nobody, or to whoever registered it afterwards.
+`api/tebex/webhook.ts` checks the hash before it writes the flag. A `started`,
+`renewed` or `cancellation.aborted` webhook for a parked reference logs
+`[tebex] renewal for PARKED subscription`, stamps `lastRenewalAt` and
+`lastRenewalType` on the entry, and answers 200 `parked-subscription`. An
+`ended` webhook is ignored the same way and stamps `endedAt`. It answers 200
+because a 500 would keep Tebex retrying until someone registered the name. If
+the hash cannot be read, it answers 500 and entitles nobody.
+
+A `lastRenewalType` of `recurring-payment.renewed` means the customer was
+charged again after their account was gone. Cancel the subscription and
+consider a refund. Even after cancelling, keep the entry until it shows
+`endedAt`. While it exists, a renewal that was already in flight is ignored
+too. Deleting it before cancelling lets the next renewal entitle whoever holds
+the name now. The trailing `ended` is harmless with or without the entry,
+because any save whose flag does not hold the reference refuses it (see
+Subscription events). An entry left in place does no harm.
 
 ## Guarding the contract
 
