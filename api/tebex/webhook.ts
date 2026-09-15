@@ -151,15 +151,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(200).json({ ok: true, action: 'ignored', reason: 'parked-subscription' });
         }
 
-        const applied = await applyEntitlementToSave(decision.playerName, decision.reference, {
+        const write = await applyEntitlementToSave(decision.playerName, decision.reference, {
             active: decision.active,
             tier: SUBSCRIBER_TIER,
             entitledCents: decision.amountCents,
         });
-        if (!applied) {
+        if (write.outcome === 'refused') {
+            // An `ended` for a subscription this save does not hold, or over a
+            // live admin comp. The name it was addressed to has changed hands,
+            // or an operator comped it, so there is nothing here of this
+            // subscription's to revoke. Answer 200: no retry could change it.
+            console.warn('[tebex] subscription ended — flag left alone',
+                JSON.stringify({ reference: decision.reference, player: decision.playerName, reason: write.reason, heldBy: write.heldBy, type: webhook.type }));
+            return res.status(200).json({ ok: true, action: 'ignored', reason: write.reason });
+        }
+        if (write.outcome === 'no-save' && !decision.active) {
+            // An `ended` with no save is the normal tail of a deleted account
+            // whose cancellation succeeded: Tebex reports the end after the
+            // save is gone. The entitlement went with that save, so there is
+            // nothing to revoke. A 500 would keep Tebex retrying until someone
+            // registered the name, and that save would be a stranger's.
+            console.log('[tebex] subscription ended with no save — nothing to revoke', decision.playerName, decision.reference);
+            return res.status(200).json({ ok: true, action: 'ignored', reason: 'no-save' });
+        }
+        if (write.outcome === 'no-save') {
             // No save yet — the account exists at Tebex but not in game. Asking
             // for a retry is right: the player is paying, and the flag should
             // land once they finish creating a character.
+            // ⚠ A retry for a deleted account can reach whoever registers the
+            // name next. A parked reference is caught above; see "Subscription
+            // events" in docs/TEBEX_STOREFRONT_SETUP.md for the rest.
             console.error('[tebex] subscription save missing', decision.playerName, decision.reference);
             return res.status(500).json({ error: 'No save to entitle; will retry.' });
         }

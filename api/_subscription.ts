@@ -46,14 +46,69 @@ export interface Entitlement {
 /** The single subscriber tier id today; extend when more tiers are added. */
 export const SUBSCRIBER_TIER = 'shinobi-supporter';
 
+/**
+ * Why a revoke left the stored flag alone.
+ *   subscription-not-on-save  the flag carries another subscription, or none
+ *   admin-comp-on-save        the flag is a live admin comp
+ */
+export type RevokeRefusal = 'subscription-not-on-save' | 'admin-comp-on-save';
+
+/**
+ * What applyEntitlementToSave did. Only `no-save` leaves the question open;
+ * `applied` and `refused` are final, so a provider need not redeliver either.
+ */
+export type EntitlementWrite =
+    /** The flag says what the event said. A re-delivery that already matched counts. */
+    | { outcome: 'applied' }
+    /** There is no save under that name. */
+    | { outcome: 'no-save' }
+    /** A revoke that was not this subscription's to make. `heldBy` is the flag's `userId`, or ''. */
+    | { outcome: 'refused'; reason: RevokeRefusal; heldBy: string };
+
 // ─── Apply the flag to the player's save (one of only two writers) ────────────
+
+/**
+ * A revoke ends ONE subscription: the one it names. Providers address their
+ * events by account name, and a name outlives its account. After a deletion or
+ * a full reset, whoever registers the name next may hold a subscription of
+ * their own, so a late `ended` for the old one can reach a save that never
+ * held it. Overwriting that flag would revoke perks its owner pays for. It
+ * would also erase the only record of their subscription, which account
+ * deletion reads to cancel it.
+ *
+ * A live admin comp is the operator's grant, made regardless of payment, and
+ * it expires on its own. A provider ending a subscription says nothing about
+ * it, even when the comp was made over that same subscription.
+ *
+ * Revoke-only: a grant is never refused here.
+ */
+function revokeRefusal(
+    character: Record<string, unknown>,
+    prev: Record<string, unknown> | null,
+    sourceId: string,
+): EntitlementWrite | null {
+    const heldBy = typeof prev?.userId === 'string' ? prev.userId : '';
+    if (prev?.source === 'admin' && isPatreonSubscriber(character)) {
+        return { outcome: 'refused', reason: 'admin-comp-on-save', heldBy };
+    }
+    if (prev?.userId !== sourceId) {
+        return { outcome: 'refused', reason: 'subscription-not-on-save', heldBy };
+    }
+    return null;
+}
 
 /**
  * Write `character.patreon` under the save lock. Idempotent: a re-delivered
  * purchase notification whose entitlement matches the stored flag is a no-op
- * (no version bump), so provider retries are cheap and safe. Returns false when
- * the save doesn't exist yet (brand-new account) — the caller should keep its
- * own provider-side ledger so the flag can be reconciled on the next save.
+ * (no version bump), so provider retries are cheap and safe.
+ *
+ * A revoke (`ent.active === false`) only writes over a flag that carries the
+ * same `sourceId` and is not a live admin comp. Anything else comes back
+ * `refused` with the save untouched; see revokeRefusal.
+ *
+ * `no-save` means the save doesn't exist (a brand-new or deleted account). The
+ * caller decides whether that is worth a retry: a grant may land once the
+ * account exists, but a revoke has nothing to revoke.
  *
  * `sourceId` identifies the paying account at the billing provider. It persists
  * as `userId` inside the flag because that is the stored field name.
@@ -62,15 +117,19 @@ export async function applyEntitlementToSave(
     playerName: string,
     sourceId: string,
     ent: Entitlement,
-): Promise<boolean> {
+): Promise<EntitlementWrite> {
     const key = `save:${safeName(playerName)}`;
-    return await withKvLock<boolean>(key, async () => {
+    return await withKvLock<EntitlementWrite>(key, async () => {
         const rec = await kv.get<Record<string, unknown>>(key);
         const char = (rec?.character ?? null) as Record<string, unknown> | null;
-        if (!rec || !char) return false;
+        if (!rec || !char) return { outcome: 'no-save' };
 
         const now = Date.now();
         const prev = (char.patreon ?? null) as Record<string, unknown> | null;
+        if (!ent.active) {
+            const refused = revokeRefusal(char, prev, sourceId);
+            if (refused) return refused;
+        }
         // Skip the write when nothing meaningful changed — makes re-delivery a
         // free no-op instead of a redundant version bump.
         if (prev
@@ -78,7 +137,7 @@ export async function applyEntitlementToSave(
             && prev.active === ent.active
             && prev.tier === ent.tier
             && Number(prev.entitledCents) === ent.entitledCents) {
-            return true;
+            return { outcome: 'applied' };
         }
         // Preserve the original "since" while active; clear tracking on lapse.
         const prevSince = prev && Number(prev.since) > 0 ? Number(prev.since) : 0;
@@ -94,7 +153,7 @@ export async function applyEntitlementToSave(
         };
         const record = bumpSaveVersion({ ...rec, character: char });
         await kv.set(key, mergePreservingImages(record, rec));
-        return true;
+        return { outcome: 'applied' };
     }, { failClosed: true });
 }
 
