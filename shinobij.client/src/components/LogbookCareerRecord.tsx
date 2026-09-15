@@ -1,9 +1,9 @@
-import { useState } from "react";
 import type { Character } from "../types/character";
 import type { VillageState } from "../lib/world-state";
+import { useSharedNow } from "../lib/use-shared-now";
 
 export function LogbookCareerRecord({ character, village }: { character: Character; village: VillageState }) {
-    const [observedAt] = useState(() => Date.now());
+    const observedAt = useSharedNow();
     const ownKageTerms = (village.kageHistory ?? []).filter((term) => term.name.toLowerCase() === character.name.toLowerCase());
     const currentKage = village.seatedKage?.toLowerCase() === character.name.toLowerCase();
     const currentAnbu = [...village.anbuAppointees, ...(village.anbuEarned ?? []), ...(village.anbuMembers ?? [])]
