@@ -41,7 +41,101 @@ async function post(body: Obj, authenticated = true) {
 async function record(player: string): Promise<Obj> { return (await kv.get<Obj>(`save:${player}`))!; }
 async function patch(player: string, patch: Obj) { const rec = await record(player); await kv.set(`save:${player}`, { ...rec, character: { ...rec.character, ...patch } }); }
 async function list(overrides: Obj = {}) { return post({ action: 'list', playerName: 'seller', requestId: randomUUID(), kind: 'item', assetId: itemId, quantity: 1, price: 1000, ...overrides }); }
-async function buy(id: string, player = 'buyer', price = 1000) { return post({ action: 'buy', playerName: player, listingId: id, expectedPrice: price }); }
+async function buy(id: string, player = 'buyer', price = 1000, expectedCurrency?: string) { return post({ action: 'buy', playerName: player, listingId: id, expectedPrice: price, expectedCurrency }); }
+
+it('settles Fate Shards with the same rounded-down 5% fee and no ryo charge', async () => {
+    await patch('buyer', { fateShards: 1000 });
+    const created = await list({ currency: 'fateShards', price: 201 });
+    assert.equal(created.status, 200, JSON.stringify(created.body));
+    const { id, currency, fee, proceeds } = created.body.listing;
+    assert.deepEqual({ currency, fee, proceeds }, { currency: 'fateShards', fee: 10, proceeds: 191 });
+    for (let attempt = 0; attempt < 2; attempt++) assert.equal((await buy(id, 'buyer', 201, 'fateShards')).status, 200);
+    const buyer = (await record('buyer')).character, seller = (await record('seller')).character;
+    assert.equal(buyer.fateShards, 799); assert.equal(seller.fateShards, 291);
+    assert.equal(buyer.ryo, 10000); assert.equal(seller.ryo, 10000);
+    assert.equal(buyer.inventory.length, 1);
+    const txns = (await kv.get<Obj[]>('econ:txns'))!;
+    assert.deepEqual(txns.filter(t => t.txnId === `exchange:${id}:buy`).map(t => [t.currency, t.delta]), [['fateShards', -201]]);
+    assert.deepEqual(txns.filter(t => t.txnId === `exchange:${id}:sell`).map(t => [t.currency, t.delta]), [['fateShards', 191]]);
+});
+
+it('rejects missing or mismatched currency quotes and currency changes under a reused request ID', async () => {
+    const requestId = randomUUID();
+    const created = await list({ requestId, currency: 'fateShards', price: 50 });
+    const id = created.body.listing.id;
+    for (const currency of [undefined, 'ryo']) assert.equal((await buy(id, 'buyer', 50, currency)).status, 409);
+    assert.equal((await buy(id, 'buyer', 50, 'gold')).status, 400);
+    assert.equal((await list({ requestId, price: 50, currency: 'ryo' })).status, 409);
+    assert.equal((await list({ requestId, price: 50, currency: 'fateShards' })).body.listing.id, id);
+    for (const currency of ['gold', '', null, 1, {}, '__proto__']) assert.equal((await list({ currency })).status, 400);
+    assert.equal((await record('buyer')).character.fateShards, 100);
+    assert.equal((await record('buyer')).character.inventory.length, 0);
+});
+
+it('keeps legacy ryo listings and creation requests replayable after the currency rollout', async () => {
+    const requestId = randomUUID();
+    const created = await list({ requestId });
+    const id = created.body.listing.id, key = `sunscar-exchange:listing:${id}`;
+    const legacy = (await kv.get<Obj>(key))!; delete legacy.currency;
+    await kv.set(key, legacy);
+    assert.equal((await list({ requestId, currency: 'ryo' })).body.listing.currency, 'ryo');
+    assert.equal((await buy(id, 'buyer', 1000, 'fateShards')).status, 409);
+    assert.equal((await buy(id)).status, 200);
+    assert.equal((await record('buyer')).character.ryo, 9000);
+    assert.equal((await record('buyer')).character.fateShards, 100);
+});
+
+it('requires sufficient Fate Shards independently of ryo and treats an absent shard wallet as zero', async () => {
+    const id = (await list({ currency: 'fateShards', price: 101 })).body.listing.id;
+    for (const fateShards of [100, undefined]) {
+        await patch('buyer', { fateShards });
+        const result = await buy(id, 'buyer', 101, 'fateShards');
+        assert.equal(result.status, 409); assert.match(result.body.error, /enough Fate Shards/);
+        assert.equal((await record('buyer')).character.inventory.length, 0);
+        assert.equal((await record('buyer')).character.ryo, 10000);
+        assert.equal((await kv.get<Obj>(`sunscar-exchange:listing:${id}`))!.state, 'active');
+    }
+});
+
+it('cancels a shard listing without a fee and allows a fresh listing in another currency', async () => {
+    const id = (await list({ currency: 'fateShards', price: 21 })).body.listing.id;
+    for (let attempt = 0; attempt < 2; attempt++) assert.equal((await post({ action: 'cancel', playerName: 'seller', listingId: id })).status, 200);
+    const seller = (await record('seller')).character;
+    assert.equal(seller.fateShards, 100); assert.equal(seller.ryo, 10000);
+    assert.equal(seller.inventory.filter((id: string) => id === itemId).length, 2);
+    assert.equal((await list({ currency: 'ryo' })).body.listing.currency, 'ryo');
+});
+
+for (const failureAfterCommit of [false, true]) it(`recovers interrupted shard seller payment exactly once (after commit: ${failureAfterCommit})`, async () => {
+    const id = (await list({ currency: 'fateShards', price: 41 })).body.listing.id;
+    const original = kv.compareSet;
+    kv.compareSet = async (key, expected, value, options) => {
+        if (key === 'save:seller' && (value as Obj).character.sunscarExchangeReceipts?.includes(`${id}:payment`)) {
+            if (failureAfterCommit) await original.call(kv, key, expected, value, options);
+            throw new Error('simulated shard payment outage');
+        }
+        return original.call(kv, key, expected, value, options);
+    };
+    try { assert.equal((await buy(id, 'buyer', 41, 'fateShards')).status, failureAfterCommit ? 200 : 503); } finally { kv.compareSet = original; }
+    assert.equal((await record('buyer')).character.fateShards, 59);
+    const { recoverPendingExchangeListings } = await import('./_exchange.js');
+    assert.deepEqual((await recoverPendingExchangeListings()).failures, []);
+    assert.equal((await buy(id, 'buyer', 41, 'fateShards')).status, 200);
+    assert.equal((await record('seller')).character.fateShards, 139);
+    assert.equal((await record('buyer')).character.fateShards, 59);
+    assert.equal((await record('buyer')).character.inventory.length, 1);
+});
+
+it('preserves delivered Fate Shards when a resource lot is priced in Fate Shards', async () => {
+    const id = (await list({ kind: 'resource', assetId: 'fateShards', quantity: 30, currency: 'fateShards', price: 21 })).body.listing.id;
+    await patch('buyer', { fateShards: 20 });
+    assert.equal((await buy(id, 'buyer', 21, 'fateShards')).status, 409, 'Delivered units cannot finance their own purchase.');
+    await patch('buyer', { fateShards: 100 });
+    assert.equal((await buy(id, 'buyer', 21, 'fateShards')).status, 200);
+    assert.equal((await record('buyer')).character.fateShards, 109);
+    assert.equal((await record('seller')).character.fateShards, 90);
+    assert.equal((await record('buyer')).character.ryo, 10000);
+});
 
 it('authenticates before reading inventories or trading', async () => {
     assert.equal((await post({ action: 'browse', playerName: 'seller' }, false)).status, 401);

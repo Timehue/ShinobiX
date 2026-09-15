@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
-import { EXCHANGE_LISTING_LIMIT, EXCHANGE_MAX_PRICE, EXCHANGE_MAX_QUANTITY, exchangeFee, type ExchangeKind, type ExchangeListing } from '../../shared/sunscar-exchange.js';
+import { EXCHANGE_CURRENCIES, EXCHANGE_LISTING_LIMIT, EXCHANGE_MAX_PRICE, EXCHANGE_MAX_QUANTITY, exchangeCurrency, exchangeFee, type ExchangeCurrency, type ExchangeKind, type ExchangeListing } from '../../shared/sunscar-exchange.js';
 import { kv } from '../_storage.js';
 import { withKvLock } from '../_lock.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
@@ -20,7 +20,13 @@ export const exchangeListingKey = (id: string) => `sunscar-exchange:listing:${id
 const pending = (l: ExchangeListing) => ['preparing', 'buying', 'cancelling'].includes(l.state);
 const journal = (c: Obj): string[] => Array.isArray(c.sunscarExchangeReceipts) ? c.sunscarExchangeReceipts as string[] : [];
 const stamp = (c: Obj, marker: string): Obj => ({ ...c, sunscarExchangeReceipts: [...new Set([...journal(c), marker])] });
-export const publicListing = ({ sealed: _sealed, fingerprint: _fp, failure: _failure, recoveryKey: _recovery, ...listing }: StoredExchangeListing): ExchangeListing => listing;
+export const publicListing = ({ sealed: _sealed, fingerprint: _fp, failure: _failure, recoveryKey: _recovery, ...listing }: StoredExchangeListing): ExchangeListing => ({ ...listing, currency: exchangeCurrency(listing) });
+
+function parseCurrency(value: unknown): ExchangeCurrency {
+    if (value === undefined) return 'ryo';
+    if (value === 'ryo' || value === 'fateShards') return value;
+    throw new ExchangeError('Choose ryo or Fate Shards as the listing currency.', 400);
+}
 
 async function transition(current: StoredExchangeListing, patch: Partial<StoredExchangeListing>): Promise<StoredExchangeListing> {
     const next = { ...current, ...patch };
@@ -79,6 +85,7 @@ async function applyLeg(listing: StoredExchangeListing, actor: string, leg: 'esc
         if (journal(character).includes(marker)) return { ok: true as const, character, value: null, write: false };
         let next: Obj = character;
         let recordPatch: Obj | undefined;
+        const currency = exchangeCurrency(listing);
         if (leg === 'escrow') {
             if (await battleLockedFor(actor)) throw new ExchangeError('Finish your current battle before listing an asset.');
             if (listing.asset.kind === 'pet') {
@@ -92,11 +99,14 @@ async function applyLeg(listing: StoredExchangeListing, actor: string, leg: 'esc
         } else if (leg === 'purchase') {
             const seller = await kv.get<Obj>(`save:${listing.seller}`);
             if (!seller?.character) throw new ExchangeError('The seller’s account is no longer available.');
-            balance(balance((seller.character as Obj).ryo) + listing.proceeds);
-            if (balance(character.ryo) < listing.price) throw new ExchangeError('You do not have enough ryo for this listing.');
-            next = { ...grantAsset(character, listing.sealed, listing.quantity), ryo: balance(character.ryo) - listing.price };
+            balance(balance((seller.character as Obj)[currency] ?? 0) + listing.proceeds);
+            if (balance(character[currency] ?? 0) < listing.price) throw new ExchangeError(`You do not have enough ${EXCHANGE_CURRENCIES[currency]} for this listing.`);
+            // A resource lot can contain the payment currency itself. Require
+            // funds up front, then preserve the delivered units when debiting.
+            const delivered = grantAsset(character, listing.sealed, listing.quantity);
+            next = { ...delivered, [currency]: balance(delivered[currency] ?? 0) - listing.price };
         } else if (leg === 'payment') {
-            next = { ...character, ryo: balance(balance(character.ryo) + listing.proceeds) };
+            next = { ...character, [currency]: balance(balance(character[currency] ?? 0) + listing.proceeds) };
         } else next = grantAsset(character, listing.sealed, listing.quantity, true);
         if ((leg === 'purchase' || leg === 'return') && FORGED_ITEM_ID.test(listing.asset.id)) {
             recordPatch = { creatorItems: [...objects(record.creatorItems).filter(item => item.id !== listing.asset.id), listing.sealed.definition] };
@@ -138,10 +148,10 @@ async function recoverLocked(current: StoredExchangeListing, catalogs?: Settleme
         listing = await transition(listing, { state: 'sold', completedAt: Date.now() });
     }
     if (listing.state === 'sold') {
-        await Promise.all([
-            recordEconomyTxn({ txnId: `exchange:${listing.id}:buy`, player: listing.buyer!, currency: 'ryo', delta: -listing.price, source: 'sunscar.exchange' }),
-            recordEconomyTxn({ txnId: `exchange:${listing.id}:sell`, player: listing.seller, currency: 'ryo', delta: listing.proceeds, source: 'sunscar.exchange' }),
-        ]);
+        // Telemetry uses a shared read/modify/write list; do not race the two
+        // sides of our own trade against each other.
+        await recordEconomyTxn({ txnId: `exchange:${listing.id}:buy`, player: listing.buyer!, currency: exchangeCurrency(listing), delta: -listing.price, source: 'sunscar.exchange' });
+        await recordEconomyTxn({ txnId: `exchange:${listing.id}:sell`, player: listing.seller, currency: exchangeCurrency(listing), delta: listing.proceeds, source: 'sunscar.exchange' });
     }
     if (listing.state === 'cancelling') {
         try { await applyLeg(listing, listing.seller, 'return'); }
@@ -155,12 +165,14 @@ async function recoverLocked(current: StoredExchangeListing, catalogs?: Settleme
     return listing;
 }
 
-export async function createExchangeListing(player: string, input: { requestId: string; kind: ExchangeKind; assetId: string; quantity: number; price: number }): Promise<ExchangeListing> {
+export async function createExchangeListing(player: string, input: { requestId: string; kind: ExchangeKind; assetId: string; quantity: number; price: number; currency?: unknown }): Promise<ExchangeListing> {
+    const currency = parseCurrency(input.currency);
     if (!['item', 'pet', 'card', 'resource'].includes(input.kind) || !input.assetId || input.assetId.length > 160) throw new ExchangeError('Choose a valid asset.', 400);
     if (!Number.isSafeInteger(input.quantity) || input.quantity < 1 || input.quantity > EXCHANGE_MAX_QUANTITY) throw new ExchangeError('Enter a valid whole quantity.', 400);
-    if (!Number.isSafeInteger(input.price) || input.price < 1 || input.price > EXCHANGE_MAX_PRICE) throw new ExchangeError(`The total price must be between 1 and ${EXCHANGE_MAX_PRICE.toLocaleString()} ryo.`, 400);
+    if (!Number.isSafeInteger(input.price) || input.price < 1 || input.price > EXCHANGE_MAX_PRICE) throw new ExchangeError(`The total price must be between 1 and ${EXCHANGE_MAX_PRICE.toLocaleString()} ${EXCHANGE_CURRENCIES[currency]}.`, 400);
     const id = createHash('sha256').update(`${player}:${input.requestId}`).digest('hex').slice(0, 32);
-    const fingerprint = JSON.stringify([input.kind, input.assetId, input.quantity, input.price]);
+    // Keep old ryo request fingerprints replayable across this rollout.
+    const fingerprint = JSON.stringify([input.kind, input.assetId, input.quantity, input.price, ...(currency === 'ryo' ? [] : [currency])]);
     return withKvLock('sunscar-exchange:create', () => withKvLock(exchangeListingKey(id), async () => {
         let listing = await kv.get<StoredExchangeListing>(exchangeListingKey(id));
         if (listing && listing.fingerprint !== fingerprint) throw new ExchangeError('This request ID was already used for a different listing.');
@@ -175,7 +187,7 @@ export async function createExchangeListing(player: string, input: { requestId: 
             const sealed = sealAsset(await recoverExchangeDefinitions(record), catalogs, input.kind, input.assetId);
             const fee = exchangeFee(input.price);
             listing = { id, seller: player, sellerName: String((record.character as Obj).name), sealed, asset: sealed.asset,
-                quantity: input.quantity, price: input.price, fee, proceeds: input.price - fee, createdAt: Date.now(), state: 'preparing', fingerprint };
+                quantity: input.quantity, price: input.price, currency, fee, proceeds: input.price - fee, createdAt: Date.now(), state: 'preparing', fingerprint };
             // Index first: an interruption can leave an inert pointer, never an
             // unfindable escrow. Nothing has been removed at this point.
             await kv.hset(LIVE_INDEX, { [id]: listing.createdAt });
@@ -187,7 +199,7 @@ export async function createExchangeListing(player: string, input: { requestId: 
     }, { failClosed: true, ttlSec: 60 }), { failClosed: true, ttlSec: 60 });
 }
 
-export async function actOnExchangeListing(player: string, id: string, action: 'buy' | 'cancel', expectedPrice?: number): Promise<ExchangeListing> {
+export async function actOnExchangeListing(player: string, id: string, action: 'buy' | 'cancel', expectedPrice?: number, expectedCurrency?: unknown): Promise<ExchangeListing> {
     if (!/^[a-f0-9]{32}$/.test(id)) throw new ExchangeError('Invalid listing.', 400);
     return withKvLock(exchangeListingKey(id), async () => {
         let listing = await kv.get<StoredExchangeListing>(exchangeListingKey(id));
@@ -195,6 +207,8 @@ export async function actOnExchangeListing(player: string, id: string, action: '
         if (action === 'cancel' && listing.seller !== player) throw new ExchangeError('Only the seller may cancel this listing.', 403);
         if (action === 'buy' && listing.seller === player) throw new ExchangeError('You cannot buy your own listing.', 400);
         if (action === 'buy' && expectedPrice !== listing.price) throw new ExchangeError('The quoted price does not match. Refresh before buying.');
+        // Missing currency is a legacy ryo quote, never consent to spend shards.
+        if (action === 'buy' && parseCurrency(expectedCurrency) !== exchangeCurrency(listing)) throw new ExchangeError('The quoted currency does not match. Refresh before buying.');
         if (listing.state === 'sold' && listing.buyer === player && action === 'buy') return publicListing(listing);
         if (listing.state === 'cancelled' && action === 'cancel') return publicListing(listing);
         if (listing.state === 'buying' && listing.buyer !== player && action === 'buy') throw new ExchangeError('Another player is purchasing this listing.');
