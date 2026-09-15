@@ -265,11 +265,11 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
             <div className="stronghold-dpad" aria-label="Movement controls">{([['↑', 0, -1, 'Move up'], ['←', -1, 0, 'Move left'], ['↓', 0, 1, 'Move down'], ['→', 1, 0, 'Move right']] as const).map(([label, dx, dy, name]) => <button key={name} aria-label={name} disabled={movementBlocked || overview || !state || threat >= 100} onClick={() => direction(dx, dy)}>{label}</button>)}</div>
         </footer>
         {playersOpen && <StrongholdDialog title="Shinobi in the stronghold" onClose={() => setPlayersOpen(false)}>{playerList}</StrongholdDialog>}
-        {selectedPeer && <StrongholdDialog title={selectedPeer.name} busy={!!pending} onClose={() => setSelectedPeer(null)}>
+        {selectedPeer && <StrongholdDialog title={selectedPeer.name} onClose={() => setSelectedPeer(null)}>
             <p>Level {selectedPeer.level} · {selectedPeer.village}</p>
             <p>Challenge this shinobi to a sector battle. Your current health and supplies carry into the fight.</p>
             {obsidian && <p className="stronghold-reward-detail"><b>4× normal rewards on a PvP win.</b> Both fighters must be inside when the battle starts. Ryo, stat growth and XP for jutsu you cast receive the bonus; normal limits and repeat-opponent reductions apply.</p>}
-            <div className="stronghold-dialog-actions"><button className="stronghold-attack" disabled={blocked || !!pending || threat >= 100 || !availablePeers.some(p => p.name === selectedPeer.name)} onClick={() => void attack(selectedPeer)}>{pending === 'attack' ? 'Connecting…' : 'Attack player'}</button><button disabled={!!pending} onClick={() => setSelectedPeer(null)}>Cancel</button></div>
+            <div className="stronghold-dialog-actions"><button className="stronghold-attack" disabled={blocked || !!pending || threat >= 100 || !availablePeers.some(p => p.name === selectedPeer.name)} onClick={() => void attack(selectedPeer)}>{pending === 'attack' ? 'Connecting…' : 'Attack player'}</button><button onClick={() => setSelectedPeer(null)}>Cancel</button></div>
         </StrongholdDialog>}
     </section>;
 }

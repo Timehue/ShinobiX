@@ -310,14 +310,14 @@ export function AnbuVaultRaid({
                 onExit={onExit}
             />
             {/* Boss room — the Challenge / Retreat confrontation at the vault. */}
-            {challenge && <StrongholdDialog title="Challenge the Anbu" busy={starting} onClose={() => setChallenge(false)}>
+            {challenge && <StrongholdDialog title="Challenge the Anbu" onClose={() => setChallenge(false)}>
                 {anbuAvatar && <img className="stronghold-boss-portrait" src={anbuAvatar} alt={anbuName} />}
                 <h3>{anbuName}</h3>
                 <p>The masked operative guards the vault at full strength. Defeat them to raid this sector’s war reserves. Your current health and supplies carry into the fight.</p>
                 {error && <p className="stronghold-error" role="alert">{error}</p>}
                 <div className="stronghold-dialog-actions">
                     <button className="stronghold-attack" onClick={() => void enterVault()} disabled={starting || !actionsAvailable}>{starting ? 'Engaging…' : 'Challenge'}</button>
-                    <button onClick={() => setChallenge(false)} disabled={starting}>Retreat</button>
+                    <button onClick={() => setChallenge(false)}>Retreat</button>
                 </div>
             </StrongholdDialog>}
         </>

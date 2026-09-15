@@ -2,6 +2,26 @@
   "checks": [
     {
       "engine": "chromium",
+      "pendingAttackDismissal": "escape",
+      "duplicateAttackBlocked": true
+    },
+    {
+      "engine": "chromium",
+      "pendingAttackDismissal": "close",
+      "duplicateAttackBlocked": true
+    },
+    {
+      "engine": "chromium",
+      "pendingAttackDismissal": "cancel",
+      "duplicateAttackBlocked": true
+    },
+    {
+      "engine": "chromium",
+      "pendingAnbuDismissal": true,
+      "admittedBattlePreserved": true
+    },
+    {
+      "engine": "chromium",
       "sector": 12,
       "cachedPortraits": true,
       "avatarSizeParity": true,
@@ -71,6 +91,26 @@
     "chromium: actual Arena patrol settlement loss",
     "chromium: actual Arena patrol settlement save-rejected",
     "chromium: actual Arena patrol settlement report-failure",
+    {
+      "engine": "webkit",
+      "pendingAttackDismissal": "escape",
+      "duplicateAttackBlocked": true
+    },
+    {
+      "engine": "webkit",
+      "pendingAttackDismissal": "close",
+      "duplicateAttackBlocked": true
+    },
+    {
+      "engine": "webkit",
+      "pendingAttackDismissal": "cancel",
+      "duplicateAttackBlocked": true
+    },
+    {
+      "engine": "webkit",
+      "pendingAnbuDismissal": true,
+      "admittedBattlePreserved": true
+    },
     {
       "engine": "webkit",
       "sector": 12,
