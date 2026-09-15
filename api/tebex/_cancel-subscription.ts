@@ -1,5 +1,7 @@
 /*
- * Cancel a Tebex subscription when the account it belongs to is deleted.
+ * Cancel a Tebex subscription when the account it belongs to is deleted —
+ * one account at a time (api/_delete-player-account.ts), or all of them in a
+ * full server reset (api/admin/server-reset.ts).
  *
  * Underscore-prefixed: shared helper, not a route.
  *
@@ -46,6 +48,15 @@ export type CancelOutcome =
     | { ok: false; reason: 'unconfigured' | 'invalid-reference' | 'rejected' | 'unreachable'; status?: number; detail?: string };
 
 const apiKey = (): string => String(process.env.TEBEX_CHECKOUT_API_KEY ?? '').trim();
+
+/**
+ * True when cancellations can actually reach Tebex. The full server reset's
+ * dry run reports this, so the admin learns BEFORE confirming that every
+ * cancellation would be parked for them to do by hand.
+ */
+export function isSubscriptionCancelConfigured(): boolean {
+    return apiKey() !== '';
+}
 
 /** True for something shaped like a recurring-payment reference. */
 export function isRecurringReference(value: unknown): boolean {
@@ -127,6 +138,28 @@ export async function recordOrphanedSubscription(
 }
 
 /**
+ * Cancel one account's subscription, and park the reference if that failed.
+ * Never throws. Shared by account deletion and the full server reset, which
+ * both destroy the save that holds the only copy of the reference.
+ */
+export async function cancelOrParkSubscription(
+    slug: string,
+    reference: string,
+    fetchFn: typeof fetch = fetch,
+    context = 'deleted account',
+): Promise<CancelOutcome> {
+    const outcome = await cancelTebexSubscription(reference, fetchFn);
+    if (outcome.ok) {
+        console.log(`[tebex] subscription cancelled for ${context}`, slug, reference, outcome.status);
+        return outcome;
+    }
+
+    console.error(`[tebex] SUBSCRIPTION NOT CANCELLED for ${context}`, slug, reference, outcome.reason, outcome.detail ?? '');
+    await recordOrphanedSubscription(slug, reference, outcome.reason);
+    return outcome;
+}
+
+/**
  * The whole job for one deleting account: find the subscription, cancel it, and
  * park it if that failed. Returns a short note for the deletion result, or null
  * when the account had no subscription at all (the common case).
@@ -139,13 +172,68 @@ export async function cancelSubscriptionForDeletedAccount(
     const reference = subscriptionReferenceFromSave(save);
     if (!reference) return null;
 
-    const outcome = await cancelTebexSubscription(reference, fetchFn);
-    if (outcome.ok) {
-        console.log('[tebex] subscription cancelled for deleted account', slug, reference, outcome.status);
-        return `tebex subscription ${reference} cancelled`;
-    }
-
-    console.error('[tebex] SUBSCRIPTION NOT CANCELLED for deleted account', slug, reference, outcome.reason, outcome.detail ?? '');
-    await recordOrphanedSubscription(slug, reference, outcome.reason);
+    const outcome = await cancelOrParkSubscription(slug, reference, fetchFn);
+    if (outcome.ok) return `tebex subscription ${reference} cancelled`;
     return `tebex subscription ${reference} NOT cancelled (${outcome.reason}) — parked in ${ORPHANED_SUBSCRIPTIONS_KEY}`;
+}
+
+/*
+ * ── A PARKED REFERENCE ENTITLES NOBODY ────────────────────────────────────
+ * Renewal webhooks find their player by the name sealed into the original
+ * basket, not by any save. Once a reference is parked, the account it was
+ * bought for is gone, so that name belongs to nobody or to whoever registered
+ * it afterwards. api/tebex/webhook.ts reads the hash back through these two
+ * helpers and refuses to entitle anyone for a parked reference.
+ */
+
+/** A parked entry, read back from the hash. */
+export interface ParkedSubscription {
+    /** The account it was parked for, or '' when the entry does not name one. */
+    slug: string;
+    /** The stored entry. A value that is not a JSON object is kept under `raw`. */
+    entry: Record<string, unknown>;
+}
+
+/**
+ * The parked entry for `reference`, or null when it is not parked.
+ *
+ * The field existing is what counts. A hand-edited value that no longer
+ * parses is still parked. Throws when the hash cannot be read: the caller must
+ * not entitle anyone until it knows the answer.
+ */
+export async function findParkedSubscription(reference: string): Promise<ParkedSubscription | null> {
+    const parked = await kv.hgetall<Record<string, unknown>>(ORPHANED_SUBSCRIPTIONS_KEY);
+    if (!parked || typeof parked !== 'object' || !Object.prototype.hasOwnProperty.call(parked, reference)) return null;
+
+    const raw = parked[reference];
+    let entry: Record<string, unknown> = { raw };
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+        entry = raw as Record<string, unknown>;
+    } else if (typeof raw === 'string') {
+        try {
+            const value: unknown = JSON.parse(raw);
+            if (value && typeof value === 'object' && !Array.isArray(value)) entry = value as Record<string, unknown>;
+        } catch { /* keep it under `raw` */ }
+    }
+    return { slug: typeof entry.slug === 'string' ? entry.slug : '', entry };
+}
+
+/**
+ * Add what Tebex just reported to a parked entry, so an operator can see that
+ * the subscription is still billing, or that it has ended.
+ *
+ * Best-effort: the webhook has already decided to entitle nobody, and a failed
+ * write must not change that answer. It rewrites the whole field, so an
+ * operator who deletes the entry at the same instant can see it come back.
+ */
+export async function stampParkedSubscription(
+    reference: string,
+    parked: ParkedSubscription,
+    stamp: Record<string, string>,
+): Promise<void> {
+    try {
+        await kv.hset(ORPHANED_SUBSCRIPTIONS_KEY, { [reference]: JSON.stringify({ ...parked.entry, ...stamp }) });
+    } catch (error) {
+        console.error('[tebex] parked subscription could not be stamped', reference, (error as Error)?.message);
+    }
 }

@@ -35,6 +35,24 @@ export function writeSavePreview(name: string, payload: unknown) {
     }
 }
 
+/**
+ * Drop one account's cached snapshot.
+ *
+ * Called when the server says the save is GONE (a full server reset, or an
+ * admin account wipe). Without this the cache outlives the character: the next
+ * boot paints the deleted shinobi from localStorage — optimistically on a hub
+ * screen, and again on the login path — before the server reconcile clears it.
+ * After a reset that reads as "my character came back, then vanished".
+ */
+export function clearSavePreview(name: string) {
+    if (!name) return;
+    try {
+        localStorage.removeItem(savePreviewKey(name));
+    } catch {
+        // Storage unavailable — nothing cached to clear.
+    }
+}
+
 export function readSavePreview(name: string): Record<string, unknown> | null {
     if (!name) return null;
     try {
