@@ -42,7 +42,7 @@ import {
 import { requestAiFight } from "./lib/ai-fight-request";
 import type { FieldExploreProgress } from "./lib/world-reward-api";
 import { useEndlessTowerActions } from "./lib/use-endless-tower-actions";
-import { readSavePreview, writeSavePreview } from "./lib/save-preview";
+import { clearSavePreview, readSavePreview, writeSavePreview } from "./lib/save-preview";
 import { setBootKind as perfSetBootKind, notifyScreen as perfNotifyScreen, notifyRestoreComplete as perfNotifyRestoreComplete } from "./lib/perfTelemetry";
 import { lazyWithRetry } from "./lib/lazyWithRetry";
 import { runSingleFlight } from "./lib/single-flight";
@@ -4221,9 +4221,9 @@ export default function App() {
             const lsKey = accountKey(name);
             if (lsKey) {
                 const accs = loadPlayerAccounts();
-                delete accs[lsKey];
-                savePlayerAccounts(accs);
+                delete accs[lsKey]; savePlayerAccounts(accs);
             }
+            clearSavePreview(name); // …and the cached snapshot (why: lib/save-preview.ts)
             // Best-effort auth clear — if it fails they'll need admin help, but try.
             // The session token authorises this too, so it works for an account
             // that has no password to send (Google sign-in, guest).

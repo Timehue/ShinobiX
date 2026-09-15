@@ -11,7 +11,9 @@ import { applyAdminSubscription } from '../_subscription.js';
  * of payment, or revokes them. An activation auto-expires after `days` (default
  * 30) via character.patreon.expiresAt. Writes the server-owned patreon flag
  * under the save lock (the same anti-forge field a client save can never set).
- * Mints NO currency or items — only the perk flag.
+ * Mints NO currency or items — only the perk flag. A comp over a paying
+ * subscriber lasts only until their next renewal, which replaces it with a
+ * plain paid flag; see applyAdminSubscription.
  *
  * Body: { playerName: string, active?: boolean (default true), days?: number }
  * → 200 { ok, active, tier, expiresAt } | 404 when the player has no server save
