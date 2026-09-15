@@ -292,7 +292,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     storyReckoningRewardCount: claimedToday + 1,
                     redeemedStoryReckonings: [...receipts.slice(-39), receipt],
                 };
-                const next = bumpSaveVersion({ ...rec, activeStoryReckoningSeal: null, character: updated });
+                const next = bumpSaveVersion({ ...rec, activeStoryReckoningSeal: null, character: updated }, { previousCharacter: char });
                 await kv.set(saveKey, mergePreservingImages(next, rec));
                 // Cache cleanup/counter mirroring follows the atomic save payout.
                 // A failure here is replay-healed by the durable redemption.

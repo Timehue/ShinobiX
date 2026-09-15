@@ -5,7 +5,8 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
-import { loadClanContext, canActAsClanLeadership } from './war/_storage.js';
+import { loadClanContext } from './war/_storage.js';
+import { clanLeadershipRole } from './_leadership.js';
 import { resolveClanKick, clanSlugBare } from './_kick-core.js';
 import { writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
 
@@ -58,27 +59,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const targetSlug = clanSlugBare(clan);
         if (!targetSlug) return res.status(400).json({ error: 'Invalid clan name.' });
 
-        // Leadership gate (founder / Leader / Officer) — same model as declaring a
-        // clan war / purchasing an upgrade. Also proves actor membership. Admins
-        // bypass and act with founder-level authority (founder still un-kickable).
-        let actorRole: 'founder' | 'leader' | 'officer' | 'member' | '' = 'founder';
-        if (!identity.admin) {
-            const ctx = await loadClanContext(playerName);
-            if (clanSlugBare(ctx.clan) !== targetSlug) {
-                return res.status(403).json({ error: 'You are not a member of this clan.' });
-            }
-            if (!canActAsClanLeadership(ctx.role)) {
-                return res.status(403).json({ error: 'Only clan leadership can remove members.' });
-            }
-            actorRole = ctx.role;
-        }
-
         const clanSaveKey = `save:clan-${targetSlug}`;
         const targetSaveKey = `save:${targetName}`;
 
         const result = await withKvLock(clanSaveKey, async () => {
             const clanRec = await kv.get<Record<string, unknown>>(clanSaveKey);
             if (!clanRec) return { ok: false as const, status: 404, error: 'Clan not found.' };
+
+            // A kick/demotion may commit while this request waits for the lock.
+            // Recheck both current personal membership and the locked roster;
+            // only the canonical founder/appointments confer authority. Admins
+            // retain founder-level authority, with target protections below.
+            let actorRole: ReturnType<typeof clanLeadershipRole> = 'founder';
+            if (!identity.admin) {
+                const ctx = await loadClanContext(playerName);
+                if (clanSlugBare(ctx.clan) !== targetSlug) {
+                    return { ok: false as const, status: 403, error: 'You are not a member of this clan.' };
+                }
+                actorRole = clanLeadershipRole(clanRec, playerName);
+                if (!actorRole) return { ok: false as const, status: 403, error: 'Only clan leadership can remove members.' };
+            }
 
             const decision = resolveClanKick(clanRec, actorRole, playerName, targetName);
             if (!decision.ok) return decision;

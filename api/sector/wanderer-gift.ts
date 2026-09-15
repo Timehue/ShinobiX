@@ -116,7 +116,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const used = withWandererUseState(rewarded, wandererId, now, sector);
             const updated = used.character;
             legacyWandererId = wandererId;
-            const record = bumpSaveVersion({ ...rec, character: updated });
+            const record = bumpSaveVersion({ ...rec, character: updated }, { previousCharacter: char });
             await kv.set(`save:${playerName}`, mergePreservingImages(record, rec));
             return {
                 status: 200,

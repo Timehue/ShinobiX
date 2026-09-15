@@ -24,7 +24,7 @@ import { CentralDestinationHeader } from "./CentralDestinationHeader";
 import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { GameItem, EquipmentSlot } from "../types/combat";
 import { getAllTileCards, type TileCard } from "../data/tile-cards";
-import { openCardPack, type CardPackType } from "../lib/card-pack";
+import { hasPendingCardPackRequest, openCardPack, type CardPackType } from "../lib/card-pack";
 import { displayCardsById, ownedChronicleCounts } from "../lib/chronicle-duel";
 import { packArtUrl } from "../lib/card-pack-reveal";
 import { CardPackOpening } from "./CardPackOpening";
@@ -511,6 +511,9 @@ function CardPackSection({ character, currency, creatorCards, onVersionedCharact
         PACK_CURRENCY[packType] === "chroniclePoints" ? (character.chroniclePoints ?? 0) : character.fateShards;
     const [packBusy, setPackBusy] = useState(false);
     const packBusyRef = useRef(false);
+    const pendingPackOf = (packType: CardPackType) => hasPendingCardPackRequest(character.name, packType);
+    const packUnavailable = (packType: CardPackType) => packBusy
+        || (!pendingPackOf(packType) && packWalletOf(packType) < packCost(packType, PACK_BASE_COST[packType]));
     // A settled pack waiting to be ripped open in the cinematic. The save
     // already owns the cards (updateCharacter ran first), so the overlay is
     // pure presentation; ownedBefore snapshots the pre-pack collection for
@@ -530,7 +533,7 @@ function CardPackSection({ character, currency, creatorCards, onVersionedCharact
         const wallet = packWalletOf(packType);
         const label = PACK_CURRENCY_LABEL[PACK_CURRENCY[packType]];
         const finalCost = packCost(packType, cost);
-        if (wallet < finalCost) return alert(`Not enough ${label}.${PACK_CURRENCY[packType] === "chroniclePoints" ? " Win Showdowns in Echoes of War (Celestial Tower) to earn more." : ""}`);
+        if (wallet < finalCost && !pendingPackOf(packType)) return alert(`Not enough ${label}.${PACK_CURRENCY[packType] === "chroniclePoints" ? " Win Showdowns in Echoes of War (Celestial Tower) to earn more." : ""}`);
         if (packBusyRef.current) return;
         packBusyRef.current = true;
         setPackBusy(true);
@@ -547,7 +550,6 @@ function CardPackSection({ character, currency, creatorCards, onVersionedCharact
     }
 
     const againCost = packReveal ? packCost(packReveal.packType, PACK_BASE_COST[packReveal.packType]) : 0;
-    const packWallet = packReveal ? packWalletOf(packReveal.packType) : 0;
     const packCurrencyLabel = packReveal ? PACK_CURRENCY_LABEL[PACK_CURRENCY[packReveal.packType]] : "";
 
     // Sealed until the Chronicle Scribe event hands over the traveler's codex
@@ -582,10 +584,10 @@ function CardPackSection({ character, currency, creatorCards, onVersionedCharact
             </p>
             {currency === "ryo" && (
                 <>
-                    <button onClick={() => void openPack("standard", PACK_BASE_COST.standard)} disabled={packBusy || (character.chroniclePoints ?? 0) < PACK_BASE_COST.standard}>
-                        🏛️ Basic Card Pack — 5 cards (Common / Rare) — {PACK_BASE_COST.standard} Chronicle Points
+                    <button onClick={() => void openPack("standard", PACK_BASE_COST.standard)} disabled={packUnavailable("standard")}>
+                        🏛️ {pendingPackOf("standard") ? "Recover Basic Card Pack" : "Basic Card Pack"} — 5 cards (Common / Rare) — {PACK_BASE_COST.standard} Chronicle Points
                     </button>
-                    {(character.chroniclePoints ?? 0) < PACK_BASE_COST.standard ? (
+                    {!pendingPackOf("standard") && (character.chroniclePoints ?? 0) < PACK_BASE_COST.standard ? (
                         <p style={{ color: "#8b98a8", fontSize: "0.8rem", margin: "0.35rem 0 0" }}>
                             You need {PACK_BASE_COST.standard - (character.chroniclePoints ?? 0)} more Chronicle Points. Win Showdowns in Echoes of War to earn them.
                         </p>
@@ -594,21 +596,21 @@ function CardPackSection({ character, currency, creatorCards, onVersionedCharact
             )}
             {currency === "fateShards" && (
                 <>
-                    <button onClick={() => void openPack("epic", 10)} disabled={packBusy || character.fateShards < packCost("epic", 10)} style={{ color: "#ce93d8" }}>
+                    <button onClick={() => void openPack("epic", 10)} disabled={packUnavailable("epic")} style={{ color: "#ce93d8" }}>
                         {/* Label matches the LIVE pool in api/card-clash/_pack.ts:
                             rarities ['rare','epic'] over the Marketplace half —
                             a top-tier Rare or an Epic, never "always Epic". */}
-                        <GameIcon name="crystal" size={13} style={{ display: "inline-block", verticalAlign: "-2px", color: "#ce93d8" }} /> Elite Pack — 1 card (top-tier Rare or Epic) — 10 Fate Shards
+                        <GameIcon name="crystal" size={13} style={{ display: "inline-block", verticalAlign: "-2px", color: "#ce93d8" }} /> {pendingPackOf("epic") ? "Recover Elite Pack" : "Elite Pack"} — 1 card (top-tier Rare or Epic) — 10 Fate Shards
                     </button>
                     {/* Legendary pack — sits right next to the Elite pack, costs
                         3× as much for the corresponding tier jump. Same draw
                         mechanic, just filtered to legendary rarity. */}
                     <button
                         onClick={() => void openPack("legendary", 30)}
-                        disabled={packBusy || character.fateShards < packCost("legendary", 30)}
+                        disabled={packUnavailable("legendary")}
                         style={{ color: "#facc15", marginLeft: 8, borderColor: "rgba(250, 204, 21, 0.5)" }}
                     >
-                        👑 Legendary Pack — 1 guaranteed Legendary card — 30 Fate Shards
+                        👑 {pendingPackOf("legendary") ? "Recover Legendary Pack" : "Legendary Pack"} — 1 guaranteed Legendary card — 30 Fate Shards
                     </button>
                 </>
             )}
@@ -640,8 +642,8 @@ function CardPackSection({ character, currency, creatorCards, onVersionedCharact
                     ownedBefore={packReveal.ownedBefore}
                     onClose={() => setPackReveal(null)}
                     onOpenAnother={() => void openPack(packReveal.packType, PACK_BASE_COST[packReveal.packType])}
-                    openAnotherLabel={`Open Another — ${againCost} ${packCurrencyLabel}`}
-                    openAnotherDisabled={packBusy || packWallet < againCost}
+                    openAnotherLabel={`${pendingPackOf(packReveal.packType) ? "Recover Pack" : "Open Another"} — ${againCost} ${packCurrencyLabel}`}
+                    openAnotherDisabled={packUnavailable(packReveal.packType)}
                 />
             )}
         </div>

@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { gameConfirm } from "../components/GameAlert";
 import type { HollowGatePetFightRef } from "../components/HollowGatePetFight";
-import type { Character, HollowGateShrineRun, HollowGateTile } from "../types/character";
+import type { Character, HollowGateShrineRun, HollowGateTile, VersionedCharacterCommit } from "../types/character";
 import type { Screen } from "../types/core";
 import { hollowGateHoundName, hollowHoundEncounterId } from "../../../shared/hollow-gate-contract";
 import { applyAttunementToRun } from "./hollow-gate-attunement";
@@ -82,7 +82,8 @@ export function useHollowGateAppFlow(params: {
     character: Character | null;
     run: HollowGateShrineRun | null;
     sharedImages: Record<string, string>;
-    setCharacter: SetState<Character | null>;
+    commitCharacter: VersionedCharacterCommit;
+    captureSessionScope: (accountName: string) => { isCurrent: () => boolean };
     setRun: SetState<HollowGateShrineRun | null>;
     setEvent: SetState<HollowGateEventModal>;
     setHiddenChamber: SetState<HiddenChamberState>;
@@ -98,7 +99,8 @@ export function useHollowGateAppFlow(params: {
         character,
         run,
         sharedImages,
-        setCharacter,
+        commitCharacter,
+        captureSessionScope,
         setRun,
         setEvent,
         setHiddenChamber,
@@ -120,11 +122,20 @@ export function useHollowGateAppFlow(params: {
     // cannot ask it whether the run is still the one it started from.
     const runRef = useRef(run);
     runRef.current = run;
+    const exitScopeRef = useRef<{ isCurrent: () => boolean } | null>(null);
     // Tracks a forfeit specifically, so abandon() can't double-fire while its
     // own forced leave is settling — without re-blocking it behind exitPending.
-    const forfeitInFlight = useRef(false);
+    const forfeitInFlight = useRef<{ isCurrent: () => boolean } | null>(null);
+
+    function captureRunScope() {
+        const session = captureSessionScope(character?.name ?? "");
+        const token = run?.runToken;
+        return { isCurrent: () => session.isCurrent() && Boolean(runRef.current) && runRef.current?.runToken === token };
+    }
 
     const clearRunUi = () => {
+        // Invalidate overlapping exit replies before React publishes the null run.
+        runRef.current = null;
         setRun(null);
         setEvent(null);
         setHiddenChamber(null);
@@ -134,43 +145,53 @@ export function useHollowGateAppFlow(params: {
     async function leave(opts?: { death?: boolean; force?: boolean }) {
         // `force` lets the Emergency Forfeit escape past an in-flight ordinary
         // leave; both settles hit the same run token, so the server decides.
-        if ((exitPending && !opts?.force) || !run || !character) return;
+        if ((exitScopeRef.current?.isCurrent() && !opts?.force) || !run || !character) return;
+        const scope = captureRunScope();
+        if (!scope.isCurrent()) return;
+        exitScopeRef.current = scope;
         setExitPending(true);
         try {
             if (!run.runToken) {
                 throw new Error("This Hollow Gate run has no valid server settlement token.");
             }
-            await finalizeHollowGateRunEnd({
+            const result = await finalizeHollowGateRunEnd({
                 run,
                 outcome: opts?.death ? "death" : "extract",
                 character,
-                setCharacter,
+                adoption: { commitCharacter, isCurrent: scope.isCurrent, currentRunToken: () => runRef.current?.runToken },
             });
+            if (!result.adopted || !scope.isCurrent()) return;
             clearRunUi();
             setScreen(opts?.death ? "hospital" : "worldMap");
         } catch (error) {
+            if (!scope.isCurrent()) return;
             reportHollowGateRunError(
                 error,
                 "The Hollow Gate could not settle this run. Your run remains intact; retry when the connection is stable.",
-                () => clearRunState(true),
+                () => { if (scope.isCurrent()) { runRef.current = null; clearRunState(true); } },
             );
         } finally {
-            setExitPending(false);
+            if (exitScopeRef.current === scope) {
+                exitScopeRef.current = null;
+                setExitPending(false);
+            }
         }
     }
 
     async function abandon() {
-        if (!run || forfeitInFlight.current) return;
-        const confirmed = await gameConfirm(
-            "Forfeit this Hollow Gate run?\n\nThis emergency exit works even if an encounter is broken. The run ends as a defeat, unbanked loot takes the normal death penalty, and you are sent to the hospital.",
-            { title: "Emergency Forfeit", confirmLabel: "Forfeit Run" },
-        );
-        if (!confirmed) return;
-        forfeitInFlight.current = true;
+        if (!run || forfeitInFlight.current?.isCurrent()) return;
+        const scope = captureRunScope();
+        if (!scope.isCurrent()) return;
+        forfeitInFlight.current = scope;
         try {
+            const confirmed = await gameConfirm(
+                "Forfeit this Hollow Gate run?\n\nThis emergency exit works even if an encounter is broken. The run ends as a defeat, unbanked loot takes the normal death penalty, and you are sent to the hospital.",
+                { title: "Emergency Forfeit", confirmLabel: "Forfeit Run" },
+            );
+            if (!confirmed || !scope.isCurrent()) return;
             await leave({ death: true, force: true });
         } finally {
-            forfeitInFlight.current = false;
+            if (forfeitInFlight.current === scope) forfeitInFlight.current = null;
         }
     }
 
@@ -330,7 +351,7 @@ export function useHollowGateAppFlow(params: {
     }
 
     return {
-        exitPending,
+        exitPending: exitPending && Boolean(exitScopeRef.current?.isCurrent()),
         descending,
         leave,
         abandon,

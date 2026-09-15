@@ -112,6 +112,12 @@ const ECHOES_VERSION = new Set([
 // importing the low-level bumper themselves. Their authenticated response is
 // still responsible for echoing the helper's exact committed version.
 const INDIRECT_VERSION_MUTATION_ROUTES = new Set([
+    // These commits now use the existing exact-CAS versioned writer so a lost
+    // acknowledgement cannot roll back an already-paid checkpoint or death.
+    'hollow-gate/combat-settle.ts',
+    'hollow-gate/event.ts',
+    'hollow-gate/settle.ts',
+    'hollow-gate/use-consumable.ts',
     'missions/report-raid.ts',
     // Ranked/base settlement moved behind writeVersionedPlayerSave, so this route
     // no longer names a BUMP_MARKER itself. It still bumps — that helper builds a

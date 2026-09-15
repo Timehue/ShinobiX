@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext, type Page, type TestInfo } from '@playwright/test';
+import { expect, type APIRequestContext, type Page, type Response, type TestInfo } from '@playwright/test';
 import { API_CONNECTION_RETRIES, test } from './helpers/reconnecting-request';
 
 type Session = {
@@ -150,6 +150,15 @@ async function seedAccount(request: APIRequestContext, testInfo: TestInfo, optio
     });
     expect(heartbeat.status()).toBe(200);
     expect((await heartbeat.json()).forceReload).not.toBe(true);
+    // This seeded fixture has no earned achievements yet. Initialize its real
+    // server ledger before fighting so a delayed first sync cannot treat the
+    // first victory as legacy progress and silently backfill it without reward.
+    const achievementBaseline = await request.post('/api/achievements/sync', {
+        headers: { 'x-player-name': name, 'x-player-token': token },
+        data: { playerName: name },
+    });
+    expect(achievementBaseline.status()).toBe(200);
+    expect((await achievementBaseline.json()).reward).toEqual({ ryo: 0, fateShards: 0 });
     return { name, token, password };
 }
 
@@ -211,6 +220,16 @@ async function fleeThroughVisibleMissionClient(
     runId: string,
     initial: Session,
 ): Promise<{ session: Session; character: Record<string, unknown>; saveVersion: number }> {
+    // Subscribe before the visible action: a fast autosave can acknowledge the
+    // adopted outcome while this test is still reading the outcome response.
+    const fullSaveResponses: Array<{ response: Response; observedAt: number }> = [];
+    const observeFullSave = (response: Response) => {
+        const url = new URL(response.url());
+        if (url.pathname === `/api/save/${playerName.toLowerCase()}` && url.search === '') {
+            fullSaveResponses.push({ response, observedAt: Date.now() });
+        }
+    };
+    page.on('response', observeFullSave);
     // The visible client must own these actions. Calling /solo-pve/action from
     // page.evaluate leaves MissionArenaFight on its pre-action session, so its
     // terminal outcome effect never replays /pve/fight-outcome and never adopts
@@ -249,6 +268,7 @@ async function fleeThroughVisibleMissionClient(
     const outcomeResponse = await outcomeResponsePromise;
     expect(outcomeResponse.status()).toBe(200);
     const outcome = await outcomeResponse.json() as Record<string, unknown>;
+    const outcomeReadAt = Date.now();
     expect(outcome.ok).toBe(true);
     expect(outcome.replayed).toBe(true);
     expect(outcome.character).toBeTruthy();
@@ -257,26 +277,96 @@ async function fleeThroughVisibleMissionClient(
     expect(Number.isSafeInteger(adoptedVersion)).toBe(true);
     expect(adoptedVersion).toBeGreaterThan(0);
 
-    // Prove the App adopted the pair, rather than merely observing the HTTP
-    // response: its next successful full save must echo that version (or newer)
-    // as the optimistic-concurrency base before this test is allowed to reload.
-    const adoptionSaveResponse = await page.waitForResponse(async (response) => {
-        const url = new URL(response.url());
-        if (
-            url.pathname !== `/api/save/${playerName.toLowerCase()}`
-            || url.search !== ''
-            || response.request().method() !== 'POST'
-            || response.status() !== 200
-        ) return false;
-        const payload = response.request().postDataJSON() as Record<string, unknown>;
-        if (Number(payload._baseSaveVersion) < adoptedVersion) return false;
-        const acknowledgement = await response.json().catch(() => null) as Record<string, unknown> | null;
-        return acknowledgement?.ok === true
-            && Number.isSafeInteger(Number(acknowledgement._saveVersion))
-            && Number(acknowledgement._saveVersion) >= adoptedVersion;
-    }, { timeout: 20_000 });
-    const adoptionSave = await adoptionSaveResponse.json() as Record<string, unknown>;
-    expect(Number(adoptionSave._saveVersion)).toBeGreaterThanOrEqual(adoptedVersion);
+    // Prove client adoption before reload. A successful full save echoes the
+    // adopted base. A 409 recovery can instead install a clean authoritative
+    // snapshot and legitimately need no further POST; its versioned preview
+    // must contain this exact physical receipt, then the visible HP must agree.
+    let adoptionProof: Record<string, unknown> | undefined;
+    try {
+        await expect.poll(async () => {
+            for (const { response, observedAt } of fullSaveResponses) {
+                if (response.request().method() !== 'POST' || response.status() !== 200) continue;
+                const payload = response.request().postDataJSON() as Record<string, unknown>;
+                if (Number(payload._baseSaveVersion) < adoptedVersion) continue;
+                const acknowledgement = await response.json().catch(() => null) as Record<string, unknown> | null;
+                if (acknowledgement?.ok === true
+                    && Number.isSafeInteger(Number(acknowledgement._saveVersion))
+                    && Number(acknowledgement._saveVersion) >= adoptedVersion) {
+                    adoptionProof = {
+                        kind: 'full-save-acknowledgement',
+                        adoptedVersion,
+                        baseSaveVersion: Number(payload._baseSaveVersion),
+                        acknowledgedVersion: Number(acknowledgement._saveVersion),
+                        observedBeforeOutcomeRead: observedAt <= outcomeReadAt,
+                    };
+                    return Number(acknowledgement._saveVersion);
+                }
+            }
+            const preview = await page.evaluate((name) => {
+                const raw = localStorage.getItem(`ninjav-save-preview-v1:${name.toLowerCase()}`);
+                return raw ? JSON.parse(raw) : null;
+            }, playerName) as { _saveVersion?: number; character?: Record<string, unknown> } | null;
+            if (Number.isSafeInteger(preview?._saveVersion) && Number(preview?._saveVersion) >= adoptedVersion
+                && String(preview?.character?.name).toLowerCase() === playerName.toLowerCase()) {
+                const receiptForRun = (character: Record<string, unknown>) =>
+                    (character.serverSettlementReceipts as Array<{ value?: { kind?: string; runId?: string } }> ?? [])
+                        .filter((receipt) => receipt.value?.kind === 'pve-outcome' && receipt.value.runId === runId);
+                const expectedReceipts = receiptForRun(authoritativeCharacter);
+                expect(expectedReceipts).toHaveLength(1);
+                expect(receiptForRun(preview!.character!)).toEqual(expectedReceipts);
+                expect(Number(preview!.character!.hp)).toBeGreaterThanOrEqual(Number(authoritativeCharacter.hp));
+                expect(Number(preview!.character!.hp)).toBeLessThan(Number(authoritativeCharacter.maxHp));
+                if (authoritativeCharacter.hospitalized) {
+                    expect(preview!.character!.hospitalized).toBe(true);
+                    expect(preview!.character!.hp).toBe(0);
+                }
+                adoptionProof = { kind: 'authoritative-preview', adoptedVersion,
+                    previewVersion: preview!._saveVersion, hp: preview!.character!.hp,
+                    hospital: Boolean(preview!.character!.hospitalized), matchingPhysicalReceipts: 1 };
+                return Number(preview!._saveVersion);
+            }
+            return 0;
+        }, { timeout: 20_000 }).toBeGreaterThanOrEqual(adoptedVersion);
+        const visibleHp = page.locator('.mthd-bar-hp:visible, .left-profile-stat[title^="HP "]:visible').first();
+        await expect(visibleHp).toBeVisible();
+        await expect.poll(async () => {
+            const title = await visibleHp.getAttribute('title');
+            const values = title?.match(/^HP ([\d,.]+)\/([\d,.]+)$/);
+            if (!values) return false;
+            const hp = Number(values[1].replaceAll(',', ''));
+            const maxHp = Number(values[2].replaceAll(',', ''));
+            return maxHp === Number(authoritativeCharacter.maxHp)
+                && (authoritativeCharacter.hospitalized ? hp === 0
+                    : hp >= Number(authoritativeCharacter.hp) && hp < maxHp);
+        }, { timeout: 20_000 }).toBe(true);
+        if (authoritativeCharacter.hospitalized) {
+            await expect(page.getByRole('heading', { name: 'Village Hospital' })).toBeVisible();
+        }
+        await test.info().attach('flee-adoption-proof', {
+            body: JSON.stringify(adoptionProof), contentType: 'application/json',
+        });
+    } finally {
+        page.off('response', observeFullSave);
+        const observations = await Promise.all(fullSaveResponses.map(async ({ response, observedAt }) => {
+            const payload = response.request().method() === 'POST'
+                ? response.request().postDataJSON() as Record<string, unknown> : {};
+            const result = await response.json().catch(() => null) as Record<string, unknown> | null;
+            const savedCharacter = result?.character as Record<string, unknown> | undefined;
+            return {
+                method: response.request().method(), status: response.status(),
+                msAfterOutcomeRead: observedAt - outcomeReadAt,
+                baseSaveVersion: payload._baseSaveVersion, saveVersion: result?._saveVersion,
+                ok: result?.ok, code: result?.code, reason: result?.reason,
+                savedHp: savedCharacter?.hp, savedHospitalized: savedCharacter?.hospitalized,
+            };
+        }));
+        await test.info().attach('flee-save-observations', {
+            body: JSON.stringify({ adoptedVersion, terminalOutcome: session.outcome,
+                authoritativeHp: authoritativeCharacter.hp,
+                hospitalVisible: await page.getByRole('heading', { name: 'Village Hospital' }).isVisible().catch(() => false),
+                observations }), contentType: 'application/json',
+        });
+    }
     return { session, character: authoritativeCharacter, saveVersion: adoptedVersion };
 }
 
@@ -643,23 +733,23 @@ test('real built client records a flee without queueing a mission reward', async
     // before the App boots, so the App's first save gets a window of its own.
     await new Promise((resolve) => setTimeout(resolve, 3_100));
     await installSession(page, name, token);
-    // A fresh account's first boot runs the silent achievement backfill. It is
-    // a server save mutation, so it also settles idle regeneration into the
-    // stored HP, and combat-start reads that stored HP. Capture what the
-    // backfill stored so the fight is checked against it rather than the seed.
-    const bootSyncResponse = page.waitForResponse((response) => (
-        new URL(response.url()).pathname === '/api/achievements/sync'
-        && response.request().method() === 'POST'
-        && response.status() === 200
-    ), { timeout: 20_000 });
     await openMissionHall(page);
     for (let guard = 0; guard < 3; guard++) {
         const notice = page.getByRole('button', { name: /Got it/ }).last();
         if (!(await notice.isVisible().catch(() => false))) break;
         await notice.click();
     }
-    const bootSync = await (await bootSyncResponse).json() as { character?: Record<string, unknown> };
-    const storedHp = Number(bootSync.character?.hp);
+    // seedAccount already initializes the achievement ledger before boot, so
+    // the client correctly sends no second sync while nothing has diverged.
+    // Read the authoritative save after boot instead: prior save mutations can
+    // settle regeneration, and combat-start must use those exact stored vitals.
+    const beforeCombat = await browserGet(page, `/api/save/${name}`);
+    expect(beforeCombat.status).toBe(200);
+    const beforeCombatCharacter = beforeCombat.body.character as Record<string, unknown>;
+    const beforeCombatVersion = Number(beforeCombat.body._saveVersion);
+    expect(Number.isSafeInteger(beforeCombatVersion)).toBe(true);
+    expect(Array.isArray(beforeCombatCharacter.unlockedAchievements)).toBe(true);
+    const storedHp = Number(beforeCombatCharacter.hp);
     // Regeneration can only add to the seeded 20.
     expect(storedHp).toBeGreaterThanOrEqual(20);
 
@@ -670,6 +760,12 @@ test('real built client records a flee without queueing a mission reward', async
     // The fight starts from exactly the stored HP: no refill, and nothing stale.
     expect(started.session.player.hp).toBe(storedHp);
     expect(started.session.player.hp).toBeLessThan(started.session.player.maxHp);
+    await testInfo.attach('flee-starting-vitals', {
+        contentType: 'application/json',
+        body: JSON.stringify({ saveVersion: beforeCombatVersion, storedHp,
+            storedMaxHp: beforeCombatCharacter.maxHp, combatHp: started.session.player.hp,
+            combatMaxHp: started.session.player.maxHp, runId: started.runId }),
+    });
     const authoritativeOutcome = await fleeThroughVisibleMissionClient(page, name, started.runId, started.session);
     const terminal = authoritativeOutcome.session;
     expect(['fled', 'loss']).toContain(terminal.outcome);

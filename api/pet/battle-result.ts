@@ -1570,7 +1570,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 casualPvePlayerPets ?? undefined,
             );
             const updatedChar = witness.character;
-            const updated = bumpSaveVersion({ ...record, character: updatedChar });
+            const updated = bumpSaveVersion({ ...record, character: updatedChar }, { previousCharacter: char });
             await writeSaveProjected(saveKey, updated, record);
             if (casualBattleTokenKey) {
                 // AFTER the paying write, never before: a failed key write must

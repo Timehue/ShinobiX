@@ -67,7 +67,7 @@ const FROZEN = {
         'weeklyBossKills', 'claimedWarCrateIds',
         'unlockedAchievements', 'achievementUnlockedAt',
         'battleHistory',
-        'hollowGateRun', 'hollowGateWardenKills', 'hollowGateIntroSeen', 'hollowGateAttunement', 'lastHollowGateStart',
+        'hollowGateRun', 'hollowGateWardenKills', 'hollowGateIntroSeen', 'hollowGateAttunement', 'lastHollowGateStart', 'hollowGateExternalCredits', 'settledHollowGateEventIds', 'settledHollowGateCombatIds', 'hollowGatePendingOperation',
         'riftFirstClears', 'riftQuestBossReceipt',
         'endlessTowerRun', 'endlessTowerBestWave',
         'battleTowerBestFloor', 'battleTowerRating', 'battleTowerClearedFloors',
@@ -115,6 +115,7 @@ const FROZEN = {
     ],
     STRICT_SERVER_LEDGER_CHARACTER_FIELDS: [
         'clanExchangeSettlements', 'clanMissionPointReceipts',
+        'settledHollowGateEventIds', 'settledHollowGateCombatIds', 'hollowGatePendingOperation',
         'level', 'xp', 'experience', 'ryo', 'bankRyo',
         'honorSeals', 'fateShards', 'chroniclePoints', 'boneCharms', 'auraStones', 'auraDust',
         'mythicSeals', 'hollowShards',
@@ -137,7 +138,7 @@ const FROZEN = {
     ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS: [
         'clanExchangeSettlements', 'clanMissionPointReceipts',
         'bankRyo', 'rankedRating', 'petRankedRating', 'rankedSeasonSettlementReceipts',
-        'professionXp', 'professionRank', 'serverSettlementReceipts', 'pvpRewardSettlementReceipts',
+        'professionXp', 'professionRank', 'serverSettlementReceipts', 'pvpRewardSettlementReceipts', 'hollowGateExternalCredits', 'settledHollowGateEventIds', 'settledHollowGateCombatIds', 'hollowGatePendingOperation',
         'warGroundBountyDate', 'villageWarMissionDate', 'villageWarRaidProgress',
         'petRankedSettlementStamp', 'playerRankedSettlementStamp', 'vanguardRewardSettlementStamp', 'warDeclarationFundingReceipts', 'warMercenaryHireReceipts',
         'professionRespecUsed',

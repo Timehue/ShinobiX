@@ -122,7 +122,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     wandererAmbushRewardCount: claimedSoFar + 1,
                     redeemedWandererAmbushes: [...receipts.slice(-49), { id: receiptId, source: pending ? 'world-ai-chain' : 'legacy', claimId: pending?.claimId, reward }],
                 };
-                const record = bumpSaveVersion({ ...rec, character: updated });
+                const record = bumpSaveVersion({ ...rec, character: updated }, { previousCharacter: char });
                 await kv.set(`save:${playerName}`, mergePreservingImages(record, rec));
                 await kv.del(tokenKey).catch(() => undefined);
                 return {

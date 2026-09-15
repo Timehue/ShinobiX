@@ -198,8 +198,10 @@ describe('authoritative balance response migration', () => {
         const client = read('shinobij.client/src/lib/hollow-gate-server.ts');
         assert.match(api, /character: result\.character/);
         assert.match(api, /alreadyReported: true, character: result\.character, _saveVersion: result\._saveVersion/);
-        assert.match(client, /if \(!res\?\.ok \|\| !res\.character\)/);
-        assert.match(client, /return reconcileHollowGateSettle\(prev, res\)/);
+        assert.match(client, /if \(!res\.ok\) return \{ \.\.\.res, adopted: false \}/);
+        assert.match(client, /if \(!res\.character\) return \{ \.\.\.res, ok: false, adopted: false/);
+        assert.match(client, /adoption\.commitCharacter\(res\.character, res\._saveVersion\)/);
+        assert.match(client, /adoption\.isCurrent\(\) && adoption\.currentRunToken\(\) === token/);
     });
 
     it('Battle Tower settlement exposes only and adopts the caller committed character', () => {

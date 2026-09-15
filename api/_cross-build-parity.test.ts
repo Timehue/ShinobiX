@@ -290,7 +290,9 @@ describe('parity: card-pack odds disclosure (Shop.tsx ⇄ api/shop/_settlement.t
         // The pool is the best-50% Rares plus Epics, so "guaranteed Epic"
         // would be a false pre-purchase odds statement.
         assert.doesNotMatch(SHOP, /Elite Pack[^<]*guaranteed Epic/i);
-        assert.match(SHOP, /Elite Pack — 1 card \(top-tier Rare or Epic\)/);
+        // The recovery prefix is conditional; the actual rendered disclosure
+        // is also verified by Shop.card-pack-recovery.test.ts for both states.
+        assert.match(SHOP, /pendingPackOf\("epic"\) \? "Recover Elite Pack" : "Elite Pack"\} — 1 card \(top-tier Rare or Epic\)/);
     });
 
     it('the draw is uniform and unweighted, as the disclosure claims', () => {

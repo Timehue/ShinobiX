@@ -426,7 +426,7 @@ export async function settleFloorForMember(
             const updated = session.actors.some(actor => actor.ownerSlug === slug && !actor.ai)
                 ? creditElderWins(cleared, 0, 1, now()) : cleared;
             try {
-                const written = await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...record, character: updated }), record));
+                const written = await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...record, character: updated }, { previousCharacter: char }), record));
                 if (written === null) throw new Error('Tower floor settlement save was not committed.');
             } catch (e) {
                 // The atomic character claim did not commit; no external receipt
@@ -503,7 +503,7 @@ export async function settleAssistForAlly(
                 battleTowerAssistRewardsClaimed: [...claimed, session.runId].slice(-500),
             };
             try {
-                const written = await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...record, character: updated }), record));
+                const written = await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...record, character: updated }, { previousCharacter: char }), record));
                 if (written === null) throw new Error('Tower assist settlement save was not committed.');
             } catch (e) {
                 // If the save definitely did not land, release the daily slot.
@@ -662,7 +662,7 @@ export async function settleSpireForMember(
                 settledAt: now(),
             });
             try {
-                const written = await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...record, character: updated }), record));
+                const written = await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...record, character: updated }, { previousCharacter: char }), record));
                 if (written === null) throw new Error('Spire settlement save was not committed.');
             } catch (e) {
                 throw e;

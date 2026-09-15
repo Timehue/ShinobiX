@@ -14,7 +14,7 @@
  * This module is pure data + fetch wrappers + React-setter orchestration; it owns
  * none of the dungeon logic, so App.tsx only needs one-line call sites.
  */
-import type { Character, HollowGateShrineRun, HollowGateAugmentOffer, HollowGateTileKind } from "../types/character";
+import type { Character, HollowGateShrineRun, HollowGateAugmentOffer, HollowGateTileKind, VersionedCharacterCommit } from "../types/character";
 import { sealHollowGateFloor } from "./hollow-gate-event-api";
 
 export type HollowGateOutcome = "extract" | "death";
@@ -235,22 +235,30 @@ export function hollowGateAugmentEffects(run: HollowGateShrineRun | null | undef
 
 type SetCharacter = (updater: (prev: Character | null) => Character | null) => void;
 
-/** Settle server-owned run state and reconcile the returned character. */
+export type HollowGateSettlementAdoption = {
+    commitCharacter: VersionedCharacterCommit;
+    /** Captured account AND session epoch, including logout/relogin to the same account. */
+    isCurrent: () => boolean;
+    currentRunToken: () => string | undefined;
+};
+export type HollowGateSettledReply = HollowGateSettleResult & { adopted: boolean };
+
+/** A committed server settlement may outlive the UI/session that requested it. */
 export async function settleHollowGateRunOnly(
     run: HollowGateShrineRun | null,
     outcome: HollowGateOutcome,
     character: Character,
-    setCharacter: SetCharacter,
-): Promise<HollowGateSettleResult | null> {
+    adoption: HollowGateSettlementAdoption,
+): Promise<HollowGateSettledReply | null> {
     if (!run?.runToken || !hollowGateServerEnabled()) return null;
     const token = run.runToken;
     const res = await settleHollowGateRun(character.name, token, outcome);
-    if (!res?.ok || !res.character) return res?.ok ? { ...res, ok: false, error: "Settlement returned no committed character." } : res;
-    setCharacter((prev) => {
-        if (!prev) return prev;
-        return reconcileHollowGateSettle(prev, res);
-    });
-    return res;
+    if (!res) return null;
+    if (!res.ok) return { ...res, adopted: false };
+    if (!res.character) return { ...res, ok: false, adopted: false, error: "Settlement returned no committed character." };
+    const adopted = adoption.isCurrent() && adoption.currentRunToken() === token
+        && adoption.commitCharacter(res.character, res._saveVersion);
+    return { ...res, adopted };
 }
 
 /** Finish a run only after the server returns its committed character. */
@@ -258,20 +266,16 @@ export async function finalizeHollowGateRunEnd(opts: {
     run: HollowGateShrineRun | null;
     outcome: HollowGateOutcome;
     character: Character;
-    setCharacter: SetCharacter;
-}): Promise<HollowGateSettleResult> {
-    const { run, outcome, character, setCharacter } = opts;
+    adoption: HollowGateSettlementAdoption;
+}): Promise<HollowGateSettledReply> {
+    const { run, outcome, character, adoption } = opts;
     if (!run?.runToken || !hollowGateServerEnabled()) {
         throw new Error("This Hollow Gate run has no valid server settlement token.");
     }
-    const result = await settleHollowGateRunOnly(run, outcome, character, setCharacter);
+    const result = await settleHollowGateRunOnly(run, outcome, character, adoption);
     if (!result?.ok) {
         throw new Error(result?.error || result?.reason || "The Hollow Gate could not settle this run.");
     }
-    setCharacter((prev) => {
-        if (!prev) return prev;
-        return reconcileHollowGateSettle(prev, result);
-    });
     return result;
 }
 

@@ -152,7 +152,7 @@ export async function commitLegacyAcceptance(
         }
 
         const written = mergePreservingImages(
-            bumpSaveVersion({ ...record, character: finalCharacter }),
+            bumpSaveVersion({ ...record, character: finalCharacter }, { previousCharacter: character }),
             record,
         ) as Record<string, unknown>;
         await kv.set(`save:${playerName}`, written);

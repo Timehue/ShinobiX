@@ -236,7 +236,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     customTitle: '',
                     ...(refund ? { fateShards: Math.max(0, Number(char.fateShards ?? 0)) + 10 } : {}),
                 };
-                await kv.set(`save:${player}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec));
+                await kv.set(`save:${player}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }, { previousCharacter: char }), rec));
                 return { status: 200, body: { ok: true, previous, refunded: refund ? 10 : 0 } };
             }, { failClosed: true });
             if (out.status === 200 && (out.body as { ok?: boolean }).ok) {

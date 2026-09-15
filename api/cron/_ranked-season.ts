@@ -569,7 +569,7 @@ async function applySeasonSettlement(
         const settlement = settleRankedSeasonCharacter(character, seasonId, reward);
         if (!settlement.changed) return;
         const updated = mergePreservingImages(
-            bumpSaveVersion({ ...record, character: settlement.character }),
+            bumpSaveVersion({ ...record, character: settlement.character }, { previousCharacter: character }),
             record,
         ) as Record<string, unknown>;
         try {

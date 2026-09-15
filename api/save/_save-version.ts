@@ -1,6 +1,7 @@
 // Pure helpers for the multi-tab autosave version guard in api/save/[name].ts.
 // Split out from the IO-heavy handler so the parsing + key logic is
 // unit-testable on its own (same pattern as the _*-validate.ts cores).
+import { recordHollowGateExternalCredits, type HollowGateCurrencySource } from '../hollow-gate/_external-credits.js';
 
 /**
  * Parse a client-supplied `_baseSaveVersion`. Returns the numeric version only
@@ -95,9 +96,14 @@ export function isVersionlessPlayerSave(
  */
 export function bumpSaveVersion<T extends Record<string, unknown>>(
     record: T,
-    opts: { regenAt?: number } = {},
+    opts: { regenAt?: number; previousCharacter?: Record<string, unknown>; hollowGateCurrencySource?: HollowGateCurrencySource } = {},
 ): T & { _saveVersion: number; _saveAt: number; _regenAt: number } {
     const r = record as T & { _saveVersion: number; _saveAt: number; _regenAt: number };
+    if (opts.previousCharacter && r.character && typeof r.character === 'object' && !Array.isArray(r.character)) {
+        (r as Record<string, unknown>).character = recordHollowGateExternalCredits(
+            opts.previousCharacter, r.character as Record<string, unknown>, opts.hollowGateCurrencySource,
+        );
+    }
     r._saveVersion = nextSaveVersion(r._saveVersion);
     r._saveAt = Date.now();
     // The regeneration cursor (api/_elapsed-state.ts settleVitalsRegen). A

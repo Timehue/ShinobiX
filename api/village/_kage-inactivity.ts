@@ -15,6 +15,7 @@
 import { kv } from '../_storage.js';
 import { safeName, mergePreservingImages } from '../_utils.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { hollowGateCreditBasis, recordHollowGateExternalCredits } from '../hollow-gate/_external-credits.js';
 import { withKvLock } from '../_lock.js';
 import { announce } from '../_announce.js';
 import { WAR_VILLAGES } from '../_war-map-sectors.js';
@@ -177,6 +178,7 @@ export type PendingStakeRefund = {
     village: string;
     amount: number;
     at: number;
+    chargedHollowGateCreditBasis?: NonNullable<ReturnType<typeof hollowGateCreditBasis>>;
 };
 
 export const KAGE_STAKE_REFUND_CAP = 20;
@@ -198,7 +200,16 @@ export function parsePendingStakeRefunds(raw: unknown): PendingStakeRefund[] {
         const at = Math.floor(Number(v.at) || 0);
         if (!id || seen.has(id) || amount <= 0 || at <= 0) continue;
         seen.add(id);
-        out.push({ id, village: String(v.village ?? ''), amount, at });
+        const rawBasis = v.chargedHollowGateCreditBasis;
+        const basis = rawBasis && typeof rawBasis === 'object' && !Array.isArray(rawBasis)
+            ? rawBasis as Record<string, unknown> : null;
+        const chargedHollowGateCreditBasis = basis
+            && typeof basis.runToken === 'string' && basis.runToken.length > 0
+            && typeof basis.checkpointVersion === 'number' && Number.isSafeInteger(basis.checkpointVersion) && basis.checkpointVersion >= 0
+            ? { runToken: basis.runToken, checkpointVersion: basis.checkpointVersion } : null;
+        out.push({ id, village: String(v.village ?? ''), amount, at,
+            ...(chargedHollowGateCreditBasis ? { chargedHollowGateCreditBasis } : {}),
+        });
     }
     return out.slice(-KAGE_STAKE_REFUND_CAP);
 }
@@ -250,8 +261,22 @@ export async function drainKageStakeRefunds(slug: string, now: number = Date.now
             const rec = await kv.get<Record<string, unknown>>(saveKey);
             const c = (rec?.character ?? null) as Record<string, unknown> | null;
             if (!rec || !c) return false;
-            const nextChar = { ...c, ryo: num(c.ryo) + total };
-            const nextRec = bumpSaveVersion({ ...rec, character: nextChar });
+            let nextChar = c;
+            for (const entry of claimed) {
+                const currentBasis = hollowGateCreditBasis(nextChar);
+                const chargedBasis = entry.chargedHollowGateCreditBasis;
+                const sameBasis = chargedBasis && currentBasis
+                    && chargedBasis.runToken === currentBasis.runToken
+                    && chargedBasis.checkpointVersion === currentBasis.checkpointVersion;
+                nextChar = recordHollowGateExternalCredits(
+                    nextChar,
+                    { ...nextChar, ryo: num(nextChar.ryo) + entry.amount },
+                    sameBasis ? 'run' : 'external',
+                );
+            }
+            // Each refund's provenance was folded above; the final stamp has
+            // zero wallet delta and preserves it in the single paying write.
+            const nextRec = bumpSaveVersion({ ...rec, character: nextChar }, { previousCharacter: nextChar });
             await kv.set(saveKey, mergePreservingImages(nextRec, rec));
             return true;
         }, { failClosed: true });
@@ -299,6 +324,7 @@ async function refundClearedChallenge(village: string, challenge: KageChallenge,
         village,
         amount: KAGE_DECLARE_RYO_COST,
         at: now,
+        ...(challenge.chargedHollowGateCreditBasis ? { chargedHollowGateCreditBasis: challenge.chargedHollowGateCreditBasis } : {}),
     };
     try {
         await parkKageStakeRefund(slug, entry);

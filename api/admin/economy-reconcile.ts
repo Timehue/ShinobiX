@@ -50,7 +50,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const current = (record?.character ?? null) as Record<string, unknown> | null;
                     if (!record || !current) throw new Error('Player save not found.');
                     character = { ...current, honorSeals: Math.max(0, num(current.honorSeals)) + amount };
-                    const updated = bumpSaveVersion({ ...record, character });
+                    const updated = bumpSaveVersion({ ...record, character }, { previousCharacter: current });
                     await kv.set(saveKey, mergePreservingImages(updated, record));
                 }, { failClosed: true });
                 const completed = await completeEconomyTx(tx.id, {

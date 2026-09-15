@@ -227,7 +227,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const priorStart = character.lastHollowGateStart && typeof character.lastHollowGateStart === 'object'
                 ? character.lastHollowGateStart as Record<string, unknown>
                 : null;
+            const activeToken = character.hollowGateRun && typeof character.hollowGateRun === 'object'
+                ? (character.hollowGateRun as Record<string, unknown>).runToken
+                : null;
+            const redeemedRuns = Array.isArray(character.redeemedHollowGateRuns) ? character.redeemedHollowGateRuns : [];
             if (priorStart?.requestId === requestId && typeof priorStart.token === 'string') {
+                if (redeemedRuns.includes(priorStart.token)) return { ok: false as const, status: 409, error: 'hollow-gate-start-spent' };
+                if (activeToken && activeToken !== priorStart.token) return { ok: false as const, status: 409, error: 'hollow-gate-run-active' };
                 let priorRun = await kv.get<HollowGateRunToken>(hollowGateRunKey(playerName, priorStart.token));
                 if (!priorRun) return { ok: false as const, status: 409, error: 'hollow-gate-start-spent' };
                 if ((priorRun.variantId ?? '') !== requestedVariantId) {
@@ -263,6 +269,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ...(repairedRiftSeal ? { recordPatch: { activeRiftQuestSeal: repairedRiftSeal } } : {}),
                     value: { token: priorStart.token },
                 };
+            }
+            // The locked save owns the active dive. A fresh request may replace
+            // only a spent/expired pointer, never rebase an unsettled haul.
+            // Probe the canonical key (as save-read recovery does); an old mint
+            // timestamp alone is not evidence that a run has expired.
+            if (typeof activeToken === 'string' && activeToken && !redeemedRuns.includes(activeToken)
+                && await kv.get(hollowGateRunKey(playerName, activeToken))) {
+                return { ok: false as const, status: 409, error: 'hollow-gate-run-active' };
             }
             // A hospitalized diver is refused BEFORE anything is spent. Everything
             // below this line costs the player something irreversible — a Hollow
@@ -376,6 +390,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     dailyHollowGateRuns: ord,
                     lastDailyReset: utcDateKey(),
                     lastHollowGateStart: { requestId, token, at: Date.now() },
+                    hollowGatePendingOperation: null,
                     // Persist enough private projection for an immediate reload
                     // to recover before the browser has generated/sealed floor 1.
                     // The browser replaces this with its presentation grid; the

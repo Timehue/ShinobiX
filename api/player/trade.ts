@@ -249,7 +249,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 await markEconomyTx(txId, 'debit-applied').catch(() => undefined);
                 try {
-                    const recipientUpdated = bumpSaveVersion({ ...recipientRec, character: { ...recipientChar, [currency]: num(recipientChar[currency]) + plan.credit } });
+                    const recipientUpdated = bumpSaveVersion({ ...recipientRec, character: { ...recipientChar, [currency]: num(recipientChar[currency]) + plan.credit } }, { previousCharacter: recipientChar });
                     await kv.set(recipientKey, mergePreservingImages(recipientUpdated, recipientRec));
                 } catch (err) {
                     // Debit committed, credit did not: loss-direction, never a

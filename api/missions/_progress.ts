@@ -508,7 +508,7 @@ async function awardNewbieRyo(playerName: string, amount: number): Promise<void>
             ...record,
             character: { ...char, ryo: Number(char.ryo ?? 0) + amount },
         };
-        await kv.set(saveKey, bumpSaveVersion(updated));
+        await kv.set(saveKey, bumpSaveVersion(updated, { previousCharacter: char }));
     }, { failClosed: true });
 }
 
