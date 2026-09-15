@@ -64,6 +64,7 @@ import {
     completePvpRewardCompletion,
     postPvpRewardCompletionAck,
     postPvpRewardClaim,
+    pvpRewardImpactLines,
     pvpRewardSettlementNotice,
     shouldRunPvpRewardCompletion,
     type PvpRewardClaimConfirmed,
@@ -83,6 +84,7 @@ import {
 import { fetchPendingPvpRecovery } from "../lib/pvp-pending-fetch";
 import { earnedStatPoints } from "../lib/stats";
 import { useSocialLock } from "../lib/account-status";
+import { fetchBountyReceipt } from "../lib/pvp-bounty";
 import { PvpBattleResultPanel, type PvpBattleOutcome } from "../components/PvpBattleResultPanel";
 
 // Avatar travel animation. A fighter's marker steps through each hex on the line
@@ -345,6 +347,7 @@ export function PvpBattleScreen({
     const [pvpRewardClaimState, setPvpRewardClaimState] = useState<"idle" | "claiming" | "failed" | "confirmed">("idle");
     const [pvpRewardClaimError, setPvpRewardClaimError] = useState("");
     const [pvpRewardNotice, setPvpRewardNotice] = useState("");
+    const [pvpImpactLines, setPvpImpactLines] = useState<string[]>([]);
     const [showResultPanel, setShowResultPanel] = useState(true);
     const [sessionLoadFailure, setSessionLoadFailure] = useState("");
     const [sessionRetryKey, setSessionRetryKey] = useState(0);
@@ -971,6 +974,7 @@ export function PvpBattleScreen({
             draw: isDrawNow,
             spar: effectiveIsSpar,
         }));
+        setPvpImpactLines(isDrawNow || effectiveIsSpar ? [] : pvpRewardImpactLines(result));
         const runCompletion = shouldRunPvpRewardCompletion(
             completionStorage,
             claimRequest,
@@ -1080,6 +1084,14 @@ export function PvpBattleScreen({
             }
             if (!isCurrentScope()) return;
             setPvpRewardClaimState("confirmed");
+            if (iWonNow && !effectiveIsSpar && result.rewardAuthorized) {
+                // Presentation only: a lost ACK can skip callbacks on replay, but
+                // the paid receipt remains readable without repeating settlement.
+                void fetchBountyReceipt(character.name, battleId).then((receipt) => {
+                    if (!isCurrentScope() || !receipt) return;
+                    setPvpImpactLines((lines) => [...lines, `Bounty collected: +${receipt.amount.toLocaleString()} ryo for defeating ${receipt.target}.`]);
+                }).catch(() => { /* The verified base result remains usable. */ });
+            }
             onCompletionConfirmed?.();
         } catch {
             if (!isCurrentScope()) return;
@@ -2216,6 +2228,7 @@ export function PvpBattleScreen({
                             isSpectator={amSpectator}
                             settlementState={pvpRewardClaimState}
                             settlementNotice={pvpRewardNotice}
+                            impactLines={pvpImpactLines}
                             settlementError={pvpRewardClaimError}
                             onRetrySettlement={() => { void claimResolvedPvpReward(); }}
                             onViewBattleLog={() => {

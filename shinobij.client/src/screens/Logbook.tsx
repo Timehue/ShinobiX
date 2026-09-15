@@ -9,6 +9,7 @@ import type { CreatorAi } from "../types/creator-ai";
 import type { CreatorMission, CreatorRaid } from "../types/missions";
 import type { Jutsu, SavedBloodline } from "../types/combat";
 import { CardVisual } from "../components/Marks";
+import { LogbookCareerRecord } from "../components/LogbookCareerRecord";
 import { DAILY_MISSION_LIMIT, FIELD_MISSION_STAT_POINTS } from "../constants/game";
 import { builtinFetchMissions, mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement } from "../data/missions";
 import { rewardSummary, statPointNote } from "../lib/currency";
@@ -416,6 +417,7 @@ export function Logbook({
                 document.body,
             )}
             <p>Progression exams: <strong>{blockingExams.length}</strong> · Prestige milestones: <strong>{prestigeMilestones.length}</strong> · Daily missions: <strong>{dailyMissions.length + (activeVillageWar ? VILLAGE_WAR_DAILY_MISSIONS : 0)}</strong> · Events: <strong>{logbookEvents.length}</strong> · Raids: <strong>{logbookRaids.length}</strong> · Assigned missions: <strong>{assignedMissions.length}</strong></p>
+            <LogbookCareerRecord character={character} village={loadVillageState(character.village)} />
             {academyChecklist && (
                 <>
                     <h3>Academy Training</h3>

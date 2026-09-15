@@ -67,20 +67,20 @@ export function ActivitySpine({
 
     const heading = (
         <div className="activity-spine-heading">
-            <h3>Your Activity Spine</h3>
-            {spine?.returningPlayer ? <span className="activity-spine-returner">Returner plan</span> : null}
+            <h3>Your priorities</h3>
+            {spine?.returningPlayer ? <span className="activity-spine-returner">Welcome back</span> : null}
         </div>
     );
 
     if (status === "loading") {
-        return <section className="db-section activity-spine" aria-busy="true">{heading}<div className="activity-spine-loading">Building your current plan…</div></section>;
+        return <section className="db-section activity-spine" aria-busy="true">{heading}<div className="activity-spine-loading">Checking your priorities…</div></section>;
     }
     if (!spine || status !== "ready") {
         return (
             <section className="db-section activity-spine" role="status">
                 {heading}
                 <div className="activity-spine-error">
-                    <strong>{status === "offline" ? "You appear to be offline." : "Your live plan could not be loaded."}</strong>
+                    <strong>{status === "offline" ? "You appear to be offline." : "Current priorities could not be loaded."}</strong>
                     <span>Your saved progress is safe. Reconnect and retry for current eligibility.</span>
                     <button type="button" onClick={() => { setStatus("loading"); setRetry((value) => value + 1); }}>Retry</button>
                 </div>

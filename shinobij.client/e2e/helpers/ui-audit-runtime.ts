@@ -111,6 +111,7 @@ export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave
     let save = structuredClone(initialSave);
     let saveVersion = 1;
     let acknowledgedVersion = 0;
+    let saveConflictCount = 0;
     let lastCommit: SaveCommit | null = null;
 
     await page.addInitScript(() => {
@@ -138,6 +139,7 @@ export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave
             const incoming = request.postDataJSON() as UiAuditSave;
             const baseVersion = Number(incoming._baseSaveVersion);
             if (!Number.isSafeInteger(baseVersion) || baseVersion !== saveVersion) {
+                saveConflictCount += 1;
                 return json(route, { error: "Save conflict", currentVersion: saveVersion }, 409);
             }
 
@@ -257,6 +259,7 @@ export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave
     return {
         currentVersion: () => saveVersion,
         acknowledgedVersion: () => acknowledgedVersion,
+        saveConflictCount: () => saveConflictCount,
         lastCommit: () => lastCommit,
         persistedStateMatchesLastPost: () => Boolean(lastCommit && JSON.stringify(save) === lastCommit.postedState),
         /** Mirror a successful server-owned character mutation into the fake
@@ -281,7 +284,9 @@ export async function expectUiAuditBoot(page: Page, runtime: UiAuditRuntime, scr
         expect(runtime.persistedStateMatchesLastPost()).toBe(true);
         expect(commit.baseVersion).toBe(commit.version - 1);
         expect(runtime.currentVersion()).toBe(commit.version);
-        expect(runtime.acknowledgedVersion()).toBe(commit.version);
+        // The route fulfills the response before its async callback records the
+        // acknowledgement. Under a busy suite, networkidle can win that race.
+        await expect.poll(runtime.acknowledgedVersion, { timeout: 5_000 }).toBe(commit.version);
     }
     await expect(page.getByRole("complementary", { name: "Device and server saves diverged" })).toHaveCount(0);
 }

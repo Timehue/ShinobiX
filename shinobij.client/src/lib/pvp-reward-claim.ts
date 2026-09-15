@@ -286,6 +286,23 @@ export function pvpRewardSettlementNotice(
     return "Official result verified; no personal payout for this result.";
 }
 
+/** Result copy from the confirmed raid receipt; no client-side settlement math. */
+export function pvpRewardImpactLines(result: PvpRewardClaimConfirmed): string[] {
+    const raid = result.raidProgression;
+    if (!raid) return [];
+    const lines: string[] = [];
+    if (Number.isSafeInteger(raid.territoryDamage) && raid.territoryDamage > 0
+        && Number.isSafeInteger(raid.sector) && raid.sector! > 0) {
+        lines.push(`Sector ${raid.sector}: ${raid.territoryDamage} territory damage recorded`);
+    }
+    if (raid.missionsCompleted.length === 1) {
+        lines.push(`Vanguard mission complete: ${raid.missionsCompleted[0].name}`);
+    } else if (raid.missionsCompleted.length > 1) {
+        lines.push(`${raid.missionsCompleted.length} Vanguard missions completed`);
+    }
+    return lines;
+}
+
 function cleanRaidProgression(raw: unknown): PvpRaidProgression | undefined {
     if (!raw || typeof raw !== "object") return undefined;
     const value = raw as Record<string, unknown>;

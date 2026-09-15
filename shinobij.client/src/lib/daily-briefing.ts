@@ -15,6 +15,20 @@ export interface WarLine {
     note?: string;
 }
 
+/** Keep the briefing focused when several unrelated wars are live. */
+export function briefingWarPriorities(lines: readonly WarLine[], village: string, clan: string): {
+    featured: WarLine[]; remaining: number;
+} {
+    const belongsToPlayer = (line: WarLine) => {
+        const home = line.kind === "village" ? village : clan;
+        return !!home && [line.left, line.right].some((side) => side.toLowerCase() === home.toLowerCase());
+    };
+    const featured = lines.map((line, index) => ({ line, index }))
+        .sort((a, b) => Number(belongsToPlayer(b.line)) - Number(belongsToPlayer(a.line)) || a.index - b.index)
+        .slice(0, 3).map(({ line }) => line);
+    return { featured, remaining: Math.max(0, lines.length - featured.length) };
+}
+
 /**
  * Every active war in the world — village-vs-village and clan-vs-clan — for the
  * briefing's world report, regardless of whether the player is involved. Reads

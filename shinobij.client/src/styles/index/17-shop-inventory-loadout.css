@@ -531,3 +531,14 @@ html[data-vp="xl"] .app-shell:is([data-screen="shop"], [data-screen="grandMarket
     font-size: .84rem;
     line-height: 1.45;
 }
+
+.item-popup-stores-note button {
+    border: 1px solid currentColor;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    padding: 6px 10px;
+    font: inherit;
+    cursor: pointer;
+}
+.item-popup-stores-note button:disabled { opacity: .55; cursor: wait; }

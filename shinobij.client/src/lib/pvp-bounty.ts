@@ -17,6 +17,19 @@ export async function fetchBountyBoard(): Promise<BountyEntry[]> {
     }
 }
 
+/** Read the paid receipt for a verified winner; this never attempts a new claim. */
+export async function fetchBountyReceipt(playerName: string, battleId: string, signal?: AbortSignal): Promise<{ amount: number; target: string } | null> {
+    const timeout = AbortSignal.timeout(8_000);
+    const res = await fetch('/api/pvp/bounty', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'receipt', playerName, battleId }),
+        signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+    });
+    if (!res.ok) return null;
+    const data = await res.json().catch(() => null) as { amount?: number; target?: string } | null;
+    return data?.amount && data.target ? { amount: data.amount, target: data.target } : null;
+}
+
 // Escrow `amount` ryo onto `target`'s head. Returns the updated board on success
 // (and the caller debits `amount` from its own ryo to converge), or an error.
 export async function placeBounty(playerName: string, target: string, amount: number): Promise<{ ok: boolean; error?: string; bounties?: BountyEntry[]; balances?: { ryo: number } }> {

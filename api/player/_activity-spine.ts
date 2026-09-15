@@ -32,6 +32,7 @@ export type ActivitySpineInput = {
     onboardingStep: string;
     unspentStats: number;
     trainingIdle: boolean;
+    statTrainingReady?: boolean;
     jutsuTrainingIdle: boolean;
     hasJutsu: boolean;
     hasProfession: boolean;
@@ -438,6 +439,13 @@ export function buildActivitySpine(input: ActivitySpineInput): ActivitySpine {
             cta: blocker ? 'Await Service Recovery' : 'Resume Run', eligibility: blocker ? 'blocked' : 'eligible', blocker,
             recoveryOnly: !!blocker, context: input.resume.context ?? 'towers', ...requirement,
         }));
+    } else if (input.statTrainingReady) {
+        now.push(item('now', {
+            id: 'claim-stat-training', title: 'Stat training is ready to claim',
+            why: 'Collect the finished session before starting another.',
+            commitment: '1 min', screen: 'training', cta: 'Collect Training', eligibility: 'eligible',
+            context: 'progression', capabilityId: 'gameplayMutations',
+        }));
     } else if (input.unspentStats > 0) {
         now.push(item('now', {
             id: 'spend-growth', title: `Spend ${input.unspentStats} growth point${input.unspentStats === 1 ? '' : 's'}`,
@@ -475,10 +483,11 @@ export function buildActivitySpine(input: ActivitySpineInput): ActivitySpine {
     }
 
     const todayCandidates = [item('today', {
-        id: 'daily-training', title: input.trainingIdle ? 'Start stat training' : 'Keep training in motion',
-        why: input.trainingIdle ? 'Idle training time is lost long-term growth.' : 'Your current session is already advancing your build.',
-        commitment: input.trainingIdle ? '1 min setup' : 'Already running', screen: 'training', cta: 'Open Training',
-        eligibility: input.trainingIdle ? 'eligible' : 'complete', reward: 'Stat growth', context: 'progression', capabilityId: 'gameplayMutations',
+        id: 'daily-training', title: input.statTrainingReady ? 'Stat training is ready to claim' : input.trainingIdle ? 'Start stat training' : 'Keep training in motion',
+        why: input.statTrainingReady ? 'Collect the finished session before starting another.' : input.trainingIdle ? 'Idle training time is lost long-term growth.' : 'Your current session is already advancing your build.',
+        commitment: input.statTrainingReady ? '1 min' : input.trainingIdle ? '1 min setup' : 'Already running', screen: 'training',
+        cta: input.statTrainingReady ? 'Collect Training' : 'Open Training',
+        eligibility: input.statTrainingReady || input.trainingIdle ? 'eligible' : 'complete', reward: 'Stat growth', context: 'progression', capabilityId: 'gameplayMutations',
     }), item('today', {
         id: 'daily-jutsu', title: input.hasJutsu ? (input.jutsuTrainingIdle ? 'Train a jutsu' : 'Jutsu training underway') : 'Learn your first jutsu',
         why: 'A reliable technique loadout gives every combat activity more tactical options.',
@@ -490,7 +499,8 @@ export function buildActivitySpine(input: ActivitySpineInput): ActivitySpine {
         commitment: '3–5 min', screen: 'centralHub', cta: 'Visit the Crafter', eligibility: input.level >= 5 ? 'eligible' : 'blocked',
         blocker: input.level >= 5 ? undefined : 'Reach level 5 to make preparation worthwhile.', reward: 'Operation supplies', context: 'economy', capabilityId: 'gameplayMutations',
     })];
-    today.push(...todayCandidates.filter((activity) => activityServiceAvailable(input, activity)));
+    today.push(...todayCandidates.filter((activity) =>
+        !(now[0]?.id === 'claim-stat-training' && activity.id === 'daily-training') && activityServiceAvailable(input, activity)));
     if (today.length === 0) {
         today.push(item('today', {
             id: 'service-review-today', title: 'Keep today’s plan read-only',

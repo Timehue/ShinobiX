@@ -150,6 +150,9 @@ const compactDesktopViewports = [
 
 for (const mode of ["solo", "pvp"] as const) {
     test(`${mode} phone combat restores the fighter/AP/fighter HUD without changing the desktop shell`, async ({ page }, testInfo) => {
+        // WebKit can spend >36s waiting for finite fixture animations during the
+        // full device matrix; the assertions retain their normal expect budget.
+        test.setTimeout(90_000);
         for (const viewport of mobilePortraits) {
             await mountCombatFixture(page, mode, viewport);
 

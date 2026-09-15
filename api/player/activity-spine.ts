@@ -61,7 +61,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             hospitalized: character.hospitalized === true,
             onboardingStep: typeof character.onboardingStep === 'string' ? character.onboardingStep : '',
             unspentStats: Math.max(0, Math.floor(Number(character.statPoints ?? character.unspentStats) || 0)),
-            trainingIdle: !activeTraining || Number(activeTraining.endsAt ?? 0) <= now,
+            trainingIdle: !activeTraining,
+            statTrainingReady: !!activeTraining && Number(activeTraining.endsAt ?? 0) > 0 && Number(activeTraining.endsAt) <= now,
             jutsuTrainingIdle: !activeJutsuTraining || Number(activeJutsuTraining.endsAt ?? 0) <= now,
             hasJutsu: Array.isArray(character.jutsuMastery)
                 ? character.jutsuMastery.length > 0

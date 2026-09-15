@@ -15,11 +15,10 @@ import { sectorName } from "../../../shared/sector-geo";
 import { SectorTracesCard } from "./SectorTraces";
 import { SectorGatherReadout } from "./SectorGatherReadout";
 import { SectorIntelCard } from "./SectorIntelCard";
+import { SectorOrderCard } from "./SectorOrderCard";
 import { SectorContractCard } from "./SectorContractCard";
 import { SectorSkyForecast } from "./SectorSkyForecast";
-
-// Row/prop shapes live in a sibling module (see its header); re-exported here
-// so every existing import of these names keeps working unchanged.
+// Re-export sibling row/prop shapes for existing callers.
 export type {
     WorldSectorCommandWar,
     WorldSectorCommandTerritory,
@@ -30,13 +29,11 @@ export type {
 } from "./WorldSectorCommandPanel.types";
 
 import type { WorldSectorCommandPanelProps } from "./WorldSectorCommandPanel.types";
-
 /**
  * Presentation-only command surface for a selected sector.
  *
- * WorldMap owns capability reads, network work, navigation, and mutations. This
- * leaf receives already-projected rows plus command callbacks so it cannot make
- * an authority decision from display state alone.
+ * WorldMap owns capability reads, navigation, and mutations. This leaf receives
+ * projected rows and callbacks and makes no authority decision.
  */
 export function WorldSectorCommandPanel({
     sector,
@@ -48,6 +45,7 @@ export function WorldSectorCommandPanel({
     contract,
     contractBusy,
     intel = null,
+    order = null,
     villageWarAdmissionOpen,
     traces,
     hasLivePlayers,
@@ -160,6 +158,7 @@ export function WorldSectorCommandPanel({
             )}
             {contract && <SectorContractCard status={contract} busy={contractBusy} disabled={!present} onClaim={onClaimContract} />}
             {intel && <SectorIntelCard intel={intel} />}
+            {order && <SectorOrderCard order={order} />}
             {traces && (
                 <SectorTracesCard
                     traces={traces}

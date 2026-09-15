@@ -25,7 +25,7 @@ import { useSharedNow } from "../lib/use-shared-now";
 import { claimDailyLogin, type DailyLoginResult, type DailyLoginCommitFactory } from "../lib/daily-login-api";
 import { fetchAnnouncements, fetchEras, fetchLegacyStatus, useLegacyAvailability, type AnnouncementView, type EraView } from "../lib/legacy";
 import { nextUnseenRumorMilestone, markLevelRumorSeen, recordRumorHeard, rememberedRumorCategory, rumorForCategory } from "../lib/legacy-rumors";
-import { worldReport } from "../lib/daily-briefing";
+import { briefingWarPriorities, worldReport } from "../lib/daily-briefing";
 import { dailyLoginRyo, STREAK_SHARD_INTERVAL, STREAK_SHARD_REWARD } from "../lib/daily-login-preview";
 import briefingBg from "../assets/daily-briefing.webp";
 import { Modal } from "./ui/Modal";
@@ -153,7 +153,7 @@ export function DailyBriefingModal({
         ? claim.daysUntilShardBonus
         : (STREAK_SHARD_INTERVAL - (streak % STREAK_SHARD_INTERVAL)) % STREAK_SHARD_INTERVAL;
 
-    const wars = worldReport(now);
+    const { featured: wars, remaining: otherWars } = briefingWarPriorities(worldReport(now), character.village, character.clan ?? "");
 
     return (
         <Modal open={shouldShow} onClose={close} bare ariaLabel="Daily Briefing" size="lg" className="daily-briefing-modal-shell">
@@ -276,17 +276,20 @@ export function DailyBriefingModal({
                             <section className="db-section">
                                 <h3>World report</h3>
                                 {wars.length ? (
-                                    <ul className="db-wars">
-                                        {wars.map((w) => (
-                                            <li key={w.id}>
-                                                <button type="button" className="db-war" onClick={() => go(w.kind === "clan" ? "clan" : "villageWar")}>
-                                                    <span className={`db-war-tag db-war-${w.kind}`}>{w.kind === "clan" ? "Clan War" : "Village War"}</span>
-                                                    <span className="db-war-vs">{w.left} <em>vs</em> {w.right}</span>
-                                                    {w.note && <span className="db-war-note">{w.note}</span>}
-                                                </button>
-                                            </li>
-                                        ))}
-                                    </ul>
+                                    <>
+                                        <ul className="db-wars">
+                                            {wars.map((w) => (
+                                                <li key={w.id}>
+                                                    <button type="button" className="db-war" onClick={() => go(w.kind === "clan" ? "clan" : "villageWar")}>
+                                                        <span className={`db-war-tag db-war-${w.kind}`}>{w.kind === "clan" ? "Clan War" : "Village War"}</span>
+                                                        <span className="db-war-vs">{w.left} <em>vs</em> {w.right}</span>
+                                                        {w.note && <span className="db-war-note">{w.note}</span>}
+                                                    </button>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                        {otherWars > 0 && <p className="db-empty">{otherWars} more active conflict{otherWars === 1 ? "" : "s"} in the world.</p>}
+                                    </>
                                 ) : (
                                     <p className="db-empty">The world is at peace — for now.</p>
                                 )}

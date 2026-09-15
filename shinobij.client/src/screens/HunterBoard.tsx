@@ -8,6 +8,7 @@ import type { Screen } from "../types/core";
 import { HUNTER_RANKUP, HUNTER_RANK_COLORS, HUNTER_RANK_LABELS, HUNT_MATERIAL_NAMES, HUNT_MIN_RANK, type MissionRank } from "../constants/hunter";
 import { FIELD_MISSION_STAT_POINTS } from "../constants/game";
 import { rewardSummary, statPointNote } from "../lib/currency";
+import { ClaimImpactNotice } from "../components/ClaimImpactNotice";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { dailyHuntsCompleted, hasDailyHuntSlot, dailyHuntCap } from "../lib/character-progress";
 import { postClaimMission, applyServerMissionReward, claimReasonMessage } from "../lib/claim-mission";
@@ -68,6 +69,7 @@ export function HunterBoard({
     const [authoritativeHuntStates, setAuthoritativeHuntStates] = useState<Record<string, WorldHuntTrailView>>({});
     const huntClaimInFlight = useRef(false);
     const [claimingHuntId, setClaimingHuntId] = useState<string | null>(null);
+    const [lastClaim, setLastClaim] = useState<{ title: string; reward: string } | null>(null);
     const acceptedHuntKey = builtinHuntMissions
         .filter((mission) => acceptedMissionIds.includes(mission.id))
         .map((mission) => mission.id)
@@ -235,7 +237,7 @@ export function HunterBoard({
             if (!applySuccessfulMissionClaim(result)) return;
             setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
             setMissionProgress((prev) => ({ ...prev, [mission.id]: 0 }));
-            alert(`${mission.name} complete! ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina, result.reward.currency, character, { items: materialNames(result.reward.items ?? []) })}.`);
+            setLastClaim({ title: mission.name, reward: `${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina, result.reward.currency, character, { items: materialNames(result.reward.items ?? []) })}` });
             return;
         }
         if (result.applied === false) {
@@ -362,6 +364,7 @@ export function HunterBoard({
                 title="Hunter Guild"
                 tone="azure"
             />
+            {lastClaim && <ClaimImpactNotice {...lastClaim} onClose={() => setLastClaim(null)} />}
 
             <div className="hunter-rank-banner">
                 <img src={hunterRankBadge(hunterRank)} alt={HUNTER_RANK_LABELS[hunterRank]} className="hunter-rank-emblem" style={{ width: 64, height: 64, flexShrink: 0, filter: "drop-shadow(0 2px 6px rgba(0,0,0,.45))" }} />
