@@ -29,7 +29,7 @@ import { ScreenErrorBoundary } from "./components/ScreenErrorBoundary";
 import { ScreenLoadingFallback } from "./components/ScreenLoadingFallback";
 import { ScreenReadyProbe } from "./components/ScreenReadyProbe";
 import { ToastStacks, type MissionToast } from "./components/ToastStacks";
-import { claimBountyOnWin } from "./lib/pvp-bounty";
+import { claimBountyOnWin, type BountyReceipt } from "./lib/pvp-bounty";
 import { reportPvpWin } from "./lib/pvp-win-report";
 import { useClaimOutboxDrain } from "./lib/claim-outbox";
 import {
@@ -6336,9 +6336,9 @@ export default function App() {
                         _serverBase?: PvpWinBaseSummary,
                         serverClaim?: PvpRewardClaimConfirmed,
                         continuation?: PvpRewardContinuationContext,
-                    ): Promise<void> {
+                    ): Promise<BountyReceipt | null> {
                         const activeContinuation = requirePvpContinuation(continuation);
-                        if (!character) return;
+                        if (!character) return null;
                         if (!pvpBattleId) throw new Error("PvP settlement is missing its battle id.");
                         const settledBattleId = pvpBattleId;
                         const context = pvpBattleContext;
@@ -6346,9 +6346,7 @@ export default function App() {
                         // Hoisted here so every reward/world-state write below can skip a casual spar.
                         const isFriendlyDuel = !context?.mode
                             || (context.mode === "standard" && !context.clanWarPoints && !context.sectorAttack);
-                        // Kage transfer is replayed from the committed terminal
-                        // session on the server. No client resolve belongs in this
-                        // completion continuation.
+                        // Kage transfer replays from the committed terminal session on the server.
 
                         let projection = pvpContinuationResultRef.current.get(pvpSettlementScopeKey);
                         if (!projection) {
@@ -6428,6 +6426,7 @@ export default function App() {
                             }
                         }
                         requirePvpContinuation(activeContinuation);
+                        return projection.bounty ? { amount: projection.bounty.amount, target: projection.bounty.target } : null;
                     }
                     return (
                         <PvpBattleScreen

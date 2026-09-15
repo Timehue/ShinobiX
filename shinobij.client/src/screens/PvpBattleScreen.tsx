@@ -84,7 +84,7 @@ import {
 import { fetchPendingPvpRecovery } from "../lib/pvp-pending-fetch";
 import { earnedStatPoints } from "../lib/stats";
 import { useSocialLock } from "../lib/account-status";
-import { fetchBountyReceipt } from "../lib/pvp-bounty";
+import { fetchBountyReceipt, type BountyReceipt } from "../lib/pvp-bounty";
 import { PvpBattleResultPanel, type PvpBattleOutcome } from "../components/PvpBattleResultPanel";
 
 // Avatar travel animation. A fighter's marker steps through each hex on the line
@@ -243,7 +243,7 @@ export function PvpBattleScreen({
     seedSession?: PvpSessionState | null;
     isSpar?: boolean;
     battleMode?: string;
-    onWin?: (opponentName: string, opponent?: Character, serverRating?: { field: string; value: number; delta: number }, serverBase?: PvpWinBaseSummary, claim?: PvpRewardClaimConfirmed, context?: PvpRewardContinuationContext) => void | Promise<void>;
+    onWin?: (opponentName: string, opponent?: Character, serverRating?: { field: string; value: number; delta: number }, serverBase?: PvpWinBaseSummary, claim?: PvpRewardClaimConfirmed, context?: PvpRewardContinuationContext) => BountyReceipt | null | void | Promise<BountyReceipt | null | void>;
     onLoss?: (opponent?: Character, serverRating?: { field: string; value: number; delta: number }, claim?: PvpRewardClaimConfirmed, context?: PvpRewardContinuationContext) => void | Promise<void>;
     /** Adopt the claim's versioned snapshot/progression on both first response and replay. */
     onRewardClaim?: (claim: PvpRewardClaimConfirmed, context?: PvpRewardContinuationContext) => void | Promise<void>;
@@ -1040,13 +1040,17 @@ export function PvpBattleScreen({
             // are awaited before completion ACK, including lost-ACK repair.
             await bounded(onRewardClaim?.(result, continuationContext));
             if (!isCurrentScope()) return;
+            let bountyFromCallback: BountyReceipt | null = null;
             if (runCompletion) {
                 const oppFighter = role === "p1" ? resolvedSession.p2 : resolvedSession.p1;
                 const opponent = normalizeCharacter(oppFighter.character as Character);
                 // Unsanctioned sessions confirm with no reward authority. Do not
                 // let their callbacks mutate missions, bounties, wars, or ranking.
                 if (result.rewardAuthorized || effectiveIsSpar) {
-                    if (iWonNow) await bounded(onWin?.(oppFighter.name, opponent, result.rating, result.base, result, continuationContext));
+                    if (iWonNow) {
+                        const callbackResult = await bounded(onWin?.(oppFighter.name, opponent, result.rating, result.base, result, continuationContext));
+                        if (callbackResult && typeof callbackResult === "object") bountyFromCallback = callbackResult;
+                    }
                     else if (iLostNow) await bounded(onLoss?.(opponent, result.rating, result, continuationContext));
                 }
                 if (!isCurrentScope()) return;
@@ -1085,12 +1089,15 @@ export function PvpBattleScreen({
             if (!isCurrentScope()) return;
             setPvpRewardClaimState("confirmed");
             if (iWonNow && !effectiveIsSpar && result.rewardAuthorized) {
-                // Presentation only: a lost ACK can skip callbacks on replay, but
-                // the paid receipt remains readable without repeating settlement.
-                void fetchBountyReceipt(character.name, battleId).then((receipt) => {
-                    if (!isCurrentScope() || !receipt) return;
-                    setPvpImpactLines((lines) => [...lines, `Bounty collected: +${receipt.amount.toLocaleString()} ryo for defeating ${receipt.target}.`]);
-                }).catch(() => { /* The verified base result remains usable. */ });
+                // The callback has the server-paid amount on a fresh completion.
+                // A lost ACK can skip callbacks on replay, so read the receipt
+                // only when no callback payout was available.
+                const showBounty = (paid: BountyReceipt | null) => {
+                    if (!isCurrentScope() || !paid) return;
+                    setPvpImpactLines((lines) => [...lines, `Bounty collected: +${paid.amount.toLocaleString()} ryo for defeating ${paid.target}.`]);
+                };
+                if (bountyFromCallback) showBounty(bountyFromCallback);
+                else void fetchBountyReceipt(character.name, battleId).then(showBounty).catch(() => { /* Base result remains usable. */ });
             }
             onCompletionConfirmed?.();
         } catch {
