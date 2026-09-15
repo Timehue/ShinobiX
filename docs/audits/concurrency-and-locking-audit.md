@@ -1,5 +1,17 @@
 # Concurrency, Locks, and Stale-Write Audit — Phase 0 (2026-07-31)
 
+> **Follow-up status (2026-09-14): F1 is RESOLVED, in the opposite direction
+> from the P1-1 plan.** `settleCrossKeyTransfer` (`api/_cross-key-settlement.ts`)
+> now locks the shared row before the player save instead of sorting the two
+> keys. That matches the clan-row-first order already used by clan exchange,
+> treasury donate, kick, leave and dissolve. Sorting those five instead was not
+> a small change: donate nests through `mutatePlayerSave`, and dissolve and
+> leave's successor learn member names only under the clan lock. Village
+> transfers are unchanged, because `game:village-state:*` sorts before `save:*`.
+> `api/clan/_lock-order.test.ts` pins the order. One inversion remains by design:
+> deleting a player save holds `save:<player>` and then takes the clan row in a
+> best-effort roster detach (`api/_delete-player-account.ts` `detachFromClan`).
+
 > **Follow-up status (2026-08-03): F4 is RESOLVED.** Battle start and resolve
 > now serialize on the battle key with fail-closed locks; defeat persistence
 > also takes a fail-closed player-save lock. Concurrent starts retain one
