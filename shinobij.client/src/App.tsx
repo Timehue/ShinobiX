@@ -2047,7 +2047,7 @@ export default function App() {
                 if (Array.isArray(data.pendingNotices) && data.pendingNotices.length) {
                     // Lazy import: the notice copy strings stay off the entry graph. If it fails to load, withhold the ack so the server re-delivers.
                     const notices = data.pendingNotices;
-                    void import("./lib/offline-notices").then((m) => m.applyOfflineNotices(notices), () => withholdNoticeAck(notices));
+                    await import("./lib/heartbeat-notices").then((m) => m.applyHeartbeatNotices(notices, { accountKey: heartbeatAccountKey, isCurrent: heartbeatIsCurrent, commit: commitVersionedCharacter }), () => withholdNoticeAck(notices));
                 }
             } catch {
                 // Server unavailable — silently skip

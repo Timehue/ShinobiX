@@ -67,3 +67,17 @@ test('bounty notices round-trip with their amount/total fields', async () => {
         ['bounty-claimed', 'Kenji', 12_000, undefined],
     ]);
 });
+
+test('sale receipts deduplicate retries, retain a busy stall, and preserve other reports', async () => {
+    const sale = { listingId: 'a'.repeat(32), seller: 'merchant', assetName: 'Sunrunner', quantity: 1, currency: 'fateShards' as const, price: 201, fee: 10, proceeds: 191 };
+    for (let i = 0; i < 30; i++) {
+        const receipt = { kind: 'exchange-sale' as const, by: 'buyer', sector: 0, at: i, sale: { ...sale, listingId: i.toString(16).padStart(32, '0') } };
+        await mod.pushOfflineNotice('merchant', receipt);
+        await mod.pushOfflineNotice('merchant', receipt);
+    }
+    for (let i = 0; i < 12; i++) await mod.pushOfflineNotice('merchant', { kind: 'bounty-placed', by: 'rival', sector: 0, at: i, amount: 100 });
+    const inbox = await mod.takeOfflineNotices('merchant');
+    assert.equal(inbox.filter(n => n.kind === 'exchange-sale').length, 30);
+    assert.equal(inbox.filter(n => n.kind === 'bounty-placed').length, 10);
+    assert.equal(mod.parseOfflineNotices([{ kind: 'exchange-sale', by: 'buyer', sector: 0, at: 1, sale: { ...sale, proceeds: 201 } }]).length, 0);
+});
