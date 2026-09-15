@@ -17,6 +17,8 @@ type SaveRecord = {
     activeTraining?: { token?: string; endsAt?: number } | null;
     character?: {
         name?: string;
+        level?: number;
+        stats?: Record<string, number>;
         onboardingStep?: string;
         activePetId?: string;
         pets?: Array<{ id?: string }>;
@@ -170,8 +172,11 @@ test.use({ contextOptions: { reducedMotion: 'no-preference' } });
 
 for (const grantDelayMs of [0, 500]) {
 test(`a new player completes the full persisted Academy first session against built Express (starter response delay ${grantDelayMs}ms)`, async ({ page }, testInfo) => {
-    test.setTimeout(240_000); // includes the independent contract and a second authenticated session
+    const completeRealTraining = process.env.JOURNEY_COMPLETE_REAL_TRAINING === '1';
+    // Optional local certification waits for the unchanged 15-minute server timer.
+    test.setTimeout(completeRealTraining ? 20 * 60_000 : 240_000);
     test.skip(testInfo.project.name !== 'chromium-desktop-live', 'one desktop run covers the full first-session authority journey');
+    const journeyStartedAt = Date.now();
     if (grantDelayMs) {
         // Let achievement sync supersede an already committed starter grant.
         // Its older response must not cancel the cinematic's persistence handoff.
@@ -524,5 +529,62 @@ test(`a new player completes the full persisted Academy first session against bu
     expect(decorativeListeners, 'world backdrop canvases must never bind pointer listeners, including during return-to-village teardown').toEqual([]);
     expect(runtimeErrors).toEqual([]);
     expect(serverFailures).toEqual([]);
+    let finalSave = await waitForPersisted(page, playerName, (save) => (
+        save.character?.onboardingStep === 'done'
+        && Boolean(save.character.firstContract?.acknowledgedAt)
+    ), 'the final journey evidence must describe the authoritative save');
+    let trainingEvidence: { waitingMs: number; applied: number; overflow: number; replayStatus: number } | null = null;
+    if (completeRealTraining) {
+        const trainingToken = finalSave.activeTraining?.token;
+        expect(trainingToken).toBeTruthy();
+        const waitStartedAt = Date.now();
+        const remainingMs = Math.max(0, Number(finalSave.activeTraining?.endsAt) - Date.now());
+        await page.locator('.mobile-bottom-nav').getByRole('button', { name: 'Menu', exact: true }).click();
+        await page.getByRole('dialog', { name: 'Shinobi menu' }).getByRole('button', { name: 'Training', exact: true }).click();
+        await expect(page.getByRole('heading', { name: 'Training Grounds' })).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Collect Training', exact: true })).toBeEnabled({ timeout: remainingMs + 30_000 });
+        await hardReload();
+        await expect(page.getByRole('button', { name: 'Collect Training', exact: true })).toBeEnabled();
+        const collectionResponse = page.waitForResponse((response) => response.request().method() === 'POST'
+            && new URL(response.url()).pathname === '/api/training/complete');
+        await page.getByRole('button', { name: 'Collect Training', exact: true }).click();
+        const collection = await collectionResponse;
+        expect(collection.status()).toBe(200);
+        const grant = await collection.json() as { granted?: boolean; applied?: number; overflow?: number };
+        expect(grant.granted).toBe(true);
+        expect(Number(grant.applied ?? 0) + Number(grant.overflow ?? 0)).toBeGreaterThan(0);
+        finalSave = await waitForPersisted(page, playerName, (save) => !save.activeTraining, 'the completed training lease must retire');
+        const settledStats = finalSave.character?.stats;
+        const replay = await browserApi(page, '/api/training/complete', { playerName, token: trainingToken });
+        expect(replay.status).toBe(200);
+        await hardReload();
+        finalSave = await waitForPersisted(page, playerName, (save) => !save.activeTraining, 'the training retry must not recreate a lease');
+        expect(finalSave.character?.stats).toEqual(settledStats);
+        trainingEvidence = { waitingMs: Date.now() - waitStartedAt, applied: Number(grant.applied ?? 0), overflow: Number(grant.overflow ?? 0), replayStatus: replay.status };
+    }
+    await testInfo.attach('journey-summary', {
+        contentType: 'application/json',
+        body: JSON.stringify({
+            evidenceType: 'BROWSER JOURNEY: real Express, isolated memory KV',
+            account: playerName,
+            fixture: 'fresh; no progression grants; API-assisted combat and companion care',
+            startedAt: new Date(journeyStartedAt).toISOString(),
+            elapsedMs: Date.now() - journeyStartedAt,
+            starterResponseDelayMs: grantDelayMs,
+            level: finalSave.character?.level ?? null,
+            saveVersion: finalSave._saveVersion,
+            currentSector: finalSave.currentSector,
+            onboardingStep: finalSave.character?.onboardingStep,
+            academySparClaimed: finalSave.character?.academySparClaimed,
+            academyTrialClaimed: finalSave.character?.academyTrialClaimed,
+            firstContractAcknowledged: Boolean(finalSave.character?.firstContract?.acknowledgedAt),
+            trainingActive: Boolean(finalSave.activeTraining?.token),
+            completedRealTraining: trainingEvidence,
+            trainingRemainingMs: finalSave.activeTraining?.endsAt
+                ? Math.max(0, finalSave.activeTraining.endsAt - Date.now()) : null,
+            runtimeErrorCount: runtimeErrors.length,
+            serverFailureCount: serverFailures.length,
+        }, null, 2),
+    });
 });
 }

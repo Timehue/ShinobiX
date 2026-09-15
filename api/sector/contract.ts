@@ -91,7 +91,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // faucet. Losing one is recoverable; minting is not.
             await kv.set(claimKey, now, { ex: CONTRACT_TTL_SECONDS });
             const updated = { ...char, ryo: Number(char.ryo ?? 0) + contract.ryo };
-            const record = bumpSaveVersion({ ...rec, character: updated });
+            const record = bumpSaveVersion({ ...rec, character: updated }, { previousCharacter: char });
             await kv.set(`save:${playerName}`, mergePreservingImages(record, rec));
             return {
                 status: 200,

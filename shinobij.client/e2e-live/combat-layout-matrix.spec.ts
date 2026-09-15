@@ -8,6 +8,7 @@ import { accountKey } from '../src/lib/player-accounts';
 import { TOWER_TURN_AFK_MS } from '../src/lib/towers-api';
 // Many calls here follow browser-only work of arbitrary length; see the helper.
 import { API_CONNECTION_RETRIES, test } from './helpers/reconnecting-request';
+import { sampleStableGrid } from '../scripts/combat-layout-settling';
 
 // The loadout's scroll container. Phones wrap basic commands and the loadout in
 // one `.combat-action-tray` scrollport; elsewhere the tray is `display:
@@ -1136,39 +1137,80 @@ async function settleLayout(page: Page): Promise<void> {
  * baseline disagrees. Wait for the rendered grid to hold still instead of
  * assuming a frame count, so the baseline is the settled board.
  */
-async function settleBoardGeometry(page: Page, rootSelector: string): Promise<void> {
-    await page.locator(rootSelector).evaluate(async (root) => {
-        await document.fonts.ready;
+type MeasurementDiagnostic = {
+    label: string;
+    phases: Array<{ name: string; startedAt: string; elapsedMs?: number }>;
+    animations?: unknown;
+    gridSamples?: string[];
+    gridAgreements?: number;
+    measurement?: LayoutMeasurement;
+};
+
+async function measurementPhase<T>(diagnostic: MeasurementDiagnostic | undefined, name: string, work: () => Promise<T>): Promise<T> {
+    const phase = { name, startedAt: new Date().toISOString(), elapsedMs: undefined as number | undefined };
+    diagnostic?.phases.push(phase);
+    const started = performance.now();
+    try {
+        return await work();
+    } finally {
+        phase.elapsedMs = performance.now() - started;
+    }
+}
+
+async function settleBoardGeometry(page: Page, rootSelector: string, diagnostic?: MeasurementDiagnostic): Promise<void> {
+    await measurementPhase(diagnostic, 'fonts-ready', () => page.evaluate(async () => { await document.fonts.ready; }));
+    if (diagnostic) {
+        diagnostic.animations = await measurementPhase(diagnostic, 'animation-snapshot', () => page.locator(rootSelector).evaluate((root) => ({
+            visibility: document.visibilityState,
+            fonts: document.fonts.status,
+            animations: root.getAnimations({ subtree: true }).map((animation) => ({
+                type: animation.constructor.name,
+                name: 'animationName' in animation ? animation.animationName : '',
+                target: (animation.effect as KeyframeEffect | null)?.target?.nodeName,
+                state: animation.playState,
+                pending: animation.pending,
+                currentTime: animation.currentTime,
+                endTime: animation.effect?.getComputedTiming().endTime,
+            })),
+        })));
+    }
+    await measurementPhase(diagnostic, 'finite-animations-finished', () => page.locator(rootSelector).evaluate(async (root) => {
         await Promise.all(root.getAnimations({ subtree: true })
             .filter((animation) => Number.isFinite(animation.effect?.getComputedTiming().endTime))
             .map((animation) => animation.finished.catch(() => undefined)));
-    });
+    }));
     const sampleGrid = () => page.evaluate((selector) => {
         const layer = document.querySelector(selector)?.querySelector('.hex-grid-layer');
         if (!layer) return '';
         const box = layer.getBoundingClientRect();
         return [box.x, box.y, box.width, box.height, getComputedStyle(layer).transform].join('|');
     }, rootSelector);
-    let previous = await sampleGrid();
-    // Four agreements cover a deferred responsive commit even when the first
-    // pair of samples still describes the previous viewport under browser load.
-    for (let attempt = 0, agreements = 0; attempt < 24 && agreements < 4; attempt += 1) {
-        await settleLayout(page);
-        await page.waitForTimeout(50);
-        const current = await sampleGrid();
-        agreements = current !== '' && current === previous ? agreements + 1 : 0;
-        previous = current;
-    }
+    if (diagnostic) diagnostic.gridSamples = [];
+    // The initial resize/React frame pair has already completed. Poll actual
+    // geometry at 50ms intervals and require four consecutive agreements.
+    // Further rAF barriers turn stable geometry into a repaint-throughput
+    // requirement: captured WebKit frames took over 2s at 3440px with a stable
+    // grid. Changed/empty samples still reset the same four-agreement counter.
+    await sampleStableGrid(
+        (attempt) => measurementPhase(diagnostic, attempt < 0 ? 'grid-initial' : `grid-${attempt}-sample`, sampleGrid),
+        (attempt) => measurementPhase(diagnostic, `grid-${attempt}-interval`, () => page.waitForTimeout(50)),
+        diagnostic ? (current, agreements) => {
+            diagnostic.gridSamples?.push(current);
+            diagnostic.gridAgreements = agreements;
+        } : undefined,
+    );
 }
 
-async function measureStable(page: Page, rootSelector: string): Promise<LayoutMeasurement> {
-    await settleLayout(page);
-    await settleBoardGeometry(page, rootSelector);
-    let current = await measure(page, rootSelector);
+async function measureStable(page: Page, rootSelector: string, diagnostic?: MeasurementDiagnostic): Promise<LayoutMeasurement> {
+    await measurementPhase(diagnostic, 'initial-frames', () => settleLayout(page));
+    await settleBoardGeometry(page, rootSelector, diagnostic);
+    let current = await measurementPhase(diagnostic, 'measure', () => measure(page, rootSelector));
+    if (diagnostic) diagnostic.measurement = current;
     for (let attempt = 0; attempt < 8 && (!current.tileCentersInsideBoard || current.visibleTileCount !== 120); attempt += 1) {
-        await page.waitForTimeout(90);
-        await settleLayout(page);
-        current = await measure(page, rootSelector);
+        await measurementPhase(diagnostic, `tile-${attempt}-interval`, () => page.waitForTimeout(90));
+        await measurementPhase(diagnostic, `tile-${attempt}-frames`, () => settleLayout(page));
+        current = await measurementPhase(diagnostic, `tile-${attempt}-measure`, () => measure(page, rootSelector));
+        if (diagnostic) diagnostic.measurement = current;
     }
     /*
      * Deliberately NO wait-for-actionable loop here.
@@ -1751,6 +1793,12 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
     await mkdir(directory, { recursive: true });
     const measurements: LayoutMeasurement[] = [];
     const zoomMeasurements: Array<{ zoomPercent: number; physicalViewport: { width: number; height: number }; measurement: LayoutMeasurement }> = [];
+    const measurementDiagnostics: MeasurementDiagnostic[] = [];
+    const captureMeasurement = (label: string) => {
+        const diagnostic: MeasurementDiagnostic = { label, phases: [] };
+        measurementDiagnostics.push(diagnostic);
+        return measureStable(page, rootSelector, diagnostic);
+    };
     const assertLayout = (current: LayoutMeasurement, label: string) => {
         expect(current.devicePixelRatio, `${label} device pixel ratio`).toBe(Number(testInfo.project.use.deviceScaleFactor ?? 1));
         expect(current.documentOverflow, `${label} horizontal overflow`).toBeLessThanOrEqual(1);
@@ -1830,6 +1878,7 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
             }
         }
     };
+    try {
     for (const [width, height] of ACTIVE_VIEWPORTS) {
         await page.setViewportSize({ width, height });
         await page.waitForTimeout(180);
@@ -1862,7 +1911,7 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
             await assertEdgeActionPopovers(page, rootSelector);
         }
         const measurementStarted = Date.now();
-        let current = await measureStable(page, rootSelector);
+        let current = await captureMeasurement(`${width}x${height} initial`);
         const measurementMs = Date.now() - measurementStarted;
         if (STRICT) {
             if (width >= 1280 && height >= 700) {
@@ -1889,7 +1938,7 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
                     await settleLayout(page);
                     current = await measure(page, rootSelector);
                 } else {
-                    current = await measureStable(page, rootSelector);
+                    current = await captureMeasurement(`${width}x${height} strict`);
                 }
                 assertLayout(current, `${mode} ${width}x${height}`);
             }).toPass({ timeout: layoutRetryBudget(measurementMs) });
@@ -1903,7 +1952,7 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
     for (const zoom of BROWSER_ZOOM_EQUIVALENTS) {
         await page.setViewportSize({ width: zoom.width, height: zoom.height });
         await page.waitForTimeout(180);
-        const current = await measureStable(page, rootSelector);
+        const current = await captureMeasurement(`${zoom.width}x${zoom.height} zoom ${zoom.zoomPercent}%`);
         const physicalViewport = {
             width: 'physicalWidth' in zoom ? zoom.physicalWidth : 1440,
             height: 'physicalHeight' in zoom ? zoom.physicalHeight : 900,
@@ -1919,6 +1968,13 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
         if (STRICT) assertLayout(current, `${mode} ${physicalViewport.width}x${physicalViewport.height} at ${zoom.zoomPercent}% zoom`);
     }
     await writeArtifactWithRetry(page, resolve(directory, 'zoom-measurements.json'), `${JSON.stringify(zoomMeasurements, null, 2)}\n`);
+    } finally {
+        // Export completed geometry and the last started phase even when the
+        // strict callback times out before it can return an assertion failure.
+        await writeArtifactWithRetry(page, resolve(directory, 'measurement-diagnostics.json'), `${JSON.stringify(measurementDiagnostics, null, 2)}\n`);
+        await writeArtifactWithRetry(page, resolve(directory, 'measurements.json'), `${JSON.stringify(measurements, null, 2)}\n`);
+        await writeArtifactWithRetry(page, resolve(directory, 'zoom-measurements.json'), `${JSON.stringify(zoomMeasurements, null, 2)}\n`);
+    }
 }
 
 test('Solo-PvE combat layout viewport matrix', async ({ page, request }, testInfo) => {

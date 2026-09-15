@@ -8,6 +8,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { kv } from '../_storage.js';
 import { cors, mergePreservingImages, safeName } from '../_utils.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { hollowGateRefundCurrencySource } from '../hollow-gate/_external-credits.js';
 
 const COST = 10_000;
 const WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
@@ -61,7 +62,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 invalidateProcCache('game-state:frame');
             } catch (creditError) {
                 try {
-                    const refund = bumpSaveVersion<Record<string, unknown>>({ ...nextSave, character: { ...(nextSave.character as Record<string, unknown>), honorSeals: seals } });
+                    const refund = bumpSaveVersion<Record<string, unknown>>({ ...nextSave, character: { ...(nextSave.character as Record<string, unknown>), honorSeals: seals } }, {
+                        previousCharacter: nextSave.character as Record<string, unknown>,
+                        hollowGateCurrencySource: hollowGateRefundCurrencySource(character, nextSave.character as Record<string, unknown>),
+                    });
                     await kv.set(saveKey, mergePreservingImages(refund, nextSave));
                     await completeEconomyTx(txId, { note: 'Village-state write failed; Honor Seals refunded.' }).catch(() => undefined);
                     return { ok: false as const, status: 503, error: 'The gate could not be opened, so your Honor Seals were refunded. Please retry.' };

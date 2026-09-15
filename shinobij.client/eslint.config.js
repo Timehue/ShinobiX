@@ -10,6 +10,10 @@ export default defineConfig([
     'dist/**',
     'build/**',
     'coverage/**',
+    // Playwright output can contain copied source and temporary repro files.
+    // Authored browser tests remain linted in e2e*/; generated evidence does not.
+    'test-results/**',
+    'playwright-report/**',
     'node_modules/**',
     '.vite/**',
     '.cache/**',

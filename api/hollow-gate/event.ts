@@ -4,9 +4,11 @@ import { kv } from '../_storage.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { withKvLock } from '../_lock.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { cors, mergePreservingImages, safeName } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { retireHollowGatePresenceByRunKey } from './_presence.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { writeVersionedPlayerSaveWithStore } from '../save/_mutate-player-save.js';
+import { hollowGateProtectedCurrencyBaseline } from './_external-credits.js';
+import { hollowGatePendingOperationOf, hollowGateSavedTokenMismatch, makeHollowGatePendingOperation, recoverHollowGatePendingOperation } from './_pending-operation.js';
 import { hollowGateRunKey, hollowShardDrop, itemStackCount, rewardMultiplierForToken, HG_CLAWBACK_KEYS, type HollowGateRunToken, type HgCurrencyKey } from './_run-token.js';
 import {
     HOLLOW_GATE_LEDGER_ITEM_IDS,
@@ -126,12 +128,12 @@ function addCredit(character: Record<string, unknown>, credit: HollowGateRewardC
     return next;
 }
 
-function reconcileDeath(character: Record<string, unknown>, run: HollowGateRunToken): Record<string, unknown> {
+function reconcileDeath(character: Record<string, unknown>, run: HollowGateRunToken, token: string): Record<string, unknown> {
     const ledger = normalizeHollowGateLedger(run);
     const retention = hollowGateDeathRetention(character);
     let next = { ...character };
     for (const key of HG_CLAWBACK_KEYS) {
-        next[key] = reconcileLedgerAmount(next[key], run.entryCurrencies[key], ledger.currencies[key], retention);
+        next[key] = reconcileLedgerAmount(next[key], hollowGateProtectedCurrencyBaseline(character, token, key, run.entryCurrencies[key]), ledger.currencies[key], retention);
     }
     for (const itemId of HOLLOW_GATE_LEDGER_ITEM_IDS) {
         const current = itemStackCount(next.itemStacks, itemId);
@@ -167,7 +169,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const runKey = hollowGateRunKey(playerName, token);
         const result = await withKvLock(runKey, async () => {
-            const run = await kv.get<HollowGateRunToken>(runKey);
+            let run = await kv.get<HollowGateRunToken>(runKey);
+            run = await recoverHollowGatePendingOperation(kv, runKey, run, playerName, token);
+            const operationId = `${action}:${String(body.nodeId ?? '')}`;
+            const replayRecord = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+            const replayCharacter = replayRecord?.character as Record<string, unknown> | undefined;
+            const proof = hollowGatePendingOperationOf(replayCharacter, token);
+            if (proof?.kind === 'event' && proof.id === operationId) {
+                const response: Record<string, unknown> = { ...proof.response, alreadyReported: true,
+                    character: replayCharacter, _saveVersion: Number(replayRecord?._saveVersion ?? 0) };
+                delete response.runState;
+                if (run && replayCharacter && !hollowGateSavedTokenMismatch(replayCharacter, token)) {
+                    response.runState = { keys: whole(run.keys), torch: whole(run.torch), threat: whole(run.threat), secondWindArmed: run.secondWindArmed === true };
+                }
+                return { status: 200, body: response };
+            }
+            if (replayCharacter && hollowGateSavedTokenMismatch(replayCharacter, token)) {
+                return { status: 409, body: { error: 'The saved run does not match this event.' } };
+            }
             if (!run || run.playerName !== playerName) return { status: 409, body: { error: 'The Hollow Gate run has expired.' } };
             if (!run.chosenAugmentId) return { status: 409, body: { error: 'Choose the sealed augment before resolving events.' } };
             if (run.activeEncounter) return { status: 409, body: { error: 'Finish the active encounter first.' } };
@@ -265,6 +284,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const record = await kv.get<Record<string, unknown>>(saveKey);
                 const character = record?.character as Record<string, unknown> | undefined;
                 if (!record || !character) return null;
+                if (hollowGateSavedTokenMismatch(character, token)) return { error: 'The saved run does not match this event.' };
                 const credited = creditHollowGateLedger(run, sourceId, roll!.credit);
                 let nextRun: HollowGateRunToken = {
                     ...run,
@@ -297,7 +317,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         next.hospitalized = false;
                     } else if (afterDamage <= 0) {
                         ended = true;
-                        next = reconcileDeath(next, nextRun);
+                        next = reconcileDeath(next, nextRun, token);
                     } else {
                         next.hp = afterDamage;
                     }
@@ -318,21 +338,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ? (next.settledHollowGateEventIds as unknown[]).filter((id): id is string => typeof id === 'string')
                     : [];
                 next.settledHollowGateEventIds = [...settledEventIds.filter((id) => id !== sourceId).slice(-511), sourceId];
-                await kv.set(runKey, nextRun);
-                try {
-                    const updated = bumpSaveVersion({ ...record, character: next }) as Record<string, unknown>;
-                    await kv.set(saveKey, mergePreservingImages(updated, record));
-                    if (ended) {
-                        await kv.del(runKey).catch(() => undefined);
-                        await retireHollowGatePresenceByRunKey(kv, runKey);
-                    }
-                    return { character: next, run: nextRun, damage, revived, ended, saveVersion: Number(updated._saveVersion ?? 0) };
-                } catch (error) {
-                    await kv.set(runKey, run).catch(() => undefined);
-                    throw error;
-                }
+                next.hollowGatePendingOperation = makeHollowGatePendingOperation({
+                    token, kind: 'event', id: operationId, before: run, after: ended ? null : nextRun,
+                    response: { ok: true, action, reward: roll!.credit, lockedResult: roll!.lockedResult, damage, revived, ended,
+                        runState: { keys: whole(nextRun.keys), torch: whole(nextRun.torch), threat: whole(nextRun.threat), secondWindArmed: nextRun.secondWindArmed === true } },
+                });
+                const updated = await writeVersionedPlayerSaveWithStore(kv, saveKey, record, next, {}, { hollowGateCurrencySource: 'run' });
+                await recoverHollowGatePendingOperation(kv, runKey, run, playerName, token);
+                return { character: updated.record.character, run: nextRun, damage, revived, ended, saveVersion: updated._saveVersion };
             }, { failClosed: true, ttlSec: 10 });
             if (!saved) return { status: 404, body: { error: 'Player save not found.' } };
+            if ('error' in saved) return { status: 409, body: { error: saved.error } };
             return { status: 200, body: {
                 ok: true,
                 action,

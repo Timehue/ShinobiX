@@ -1,5 +1,6 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { IMAGE_GUARD_ATTRIBUTE } from "../src/lib/imageErrorGuard";
+import { writeFile } from "node:fs/promises";
 import { expectViewportSafe } from "./helpers/adaptive-assertions";
 import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from "./helpers/ui-audit-runtime";
 
@@ -43,10 +44,11 @@ type AuditMetrics = {
     clippedControls: string[];
     undersizedControls: string[];
     emptyMain: boolean;
+    touchTargetDiagnostics: unknown;
 };
 
 async function auditVisibleScreen(page: Page, rootSelector = ".center-game"): Promise<AuditMetrics> {
-    return page.locator(rootSelector).evaluate(async (main, guardAttribute) => {
+    const metrics = await page.locator(rootSelector).evaluate(async (main, guardAttribute) => {
         const viewportWidth = window.innerWidth;
         const visible = (element: Element) => {
             const style = getComputedStyle(element);
@@ -130,6 +132,44 @@ async function auditVisibleScreen(page: Page, rootSelector = ".center-game"): Pr
                 return `${url.href}${reason}`;
             });
 
+        const targetSnapshot = touchControls
+            .filter((control) => !control.matches(".atlas-sector, .atlas-hollowGate"))
+            .map((control) => {
+                const box = control.getBoundingClientRect();
+                const minimum = viewportWidth <= 979 ? 44 : 24;
+                const style = getComputedStyle(control);
+                const ancestors = [];
+                for (let node: Element | null = control; node; node = node.parentElement) {
+                    const computed = getComputedStyle(node);
+                    ancestors.push({
+                        tag: node.tagName,
+                        className: node.getAttribute("class"),
+                        transform: computed.transform,
+                        scale: computed.scale,
+                        zoom: computed.zoom,
+                        animationName: computed.animationName,
+                        animationDuration: computed.animationDuration,
+                        animations: node.getAnimations().map((animation) => ({
+                            name: "animationName" in animation ? animation.animationName : "",
+                            state: animation.playState,
+                            currentTime: animation.currentTime,
+                            timing: animation.effect?.getComputedTiming(),
+                        })),
+                    });
+                }
+                return {
+                    label: label(control),
+                    rect: { x: box.x, y: box.y, width: box.width, height: box.height },
+                    minimum,
+                    undersized: Math.min(box.width, box.height) < minimum,
+                    minInlineSize: style.minInlineSize,
+                    minBlockSize: style.minBlockSize,
+                    width: style.width,
+                    height: style.height,
+                    boxSizing: style.boxSizing,
+                    ancestors,
+                };
+            });
         return {
             brokenBackgrounds,
             brokenImages,
@@ -168,8 +208,29 @@ async function auditVisibleScreen(page: Page, rootSelector = ".center-game"): Pr
                 })
                 .map(label),
             emptyMain: !(main.textContent || "").trim() && main.querySelectorAll("img, canvas, video").length === 0,
+            touchTargetDiagnostics: {
+                capturedAt: new Date().toISOString(),
+                viewport: { width: viewportWidth, height: window.innerHeight, devicePixelRatio: window.devicePixelRatio },
+                visualViewport: { scale: window.visualViewport?.scale, width: window.visualViewport?.width, height: window.visualViewport?.height },
+                observedReducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+                coarsePointer: window.matchMedia("(pointer: coarse)").matches,
+                bodyClass: document.body.className,
+                htmlClass: document.documentElement.className,
+                fontsStatus: document.fonts.status,
+                stylesheets: Array.from(document.styleSheets).map((sheet) => sheet.href ? new URL(sheet.href).pathname : "inline"),
+                targets: targetSnapshot,
+            },
         };
     }, IMAGE_GUARD_ATTRIBUTE);
+    if (metrics.undersizedControls.length || process.env.UI_AUDIT_TOUCH_DIAGNOSTICS === "1") {
+        const path = test.info().outputPath("touch-target-diagnostics.json");
+        await writeFile(path, `${JSON.stringify({
+            ...metrics.touchTargetDiagnostics,
+            configuredReducedMotion: test.info().project.use.contextOptions?.reducedMotion,
+        }, null, 2)}\n`);
+        await test.info().attach("touch-target-diagnostics", { path, contentType: "application/json" });
+    }
+    return metrics;
 }
 
 async function capture(page: Page, testInfo: TestInfo, screen: string) {
@@ -215,7 +276,14 @@ for (const destination of CENTRAL_MODAL_CARDS) {
         const dialog = page.getByRole("dialog", { name: destination.dialog });
         await expect(dialog).toBeVisible();
         await expectViewportSafe(page);
-        await page.waitForTimeout(150);
+        // The modal's 160ms entrance scale can still make a 44px control read
+        // 43.9998px at 150ms. Measure after the dialog itself finishes entering;
+        // decorative subtree animations do not determine its layout readiness.
+        await dialog.evaluate(async (element) => {
+            await Promise.all(element.getAnimations()
+                .filter((animation) => Number.isFinite(animation.effect?.getComputedTiming().endTime))
+                .map((animation) => animation.finished.catch(() => undefined)));
+        });
         const metrics = await auditVisibleScreen(page, `[role="dialog"][aria-label="${destination.dialog}"]`);
         expect(metrics.emptyMain, `${destination.card} rendered no meaningful content`).toBe(false);
         expect(metrics.brokenBackgrounds, `${destination.card} has broken visible background artwork`).toEqual([]);

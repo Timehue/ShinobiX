@@ -665,7 +665,7 @@ async function distributeRewardsIfExpired(boss: WeeklyBossState): Promise<Weekly
                     ...fresh,
                     character: applied.character,
                 };
-                await kv.set(saveKey, mergePreservingImages(bumpSaveVersion(updated), fresh));
+                await kv.set(saveKey, mergePreservingImages(bumpSaveVersion(updated, { previousCharacter: freshChar }), fresh));
                 return { complete: true, newlyApplied: true, character: applied.character };
             }, { failClosed: true });
             if (did.complete) {

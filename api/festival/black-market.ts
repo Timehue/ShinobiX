@@ -63,7 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!settled.ok) return { status: settled.status, body: settled.body };
 
             const { reward, nextCharacter: nextChar, nextUsed } = settled;
-            const updatedRecord = bumpSaveVersion<Record<string, unknown>>({ ...rec, character: nextChar });
+            const updatedRecord = bumpSaveVersion<Record<string, unknown>>({ ...rec, character: nextChar }, { previousCharacter: char });
             // Save BEFORE the counter, deliberately: a crash between them costs
             // the house one uncounted pull, never the player a paid-for one.
             await kv.set(`save:${playerName}`, mergePreservingImages(updatedRecord, rec));

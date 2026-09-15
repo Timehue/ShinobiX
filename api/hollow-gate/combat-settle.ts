@@ -1,17 +1,19 @@
 import { creditElderWins } from '../../shared/elder-elections.js';
-import { randomInt } from 'node:crypto';
+import { createHash, randomInt } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors, mergePreservingImages, safeName } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { retireHollowGatePresenceByRunKey } from './_presence.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { writeVersionedPlayerSaveWithStore } from '../save/_mutate-player-save.js';
+import { hollowGateProtectedCurrencyBaseline } from './_external-credits.js';
+import { hollowGatePendingOperationOf, hollowGateSavedTokenMismatch, makeHollowGatePendingOperation, recoverHollowGatePendingOperation } from './_pending-operation.js';
 import { gainXp } from '../_xp-engine.js';
 import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
 import { applySoloPveUsageCosts, withSoloPveSettlementReceipt } from '../solo-pve/_settlement.js';
-import { hollowGateRunKey, HOLLOW_GATE_RUN_EXPIRED_MESSAGES, itemStackCount, rewardMultiplierForToken, type HollowGateRunToken } from './_run-token.js';
+import { HG_CLAWBACK_KEYS, hollowGateRunKey, HOLLOW_GATE_RUN_EXPIRED_MESSAGES, itemStackCount, rewardMultiplierForToken, type HollowGateRunToken } from './_run-token.js';
 import {
     hollowGateCombatBindingKey,
     hollowGatePostWinHp,
@@ -85,20 +87,18 @@ function addCountedItem(itemStacks: unknown, itemId: string, amountRaw: unknown)
     return found ? next : [...next, { itemId, count: amount }];
 }
 
-async function persistRunCombatSettlement(
-    runKey: string,
+function runAfterCombatSettlement(
     run: HollowGateRunToken,
     binding: HollowGateCombatBinding,
     receipt: CombatReceipt,
-): Promise<void> {
+): HollowGateRunToken | null {
     const encounterKey = hollowGateEncounterKey(binding.floor, binding.kind, binding.nodeId);
     const resolved = Array.isArray(run.resolvedEncounterIds) ? run.resolvedEncounterIds : [];
     const alreadyResolved = resolved.includes(encounterKey);
     const paid = receipt.reward;
     const activeIsThisFight = run.activeEncounter?.runId === binding.runId;
     if (!activeIsThisFight && !alreadyResolved) {
-        await kv.set(hollowGateCombatBindingKey(binding.runId), settleHollowGateCombatBinding(binding, receipt.won, receipt.settledAt), { ex: HOLLOW_GATE_COMBAT_TTL_SECONDS });
-        return;
+        return run;
     }
     const ledgerResult = receipt.won && !alreadyResolved
         ? creditHollowGateLedger(run, `combat:${encounterKey}`, {
@@ -128,10 +128,25 @@ async function persistRunCombatSettlement(
         rewardLedger: ledgerResult.ledger,
         serverCreditedCurrencies: ledgerResult.ledger.currencies,
     };
-    if (!receipt.won && !receipt.revived && !receipt.escaped && !receipt.petDefeat) {
-        await kv.del(runKey);
-        await retireHollowGatePresenceByRunKey(kv, runKey);
-    } else await kv.set(runKey, nextRun);
+    return !receipt.won && !receipt.revived && !receipt.escaped && !receipt.petDefeat ? null : nextRun;
+}
+
+async function persistRunCombatSettlement(
+    runKey: string, run: HollowGateRunToken, binding: HollowGateCombatBinding, receipt: CombatReceipt, token: string,
+): Promise<void> {
+    const current = await kv.get<{ character?: Record<string, unknown> }>(`save:${binding.playerName}`);
+    const proof = hollowGatePendingOperationOf(current?.character, token);
+    if (proof?.kind === 'combat' && proof.id === binding.runId) {
+        await recoverHollowGatePendingOperation(kv, runKey, run, binding.playerName, token);
+    } else {
+        // Older committed receipts predate the save-side repair proof.
+        const next = runAfterCombatSettlement(run, binding, receipt);
+        if (next) await kv.set(runKey, next);
+        else {
+            await kv.del(runKey);
+            await retireHollowGatePresenceByRunKey(kv, runKey);
+        }
+    }
     await kv.set(hollowGateCombatBindingKey(binding.runId), settleHollowGateCombatBinding(binding, receipt.won, receipt.settledAt), { ex: HOLLOW_GATE_COMBAT_TTL_SECONDS });
 }
 
@@ -158,11 +173,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const bindingKey = hollowGateCombatBindingKey(runId);
         const initialBinding = await kv.get<HollowGateCombatBinding>(bindingKey);
         if (!initialBinding || initialBinding.playerName !== playerName) return res.status(404).json({ error: 'Encounter not found.' });
+        const tokenDigest = createHash('sha256').update(token).digest('hex');
+        if (initialBinding.tokenDigest !== tokenDigest) return res.status(409).json({ error: 'The combat binding does not match this run token.' });
         const receiptKey = `hg-combat-paid:${runId}`;
 
         const runKey = hollowGateRunKey(playerName, token);
         const result = await withKvLock(runKey, async () => {
-            const [run, loadedBinding, session, storedReceipt] = await Promise.all([
+            const [loadedRun, loadedBinding, session, storedReceipt] = await Promise.all([
                 kv.get<HollowGateRunToken>(runKey),
                 kv.get<HollowGateCombatBinding>(bindingKey),
                 readSoloPveSession(runId),
@@ -170,6 +187,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ]);
             const binding = loadedBinding;
             if (!binding || binding.playerName !== playerName) return { status: 404, body: { error: 'Encounter not found.' } };
+            if (binding.tokenDigest !== tokenDigest) return { status: 409, body: { error: 'The combat binding does not match this run token.' } };
+            const run = await recoverHollowGatePendingOperation(kv, runKey, loadedRun, playerName, token);
             let existingReceipt = storedReceipt;
             if (existingReceipt) {
                 const current = await kv.get<Record<string, unknown>>(`save:${playerName}`);
@@ -183,7 +202,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     await kv.del(receiptKey);
                     existingReceipt = null;
                 } else {
-                    if (run) await persistRunCombatSettlement(runKey, run, binding, existingReceipt);
+                    if (run) await persistRunCombatSettlement(runKey, run, binding, existingReceipt, token);
                     else await kv.set(bindingKey, settleHollowGateCombatBinding(binding, existingReceipt.won, existingReceipt.settledAt), { ex: HOLLOW_GATE_COMBAT_TTL_SECONDS });
                     return { status: 200, body: {
                         ok: true,
@@ -241,6 +260,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!record || !char) return null;
                 const existing = await kv.get<CombatReceipt>(receiptKey);
                 if (existing) return { receipt: existing, character: char, saveVersion: Number(record._saveVersion ?? 0) };
+                if (hollowGateSavedTokenMismatch(char, token)) return { error: 'The saved run does not match this combat.' };
 
                 const reward = won ? hollowGateCombatReward(binding!.floor, binding!.kind, char.profession) : hollowGateCombatReward(binding!.floor, binding!.kind, undefined);
                 if (won) {
@@ -357,10 +377,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // derived from the stored character, never from the client.
                     const ledger = normalizeHollowGateLedger(run);
                     const retention = hollowGateDeathRetention(next);
-                    for (const key of ['ryo', 'auraDust', 'auraStones', 'boneCharms', 'fateShards', 'honorSeals', 'hollowShards']) {
+                    for (const key of HG_CLAWBACK_KEYS) {
                         next[key] = reconcileLedgerAmount(
                             next[key],
-                            run.entryCurrencies[key as keyof typeof run.entryCurrencies],
+                            hollowGateProtectedCurrencyBaseline(next, token, key, run.entryCurrencies[key]),
                             ledger.currencies[key as keyof typeof ledger.currencies],
                             retention,
                         );
@@ -387,23 +407,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ? (next.settledHollowGateCombatIds as unknown[]).filter((id): id is string => typeof id === 'string')
                     : [];
                 next.settledHollowGateCombatIds = [...settledIds.filter((id) => id !== runId).slice(-199), runId];
-
-                try {
-                    const updated: Record<string, unknown> = bumpSaveVersion({
-                        ...record,
-                        ...(exactRiftBinding ? { activeRiftQuestSeal: exactRiftBinding.seal } : {}),
-                        character: next,
-                    });
-                    await kv.set(saveKey, mergePreservingImages(updated, record));
-                    return { receipt, character: next, saveVersion: Number(updated._saveVersion ?? 0) };
-                } catch (error) {
-                    await kv.del(receiptKey).catch(() => undefined);
-                    throw error;
-                }
+                next.hollowGatePendingOperation = makeHollowGatePendingOperation({
+                    token, kind: 'combat', id: runId, before: run, after: runAfterCombatSettlement(run, binding, receipt),
+                    response: { ok: true, won, revived, escaped, petDefeat, reward: receipt.reward, elementalShards },
+                });
+                // Retain the receipt when commitment is uncertain. Retry checks
+                // the server-owned applied IDs before deciding whether to pay.
+                const updated = await writeVersionedPlayerSaveWithStore(kv, saveKey, record, next,
+                    exactRiftBinding ? { activeRiftQuestSeal: exactRiftBinding.seal } : {},
+                    { hollowGateCurrencySource: 'run' });
+                return { receipt, character: updated.record.character as Record<string, unknown>, saveVersion: updated._saveVersion };
             }, { failClosed: true, ttlSec: 10 });
             if (!banked) return { status: 404, body: { error: 'Player save not found.' } };
+            if ('error' in banked) return { status: 409, body: { error: banked.error } };
 
-            await persistRunCombatSettlement(runKey, run, binding, banked.receipt);
+            await persistRunCombatSettlement(runKey, run, binding, banked.receipt, token);
 
             if (binding.combatMode === 'solo-pve' && session?.status === 'done' && session.settlementState !== 'settled') {
                 await writeSoloPveSession(withSoloPveSettlementReceipt(session, {

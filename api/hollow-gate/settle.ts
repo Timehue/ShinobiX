@@ -1,12 +1,14 @@
+import { recoverHollowGatePendingOperation } from './_pending-operation.js';
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors, safeName, mergePreservingImages } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { retireHollowGatePresenceByRunKey } from './_presence.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { writeVersionedPlayerSaveWithStore } from '../save/_mutate-player-save.js';
+import { hollowGateProtectedCurrencyBaseline } from './_external-credits.js';
 import {
     HG_CLAWBACK_KEYS,
     HG_HIGH_VALUE_ITEM_ID,
@@ -66,7 +68,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const runKey = hollowGateRunKey(playerName, token);
         return await withKvLock(runKey, async () => {
-        const run = await kv.get<HollowGateRunToken>(runKey);
+        const run = await recoverHollowGatePendingOperation(kv, runKey, await kv.get<HollowGateRunToken>(runKey), playerName, token);
         // Graceful: a stale client (or SESSION_SECRET unset re-mint) just gets a
         // no-op — never a save-breaking error (token-first invariant).
         if (!run) {
@@ -170,17 +172,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (redeemedRuns.includes(token)) {
                 return { ok: true as const, alreadyReported: true as const, character: c, _saveVersion: Number(fresh._saveVersion ?? 0) };
             }
+            const activeToken = c.hollowGateRun && typeof c.hollowGateRun === 'object'
+                ? (c.hollowGateRun as Record<string, unknown>).runToken : null;
+            if (activeToken && activeToken !== token) {
+                return { ok: false as const, conflict: true as const, character: c, _saveVersion: Number(fresh._saveVersion ?? 0) };
+            }
             let next: Record<string, unknown> = { ...c };
             const retention = outcome === 'death' ? hollowGateDeathRetention(c) : 1;
             for (const k of HG_CLAWBACK_KEYS) {
+                const protectedBaseline = hollowGateProtectedCurrencyBaseline(c, token, k, run.entryCurrencies[k]);
                 const value = reconcileLedgerAmount(
                     c[k],
-                    run.entryCurrencies[k],
+                    protectedBaseline,
                     ledger.currencies[k],
                     retention,
                 );
                 next[k] = value;
-                credited[k] = Math.max(0, value - num(run.entryCurrencies[k]));
+                credited[k] = Math.max(0, value - protectedBaseline);
             }
             for (const itemId of HOLLOW_GATE_LEDGER_ITEM_IDS) {
                 const current = itemStackCount(next.itemStacks, itemId);
@@ -202,20 +210,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 next.hospitalizedUntil = now + HOLLOW_GATE_HOSPITAL_MS;
             }
             next.hollowGateRun = null;
+            next.hollowGatePendingOperation = null;
             delete next.lastHollowGateStart;
             next.redeemedHollowGateRuns = [...redeemedRuns.slice(-99), token];
             fragmentsClampedTo = itemStackCount(next.itemStacks, HG_HIGH_VALUE_ITEM_ID);
-            const updated: Record<string, unknown> = bumpSaveVersion({ ...fresh, character: next });
-            await kv.set(saveKey, mergePreservingImages(updated, fresh));
+            const updated = await writeVersionedPlayerSaveWithStore(kv, saveKey, fresh, next, {}, { hollowGateCurrencySource: 'run' });
             return {
                 ok: true as const,
                 alreadyReported: false as const,
-                character: next,
-                _saveVersion: Number(updated._saveVersion ?? 0),
+                character: updated.record.character as Record<string, unknown>,
+                _saveVersion: updated._saveVersion,
             };
         }, { failClosed: true });
 
-        if (!result.ok) return res.status(404).json({ error: 'Your save was not found.' });
+        if (!result.ok) return res.status('conflict' in result ? 409 : 404).json({
+            error: 'conflict' in result ? 'This Hollow Gate token does not match your active dive.' : 'Your save was not found.',
+        });
 
         // Deliver the sidecar proof BEFORE consuming the run token. The player
         // save receipt above makes settlement replayable; a stable Legacy

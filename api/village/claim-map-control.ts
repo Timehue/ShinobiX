@@ -141,7 +141,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // once/day via the NX marker above). See _village-merit.ts.
                     villageMerit: meritNum(char.villageMerit) + MERIT_MAP_CONTROL,
                 };
-                const next = bumpSaveVersion({ ...rec, character: nextChar });
+                const next = bumpSaveVersion({ ...rec, character: nextChar }, { previousCharacter: char });
                 await kv.set(`save:${playerName}`, mergePreservingImages(next, rec));
                 return {
                     alreadyClaimed: false,

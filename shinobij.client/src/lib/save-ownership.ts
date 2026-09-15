@@ -37,7 +37,9 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     // Stats & progression ledger
     'xp', 'experience', 'stats', 'unspentStats', 'totalStatsTrained', 'rankTitle',
     'auraSphereLevel', 'hollowGateAttunement', 'rankedRating', 'petRankedRating',
-    'rankedSeasonSettlementReceipts', 'serverSettlementReceipts', 'pvpRewardSettlementReceipts', 'petRankedSettlementStamp',
+    'rankedSeasonSettlementReceipts', 'serverSettlementReceipts', 'hollowGateExternalCredits', 'pvpRewardSettlementReceipts', 'petRankedSettlementStamp',
+    'settledHollowGateEventIds', 'settledHollowGateCombatIds',
+    'hollowGatePendingOperation',
     'playerRankedSettlementStamp', 'vanguardRewardSettlementStamp', 'patreon',
     'weaponElements', 'petBreeding', 'petBreedingMigrationVersion', 'petBreedingReceipts',
     'petBreedingHatchReceipts', 'petBreedingProgressReceipts', 'miraaWagerDate',
@@ -75,6 +77,7 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     // Village Stores daily cook/donate counters (api/village-stores/*).
     'rationsCookedDate', 'rationsCookedToday', 'storesDonatedDate', 'rationsDonatedToday',
     'craftPointsDonatedToday',
+    'sunscarExchangeReceipts',
     // Server array ledgers
     'redeemedTrainingTokens', 'redeemedJutsuTrainingActions', 'redeemedAiFightRewards',
     'aiFightRewardSettlements', 'combatMissionClaimSettlements', 'worldAiChainWins',

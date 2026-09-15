@@ -135,7 +135,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
             const nextRecord: WeeklyRecord = { baseline: record.baseline, claimed: [...record.claimed, mission.id] };
             await kv.set(key, nextRecord, { ex: RECORD_TTL_SECONDS } as never);
-            const updatedSave = bumpSaveVersion({ ...save, character: nextChar });
+            const updatedSave = bumpSaveVersion({ ...save, character: nextChar }, { previousCharacter: char });
             await kv.set(`save:${playerName}`, mergePreservingImages(updatedSave, save));
             return { status: 200, body: {
                 ok: true,

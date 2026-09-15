@@ -476,7 +476,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const updated = bumpSaveVersion({
                     ...record,
                     character: progressedCharacter,
-                });
+                }, { previousCharacter: char });
                 await kv.set(saveKey, mergePreservingImages(updated, record));
                 if (expeditionTokenKey) await kv.del(expeditionTokenKey).catch(() => undefined);
             }, { failClosed: true });

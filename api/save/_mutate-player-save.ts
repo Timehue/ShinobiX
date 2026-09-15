@@ -5,6 +5,7 @@ import type { KvLike } from '../_storage.js';
 import { WORLD_CRISIS_TRIGGER_LEVEL } from '../../shared/world-crisis.js';
 import { WORLD_CRISIS_80_TRIGGER_LEVEL } from '../../shared/world-crisis-80.js';
 import { reconcileElderFocus } from '../village/_elders.js';
+import type { HollowGateCurrencySource } from '../hollow-gate/_external-credits.js';
 
 export type PlayerSaveRecord = Record<string, unknown>;
 export type PlayerCharacter = Record<string, unknown>;
@@ -28,6 +29,8 @@ export type PlayerSaveMutationResult<T> =
 export type VersionedWriteOptions = {
     /** The regeneration cursor to carry (see bumpSaveVersion); omitted = fence to now. */
     regenAt?: number;
+    /** Run rewards are already recorded in the run ledger; sanctify absorbs the external baseline. */
+    hollowGateCurrencySource?: HollowGateCurrencySource;
 };
 
 export function versionedPlayerRecord(
@@ -36,7 +39,9 @@ export function versionedPlayerRecord(
     recordPatch: PlayerSaveRecord = {},
     opts: VersionedWriteOptions = {},
 ): { record: PlayerSaveRecord; _saveVersion: number } {
-    const record: PlayerSaveRecord = bumpSaveVersion<PlayerSaveRecord>({ ...currentRecord, ...recordPatch, character: creditElderWinDeltas((currentRecord.character ?? {}) as PlayerCharacter, nextCharacter) }, opts);
+    const record: PlayerSaveRecord = bumpSaveVersion<PlayerSaveRecord>({ ...currentRecord, ...recordPatch, character: creditElderWinDeltas((currentRecord.character ?? {}) as PlayerCharacter, nextCharacter) }, {
+        ...opts, previousCharacter: (currentRecord.character ?? {}) as PlayerCharacter,
+    });
     return { record, _saveVersion: Number(record._saveVersion ?? 0) };
 }
 

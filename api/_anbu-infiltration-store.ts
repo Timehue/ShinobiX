@@ -428,7 +428,7 @@ export async function settleInfiltrationWin(
                     },
                     settledAt: t,
                 });
-                const next = bumpSaveVersion({ ...rec, character: nextChar });
+                const next = bumpSaveVersion({ ...rec, character: nextChar }, { previousCharacter: char });
                 await kv.set(saveKey, mergePreservingImages(next as Record<string, unknown>, rec));
                 return { replayed: false as const, lost, saveVersion: num((next as Record<string, unknown>)._saveVersion), character: nextChar };
             }, { failClosed: true });

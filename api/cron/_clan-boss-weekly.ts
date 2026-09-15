@@ -187,7 +187,7 @@ async function creditMemberRewards(progress: ClanBossProgress, weekId: string): 
                 // Keep the last few weeks only — this is a dedupe ledger, not history.
                 clanBossWeeksPaid: [...claimed, weekId].slice(-8),
             };
-            const versioned = bumpSaveVersion<Record<string, unknown>>({ ...rec, character: nextChar });
+            const versioned = bumpSaveVersion<Record<string, unknown>>({ ...rec, character: nextChar }, { previousCharacter: character });
             await kv.set(saveKey, mergePreservingImages(versioned, rec));
             return true;
         }, { failClosed: true });

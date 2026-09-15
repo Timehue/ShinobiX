@@ -1,3 +1,4 @@
+import { hollowGateSavedTokenMismatch, recoverHollowGatePendingOperation } from './_pending-operation.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { isIncapacitated } from '../_elapsed-state.js';
 import { kv } from '../_storage.js';
@@ -55,9 +56,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const runKey = hollowGateRunKey(playerName, token);
         const outcome = await withKvLock<StartOutcome>(runKey, async () => {
-            const run = await kv.get<HollowGateRunToken>(runKey);
+            const run = await recoverHollowGatePendingOperation(kv, runKey, await kv.get<HollowGateRunToken>(runKey), playerName, token);
             if (!run) return { status: 409, body: { error: HOLLOW_GATE_RUN_EXPIRED_MESSAGES.combatStart } };
             if (run.playerName !== playerName) return { status: 403, body: { error: 'Not your run.' } };
+            const currentSave = await kv.get<{ character?: Record<string, unknown> }>(`save:${playerName}`);
+            if (currentSave?.character && hollowGateSavedTokenMismatch(currentSave.character, token)) {
+                return { status: 409, body: { error: 'This Hollow Gate token does not match your active dive.' } };
+            }
             if (!run.chosenAugmentId) return { status: 409, body: { error: 'Choose the sealed augment before entering combat.' } };
             // One-time migration for runs minted before currentFloor was sealed:
             // adopt the client's already-saved floor, then persist it below.

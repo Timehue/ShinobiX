@@ -397,7 +397,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // already closes that on the online raid door; this is the other one.
             if (rewardEligible || attackerShielded) {
                 updatedAttacker = creditElderWinDeltas(aChar, updatedAttacker);
-                const attackerRecord = bumpSaveVersion({ ...aRec, character: updatedAttacker });
+                const attackerRecord = bumpSaveVersion({ ...aRec, character: updatedAttacker }, { previousCharacter: aChar });
                 // Hand the bumped version back so the caller can ADOPT it. Without
                 // it the open tab keeps its pre-KO version, and the recovery is the
                 // slow one bumpSaveVersion documents: the next autosave 409s and

@@ -1002,13 +1002,27 @@ async function hoverTarget(page: Page, kind: HoverTarget, scrollIntoView: boolea
     expect(target, `a ${kind} with its own hit target must be reachable`).not.toBeNull();
     const rest = await hoverPaint(page, target!.selector);
     expect(rest.hovered, `${target!.label} must start outside :hover`).toBe(false);
-    await page.mouse.move(target!.x, target!.y);
     let hovered = rest.paint;
-    await expect.poll(async () => {
-        const sample = await hoverPaint(page, target!.selector);
-        hovered = sample.paint;
-        return sample.hovered;
-    }, { message: `${target!.label} must be under :hover when it is measured, or this test proves nothing` }).toBe(true);
+    const samples: Array<{ x: number; y: number; hovered: boolean; paint: typeof rest.paint }> = [];
+    try {
+        await expect.poll(async () => {
+            // Boot layout can re-fit the camera after exposedTarget found the
+            // pin. Aim where it is now, as the desktop zoom-hover test does;
+            // polling paint at a stale mouse position can never establish hover.
+            const box = await page.locator(target!.selector).boundingBox();
+            expect(box, `${target!.label} must retain a measurable hit target`).not.toBeNull();
+            const point = { x: box!.x + box!.width / 2, y: box!.y + box!.height / 2 };
+            await page.mouse.move(point.x, point.y);
+            const sample = await hoverPaint(page, target!.selector);
+            samples.push({ ...point, ...sample });
+            hovered = sample.paint;
+            return sample.hovered;
+        }, { message: `${target!.label} must be under :hover when it is measured, or this test proves nothing` }).toBe(true);
+    } finally {
+        writeFileSync(test.info().outputPath(`hover-${kind.replaceAll(" ", "-")}.json`), JSON.stringify({
+            label: target!.label, foundAt: { x: target!.x, y: target!.y }, rest, samples,
+        }, null, 2));
+    }
     await page.mouse.move(0, 0);
     return { label: target!.label, rest: rest.paint, hovered };
 }

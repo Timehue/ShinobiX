@@ -158,7 +158,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const c = (r?.character ?? null) as Record<string, unknown> | null;
                     if (!r || !c) return {};
                     const character = { ...c, honorSeals: num(c.honorSeals) + payout.seals, clanEventContrib: num(c.clanEventContrib) + payout.contrib };
-                    const nextRecord = bumpSaveVersion({ ...r, character });
+                    const nextRecord = bumpSaveVersion({ ...r, character }, { previousCharacter: c });
                     await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, r));
                     return { character, _saveVersion: Number(nextRecord._saveVersion ?? 0) };
                 }, { failClosed: true });
@@ -167,7 +167,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 await withKvLock<void>(`save:${studentName}`, async () => {
                     const r = await kv.get<Record<string, unknown>>(`save:${studentName}`);
                     const c = (r?.character ?? null) as Record<string, unknown> | null;
-                    if (r && c) await kv.set(`save:${studentName}`, mergePreservingImages(bumpSaveVersion({ ...r, character: { ...c, ryo: num(c.ryo) + payout.studentRyo } }), r));
+                    if (r && c) await kv.set(`save:${studentName}`, mergePreservingImages(bumpSaveVersion({ ...r, character: { ...c, ryo: num(c.ryo) + payout.studentRyo } }, { previousCharacter: c }), r));
                 }, { failClosed: true });
 
                 return {

@@ -166,7 +166,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     riftQuestBossReceipt: null,
                     riftFirstClears,
                 };
-                const nextRecord = bumpSaveVersion({ ...rec, activeRiftQuestSeal: null, character: updated });
+                const nextRecord = bumpSaveVersion({ ...rec, activeRiftQuestSeal: null, character: updated }, { previousCharacter: char });
                 await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
                 return {
                     status: 200,

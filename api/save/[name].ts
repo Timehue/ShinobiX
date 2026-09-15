@@ -28,6 +28,7 @@ import { isKnownEarnedTitle, appendCustomTitleLog } from '../_titles-registry.js
 import { legacyEnabled } from '../_legacy-track.js';
 import { clientRyoDecreaseAllowed } from '../_release-flags.js';
 import { parseBaseSaveVersion, saveVersionTelemetryKey, isVersionlessPlayerSave, matchesStoredSaveVersion, nextSaveVersion, storedSaveVersion } from './_save-version.js';
+import { recordHollowGateExternalCredits } from '../hollow-gate/_external-credits.js';
 import { shouldWriteRegistry } from './_registry-throttle.js';
 import { deletePlayerFirstPactState, detachPlayerReferences } from '../_delete-player-account.js';
 import { ClanDissolutionForbiddenError, dissolveClanUnderLock } from '../clan/_dissolve.js';
@@ -1322,6 +1323,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         _saveAt: Date.now(),
                         _regenAt: Date.now(),
                     };
+                    const adminCharacter = (payload as Record<string, unknown>).character;
+                    if (adminCharacter && typeof adminCharacter === 'object' && !Array.isArray(adminCharacter)) {
+                        // Derive credits from the locked wallet delta; a stale editor
+                        // snapshot must not replace the current run's provenance.
+                        (payload as Record<string, unknown>).character = recordHollowGateExternalCredits(
+                            ((existing as Record<string, unknown> | null)?.character ?? {}) as Record<string, unknown>,
+                            adminCharacter as Record<string, unknown>,
+                        );
+                    }
                     // This path skips sanitizeCharacterSave entirely, so apply the
                     // admin-slot rule here too: personal forged gear is never shared
                     // content, no matter which write path put it there.

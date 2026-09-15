@@ -11,11 +11,15 @@
 .sx-hall *, .sx-dialog *, .sunscar-exchange-entrance * { box-sizing: border-box; }
 .sx-hall h1, .sx-hall h2, .sx-hall h3, .sx-dialog h3 { font-family: Georgia, 'Times New Roman', serif; font-weight: 400; border: 0; padding: 0; color: #eee8d9; }
 .sx-hall button, .sx-dialog button { font: 500 13px/1.4 system-ui, sans-serif; min-height: 42px; box-shadow: none; background: #1c2d29; border: 1px solid #71877b55; border-radius: 5px; color: #e3e9dd; padding: 9px 14px; cursor: pointer; transition: background .15s, border-color .15s; text-shadow: none; }
-.sx-hall button:hover:not(:disabled), .sx-dialog button:hover:not(:disabled) { background: #2c4037; border-color: #c5ad76; }
+@media (hover: hover) {
+    .sx-hall button:hover:not(:disabled), .sx-dialog button:hover:not(:disabled) { background: #2c4037; border-color: #c5ad76; }
+}
 .sx-hall button:disabled, .sx-dialog button:disabled { opacity: .5; cursor: not-allowed; }
 .sx-hall :focus-visible, .sx-dialog :focus-visible, .sunscar-exchange-entrance :focus-visible { outline: 2px solid #f3d796; outline-offset: 3px; }
 .sx-hall .sx-primary, .sx-dialog .sx-primary, .sunscar-exchange-entrance .sx-primary { background: linear-gradient(110deg, #e5c891, #c09b57); border: 1px solid #f0d5a0; color: #20271d; font: 700 13px/1.5 system-ui, sans-serif; padding: 12px 16px; border-radius: 5px; min-height: 44px; box-shadow: 0 3px 0 #090e1244; text-shadow: none; cursor: pointer; }
-.sx-hall .sx-primary:hover:not(:disabled), .sx-dialog .sx-primary:hover:not(:disabled), .sunscar-exchange-entrance .sx-primary:hover { background: #eed8aa; color: #13241b; }
+@media (hover: hover) {
+    .sx-hall .sx-primary:hover:not(:disabled), .sx-dialog .sx-primary:hover:not(:disabled), .sunscar-exchange-entrance .sx-primary:hover { background: #eed8aa; color: #13241b; }
+}
 .sunscar-exchange-entrance .sx-primary { width: 100%; display: flex; justify-content: space-between; }
 .sx-hero { min-height: 300px; position: relative; background-size: cover; background-position: center 55%; padding: 20px 32px 0; border-bottom: 1px solid #c3a16670; }
 .sx-hall .sx-back { border: 0; background: transparent; min-height: 32px; padding: 0; color: #bfcab7; font-size: 12px; }

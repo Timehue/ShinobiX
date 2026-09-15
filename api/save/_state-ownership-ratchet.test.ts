@@ -260,7 +260,7 @@ describe('boundary consistency', () => {
 
     it('always-ledger is a subset of strict-ledger except explicit non-numeric vault fields', () => {
         const strict = new Set(STRICT_SERVER_LEDGER_CHARACTER_FIELDS);
-        const vaultOnly = new Set(['serverSettlementReceipts', 'patreon', 'weaponElements']);
+        const vaultOnly = new Set(['serverSettlementReceipts', 'hollowGateExternalCredits', 'patreon', 'weaponElements']);
         for (const field of ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS) {
             assert.ok(strict.has(field) || vaultOnly.has(field), `${field} always-ledger but not strict — reconcile`);
         }

@@ -201,7 +201,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!rec || !char) return { error: 'no-save' as const };
                 const applied = applyAgendaPersonalReward(char, date);
                 const nextChar = applied.character;
-                const next = bumpSaveVersion({ ...rec, character: nextChar });
+                const next = bumpSaveVersion({ ...rec, character: nextChar }, { previousCharacter: char });
                 if (!applied.alreadyClaimed) await kv.set(`save:${playerName}`, mergePreservingImages(next, rec));
                 return {
                     alreadyClaimed: applied.alreadyClaimed,

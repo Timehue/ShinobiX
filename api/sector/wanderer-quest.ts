@@ -186,7 +186,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     body.cooldownUntil = used.cooldownUntil;
                     body.moveToSector = used.moveToSector;
                 }
-                const nextRecord = bumpSaveVersion({ ...rec, activeWandererQuestSeal: null, character: updated });
+                const nextRecord = bumpSaveVersion({ ...rec, activeWandererQuestSeal: null, character: updated }, { previousCharacter: char });
                 await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
                 await kv.del(questKey).catch(() => undefined);
                 body.character = updated;
