@@ -34,7 +34,8 @@ import { announce } from '../_announce.js';
  */
 
 const SESSION_REPLAY_WINDOW_MS = 2 * 60 * 60 * 1000;
-const CLAIM_TTL_SECONDS = 24 * 60 * 60;
+// Match the PvP completion receipt so a lost ACK can still show the paid amount.
+const CLAIM_TTL_SECONDS = 48 * 60 * 60;
 
 function num(v: unknown): number {
     const n = Number(v);
@@ -67,6 +68,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         if (!identity.admin && !(await enforceRateLimitKv(req, res, `pvp-bounty-${action}`, 20, 60_000, identity.name))) return;
         const now = Date.now();
+
+        if (action === 'receipt') {
+            const battleId = typeof body.battleId === 'string' ? body.battleId.trim() : '';
+            if (!battleId) return res.status(400).json({ error: 'Missing battleId.' });
+            const session = await kv.get<PvpSession>(`pvp:${battleId}`) ?? await loadPvpRewardRecoverySnapshot(kv, battleId);
+            if (!session || session.status !== 'done' || !session.winner || session.winner === 'draw' || !pvpSessionMayGrantProgress(session)) {
+                return res.status(404).json({ error: 'No confirmed battle receipt.' });
+            }
+            const winner = session.winner === 'p1' ? session.p1.name : session.p2.name;
+            if (safeName(winner) !== playerName) return res.status(403).json({ error: 'Only the winner can read this bounty receipt.' });
+            const receipt = await kv.get<{ amount?: number; target?: string }>(`pvp:bounty-claimed:${battleId}`);
+            res.setHeader('Cache-Control', 'no-store');
+            return res.status(200).json({ ok: true, amount: receipt?.amount ?? 0, target: receipt?.target });
+        }
 
         // ── PLACE ────────────────────────────────────────────────────────────
         if (action === 'place') {
@@ -211,13 +226,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!pvpSessionMayGrantProgress(session)) {
                 return res.status(403).json({ error: 'That battle was not a mutually joined, sanctioned PvP match.' });
             }
-            if (now - num(session.createdAt) > SESSION_REPLAY_WINDOW_MS) {
-                return res.status(409).json({ error: 'That battle is too old to claim a bounty.' });
-            }
             const winnerName = (session.winner === 'p1' ? session.p1.name : session.p2.name) ?? '';
             const loserName = (session.winner === 'p1' ? session.p2.name : session.p1.name) ?? '';
             if (!identity.admin && safeName(winnerName) !== playerName) {
                 return res.status(403).json({ error: 'Only the winner of that battle can claim its bounty.' });
+            }
+            // A completed payout can be read back for the result panel without
+            // reopening the two-hour window for a new claim.
+            const priorReceipt = await kv.get<{ amount?: number; target?: string; balances?: { ryo: number } }>(`pvp:bounty-claimed:${battleId}`);
+            if (priorReceipt?.amount && priorReceipt.balances) return res.status(200).json({ ok: true, alreadyClaimed: true, ...priorReceipt });
+            if (now - num(session.createdAt) > SESSION_REPLAY_WINDOW_MS) {
+                return res.status(409).json({ error: 'That battle is too old to claim a bounty.' });
             }
 
             const out = await withKvLock<{ status: number; body: unknown; paid?: number }>(BOUNTY_KEY, async () => {
@@ -227,7 +246,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // never leave the receipt placed while the winner goes unpaid and
                 // a retry short-circuits to alreadyClaimed.
                 const placed = await kv.set(`pvp:bounty-claimed:${battleId}`, { ts: now }, { nx: true, ex: CLAIM_TTL_SECONDS } as never);
-                if (!placed) return { status: 200, body: { ok: true, alreadyClaimed: true, amount: 0 } };
+                if (!placed) {
+                    const receipt = await kv.get<{ amount?: number; target?: string; balances?: { ryo: number } }>(`pvp:bounty-claimed:${battleId}`);
+                    return { status: 200, body: { ok: true, alreadyClaimed: true, amount: 0, ...(receipt?.amount && receipt.balances ? receipt : {}) } };
+                }
                 const board = normalizeBoard(await kv.get<BountyBoard>(BOUNTY_KEY));
                 const result = claimBounty(board, loserName);
                 if (!result.ok) return { status: 200, body: { ok: true, amount: 0 } }; // no bounty on the loser — harmless no-op
@@ -262,6 +284,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return { status: 404, body: { error: 'Your save was not found.' } };
                 }
                 await kv.set(BOUNTY_KEY, result.board);
+                await kv.set(`pvp:bounty-claimed:${battleId}`, { ts: now, amount: result.amount, target: loserName, balances: { ryo: credit.balance } }, { ex: CLAIM_TTL_SECONDS }).catch(() => undefined);
                 return { status: 200, body: { ok: true, amount: result.amount, target: loserName, balances: { ryo: credit.balance }, _saveVersion: credit.saveVersion }, paid: result.amount };
             }, { failClosed: true });
 

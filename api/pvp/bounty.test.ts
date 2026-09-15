@@ -133,6 +133,21 @@ test('collecting a bounty heralds Bounty Collected exactly once per battle', asy
     const second = await call(HUNTER, { action: 'claim', battleId });
     assert.equal(second.statusCode, 200, JSON.stringify(second.body));
     assert.equal(second.body?.alreadyClaimed, true);
+    assert.equal(second.body?.amount, 2_000, 'the settled amount is replayed for the battle result');
+    assert.deepEqual(second.body?.balances, first.body?.balances);
+    const saveAfterReplay = await kv.get<{ character: { ryo: number } }>(`save:${HUNTER}`);
+    assert.equal(saveAfterReplay?.character.ryo, 2_100, 'reading the receipt cannot pay twice');
+    const readOnly = await call(HUNTER, { action: 'receipt', battleId });
+    assert.equal(readOnly.statusCode, 200, JSON.stringify(readOnly.body));
+    assert.equal(readOnly.body?.amount, 2_000);
+    assert.equal((await call(TARGET, { action: 'receipt', battleId })).statusCode, 403, 'the loser cannot inspect the winner payout');
+    assert.equal((await kv.get<{ character: { ryo: number } }>(`save:${HUNTER}`))?.character.ryo, 2_100);
+
+    const session = await kv.get<Record<string, unknown>>(`pvp:${battleId}`);
+    await kv.set(`pvp:${battleId}`, { ...session, createdAt: Date.now() - 2 * 60 * 60 * 1_000 - 1 });
+    const lateReplay = await call(HUNTER, { action: 'claim', battleId });
+    assert.equal(lateReplay.statusCode, 200, JSON.stringify(lateReplay.body));
+    assert.equal(lateReplay.body?.amount, 2_000, 'the settled receipt remains readable after the new-claim window closes');
 
     const posts = await feedOf('bounty_claimed');
     assert.equal(posts.length, 1, JSON.stringify(posts));

@@ -1,3 +1,5 @@
+import React from "react";
+
 export type PvpBattleOutcome = "victory" | "defeat" | "draw" | "escaped" | "spectator";
 export type PvpSettlementState = "idle" | "claiming" | "failed" | "confirmed";
 
@@ -8,6 +10,7 @@ type Props = {
     isSpectator: boolean;
     settlementState: PvpSettlementState;
     settlementNotice: string;
+    impactLines: readonly string[];
     settlementError: string;
     onRetrySettlement: () => void;
     onViewBattleLog: () => void;
@@ -42,6 +45,13 @@ export function PvpBattleResultPanel(p: Props) {
                             : failed ? "Reward details will appear after settlement succeeds."
                                 : "Calculating official rewards…"}</p>
                 </section>
+
+                {confirmed && !p.isSpectator && p.impactLines.length > 0 ? (
+                    <section className="pvp-result-impact" aria-label="Battle impact">
+                        <b>What changed</b>
+                        {p.impactLines.map((line) => <p key={line}>{line}</p>)}
+                    </section>
+                ) : null}
 
                 <div className={"pvp-result-settlement" + (failed ? " is-failed" : "")}
                     role={failed ? "alert" : "status"}>

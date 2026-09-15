@@ -17,6 +17,7 @@ import { EmptyState } from "../components/ui/EmptyState";
 // and destination artwork instead of repeating the same chrome glyphs.
 import { GameIcon } from "../components/icons/GameIcon";
 import { rewardSummary, statPointNote } from "../lib/currency";
+import { ClaimImpactNotice } from "../components/ClaimImpactNotice";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { dailyMissionsCompleted, hasDailyMissionSlot } from "../lib/character-progress";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
@@ -114,6 +115,7 @@ export function Missions({
     // flight together can both pass hasDailyMissionSlot.
     const claimInFlightRef = useRef(false);
     const [claimingKey, setClaimingKey] = useState<string | null>(null);
+    const [lastClaim, setLastClaim] = useState<{ title: string; reward: string } | null>(null);
     const runClaim = useCallback(async (key: string, claim: () => Promise<void>) => {
         if (claimInFlightRef.current) return;
         claimInFlightRef.current = true;
@@ -265,7 +267,7 @@ export function Missions({
             return alert(claimReasonMessage(result.reason));
         }
         if (!applySuccessfulMissionClaim(result)) return;
-        alert(`${mission.name} complete! ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character)}.`);
+        setLastClaim({ title: mission.name, reward: `${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character)}` });
     }
     // Onboarding "Academy Trial" — a one-time, server-authoritative, off-the-daily-cap
     // reward that teaches the do→return→claim loop. Sets academyTrialClaimed, which
@@ -340,7 +342,7 @@ export function Missions({
             if (!applySuccessfulMissionClaim(result)) return;
             setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
             setMissionProgress((prev) => ({ ...prev, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 }));
-            alert(`${mission.name} complete. ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character)}.`);
+            setLastClaim({ title: mission.name, reward: `${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character)}` });
             return;
         }
         if (result.applied === false) {
@@ -407,6 +409,7 @@ export function Missions({
     return (
         <div className="card mission-hall">
             <BackToVillageButton onClick={onBack} label="← Back" />
+            {lastClaim && <ClaimImpactNotice {...lastClaim} onClose={() => setLastClaim(null)} />}
             {/* -- Header -- */}
             <div
                 className="mh-header"

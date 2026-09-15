@@ -858,6 +858,15 @@ test.describe("Awakening Stone cinematic", () => {
     // used to set was silently ignored.
     test.use({ contextOptions: { reducedMotion: "no-preference" } });
 
+    function expectAwakeningRuntimeClean(errors: string[], saveConflicts: number, label: string) {
+        // A save captured before the server-owned roll may reach the stub after
+        // its version advances. The 409 is the expected stale-save rejection;
+        // keep every other runtime error visible to these cinematic checks.
+        const conflictErrors = errors.filter((message) => /status of 409 \(Conflict\)/i.test(message));
+        expect(conflictErrors.length, label).toBeLessThanOrEqual(saveConflicts);
+        expect(errors.filter((message) => !/status of 409 \(Conflict\)/i.test(message)), label).toEqual([]);
+    }
+
     test("reveals a newly awakened element returned by the server", async ({ page }) => {
         const runtimeErrors = collectRuntimeErrors(page);
         const initialSave = uiAuditSave();
@@ -873,17 +882,20 @@ test.describe("Awakening Stone cinematic", () => {
 
         await page.route("**/api/awakening/roll", async (route) => {
             requestedKind = String((route.request().postDataJSON() as { kind?: string }).kind ?? "");
+            const character = {
+                ...initialCharacter,
+                element: "Lightning",
+                elements: ["Lightning"],
+                claimedAwakenings: ["awakening-free-lv2"],
+            };
+            const saveVersion = runtime.currentVersion() + 1;
+            runtime.commitServerCharacter(character, saveVersion);
             await route.fulfill({
                 status: 200,
                 contentType: "application/json",
                 body: JSON.stringify({
-                    character: {
-                        ...initialCharacter,
-                        element: "Lightning",
-                        elements: ["Lightning"],
-                        claimedAwakenings: ["awakening-free-lv2"],
-                    },
-                    _saveVersion: 2,
+                    character,
+                    _saveVersion: saveVersion,
                 }),
             });
         });
@@ -902,7 +914,7 @@ test.describe("Awakening Stone cinematic", () => {
             "/assets/awakening-element-lightning-v1.webp",
         );
         expect(requestedKind).toBe("awakening-free-lv2");
-        expect(runtimeErrors, "Awakening reveal emitted runtime errors").toEqual([]);
+        expectAwakeningRuntimeClean(runtimeErrors, runtime.saveConflictCount(), "Awakening reveal emitted runtime errors");
 
     });
 
@@ -931,17 +943,20 @@ test.describe("Awakening Stone cinematic", () => {
                 });
                 return;
             }
+            const character = {
+                ...initialCharacter,
+                element: "Fire",
+                elements: ["Fire", "Wind"],
+                fateShards: Number(initialCharacter.fateShards) - 10,
+            };
+            const saveVersion = runtime.currentVersion() + 1;
+            runtime.commitServerCharacter(character, saveVersion);
             await route.fulfill({
                 status: 200,
                 contentType: "application/json",
                 body: JSON.stringify({
-                    character: {
-                        ...initialCharacter,
-                        element: "Fire",
-                        elements: ["Fire", "Wind"],
-                        fateShards: Number(initialCharacter.fateShards) - 10,
-                    },
-                    _saveVersion: 2,
+                    character,
+                    _saveVersion: saveVersion,
                 }),
             });
         });
@@ -979,7 +994,7 @@ test.describe("Awakening Stone cinematic", () => {
         );
         await expect(cinematic.locator(".ca-sigil img")).toHaveJSProperty("complete", true);
         expect(requestedKind).toBe("paid-single");
-        expect(runtimeErrors, "Awakening reroll reveal emitted runtime errors").toEqual([]);
+        expectAwakeningRuntimeClean(runtimeErrors, runtime.saveConflictCount(), "Awakening reroll reveal emitted runtime errors");
 
         if (process.env.UI_AUDIT_CAPTURE === "1") {
             await page.waitForTimeout(1_350);
@@ -1007,17 +1022,20 @@ test.describe("Awakening Stone cinematic", () => {
 
         await page.route("**/api/awakening/roll", async (route) => {
             requestedKind = String((route.request().postDataJSON() as { kind?: string }).kind ?? "");
+            const character = {
+                ...initialCharacter,
+                element: "Earth",
+                elements: ["Earth", "Lightning"],
+                fateShards: Number(initialCharacter.fateShards) - 15,
+            };
+            const saveVersion = runtime.currentVersion() + 1;
+            runtime.commitServerCharacter(character, saveVersion);
             await route.fulfill({
                 status: 200,
                 contentType: "application/json",
                 body: JSON.stringify({
-                    character: {
-                        ...initialCharacter,
-                        element: "Earth",
-                        elements: ["Earth", "Lightning"],
-                        fateShards: Number(initialCharacter.fateShards) - 15,
-                    },
-                    _saveVersion: 2,
+                    character,
+                    _saveVersion: saveVersion,
                 }),
             });
         });
@@ -1034,6 +1052,6 @@ test.describe("Awakening Stone cinematic", () => {
         await expect(cinematic.locator(".ca-sigil[data-element='lightning']")).toHaveCount(1);
         await expect(cinematic.locator("#central-awakening-result")).toHaveText("Earth · Lightning");
         expect(requestedKind).toBe("paid-both");
-        expect(runtimeErrors, "Two-element reroll reveal emitted runtime errors").toEqual([]);
+        expectAwakeningRuntimeClean(runtimeErrors, runtime.saveConflictCount(), "Two-element reroll reveal emitted runtime errors");
     });
 });

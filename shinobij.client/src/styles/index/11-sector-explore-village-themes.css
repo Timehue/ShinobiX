@@ -383,6 +383,7 @@
 }
 
 .sunscar-card {
+    min-width: 0;
     padding: 18px;
     border-radius: 16px;
     background: rgba(30, 15, 5, 0.86);

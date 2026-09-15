@@ -97,10 +97,16 @@ test('repeated archive visits release documents, listeners and detached UI', asy
     const measure = async () => {
         // A detached dialog can still be held until React's passive cleanup
         // runs. Sample after a paint and task boundary, not in that short gap.
-        await page.evaluate(() => new Promise<void>(resolve => {
-            requestAnimationFrame(() => setTimeout(resolve, 0));
-        }));
-        await session.send('HeapProfiler.collectGarbage');
+        // One collection can leave a recently closed portal in Chromium's
+        // detached-node counters during a busy multi-project run. Give passive
+        // cleanup two more paint/task boundaries, then keep the strict growth
+        // limits below unchanged.
+        for (let i = 0; i < 3; i++) {
+            await page.evaluate(() => new Promise<void>(resolve => {
+                requestAnimationFrame(() => setTimeout(resolve, 0));
+            }));
+            await session.send('HeapProfiler.collectGarbage');
+        }
         return {
             ...await session.send('Memory.getDOMCounters'),
             ...await session.send('Runtime.getHeapUsage'),
