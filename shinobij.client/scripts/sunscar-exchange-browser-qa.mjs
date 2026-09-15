@@ -25,6 +25,22 @@ try {
     await page.getByRole('button', { name: 'Enter the Exchange' }).click();
     await page.getByText('Dawnreaver, the Last Ember', { exact: true }).waitFor();
     await page.screenshot({ path: fileURLToPath(new URL('exchange-desktop.png', out)), fullPage: true });
+    await page.getByRole('combobox', { name: 'Listing currency', exact: true }).selectOption('fateShards');
+    assert.equal(await page.locator('.sx-listing').count(), 1);
+    assert.ok(await page.locator('.sx-listing').getByText('Fate Shards', { exact: true }).isVisible());
+    await page.getByLabel('Within my budget').check();
+    assert.equal(await page.locator('.sx-listing').count(), 1);
+    await page.locator('.sx-listing').click();
+    assert.ok(await page.getByText('309 Fate Shards', { exact: true }).isVisible());
+    await page.screenshot({ path: fileURLToPath(new URL('fate-shards-checkout.png', out)), fullPage: true });
+    await page.getByRole('button', { name: 'Buy for 41 Fate Shards', exact: true }).click();
+    await page.getByText('Purchase complete. Your goods have been delivered.').waitFor();
+    const shardPurchase = await page.request.post(`${base}/api/festival/exchange`, { headers, data: { action: 'browse', playerName: 'Kaito' } }).then(r => r.json());
+    assert.equal(shardPurchase.character.fateShards, 309);
+    assert.equal(shardPurchase.character.ryo, 1250000);
+    assert.equal(shardPurchase.character.itemStacks.find(s => s.itemId === 'hunt-torn-hide').count, 22);
+    assert.ok(await page.locator('.sx-wallet').getByText('309 Fate Shards', { exact: true }).isVisible());
+    await page.getByRole('button', { name: 'Clear filters' }).click();
     await page.getByRole('button', { name: 'Pets', exact: true }).click();
     assert.equal(await page.locator('.sx-listing').count(), 1);
     await page.locator('.sx-listing').click();
@@ -49,9 +65,12 @@ try {
     assert.ok(await page.evaluate(() => window.sunscarQa.creatorItems.some(item => item.name === 'Dawnreaver, the Last Ember')), 'Named definition is installed in client state.');
     await page.getByRole('button', { name: 'Sell an asset' }).click();
     await page.getByText('Dawnreaver, the Last Ember', { exact: true }).click();
-    await page.getByLabel('Total asking price', { exact: false }).fill('450000');
+    await page.getByRole('combobox', { name: 'Payment currency', exact: true }).selectOption('fateShards');
+    await page.getByLabel('Total asking price', { exact: false }).fill('201');
     await page.getByRole('button', { name: 'Review listing' }).click();
     await page.getByRole('heading', { name: 'Review your listing' }).waitFor();
+    assert.ok(await page.getByText('10 Fate Shards', { exact: true }).isVisible());
+    assert.ok(await page.getByText('191 Fate Shards', { exact: true }).isVisible());
     await page.screenshot({ path: fileURLToPath(new URL('listing-review.png', out)), fullPage: true });
     await page.getByRole('button', { name: 'Publish listing' }).click();
     await page.getByText('Listing published. Your goods are now held by the Exchange.').waitFor();
@@ -59,6 +78,8 @@ try {
     await page.getByRole('button', { name: 'Cancel listing & return goods' }).click();
     await page.getByText('Listing cancelled. Your goods have been returned.').waitFor();
     await page.getByRole('button', { name: 'Browse market' }).click();
+    const balancesAfterCancel = await page.evaluate(() => [window.sunscarQa.character.ryo, window.sunscarQa.character.fateShards]);
+    assert.deepEqual(balancesAfterCancel, [825000, 309]);
     const desktopAxe = await new AxeBuilder({ page }).include('.sx-hall').withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({ path: fileURLToPath(new URL('exchange-mobile.png', out)), fullPage: true });
@@ -69,7 +90,8 @@ try {
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Sell an asset' }).click();
     await page.getByText('Torn Hide', { exact: true }).click();
-    await page.getByLabel('Total asking price', { exact: false }).fill('1200');
+    await page.getByRole('combobox', { name: 'Payment currency', exact: true }).selectOption('fateShards');
+    await page.getByLabel('Total asking price', { exact: false }).fill('41');
     await page.getByRole('button', { name: 'Review listing' }).click();
     let drop = true;
     await page.route('**/api/festival/exchange', async route => {
@@ -85,6 +107,7 @@ try {
     await page.getByText('Listing published. Your goods are now held by the Exchange.').waitFor();
     const recovered = await page.request.post(`${base}/api/festival/exchange`, { headers, data: { action: 'browse', playerName: 'Kaito' } }).then(r => r.json());
     assert.equal(recovered.activity.filter(l => l.seller === 'kaito' && l.state === 'active' && l.asset.id === 'hunt-torn-hide').length, 1);
+    assert.equal(recovered.activity.find(l => l.seller === 'kaito' && l.state === 'active').currency, 'fateShards');
     await page.unroute('**/api/festival/exchange');
     // A committed trade whose character response lost a save-version race
     // remains retryable until a current snapshot has been accepted.
@@ -128,7 +151,7 @@ try {
     await page.getByRole('button', { name: 'My listings (1)', exact: true }).click();
     await page.getByText('Torn Hide', { exact: true }).waitFor();
     const violations = [...desktopAxe.violations, ...dialogAxe.violations, ...mobileAxe.violations].map(v => ({ id: v.id, impact: v.impact, description: v.description, nodes: v.nodes.map(n => ({ target: n.target, summary: n.failureSummary })) }));
-    await writeFile(new URL('qa-report.json', out), JSON.stringify({ errors, violations, assertions: ['festival positions', 'normal player token via authFetch', 'real versioned save coordinator', 'category filter', 'search empty state', 'pet inspection', 'Escape closes dialog', 'named weapon purchase, client definition and exact balance', 'sell review and publish', 'cancel and return', '390px responsive layout', 'lost-response Refresh without duplicate listing', 'stale character response retains retry', 'navigate away during committed trade', 're-enter safely resumes saved trade', 'browser reload preserves listing'] }, null, 2));
+    await writeFile(new URL('qa-report.json', out), JSON.stringify({ errors, violations, assertions: ['festival positions', 'normal player token via authFetch', 'real versioned save coordinator', 'category filter', 'currency and budget filters', 'Fate Shards checkout with exact wallet and delivery', 'Fate Shards listing with rounded 5% fee', 'Fate Shards cancellation and lost-response retry', 'search empty state', 'pet inspection', 'Escape closes dialog', 'named weapon purchase, client definition and exact balance', 'sell review and publish', 'cancel and return', '390px responsive layout', 'lost-response Refresh without duplicate listing', 'stale character response retains retry', 'navigate away during committed trade', 're-enter safely resumes saved trade', 'browser reload preserves listing'] }, null, 2));
     assert.deepEqual(errors, []);
     assert.deepEqual(violations, [], JSON.stringify(violations, null, 2));
     console.log('Sunscar Exchange browser QA passed: real buy/sell/cancel/retry, desktop/mobile, accessibility.');

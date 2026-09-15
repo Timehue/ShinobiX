@@ -30,9 +30,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (body.action === 'list') {
             const requestId = parseSettlementRequestId(body.requestId);
             if (!requestId) return res.status(400).json({ error: 'A valid listing request ID is required.' });
-            listing = await createExchangeListing(player, { requestId, kind: body.kind as ExchangeKind, assetId: String(body.assetId ?? ''), quantity: body.quantity as number, price: body.price as number });
+            listing = await createExchangeListing(player, { requestId, kind: body.kind as ExchangeKind, assetId: String(body.assetId ?? ''), quantity: body.quantity as number, price: body.price as number, currency: body.currency });
         } else if (body.action === 'buy' || body.action === 'cancel') {
-            listing = await actOnExchangeListing(player, String(body.listingId ?? ''), body.action, body.expectedPrice as number | undefined);
+            listing = await actOnExchangeListing(player, String(body.listingId ?? ''), body.action, body.expectedPrice as number | undefined, body.expectedCurrency);
         } else if (body.action !== 'browse') return res.status(400).json({ error: 'Unknown Exchange action.' });
         return res.status(200).json({ ok: true, listing, ...await exchangeSnapshot(player), feePercent: EXCHANGE_FEE_PERCENT, listingLimit: EXCHANGE_LISTING_LIMIT });
     } catch (error) {

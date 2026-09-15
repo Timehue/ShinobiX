@@ -35,6 +35,7 @@ for (const row of [
     ['ren', 'item', regularArmor.id, 1, 24000], ['ren', 'item', 'hunt-torn-hide', 12, 2400],
     ['ren', 'resource', 'fateShards', 30, 9000],
 ] as const) await createExchangeListing(row[0], { requestId: randomUUID(), kind: row[1], assetId: String(row[2]), quantity: row[3], price: row[4] });
+await createExchangeListing('ren', { requestId: randomUUID(), kind: 'item', assetId: 'hunt-torn-hide', quantity: 2, price: 41, currency: 'fateShards' });
 
 }
 await resetQa();
