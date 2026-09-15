@@ -1,5 +1,7 @@
 /*
- * Cancel a Tebex subscription when the account it belongs to is deleted.
+ * Cancel a Tebex subscription when the account it belongs to is deleted —
+ * one account at a time (api/_delete-player-account.ts), or all of them in a
+ * full server reset (api/admin/server-reset.ts).
  *
  * Underscore-prefixed: shared helper, not a route.
  *
@@ -46,6 +48,15 @@ export type CancelOutcome =
     | { ok: false; reason: 'unconfigured' | 'invalid-reference' | 'rejected' | 'unreachable'; status?: number; detail?: string };
 
 const apiKey = (): string => String(process.env.TEBEX_CHECKOUT_API_KEY ?? '').trim();
+
+/**
+ * True when cancellations can actually reach Tebex. The full server reset's
+ * dry run reports this, so the admin learns BEFORE confirming that every
+ * cancellation would be parked for them to do by hand.
+ */
+export function isSubscriptionCancelConfigured(): boolean {
+    return apiKey() !== '';
+}
 
 /** True for something shaped like a recurring-payment reference. */
 export function isRecurringReference(value: unknown): boolean {
@@ -127,6 +138,28 @@ export async function recordOrphanedSubscription(
 }
 
 /**
+ * Cancel one account's subscription, and park the reference if that failed.
+ * Never throws. Shared by account deletion and the full server reset, which
+ * both destroy the save that holds the only copy of the reference.
+ */
+export async function cancelOrParkSubscription(
+    slug: string,
+    reference: string,
+    fetchFn: typeof fetch = fetch,
+    context = 'deleted account',
+): Promise<CancelOutcome> {
+    const outcome = await cancelTebexSubscription(reference, fetchFn);
+    if (outcome.ok) {
+        console.log(`[tebex] subscription cancelled for ${context}`, slug, reference, outcome.status);
+        return outcome;
+    }
+
+    console.error(`[tebex] SUBSCRIPTION NOT CANCELLED for ${context}`, slug, reference, outcome.reason, outcome.detail ?? '');
+    await recordOrphanedSubscription(slug, reference, outcome.reason);
+    return outcome;
+}
+
+/**
  * The whole job for one deleting account: find the subscription, cancel it, and
  * park it if that failed. Returns a short note for the deletion result, or null
  * when the account had no subscription at all (the common case).
@@ -139,14 +172,8 @@ export async function cancelSubscriptionForDeletedAccount(
     const reference = subscriptionReferenceFromSave(save);
     if (!reference) return null;
 
-    const outcome = await cancelTebexSubscription(reference, fetchFn);
-    if (outcome.ok) {
-        console.log('[tebex] subscription cancelled for deleted account', slug, reference, outcome.status);
-        return `tebex subscription ${reference} cancelled`;
-    }
-
-    console.error('[tebex] SUBSCRIPTION NOT CANCELLED for deleted account', slug, reference, outcome.reason, outcome.detail ?? '');
-    await recordOrphanedSubscription(slug, reference, outcome.reason);
+    const outcome = await cancelOrParkSubscription(slug, reference, fetchFn);
+    if (outcome.ok) return `tebex subscription ${reference} cancelled`;
     return `tebex subscription ${reference} NOT cancelled (${outcome.reason}) — parked in ${ORPHANED_SUBSCRIPTIONS_KEY}`;
 }
 
