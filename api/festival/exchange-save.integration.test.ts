@@ -47,8 +47,8 @@ async function call(handler: typeof exchange, name: string, body: Obj, options: 
 }
 const trade = (name: string, action: Obj, as?: string) => call(exchange, name, { playerName: name, ...action }, { as });
 const stored = async (name: string) => (await kv.get<Obj>(`save:${name}`))!;
-async function list(kind: string, assetId: string, quantity = 1) {
-    const result = await trade('tradeseller', { action: 'list', requestId: randomUUID(), kind, assetId, quantity, price: 100 });
+async function list(kind: string, assetId: string, quantity = 1, currency = 'ryo') {
+    const result = await trade('tradeseller', { action: 'list', requestId: randomUUID(), kind, assetId, quantity, price: 100, currency });
     assert.equal(result.status, 200, JSON.stringify(result.body));
     return result.body.listing.id;
 }
@@ -69,7 +69,7 @@ it('accepts a signed player session, rejects account impersonation and explains 
     } finally { await kv.del(authKey('tradeguest')); }
 });
 
-for (const strict of ['0', '1']) it(`persists named gear, companions, cards and currencies through normal save and reload (strict ledger ${strict})`, async () => {
+for (const currency of ['ryo', 'fateShards']) for (const strict of ['0', '1']) it(`persists named gear, companions, cards and resources bought with ${currency} through save and reload (strict ledger ${strict})`, async () => {
     process.env.STRICT_RAW_SAVE_LEDGER = strict;
     const { createOwnedPet } = await import('../pet/_owned-pet.js');
     const { PET_CATALOG } = await import('../pet/_catalog.js');
@@ -83,19 +83,25 @@ for (const strict of ['0', '1']) it(`persists named gear, companions, cards and 
     const seller = await stored('tradeseller');
     seller.character.pets = [pet]; seller.character.tileCards = [card]; seller.character.itemStacks = [{ itemId: 'hunt-torn-hide', count: 20 }];
     await kv.set('save:tradeseller', seller);
+    if (currency === 'fateShards') {
+        seller.character.fateShards = 10000;
+        await kv.set('save:tradeseller', seller);
+        const buyer = await stored('tradebuyer'); buyer.character.fateShards = 10000;
+        await kv.set('save:tradebuyer', buyer);
+    }
     const staleSeller = structuredClone(seller);
     const staleBuyer = structuredClone(await stored('tradebuyer'));
     for (const [kind, id, quantity] of [['item', namedId, 1], ['item', armorId, 1], ['pet', pet.id, 1], ['card', card, 1], ['item', 'hunt-torn-hide', 15], ...['fateShards', 'boneCharms', 'auraStones', 'honorSeals', 'mythicSeals'].map(id => ['resource', id, 5])] as [string, string, number][]) {
-        const listingId = await list(kind, id, quantity);
-        const result = await trade('tradebuyer', { action: 'buy', listingId, expectedPrice: 100 });
+        const listingId = await list(kind, id, quantity, currency);
+        const result = await trade('tradebuyer', { action: 'buy', listingId, expectedPrice: 100, expectedCurrency: currency });
         assert.equal(result.status, 200, JSON.stringify(result.body));
     }
     // An in-flight autosave from before the sale must not resurrect ownership.
     assert.equal((await autosave('tradeseller', staleSeller)).status, 409);
     assert.equal((await autosave('tradebuyer', staleBuyer)).status, 409);
     const acquired = await stored('tradebuyer');
-    assert.equal(acquired.character.ryo, 9000);
-    assert.equal((await stored('tradeseller')).character.ryo, 10950);
+    assert.equal(acquired.character.ryo, currency === 'ryo' ? 9000 : 10000);
+    assert.equal((await stored('tradeseller')).character.ryo, currency === 'ryo' ? 10950 : 10000);
     const equip = { ...acquired.character, inventory: acquired.character.inventory.filter((id: string) => id !== namedId && id !== armorId), equipment: { hand: namedId, body: armorId }, activePetId: pet.id };
     // A client that has not hydrated creatorItems yet must retain server definitions.
     const saved = await autosave('tradebuyer', acquired, equip, []);
@@ -118,8 +124,9 @@ for (const strict of ['0', '1']) it(`persists named gear, companions, cards and 
     for (const key of ['id', 'templateId', 'origin', 'generation', 'parentInstanceIds', 'hatchedAt', 'breedingSessionId', 'paletteVariantId', 'growthAllocation', 'breedingUsesRemaining', 'nickname']) assert.deepEqual(received[key], pet[key as keyof typeof pet], key);
     assert.ok(reloaded.character.tileCards.includes(card));
     assert.equal(reloaded.character.itemStacks.find((s: Obj) => s.itemId === 'hunt-torn-hide').count, 15);
-    for (const resource of ['fateShards', 'boneCharms', 'auraStones', 'honorSeals', 'mythicSeals']) assert.equal(reloaded.character[resource], 15, resource);
+    for (const resource of ['fateShards', 'boneCharms', 'auraStones', 'honorSeals', 'mythicSeals']) assert.equal(reloaded.character[resource], currency === 'fateShards' && resource === 'fateShards' ? 9005 : 15, resource);
     const sellerAfter = await stored('tradeseller');
+    if (currency === 'fateShards') assert.equal(sellerAfter.character.fateShards, 10945);
     assert.equal((await autosave('tradeseller', sellerAfter)).status, 200);
     assert.ok(!(await stored('tradeseller')).character.inventory.includes(namedId));
     assert.equal((await stored('tradeseller')).character.pets.length, 0);

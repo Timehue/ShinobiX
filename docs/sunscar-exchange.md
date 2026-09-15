@@ -4,13 +4,14 @@
 
 The Exchange occupies the festival's top-middle card. Dice of Fate occupies the bottom-right card.
 
-The trading hall supports browsing, text search, category and rarity filters, budget filtering, sorting, pagination, inspection, publishing a listing, buying a whole lot, cancellation, and personal trade history.
+The trading hall supports browsing, text search, category, rarity, and listing-currency filters, budget filtering, sorting, pagination, inspection, publishing a listing, buying a whole lot, cancellation, and personal trade history.
 
-Supported assets are owned pets, named weapons and armor, regular equipment and accessories, consumables, crafting materials, extra Chronicle cards, and Fate Shards, Bone Charms, Aura Stones, Honor Seals, and Mythic Seals. Purchases use ryo.
+Supported assets are owned pets, named weapons and armor, regular equipment and accessories, consumables, crafting materials, extra Chronicle cards, and Fate Shards, Bone Charms, Aura Stones, Honor Seals, and Mythic Seals. Sellers choose ryo or Fate Shards for each listing. Buyers pay the listed currency; there is no automatic conversion.
 
-- Listings are free. The seller pays a 5% ryo fee when a sale completes, rounded down to a whole ryo.
+- Listings are free. The seller pays a 5% fee in the listing currency when a sale completes, rounded down to a whole unit. A 201 Fate Shards sale deducts 10 Shards and pays the seller 191 Shards.
 - Prices are for the entire lot. There are no auctions or partial fills.
-- Limits: 30 open listings per seller, 2,000 open listings overall, 9,999 units per lot, and 1,000,000,000 ryo per lot.
+- Limits: 30 open listings per seller, 2,000 open listings overall, 9,999 units per lot, and 1,000,000,000 units of the selected currency per lot.
+- Both wallet balances appear in the hall. Budget filtering uses each listing’s currency; price sorting groups ryo and Fate Shards separately. Checkout and trade history retain the exact currency.
 - Listings remain open until purchased or cancelled. Nothing expires out of escrow.
 - Equipped items must be returned to the backpack. Active, assigned, training, breeding, expedition, and equipped pets must be freed before listing. Sanctuary pets must first move into the carried roster.
 - Starter card quantities and Chronicle progression unlocks remain with the character. Extra copies of starter cards can trade.
@@ -24,6 +25,8 @@ Supported assets are owned pets, named weapons and armor, regular equipment and 
 Listing states are `preparing → active → buying → sold` or `active → cancelling → cancelled`. Ownership moves into escrow before a listing becomes available. Purchase saves atomically combine buyer debit, asset delivery, and a receipt; seller credit has its own receipt.
 
 The listing journal uses exact compare-and-set transitions and has no TTL. Player mutations use the existing versioned save writer and currency-ledger projection. Pending transfer receipts are server-owned and retained until their listing phase completes. Named definitions are included in the accepted client save snapshot.
+
+Creation request IDs are permanently bound to their payload, including the asking currency. Existing listings without a currency and existing creation fingerprints remain ryo-compatible. A buy quote must match both price and currency; missing currency is accepted only for ryo. Buyer debit, seller credit, fee, and economy events use the listing’s currency. A Fate Shards resource lot priced in Shards preserves both delivery and payment, while still requiring sufficient funds before delivery.
 
 Creation request IDs are permanently bound to their payload. Buying and cancelling replay against the same immutable listing identity. The client retains an unconfirmed request in session storage, disables a new trade, and retries that same request after connection loss.
 
@@ -57,6 +60,16 @@ node shinobij.client/scripts/sunscar-exchange-browser-qa.mjs
 The QA server binds only to localhost, serves a production-mode preview, creates disposable in-memory saves, and is not part of the production build. The browser script resets these fixtures before each run. Screenshots and the browser report live in `docs/screenshots/sunscar-exchange/`.
 
 The release candidate was prepared on `origin/main` revision `96b892d0b63fa2e4f3ed28c224b9bf2c6a853330` with the locked dependencies and Node 22.23.1. The current-main test set covers 120 tests, including the App size ratchet; the ownership fixture explicitly includes the new Exchange receipt. Browser flows were repeated successfully from that clean checkout. Test trading uses disposable local accounts.
+
+## Fate Shards release verification
+
+Prepared on main revision `bcd04b427335eebe875ac90fb408a4e429ca9fbd` with Node 22.23.1.
+
+- 40 Exchange, authenticated save integration, and ownership tests passed. Both currency paths cover named gear, egg-hatched Chromatic pets, cards, materials, and resources through normal and strict-ledger save/reload.
+- Shard-specific checks cover fee rounding, insufficient and missing balances, legacy ryo compatibility, mismatched currency quotes, reused request IDs, cancellation, ambiguous seller writes, offline recovery, and same-currency resource delivery.
+- Browser checks passed for currency/budget filters, exact Shard checkout balances and delivery, listing review with the 5% fee, free cancellation, and lost-response retry with a saved Shard request. Existing ryo purchase and navigation/reload recovery checks also passed.
+- Desktop and 390px mobile screenshots were reviewed; accessibility checks reported no WCAG A/AA violations. Scoped client ESLint passed.
+- The full production build passed, including server/client TypeScript, story-content checks, distribution verification, and build-size gates.
 
 ## Artwork
 
