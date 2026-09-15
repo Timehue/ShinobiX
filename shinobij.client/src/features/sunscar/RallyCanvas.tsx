@@ -15,14 +15,17 @@ function RaceClock({ advance }: { advance: (delta: number) => void }) {
 }
 function RallyQaMetrics({ state }: { state: RefObject<RallyState> }) {
     const frames = useRef<number[]>([]);
+    const frameCount = useRef(0);
     useFrame(({ gl }, delta) => {
         if (import.meta.env.MODE !== 'sunscar-modes-qa') return;
+        frameCount.current++;
         frames.current.push(delta); if (frames.current.length > 120) frames.current.shift();
         // Read-only instrumentation, removed from the normal production build.
         queueMicrotask(() => {
             (window as Window & { sunscarRallyQa?: unknown }).sunscarRallyQa = {
                 state: structuredClone(state.current), geometry: gl.info.memory.geometries, textures: gl.info.memory.textures,
                 calls: gl.info.render.calls, triangles: gl.info.render.triangles,
+                frameCount: frameCount.current,
                 fps: frames.current.length / frames.current.reduce((sum, time) => sum + time, 0),
             };
         });
@@ -79,11 +82,11 @@ function Dust({ state }: { state: RefObject<RallyState> }) {
     });
     return <points ref={points} frustumCulled={false}><bufferGeometry><bufferAttribute attach="attributes-position" args={[positions, 3]} /></bufferGeometry><pointsMaterial color="#ead1a0" size={.1} transparent opacity={.38} depthWrite={false} /></points>;
 }
-export default function RallyCanvas({ state, advance, onReady, onFail, reducedMotion }: {
-    state: RefObject<RallyState>; advance: (delta: number) => void; onReady: (id: string) => void; onFail: () => void; reducedMotion: boolean;
+export default function RallyCanvas({ state, advance, onReady, onFail, reducedMotion, frameloop }: {
+    state: RefObject<RallyState>; advance: (delta: number) => void; onReady: (id: string) => void; onFail: () => void; reducedMotion: boolean; frameloop: 'always' | 'demand';
 }) {
     const track = rallyTrack(state.current.trackId);
-    return <Canvas shadows dpr={[1, 1.5]} camera={{ fov: 57, near: .1, far: 220 }} gl={{ antialias: true, powerPreference: 'high-performance' }}
+    return <Canvas shadows dpr={[1, 1.5]} frameloop={frameloop} camera={{ fov: 57, near: .1, far: 220 }} gl={{ antialias: true, powerPreference: 'high-performance' }}
         onCreated={({ gl }) => { gl.toneMapping = THREE.ACESFilmicToneMapping; gl.toneMappingExposure = 1.05; }}>
         <CanvasLifecycle onFail={onFail}/>
         <RaceClock advance={advance} />

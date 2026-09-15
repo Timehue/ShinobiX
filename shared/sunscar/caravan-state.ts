@@ -70,7 +70,10 @@ export function resolveCaravanChoice(source: CaravanRun, choiceId: string, ryo: 
     }
     const cargoDelta = effect.cargo ?? 0;
     run.cargo = clamp(run.cargo + (cargoDelta < 0 && run.morale >= 80 ? Math.ceil(cargoDelta * .85) : cargoDelta), 0, 100);
+    const offeredSupplies = Math.max(0, effect.supplies ?? 0);
+    const suppliesThatFit = Math.min(offeredSupplies, Math.max(0, 30 - run.supplies));
     run.supplies = clamp(run.supplies + (effect.supplies ?? 0), 0, 30);
+    if (offeredSupplies > suppliesThatFit) text += ` Only ${suppliesThatFit} of ${offeredSupplies} extra supplies fit in the wagons (30 maximum).`;
     run.morale = clamp(run.morale + (effect.morale ?? 0), 0, 100);
     run.reputation += effect.reputation ?? 0;
     run.bonus = clamp(run.bonus + (effect.bonus ?? 0), -30, 30);

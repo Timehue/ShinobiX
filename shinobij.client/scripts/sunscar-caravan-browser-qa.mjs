@@ -71,6 +71,21 @@ try {
     await page.getByRole('button', { name: 'Enter battle' }).click();
     await page.getByRole('button', { name: /Flee/ }).waitFor({ timeout: 60_000 });
     await shot('main-combat-mobile'); checks.push('actual combat screen renders on mobile');
+    await page.request.post(base + '/__qa/reset'); await page.reload();
+    await page.getByRole('button', { name: 'Read today’s contracts' }).click();
+    await page.getByRole('button', { name: 'Accept contract & depart' }).click();
+    await page.getByRole('heading', { name: 'Choose the next road' }).waitFor();
+    await page.request.post(base + '/__qa/encounter', { data: { eventId: 'sheltered-well', supplies: 29 } });
+    await page.reload(); await page.getByRole('button', { name: 'Rejoin your caravan' }).click();
+    const refill = page.locator('.caravan-choices button').filter({ has: page.getByText('Refill the water skins', { exact: true }) });
+    await refill.getByText('Only 1 of 4 extra supplies fit (30 maximum).').waitFor();
+    await shot('supply-cap-choice-mobile');
+    await refill.click();
+    await page.locator('.caravan-scene-copy').getByText('Only 1 of 4 extra supplies fit in the wagons (30 maximum).').waitFor();
+    const capped = (await saved()).progress.current;
+    assert.equal(capped.supplies, 30);
+    assert.match(capped.log.at(-1).text, /Only 1 of 4 extra supplies fit in the wagons \(30 maximum\)\./);
+    checks.push('supply-cap warning matches accepted supplies and saved journal');
     console.log(JSON.stringify({ checks, errors, receipts })); assert.deepEqual(errors, []);
 } catch (error) { if (page) await shot('failure'); throw error; }
 finally { await writeFile(new URL('report.json', out), JSON.stringify({ checks, errors, receipts }, null, 2)); await browser.close(); }
