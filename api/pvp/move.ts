@@ -1768,6 +1768,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // client can surface why nothing happened instead of looking frozen.
         // For paths that ALSO append a shared log line, pass that same string as
         // `reason` so the client shows it exactly once (it de-dups on substring).
+        let committedJutsuId: string | undefined;
         function withRejected(payload: PvpSession, reason: string): PvpSession {
             return { ...payload, rejected: { applied: false, reason, serverRound: payload.round, activePlayer: payload.activePlayer } };
         }
@@ -1803,6 +1804,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         function commit(updMe: PvpFighter | null, updOpp: PvpFighter | null, apCost: number, cd?: Record<string, number>, extra?: Partial<PvpSession>, fx?: HitFxEvent[], visualFx?: RelativeVfxEvent[]): PvpSession {
             let s: PvpSession = { ...session, ...extra } as PvpSession;
+            if (committedJutsuId) {
+                const used = s.jutsuUsed ?? { p1: [], p2: [] };
+                const castSide = role as 'p1' | 'p2';
+                s = { ...s, jutsuUsed: { ...used, [castSide]: [...new Set([...used[castSide], committedJutsuId])] } };
+            }
             if (updMe) s = role === 'p1' ? { ...s, p1: updMe } : { ...s, p2: updMe };
             if (updOpp) s = role === 'p1' ? { ...s, p2: updOpp } : { ...s, p1: updOpp };
             s = { ...s, ap: { ...s.ap, [role as 'p1' | 'p2']: myAp - adjustedCost(apCost) }, actionsThisTurn: s.actionsThisTurn + 1 };
@@ -2105,6 +2111,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const apCost = plan.apCost;
                 const jChakraCost = plan.chakraCost;
                 const jStaminaCost = plan.staminaCost;
+                committedJutsuId = jutsu.id;
 
                 // combatResourcesV2: Poison feeds on exertion — spending chakra/stamina
                 // to cast deals HP damage scaled by the spend + the caster's active

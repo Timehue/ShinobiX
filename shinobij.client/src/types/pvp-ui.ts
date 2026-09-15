@@ -76,6 +76,7 @@ export type PvpSessionState = {
     joined?: { p1: boolean; p2: boolean };
     baseRewards?: boolean;
     rewardSector?: number;
+    rewardStronghold?: 'deathsgate';
     ranked?: boolean;
     rankedKind?: "player" | "pet";
     /** Server-minted Player Ranked V2 authority marker. Ordinary/casual fights omit it. */

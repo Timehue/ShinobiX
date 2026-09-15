@@ -1,3 +1,4 @@
+import { handleStrongholdAction, strongholdVaultReady } from './_stronghold.js';
 import { seatedKageOf } from '../_sector-war-garrison-defender.js';
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
@@ -112,6 +113,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(403).json({ error: 'You can only act as yourself.' });
         }
 
+        if (action.startsWith('stronghold-')) {
+            if (!await enforceRateLimitKv(req, res, 'stronghold-walk', 600, 60_000, playerName)) return;
+            const result = await handleStrongholdAction(playerName, action, body);
+            return res.status(result.status).json(result.body);
+        }
+
         switch (action) {
             case 'start': return await doStart(req, res, identity, playerName, body);
             case 'act': return res.status(410).json({ error: 'ANBU combat actions moved to /api/solo-pve/action.', code: 'anbu-solo-pve-cutover' });
@@ -210,6 +217,10 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
                 } };
             }
             await kv.del(activeKey);
+        }
+
+        if (!identity.admin && !await strongholdVaultReady(playerName, sector)) {
+            return { status: 409 as const, body: { error: 'Reach the Anbu inside the stronghold and clear any patrol first.' } };
         }
 
         // Defender: least-recently-defended Anbu, sealed daily from their save.

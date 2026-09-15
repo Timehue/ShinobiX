@@ -107,15 +107,21 @@ export type InfilTurnInResponse =
 
 const ROUTE = '/api/village/anbu-infiltration';
 
-async function post<T>(body: Record<string, unknown>): Promise<T> {
+export class InfiltrationRequestError extends Error {
+    readonly status: number;
+    constructor(message: string, status: number) { super(message); this.status = status; }
+}
+
+async function post<T>(body: Record<string, unknown>, signal?: AbortSignal): Promise<T> {
     const res = await fetch(ROUTE, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
+        signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15_000)]) : AbortSignal.timeout(15_000),
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({})) as { error?: string };
-        throw new Error(err.error || `Request failed (${res.status})`);
+        throw new InfiltrationRequestError(err.error || `Request failed (${res.status})`, res.status);
     }
     return res.json() as Promise<T>;
 }
@@ -130,14 +136,14 @@ export function startInfiltration(
 }
 
 /** Reconnect / poll the live run (refresh-restore). */
-export async function fetchInfiltrationState(runId: string, playerName: string): Promise<{ session: SoloPveSession; sector: number; targetVillage: string; anbu: { name: string } }> {
-    return post({ action: 'state', runId, playerName });
+export async function fetchInfiltrationState(runId: string, playerName: string, signal?: AbortSignal): Promise<{ session: SoloPveSession; sector: number; targetVillage: string; anbu: { name: string } }> {
+    return post({ action: 'state', runId, playerName }, signal);
 }
 
 /** Settle a FINISHED run. Win → the server rolls the skim and mints caches + ryo;
  *  loss → { won:false }. Fresh outcomes include the server-settled character. */
-export function reportInfiltration(runId: string, playerName: string): Promise<InfilReportResponse> {
-    return post({ action: 'report', runId, playerName });
+export function reportInfiltration(runId: string, playerName: string, signal?: AbortSignal): Promise<InfilReportResponse> {
+    return post({ action: 'report', runId, playerName }, signal);
 }
 
 /** Convert held caches into standing points — type-locked (War Supply → clan 2:1,

@@ -908,6 +908,7 @@ export type PlayerRecord = {
     travelingUntil?: number;
     inBattle?: boolean;
     clan?: string; // surfaced from presence for the Scout Network war overlay
+    stronghold?: { sector: number; tile: number };
     tile?: number; // within-sector tile (0..143) for live peer rendering; display-only
     sleeping?: boolean; // explicit server-managed offline camp entity
 };

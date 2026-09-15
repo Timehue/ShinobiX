@@ -5996,7 +5996,7 @@ export default function App() {
                         onVersionedCharacter={commitVersionedCharacter} onOwnSaveRead={adoptOwnSaveRead}
                         capturePvpCreateScope={capturePvpCreateScope}
                         onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} attackSleeper={(opponent) => { void strikeDownSleeper({ opponent, attackerName: character.name, isTraveling, setCharacter, setPlayerRoster, onServerVersion: (version) => acceptExternalSaveVersion(version, character.name) === "accepted" }); }}
-                        sectorAttackPlayer={(opponent) => { void attackSectorPlayer({ opponent, character, isTraveling, creatorItems, creatorJutsus, savedBloodlines, currentSector, currentBiome, currentWeather, capturePvpCreateScope, installPvpRecovery, setPvpBattleId, setPvpRole, setPvpBattleContext, setPvpSeedSession, setRaidBattleKind, setScreen }); }}
+                        sectorAttackPlayer={(opponent) => attackSectorPlayer({ opponent, character, isTraveling, creatorItems, creatorJutsus, savedBloodlines, currentSector, currentBiome, currentWeather, capturePvpCreateScope, installPvpRecovery, setPvpBattleId, setPvpRole, setPvpBattleContext, setPvpSeedSession, setRaidBattleKind, setScreen })}
 
                     />
                 )}

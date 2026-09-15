@@ -1,0 +1,268 @@
+{
+  "samples": [
+    {
+      "sector": 12,
+      "label": "warm unmounted",
+      "timeouts": [],
+      "intervals": 0,
+      "frames": 0,
+      "observers": 0,
+      "webglCreated": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 14,
+      "jsEventListeners": 296,
+      "heapBytes": 4316484,
+      "taskSeconds": 1.150832,
+      "layers": 5
+    },
+    {
+      "sector": 12,
+      "label": "after 12 entry/exit cycles",
+      "timeouts": [],
+      "intervals": 0,
+      "frames": 0,
+      "observers": 0,
+      "webglCreated": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 14,
+      "jsEventListeners": 296,
+      "heapBytes": 4703288,
+      "taskSeconds": 10.739762,
+      "layers": 5
+    },
+    {
+      "sector": 12,
+      "label": "fully discovered idle start",
+      "timeouts": [
+        2000
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "observers": 1,
+      "webglCreated": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 1646,
+      "jsEventListeners": 1180,
+      "heapBytes": 9914744,
+      "taskSeconds": 11.366621,
+      "layers": 6
+    },
+    {
+      "sector": 12,
+      "label": "fully discovered idle end",
+      "timeouts": [
+        2000
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "observers": 1,
+      "webglCreated": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 1646,
+      "jsEventListeners": 1180,
+      "heapBytes": 10214464,
+      "taskSeconds": 12.337637,
+      "layers": 6
+    },
+    {
+      "sector": 12,
+      "label": "after successful patrol settlement",
+      "timeouts": [
+        12000
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "observers": 0,
+      "webglCreated": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 14,
+      "jsEventListeners": 309,
+      "heapBytes": 5575800,
+      "taskSeconds": 13.451398,
+      "layers": 5
+    },
+    {
+      "sector": 12,
+      "label": "after failed settlement unmount",
+      "timeouts": [
+        12000,
+        12000,
+        12000,
+        12000,
+        2400
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "observers": 0,
+      "webglCreated": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 465,
+      "jsEventListeners": 445,
+      "heapBytes": 5962156,
+      "taskSeconds": 13.782724,
+      "layers": 5
+    },
+    {
+      "sector": 99,
+      "label": "warm unmounted",
+      "timeouts": [],
+      "intervals": 0,
+      "frames": 0,
+      "observers": 0,
+      "webglCreated": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 14,
+      "jsEventListeners": 296,
+      "heapBytes": 4330560,
+      "taskSeconds": 0.9832,
+      "layers": 5
+    },
+    {
+      "sector": 99,
+      "label": "after 12 entry/exit cycles",
+      "timeouts": [],
+      "intervals": 0,
+      "frames": 0,
+      "observers": 0,
+      "webglCreated": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 14,
+      "jsEventListeners": 296,
+      "heapBytes": 4727004,
+      "taskSeconds": 10.565291,
+      "layers": 5
+    },
+    {
+      "sector": 99,
+      "label": "fully discovered idle start",
+      "timeouts": [
+        2000
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "observers": 1,
+      "webglCreated": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 1674,
+      "jsEventListeners": 1226,
+      "heapBytes": 9954008,
+      "taskSeconds": 10.964452,
+      "layers": 6
+    },
+    {
+      "sector": 99,
+      "label": "fully discovered idle end",
+      "timeouts": [
+        2000
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "observers": 1,
+      "webglCreated": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 1674,
+      "jsEventListeners": 1226,
+      "heapBytes": 10313744,
+      "taskSeconds": 11.403873,
+      "layers": 6
+    },
+    {
+      "sector": 99,
+      "label": "after successful patrol settlement",
+      "timeouts": [
+        12000
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "observers": 0,
+      "webglCreated": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 14,
+      "jsEventListeners": 309,
+      "heapBytes": 5601152,
+      "taskSeconds": 12.217135,
+      "layers": 5
+    },
+    {
+      "sector": 99,
+      "label": "after failed settlement unmount",
+      "timeouts": [
+        12000,
+        12000,
+        12000,
+        12000,
+        2400
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "observers": 0,
+      "webglCreated": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 465,
+      "jsEventListeners": 445,
+      "heapBytes": 5977256,
+      "taskSeconds": 12.491862,
+      "layers": 5
+    }
+  ],
+  "checks": [
+    {
+      "sector": 12,
+      "cycles": 12,
+      "stoppedTimersAndPolling": true,
+      "stableListenersNodesHeapLayers": true
+    },
+    {
+      "sector": 12,
+      "idleTaskMs": 971.0160000000005,
+      "fogSamples": 91
+    },
+    {
+      "sector": 12,
+      "successDeadlineTimers": 1,
+      "reportsAfterUnmount": 2,
+      "remainingTimers": [
+        12000,
+        12000,
+        12000,
+        12000,
+        2400
+      ]
+    },
+    {
+      "sector": 99,
+      "cycles": 12,
+      "stoppedTimersAndPolling": true,
+      "stableListenersNodesHeapLayers": true
+    },
+    {
+      "sector": 99,
+      "idleTaskMs": 439.4210000000012,
+      "fogSamples": 93
+    },
+    {
+      "sector": 99,
+      "successDeadlineTimers": 1,
+      "reportsAfterUnmount": 2,
+      "remainingTimers": [
+        12000,
+        12000,
+        12000,
+        12000,
+        2400
+      ]
+    }
+  ]
+}
