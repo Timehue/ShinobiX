@@ -27,6 +27,7 @@
 
 /** Character-scope fields a generic save cannot durably change. */
 export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
+    'sunscarExchangeReceipts',
     // Identity & public profile
     'level', 'village', 'rank', 'specialty', 'storyProgress', 'maxHp', 'maxChakra', 'maxStamina',
     'customTitle', 'profession', 'professionRank', 'professionXp', 'professionRespecUsed',

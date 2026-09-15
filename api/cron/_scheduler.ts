@@ -28,6 +28,7 @@ import { runMercAutoDeploy } from '../_merc-auto.js';
 import { runEraDailyPass } from '../_era.js';
 import { scheduledJobsDisabled } from '../_launch-controls.js';
 import { runSettlementReconciliation } from './_settlement-reconciliation.js';
+import { recoverPendingExchangeListings } from '../festival/_exchange.js';
 import { withScheduledJobLease } from './_job-lease.js';
 import { runGuestSweep } from './_guest-sweep.js';
 import { runKageInactivityPass } from '../village/_kage-inactivity.js';
@@ -90,7 +91,13 @@ async function fireSettlementReconciliation(includeLegacyScan = false): Promise<
     try {
         const leased = await withScheduledJobLease(
             'settlement-reconciliation',
-            () => runSettlementReconciliation({ includeLegacyScan }),
+            async () => {
+                try {
+                    const exchange = await recoverPendingExchangeListings();
+                    if (exchange.failures.length) console.warn('[cron-scheduler] Sunscar trades awaiting recovery:', exchange.failures);
+                } catch (error) { console.warn('[cron-scheduler] Sunscar recovery deferred:', (error as Error).message); }
+                return runSettlementReconciliation({ includeLegacyScan });
+            },
             { ttlSec: LEASE_TTL.settlementReconciliation, holdUntilExpiryOnSuccess: true },
         );
         if (!leased.acquired) return;

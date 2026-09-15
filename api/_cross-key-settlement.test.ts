@@ -107,4 +107,25 @@ describe('cross-key durable settlement orchestration', { concurrency: false }, (
         const moved = results.filter((r) => !r.replayed);
         assert.equal(moved.length, 1, 'exactly one call may report that it moved value');
     });
+
+    it('locks the shared source row before the recipient save, even when the recipient sorts first', async () => {
+        // 'test-cross-key:recipient' sorts before 'test-cross-key:source'. A
+        // member save and its clan row share the `save:` namespace the same
+        // way, and every other path nesting those two rows takes the clan row
+        // first — see api/clan/_lock-order.test.ts.
+        const f = fixture();
+        const originalSet = kv.set.bind(kv);
+        const acquired: string[] = [];
+        kv.set = async (key, value, options) => {
+            const out = await originalSet(key, value, options);
+            if (options?.nx && key.startsWith('lock:test-cross-key:') && out) acquired.push(key);
+            return out;
+        };
+        try {
+            await settleCrossKeyTransfer(f.options);
+        } finally {
+            kv.set = originalSet;
+        }
+        assert.deepEqual(acquired, ['lock:test-cross-key:source', 'lock:test-cross-key:recipient']);
+    });
 });

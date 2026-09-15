@@ -83,9 +83,9 @@ export function synthRoadWanderer(event: StoryRoadEvent, sector: number): Wander
 
 function callbackForRoad(event: StoryRoadEvent, pageTitle: string, traits: readonly string[]): string | null {
     if (event.id === "story-road-four-seals-one-gate" && pageTitle === "One Lattice") {
-        if (traits.includes("rd66-dropped-the-shaft")) return "I found blasting dust in the map fold. Dropping Corvo's shaft kept the route from becoming a toll road; it did not erase what the gallery proved.";
+        if (traits.includes("rd66-dropped-the-shaft")) return "I found blasting dust in the map fold. Dropping Corvo's shaft kept the route from becoming a toll road. It did not erase what the gallery proved.";
         if (traits.includes("rd66-carried-the-map")) return "I set your gallery map beside the four rubbings. Its sleeping-face columns match the older network, while its route remains a separate piece of evidence.";
-        if (traits.includes("rd66-priced-the-routes")) return "I have seen the priced route copies bearing your seal. I used one to align the sockets; the question of their buyers stays with you.";
+        if (traits.includes("rd66-priced-the-routes")) return "I have seen the priced route copies bearing your seal. I used one to align the sockets. The question of their buyers stays with you.";
     }
     if (event.id === "story-road-last-road" && pageTitle === "The Last Mile") {
         if (traits.includes("rd74-broke-the-anchor-keys")) return "No anchor key travels with the column. The broken pieces remain at the crossroads, and the road ahead must stand without that shortcut.";

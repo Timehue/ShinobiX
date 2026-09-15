@@ -400,6 +400,8 @@ export type Character = {
     // save merge in api/_utils.ts `mergePreservingImages` takes it verbatim —
     // a keyed object would resurrect deleted stacks. See lib/inventory.ts.
     itemStacks?: { itemId: string; count: number }[];
+    /** Pending Sunscar Exchange transfer receipts, owned by the server. */
+    sunscarExchangeReceipts?: string[];
     equipment: EquipmentSlots;
     jutsuMastery: JutsuMastery[];
     pets: Pet[];
