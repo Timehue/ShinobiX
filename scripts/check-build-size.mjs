@@ -678,7 +678,15 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // Three vendor and combat renderer. Initial-load budgets remain unchanged.
 // Current-main integration: 8,417,704 B product JS/CSS; initial graph 1,432,862 B
 // raw / 380,733 B gzip. Production Image separately verifies production args.
-const TOTAL_JS_CSS_FAIL_BYTES = 8_500_000;
+// 2026-09-15 STRONGHOLDS: production image 3699e17ca measured 8,510,542 B,
+// against 8,483,391 B for its passing parent de9b40747. The shared twelve-room
+// exploration, Obsidian presentation and settlement cleanup add 27,151 B of
+// intended product code/styles. Initial loading grows only 207 B raw / 149 B
+// gzip (1,435,539 B / 381,706 B total); all startup gates stay unchanged.
+// The production-variable local reproduction is 8,510,888 B, versus the smaller
+// credential-free graph that missed this release failure. Restore the 100 KB
+// feature-growth allowance described above: 89,458 B of measured image headroom.
+const TOTAL_JS_CSS_FAIL_BYTES = 8_600_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

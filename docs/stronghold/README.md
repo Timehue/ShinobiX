@@ -75,6 +75,12 @@ Reproduce from `shinobij.client`: `node scripts/stronghold-browser-qa.mjs --reso
 - Server/client TypeScript, focused ESLint, the production client build, distribution validation and size budgets passed. Generated tooling metadata was regenerated and verified after integrating main; 74 additional post-rebase combat, Sunscar and wiring checks passed.
 - Resource checks permit garbage collection to reduce retained listeners and reject increases; exact equality incorrectly treated successful collection as a leak.
 
+## Production build correction — September 15, 2026
+
+The first Production Image run failed the aggregate product-size budget: 8,510,542 B versus an 8,500,000 B limit. The credential-free local build omitted production-enabled code and missed the overrun. Rebuilding with the exact public `VITE_*` fixture variables in `.github/workflows/production-image.yml` reproduced it locally at 8,510,888 B.
+
+Against the passing parent, strongholds add 27,151 B total and 207 B raw / 149 B gzip to initial loading. The aggregate allowance is now 8,600,000 B, following the existing 100 KB feature-growth policy. Startup, per-route, per-file and vendor limits are unchanged. Future release validation must include the production-variable size check.
+
 ## Suggested follow-up
 
 Add limited, guarded supply caches to optional chambers so taking a longer route offers a deliberate reward. Keep those rewards tied to the existing server economy and daily limits.
