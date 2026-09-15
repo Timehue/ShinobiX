@@ -11,10 +11,32 @@ try {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce', isMobile: true, hasTouch: true });
     page = await context.newPage(); page.setDefaultTimeout(90_000);
     page.on('pageerror', e => errors.push(e.message));
+    await page.addInitScript(() => {
+        const active = new Set(), intervals = new Set();
+        const request = window.requestAnimationFrame.bind(window);
+        const cancel = window.cancelAnimationFrame.bind(window);
+        const interval = window.setInterval.bind(window);
+        const clear = window.clearInterval.bind(window);
+        window.requestAnimationFrame = callback => {
+            const id = request(time => { active.delete(id); callback(time); });
+            active.add(id);
+            return id;
+        };
+        window.cancelAnimationFrame = id => { active.delete(id); cancel(id); };
+        window.sunscarActiveRafQa = () => active.size;
+        window.setInterval = (callback, delay, ...args) => {
+            const id = interval(callback, delay, ...args); intervals.add(id); return id;
+        };
+        window.clearInterval = id => { intervals.delete(id); clear(id); };
+        window.sunscarActiveIntervalsQa = () => intervals.size;
+    });
     await page.request.post(base + '/__qa/reset');
     const auth = await page.request.get(base + '/__qa/session').then(r => r.json());
     const headers = { 'x-player-name': auth.name, 'x-player-token': auth.token };
     await page.goto(base + '/sunscar-modes-qa.html');
+    await page.waitForTimeout(300);
+    const idleRaf = await page.evaluate(() => window.sunscarActiveRafQa());
+    const idleIntervals = await page.evaluate(() => window.sunscarActiveIntervalsQa());
     await page.getByRole('button', { name: 'Visit the race grounds' }).click();
     const courses = ['Sunscar Grand Circuit', "Scorpion's Spine", 'Burning Dunes', 'Caravan Clash', 'Sunscar Grand Circuit', 'Sunscar Grand Circuit'];
     for (let i = 0; i < courses.length; i++) {
@@ -22,6 +44,12 @@ try {
         await page.locator('.rally-pet-list button').nth([0, 2, 4, 5, 6, 0][i]).click();
         await page.locator('.rally-course-card').filter({ has: page.getByText(courses[i], { exact: true }) }).click();
         await page.getByRole('button', { name: 'Practice selected course' }).click();
+        await page.getByText('All companions ready').waitFor();
+        assert.equal(await page.evaluate(() => window.sunscarActiveIntervalsQa()), idleIntervals, 'Practice has no checkpoint timer');
+        await page.waitForTimeout(300);
+        const readyFrames = await page.evaluate(() => window.sunscarRallyQa.frameCount);
+        await page.waitForTimeout(600);
+        assert.ok((await page.evaluate(() => window.sunscarRallyQa.frameCount)) - readyFrames <= 2, 'Ready screen must not keep rendering');
         await page.getByRole('button', { name: 'Ready to race' }).click();
         await page.waitForFunction(() => window.sunscarRallyQa?.state.tick > 180);
         await page.keyboard.press('Space'); await page.keyboard.down('Shift');
@@ -47,13 +75,24 @@ try {
                 await page.waitForTimeout(800);
             }
             await page.keyboard.up('Shift');
+            await page.waitForTimeout(300);
+            const finishFrames = await page.evaluate(() => window.sunscarRallyQa.frameCount);
+            await page.waitForTimeout(600);
+            assert.ok((await page.evaluate(() => window.sunscarRallyQa.frameCount)) - finishFrames <= 2, 'Finished race must not keep rendering');
             await page.getByRole('button', { name: 'Return to the race desk' }).click();
             checks.push('Burning Dunes full practice finish');
         } else {
             await page.getByRole('button', { name: 'Pause race' }).click();
+            await page.waitForTimeout(300);
+            const pausedFrames = await page.evaluate(() => window.sunscarRallyQa.frameCount);
+            await page.waitForTimeout(600);
+            assert.ok((await page.evaluate(() => window.sunscarRallyQa.frameCount)) - pausedFrames <= 2, 'Paused race must not keep rendering');
             await page.getByRole('button', { name: 'Save & return' }).click();
         }
         await page.waitForFunction(() => !window.sunscarRallyQa && !document.querySelector('.rally-stage canvas'));
+        await page.waitForTimeout(300);
+        assert.equal(await page.evaluate(() => window.sunscarActiveRafQa()), idleRaf, 'Race exit must release the animation-frame loop');
+        assert.equal(await page.evaluate(() => window.sunscarActiveIntervalsQa()), idleIntervals, 'Race exit must release intervals');
         checks.push('Canvas and QA listener cleared after course ' + i);
     }
     const saved = await page.request.get(base + '/api/festival/rally?playerName=' + auth.name, { headers }).then(r => r.json());
