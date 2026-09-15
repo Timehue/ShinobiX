@@ -30,11 +30,16 @@ export function protectSaveOnUnload<TPayload extends Record<string, unknown>>(pa
     const body = { ...payload, _baseSaveVersion: preferUnresolved ? activeUnresolved.body._baseSaveVersion : params.latestVersion };
     const guard = latestSaveConflictRevision(params.captureConflict(name, body));
     if (params.send === false) return;
+    const serializedBody = preferUnresolved ? activeUnresolved.serializedBody : stringifySaveConflictPayload(body);
+    // Keepalive has a 64 KiB body budget. Preserve the full durable guard for
+    // normal recovery instead of submitting a request the browser must reject.
+    // Count UTF-8 bytes: player-authored text can use more than one byte per char.
+    if (new TextEncoder().encode(serializedBody).byteLength > 64 * 1024) return;
     void (params.request ?? fetch)(`/api/save/${encodeURIComponent(name.toLowerCase())}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         keepalive: true,
-        body: preferUnresolved ? activeUnresolved.serializedBody : stringifySaveConflictPayload(body),
+        body: serializedBody,
     }).then(async (response) => {
         if (!response.ok) return;
         const acknowledgement = await response.clone().json().catch(() => null) as { persisted?: boolean; _saveVersion?: number } | null;

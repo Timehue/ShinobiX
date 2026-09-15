@@ -23,8 +23,9 @@ import playerCapabilitiesHandler from './api/player/capabilities.js';
 import playerAccountStatusHandler from './api/player/account-status.js';
 import dailyLoginHandler  from './api/player/daily-login.js';
 import blackMarketHandler from './api/festival/black-market.js';
-import sunscarFestivalHandler from './api/festival/sunscar.js';
 import sunscarExchangeHandler from './api/festival/exchange.js';
+import sunscarRallyHandler from './api/festival/rally.js';
+import sunscarCaravanHandler from './api/festival/caravan.js';
 import pvpSessionHandler from './api/pvp/session.js';
 import pvpMoveHandler    from './api/pvp/move.js';
 import imagesHandler     from './api/images.js';
@@ -359,8 +360,9 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     // stamp on the save itself. See api/player/_daily-login.ts.
     route('/player/daily-login',  dailyLoginHandler);
     route('/festival/black-market', blackMarketHandler);
-    route('/festival/sunscar', sunscarFestivalHandler);
     route('/festival/exchange', sunscarExchangeHandler);
+    route('/festival/rally', sunscarRallyHandler);
+    route('/festival/caravan', sunscarCaravanHandler);
 
     // PvP
     route('/pvp/session', pvpSessionHandler);

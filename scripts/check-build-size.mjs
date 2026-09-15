@@ -674,7 +674,11 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 //
 // Production Image remains the authority: 8,400,000 leaves 96,857 B over its
 // 8,303,143 B measurement of this tree.
-const TOTAL_JS_CSS_FAIL_BYTES = 8_400_000;
+// Sunscar adds the lazy Pet Rally and Caravan modes while reusing the existing
+// Three vendor and combat renderer. Initial-load budgets remain unchanged.
+// Current-main integration: 8,417,704 B product JS/CSS; initial graph 1,432,862 B
+// raw / 380,733 B gzip. Production Image separately verifies production args.
+const TOTAL_JS_CSS_FAIL_BYTES = 8_500_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

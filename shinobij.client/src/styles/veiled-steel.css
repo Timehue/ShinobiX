@@ -1823,19 +1823,6 @@ body.coach-banner-open .coach-guide-actions .location-button {
     grid-column: span 3;
   }
 
-  .app-shell.screen-sunscarFestival .sunscar-festival {
-    padding: 12px;
-  }
-
-  .app-shell.screen-sunscarFestival .sunscar-hero {
-    padding: 18px 14px;
-  }
-
-  .app-shell.screen-sunscarFestival .sunscar-grid {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 14px;
-  }
-
   .app-shell.screen-sunscarFestival .sunscar-card {
     min-width: 0;
     padding: 14px;

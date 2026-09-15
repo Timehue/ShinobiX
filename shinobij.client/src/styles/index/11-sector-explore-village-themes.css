@@ -382,31 +382,6 @@
     background: radial-gradient(circle, #5b3b12, #111827 70%);
 }
 
-.sunscar-festival {
-    min-height: 720px;
-    padding: 24px;
-    border: 3px solid var(--gold-2);
-    border-radius: 18px;
-    background: radial-gradient(circle at top, rgba(251, 191, 36, 0.35), transparent 35%), linear-gradient(135deg, #3b1f0b, #7c2d12, var(--gold-2));
-    color: white;
-    box-shadow: 0 0 40px rgba(245, 158, 11, 0.45);
-}
-
-.sunscar-hero {
-    text-align: center;
-    padding: 24px;
-    border-radius: 18px;
-    background: rgba(69, 26, 3, 0.82);
-    border: 2px solid var(--gold-300);
-}
-
-.sunscar-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 18px;
-    margin-top: 18px;
-}
-
 .sunscar-card {
     padding: 18px;
     border-radius: 16px;
@@ -516,48 +491,6 @@
 }
 @keyframes bm-pop { 0% { transform: scale(0.4); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
 @keyframes bm-glow-pulse { 0%, 100% { opacity: 0.55; transform: scale(0.95); } 50% { opacity: 1; transform: scale(1.08); } }
-
-.dice-row {
-    display: flex;
-    justify-content: center;
-    gap: 14px;
-    margin: 20px 0;
-}
-
-.fate-die {
-    width: 76px;
-    height: 76px;
-    display: grid;
-    place-items: center;
-    font-size: 38px;
-    border-radius: 16px;
-    background: var(--gold-300);
-    color: #451a03;
-    border: 3px solid #92400e;
-}
-
-.sunscar-roll-button {
-    width: 100%;
-    font-size: 18px;
-    padding: 14px;
-    background: var(--gold);
-    color: #451a03;
-    border: 2px solid white;
-}
-
-.sunscar-log {
-    margin-top: 14px;
-    padding: 12px;
-    border-radius: 12px;
-    background: rgba(0, 0, 0, 0.4);
-}
-
-.festival-visual {
-    display: flex;
-    justify-content: space-around;
-    font-size: 42px;
-    margin: 20px 0;
-}
 
 .central-hub {
     min-height: 720px;

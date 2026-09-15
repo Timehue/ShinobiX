@@ -16,6 +16,7 @@ import {
     PET_ENCOUNTER_POINTER_TTL_SECONDS,
 } from './_encounter-pointer.js';
 import { unresolvedFreeDungeonMiss } from '../dungeon/_run.js';
+import { caravanPetDiscovery } from '../festival/_caravan-pet.js';
 
 const ATTEMPT_RECEIPT_TTL_SECONDS = PET_ENCOUNTER_POINTER_TTL_SECONDS;
 
@@ -30,6 +31,7 @@ type PetAttemptReceipt = {
     pet?: Record<string, unknown>;
     resolvedAt?: number;
     worldExploreRequestId?: string;
+    caravanRunId?: string;
     resolution?: 'explored-miss' | 'befriended' | 'declined' | 'expired';
 };
 
@@ -69,6 +71,7 @@ function cleanReceipt(raw: unknown): PetAttemptReceipt | null {
         ...(token && pet ? { token, pet } : {}),
         ...(Number.isSafeInteger(resolvedAt) && resolvedAt > 0 ? { resolvedAt } : {}),
         ...(worldExploreRequestId ? { worldExploreRequestId } : {}),
+        ...(typeof value.caravanRunId === 'string' ? { caravanRunId: value.caravanRunId } : {}),
         ...(resolution ? { resolution } : {}),
     };
 }
@@ -81,6 +84,7 @@ async function persistAuthority(playerName: string, receipt: PetAttemptReceipt):
     await kv.set(petEncounterActiveKey(playerName), {
         playerName,
         requestId: receipt.requestId,
+        ...(receipt.caravanRunId ? { caravanRunId: receipt.caravanRunId } : {}),
         outcome: receipt.token ? 'hit' : 'miss',
         ...(receipt.token && receipt.pet ? { token: receipt.token, pet: receipt.pet } : {}),
         sector: receipt.sector,
@@ -96,6 +100,7 @@ async function persistAuthority(playerName: string, receipt: PetAttemptReceipt):
         token: receipt.token,
         pet: receipt.pet,
         sector: receipt.sector,
+        ...(receipt.caravanRunId ? { caravanRunId: receipt.caravanRunId } : {}),
         mintedAt: receipt.mintedAt,
         requestId: receipt.requestId,
     }, { ex: PET_ENCOUNTER_POINTER_TTL_SECONDS });
@@ -134,7 +139,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const stableRequestId = requestId || `admin_${randomUUID().replace(/-/g, '')}`;
         const activeKey = petEncounterActiveKey(playerName);
         const outcome = await withKvLock(activeKey, async () => {
+            const caravanRunId = typeof body.caravanRunId === 'string' ? body.caravanRunId : '';
+            const caravanSave = caravanRunId ? await kv.get<{ character?: Record<string, unknown> }>(`save:${playerName}`) : null;
+            if (caravanRunId && (sector !== 54 || !caravanPetDiscovery(caravanSave?.character, caravanRunId, stableRequestId))) return { error: 'This expedition has no matching wild pet trail.', status: 409 };
             const active = cleanPetEncounterPointer(await kv.get(activeKey));
+            if (caravanRunId && active && active.requestId !== stableRequestId) return { error: 'Resolve your existing wild encounter in the world before following this trail.', status: 409 };
             if (active && active.playerName.toLowerCase() === playerName.toLowerCase()) {
                 let activeReceipt: PetAttemptReceipt = cleanReceipt(await kv.get(
                     petEncounterRequestKey(playerName, active.requestId),
@@ -145,6 +154,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     day: new Date(active.mintedAt).toISOString().slice(0, 10),
                     sector: active.sector,
                     mintedAt: active.mintedAt,
+                    ...(active.caravanRunId ? { caravanRunId: active.caravanRunId } : {}),
                     ...(active.outcome === 'hit' && active.token && active.pet
                         ? { token: active.token, pet: active.pet }
                         : {}),
@@ -194,7 +204,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     sector: pendingDungeonMiss.sector,
                 };
             }
-            if (!pendingDungeonMiss) {
+            if (!pendingDungeonMiss && !caravanRunId) {
                 const presenceBlock = sectorPresenceBlock(playerName, sector);
                 if (presenceBlock && !identity.admin) {
                     return { error: presenceBlock.error, status: presenceBlock.status, reason: presenceBlock.reason };
@@ -216,6 +226,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 day,
                 sector,
                 mintedAt: Date.now(),
+                ...(caravanRunId ? { caravanRunId } : {}),
                 ...(pet ? { token: randomUUID().replace(/-/g, ''), pet } : {}),
             };
             await persistAuthority(playerName, receipt);

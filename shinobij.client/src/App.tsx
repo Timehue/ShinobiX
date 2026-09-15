@@ -6004,7 +6004,7 @@ export default function App() {
                     <SunscarFestival
                         character={character}
                         onVersionedCharacter={commitVersionedCharacter}
-                        creatorCards={creatorCards} setCreatorItems={setCreatorItems}
+                        setCreatorItems={setCreatorItems} sharedImages={sharedImages} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorItems={creatorItems} onFightOpenChange={setAiFightOpen} onRecordBattle={recordBattle}
                     />
                 )}
                 {!activeTriggeredEvent && screen === "centralHub" && character && (

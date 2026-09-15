@@ -20,6 +20,18 @@ function source(relativeUrl: string): string {
 }
 
 describe("world-map wild-pet encounters", () => {
+    test("Caravan trails send the server's sealed expedition binding", { concurrency: false }, async () => {
+        const realFetch = globalThis.fetch;
+        let body: Record<string, unknown> = {};
+        globalThis.fetch = (async (_url, init) => {
+            body = JSON.parse(String(init?.body));
+            return new Response(JSON.stringify({ ok: true, requestId: 'caravan_trail123', pet: null, sector: 54 }));
+        }) as typeof fetch;
+        try {
+            assert.equal((await startWildPetEncounter('Rill', 54, 'caravan_trail123', 'expedition-id')).kind, 'miss');
+            assert.equal(body.caravanRunId, 'expedition-id');
+        } finally { globalThis.fetch = realFetch; }
+    });
     test("only an explicit server miss continues normal exploration", { concurrency: false }, async () => {
         const realFetch = globalThis.fetch;
         const bodies: Record<string, unknown>[] = [];
