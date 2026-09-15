@@ -1,4 +1,6 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type Dispatch, type SetStateAction } from "react";
+import type { GameItem } from "../types/combat";
+import { SunscarExchange, SunscarExchangeEntrance } from "../components/SunscarExchange";
 // Compact local chrome glyphs. NOTE: the dice/slot symbols
 // (🦂🪙👁️⚔️🌙⭐) are gameplay data the win-check compares — left as emoji on purpose.
 import { GiSun, GiDiceSixFacesSix, GiCampfire } from "../components/icons/LightweightGameIcons";
@@ -19,11 +21,14 @@ export function SunscarFestival({
     character,
     onVersionedCharacter,
     creatorCards,
+    setCreatorItems,
 }: {
     character: Character;
     onVersionedCharacter: VersionedCharacterCommit;
     creatorCards: TileCard[];
+    setCreatorItems: Dispatch<SetStateAction<GameItem[]>>;
 }) {
+    const [exchangeOpen, setExchangeOpen] = useState(false);
     const [diceResult, setDiceResult] = useState<string[]>([]);
     const [festivalLog, setFestivalLog] = useState(
         "Kael taps three dice against the table and nods at the empty stool."
@@ -102,6 +107,8 @@ export function SunscarFestival({
         }
     }
 
+    if (exchangeOpen) return <SunscarExchange key={character.name} character={character} onVersionedCharacter={onVersionedCharacter} setCreatorItems={setCreatorItems} onBack={() => setExchangeOpen(false)} />;
+
     // -- Chronicle Showdown vs Miraa (free play) ---------------------------------
     if (duelPhase === "playing") {
         // No stake, no payout, no forfeit penalty — the board result is the whole
@@ -150,24 +157,10 @@ export function SunscarFestival({
                         "Three dice. Five turns a day. Blame the table after that and it charges extra."
                     </p>
                     <p><strong>Entry Cost:</strong> Free — five draws a day, and every draw pays</p>
-                    <p><strong>Your Ryo:</strong> {character.ryo}</p>
+                    <p><strong>Your Ryo:</strong> {character.ryo.toLocaleString()}</p>
                 </section>
 
-                <section className="sunscar-card dice-card">
-                    <h2><GiDiceSixFacesSix style={SF_ICON} />Dice of Fate</h2>
-
-                    <div className="dice-row">
-                        {(diceResult.length ? diceResult : ["🎲", "🎲", "🎲"]).map((die, index) => (
-                            <div className="fate-die" key={index}>{die}</div>
-                        ))}
-                    </div>
-
-                    <button className="sunscar-roll-button" onClick={rollDice} disabled={diceBusy}>
-                        {diceBusy ? "Rolling..." : "Roll Dice of Fate"}
-                    </button>
-
-                    <div className="sunscar-log">{festivalLog}</div>
-                </section>
+                <SunscarExchangeEntrance onOpen={() => setExchangeOpen(true)} />
 
                 <section className="sunscar-card npc-card">
                     <FestivalPortrait image={miraaImage} icon="🃏" name="Miraa the Card Seer" />
@@ -208,6 +201,21 @@ export function SunscarFestival({
                         Golden tents, torch bowls, desert drums, masked merchants,
                         camel caravans, and huge carved dice statues fill the dunes.
                     </p>
+                </section>
+                <section className="sunscar-card dice-card">
+                    <h2><GiDiceSixFacesSix style={SF_ICON} />Dice of Fate</h2>
+
+                    <div className="dice-row">
+                        {(diceResult.length ? diceResult : ["🎲", "🎲", "🎲"]).map((die, index) => (
+                            <div className="fate-die" key={index}>{die}</div>
+                        ))}
+                    </div>
+
+                    <button className="sunscar-roll-button" onClick={rollDice} disabled={diceBusy}>
+                        {diceBusy ? "Rolling..." : "Roll Dice of Fate"}
+                    </button>
+
+                    <div className="sunscar-log">{festivalLog}</div>
                 </section>
             </div>
         </div>
