@@ -2,6 +2,8 @@ import { gainXp } from "../lib/character-level-projection";
 import { getPvpJutsuLoadout } from "../lib/jutsu-loadout";
 import { sectorOrderFor } from "../lib/sector-order";
 import { normalizeNarrativeCharacter as normalizeCharacter } from "../lib/normalize-narrative-character";
+import { StrongholdDialog } from '../features/anbuInfiltration/StrongholdDialog';
+import { isDeathsGateStronghold, strongholdTitle } from '../../../shared/sector-stronghold';
 import { HollowGateEntryMenu } from './world-map/HollowGateEntryMenu';
 import { sectorBackgroundImage, sectorDepthImage, sectorMapUrl, ambienceBiomeForSector } from './world-map/sector-art';
 import { fetchVillageGuards } from "../lib/village-guard-api";
@@ -361,7 +363,7 @@ function WorldMapContent({
     travelingUntil: number;
     setTravelingUntil: (until: number) => void;
     setPendingTravel: (travel: { destinationSector: number; arrivalAt: number } | null) => void;
-    sectorAttackPlayer: (opponent: PlayerRecord) => void;
+    sectorAttackPlayer: (opponent: PlayerRecord) => void | Promise<void>;
     attackSleeper: (opponent: PlayerRecord) => void;
     acceptedMissionIds: string[];
     setAcceptedMissionIds: React.Dispatch<React.SetStateAction<string[]>>;
@@ -4196,7 +4198,7 @@ function WorldMapContent({
         const villageWarEnemy = villageWar?.villages.find(village => village !== character.village);
         const livePlayersHere = liveSectorPlayers
             .filter((p) => p.name.toLowerCase() !== character.name.toLowerCase())
-            .filter((p) => sameSector(p.currentSector, selectedSector));
+            .filter((p) => sameSector(p.currentSector, selectedSector) && !p.stronghold);
         // "Sleeping" targets: players who logged out / closed the tab while
         // standing in THIS wild sector. They come from playerRoster (which carries
         // every registered player tagged with their last-saved sector) minus
@@ -4207,7 +4209,7 @@ function WorldMapContent({
         // a sector everyone last passed through (e.g. the default sector) can't
         // flood the panel. A village / Central logout saves currentSector 0, so
         // those players never appear here.
-        const liveNamesHere = new Set(livePlayersHere.map((p) => p.name.toLowerCase()));
+        const liveNamesHere = new Set(liveSectorPlayers.map((p) => p.name.toLowerCase()));
         const sleepingHere: PlayerRecord[] = playerRoster
             .filter((player) => player.name.toLowerCase() !== character.name.toLowerCase())
             .filter((player) => player.sleeping === true)
@@ -4356,6 +4358,10 @@ function WorldMapContent({
             };
         })();
         const sectorOverlayVault = (() => {
+            if (isDeathsGateStronghold(selectedSector)) return {
+                village: 'Death’s Gate', obsidian: true,
+                onOpen: () => setVaultPrompt({ sector: selectedSector, village: 'Death’s Gate' }),
+            };
             if (!anbuViewOpen || (character.level ?? 0) < 100) return null;
             // Prefer the captured owner; fall back to the sector's home village
             // before any sector-war capture, matching the server's ownership fallback.
@@ -4410,6 +4416,7 @@ function WorldMapContent({
                     abandonBusy={storyReckoningAbandonBusy} onAbandon={() => void handleStoryReckoningAbandon()} />
                 <div className="instance-frame sector-instance-frame">
                     <WorldSectorCanvas
+                        suspended={!!vaultRaid}
                         sector={selectedSector}
                         biome={biome}
                         weather={sectorWeather}
@@ -4438,7 +4445,7 @@ function WorldMapContent({
                         onCrossExit={crossSectorExit}
                         overlayLayer={
                             <>
-                            <WorldSectorOverlayLayer
+                            {!vaultRaid && <WorldSectorOverlayLayer
                                 sector={selectedSector}
                                 biome={ambienceBiomeForSector(selectedSector)}
                                 playerTile={sectorPlayerPos}
@@ -4455,7 +4462,7 @@ function WorldMapContent({
                                 onEngageWanderer={handleWandererEngage}
                                 onOpenTrace={(signId) => setTracesModal({ view: "signs", focusSignId: signId })}
                                 onOpenShrine={() => setTracesModal({ view: "shrine" })}
-                            />
+                            />}
                             {sectorIsCurrent ? petMentor.roadPrompt : null}
                             {tracesModal && sectorTraces && (
                                 <SectorTracesModal
@@ -4473,16 +4480,15 @@ function WorldMapContent({
 
                             {/* Anbu Vault — Infiltrate / Retreat prompt (portaled above nav). */}
                             {vaultPrompt && anbuViewOpen && createPortal(
-                                <div style={{ position: "fixed", inset: 0, zIndex: 1000000, display: "grid", placeItems: "center", background: "rgba(4,6,12,0.72)" }} onClick={() => setVaultPrompt(null)}>
-                                    <div style={{ background: "#141926", border: "1px solid #38405a", borderRadius: 14, padding: "1.1rem 1.2rem", maxWidth: 380, width: "min(92vw, 380px)", textAlign: "center" }} onClick={e => e.stopPropagation()}>
-                                        <img src="/landmarks/anbu-vault.webp" alt="" style={{ width: 120, height: 120, objectFit: "contain" }} />
-                                        <h3 style={{ margin: "0.3rem 0 0" }}>Sector Stronghold</h3>
-                                        <p style={{ fontSize: 12, opacity: 0.7, margin: "0.15rem 0 0" }}>{vaultPrompt.village} · Sector {vaultPrompt.sector}</p>
+                                <StrongholdDialog title={strongholdTitle(vaultPrompt.sector)} onClose={() => setVaultPrompt(null)}>
+                                        <img src="/landmarks/anbu-vault.webp" alt="" className={`stronghold-boss-portrait${isDeathsGateStronghold(vaultPrompt.sector) ? ' stronghold-obsidian-portrait' : ''}`} />
                                         <p style={{ fontSize: 13, opacity: 0.82, margin: "0.3rem 0 0.8rem" }}>
-                                            Their war supplies sit behind that sealed door — and one of their Anbu guards it.
-                                            Break through and you can bleed this sector's war economy. If you fall, you leave with nothing.
+                                            {isDeathsGateStronghold(vaultPrompt.sector)
+                                                ? 'Enter twelve obsidian chambers shared with other players. Every step raises threat; a patrol attacks after 25 steps. Your current health and supplies carry into every fight.'
+                                                : 'Explore 12 chambers, fight patrols, and watch for rival players. An Anbu guards the war vault at the far end. Each step raises threat. Break through to raid this sector’s war supplies.'}
                                         </p>
-                                        <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+                                        {isDeathsGateStronghold(vaultPrompt.sector) && <p className="stronghold-reward-detail"><b>4× normal Ryo, stat growth and Jutsu XP on PvP wins.</b> That’s double Death’s Gate’s usual rewards. Both fighters must start inside. Patrols do not earn this bonus. Normal reward limits apply.</p>}
+                                        <div className="stronghold-dialog-actions">
                                             <button
                                                 disabled={!anbuAdmissionOpen}
                                                 style={{ padding: "0.55rem 1.15rem", opacity: anbuAdmissionOpen ? 1 : 0.55 }}
@@ -4491,24 +4497,30 @@ function WorldMapContent({
                                                     setVaultRaid(vaultPrompt);
                                                     setVaultPrompt(null);
                                                 }}
-                                            >{anbuAdmissionOpen ? "Infiltrate" : "Operation paused"}</button>
+                                            >{anbuAdmissionOpen ? (isDeathsGateStronghold(vaultPrompt.sector) ? "Enter stronghold" : "Infiltrate") : "Operation paused"}</button>
                                             <button style={{ padding: "0.55rem 1.15rem", opacity: 0.8 }} onClick={() => setVaultPrompt(null)}>Retreat</button>
                                         </div>
-                                    </div>
-                                </div>,
+                                </StrongholdDialog>,
                                 document.body,
                             )}
 
                             {/* Anbu Vault — the live raid (traverse → Anbu fight → spoils),
                                 portaled full-screen so the bottom nav can't paint over it. */}
                             {vaultRaid && createPortal(
-                                <div style={{ position: "fixed", inset: 0, zIndex: 1000000, overflowY: "auto", background: "#0a0d15" }}>
+                                <div className="stronghold-overlay">
                                     {anbuAdmissionOpen ? (
                                         <Suspense fallback={<div style={{ display: "grid", placeItems: "center", minHeight: "100dvh", color: "var(--slate-300)" }}>Slipping past the perimeter…</div>}>
                                             <AnbuVaultRaid
+                                                key={`${character.name}:${vaultRaid.sector}`}
                                                 character={character}
                                                 sharedImages={sharedImages}
                                                 sector={vaultRaid.sector}
+                                                onAttackPlayer={player => {
+                                                    const environment = selectedSectorCombatEnvironment();
+                                                    if (!environment) return;
+                                                    focusSectorCombat(environment.sector, environment.biome, environment.weather);
+                                                    return sectorAttackPlayer(player);
+                                                }}
                                                 targetVillage={vaultRaid.village}
                                                 onVersionedCharacter={onVersionedCharacter}
                                                 onExit={() => setVaultRaid(null)}

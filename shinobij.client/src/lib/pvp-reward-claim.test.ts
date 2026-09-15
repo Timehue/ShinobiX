@@ -31,6 +31,16 @@ function memoryStorage(): PvpRewardCompletionStorage {
 }
 
 describe("pvp-reward-claim", () => {
+    it("shows the server-credited Obsidian Stronghold Jutsu XP in the victory receipt", async () => {
+        const result = await postPvpRewardClaim(async () => response(200, {
+            ok: true, alreadyClaimed: false, completionPending: true, rewardAuthorized: true,
+            base: { reward: { ryo: 300, combatGrowth: 24, auraDust: 6, jutsuXp: 40 } },
+        }), { playerName: "rin", battleId: "obsidian-reward", outcome: "win" });
+        assert.equal(result.status, "confirmed");
+        if (result.status !== "confirmed") return;
+        assert.equal(result.base?.reward?.jutsuXp, 40);
+        assert.match(pvpRewardSettlementNotice(result, { draw: false, spar: false }), /\+40 Jutsu XP/);
+    });
     it("authorizes callbacks only after an explicit successful first claim", async () => {
         const result = await postPvpRewardClaim(async () => response(200, {
             ok: true,

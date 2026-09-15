@@ -167,6 +167,32 @@ test('a co-located raid runs the whole chain: claim → world-authorized session
     assert.equal(live?.status, 'active');
 });
 
+test('stronghold players can create the normal PvP fight, while an outdoor attacker is refused', async () => {
+    const { touchStrongholdPresence, leaveStrongholdPresence } = await import('../_stronghold-presence.js');
+    const raider = 'wshinside', quarry = 'wshdefender';
+    await seed(raider, quarry);
+    place(raider, SECTOR); place(quarry, SECTOR);
+    touchStrongholdPresence(quarry, SECTOR, 153);
+    try {
+        const outside = await post(sessionHandler, raider, worldRaidBody(nextBattleId(), raider, quarry));
+        assert.equal(outside.statusCode, 409, JSON.stringify(outside.body));
+        touchStrongholdPresence(raider, SECTOR, 154);
+        const inside = await post(sessionHandler, raider, worldRaidBody(nextBattleId(), raider, quarry));
+        assert.equal(inside.statusCode, 200, JSON.stringify(inside.body));
+        assert.equal(inside.body.session.rewardAuthority, 'world');
+        for (const [actor, role] of [[raider, 'p1'], [quarry, 'p2']] as const) {
+            const joined = await post(moveHandler, actor, {
+                battleId: inside.body.battleId, role, action: 'join', moveToken: `stronghold-join-${role}`,
+            });
+            assert.equal(joined.statusCode, 200, JSON.stringify(joined.body));
+        }
+        const live = await kv.get<Record<string, any>>(`pvp:${inside.body.battleId}`);
+        assert.equal(pvpSessionMayReward(live as never), true);
+    } finally {
+        leaveStrongholdPresence(raider); leaveStrongholdPresence(quarry);
+    }
+});
+
 test('a raid claimed from the WRONG sector gets no world authority (and so pays nothing)', async () => {
     const raider = 'wsraider2';
     const quarry = 'wsquarry2';

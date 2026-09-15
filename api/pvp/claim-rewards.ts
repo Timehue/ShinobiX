@@ -12,6 +12,7 @@ import { recordPairWinAndDecay } from './_reward-farm.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
 import { computeCombatStatGrowth, PVP_CASUAL_STAT_POINTS_PER_WIN, DAILY_COMBAT_STAT_CAP, statGainMultiplier } from '../_stat-growth.js';
+import { creditPvpJutsuMastery } from './_jutsu-mastery-reward.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
 import {
     isPlayerRankedV2Session,
@@ -513,7 +514,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 totalPvpKills?: number;
                 monthlyPvpKills?: number;
                 pvpKillMonth?: string;
-                reward?: { ryo: number; combatGrowth: number; auraDust: number };
+                reward?: { ryo: number; combatGrowth: number; auraDust: number; jutsuXp?: number };
             };
             type WarGroundOut = {
                 fresh: boolean;
@@ -632,7 +633,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // transient loser-save read miss; the winner can retry the claim.
                 const loserRecord = loserSlug ? await kv.get<Record<string, unknown>>(`save:${loserSlug}`) : null;
                 if (!loserRecord?.character) throw new Error('pvp-base-loser-save-missing');
-                const { ryoGain, growthMult } = computePvpWinGains(char, session.rewardSector);
+                const { ryoGain, growthMult } = computePvpWinGains(char, session.rewardSector, session.rewardStronghold);
                 const sid = pvpSettlementId('base', battleId);
                 const decision = inspectPvpCredit(char, sid, 'base');
                 if (decision.fresh) {
@@ -651,6 +652,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const dRyo = Math.max(0, Math.floor(ryoGain * decay));
                     const credit = creditPvpWinBase(char, dRyo);
                     let finalChar: Record<string, unknown> = credit.char;
+                    const mastery = creditPvpJutsuMastery(finalChar, session, decay);
+                    finalChar = mastery.character;
                     let summary: BaseOut = credit.summary;
                     let combatGrowthAwarded = 0;
                     // Stage 4: casual PvP grants a small, daily-capped combat stat
@@ -721,7 +724,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     };
                     summary = {
                         ...summary,
-                        reward: { ryo: dRyo, combatGrowth: combatGrowthAwarded, auraDust: 6 },
+                        reward: { ryo: dRyo, combatGrowth: combatGrowthAwarded, auraDust: 6, jutsuXp: mastery.awarded },
                         auraDust: Number(finalChar.auraDust),
                         inventory: finalChar.inventory,
                         totalPvpKills: Number(finalChar.totalPvpKills),

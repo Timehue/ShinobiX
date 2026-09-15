@@ -143,7 +143,7 @@ export function applyPveOutcomeWithReceipt(params: {
     }
     const usageSettledCharacter = !legacyReplay
         && isSoloPveSession(params.session)
-        && ['mission', 'caravan'].includes(params.session.encounter.kind)
+        && ['mission', 'caravan', 'stronghold-patrol'].includes(params.session.encounter.kind)
         ? applySoloPveUsageCosts(params.character, params.session)
         : params.character;
     const settledCharacter = legacyReplay
@@ -232,7 +232,7 @@ export async function settlePveFightOutcome(
         return { ok: true, outcome, applied: false, replayed: false, deferredToSettlement: true };
     }
 
-    if (isSoloPveSession(session) && ['mission', 'caravan'].includes(session.encounter.kind)) {
+    if (isSoloPveSession(session) && ['mission', 'caravan', 'stronghold-patrol'].includes(session.encounter.kind)) {
         const usage = await settleSoloPveTerminalUsage(session, playerName);
         if (!usage.ok) return usage;
         session = usage.session;
@@ -304,7 +304,7 @@ export async function settlePveFightOutcome(
  */
 export function soloPveNeedsAutomaticOutcome(session: SoloPveSession): boolean {
     if (session.status !== 'done') return false;
-    if (session.encounter.kind === 'mission' || session.encounter.kind === 'caravan') return true;
+    if (['mission', 'caravan', 'stronghold-patrol'].includes(session.encounter.kind)) return true;
     if (session.encounter.kind !== 'story-boss' && session.encounter.kind !== 'academy-spar') return false;
     return resolveAiFightOutcome(session) !== 'win';
 }

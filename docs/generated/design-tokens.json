@@ -2548,6 +2548,14 @@
         "valuePx": 500,
         "occurrences": [
           {
+            "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
+            "line": 90
+          },
+          {
+            "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
+            "line": 114
+          },
+          {
             "source": "shinobij.client/src/styles/battle-skin.css",
             "line": 4165
           },
@@ -2860,6 +2868,14 @@
           {
             "source": "shinobij.client/src/components/LiveServiceNotice.css",
             "line": 6
+          },
+          {
+            "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
+            "line": 89
+          },
+          {
+            "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
+            "line": 99
           },
           {
             "source": "shinobij.client/src/screens/WorldCrisis80.css",
@@ -3655,6 +3671,10 @@
         "axis": "width",
         "valuePx": 900,
         "occurrences": [
+          {
+            "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
+            "line": 91
+          },
           {
             "source": "shinobij.client/src/features/dojo-circuit/dojo-circuit.css",
             "line": 49

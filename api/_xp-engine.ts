@@ -1,4 +1,5 @@
 import { PROGRESSION_EXAM_HOLDS } from '../shared/progression-holds.js';
+import { strongholdPvpRewardMultiplier } from '../shared/sector-stronghold.js';
 
 // Pure, IO-free server port of the client's character XP / level engine, for
 // the server-authoritative PvP-win reward (audit #7 / Stage 3 Phase 3). Split
@@ -297,16 +298,18 @@ export function gainXp(character: XpCharacter, _amount: number): XpCharacter {
 export type PvpWinGains = { ryoGain: number; deathsGate: boolean; trait: string | null; growthMult: number };
 
 /** The base PvP-win ryo for `char`, scaled by the active pet trait and the
- *  Death's Gate (sector 99) 2× bonus. Character XP is retired — the old Swift
+ *  Death's Gate (sector 99) 2× bonus, doubled again by a sealed stronghold stamp.
+ *  Character XP is retired — the old Swift
  *  +25% XP and Death's Gate ×2 XP boosts now act on PvP STAT GROWTH instead
  *  (docs/leveling-without-xp-map.md §4.1), surfaced here as `growthMult`. */
-export function computePvpWinGains(char: XpCharacter, rewardSector: unknown): PvpWinGains {
+export function computePvpWinGains(char: XpCharacter, rewardSector: unknown, rewardStronghold?: unknown): PvpWinGains {
     const pets = Array.isArray(char.pets) ? char.pets as Array<Record<string, unknown>> : [];
     const activePet = pets.find((p) => p && p.id === char.activePetId);
     const trait = (activePet && typeof activePet.trait === 'string') ? activePet.trait : null;
     const deathsGate = Number(rewardSector) === 99;
-    const ryoGain = (trait === 'Lucky' ? 90 : 75) * (deathsGate ? 2 : 1);
-    const growthMult = (trait === 'Swift' ? 1.25 : 1) * (deathsGate ? 2 : 1);
+    const multiplier = strongholdPvpRewardMultiplier(rewardSector, rewardStronghold);
+    const ryoGain = (trait === 'Lucky' ? 90 : 75) * multiplier;
+    const growthMult = (trait === 'Swift' ? 1.25 : 1) * multiplier;
     return { ryoGain, deathsGate, trait, growthMult };
 }
 

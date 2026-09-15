@@ -1,3 +1,4 @@
+import { sameStrongholdLocation } from '../_stronghold-presence.js';
 /**
  * Pure anti-grief gating predicates over an online-player record.
  *
@@ -133,6 +134,7 @@ export function worldInteractionBlock(actor: OnlinePlayer | null, target: Online
         return { status: 409, error: 'World attacks are disabled in safe zones.' };
     }
     if (actor.sector !== target.sector) return { status: 409, error: 'Target is no longer in your sector.' };
+    if (!sameStrongholdLocation(actor, target, now)) return { status: 409, error: 'You must both be inside the stronghold, or both outside, to attack.' };
     return null;
 }
 

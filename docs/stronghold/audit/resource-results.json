@@ -1,0 +1,97 @@
+{
+  "checks": [
+    {
+      "sector": 12,
+      "cycles": 12,
+      "stoppedTimersAndPolling": true,
+      "stableListenersNodesHeapLayers": true
+    },
+    {
+      "sector": 12,
+      "idleTaskMs": 230.9790000000005,
+      "fogSamples": 0
+    },
+    {
+      "sector": 12,
+      "successDeadlineTimers": 0,
+      "reportsAfterUnmount": 0,
+      "remainingTimers": []
+    },
+    {
+      "sector": 12,
+      "combatCycles": 8,
+      "stableCombatResources": true
+    },
+    {
+      "sector": 99,
+      "cycles": 12,
+      "stoppedTimersAndPolling": true,
+      "stableListenersNodesHeapLayers": true
+    },
+    {
+      "sector": 99,
+      "idleTaskMs": 222.7220000000001,
+      "fogSamples": 0
+    },
+    {
+      "sector": 99,
+      "successDeadlineTimers": 0,
+      "reportsAfterUnmount": 0,
+      "remainingTimers": []
+    },
+    {
+      "sector": 99,
+      "combatCycles": 8,
+      "stableCombatResources": true
+    },
+    {
+      "backdrop": "2d",
+      "cycle": 0,
+      "outsideFrames": 2,
+      "outsideWebgl": 0,
+      "insideFrames": 0,
+      "insideWebgl": 0
+    },
+    {
+      "backdrop": "2d",
+      "cycle": 1,
+      "outsideFrames": 2,
+      "outsideWebgl": 0,
+      "insideFrames": 0,
+      "insideWebgl": 0
+    },
+    {
+      "backdrop": "2d",
+      "cycle": 2,
+      "outsideFrames": 2,
+      "outsideWebgl": 0,
+      "insideFrames": 0,
+      "insideWebgl": 0
+    },
+    {
+      "backdrop": "3d",
+      "cycle": 0,
+      "outsideFrames": 3,
+      "outsideWebgl": 2,
+      "insideFrames": 0,
+      "insideWebgl": 0
+    },
+    {
+      "backdrop": "3d",
+      "cycle": 1,
+      "outsideFrames": 3,
+      "outsideWebgl": 2,
+      "insideFrames": 0,
+      "insideWebgl": 0
+    },
+    {
+      "backdrop": "3d",
+      "cycle": 2,
+      "outsideFrames": 3,
+      "outsideWebgl": 2,
+      "insideFrames": 0,
+      "insideWebgl": 0
+    }
+  ],
+  "pageErrors": []
+}

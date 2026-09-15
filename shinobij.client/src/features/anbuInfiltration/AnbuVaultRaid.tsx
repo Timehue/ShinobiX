@@ -1,29 +1,9 @@
-/*
- * AnbuVaultRaid — the Anbu Vault Infiltration screen (docs/anbu-infiltration-plan.md).
- *
- * Three phases in one self-contained feature module:
- *   1. traverse — a lean navigable war-vault interior. REUSES the Hollow Gate
- *      dungeon PRIMITIVES (generateHollowGateFloor / findHollowGatePath /
- *      computeHollowGateVisible — all pure) but deliberately NOT the Hollow Gate
- *      screen, run state, shards, torch, or warden counters: separate modes that
- *      share only stateless map code. Every room is stamped with the 'warvault'
- *      theme so the renderer look comes from the generated
- *      shrine:icon-theme-warvault-* tiles; HG's pickRoomTheme can never roll that
- *      theme (it is not in HOLLOW_GATE_THEMES).
- *   2. fight — reaching the vault starts the server-auth run
- *      (api/village/anbu-infiltration action:'start') and REUSES the whole
- *      normal Solo PvE Arena shell. The defender is a server-sealed snapshot.
- *   3. result — the raid report: which pools the server rolled, caches minted,
- *      ryo, or a clean "the Anbu held". The returned server character replaces
- *      local state; this screen does not reconstruct rewards or combat costs.
- *
- * The traversal is CLIENT-side flavor: rewards flow ONLY from the server-settled
- * fight win, so skipping the walk cheats nothing (docs plan §9).
- */
+/* Sector stronghold: shared exploration, movement patrols, and the final Anbu raid. */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { buildVaultInterior } from "./vault-interior";
-import { findHollowGatePath } from "../../lib/hollow-gate-path";
-import { computeHollowGateVisible } from "../../lib/hollow-gate-visibility";
+import { StrongholdExplore } from "./StrongholdExplore";
+import { strongholdRequest } from "./stronghold-api";
+import { StrongholdDialog } from "./StrongholdDialog";
+import { isDeathsGateStronghold } from '../../../../shared/sector-stronghold';
 import {
     startInfiltration,
     reportInfiltration,
@@ -31,21 +11,21 @@ import {
     anbuInfiltrationAdmissionEnabled,
     anbuAvatarForVillage,
     anbuDisplayName,
+    InfiltrationRequestError,
     type InfilReportResponse,
 } from "../../lib/anbu-infiltration-api";
 import { MissionArenaFight } from "../../screens/MissionArenaFight";
 import { soloPveArenaTransport, soloPveSessionForArena } from "../../lib/solo-pve-arena-adapter";
 import type { SoloPveSession } from "../../lib/solo-pve-api";
-import type { BattleHistoryEntry, Character, HollowGateShrineRun, VersionedCharacterCommit } from "../../types/character";
+import type { BattleHistoryEntry, Character, PlayerRecord, VersionedCharacterCommit } from "../../types/character";
 import { useCapabilityMutationAvailability, useLiveCapabilities } from "../../lib/live-capabilities-context";
 
-const STEP_MS = 170;
-const TILE = typeof window !== "undefined" && window.innerWidth <= 480 ? 40 : 48;
 // Refresh-resume: the live runId persists here while a fight is up, so a
 // mid-fight reload can rejoin the server run. Cleared on clean exits and on
 // resolution.
 const INFIL_RUN_KEY = "anbuInfiltration.activeRun";
-type Phase = "traverse" | "fight" | "result";
+const accountKey = (name: string) => name.toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32);
+type Phase = "traverse" | "fight" | "result" | "patrol-result";
 
 export function AnbuVaultRaid({
     character,
@@ -54,6 +34,7 @@ export function AnbuVaultRaid({
     targetVillage,
     onVersionedCharacter,
     onRecordBattle,
+    onAttackPlayer,
     onExit,
 }: {
     character: Character;
@@ -62,31 +43,28 @@ export function AnbuVaultRaid({
     targetVillage: string;
     onVersionedCharacter: VersionedCharacterCommit;
     onRecordBattle?: (entry: BattleHistoryEntry) => void;
+    onAttackPlayer: (player: PlayerRecord) => void | Promise<void>;
     onExit: () => void;
 }) {
     const anbuMutationAvailability = useCapabilityMutationAvailability("anbuInfiltration");
     const { mutationAvailability, viewAvailability } = useLiveCapabilities();
     const actionsAvailable = anbuInfiltrationAdmissionEnabled(anbuMutationAvailability);
-    // The vault interior + the explored-tile set live in ONE state so `seen`
-    // accumulates inside the same event-driven update that moves the player
-    // (the strict hooks lints bar both render-time ref mutation and
-    // setState-in-effect for this).
-    const [world, setWorld] = useState<{ run: HollowGateShrineRun; seen: Set<number> }>(() => {
-        const r = buildVaultInterior();
-        return { run: r, seen: new Set(computeHollowGateVisible(r)) };
-    });
-    const run = world.run;
-    const seen = world.seen;
+    const recoveryAvailable = viewAvailability('anbuInfiltration') === 'available';
     const [phase, setPhase] = useState<Phase>("traverse");
-    const [fight, setFight] = useState<{ runId: string; session: SoloPveSession; anbuName: string } | null>(null);
+    const [fight, setFight] = useState<{ runId: string; session: SoloPveSession; anbuName: string; patrol?: boolean; sector?: number; targetVillage?: string } | null>(null);
     const [report, setReport] = useState<InfilReportResponse | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [starting, setStarting] = useState(false);
+    const [resumeError, setResumeError] = useState('');
+    const [resumeAttempt, setResumeAttempt] = useState(0);
+    const runKey = `${INFIL_RUN_KEY}:${accountKey(character.name)}`;
+    const mounted = useRef(false);
+    useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
     // Boss room: true once the player reaches the Anbu at the vault, opening the
     // Challenge / Retreat confrontation (the fight no longer auto-starts on step).
     const [challenge, setChallenge] = useState(false);
     // The masked, anonymous face of this village's vault defender.
-    const anbuAvatar = anbuAvatarForVillage(targetVillage);
+    const anbuAvatar = anbuAvatarForVillage(fight?.targetVillage ?? targetVillage);
     const anbuName = anbuDisplayName(targetVillage);
     // Refresh-resume: a stored runId from an interrupted fight is probed once on
     // mount; success jumps straight back into the live fight (the server run
@@ -94,139 +72,101 @@ export function AnbuVaultRaid({
     // entered fresh. Note: the run stays bound to ITS sector server-side even if
     // the player reopened a different sector's vault to get here.
     const [resumeRunId, setResumeRunId] = useState<string | null>(() => {
-        try { return localStorage.getItem(INFIL_RUN_KEY); } catch { return null; }
+        if (isDeathsGateStronghold(sector)) return null;
+        try { return localStorage.getItem(runKey) ?? localStorage.getItem(INFIL_RUN_KEY); } catch { return null; }
     });
     useEffect(() => {
         if (!resumeRunId) return;
-        if (viewAvailability("anbuInfiltration") !== "available") return;
+        if (!recoveryAvailable) return;
         let alive = true;
-        fetchInfiltrationState(resumeRunId, character.name)
+        const controller = new AbortController();
+        fetchInfiltrationState(resumeRunId, character.name, controller.signal)
             .then(res => {
                 if (!alive) return;
-                setFight({ runId: resumeRunId, session: res.session, anbuName: res.anbu.name });
+                setFight({ runId: resumeRunId, session: res.session, anbuName: res.anbu.name, sector: res.sector, targetVillage: res.targetVillage });
+                try { localStorage.setItem(runKey, resumeRunId); localStorage.removeItem(INFIL_RUN_KEY); } catch { /* storage disabled */ }
                 setPhase("fight");
                 setResumeRunId(null);
             })
-            .catch(() => {
+            .catch((e: unknown) => {
                 if (!alive) return;
-                try { localStorage.removeItem(INFIL_RUN_KEY); } catch { /* storage disabled */ }
-                setResumeRunId(null);
+                if (e instanceof InfiltrationRequestError && ((e.status === 404 && e.message === 'Run not found or expired.') || e.status === 403)) {
+                    try { localStorage.removeItem(runKey); localStorage.removeItem(INFIL_RUN_KEY); } catch { /* storage disabled */ }
+                    setResumeRunId(null);
+                } else setResumeError('Your fight is saved. We could not reconnect yet. Retry when your connection returns.');
             });
-        return () => { alive = false; };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [resumeRunId, viewAvailability]);
+        return () => { alive = false; controller.abort(); };
+    }, [resumeRunId, recoveryAvailable, resumeAttempt, runKey, character.name]);
 
-    const w = run.width;
-    const playerIdx = run.playerY * w + run.playerX;
-    const visible = useMemo(() => computeHollowGateVisible(run), [run]);
-    const seenRef = useRef(seen);
-    useEffect(() => { seenRef.current = seen; });
-
-    // ── walking (event-driven click-to-move + arrows; lean local version) ──────
-    const pathRef = useRef<number[]>([]);
-    const timerRef = useRef<number | null>(null);
-    const runRef = useRef(run);
-    // Live mirrors for timer callbacks (pumpWalk fires between renders, so the
-    // closure-captured phase/starting would be stale there).
-    const phaseRef = useRef(phase);
-    const startingRef = useRef(starting);
-    useEffect(() => { runRef.current = run; phaseRef.current = phase; startingRef.current = starting; });
-
-    function stopWalk() {
-        pathRef.current = [];
-        if (timerRef.current != null) { window.clearTimeout(timerRef.current); timerRef.current = null; }
+    const startingRef = useRef(false);
+    function leaveResolvedRaid() {
+        // Retire interior presence immediately when leaving a completed fight/report.
+        if (startingRef.current) return;
+        startingRef.current = true;
+        setStarting(true);
+        void strongholdRequest(character.name, fight?.sector ?? sector, 'leave')
+            .then(() => { if (mounted.current) onExit(); })
+            .catch(e => setError((e as Error).message))
+            .finally(() => { startingRef.current = false; setStarting(false); });
     }
     // ── the vault: start the server-auth Anbu fight (fired from the boss-room
     //    Challenge confirm, not on step) ────────────────────────────────────────
     async function enterVault() {
-        if (startingRef.current || phaseRef.current !== "traverse") return;
+        if (isDeathsGateStronghold(sector)) return;
+        if (startingRef.current || phase !== "traverse") return;
         if (!anbuInfiltrationAdmissionEnabled(mutationAvailability("anbuInfiltration"))) {
             setError("ANBU infiltration actions are paused. No raid attempt was started.");
             return;
         }
+        startingRef.current = true;
         setStarting(true); setError(null);
         try {
             const res = await startInfiltration(character.name, sector);
-            try { localStorage.setItem(INFIL_RUN_KEY, res.runId); } catch { /* storage disabled */ }
+            try { localStorage.setItem(runKey, res.runId); } catch { /* storage disabled */ }
             setChallenge(false);
             setFight({ runId: res.runId, session: res.session, anbuName: res.anbu.name });
             setPhase("fight");
         } catch (e) {
             setError(String((e as Error)?.message ?? e));
         } finally {
+            startingRef.current = false;
             setStarting(false);
         }
     }
 
-    function stepTo(idx: number): boolean {
-        const cur = runRef.current;
-        const tile = cur.tiles[idx];
-        if (!tile || tile.kind === "wall") return false;
-        // The Anbu holds the vault tile — you don't step ONTO them. Reaching the
-        // vault (walk destination or an arrow-step into it) stops you adjacent and
-        // opens the Challenge / Retreat confrontation (the boss room).
-        if (tile.kind === "boss") { stopWalk(); setChallenge(true); return false; }
-        const next = { ...cur, playerX: idx % cur.width, playerY: Math.floor(idx / cur.width) };
-        runRef.current = next;
-        setWorld(prev => {
-            const nextSeen = new Set(prev.seen);
-            computeHollowGateVisible(next).forEach(i => nextSeen.add(i));
-            return { run: next, seen: nextSeen };
-        });
-        return true;
-    }
-
-    function pumpWalk() {
-        const nextIdx = pathRef.current.shift();
-        if (nextIdx == null) { timerRef.current = null; return; }
-        if (!stepTo(nextIdx)) { stopWalk(); return; }
-        timerRef.current = window.setTimeout(pumpWalk, STEP_MS);
-    }
-
-    function walkTo(targetIdx: number) {
-        if (!actionsAvailable || phase !== "traverse" || starting) return;
-        const path = findHollowGatePath(runRef.current, targetIdx, seenRef.current);
-        if (!path || path.length === 0) return;
-        stopWalk();
-        pathRef.current = path;
-        timerRef.current = window.setTimeout(pumpWalk, STEP_MS);
-    }
-
-    useEffect(() => {
-        if (phase !== "traverse") return;
-        const onKey = (e: KeyboardEvent) => {
-            const d: Record<string, [number, number]> = {
-                ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0],
-                w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0],
-            };
-            const delta = d[e.key];
-            if (!delta) return;
-            e.preventDefault();
-            stopWalk();
-            const cur = runRef.current;
-            const nx = cur.playerX + delta[0], ny = cur.playerY + delta[1];
-            if (nx < 0 || ny < 0 || nx >= cur.width || ny >= cur.height) return;
-            stepTo(ny * cur.width + nx);
-        };
-        window.addEventListener("keydown", onKey);
-        return () => window.removeEventListener("keydown", onKey);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [phase, starting]);
-
-    useEffect(() => () => stopWalk(), []);
-
     // Report the terminal Solo PvE evidence through the vault economy route and
     // install the authoritative settled character it returns.
-    async function settleInfiltration(runId: string, _playerName: string): Promise<unknown> {
+    function adoptSettledCharacter(next: Character, version: unknown) {
+        if (accountKey(next.name) !== accountKey(character.name) || typeof version !== 'number' || !Number.isFinite(version)) {
+            throw new Error('The settlement returned an invalid character snapshot. Retry to reconnect.');
+        }
+        // False also means a newer save is already installed. Keep that newer
+        // snapshot and still complete this server-confirmed encounter.
+        onVersionedCharacter(next, version);
+    }
+    async function settleInfiltration(runId: string, _playerName: string, signal?: AbortSignal): Promise<unknown> {
         if (!anbuInfiltrationAdmissionEnabled(mutationAvailability("anbuInfiltration"))) {
             throw new Error("ANBU settlement is paused. Keep this run open and retry when live admission returns.");
         }
-        const r = await reportInfiltration(runId, character.name);
-        try { localStorage.removeItem(INFIL_RUN_KEY); } catch { /* storage disabled */ }
-        if (r.ok && "character" in r && r.character && !onVersionedCharacter(r.character, r._saveVersion)) return r;
+        const r = await reportInfiltration(runId, character.name, signal);
+        if (!mounted.current || signal?.aborted) return r;
+        if (r.ok && "character" in r && r.character) adoptSettledCharacter(r.character, r._saveVersion);
+        try { localStorage.removeItem(runKey); localStorage.removeItem(INFIL_RUN_KEY); } catch { /* storage disabled */ }
         setReport(r);
         setPhase("result");
         return r;
+    }
+
+    async function settlePatrol(runId: string, _playerName: string, signal?: AbortSignal): Promise<unknown> {
+        if (!anbuInfiltrationAdmissionEnabled(mutationAvailability("anbuInfiltration"))) {
+            throw new Error('Stronghold settlement is paused. Retry when live admission returns.');
+        }
+        const result = await strongholdRequest(character.name, sector, 'patrol-report', { runId }, signal);
+        if (!mounted.current || signal?.aborted) return result;
+        if (result.character) adoptSettledCharacter(result.character, result._saveVersion);
+        if (result.won) { setFight(null); setPhase('traverse'); }
+        else setPhase('patrol-result');
+        return result;
     }
 
     const guardedArenaTransport = useMemo(() => ({
@@ -245,27 +185,14 @@ export function AnbuVaultRaid({
         },
     }), [mutationAvailability, viewAvailability]);
 
-    // ── render helpers ─────────────────────────────────────────────────────────
-    const themeImg = (role: string) => sharedImages[`shrine:icon-theme-warvault-${role}`];
-    function tileArt(idx: number): { img?: string; fallback: string } {
-        const t = run.tiles[idx];
-        if (!t) return { fallback: "#0c0f16" };
-        if (t.kind === "wall" || t.terrain === "wall") {
-            // south-facing masonry where the tile below is walkable (depth read)
-            const below = run.tiles[idx + w];
-            const isFace = !!below && below.kind !== "wall" && below.terrain !== "wall";
-            return { img: themeImg(isFace ? "wall-face" : "wall"), fallback: isFace ? "#333b49" : "#171c26" };
-        }
-        if (t.terrain === "door") return { img: themeImg("door"), fallback: "#2a303d" };
-        if (t.terrain === "corridor_floor") return { img: themeImg("corridor"), fallback: "#262c38" };
-        return { img: themeImg("floor"), fallback: "#3a4150" };
-    }
-
     // ── phases ─────────────────────────────────────────────────────────────────
     if (resumeRunId) {
         return (
-            <div style={{ display: "grid", placeItems: "center", minHeight: "40dvh", color: "#cbd5e1" }}>
-                <p>Rejoining your infiltration…</p>
+            <div className="stronghold-recovery" role="status">
+                <h2>Rejoining your infiltration</h2>
+                <p>{resumeError || (viewAvailability('anbuInfiltration') !== 'available' ? 'Fight recovery is temporarily paused. Your fight remains saved.' : 'Reconnecting to your saved fight…')}</p>
+                {resumeError && <button onClick={() => { setResumeError(''); setResumeAttempt(value => value + 1); }}>Retry connection</button>}
+                <button onClick={onExit}>Back to sector</button>
             </div>
         );
     }
@@ -289,13 +216,12 @@ export function AnbuVaultRaid({
                     // Leaving pre-report abandons the run (the attempt stays
                     // burned — the raid-start mint-cap rule); post-report just
                     // returns to the spoils panel.
-                    try { localStorage.removeItem(INFIL_RUN_KEY); } catch { /* storage disabled */ }
-                    if (report) setPhase("result"); else onExit();
+                    if (report) setPhase("result"); else leaveResolvedRaid();
                 }}
                 onRecordBattle={onRecordBattle}
-                recordMode="Anbu Vault"
-                enemyAvatarOverride={anbuAvatar ?? undefined}
-                settleFn={settleInfiltration}
+                recordMode={fight.patrol ? (isDeathsGateStronghold(sector) ? "Obsidian Patrol" : "Stronghold Patrol") : "Anbu Vault"}
+                enemyAvatarOverride={fight.patrol ? undefined : anbuAvatar ?? undefined}
+                settleFn={fight.patrol ? settlePatrol : settleInfiltration}
                 settleOnAnyDone
                 renderResult={({ settleState, retry }) => (
                     <div className="battle-ended-overlay">
@@ -303,24 +229,32 @@ export function AnbuVaultRaid({
                             {settleState === "failed" ? (
                                 <>
                                     <h2>Report Failed</h2>
-                                    <p>The raid finished, but the outcome couldn&apos;t be reported to the server. Retry — leaving now spends your attempt with no spoils.</p>
+                                    <p>The fight finished, but its outcome could not be synchronized. Retry to finish reporting it.</p>
                                     <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
                                         <button className="start-primary-btn" onClick={retry}>Retry</button>
-                                        <button onClick={() => { try { localStorage.removeItem(INFIL_RUN_KEY); } catch { /* storage disabled */ } onExit(); }}>Leave</button>
+                                        <button disabled={starting} onClick={leaveResolvedRaid}>{starting ? 'Leaving…' : 'Leave'}</button>
                                     </div>
                                 </>
                             ) : (
                                 <>
-                                    <h2>Raid Resolved</h2>
-                                    <p>Reporting the outcome to the vault ledger…</p>
+                                    <h2>{fight.patrol ? 'Patrol resolved' : 'Raid resolved'}</h2>
+                                    <p>Saving the outcome…</p>
                                 </>
                             )}
+                            {error && <p role="alert">{error}</p>}
                         </div>
                     </div>
                 )}
             />
         );
     }
+
+    if (phase === 'patrol-result') return <div className="stronghold-recovery">
+        <h2>Patrol encounter ended</h2>
+        <p>Your fight is saved. Recover in the sector before returning to the stronghold entrance.</p>
+        {error && <p className="stronghold-error" role="alert">{error}</p>}
+        <button disabled={starting} onClick={leaveResolvedRaid}>{starting ? 'Leaving…' : 'Return to sector'}</button>
+    </div>;
 
     if (phase === "result") {
         const won = report?.ok && report.won ? report : null;
@@ -329,11 +263,11 @@ export function AnbuVaultRaid({
             : null;
         return (
             <div style={{ maxWidth: 560, margin: "0 auto", padding: "1.2rem", textAlign: "center" }}>
-                <h2 style={{ margin: "0.4rem 0" }}>{won ? "Stronghold Breached" : "The Anbu Held"}</h2>
+                <h2 style={{ margin: "0.4rem 0" }}>{won ? "Vault Breached" : "The Anbu Held"}</h2>
                 <p style={{ opacity: 0.85 }}>
                     {won
-                        ? `You slipped past ${targetVillage}'s defenses and cracked the stronghold in Sector ${sector}.`
-                        : `${fight?.anbuName ?? "The defending Anbu"} repelled your raid on Sector ${sector}. No spoils — the stronghold stands.`}
+                        ? `You slipped past ${fight?.targetVillage ?? targetVillage}'s defenses and cracked the war vault in Sector ${fight?.sector ?? sector}.`
+                        : `${fight?.anbuName ?? "The defending Anbu"} repelled your raid on Sector ${fight?.sector ?? sector}. No spoils — the vault stands.`}
                 </p>
                 {fresh && (
                     <div style={{ display: "grid", gap: 8, margin: "1rem auto", maxWidth: 380, textAlign: "left" }}>
@@ -350,114 +284,42 @@ export function AnbuVaultRaid({
                             </div>
                         )}
                         {fresh.supplyCaches === 0 && fresh.wrCaches === 0 && (
-                            <div style={{ opacity: 0.8, fontSize: 13 }}>The stronghold's reserves were already bled dry today — its daily loss limit is spent.</div>
+                            <div style={{ opacity: 0.8, fontSize: 13 }}>The vault's reserves were already bled dry today — its daily loss limit is spent.</div>
                         )}
                         <div style={{ fontSize: 14 }}>+{fresh.ryo.toLocaleString()} ryo</div>
                     </div>
                 )}
-                <button className="spire-result-btn" onClick={onExit}>Slip Away</button>
+                {error && <p role="alert">{error}</p>}
+                <button className="spire-result-btn" disabled={starting} onClick={leaveResolvedRaid}>{starting ? 'Leaving…' : 'Slip Away'}</button>
             </div>
         );
     }
 
     // traverse
     return (
-        <div style={{ maxWidth: 720, margin: "0 auto", padding: "0.6rem" }}>
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-                <h3 style={{ margin: "0.2rem 0" }}>Sector {sector} Stronghold</h3>
-                <span style={{ fontSize: 12, opacity: 0.75 }}>{targetVillage} territory · reach the Anbu holding the stronghold</span>
-            </div>
-            {error && (
-                <div style={{ background: "rgba(180,40,40,0.18)", border: "1px solid rgba(220,80,80,0.5)", borderRadius: 8, padding: "6px 10px", margin: "6px 0", fontSize: 13 }}>
-                    {error}
-                </div>
-            )}
-            <div
-                style={{
-                    display: "grid",
-                    gridTemplateColumns: `repeat(${w}, ${TILE}px)`,
-                    justifyContent: "center",
-                    margin: "8px auto",
-                    userSelect: "none",
-                    touchAction: "manipulation",
+        <>
+            <StrongholdExplore
+                character={character} sector={sector} targetVillage={targetVillage} sharedImages={sharedImages}
+                anbuAvatar={anbuAvatar} anbuName={anbuName} blocked={challenge || starting || !actionsAvailable}
+                onChallenge={() => { if (!isDeathsGateStronghold(sector)) setChallenge(true); }}
+                onPatrol={session => {
+                    setFight({ runId: session.sessionId, session, anbuName: session.enemy.name, patrol: true });
+                    setPhase('fight');
                 }}
-            >
-                {run.tiles.map((t, idx) => {
-                    const lit = visible.has(idx);
-                    const isSeen = seen.has(idx);
-                    const { img, fallback } = tileArt(idx);
-                    const isPlayer = idx === playerIdx;
-                    const isVault = t.kind === "boss";
-                    const decoImg = t.decoration != null && t.kind === "empty" && t.roomId != null
-                        ? themeImg(`deco-${(t.decoration % 2) + 1}`)
-                        : undefined;
-                    return (
-                        <div
-                            key={idx}
-                            onClick={() => walkTo(idx)}
-                            style={{
-                                width: TILE, height: TILE, position: "relative", cursor: isSeen ? "pointer" : "default",
-                                background: img && isSeen ? `url(${img}) center/cover` : fallback,
-                                filter: lit ? "none" : isSeen ? "brightness(0.45)" : "brightness(0.08)",
-                                transition: "filter 200ms",
-                            }}
-                        >
-                            {decoImg && isSeen && <img src={decoImg} alt="" draggable={false} style={{ position: "absolute", inset: "12%", width: "76%", height: "76%", objectFit: "contain", pointerEvents: "none" }} />}
-            {isVault && isSeen && (
-                                <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none", zIndex: 2 }}>
-                                    <div style={{ position: "absolute", inset: "4%", borderRadius: "50%", background: "radial-gradient(circle, rgba(220,60,60,0.55), rgba(220,60,60,0) 70%)" }} />
-                                    {anbuAvatar
-                                        ? <img src={anbuAvatar} alt={anbuName} draggable={false} style={{ position: "relative", width: "98%", height: "98%", objectFit: "contain", filter: "drop-shadow(0 3px 9px rgba(0,0,0,0.75))" }} />
-                                        : <div style={{ width: "70%", height: "70%", borderRadius: 8, boxShadow: "0 0 14px rgba(220,60,60,0.75)", background: themeImg("deco-2") ? `url(${themeImg("deco-2")}) center/contain no-repeat` : "rgba(220,60,60,0.4)" }} />}
-                                </div>
-                            )}
-                            {isPlayer && (
-                                <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
-                                    {character.avatarImage
-                                        ? <img src={character.avatarImage} alt="" style={{ width: TILE * 0.72, height: TILE * 0.72, borderRadius: "50%", border: "2px solid rgba(240,240,255,0.9)", objectFit: "cover", boxShadow: "0 2px 8px rgba(0,0,0,0.6)" }} />
-                                        : <div style={{ width: TILE * 0.6, height: TILE * 0.6, borderRadius: "50%", background: "#e8ecf5", border: "2px solid #38405a" }} />}
-                                </div>
-                            )}
-                        </div>
-                    );
-                })}
-            </div>
-            <div style={{ display: "flex", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 12, opacity: 0.7, alignSelf: "center" }}>
-                    {starting ? "Squaring off…" : `Tap a tile or use WASD/arrows. ${anbuName} guards the vault at the far end — walk up to challenge them.`}
-                </span>
-                <button onClick={onExit} style={{ padding: "0.45rem 1rem" }}>Leave the sector</button>
-            </div>
-
+                onAttackPlayer={onAttackPlayer}
+                onExit={onExit}
+            />
             {/* Boss room — the Challenge / Retreat confrontation at the vault. */}
-            {challenge && (
-                <div
-                    style={{ position: "fixed", inset: 0, zIndex: 1000001, display: "grid", placeItems: "center", background: "rgba(4,6,12,0.8)" }}
-                    onClick={() => { if (!starting) setChallenge(false); }}
-                >
-                    <div
-                        style={{ background: "#141926", border: "1px solid #4a2530", borderRadius: 16, padding: "1.2rem 1.3rem", maxWidth: 420, width: "min(93vw, 420px)", textAlign: "center", boxShadow: "0 0 40px rgba(220,60,60,0.25)" }}
-                        onClick={e => e.stopPropagation()}
-                    >
-                        {anbuAvatar
-                            ? <img src={anbuAvatar} alt={anbuName} style={{ width: 168, height: 168, objectFit: "contain", filter: "drop-shadow(0 8px 18px rgba(0,0,0,0.65))" }} />
-                            : <div style={{ fontSize: 60 }}>🥷</div>}
-                        <h3 style={{ margin: "0.2rem 0 0.1rem", color: "#f0c8c8", letterSpacing: ".01em" }}>{anbuName}</h3>
-                        <p style={{ fontSize: 13, opacity: 0.85, margin: "0.35rem 0 0.9rem", lineHeight: 1.5 }}>
-                            The vault is sealed behind a masked {targetVillage.replace(/\s+Village$/i, "")} operative — full strength, and they only need to hold. Beat them and you bleed this sector&rsquo;s war economy. Fall, and you leave with nothing.
-                        </p>
-                        {error && (
-                            <div style={{ background: "rgba(180,40,40,0.18)", border: "1px solid rgba(220,80,80,0.5)", borderRadius: 8, padding: "6px 10px", margin: "0 0 10px", fontSize: 13 }}>{error}</div>
-                        )}
-                        <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-                            <button onClick={() => void enterVault()} disabled={starting} style={{ padding: "0.6rem 1.3rem", background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171", fontWeight: 700 }}>
-                                {starting ? "Engaging…" : "Challenge"}
-                            </button>
-                            <button onClick={() => setChallenge(false)} disabled={starting} style={{ padding: "0.6rem 1.3rem", opacity: 0.85 }}>Retreat</button>
-                        </div>
-                    </div>
+            {challenge && <StrongholdDialog title="Challenge the Anbu" busy={starting} onClose={() => setChallenge(false)}>
+                {anbuAvatar && <img className="stronghold-boss-portrait" src={anbuAvatar} alt={anbuName} />}
+                <h3>{anbuName}</h3>
+                <p>The masked operative guards the vault at full strength. Defeat them to raid this sector’s war reserves. Your current health and supplies carry into the fight.</p>
+                {error && <p className="stronghold-error" role="alert">{error}</p>}
+                <div className="stronghold-dialog-actions">
+                    <button className="stronghold-attack" onClick={() => void enterVault()} disabled={starting || !actionsAvailable}>{starting ? 'Engaging…' : 'Challenge'}</button>
+                    <button onClick={() => setChallenge(false)} disabled={starting}>Retreat</button>
                 </div>
-            )}
-        </div>
+            </StrongholdDialog>}
+        </>
     );
 }

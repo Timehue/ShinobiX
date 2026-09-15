@@ -1,0 +1,358 @@
+{
+  "samples": [
+    {
+      "sector": 12,
+      "label": "warm unmounted",
+      "timeouts": [],
+      "intervals": 0,
+      "frames": 0,
+      "observers": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "canvasDraws": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 14,
+      "jsEventListeners": 296,
+      "heapBytes": 5072328,
+      "taskSeconds": 0.472797,
+      "layers": 5
+    },
+    {
+      "sector": 12,
+      "label": "after 12 entry/exit cycles",
+      "timeouts": [],
+      "intervals": 0,
+      "frames": 0,
+      "observers": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "canvasDraws": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 14,
+      "jsEventListeners": 296,
+      "heapBytes": 5467576,
+      "taskSeconds": 4.351448,
+      "layers": 5
+    },
+    {
+      "sector": 12,
+      "label": "fully discovered idle start",
+      "timeouts": [
+        2000
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "observers": 1,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "canvasDraws": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 1646,
+      "jsEventListeners": 1180,
+      "heapBytes": 10675888,
+      "taskSeconds": 4.687218,
+      "layers": 6
+    },
+    {
+      "sector": 12,
+      "label": "fully discovered idle end",
+      "timeouts": [
+        2000
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "observers": 1,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "canvasDraws": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 1646,
+      "jsEventListeners": 1180,
+      "heapBytes": 10967312,
+      "taskSeconds": 4.918197,
+      "layers": 6
+    },
+    {
+      "sector": 12,
+      "label": "after successful patrol settlement",
+      "timeouts": [],
+      "intervals": 0,
+      "frames": 0,
+      "observers": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "canvasDraws": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 17,
+      "jsEventListeners": 310,
+      "heapBytes": 6305860,
+      "taskSeconds": 5.320406,
+      "layers": 5
+    },
+    {
+      "sector": 12,
+      "label": "after failed settlement unmount",
+      "timeouts": [],
+      "intervals": 0,
+      "frames": 0,
+      "observers": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "canvasDraws": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 465,
+      "jsEventListeners": 445,
+      "heapBytes": 6639476,
+      "taskSeconds": 5.600354,
+      "layers": 5
+    },
+    {
+      "sector": 12,
+      "label": "after 8 combat entry/exit cycles",
+      "timeouts": [],
+      "intervals": 0,
+      "frames": 0,
+      "observers": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "canvasDraws": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 465,
+      "jsEventListeners": 445,
+      "heapBytes": 6918904,
+      "taskSeconds": 6.662862,
+      "layers": 5
+    },
+    {
+      "sector": 99,
+      "label": "warm unmounted",
+      "timeouts": [],
+      "intervals": 0,
+      "frames": 0,
+      "observers": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "canvasDraws": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 14,
+      "jsEventListeners": 296,
+      "heapBytes": 5083620,
+      "taskSeconds": 0.402578,
+      "layers": 5
+    },
+    {
+      "sector": 99,
+      "label": "after 12 entry/exit cycles",
+      "timeouts": [],
+      "intervals": 0,
+      "frames": 0,
+      "observers": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "canvasDraws": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 14,
+      "jsEventListeners": 296,
+      "heapBytes": 5488360,
+      "taskSeconds": 4.101828,
+      "layers": 5
+    },
+    {
+      "sector": 99,
+      "label": "fully discovered idle start",
+      "timeouts": [
+        2000
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "observers": 1,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "canvasDraws": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 1674,
+      "jsEventListeners": 1226,
+      "heapBytes": 10732916,
+      "taskSeconds": 4.423381,
+      "layers": 6
+    },
+    {
+      "sector": 99,
+      "label": "fully discovered idle end",
+      "timeouts": [
+        2000
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "observers": 1,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "canvasDraws": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 1674,
+      "jsEventListeners": 1226,
+      "heapBytes": 11046912,
+      "taskSeconds": 4.646103,
+      "layers": 6
+    },
+    {
+      "sector": 99,
+      "label": "after successful patrol settlement",
+      "timeouts": [],
+      "intervals": 0,
+      "frames": 0,
+      "observers": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "canvasDraws": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 17,
+      "jsEventListeners": 310,
+      "heapBytes": 6320072,
+      "taskSeconds": 5.022581,
+      "layers": 5
+    },
+    {
+      "sector": 99,
+      "label": "after failed settlement unmount",
+      "timeouts": [],
+      "intervals": 0,
+      "frames": 0,
+      "observers": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "canvasDraws": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 465,
+      "jsEventListeners": 445,
+      "heapBytes": 6647316,
+      "taskSeconds": 5.226316,
+      "layers": 5
+    },
+    {
+      "sector": 99,
+      "label": "after 8 combat entry/exit cycles",
+      "timeouts": [],
+      "intervals": 0,
+      "frames": 0,
+      "observers": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "canvasDraws": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 465,
+      "jsEventListeners": 445,
+      "heapBytes": 6920512,
+      "taskSeconds": 6.206324,
+      "layers": 5
+    }
+  ],
+  "checks": [
+    {
+      "sector": 12,
+      "cycles": 12,
+      "stoppedTimersAndPolling": true,
+      "stableListenersNodesHeapLayers": true
+    },
+    {
+      "sector": 12,
+      "idleTaskMs": 230.9790000000005,
+      "fogSamples": 0
+    },
+    {
+      "sector": 12,
+      "successDeadlineTimers": 0,
+      "reportsAfterUnmount": 0,
+      "remainingTimers": []
+    },
+    {
+      "sector": 12,
+      "combatCycles": 8,
+      "stableCombatResources": true
+    },
+    {
+      "sector": 99,
+      "cycles": 12,
+      "stoppedTimersAndPolling": true,
+      "stableListenersNodesHeapLayers": true
+    },
+    {
+      "sector": 99,
+      "idleTaskMs": 222.7220000000001,
+      "fogSamples": 0
+    },
+    {
+      "sector": 99,
+      "successDeadlineTimers": 0,
+      "reportsAfterUnmount": 0,
+      "remainingTimers": []
+    },
+    {
+      "sector": 99,
+      "combatCycles": 8,
+      "stableCombatResources": true
+    },
+    {
+      "backdrop": "2d",
+      "cycle": 0,
+      "outsideFrames": 2,
+      "outsideWebgl": 0,
+      "insideFrames": 0,
+      "insideWebgl": 0
+    },
+    {
+      "backdrop": "2d",
+      "cycle": 1,
+      "outsideFrames": 2,
+      "outsideWebgl": 0,
+      "insideFrames": 0,
+      "insideWebgl": 0
+    },
+    {
+      "backdrop": "2d",
+      "cycle": 2,
+      "outsideFrames": 2,
+      "outsideWebgl": 0,
+      "insideFrames": 0,
+      "insideWebgl": 0
+    },
+    {
+      "backdrop": "3d",
+      "cycle": 0,
+      "outsideFrames": 3,
+      "outsideWebgl": 2,
+      "insideFrames": 0,
+      "insideWebgl": 0
+    },
+    {
+      "backdrop": "3d",
+      "cycle": 1,
+      "outsideFrames": 3,
+      "outsideWebgl": 2,
+      "insideFrames": 0,
+      "insideWebgl": 0
+    },
+    {
+      "backdrop": "3d",
+      "cycle": 2,
+      "outsideFrames": 3,
+      "outsideWebgl": 2,
+      "insideFrames": 0,
+      "insideWebgl": 0
+    }
+  ]
+}
