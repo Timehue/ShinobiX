@@ -100,7 +100,9 @@ function revokeRefusal(
 /**
  * Write `character.patreon` under the save lock. Idempotent: a re-delivered
  * purchase notification whose entitlement matches the stored flag is a no-op
- * (no version bump), so provider retries are cheap and safe.
+ * (no version bump), so provider retries are cheap and safe. A flag an admin
+ * wrote never matches: a grant replaces an admin comp with a plain provider
+ * flag, keeping `since`.
  *
  * A revoke (`ent.active === false`) only writes over a flag that carries the
  * same `sourceId` and is not a live admin comp. Anything else comes back
@@ -131,12 +133,19 @@ export async function applyEntitlementToSave(
             if (refused) return refused;
         }
         // Skip the write when nothing meaningful changed — makes re-delivery a
-        // free no-op instead of a redundant version bump.
+        // free no-op instead of a redundant version bump. Only a plain provider
+        // flag can match. An admin comp (`source`, `expiresAt`) is rewritten
+        // below as a plain one. A comp made over a paying subscriber keeps
+        // their reference, so without this a same-price renewal looked like a
+        // re-delivery, the comp's expiry survived it, and when that expiry
+        // passed the perks ended while the player was still paying.
         if (prev
             && prev.userId === sourceId
             && prev.active === ent.active
             && prev.tier === ent.tier
-            && Number(prev.entitledCents) === ent.entitledCents) {
+            && Number(prev.entitledCents) === ent.entitledCents
+            && prev.source === undefined
+            && prev.expiresAt === undefined) {
             return { outcome: 'applied' };
         }
         // Preserve the original "since" while active; clear tracking on lapse.
@@ -172,6 +181,11 @@ export interface AdminSubResult {
  * lapsed comp as inactive, so no cron is needed. Writes the server-owned flag
  * under the save lock (the same field a client save can never forge). Returns
  * null when the player has no server save.
+ *
+ * A comp made over a paying subscriber keeps their reference as `userId`.
+ * Their next renewal replaces it with a plain paid flag (see
+ * applyEntitlementToSave), so the comp's expiry can never end perks they are
+ * paying for. From then on, their subscription ending ends the perks too.
  *
  * With the Patreon rail gone this is currently the ONLY way to grant perks, so
  * it is load-bearing rather than a convenience until Play Billing lands.
