@@ -52,6 +52,7 @@
 .sx-section-heading .sx-eyebrow { font-size: 8px; }
 .sx-count { color: #9cafa0; white-space: nowrap; font-size: 11px; }
 .sx-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+.sx-filters > label { min-width: 0; }
 .sx-hall input, .sx-hall select, .sx-dialog input, .sx-dialog select { background: #0d1715; border: 1px solid #647e6559; color: #e0e5d9; border-radius: 5px; min-height: 42px; width: 100%; padding: 10px 12px; font: 12px/1.4 system-ui, sans-serif; }
 .sx-hall input::placeholder, .sx-dialog input::placeholder { color: #97a698; opacity: 1; }
 .sx-hall select, .sx-dialog select { cursor: pointer; }
@@ -125,3 +126,19 @@
 .sx-filters-inventory { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .sx-wallet .sx-shard-balance { color: #c7b9ed; font-size: 17px; }
 .sx-sort-note { margin: 0 0 8px; font-size: 11px; }
+@media (max-width: 760px) {
+    /* Chips keep their own width; the category rail itself is the scroller. */
+    .sx-categories > button { flex: 0 0 auto; }
+}
+@media (max-width: 480px) {
+    .sx-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) 44px; padding: 0 6px; }
+    .sx-tabs > button { min-width: 0; white-space: normal; padding: 10px 6px; }
+    .sx-tabs .sx-refresh { grid-column: 3; grid-row: 1 / span 2; margin: 0; padding: 6px; border-left: 1px solid #c2b88d25; }
+    .sx-filters, .sx-filters-inventory { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .sx-filters > label:last-child { grid-column: 1 / -1; }
+    .sx-filters-inventory > label:last-child { grid-column: auto; }
+}
+@media (max-width: 360px) {
+    .sx-filters, .sx-filters-inventory { grid-template-columns: minmax(0, 1fr); }
+    .sx-filters > label { grid-column: 1; }
+}
