@@ -152,8 +152,26 @@ Basic with the API key as the **username and a blank password**. 204 is success;
 not depend on a third party being reachable. But it is never swallowed either:
 the reference is written to the `tebex:orphaned-subscriptions` hash so it
 outlives the save, and an operator can cancel it in the dashboard and delete the
-key. Admin-comped subscriptions are skipped; they have no recurring payment
-behind them.
+key once it shows `endedAt` (see below). Admin-comped subscriptions are
+skipped; they have no recurring payment behind them.
+
+⛔ **A parked reference no longer entitles anyone on renewal.** Renewals find
+their player by the name sealed into the original basket, and once the account
+is gone that name belongs to nobody, or to whoever registered it afterwards.
+`api/tebex/webhook.ts` checks the hash before it writes the flag. A `started`,
+`renewed` or `cancellation.aborted` webhook for a parked reference logs
+`[tebex] renewal for PARKED subscription`, stamps `lastRenewalAt` and
+`lastRenewalType` on the entry, and answers 200 `parked-subscription`. An
+`ended` webhook is ignored the same way and stamps `endedAt`. It answers 200
+because a 500 would keep Tebex retrying until someone registered the name. If
+the hash cannot be read, it answers 500 and entitles nobody.
+
+A `lastRenewalType` of `recurring-payment.renewed` means the customer was
+charged again after their account was gone. Cancel the subscription and
+consider a refund. Even after cancelling, keep the entry until it shows
+`endedAt`. While it exists, the trailing `ended` webhook is ignored. Without
+it, `ended` reaches whoever holds the name now and overwrites their own
+supporter flag. An entry left in place does no harm.
 
 ## Guarding the contract
 
