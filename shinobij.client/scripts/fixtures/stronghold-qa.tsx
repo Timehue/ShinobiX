@@ -25,7 +25,12 @@ export function Fixture() {
     const [exited, setExited] = useState(params.has('lifecycle'));
     const props = { character, sector: Number(params.get('sector') ?? 12), targetVillage: 'Moonshadow Village',
         sharedImages: params.has('cachedAvatar') ? { 'avatar:scout': '/anbu/frostfang.webp', 'avatar:rival': '/anbu/moonshadow.webp' } : {}, onExit: () => setExited(true),
-        onAttackPlayer: async (peer: PlayerRecord) => { document.body.dataset.attack = peer.name; await new Promise(resolve => setTimeout(resolve, 700)); } };
+        onAttackPlayer: async (peer: PlayerRecord) => {
+            document.body.dataset.attack = peer.name;
+            document.body.dataset.attackCount = String(Number(document.body.dataset.attackCount ?? 0) + 1);
+            if (params.has('holdAttack')) await new Promise<void>(resolve => Object.assign(window, { releaseStrongholdAttack: resolve }));
+            else await new Promise(resolve => setTimeout(resolve, 700));
+        } };
     const present = (content: React.ReactNode) => params.has('backdrop') ? <WorldSectorCanvas sector={99} biome="volcano" ambienceBiome="volcano" weather="clear"
         playerTile={50} playerName="scout" playerAvatarImage="/anbu/frostfang.webp" isCurrent suspended={!exited}
         enterDirection={null} regionSplash={null} onRegionSplashDone={() => {}} sceneImage="/anbu/moonshadow.webp"
