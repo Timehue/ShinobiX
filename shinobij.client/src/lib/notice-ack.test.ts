@@ -13,21 +13,21 @@ import { applyOfflineNotices } from './offline-notices';
 beforeEach(() => resetNoticeAckState());
 
 test('every beat declares the protocol, and acknowledges exactly the latest delivery', () => {
-    assert.deepEqual(heartbeatNoticeAckFields(), { noticeAck: true, ackNotices: [] });
+    assert.deepEqual(heartbeatNoticeAckFields(), { noticeAck: true, exchangeSaleNotices: true, ackNotices: [] });
 
     noteHeartbeatDelivery({
         pendingHeal: { by: 'Medic', id: '1757138402000' },
         pendingNotices: [{ kind: 'sleeper-kill', by: 'A', sector: 1, at: 1, id: 'n1' }, { kind: 'merc-raid', by: 'B', sector: 2, at: 2, id: 'n2' }],
     });
-    assert.deepEqual(heartbeatNoticeAckFields(), { noticeAck: true, ackNotices: ['n1', 'n2'], ackHeal: 1757138402000 });
+    assert.deepEqual(heartbeatNoticeAckFields(), { noticeAck: true, exchangeSaleNotices: true, ackNotices: ['n1', 'n2'], ackHeal: 1757138402000 });
 
     // The next response carried nothing: the acks stop, they do not accumulate.
     noteHeartbeatDelivery({ pendingHeal: null });
-    assert.deepEqual(heartbeatNoticeAckFields(), { noticeAck: true, ackNotices: [] });
+    assert.deepEqual(heartbeatNoticeAckFields(), { noticeAck: true, exchangeSaleNotices: true, ackNotices: [] });
 
     // A legacy server (no ids) yields nothing to acknowledge.
     noteHeartbeatDelivery({ pendingHeal: { by: 'Medic' }, pendingNotices: [{ kind: 'sleeper-kill', by: 'A', sector: 1, at: 1 }] });
-    assert.deepEqual(heartbeatNoticeAckFields(), { noticeAck: true, ackNotices: [] });
+    assert.deepEqual(heartbeatNoticeAckFields(), { noticeAck: true, exchangeSaleNotices: true, ackNotices: [] });
 });
 
 test('a delivery that could not be shown is withheld from the next ack, and nothing else is', () => {
@@ -40,10 +40,10 @@ test('a delivery that could not be shown is withheld from the next ack, and noth
     };
     noteHeartbeatDelivery(delivery);
     withholdNoticeAck([delivery.pendingNotices[0]]);
-    assert.deepEqual(heartbeatNoticeAckFields(), { noticeAck: true, ackNotices: ['n2'], ackHeal: 1757138402000 }, 'the heal and the other notice are still acknowledged');
+    assert.deepEqual(heartbeatNoticeAckFields(), { noticeAck: true, exchangeSaleNotices: true, ackNotices: ['n2'], ackHeal: 1757138402000 }, 'the heal and the other notice are still acknowledged');
 
     withholdNoticeAck(delivery.pendingNotices);
-    assert.deepEqual(heartbeatNoticeAckFields(), { noticeAck: true, ackNotices: [], ackHeal: 1757138402000 });
+    assert.deepEqual(heartbeatNoticeAckFields(), { noticeAck: true, exchangeSaleNotices: true, ackNotices: [], ackHeal: 1757138402000 });
 
     // Junk and unknown ids change nothing.
     noteHeartbeatDelivery(delivery);
