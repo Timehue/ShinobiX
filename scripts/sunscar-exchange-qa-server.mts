@@ -12,7 +12,11 @@ const { createOwnedPet } = await import('../api/pet/_owned-pet.js');
 const { PET_CATALOG } = await import('../api/pet/_catalog.js');
 const { loadSettlementCatalogs } = await import('../api/shop/_catalog.js');
 const { default: exchangeModule } = await import('../api/festival/exchange.js');
+const { default: heartbeatModule } = await import('../api/player/heartbeat.js');
+const { default: saveModule } = await import('../api/save/[name].js');
 const handler = typeof exchangeModule === 'function' ? exchangeModule : (exchangeModule as any).default;
+const heartbeat = typeof heartbeatModule === 'function' ? heartbeatModule : (heartbeatModule as any).default;
+const save = typeof saveModule === 'function' ? saveModule : (saveModule as any).default;
 const catalogs = await loadSettlementCatalogs();
 const namedId = 'named-weapon-123456781234123412341234567890ab';
 const namedArmorId = 'named-armor-123456781234123412341234567890ab';
@@ -26,6 +30,7 @@ const char = (name: string) => ({ name, level: 100, ryo: 1_250_000, inventory: [
 async function resetQa() {
 for (const key of await kv.keys('sunscar-exchange:*')) await kv.del(key);
 for (const key of await kv.keys('ratelimit:sunscar-exchange:*')) await kv.del(key);
+for (const key of await kv.keys('offline-notices:*')) await kv.del(key);
 await kv.set('save:kaito', { _saveVersion: 1, character: { ...char('Kaito'), inventory: [regularWeapon.id, regularArmor.id, 'hunt-ancient-beast-core'], itemStacks: [{ itemId: 'hunt-torn-hide', count: 20 }] } });
 await kv.set('save:amaya', { _saveVersion: 1, character: { ...char('Amaya'), inventory: [namedId, regularWeapon.id], pets: [pet] }, creatorItems: [named] });
 await kv.set('save:ren', { _saveVersion: 1, character: { ...char('Ren'), inventory: [namedArmorId, regularArmor.id], itemStacks: [{ itemId: 'hunt-torn-hide', count: 20 }] }, creatorItems: [armor] });
@@ -43,7 +48,14 @@ const { default: express } = await import('express');
 const app = express();
 app.use(express.json());
 app.post('/__qa/reset', async (_req, res) => { await resetQa(); res.send('reset'); });
-app.get('/__qa/session', (_req, res) => res.json({ name: 'Kaito', token: issuePlayerToken('Kaito') }));
+app.get('/__qa/session', (req, res) => {
+    const name = ['Kaito', 'Ren', 'Amaya'].includes(String(req.query.name)) ? String(req.query.name) : 'Kaito';
+    res.json({ name, token: issuePlayerToken(name) });
+});
+app.post('/api/player/heartbeat', async (req, res) => { await heartbeat(req as never, res as never); });
+app.get('/api/save/:name', async (req, res) => {
+    await save({ method: 'GET', query: { name: req.params.name }, headers: req.headers, socket: req.socket } as never, res as never);
+});
 app.post('/api/festival/exchange', async (req, res) => {
     await handler(req as never, res as never);
 });

@@ -71,6 +71,20 @@ Prepared on main revision `bcd04b427335eebe875ac90fb408a4e429ca9fbd` with Node 2
 - Desktop and 390px mobile screenshots were reviewed; accessibility checks reported no WCAG A/AA violations. Scoped client ESLint passed.
 - The full production build passed, including server/client TypeScript, story-content checks, distribution verification, and build-size gates.
 
+## Seller sale notifications
+
+A completed sale queues a server-issued receipt only after asset delivery and seller payment. Online sellers receive an immediate realtime signal to check their inbox; the normal heartbeat also delivers receipts if that signal is missed. No notification amount is applied as a client-side reward.
+
+Before showing a sale toast, the client reads and accepts the latest versioned save, updating the seller's displayed wallet. A single receipt names the asset, quantity, and net ryo or Fate Shards received after the 5% fee. Multiple waiting sales become one summary with separate currency totals and a pointer to Trade history.
+
+The seller can be anywhere in the game. An open Exchange refreshes its listings, history, selected inspection, and sellable inventory after a sale; incoming refreshes wait until an unconfirmed trade is resolved. Hidden tabs withhold acknowledgement until visible, and failed or stale save reads leave the receipt pending. Listing IDs deduplicate redelivery and page reloads per account. Inbox write failures leave a durable recovery pointer for the existing scheduler; a completed purchase still succeeds and never repeats its payment.
+
+The inbox retains up to 100 sale receipts independently of its 10 general reports, with the existing 14-day retention. Trade history retains the detailed sale records. Inbox reads bypass worker-local caches so delivery and acknowledgement see current storage.
+
+Verification: 85 targeted settlement, signed-player heartbeat, inbox, acknowledgement, and client delivery tests passed. The browser scenario uses a second authenticated player to buy the seller's ryo and Fate Shards listings, verifies the toast outside the Exchange, verifies exact wallet updates before feedback, and acknowledges the receipt without repetition. Desktop/mobile toast screenshots and accessibility checks passed.
+
+The full unit/integration suite passed all 10,779 tests. The final focused checks passed another 47 tests, including the realtime seller signal, App size limit, and lazy-load rejection handling. Full frontend lint finished with zero errors (14 existing warnings). The production build on current main passed server/client TypeScript, content verification, distribution verification, and size gates. Browser QA also verifies the live update of an open seller inspection and newly credited sellable resources.
+
 ## Artwork
 
 Built-in imagegen generated the trading-hall illustration. The project asset is `shinobij.client/src/assets/festival/sunscar-exchange-v1.webp` (1440 × 960, approximately 258 KB). Existing game artwork and category glyphs provide listing thumbnails.

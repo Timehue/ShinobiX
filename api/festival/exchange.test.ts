@@ -24,6 +24,7 @@ before(async () => {
 });
 beforeEach(async () => {
     for (const key of await kv.keys('sunscar-exchange:*')) await kv.del(key);
+    for (const key of await kv.keys('offline-notices:*')) await kv.del(key);
     for (const player of ['seller', 'buyer', 'rival']) {
         await kv.del(`petladder:coliseum:def:${player}`);
         await kv.del(`battle-lock:${player}`);
@@ -42,6 +43,60 @@ async function record(player: string): Promise<Obj> { return (await kv.get<Obj>(
 async function patch(player: string, patch: Obj) { const rec = await record(player); await kv.set(`save:${player}`, { ...rec, character: { ...rec.character, ...patch } }); }
 async function list(overrides: Obj = {}) { return post({ action: 'list', playerName: 'seller', requestId: randomUUID(), kind: 'item', assetId: itemId, quantity: 1, price: 1000, ...overrides }); }
 async function buy(id: string, player = 'buyer', price = 1000, expectedCurrency?: string) { return post({ action: 'buy', playerName: player, listingId: id, expectedPrice: price, expectedCurrency }); }
+
+for (const currency of ['ryo', 'fateShards']) it(`queues one exact seller receipt only after a completed ${currency} sale`, async () => {
+    const created = await list({ currency, price: 41, quantity: 2 });
+    const id = created.body.listing.id;
+    assert.equal(await kv.get('offline-notices:seller'), null);
+    const { setRealtimeEmitter } = await import('../_realtime/notify.js');
+    const kicks: unknown[] = [];
+    setRealtimeEmitter((room, event, payload) => { kicks.push([room, event, payload]); });
+    let result;
+    try { result = await buy(id, 'buyer', 41, currency); } finally { setRealtimeEmitter(null); }
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    assert.deepEqual(kicks, [['user:seller', 'presence:kick', { reason: 'exchange-sale' }]]);
+    assert.equal('saleNoticePending' in result.body.listing, false);
+    const inbox = (await kv.get<Obj[]>('offline-notices:seller'))!;
+    assert.equal(inbox.length, 1);
+    assert.deepEqual(inbox[0].sale, { listingId: id, seller: 'seller', assetName: created.body.listing.asset.name,
+        quantity: 2, currency, price: 41, fee: 2, proceeds: 39 });
+    assert.equal((await record('seller')).character[currency], (currency === 'ryo' ? 10000 : 100) + 39);
+    assert.equal(await kv.get('offline-notices:buyer'), null);
+    assert.equal((await buy(id, 'buyer', 41, currency)).status, 200);
+    assert.equal((await kv.get<Obj[]>('offline-notices:seller'))!.length, 1);
+});
+
+it('does not announce a cancelled or unpaid sale', async () => {
+    const id = (await list({ currency: 'fateShards', price: 101 })).body.listing.id;
+    assert.equal((await buy(id, 'buyer', 101, 'fateShards')).status, 409);
+    assert.equal(await kv.get('offline-notices:seller'), null);
+    assert.equal((await post({ action: 'cancel', playerName: 'seller', listingId: id })).status, 200);
+    assert.equal(await kv.get('offline-notices:seller'), null);
+});
+
+for (const afterWrite of [false, true]) it(`retries a failed seller inbox write without repeating payment or the receipt (after write: ${afterWrite})`, async () => {
+    const id = (await list({ currency: 'fateShards', price: 41 })).body.listing.id;
+    const original = kv.set;
+    kv.set = async (key, value, options) => {
+        if (key === 'offline-notices:seller') {
+            if (afterWrite) await original.call(kv, key, value, options);
+            throw new Error('inbox temporarily unavailable');
+        }
+        return original.call(kv, key, value, options);
+    };
+    try { assert.equal((await buy(id, 'buyer', 41, 'fateShards')).status, 200); } finally { kv.set = original; }
+    const stored = (await kv.get<Obj>(`sunscar-exchange:listing:${id}`))!;
+    assert.equal(stored.state, 'sold');
+    assert.equal(stored.saleNoticePending, !afterWrite);
+    assert.equal((await record('seller')).character.fateShards, 139);
+    const { recoverPendingExchangeListings } = await import('./_exchange.js');
+    assert.deepEqual((await recoverPendingExchangeListings()).failures, []);
+    const inbox = (await kv.get<Obj[]>('offline-notices:seller'))!;
+    assert.equal(inbox.length, 1); assert.equal(inbox[0].sale.listingId, id);
+    assert.equal((await record('seller')).character.fateShards, 139);
+    assert.equal((await record('buyer')).character.fateShards, 59);
+    assert.equal((await kv.get<Obj>(`sunscar-exchange:listing:${id}`))!.saleNoticePending, false);
+});
 
 it('settles Fate Shards with the same rounded-down 5% fee and no ryo charge', async () => {
     await patch('buyer', { fateShards: 1000 });

@@ -29,6 +29,7 @@ before(async () => {
 beforeEach(async () => {
     clock += 65_000;
     for (const key of await kv.keys('sunscar-exchange:*')) await kv.del(key);
+    for (const key of await kv.keys('offline-notices:*')) await kv.del(key);
     for (const name of ['tradeseller', 'tradebuyer', 'tradeguest']) {
         await kv.set(`save:${name}`, { _saveVersion: 1, _saveAt: clock, _regenAt: clock, creatorItems: name === 'tradeseller' ? [named, armor] : [], character: {
             name, level: 100, ryo: 10_000, stats: {}, hp: 100, maxHp: 100, chakra: 100, maxChakra: 100, stamina: 100, maxStamina: 100,
@@ -67,6 +68,28 @@ it('accepts a signed player session, rejects account impersonation and explains 
         assert.equal(guest.status, 403);
         assert.match(guest.body.error, /set a password to trade/);
     } finally { await kv.del(authKey('tradeguest')); }
+});
+
+for (const currency of ['ryo', 'fateShards']) it(`delivers a completed ${currency} sale through the seller's authenticated heartbeat until acknowledged`, async () => {
+    const heartbeat = (await import('../player/heartbeat.js')).default;
+    const buyer = await stored('tradebuyer'); buyer.character.fateShards = 1000;
+    await kv.set('save:tradebuyer', buyer);
+    const created = await trade('tradeseller', { action: 'list', requestId: randomUUID(), kind: 'item', assetId: namedId, quantity: 1, price: 201, currency });
+    assert.equal(created.status, 200, JSON.stringify(created.body));
+    const listingId = created.body.listing.id;
+    assert.equal((await trade('tradebuyer', { action: 'buy', listingId, expectedPrice: 201, expectedCurrency: currency })).status, 200);
+    const beat = (ackNotices: string[] = [], name = 'tradeseller') => call(heartbeat as unknown as typeof exchange, name, { name, sector: 0, noticeAck: true, ackNotices });
+    const first = await beat();
+    assert.equal(first.status, 200, JSON.stringify(first.body));
+    const notice = first.body.pendingNotices[0];
+    assert.equal(notice.kind, 'exchange-sale');
+    assert.equal(notice.sale.listingId, listingId); assert.equal(notice.sale.currency, currency); assert.equal(notice.sale.proceeds, 191);
+    assert.equal((await stored('tradeseller')).character[currency], (currency === 'ryo' ? 10000 : 10) + 191);
+    assert.deepEqual((await beat()).body.pendingNotices, first.body.pendingNotices, 'A lost heartbeat response is redelivered with the same ID.');
+    assert.equal(((await beat([], 'tradebuyer')).body.pendingNotices ?? []).length, 0, 'Only the seller receives the sale receipt.');
+    assert.equal(((await beat([notice.id])).body.pendingNotices ?? []).length, 0);
+    assert.equal((await trade('tradebuyer', { action: 'buy', listingId, expectedPrice: 201, expectedCurrency: currency })).status, 200);
+    assert.equal(((await beat()).body.pendingNotices ?? []).length, 0, 'A replayed buy must not requeue an acknowledged receipt.');
 });
 
 for (const currency of ['ryo', 'fateShards']) for (const strict of ['0', '1']) it(`persists named gear, companions, cards and resources bought with ${currency} through save and reload (strict ledger ${strict})`, async () => {
