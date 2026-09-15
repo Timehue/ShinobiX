@@ -1,0 +1,22 @@
+{
+  "errors": [],
+  "violations": [],
+  "assertions": [
+    "festival positions",
+    "normal player token via authFetch",
+    "real versioned save coordinator",
+    "category filter",
+    "search empty state",
+    "pet inspection",
+    "Escape closes dialog",
+    "named weapon purchase, client definition and exact balance",
+    "sell review and publish",
+    "cancel and return",
+    "390px responsive layout",
+    "lost-response Refresh without duplicate listing",
+    "stale character response retains retry",
+    "navigate away during committed trade",
+    "re-enter safely resumes saved trade",
+    "browser reload preserves listing"
+  ]
+}
