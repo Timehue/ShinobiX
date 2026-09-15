@@ -66,6 +66,24 @@ describe('server activity spine', () => {
         assert.equal(buildActivitySpine({ ...input, progressionHold: { exam: 'chunin', level: 39 } }).horizons.now[0]?.id, 'progression-hold-chunin');
     });
 
+    it('claims sealed stat training before new goals without repeating the card', () => {
+        const ready = buildActivitySpine({ ...input, statTrainingReady: true, trainingIdle: false });
+        assert.equal(ready.horizons.now[0]?.id, 'claim-stat-training');
+        assert.equal(ready.horizons.now[0]?.screen, 'training');
+        assert.equal(ready.horizons.now[0]?.cta, 'Collect Training');
+        assert.ok(!ready.horizons.today.some((entry) => entry.id === 'daily-training'));
+        const resumed = buildActivitySpine({ ...input, statTrainingReady: true, trainingIdle: false,
+            resume: { title: 'Resume battle', screen: 'battleTowers', runtimeModeId: 'battle-towers' } });
+        assert.equal(resumed.horizons.now[0]?.id, 'resume-active-run');
+        assert.equal(resumed.horizons.today.find((entry) => entry.id === 'daily-training')?.cta, 'Collect Training');
+        const collected = buildActivitySpine({ ...input, statTrainingReady: false, trainingIdle: true });
+        assert.equal(collected.horizons.now[0]?.id, 'mission-now');
+        assert.equal(collected.horizons.today.find((entry) => entry.id === 'daily-training')?.title, 'Start stat training');
+        const paused = buildActivitySpine({ ...input, statTrainingReady: true, trainingIdle: false,
+            capabilities: capabilitiesWith({ gameplayMutations: { state: 'temporarily-unavailable', reason: 'maintenance' } }) });
+        assert.equal(paused.horizons.now[0]?.eligibility, 'blocked');
+    });
+
     it('covers new, early, mid, late, cap, and returning cohorts deterministically', () => {
         for (const level of [1, 15, 35, 55, 85, 100]) {
             const cohort = { ...input, level, hasProfession: level >= 13, clanBoss: { ...input.clanBoss!, active: false } };

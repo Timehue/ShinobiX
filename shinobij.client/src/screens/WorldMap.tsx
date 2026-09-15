@@ -1,5 +1,6 @@
 import { gainXp } from "../lib/character-level-projection";
 import { getPvpJutsuLoadout } from "../lib/jutsu-loadout";
+import { sectorOrderFor } from "../lib/sector-order";
 import { normalizeNarrativeCharacter as normalizeCharacter } from "../lib/normalize-narrative-character";
 import { HollowGateEntryMenu } from './world-map/HollowGateEntryMenu';
 import { sectorBackgroundImage, sectorDepthImage, sectorMapUrl, ambienceBiomeForSector } from './world-map/sector-art';
@@ -212,7 +213,7 @@ import {
 } from "../App";
 
 import { villageOuterTerritoryMapUrl } from "../lib/village-outer-territory-map";
-import { activeVillageWarsFor, loadSectorTerritory, territoryBreachMinsLeft, territoryIsBreached, territoryRewardsSuspended, weatherForSector, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX } from "../lib/world-state";
+import { activeVillageWarsFor, loadVillageState, loadSectorTerritory, territoryBreachMinsLeft, territoryIsBreached, territoryRewardsSuspended, weatherForSector, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX } from "../lib/world-state";
 import { SECTOR_DEPLETED_MESSAGE, sectorExploreRefusal, sectorPoolViewFor } from "../lib/sector-pool";
 import { richerSectorsNear, sectorRichnessLabel, sectorRichnessOf, type SectorRichness } from "../lib/sector-richness";
 import { bumpSectorContractRevision, claimSectorContract, localSectorContract, useSectorContract } from "../lib/sector-contract";
@@ -4735,6 +4736,7 @@ function WorldMapContent({
                         weather={sectorWeather}
                         territory={commandTerritory}
                         gathering={isWildSector(selectedSector) ? sectorPoolViewFor(selectedSector, territory.ownerVillage, character.village) : null} intel={sectorIntelPlate}
+                        order={sectorOrderFor(loadVillageState(character.village).noticePosts, selectedSector)}
                         villageWarAdmissionOpen={villageWarAdmissionOpen}
                         traces={sectorTraces}
                         hasLivePlayers={livePlayersHere.length > 0} sectorContest={sectorWarContest} onOpenSectorContest={() => handleOpenSectorContest(false)}

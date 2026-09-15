@@ -34,6 +34,7 @@ import { AURA_SPHERE_ITEM_ID, ELEMENTAL_CORE_ID } from "../constants/game";
 import { getAllTileCards, type TileCard } from "../data/tile-cards";
 import { getChronicleCard } from "../lib/chronicle-duel";
 import { addItem, countItem, removeItem, unifiedItemStacks } from "../lib/inventory";
+import { ExchangeRequestError, requestExchange } from "../lib/sunscar-exchange";
 import { ACADEMY_STARTER_GEAR_IDS, normalizeOnboardingStep } from "../lib/onboarding-step";
 import {
     type ItemCategory,
@@ -103,6 +104,8 @@ export function Inventory({
         source: "backpack" | "equipped";
         equipmentSlot?: EquipmentSlot;
     }>(null);
+    const [exchangeEligibility, setExchangeEligibility] = useState<{ selection: NonNullable<typeof selectedInventoryItem>; message: string } | null>(null);
+    const [checkingExchange, setCheckingExchange] = useState(false);
     const [inventoryTab, setInventoryTab] = useState<"items" | "tileCards">("items");
     const [selectedTileCard, setSelectedTileCard] = useState<{ card: TileCard; count: number } | null>(null);
     const [slotFilter, setSlotFilter] = useState<EquipmentSlot | null>(null);
@@ -524,6 +527,24 @@ export function Inventory({
 
     const selected = selectedInventoryItem;
     const selectedGameItem = selected?.item;
+    async function checkExchangeEligibility() {
+        if (!selected || checkingExchange) return;
+        const itemId = selectedGameItem?.id ?? selected.entry;
+        setCheckingExchange(true);
+        try {
+            const snapshot = await requestExchange(character.name, { action: "browse" });
+            const asset = snapshot.inventory.find((row) => row.kind === "item" && row.id === itemId);
+            setExchangeEligibility({ selection: selected, message: asset
+                ? asset.unavailable ?? "Eligible to list at Sunscar Exchange."
+                : "This item is not in your current Exchange listing inventory." });
+        } catch (error) {
+            setExchangeEligibility({ selection: selected, message: error instanceof ExchangeRequestError && error.uncertain
+                ? "Exchange eligibility could not be checked. Try again."
+                : error instanceof Error ? error.message : "Exchange eligibility is unavailable. Try again." });
+        } finally {
+            setCheckingExchange(false);
+        }
+    }
     const selectedPetFoodXp = petFeedXpForItem(selectedGameItem?.id);
     const selectedPresentation = selectedGameItem ? presentItem(selectedGameItem, selectedPetFoodXp) : null;
     const selectedSellValue = selectedGameItem && isSellableGear(selectedGameItem) ? sellValueForItem(selectedGameItem) : 0;
@@ -999,6 +1020,10 @@ export function Inventory({
                                                 ? "A chakra pill that restores 25 chakra."
                                                 : "A general inventory item."}
                                 </p>
+                                {selected.source === "backpack" && <div className="item-popup-stores-note">
+                                    <button type="button" onClick={() => void checkExchangeEligibility()} disabled={checkingExchange}>Check Exchange eligibility</button>
+                                    {exchangeEligibility?.selection === selected && <p role="status">{exchangeEligibility.message}</p>}
+                                </div>}
 
                                 {selectedStoresSignpost && (
                                     <p className="item-popup-stores-note">{selectedStoresSignpost.line}</p>

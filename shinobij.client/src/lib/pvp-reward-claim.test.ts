@@ -7,6 +7,7 @@ import {
     postPvpRewardCompletionAck,
     postPvpRewardClaim,
     pvpRewardSettlementNotice,
+    pvpRewardImpactLines,
     readPvpOwnerSaveForContinuation,
     shouldRunPvpRewardCompletion,
     type PvpRewardCompletionStorage,
@@ -135,6 +136,25 @@ describe("pvp-reward-claim", () => {
             pvpRewardSettlementNotice(result, { draw: false, spar: false }),
             "Rewards secured — +625 Ryo · +4 Combat Growth · +30 Vanguard XP · +50 Clan War Points · +6 Aura Dust · +1 Fate Shards · +2 Honor Seals · +1 Territory Scroll · +16 Rating.",
         );
+        assert.deepEqual(pvpRewardImpactLines(result), ["Sector 44: 250 territory damage recorded"]);
+    });
+
+    it("shows raid impact only from an authoritative receipt after final confirmation", () => {
+        const receipt = {
+            status: "confirmed" as const, alreadyClaimed: true, completionPending: false,
+            rewardAuthorized: false, progressionAuthorized: false,
+            raidProgression: {
+                fetchMissionsCredited: [], missionsCompleted: [{ id: "vanguard-1", name: "Break the line", xpReward: 30 }],
+                xpAwarded: 30, bonusRyo: 0, bonusSeals: 0, territoryDamage: 250, sector: 44, replayed: true,
+            },
+        };
+        assert.deepEqual(pvpRewardImpactLines(receipt), [
+            "Sector 44: 250 territory damage recorded", "Vanguard mission complete: Break the line",
+        ]);
+        assert.deepEqual(pvpRewardImpactLines({ ...receipt, raidProgression: undefined }), []);
+        assert.deepEqual(pvpRewardImpactLines({ ...receipt, raidProgression: {
+            ...receipt.raidProgression, territoryDamage: Number.NaN, sector: -1, missionsCompleted: [],
+        } }), []);
     });
 
     it("rejects malformed Clan War scroll projections instead of inventing reward copy", async () => {

@@ -179,9 +179,8 @@
         margin: 0 !important;
     }
 
-    /* The camera counter-scales markers by exactly 1/zoom, so these are screen
-       pixels at every region. Their transparent six-pixel ring supplies a 44px
-       target without crowding the painted roads with 44px discs. */
+    /* The camera counter-scales markers across regions. A transparent ring
+       keeps the hit area above 44px despite fractional browser scaling. */
     html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-map-scroll .atlas-sector {
         box-sizing: border-box;
         width: 32px !important;
@@ -193,22 +192,23 @@
     }
 
     html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-map-scroll .atlas-sector::after {
-        inset: -6px !important;
+        inset: -7px !important;
     }
 
     /* Academy targets deliberately hide the normal hit ring, so keep their
        highlighted button itself large enough to tap. */
     html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-map-scroll .atlas-sector.academy-click-target {
-        width: 44px !important;
-        height: 44px !important;
+        width: 46px !important;
+        height: 46px !important;
     }
 
     html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-map-scroll button.atlas-landmark[data-landmark-art="true"] {
-        width: 44px !important;
-        height: 44px !important;
-        min-width: 44px !important;
-        min-height: 44px !important;
-        max-width: 44px !important;
+        /* Leave room for fractional camera counter-scaling at touch widths. */
+        width: 46px !important;
+        height: 46px !important;
+        min-width: 46px !important;
+        min-height: 46px !important;
+        max-width: 46px !important;
         padding: 0 !important;
     }
 

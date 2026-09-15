@@ -39,7 +39,6 @@ export type WorldSectorCommandTerritory = Readonly<{
 }>;
 
 export type WorldSectorCommandPlayerStatus = "Sleeping" | "Traveling" | "Fighting" | "Ready";
-
 export type WorldSectorCommandPlayer = Readonly<{
     target: PlayerRecord;
     name: string;
@@ -59,7 +58,6 @@ export type WorldSectorCommandHunt = Readonly<{
     requiredTracks: number;
     ready: boolean;
 }>;
-
 export type WorldSectorCommandPanelProps = Readonly<{
     sector: number;
     /** False while scouting; command controls become read-only. */
@@ -75,6 +73,8 @@ export type WorldSectorCommandPanelProps = Readonly<{
     contractBusy: boolean;
     /** Village Intel on this sector as seen by the viewer's village (null = logged out / no intel block). */
     intel?: SectorIntelPlateView | null;
+    /** Persisted order pinned to the selected sector in the viewer's village. */
+    order?: import("../types/clan").NoticePost | null;
     villageWarAdmissionOpen: boolean;
     traces: SectorTracesView | null;
     hasLivePlayers: boolean;
