@@ -45,7 +45,7 @@ pending -> reserved -> debit-applied -> credit-applied -> completed
 
 Full admins can inspect records and trigger a bounded scan through `GET/POST /api/admin/economy-settlements`. `DISABLE_SETTLEMENT_RECONCILIATION=1` stops only the recurring scanner; `DISABLE_SCHEDULED_JOBS=1` remains the global scheduled-job control. `refunded` remains represented for future recovery workflows, but no automatic refund route was added.
 
-Cross-key transfers use deterministic lexical lock ordering and `failClosed: true`. Both locked records are validated before the first debit. A recipient-save or completion-journal failure leaves receipts and the durable transaction available for the same-request retry; the retry does not debit or credit either side twice. The retired unreachable clan/village transfer implementations were removed.
+Cross-key transfers use deterministic lexical lock ordering and `failClosed: true`. (Superseded 2026-09-14: they now lock the shared record before the player save, because a sort inverted the clan order for members named before `clan-` — see F1 in `concurrency-and-locking-audit.md`.) Both locked records are validated before the first debit. A recipient-save or completion-journal failure leaves receipts and the durable transaction available for the same-request retry; the retry does not debit or credit either side twice. The retired unreachable clan/village transfer implementations were removed.
 
 ## Verification record
 

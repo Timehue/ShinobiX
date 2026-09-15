@@ -42,7 +42,9 @@ export type CrossKeySettlementOptions<S extends Record<string, unknown>> = {
     resource: string;
     amount: number;
     meta?: Record<string, unknown>;
+    /** The shared record (clan or village row). Locked FIRST — see below. */
     sourceKey: string;
+    /** The player save being credited. Locked second. */
     recipientKey: string;
     loadSource: () => Promise<S | null>;
     validateSource: (source: S) => void | Promise<void>;
@@ -57,9 +59,18 @@ export type CrossKeySettlementOptions<S extends Record<string, unknown>> = {
 
 /**
  * Reserve-first, receipt-backed settlement for one shared record and one
- * player save. Both rows are locked in lexical order. A process interruption
- * leaves the journal and the applied-side receipt behind, so the next request
- * resumes instead of applying either side twice.
+ * player save. The shared record is locked first, then the player save. A
+ * process interruption leaves the journal and the applied-side receipt behind,
+ * so the next request resumes instead of applying either side twice.
+ *
+ * Lock order is shared record → player save, NOT a lexical sort. It must match
+ * every other path that nests the same two rows, or two requests each take one
+ * row and wait on the other until both fail closed. Clan exchange, treasury
+ * donate, kick, leave and dissolve all take the clan row first. A clan row
+ * (`save:clan-<slug>`) shares the `save:` namespace with player saves, so a
+ * sort put members named before `clan-` (`save:aoi`) ahead of it and inverted
+ * the order for them. The village row (`game:village-state:*`) sorts first
+ * either way, so village transfers lock exactly as before.
  */
 export async function settleCrossKeyTransfer<S extends Record<string, unknown>>(
     options: CrossKeySettlementOptions<S>,
@@ -80,8 +91,7 @@ export async function settleCrossKeyTransfer<S extends Record<string, unknown>>(
         return { result: started.record.result, transaction: started.record, replayed: true };
     }
 
-    const [firstKey, secondKey] = [options.sourceKey, options.recipientKey].sort();
-    return withKvLock(firstKey, () => withKvLock(secondKey, async () => {
+    return withKvLock(options.sourceKey, () => withKvLock(options.recipientKey, async () => {
         let tx = await beginDurableSettlement({
             transactionId,
             idempotencyKey: options.idempotencyKey,
