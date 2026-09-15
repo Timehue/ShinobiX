@@ -13,7 +13,10 @@ describe("AdminPanel source budgets", () => {
     it("keeps the parent under its post-extraction growth and hard limits", () => {
         // 6,634 -> 6,629 (2026-09-11): the Dojo Circuit's World Events tab put the
         // parent at 6,644, five over. EditableVnPage moved verbatim to types/vn.
-        const measuredPostExtractionLines = 6629;
+        // 6,629 -> 6,589 (2026-09-14): the full-server-reset flow (dry-run
+        // preview, confirmation copy, local cache clearing) moved out to
+        // screens/admin-server-reset.ts.
+        const measuredPostExtractionLines = 6589;
         const maximumLines = Math.min(measuredPostExtractionLines + 5, 6745);
         assert.ok(sourceLineCount("AdminPanel.tsx") <= maximumLines, `AdminPanel.tsx exceeds ${maximumLines} lines`);
     });

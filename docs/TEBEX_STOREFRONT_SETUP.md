@@ -16,7 +16,7 @@ routing players to an external payment page for digital goods.
 | `TEBEX_WEBHOOK_SECRET` | Signs every webhook. The **only** authentication on that endpoint. | Every webhook is rejected — the rail is fully inert. |
 | `TEBEX_PUBLIC_TOKEN` | Public webstore token (`spk3-…`), used server-side to create baskets. | `/api/tebex/basket` returns 503; the price list comes back empty. |
 | `TEBEX_SUBSCRIPTION_PACKAGE_ID` | Tebex product id of the Shinobi Supporter package. | Recurring webhooks are acknowledged and ignored; the supporter tile cannot be bought. |
-| `TEBEX_CHECKOUT_API_KEY` | **Privileged.** Tebex account API key, used to cancel a subscription when its account is deleted. | A deleted account's subscription keeps billing; the reference is parked in `tebex:orphaned-subscriptions` for manual cancellation. |
+| `TEBEX_CHECKOUT_API_KEY` | **Privileged.** Tebex account API key, used to cancel a subscription when its account is deleted, one at a time or by a full server reset. | A deleted account's subscription keeps billing; the reference is parked in `tebex:orphaned-subscriptions` for manual cancellation. The server-reset dry run says so before you confirm. |
 
 Shard tier ids are **code**, not environment: fill `PROVIDER_PACKAGE_IDS.tebex`
 in `shared/shard-packages.ts`. A tier with no id refuses to sell rather than
@@ -232,6 +232,25 @@ too. Deleting it before cancelling lets the next renewal entitle whoever holds
 the name now. The trailing `ended` is harmless with or without the entry,
 because any save whose flag does not hold the reference refuses it (see
 Subscription events). An entry left in place does no harm.
+
+### A full server reset does the same, for every account at once
+
+`api/admin/server-reset.ts` deletes every ordinary player's save, so it runs
+the same cancel-or-park step for each paid subscription on a save it is about to
+delete, before it deletes anything (issue #181). Protected accounts keep their
+saves, so their subscriptions are left alone.
+
+It cancels rather than carrying the subscription over. The reset deletes the
+account itself (the save, `auth:*` and `auth-google:*`), so there is nothing
+left to carry it to. Renewals find their player by the name sealed into the
+original basket, which means an uncancelled subscription would keep billing
+and then hand the perks to whoever registers that name next.
+
+The dry run lists the affected accounts and whether `TEBEX_CHECKOUT_API_KEY` is
+set, and the confirmation dialog shows both. The completion message lists what
+was cancelled and, as an action item, anything parked. A cancelled supporter
+can subscribe again on their new character, or you can comp them with the
+admin subscription grant.
 
 ## Guarding the contract
 

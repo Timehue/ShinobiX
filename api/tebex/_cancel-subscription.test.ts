@@ -4,6 +4,7 @@ import {
     TEBEX_CHECKOUT_API,
     cancelTebexSubscription,
     isRecurringReference,
+    isSubscriptionCancelConfigured,
     subscriptionReferenceFromSave,
 } from './_cancel-subscription.js';
 
@@ -97,6 +98,14 @@ describe('cancelling at Tebex', () => {
         if (outcome.ok) return;
         assert.equal(outcome.reason, 'rejected');
         assert.equal(outcome.status, 403);
+    });
+
+    it('reports whether the privileged key is set, for the reset dry run', () => {
+        assert.equal(isSubscriptionCancelConfigured(), true);
+        process.env.TEBEX_CHECKOUT_API_KEY = '   ';
+        assert.equal(isSubscriptionCancelConfigured(), false, 'whitespace is not a key');
+        delete process.env.TEBEX_CHECKOUT_API_KEY;
+        assert.equal(isSubscriptionCancelConfigured(), false);
     });
 
     it('fails closed when the privileged key is unset', async () => {
