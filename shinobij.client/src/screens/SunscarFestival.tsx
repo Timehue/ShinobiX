@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import type { GameItem } from '../types/combat';
 import type { Character, VersionedCharacterCommit } from '../types/character';
 import type { CaravanCombatCatalogs } from '../features/sunscar/CaravanBattle';
@@ -19,6 +19,13 @@ export function SunscarFestival({ character, onVersionedCharacter, setCreatorIte
     character: Character; onVersionedCharacter: VersionedCharacterCommit; setCreatorItems: Dispatch<SetStateAction<GameItem[]>>;
 }) {
     const [mode, setMode] = useState<'hub' | 'rally' | 'caravan' | 'exchange'>('hub');
+    useLayoutEffect(() => {
+        if (mode !== 'exchange') return;
+        // The entrance sits far down the festival page. Return to the top when
+        // its content replaces the hub so the fixed mobile HUD cannot cover it.
+        document.scrollingElement?.scrollTo(0, 0);
+        document.querySelector('.center-game.screen-sunscarFestival')?.scrollTo(0, 0);
+    }, [mode]);
     const [today, setToday] = useState(() => new Date().toISOString().slice(0, 10));
     useEffect(() => { const timer = window.setInterval(() => setToday(new Date().toISOString().slice(0, 10)), 60_000); return () => window.clearInterval(timer); }, []);
     const [bmBusy, setBmBusy] = useState(false);
