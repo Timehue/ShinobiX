@@ -135,9 +135,24 @@ the save, so there is nothing to revoke. It used to answer 500, so Tebex kept
 retrying, and a retry that landed after someone registered the name reached a
 stranger's save.
 
-⚠ **Renewals are unchanged, and one door is still open.** A `started`,
-`renewed` or `cancellation.aborted` event entitles whoever holds the name when
-it lands. With no save it answers 500 so Tebex retries, which is right for a
+⛔ **A paid event replaces an admin comp.** A `started`, `renewed` or
+`cancellation.aborted` event writes a plain paid flag over an admin comp, with
+no `expiresAt` and no `source`, and keeps `since`. A comp made over a paying
+subscriber keeps their reference as `userId`. Same-price renewals used to count
+as re-deliveries of that flag and changed nothing, so the comp's `expiresAt`
+survived them. Once it passed, the player lost their perks while still paying,
+and stayed that way until the price changed or an admin stepped in.
+
+Now such a comp lasts only until the subscriber's next renewal. After that the
+flag is an ordinary subscription, and the subscription's own `ended` revokes it,
+even if the comp had days left. Comp the player again if those days should
+stand. `admin-comp-on-save` therefore applies to a comp over a subscriber only
+when the subscription ends before its next renewal. A comp with no payment
+behind it is untouched and still lapses on its own.
+
+⚠ **One door is still open: renewals.** A `started`, `renewed` or
+`cancellation.aborted` event entitles whoever holds the name when it lands.
+With no save it answers 500 so Tebex retries, which is right for a
 player who has not finished creating a character. A parked reference is
 refused (see Account deletion below). A deleted account's reference that is
 **not** parked can still renew. That can happen when a renewal was already in
