@@ -3,6 +3,7 @@ import { clientIp } from '../_client-ip.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { applyEntitlementToSave, SUBSCRIBER_TIER } from '../_subscription.js';
 import { tebexSubscriptionPackageId } from './_basket-core.js';
+import { findParkedSubscription, stampParkedSubscription, type ParkedSubscription } from './_cancel-subscription.js';
 import {
     isReversalWebhook,
     isSubscriptionWebhook,
@@ -121,6 +122,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             console.log('[tebex] subscription ignored', webhook.type, decision.reason);
             return res.status(200).json({ ok: true, action: 'ignored', reason: decision.reason });
         }
+
+        // A PARKED reference entitles nobody. It was parked because its
+        // account was deleted (or wiped by a full reset) and cancelling it at
+        // Tebex failed, so the name decision.playerName came from now belongs
+        // to nobody, or to a stranger who registered it afterwards. Entitling
+        // it would give that stranger the perks the original customer is still
+        // paying for. Answer 200: a retry cannot fix this, and a 500 would keep
+        // Tebex retrying until someone did register the name. The parked
+        // entry is already a human's to-do; the stamp shows it is still live.
+        let parked: ParkedSubscription | null;
+        try {
+            parked = await findParkedSubscription(decision.reference);
+        } catch (error) {
+            console.error('[tebex] parked-subscription check failed', decision.reference, (error as Error)?.message);
+            return res.status(500).json({ error: 'Could not check the subscription; will retry.' });
+        }
+        if (parked) {
+            const at = new Date().toISOString();
+            const detail = JSON.stringify({ reference: decision.reference, parkedSlug: parked.slug, type: webhook.type });
+            if (decision.active) {
+                console.error('[tebex] renewal for PARKED subscription — entitled nobody; it is still billing, cancel it in the Tebex dashboard', detail);
+                await stampParkedSubscription(decision.reference, parked, { lastRenewalAt: at, lastRenewalType: webhook.type });
+            } else {
+                console.warn('[tebex] PARKED subscription ended at Tebex — entitled nobody', detail);
+                await stampParkedSubscription(decision.reference, parked, { endedAt: at });
+            }
+            return res.status(200).json({ ok: true, action: 'ignored', reason: 'parked-subscription' });
+        }
+
         const applied = await applyEntitlementToSave(decision.playerName, decision.reference, {
             active: decision.active,
             tier: SUBSCRIBER_TIER,
