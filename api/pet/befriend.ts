@@ -18,6 +18,7 @@ import {
     PET_ENCOUNTER_POINTER_TTL_SECONDS,
 } from './_encounter-pointer.js';
 import { cleanWorldExploreAuthorityReceipt, worldExploreAuthorityKey } from '../world/_explore-authority.js';
+import { caravanPetDiscovery } from '../festival/_caravan-pet.js';
 
 type BefriendDestination = 'roster' | 'sanctuary';
 
@@ -41,6 +42,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 pet: Record<string, unknown>;
                 sector?: number;
                 exploreReceiptId?: string;
+                caravanRunId?: string;
+                requestId?: string;
             }>(key);
             if (!encounter || encounter.playerName !== playerName) return { ok: false as const, status: 409, error: 'invalid-or-spent-encounter' };
             const exploreReceiptId = typeof encounter.exploreReceiptId === 'string' ? encounter.exploreReceiptId : '';
@@ -57,7 +60,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 && durableExplore.sector === encounterSector
                 && durableExplore.outcome?.kind === 'external'
                 && durableExplore.outcome?.source === 'pet';
-            const explored = !!projectedExplored || durableExplored;
+            const explored = !!projectedExplored || durableExplored || caravanPetDiscovery(character, encounter.caravanRunId, encounter.requestId);
             if (!explored) return { ok: false as const, status: 409, error: 'pet-discovery-not-settled' };
             const granted = grantWildPet(character, encounter.pet, () => randomInt(1_000_000_000) / 1_000_000_000);
             if (!granted.ok) return { ok: false as const, status: 409, error: granted.reason };

@@ -1,0 +1,2 @@
+import type { CaravanNodeKind } from '../../../../shared/sunscar/caravan-types';
+export const CARAVAN_NODE_LABELS: Record<CaravanNodeKind, string> = { combat: 'Ambush', event: 'Road encounter', camp: 'Camp', merchant: 'Merchant', ruins: 'Ruins', hazard: 'Hazard', treasure: 'Cache', pet: 'Wild trail', traveler: 'Traveler', elite: 'Veteran enemy', boss: 'Road guardian', destination: 'Destination' };

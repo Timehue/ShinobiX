@@ -43,6 +43,18 @@ test("sprite facing mirrors only when display and native directions differ", () 
     assert.match(rightAuthored, /data-battlefield-mirrored="false"/);
 });
 
+test("Scorpion Queen art faces the player on either side of the board", () => {
+    for (const sprite of ["/src/assets/festival/sunscar-queen-body-v1.webp", "/assets/sunscar-queen-body-v1-Ab_123.webp"]) {
+        for (const facing of ["left", "right"] as const) {
+            const html = renderToStaticMarkup(<BattlefieldActor side="enemy" label="Scorpion Queen" sprite={sprite} facing={facing} />);
+            assert.match(html, /data-battlefield-native-facing="right"/);
+            assert.ok(html.includes(`data-battlefield-mirrored="${facing === "left"}"`));
+        }
+    }
+    const override = renderToStaticMarkup(<BattlefieldActor side="enemy" label="Custom Queen" sprite="/assets/sunscar-queen-body-v1.webp" facing="left" nativeFacing="left" />);
+    assert.match(override, /data-battlefield-mirrored="false"/);
+});
+
 test("creature and boss sprite geometry is selected without changing the actor anchor", () => {
     const creature = renderToStaticMarkup(
         <BattlefieldActor side="enemy" label="Frost Wolf" sprite="/assets/hunt-ai-frost-wolf-idle.webp" />,

@@ -632,6 +632,24 @@
       "cadence": "per controlled sector/day",
       "authority": "api/_war-economy.ts",
       "notes": ""
+    },
+    {
+      "system": "festival",
+      "id": "sunscar-rally",
+      "currency": "ryo",
+      "amount": "30%-50% of daily login reward",
+      "cadence": "per three-race daily championship",
+      "authority": "api/festival/_rally.ts",
+      "notes": "Placement scales the payout; practice pays nothing."
+    },
+    {
+      "system": "festival",
+      "id": "sunscar-caravan",
+      "currency": "ryo",
+      "amount": "1.05-1.7 times daily login reward",
+      "cadence": "per daily delivery",
+      "authority": "api/festival/_caravan.ts",
+      "notes": "Scaled by cargo preserved and bounded objectives/bonuses. Defeat pays no Ryo."
     }
   ],
   "sinks": [
@@ -1884,15 +1902,6 @@
       "amount": 75000,
       "cadence": "per pull",
       "authority": "api/festival/_black-market.ts",
-      "notes": ""
-    },
-    {
-      "system": "festival",
-      "id": "sunscar-fate-die",
-      "currency": "fateShards",
-      "amount": 0,
-      "cadence": "per roll",
-      "authority": "api/festival/_sunscar.ts",
       "notes": ""
     },
     {

@@ -6,6 +6,41 @@ import { protectSaveOnUnload } from "./save-unload";
 const tick = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
 describe("save unload protection", () => {
+    for (const [label, text] of [["large ASCII", "a".repeat(70_000)], ["multibyte text", "旅".repeat(25_000)]]) {
+        it(`preserves the complete ${label} save locally when it exceeds the keepalive byte budget`, () => {
+            let captured: unknown;
+            let requests = 0;
+            const payload = { character: { name: "Kaya", nindo: text } };
+            protectSaveOnUnload({
+                dirty: true, flightBusy: false, accountKey: "kaya", sessionEpoch: 1, latestVersion: 2,
+                unresolved: null, liveSnapshot: { name: "Kaya", revision: 1, payload },
+                captureConflict: (accountName, body) => {
+                    captured = body;
+                    return { accountName, accountKey: "kaya", revisions: [createSaveConflictRevision({ id: "guard", accountName, payload: body })] };
+                },
+                discardRevision: () => assert.fail("the recovery copy must remain"), isCurrentSession: () => true,
+                request: (async () => { requests++; return new Response(); }) as typeof fetch,
+            });
+            assert.deepEqual(captured, { ...payload, _baseSaveVersion: 2 });
+            assert.equal(requests, 0);
+        });
+    }
+
+    it("checks the exact unresolved wire body before attempting keepalive", () => {
+        let captures = 0;
+        const body = { character: { name: "Kaya" }, _baseSaveVersion: 2 };
+        const revision = createSaveConflictRevision({ id: "guard", accountName: "Kaya", payload: body });
+        protectSaveOnUnload({
+            dirty: false, flightBusy: true, accountKey: "kaya", sessionEpoch: 1, latestVersion: 3,
+            unresolved: { accountName: "Kaya", accountKey: "kaya", sessionEpoch: 1, revision: 2, body, serializedBody: " ".repeat(70_000) + JSON.stringify(body) },
+            liveSnapshot: { name: "Kaya", revision: 1, payload: body },
+            captureConflict: () => { captures++; return { accountName: "Kaya", accountKey: "kaya", revisions: [revision] }; },
+            discardRevision: () => assert.fail("the unresolved recovery copy must remain"), isCurrentSession: () => true,
+            request: (() => { assert.fail("oversized wire bodies cannot be sent as keepalive"); }) as typeof fetch,
+        });
+        assert.equal(captures, 1);
+    });
+
     it("protects and resends the exact unresolved required body over a stale live snapshot", async () => {
         const captures: unknown[] = [];
         const discards: SaveConflictRevision[] = [];

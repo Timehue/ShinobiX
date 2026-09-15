@@ -243,36 +243,8 @@ export type ClanExchangePurchases = {
 // the narrated log — so it needs no server-authoritative gating (the save
 // handler just caps the array length). See lib/battle-log-history.
 
-export type BattleHistoryActorRole = "player" | "enemy" | "system";
-
-/** One owner-attributed action within a stored battle log. */
-export type BattleHistoryAction = {
-    round: number;
-    role: BattleHistoryActorRole;
-    /** Acting fighter's name; "" for ownerless narration (round end, "X wins!"). */
-    actor: string;
-    /** Sequential cast number within the battle (only on real jutsu/attack casts). */
-    actionNumber?: number;
-    /** Action text with the leading actor name stripped (e.g. "Lightning Lance: …"). */
-    headline: string;
-    /** The colored effect lines that resulted from this action. */
-    effectLines: string[];
-};
-
-/** One recent battle you fought, with its full color-coded log for reflection. */
-export type BattleHistoryEntry = {
-    id: string;
-    /** Battle-ended timestamp (ms epoch). */
-    ts: number;
-    /** Human label for the mode: "Arena" | "Mission" | "Endless" | "Raid" | "Story" | "PvP" | "Ranked" | "Spar". */
-    mode: string;
-    opponent: string;
-    outcome: "win" | "loss" | "draw" | "flee";
-    rounds: number;
-    /** Your fighter name at the time (for %user/%target interpolation on replay). */
-    self: string;
-    actions: BattleHistoryAction[];
-};
+export type { BattleHistoryActorRole, BattleHistoryAction, BattleHistoryEntry } from "../../../shared/battle-history-types";
+import type { BattleHistoryEntry } from "../../../shared/battle-history-types";
 
 // Narrative receipts are presentation/history state only. They never prove a
 // reward or combat outcome; those remain owned by the sealed story endpoints.
@@ -402,6 +374,8 @@ export type Character = {
     itemStacks?: { itemId: string; count: number }[];
     /** Pending Sunscar Exchange transfer receipts, owned by the server. */
     sunscarExchangeReceipts?: string[];
+    sunscarRally?: import('../../../shared/sunscar/rally-championship').RallyProgress;
+    sunscarCaravan?: import('../../../shared/sunscar/caravan-types').CaravanProgress;
     equipment: EquipmentSlots;
     jutsuMastery: JutsuMastery[];
     pets: Pet[];

@@ -143,7 +143,7 @@ export function applyPveOutcomeWithReceipt(params: {
     }
     const usageSettledCharacter = !legacyReplay
         && isSoloPveSession(params.session)
-        && params.session.encounter.kind === 'mission'
+        && ['mission', 'caravan'].includes(params.session.encounter.kind)
         ? applySoloPveUsageCosts(params.character, params.session)
         : params.character;
     const settledCharacter = legacyReplay
@@ -168,6 +168,21 @@ export function applyPveOutcomeWithReceipt(params: {
             // the scarce resource than finishing it.
             sessionUsesContinuousVitals(params.session),
         );
+    // Caravan sessions are created only from the real current pools and held
+    // behind the normal battle lock. Their terminal record includes legitimate
+    // potion/skill recovery, which must survive the trip back to the wagons.
+    // Keep the generic fresh-start/decrease-only guard unchanged for other modes.
+    if (!legacyReplay && isSoloPveSession(params.session)
+        && params.session.encounter.kind === 'caravan'
+        && sessionUsesContinuousVitals(params.session) && participant) {
+        for (const field of ['chakra', 'stamina'] as const) {
+            const value = participant[field];
+            const maximum = Number(params.character[field === 'chakra' ? 'maxChakra' : 'maxStamina']);
+            if (typeof value === 'number' && Number.isFinite(value) && Number.isFinite(maximum)) {
+                settledCharacter[field] = Math.max(0, Math.min(maximum, Math.floor(value)));
+            }
+        }
+    }
     const value: OutcomeMutationValue = {
         outcome: params.outcome,
         applied: !legacyReplay,
@@ -217,7 +232,7 @@ export async function settlePveFightOutcome(
         return { ok: true, outcome, applied: false, replayed: false, deferredToSettlement: true };
     }
 
-    if (isSoloPveSession(session) && session.encounter.kind === 'mission') {
+    if (isSoloPveSession(session) && ['mission', 'caravan'].includes(session.encounter.kind)) {
         const usage = await settleSoloPveTerminalUsage(session, playerName);
         if (!usage.ok) return usage;
         session = usage.session;
@@ -289,7 +304,7 @@ export async function settlePveFightOutcome(
  */
 export function soloPveNeedsAutomaticOutcome(session: SoloPveSession): boolean {
     if (session.status !== 'done') return false;
-    if (session.encounter.kind === 'mission') return true;
+    if (session.encounter.kind === 'mission' || session.encounter.kind === 'caravan') return true;
     if (session.encounter.kind !== 'story-boss' && session.encounter.kind !== 'academy-spar') return false;
     return resolveAiFightOutcome(session) !== 'win';
 }

@@ -10,6 +10,7 @@ export type PetEncounterPointer = {
     pet?: Record<string, unknown>;
     sector: number;
     mintedAt: number;
+    caravanRunId?: string;
 };
 
 export function petEncounterActiveKey(playerName: string): string {
@@ -50,5 +51,6 @@ export function cleanPetEncounterPointer(raw: unknown): PetEncounterPointer | nu
         ...(outcome === 'hit' ? { token, pet: pet! } : {}),
         sector,
         mintedAt,
+        ...(typeof value.caravanRunId === 'string' ? { caravanRunId: value.caravanRunId } : {}),
     };
 }

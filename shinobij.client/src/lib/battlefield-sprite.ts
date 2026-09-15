@@ -49,6 +49,14 @@ export function inferSpriteKind(src: string): BattlefieldSpriteKind {
     return "humanoid";
 }
 
+/** Authored direction of body art; the existing facing system mirrors from it. */
+export function inferSpriteNativeFacing(src: string): BattlefieldSpriteFacing {
+    const filename = src.split(/[?#]/, 1)[0].split("/").pop() ?? "";
+    // The Queen's head/claws point right. Accept the source and Vite-hashed name.
+    if (/^sunscar-queen-body-v1(?:-[\w-]+)?\.webp$/i.test(filename)) return "right";
+    return "left";
+}
+
 /**
  * Presentation-only horizontal facing for a board actor. Full directional art
  * would be needed to represent north/south, so actors in the same column hold

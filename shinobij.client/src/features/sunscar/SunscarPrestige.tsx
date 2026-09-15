@@ -1,0 +1,5 @@
+import { festivalPrestige, SUNSCAR_PRESTIGE } from '../../../../shared/sunscar/prestige';
+export function SunscarPrestige({ mode, reputation }: { mode: 'rally' | 'caravan'; reputation: number }) {
+    const current = festivalPrestige(mode, reputation), next = SUNSCAR_PRESTIGE[mode].find(row => row.at > reputation);
+    return <details className="sunscar-prestige"><summary><span className="sunscar-prestige-seal" style={{ color: current?.color ?? '#b09b78' }} aria-hidden="true">✥</span><span>{current?.cosmetic ?? 'Your Sunscar legacy'}<small>{next ? `${next.at - reputation} reputation to ${next.cosmetic.toLowerCase()}` : 'All festival honors earned'}</small></span></summary><p>Milestones award wearable profile titles and a ceremonial {mode === 'rally' ? 'pennant on your race HUD' : 'seal on your manifest'}.</p><ul>{SUNSCAR_PRESTIGE[mode].map(row => <li key={row.at} style={{ color: reputation >= row.at ? row.color : undefined }}><span>{reputation >= row.at ? '✓' : row.at} · {row.title}</span><small>{row.cosmetic}</small></li>)}</ul></details>;
+}

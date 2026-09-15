@@ -30,14 +30,14 @@ export type WildPetEncounterResult =
  * response is a miss. Transport failures and incomplete responses block normal
  * exploration so retry can recover the same server-owned discovery.
  */
-export async function startWildPetEncounter(playerName: string, sector: number, requestId: string): Promise<WildPetEncounterResult> {
+export async function startWildPetEncounter(playerName: string, sector: number, requestId: string, caravanId?: string): Promise<WildPetEncounterResult> {
     if (!/^[A-Za-z0-9_-]{8,96}$/.test(requestId)) {
         return { kind: "blocked", error: "The pet attempt has no stable recovery id.", retryable: false };
     }
     try {
         const response = await fetch('/api/pet/encounter-start', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ playerName, sector, requestId }),
+            body: JSON.stringify({ playerName, sector, requestId, ...(caravanId ? { caravanRunId: caravanId } : {}) }),
         });
         const data = await response.json().catch(() => null) as {
             token?: string;

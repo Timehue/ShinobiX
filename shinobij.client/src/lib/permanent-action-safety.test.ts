@@ -125,7 +125,7 @@ describe("permanent action interaction safety", () => {
         const training = source("../screens/Training.tsx");
         assert.match(training, /AMBIGUOUS_ACTION_MESSAGE/);
 
-        for (const relative of ["./player-trade.ts", "./card-pack.ts", "./black-market.ts", "./sunscar-festival.ts", "./player-api.ts"]) {
+        for (const relative of ["./player-trade.ts", "./card-pack.ts", "./black-market.ts", "./player-api.ts"]) {
             assert.match(source(relative), /unconfirmed|response lost|AMBIGUOUS_ACTION_MESSAGE/i, `${relative} must label an ambiguous response`);
             if (relative !== "./player-api.ts") assert.match(source(relative), /Refresh before retrying/i, `${relative} must not encourage a blind retry`);
         }

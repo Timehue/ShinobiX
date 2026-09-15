@@ -105,6 +105,8 @@ const f = (
  * derived lists inherit table order, which is not behavior (see header).
  */
 export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
+    f('sunscarCaravan', 'character', 'server-owned', 'sunscar-caravan', ['server-mirror-char', 'combat-strip-char'], 'Expedition choices, run bindings, daily entry, reputation and payout commit together.'),
+    f('sunscarRally', 'character', 'server-owned', 'sunscar-rally', ['server-mirror-char', 'combat-strip-char'], 'Official race checkpoints, daily entry and championship payout commit together.'),
     f('sunscarExchangeReceipts', 'character', 'server-owned', 'sunscar-exchange', ['server-array-ledger-char', 'combat-strip-char'], 'Pending escrow and delivery receipts; cleared only after the permanent listing journal commits.'),
     // ── Identity & public profile (public-char order is load-bearing) ───────
     f('name', 'character', 'server-clamped', 'identity', ['public-char'], 'length-capped display name'),

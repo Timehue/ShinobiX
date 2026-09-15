@@ -9,6 +9,7 @@ export type PetBusyCode =
     | 'pet-is-on-expedition'
     | 'pet-is-active'
     | 'pet-is-reserve'
+    | 'pet-is-at-festival'
     | 'pet-is-assigned';
 
 export type PetCombatBusyCode = Extract<PetBusyCode,
@@ -50,6 +51,7 @@ export function petBusyReason(
     const id = String(pet.id ?? '');
     const combatBusy = petCombatBusyReason(character, pet, now);
     if (combatBusy) return combatBusy;
+    if (festivalAssignedPetIds(character).has(id)) return 'pet-is-at-festival';
     if (options.includeActive !== false && String(character.activePetId ?? '') === id) return 'pet-is-active';
     if (options.includeReserve !== false && String(character.activePetId2v2 ?? '') === id) return 'pet-is-reserve';
     const assigned = new Set(options.assignmentIds ?? []);
@@ -67,7 +69,17 @@ export function petBusyMessage(code: PetBusyCode): string {
         case 'pet-is-active': return 'Remove this pet from the active PvE slot before breeding.';
         case 'pet-is-reserve': return 'Remove this pet from the active 2v2 reserve slot before breeding.';
         case 'pet-is-assigned': return 'Remove this pet from its persistent team or assignment before breeding.';
+        case 'pet-is-at-festival': return 'Finish this companion’s Sunscar Grand Prix or caravan before changing its assignment.';
     }
+}
+
+export function festivalAssignedPetIds(character: Record<string, unknown>): Set<string> {
+    const rally = (character.sunscarRally as { current?: { status?: string; pet?: { id?: string } } } | undefined)?.current;
+    const caravan = (character.sunscarCaravan as { current?: { result?: unknown; selectedPetId?: string } } | undefined)?.current;
+    const ids = new Set<string>();
+    if (rally && ['racing', 'between'].includes(rally.status ?? '') && rally.pet?.id) ids.add(rally.pet.id);
+    if (caravan && !caravan.result && caravan.selectedPetId) ids.add(caravan.selectedPetId);
+    return ids;
 }
 
 export function petBreedingEligibility(
