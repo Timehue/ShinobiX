@@ -257,7 +257,8 @@ function cleanBaseReward(raw: unknown): PvpWinBaseSummary["reward"] {
     const combatGrowth = Number(value.combatGrowth);
     const auraDust = Number(value.auraDust);
     if (![ryo, combatGrowth, auraDust].every((amount) => Number.isSafeInteger(amount) && amount >= 0)) return undefined;
-    return { ryo, combatGrowth, auraDust };
+    const jutsuXp = Number(value.jutsuXp);
+    return { ryo, combatGrowth, auraDust, ...(Number.isSafeInteger(jutsuXp) && jutsuXp >= 0 ? { jutsuXp } : {}) };
 }
 
 /** Player-facing copy for the exact authoritative terminal settlement. */
@@ -273,6 +274,7 @@ export function pvpRewardSettlementNotice(
     const rewards = [
         ryo && `+${ryo.toLocaleString()} Ryo`,
         base?.combatGrowth && `+${base.combatGrowth} Combat Growth`,
+        base?.jutsuXp && `+${base.jutsuXp} Jutsu XP`,
         raid?.xpAwarded && `+${raid.xpAwarded} Vanguard XP`,
         result.warPoints?.awarded && `+${result.warPoints.awarded} ${result.warPoints.kind === "sector" ? "War Score" : "Clan War Points"}`,
         base?.auraDust && `+${base.auraDust} Aura Dust`,

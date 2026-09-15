@@ -211,7 +211,7 @@ export function SectorPeersLive({ selectedSector, selfName, sharedImages, sleepe
     const live = useLiveSectorPlayers();
     const selfLower = selfName.toLowerCase();
     const liveMarkers: SectorPeer[] = live
-        .filter((p) => p.name.toLowerCase() !== selfLower)
+        .filter((p) => p.name.toLowerCase() !== selfLower && !p.stronghold)
         .filter((p) => sameSector(p.currentSector, selectedSector))
         .map((p) => ({
             name: p.name,

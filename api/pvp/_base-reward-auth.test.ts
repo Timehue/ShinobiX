@@ -11,6 +11,14 @@ import { pvpSessionMayGrantProgress, pvpSessionMayReward, sealBaseRewardStamp } 
 const PVP = { isAdmin: false, p1HasSave: true, p2HasSave: true, deathsGateVerified: false } as const;
 
 describe('sealBaseRewardStamp — base-reward authorization', () => {
+    it('requires verified interior presence, sector 99 and two real players for the additional bonus', () => {
+        const eligible = { ...PVP, baseRewards: true, rewardSector: 99, deathsGateVerified: true, deathsGateStrongholdVerified: true };
+        assert.equal(sealBaseRewardStamp(eligible).stamp.rewardStronghold, 'deathsgate');
+        for (const override of [{ rewardSector: 12 }, { deathsGateVerified: false }, { deathsGateStrongholdVerified: false },
+            { baseRewards: false }, { isAdmin: true, p2HasSave: false }]) {
+            assert.equal(sealBaseRewardStamp({ ...eligible, ...override }).stamp.rewardStronghold, undefined);
+        }
+    });
     it('distinguishes a sanctioned no-reward spar from a progression match', () => {
         const spar = { rewardAuthority: 'challenge' as const, joined: { p1: true, p2: true } };
         assert.equal(pvpSessionMayReward(spar), true);

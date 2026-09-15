@@ -1,3 +1,4 @@
+import { strongholdLocation } from '../_stronghold-presence.js';
 /**
  * Pure helpers for turning a raw heartbeat / WS-ping body into safe presence
  * fields, and for projecting a stored OnlinePlayer back into the PlayerRecord
@@ -154,5 +155,6 @@ export function toPlayerRecord(p: OnlinePlayer) {
         // Within-sector tile for live peer rendering (omitted → viewer falls back
         // to a deterministic per-name tile). Display-only.
         tile: p.tile,
+        stronghold: strongholdLocation(p.name, p.sector),
     };
 }

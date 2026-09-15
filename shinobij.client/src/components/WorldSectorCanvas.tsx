@@ -37,6 +37,8 @@ export type WorldSectorCanvasProps = {
     playerTile: number;
     playerName: string;
     playerAvatarImage: string;
+    /** A fullscreen interior covers this scene; release its renderers while keeping the host slots mounted. */
+    suspended?: boolean;
     isCurrent: boolean;
     enterDirection: SectorDirection | null;
     regionSplash: { label: string; tint: string; stamp: number } | null;
@@ -69,6 +71,7 @@ export function WorldSectorCanvas({
     playerTile,
     playerName,
     playerAvatarImage,
+    suspended = false,
     isCurrent,
     enterDirection,
     regionSplash,
@@ -100,6 +103,7 @@ export function WorldSectorCanvas({
             </div>
 
             <div className={`pixel-map walkable-sector-map sector-image-map${enterDirection ? ` sector-enter-${enterDirection}` : ""}`}>
+                {!suspended && <>
                 {regionSplash && (
                     <RegionSplash
                         label={regionSplash.label}
@@ -187,9 +191,10 @@ export function WorldSectorCanvas({
                         biome={ambienceBiome}
                     />
                 )}
+                </>}
 
                 {overlayLayer}
-                {!mapMode && <SectorForeground biome={ambienceBiome} focus={playerTile} />}
+                {!suspended && !mapMode && <SectorForeground biome={ambienceBiome} focus={playerTile} />}
                 {encounterLayer}
             </div>
         </main>

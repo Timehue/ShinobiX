@@ -10,6 +10,7 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { onlineStore } from '../_realtime/online-store.js';
+import { strongholdLocation } from '../_stronghold-presence.js';
 import { sessionOpponentBlock, worldInteractionBlock, isBelowAttackableFloor, ATTACKABLE_MIN_LEVEL } from '../_realtime/presence-gating.js';
 import {
     consumeRankedMatchTokenForBattle,
@@ -338,6 +339,10 @@ export type PvpSession = {
     // battle's sector, used ONLY for the Death's Gate (99) 2× bonus — everything
     // else is read from the winner's full save under the claim lock. Absent on
     // pre-Phase-3 / non-opted sessions, which keep the NX-only casual path.
+    /** Server-verified world PvP with both fighters inside sector 99 at creation. */
+    rewardStronghold?: 'deathsgate';
+    /** Successfully committed casts, unique per side; never accepted from a client. */
+    jutsuUsed?: { p1: string[]; p2: string[] };
     baseRewards?: boolean;
     rewardSector?: number;
     // Response-only (see PvpRejection) — present on a /api/pvp/move reply when the
@@ -456,6 +461,7 @@ function pvpSessionMatchesCreateRetry(existing: unknown, desired: PvpSession): e
         && row.clanWarChallengeId === desired.clanWarChallengeId
         && row.rankedMatchId === desired.rankedMatchId
         && row.rankedKind === desired.rankedKind
+        && row.rewardStronghold === desired.rewardStronghold
         && row.rewardAuthority === desired.rewardAuthority
         && row.rewardSector === desired.rewardSector
         && isDeepStrictEqual(row.worldAttacker, desired.worldAttacker)
@@ -1771,7 +1777,8 @@ export function sealBaseRewardStamp(opts: {
     p1HasSave: boolean;
     p2HasSave: boolean;
     deathsGateVerified: boolean;
-}): { stamp: Pick<PvpSession, 'baseRewards' | 'rewardSector'>; denied: boolean } {
+    deathsGateStrongholdVerified?: boolean;
+}): { stamp: Pick<PvpSession, 'baseRewards' | 'rewardSector' | 'rewardStronghold'>; denied: boolean } {
     if (!opts.baseRewards) return { stamp: {}, denied: false };
     const bothRealPlayers = opts.p1HasSave && opts.p2HasSave;
     if (!opts.isAdmin && !bothRealPlayers) return { stamp: {}, denied: true };
@@ -1783,7 +1790,10 @@ export function sealBaseRewardStamp(opts: {
         // fighters are there → drop the 2× (0 reads as "no sector bonus").
         sealedSector = 0;
     }
-    return { stamp: { baseRewards: true, rewardSector: sealedSector }, denied: false };
+    return { stamp: { baseRewards: true, rewardSector: sealedSector,
+        ...(sealedSector === DEATHS_GATE_SECTOR && bothRealPlayers && opts.deathsGateVerified && opts.deathsGateStrongholdVerified
+            ? { rewardStronghold: 'deathsgate' as const } : {}),
+    }, denied: false };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -2638,6 +2648,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 p1HasSave: !!p1Save?.character,
                 p2HasSave: !!p2Save?.character,
                 deathsGateVerified,
+                deathsGateStrongholdVerified: worldAttackVerified
+                    && !!strongholdLocation(p1Norm, DEATHS_GATE_SECTOR)
+                    && !!strongholdLocation(p2Norm, DEATHS_GATE_SECTOR),
             });
             const baseRewardDenied = baseRewards === true && (!progressionAuthority || baseRewardDeniedBySave);
             if (baseRewardDenied) {

@@ -144,7 +144,7 @@ export function presenceSignature(list: PlayerRecord[]): string {
     const now = Date.now();
     return list
         .map((p) =>
-            `${p.name.toLowerCase()}:${p.level ?? ""}:${p.currentSector ?? ""}:${p.village ?? ""}:${p.clan ?? ""}:${p.inBattle ? 1 : 0}:${(p.travelingUntil ?? 0) > now ? 1 : 0}:${Math.floor((p.lastSeenAt ?? 0) / SEEN_BUCKET_MS)}`,
+            `${p.name.toLowerCase()}:${p.level ?? ""}:${p.currentSector ?? ""}:${p.village ?? ""}:${p.clan ?? ""}:${p.inBattle ? 1 : 0}:${p.stronghold?.sector ?? ""}:${(p.travelingUntil ?? 0) > now ? 1 : 0}:${Math.floor((p.lastSeenAt ?? 0) / SEEN_BUCKET_MS)}`,
         )
         .sort()
         .join("|");
@@ -153,7 +153,7 @@ export function presenceSignature(list: PlayerRecord[]): string {
 // Full live signature = membership signature + per-name tile, so the overlay
 // re-renders when a peer walks. Keep push/remove in sync via this one helper.
 function liveSignature(list: PlayerRecord[], memberSig: string): string {
-    return memberSig + "||" + list.map((p) => `${p.name.toLowerCase()}:${p.tile ?? ""}`).sort().join(",");
+    return memberSig + "||" + list.map((p) => `${p.name.toLowerCase()}:${p.tile ?? ""}:${p.stronghold?.tile ?? ""}`).sort().join(",");
 }
 
 function notify(): void {

@@ -1,0 +1,147 @@
+{
+  "checks": [
+    {
+      "engine": "chromium",
+      "sector": 12,
+      "cachedPortraits": true,
+      "avatarSizeParity": true,
+      "transparentTouchTarget": true
+    },
+    {
+      "engine": "chromium",
+      "sector": 99,
+      "cachedPortraits": true,
+      "avatarSizeParity": true,
+      "transparentTouchTarget": true
+    },
+    {
+      "engine": "chromium",
+      "viewport": "320x568",
+      "obsidian": true,
+      "rewardBanner": true,
+      "attackBonus": true,
+      "fits": true
+    },
+    {
+      "engine": "chromium",
+      "viewport": "390x844",
+      "obsidian": true,
+      "rewardBanner": true,
+      "attackBonus": true,
+      "fits": true
+    },
+    {
+      "engine": "chromium",
+      "viewport": "430x932",
+      "obsidian": true,
+      "rewardBanner": true,
+      "attackBonus": true,
+      "fits": true
+    },
+    {
+      "engine": "chromium",
+      "viewport": "844x390",
+      "obsidian": true,
+      "rewardBanner": true,
+      "attackBonus": true,
+      "fits": true
+    },
+    {
+      "engine": "chromium",
+      "viewport": "1920x1080",
+      "obsidian": true,
+      "rewardBanner": true,
+      "attackBonus": true,
+      "fits": true
+    },
+    {
+      "engine": "chromium",
+      "obsidianAltar": true,
+      "savedAnbuIsolated": true
+    },
+    "chromium 320x568: crowd, modal, tap targets, movement, overview",
+    "chromium 390x844: crowd, modal, tap targets, movement, overview",
+    "chromium 430x932: crowd, modal, tap targets, movement, overview",
+    "chromium 844x390: crowd, modal, tap targets, movement, overview",
+    "chromium 1920x1080: crowd, modal, tap targets, movement, overview",
+    "chromium: exit failure restores polling; exactly 25 steps trigger patrol",
+    "chromium: final boss dialog fits landscape, Escape restores exploration, actual Arena mounts",
+    "chromium: failed recovery retains account-scoped fight and retries",
+    "chromium: actual Arena patrol settlement win",
+    "chromium: actual Arena patrol settlement loss",
+    "chromium: actual Arena patrol settlement save-rejected",
+    "chromium: actual Arena patrol settlement report-failure",
+    {
+      "engine": "webkit",
+      "sector": 12,
+      "cachedPortraits": true,
+      "avatarSizeParity": true,
+      "transparentTouchTarget": true
+    },
+    {
+      "engine": "webkit",
+      "sector": 99,
+      "cachedPortraits": true,
+      "avatarSizeParity": true,
+      "transparentTouchTarget": true
+    },
+    {
+      "engine": "webkit",
+      "viewport": "320x568",
+      "obsidian": true,
+      "rewardBanner": true,
+      "attackBonus": true,
+      "fits": true
+    },
+    {
+      "engine": "webkit",
+      "viewport": "390x844",
+      "obsidian": true,
+      "rewardBanner": true,
+      "attackBonus": true,
+      "fits": true
+    },
+    {
+      "engine": "webkit",
+      "viewport": "430x932",
+      "obsidian": true,
+      "rewardBanner": true,
+      "attackBonus": true,
+      "fits": true
+    },
+    {
+      "engine": "webkit",
+      "viewport": "844x390",
+      "obsidian": true,
+      "rewardBanner": true,
+      "attackBonus": true,
+      "fits": true
+    },
+    {
+      "engine": "webkit",
+      "viewport": "1920x1080",
+      "obsidian": true,
+      "rewardBanner": true,
+      "attackBonus": true,
+      "fits": true
+    },
+    {
+      "engine": "webkit",
+      "obsidianAltar": true,
+      "savedAnbuIsolated": true
+    },
+    "webkit 320x568: crowd, modal, tap targets, movement, overview",
+    "webkit 390x844: crowd, modal, tap targets, movement, overview",
+    "webkit 430x932: crowd, modal, tap targets, movement, overview",
+    "webkit 844x390: crowd, modal, tap targets, movement, overview",
+    "webkit 1920x1080: crowd, modal, tap targets, movement, overview",
+    "webkit: exit failure restores polling; exactly 25 steps trigger patrol",
+    "webkit: final boss dialog fits landscape, Escape restores exploration, actual Arena mounts",
+    "webkit: failed recovery retains account-scoped fight and retries",
+    "webkit: actual Arena patrol settlement win",
+    "webkit: actual Arena patrol settlement loss",
+    "webkit: actual Arena patrol settlement save-rejected",
+    "webkit: actual Arena patrol settlement report-failure"
+  ],
+  "pageErrors": []
+}

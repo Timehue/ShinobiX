@@ -3,6 +3,7 @@ import { getAllJutsus } from "../lib/jutsu-loadout";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import "../styles/battle-skin.css";
 import { visiblePoll } from "../lib/poll";
+import { retryArenaSettlement } from "../lib/arena-settlement-retry";
 import "../styles/mission-arena-fight.css";
 import { ShinobiCombatShell } from "../components/ShinobiCombatShell";
 import type { StoryFightTheme } from "../lib/story-fight-theme";
@@ -191,7 +192,7 @@ export function MissionArenaFight({
     creatorItems?: GameItem[];
     /** Settle the server-authoritative outcome on a win (missions queue the claim,
      *  story pays the chapter reward). Its resolved value is handed to renderResult. */
-    settleFn: (runId: string, playerName: string) => Promise<unknown>;
+    settleFn: (runId: string, playerName: string, signal?: AbortSignal) => Promise<unknown>;
     onExit: () => void;
     /** Lift terminal state to hosts that pause global navigation, regen, and autosave. */
     onBattleResolved?: () => void;
@@ -542,28 +543,27 @@ export function MissionArenaFight({
     // used to leave the player looking at "Return to the Mission Hall to claim
     // your reward" with no reward queued anywhere. Retry a few times with
     // backoff, then surface the failure and keep a manual retry available.
+    const settlementScope = useRef<{ controller: AbortController; running: boolean } | null>(null);
+    useEffect(() => {
+        const scope = { controller: new AbortController(), running: false };
+        settlementScope.current = scope;
+        settledRef.current = false;
+        return () => scope.controller.abort();
+    }, [runId, me]);
     const runSettle = useCallback(async () => {
+        const scope = settlementScope.current;
+        if (!scope || scope.running || scope.controller.signal.aborted) return;
+        scope.running = true;
         setSettleState("pending");
-        for (let attempt = 0; attempt < 4; attempt++) {
-            try {
-                // Race each attempt against 12s: every host's settleFn is a
-                // plain fetch with no deadline, and the exit button is
-                // disabled while "pending" — so a single stalled connection
-                // here used to lock the victory screen forever. A timed-out
-                // attempt falls into the normal retry/backoff instead.
-                const result = await Promise.race([
-                    settleFn(runId, me),
-                    new Promise<never>((_resolve, reject) => setTimeout(() => reject(new Error("settle attempt timed out")), 12_000)),
-                ]);
-                setSettleResult(result);
-                setSettleState("settled");
-                onBattleResolved?.();
-                return;
-            } catch {
-                if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 600 * 2 ** attempt));
-            }
-        }
-        setSettleState("failed");
+        try {
+            const result = await retryArenaSettlement(signal => settleFn(runId, me, signal), scope.controller.signal);
+            if (scope.controller.signal.aborted) return;
+            setSettleResult(result);
+            setSettleState("settled");
+            onBattleResolved?.();
+        } catch {
+            if (!scope.controller.signal.aborted) setSettleState("failed");
+        } finally { scope.running = false; }
     }, [runId, me, settleFn, onBattleResolved]);
 
     useEffect(() => {
