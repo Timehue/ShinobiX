@@ -6,6 +6,7 @@
  */
 
 export type BountyEntry = { target: string; amount: number; contributors: string[]; updatedAt: number };
+export type BountyReceipt = { amount: number; target: string };
 
 export async function fetchBountyBoard(): Promise<BountyEntry[]> {
     try {
@@ -18,7 +19,7 @@ export async function fetchBountyBoard(): Promise<BountyEntry[]> {
 }
 
 /** Read the paid receipt for a verified winner; this never attempts a new claim. */
-export async function fetchBountyReceipt(playerName: string, battleId: string, signal?: AbortSignal): Promise<{ amount: number; target: string } | null> {
+export async function fetchBountyReceipt(playerName: string, battleId: string, signal?: AbortSignal): Promise<BountyReceipt | null> {
     const timeout = AbortSignal.timeout(8_000);
     const res = await fetch('/api/pvp/bounty', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
