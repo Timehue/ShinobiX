@@ -21,6 +21,12 @@
     "stale character response retains retry",
     "navigate away during committed trade",
     "re-enter safely resumes saved trade",
-    "browser reload preserves listing"
+    "browser reload preserves listing",
+    "seller ryo and Fate Shards sales through authenticated heartbeat",
+    "global seller toast outside the Exchange",
+    "seller wallet reconciled before toast",
+    "receipt acknowledged without repeat",
+    "desktop/mobile seller toast accessibility",
+    "open Exchange refreshes sold listing, inspection, count, and sellable currency balance"
   ]
 }

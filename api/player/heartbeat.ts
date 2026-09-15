@@ -29,6 +29,7 @@ import { towerPartyInviteKey } from '../towers/_party.js';
 
 /** Stable identity of one inbox entry (the inbox has no ids of its own). */
 function noticeStamp(n: OfflineNotice): string {
+    if (n.kind === 'exchange-sale' && n.sale) return `exchange-sale|${n.sale.seller}|${n.sale.listingId}`;
     return `${n.kind}|${n.by}|${n.sector}|${n.at}|${n.amount ?? ''}|${n.total ?? ''}`;
 }
 

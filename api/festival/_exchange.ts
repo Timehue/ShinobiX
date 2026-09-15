@@ -7,11 +7,13 @@ import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { battleLockedFor } from '../_elapsed-state.js';
 import { FORGED_ITEM_ID } from '../_forged-item-registry.js';
 import { recordEconomyTxn } from '../_economy.js';
+import { pushOfflineNotice } from '../player/_offline-notices.js';
+import { kickPlayer } from '../_realtime/notify.js';
 import { loadSettlementCatalogs, type SettlementCatalogs } from '../shop/_catalog.js';
 import { balance, ExchangeError, exchangeInventory, grantAsset, objects, recoverExchangeDefinitions, removeAsset, sealAsset, type SealedExchangeAsset } from './_exchange-assets.js';
 
 type Obj = Record<string, unknown>;
-export type StoredExchangeListing = ExchangeListing & { sealed: SealedExchangeAsset; fingerprint: string; failure?: string; recoveryKey?: string };
+export type StoredExchangeListing = ExchangeListing & { sealed: SealedExchangeAsset; fingerprint: string; failure?: string; recoveryKey?: string; saleNoticePending?: boolean };
 const LIVE_INDEX = 'sunscar-exchange:live';
 const PENDING_INDEX = 'sunscar-exchange:pending';
 const HISTORY_LIMIT = 100;
@@ -20,7 +22,7 @@ export const exchangeListingKey = (id: string) => `sunscar-exchange:listing:${id
 const pending = (l: ExchangeListing) => ['preparing', 'buying', 'cancelling'].includes(l.state);
 const journal = (c: Obj): string[] => Array.isArray(c.sunscarExchangeReceipts) ? c.sunscarExchangeReceipts as string[] : [];
 const stamp = (c: Obj, marker: string): Obj => ({ ...c, sunscarExchangeReceipts: [...new Set([...journal(c), marker])] });
-export const publicListing = ({ sealed: _sealed, fingerprint: _fp, failure: _failure, recoveryKey: _recovery, ...listing }: StoredExchangeListing): ExchangeListing => ({ ...listing, currency: exchangeCurrency(listing) });
+export const publicListing = ({ sealed: _sealed, fingerprint: _fp, failure: _failure, recoveryKey: _recovery, saleNoticePending: _notice, ...listing }: StoredExchangeListing): ExchangeListing => ({ ...listing, currency: exchangeCurrency(listing) });
 
 function parseCurrency(value: unknown): ExchangeCurrency {
     if (value === undefined) return 'ryo';
@@ -145,13 +147,24 @@ async function recoverLocked(current: StoredExchangeListing, catalogs?: Settleme
             throw error;
         }
         await applyLeg(listing, listing.seller, 'payment');
-        listing = await transition(listing, { state: 'sold', completedAt: Date.now() });
-    }
-    if (listing.state === 'sold') {
+        listing = await transition(listing, { state: 'sold', completedAt: Date.now(), saleNoticePending: true });
         // Telemetry uses a shared read/modify/write list; do not race the two
         // sides of our own trade against each other.
         await recordEconomyTxn({ txnId: `exchange:${listing.id}:buy`, player: listing.buyer!, currency: exchangeCurrency(listing), delta: -listing.price, source: 'sunscar.exchange' });
         await recordEconomyTxn({ txnId: `exchange:${listing.id}:sell`, player: listing.seller, currency: exchangeCurrency(listing), delta: listing.proceeds, source: 'sunscar.exchange' });
+    }
+    if (listing.state === 'sold' && listing.saleNoticePending) {
+        try {
+            await pushOfflineNotice(listing.seller, { kind: 'exchange-sale', by: listing.buyer!, sector: 0, at: listing.completedAt!,
+                sale: { listingId: listing.id, seller: listing.seller, assetName: listing.asset.name, quantity: listing.quantity,
+                    currency: exchangeCurrency(listing), price: listing.price, fee: listing.fee, proceeds: listing.proceeds } });
+            listing = await transition(listing, { saleNoticePending: false });
+            kickPlayer(listing.seller, 'exchange-sale');
+        } catch {
+            // The sale is already paid. Keep its recovery pointer and return
+            // success; a notification outage must never undo or repeat payment.
+            return listing;
+        }
     }
     if (listing.state === 'cancelling') {
         try { await applyLeg(listing, listing.seller, 'return'); }
@@ -225,7 +238,7 @@ export async function actOnExchangeListing(player: string, id: string, action: '
 export async function exchangeSnapshot(player: string) {
     const history = await indexed(playerIndex(player));
     const recoveryErrors: string[] = [];
-    for (const listing of history.filter(l => pending(l) && (l.seller === player || l.buyer === player))) {
+    for (const listing of history.filter(l => (pending(l) || l.saleNoticePending) && (l.seller === player || l.buyer === player))) {
         try {
             await withKvLock(exchangeListingKey(listing.id), async () => {
                 const fresh = await kv.get<StoredExchangeListing>(exchangeListingKey(listing.id));
@@ -262,7 +275,8 @@ export async function recoverPendingExchangeListings(limit = 50) {
             await withKvLock(exchangeListingKey(id), async () => {
                 const listing = await kv.get<StoredExchangeListing>(exchangeListingKey(id));
                 if (listing) {
-                    await recoverLocked(listing);
+                    const recovered = await recoverLocked(listing);
+                    if (recovered.saleNoticePending) throw new Error('Sale completed; seller notification is awaiting delivery.');
                     if (ref !== (listing.recoveryKey ?? id)) await kv.hdel(PENDING_INDEX, ref);
                 } else if (Date.now() - refs[ref] > 120_000) {
                     await kv.hdel(PENDING_INDEX, ref);

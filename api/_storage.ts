@@ -92,6 +92,7 @@ const _noCachePrefixes = [
     'legacy:',
     // Exchange reservations and transfer journals must be fresh across workers.
     'sunscar-exchange:',
+    'offline-notices:',
     // Legacy completion fans out through retry-safe world-history RMW stores.
     // Their distributed locks only work when the lock holder reads the shared
     // latest list/state, not a process-local pre-lock snapshot.

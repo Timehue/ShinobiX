@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
-import { EXCHANGE_CATEGORIES, EXCHANGE_CURRENCIES, EXCHANGE_FEE_PERCENT, EXCHANGE_LISTING_LIMIT, EXCHANGE_MAX_PRICE, exchangeCurrency, exchangeFee, type ExchangeAsset, type ExchangeCategory, type ExchangeCurrency, type ExchangeListing, type ExchangeOwnedAsset } from '../../../shared/sunscar-exchange';
+import { EXCHANGE_CATEGORIES, EXCHANGE_CURRENCIES, EXCHANGE_FEE_PERCENT, EXCHANGE_LISTING_LIMIT, EXCHANGE_MAX_PRICE, EXCHANGE_SALE_EVENT, exchangeCurrency, exchangeFee, type ExchangeAsset, type ExchangeCategory, type ExchangeCurrency, type ExchangeListing, type ExchangeOwnedAsset } from '../../../shared/sunscar-exchange';
 import type { Character, VersionedCharacterCommit } from '../types/character';
 import type { GameItem } from '../types/combat';
 import { Modal } from './ui/Modal';
@@ -81,12 +81,19 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
     const [price, setPrice] = useState('');
     const [saleCurrency, setSaleCurrency] = useState<ExchangeCurrency>('ryo');
     const [review, setReview] = useState(false);
+    const [saleRevision, setSaleRevision] = useState(0);
+    const refreshedSaleRevision = useRef(0);
     const [pendingRequest, setPendingRequest] = useState<ExchangeRequest | null>(() => pendingExchangeRequest(character.name));
     const actionRef = useRef(false);
     const lifetime = useRef<AbortController | null>(null);
     const callbacks = useRef({ onVersionedCharacter, setCreatorItems });
     useEffect(() => { callbacks.current = { onVersionedCharacter, setCreatorItems }; }, [onVersionedCharacter, setCreatorItems]);
     const player = playerSlug(character.name);
+    useEffect(() => {
+        const onSale = (event: Event) => { if ((event as CustomEvent<{ seller?: string }>).detail?.seller === player) setSaleRevision(revision => revision + 1); };
+        window.addEventListener(EXCHANGE_SALE_EVENT, onSale);
+        return () => window.removeEventListener(EXCHANGE_SALE_EVENT, onSale);
+    }, [player]);
     const balance = character.ryo;
     const shardBalance = character.fateShards ?? 0;
     const mine = useMemo(() => snapshot?.activity.filter(l => l.seller === player && ['active', 'preparing', 'buying', 'cancelling'].includes(l.state)) ?? [], [snapshot, player]);
@@ -99,6 +106,7 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
             return [...items.values()];
         });
         setSnapshot(data);
+        setSelected(previous => previous ? data.activity.find(listing => listing.id === previous.id) ?? data.listings.find(listing => listing.id === previous.id) ?? null : null);
     }
 
     async function run(action: ExchangeRequest) {
@@ -132,6 +140,15 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
         // A player change remounts this screen; balances must not refetch on each commit.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [character.name]);
+
+    useEffect(() => {
+        // Coalesce incoming sales, and never interrupt an unconfirmed trade.
+        if (saleRevision === refreshedSaleRevision.current || busy || pendingRequest || actionRef.current) return;
+        refreshedSaleRevision.current = saleRevision;
+        void run({ action: 'browse' });
+        // run uses this render's account and current callbacks; it is not a stable dependency.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [saleRevision, busy, pendingRequest]);
 
     const rows = useMemo(() => {
         const data: Array<ExchangeListing | ExchangeOwnedAsset> = tab === 'sell' ? snapshot?.inventory ?? [] : tab === 'listings' ? mine : tab === 'activity' ? snapshot?.activity.filter(l => ['sold', 'cancelled', 'failed'].includes(l.state)) ?? [] : snapshot?.listings ?? [];
