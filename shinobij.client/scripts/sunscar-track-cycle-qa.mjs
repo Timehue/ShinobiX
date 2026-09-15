@@ -1,0 +1,69 @@
+import { chromium } from '@playwright/test';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import assert from 'node:assert/strict';
+const base = 'http://127.0.0.1:5199', out = new URL('../../.tmp/sunscar-track-cycle-qa/', import.meta.url);
+await mkdir(out, { recursive: true });
+const browser = await chromium.launch({ headless: true, args: ['--enable-webgl', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const errors = [], checks = [], samples = [];
+let page;
+try {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce', isMobile: true, hasTouch: true });
+    page = await context.newPage(); page.setDefaultTimeout(90_000);
+    page.on('pageerror', e => errors.push(e.message));
+    await page.request.post(base + '/__qa/reset');
+    const auth = await page.request.get(base + '/__qa/session').then(r => r.json());
+    const headers = { 'x-player-name': auth.name, 'x-player-token': auth.token };
+    await page.goto(base + '/sunscar-modes-qa.html');
+    await page.getByRole('button', { name: 'Visit the race grounds' }).click();
+    const courses = ['Sunscar Grand Circuit', "Scorpion's Spine", 'Burning Dunes', 'Caravan Clash', 'Sunscar Grand Circuit', 'Sunscar Grand Circuit'];
+    for (let i = 0; i < courses.length; i++) {
+        await page.setViewportSize({ width: i === 4 ? 320 : 390, height: 844 });
+        await page.locator('.rally-pet-list button').nth([0, 2, 4, 5, 6, 0][i]).click();
+        await page.locator('.rally-course-card').filter({ has: page.getByText(courses[i], { exact: true }) }).click();
+        await page.getByRole('button', { name: 'Practice selected course' }).click();
+        await page.getByRole('button', { name: 'Ready to race' }).click();
+        await page.waitForFunction(() => window.sunscarRallyQa?.state.tick > 180);
+        await page.keyboard.press('Space'); await page.keyboard.down('Shift');
+        await page.waitForTimeout(800); await page.keyboard.up('Shift');
+        await page.keyboard.press('KeyE'); await page.waitForTimeout(400);
+        const sample = await page.evaluate(() => {
+            const q = window.sunscarRallyQa;
+            return { track: q.state.trackId, pet: q.state.racers[0].pet.templateId, fps: q.fps, calls: q.calls, triangles: q.triangles, geometry: q.geometry, textures: q.textures, heap: performance.memory?.usedJSHeapSize };
+        });
+        samples.push(sample);
+        await page.screenshot({ path: fileURLToPath(new URL('course-' + i + '.png', out)) });
+        for (const button of await page.locator('.rally-controls button').all()) {
+            const bounds = await button.boundingBox();
+            assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= (i === 4 ? 320 : 390) && bounds.height >= 44);
+        }
+        if (i === 2) {
+            const deadline = Date.now() + 240_000;
+            while (!await page.locator('.rally-results').count()) {
+                if (Date.now() > deadline) throw new Error('Burning Dunes practice did not finish');
+                const stamina = await page.evaluate(() => window.sunscarRallyQa.state.racers[0].stamina);
+                if (stamina > 85) await page.keyboard.down('Shift');
+                if (stamina < 15) await page.keyboard.up('Shift');
+                await page.waitForTimeout(800);
+            }
+            await page.keyboard.up('Shift');
+            await page.getByRole('button', { name: 'Return to the race desk' }).click();
+            checks.push('Burning Dunes full practice finish');
+        } else {
+            await page.getByRole('button', { name: 'Pause race' }).click();
+            await page.getByRole('button', { name: 'Save & return' }).click();
+        }
+        await page.waitForFunction(() => !window.sunscarRallyQa && !document.querySelector('.rally-stage canvas'));
+        checks.push('Canvas and QA listener cleared after course ' + i);
+    }
+    const saved = await page.request.get(base + '/api/festival/rally?playerName=' + auth.name, { headers }).then(r => r.json());
+    assert.equal(saved.progress.lastEntryDay, null); assert.equal(saved.progress.championships, 0);
+    assert.equal(samples[0].textures, samples[5].textures);
+    // Geometry uploads follow camera visibility; a later snapshot can contain
+    // fewer live buffers. The retention check is that revisiting adds none.
+    assert.ok(samples[5].geometry <= samples[0].geometry, 'Revisiting retains no additional geometry');
+    checks.push('Repeated course adds no live geometry or textures; practice consumes no entry');
+    assert.deepEqual(errors, []);
+} catch (error) { if (page) await page.screenshot({ path: fileURLToPath(new URL('failure.png', out)) }); throw error; }
+finally { await writeFile(new URL('report.json', out), JSON.stringify({ errors, checks, samples }, null, 2)); await browser.close(); }
+console.log(JSON.stringify({ errors, checks, samples }));

@@ -52,7 +52,7 @@ const FROZEN = {
         'editablePets', 'petEncounterVn', 'ancientChestVn', 'hollowGateEventConfig',
     ],
     COMBAT_STRIP_CHAR_FIELDS: [
-        'sunscarExchangeReceipts',
+        'sunscarExchangeReceipts', 'sunscarRally', 'sunscarCaravan',
         // Approved clan recovery evidence is private, co-written server state.
         'clanExchangeSettlements', 'clanMissionPointReceipts',
         'inventory', 'itemStacks', 'tileCards', 'savedTileDeck',
@@ -190,6 +190,7 @@ const FROZEN = {
     // (exploration trio, chest trio, achievements quad, endless seven) — now
     // one uniform mirror loop; semantics per group were identical.
     SERVER_MIRRORED_CHARACTER_FIELDS: [
+        'sunscarRally', 'sunscarCaravan',
         'firstContract', // journal milestones are committed by existing authoritative actions, never generic saves
         'elderWinDays', 'elderRankedWinReceipts',
         'pvpKillMonth', // Monthly ANBU rankings must not accept a client-written reset month.

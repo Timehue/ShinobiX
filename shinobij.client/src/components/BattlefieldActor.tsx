@@ -2,6 +2,7 @@ import React, { useState, type CSSProperties, type ReactNode } from "react";
 import { isImageAvatar } from "../lib/avatar";
 import {
     inferSpriteKind,
+    inferSpriteNativeFacing,
     type BattlefieldSpriteFacing,
     type BattlefieldSpriteKind,
 } from "../lib/battlefield-sprite";
@@ -39,7 +40,7 @@ export function BattlefieldActor({
     sprite,
     spriteKind,
     facing,
-    nativeFacing = "left",
+    nativeFacing,
     fallback,
     className = "",
     style,
@@ -51,8 +52,9 @@ export function BattlefieldActor({
     const portraitSrc = isImageAvatar(portrait) && failedPortrait !== portrait ? portrait : "";
     const initials = fallback ?? label.trim().slice(0, 2).toUpperCase();
     const resolvedSpriteKind = spriteSrc ? spriteKind ?? inferSpriteKind(spriteSrc) : undefined;
-    const resolvedFacing = spriteSrc ? facing ?? nativeFacing : undefined;
-    const mirrored = spriteSrc ? resolvedFacing !== nativeFacing : undefined;
+    const resolvedNativeFacing = nativeFacing ?? (spriteSrc ? inferSpriteNativeFacing(spriteSrc) : "left");
+    const resolvedFacing = spriteSrc ? facing ?? resolvedNativeFacing : undefined;
+    const mirrored = spriteSrc ? resolvedFacing !== resolvedNativeFacing : undefined;
 
     return (
         <span
@@ -68,7 +70,7 @@ export function BattlefieldActor({
             data-battlefield-presentation={spriteSrc ? "sprite" : "marker"}
             data-battlefield-sprite-kind={resolvedSpriteKind}
             data-battlefield-facing={resolvedFacing}
-            data-battlefield-native-facing={spriteSrc ? nativeFacing : undefined}
+            data-battlefield-native-facing={spriteSrc ? resolvedNativeFacing : undefined}
             data-battlefield-mirrored={spriteSrc ? String(mirrored) : undefined}
             style={style}
         >

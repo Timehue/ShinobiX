@@ -15,6 +15,7 @@
  */
 import { LEGACY_DEFS } from './_legacy-defs.js';
 import { ERA_DEFS } from './_era-defs.js';
+import { SUNSCAR_TITLES } from '../shared/sunscar/prestige.js';
 import { provenTitleFor, mythicTitleFor } from './_legacy-core.js';
 
 /** Every legacy title plus its Stage-4/5 prestige variants ("Proven X",
@@ -101,6 +102,7 @@ export const KNOWN_EARNED_TITLES: ReadonlySet<string> = new Set([
     ...ERA_DEFS.flatMap((e) => (e.trigger ? [e.trigger.title] : [])),
     ...Object.values(KAGE_LIBERATOR_TITLES),
     ...Object.values(FIRST_PACT_TITLES),
+    ...SUNSCAR_TITLES,
 ].map((t) => t.toLowerCase()));
 
 /**
@@ -162,7 +164,8 @@ const FIRST_PACT_TITLE_SET: ReadonlySet<string> = new Set(
 export function isServerCreditedTitle(text: string): boolean {
     const key = normalizeTitleKey(text);
     return LEGACY_ONLY_TITLES.has(key) || ERA_TRIGGER_TITLES.has(key)
-        || LIBERATOR_TITLE_SET.has(key) || FIRST_PACT_TITLE_SET.has(key);
+        || LIBERATOR_TITLE_SET.has(key) || FIRST_PACT_TITLE_SET.has(key)
+        || SUNSCAR_TITLES.some(title => title.toLowerCase() === key);
 }
 
 export function isLegacyOnlyTitle(text: string): boolean {

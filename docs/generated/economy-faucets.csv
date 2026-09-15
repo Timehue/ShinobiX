@@ -67,3 +67,5 @@ war-crate,legendary-war-crate,honorSeals,10,per crate,api/inventory/_war-crate.t
 clan-war,shinobi-pvp-challenge-win,territoryControlScrolls,1,per finalized win,api/clan/war/_war-points.ts,Only shinobi PvP challenge winners; exactly-once server settlement.
 territory,controlled-sector-daily,warResources,25,per controlled sector/day,api/_war-economy.ts,
 territory,controlled-sector-daily,honorSeals,1,per controlled sector/day,api/_war-economy.ts,
+festival,sunscar-rally,ryo,30%-50% of daily login reward,per three-race daily championship,api/festival/_rally.ts,Placement scales the payout; practice pays nothing.
+festival,sunscar-caravan,ryo,1.05-1.7 times daily login reward,per daily delivery,api/festival/_caravan.ts,Scaled by cargo preserved and bounded objectives/bonuses. Defeat pays no Ryo.

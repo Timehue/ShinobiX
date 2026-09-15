@@ -1,0 +1,41 @@
+import { chromium } from '@playwright/test';
+import { mkdir, writeFile } from 'node:fs/promises';
+import assert from 'node:assert/strict';
+const base = 'http://127.0.0.1:5199', out = new URL('../../.tmp/sunscar-host-rerender-qa/', import.meta.url);
+await mkdir(out, { recursive: true });
+const browser = await chromium.launch({ headless: true });
+const errors = [], checks = [], reads = { rally: 0, caravan: 0 };
+try {
+    const page = await browser.newPage(); page.setDefaultTimeout(30_000);
+    page.on('pageerror', e => errors.push(e.message));
+    page.on('request', request => {
+        if (request.method() !== 'GET') return;
+        for (const mode of ['rally', 'caravan']) if (request.url().includes('/api/festival/' + mode)) reads[mode]++;
+    });
+    await page.request.post(base + '/__qa/reset');
+    await page.goto(base + '/sunscar-modes-qa.html?rerender=1');
+    await page.getByRole('button', { name: 'Read today’s contracts' }).click();
+    await page.getByRole('button', { name: 'Accept contract & depart' }).waitFor();
+    await page.waitForTimeout(300);
+    const caravanReads = reads.caravan;
+    await page.waitForTimeout(1500);
+    assert.equal(reads.caravan, caravanReads, 'Parent renders must not restart Caravan reads');
+    await page.getByRole('button', { name: 'Accept contract & depart' }).click();
+    await page.getByRole('heading', { name: 'Choose the next road' }).waitFor();
+    await page.locator('.caravan-route-options button').first().click();
+    await page.waitForTimeout(1500);
+    await page.getByRole('button', { name: 'Travel to this stop' }).click();
+    await page.locator('.caravan-choices button').first().waitFor();
+    assert.equal(reads.caravan, caravanReads, 'Choice commits must not restart reads or clear inspected roads');
+    checks.push('Caravan retains selected road and accepts travel through host rerenders without extra reads');
+    await page.getByRole('button', { name: '← Festival grounds' }).click();
+    await page.getByRole('button', { name: 'Visit the race grounds' }).click();
+    await page.getByRole('button', { name: 'Practice selected course' }).waitFor();
+    await page.waitForTimeout(300);
+    const rallyReads = reads.rally;
+    await page.waitForTimeout(1500);
+    assert.equal(reads.rally, rallyReads, 'Parent renders must not restart Rally reads');
+    checks.push('Rally desk remains stable through host rerenders without extra reads');
+    assert.deepEqual(errors, []);
+} finally { await writeFile(new URL('report.json', out), JSON.stringify({ errors, checks, reads }, null, 2)); await browser.close(); }
+console.log(JSON.stringify({ errors, checks, reads }));

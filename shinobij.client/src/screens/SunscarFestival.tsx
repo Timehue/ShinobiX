@@ -1,223 +1,73 @@
-import { useRef, useState, type Dispatch, type SetStateAction } from "react";
-import type { GameItem } from "../types/combat";
-import { SunscarExchange, SunscarExchangeEntrance } from "../components/SunscarExchange";
-// Compact local chrome glyphs. NOTE: the dice/slot symbols
-// (🦂🪙👁️⚔️🌙⭐) are gameplay data the win-check compares — left as emoji on purpose.
-import { GiSun, GiDiceSixFacesSix, GiCampfire } from "../components/icons/LightweightGameIcons";
-const SF_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
-import type { Character, VersionedCharacterCommit } from "../types/character";
-import { type TileCard } from "../data/tile-cards";
-import { FestivalPortrait } from "../components/Pills";
-import { CardClashDuel } from "./CardClashDuel";
-import { pullBlackMarket, describeReward, BLACK_MARKET_COST, BLACK_MARKET_DAILY_CAP, type BlackMarketReward } from "../lib/black-market";
-import { FATE_DICE_GLYPHS, rollFateDice } from "../lib/sunscar-festival";
-import { BlackMarketCrate } from "../components/BlackMarketCrate";
-import festBg from "../assets/festival/fest-bg.webp";
-import kaelArt from "../assets/festival/fest-kael.webp";
-import miraaArt from "../assets/festival/fest-miraa.webp";
-import brokerArt from "../assets/festival/fest-broker.webp";
+import { lazy, Suspense, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import type { GameItem } from '../types/combat';
+import type { Character, VersionedCharacterCommit } from '../types/character';
+import type { CaravanCombatCatalogs } from '../features/sunscar/CaravanBattle';
+import { SunscarExchange, SunscarExchangeEntrance } from '../components/SunscarExchange';
+import { BlackMarketCrate } from '../components/BlackMarketCrate';
+import { pullBlackMarket, describeReward, BLACK_MARKET_COST, BLACK_MARKET_DAILY_CAP, type BlackMarketReward } from '../lib/black-market';
+import { rallyRank } from '../../../shared/sunscar/rally-championship';
+import { caravanRank } from '../../../shared/sunscar/caravan-types';
+import festBg from '../assets/festival/sunscar-festival-v2.webp';
+import brokerArt from '../assets/festival/fest-broker.webp';
+import '../styles/sunscar-modes.css';
+import '../styles/sunscar-caravan.css';
+import '../styles/sunscar-responsive.css';
 
-export function SunscarFestival({
-    character,
-    onVersionedCharacter,
-    creatorCards,
-    setCreatorItems,
-}: {
-    character: Character;
-    onVersionedCharacter: VersionedCharacterCommit;
-    creatorCards: TileCard[];
-    setCreatorItems: Dispatch<SetStateAction<GameItem[]>>;
+const PetRally = lazy(() => import('../features/sunscar/PetRally'));
+const CaravanRun = lazy(() => import('../features/sunscar/CaravanRun'));
+export function SunscarFestival({ character, onVersionedCharacter, setCreatorItems, ...catalogs }: CaravanCombatCatalogs & {
+    character: Character; onVersionedCharacter: VersionedCharacterCommit; setCreatorItems: Dispatch<SetStateAction<GameItem[]>>;
 }) {
-    const [exchangeOpen, setExchangeOpen] = useState(false);
-    const [diceResult, setDiceResult] = useState<string[]>([]);
-    const [festivalLog, setFestivalLog] = useState(
-        "Kael taps three dice against the table and nods at the empty stool."
-    );
-
-    // -- Card Showdown vs Miraa — UNSTAKED --
-    // Miraa used to take an even-money ryo wager here and settle it from a
-    // server-rolled die. The bet was removed 2026-09-03 for the Play content
-    // rating, so the match is free: nothing is escrowed, nothing is paid out,
-    // and leaving early costs nothing. There is no token and no settle call.
-    type DuelPhase = "idle" | "playing";
-    const [duelPhase, setDuelPhase] = useState<DuelPhase>("idle");
-    const kaelImage = kaelArt;
-    const miraaImage = miraaArt;
-
-    // -- Black Market gamble (server-authoritative ryo sink) --
+    const [mode, setMode] = useState<'hub' | 'rally' | 'caravan' | 'exchange'>('hub');
+    const [today, setToday] = useState(() => new Date().toISOString().slice(0, 10));
+    useEffect(() => { const timer = window.setInterval(() => setToday(new Date().toISOString().slice(0, 10)), 60_000); return () => window.clearInterval(timer); }, []);
     const [bmBusy, setBmBusy] = useState(false);
     const bmBusyRef = useRef(false);
     const [bmUsed, setBmUsed] = useState<number | null>(null);
     const [bmReveal, setBmReveal] = useState<BlackMarketReward | null>(null);
-    const [diceBusy, setDiceBusy] = useState(false);
-    const diceBusyRef = useRef(false);
-
-    async function pullBlackMarketGamble() {
+    const [brokerLog, setBrokerLog] = useState('Seventy-five thousand buys one sealed crate. You may complain about the price after you open it.');
+    async function buyCrate() {
         if (bmBusyRef.current) return;
-        if (character.ryo < BLACK_MARKET_COST) {
-            setFestivalLog(`The Broker: "${BLACK_MARKET_COST.toLocaleString()} ryo buys a pull. Come back when your purse is heavier."`);
-            return;
-        }
-        // No confirm() gate — the pull goes straight to the tap-to-open crate reveal.
-        bmBusyRef.current = true;
-        setBmBusy(true);
+        bmBusyRef.current = true; setBmBusy(true);
         try {
             const res = await pullBlackMarket(character.name);
-            if (!res.ok || !res.reward || !res.character) {
-                if (typeof res.dailyUsed === "number") setBmUsed(res.dailyUsed);
-                setFestivalLog(`The Broker: ${res.error ?? "Not today."}`);
-                return;
-            }
-            const reward = res.reward;
+            if (typeof res.dailyUsed === 'number') setBmUsed(res.dailyUsed);
+            if (!res.ok || !res.reward || !res.character) { setBrokerLog(res.error ?? 'The Broker is unavailable.'); return; }
             if (!onVersionedCharacter(res.character, res._saveVersion)) return;
-            if (typeof res.dailyUsed === "number") setBmUsed(res.dailyUsed);
-            setBmReveal(reward); // tap-to-open crate reveal
-            const flourish = reward.tier === "jackpot" ? "💥 " : "";
-            setFestivalLog(`The Broker: ${flourish}${reward.label}. ${describeReward(reward)}. (${res.dailyUsed ?? "?"}/${res.dailyCap ?? BLACK_MARKET_DAILY_CAP} pulls today)`);
-        } finally {
-            bmBusyRef.current = false;
-            setBmBusy(false);
-        }
+            setBmReveal(res.reward);
+            setBrokerLog(res.reward.label + '. ' + describeReward(res.reward) + '.');
+        } finally { bmBusyRef.current = false; setBmBusy(false); }
     }
-
-    async function rollDice() {
-        if (diceBusyRef.current) return;
-        diceBusyRef.current = true;
-        setDiceBusy(true);
-        try {
-            const res = await rollFateDice(character.name);
-            if (!res.ok || !res.reward || !res.roll || !res.character) {
-                setFestivalLog(`Kael: ${res.error ?? "The dice refuse to roll."}`);
-                return;
-            }
-            if (!onVersionedCharacter(res.character, res._saveVersion)) return;
-            setDiceResult(res.roll.map((symbol) => FATE_DICE_GLYPHS[symbol]));
-            const parts = [
-                res.reward.boneCharms > 0 && `+${res.reward.boneCharms} Bone Charms`,
-                res.reward.fateShards > 0 && `+${res.reward.fateShards} Fate Shards`,
-                res.reward.auraStones > 0 && `+${res.reward.auraStones} Aura Stones`,
-                res.reward.ryo > 0 && `+${res.reward.ryo} ryo`,
-                (res.reward.statPoints ?? 0) > 0 && `+${res.reward.statPoints} stat points`,
-                res.reward.stamina > 0 && `+${res.reward.stamina} stamina`,
-            ].filter(Boolean).join(", ");
-            setFestivalLog(`Kael: ${res.message ?? "The dice settle."} ${parts}. (${res.dailyUsed ?? "?"}/${res.dailyCap ?? 5} spins today)`);
-        } finally {
-            diceBusyRef.current = false;
-            setDiceBusy(false);
-        }
-    }
-
-    if (exchangeOpen) return <SunscarExchange key={character.name} character={character} onVersionedCharacter={onVersionedCharacter} setCreatorItems={setCreatorItems} onBack={() => setExchangeOpen(false)} />;
-
-    // -- Chronicle Showdown vs Miraa (free play) ---------------------------------
-    if (duelPhase === "playing") {
-        // No stake, no payout, no forfeit penalty — the board result is the whole
-        // result. Every exit path (win, lose, draw, leave) just returns to the
-        // festival with a line of flavour.
-        const finish = (log: string) => {
-            setDuelPhase("idle");
-            setFestivalLog(`Miraa: ${log}`);
-        };
-        return (
-            <CardClashDuel
-                character={character}
-                creatorCards={creatorCards}
-                tileDifficulty="normal"
-                onDungeonWin={() => finish("“The white mark. Well played — this table remembers a clean hand.”")}
-                onDungeonLose={() => finish("“The black mark this time. Sit again whenever you like; it costs you nothing.”")}
-                onDungeonDraw={() => finish("“Even. The cards liked neither of us today.”")}
-                onDungeonLeave={() => finish("“Leaving early? No matter — there is no stake for me to keep.”")}
-            />
-        );
-    }
-
-    return (
-        <div className="sunscar-festival">
-            {bmReveal && <BlackMarketCrate reward={bmReveal} onClose={() => setBmReveal(null)} />}
-            <div
-                className="sunscar-hero"
-                style={{
-                    backgroundImage: `linear-gradient(rgba(10,8,20,0.55), rgba(10,8,20,0.78)), url(${festBg})`,
-                    backgroundSize: "cover",
-                    backgroundPosition: "center",
-                }}
-            >
-                <h1><GiSun style={SF_ICON} />Sunscar Festival</h1>
-                <p>
-                    Sector 35 hosts a caravan festival that never packed up: lanterns,
-                    sandstone courts, Chronicle tables, and three well-worn dice.
-                </p>
-            </div>
-
-            <div className="sunscar-grid">
-                <section className="sunscar-card npc-card">
-                    <FestivalPortrait image={kaelImage} icon="🎲" name="Kael the Sand Dealer" />
-                    <h2>Kael the Sand Dealer</h2>
-                    <p>
-                        "Three dice. Five turns a day. Blame the table after that and it charges extra."
-                    </p>
-                    <p><strong>Entry Cost:</strong> Free — five draws a day, and every draw pays</p>
-                    <p><strong>Your Ryo:</strong> {character.ryo.toLocaleString()}</p>
-                </section>
-
-                <SunscarExchangeEntrance onOpen={() => setExchangeOpen(true)} />
-
-                <section className="sunscar-card npc-card">
-                    <FestivalPortrait image={miraaImage} icon="🃏" name="Miraa the Card Seer" />
-                    <h2>Miraa the Card Seer</h2>
-                    <p style={{ fontStyle: "italic", color: "#aaa", marginBottom: "0.5rem" }}>
-                        "The scribes record great battles. I use those records to keep your hands busy. Sit down — I am not taking your ryo today."
-                    </p>
-                    <p style={{ marginBottom: "0.5rem" }}>Sit for a <strong>Shinobi Chronicle Showdown</strong>. The match is free: nothing is staked, nothing is owed, and you may leave whenever you like.</p>
-                    <button onClick={() => setDuelPhase("playing")} style={{ marginTop: "0.5rem" }}>Challenge Miraa</button>
-                </section>
-
-                <section className="sunscar-card npc-card">
-                    <FestivalPortrait image={brokerArt} icon="🎴" name="The Broker" />
-                    <h2>The Broker — Black Market</h2>
-                    <p style={{ fontStyle: "italic", color: "#aaa", marginBottom: "0.5rem" }}>
-                        "Seventy-five thousand buys one sealed crate. You may complain about the price after you open it."
-                    </p>
-                    <p style={{ marginBottom: "0.3rem" }}><strong>Cost:</strong> {BLACK_MARKET_COST.toLocaleString()} ryo per pull · up to {BLACK_MARKET_DAILY_CAP}/day</p>
-                    <p style={{ marginBottom: "0.5rem" }}><strong>Your Ryo:</strong> {character.ryo.toLocaleString()}{bmUsed !== null ? ` · ${bmUsed}/${BLACK_MARKET_DAILY_CAP} pulls today` : ""}</p>
-                    <button
-                        onClick={pullBlackMarketGamble}
-                        disabled={bmBusy || character.ryo < BLACK_MARKET_COST || (bmUsed !== null && bmUsed >= BLACK_MARKET_DAILY_CAP)}>
-                        {bmBusy ? "Dealing…" : "Buy a Black Market Pull"}
-                    </button>
-                </section>
-
-                <section className="sunscar-card">
-                    <h2>Festival Grounds</h2>
-                    <div className="festival-visual">
-                        <span><GiCampfire /></span>
-                        <span>🔥</span>
-                        <span>🥁</span>
-                        <span>🎭</span>
-                        <span>🐪</span>
-                        <span>🎲</span>
-                    </div>
-                    <p>
-                        Golden tents, torch bowls, desert drums, masked merchants,
-                        camel caravans, and huge carved dice statues fill the dunes.
-                    </p>
-                </section>
-                <section className="sunscar-card dice-card">
-                    <h2><GiDiceSixFacesSix style={SF_ICON} />Dice of Fate</h2>
-
-                    <div className="dice-row">
-                        {(diceResult.length ? diceResult : ["🎲", "🎲", "🎲"]).map((die, index) => (
-                            <div className="fate-die" key={index}>{die}</div>
-                        ))}
-                    </div>
-
-                    <button className="sunscar-roll-button" onClick={rollDice} disabled={diceBusy}>
-                        {diceBusy ? "Rolling..." : "Roll Dice of Fate"}
-                    </button>
-
-                    <div className="sunscar-log">{festivalLog}</div>
-                </section>
-            </div>
+    if (mode === 'exchange') return <SunscarExchange key={character.name} character={character} onVersionedCharacter={onVersionedCharacter} setCreatorItems={setCreatorItems} onBack={() => setMode('hub')}/>;
+    if (mode === 'rally' || mode === 'caravan') return <Suspense fallback={<div className="sunscar-mode sunscar-loading" role="status">Opening the festival grounds…</div>}>{mode === 'rally'
+        ? <PetRally key={character.name} character={character} onVersionedCharacter={onVersionedCharacter} onBack={() => setMode('hub')}/>
+        : <CaravanRun {...catalogs} key={character.name} character={character} onVersionedCharacter={onVersionedCharacter} onBack={() => setMode('hub')}/>}</Suspense>;
+    const rally = character.sunscarRally, caravan = character.sunscarCaravan;
+    const rallyActive = rally?.current && rally.current.status !== 'complete';
+    const caravanActive = caravan?.current && !caravan.current.result;
+    const rallyUsed = rally?.lastEntryDay === today;
+    const caravanUsed = caravan?.lastEntryDay === today;
+    return <div className="sunscar-mode sunscar-festival-hub">
+        {bmReveal && <BlackMarketCrate reward={bmReveal} onClose={() => setBmReveal(null)}/>}
+        <header className="sunscar-new-hero" style={{ backgroundImage: 'linear-gradient(90deg, #1e1a18ed, #221b1670 65%), linear-gradient(0deg, #1e1a18, transparent 60%), url(' + festBg + ')' }}>
+            <p className="sunscar-eyebrow">Cactus Flats · Sector 54</p><h1>Sunscar<br/>Festival</h1><p>Where the desert gathers.</p><span>Race beneath the pennants. Carry a story beyond the dunes.</span>
+            <div className="sunscar-status-pills"><span>One daily Grand Prix</span><span>One daily caravan</span><span>Unlimited race practice</span></div>
+        </header>
+        <div className="sunscar-attractions">
+            <section className="sunscar-attraction sunscar-attraction-rally"><div className="sunscar-attraction-art"><img src={festBg} className="sunscar-racing-art" alt="The racing court beneath Sunscar’s pennants"/></div><div className="sunscar-attraction-copy">
+                <p className="sunscar-eyebrow">Kael’s race grounds</p><h2>Pet Rally</h2><p>Four courses. Four companions. Steer, leap and time your burst through a living desert circuit.</p>
+                <div className="sunscar-attraction-status">{rallyActive ? 'Grand Prix in progress · ' + rally.current!.results.length + '/3 races' : rallyUsed ? 'Grand Prix complete · ' + (rally?.current?.reward?.ryo ?? 0).toLocaleString() + ' Ryo' : 'Entry available · ' + rallyRank(rally?.reputation ?? 0).name}<span>{rally?.reputation ?? 0} reputation</span></div>
+                <button onClick={() => setMode('rally')}>{rallyActive ? 'Resume Grand Prix' : 'Visit the race grounds'} <span aria-hidden="true">↗</span></button><small>Bring your own companion · Skill-based racing</small>
+            </div></section>
+            <section className="sunscar-attraction sunscar-attraction-caravan"><div className="sunscar-attraction-art"><img src={festBg} className="sunscar-dispatch-art" alt="A caravan leaving the Sunscar gate"/></div><div className="sunscar-attraction-copy">
+                <p className="sunscar-eyebrow">Miraa’s dispatch office</p><h2>Caravan Run</h2><p>Choose your contract and chart a crossing. Keep the crew together through ambushes, old ruins and chance meetings.</p>
+                <div className="sunscar-attraction-status">{caravanActive ? 'On the road · ' + caravan.current!.visited.length + '/' + caravan.current!.contract.nodes + ' legs' : caravanUsed ? 'Manifest closed · ' + (caravan?.current?.result?.ryo ?? 0).toLocaleString() + ' Ryo' : 'Departure available · ' + caravanRank(caravan?.reputation ?? 0).name}<span>{caravan?.reputation ?? 0} reputation</span></div>
+                <button onClick={() => setMode('caravan')}>{caravanActive ? 'Rejoin your caravan' : 'Read today’s contracts'} <span aria-hidden="true">↗</span></button><small>Branching expedition · Your real combat loadout</small>
+            </div></section>
         </div>
-    );
+        <div className="sunscar-market-row"><SunscarExchangeEntrance onOpen={() => setMode('exchange')}/><section className="sunscar-broker"><img src={brokerArt} alt="The Broker"/><div><p className="sunscar-eyebrow">The Black Market</p><h2>The Broker</h2><p role="status">{brokerLog}</p>
+            <p><strong>{BLACK_MARKET_COST.toLocaleString()} Ryo</strong> per crate · Up to {BLACK_MARKET_DAILY_CAP}/day</p><small>Your purse: {character.ryo.toLocaleString()} Ryo{bmUsed !== null ? ' · ' + bmUsed + '/' + BLACK_MARKET_DAILY_CAP + ' crates today' : ''}</small>
+            <button onClick={() => void buyCrate()} disabled={bmBusy || character.ryo < BLACK_MARKET_COST || bmUsed !== null && bmUsed >= BLACK_MARKET_DAILY_CAP}>{bmBusy ? 'Preparing crate…' : bmUsed !== null && bmUsed >= BLACK_MARKET_DAILY_CAP ? 'Daily crates claimed' : character.ryo < BLACK_MARKET_COST ? 'More Ryo required' : 'Buy a sealed crate'}</button>
+        </div></section></div><footer className="sunscar-hub-footer">The lanterns stay lit. Daily entries renew at 00:00 UTC.</footer>
+    </div>;
 }

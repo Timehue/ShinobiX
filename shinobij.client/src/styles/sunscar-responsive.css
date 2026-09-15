@@ -1,0 +1,50 @@
+/* Festival-only fit rules. Shared combat owns its own HUD and viewport. */
+.sunscar-mode.sunscar-rally-session {
+    position: fixed;
+    inset: 0;
+    z-index: 999900;
+    width: 100%;
+    max-width: none;
+    height: 100dvh;
+    margin: 0;
+    padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+    overflow: auto;
+    overscroll-behavior: contain;
+    background: #1e1a18;
+    outline: none;
+}
+.sunscar-rally-session .rally-race {
+    height: calc(100dvh - max(8px, env(safe-area-inset-top)) - max(8px, env(safe-area-inset-bottom)));
+    min-height: 260px;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto auto;
+    margin: 0;
+}
+.sunscar-rally-session .rally-stage { height: auto; min-height: 0; }
+.sunscar-rally-session .rally-intro-overlay { z-index: 2; }
+.sunscar-rally-session .rally-stamina { pointer-events: none; }
+.sunscar-rally-session .rally-save-note { margin: 5px 0; font-size: 10px; }
+.sunscar-rally-session .rally-results { margin-top: 16px; scroll-margin-top: 8px; }
+.sunscar-mode .rally-controls button { min-width: 44px; }
+.sunscar-mode .caravan-map-tools button { min-width: 44px; }
+.caravan-journal summary { min-height: 44px; }
+.caravan-next-stop { scroll-margin: 20px; }
+.caravan-next-stop:focus-visible { outline: 2px solid #a7dfdf; outline-offset: 3px; }
+@media (max-width: 650px) {
+    .caravan-map-tools { flex-wrap: wrap; }
+    .caravan-map-tools > div { margin-left: auto; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+    .sunscar-rally-session .rally-controls { padding-block: 6px; }
+    .sunscar-rally-session .rally-controls button { min-height: 48px; padding-block: 6px; }
+    .sunscar-rally-session .rally-controls small { margin-top: 2px; }
+    .sunscar-rally-session .rally-position { min-width: 60px; padding: 6px 10px; }
+    .sunscar-rally-session .rally-position strong { font-size: 28px; }
+    .sunscar-rally-session .rally-position > span { display: none; }
+    .sunscar-rally-session .rally-hud { top: 8px; }
+    .sunscar-rally-session .rally-intro-overlay,
+    .sunscar-rally-session .rally-pause-overlay { inset: 8px 12% auto; max-height: calc(100% - 16px); padding: 12px 18px; z-index: 3; }
+    .sunscar-rally-session .rally-intro-overlay h2 { font-size: 24px; margin-block: 6px; }
+    .sunscar-rally-session .rally-intro-overlay p { margin-block: 6px; font-size: 11px; }
+    .sunscar-rally-session .rally-stamina { bottom: 8px; padding-block: 5px; }
+}
