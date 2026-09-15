@@ -52,6 +52,7 @@ const FROZEN = {
         'editablePets', 'petEncounterVn', 'ancientChestVn', 'hollowGateEventConfig',
     ],
     COMBAT_STRIP_CHAR_FIELDS: [
+        'sunscarExchangeReceipts',
         // Approved clan recovery evidence is private, co-written server state.
         'clanExchangeSettlements', 'clanMissionPointReceipts',
         'inventory', 'itemStacks', 'tileCards', 'savedTileDeck',
@@ -231,6 +232,7 @@ const FROZEN = {
     // holds the Tebex transaction id, written in the same committed save as the
     // shards it paid for, which is what makes a redelivered webhook a no-op.
     SERVER_ARRAY_LEDGER_CHARACTER_FIELDS: [
+        'sunscarExchangeReceipts',
         'redeemedTrainingTokens', 'redeemedJutsuTrainingActions', 'redeemedAiFightRewards',
         'redeemedShopPurchases', 'redeemedShopSales', 'redeemedCrafts', 'redeemedNamedForges',
         'redeemedTebexPurchases',
