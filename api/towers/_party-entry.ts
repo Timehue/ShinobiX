@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { appendSettlementReceipt, inspectSettlementReceipt } from '../_settlement-receipts.js';
 import { debitTowerStoryEntry, refundTowerEntry, type TowerEntryCharacter } from './_entry-fee.js';
+import { hollowGateCreditBasis, recordHollowGateExternalCredits, type HollowGateCreditBasis } from '../hollow-gate/_external-credits.js';
 
 type PartyEntryReceiptValue = {
     kind: 'tower-party-entry';
@@ -11,6 +12,8 @@ type PartyEntryReceiptValue = {
     floorId: number;
     charged: number;
     counted: boolean;
+    /** null means charged outside a dive; absent means an unclassified legacy receipt. */
+    chargedHollowGateCreditBasis?: HollowGateCreditBasis | null;
 };
 
 const DIRECT_TOWER_ENTRY_SCOPE = 'tower-direct-entry';
@@ -50,9 +53,23 @@ function receiptValue(raw: Record<string, unknown>, partyId: string, runId: stri
     if (!Number.isSafeInteger(charged) || charged < 0) return null;
     if (typeof raw.counted !== 'boolean') return null;
     if (!raw.counted && charged !== 0) return null;
+    let chargedHollowGateCreditBasis: HollowGateCreditBasis | null | undefined;
+    if (Object.hasOwn(raw, 'chargedHollowGateCreditBasis')) {
+        const basis = raw.chargedHollowGateCreditBasis;
+        if (basis === null) chargedHollowGateCreditBasis = null;
+        else {
+            if (!basis || typeof basis !== 'object' || Array.isArray(basis)) return null;
+            const { runToken, checkpointVersion } = basis as Record<string, unknown>;
+            if (typeof runToken !== 'string' || !runToken
+                || typeof checkpointVersion !== 'number' || !Number.isSafeInteger(checkpointVersion)
+                || checkpointVersion < 0) return null;
+            chargedHollowGateCreditBasis = { runToken, checkpointVersion };
+        }
+    }
     return {
         kind: 'tower-party-entry', partyId, runId,
         state: raw.state, day: raw.day, floorId, charged, counted: raw.counted,
+        ...(chargedHollowGateCreditBasis === undefined ? {} : { chargedHollowGateCreditBasis }),
     };
 }
 
@@ -67,11 +84,14 @@ function stamp(
     charged: number,
     counted: boolean,
     now: number,
+    chargedHollowGateCreditBasis?: HollowGateCreditBasis | null,
 ): TowerEntryCharacter {
     const receipt = identity(partyId, runId);
     return appendSettlementReceipt(character, receipts, {
         ...receipt,
-        value: { kind: 'tower-party-entry', partyId, runId, state, day, floorId, charged, counted },
+        value: { kind: 'tower-party-entry', partyId, runId, state, day, floorId, charged, counted,
+            ...(chargedHollowGateCreditBasis === undefined ? {} : { chargedHollowGateCreditBasis }),
+        },
         settledAt: now,
     });
 }
@@ -121,6 +141,7 @@ export function reserveTowerPartyEntry(input: {
                 reserved.charged,
                 reserved.counted,
                 input.now,
+                hollowGateCreditBasis(input.character),
             ),
             charged: reserved.charged,
             counted: reserved.counted,
@@ -145,6 +166,7 @@ export function reserveTowerPartyEntry(input: {
             reserved.charged,
             reserved.counted,
             input.now,
+            hollowGateCreditBasis(input.character),
         ),
         charged: reserved.charged,
         counted: reserved.counted,
@@ -169,10 +191,20 @@ export function refundTowerPartyEntryReservation(input: {
     if (!value) return { ok: false, code: 'invalid-receipt' };
     if (value.state === 'refunded') return { ok: true, character: input.character, changed: false };
     const refunded = refundTowerEntry(input.character, value.day, value.charged, value.counted);
+    const chargedBasis = value.chargedHollowGateCreditBasis;
+    const currentBasis = hollowGateCreditBasis(input.character);
+    const sameBasis = chargedBasis && currentBasis
+        && chargedBasis.runToken === currentBasis.runToken
+        && chargedBasis.checkpointVersion === currentBasis.checkpointVersion;
+    // Classify before either the immediate or delayed writer commits the refund.
+    // A same-checkpoint reversal is not income. Legacy receipts keep their old
+    // conservative behavior: missing provenance cannot create protected currency.
+    const trackedRefund = recordHollowGateExternalCredits(input.character, refunded,
+        chargedBasis === undefined || sameBasis ? 'run' : 'external');
     return {
         ok: true,
         character: stamp(
-            refunded,
+            trackedRefund,
             inspection.receipts,
             input.partyId,
             input.runId,
@@ -182,6 +214,7 @@ export function refundTowerPartyEntryReservation(input: {
             value.charged,
             value.counted,
             input.now,
+            chargedBasis,
         ),
         changed: true,
     };

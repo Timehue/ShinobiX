@@ -346,6 +346,7 @@ async function mutateCombatClaimSettlement(params: {
             params.missionId,
             params.rewardFingerprint,
         );
+        const previousCharacter = { ...current.character };
         const mutation = params.mutate(current.character, current.settlement);
         if (!mutation) return current.settlement;
         const nextCharacter = replaceCombatMissionClaimSettlement(
@@ -355,7 +356,7 @@ async function mutateCombatClaimSettlement(params: {
         const nextRecord = mergePreservingImages(bumpSaveVersion<Record<string, unknown>>({
             ...current.record,
             character: nextCharacter,
-        }), current.record) as Record<string, unknown>;
+        }, { previousCharacter }), current.record) as Record<string, unknown>;
         const mergedCharacter = nextRecord.character as SaveChar;
         nextRecord.character = {
             ...mergedCharacter,
@@ -726,7 +727,7 @@ async function applyReservedCombatMissionPayout(params: {
     const updated = bumpSaveVersion<Record<string, unknown>>({
         ...params.record,
         character: next,
-    });
+    }, { previousCharacter: params.character });
     const intended = mergePreservingImages(updated, params.record) as Record<string, unknown>;
     const intendedCharacter = intended.character as SaveChar;
     intended.character = {
@@ -1274,7 +1275,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const updated = bumpSaveVersion<Record<string, unknown>>({
                 ...applyClaimedMissionState(record, missionType, missionId),
                 character: next,
-            });
+            }, { previousCharacter: char });
             let persisted: Record<string, unknown> = updated;
             if (combatSettlement) {
                 const intended = mergePreservingImages(updated, record) as Record<string, unknown>;

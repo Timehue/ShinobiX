@@ -53,7 +53,7 @@ async function commitPlayerPurchase(args: {
         const grew = inventoryGrowthBlock(character, result.character);
         if (grew) return { ok: false as const, status: grew.status, error: grew.error };
 
-        const nextRecord = bumpSaveVersion({ ...playerRec, character: result.character });
+        const nextRecord = bumpSaveVersion({ ...playerRec, character: result.character }, { previousCharacter: character });
         await kv.set(
             args.playerSaveKey,
             mergePreservingImages(nextRecord, playerRec),

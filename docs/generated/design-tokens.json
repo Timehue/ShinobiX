@@ -2516,6 +2516,10 @@
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
             "line": 1858
+          },
+          {
+            "source": "shinobij.client/src/styles/sunscar-exchange.css",
+            "line": 121
           }
         ]
       },
@@ -3276,6 +3280,10 @@
           {
             "source": "shinobij.client/src/styles/relic-dungeons.css",
             "line": 143
+          },
+          {
+            "source": "shinobij.client/src/styles/sunscar-exchange.css",
+            "line": 120
           }
         ]
       },
@@ -4089,6 +4097,17 @@
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
             "line": 3124
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 1050,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/sunscar-exchange.css",
+            "line": 119
           }
         ]
       },

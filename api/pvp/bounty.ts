@@ -6,6 +6,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { hollowGateRefundCurrencySource } from '../hollow-gate/_external-credits.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { pvpSessionMayGrantProgress, type PvpSession } from './session.js';
 import { loadPvpRewardRecoverySnapshot } from './_reward-recovery.js';
@@ -87,7 +88,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const out = await withKvLock<{ status: number; body: unknown; placed?: { placer: string; amount: number } }>(BOUNTY_KEY, async () => {
                 const board = normalizeBoard(await kv.get<BountyBoard>(BOUNTY_KEY));
-                const debit = await withKvLock<{ ok: boolean; reason?: string; board?: BountyBoard; debited?: number; balance?: number; saveVersion?: number; placer?: string }>(`save:${playerName}`, async () => {
+                const debit = await withKvLock<{ ok: boolean; reason?: string; board?: BountyBoard; debited?: number; balance?: number; saveVersion?: number; placer?: string; chargedCharacter?: Record<string, unknown> }>(`save:${playerName}`, async () => {
                     const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                     const char = (rec?.character ?? null) as Record<string, unknown> | null;
                     if (!rec || !char) return { ok: false, reason: 'Your save was not found.' };
@@ -97,7 +98,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const balance = num(char.ryo) - result.amount;
                     const updated = bumpSaveVersion({ ...rec, character: { ...char, ryo: balance } });
                     await kv.set(`save:${playerName}`, mergePreservingImages(updated, rec));
-                    return { ok: true, board: result.board, debited: result.amount, balance, saveVersion: Number((updated as Record<string, unknown>)._saveVersion ?? 0), placer };
+                    return { ok: true, board: result.board, debited: result.amount, balance, saveVersion: Number((updated as Record<string, unknown>)._saveVersion ?? 0), placer, chargedCharacter: char };
                 }, { failClosed: true });
                 if (!debit.ok) return { status: 400, body: { error: debit.reason ?? 'Could not place the bounty.' } };
                 try {
@@ -111,7 +112,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         await withKvLock<void>(`save:${playerName}`, async () => {
                             const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                             const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                            if (rec && char) await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: { ...char, ryo: num(char.ryo) + (debit.debited ?? 0) } }), rec));
+                            if (rec && char) await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: { ...char, ryo: num(char.ryo) + (debit.debited ?? 0) } }, {
+                                previousCharacter: char,
+                                hollowGateCurrencySource: hollowGateRefundCurrencySource(debit.chargedCharacter ?? {}, char),
+                            }), rec));
                         }, { failClosed: true });
                     } catch (refundErr) {
                         console.error('[pvp/bounty] place credit-back failed', refundErr);
@@ -247,7 +251,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const char = (rec?.character ?? null) as Record<string, unknown> | null;
                     if (!rec || !char) return { ok: false };
                     const balance = num(char.ryo) + result.amount;
-                    const updated = bumpSaveVersion({ ...rec, character: { ...char, ryo: balance } });
+                    const updated = bumpSaveVersion({ ...rec, character: { ...char, ryo: balance } }, { previousCharacter: char });
                     await kv.set(`save:${playerName}`, mergePreservingImages(updated, rec));
                     return { ok: true, balance, saveVersion: Number((updated as Record<string, unknown>)._saveVersion ?? 0) };
                 }, { failClosed: true });

@@ -9,6 +9,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { hollowGateCreditBasis, hollowGateRefundCurrencySource } from '../hollow-gate/_external-credits.js';
 import { completeEconomyTx, failEconomyTx, makeEconomyTxId, markEconomyTx, reserveEconomyTx } from '../_economy-tx.js';
 import {
     canDeclareChallenge, newChallenge, acceptKageChallenge, KAGE_DECLARE_RYO_COST, type KageStateLike,
@@ -147,7 +148,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 await markEconomyTx(txId, 'debit-applied').catch(() => undefined);
 
-                const next = { ...state, challenge: newChallenge(challengerName, now, randomUUID()) };
+                const chargedHollowGateCreditBasis = hollowGateCreditBasis(debit.character ?? {});
+                const next = { ...state, challenge: {
+                    ...newChallenge(challengerName, now, randomUUID()),
+                    ...(chargedHollowGateCreditBasis ? { chargedHollowGateCreditBasis } : {}),
+                } };
                 try {
                     await kv.set(key, next);
                 } catch (challengeError) {
@@ -157,7 +162,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             const c = (rec?.character ?? null) as Record<string, unknown> | null;
                             if (!rec || !c) throw new Error('Player save missing during Kage stake refund.');
                             const nextChar = { ...c, ryo: num(c.ryo) + KAGE_DECLARE_RYO_COST };
-                            const nextRec = bumpSaveVersion({ ...rec, character: nextChar });
+                            const nextRec = bumpSaveVersion({ ...rec, character: nextChar }, {
+                                previousCharacter: c,
+                                hollowGateCurrencySource: hollowGateRefundCurrencySource(debit.character ?? {}, c),
+                            });
                             await kv.set(`save:${playerName}`, mergePreservingImages(nextRec, rec));
                             return nextChar;
                         }, { failClosed: true });

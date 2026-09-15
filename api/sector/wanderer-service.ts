@@ -122,7 +122,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     };
                     const used = withWandererUseState(spent, wandererId, now, sector);
                     legacyWandererId = wandererId;
-                    const nextRecord = bumpSaveVersion({ ...rec, character: used.character });
+                    const nextRecord = bumpSaveVersion({ ...rec, character: used.character }, { previousCharacter: char });
                     await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
                     return {
                         status: 200,
@@ -267,7 +267,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     boneCharms: num(char.boneCharms) + reward.boneCharms,
                     activeWandererFavor: null,
                 };
-                const nextRecord = bumpSaveVersion({ ...rec, character: updated });
+                const nextRecord = bumpSaveVersion({ ...rec, character: updated }, { previousCharacter: char });
                 await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
                 return {
                     status: 200,

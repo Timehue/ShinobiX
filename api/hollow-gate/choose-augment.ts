@@ -1,3 +1,4 @@
+import { recoverHollowGatePendingOperation } from './_pending-operation.js';
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
@@ -40,7 +41,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const key = hollowGateRunKey(playerName, token);
         const result = await withKvLock(key, async () => {
-            const run = await kv.get<HollowGateRunToken>(key);
+            const run = await recoverHollowGatePendingOperation(kv, key, await kv.get<HollowGateRunToken>(key), playerName, token);
             if (!run) return { status: 200, body: { ok: true, reason: 'invalid-or-spent' } };
             if (run.playerName.toLowerCase() !== playerName.toLowerCase()) return { status: 403, body: { error: 'Not your run.' } };
             if (run.chosenAugmentId) return { status: 200, body: { ok: true, reason: 'already-chosen', chosenAugmentId: run.chosenAugmentId } };

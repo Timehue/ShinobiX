@@ -1437,7 +1437,7 @@ export default function App() {
         character,
         run: hollowGateRun,
         sharedImages,
-        setCharacter,
+        commitCharacter: commitVersionedCharacter, captureSessionScope: capturePvpCreateScope,
         setRun: setHollowGateRun,
         setEvent: setHollowGateEvent,
         setHiddenChamber: setHollowGateHiddenChamber,
@@ -2823,7 +2823,7 @@ export default function App() {
                             }
                             // If this KO recovery is the first to settle the run's token, reconcile
                             // to the server credit (single-use → a no-op if the live device already did).
-                            if (hgRun) void settleHollowGateRunOnly(hgRun, "death", normalized, setCharacter);
+                            if (hgRun) void settleHollowGateRunOnly(hgRun, "death", normalized, { commitCharacter: commitVersionedCharacter, isCurrent: capturePvpCreateScope(normalized.name).isCurrent, currentRunToken: () => characterRef.current?.hollowGateRun?.runToken });
                             void postBattleLock({ action: "resolve", playerName: normalized.name, battleId: bootLock.battleId, outcome: "loss" });
                             setScreen("hospital");
                         } else if (bootLock.kind === "hollowGateTiles") {

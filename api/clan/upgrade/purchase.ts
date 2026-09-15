@@ -5,7 +5,8 @@ import { cors } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock } from '../../_lock.js';
-import { loadClanContext, canActAsClanLeadership } from '../war/_storage.js';
+import { loadClanContext } from '../war/_storage.js';
+import { clanLeadershipRole } from '../_leadership.js';
 
 /*
  * /api/clan/upgrade/purchase — POST only
@@ -78,23 +79,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const targetSlug = clanSlugBare(clan);
         if (!targetSlug) return res.status(400).json({ error: 'Invalid clan name.' });
 
-        // Leadership gate (founder / Leader / Officer) — same model as declaring
-        // a clan war. Also proves the actor is a member of this clan.
-        if (!identity.admin) {
-            const ctx = await loadClanContext(playerName);
-            if (clanSlugBare(ctx.clan) !== targetSlug) {
-                return res.status(403).json({ error: 'You are not a member of this clan.' });
-            }
-            if (!canActAsClanLeadership(ctx.role)) {
-                return res.status(403).json({ error: 'Only clan leadership can purchase upgrades.' });
-            }
-        }
-
         const clanSaveKey = `save:clan-${targetSlug}`;
 
         const result = await withKvLock(clanSaveKey, async () => {
             const clanRec = await kv.get<Record<string, unknown>>(clanSaveKey);
             if (!clanRec) return { ok: false as const, status: 404, error: 'Clan not found.' };
+
+            // Evaluate authority after waiting for the shared treasury lock so
+            // a removed/demoted officer cannot spend using an earlier snapshot.
+            if (!identity.admin) {
+                const ctx = await loadClanContext(playerName);
+                if (clanSlugBare(ctx.clan) !== targetSlug) {
+                    return { ok: false as const, status: 403, error: 'You are not a member of this clan.' };
+                }
+                if (!clanLeadershipRole(clanRec, playerName)) {
+                    return { ok: false as const, status: 403, error: 'Only clan leadership can purchase upgrades.' };
+                }
+            }
 
             const treasury = (clanRec.treasury ?? {}) as Record<string, unknown>;
             const upgrades = { ...((clanRec.upgrades ?? {}) as Record<string, number>) };

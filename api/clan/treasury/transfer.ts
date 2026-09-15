@@ -1,4 +1,5 @@
 import { hasInventoryRoom } from '../../_inventory-capacity.js';
+import { clanLeadershipRole } from '../_leadership.js';
 import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { kv } from '../../_storage.js';
 import { cors, safeName, clanRecordKey } from '../../_utils.js';
@@ -47,7 +48,7 @@ const MAX_GIFT_PER_CALL: Record<TransferCurrency, number> = {
 // Roles allowed to send treasury — matches the client's canManageClan().
 const MANAGE_ROLES = new Set(['Founder', 'Leader', 'Officer']);
 
-type ClanMember = { name?: string; isFounder?: boolean; battleContrib?: number; eventContrib?: number; missionContrib?: number };
+type ClanMember = { name?: string };
 type ClanRecord = {
     founderName?: string;
     members?: ClanMember[];
@@ -57,29 +58,12 @@ type ClanRecord = {
 };
 type CharacterRow = Record<string, unknown> & { inventory?: string[] };
 
-function contribTotal(m: ClanMember): number {
-    return Number(m.battleContrib ?? 0) * 10 + Number(m.eventContrib ?? 0) * 5 + Number(m.missionContrib ?? 0) * 2;
-}
-
-// Server port of App.tsx clanRoleOf: explicit roleOverrides win, then the
-// founder, then a contribution-ranked Leader/Officer/… ladder. Returns '' for
-// a non-member. Kept in sync with clanRoleOf + clanContribTotal (clan-math.ts).
+// Treasury authority follows clanRoleOf's documented appointed-role model,
+// using canonical founder/appointment names like _clan-save-validate.ts.
+// Membership is required; contribution and member flags grant no authority.
 function roleOfBySlug(rec: ClanRecord, callerSlug: string): string {
-    const members = Array.isArray(rec.members) ? rec.members : [];
-    const me = members.find(m => safeName(String(m.name ?? '')) === callerSlug);
-    if (!me) return '';
-    const founderSlug = safeName(String(rec.founderName ?? ''));
-    const override = me.name ? (rec.roleOverrides ?? {})[me.name] : undefined;
-    if (override) return String(override);
-    if (founderSlug === callerSlug || me.isFounder) return 'Founder';
-    const sorted = members
-        .filter(m => safeName(String(m.name ?? '')) !== founderSlug)
-        .sort((a, b) => contribTotal(b) - contribTotal(a));
-    const idx = sorted.findIndex(m => safeName(String(m.name ?? '')) === callerSlug);
-    if (idx === 0) return 'Leader';
-    if (idx > 0 && idx <= 2) return 'Officer';
-    if (idx > 2 && idx <= 4) return 'Elite Member';
-    return 'Member';
+    const role = clanLeadershipRole(rec, callerSlug);
+    return role === 'founder' ? 'Founder' : role === 'leader' ? 'Leader' : role === 'officer' ? 'Officer' : '';
 }
 
 function removeOneItem(items: Array<{ itemId: string; count: number }>, itemId: string): Array<{ itemId: string; count: number }> {

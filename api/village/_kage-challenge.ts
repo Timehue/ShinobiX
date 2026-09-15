@@ -18,6 +18,7 @@
  */
 
 import { setSafeRecordValue } from '../_utils.js';
+import type { hollowGateCreditBasis } from '../hollow-gate/_external-credits.js';
 
 export const KAGE_ACCEPT_OBLIGATION_MS = 24 * 60 * 60_000;   // each participant gets 24h of overlap
 export const KAGE_POST_DEFENSE_GRACE_MS = 24 * 60 * 60_000;  // 24h wall-clock
@@ -54,6 +55,8 @@ export type KageChallenge = {
     challenger: string;            // display name of the challenger
     status: 'pending' | 'accepted';
     createdAt: number;
+    /** Trusted origin of the declaration stake, retained for delayed compensation. */
+    chargedHollowGateCreditBasis?: NonNullable<ReturnType<typeof hollowGateCreditBasis>>;
     obligationRemainingMs: number; // burns down only during verified overlap
     /** Server-retained public invitation, recoverable after a normal popup expires. */
     duelInvitation?: Record<string, unknown>;

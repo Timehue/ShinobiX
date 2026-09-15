@@ -226,7 +226,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     petGauntletBoneClaimed: (premiumToday && char.petGauntletBoneClaimed === true) || grantedBoneCharms > 0,
                     redeemedPetGauntletRuns: [...receipts.slice(-49), receipt],
                 };
-                const updated = bumpSaveVersion({ ...record, character: next });
+                const updated = bumpSaveVersion({ ...record, character: next }, { previousCharacter: char });
                 await kv.set(saveKey, mergePreservingImages(updated, record));
                 await kv.del(tokenKey(id)).catch(() => undefined);
                 settled = true;

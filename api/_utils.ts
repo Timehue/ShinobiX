@@ -62,6 +62,12 @@ const REPLACE_SUBTREE_KEYS = new Set<string>([
     // previous save and can strand or repay a completed contract.
     'serverHuntTrails',
     'serverFieldMissionRuns',
+    // A sanctify checkpoint/new dive resets the protected currency map.
+    // Union-merging it would resurrect the previous external-credit amounts.
+    'hollowGateExternalCredits',
+    // Each proof describes one committed operation; positional merging of its
+    // change list must not retain a previous operation's before/after fields.
+    'hollowGatePendingOperation',
 ]);
 const PROTOTYPE_POLLUTION_KEYS = new Set<string>(['__proto__', 'constructor', 'prototype']);
 

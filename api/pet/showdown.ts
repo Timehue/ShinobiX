@@ -409,7 +409,7 @@ export async function settleShowdownWin(playerName: string, session: ShowdownSes
             witnessedPlayerPets as unknown as Pet[],
         );
         const updatedChar = witness.character;
-        const updated = bumpSaveVersion({ ...record, character: updatedChar });
+        const updated = bumpSaveVersion({ ...record, character: updatedChar }, { previousCharacter: char });
         await writeSaveProjected(saveKey, updated, record);
         // AFTER the paying write, never before: a failed key write must not be
         // able to swallow a reward the player earned. Until it lands the array

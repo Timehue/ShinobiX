@@ -1,3 +1,4 @@
+import { recoverHollowGatePendingOperation } from './_pending-operation.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
@@ -34,7 +35,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const runKey = hollowGateRunKey(playerName, token);
         const result = await withKvLock(runKey, async () => {
-            const run = await kv.get<HollowGateRunToken>(runKey);
+            const run = await recoverHollowGatePendingOperation(kv, runKey, await kv.get<HollowGateRunToken>(runKey), playerName, token);
             if (!run) return { status: 409, body: { error: HOLLOW_GATE_RUN_EXPIRED_MESSAGES.descend } };
             if (!run.chosenAugmentId) return { status: 409, body: { error: 'Choose the sealed augment before descending.' } };
             const currentFloor = run.currentFloor == null

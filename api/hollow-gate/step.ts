@@ -1,3 +1,4 @@
+import { recoverHollowGatePendingOperation } from './_pending-operation.js';
 import { randomInt } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
@@ -84,7 +85,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const runKey = hollowGateRunKey(playerName, token);
         const result = await withKvLock(runKey, async () => {
-            const run = await kv.get<HollowGateRunToken>(runKey);
+            const run = await recoverHollowGatePendingOperation(kv, runKey, await kv.get<HollowGateRunToken>(runKey), playerName, token);
             if (!run || run.playerName !== playerName) return { status: 409, body: { error: 'The Hollow Gate run has expired.' } };
             if (!run.chosenAugmentId) return { status: 409, body: { error: 'Choose the sealed augment before moving.' } };
             const floor = Math.max(1, Math.floor(Number(run.currentFloor) || 1));

@@ -85,7 +85,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     loginStreak: reward.streak,
                     lastLoginRewardDate: today,
                 };
-                const nextRecord = bumpSaveVersion({ ...rec, character: nextChar });
+                const nextRecord = bumpSaveVersion({ ...rec, character: nextChar }, { previousCharacter: char });
                 await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
                 return {
                     ...reward,

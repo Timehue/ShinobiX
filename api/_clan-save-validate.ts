@@ -84,7 +84,11 @@ function callerRole(blob: ClanBlob | null, callerName: string): string {
     const overrides = (blob.roleOverrides ?? {}) as Record<string, string>;
     // roleOverrides may be keyed by display name OR slug — canonicalize both.
     for (const [k, v] of Object.entries(overrides)) {
-        if (safeName(k) === callerName || lower(k) === callerName) return String(v);
+        if (safeName(k) === callerName || lower(k) === callerName) {
+            // Founder authority comes only from founderName above. An old or
+            // forged override must never create a second founder.
+            return v === 'Leader' || v === 'Officer' ? v : '';
+        }
     }
     return ''; // ordinary member
 }
@@ -234,29 +238,31 @@ export function validateClanSaveWrite(
     }
 
     // ── roleOverrides ───────────────────────────────────────────────
-    // Only Founder (or admin) can change anyone's role override. A
-    // non-Founder can only edit their own override (which is meaningless,
-    // they can't promote themselves; but a leave-clan-and-clear-override
-    // self-edit needs to work).
-    if (incoming.roleOverrides && typeof incoming.roleOverrides === 'object') {
+    // Only Founder (or admin) can appoint or change roles. A non-Founder
+    // may clear their own appointment, but cannot add or promote it. Inspect
+    // null/scalar payloads too: the initial spread must not let them erase
+    // everyone else's appointments by skipping this guard.
+    if (Object.prototype.hasOwnProperty.call(incoming, 'roleOverrides')) {
         const prevOverrides = (prev.roleOverrides ?? {}) as Record<string, string>;
         const incomingOverrides = incoming.roleOverrides as Record<string, string>;
         if (callerIsFounder) {
             next.roleOverrides = incomingOverrides;
         } else {
-            // Allow only self-key changes; everything else preserved.
             const merged: Record<string, string> = { ...prevOverrides };
-            const allKeys = new Set([...Object.keys(prevOverrides), ...Object.keys(incomingOverrides)]);
-            for (const k of allKeys) {
-                if (lower(k) === ctx.callerName) {
-                    if (incomingOverrides[k] !== undefined) merged[k] = incomingOverrides[k];
-                    else delete merged[k];
+            if (incomingOverrides && typeof incomingOverrides === 'object' && !Array.isArray(incomingOverrides)) {
+                for (const k of Object.keys(prevOverrides)) {
+                    if (safeName(k) === ctx.callerName && incomingOverrides[k] == null) delete merged[k];
                 }
+                const changedKeys = Object.keys(incomingOverrides).filter((k) =>
+                    incomingOverrides[k] !== prevOverrides[k]
+                    && !(safeName(k) === ctx.callerName && incomingOverrides[k] == null),
+                );
+                const removedKeys = Object.keys(prevOverrides).filter((k) => !(k in incomingOverrides) && safeName(k) !== ctx.callerName);
+                if (changedKeys.length > 0) suppressed.push(`roleOverrides change for [${changedKeys.join(',')}] (Founder only)`);
+                if (removedKeys.length > 0) suppressed.push(`roleOverrides remove [${removedKeys.join(',')}] (Founder only)`);
+            } else {
+                suppressed.push('roleOverrides replacement (Founder only)');
             }
-            const changedKeys = Object.keys(incomingOverrides).filter((k) => incomingOverrides[k] !== prevOverrides[k] && lower(k) !== ctx.callerName);
-            const removedKeys = Object.keys(prevOverrides).filter((k) => !(k in incomingOverrides) && lower(k) !== ctx.callerName);
-            if (changedKeys.length > 0) suppressed.push(`roleOverrides change for [${changedKeys.join(',')}] (Founder only)`);
-            if (removedKeys.length > 0) suppressed.push(`roleOverrides remove [${removedKeys.join(',')}] (Founder only)`);
             next.roleOverrides = merged;
         }
     }
@@ -416,6 +422,20 @@ export function validateClanSaveWrite(
             }
         }
         next.treasury = outTreasury;
+    }
+
+    // ── upgrades ────────────────────────────────────────────────────
+    // Purchases debit the treasury and increment buildings under this same
+    // clan lock in clan/upgrade/purchase. Generic saves may only echo that
+    // committed state: forged levels and stale snapshots must both preserve
+    // it. A new clan has no purchased levels; readers already default to 0.
+    if (!ctx.isAdmin) {
+        if (Object.prototype.hasOwnProperty.call(incoming, 'upgrades')
+            && JSON.stringify(incoming.upgrades) !== JSON.stringify(prev.upgrades)) {
+            suppressed.push('clan upgrades change via save blob blocked — purchase through the server endpoint');
+        }
+        if (prev.upgrades !== undefined) next.upgrades = prev.upgrades;
+        else delete next.upgrades;
     }
 
     // ── xp / level ──────────────────────────────────────────────────

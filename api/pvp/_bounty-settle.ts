@@ -77,7 +77,7 @@ export async function settleBountyForSessionlessKill(args: {
                 const updated = bumpSaveVersion({
                     ...record,
                     character: { ...character, ryo: num(character.ryo) + result.amount },
-                });
+                }, { previousCharacter: character });
                 await kv.set(`save:${args.attackerSlug}`, mergePreservingImages(updated, record));
                 const next = Number(updated._saveVersion);
                 return Number.isFinite(next) ? next : null;

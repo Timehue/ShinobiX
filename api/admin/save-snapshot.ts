@@ -4,6 +4,7 @@ import { cors, safeName } from '../_utils.js';
 import { isFullAdmin } from '../_auth.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { nextSaveVersion } from '../save/_save-version.js';
+import { recordHollowGateExternalCredits } from '../hollow-gate/_external-credits.js';
 
 /*
  * /api/admin/save-snapshot  — admin-only POST
@@ -63,8 +64,16 @@ export function buildRestoredSave(
     live: Record<string, unknown> | null,
     now: number,
 ): Record<string, unknown> {
+    const restored = structuredClone(snapshot);
+    const character = restored.character;
+    if (character && typeof character === 'object' && !Array.isArray(character)) {
+        restored.character = recordHollowGateExternalCredits(
+            (live?.character ?? {}) as Record<string, unknown>,
+            character as Record<string, unknown>,
+        );
+    }
     return {
-        ...structuredClone(snapshot),
+        ...restored,
         _saveVersion: nextSaveVersion(live?._saveVersion, snapshot._saveVersion),
         _saveAt: now,
     };
