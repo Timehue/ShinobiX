@@ -93,6 +93,13 @@ test('choice availability respects supplies, tools and money', () => {
     assert.ok(caravanChoiceBlock(storm, caravanEvent('sand-wall').choices[1], 10000));
     assert.equal(caravanChoiceBlock(storm, caravanEvent('sand-wall').choices[2], 10000), null);
 });
+test('a full supply manifest records how much of an offered refill actually fits', () => {
+    const run = eventRun('sheltered-well');
+    run.supplies = 29;
+    const filled = resolveCaravanChoice(run, 'fill', 10000).run;
+    assert.equal(filled.supplies, 30);
+    assert.match(filled.log.at(-1)!.text, /Only 1 of 4 extra supplies fit/);
+});
 test('seeded event outcomes cannot be rerolled by reload or clock changes', () => {
     const run = eventRun('buried-coins');
     assert.deepEqual(resolveCaravanChoice(run, 'dig', 10000), resolveCaravanChoice(JSON.parse(JSON.stringify(run)), 'dig', 10000));
