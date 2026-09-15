@@ -81,6 +81,13 @@ The first Production Image run failed the aggregate product-size budget: 8,510,5
 
 Against the passing parent, strongholds add 27,151 B total and 207 B raw / 149 B gzip to initial loading. The aggregate allowance is now 8,600,000 B, following the existing 100 KB feature-growth policy. Startup, per-route, per-file and vendor limits are unchanged. Future release validation must include the production-variable size check.
 
+## Full-CI contract correction — September 15, 2026
+
+- The remaining two CI failures were the modal escape-hatch contract and the sector attack callback source contract.
+- Stronghold Close, Escape, Cancel and Retreat remain usable during pending requests. Committing attacks and movement remain blocked until the original request settles; dismissing the prompt does not duplicate or discard an admitted fight.
+- The callback contract now requires App to return the guarded attack promise, matching the existing implementation and preserving stronghold pending-state protection. The executable server-admission checks are unchanged.
+- Both failed contracts and the guarded attack/session tests pass (36 checks). The refreshed browser evidence contains 48 Chromium/WebKit checks, including deliberately stalled PvP and Anbu admission, with no page errors.
+
 ## Suggested follow-up
 
 Add limited, guarded supply caches to optional chambers so taking a longer route offers a deliberate reward. Keep those rewards tied to the existing server economy and daily limits.

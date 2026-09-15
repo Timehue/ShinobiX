@@ -51,6 +51,7 @@ async function prepare(browser, viewport, state, query = '', beforeNavigate) {
             if (state.failStep) return fail('Connection interrupted.');
             if (body.version === state.visit.version) { state.steps++; Object.assign(state.visit, { tile: body.tile, version: state.visit.version + 1, steps: state.visit.steps + 1, threat: Math.min(100, state.visit.threat + 4) }); if (!state.visit.visited.includes(body.tile)) state.visit.visited.push(body.tile); }
         }
+        if (action === 'start' && state.holdStart) await new Promise(resolve => { state.releaseStart = resolve; });
         if (action === 'state' && state.failResume) return fail('Connection temporarily unavailable.');
         if (action === 'state' || action === 'start') return route.fulfill({ json: { ok: true, runId: 'qa-patrol', session: state.session, sector: 12, targetVillage: 'Moonshadow Village', anbu: { name: 'The Moonshadow Anbu' } } });
         if (action === 'stronghold-patrol-report' || action === 'report') {
@@ -89,6 +90,45 @@ try {
     } else
     for (const [engineName, engine] of [['chromium', chromium], ['webkit', webkit]].filter(([name]) => !process.argv.includes('--webkit') || name === 'webkit')) {
         const browser = await engine.launch({ headless: true }); browsers.push(browser);
+        // Keep deliberate exits available while a request is stalled; the pending
+        // action must still fence movement and duplicate battle admission.
+        for (const dismiss of ['escape', 'close', 'cancel']) {
+            const state = fixture({ sector: 99 });
+            const page = await prepare(browser, { width: 390, height: 844 }, state, '?host=1&sector=99&holdAttack=1');
+            await ready(page); await page.locator('.stronghold-peer').click();
+            await page.getByRole('button', { name: 'Attack player', exact: true }).click();
+            assert(await page.getByRole('button', { name: 'Connecting…' }).isDisabled());
+            if (dismiss === 'escape') await page.keyboard.press('Escape');
+            else await page.getByRole('button', { name: dismiss === 'close' ? 'Close dialog' : 'Cancel', exact: true }).click();
+            await page.getByRole('dialog').waitFor({ state: 'hidden' });
+            assert(await page.getByRole('button', { name: 'Move right', exact: true }).isDisabled());
+            await page.keyboard.press('d'); assert.equal(state.steps, 0);
+            await page.getByRole('button', { name: /^Players/ }).click();
+            assert(await page.getByRole('dialog').getByRole('button', { name: 'Inspect' }).isDisabled());
+            await page.keyboard.press('Escape');
+            assert.equal(await page.locator('body').getAttribute('data-attack-count'), '1');
+            await page.evaluate(() => window.releaseStrongholdAttack());
+            await page.waitForFunction(() => !document.querySelector('button[aria-label="Move right"]')?.disabled);
+            await page.getByRole('button', { name: 'Move right', exact: true }).click();
+            await page.waitForFunction(() => document.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow') === '4');
+            checks.push({ engine: engineName, pendingAttackDismissal: dismiss, duplicateAttackBlocked: true });
+            await page.close();
+        }
+        {
+            const state = fixture({ tile: 697, visited: [697], holdStart: true });
+            const page = await prepare(browser, { width: 844, height: 390 }, state, '?host=1');
+            await ready(page); await page.getByRole('button', { name: 'Move right', exact: true }).click();
+            await page.getByRole('button', { name: 'Challenge', exact: true }).click();
+            assert(await page.getByRole('button', { name: 'Engaging…' }).isDisabled());
+            await page.getByRole('button', { name: 'Retreat', exact: true }).click();
+            await page.getByRole('dialog').waitFor({ state: 'hidden' });
+            assert(await page.getByRole('button', { name: 'Move right', exact: true }).isDisabled());
+            while (!state.releaseStart) await page.waitForTimeout(10);
+            state.releaseStart();
+            await page.locator('.hex-grid-layer').waitFor();
+            checks.push({ engine: engineName, pendingAnbuDismissal: true, admittedBattlePreserved: true });
+            await page.close();
+        }
         for (const sector of [12, 99]) {
             const state = fixture({ sector });
             const page = await prepare(browser, { width: 390, height: 844 }, state, `?host=1&sector=${sector}&cachedAvatar=1`);

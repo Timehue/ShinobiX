@@ -163,10 +163,12 @@ describe("server settlement policy", () => {
         // The 120-line inline handler moved to lib/sector-attack.ts. App must
         // still route through it, and the gate must still precede session
         // creation — now inside that module rather than inside the JSX prop.
+        // Return its promise so strongholds block duplicate attacks and movement
+        // until the guarded request actually finishes.
         assert.match(
             appPvp,
-            /sectorAttackPlayer=\{\(opponent\) => \{ void attackSectorPlayer\(\{/,
-            "the world map must delegate sector attacks to the guarded helper",
+            /sectorAttackPlayer=\{\(opponent\) => attackSectorPlayer\(\{/,
+            "the world map must return the guarded sector attack promise",
         );
         const sectorSrc = source("./sector-attack.ts");
         const sectorGuard = sectorSrc.indexOf('requireServerSettlement("pvpSession")');
