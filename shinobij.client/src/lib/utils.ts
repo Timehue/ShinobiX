@@ -13,6 +13,13 @@ export function clampNumber(value: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, value));
 }
 
+/** Replace matching IDs without moving their position; append new IDs in order. */
+export function mergeById<T extends { id: string }>(current: T[], incoming: T[]) {
+    const merged = new Map(current.map((item) => [item.id, item]));
+    incoming.forEach((item) => merged.set(item.id, item));
+    return Array.from(merged.values());
+}
+
 // Format a positive millisecond duration as a short human label
 // ("1h 23m", "5m 12s", "47s"). Returns "Done" for non-positive values.
 // Used by all the in-flight timer UIs (pet training / expedition,

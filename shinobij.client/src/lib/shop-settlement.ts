@@ -1,5 +1,6 @@
 import type { Character } from '../types/character';
 import type { EquipmentSlot } from '../types/combat';
+import { AMBIGUOUS_ACTION_MESSAGE } from './ambiguous-action';
 
 export type ShopPackId = 'standard' | 'epic' | 'legendary';
 
@@ -42,12 +43,13 @@ async function postSettlement<T>(path: string, body: Record<string, unknown>, fa
             // Retain the same ID for ambiguous server/network failures. A later
             // click then replays the stored result instead of charging twice.
             if (response.status < 500) clearPendingRequest(pendingKey);
-            return { ok: false, error: data.error || fallback };
+            const confirmedRejection = response.status >= 400 && response.status < 500 && response.status !== 408;
+            return { ok: false, error: confirmedRejection ? data.error || fallback : AMBIGUOUS_ACTION_MESSAGE };
         }
         clearPendingRequest(pendingKey);
         return { ok: true, character: data.character, settlement: data.settlement, _saveVersion: data._saveVersion };
     } catch {
-        return { ok: false, error: fallback };
+        return { ok: false, error: AMBIGUOUS_ACTION_MESSAGE };
     }
 }
 

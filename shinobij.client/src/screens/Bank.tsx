@@ -1,3 +1,4 @@
+import { BANK_INTEREST_WINDOW_MS, projectedBankInterest } from "../../../shared/bank-interest";
 import { getBankInterestPercent } from "../lib/village-upgrades";
 import { useRef, useState } from "react";
 import { type Character } from "../App";
@@ -6,17 +7,20 @@ import { gameConfirm } from "../components/GameAlert";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
 import { gameToast } from "../components/GameToast";
+import { useSharedNow } from "../lib/use-shared-now";
 import type { VersionedCharacterCommit } from "../types/character";
 import { FacilityHero } from "../components/FacilityHero";
 import { GameIcon, ShinobiCurrencyIcon } from "../components/icons/GameIcon";
 
-// MIRROR of api/_bank-interest.ts BANK_INTEREST_PRINCIPAL_CAP (gameplay-loop
-// audit M-2): interest is paid on at most this much banked ryo, so the projected
-// figure shown here matches the server's authoritative payout. Keep in lockstep.
-const BANK_INTEREST_PRINCIPAL_CAP = 10_000_000;
-
 export function Bank({ character, updateCharacter, onVersionedCharacter, onBack }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; onVersionedCharacter: VersionedCharacterCommit; onBack: () => void }) {
     const [amount, setAmount] = useState(0);
+    const [amountError, setAmountError] = useState<string | null>(null);
+    const [recipientError, setRecipientError] = useState<string | null>(null);
+    const [sendAmountError, setSendAmountError] = useState<string | null>(null);
+    const [interestError, setInterestError] = useState<string | null>(null);
+    const amountInput = useRef<HTMLInputElement>(null);
+    const recipientInput = useRef<HTMLInputElement>(null);
+    const sendAmountInput = useRef<HTMLInputElement>(null);
     const [bankBusy, setBankBusy] = useState(false);
     const bankBusyRef = useRef(false);
     // ── Direct transfer (player-to-player send) state ──
@@ -31,11 +35,25 @@ export function Bank({ character, updateCharacter, onVersionedCharacter, onBack 
         if (sendingRef.current) return;
         const to = sendTo.trim();
         const value = Math.max(0, Math.floor(Number.isFinite(sendAmount) ? sendAmount : 0));
-        if (!to) return alert("Enter the name of the player to send to.");
-        if (to.toLowerCase() === character.name.toLowerCase()) return alert("You can't send to yourself.");
-        if (value < TRADE_MINS[sendCurr]) return alert(`Minimum transfer is ${TRADE_MINS[sendCurr].toLocaleString()} ${TRADE_CURRENCY_LABELS[sendCurr]}.`);
-        if (value > TRADE_CAPS[sendCurr]) return alert(`Maximum per transfer is ${TRADE_CAPS[sendCurr].toLocaleString()} ${TRADE_CURRENCY_LABELS[sendCurr]}.`);
-        if (value > sendBalance) return alert(`You don't have ${value.toLocaleString()} ${TRADE_CURRENCY_LABELS[sendCurr]}.`);
+        setRecipientError(null);
+        setSendAmountError(null);
+        if (!to || to.toLowerCase() === character.name.toLowerCase()) {
+            setRecipientError(!to ? "Enter the name of the player to send to." : "You can't send to yourself.");
+            recipientInput.current?.focus();
+            return;
+        }
+        const validation = value < TRADE_MINS[sendCurr]
+            ? `Minimum transfer is ${TRADE_MINS[sendCurr].toLocaleString()} ${TRADE_CURRENCY_LABELS[sendCurr]}.`
+            : value > TRADE_CAPS[sendCurr]
+                ? `Maximum per transfer is ${TRADE_CAPS[sendCurr].toLocaleString()} ${TRADE_CURRENCY_LABELS[sendCurr]}.`
+                : value > sendBalance
+                    ? `You don't have ${value.toLocaleString()} ${TRADE_CURRENCY_LABELS[sendCurr]}.`
+                    : null;
+        if (validation) {
+            setSendAmountError(validation);
+            sendAmountInput.current?.focus();
+            return;
+        }
         sendingRef.current = true;
         setSending(true);
         try {
@@ -56,14 +74,14 @@ export function Bank({ character, updateCharacter, onVersionedCharacter, onBack 
             setSending(false);
         }
     }
+    const now = useSharedNow();
     const interestPercent = getBankInterestPercent(character);
     const lastClaim = character.lastBankInterestAt ?? 0;
-    const nextClaimAt = lastClaim + 24 * 60 * 60 * 1000;
-    // eslint-disable-next-line react-hooks/purity -- claim-eligibility is time-sensitive; re-evaluated on every re-render is intentional
-    const canClaimInterest = character.bankRyo > 0 && interestPercent > 0 && Date.now() >= nextClaimAt;
-    const projectedInterest = Math.max(0, Math.floor(Math.min(character.bankRyo, BANK_INTEREST_PRINCIPAL_CAP) * (interestPercent / 100)));
+    const nextClaimAt = lastClaim + BANK_INTEREST_WINDOW_MS;
+    const canClaimInterest = character.bankRyo > 0 && interestPercent > 0 && now >= nextClaimAt;
+    const projectedInterest = projectedBankInterest(character.bankRyo, interestPercent);
     const interestStatus = canClaimInterest
-        ? "Ready now"
+        ? projectedInterest > 0 ? "Ready now" : "Deposit too small"
         : interestPercent <= 0
             ? "Upgrade required"
             : character.bankRyo <= 0
@@ -76,9 +94,19 @@ export function Bank({ character, updateCharacter, onVersionedCharacter, onBack 
         // is false — without this the transfer would proceed and write `ryo - NaN
         // = NaN`, corrupting the save.
         const value = Math.max(0, Math.floor(Number.isFinite(amount) ? amount : 0));
-        if (value <= 0) return alert("Enter a positive amount.");
-        if (direction === "deposit" && value > character.ryo) return alert("Not enough ryo.");
-        if (direction === "withdraw" && value > character.bankRyo) return alert("Not enough banked ryo.");
+        const validation = value <= 0
+            ? "Enter a positive amount."
+            : direction === "deposit" && value > character.ryo
+                ? "Not enough ryo. Enter an amount within your wallet balance."
+                : direction === "withdraw" && value > character.bankRyo
+                    ? "Not enough banked ryo. Enter an amount within your vault balance."
+                    : null;
+        if (validation) {
+            setAmountError(validation);
+            amountInput.current?.focus();
+            return;
+        }
+        setAmountError(null);
         if (bankBusyRef.current) return;
         bankBusyRef.current = true;
         setBankBusy(true);
@@ -92,11 +120,19 @@ export function Bank({ character, updateCharacter, onVersionedCharacter, onBack 
                 body: JSON.stringify({ playerName: character.name, direction, action: direction, amount: value, requestId: crypto.randomUUID() }),
             });
             const data = await response.json().catch(() => null) as { error?: string; character?: Character; _saveVersion?: number } | null;
-            if (!response.ok || !data?.character) throw new Error(data?.error || "Bank transfer failed.");
-            if (!onVersionedCharacter(data.character, data._saveVersion)) return;
+            if (!response.ok || !data?.character) {
+                return alert(response.status >= 400 && response.status < 500 && response.status !== 408
+                    ? data?.error || "Bank transfer was rejected."
+                    : AMBIGUOUS_ACTION_MESSAGE);
+            }
+            if (!onVersionedCharacter(data.character, data._saveVersion)) return alert(AMBIGUOUS_ACTION_MESSAGE);
             setAmount(0);
-        } catch (error) {
-            alert(error instanceof Error ? error.message : "Bank transfer failed.");
+            setInterestError(null);
+            gameToast(direction === "deposit"
+                ? `Deposited ${value.toLocaleString()} ryo to your vault.`
+                : `Withdrew ${value.toLocaleString()} ryo to your wallet.`);
+        } catch {
+            alert(AMBIGUOUS_ACTION_MESSAGE);
         } finally {
             bankBusyRef.current = false;
             setBankBusy(false);
@@ -105,16 +141,22 @@ export function Bank({ character, updateCharacter, onVersionedCharacter, onBack 
 
     async function claimInterest() {
         if (bankBusyRef.current) return;
-        if (interestPercent <= 0) return alert("Upgrade the Bank in Town Hall to earn interest.");
-        if (character.bankRyo <= 0) return alert("Deposit ryo first.");
-        if (Date.now() < nextClaimAt) return alert(`Interest can be claimed again at ${new Date(nextClaimAt).toLocaleString()}.`);
-        if (projectedInterest <= 0) return alert("Your deposit is too small to earn interest yet.");
+        const validation = interestPercent <= 0
+            ? "Upgrade the Bank in Town Hall to earn interest."
+            : character.bankRyo <= 0
+                ? "Deposit ryo first."
+                : Date.now() < nextClaimAt
+                    ? `Interest can be claimed again at ${new Date(nextClaimAt).toLocaleString()}.`
+                    : projectedInterest <= 0
+                        ? "Your deposit is too small to earn interest yet."
+                        : null;
+        if (validation) return setInterestError(validation);
+        setInterestError(null);
         // Server-authoritative (audit #7 / Stage 3 Phase 4f): the server recomputes
         // the interest from the SAVED bankRyo + bank-upgrade rate under the save
         // lock and stamps lastBankInterestAt against its own clock, so the client
-        // can no longer inflate the amount or replay via a rolled-back clock. We add
-        // the returned `claimed` delta to our OWN bankRyo (preserving concurrent
-        // deposits/withdrawals) and re-assert via autosave — the two converge.
+        // can no longer inflate the amount or replay via a rolled-back clock.
+        // Preserve the existing adoption of the returned bank balance and claim time.
         bankBusyRef.current = true;
         setBankBusy(true);
         let data: { ok?: boolean; eligible?: boolean; claimed?: number; bankRyo?: number; error?: string; lastBankInterestAt?: number; reason?: string };
@@ -125,7 +167,9 @@ export function Bank({ character, updateCharacter, onVersionedCharacter, onBack 
                 body: JSON.stringify({ playerName: character.name }),
             });
             data = await res.json().catch(() => ({}));
-            if (!res.ok || !data.ok) return alert(data.error || AMBIGUOUS_ACTION_MESSAGE);
+            if (!res.ok || !data.ok) return alert(res.status >= 400 && res.status < 500 && res.status !== 408
+                ? data.error || "Bank interest claim was rejected."
+                : AMBIGUOUS_ACTION_MESSAGE);
         } catch {
             return alert(AMBIGUOUS_ACTION_MESSAGE);
         } finally {
@@ -137,7 +181,7 @@ export function Bank({ character, updateCharacter, onVersionedCharacter, onBack 
         }
         const claimedAt = data.lastBankInterestAt ?? Date.now();
         updateCharacter((prev) => prev ? ({ ...prev, bankRyo: data.bankRyo ?? prev.bankRyo, lastBankInterestAt: claimedAt }) : prev);
-        alert(`Bank interest claimed: +${data.claimed.toLocaleString()} ryo.`);
+        gameToast(`Bank interest claimed: +${data.claimed.toLocaleString()} ryo.`);
     }
 
     return (
@@ -183,21 +227,26 @@ export function Bank({ character, updateCharacter, onVersionedCharacter, onBack 
                             <ShinobiCurrencyIcon name="ryo" size={24} />
                             <input
                                 id="bank-transfer-amount"
+                                ref={amountInput}
+                                readOnly={bankBusy}
+                                aria-invalid={!!amountError || undefined}
+                                aria-describedby={amountError ? "bank-transfer-error" : undefined}
                                 type="number"
                                 min={0}
                                 inputMode="numeric"
                                 value={amount}
-                                onChange={(e) => setAmount(Number(e.target.value))}
+                                onChange={(e) => { setAmount(Number(e.target.value)); setAmountError(null); }}
                             />
                             <span>ryo</span>
                         </div>
                     </label>
+                    {amountError && <p id="bank-transfer-error" className="facility-inline-warning" role="alert">{amountError}</p>}
                     <div className="facility-amount-chips" aria-label="Quick amount choices">
-                        <button type="button" onClick={() => setAmount(Math.floor(character.ryo / 2))}>Half wallet</button>
-                        <button type="button" onClick={() => setAmount(character.ryo)}>Max wallet</button>
-                        <button type="button" onClick={() => setAmount(character.bankRyo)}>Max vault</button>
+                        <button type="button" disabled={bankBusy} onClick={() => { setAmount(Math.floor(character.ryo / 2)); setAmountError(null); }}>Half wallet</button>
+                        <button type="button" disabled={bankBusy} onClick={() => { setAmount(character.ryo); setAmountError(null); }}>Max wallet</button>
+                        <button type="button" disabled={bankBusy} onClick={() => { setAmount(character.bankRyo); setAmountError(null); }}>Max vault</button>
                     </div>
-                    <div className="bank-transfer-actions">
+                    <div className="bank-transfer-actions" aria-busy={bankBusy}>
                         <button className="facility-primary-action" onClick={() => void moveRyo("deposit")} disabled={bankBusy}>
                             {bankBusy ? "Working…" : "Deposit to vault"}
                         </button>
@@ -215,8 +264,9 @@ export function Bank({ character, updateCharacter, onVersionedCharacter, onBack 
                                 <small>Projected payout · {projectedInterest.toLocaleString()} ryo</small>
                             </div>
                         </div>
-                        <button onClick={claimInterest} disabled={bankBusy || !canClaimInterest}>Collect interest</button>
+                        <button onClick={claimInterest} aria-describedby={interestError ? "bank-interest-error" : undefined} disabled={bankBusy || !canClaimInterest || projectedInterest <= 0}>Collect interest</button>
                     </div>
+                    {interestError && <p id="bank-interest-error" className="facility-inline-warning" role="alert">{interestError}</p>}
                     <p className="facility-fine-print">Town Hall upgrades add +0.01% interest per level, up to 0.5% daily. Claims refresh every 24 hours.</p>
                 </section>
 
@@ -243,12 +293,24 @@ export function Bank({ character, updateCharacter, onVersionedCharacter, onBack 
 
                     <label className="facility-field" htmlFor="bank-recipient">
                         <span>Recipient</span>
-                        <input id="bank-recipient" type="text" value={sendTo} placeholder="Player name" autoComplete="off" onChange={(e) => setSendTo(e.target.value)} />
+                        <input
+                            id="bank-recipient"
+                            ref={recipientInput}
+                            readOnly={sending}
+                            aria-invalid={!!recipientError || undefined}
+                            aria-describedby={recipientError ? "bank-recipient-error" : undefined}
+                            type="text"
+                            value={sendTo}
+                            placeholder="Player name"
+                            autoComplete="off"
+                            onChange={(e) => { setSendTo(e.target.value); setRecipientError(null); }}
+                        />
                     </label>
+                    {recipientError && <p id="bank-recipient-error" className="facility-inline-warning" role="alert">{recipientError}</p>}
                     <div className="facility-field-row">
                         <label className="facility-field" htmlFor="bank-currency">
                             <span>Currency</span>
-                            <select id="bank-currency" value={sendCurr} onChange={(e) => setSendCurr(e.target.value as TradeCurrency)}>
+                            <select id="bank-currency" disabled={sending} value={sendCurr} onChange={(e) => { setSendCurr(e.target.value as TradeCurrency); setSendAmountError(null); }}>
                                 {TRADE_CURRENCIES.map((c) => (
                                     <option key={c} value={c}>{TRADE_CURRENCY_LABELS[c]}</option>
                                 ))}
@@ -256,10 +318,22 @@ export function Bank({ character, updateCharacter, onVersionedCharacter, onBack 
                         </label>
                         <label className="facility-field" htmlFor="bank-send-amount">
                             <span>Amount</span>
-                            <input id="bank-send-amount" type="number" min={0} inputMode="numeric" value={sendAmount} onChange={(e) => setSendAmount(Number(e.target.value))} />
+                            <input
+                                id="bank-send-amount"
+                                ref={sendAmountInput}
+                                readOnly={sending}
+                                aria-invalid={!!sendAmountError || undefined}
+                                aria-describedby={sendAmountError ? "bank-send-amount-error" : undefined}
+                                type="number"
+                                min={0}
+                                inputMode="numeric"
+                                value={sendAmount}
+                                onChange={(e) => { setSendAmount(Number(e.target.value)); setSendAmountError(null); }}
+                            />
                         </label>
                     </div>
-                    <button className="facility-primary-action bank-send-action" onClick={submitTransfer} disabled={sending || !sendTo.trim() || sendAmount <= 0}>
+                    {sendAmountError && <p id="bank-send-amount-error" className="facility-inline-warning" role="alert">{sendAmountError}</p>}
+                    <button className="facility-primary-action bank-send-action" onClick={submitTransfer} aria-busy={sending} disabled={sending}>
                         {sending ? "Sending…" : "Review & send"}
                     </button>
                     <p className="facility-fine-print">Transfers are permanent. Confirm the recipient name and final amount before sending.</p>

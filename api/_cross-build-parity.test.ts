@@ -1,10 +1,9 @@
 /**
  * Cross-build-root value parity guards (server ⇄ client).
  *
- * api/ (cPanel tsc) and shinobij.client/ (Vite) are separate build roots with no
- * shared module, so several gameplay constants are hand-duplicated and kept in
- * sync only by "keep in sync" comments. This test fails `npm test` if any drifts
- * — closing the gap a shared module would, without the cross-build risk.
+ * api/ (server tsc) and shinobij.client/ (Vite) are separate build roots.
+ * Rules not yet shared are parity-pinned here; shared rules are checked for
+ * common ownership alongside their behavioral tests.
  * Companion to api/_combat-formula-parity.test.ts and api/save/_save-clamp-parity.test.ts.
  *
  * Static text analysis only — reads source, imports nothing, opens no DB. Paths
@@ -32,6 +31,7 @@ const STATS = read('shinobij.client', 'src', 'lib', 'stats.ts');
 const XPENGINE = read('api', '_xp-engine.ts');
 const VILLAGE_UP = read('shinobij.client', 'src', 'lib', 'village-upgrades.ts');
 const BANK_INT = read('api', '_bank-interest.ts');
+const BANK_RULES = read('shared', 'bank-interest.ts');
 const BANK_SCREEN = read('shinobij.client', 'src', 'screens', 'Bank.tsx');
 const SERVER_ENTITLEMENTS = read('api', '_entitlements.ts');
 const CLIENT_ENTITLEMENTS = read('shinobij.client', 'src', 'lib', 'entitlements.ts');
@@ -212,10 +212,14 @@ describe('parity: bank interest rate + cap (village-upgrades.ts + Bank.tsx ⇄ a
         const server = numFrom(BANK_INT, /BANK_UPGRADE_PER_LEVEL\s*=\s*([\d.]+)/, 'server BANK_UPGRADE_PER_LEVEL');
         assert.equal(client, server, 'bank interest rate drifted between village-upgrades.ts and _bank-interest.ts');
     });
-    it('the interest-earning principal cap matches across build roots', () => {
-        const client = numFrom(BANK_SCREEN, /BANK_INTEREST_PRINCIPAL_CAP\s*=\s*([\d_]+)/, 'client BANK_INTEREST_PRINCIPAL_CAP');
-        const server = numFrom(BANK_INT, /BANK_INTEREST_PRINCIPAL_CAP\s*=\s*([\d_]+)/, 'server BANK_INTEREST_PRINCIPAL_CAP');
-        assert.equal(client, server, 'bank principal cap drifted between Bank.tsx and _bank-interest.ts');
+    it('both build roots use the shared interest projection and principal cap', () => {
+        assert.equal(numFrom(BANK_RULES, /BANK_INTEREST_PRINCIPAL_CAP\s*=\s*([\d_]+)/, 'shared BANK_INTEREST_PRINCIPAL_CAP'), 10_000_000);
+        assert.match(BANK_INT, /from ['"]\.\.\/shared\/bank-interest\.js['"]/);
+        assert.match(BANK_SCREEN, /from ['"]\.\.\/\.\.\/\.\.\/shared\/bank-interest['"]/);
+        assert.match(BANK_INT, /const interest = projectedBankInterest\(bankRyo, interestPercent\)/);
+        assert.match(BANK_SCREEN, /const projectedInterest = projectedBankInterest\(character\.bankRyo, interestPercent\)/);
+        assert.doesNotMatch(BANK_INT, /const BANK_INTEREST_PRINCIPAL_CAP\s*=/);
+        assert.doesNotMatch(BANK_SCREEN, /const BANK_INTEREST_PRINCIPAL_CAP\s*=/);
     });
 });
 

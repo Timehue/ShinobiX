@@ -489,7 +489,8 @@ import { readFileSync } from "node:fs";
 // budget is that count plus the usual five.
 // → 6,521 after moving logout orchestration into lib/player-logout.ts.
 // App retains the stable owner, unmount retirement, and save/session bindings.
-const MAX_LINES = 6521;
+// Pure ID merge now lives in lib/utils; the same-signature App wrapper remains.
+const MAX_LINES = 6520;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
