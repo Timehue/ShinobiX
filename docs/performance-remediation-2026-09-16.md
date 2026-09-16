@@ -80,6 +80,16 @@ The complete mobile gauntlet passes **257 cases**, with 68 original project-spec
 
 The complete responsive matrix passes **802 cases**, with 603 original project-specific skips, zero failures/flaky results and zero retries, across all seven original projects. It completes in 34 minutes. All 21 Town Hall cases pass (three scenarios in each project); animated marker bounds and native 140 ms reversal pass in both phone engines, and real pinch/pan coverage passes in Chromium phone. Together with the separate gates above, these are final-source local checks. They do not erase the separately recorded intermittent Stronghold diagnostic failure or replace deployment verification.
 
+## Publication follow-up
+
+The integrated change was pushed to main as `eddb00bfadcada059cb89687860b7d5959da799d`. Production Image and CodeQL passed. CI passed every gate except responsive shard one: both desktop WebKit navigation-preload cases stalled in Playwright's pre-hover visibility/stability wait, including their built-in retry. The retained traces do not establish continuous tile motion as the cause. Railway marked the deployment inactive, and public health continued to report the older healthy revision; a successful push is not a verified live cutover.
+
+A test-only correction replaces that pre-hover stability wait with real mouse movement to each visible tile and requires actual `:hover` receipt, plus observed keyboard focus. All deferred-request, Bank entry and runtime-error assertions remain intact. Three repetitions across all seven projects pass **42/42**, with zero skips, failures or retries.
+
+The other responsive shard passed with one retried camera case. Its first attempt passed the animation duration, intermediate target size, reversal and unmount assertions, then an ambient Saito encounter dialog intercepted the sector's Leave button. The camera test now uses the existing supported wanderer-cooldown fixture pattern for Sector 40 only. It changes no game behavior, clock, motion preference, geometry limit or lifecycle assertion. Five repetitions in each phone engine pass **10/10**, with zero skips, failures or retries. Both changed test files pass lint. Product code, built artifact and model assets are unchanged by this follow-up.
+
+Initial CI totals and original failed traces are retained in `publication/ci-eddb00b/`; the responsive matrix reported 800 passed, 602 skipped, two failed and one flaky case, with three built-in test retries. These records remain alongside the successful local checks. The follow-up must pass a fresh CI run and actual production revision/deep-health verification before it is described as live.
+
 ## Remaining work
 
 - Cold mobile login remains around 4.7 seconds in this constrained local profile. The background-image and legal-loading experiments were withdrawn after adjacent-navigation regressions; no validated startup optimization from either experiment is retained.
