@@ -45,4 +45,13 @@ describe('_http-security', () => {
         assert.match(csp, /connect-src 'self' https: wss: ws: blob:/);
         assert.match(csp, /worker-src 'self' blob:/);
     });
+
+    it('allows only the canonical and versioned Cloudflare beacon paths', () => {
+        const directive = contentSecurityPolicy({}).split('; ').find(value => value.startsWith('script-src '));
+        assert.deepEqual(directive?.split(' ').slice(1), [
+            "'self'", "'wasm-unsafe-eval'",
+            'https://static.cloudflareinsights.com/beacon.min.js',
+            'https://static.cloudflareinsights.com/beacon.min.js/',
+        ]);
+    });
 });

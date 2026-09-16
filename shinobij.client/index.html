@@ -17,7 +17,7 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
     <!-- This tiny classic script installs before Vite's module/preload graph.
-         It is external so production's script-src 'self' CSP stays strict, and
+         It is external so production's CSP can continue blocking inline JS, and
          it can recover a failed entry bundle without depending on app code. -->
     <script src="/boot-watchdog.js"></script>
 
@@ -37,7 +37,7 @@
          boot-watchdog.js (the blocking classic script above, which therefore runs
          BEFORE the parser would have reached this point) injects the preload only
          when localStorage holds no account. It has to stay in that external file:
-         production's script-src is 'self', so an inline script would be blocked. -->
+         production's script-src blocks inline JavaScript. -->
 
     <title>Shinobi Journey &mdash; A Living Ninja MMO</title>
     <!-- There are four villages (src/data/sectors.ts). This said five, which is

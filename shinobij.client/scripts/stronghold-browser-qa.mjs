@@ -7,6 +7,7 @@ import { spawn } from 'node:child_process';
 import { resolve, extname } from 'node:path';
 import assert from 'node:assert/strict';
 import { chromium, webkit } from '@playwright/test';
+import { createBrowserNetworkDiagnostics } from './lib/browser-network-diagnostics.mjs';
 const tmp = resolve('.tmp/stronghold-audit');
 const outputArg = process.argv.find(value => value.startsWith('--output='));
 const output = resolve(outputArg ? outputArg.slice('--output='.length) : '../docs/stronghold/audit');
@@ -29,6 +30,7 @@ const server = createServer(async (req, res) => {
 await new Promise(ok => server.listen(0, '127.0.0.1', ok));
 const url = `http://127.0.0.1:${server.address().port}/`;
 const errors = [], checks = [];
+const diagnostics = createBrowserNetworkDiagnostics();
 function fixture(options = {}) {
     const visit = { id: 'qa', layoutVersion: 1, sector: options.sector ?? 12, tile: options.tile ?? 153, steps: options.steps ?? 0, threat: options.threat ?? 0, version: 0, visited: options.visited ?? [153] };
     const state = { visit, steps: 0, polls: 0, leaves: 0, starts: 0, attacks: 0, reports: 0, failLeave: false, failStep: false, failResume: false, terminal: false, lose: false, ...options };
@@ -40,8 +42,10 @@ function fixture(options = {}) {
 }
 async function prepare(browser, viewport, state, query = '', beforeNavigate) {
     const page = await browser.newPage({ viewport, isMobile: viewport.width < 900, hasTouch: true, reducedMotion: 'reduce' });
+    diagnostics.observe(page, { engine: browser.browserType().name(), viewport, query,
+        sector: state.visit.sector, terminal: state.terminal, lose: state.lose, failReport: Boolean(state.failReport) });
     page.on('pageerror', e => errors.push(String(e)));
-    await page.route('**/api/**', async route => {
+    await page.route('**/api/**', route => diagnostics.route(page, route, async () => {
         const body = route.request().method() === 'POST' ? route.request().postDataJSON() : {};
         const action = body?.action;
         const fail = error => route.fulfill({ status: 503, json: { error } });
@@ -65,7 +69,7 @@ async function prepare(browser, viewport, state, query = '', beforeNavigate) {
         }
         if (route.request().url().includes('/solo-pve/')) return route.fulfill({ json: { ok: true, session: state.session } });
         return route.fulfill({ json: { ok: true, visit: state.visit, peers: state.peers, ...(state.visit.threat >= 100 ? { patrol: state.session } : {}) } });
-    });
+    }));
     await beforeNavigate?.(page);
     await page.goto(url + query);
     return page;
@@ -181,9 +185,9 @@ try {
         }
         {
             const state = fixture({ sector: 99, tile: 697, visited: [697], crowd: 0 });
-            const page = await prepare(browser, { width: 390, height: 844 }, state, '?host=1&sector=99');
-            await page.evaluate(() => localStorage.setItem('anbuInfiltration.activeRun:scout', 'unrelated-saved-anbu'));
-            await page.reload(); await ready(page);
+            const page = await prepare(browser, { width: 390, height: 844 }, state, '?host=1&sector=99', page =>
+                page.addInitScript(() => localStorage.setItem('anbuInfiltration.activeRun:scout', 'unrelated-saved-anbu')));
+            await ready(page);
             await page.getByRole('button', { name: 'Move right', exact: true }).click();
             await page.waitForFunction(() => document.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow') === '4');
             assert.equal(state.visit.tile, 698, 'the altar must be walkable');
@@ -240,13 +244,44 @@ try {
         await host.locator('.basic-action-bar button').first().click({ trial: true });
         await host.waitForTimeout(400); await host.screenshot({ path: `${output}/${engineName}-combat.png` });
         checks.push(`${engineName}: final boss dialog fits landscape, Escape restores exploration, actual Arena mounts`); await host.close();
-        const recovery = fixture({ failResume: true }); const retry = await prepare(browser, { width: 390, height: 844 }, recovery);
-        await retry.evaluate(() => localStorage.setItem('anbuInfiltration.activeRun:scout', 'qa-patrol'));
-        await retry.goto(url + '?host=1'); await retry.getByRole('button', { name: 'Retry connection' }).waitFor();
+        // Establish the saved-run precondition before mounting. Booting an
+        // unrelated exploration page merely to seed storage raced its passive
+        // mount effects against navigation (WebKit reports access-control errors
+        // for those old-document fetches before any API request is dispatched).
+        const recovery = fixture({ failResume: true });
+        const retry = await prepare(browser, { width: 390, height: 844 }, recovery, '?host=1', page =>
+            page.addInitScript(() => localStorage.setItem('anbuInfiltration.activeRun:scout', 'qa-patrol')));
+        await retry.getByRole('button', { name: 'Retry connection' }).waitFor();
         assert.equal(await retry.evaluate(() => localStorage.getItem('anbuInfiltration.activeRun:scout')), 'qa-patrol');
         recovery.failResume = false; await retry.getByRole('button', { name: 'Retry connection' }).click();
         await retry.getByRole('heading', { name: 'Rejoining your infiltration' }).waitFor({ state: 'hidden' });
         checks.push(`${engineName}: failed recovery retains account-scoped fight and retries`); await retry.close();
+        // Exercise real navigation while an established presence request is
+        // pending, then prove the replacement page still enters successfully.
+        {
+            let entered, release;
+            const observed = new Promise(resolve => { entered = resolve; });
+            const held = new Promise(resolve => { release = resolve; });
+            const state = fixture({ onState: async route => {
+                entered(); await held;
+                await route.fulfill({ json: { ok: true, visit: state.visit, peers: state.peers } });
+            } });
+            const page = await prepare(browser, { width: 390, height: 844 }, state, '?host=1');
+            await ready(page);
+            await Promise.race([observed, page.waitForTimeout(10_000).then(() => { throw new Error('Presence poll did not start'); })]);
+            try {
+                await Promise.all([
+                    page.waitForRequest(request => request.method() === 'POST' && request.postDataJSON()?.action === 'stronghold-enter'),
+                    page.reload(),
+                ]);
+                // The replacement must be usable before the old poll is released;
+                // browser transport cancellation events differ across engines.
+                await ready(page);
+            } finally { release(); }
+            assert.equal(state.starts, 0, 'navigation must not admit a battle');
+            checks.push(`${engineName}: navigation during a pending presence read recovers`);
+            await page.close();
+        }
         for (const outcome of ['win', 'loss', 'save-rejected', 'report-failure']) {
             const terminal = fixture({ threat: 100, terminal: true, lose: outcome === 'loss', failReport: outcome === 'report-failure' });
             const result = await prepare(browser, { width: 390, height: 844 }, terminal, `?host=1${outcome === 'save-rejected' ? '&rejectSave=1' : ''}`);
@@ -266,4 +301,10 @@ try {
         console.log({ failureText: await page.locator('body').innerText(), pageErrors: errors });
     }
     throw error;
-} finally { for (const browser of browsers) await browser.close(); server.close(); }
+} finally {
+    try { for (const browser of browsers) await browser.close(); }
+    finally {
+        await new Promise(resolve => server.close(resolve));
+        await writeFile(output + '/diagnostics.json', JSON.stringify({ ...diagnostics.report(), checks, pageErrors: errors }, null, 2));
+    }
+}
