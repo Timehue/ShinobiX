@@ -44,7 +44,7 @@ export function ShinobiIdentityCard({
     const metrics = metricIds
         ? profile.metrics.filter((metric) => metricIds.includes(metric.id))
         : profile.metrics;
-    const initials = character.name.slice(0, 2).toUpperCase();
+    const initials = (character.accountName || character.name).slice(0, 2).toUpperCase();
     const legacyStage = Math.min(5, character.legacy?.stage ?? 0);
     const avatarClasses = [
         "sic-avatar",
@@ -53,14 +53,14 @@ export function ShinobiIdentityCard({
     ].filter(Boolean).join(" ");
 
     return (
-        <section className="shinobi-identity-card" aria-label={`${character.name} identity and reputation`}>
+        <section className="shinobi-identity-card" aria-label={`${(character.accountName || character.name)} identity and reputation`}>
             <div className="sic-hero">
                 <div className="sic-avatar-stack">
                     <div className={avatarClasses}>
                         {avatarSrc ? (
                             <img
                                 src={avatarSrc}
-                                alt={`${character.name} avatar`}
+                                alt={`${(character.accountName || character.name)} avatar`}
                                 onError={(event) => { (event.currentTarget as HTMLImageElement).style.display = "none"; }}
                             />
                         ) : (
@@ -72,7 +72,7 @@ export function ShinobiIdentityCard({
                 <div className="sic-copy">
                     <p className="sic-kicker">{heading}</p>
                     <div className="sic-name-row">
-                        <h3>{character.name}</h3>
+                        <h3>{(character.accountName || character.name)}</h3>
                         {character.customTitle && (
                             <span className="sic-title" style={{ color: titleStyleColor(character.customTitleStyle) }}>
                                 {character.customTitleIcon ? `${character.customTitleIcon} ` : ""}{character.customTitle}

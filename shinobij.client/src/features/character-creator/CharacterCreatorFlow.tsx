@@ -223,7 +223,7 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false, google
                                             ? "cc-password-requirements cc-password-error"
                                             : "cc-password-requirements"}
                                     />
-                                    <button type="button" onClick={() => setShowPassword((show) => !show)}>
+                                    <button type="button" aria-label={showPassword ? "Hide password" : "Show password"} aria-controls="cc-password" aria-pressed={showPassword} onClick={() => setShowPassword((show) => !show)}>
                                         {showPassword ? "Hide" : "Show"}
                                     </button>
                                 </span>
@@ -248,7 +248,7 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false, google
                                         aria-invalid={Boolean(identityErrorFor("confirmPassword"))}
                                         aria-describedby={identityErrorFor("confirmPassword") ? "cc-confirm-error" : undefined}
                                     />
-                                    <button type="button" onClick={() => setShowConfirmPassword((show) => !show)}>
+                                    <button type="button" aria-label={showConfirmPassword ? "Hide confirmation password" : "Show confirmation password"} aria-controls="cc-confirm-password" aria-pressed={showConfirmPassword} onClick={() => setShowConfirmPassword((show) => !show)}>
                                         {showConfirmPassword ? "Hide" : "Show"}
                                     </button>
                                 </span>

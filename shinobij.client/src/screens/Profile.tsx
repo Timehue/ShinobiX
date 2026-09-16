@@ -11,6 +11,7 @@ import type { GameItem, Jutsu, SavedBloodline, Stats } from "../types/combat";
 import { ACHIEVEMENTS, ACHIEVEMENT_CATEGORY_ORDER, achievementReward, isAchievementUnlocked, type Achievement, type AchievementCategory } from "../constants/achievements";
 import { ANIMATED_MAX_MB, MAX_LEVEL, statCapForLevel } from "../constants/game";
 import { ChangePasswordCard } from "../components/ChangePasswordCard";
+import { ChangeAccountNameCard } from "../components/ChangeAccountNameCard";
 import { RecoveryCodeCard } from "../components/RecoveryCodeCard";
 import { GoogleLinkCard } from "../components/GoogleLinkCard";
 import { maxLoadout, canCustomAvatar } from "../lib/entitlements";
@@ -81,6 +82,8 @@ export function Profile({
     const { mutationAvailability } = useLiveCapabilities();
     const [feedingAura, setFeedingAura] = useState(false);
     const feedingAuraRef = useRef(false);
+    const avatarInputRef = useRef<HTMLInputElement>(null);
+    const customAvatarAllowed = canCustomAvatar(character);
     const allJutsus = getAllJutsus(savedBloodlines, creatorJutsus, character);
     // The slots that actually reach combat. An equipped id outlives the jutsu it
     // points at (an admin-deleted custom jutsu is kept in the save by its mastery
@@ -120,6 +123,7 @@ export function Profile({
 
     function uploadAvatar(event: ChangeEvent<HTMLInputElement>) {
         const file = event.target.files?.[0];
+        event.target.value = "";
         if (!file) return;
         if (!file.type.startsWith("image/")) return alert("Please upload an image file.");
         if (!canCustomAvatar(character)) {
@@ -590,10 +594,22 @@ export function Profile({
                 showTitleBadges={false}
                 showRivalry={Boolean(character.wandererNemesis)}
                 avatarAction={(
-                    <label className="sic-avatar-upload-button">
-                        Upload Avatar
-                        <input type="file" accept="image/*" onChange={uploadAvatar} />
-                    </label>
+                    <div className="profile-avatar-upload">
+                        <button
+                            type="button"
+                            className="sic-avatar-upload-button"
+                            disabled={!customAvatarAllowed}
+                            aria-describedby={!customAvatarAllowed ? "profile-avatar-restriction" : undefined}
+                            onClick={() => {
+                                if (canCustomAvatar(character)) avatarInputRef.current?.click();
+                            }}
+                        >Upload Avatar</button>
+                        {customAvatarAllowed ? (
+                            <input ref={avatarInputRef} type="file" accept="image/*" aria-label="Custom avatar image" hidden onChange={uploadAvatar} />
+                        ) : (
+                            <small id="profile-avatar-restriction">Custom avatars require Shinobi Supporter.</small>
+                        )}
+                    </div>
                 )}
             />
 
@@ -821,6 +837,7 @@ export function Profile({
                 <section className="profile-build-panel">
                     <h2>Account</h2>
                     <GoogleLinkCard playerName={character.name} />
+                    <ChangeAccountNameCard key={character.name} character={character} onVersionedCharacter={onVersionedCharacter} />
                     <ChangePasswordCard playerName={character.name} />
                     <RecoveryCodeCard playerName={character.name} />
                     <button className="danger-button" onClick={onDeleteCharacter}>Delete Character</button>

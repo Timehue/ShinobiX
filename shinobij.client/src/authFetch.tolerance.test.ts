@@ -301,7 +301,7 @@ describe("transient 401 tolerance", () => {
         // reintroduces one of the two bugs this pairing exists to prevent.
         assert.match(
             appSource,
-            /await enterGameAsPlayer\(name, loginLoad, password, \{ armPasswordFallback: !verdict\.token \}\);/,
+            /await enterGameAsPlayer\(accountId, canonicalLoad, password, \{ armPasswordFallback: !verdict\.token \}\);/,
             "the login must tell enterGameAsPlayer whether the server minted a token",
         );
         assert.match(

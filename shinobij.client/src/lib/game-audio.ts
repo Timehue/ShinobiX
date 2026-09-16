@@ -3,6 +3,7 @@ import {
   subscribeAudioMute,
 } from "./pet-music";
 import { sfxDeliveryPath } from "./audio-delivery";
+import { isAudioBackgrounded, subscribeAudioLifecycle } from "./audio-lifecycle";
 
 export type GameSfxCue =
   | "impact-light"
@@ -217,9 +218,13 @@ let context: AudioContext | null = null;
 let master: GainNode | null = null;
 let limiter: DynamicsCompressorNode | null = null;
 let unsubscribeMute: (() => void) | null = null;
+let unsubscribeLifecycle: (() => void) | null = null;
+let playbackGeneration = 0;
+let ambienceGeneration = 0;
 let ambienceRequest: GameAmbienceCue | null = null;
 let ambienceOptions: { gain?: number; fadeMs?: number } = {};
 let ambienceVoice: AmbienceVoice | null = null;
+const ambienceSources = new Set<AmbienceVoice>();
 
 const MASTER_GAIN = 0.92;
 const buffers = new Map<string, AudioBuffer>();
@@ -244,7 +249,7 @@ function audioContext(): AudioContext | null {
       context = new Context();
 
       master = context.createGain();
-      master.gain.value = isAudioMuted() ? 0 : MASTER_GAIN;
+      master.gain.value = isAudioMuted() || isAudioBackgrounded() ? 0 : MASTER_GAIN;
 
       limiter = context.createDynamicsCompressor();
       limiter.threshold.value = -5;
@@ -256,18 +261,20 @@ function audioContext(): AudioContext | null {
       master.connect(limiter);
       limiter.connect(context.destination);
 
-      unsubscribeMute = subscribeAudioMute(() => {
-        if (isAudioMuted()) {
+      const syncPlayback = () => {
+        playbackGeneration += 1;
+        ambienceGeneration += 1;
+        if (isAudioMuted() || isAudioBackgrounded()) {
           // Zero the bus before stopping sources. This makes the master switch
           // instantaneous even when an ambience loop was mid-crossfade.
           if (master && context) {
             master.gain.cancelScheduledValues(context.currentTime);
             master.gain.setValueAtTime(0, context.currentTime);
           }
-          const active = ambienceVoice;
           ambienceVoice = null;
-          if (active) stopAmbienceImmediately(active);
+          for (const active of ambienceSources) stopAmbienceImmediately(active);
           stopAllVoices();
+          if (isAudioBackgrounded()) void context?.suspend().catch(() => {});
         } else {
           if (master && context) {
             master.gain.cancelScheduledValues(context.currentTime);
@@ -280,9 +287,11 @@ function audioContext(): AudioContext | null {
             startGameAmbience(ambienceRequest, ambienceOptions);
           }
         }
-      });
+      };
+      unsubscribeMute = subscribeAudioMute(syncPlayback);
+      unsubscribeLifecycle = subscribeAudioLifecycle(syncPlayback);
     }
-    if (context.state === "suspended" && !isAudioMuted()) {
+    if (context.state === "suspended" && !isAudioMuted() && !isAudioBackgrounded()) {
       void context.resume().catch(() => {});
     }
     return context;
@@ -377,7 +386,7 @@ function startSfx(
   priority = 0,
 ): void {
   const ctx = audioContext();
-  if (!ctx || isAudioMuted()) return;
+  if (!ctx || isAudioMuted() || isAudioBackgrounded()) return;
   const definition = SFX_DEFINITIONS[cue];
   const incumbent = channel ? voicesByChannel.get(channel) : undefined;
   if (channel && incumbent) {
@@ -448,7 +457,7 @@ const DEFAULT_PRIME_CUES: Array<GameSfxCue | GameAmbienceCue> = [
 export function primeGameAudio(
   cues: Array<GameSfxCue | GameAmbienceCue> = DEFAULT_PRIME_CUES,
 ): void {
-  if (isAudioMuted()) return;
+  if (isAudioMuted() || isAudioBackgrounded()) return;
   const ctx = audioContext();
   if (!ctx) return;
   if (ctx.state === "suspended") void ctx.resume().catch(() => {});
@@ -467,7 +476,7 @@ export function playGameSfx(
   cue: GameSfxCue,
   options: { gain?: number; playbackRate?: number; pan?: number; channel?: string; priority?: number } = {},
 ): void {
-  if (isAudioMuted()) return;
+  if (isAudioMuted() || isAudioBackgrounded()) return;
   const definition = SFX_DEFINITIONS[cue];
   const now = performance.now();
   const last = lastPlayedAt.get(cue) ?? Number.NEGATIVE_INFINITY;
@@ -481,8 +490,9 @@ export function playGameSfx(
   }
 
   const requestedAt = now;
+  const generation = playbackGeneration;
   void loadBuffer(definition.path).then((buffer) => {
-    if (!buffer || performance.now() - requestedAt > 180) return;
+    if (!buffer || generation !== playbackGeneration || performance.now() - requestedAt > 180) return;
     startSfx(cue, buffer, options.gain ?? 1, options.playbackRate, options.pan, options.channel, options.priority);
   });
 }
@@ -501,17 +511,12 @@ function fadeOutAmbience(active: AmbienceVoice, fadeMs: number): void {
     now + fadeMs / 1_000,
   );
   window.setTimeout(() => {
-    try {
-      active.source.stop();
-    } catch {
-      // Already stopped.
-    }
-    active.source.disconnect();
-    active.gain.disconnect();
+    stopAmbienceImmediately(active);
   }, fadeMs + 80);
 }
 
 function stopAmbienceImmediately(active: AmbienceVoice): void {
+  if (!ambienceSources.delete(active)) return;
   try {
     active.source.stop();
   } catch {
@@ -527,14 +532,15 @@ export function startGameAmbience(
 ): void {
   ambienceRequest = cue;
   ambienceOptions = options;
-  if (isAudioMuted()) return;
+  const generation = ++ambienceGeneration;
+  if (isAudioMuted() || isAudioBackgrounded()) return;
   const ctx = audioContext();
   if (!ctx) return;
   if (ambienceVoice?.cue === cue) return;
   const gainTarget = Math.max(0.01, Math.min(0.14, options.gain ?? 0.055));
   const fadeMs = Math.max(120, options.fadeMs ?? 900);
   void loadBuffer(AMBIENCE_PATHS[cue]).then((buffer) => {
-    if (!buffer || ambienceRequest !== cue || isAudioMuted()) return;
+    if (!buffer || generation !== ambienceGeneration || ambienceRequest !== cue || isAudioMuted() || isAudioBackgrounded()) return;
     if (ambienceVoice) fadeOutAmbience(ambienceVoice, fadeMs);
 
     const source = ctx.createBufferSource();
@@ -550,15 +556,20 @@ export function startGameAmbience(
     gain.connect(output(ctx));
     source.start();
     ambienceVoice = { cue, source, gain };
+    ambienceSources.add(ambienceVoice);
   });
 }
 
 export function stopGameAmbience(fadeMs = 700): void {
+  ambienceGeneration += 1;
   ambienceRequest = null;
   ambienceOptions = {};
   const active = ambienceVoice;
   ambienceVoice = null;
-  if (active) fadeOutAmbience(active, Math.max(80, fadeMs));
+  if (active) {
+    if (isAudioMuted() || isAudioBackgrounded()) stopAmbienceImmediately(active);
+    else fadeOutAmbience(active, Math.max(80, fadeMs));
+  }
 }
 
 export const gameAudioManifest = {
@@ -572,7 +583,10 @@ if (import.meta.hot) {
   import.meta.hot.dispose(() => {
     unsubscribeMute?.();
     unsubscribeMute = null;
+    unsubscribeLifecycle?.();
+    unsubscribeLifecycle = null;
     stopGameAmbience(80);
+    for (const active of ambienceSources) stopAmbienceImmediately(active);
     stopAllVoices();
   });
 }

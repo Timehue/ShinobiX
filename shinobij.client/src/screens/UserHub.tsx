@@ -21,6 +21,7 @@ import { addFriend, follow, removeFriend, subscribeFollowing, subscribeFriends, 
 type UserHubTab = 'all' | 'following' | 'friends' | 'blocked';
 type HubPlayer = {
     name: string;
+    accountName?: string;
     level: number;
     village: string;
     online: boolean;
@@ -152,6 +153,7 @@ export function UserHub({
         for (const p of playerRoster) {
             byName.set(p.name.toLowerCase(), {
                 name: p.name,
+                accountName: p.character.accountName,
                 level: p.level ?? p.character.level,
                 village: p.village || p.character.village,
                 online: false,
@@ -167,6 +169,7 @@ export function UserHub({
             const prior = byName.get(key);
             byName.set(key, {
                 name: s.name,
+                accountName: s.character?.accountName || prior?.accountName,
                 level: s.level ?? prior?.level ?? 1,
                 village: s.village || prior?.village || "",
                 online: s.online,
@@ -203,7 +206,7 @@ export function UserHub({
     }
 
     const q = search.trim().toLowerCase();
-    const searched = q ? candidates.filter(p => p.name.toLowerCase().includes(q)) : candidates;
+    const searched = q ? candidates.filter(p => (p.accountName || p.name).toLowerCase().includes(q)) : candidates;
     const filtered = selectedList ? searched.filter(p => isOnList(selectedList, p.name)) : searched;
 
     // Split into online + offline so we can render section headers.
@@ -348,7 +351,7 @@ function renderRow(
             </div>
             <div className="user-hub-meta">
                 <div className="user-hub-name">
-                    <strong>{p.name}</strong>
+                    <strong>{p.accountName || p.name}</strong>
                     {p.title && <span className="user-hub-title">{p.title}</span>}
                 </div>
                 <div className="user-hub-sub">

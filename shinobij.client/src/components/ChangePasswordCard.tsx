@@ -97,9 +97,11 @@ export function ChangePasswordCard({ playerName }: { playerName: string }) {
                     aria-label="Current password"
                     value={current}
                     onChange={(e) => setCurrent(e.target.value)}
-                    placeholder="Current password (leave blank if you sign in with Google)"
+                    placeholder="Current password"
+                    aria-describedby="change-password-current-help"
                     autoComplete="current-password"
                 />
+                <small id="change-password-current-help" className="hint">Leave blank if you sign in with Google or play as a guest without a password.</small>
                 <input
                     type={show ? "text" : "password"}
                     aria-label="New password"

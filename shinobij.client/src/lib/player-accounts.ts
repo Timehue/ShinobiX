@@ -32,6 +32,7 @@ export function normalizePendingTravel(value: unknown, now: number = Date.now())
 }
 
 export type PlayerAccountSave = {
+    accountName?: string;
     // Per-account session token (24h). Reusable passwords are never persisted.
     token?: string;
     snapshot?: {
@@ -63,7 +64,7 @@ export function accountKey(name: string) {
  * visitor with "your story is still moving" is a small lie, and the only way to
  * avoid it is for both halves of the screen to read the same list.
  */
-export function rememberedShinobi(): { name: string; guest: boolean }[] {
+export function rememberedShinobi(): { name: string; accountName?: string; guest: boolean }[] {
     const accounts = loadPlayerAccounts();
     let guestName = "";
     try { guestName = (localStorage.getItem("shinobix:guestName") ?? "").toLowerCase(); } catch { /* private mode */ }
@@ -77,7 +78,7 @@ export function rememberedShinobi(): { name: string; guest: boolean }[] {
         .filter(([, account]) => Boolean(account?.token) && !isTokenExpired(account.token!))
         .map(([key]) => key);
     const all = guestName && !named.includes(guestName) ? [...named, guestName] : named;
-    return all.slice(0, 4).map((name) => ({ name, guest: name === guestName }));
+    return all.slice(0, 4).map((name) => ({ name, ...(accounts[name]?.accountName ? { accountName: accounts[name].accountName } : {}), guest: name === guestName }));
 }
 
 /**

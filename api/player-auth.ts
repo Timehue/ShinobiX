@@ -298,7 +298,7 @@ type AuthFailure = { status: number; body: Record<string, unknown> };
  * has to be refused whichever door it walks through, and a second copy of this
  * list would drift the first time one of them changed.
  */
-function newAccountNameError(req: VercelRequest, name: string): AuthFailure | null {
+export function newAccountNameError(req: VercelRequest, name: string): AuthFailure | null {
     // Empty-slug guard: the account identity is the safeName slug. A name
     // made entirely of characters safeName strips (all emoji / punctuation)
     // collapses to '' and would write the bare `auth:` / `save:` keys.
@@ -377,6 +377,10 @@ async function claimNewAccountSlug(
 ): Promise<{ error: AuthFailure } | { sessionEpoch: number }> {
     const key = authKey(name);
     return await withKvLock(key, async () => {
+        const { accountNameKey } = await import('./_account-name.js');
+        if (await kv.get(accountNameKey(name))) {
+            return { error: { status: 409, body: { ok: false, error: 'That account name is already taken.' } } };
+        }
         const existing = await kv.get<AuthRecord>(key);
         if (existing) {
             return { error: { status: 409, body: { ok: false, error: 'Account already has a password.' } } };
@@ -476,7 +480,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ ok: false, error: 'Invalid request body.' });
     }
     const {
-        action, name, password, oldPassword, newPassword, signupTicket, nonce, guestResume, recoveryCode,
+        action, name: requestedName, password, oldPassword, newPassword, signupTicket, nonce, guestResume, recoveryCode,
     } = body as {
         action?: string;
         name?: string;
@@ -536,11 +540,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         req, res, `player-auth:${authAction}`, authBudget, 15 * 60_000, undefined, { strict: true },
     ))) return;
 
+    let name = requestedName;
     if (typeof name !== 'string' || !name) {
         return res.status(400).json({ ok: false, error: 'Missing name.' });
     }
     if (!safeName(name)) {
         return res.status(400).json({ ok: false, error: 'Pick a name with at least one letter or number.' });
+    }
+    if (action === 'verify' || action === 'recover') {
+        try {
+            const { resolveAccountLogin } = await import('./_account-name.js');
+            const resolved = await resolveAccountLogin(name);
+            if (!resolved) {
+                if (typeof password === 'string') verifyAgainst(DUMMY_AUTH_RECORD, password);
+                return res.status(action === 'verify' ? 200 : 400).json({ ok: false, error: 'Account name or credentials are incorrect.' });
+            }
+            name = resolved;
+        } catch {
+            return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });
+        }
     }
     const key = authKey(name);
 
@@ -899,6 +917,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({
             ok: true,
             token: (await issuePlayerTokenForRecord(name, record)) ?? undefined,
+            name,
         });
     }
 

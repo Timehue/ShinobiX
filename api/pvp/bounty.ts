@@ -85,7 +85,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // ── PLACE ────────────────────────────────────────────────────────────
         if (action === 'place') {
-            const target = typeof body.target === 'string' ? body.target.trim() : '';
+            const { resolvePlayerReference } = await import('../_account-name.js');
+            const target = typeof body.target === 'string' ? await resolvePlayerReference(body.target.trim()) : '';
             const amount = Math.floor(num(body.amount));
             if (!target) return res.status(400).json({ error: 'Missing target.' });
             const targetSlug = safeName(target);

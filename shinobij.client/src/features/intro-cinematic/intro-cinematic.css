@@ -1325,6 +1325,52 @@
     .icx-pet-art { height: 72px; }
 }
 
+/* Landscape phones need a height-driven stage: desktop actor minimums used
+   to extend off the top while a fixed dialogue panel covered their faces. */
+@media (orientation: landscape) and (max-height: 540px) {
+    .icx-root { --icx-dialogue-height: min(42dvh, 150px); }
+    .icx-letterbox { display: none; }
+    .icx-root.icx-root .icx-dialogue {
+        box-sizing: border-box;
+        bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+        min-height: 0;
+        height: var(--icx-dialogue-height);
+        padding: 8px 14px 22px;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        touch-action: pan-y;
+    }
+    .icx-root.icx-root .icx-line { font-size: 14px; line-height: 1.4; margin-top: 6px; }
+    .icx-root.icx-root .icx-fox,
+    .icx-root.icx-root .icx-avatar,
+    .icx-root.icx-root .icx-gift-pet,
+    .icx-root.icx-root .icx-companion-pet {
+        bottom: calc(var(--icx-dialogue-height) + 14px + env(safe-area-inset-bottom, 0px));
+        width: auto;
+        height: min(42dvh, 190px);
+        max-width: 28vw;
+        aspect-ratio: 1;
+    }
+    .icx-root.icx-root .icx-fox { left: 2%; }
+    .icx-root.icx-root .icx-fox img { width: 100%; height: 100%; object-fit: contain; }
+    .icx-root.icx-root .icx-avatar { right: 3%; height: min(34dvh, 140px); }
+    .icx-root.icx-root .icx-avatar-portrait { width: 100%; height: calc(100% - 22px); aspect-ratio: auto; }
+    .icx-root.icx-root .icx-avatar-name { margin-top: 2px; transform: none; font-size: 10px; }
+    .icx-root.icx-root .icx-gift-pet { right: 24%; height: min(22dvh, 90px); }
+    .icx-root.icx-root .icx-companion-pet { left: 8%; }
+    .icx-root.icx-root .icx-world-title { top: 12%; width: 46vw; }
+    .icx-root.icx-root .icx-world-title strong { font-size: clamp(20px, 4vw, 32px); }
+    .icx-root.icx-root .icx-world-title span { letter-spacing: .15em; font-size: 9px; }
+    .icx-root.icx-root .icx-vision { top: 3%; width: 25dvh; }
+    .icx-title { padding-top: 12dvh; }
+    .icx-choose > * { flex-shrink: 0; }
+    .icx-confirm { padding: 12px 18px; }
+    .icx-confirm-pet-stage { height: 80px; width: 130px; margin: 0 auto; }
+    .icx-confirm .icx-pet-art { height: 100%; }
+    .icx-confirm h2 { font-size: 20px; margin: 4px 0; }
+    .icx-confirm p { margin-bottom: 10px; font-size: 13px; }
+}
+
 /* ── Motion safety ──────────────────────────────────────────────────────── */
 
 .lite-fx .icx-scene-art,

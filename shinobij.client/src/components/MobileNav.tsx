@@ -58,6 +58,7 @@ export const MobileNav = memo(function MobileNav({
     // The "You" sheet — the desktop left-rail profile card, surfaced on mobile.
     const [youOpen, setYouOpen] = useState(false);
     const navLockUntilRef = useRef(0);
+    const lastNavTargetRef = useRef<Screen | null>(null);
     const menuTriggerRef = useRef<HTMLButtonElement>(null);
     const menuDialogRef = useRef<HTMLDivElement>(null);
     const menuCloseRef = useRef<HTMLButtonElement>(null);
@@ -98,8 +99,9 @@ export const MobileNav = memo(function MobileNav({
     const avatarSrc = useOwnAvatar(character);
     function go(screen: Screen) {
         const now = Date.now();
-        if (now < navLockUntilRef.current) return;
+        if (now < navLockUntilRef.current && lastNavTargetRef.current === screen) return;
         navLockUntilRef.current = now + 300;
+        lastNavTargetRef.current = screen;
         navigate(screen);
         setOpen(false);
     }
@@ -160,12 +162,12 @@ export const MobileNav = memo(function MobileNav({
                     <div className="mobile-char-card">
                         <div className="mobile-char-avatar">
                             {avatarSrc
-                                ? <img src={avatarSrc} alt={character.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                                : character.name.slice(0, 2).toUpperCase()
+                                ? <img src={avatarSrc} alt={(character.accountName || character.name)} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                                : (character.accountName || character.name).slice(0, 2).toUpperCase()
                             }
                         </div>
                         <div className="mobile-char-info">
-                            <div className="mobile-char-name">{character.name}</div>
+                            <div className="mobile-char-name">{(character.accountName || character.name)}</div>
                             <div className="mobile-char-sub">Lv {character.level} · {character.rankTitle} · {character.village}</div>
                             <div
                                 className="mobile-xp-bar-track"

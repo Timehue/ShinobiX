@@ -1,4 +1,5 @@
 import { safeLogValue } from '../_safe-log.js';
+import { resolvePlayerReference } from '../_account-name.js';
 import { createHash } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
@@ -91,7 +92,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!isTradeCurrency(currency)) return res.status(400).json({ error: 'That currency cannot be traded.' });
         const amount = Math.floor(num(body.amount));
 
-        const toRaw = typeof body.toPlayer === 'string' ? body.toPlayer.trim() : '';
+        const toRaw = typeof body.toPlayer === 'string' ? await resolvePlayerReference(body.toPlayer.trim()) : '';
         if (!toRaw) return res.status(400).json({ error: 'Choose a player to send to.' });
         const toSlug = safeName(toRaw);
         if (!toSlug) return res.status(400).json({ error: 'Invalid recipient.' });

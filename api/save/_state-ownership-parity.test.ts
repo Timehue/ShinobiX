@@ -39,7 +39,7 @@ import {
 
 const FROZEN = {
     PUBLIC_CHAR_FIELDS: [
-        'name', 'level', 'village', 'rank', 'avatarImage', 'specialty', 'storyProgress',
+        'name', 'accountName', 'level', 'village', 'rank', 'avatarImage', 'specialty', 'storyProgress',
         'hp', 'maxHp', 'chakra', 'maxChakra', 'stamina', 'maxStamina',
         'customTitle', 'hospitalized', 'hospitalizedUntil',
         'profession', 'professionRank', 'professionXp',
@@ -190,6 +190,7 @@ const FROZEN = {
     // (exploration trio, chest trio, achievements quad, endless seven) — now
     // one uniform mirror loop; semantics per group were identical.
     SERVER_MIRRORED_CHARACTER_FIELDS: [
+        'accountName',
         'sunscarRally', 'sunscarCaravan',
         'firstContract', // journal milestones are committed by existing authoritative actions, never generic saves
         'elderWinDays', 'elderRankedWinReceipts',

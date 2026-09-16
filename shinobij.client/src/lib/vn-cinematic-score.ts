@@ -8,6 +8,7 @@
  */
 import { isAudioMuted, subscribeAudioMute } from "./pet-music";
 import { musicDeliverySrc } from "./audio-delivery";
+import { isAudioBackgrounded, subscribeAudioLifecycle } from "./audio-lifecycle";
 import type { VnSoundCue } from "../types/vn";
 
 export type VnScoreKey = "stormveil" | "ashen" | "frostfang" | "moonshadow" | "hollow";
@@ -31,6 +32,8 @@ let mixFrame: number | null = null;
 let duckFrame: number | null = null;
 let duckMultiplier = 1;
 let listenersInstalled = false;
+let unsubscribeMute: (() => void) | null = null;
+let unsubscribeLifecycle: (() => void) | null = null;
 
 function normalized(value: string): string {
     return value.toLowerCase().replace(/[_\s]+/g, "-");
@@ -76,29 +79,28 @@ function cancelDuckFrame(): void {
 function installListeners(): void {
     if (listenersInstalled || typeof document === "undefined") return;
     listenersInstalled = true;
-    subscribeAudioMute(() => {
+    const syncPlayback = () => {
         if (!decks) return;
-        const muted = isAudioMuted();
+        const muted = isAudioMuted() || isAudioBackgrounded();
         decks.forEach((deck) => {
             // The media-element mute is a hard guard against any pending play()
             // promise resolving after the player has pressed the master switch.
             deck.muted = muted;
         });
         if (muted) {
+            cancelMixFrame();
+            cancelDuckFrame();
+            duckMultiplier = 1;
+            mix = currentKey ? (activeDeck === 0 ? [1, 0] : [0, 1]) : [0, 0];
+            renderMix();
             decks.forEach((deck) => deck.pause());
             return;
         }
         const deck = decks[activeDeck];
-        if (currentKey && !document.hidden) void deck.play().catch(() => {});
-    });
-    document.addEventListener("visibilitychange", () => {
-        if (!decks) return;
-        if (document.hidden || isAudioMuted()) {
-            decks.forEach((deck) => deck.pause());
-        } else if (currentKey) {
-            void decks[activeDeck].play().catch(() => {});
-        }
-    });
+        if (currentKey) void deck.play().catch(() => {});
+    };
+    unsubscribeMute = subscribeAudioMute(syncPlayback);
+    unsubscribeLifecycle = subscribeAudioLifecycle(syncPlayback);
 }
 
 function ensureDecks(): [HTMLAudioElement, HTMLAudioElement] | null {
@@ -109,7 +111,7 @@ function ensureDecks(): [HTMLAudioElement, HTMLAudioElement] | null {
             deck.loop = true;
             deck.preload = "auto";
             deck.volume = 0;
-            deck.muted = isAudioMuted();
+            deck.muted = isAudioMuted() || isAudioBackgrounded();
         }
         installListeners();
     }
@@ -153,7 +155,7 @@ export function startVnScore(key: VnScoreKey | null): void {
         const audioDecks = ensureDecks();
         if (!audioDecks) return;
         if (currentKey === key) {
-            if (!document.hidden) void audioDecks[activeDeck].play().catch(() => {});
+            if (!isAudioBackgrounded()) void audioDecks[activeDeck].play().catch(() => {});
             return;
         }
 
@@ -169,6 +171,13 @@ export function startVnScore(key: VnScoreKey | null): void {
         incoming.playbackRate = 1;
         currentKey = key;
         activeDeck = incomingIndex;
+        if (isAudioBackgrounded()) {
+            cancelMixFrame();
+            mix = incomingIndex === 0 ? [1, 0] : [0, 1];
+            audioDecks.forEach((deck) => { deck.muted = true; deck.pause(); });
+            renderMix();
+            return;
+        }
         void incoming.play().catch(() => {
             // Autoplay policy: advance(), unmute, or another stage gesture retries.
         });
@@ -190,6 +199,13 @@ export function stopVnScore(fadeMs = 900): void {
         cancelDuckFrame();
         duckMultiplier = 1;
         if (!decks) return;
+        if (fadeMs <= 0 || isAudioMuted() || isAudioBackgrounded()) {
+            cancelMixFrame();
+            mix = [0, 0];
+            renderMix();
+            decks.forEach((deck) => { deck.pause(); deck.currentTime = 0; });
+            return;
+        }
         animateMix([0, 0], fadeMs, () => {
             decks?.forEach((deck) => {
                 deck.pause();
@@ -212,7 +228,7 @@ const DUCKING: Readonly<Partial<Record<VnSoundCue, { floor: number; holdMs: numb
 /** Make a sparse authored cue readable without making either bus loud. */
 export function duckVnScore(cue: VnSoundCue): void {
     const duck = DUCKING[cue];
-    if (!duck || !decks || typeof window === "undefined") return;
+    if (!duck || !decks || typeof window === "undefined" || isAudioMuted() || isAudioBackgrounded()) return;
     cancelDuckFrame();
     const startedAt = performance.now();
     const attackMs = 65;
@@ -238,4 +254,12 @@ export function duckVnScore(cue: VnSoundCue): void {
         renderMix();
     };
     duckFrame = window.requestAnimationFrame(frame);
+}
+
+if (import.meta.hot) {
+    import.meta.hot.dispose(() => {
+        unsubscribeMute?.();
+        unsubscribeLifecycle?.();
+        stopVnScore(0);
+    });
 }

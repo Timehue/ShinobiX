@@ -132,14 +132,14 @@ export const ProfileCardBody = memo(function ProfileCardBody({
                     title="View character profile"
                 >
                     {avatarSrc ? (
-                        <img src={avatarSrc} alt={`Character avatar for ${character.name}`} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                        <img src={avatarSrc} alt={`Character avatar for ${(character.accountName || character.name)}`} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
                     ) : (
-                        character.name.slice(0, 2).toUpperCase()
+                        (character.accountName || character.name).slice(0, 2).toUpperCase()
                     )}
                 </button>
             </div>
 
-            <div className="left-profile-name">{character.name}</div>
+            <div className="left-profile-name">{(character.accountName || character.name)}</div>
             <div className="left-profile-rank">{character.rankTitle}</div>
             {((character.rankedWins ?? 0) + (character.rankedLosses ?? 0)) > 0 && (
                 <div className="left-profile-rank" style={{ marginTop: 2 }}>
