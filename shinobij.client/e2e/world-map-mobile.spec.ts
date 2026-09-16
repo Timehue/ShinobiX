@@ -920,7 +920,20 @@ test("pinch preserves landmark targets and panning does not rewrite inherited ma
 test("animated zoom keeps intermediate landmark targets compact and tappable", async ({ page }, testInfo) => {
     test.skip(!phoneProjects.includes(testInfo.project.name), "animated mobile camera in both phone engines");
     await page.emulateMedia({ reducedMotion: "no-preference" });
-    const errors = await bootWorldMap(page);
+    const save = uiAuditSave();
+    // The lifecycle check returns to Sector 40. Use the same real-character
+    // cooldown fixture as adaptive-shell/story-field-work so a roaming bandit
+    // cannot open an unrelated Fight/Flee modal over its Leave action.
+    // shared/wanderer-roster.ts pins six-hour buckets and roster indices 0–1;
+    // adjacent buckets cover a clock boundary without freezing browser time.
+    const now = Date.now();
+    const bucket = Math.floor(now / (6 * 60 * 60 * 1000));
+    const cooldowns: Record<string, number> = {};
+    for (const offset of [-1, 0, 1]) {
+        for (const index of [0, 1]) cooldowns[`w-40-${bucket + offset}-${index}`] = now + 30 * 24 * 60 * 60 * 1000;
+    }
+    save.character = { ...save.character, wandererCooldowns: cooldowns };
+    const errors = await bootWorldMap(page, save);
     await chooseRegion(page, "storm");
     const map = page.locator(".generated-world-map");
     // Sample real CSS transition timelines deterministically: WebKit's mobile
