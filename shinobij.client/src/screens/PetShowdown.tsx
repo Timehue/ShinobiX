@@ -279,9 +279,9 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
 
     const activeSession = battle?.state.sessionId ?? null;
 
-    const handleSubmitTurn = useCallback(async (commands: ShowdownCommand[]) => {
+    const handleSubmitTurn = useCallback(async (commands: ShowdownCommand[], expectedRound: number) => {
         if (!activeSession) return null;
-        return submitShowdownTurn(character.name, activeSession, commands);
+        return submitShowdownTurn(character.name, activeSession, commands, expectedRound);
     }, [character.name, activeSession]);
 
     const handleFinished = useCallback((outcome: "win" | "loss", settlement: ShowdownTurnResponse | null) => {

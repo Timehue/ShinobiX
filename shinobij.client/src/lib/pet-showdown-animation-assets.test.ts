@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
+import { PET_RIG_REPAIR_REVISIONS } from "./pet-proper-animation-assets";
 import {
     PET_SHOWDOWN_ANIMATION_ASSET_REVISION,
     PET_SHOWDOWN_ANIMATION_MODEL_IDS,
@@ -21,6 +23,32 @@ function parseGlb(path: string) {
     return { file, json };
 }
 
+// A repair appends identical binding streams after each asset's own animation
+// bank. Accessor indices can differ while the actual reviewed mesh stays equal.
+function meshContent({ file, json }: ReturnType<typeof parseGlb>) {
+    const meshes = structuredClone(json.meshes);
+    if (!json.extras?.birdFaceRepair) return meshes;
+    const binStart = 28 + file.readUInt32LE(12);
+    for (const mesh of meshes) for (const primitive of mesh.primitives) {
+        for (const name of ["JOINTS_0", "WEIGHTS_0"]) {
+            const accessor = json.accessors[primitive.attributes[name]];
+            const view = json.bufferViews[accessor.bufferView];
+            assert.equal(accessor.type, "VEC4");
+            assert.equal(view.extensions, undefined, "repair streams are stored uncompressed");
+            assert.equal(view.byteStride, undefined);
+            const componentBytes = accessor.componentType === 5123 ? 2 : accessor.componentType === 5126 ? 4 : 0;
+            assert.ok(componentBytes, "unexpected repaired binding component type");
+            const start = binStart + (view.byteOffset ?? 0) + (accessor.byteOffset ?? 0);
+            const bytes = file.subarray(start, start + accessor.count * 4 * componentBytes);
+            primitive.attributes[name] = {
+                type: accessor.type, componentType: accessor.componentType, count: accessor.count,
+                sha256: createHash("sha256").update(bytes).digest("hex"),
+            };
+        }
+    }
+    return meshes;
+}
+
 test("the screenshot lineup uses four versioned species-authored GLBs", () => {
     assert.deepEqual([...PET_SHOWDOWN_ANIMATION_MODEL_IDS].sort(), [
         "rare-1", "standard-7", "starter-fire-l", "starter-lightning-l",
@@ -28,9 +56,10 @@ test("the screenshot lineup uses four versioned species-authored GLBs", () => {
     for (const id of PET_SHOWDOWN_ANIMATION_MODEL_IDS) {
         assert.equal(
             petShowdownAnimationModelUrl(id),
-            `/pet-models/showdown-v2/${id}.glb?v=${PET_SHOWDOWN_ANIMATION_ASSET_REVISION}`,
+            `/pet-models/showdown-v2/${id}.glb?v=${PET_RIG_REPAIR_REVISIONS[id] ?? PET_SHOWDOWN_ANIMATION_ASSET_REVISION}`,
         );
     }
+    assert.notEqual(PET_RIG_REPAIR_REVISIONS["starter-lightning-l"], PET_SHOWDOWN_ANIMATION_ASSET_REVISION, "the repaired Hound must invalidate the previously cached face");
     assert.equal(petShowdownAnimationModelUrl("standard-8"), null);
 });
 
@@ -44,7 +73,7 @@ test("each replacement preserves its reviewed model but carries a full identity 
         const source = parseGlb(sourcePath);
         const authored = parseGlb(authoredPath);
 
-        assert.deepEqual(authored.json.meshes, source.json.meshes, `${id}: mesh changed during animation authoring`);
+        assert.deepEqual(meshContent(authored), meshContent(source), `${id}: mesh changed during animation authoring`);
         assert.deepEqual(authored.json.materials, source.json.materials, `${id}: materials changed during animation authoring`);
         assert.deepEqual(authored.json.skins, source.json.skins, `${id}: reviewed skin changed during animation authoring`);
         assert.equal(authored.json.extras?.showdownAnimationBank, PET_SHOWDOWN_ANIMATION_ASSET_REVISION);

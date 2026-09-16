@@ -117,9 +117,9 @@ test("all 160 catalog identities resolve to a versioned runtime GLB with the ful
         assert.ok(model, `${pet.id}: production model resolution failed`);
         const [assetUrl, revision] = model.url.split("?v=");
         assert.ok(revision, `${pet.id}: runtime GLB is not cache-versioned`);
-        const expectedRevision = INDIVIDUAL_PET_ANIMATION_MODEL_IDS.has(model.visualId)
+        const expectedRevision = PET_RIG_REPAIR_REVISIONS[model.visualId] ?? (INDIVIDUAL_PET_ANIMATION_MODEL_IDS.has(model.visualId)
             ? PET_SHOWDOWN_ANIMATION_ASSET_REVISION
-            : PET_RIG_REPAIR_REVISIONS[model.visualId] ?? PROPER_PET_ANIMATION_ASSET_REVISION;
+            : PROPER_PET_ANIMATION_ASSET_REVISION);
         assert.equal(revision, expectedRevision, `${pet.id}: stale runtime asset revision`);
         const path = resolve(import.meta.dirname, `../../public${assetUrl}`);
         const json = parseGlb(path);

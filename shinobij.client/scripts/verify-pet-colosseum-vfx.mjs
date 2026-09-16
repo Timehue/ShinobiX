@@ -38,7 +38,7 @@ if (managedPreview) {
 }
 
 // Production roster coverage: all five body profiles, every elemental family,
-// three rarity bands, and all graphics presets. Each case runs through the
+// four rarity bands, and all graphics presets. Each case runs through the
 // production PetShowdownBattle component mounted by the Showdown harness.
 const cases = [
     { id: "standard-fire-quadruped", rosterPet: "standard-0", enemyPet: "rare-24", quality: "low", profile: "quadruped" },
@@ -62,6 +62,7 @@ const pageErrors = [];
 const vfxAssets = new Map();
 const setPieceAssets = new Map();
 const modelAssets = new Map();
+const bundleScripts = new Set();
 
 page.on("console", (message) => {
     if (message.type() === "error") consoleErrors.push(message.text());
@@ -69,6 +70,7 @@ page.on("console", (message) => {
 page.on("pageerror", (error) => pageErrors.push(error.message));
 page.on("response", async (response) => {
     const pathname = new URL(response.url()).pathname;
+    if (pathname.endsWith(".js")) bundleScripts.add(response.url());
     const projectile = pathname.match(/\/(fire|water|wind|earth|lightning)-[^/]+\.webp$/i);
     const setPiece = pathname.match(/\/(tsunami|firewall|tornado|quake|stormbolt)-[^/]+\.webp$/i);
     const headers = await response.allHeaders();
@@ -84,6 +86,40 @@ page.on("response", async (response) => {
     }
     if (/\/pet-models\/.*\.glb$/i.test(pathname)) modelAssets.set(pathname, { status: response.status(), bytes });
 });
+
+// Current signatures use authored procedural storms. Their legacy sprite
+// fallbacks must still ship, but a successful authored cast should not load or
+// stack a second generic set-piece over that choreography.
+async function verifyFallbackSprites() {
+    const sources = await Promise.all([...bundleScripts].map(async (url) => (await fetch(url)).text()));
+    const urls = new Set(sources.flatMap((source) => [...source.matchAll(/["'`](\/assets\/(?:fire|water|wind|earth|lightning|tsunami|firewall|tornado|quake|stormbolt)-[^"'`\s]+\.webp)["'`]/g)].map((match) => match[1])));
+    const assets = new Map();
+    for (const path of urls) {
+        const response = await fetch(new URL(path, baseUrl));
+        const bytes = (await response.arrayBuffer()).byteLength;
+        const name = path.match(/\/([^/-]+)-/)[1];
+        const minimum = ["tsunami", "firewall", "tornado", "quake", "stormbolt"].includes(name) ? 400_000 : 100_000;
+        if (!response.ok || bytes < minimum) throw new Error(`Fallback sprite integrity failed: ${JSON.stringify({ path, status: response.status, bytes })}`);
+        assets.set(name, { path, status: response.status, bytes });
+    }
+    const required = ["fire", "water", "wind", "earth", "lightning", "tsunami", "firewall", "tornado", "quake", "stormbolt"];
+    if (required.some((name) => !assets.has(name))) throw new Error(`Bundled fallback sprite coverage incomplete: ${JSON.stringify([...assets.keys()])}`);
+    return [...assets.entries()];
+}
+
+async function arenaImageChange(beforePath, afterPath) {
+    const sample = async (path) => sharp(path).resize(480, 300).extract({ left: 24, top: 48, width: 432, height: 174 }).removeAlpha().raw().toBuffer();
+    const [before, after] = await Promise.all([sample(beforePath), sample(afterPath)]);
+    let changed = 0, total = 0;
+    for (let i = 0; i < before.length; i += 3) {
+        const difference = (Math.abs(before[i] - after[i]) + Math.abs(before[i + 1] - after[i + 1]) + Math.abs(before[i + 2] - after[i + 2])) / 3;
+        total += difference;
+        if (difference > 12) changed++;
+    }
+    const change = { meanDifference: total / (before.length / 3), changedFraction: changed / (before.length / 3) };
+    if (change.meanDifference < 3 || change.changedFraction < 0.04) throw new Error(`Signature contact frame did not change the arena: ${JSON.stringify(change)}`);
+    return change;
+}
 
 async function imageContract(path) {
     const image = sharp(path);
@@ -185,18 +221,32 @@ async function inspect(testCase) {
         if (budget[key] !== value) throw new Error(`${testCase.id} ${key} budget drifted: ${JSON.stringify(budget)}`);
     }
 
-    await page.getByRole("button", { name: /Overdrive/i }).click();
-    await page.waitForFunction(() => {
+    const kitsResponse = await fetch(new URL("/showdown-moves-qa.json", baseUrl));
+    if (!kitsResponse.ok) throw new Error("The VFX QA build must include actual engine move kits");
+    const kits = await kitsResponse.json();
+    const signature = kits[testCase.rosterPet]?.find((move) => move.signature);
+    if (!signature) throw new Error(`${testCase.id} has no engine signature`);
+    const signatureButton = page.locator(".showdown-tech-pill.signature");
+    if (!(await signatureButton.innerText()).includes(signature.name)) throw new Error(`${testCase.id} signature label differs from the engine kit`);
+    await signatureButton.click();
+    await page.waitForFunction(({ actorId, moveName }) => {
         const raw = document.querySelector("[data-testid='pet-showdown-root']")?.getAttribute("data-pet-visual-audit");
         if (!raw) return false;
         const audit = JSON.parse(raw);
-        return audit.attackRhythm && audit.activeEffects?.setPieces > 0 && audit.activeEffects?.scars > 0;
-    }, undefined, { timeout: 20_000 });
+        return audit.activeAction?.actorId === actorId && audit.activeAction?.moveName === moveName
+            && audit.activeAction.super && audit.attackRhythm && audit.activeEffects?.scars > 0;
+    }, { actorId: testCase.rosterPet, moveName: signature.name }, { timeout: 30_000 });
     // Capture after the hero layer has faded in, not on the React frame that
     // merely mounted it. This makes the stored evidence useful for a human
     // composition review as well as the structural asset-load assertions.
     await page.waitForTimeout(320);
     const actionAudit = await page.evaluate(() => JSON.parse(document.querySelector("[data-testid='pet-showdown-root']")?.getAttribute("data-pet-visual-audit") ?? "null"));
+    const action = actionAudit.activeAction;
+    if (action?.moveName !== signature.name || action.element !== signature.element || !action.super
+        || action.delivery !== "ranged" || action.presentation?.grammar !== "hero:storm" || !action.presentation.area
+        || !action.authoredTargetIds?.includes(testCase.enemyPet) || actionAudit.activeEffects.setPieces !== 0) {
+        throw new Error(`${testCase.id} authored signature contract failed: ${JSON.stringify({ signature, action, effects: actionAudit.activeEffects })}`);
+    }
     if (!(actionAudit.attackRhythm.windupStart < actionAudit.attackRhythm.contact
         && actionAudit.attackRhythm.contact < actionAudit.attackRhythm.contactEnd
         && actionAudit.attackRhythm.contactEnd < actionAudit.attackRhythm.recoverEnd)) {
@@ -208,7 +258,9 @@ async function inspect(testCase) {
         ...testCase,
         restScreenshotPath,
         actionScreenshotPath,
+        signature: { name: signature.name, element: signature.element, cls: signature.cls },
         audit: actionAudit,
+        arenaImageChange: await arenaImageChange(restScreenshotPath, actionScreenshotPath),
         restImage: await imageContract(restScreenshotPath),
         actionImage: await imageContract(actionScreenshotPath),
     };
@@ -230,19 +282,20 @@ try {
     const failedVfx = [...vfxAssets.entries()].filter(([, asset]) => asset.status >= 400);
     const failedSetPieces = [...setPieceAssets.entries()].filter(([, asset]) => asset.status >= 400);
     const failedModels = [...modelAssets.entries()].filter(([, asset]) => asset.status >= 400 || asset.bytes < 50_000);
-    const travelingElements = ["fire", "water", "wind", "earth"];
-    const heroSetPieces = ["tsunami", "firewall", "tornado", "quake", "stormbolt"];
-    if (travelingElements.some((key) => !vfxAssets.has(key)) || failedVfx.length) {
+    if (failedVfx.length) {
         throw new Error(`High-resolution projectile coverage failed: ${JSON.stringify({ assets: [...vfxAssets], failedVfx })}`);
     }
-    if (heroSetPieces.some((key) => !setPieceAssets.has(key)) || failedSetPieces.length) {
+    if (failedSetPieces.length) {
         throw new Error(`Elemental set-piece coverage failed: ${JSON.stringify({ assets: [...setPieceAssets], failedSetPieces })}`);
     }
     if (modelAssets.size < cases.length + 1 || failedModels.length) throw new Error(`Model asset coverage failed: ${JSON.stringify({ count: modelAssets.size, failedModels })}`);
     if (new Set(results.map((result) => result.audit.fighters[0].profile)).size < 5) throw new Error("Body-profile coverage is incomplete");
+    if (new Set(results.map((result) => result.signature.element)).size < 5) throw new Error("Authored signature element coverage is incomplete");
+    if (!["physical", "special"].every((cls) => results.some((result) => result.signature.cls === cls))) throw new Error("Physical/special signature coverage is incomplete");
     if (!qualityOverride && new Set(results.map((result) => result.quality)).size < 3) throw new Error("Low/medium/high quality coverage is incomplete");
+    const fallbackSpriteAssets = await verifyFallbackSprites();
     if (consoleErrors.length || pageErrors.length) throw new Error(`Browser runtime errors: ${JSON.stringify({ consoleErrors, pageErrors })}`);
-    console.log(JSON.stringify({ ok: true, cases: results, vfxAssets: [...vfxAssets.entries()], setPieceAssets: [...setPieceAssets.entries()], modelAssets: [...modelAssets.entries()] }, null, 2));
+    console.log(JSON.stringify({ ok: true, cases: results, fallbackSpriteAssets, vfxAssets: [...vfxAssets.entries()], setPieceAssets: [...setPieceAssets.entries()], modelAssets: [...modelAssets.entries()] }, null, 2));
 } finally {
     await context.close();
     await browser.close();
