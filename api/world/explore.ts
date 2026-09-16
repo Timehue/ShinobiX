@@ -254,7 +254,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                     const presenceBlock = sectorPresenceBlock(playerName, body.sector);
                     if (presenceBlock && !identity.admin) {
-                        return { ok: false as const, status: presenceBlock.status, error: presenceBlock.error };
+                        return { ok: false as const, status: presenceBlock.status, error: JSON.stringify({ error: presenceBlock.error, reason: presenceBlock.reason }) };
                     }
                     // The server-proven `inBattle` state (F01) is held to its own
                     // consequence: mid-battle players do not work the field.

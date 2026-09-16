@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { openAncientChest, recordSectorExplore } from "./world-reward-api";
+import { openAncientChest, recordSectorExplore, worldRewardFailureMessage } from "./world-reward-api";
 
 /*
  * Regression guard: world-map rewards must be settled by the server.
@@ -22,6 +22,133 @@ function source(relativeUrl: string): string {
 }
 
 describe("world-map reward settlement", () => {
+
+    test("concurrent exploration and chest recovery share requests only for identical player receipts", { concurrency: false }, async () => {
+        const realFetch = globalThis.fetch;
+        let release!: () => void;
+        const waiting = new Promise<void>((resolve) => { release = resolve; });
+        const calls: Array<{ url: string; body: Record<string, unknown> }> = [];
+        globalThis.fetch = (async (url, init) => {
+            const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+            calls.push({ url: String(url), body });
+            await waiting;
+            return new Response(JSON.stringify({ character: { name: body.playerName }, loot: { xp: 0, ryo: 80 } }));
+        }) as typeof fetch;
+        try {
+            const explore = () => recordSectorExplore("Rill", 61, "tile", "singleflight123", { resolveOutcome: true });
+            const chest = () => openAncientChest("Rill", 61, "singlechest123", "singleflight123");
+            const requests = [explore(), explore(), chest(), chest(),
+                recordSectorExplore("Sora", 61, "tile", "singleflight123", { resolveOutcome: true }),
+                openAncientChest("Sora", 61, "singlechest123", "singleflight123")];
+            await Promise.resolve();
+            assert.equal(calls.length, 4, "one exploration and one chest per player; duplicate UI recovery shares them");
+            release();
+            const results = await Promise.all(requests);
+            assert.deepEqual(results[0], results[1]);
+            assert.deepEqual(results[2], results[3]);
+            assert.equal(results[4].character?.name, "Sora");
+            await Promise.all([explore(), chest()]);
+            assert.equal(calls.length, 6, "completed snapshots must never be cached across later save versions");
+        } finally {
+            release();
+            globalThis.fetch = realFetch;
+        }
+    });
+
+    test("lost exploration and chest acknowledgements recover with exactly the same proofs", { concurrency: false }, async () => {
+        const realFetch = globalThis.fetch;
+        const calls = new Map<string, Record<string, unknown>[]>();
+        globalThis.fetch = (async (url, init) => {
+            const path = String(url);
+            const bodies = calls.get(path) ?? [];
+            bodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+            calls.set(path, bodies);
+            if (bodies.length === 1) throw new TypeError("Response lost after committing");
+            if (bodies.length === 2) return new Response(JSON.stringify({ error: "temporary" }), { status: 503 });
+            return new Response(JSON.stringify({ character: { name: "Rill" }, _saveVersion: 4,
+                replayed: true, outcome: { kind: "external", source: "pet" }, loot: { xp: 0, ryo: 80 } }));
+        }) as typeof fetch;
+        try {
+            const [explored, chest] = await Promise.all([
+                recordSectorExplore("Rill", 41, "tile", "lostexplore123", { externalOutcomeProof: { kind: "pet", token: "petproof123" } }),
+                openAncientChest("Rill", 61, "lostchest123", "chestexplore123"),
+            ]);
+            assert.equal(explored.replayed, true);
+            assert.equal(explored.character?.name, "Rill");
+            assert.deepEqual(chest.loot, { xp: 0, ryo: 80 });
+            assert.deepEqual(calls.get('/api/world/explore'), Array.from({ length: 3 }, () => ({
+                playerName: "Rill", sector: 41, credit: "tile", requestId: "lostexplore123",
+                externalOutcomeProof: { kind: "pet", token: "petproof123" },
+            })));
+            assert.deepEqual(calls.get('/api/world/open-chest'), Array.from({ length: 3 }, () => ({
+                playerName: "Rill", sector: 61, requestId: "lostchest123", worldExploreRequestId: "chestexplore123",
+            })));
+        } finally { globalThis.fetch = realFetch; }
+    });
+
+    test("reconnecting presence recovers the same exploration; persistent faults stop after three calls", { concurrency: false }, async () => {
+        const realFetch = globalThis.fetch;
+        let calls = 0;
+        globalThis.fetch = (async () => {
+            calls++;
+            return calls === 1
+                ? new Response(JSON.stringify({ error: "Reconnect first.", reason: "no-presence" }), { status: 409 })
+                : new Response(JSON.stringify({ character: { name: "Rill" }, _saveVersion: 2 }));
+        }) as typeof fetch;
+        try {
+            assert.equal((await recordSectorExplore("Rill", 41, "tile", "presenceproof123")).character?.name, "Rill");
+            assert.equal(calls, 2);
+            calls = 0;
+            globalThis.fetch = (async () => {
+                calls++;
+                return new Response(JSON.stringify({ error: "temporarily unavailable" }), { status: 503 });
+            }) as typeof fetch;
+            const failure = await recordSectorExplore("Rill", 41, "tile", "offlineproof123");
+            assert.equal(calls, 3, "persistent errors stay parked without an unbounded request loop");
+            assert.equal(failure.retryable, true);
+            assert.equal(failure.status, 503);
+        } finally { globalThis.fetch = realFetch; }
+    });
+
+    test("discovered chests survive all refusals without immediately retrying limits or authentication", { concurrency: false }, async () => {
+        const realFetch = globalThis.fetch;
+        const failures = [
+            { status: 409, error: "daily-limit" },
+            { status: 409, error: "missing-chest-discovery" },
+            { status: 410, error: "expired" },
+            { status: 401, error: "Authentication required." },
+            { status: 403, error: "Not your chest." },
+            { status: 429, error: "Too many requests." },
+        ];
+        let calls = 0;
+        try {
+            for (const failure of failures) {
+                globalThis.fetch = (async () => {
+                    calls++;
+                    return new Response(JSON.stringify({ error: failure.error }), { status: failure.status });
+                }) as typeof fetch;
+                const result = await openAncientChest("Rill", 41, "owedchest123", "owedexplore123");
+                assert.equal(result.retryable, true, failure.error + " must not discard an owed payout");
+                assert.equal(result.error, failure.error);
+            }
+            assert.equal(calls, failures.length, "daily caps, auth, and throttle refusals need later recovery, not automatic retries");
+            globalThis.fetch = (async () => new Response(JSON.stringify({ error: "daily-limit" }), { status: 409 })) as typeof fetch;
+            assert.equal((await recordSectorExplore("Rill", 41, "tile", "cappedexplore123")).retryable, false,
+                "a refused new exploration has no owed reward and cannot block every sector");
+        } finally { globalThis.fetch = realFetch; }
+    });
+
+    test("reward failures distinguish limits, reconnects, active encounters, and real expired proofs", () => {
+        assert.match(worldRewardFailureMessage({ error: "daily-limit", status: 409 }), /Daily tile exploration limit/);
+        assert.match(worldRewardFailureMessage({ error: "daily-limit", status: 409 }, "chest"), /Daily chest limit.*remains saved/);
+        assert.match(worldRewardFailureMessage({ error: "no", reason: "no-presence", status: 409, retryable: true }), /reconnecting/);
+        assert.match(worldRewardFailureMessage({ error: "hospitalized", status: 409 }), /hospital/);
+        assert.match(worldRewardFailureMessage({ error: "battle-active", status: 409 }), /active battle/);
+        assert.match(worldRewardFailureMessage({ error: "Not your exploration.", status: 403, retryable: false }), /Not your exploration/);
+        assert.doesNotMatch(worldRewardFailureMessage({ error: "Not your exploration.", status: 403, retryable: false }), /expired|syncing/);
+        assert.match(worldRewardFailureMessage({ error: "missing-pet-discovery", status: 409, retryable: false }), /no longer available/);
+        assert.match(worldRewardFailureMessage({ error: "offline", retryable: true }, "chest"), /remains saved/);
+    });
     test("explore and chest requests preserve the exact outcome proof", { concurrency: false }, async () => {
         const realFetch = globalThis.fetch;
         const bodies: Record<string, unknown>[] = [];
@@ -54,6 +181,8 @@ describe("world-map reward settlement", () => {
         const replies = [
             new Response(JSON.stringify({ error: "missing-pet-discovery" }), { status: 409, headers: { "Content-Type": "application/json" } }),
             new Response(JSON.stringify({ error: "pending-pet-discovery" }), { status: 409, headers: { "Content-Type": "application/json" } }),
+            new Response(JSON.stringify({ error: "temporary" }), { status: 503, headers: { "Content-Type": "application/json" } }),
+            new Response(JSON.stringify({ error: "temporary" }), { status: 503, headers: { "Content-Type": "application/json" } }),
             new Response(JSON.stringify({ error: "temporary" }), { status: 503, headers: { "Content-Type": "application/json" } }),
         ];
         globalThis.fetch = (async () => replies.shift()!) as typeof fetch;
@@ -152,7 +281,7 @@ describe("world-map reward settlement", () => {
         const app = source("../App.tsx");
         assert.match(worldMap, /recordSectorExplore\([\s\S]{0,160}operation\.id/);
         assert.match(worldMap, /await recordMissionExplore\(sector, operation\.id, settled\.fieldProgress\)/);
-        assert.match(worldMap, /await recordMissionExplore\(operation\.sector, operation\.id, result\.fieldProgress\)/,
+        assert.match(source("./world-reward-drain.ts"), /await recordMissionExplore\(operation\.sector, operation\.id, result\.fieldProgress\)/,
             "reload recovery must retain the receipt until mission progress ACKs");
         assert.match(worldMap, /battleKind: "explore",[\s\S]{0,180}worldExploreRequestId,/,
             "the server-rolled battle must start from that same receipt");
