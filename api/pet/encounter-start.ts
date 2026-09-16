@@ -8,7 +8,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { DAILY_WILD_ENCOUNTER_ATTEMPTS, rollWildPet } from './_encounter.js';
 import { sectorPresenceBlock } from '../_sector-presence-gate.js';
 import { isWildSector } from '../../shared/sector-geo.js';
-import { withKvLock } from '../_lock.js';
+import { LockContendedError, withKvLock } from '../_lock.js';
 import {
     cleanPetEncounterPointer,
     petEncounterActiveKey,
@@ -159,6 +159,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         ? { token: active.token, pet: active.pet }
                         : {}),
                 };
+                // A choice may have committed its terminal receipt before
+                // cleanup lost its ACK. Never recreate unresolved authority
+                // from that terminal receipt or every future search replays it.
+                if (activeReceipt.resolvedAt) {
+                    if (active.token) await kv.del(`pet-encounter:${playerName}:${active.token}`);
+                    await kv.del(activeKey);
+                    return responseFor(activeReceipt, true);
+                }
                 if (Date.now() - activeReceipt.mintedAt >= ATTEMPT_RECEIPT_TTL_SECONDS * 1_000) {
                     activeReceipt = { ...activeReceipt, resolvedAt: Date.now(), resolution: 'expired' };
                     await kv.set(petEncounterRequestKey(playerName, activeReceipt.requestId), activeReceipt, { ex: ATTEMPT_RECEIPT_TTL_SECONDS });
@@ -216,7 +224,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const durableAttempts = rows.map(cleanReceipt).filter((row) => row?.day === day).length;
             const legacyAttempts = Math.max(0, Math.floor(Number(await kv.get(`pet-encounter-attempt:${playerName}:${day}`)) || 0));
             if (!identity.admin && legacyAttempts + durableAttempts >= DAILY_WILD_ENCOUNTER_ATTEMPTS) {
-                return { error: 'Daily exploration limit reached.', status: 429 };
+                return {
+                    error: 'Daily wild-pet search limit reached. Searches reset at midnight UTC.',
+                    status: 429,
+                    reason: 'daily-limit',
+                };
             }
             const pet = rollWildPet(() => randomInt(1_000_000_000) / 1_000_000_000);
             const receipt: PetAttemptReceipt = {
@@ -240,6 +252,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
         return res.status(200).json({ ok: true, ...outcome });
     } catch (error) {
+        if (error instanceof LockContendedError) {
+            return res.status(503).json({
+                error: 'Another wild-pet search is finishing. Please try again shortly.',
+                reason: 'busy',
+                retryable: true,
+            });
+        }
         console.error('[pet/encounter-start]', safeLogValue(error));
         return res.status(500).json({ error: 'Internal server error.' });
     }

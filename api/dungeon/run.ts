@@ -8,12 +8,14 @@ import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import {
     cleanDungeonProbeRequestId,
     freeDungeonProbeReceipt,
+    FREE_DUNGEON_DAILY_PROBE_LIMIT,
     mutateDungeonRun,
     resolveFreeDungeonMiss,
     unresolvedFreeDungeonMiss,
 } from './_run.js';
 import { sectorPresenceBlock } from '../_sector-presence-gate.js';
 import { kv } from '../_storage.js';
+import { LockContendedError } from '../_lock.js';
 import { cleanPetEncounterPointer, petEncounterActiveKey } from '../pet/_encounter-pointer.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -29,6 +31,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(400).json({ error: 'A stable dungeon probe requestId is required.' });
         }
         if (!identity.admin && !(await enforceRateLimitKv(req, res, action === 'probe-free' ? 'dungeon-probe' : 'dungeon-run', action === 'probe-free' ? 180 : 20, 60_000, identity.name))) return;
+        let failureReason: string | undefined;
         const result = await mutatePlayerSave<Record<string, unknown>>(playerName, async ({ character }) => {
             const activeBefore = character.activeDungeonRun && typeof character.activeDungeonRun === 'object'
                 ? character.activeDungeonRun as Record<string, unknown>
@@ -68,12 +71,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // Exact hit/miss replay is already presence-authorized by
                     // the original probe and must survive movement/reconnect.
                 } else {
-                const presenceBlock = sectorPresenceBlock(playerName, body.sector);
-                if (presenceBlock) return { ok: false as const, status: presenceBlock.status, error: presenceBlock.error };
+                    const presenceBlock = sectorPresenceBlock(playerName, body.sector);
+                    if (presenceBlock) {
+                        failureReason = presenceBlock.reason;
+                        return { ok: false as const, status: presenceBlock.status, error: presenceBlock.error };
+                    }
                 }
             }
-            const out = mutateDungeonRun(character, body.action, body.token, randomUUID().replaceAll('-', ''), Date.now(), Math.random(), body.sector, requestId || `admin_${randomUUID().replaceAll('-', '')}`);
-            if (!out.ok) return { ok: false as const, status: 409, error: out.reason };
+            const now = Date.now();
+            const out = mutateDungeonRun(character, body.action, body.token, randomUUID().replaceAll('-', ''), now, Math.random(), body.sector, requestId || `admin_${randomUUID().replaceAll('-', '')}`);
+            if (!out.ok) {
+                failureReason = out.reason;
+                let error: string = out.reason;
+                if (action === 'probe-free') {
+                    if (out.reason === 'dungeon-probe-not-earned') {
+                        const today = new Date(now).toISOString().slice(0, 10);
+                        const atDailyLimit = character.serverFreeDungeonProbeDate === today
+                            && Number(character.serverFreeDungeonProbesToday) >= FREE_DUNGEON_DAILY_PROBE_LIMIT;
+                        if (atDailyLimit) {
+                            failureReason = 'daily-limit';
+                            error = 'Daily hidden-dungeon search limit reached. Searches reset at midnight UTC.';
+                        } else {
+                            error = 'Finish or recover your previous exploration before searching for another hidden dungeon.';
+                        }
+                    } else if (out.reason === 'active-dungeon-conflict') {
+                        error = 'Finish or leave your active dungeon before searching for another hidden dungeon.';
+                    } else if (out.reason === 'dungeon-level-required') {
+                        error = 'Hidden-dungeon searches unlock at level 50.';
+                    }
+                }
+                return { ok: false as const, status: 409, error };
+            }
             const activeAfter = out.character.activeDungeonRun && typeof out.character.activeDungeonRun === 'object'
                 ? out.character.activeDungeonRun as Record<string, unknown>
                 : null;
@@ -98,7 +126,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ...(Number.isSafeInteger(authoritativeSector) ? { sector: authoritativeSector } : {}),
             } };
         });
-        if (!result.ok) return res.status(result.status).json({ error: result.error });
+        if (!result.ok) return res.status(result.status).json({ error: result.error, ...(failureReason ? { reason: failureReason } : {}) });
         return res.status(200).json({ ok: true, ...result.value, character: result.character, _saveVersion: result._saveVersion });
-    } catch (error) { console.error('[dungeon/run]', safeLogValue(error)); return res.status(500).json({ error: 'Internal server error.' }); }
+    } catch (error) {
+        if (error instanceof LockContendedError) {
+            return res.status(503).json({ error: 'Your dungeon request is busy. Try again in a moment.', reason: 'busy', retryable: true });
+        }
+        console.error('[dungeon/run]', safeLogValue(error));
+        return res.status(500).json({ error: 'Internal server error.' });
+    }
 }
