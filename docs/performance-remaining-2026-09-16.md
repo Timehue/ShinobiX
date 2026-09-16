@@ -70,7 +70,7 @@ The rapid candidate's delayed navigation request starts and unfinished image req
 - The final benchmark diagnostic smoke completed all 8 journeys, recorded zero browser/network failures and verified all 4 local Bank saves. It ran alongside functional browser tests and is not used for timing comparisons.
 - Two final resource runs (`stronghold-resources-verified-1` and `stronghold-resources-verified-2`) passed all 14 checks each, with zero page/route errors or dropped diagnostics. Each covers 12 exploration entry/exit cycles and 8 combat cycles per sector (12 and 99), plus three 2D and three 3D exterior suspension/resumption cycles. Exact timer-baseline comparisons and the existing listener/node/heap bounds passed. Hidden exterior canvases and animation frames were released. These are bounded desktop Chromium checks, not physical GPU, battery or indefinite-session certification.
 
-Remote CI and production deployment have not run for this branch. No failing attempt was relabeled as a pass; the diagnostic failures above remain available with the subsequent evidence explaining the corrections.
+At this initial local-validation checkpoint, remote CI and production deployment had not run for the branch. No failing attempt was relabeled as a pass; the diagnostic failures above remain available with the subsequent evidence explaining the corrections.
 
 ## Integration review follow-up
 
@@ -91,7 +91,19 @@ Validation after these integration changes:
 - The resource run recorded the SwiftShader renderer, stopped exterior frames and WebGL contexts on entry, and passed the existing resource bounds through repeated exploration, combat and 2D/3D suspension cycles. It does not measure physical GPU performance.
 - All 336 emitted JS/CSS files, including the 334 asset files plus `sw.js` and `boot-watchdog.js`, have identical SHA-256 hashes to the untouched frontend baseline. No experimental Brotli files or compiled compression helper remain. Evidence: `integration-bundle-identity.json`.
 
-The changes remain on the isolated local branch. This review does not represent a new remote CI run, a Docker image build, or a production deployment; database and physical-device limitations below still apply.
+At the end of this integration review, the changes remained on the isolated local branch. Those local results did not represent a remote CI run, Docker image build, or production deployment. The first main publish and its follow-up are recorded below; database and physical-device limitations still apply.
+
+## First main publish: CI device-profile correction
+
+The owner authorized publishing to main. Both commits were fast-forwarded to main as `9edbbd942db34d631a2ceffb1f92971a216f5abd`. [CI run 35135602867](https://github.com/Timehue/ShinobiX/actions/runs/35135602867) passed the server suites, client quality/build, release certification, concurrency smoke, all existing responsive/combat/Warfront/live Express browser suites, the compiled CSP browser check, and regular/dismissal Stronghold audits. The separate Production Image, CodeQL and Clan Boss certification workflows also passed. The new resource audit failed, so Railway kept serving the prior healthy `c36416ab` release.
+
+The failure was a 30-second wait for two exterior WebGL contexts, after the exploration/combat resource bounds and 2D suspension checks had passed. It produced zero page or route errors. Its console errors were the fixture's expected 503 settlement responses. The retained [job artifact](https://github.com/Timehue/ShinobiX/actions/runs/35135602867/artifacts/10464640375) includes the failure screenshot and resource samples; a local copy is in `test-results/performance-remaining/main-responsive-2-artifact/`.
+
+The shared fixture had declared every viewport touch-capable. On a runner reporting four or fewer cores, the actual `device-tier.ts` logic therefore selected lite effects, and both 3D components correctly stayed unmounted. A controlled local reproduction (`ci-low-core-reproduction/`) reported two cores, 2 GB, a coarse pointer, no reduced-motion request and no graphics override. It reproduced the identical timeout, with zero WebGL contexts even after 30 seconds of continued 2D canvas painting. The failed reproduction is retained.
+
+The corrected audit explicitly models mouse and touch profiles while reporting the same two-core/2-GB capability signals on each host. These signals are fixture inputs, not CPU throttling or physical-device measurements. The mouse 3D case still requires both actual WebGL contexts. A new touch case requires the automatic lite fallback to create none. Both profiles must release their canvases/frames on Stronghold entry and restore the appropriate exterior on every return. No production graphics preferences or gating logic are changed, and the original resource bounds and wait deadlines remain.
+
+The corrected local run (`ci-device-profiles-fixed/`) passed 17 checks, including three cycles each for mouse 2D, mouse 3D and low-end touch fallback. It recorded zero page/route errors and captured input/hardware signals alongside renderer metrics for future failures. The focused CSP and Stronghold gates now run before the long responsive matrix so future failures surface earlier. The correction still requires a fresh remote CI run and exact-revision live verification after this local checkpoint.
 
 ## Environment-dependent work
 

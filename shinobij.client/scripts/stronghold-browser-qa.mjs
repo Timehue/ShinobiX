@@ -40,9 +40,9 @@ function fixture(options = {}) {
     state.peers = Array.from({ length: options.crowd ?? 1 }, (_, n) => ({ name: n ? `LongShinobiPlayerName${n}` : 'Rival', level: 100, village: 'Ashen Leaf Village', stronghold: { sector: visit.sector, tile: 154 + n % 3 }, inBattle: false }));
     return state;
 }
-async function prepare(browser, viewport, state, query = '', beforeNavigate) {
-    const page = await browser.newPage({ viewport, isMobile: viewport.width < 900, hasTouch: true, reducedMotion: 'reduce' });
-    diagnostics.observe(page, { engine: browser.browserType().name(), viewport, query,
+async function prepare(browser, viewport, state, query = '', beforeNavigate, { hasTouch = true } = {}) {
+    const page = await browser.newPage({ viewport, isMobile: viewport.width < 900, hasTouch, reducedMotion: 'reduce' });
+    diagnostics.observe(page, { engine: browser.browserType().name(), viewport, hasTouch, query,
         sector: state.visit.sector, terminal: state.terminal, lose: state.lose, failReport: Boolean(state.failReport) });
     page.on('pageerror', e => errors.push(String(e)));
     await page.route('**/api/**', route => diagnostics.route(page, route, async () => {

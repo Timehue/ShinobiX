@@ -582,8 +582,7 @@ jobs:
           tar -xzf .ci-artifacts/release/release-dist.tgz
       - name: Install release browsers
         run: npx --prefix shinobij.client playwright install --with-deps chromium firefox webkit 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/browser-install.log
-      - name: Cross-browser responsive and accessibility smoke
-        run: npm run test:e2e --prefix shinobij.client -- --shard=${{ matrix.shard }}/2 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/playwright.log
+      # Surface focused policy/lifecycle failures before the long browser matrix.
       - name: Verify built CSP in Chromium and WebKit
         if: ${{ matrix.shard == 1 }}
         run: node --test scripts/check-http-security-browser.mjs 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/csp-browser.log
@@ -612,6 +611,8 @@ jobs:
           SHINOBIX_QA_MEMORY_KV: '1'
         working-directory: shinobij.client
         run: node scripts/stronghold-browser-qa.mjs --resources --output=../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/stronghold-resources 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/stronghold-resources.log
+      - name: Cross-browser responsive and accessibility smoke
+        run: npm run test:e2e --prefix shinobij.client -- --shard=${{ matrix.shard }}/2 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/playwright.log
       - name: Retain responsive browser evidence
         if: always()
         continue-on-error: true

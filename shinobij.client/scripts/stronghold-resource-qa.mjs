@@ -162,16 +162,49 @@ export async function auditStrongholdResources({ browser, fixture, prepare, read
         }
         await page.close();
     }
-    if (!baselineMode) for (const backdrop of ['2d', '3d']) {
+    const exteriorProfiles = [
+        { backdrop: '2d', inputProfile: 'mouse', hasTouch: false, expect3d: false },
+        { backdrop: '3d', inputProfile: 'mouse', hasTouch: false, expect3d: true },
+        { backdrop: '3d', inputProfile: 'touch', hasTouch: true, expect3d: false },
+    ];
+    if (!baselineMode) for (const { backdrop, inputProfile, hasTouch, expect3d } of exteriorProfiles) {
         const state = fixture({ sector: 99 });
-        const page = await prepare(browser, { width: 1280, height: 900 }, state, `?host=1&sector=99&lifecycle=1&resourceAudit=1&backdrop=${backdrop}`, async page => {
+        const page = await prepare(browser, { width: 1280, height: 900 }, state, `?host=1&sector=99&lifecycle=1&resourceAudit=1&backdrop=${backdrop}&inputProfile=${inputProfile}`, async page => {
             await instrument(page); await page.emulateMedia({ reducedMotion: 'no-preference' });
-        });
-        // Exercise the real exterior canvas, with ordinary animation enabled.
-        await page.locator('.scene-ambience-canvas').waitFor();
-        await page.waitForFunction(() => window.resourceSnapshot().canvasDraws > 5);
-        if (backdrop === '3d') await page.waitForFunction(() => window.resourceSnapshot().webglActive >= 2);
-        const outside = await page.evaluate(() => window.resourceSnapshot());
+            // Exercise the same capability signals on every host. This does
+            // not throttle execution or force the production graphics setting.
+            // Mouse input must keep 3D; weak touch input must select lite FX.
+            await page.addInitScript(() => {
+                Object.defineProperty(navigator, 'hardwareConcurrency', { configurable: true, get: () => 2 });
+                Object.defineProperty(navigator, 'deviceMemory', { configurable: true, get: () => 2 });
+            });
+        }, { hasTouch });
+        const sampleExterior = async label => {
+            const value = await page.evaluate(() => ({ ...window.resourceSnapshot(), hardwareConcurrency: navigator.hardwareConcurrency,
+                deviceMemory: navigator.deviceMemory, pointerCoarse: matchMedia('(pointer: coarse)').matches,
+                reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches, liteFxOverride: localStorage.getItem('liteFx.v1') }));
+            samples.push({ label, backdrop, inputProfile, expect3d, ...value });
+            await writeFile(`${output}/resource-samples.json`, JSON.stringify({ samples, checks }, null, 2));
+            return value;
+        };
+        const readyExterior = async (draws, label) => {
+            try {
+                await page.locator('.scene-ambience-canvas').waitFor();
+                await page.waitForFunction(prior => window.resourceSnapshot().canvasDraws > prior, draws);
+                if (expect3d) await page.waitForFunction(() => window.resourceSnapshot().webglActive >= 2);
+                const value = await sampleExterior(label);
+                assert.equal(value.hardwareConcurrency, 2); assert.equal(value.deviceMemory, 2);
+                assert.equal(value.pointerCoarse, hasTouch); assert.equal(value.reducedMotion, false);
+                assert.equal(value.liteFxOverride, null, 'exercise automatic device selection, not a forced graphics preference');
+                if (!expect3d) {
+                    assert.equal(value.webglCreated, 0, 'map/lite profile must never allocate a 3D context');
+                    assert.equal(value.webglActive, 0);
+                }
+                return value;
+            } catch (error) { await sampleExterior(`${label} failure`).catch(() => {}); throw error; }
+        };
+        // Exercise actual renderer creation and restoration on every cycle.
+        let outside = await readyExterior(5, 'initial exterior');
         for (let cycle = 0; cycle < 3; cycle++) {
             await page.getByRole('button', { name: 'Enter preview', exact: true }).click(); await ready(page);
             await page.waitForFunction(() => window.resourceSnapshot().webglActive === 0);
@@ -182,10 +215,10 @@ export async function auditStrongholdResources({ browser, fixture, prepare, read
             assert.equal(inside.frames, 0, 'hidden exterior still schedules animation frames');
             assert.equal(quiet.canvasDraws, inside.canvasDraws, 'hidden exterior still paints');
             assert.equal(await page.locator('canvas').count(), 0, 'hidden exterior retains its canvases');
-            checks.push({ backdrop, cycle, outsideFrames: outside.frames, outsideWebgl: outside.webglActive, webglRenderers: outside.webglRenderers, insideFrames: inside.frames, insideWebgl: inside.webglActive });
+            await sampleExterior(`suspended exterior ${cycle}`);
+            checks.push({ backdrop, inputProfile, cycle, outsideFrames: outside.frames, outsideWebgl: outside.webglActive, webglRenderers: outside.webglRenderers, insideFrames: inside.frames, insideWebgl: inside.webglActive });
             await page.getByTestId('stronghold-qa-unmount').evaluate(button => button.click());
-            await page.locator('.scene-ambience-canvas').waitFor();
-            await page.waitForFunction(draws => window.resourceSnapshot().canvasDraws > draws, inside.canvasDraws);
+            outside = await readyExterior(inside.canvasDraws, `resumed exterior ${cycle}`);
         }
         await page.close();
     }
