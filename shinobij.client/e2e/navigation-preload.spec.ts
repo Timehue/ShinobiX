@@ -14,8 +14,19 @@ for (const activation of ['keyboard', 'pointer'] as const) {
         await expectUiAuditBoot(page, runtime, 'village');
         const cards = page.locator('.facility-tile');
         for (let index = 0; index < await cards.count(); index++) {
-            if (!isMobile) await cards.nth(index).hover();
-            await cards.nth(index).focus();
+            const card = cards.nth(index);
+            if (!isMobile) {
+                // CI WebKit can stall in hover's geometry-stability wait. Keep
+                // real pointer input and prove the tile actually receives it.
+                await card.evaluate(element => element.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' }));
+                await expect(card).toBeVisible();
+                const box = await card.boundingBox();
+                expect(box).not.toBeNull();
+                await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+                await expect.poll(() => card.evaluate(element => element.matches(':hover'))).toBe(true);
+            }
+            await card.focus();
+            await expect(card).toBeFocused();
         }
         // Leave time for an incorrectly started import's network request.
         await page.waitForTimeout(500);
