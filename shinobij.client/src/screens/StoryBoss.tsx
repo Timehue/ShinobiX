@@ -9,7 +9,7 @@ import type { Pet } from "../types/pet";
 import { PET_CONSUMABLE_PVE_HEAL_PCT, petConsumableById, petPveGearById, petPveHealOnSummonPct, petPveLifestealPct, petPveLoyalty, petPveSummonDamageMult } from "../data/pet-config";
 import { PET_CRIT_MULT } from "../lib/pet-battle-sim";
 import { boostAmount } from "../lib/village-upgrades";
-import { defaultVnPortrait, defaultVnScene, splitDialogueLine } from "../lib/vn";
+import { resolveVnActorBaseImage, defaultVnScene, splitDialogueLine } from "../lib/vn";
 import { gameConfirm } from "../components/GameAlert";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { activeCarriedPets } from "../lib/entitlements";
@@ -169,10 +169,12 @@ function StoryHallContent({
     const storySceneBg = sharedImages[`event:${chapterId}:bg`]
         || sharedImages[`vn:${chapterId}:page:0`]
         || defaultVnScene(chapterId, storyBiome);
-    const speakerPortrait = sharedImages[`event:${chapterId}:avatar`]
-        || sharedImages[`vn:${chapterId}:page:0:right`]
-        || defaultVnPortrait(speaker);
-    const hideSpeakerSlot = !speakerPortrait && speaker.trim().toLowerCase() === "narrator";
+    const playerSpeaking = ["player", "%name", character.name.trim().toLowerCase()].includes(speaker.trim().toLowerCase());
+    const speakerPortrait = playerSpeaking ? "" : resolveVnActorBaseImage(
+        chapterId, speaker, sharedImages[`vn:${chapterId}:page:0:right`],
+        sharedImages[`event:${chapterId}:avatar`],
+    );
+    const hideSpeakerSlot = !speakerPortrait && (playerSpeaking || speaker.trim().toLowerCase() === "narrator");
     // Launch the sealed server fight (api/story/boss-start) through the shared
     // App-level host, themed with this chapter's scene art + the boss's own
     // authored lines as mid-fight barks.
@@ -182,7 +184,7 @@ function StoryHallContent({
             bossName: step.bossName,
             chapterLabel: `Chapter ${character.storyProgress + 1}/${storyLine.length} — ${step.title}`,
             backdropImage: storySceneBg || undefined,
-            bossPortrait: sharedImages[`event:${chapterId}:avatar`] || sharedImages[`vn:${chapterId}:page:0:right`] || undefined,
+            // Keep the boss portrait supplied by its sealed combat profile.
             barks: script.barks,
             defeatLine: script.defeatLine,
             ally: extractMentorLines(step.pages, step.bossName, character.name, step.dialogue),

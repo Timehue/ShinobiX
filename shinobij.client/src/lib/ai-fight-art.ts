@@ -1,4 +1,6 @@
 import type { CreatorEvent } from "../types/vn";
+import { resolveVnActorBaseImage, resolveVnAuthoredActorImage } from "./vn";
+import { resolveStorywideActorImage } from "./vn-storywide-direction";
 
 export type TowerEnemySpriteKey =
     | "bandit"
@@ -105,25 +107,41 @@ export function storyRoadBattlePortrait(bossName?: string): string | undefined {
 
 type DungeonArtEvent = Pick<CreatorEvent, "id" | "avatarImage" | "vnPages">;
 
-/**
- * Prefer a dedicated dungeon-Warden upload, then the final authored right-side
- * character portrait. Scene/background art is intentionally never a fighter.
- */
+/** Only slots explicitly belonging to the Warden can supply its combat portrait. */
 export function resolveDungeonWardenPortrait(
     event: DungeonArtEvent,
     sharedImages: Record<string, string>,
 ): string | undefined {
     const dedicated = sharedImages[`event:${event.id}:warden`];
     if (dedicated) return dedicated;
+    const slots = (event.vnPages ?? []).flatMap((page, index) => {
+        const actors = [
+            { side: "left", name: page.leftName, image: page.leftImage },
+            { side: "right", name: page.rightName || page.speaker, image: page.rightImage },
+        ];
+        return actors.filter((actor) => actor.name?.trim().toLowerCase() === "dungeon warden")
+            .map((actor) => ({ ...actor, key: `vn:${event.id}:page:${index}:${actor.side}` }));
+    }).reverse();
+    const published = slots.map((slot) => sharedImages[slot.key]).find(Boolean);
+    if (published) return published;
+    const authored = slots.map((slot) => slot.image).find(Boolean);
+    if (authored) return authored;
+    return resolveVnAuthoredActorImage(event.id, "Dungeon Warden", event.avatarImage)
+        || resolveStorywideActorImage(event.id, "Dungeon Warden")
+        || undefined;
+}
 
-    const pages = event.vnPages ?? [];
-    for (let index = pages.length - 1; index >= 0; index--) {
-        const published = sharedImages[`vn:${event.id}:page:${index}:right`];
-        if (published) return published;
-    }
-    for (let index = pages.length - 1; index >= 0; index--) {
-        if (pages[index].rightImage) return pages[index].rightImage;
-    }
-
-    return event.avatarImage || undefined;
+/** A player reply or another speaker must never wear the Warden's portrait. */
+export function resolveDungeonSpeakerPortrait(
+    event: DungeonArtEvent,
+    speaker: string,
+    sharedImages: Record<string, string>,
+    page?: NonNullable<CreatorEvent["vnPages"]>[number],
+): string | undefined {
+    const name = speaker.trim().toLowerCase();
+    if (!name || name === "narrator" || name === "player" || name === "%name") return undefined;
+    if (name === "dungeon warden") return resolveDungeonWardenPortrait(event, sharedImages);
+    const authored = page?.rightName?.trim().toLowerCase() === name ? page.rightImage
+        : page?.leftName?.trim().toLowerCase() === name ? page.leftImage : undefined;
+    return resolveVnActorBaseImage(event.id, speaker, authored) || undefined;
 }

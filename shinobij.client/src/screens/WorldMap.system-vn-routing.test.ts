@@ -19,8 +19,8 @@ test("live pet encounters use the premium reader and keep the discovered pet art
     );
     assert.match(pet, /<TriggeredVisualNovel/);
     assert.match(pet, /event=\{cinematicPetEvent\}/);
-    assert.match(pet, /rightName: page\.rightName \|\| activePetEncounter\.name/);
-    assert.match(pet, /rightImage: page\.rightImage \|\| petActorImage/);
+    assert.match(pet, /buildPetEncounterVn\(petEncounterVn, activePetEncounter, petActorImage\)/);
+    assert.match(pet, /petCardImage\(activePetEncounter, sharedImages\)/);
     assert.match(pet, /onComplete=\{\(\) => setPetVnDone\(true\)\}/);
     assert.doesNotMatch(pet, /visual-novel admin-vn-play/);
 });

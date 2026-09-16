@@ -8,6 +8,7 @@ import { hollowRifts } from "../data/hollow-rifts";
 import {
     canonicalBeastPortraitId,
     resolveDungeonWardenPortrait,
+    resolveDungeonSpeakerPortrait,
     resolveTowerEnemyPortrait,
     storyRoadBattlePortrait,
     type TowerEnemySpriteKey,
@@ -105,8 +106,8 @@ test("dungeon Wardens use character art and never the scene backdrop", () => {
         id: "builtin-hidden-dungeon",
         avatarImage: "avatar:fallback",
         vnPages: [
-            { title: "one", scene: "", speaker: "", dialogue: [], rightImage: "inline:first" },
-            { title: "two", scene: "", speaker: "", dialogue: [], rightImage: "inline:last" },
+            { title: "one", scene: "", speaker: "Dungeon Warden", dialogue: [], rightImage: "inline:first" },
+            { title: "two", scene: "", speaker: "Dungeon Warden", dialogue: [], rightImage: "inline:last" },
         ],
     };
     assert.equal(resolveDungeonWardenPortrait(event, {
@@ -140,4 +141,29 @@ test("the image resolvers stay wired into both combat screens", () => {
     assert.doesNotMatch(app, /image:\s*event\.avatarImage\s*\|\|\s*event\.image/);
     assert.match(towerFight, /resolveTowerCombatantArt\(visual, sharedImages\)\.src/);
     assert.match(towerFight, /TOWER_SPIRE_PORTRAITS\[spireMeta\.boss\.key\]/);
+});
+
+
+test("dungeon portraits stay attached to the Warden when another actor closes the scene", () => {
+    const event = { id: "builtin-hidden-dungeon", avatarImage: "/portraits/mira-volt.webp", vnPages: [
+        { title: "Warden", scene: "", speaker: "Dungeon Warden", rightName: "Dungeon Warden", dialogue: [], rightImage: "warden.png" },
+        { title: "Companion", scene: "", speaker: "Narrator", rightName: "Wild Boar", dialogue: [], rightImage: "boar.png" },
+    ] };
+    assert.equal(resolveDungeonWardenPortrait(event, { "vn:builtin-hidden-dungeon:page:1:right": "published-boar.png" }), "warden.png");
+    assert.equal(resolveDungeonSpeakerPortrait(event, "Player", { "event:builtin-hidden-dungeon:warden": "warden.png" }), undefined);
+    assert.equal(resolveDungeonSpeakerPortrait(event, "Narrator", {}), undefined);
+    assert.equal(resolveDungeonSpeakerPortrait(event, "Mira Volt", { "event:builtin-hidden-dungeon:warden": "warden.png" }), "/portraits/mira-volt.webp");
+    assert.equal(resolveDungeonSpeakerPortrait(event, "Dungeon Warden", {}), "warden.png");
+    assert.equal(resolveDungeonWardenPortrait({ ...event, vnPages: event.vnPages.slice(1) }, {}), "/portraits/cinematic/side-stories/dungeon-warden.webp");
+    const leftWarden = { ...event, vnPages: [{ ...event.vnPages[0], rightName: "Player", leftName: "Dungeon Warden", leftImage: "left-warden.png", rightImage: "player.png" }] };
+    assert.equal(resolveDungeonWardenPortrait(leftWarden, {}), "left-warden.png");
+});
+
+test("story battle launchers leave portraits to the sealed boss identity", () => {
+    for (const relative of ["lib/triggered-event-battle.ts", "screens/StoryBoss.tsx"]) {
+        const source = readFileSync(join(clientRoot, "src", relative), "utf8");
+        assert.doesNotMatch(source, /bossPortrait:\s*sharedImages/, relative + " must not dress the boss in chapter-opening art");
+    }
+    const hall = readFileSync(join(clientRoot, "src", "screens", "StoryBoss.tsx"), "utf8");
+    assert.match(hall, /resolveVnActorBaseImage\(\s*chapterId, speaker/);
 });

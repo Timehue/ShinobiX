@@ -41,7 +41,7 @@ export function launchTriggeredEventBattle({
             bossName,
             chapterLabel: `Chapter ${Number(chapterIndex) + 1} — ${event.vnTitle ?? event.name}`,
             backdropImage: sharedImages[`event:${event.id}:bg`] || sharedImages[`vn:${event.id}:page:0`] || undefined,
-            bossPortrait: sharedImages[`event:${event.id}:avatar`] || sharedImages[`vn:${event.id}:page:0:right`] || undefined,
+            // The sealed boss profile owns its portrait; opening-page art may be an ally.
             ...extractStoryFightScript(event.vnPages, bossName),
             ally: extractMentorLines(event.vnPages, bossName, character?.name ?? ""),
             village: event.village || character?.village,

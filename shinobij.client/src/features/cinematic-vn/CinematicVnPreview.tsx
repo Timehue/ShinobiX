@@ -9,6 +9,7 @@ import { storyToCreatorEvent } from "../../lib/story-trigger";
 import { roadEventToCreatorEvent } from "../../lib/story-road-events";
 import { riftIntroEvent } from "../../lib/hollow-rifts";
 import { scribeIntroEvent } from "../../lib/chronicle-scribe";
+import { buildPetEncounterVn } from "../../lib/pet-encounter-vn";
 import type { Character } from "../../types/character";
 import type { CreatorEvent, VnActorPose } from "../../types/vn";
 import type { StorySceneVariant, StoryVillageKey } from "../../lib/vn-storywide-direction";
@@ -177,15 +178,7 @@ function sideStoryEvent(chapter: Exclude<typeof CHAPTERS[number], "semantic" | "
     if (chapter === "scribe") return scribeIntroEvent("forest");
     if (chapter === "pet") {
         const petImage = "/pet-poses/generic-ai-pet-guardhound-idle.webp";
-        return {
-            ...defaultPetEncounterVn,
-            avatarImage: petImage,
-            vnPages: defaultPetEncounterVn.vnPages?.map((page) => ({
-                ...page,
-                rightName: "Guard Hound",
-                rightImage: petImage,
-            })),
-        };
+        return buildPetEncounterVn(defaultPetEncounterVn, { name: "Guard Hound" }, petImage);
     }
     if (chapter === "chest") return defaultAncientChestVn;
     return hiddenDungeonVnEvent;
