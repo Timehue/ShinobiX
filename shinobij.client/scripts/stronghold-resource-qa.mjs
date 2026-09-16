@@ -11,7 +11,7 @@ async function instrument(page) {
         const frame = window.requestAnimationFrame.bind(window), cancelFrame = window.cancelAnimationFrame.bind(window);
         window.setTimeout = (fn, ms, ...args) => {
             const id = timeout(() => { timeouts.delete(id); typeof fn === 'function' ? fn(...args) : (0, eval)(fn); }, ms);
-            timeouts.set(id, ms); return id;
+            timeouts.set(id, { id, delayMs: ms, stack: new Error('timer scheduled').stack }); return id;
         };
         window.clearTimeout = id => { timeouts.delete(id); intervals.delete(id); clearTimeout(id); };
         window.setInterval = (fn, ms, ...args) => { const id = interval(fn, ms, ...args); intervals.add(id); return id; };
@@ -38,7 +38,7 @@ async function instrument(page) {
         };
         const clearRect = CanvasRenderingContext2D.prototype.clearRect;
         CanvasRenderingContext2D.prototype.clearRect = function (...args) { canvasDraws++; return clearRect.apply(this, args); };
-        window.resourceSnapshot = () => ({ timeouts: [...timeouts.values()], intervals: intervals.size, frames: frames.size, observers, webglCreated, webglActive, canvasDraws,
+        window.resourceSnapshot = () => ({ timeouts: [...timeouts.values()].map(timer => timer.delayMs), timeoutDetails: [...timeouts.values()], intervals: intervals.size, frames: frames.size, observers, webglCreated, webglActive, canvasDraws,
             animations: document.getAnimations().filter(a => a.playState === 'running').length });
     });
 }
@@ -48,19 +48,31 @@ export async function auditStrongholdResources({ browser, fixture, prepare, read
     const baselineMode = process.argv.includes('--baseline');
     for (const sector of [12, 99]) {
         const state = fixture({ sector, crowd: 18, visited: Array.from({ length: 851 }, (_, i) => i) });
-        const page = await prepare(browser, { width: 390, height: 844 }, state, `?host=1&sector=${sector}&lifecycle=1`, instrument);
+        const page = await prepare(browser, { width: 390, height: 844 }, state, `?host=1&sector=${sector}&lifecycle=1&resourceAudit=1`, instrument);
         const cdp = await page.context().newCDPSession(page);
         await cdp.send('Performance.enable'); await cdp.send('LayerTree.enable');
         let layers = [];
         cdp.on('LayerTree.layerTreeDidChange', data => { layers = data.layers ?? []; });
         const snapshot = async label => {
+            const unmounted = await page.getByRole('heading', { name: 'Returned to sector', exact: true }).isVisible();
+            // Chromium's native MouseEventManager can retain the last hovered
+            // map button and its detached tree after an artificial unmount.
+            // Heap evidence confirmed that moving onto the returned screen
+            // releases it. Compare both baselines with the same input state.
+            if (unmounted) await page.mouse.move(1, 1);
             await cdp.send('HeapProfiler.collectGarbage');
             const metrics = Object.fromEntries((await cdp.send('Performance.getMetrics')).metrics.map(m => [m.name, m.value]));
-            const value = { sector, label, ...await page.evaluate(() => window.resourceSnapshot()), ...await cdp.send('Memory.getDOMCounters'),
+            const value = { sector, label, pointerSettledOnReturnedScreen: unmounted, ...await page.evaluate(() => window.resourceSnapshot()), ...await cdp.send('Memory.getDOMCounters'),
                 heapBytes: metrics.JSHeapUsedSize, taskSeconds: metrics.TaskDuration, layers: layers.length };
-            samples.push(value); return value;
+            samples.push(value);
+            // Keep ownership evidence even if the next assertion fails.
+            await writeFile(`${output}/resource-samples.json`, JSON.stringify({ samples, checks }, null, 2));
+            return value;
         };
-        const unmount = async () => { await page.getByRole('button', { name: 'Unmount preview', exact: true }).click(); await page.getByRole('heading', { name: 'Returned to sector' }).waitFor(); };
+        // This is an artificial React lifecycle control, not a game action.
+        // Keep its toolbar hidden so it cannot cover Players/the movement pad.
+        // Real game controls below still require ordinary actionable clicks.
+        const unmount = async () => { await page.getByTestId('stronghold-qa-unmount').evaluate(button => button.click()); await page.getByRole('heading', { name: 'Returned to sector' }).waitFor(); };
         // Warm React, CSS and image caches before comparing retained resources.
         for (let cycle = 0; cycle < 3; cycle++) { await page.getByRole('button', { name: 'Enter preview', exact: true }).click(); await ready(page); await unmount(); }
         await page.waitForTimeout(350);
@@ -75,10 +87,19 @@ export async function auditStrongholdResources({ browser, fixture, prepare, read
         }
         await page.waitForTimeout(350);
         const after = await snapshot('after 12 entry/exit cycles');
+        if (after.jsEventListeners > warm.jsEventListeners || after.nodes > warm.nodes + 10) {
+            const chunks = [];
+            const collect = ({ chunk }) => chunks.push(chunk);
+            cdp.on('HeapProfiler.addHeapSnapshotChunk', collect);
+            try { await cdp.send('HeapProfiler.takeHeapSnapshot'); }
+            finally { cdp.off('HeapProfiler.addHeapSnapshotChunk', collect); }
+            await writeFile(`${output}/exploration-retainers-${sector}.heapsnapshot`, chunks.join(''));
+            await snapshot('diagnostic second collection after retention failure');
+        }
         assert.equal(after.observers, warm.observers); assert.equal(after.intervals, warm.intervals); assert.equal(after.frames, warm.frames);
         // A later collection can release React's last detached tree. A decrease
         // is healthy; reject listener growth rather than requiring equality.
-        assert.deepEqual(after.timeouts, warm.timeouts); assert(after.jsEventListeners <= warm.jsEventListeners, 'exploration listeners accumulate');
+        assert.deepEqual(after.timeoutDetails, warm.timeoutDetails); assert(after.jsEventListeners <= warm.jsEventListeners, 'exploration listeners accumulate');
         assert(after.nodes <= warm.nodes + 10); assert(after.heapBytes - warm.heapBytes < 1_500_000, 'retained heap keeps growing');
         assert(after.layers <= warm.layers + 1); assert.equal(after.animations, 0); assert.equal(after.webglCreated, 0);
         const polls = state.polls; await page.waitForTimeout(2300); assert.equal(state.polls, polls, 'polling survives unmount');
@@ -114,7 +135,7 @@ export async function auditStrongholdResources({ browser, fixture, prepare, read
         await page.waitForTimeout(2000);
         const failed = await snapshot('after failed settlement unmount');
         checks.push({ sector, successDeadlineTimers: settled.timeouts.filter(ms => ms === 12000).length, reportsAfterUnmount: state.reports - reportsAtExit, remainingTimers: failed.timeouts });
-        if (!baselineMode) { assert.equal(state.reports, reportsAtExit); assert.deepEqual(failed.timeouts, warm.timeouts); }
+        if (!baselineMode) { assert.equal(state.reports, reportsAtExit); assert.deepEqual(failed.timeoutDetails, warm.timeoutDetails); }
         if (!baselineMode) {
             // React/Chrome can retain the most recent detached combat tree.
             // Repeat combat itself to distinguish bounded retention from growth.
@@ -129,14 +150,18 @@ export async function auditStrongholdResources({ browser, fixture, prepare, read
             assert(combatCycles.nodes <= failed.nodes + 10, 'detached combat nodes accumulate');
             assert(combatCycles.jsEventListeners <= failed.jsEventListeners, 'combat listeners accumulate');
             assert(combatCycles.heapBytes - failed.heapBytes < 1_500_000, 'combat heap accumulates');
-            assert.deepEqual(combatCycles.timeouts, []); assert.equal(combatCycles.frames, 0); assert.equal(combatCycles.observers, 0);
+            // The fixture's app-wide capability lease survives feature unmount.
+            // Require the exact original timer IDs/stacks, so a new combat timer
+            // cannot pass merely by sharing the same duration as that lease.
+            assert.deepEqual(combatCycles.timeoutDetails, warm.timeoutDetails, 'combat timers survive unmount');
+            assert.equal(combatCycles.frames, 0); assert.equal(combatCycles.observers, 0);
             checks.push({ sector, combatCycles: 8, stableCombatResources: true });
         }
         await page.close();
     }
     if (!baselineMode) for (const backdrop of ['2d', '3d']) {
         const state = fixture({ sector: 99 });
-        const page = await prepare(browser, { width: 1280, height: 900 }, state, `?host=1&sector=99&lifecycle=1&backdrop=${backdrop}`, async page => {
+        const page = await prepare(browser, { width: 1280, height: 900 }, state, `?host=1&sector=99&lifecycle=1&resourceAudit=1&backdrop=${backdrop}`, async page => {
             await instrument(page); await page.emulateMedia({ reducedMotion: 'no-preference' });
         });
         // Exercise the real exterior canvas, with ordinary animation enabled.
@@ -155,7 +180,7 @@ export async function auditStrongholdResources({ browser, fixture, prepare, read
             assert.equal(quiet.canvasDraws, inside.canvasDraws, 'hidden exterior still paints');
             assert.equal(await page.locator('canvas').count(), 0, 'hidden exterior retains its canvases');
             checks.push({ backdrop, cycle, outsideFrames: outside.frames, outsideWebgl: outside.webglActive, insideFrames: inside.frames, insideWebgl: inside.webglActive });
-            await page.getByRole('button', { name: 'Unmount preview', exact: true }).click();
+            await page.getByTestId('stronghold-qa-unmount').evaluate(button => button.click());
             await page.locator('.scene-ambience-canvas').waitFor();
             await page.waitForFunction(draws => window.resourceSnapshot().canvasDraws > draws, inside.canvasDraws);
         }

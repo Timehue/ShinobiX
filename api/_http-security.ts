@@ -41,7 +41,10 @@ export function contentSecurityPolicy(env: NodeJS.ProcessEnv = process.env): str
         // throws "WebAssembly.instantiate() … 'unsafe-eval' is not an allowed source"
         // and any compressed pet model fails to decode. It permits ONLY WebAssembly
         // compilation — NOT JS eval() (that would need the far broader 'unsafe-eval').
-        "script-src 'self' 'wasm-unsafe-eval'",
+        // Cloudflare injects Web Analytics on the public deployment. Permit its
+        // canonical script and versioned /beacon.min.js/... form, keeping other
+        // scripts on that host, other HTTPS origins, inline JS and eval blocked.
+        "script-src 'self' 'wasm-unsafe-eval' https://static.cloudflareinsights.com/beacon.min.js https://static.cloudflareinsights.com/beacon.min.js/",
         "style-src 'self' 'unsafe-inline'",
         "img-src 'self' data: blob: https:",
         "media-src 'self' data: blob: https:",
