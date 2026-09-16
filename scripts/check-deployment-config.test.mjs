@@ -79,6 +79,11 @@ test('Railway excludes test and review evidence from the Docker build context', 
     '**/*.spec.*',
     'shinobij.client/e2e*',
     'shinobij.client/art-references',
+    '**/test-results',
+    '**/playwright-report',
+    '**/.tmp',
+    '.ci-evidence',
+    '.ci-artifacts',
   ]) {
     assert.ok(
       dockerignore.split(/\r?\n/).includes(pattern),

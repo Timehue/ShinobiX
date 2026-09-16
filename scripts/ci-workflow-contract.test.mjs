@@ -70,15 +70,48 @@ test('split CI preserves every release gate and builds each artifact once', () =
     assert.match(workflow, /NODE_VERSION:\s*22\.23\.1/);
 });
 
-test('responsive browser discovery installs the runtime used by compiled server fixtures', () => {
+test('responsive browser discovery installs runtime and direct QA build dependencies', () => {
     // A client-only install passes locally when an earlier root install exists,
     // but fails while discovering the ranked replay fixture on a fresh runner.
     const responsive = workflow.split('  e2e_responsive_matrix:\n')[1]?.split('\n  e2e_responsive:\n')[0];
     assert.ok(responsive, 'the responsive shard job must exist');
-    const rootInstall = responsive.search(/run: npm ci(?: --omit=dev)? 2>&1/);
+    const rootInstall = responsive.search(/run: npm ci 2>&1/);
     const browserRun = responsive.indexOf('run: npm run test:e2e --prefix shinobij.client');
     assert.ok(rootInstall >= 0 && browserRun > rootInstall,
-        'fresh responsive shards must install root runtime packages before loading browser specs');
+        'fresh responsive shards must install root runtime and dev tooling before loading browser specs');
+    const rootPackage = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+    for (const tool of ['tsx', 'esbuild']) assert.ok(rootPackage.devDependencies[tool], `${tool} must be a direct QA dependency`);
+});
+
+test('built CSP and every Stronghold audit feed the required responsive gate with retained evidence', () => {
+    const responsive = workflow.split('  e2e_responsive_matrix:\n')[1]?.split('\n  e2e_responsive:\n')[0];
+    // GitHub's implicit Bash shell does not enable pipefail. All these gates
+    // pipe into tee, so preserving the explicit shell is part of enforcement.
+    assert.match(workflow, /defaults:\n  run:\n    shell: bash\n/);
+    assert.doesNotMatch(responsive, /^\s+shell:/m, 'responsive gates must inherit the explicit Bash shell');
+    const steps = responsive.split('      - name: ');
+    const gates = [
+        ['node --test scripts/check-http-security-browser.mjs', 1],
+        ['node scripts/stronghold-browser-qa.mjs --output=', 2],
+        ['node scripts/stronghold-browser-qa.mjs --dismissal --output=', 2],
+        ['node scripts/stronghold-browser-qa.mjs --resources --output=', 2],
+    ];
+    for (const [command, shard] of gates) {
+        const step = steps.find(value => value.includes(`run: ${command}`));
+        assert.ok(step, `missing responsive gate: ${command}`);
+        assert.ok(step.includes(`if: \${{ matrix.shard == ${shard} }}`), `${command} must run once on its assigned shard`);
+        assert.doesNotMatch(step, /continue-on-error|--baseline/, `${command} must enforce its assertions`);
+        assert.match(step, /2>&1 \| tee .*\.ci-evidence\/e2e-responsive-.*\.log/);
+        if (command.includes('stronghold-browser')) {
+            assert.match(step, /working-directory: shinobij\.client/);
+            assert.match(step, /NODE_ENV: test/);
+            assert.match(step, /SHINOBIX_QA_MEMORY_KV: '1'/);
+        }
+    }
+    assert.match(responsive, /name: Retain responsive browser evidence\n\s+if: always\(\)/);
+    const aggregate = workflow.split('  e2e_responsive:\n')[1]?.split('\n  e2e_combat_matrix:\n')[0];
+    assert.match(aggregate, /needs: e2e_responsive_matrix/);
+    assert.ok(aggregate.includes('test "$RESPONSIVE_MATRIX" = success'));
 });
 
 test('artifact consumers verify immutable provenance and failure evidence stays reachable', () => {
