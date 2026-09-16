@@ -65,6 +65,20 @@ async function auditVisibleScreen(page: Page, rootSelector = ".center-game"): Pr
         };
         const controls = Array.from(main.querySelectorAll("button, a[href], input, select, textarea")).filter(visible);
         const touchControls = Array.from(main.querySelectorAll("button, [role='button'], input:not([type='hidden']), select, textarea")).filter(visible);
+        // Native checkbox/radio labels activate their associated input. Measure
+        // that real pointer target while retaining compact painted controls.
+        // An absent, hidden, pointer-disabled or undersized label cannot exempt
+        // an undersized input from the same viewport minimum.
+        const touchTarget = (control: Element): Element => {
+            if (!(control instanceof HTMLInputElement) || !["checkbox", "radio"].includes(control.type)) return control;
+            return [control, ...Array.from(control.labels ?? [])
+                .filter((candidate) => visible(candidate) && getComputedStyle(candidate).pointerEvents !== "none")]
+                .reduce((largest, candidate) => {
+                    const a = largest.getBoundingClientRect();
+                    const b = candidate.getBoundingClientRect();
+                    return Math.min(b.width, b.height) > Math.min(a.width, a.height) ? candidate : largest;
+                });
+        };
         const backgroundElements = [document.querySelector(".app-background"), main, ...Array.from(main.querySelectorAll("*"))]
             .filter((element): element is Element => Boolean(element) && visible(element as Element));
         const backgroundUrls = Array.from(new Set(backgroundElements.flatMap((element) => {
@@ -135,9 +149,10 @@ async function auditVisibleScreen(page: Page, rootSelector = ".center-game"): Pr
         const targetSnapshot = touchControls
             .filter((control) => !control.matches(".atlas-sector, .atlas-hollowGate"))
             .map((control) => {
-                const box = control.getBoundingClientRect();
+                const target = touchTarget(control);
+                const box = target.getBoundingClientRect();
                 const minimum = viewportWidth <= 979 ? 44 : 24;
-                const style = getComputedStyle(control);
+                const style = getComputedStyle(target);
                 const ancestors = [];
                 for (let node: Element | null = control; node; node = node.parentElement) {
                     const computed = getComputedStyle(node);
@@ -159,6 +174,7 @@ async function auditVisibleScreen(page: Page, rootSelector = ".center-game"): Pr
                 }
                 return {
                     label: label(control),
+                    targetTag: target.tagName,
                     rect: { x: box.x, y: box.y, width: box.width, height: box.height },
                     minimum,
                     undersized: Math.min(box.width, box.height) < minimum,
@@ -175,7 +191,7 @@ async function auditVisibleScreen(page: Page, rootSelector = ".center-game"): Pr
             brokenImages,
             clippedControls: controls
                 .filter((control) => {
-                    const rect = control.getBoundingClientRect();
+                    const rect = touchTarget(control).getBoundingClientRect();
                     const ownsHorizontalScroll = Boolean(control.closest(
                         ".table-scroll, .ui-tabs, .admin-tabs, .profile-mobile-tabs, .chronicle-hand, .world-map-scroll, .hol-tabs, .council-tabs, .town-tabs, .clan-tabs, .user-hub-tabs, .expanded-tabs, .pet-home-tabs, .pet-arena-mode-toggle, .pet-pick-strip, .guides-filters",
                     ));
@@ -202,7 +218,7 @@ async function auditVisibleScreen(page: Page, rootSelector = ".center-game"): Pr
                 // board mounted to measure.
                 .filter((control) => !control.matches(".sector-avatar-figure, .scene-tile"))
                 .filter((control) => {
-                    const rect = control.getBoundingClientRect();
+                    const rect = touchTarget(control).getBoundingClientRect();
                     const minimum = viewportWidth <= 979 ? 44 : 24;
                     return Math.min(rect.width, rect.height) < minimum;
                 })
@@ -241,6 +257,30 @@ async function capture(page: Page, testInfo: TestInfo, screen: string) {
         fullPage: false,
     });
 }
+
+test("touch audit measures active native labels and rejects ineffective label targets", async ({ page }) => {
+    for (const type of ["checkbox", "radio"]) {
+        await page.setContent(`<main class="center-game">
+            <input id="choice" type="${type}" aria-label="Compact choice" style="width:18px;height:18px;margin:0">
+            <label for="choice" style="display:inline-flex;width:120px;height:44px;align-items:center">Choose</label>
+        </main>`);
+        const choice = page.getByRole(type === "checkbox" ? "checkbox" : "radio");
+        const target = page.locator('label[for="choice"]');
+        expect((await auditVisibleScreen(page)).undersizedControls).toEqual([]);
+        await target.click({ position: { x: 100, y: 22 } });
+        await expect(choice).toBeChecked();
+        for (const style of [
+            "display:inline-flex;width:18px;height:18px",
+            "display:none;width:120px;height:44px",
+            "display:inline-flex;width:120px;height:44px;pointer-events:none",
+        ]) {
+            await target.evaluate((element, value) => element.setAttribute("style", value), style);
+            expect((await auditVisibleScreen(page)).undersizedControls).toEqual(["Compact choice"]);
+        }
+        await target.evaluate((element) => element.remove());
+        expect((await auditVisibleScreen(page)).undersizedControls).toEqual(["Compact choice"]);
+    }
+});
 
 function collectRuntimeErrors(page: Page): string[] {
     const errors: string[] = [];

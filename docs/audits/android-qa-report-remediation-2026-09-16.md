@@ -116,3 +116,21 @@ Release validation using Node 22.23.1 and fresh locked dependencies:
 Local publication evidence is retained under `tmp/android-qa-publication/`.
 Publication must use a normal fast-forward push and verify the resulting live
 revision; no force push or deployment gate bypass is needed.
+
+## First publication and responsive-audit correction
+
+Commit `d82c2986bb735b3fe50192f30bee72aea3bd71a6` was pushed normally to main.
+Its production image, CodeQL, server/client checks, release certification,
+concurrency, combat, Warfront and store/recovery jobs passed. The responsive
+matrix completed with 910 passes, 605 configured skips and two failures: both
+Profile audits measured the compact checkbox artwork instead of its native
+clickable label. Railway therefore retained the previous production release.
+
+The follow-up changes only tests and this report. The shared audit measures
+visible, pointer-enabled native checkbox/radio labels while still rejecting
+missing, hidden, pointer-disabled and undersized targets. A regression exercises
+those negative cases; the Android QA check also clicks the far edge of the
+Profile label and verifies password visibility changes. All 25 targeted Profile
+and audit browser checks pass across the configured projects, with no retries;
+focused ESLint and diff checks pass. Production code and deployment gates are
+unchanged. The follow-up must pass the full remote gates before live verification.
