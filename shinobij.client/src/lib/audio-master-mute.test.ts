@@ -48,9 +48,16 @@ class MockAudio {
     }
 }
 
+const windowEvents = new EventTarget();
 Object.defineProperty(globalThis, "window", {
     configurable: true,
-    value: globalThis,
+    value: {
+        setInterval, clearInterval, setTimeout, clearTimeout,
+        requestAnimationFrame: () => 1,
+        cancelAnimationFrame: () => {},
+        addEventListener: windowEvents.addEventListener.bind(windowEvents),
+        removeEventListener: windowEvents.removeEventListener.bind(windowEvents),
+    },
 });
 Object.defineProperty(globalThis, "localStorage", {
     configurable: true,

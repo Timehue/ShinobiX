@@ -424,7 +424,7 @@
     min-width: 0;
 }
 
-.cc-field > span {
+.cc-field > span:not(.cc-password-wrap) {
     color: #f6d36f;
     font-family: var(--font-display);
     font-size: 13px;
@@ -471,17 +471,28 @@
 }
 
 .cc-password-wrap input {
-    padding-right: 74px;
+    min-height: 52px;
+    padding-right: 80px;
 }
 
 .cc-password-wrap button {
     position: absolute;
-    top: 0;
-    bottom: 0;
-    right: 6px;
-    height: auto;
+    top: 50%;
+    right: 4px;
+    transform: translateY(-50%);
+    width: 64px;
+    height: 44px;
     min-height: 44px;
-    min-width: 58px;
+    min-width: 64px;
+    margin: 0;
+    padding: 0 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    box-shadow: none;
     border-radius: 7px;
     border: 1px solid rgba(202, 138, 4, 0.32);
     background: rgba(15, 23, 42, 0.78);
@@ -489,6 +500,14 @@
     cursor: pointer;
     font-size: 12px;
     font-weight: 800;
+}
+
+.cc-password-wrap button:active {
+    transform: translateY(-50%);
+    box-shadow: none;
+}
+@media (hover: hover) {
+    .cc-password-wrap button:hover { transform: translateY(-50%); box-shadow: none; }
 }
 
 .cc-avatar-grid {

@@ -5,6 +5,7 @@
 // shared sample engine rather than a procedural oscillator layer.
 
 import { musicDeliverySrc } from "./audio-delivery";
+import { isAudioBackgrounded, subscribeAudioLifecycle } from "./audio-lifecycle";
 
 const MASTER_MUTE_KEY = "audioMuted";
 
@@ -50,6 +51,24 @@ let currentTheme: BattleMusicTheme | null = null;
 let currentIntensity: BattleMusicIntensity = "calm";
 let duckRestoreTimer: number | null = null;
 const muteListeners = new Set<() => void>();
+let unsubscribeLifecycle: (() => void) | null = null;
+
+function syncBattlePlayback(): void {
+    if (!audioEl) return;
+    const blocked = isAudioMuted() || isAudioBackgrounded();
+    audioEl.muted = blocked;
+    if (blocked) {
+        clearFade();
+        if (duckRestoreTimer !== null) {
+            window.clearTimeout(duckRestoreTimer);
+            duckRestoreTimer = null;
+        }
+        audioEl.pause();
+    } else if (currentTheme !== null && audioEl.src) {
+        applyBattleMix(currentIntensity);
+        void audioEl.play().catch(() => {});
+    }
+}
 
 // Audio defaults to muted. Only an explicit "0" counts as unmuted.
 export function isAudioMuted(): boolean {
@@ -69,14 +88,7 @@ function notifyMuteListeners(): void {
 
 export function setAudioMuted(muted: boolean): void {
     try { localStorage.setItem(MASTER_MUTE_KEY, muted ? "1" : "0"); } catch { /* ignore */ }
-    if (audioEl) {
-        // `muted` is the hard safety net; pause also stops decoding/playback work.
-        // Keep a stopped battle stopped when unmuting instead of reviving a stale
-        // source that happens to remain on the reusable media element.
-        audioEl.muted = muted;
-        if (muted) audioEl.pause();
-        else if (currentTheme !== null && audioEl.src) void audioEl.play().catch(() => {});
-    }
+    syncBattlePlayback();
     notifyMuteListeners();
 }
 
@@ -92,7 +104,8 @@ function ensureEl(): HTMLAudioElement | null {
         audioEl.loop = true;
         audioEl.preload = "auto";
         audioEl.volume = 0.4;
-        audioEl.muted = isAudioMuted();
+        audioEl.muted = isAudioMuted() || isAudioBackgrounded();
+        unsubscribeLifecycle = subscribeAudioLifecycle(syncBattlePlayback);
     }
     return audioEl;
 }
@@ -122,7 +135,7 @@ export function setBattleMusicIntensity(intensity: BattleMusicIntensity): void {
 
 /** Temporarily clear space in the score for an order, clash, or finishing hit. */
 export function duckBattleMusic(level = 0.42, holdMs = 520): void {
-    if (!audioEl || currentTheme === null || isAudioMuted()) return;
+    if (!audioEl || currentTheme === null || isAudioMuted() || isAudioBackgrounded()) return;
     if (duckRestoreTimer !== null) window.clearTimeout(duckRestoreTimer);
     const base = currentTheme === "hollow-gate"
         ? hollowGateMusicMix(currentIntensity).musicVolume
@@ -159,7 +172,7 @@ export function startBattleMusic(theme: BattleMusicTheme = "standard"): void {
     el.currentTime = 0;
     el.playbackRate = 1;
     applyBattleMix(currentIntensity);
-    void el.play().catch(() => { /* autoplay requires a user gesture */ });
+    syncBattlePlayback();
 }
 
 /** Fade out and stop the current score. */
@@ -172,6 +185,13 @@ export function stopBattleMusic(): void {
         duckRestoreTimer = null;
     }
     currentTheme = null;
+
+    if (isAudioMuted() || isAudioBackgrounded()) {
+        el.pause();
+        el.currentTime = 0;
+        el.playbackRate = 1;
+        return;
+    }
 
     const startVolume = el.volume;
     const steps = 12;
@@ -187,4 +207,13 @@ export function stopBattleMusic(): void {
             el.volume = startVolume;
         }
     }, 40);
+}
+
+if (import.meta.hot) {
+    import.meta.hot.dispose(() => {
+        unsubscribeLifecycle?.();
+        clearFade();
+        if (duckRestoreTimer !== null) window.clearTimeout(duckRestoreTimer);
+        audioEl?.pause();
+    });
 }

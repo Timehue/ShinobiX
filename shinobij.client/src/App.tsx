@@ -11,7 +11,7 @@ import { retireStalePetDuel } from "./lib/pet-duel-legacy-challenge";
 import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, useMemo } from "react";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import type * as React from "react";
-import { installAuthFetch, isTokenExpired, setActivePlayer, setActiveToken, setAdminSession, SESSION_EXPIRED_EVENT } from "./authFetch";
+import { installAuthFetch, setActivePlayer, setActiveToken, setAdminSession, SESSION_EXPIRED_EVENT } from "./authFetch";
 import { isReleaseSafeClientEvent } from "./lib/release-safe-content";
 import { GameAlertHost, GameConfirmHost, GamePasswordPromptHost, gameConfirm } from "./components/GameAlert";
 import { createPlayerLogout } from "./lib/player-logout";
@@ -59,7 +59,7 @@ import { beginSessionLoad, sessionLoadFetch } from "./lib/session-load-authority
 import { restoreAccountFromServer } from "./lib/boot-restore";
 
 import { saveConflictAccountKey } from "./lib/save-conflict";
-import { fetchPlayerSave, saveLoadFailure, verifyPlayerCredentials, SAVE_UNREACHABLE_MESSAGE, SESSION_ENDED_MESSAGE, type SaveLoadFailure } from "./lib/player-login";
+import { continueRememberedPlayer, fetchPlayerSave, saveLoadFailure, verifyPlayerCredentials, SAVE_UNREACHABLE_MESSAGE, SESSION_ENDED_MESSAGE, type SaveLoadFailure } from "./lib/player-login";
 import { finishGoogleRedirect, forgetGoogleNonce, readGoogleRedirect } from "./lib/google-signin";
 import { clearGuestSessionFor, rememberGuestSession, resumeGuestFor, signupRequestBody, type SignupCredential } from "./lib/guest-play";
 import { preloadScreen } from "./lib/screen-preload";
@@ -773,6 +773,14 @@ export default function App() {
     }, [screen]);
     const [worldMapKey, setWorldMapKey] = useState(0);
     const [character, setCharacter] = useState<Character | null>(null);
+    useEffect(() => {
+        if (!character?.accountName) return;
+        const accounts = loadPlayerAccounts();
+        const key = accountKey(character.name);
+        if (accounts[key]?.accountName === character.accountName) return;
+        accounts[key] = { ...accounts[key], accountName: character.accountName };
+        savePlayerAccounts(accounts);
+    }, [character?.name, character?.accountName]);
     const [currentAccountName, setCurrentAccountName] = useState("");
     const [viewingUserName, setViewingUserName] = useState<string | null>(null);
 
@@ -3117,7 +3125,7 @@ export default function App() {
             const res = await sessionLoadFetch('/api/player-auth', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'verify', name: name.toLowerCase(), password: reauthPw }),
+                body: JSON.stringify({ action: 'verify', name: (char.accountName || name).toLowerCase(), password: reauthPw }),
             });
             const data = await res.json().catch(() => null) as { ok?: boolean; token?: string } | null;
             // "Log out instead" is clickable while this was in flight; if the
@@ -4076,6 +4084,12 @@ export default function App() {
         currentAccountNameRef.current = snap.character.name;
         setCurrentAccountName(snap.character.name);
         setCharacter(normalized);
+        if (opts.authoritative !== false && normalized.accountName) {
+            const accounts = loadPlayerAccounts();
+            const key = accountKey(normalized.name);
+            accounts[key] = { ...accounts[key], accountName: normalized.accountName };
+            savePlayerAccounts(accounts);
+        }
         if (opts.authoritative !== false) void rehydrateSaveConflictDraft(snap.character.name, snap);
         applyProgressSnapshot(snap, { clearPendingAi: () => setPendingAiProfileId(""), applySector: applySnapshotSectorWithGuard });
         applyContentSnapshot(snap);
@@ -4110,26 +4124,7 @@ export default function App() {
     }
 
     /** One-click return for a shinobi this browser still holds a credential for. */
-    async function continueRememberedAccount(name: string): Promise<void> {
-        const stored = loadPlayerAccounts()[accountKey(name)]?.token;
-        // A token past its own expiry can only ever 401. Re-installing it would
-        // make the save pull fail and — before this guard — report itself as
-        // "No save found for that name", which reads as the account being gone.
-        // Treat a dead token as no credential at all and fall through.
-        if (stored && isTokenExpired(stored)) forgetAccountToken(name);
-        else if (stored) {
-            // The server is the only authority on a token that still LOOKS
-            // alive (a session-epoch rotation revokes one without touching its
-            // expiry), so a 401 here is silenced and handled like a dead one.
-            const outcome = await enterWithToken(name, stored, { silentExpiry: true });
-            if (outcome !== "expired") return;
-        }
-        // A guest's token lapses after a day, but their resume credential is
-        // good for two weeks — so this is still a one-click return for them.
-        const guest = await resumeGuestFor(name, (a, b) => accountKey(a) === accountKey(b));
-        if (guest) { await enterWithToken(guest.name, guest.token); return; }
-        alert(SESSION_ENDED_MESSAGE);
-    }
+    const continueRememberedAccount = (name: string) => continueRememberedPlayer(name, enterWithToken);
 
     async function loginPlayerAccount(name: string, password: string) {
         const currentAvailability = await settleAdmission(() => viewAvailability(), refreshCapabilities);
@@ -4144,15 +4139,21 @@ export default function App() {
         const verdict = await verifyPlayerCredentials(name, password, loginLoad.isCurrent);
         if (!loginLoad.isCurrent() || verdict.status === "superseded") return;
         if (verdict.status !== "ok") { alert(verdict.message); return; }
+        // A renamed login resolves to the same immutable save/token identity.
+        // Rebind the load fence only after the original attempt is still current.
+        const accountId = verdict.name || name;
+        const canonicalLoad = accountKey(accountId) !== accountKey(name)
+            ? beginSessionLoad(sessionLoadGenerationRef, accountId)
+            : loginLoad;
         // Store the session token so every later /api/ request uses the cheap
         // HMAC path instead of re-running scrypt server-side, and migrate this
         // account to token-only by dropping any password an older build left in
         // the local blob.
         if (verdict.token) {
             setActiveToken(verdict.token);
-            rememberAccountToken(name, verdict.token);
+            rememberAccountToken(accountId, verdict.token);
         }
-        await enterGameAsPlayer(name, loginLoad, password, { armPasswordFallback: !verdict.token });
+        await enterGameAsPlayer(accountId, canonicalLoad, password, { armPasswordFallback: !verdict.token });
     }
 
     // The second half of signing in: load the save and paint the game. Shared by

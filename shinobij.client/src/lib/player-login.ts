@@ -6,6 +6,9 @@
 // account all reuse the same second half without re-implementing this first one.
 
 import { sessionLoadFetch } from "./session-load-authority";
+import { isTokenExpired } from "../authFetch";
+import { accountKey, forgetAccountToken, loadPlayerAccounts } from "./player-accounts";
+import { resumeGuestFor } from "./guest-play";
 import {
     authRateLimitMessage,
     requiresLegacyAdminRecovery,
@@ -17,7 +20,7 @@ export const FORGOT_PASSWORD_HINT =
 
 export type PlayerLoginResult =
     /** Credentials accepted. `token` is absent when SESSION_SECRET is unset server-side. */
-    | { status: "ok"; token?: string }
+    | { status: "ok"; token?: string; name?: string }
     /** The attempt was abandoned because a newer session load started. */
     | { status: "superseded" }
     /** Show `message` and stay on the login screen. */
@@ -73,6 +76,24 @@ export const SESSION_ENDED_MESSAGE =
     "That shinobi's session has ended on this device. Sign in again — no progress is lost.";
 
 export const SAVE_UNREACHABLE_MESSAGE = "Could not load your save from the server. Try again in a moment.";
+
+/** Remembered entries keep their immutable ID even when the login label changes. */
+export async function continueRememberedPlayer(
+    name: string,
+    enterWithToken: (name: string, token?: string, opts?: { silentExpiry?: boolean }) => Promise<SaveLoadFailure | "ok" | "superseded">,
+): Promise<void> {
+    const stored = loadPlayerAccounts()[accountKey(name)]?.token;
+    // Expired credentials cannot load a save. A revoked but unexpired token
+    // still needs the server verdict before falling back to guest resume.
+    if (stored && isTokenExpired(stored)) forgetAccountToken(name);
+    else if (stored) {
+        const outcome = await enterWithToken(name, stored, { silentExpiry: true });
+        if (outcome !== "expired") return;
+    }
+    const guest = await resumeGuestFor(name, (a, b) => accountKey(a) === accountKey(b));
+    if (guest) { await enterWithToken(guest.name, guest.token); return; }
+    alert(SESSION_ENDED_MESSAGE);
+}
 
 /**
  * Verify a name + password against the server.
@@ -142,7 +163,7 @@ export async function verifyPlayerCredentials(
                 // none when SESSION_SECRET is unset, which is the documented
                 // password fallback. Requiring one rejected correct passwords.
                 result = data.ok === true
-                    ? { status: "ok", token: data.token ?? undefined }
+                    ? { status: "ok", token: data.token ?? undefined, ...(data.name ? { name: data.name } : {}) }
                     : { status: "rejected", message: FORGOT_PASSWORD_HINT };
             } else {
                 verified = true; // non-retriable HTTP error

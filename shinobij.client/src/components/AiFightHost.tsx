@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { maybeRequestPlayReview } from "../lib/native-play";
 import type { Character, BattleHistoryEntry } from "../types/character";
 import type { SoloPveSession } from "../lib/solo-pve-api";
 import { aiFightExitScreen, aiFightNonWinMessage } from "../lib/ai-fight-result";
@@ -709,7 +710,12 @@ function AiFightResultCard({
                 {/* Same escape hatch as the defeat branch above: a failed
                     settlement offers Retry AND a way out, never Retry alone. */}
                 {settleState === "failed" && <button onClick={onRetry}>Retry</button>}
-                <button disabled={settleState === "pending"} onClick={onExit}>Continue</button>
+                <button disabled={settleState === "pending"} onClick={() => {
+                    onExit();
+                    if (settleState === "settled" && settleResult?.settled && settleResult.character && !settleResult.replayed) {
+                        maybeRequestPlayReview(settleResult.character.level);
+                    }
+                }}>Continue</button>
             </div>
         </div>
     );

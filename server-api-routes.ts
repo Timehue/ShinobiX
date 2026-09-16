@@ -137,6 +137,7 @@ import petBreedingHatchHandler from './api/pet/breeding-hatch.js';
 import petSanctuaryListHandler from './api/pet/sanctuary-list.js';
 import petSanctuaryTransferHandler from './api/pet/sanctuary-transfer.js';
 import playerProfileTitleHandler from './api/player/profile-title.js';
+import playerAccountNameHandler from './api/player/account-name.js';
 import playerStatRespecHandler from './api/player/stat-respec.js';
 import professionMasteryHandler from './api/profession/mastery.js';
 import shopPurchaseHandler from './api/shop/purchase.js';
@@ -823,6 +824,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     route('/pet/sanctuary/list', petSanctuaryListHandler);
     route('/pet/sanctuary/transfer', petSanctuaryTransferHandler);
     route('/player/profile-title', playerProfileTitleHandler);
+    route('/player/account-name', playerAccountNameHandler);
     route('/player/stat-respec', playerStatRespecHandler);
     route('/profession/mastery', professionMasteryHandler);
     route('/shop/purchase', shopPurchaseHandler);

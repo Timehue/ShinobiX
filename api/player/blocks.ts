@@ -3,6 +3,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { withKvLock } from '../_lock.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { kv } from '../_storage.js';
+import { resolvePlayerReference } from '../_account-name.js';
 import { cors, safeName } from '../_utils.js';
 import { blockedPlayersFor, blockListKey, updateBlockList } from './_blocks.js';
 
@@ -26,7 +27,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
-        const target = safeName(String(body.target ?? ''));
+        const target = safeName(await resolvePlayerReference(String(body.target ?? '')));
         const blocked = body.blocked === true;
         if (!target) return res.status(400).json({ error: 'Invalid player name.' });
         if (target === me) return res.status(400).json({ error: 'You cannot block yourself.' });

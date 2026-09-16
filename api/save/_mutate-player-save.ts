@@ -78,7 +78,7 @@ export async function writeVersionedPlayerSave(
     const { kv } = await import('../_storage.js');
     const out = await writeVersionedPlayerSaveWithStore(kv, saveKey, currentRecord, nextCharacter, recordPatch, opts);
     const beforeCharacter = currentRecord.character as PlayerCharacter | undefined;
-    if (['village', 'level', 'monthlyPvpKills', 'pvpKillMonth', 'totalPvpKills'].some(field => beforeCharacter?.[field] !== nextCharacter[field])) {
+    if (['village', 'level', 'monthlyPvpKills', 'pvpKillMonth', 'totalPvpKills', 'accountName'].some(field => beforeCharacter?.[field] !== nextCharacter[field])) {
         // ANBU ranking must see committed PvP results and village changes even
         // before the owner's next generic autosave refreshes the public index.
         try {

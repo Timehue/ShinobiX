@@ -4,6 +4,7 @@ import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
+import { resolvePlayerReference } from '../_account-name.js';
 
 // Player-owned social lists, stored in their OWN KV keys — mirrors the
 // per-player `challenges:<name>` precedent — so they never round-trip or
@@ -76,7 +77,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Social-list spam guard, by IP, KV-backed (survives instance hops).
         if (!(await enforceRateLimitKv(req, res, 'friends-mutate', 40, 60_000))) return;
 
-        const targetRaw = String(bodyObj.targetName ?? '').trim();
+        const targetRaw = await resolvePlayerReference(String(bodyObj.targetName ?? '').trim());
         const targetSlug = safeName(targetRaw);
         const listKind = bodyObj.list === 'friends' ? 'friends' : 'following';
         const listLabel = listKind === 'friends' ? 'friends list' : 'following list';

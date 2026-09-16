@@ -85,7 +85,7 @@ describe("legacy account recovery classification", () => {
         // requiring a token here rejects correct passwords.
         assert.match(
             loginSource,
-            /data\.ok === true\s*\?\s*\{ status: "ok", token: data\.token \?\? undefined \}/,
+            /data\.ok === true\s*\?\s*\{ status: "ok", token: data\.token \?\? undefined, \.\.\.\(data\.name \? \{ name: data\.name \} : \{\}\) \}/,
             "login must not require a session token to accept a verified password",
         );
         assert.doesNotMatch(

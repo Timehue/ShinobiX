@@ -292,6 +292,8 @@ export type StoryEpilogueReceipt = {
 
 export type Character = {
     name: string;
+    /** Mutable public/login name. name remains the stable account ID. */
+    accountName?: string;
     village: string;
     specialty: JutsuType;
     bloodline: string;

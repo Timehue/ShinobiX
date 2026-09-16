@@ -317,13 +317,30 @@
   width: 100%;
 }
 .change-password-show {
-  display: inline-flex;
+  display: flex;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 44px;
   align-items: center;
   gap: 6px;
   margin: 8px 0 4px;
   font-size: 12px;
   color: var(--text-dim);
   cursor: pointer;
+}
+.app-shell .profile-page-card .change-password-show input[type="checkbox"] {
+  /* The label supplies the 44px touch target; keep the native mark compact
+     despite the noncombat skin's blanket minimum size for inputs. */
+  min-inline-size: 18px !important;
+  min-block-size: 18px !important;
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  min-height: 18px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--gold-300);
 }
 .change-password-card > button {
   margin-top: 8px;
@@ -864,6 +881,9 @@
 }
 
 .mobile-profile-sheet {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 28px - env(safe-area-inset-bottom));
   width: 100%;
   max-width: 360px;
   margin: auto;
@@ -875,6 +895,7 @@
 }
 
 .mobile-profile-sheet-header {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -906,6 +927,11 @@
 /* Recreate the desktop rail's flex-column-centred container so the reused
    .left-* body elements (which assume that context) lay out correctly. */
 .mobile-profile-sheet-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -913,6 +939,8 @@
   padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
   color: #fff;
 }
+
+.mobile-profile-sheet-body > * { flex-shrink: 0; }
 
 /* The desktop avatar is a large 140px block; trim it a touch so the card
    header reads well inside the narrower mobile sheet. */
