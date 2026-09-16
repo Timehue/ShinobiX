@@ -7,7 +7,7 @@ import { type TileCard } from "../data/tile-cards";
 import { isPetOnExpedition, petDisplayName } from "../lib/pet";
 import { primePetSfx } from "../lib/pet-sfx";
 import { startBattleMusic } from "../lib/pet-music";
-import { defaultVnPortrait, defaultVnScene, hidePlayerPortraitDuringNarration, splitDialogueLine } from "../lib/vn";
+import { defaultVnScene, hidePlayerPortraitDuringNarration, splitDialogueLine } from "../lib/vn";
 import { rewardSummary } from "../lib/currency";
 import { hiddenDungeonVnEvent } from "../data/vn-events";
 import { GameIcon } from "../components/icons/GameIcon";
@@ -28,6 +28,7 @@ import {
     type DungeonPetSettlement,
 } from "../lib/dungeon-pet-authority";
 import { resolveDungeonStage } from "../lib/dungeon-stage";
+import { resolveDungeonSpeakerPortrait } from "../lib/ai-fight-art";
 import {
     startAuthoredEncounter,
     submitShowdownTurn,
@@ -93,7 +94,6 @@ export function DungeonEncounter({
     // banner), pet (seal 3 rare-beast portrait). Keys piggyback on the
     // existing `event:` category so no server prefix change is needed.
     const adminBackdrop = sharedImages[`event:${event.id}:backdrop`];
-    const adminWarden = sharedImages[`event:${event.id}:warden`];
     const adminTileScene = sharedImages[`event:${event.id}:tilescene`];
     const adminPet = sharedImages[`event:${event.id}:pet`];
     const pageImage = adminBackdrop || page.image || event.image || defaultVnScene(event.id, event.biome);
@@ -158,8 +158,8 @@ export function DungeonEncounter({
                         <span className="vn-character-initials">{character.name.slice(0, 2).toUpperCase()}</span>
                     </div>}
                     {(() => {
-                        if (speaker.trim().toLowerCase() === "narrator") return null;
-                        const portrait = adminWarden || event.avatarImage || defaultVnPortrait(speaker);
+                        if (["narrator", "player", "%name", character.name.trim().toLowerCase()].includes(speaker.trim().toLowerCase())) return null;
+                        const portrait = resolveDungeonSpeakerPortrait(event, speaker, sharedImages, page);
                         return (
                             <div className="vn-character hero-character">
                                 {portrait

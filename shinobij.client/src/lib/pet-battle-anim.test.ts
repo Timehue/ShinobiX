@@ -60,6 +60,55 @@ test("petCardImage: a starter falls back to its idle pose (no inline image)", ()
     assert.equal(petCardImage(mkPet({ id: "starter-fire", rarity: "standard" })), "/pet-poses/starter-fire-idle.webp?v=4");
 });
 
+const reviewedCardPoses = [
+    ["standard-3", "standard-3-windup.webp"],
+    ["standard-30", "standard-30-recover.webp"],
+    ["standard-40", "standard-40-recover.webp"],
+    ["rare-2", "rare-2-recover.webp"],
+    ["rare-40", "rare-40-run-a.webp"],
+] as const;
+
+test("petCardImage: reviewed static poses follow template identity for wild and owned pets", () => {
+    for (const [templateId, file] of reviewedCardPoses) {
+        const expected = `/pet-poses/${file}?v=4`;
+        assert.equal(petCardImage(mkPet({ id: templateId })), expected, templateId);
+        assert.equal(petCardImage(mkPet({
+            id: `${templateId}:550e8400-e29b-41d4-a716-446655440000`,
+            templateId,
+        })), expected, `${templateId}: owned UUID`);
+        assert.equal(petCardImage(mkPet({ id: `${templateId}-1700000000000` })), expected, `${templateId}: legacy encounter`);
+    }
+});
+
+test("petCardImage: reviewed fallbacks preserve shared, inline, and palette art precedence", () => {
+    for (const [id] of reviewedCardPoses) {
+        const pet = mkPet({ id, image: "inline.png" });
+        assert.equal(petCardImage(pet), "inline.png", id);
+        assert.equal(petCardImage(pet, { [`pet:${id}`]: "shared.png" }), "shared.png", id);
+        assert.equal(petCardImage({ ...pet, bodyImage: "inline-body.png" }), "inline-body.png", id);
+        assert.equal(petCardImage({ ...pet, bodyImage: "inline-body.png" }, {
+            [`petbody:${id}`]: "shared-body.png",
+        }), "shared-body.png", id);
+        const variant = { ...pet, paletteVariantId: "chromatic-v1" };
+        assert.equal(petCardImage(variant, {
+            [`pet:${id}`]: "base.png",
+            [`pet:${id}:variant:chromatic-v1`]: "chromatic.png",
+        }), "chromatic.png", id);
+        assert.equal(petCardImage(variant, {
+            [`petbody:${id}`]: "base-body.png",
+            [`petbody:${id}:variant:chromatic-v1`]: "chromatic-body.png",
+        }), "chromatic-body.png", id);
+    }
+});
+
+test("reviewed card fallbacks do not replace battle sprites or pose-first billboard images", () => {
+    for (const [id] of reviewedCardPoses) {
+        const pet = mkPet({ id });
+        assert.equal(petPoseImage(pet), `/pet-poses/${id}-idle.webp?v=4`, id);
+        assert.deepEqual(petBattleSprite(pet), { mode: "circleFallback", src: "" }, id);
+    }
+});
+
 test("petCardImage: an inline image (e.g. evolved art) wins over the pose", () => {
     assert.equal(petCardImage(mkPet({ id: "starter-fire", image: "/pet-evos/starter-fire-r.webp" })), "/pet-evos/starter-fire-r.webp");
 });
@@ -444,4 +493,38 @@ test("extractPetMoveName pulls the move name from a log line", () => {
     assert.equal(extractPetMoveName("Round 2: Foo uses Mend, restoring 30 HP."), "Mend");
     assert.equal(extractPetMoveName("Round 1: Foo basic attacks for 9 damage."), undefined);
     assert.equal(extractPetMoveName(undefined), undefined);
+});
+
+
+test("animation aliases cannot replace any breeding Mythic's own portrait", () => {
+    for (const [id, alias] of [["mythic-10", "mythic-5"], ["mythic-11", "mythic-6"], ["mythic-12", "mythic-3"], ["mythic-13", "legendary-24"], ["mythic-14", "mythic-9"]]) {
+        const pet = mkPet({ id: id + ":owned", templateId: id, rarity: "mythic" });
+        const images = { ["pet:" + alias]: "wrong-species.png", ["petbody:" + alias]: "wrong-body.png" };
+        const expected = "/pet-portraits/breeding-mythics/" + id + ".webp";
+        assert.equal(petCardImage(pet, images), expected, id);
+        assert.equal(petBattleSprite(pet, images).src, expected, id);
+        assert.equal(petCardImage(pet, { ...images, ["pet:" + id]: "own-species.png" }), "own-species.png");
+    }
+});
+
+test("a published palette portrait wins over an uncolored body image", () => {
+    const pet = mkPet({ paletteVariantId: "chromatic-v1", bodyImage: "uncolored-inline.png" });
+    const images = { "petbody:standard-1": "uncolored.png", "pet:standard-1:variant:chromatic-v1": "chromatic.png" };
+    assert.equal(petCardImage(pet, images), "chromatic.png");
+    assert.deepEqual(petBattleSprite(pet, images), { mode: "circleFallback", src: "chromatic.png" });
+});
+
+test("depth layers never combine incomplete palettes or different identities", () => {
+    const pet = mkPet({ id: "standard-1:owned", templateId: "standard-1", paletteVariantId: "chromatic-v1" });
+    const base = { "petlayers:standard-1:far": "bf", "petlayers:standard-1:mid": "bm", "petlayers:standard-1:near": "bn" };
+    assert.deepEqual(petBattleLayers(pet, { ...base, "petlayers:standard-1:far:variant:chromatic-v1": "vf" }), { far: "bf", mid: "bm", near: "bn" });
+    assert.equal(petBattleLayers(pet, { "petlayers:standard-1:far": "f", "petlayers:standard-1:owned:mid": "m", "petlayers:standard-1:owned:near": "n" }), null);
+});
+
+test("animation sheets read frame counts from the exact selected identity and palette", () => {
+    const pet = mkPet({ id: "standard-1:owned", templateId: "standard-1" });
+    assert.deepEqual(petBattleSheet(pet, { "petsheet:standard-1:frames": "24", "petsheet:standard-1:owned": "owned.png", "petsheet:standard-1:owned:frames": "6" }), { src: "owned.png", frames: 6 });
+    const variant = { ...pet, paletteVariantId: "chromatic-v1" };
+    assert.deepEqual(petBattleSheet(variant, { "petsheet:standard-1:variant:chromatic-v1": "variant.png", "petsheet:standard-1:variant:chromatic-v1:frames": "5", "petsheet:standard-1:frames": "24" }), { src: "variant.png", frames: 5 });
+    assert.equal(petBattleSheet(variant, { "petsheet:standard-1:variant:chromatic-v1": "variant.png", "petsheet:standard-1:frames": "24" })?.frames, 8);
 });
