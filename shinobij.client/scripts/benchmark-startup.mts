@@ -12,8 +12,13 @@ const root = fileURLToPath(new URL('../../', import.meta.url));
 const expect = baseExpect.configure({ timeout: 30_000 });
 const output = resolve(root, process.argv[2] ?? 'test-results/performance-gauntlet-2026-09-16/startup');
 const samples = Number(process.env.PERF_SAMPLES ?? 5);
+const settleStatic = process.env.PERF_SETTLE_STATIC === '1';
+// Optional immutable local frontend control; the server still uses disposable KV.
+const staticDirectory = process.env.PERF_STATIC_DIR ? resolve(root, process.env.PERF_STATIC_DIR) : resolve(root, 'shinobij.client/dist');
 if (!Number.isInteger(samples) || samples < 1 || samples > 10) throw new Error('PERF_SAMPLES must be 1..10');
-await mkdir(output, { recursive: true });
+await mkdir(resolve(output, '..'), { recursive: true });
+await mkdir(output); // Each attempt retains its own evidence, including failures.
+const manifest = await readFile(resolve(staticDirectory, '.vite/manifest.json'));
 const reservation = createServer();
 await new Promise<void>(done => reservation.listen(0, '127.0.0.1', done));
 const address = reservation.address();
@@ -31,11 +36,13 @@ Object.assign(env, {
     ADMIN_PASSWORD: 'performance-local-disposable-admin',
     DISABLE_SCHEDULED_JOBS: '1', DISABLE_PRESENCE_STATE_JOBS: '1',
     DISABLE_REALTIME: '1', DISABLE_SNAPSHOT_CRON: '1', SENTRY_DSN: '',
+    STATIC_DIR: staticDirectory,
 });
 const server = spawn(process.execPath, ['dist/server.js'], { cwd: root, env, windowsHide: true, stdio: 'ignore' });
 let serverError: Error | undefined;
 server.on('error', error => { serverError = error; });
 let browser: Browser | undefined;
+let completed = false;
 const rows: any[] = [];
 const profiles = [
     { name: 'desktop', viewport: { width: 1366, height: 768 }, cpu: 1, latency: 0, down: -1, up: -1 },
@@ -64,25 +71,42 @@ try {
         await cdp.send('Network.emulateNetworkConditions', { offline: false, latency: profile.latency,
             downloadThroughput: profile.down, uploadThroughput: profile.up });
         const traffic = new Map<string, any>();
+        const pending = new Map<string, any>();
         const failures: string[] = [];
+        let activeJourney = 'setup';
         let networkCanceled = 0;
         let action: { acknowledgmentMs: number; renderedMs: number; canonicalLocalSaveVerified: boolean } | null = null;
         page.on('pageerror', error => failures.push(error.name));
         page.on('dialog', dialog => { failures.push('unexpected-dialog'); void dialog.dismiss(); });
-        cdp.on('Network.responseReceived', ({ requestId, response, type }) => {
-            const url = new URL(response.url);
+        cdp.on('Network.requestWillBeSent', ({ requestId, request, type, timestamp, initiator }) => {
+            const url = new URL(request.url);
             if (url.origin !== baseURL) return;
-            traffic.set(requestId, { path: url.pathname.replace(/\/api\/save\/[^/]+/, '/api/save/:fixture'), type,
-                status: response.status, encoding: response.headers['Content-Encoding'] ?? response.headers['content-encoding'] ?? null,
+            const row = { path: url.pathname.replace(/\/api\/save\/[^/]+/, '/api/save/:fixture'), type,
+                journey: activeJourney, requestStartSeconds: timestamp, initiatorType: initiator.type,
+                status: null, transferredBytes: 0, receivedBytes: 0 };
+            traffic.set(requestId, row);
+            pending.set(requestId, row);
+        });
+        cdp.on('Network.responseReceived', ({ requestId, response, timestamp }) => {
+            const row = pending.get(requestId);
+            if (!row) return;
+            Object.assign(row, { status: response.status, responseStartSeconds: timestamp, timing: response.timing,
+                encoding: response.headers['Content-Encoding'] ?? response.headers['content-encoding'] ?? null,
                 cacheControl: response.headers['Cache-Control'] ?? response.headers['cache-control'] ?? null,
-                cached: Boolean(response.fromDiskCache || response.fromServiceWorker), transferredBytes: 0 });
+                cached: Boolean(response.fromDiskCache || response.fromServiceWorker) });
         });
-        cdp.on('Network.loadingFinished', ({ requestId, encodedDataLength }) => {
-            const row = traffic.get(requestId); if (row) row.transferredBytes = encodedDataLength;
+        cdp.on('Network.dataReceived', ({ requestId, encodedDataLength }) => {
+            const row = pending.get(requestId); if (row) row.receivedBytes += encodedDataLength;
         });
-        cdp.on('Network.loadingFailed', ({ requestId, canceled, blockedReason }) => {
-            const row = traffic.get(requestId);
-            if (row) row.failed = true;
+        cdp.on('Network.loadingFinished', ({ requestId, encodedDataLength, timestamp }) => {
+            const row = pending.get(requestId);
+            if (row) Object.assign(row, { transferredBytes: encodedDataLength, finishedSeconds: timestamp });
+            pending.delete(requestId);
+        });
+        cdp.on('Network.loadingFailed', ({ requestId, canceled, blockedReason, timestamp }) => {
+            const row = pending.get(requestId);
+            if (row) Object.assign(row, { failed: true, canceled: Boolean(canceled), finishedSeconds: timestamp });
+            pending.delete(requestId);
             // Avoid URLs and browser error text, which may contain private
             // request details. Navigation cancellation is recorded separately.
             if (canceled) networkCanceled++;
@@ -107,23 +131,68 @@ try {
         });
         const measure = async (journey: string, ready: () => Promise<void>) => {
             traffic.clear(); failures.length = 0; action = null; networkCanceled = 0;
+            activeJourney = journey;
+            const carryover = [...pending.values()];
+            const pendingBefore = structuredClone(carryover);
+            const before = await cdp.send('Performance.getMetrics');
+            const cdpStartSeconds = before.metrics.find(m => m.name === 'Timestamp')?.value;
             const start = performance.now();
-            await ready();
+            try { await ready(); }
+            catch (error) {
+                rows.push({ profile: profile.name, sample, journey, status: 'failed',
+                    elapsedMs: performance.now() - start, errorName: error instanceof Error ? error.name : 'UnknownError',
+                    cdpStartSeconds, pendingBefore, pendingAtFailure: structuredClone([...pending.values()]),
+                    failures: [...failures], resources: structuredClone([...traffic.values()]) });
+                await page.screenshot({ path: resolve(output, `${profile.name}-${sample}-${journey}-failed.png`) }).catch(() => {});
+                throw error;
+            }
             const usableMs = performance.now() - start;
+            const pendingAtReady = structuredClone([...pending.values()]);
+            const resourcesAtReady = structuredClone([...traffic.values()]);
             await page.waitForTimeout(3000); // Fixed observation window, not a readiness assertion.
             const metrics = await page.evaluate(() => {
                 const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
-                return { ...(window as any).__lab, navigation: { ttfbMs: navigation.responseStart, domContentLoadedMs: navigation.domContentLoadedEventEnd },
+                return { ...(window as any).__lab, navigation: {
+                    responseStartMs: navigation.responseStart, requestStartMs: navigation.requestStart,
+                    requestToFirstByteMs: navigation.responseStart - navigation.requestStart,
+                    responseEndMs: navigation.responseEnd, connectStartMs: navigation.connectStart,
+                    connectEndMs: navigation.connectEnd, domContentLoadedMs: navigation.domContentLoadedEventEnd },
                     resourceTransferBytes: performance.getEntriesByType('resource').reduce((sum, e) => sum + (e as PerformanceResourceTiming).transferSize, 0),
                     domNodes: document.querySelectorAll('*').length };
             });
             const final = await cdp.send('Performance.getMetrics');
             const finalMetrics = Object.fromEntries(final.metrics.map(m => [m.name, m.value]));
-            rows.push({ profile: profile.name, sample, journey, usableMs, ...metrics,
+            rows.push({ profile: profile.name, sample, journey, status: failures.length ? 'failed' : 'passed', usableMs, ...metrics,
                 // Chromium resets these counters on each full navigation.
                 scriptDurationMs: finalMetrics.ScriptDuration * 1000,
                 taskDurationMs: finalMetrics.TaskDuration * 1000,
-                heapBytes: finalMetrics.JSHeapUsedSize, action, networkCanceled, failures: [...failures], resources: [...traffic.values()] });
+                heapBytes: finalMetrics.JSHeapUsedSize, action, networkCanceled, failures: [...failures],
+                cdpStartSeconds, pendingBefore, pendingAtReady, resourcesAtReady,
+                unfinishedResponseBodyBytesAtReady: pendingAtReady.reduce((sum, row) => sum + row.receivedBytes, 0),
+                carryoverAtEnd: structuredClone(carryover), resources: structuredClone([...traffic.values()]) });
+            if (failures.length) throw new Error('Browser errors during the journey; see retained diagnostics');
+            if (settleStatic) {
+                // An additional controlled mode, not part of usableMs. Preserve
+                // the default rapid sequence to expose in-flight navigation
+                // contention; this mode measures an actually primed warm cache.
+                const drainStart = performance.now();
+                const staticTypes = new Set(['Document', 'Script', 'Stylesheet', 'Image', 'Font', 'Media']);
+                let quietSince = performance.now();
+                while (performance.now() - quietSince < 500) {
+                    if ([...pending.values()].some(row => staticTypes.has(row.type))) quietSince = performance.now();
+                    if (performance.now() - drainStart > 90_000) {
+                        Object.assign(rows[rows.length - 1], { status: 'failed', failurePhase: 'static-drain',
+                            pendingAtFailure: structuredClone([...pending.values()]) });
+                        throw new Error('Static asset drain exceeded 90 seconds');
+                    }
+                    await page.waitForTimeout(50);
+                }
+                rows[rows.length - 1].staticDrainMs = performance.now() - drainStart;
+                if (failures.length) {
+                    Object.assign(rows[rows.length - 1], { status: 'failed', failurePhase: 'static-drain', failures: [...failures] });
+                    throw new Error('Browser errors during the static drain; see retained diagnostics');
+                }
+            }
             if (sample === 0) await page.screenshot({ path: resolve(output, `${profile.name}-${journey}.png`) });
             console.log(`${profile.name} ${sample + 1}/${samples} ${journey}: ${Math.round(usableMs)}ms`);
         };
@@ -202,13 +271,19 @@ try {
         });
         await context.close();
     }
+    completed = true;
 } finally {
     try {
         await browser?.close();
     } finally {
-        server.kill();
-        const manifest = await readFile(resolve(root, 'shinobij.client/dist/.vite/manifest.json'));
-        await writeFile(resolve(output, 'results.json'), JSON.stringify({ schema: 2, browser: browser?.version() ?? null, profiles, samples,
+        if (server.pid && server.exitCode === null && server.signalCode === null) {
+            const exited = new Promise<void>(resolve => server.once('exit', () => resolve()));
+            server.kill();
+            await exited;
+        }
+        await writeFile(resolve(output, 'results.json'), JSON.stringify({ schema: 3, status: completed ? 'passed' : 'failed',
+            browser: browser?.version() ?? null, profiles, samples,
+            journeySpacing: settleStatic ? 'static assets settled after each observation window; drain excluded from usableMs' : 'rapid sequence; fixed three-second observation windows, potentially unfinished static downloads',
             manifestSha256: createHash('sha256').update(manifest).digest('hex'),
             environment: 'Local compiled Express, disposable memory KV, warm server, no API mocks, SW blocked, external DNS blocked. Mobile is emulation; Chromium HTTP cache enabled. Timings include Playwright readiness assertions.',
             limitations: 'No production DB, CDN, physical Android, field INP, GPU or battery claims. Landing-cold includes opening the login form. Returning feature-cold includes first Bank entry; returning-warm restores Bank. Both returning journeys submit a deposit, check its acknowledgment and rendered result, and verify the canonical save in disposable local memory storage; this does not establish database durability. Layout shift is observed-window total, not session-window field CLS. DNS blackholing blocks nonlocal hostnames; it is not a literal-IP network firewall.', rows }, null, 2));

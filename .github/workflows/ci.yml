@@ -558,10 +558,10 @@ jobs:
         run: |
           echo "release-artifact=${{ needs.release_artifact.result }}" | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/upstream-results.log
           exit 1
-      # Ranked browser fixtures load the compiled server resolver, whose imports
-      # include storage runtime packages resolved from the repository root.
-      - name: Install server runtime dependencies
-        run: npm ci --omit=dev 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/root-install.log
+      # Ranked browser fixtures need root storage packages. Stronghold QA also
+      # uses the locked root tsx/esbuild tooling to build its disposable fixture.
+      - name: Install server runtime and QA dependencies
+        run: npm ci 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/root-install.log
       - name: Install client dependencies
         run: npm ci --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/client-install.log
       - name: Download joined release artifact
@@ -584,6 +584,16 @@ jobs:
         run: npx --prefix shinobij.client playwright install --with-deps chromium firefox webkit 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/browser-install.log
       - name: Cross-browser responsive and accessibility smoke
         run: npm run test:e2e --prefix shinobij.client -- --shard=${{ matrix.shard }}/2 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/playwright.log
+      - name: Verify built CSP in Chromium and WebKit
+        if: ${{ matrix.shard == 1 }}
+        run: node --test scripts/check-http-security-browser.mjs 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/csp-browser.log
+      - name: Stronghold request lifecycle and recovery
+        if: ${{ matrix.shard == 1 }}
+        env:
+          NODE_ENV: test
+          SHINOBIX_QA_MEMORY_KV: '1'
+        working-directory: shinobij.client
+        run: node scripts/stronghold-browser-qa.mjs --output=../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/stronghold 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/stronghold.log
       - name: Retain responsive browser evidence
         if: always()
         continue-on-error: true
