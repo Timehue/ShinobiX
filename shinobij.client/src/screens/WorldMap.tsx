@@ -160,6 +160,7 @@ import {
 } from "../lib/world-reward-recovery";
 import { DungeonProbeError, probeFreeDungeonServer } from "../lib/dungeon-api";
 import { petCardImage } from "../lib/pet-battle-anim";
+import { buildPetEncounterVn } from "../lib/pet-encounter-vn";
 import { biomeForWorldSector, sectorRegionName, villageOutskirtsSectorNumber, weatherForBiome } from "../data/sectors";
 import { biomeLabel, weatherEffects } from "../data/world";
 import { builtinHuntMissions } from "../data/missions";
@@ -3808,24 +3809,7 @@ function WorldMapContent({
     }
     if (activePetEncounter && !petVnDone) {
         const petActorImage = petCardImage(activePetEncounter, sharedImages);
-        const sourcePages: NonNullable<CreatorEvent["vnPages"]> = petEncounterVn.vnPages?.length
-            ? petEncounterVn.vnPages
-            : [{
-                title: petEncounterVn.vnTitle || petEncounterVn.name,
-                scene: petEncounterVn.vnScene || "Fresh tracks stop beside your own.",
-                speaker: petEncounterVn.vnSpeaker || "Narrator",
-                dialogue: petEncounterVn.dialogue,
-            }];
-        const cinematicPetEvent: CreatorEvent = {
-            ...petEncounterVn,
-            biome: "forest",
-            avatarImage: petActorImage || petEncounterVn.avatarImage,
-            vnPages: sourcePages.map((page) => ({
-                ...page,
-                rightName: page.rightName || activePetEncounter.name,
-                rightImage: page.rightImage || petActorImage || undefined,
-            })),
-        };
+        const cinematicPetEvent = buildPetEncounterVn(petEncounterVn, activePetEncounter, petActorImage);
         return (
             <TriggeredVisualNovel
                 event={cinematicPetEvent}

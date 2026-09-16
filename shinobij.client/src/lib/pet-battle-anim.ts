@@ -59,6 +59,17 @@ const BREEDING_MYTHIC_PORTRAITS: Readonly<Record<string, string>> = {
 
 const STORM_GULL_CARD_PORTRAIT = "/pet-portraits/standard-17-card-v2.webp";
 
+// Reviewed single-character alternatives for cards whose idle art contains
+// stacked figures or a baked checkerboard. Only the final static-card fallback
+// uses these files; published art and battle animation poses keep their priority.
+const CARD_FALLBACK_POSE_FILES: Readonly<Record<string, string>> = {
+    "standard-3": "standard-3-windup.webp",
+    "standard-30": "standard-30-recover.webp",
+    "standard-40": "standard-40-recover.webp",
+    "rare-2": "rare-2-recover.webp",
+    "rare-40": "rare-40-run-a.webp",
+};
+
 const BREEDING_MYTHIC_POSE_ALIASES: Readonly<Record<string, string>> = {
     "mythic-10": "mythic-5",
     "mythic-11": "mythic-6",
@@ -75,7 +86,22 @@ function petArtIds(pet: Pet): string[] {
         typeof pet.templateId === "string" ? pet.templateId : "",
         petStripVariant(pet.id),
     ].filter(Boolean))];
-    return [...new Set(identityIds.flatMap((id) => [id, BREEDING_MYTHIC_POSE_ALIASES[id] ?? ""]).filter(Boolean))];
+    return identityIds;
+}
+
+/** Animation stand-ins must never participate in portrait identity lookup. */
+function petPoseArtIds(pet: Pet): string[] {
+    const ids = petArtIds(pet);
+    return [...new Set([...ids, ...ids.map((id) => BREEDING_MYTHIC_POSE_ALIASES[id]).filter(Boolean)])];
+}
+
+function publishedVariantSprite(pet: Pet, sharedImages: Record<string, string>, artIds: string[]): { mode: PetSpriteMode; src: string } | null {
+    const variant = petPaletteVariant(pet);
+    if (!variant) return null;
+    const body = firstSharedImage(sharedImages, artIds.map((id) => `${PET_BODY_PREFIX}${id}:variant:${variant}`));
+    if (body) return { mode: "fullBodySprite", src: body };
+    const portrait = firstSharedImage(sharedImages, artIds.map((id) => `${PET_IMG_PREFIX}${id}:variant:${variant}`));
+    return portrait ? { mode: "circleFallback", src: portrait } : null;
 }
 
 function breedingMythicPortrait(artIds: readonly string[]): string {
@@ -99,11 +125,18 @@ export function petBattleLayers(
     pet: Pet,
     sharedImages: Record<string, string> = {},
 ): { far: string; mid: string; near: string } | null {
-    const artIds = petArtIds(pet);
-    const pick = (band: "far" | "mid" | "near"): string =>
-        firstSharedImage(sharedImages, variantImageKeys(PET_LAYER_PREFIX, pet, artIds.map((id) => `${id}:${band}`)));
-    const far = pick("far"), mid = pick("mid"), near = pick("near");
-    return far && mid && near ? { far, mid, near } : null;
+    const artIds = petPoseArtIds(pet);
+    const variant = petPaletteVariant(pet);
+    // A depth stack is one asset: never mix forms or partial palette uploads.
+    for (const suffix of variant ? [`:variant:${variant}`, ""] : [""]) {
+        for (const id of artIds) {
+            const far = sharedImages[`${PET_LAYER_PREFIX}${id}:far${suffix}`];
+            const mid = sharedImages[`${PET_LAYER_PREFIX}${id}:mid${suffix}`];
+            const near = sharedImages[`${PET_LAYER_PREFIX}${id}:near${suffix}`];
+            if (far && mid && near) return { far, mid, near };
+        }
+    }
+    return null;
 }
 
 /**
@@ -116,10 +149,12 @@ export function petBattleSheet(
     pet: Pet,
     sharedImages: Record<string, string> = {},
 ): { src: string; frames: number } | null {
-    const artIds = petArtIds(pet);
-    const src = firstSharedImage(sharedImages, variantImageKeys(PET_SHEET_PREFIX, pet, artIds));
-    if (!src) return null;
-    const framesRaw = artIds.map((id) => sharedImages[`${PET_SHEET_PREFIX}${id}:frames`]).find(Boolean) || "";
+    const artIds = petPoseArtIds(pet);
+    const sourceKey = variantImageKeys(PET_SHEET_PREFIX, pet, artIds).find((key) => sharedImages[key]);
+    if (!sourceKey) return null;
+    const src = sharedImages[sourceKey];
+    // Frame counts belong to the selected sheet, not an earlier template or palette.
+    const framesRaw = sharedImages[`${sourceKey}:frames`] || "";
     const parsed = parseInt(framesRaw, 10);
     const frames = Math.max(1, Math.min(24, Number.isFinite(parsed) && parsed > 0 ? parsed : PET_SHEET_DEFAULT_FRAMES));
     return { src, frames };
@@ -139,6 +174,8 @@ export function petBattleSprite(
     sharedImages: Record<string, string> = {},
 ): { mode: PetSpriteMode; src: string } {
     const artIds = petArtIds(pet);
+    const variantSprite = publishedVariantSprite(pet, sharedImages, artIds);
+    if (variantSprite) return variantSprite;
     // Evolved starters keep their base id but carry a stage `visualId`
     // (starter-fire-r / -l). Try the stage art FIRST, then fall back to the base
     // art — so an evolved pet shows its own form once that art is published, and
@@ -159,7 +196,7 @@ export function petBattleSprite(
  * every starter and wild pool pet ships at `/pet-poses/<id>-idle.webp`:
  *   1. shared full-body (petbody:) / inline bodyImage
  *   2. shared portrait (pet:) / inline image  (evolved starters set pet.image)
- *   3. the idle pose for the stage visualId, then the variant-stripped base id
+ *   3. a reviewed static pose, otherwise the idle pose, for the resolved art id
  * Returns "" when nothing exists so callers fall back to initials/emoji.
  *
  * This is the piece that makes STARTERS appear in the yard: they carry no inline
@@ -179,7 +216,8 @@ export function petCardImage(
             `${PET_IMG_PREFIX}${id}:variant:${variant}`,
         ]))) || STORM_GULL_CARD_PORTRAIT;
     }
-    const direct = firstSharedImage(sharedImages, variantImageKeys(PET_BODY_PREFIX, pet, artIds))
+    const direct = publishedVariantSprite(pet, sharedImages, artIds)?.src
+        || firstSharedImage(sharedImages, variantImageKeys(PET_BODY_PREFIX, pet, artIds))
         || pet.bodyImage
         || firstSharedImage(sharedImages, variantImageKeys(PET_IMG_PREFIX, pet, artIds))
         || pet.image
@@ -187,7 +225,10 @@ export function petCardImage(
         || "";
     if (direct) return direct;
     const posedId = artIds.find(hasPetPose);
-    if (posedId) return idlePoseUrl(posedId);
+    if (posedId) {
+        const reviewedPose = CARD_FALLBACK_POSE_FILES[posedId];
+        return reviewedPose ? `/pet-poses/${reviewedPose}?v=${POSE_ASSET_V}` : idlePoseUrl(posedId);
+    }
     return "";
 }
 
@@ -200,7 +241,7 @@ export function petCardImage(
  * petCardImage only when a pet has no generated pose. Pure.
  */
 export function petPoseImage(pet: Pet, sharedImages: Record<string, string> = {}): string {
-    const posedId = petArtIds(pet).find(hasPetPose);
+    const posedId = petPoseArtIds(pet).find(hasPetPose);
     if (posedId) return idlePoseUrl(posedId);
     return petCardImage(pet, sharedImages);
 }
