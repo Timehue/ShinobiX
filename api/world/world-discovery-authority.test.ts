@@ -99,6 +99,129 @@ async function seed(playerName: string, character: Record<string, unknown> = {})
 }
 
 describe('durable World discovery handoff', () => {
+    it('reports transient missing presence and accepts the same exploration after reconnect', async () => {
+        const player = 'discoveryexplorereconnect';
+        const requestId = 'explorereconnect123';
+        await seed(player);
+        const missing = await post(explore, player, { sector: 66, requestId, resolveOutcome: true });
+        assert.equal(missing.statusCode, 409);
+        assert.equal(missing.body?.reason, 'no-presence');
+        const refusedSave = await kv.get<{ character: Record<string, unknown> }>(`save:${player}`);
+        assert.equal(refusedSave?.character.serverExploresToday, undefined, 'a presence refusal never spends an exploration');
+        onlineStore.upsert({ name: player, sector: 66, character: { level: 50 }, tile: 5 });
+        const recovered = await post(explore, player, { sector: 66, requestId, resolveOutcome: true });
+        assert.equal(recovered.statusCode, 200);
+        assert.equal((recovered.body?.character as Record<string, unknown>)?.serverExploresToday, 1);
+        const replay = await post(explore, player, { sector: 66, requestId, resolveOutcome: true });
+        assert.equal(replay.statusCode, 200);
+        assert.equal(replay.body?.replayed, true);
+        assert.equal((replay.body?.character as Record<string, unknown>)?.serverExploresToday, 1);
+    });
+
+    it('returns retryable busy on contention and recovers the same partially persisted pet afterward', async () => {
+        const player = 'discoverypetcontention';
+        const requestId = 'contendedpetrequest01';
+        const token = 'contendedpettoken001';
+        const pet = { id: 'contended-pet', name: 'Sealed Pet', level: 1, stats: { hp: 10 } };
+        const activeKey = `pet-encounter-active:${player}`;
+        const requestKey = `pet-encounter-request:${player}:${requestId}`;
+        const tokenKey = `pet-encounter:${player}:${token}`;
+        const pointer = { playerName: player, requestId, outcome: 'hit', token, pet, sector: 65, mintedAt: Date.now() };
+        await seed(player);
+        // Simulate a lost response after the first authority write, while
+        // another request still owns the player's encounter lock.
+        await kv.set(activeKey, pointer);
+        await kv.set(`lock:${activeKey}`, 'another-request', { ex: 30 });
+        try {
+            const busy = await post(petStart, player, { sector: 65, requestId });
+            assert.equal(busy.statusCode, 503);
+            assert.equal(busy.body?.reason, 'busy');
+            assert.equal(busy.body?.retryable, true);
+            assert.deepEqual(await kv.get(activeKey), pointer, 'contention never overwrites the sealed pet');
+            assert.equal(await kv.get(requestKey), null, 'contention never writes without the lock');
+            assert.equal(await kv.get(tokenKey), null);
+        } finally {
+            await kv.del(`lock:${activeKey}`);
+        }
+
+        const recovered = await post(petStart, player, { sector: 65, requestId });
+        assert.equal(recovered.statusCode, 200);
+        assert.equal(recovered.body?.replayed, true);
+        assert.equal(recovered.body?.requestId, requestId);
+        assert.equal(recovered.body?.token, token);
+        assert.deepEqual(recovered.body?.pet, pet);
+        assert.equal((await kv.get<Record<string, unknown>>(requestKey))?.mintedAt, pointer.mintedAt);
+        assert.deepEqual((await kv.get<Record<string, unknown>>(tokenKey))?.pet, pet);
+        assert.deepEqual(await kv.keys(`pet-encounter-request:${player}:*`), [requestKey], 'recovery writes one original receipt');
+    });
+
+    it('reports the daily pet limit without sealing another search and still recovers sealed results', async () => {
+        const player = 'discoverypetdailylimit';
+        const mintedAt = Date.now();
+        const day = new Date(mintedAt).toISOString().slice(0, 10);
+        await seed(player, { serverExploreDate: day, serverExploresToday: 1 });
+        onlineStore.upsert({ name: player, sector: 66, character: { level: 50 }, tile: 5 });
+        for (let index = 0; index < 150; index += 1) {
+            const requestId = `dailypetrequest${String(index).padStart(3, '0')}`;
+            await kv.set(`pet-encounter-request:${player}:${requestId}`, {
+                version: 1, playerName: player, requestId, day, sector: 66, mintedAt,
+                resolvedAt: mintedAt, resolution: 'explored-miss',
+            });
+        }
+
+        const blocked = await post(petStart, player, { sector: 66, requestId: 'dailypetnewrequest' });
+        assert.equal(blocked.statusCode, 429);
+        assert.equal(blocked.body?.reason, 'daily-limit');
+        assert.match(String(blocked.body?.error), /midnight UTC/);
+        assert.equal(await kv.get(`pet-encounter-request:${player}:dailypetnewrequest`), null);
+        assert.equal(await kv.get(`pet-encounter-active:${player}`), null);
+        assert.equal((await kv.keys(`pet-encounter-request:${player}:*`)).length, 150);
+
+        // Daily admission limits apply to NEW searches, never recovery of a
+        // hit or miss the server already sealed before the response was lost.
+        const pet = { id: 'limit-recovered-pet', name: 'Recovered Pet', level: 1, stats: { hp: 10 } };
+        const token = 'dailypetrecoverytoken001';
+        for (const outcome of ['miss', 'hit'] as const) {
+            const requestId = `dailypetrecover${outcome}`;
+            await kv.set(`pet-encounter-active:${player}`, {
+                playerName: player, requestId, outcome, sector: 65, mintedAt,
+                ...(outcome === 'hit' ? { token, pet } : {}),
+            });
+            const recovered = await post(petStart, player, { sector: 66, requestId: 'dailypetnewrequest' });
+            assert.equal(recovered.statusCode, 200);
+            assert.equal(recovered.body?.requestId, requestId);
+            assert.equal(recovered.body?.sector, 65);
+            assert.equal(recovered.body?.replayed, true);
+            assert.deepEqual(recovered.body?.pet, outcome === 'hit' ? pet : null);
+            assert.equal(recovered.body?.token, outcome === 'hit' ? token : undefined);
+        }
+    });
+
+    it('redirects a conflicting pet search to the sealed dungeon miss without rolling another pet', async () => {
+        const player = 'discoverypetdungeonredirect';
+        const requestId = 'dungeonmissredirect01';
+        const at = Date.now();
+        const day = new Date(at).toISOString().slice(0, 10);
+        await seed(player, {
+            serverFreeDungeonProbeDate: day,
+            serverFreeDungeonProbesToday: 1,
+            serverFreeDungeonProbeReceipts: [{ requestId, day, sector: 65, found: false, token: '', at }],
+        });
+
+        const blocked = await post(petStart, player, { sector: 66, requestId: 'conflictingpetrequest' });
+        assert.equal(blocked.statusCode, 409);
+        assert.deepEqual(blocked.body, {
+            error: 'pending-dungeon-discovery', reason: 'pending-dungeon-discovery', requestId, sector: 65,
+        });
+        assert.equal(await kv.get(`pet-encounter-active:${player}`), null);
+        assert.deepEqual(await kv.keys(`pet-encounter-request:${player}:*`), []);
+
+        const recovered = await post(petStart, player, { sector: 65, requestId });
+        assert.equal(recovered.statusCode, 200, 'the matching sealed dungeon miss authorizes recovery without live presence');
+        assert.equal(recovered.body?.requestId, requestId);
+        assert.equal(recovered.body?.sector, 65);
+    });
+
     it('reconstructs unresolved hit and miss authority after the old 20-minute window', async () => {
         const mintedAt = Date.now() - 21 * 60 * 1_000;
         const day = new Date(mintedAt).toISOString().slice(0, 10);

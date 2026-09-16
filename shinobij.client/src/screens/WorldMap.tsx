@@ -140,10 +140,11 @@ import { ATLAS_SECTOR_POINTS } from "../data/sector-points";
 import { sectorExits as roadExitsForSector, travelArrivalTile, type SectorExit } from "../../../shared/sector-links";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
 import { scaleWandererPetOpponent } from "../lib/pet-balance";
-import { befriendWildPet, declineWildPetEncounter, startWildPetEncounter } from "../lib/wild-pet-encounter-api";
+import { befriendWildPet, declineWildPetEncounter, startWildPetEncounter, wildPetEncounterFailureMessage } from "../lib/wild-pet-encounter-api";
 import {
     openAncientChest,
     recordSectorExplore,
+    worldRewardFailureMessage,
     type ExploreCredit,
     type ExternalExploreProof,
     type FieldExploreProgress,
@@ -155,10 +156,12 @@ import {
     beginWorldDiscoveryOperation,
     beginWorldChestOperation,
     completeWorldRewardOperation,
-    readPendingWorldRewards,
     type PendingWorldRewardOperation,
 } from "../lib/world-reward-recovery";
-import { DungeonProbeError, probeFreeDungeonServer } from "../lib/dungeon-api";
+import { DungeonProbeError, dungeonProbeFailureMessage, probeFreeDungeonServer } from "../lib/dungeon-api";
+import { runSingleFlight } from "../lib/single-flight";
+import { drainPendingWorldRewardOperations, type WorldRecoveryResult } from "../lib/world-reward-drain";
+import { ambushRewardFailureMessage } from "../lib/ambush-reward-feedback";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { buildPetEncounterVn } from "../lib/pet-encounter-vn";
 import { biomeForWorldSector, sectorRegionName, villageOutskirtsSectorNumber, weatherForBiome } from "../data/sectors";
@@ -1468,10 +1471,12 @@ function WorldMapContent({
         launchWorldMapFight(ai, sector, { kind: "wanderer-ambush", sourceId: "wanderer-ambush", sector, stage, chainId });
     }
     async function claimAmbushReward(recovering = false): Promise<boolean> {
+        let failure = ambushRewardFailureMessage();
         try {
             const res = await fetch("/api/sector/wanderer-ambush", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "claim", playerName: character.name }) });
-            const d = await res.json() as { ok?: boolean; reward?: { ryo: number; fateShards: number; boneCharms: number }; character?: Character; _saveVersion?: number };
-            if (d.ok && d.reward && d.character) {
+            const d = await res.json().catch(() => null) as { ok?: boolean; reason?: string; error?: string; reward?: { ryo: number; fateShards: number; boneCharms: number }; character?: Character; _saveVersion?: number } | null;
+            failure = ambushRewardFailureMessage(d, res.status);
+            if (res.ok && d?.ok && d.reward && d.character) {
                 if (!onVersionedCharacter(d.character, d._saveVersion)) return false;
                 const parts = [`${d.reward.ryo} ryo`];
                 if (d.reward.fateShards > 0) parts.push(`${d.reward.fateShards} fate shard${d.reward.fateShards === 1 ? "" : "s"}`);
@@ -1480,7 +1485,7 @@ function WorldMapContent({
                 return true;
             }
         } catch { /* fall through to the no-loot message */ }
-        if (!recovering) setTimeout(() => alert("The warlord is down, but the loot ledger is still syncing. It will retry when the World Map opens."), 40);
+        if (!recovering) setTimeout(() => alert(failure), 40);
         return false;
     }
 
@@ -2855,7 +2860,9 @@ function WorldMapContent({
             petEncounter?: Pet;
             operationId?: string;
         },
+        reportFailure?: (message: string) => void,
     ): Promise<SettledExplore | null> {
+        const notifyFailure = reportFailure ?? alert;
         const operation = options.externalOutcomeProof
             ? beginExternalWorldExplore(character.name, sector, options.externalOutcomeProof, options.petEncounter, undefined, options.operationId)
             : beginResolvedWorldExplore(character.name, sector, undefined, options.operationId);
@@ -2874,15 +2881,11 @@ function WorldMapContent({
                 completeWorldRewardOperation(character.name, operation.id);
             }
             if (settled.pendingBattle) { // an ambush rolled earlier is still owed: resume that exact sealed encounter
-                if (!launchResolvedExploreBattle(settled.pendingBattle.sector, settled.pendingBattle.requestId)) alert("The combat host is unavailable. Reopen the map to resume your pending encounter.");
+                if (!launchResolvedExploreBattle(settled.pendingBattle.sector, settled.pendingBattle.requestId)) notifyFailure("The combat host is unavailable. Reopen the map to resume your pending encounter.");
                 return null;
             }
-            if (settled.error === "sector-depleted") { gameToast(SECTOR_DEPLETED_MESSAGE, { kind: "info" }); return null; }
-            alert(settled.error === "daily-limit"
-                ? "Daily tile exploration limit reached (150/150). Resets at midnight UTC."
-                : settled.retryable === false
-                    ? "That expired discovery was safely retired. Explore the sector again to make a new attempt."
-                : "The sector could not be explored right now. Try again in a moment.");
+            if (settled.error === "sector-depleted" && !reportFailure) { gameToast(SECTOR_DEPLETED_MESSAGE, { kind: "info" }); return null; }
+            notifyFailure(worldRewardFailureMessage(settled));
             return null;
         }
         // Replay responses contain the already-paid balance. Adopt the full
@@ -2892,7 +2895,7 @@ function WorldMapContent({
         // operation parked until every matching mission explicitly ACKs
         // `recorded:true`; a dropped 200 response then replays one evidence id.
         if (!(await recordMissionExplore(sector, operation.id, settled.fieldProgress))) {
-            alert("The tile is safely recorded, but its mission receipt is still syncing. Reopen the map to recover it before exploring again.");
+            notifyFailure("The tile is safely recorded, but its mission receipt is still syncing. Reopen the map to recover it before exploring again.");
             return null;
         }
         return { operation, outcome: settled.outcome, reward: settled.reward };
@@ -2911,7 +2914,7 @@ function WorldMapContent({
         return true;
     }
 
-    async function settleDiscoveredChest(operation: PendingWorldRewardOperation): Promise<"settled" | "retryable" | "terminal"> {
+    async function settleDiscoveredChest(operation: PendingWorldRewardOperation, reportFailure?: (message: string) => void): Promise<"settled" | "retryable" | "terminal"> {
         const worldExploreRequestId = operation.kind === "chest"
             ? operation.worldExploreRequestId
             : operation.id;
@@ -2926,7 +2929,8 @@ function WorldMapContent({
             worldExploreRequestId,
         );
         if (!chest.loot || !chest.character) {
-            if (chest.error === "sector-depleted") gameToast(SECTOR_DEPLETED_MESSAGE, { kind: "info" });
+            reportFailure?.(worldRewardFailureMessage(chest, "chest"));
+            if (chest.error === "sector-depleted" && !reportFailure) gameToast(SECTOR_DEPLETED_MESSAGE, { kind: "info" });
             if (chest.retryable === false) {
                 completeWorldRewardOperation(character.name, chestOperation.id);
                 completeWorldRewardOperation(character.name, worldExploreRequestId);
@@ -2961,6 +2965,7 @@ function WorldMapContent({
     async function recoverResolvedPetOperation(
         operation: PendingWorldRewardOperation,
         encounter: Extract<Awaited<ReturnType<typeof startWildPetEncounter>>, { kind: "resolved" }>,
+        reportFailure?: (message: string) => void,
     ): Promise<boolean> {
         if (encounter.requestId !== operation.id) completeWorldRewardOperation(character.name, operation.id);
         focusDiscoverySector(encounter.sector);
@@ -2969,27 +2974,48 @@ function WorldMapContent({
             return true;
         }
         const rebound = beginResolvedWorldExplore(character.name, encounter.sector, undefined, encounter.requestId);
-        const explored = await settleExplore(rebound.sector, { resolveOutcome: true, operationId: rebound.id });
+        const explored = await settleExplore(rebound.sector, { resolveOutcome: true, operationId: rebound.id }, reportFailure);
         if (!explored) return false;
-        return (await finishResolvedExplore(explored, false)) !== "blocked";
+        return (await finishResolvedExplore(explored, false, reportFailure)) !== "blocked";
+    }
+
+    async function recoverPetBlockedByDungeon(
+        operation: PendingWorldRewardOperation,
+        pendingDungeon: { requestId: string; sector: number },
+        reportFailure?: (message: string) => void,
+    ): Promise<boolean> {
+        // Adopt the server's unfinished probe before retiring the refused id.
+        // A different device may have started it in a different sector.
+        const rebound = beginWorldDiscoveryOperation(
+            character.name, pendingDungeon.sector, "dungeon", undefined, pendingDungeon.requestId,
+        );
+        if (rebound.id !== operation.id) completeWorldRewardOperation(character.name, operation.id);
+        return recoverPendingExternalDiscovery(rebound, "dungeon", reportFailure);
     }
 
     async function recoverPendingExternalDiscovery(
         operation: PendingWorldRewardOperation,
         source: "pet" | "dungeon",
+        reportFailure?: (message: string) => void,
     ): Promise<boolean> {
         let rebound: PendingWorldRewardOperation;
         if (source === "pet") {
             const encounter = await startWildPetEncounter(character.name, operation.sector, operation.id);
-            if (encounter.kind === "resolved") return recoverResolvedPetOperation(operation, encounter);
+            if (encounter.kind === "blocked" && encounter.pendingDungeon) {
+                return recoverPetBlockedByDungeon(operation, encounter.pendingDungeon, reportFailure);
+            }
+            if (encounter.kind === "resolved") return recoverResolvedPetOperation(operation, encounter, reportFailure);
             if (encounter.kind === "miss") {
                 if (encounter.requestId !== operation.id) completeWorldRewardOperation(character.name, operation.id);
                 focusDiscoverySector(encounter.sector);
                 const miss = beginResolvedWorldExplore(character.name, encounter.sector, undefined, encounter.requestId);
-                const explored = await settleExplore(miss.sector, { resolveOutcome: true, operationId: miss.id });
-                return !!explored && (await finishResolvedExplore(explored, false)) !== "blocked";
+                const explored = await settleExplore(miss.sector, { resolveOutcome: true, operationId: miss.id }, reportFailure);
+                return !!explored && (await finishResolvedExplore(explored, false, reportFailure)) !== "blocked";
             }
-            if (encounter.kind !== "hit") return false;
+            if (encounter.kind !== "hit") {
+                reportFailure?.(wildPetEncounterFailureMessage(encounter));
+                return false;
+            }
             const requestId = encounter.worldExploreRequestId ?? encounter.requestId;
             if (requestId !== operation.id) completeWorldRewardOperation(character.name, operation.id);
             rebound = beginExternalWorldExplore(
@@ -3005,6 +3031,7 @@ function WorldMapContent({
             try {
                 probe = await probeFreeDungeonServer(character.name, operation.sector, operation.id);
             } catch (error) {
+                reportFailure?.(dungeonProbeFailureMessage(error));
                 if (error instanceof DungeonProbeError && !error.retryable) {
                     completeWorldRewardOperation(character.name, operation.id);
                     return true;
@@ -3020,7 +3047,7 @@ function WorldMapContent({
             if (!probe.found) {
                 if (probe.requestId !== operation.id) completeWorldRewardOperation(character.name, operation.id);
                 const next = beginWorldDiscoveryOperation(character.name, probe.sector, "pet", undefined, probe.requestId);
-                return (await continueWorldDiscovery(next, false)) !== "blocked";
+                return (await continueWorldDiscovery(next, false, reportFailure)) !== "blocked";
             }
             if (!probe.token) return false;
             const requestId = probe.worldExploreRequestId ?? probe.requestId;
@@ -3042,6 +3069,7 @@ function WorldMapContent({
             { externalOutcomeProof: rebound.externalOutcomeProof },
         );
         if (!result.character || !onVersionedCharacter(result.character, result.saveVersion)) {
+            reportFailure?.(worldRewardFailureMessage(result));
             if (result.retryable === false) completeWorldRewardOperation(character.name, rebound.id);
             return false;
         }
@@ -3053,107 +3081,26 @@ function WorldMapContent({
         return true;
     }
 
-    async function recoverPendingWorldRewards(interactive = false): Promise<"none" | "recovered" | "blocked"> {
-        const pending = readPendingWorldRewards(character.name);
-        if (pending.length === 0) return "none";
-        let blocked = false;
-        let recovered = false;
-        let retired = false;
-        for (const operation of pending) {
-            if (!readPendingWorldRewards(character.name).some((current) => current.id === operation.id)) continue;
-            if (operation.kind === "explore") {
-                if (operation.discoveryStage) {
-                    const discovery = await continueWorldDiscovery(operation);
-                    if (discovery === "recovered") {
-                        recovered = true;
-                        break;
-                    }
-                    if (discovery === "retired") retired = true;
-                    else blocked = true;
-                    continue;
-                }
-                const result = await recordSectorExplore(
-                    character.name,
-                    operation.sector,
-                    operation.credit ?? "tile",
-                    operation.id,
-                    {
-                        resolveOutcome: operation.resolveOutcome === true || !operation.externalOutcomeProof,
-                        ...(operation.externalOutcomeProof ? { externalOutcomeProof: operation.externalOutcomeProof } : {}),
-                    },
-                );
-                if (!result.character) {
-                    if (result.error === "pending-pet-discovery" || result.error === "pending-dungeon-discovery") {
-                        const source = result.error === "pending-pet-discovery" ? "pet" : "dungeon";
-                        if (await recoverPendingExternalDiscovery(operation, source)) {
-                            recovered = true;
-                            break;
-                        }
-                    }
-                    if (result.pendingBattle) { // this parked operation never committed; retire it and resume the owed ambush
-                        completeWorldRewardOperation(character.name, operation.id);
-                        if (launchResolvedExploreBattle(result.pendingBattle.sector, result.pendingBattle.requestId)) { recovered = true; break; }
-                        blocked = true;
-                        continue;
-                    }
-                    if (result.retryable === false) {
-                        completeWorldRewardOperation(character.name, operation.id);
-                        retired = true;
-                    } else {
-                        blocked = true;
-                    }
-                    continue;
-                }
-                if (!onVersionedCharacter(result.character, result.saveVersion)) { blocked = true; continue; }
-                if (await recordMissionExplore(operation.sector, operation.id, result.fieldProgress)) {
-                    if (result.outcome?.kind === "chest") {
-                        const chestState = await settleDiscoveredChest(operation);
-                        if (chestState === "settled") recovered = true;
-                        else if (chestState === "terminal") retired = true;
-                        else blocked = true;
-                    } else if (result.outcome?.kind === "battle") {
-                        if (launchResolvedExploreBattle(operation.sector, operation.id)) {
-                            recovered = true;
-                            // AiFightHost clears the operation only after start
-                            // ACK (or active-session resume), closing the crash gap.
-                            break;
-                        }
-                        blocked = true;
-                    } else if (result.outcome?.kind === "external" && result.outcome.source === "dungeon"
-                        && operation.externalOutcomeProof?.kind === "dungeon") {
-                        onDungeonFound(operation.externalOutcomeProof.token);
-                        completeWorldRewardOperation(character.name, operation.id);
-                        recovered = true;
-                        break;
-                    } else if (result.outcome?.kind === "external" && result.outcome.source === "pet") {
-                        // Never surface a cached token directly. The request receipt
-                        // can reconstruct an expired active pointer, or report that
-                        // the choice already resolved on another device.
-                        if (await recoverPendingExternalDiscovery(operation, "pet")) recovered = true;
-                        else blocked = true;
-                        break;
-                    } else {
-                        completeWorldRewardOperation(character.name, operation.id);
-                        recovered = true;
-                    }
-                } else {
-                    blocked = true;
-                }
-                continue;
-            }
-            const chestState = await settleDiscoveredChest(operation);
-            if (chestState === "settled") recovered = true;
-            else if (chestState === "terminal") retired = true;
-            else blocked = true;
-        }
-        if (interactive && blocked) {
-            alert("A previous World reward is still waiting for the server. It will retry with the same receipt when you reopen the map or reconnect.");
-        } else if (interactive && recovered) {
-            alert("Your previous World reward was recovered from its server receipt. Explore again when you're ready.");
-        } else if (interactive && retired) {
-            alert("An expired World discovery was safely cleared. You can explore again now.");
-        }
-        return blocked ? "blocked" : (recovered || retired) ? "recovered" : "none";
+    const worldRecoveryInFlight = useRef(new Map<string, Promise<WorldRecoveryResult>>());
+
+    async function recoverPendingWorldRewards(interactive = false): Promise<WorldRecoveryResult["state"]> {
+        // Coalesce the whole drain, including presentation and mission credit.
+        // Sharing fetches alone still allows two callers to process each ACK.
+        const result = await runSingleFlight(worldRecoveryInFlight.current, character.name, drainPendingWorldRewards);
+        if (interactive && result.message) alert(result.message);
+        return result.state;
+    }
+
+    async function drainPendingWorldRewards(): Promise<WorldRecoveryResult> {
+        return drainPendingWorldRewardOperations(character.name, {
+            continueWorldDiscovery,
+            recoverPendingExternalDiscovery,
+            launchResolvedExploreBattle,
+            recordMissionExplore,
+            settleDiscoveredChest,
+            onDungeonFound,
+            onVersionedCharacter,
+        });
     }
 
     useEffect(() => {
@@ -3185,30 +3132,25 @@ function WorldMapContent({
     async function exploreSector(sector: number) {
         if (exploreInFlight.current) return;
         exploreInFlight.current = true;
-        const recovered = await recoverPendingWorldRewards(true);
-        if (recovered !== "none") {
-            exploreInFlight.current = false;
-            return;
-        }
-        const dailyTiles = character.dailyTilesExplored ?? 0;
-        if (dailyTiles >= 150) {
-            alert("Daily tile exploration limit reached (150/150). Resets at midnight UTC.");
-            exploreInFlight.current = false;
-            return;
-        }
-        const depleted = sectorExploreRefusal(sector, loadSectorTerritory(sector).ownerVillage, character.village);
-        if (depleted) {
-            gameToast(depleted, { kind: "info" });
-            exploreInFlight.current = false;
-            return;
-        }
-        const biome = biomeForSector(sector);
-        setSelectedVillageTerritory(null);
-        setSelectedSector(sector);
-        setCurrentBiome(biome);
-        setCurrentWeather(weatherForSector(sector, biome));
-        setCurrentSector(sector);
         try {
+            const recovered = await recoverPendingWorldRewards(true);
+            if (recovered !== "none") return;
+            const dailyTiles = character.dailyTilesExplored ?? 0;
+            if (dailyTiles >= 150) {
+                alert("Daily tile exploration limit reached (150/150). Resets at midnight UTC.");
+                return;
+            }
+            const depleted = sectorExploreRefusal(sector, loadSectorTerritory(sector).ownerVillage, character.village);
+            if (depleted) {
+                gameToast(depleted, { kind: "info" });
+                return;
+            }
+            const biome = biomeForSector(sector);
+            setSelectedVillageTerritory(null);
+            setSelectedSector(sector);
+            setCurrentBiome(biome);
+            setCurrentWeather(weatherForSector(sector, biome));
+            setCurrentSector(sector);
             await resolveExplore(sector);
         } finally {
             exploreInFlight.current = false;
@@ -3226,19 +3168,22 @@ function WorldMapContent({
     async function finishResolvedExplore(
         explored: SettledExplore,
         interactive: boolean,
+        reportFailure?: (message: string) => void,
     ): Promise<"recovered" | "blocked" | "retired"> {
+        const notifyFailure = reportFailure ?? ((message: string) => { if (interactive) alert(message); });
         if (explored.outcome?.kind === "chest") {
-            const chestState = await settleDiscoveredChest(explored.operation);
-            if (interactive && chestState === "retryable") {
-                alert("Your discovered chest is still syncing. Reopen the map to recover it from the same receipt.");
-            } else if (interactive && chestState === "terminal") {
-                alert("That chest discovery expired without a payout and was safely cleared. Explore again to make a new attempt.");
+            let failure: string | undefined;
+            const chestState = await settleDiscoveredChest(explored.operation, (message) => { failure = message; });
+            if (chestState === "retryable") {
+                notifyFailure(failure ?? "Your discovered chest could not be opened yet. Explore again or reopen the map to retry.");
+            } else if (chestState === "terminal") {
+                notifyFailure("That chest discovery expired without a payout and was safely cleared. Explore again to make a new attempt.");
             }
             return chestState === "settled" ? "recovered" : chestState === "terminal" ? "retired" : "blocked";
         }
         if (explored.outcome?.kind === "battle") {
             if (launchResolvedExploreBattle(explored.operation.sector, explored.operation.id)) return "recovered";
-            if (interactive) alert("The combat host is unavailable. Reopen the map to resume this sealed encounter.");
+            notifyFailure("The combat host is unavailable. Reopen the map to resume this sealed encounter.");
             return "blocked";
         }
         completeWorldRewardOperation(character.name, explored.operation.id);
@@ -3251,7 +3196,9 @@ function WorldMapContent({
     async function continueWorldDiscovery(
         initial: PendingWorldRewardOperation,
         interactive = false,
+        reportFailure?: (message: string) => void,
     ): Promise<"recovered" | "blocked" | "retired"> {
+        const notifyFailure = reportFailure ?? ((message: string) => { if (interactive) alert(message); });
         let operation = initial;
         if (operation.discoveryStage === "dungeon") {
             try {
@@ -3270,7 +3217,7 @@ function WorldMapContent({
                         credit: "tile",
                         externalOutcomeProof: { kind: "dungeon", token: probe.token },
                         operationId: authoritativeId,
-                    });
+                    }, notifyFailure);
                     if (!explored) return "blocked";
                     onDungeonFound(probe.token);
                     completeWorldRewardOperation(character.name, explored.operation.id);
@@ -3287,10 +3234,10 @@ function WorldMapContent({
             } catch (error) {
                 if (error instanceof DungeonProbeError && !error.retryable) {
                     completeWorldRewardOperation(character.name, operation.id);
-                    if (interactive) alert("That dungeon discovery could not commit and was safely retired. Explore again to make a new attempt.");
+                    notifyFailure(dungeonProbeFailureMessage(error));
                     return "retired";
                 }
-                if (interactive) alert("The hidden-dungeon search is still syncing. Try this exploration again to recover its sealed result.");
+                notifyFailure(dungeonProbeFailureMessage(error));
                 return "blocked";
             }
         }
@@ -3298,12 +3245,20 @@ function WorldMapContent({
         if (operation.discoveryStage === "pet") {
             const petEncounter = await startWildPetEncounter(character.name, operation.sector, operation.id);
             if (petEncounter.kind === "blocked") {
+                if (petEncounter.pendingDungeon) {
+                    let failure: string | undefined;
+                    const recovered = await recoverPetBlockedByDungeon(operation, petEncounter.pendingDungeon, (message) => { failure = message; });
+                    if (failure) notifyFailure(failure);
+                    if (recovered) return "recovered";
+                    if (!failure) notifyFailure("Your previous exploration could not be recovered yet. Try exploring again to resume it.");
+                    return "blocked";
+                }
                 if (!petEncounter.retryable) completeWorldRewardOperation(character.name, operation.id);
-                if (interactive) alert("The wild-pet search is still syncing. Try this exploration again to recover its sealed result.");
+                notifyFailure(wildPetEncounterFailureMessage(petEncounter));
                 return petEncounter.retryable ? "blocked" : "retired";
             }
             if (petEncounter.kind === "resolved") {
-                return (await recoverResolvedPetOperation(operation, petEncounter)) ? "recovered" : "blocked";
+                return (await recoverResolvedPetOperation(operation, petEncounter, notifyFailure)) ? "recovered" : "blocked";
             }
             if (petEncounter.kind === "hit") {
                 const authoritativeId = petEncounter.worldExploreRequestId ?? petEncounter.requestId;
@@ -3314,7 +3269,7 @@ function WorldMapContent({
                     externalOutcomeProof: { kind: "pet", token: petEncounter.token },
                     petEncounter: petEncounter.pet,
                     operationId: authoritativeId,
-                });
+                }, notifyFailure);
                 if (!explored) return "blocked";
                 petEncounterToken.current = petEncounter.token;
                 petEncounterExploreOperationId.current = explored.operation.id;
@@ -3332,9 +3287,9 @@ function WorldMapContent({
         const explored = await settleExplore(operation.sector, {
             resolveOutcome: true,
             operationId: operation.id,
-        });
+        }, notifyFailure);
         if (!explored) return "blocked";
-        return finishResolvedExplore(explored, interactive);
+        return finishResolvedExplore(explored, interactive, notifyFailure);
     }
 
     async function resolveExplore(sector: number) {
