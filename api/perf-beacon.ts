@@ -7,7 +7,8 @@ import { enforceRateLimit } from './_ratelimit.js';
 //
 // The client (shinobij.client/src/lib/perfTelemetry.ts) posts ONE small JSON
 // beacon per page load summarizing navigation timing + a few app-reported boot
-// milestones + per-type transfer bytes. We log a single structured line to
+// milestones + per-type transfer bytes. Opt-in sampled documents can also send
+// at most 20 aggregate session records, at least 60s apart. We log each record to
 // stdout (visible in Railway logs / cPanel passenger log) and store NOTHING —
 // no KV writes, no Supabase egress — so this stays a thin, zero-cost endpoint
 // per the hosting rules (Railway = compute + thin responses; never add metered
@@ -19,6 +20,44 @@ import { enforceRateLimit } from './_ratelimit.js';
 // token, no save data). Grep the logs with `[perf]` to collect samples.
 
 const KINDS = new Set(['cold-start', 'refresh']);
+
+type SessionPerformanceRecord = {
+    kind: 'session'; reason: 'interval' | 'hidden' | 'pagehide' | 'unknown'; windowMs: number | null;
+    transitionCount: number | null; slowTransitionCount: number | null; maxScreenTransition: number | null;
+    longTaskSupported: boolean; longTaskCount: number | null; longTaskTotal: number | null; longTaskMax: number | null;
+    eventTimingSupported: boolean; eventCount: number | null; maxEventDuration: number | null;
+    layoutShiftSupported: boolean; layoutShiftTotal: number | null;
+};
+
+// Unlike the legacy boot parser, session fields never coerce strings, nulls,
+// arrays or booleans into measurements. Only this fixed numeric/enum schema logs.
+function sessionMetric(v: unknown, fractional = false): number | null {
+    if (typeof v !== 'number' || !Number.isFinite(v) || v < 0 || v > 600_000_000) return null;
+    return fractional ? Math.round(v * 1_000_000) / 1_000_000 : Math.round(v);
+}
+
+export function sessionPerformanceRecord(b: Record<string, unknown>): SessionPerformanceRecord {
+    const longTaskSupported = b.longTaskSupported === true;
+    const eventTimingSupported = b.eventTimingSupported === true;
+    const layoutShiftSupported = b.layoutShiftSupported === true;
+    return {
+        kind: 'session',
+        reason: b.reason === 'interval' || b.reason === 'hidden' || b.reason === 'pagehide' ? b.reason : 'unknown',
+        windowMs: typeof b.windowMs === 'number' && b.windowMs >= 60_000 ? sessionMetric(b.windowMs) : null,
+        transitionCount: sessionMetric(b.transitionCount),
+        slowTransitionCount: sessionMetric(b.slowTransitionCount),
+        maxScreenTransition: sessionMetric(b.maxScreenTransition),
+        longTaskSupported,
+        longTaskCount: longTaskSupported ? sessionMetric(b.longTaskCount) : null,
+        longTaskTotal: longTaskSupported ? sessionMetric(b.longTaskTotal) : null,
+        longTaskMax: longTaskSupported ? sessionMetric(b.longTaskMax) : null,
+        eventTimingSupported,
+        eventCount: eventTimingSupported ? sessionMetric(b.eventCount) : null,
+        maxEventDuration: eventTimingSupported ? sessionMetric(b.maxEventDuration) : null,
+        layoutShiftSupported,
+        layoutShiftTotal: layoutShiftSupported ? sessionMetric(b.layoutShiftTotal, true) : null,
+    };
+}
 
 // Accept a finite, non-negative integer-ish metric; reject NaN/Infinity and
 // absurd values (> ~10 min in ms) so a malformed body can't bloat the log line.
@@ -53,6 +92,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         if (!body || typeof body !== 'object') return res.status(204).end();
         const b = body as Record<string, unknown>;
+
+        if (b.kind === 'session') {
+            console.log('[perf]', JSON.stringify(sessionPerformanceRecord(b)));
+            return res.status(204).end();
+        }
 
         const kind = typeof b.kind === 'string' && KINDS.has(b.kind) ? b.kind : 'unknown';
 
@@ -95,10 +139,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.log('[perf]', JSON.stringify(rec));
 
         return res.status(204).end();
-    } catch (err) {
+    } catch {
         // Telemetry must never surface an error to the client or spam logs —
         // swallow and 204. A malformed beacon is not worth a 500.
-        console.error('[perf-beacon] bad payload', (err as Error)?.message);
+        // JSON parser messages can echo hostile body text, including identifiers.
+        console.error('[perf-beacon] bad payload');
         return res.status(204).end();
     }
 }

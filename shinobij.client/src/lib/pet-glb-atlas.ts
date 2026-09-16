@@ -100,9 +100,13 @@ function decodeStableImage(payload: EmbeddedPetAtlas): Promise<HTMLImageElement>
 }
 
 async function loadEmbeddedAtlas(url: string): Promise<THREE.Texture | null> {
-    const response = await fetch(url, { cache: "force-cache", credentials: "same-origin" });
-    if (!response.ok) throw new Error(`Pet atlas HTTP ${response.status}`);
-    const payload = extractEmbeddedPetAtlas(await response.arrayBuffer());
+    // GLTFLoader requests the same URL as an arraybuffer. FileLoader shares
+    // in-flight requests, so selection-screen warmup downloads one GLB for both
+    // consumers. Keep the global THREE.Cache disabled: retaining every raw GLB
+    // would add an unbounded second cache beside the parsed models and atlases.
+    const buffer = await new THREE.FileLoader().setResponseType("arraybuffer").loadAsync(url);
+    if (!(buffer instanceof ArrayBuffer)) throw new Error("Invalid pet model byte response");
+    const payload = extractEmbeddedPetAtlas(buffer);
     if (!payload) throw new Error("Missing embedded pet atlas");
     const texture = new THREE.Texture(await decodeStableImage(payload));
     texture.flipY = false;

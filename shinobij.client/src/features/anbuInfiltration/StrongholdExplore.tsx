@@ -11,14 +11,17 @@ import { resolveOwnAvatar } from '../../lib/own-avatar';
 import './stronghold.css';
 
 export function StrongholdExplore({ character, sector, targetVillage, sharedImages, anbuAvatar, anbuName, blocked,
+    admissionPending = false, admissionError, onRetryAdmission,
     onChallenge, onPatrol, onAttackPlayer, onExit }: {
     character: Character; sector: number; targetVillage: string; sharedImages: Record<string, string>;
     anbuAvatar: string | null; anbuName: string; blocked: boolean;
+    admissionPending?: boolean; admissionError?: string | null; onRetryAdmission?: () => void;
     onChallenge: () => void; onPatrol: (session: SoloPveSession) => void;
     onAttackPlayer: (player: PlayerRecord) => void | Promise<void>; onExit: () => void;
 }) {
     const [state, setState] = useState<(StrongholdResponse & { receivedAt: number }) | null>(null);
     const [error, setError] = useState('');
+    const [actionError, setActionError] = useState('');
     const [overview, setOverview] = useState(false);
     const [playersOpen, setPlayersOpen] = useState(false);
     const [selectedPeer, setSelectedPeer] = useState<PlayerRecord | null>(null);
@@ -35,7 +38,7 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
     const actionPending = useRef(false);
     const path = useRef<number[]>([]);
     const walkTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const movementBlocked = blocked || overview || !!pending || playersOpen || !!selectedPeer || !!error;
+    const movementBlocked = blocked || overview || !!pending || playersOpen || !!selectedPeer || !!error || !!actionError;
     const callbacks = useRef({ onPatrol, blocked: movementBlocked });
     useLayoutEffect(() => { callbacks.current = { onPatrol, blocked: movementBlocked }; });
     const obsidian = isDeathsGateStronghold(sector);
@@ -84,6 +87,7 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
         stopped.current = false;
         busy.current = false;
         polling.current = false;
+        actionPending.current = false;
         current.current = null;
         const context = { controller: new AbortController(), presenceId: crypto.randomUUID() };
         lifetime.current = context;
@@ -182,19 +186,32 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
         ? ({ 'deco-1': '/sector-props/volcano/obsidian-shard.webp', 'deco-2': '/sector-props/volcano/ember-vent.webp' } as Record<string, string>)[role]
         : sharedImages[`shrine:icon-theme-warvault-${role}`];
     async function leave() {
-        if (actionPending.current) return;
-        actionPending.current = true; setPending('leave');
+        if (actionPending.current || admissionPending) return;
+        actionPending.current = true; setPending('leave'); setError('');
         stopWalk(); stopped.current = true;
-        try { await strongholdRequest(character.name, sector, 'leave', { presenceId: lifetime.current?.presenceId }); onExit(); }
-        catch (e) { stopped.current = false; if (alive.current) setError((e as Error).message); }
-        finally { actionPending.current = false; if (alive.current) setPending(null); }
+        const context = lifetime.current;
+        const ownsAction = () => alive.current && context === lifetime.current && !context?.controller.signal.aborted;
+        try {
+            await strongholdRequest(character.name, sector, 'leave', { presenceId: context?.presenceId });
+            if (ownsAction()) onExit();
+        } catch (e) { if (ownsAction()) { stopped.current = false; setError((e as Error).message); } }
+        finally { if (ownsAction()) { actionPending.current = false; setPending(null); } }
     }
     async function attack(peer: PlayerRecord) {
         if (actionPending.current || blocked || threat >= 100 || !availablePeers.some(p => p.name === peer.name)) return;
-        actionPending.current = true; setPending('attack'); stopWalk(); stopped.current = true;
-        try { await onAttackPlayer(peer); if (alive.current) setSelectedPeer(null); }
-        catch (e) { if (alive.current) setError((e as Error).message || 'Could not start the fight. Try again.'); }
-        finally { actionPending.current = false; stopped.current = false; if (alive.current) setPending(null); }
+        actionPending.current = true; setPending('attack'); setActionError(''); setError(''); stopWalk(); stopped.current = true;
+        const context = lifetime.current;
+        const ownsAction = () => alive.current && context === lifetime.current && !context?.controller.signal.aborted;
+        try { await onAttackPlayer(peer); if (ownsAction()) setSelectedPeer(null); }
+        catch (e) { if (ownsAction()) setActionError((e as Error).message || 'Could not start the fight. Try again.'); }
+        finally { if (ownsAction()) { actionPending.current = false; stopped.current = false; setPending(null); } }
+    }
+    function reconnectPresence() {
+        // A reconnect replaces the presence owner. Keep submitted actions with
+        // that owner until their response has been reconciled.
+        if (actionPending.current || admissionPending) return;
+        setActionError('');
+        setReconnect(value => value + 1);
     }
     const playerList = <div className="stronghold-roster"><h3>Players inside <span>{peers.length + (state ? 1 : 0)}</span></h3>
         {peers.length === 0 && <p>No other shinobi inside yet.</p>}
@@ -209,7 +226,7 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
                 <div role="progressbar" aria-label="Stronghold threat" aria-valuemin={0} aria-valuemax={100} aria-valuenow={threat}><i style={{ width: `${threat}%` }} /></div>
                 <span>{threat >= 100 ? 'Patrol closing in…' : `${remaining} steps until a patrol${threat >= 80 ? ' · Ambush imminent' : ''}`}</span>
             </div>
-            <button className="stronghold-leave" onClick={() => void leave()} disabled={!!pending}>{pending === 'leave' ? 'Leaving…' : 'Leave stronghold'}</button>
+            <button className="stronghold-leave" onClick={() => void leave()} disabled={!!pending || admissionPending}>{pending === 'leave' ? 'Leaving…' : 'Leave stronghold'}</button>
         </header>
         {obsidian && <div className="stronghold-reward-banner"><strong>4× PvP rewards</strong><span>Ryo · Stat growth · Jutsu XP</span></div>}
         <div className="stronghold-body">
@@ -243,7 +260,7 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
                         </button>;
                     })}
                 </div>
-                {!state && <div className="stronghold-loading" role="status">{error || 'Entering the stronghold…'}{error && <button onClick={() => setReconnect(value => value + 1)}>Reconnect</button>}</div>}
+                {!state && <div className="stronghold-loading" role="status">{error || 'Entering the stronghold…'}{error && <button disabled={!!pending || admissionPending} onClick={reconnectPresence}>Reconnect</button>}</div>}
                 <button className="stronghold-zoom" aria-pressed={overview} onClick={() => setOverview(value => !value)}>{overview ? 'Follow player' : 'View full map'}</button>
             </div>
             <aside className="stronghold-sidebar">
@@ -258,14 +275,15 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
                 <p className="stronghold-hint">Each step adds 4% threat. Defeat the patrol to keep exploring. {obsidian ? 'Meet your rivals at the Blood Altar in the southeast. PvP wins anywhere inside earn double Death’s Gate’s rewards. Patrols do not earn this bonus. Normal reward limits apply.' : 'The Anbu guards the vault in the southeast.'}</p>
             </aside>
         </div>
-        <footer className="stronghold-footer"><div className="stronghold-guidance"><span role="status">{error || (pending === 'attack' ? 'Connecting to battle…' : state?.combatBlocked ? 'Resolve your PvP fight, then return to face the patrol.' : overview ? 'Map overview · Return to follow view to move.' : 'Tap the floor or use the arrows to move.')}</span>
-            {error && state && <button onClick={() => setReconnect(value => value + 1)}>Reconnect</button>}
+        <footer className="stronghold-footer"><div className="stronghold-guidance"><span role={admissionError || actionError ? 'alert' : 'status'}>{admissionError || actionError || error || (admissionPending ? 'Connecting to the Anbu fight… Closing the dialog does not cancel the challenge.' : pending === 'attack' ? 'Connecting to battle…' : state?.combatBlocked ? 'Resolve your PvP fight, then return to face the patrol.' : overview ? 'Map overview · Return to follow view to move.' : 'Tap the floor or use the arrows to move.')}</span>
+            {onRetryAdmission && <button onClick={onRetryAdmission}>Reconnect to challenge</button>}
+            {(error || actionError) && state && <button disabled={!!pending || admissionPending} onClick={reconnectPresence}>Reconnect</button>}
             <button className="stronghold-players-toggle" onClick={() => { stopWalk(); setPlayersOpen(true); }}>Players <b>{peers.length + (state ? 1 : 0)}</b></button>
             </div>
             <div className="stronghold-dpad" aria-label="Movement controls">{([['↑', 0, -1, 'Move up'], ['←', -1, 0, 'Move left'], ['↓', 0, 1, 'Move down'], ['→', 1, 0, 'Move right']] as const).map(([label, dx, dy, name]) => <button key={name} aria-label={name} disabled={movementBlocked || overview || !state || threat >= 100} onClick={() => direction(dx, dy)}>{label}</button>)}</div>
         </footer>
         {playersOpen && <StrongholdDialog title="Shinobi in the stronghold" onClose={() => setPlayersOpen(false)}>{playerList}</StrongholdDialog>}
-        {selectedPeer && <StrongholdDialog title={selectedPeer.name} onClose={() => setSelectedPeer(null)}>
+        {selectedPeer && <StrongholdDialog title={selectedPeer.name} busy={!!pending} onClose={() => setSelectedPeer(null)}>
             <p>Level {selectedPeer.level} · {selectedPeer.village}</p>
             <p>Challenge this shinobi to a sector battle. Your current health and supplies carry into the fight.</p>
             {obsidian && <p className="stronghold-reward-detail"><b>4× normal rewards on a PvP win.</b> Both fighters must be inside when the battle starts. Ryo, stat growth and XP for jutsu you cast receive the bonus; normal limits and repeat-opponent reductions apply.</p>}

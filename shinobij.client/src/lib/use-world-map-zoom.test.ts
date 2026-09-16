@@ -1,8 +1,57 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { isWorldMapControlTarget, isWorldMapZoomEnabled } from "./use-world-map-zoom";
+import { isWorldMapControlTarget, isWorldMapZoomEnabled, worldMapMarkerScaleForZoom, worldMapMarkerTransitionEasing } from "./use-world-map-zoom";
 import { ACADEMY_TRAIL_FOCUS_EVENT, requestAcademyTrailFocus } from "./academy-trail-focus";
+
+test("marker targets stay at least 44px across zoom presets and both pinch directions", () => {
+    const zooms = [2.7083333333333335, 2.61512, ...Array.from({ length: 3991 }, (_, i) => 0.01 + i / 1000)];
+    for (const zoom of [...zooms, ...zooms.toReversed()]) {
+        const screenSize = 44 * worldMapMarkerScaleForZoom(zoom) * zoom;
+        assert.ok(screenSize >= 44, `zoom ${zoom} shrank the target to ${screenSize}px`);
+        assert.ok(screenSize < 44.925, `zoom ${zoom} enlarged the target to ${screenSize}px`);
+    }
+});
+
+test("small pinch changes retain bounded marker-scale writes without shrinking targets", () => {
+    let previous = worldMapMarkerScaleForZoom(2.7);
+    let writes = 0;
+    for (let step = 1; step <= 1000; step += 1) {
+        const zoom = 2.7 - step / 10_000;
+        const next = worldMapMarkerScaleForZoom(zoom);
+        if (next !== previous) writes += 1;
+        previous = next;
+        assert.ok(44 * next * zoom >= 44, `pinch step ${step} shrank the target`);
+    }
+    assert.ok(writes > 0 && writes < 10, `${writes} inherited style writes for 1000 small pinch updates`);
+});
+
+test("native marker easing preserves 44px to under 45px throughout both zoom directions", () => {
+    for (const from of [.01, .1, .3, 1, 1.43, 2.6, 2.7083333333333335, 3.71, 4]) {
+        for (const to of [.01, .1, .3, 1, 1.43, 2.6, 2.7083333333333335, 3.71, 4]) {
+            if (from === to) continue;
+            const easing = worldMapMarkerTransitionEasing(from, to);
+            const stops = [...easing.matchAll(/([\d.]+) ([\d.]+)%/g)].map((match) => ({ value: Number(match[1]), time: Number(match[2]) / 100 }));
+            assert.ok(stops.length >= 2 && stops.length < 1024, `${from} -> ${to}: ${stops.length} native stops must stay bounded`);
+            assert.deepEqual(stops[0], { value: 0, time: 0 });
+            assert.deepEqual(stops.at(-1), { value: 1, time: 1 });
+            let segment = 1;
+            for (let step = 0; step <= 2048; step += 1) {
+                // Parameterize the CSS camera's cubic directly, independently
+                // of the generator's inversion and adaptive stop selection.
+                const u = step / 2048;
+                const time = 3 * (1 - u) * u * u * .58 + u ** 3;
+                const progress = 3 * (1 - u) * u * u + u ** 3;
+                while (segment < stops.length - 1 && stops[segment].time < time) segment += 1;
+                const left = stops[segment - 1]; const right = stops[segment];
+                const interpolated = left.value + (right.value - left.value) * (time - left.time) / (right.time - left.time);
+                const scale = worldMapMarkerScaleForZoom(from) + (worldMapMarkerScaleForZoom(to) - worldMapMarkerScaleForZoom(from)) * interpolated;
+                const screenSize = 44 * scale * (from + (to - from) * progress);
+                assert.ok(screenSize >= 44 && screenSize < 45, `${from} -> ${to} at ${time}: ${screenSize}px`);
+            }
+        }
+    }
+});
 
 test("the mobile map stays off outside the mobile shell, including a stored enable flag", () => {
     const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");

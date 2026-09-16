@@ -1,4 +1,4 @@
-import { kv } from '../_storage.js';
+import { kv, type KvLike } from '../_storage.js';
 import { withKvLock } from '../_lock.js';
 import { safeName } from '../_utils.js';
 import { invalidateProcCache } from '../_proc-cache.js';
@@ -9,10 +9,10 @@ import { normalizeElderAppointees } from '../../shared/village-elders.js';
 import { ELDER_TERM_MS, elderTermScore, selectEarnedElders, type ElderCouncil } from '../../shared/elder-elections.js';
 
 export const elderCouncilKey = (village: unknown) => `village:elder-council:${leadershipVillageKey(village)}`;
-export async function validElderSeats(village: unknown, value: unknown): Promise<[string, string, string]> {
+export async function validElderSeats(village: unknown, value: unknown, membershipStore: Pick<KvLike, 'get'> = kv): Promise<[string, string, string]> {
     return await Promise.all(normalizeElderAppointees(value).map(async name => {
         if (!name) return '';
-        const save = await kv.get<{ character?: { village?: string } }>(`save:${safeName(name)}`);
+        const save = await membershipStore.get<{ character?: { village?: string } }>(`save:${safeName(name)}`);
         return leadershipVillageKey(save?.character?.village) === leadershipVillageKey(village) ? name : '';
     })) as [string, string, string];
 }
@@ -50,11 +50,11 @@ export async function resolveElderCouncil(village: string, now = Date.now(), leg
     return next;
 }
 
-export async function readElderCouncil(village: string, legacy?: Record<string, unknown>, now = Date.now()): Promise<ElderCouncil> {
+export async function readElderCouncil(village: string, legacy?: Record<string, unknown>, now = Date.now(), membershipStore: Pick<KvLike, 'get'> = kv): Promise<ElderCouncil> {
     const stored = await kv.get<ElderCouncil>(elderCouncilKey(village));
     const council = stored?.version === 1 && stored.nextSelectionAt > now ? stored
         : await withKvLock(elderCouncilKey(village), () => resolveElderCouncil(village, now, legacy), { failClosed: true, ttlSec: 30 });
-    return { ...council, seats: await validElderSeats(village, council.seats) };
+    return { ...council, seats: await validElderSeats(village, council.seats, membershipStore) };
 }
 
 export async function runElderElections(now = Date.now()): Promise<void> {

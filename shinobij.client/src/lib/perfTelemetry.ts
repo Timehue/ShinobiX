@@ -4,8 +4,10 @@
 // Collects navigation timing (TTFB / FCP / LCP / DCL / load), per-resource-type
 // transfer bytes (JS / CSS / img / the heavy /api/images base64 buckets), and a
 // few app-reported boot milestones (first screen, restore-complete, playable),
-// then sends ONE small beacon to /api/perf-beacon. The server logs a single
-// `[perf]` line per load — no storage. This exists so the image-defer and
+// then sends ONE boot beacon to /api/perf-beacon. Optional sampled session
+// summaries are enabled with VITE_SESSION_PERF_SAMPLE_RATE (0..1; default off).
+// The server logs `[perf]` lines — one boot record and, only when opted in,
+// bounded session summaries — without storage. This exists so image-defer and
 // instant-refresh work in later phases can be verified with real numbers
 // instead of "feels faster".
 //
@@ -29,11 +31,23 @@ import {
     createScreenTransitionTracker,
     startScreenTransition,
 } from './screen-transition-timing';
+import { createSessionPerformanceReporter, observeSessionPerformance, sessionPerformanceSampleRate, type SessionPerformanceSummary } from './session-performance';
 
 const supported =
     typeof window !== 'undefined' &&
     typeof performance !== 'undefined' &&
     typeof performance.now === 'function';
+
+const sessionReporter = supported && Math.random() < sessionPerformanceSampleRate(import.meta.env?.VITE_SESSION_PERF_SAMPLE_RATE)
+    ? createSessionPerformanceReporter({ now: nowMs, send }) : null;
+let stopSessionObservers = () => {};
+
+function flushSession(reason: SessionPerformanceSummary['reason']): void {
+    try {
+        sessionReporter?.flush(reason);
+        if (sessionReporter && !sessionReporter.active()) stopSessionObservers();
+    } catch { /* a diagnostic cannot interrupt a visibility/page lifecycle */ }
+}
 
 // Settle delay after the terminal boot milestone before flushing, so the
 // largest-contentful-paint observer has a moment to record the final LCP.
@@ -116,6 +130,7 @@ export function notifyScreenReady(screen: string): void {
 
 function reportScreenTransition(from: string, to: string, ms: number): void {
     try {
+        sessionReporter?.transition(ms);
         const record = { from, to, ms };
         const w = window as unknown as { __screenTransitions?: (typeof record)[] };
         w.__screenTransitions = [...(w.__screenTransitions ?? []), record].slice(-50);
@@ -132,6 +147,7 @@ function reportScreenTransition(from: string, to: string, ms: number): void {
 function reportLongTask(entry: PerformanceEntry): void {
     try {
         if (entry.duration < 100) return;
+        sessionReporter?.longTask(entry.duration);
         const record = { name: entry.name, duration: Math.round(entry.duration), start: Math.round(entry.startTime) };
         state.longTaskCount += 1;
         state.longTaskTotal += record.duration;
@@ -373,6 +389,7 @@ if (supported) {
             for (const entry of list.getEntries()) reportLongTask(entry);
         });
         longTaskObs.observe({ type: 'longtask', buffered: true });
+        if (PerformanceObserver.supportedEntryTypes?.includes('longtask')) sessionReporter?.support('longTask');
     } catch {
         /* Long Tasks API unsupported */
     }
@@ -380,10 +397,10 @@ if (supported) {
     // Flush when the page is being hidden / unloaded — captures a refresh or
     // tab-close before the settle timer fires, with the final LCP.
     try {
-        const onHide = () => flush();
-        window.addEventListener('pagehide', onHide, { once: true });
+        const onHide = () => { flush(); flushSession('pagehide'); };
+        window.addEventListener('pagehide', onHide);
         document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'hidden') flush();
+            if (document.visibilityState === 'hidden') { flush(); flushSession('hidden'); }
         });
     } catch {
         /* ignore */
@@ -395,5 +412,19 @@ if (supported) {
         setTimeout(scheduleFlush, 15_000);
     } catch {
         /* ignore */
+    }
+
+    if (sessionReporter) {
+        // Additional observers exist only for explicitly enabled sampled loads.
+        // Values are diagnostics: event entries are not distinct interactions,
+        // and windowed shift totals are not the CLS session-window algorithm.
+        const disconnect = observeSessionPerformance(sessionReporter,
+            typeof PerformanceObserver === 'undefined' ? undefined : PerformanceObserver);
+        try {
+            const reportInterval = setInterval(() => {
+                if (document.visibilityState === 'visible') flushSession('interval');
+            }, 60_000);
+            stopSessionObservers = () => { clearInterval(reportInterval); disconnect(); };
+        } catch { disconnect(); }
     }
 }
