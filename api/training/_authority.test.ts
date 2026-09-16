@@ -119,6 +119,6 @@ test('client requires the server character and has no local reward fallback', ()
     assert.doesNotMatch(client, /applyTrainingReward/);
     assert.doesNotMatch(client, /fall through to local/);
     assert.match(client, /!data\?\.token \|\| !data\?\.character/);
-    assert.match(client, /if \(!onVersionedCharacter\(data\.character, data\._saveVersion\)\) return;\s*setActiveTraining\(data\.activeTraining \?\? null\)/,
+    assert.match(client, /if \(!onVersionedCharacter\(data\.character, data\._saveVersion\)\) return alert\(AMBIGUOUS_ACTION_MESSAGE\);\s*setActiveTraining\(data\.activeTraining \?\? null\)/,
         'collect accepts the committed save/version before applying the server-cleared lease');
 });

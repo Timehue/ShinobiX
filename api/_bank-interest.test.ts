@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { computeBankInterest, bankInterestPercent, BANK_INTEREST_WINDOW_MS } from './_bank-interest.js';
+import { projectedBankInterest } from '../shared/bank-interest.js';
 
 // Independent inline replica of the client (shinobij.client/src/screens/Bank.tsx
 // + lib/village-upgrades.ts), kept SEPARATE from the port so a drift on either
@@ -48,6 +49,8 @@ describe('computeBankInterest matches the client across a sweep', () => {
             const char = { bankRyo, lastBankInterestAt, villageUpgrades: { bank } };
             const server = computeBankInterest(char, now);
             const client = cClaim(char, now);
+            assert.equal(projectedBankInterest(bankRyo, client.interestPercent), client.projected,
+                'shared projection must preserve the independent pre-extraction formula');
             assert.equal(server.eligible, client.canClaim, `eligible @ bankRyo=${bankRyo} lvl=${bank} last=${lastBankInterestAt}`);
             // The credited amount must equal the client's projected interest whenever claimable.
             assert.equal(server.eligible ? server.interest : 0, client.canClaim ? client.projected : 0,

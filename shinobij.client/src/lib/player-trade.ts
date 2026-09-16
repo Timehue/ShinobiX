@@ -1,3 +1,5 @@
+import { AMBIGUOUS_ACTION_MESSAGE } from "./ambiguous-action";
+
 /*
  * Client wrapper for direct player-to-player transfers (api/player/trade.ts).
  * Plain fetch (auth headers come from the global authFetch interceptor). The
@@ -71,7 +73,15 @@ export async function sendCurrency(playerName: string, toPlayer: string, currenc
         // "still settling" answer — those end the intent. A 409 pending or any
         // 5xx keeps the nonce so the retry resumes the SAME operation.
         settleTradeNonce(key, res.ok || (res.status >= 400 && res.status < 500 && data.pending !== true));
-        if (!res.ok || !data.ok) return { ok: false, error: data.error || 'Could not send.', ...(data.pending ? { pending: true } : {}) };
+        if (!res.ok || !data.ok) return {
+            ok: false,
+            // The existing nonce/reconciliation policy above is unchanged. A lost
+            // acknowledgement can follow a committed transfer; do not invite a blind retry.
+            error: res.status === 408 || res.status >= 500 || data.pending || (res.ok && !data.ok)
+                ? AMBIGUOUS_ACTION_MESSAGE
+                : data.error || 'Could not send.',
+            ...(data.pending ? { pending: true } : {}),
+        };
         return data;
     } catch {
         return { ok: false, error: 'Transfer unconfirmed. Refresh before retrying.' };
