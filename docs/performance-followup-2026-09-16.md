@@ -1,0 +1,98 @@
+# Performance follow-up — 2026-09-16
+
+Historical local-pass report. See [the main integration and remediation report](performance-remediation-2026-09-16.md) for subsequent fixes, current-main validation and release status.
+
+This continues `performance-gauntlet-2026-09-16.md` after the request to fix the remaining issues that can be handled locally. It is a separate working-tree pass, based on retained pre-edit files in `test-results/performance-followup-2026-09-16/starting-files/`. The existing dirty workspace, concurrent pet model work, approval manifests, size budgets and visual goldens are preserved. Nothing was pushed or deployed; no production settings, databases or migrations were changed.
+
+## Implemented
+
+| Issue | Change | Scope and limits |
+|---|---|---|
+| Map controls measure below 44px after scaling | Marker inverse scale rounds upward in bounded buckets with a small rounding margin. Region-chip hover no longer moves its hitbox; marker transform easing no longer lags behind a pinch. | Settled and direct-pinch targets remain large enough; ordinary panning does not rewrite inherited marker scale. Paint feedback remains. The existing 140ms animated camera zoom remains and is not certified at every intermediate animation frame. |
+| Stronghold dialogs trap players during requests | Escape, close, backdrop and secondary dismissal remain available. The parent owns the pending action and shows progress/recovery after dismissal. | Conflicting actions remain blocked until reconciliation. Late results are restricted to their mounted account/sector owner; acknowledged Anbu runs remain recoverable. Existing server admission, rewards and settlement authority are unchanged. |
+| Pet preload reports completion before parsing | Await the existing renderer's parsed GLTF cache as well as atlas completion. | No second loader/cache/parse, no resource-ownership changes. The existing eight-second entry fallback and timer cleanup remain. Parsed data is not a guarantee of GPU upload, shader compilation or a painted frame. |
+| Three fixture lint errors | Replace fixture `any` declarations with explicit types. | No lint-rule changes. |
+| Settlement test expects obsolete source syntax | Assert the current promise-returning guarded helper. | Existing settlement ordering and no-local-reward checks remain. |
+| No bounded post-boot diagnostics | Add opt-in sampled aggregate session reports using the existing beacon endpoint. | Defaults off. At most 20 attempts per document, at least 60 seconds apart. Unsupported streams are null; event/shift diagnostics are not INP/CLS. Fixed numeric/enum allowlist, no identifiers or KV writes. |
+| Release readiness ignores existing request SLO results | Add `REQUIRE_REQUEST_SLO=1` to the existing release-health script. | Defaults unchanged. Healthy evidence passes; breaches fail; missing/insufficient samples exit with `INSUFFICIENT_DATA`. No new load generation or liveness-policy change. |
+
+The pet adapter declares two already installed client dependencies directly: `suspend-react` 0.1.3 and `three-stdlib` 2.36.1. No installation or version upgrade occurred. All 376 non-root lock entries are unchanged; only the two root dependency declarations were added to the client manifest and lock. The root lockfile is unchanged.
+
+## Validation
+
+Focused checks completed before the combined suites:
+
+- Stronghold: 24 unit tests and 32 browser scenarios across Chromium/WebKit passed, with no page errors. Includes all dismissal methods, delayed success/rejection, real timeout and retry, unmount/account replacement, late leave and polling/reconnect ownership.
+- Map: 25 focused unit tests passed.
+- Pet: 16 focused tests passed, including eight new parse/readiness cases, actual renderer-cache identity, delayed parser completion, duplicate/concurrent warmups, errors and bounded fallback. An isolated production Vite browser probe also passed: atlas completion alone did not release warmup while image decoding was held; after release the actual renderer received the identical parsed object, with one network request, one load and one parse, including warm reentry.
+- Session telemetry: 17 reporter, observer, API and existing transition tests passed.
+- Release SLO and settlement guard: six tests passed, including a real local HTTP server with CLI exit checks.
+- Combined root production build passed server/client TypeScript, Vite, legal prerender, distribution verification and the unchanged size checks.
+- Full client lint passed with zero errors and 15 existing warnings.
+- Targeted map/landing browser matrix passed before withdrawing the landing experiment: 30 applicable cases, 47 project-specific skips, no failures or retries. The first run exposed marker transform easing (29 passed, one failed, 47 skipped); its failure is retained. The retained map fix passes unchanged bounds requiring targets at least 44px and below 45px during real two-finger pinch, with zero marker-scale writes during ordinary panning. The later complete suites certify the final source without the landing experiment.
+
+The complete final root suite ran under pinned Node22.23.1 without filters: **10,659 tests, 10,657 passed, two failed, zero skipped/cancelled/todo**, across 1,311 suites, in 8m24s. Its exit remains 1. Both failures are the preserved `legendary-1.glb`: its reviewed SHA does not match, and its 1,188,268 bytes exceed the unchanged 1,048,576-byte limit by 139,692 bytes. No other unit failures remain. The model's Git blob is identical to the earlier gauntlet's recorded blob; it was not edited by this pass.
+
+The complete strict combat matrix passed: **20 passed, ten existing project-inapplicable skips**, across all six original browser/display-scale projects, with `COMBAT_LAYOUT_STRICT=1`, capture phase `after`, and no retries. It took 21 minutes and includes 336 strict Solo/PvP geometry observations plus Tower checks. Build/test input hashes stayed unchanged; the owned server closed normally. Screenshots were inspected for complete boards/actors/actions, without claiming a matched combat pixel comparison.
+
+The full responsive matrix passed: **646 passed, 542 project-specific skips, zero failures/flaky results**, across all seven original projects, with zero retries, in 29.8 minutes. The new stationary-hover check ran in Chromium and WebKit phone projects; the real two-finger pinch/pan check ran in Chromium phone. The other 11 new project entries skipped as designed. Both phone engines passed the previously failing travel/atlas-return flow.
+
+The full mobile gauntlet passed: **257 passed, 68 project-specific skips, zero failures/flaky results**, with zero retries, in 10.4 minutes. All five original Chromium projects ran, including the desktop control. Both previously failing map target audits (430×932 portrait and 844×390 landscape) pass. This suite selects the existing adaptive-shell, non-combat UI and gallery specs; new pinch/hover coverage is provided by the responsive matrix above.
+
+All **nine visual comparisons passed**, with zero skips, failures, flaky results or retries, against unchanged existing goldens. The selected built-Express live-flow gate completed with **four passed, three project-specific skips and one failed**, with no retries. The failure is `village-stores-express.spec.ts:437`: after donating supplies and building Supply Depot L6, the reopened Town Hall showed `Materials: 0 materials` instead of the server-checked 20 throughout the original 15-second assertion. The expected drain ledger rendered. The screenshot, video and error context are retained under `live-browser/`; trace capture was disabled for this local authenticated suite.
+
+A focused rerun of that original assertion passed **one of one**, with zero retries, in 38 seconds. An artifact-only wrapper recorded fixed endpoint classes and numeric store balances, without headers, query strings, player identifiers or save bodies. The successful rerun received a final war-map balance of 20 and displayed 20; it does not explain the earlier failure or certify reliable recovery. Both `TownHall.tsx` and the original test match the mission-start patch postimages. The original live gate remains failed; the later pass is separate evidence under `live-stores-recheck*` and does not erase it. Town Hall currently prioritizes treasury fields in local state over its separately fetched war-map snapshot. The shared network poll and Town Hall's cache-sampling poll each use independent 10-second intervals, with a three-second server cache TTL; the UI receives no shared-state revision prop. This creates a plausible freshness race, but neither the original zero's source nor its exact response ordering was captured. A deterministic delayed-poll/war-map/donation race is needed before changing precedence; a source-priority swap alone could regress newer donation results.
+
+Evidence scripts use isolated loopback ports and local synthetic stores. Native hardware, production service and field-performance claims are excluded.
+
+A separate read-only inventory continued past the first failed model assertion: **27 of 145 roster models differ from the reviewed hashes**, so the first failure masks another 26 mismatches. All 145 expected filenames and approval-status/textured flags still match their existing definitions. Among the unchanged 12-model Warfront size-audit list, only `legendary-1.glb` exceeds 1 MiB; their aggregate 5,785,164 B remains below 8 MiB. Inputs and asset sizes/mtimes were unchanged during the scan. `model-certification-inventory.md`/`.json` retain every name/hash/size; this is not visual, rig, animation or structural certification.
+
+## Withdrawn startup experiment
+
+Deferring the two lower-page CSS backgrounds passed its lifecycle and all seven browser loading checks, but the controlled 40-journey comparison exposed a consistent warm-mobile regression: readiness median **632.5 → 1,299.6ms**, with disjoint sample ranges **529–658 → 1,071–1,309ms**. A representative reload's HTML TTFB rose from **120 → 828ms**, while script/task time fell; this points to navigation/network scheduling, not increased JavaScript execution. It does not establish a complete cause.
+
+The experiment reduced cold desktop background requests from two to one, saving 119,855 completed transfer bytes in the observed window. The shared legacy artwork still loaded through a native image. Mobile background requests fell from two to zero, but neither baseline request completed in the measured window, so a mobile byte-saving claim would be unsupported. Those savings do not justify the reload regression.
+
+The experiment was **withdrawn**: both landing product files are restored byte-for-byte to the follow-up's starting snapshots, and its three new helper/test files are removed from the product tree and final patch. Source, raw results and the passing functional tests remain under `withdrawn-landing-experiment/`, `startup-after/` and `map-landing-final-*` for diagnosis. The early broad browser, unit and combat attempts were stopped and retained as incomplete attempts before rebuilding; they are not counted as final certification. Startup remains an open optimization item.
+
+## Final startup check
+
+After withdrawal, the same local real-handler harness completed another **40 journeys**, with five samples per profile/journey. All 20 canonical memory-store save checks passed and no page/network failures were recorded, matching the 40-journey before run. Other owned build/test processes were stopped during both measurement windows. Chromium, Node24, CPU/network profiles, cache conditions and readiness assertions were unchanged. This is a local control, not a field or database-durability result.
+
+| Readiness journey | Before median [min–max], ms | Final median [min–max], ms |
+|---|---:|---:|
+| Desktop cold landing | 616.1 [375–622] | 629.3 [621–639] |
+| Desktop warm landing | 82.7 [73–86] | 79.5 [72–94] |
+| Desktop returning, first Bank deposit | 684.4 [385–709] | 704.7 [697–752] |
+| Desktop warm Bank reload/deposit | 256.4 [248–276] | 258.5 [244–265] |
+| Emulated mobile cold landing | 4,648.1 [4,620–4,685] | 4,703.9 [4,633–4,739] |
+| Emulated mobile warm landing | 632.5 [529–658] | 627.4 [607–659] |
+| Emulated mobile returning, first Bank deposit | 3,718.0 [3,679–3,912] | 3,730.3 [3,681–3,803] |
+| Emulated mobile warm Bank reload/deposit | 1,047.7 [1,008–1,183] | 1,038.2 [1,032–1,133] |
+
+The warm-mobile regression disappeared after withdrawal. **No broad startup speedup is claimed**: the final cold-mobile median is 55.8ms higher and remains about 4.7 seconds; five samples do not establish a reliable tail distribution. Cold-mobile LCP is 4,300 → 4,340ms median. One final desktop warm-Bank sample has no observed LCP and remains unmeasured, not zero. Desktop and mobile warm-landing screenshots are byte-identical to the before screenshots. Evidence: `startup-before/`, `startup-after/` (withdrawn), `startup-final/`, `startup-final-comparison.json`, and `startup-final-screenshot-comparison.json`; every sample is retained.
+
+The final initial graph is **1,440,666 B raw / 381,852 B computed gzip**, compared with 1,437,591 B / 380,852 B at the previous pass: approximately 3KB raw / 1KB gzip added by diagnostics and retained fixes. Measured cold JS/CSS transfer is 441,254 → 442,409 B desktop and 448,665 → 449,820 B mobile. All existing size budgets pass unchanged. Build sizes and transfer counts are distinct measurements; neither implies FPS.
+
+Performance status for this follow-up: initial load and the measured returning Bank journeys show no broad speedup; the withdrawn experiment's warm-mobile regression is absent from the final candidate. Map interaction and Stronghold recovery defects are corrected. First 3D entry now waits for parsed assets correctly, but faster first-frame timing is **UNMEASURED**. Real-service API latency, GPU frame pacing, every deferred feature's first action and indefinite long-session stability remain **UNMEASURED** here; optional diagnostics provide a way to collect later evidence. Earlier measured reductions in duplicate loading, retained timers and API read work remain documented in the preceding gauntlet report, rather than being claimed again as new gains in this pass.
+
+## Remaining limitations
+
+1. **Concurrent pet asset certification:** 27 models differ from the reviewed hashes, and `legendary-1.glb` exceeds the existing 1 MiB individual limit in the 12-model size audit. These must be reconciled by the model-authoring work. This pass preserves the models, approval manifests and budgets; merely updating hashes would not certify visual/rig quality.
+2. **Cold-start cost:** the attempted offscreen-image optimization was withdrawn after a warm-mobile regression. Initial code, decoding and main-thread work still require a measured, behavior-preserving pass.
+3. **Real-device rendering:** physical Android, installed-app suspend/resume, thermal/battery behavior, GPU/shader timing and native fully skinned context restoration need suitable hardware/runtime evidence.
+4. **Real-service performance and scale-out:** PostgreSQL query plans, representative staging latency, lock waits and durability are not measured by local memory-store tests. The current live-presence implementation (`api/_realtime/online-store.ts`) and process cache (`api/_proc-cache.ts`) require a single API process. Adding replicas safely requires coordinated shared state, not just more instances; this pass does not implement or validate that architecture. No database or deployment change is justified from these local results alone.
+5. **Field coverage:** session diagnostics and release SLO enforcement are implemented but remain opt-in. `VITE_SESSION_PERF_SAMPLE_RATE` takes a build-time rate from 0 to 1 and defaults off; `REQUIRE_REQUEST_SLO=1` enables the release script's check. Deployment/enablement and representative samples are separate work. The diagnostics do not calculate field INP or CLS.
+6. **Untimed journeys and long sessions:** functional browser coverage does not establish first-action timing for every combat/story/pet mode or an indefinite memory plateau.
+7. **Map transition frames:** the existing animated camera transition can temporarily interpolate target size. Fixing that without extra frame-by-frame style work requires a separate camera-animation design and measurement.
+8. **Intermittent Town Hall Materials display:** the complete local live gate showed zero instead of the server-checked 20 after reopening Treasury; one unchanged focused recheck passed. The original failure is retained. A reliable reproduction and evidence of which response wins are needed before changing shared-state/snapshot freshness handling; simply swapping source priority risks replacing a newer donation result with an older read.
+
+## Evidence and review
+
+All local measurements, shell failures, test results and retained snapshots are under `test-results/performance-followup-2026-09-16/` (ignored artifacts). Early PowerShell/Vite warning-handling and isolated probe configuration mistakes are retained separately and excluded from product conclusions. Existing screenshots are compared without rewriting goldens. The final scoped patch is generated against the retained dirty working-tree snapshots, not against HEAD, so unrelated work is not attributed to this pass.
+
+Final preservation checks confirm all **25 retained code/test/dependency files** match the full unit run's inputs, all **19 existing visual golden PNGs** and their membership are unchanged, and the protected model's size/hash are unchanged. Responsive and mobile suites used identical immutable build manifests (5,588 files); local live and visual suites used their original configurations' built outputs directly. The branch remains `codex/safe-consolidation-polish` at starting commit `e3c09fe10988badc2a4b6a96f1f1bf4c085428b3`.
+
+The final follow-up review patch contains **26 files: 17 modified from the retained starting contents and nine new files**, including this report. `performance-followup-only.patch` has an explicit allowlist and passes `git apply --check` against normalized disposable baseline copies; its manifest records raw source hashes. Models, manifests/budgets, visual goldens, prior-pass-only work, all five withdrawn landing experiment paths and unrelated dirty work are excluded. No dependency versions or transitive lock entries changed. The final machine-readable gate record is `final-gate-summary.json`; its failed unit/live outcomes remain explicit.
+
+Reproduction uses the retained wrappers/configuration, with fresh output directories and unused loopback ports to preserve these results. The build ran `npm run build`; the full unit runner was `node --import tsx scripts/run-tests.mjs`; full client lint was `node node_modules/eslint/bin/eslint.js .` from the client directory. Correctness suites used pinned Node 22.23.1. `run-browser-gates-node22.ps1` runs the complete responsive/mobile/visual matrices and three selected local live-flow specs (`first-session-onboarding-express`, `server-route-smoke-express`, `village-stores-express`) with separate outputs. `run-combat-node22.ps1` enables strict combat assertions. Chromium 151, Firefox 153 and WebKit 26.5 were installed. The startup comparison used Node 24.15.0 consistently before/after, `PERF_SAMPLES=5`, and `node --import tsx shinobij.client/scripts/benchmark-startup.mts <fresh-output-directory>` through `run-startup-final.ps1`; its retained metadata specifies the viewport, CPU/network profile, cache and fixture conditions. These are local test configurations, never production targets.

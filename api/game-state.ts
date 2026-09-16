@@ -1,5 +1,6 @@
 import { readElderCouncil } from './village/_elder-council.js';
 import { readVillageAnbu } from './village/_anbu.js';
+import { createVillageMembershipReader } from './village/_membership-reader.js';
 import { readPublicPlayerIndex } from './player/_public-index-store.js';
 import { WAR_VILLAGES } from './_war-map-sectors.js';
 import { leadershipVillageKey } from '../shared/village-anbu.js';
@@ -87,6 +88,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const stateKeys = [...villageStateKeys, ...clanPetBattleKeys, ...kageKeys];
                 const stateValues = stateKeys.length ? await kv.mget<unknown[]>(...stateKeys) : [];
                 const candidates = villageStateKeys.length ? [...(await readPublicPlayerIndex({ backfill: true, logContext: 'game-state-anbu' })).entries.values()] : [];
+                // Membership needs only the current village, not each complete
+                // save blob. Batch simultaneous display checks across councils;
+                // election resolution and every authority caller keep live kv.
+                const membershipStore = createVillageMembershipReader(kv);
                 const villageStates: Record<string, unknown> = {};
                 if (villageStateKeys.length > 0) {
                     await Promise.all(villageStateKeys.map(async (k, i) => {
@@ -94,8 +99,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const state = (stateValues[i] ?? {}) as Record<string, unknown>;
                         const kage = stateValues[villageStateKeys.length + clanPetBattleKeys.length + i] as { seatedKage?: string; kageSystemUnlocked?: boolean; firstLiberator?: string } | null;
                         const [elders, anbu] = await Promise.all([
-                            readElderCouncil(name, state),
-                            readVillageAnbu(name, state, kv, candidates),
+                            readElderCouncil(name, state, Date.now(), membershipStore),
+                            readVillageAnbu(name, state, membershipStore, candidates),
                         ]);
                         setSafeRecordValue(villageStates, name, { ...state, seatedKage: kage?.seatedKage,
                             kageSystemUnlocked: Boolean(kage?.kageSystemUnlocked), firstLiberator: kage?.firstLiberator,

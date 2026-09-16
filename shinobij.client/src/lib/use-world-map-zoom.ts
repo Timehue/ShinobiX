@@ -36,6 +36,56 @@ const TAP_SLOP_PX = 14;        // max finger travel that still counts as a tap
 const MOBILE_SHELL_QUERY = WORLD_MAP_MOBILE_QUERY;
 const WORLD_MAP_CONTROL_SELECTOR = "button, a, input, select, textarea, [role='button']";
 
+/** Keep a 44px target above the minimum after transform rounding. Rounding the
+ * inverse DOWN, or reusing it while zooming out, can shrink the target. Upward
+ * 0.005 buckets retain the existing write cadence without that unsafe deadband:
+ * at the maximum 4x zoom the extra painted size stays below one screen pixel. */
+export function worldMapMarkerScaleForZoom(zoom: number): number {
+    const safeZoom = Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+    return Math.ceil((1.001 / safeZoom) / 0.005) * 0.005;
+}
+
+/** A camera interpolates zoom, not its reciprocal. Giving its pins the same
+ * easing would enlarge them between endpoints. Native linear() stops trace
+ * the reciprocal of the existing ease-out camera, without JS animation frames
+ * or inherited custom-property writes on each frame. */
+export function worldMapMarkerTransitionEasing(fromZoom: number, toZoom: number): string {
+    const from = Number.isFinite(fromZoom) && fromZoom > 0 ? fromZoom : 1;
+    const to = Number.isFinite(toZoom) && toZoom > 0 ? toZoom : 1;
+    if (from === to) return "ease-out";
+    const startScale = worldMapMarkerScaleForZoom(from);
+    const endScale = worldMapMarkerScaleForZoom(to);
+    const point = (time: number) => {
+        // CSS ease-out is cubic-bezier(0, 0, .58, 1). Solve its x coordinate.
+        let lo = 0; let hi = 1;
+        for (let iteration = 0; iteration < 30; iteration += 1) {
+            const u = (lo + hi) / 2;
+            if (1.74 * u * u - .74 * u * u * u < time) lo = u; else hi = u;
+        }
+        const u = (lo + hi) / 2;
+        const progress = time === 0 ? 0 : time === 1 ? 1 : 3 * u * u - 2 * u * u * u;
+        const zoom = from + (to - from) * progress;
+        return { time, value: progress * to / zoom, zoom };
+    };
+    type Stop = ReturnType<typeof point>;
+    const stops: Stop[] = [point(0)];
+    const append = (left: Stop, right: Stop, depth: number) => {
+        const probes = [.25, .5, .75].map((fraction) => {
+            const actual = point(left.time + (right.time - left.time) * fraction);
+            const interpolated = left.value + (right.value - left.value) * fraction;
+            return { actual, error: Math.abs((endScale - startScale) * (interpolated - actual.value) * actual.zoom) };
+        });
+        // Error is in screen scale: .0001 is less than .005px on a 44px pin,
+        // well inside the existing .1% rounding reserve and compactness bound.
+        if (depth < 16 && probes.some((probe) => probe.error > .0001)) {
+            append(left, probes[1].actual, depth + 1);
+            append(probes[1].actual, right, depth + 1);
+        } else stops.push(right);
+    };
+    append(stops[0], point(1), 0);
+    return `linear(${stops.map(({ time, value }) => `${value.toFixed(9)} ${(time * 100).toFixed(7)}%`).join(", ")})`;
+}
+
 /** Interactive descendants keep ownership of a clean tap. Capturing their
  * pointer on the pan surface retargets the browser's synthesized click to the
  * viewport, so sector and landmark buttons look pressed but never activate. */
@@ -220,6 +270,7 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
     // tracked separately from the zoom.
     const appliedMarkerScaleRef = useRef(Number.NaN);
     const applyFrameRef = useRef(0);
+    const markerMotionCleanupRef = useRef<(() => void) | null>(null);
 
     // ── Writing the camera to the DOM ────────────────────────────────────────
     // `transform` is set DIRECTLY on the element and never through a CSS custom
@@ -233,15 +284,20 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
     //
     // `--wm-marker-scale` genuinely must be a variable — the pinned markers read
     // it (see `.atlas-* { scale(var(--wm-marker-scale)) }`) — so it pays that
-    // same subtree-invalidation cost. It is therefore written ONLY when the zoom
-    // has moved enough to change it visibly, which keeps it off the pan path
-    // entirely: panning never changes zoom.
+    // same subtree-invalidation cost. Upward inverse-zoom buckets limit writes
+    // during a pinch and keep them off the pan path entirely: panning never
+    // changes zoom. The stored value is the exact value published to CSS.
     //
     // Counter-scale pins by the inverse camera zoom. Their touch targets stay
     // the same screen size, while pinch zoom spreads crowded destinations apart.
     const applyView = useCallback((animate: boolean) => {
         const el = contentElRef.current;
         if (!el) return;
+        // Only a discrete move reads the painted camera. A second move starts
+        // there, not at the previous endpoint or a shortened reverse transition.
+        const animated = animate && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const painted = animated ? new DOMMatrixReadOnly(getComputedStyle(el).transform) : null;
+        markerMotionCleanupRef.current?.();
         if (!activeRef.current) {
             el.style.transform = "";
             el.style.transition = "";
@@ -250,14 +306,43 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
             return;
         }
         const v = viewRef.current;
-        el.style.transition = animate ? "transform 140ms ease-out" : "none";
+        const writeMarkerScale = (zoom: number) => {
+            const markerScale = worldMapMarkerScaleForZoom(zoom);
+            if (markerScale !== appliedMarkerScaleRef.current) {
+                appliedMarkerScaleRef.current = markerScale;
+                el.style.setProperty("--wm-marker-scale", String(markerScale));
+            }
+        };
+        let finishMotion: (() => void) | null = null;
+        if (painted && painted.a > 0 && Math.abs(painted.a - v.zoom) > .000001) {
+            // Flush a shared start pose before arming both native transitions.
+            // This happens once per discrete zoom, never during an ordinary pan.
+            el.style.transition = "none";
+            el.style.transform = painted.toString();
+            writeMarkerScale(painted.a);
+            // A method call survives property-read elimination in production
+            // and flushes cancellation before the new transitions are armed.
+            el.getAnimations();
+            el.style.setProperty("--wm-marker-motion", `140ms ${worldMapMarkerTransitionEasing(painted.a, v.zoom)}`);
+            const finish = () => {
+                if (markerMotionCleanupRef.current !== finish) return;
+                markerMotionCleanupRef.current = null;
+                el.style.removeProperty("--wm-marker-motion");
+            };
+            markerMotionCleanupRef.current = finish;
+            finishMotion = finish;
+        }
+        el.style.transition = animated ? "transform 140ms ease-out" : "none";
         el.style.transform = `translate(${v.tx}px, ${v.ty}px) scale(${v.zoom})`;
-        const markerScale = 1 / Math.max(0.01, v.zoom);
-        const applied = appliedMarkerScaleRef.current;
-        // Number.isNaN(applied) is the "never written yet" case, so it must write.
-        if (Number.isNaN(applied) || Math.abs(markerScale - applied) >= 0.005) {
-            appliedMarkerScaleRef.current = markerScale;
-            el.style.setProperty("--wm-marker-scale", markerScale.toFixed(3));
+        writeMarkerScale(v.zoom);
+        if (finishMotion) {
+            // Tie cleanup to this native camera transition, including cancel.
+            // Unlike a bubbling transitionend event, an old finished promise
+            // cannot clear a newer move; the cleanup identity guards that race.
+            const camera = el.getAnimations().find((animation) =>
+                animation instanceof CSSTransition && animation.transitionProperty === "transform");
+            if (camera) void camera.finished.then(finishMotion, finishMotion);
+            else finishMotion();
         }
     }, []);
 
@@ -283,11 +368,13 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
 
     useEffect(() => () => {
         if (applyFrameRef.current) cancelAnimationFrame(applyFrameRef.current);
+        markerMotionCleanupRef.current?.();
     }, []);
 
     // Attach point for the map div. Re-applies the current camera on (re)mount so
     // a React remount never leaves the node without its transform.
     const contentRef = useCallback((el: HTMLDivElement | null) => {
+        markerMotionCleanupRef.current?.();
         contentElRef.current = el;
         appliedMarkerScaleRef.current = Number.NaN;
         if (el) applyView(false);

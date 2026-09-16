@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { once } from 'node:events';
+import { evaluateRequestSlo } from './_release-health-slo.mjs';
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -70,3 +72,59 @@ for (const [name, options, error] of [
         assert.doesNotMatch(result.output, /\[release-health\] PASS|private-provider-diagnostic/);
     });
 }
+
+const healthy = { count: 25, slo: { healthy: true, evaluable: true, minimumRequests: 20, breaches: [] } };
+
+test('SLO assessment rejects absent, contradictory and insufficient evidence', () => {
+    assert.equal(evaluateRequestSlo(healthy).status, 'PASS');
+    assert.equal(evaluateRequestSlo({ ...healthy, slo: { ...healthy.slo, healthy: false } }).status, 'FAIL');
+    assert.equal(evaluateRequestSlo({ ...healthy, slo: { ...healthy.slo, breaches: ['latency breached'] } }).status, 'FAIL');
+    for (const sample of [undefined, {}, { ...healthy, count: 0 },
+        { ...healthy, slo: { ...healthy.slo, evaluable: false } },
+        { ...healthy, count: NaN }, { ...healthy, slo: { ...healthy.slo, minimumRequests: 0 } }]) {
+        assert.equal(evaluateRequestSlo(sample).status, 'INSUFFICIENT_DATA');
+    }
+});
+
+test('release probe preserves default readiness and opt-in exit semantics over real loopback HTTP', async () => {
+    let metrics;
+    const paths = [];
+    const server = createServer((req, res) => {
+        paths.push(req.url);
+        assert.equal(req.headers.authorization, 'Bearer local-test-token');
+        res.setHeader('content-type', 'application/json');
+        res.end(JSON.stringify(req.url === '/health' ? { ok: true, commit }
+            : { ok: true, commit, saveStore: 'test-memory', requestMetrics: metrics }));
+    });
+    server.listen(0, '127.0.0.1');
+    await once(server, 'listening');
+    try {
+        for (const scenario of [
+            { enabled: false, metrics: undefined, code: 0, text: /\[release-health\] PASS/ },
+            { enabled: true, metrics: healthy, code: 0, text: /request SLO PASS/ },
+            { enabled: true, metrics: { ...healthy, slo: { ...healthy.slo, healthy: false, breaches: ['p95 breached'] } }, code: 1, text: /request SLO FAIL/ },
+            { enabled: true, metrics: { ...healthy, count: 3, slo: { ...healthy.slo, evaluable: false } }, code: 2, text: /request SLO INSUFFICIENT_DATA/ },
+            { enabled: true, metrics: undefined, code: 2, text: /request SLO INSUFFICIENT_DATA/ },
+        ]) {
+            metrics = scenario.metrics;
+            const child = spawn(process.execPath, [fileURLToPath(new URL('./release-health-check.mjs', import.meta.url)),
+                `http://127.0.0.1:${server.address().port}`], {
+                env: { ...process.env, HEALTH_DEEP_TOKEN: 'local-test-token', EXPECTED_COMMIT: commit, REQUIRE_EXPECTED_COMMIT: '1',
+                    EXPECTED_SAVE_STORE: 'test-memory', REQUIRE_KNOWN_COMMIT: '1', REQUIRE_DISK_OVERLAY: '',
+                    REQUIRE_FRESH_BACKUP: '', REQUIRE_REQUEST_SLO: scenario.enabled ? '1' : '' },
+                windowsHide: true,
+            });
+            let output = '';
+            child.stdout.on('data', value => { output += value; });
+            child.stderr.on('data', value => { output += value; });
+            const [code] = await once(child, 'close');
+            assert.equal(code, scenario.code, output);
+            assert.match(output, scenario.text);
+            if (code) assert.doesNotMatch(output, /\[release-health\] PASS/);
+        }
+        assert.deepEqual(paths, Array.from({ length: 5 }, () => ['/health', '/health?deep=1']).flat());
+    } finally {
+        server.close();
+        await once(server, 'close');
+    }
+});

@@ -43,12 +43,15 @@ export async function cachedFor<T>(
     const pending = inflight.get(key);
     if (pending) return pending as Promise<T>;
 
-    const p = (async () => {
-        const value = await build();
-        cache.set(key, { at: now(), value });
+    // Register the flight before invoking its builder, including a builder
+    // which invalidates this key itself (e.g. lazy council initialization).
+    // An invalidated promise still resolves for its existing callers, but can
+    // neither publish an obsolete frame nor delete its replacement's slot.
+    const p: Promise<T> = Promise.resolve().then(build).then(value => {
+        if (inflight.get(key) === p) cache.set(key, { at: now(), value });
         return value;
-    })().finally(() => {
-        inflight.delete(key);
+    }).finally(() => {
+        if (inflight.get(key) === p) inflight.delete(key);
     });
     inflight.set(key, p);
     return p as Promise<T>;

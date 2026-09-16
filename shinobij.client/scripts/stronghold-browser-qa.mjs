@@ -8,7 +8,8 @@ import { resolve, extname } from 'node:path';
 import assert from 'node:assert/strict';
 import { chromium, webkit } from '@playwright/test';
 const tmp = resolve('.tmp/stronghold-audit');
-const output = resolve('../docs/stronghold/audit');
+const outputArg = process.argv.find(value => value.startsWith('--output='));
+const output = resolve(outputArg ? outputArg.slice('--output='.length) : '../docs/stronghold/audit');
 await mkdir(tmp, { recursive: true }); await mkdir(output, { recursive: true });
 await new Promise((ok, fail) => { const p = spawn(process.execPath, ['--import', 'tsx', 'scripts/fixtures/stronghold-session.ts'], { stdio: 'inherit' }); p.on('exit', code => code === 0 ? ok() : fail(new Error(`Fixture failed: ${code}`))); });
 const session = JSON.parse(await readFile(tmp + '/session.json', 'utf8'));
@@ -30,7 +31,7 @@ const url = `http://127.0.0.1:${server.address().port}/`;
 const errors = [], checks = [];
 function fixture(options = {}) {
     const visit = { id: 'qa', layoutVersion: 1, sector: options.sector ?? 12, tile: options.tile ?? 153, steps: options.steps ?? 0, threat: options.threat ?? 0, version: 0, visited: options.visited ?? [153] };
-    const state = { visit, steps: 0, polls: 0, leaves: 0, reports: 0, failLeave: false, failStep: false, failResume: false, terminal: false, lose: false, ...options };
+    const state = { visit, steps: 0, polls: 0, leaves: 0, starts: 0, attacks: 0, reports: 0, failLeave: false, failStep: false, failResume: false, terminal: false, lose: false, ...options };
     state.session = structuredClone(session);
     if (state.terminal) Object.assign(state.session, { status: 'done', winner: state.lose ? 'enemy' : 'player', outcome: state.lose ? 'loss' : 'win',
         terminalEvidence: { finishedAt: Date.now(), finalMoveToken: 'qa-terminal', finalVersion: 0, finalEventSeq: 0, winner: state.lose ? 'enemy' : 'player', outcome: state.lose ? 'loss' : 'win', itemsUsed: {}, settlementState: 'pending' } });
@@ -45,14 +46,16 @@ async function prepare(browser, viewport, state, query = '', beforeNavigate) {
         const action = body?.action;
         const fail = error => route.fulfill({ status: 503, json: { error } });
         if (action === 'stronghold-enter') state.visit.presenceId = body.presenceId;
-        if (action === 'stronghold-state') state.polls++;
-        if (action === 'stronghold-leave') { state.leaves++; if (state.failLeave) return fail('Connection interrupted. Try leaving again.'); return route.fulfill({ json: { ok: true } }); }
+        if (action === 'stronghold-state') { state.polls++; if (state.onState) return state.onState(route); }
+        if (action === 'stronghold-leave') { state.leaves++; if (state.onLeave) return state.onLeave(route); if (state.failLeave) return fail('Connection interrupted. Try leaving again.'); return route.fulfill({ json: { ok: true } }); }
         if (action === 'stronghold-step') {
             if (state.failStep) return fail('Connection interrupted.');
             if (body.version === state.visit.version) { state.steps++; Object.assign(state.visit, { tile: body.tile, version: state.visit.version + 1, steps: state.visit.steps + 1, threat: Math.min(100, state.visit.threat + 4) }); if (!state.visit.visited.includes(body.tile)) state.visit.visited.push(body.tile); }
         }
         if (action === 'start' && state.holdStart) await new Promise(resolve => { state.releaseStart = resolve; });
         if (action === 'state' && state.failResume) return fail('Connection temporarily unavailable.');
+        if (action === 'start') { state.starts++; if (state.onStart) return state.onStart(route); }
+        if (route.request().url().includes('/api/qa/stronghold-attack')) { state.attacks++; return state.onAttack ? state.onAttack(route) : route.fulfill({ json: { ok: true } }); }
         if (action === 'state' || action === 'start') return route.fulfill({ json: { ok: true, runId: 'qa-patrol', session: state.session, sector: 12, targetVillage: 'Moonshadow Village', anbu: { name: 'The Moonshadow Anbu' } } });
         if (action === 'stronghold-patrol-report' || action === 'report') {
             state.reports++;
@@ -83,7 +86,13 @@ async function fits(page) {
 }
 const browsers = [];
 try {
-    if (process.argv.includes('--resources')) {
+    if (process.argv.includes('--dismissal')) {
+        const { auditStrongholdDismissal } = await import('./stronghold-dismissal-qa.mjs');
+        for (const [engineName, engine] of [['chromium', chromium], ['webkit', webkit]]) {
+            const browser = await engine.launch({ headless: true }); browsers.push(browser);
+            checks.push(...await auditStrongholdDismissal({ browser, engineName, fixture, prepare, ready }));
+        }
+    } else if (process.argv.includes('--resources')) {
         const browser = await chromium.launch({ headless: true }); browsers.push(browser);
         const { auditStrongholdResources } = await import('./stronghold-resource-qa.mjs');
         checks.push(...await auditStrongholdResources({ browser, fixture, prepare, ready, output }));
@@ -249,7 +258,7 @@ try {
         }
     }
     assert.deepEqual(errors, []);
-    await writeFile(output + (process.argv.includes('--resources') ? '/resource-results.json' : '/results.json'), JSON.stringify({ checks, pageErrors: errors }, null, 2));
+    await writeFile(output + (process.argv.includes('--dismissal') ? '/dismissal-results.json' : process.argv.includes('--resources') ? '/resource-results.json' : '/results.json'), JSON.stringify({ checks, pageErrors: errors }, null, 2));
     console.log(JSON.stringify({ passed: true, checks, pageErrors: errors }, null, 2));
 } catch (error) {
     for (const browser of browsers) for (const context of browser.contexts()) for (const page of context.pages()) {

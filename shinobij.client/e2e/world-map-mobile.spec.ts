@@ -788,6 +788,245 @@ test("integration: sector travel and atlas return restore landscape navigation",
     expect(errors).toEqual([]);
 });
 
+test("region hover feedback keeps its touch target stationary", async ({ page }, testInfo) => {
+    test.skip(!phoneProjects.includes(testInfo.project.name), "region controls belong to the mobile atlas");
+    const errors = await bootWorldMap(page);
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await chooseRegion(page, "storm");
+    await page.mouse.move(0, 0);
+    const chip = page.locator('.wm-village-chip[data-region="gate"]');
+    const before = await chip.evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        return { x: box.x, y: box.y, width: box.width, height: box.height, filter: getComputedStyle(element).filter };
+    });
+    await chip.hover();
+    const samples = await chip.evaluate(async (element) => {
+        const result = [];
+        for (let frame = 0; frame < 12; frame += 1) {
+            await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+            const box = element.getBoundingClientRect();
+            result.push({ x: box.x, y: box.y, width: box.width, height: box.height });
+        }
+        return result;
+    });
+    for (const sample of samples) {
+        expect(sample).toEqual({ x: before.x, y: before.y, width: before.width, height: before.height });
+        expect(sample.height).toBeGreaterThanOrEqual(44);
+        expect(sample.width).toBeGreaterThanOrEqual(44);
+    }
+    if (await page.evaluate(() => matchMedia("(hover: hover)").matches)) {
+        await expect.poll(() => chip.evaluate((element) => getComputedStyle(element).filter),
+            { message: "hover-capable pointers retain visible brightness feedback" }).not.toBe(before.filter);
+    } else {
+        expect(await chip.evaluate((element) => getComputedStyle(element).filter),
+            "touch-only devices retain main's deliberate absence of sticky hover feedback").toBe(before.filter);
+    }
+    await chip.tap();
+    await expect(chip).toHaveAttribute("aria-pressed", "true");
+    await settleCamera(page);
+    await expectMapFits(page);
+    expect(errors).toEqual([]);
+});
+
+test("pinch preserves landmark targets and panning does not rewrite inherited marker scale", async ({ page }, testInfo) => {
+    test.skip(!["chromium-390x844", "chromium-mobile"].includes(testInfo.project.name), "real two-finger input through Chromium CDP");
+    const errors = await bootWorldMap(page);
+    await chooseRegion(page, "storm");
+    const map = page.locator(".generated-world-map");
+    const session = await page.context().newCDPSession(page);
+    const expectTargets = async () => {
+        const sizes = await page.locator('button.atlas-landmark[data-landmark-art="true"]').evaluateAll((elements) =>
+            elements.map((element) => {
+                const rect = element.getBoundingClientRect();
+                const base = element as HTMLElement;
+                return { label: element.getAttribute("aria-label"), width: rect.width, height: rect.height, baseWidth: base.offsetWidth, baseHeight: base.offsetHeight };
+            }));
+        expect(sizes.length).toBeGreaterThan(0);
+        for (const size of sizes) {
+            expect(size.width, `${size.label} width`).toBeGreaterThanOrEqual(44);
+            expect(size.height, `${size.label} height`).toBeGreaterThanOrEqual(44);
+            // Main intentionally paints 46px targets. Preserve that settled
+            // size and the same less-than-one-pixel inverse-bucket allowance.
+            expect(size.width, `${size.label} retains its painted width`).toBeGreaterThanOrEqual(size.baseWidth);
+            expect(size.height, `${size.label} retains its painted height`).toBeGreaterThanOrEqual(size.baseHeight);
+            expect(size.width, `${size.label} remains visually compact`).toBeLessThan(size.baseWidth + 1);
+            expect(size.height, `${size.label} remains visually compact`).toBeLessThan(size.baseHeight + 1);
+        }
+    };
+    try {
+        for (const viewport of [{ width: 430, height: 932 }, { width: 844, height: 390 }]) {
+            await page.setViewportSize(viewport);
+            await chooseRegion(page, "storm");
+            await expectTargets();
+        }
+        await page.setViewportSize({ width: 390, height: 844 });
+        await chooseRegion(page, "storm");
+        const stage = (await page.locator(".world-map-scroll").boundingBox())!;
+        const center = { x: stage.x + stage.width / 2, y: stage.y + stage.height / 2 };
+        const points = (distance: number) => [{ x: center.x - distance, y: center.y, id: 1 }, { x: center.x + distance, y: center.y, id: 2 }];
+        const originalTransform = await map.evaluate((element) => element.style.transform);
+        await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: points(40) });
+        for (const distance of [44, 48, 52, 48, 44, 40, 36, 32]) {
+            await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: points(distance) });
+            await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+            await expectTargets();
+        }
+        await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+        expect(await map.evaluate((element) => element.style.transform), "the gesture must actually zoom").not.toBe(originalTransform);
+
+        await chooseRegion(page, "central");
+        await map.evaluate((element) => {
+            const style = (element as HTMLElement).style;
+            const original = style.setProperty.bind(style);
+            const originalRemove = style.removeProperty.bind(style);
+            (element as HTMLElement).dataset.markerScaleWrites = "0";
+            (element as HTMLElement).dataset.mapVariableWrites = "0";
+            style.setProperty = (property, value, priority) => {
+                if (property.startsWith("--wm-")) {
+                    const target = element as HTMLElement;
+                    target.dataset.mapVariableWrites = String(Number(target.dataset.mapVariableWrites) + 1);
+                }
+                if (property === "--wm-marker-scale") {
+                    const target = element as HTMLElement;
+                    target.dataset.markerScaleWrites = String(Number(target.dataset.markerScaleWrites) + 1);
+                }
+                original(property, value, priority);
+            };
+            style.removeProperty = (property) => {
+                if (property.startsWith("--wm-")) {
+                    const target = element as HTMLElement;
+                    target.dataset.mapVariableWrites = String(Number(target.dataset.mapVariableWrites) + 1);
+                }
+                return originalRemove(property);
+            };
+        });
+        const beforePan = await map.evaluate((element) => element.style.transform);
+        await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ ...center, id: 1 }] });
+        for (let step = 1; step <= 8; step += 1) {
+            await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: center.x - step * 5, y: center.y - step * 3, id: 1 }] });
+            await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+        }
+        await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+        await expect.poll(() => map.evaluate((element) => element.style.transform)).not.toBe(beforePan);
+        await expect(map).toHaveAttribute("data-marker-scale-writes", "0");
+        await expect(map).toHaveAttribute("data-map-variable-writes", "0");
+        await expectTargets();
+        expect(errors).toEqual([]);
+    } finally {
+        await session.detach();
+    }
+});
+
+test("animated zoom keeps intermediate landmark targets compact and tappable", async ({ page }, testInfo) => {
+    test.skip(!phoneProjects.includes(testInfo.project.name), "animated mobile camera in both phone engines");
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    const errors = await bootWorldMap(page);
+    await chooseRegion(page, "storm");
+    const map = page.locator(".generated-world-map");
+    // Sample real CSS transition timelines deterministically: WebKit's mobile
+    // headless RAF cadence can skip most of a 140ms transition. Both engines
+    // still compute the actual browser transforms and hit geometry at each time.
+    const evidence = await map.evaluate(async (element) => {
+        const viewport = element.closest<HTMLElement>(".world-map-scroll")!;
+        const bounds = viewport.getBoundingClientRect();
+        const baseSizes = [...element.querySelectorAll<HTMLElement>('button.atlas-landmark[data-landmark-art="true"]')]
+            .flatMap((marker) => [marker.offsetWidth, marker.offsetHeight]);
+        const sample = () => ({
+            zoom: new DOMMatrix(getComputedStyle(element).transform).a,
+            sizes: [...element.querySelectorAll('button.atlas-landmark[data-landmark-art="true"]')]
+                .flatMap((marker) => { const box = marker.getBoundingClientRect(); return [box.width, box.height]; }),
+        });
+        const frame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        const wheel = (deltaY: number) => viewport.dispatchEvent(new WheelEvent("wheel", {
+            deltaY, bubbles: true, cancelable: true, clientX: bounds.x + bounds.width / 2, clientY: bounds.y + bounds.height / 2,
+        }));
+        const transitions = () => {
+            void getComputedStyle(element).transform;
+            return element.getAnimations({ subtree: true }).filter((animation) =>
+                animation instanceof CSSTransition && animation.transitionProperty === "transform");
+        };
+        const result = [];
+        for (const scenario of [{ action: "wheel out", delta: 100 }, { action: "wheel in", delta: -100 }, { action: "reverse in flight", delta: 100 }]) {
+            wheel(scenario.delta);
+            let running = transitions();
+            for (const animation of running) { animation.pause(); animation.currentTime = 0; }
+            let interruptedZoom: number | null = null;
+            if (scenario.action === "reverse in flight") {
+                for (const animation of running) animation.currentTime = 35;
+                await frame();
+                interruptedZoom = sample().zoom;
+                wheel(-scenario.delta);
+                running = transitions();
+                for (const animation of running) { animation.pause(); animation.currentTime = 0; }
+            }
+            const camera = running.find((animation) => (animation.effect as KeyframeEffect)?.target === element);
+            const samples = [];
+            for (const time of [0, 7, 17, 35, 70, 105, 133, 140]) {
+                for (const animation of running) animation.currentTime = time;
+                await frame();
+                samples.push({ time, ...sample() });
+            }
+            result.push({ action: scenario.action, duration: camera?.effect?.getTiming().duration, interruptedZoom, baseSizes, samples });
+            for (const animation of running) { try { animation.finish(); } catch { /* A completion handler may already cancel a marker transition. */ } }
+            await frame();
+            await frame();
+        }
+        return result;
+    });
+    await testInfo.attach("animated-camera-targets", { body: JSON.stringify(evidence, null, 2), contentType: "application/json" });
+    for (const { action, duration, interruptedZoom, baseSizes, samples } of evidence) {
+        expect(duration, `${action} retains the 140ms camera animation`).toBe(140);
+        expect(new Set(samples.map((sample) => sample.zoom)).size, `${action} must exercise intermediate camera scales`).toBeGreaterThan(2);
+        if (interruptedZoom !== null) expect(Math.abs(samples[0].zoom - interruptedZoom), "reversal starts from the painted camera").toBeLessThan(.00001);
+        const startSizes = samples[0].sizes;
+        const endSizes = samples.at(-1)!.sizes;
+        for (const endpoint of [startSizes, endSizes]) {
+            for (let index = 0; index < endpoint.length; index += 1) {
+                expect(endpoint[index], "settled camera preserves main's intrinsic target size").toBeGreaterThanOrEqual(baseSizes[index]);
+                expect(endpoint[index], "settled inverse bucket adds less than one pixel").toBeLessThan(baseSizes[index] + 1);
+            }
+        }
+        for (const sample of samples) {
+            expect(sample.sizes.length).toBeGreaterThan(0);
+            for (let index = 0; index < sample.sizes.length; index += 1) {
+                const size = sample.sizes[index];
+                expect(size, `${action} at camera scale ${sample.zoom} retains its target`).toBeGreaterThanOrEqual(44);
+                expect(size, `${action} stays above its settled endpoint band`).toBeGreaterThanOrEqual(Math.min(startSizes[index], endSizes[index]) - .01);
+                expect(size, `${action} stays below its settled endpoint band`).toBeLessThanOrEqual(Math.max(startSizes[index], endSizes[index]) + .01);
+            }
+        }
+    }
+    await expect.poll(() => map.evaluate((element) => element.style.getPropertyValue("--wm-marker-motion"))).toBe("");
+    const pauseZoom = () => map.evaluate((element) => {
+        const viewport = element.closest<HTMLElement>(".world-map-scroll")!;
+        const box = viewport.getBoundingClientRect();
+        viewport.dispatchEvent(new WheelEvent("wheel", { deltaY: 100, bubbles: true, cancelable: true, clientX: box.x + box.width / 2, clientY: box.y + box.height / 2 }));
+        void getComputedStyle(element).transform;
+        for (const animation of element.getAnimations({ subtree: true })) {
+            if (animation instanceof CSSTransition && animation.transitionProperty === "transform") {
+                animation.pause(); animation.currentTime = 35;
+            }
+        }
+    });
+    await pauseZoom();
+    await page.setViewportSize({ width: 1200, height: 800 });
+    await expect.poll(() => map.evaluate((element) => element.style.getPropertyValue("--wm-marker-motion")), { message: "desktop deactivation cancels marker motion" }).toBe("");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await settleCamera(page);
+    await pauseZoom();
+    const oldMap = (await map.elementHandle())!;
+    await page.getByRole("button", { name: /Return to Sector 40$/ }).tap();
+    await expect(page.locator(".world-atlas-card")).toHaveCount(0);
+    expect(await oldMap.evaluate((element) => element.style.getPropertyValue("--wm-marker-motion")), "unmount clears the old transition").toBe("");
+    await page.getByRole("button", { name: "Leave", exact: true }).click();
+    await expect(map).toBeVisible();
+    await settleCamera(page);
+    await expect.poll(() => map.evaluate((element) => element.style.getPropertyValue("--wm-marker-motion")), { message: "old completion cannot clear or retain a new camera transition" }).toBe("");
+    await oldMap.dispose();
+    await expectMapFits(page);
+    expect(errors).toEqual([]);
+});
+
 test("integration: phone desktop phone transitions retain a working camera", async ({ page }, testInfo) => {
     test.skip(!phoneProjects.includes(testInfo.project.name), "exercise live viewport activation in both phone engines");
     await page.addInitScript(() => localStorage.setItem("worldMapZoom.v1", "1"));
