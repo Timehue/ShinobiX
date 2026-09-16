@@ -186,7 +186,7 @@ export function LoginGate({
                 {remembered.length > 0 && (
                     <div className="gate-remembered">
                         <p className="gate-section-label">Continue as</p>
-                        {remembered.map(({ name, guest }) => (
+                        {remembered.map(({ name, accountName, guest }) => (
                             <button
                                 key={name}
                                 type="button"
@@ -194,7 +194,7 @@ export function LoginGate({
                                 // The visible label is just the name; spell the
                                 // action out for screen readers, since a bare
                                 // name gives no clue what pressing it does.
-                                aria-label={`Continue as ${name}${guest ? " (guest character)" : ""}`}
+                                aria-label={`Continue as ${accountName || name}${guest ? " (guest character)" : ""}`}
                                 disabled={Boolean(status)}
                                 onClick={() => { setError(""); void onContinueAs(name); }}
                             >
@@ -203,8 +203,8 @@ export function LoginGate({
                                     a letter distinguishes them using the only
                                     thing this browser actually knows offline —
                                     the saved blob deliberately keeps no portrait. */}
-                                <span className="gate-account-avatar" aria-hidden="true">{name.charAt(0).toUpperCase()}</span>
-                                <span className="gate-account-name">{name}</span>
+                                <span className="gate-account-avatar" aria-hidden="true">{(accountName || name).charAt(0).toUpperCase()}</span>
+                                <span className="gate-account-name">{accountName || name}</span>
                                 {guest && <span className="gate-account-tag">Guest</span>}
                                 <span className="gate-account-go" aria-hidden="true">›</span>
                             </button>
@@ -291,6 +291,7 @@ export function LoginGate({
                                     className="start-eye-btn"
                                     onClick={() => setShowLoginPw((s) => !s)}
                                     aria-label={showLoginPw ? "Hide password" : "Show password"}
+                                    aria-pressed={showLoginPw}
                                 >
                                     {showLoginPw ? <IconEyeOff /> : <IconEyeOpen />}
                                 </button>

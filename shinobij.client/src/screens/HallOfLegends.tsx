@@ -199,7 +199,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
     const all = playerRoster.length > 0
         ? playerRoster.map(p => p.character)
         : [character];
-    const me = character.name;
+    const me = character.accountName || character.name;
 
     function Row({ rank, name, value, suffix = "", village, tier = false }: { rank: number; name: string; value: number | string; suffix?: string; village?: string; tier?: boolean }) {
         const isMe = name === me;
@@ -341,11 +341,11 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                         })()}
                         <p className="hol-board-label"><GiCrossedSwords style={HOL_ICON} />Ranked Battle Rating (Elo)</p>
                         {sortedTop(c => c.rankedRating ?? 1000).map((c, i) => (
-                            <Row key={c.name} rank={i+1} name={c.name} value={c.rankedRating ?? 1000} suffix=" Elo" village={c.village} tier />
+                            <Row key={c.name} rank={i+1} name={c.accountName || c.name} value={c.rankedRating ?? 1000} suffix=" Elo" village={c.village} tier />
                         ))}
                         <p className="hol-board-label" style={{ marginTop: "1rem" }}><GiPawPrint style={HOL_ICON} />Pet Ranked Rating (Elo)</p>
                         {sortedTop(c => c.petRankedRating ?? 1000).map((c, i) => (
-                            <Row key={`pet-${c.name}`} rank={i+1} name={c.name} value={c.petRankedRating ?? 1000} suffix=" Elo" village={c.village} tier />
+                            <Row key={`pet-${c.name}`} rank={i+1} name={c.accountName || c.name} value={c.petRankedRating ?? 1000} suffix=" Elo" village={c.village} tier />
                         ))}
                         <p className="hint" style={{ marginTop: "1rem", marginBottom: "0.2rem", opacity: 0.75 }}>🪜 Global Pet Ladders — climb by beating the player ranked above you. All-time standings; no season reset.</p>
                         <p className="hol-board-label"><GiColiseum style={HOL_ICON} />Pet Colosseum Ladder — Top 10</p>
@@ -378,7 +378,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                     <>
                         <p className="hol-board-label">Total PvP Kills</p>
                         {sortedTop(c => c.totalPvpKills ?? 0).map((c, i) => (
-                            <Row key={c.name} rank={i+1} name={c.name} value={c.totalPvpKills ?? 0} suffix=" kills" village={c.village} />
+                            <Row key={c.name} rank={i+1} name={c.accountName || c.name} value={c.totalPvpKills ?? 0} suffix=" kills" village={c.village} />
                         ))}
                     </>
                 )}
@@ -386,7 +386,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                     <>
                         <p className="hol-board-label">Total Stat Points Earned</p>
                         {sortedTop(c => c.xp).map((c, i) => (
-                            <Row key={c.name} rank={i+1} name={c.name} value={c.xp} suffix=" pts" village={c.village} />
+                            <Row key={c.name} rank={i+1} name={c.accountName || c.name} value={c.xp} suffix=" pts" village={c.village} />
                         ))}
                     </>
                 )}
@@ -409,7 +409,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                     <>
                         <p className="hol-board-label">Pet Colosseum Wins</p>
                         {sortedTop(c => c.totalPetWins ?? 0).map((c, i) => (
-                            <Row key={c.name} rank={i+1} name={c.name} value={c.totalPetWins ?? 0} suffix=" wins" village={c.village} />
+                            <Row key={c.name} rank={i+1} name={c.accountName || c.name} value={c.totalPetWins ?? 0} suffix=" wins" village={c.village} />
                         ))}
                     </>
                 )}
@@ -430,7 +430,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                     <>
                         <p className="hol-board-label">Endless Tower — Waves Survived</p>
                         {sortedTop(c => c.totalEndlessTowerWins ?? 0).map((c, i) => (
-                            <Row key={c.name} rank={i+1} name={c.name} value={c.totalEndlessTowerWins ?? 0} suffix=" waves" village={c.village} />
+                            <Row key={c.name} rank={i+1} name={c.accountName || c.name} value={c.totalEndlessTowerWins ?? 0} suffix=" waves" village={c.village} />
                         ))}
                     </>
                 )}
@@ -446,7 +446,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                             return top.length === 0
                                 ? <p className="hol-empty">No village war victories recorded yet.</p>
                                 : top.map((c, i) => (
-                                    <Row key={`won-${c.name}`} rank={i+1} name={c.name} value={c.warsWon ?? 0} suffix={` win${(c.warsWon ?? 0) === 1 ? "" : "s"}`} village={c.village} />
+                                    <Row key={`won-${c.name}`} rank={i+1} name={c.accountName || c.name} value={c.warsWon ?? 0} suffix={` win${(c.warsWon ?? 0) === 1 ? "" : "s"}`} village={c.village} />
                                 ));
                         })()}
                         <p className="hol-board-label" style={{ marginTop: "1rem" }}><GiCrown style={HOL_ICON} />MVP Wall</p>
@@ -455,7 +455,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                             return top.length === 0
                                 ? <p className="hol-empty">No war MVPs crowned yet.</p>
                                 : top.map((c, i) => (
-                                    <Row key={`mvp-${c.name}`} rank={i+1} name={c.name} value={c.warMvpCount ?? 0} suffix={` MVP${(c.warMvpCount ?? 0) === 1 ? "" : "s"}`} village={c.village} />
+                                    <Row key={`mvp-${c.name}`} rank={i+1} name={c.accountName || c.name} value={c.warMvpCount ?? 0} suffix={` MVP${(c.warMvpCount ?? 0) === 1 ? "" : "s"}`} village={c.village} />
                                 ));
                         })()}
                         <p className="hol-board-label" style={{ marginTop: "1rem" }}><GiPunchBlast style={HOL_ICON} />All-Time War Damage</p>
@@ -464,12 +464,12 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                             return top.length === 0
                                 ? <p className="hol-empty">No war damage tallied yet.</p>
                                 : top.map((c, i) => (
-                                    <Row key={`dmg-${c.name}`} rank={i+1} name={c.name} value={c.lifetimeWarDamage ?? 0} suffix=" HP" village={c.village} />
+                                    <Row key={`dmg-${c.name}`} rank={i+1} name={c.accountName || c.name} value={c.lifetimeWarDamage ?? 0} suffix=" HP" village={c.village} />
                                 ));
                         })()}
                         <p className="hol-board-label" style={{ marginTop: "1rem" }}><GiCrossedSwords style={HOL_ICON} />Raids Completed</p>
                         {sortedTop(c => c.totalVillageRaids ?? 0).map((c, i) => (
-                            <Row key={`raid-${c.name}`} rank={i+1} name={c.name} value={c.totalVillageRaids ?? 0} suffix=" raids" village={c.village} />
+                            <Row key={`raid-${c.name}`} rank={i+1} name={c.accountName || c.name} value={c.totalVillageRaids ?? 0} suffix=" raids" village={c.village} />
                         ))}
                         {/* Per-village W/L record from the server (api/world-state
                             standings). Ranked by win differential, then wins. */}
@@ -599,7 +599,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                                 <Row
                                     key={c.name}
                                     rank={i + 1}
-                                    name={`${c.name}  · ${rankLabel(c)}`}
+                                    name={`${c.accountName || c.name}  · ${rankLabel(c)}`}
                                     value={c.professionXp ?? 0}
                                     suffix=" XP"
                                     village={c.village}

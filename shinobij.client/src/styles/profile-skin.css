@@ -799,8 +799,22 @@
         box-shadow: 0 0 14px rgba(78,168,255,0.36);
     }
 }
-.profile-page-card .sic-avatar-upload-button input {
-    display: none;
+.profile-page-card .profile-avatar-upload {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    width: 112px;
+    text-align: center;
+}
+.profile-page-card .profile-avatar-upload small {
+    color: var(--text-dim);
+    font-size: 11px;
+    line-height: 1.4;
+}
+.profile-page-card .sic-avatar-upload-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+    box-shadow: none;
 }
 .profile-page-card .sic-summary {
     max-width: 92ch;

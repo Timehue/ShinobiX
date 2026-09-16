@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { kv } from './_storage.js';
 import { cors, safeName } from './_utils.js';
+import { resolvePlayerReference } from './_account-name.js';
 import { authedPlayerOrAdmin } from './_auth.js';
 import { rejectUnclaimedGuest } from './_guest-gate.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
@@ -81,7 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (identity.admin) return res.status(403).json({ error: 'Direct messages require a player account.' });
         const me = identity.name;
-        const withName = typeof req.query.with === 'string' ? norm(req.query.with) : '';
+        const withName = typeof req.query.with === 'string' ? norm(await resolvePlayerReference(req.query.with)) : '';
 
         res.setHeader('Cache-Control', 'no-store');
 
@@ -116,7 +117,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (identity.admin) return res.status(403).json({ error: 'Direct messages require a player account.' });
 
             const me = identity.name;
-            const withName = typeof req.query.with === 'string' ? norm(req.query.with) : '';
+            const withName = typeof req.query.with === 'string' ? norm(await resolvePlayerReference(req.query.with)) : '';
             if (!withName) return res.status(400).json({ error: 'Missing conversation.' });
             if (withName === norm(me)) return res.status(400).json({ error: 'Invalid conversation.' });
 
@@ -152,7 +153,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!identity) return res.status(401).json({ error: 'Authentication required.' });
             if (identity.admin) return res.status(403).json({ error: 'Direct messages require a player account.' });
             const from = identity.name;
-            const recipient = norm(to);
+            const recipient = norm(await resolvePlayerReference(to));
             if (recipient === from) return res.status(400).json({ error: 'Cannot message yourself.' });
 
             // Unclaimed guests can read the mail they receive but cannot send —

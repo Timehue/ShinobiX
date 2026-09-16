@@ -150,6 +150,7 @@
 .start-input-wrap {
     position: relative;
     display: block;
+    min-width: 0;
 }
 
 .start-card .start-input,
@@ -165,9 +166,9 @@
     transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-.start-card .start-input[type="password"],
 .start-card .start-input.has-toggle {
-    padding-right: 38px;
+    min-height: 48px;
+    padding-right: 52px;
 }
 
 .start-card .start-input:focus {
@@ -197,10 +198,11 @@
     right: 2px;
     top: 50%;
     transform: translateY(-50%);
-    width: 40px !important;
-    height: 40px !important;
-    min-width: 40px !important;
-    min-height: 40px !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    margin: 0;
     background: transparent !important;
     border: none !important;
     color: #ca8a04 !important;
@@ -217,6 +219,18 @@
     .start-eye-btn:hover {
         color: var(--gold-300) !important;
     }
+}
+
+.start-eye-btn:active {
+    transform: translateY(-50%);
+}
+@media (hover: hover) {
+    .start-eye-btn:hover { transform: translateY(-50%); }
+}
+
+.start-eye-btn:focus-visible {
+    outline: 2px solid var(--gold-300);
+    outline-offset: -3px;
 }
 
 .start-eye-btn svg {

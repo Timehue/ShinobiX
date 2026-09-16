@@ -42,6 +42,7 @@ export function playerPasswordPolicyError(password: unknown): string | null {
 }
 
 export type PlayerAuthResponse = {
+    name?: string;
     ok?: boolean;
     error?: string;
     token?: string;

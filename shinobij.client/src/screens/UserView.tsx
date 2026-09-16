@@ -174,7 +174,7 @@ export function UserView({
             <div className={tab !== 'overview' ? 'profile-tab-hidden' : ''}>
                 <div className="profile-page-header">
                     <div>
-                        <h2>{viewedCharacter.name}</h2>
+                        <h2>{viewedCharacter.accountName || viewedCharacter.name}</h2>
                         <p>Viewing another shinobi's profile.</p>
                     </div>
                     <button className="back-btn" onClick={onBack}>Back to Users</button>
@@ -205,7 +205,7 @@ export function UserView({
                     </div>
                     <div style={{ flex: 1, minWidth: 240 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                            <span style={{ fontSize: "1.7rem", fontWeight: 700, color: "#f8fafc" }}>{viewedCharacter.name}</span>
+                            <span style={{ fontSize: "1.7rem", fontWeight: 700, color: "#f8fafc" }}>{viewedCharacter.accountName || viewedCharacter.name}</span>
                             {viewedCharacter.customTitle && (
                                 <span style={{ color: viewedCharacter.customTitleStyle ? titleStyleColor(viewedCharacter.customTitleStyle) : "var(--gold)", fontWeight: 700, fontSize: "0.95rem" }}>
                                     «{viewedCharacter.customTitleIcon ? `${viewedCharacter.customTitleIcon} ` : ""}{viewedCharacter.customTitle}»

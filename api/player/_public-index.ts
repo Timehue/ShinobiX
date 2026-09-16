@@ -21,6 +21,7 @@ export const PUBLIC_INDEX_VERSION = 2;
 export type PublicPlayerIndexEntry = {
     _publicIndexVersion: number;
     name: string;
+    accountName?: string;
     level: number;
     village: string;
     specialty: string;
@@ -210,6 +211,7 @@ export function buildPublicPlayerIndexEntry(
     return {
         _publicIndexVersion: PUBLIC_INDEX_VERSION,
         name: displayName,
+        ...(publicString(char.accountName) ? { accountName: publicString(char.accountName) } : {}),
         level: publicNumber(char.level, 1),
         village: publicString(char.village),
         specialty: publicString(char.specialty),
@@ -262,6 +264,7 @@ export function needsPublicPlayerIndexBackfill(raw: unknown): boolean {
 
 export function publicPlayerIndexChanged(existingCharacter: Record<string, unknown> | null, next: PublicPlayerIndexEntry): boolean {
     const existing = existingCharacter ?? {};
+    if (publicString(existing.accountName) !== publicString(next.accountName)) return true;
     for (const key of STRING_FIELDS) {
         if (publicString(existing[key]) !== next[key]) return true;
     }
@@ -335,7 +338,7 @@ function buildPlayerLeaderboard(
         .slice(0, limit)
         .map(({ entry, value }, index) => ({
             rank: index + 1,
-            name: entry.name,
+            name: entry.accountName || entry.name,
             value,
             label: options.label ? options.label(value, entry) : formatLeaderboardValue(value, meta.suffix),
             level: entry.level,
@@ -491,6 +494,7 @@ function pushSample(samples: string[], key: string): void {
 
 export function publicIndexToLeaderboardRosterEntry(entry: PublicPlayerIndexEntry, online = false) {
     const character = {
+        ...(entry.accountName ? { accountName: entry.accountName } : {}),
         rankedRating: entry.rankedRating,
         rankedWins: entry.rankedWins,
         rankedLosses: entry.rankedLosses,
