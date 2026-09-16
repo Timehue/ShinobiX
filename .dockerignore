@@ -35,6 +35,11 @@ Dockerfile
 .dockerignore
 
 # Logs and local artifacts
+**/test-results
+**/playwright-report
+**/.tmp
+.ci-evidence
+.ci-artifacts
 *.log
 npm-debug.log*
 *.pdf

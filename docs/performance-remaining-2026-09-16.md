@@ -14,7 +14,7 @@ Permanent diagnostics now retain page/scenario identity, API request actions, re
 
 The first instrumented WebKit run reproduced both access-control messages. Both came from the saved-fight recovery scenario's initial exploration document while it was being replaced. Their stacks point to the two StrictMode passive effect mounts. No corresponding API requests reached the route handler. The fixture previously mounted an unrelated exploration page solely to write local storage, then immediately navigated to the actual recovery case. A later full run (`stronghold-final-1`) found the same pattern in the Death's Gate saved-key preservation case: two errors during its immediate storage-setup reload, with no corresponding API dispatch. Both redundant setup navigations have been removed.
 
-Saved-run preconditions are now installed before their documents mount. Existing saved-run retention, Death's Gate preservation and retry assertions remain. A separate case holds an established presence poll across navigation and requires the new document to re-enter and become usable before releasing the old response. It also checks that navigation did not start a battle. Browser cancellation events themselves are not a portable assertion: an initial attempt to require `requestfailed` timed out. The retained test asserts the actual pending-response and recovery behavior instead. The regular suite, with diagnostics, is wired into the first responsive CI shard, which now installs the root tsx/esbuild tooling required by this fixture.
+Saved-run preconditions are now installed before their documents mount. Existing saved-run retention, Death's Gate preservation and retry assertions remain. A separate case holds an established presence poll across navigation and requires the new document to re-enter and become usable before releasing the old response. It also checks that navigation did not start a battle. Browser cancellation events themselves are not a portable assertion: an initial attempt to require `requestfailed` timed out. The retained test asserts the actual pending-response and recovery behavior instead. The regular suite, with diagnostics, is wired into the second responsive CI shard, which installs the root tsx/esbuild tooling required by this fixture. The integration review below also connects dismissal and resource coverage to that shard.
 
 Original failures and intermediate attempts remain in the evidence directory; they are not counted as passes.
 
@@ -59,7 +59,7 @@ The rapid candidate's delayed navigation request starts and unfinished image req
 ## Final validation
 
 - Full `npm run build` passed, including typechecks, content verification, distribution verification and the existing size budgets. The size gate still reports its existing 8.08 MB JS/CSS warning; its limits were not raised.
-- All 334 emitted JS/CSS files match the untouched baseline byte for byte. No experimental `.br` sidecars remain.
+- All 334 emitted asset JS/CSS files match the untouched baseline byte for byte. No experimental `.br` sidecars remain.
 - 41 targeted security, routing, build-entry, CI-workflow and deployment contract tests passed, with no skips or cancellations.
 - The compiled-policy browser check passed in Chromium and WebKit.
 - Full client lint passed with zero errors and 14 warnings in existing source files.
@@ -71,6 +71,27 @@ The rapid candidate's delayed navigation request starts and unfinished image req
 - Two final resource runs (`stronghold-resources-verified-1` and `stronghold-resources-verified-2`) passed all 14 checks each, with zero page/route errors or dropped diagnostics. Each covers 12 exploration entry/exit cycles and 8 combat cycles per sector (12 and 99), plus three 2D and three 3D exterior suspension/resumption cycles. Exact timer-baseline comparisons and the existing listener/node/heap bounds passed. Hidden exterior canvases and animation frames were released. These are bounded desktop Chromium checks, not physical GPU, battery or indefinite-session certification.
 
 Remote CI and production deployment have not run for this branch. No failing attempt was relabeled as a pass; the diagnostic failures above remain available with the subsequent evidence explaining the corrections.
+
+## Integration review follow-up
+
+The follow-up review of `9d6b25f5c` found missing ongoing coverage: the corrected resource and extended dismissal audits were only being run locally. Both now run in CI, sequentially with regular Stronghold QA on responsive shard two. The compiled CSP browser gate runs on shard one. All feed the existing required responsive aggregate and final test/build gate. Contract tests require their commands, shard assignments, disposable memory configuration, root dev-tool installation, evidence logging and propagation of failures through `tee`. No audit uses `continue-on-error` or resource baseline mode.
+
+The assignment accounts for [main CI run 35081402475](https://github.com/Timehue/ShinobiX/actions/runs/35081402475): shard one took 24.58 minutes and shard two 19.52 minutes. The three local Stronghold browser phases took approximately 99, 68 and 72 seconds. These are scheduling inputs, not a guarantee of Linux runner timing; the existing 29-minute job limit still applies. Main remained at `c36416abb5b1587eb4ab8b2ac4ce8b56decccd53` when checked during this review.
+
+The fixture builder now declares the already locked `esbuild@0.28.1` directly, instead of depending on tsx's transitive installation layout. Fresh root and client `npm ci` installs succeeded. Resource audits use Chromium SwiftShader explicitly for repeatable software rendering on developer machines and CI; the observed renderer is retained in the JSON evidence. Both formerly unbounded settlement polling loops now have explicit 15-second failure deadlines. Existing resource bounds and application behavior are preserved.
+
+The built Express route smoke test now checks the actual CSP response header on the static landing page, prerendered privacy page, SPA deep link, real Vite JavaScript entry, bare and prefixed APIs, and JSON/static 404s. This closes the gap between testing the policy helper and verifying that server middleware delivers it. The Google OAuth comment was corrected to match the current policy. Generated test results, scratch builds and CI evidence/artifacts are excluded from Git and Docker inputs; CI still explicitly uploads its evidence, including after failures.
+
+Validation after these integration changes:
+
+- Fresh locked installs and the complete release build passed. Full client lint has zero errors and the same 14 existing warnings.
+- All 42 focused security, routing, build, CI and deployment contract tests passed, without skips or cancellations. The compiled CSP test passed in both Chromium and WebKit.
+- Actual Express routing/CSP and Academy integration: 6 passed; the same two duplicate mobile Academy scenarios are intentionally skipped. Evidence: `integration-express.log` and `integration-express/`.
+- All three Stronghold modes passed: 50 regular, 32 dismissal and 14 resource checks. Each recorded zero page errors, route errors or dropped diagnostic events. Evidence: `integration-stronghold-regular/`, `integration-stronghold-dismissal/`, and `integration-stronghold-resources/`.
+- The resource run recorded the SwiftShader renderer, stopped exterior frames and WebGL contexts on entry, and passed the existing resource bounds through repeated exploration, combat and 2D/3D suspension cycles. It does not measure physical GPU performance.
+- All 336 emitted JS/CSS files, including the 334 asset files plus `sw.js` and `boot-watchdog.js`, have identical SHA-256 hashes to the untouched frontend baseline. No experimental Brotli files or compiled compression helper remain. Evidence: `integration-bundle-identity.json`.
+
+The changes remain on the isolated local branch. This review does not represent a new remote CI run, a Docker image build, or a production deployment; database and physical-device limitations below still apply.
 
 ## Environment-dependent work
 

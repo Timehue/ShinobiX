@@ -5,7 +5,7 @@
  * that use it are api/auth/google/{start,callback,claim}.ts.
  *
  * Why this shape and not Google's JS SDK: the site's CSP (api/_http-security.ts)
- * is `script-src 'self'` with no `frame-src` and `form-action 'self'`, which
+ * allows no Google scripts or frames and keeps `form-action 'self'`, which
  * blocks Google Identity Services, One Tap, and any Google-hosted iframe. A
  * top-level redirect is unaffected, needs no third-party script, and adds no
  * dependency. (The since-removed api/patreon/ rail ran exactly this flow; the

@@ -588,12 +588,30 @@ jobs:
         if: ${{ matrix.shard == 1 }}
         run: node --test scripts/check-http-security-browser.mjs 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/csp-browser.log
       - name: Stronghold request lifecycle and recovery
-        if: ${{ matrix.shard == 1 }}
+        # Main run 35081402475 used 24.6m on shard 1 and 19.5m on shard 2.
+        # Put the Stronghold audits on shard 2 to fit the existing 29m limit.
+        if: ${{ matrix.shard == 2 }}
         env:
           NODE_ENV: test
           SHINOBIX_QA_MEMORY_KV: '1'
         working-directory: shinobij.client
         run: node scripts/stronghold-browser-qa.mjs --output=../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/stronghold 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/stronghold.log
+      # Run the Stronghold modes sequentially on that same shard:
+      # all Stronghold modes build into the same disposable fixture directory.
+      - name: Stronghold dismissal and settlement races
+        if: ${{ matrix.shard == 2 }}
+        env:
+          NODE_ENV: test
+          SHINOBIX_QA_MEMORY_KV: '1'
+        working-directory: shinobij.client
+        run: node scripts/stronghold-browser-qa.mjs --dismissal --output=../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/stronghold-dismissal 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/stronghold-dismissal.log
+      - name: Stronghold resource lifecycle
+        if: ${{ matrix.shard == 2 }}
+        env:
+          NODE_ENV: test
+          SHINOBIX_QA_MEMORY_KV: '1'
+        working-directory: shinobij.client
+        run: node scripts/stronghold-browser-qa.mjs --resources --output=../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/stronghold-resources 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-2/stronghold-resources.log
       - name: Retain responsive browser evidence
         if: always()
         continue-on-error: true
