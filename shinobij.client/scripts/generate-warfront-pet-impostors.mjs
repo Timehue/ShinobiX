@@ -5,11 +5,12 @@
  * Usage:
  *   node scripts/generate-warfront-pet-impostors.mjs --critical-only
  *   node scripts/generate-warfront-pet-impostors.mjs --critical-only --check
+ *   node scripts/generate-warfront-pet-impostors.mjs --model=standard-3,starter-wind --check
  *   node scripts/generate-warfront-pet-impostors.mjs
  *   node scripts/generate-warfront-pet-impostors.mjs --check
  */
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { NodeIO } from "@gltf-transform/core";
@@ -75,6 +76,7 @@ const checkOnly = argv.has("--check");
 const criticalOnly = argv.has("--critical-only");
 const quiet = argv.has("--quiet");
 const modelFilter = process.argv.slice(2).find((arg) => arg.startsWith("--model="))?.slice(8);
+const modelIds = modelFilter ? new Set(modelFilter.split(",").map((id) => id.trim())) : null;
 
 function invariant(condition, message) {
     if (!condition) throw new Error(message);
@@ -123,27 +125,35 @@ async function loadThreeGltf(path) {
     });
 }
 
-async function loadTexture(path) {
+async function loadMaterialTextures(path) {
     const document = await documentIo.read(path);
     const materials = document.getRoot().listMaterials();
-    invariant(materials.length === 1, `${path}: expected one material, found ${materials.length}`);
-    const material = materials[0];
-    const texture = material.getBaseColorTexture();
-    invariant(texture?.getImage(), `${path}: missing embedded base-colour texture`);
-    const decoded = await sharp(texture.getImage(), { failOn: "error" })
-        .resize(TEXTURE_SAMPLE_SIZE, TEXTURE_SAMPLE_SIZE, { fit: "fill", kernel: "lanczos3" })
-        .ensureAlpha()
-        .raw()
-        .toBuffer({ resolveWithObject: true });
-    return {
-        pixels: decoded.data,
-        width: decoded.info.width,
-        height: decoded.info.height,
-        factor: material.getBaseColorFactor(),
-    };
+    invariant(materials.length > 0, `${path}: missing material definitions`);
+    const decodedTextures = new Map();
+    const linearToSrgb = value => value <= 0.0031308 ? value * 12.92 : 1.055 * value ** (1 / 2.4) - 0.055;
+    return Promise.all(materials.map(async material => {
+        const texture = material.getBaseColorTexture();
+        const factor = material.getBaseColorFactor();
+        if (!texture) {
+            // glTF factors are linear. The CPU framebuffer, like decoded atlas
+            // pixels, is sRGB; untextured eyes/nose must retain authored colors.
+            return {
+                pixels: Buffer.from([255, 255, 255, 255]), width: 1, height: 1,
+                factor: [...factor.slice(0, 3).map(linearToSrgb), factor[3]],
+            };
+        }
+        invariant(texture.getImage(), `${path}: missing embedded base-colour texture for ${material.getName()}`);
+        if (!decodedTextures.has(texture)) {
+            decodedTextures.set(texture, sharp(texture.getImage(), { failOn: "error" })
+                .resize(TEXTURE_SAMPLE_SIZE, TEXTURE_SAMPLE_SIZE, { fit: "fill", kernel: "lanczos3" })
+                .ensureAlpha().raw().toBuffer({ resolveWithObject: true }));
+        }
+        const decoded = await decodedTextures.get(texture);
+        return { pixels: decoded.data, width: decoded.info.width, height: decoded.info.height, factor };
+    }));
 }
 
-function collectMeshDescriptors(scene) {
+function collectMeshDescriptors(scene, materialTextures, associations) {
     const descriptors = [];
     scene.traverse((object) => {
         if (!object.isMesh) return;
@@ -157,7 +167,10 @@ function collectMeshDescriptors(scene) {
             uvs[index * 2] = uv.getX(index);
             uvs[index * 2 + 1] = uv.getY(index);
         }
-        descriptors.push({ object, position, indices: indices.array, uvs });
+        const materialIndex = associations.get(object.material)?.materials;
+        invariant(Number.isInteger(materialIndex) && materialTextures[materialIndex],
+            `${object.name}: cannot resolve its glTF primitive material`);
+        descriptors.push({ object, position, indices: indices.array, uvs, texture: materialTextures[materialIndex] });
     });
     invariant(descriptors.length > 0, "GLB has no rasterizable meshes");
     return descriptors;
@@ -345,7 +358,7 @@ function rasterizeFrame(descriptors, sampled, frame) {
                 if (z <= depth[pixel]) continue;
                 const u = wa * descriptor.uvs[ia * 2] + wb * descriptor.uvs[ib * 2] + wc * descriptor.uvs[ic * 2];
                 const v = wa * descriptor.uvs[ia * 2 + 1] + wb * descriptor.uvs[ib * 2 + 1] + wc * descriptor.uvs[ic * 2 + 1];
-                textureSample(currentTexture, u, v, shade, cell, pixel * 4);
+                textureSample(descriptor.texture, u, v, shade, cell, pixel * 4);
                 if (cell[pixel * 4 + 3] > 0) depth[pixel] = z;
             }
         }
@@ -357,14 +370,11 @@ function rasterizeFrame(descriptors, sampled, frame) {
     return { cell, triangles, occupiedPixels };
 }
 
-let currentTexture;
-
 async function buildAtlas(lodPath) {
-    const [gltf, texture] = await Promise.all([loadThreeGltf(lodPath), loadTexture(lodPath)]);
-    currentTexture = texture;
+    const [gltf, materialTextures] = await Promise.all([loadThreeGltf(lodPath), loadMaterialTextures(lodPath)]);
     const clips = new Map(gltf.animations.map((clip) => [clip.name, clip]));
     for (const frame of FRAMES) invariant(clips.has(frame.clip), `${lodPath}: missing authored clip ${frame.clip}`);
-    const descriptors = collectMeshDescriptors(gltf.scene);
+    const descriptors = collectMeshDescriptors(gltf.scene, materialTextures, gltf.parser.associations);
     const mixer = new AnimationMixer(gltf.scene);
     const samples = FRAMES.map((frame) => sampleAnimatedFrame(
         gltf.scene,
@@ -432,7 +442,21 @@ function lodPathFromUrl(lodUrl) {
 
 async function writeStable(path, bytes) {
     await mkdir(dirname(path), { recursive: true });
-    await writeFile(path, bytes);
+    const content = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
+    try {
+        if ((await readFile(path)).equals(content)) return;
+    } catch (error) {
+        if (error.code !== "ENOENT") throw error;
+    }
+    // Stage complete bytes before replacement so a failed rebuild cannot
+    // truncate an existing atlas or the full manifest.
+    const temporary = `${path}.${process.pid}.tmp`;
+    try {
+        await writeFile(temporary, content);
+        await rename(temporary, path);
+    } finally {
+        await unlink(temporary).catch((error) => { if (error.code !== "ENOENT") throw error; });
+    }
 }
 
 function tsManifest(entries) {
@@ -451,7 +475,10 @@ const lodManifest = JSON.parse(await readFile(lodManifestPath, "utf8"));
 invariant(lodManifest.entries?.length === EXPECTED_SOURCE_COUNT, `expected ${EXPECTED_SOURCE_COUNT} certified LODs, found ${lodManifest.entries?.length ?? 0}`);
 let selected = [...lodManifest.entries].sort((a, b) => a.sourceUrl.localeCompare(b.sourceUrl));
 if (criticalOnly) selected = selected.filter((entry) => CRITICAL_SOURCE_URLS.has(entry.sourceUrl));
-if (modelFilter) selected = selected.filter((entry) => entry.sourceUrl.endsWith(`/${modelFilter}.glb`));
+if (modelIds) {
+    selected = selected.filter((entry) => modelIds.has(entry.sourceUrl.split("/").at(-1).slice(0, -4)));
+    for (const id of modelIds) invariant(id && selected.some((entry) => entry.sourceUrl.endsWith(`/${id}.glb`)), `Requested model ${JSON.stringify(id)} is absent from the selected runtime inventory`);
+}
 invariant(selected.length > 0, "no Warfront LOD inputs selected");
 if (criticalOnly && !modelFilter) invariant(selected.length === CRITICAL_SOURCE_URLS.size, "critical LOD inventory is incomplete");
 
@@ -493,6 +520,17 @@ for (const [index, source] of selected.entries()) {
     if (!quiet) console.log(`[${index + 1}/${selected.length}] ${source.sourceUrl} -> ${output.url} (${built.webp.byteLength} bytes)`);
 }
 
+// A filtered rebuild replaces only the requested atlas entries, preserving the
+// rest of the certified bank and the full runtime manifest.
+let manifestEntries = results;
+if (!checkOnly && results.length < EXPECTED_SOURCE_COUNT) {
+    let previousEntries = [];
+    try { previousEntries = JSON.parse(await readFile(jsonManifestPath, "utf8")).entries ?? []; }
+    catch (error) { if (error.code !== "ENOENT") throw error; }
+    const bySource = new Map(previousEntries.map(entry => [entry.sourceUrl, entry]));
+    for (const result of results) bySource.set(result.sourceUrl, result);
+    manifestEntries = [...bySource.values()].sort((a, b) => a.sourceUrl.localeCompare(b.sourceUrl));
+}
 const manifest = {
     revision: REVISION,
     generatedBy: "scripts/generate-warfront-pet-impostors.mjs",
@@ -510,12 +548,12 @@ const manifest = {
         viewTowardViewer: cameraTowardViewer.toArray().map((value) => round(value)),
         frames: FRAMES,
     },
-    selectedCount: results.length,
-    complete: results.length === EXPECTED_SOURCE_COUNT,
-    entries: results,
+    selectedCount: manifestEntries.length,
+    complete: manifestEntries.length === EXPECTED_SOURCE_COUNT,
+    entries: manifestEntries,
 };
 const jsonBytes = `${JSON.stringify(manifest, null, 2)}\n`;
-const tsBytes = tsManifest(results);
+const tsBytes = tsManifest(manifestEntries);
 if (checkOnly) {
     const existingJsonBytes = await readFile(jsonManifestPath, "utf8");
     const existingManifest = JSON.parse(existingJsonBytes);

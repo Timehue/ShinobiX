@@ -12,5 +12,9 @@ export function warfrontImpostorAtlasUrl(sourceUrl: string): string | null {
     if (marker < 0) return null;
     const sourcePath = clean.slice(marker);
     if (!sourcePath.toLowerCase().endsWith(".glb")) return null;
-    return `/pet-models/warfront-impostors/${sourcePath.slice("/pet-models/".length, -4)}.webp`;
+    const atlasPath = `/pet-models/warfront-impostors/${sourcePath.slice("/pet-models/".length, -4)}.webp`;
+    // A repaired model and its baked frames must invalidate together; otherwise
+    // the fallback keeps showing the old face after the GLB cache is refreshed.
+    const revision = new URLSearchParams(sourceUrl.split("?")[1] ?? "").get("v");
+    return revision ? `${atlasPath}?v=${encodeURIComponent(revision)}` : atlasPath;
 }

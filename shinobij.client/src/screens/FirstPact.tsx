@@ -5743,9 +5743,9 @@ export function FirstPact({
         onBattleActiveChange?.(true);
     }, [battleStarting, character.name, character.pets, onBattleActiveChange, pendingEncounterId, selectedPets]);
 
-    const submitTurn = useCallback((commands: ShowdownCommand[]) => {
+    const submitTurn = useCallback((commands: ShowdownCommand[], expectedRound: number) => {
         if (!battle) return Promise.resolve(null);
-        return submitShowdownTurn(character.name, battle.state.sessionId, commands);
+        return submitShowdownTurn(character.name, battle.state.sessionId, commands, expectedRound);
     }, [battle, character.name]);
 
     const finishBattle = useCallback((_outcome: "win" | "loss", settlement: ShowdownTurnResponse | null) => {

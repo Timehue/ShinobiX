@@ -2,7 +2,7 @@ import { petVisualId } from "../data/pet-evolutions";
 import type { Pet } from "../types/pet";
 import { approvedRosterCombatModel } from "./pet-3d-roster";
 import { petShowdownAnimationModelUrl, petShowdownAnimationYawOffset } from "./pet-showdown-animation-assets";
-import { PROPER_PET_ANIMATION_ASSET_REVISION } from "./pet-proper-animation-assets";
+import { PET_RIG_REPAIR_REVISIONS, PROPER_PET_ANIMATION_ASSET_REVISION } from "./pet-proper-animation-assets";
 
 export type PetCombatModelProfile = "quadruped" | "biped" | "avian" | "serpentine" | "heavy";
 
@@ -52,6 +52,13 @@ const MODEL_PROFILES: Readonly<Record<string, PetCombatModelProfile>> = {
     "starter-earth": "heavy",
     "starter-earth-r": "heavy",
     "starter-earth-l": "heavy",
+};
+
+/** Visible mesh headings reviewed in front and profile, independent of rig axes. */
+const STARTER_YAW_CORRECTIONS: Readonly<Record<string, number>> = {
+    "starter-fire-r": -Math.PI / 2,      // Ember Wolf
+    "starter-water-l": -Math.PI / 4,     // Abyssal Leviathan
+    "starter-lightning-r": Math.PI / 4,  // Bolt Fang
 };
 
 const MODEL_TARGET_HEIGHTS: Readonly<Record<string, number>> = {
@@ -134,12 +141,14 @@ export function petCombatModel(pet: PetCombatModelIdentity): PetCombatModelConfi
     const targetHeight = MODEL_TARGET_HEIGHTS[visualId];
     return {
         visualId,
-        url: showdownAnimationUrl ?? `${overrideUrl ?? `/pet-models/${visualId}.glb`}?v=${STARTER_MODEL_ASSET_REVISION}`,
+        url: showdownAnimationUrl ?? `${overrideUrl ?? `/pet-models/${visualId}.glb`}?v=${PET_RIG_REPAIR_REVISIONS[visualId] ?? STARTER_MODEL_ASSET_REVISION}`,
         profile,
         targetHeight: targetHeight ?? (isRareWaterSelkie ? 1.65 : visualId.endsWith("-l") ? 2.6 : 2.35),
         fit: MODEL_FIT_OVERRIDES[visualId] ?? (isRareWaterSelkie ? "height" : profile === "serpentine" ? "longest" : "height"),
-        yawOffset: petShowdownAnimationYawOffset(visualId),
-        outlineScale: 1.026,
+        yawOffset: (STARTER_YAW_CORRECTIONS[visualId] ?? 0) + petShowdownAnimationYawOffset(visualId),
+        // Raijin's split-UV surface and fitted face details already carry ink.
+        // A scaled hull leaks through facial seams and doubles the nose outline.
+        outlineScale: visualId === "starter-lightning-l" ? 1 : 1.026,
     };
 }
 

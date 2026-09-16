@@ -2098,7 +2098,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     /** The player's real roster Pets (for 3D model + art resolution). */
     playerPets: Pet[];
     sharedImages: Record<string, string>;
-    submitTurn: (commands: ShowdownCommand[]) => Promise<ShowdownTurnResult>;
+    submitTurn: (commands: ShowdownCommand[], expectedRound: number) => Promise<ShowdownTurnResult>;
     onForfeit: () => void;
     /** WATCHING, not fighting: the command phase auto-submits empty orders and
      *  the whole command deck stays hidden, so a server-scripted match (a war
@@ -3176,7 +3176,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         setQueueIndex(0);
         setPhase("playing");
         setFailedOrders(null);
-        const response = await submitTurn(commands);
+        const response = await submitTurn(commands, stateView.round);
         // A response can arrive after Forfeit/Exit unmounted this battle.
         // Leave settlement recovery to the host; never restart its old UI.
         if (!mounted.current) return;
@@ -3212,7 +3212,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         setQueue(response.events.map(showdownPresentationEvent));
         setQueueIndex(0);
         if (!response.events.length && response.state) {
-            // Finished session replay (e.g. payout retry) — no script to play.
+            // Terminal payout retry or stale-round recovery: refresh without replaying combat.
             setStateView(response.state);
             setWeatherPreview(null);
             setDisplay(buildDisplay(response.state));
@@ -3226,7 +3226,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 }
             }
         }
-    }, [submitTurn, onFinished]);
+    }, [submitTurn, onFinished, stateView.round]);
 
     // Spectator auto-advance: the moment the deck WOULD open, submit empty
     // orders instead. The replay driver ignores the commands and returns the
@@ -3444,6 +3444,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const hoveredName = activeHover
         ? [...stateView.player, ...stateView.enemy].find((p) => p.id === activeHover)?.name ?? null
         : null;
+    const auditedAction = queue[queueIndex]?.t === "action" ? queue[queueIndex] as ActionEvent : null;
     const visualAudit = useMemo(() => JSON.stringify({
         renderer: "PetShowdownBattle",
         quality: renderQuality.id,
@@ -3481,7 +3482,16 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 presentationScale: calibration ? calibration.modelScale * rarityScale : 1,
             };
         }),
-        attackRhythm: queue[queueIndex]?.t === "action" ? actionRhythm(queue[queueIndex] as ActionEvent) : null,
+        activeAction: auditedAction ? {
+            actorId: auditedAction.actorId,
+            moveName: auditedAction.moveName,
+            element: auditedAction.element,
+            delivery: auditedAction.delivery,
+            super: auditedAction.super,
+            presentation: resolveMovePresentation(fighterMoves.get(auditedAction.actorId), auditedAction),
+            authoredTargetIds: showdownTechniqueHitIds(resolveMovePresentation(fighterMoves.get(auditedAction.actorId), auditedAction), auditedAction),
+        } : null,
+        attackRhythm: auditedAction ? actionRhythm(auditedAction) : null,
         activeEffects: {
             flipbooks: vfx.length,
             setPieces: setPieces.length,
@@ -3491,7 +3501,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             streaks: streakFx.length,
             debris: debrisFx.length,
         },
-    }), [debrisFx.length, kindFx.length, queue, queueIndex, renderQuality, residues.length, scars.length, setPieces.length, slots, streakFx.length, vfx.length]);
+    }), [auditedAction, debrisFx.length, fighterMoves, kindFx.length, renderQuality, residues.length, scars.length, setPieces.length, slots, streakFx.length, vfx.length]);
 
     const overlay = (
         <div

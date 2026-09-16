@@ -9,6 +9,7 @@ import {
     petVictoryArcHeight,
 } from "./pet-3d-models.ts";
 import { APPROVED_ROSTER_MODEL_IDS, ROSTER_MODEL_ASSET_REVISION, ROSTER_MODEL_PROFILES } from "./pet-3d-roster.ts";
+import { PET_RIG_REPAIR_REVISIONS } from "./pet-proper-animation-assets";
 import { PET_SHOWDOWN_ANIMATION_ASSET_REVISION } from "./pet-showdown-animation-assets.ts";
 
 const pet = (id: string, evolutionStage?: 0 | 1 | 2, rarity: "standard" | "rare" | "legendary" = "standard") => ({ id, evolutionStage, rarity });
@@ -21,7 +22,7 @@ test("all five base starter forms have an approved combat model", () => {
         if (element === "earth") {
             assert.equal(base?.url, `/pet-models/roster/standard-5.glb?v=${ROSTER_MODEL_ASSET_REVISION}`);
         } else {
-            assert.equal(base?.url, `/pet-models/starter-${element}.glb?v=${STARTER_MODEL_ASSET_REVISION}`);
+            assert.equal(base?.url, `/pet-models/starter-${element}.glb?v=${PET_RIG_REPAIR_REVISIONS[`starter-${element}`] ?? STARTER_MODEL_ASSET_REVISION}`);
         }
         assert.ok((base?.targetHeight ?? Infinity) < (rare?.targetHeight ?? 0));
     }
@@ -40,14 +41,14 @@ test("all ten evolved starter forms have a combat model", () => {
         const rare = petCombatModel(pet(`starter-${element}`, 1, "rare"));
         const legendary = petCombatModel(pet(`starter-${element}`, 2, "legendary"));
         if (element === "fire" || element === "lightning") {
-            assert.equal(rare?.url, `/pet-models/starter-${element}-r.glb?v=${STARTER_MODEL_ASSET_REVISION}`);
-            assert.equal(legendary?.url, `/pet-models/showdown-v2/starter-${element}-l.glb?v=${PET_SHOWDOWN_ANIMATION_ASSET_REVISION}`);
+            assert.equal(rare?.url, `/pet-models/starter-${element}-r.glb?v=${PET_RIG_REPAIR_REVISIONS[`starter-${element}-r`] ?? STARTER_MODEL_ASSET_REVISION}`);
+            assert.equal(legendary?.url, `/pet-models/showdown-v2/starter-${element}-l.glb?v=${PET_RIG_REPAIR_REVISIONS[`starter-${element}-l`] ?? PET_SHOWDOWN_ANIMATION_ASSET_REVISION}`);
         } else if (element === "water") {
             assert.equal(rare?.url, `/pet-models/starter-water-r.glb?v=${STARTER_MODEL_ASSET_REVISION}`);
             assert.equal(legendary?.url, `/pet-models/starter-water-l.glb?v=${STARTER_MODEL_ASSET_REVISION}`);
         } else {
-            assert.equal(rare?.url, `/pet-models/starter-${element}-r.glb?v=${STARTER_MODEL_ASSET_REVISION}`);
-            assert.equal(legendary?.url, `/pet-models/starter-${element}-l.glb?v=${STARTER_MODEL_ASSET_REVISION}`);
+            assert.equal(rare?.url, `/pet-models/starter-${element}-r.glb?v=${PET_RIG_REPAIR_REVISIONS[`starter-${element}-r`] ?? STARTER_MODEL_ASSET_REVISION}`);
+            assert.equal(legendary?.url, `/pet-models/starter-${element}-l.glb?v=${PET_RIG_REPAIR_REVISIONS[`starter-${element}-l`] ?? STARTER_MODEL_ASSET_REVISION}`);
         }
         assert.ok((legendary?.targetHeight ?? 0) > (rare?.targetHeight ?? 0));
     }
@@ -60,7 +61,7 @@ test("the four-pet Showdown lineup resolves to its species-authored animation as
     );
     assert.equal(
         petCombatModel({ ...pet("standard-7"), name: "Ashen Crow" })?.url,
-        `/pet-models/showdown-v2/standard-7.glb?v=${PET_SHOWDOWN_ANIMATION_ASSET_REVISION}`,
+        `/pet-models/showdown-v2/standard-7.glb?v=${PET_RIG_REPAIR_REVISIONS["standard-7"] ?? PET_SHOWDOWN_ANIMATION_ASSET_REVISION}`,
     );
 });
 
@@ -89,7 +90,7 @@ test("malformed legacy identities fall back instead of crashing model resolution
 });
 
 test("all built-in Coliseum AI opponents resolve to approved roster models", () => {
-    assert.equal(petCombatModel(pet("generic-ai-pet-sparrow"))?.url, `/pet-models/roster/standard-44.glb?v=${ROSTER_MODEL_ASSET_REVISION}`);
+    assert.equal(petCombatModel(pet("generic-ai-pet-sparrow"))?.url, `/pet-models/roster/standard-44.glb?v=${PET_RIG_REPAIR_REVISIONS["standard-44"] ?? ROSTER_MODEL_ASSET_REVISION}`);
     assert.equal(petCombatModel(pet("generic-ai-pet-guardhound"))?.url, `/pet-models/roster/rare-24.glb?v=${ROSTER_MODEL_ASSET_REVISION}`);
     assert.equal(petCombatModel(pet("generic-ai-pet-emberlynx"))?.url, `/pet-models/roster/rare-26.glb?v=${ROSTER_MODEL_ASSET_REVISION}`);
 });

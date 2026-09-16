@@ -164,7 +164,9 @@ export async function startAuthoredEncounter(
 
 export type ShowdownTurnResult = ShowdownTurnResponse | { expired: true } | null;
 
-/** Submit one round of commands. Retries once on a 503 (lock contention).
+/** Submit commands for the displayed round. Retain it across the 503 retry so
+ *  a lost reply cannot accidentally spend a second round. Older settlement
+ *  recovery callers may omit the round for their already-finished session.
  *  A 404 means the session no longer exists (45-min TTL lapsed or already
  *  settled elsewhere) — surfaced distinctly so the battle screen can say
  *  "expired" instead of implying a transient connection problem. */
@@ -172,9 +174,10 @@ export async function submitShowdownTurn(
     playerName: string,
     sessionId: string,
     commands: ShowdownCommand[],
+    expectedRound?: number,
 ): Promise<ShowdownTurnResult> {
     for (let attempt = 0; attempt < 2; attempt++) {
-        const r = await post({ action: "turn", playerName, sessionId, commands });
+        const r = await post({ action: "turn", playerName, sessionId, commands, expectedRound });
         if (!r) return null;
         if (r.status === 503 && attempt === 0) {
             await new Promise((resolve) => setTimeout(resolve, 900));

@@ -214,18 +214,31 @@ test("only explicitly reviewed roster models leave quarantine", () => {
     assert.equal(baked.visualId, "standard-0-retopo-baked-proof");
 });
 
-test("reversed roster meshes carry a half-turn correction, and correct ones carry none", () => {
-    // The renderer steers a model by its LOCAL +Z, so a mesh generated facing
-    // the other way stands with its back to its opponent. These three measured
-    // backwards on both the head and the foot probe, under both the centroid
-    // and the protrusion method.
-    for (const [id, name] of [["standard-36", "Dust Swift"], ["legendary-4", "Ironfang Tiger"], ["mythic-9", "Worldroot Colossus"]] as const) {
-        assert.equal(qaRosterCombatModel({ id, name }).yawOffset, Math.PI, `${name} should be half-turned`);
-        assert.equal(approvedRosterCombatModel({ id, name })?.yawOffset, Math.PI, `${name} correction must survive the allowlist`);
+test("reviewed roster mesh directions determine the combat yaw correction", () => {
+    const corrections = [
+        ["standard-36", "Dust Swift", Math.PI],
+        ["legendary-2", "Umbra Fox", -Math.PI / 4],
+        ["rare-42", "Thunder Jerboa", -Math.PI / 8],
+        ["rare-43", "Static Meerkat", -Math.PI / 4],
+        ["rare-46", "Stoneback Tapir", -Math.PI / 4],
+        ["rare-48", "Terra Porcupine", -Math.PI / 8],
+        ["rare-49", "Bramble Capybara", -Math.PI / 4],
+        ["legendary-0", "Glacier Wolf", -Math.PI / 4],
+        ["legendary-5", "Azure Kirin", -Math.PI / 8],
+        ["legendary-6", "Ember Phoenix", -Math.PI / 8],
+        ["legendary-10", "Void Raven", Math.PI / 8],
+        ["legendary-12", "Frost Lynx", -Math.PI / 4],
+        ["legendary-14", "Ancient Crane", -Math.PI / 4],
+        ["mythic-3", "Solar Stag", Math.PI / 2],
+    ] as const;
+    for (const [id, name, yawOffset] of corrections) {
+        assert.equal(qaRosterCombatModel({ id, name }).yawOffset, yawOffset, `${name} must face along combat +Z`);
+        assert.equal(approvedRosterCombatModel({ id, name })?.yawOffset, yawOffset, `${name} correction must survive the allowlist`);
     }
-    // Species that trip a single probe — a blunt bill, rear-swept plumage — are
-    // NOT corrected. A half-turn on a correct model is as visible as the bug.
-    for (const [id, name] of [["mythic-7", "Turtle Duck"], ["legendary-6", "Ember Phoenix"], ["standard-10", "Pine Owl"], ["rare-24", "Young Direwolf"]] as const) {
+    // These production meshes already face +Z. In particular, the current
+    // Worldroot and Ironfang rigs must not inherit retired half-turn corrections.
+    for (const [id, name] of [["legendary-4", "Ironfang Tiger"], ["mythic-9", "Worldroot Colossus"], ["legendary-29", "Verdant Treant"], ["mythic-7", "Turtle Duck"], ["standard-10", "Pine Owl"], ["rare-24", "Young Direwolf"]] as const) {
         assert.equal(qaRosterCombatModel({ id, name }).yawOffset, 0, `${name} faces forward and must not be turned`);
+        assert.equal(approvedRosterCombatModel({ id, name })?.yawOffset, 0, `${name} must retain its forward orientation in combat`);
     }
 });

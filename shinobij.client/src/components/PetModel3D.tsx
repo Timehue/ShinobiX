@@ -463,6 +463,10 @@ function prepareModel(
         // A call-tree profile of a 4v4 clash put that path at ~7% of samples,
         // directly under `render` (so no useFrame throttle can reach it).
         node.frustumCulled = false;
+        // Native facial landmarks need their authored dark/light contrast; the
+        // Lightning body tint otherwise turns the Hound's nose and pupils gold.
+        const preserveFaceColor = config.visualId === "starter-lightning-l"
+            && Array.isArray(node.geometry.userData.raijinFaceFeatures);
         const sourceMaterials = Array.isArray(node.material) ? node.material : [node.material];
         const cloned = sourceMaterials.map((sourceMaterial) => {
             // Approved roster reconstructions ship with authored smooth normals
@@ -508,7 +512,9 @@ function prepareModel(
                 pbr.emissive = pbr.emissive?.clone?.() ?? new THREE.Color("#000000");
                 pbr.emissiveIntensity = 0;
                 const name = pbr.name.toLowerCase();
-                if (config.visualId.startsWith("starter-fire")) {
+                if (preserveFaceColor) {
+                    pbr.userData.petAuthoredFaceColor = pbr.color.getHex();
+                } else if (config.visualId.startsWith("starter-fire")) {
                     if (name.includes("main_light")) pbr.color.set("#ff6430");
                     else if (name.includes("main")) pbr.color.set("#521129");
                     else if (name.includes("nose")) pbr.color.set("#160b15");
@@ -531,7 +537,7 @@ function prepareModel(
             const uniform = uniforms[uniforms.length - 1];
             uniform.lowTint.value.set(surfaceTreatment?.lowTint ?? surfaceTint?.low ?? "#ffffff");
             uniform.highTint.value.set(surfaceTreatment?.highTint ?? surfaceTint?.high ?? "#ffffff");
-            uniform.tintStrength.value = surfaceTreatment?.tintStrength
+            uniform.tintStrength.value = preserveFaceColor ? 0 : surfaceTreatment?.tintStrength
                 ?? (clips.length ? Math.min(0.14, surfaceTint?.strength ?? 0) : surfaceTint?.strength ?? 0);
             uniform.tintBlend.value = surfaceTreatment?.tintBlend ?? 0;
             materials.push(material);
@@ -1410,7 +1416,11 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         for (const material of prepared.materials) {
             const pbr = material as THREE.MeshStandardMaterial & { isMeshToonMaterial?: boolean };
             if (!pbr.isMeshStandardMaterial && !pbr.isMeshToonMaterial) continue;
-            if (ROSTER_VISUAL_ID.test(config.visualId)) {
+            if (pbr.userData.petAuthoredFaceColor !== undefined) {
+                pbr.color.setHex(Number(pbr.userData.petAuthoredFaceColor));
+                pbr.emissive.setHex(0x000000);
+                pbr.emissiveIntensity = 0;
+            } else if (ROSTER_VISUAL_ID.test(config.visualId)) {
                 // Reassert the approved atlas every frame. This makes combat
                 // robust against stale cached material instances and against any
                 // status/hit branch attempting to tint a shared GLTF material.

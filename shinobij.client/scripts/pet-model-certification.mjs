@@ -3,16 +3,15 @@ import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import sharp from "sharp";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
+import { runtimePetModels } from "./lib/pet-runtime-audit.mjs";
 
 const clientRoot = resolve(import.meta.dirname, "..");
 const modelRoot = resolve(clientRoot, "public/pet-models");
 const rosterRoot = resolve(modelRoot, "roster");
-const showdownRoot = resolve(modelRoot, "showdown-v2");
 const outputRoot = resolve(clientRoot, ".tmp/pet-model-certification");
 await MeshoptDecoder.ready;
 const coreClips = new Set(["attack", "death", "gallop", "gallop_jump", "idle", "idle_2", "idle_hitreact1", "walk"]);
 const identityClips = new Set([...coreClips, "entrance", "cast", "guard", "rest", "victory"]);
-const showcaseIds = new Set(["rare-1", "standard-7", "starter-fire-l", "starter-lightning-l"]);
 // These approved silhouettes intentionally do not assign visible geometry to
 // the generic tail chain. Solar Stag still has a complete short tail, but its
 // source rig weights that small tuft to the pelvis; the other forms are
@@ -51,22 +50,6 @@ function parseGlb(file, id) {
     const binOffset = binHeader + 8;
     invariant(binOffset + binLength <= file.byteLength, `${id}: BIN chunk exceeds file`);
     return { file, json, binOffset, binLength };
-}
-
-function accessorReader(glb, accessorIndex) {
-    const accessor = glb.json.accessors?.[accessorIndex];
-    invariant(accessor, `missing accessor ${accessorIndex}`);
-    const view = glb.json.bufferViews?.[accessor.bufferView];
-    invariant(view && (view.buffer ?? 0) === 0, `accessor ${accessorIndex}: unsupported buffer view`);
-    const width = typeWidths.get(accessor.type);
-    const bytes = componentBytes.get(accessor.componentType);
-    const method = componentReaders.get(accessor.componentType);
-    invariant(width && bytes && method, `accessor ${accessorIndex}: unsupported component layout`);
-    const stride = view.byteStride ?? width * bytes;
-    const start = glb.binOffset + (view.byteOffset ?? 0) + (accessor.byteOffset ?? 0);
-    const data = new DataView(glb.file.buffer, glb.file.byteOffset, glb.file.byteLength);
-    const value = (index, component = 0) => data[method](start + index * stride + component * bytes, bytes > 1);
-    return { accessor, value, width };
 }
 
 function decodedAccessorReader(glb, accessorIndex) {
@@ -108,6 +91,37 @@ function normalizedComponent(value, componentType, normalized) {
     if (componentType === 5122) return Math.max(value / 32767, -1);
     if (componentType === 5123) return value / 65535;
     return value;
+}
+
+function normalizedAccessorReader(glb, index) {
+    const reader = decodedAccessorReader(glb, index);
+    return { ...reader, value: (vertex, component = 0) => normalizedComponent(reader.value(vertex, component), reader.accessor.componentType, reader.accessor.normalized) };
+}
+
+/** Validate the decoded streams even when meshopt stored them in a fallback
+ * buffer. Metadata alone cannot reveal NaNs, bad indices or invalid bindings. */
+function validatePrimitiveStreams(glb, primitive, id, requireRig) {
+    const position = normalizedAccessorReader(glb, primitive.attributes.POSITION);
+    for (const [name, width] of [['POSITION', 3], ['NORMAL', 3], ['TEXCOORD_0', 2], ...(requireRig ? [['JOINTS_0', 4], ['WEIGHTS_0', 4]] : [])]) {
+        const stream = normalizedAccessorReader(glb, primitive.attributes[name]);
+        invariant(stream.width === width && stream.accessor.count === position.accessor.count, id + ': incomplete ' + name);
+        for (let vertex = 0; vertex < stream.accessor.count; vertex++) for (let axis = 0; axis < width; axis++) {
+            const value = stream.value(vertex, axis);
+            invariant(Number.isFinite(value), id + ': non-finite ' + name);
+            if (name === 'WEIGHTS_0') invariant(value >= 0 && value <= 1, id + ': invalid skin influence');
+            if (name === 'JOINTS_0') invariant(Number.isInteger(value) && value >= 0 && value < glb.json.skins[0].joints.length, id + ': missing joint');
+        }
+    }
+    const indices = decodedAccessorReader(glb, primitive.indices);
+    invariant(indices.accessor.count % 3 === 0, id + ': non-triangular index stream');
+    for (let index = 0; index < indices.accessor.count; index++) invariant(indices.value(index) >= 0 && indices.value(index) < position.accessor.count, id + ': out-of-range triangle index');
+    if (requireRig) {
+        const weights = normalizedAccessorReader(glb, primitive.attributes.WEIGHTS_0);
+        for (let vertex = 0; vertex < weights.accessor.count; vertex++) {
+            const sum = [0, 1, 2, 3].reduce((total, axis) => total + weights.value(vertex, axis), 0);
+            invariant(Math.abs(sum - 1) <= 0.015, id + ': unnormalized skin weights');
+        }
+    }
 }
 
 function compressedComponentMetrics(glb, primitive, id, modelLongest) {
@@ -208,9 +222,14 @@ function rigMetrics(glb, id, expectedJointCount) {
     invariant(inverseBind?.type === "MAT4" && inverseBind.componentType === 5126, `${id}: inverse bind matrices are missing or malformed`);
     invariant(inverseBind.count === skin.joints.length, `${id}: inverse bind count does not match the skeleton`);
 
+    const inverseBindValues = decodedAccessorReader(glb, skin.inverseBindMatrices);
+    for (let joint = 0; joint < inverseBindValues.accessor.count; joint++) for (let value = 0; value < 16; value++) {
+        invariant(Number.isFinite(inverseBindValues.value(joint, value)), id + ': non-finite inverse bind matrix');
+    }
     const identityAuthored = ["individual-species-performance-v5", "bespoke-species-performance-v3"]
         .includes(glb.json.extras?.animationAuthoring);
-    const expectedClips = identityAuthored ? identityClips : coreClips;
+    invariant(identityAuthored, id + ': production identity animation bank missing');
+    const expectedClips = identityClips;
     invariant(glb.json.animations?.length === expectedClips.size, `${id}: reviewed ${expectedClips.size}-clip performance bank missing`);
     const clipNames = glb.json.animations.map((clip) => clip.name);
     invariant(new Set(clipNames).size === expectedClips.size, `${id}: animation clip names are duplicated`);
@@ -239,6 +258,15 @@ function rigMetrics(glb, id, expectedJointCount) {
                 output?.type === expectedOutputType && validOutputEncoding && output.count >= input.count,
                 `${id}/${animation.name}: invalid keyframe value stream`,
             );
+            const times = normalizedAccessorReader(glb, sampler.input);
+            const values = normalizedAccessorReader(glb, sampler.output);
+            for (let key = 0; key < times.accessor.count; key++) {
+                const time = times.value(key);
+                invariant(Number.isFinite(time) && (key === 0 || time > times.value(key - 1)), id + '/' + animation.name + ': invalid keyframe chronology');
+            }
+            for (let key = 0; key < values.accessor.count; key++) for (let axis = 0; axis < values.width; axis++) {
+                invariant(Number.isFinite(values.value(key, axis)), id + '/' + animation.name + ': non-finite keyframe value');
+            }
             const start = input.min?.[0];
             const end = input.max?.[0];
             invariant(Number.isFinite(start) && Number.isFinite(end) && end > start, `${id}/${animation.name}: invalid keyframe duration`);
@@ -264,7 +292,7 @@ function geometryMetrics(glb, id, requireRig, minimumVertices = 8_000, rejectOve
     invariant(meshNodes.length === 1 && meshNodes[0].mesh === 0, `${id}: expected one active surface node`);
     if (requireRig) invariant(meshNodes[0].skin === 0, `${id}: surface node is not bound to the reviewed skeleton`);
     const primitive = glb.json.meshes[0]?.primitives?.[0];
-    invariant(glb.json.meshes[0]?.primitives?.length === 1 && primitive, `${id}: loose or multiple primitives found`);
+    invariant(primitive, `${id}: production surface missing`);
     const positionAccessor = glb.json.accessors?.[primitive.attributes?.POSITION];
     const indexAccessor = glb.json.accessors?.[primitive.indices];
     invariant(positionAccessor && indexAccessor, `${id}: position or index stream missing`);
@@ -280,41 +308,9 @@ function geometryMetrics(glb, id, requireRig, minimumVertices = 8_000, rejectOve
     const indexView = glb.json.bufferViews?.[indexAccessor.bufferView];
     const meshoptCompressed = (positionView?.buffer ?? 0) !== 0 || (indexView?.buffer ?? 0) !== 0
         || Boolean(positionView?.extensions?.EXT_meshopt_compression || indexView?.extensions?.EXT_meshopt_compression);
-    if (meshoptCompressed) {
-        invariant(positionAccessor.count >= minimumVertices && positionAccessor.count <= 60_000, `${id}: unreasonable vertex budget`);
-        invariant(indexAccessor.count % 3 === 0, `${id}: index count is not triangular`);
-        invariant(Array.isArray(positionAccessor.min) && Array.isArray(positionAccessor.max), `${id}: compressed bounds metadata missing`);
-        const divisor = positionAccessor.normalized && positionAccessor.componentType === 5122 ? 32767 : 1;
-        const min = positionAccessor.min.map((value) => value / divisor);
-        const max = positionAccessor.max.map((value) => value / divisor);
-        const size = max.map((value, axis) => value - min[axis]);
-        invariant(Math.min(...size) > 0.08 && Math.max(...size) / Math.min(...size) < 14, `${id}: collapsed or extreme model bounds`);
-        const components = rejectOversizedDetachedProxy
-            ? compressedComponentMetrics(glb, primitive, id, Math.max(...size))
-            : null;
-        const oversizedProxy = components?.slice(1).find((component) => component.spanRatio > 0.45);
-        invariant(
-            !oversizedProxy,
-            `${id}: detached proxy/cage spans ${(oversizedProxy?.spanRatio * 100).toFixed(1)}% of the model`,
-        );
-        return {
-            vertices: positionAccessor.count,
-            triangles: indexAccessor.count / 3,
-            bounds: { min: min.map((value) => Number(value.toFixed(4))), max: max.map((value) => Number(value.toFixed(4))), size: size.map((value) => Number(value.toFixed(4))) },
-            connectedComponents: components?.length ?? null,
-            dominantComponentRatio: components ? Number((components[0]?.ratio ?? 0).toFixed(4)) : null,
-            secondComponentRatio: components ? Number((components[1]?.ratio ?? 0).toFixed(4)) : null,
-            largestDetachedSpanRatio: components ? Number(Math.max(0, ...components.slice(1).map((component) => component.spanRatio)).toFixed(4)) : null,
-            possibleDuplicateAnatomy: false,
-            validWeightRatio: null,
-            maxJoint: null,
-            tailWeightedVertexRatio: null,
-            compressed: true,
-        };
-    }
-    const positions = accessorReader(glb, primitive.attributes?.POSITION);
-    const normals = accessorReader(glb, primitive.attributes?.NORMAL);
-    const indices = accessorReader(glb, primitive.indices);
+    const positions = normalizedAccessorReader(glb, primitive.attributes?.POSITION);
+    const normals = normalizedAccessorReader(glb, primitive.attributes?.NORMAL);
+    const indices = decodedAccessorReader(glb, primitive.indices);
     invariant(positions.accessor.count >= minimumVertices && positions.accessor.count <= 60_000, `${id}: unreasonable vertex budget`);
     invariant(indices.accessor.count % 3 === 0, `${id}: index count is not triangular`);
     const bounds = { min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] };
@@ -356,12 +352,18 @@ function geometryMetrics(glb, id, requireRig, minimumVertices = 8_000, rejectOve
     const componentTriangles = [...triangleComponents.values()].sort((a, b) => b - a);
     const triangleCount = indices.accessor.count / 3;
 
+    if (rejectOversizedDetachedProxy) {
+        const components = compressedComponentMetrics(glb, primitive, id, Math.max(...size));
+        const oversized = components.slice(1).find(component => component.spanRatio > 0.45);
+        invariant(!oversized, id + ': detached proxy/cage spans ' + ((oversized?.spanRatio ?? 0) * 100).toFixed(1) + '% of the model');
+    }
+
     let validWeightRatio = null;
     let maxJoint = null;
     let tailWeightedVertexRatio = null;
     if (requireRig) {
-        const weights = accessorReader(glb, primitive.attributes?.WEIGHTS_0);
-        const joints = accessorReader(glb, primitive.attributes?.JOINTS_0);
+        const weights = decodedAccessorReader(glb, primitive.attributes?.WEIGHTS_0);
+        const joints = decodedAccessorReader(glb, primitive.attributes?.JOINTS_0);
         const tailJointSlots = new Set(glb.json.skins[0].joints
             .map((nodeIndex, slot) => /tail/i.test(glb.json.nodes?.[nodeIndex]?.name ?? "") ? slot : -1)
             .filter((slot) => slot >= 0));
@@ -388,6 +390,7 @@ function geometryMetrics(glb, id, requireRig, minimumVertices = 8_000, rejectOve
     }
 
     return {
+        compressed: meshoptCompressed,
         vertices: positions.accessor.count,
         triangles: triangleCount,
         bounds: { min: bounds.min.map((value) => Number(value.toFixed(4))), max: bounds.max.map((value) => Number(value.toFixed(4))), size: size.map((value) => Number(value.toFixed(4))) },
@@ -458,13 +461,42 @@ async function auditGlb(path, { requireRig, minimumAtlasBytes, minimumVertices =
     const id = basename(path, ".glb");
     const file = await readFile(path);
     const glb = parseGlb(file, id);
-    invariant(glb.json.materials?.length === 1, `${id}: expected one production material`);
+    invariant(glb.json.materials?.length > 0, id + ': production materials missing');
+    const primitives = glb.json.meshes?.[0]?.primitives ?? [];
+    const faceFeatures = [];
+    const usedMaterials = new Set();
+    for (const [index, primitive] of primitives.entries()) {
+        validatePrimitiveStreams(glb, primitive, id + '/primitive-' + index, requireRig);
+        const material = glb.json.materials[primitive.material];
+        invariant(material, id + ': missing primitive material');
+        usedMaterials.add(primitive.material);
+        if (index === 0) continue;
+        const features = primitive.extras?.raijinFaceFeatures;
+        invariant(id === 'starter-lightning-l' && Array.isArray(features) && features.length > 0, id + ': unreviewed extra geometry');
+        faceFeatures.push(...features);
+        const color = material.pbrMetallicRoughness?.baseColorFactor;
+        invariant(Array.isArray(color) && color.length === 4 && color.every(value => Number.isFinite(value) && value >= 0 && value <= 1) && color[3] > 0, id + ': invisible or invalid face material');
+        const joints = decodedAccessorReader(glb, primitive.attributes.JOINTS_0);
+        const weights = normalizedAccessorReader(glb, primitive.attributes.WEIGHTS_0);
+        const head = glb.json.skins[0].joints.findIndex(node => glb.json.nodes[node].name === 'head');
+        for (let vertex = 0; vertex < weights.accessor.count; vertex++) {
+            const share = [0, 1, 2, 3].reduce((sum, slot) => sum + (joints.value(vertex, slot) === head ? weights.value(vertex, slot) : 0), 0);
+            invariant(share > 0.999, id + ': facial feature is not skull-bound');
+        }
+    }
+    invariant(usedMaterials.size === glb.json.materials.length, id + ': unused production material');
+    if (id === 'starter-lightning-l') {
+        const expected = ['outline', 'gold', 'pupil', 'glint'].flatMap(part => ['eye-' + part + '-left', 'eye-' + part + '-right']).concat('nose').sort();
+        invariant(JSON.stringify(faceFeatures.sort()) === JSON.stringify(expected), id + ': missing reviewed eye/nose details');
+    }
     const primitive = glb.json.meshes?.[0]?.primitives?.[0];
     invariant(Number.isInteger(primitive?.material), `${id}: mesh has no material`);
     invariant(Number.isInteger(glb.json.materials[primitive.material]?.pbrMetallicRoughness?.baseColorTexture?.index), `${id}: atlas is not bound to the visible surface`);
     return {
         id,
         fileBytes: file.byteLength,
+        materials: glb.json.materials.length,
+        primitives: primitives.length,
         rig: {
             required: requireRig,
             ...(requireRig ? rigMetrics(glb, id, expectedJointCount) : {
@@ -479,79 +511,37 @@ async function auditGlb(path, { requireRig, minimumAtlasBytes, minimumVertices =
 }
 
 async function main() {
-    const rosterFiles = (await readdir(rosterRoot)).filter((file) => file.endsWith(".glb")).sort();
-    invariant(rosterFiles.length === 145, `expected 145 roster GLBs, found ${rosterFiles.length}`);
-    const starterForms = [
-        { visualId: "starter-earth", asset: "starter-earth.glb" },
-        { visualId: "starter-earth-l", asset: "starter-earth-l.glb" },
-        { visualId: "starter-earth-r", asset: "starter-earth-r.glb" },
-        { visualId: "starter-fire", asset: "starter-fire.glb" },
-        { visualId: "starter-fire-l", asset: "starter-fire-l.glb" },
-        { visualId: "starter-fire-r", asset: "starter-fire-r.glb" },
-        { visualId: "starter-lightning", asset: "starter-lightning.glb" },
-        { visualId: "starter-lightning-l", asset: "starter-lightning-l.glb" },
-        { visualId: "starter-lightning-r", asset: "starter-lightning-r.glb" },
-        { visualId: "starter-water", asset: "starter-water.glb" },
-        { visualId: "starter-water-l", asset: "starter-water-l.glb" },
-        { visualId: "starter-water-r", asset: "starter-water-r.glb" },
-        { visualId: "starter-wind", asset: "starter-wind.glb" },
-        { visualId: "starter-wind-l", asset: "starter-wind-l.glb" },
-        { visualId: "starter-wind-r", asset: "starter-wind-r.glb" },
-    ];
-    invariant(starterForms.every(({ visualId, asset }) => asset === `${visualId}.glb`), "starter forms must not use shared or substituted production assets");
-    const starterGlbAssets = [...new Set(starterForms.map((entry) => entry.asset))].sort();
-    invariant(starterGlbAssets.length === 15, `expected 15 distinct starter GLB assets, found ${starterGlbAssets.length}`);
-    const roster = [];
-    const starters = [];
-    // The color atlas is now stored as WebP (was PNG). A 2048² WebP for these
-    // textured pets runs ~67–295 KB, so the old 250 KB floor — calibrated for the
-    // uncompressed PNG atlases — false-fails almost the whole roster. Drop it to a
-    // 40 KB coarse "is there a real atlas here" pre-check; the actual defence
-    // against blank/flat/uncolored atlases is the semantic content check in
-    // colorMetrics (opaque-pixel, lumaDeviation, coloredPixelRatio), which is
-    // format-independent and far stronger than any byte count.
-    for (const file of rosterFiles) {
-        const id = basename(file, ".glb");
-        const path = showcaseIds.has(id) ? resolve(showdownRoot, file) : resolve(rosterRoot, file);
-        roster.push(await auditGlb(path, { requireRig: true, minimumAtlasBytes: 40_000 }));
-    }
-    // Starter forms are deliberately leaner than the 145-pet roster for mobile
-    // combat, but every base and evolved starter must carry the same reviewed
-    // 21-bone, 13-state authored combat contract. Certify the versioned showcase
-    // override whenever that is the file the runtime actually resolves.
-    for (const file of starterGlbAssets) {
-        const id = basename(file, ".glb");
-        const path = showcaseIds.has(id) ? resolve(showdownRoot, file) : resolve(modelRoot, file);
-        starters.push(await auditGlb(path, {
-        requireRig: true,
-        minimumAtlasBytes: 4_000,
-        minimumVertices: 6_000,
-        expectedJointCount: 21,
-        rejectOversizedDetachedProxy: true,
-        }));
+    const rosterFiles = (await readdir(rosterRoot)).filter(file => file.endsWith('.glb'));
+    invariant(rosterFiles.length === 145, 'expected 145 roster assets');
+    const roster = [], starters = [], failures = [];
+    for (const { pet, model, path } of runtimePetModels) {
+        try {
+            const starter = pet.id.startsWith('starter-');
+            const entry = await auditGlb(path, {
+                requireRig: true, minimumAtlasBytes: starter ? 4_000 : 40_000,
+                minimumVertices: starter ? 6_000 : 8_000,
+                expectedJointCount: starter ? 21 : undefined,
+                rejectOversizedDetachedProxy: starter,
+            });
+            (starter ? starters : roster).push({ ...entry, id: pet.id, assetId: model.visualId, runtimeUrl: model.url });
+        } catch (error) { failures.push({ id: pet.id, assetId: model.visualId, runtimeUrl: model.url, error: error.message }); }
     }
     const report = {
         generatedAt: new Date().toISOString(),
-        productionVisualForms: 160,
-        distinctProductionAssets: 145 + starterGlbAssets.length,
-        roster,
-        starters,
-        starterForms,
-        runtimeSourceArtifactCleanup: [],
-        sharedStarterSubstitutions: [],
-        possibleDuplicateAnatomy: [...roster, ...starters].filter((entry) => entry.geometry.possibleDuplicateAnatomy).map((entry) => ({ id: entry.id, dominantComponentRatio: entry.geometry.dominantComponentRatio, secondComponentRatio: entry.geometry.secondComponentRatio })),
+        productionVisualForms: runtimePetModels.length,
+        distinctProductionAssets: new Set(runtimePetModels.map(entry => entry.path)).size,
+        auditedModels: roster.length + starters.length,
+        failures, roster, starters,
+        sharedStarterSubstitutions: runtimePetModels.filter(({ pet, model }) => pet.id !== model.visualId).map(({ pet, model }) => ({ id: pet.id, assetId: model.visualId })),
+        possibleDuplicateAnatomy: [...roster, ...starters].filter(entry => entry.geometry.possibleDuplicateAnatomy).map(entry => ({ id: entry.id, dominantComponentRatio: entry.geometry.dominantComponentRatio, secondComponentRatio: entry.geometry.secondComponentRatio })),
         tailAnatomyExceptions: [...tailWeightExceptions].map(([id, reason]) => ({ id, reason })),
-        unexpectedMissingTailWeights: roster
-            .filter((entry) => entry.geometry.tailWeightedVertexRatio === 0 && !tailWeightExceptions.has(entry.id))
-            .map((entry) => entry.id),
+        unexpectedMissingTailWeights: roster.filter(entry => entry.geometry.tailWeightedVertexRatio === 0 && !tailWeightExceptions.has(entry.assetId)).map(entry => entry.id),
     };
     await mkdir(outputRoot, { recursive: true });
-    await writeFile(resolve(outputRoot, "structural-audit.json"), `${JSON.stringify(report, null, 2)}\n`);
-    invariant(report.possibleDuplicateAnatomy.length === 0, `possible duplicate anatomy remains in: ${report.possibleDuplicateAnatomy.map((entry) => entry.id).join(", ")}`);
-    invariant(report.unexpectedMissingTailWeights.length === 0, `unexpected missing tail-weighted anatomy remains in: ${report.unexpectedMissingTailWeights.join(", ")}`);
-    console.log(`Certified ${report.productionVisualForms} visual forms across ${report.distinctProductionAssets} production assets.`);
-    console.log(`${report.possibleDuplicateAnatomy.length} assets require explicit multi-angle silhouette review.`);
-    console.log(`Report: ${resolve(outputRoot, "structural-audit.json")}`);
+    await writeFile(resolve(outputRoot, 'structural-audit.json'), JSON.stringify(report, null, 2) + '\n');
+    console.log(JSON.stringify({ attempted: report.productionVisualForms, passed: report.auditedModels, distinctAssets: report.distinctProductionAssets, failures, possibleDuplicateAnatomy: report.possibleDuplicateAnatomy, missingTailWeights: report.unexpectedMissingTailWeights }, null, 2));
+    console.log('Report: ' + resolve(outputRoot, 'structural-audit.json'));
+    if (failures.length || report.possibleDuplicateAnatomy.length || report.unexpectedMissingTailWeights.length) process.exitCode = 1;
 }
 
 await main();

@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { petCombatModel } from "./pet-3d-models";
+import { PET_RIG_REPAIR_REVISIONS } from "./pet-proper-animation-assets";
 import { WARFRONT_IMPOSTOR_MANIFEST } from "../generated/pet-warfront-impostor-manifest";
 import { warfrontImpostorEntry } from "./pet-warfront-impostor";
 import { warfrontImpostorAtlasUrl } from "./pet-warfront-impostor-url";
@@ -17,7 +19,13 @@ test("an uncertified source stays on the skinned fallback", () => {
 
 test("the lightweight runtime derivation matches every generated atlas URL", () => {
     for (const [source, entry] of Object.entries(WARFRONT_IMPOSTOR_MANIFEST)) {
-        assert.equal(warfrontImpostorAtlasUrl(`${source}?v=approved`), entry.atlasUrl);
+        assert.equal(warfrontImpostorAtlasUrl(source), entry.atlasUrl);
+        assert.equal(warfrontImpostorAtlasUrl(`${source}?v=approved`), `${entry.atlasUrl}?v=approved`);
     }
     assert.equal(warfrontImpostorAtlasUrl("/external/not-approved.glb"), null);
+});
+
+test("the repaired Hound invalidates its fallback atlas with the model", () => {
+    const hound = petCombatModel({ id: "starter-lightning", rarity: "legendary", evolutionStage: 2 })!;
+    assert.equal(warfrontImpostorAtlasUrl(hound.url), `/pet-models/warfront-impostors/showdown-v2/starter-lightning-l.webp?v=${PET_RIG_REPAIR_REVISIONS["starter-lightning-l"]}`);
 });
