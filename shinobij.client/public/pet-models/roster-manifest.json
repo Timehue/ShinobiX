@@ -893,11 +893,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "951E970EF6E43D0ABE68993B8B4B8DB3476B5A81AF2C20F346FEF49D63416D04",
+      "sha256": "77B07E623B68286BD2B2FACDAEF66EF110DF07D4AA54241697F83B9CA0F68569",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 4636268,
+        "bytes": 662660,
         "triangles": 40000,
         "vertices": 29060,
         "materials": 1,
@@ -905,6 +905,11 @@
         "images": 1,
         "skins": 1,
         "animations": 8
+      },
+      "faceBindingRepair": {
+        "revision": "20260916-bird-face-binding-v2",
+        "compression": "lossless EXT_meshopt_compression",
+        "review": "docs/pet-colosseum-full-audit-2026-09-15.md"
       }
     },
     "standard-8": {
@@ -1219,11 +1224,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "2F4406DF444474C01C8A5C39A3570EF57505C8CB1E67629DB2255277664EFA69",
+      "sha256": "35014C1CCE0D8E4EE952B366D97C8D303173018CF9D8A7B720B95F455A6F1444",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 506196,
+        "bytes": 593716,
         "triangles": 40000,
         "vertices": 26381,
         "materials": 1,
@@ -1253,6 +1258,11 @@
           "rest",
           "victory"
         ]
+      },
+      "faceBindingRepair": {
+        "revision": "20260916-bird-face-binding-v2",
+        "compression": "lossless EXT_meshopt_compression",
+        "review": "docs/pet-colosseum-full-audit-2026-09-15.md"
       }
     },
     "standard-11": {
@@ -2031,11 +2041,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "7531BAE7B9E69FB5CB90AD8BCAA067998B19AF888F26BCAEDF5ABC50B9D48F91",
+      "sha256": "85B4BD33EB343E0456723D28CCE0D345E85C4E5C2E22C240858CB2D4EEBD2FA9",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 554200,
+        "bytes": 629972,
         "triangles": 40000,
         "vertices": 26500,
         "materials": 1,
@@ -2065,6 +2075,11 @@
           "rest",
           "victory"
         ]
+      },
+      "faceBindingRepair": {
+        "revision": "20260916-bird-face-binding-v2",
+        "compression": "lossless EXT_meshopt_compression",
+        "review": "docs/pet-colosseum-full-audit-2026-09-15.md"
       }
     },
     "standard-18": {
@@ -4150,11 +4165,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 1.44,
-      "sha256": "F898E3DCB956E3B176B033732E1DC59319A44F508892A66DB5E8DB3C6D1C6407",
+      "sha256": "5D594A2D48CD9B0AFDE5D2863830D6030FE01FDD75C8D9F8EC8C3D2DE58F5D8C",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 460560,
+        "bytes": 550744,
         "triangles": 40000,
         "vertices": 25092,
         "materials": 1,
@@ -4184,6 +4199,11 @@
           "rest",
           "victory"
         ]
+      },
+      "faceBindingRepair": {
+        "revision": "20260916-bird-face-binding-v2",
+        "compression": "lossless EXT_meshopt_compression",
+        "review": "docs/pet-colosseum-full-audit-2026-09-15.md"
       }
     },
     "standard-36": {
@@ -4268,11 +4288,11 @@
       "provider": "fal-ai/hunyuan3d/v2 single-view fallback + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.96,
-      "sha256": "FECAE0D0DC99E60D963729BDC7739F6AE047E0F23BA591273A5A310AA58FC747",
+      "sha256": "3154F48D36BB4F3D77AAC2D4A961B393997063BABF7BEF4A0BC63A60D4B66F29",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 501188,
+        "bytes": 571900,
         "triangles": 40000,
         "vertices": 25119,
         "materials": 1,
@@ -4302,6 +4322,11 @@
           "rest",
           "victory"
         ]
+      },
+      "faceBindingRepair": {
+        "revision": "20260916-bird-face-binding-v2",
+        "compression": "lossless EXT_meshopt_compression",
+        "review": "docs/pet-colosseum-full-audit-2026-09-15.md"
       }
     },
     "standard-37": {
@@ -4388,11 +4413,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 1.44,
-      "sha256": "4B001BA712E597F1000CCF9BB4A6E62C1D2E220A719CCFDD08DB8426863A2898",
+      "sha256": "EBF4C92DCA19E2463C9CD80F83B7D51EF31C2DD39829AEF7EBEA840F27E4B3E4",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 427372,
+        "bytes": 488360,
         "triangles": 40000,
         "vertices": 24196,
         "materials": 1,
@@ -4422,6 +4447,11 @@
           "rest",
           "victory"
         ]
+      },
+      "faceBindingRepair": {
+        "revision": "20260916-bird-face-binding-v2",
+        "compression": "lossless EXT_meshopt_compression",
+        "review": "docs/pet-colosseum-full-audit-2026-09-15.md"
       }
     },
     "standard-38": {
@@ -4622,11 +4652,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "E65AE7C31E6FC58CC778BCFD80D9B400E5C1111555FCBA7F06BC31B1DBA35195",
+      "sha256": "7BE292A4F9C3B26FBB2D4F373A136A3CF8015F86B112D6FC55122A107521BCAB",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 476124,
+        "bytes": 561928,
         "triangles": 40000,
         "vertices": 26394,
         "materials": 1,
@@ -4656,6 +4686,11 @@
           "rest",
           "victory"
         ]
+      },
+      "faceBindingRepair": {
+        "revision": "20260916-bird-face-binding-v2",
+        "compression": "lossless EXT_meshopt_compression",
+        "review": "docs/pet-colosseum-full-audit-2026-09-15.md"
       }
     },
     "standard-40": {
@@ -5202,11 +5237,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "D6C2191634001C854960EDF4C4A6AE5AAF9F109FABA786C9674F58FB9DDB05EB",
+      "sha256": "F5DB30A08D1D99188C500AB62E5110E44A2E3A07CF169A9125A31310E8A8E7DB",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 481984,
+        "bytes": 556160,
         "triangles": 40000,
         "vertices": 24431,
         "materials": 1,
@@ -5236,6 +5271,11 @@
           "rest",
           "victory"
         ]
+      },
+      "faceBindingRepair": {
+        "revision": "20260916-bird-face-binding-v2",
+        "compression": "lossless EXT_meshopt_compression",
+        "review": "docs/pet-colosseum-full-audit-2026-09-15.md"
       }
     },
     "standard-45": {
@@ -6224,11 +6264,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "1CF107B60B038CD24B19A9D78FDCC8E7F66A88541E797C9456053FF18091FD57",
+      "sha256": "D5E2BBD29A5254B2ACC1B4A183AF0B8E92B8084DCDA6D8CBD7581403A819769F",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 497024,
+        "bytes": 562164,
         "triangles": 40000,
         "vertices": 27058,
         "materials": 1,
@@ -6258,6 +6298,11 @@
           "rest",
           "victory"
         ]
+      },
+      "faceBindingRepair": {
+        "revision": "20260916-bird-face-binding-v2",
+        "compression": "lossless EXT_meshopt_compression",
+        "review": "docs/pet-colosseum-full-audit-2026-09-15.md"
       }
     },
     "rare-4": {
@@ -6567,7 +6612,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "03067EB1511C81D1D326294A41D07C4C43E6667480A7FDC1FDB46E06F8C59829",
+      "sha256": "CC12C8388EDFC16C36D0661971663B55A6070D0DA5EEF631B28AB80F783C4162",
       "visualReview": {
         "passed": true,
         "reason": "Ashwing Raven is one complete charcoal and midnight-blue raven with ember eyes, natural paired wings, black talons, pointed tail and attached headwrap; the source duplicate head is absent."
@@ -6617,7 +6662,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 491164,
+        "bytes": 564044,
         "triangles": 40000,
         "vertices": 27096,
         "skins": 1,
@@ -6644,6 +6689,11 @@
           "rest",
           "victory"
         ]
+      },
+      "faceBindingRepair": {
+        "revision": "20260916-bird-face-binding-v2",
+        "compression": "lossless EXT_meshopt_compression",
+        "review": "docs/pet-colosseum-full-audit-2026-09-15.md"
       }
     },
     "rare-8": {
@@ -6837,7 +6887,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "B53D3B02395D3A445996FDFC10CAC071A4EBF52ED53BB3AED638F9608886AECD",
+      "sha256": "75711CBE72DD4221BD62FC320798836D4DF25C3E4AC915512302C7E222929CB4",
       "visualReview": {
         "passed": true,
         "reason": "Silver Owl is a complete gray horned anime owl with gold eyes, paired wings and talons, dark scarf and rigid attached back sword; source transparency holes and floating scarf are removed."
@@ -6887,7 +6937,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 507284,
+        "bytes": 616392,
         "triangles": 40000,
         "vertices": 26695,
         "skins": 1,
@@ -6914,6 +6964,11 @@
           "rest",
           "victory"
         ]
+      },
+      "faceBindingRepair": {
+        "revision": "20260916-bird-face-binding-v2",
+        "compression": "lossless EXT_meshopt_compression",
+        "review": "docs/pet-colosseum-full-audit-2026-09-15.md"
       }
     },
     "rare-11": {
@@ -7467,7 +7522,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "45B79834C9602BCE051220D8BD05D07CAA442293FB867D94610EEFCC141B8696",
+      "sha256": "67DFAE40156DCBF84CCFC2072608E9CBCF5CE8863128649ABE2F4B1FB4F38D4D",
       "visualReview": {
         "passed": true,
         "reason": "Stormfin Gull is one complete blue-and-gray anime ninja bird with determined eyes, gold beak and talons, paired layered wings, streamer hood, tail feathers and one rigid sheathed sword."
@@ -7517,7 +7572,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 501792,
+        "bytes": 598340,
         "triangles": 40000,
         "vertices": 25009,
         "skins": 1,
@@ -7544,6 +7599,11 @@
           "rest",
           "victory"
         ]
+      },
+      "faceBindingRepair": {
+        "revision": "20260916-bird-face-binding-v2",
+        "compression": "lossless EXT_meshopt_compression",
+        "review": "docs/pet-colosseum-full-audit-2026-09-15.md"
       }
     },
     "rare-18": {
@@ -7557,7 +7617,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "A6F9288E3BDA2EF93EAD8B08C57B7B8F785DBE8B54E43453F0AB0B38D16AAB30",
+      "sha256": "C0116DEC35E1AA7DEB3397DA891D72B238FD9E307BCC31BCEE9FCEDD23D9C10D",
       "visualReview": {
         "passed": true,
         "reason": "Duskwings Bat is a complete charcoal anime bat ninja with huge ears, orange eyes, metal brow plate, two separate arms, two membrane wings, two clawed legs and one tail membrane."
@@ -7607,7 +7667,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 488092,
+        "bytes": 570820,
         "triangles": 40000,
         "vertices": 25239,
         "skins": 1,
@@ -7634,6 +7694,11 @@
           "rest",
           "victory"
         ]
+      },
+      "faceBindingRepair": {
+        "revision": "20260916-bird-face-binding-v2",
+        "compression": "lossless EXT_meshopt_compression",
+        "review": "docs/pet-colosseum-full-audit-2026-09-15.md"
       }
     },
     "rare-19": {
@@ -8367,7 +8432,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "283DBBC152CE662990F43D2F1D8F4865C792EA0B670FD5DFB643618A4A50F678",
+      "sha256": "B20D94994E1103BA139B8EE22A20C8DCA6BA7157FB630E37EFFFE9260CA623ED",
       "visualReview": {
         "passed": true,
         "reason": "Pyre Kestrel reconstructs the tiny source as one rust-red anime raptor with spotted orange breast, cream face, two layered wings, two taloned legs and no floating flame halo."
@@ -8417,7 +8482,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 551548,
+        "bytes": 622116,
         "triangles": 40000,
         "vertices": 28029,
         "skins": 1,
@@ -8444,6 +8509,11 @@
           "rest",
           "victory"
         ]
+      },
+      "faceBindingRepair": {
+        "revision": "20260916-bird-face-binding-v2",
+        "compression": "lossless EXT_meshopt_compression",
+        "review": "docs/pet-colosseum-full-audit-2026-09-15.md"
       }
     },
     "rare-28": {
@@ -9087,7 +9157,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "7BF910A588911FB5D18FFE64988E90FB30944FDAA4431FB0FDBC3CBEA63A5741",
+      "sha256": "F3C374A3EF31D78FA9319C0C5D7719D0B6F864E4307EE655683F52B511472295",
       "visualReview": {
         "passed": true,
         "reason": "Cyclone Harrier is one complete slate anime raptor with warm orange hood, bright eye mask, navy head ties and scarf, two folded wings, two taloned legs and one compact feather tail."
@@ -9137,7 +9207,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 571220,
+        "bytes": 657380,
         "triangles": 40000,
         "vertices": 27554,
         "skins": 1,
@@ -9164,6 +9234,11 @@
           "rest",
           "victory"
         ]
+      },
+      "faceBindingRepair": {
+        "revision": "20260916-bird-face-binding-v2",
+        "compression": "lossless EXT_meshopt_compression",
+        "review": "docs/pet-colosseum-full-audit-2026-09-15.md"
       }
     },
     "rare-36": {
@@ -9177,7 +9252,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "2571785483E46EFD9CD0F4B152BAE9515B183206E33C533F3B0FD811D3912FDD",
+      "sha256": "06CA92630F42725869B768648ABA1B598B11C2C2DAF59BF8910D897AC206C0C4",
       "visualReview": {
         "passed": true,
         "reason": "Zephyr Osprey is a complete cream-and-brown anime osprey with black eye mask, navy scarf, two layered wings, two taloned legs and a coherent short tail."
@@ -9227,7 +9302,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 547512,
+        "bytes": 622760,
         "triangles": 40000,
         "vertices": 27485,
         "skins": 1,
@@ -9254,6 +9329,11 @@
           "rest",
           "victory"
         ]
+      },
+      "faceBindingRepair": {
+        "revision": "20260916-bird-face-binding-v2",
+        "compression": "lossless EXT_meshopt_compression",
+        "review": "docs/pet-colosseum-full-audit-2026-09-15.md"
       }
     },
     "rare-37": {
@@ -9267,7 +9347,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "2EDE322BEA83788D67F4FF6B11259DD5DC10C91FA629023335ACAD2DCBCA0D2D",
+      "sha256": "9CDE7885B65D486627205B0CC9AB835BD979EB89FA547BE62767BC095573CEAC",
       "visualReview": {
         "passed": true,
         "reason": "Gust Tern is one compact white-and-navy anime seabird with coral beak, bright eyes, two folded wings, two feet and one clean pointed feather tail."
@@ -9317,7 +9397,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 572632,
+        "bytes": 664288,
         "triangles": 40000,
         "vertices": 27832,
         "skins": 1,
@@ -9344,6 +9424,11 @@
           "rest",
           "victory"
         ]
+      },
+      "faceBindingRepair": {
+        "revision": "20260916-bird-face-binding-v2",
+        "compression": "lossless EXT_meshopt_compression",
+        "review": "docs/pet-colosseum-full-audit-2026-09-15.md"
       }
     },
     "rare-38": {
@@ -9357,7 +9442,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "EBDDB5BAB457D6ACE3D7EA87CE82D7BDC9F315A5C1C667E8F3A6DAF066E9F697",
+      "sha256": "28E5612DB3DBB598F9BDD88B233DCA690CE2C18B3A8AF232028473CDFB180984",
       "visualReview": {
         "passed": true,
         "reason": "Squall Plover is a complete round rust-brown anime shorebird with cream face, navy head wrap and scarf, two layered wings, two tiny taloned legs and one short tail."
@@ -9407,7 +9492,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 498156,
+        "bytes": 581556,
         "triangles": 40000,
         "vertices": 25266,
         "skins": 1,
@@ -9434,6 +9519,11 @@
           "rest",
           "victory"
         ]
+      },
+      "faceBindingRepair": {
+        "revision": "20260916-bird-face-binding-v2",
+        "compression": "lossless EXT_meshopt_compression",
+        "review": "docs/pet-colosseum-full-audit-2026-09-15.md"
       }
     },
     "rare-39": {
@@ -9447,7 +9537,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.96,
-      "sha256": "E0F9CF619334179338003641F1D9DED170EB4244783172E3212FA3B8A133B618",
+      "sha256": "03AA99D6005D3DCAD0552517346BD352D7C4662B36A9B6303F76C2CF7CB65AAA",
       "visualReview": {
         "passed": true,
         "reason": "Drift Albatross v2 is a clean navy-and-white anime seabird with orange hooked beak, stern eyes, compact scarf, two wings, two legs and one feather tail. Turnaround v1 reconstruction was rejected because its back weapon became two large flat projection slabs."
@@ -9497,7 +9587,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 500424,
+        "bytes": 570864,
         "triangles": 40000,
         "vertices": 26657,
         "skins": 1,
@@ -9524,6 +9614,11 @@
           "rest",
           "victory"
         ]
+      },
+      "faceBindingRepair": {
+        "revision": "20260916-bird-face-binding-v2",
+        "compression": "lossless EXT_meshopt_compression",
+        "review": "docs/pet-colosseum-full-audit-2026-09-15.md"
       }
     },
     "rare-40": {
@@ -9897,7 +9992,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "079F7682B54AEE32413C1F134CC7F2F519B75210FDE63BE48C250C240EFD988B",
+      "sha256": "634C39D3884D296260625B4E742C73DB9E6F9712553FC63ECD56BE0754F2B2A8",
       "visualReview": {
         "passed": true,
         "reason": "Arc Buzzard is one compact slate anime raptor with red eyes, ochre hooked beak, navy wrap, red sash, exactly two feathered wings, two taloned legs and one coherent tail."
@@ -9947,7 +10042,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 507620,
+        "bytes": 581732,
         "triangles": 40000,
         "vertices": 27116,
         "skins": 1,
@@ -9974,6 +10069,11 @@
           "rest",
           "victory"
         ]
+      },
+      "faceBindingRepair": {
+        "revision": "20260916-bird-face-binding-v2",
+        "compression": "lossless EXT_meshopt_compression",
+        "review": "docs/pet-colosseum-full-audit-2026-09-15.md"
       }
     },
     "rare-45": {
@@ -10527,7 +10627,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "C85E18437B0189834C22FEB73C1A72E0B962F4CBB4CD4DC40C79C125FCF12595",
+      "sha256": "80E3259D892D0AC39E27D75BA5DBC6EAAB2FDA7B44C32769AD5D3E6B38886609",
       "visualReview": {
         "passed": true,
         "reason": "Tempest Hawk is one complete deep-navy legendary anime raptor with gold eyes, silver forehead plate, white chest chevron, two layered wings, two taloned legs and a coherent tail fan; lightning remains runtime VFX."
@@ -10577,7 +10677,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 536068,
+        "bytes": 628148,
         "triangles": 40000,
         "vertices": 27149,
         "skins": 1,
@@ -10604,6 +10704,11 @@
           "rest",
           "victory"
         ]
+      },
+      "faceBindingRepair": {
+        "revision": "20260916-bird-face-binding-v2",
+        "compression": "lossless EXT_meshopt_compression",
+        "review": "docs/pet-colosseum-full-audit-2026-09-15.md"
       }
     },
     "legendary-2": {
@@ -10977,7 +11082,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "200DA0350899BB1634E88BE6492123DB3CD45BF288FAD014752218A973B5B87D",
+      "sha256": "28E8D15A98B3E61A13D8AD3D8455A31083A20C0311DF413C306B512151F2973D",
       "visualReview": {
         "passed": true,
         "reason": "Ember Phoenix is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -11027,7 +11132,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 566708,
+        "bytes": 646920,
         "triangles": 40000,
         "vertices": 27397,
         "skins": 1,
@@ -11054,6 +11159,11 @@
           "rest",
           "victory"
         ]
+      },
+      "faceBindingRepair": {
+        "revision": "20260916-bird-face-binding-v2",
+        "compression": "lossless EXT_meshopt_compression",
+        "review": "docs/pet-colosseum-full-audit-2026-09-15.md"
       }
     },
     "legendary-7": {
@@ -11337,7 +11447,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "2F0278741A9193BB3DC209610EB1D4431ABB646C5304A9389652234074D5FE45",
+      "sha256": "15F2FA2E28D9CCD5A0B3C5E053089EBE75C047A4DC7E6F3D5330FA81F53530F8",
       "visualReview": {
         "passed": true,
         "reason": "Void Raven is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -11387,7 +11497,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 615936,
+        "bytes": 733408,
         "triangles": 40000,
         "vertices": 36410,
         "skins": 1,
@@ -11414,6 +11524,11 @@
           "rest",
           "victory"
         ]
+      },
+      "faceBindingRepair": {
+        "revision": "20260916-bird-face-binding-v2",
+        "compression": "lossless EXT_meshopt_compression",
+        "review": "docs/pet-colosseum-full-audit-2026-09-15.md"
       }
     },
     "legendary-11": {
@@ -11697,7 +11812,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "79208A86B0919554F4D1B41421713CF42D69561D574A27816CDDE79478972C22",
+      "sha256": "3F1DD82D7851CD7C8C471F151B09FB3AA6E589B54CA5547368A2E97A78327763",
       "visualReview": {
         "passed": true,
         "reason": "Ancient Crane is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -11747,7 +11862,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 614856,
+        "bytes": 684568,
         "triangles": 40000,
         "vertices": 31935,
         "skins": 1,
@@ -11774,6 +11889,11 @@
           "rest",
           "victory"
         ]
+      },
+      "faceBindingRepair": {
+        "revision": "20260916-bird-face-binding-v2",
+        "compression": "lossless EXT_meshopt_compression",
+        "review": "docs/pet-colosseum-full-audit-2026-09-15.md"
       }
     },
     "legendary-15": {
@@ -11877,7 +11997,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "21128B8666AF7C0E3D8D67FDBC85828F298F2B3951A240249AF98DDC9BEAA0DE",
+      "sha256": "005472BD0F060EA912B2DD1EA7DD23277698D45ACA99DFCF6AF4BF2DCE2202F8",
       "visualReview": {
         "passed": true,
         "reason": "Ash Garuda is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -11927,7 +12047,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 569972,
+        "bytes": 658936,
         "triangles": 40000,
         "vertices": 28133,
         "skins": 1,
@@ -11954,6 +12074,11 @@
           "rest",
           "victory"
         ]
+      },
+      "faceBindingRepair": {
+        "revision": "20260916-bird-face-binding-v2",
+        "compression": "lossless EXT_meshopt_compression",
+        "review": "docs/pet-colosseum-full-audit-2026-09-15.md"
       }
     },
     "legendary-17": {
@@ -12327,7 +12452,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "3ECCBD9F985E7BA269FCB9F107BB395A74DBC1B44DFFD9CF60D03433618CEE95",
+      "sha256": "120B24E3A593A6795C804BBACF69502397C1749EAC9567184FD996797AF44985",
       "visualReview": {
         "passed": true,
         "reason": "Storm Roc is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -12377,7 +12502,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 587708,
+        "bytes": 674436,
         "triangles": 40000,
         "vertices": 27181,
         "skins": 1,
@@ -12404,6 +12529,11 @@
           "rest",
           "victory"
         ]
+      },
+      "faceBindingRepair": {
+        "revision": "20260916-bird-face-binding-v2",
+        "compression": "lossless EXT_meshopt_compression",
+        "review": "docs/pet-colosseum-full-audit-2026-09-15.md"
       }
     },
     "legendary-22": {
@@ -13591,7 +13721,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "B6A2E7B21FEE3B2B14C5155A097F16390EC00E5959B6934AB57EF2F956AD9112",
+      "sha256": "8D76286580C7F4364EA2DC8234A4DB315E25396593FFBF00994C3017673F3AF5",
       "visualReview": {
         "passed": true,
         "reason": "Vermillion Suzaku is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -13641,7 +13771,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 609240,
+        "bytes": 693760,
         "triangles": 40000,
         "vertices": 30076,
         "skins": 1,
@@ -13668,6 +13798,11 @@
           "rest",
           "victory"
         ]
+      },
+      "faceBindingRepair": {
+        "revision": "20260916-bird-face-binding-v2",
+        "compression": "lossless EXT_meshopt_compression",
+        "review": "docs/pet-colosseum-full-audit-2026-09-15.md"
       }
     },
     "mythic-6": {

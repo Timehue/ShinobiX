@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { MeshoptDecoder } from "meshoptimizer";
 import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import test from "node:test";
@@ -25,7 +26,8 @@ function parseGlb(path: string) {
 
 // A repair appends identical binding streams after each asset's own animation
 // bank. Accessor indices can differ while the actual reviewed mesh stays equal.
-function meshContent({ file, json }: ReturnType<typeof parseGlb>) {
+async function meshContent({ file, json }: ReturnType<typeof parseGlb>) {
+    await MeshoptDecoder.ready;
     const meshes = structuredClone(json.meshes);
     if (!json.extras?.birdFaceRepair) return meshes;
     const binStart = 28 + file.readUInt32LE(12);
@@ -34,12 +36,14 @@ function meshContent({ file, json }: ReturnType<typeof parseGlb>) {
             const accessor = json.accessors[primitive.attributes[name]];
             const view = json.bufferViews[accessor.bufferView];
             assert.equal(accessor.type, "VEC4");
-            assert.equal(view.extensions, undefined, "repair streams are stored uncompressed");
             assert.equal(view.byteStride, undefined);
             const componentBytes = accessor.componentType === 5123 ? 2 : accessor.componentType === 5126 ? 4 : 0;
             assert.ok(componentBytes, "unexpected repaired binding component type");
             const start = binStart + (view.byteOffset ?? 0) + (accessor.byteOffset ?? 0);
-            const bytes = file.subarray(start, start + accessor.count * 4 * componentBytes);
+            const compression = view.extensions?.EXT_meshopt_compression;
+            const bytes = compression ? Buffer.alloc(view.byteLength) : file.subarray(start, start + accessor.count * 4 * componentBytes);
+            if (compression) MeshoptDecoder.decodeGltfBuffer(bytes, compression.count, compression.byteStride,
+                file.subarray(binStart + compression.byteOffset, binStart + compression.byteOffset + compression.byteLength), compression.mode);
             primitive.attributes[name] = {
                 type: accessor.type, componentType: accessor.componentType, count: accessor.count,
                 sha256: createHash("sha256").update(bytes).digest("hex"),
@@ -63,7 +67,7 @@ test("the screenshot lineup uses four versioned species-authored GLBs", () => {
     assert.equal(petShowdownAnimationModelUrl("standard-8"), null);
 });
 
-test("each replacement preserves its reviewed model but carries a full identity performance bank", () => {
+test("each replacement preserves its reviewed model but carries a full identity performance bank", async () => {
     const fingerprints = new Set<string>();
     for (const id of PET_SHOWDOWN_ANIMATION_MODEL_IDS) {
         const sourcePath = id.startsWith("starter-")
@@ -73,7 +77,7 @@ test("each replacement preserves its reviewed model but carries a full identity 
         const source = parseGlb(sourcePath);
         const authored = parseGlb(authoredPath);
 
-        assert.deepEqual(meshContent(authored), meshContent(source), `${id}: mesh changed during animation authoring`);
+        assert.deepEqual(await meshContent(authored), await meshContent(source), `${id}: mesh changed during animation authoring`);
         assert.deepEqual(authored.json.materials, source.json.materials, `${id}: materials changed during animation authoring`);
         assert.deepEqual(authored.json.skins, source.json.skins, `${id}: reviewed skin changed during animation authoring`);
         assert.equal(authored.json.extras?.showdownAnimationBank, PET_SHOWDOWN_ANIMATION_ASSET_REVISION);

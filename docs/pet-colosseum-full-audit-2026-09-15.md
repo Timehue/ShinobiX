@@ -143,3 +143,8 @@ Prepared against live main `175dbd6b4`, preserving its WebGL fallback and newer 
 The derivative consistency check also found Crystal Bear's previously published atlas still referenced its old LOD. Its atlas was regenerated from the repaired LOD already on main. All 159 atlases were regenerated deterministically; the 127 outside this release's 31 repaired pets and Crystal Bear remain unchanged. All 636 source/LOD/atlas hash references now match.
 
 The foreleg findings and audit limits above remain open. Production rollout is verified separately using CI, post-deploy health, and public asset checks; local release certification uses synthetic data and never runs against production.
+
+
+### CI follow-up
+
+The first main CI run caught two missed integration contracts: an existing 1 MiB Warfront source-model limit and the roster manifest's reviewed binary hashes. The bird binding writer now uses lossless Meshopt packing with an immediate decoded-byte equality assertion. All 31 source files preserve the preceding reviewed geometry, texture and animation bytes, animation metadata, and decoded repaired bindings exactly while saving 16,826,392 bytes. The 27 affected roster hashes and all 30 runtime derivatives were refreshed; all 30 atlas images remain byte-identical. The face suite also enforces the 1 MiB limit for every repaired bird. Both formerly failing contracts now pass locally, without relaxing the budget or provenance checks.

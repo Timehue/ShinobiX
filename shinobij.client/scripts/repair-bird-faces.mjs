@@ -3,9 +3,9 @@ import { constants } from 'node:fs';
 import { resolve } from 'node:path';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { MeshoptDecoder } from 'meshoptimizer';
+import { MeshoptDecoder, MeshoptEncoder } from 'meshoptimizer';
 
-export const BIRD_FACE_REPAIR_REVISION = '20260916-bird-face-binding-v1';
+export const BIRD_FACE_REPAIR_REVISION = '20260916-bird-face-binding-v2';
 /** Individually reviewed upright birds whose skull was split across wing bones.
  * These envelopes use canonical rig coordinates, before ancestor scale or runtime facing yaw. */
 export const BIRD_FACE_REPAIRS = {
@@ -142,10 +142,20 @@ export async function repairBirdFace(path, id, outputPath = path) {
         if (share > 0.999) rigidSkull++;
     }
     if (rigidSkull < 300) throw new Error(id + ': skull envelope did not capture sufficient geometry');
+    await MeshoptEncoder.ready;
     const append = (array, componentType) => {
         const bytes = Buffer.from(array.buffer, array.byteOffset, array.byteLength), offset = align4(binary.length);
-        binary = Buffer.concat([binary, Buffer.alloc(offset - binary.length), bytes]);
-        const bufferView = json.bufferViews.push({ buffer: 0, byteOffset: offset, byteLength: bytes.length }) - 1;
+        const byteStride = array.BYTES_PER_ELEMENT * 4;
+        // Lossless packing keeps the authored Float32 weights and Uint16 joints
+        // exact while avoiding two large raw streams in every mobile download.
+        const packed = MeshoptEncoder.encodeGltfBuffer(bytes, positions.count, byteStride, 'ATTRIBUTES', 0);
+        const decoded = new Uint8Array(bytes.length);
+        MeshoptDecoder.decodeGltfBuffer(decoded, positions.count, byteStride, packed, 'ATTRIBUTES');
+        if (!Buffer.from(decoded).equals(bytes)) throw new Error(id + ': binding compression changed decoded bytes');
+        binary = Buffer.concat([binary, Buffer.alloc(offset - binary.length), packed]);
+        const bufferView = json.bufferViews.push({ buffer: 1, byteOffset: 0, byteLength: bytes.length,
+            extensions: { EXT_meshopt_compression: { buffer: 0, byteOffset: offset, byteLength: packed.length,
+                byteStride, count: positions.count, mode: 'ATTRIBUTES' } } }) - 1;
         return json.accessors.push({ bufferView, componentType, type: 'VEC4', count: positions.count }) - 1;
     };
     primitive.attributes.JOINTS_0 = append(joints, 5123);
@@ -153,6 +163,9 @@ export async function repairBirdFace(path, id, outputPath = path) {
     json.extras = { ...json.extras, birdFaceRepair: { revision: BIRD_FACE_REPAIR_REVISION, original, envelope: BIRD_FACE_REPAIRS[id] } };
     if (json.extras.properAnimationSourceBoundary) json.extras.properAnimationSourceBoundary = { binLength: binary.length, accessorCount: json.accessors.length, bufferViewCount: json.bufferViews.length };
     json.buffers[0].byteLength = align4(binary.length);
+    json.buffers[1] = { byteLength: Math.max(...json.bufferViews.filter(view => view.buffer === 1).map(view => (view.byteOffset ?? 0) + view.byteLength)), extensions: { EXT_meshopt_compression: { fallback: true } } };
+    json.extensionsUsed = [...new Set([...(json.extensionsUsed ?? []), 'EXT_meshopt_compression'])];
+    json.extensionsRequired = [...new Set([...(json.extensionsRequired ?? []), 'EXT_meshopt_compression'])];
     await writeFile(outputPath, encodeGlb(json, binary));
     return { id, path: outputPath, changed, rigidSkull, vertices: positions.count };
 }
