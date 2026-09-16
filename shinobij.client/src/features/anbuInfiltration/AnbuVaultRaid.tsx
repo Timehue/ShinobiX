@@ -1,5 +1,5 @@
 /* Sector stronghold: shared exploration, movement patrols, and the final Anbu raid. */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { StrongholdExplore } from "./StrongholdExplore";
 import { strongholdRequest } from "./stronghold-api";
 import { StrongholdDialog } from "./StrongholdDialog";
@@ -55,11 +55,18 @@ export function AnbuVaultRaid({
     const [report, setReport] = useState<InfilReportResponse | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [starting, setStarting] = useState(false);
+    const [startUncertain, setStartUncertain] = useState(false);
     const [resumeError, setResumeError] = useState('');
     const [resumeAttempt, setResumeAttempt] = useState(0);
     const runKey = `${INFIL_RUN_KEY}:${accountKey(character.name)}`;
     const mounted = useRef(false);
-    useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+    const lifetime = useRef<object | null>(null);
+    useLayoutEffect(() => {
+        const owner = {};
+        lifetime.current = owner;
+        mounted.current = true;
+        return () => { mounted.current = false; lifetime.current = null; };
+    }, [runKey, sector]);
     // Boss room: true once the player reaches the Anbu at the vault, opening the
     // Challenge / Retreat confrontation (the fight no longer auto-starts on step).
     const [challenge, setChallenge] = useState(false);
@@ -104,10 +111,12 @@ export function AnbuVaultRaid({
         if (startingRef.current) return;
         startingRef.current = true;
         setStarting(true);
+        const owner = lifetime.current;
+        const ownsAction = () => mounted.current && lifetime.current === owner;
         void strongholdRequest(character.name, fight?.sector ?? sector, 'leave')
-            .then(() => { if (mounted.current) onExit(); })
-            .catch(e => setError((e as Error).message))
-            .finally(() => { startingRef.current = false; setStarting(false); });
+            .then(() => { if (ownsAction()) onExit(); })
+            .catch(e => { if (ownsAction()) setError((e as Error).message); })
+            .finally(() => { if (ownsAction()) { startingRef.current = false; setStarting(false); } });
     }
     // ── the vault: start the server-auth Anbu fight (fired from the boss-room
     //    Challenge confirm, not on step) ────────────────────────────────────────
@@ -120,17 +129,27 @@ export function AnbuVaultRaid({
         }
         startingRef.current = true;
         setStarting(true); setError(null);
+        const owner = lifetime.current;
+        const ownsAction = () => mounted.current && lifetime.current === owner;
         try {
             const res = await startInfiltration(character.name, sector);
+            // An acknowledged server run remains recoverable for its original
+            // account even if this view was replaced while the request ran.
             try { localStorage.setItem(runKey, res.runId); } catch { /* storage disabled */ }
+            if (!ownsAction()) return;
+            setStartUncertain(false);
             setChallenge(false);
             setFight({ runId: res.runId, session: res.session, anbuName: res.anbu.name });
             setPhase("fight");
         } catch (e) {
-            setError(String((e as Error)?.message ?? e));
+            if (!ownsAction()) return;
+            const uncertain = !(e instanceof InfiltrationRequestError) || e.status >= 500;
+            setStartUncertain(uncertain);
+            setError(uncertain
+                ? 'The challenge could not be confirmed. Reconnect to recover it before continuing.'
+                : String((e as Error)?.message ?? e));
         } finally {
-            startingRef.current = false;
-            setStarting(false);
+            if (ownsAction()) { startingRef.current = false; setStarting(false); }
         }
     }
 
@@ -148,8 +167,9 @@ export function AnbuVaultRaid({
         if (!anbuInfiltrationAdmissionEnabled(mutationAvailability("anbuInfiltration"))) {
             throw new Error("ANBU settlement is paused. Keep this run open and retry when live admission returns.");
         }
+        const owner = lifetime.current;
         const r = await reportInfiltration(runId, character.name, signal);
-        if (!mounted.current || signal?.aborted) return r;
+        if (!mounted.current || lifetime.current !== owner || signal?.aborted) return r;
         if (r.ok && "character" in r && r.character) adoptSettledCharacter(r.character, r._saveVersion);
         try { localStorage.removeItem(runKey); localStorage.removeItem(INFIL_RUN_KEY); } catch { /* storage disabled */ }
         setReport(r);
@@ -161,8 +181,9 @@ export function AnbuVaultRaid({
         if (!anbuInfiltrationAdmissionEnabled(mutationAvailability("anbuInfiltration"))) {
             throw new Error('Stronghold settlement is paused. Retry when live admission returns.');
         }
+        const owner = lifetime.current;
         const result = await strongholdRequest(character.name, sector, 'patrol-report', { runId }, signal);
-        if (!mounted.current || signal?.aborted) return result;
+        if (!mounted.current || lifetime.current !== owner || signal?.aborted) return result;
         if (result.character) adoptSettledCharacter(result.character, result._saveVersion);
         if (result.won) { setFight(null); setPhase('traverse'); }
         else setPhase('patrol-result');
@@ -300,9 +321,12 @@ export function AnbuVaultRaid({
         <>
             <StrongholdExplore
                 character={character} sector={sector} targetVillage={targetVillage} sharedImages={sharedImages}
-                anbuAvatar={anbuAvatar} anbuName={anbuName} blocked={challenge || starting || !actionsAvailable}
+                anbuAvatar={anbuAvatar} anbuName={anbuName} blocked={challenge || starting || startUncertain || !actionsAvailable}
+                admissionPending={starting || startUncertain} admissionError={error}
+                onRetryAdmission={startUncertain && !starting ? () => void enterVault() : undefined}
                 onChallenge={() => { if (!isDeathsGateStronghold(sector)) setChallenge(true); }}
                 onPatrol={session => {
+                    if (startingRef.current || startUncertain) return;
                     setFight({ runId: session.sessionId, session, anbuName: session.enemy.name, patrol: true });
                     setPhase('fight');
                 }}
@@ -310,7 +334,7 @@ export function AnbuVaultRaid({
                 onExit={onExit}
             />
             {/* Boss room — the Challenge / Retreat confrontation at the vault. */}
-            {challenge && <StrongholdDialog title="Challenge the Anbu" onClose={() => setChallenge(false)}>
+            {challenge && <StrongholdDialog title="Challenge the Anbu" busy={starting} onClose={() => setChallenge(false)}>
                 {anbuAvatar && <img className="stronghold-boss-portrait" src={anbuAvatar} alt={anbuName} />}
                 <h3>{anbuName}</h3>
                 <p>The masked operative guards the vault at full strength. Defeat them to raid this sector’s war reserves. Your current health and supplies carry into the fight.</p>

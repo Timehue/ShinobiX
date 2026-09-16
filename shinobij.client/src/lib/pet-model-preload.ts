@@ -1,28 +1,27 @@
-import { useGLTF } from "@react-three/drei";
-import type * as THREE from "three";
 import type { Pet } from "../types/pet";
 import { petCombatModel, showdownFighterIdentity, type PetCombatModelConfig, type ShowdownFighterView } from "./pet-3d-models";
 import { preloadPetGlbAtlas } from "./pet-glb-atlas";
 import { supportsPetWebGl2 } from "./pet-webgl-capability";
+import { preloadPetGltf } from "./pet-gltf-preload";
 
 /** Begin fetching and parsing every approved matchup model while the player is
  * still on the Coliseum selection screen. Keeping this in a dynamically loaded
- * module preserves the app's cold-start bundle while preventing the temporary
- * 2D Suspense fallback from becoming the first battle frame. */
+ * module preserves the app's cold-start bundle. Completion means the renderer's
+ * shared GLTF cache has parsed models and atlas loads have settled; it does not
+ * assert Canvas, shader, or GPU readiness. */
 export async function preloadPetColiseumModels(
     pets: readonly Pet[],
     selectModel: (model: PetCombatModelConfig | null) => PetCombatModelConfig | null = (model) => model,
 ): Promise<void> {
     const urls = new Set<string>();
-    const atlasLoads: Array<Promise<THREE.Texture | null>> = [];
+    const loads: Array<Promise<unknown>> = [];
     for (const pet of pets) {
         const config = selectModel(petCombatModel(pet));
         if (!config || urls.has(config.url)) continue;
         urls.add(config.url);
-        atlasLoads.push(preloadPetGlbAtlas(config.url));
-        useGLTF.preload(config.url);
+        loads.push(preloadPetGlbAtlas(config.url), preloadPetGltf(config.url));
     }
-    await Promise.all(atlasLoads);
+    await Promise.all(loads);
 }
 
 /** How long a battle may wait on cold models before it starts anyway. The
@@ -66,8 +65,17 @@ export async function warmShowdownModels(
 ): Promise<void> {
     if (!(warmupWebGl2 ??= supportsPetWebGl2())) return;
     const roster = [...state.player, ...state.enemy].map((view) => showdownFighterIdentity(view, ownPets));
-    await Promise.race([
-        preloadPetColiseumModels(roster).catch(() => undefined),
-        new Promise<void>((resolve) => setTimeout(resolve, SHOWDOWN_MODEL_WARMUP_TIMEOUT_MS)),
-    ]);
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+        await Promise.race([
+            preloadPetColiseumModels(roster).catch(() => undefined),
+            new Promise<void>((resolve) => {
+                timeout = setTimeout(resolve, SHOWDOWN_MODEL_WARMUP_TIMEOUT_MS);
+            }),
+        ]);
+    } finally {
+        // A warm reentry should not leave its eight-second fallback scheduled.
+        // This only retires the timer; timed-out model loads may still finish.
+        clearTimeout(timeout);
+    }
 }

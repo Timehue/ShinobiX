@@ -144,6 +144,10 @@
         overflow-wrap: anywhere;
         touch-action: manipulation;
         -webkit-tap-highlight-color: transparent;
+        /* The global hover lift must not move a region's 44px hit box. Keep
+           its existing brightness, border and shadow feedback instead. */
+        transform: none;
+        transition: filter .12s ease, border-color .12s ease, box-shadow .12s ease;
     }
 
     html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-atlas-frame .wm-village-bar > .wm-village-chip[aria-pressed="true"] {
@@ -210,6 +214,18 @@
         min-height: 46px !important;
         max-width: 46px !important;
         padding: 0 !important;
+    }
+
+    /* Pinch applies its inverse immediately. Discrete camera zoom supplies a
+       matching reciprocal easing curve; both native transitions start together.
+       Paint feedback keeps its existing 150ms easing. */
+    html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-map-scroll .atlas-sector,
+    html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-map-scroll button.atlas-landmark[data-landmark-art="true"] {
+        transition: transform var(--wm-marker-motion, 0s), filter 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+    }
+
+    html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-map-scroll :is(.world-region-label, .world-poi-plate, .vw-sector-claim) {
+        transition: transform var(--wm-marker-motion, 0s);
     }
 
     html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-map-scroll .world-poi-plate {

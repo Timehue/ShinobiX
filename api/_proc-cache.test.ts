@@ -72,3 +72,65 @@ test('invalidateProcCache forces the next read to rebuild', async () => {
     assert.equal(v, 2);
     assert.equal(builds, 2);
 });
+
+test('an invalidated build cannot overwrite the newer completed frame', async () => {
+    __clearProcCache();
+    let releaseOld!: (value: string) => void;
+    const old = cachedFor('race-completed', 10000, () => new Promise(resolve => { releaseOld = resolve; }));
+    await Promise.resolve();
+    invalidateProcCache('race-completed');
+    assert.equal(await cachedFor('race-completed', 10000, async () => 'new'), 'new');
+    releaseOld('old');
+    assert.equal(await old, 'old', 'existing readers retain their own snapshot');
+    assert.equal(await cachedFor('race-completed', 10000, async () => 'unexpected rebuild'), 'new');
+});
+
+test('finishing an invalidated build does not delete a newer in-flight build or trigger duplicate work', async () => {
+    __clearProcCache();
+    let releaseOld!: (value: string) => void;
+    let releaseNew!: (value: string) => void;
+    let builds = 0;
+    const old = cachedFor('race-pending', 10000, () => {
+        builds++;
+        return new Promise(resolve => { releaseOld = resolve; });
+    });
+    await Promise.resolve();
+    invalidateProcCache('race-pending');
+    const fresh = cachedFor('race-pending', 10000, () => {
+        builds++;
+        return new Promise(resolve => { releaseNew = resolve; });
+    });
+    await Promise.resolve();
+    releaseOld('old');
+    await old;
+    const joined = cachedFor('race-pending', 10000, async () => { builds++; return 'duplicate'; });
+    releaseNew('new');
+    assert.deepEqual(await Promise.all([fresh, joined]), ['new', 'new']);
+    assert.equal(builds, 2);
+});
+
+test('a rejected invalidated build does not erase the replacement single-flight slot', async () => {
+    __clearProcCache();
+    let rejectOld!: (error: Error) => void;
+    let releaseNew!: (value: number) => void;
+    const old = cachedFor('race-rejected', 10000, () => new Promise((_, reject) => { rejectOld = reject; }));
+    const rejected = assert.rejects(old, /obsolete failure/);
+    await Promise.resolve();
+    invalidateProcCache('race-rejected');
+    const fresh = cachedFor('race-rejected', 10000, () => new Promise(resolve => { releaseNew = resolve; }));
+    await Promise.resolve();
+    rejectOld(new Error('obsolete failure'));
+    await rejected;
+    const joined = cachedFor('race-rejected', 10000, async () => -1);
+    releaseNew(2);
+    assert.deepEqual(await Promise.all([fresh, joined]), [2, 2]);
+});
+
+test('invalidation from the builder itself prevents publishing that frame', async () => {
+    __clearProcCache();
+    assert.equal(await cachedFor('race-self', 10000, async () => {
+        invalidateProcCache('race-self');
+        return 'invalidated';
+    }), 'invalidated');
+    assert.equal(await cachedFor('race-self', 10000, async () => 'fresh'), 'fresh');
+});

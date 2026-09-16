@@ -22,7 +22,7 @@ import type { GameItem, Jutsu, SavedBloodline } from "../types/combat";
 import type { NoticePostType } from "../types/clan";
 import type { VillageUpgradeKey, Screen } from "../types/core";
 import { UPGRADE_IMAGES, HOLLOW_GATE_IMAGE } from "../data/upgrade-images";
-import { contestVillageUnfed, fetchWarMap, upgradeWarStructure, type SectorWarContest } from "../lib/village-war-map";
+import { clearWarMapCache, contestVillageUnfed, fetchWarMap, upgradeWarStructure, type SectorWarContest } from "../lib/village-war-map";
 import { storesLedgerEmptyLine, storesLedgerScopeLine, storesSpendAuthorityLine, villageSupplyCall } from "../lib/village-stores-signposts";
 import { DAILY_CRAFT_POINT_DONATION_CAP, DAILY_RATION_DONATION_CAP, DEPOT_CONVERSION_POINTS_PER_WR, readStores, storesCreditNote, storesDonationBucket, storesDonationCapLine, storesDonationGate, storesLedgerRows, storesPollDisagrees, storesRowValues } from "../lib/village-stores";
 import { MAX_WILD_SECTOR } from "../../../shared/sector-geo";
@@ -635,6 +635,9 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
             const credit = storesCreditNote(result.stores, before);
             const itemName = itemDisplayName(villageDonateItemId, allVillageItems);
             if (result.stores) {
+                // Retire the pre-donation memo and in-flight read, too: a tab
+                // re-entry has a new write generation and must not reuse them.
+                clearWarMapCache();
                 // Newer than any war-map read still in flight: that read must not
                 // land its older figures over these.
                 storesWriteRef.current += 1;

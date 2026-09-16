@@ -1,3 +1,5 @@
+import { evaluateRequestSlo } from './_release-health-slo.mjs';
+
 const baseArg = process.argv[2];
 
 if (!baseArg) {
@@ -78,6 +80,14 @@ try {
 
     if (process.env.REQUIRE_FRESH_BACKUP === '1') {
         assertOk(deep.backup?.fresh === true, `backup freshness failed: ${JSON.stringify(deep.backup ?? null)}`);
+    }
+
+    // Opt in after representative local/staging traffic, not during a new
+    // instance's liveness probe. A quiet server has insufficient evidence.
+    if (process.env.REQUIRE_REQUEST_SLO === '1') {
+        const result = evaluateRequestSlo(deep.requestMetrics);
+        console.log(`[release-health] request SLO ${result.status}: ${result.reason}`);
+        if (result.exitCode) process.exit(result.exitCode);
     }
 
     console.log('[release-health] PASS');
