@@ -99,6 +99,8 @@ test('built CSP and every Stronghold audit feed the required responsive gate wit
     for (const [command, shard] of gates) {
         const step = steps.find(value => value.includes(`run: ${command}`));
         assert.ok(step, `missing responsive gate: ${command}`);
+        assert.ok(responsive.indexOf(`run: ${command}`) < responsive.indexOf('run: npm run test:e2e --prefix shinobij.client'),
+            `${command} must surface focused failures before the long browser matrix`);
         assert.ok(step.includes(`if: \${{ matrix.shard == ${shard} }}`), `${command} must run once on its assigned shard`);
         assert.doesNotMatch(step, /continue-on-error|--baseline/, `${command} must enforce its assertions`);
         assert.match(step, /2>&1 \| tee .*\.ci-evidence\/e2e-responsive-.*\.log/);
