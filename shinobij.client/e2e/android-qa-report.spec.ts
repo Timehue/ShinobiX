@@ -149,7 +149,14 @@ for (const viewport of [{ width: 360, height: 640 }, { width: 844, height: 390 }
         await account.scrollIntoViewIfNeeded();
         await expect(account).toBeInViewport();
         const showPasswords = page.getByRole('checkbox', { name: 'Show passwords', exact: true });
-        await showPasswords.check();
+        const toggleLabel = page.locator('.change-password-card label').filter({ has: showPasswords });
+        await toggleLabel.scrollIntoViewIfNeeded();
+        const toggleBox = (await toggleLabel.boundingBox())!;
+        expect(Math.round(toggleBox.width)).toBeGreaterThanOrEqual(44);
+        expect(Math.round(toggleBox.height)).toBeGreaterThanOrEqual(44);
+        // Activate the label's far edge, outside the compact checkbox artwork.
+        await toggleLabel.click({ position: { x: toggleBox.width - 4, y: toggleBox.height / 2 } });
+        await expect(showPasswords).toBeChecked();
         await expect(page.locator('.change-password-card').getByLabel('Current password', { exact: true })).toHaveAttribute('type', 'text');
         await showPasswords.uncheck();
         const checkboxBox = (await showPasswords.boundingBox())!;
