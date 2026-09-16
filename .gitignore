@@ -450,6 +450,10 @@ scripts/badge-sources/
 scripts/vfx-sources/
 
 # Playwright QA artifacts (screenshots, snapshots) generated during live testing
+/test-results/
+.ci-evidence/
+.ci-artifacts/
+.tmp/
 .playwright-mcp/
 shinobij.client/playwright-report/
 shinobij.client/test-results/

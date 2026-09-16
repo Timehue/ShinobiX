@@ -97,7 +97,10 @@ try {
             checks.push(...await auditStrongholdDismissal({ browser, engineName, fixture, prepare, ready }));
         }
     } else if (process.argv.includes('--resources')) {
-        const browser = await chromium.launch({ headless: true }); browsers.push(browser);
+        // CI runners have no physical GPU. Use the same software renderer on
+        // developer machines so these are repeatable lifecycle checks, not GPU
+        // performance measurements. Only disposable local fixtures are loaded.
+        const browser = await chromium.launch({ headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] }); browsers.push(browser);
         const { auditStrongholdResources } = await import('./stronghold-resource-qa.mjs');
         checks.push(...await auditStrongholdResources({ browser, fixture, prepare, ready, output }));
     } else

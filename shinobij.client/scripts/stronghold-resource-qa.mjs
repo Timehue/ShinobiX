@@ -2,6 +2,7 @@
 // Uses the actual React host/Arena. Network and characters are local fixtures.
 import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
+import { expect } from '@playwright/test';
 
 async function instrument(page) {
     await page.addInitScript(() => {
@@ -27,18 +28,20 @@ async function instrument(page) {
             disconnect() { if (this.targets.size) observers--; this.targets.clear(); super.disconnect(); }
         };
         const getContext = HTMLCanvasElement.prototype.getContext;
-        const contexts = new WeakSet();
+        const contexts = new WeakSet(), webglRenderers = new Set();
         HTMLCanvasElement.prototype.getContext = function (type, ...args) {
             const result = getContext.call(this, type, ...args);
             if (result && /^(webgl|experimental-webgl)/.test(type) && !contexts.has(result)) {
                 contexts.add(result); webglCreated++; webglActive++;
+                const debug = result.getExtension('WEBGL_debug_renderer_info');
+                webglRenderers.add(result.getParameter(debug ? debug.UNMASKED_RENDERER_WEBGL : result.RENDERER));
                 this.addEventListener('webglcontextlost', () => webglActive--, { once: true });
             }
             return result;
         };
         const clearRect = CanvasRenderingContext2D.prototype.clearRect;
         CanvasRenderingContext2D.prototype.clearRect = function (...args) { canvasDraws++; return clearRect.apply(this, args); };
-        window.resourceSnapshot = () => ({ timeouts: [...timeouts.values()].map(timer => timer.delayMs), timeoutDetails: [...timeouts.values()], intervals: intervals.size, frames: frames.size, observers, webglCreated, webglActive, canvasDraws,
+        window.resourceSnapshot = () => ({ timeouts: [...timeouts.values()].map(timer => timer.delayMs), timeoutDetails: [...timeouts.values()], intervals: intervals.size, frames: frames.size, observers, webglCreated, webglActive, webglRenderers: [...webglRenderers], canvasDraws,
             animations: document.getAnimations().filter(a => a.playState === 'running').length });
     });
 }
@@ -130,7 +133,7 @@ export async function auditStrongholdResources({ browser, fixture, prepare, read
         const priorReports = state.reports;
         await page.getByRole('button', { name: 'Enter preview', exact: true }).click();
         await page.waitForFunction(() => document.querySelector('.hex-grid-layer'));
-        while (state.reports === priorReports) await page.waitForTimeout(10);
+        await expect.poll(() => state.reports, { timeout: 15_000, message: 'failed settlement must attempt its report' }).toBeGreaterThan(priorReports);
         await unmount(); const reportsAtExit = state.reports;
         await page.waitForTimeout(2000);
         const failed = await snapshot('after failed settlement unmount');
@@ -143,7 +146,7 @@ export async function auditStrongholdResources({ browser, fixture, prepare, read
                 const reports = state.reports;
                 await page.getByRole('button', { name: 'Enter preview', exact: true }).click();
                 await page.locator('.hex-grid-layer').waitFor();
-                while (state.reports === reports) await page.waitForTimeout(10);
+                await expect.poll(() => state.reports, { timeout: 15_000, message: 'combat cycle must attempt settlement' }).toBeGreaterThan(reports);
                 await unmount(); await page.waitForTimeout(50);
             }
             const combatCycles = await snapshot('after 8 combat entry/exit cycles');
@@ -179,7 +182,7 @@ export async function auditStrongholdResources({ browser, fixture, prepare, read
             assert.equal(inside.frames, 0, 'hidden exterior still schedules animation frames');
             assert.equal(quiet.canvasDraws, inside.canvasDraws, 'hidden exterior still paints');
             assert.equal(await page.locator('canvas').count(), 0, 'hidden exterior retains its canvases');
-            checks.push({ backdrop, cycle, outsideFrames: outside.frames, outsideWebgl: outside.webglActive, insideFrames: inside.frames, insideWebgl: inside.webglActive });
+            checks.push({ backdrop, cycle, outsideFrames: outside.frames, outsideWebgl: outside.webglActive, webglRenderers: outside.webglRenderers, insideFrames: inside.frames, insideWebgl: inside.webglActive });
             await page.getByTestId('stronghold-qa-unmount').evaluate(button => button.click());
             await page.locator('.scene-ambience-canvas').waitFor();
             await page.waitForFunction(draws => window.resourceSnapshot().canvasDraws > draws, inside.canvasDraws);
