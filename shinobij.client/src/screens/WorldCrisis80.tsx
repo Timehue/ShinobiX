@@ -208,7 +208,7 @@ export function WorldCrisis80({
             initialState={petSession}
             playerPets={battlePets}
             sharedImages={sharedImages}
-            submitTurn={(commands: ShowdownCommand[]) => submitShowdownTurn(character.name, petSession.sessionId, commands)}
+            submitTurn={(commands: ShowdownCommand[], expectedRound: number) => submitShowdownTurn(character.name, petSession.sessionId, commands, expectedRound)}
             onForfeit={() => { void forfeitShowdown(character.name, petSession.sessionId).finally(clearPetResult); }}
             onFinished={() => { writeCrumb(petCrumbKey(character.name), null); setTowerFightRunId(null); void refresh(); }}
             onExit={clearPetResult}

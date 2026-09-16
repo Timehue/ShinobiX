@@ -464,7 +464,7 @@ export function DungeonPetBattle({ character, onWin, onLeave, sharedImages = {},
 
     const sessionId = battle?.state.sessionId ?? null;
     const submitTurn = useCallback(
-        async (commands: ShowdownCommand[]) => (sessionId ? submitShowdownTurn(character.name, sessionId, commands) : null),
+        async (commands: ShowdownCommand[], expectedRound: number) => (sessionId ? submitShowdownTurn(character.name, sessionId, commands, expectedRound) : null),
         [character.name, sessionId],
     );
     // A forfeit is a defeat: it drops the server session and leaves, so quitting

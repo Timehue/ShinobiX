@@ -10,6 +10,7 @@
  *   node scripts/generate-warfront-pet-lods.mjs
  *   node scripts/generate-warfront-pet-lods.mjs --check
  *   node scripts/generate-warfront-pet-lods.mjs --critical-only
+ *   node scripts/generate-warfront-pet-lods.mjs --model=standard-3,starter-wind --check
  */
 import { createHash } from "node:crypto";
 import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
@@ -49,6 +50,7 @@ const checkOnly = argv.has("--check");
 const criticalOnly = argv.has("--critical-only");
 const quiet = argv.has("--quiet");
 const modelFilter = process.argv.slice(2).find((value) => value.startsWith("--model="))?.slice("--model=".length);
+const modelIds = modelFilter ? new Set(modelFilter.split(",").map((id) => id.trim())) : null;
 
 await Promise.all([MeshoptDecoder.ready, MeshoptEncoder.ready, MeshoptSimplifier.ready]);
 
@@ -94,7 +96,13 @@ async function existingRuntimeSources() {
     const selected = criticalOnly
         ? sources.filter((path) => CRITICAL_BUILT_IN_FILES.has(slash(relative(publicRoot, path))))
         : sources;
-    return modelFilter ? selected.filter((path) => path.endsWith(`/${modelFilter}.glb`) || path.endsWith(`\\${modelFilter}.glb`)) : selected;
+    const filtered = modelIds
+        ? selected.filter((path) => modelIds.has(slash(path).split("/").at(-1).slice(0, -4)))
+        : selected;
+    if (modelIds) {
+        for (const id of modelIds) invariant(id && filtered.some((path) => slash(path).endsWith(`/${id}.glb`)), `Requested model ${JSON.stringify(id)} is absent from the selected runtime inventory`);
+    }
+    return filtered;
 }
 
 /**

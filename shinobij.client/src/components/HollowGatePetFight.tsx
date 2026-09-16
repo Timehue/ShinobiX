@@ -153,7 +153,7 @@ export function HollowGatePetFight({ character, fight, activePet, sharedImages, 
     const sessionId = state?.sessionId ?? "";
 
     const submitTurn = useCallback(
-        async (commands: ShowdownCommand[]) => (sessionId ? submitShowdownTurn(character.name, sessionId, commands) : null),
+        async (commands: ShowdownCommand[], expectedRound: number) => (sessionId ? submitShowdownTurn(character.name, sessionId, commands, expectedRound) : null),
         [character.name, sessionId],
     );
 

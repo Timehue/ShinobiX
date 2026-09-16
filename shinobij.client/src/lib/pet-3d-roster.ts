@@ -91,35 +91,26 @@ export function inferPet3dProfile(name: string): PetCombatModelProfile {
     return "quadruped";
 }
 
-/**
- * Half-turn corrections for roster art whose MESH was generated facing the
- * opposite way from the rig it was bound to.
- *
- * Every roster GLB shares one stock skeleton, and in that skeleton the head sits
- * directly above the pelvis with zero X offset — so the bones are identical in
- * all 145 models and say nothing about which way the creature actually looks. On
- * an upright species (a bird especially) a backwards mesh therefore skins onto
- * that vertical chain perfectly cleanly: nothing tears, nothing is malformed,
- * and the model passes the certification pass. It simply stands with its back to
- * whatever it is supposed to be facing, which in an arena means the AI's pet
- * shows you its tail feathers while its team-mate shows you its beak.
- *
- * The mesh does carry the signal, in two places that are independent of each
- * other: a beak or snout reaches forward of the head bone, and toes reach
- * forward of the ankle. The entries below are the models where BOTH reach
- * backwards, under both a centroid and a 97th-percentile-protrusion measure —
- * four negative readings out of four. Species that merely have a blunt face
- * (Turtle Duck) or rear-swept plumage (Ember Phoenix) trip one probe and are
- * deliberately NOT listed: a half-turn applied to a correct model is exactly as
- * visible as the bug it is meant to fix.
- *
- * This is a presentation correction, not an art fix — regenerating the affected
- * GLBs facing the right way and dropping the entry is the durable repair.
- */
+/** Mesh-space corrections into the renderer's +Z forward convention.
+ * Use the visible production mesh, not the skeleton alone: generated geometry
+ * can point in a different direction from the bones it was bound to. Umbra's
+ * torso and muzzle point diagonally along +X/+Z. Worldroot and Ironfang now
+ * face +Z, so their old stock-rig half-turns must not be reapplied. */
 const ROSTER_YAW_CORRECTIONS: Readonly<Record<string, number>> = {
-    "standard-36": Math.PI,   // Dust Swift — toe geometry sits almost wholly behind the ankle
-    "legendary-4": Math.PI,   // Ironfang Tiger
-    "mythic-9": Math.PI,      // Worldroot Colossus
+    "standard-36": Math.PI,       // Dust Swift
+    "rare-42": -Math.PI / 8,      // Thunder Jerboa
+    "rare-43": -Math.PI / 4,      // Static Meerkat
+    "rare-46": -Math.PI / 4,      // Stoneback Tapir
+    "rare-48": -Math.PI / 8,      // Terra Porcupine
+    "rare-49": -Math.PI / 4,      // Bramble Capybara
+    "legendary-0": -Math.PI / 4,  // Glacier Wolf
+    "legendary-2": -Math.PI / 4,  // Umbra Fox
+    "legendary-5": -Math.PI / 8,  // Azure Kirin
+    "legendary-6": -Math.PI / 8,  // Ember Phoenix
+    "legendary-10": Math.PI / 8,  // Void Raven
+    "legendary-12": -Math.PI / 4, // Frost Lynx
+    "legendary-14": -Math.PI / 4, // Ancient Crane
+    "mythic-3": Math.PI / 2,     // Solar Stag
 };
 
 export function qaRosterCombatModel(pet: Pick<Pet, "id" | "name">): PetCombatModelConfig {

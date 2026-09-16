@@ -7,12 +7,12 @@ export const WARFRONT_PET_LOD_MANIFEST = {
         "lodTriangles": 10000
     },
     "/pet-models/roster/legendary-1.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/legendary-1.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/legendary-1.glb?v=20260902-battle-lod-v1-310af4da93c3",
         "sourceTriangles": 40000,
         "lodTriangles": 10000
     },
     "/pet-models/roster/legendary-10.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/legendary-10.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/legendary-10.glb?v=20260902-battle-lod-v1-f9595f69511d",
         "sourceTriangles": 40000,
         "lodTriangles": 10998
     },
@@ -32,7 +32,7 @@ export const WARFRONT_PET_LOD_MANIFEST = {
         "lodTriangles": 10000
     },
     "/pet-models/roster/legendary-14.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/legendary-14.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/legendary-14.glb?v=20260902-battle-lod-v1-db82b32a5d5f",
         "sourceTriangles": 40000,
         "lodTriangles": 11000
     },
@@ -42,7 +42,7 @@ export const WARFRONT_PET_LOD_MANIFEST = {
         "lodTriangles": 10000
     },
     "/pet-models/roster/legendary-16.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/legendary-16.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/legendary-16.glb?v=20260902-battle-lod-v1-3155fbdfdc58",
         "sourceTriangles": 40000,
         "lodTriangles": 10000
     },
@@ -72,7 +72,7 @@ export const WARFRONT_PET_LOD_MANIFEST = {
         "lodTriangles": 10000
     },
     "/pet-models/roster/legendary-21.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/legendary-21.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/legendary-21.glb?v=20260902-battle-lod-v1-4579d1120ebc",
         "sourceTriangles": 40000,
         "lodTriangles": 10000
     },
@@ -132,7 +132,7 @@ export const WARFRONT_PET_LOD_MANIFEST = {
         "lodTriangles": 10000
     },
     "/pet-models/roster/legendary-6.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/legendary-6.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/legendary-6.glb?v=20260902-battle-lod-v1-a741de918cbe",
         "sourceTriangles": 40000,
         "lodTriangles": 10000
     },
@@ -202,7 +202,7 @@ export const WARFRONT_PET_LOD_MANIFEST = {
         "lodTriangles": 10000
     },
     "/pet-models/roster/mythic-5.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/mythic-5.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/mythic-5.glb?v=20260902-battle-lod-v1-e134c340a878",
         "sourceTriangles": 40000,
         "lodTriangles": 10000
     },
@@ -232,7 +232,7 @@ export const WARFRONT_PET_LOD_MANIFEST = {
         "lodTriangles": 10000
     },
     "/pet-models/roster/rare-10.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/rare-10.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/rare-10.glb?v=20260902-battle-lod-v1-a04042cd56cc",
         "sourceTriangles": 40000,
         "lodTriangles": 10000
     },
@@ -267,12 +267,12 @@ export const WARFRONT_PET_LOD_MANIFEST = {
         "lodTriangles": 10000
     },
     "/pet-models/roster/rare-17.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/rare-17.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/rare-17.glb?v=20260902-battle-lod-v1-b736ed476612",
         "sourceTriangles": 40000,
         "lodTriangles": 10000
     },
     "/pet-models/roster/rare-18.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/rare-18.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/rare-18.glb?v=20260902-battle-lod-v1-b04e5572510e",
         "sourceTriangles": 40000,
         "lodTriangles": 10000
     },
@@ -322,7 +322,7 @@ export const WARFRONT_PET_LOD_MANIFEST = {
         "lodTriangles": 10000
     },
     "/pet-models/roster/rare-27.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/rare-27.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/rare-27.glb?v=20260902-battle-lod-v1-93f2e11b3001",
         "sourceTriangles": 40000,
         "lodTriangles": 10000
     },
@@ -337,7 +337,7 @@ export const WARFRONT_PET_LOD_MANIFEST = {
         "lodTriangles": 10000
     },
     "/pet-models/roster/rare-3.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/rare-3.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/rare-3.glb?v=20260902-battle-lod-v1-779c477f8bbd",
         "sourceTriangles": 40000,
         "lodTriangles": 10000
     },
@@ -367,27 +367,27 @@ export const WARFRONT_PET_LOD_MANIFEST = {
         "lodTriangles": 10000
     },
     "/pet-models/roster/rare-35.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/rare-35.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/rare-35.glb?v=20260902-battle-lod-v1-76c58389e8a5",
         "sourceTriangles": 40000,
         "lodTriangles": 10000
     },
     "/pet-models/roster/rare-36.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/rare-36.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/rare-36.glb?v=20260902-battle-lod-v1-fbd0a4d1fb20",
         "sourceTriangles": 40000,
         "lodTriangles": 10000
     },
     "/pet-models/roster/rare-37.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/rare-37.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/rare-37.glb?v=20260902-battle-lod-v1-f17f32396deb",
         "sourceTriangles": 40000,
         "lodTriangles": 10000
     },
     "/pet-models/roster/rare-38.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/rare-38.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/rare-38.glb?v=20260902-battle-lod-v1-5483f72bd4f1",
         "sourceTriangles": 40000,
         "lodTriangles": 10000
     },
     "/pet-models/roster/rare-39.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/rare-39.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/rare-39.glb?v=20260902-battle-lod-v1-3fd4bd39e6de",
         "sourceTriangles": 40000,
         "lodTriangles": 10000
     },
@@ -417,7 +417,7 @@ export const WARFRONT_PET_LOD_MANIFEST = {
         "lodTriangles": 10000
     },
     "/pet-models/roster/rare-44.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/rare-44.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/rare-44.glb?v=20260902-battle-lod-v1-3f3385c5cd99",
         "sourceTriangles": 40000,
         "lodTriangles": 10000
     },
@@ -457,7 +457,7 @@ export const WARFRONT_PET_LOD_MANIFEST = {
         "lodTriangles": 10000
     },
     "/pet-models/roster/rare-7.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/rare-7.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/rare-7.glb?v=20260902-battle-lod-v1-f094c989e48d",
         "sourceTriangles": 40000,
         "lodTriangles": 10000
     },
@@ -482,7 +482,7 @@ export const WARFRONT_PET_LOD_MANIFEST = {
         "lodTriangles": 10000
     },
     "/pet-models/roster/standard-10.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/standard-10.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/standard-10.glb?v=20260902-battle-lod-v1-7d8e11d02814",
         "sourceTriangles": 40000,
         "lodTriangles": 10000
     },
@@ -517,7 +517,7 @@ export const WARFRONT_PET_LOD_MANIFEST = {
         "lodTriangles": 10000
     },
     "/pet-models/roster/standard-17.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/standard-17.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/standard-17.glb?v=20260902-battle-lod-v1-2b70ff4cbf97",
         "sourceTriangles": 40000,
         "lodTriangles": 10000
     },
@@ -617,17 +617,17 @@ export const WARFRONT_PET_LOD_MANIFEST = {
         "lodTriangles": 10000
     },
     "/pet-models/roster/standard-35.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/standard-35.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/standard-35.glb?v=20260902-battle-lod-v1-c385b541114d",
         "sourceTriangles": 40000,
         "lodTriangles": 10000
     },
     "/pet-models/roster/standard-36.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/standard-36.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/standard-36.glb?v=20260902-battle-lod-v1-218907253787",
         "sourceTriangles": 40000,
         "lodTriangles": 10000
     },
     "/pet-models/roster/standard-37.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/standard-37.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/standard-37.glb?v=20260902-battle-lod-v1-8ecf09ae3f30",
         "sourceTriangles": 40000,
         "lodTriangles": 10000
     },
@@ -637,7 +637,7 @@ export const WARFRONT_PET_LOD_MANIFEST = {
         "lodTriangles": 10000
     },
     "/pet-models/roster/standard-39.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/standard-39.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/standard-39.glb?v=20260902-battle-lod-v1-5c1483fc3e62",
         "sourceTriangles": 40000,
         "lodTriangles": 10000
     },
@@ -667,7 +667,7 @@ export const WARFRONT_PET_LOD_MANIFEST = {
         "lodTriangles": 10000
     },
     "/pet-models/roster/standard-44.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/standard-44.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/standard-44.glb?v=20260902-battle-lod-v1-41db5d11872e",
         "sourceTriangles": 40000,
         "lodTriangles": 10000
     },
@@ -722,7 +722,7 @@ export const WARFRONT_PET_LOD_MANIFEST = {
         "lodTriangles": 10000
     },
     "/pet-models/showdown-v2/standard-7.glb": {
-        "lodUrl": "/pet-models/warfront-lod/showdown-v2/standard-7.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/showdown-v2/standard-7.glb?v=20260902-battle-lod-v1-9b86920764a5",
         "sourceTriangles": 40000,
         "lodTriangles": 10000
     },
@@ -732,9 +732,9 @@ export const WARFRONT_PET_LOD_MANIFEST = {
         "lodTriangles": 9590
     },
     "/pet-models/showdown-v2/starter-lightning-l.glb": {
-        "lodUrl": "/pet-models/warfront-lod/showdown-v2/starter-lightning-l.glb?v=20260902-battle-lod-v1",
-        "sourceTriangles": 26000,
-        "lodTriangles": 10000
+        "lodUrl": "/pet-models/warfront-lod/showdown-v2/starter-lightning-l.glb?v=20260902-battle-lod-v1-9958bffe551d",
+        "sourceTriangles": 29808,
+        "lodTriangles": 9998
     },
     "/pet-models/starter-earth-l.glb": {
         "lodUrl": "/pet-models/warfront-lod/starter-earth-l.glb?v=20260902-battle-lod-v1",
@@ -782,17 +782,17 @@ export const WARFRONT_PET_LOD_MANIFEST = {
         "lodTriangles": 11170
     },
     "/pet-models/starter-wind-l.glb": {
-        "lodUrl": "/pet-models/warfront-lod/starter-wind-l.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/starter-wind-l.glb?v=20260902-battle-lod-v1-86c21d0f7716",
         "sourceTriangles": 12822,
         "lodTriangles": 8974
     },
     "/pet-models/starter-wind-r.glb": {
-        "lodUrl": "/pet-models/warfront-lod/starter-wind-r.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/starter-wind-r.glb?v=20260902-battle-lod-v1-fdd9b9d0b0bd",
         "sourceTriangles": 26000,
         "lodTriangles": 10000
     },
     "/pet-models/starter-wind.glb": {
-        "lodUrl": "/pet-models/warfront-lod/starter-wind.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/starter-wind.glb?v=20260902-battle-lod-v1-ecad067039c9",
         "sourceTriangles": 15396,
         "lodTriangles": 10776
     }

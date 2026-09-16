@@ -1012,8 +1012,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (action === 'turn') {
             if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-showdown-turn', 60, 60_000, identity.name))) return;
-            // Serialize turns on the session key so a double-tapped Fight button
-            // can't resolve the same round twice.
+            const expectedRound = body.expectedRound;
+            if (expectedRound !== undefined && (!Number.isSafeInteger(expectedRound) || Number(expectedRound) < 0)) {
+                return res.status(400).json({ error: 'Invalid expected round.' });
+            }
+            // Bind new-client commands to the displayed round under the same
+            // session lock. Serialization alone lets a retry spend the next round.
             const turnResult = await withKvLock(key, async () => {
                 const session = await kv.get<ShowdownSession>(key);
                 if (!session || session.playerName !== playerName) return { error: 404 as const };
@@ -1023,6 +1027,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // Already resolved (e.g. payout retry after a 503): no new
                     // events; fall through to settlement below. Flagged so the
                     // settle path can tell a genuine finish from a re-post.
+                    return { session, events: [], replayed: true, bindings };
+                }
+                if (expectedRound !== undefined && expectedRound !== session.round) {
+                    // A dropped response can be retried safely. Return the latest
+                    // authoritative state without advancing combat or its lease.
+                    // Omitted round remains compatible with older clients and
+                    // existing terminal-settlement recovery callers.
                     return { session, events: [], replayed: true, bindings };
                 }
                 const playerIds = new Set(session.player.map((p) => p.id));

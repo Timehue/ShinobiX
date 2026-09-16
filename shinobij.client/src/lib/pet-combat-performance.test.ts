@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { petCombatModel } from "./pet-3d-models";
 import { advanceCombatBodyYaw, attackClipWindow, motionOwnsLocomotion, petDeathChoreography, resolveCombatBodyFacing, resolveCombatBodyYaw, resolveOpponentFacing } from "./pet-combat-performance";
 
 test("a scheduled contact freezes the authored extension rather than the start of the swing", () => {
@@ -58,12 +59,28 @@ test("opposing pets receive reciprocal headings that point directly at each othe
     assert.ok(Math.abs(player[1] + enemy[1]) < 1e-9);
 });
 
-test("the final model yaw points both +Z and Raijin's +X mesh axis at the opponent", () => {
-    const target = resolveOpponentFacing(-3.4, 2.6, 1.2, -1.5);
-    const ordinaryForward = rotateLocalForward(0, 1, resolveCombatBodyYaw(target[0], target[1], 0));
-    const raijinForward = rotateLocalForward(1, 0, resolveCombatBodyYaw(target[0], target[1], -Math.PI / 2));
-    assert.ok(ordinaryForward[0] * target[0] + ordinaryForward[1] * target[1] > 0.999999);
-    assert.ok(raijinForward[0] * target[0] + raijinForward[1] * target[1] > 0.999999);
+test("reviewed mesh forward axes face the opponent from either side of the arena", () => {
+    const models = [
+        { id: "rare-42", name: "Thunder Jerboa", localForward: [Math.sin(Math.PI / 8), Math.cos(Math.PI / 8)], evolutionStage: 0 as const },
+        { id: "rare-43", name: "Static Meerkat", localForward: [Math.SQRT1_2, Math.SQRT1_2], evolutionStage: 0 as const },
+        { id: "mythic-3", name: "Solar Stag", localForward: [-1, 0], evolutionStage: 0 as const },
+        { id: "starter-fire", name: "Ember Wolf", localForward: [1, 0], evolutionStage: 1 as const },
+        { id: "starter-water", name: "Abyssal Leviathan", localForward: [Math.SQRT1_2, Math.SQRT1_2], evolutionStage: 2 as const },
+        { id: "starter-lightning", name: "Bolt Fang", localForward: [-Math.SQRT1_2, Math.SQRT1_2], evolutionStage: 1 as const },
+        { id: "legendary-2", name: "Umbra Fox", localForward: [Math.SQRT1_2, Math.SQRT1_2], evolutionStage: 0 as const },
+        { id: "legendary-4", name: "Ironfang Tiger", localForward: [0, 1], evolutionStage: 0 as const },
+        { id: "mythic-9", name: "Worldroot Colossus", localForward: [0, 1], evolutionStage: 0 as const },
+        { id: "legendary-29", name: "Verdant Treant", localForward: [0, 1], evolutionStage: 0 as const },
+        { id: "starter-lightning", name: "Raijin Hound", localForward: [1, 0], evolutionStage: 2 as const },
+    ];
+    for (const { localForward, ...pet } of models) {
+        const model = petCombatModel({ ...pet, rarity: "legendary" })!;
+        for (const side of [1, -1]) {
+            const target = resolveOpponentFacing(-3.4 * side, 2.6 * side, 1.2 * side, -1.5 * side);
+            const forward = rotateLocalForward(localForward[0], localForward[1], resolveCombatBodyYaw(target[0], target[1], model.yawOffset));
+            assert.ok(forward[0] * target[0] + forward[1] * target[1] > 0.999999, `${pet.name} must face its opponent on side ${side}`);
+        }
+    }
 });
 
 test("locked duel locomotion preserves the opponent heading instead of the travel tangent", () => {
