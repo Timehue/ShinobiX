@@ -13,6 +13,7 @@ import { CloseButton } from "../components/ui/CloseButton";
 import { Modal } from "../components/ui/Modal";
 import { ChronicleCardInspector } from "../components/ChronicleCardInspector";
 import { effectiveItemLevelReq, meetsItemLevelReq } from "../../../shared/item-level-gate";
+import { HUNT_MATERIAL_SELL_RYO } from "../../../shared/hunt-material-sale";
 import {
     type Character,
     type EquipmentSlot,
@@ -45,6 +46,8 @@ import {
 } from "../lib/item-category";
 import { formatItemBonus, presentItem } from "../lib/item-presentation";
 import { settleInventorySale } from "../lib/shop-settlement";
+import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
+import { gameToast } from "../components/GameToast";
 import { openWarCrate } from "../lib/inventory-settlement";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { useCapabilityViewAvailability } from "../lib/live-capabilities-context";
@@ -63,15 +66,6 @@ function chronicleInventorySummary(id: string): string {
             ? "Jutsu"
             : "Snare";
 }
-
-// Rarity-tiered ryo sell value for cost:0 hunt drop materials. MUST match the
-// server table in api/inventory/_sale.ts (HUNT_MATERIAL_SELL_RYO).
-const HUNT_MATERIAL_SELL_RYO: Record<string, number> = {
-    "hunt-torn-hide": 12, "hunt-wild-feather": 12, "hunt-small-fang": 12, "hunt-cracked-horn": 12,
-    "hunt-beast-meat": 15, "hunt-frost-pelt": 40, "hunt-shadow-claw": 40, "hunt-wolf-fang": 55,
-    "hunt-ash-scale": 80, "hunt-ember-scale": 180, "hunt-shadow-pelt": 220,
-    "hunt-ancient-beast-core": 450, "hunt-titan-bone": 450, "hunt-legendary-material": 600,
-};
 
 export function Inventory({
     character,
@@ -111,6 +105,17 @@ export function Inventory({
     const [slotFilter, setSlotFilter] = useState<EquipmentSlot | null>(null);
     const [categoryFilter, setCategoryFilter] = useState<"all" | ItemCategory>("all");
     const [itemSearch, setItemSearch] = useState("");
+    const [salePending, setSalePending] = useState<{ quantity: number; name: string } | null>(null);
+    const saleBusyRef = useRef(false);
+    const [saleError, setSaleError] = useState<{ selection: NonNullable<typeof selectedInventoryItem>; message: string } | null>(null);
+    const saleNoticeRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (!saleError) return;
+        const frame = requestAnimationFrame(() => {
+            saleNoticeRef.current?.scrollIntoView({ block: "nearest", behavior: "auto" });
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [saleError, selectedInventoryItem]);
     const [openingWarCrate, setOpeningWarCrate] = useState(false);
     const openingWarCrateRef = useRef(false);
     const [attunePickFor, setAttunePickFor] = useState<string | null>(null);
@@ -479,25 +484,47 @@ export function Inventory({
     }
 
     function sellValueForItem(item: GameItem) {
-        // Hunt drop materials are cost:0 (un-buyable) but sell for a rarity-tiered
-        // ryo value. MUST match the server table in api/inventory/_sale.ts.
+        // Hunt drop materials are cost:0 (un-buyable); their shared table gives
+        // the preview and authoritative sale the same rarity-tiered ryo value.
         if ((item.cost ?? 0) <= 0 && item.id in HUNT_MATERIAL_SELL_RYO) return HUNT_MATERIAL_SELL_RYO[item.id];
         return Math.floor(Math.max(0, (item.cost ?? 0)) / 2);
     }
 
     async function sellSelectedItem(count = 1) {
+        if (saleBusyRef.current) return;
         if (!requireServerSettlement("inventorySale")) return;
         const selected = selectedInventoryItem;
         if (!selected?.item) return;
         const item = selected.item;
-        if (!isSellableGear(item)) return alert("This item cannot be sold.");
+        if (!isSellableGear(item)) {
+            setSaleError({ selection: selected, message: "This item cannot be sold." });
+            return;
+        }
 
         const qty = selected.source === "equipped" ? 1 : Math.max(1, Math.min(selected.count, Math.floor(count)));
         const equipmentSlot = selected.source === "equipped" && selected.equipmentSlot ? normalizeEquipmentSlot(selected.equipmentSlot) : undefined;
-        const result = await settleInventorySale(character.name, item.id, selected.source, qty, equipmentSlot);
-        if (!result.ok) return alert(result.error);
-        if (!onVersionedCharacter(result.character, result._saveVersion)) return;
-        setSelectedInventoryItem(null);
+        saleBusyRef.current = true;
+        setSalePending({ quantity: qty, name: item.name });
+        setSaleError(null);
+        try {
+            const result = await settleInventorySale(character.name, item.id, selected.source, qty, equipmentSlot);
+            if (!result.ok) {
+                setSaleError({ selection: selected, message: result.error });
+                return;
+            }
+            if (!onVersionedCharacter(result.character, result._saveVersion)) {
+                setSaleError({ selection: selected, message: AMBIGUOUS_ACTION_MESSAGE });
+                return;
+            }
+            const soldName = getItemById(allItems, result.settlement.itemId)?.name ?? result.settlement.itemId;
+            gameToast(`Sold ${result.settlement.quantity} × ${soldName} for ${result.settlement.ryo.toLocaleString()} ryo.`);
+            setSelectedInventoryItem((current) => current === selected ? null : current);
+        } catch {
+            setSaleError({ selection: selected, message: AMBIGUOUS_ACTION_MESSAGE });
+        } finally {
+            saleBusyRef.current = false;
+            setSalePending(null);
+        }
     }
 
     function describeBonuses(item: GameItem) {
@@ -545,6 +572,15 @@ export function Inventory({
             setCheckingExchange(false);
         }
     }
+    const selectedSaleError = saleError?.selection === selected ? saleError.message : undefined;
+    const saleNotice = saleError && (
+        <div ref={saleNoticeRef} className="facility-inline-warning">
+            <p id="inventory-sale-error" role="alert">
+                <strong>{saleError.selection.item?.name ?? saleError.selection.entry} sale:</strong> {saleError.message}
+            </p>
+            <button type="button" className="item-action-ghost" onClick={() => setSaleError(null)}>Dismiss sale notice</button>
+        </div>
+    );
     const selectedPetFoodXp = petFeedXpForItem(selectedGameItem?.id);
     const selectedPresentation = selectedGameItem ? presentItem(selectedGameItem, selectedPetFoodXp) : null;
     const selectedSellValue = selectedGameItem && isSellableGear(selectedGameItem) ? sellValueForItem(selectedGameItem) : 0;
@@ -571,6 +607,7 @@ export function Inventory({
 
     return (
         <>
+            {!selected && saleNotice}
             <div className="inventory-page">
                 <section className="inventory-equipped-panel">
                     <div className="inventory-equipped-heading">
@@ -1100,6 +1137,13 @@ export function Inventory({
                                     </div>
                                 )}
 
+                                {salePending && (
+                                    <p id="inventory-sale-pending" className="hint" role="status">
+                                        Selling {salePending.quantity} × {salePending.name}… You can close these details while the sale completes.
+                                    </p>
+                                )}
+                                {saleNotice}
+
                                 <div className="item-popup-actions">
                                     {selectedStoresSignpost && setScreen && selected.source === "backpack" && (
                                         <button
@@ -1216,6 +1260,9 @@ export function Inventory({
                                         <button
                                             type="button"
                                             className="item-action-secondary"
+                                            disabled={!!salePending}
+                                            aria-busy={!!salePending}
+                                            aria-describedby={salePending ? "inventory-sale-pending" : selectedSaleError ? "inventory-sale-error" : undefined}
                                             onClick={() => sellSelectedItem(1)}
                                         >
                                             Sell for {selectedSellValue} ryo
@@ -1226,6 +1273,9 @@ export function Inventory({
                                         <button
                                             type="button"
                                             className="item-action-secondary"
+                                            disabled={!!salePending}
+                                            aria-busy={!!salePending}
+                                            aria-describedby={salePending ? "inventory-sale-pending" : selectedSaleError ? "inventory-sale-error" : undefined}
                                             onClick={() => sellSelectedItem(selected.count)}
                                         >
                                             Sell All x{selected.count} for {selectedSellValue * selected.count} ryo

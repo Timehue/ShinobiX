@@ -5,6 +5,8 @@ import {
 } from '../_settlement-receipts.js';
 import type { SettlementItem } from '../shop/_catalog.js';
 import { canonicalEquipmentSlot, resolvedEquipmentEntries, REFERENCE_EQUIPMENT_SLOTS } from '../_equipment-ownership.js';
+import { HUNT_MATERIAL_SELL_RYO } from '../../shared/hunt-material-sale.js';
+export { HUNT_MATERIAL_SELL_RYO } from '../../shared/hunt-material-sale.js';
 
 export type InventorySaleSource = 'backpack' | 'equipped';
 export type InventorySaleValue = { kind: 'inventory-sale'; itemId: string; quantity: number; ryo: number; source: InventorySaleSource };
@@ -15,18 +17,6 @@ export type InventorySaleResult =
 const MAX_STACK = 9999;
 const EQUIPMENT_KEYS = new Set(['aura', 'hand', 'gloves', 'body', 'waist', 'legs', 'feet', 'head', 'item', 'item1', 'item2', 'item3', 'thrown', 'potion', 'weapon', 'armor', 'accessory']);
 const SELLABLE_SLOTS = new Set(['head', 'body', 'waist', 'legs', 'feet', 'hand', 'gloves', 'thrown', 'item', 'aura']);
-
-// Hunt drop materials are cost:0 (deliberately un-buyable) but should still be
-// worth something so they aren't dead clutter. A rarity-tiered ryo value, keyed by
-// id, gives every drop a purpose and finally makes rarity read as rarity. Roughly
-// tracks each material's forge craft-point worth (~×10). Keep in sync with the
-// client mirror in shinobij.client/src/screens/Inventory.tsx (huntMaterialSellRyo).
-export const HUNT_MATERIAL_SELL_RYO: Record<string, number> = {
-    'hunt-torn-hide': 12, 'hunt-wild-feather': 12, 'hunt-small-fang': 12, 'hunt-cracked-horn': 12,
-    'hunt-beast-meat': 15, 'hunt-frost-pelt': 40, 'hunt-shadow-claw': 40, 'hunt-wolf-fang': 55,
-    'hunt-ash-scale': 80, 'hunt-ember-scale': 180, 'hunt-shadow-pelt': 220,
-    'hunt-ancient-beast-core': 450, 'hunt-titan-bone': 450, 'hunt-legendary-material': 600,
-};
 
 function whole(raw: unknown): number | null {
     return typeof raw === 'number' && Number.isSafeInteger(raw) && raw >= 0 ? raw : null;

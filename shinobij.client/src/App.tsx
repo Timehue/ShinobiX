@@ -368,6 +368,7 @@ export { armorReductionForQuality, consolidateItemBonuses };
 
 import {
     currentDateKey,
+    mergeById as mergeItemsById,
     playerSlug,
 } from "./lib/utils";
 
@@ -3189,9 +3190,7 @@ export default function App() {
     }
 
     function mergeById<T extends { id: string }>(current: T[], incoming: T[]) {
-        const merged = new Map(current.map((item) => [item.id, item]));
-        incoming.forEach((item) => merged.set(item.id, item));
-        return Array.from(merged.values());
+        return mergeItemsById(current, incoming);
     }
 
     function isContentAdminName(raw: unknown): boolean { return snapshotContentAdminName(raw); }

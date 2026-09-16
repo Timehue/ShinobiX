@@ -3,7 +3,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 import type { SettlementItem } from '../shop/_catalog.js';
-import { applyInventorySale } from './_sale.js';
+import { applyInventorySale, HUNT_MATERIAL_SELL_RYO } from './_sale.js';
+import { HUNT_MATERIAL_SELL_RYO as SHARED_HUNT_MATERIAL_SELL_RYO } from '../../shared/hunt-material-sale.js';
 
 const item = (overrides: Partial<SettlementItem> = {}): SettlementItem => ({
     id: 'sale-item', name: 'Sale Item', slot: 'hand', rarity: 'common', cost: 101, ...overrides,
@@ -101,6 +102,35 @@ test('sale route and inventory screen use authenticated locked settlement', () =
     assert.match(route, /strict: true/);
     assert.match(helper, /'\/api\/inventory\/sell'/);
     assert.match(screen, /settleInventorySale\(character\.name/);
-    assert.match(screen, /if \(!onVersionedCharacter\(result\.character, result\._saveVersion\)\) return;\s*setSelectedInventoryItem\(null\)/,
-        'the authoritative sale snapshot must be accepted before closing the item action');
+    assert.match(screen, /if \(!onVersionedCharacter\(result\.character, result\._saveVersion\)\) \{\s*setSaleError\(\{ selection: selected, message: AMBIGUOUS_ACTION_MESSAGE \}\);\s*return;\s*\}/,
+        'an unaccepted sale snapshot must retain item details and explain recovery');
+    assert.match(screen, /gameToast\(`Sold [\s\S]*?setSelectedInventoryItem\(\(current\) => current === selected \? null : current\)/,
+        'an accepted sale reports its receipt and only closes the submitted selection');
+});
+
+test('every shared hunt-material price preserves the authoritative sale payout', () => {
+    const expectedPrices = {
+        'hunt-torn-hide': 12, 'hunt-wild-feather': 12, 'hunt-small-fang': 12, 'hunt-cracked-horn': 12,
+        'hunt-beast-meat': 15, 'hunt-frost-pelt': 40, 'hunt-shadow-claw': 40, 'hunt-wolf-fang': 55,
+        'hunt-ash-scale': 80, 'hunt-ember-scale': 180, 'hunt-shadow-pelt': 220,
+        'hunt-ancient-beast-core': 450, 'hunt-titan-bone': 450, 'hunt-legendary-material': 600,
+    };
+    assert.strictEqual(HUNT_MATERIAL_SELL_RYO, SHARED_HUNT_MATERIAL_SELL_RYO, 'legacy API export remains compatible');
+    assert.deepEqual(HUNT_MATERIAL_SELL_RYO, expectedPrices);
+    for (const [id, price] of Object.entries(expectedPrices)) {
+        for (const quantity of [1, 9_999]) {
+            const stored = character({ itemStacks: [{ itemId: id, count: 9_999 }] });
+            const before = structuredClone(stored);
+            const sold = applyInventorySale(stored, item({ id, slot: 'item', cost: 0 }), 'backpack', quantity, undefined, 'shared-hunt-sale', 100);
+            assert.equal(sold.ok, true, id);
+            if (!sold.ok) continue;
+            assert.deepEqual(sold.value, { kind: 'inventory-sale', itemId: id, quantity, ryo: price * quantity, source: 'backpack' });
+            assert.equal(sold.character.ryo, 10 + price * quantity);
+            assert.equal(sold.replayed, false);
+            assert.deepEqual(stored, before, 'settlement must leave its input unchanged');
+        }
+        const priced = applyInventorySale(character({ inventory: [id] }), item({ id, cost: 101 }), 'backpack', 1, undefined, 'priced-hunt-sale', 100);
+        assert.equal(priced.ok, true, id);
+        if (priced.ok) assert.equal(priced.value.ryo, 50, 'positive catalog cost still takes precedence over the material price');
+    }
 });

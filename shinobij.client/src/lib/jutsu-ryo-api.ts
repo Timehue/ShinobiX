@@ -1,3 +1,4 @@
+import { AMBIGUOUS_ACTION_MESSAGE } from './ambiguous-action';
 import type { Character } from '../types/character';
 import type { ActiveJutsuTraining } from '../types/combat';
 
@@ -17,19 +18,21 @@ export async function mutateJutsuRyoTraining(playerName: string, action: 'start'
     const requestId = `${Date.now()}-${crypto.randomUUID().replace(/-/g, '')}`;
     const { bonusPct, ...rest } = extra;
     const init: RequestInit = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName, action, requestId, ...rest, ...(bonusPct === undefined ? {} : { trainingBonusPct: bonusPct }) }) };
-    let lastError = 'The jutsu training server is unreachable.';
+    let lastError = AMBIGUOUS_ACTION_MESSAGE;
     for (let attempt = 0; attempt < 2; attempt += 1) {
         try {
             const response = await fetch('/api/training/jutsu-ryo', init);
             const data = await response.json().catch(() => null) as Result | null;
             if (response.ok && data) return data;
-            lastError = data?.error || (RETRYABLE_STATUS.has(response.status)
+            lastError = response.status === 408 || response.status >= 500
+                ? AMBIGUOUS_ACTION_MESSAGE
+                : data?.error || (RETRYABLE_STATUS.has(response.status)
                 ? 'Jutsu training is temporarily busy. Please retry.'
                 : 'Jutsu training was rejected.');
             if (!RETRYABLE_STATUS.has(response.status) || attempt === 1) break;
             await new Promise((resolve) => globalThis.setTimeout(resolve, retryDelayMs(response, attempt)));
         } catch {
-            lastError = 'The jutsu training server is unreachable.';
+            lastError = AMBIGUOUS_ACTION_MESSAGE;
             if (attempt === 0) await new Promise((resolve) => globalThis.setTimeout(resolve, 250));
         }
     }

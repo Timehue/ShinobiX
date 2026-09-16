@@ -342,15 +342,19 @@
 
 .bank-workspace { grid-template-columns: minmax(0, 1.14fr) minmax(340px, 0.86fr); }
 
-.bank-balance-rail {
+.bank-balance-rail,
+.bank-wire-preview {
     display: grid;
+    border: 1px solid #2c4054;
+    background: #050e18;
+}
+
+.bank-balance-rail {
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     align-items: center;
-    gap: 12px;
+    gap: var(--sp-3);
     padding: 15px;
-    border: 1px solid #2c4054;
     border-radius: 11px;
-    background: #050e18;
 }
 
 .bank-balance-rail > div { display: grid; gap: 3px; }
@@ -389,7 +393,7 @@
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 12px;
-    margin-top: 16px;
+    margin-top: var(--sp-4);
     padding: 13px;
     border: 1px solid #3c4c4b;
     border-radius: 11px;
@@ -417,12 +421,9 @@
 }
 
 .bank-wire-preview {
-    display: grid;
-    gap: 4px;
+    gap: var(--sp-1);
     padding: 13px;
-    border: 1px solid #2c4054;
     border-radius: 10px;
-    background: #050e18;
 }
 
 .bank-wire-preview > span { color: #7e91a4; font-size: 0.68rem; font-weight: 900; text-transform: uppercase; }
