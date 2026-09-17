@@ -1,5 +1,6 @@
 // Reapply maintained native sources after a Bubblewrap regeneration.
 // Usage: node scripts/sync-android-qa.mjs C:\path\to\shinobi-twa
+import { createHash } from 'node:crypto';
 import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
 import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -33,6 +34,10 @@ for (const dependency of ['com.google.android.play:app-update:2.1.0', 'com.googl
     if (!gradle.includes(dependency)) gradle = gradle.replace('dependencies {', `dependencies {\n    implementation '${dependency}'`);
 }
 if (!gradle.includes("junit:junit:4.13.2")) gradle = gradle.replace('dependencies {', "dependencies {\n    testImplementation 'junit:junit:4.13.2'");
+// Bubblewrap 1.25.0's template pins androidbrowserhelper 2.6.2, whose splash
+// screen colors the system bars with APIs Android 15 deprecated; 2.7.3 turns on
+// edge-to-edge. Raise anything older, never lower a newer version.
+gradle = gradle.replace(/(com\.google\.androidbrowserhelper:androidbrowserhelper:)2\.(?:[0-6]\.\d+|7\.[0-2])(?:-[\w.]+)?(?=')/, '$12.7.3');
 gradle = gradle.replace(/versionCode\s+3\b/, 'versionCode 4').replace(/versionName\s+"3"/, 'versionName "4"');
 await put('app/build.gradle', gradle);
 let manifest = await readFile(join(project, 'app/src/main/AndroidManifest.xml'), 'utf8');
@@ -50,7 +55,12 @@ if (!manifest.includes('com.shinobijourney.app.PlayReviewActivity')) {
 }
 await put('app/src/main/AndroidManifest.xml', manifest);
 if (twa.appVersionCode === 3) { twa.appVersionCode = 4; twa.appVersionName = '4'; twa.appVersion = '4'; }
-await put('twa-manifest.json', JSON.stringify(twa, null, 2) + '\n');
+const manifestText = JSON.stringify(twa, null, 2) + '\n';
+await put('twa-manifest.json', manifestText);
+// `bubblewrap build` compares a SHA-1 of twa-manifest.json with this file. On a
+// mismatch it offers to regenerate the project, with Yes as the default, which
+// discards every source this script applies. Keep the checksum in step.
+await put('manifest-checksum.txt', createHash('sha1').update(manifestText).digest('hex'));
 const icon = join(root, 'shinobij.client/public/icon-512.png');
 const maskable = join(root, 'shinobij.client/public/icon-maskable-512.png');
 await put('store_icon.png', await readFile(icon));
