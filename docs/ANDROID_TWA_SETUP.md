@@ -106,13 +106,15 @@ unrecoverable in different directions.
   system bars with the APIs Android 15 deprecated. 2.7.3's `LauncherActivity`
   turns on edge-to-edge instead, which is what Play's "Edge-to-edge may not
   display for all users" notice asks for. Every `bubblewrap update` rewrites
-  `app/build.gradle` and puts 2.6.2 back, so re-apply the one-line bump after an
-  update and before building.
+  `app/build.gradle` and puts 2.6.2 back. After an update, run
+  `node scripts/sync-android-qa.mjs <project>` (see `android/twa/README.md`),
+  which restores 2.7.3 along with the maintained Play sources.
 - **`bubblewrap build` can undo hand edits.** It compares the SHA-1 of
   `twa-manifest.json` with `manifest-checksum.txt`. On a mismatch it offers to
   update the project, with Yes as the default, and that regenerates
-  `app/build.gradle` without saying so. Bump the version with
-  `bubblewrap update` first, make the edit, then build.
+  `app/build.gradle` without saying so. The sync script rewrites the checksum
+  to match. After any other edit to `twa-manifest.json`, rerun the sync or
+  `bubblewrap update` before building.
 - **Play's "deprecated APIs for edge-to-edge" notice is expected to stay.**
   Google's own `WindowCompat.enableEdgeToEdge()` in `androidx.core`, which 2.7.3
   calls, still calls `setStatusBarColor`, `setNavigationBarColor` and
