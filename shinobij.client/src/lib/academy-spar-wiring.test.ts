@@ -21,7 +21,7 @@ import { readFileSync } from "node:fs";
 const host = readFileSync(new URL("../components/StoryBossFightHost.tsx", import.meta.url), "utf8");
 const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
 const arena = readFileSync(new URL("../screens/MissionArenaFight.tsx", import.meta.url), "utf8");
-const coach = readFileSync(new URL("../components/SparCoach.tsx", import.meta.url), "utf8");
+const coach = readFileSync(new URL("./first-fight-coach.ts", import.meta.url), "utf8");
 
 test("the spar launch is fail-closed on the sealed server path", () => {
     const launch = app.slice(app.indexOf("function startAcademySparringMatch"), app.indexOf("function startAcademySparringMatch") + 1400);
@@ -61,13 +61,13 @@ test("the host reports a sealed-start failure without local combat", () => {
 
 test("a sealed spar keeps its coaching and skips the chapter presentation", () => {
     assert.match(host, /soloPveArenaTransport/);
-    assert.match(host, /coach=\{isSpar \? "academySpar" : undefined\}/, "the spar must get the in-battle coaching banner");
+    assert.match(host, /coach=\{isSpar \? "academySpar" : firstFightLessonForStory\(character\)\}/, "the spar must get the in-battle coaching banner");
     assert.match(host, /storyTheme=\{isSpar \? undefined : theme\}/, "a training dummy must not fire chapter stings or wear the chapter backdrop");
 });
 
 test("Academy guidance shares combat feedback without covering fighter vitals", () => {
     const notice = arena.slice(arena.indexOf('<div className="combat-action-notice">'), arena.indexOf('<CombatActionTray>'));
-    assert.match(notice, /actionNotice \? <span>\{actionNotice\}<\/span>[\s\S]*<SparCoach/);
+    assert.match(notice, /actionNotice \? <span>\{actionNotice\}<\/span>[\s\S]*spar-coach-hint/);
     assert.doesNotMatch(coach, /createPortal|position:\s*["']fixed/);
 });
 

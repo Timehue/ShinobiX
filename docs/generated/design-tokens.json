@@ -2407,7 +2407,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/hub-screens-skin.css",
-            "line": 1484
+            "line": 1491
           }
         ]
       },
@@ -3144,7 +3144,7 @@
           },
           {
             "source": "shinobij.client/src/styles/hub-screens-skin.css",
-            "line": 1095
+            "line": 1102
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
@@ -4196,7 +4196,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/hub-screens-skin.css",
-            "line": 1091
+            "line": 1098
           },
           {
             "source": "shinobij.client/src/styles/jutsu-training-skin.css",

@@ -38,7 +38,17 @@ import {
 export { ACADEMY_SPAR_OPPONENT_ID };
 
 export const ACADEMY_SPAR_LEVEL = 1;
-export const ACADEMY_SPAR_HP = 50;
+/**
+ * 400 authored (~300 after the shared PvE band). A fresh level-1 kit lands
+ * ~188 with Basic Attack and ~395 with any 60 AP bloodline jutsu (measured
+ * against the live engine), so the dummy survives ONE cheap action and falls
+ * to the second: the player gets to feel a 40 AP action and a 60 AP action
+ * in the same turn, which is the whole AP lesson. It still dies to one heavy
+ * cast, and its punches never land before round 2 (it spends its first turn
+ * walking in), so the guaranteed first win is unchanged. Was 50: that fell
+ * to whichever button the player pressed first.
+ */
+export const ACADEMY_SPAR_HP = 400;
 export const ACADEMY_SPAR_NAME = 'Academy Training Dummy';
 
 /** The first two jutsu of the client's `balanced` loadout — mirrored ids, not a

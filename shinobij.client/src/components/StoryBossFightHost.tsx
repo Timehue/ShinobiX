@@ -1,5 +1,6 @@
 import { Suspense, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { Character } from "../types/character";
+import { companionCoachName, firstFightLessonForStory } from "../lib/first-fight-coach";
 import type { SoloPveSession } from "../lib/solo-pve-api";
 import type { SavedBloodline, Jutsu, GameItem } from "../types/combat";
 import { lazyWithRetry } from "../lib/lazyWithRetry";
@@ -423,7 +424,8 @@ export function StoryBossFightHost({
                 // portrait and the result card are separate props, so the spar
                 // keeps both.
                 storyTheme={isSpar ? undefined : theme}
-                coach={isSpar ? "academySpar" : undefined}
+                coach={isSpar ? "academySpar" : firstFightLessonForStory(character)}
+                coachSpeaker={companionCoachName(character)}
                 enemyAvatarOverride={theme.bossPortrait}
                 onExit={closeFight}
                 renderResult={({ won, settleState, settleResult, retry }) => {

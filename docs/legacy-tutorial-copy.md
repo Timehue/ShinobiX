@@ -20,7 +20,7 @@ lives in code at `shinobij.client/src/data/patch-notes.ts` (version
 ## Where the tutorial lives (for wiring later)
 
 - Onboarding step machine: `shinobij.client/src/lib/onboarding-step.ts`
-- Coaches / hints: `components/OnboardingCoach.tsx`, `components/SparCoach.tsx`,
+- Coaches / hints: `components/OnboardingCoach.tsx`, `lib/first-fight-coach.ts`,
   `components/ScreenHint.tsx`
 - For a richer beat, the VN authoring system (admin VN editor + `TriggeredVisualNovel`)
   can carry a short scene — mirror `lib/legacy-sage-vn.ts`.

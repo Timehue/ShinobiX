@@ -49,14 +49,19 @@ describe("createCharacter — the starting grant", () => {
         assert.equal(NEW().onboardingStep, "academyIntro");
     });
 
-    it("seeds the bloodline's jutsu at mastery 1 but equips only three", () => {
+    it("seeds the bloodline's jutsu at mastery 1 but equips only three: two strikes and the 40 AP utility", () => {
         const bloodline = starterSavedBloodlines.find((b) => b.name === "Ashen Eyes");
         assert.ok(bloodline, "fixture bloodline 'Ashen Eyes' must exist");
         const ids = bloodline.jutsus.map((j) => j.id);
         const c = NEW();
 
         assert.deepEqual(c.jutsuMastery, ids.map((id) => ({ jutsuId: id, level: 1, xp: 0 })));
-        assert.deepEqual(c.equippedJutsuIds, ids.slice(0, 3));
+        // The cheap technique has to be on the bar for the first fights to teach
+        // the 40 AP / 60 AP relationship; the third strike waits in the Profile.
+        const utility = bloodline.jutsus.find((j) => j.ap === 40);
+        assert.ok(utility, "every starter bloodline carries one 40 AP utility");
+        assert.deepEqual(c.equippedJutsuIds, [ids[0], ids[1], utility.id]);
+        assert.equal(c.equippedJutsuIds.length, 3);
         // The universal "Flicker" is deliberately NOT seeded — the guided first
         // session has the player free-unlock it ("first jutsu is free").
         assert.ok(!c.equippedJutsuIds.some((id) => id.includes("flicker")));

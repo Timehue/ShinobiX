@@ -148,7 +148,7 @@ test('spar run ids are unique and namespaced', () => {
 test('the sealed template stays a level-1 pushover, not a scaled enemy', () => {
     const template = academySparEnemyTemplate(null);
     assert.equal(template.level, 1);
-    assert.equal(template.hp, 50);
+    assert.equal(template.hp, 400);
     assert.equal(template.armorRawDR, 0, 'armor would blunt the teaching hits');
     // A generic level-1 mission enemy carries 180+ offense and 250+ HP. If the
     // dummy ever climbs toward that curve it stops describing a tutorial.
