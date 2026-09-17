@@ -64,6 +64,7 @@ import { finishGoogleRedirect, forgetGoogleNonce, readGoogleRedirect } from "./l
 import { clearGuestSessionFor, rememberGuestSession, resumeGuestFor, signupRequestBody, type SignupCredential } from "./lib/guest-play";
 import { preloadScreen } from "./lib/screen-preload";
 import { imageCategoriesForScreen } from "./lib/screen-image-categories";
+import { useImageCategoryHydration } from "./lib/image-category-hydration";
 import { STUDIO_SCREEN_PRESENTATION } from "./lib/studio-screen-presentation";
 import { updateRealtimePresence, usePresenceSocket } from "./lib/use-presence-socket";
 import { useViewportContract } from "./lib/use-viewport-contract";
@@ -3804,9 +3805,7 @@ export default function App() {
     function loadScreenImageCategories(activeScreen: Screen): void {
         for (const category of imageCategoriesForScreen(activeScreen)) void loadCategory(category);
     }
-
-    useEffect(() => { loadScreenImageCategories(screen); }, [screen]);
-    useEffect(() => { if (activeTriggeredEvent) void loadCategory('event'); }, [activeTriggeredEvent]);
+    useImageCategoryHydration(loadScreenImageCategories, loadCategory, screen, activeTriggeredEvent);
 
     // The choose-your-companion overlay (onboardingStep === "starter") renders
     // starter portraits from sharedImages['pet:<id>'], but it's not a

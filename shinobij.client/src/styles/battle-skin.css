@@ -5127,6 +5127,75 @@ html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .battle-tab-badge {
     }
 }
 
+/* Card art between the phone squares and the wide command centre.
+   `.combat-jutsu-thumb` is a centred grid, so the base `height: 100%` on the
+   image had no definite basis to resolve against and fell back to the square
+   intrinsic ratio: a 120x120 image centred in an 88-tall window, losing 16px
+   off the top AND the bottom to `overflow: hidden`. Give it a definite box and
+   fit the whole square inside it. */
+@container shinobi-combat (min-width: 480px) {
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-thumb > img {
+        position: absolute !important;
+        inset: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: contain !important;
+        object-position: center !important;
+    }
+
+    /* Fitting a square inside a landscape card leaves a gutter either side.
+       Flat gradient there made every card identical in the dead space; the
+       card's OWN art, blurred and overscanned, inks the whole tile in its own
+       colours while the sharp copy above it stays uncropped. `--combat-card-art`
+       comes from lib/card-art-backdrop; with no art the var is unset, the
+       background resolves to `none`, and the fallback glyph shows through. */
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-thumb::after {
+        content: "" !important;
+        position: absolute !important;
+        inset: 0 !important;
+        z-index: 0 !important;
+        background-image: var(--combat-card-art) !important;
+        background-size: cover !important;
+        background-position: center !important;
+        background-repeat: no-repeat !important;
+        filter: blur(13px) saturate(1.3) brightness(0.42) !important;
+        transform: scale(1.4) !important;
+        border-radius: inherit !important;
+        pointer-events: none !important;
+    }
+
+    /* Method/target never fit here — it clipped to "Single · En…" at 1024 and
+       to a bare "S." at 768, with the Details target landing on top of it. The
+       wide tier already drops it for the same reason; Details carries the full
+       text. Below 980 the cost chip is a stub too ("2." for "25 CP"), so it
+       also goes; the AP line under the nameplate still shows the real cost. */
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-method-target {
+        display: none !important;
+    }
+}
+
+@container shinobi-combat (min-width: 480px) and (max-width: 979px) {
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-resources {
+        display: none !important;
+    }
+}
+
+/* Above 980 the chip fits, but only clear of the Details target's corner. The
+   opposite corner belongs to the cooldown pip whenever one is rendered (18px at
+   right: 4-5px), so step the chip inside it rather than under it. */
+@container shinobi-combat (min-width: 980px) {
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-resources {
+        top: 6px !important;
+        left: auto !important;
+        right: 5px !important;
+        transform: none !important;
+    }
+
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-card-wrap:has(> .combat-cd-badge) .combat-jutsu-resources {
+        right: 27px !important;
+    }
+}
+
 /* When compact desktop also has useful vertical space, reserve enough of it
    for a populated two-row loadout instead of showing a clipped first row. */
 @container shinobi-combat (min-width: 980px) and (min-height: 820px) {
@@ -6524,9 +6593,13 @@ body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger
         aspect-ratio: auto !important;
     }
 
-    /* Every action now uses the same edge-to-edge art window. Source artwork
-       comes in several aspect ratios, so a consistent crop is less chaotic
-       than letterboxing each card differently. */
+    /* The action card is a 160x86 landscape tile, but every piece of source
+       art is SQUARE (generated jutsu art is 1024x1024, catalog item art
+       320x320). An edge-to-edge `cover` crop therefore threw away 47% of each
+       image's height — enough to behead the potion bottles and slice the kunai
+       down to its shaft. Fit the whole square instead and let the thumb's own
+       radial wash fill the side gutters, which then double as the badge
+       columns below. */
     #combat .combat-jutsu-thumb > img {
         position: absolute !important;
         inset: 0 !important;
@@ -6538,12 +6611,17 @@ body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger
         max-width: 100% !important;
         max-height: 100% !important;
         padding: 0 !important;
-        object-fit: cover !important;
-        object-position: center 42% !important;
+        object-fit: contain !important;
+        object-position: center !important;
         image-rendering: auto !important;
         border-radius: inherit !important;
-        background: radial-gradient(circle at 50% 45%, rgba(38, 62, 88, 0.38), rgba(2, 6, 12, 0.78)) !important;
-        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.58));
+        /* Transparent: the thumb's ::after paints this card's own art, blurred,
+           across the full tile. An opaque wash here would hide it. */
+        background: transparent !important;
+        /* drop-shadow follows the alpha silhouette, which for a fitted square IS
+           the drawn art, so the hairline reads as a rim around the picture and the
+           meeting point with the blurred surround looks framed, not seamed. */
+        filter: drop-shadow(0 0 0.5px rgba(255, 246, 214, 0.55)) drop-shadow(0 3px 9px rgba(0, 0, 0, 0.85));
     }
 
     /* Method/target repeats across most of a loadout and was competing with
@@ -6553,12 +6631,22 @@ body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger
         display: none !important;
     }
 
+    /* The Details target owns the top-LEFT corner (a 44px box whose glyph is
+       pinned to its corner). This chip used to be placed there too, so the "?"
+       sat on top of it and "25 CP" rendered as "?5 CP". Opposite corner — but
+       that one belongs to the cooldown pip while a cooldown is running, so step
+       the chip inside the pip instead of under it (measured: the pip covered
+       37% of the chip, leaving "25 C"). */
     #combat .combat-jutsu-resources {
         top: 6px !important;
-        right: auto !important;
-        left: 6px !important;
+        left: auto !important;
+        right: 6px !important;
         max-width: calc(100% - 56px) !important;
         transform: none !important;
+    }
+
+    #combat .combat-jutsu-card-wrap:has(> .combat-cd-badge) .combat-jutsu-resources {
+        right: 28px !important;
     }
 
     #combat .combat-jutsu-button:disabled:not(.jutsu-on-cooldown) {
