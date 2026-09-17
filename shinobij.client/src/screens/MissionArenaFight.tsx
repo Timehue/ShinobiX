@@ -1,4 +1,5 @@
 import { playerLensDiscipline } from "../lib/player-lens-discipline";
+import { cardArtBackdrop } from "../lib/card-art-backdrop";
 import { getAllJutsus } from "../lib/jutsu-loadout";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import "../styles/battle-skin.css";
@@ -1578,7 +1579,7 @@ export function MissionArenaFight({
                                                     title={`${j.name} | ${ap} AP | Range ${j.range}${chakra ? ` | ${chakra} CP` : ""}${stamina ? ` | ${stamina} SP` : ""}${sealed ? " | Elementally sealed" : ""}${onCd ? ` | CD ${cd}` : ""}`}
                                                     onClick={() => armJutsu(j)}
                                                 >
-                                                    <span className="combat-jutsu-thumb">
+                                                    <span className="combat-jutsu-thumb" style={cardArtBackdrop(art)}>
                                                         <strong className="combat-jutsu-fallback-icon"><Icon size={22} aria-hidden="true" /></strong>
                                                         {art && <img src={art} alt={j.name} draggable={false} />}
                                                     </span>
@@ -1620,7 +1621,7 @@ export function MissionArenaFight({
                                                     title={out ? `${item.name} — none left` : `${item.name} | ${ap} AP | R${range}`}
                                                     onClick={() => armWeapon(item.id ?? "")}
                                                 >
-                                                    <span className="combat-jutsu-thumb combat-item-thumb">
+                                                    <span className="combat-jutsu-thumb combat-item-thumb" style={cardArtBackdrop(art)}>
                                                         <strong className="combat-jutsu-fallback-icon"><Icon size={22} aria-hidden="true" /></strong>
                                                         {art && <img src={art} alt={item.name} draggable={false} />}
                                                     </span>
@@ -1646,7 +1647,7 @@ export function MissionArenaFight({
                                                     title={out ? `${item.name} — none left` : `${item.name} | ${ap} AP | Use`}
                                                     onClick={() => { resetTargeting(); if (item.id) void send({ type: "item", itemId: item.id }); }}
                                                 >
-                                                    <span className="combat-jutsu-thumb combat-item-thumb">
+                                                    <span className="combat-jutsu-thumb combat-item-thumb" style={cardArtBackdrop(art)}>
                                                         <strong className="combat-jutsu-fallback-icon"><Icon size={22} aria-hidden="true" /></strong>
                                                         {art && <img src={art} alt={item.name} draggable={false} />}
                                                     </span>

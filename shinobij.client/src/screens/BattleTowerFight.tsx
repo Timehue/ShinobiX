@@ -3,6 +3,7 @@ import "../styles/battle-skin.css";
 import "../styles/tower-tactical.css";
 import type { Character, BattleHistoryEntry, VersionedCharacterCommit } from "../types/character";
 import { buildActionsFromTowerLog, makeBattleEntry } from "../lib/battle-log-history";
+import { cardArtBackdrop } from "../lib/card-art-backdrop";
 import {
     submitTowerAction, submitTowerActionWithLostResponseRetry, settleTowerRun, fetchTowerState, joinTowerRun, towerPlayerSlug, TOWER_TURN_AFK_MS,
     type TowerSession, type TowerActor, type TowerStatus, type TowerSettleResponse, type TowerSettleResult, type TowerFeature, type TowerBoardObject, type TowerHostLoadout, type TowerActionInput, type TowerActionResponse,
@@ -2538,7 +2539,7 @@ export function BattleTowerFight({
                                                     className={`combat-jutsu-button${armed ? " selected-action" : ""}${cd > 0 ? " jutsu-on-cooldown" : ""}`}
                                                     title={`${j.name ?? j.id} | ${effectiveAp} AP | R${j.range ?? 1}${ck ? ` | ${ck} CP` : ""}${st ? ` | ${st} SP` : ""}${sealed ? " | Elementally sealed" : ""}${cd > 0 ? ` | CD ${cd}` : ""}`}
                                                     aria-pressed={armed} onClick={() => armJutsuCard(j)} disabled={!myTurn || busy || !afford}>
-                                                    <span className="combat-jutsu-thumb"><strong className="combat-jutsu-fallback-icon" aria-hidden="true">{towerJutsuFallbackIcon(j)}</strong>{art ? <img src={art} alt="" draggable={false} /> : null}</span>
+                                                    <span className="combat-jutsu-thumb" style={cardArtBackdrop(art)}><strong className="combat-jutsu-fallback-icon" aria-hidden="true">{towerJutsuFallbackIcon(j)}</strong>{art ? <img src={art} alt="" draggable={false} /> : null}</span>
                                                     <span className="combat-jutsu-name">{j.name ?? j.id}</span>
                                                     <CombatJutsuMeta
                                                         character={character}
@@ -2576,7 +2577,7 @@ export function BattleTowerFight({
                                                     title={`${wp.name ?? "Weapon"} | ${ap} AP | R${range}${thrown ? " | Thrown" : ""}${cd > 0 ? ` | CD ${cd}` : ""}`}
                                                     aria-pressed={armed} onClick={() => armWeaponCard(wp.id ?? "")}
                                                     disabled={!myTurn || busy || out || cd > 0 || session.activeAp < ap}>
-                                                    <span className="combat-jutsu-thumb combat-item-thumb"><strong className="combat-jutsu-fallback-icon" aria-hidden="true">🗡</strong>{art ? <img src={art} alt="" draggable={false} /> : null}</span>
+                                                    <span className="combat-jutsu-thumb combat-item-thumb" style={cardArtBackdrop(art)}><strong className="combat-jutsu-fallback-icon" aria-hidden="true">🗡</strong>{art ? <img src={art} alt="" draggable={false} /> : null}</span>
                                                     <span className="combat-jutsu-name">{wp.name ?? "Weapon"}</span>
                                                     <span className="combat-jutsu-info">{ap} AP | R{range}{thrown ? ` | ×${left}` : ""}{cd > 0 ? ` | CD ${cd}` : ""}</span>
                                                 </button>
@@ -2604,7 +2605,7 @@ export function BattleTowerFight({
                                                     title={`${cs.name ?? "Item"} | ${ap} AP | Use${cd > 0 ? ` | CD ${cd}` : ""}`}
                                                     onClick={() => void send({ type: "item", itemId: cs.id })}
                                                     disabled={!myTurn || busy || left <= 0 || cd > 0 || session.activeAp < ap}>
-                                                    <span className="combat-jutsu-thumb combat-item-thumb"><strong className="combat-jutsu-fallback-icon" aria-hidden="true">🧪</strong>{art ? <img src={art} alt="" draggable={false} /> : null}</span>
+                                                    <span className="combat-jutsu-thumb combat-item-thumb" style={cardArtBackdrop(art)}><strong className="combat-jutsu-fallback-icon" aria-hidden="true">🧪</strong>{art ? <img src={art} alt="" draggable={false} /> : null}</span>
                                                     <span className="combat-jutsu-name">{cs.name ?? "Item"}</span>
                                                     <span className="combat-jutsu-info">{ap} AP | Use ×{left}{cd > 0 ? ` | CD ${cd}` : ""}</span>
                                                 </button>

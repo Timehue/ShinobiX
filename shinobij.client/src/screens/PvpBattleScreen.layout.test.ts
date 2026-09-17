@@ -242,8 +242,18 @@ test("combat cards use consistent art crops and separated overlay metadata", () 
     );
     assert.match(
         battleSkinCss,
-        /#combat \.combat-jutsu-thumb > img\s*\{[^}]*object-fit: cover !important;[^}]*object-position: center 42% !important/s,
-        "desktop jutsu, weapon, and item art must share one stable edge-to-edge crop",
+        /#combat \.combat-jutsu-thumb > img\s*\{[^}]*object-fit: contain !important;[^}]*object-position: center !important/s,
+        "desktop card art must show the whole square — the source is 1:1 and a cover crop into the 160x86 card discarded 47% of every image",
+    );
+    assert.match(
+        battleSkinCss,
+        /@container shinobi-combat \(min-width: 480px\)\s*\{[\s\S]*?\.combat-jutsu-thumb > img\s*\{[^}]*height: 100% !important;[^}]*object-fit: contain !important;/s,
+        "the mid tiers must give the art a definite box; a percentage height in the centred thumb grid fell back to the square ratio and overflowed",
+    );
+    assert.match(
+        battleSkinCss,
+        /#combat \.combat-jutsu-resources\s*\{[^}]*left: auto !important;[^}]*right: 6px !important;/s,
+        "the cost chip must not share the top-left corner with the Details target, which painted its glyph over the chakra cost",
     );
     assert.match(
         battleSkinCss,

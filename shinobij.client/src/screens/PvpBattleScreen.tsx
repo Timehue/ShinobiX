@@ -1,4 +1,5 @@
 import { playerLensDiscipline } from "../lib/player-lens-discipline";
+import { cardArtBackdrop } from "../lib/card-art-backdrop";
 import { normalizeNarrativeCharacter as normalizeCharacter } from "../lib/normalize-narrative-character";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
@@ -2428,7 +2429,7 @@ export function PvpBattleScreen({
                                                             onClick={() => !onCooldown && selectJutsu(j)}
                                                             disabled={!isMyTurn || submitting || !availability.affordable}
                                                         >
-                                                            <span className="combat-jutsu-thumb">
+                                                            <span className="combat-jutsu-thumb" style={cardArtBackdrop(j.image)}>
                                                                 <strong className="combat-jutsu-fallback-icon" aria-hidden="true">{fallbackIcon(j)}</strong>
                                                                 {j.image && <img src={j.image} alt="" draggable={false} />}
                                                             </span>
@@ -2485,7 +2486,7 @@ export function PvpBattleScreen({
                                                             title={onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Range ${wRange}`}
                                                             onClick={() => { if (onCooldown) return; setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
                                                             disabled={!isMyTurn || submitting || !availability.affordable}>
-                                                            <span className="combat-jutsu-thumb combat-item-thumb">
+                                                            <span className="combat-jutsu-thumb combat-item-thumb" style={cardArtBackdrop(item.image)}>
                                                                 <strong className="combat-jutsu-fallback-icon" aria-hidden="true">🗡</strong>
                                                                 {item.image && <img src={item.image} alt="" draggable={false} />}
                                                             </span>
@@ -2534,7 +2535,7 @@ export function PvpBattleScreen({
                                                             title={realPvpItemsDisabled ? "Disabled for this fight" : depleted ? `${item.name} — none left this battle` : onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Range ${wRange} | Thrown`}
                                                             onClick={() => { if (onCooldown || realPvpItemsDisabled) return; setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
                                                             disabled={!isMyTurn || realPvpItemsDisabled || submitting || depleted || !availability.affordable}>
-                                                            <span className="combat-jutsu-thumb combat-item-thumb">
+                                                            <span className="combat-jutsu-thumb combat-item-thumb" style={cardArtBackdrop(item.image)}>
                                                                 <strong className="combat-jutsu-fallback-icon" aria-hidden="true">🎯</strong>
                                                                 {item.image && <img src={item.image} alt="" draggable={false} />}
                                                             </span>
@@ -2580,7 +2581,7 @@ export function PvpBattleScreen({
                                                             title={realPvpItemsDisabled ? "Disabled for this fight" : depleted ? `${item.name} — none left this battle` : onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Use`}
                                                             onClick={() => { if (onCooldown || realPvpItemsDisabled) return; setInspectedJutsuId(""); clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); submitAction("item", undefined, undefined, item); }}
                                                             disabled={!isMyTurn || realPvpItemsDisabled || submitting || depleted || !availability.affordable}>
-                                                            <span className="combat-jutsu-thumb combat-item-thumb">
+                                                            <span className="combat-jutsu-thumb combat-item-thumb" style={cardArtBackdrop(item.image)}>
                                                                 <strong className="combat-jutsu-fallback-icon" aria-hidden="true">🧪</strong>
                                                                 {item.image && <img src={item.image} alt="" draggable={false} />}
                                                             </span>
