@@ -8,11 +8,14 @@ import type {
     ServerArenaAction,
     ServerArenaActionResponse,
     ServerArenaActor,
+    ServerArenaBeat,
+    ServerArenaHitEvent,
     ServerArenaMovementEvent,
     ServerArenaSession,
     ServerArenaTransport,
     ServerArenaVfxEvent,
 } from "./server-arena-runtime";
+import { diffCombatVitals } from "./combat-presentation";
 
 const SOLO_ARENA_TURN_MS = 75_000;
 
@@ -108,6 +111,58 @@ export function soloPveMovementStream(session: SoloPveSession): ServerArenaMovem
     }));
 }
 
+/**
+ * Project each resolved event into a presentation beat: who acted, on whom,
+ * what every fighter's vitals did (from the event's own before/after snapshots,
+ * so a hit and the enemy's reply stay separate numbers), who went down, and
+ * where everyone stood afterwards. The screen sequences these on one timeline.
+ * Cosmetic only — the final session snapshot remains the sole authority.
+ */
+export function soloPveBeatStream(session: SoloPveSession): ServerArenaBeat[] {
+    const roles = ["player", "enemy", "companion"] as const;
+    return (session.events ?? []).map((event) => {
+        const positions: Record<string, number> = {};
+        const maxHp: Record<string, number> = {};
+        const hits: ServerArenaHitEvent[] = [];
+        const downed: string[] = [];
+        for (const role of roles) {
+            const before = event.before?.[role];
+            const after = event.after?.[role];
+            if (after && typeof after.pos === "number") positions[role] = after.pos;
+            if (after && typeof after.maxHp === "number") maxHp[role] = after.maxHp;
+            hits.push(...diffCombatVitals(role, before, after));
+            if (before && after && Number(before.hp) > 0 && Number(after.hp) <= 0) downed.push(role);
+        }
+        // A killing blow's HP delta is clamped at the remaining HP. The engine's
+        // own floating-number feed (session.fx, the numbers the log prints)
+        // carries the true amount for the newest action, so the final blow reads
+        // "−1075", not the "−435" that happened to be left. Only that one case
+        // is taken from the feed: it is replaced wholesale per action, so an
+        // older action's numbers could still be sitting on the session.
+        if (event.seq === session.eventSeq) {
+            for (const hit of hits) {
+                if (hit.kind !== "damage" || !downed.includes(hit.target)) continue;
+                const true_ = (session.fx ?? [])
+                    .filter((fx) => fx.target === hit.target && fx.kind === "damage")
+                    .reduce((sum, fx) => sum + Math.max(0, Math.round(Number(fx.amount) || 0)), 0);
+                if (true_ > hit.amount) hit.amount = true_;
+            }
+        }
+        const target = event.target === "player" || event.target === "enemy" || event.target === "companion" ? event.target : null;
+        return {
+            seq: event.seq,
+            actorId: event.actor,
+            targetId: target,
+            action: String(event.action),
+            movement: event.action === "move" || event.action === "companionMove",
+            positions,
+            maxHp,
+            hits,
+            downed,
+        };
+    });
+}
+
 export function soloPveSessionForArena(session: SoloPveSession): ServerArenaSession {
     const companion = companionActor(session);
     return {
@@ -138,6 +193,8 @@ export function soloPveSessionForArena(session: SoloPveSession): ServerArenaSess
         vfxSeq: session.eventSeq,
         movements: soloPveMovementStream(session),
         movementSeq: session.eventSeq,
+        beats: soloPveBeatStream(session),
+        beatSeq: session.eventSeq,
         ...(session.pendingCompanion ? {
             pendingCompanion: {
                 petId: session.pendingCompanion.petId,

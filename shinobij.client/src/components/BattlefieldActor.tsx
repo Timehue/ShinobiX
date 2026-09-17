@@ -9,6 +9,9 @@ import {
 
 type BattlefieldActorProps = {
     side: "player" | "enemy";
+    /** Stable actor id stamped as `data-battlefield-actor-id`, so the hit-reaction
+     *  layer (lib/battlefield-reactions) can find this anchor without React state. */
+    actorId?: string;
     label: string;
     portrait?: string | null;
     sprite?: string | null;
@@ -35,6 +38,7 @@ export type { BattlefieldSpriteKind };
  */
 export function BattlefieldActor({
     side,
+    actorId,
     label,
     portrait,
     sprite,
@@ -67,6 +71,7 @@ export function BattlefieldActor({
                 className,
             ].filter(Boolean).join(" ")}
             data-battlefield-actor={side}
+            data-battlefield-actor-id={actorId}
             data-battlefield-presentation={spriteSrc ? "sprite" : "marker"}
             data-battlefield-sprite-kind={resolvedSpriteKind}
             data-battlefield-facing={resolvedFacing}

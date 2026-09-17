@@ -102,6 +102,109 @@ test("the Arena view preserves every authoritative enemy movement step", () => {
     ]);
 });
 
+test("the Arena view projects each resolved event into a presentation beat with its own hit numbers", () => {
+    const source = session();
+    source.eventSeq = 21;
+    source.enemy.hp = 0;
+    source.events = [
+        {
+            kind: "action", seq: 20, round: 3, actor: "player", target: "enemy", action: "jutsu", actionId: "j1",
+            before: { player: { hp: 80, maxHp: 100, shield: 0, pos: 62, statuses: [] }, enemy: { hp: 40, maxHp: 100, shield: 10, pos: 33, statuses: [] } } as never,
+            after: { player: { hp: 80, maxHp: 100, shield: 0, pos: 62, statuses: [] }, enemy: { hp: 22, maxHp: 100, shield: 0, pos: 33, statuses: [{ name: "Burn", rounds: 2, kind: "negative" }] } } as never,
+            log: [], vfx: [{ key: "fire", target: "enemy", anchor: "target" }], status: "active", winner: null, outcome: null,
+        },
+        {
+            kind: "action", seq: 21, round: 3, actor: "enemy", target: "player", action: "basicAttack",
+            before: { player: { hp: 80, maxHp: 100, shield: 0, pos: 62, statuses: [] }, enemy: { hp: 22, maxHp: 100, shield: 0, pos: 33, statuses: [] } } as never,
+            after: { player: { hp: 66, maxHp: 100, shield: 0, pos: 62, statuses: [] }, enemy: { hp: 0, maxHp: 100, shield: 0, pos: 33, statuses: [] } } as never,
+            log: [], vfx: [], status: "done", winner: "player", outcome: "win",
+        },
+    ];
+
+    const view = soloPveSessionForArena(source);
+    assert.equal(view.beatSeq, 21);
+    assert.equal(view.beats?.length, 2);
+    const [cast, reply] = view.beats!;
+    assert.equal(cast.actorId, "player");
+    assert.equal(cast.targetId, "enemy");
+    assert.equal(cast.movement, false);
+    assert.deepEqual(cast.positions, { player: 62, enemy: 33 });
+    assert.deepEqual(cast.maxHp, { player: 100, enemy: 100 });
+    // The enemy lost 18 HP and picked up Burn — separate reads, none derived
+    // from the client. The guard that broke under the same blow is implied by
+    // the HP number rather than shown twice.
+    assert.deepEqual(cast.hits, [
+        { target: "enemy", amount: 18, kind: "damage" },
+        { target: "enemy", amount: 0, kind: "status", label: "Burn" },
+    ]);
+    assert.deepEqual(cast.downed, []);
+    assert.deepEqual(reply.hits, [{ target: "player", amount: 14, kind: "damage" }, { target: "enemy", amount: 22, kind: "damage" }]);
+    // A fighter whose HP crossed to zero in an event is reported as downed.
+    assert.deepEqual(reply.downed, ["enemy"]);
+    // Every hit target must be an actor id the screen can anchor.
+    const actorIds = new Set(view.actors.map((actor) => actor.id));
+    for (const beat of view.beats!) {
+        for (const hit of beat.hits) assert.ok(actorIds.has(hit.target), `${hit.target} is not an actor id`);
+    }
+});
+
+test("the killing blow reads the engine's true damage, not the clamped HP remainder", () => {
+    const source = session();
+    source.eventSeq = 9;
+    source.enemy.hp = 0;
+    source.fx = [{ target: "enemy", amount: 1075, kind: "damage" }, { target: "player", amount: 258, kind: "heal" }];
+    source.fxSeq = 4;
+    source.events = [{
+        kind: "action", seq: 9, round: 2, actor: "player", target: "enemy", action: "jutsu",
+        before: { player: { hp: 90, maxHp: 100, pos: 62, statuses: [] }, enemy: { hp: 435, maxHp: 435, pos: 43, statuses: [] } } as never,
+        after: { player: { hp: 100, maxHp: 100, pos: 62, statuses: [] }, enemy: { hp: 0, maxHp: 435, pos: 43, statuses: [] } } as never,
+        log: [], vfx: [], status: "done", winner: "player", outcome: "win",
+    }];
+    const [beat] = soloPveSessionForArena(source).beats!;
+    assert.deepEqual(beat.hits, [
+        { target: "player", amount: 10, kind: "heal", label: "+10" },
+        { target: "enemy", amount: 1075, kind: "damage" },
+    ]);
+    // An older action's feed must not leak onto a later, non-lethal event.
+    source.eventSeq = 10;
+    source.events.push({
+        kind: "action", seq: 10, round: 3, actor: "enemy", target: "tile", action: "move", tile: 44,
+        before: { player: { hp: 100, pos: 62, statuses: [] }, enemy: { hp: 30, pos: 43, statuses: [] } } as never,
+        after: { player: { hp: 100, pos: 62, statuses: [] }, enemy: { hp: 30, pos: 44, statuses: [] } } as never,
+        log: [], vfx: [], status: "active", winner: null, outcome: null,
+    });
+    assert.deepEqual(soloPveSessionForArena(source).beats![1]!.hits, []);
+});
+
+test("a walk step projects as a movement beat with no hits", () => {
+    const source = session();
+    source.eventSeq = 5;
+    source.events = [{
+        kind: "action", seq: 5, round: 1, actor: "enemy", target: "tile", action: "move", tile: 44,
+        before: { player: { hp: 100, pos: 62, statuses: [] }, enemy: { hp: 100, pos: 33, statuses: [] } } as never,
+        after: { player: { hp: 100, pos: 62, statuses: [] }, enemy: { hp: 100, pos: 44, statuses: [] } } as never,
+        log: [], vfx: [], status: "active", winner: null, outcome: null,
+    }];
+    const [beat] = soloPveSessionForArena(source).beats!;
+    assert.equal(beat.movement, true);
+    assert.equal(beat.targetId, null);
+    assert.deepEqual(beat.hits, []);
+    assert.deepEqual(beat.positions, { player: 62, enemy: 44 });
+});
+
+test("a legacy event without snapshots still projects a beat rather than throwing", () => {
+    const source = session();
+    source.eventSeq = 3;
+    source.events = [{
+        kind: "action", seq: 3, round: 1, actor: "player", target: "enemy", action: "basicAttack",
+        before: {} as never, after: {} as never, log: [], vfx: [], status: "active", winner: null, outcome: null,
+    }];
+    const [beat] = soloPveSessionForArena(source).beats!;
+    assert.deepEqual(beat.hits, []);
+    assert.deepEqual(beat.positions, {});
+    assert.deepEqual(beat.downed, []);
+});
+
 test("the Arena view preserves whether the one-time PvE pet summon was consumed", () => {
     const source = session();
     source.companionUsage = { petId: "pet-1" };
