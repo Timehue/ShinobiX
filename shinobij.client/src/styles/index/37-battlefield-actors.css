@@ -153,3 +153,41 @@
         animation: none !important;
     }
 }
+
+/* Ambient world weather under the grid (CombatWeatherLayer) ------------------
+   First child of the board WRAPPER (the positioned div that holds
+   .hex-grid-layer), never a sibling before it — battle-skin's wide-desktop rule
+   addresses that wrapper as `.hex-battlefield > div:first-child`. The grid that
+   follows paints above: rain / ash / haze show on the arena floor through the
+   tiles' 32–48% glass tint, and fighters, targeting, plates and floating
+   numbers stay crisp. Click-through is inherited from .scene-ambience. The
+   layer opacity is the readability budget — tiles always win. */
+.arena-fullscreen .hex-battlefield .combat-weather-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: var(--combat-weather-opacity, 0.55);
+}
+
+.combat-weather-layer .scene-ambience {
+    z-index: auto;
+}
+
+/* No god-ray sweep in combat: it is a 16s looping full-panel blend that the
+   board does not need, and the weather itself is the atmosphere here. */
+.combat-weather-layer .scene-ambience-rays {
+    display: none;
+}
+
+/* Hit-number lanes: several numbers on one tile fan out sideways instead of
+   stacking into one blur (see combatHitFloatOffset). Guard and status reads
+   get their own hues beside the existing damage / heal pair. */
+.pvp-hit-fx {
+    margin-left: var(--hit-dx, 0px);
+    margin-top: var(--hit-dy, 0px);
+}
+.pvp-hit-shield { color: #bae6fd; }
+.pvp-hit-status { color: #e9d5ff; font-size: 0.85rem; letter-spacing: 0.02em; }

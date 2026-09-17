@@ -10,6 +10,7 @@
  */
 import { useMemo, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
+import { useCombatCover } from "../lib/combat-cover";
 import * as THREE from "three";
 import type { Biome } from "../types/core";
 import { decorativeCanvasEvents } from "../lib/decorative-canvas-events";
@@ -103,6 +104,9 @@ function makeGlowTexture(): THREE.Texture {
 }
 
 export default function SceneAmbience3DScene({ biome }: { biome: Biome }) {
+    // A body-portaled fight covers this canvas; stop rendering frames under it
+    // and resume the instant the fight unmounts (lib/combat-cover).
+    const covered = useCombatCover();
     return (
         <Canvas
             events={decorativeCanvasEvents}
@@ -110,7 +114,7 @@ export default function SceneAmbience3DScene({ biome }: { biome: Biome }) {
             camera={{ position: [0, 0, 7], fov: 60 }}
             gl={{ alpha: true, antialias: false, powerPreference: "low-power" }}
             style={{ background: "transparent" }}
-            frameloop="always"
+            frameloop={covered ? "never" : "always"}
         >
             <DepthMotes biome={biome} />
         </Canvas>

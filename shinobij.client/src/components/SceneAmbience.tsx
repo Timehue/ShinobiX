@@ -17,9 +17,10 @@
  *     <SceneAmbience biome={biome} weather={weather} />
  *   </div>
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { Biome, WeatherType } from "../types/core";
 import { isLowEndMobile } from "../lib/device-tier";
+import { isCoveredByCombat, subscribeCombatCover } from "../lib/combat-cover";
 import { FORECAST_REFRESH_MS } from "../lib/sector-forecast";
 import { weatherForSector } from "../lib/world-state";
 
@@ -93,8 +94,10 @@ const KINDS: Record<Kind, KindCfg> = {
     haze:  { count: 26,  color: () => pick(["#e7c98a", "#d9b873", "#f0dca0"]),    size: [40, 120],  vy: [-4, 4],   drift: 30, sway: 0.3, alpha: [.05, .14] },
 };
 
-/** Map a biome (+ weather) to the particle kinds that should be active. */
-function kindsFor(biome: Biome, weather?: WeatherType): Kind[] {
+/** Map a biome (+ weather) to the particle kinds that should be active.
+ *  `weatherOnly` drops the biome's ambient drift (motes, petals, embers…) so a
+ *  clear sky draws nothing at all — the combat board wants weather, not decor. */
+function kindsFor(biome: Biome, weather?: WeatherType, weatherOnly = false): Kind[] {
     const base: Record<Biome, Kind> = {
         snow: "snow",
         volcano: "ember",
@@ -102,11 +105,11 @@ function kindsFor(biome: Biome, weather?: WeatherType): Kind[] {
         forest: "leaf",
         central: "mote",
     };
-    const list: Kind[] = [base[biome] ?? "mote"];
+    const list: Kind[] = weatherOnly ? [] : [base[biome] ?? "mote"];
     switch (weather) {
         case "rain": list.push("rain"); break;
         case "thunderstorm": list.push("rain"); break;
-        case "ashfall": if (biome !== "volcano") list.push("ash"); break;
+        case "ashfall": if (biome !== "volcano" || weatherOnly) list.push("ash"); break;
         case "desertHaze": list.push("haze"); break;
         case "tornado": list.push("haze"); break;
         default: break;
@@ -127,6 +130,7 @@ export function SceneAmbience({
     intensity = 1,
     className,
     hazeStyle = "orbs",
+    weatherOnly = false,
 }: {
     biome: Biome;
     weather?: WeatherType;
@@ -148,11 +152,15 @@ export function SceneAmbience({
     /** Battle cinematics use sparse wind-swept ribbons instead of the broad
      *  ambient bokeh that suits an overworld backdrop. */
     hazeStyle?: "orbs" | "wisps";
+    /** Draw only the weather's own particles (rain, ash, haze) and none of the
+     *  biome's ambient drift. The combat board uses this so a clear sky costs
+     *  nothing and a rainy one reads as rain, not confetti. */
+    weatherOnly?: boolean;
 }) {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const liveWeather = useSectorWeatherTick(weatherSector, weatherBiome);
     const sky = liveWeather ?? weather;
-    const kinds = useMemo(() => kindsFor(biome, sky), [biome, sky]);
+    const kinds = useMemo(() => kindsFor(biome, sky, weatherOnly), [biome, sky, weatherOnly]);
     const lightning = sky === "thunderstorm";
 
     useEffect(() => {
@@ -179,6 +187,11 @@ export function SceneAmbience({
         let bolt: { pts: { x: number; y: number }[]; branches: { x: number; y: number }[][]; t: number; dur: number } | null = null;
 
         const parent = canvas.parentElement;
+        // A body-portaled fight covers this canvas completely, so painting under
+        // it is wasted work — unless this canvas IS the fight's own weather
+        // layer, which lives inside the fight boundary and must keep drawing.
+        const insideCombat = !!canvas.closest(".combat-instance");
+        let covered = insideCombat ? false : isCoveredByCombat();
 
         function spawn() {
             particles = [];
@@ -267,8 +280,15 @@ export function SceneAmbience({
             ctx!.stroke();
         }
 
+        // Combat weather paints every other frame. Weather is the only thing
+        // moving on an idle board, and each canvas update makes the compositor
+        // re-present everything layered over and under it (a sealed fight sits on
+        // a body portal above a lobby with backdrop-blur panels). Rain, ash and
+        // haze read the same at 30fps; halving the updates halves that cost.
+        let frameParity = 0;
         function draw(t: number) {
             if (!running) return;
+            if (weatherOnly && (frameParity++ & 1)) { raf = requestAnimationFrame(draw); return; }
             const dt = Math.min(0.05, last ? (t - last) / 1000 : 0.016);
             last = t;
             ctx!.clearRect(0, 0, w, h);
@@ -311,8 +331,14 @@ export function SceneAmbience({
                     ctx!.translate(p.x, p.y);
                     ctx!.rotate(Math.sin(p.phase) * 0.16);
                     ctx!.globalAlpha = p.alpha * 0.52;
-                    ctx!.shadowBlur = p.size * 0.22;
-                    ctx!.shadowColor = p.color;
+                    // A shadow blur on a 100px+ ribbon re-rasterizes its whole bounds
+                    // with a blur pass every frame — on a CPU-composited canvas that
+                    // alone held a 1440px combat board at ~20fps. The combat weather
+                    // layer (weatherOnly) draws the ribbons flat; cinematics keep the glow.
+                    if (!weatherOnly) {
+                        ctx!.shadowBlur = p.size * 0.22;
+                        ctx!.shadowColor = p.color;
+                    }
                     ctx!.beginPath();
                     ctx!.ellipse(0, 0, p.size * 1.65, Math.max(3, p.size * 0.11), 0, 0, Math.PI * 2);
                     ctx!.fill();
@@ -389,24 +415,32 @@ export function SceneAmbience({
                 ctx.restore();
             }
             ctx.globalAlpha = 1;
+        } else if (covered) {
+            running = false;
         } else {
             raf = requestAnimationFrame(draw);
         }
 
-        function onVis() {
+        // One rule for both pauses: draw only while the tab is visible AND no
+        // fight is covering the page. Either signal flipping re-evaluates it.
+        function sync() {
             if (reduce) return;
-            if (document.hidden) { running = false; cancelAnimationFrame(raf); }
+            const shouldRun = !document.hidden && !covered;
+            if (!shouldRun) { if (running) { running = false; cancelAnimationFrame(raf); } }
             else if (!running) { running = true; last = 0; raf = requestAnimationFrame(draw); }
         }
+        function onVis() { sync(); }
         document.addEventListener("visibilitychange", onVis);
+        const unsubscribeCover = insideCombat ? () => {} : subscribeCombatCover(() => { covered = isCoveredByCombat(); sync(); });
 
         return () => {
             running = false;
             cancelAnimationFrame(raf);
             ro.disconnect();
             document.removeEventListener("visibilitychange", onVis);
+            unsubscribeCover();
         };
-    }, [hazeStyle, kinds, intensity, lightning]);
+    }, [hazeStyle, kinds, intensity, lightning, weatherOnly]);
 
     return (
         <div className={"scene-ambience" + (className ? " " + className : "")} aria-hidden="true">

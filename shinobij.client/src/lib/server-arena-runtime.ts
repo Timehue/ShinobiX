@@ -71,6 +71,43 @@ export type ServerArenaMovementEvent = {
     to: number;
 };
 
+/** A fighter's presentation-relevant change in one resolved event: a floating
+ *  number over its tile. Derived from server snapshots, never from the client. */
+export type ServerArenaHitEvent = {
+    /** Actor id ("player" / "enemy" / "companion"). */
+    target: string;
+    amount: number;
+    kind: "damage" | "heal" | "shield" | "status";
+    /** Pre-formatted text (a status name, "+12 guard"); the screen falls back to ±amount. */
+    label?: string;
+};
+
+/**
+ * One resolved combat event as a PRESENTATION beat. A single server round-trip
+ * commonly resolves the player's action and the enemy's whole multi-action
+ * reply; the screen lays these beats out on one timeline (see
+ * lib/combat-presentation arenaBeatSchedule) so each plate, number and hit
+ * reaction lands in the order it happened instead of all on one frame.
+ * Cosmetic only — never read back as combat authority.
+ */
+export type ServerArenaBeat = {
+    seq: number;
+    /** Acting actor id. */
+    actorId: string;
+    /** Targeted actor id, or null for a tile / self-only action. */
+    targetId: string | null;
+    action: string;
+    /** True when the event only relocated its actor (a walk step). */
+    movement: boolean;
+    /** Board tile of every actor present AFTER the event, for aiming reactions. */
+    positions: Record<string, number>;
+    /** Max HP per actor after the event (heavy-hit threshold). */
+    maxHp: Record<string, number>;
+    hits: ServerArenaHitEvent[];
+    /** Actor ids whose HP reached 0 in this event. */
+    downed: string[];
+};
+
 export type ServerArenaSession = {
     sessionId: string;
     /** Opaque runtime revision used only by the selected transport. */
@@ -105,6 +142,10 @@ export type ServerArenaSession = {
     movements?: ServerArenaMovementEvent[];
     /** Highest combat event seq observed by the movement projection. */
     movementSeq?: number;
+    /** Rolling window of resolved events as presentation beats (see ServerArenaBeat). */
+    beats?: ServerArenaBeat[];
+    /** Highest event seq the beat projection has produced. */
+    beatSeq?: number;
 };
 
 export type ServerArenaAction =

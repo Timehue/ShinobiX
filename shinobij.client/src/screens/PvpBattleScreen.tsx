@@ -50,9 +50,12 @@ import { useBoardScale } from "../lib/use-board-scale";
 import { useBattleTabs } from "../lib/use-battle-tabs";
 import { hexLineTiles } from "../lib/hex-path";
 import { jutsuImpactPreviewTiles } from "../lib/jutsu-impact-preview";
-import { prefersLiteCombatFx } from "../lib/device-tier";
+import { prefersLiteCombatFx, prefersReducedMotion } from "../lib/device-tier";
 import { safeCombatVfxSpec, combatVfxAnchorKey, dedupeCombatVfx, type CombatVfxSpec } from "../lib/combat-vfx";
 import { combatVfxAssetFor } from "../lib/combat-vfx-assets";
+import { CombatWeatherLayer } from "../components/CombatWeatherLayer";
+import { findBattlefieldActor, playBattlefieldReaction } from "../lib/battlefield-reactions";
+import { ARENA_IMPACT_LAG_MS, ARENA_KO_HOLD_MS, combatHitFloatLane, reactionDirection, reactionForHit } from "../lib/combat-presentation";
 import {
     type PvpGroundEffectState,
     type PvpSessionState
@@ -365,6 +368,34 @@ export function PvpBattleScreen({
     const lastFxSeqRef = useRef<number | undefined>(undefined);
     const lastVfxSeqRef = useRef<number | undefined>(undefined);
     const hasObservedVfxSessionRef = useRef(false);
+    // Presentation-only timers (the impact lag before a flinch, the KO hold) —
+    // cleared on unmount so nothing outlives the fight. The grid ref lets the
+    // reaction layer find an actor anchor without any React state.
+    const presentationTimersRef = useRef<number[]>([]);
+    const gridLayerRef = useRef<HTMLDivElement | null>(null);
+    const armPresentationTimer = (fn: () => void, ms: number): number => {
+        const id = window.setTimeout(fn, ms);
+        presentationTimersRef.current.push(id);
+        return id;
+    };
+    useEffect(() => () => {
+        for (const id of presentationTimersRef.current) window.clearTimeout(id);
+        presentationTimersRef.current = [];
+    }, []);
+    // KO hold: once a fight we watched ends, the final blow gets its beat (the
+    // number, the sag) before the result panel covers the board. A fight that is
+    // already over when the session first loads shows the panel at once.
+    // Settlement and the reward claim key off `session.status` and are not held.
+    const [resultRevealed, setResultRevealed] = useState(false);
+    const watchedActiveRef = useRef(false);
+    useEffect(() => {
+        if (!session) return;
+        if (session.status !== "done") { watchedActiveRef.current = true; return; }
+        if (resultRevealed) return;
+        const hold = watchedActiveRef.current && !prefersReducedMotion() ? ARENA_KO_HOLD_MS + 520 : 0;
+        const id = armPresentationTimer(() => setResultRevealed(true), hold);
+        return () => window.clearTimeout(id);
+    }, [session?.status]);
 
     const runtimeScopeKey = pvpRuntimeScopeKey(character.name, accountSessionEpoch, battleId, role);
     const continuationFenceRef = useRef(createPvpContinuationFence());
@@ -794,10 +825,38 @@ export function PvpBattleScreen({
     // additive overlay — touches no combat logic.
     const spawnHitFx = (nextFx: PvpHitFx[]) => {
         if (!nextFx.length) return undefined;
-        setPvpHitFx((existing) => [...existing, ...nextFx].slice(-8));
+        // Several numbers on one fighter fan out sideways instead of stacking.
+        const perFighter = new Map<string, number>();
+        const laned = nextFx.map((fx) => {
+            const lane = perFighter.get(fx.fighter) ?? 0;
+            perFighter.set(fx.fighter, lane + 1);
+            return { ...fx, lane: combatHitFloatLane(lane) };
+        });
+        setPvpHitFx((existing) => [...existing, ...laned].slice(-8));
         const timeout = window.setTimeout(() => {
-            setPvpHitFx((existing) => existing.filter((fx) => !nextFx.some((added) => added.id === fx.id)));
-        }, 1100);
+            setPvpHitFx((existing) => existing.filter((fx) => !laned.some((added) => added.id === fx.id)));
+        }, 1000);
+        // Body reaction: the struck fighter flinches (reels on a heavy hit, sags
+        // on the KO, lifts on a heal) a beat after the blow, pushed along the
+        // line from its opponent. Transform-only on the actor anchor; no state.
+        if (session) {
+            const snapshot = session;
+            const reacted = new Set<string>();
+            armPresentationTimer(() => {
+                for (const fx of laned) {
+                    const fighter = fx.fighter === "p1" ? snapshot.p1 : snapshot.p2;
+                    const other = fx.fighter === "p1" ? snapshot.p2 : snapshot.p1;
+                    const kind = reactionForHit({ kind: fx.kind, amount: fx.amount }, { maxHp: fighter.maxHp, down: fighter.hp <= 0 });
+                    if (!kind || (reacted.has(fx.fighter) && kind !== "ko")) continue;
+                    reacted.add(fx.fighter);
+                    playBattlefieldReaction(
+                        findBattlefieldActor(gridLayerRef.current, fx.fighter),
+                        kind,
+                        reactionDirection(pvpTileCenter(other.pos), pvpTileCenter(fighter.pos)),
+                    );
+                }
+            }, ARENA_IMPACT_LAG_MS);
+        }
         return () => window.clearTimeout(timeout);
     };
     useEffect(() => {
@@ -868,6 +927,22 @@ export function PvpBattleScreen({
             });
             return { id: `${ev.target}-vfx-${seq}-${i}`, target: ev.target, spec };
         });
+        // The caster's own motion, from the batch's lead plate (the first one that
+        // is not a status tick or a ward reaction): a plate on the opponent means
+        // the other fighter swung or cast at them — a short lunge for a physical
+        // key, a cast pulse otherwise; a plate on the caster is a self action.
+        const lead = mapped.find((fx) => fx.spec.intensity !== "minor");
+        if (lead) {
+            const struck = lead.target === "p1" ? session.p1 : session.p2;
+            const casterId = lead.spec.target === "caster" ? lead.target : lead.target === "p1" ? "p2" : "p1";
+            const caster = casterId === "p1" ? session.p1 : session.p2;
+            const physical = ["impact", "slash", "weapon", "namedWeapon", "heavy", "pierce", "throwable"].includes(lead.spec.key);
+            playBattlefieldReaction(
+                findBattlefieldActor(gridLayerRef.current, casterId),
+                lead.spec.target === "caster" ? "cast" : physical ? "lunge" : "cast",
+                lead.spec.target === "caster" ? undefined : reactionDirection(pvpTileCenter(caster.pos), pvpTileCenter(struck.pos)),
+            );
+        }
         // Collapse plates that would land on the same spot. One action can stack
         // two VFX on a single fighter — a hit plus its shield/reflect reaction, a
         // weapon plus its tag effect, several DoTs ticking at once, or a movement
@@ -2056,7 +2131,15 @@ export function PvpBattleScreen({
                                 overflow: "hidden",
                             };
                         })()}>
-                            <div className="hex-grid-layer" style={{
+                            {/* The sealed sky (what the server used for the ±element math), drawn
+                                under the grid. Ranked seals a clear sky and draws nothing. Inside
+                                the board wrapper, never before it: the wide-desktop skin addresses
+                                the wrapper as `.hex-battlefield > div:first-child`. */}
+                            <CombatWeatherLayer
+                                biome={currentSector === 99 ? "deathsgate" : arenaBiome}
+                                weather={weatherSealed ? weatherFromElements(weatherPosEl, weatherNegEl) : currentWeather}
+                            />
+                            <div className="hex-grid-layer" ref={gridLayerRef} style={{
                                 position: "absolute" as const,
                                 width: `${GRID_LAYER_W}px`,
                                 height: `${GRID_LAYER_H}px`,
@@ -2080,6 +2163,7 @@ export function PvpBattleScreen({
                                             // emoji-only fighters travel too rather than blinking tile-to-tile.
                                             <BattlefieldActor key={isOpp ? "opp-orb" : "me-orb"}
                                                 side={isOpp ? "enemy" : "player"}
+                                                actorId={isOpp ? (role === "p1" ? "p2" : "p1") : role}
                                                 label={altName}
                                                 portrait={imgSrc}
                                                 fallback={altName.slice(0, 2).toUpperCase()}
@@ -2163,7 +2247,7 @@ export function PvpBattleScreen({
                                         <span
                                             key={fx.id}
                                             className={`pvp-hit-fx pvp-hit-${fx.kind}`}
-                                            style={{ left: `${center.x}px`, top: `${Math.max(center.y - ORB / 2, 16)}px` }}
+                                            style={{ left: `${center.x}px`, top: `${Math.max(center.y - ORB / 2, 16)}px`, "--hit-dx": `${fx.lane?.dx ?? 0}px`, "--hit-dy": `${fx.lane?.dy ?? 0}px` } as React.CSSProperties}
                                             aria-hidden="true"
                                         >
                                             {fx.kind === "damage" ? "−" : "+"}{fx.amount}
@@ -2227,7 +2311,7 @@ export function PvpBattleScreen({
                             </div>
                         </div>
                     </div>
-                    {done && showResultPanel ? (
+                    {done && resultRevealed && showResultPanel ? (
                         <PvpBattleResultPanel
                             outcome={battleOutcome}
                             round={session.round}
@@ -2249,7 +2333,7 @@ export function PvpBattleScreen({
                     </CombatBoardStage>
 
                     <BattleTabBar tab={battleTabs.tab} setTab={battleTabs.setTab} unread={battleTabs.unread} />
-                    {done && !showResultPanel ? (
+                    {done && resultRevealed && !showResultPanel ? (
                         <div className="card menu">
                             <span>Reviewing the final battle log</span>
                             <button type="button" onClick={() => setShowResultPanel(true)}>View Battle Result</button>
@@ -2689,6 +2773,8 @@ type PvpHitFx = {
     fighter: "p1" | "p2";
     amount: number;
     kind: "damage" | "heal";
+    /** Lane (px) so simultaneous numbers on one fighter do not stack. */
+    lane?: { dx: number; dy: number };
 };
 
 type PvpCombatVfx = {
