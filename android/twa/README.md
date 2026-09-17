@@ -14,8 +14,13 @@ node scripts/sync-android-qa.mjs "C:\Users\Tyler R\source\repos\shinobi-twa"
 The script checks the package ID, backs up every existing file it replaces under
 `.backup-qa-<timestamp>`, copies Java sources/tests, adds Play dependencies and the
 review activity, and regenerates launcher/splash/store artwork from the web icons.
+It raises `androidbrowserhelper` to 2.7.3 when a Bubblewrap regeneration left an
+older version (see `docs/ANDROID_TWA_SETUP.md`), and never lowers a newer one.
 It upgrades the original version 3 configuration to version 4 without reducing a
 later version. Future Play releases still need their usual unique version code.
+It rewrites `manifest-checksum.txt` to match the manifest it writes. Without that,
+`bubblewrap build` offers to regenerate the project, with Yes as the default, and
+the regeneration discards these sources.
 It does not read or change signing credentials.
 
 ## Behavior
