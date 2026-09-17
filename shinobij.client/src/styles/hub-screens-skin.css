@@ -557,6 +557,13 @@
     backdrop-filter: blur(10px);
 }
 
+/* A claim receipt ("E-Rank Drill recorded") renders above the hero, exactly
+   where the floating Back button sits. Give it room so the button never
+   covers the receipt's title (seen on the very first mission claim). */
+.mission-hall > .village-back-button + .summary-box {
+    margin: 72px 18px 12px;
+}
+
 .mission-hall .mh-header {
     position: relative;
     isolation: isolate;

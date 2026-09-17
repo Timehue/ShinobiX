@@ -9,7 +9,7 @@ import { ShinobiCombatShell } from "../components/ShinobiCombatShell";
 import type { StoryFightTheme } from "../lib/story-fight-theme";
 import { playStoryChapterSting, playStoryFinalPhaseSting, playStoryVictorySting, primeStorySfx } from "../lib/story-sfx";
 import { buildActionsFromTowerLog, makeBattleEntry } from "../lib/battle-log-history";
-import { SparCoach } from "../components/SparCoach";
+import { EMPTY_FIRST_FIGHT_HISTORY, firstFightCoachLine, type FirstFightCoachHistory, type FirstFightLesson } from "../lib/first-fight-coach";
 import { GiBoxingGlove, GiCrossedSwords, GiEyeball, GiFireSpellCast, GiTargeted, GiHealthPotion, GiBriefcase,
     // Command-deck glyphs (one per basic action), matching Arena + PvP.
     GiBootPrints, GiHealing, GiMagicSwirl, GiWaterDrop, GiRun, GiSandsOfTime, GiPawPrint } from "../components/icons/LightweightGameIcons";
@@ -69,6 +69,7 @@ import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { CombatDetailPortal } from "../components/CombatDetailPortal";
 import {
     activeBarrierTilesForDisplay,
+    activeCombatDisplayStatuses,
     adjustedCombatApCost,
     combatRejectionMessage,
     isElementallySealedForDisplay,
@@ -196,6 +197,7 @@ export function MissionArenaFight({
     onBattleResolved,
     storyTheme,
     coach,
+    coachSpeaker,
     renderResult,
     transport,
     settleOnAnyDone,
@@ -229,13 +231,17 @@ export function MissionArenaFight({
      *  start and as the boss's HP falls. See lib/story-fight-theme.ts. */
     storyTheme?: StoryFightTheme;
     /**
-     * In-battle tutorial coaching. `"academySpar"` renders the SparCoach banner
-     * — the same read-only "use Basic Attack → now a jutsu → press Wait" hints
-     * the local Arena spar shows. Without it the sealed spar (step 5 of the
-     * AI-fight migration) would be the one fight in the game where a brand-new
-     * player gets no guidance, because the coaching lived in Arena.tsx only.
+     * In-battle coaching for a brand-new shinobi's first authored fights
+     * (lib/first-fight-coach.ts). `"academySpar"` keeps the read-only
+     * control-level hints in the combat feedback band (the sealed spar would
+     * otherwise be the one fight with no guidance); the Drill, first-chapter and
+     * Errand lessons add a few once-only lines in the companion's voice through
+     * the ally bark bubble. Display-only: nothing here gates an action. Absent
+     * means no guidance — the wild is the exam.
      */
-    coach?: "academySpar";
+    coach?: FirstFightLesson;
+    /** Who speaks the coaching bubbles: the companion pet travelling with the player. */
+    coachSpeaker?: string;
     /** Optional result-overlay override. When provided it fully replaces the
      *  built-in mission result card — the story lane uses this to show its own
      *  chapter-reward / defeat card. Absent → the mission card renders as before. */
@@ -300,9 +306,13 @@ export function MissionArenaFight({
     // its reward breakdown). Mission callers ignore it (they claim later in the Hall).
     const [settleResult, setSettleResult] = useState<unknown>(null);
 
-    // Tutorial coaching progress (display-only — see the `coach` prop).
+    // Tutorial coaching progress (display-only — see the `coach` prop). The
+    // two legacy flags keep their names: the spar wiring guard reads them.
     const [sparAttacked, setSparAttacked] = useState(false);
     const [sparCasted, setSparCasted] = useState(false);
+    const [coachHistory, setCoachHistory] = useState<FirstFightCoachHistory>(EMPTY_FIRST_FIGHT_HISTORY);
+    // Bubble lines fire once per id per fight.
+    const coachSeenRef = useRef(new Set<string>());
 
     // ── Story presentation (display-only): the boss speaks its own authored VN
     // lines at fight start / 2⁄3 / 1⁄3 HP and its last words on the killing blow;
@@ -912,6 +922,65 @@ export function MissionArenaFight({
         && Number(myActor?.cooldowns?.[j.id ?? ""] ?? 0) <= 0
         && !isElementallySealedForDisplay(myActor?.statuses, j.element, session.round));
 
+    // ── First-fight coaching (display-only; see the `coach` prop) ────────────
+    // A pure read of the current turn: the band line re-derives every render,
+    // the bubble effect below fires each once-only line the first time it
+    // appears. `enemyShieldSeen` has to survive the shield dropping, so it is
+    // latched into history rather than read live.
+    const myActiveDebuffs = activeCombatDisplayStatuses(myActor?.statuses, session.round)
+        .filter((status) => status.kind === "negative")
+        .map((status) => status.name);
+    const fortyJutsu = myJutsu.find((j) => Number(j.ap ?? 0) === 40 && Number(j.effectPower ?? 0) <= 0 && !isMoveJutsu(j));
+    const enemyShieldNow = Number(enemy?.shield ?? 0);
+    useEffect(() => {
+        if (!coach || enemyShieldNow <= 0) return;
+        setCoachHistory((history) => history.enemyShieldSeen ? history : { ...history, enemyShieldSeen: true });
+    }, [coach, enemyShieldNow]);
+    const coachLine = coach && enemy ? firstFightCoachLine({
+        lesson: coach,
+        round: session.round,
+        myTurn,
+        myAp,
+        outOfActions,
+        distance: myPos >= 0 && enemyPos >= 0 ? towerHexDistance(myPos, enemyPos, w) : -1,
+        enemyInMelee,
+        enemyHp: enemy.hp,
+        enemyMaxHp: enemy.maxHp,
+        enemyShield: enemyShieldNow,
+        myDebuffs: myActiveDebuffs,
+        canAttack: enemyInMelee && myAp >= attackAp && myStamina >= 10,
+        canMove: myAp >= moveAp,
+        canCastJutsu,
+        hasFlicker: myJutsu.some(isMoveJutsu),
+        hasKunai: myWeapons.some((weapon) => weapon.range >= 2),
+        fortyJutsu: fortyJutsu ? {
+            name: fortyJutsu.name ?? "forty-point technique",
+            selfOnly: isSelfCastJutsu(fortyJutsu),
+            ready: myAp >= adjustedActionAp(Number(fortyJutsu.ap ?? 40))
+                && Number(myActor?.cooldowns?.[fortyJutsu.id ?? ""] ?? 0) <= 0
+                && myChakra >= Number(fortyJutsu.chakraCost ?? 0) && myStamina >= Number(fortyJutsu.staminaCost ?? 0),
+        } : undefined,
+        cleanseReady: cleanseCd <= 0 && myAp >= utilityAp,
+        history: {
+            ...coachHistory,
+            attacked: coachHistory.attacked || sparAttacked,
+            casted: coachHistory.casted || sparCasted,
+            enemyShieldSeen: coachHistory.enemyShieldSeen || enemyShieldNow > 0,
+        },
+    }, coachSeenRef.current) : null;
+    const coachBand = coachLine?.surface === "band" ? coachLine.text : "";
+    const coachBubbleId = coachLine?.surface === "bubble" ? coachLine.id : "";
+    const coachBubbleText = coachLine?.surface === "bubble" ? coachLine.text : "";
+    useEffect(() => {
+        if (!coachBubbleId || coachSeenRef.current.has(coachBubbleId)) return;
+        coachSeenRef.current.add(coachBubbleId);
+        setBark({ name: coachSpeaker || "Companion", text: coachBubbleText, side: "ally" });
+        window.clearTimeout(barkTimerRef.current);
+        // Same cadence as a story bark: the bubble sits over the vitals on a
+        // phone, so it must not outstay a ~20-word read.
+        barkTimerRef.current = window.setTimeout(() => setBark(null), 6500);
+    }, [coachBubbleId, coachBubbleText, coachSpeaker]);
+
     const armedWeapon = mode === "weapon" ? myWeapons.find(x => x.item.id === selWeaponId) : undefined;
     const weaponRange = armedWeapon?.range ?? 1;
     const occupiedTiles = useMemo(
@@ -1020,6 +1089,21 @@ export function MissionArenaFight({
                 // Tutorial guidance follows authoritative success, never intent.
                 if (action.type === "attack") setSparAttacked(true);
                 if (action.type === "jutsu") setSparCasted(true);
+                if (coach) {
+                    const cast = action.type === "jutsu" ? myJutsu.find((j) => j.id === action.jutsuId) : undefined;
+                    const heavy = !!cast && Number(cast.ap ?? 0) >= 60;
+                    const poisoned = myActiveDebuffs.includes("Poison");
+                    const shielded = enemyShieldNow > 0;
+                    setCoachHistory((history) => ({
+                        ...history,
+                        attacked: history.attacked || action.type === "attack",
+                        casted: history.casted || action.type === "jutsu",
+                        castedSixty: history.castedSixty || heavy,
+                        castedSixtyWhilePoisoned: history.castedSixtyWhilePoisoned || (heavy && poisoned),
+                        castedSixtyIntoShield: history.castedSixtyIntoShield || (heavy && shielded),
+                        cleansed: history.cleansed || action.type === "cleanse",
+                    }));
+                }
             }
         } catch (e) {
             setReject(combatRejectionMessage(String((e as Error)?.message ?? e)));
@@ -1408,15 +1492,8 @@ export function MissionArenaFight({
                             aria-atomic="true"
                         >
                             {reject && <strong>Can't do that</strong>}
-                            {actionNotice ? <span>{actionNotice}</span> : coach === "academySpar" && enemy ? (
-                                <SparCoach
-                                    attacked={sparAttacked} casted={sparCasted}
-                                    enemyHp={enemy.hp} enemyMaxHp={enemy.maxHp}
-                                    enemyInMelee={enemyInMelee} myTurn={myTurn} outOfActions={outOfActions}
-                                    canAttack={enemyInMelee && myAp >= attackAp && myStamina >= 10}
-                                    canMove={myAp >= moveAp}
-                                    canCastJutsu={canCastJutsu}
-                                />
+                            {actionNotice ? <span>{actionNotice}</span> : coachBand ? (
+                                <span className="spar-coach-hint">{coachBand}</span>
                             ) : <span>{"\u00a0"}</span>}
                         </div>
                     </div>

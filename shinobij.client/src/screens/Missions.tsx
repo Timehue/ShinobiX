@@ -45,6 +45,7 @@ import { sectorArtKey, sectorName, sectorRegionLabel } from "../../../shared/sec
 import { handleHorizontalTabKeyDown } from "../lib/tab-keyboard";
 import { useFirstContractMissionTab } from "../lib/use-first-contract-mission-tab";
 import { ScreenHint } from "../components/ScreenHint";
+import { companionCoachName, firstFightLessonForMission } from "../lib/first-fight-coach";
 
 export function Missions({
     character,
@@ -219,6 +220,11 @@ export function Missions({
                 initialSession={soloPveSessionForArena(authoritativeFight.session)}
                 transport={soloPveArenaTransport}
                 missionName={authoritativeFight.mission.name}
+                // First meeting with the Drill partner or the Mist Sentinel, at
+                // Academy rank: the fight teaches, the companion says a line or two.
+                // Repeats and veterans get the plain fight.
+                coach={firstFightLessonForMission(authoritativeFight.mission, character)}
+                coachSpeaker={companionCoachName(character)}
                 savedBloodlines={savedBloodlines}
                 creatorJutsus={creatorJutsus}
                 creatorItems={creatorItems}

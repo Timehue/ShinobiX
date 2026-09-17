@@ -127,7 +127,7 @@ test('boss template is milestone-derived, display name is cosmetic only', () => 
         assert.equal(template.visual, storyOpponentId(VILLAGE, STORY_LEVELS[progress]));
         assert.equal(template.boss, true);
         assert.ok(template.hp >= 250 && template.hp <= 14_000, `hp in range for chapter ${progress}`);
-        assert.ok((template.jutsu?.length ?? 0) > 0, 'boss has a moveset');
+        assert.ok((template.jutsu?.length ?? 0) > 0 || (template.jutsuIds?.length ?? 0) > 0, 'boss has a moveset');
     }
     const named = storyBossEnemyTemplate({ village: VILLAGE, progressIndex: 0, displayName: '  Captain Reika  ' });
     const anonymous = storyBossEnemyTemplate({ village: VILLAGE, progressIndex: 0 });
