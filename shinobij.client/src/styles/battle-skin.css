@@ -1029,18 +1029,6 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
     color: var(--bsv2-gold-bright, #e8d496) !important;
 }
 
-/* =========================================================================
-   Combat VFX (cosmetic) — 2.5D plate overlay + impact flash
-   Cosmetic only; never affects balance/outcomes.
-   ========================================================================= */
-
-/* Brief bright pop on the tile a combat plate lands on. */
-@keyframes jutsu-impact-flash {
-    0%   { box-shadow: inset 0 0 0 rgba(255, 255, 255, 0); filter: brightness(1); }
-    22%  { box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.6), 0 0 14px rgba(255, 255, 255, 0.45); filter: brightness(1.55); }
-    100% { box-shadow: inset 0 0 0 rgba(255, 255, 255, 0); filter: brightness(1); }
-}
-
 /* Completed-only Story Hall archive. */
 .story-hall-archive {
     min-height: min(78vh, 920px);

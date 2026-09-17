@@ -2,3 +2,21 @@
    longer reserves navigation space or constrains a fight; shared combat geometry
    lives in battle-skin.css / ShinobiCombatShell. This manifest slot remains as a
    compatibility marker so the ordered CSS history is explicit. */
+
+/* ── Paint-hide the launching screen under a body-portaled fight ─────────────
+   Lives in the always-loaded manifest (not battle-skin.css, which only the fight
+   screens import) so the rule is present the moment any CombatInstance mounts.
+   The launching screen is completely covered by that fixed, full-viewport
+   fight, but it stays mounted — and until 2026-09-17 it stayed PAINTED: its
+   glass panels (backdrop-filter) and shadowed cards were re-composited on
+   every frame the fight animated (a plate, an aura pulse, the weather canvas),
+   which on a software-composited board turned a 16.7ms frame into 50ms. Skip
+   its paint. Layout, state, scroll position and focus order are untouched, and
+   a :has() rule reverts the instant the fight unmounts — no JS state to leak.
+   Everything that must show ABOVE a fight (alerts, confirms, toasts, the
+   session-expiry modal, the incoming-challenge modal, the coach banner) is a
+   body portal and lives outside <main>, so none of it is affected. The frame
+   loops underneath pause on the same fact (lib/combat-cover). */
+body:has(> .arena-fullscreen.combat-instance) main.center-game {
+    visibility: hidden;
+}

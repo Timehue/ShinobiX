@@ -124,6 +124,15 @@ export function setLiveSectorContext(sector: number | null): void {
     clearLiveSectorPlayers(true);
 }
 
+/**
+ * The sector the viewer is standing in, as last told to this store (null before
+ * App publishes one). Read by presentation that mounts from many hosts and only
+ * needs the place — the combat weather layer — never for gameplay decisions.
+ */
+export function getLiveSectorContext(): number | null {
+    return liveSector;
+}
+
 // lastSeenAt advances every beat, so including it raw would defeat the
 // short-circuit (every beat would look "changed"). Bucket it to 30s instead: the
 // roster still refreshes at least every ~30s, which keeps the Scout Network

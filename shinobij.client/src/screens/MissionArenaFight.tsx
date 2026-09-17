@@ -1,6 +1,6 @@
 import { playerLensDiscipline } from "../lib/player-lens-discipline";
 import { getAllJutsus } from "../lib/jutsu-loadout";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import "../styles/battle-skin.css";
 import { visiblePoll } from "../lib/poll";
 import { retryArenaSettlement } from "../lib/arena-settlement-retry";
@@ -18,10 +18,12 @@ import type { JutsuMethod } from "../types/core";
 import { JUTSU_MAX_LEVEL } from "../constants/game";
 import type {
     ServerArenaAction,
+    ServerArenaBeat,
     ServerArenaMovementEvent,
     ServerArenaSession,
     ServerArenaStatus,
     ServerArenaTransport,
+    ServerArenaVfxEvent,
 } from "../lib/server-arena-runtime";
 import {
     towerHexPixel, towerLayerSize, towerHexDistance, towerNeighbors, towerTilesInRange, HEX_W, HEX_H,
@@ -29,6 +31,24 @@ import {
 import { safeCombatVfxSpec, combatVfxAnchorKey, dedupeCombatVfx, type CombatVfxSpec } from "../lib/combat-vfx";
 import { combatVfxAssetFor } from "../lib/combat-vfx-assets";
 import { prefersLiteCombatFx } from "../lib/device-tier";
+import { CombatWeatherLayer } from "../components/CombatWeatherLayer";
+import { findBattlefieldActor, playBattlefieldReaction } from "../lib/battlefield-reactions";
+import {
+    ARENA_IMPACT_LAG_MS,
+    ARENA_KO_HOLD_MS,
+    ARENA_MOVE_STEP_MS,
+    arenaBeatSchedule,
+    combatHitFloatLane,
+    combatHitLabel,
+    combatWeatherSource,
+    reactionDirection,
+    reactionForHit,
+    type CombatActorReactionKind,
+} from "../lib/combat-presentation";
+import { weatherFromElements } from "../../../shared/sector-weather";
+import { weatherForSector } from "../lib/world-state";
+import { biomeForWorldSector } from "../data/sectors";
+import { getLiveSectorContext } from "../lib/presence-store";
 import { useBoardScale } from "../lib/use-board-scale";
 import { useBattleTabs } from "../lib/use-battle-tabs";
 import { CombatSideHud, type CombatHudStatus } from "../components/CombatSideHud";
@@ -118,13 +138,21 @@ type JutsuLike = { id?: string; name?: string; type?: string; element?: string; 
 type ItemLike = { id?: string; name?: string; slot?: string; rarity?: string; image?: string; weaponRange?: number; apCost?: number };
 /** A VFX plate in flight on the board. `target` is the anchoring actor's id. */
 type ArenaCombatVfx = { id: string; target: string; spec: CombatVfxSpec };
+/** A floating hit number / status label over a fighter's tile (cosmetic). */
+type ArenaHitFx = { id: string; target: string; tile: number; kind: "damage" | "heal" | "shield" | "status"; label: string; lane: { dx: number; dy: number } };
+/** How long a floating number stays mounted (its CSS float is 0.95s). */
+const ARENA_HIT_FX_MS = 1000;
 
 const ORB = 68;             // larger solo-combat actors; still centred over the hex
 const ATTACK_AP = 40, MOVE_AP = 30, UTILITY_AP = 60, MAX_ACTIONS = 5;
 // The server resolves a whole AI turn before returning it. Replay its recorded
 // adjacent Move events at a readable cadence instead of gliding directly from
-// the turn's first tile to its final tile.
-const ENEMY_MOVEMENT_STEP_MS = 320;
+// the turn's first tile to its final tile. The cadence equals the actors' tile
+// glide, so consecutive steps read as one walk with no pause between them; the
+// same timeline (lib/combat-presentation arenaBeatSchedule) also spaces the
+// turn's plates, numbers and hit reactions so the enemy visibly arrives BEFORE
+// its strike lands instead of the whole reply firing on one frame.
+const ENEMY_MOVEMENT_STEP_MS = ARENA_MOVE_STEP_MS;
 
 // Which jutsu school the biome's +10% terrain buff favors (mirrors the server's
 // combat-core terrainMultiplier), for the terrain strip readout.
@@ -307,57 +335,192 @@ export function MissionArenaFight({
     // and settlement all come from the session snapshot.
     const liteFx = useMemo(() => prefersLiteCombatFx(), []);
     const [combatVfx, setCombatVfx] = useState<ArenaCombatVfx[]>([]);
-    const lastVfxSeqRef = useRef<number | undefined>(undefined);
-    const hasObservedVfxSessionRef = useRef(false);
+    const [hitFx, setHitFx] = useState<ArenaHitFx[]>([]);
+    const lastBeatSeqRef = useRef<number | undefined>(undefined);
+    const hasObservedBeatsRef = useRef(false);
+    // Every presentation timer this screen arms (beat playback, plate / number
+    // expiry, the KO hold). Cleared on unmount so nothing outlives the fight.
+    const presentationTimersRef = useRef<number[]>([]);
+    // Wall-clock end of the batch currently playing, and the delay the newest
+    // batch was queued behind it — so a follow-up batch, the enemy walk and the
+    // result card line up behind the beats already on screen.
+    const batchTailRef = useRef(0);
+    const batchBaseRef = useRef(0);
+    const gridLayerRef = useRef<HTMLDivElement | null>(null);
 
     const tileCenter = (pos: number) => {
         const { left, top } = towerHexPixel(pos, w);
         return { x: left + HEX_W / 2, y: top + HEX_H / 2 };
     };
+    const armPresentationTimer = useCallback((fn: () => void, ms: number): number => {
+        const id = window.setTimeout(fn, ms);
+        presentationTimersRef.current.push(id);
+        return id;
+    }, []);
+    useEffect(() => () => {
+        for (const id of presentationTimersRef.current) window.clearTimeout(id);
+        presentationTimersRef.current = [];
+    }, []);
 
     useEffect(() => {
         // Skip the very first observation: mounting mid-fight (a refresh, or a
         // resumed session) must not replay the whole retained window at once.
-        const watchedFromStart = hasObservedVfxSessionRef.current;
-        hasObservedVfxSessionRef.current = true;
-        const seq = session.vfxSeq;
+        const watchedFromStart = hasObservedBeatsRef.current;
+        hasObservedBeatsRef.current = true;
+        const seq = session.beatSeq ?? session.vfxSeq;
         if (seq == null) return;
-        const last = lastVfxSeqRef.current;
-        lastVfxSeqRef.current = seq;
+        const last = lastBeatSeqRef.current;
+        lastBeatSeqRef.current = seq;
         if (seq === last) return;
         if (last === undefined && !watchedFromStart) return;
 
         const floor = last ?? 0;
-        const fresh = (session.vfx ?? []).filter((plate) => plate.seq > floor);
-        if (!fresh.length) return;
-        const mapped = fresh.map((plate, i) => ({
-            id: `${plate.target}-vfx-${plate.seq}-${i}`,
-            target: plate.target,
-            spec: safeCombatVfxSpec({
-                key: plate.key,
-                target: plate.anchor,
-                persistent: plate.persistent,
-                tiles: plate.tiles,
-                ...(liteFx ? { maxParticles: 4 } : {}),
-            }),
-        }));
-        // Collapse plates landing on the same tile (a hit plus its shield/reflect
-        // reaction, a weapon plus its tag effect, several DoTs ticking at once).
-        // Mirrors PvpBattleScreen — see dedupeCombatVfx's note.
-        const deduped = dedupeCombatVfx(mapped, (fx) =>
-            combatVfxAnchorKey(fx.spec, session.actors.find(a => a.id === fx.target)?.pos ?? -1));
-        setCombatVfx((existing) => [...existing, ...deduped].slice(liteFx ? -6 : -14));
-        const lifetime = Math.max(...deduped.map((fx) => fx.spec.durationMs), 900);
-        const timeout = window.setTimeout(() => {
-            setCombatVfx((existing) => existing.filter((fx) => !deduped.some((added) => added.id === fx.id)));
-        }, lifetime + 80);
-        return () => window.clearTimeout(timeout);
-        // Keyed on vfxSeq ALONE, deliberately. `session.vfx` and `session.actors`
-        // get fresh identities on every 2.5s poll, so listing them would re-fire
-        // this effect (and re-play the same plates) on an idle board. vfxSeq is
-        // the server's own "something new happened" signal.
+        const freshBeats = (session.beats ?? []).filter((beat) => beat.seq > floor);
+        const freshPlates = (session.vfx ?? []).filter((plate) => plate.seq > floor);
+        if (!freshBeats.length && !freshPlates.length) return;
+        const reduceMotion = typeof window.matchMedia === "function"
+            && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        // One timeline for the whole server batch: the player's action, then the
+        // enemy's reply beat by beat. Under reduced motion everything lands at
+        // once, exactly as before. A batch that arrives while the previous one is
+        // still playing queues behind it (bounded, so a laggy poll cannot pile up).
+        const schedule = arenaBeatSchedule(freshBeats, { instant: reduceMotion });
+        const startAt = new Map(schedule.beats.map(({ beat, at }) => [beat.seq, at]));
+        const now = performance.now();
+        const base = reduceMotion ? 0 : Math.max(0, Math.min(1200, batchTailRef.current - now));
+        batchBaseRef.current = base;
+        batchTailRef.current = now + base + schedule.total;
+
+        const platesBySeq = new Map<number, ServerArenaVfxEvent[]>();
+        for (const plate of freshPlates) {
+            const list = platesBySeq.get(plate.seq) ?? [];
+            list.push(plate);
+            platesBySeq.set(plate.seq, list);
+        }
+        const actorPos = (id: string, beat?: ServerArenaBeat) =>
+            beat?.positions[id] ?? session.actors.find(a => a.id === id)?.pos ?? -1;
+        const aim = (fromId: string, toId: string, beat: ServerArenaBeat) =>
+            reactionDirection(tileCenter(Math.max(0, actorPos(fromId, beat))), tileCenter(Math.max(0, actorPos(toId, beat))));
+
+        const spawnPlates = (plates: ServerArenaVfxEvent[], beat?: ServerArenaBeat) => {
+            const mapped = plates.map((plate, i) => ({
+                id: `${plate.target}-vfx-${plate.seq}-${i}`,
+                target: plate.target,
+                spec: safeCombatVfxSpec({
+                    key: plate.key,
+                    target: plate.anchor,
+                    persistent: plate.persistent,
+                    tiles: plate.tiles,
+                    ...(liteFx ? { maxParticles: 4 } : {}),
+                }),
+            }));
+            // Collapse plates landing on the same tile (a hit plus its shield/reflect
+            // reaction, a weapon plus its tag effect, several DoTs ticking at once).
+            // Mirrors PvpBattleScreen — see dedupeCombatVfx's note.
+            const deduped = dedupeCombatVfx(mapped, (fx) => combatVfxAnchorKey(fx.spec, actorPos(fx.target, beat)));
+            if (!deduped.length) return;
+            setCombatVfx((existing) => [...existing, ...deduped].slice(liteFx ? -6 : -14));
+            const lifetime = Math.max(...deduped.map((fx) => fx.spec.durationMs), 900);
+            armPresentationTimer(() => {
+                setCombatVfx((existing) => existing.filter((fx) => !deduped.some((added) => added.id === fx.id)));
+            }, lifetime + 80);
+        };
+        // The true per-event numbers (from the server's own before/after
+        // snapshots), floated where they happened. Several on one tile fan out.
+        const spawnHits = (beat: ServerArenaBeat) => {
+            if (!beat.hits.length) return;
+            const perTarget = new Map<string, number>();
+            const next: ArenaHitFx[] = beat.hits.map((hit, i) => {
+                const lane = perTarget.get(hit.target) ?? 0;
+                perTarget.set(hit.target, lane + 1);
+                return {
+                    id: `${hit.target}-hit-${beat.seq}-${i}`,
+                    target: hit.target,
+                    tile: actorPos(hit.target, beat),
+                    kind: hit.kind,
+                    label: combatHitLabel(hit),
+                    lane: combatHitFloatLane(lane),
+                };
+            });
+            setHitFx((existing) => [...existing, ...next].slice(-10));
+            armPresentationTimer(() => {
+                setHitFx((existing) => existing.filter((fx) => !next.some((added) => added.id === fx.id)));
+            }, ARENA_HIT_FX_MS);
+        };
+        // The acting fighter's own motion: a short lunge for a physical blow, a
+        // cast pulse for a jutsu / item / self action, nothing for a walk or wait.
+        const actorMotion = (beat: ServerArenaBeat): CombatActorReactionKind | null => {
+            if (beat.movement) return null;
+            if (beat.action === "wait" || beat.action === "flee" || beat.action === "companionWait") return null;
+            if (beat.targetId && beat.targetId !== beat.actorId) {
+                return beat.action === "basicAttack" || beat.action === "weapon" ? "lunge" : "cast";
+            }
+            return "cast";
+        };
+        const playBeat = (beat: ServerArenaBeat) => {
+            const root = gridLayerRef.current;
+            const motion = actorMotion(beat);
+            if (motion) {
+                const dir = beat.targetId && beat.targetId !== beat.actorId ? aim(beat.actorId, beat.targetId, beat) : undefined;
+                playBattlefieldReaction(findBattlefieldActor(root, beat.actorId), motion, dir);
+            }
+            const impact = () => {
+                spawnHits(beat);
+                const reacted = new Set<string>();
+                for (const hit of beat.hits) {
+                    const maxHp = beat.maxHp[hit.target] ?? session.actors.find(a => a.id === hit.target)?.maxHp ?? 1;
+                    const kind = reactionForHit(hit, { maxHp, down: beat.downed.includes(hit.target) });
+                    if (!kind || (reacted.has(hit.target) && kind !== "ko")) continue;
+                    reacted.add(hit.target);
+                    const dir = hit.target === beat.actorId ? { x: 0, y: 1 } : aim(beat.actorId, hit.target, beat);
+                    playBattlefieldReaction(findBattlefieldActor(root, hit.target), kind, dir);
+                }
+                for (const id of beat.downed) {
+                    if (reacted.has(id)) continue;
+                    playBattlefieldReaction(findBattlefieldActor(root, id), "ko", id === beat.actorId ? { x: 0, y: 1 } : aim(beat.actorId, id, beat));
+                }
+            };
+            // The blow lands a beat after the swing, so the flinch and the number
+            // follow the lunge instead of sharing its first frame.
+            if (motion && !reduceMotion) armPresentationTimer(impact, ARENA_IMPACT_LAG_MS);
+            else impact();
+        };
+
+        const seqs = [...new Set([...freshBeats.map((beat) => beat.seq), ...freshPlates.map((plate) => plate.seq)])].sort((a, b) => a - b);
+        for (const eventSeq of seqs) {
+            const beat = freshBeats.find((candidate) => candidate.seq === eventSeq);
+            const at = base + (startAt.get(eventSeq) ?? 0);
+            const run = () => {
+                spawnPlates(platesBySeq.get(eventSeq) ?? [], beat);
+                if (beat) playBeat(beat);
+            };
+            if (at <= 0) run();
+            else armPresentationTimer(run, at);
+        }
+        // Keyed on the event seq ALONE, deliberately. `session.beats`, `session.vfx`
+        // and `session.actors` get fresh identities on every 2.5s poll, so listing
+        // them would re-fire this effect (and re-play the same beats) on an idle
+        // board. The seq is the server's own "something new happened" signal.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [session.vfxSeq]);
+    }, [session.beatSeq, session.vfxSeq]);
+
+    // ── KO hold ──────────────────────────────────────────────────────────────
+    // Let the final blow read (its number, the flinch, the sag) before the result
+    // card covers the board. A session that is already over on mount (a refresh
+    // on the result screen) shows the card at once. Settlement, outcome reporting
+    // and the battle record all key off `session.status` directly and are not
+    // delayed by this. Presentation only.
+    const [resultRevealed, setResultRevealed] = useState(initialSession.status === "done");
+    useEffect(() => {
+        if (session.status !== "done" || resultRevealed) return;
+        const reduceMotion = typeof window.matchMedia === "function"
+            && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const hold = reduceMotion ? 0 : Math.max(0, batchTailRef.current - performance.now()) + ARENA_KO_HOLD_MS;
+        const id = armPresentationTimer(() => setResultRevealed(true), hold);
+        return () => window.clearTimeout(id);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [session.status]);
 
     // Same markup and class contract as PvpBattleScreen so both modes share one
     // stylesheet (.pvp-combat-vfx / .pvp-vfx-* in battle-skin.css).
@@ -417,7 +580,7 @@ export function MissionArenaFight({
     const enemyPos = enemy?.pos ?? -1;
     const [displayEnemyPos, setDisplayEnemyPos] = useState(enemyPos);
     const authoritativeEnemyPosRef = useRef(enemyPos);
-    const enemyMovementQueueRef = useRef<ServerArenaMovementEvent[]>([]);
+    const enemyMovementQueueRef = useRef<Array<ServerArenaMovementEvent & { at: number }>>([]);
     const enemyMovementTimerRef = useRef<number | null>(null);
     const enemyMovementActiveRef = useRef(false);
     const lastMovementSeqRef = useRef(initialSession.movementSeq);
@@ -431,7 +594,11 @@ export function MissionArenaFight({
             return;
         }
         setDisplayEnemyPos(step.to);
-        enemyMovementTimerRef.current = window.setTimeout(playNext, ENEMY_MOVEMENT_STEP_MS);
+        // Each step waits for its slot on the batch timeline (an action beat in
+        // between holds the walk); steps from a later batch fall back to the cadence.
+        const next = enemyMovementQueueRef.current[0];
+        const wait = next && next.at > step.at ? next.at - step.at : ENEMY_MOVEMENT_STEP_MS;
+        enemyMovementTimerRef.current = window.setTimeout(playNext, wait);
     }, []);
 
     useEffect(() => {
@@ -454,11 +621,18 @@ export function MissionArenaFight({
         }
         lastMovementSeqRef.current = seq;
 
-        const freshSteps = (session.movements ?? [])
-            .filter((step) => step.actorId === "enemy" && step.seq > last)
-            .sort((a, b) => a.seq - b.seq);
         const reduceMotion = typeof window.matchMedia === "function"
             && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        // The same schedule the beat effect above laid the plates and numbers on,
+        // so each replayed step lands in its slot between the turn's actions.
+        const startAt = new Map(
+            arenaBeatSchedule((session.beats ?? []).filter((beat) => beat.seq > last), { instant: reduceMotion }).beats
+                .map(({ beat, at }) => [beat.seq, at]),
+        );
+        const freshSteps = (session.movements ?? [])
+            .filter((step) => step.actorId === "enemy" && step.seq > last)
+            .sort((a, b) => a.seq - b.seq)
+            .map((step) => ({ ...step, at: startAt.get(step.seq) ?? 0 }));
         if (!freshSteps.length || reduceMotion) {
             if (!enemyMovementActiveRef.current) setDisplayEnemyPos(enemyPos);
             return;
@@ -470,15 +644,32 @@ export function MissionArenaFight({
             // cannot batch the first two positions into another apparent jump.
             enemyMovementActiveRef.current = true;
             setDisplayEnemyPos(freshSteps[0]!.from);
-            enemyMovementTimerRef.current = window.setTimeout(playNextEnemyMovement, 24);
+            enemyMovementTimerRef.current = window.setTimeout(playNextEnemyMovement, Math.max(24, batchBaseRef.current + freshSteps[0]!.at));
         }
-    }, [enemyPos, playNextEnemyMovement, session.movementSeq, session.movements]);
+    }, [enemyPos, playNextEnemyMovement, session.movementSeq, session.movements, session.beats]);
 
     useEffect(() => () => {
         if (enemyMovementTimerRef.current !== null) window.clearTimeout(enemyMovementTimerRef.current);
         enemyMovementQueueRef.current = [];
     }, []);
     const biome = String(session.map.biome ?? "central");
+    // The sky over this fight, for the ambient weather layer only. The sealed
+    // environment (the +5% / −2% chips in the strip) wins; otherwise the world's
+    // sky over the sector the player is standing in. An authored story backdrop
+    // shows no weather. Display-only — nothing here feeds combat math.
+    const sealedWeatherPositive = session.weather?.positiveElement;
+    const sealedWeatherNegative = session.weather?.negativeElement;
+    const authoredBackdrop = !!storyTheme?.backdropImage;
+    // Read once per fight: the sky is a snapshot at fight start (no polling).
+    const [playerSector] = useState(() => getLiveSectorContext());
+    const combatWeather = useMemo(() => combatWeatherSource({
+        sealedPositive: sealedWeatherPositive,
+        sealedNegative: sealedWeatherNegative,
+        authoredBackdrop,
+        sector: playerSector,
+        weatherFromElements,
+        weatherForSector: (sector) => weatherForSector(sector, biomeForWorldSector(sector)),
+    }), [sealedWeatherPositive, sealedWeatherNegative, authoredBackdrop, playerSector]);
     const gateFloor = hollowGate?.floor;
     const gateKind = hollowGate?.kind;
     const gateEnemyHp = enemy?.hp;
@@ -1061,11 +1252,15 @@ export function MissionArenaFight({
                                 width: `${scaledW}px`, height: `${scaledH}px`,
                             };
                         })()}>
-                            <div className="hex-grid-layer" style={{ position: "absolute", left: 0, top: 0, width: layer.width, height: layer.height, transform: `scale(${effectiveScale})`, transformOrigin: "top left" }}>
+                            {/* Ambient sky under the grid. Inside the board wrapper (not a
+                                sibling of it): the wide-desktop skin addresses that wrapper as
+                                `.hex-battlefield > div:first-child`, so nothing may precede it. */}
+                            <CombatWeatherLayer biome={biome} weather={combatWeather} />
+                            <div className="hex-grid-layer" ref={gridLayerRef} style={{ position: "absolute", left: 0, top: 0, width: layer.width, height: layer.height, transform: `scale(${effectiveScale})`, transformOrigin: "top left" }}>
                                 {/* Actor orbs + HP bars (overlay above the tiles) */}
                                 {myActor && (() => {
                                     const { left, top } = towerHexPixel(myPos, w);
-                                    return <BattlefieldActor key="player-orb" side="player" label={me} portrait={playerAvatar} fallback={me.slice(0, 2).toUpperCase()} style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }} />;
+                                    return <BattlefieldActor key="player-orb" side="player" actorId="player" label={me} portrait={playerAvatar} fallback={me.slice(0, 2).toUpperCase()} style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }} />;
                                 })()}
                                 {myActor && (() => {
                                     const { left, top } = towerHexPixel(myPos, w);
@@ -1073,7 +1268,7 @@ export function MissionArenaFight({
                                 })()}
                                 {companion && isImageAvatar(companionImage) && (() => {
                                     const { left, top } = towerHexPixel(companion.pos, w);
-                                    return <div key="pet-orb" className={`avatar-orb pet-summon-orb ${companionPet ? petVisualVariantClass(companionPet) : ""}`} style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 9, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}>
+                                    return <div key="pet-orb" className={`avatar-orb pet-summon-orb ${companionPet ? petVisualVariantClass(companionPet) : ""}`} data-battlefield-actor-id="companion" style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 9, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}>
                                         <img className="tiny-map-avatar" src={companionImage} alt={companion.name} />
                                     </div>;
                                 })()}
@@ -1086,7 +1281,7 @@ export function MissionArenaFight({
                                     const spriteFacing = enemyBattleSprite
                                         ? battlefieldFacingTowardNearest(enemy, session.actors, w)
                                         : undefined;
-                                    return <BattlefieldActor key="enemy-orb" side="enemy" label={enemyName} portrait={enemyAvatar} sprite={enemyBattleSprite} facing={spriteFacing} fallback={enemyName.slice(0, 2).toUpperCase()} className={gateDirective ? `hg-hound-orb hg-tone-${gateDirective.tone} hg-phase-${gateDirective.phase}` : ""} style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}>
+                                    return <BattlefieldActor key="enemy-orb" side="enemy" actorId="enemy" label={enemyName} portrait={enemyAvatar} sprite={enemyBattleSprite} facing={spriteFacing} fallback={enemyName.slice(0, 2).toUpperCase()} className={gateDirective ? `hg-hound-orb hg-tone-${gateDirective.tone} hg-phase-${gateDirective.phase}` : ""} style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}>
                                         {gateDirective ? <span className="hg-hound-spectral-aura" aria-hidden="true" /> : null}
                                     </BattlefieldActor>;
                                 })()}
@@ -1102,6 +1297,20 @@ export function MissionArenaFight({
 
                                 {/* Server-authored combat VFX (cosmetic; see the stream above). */}
                                 {combatVfx.map(renderCombatVfx)}
+                                {/* Floating hit numbers / status labels, one per resolved event (cosmetic). */}
+                                {hitFx.map((fx) => {
+                                    const center = tileCenter(Math.max(0, fx.tile));
+                                    return (
+                                        <span
+                                            key={fx.id}
+                                            className={`pvp-hit-fx pvp-hit-${fx.kind}`}
+                                            style={{ left: `${center.x}px`, top: `${Math.max(center.y - ORB / 2, 16)}px`, "--hit-dx": `${fx.lane.dx}px`, "--hit-dy": `${fx.lane.dy}px` } as CSSProperties}
+                                            aria-hidden="true"
+                                        >
+                                            {fx.label}
+                                        </span>
+                                    );
+                                })}
 
                                 {/* Tiles */}
                                 {Array.from({ length: w * h }, (_, i) => {
@@ -1450,7 +1659,7 @@ export function MissionArenaFight({
                 />
             </CombatHudLayout>
 
-            {done && (renderResult
+            {done && resultRevealed && (renderResult
                 ? renderResult({ won, draw: session.winner === "draw", settleState, settleResult, retry: () => { void runSettle(); }, onExit })
                 : (
                     <div className="battle-ended-overlay">

@@ -14,6 +14,8 @@ import {
 import { safeCombatVfxSpec, combatVfxAnchorKey, dedupeCombatVfx, type CombatVfxSpec } from "../lib/combat-vfx";
 import { combatVfxAssetFor } from "../lib/combat-vfx-assets";
 import { prefersLiteCombatFx } from "../lib/device-tier";
+import { findBattlefieldActor, playBattlefieldReaction } from "../lib/battlefield-reactions";
+import { ARENA_IMPACT_LAG_MS, combatHitLabel, diffCombatVitals, reactionDirection, reactionForHit } from "../lib/combat-presentation";
 import { useBoardScale } from "../lib/use-board-scale";
 import { useBattleTabs } from "../lib/use-battle-tabs";
 import {
@@ -637,6 +639,17 @@ export function BattleTowerFight({
     const hasObservedVfxRef = useRef(false);
     const replaySeqRef = useRef(0);
     const presentationTimersRef = useRef<number[]>([]);
+    // Hit reactions + floaters for versions this client did not submit (the
+    // AI's turn, a teammate's action). The local action path shows its own
+    // floaters and stamps the version it showed so they are not doubled here.
+    const gridLayerRef = useRef<HTMLDivElement | null>(null);
+    const previousActorsRef = useRef(initialSession.actors);
+    const previousActiveIdRef = useRef<string | undefined>(initialSession.turnQueue[initialSession.activeIndex]);
+    const reactedVersionRef = useRef<number | undefined>(initialSession.actionVersion);
+    const shownFloaterVersionRef = useRef<number | undefined>(undefined);
+    // Fighters kept on the board for a beat after their HP hit zero, so the KO
+    // sag can play before the actor unmounts. Never targetable.
+    const [downedHold, setDownedHold] = useState<string[]>([]);
 
     const tileCenter = useCallback((pos: number) => {
         const { left, top } = towerHexPixel(pos, w);
@@ -829,6 +842,76 @@ export function BattleTowerFight({
         const timer = window.setTimeout(() => setActionFocusTile(current => current === tile ? null : current), 1500);
         presentationTimersRef.current.push(timer);
     }, [w, h, tileCenter, clampPanToBoard, renderedBoardSize.width, renderedBoardSize.height, renderedScale]);
+    useEffect(() => {
+        const previous = previousActorsRef.current;
+        const previousActive = previousActiveIdRef.current;
+        previousActorsRef.current = session.actors;
+        previousActiveIdRef.current = session.turnQueue[session.activeIndex];
+        const version = session.actionVersion;
+        if (version === undefined || version === reactedVersionRef.current) return;
+        reactedVersionRef.current = version;
+        const before = new Map(previous.map(actor => [actor.id, actor]));
+        const floaters: TowerImpactFloater[] = [];
+        const reactions: Array<{ id: string; kind: NonNullable<ReturnType<typeof reactionForHit>>; from: number; to: number }> = [];
+        const downed: string[] = [];
+        let firstStruck: TowerActor | null = null;
+        for (const actor of session.actors) {
+            const was = before.get(actor.id);
+            if (!was) continue;
+            const hits = diffCombatVitals(actor.id, was, actor);
+            const isDown = was.hp > 0 && actor.hp <= 0;
+            if (isDown) downed.push(actor.id);
+            let reacted = false;
+            for (const hit of hits) {
+                floaters.push({
+                    id: `${version}-${actor.id}-${hit.kind}-${floaters.length}`,
+                    tile: actor.pos,
+                    label: hit.kind === "heal" ? `+${hit.amount} HP` : combatHitLabel(hit),
+                    kind: hit.kind,
+                });
+                if (hit.kind === "damage" && !firstStruck) firstStruck = actor;
+                const kind = reactionForHit(hit, { maxHp: actor.maxHp, down: isDown });
+                if (!kind || (reacted && kind !== "ko")) continue;
+                reacted = true;
+                const striker = previousActive && previousActive !== actor.id ? before.get(previousActive) : undefined;
+                reactions.push({ id: actor.id, kind, from: striker?.pos ?? actor.pos, to: actor.pos });
+            }
+            if (isDown && !reacted) reactions.push({ id: actor.id, kind: "ko", from: actor.pos, to: actor.pos });
+        }
+        if (floaters.length && shownFloaterVersionRef.current !== version) showImpactFloaters(floaters);
+        if (downed.length) {
+            setDownedHold(current => [...current, ...downed]);
+            const timer = window.setTimeout(() => setDownedHold(current => current.filter(id => !downed.includes(id))), 700);
+            presentationTimersRef.current.push(timer);
+        }
+        if (!reactions.length) return;
+        // The striker's own motion first, then the blows land a beat later.
+        const striker = previousActive ? before.get(previousActive) : undefined;
+        let lagged = false;
+        if (striker && firstStruck && firstStruck.id !== striker.id) {
+            playBattlefieldReaction(
+                findBattlefieldActor(gridLayerRef.current, striker.id),
+                "lunge",
+                reactionDirection(tileCenter(striker.pos), tileCenter(firstStruck.pos)),
+            );
+            lagged = true;
+        }
+        const impact = () => {
+            for (const reaction of reactions) {
+                playBattlefieldReaction(
+                    findBattlefieldActor(gridLayerRef.current, reaction.id),
+                    reaction.kind,
+                    reaction.from === reaction.to ? { x: 0, y: 1 } : reactionDirection(tileCenter(reaction.from), tileCenter(reaction.to)),
+                );
+            }
+        };
+        if (lagged) presentationTimersRef.current.push(window.setTimeout(impact, ARENA_IMPACT_LAG_MS));
+        else impact();
+        // Keyed on the server's version ALONE: actors get fresh identities on
+        // every poll, and re-diffing an unchanged version must not replay a hit.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [session.actionVersion]);
+
     const showImpactFloaters = useCallback((floaters: TowerImpactFloater[]) => {
         if (!floaters.length) return;
         setImpactFloaters(floaters);
@@ -1396,6 +1479,10 @@ export function BattleTowerFight({
                     const shieldDelta = nextActor.shield - previous.shield;
                     if (shieldDelta > 0) {
                         floaters.push({ id: `${replayId}-${nextActor.id}-shield`, tile: nextActor.pos, label: `+${shieldDelta} guard`, kind: "shield" });
+                    } else if (shieldDelta < 0 && hpDelta === 0) {
+                        // A blow the guard ate entirely still reads — as guard, not as damage
+                        // (the enemy's reply resolves inside this same response).
+                        floaters.push({ id: `${replayId}-${nextActor.id}-shield`, tile: nextActor.pos, label: `−${-shieldDelta} guard`, kind: "shield" });
                     }
                     const previousStatuses = new Set(previous.statuses.map(status => `${status.name}:${status.source ?? ""}`));
                     const addedStatus = nextActor.statuses.find(status => !previousStatuses.has(`${status.name}:${status.source ?? ""}`));
@@ -1412,6 +1499,7 @@ export function BattleTowerFight({
                     floaters,
                 };
                 setLastActionReplay(replay);
+                shownFloaterVersionRef.current = nextSession.actionVersion;
                 showImpactFloaters(floaters);
                 focusBoardTile(focusTile);
                 clearTargeting();
@@ -2062,7 +2150,7 @@ export function BattleTowerFight({
                             width: `${renderedBoardSize.width}px`, height: `${renderedBoardSize.height}px`,
                             willChange: boardZoom > TOWER_ZOOM_MIN ? "transform" : undefined,
                         }}>
-                            <div className="hex-grid-layer" style={{ position: "absolute", left: 0, top: 0, width: layer.width, height: layer.height, transform: `scale(${renderedScale})`, transformOrigin: "top left" }}>
+                            <div className="hex-grid-layer" ref={gridLayerRef} style={{ position: "absolute", left: 0, top: 0, width: layer.width, height: layer.height, transform: `scale(${renderedScale})`, transformOrigin: "top left" }}>
                                 {/* hex tiles */}
                                 {Array.from({ length: w * h }, (_, pos) => {
                                     const { left, top } = towerHexPixel(pos, w);
@@ -2252,8 +2340,8 @@ export function BattleTowerFight({
                                     );
                                 }))}
 
-                                {/* actor orbs */}
-                                {session.actors.filter(a => a.hp > 0).map(a => {
+                                {/* actor orbs (a just-downed fighter stays one beat for its KO sag) */}
+                                {session.actors.filter(a => a.hp > 0 || downedHold.includes(a.id)).map(a => {
                                     const { left, top } = towerHexPixel(a.pos, w);
                                     const isBoss = a.id === bossId;
                                     const bossBarrierActive = isBoss && bossDossierBarrierActive;
@@ -2284,6 +2372,26 @@ export function BattleTowerFight({
                                     const unknownCombatant = isUnknownCombatant(a);
                                     const ringColor = a.side === "squad" ? "#67e8f9" : a.side === "npc" ? "var(--gold)" : "#fb7185";
                                     const pct = Math.max(0, Math.min(100, (a.hp / Math.max(1, a.maxHp)) * 100));
+                                    if (a.hp <= 0) {
+                                        // A just-downed fighter (see downedHold) stays on the board one
+                                        // beat for its KO sag as pure presentation: no button, no target
+                                        // tile, no click, nothing for the accessibility tree.
+                                        return (
+                                            <span key={a.id} className="tower-board-actor tower-board-actor--down" aria-hidden="true"
+                                                style={{ position: "absolute", left: ox, top: oy, width: size, zIndex: 10 + row, pointerEvents: "none" }}>
+                                                <BattlefieldActor
+                                                    side={a.side === "enemy" ? "enemy" : "player"}
+                                                    actorId={a.id}
+                                                    label={a.name}
+                                                    portrait={img}
+                                                    sprite={battleSprite}
+                                                    facing={spriteFacing}
+                                                    fallback={emojiFor(a)}
+                                                    style={{ width: size, height: size }}
+                                                />
+                                            </span>
+                                        );
+                                    }
                                     return (
                                         <button key={a.id} type="button" className="tower-board-actor" onClick={() => onTileClick(a.pos)} data-protected={bossBarrierActive ? "true" : undefined} data-inspected={inspected ? "true" : undefined}
                                             data-combat-target-tile={a.pos}
@@ -2298,6 +2406,7 @@ export function BattleTowerFight({
                                             style={{ position: "absolute", left: ox, top: oy, width: size, zIndex: 10 + row, cursor: actorActionable ? "pointer" : "default" }}>
                                             <BattlefieldActor
                                                 side={a.side === "enemy" ? "enemy" : "player"}
+                                                actorId={a.id}
                                                 label={a.name}
                                                 portrait={img}
                                                 sprite={battleSprite}

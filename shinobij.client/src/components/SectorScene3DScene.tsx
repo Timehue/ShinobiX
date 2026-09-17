@@ -18,6 +18,7 @@
  */
 import { useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { useCombatCover } from "../lib/combat-cover";
 import { useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import type { Biome } from "../types/core";
@@ -214,6 +215,9 @@ function Backdrop({ image, biome, focus, depth, onReady }: { image: string; biom
 }
 
 export default function SectorScene3DScene({ image, biome, focus, depth, onReady }: { image: string; biome: Biome; focus: number; depth?: string; onReady?: () => void }) {
+    // A body-portaled fight covers this canvas; stop rendering frames under it
+    // and resume the instant the fight unmounts (lib/combat-cover).
+    const covered = useCombatCover();
     return (
         <Canvas
             events={decorativeCanvasEvents}
@@ -221,7 +225,7 @@ export default function SectorScene3DScene({ image, biome, focus, depth, onReady
             dpr={[1, 1.5]}
             camera={{ position: [0, 0, CAM_Z], fov: FOV, near: 0.1, far: 100 }}
             gl={{ alpha: true, antialias: false, powerPreference: "low-power" }}
-            frameloop="always"
+            frameloop={covered ? "never" : "always"}
         >
             <Backdrop image={image} biome={biome} focus={focus} depth={depth} onReady={onReady} />
         </Canvas>

@@ -21,6 +21,7 @@ import { useEffect, useRef } from "react";
 import type { Biome } from "../types/core";
 import { skyNow, SKY_REFRESH_MS } from "../lib/day-cycle";
 import { isLowEndMobile } from "../lib/device-tier";
+import { isCoveredByCombat, subscribeCombatCover } from "../lib/combat-cover";
 
 type Behavior = "glide" | "flutter" | "glow" | "dart" | "ripple";
 
@@ -394,12 +395,19 @@ export function SceneCritters({
             if (n !== night) { night = n; spawn(); }
         }, SKY_REFRESH_MS);
 
-        function onVis() {
+        // Draw only while the tab is visible AND no body-portaled fight is
+        // covering the page (lib/combat-cover); either signal re-evaluates it.
+        let covered = isCoveredByCombat();
+        if (covered && running) { running = false; cancelAnimationFrame(raf); }
+        function sync() {
             if (reduce) return;
-            if (document.hidden) { running = false; cancelAnimationFrame(raf); }
+            const shouldRun = !document.hidden && !covered;
+            if (!shouldRun) { if (running) { running = false; cancelAnimationFrame(raf); } }
             else if (!running) { running = true; last = 0; raf = requestAnimationFrame(frame); }
         }
+        function onVis() { sync(); }
         document.addEventListener("visibilitychange", onVis);
+        const unsubscribeCover = subscribeCombatCover(() => { covered = isCoveredByCombat(); sync(); });
 
         return () => {
             running = false;
@@ -407,6 +415,7 @@ export function SceneCritters({
             ro.disconnect();
             window.clearInterval(dayTimer);
             document.removeEventListener("visibilitychange", onVis);
+            unsubscribeCover();
         };
     }, [biome, density, mode]);
 

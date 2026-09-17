@@ -21,6 +21,13 @@
       "runtimeArgs": ["/c", "set PORT=%PORT%&& set DISABLE_REALTIME=1&& set DISABLE_SNAPSHOT_CRON=1&& node dist/server.js"],
       "port": 3000,
       "autoPort": true
+    },
+    {
+      "name": "combat-qa-server",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set PORT=%PORT%&& set NODE_ENV=test&& set SHINOBIX_QA_MEMORY_KV=1&& set SESSION_SECRET=combat-qa-session-secret-32-bytes-minimum-xx&& set ADMIN_PASSWORD=live-express-e2e-admin&& set DISABLE_SCHEDULED_JOBS=1&& set DISABLE_REALTIME=1&& set DISABLE_SNAPSHOT_CRON=1&& set SENTRY_DSN=&& node dist/server.js"],
+      "port": 3000,
+      "autoPort": true
     }
   ]
 }
