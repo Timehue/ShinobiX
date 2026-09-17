@@ -5903,7 +5903,7 @@ export default function App() {
 
                 {character
                     && normalizeOnboardingStep(character.onboardingStep) !== "done"
-                    // Coach is hidden during the spar (the in-battle SparCoach handles it) —
+                    // Coach is hidden during the spar (the in-battle first-fight coach handles it) —
                     // on the local Arena by screen, and on the SEALED spar by the portal flag.
                     && screen !== "arena" && !storyFightOpen
                     && character.name !== "Admin 1"

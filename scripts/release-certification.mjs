@@ -368,8 +368,9 @@ async function certify() {
             check(!!enemy, 'the sealed session carries the server-owned opponent');
             check(Number(enemy?.character?.level) === 1, `the dummy is level 1 (got ${enemy?.character?.level})`);
             // <= rather than ===: the shared PvE band may soften it further, but
-            // it must never be TOUGHER than the authored 50-HP dummy.
-            check(Number(enemy?.maxHp ?? 0) > 0 && Number(enemy?.maxHp ?? 0) <= 50, `the dummy keeps its tutorial HP (got ${enemy?.maxHp})`);
+            // it must never be TOUGHER than the authored 400-HP dummy
+            // (api/story/_academy-spar.ts ACADEMY_SPAR_HP).
+            check(Number(enemy?.maxHp ?? 0) > 0 && Number(enemy?.maxHp ?? 0) <= 400, `the dummy keeps its tutorial HP (got ${enemy?.maxHp})`);
             check(!/Ancient/i.test(String(enemy?.name ?? '')), 'the request could not swap in a level-100 opponent');
 
             // The reward must not be payable from a run that was never won.

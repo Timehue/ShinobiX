@@ -43,6 +43,17 @@ export function createCharacter(name: string, village: string, specialty: JutsuT
     const starterBloodlineName = bloodline === "Blue Blade Eyes" ? "Ashen Eyes" : bloodline;
     const starterBloodline = starterSavedBloodlines.find((b) => b.name === starterBloodlineName);
     const bloodlineJutsuIds = starterBloodline ? starterBloodline.jutsus.map((j) => j.id) : [];
+    // Pre-equip two strikes and the bloodline's 40 AP utility; the third strike
+    // stays learned, one tap away in the Profile. The first fights teach that a
+    // cheap technique changes a fight while a heavy one finishes it
+    // (docs/first-five-fights-onboarding.md), and that lesson needs a cheap
+    // technique on the bar from the very first spar. Every starter bloodline
+    // has exactly one 40 AP jutsu (data/jutsu.ts makeStarterBloodlineUtilityJutsu).
+    const starterUtility = starterBloodline?.jutsus.find((j) => j.ap === 40);
+    const starterStrikes = (starterBloodline?.jutsus ?? []).filter((j) => j !== starterUtility).slice(0, 2);
+    const equippedStarterIds = starterUtility
+        ? [...starterStrikes, starterUtility].map((j) => j.id)
+        : bloodlineJutsuIds.slice(0, 3);
     return {
         name,
         village,
@@ -74,7 +85,7 @@ export function createCharacter(name: string, village: string, specialty: JutsuT
         onboardingStep: "academyIntro",
         stats: baseStats(),
         unspentStats: STARTING_STAT_POINTS,
-        equippedJutsuIds: bloodlineJutsuIds.slice(0, 3),
+        equippedJutsuIds: equippedStarterIds,
         inventory: ["rustfang-kunai", "shinobi-vest"],
         equipment: {},
         jutsuMastery: bloodlineJutsuIds.map((id) => ({ jutsuId: id, level: 1, xp: 0 })),

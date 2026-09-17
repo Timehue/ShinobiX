@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { SoloPveSession } from '../solo-pve/_session.js';
+import type { ServerAiRule } from '../combat-core/ai-authoring.js';
 import { LIBERATOR_TITLES, STORY_LEVELS, STORY_REWARDS, storyOpponentId } from './_settle.js';
 
 /*
@@ -183,6 +184,48 @@ function clampInt(value: unknown, min: number, max: number, fallback: number): n
     return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback;
 }
 
+/*
+ * ── Chapter 1: the braced guardian ─────────────────────────────────────────
+ * The level-4 chapter boss is a brand-new shinobi's third authored fight
+ * (docs/first-five-fights-onboarding.md), the one that teaches "read the
+ * enemy's defensive state, then set up before you commit". The generic
+ * signature-only template died to one 60 AP cast (~350 measured damage into
+ * ~200 banded HP), so it carries a real starter-catalog kit instead:
+ *
+ *   - Whispering Gale (40 AP, Shield + Absorb on itself): opens the fight
+ *     braced. A shield eats a heavy technique whole, and Absorb turns part of
+ *     any big hit into healing, so the efficient line is to chip the guard
+ *     with cheap actions (kunai, basic attack) or set up with a 40, and save
+ *     the 60 for what's underneath.
+ *   - Hollow Voice Cyclone (60 AP, Siphon): its heavy cast, released by the
+ *     easy band from round 3.
+ *
+ * It braces before it walks: the self-cast needs no range, so the shield goes
+ * up on its very first turn, and only then does it close to four tiles, where
+ * it holds. A player who only Waits still gets a fight (one capped heavy cast
+ * on round 3) instead of a stalemate against a rooted enemy, and a player who
+ * closes to melee trades punches. HP sits just under the chapter-2 template so
+ * the chapter HP ramp stays monotonic; the effective fight is roughly three
+ * rookie rounds. Later chapters keep the generic signature. Its resource pool
+ * is sized like a level-1 player's (1,000) because starter jutsu cost 125/250;
+ * the generic 120 + level x 4 pool could never afford the heavy cast.
+ */
+const FIRST_CHAPTER_KIT = {
+    hp: 520,
+    pool: 1_000,
+    jutsuIds: ['starter-gen-wind-1', 'starter-gen-wind-2'],
+    rules: (): ServerAiRule[] => [
+        { condition: 'self_status_absent', value: 0, status: 'Absorb', action: 'use_specific_jutsu', jutsuId: 'starter-gen-wind-1' },
+        { condition: 'always', value: 0, action: 'use_highest_power_jutsu' },
+        { condition: 'distance_lower_than', value: 2, action: 'use_basic_attack' },
+        { condition: 'distance_higher_than', value: 4, action: 'move_towards_opponent' },
+        { condition: 'always', value: 0, action: 'end_turn' },
+        // Required unconditional fallback (validateServerAiRules); the hold
+        // above ends the turn first, so a guardian never wanders past range.
+        { condition: 'always', value: 0, action: 'use_basic_attack' },
+    ],
+} as const;
+
 /**
  * Server-owned story boss stats, scaled from the milestone level like
  * missionEnemyTemplate (api/_authoritative-pve.ts) with a boss-arc ramp:
@@ -204,12 +247,13 @@ export function storyBossEnemyTemplate(params: {
     const name = typeof params.displayName === 'string' && params.displayName.trim()
         ? params.displayName.trim().slice(0, 80)
         : `${params.village.replace(/ Village$/, '')} Story Boss`;
+    const firstChapter = progressIndex === 0;
     return {
         id: storyOpponentId(params.village, level),
         name,
         specialty,
         level,
-        hp: clampInt((240 + level * level * 1.05) * (1.05 + arc * 0.4), 250, 14_000, 1000),
+        hp: firstChapter ? FIRST_CHAPTER_KIT.hp : clampInt((240 + level * level * 1.05) * (1.05 + arc * 0.4), 250, 14_000, 1000),
         stats: {
             [`${specialty.toLowerCase()}Offense`]: offense,
             [`${specialty.toLowerCase()}Defense`]: defense,
@@ -221,9 +265,10 @@ export function storyBossEnemyTemplate(params: {
         visual: storyOpponentId(params.village, level),
         boss: true,
         armorRawDR: 0.05 + arc * 0.13,
-        maxChakra: 120 + level * 4,
-        maxStamina: 120 + level * 4,
-        jutsu: [{
+        maxChakra: firstChapter ? FIRST_CHAPTER_KIT.pool : 120 + level * 4,
+        maxStamina: firstChapter ? FIRST_CHAPTER_KIT.pool : 120 + level * 4,
+        ...(firstChapter ? { jutsuIds: [...FIRST_CHAPTER_KIT.jutsuIds], rules: FIRST_CHAPTER_KIT.rules() } : {}),
+        jutsu: firstChapter ? undefined : [{
             id: `story-${progressIndex}-signature`,
             name: `${specialty} Signature`,
             type: specialty,

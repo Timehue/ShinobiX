@@ -511,9 +511,15 @@ test('real built client completes and recovers a server-owned combat mission', a
         }
     };
 
-    // Begin below max so this scenario always exercises surviving-HP authority;
-    // the E-rank opponent can deterministically lose without landing a hit.
-    const { name, token, password } = await seedAccount(request, testInfo, { hp: 20 });
+    // Seed below full HP so the continuous-vitals contract is observable
+    // (combat-start must use the stored HP). The server normalizes this
+    // level-1 seed to a 500 HP pool, and the E-Rank Drill partner now holds
+    // at four tiles, hexes the player's strikes, and answers a melee approach
+    // with capped punches (api/_authoritative-pve.ts FIRST_FIGHT_MISSION_KITS):
+    // measured against the engine, the basic-attack loop below wins on round
+    // 4 at 150/500 from a 450 seed, at 1/500 from 300, and loses from the old
+    // 20 (below the easy band's 25% mercy line, so the walk-in punch is lethal).
+    const { name, token, password } = await seedAccount(request, testInfo, { hp: 450 });
     await installSession(page, name, token);
     await openMissionHall(page);
     await dismissNotices();
