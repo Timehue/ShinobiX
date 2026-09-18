@@ -34,7 +34,7 @@ test("an expedition failure remains visible and retryable", () => {
 
 test("Pet Yard primary controls and expedition receipt are keyboard accessible", () => {
   assert.match(source, /<button[\s\S]*?className=\{`pet-slot-card/);
-  assert.match(source, /aria-pressed=\{pet \? selectedPet\?\.id === pet\.id : undefined\}/);
+  assert.match(source, /aria-pressed=\{selectedPet\?\.id === pet\.id\}/);
   assert.match(source, /expedition ready to claim/);
   assert.doesNotMatch(source, /<span className="pet-ready-tag" onClick=/);
 
@@ -42,7 +42,7 @@ test("Pet Yard primary controls and expedition receipt are keyboard accessible",
   assert.match(source, /backdropClassName="expedition-result-backdrop"/);
   assert.match(source, /const fallbackFocus = selectedPetSlotRef\.current/);
   assert.match(source, /if \(trigger\?\.isConnected\) trigger\.focus\(\);\s*else fallbackFocus\?\.focus\(\)/);
-  assert.match(source, /ref=\{pet && selectedPet\?\.id === pet\.id \? selectedPetSlotRef : undefined\}/);
+  assert.match(source, /ref=\{selectedPet\?\.id === pet\.id \? selectedPetSlotRef : undefined\}/);
   assert.match(source, /role="progressbar"[\s\S]*?aria-valuenow=\{selectedPetHappiness\}/);
 });
 

@@ -35,6 +35,7 @@ import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import { activeClientBreedingParentIds } from "../lib/pet-breeding";
 import { authoritativePetExpeditionGains } from "../lib/pet-expedition-result";
 import "../styles/pet-home.css";
+import "../styles/pet-yard-refined.css";
 import { GameIcon } from "../components/icons/GameIcon";
 import { PetExpeditionBoard } from "../components/PetExpeditionBoard";
 import { clearPetExpeditionPetHint, PET_EXPEDITION_OPEN_EVENT, readPetExpeditionPetHint } from "../lib/pet-expedition-navigation";
@@ -47,6 +48,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
         const hinted = readPetExpeditionPetHint();
         return hinted && character.pets.some((pet) => pet.id === hinted) ? hinted : character.pets[0]?.id ?? "";
     });
+    const [yardSection, setYardSection] = useState<"care" | "growth" | "loadout" | "techniques" | "expeditions">(() => character.pets.some(pet => pet.id === readPetExpeditionPetHint()) ? "expeditions" : "care");
     const [trainingType] = useState<PetTrainingType>("bond");
     const [trainingDuration, setTrainingDuration] = useState(petTrainingDurations[0].ms);
     const [expeditionType, setExpeditionType] = useState<PetExpeditionType>("scout");
@@ -90,6 +92,8 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
     const [evolveMsg, setEvolveMsg] = useState("");
     // Why the Pet button did nothing — today's free-petting budget is spent.
     const [petMsg, setPetMsg] = useState("");
+    const [progressBusy, setProgressBusy] = useState(false);
+    const progressBusyRef = useRef(false);
     const [evolveCutscene, setEvolveCutscene] = useState<{ pet: Pet; oldName: string; oldVisualId: string; oldImage?: string } | null>(null);
     // Pet escort offer state (Pet Tamer in clan only).
     const [escortOffered, setEscortOffered] = useState<boolean | null>(null);
@@ -108,7 +112,8 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
     const growthSpent = Object.values(growthDraft).reduce((sum, value) => sum + value, 0);
     const growthUnspent = Math.max(0, growthEarned - growthSpent);
     const growthCap = petGrowthAttributeCap(selectedPet?.level ?? 1);
-    const growthPreview = selectedPet ? derivePetGrowthStats({ ...selectedPet, growthAllocation: growthDraft }) : null;
+    const hasGrowthDraft = Object.entries(growthDraft).some(([key, value]) => value !== committedGrowth[key as keyof PetGrowthAllocation]);
+    const growthPreview = selectedPet && hasGrowthDraft ? derivePetGrowthStats({ ...selectedPet, growthAllocation: growthDraft }) : null;
     const breedingPetIds = activeClientBreedingParentIds(character);
     const selectedPetBreedingLocked = Boolean(selectedPet && breedingPetIds.has(selectedPet.id));
     // Bond upkeep (shared/pet-happiness.ts). petCurrentHappiness projects the
@@ -154,6 +159,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
             const petId = String((event as CustomEvent<{ petId?: string }>).detail?.petId ?? "");
             if (!character.pets.some((pet) => pet.id === petId)) return;
             setSelectedPetId(petId);
+            setYardSection("expeditions");
             setExpeditionError("");
             clearPetExpeditionPetHint();
             requestAnimationFrame(() => expeditionBoardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
@@ -178,7 +184,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
         void fetchOffer();
         const stop = visiblePoll(fetchOffer, 60_000);
         return () => { cancelled = true; stop(); };
-     
+
     }, [canOfferEscort, character.clan, character.name]);
 
     async function toggleEscort() {
@@ -223,11 +229,19 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
 
     async function runPetProgress(action: string, extra: Record<string, unknown> = {}) {
         if (!selectedPet) throw new Error('Pet not found.');
-        const res = await fetch('/api/pet/progress', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, petId: selectedPet.id, action, ...extra }) });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data?.character) throw new Error(String(data?.error ?? 'Pet update failed.'));
-        if (!onVersionedCharacter(data.character as Character, data._saveVersion)) throw new Error("A newer companion update is already active.");
-        return data as { character: Character; pet?: Pet; settledTraining?: string | null; missionsCompleted?: Array<{ id: string; name: string; xpReward: number }>; _saveVersion?: number };
+        if (progressBusyRef.current) throw new Error('Your companion is being updated. Please wait.');
+        progressBusyRef.current = true;
+        setProgressBusy(true);
+        try {
+            const res = await fetch('/api/pet/progress', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, petId: selectedPet.id, action, ...extra }) });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data?.character) throw new Error(String(data?.error ?? 'Pet update failed.'));
+            if (!onVersionedCharacter(data.character as Character, data._saveVersion)) throw new Error("A newer companion update is already active.");
+            return data as { character: Character; pet?: Pet; settledTraining?: string | null; missionsCompleted?: Array<{ id: string; name: string; xpReward: number }>; _saveVersion?: number };
+        } finally {
+            progressBusyRef.current = false;
+            setProgressBusy(false);
+        }
     }
 
     function setGrowthDraft(update: PetGrowthAllocation | ((current: PetGrowthAllocation) => PetGrowthAllocation)) {
@@ -239,6 +253,17 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                 baseKey: growthDraftBaseKey,
                 allocation: typeof update === "function" ? update(activeDraft) : update,
             };
+        });
+    }
+
+    function openYardSection(section: keyof typeof YARD_SECTION_LABELS) {
+        setYardSection(section);
+        requestAnimationFrame(() => {
+            const panel = document.getElementById('pet-yard-section');
+            const yard = panel?.closest('.pet-yard-refined');
+            if (!panel || !yard || yard.clientWidth > 640) return;
+            panel.focus({ preventScroll: true });
+            panel.scrollIntoView({ block: 'start', behavior: 'instant' });
         });
     }
 
@@ -281,7 +306,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
         if (petTrainingBusyRef.current) return;
         if (!requireServerSettlement("petTraining")) return;
         if (!selectedPet) return;
-        if (!selectedPetCanTrain) return alert(`Only companions in your active five-pet squad can train. Move ${petDisplayName(selectedPet)} into an active slot first.`);
+        if (!selectedPetCanTrain) return alert(`Move ${petDisplayName(selectedPet)} into your carried roster before starting training.`);
         if (isPetOnExpedition(selectedPet)) return alert(`${selectedPet.name} is away on an expedition.`);
         if (selectedPet.expedition) return alert(`${petDisplayName(selectedPet)} has an unclaimed expedition. Collect it first!`);
         if (selectedPet.training && serverNow() < selectedPet.training.endsAt) return alert(`${selectedPet.name} is already training.`);
@@ -367,7 +392,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
         // ambiguous or capped response so the UI never invents a local lease that
         // the server cannot later settle.
         try {
-                let data: { token?: string; reason?: string; dailyStarts?: number; dailyCap?: number; resetAt?: number; character?: Character; _saveVersion?: number } | null;
+            let data: { token?: string; reason?: string; dailyStarts?: number; dailyCap?: number; resetAt?: number; character?: Character; _saveVersion?: number } | null;
             try {
                 const r = await fetch('/api/missions/expedition-start', {
                     method: 'POST',
@@ -609,7 +634,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
 
     async function petSelectedPet() {
         if (!selectedPet) return;
-        setPetHeartBurst(Date.now());
+        setPetHeartBurst(burst => burst + 1);
         setPetMsg("");
         // A spent daily budget comes back as a 409 — surface it rather than
         // swallowing it, or the button looks broken.
@@ -649,7 +674,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
 
     async function releasePet() {
         if (!selectedPet) return;
-        if (!(await gameConfirm(`Release ${selectedPet.name}? This cannot be undone.`, { danger: true, confirmLabel: "Release" }))) return;
+        if (!(await gameConfirm(`Release ${petDisplayName(selectedPet)}? This cannot be undone.`, { danger: true, confirmLabel: "Release" }))) return;
         try {
             const data = await runPetProgress('release');
             setSelectedPetId(data.character.pets[0]?.id ?? "");
@@ -730,10 +755,10 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
     }
 
     const expTypeLabel: Record<PetExpeditionType, string> = { scout: "Scout Routes", forage: "Forage Wilds", ruins: "Explore Old Ruins" };
-    const expTypeIcon:  Record<PetExpeditionType, string> = { scout: "🏃", forage: "🌿", ruins: "🏛️" };
+
 
     return (
-        <div className="pet-yard-screen">
+        <div className="pet-yard-screen pet-yard-refined">
             <PetHomeTabs active="yard" setScreen={setScreen} />
 
             {evolveCutscene && (
@@ -759,107 +784,91 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                     ariaLabelledBy="pet-expedition-result-title"
                     ariaDescribedBy="pet-expedition-result-story"
                 >
-                        <div className="expedition-result-header">
-                            <span className="expedition-result-icon">{expTypeIcon[expeditionResult.expType]}</span>
-                            <div>
-                                <h3 id="pet-expedition-result-title" className="expedition-result-title">{expeditionResult.petName} has returned!</h3>
-                                <p className="expedition-result-type">{expTypeLabel[expeditionResult.expType]}</p>
-                            </div>
+                    <div className="expedition-result-header">
+                        <div>
+                            <h3 id="pet-expedition-result-title" className="expedition-result-title">{expeditionResult.petName} has returned!</h3>
+                            <p className="expedition-result-type">{expTypeLabel[expeditionResult.expType]}</p>
                         </div>
+                    </div>
 
-                        <p id="pet-expedition-result-story" className="expedition-result-story">
-                            <em>{expeditionResult.petName}</em> — {expeditionResult.summary}
-                        </p>
+                    <p id="pet-expedition-result-story" className="expedition-result-story">
+                        <em>{expeditionResult.petName}</em> — {expeditionResult.summary}
+                    </p>
 
-                        <div className={`expedition-outcome expedition-outcome--${expeditionResult.returnOutcome}`}>
-                            <strong>{expeditionResult.outcomeLabel}</strong>
-                            <span>{expeditionResult.place} · {expeditionResult.risk === "bold" ? "Bold route" : "Safe route"}{expeditionResult.provision !== "none" ? " · provision used" : ""}</span>
+                    <div className={`expedition-outcome expedition-outcome--${expeditionResult.returnOutcome}`}>
+                        <strong>{expeditionResult.outcomeLabel}</strong>
+                        <span>{expeditionResult.place} · {expeditionResult.risk === "bold" ? "Bold route" : "Safe route"}{expeditionResult.provision !== "none" ? " · provision used" : ""}</span>
+                    </div>
+
+                    {expeditionResult.leveledUp && (
+                        <div className="expedition-level-up">Level up! Your pet grew stronger from this journey.</div>
+                    )}
+
+                    <div className="expedition-rewards-grid">
+                        <div className="expedition-reward-row">
+                            <span className="expedition-reward-label">Ryo</span>
+                            <span className="expedition-reward-value">+{expeditionResult.ryo.toLocaleString()}</span>
                         </div>
-
-                        {expeditionResult.leveledUp && (
-                            <div className="expedition-level-up">⭐ Level Up! Your pet grew stronger from this journey.</div>
-                        )}
-
-                        <div className="expedition-rewards-grid">
+                        {expeditionResult.xp > 0 && (
                             <div className="expedition-reward-row">
-                                <span className="expedition-reward-icon">💰</span>
-                                <span className="expedition-reward-label">Ryo</span>
-                                <span className="expedition-reward-value">+{expeditionResult.ryo.toLocaleString()}</span>
+                                <span className="expedition-reward-label">Pet XP</span>
+                                <span className="expedition-reward-value">+{expeditionResult.xp.toLocaleString()}</span>
                             </div>
-                            {expeditionResult.xp > 0 && (
-                                <div className="expedition-reward-row">
-                                    <span className="expedition-reward-icon">✨</span>
-                                    <span className="expedition-reward-label">Pet XP</span>
-                                    <span className="expedition-reward-value">+{expeditionResult.xp.toLocaleString()}</span>
-                                </div>
-                            )}
-                            {expeditionResult.tamerXp > 0 && (
-                                <div className="expedition-reward-row">
-                                    <span className="expedition-reward-icon">🐾</span>
-                                    <span className="expedition-reward-label">Tamer XP</span>
-                                    <span className="expedition-reward-value">+{expeditionResult.tamerXp.toLocaleString()}</span>
-                                </div>
-                            )}
-                            {expeditionResult.happinessCost > 0 && (
-                                <div className="expedition-reward-row">
-                                    <span className="expedition-reward-icon">💚</span>
-                                    <span className="expedition-reward-label">Bold-route cost</span>
-                                    <span className="expedition-reward-value">−{expeditionResult.happinessCost} happiness</span>
-                                </div>
-                            )}
-                            {expeditionResult.statSummary && (
-                                <div className="expedition-reward-row">
-                                    <span className="expedition-reward-icon">📈</span>
-                                    <span className="expedition-reward-label">Stats</span>
-                                    <span className="expedition-reward-value">{expeditionResult.statSummary}</span>
-                                </div>
-                            )}
-                            {expeditionResult.foundBone > 0 && (
-                                <div className="expedition-reward-row expedition-reward-rare">
-                                    <span className="expedition-reward-icon">🦴</span>
-                                    <span className="expedition-reward-label">Bone Charm</span>
-                                    <span className="expedition-reward-value">+{expeditionResult.foundBone}</span>
-                                </div>
-                            )}
-                            {expeditionResult.foundAura > 0 && (
-                                <div className="expedition-reward-row expedition-reward-rare">
-                                    <span className="expedition-reward-icon">💎</span>
-                                    <span className="expedition-reward-label">Aura Stone</span>
-                                    <span className="expedition-reward-value">+{expeditionResult.foundAura}</span>
-                                </div>
-                            )}
-                            {expeditionResult.foundFate > 0 && (
-                                <div className="expedition-reward-row expedition-reward-legendary">
-                                    <span className="expedition-reward-icon">🌟</span>
-                                    <span className="expedition-reward-label">Fate Shard</span>
-                                    <span className="expedition-reward-value">+{expeditionResult.foundFate}</span>
-                                </div>
-                            )}
-                        </div>
+                        )}
+                        {expeditionResult.tamerXp > 0 && (
+                            <div className="expedition-reward-row">
+                                <span className="expedition-reward-label">Tamer XP</span>
+                                <span className="expedition-reward-value">+{expeditionResult.tamerXp.toLocaleString()}</span>
+                            </div>
+                        )}
+                        {expeditionResult.happinessCost > 0 && (
+                            <div className="expedition-reward-row">
+                                <span className="expedition-reward-label">Bold-route cost</span>
+                                <span className="expedition-reward-value">−{expeditionResult.happinessCost} happiness</span>
+                            </div>
+                        )}
+                        {expeditionResult.statSummary && (
+                            <div className="expedition-reward-row">
+                                <span className="expedition-reward-label">Stats</span>
+                                <span className="expedition-reward-value">{expeditionResult.statSummary}</span>
+                            </div>
+                        )}
+                        {expeditionResult.foundBone > 0 && (
+                            <div className="expedition-reward-row expedition-reward-rare">
+                                <span className="expedition-reward-label">Bone Charm</span>
+                                <span className="expedition-reward-value">+{expeditionResult.foundBone}</span>
+                            </div>
+                        )}
+                        {expeditionResult.foundAura > 0 && (
+                            <div className="expedition-reward-row expedition-reward-rare">
+                                <span className="expedition-reward-label">Aura Stone</span>
+                                <span className="expedition-reward-value">+{expeditionResult.foundAura}</span>
+                            </div>
+                        )}
+                        {expeditionResult.foundFate > 0 && (
+                            <div className="expedition-reward-row expedition-reward-legendary">
+                                <span className="expedition-reward-label">Fate Shard</span>
+                                <span className="expedition-reward-value">+{expeditionResult.foundFate}</span>
+                            </div>
+                        )}
+                    </div>
 
-                        <button type="button" data-expedition-result-close className="admin-button" style={{ width: "100%", marginTop: 8 }} onClick={() => setExpeditionResult(null)}>
-                            Continue
-                        </button>
+                    <button type="button" data-expedition-result-close className="admin-button" style={{ width: "100%", marginTop: 8 }} onClick={() => setExpeditionResult(null)}>
+                        Continue
+                    </button>
                 </Modal>
             )}
 
             <div className="pet-yard-overlay">
-                <div className="pet-yard-header">
-                    <button type="button" className="back-btn pet-yard-return" onClick={onBack} aria-label={`Back to ${backLabel}`}><span aria-hidden="true">←</span><span><small>Return to</small><strong>{backLabel}</strong></span></button>
-                    <div className="pet-yard-title">
-                        <span className="pet-yard-kicker">Companion command</span>
-                        <h2>Pet Yard</h2>
-                        <p className="hint">{combatEligiblePets.length}/{maxPets(character)} combat-carried · {character.pets.length} owned · Town Hall Pet XP Bonus: {petXpBonus.toFixed(2)}%</p>
-                    </div>
-                    <div className="pet-yard-active-roster" aria-label="Active companion roster">
-                        <span><small>Field lead</small><strong>{character.pets.find((p) => p.id === character.activePetId)?.name ?? "Unassigned"}</strong></span>
-                        <span><small>2v2 partner</small><strong>{character.pets.find((p) => p.id === character.activePetId2v2)?.name ?? "Unassigned"}</strong></span>
-                    </div>
-                </div>
+                <header className="pet-yard-header">
+                    <button type="button" className="back-btn pet-yard-return" onClick={onBack} aria-label={`Back to ${backLabel}`}>← {backLabel}</button>
+                    <div className="pet-yard-title"><span className="pet-yard-kicker">Companion sanctuary</span><h2>Pet Yard</h2><p>Every great journey begins with a bond.</p></div>
+                    <div className="pet-yard-roster-count"><strong>{combatEligiblePets.length}<small> / {maxPets(character)}</small></strong><span>Carried companions</span></div>
+                </header>
 
                 {preservedOverflowCount > 0 ? (
                     <p className="hint" role="status" style={{ color: "var(--gold-2)", margin: "0.35rem 0" }}>
-                        {preservedOverflowCount} preserved overflow · cannot be active, fight, breed, or start new training or expeditions. Base: 5 carried · Supporter: 6. Swap safely in Sanctuary.
+                        {preservedOverflowCount} preserved overflow · cannot be active, fight, breed, or start new training or expeditions. Manage your carried companions in Sanctuary.
                     </p>
                 ) : null}
 
@@ -868,68 +877,61 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                         <div>
                             <span className="pet-starter-kicker">Starter companion</span>
                             <h3>Your companion grows beside you</h3>
-                            <p>Set an active pet and use short training while you work through Missions, Training, and Jutsu. Pet battles and long expeditions can wait.</p>
+                            <p>Choose a field companion, then begin a short training session in Growth & training.</p>
                         </div>
                         <button onClick={() => setScreen("logbook")}>Open Logbook</button>
                     </section>
                 )}
 
                 <div className="pet-slots-row">
-                    {Array.from({ length: Math.max(maxPets(character), character.pets.length) }, (_, i) => {
-                        const pet = character.pets[i];
-                        const expeditionReady = Boolean(pet?.expedition && serverNow() >= pet.expedition.endsAt);
+                    {character.pets.map((pet) => {
+                        const expeditionReady = Boolean(pet.expedition && now >= pet.expedition.endsAt);
                         return (
                             <button
                                 type="button"
-                                key={i}
-                                ref={pet && selectedPet?.id === pet.id ? selectedPetSlotRef : undefined}
-                                className={`pet-slot-card${pet ? (selectedPet?.id === pet.id ? " pet-selected" : "") : " pet-empty"}${character.activePetId === pet?.id ? " pet-active" : ""} ${pet ? petVisualVariantClass(pet) : ""}`}
-                                onClick={() => { if (pet) { setSelectedPetId(pet.id); setExpeditionError(""); setPetMsg(""); } }}
-                                disabled={!pet}
-                                aria-pressed={pet ? selectedPet?.id === pet.id : undefined}
-                                aria-label={pet
-                                    ? `Select ${petDisplayName(pet)}${expeditionReady ? "; expedition ready to claim" : ""}`
-                                    : `Empty pet slot ${i + 1}`}
+                                key={pet.id}
+                                ref={selectedPet?.id === pet.id ? selectedPetSlotRef : undefined}
+                                className={`pet-slot-card${selectedPet?.id === pet.id ? " pet-selected" : ""}${character.activePetId === pet.id ? " pet-active" : ""} ${petVisualVariantClass(pet)}`}
+                                onClick={() => { if (pet.id !== selectedPet?.id) { setNicknameInput(""); setNicknameMsg(""); setEvolveMsg(""); } setSelectedPetId(pet.id); setExpeditionError(""); setPetMsg(""); if (expeditionReady) setYardSection("expeditions"); else if (pet.training && now >= pet.training.endsAt) setYardSection("growth"); }}
+                                disabled={progressBusy || evolveBusy || expeditionBusy || expeditionLaunchBusy}
+                                aria-pressed={selectedPet?.id === pet.id}
+                                aria-label={`Select ${petDisplayName(pet)}${expeditionReady ? "; expedition ready to claim" : ""}`}
                             >
-                                {pet ? (
-                                    <>
-                                        <span className="pet-slot-avatar">
-                                            {(() => {
-                                                const avatar = petCardImage(pet, sharedImages);
-                                                return avatar
-                                                    ? <img src={avatar} alt={pet.name} onError={(e) => { e.currentTarget.style.display = "none"; }} />
-                                                    : <span className="pet-initials">{pet.name.slice(0, 2).toUpperCase()}</span>;
-                                            })()}
-                                        </span>
-                                        <span className="pet-slot-name">{petDisplayName(pet)}</span>
-                                        <span className={`pet-rarity-tag rarity-${pet.rarity}`}>{pet.rarity}</span>
-                                        {pet.trait && <span className={`pet-trait-tag${ultraPetTraits.includes(pet.trait) ? " pet-trait-tag--apex" : ""}`}>{pet.trait}</span>}
-                                        {!combatEligiblePetIds.has(pet.id) && <span className="pet-training-tag">Preserved overflow</span>}
-                                        {character.activePetId === pet.id && <span className="pet-active-tag">Active</span>}
-                                        {character.activePetId2v2 === pet.id && <span className="pet-2v2-tag">2v2</span>}
-                                        {pet.expedition && serverNow() < pet.expedition.endsAt && <span className="pet-training-tag">Exploring {formatPetTimer(pet.expedition!.endsAt - serverNow())}</span>}
-                                        {expeditionReady && <span className="pet-ready-tag" aria-hidden="true">🎁 Claim</span>}
-                                        {pet.training && serverNow() < pet.training.endsAt && (
-                                            <span className="pet-training-tag">⏳ {formatPetTimer(pet.training.endsAt - now)}</span>
-                                        )}
-                                        {pet.training && serverNow() >= pet.training.endsAt && (
-                                            <span className="pet-ready-tag">✅ Ready</span>
-                                        )}
-                                    </>
-                                ) : (
-                                    <span className="pet-empty-label">Empty</span>
+                                <span className="pet-slot-avatar">
+                                    {(() => {
+                                        const avatar = petCardImage(pet, sharedImages);
+                                        return avatar
+                                            ? <img src={avatar} alt={pet.name} onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                                            : <span className="pet-initials">{pet.name.slice(0, 2).toUpperCase()}</span>;
+                                    })()}
+                                </span>
+                                <span className="pet-slot-name">{petDisplayName(pet)}</span>
+                                <span className={`pet-rarity-tag rarity-${pet.rarity}`}>{pet.rarity}</span>
+                                <span className="pet-slot-level">Level {pet.level}</span>
+                                {!combatEligiblePetIds.has(pet.id) && <span className="pet-training-tag">Preserved overflow</span>}
+                                {character.activePetId === pet.id && <span className="pet-active-tag">Active</span>}
+                                {character.activePetId2v2 === pet.id && <span className="pet-2v2-tag">2v2</span>}
+                                {pet.expedition && serverNow() < pet.expedition.endsAt && <span className="pet-training-tag">Exploring {formatPetTimer(pet.expedition!.endsAt - serverNow())}</span>}
+                                {expeditionReady && <span className="pet-ready-tag" aria-hidden="true"> Claim</span>}
+                                {pet.training && serverNow() < pet.training.endsAt && (
+                                    <span className="pet-training-tag">Training {formatPetTimer(pet.training.endsAt - now)}</span>
+                                )}
+                                {pet.training && serverNow() >= pet.training.endsAt && (
+                                    <span className="pet-ready-tag"> Ready</span>
                                 )}
                             </button>
                         );
                     })}
                 </div>
 
-                <div ref={expeditionBoardRef}>
+                {selectedPet && <nav className="pet-yard-sections" aria-label="Pet Yard activities">
+                    {(Object.keys(YARD_SECTION_LABELS) as Array<keyof typeof YARD_SECTION_LABELS>).map((section) => <button type="button" key={section} aria-current={yardSection === section ? "page" : undefined} aria-controls="pet-yard-section" onClick={() => openYardSection(section)}>{YARD_SECTION_LABELS[section]}{section === "growth" && growthUnspent > 0 && <span className="pet-yard-section-count">{growthUnspent}</span>}{section === "expeditions" && character.pets.some(pet => pet.expedition && now >= pet.expedition.endsAt) && <span className="pet-yard-section-count">Ready</span>}</button>)}
+                </nav>}
+                {progressBusy && <p className="hint" role="status">Saving companion…</p>}
+                {yardSection === "expeditions" && selectedPet ? <div id="pet-yard-section" role="region" tabIndex={-1} aria-label="Expeditions">                <div ref={expeditionBoardRef}>
                     <PetExpeditionBoard
                         character={character}
-                        pets={combatEligiblePets}
-                        selectedPet={selectedPetIsOverflow ? null : selectedPet}
-                        selectedPetId={selectedPetIsOverflow ? "" : selectedPetId}
+                        selectedPet={selectedPetIsOverflow && !selectedPet.expedition ? null : selectedPet}
                         expeditionType={expeditionType}
                         risk={expeditionRisk}
                         provision={expeditionProvision}
@@ -937,7 +939,6 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                         launchBusy={expeditionLaunchBusy}
                         claimBusy={expeditionBusy}
                         error={expeditionError}
-                        onSelectPet={(petId) => { setSelectedPetId(petId); setExpeditionError(""); }}
                         onTypeChange={setExpeditionType}
                         onRiskChange={setExpeditionRisk}
                         onProvisionChange={setExpeditionProvision}
@@ -946,7 +947,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                     />
                 </div>
 
-                {selectedPet ? (
+                </div> : selectedPet ? (
                     <div className="pet-detail-panel">
                         <div className="pet-detail-left pet-profile-panel">
                             <div className="pet-heart-anchor">
@@ -966,7 +967,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                         </div>
                                     );
                                 })()}
-                                {petHeartBurst > 0 && <span key={petHeartBurst} className="pet-heart-pop">❤️</span>}
+                                {petHeartBurst > 0 && <span key={petHeartBurst} className="pet-heart-pop">♥</span>}
                             </div>
                             <h3>{petDisplayName(selectedPet)}</h3>
                             {selectedPet.nickname && <p className="hint" style={{ fontSize: "0.72rem", marginTop: -4 }}>({selectedPet.name})</p>}
@@ -974,26 +975,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                             <p className="pet-xp-line">
                                 XP {selectedPet.level >= selectedPet.maxLevel ? "MAX" : `${selectedPet.xp}/${petXpNeeded(selectedPet.level)}`}
                             </p>
-                            <div style={{ marginTop: 8, width: "100%" }}>
-                                <label htmlFor="pet-nickname-input" className="hint" style={{ display: "block", textAlign: "left", marginBottom: 4 }}>Nickname</label>
-                                <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
-                                    <input
-                                        id="pet-nickname-input"
-                                        value={nicknameInput}
-                                        onChange={e => { setNicknameInput(e.target.value); setNicknameMsg(""); }}
-                                        placeholder={selectedPet.nickname ? `Current: ${selectedPet.nickname}` : "Set nickname…"}
-                                        maxLength={24}
-                                        style={{ flex: 1, fontSize: "0.8rem", padding: "3px 6px" }}
-                                    />
-                                    <button onClick={setNickname} style={{ fontSize: "0.75rem", padding: "3px 8px", whiteSpace: "nowrap" }}>
-                                        🔮 10 Shards
-                                    </button>
-                                </div>
-                                {nicknameMsg && <p className="hint" style={{ fontSize: "0.72rem", color: nicknameMsg.startsWith("✅") ? "#4ade80" : "#f87171" }}>{nicknameMsg}</p>}
-                            </div>
-                            {/* The meter stays exactly as it shipped — no tier panel, no
-                                extra copy. The upkeep rules ride along as the hover/AT
-                                description so nothing new takes up room on the screen. */}
+                            {/* Upkeep details are available on the happiness meter. */}
                             <div className="pet-happiness-meter" style={{ ["--pet-happiness" as string]: `${selectedPetHappiness}%` }} title={selectedPetHappinessSummary}>
                                 <div className="pet-happiness-meter-top">
                                     <strong>Happiness</strong>
@@ -1011,12 +993,81 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                 </div>
                             </div>
                             <div className="pet-stats-grid">
-                                <span>❤️ HP: {selectedPet.hp}{growthPreview && growthPreview.hp !== selectedPet.hp ? ` → ${growthPreview.hp}` : ""}</span>
-                                <span>⚔️ ATK: {selectedPet.attack}{growthPreview && growthPreview.attack !== selectedPet.attack ? ` → ${growthPreview.attack}` : ""}</span>
-                                <span>🛡️ DEF: {selectedPet.defense}{growthPreview && growthPreview.defense !== selectedPet.defense ? ` → ${growthPreview.defense}` : ""}</span>
-                                <span>💨 SPD: {selectedPet.speed}{growthPreview && growthPreview.speed !== selectedPet.speed ? ` → ${growthPreview.speed}` : ""}</span>
+                                <span> HP: {selectedPet.hp}{growthPreview && growthPreview.hp !== selectedPet.hp ? ` → ${growthPreview.hp}` : ""}</span>
+                                <span> ATK: {selectedPet.attack}{growthPreview && growthPreview.attack !== selectedPet.attack ? ` → ${growthPreview.attack}` : ""}</span>
+                                <span> DEF: {selectedPet.defense}{growthPreview && growthPreview.defense !== selectedPet.defense ? ` → ${growthPreview.defense}` : ""}</span>
+                                <span> SPD: {selectedPet.speed}{growthPreview && growthPreview.speed !== selectedPet.speed ? ` → ${growthPreview.speed}` : ""}</span>
                             </div>
-                            <section className="pet-evolve-panel" style={{ marginTop: 8, width: "100%", border: "1px solid rgba(56,189,248,.55)", borderRadius: 8, padding: 10, background: "rgba(14,116,144,.10)" }}>
+                            {selectedPet.description && <p className="pet-description">{selectedPet.description}</p>}
+                            <div className="menu">
+                                <button disabled={progressBusy || selectedPetBreedingLocked || selectedPetIsOverflow} aria-describedby={selectedPetBreedingLocked || selectedPetIsOverflow ? "pet-yard-roster-lock" : undefined} onClick={() => updateCharacter(prev => prev && ({ ...prev, activePetId: selectedPet.id }))}>
+                                    {character.activePetId === selectedPet.id ? "Field companion" : "Set as Active"}
+                                </button>
+                                <button
+                                    disabled={progressBusy || selectedPetBreedingLocked || selectedPetIsOverflow}
+                                    aria-describedby={selectedPetBreedingLocked || selectedPetIsOverflow ? "pet-yard-roster-lock" : undefined}
+                                    onClick={() => updateCharacter(prev => prev && ({
+                                        ...prev,
+                                        activePetId2v2: prev.activePetId2v2 === selectedPet.id ? undefined : selectedPet.id,
+                                    }))}
+                                    title="The 2v2 partner pre-fills your reserve slot in the Pet Arena. It is never summoned into PvE."
+                                >
+                                    {character.activePetId2v2 === selectedPet.id ? " 2v2 Partner" : "Set as 2v2 Partner"}
+                                </button>
+                                <details className="pet-yard-disclosure pet-yard-manage"><summary>Manage companion</summary><button className="danger-button" disabled={Boolean(releaseBlocker)} aria-describedby={releaseBlocker ? "pet-yard-roster-lock" : undefined} onClick={releasePet}>Release companion</button></details>
+                            </div>
+                            {(releaseBlocker || selectedPetIsOverflow) && <p id="pet-yard-roster-lock" className="hint" role="status">{releaseBlocker || "This companion is preserved overflow. Move it through the Sanctuary before assigning active roles."}</p>}
+                        </div>
+
+                        <fieldset key={selectedPet.id} className="pet-yard-workbench" id="pet-yard-section" role="region" tabIndex={-1} disabled={progressBusy} aria-busy={progressBusy} aria-label={`${YARD_SECTION_LABELS[yardSection]} for ${petDisplayName(selectedPet)}`}>
+                            {yardSection === "care" && <><div className="pet-yard-section-heading"><span className="pet-yard-kicker">A bond worth tending</span><h3>Care & companionship</h3><p>A moment together. A little stronger for the road ahead.</p></div>
+                                <div className="pet-care-actions">
+                                    <button onClick={petSelectedPet} disabled={selectedPetFreePetting <= 0} title={selectedPetHappinessSummary}>
+                                        {selectedPetFreePetting > 0
+                                            ? `Pet +${PET_HAPPINESS_PET_GAIN}% Happiness`
+                                            : "Petted out for today"}
+                                    </button>
+                                </div>
+                                {petMsg && <p className="hint" role="alert" style={{ margin: "0 0 8px", fontSize: "0.72rem", color: "#f87171" }}>{petMsg}</p>}
+                                <section className="pet-feed-panel">
+                                    <h4>Feed</h4>
+                                    {selectedPet.level >= selectedPet.maxLevel && (
+                                        <p className="hint" style={{ margin: "0 0 6px", color: "#9ca3af" }}>
+                                            {petDisplayName(selectedPet)} is max level — treats no longer give XP.
+                                        </p>
+                                    )}
+                                    <div className="pet-feed-grid">
+                                        {petFeedItems.map((treat) => {
+                                            const count = inventoryCount(treat.id);
+                                            return (
+                                                <button key={treat.id} onClick={() => feedPet(treat)} disabled={count <= 0 || selectedPet.level >= selectedPet.maxLevel}>
+                                                    <img className="pet-treat-art" src={PET_TREAT_ART[treat.id]} alt="" />
+                                                    <span className="pet-treat-copy"><strong>{treat.name}</strong><span>+{treat.xp.toLocaleString()} XP</span></span>
+                                                    <span className="pet-treat-stock">{count}<small>owned</small></span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </section>
+                                <details className="pet-yard-disclosure"><summary>Rename companion <span>10 Fate Shards</span></summary>                            <div style={{ marginTop: 8, width: "100%" }}>
+                                    <label htmlFor="pet-nickname-input" className="hint" style={{ display: "block", textAlign: "left", marginBottom: 4 }}>Nickname</label>
+                                    <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
+                                        <input
+                                            id="pet-nickname-input"
+                                            value={nicknameInput}
+                                            onChange={e => { setNicknameInput(e.target.value); setNicknameMsg(""); }}
+                                            placeholder={selectedPet.nickname ? `Current: ${selectedPet.nickname}` : "Set nickname…"}
+                                            maxLength={24}
+                                            style={{ flex: 1, fontSize: "0.8rem", padding: "3px 6px" }}
+                                        />
+                                        <button onClick={setNickname} style={{ fontSize: "0.75rem", padding: "3px 8px", whiteSpace: "nowrap" }}>
+                                            Rename
+                                        </button>
+                                    </div>
+                                    {nicknameMsg && <p className="hint" role="status" style={{ fontSize: "0.72rem", color: nicknameMsg.startsWith("✅") ? "#4ade80" : "#f87171" }}>{nicknameMsg.replace(/^[✅❌]\s*/, "")}</p>}
+                                </div>
+                                </details></>}
+                            {yardSection === "growth" && <><div className="pet-yard-section-heading"><span className="pet-yard-kicker">Shape their potential</span><h3>Growth & training</h3><p>Town Hall bonus · +{petXpBonus.toFixed(2)}% pet XP</p></div>                            <section className="pet-evolve-panel" style={{ marginTop: 8, width: "100%", border: "1px solid rgba(56,189,248,.55)", borderRadius: 8, padding: 10, background: "rgba(14,116,144,.10)" }}>
                                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
                                     <h4 style={{ margin: 0 }}>Growth Build</h4>
                                     <strong style={{ color: growthUnspent > 0 ? "#67e8f9" : "#94a3b8" }}>{growthUnspent} point{growthUnspent === 1 ? "" : "s"} available</strong>
@@ -1041,405 +1092,350 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                 </div>
                                 <p className="hint" style={{ margin: "6px 0 0" }}>Respecs are free outside active battles and return every committed point.</p>
                             </section>
-                            {selectedPet.description && <p className="pet-description">{selectedPet.description}</p>}
-                            {(() => {
-                                const next = nextEvolution(selectedPet);
-                                if (!next) return null;
-                                const stoneName = EVOLUTION_STONE_NAMES[next.requiredItem] ?? "Evolution Stone";
-                                const hasLevel = selectedPet.level >= next.requiredLevel;
-                                const hasStone = character.inventory.includes(next.requiredItem);
-                                const ready = hasLevel && hasStone;
-                                return (
-                                    <section className="pet-evolve-panel" style={{ marginTop: 8, width: "100%", border: "1px solid #7c3aed", borderRadius: 8, padding: 8, background: "rgba(124,58,237,0.10)" }}>
-                                        <h4 style={{ margin: "0 0 4px" }}>✨ Evolution</h4>
-                                        <p className="hint" style={{ margin: "0 0 4px" }}>{petDisplayName(selectedPet)} → <strong>{next.name}</strong> <span style={{ textTransform: "capitalize" }}>({next.rarity})</span></p>
-                                        <p className="hint" style={{ margin: "0 0 6px", fontSize: "0.72rem" }}>{next.description}</p>
-                                        <ul style={{ margin: "0 0 6px", paddingLeft: 16, fontSize: "0.72rem", listStyle: "none" }}>
-                                            <li style={{ color: hasLevel ? "#4ade80" : "#f87171" }}>{hasLevel ? "✓" : "✗"} Level {next.requiredLevel} (now {selectedPet.level})</li>
-                                            <li style={{ color: hasStone ? "#4ade80" : "#f87171" }}>{hasStone ? "✓" : "✗"} {stoneName}</li>
-                                        </ul>
-                                        <button onClick={evolveSelectedPet} disabled={!ready || evolveBusy} style={{ width: "100%" }}>
-                                            {evolveBusy ? "Evolving…" : ready ? `✨ Evolve into ${next.name}` : !hasLevel ? `Reach Lv ${next.requiredLevel}` : `Need ${stoneName}`}
-                                        </button>
-                                        {evolveMsg && <p className="hint" style={{ fontSize: "0.72rem", marginTop: 4, color: evolveMsg.startsWith("✅") ? "#4ade80" : "#f87171" }}>{evolveMsg}</p>}
-                                    </section>
-                                );
-                            })()}
-                            {/* Same button, same place. The daily free-petting budget only
-                                shows itself in the label once it is spent, and the
-                                server's 409 shows transiently — same pattern as
-                                evolveMsg/nicknameMsg. No standing copy, no new panel. */}
-                            <div className="pet-care-actions">
-                                <button onClick={petSelectedPet} disabled={selectedPetFreePetting <= 0} title={selectedPetHappinessSummary}>
-                                    {selectedPetFreePetting > 0
-                                        ? `Pet +${PET_HAPPINESS_PET_GAIN}% Happiness`
-                                        : "Petted out for today"}
-                                </button>
-                            </div>
-                            {petMsg && <p className="hint" style={{ margin: "0 0 8px", fontSize: "0.72rem", color: "#f87171" }}>{petMsg}</p>}
-                            <section className="pet-feed-panel">
-                                <h4>Feed</h4>
-                                {selectedPet.level >= selectedPet.maxLevel && (
-                                    <p className="hint" style={{ margin: "0 0 6px", color: "#9ca3af" }}>
-                                        {petDisplayName(selectedPet)} is max level — treats no longer give XP.
-                                    </p>
-                                )}
-                                <div className="pet-feed-grid">
-                                    {petFeedItems.map((treat) => {
-                                        const count = inventoryCount(treat.id);
-                                        return (
-                                            <button key={treat.id} onClick={() => feedPet(treat)} disabled={count <= 0 || selectedPet.level >= selectedPet.maxLevel}>
-                                                <strong>{treat.name}</strong>
-                                                <span>+{treat.xp} XP | Owned {count}</span>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </section>
-                            <div className="menu">
-                                <button disabled={selectedPetBreedingLocked || selectedPetIsOverflow} aria-describedby={selectedPetBreedingLocked || selectedPetIsOverflow ? "pet-yard-roster-lock" : undefined} onClick={() => updateCharacter({ ...character, activePetId: selectedPet.id })}>
-                                    {character.activePetId === selectedPet.id ? "⭐ Active Pet" : "Set as Active"}
-                                </button>
-                                <button
-                                    disabled={selectedPetBreedingLocked || selectedPetIsOverflow}
-                                    aria-describedby={selectedPetBreedingLocked || selectedPetIsOverflow ? "pet-yard-roster-lock" : undefined}
-                                    onClick={() => updateCharacter({
-                                        ...character,
-                                        activePetId2v2: character.activePetId2v2 === selectedPet.id ? undefined : selectedPet.id,
-                                    })}
-                                    title="The 2v2 partner pre-fills your reserve slot in the Pet Arena. It is never summoned into PvE."
-                                >
-                                    {character.activePetId2v2 === selectedPet.id ? "🐾 2v2 Partner" : "Set as 2v2 Partner"}
-                                </button>
-                                <button className="danger-button" disabled={Boolean(releaseBlocker)} aria-describedby={releaseBlocker ? "pet-yard-roster-lock" : undefined} onClick={releasePet}>Release</button>
-                            </div>
-                            {(releaseBlocker || selectedPetIsOverflow) && <p id="pet-yard-roster-lock" className="hint" role="status">{releaseBlocker || "This companion is preserved overflow. Move it through the Sanctuary before assigning active roles."}</p>}
-                        </div>
-
-                        <div className="pet-center-column">
-                        <div className="pet-loadout-panel">
-                            <h4>Loadout</h4>
-                            <p className="hint" style={{ margin: "0 0 4px" }}>Choose a battle glow, PvP gear, PvE summon gear, and one-use combat support.</p>
-                            <div className="pet-loadout-grid">
-                                {PET_LOADOUT_SLOTS.map((slot) => {
-                                    const equippedId = selectedPet.loadout?.[slot.key];
-                                    if (slot.key === "collar") {
-                                        const collar = petCollarById(equippedId);
-                                        const visual = petCollarVisual(equippedId);
-                                        const iconStyle = visual && !visual.prismatic ? { color: visual.glow, textShadow: `0 0 8px ${visual.glow}` } : undefined;
-                                        return (
-                                            <div
-                                                key={slot.key}
-                                                className={`pet-loadout-slot${equippedId ? " pet-loadout-filled" : ""}${visual?.prismatic ? " pet-collar-slot-prismatic" : ""}`}
-                                                style={visual ? { ["--collar-glow" as string]: visual.glow } : undefined}
-                                            >
-                                                <span className={`pet-loadout-icon${visual?.prismatic ? " pet-collar-prismatic-text" : ""}`} style={iconStyle}>{slot.icon}</span>
-                                                <span className="pet-loadout-label">{slot.label}</span>
-                                                <span className="pet-loadout-value">{collar?.name ?? "Empty"}</span>
-                                                <span className="pet-loadout-hint">{equippedId ? "Glow active" : slot.hint}</span>
-                                            </div>
-                                        );
-                                    }
-                                    if (slot.key === "pvp") {
-                                        const gear = petPvpGearById(equippedId);
-                                        return (
-                                            <div key={slot.key} className={`pet-loadout-slot${equippedId ? " pet-loadout-filled" : ""}`}>
-                                                <span className="pet-loadout-icon">{slot.icon}</span>
-                                                <span className="pet-loadout-label">{slot.label}</span>
-                                                <span className="pet-loadout-value">{gear?.name ?? "Empty"}</span>
-                                                <span className="pet-loadout-hint">{gear ? gear.desc : slot.hint}</span>
-                                            </div>
-                                        );
-                                    }
-                                    if (slot.key === "consumable") {
-                                        const cons = petConsumableById(equippedId);
-                                        return (
-                                            <div key={slot.key} className={`pet-loadout-slot${equippedId ? " pet-loadout-filled" : ""}`}>
-                                                <span className="pet-loadout-icon">{slot.icon}</span>
-                                                <span className="pet-loadout-label">{slot.label}</span>
-                                                <span className="pet-loadout-value">{cons?.name ?? "Empty"}</span>
-                                                <span className="pet-loadout-hint">{cons ? cons.desc : slot.hint}</span>
-                                            </div>
-                                        );
-                                    }
-                                    if (slot.key === "pve") {
-                                        const gear = petPveGearById(equippedId);
-                                        const dur = selectedPet.loadout?.pveDurability ?? 0;
-                                        return (
-                                            <div key={slot.key} className={`pet-loadout-slot${equippedId ? " pet-loadout-filled" : ""}`}>
-                                                <span className="pet-loadout-icon">{slot.icon}</span>
-                                                <span className="pet-loadout-label">{slot.label}</span>
-                                                <span className="pet-loadout-value">{gear?.name ?? "Empty"}</span>
-                                                <span className="pet-loadout-hint">{gear ? `${dur}/${PET_PVE_DURABILITY} summons left` : slot.hint}</span>
-                                            </div>
-                                        );
-                                    }
-                                    return (
-                                        <div key={slot.key} className={`pet-loadout-slot${equippedId ? " pet-loadout-filled" : ""}`}>
-                                            <span className="pet-loadout-icon">{slot.icon}</span>
-                                            <span className="pet-loadout-label">{slot.label}</span>
-                                            <span className="pet-loadout-value">{equippedId ?? "Empty"}</span>
-                                            <span className="pet-loadout-hint">{slot.hint}</span>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                            {(() => {
-                                const owned = petCollars.filter((c) => ownsItem(character, c.id));
-                                if (owned.length === 0) {
-                                    return <p className="hint" style={{ margin: "8px 0 0" }}>Buy collars in the Grand Marketplace (Aura / Accessory, 🔮 Fate Shards) to glow your pet.</p>;
-                                }
-                                const current = selectedPet.loadout?.collar;
-                                return (
-                                    <div className="pet-collar-picker">
-                                        <button
-                                            type="button"
-                                            className={`pet-collar-swatch pet-collar-none${current ? "" : " selected"}`}
-                                            onClick={() => equipCollar(undefined)}
-                                            title="No collar"
-                                        >✕</button>
-                                        {owned.map((c) => (
-                                            <button
-                                                key={c.id}
-                                                type="button"
-                                                className={`pet-collar-swatch${c.prismatic ? " pet-collar-swatch-prismatic" : ""}${current === c.id ? " selected" : ""}`}
-                                                style={{ ["--collar-glow" as string]: c.glow }}
-                                                onClick={() => equipCollar(c.id)}
-                                                title={c.name}
-                                                aria-label={c.name}
-                                            />
-                                        ))}
-                                    </div>
-                                );
-                            })()}
-                            {(() => {
-                                const ownedGear = petPvpGear.filter((g) => ownsItem(character, g.id));
-                                return (
-                                    <div className="pet-gear-picker">
-                                        {ownedGear.length === 0 ? (
-                                            <>
-                                                <span>PVP Gear</span>
-                                                <p className="hint" style={{ margin: "2px 0 0" }}>Buy PVP gear in the Grand Marketplace (Aura / Accessory, 🔮 Fate Shards) to boost your pet in pet battles.</p>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <label htmlFor="pet-pvp-gear">PVP Gear</label>
-                                                <select id="pet-pvp-gear" value={selectedPet.loadout?.pvp ?? ""} onChange={(e) => equipPvpGear(e.target.value || undefined)}>
-                                                    <option value="">None</option>
-                                                    {ownedGear.map((g) => (
-                                                        <option key={g.id} value={g.id}>{g.name} — {g.desc}</option>
-                                                    ))}
-                                                </select>
-                                            </>
-                                        )}
-                                    </div>
-                                );
-                            })()}
-                            {(() => {
-                                const equippedPveId = selectedPet.loadout?.pve;
-                                const pveDur = selectedPet.loadout?.pveDurability ?? 0;
-                                const ownedIds = petPveGear.filter((g) => ownsItem(character, g.id)).map((g) => g.id);
-                                const optionIds = [...new Set([...(equippedPveId ? [equippedPveId] : []), ...ownedIds])];
-                                if (optionIds.length === 0) {
-                                    return (
-                                        <div className="pet-gear-picker">
-                                            <span>PVE Gear</span>
-                                            <p className="hint" style={{ margin: "2px 0 0" }}>Craft PVE gear in the Crafter (Supplies) or buy it in the ryo Shop (Aura / Accessory). It wears out after {PET_PVE_DURABILITY} summons.</p>
-                                        </div>
-                                    );
-                                }
-                                return (
-                                    <div className="pet-gear-picker">
-                                        <label htmlFor="pet-pve-gear">PVE Gear</label>
-                                        <select id="pet-pve-gear" value={equippedPveId ?? ""} onChange={(e) => equipPveGear(e.target.value || undefined)}>
-                                            <option value="">None</option>
-                                            {optionIds.map((id) => {
-                                                const g = petPveGearById(id);
-                                                if (!g) return null;
-                                                const isEquipped = id === equippedPveId;
-                                                const ownCount = countItem(character, id);
-                                                const label = isEquipped
-                                                    ? `${g.name} — equipped (${pveDur}/${PET_PVE_DURABILITY})`
-                                                    : `${g.name} — ${g.desc}${ownCount > 1 ? ` ×${ownCount}` : ""}`;
-                                                return <option key={id} value={id}>{label}</option>;
-                                            })}
-                                        </select>
-                                    </div>
-                                );
-                            })()}
-                            {(() => {
-                                const equippedConsId = selectedPet.loadout?.consumable;
-                                const ownedIds = petConsumables.filter((c) => ownsItem(character, c.id)).map((c) => c.id);
-                                const optionIds = [...new Set([...(equippedConsId ? [equippedConsId] : []), ...ownedIds])];
-                                if (optionIds.length === 0) {
-                                    return (
-                                        <div className="pet-gear-picker">
-                                            <span>Consumable</span>
-                                            <p className="hint" style={{ margin: "2px 0 0" }}>Buy battle consumables in the ryo Shop (Aura / Accessory) or craft them in the Crafter (Supplies). Spent the next time your pet fights — 1v1, 2v2, or a PvE summon.</p>
-                                        </div>
-                                    );
-                                }
-                                return (
-                                    <div className="pet-gear-picker">
-                                        <label htmlFor="pet-consumable">Consumable</label>
-                                        <select id="pet-consumable" value={equippedConsId ?? ""} onChange={(e) => equipConsumable(e.target.value || undefined)}>
-                                            <option value="">None</option>
-                                            {optionIds.map((id) => {
-                                                const c = petConsumableById(id);
-                                                if (!c) return null;
-                                                const isEquipped = id === equippedConsId;
-                                                const ownCount = countItem(character, id);
-                                                const label = isEquipped
-                                                    ? `${c.name} — equipped`
-                                                    : `${c.name} — ${c.desc}${ownCount > 1 ? ` ×${ownCount}` : ""}`;
-                                                return <option key={id} value={id}>{label}</option>;
-                                            })}
-                                        </select>
-                                    </div>
-                                );
-                            })()}
-                        </div>
-
-                        <div className="pet-training-panel">
-                            <h4>Training</h4>
-                            {character.profession === "petTamer" && (
-                                <p className="hint" style={{ color: "#84cc16", margin: "0 0 6px" }}>
-                                    🐾 Pet Tamer · training {petTamerTrainingSpeedPct(character)}% faster · expedition rewards ×{petTamerExpeditionMult(character).toFixed(2)}
-                                </p>
-                            )}
-                            {canOfferEscort && (
-                                <div className="summary-box" style={{ background: "rgba(132,204,22,0.08)", border: "1px solid rgba(132,204,22,0.35)", padding: 8, marginBottom: 8 }}>
-                                    <strong style={{ color: "#84cc16", fontSize: "0.85rem" }}>🐾 Clan Pet Escort</strong>
-                                    <p className="hint" style={{ margin: "4px 0 6px", fontSize: "0.75rem" }}>
-                                        Offer your pet's escort to clan-mates for 1 hour. Vanguards in your clan get +5% Seals on raids with an active pet, and you get +20% Tamer XP on your next expedition.
-                                    </p>
-                                    <button
-                                        onClick={() => void toggleEscort()}
-                                        disabled={escortBusy || escortOffered === null}
-                                        style={{ background: escortOffered ? "linear-gradient(#4d7c0f,#365314)" : "linear-gradient(#365314,#1a2e05)", borderColor: "#84cc16", fontSize: "0.8rem", padding: "4px 10px" }}
-                                    >
-                                        {escortBusy ? "…" : escortOffered ? "Cancel escort offer" : "Offer escort (1h)"}
-                                    </button>
-                                    {character.petEscortBonusReady && (
-                                        <p className="hint" style={{ margin: "6px 0 0", color: "#84cc16", fontSize: "0.78rem" }}>
-                                            🎁 +20% Tamer XP ready for your next expedition!
+                                <div className="pet-training-panel">
+                                    <h4>Training</h4>
+                                    {character.profession === "petTamer" && (
+                                        <p className="hint" style={{ color: "#84cc16", margin: "0 0 6px" }}>
+                                            Pet Tamer · training {petTamerTrainingSpeedPct(character)}% faster · expedition rewards ×{petTamerExpeditionMult(character).toFixed(2)}
                                         </p>
                                     )}
-                                </div>
-                            )}
-                            {selectedPet.training && serverNow() < selectedPet.training.endsAt ? (
-                                <div className="training-in-progress">
-                                    <p>⏳ {petTrainingOptions.find((o) => o.type === selectedPet.training?.type)?.label}</p>
-                                    <p className="training-timer">{formatPetTimer(selectedPet.training.endsAt - now)} remaining</p>
-                                </div>
-                            ) : selectedPet.training ? (
-                                <div className="training-complete">
-                                    <p>✅ {petTrainingOptions.find((o) => o.type === selectedPet.training?.type)?.label} complete!</p>
-                                    <button className="admin-button" onClick={collectTraining} disabled={petTrainingBusy}>{petTrainingBusy ? "Collecting…" : "Collect Results"}</button>
-                                </div>
-                            ) : (
-                                <>
-                                    <p className="hint">Timers award XP only. Level-ups grant Growth Points, so treats, expeditions, and idle training all produce the same fair stats.</p>
-                                    {!selectedPetCanTrain && <p className="hint" role="status" style={{ color: "#fbbf24" }}>Reserve companion — only the active five-pet squad can start training.</p>}
-                                    <label htmlFor="pet-training-duration">Duration</label>
-                                    <select id="pet-training-duration" value={trainingDuration} onChange={(e) => setTrainingDuration(Number(e.target.value))}>
-                                        {petTrainingDurations.map((d) => (
-                                            <option key={d.ms} value={d.ms}>{d.label}</option>
-                                        ))}
-                                    </select>
-                                    <p className="hint">Expected gains: {petTrainingPreview(selectedPet, trainingType, trainingDuration)}</p>
-                                    {selectedPet.level >= selectedPet.maxLevel ? (
-                                        // A maxed pet can't start new training (Start is disabled), so this
-                                        // slot becomes the recovery hatch: if a session was still pending
-                                        // server-side (e.g. the training that carried it to Level 100), this
-                                        // collects it instead of leaving the pet stuck.
-                                        <>
-                                            <button className="admin-button" onClick={recoverFinishedTraining} disabled={petTrainingBusy}>{petTrainingBusy ? "Checking…" : "Collect Finished Training"}</button>
-                                            <p className="hint">Fully trained — training no longer raises stats. Use this if a previous session is still waiting to be collected.</p>
-                                        </>
-                                    ) : (
-                                        <button className="admin-button" onClick={startTraining} disabled={petTrainingBusy || !selectedPetCanTrain}>{petTrainingBusy ? "Starting…" : !selectedPetCanTrain ? "Move into active five" : "Start Training"}</button>
+                                    {canOfferEscort && (
+                                        <div className="summary-box" style={{ background: "rgba(132,204,22,0.08)", border: "1px solid rgba(132,204,22,0.35)", padding: 8, marginBottom: 8 }}>
+                                            <strong style={{ color: "#84cc16", fontSize: "0.85rem" }}> Clan Pet Escort</strong>
+                                            <p className="hint" style={{ margin: "4px 0 6px", fontSize: "0.75rem" }}>
+                                                Offer your pet's escort to clan-mates for 1 hour. Vanguards in your clan get +5% Seals on raids with an active pet, and you get +20% Tamer XP on your next expedition.
+                                            </p>
+                                            <button
+                                                onClick={() => void toggleEscort()}
+                                                disabled={escortBusy || escortOffered === null}
+                                                style={{ background: escortOffered ? "linear-gradient(#4d7c0f,#365314)" : "linear-gradient(#365314,#1a2e05)", borderColor: "#84cc16", fontSize: "0.8rem", padding: "4px 10px" }}
+                                            >
+                                                {escortBusy ? "…" : escortOffered ? "Cancel escort offer" : "Offer escort (1h)"}
+                                            </button>
+                                            {character.petEscortBonusReady && (
+                                                <p className="hint" style={{ margin: "6px 0 0", color: "#84cc16", fontSize: "0.78rem" }}>
+                                                    +20% Tamer XP ready for your next expedition!
+                                                </p>
+                                            )}
+                                        </div>
                                     )}
-                                </>
-                            )}
-                        </div>
+                                    {selectedPet.training && serverNow() < selectedPet.training.endsAt ? (
+                                        <div className="training-in-progress">
+                                            <p>{petTrainingOptions.find((o) => o.type === selectedPet.training?.type)?.label}</p>
+                                            <p className="training-timer">{formatPetTimer(selectedPet.training.endsAt - now)} remaining</p>
+                                        </div>
+                                    ) : selectedPet.training ? (
+                                        <div className="training-complete">
+                                            <p> {petTrainingOptions.find((o) => o.type === selectedPet.training?.type)?.label} complete!</p>
+                                            <button className="admin-button" onClick={collectTraining} disabled={petTrainingBusy}>{petTrainingBusy ? "Collecting…" : "Collect Results"}</button>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <p className="hint">Earn XP while you are away. Each level unlocks a Growth Point.</p>
+                                            {!selectedPetCanTrain && <p className="hint" role="status" style={{ color: "#fbbf24" }}>Move this companion into your carried roster to start training.</p>}
+                                            <label htmlFor="pet-training-duration">Duration</label>
+                                            <select id="pet-training-duration" value={trainingDuration} onChange={(e) => setTrainingDuration(Number(e.target.value))}>
+                                                {petTrainingDurations.map((d) => (
+                                                    <option key={d.ms} value={d.ms}>{d.label}</option>
+                                                ))}
+                                            </select>
+                                            <p className="hint">Expected gains: {petTrainingPreview(selectedPet, trainingType, trainingDuration)}</p>
+                                            {selectedPet.level >= selectedPet.maxLevel ? (
+                                                // A maxed pet can't start new training (Start is disabled), so this
+                                                // slot becomes the recovery hatch: if a session was still pending
+                                                // server-side (e.g. the training that carried it to Level 100), this
+                                                // collects it instead of leaving the pet stuck.
+                                                <>
+                                                    <button className="admin-button" onClick={recoverFinishedTraining} disabled={petTrainingBusy}>{petTrainingBusy ? "Checking…" : "Collect Finished Training"}</button>
+                                                    <p className="hint">Fully trained — training no longer raises stats. Use this if a previous session is still waiting to be collected.</p>
+                                                </>
+                                            ) : (
+                                                <button className="admin-button" onClick={startTraining} disabled={petTrainingBusy || !selectedPetCanTrain || !!selectedPet.expedition || selectedPetBreedingLocked}>{petTrainingBusy ? "Starting…" : !selectedPetCanTrain ? "Move into carried roster" : "Start Training"}</button>
+                                            )}
+                                            {selectedPet.expedition && <p className="hint">Collect this companion’s expedition in Expeditions before starting training.</p>}
+                                            {selectedPetBreedingLocked && <p className="hint">This companion is in the Breeding Barn until its timer completes.</p>}
+                                        </>
+                                    )}
+                                </div>
 
-                        <div className="pet-training-panel">
-                            <h4>Expedition</h4>
-                            <p className="hint">Routes, exact previews, daily caps, provisions, return choices, and recent stories now live on the Expedition Board above.</p>
-                            <button type="button" onClick={() => expeditionBoardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
-                                {selectedPet.expedition && now >= selectedPet.expedition.endsAt ? "Choose return outcome" : "Open Expedition Board"}
-                            </button>
-                        </div>
-                        </div>
-
-                        <div className="pet-info-panel">
-                            <section className={`pet-trait-display${selectedPet.trait && ultraPetTraits.includes(selectedPet.trait) ? " pet-trait-display--apex" : ""}`}>
-                                <h4>Trait</h4>
-                                {selectedPet.trait ? (
-                                    <>
-                                        <strong>{selectedPet.trait}</strong>
-                                        <p>{petTraitDescriptions[selectedPet.trait]}</p>
-                                    </>
-                                ) : (
-                                    <p>No trait discovered.</p>
-                                )}
-                            </section>
-
-                            <PetBattleReadiness
-                                pet={selectedPet}
-                                combatEligiblePets={combatEligiblePets}
-                                dailyPetWins={character.dailyPetWins ?? 0}
-                                totalPetWins={character.totalPetWins ?? 0}
-                                breedingPetIds={breedingPetIds}
-                                isOverflow={selectedPetIsOverflow}
-                                setScreen={setScreen}
-                            />
-
-                            <section className="pet-jutsu-panel">
-                                <h4>Pet Jutsus</h4>
-                                {selectedPet.jutsus.length === 0 ? (
-                                    <p className="hint">This pet has no jutsu yet.</p>
-                                ) : selectedPet.jutsus.map((jutsu, i) => {
-                                    const kindMeta: Record<string, { icon: string; label: string; color: string }> = {
-                                        damage:    { icon: "⚔",  label: "Damage",   color: "#fca5a5" },
-                                        buff:      { icon: "⬆",  label: "Buff",     color: "#86efac" },
-                                        heal:      { icon: "✚",  label: "Heal",     color: "#4ade80" },
-                                        debuff:    { icon: "⬇",  label: "Debuff",   color: "#f97316" },
-                                        dot:       { icon: "☠",  label: "Poison",   color: "#c084fc" },
-                                        move:      { icon: "➡",  label: "Move",     color: "#93c5fd" },
-                                        barrier:   { icon: "◇",  label: "Barrier",  color: "#7dd3fc" },
-                                        movelock:  { icon: "⛓",  label: "Rootlock", color: "#fbbf24" },
-                                        lifesteal: { icon: "🩸", label: "Lifesteal",color: "#f87171" },
-                                        shield:    { icon: "🛡", label: "Shield",   color: "#7dd3fc" },
-                                        absorb:    { icon: "✨", label: "Absorb",   color: "#a5b4fc" },
-                                        crush:     { icon: "🪨", label: "Crush",    color: "#fca5a5" },
-                                        burn:      { icon: "🔥", label: "Burn",     color: "#fb923c" },
-                                        freeze:    { icon: "🧊", label: "Freeze",   color: "#7dd3fc" },
-                                        confuse:   { icon: "🌀", label: "Confuse",  color: "#93c5fd" },
-                                        stun:      { icon: "💫", label: "Stun",     color: "#fde047" },
-                                        wound:     { icon: "🩸", label: "Wound",    color: "#f87171" },
-                                        mark:      { icon: "🔻", label: "Mark",     color: "#f97316" },
-                                        slow:      { icon: "🐌", label: "Slow",     color: "#7dd3fc" },
-                                        haste:     { icon: "⚡", label: "Haste",    color: "#fde047" },
-                                        taunt:     { icon: "❗", label: "Taunt",    color: "#f97316" },
-                                        push:      { icon: "👊", label: "Push",     color: "#fca5a5" },
-                                        pull:      { icon: "🪝", label: "Pull",     color: "#93c5fd" },
-                                    };
-                                    const km = kindMeta[jutsu.kind] ?? { icon: "✦", label: jutsu.kind, color: "#aaa" };
+                                {(() => {
+                                    const next = nextEvolution(selectedPet);
+                                    if (!next) return null;
+                                    const stoneName = EVOLUTION_STONE_NAMES[next.requiredItem] ?? "Evolution Stone";
+                                    const hasLevel = selectedPet.level >= next.requiredLevel;
+                                    const hasStone = character.inventory.includes(next.requiredItem);
+                                    const ready = hasLevel && hasStone;
                                     return (
-                                        <div key={i} className="pet-jutsu-row">
-                                            <span className="pet-jutsu-kind-badge" style={{ color: km.color, borderColor: km.color }}>
-                                                {km.icon} {km.label}
-                                            </span>
-                                            <strong>{jutsu.name}</strong>
-                                            {jutsu.power > 0 && <span className="pet-jutsu-stat">P {jutsu.power}</span>}
-                                            <span className="pet-jutsu-stat">CD {jutsu.cooldown}</span>
+                                        <section className="pet-evolve-panel" style={{ marginTop: 8, width: "100%", border: "1px solid #7c3aed", borderRadius: 8, padding: 8, background: "rgba(124,58,237,0.10)" }}>
+                                            <h4 style={{ margin: "0 0 4px" }}> Evolution</h4>
+                                            <p className="hint" style={{ margin: "0 0 4px" }}>{petDisplayName(selectedPet)} → <strong>{next.name}</strong> <span style={{ textTransform: "capitalize" }}>({next.rarity})</span></p>
+                                            <p className="hint" style={{ margin: "0 0 6px", fontSize: "0.72rem" }}>{next.description}</p>
+                                            <ul style={{ margin: "0 0 6px", paddingLeft: 16, fontSize: "0.72rem", listStyle: "none" }}>
+                                                <li style={{ color: hasLevel ? "#4ade80" : "#f87171" }}>{hasLevel ? "" : ""} Level {next.requiredLevel} (now {selectedPet.level})</li>
+                                                <li style={{ color: hasStone ? "#4ade80" : "#f87171" }}>{hasStone ? "" : ""} {stoneName}</li>
+                                            </ul>
+                                            <button onClick={evolveSelectedPet} disabled={!ready || evolveBusy} style={{ width: "100%" }}>
+                                                {evolveBusy ? "Evolving…" : ready ? ` Evolve into ${next.name}` : !hasLevel ? `Reach Lv ${next.requiredLevel}` : `Need ${stoneName}`}
+                                            </button>
+                                            {evolveMsg && <p className="hint" style={{ fontSize: "0.72rem", marginTop: 4, color: evolveMsg.startsWith("✅") ? "#4ade80" : "#f87171" }}>{evolveMsg}</p>}
+                                        </section>
+                                    );
+                                })()}
+                            </>}
+                            {yardSection === "loadout" && <>                        <div className="pet-loadout-panel">
+                                <h4>Loadout</h4>
+                                <p className="hint" style={{ margin: "0 0 4px" }}>Choose a battle glow, PvP gear, PvE summon gear, and one-use combat support.</p>
+                                <div className="pet-loadout-grid">
+                                    {PET_LOADOUT_SLOTS.map((slot) => {
+                                        const equippedId = selectedPet.loadout?.[slot.key];
+                                        if (slot.key === "collar") {
+                                            const collar = petCollarById(equippedId);
+                                            const visual = petCollarVisual(equippedId);
+                                            const iconStyle = visual && !visual.prismatic ? { color: visual.glow, textShadow: `0 0 8px ${visual.glow}` } : undefined;
+                                            return (
+                                                <div
+                                                    key={slot.key}
+                                                    className={`pet-loadout-slot${equippedId ? " pet-loadout-filled" : ""}${visual?.prismatic ? " pet-collar-slot-prismatic" : ""}`}
+                                                    style={visual ? { ["--collar-glow" as string]: visual.glow } : undefined}
+                                                >
+                                                    <span className={`pet-loadout-icon${visual?.prismatic ? " pet-collar-prismatic-text" : ""}`} style={iconStyle}><GameIcon name={slot.icon} size={22} /></span>
+                                                    <span className="pet-loadout-label">{slot.label}</span>
+                                                    <span className="pet-loadout-value">{collar?.name ?? "Empty"}</span>
+                                                    <span className="pet-loadout-hint">{equippedId ? "Glow active" : slot.hint}</span>
+                                                </div>
+                                            );
+                                        }
+                                        if (slot.key === "pvp") {
+                                            const gear = petPvpGearById(equippedId);
+                                            return (
+                                                <div key={slot.key} className={`pet-loadout-slot${equippedId ? " pet-loadout-filled" : ""}`}>
+                                                    <span className="pet-loadout-icon"><GameIcon name={slot.icon} size={22} /></span>
+                                                    <span className="pet-loadout-label">{slot.label}</span>
+                                                    <span className="pet-loadout-value">{gear?.name ?? "Empty"}</span>
+                                                    <span className="pet-loadout-hint">{gear ? gear.desc : slot.hint}</span>
+                                                </div>
+                                            );
+                                        }
+                                        if (slot.key === "consumable") {
+                                            const cons = petConsumableById(equippedId);
+                                            return (
+                                                <div key={slot.key} className={`pet-loadout-slot${equippedId ? " pet-loadout-filled" : ""}`}>
+                                                    <span className="pet-loadout-icon"><GameIcon name={slot.icon} size={22} /></span>
+                                                    <span className="pet-loadout-label">{slot.label}</span>
+                                                    <span className="pet-loadout-value">{cons?.name ?? "Empty"}</span>
+                                                    <span className="pet-loadout-hint">{cons ? cons.desc : slot.hint}</span>
+                                                </div>
+                                            );
+                                        }
+                                        if (slot.key === "pve") {
+                                            const gear = petPveGearById(equippedId);
+                                            const dur = selectedPet.loadout?.pveDurability ?? 0;
+                                            return (
+                                                <div key={slot.key} className={`pet-loadout-slot${equippedId ? " pet-loadout-filled" : ""}`}>
+                                                    <span className="pet-loadout-icon"><GameIcon name={slot.icon} size={22} /></span>
+                                                    <span className="pet-loadout-label">{slot.label}</span>
+                                                    <span className="pet-loadout-value">{gear?.name ?? "Empty"}</span>
+                                                    <span className="pet-loadout-hint">{gear ? `${dur}/${PET_PVE_DURABILITY} summons left` : slot.hint}</span>
+                                                </div>
+                                            );
+                                        }
+                                        return (
+                                            <div key={slot.key} className={`pet-loadout-slot${equippedId ? " pet-loadout-filled" : ""}`}>
+                                                <span className="pet-loadout-icon"><GameIcon name={slot.icon} size={22} /></span>
+                                                <span className="pet-loadout-label">{slot.label}</span>
+                                                <span className="pet-loadout-value">{equippedId ?? "Empty"}</span>
+                                                <span className="pet-loadout-hint">{slot.hint}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                {(() => {
+                                    const owned = petCollars.filter((c) => c.id === selectedPet.loadout?.collar || ownsItem(character, c.id));
+                                    if (owned.length === 0) {
+                                        return <p className="hint" style={{ margin: "8px 0 0" }}>Find collars in the Grand Marketplace under Aura / Accessory.</p>;
+                                    }
+                                    const current = selectedPet.loadout?.collar;
+                                    return (
+                                        <div className="pet-collar-picker">
+                                            <button
+                                                type="button"
+                                                className={`pet-collar-swatch pet-collar-none${current ? "" : " selected"}`}
+                                                onClick={() => equipCollar(undefined)}
+                                                title="No collar"
+                                            ></button>
+                                            {owned.map((c) => (
+                                                <button
+                                                    key={c.id}
+                                                    type="button"
+                                                    className={`pet-collar-swatch${c.prismatic ? " pet-collar-swatch-prismatic" : ""}${current === c.id ? " selected" : ""}`}
+                                                    style={{ ["--collar-glow" as string]: c.glow }}
+                                                    onClick={() => equipCollar(c.id)}
+                                                    title={c.name}
+                                                    aria-label={c.name}
+                                                />
+                                            ))}
                                         </div>
                                     );
-                                })}
-                            </section>
-                        </div>
+                                })()}
+                                {(() => {
+                                    const ownedGear = petPvpGear.filter((g) => g.id === selectedPet.loadout?.pvp || ownsItem(character, g.id));
+                                    return (
+                                        <div className="pet-gear-picker">
+                                            {ownedGear.length === 0 ? (
+                                                <>
+                                                    <span>PVP Gear</span>
+                                                    <p className="hint" style={{ margin: "2px 0 0" }}>No arena gear owned. Visit the Grand Marketplace to find some.</p>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <label htmlFor="pet-pvp-gear">PVP Gear</label>
+                                                    <select id="pet-pvp-gear" value={selectedPet.loadout?.pvp ?? ""} onChange={(e) => equipPvpGear(e.target.value || undefined)}>
+                                                        <option value="">None</option>
+                                                        {ownedGear.map((g) => (
+                                                            <option key={g.id} value={g.id}>{g.name} — {g.desc}</option>
+                                                        ))}
+                                                    </select>
+                                                </>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+                                {(() => {
+                                    const equippedPveId = selectedPet.loadout?.pve;
+                                    const pveDur = selectedPet.loadout?.pveDurability ?? 0;
+                                    const ownedIds = petPveGear.filter((g) => ownsItem(character, g.id)).map((g) => g.id);
+                                    const optionIds = [...new Set([...(equippedPveId ? [equippedPveId] : []), ...ownedIds])];
+                                    if (optionIds.length === 0) {
+                                        return (
+                                            <div className="pet-gear-picker">
+                                                <span>PVE Gear</span>
+                                                <p className="hint" style={{ margin: "2px 0 0" }}>Craft summon gear in Supplies or find it in the ryo Shop. Lasts {PET_PVE_DURABILITY} summons.</p>
+                                            </div>
+                                        );
+                                    }
+                                    return (
+                                        <div className="pet-gear-picker">
+                                            <label htmlFor="pet-pve-gear">PVE Gear</label>
+                                            <select id="pet-pve-gear" value={equippedPveId ?? ""} onChange={(e) => equipPveGear(e.target.value || undefined)}>
+                                                <option value="">None</option>
+                                                {optionIds.map((id) => {
+                                                    const g = petPveGearById(id);
+                                                    if (!g) return null;
+                                                    const isEquipped = id === equippedPveId;
+                                                    const ownCount = countItem(character, id);
+                                                    const label = isEquipped
+                                                        ? `${g.name} — equipped (${pveDur}/${PET_PVE_DURABILITY})`
+                                                        : `${g.name} — ${g.desc}${ownCount > 1 ? ` ×${ownCount}` : ""}`;
+                                                    return <option key={id} value={id}>{label}</option>;
+                                                })}
+                                            </select>
+                                        </div>
+                                    );
+                                })()}
+                                {(() => {
+                                    const equippedConsId = selectedPet.loadout?.consumable;
+                                    const ownedIds = petConsumables.filter((c) => ownsItem(character, c.id)).map((c) => c.id);
+                                    const optionIds = [...new Set([...(equippedConsId ? [equippedConsId] : []), ...ownedIds])];
+                                    if (optionIds.length === 0) {
+                                        return (
+                                            <div className="pet-gear-picker">
+                                                <span>Consumable</span>
+                                                <p className="hint" style={{ margin: "2px 0 0" }}>Craft in Supplies or find in the ryo Shop. Used in your next pet battle.</p>
+                                            </div>
+                                        );
+                                    }
+                                    return (
+                                        <div className="pet-gear-picker">
+                                            <label htmlFor="pet-consumable">Consumable</label>
+                                            <select id="pet-consumable" value={equippedConsId ?? ""} onChange={(e) => equipConsumable(e.target.value || undefined)}>
+                                                <option value="">None</option>
+                                                {optionIds.map((id) => {
+                                                    const c = petConsumableById(id);
+                                                    if (!c) return null;
+                                                    const isEquipped = id === equippedConsId;
+                                                    const ownCount = countItem(character, id);
+                                                    const label = isEquipped
+                                                        ? `${c.name} — equipped`
+                                                        : `${c.name} — ${c.desc}${ownCount > 1 ? ` ×${ownCount}` : ""}`;
+                                                    return <option key={id} value={id}>{label}</option>;
+                                                })}
+                                            </select>
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+
+                            </>}
+                            {yardSection === "techniques" && <>                        <div className="pet-info-panel">
+                                <section className={`pet-trait-display${selectedPet.trait && ultraPetTraits.includes(selectedPet.trait) ? " pet-trait-display--apex" : ""}`}>
+                                    <h4>Trait</h4>
+                                    {selectedPet.trait ? (
+                                        <>
+                                            <strong>{selectedPet.trait}</strong>
+                                            <p>{petTraitDescriptions[selectedPet.trait]}</p>
+                                        </>
+                                    ) : (
+                                        <p>No trait discovered.</p>
+                                    )}
+                                </section>
+
+                                <PetBattleReadiness
+                                    pet={selectedPet}
+                                    combatEligiblePets={combatEligiblePets}
+                                    dailyPetWins={character.dailyPetWins ?? 0}
+                                    totalPetWins={character.totalPetWins ?? 0}
+                                    breedingPetIds={breedingPetIds}
+                                    isOverflow={selectedPetIsOverflow}
+                                    setScreen={setScreen}
+                                />
+
+                                <section className="pet-jutsu-panel">
+                                    <h4>Pet Jutsus</h4>
+                                    {selectedPet.jutsus.length === 0 ? (
+                                        <p className="hint">This pet has no jutsu yet.</p>
+                                    ) : selectedPet.jutsus.map((jutsu, i) => {
+                                        const kindMeta: Record<string, { label: string; color: string }> = {
+                                            damage: { label: "Damage", color: "#fca5a5" },
+                                            buff: { label: "Buff", color: "#86efac" },
+                                            heal: { label: "Heal", color: "#4ade80" },
+                                            debuff: { label: "Debuff", color: "#f97316" },
+                                            dot: { label: "Poison", color: "#c084fc" },
+                                            move: { label: "Move", color: "#93c5fd" },
+                                            barrier: { label: "Barrier", color: "#7dd3fc" },
+                                            movelock: { label: "Rootlock", color: "#fbbf24" },
+                                            lifesteal: { label: "Lifesteal", color: "#f87171" },
+                                            shield: { label: "Shield", color: "#7dd3fc" },
+                                            absorb: { label: "Absorb", color: "#a5b4fc" },
+                                            crush: { label: "Crush", color: "#fca5a5" },
+                                            burn: { label: "Burn", color: "#fb923c" },
+                                            freeze: { label: "Freeze", color: "#7dd3fc" },
+                                            confuse: { label: "Confuse", color: "#93c5fd" },
+                                            stun: { label: "Stun", color: "#fde047" },
+                                            wound: { label: "Wound", color: "#f87171" },
+                                            mark: { label: "Mark", color: "#f97316" },
+                                            slow: { label: "Slow", color: "#7dd3fc" },
+                                            haste: { label: "Haste", color: "#fde047" },
+                                            taunt: { label: "Taunt", color: "#f97316" },
+                                            push: { label: "Push", color: "#fca5a5" },
+                                            pull: { label: "Pull", color: "#93c5fd" },
+                                        };
+                                        const km = kindMeta[jutsu.kind] ?? { label: jutsu.kind, color: "#aaa" };
+                                        return (
+                                            <div key={i} className="pet-jutsu-row">
+                                                <span className="pet-jutsu-kind-badge" style={{ color: km.color, borderColor: km.color }}>
+                                                    {km.label}
+                                                </span>
+                                                <strong>{jutsu.name}</strong>
+                                                {jutsu.power > 0 && <span className="pet-jutsu-stat">P {jutsu.power}</span>}
+                                                <span className="pet-jutsu-stat">CD {jutsu.cooldown}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </section>
+                            </div>
+                            </>}
+                        </fieldset>
+
                     </div>
                 ) : (
                     <div className="pet-empty-state">
@@ -1456,13 +1452,13 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
 
 const PET_EXPEDITION_UNLOCK_LEVEL = 20;
 
-// Loadout slots shown above Training. The Collar slot is functional — pick any
-// glow collar you own (see petCollars) from the swatch row below the grid.
-// PVP / PVE / Consumable are visual scaffolds for now — they read their
-// equipped item id off pet.loadout and render "Empty".
-const PET_LOADOUT_SLOTS: Array<{ key: "collar" | "pvp" | "pve" | "consumable"; label: string; icon: string; hint: string }> = [
-    { key: "collar",     label: "Collar",     icon: "✨", hint: "Glowing battle aura" },
-    { key: "pvp",        label: "PVP",        icon: "⚔️", hint: "PvP gear" },
-    { key: "pve",        label: "PVE",        icon: "🛡️", hint: "PvE gear" },
-    { key: "consumable", label: "Consumable", icon: "🧪", hint: "Used in PvP & PvE" },
+// Equipped gear and support for the selected companion.
+const PET_LOADOUT_SLOTS: Array<{ key: "collar" | "pvp" | "pve" | "consumable"; label: string; icon: "sparkle" | "sword" | "shield" | "flask"; hint: string }> = [
+    { key: "collar", label: "Collar", icon: "sparkle", hint: "Glowing battle aura" },
+    { key: "pvp", label: "Arena gear", icon: "sword", hint: "PvP gear" },
+    { key: "pve", label: "Summon gear", icon: "shield", hint: "PvE gear" },
+    { key: "consumable", label: "Consumable", icon: "flask", hint: "Used in PvP & PvE" },
 ];
+
+const YARD_SECTION_LABELS = { care: "Care", growth: "Growth & training", loadout: "Equipment", techniques: "Battle & techniques", expeditions: "Expeditions" } as const;
+const PET_TREAT_ART = { "pet-treat": "/items/shop-pet-treats-v1.webp", "elemental-pet-treat": "/items/shop-elemental-pet-treats-v1.webp", "ancient-pet-treat": "/items/shop-ancient-pet-treats-v1.webp", "golden-apple": "/items/shop-golden-apple-v1.webp" } as const;

@@ -403,17 +403,6 @@
     opacity: 0.4; cursor: not-allowed;
 }
 
-/* ----- Center column (loadout + training + expedition stacked) ----- */
-.pet-yard-screen .pet-center-column {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 14px !important;
-    min-width: 0 !important;
-}
-.pet-yard-screen .pet-center-column > * {
-    margin-bottom: 0 !important;
-}
-
 /* ----- Loadout slots (Collar / PVP / PVE / Consumable) ----- */
 .pet-yard-screen .pet-loadout-grid {
     display: grid !important;
@@ -620,8 +609,7 @@
 }
 
 /* ----- Empty state ----- */
-.pet-yard-screen .pet-empty-state,
-.pet-yard-screen .pet-empty-label {
+.pet-yard-screen .pet-empty-state {
     text-align: center;
     padding: 24px;
     color: rgba(196,162,90,0.55) !important;

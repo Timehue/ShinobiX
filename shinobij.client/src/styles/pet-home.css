@@ -75,14 +75,11 @@
 .pet-yard-screen .pet-yard-header .pet-yard-return { display: inline-flex; align-items: center; gap: .65rem; min-height: 52px; border-radius: 12px !important; padding: .48rem .75rem !important; }
 .pet-yard-return > span:first-child { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; color: #06101b; background: #e8d496; font-size: 1rem; font-weight: 900; }
 .pet-yard-return > span:last-child { display: grid; gap: .08rem; text-align: left; }
-.pet-yard-return small,.pet-yard-active-roster small { color: #778d9a; font-size: .54rem; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; }
+.pet-yard-return small { color: #778d9a; font-size: .54rem; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; }
 .pet-yard-return strong { max-width: 180px; overflow: hidden; color: #f4e2b5; font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
 .pet-yard-screen .pet-yard-header { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; }
 .pet-yard-title { min-width: 0; }
 .pet-yard-kicker { display: block; margin-bottom: .3rem; color: #78d9bd; font-size: .58rem; font-weight: 900; letter-spacing: .18em; text-transform: uppercase; }
-.pet-yard-active-roster { display: grid; grid-template-columns: repeat(2,minmax(118px,1fr)); gap: 1px; overflow: hidden; border: 1px solid rgba(196,162,90,.25); border-radius: 11px; background: rgba(196,162,90,.2); }
-.pet-yard-active-roster > span { display: grid; min-width: 0; gap: .2rem; background: rgba(5,10,24,.82); padding: .65rem .75rem; }
-.pet-yard-active-roster strong { overflow: hidden; color: #e8edf5; font-size: .7rem; text-overflow: ellipsis; white-space: nowrap; }
 
 .pet-collection, .breeding-barn { width: min(1260px, calc(100% - 2rem)); margin: 0 auto; }
 .pet-home-section-heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin: 1.5rem 0 1rem; }
@@ -287,7 +284,6 @@
     .pet-home-hero { grid-template-columns: 1fr; }
     .pet-home-hero-ledger { width: min(620px,100%); }
     .pet-yard-screen .pet-yard-header { grid-template-columns: auto minmax(0,1fr); }
-    .pet-yard-active-roster { grid-column: 1 / -1; width: 100%; }
     .pet-collection-filters { grid-template-columns: repeat(2, minmax(0,1fr)); }
     .pet-search { grid-column: 1 / -1; }
     .breeding-odds { grid-template-columns: repeat(2,1fr); }
@@ -315,7 +311,6 @@
     .pet-home-tab-label-short { display: inline; }
     .pet-yard-screen .pet-yard-header { grid-template-columns: 1fr; align-items: stretch; }
     .pet-yard-screen .pet-yard-header .pet-yard-return { justify-self: start; }
-    .pet-yard-active-roster { grid-column: auto; grid-template-columns: 1fr 1fr; }
     .pet-collection, .breeding-barn { width: min(100% - 1rem, 1260px); }
     .pet-collection-filters { grid-template-columns: 1fr 1fr; padding: .7rem; }
     .pet-collection-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: .55rem; }
@@ -416,13 +411,6 @@
 .pet-expedition-caps strong { color: #f4dfaa; font-size: .82rem; font-variant-numeric: tabular-nums; }
 .pet-expedition-badges { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .8rem; }
 .pet-expedition-badges span { border: 1px solid rgba(132,204,22,.32); border-radius: 999px; color: #c9f58b; background: rgba(74,105,15,.18); padding: .3rem .58rem; font-size: .62rem; font-weight: 800; }
-.pet-expedition-companions { display: flex; gap: .45rem; overflow-x: auto; margin-top: .8rem; padding-bottom: .15rem; scrollbar-width: thin; }
-.pet-expedition-companions button { display: grid; flex: 0 0 min(180px,42vw); gap: .12rem; min-height: 48px; border: 1px solid rgba(178,210,229,.14); border-radius: 10px; color: #b8c9d0; background: rgba(255,255,255,.035); padding: .48rem .65rem; text-align: left; }
-.pet-expedition-companions button.is-selected { border-color: #78d9bd; color: #effff9; background: rgba(52,124,105,.2); }
-.pet-expedition-companions button[data-status="ready"] span { color: #86efac; }
-.pet-expedition-companions button[data-status="away"] span { color: #7dd3fc; }
-.pet-expedition-companions strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pet-expedition-companions span { color: #839aa5; font-size: .62rem; font-weight: 800; text-transform: uppercase; }
 .pet-expedition-routes { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: .65rem; margin-top: .8rem; }
 .pet-expedition-routes > button { position: relative; display: grid; gap: .34rem; min-height: 180px; border: 1px solid rgba(178,210,229,.17); border-radius: 15px; color: #dce8eb; background: linear-gradient(155deg,rgba(22,43,56,.9),rgba(7,17,29,.95)); padding: .8rem; text-align: left; }
 @media (hover: hover) {
