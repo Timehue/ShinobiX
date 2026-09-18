@@ -28,6 +28,7 @@ import { createPortal } from "react-dom";
 // host mounts a transparent takeover with native-size portrait artwork.
 import "../screens/PetShowdown.css";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { RendererRetirement } from "./RendererRetirement";
 import { Billboard, Html, Sparkles } from "@react-three/drei";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
@@ -3532,6 +3533,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 gl={{ antialias: true, preserveDrawingBuffer: fxStretch > 1 || captureFlag, toneMappingExposure: 1.12 }}
                 camera={{ fov: 48, position: [...WIDE_POS], near: 0.1, far: 80 }}
             >
+                <RendererRetirement />
                 <StageEnvironment stage={stage} beatRef={beatRef} fxRef={fxRef} quality={renderQuality} reduced={reducedMotion} />
                 <CameraDirector beatRef={beatRef} fxRef={fxRef} posRef={posRef} lineup={lineup} reduced={reducedMotion} />
                 <BeatDrivenVfx beatRef={beatRef} posRef={posRef} radii={fighterRadii} signatures={fighterSignatures} reducedMotion={reducedMotion} quality={renderQuality} />

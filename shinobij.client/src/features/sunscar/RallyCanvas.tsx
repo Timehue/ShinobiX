@@ -1,5 +1,6 @@
 import { memo, Suspense, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { RendererRetirement } from '../../components/RendererRetirement';
 import * as THREE from 'three';
 import { rallyPath, rallyTrack } from '../../../../shared/sunscar/rally-tracks';
 import type { RallyState } from '../../../../shared/sunscar/rally-types';
@@ -96,6 +97,7 @@ export default memo(function RallyCanvas({ state, advance, onReady, onFail, redu
     // soft default; naming it stops a console warning on every Canvas render.
     return <Canvas shadows="percentage" dpr={lite ? 1 : [1, 1.5]} frameloop={frameloop} camera={{ fov: 57, near: .1, far: 220 }} gl={{ antialias: !lite, powerPreference: 'high-performance' }}
         onCreated={({ gl }) => { gl.toneMapping = THREE.ACESFilmicToneMapping; gl.toneMappingExposure = 1.05; }}>
+        <RendererRetirement />
         <CanvasLifecycle onFail={onFail}/>
         <RaceClock advance={advance} />
         {import.meta.env.MODE === 'sunscar-modes-qa' && <RallyQaMetrics state={state}/>}

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { RendererRetirement } from "../RendererRetirement";
 import { Html, Sparkles } from "@react-three/drei";
 import type { Pet } from "../../types/pet";
 import { elementVfxKey } from "../../lib/pet-battle-anim";
@@ -976,6 +977,7 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
             ) : (
             <div ref={stageRef} style={{ position: "absolute", inset: 0, backgroundImage: `url(${DIORAMA_URL})`, backgroundSize: "contain", backgroundPosition: "center", backgroundRepeat: "no-repeat", transformOrigin: "0 0", willChange: "transform" }}>
                 <Canvas dpr={[1, 2]} gl={{ alpha: true, antialias: true }} style={{ background: "transparent" }}>
+                    <RendererRetirement />
                     <StageCamera fit="contain" />
                     {/* Ambient life — warm dust/embers drifting over the whole arena so the stage breathes. */}
                     <Sparkles count={36} scale={[STAGE.worldW, STAGE.worldH, 4]} position={[0, 2, 4]} size={2} speed={0.12} opacity={0.3} color="#fde9b8" noise={2} />
