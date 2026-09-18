@@ -11,14 +11,23 @@ import { festivalPrestige } from '../../../../shared/sunscar/prestige';
 import { startGameAmbience, stopGameAmbience } from '../../lib/game-audio';
 
 const RallyCanvas = lazy(() => import('./RallyCanvas'));
+/** After the finish the canvas keeps drawing for this much presentation time:
+ * the pets glide to their podium spaces, the camera pulls back, and the
+ * winner plays its victory clip (the longest authored one runs 2.3 s). Then it
+ * drops to on-demand rendering so an idle results screen draws nothing. The
+ * time is counted the way RallyPetModel advances its clips, at most 0.05 s a
+ * frame, so a device drawing under 20 fps still sees the whole clip. */
+const FINISH_SETTLE_SECONDS = 2.5;
 type Props = {
     initial: RallyState; difficulty: number; official: boolean; title: string;
     onBegin?: () => Promise<void>;
     onCheckpoint?: (fromTick: number, toTick: number, actions: RallyAction[]) => Promise<RallyResponse>;
     onExit: () => void; onFinished: (state: RallyState) => void;
+    /** Called once the finish presentation has played (or cannot play). */
+    onFinishPresented?: () => void;
     reputation?: number;
 };
-export function RallyRace({ initial, difficulty, official, title, onBegin, onCheckpoint, onExit, onFinished, reputation = 0 }: Props) {
+export function RallyRace({ initial, difficulty, official, title, onBegin, onCheckpoint, onExit, onFinished, onFinishPresented, reputation = 0 }: Props) {
     const state = useRef(structuredClone(initial));
     const [hud, setHud] = useState(() => ({ tick: initial.tick, stamina: initial.racers[0].stamina, position: 1, progress: 0, used: initial.racers[0].techniqueUsed, section: '', terrain: '', finished: initial.finished }));
     const [ready, setReady] = useState<string[]>([]);
@@ -35,9 +44,12 @@ export function RallyRace({ initial, difficulty, official, title, onBegin, onChe
     const acknowledged = useRef(initial.tick);
     const saveBusy = useRef(false);
     const completed = useRef(false);
+    const finishTime = useRef(0);
+    const [finishSettled, setFinishSettled] = useState(false);
     const saveRef = useRef(onCheckpoint);
     const onFinishedRef = useRef(onFinished);
-    useLayoutEffect(() => { saveRef.current = onCheckpoint; onFinishedRef.current = onFinished; });
+    const onPresentedRef = useRef(onFinishPresented);
+    useLayoutEffect(() => { saveRef.current = onCheckpoint; onFinishedRef.current = onFinished; onPresentedRef.current = onFinishPresented; });
     const [reducedMotion] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     const track = rallyTrack(initial.trackId);
     const prestige = festivalPrestige('rally', reputation);
@@ -46,6 +58,10 @@ export function RallyRace({ initial, difficulty, official, title, onBegin, onChe
     const onFail = useCallback(() => { setModelError(true); running.current = false; }, []);
     const input = useCallback((kind: RallyAction['kind']) => { if (running.current && !queued.current.includes(kind) && queued.current.length < 6) queued.current.push(kind); }, []);
     const advance = useCallback((delta: number) => {
+        if (state.current.finished && finishTime.current < FINISH_SETTLE_SECONDS) {
+            finishTime.current += Math.min(delta, .05);
+            if (finishTime.current >= FINISH_SETTLE_SECONDS) setFinishSettled(true);
+        }
         if (!running.current) { accumulator.current = 0; return; }
         accumulator.current += delta;
         while (accumulator.current >= 1 / RALLY_HZ && !state.current.finished) {
@@ -122,6 +138,9 @@ export function RallyRace({ initial, difficulty, official, title, onBegin, onChe
         if (hud.finished && !official && !completed.current) { completed.current = true; playPetSfx('victory'); onFinishedRef.current(state.current); }
     }, [hud.finished, official]);
     useEffect(() => {
+        if (finishSettled || hud.finished && modelError) onPresentedRef.current?.();
+    }, [finishSettled, hud.finished, modelError]);
+    useEffect(() => {
         if (countdown === null) return;
         playPetSfx('command');
         const timer = window.setTimeout(() => {
@@ -144,7 +163,7 @@ export function RallyRace({ initial, difficulty, official, title, onBegin, onChe
     return <section className="rally-race" aria-label={`${track.name} race`}>
         <div className="rally-stage" aria-label="3D race course">
             <PetModelBoundary onFail={onFail}><Suspense fallback={<div className="sunscar-loading" role="status">Preparing the course…</div>}><RallyCanvas state={state} advance={advance} onReady={onReady} onFail={onFail} reducedMotion={reducedMotion}
-                frameloop={paused || hud.finished || modelError || !!error || !started && countdown === null && ready.length >= 4 ? 'demand' : 'always'} /></Suspense></PetModelBoundary>
+                frameloop={paused || finishSettled || modelError || !!error || !started && countdown === null && ready.length >= 4 ? 'demand' : 'always'} /></Suspense></PetModelBoundary>
             <div className="rally-hud">
                 {prestige && <span className="rally-prestige-pennant" title={prestige.cosmetic} style={{ color: prestige.color }}>✥</span>}
                 <div className="rally-position"><strong>{hud.position}<small>/4</small></strong><span>{hud.section || title}</span></div>

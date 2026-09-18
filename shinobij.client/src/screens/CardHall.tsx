@@ -1,3 +1,4 @@
+import { useActivitySection, useActivitySectionRequests } from "../lib/use-activity-section";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { rememberedCircuitTrial } from '../features/dojo-circuit/client';
 import { CircuitCardResult } from '../features/dojo-circuit/CircuitCombatResult';
@@ -169,7 +170,9 @@ function CardHallInner({
   const [deck, setDeck] = useState<string[]>(() =>
     savedValid ? [...savedDeck] : migratedDeck,
   );
-  const [tab, setTab] = useState<Tab>(autoStart ? "play" : "collection");
+  const initialTab = useActivitySection<Tab>("cardHall.initialTab", ["deck", "play"], autoStart ? "play" : "collection");
+  const [tab, setTab] = useState<Tab>(initialTab);
+  useActivitySectionRequests<Tab>("cardHall.initialTab", ["deck", "play"], setTab);
   const [showTutorial, setShowTutorial] = useState(
     () =>
       Number(character.cardClashTutorialVersion ?? 0) < CHRONICLE_RULES_VERSION,

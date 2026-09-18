@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
     type ActivityHorizon,
-    type ActivitySpine as ActivitySpineData,
     type ActivitySpineItem,
 } from "../../../shared/activity-spine";
 import { PUBLIC_CAPABILITY_IDS } from "../../../shared/public-capabilities";
@@ -9,6 +8,10 @@ import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import { captureProductEvent } from "../lib/analytics";
 import { useLiveCapabilities } from "../lib/live-capabilities-context";
+
+import { activityDestination, openActivityDestination } from "../lib/activity-spine-navigation";
+import { activitySourceKey } from "../lib/activity-spine-source";
+import { useActivitySpine } from "../lib/use-activity-spine";
 
 const HORIZON_LABEL: Record<ActivityHorizon, string> = {
     now: "Now",
@@ -20,12 +23,12 @@ const HORIZON_LABEL: Record<ActivityHorizon, string> = {
 export function ActivitySpine({
     character,
     onNavigate,
+    trainingState = "",
 }: {
     character: Character;
+    trainingState?: string;
     onNavigate: (screen: Screen) => void;
 }) {
-    const [spine, setSpine] = useState<ActivitySpineData | null>(null);
-    const [status, setStatus] = useState<"loading" | "ready" | "offline" | "error">("loading");
     const [retry, setRetry] = useState(0);
     const { availability, snapshot } = useLiveCapabilities();
     const focus = "auto";
@@ -36,34 +39,13 @@ export function ActivitySpine({
         ...PUBLIC_CAPABILITY_IDS.map((id) => `${id}:${availability(id)}`),
     ].join("|");
 
-    useEffect(() => {
-        const controller = new AbortController();
-        fetch(`/api/player/activity-spine?player=${encodeURIComponent(character.name)}&focus=${encodeURIComponent(focus)}`, { signal: controller.signal })
-            .then(async (response) => {
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                return await response.json() as { spine?: ActivitySpineData };
-            })
-            .then((data) => {
-                if (!data.spine) throw new Error("Missing activity spine");
-                setSpine(data.spine);
-                setStatus("ready");
-                captureProductEvent("activity_recommendation_viewed", { screenId: "daily-briefing", horizon: "all", focus: data.spine.resolvedFocus });
-            })
-            .catch((error: unknown) => {
-                if (controller.signal.aborted) return;
-                setStatus(typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "error");
-                if (import.meta.env.DEV) console.warn("[activity-spine]", error);
-            });
-        return () => controller.abort();
-    }, [character.name, focus, retry, capabilityStateSignature]);
-
-    const navigate = useCallback((screen: string, context?: string, horizon?: ActivityHorizon) => {
-        if (context === "clan-boss") {
-            try { sessionStorage.setItem("clan.initialView", "boss"); } catch { /* optional navigation hint */ }
+    const source = activitySourceKey(character, trainingState);
+    const { spine, status } = useActivitySpine(character.name, focus, source, capabilityStateSignature, retry);
+    const navigate = useCallback((activity: ActivitySpineItem, horizon: ActivityHorizon) => {
+        if (openActivityDestination(activity, onNavigate)) {
+            captureProductEvent("activity_recommendation_viewed", { screenId: "daily-briefing", mode: "recommendation-opened", focus: spine?.resolvedFocus ?? focus, horizon });
         }
-        captureProductEvent("activity_recommendation_viewed", { screenId: "daily-briefing", mode: "recommendation-opened", focus, horizon: horizon ?? "all" });
-        onNavigate(screen as Screen);
-    }, [focus, onNavigate]);
+    }, [focus, spine?.resolvedFocus, onNavigate]);
 
     const heading = (
         <div className="activity-spine-heading">
@@ -82,7 +64,7 @@ export function ActivitySpine({
                 <div className="activity-spine-error">
                     <strong>{status === "offline" ? "You appear to be offline." : "Current priorities could not be loaded."}</strong>
                     <span>Your saved progress is safe. Reconnect and retry for current eligibility.</span>
-                    <button type="button" onClick={() => { setStatus("loading"); setRetry((value) => value + 1); }}>Retry</button>
+                    <button type="button" onClick={() => { setRetry((value) => value + 1); }}>Retry</button>
                 </div>
             </section>
         );
@@ -97,7 +79,7 @@ export function ActivitySpine({
                         <h4>{HORIZON_LABEL[horizon]}</h4>
                         {spine.horizons[horizon].map((activity) => {
                             const blockerId = `${activity.id}-blocker`;
-                            const liveAdmissionAllowed = projectedAdmissionAllowed(activity.requiredCapabilityIds);
+                            const liveAdmissionAllowed = projectedAdmissionAllowed(activity.requiredCapabilityIds) && !!activityDestination(activity.screen);
                             const blocked = activity.eligibility === "blocked" || !liveAdmissionAllowed;
                             const effectiveBlocker = activity.blocker ?? (!liveAdmissionAllowed
                                 ? "Live eligibility is unavailable. Wait for capability refresh before starting this activity."
@@ -108,7 +90,7 @@ export function ActivitySpine({
                                 // click boundary; a long-idle render must not admit
                                 // an action from an expired capability snapshot.
                                 if (!projectedAdmissionAllowed(activity.requiredCapabilityIds)) return;
-                                navigate(activity.screen, activity.context, horizon);
+                                navigate(activity, horizon);
                             };
                             return <article className={`activity-card is-${effectiveEligibility}`} key={activity.id}>
                                 <div className="activity-card-topline"><strong>{activity.title}</strong><span>{activity.commitment}</span></div>

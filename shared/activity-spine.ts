@@ -30,6 +30,8 @@ export type ActivitySpineItem = {
     why: string;
     commitment: string;
     screen: string;
+    /** A validated, one-shot section hint consumed by an existing destination. */
+    section?: 'clan-boss' | 'card-deck' | 'card-play' | 'crafter' | 'legacy' | 'stats';
     cta: string;
     /** Eligibility of this CTA, not necessarily of the eventual goal it prepares. */
     eligibility: ActivityEligibility;
