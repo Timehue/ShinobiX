@@ -6,7 +6,7 @@ type Char = Record<string, unknown>;
 const sanitize = (incoming: Char, existing: Char | null) =>
     sanitizeCharacterSave({ character: incoming }, existing ? { character: existing } : null).character as Record<string, unknown>;
 
-for (const field of ['clanExchangeSettlements','clanMissionPointReceipts']) {
+for (const field of ['clanExchangeSettlements','clanMissionPointReceipts','mentorRewardReceipts']) {
     test(`${field} cannot be forged or erased through an ordinary player save`,()=>{
         const real=[{id:'server-proof',transactionId:'server-proof',fingerprint:'server-owned'}];
         const forged=[{id:'forged',transactionId:'forged',fingerprint:'client-authored'}];

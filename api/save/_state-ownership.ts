@@ -356,6 +356,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('clanExchangePurchases', 'character', 'server-payout-stamp', 'clan', ['clan-points-char', 'combat-strip-char']),
     f('clanExchangeSettlements', 'character', 'server-payout-stamp', 'clan', ['always-ledger-char', 'strict-ledger-char', 'combat-strip-char'], 'time-retained co-written Clan Exchange debit evidence'),
     f('clanMissionPointReceipts', 'character', 'server-payout-stamp', 'clan', ['always-ledger-char', 'strict-ledger-char', 'combat-strip-char'], 'weekly clan mission credit evidence independent of the short display history'),
+    f('mentorRewardReceipts', 'character', 'server-payout-stamp', 'clan', ['always-ledger-char', 'strict-ledger-char', 'combat-strip-char'], 'co-written mentor milestone payout receipts (api/clan/_mentor-settlement.ts); kept until the sensei record finalizes the batch'),
     f('clan', 'character', 'server-clamped', 'clan', [], 'cross-validated against save:clan-<slug> (validateClanAndVillageIdentity)'),
     f('clanUpgradeLevels', 'character', 'server-clamped', 'clan', [], 'mirror of the canonical clan record .upgrades; cross-validated against save:clan-<slug> whenever it changes (validateClanAndVillageIdentity). Server reads it for shop/card-pack/hospital discounts AND the sealed training stat gain, so a client-authored value would mint progression'),
     f('clanDoctrine', 'character', 'server-clamped', 'clan', [], 'mirror of the canonical clan record .doctrine; same cross-validation and the same reason — it feeds trainingBonusPct'),
