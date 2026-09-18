@@ -50,6 +50,8 @@ function RaceCamera({ state, reducedMotion }: { state: RefObject<RallyState>; re
         const blend = started.current ? 1 - Math.exp(-Math.min(delta, .1) * 5) : 1;
         camera.position.lerp(desired, blend);
         look.current.lerp(target, blend);
+        // Reduced motion cuts to the finish framing rather than pulling back.
+        if (reducedMotion && race.finished) { camera.position.copy(desired); look.current.copy(target); }
         camera.lookAt(look.current);
         started.current = true;
     });
@@ -95,9 +97,9 @@ export default function RallyCanvas({ state, advance, onReady, onFail, reducedMo
         <RallyTrackScene track={track} />
         <RaceCamera state={state} reducedMotion={reducedMotion} />
         <Dust state={state} />
-        {state.current.racers.map((racer, index) => <RallyPetEffects key={racer.id} state={state} index={index} color={index === 0 ? '#ffe6a0' : '#fff0d5'}/>)}
+        {state.current.racers.map((racer, index) => <RallyPetEffects key={racer.id} state={state} index={index} color={index === 0 ? '#ffe6a0' : '#fff0d5'} reducedMotion={reducedMotion}/>)}
         {state.current.racers.map((racer, index) => <PetModelBoundary key={racer.id} onFail={onFail}><Suspense fallback={null}>
-            <RallyPetModel state={state} index={index} onReady={onReady} />
+            <RallyPetModel state={state} index={index} onReady={onReady} reducedMotion={reducedMotion} />
         </Suspense></PetModelBoundary>)}
     </Canvas>;
 }

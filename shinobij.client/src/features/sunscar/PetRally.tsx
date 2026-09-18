@@ -57,12 +57,18 @@ export default function PetRally({ character, onVersionedCharacter, onBack }: { 
         hadRace.current = !!race;
     }, [race]);
     const [finished, setFinished] = useState<RallyState | null>(null);
+    // The race whose finish presentation has played. Results take focus as
+    // soon as they exist, but the page scrolls to them only afterwards, so the
+    // podium and the camera pull-back stay on screen on a phone.
+    const [presentedRace, setPresentedRace] = useState<string | null>(null);
+    const raceKey = race?.key;
     useEffect(() => {
-        if (!finished) return;
-        const result = document.querySelector<HTMLElement>('.rally-results');
-        result?.focus({ preventScroll: true });
-        result?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' });
+        if (finished) document.querySelector<HTMLElement>('.rally-results')?.focus({ preventScroll: true });
     }, [finished]);
+    useEffect(() => {
+        if (!finished || !raceKey || presentedRace !== raceKey) return;
+        document.querySelector<HTMLElement>('.rally-results')?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' });
+    }, [finished, presentedRace, raceKey]);
     const responseRef = useRef(response);
     const commitCharacter = useRef(onVersionedCharacter);
     useLayoutEffect(() => { commitCharacter.current = onVersionedCharacter; }, [onVersionedCharacter]);
@@ -126,7 +132,7 @@ export default function PetRally({ character, onVersionedCharacter, onBack }: { 
         <RallyRace key={race.key} initial={race.state} difficulty={race.difficulty} official={race.official} title={race.official ? `Sunscar Grand Prix · Race ${race.index + 1} of 3` : 'Open practice'}
             onBegin={race.official ? async () => { adopt(await requestRally(character.name, { action: 'begin', runId: race.runId })); } : undefined}
             onCheckpoint={race.official ? checkpoint : undefined}
-            reputation={progress?.reputation} onFinished={setFinished} onExit={() => { setRace(null); setFinished(null); void refresh(); }} />
+            reputation={progress?.reputation} onFinished={setFinished} onFinishPresented={() => setPresentedRace(race.key)} onExit={() => { setRace(null); setFinished(null); void refresh(); }} />
         {finished && <RaceResults state={finished} response={response} official={race.official} onContinue={() => { if (responseRef.current) openOfficial(responseRef.current); }} onDesk={() => { setRace(null); setFinished(null); void refresh(); }} />}
     </RallySession>;
     return <div className="sunscar-mode sunscar-rally" ref={desk} tabIndex={-1} aria-label="Pet Rally race desk">
