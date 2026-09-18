@@ -36,10 +36,16 @@ test('all eight routes deliver only their earned return and aftermath, with no r
                 assert.ok(existsSync(fileURLToPath(new URL(`../../public${live.image}`, import.meta.url))), live.image);
                 assert.equal(live.ryoReward, 0);
                 assert.equal(live.staminaReward, 0);
+                for (const page of live.vnPages!) {
+                    assert.ok(page.image, `${pointId}: field artwork must name its actual location`);
+                    assert.ok(existsSync(fileURLToPath(new URL(`../../public${page.image}`, import.meta.url))), page.image);
+                }
                 assert.ok(live.vnPages!.at(-1)!.choices!.some((choice) => choice.id === chosen));
                 progress.visits.push({ pointId, choiceId: chosen });
                 const replay = storyFieldPointEvent(questId, pointId, characterFor(questId, progress), 'lava', true)!;
                 assert.ok(replay.vnPages!.every((page) => !page.choices?.length));
+                assert.deepEqual(replay.vnPages!.slice(0, -1).map(page => page.image), live.vnPages!.map(page => page.image));
+                assert.equal(replay.vnPages!.at(-1)!.image, live.vnPages!.at(-1)!.image);
                 const options = live.vnPages!.flatMap((page) => page.choices ?? []);
                 const selected = options.find((option) => option.id === chosen)!;
                 assert.ok(replay.dialogue!.includes(`Your choice: ${selected.text}`));
@@ -60,6 +66,7 @@ test('all eight routes deliver only their earned return and aftermath, with no r
                 assert.equal(page.dialogue.every((line) => delivered.includes(line)), includes, page.requireTrait);
             }
             assert.ok(aftermath.vnPages!.every((page) => !page.choices?.length));
+            for (const page of aftermath.vnPages!) assert.ok(page.image && existsSync(fileURLToPath(new URL(`../../public${page.image}`, import.meta.url))), `${questId}: ${page.title}`);
             assert.equal(storyFieldHistories(character)[0].history.length, progress.visits.length);
             assert.equal(storyFieldObjective(character), null);
             assert.ok(visibleStoryReckonings(character, graph.points[graph.startPointId].sector).some((giver) => giver.id === questId));

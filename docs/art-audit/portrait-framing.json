@@ -1,0 +1,1070 @@
+{
+  "coverage": {
+    "events": 341,
+    "pages": 1225,
+    "reachablePages": 1225,
+    "assets": 330,
+    "missing": 0,
+    "inaccessible": [
+      "Production shared-image overrides and private creator/published events are not available in the checkout.",
+      "Player-uploaded avatars and server-selected Sage offer strings are dynamic."
+    ]
+  },
+  "portraits": 98,
+  "fittedPortraits": 49,
+  "npcCaptures": 196,
+  "finalAvatarCases": 15,
+  "propRefinements": 6,
+  "errors": [],
+  "missingNpc": [],
+  "assets": [
+    {
+      "asset": "/portraits/cinematic/kite-harrow.webp",
+      "name": "Kite Harrow",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-stormveil-village-85-7/page:1/The Balloon Payment",
+        "story-stormveil-village-85-7/page:2/The Anomaly, Again",
+        "story-frostfang-village-85-7/page:1/What Harrow Sells",
+        "story-frostfang-village-85-7/page:2/The Rhythm's Flaw",
+        "story-moonshadow-village-25-2/page:2/The Appraiser's Trace",
+        "story-moonshadow-village-85-7/page:2/The Buyer's Name",
+        "story-interlude-stormveil-village-20/page:1/The Coast Gate",
+        "story-interlude-stormveil-village-20/page:2/An Appraiser's Receipt",
+        "story-interlude-stormveil-village-80/page:0/The Exiles' Stair",
+        "story-interlude-stormveil-village-80/page:1/The Counter That Makes Offers",
+        "story-interlude-stormveil-village-80/page:2/The Standing Offer",
+        "story-interlude-ashen-leaf-village-20/page:1/Kite Harrow",
+        "story-interlude-ashen-leaf-village-20/page:2/The Refund",
+        "story-interlude-ashen-leaf-village-80/page:0/The Buyer's Terms",
+        "story-interlude-ashen-leaf-village-80/page:1/The Bud",
+        "story-interlude-ashen-leaf-village-80/page:2/The Pipe Under the Hearth",
+        "story-interlude-ashen-leaf-village-80/page:3/Four Lines, One Drain",
+        "story-interlude-ashen-leaf-village-80/page:4/What Harrow Holds",
+        "story-interlude-frostfang-village-20/page:0/Hazard Pay",
+        "story-interlude-frostfang-village-20/page:1/The Outside View",
+        "story-interlude-frostfang-village-20/page:2/The Anomaly",
+        "story-interlude-frostfang-village-80/page:0/The Forger's Bench",
+        "story-interlude-frostfang-village-80/page:1/What Drinks Through It",
+        "story-interlude-frostfang-village-80/page:2/What the Vault Pays Into",
+        "story-interlude-frostfang-village-80/page:4/Not Snow",
+        "story-interlude-frostfang-village-80/page:5/The Locksmith's Choice",
+        "story-interlude-moonshadow-village-20/page:0/Bought and Sold",
+        "story-interlude-moonshadow-village-20/page:1/The Going Rates",
+        "story-interlude-moonshadow-village-20/page:2/The Blank Listing",
+        "story-interlude-moonshadow-village-80/page:0/The Largest Commission",
+        "story-interlude-moonshadow-village-80/page:1/The Manifest",
+        "story-road-unsworn-ledger/page:1/Hazard Rate",
+        "story-road-unsworn-ledger/page:3/The Menu",
+        "story-road-four-seals-one-gate/page:2/Someone Else's Client",
+        "rift-giver-gate-heir/page:0/The Unsworn on the Ridge",
+        "rift-giver-gate-heir/page:1/What the Rifts Were Really About",
+        "rift-giver-gate-heir/page:2/An Heir to the Gate",
+        "rift-giver-gate-heir:repeat/page:0/The Backflow Takes Shape",
+        "rift-first-clear-gate-heir/page:0/One Plate, Four Witnesses",
+        "story-reckoning-harrow-unbought/page:0/The Unsworn on the Tailboard",
+        "story-reckoning-harrow-unbought/page:1/A Job on No Roll",
+        "story-reckoning-harrow-unbought-return:traits-0/page:0/Nailed to the Board"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-8-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-8-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/storywide/kage-raiko-veyr-hollow.webp",
+      "name": "Kage Raiko Veyr",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-stormveil-village-100-8/page:19/The Blank Board"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-9-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-9-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/storywide/elder-sova-canon.webp",
+      "name": "Elder Sova",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-frostfang-village-4-0/page:1/The Intake",
+        "story-frostfang-village-4-0/page:2/A Guard's Reason",
+        "story-frostfang-village-4-0/page:3/A Strong Back",
+        "story-frostfang-village-4-0/page:4/A Debt to Pay",
+        "story-frostfang-village-4-0/page:5/A Door That Closed",
+        "story-frostfang-village-4-0/page:6/A Blank Line",
+        "story-frostfang-village-4-0/page:8/Someone Long Gone",
+        "story-frostfang-village-50-4/page:0/Both or Neither",
+        "story-frostfang-village-50-4/page:4/The Rank Trial",
+        "story-frostfang-village-4-0:archive-0/page:1/The Intake",
+        "story-frostfang-village-4-0:archive-0/page:2/A Guard's Reason",
+        "story-frostfang-village-4-0:archive-0/page:4/Someone Long Gone",
+        "story-frostfang-village-4-0:archive-1/page:1/The Intake",
+        "story-frostfang-village-4-0:archive-1/page:2/A Strong Back",
+        "story-frostfang-village-4-0:archive-1/page:4/Someone Long Gone",
+        "story-frostfang-village-4-0:archive-2/page:1/The Intake",
+        "story-frostfang-village-4-0:archive-2/page:2/A Debt to Pay",
+        "story-frostfang-village-4-0:archive-2/page:4/Someone Long Gone",
+        "story-frostfang-village-4-0:archive-3/page:1/The Intake",
+        "story-frostfang-village-4-0:archive-3/page:2/A Door That Closed",
+        "story-frostfang-village-4-0:archive-3/page:4/Someone Long Gone",
+        "story-frostfang-village-4-0:archive-4/page:1/The Intake",
+        "story-frostfang-village-4-0:archive-4/page:2/A Blank Line",
+        "story-frostfang-village-4-0:archive-4/page:4/Someone Long Gone",
+        "story-interlude-frostfang-village-58/page:0/The Records Room",
+        "story-interlude-frostfang-village-58/page:2/Plainly, Then",
+        "story-interlude-frostfang-village-58/page:3/The Keeper's Exemption",
+        "story-interlude-frostfang-village-92/page:6/The Keeper on the Road",
+        "story-epilogue-frostfang-village-merciful:2/page:1/The Keeper's Successor",
+        "story-epilogue-frostfang-village-ambitious:6/page:1/The First Name After Yours",
+        "story-reckoning-sova-true-roll/page:0/The Records-Keeper in the Snow",
+        "story-reckoning-sova-true-roll/page:1/Who Is Owed, Who Is Missed",
+        "story-reckoning-sova-true-roll-return:traits-0/page:0/Bound Again",
+        "story-reckoning-sova-true-roll-return:traits-1/page:0/Recovered at Half Wick",
+        "story-reckoning-sova-true-roll-return:traits-1/page:1/Bound Again",
+        "story-reckoning-sova-true-roll-return:traits-2/page:0/Recovered After Waiting",
+        "story-reckoning-sova-true-roll-return:traits-2/page:1/Bound Again",
+        "story-reckoning-sova-true-roll-return:traits-3/page:0/Recovered at Half Wick",
+        "story-reckoning-sova-true-roll-return:traits-3/page:1/Recovered After Waiting",
+        "story-reckoning-sova-true-roll-return:traits-3/page:2/Bound Again",
+        "story-reckoning-field:story-reckoning-sova-true-roll:ff-gate-stones:route-0/page:0/One Jar, Two Needs",
+        "story-reckoning-field:story-reckoning-sova-true-roll:ff-gate-stones:replay-0/page:0/One Jar, Two Needs",
+        "story-reckoning-field:story-reckoning-sova-true-roll:ff-south-watch-post:route-0/page:0/Half Light",
+        "story-reckoning-field:story-reckoning-sova-true-roll:ff-south-watch-post:replay-0/page:0/Half Light",
+        "story-reckoning-field:story-reckoning-sova-true-roll:ff-blue-ice-gully:route-0/page:0/Names at Half Wick",
+        "story-reckoning-field:story-reckoning-sova-true-roll:ff-blue-ice-gully:replay-0/page:0/Names at Half Wick",
+        "story-reckoning-field:story-reckoning-sova-true-roll:aftermath:route-0/page:0/Two Half Measures",
+        "story-reckoning-field:story-reckoning-sova-true-roll:ff-gate-stones:route-1/page:0/One Jar, Two Needs",
+        "story-reckoning-field:story-reckoning-sova-true-roll:ff-gate-stones:replay-1/page:0/One Jar, Two Needs",
+        "story-reckoning-field:story-reckoning-sova-true-roll:ff-lower-road-kitchen:route-1/page:0/Wait Without Standing Still",
+        "story-reckoning-field:story-reckoning-sova-true-roll:ff-lower-road-kitchen:replay-1/page:0/Wait Without Standing Still",
+        "story-reckoning-field:story-reckoning-sova-true-roll:ff-sunlit-drift:route-1/page:0/The Road Comes With You",
+        "story-reckoning-field:story-reckoning-sova-true-roll:ff-sunlit-drift:replay-1/page:0/The Road Comes With You",
+        "story-reckoning-field:story-reckoning-sova-true-roll:aftermath:route-1/page:0/The First-Light Table",
+        "story-reckoning-field:story-reckoning-sova-true-roll:aftermath:legacy/page:0/The Next Name"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-22-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-22-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/storywide/pale-pack-runner.webp",
+      "name": "Pale Pack Runner",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-frostfang-village-35-3/page:0/The Struck Names",
+        "story-frostfang-village-35-3/page:4/One Bell",
+        "story-frostfang-village-65-5/page:2/The Old Quarry",
+        "story-frostfang-village-100-8/page:2/The Pack Comes Down",
+        "story-interlude-frostfang-village-92/page:1/The Camp's Message",
+        "story-interlude-frostfang-village-92/page:3/The Log, Read Aloud"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-25-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-25-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/storywide/elder-sova-solemn-canon.webp",
+      "name": "Elder Sova",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-frostfang-village-100-8/page:15/The Litany, Backwards"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-28-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-28-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/storywide/kage-kael-whitefang-hollow.webp",
+      "name": "Kage Kael Whitefang",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-frostfang-village-100-8/page:20/The Meter at Zero"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-29-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-29-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/storywide/nyx-resolute.webp",
+      "name": "Nyx",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-moonshadow-village-75-6/page:2/Naming It",
+        "story-moonshadow-village-100-8/page:9/Her Own Name"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-37-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-37-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/storywide/kage-sable-nocturne-hollow.webp",
+      "name": "Kage Sable Nocturne",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-moonshadow-village-100-8/page:25/The Glass and the Notice"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-39-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-39-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/pell-marrow.webp",
+      "name": "Pell Marrow",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-road-border-smoke/page:1/Undeliverable",
+        "story-road-border-smoke/page:3/Lead in the Ash"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-42-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-42-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/umi.webp",
+      "name": "Umi",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-road-border-smoke/page:2/Ask Her Twice"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-43-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-43-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/instructor-havek.webp",
+      "name": "Instructor Havek",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-road-second-teacher/page:0/The Watcher at the Rail"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-44-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-44-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/petra.webp",
+      "name": "Petra",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-road-second-teacher/page:1/Drill Twelve"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-45-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-45-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/instructor-havek-empty-hand-v1.webp",
+      "name": "Instructor Havek",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-road-second-teacher/page:2/The Mask in the Yard"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-46-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-46-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/oren-slate.webp",
+      "name": "Oren Slate",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-road-three-footprints/page:0/The Rubbings",
+        "story-road-three-footprints/page:2/Everywhere He Isn't",
+        "story-road-three-footprints/page:3/Your Road"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-47-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-47-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/serel.webp",
+      "name": "Serel",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-road-withheld-cache/page:0/The Wall Side",
+        "story-road-withheld-cache/page:2/Three Dry Days",
+        "story-road-withheld-cache/page:3/Your Own No"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-48-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-48-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/sefa.webp",
+      "name": "Sefa",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-road-shrine-of-two-flags/page:0/The Count at the Door",
+        "story-road-shrine-of-two-flags/page:4/Nine Pairs of Sandals"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-49-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-49-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/captain-hela-dray.webp",
+      "name": "Captain Hela Dray",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-road-shrine-of-two-flags/page:2/The West Line"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-50-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-50-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/warden-suvi-rell.webp",
+      "name": "Warden Suvi Rell",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-road-shrine-of-two-flags/page:3/The East Line"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-51-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-51-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/emissary-corvane.webp",
+      "name": "Emissary Corvane",
+      "frame": {
+        "x": 0.2,
+        "y": 0,
+        "width": 0.8,
+        "height": 0.74,
+        "aspect": 0.7038288288288289
+      },
+      "consumers": [
+        "story-road-legacy-without-a-name/page:0/The Stone at the Fork",
+        "story-road-legacy-without-a-name/page:3/The Ninth of Thaw",
+        "story-road-legacy-without-a-name/page:4/The Open Register"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/prop-framing/npc-52-1440.png",
+        "../tmp/vn-art-audit/sizing/prop-framing/npc-52-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/bracken.webp",
+      "name": "Bracken",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-road-legacy-without-a-name/page:1/What the Miller Keeps"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-53-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-53-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/sergeant-venn.webp",
+      "name": "Sergeant Venn",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-road-legacy-without-a-name/page:2/The Sergeant's Arithmetic"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-54-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-54-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/bellis-crane.webp",
+      "name": "Bellis Crane",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-road-unsworn-ledger/page:2/The Tallyman"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-55-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-55-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/registrar-corin-vell.webp",
+      "name": "Registrar Corin Vell",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-road-black-bridge/page:0/A Name Both Sides Gave"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-56-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-56-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/sergeant-aldis-rime.webp",
+      "name": "Sergeant Aldis Rime",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-road-black-bridge/page:1/The Count"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-57-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-57-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/anji-vesk.webp",
+      "name": "Anji Vesk",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-road-rival-who-keeps-losing/page:1/Show Me Slower",
+        "story-road-rival-who-keeps-losing/page:2/The Letters Lean Wrong",
+        "story-road-rival-who-keeps-losing/page:3/Both Halves, Up Front"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-58-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-58-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/proctor-hasse.webp",
+      "name": "Proctor Hasse",
+      "frame": {
+        "x": 0.2,
+        "y": 0,
+        "width": 0.8,
+        "height": 0.74,
+        "aspect": 0.7038288288288289
+      },
+      "consumers": [
+        "story-road-alliance-drill/page:0/The Neutral Nobody Meant",
+        "story-road-alliance-drill/page:3/A Third Hand"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/prop-framing/npc-59-1440.png",
+        "../tmp/vn-art-audit/sizing/prop-framing/npc-59-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/sergeant-brekka.webp",
+      "name": "Sergeant Brekka",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-road-alliance-drill/page:1/Forty-One"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-60-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-60-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/captain-joss-arne.webp",
+      "name": "Captain Joss Arne",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-road-alliance-drill/page:2/Stormveil Arithmetic"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-61-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-61-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/corvo-latch.webp",
+      "name": "Corvo Latch",
+      "frame": {
+        "x": 0.2,
+        "y": 0,
+        "width": 0.8,
+        "height": 0.74,
+        "aspect": 0.7038288288288289
+      },
+      "consumers": [
+        "story-road-fifth-anchor/page:0/A Buyer, for Once",
+        "story-road-fifth-anchor/page:3/Sold as Seen"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/prop-framing/npc-62-1440.png",
+        "../tmp/vn-art-audit/sizing/prop-framing/npc-62-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/foreman-dray.webp",
+      "name": "Foreman Dray",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-road-fifth-anchor/page:1/What the Rumor Bought"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-63-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-63-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/wandering-sage.webp",
+      "name": "Wandering Sage",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-road-four-seals-one-gate/page:0/Chalk Marks",
+        "story-road-four-seals-one-gate/page:3/One Lattice",
+        "story-road-four-seals-one-gate/page:4/What Keys Are For",
+        "legacy-sage-offer/page:0/A Stranger on the Road",
+        "legacy-sage-offer/page:1/The Paths Before You",
+        "legacy-sage-offer/page:2/The Weight of the Choice"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-64-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-64-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/adjutant-denn.webp",
+      "name": "Adjutant Denn",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-road-emergency-powers/page:0/The Last Line",
+        "story-road-emergency-powers/page:2/Week One",
+        "story-road-emergency-powers/page:4/The Renewal"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-65-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-65-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/meru.webp",
+      "name": "Meru",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-road-emergency-powers/page:3/Edged Instruments"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-66-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-66-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/suma.webp",
+      "name": "Suma",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-road-last-road/page:0/Forty Behind Her"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-67-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-67-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/verah.webp",
+      "name": "Verah",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-road-last-road/page:1/The Woman on the Stone"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-68-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-68-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/undersecretary-corvel.webp",
+      "name": "Undersecretary Corvel",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-road-last-road/page:2/Standard Language"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-69-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-69-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/amra-tull.webp",
+      "name": "Amra Tull",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-road-seat-of-scars/page:0/The List",
+        "story-road-seat-of-scars/page:3/What to Write"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-70-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-70-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/deni-cros.webp",
+      "name": "Deni Cros",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-road-seat-of-scars/page:1/The Sixth Name"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-71-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-71-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/hob-setter.webp",
+      "name": "Hob Setter",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "story-road-seat-of-scars/page:2/Habit"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-72-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-72-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/senna-graveward.webp",
+      "name": "Senna Graveward",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "rift-giver-legacy-echo/page:0/The Grave Keeper on the Low Road",
+        "rift-giver-legacy-echo/page:1/What a Legacy Truly Is",
+        "rift-giver-legacy-echo/page:2/The Cracked Shrine",
+        "rift-giver-legacy-echo:repeat/page:0/A Second Disturbance",
+        "rift-first-clear-legacy-echo/page:0/A Deed Kept"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-73-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-73-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/the-unremembered.webp",
+      "name": "The Unremembered",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "rift-descend-legacy-echo/page:1/The Unremembered"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-74-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-74-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/scout-vessa-clean-alpha-v1.webp",
+      "name": "Scout Vessa",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "rift-giver-hollow-stalker/page:0/A Scout Off Her Route",
+        "rift-giver-hollow-stalker/page:1/What Leaks Back",
+        "rift-giver-hollow-stalker/page:2/The Seam Hums",
+        "rift-giver-hollow-stalker:repeat/page:0/The Seam Opens Again",
+        "rift-first-clear-hollow-stalker/page:0/The Line Holds"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-75-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-75-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/houndmaster-bel-clean-alpha-v1.webp",
+      "name": "Houndmaster Bel",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "rift-giver-beast-warren/page:0/The Handler at the Kennels",
+        "rift-giver-beast-warren/page:1/What the Bond Is",
+        "rift-giver-beast-warren/page:2/The Alpha Turned",
+        "rift-giver-beast-warren:repeat/page:0/A Voice From Another Warren"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-76-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-76-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/recorder-sann.webp",
+      "name": "Recorder Sann",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "rift-giver-engine-echo/page:0/The Recorder With the Wrong Ledger",
+        "rift-giver-engine-echo/page:1/What the Engine Drank",
+        "rift-giver-engine-echo/page:2/The Circle on the Stone",
+        "rift-giver-engine-echo:repeat/page:0/A Fresh Column",
+        "rift-first-clear-engine-echo/page:0/A Name on the Manifest"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-78-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-78-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/keeper-oru.webp",
+      "name": "Keeper Oru",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "rift-giver-hollow-name/page:0/The Keeper of the Hall-Road",
+        "rift-giver-hollow-name/page:1/The Hall and the Hollow",
+        "rift-giver-hollow-name/page:2/An Era That Will Not End",
+        "rift-giver-hollow-name:repeat/page:0/The Form Returns",
+        "rift-first-clear-hollow-name/page:0/Filed Beside the Warning"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-79-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-79-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/broker-nemo.webp",
+      "name": "Broker Nemo",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "rift-giver-mirror-shard/page:0/The Broker Who Sells Nothing Tonight",
+        "rift-giver-mirror-shard/page:1/What the Mirror Drank",
+        "rift-giver-mirror-shard/page:2/A Face That Is Not Yours",
+        "rift-giver-mirror-shard:repeat/page:0/Glass Sheds Twice",
+        "rift-first-clear-mirror-shard/page:0/Names Returned"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-80-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-80-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/village-elder.webp",
+      "name": "Village Elder",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "builtin-aura-sphere-lv9/page:0/A Timed Issue Seal",
+        "builtin-aura-sphere-lv9/page:1/The Sphere Awakens"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-81-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-81-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/dungeon-warden.webp",
+      "name": "Dungeon Warden",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "builtin-hidden-dungeon/page:0/First Seal: The Warden",
+        "builtin-hidden-dungeon/page:1/Second Seal: The Chronicle Table",
+        "builtin-hidden-dungeon/page:2/Third Seal: The Companion",
+        "craft-dungeon-forest/page:0/First Seal: The Warden",
+        "craft-dungeon-forest/page:1/Second Seal: The Chronicle Table",
+        "craft-dungeon-forest/page:2/Third Seal: The Companion",
+        "craft-dungeon-snow/page:0/First Seal: The Warden",
+        "craft-dungeon-snow/page:1/Second Seal: The Chronicle Table",
+        "craft-dungeon-snow/page:2/Third Seal: The Companion",
+        "craft-dungeon-volcano/page:0/First Seal: The Warden",
+        "craft-dungeon-volcano/page:1/Second Seal: The Chronicle Table",
+        "craft-dungeon-volcano/page:2/Third Seal: The Companion",
+        "craft-dungeon-shadow/page:0/First Seal: The Warden",
+        "craft-dungeon-shadow/page:1/Second Seal: The Chronicle Table",
+        "craft-dungeon-shadow/page:2/Third Seal: The Companion",
+        "craft-dungeon-central/page:0/First Seal: The Warden",
+        "craft-dungeon-central/page:1/Second Seal: The Chronicle Table",
+        "craft-dungeon-central/page:2/Third Seal: The Companion"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-82-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-82-390.png"
+      ]
+    },
+    {
+      "asset": "/portraits/cinematic/side-stories/scribe-ihara.webp",
+      "name": "Scribe Ihara",
+      "frame": {
+        "x": 0.16,
+        "y": 0,
+        "width": 0.68,
+        "height": 0.64,
+        "aspect": 0.6917317708333333
+      },
+      "consumers": [
+        "chronicle-scribe/page:0/The Scribe on the Road",
+        "chronicle-scribe/page:1/The Cards",
+        "chronicle-scribe/page:2/Older Than Your Village",
+        "chronicle-scribe/page:3/Why Cards",
+        "chronicle-scribe/page:4/The Traveler's Codex"
+      ],
+      "captures": [
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-83-1440.png",
+        "../tmp/vn-art-audit/sizing/all-portraits/npc-83-390.png"
+      ]
+    }
+  ]
+}

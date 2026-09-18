@@ -12,7 +12,7 @@
  * Extracted from App.tsx.
  */
 
-import { isPremiumVnEvent } from "./vn-storywide-direction";
+import { isPremiumVnEvent, STORYWIDE_ACTORS, STORYWIDE_ACTOR_VARIANTS } from "./vn-storywide-direction";
 
 /**
  * Slug-ifies a speaker name into a /portraits/<slug>.png path. Returns ""
@@ -28,11 +28,9 @@ export function defaultVnPortrait(name: string | undefined | null): string {
 }
 
 /**
- * Story actor overrides must identify the actor in their asset name. This
- * keeps a stale admin-published page image from placing one character's art
- * under another character's caption while still allowing deliberate variants
- * such as `kage-hoshina-enju-hollow.webp`. Generic creator VNs retain their
- * unrestricted custom-image behavior.
+ * Reject only a known bundled portrait assigned to a different identity.
+ * Uploaded images often have opaque filenames or data URLs; their names are
+ * not evidence about their contents. Preserve those explicit overrides.
  */
 export function resolveVnAuthoredActorImage(
     eventId: string,
@@ -46,15 +44,14 @@ export function resolveVnAuthoredActorImage(
     // the discovered pet's already-authoritative card art for this one system
     // event; keep the premium identity lock for every authored human actor.
     if (eventId === "sys-pet-encounter") return authored;
-    const canonical = defaultVnPortrait(actorName);
-    const slug = canonical.slice("/portraits/".length, -".webp".length);
-    if (!slug) return "";
-    const source = authored.toLowerCase().split(/[?#]/, 1)[0];
-    return source.includes(`/${slug}.`)
-        || source.includes(`/${slug}-`)
-        || source.includes(`/${slug}_`)
-        ? authored
-        : "";
+    const key = actorName.trim().toLowerCase();
+    const source = authored.split(/[?#]/, 1)[0];
+    const owners = Object.keys(STORYWIDE_ACTORS).filter((name) =>
+        source === defaultVnPortrait(name)
+        || source === STORYWIDE_ACTORS[name]
+        || Object.values(STORYWIDE_ACTOR_VARIANTS[name] ?? {}).includes(source));
+    if (!owners.length) return authored;
+    return owners.some((owner) => owner === key || STORYWIDE_ACTORS[owner] === STORYWIDE_ACTORS[key]) ? authored : "";
 }
 
 /**

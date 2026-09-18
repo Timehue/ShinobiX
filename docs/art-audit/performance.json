@@ -1,0 +1,182 @@
+{
+  "generatedFiles": 145,
+  "generatedLibraryBytes": 43173694,
+  "smallestBytes": 67434,
+  "medianBytes": 306022,
+  "largestBytes": 542636,
+  "samples": [
+    {
+      "eventId": "story-ashen-leaf-village-4-0",
+      "title": "The Black Flower",
+      "line": 2,
+      "before": {
+        "images": [
+          "/scenes/story/cinematic/ashen-black-flower-reveal.webp",
+          "/portraits/cinematic/toma-reed.webp"
+        ],
+        "encodedBytes": 364372,
+        "estimatedRGBABytes": 12582812
+      },
+      "after": {
+        "images": [
+          "/scenes/story/cinematic/ashen-black-flower-reveal-v2.webp",
+          "/portraits/cinematic/toma-reed.webp"
+        ],
+        "encodedBytes": 329798,
+        "estimatedRGBABytes": 12582812
+      }
+    },
+    {
+      "eventId": "story-frostfang-village-4-0",
+      "title": "First Bell",
+      "line": 0,
+      "before": {
+        "images": [
+          "/scenes/story/story-frostfang-village-4-0.webp",
+          "/portraits/cinematic/storywide/captain-yura.webp"
+        ],
+        "encodedBytes": 137520,
+        "estimatedRGBABytes": 9086972
+      },
+      "after": {
+        "images": [
+          "/scenes/story/cinematic/storywide/frostfang-roll-stone-v1.webp",
+          "/portraits/cinematic/storywide/captain-yura.webp"
+        ],
+        "encodedBytes": 478848,
+        "estimatedRGBABytes": 12582812
+      }
+    },
+    {
+      "eventId": "story-interlude-moonshadow-village-88",
+      "title": "The Empty Booth",
+      "line": 0,
+      "before": {
+        "images": [
+          "/scenes/story/story-interlude-moonshadow-village-88.webp",
+          "/portraits/cinematic/storywide/nyx.webp"
+        ],
+        "encodedBytes": 77124,
+        "estimatedRGBABytes": 9090604
+      },
+      "after": {
+        "images": [
+          "/scenes/story/cinematic/storywide/moonshadow-returning-booth-night-v1.webp",
+          "/portraits/cinematic/storywide/nyx-neutral.webp"
+        ],
+        "encodedBytes": 373680,
+        "estimatedRGBABytes": 12437408
+      }
+    },
+    {
+      "eventId": "echoes-1-tovin-victory",
+      "title": "Finished",
+      "line": 0,
+      "before": {
+        "images": [
+          "/scenes/story/echoes-tovin.webp",
+          "/portraits/tovin.webp"
+        ],
+        "encodedBytes": 137614,
+        "estimatedRGBABytes": 7487488
+      },
+      "after": {
+        "images": [
+          "/scenes/story/cinematic/echoes/lower-landing-rope-table-v1.webp",
+          "/portraits/cinematic/echoes/tovin-empty-hand-v1.webp"
+        ],
+        "encodedBytes": 306676,
+        "estimatedRGBABytes": 9518608
+      }
+    },
+    {
+      "eventId": "rift-first-clear-beast-warren",
+      "title": "Water Before Thanks",
+      "line": 0,
+      "before": {
+        "images": [
+          "/scenes/story/rift-giver-beast-warren.webp",
+          "/portraits/houndmaster-bel.webp"
+        ],
+        "encodedBytes": 33530,
+        "estimatedRGBABytes": 2797568
+      },
+      "after": {
+        "images": [
+          "/scenes/story/cinematic/side-stories/rift-warren-mouth-after-v1.webp",
+          "/portraits/cinematic/side-stories/houndmaster-bel-nara-rescue-v1.webp"
+        ],
+        "encodedBytes": 657168,
+        "estimatedRGBABytes": 9518608
+      }
+    },
+    {
+      "eventId": "sys-ancient-chest",
+      "title": "The Chest Opens",
+      "line": 0,
+      "before": {
+        "images": [
+          "/scenes/story/cinematic/side-stories/sys-ancient-chest.webp"
+        ],
+        "encodedBytes": 423418,
+        "estimatedRGBABytes": 6293408
+      },
+      "after": {
+        "images": [
+          "/scenes/story/cinematic/system/ancient-courier-chest-open-v1.webp"
+        ],
+        "encodedBytes": 374840,
+        "estimatedRGBABytes": 6293408
+      }
+    }
+  ],
+  "observations": [
+    "Encoded sizes are real local file sizes; RGBA figures estimate decoded pixels, not measured browser heap.",
+    "Player avatar bytes are excluded because they are user-selected.",
+    "Production retains current scene plus at most one upcoming scene (background and two actors); the artwork library is not preloaded.",
+    "The dev-only eager audit catalog is tree-shaken from production output.",
+    "Existing PNG optimization/build warnings are recorded in final-build.log; no audio, camera timing or continuous effects were added."
+  ],
+  "actualPhoneNetworkSamples": [
+    {
+      "capture": "tmp/vn-art-audit/final-system/riftEngineYard-390.png",
+      "artworkRequests": 2,
+      "encodedBodyBytes": 641042
+    },
+    {
+      "capture": "tmp/vn-art-audit/final-system/riftNemoClosedBooth-390.png",
+      "artworkRequests": 2,
+      "encodedBodyBytes": 652870
+    },
+    {
+      "capture": "tmp/vn-art-audit/final-system/roadFourKeysDetail-390.png",
+      "artworkRequests": 2,
+      "encodedBodyBytes": 860652
+    },
+    {
+      "capture": "tmp/vn-art-audit/final-system/riftNaraHealingScale-390.png",
+      "artworkRequests": 2,
+      "encodedBodyBytes": 596592
+    },
+    {
+      "capture": "tmp/vn-art-audit/final-system/dungeonChronicleAltarFinal-390.png",
+      "artworkRequests": 2,
+      "encodedBodyBytes": 495900
+    },
+    {
+      "capture": "tmp/vn-art-audit/final-system/ancientChestOpen-390.png",
+      "artworkRequests": 1,
+      "encodedBodyBytes": 374840
+    },
+    {
+      "capture": "tmp/vn-art-audit/final-system/moonFoundingStoneClosed-390.png",
+      "artworkRequests": 2,
+      "encodedBodyBytes": 354462
+    },
+    {
+      "capture": "tmp/vn-art-audit/final-system/dungeonCompanionChamber-390.png",
+      "artworkRequests": 2,
+      "encodedBodyBytes": 668220
+    }
+  ]
+}

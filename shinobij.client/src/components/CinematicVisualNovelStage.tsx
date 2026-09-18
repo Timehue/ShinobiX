@@ -21,6 +21,7 @@ import {
     stopVnScore,
 } from "../lib/vn-cinematic-score";
 import type { ResolvedVnPresentation } from "../lib/vn-presentation";
+import { vnPortraitFrame } from "../lib/vn-portrait-framing";
 
 type Actor = {
     name: string;
@@ -111,24 +112,36 @@ function focusableElements(root: HTMLElement): HTMLElement[] {
 
 function ActorPortrait({ actor }: { actor: Actor }) {
     const [failedSource, setFailedSource] = useState("");
-    const [aspect, setAspect] = useState<"tall" | "square" | "wide">("tall");
+    const [dimensions, setDimensions] = useState<{ source: string; aspect: "tall" | "square" | "wide" }>({ source: "", aspect: "tall" });
+    const loaded = dimensions.source === actor.image;
+    const aspect = loaded ? dimensions.aspect : "tall";
     const showImage = Boolean(actor.image) && failedSource !== actor.image;
+    const frame = vnPortraitFrame(actor.image, actor.player);
 
-    return showImage
-        ? (
+    if (!showImage) return <span aria-hidden="true">{actor.initials}</span>;
+    const portrait = (
             <img
                 src={actor.image}
                 alt=""
                 className={`cvn-avatar-${aspect}`}
+                style={actor.player && !loaded ? { visibility: "hidden" } : undefined}
                 onLoad={(event) => {
                     const { naturalWidth, naturalHeight } = event.currentTarget;
                     const ratio = naturalHeight > 0 ? naturalWidth / naturalHeight : 0;
-                    setAspect(ratio >= 1.18 ? "wide" : ratio >= .78 ? "square" : "tall");
+                    setDimensions({ source: actor.image, aspect: ratio >= 1.18 ? "wide" : ratio >= .78 ? "square" : "tall" });
                 }}
                 onError={() => setFailedSource(actor.image)}
             />
-        )
-        : <span aria-hidden="true">{actor.initials}</span>;
+    );
+    if (!frame) return portrait;
+    return <div className="cvn-portrait-frame" style={{
+        "--cvn-portrait-aspect": frame.aspect,
+        "--cvn-portrait-width": `${100 / frame.width}%`,
+        "--cvn-portrait-left": `${-100 * frame.x / frame.width}%`,
+        "--cvn-portrait-top": `${-100 * frame.y / frame.height}%`,
+        "--cvn-portrait-fade-start": `${frame.height * 86}%`,
+        "--cvn-portrait-fade-end": `${frame.height * 100}%`,
+    } as CSSProperties}>{portrait}</div>;
 }
 
 function AudioIcon({ muted }: { muted: boolean }) {
