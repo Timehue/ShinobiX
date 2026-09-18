@@ -51,7 +51,8 @@ describe("Central Hub release authority", () => {
     });
 
     it("settles keyed dungeons and every Endless Tower mutation on the server", () => {
-        assert.match(app, /mutateDungeonRunServer\(character\.name,\s*"start"\)/);
+        assert.match(app, /mutateDungeonRunServer\(character\.name,\s*"start",\s*'',\s*event\.id\)/,
+            "keyed starts must send the selected presentation while the server owns the run");
         assert.match(app, /mutateDungeonRunServer\(character\.name,\s*"settle",\s*token\)/);
         // Abandon is still server-owned, but no longer from a single call site:
         // the Warden-DEFEAT path (App's old failDungeon) went away with the
