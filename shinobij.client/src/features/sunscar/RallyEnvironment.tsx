@@ -5,6 +5,7 @@ import type { RallyState, RallyTrack } from '../../../../shared/sunscar/rally-ty
 import { rallyPath, rallySection } from '../../../../shared/sunscar/rally-tracks';
 import { sunscarRandom } from '../../../../shared/sunscar/random';
 import { createSandTexture } from './rally-scenery';
+import { RALLY_CROWD_BAND, rallyCrowdSpots, rallyRoadHalfWidth } from './rally-layout';
 
 function dunes(track: RallyTrack) {
     const positions: number[] = [], colors: number[] = [], uv: number[] = [], indices: number[] = [];
@@ -53,9 +54,9 @@ export function RallyCrowd({ track }: { track: RallyTrack }) {
     const crowd = useMemo(() => {
         const random = sunscarRandom(382), dummy = new THREE.Object3D();
         const body: THREE.Matrix4[] = [], head: THREE.Matrix4[] = [], pennants: THREE.Matrix4[] = [], colors: THREE.Color[] = [];
-        const spots = track.scenery === 'festival' || track.scenery === 'market' ? [30, 200, 400, 650, track.length - 20] : [25, track.length - 20];
-        for (const d of spots) for (const side of [-1, 1]) for (let i = 0; i < 15; i++) {
-            const p = rallyPath(track, d + i * 1.8), x = p.x + side * (rallySection(track, d).width / 2 + 1.6 + random() * 1.5);
+        const { inner, depth, count, spacing } = RALLY_CROWD_BAND;
+        for (const d of rallyCrowdSpots(track)) for (const side of [-1, 1]) for (let i = 0; i < count; i++) {
+            const p = rallyPath(track, d + i * spacing), x = p.x + side * (rallyRoadHalfWidth(track, d + i * spacing) + inner + random() * depth);
             const tall = .85 + random() * .35;
             dummy.position.set(x, p.y + tall * .6, p.z); dummy.scale.set(.32, tall, .3); dummy.rotation.set(0, side * Math.PI / 2, 0); dummy.updateMatrix(); body.push(dummy.matrix.clone());
             dummy.position.y = p.y + tall * 1.35; dummy.scale.setScalar(.23); dummy.updateMatrix(); head.push(dummy.matrix.clone());
