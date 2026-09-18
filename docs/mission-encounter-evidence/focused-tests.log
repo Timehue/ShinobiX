@@ -1,0 +1,25 @@
+[pvp-loadout] unresolved equipped jutsu id(s) MissionTester starter-universal-flicker
+▶ authored ordinary mission scope and sealing
+  ✔ changes only selected mission kits and finite resources, retaining all baseline stats (43.3334ms)
+  ✔ reports any missing required move; built-in content precedence remains intact (75.1016ms)
+  ✔ clones programs and preserves sealed old and new encounters across JSON persistence (88.5018ms)
+✔ authored ordinary mission scope and sealing (210.507ms)
+▶ distinct actual rule execution
+  ✔ Ember creates a real opening then pays for its heavy attack; movement reduces the combo budget (207.9577ms)
+  ✔ Frost protects itself and weakens attacks; Clear and Cleanse affect different fighters (43.1273ms)
+  ✔ Shadow holds range after poisoning; closing suppresses its cast and Cleanse removes the tax (49.1413ms)
+  ✔ Champion uses a shield/setup at range and a limited Reflect attack when approached (12.3984ms)
+✔ distinct actual rule execution (314.0151ms)
+▶ mission legality, budgets, and progression
+  ✔ ends safely at edges, with occupied movement, sealed elements, Lag, and exhausted resources (263.6015ms)
+  ✔ retains per-hit and per-turn guards; no enemy kit obtains unlimited healing or permanent control (639.8385ms)
+  ✔ admits ordinary earned-stat builds across four disciplines and rewards later progression (7621.9484ms)
+✔ mission legality, budgets, and progression (8525.7676ms)
+ℹ tests 10
+ℹ suites 3
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 29746.0463

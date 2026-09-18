@@ -1,0 +1,16 @@
+✔ split CI exposes stable required check names with bounded jobs (1.7902ms)
+✔ split CI preserves every release gate and builds each artifact once (0.6109ms)
+✔ responsive browser discovery installs runtime and direct QA build dependencies (1.379ms)
+✔ built CSP and every Stronghold audit feed the required responsive gate with retained evidence (0.619ms)
+✔ artifact consumers verify immutable provenance and failure evidence stays reachable (0.4167ms)
+✔ live Express CI includes persistence and route integration regressions (0.3421ms)
+✔ current Warfront coverage keeps low-cost interactions and real renderer audits (6.2471ms)
+✔ required live Express CI runs defeat recovery on desktop and mobile without replacing earlier evidence (0.6988ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 469.5902

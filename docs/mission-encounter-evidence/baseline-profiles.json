@@ -1,0 +1,142 @@
+{
+  "combat-c-patrol": {
+    "name": "Ember Duelist",
+    "specialty": "Ninjutsu",
+    "level": 18,
+    "hp": 580,
+    "stats": {
+      "ninjutsuOffense": 636,
+      "ninjutsuDefense": 480,
+      "strength": 224,
+      "speed": 206,
+      "intelligence": 206,
+      "willpower": 206
+    },
+    "visual": "builtin-ai-ember-duelist",
+    "boss": true,
+    "armorRawDR": 0.08,
+    "maxChakra": 192,
+    "maxStamina": 192,
+    "jutsu": [
+      {
+        "id": "combat-c-patrol-signature",
+        "name": "Ninjutsu Signature",
+        "type": "Ninjutsu",
+        "element": "None",
+        "ap": 60,
+        "range": 3,
+        "effectPower": 31,
+        "chakraCost": 18,
+        "staminaCost": 0,
+        "cooldown": 2,
+        "method": "SINGLE"
+      }
+    ],
+    "id": "builtin-ai-ember-duelist"
+  },
+  "combat-b-escort": {
+    "name": "Frost Sealer",
+    "specialty": "Genjutsu",
+    "level": 35,
+    "hp": 1526,
+    "stats": {
+      "genjutsuOffense": 1095,
+      "genjutsuDefense": 820,
+      "strength": 360,
+      "speed": 325,
+      "intelligence": 325,
+      "willpower": 325
+    },
+    "visual": "builtin-ai-frost-sealer",
+    "boss": true,
+    "armorRawDR": 0.08,
+    "maxChakra": 260,
+    "maxStamina": 260,
+    "jutsu": [
+      {
+        "id": "combat-b-escort-signature",
+        "name": "Genjutsu Signature",
+        "type": "Genjutsu",
+        "element": "None",
+        "ap": 60,
+        "range": 3,
+        "effectPower": 41,
+        "chakraCost": 18,
+        "staminaCost": 0,
+        "cooldown": 2,
+        "method": "SINGLE"
+      }
+    ],
+    "id": "builtin-ai-frost-sealer"
+  },
+  "combat-a-hunt": {
+    "name": "Shadow Weaver",
+    "specialty": "Taijutsu",
+    "level": 55,
+    "hp": 3416,
+    "stats": {
+      "taijutsuOffense": 1635,
+      "taijutsuDefense": 1220,
+      "strength": 520,
+      "speed": 465,
+      "intelligence": 465,
+      "willpower": 465
+    },
+    "visual": "builtin-ai-shadow-weaver",
+    "boss": true,
+    "armorRawDR": 0.15,
+    "maxChakra": 340,
+    "maxStamina": 340,
+    "jutsu": [
+      {
+        "id": "combat-a-hunt-signature",
+        "name": "Taijutsu Signature",
+        "type": "Taijutsu",
+        "element": "None",
+        "ap": 60,
+        "range": 1,
+        "effectPower": 52,
+        "chakraCost": 0,
+        "staminaCost": 18,
+        "cooldown": 2,
+        "method": "SINGLE"
+      }
+    ],
+    "id": "builtin-ai-shadow-weaver"
+  },
+  "combat-s-crisis": {
+    "name": "Central Champion",
+    "specialty": "Bukijutsu",
+    "level": 75,
+    "hp": 6146,
+    "stats": {
+      "bukijutsuOffense": 2175,
+      "bukijutsuDefense": 1620,
+      "strength": 680,
+      "speed": 605,
+      "intelligence": 605,
+      "willpower": 605
+    },
+    "visual": "builtin-ai-central-champion",
+    "boss": true,
+    "armorRawDR": 0.15,
+    "maxChakra": 420,
+    "maxStamina": 420,
+    "jutsu": [
+      {
+        "id": "combat-s-crisis-signature",
+        "name": "Bukijutsu Signature",
+        "type": "Bukijutsu",
+        "element": "None",
+        "ap": 60,
+        "range": 3,
+        "effectPower": 63,
+        "chakraCost": 0,
+        "staminaCost": 18,
+        "cooldown": 2,
+        "method": "SINGLE"
+      }
+    ],
+    "id": "builtin-ai-central-champion"
+  }
+}

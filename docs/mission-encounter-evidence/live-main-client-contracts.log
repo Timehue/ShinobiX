@@ -1,0 +1,55 @@
+▶ Express route parity (Railway + cPanel)
+  ✔ registers the explicit handler list once, after restart and before static serving (3.3294ms)
+  ✔ registers every /api endpoint the client calls (17308.4074ms)
+  ✔ parsed a sane number of client endpoints (scan did not silently break) (47890.3403ms)
+  ✔ mounts the dynamic param routes with all HTTP methods (0.8637ms)
+  ✔ serves canonical SEO files and wires duplicate-domain redirects before SPA fallback (0.7525ms)
+  ✔ 404s missing static asset URLs before the SPA fallback (0.8345ms)
+  ✔ returns non-cacheable JSON 404s for unknown API routes before the SPA fallback (0.2836ms)
+✔ Express route parity (Railway + cPanel) (65207.1797ms)
+▶ handler wiring (no orphaned endpoints)
+  ✔ imports every api/ HTTP handler file in server-api-routes.ts (4.0224ms)
+  ✔ enumerated the api/ handler files (filesystem scan did not silently break) (65.1489ms)
+  ✔ registers (not just imports) every api/ HTTP handler in server-api-routes.ts (261.2056ms)
+✔ handler wiring (no orphaned endpoints) (331.4673ms)
+▶ release operations wiring
+  ✔ reports an immutable deployment SHA from platform/build metadata (0.4628ms)
+  ✔ drains normal platform termination signals (0.3489ms)
+  ✔ protects and coalesces the storage-mutating deep health probe (0.316ms)
+✔ release operations wiring (1.3613ms)
+▶ android asset links
+  ✔ caches for minutes, not an hour — the upstream cache cannot be purged (0.3411ms)
+  ✔ answers 404 rather than an empty statement list when unconfigured (0.1381ms)
+✔ android asset links (0.606ms)
+✔ missionAiLevelAndBonus tracks the player's level above the rank floor (3.2838ms)
+✔ mission AI level never drops below the rank's min, and bonus scales by rank (1.4055ms)
+✔ mission AI carries an HP floor so low-level foes aren't one-tapped (0.2742ms)
+✔ E-Rank Drill is the gentlest mission: min 1, no stat bonus, low HP floor, no-sustain AI (60.1359ms)
+✔ every combat mission's AI id resolves to a real builtin (0.7692ms)
+✔ ranked combat contracts name a repeatable need and truthful closure (0.4645ms)
+✔ relevelBuiltinAi lowers a builtin to the player's level without mutating the catalog (1.2727ms)
+✔ relevelBuiltinAi HP floor lifts low-level foes but is a no-op when natural HP is higher (0.61ms)
+✔ relevelBuiltinAi clamps junk levels into range (0.5612ms)
+✔ the queue client publishes the exact server run authority (2.9976ms)
+✔ the sealed mission screen parks before sending and removes only after a decision (1.1378ms)
+✔ queued:false remains retryable unless the exact run is definitively invalid (0.3786ms)
+✔ App quarantines the legacy local-Arena claim callback and fences outbox snapshots (4.1889ms)
+✔ solo session maps into the runtime-neutral normal Arena view (2.6051ms)
+✔ the Arena view carries the server's VFX plates through, tagged by event seq (0.7295ms)
+✔ a fight with no VFX yet still projects an empty stream rather than undefined (0.1796ms)
+✔ the Arena view preserves every authoritative enemy movement step (1.3916ms)
+✔ the Arena view projects each resolved event into a presentation beat with its own hit numbers (42.1215ms)
+✔ the killing blow reads the engine's true damage, not the clamped HP remainder (0.599ms)
+✔ a walk step projects as a movement beat with no hits (0.2734ms)
+✔ a legacy event without snapshots still projects a beat rather than throwing (0.2608ms)
+✔ the Arena view preserves whether the one-time PvE pet summon was consumed (0.3023ms)
+✔ a lost response retries the same versioned intent token (191.6477ms)
+✔ the shared PvE Flee control submits the server-owned probabilistic action (37.9726ms)
+ℹ tests 39
+ℹ suites 4
+ℹ pass 39
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 69119.9329

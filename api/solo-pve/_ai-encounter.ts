@@ -143,12 +143,18 @@ function buildEnemy(profile: SoloPveAiProfile, admin: AdminCombatContent | null,
         specialty,
         stats,
         armorRawDR: Math.max(0, Math.min(1.5, finite(profile.armorRawDR, 0))),
-        jutsu: jutsu.map((entry) => ({ ...entry })),
+        jutsu: jutsu.map((entry) => {
+            const description = profile.missionTactics === true && profile.missionJutsuDescriptions && typeof profile.missionJutsuDescriptions === 'object'
+                ? (profile.missionJutsuDescriptions as Record<string, unknown>)[String(entry.id)] : undefined;
+            return { ...entry, ...(typeof description === 'string' ? { battleDescription: description.slice(0, 300) } : {}) };
+        }),
         jutsuMastery: jutsu.map((entry) => ({ jutsuId: entry.id, level: mastery })),
         visual: typeof profile.visual === 'string' ? profile.visual : profile.id,
         ...(profile.isBossAi === true || profile.boss === true ? { boss: true } : {}),
         ...(profile.masterAi === true ? { masterAi: true } : {}),
         ...(aiProgram.rules.length > 0 ? { aiRules: aiProgram.rules } : {}),
+        // Persist the policy choice; old sessions retain their original runner.
+        ...(profile.missionTactics === true && aiProgram.rules.length > 0 ? { missionTactics: true } : {}),
     };
     return {
         name: character.name as string,

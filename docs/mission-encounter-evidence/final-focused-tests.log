@@ -1,0 +1,36 @@
+[pvp-loadout] unresolved equipped jutsu id(s) MissionTester starter-universal-flicker
+▶ authored ordinary mission scope and sealing
+  ✔ changes only selected mission kits and finite resources, retaining all baseline stats (43.8567ms)
+  ✔ reports any missing required move; built-in content precedence remains intact (95.013ms)
+  ✔ clones programs and preserves sealed old and new encounters across JSON persistence (87.7197ms)
+✔ authored ordinary mission scope and sealing (233.7359ms)
+▶ distinct actual rule execution
+  ✔ Ember creates a real opening then pays for its heavy attack; movement reduces the combo budget (72.6198ms)
+  ✔ Frost protects itself and weakens attacks; Clear and Cleanse affect different fighters (9.6975ms)
+  ✔ Shadow holds range after poisoning; closing suppresses its cast and Cleanse removes the tax (21.0317ms)
+  ✔ Champion uses a shield/setup at range and a limited Reflect attack when approached (9.5423ms)
+✔ distinct actual rule execution (113.3661ms)
+▶ mission legality, budgets, and progression
+  ✔ ends safely at edges, with occupied movement, sealed elements, Lag, and exhausted resources (169.8441ms)
+  ✔ retains per-hit and per-turn guards; no enemy kit obtains unlimited healing or permanent control (131.3913ms)
+  ✔ admits ordinary earned-stat builds across four disciplines and rewards later progression (3898.6007ms)
+  ✔ shows measured benefits from responses with identical loadouts and starting conditions (1307.9603ms)
+✔ mission legality, budgets, and progression (5508.2465ms)
+[kv] isolated in-memory QA backend active
+▶ production-mounted ordinary mission journey (normal player authority)
+  ✔ enforces authentication, ownership, real admission, and rejects unearned rewards (30.0177ms)
+  ✔ combat-c-patrol: startup, recovery, actual actions, vitals and exactly-once reward settlement (673.0461ms)
+  ✔ combat-b-escort: startup, recovery, actual actions, vitals and exactly-once reward settlement (155.8653ms)
+  ✔ combat-a-hunt: startup, recovery, actual actions, vitals and exactly-once reward settlement (735.0468ms)
+  ✔ combat-s-crisis: startup, recovery, actual actions, vitals and exactly-once reward settlement (1233.2683ms)
+  ✔ flee and actual loss settle physical consequences without paying a mission reward (574.9694ms)
+  ✔ a lapsed authored encounter settles the normal abandon cost once on reconnect (28.5021ms)
+✔ production-mounted ordinary mission journey (normal player authority) (48478.8521ms)
+ℹ tests 18
+ℹ suites 4
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 70460.9936
