@@ -1,5 +1,6 @@
 import type { Character } from '../types/character';
 import type { SoloPveSession } from './solo-pve-api';
+import type { StorySettlementDelivery } from '../../../shared/story-settlement-presentation';
 
 /*
  * Server-authoritative story-boss combat (mirrors lib/hollow-gate-combat-api).
@@ -30,7 +31,32 @@ export type StoryBossSettleResult = {
     character?: Character | null;
     _saveVersion?: number;
     error?: string;
+    delivery?: StorySettlementDelivery;
 };
+
+/** A committed reward with unfinished verification remains retryable. */
+export class StorySettlementDeliveryError extends Error {
+    readonly settlement: StoryBossSettleResult;
+    constructor(message: string, settlement: StoryBossSettleResult) {
+        super(message);
+        this.settlement = settlement;
+    }
+}
+
+async function readStorySettlement(response: Response, fallback: string): Promise<StoryBossSettleResult> {
+    const data = await response.json().catch(() => ({})) as Partial<StoryBossSettleResult> & {
+        rewardCommitted?: boolean; settlement?: StoryBossSettleResult;
+    };
+    if (!response.ok || data.ok !== true) {
+        if (data.rewardCommitted === true && data.settlement?.ok === true
+            && data.settlement.delivery?.personalReward === 'committed'
+            && data.settlement.delivery.battle === 'confirmed' && data.settlement.character) {
+            throw new StorySettlementDeliveryError(data.error ?? fallback, data.settlement);
+        }
+        throw new Error(data.error ?? fallback);
+    }
+    return data as StoryBossSettleResult;
+}
 
 export async function startStoryBossCombat(params: {
     playerName: string;
@@ -54,9 +80,7 @@ export async function settleStoryBossCombat(params: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...params, kind: 'storyBoss' }),
     });
-    const data = await response.json().catch(() => ({})) as Partial<StoryBossSettleResult>;
-    if (!response.ok || data.ok !== true) throw new Error(data.error ?? 'The story reward could not be verified.');
-    return data as StoryBossSettleResult;
+    return readStorySettlement(response, 'The story reward could not be verified.');
 }
 
 /*
@@ -87,7 +111,5 @@ export async function settleAcademySparCombat(params: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...params, kind: 'academySparring' }),
     });
-    const data = await response.json().catch(() => ({})) as Partial<StoryBossSettleResult>;
-    if (!response.ok || data.ok !== true) throw new Error(data.error ?? 'The sparring reward could not be verified.');
-    return data as StoryBossSettleResult;
+    return readStorySettlement(response, 'The sparring reward could not be verified.');
 }

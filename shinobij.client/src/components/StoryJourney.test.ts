@@ -8,6 +8,8 @@ import { STORY_CONTENT_SCHEMA_VERSION, type StoryContentPayload } from "../lib/s
 import { makeStoryChoiceReceipt } from "../lib/story-choice-history";
 import { currentStoryChapterTriggerFromContent, interludeToCreatorEvent, nextStoryTriggerFromContent, storyToCreatorEvent } from "../lib/story-trigger";
 import { readFileSync } from "node:fs";
+import { storyChoiceStatus } from '../lib/story-choice-presentation';
+import { acknowledgeStoryReport, queueStoryReport, recordStoryReportConflict } from '../lib/story-history-mutations';
 
 const storyHallSource = readFileSync(new URL("../screens/StoryBoss.tsx", import.meta.url), "utf8");
 const livingChronicleSource = readFileSync(new URL("./LivingChronicle.tsx", import.meta.url), "utf8");
@@ -54,6 +56,25 @@ test("Story Hall archive includes only interludes with a recorded choice", () =>
     assert.ok(archived);
     assert.equal(archived.kind, "interlude");
     assert.ok(archived.decisions.some((decision) => decision.text));
+});
+
+test('pending and conflicting interlude choices remain off the permanent shelf until acknowledged', () => {
+    const interlude = content.interludes[0];
+    const event = interludeToCreatorEvent(interlude);
+    const index = event.vnPages!.length - 1;
+    const choice = event.vnPages![index].choices![0];
+    const selected = { ...character(2, [choice.trait!]), storyChoices: [makeStoryChoiceReceipt(event, index, 0, choice)] };
+    const pending = queueStoryReport(selected, { kind: 'interlude', eventId: event.id, trait: choice.trait! });
+    assert.match(storyChoiceStatus(pending, event.id), /pending/);
+    assert.ok(!buildCompletedStoryArchive(pending, content).some(entry => entry.id === event.id));
+    const conflict = recordStoryReportConflict(pending, pending.pendingStoryReports![0], 'other-choice');
+    assert.match(storyChoiceStatus(conflict, event.id), /differs/);
+    assert.ok(!buildCompletedStoryArchive(conflict, content).some(entry => entry.id === event.id));
+    assert.deepEqual(conflict.storyChoices, selected.storyChoices, 'presentation never discards the pending decision');
+    const acknowledged = acknowledgeStoryReport(pending, pending.pendingStoryReports![0]);
+    assert.ok(buildCompletedStoryArchive(acknowledged, content).some(entry => entry.id === event.id));
+    assert.doesNotMatch(storyChoiceStatus(acknowledged, event.id), /pending|differs/);
+    assert.equal(storyChoiceStatus(character(0), event.id), 'Scene complete.');
 });
 
 test("completed chapter replay follows the recorded branch and lists its decisions", () => {

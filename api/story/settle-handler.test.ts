@@ -150,3 +150,78 @@ test('real story settle handler grants one authoritative Chronicle record and re
     assert.deepEqual(replay.out.body?.character, character);
     assert.deepEqual(await kv.get(`save:${PLAYER}`), stored, 'lost-response replay must not pay or version-bump twice');
 });
+
+test('committed reward remains visible when Legacy delivery fails, then reconciles without another grant', async () => {
+    const originalGet = kv.get;
+    process.env.ENABLE_LEGACY = '1';
+    kv.get = (async (key: string) => {
+        if (key === `legacy:stats:${PLAYER}`) throw new Error('fixture: Legacy unavailable');
+        return originalGet.call(kv, key);
+    }) as typeof kv.get;
+    const beforeSave = await kv.get<StoredSave>(`save:${PLAYER}`);
+    try {
+        const partial = response();
+        await handler(request(RUN_ID, token), partial.res);
+        assert.equal(partial.out.statusCode, 503);
+        assert.equal(partial.out.body?.rewardCommitted, true);
+        const committed = partial.out.body?.settlement as Record<string, unknown>;
+        assert.deepEqual(committed.delivery, {
+            battle: 'confirmed', personalReward: 'committed', combatRecord: 'confirmed', legacyRecord: 'pending',
+        });
+        assert.equal(committed.ryo, 75);
+        assert.deepEqual(committed.character, beforeSave?.character);
+        assert.deepEqual(await kv.get(`save:${PLAYER}`), beforeSave);
+    } finally { kv.get = originalGet; }
+    try {
+        const retried = response();
+        await handler(request(RUN_ID, token), retried.res);
+        assert.equal(retried.out.statusCode, 200);
+        assert.equal(retried.out.body?.replayed, true);
+        assert.equal((retried.out.body?.delivery as Record<string, string>).legacyRecord, 'confirmed');
+        assert.deepEqual(await kv.get(`save:${PLAYER}`), beforeSave);
+        const credited = await kv.get(`legacy:stats:${PLAYER}`);
+        await handler(request(RUN_ID, token), response().res);
+        assert.deepEqual(await kv.get(`legacy:stats:${PLAYER}`), credited, 'the run receipt deduplicates Legacy delivery');
+    } finally { delete process.env.ENABLE_LEGACY; }
+});
+
+test('a failed combat metadata write returns the committed receipt and remains repairable', async () => {
+    const bindingKey = `story-combat-binding:${RUN_ID}`;
+    const binding = await kv.get<Record<string, unknown>>(bindingKey);
+    const beforeSave = await kv.get<StoredSave>(`save:${PLAYER}`);
+    // Simulate a reward whose binding acknowledgement was interrupted.
+    await kv.set(bindingKey, { ...binding, status: 'active', settledAt: undefined });
+    const originalSet = kv.set;
+    kv.set = (async (key: string, ...args: unknown[]) => {
+        if (key === bindingKey) throw new Error('fixture: binding write unavailable');
+        return Reflect.apply(originalSet, kv, [key, ...args]);
+    }) as typeof kv.set;
+    try {
+        const partial = response();
+        await handler(request(RUN_ID, token), partial.res);
+        assert.equal(partial.out.statusCode, 503);
+        assert.equal(partial.out.body?.rewardCommitted, true);
+        const committed = partial.out.body?.settlement as Record<string, unknown>;
+        assert.deepEqual(committed.delivery, {
+            battle: 'confirmed', personalReward: 'committed', combatRecord: 'unavailable', legacyRecord: 'not-applicable',
+        });
+        assert.deepEqual(committed.character, beforeSave?.character);
+    } finally { kv.set = originalSet; }
+    const repaired = response();
+    await handler(request(RUN_ID, token), repaired.res);
+    assert.equal(repaired.out.statusCode, 200);
+    assert.equal((repaired.out.body?.delivery as Record<string, string>).combatRecord, 'confirmed');
+    assert.deepEqual(await kv.get(`save:${PLAYER}`), beforeSave, 'repair must not apply rewards or costs again');
+});
+
+test('unavailable authority records are not fabricated as confirmed or pending', async () => {
+    const beforeSave = await kv.get<StoredSave>(`save:${PLAYER}`);
+    await kv.del(`story-combat-binding:${RUN_ID}`, `solo-pve:${RUN_ID}`);
+    const replay = response();
+    await handler(request(RUN_ID, token), replay.res);
+    assert.equal(replay.out.statusCode, 200);
+    assert.deepEqual(replay.out.body?.delivery, {
+        battle: 'confirmed', personalReward: 'committed', combatRecord: 'unavailable', legacyRecord: 'not-applicable',
+    });
+    assert.deepEqual(await kv.get(`save:${PLAYER}`), beforeSave);
+});

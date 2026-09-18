@@ -9,11 +9,13 @@ import {
     settleStoryBossCombat,
     startAcademySparCombat,
     settleAcademySparCombat,
+    StorySettlementDeliveryError,
     type StoryBossSettleResult,
 } from "../lib/story-combat-api";
 import { onStoryBossFightRequest, type StoryFightTheme } from "../lib/story-fight-theme";
 import { reportPveFightOutcome } from "../lib/pve-outcome-api";
 import { soloPveArenaTransport, soloPveSessionForArena } from "../lib/solo-pve-arena-adapter";
+import { StoryRewardSummary } from './StoryRewardSummary';
 
 // Story-boss fights render through MissionArenaFight — the SAME server-authoritative
 // arena shell combat missions use (a sealed solo-PvE session and intent-only actions,
@@ -236,6 +238,7 @@ export function StoryBossFightHost({
     onOutcome?: (character: Character, saveVersion?: number) => void;
 }) {
     const [fight, setFight] = useState<ActiveStoryFight | null>(null);
+    const [committedReward, setCommittedReward] = useState<{ requestId: number; result: StoryBossSettleResult } | null>(null);
     // Mirrors startingRef into render so the host can announce itself engaged from
     // the moment it ACCEPTS a request. The sealed start is a network round-trip, and
     // the caller closes its launch UI immediately — announcing only once `fight`
@@ -270,6 +273,7 @@ export function StoryBossFightHost({
         activeFightRef.current = false;
         onFightOpenChange?.(false);
         returnFocusRef.current = null;
+        setCommittedReward(null);
         setFight((current) => current
             && storyFightPlayerKey(current.originatingPlayerName) !== nextPlayerKey
             ? null
@@ -360,11 +364,22 @@ export function StoryBossFightHost({
         if (activePlayerKeyRef.current !== originatingPlayerKey) {
             throw new Error("This story battle belongs to a previous account.");
         }
-        const settled = isSpar
-            ? await settleAcademySparCombat({ playerName: originatingPlayerName, runId })
-            : await settleStoryBossCombat({ playerName: originatingPlayerName, runId });
-        if (mountedRef.current && activePlayerKeyRef.current === originatingPlayerKey) onSettled(settled);
-        return settled;
+        try {
+            const settled = isSpar
+                ? await settleAcademySparCombat({ playerName: originatingPlayerName, runId })
+                : await settleStoryBossCombat({ playerName: originatingPlayerName, runId });
+            if (mountedRef.current && activePlayerKeyRef.current === originatingPlayerKey
+                && startRequestIdRef.current === currentFight.requestId) onSettled(settled);
+            return settled;
+        } catch (error) {
+            if (error instanceof StorySettlementDeliveryError && mountedRef.current
+                && activePlayerKeyRef.current === originatingPlayerKey
+                && startRequestIdRef.current === currentFight.requestId) {
+                setCommittedReward({ requestId: currentFight.requestId, result: error.settlement });
+                onSettled(error.settlement);
+            }
+            throw error;
+        }
     }
 
     // The fight's physical cost. Fires on any resolution and on a forfeit exit —
@@ -390,6 +405,7 @@ export function StoryBossFightHost({
     function closeFight() {
         const returnFocus = returnFocusRef.current;
         returnFocusRef.current = null;
+        setCommittedReward(null);
         activeFightRef.current = false;
         onFightOpenChange?.(false);
         setFight((current) => current?.requestId === currentFight.requestId ? null : current);
@@ -429,12 +445,13 @@ export function StoryBossFightHost({
                 enemyAvatarOverride={theme.bossPortrait}
                 onExit={closeFight}
                 renderResult={({ won, settleState, settleResult, retry }) => {
+                    const result = (settleResult as StoryBossSettleResult | null)
+                        ?? (committedReward?.requestId === currentFight.requestId ? committedReward.result : null);
                     // The tutorial spar gets its own plain-language card: a new
                     // player has no chapter context yet, and the loss path has to
                     // point at the Hospital (the OnboardingCoach's recovery step)
                     // rather than at a Story Hall they have not seen.
                     if (isSpar) {
-                        const result = settleResult as StoryBossSettleResult | null;
                         return (
                             <RequiredStoryResultDialog
                                 label={won ? "Sparring match won" : "Sparring match lost"}
@@ -444,11 +461,9 @@ export function StoryBossFightHost({
                                     <p className="story-fight-complete-kicker">{won ? "First Win" : "Knocked Down"}</p>
                                     <h2>Academy Sparring Match</h2>
                                     {won
-                                        ? (settleState !== "settled" || !result
+                                        ? (!result
                                             ? <p className="story-fight-complete-rewards">{settleState === "failed" ? "The sparring reward could not be verified. Your win is still open — retry the reward now." : "Sealing your reward…"}</p>
-                                            : result.replayed
-                                                ? <p className="story-fight-complete-rewards">This sparring reward was already collected.</p>
-                                                : <p className="story-fight-complete-rewards">+{result.statPoints ?? 20} stat points · +{result.ryo} ryo</p>)
+                                            : <StoryRewardSummary result={result} />)
                                         : <p className="story-fight-complete-boss">The dummy got the better of you. Patch up at the Hospital and step back onto the mat.</p>}
                                     {/* escape-hatch-exempt — deliberate, unlike the PvP and AI-fight
                                         result screens. Those two keep a DURABLE handle on an unsettled
@@ -461,7 +476,7 @@ export function StoryBossFightHost({
                                         completion marker does, and THEN add the exit — not to add the
                                         exit on its own. */}
                                     {won && settleState === "failed"
-                                        ? <button onClick={retry}>Retry Reward</button>
+                                        ? <button onClick={retry}>{result ? 'Retry Record Delivery' : 'Retry Reward'}</button>
                                         : <button disabled={won && (settleState !== "settled" || !result)} onClick={closeFight}>Continue</button>}
                                 </div>
                             </RequiredStoryResultDialog>
@@ -471,38 +486,24 @@ export function StoryBossFightHost({
                     // beat (see .story-fight-complete--cinematic) so the boss's final authored bark
                     // lands first. Reward numbers come from the server settle response.
                     if (won) {
-                        const result = settleResult as StoryBossSettleResult | null;
                         return (
                             <RequiredStoryResultDialog
-                                label="Chapter complete"
+                                label={result ? "Chapter complete" : "Battle won"}
                                 focusVersion={`${settleState}-${result ? "ready" : "waiting"}`}
                                 cinematic
                             >
                                 <div className="story-fight-complete-card">
-                                    <p className="story-fight-complete-kicker">{result?.finale ? "Village Story Complete" : "Chapter Complete"}</p>
+                                    <p className="story-fight-complete-kicker">{result?.finale ? "Village Story Complete" : result ? "Chapter Complete" : "Battle Won"}</p>
                                     <h2>{theme.chapterLabel ?? theme.bossName}</h2>
                                     <p className="story-fight-complete-boss">{theme.bossName} has fallen.</p>
-                                    {settleState !== "settled" || !result
+                                    {!result
                                         ? <p className="story-fight-complete-rewards">{settleState === "failed" ? "The reward could not be verified. Your victory is still open — retry the reward now." : "Sealing your reward…"}</p>
-                                        : result.replayed
-                                            ? <p className="story-fight-complete-rewards">This story reward was already collected.</p>
-                                            : (
-                                                <p className="story-fight-complete-rewards">
-                                                    +{result.statPoints ?? 0} stat points · +{result.ryo} ryo · +{result.auraDust} Aura Dust
-                                                    {result.title ? <span className="story-fight-complete-title">Title earned: {result.title}</span> : null}
-                                                    {result.finale && !result.replayed ? <span className="story-fight-complete-title">The Hollow Gate Key is yours.</span> : null}
-                                                    {result.chronicleCards?.length ? (
-                                                        <span className="story-fight-complete-title">
-                                                            Living Chronicle · Ihara records the witnessed fall of {theme.bossName} as {result.chronicleCards.length === 1 ? "a new card" : `${result.chronicleCards.length} new cards`}.
-                                                        </span>
-                                                    ) : null}
-                                                </p>
-                                            )}
+                                        : <StoryRewardSummary result={result} />}
                                     {/* escape-hatch-exempt — same in-memory run id as the branch above;
                                         see that comment for why leaving is destructive here and what
                                         the real fix is. */}
                                     {settleState === "failed"
-                                        ? <button onClick={retry}>Retry Reward</button>
+                                        ? <button onClick={retry}>{result ? 'Retry Record Delivery' : 'Retry Reward'}</button>
                                         : <button disabled={settleState !== "settled" || !result} onClick={closeFight}>Continue</button>}
                                 </div>
                             </RequiredStoryResultDialog>

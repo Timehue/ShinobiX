@@ -1198,11 +1198,11 @@
     }
 
     .cvn-actor.is-left {
-        left: -3vw;
+        left: 3vw;
     }
 
     .cvn-actor.is-right {
-        right: -3vw;
+        right: 3vw;
     }
 
     .cvn-actor.is-player:has(img.cvn-avatar-square, img.cvn-avatar-wide) {

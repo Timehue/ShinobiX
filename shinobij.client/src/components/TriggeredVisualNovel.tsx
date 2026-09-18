@@ -21,6 +21,7 @@ import { secondaryVnActorAbsent } from '../lib/vn-secondary-artwork';
 import { CinematicVisualNovelStage } from "./CinematicVisualNovelStage";
 import { useVnArtwork } from "../lib/useVnArtwork";
 import { isReusableChoiceHub, makeStoryChoiceReceipt, recordedStoryChoices, storyChoiceId } from "../lib/story-choice-history";
+import { storyChoiceStatus } from '../lib/story-choice-presentation';
 
 type VnChoice = NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number];
 
@@ -89,7 +90,7 @@ export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex,
         authoredRightImage,
         event.avatarImage,
     );
-    const initialResume = character.storyScene?.eventId === event.id ? character.storyScene : undefined;
+    const initialResume = !readOnlyReplay && character.storyScene?.eventId === event.id ? character.storyScene : undefined;
     const [navigation, setNavigation] = useState<{ eventId: string; history: StoryCursor[] }>({ eventId: event.id, history: initialResume?.history ?? [] });
     const history = navigation.eventId === event.id ? navigation.history : (initialResume?.history ?? []);
     const [localCommit, setLocalCommit] = useState<{ eventId: string; choices: StoryChoiceReceipt[] }>({ eventId: event.id, choices: [] });
@@ -435,7 +436,7 @@ export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex,
         setShowFinale(false);
     }
     const finaleText = readOnlyReplay
-        ? "The preserved scene reaches its end. Nothing has been changed or claimed; this is the road exactly as the Chronicle remembers it."
+        ? "Read-only replay complete. No rewards or decisions have changed."
         : isPetEncounterEvent
             ? "The animal closes the last careful step. The meeting is no longer chance; what happens next belongs to both of you."
             : isAncientChestEvent
@@ -447,7 +448,7 @@ export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex,
                         : isStoryEpilogue
                             ? "The last page of this village's story turns. What the village becomes next, it becomes with you in it."
                             : isStoryInterlude
-                                ? "The road moves on. What you chose here is written down somewhere that matters."
+                                ? storyChoiceStatus(character, event.id)
                                 : isStoryChapterEvent
                                     ? "The scene settles into silence. Your village story continues. The chapter's guardian is waiting."
                                     : `The scene fades. A shinobi challenger steps from the shadows of ${biomeLabel(event.biome)}.`;
@@ -547,7 +548,7 @@ export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex,
                             : isStoryEpilogue
                                 ? "Your reckoning is written. The village remembers what you chose."
                                 : isStoryInterlude
-                                    ? "Your choice is recorded. The story remembers."
+                                    ? storyChoiceStatus(character, event.id)
                                     : isStoryChapterEvent
                                         ? "Defeat the chapter boss in Story Hall to earn stat points and ryo."
                                         : `Reward: ${rewardSummary(event.ryoReward, event.staminaReward, event.currencyRewards)}`}

@@ -10,7 +10,8 @@ import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
 import { applySoloPveUsageCosts, withSoloPveSettlementReceipt } from '../solo-pve/_settlement.js';
 import { applyAcademySparSettlement, applyStoryBossSettlement } from './_settle.js';
-import { bumpLegacyStats } from '../_legacy-track.js';
+import { bumpLegacyStats, legacyEnabled } from '../_legacy-track.js';
+import type { StorySettlementDelivery } from '../../shared/story-settlement-presentation.js';
 import { validateCompletedAcademySparSession } from './_academy-spar.js';
 import {
     settleStoryCombatBinding,
@@ -65,7 +66,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             playerName,
             isSpar: kind === 'academySparring',
         });
-        if (!outcome.ok) return res.status(outcome.status).json({ error: outcome.error });
+        if (!outcome.ok) return res.status(outcome.status).json({
+            error: outcome.error,
+            ...('settlement' in outcome ? { rewardCommitted: true, settlement: outcome.settlement } : {}),
+        });
         return res.status(200).json({
             ok: true,
             ...outcome.value,
@@ -137,37 +141,55 @@ async function settleSealedStoryRun(params: { runId: string; playerName: string;
             };
         });
 
+        if (!result.ok) return result;
+        const delivery: StorySettlementDelivery = {
+            battle: 'confirmed', personalReward: 'committed', combatRecord: 'unavailable',
+            legacyRecord: isSpar || !legacyEnabled() ? 'not-applicable' : 'unavailable',
+        };
+        // Keep the established failure/retry contract while returning the reward
+        // already committed to this authenticated owner's save. Unknown record
+        // status is not evidence of either success or a pending delivery.
+        const partial = (error: string) => ({
+            ok: false as const, status: 503, error,
+            settlement: { ok: true, ...result.value, character: result.character, _saveVersion: result._saveVersion, delivery },
+        });
         // Finalize both authority records after the save mutation. On a retry,
         // the redemption row above prevents rewards and costs from being applied
         // twice and this block repairs an interrupted metadata write.
-        if (result.ok && binding && session && binding.playerName === playerName && session.ownerSlug === playerName) {
-            if (session.settlementState !== 'settled') {
-                await writeSoloPveSession(withSoloPveSettlementReceipt(session, {
-                    kind: isSpar ? 'academy-spar' : 'story-boss',
-                    id: runId,
-                    settledAt: Date.now(),
-                    rewards: {
-                        progress: Number(result.value.progress) || 0,
-                        statPoints: Number(result.value.statPoints) || 0,
-                        ryo: Number(result.value.ryo) || 0,
-                        auraDust: Number(result.value.auraDust) || 0,
-                        finale: result.value.finale === true,
-                    },
-                }));
+        try {
+            if (binding && session && binding.playerName === playerName && session.ownerSlug === playerName) {
+                if (session.settlementState !== 'settled') {
+                    await writeSoloPveSession(withSoloPveSettlementReceipt(session, {
+                        kind: isSpar ? 'academy-spar' : 'story-boss',
+                        id: runId,
+                        settledAt: Date.now(),
+                        rewards: {
+                            progress: Number(result.value.progress) || 0,
+                            statPoints: Number(result.value.statPoints) || 0,
+                            ryo: Number(result.value.ryo) || 0,
+                            auraDust: Number(result.value.auraDust) || 0,
+                            finale: result.value.finale === true,
+                        },
+                    }));
+                }
+                if (!binding.settledAt && binding.status === 'active') {
+                    await kv.set(
+                        bindingKey,
+                        settleStoryCombatBinding(binding),
+                        { ex: STORY_COMBAT_SESSION_TTL_SECONDS },
+                    );
+                }
+                delivery.combatRecord = 'confirmed';
             }
-            if (!binding.settledAt && binding.status === 'active') {
-                await kv.set(
-                    bindingKey,
-                    settleStoryCombatBinding(binding),
-                    { ex: STORY_COMBAT_SESSION_TTL_SECONDS },
-                );
-            }
+        } catch (err) {
+            console.error('[story/settle] record verification', safeLogValue(err));
+            return partial('Story reward committed; associated combat record status is unavailable. Retry to verify.');
         }
         // A story first-clear is a witnessed deed for Legacy purposes. The
         // run-scoped receipt makes retries exact-once. The redemption remains
         // replayable until this sidecar confirms, so an outage cannot silently
         // discard the witnessed deed after paying the story reward.
-        if (result.ok && !isSpar) {
+        if (!isSpar) {
             const delivered = await bumpLegacyStats(
                 playerName,
                 { firstClears: 1, bossContribution: 1 },
@@ -177,12 +199,12 @@ async function settleSealedStoryRun(params: { runId: string; playerName: string;
                     durableReceipt: true,
                 },
             );
-            if (!delivered) return {
-                ok: false as const,
-                status: 503,
-                error: 'Story reward settled; Legacy ledger delivery is pending. Retry to reconcile.',
-            };
+            if (!delivered) {
+                delivery.legacyRecord = 'pending';
+                return partial('Story reward committed; Legacy record delivery is pending. Retry to reconcile.');
+            }
+            if (delivery.legacyRecord !== 'not-applicable') delivery.legacyRecord = 'confirmed';
         }
-        return result;
+        return { ...result, value: { ...result.value, delivery } };
     }, { failClosed: true });
 }
