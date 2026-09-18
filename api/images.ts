@@ -4,7 +4,7 @@ import { cors, parseJsonBody, safeName } from './_utils.js';
 import { authedPlayerOrAdmin } from './_auth.js';
 import { writeAssetMeta, deleteAssetMeta, imageFormat } from './_asset-registry.js';
 import { recordAudit } from './_audit.js';
-import { r2WriteEnabled, putImage } from './_r2.js';
+import { r2ReadEnabled, r2WriteEnabled, putImage, deleteImage } from './_r2.js';
 import { bumpImageVersion, readImageVersion } from './_image-version.js';
 
 // Max raw image string length (≈ base64 of a ~2 MB image). Anything bigger is
@@ -580,6 +580,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const claimReject = await imageClaimReject(id, identity, { claim: false });
             if (claimReject) return res.status(claimReject.status).json({ error: claimReject.error });
 
+            // Removing only DB references leaves a live R2 object that /api/img
+            // serves before it ever checks the database. Keep the record on a
+            // storage failure so the admin can retry the complete removal.
+            if ((r2ReadEnabled() || r2WriteEnabled()) && !await deleteImage(id)) {
+                return res.status(503).json({ error: 'Image storage removal failed. Nothing was removed from the image library; retry.' });
+            }
             const cat = categoryFromId(id);
             await kv.hdel(catHashKey(cat), id);
             // Phase 2: also drop the per-image key so /api/img stops serving it.

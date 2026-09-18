@@ -2,8 +2,24 @@ import { describe, it } from 'node:test'; import { strict as assert } from 'node
 import { applyDungeonWardenSettlement } from './_ai-fight.js';
 import { applyDungeonCardTerminal, applyDungeonPetTerminal, dungeonCardMatchId } from './_encounter-proof.js';
 describe('dungeon run authority', () => {
+    it('binds cosmetic identity once without changing proof or key requirements', () => {
+        for (const biome of ['forest', 'snow', 'volcano', 'shadow', 'central']) {
+            const id = `craft-dungeon-${biome}`;
+            const start = mutateDungeonRun({ inventory: ['dungeon-key'] }, 'start', '', 'theme12345678', 1, 0, undefined, undefined, id);
+            assert.equal(start.ok, true); if (!start.ok) continue;
+            assert.equal((start.character.activeDungeonRun as Record<string, unknown>).presentationEventId, id);
+            const replay = mutateDungeonRun(start.character, 'start', '', 'unused123456', 2, 0, undefined, undefined, 'craft-dungeon-other');
+            assert.equal(replay.ok, true);
+            if (replay.ok) assert.equal(replay.character, start.character);
+            assert.equal(mutateDungeonRun(start.character, 'settle', 'theme12345678', 'unused123456', 999999).ok, false);
+        }
+        const invalid = mutateDungeonRun({ inventory: ['dungeon-key'] }, 'start', '', 'theme12345678', 1, 0, undefined, undefined, '/arbitrary-art');
+        assert.equal(invalid.ok, true);
+        if (invalid.ok) assert.equal((invalid.character.activeDungeonRun as Record<string, unknown>).presentationEventId, 'builtin-hidden-dungeon');
+        assert.equal(mutateDungeonRun({}, 'start', '', 'theme12345678', 1, 0, undefined, undefined, 'craft-dungeon-snow').ok, false);
+    });
     it('consumes one key and settles once only after all three authoritative win proofs', () => {
-        const start = mutateDungeonRun({ name: 'Kiri', inventory: ['dungeon-key'], itemStacks: [] }, 'start', '', 'token12345', 1000); assert.equal(start.ok, true); if (!start.ok) return;
+        const start = mutateDungeonRun({ name: 'Kiri', inventory: ['dungeon-key'], itemStacks: [] }, 'start', '', 'token12345', 1000, 0, undefined, undefined, 'craft-dungeon-snow'); assert.equal(start.ok, true); if (!start.ok) return;
         assert.deepEqual(start.character.inventory, []);
         assert.equal(mutateDungeonRun(start.character, 'settle', 'token12345', 'x', 1000 + DUNGEON_MIN_RUN_MS - 1).ok, false);
         const unproved = mutateDungeonRun(start.character, 'settle', 'token12345', 'x', 1000 + DUNGEON_MIN_RUN_MS);
@@ -29,6 +45,10 @@ describe('dungeon run authority', () => {
             outcome: 'win', petIds: ['pet-1'], now: 4000,
         });
         assert.equal(pet.ok, true); if (!pet.ok) return;
+        for (const result of [proved, card, pet]) {
+            assert.equal((result.character.activeDungeonRun as Record<string, unknown>).presentationEventId, 'craft-dungeon-snow',
+                'battle settlements must preserve the scene identity saved at entry');
+        }
         const tooShort = mutateDungeonRun(pet.character, 'settle', 'token12345', 'x', 1000 + DUNGEON_MIN_RUN_MS - 1);
         assert.equal(tooShort.ok, false);
         if (!tooShort.ok) assert.equal(tooShort.reason, 'dungeon-run-too-short');

@@ -1,0 +1,2025 @@
+[
+  {
+    "eventId": "story-frostfang-village-4-0",
+    "pageIndex": 0,
+    "background": "/scenes/story/cinematic/storywide/frostfang-roll-stone-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Captain Yura",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "builtin-aura-sphere-lv9",
+    "pageIndex": 0,
+    "background": "/scenes/story/cinematic/side-stories/builtin-aura-sphere-lv9.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Village Elder",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/side-stories/village-elder.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "builtin-aura-sphere-lv9",
+    "pageIndex": 1,
+    "background": "/scenes/story/cinematic/side-stories/builtin-aura-sphere-lv9.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Village Elder",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/side-stories/village-elder.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "builtin-awakening-lv2",
+    "pageIndex": 0,
+    "background": "/scenes/story/cinematic/side-stories/builtin-awakening-lv2.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Narrator",
+        "pose": "neutral",
+        "image": ""
+      }
+    ]
+  },
+  {
+    "eventId": "builtin-hidden-dungeon",
+    "pageIndex": 0,
+    "background": "/scenes/story/cinematic/side-stories/builtin-hidden-dungeon.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Dungeon Warden",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/side-stories/dungeon-warden.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "builtin-hidden-dungeon",
+    "pageIndex": 1,
+    "background": "/scenes/story/cinematic/system/dungeon-chronicle-altar-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Dungeon Warden",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/side-stories/dungeon-warden.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "builtin-hidden-dungeon",
+    "pageIndex": 2,
+    "background": "/scenes/story/cinematic/system/dungeon-companion-chamber-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Dungeon Warden",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/side-stories/dungeon-warden.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-ashen-leaf-village-100-8",
+    "pageIndex": 0,
+    "background": "/scenes/story/cinematic/ashen-register-hall-wide.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Narrator",
+        "pose": "neutral",
+        "image": ""
+      }
+    ]
+  },
+  {
+    "eventId": "story-ashen-leaf-village-100-8",
+    "pageIndex": 1,
+    "background": "/scenes/story/cinematic/storywide/ashen-kiln-stair-door-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Toma Reed",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/toma-reed.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-ashen-leaf-village-100-8",
+    "pageIndex": 2,
+    "background": "/scenes/story/cinematic/storywide/ashen-climax-rootfire.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Kage Hoshina Enju",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/kage-hoshina-enju-canon.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-ashen-leaf-village-15-1",
+    "pageIndex": 0,
+    "background": "/scenes/story/cinematic/storywide/ashen-eleven-flower-fence-dawn-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Narrator",
+        "pose": "neutral",
+        "image": ""
+      }
+    ]
+  },
+  {
+    "eventId": "story-ashen-leaf-village-15-1",
+    "pageIndex": 1,
+    "background": "/scenes/story/cinematic/storywide/ashen-eleven-flower-fence-dawn-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Toma Reed",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/toma-reed.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-ashen-leaf-village-15-1",
+    "pageIndex": 2,
+    "background": "/scenes/story/cinematic/storywide/ashen-eleven-flower-fence-dawn-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Kage Hoshina Enju",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/kage-hoshina-enju-canon.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-ashen-leaf-village-25-2",
+    "pageIndex": 0,
+    "background": "/scenes/story/cinematic/ashen-register-annex.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Toma Reed",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/toma-reed.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-ashen-leaf-village-25-2",
+    "pageIndex": 1,
+    "background": "/scenes/story/cinematic/ashen-register-annex.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Narrator",
+        "pose": "neutral",
+        "image": ""
+      }
+    ]
+  },
+  {
+    "eventId": "story-ashen-leaf-village-25-2",
+    "pageIndex": 2,
+    "background": "/scenes/story/cinematic/ashen-register-annex.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Toma Reed",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/toma-reed.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-ashen-leaf-village-35-3",
+    "pageIndex": 0,
+    "background": "/scenes/story/cinematic/storywide/ashen-sanctum.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Elder Mori",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/elder-mori.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-ashen-leaf-village-35-3",
+    "pageIndex": 1,
+    "background": "/scenes/story/cinematic/storywide/ashen-sanctum.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Narrator",
+        "pose": "neutral",
+        "image": ""
+      }
+    ]
+  },
+  {
+    "eventId": "story-ashen-leaf-village-35-3",
+    "pageIndex": 2,
+    "background": "/scenes/story/cinematic/storywide/ashen-sanctum.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Elder Mori",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/elder-mori.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-ashen-leaf-village-4-0",
+    "pageIndex": 0,
+    "background": "/scenes/story/cinematic/ashen-register-hall-wide.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Toma Reed",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/toma-reed.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-ashen-leaf-village-4-0",
+    "pageIndex": 1,
+    "background": "/scenes/story/cinematic/ashen-register-wall.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Narrator",
+        "pose": "neutral",
+        "image": ""
+      }
+    ]
+  },
+  {
+    "eventId": "story-ashen-leaf-village-4-0",
+    "pageIndex": 2,
+    "background": "/scenes/story/cinematic/ashen-register-wall.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Registry Duty Clerk",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/registry-duty-clerk.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-ashen-leaf-village-50-4",
+    "pageIndex": 0,
+    "background": "/scenes/story/cinematic/storywide/ashen-civic.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Registry Duty Clerk",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/registry-duty-clerk.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-ashen-leaf-village-50-4",
+    "pageIndex": 1,
+    "background": "/scenes/story/cinematic/ashen-annex-steps.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Toma Reed",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/toma-reed.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-ashen-leaf-village-50-4",
+    "pageIndex": 2,
+    "background": "/scenes/story/cinematic/storywide/ashen-civic.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Kage Hoshina Enju",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/kage-hoshina-enju-canon.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-ashen-leaf-village-65-5",
+    "pageIndex": 0,
+    "background": "/scenes/story/cinematic/ashen-register-annex.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Registry Duty Clerk",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/registry-duty-clerk.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-ashen-leaf-village-65-5",
+    "pageIndex": 1,
+    "background": "/scenes/story/cinematic/ashen-register-annex.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Registry Duty Clerk",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/registry-duty-clerk.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-ashen-leaf-village-65-5",
+    "pageIndex": 2,
+    "background": "/scenes/story/cinematic/ashen-register-annex.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Registry Duty Clerk",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/registry-duty-clerk.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-ashen-leaf-village-75-6",
+    "pageIndex": 0,
+    "background": "/scenes/story/story-ashen-leaf-village-75-6.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Elder Mori",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/elder-mori.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-ashen-leaf-village-75-6",
+    "pageIndex": 1,
+    "background": "/scenes/story/cinematic/storywide/ashen-sanctum.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "First Flame Avatar",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/first-flame-avatar.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-ashen-leaf-village-75-6",
+    "pageIndex": 2,
+    "background": "/scenes/story/cinematic/storywide/ashen-sanctum.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "First Flame Avatar",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/first-flame-avatar.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-ashen-leaf-village-85-7",
+    "pageIndex": 0,
+    "background": "/scenes/story/story-ashen-leaf-village-85-7.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Toma Reed",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/toma-reed.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-ashen-leaf-village-85-7",
+    "pageIndex": 1,
+    "background": "/scenes/story/story-ashen-leaf-village-85-7.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Toma Reed",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/toma-reed.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-ashen-leaf-village-85-7",
+    "pageIndex": 2,
+    "background": "/scenes/story/cinematic/storywide/ashen-imera-kitchen-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Imera",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/imera.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-frostfang-village-100-8",
+    "pageIndex": 0,
+    "background": "/scenes/story/cinematic/storywide/frostfang-records-room-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Narrator",
+        "pose": "neutral",
+        "image": ""
+      }
+    ]
+  },
+  {
+    "eventId": "story-frostfang-village-100-8",
+    "pageIndex": 1,
+    "background": "/scenes/story/cinematic/storywide/frostfang-vault-antechamber-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Narrator",
+        "pose": "neutral",
+        "image": ""
+      }
+    ]
+  },
+  {
+    "eventId": "story-frostfang-village-100-8",
+    "pageIndex": 2,
+    "background": "/scenes/story/cinematic/storywide/frostfang-threshold.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Pale Pack Runner",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/pale-pack-runner.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-frostfang-village-15-1",
+    "pageIndex": 0,
+    "background": "/scenes/story/cinematic/storywide/frostfang-roll-stone-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Captain Yura",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-frostfang-village-15-1",
+    "pageIndex": 1,
+    "background": "/scenes/story/story-frostfang-village-15-1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Kage Kael Whitefang",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/kage-kael-whitefang.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-frostfang-village-15-1",
+    "pageIndex": 2,
+    "background": "/scenes/story/story-frostfang-village-15-1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Captain Yura",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-frostfang-village-25-2",
+    "pageIndex": 0,
+    "background": "/scenes/story/story-frostfang-village-25-2.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Captain Yura",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-frostfang-village-25-2",
+    "pageIndex": 1,
+    "background": "/scenes/story/story-frostfang-village-25-2.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Narrator",
+        "pose": "neutral",
+        "image": ""
+      }
+    ]
+  },
+  {
+    "eventId": "story-frostfang-village-25-2",
+    "pageIndex": 2,
+    "background": "/scenes/story/story-frostfang-village-25-2.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Frost Seal Echo",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/frost-seal-echo.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-frostfang-village-35-3",
+    "pageIndex": 0,
+    "background": "/scenes/story/cinematic/storywide/frostfang-pale-pack-cavern-interior.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Pale Pack Runner",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/pale-pack-runner.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-frostfang-village-35-3",
+    "pageIndex": 1,
+    "background": "/scenes/story/cinematic/storywide/frostfang-pale-pack-cavern-interior.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Captain Yura",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-frostfang-village-35-3",
+    "pageIndex": 2,
+    "background": "/scenes/story/cinematic/storywide/frostfang-pale-pack-cavern-mouth.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Narrator",
+        "pose": "neutral",
+        "image": ""
+      }
+    ]
+  },
+  {
+    "eventId": "story-frostfang-village-4-0",
+    "pageIndex": 1,
+    "background": "/scenes/story/cinematic/storywide/frostfang-roll-stone-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Elder Sova",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/elder-sova-canon.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-frostfang-village-4-0",
+    "pageIndex": 2,
+    "background": "/scenes/story/cinematic/storywide/frostfang-roll-stone-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Elder Sova",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/elder-sova-canon.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-frostfang-village-50-4",
+    "pageIndex": 0,
+    "background": "/scenes/story/cinematic/storywide/frostfang-civic.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Elder Sova",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/elder-sova-canon.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-frostfang-village-50-4",
+    "pageIndex": 1,
+    "background": "/scenes/story/cinematic/storywide/frostfang-civic.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Kage Kael Whitefang",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/kage-kael-whitefang.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-frostfang-village-50-4",
+    "pageIndex": 2,
+    "background": "/scenes/story/cinematic/storywide/frostfang-civic.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Kage Kael Whitefang",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/kage-kael-whitefang.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-frostfang-village-65-5",
+    "pageIndex": 0,
+    "background": "/scenes/story/story-frostfang-village-65-5.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Captain Yura",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-frostfang-village-65-5",
+    "pageIndex": 1,
+    "background": "/scenes/story/story-frostfang-village-65-5.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Captain Yura",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-frostfang-village-65-5",
+    "pageIndex": 2,
+    "background": "/scenes/story/cinematic/storywide/frostfang-old-quarry-predawn-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Pale Pack Runner",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/pale-pack-runner.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-frostfang-village-75-6",
+    "pageIndex": 0,
+    "background": "/scenes/story/cinematic/storywide/frostfang-intimate.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Captain Yura",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-frostfang-village-75-6",
+    "pageIndex": 1,
+    "background": "/scenes/story/cinematic/storywide/frostfang-intimate.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Captain Yura",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-frostfang-village-75-6",
+    "pageIndex": 2,
+    "background": "/scenes/story/cinematic/storywide/frostfang-intimate.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Captain Yura",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-frostfang-village-85-7",
+    "pageIndex": 0,
+    "background": "/scenes/story/cinematic/storywide/frostfang-white-silence-dawn-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Narrator",
+        "pose": "neutral",
+        "image": ""
+      }
+    ]
+  },
+  {
+    "eventId": "story-frostfang-village-85-7",
+    "pageIndex": 1,
+    "background": "/scenes/story/cinematic/storywide/frostfang-forger-icehouse-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Kite Harrow",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/kite-harrow.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-frostfang-village-85-7",
+    "pageIndex": 2,
+    "background": "/scenes/story/cinematic/storywide/frostfang-forger-icehouse-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Kite Harrow",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/kite-harrow.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-moonshadow-village-100-8",
+    "pageIndex": 0,
+    "background": "/scenes/story/story-moonshadow-village-100-8.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Narrator",
+        "pose": "neutral",
+        "image": ""
+      }
+    ]
+  },
+  {
+    "eventId": "story-moonshadow-village-100-8",
+    "pageIndex": 1,
+    "background": "/scenes/story/story-moonshadow-village-100-8.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Nyx",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/nyx-neutral.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-moonshadow-village-100-8",
+    "pageIndex": 2,
+    "background": "/scenes/story/cinematic/storywide/moonshadow-climax-black-glass.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Kage Sable Nocturne",
+        "pose": "tense",
+        "image": "/portraits/cinematic/storywide/kage-sable-nocturne-readable.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-moonshadow-village-15-1",
+    "pageIndex": 0,
+    "background": "/scenes/story/story-moonshadow-village-15-1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Narrator",
+        "pose": "neutral",
+        "image": ""
+      }
+    ]
+  },
+  {
+    "eventId": "story-moonshadow-village-15-1",
+    "pageIndex": 1,
+    "background": "/scenes/story/cinematic/storywide/moonshadow-registry-booth-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Nyx",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/nyx-neutral.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-moonshadow-village-15-1",
+    "pageIndex": 2,
+    "background": "/scenes/story/cinematic/storywide/moonshadow-threshold.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Kage Sable Nocturne",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/kage-sable-nocturne-readable.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-moonshadow-village-25-2",
+    "pageIndex": 0,
+    "background": "/scenes/story/cinematic/storywide/moonshadow-cellar-auction-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Nyx",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/nyx-neutral.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-moonshadow-village-25-2",
+    "pageIndex": 1,
+    "background": "/scenes/story/cinematic/storywide/moonshadow-cellar-auction-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Nyx",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/nyx-neutral.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-moonshadow-village-25-2",
+    "pageIndex": 2,
+    "background": "/scenes/story/cinematic/storywide/moonshadow-cellar-auction-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Kite Harrow",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/kite-harrow.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-moonshadow-village-35-3",
+    "pageIndex": 0,
+    "background": "/scenes/story/cinematic/storywide/moonshadow-intimate.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Nyx",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/nyx-neutral.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-moonshadow-village-35-3",
+    "pageIndex": 1,
+    "background": "/scenes/story/cinematic/storywide/moonshadow-intimate.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Nyx",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/nyx-neutral.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-moonshadow-village-35-3",
+    "pageIndex": 2,
+    "background": "/scenes/story/cinematic/storywide/moonshadow-intimate.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Hollow Moon",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/hollow-moon.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-moonshadow-village-4-0",
+    "pageIndex": 0,
+    "background": "/scenes/story/cinematic/storywide/moonshadow-registry-booth-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Shade Master Iro",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/shade-master-iro.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-moonshadow-village-4-0",
+    "pageIndex": 1,
+    "background": "/scenes/story/cinematic/storywide/moonshadow-registry-booth-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Shade Master Iro",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/shade-master-iro.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-moonshadow-village-4-0",
+    "pageIndex": 2,
+    "background": "/scenes/story/cinematic/storywide/moonshadow-registry-booth-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Shade Master Iro",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/shade-master-iro.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-moonshadow-village-50-4",
+    "pageIndex": 0,
+    "background": "/scenes/story/cinematic/storywide/moonshadow-mirrored-chamber-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Kage Sable Nocturne",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/kage-sable-nocturne-readable.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-moonshadow-village-50-4",
+    "pageIndex": 1,
+    "background": "/scenes/story/cinematic/storywide/moonshadow-mirrored-chamber-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Kage Sable Nocturne",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/kage-sable-nocturne-readable.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-moonshadow-village-50-4",
+    "pageIndex": 2,
+    "background": "/scenes/story/cinematic/storywide/moonshadow-mirrored-chamber-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Nyx",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/nyx-neutral.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-moonshadow-village-65-5",
+    "pageIndex": 0,
+    "background": "/scenes/story/cinematic/storywide/moonshadow-intimate.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Narrator",
+        "pose": "neutral",
+        "image": ""
+      }
+    ]
+  },
+  {
+    "eventId": "story-moonshadow-village-65-5",
+    "pageIndex": 1,
+    "background": "/scenes/story/cinematic/storywide/moonshadow-canal-shrine-records-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Shrine Witness",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/shrine-witness.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-moonshadow-village-65-5",
+    "pageIndex": 2,
+    "background": "/scenes/story/cinematic/storywide/moonshadow-canal-shrine-records-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Narrator",
+        "pose": "neutral",
+        "image": ""
+      }
+    ]
+  },
+  {
+    "eventId": "story-moonshadow-village-75-6",
+    "pageIndex": 0,
+    "background": "/scenes/story/story-moonshadow-village-75-6.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Nyx",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/nyx-neutral.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-moonshadow-village-75-6",
+    "pageIndex": 1,
+    "background": "/scenes/story/story-moonshadow-village-75-6.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Nyx",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/nyx-neutral.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-moonshadow-village-75-6",
+    "pageIndex": 2,
+    "background": "/scenes/story/story-moonshadow-village-75-6.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Nyx",
+        "pose": "resolute",
+        "image": "/portraits/cinematic/storywide/nyx-resolute.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-moonshadow-village-85-7",
+    "pageIndex": 0,
+    "background": "/scenes/story/cinematic/storywide/moonshadow-returned-files-dawn-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Narrator",
+        "pose": "neutral",
+        "image": ""
+      }
+    ]
+  },
+  {
+    "eventId": "story-moonshadow-village-85-7",
+    "pageIndex": 1,
+    "background": "/scenes/story/cinematic/storywide/moonshadow-stall-returned-file-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Nyx",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/nyx-neutral.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-moonshadow-village-85-7",
+    "pageIndex": 2,
+    "background": "/scenes/story/cinematic/storywide/moonshadow-intimate.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Kite Harrow",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/kite-harrow.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-stormveil-village-100-8",
+    "pageIndex": 0,
+    "background": "/scenes/story/story-interlude-stormveil-village-92.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Narrator",
+        "pose": "neutral",
+        "image": ""
+      }
+    ]
+  },
+  {
+    "eventId": "story-stormveil-village-100-8",
+    "pageIndex": 1,
+    "background": "/scenes/story/story-interlude-stormveil-village-92.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Mira Volt",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/mira-volt-neutral.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-stormveil-village-100-8",
+    "pageIndex": 2,
+    "background": "/scenes/story/cinematic/storywide/stormveil-storm-floor-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Kage Raiko Veyr",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/kage-raiko-veyr.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-stormveil-village-15-1",
+    "pageIndex": 0,
+    "background": "/scenes/story/story-stormveil-village-15-1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Mira Volt",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/mira-volt-neutral.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-stormveil-village-15-1",
+    "pageIndex": 1,
+    "background": "/scenes/story/story-stormveil-village-15-1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Narrator",
+        "pose": "neutral",
+        "image": ""
+      }
+    ]
+  },
+  {
+    "eventId": "story-stormveil-village-15-1",
+    "pageIndex": 2,
+    "background": "/scenes/story/story-stormveil-village-15-1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Kage Raiko Veyr",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/kage-raiko-veyr.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-stormveil-village-25-2",
+    "pageIndex": 0,
+    "background": "/scenes/story/story-stormveil-village-25-2.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Mira Volt",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/mira-volt-neutral.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-stormveil-village-25-2",
+    "pageIndex": 1,
+    "background": "/scenes/story/story-stormveil-village-25-2.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Mira Volt",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/mira-volt-neutral.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-stormveil-village-25-2",
+    "pageIndex": 2,
+    "background": "/scenes/story/story-stormveil-village-25-2.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Mira Volt",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/mira-volt-neutral.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-stormveil-village-35-3",
+    "pageIndex": 0,
+    "background": "/scenes/story/story-stormveil-village-35-3.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Mira Volt",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/mira-volt-neutral.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-stormveil-village-35-3",
+    "pageIndex": 1,
+    "background": "/scenes/story/cinematic/storywide/stormveil-eleven-pipes-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Narrator",
+        "pose": "neutral",
+        "image": ""
+      }
+    ]
+  },
+  {
+    "eventId": "story-stormveil-village-35-3",
+    "pageIndex": 2,
+    "background": "/scenes/story/cinematic/storywide/stormveil-eleven-pipes-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Elder Vanta",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/elder-vanta.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-stormveil-village-4-0",
+    "pageIndex": 0,
+    "background": "/scenes/story/cinematic/storywide/stormveil-challenge-board-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Mira Volt",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/mira-volt-neutral.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-stormveil-village-4-0",
+    "pageIndex": 1,
+    "background": "/scenes/story/cinematic/storywide/stormveil-challenge-board-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Ledger Clerk",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/ledger-clerk.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-stormveil-village-4-0",
+    "pageIndex": 2,
+    "background": "/scenes/story/cinematic/storywide/stormveil-challenge-board-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Ledger Clerk",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/ledger-clerk.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-stormveil-village-50-4",
+    "pageIndex": 0,
+    "background": "/scenes/story/story-stormveil-village-50-4.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Ledger Clerk",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/ledger-clerk.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-stormveil-village-50-4",
+    "pageIndex": 1,
+    "background": "/scenes/story/story-stormveil-village-50-4.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Kage Raiko Veyr",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/kage-raiko-veyr.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-stormveil-village-50-4",
+    "pageIndex": 2,
+    "background": "/scenes/story/story-stormveil-village-50-4.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Kage Raiko Veyr",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/kage-raiko-veyr.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-stormveil-village-65-5",
+    "pageIndex": 0,
+    "background": "/scenes/story/story-stormveil-village-65-5.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Tempest Guard Captain",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/tempest-guard-captain.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-stormveil-village-65-5",
+    "pageIndex": 1,
+    "background": "/scenes/story/story-stormveil-village-65-5.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Tempest Guard Captain",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/tempest-guard-captain.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-stormveil-village-65-5",
+    "pageIndex": 2,
+    "background": "/scenes/story/cinematic/storywide/stormveil-ravine-camp-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Rebel Medic",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/rebel-medic-plain-band-v2.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-stormveil-village-75-6",
+    "pageIndex": 0,
+    "background": "/scenes/story/cinematic/storywide/stormveil-challenge-board-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Mira Volt",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/mira-volt-neutral.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-stormveil-village-75-6",
+    "pageIndex": 1,
+    "background": "/scenes/story/cinematic/storywide/stormveil-challenge-board-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Mira Volt",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/mira-volt-neutral.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-stormveil-village-75-6",
+    "pageIndex": 2,
+    "background": "/scenes/story/story-stormveil-village-25-2.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Mira Volt",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/mira-volt-neutral.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-stormveil-village-85-7",
+    "pageIndex": 0,
+    "background": "/scenes/story/story-stormveil-village-85-7.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Tempest Guard Captain",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/storywide/tempest-guard-captain.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-stormveil-village-85-7",
+    "pageIndex": 1,
+    "background": "/scenes/story/story-stormveil-village-85-7.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Kite Harrow",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/kite-harrow.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "story-stormveil-village-85-7",
+    "pageIndex": 2,
+    "background": "/scenes/story/story-stormveil-village-85-7.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Kite Harrow",
+        "pose": "neutral",
+        "image": "/portraits/cinematic/kite-harrow.webp?v=891202c8e"
+      }
+    ]
+  },
+  {
+    "eventId": "sys-ancient-chest",
+    "pageIndex": 0,
+    "background": "/scenes/story/cinematic/side-stories/sys-ancient-chest.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Narrator",
+        "pose": "neutral",
+        "image": ""
+      }
+    ]
+  },
+  {
+    "eventId": "sys-ancient-chest",
+    "pageIndex": 1,
+    "background": "/scenes/story/cinematic/system/ancient-courier-chest-open-v1.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Narrator",
+        "pose": "neutral",
+        "image": ""
+      }
+    ]
+  },
+  {
+    "eventId": "sys-pet-encounter",
+    "pageIndex": 0,
+    "background": "/scenes/story/cinematic/side-stories/sys-pet-encounter.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Narrator",
+        "pose": "neutral",
+        "image": ""
+      }
+    ]
+  },
+  {
+    "eventId": "sys-pet-encounter",
+    "pageIndex": 1,
+    "background": "/scenes/story/cinematic/side-stories/sys-pet-encounter.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Narrator",
+        "pose": "neutral",
+        "image": ""
+      }
+    ]
+  },
+  {
+    "eventId": "sys-pet-encounter",
+    "pageIndex": 2,
+    "background": "/scenes/story/cinematic/side-stories/sys-pet-encounter.webp",
+    "actors": [
+      {
+        "name": "Player",
+        "pose": "neutral",
+        "image": ""
+      },
+      {
+        "name": "Narrator",
+        "pose": "neutral",
+        "image": ""
+      }
+    ]
+  }
+]

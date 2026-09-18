@@ -13,6 +13,7 @@
  */
 
 import { isPremiumVnEvent, STORYWIDE_ACTORS, STORYWIDE_ACTOR_VARIANTS } from "./vn-storywide-direction";
+import { vnSharedImageActor } from './vn-shared-artwork';
 
 /**
  * Slug-ifies a speaker name into a /portraits/<slug>.png path. Returns ""
@@ -38,6 +39,10 @@ export function resolveVnAuthoredActorImage(
     authoredImage?: string,
 ): string {
     const authored = authoredImage?.trim() ?? "";
+    const boundActor = vnSharedImageActor(authored);
+    const actorKey = actorName.trim().toLowerCase().replace(/\s+/g, ' ');
+    if (boundActor && boundActor !== actorKey
+        && !(STORYWIDE_ACTORS[boundActor] && STORYWIDE_ACTORS[boundActor] === STORYWIDE_ACTORS[actorKey])) return '';
     if (!authored || !isPremiumVnEvent(eventId)) return authored;
     // The pet encounter's actor is selected at runtime, so it cannot have a
     // stable name-to-file entry in the storywide cast ledger. WorldMap supplies
@@ -75,15 +80,15 @@ export function resolveVnActorBaseImage(
 }
 
 /**
- * Best-fit scene background for a VN page. Tries an event-specific
- * /scenes/<eventid>.png first, then falls back to a biome default.
+ * Story exports are WebP files under /scenes/story. Other creator events
+ * retain their existing scene/biome convention.
  * CSS background-image silently ignores 404s, so absent files just
  * fall through to the biome gradient — no broken-image icon shown.
  */
 export function defaultVnScene(eventId?: string | null, biome?: string | null): string {
     if (eventId) {
         const slug = eventId.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
-        if (slug) return `/scenes/${slug}.png`;
+        if (slug) return slug.startsWith('story-') ? `/scenes/story/${slug}.webp` : `/scenes/${slug}.png`;
     }
     if (biome) {
         const slug = biome.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");

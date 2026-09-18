@@ -92,13 +92,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // redirect straight to the public (Cloudflare-fronted) URL — the browser
     // fetches the bytes from R2, never from Postgres through this function. This
     // removes the DB round-trip that 503s under load and blanks cold portraits.
-    // r2ObjectExists HEAD-checks once per id per process then caches a hit, so
+    // r2ObjectExists HEAD-checks per id/version then caches a hit, so
     // steady-state this is a pure redirect. Any miss (R2 disabled, un-backfilled
     // id, external-URL image, or a HEAD failure) falls through to the existing
     // Postgres path below — so nothing regresses and the fallback stays intact.
     if (r2ReadEnabled()) {
-        const url = r2PublicUrl(id);
-        if (url && (await r2ObjectExists(id))) {
+        const imageVersion = versioned ? req.query.v as string : undefined;
+        const url = r2PublicUrl(id, imageVersion);
+        if (url && (await r2ObjectExists(id, { version: imageVersion }))) {
             res.setHeader('Cache-Control', artCache);
             return res.redirect(302, url);
         }

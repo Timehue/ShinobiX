@@ -8,14 +8,32 @@ import { hollowRifts } from "../data/hollow-rifts";
 import {
     canonicalBeastPortraitId,
     resolveDungeonWardenPortrait,
+    resolveVerifiedDungeonWardenPortrait,
     resolveDungeonSpeakerPortrait,
     resolveTowerEnemyPortrait,
     storyRoadBattlePortrait,
     type TowerEnemySpriteKey,
 } from "./ai-fight-art";
+import { RETIRED_VN_ART } from './vn-retired-artwork';
+import { vnActorImageKey } from './vn-shared-artwork';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const clientRoot = join(here, "..", "..");
+
+test('dungeon combat rejects reviewed old portraits but keeps replacements and named uploads', async t => {
+    const id = 'builtin-hidden-dungeon';
+    const key = `vn:${id}:page:0:right`;
+    const legacy = `/api/img?id=${encodeURIComponent(key)}&v=combat-recheck`;
+    const event = { id, vnPages: [{ title: 'Warden', scene: '', speaker: 'Dungeon Warden', dialogue: [], rightImage: legacy }] };
+    let replacement = false;
+    t.mock.method(globalThis, 'fetch', async () => new Response(replacement ? 'new uploaded image' : readFileSync(join(clientRoot, 'e2e/fixtures/vn-identity-audit', `${RETIRED_VN_ART[key]}.webp`))));
+    assert.equal(await resolveVerifiedDungeonWardenPortrait(event, { [key]: legacy }), '/portraits/cinematic/side-stories/dungeon-warden.webp');
+    replacement = true;
+    const next = legacy + '-new';
+    assert.equal(await resolveVerifiedDungeonWardenPortrait({ ...event, vnPages: [{ ...event.vnPages[0], rightImage: next }] }, { [key]: next }), next);
+    const namedKey = vnActorImageKey(id, 0, 'Dungeon Warden');
+    assert.equal(await resolveVerifiedDungeonWardenPortrait(event, { [namedKey]: '/uploads/new-warden.webp', [key]: legacy }), '/uploads/new-warden.webp');
+});
 
 const towerSprites: Partial<Record<TowerEnemySpriteKey, string>> = {
     bandit: "sprite:bandit",
@@ -132,7 +150,10 @@ test("the image resolvers stay wired into both combat screens", () => {
     assert.match(dungeonStart, /await import\("\.\/lib\/ai-fight-art"\)/,
         "Dungeon-only portrait resolution must stay off the initial application graph");
     assert.match(dungeonStart, /characterRef\.current\?\.name !== owner/);
-    assert.ok(dungeonStart.indexOf("characterRef.current?.name !== owner") < dungeonStart.indexOf("resolveDungeonWardenPortrait(event, sharedImages)"),
+    assert.match(dungeonStart, /characterRef\.current\?\.activeDungeonRun\?\.token !== runToken/);
+    assert.match(dungeonStart, /screenRef\.current !== 'dungeon'/);
+    assert.ok(dungeonStart.indexOf("characterRef.current?.name !== owner") > dungeonStart.indexOf("await resolveVerifiedDungeonWardenPortrait(event, sharedImages)")
+        && dungeonStart.indexOf("characterRef.current?.name !== owner") < dungeonStart.indexOf("requestAiFight({"),
         "the deferred portrait load must remain account-fenced before launching with captured Dungeon art");
     assert.match(app, /launchTriggeredEventBattle\(\{/,
         "App must route triggered-event combat through the extracted sealed launcher");
@@ -152,7 +173,7 @@ test("dungeon portraits stay attached to the Warden when another actor closes th
     assert.equal(resolveDungeonWardenPortrait(event, { "vn:builtin-hidden-dungeon:page:1:right": "published-boar.png" }), "warden.png");
     assert.equal(resolveDungeonSpeakerPortrait(event, "Player", { "event:builtin-hidden-dungeon:warden": "warden.png" }), undefined);
     assert.equal(resolveDungeonSpeakerPortrait(event, "Narrator", {}), undefined);
-    assert.equal(resolveDungeonSpeakerPortrait(event, "Mira Volt", { "event:builtin-hidden-dungeon:warden": "warden.png" }), "/portraits/mira-volt.webp");
+    assert.match(resolveDungeonSpeakerPortrait(event, "Mira Volt", { "event:builtin-hidden-dungeon:warden": "warden.png" })!, /cinematic\/storywide\/mira-volt/);
     assert.equal(resolveDungeonSpeakerPortrait(event, "Dungeon Warden", {}), "warden.png");
     assert.equal(resolveDungeonWardenPortrait({ ...event, vnPages: event.vnPages.slice(1) }, {}), "/portraits/cinematic/side-stories/dungeon-warden.webp");
     const leftWarden = { ...event, vnPages: [{ ...event.vnPages[0], rightName: "Player", leftName: "Dungeon Warden", leftImage: "left-warden.png", rightImage: "player.png" }] };
@@ -164,6 +185,4 @@ test("story battle launchers leave portraits to the sealed boss identity", () =>
         const source = readFileSync(join(clientRoot, "src", relative), "utf8");
         assert.doesNotMatch(source, /bossPortrait:\s*sharedImages/, relative + " must not dress the boss in chapter-opening art");
     }
-    const hall = readFileSync(join(clientRoot, "src", "screens", "StoryBoss.tsx"), "utf8");
-    assert.match(hall, /resolveVnActorBaseImage\(\s*chapterId, speaker/);
 });

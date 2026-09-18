@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, lazy, Suspense } from "react";
+import { useState, useCallback, useRef, useEffect, lazy, Suspense } from "react";
 import type { Character } from "../types/character";
 import type { Pet } from "../types/pet";
 import { CardClashDuel } from "./CardClashDuel";
@@ -7,10 +7,10 @@ import { type TileCard } from "../data/tile-cards";
 import { isPetOnExpedition, petDisplayName } from "../lib/pet";
 import { primePetSfx } from "../lib/pet-sfx";
 import { startBattleMusic } from "../lib/pet-music";
-import { defaultVnScene, hidePlayerPortraitDuringNarration, splitDialogueLine } from "../lib/vn";
+import { applyVnTextVars, vnTextVarsFor, defaultVnScene, hidePlayerPortraitDuringNarration, splitDialogueLine } from "../lib/vn";
 import { rewardSummary } from "../lib/currency";
 import { hiddenDungeonVnEvent } from "../data/vn-events";
-import { GameIcon } from "../components/icons/GameIcon";
+import { CinematicVisualNovelStage } from "../components/CinematicVisualNovelStage";
 import { activeCarriedPets } from "../lib/entitlements";
 import { isLivePetDuelAvailable } from "../lib/pet-duel-live-roster";
 // The Rare Beast Seal still RENDERS its bout locally (cinematic, or live when the
@@ -29,6 +29,11 @@ import {
 } from "../lib/dungeon-pet-authority";
 import { resolveDungeonStage } from "../lib/dungeon-stage";
 import { resolveDungeonSpeakerPortrait } from "../lib/ai-fight-art";
+import { useVnArtwork } from '../lib/useVnArtwork';
+import { overlayVnImages } from '../lib/vn-shared-artwork';
+import { resolveVnPresentation } from '../lib/vn-presentation';
+import { isLowEndMobile, prefersReducedMotion } from '../lib/device-tier';
+import { claimVnAction } from '../lib/vn-action-gate';
 import {
     startAuthoredEncounter,
     submitShowdownTurn,
@@ -38,7 +43,6 @@ import {
     type ShowdownStateView,
 } from "../lib/pet-showdown-api";
 import { type CreatorEvent } from "../App";
-import "../styles/relic-dungeons.css";
 
 // The turn-based battle. Lazy so three/r3f only load when a fight actually
 // mounts — the same deal the continuous-duel renderer had before it.
@@ -47,7 +51,7 @@ const PetShowdownBattle = lazy(() => import("../components/PetShowdownBattle").t
 const PetColiseumDuel = lazy(() => import("../components/PetColiseum").then((m) => ({ default: m.PetColiseumDuel })));
 
 export function DungeonEncounter({
-    event,
+    event: sourceEvent,
     character,
     creatorCards,
     dungeonRunToken,
@@ -80,14 +84,26 @@ export function DungeonEncounter({
     onLeave: () => void | Promise<void>;
     sharedImages?: Record<string, string>;
 }) {
+    const event = useVnArtwork(overlayVnImages(sourceEvent, sourceEvent.id, sharedImages));
+    // Page portraits have already been hydrated and verified above. Feeding raw
+    // positional slots back to the resolver would resurrect a retired image.
+    const dedicatedImages = Object.fromEntries(Object.entries(sharedImages).filter(([id]) => !id.startsWith(`vn:${event.id}:page:`)));
     const stage = resolveDungeonStage(character.activeDungeonRun);
     const pages = event.vnPages && event.vnPages.length > 0 ? event.vnPages : hiddenDungeonVnEvent.vnPages!;
     const stagePage = stage === "pet" ? 2 : stage === "tile" ? 1 : 0;
     const page = pages[Math.min(stagePage, pages.length - 1)];
     const pageDialogue = page.dialogue.length > 0 ? page.dialogue : event.dialogue;
     const activeLine = pageDialogue[lineIndex] ?? pageDialogue[0] ?? page.scene ?? "The dungeon waits.";
-    const { speaker, text: spoken } = splitDialogueLine(activeLine, page.speaker || event.vnSpeaker || "Narrator");
-    const hidePlayerPortrait = hidePlayerPortraitDuringNarration(speaker, "Player");
+    const textVars = vnTextVarsFor(character);
+    const parsedLine = page.lines?.[lineIndex] ?? splitDialogueLine(activeLine, page.speaker || event.vnSpeaker || "Narrator");
+    const speaker = applyVnTextVars(parsedLine.speaker, textVars);
+    const spoken = applyVnTextVars(parsedLine.text, textVars);
+    const playerAvatar = sharedImages['avatar:' + character.name.trim().toLowerCase()] || character.avatarImage || '';
+    const speakerKey = speaker.trim().toLowerCase();
+    const playerSpeaking = ['player', character.name.trim().toLowerCase()].includes(speakerKey);
+    const pageActor = page.rightName?.toLowerCase() === 'player' ? page.leftName : page.rightName;
+    const actorName = playerSpeaking || speakerKey === 'narrator' ? pageActor || page.speaker || 'Narrator' : speaker;
+    const actorImage = resolveDungeonSpeakerPortrait(event, actorName, dedicatedImages, page) || '';
     // Admin-uploaded dungeon art (managed via the Relic Dungeons admin tab)
     // overlays the static event/page fallbacks. Each dungeon has 4 slots:
     // backdrop (VN scene), warden (boss portrait), tilescene (seal 2
@@ -96,12 +112,41 @@ export function DungeonEncounter({
     const adminBackdrop = sharedImages[`event:${event.id}:backdrop`];
     const adminTileScene = sharedImages[`event:${event.id}:tilescene`];
     const adminPet = sharedImages[`event:${event.id}:pet`];
-    const pageImage = adminBackdrop || page.image || event.image || defaultVnScene(event.id, event.biome);
+    const presentation = resolveVnPresentation({ event, page, pageIndex: stagePage, lineIndex, speaker,
+        speakingSide: playerSpeaking ? 'left' : speakerKey === 'narrator' ? null : 'right',
+        pageImage: page.image || event.image || defaultVnScene(event.id, event.biome),
+        reducedMotion: prefersReducedMotion(), liteFx: isLowEndMobile() });
+    // Seal two has its own authored altar. The entrance backdrop must not replace
+    // every room; dedicated tile art also stays consistent with the card battle.
+    const stageBackdrop = stage === 'tile' ? adminTileScene : stage === 'intro' ? adminBackdrop : undefined;
     const canBack = lineIndex > 0;
     const isLastLine = lineIndex >= pageDialogue.length - 1;
-    const actionLabel = stage === "intro" ? "Challenge Seal One" : stage === "tile" ? "Start Tile Seal" : "Challenge Rare Pet";
+    const actionLabel = stage === "intro" ? "Challenge Seal One" : stage === "tile" ? "Start Chronicle Seal" : "Challenge Rare Pet";
+    const [encounter, setEncounter] = useState<{ token: string; stage: string } | null>(null);
+    const actionLocked = useRef(false);
+    useEffect(() => { actionLocked.current = false; }, [dungeonRunToken, stage, lineIndex]);
     function nextLine() {
-        if (!isLastLine) setLineIndex((line) => line + 1);
+        if (!isLastLine && claimVnAction(actionLocked)) setLineIndex((line) => Math.min(pageDialogue.length - 1, line + 1));
+    }
+    function startSeal() {
+        if (!isLastLine || !claimVnAction(actionLocked)) return;
+        if (stage === 'intro') onStartAiFight();
+        else setEncounter({ token: dungeonRunToken, stage });
+    }
+    // A server proof can arrive before the battle replay/result has finished.
+    // Keep its host mounted until the player exits it, then open the next seal
+    // at its first line. The proof still exclusively determines that next seal.
+    if (encounter?.token === dungeonRunToken && encounter.stage === 'tile') {
+        return <CardClashDuel character={character} creatorCards={creatorCards} dungeonRunToken={dungeonRunToken}
+            onVersionedCharacter={onVersionedCharacter} onDungeonWin={() => {
+                setEncounter(null); setLineIndex(0); onTileWin();
+            }} onDungeonLeave={onLeave} dungeonSceneImage={adminTileScene} />;
+    }
+    if (encounter?.token === dungeonRunToken && encounter.stage === 'pet') {
+        return <DungeonRareBeastBattle key={dungeonRunToken} character={character} dungeonRunToken={dungeonRunToken}
+            onVersionedCharacter={onVersionedCharacter} onWin={() => {
+                setEncounter(null); setLineIndex(0); return onPetWin();
+            }} onLeave={onLeave} sharedImages={sharedImages} dungeonPetImage={adminPet} />;
     }
     if (stage === "complete") {
         return (
@@ -117,74 +162,32 @@ export function DungeonEncounter({
             </div>
         );
     }
-    if (stage === "tile" && isLastLine) {
-        return <CardClashDuel character={character} creatorCards={creatorCards} dungeonRunToken={dungeonRunToken} onVersionedCharacter={onVersionedCharacter} onDungeonWin={onTileWin} onDungeonLeave={onLeave} dungeonSceneImage={adminTileScene} />;
-    }
-    if (stage === "pet" && isLastLine) {
-        return <DungeonRareBeastBattle key={dungeonRunToken} character={character} dungeonRunToken={dungeonRunToken} onVersionedCharacter={onVersionedCharacter} onWin={onPetWin} onLeave={onLeave} sharedImages={sharedImages} dungeonPetImage={adminPet} />;
-    }
     return (
-        <div className="card cinematic-card relic-dungeon-screen" data-biome={event.biome}>
-            <header
-                className="relic-dungeon-command"
-                style={pageImage ? { backgroundImage: `linear-gradient(90deg, rgba(3,7,16,.97), rgba(3,7,16,.72) 58%, rgba(3,7,16,.34)), url(${pageImage})` } : undefined}
-            >
-                <button type="button" className="relic-dungeon-leave" onClick={onLeave}>← Leave dungeon</button>
-                <div className="relic-dungeon-identity">
-                    <span className="relic-dungeon-eyebrow"><GameIcon name="sigil" size={16} /> Hidden relic vault · {event.biome}</span>
-                    <h2>{page.title || event.vnTitle || event.name}</h2>
-                    <p>{page.scene || event.vnScene || "A hidden dungeon opens underfoot."}</p>
-                </div>
-                <div className="relic-dungeon-status" aria-label={`Seal ${stagePage + 1} of 3, line ${lineIndex + 1} of ${Math.max(1, pageDialogue.length)}`}>
-                    <span>Current seal</span>
-                    <strong>{stagePage + 1}<small>/ 3</small></strong>
-                    <em>Line {lineIndex + 1} / {Math.max(1, pageDialogue.length)}</em>
-                </div>
-            </header>
-            <div className="visual-novel admin-vn-play">
-                <div className="vn-header">
-                    <div>
-                        <p className="act-label">HIDDEN DUNGEON</p>
-                        <h2>{page.title || event.vnTitle || event.name}</h2>
-                    </div>
-                    <div className="vn-progress">Seal {stagePage + 1}/3 | Line {lineIndex + 1}/{Math.max(1, pageDialogue.length)}</div>
-                </div>
-                <div className={"vn-stage vn-biome-" + event.biome + (pageImage ? " vn-has-image" : "")} style={pageImage ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${pageImage})` } : undefined}>
-                    <div className="vn-backdrop"><span className="vn-village-silhouette"></span></div>
-                    {hidePlayerPortrait ? null : <div className="vn-character mentor-character">
-                        {character.avatarImage
-                            ? <img src={character.avatarImage} alt={character.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                            : null}
-                        <span className="vn-character-initials">{character.name.slice(0, 2).toUpperCase()}</span>
-                    </div>}
-                    {(() => {
-                        if (["narrator", "player", "%name", character.name.trim().toLowerCase()].includes(speaker.trim().toLowerCase())) return null;
-                        const portrait = resolveDungeonSpeakerPortrait(event, speaker, sharedImages, page);
-                        return (
-                            <div className="vn-character hero-character">
-                                {portrait
-                                    ? <img src={portrait} alt={speaker} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                                    : null}
-                                <span className="vn-character-initials">{speaker.trim().toLowerCase() === "narrator" ? "..." : (speaker.split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase() || "DG")}</span>
-                            </div>
-                        );
-                    })()}
-                    <div className="vn-scene-card">{page.scene || event.vnScene || "A hidden dungeon opens underfoot."}</div>
-                    <div className="vn-dialogue">
-                        <div className="vn-speaker">{speaker}</div>
-                        <p>{spoken}</p>
-                        <div className="vn-controls">
-                            <button disabled={!canBack} onClick={() => setLineIndex((line) => Math.max(0, line - 1))}>Back</button>
-                            {!isLastLine ? <button onClick={nextLine}>Next</button> : <button className="admin-button" onClick={stage === "intro" ? onStartAiFight : () => setLineIndex((line) => line)}>{actionLabel}</button>}
-                        </div>
-                    </div>
-                </div>
-                <div className="vn-reward-strip">
-                    <span>Requires Level {event.levelReq}</span>
-                    <span>Clear all 3 seals: {rewardSummary(event.ryoReward, event.staminaReward, event.currencyRewards)}</span>
-                </div>
-            </div>
-        </div>
+        <CinematicVisualNovelStage
+            eventId={event.id}
+            eventLabel={`Hidden relic vault · ${event.biome}`}
+            pageTitle={page.title || event.vnTitle || event.name}
+            scene={page.scene || event.vnScene || 'A hidden dungeon opens underfoot.'}
+            speaker={speaker} spoken={spoken}
+            pageIndex={stagePage} pageCount={3} progressLabel="Seal"
+            lineIndex={lineIndex} lineCount={Math.max(1, pageDialogue.length)}
+            left={{ name: 'Player', image: playerAvatar, initials: character.name.slice(0, 2).toUpperCase(),
+                player: true, speaking: playerSpeaking, hidden: !playerAvatar || hidePlayerPortraitDuringNarration(speaker, 'Player') }}
+            right={{ name: actorName, image: actorImage, initials: actorName.split(' ').map(part => part[0]).join('').slice(0, 2),
+                speaking: speakerKey === actorName.trim().toLowerCase(), hidden: !actorImage }}
+            presentation={{ ...presentation, ...(stageBackdrop ? { backgroundImage: stageBackdrop } : {}) }}
+            allowStageAdvance={!isLastLine} decisionPoint={isLastLine}
+            onAdvance={nextLine} onCancel={onLeave} cancelLabel="Leave"
+            renderFooter={(typingDone) => <div className="cvn-dungeon-footer">
+                <p className="cvn-dungeon-reward">Level {event.levelReq} · Clear all 3 seals: {rewardSummary(event.ryoReward, event.staminaReward, event.currencyRewards)}</p>
+                {typingDone && <div className="vn-controls">
+                    <button disabled={!canBack} onClick={() => {
+                        if (claimVnAction(actionLocked)) setLineIndex(line => Math.max(0, line - 1));
+                    }}>Back</button>
+                    {!isLastLine ? <button onClick={nextLine}>Next</button> : <button onClick={startSeal}>{actionLabel}</button>}
+                </div>}
+            </div>}
+        />
     );
 }
 
