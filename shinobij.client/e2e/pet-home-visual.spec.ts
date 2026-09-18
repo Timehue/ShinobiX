@@ -172,6 +172,8 @@ function baseCharacter() {
             source: "admin",
         },
         petBreeding: null as SessionFixture | null,
+        activePetId: undefined as string | undefined,
+        activePetId2v2: undefined as string | undefined,
     };
 }
 
@@ -227,6 +229,7 @@ async function installPetHomeApi(page: Page) {
             { schemaVersion: 1, pet: pet("qa-sanctuary-2", "rare-1", "Tideback Otter", "Water", "rare", 6, { origin: "wild", paletteVariantId: "chromatic-v1", image: "/pet-poses/rare-1-idle.webp" }), page: 1, storedAt: Date.now() - 172_800_000, source: "wild" },
         ] as Array<{ schemaVersion: 1; pet: PetFixture; page: number; storedAt: number; source: "wild" | "bred" | "roster" }>,
         saveVersion: 7,
+        roleRequests: [] as Array<{ action: string; petId: string; assign?: boolean }>,
     };
 
     await page.addInitScript((replies) => {
@@ -339,6 +342,19 @@ async function installPetHomeApi(page: Page) {
         if (path === "/api/pet/warfront-start") {
             const body = request.postDataJSON() as { resumeOnly?: boolean };
             if (body.resumeOnly) return route.fulfill({ status: 204 });
+        }
+        if (path === "/api/pet/progress") {
+            // The Pet Yard's Active and 2v2 Partner buttons settle on the server,
+            // so they only take effect once this reply carries the new role.
+            const body = request.postDataJSON() as { action?: string; petId?: string; assign?: boolean };
+            if (body.action === "set-active" || body.action === "set-partner") {
+                const petId = String(body.petId ?? "");
+                state.roleRequests.push({ action: body.action, petId, assign: body.assign });
+                if (body.action === "set-active") state.character.activePetId = petId;
+                else if (body.assign !== false) state.character.activePetId2v2 = petId;
+                else if (state.character.activePetId2v2 === petId) state.character.activePetId2v2 = undefined;
+                return json(route, { ok: true, action: body.action, pet: null, character: state.character, _saveVersion: ++state.saveVersion });
+            }
         }
         if (path === "/api/battle-lock") return json(route, { lock: null });
         return json(route, GENERIC_REPLY);
@@ -791,9 +807,12 @@ test("the training gate tells overflow and a Supporter's sixth carried pet apart
     await expect.poll(noHorizontalScroll).toBe(true);
 
     // The advice is true: Set as Active pulls the sixth pet into the training five.
+    // The role is recorded by the server first, so a Start Training pressed
+    // straight after cannot reach a server that still has the old order.
     await page.getByRole("button", { name: "Set as Active", exact: true }).click();
     await expect(trainingHint).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Start Training", exact: true })).toBeEnabled();
+    expect(state.roleRequests).toEqual([{ action: "set-active", petId: fullRosterPets[fullRosterPets.length - 1].id, assign: true }]);
 });
 
 test("Pet Sanctuary mobile deposit and withdrawal certification", async ({ page }, testInfo) => {
