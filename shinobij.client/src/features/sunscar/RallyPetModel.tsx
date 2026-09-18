@@ -15,7 +15,7 @@ import { disposePetModelResources } from '../../lib/pet-model-resources';
 import { prepareRallyClips, RALLY_CLIP_MAP, rallyClipSpeed } from './rally-animation';
 import { rallyPetPosition } from './rally-presentation';
 
-export function RallyPetModel({ state, index, onReady }: { state: RefObject<RallyState>; index: number; onReady: (id: string) => void }) {
+export function RallyPetModel({ state, index, onReady, reducedMotion }: { state: RefObject<RallyState>; index: number; onReady: (id: string) => void; reducedMotion: boolean }) {
     const pet = state.current.racers[index].pet;
     const config = useMemo(() => {
         const selected = warfrontPetModelConfig(petCombatModel(pet as unknown as Pet));
@@ -77,11 +77,13 @@ export function RallyPetModel({ state, index, onReady }: { state: RefObject<Rall
         if (!actor.current) return;
         const path = rallyPath(rallyTrack(race.trackId), racer.distance);
         const position = rallyPetPosition(race, index);
-        if (race.finished) actor.current.position.lerp(finishTarget.set(position.x, position.y, position.z), 1 - Math.exp(-Math.min(delta, .1) * 5));
+        // Reduced motion jumps straight to the podium pose instead of gliding.
+        const settle = reducedMotion ? 1 : 1 - Math.exp(-Math.min(delta, .1) * 5);
+        if (race.finished) actor.current.position.lerp(finishTarget.set(position.x, position.y, position.z), settle);
         else actor.current.position.set(position.x, position.y + racer.jump, position.z);
         const ahead = rallyPath(rallyTrack(race.trackId), racer.distance + .5);
         const facing = race.finished ? config.yawOffset : Math.PI + config.yawOffset - Math.atan2(ahead.x - path.x, .5);
-        actor.current.rotation.y = race.finished ? THREE.MathUtils.lerp(actor.current.rotation.y, facing, 1 - Math.exp(-Math.min(delta, .1) * 5)) : facing;
+        actor.current.rotation.y = race.finished ? THREE.MathUtils.lerp(actor.current.rotation.y, facing, settle) : facing;
         const name = RALLY_CLIP_MAP[racer.motion];
         const current = animation.current;
         if (current.name !== name) {

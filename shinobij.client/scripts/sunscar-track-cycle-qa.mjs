@@ -34,6 +34,9 @@ try {
     const auth = await page.request.get(base + '/__qa/session').then(r => r.json());
     const headers = { 'x-player-name': auth.name, 'x-player-token': auth.token };
     await page.goto(base + '/sunscar-modes-qa.html');
+    // Baseline once the festival hub is up: it keeps a 60 s day-rollover clock
+    // for as long as the festival is open, races included.
+    await page.getByRole('button', { name: 'Visit the race grounds' }).waitFor();
     await page.waitForTimeout(300);
     const idleRaf = await page.evaluate(() => window.sunscarActiveRafQa());
     const idleIntervals = await page.evaluate(() => window.sunscarActiveIntervalsQa());
@@ -66,6 +69,18 @@ try {
             assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= (i === 4 ? 320 : 390) && bounds.height >= 44);
         }
         if (i === 2) {
+            // Note the frame the race finished on. A 16 ms timeout chain, so the
+            // interval accounting above is untouched.
+            await page.evaluate(() => {
+                const watch = () => {
+                    const q = window.sunscarRallyQa;
+                    if (q?.state.finished) window.sunscarFinishFrameQa = q.frameCount;
+                    else setTimeout(watch, 16);
+                };
+                watch();
+            });
+            const stageTop = () => page.evaluate(() => document.querySelector('.rally-stage').getBoundingClientRect().top);
+            const racingTop = await stageTop();
             const deadline = Date.now() + 240_000;
             while (!await page.locator('.rally-results').count()) {
                 if (Date.now() > deadline) throw new Error('Burning Dunes practice did not finish');
@@ -75,10 +90,32 @@ try {
                 await page.waitForTimeout(800);
             }
             await page.keyboard.up('Shift');
+            // Results exist now, but the page waits for the podium before
+            // scrolling to them (the settle takes at least 2.5 s).
+            assert.ok(Math.abs(await stageTop() - racingTop) < 2, 'The stage stays on screen while the finish plays');
+            // The finish presentation (pets gliding to the podium, the camera
+            // pulling back, the victory clip) renders for 2.5 s of clip time,
+            // at most 0.05 s a frame: at least 50 frames. It must then stop
+            // on its own; the idle results screen draws nothing.
+            const finishFrame = await page.evaluate(() => window.sunscarFinishFrameQa);
+            const frameCount = () => page.evaluate(() => window.sunscarRallyQa.frameCount);
+            const settleDeadline = Date.now() + 30_000;
+            let settledFrame = await frameCount(), quietSince = Date.now();
+            while (Date.now() - quietSince < 1000) {
+                if (Date.now() > settleDeadline) throw new Error('The finish presentation never stopped rendering');
+                await page.waitForTimeout(100);
+                const frame = await frameCount();
+                if (frame !== settledFrame) { settledFrame = frame; quietSince = Date.now(); }
+            }
+            assert.ok(settledFrame - finishFrame >= 45, `Finish presentation must play (${settledFrame - finishFrame} frames after the finish)`);
+            const settledTop = await stageTop();
+            assert.ok(settledTop < racingTop - 50, 'Results scroll into view once the finish has played');
             await page.waitForTimeout(300);
-            const finishFrames = await page.evaluate(() => window.sunscarRallyQa.frameCount);
+            const finishFrames = await frameCount();
             await page.waitForTimeout(600);
-            assert.ok((await page.evaluate(() => window.sunscarRallyQa.frameCount)) - finishFrames <= 2, 'Finished race must not keep rendering');
+            assert.ok((await frameCount()) - finishFrames <= 2, 'Finished race must not keep rendering');
+            await page.locator('.rally-stage').screenshot({ path: fileURLToPath(new URL('finish-' + i + '.png', out)) });
+            checks.push(`Burning Dunes finish presentation rendered ${settledFrame - finishFrame} frames, then stopped and scrolled ${Math.round(racingTop - settledTop)} px to the results`);
             await page.getByRole('button', { name: 'Return to the race desk' }).click();
             checks.push('Burning Dunes full practice finish');
         } else {
