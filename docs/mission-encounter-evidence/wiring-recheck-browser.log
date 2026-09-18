@@ -1,0 +1,30 @@
+
+> shinobij.client@0.0.0 test:e2e:live
+> playwright test -c playwright.live.config.ts authored-missions-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --output=test-results/authored-missions-recheck
+
+[e2e] live express server port 16989 for this worktree (override with LIVE_E2E_PORT)
+[WebServer] [startup] ENABLE_LEGACY is not set — the Legacy system (Sage/Trial, Hall of Legends, era titles) is OFF: every /legacy/* route will 404 and the client hides its Legacy surfaces, so players see no trace of the feature. Set ENABLE_LEGACY=1 to enable it, or ignore this if Legacy is intentionally disabled.
+
+[WebServer] (node:22148) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+
+Running 8 tests using 1 worker
+
+(node:23172) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1/8] [chromium-desktop-live] › e2e-live\authored-missions-express.spec.ts:13:58 › C-Rank Patrol renders its sealed authored opponent and real combat feedback
+[2/8] [chromium-desktop-live] › e2e-live\authored-missions-express.spec.ts:13:58 › B-Rank Escort renders its sealed authored opponent and real combat feedback
+[3/8] [chromium-desktop-live] › e2e-live\authored-missions-express.spec.ts:13:58 › A-Rank Hunt renders its sealed authored opponent and real combat feedback
+[4/8] [chromium-desktop-live] › e2e-live\authored-missions-express.spec.ts:13:58 › S-Rank Crisis renders its sealed authored opponent and real combat feedback
+(node:28220) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[5/8] [chromium-mobile-live] › e2e-live\authored-missions-express.spec.ts:13:58 › C-Rank Patrol renders its sealed authored opponent and real combat feedback
+[6/8] [chromium-mobile-live] › e2e-live\authored-missions-express.spec.ts:13:58 › B-Rank Escort renders its sealed authored opponent and real combat feedback
+[7/8] [chromium-mobile-live] › e2e-live\authored-missions-express.spec.ts:13:58 › A-Rank Hunt renders its sealed authored opponent and real combat feedback
+[8/8] [chromium-mobile-live] › e2e-live\authored-missions-express.spec.ts:13:58 › S-Rank Crisis renders its sealed authored opponent and real combat feedback
+  8 passed (39.0s)
