@@ -16,6 +16,7 @@ import { villageBiomeMap } from "../data/village-biomes";
 import type { StoryInterlude } from "../data/story-interludes";
 import { isStoryContentVillage, type StoryContentPayload } from "./story-content-contract";
 import { loadStoryContent } from "./story-content-loader";
+export { overlayVnImages } from './vn-shared-artwork';
 
 // Post-finale ending epilogues live in their own module; re-exported here so
 // App.tsx keeps a single story-beat import surface (and its line ratchet).
@@ -75,23 +76,6 @@ export function interludeToCreatorEvent(interlude: StoryInterlude, bossIcon = "ð
         ryoReward: 0,
         staminaReward: 0,
         dialogue: interlude.pages.flatMap((page) => page.dialogue),
-    };
-}
-
-/** The shared-image overlay applied to any story VN (admin-published art wins). */
-export function overlayVnImages(base: CreatorEvent, eventId: string, sharedImages: Record<string, string>): CreatorEvent {
-    return {
-        ...base,
-        ...(sharedImages["event:" + eventId + ":bg"]     ? { image:       sharedImages["event:" + eventId + ":bg"] }     : {}),
-        ...(sharedImages["event:" + eventId + ":avatar"] ? { avatarImage: sharedImages["event:" + eventId + ":avatar"] } : {}),
-        ...(base.vnPages ? {
-            vnPages: base.vnPages.map((p, i) => ({
-                ...p,
-                ...(sharedImages[`vn:${eventId}:page:${i}`]       ? { image:      sharedImages[`vn:${eventId}:page:${i}`] }       : {}),
-                ...(sharedImages[`vn:${eventId}:page:${i}:left`]  ? { leftImage:  sharedImages[`vn:${eventId}:page:${i}:left`] }  : {}),
-                ...(sharedImages[`vn:${eventId}:page:${i}:right`] ? { rightImage: sharedImages[`vn:${eventId}:page:${i}:right`] } : {}),
-            })),
-        } : {}),
     };
 }
 

@@ -1,0 +1,3835 @@
+{
+  "date": "2026-09-18",
+  "catalogVariants": 341,
+  "catalogEvents": 215,
+  "rows": [
+    {
+      "index": 0,
+      "id": "event:builtin-awakening-lv2:avatar",
+      "eventId": "builtin-awakening-lv2",
+      "pageIndex": 0,
+      "title": "The Pull Toward Central",
+      "speaker": "Narrator",
+      "scene": "A summons seal opens across your field record as a hard tug of chakra numbs your fingers.",
+      "active": false,
+      "actor": null,
+      "expected": null,
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Narrator",
+          "image": ""
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "c1670696532c237fbd81ed55d49063eba34e44f867ea9ca71d49868a964221bd",
+      "width": 512,
+      "height": 512,
+      "file": "assets/c1670696532c237fbd81ed55d49063eba34e44f867ea9ca71d49868a964221bd.webp",
+      "error": "",
+      "decision": "retained: ignored by current premium actor resolution"
+    },
+    {
+      "index": 1,
+      "id": "event:story-ashen-leaf-village-85-7:avatar",
+      "eventId": "story-ashen-leaf-village-85-7",
+      "pageIndex": 0,
+      "title": "The Detainment Lists",
+      "speaker": "Toma Reed",
+      "scene": "The village square, notices in fresh ink",
+      "active": false,
+      "actor": null,
+      "expected": null,
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Toma Reed",
+          "image": "/portraits/cinematic/toma-reed.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "21023bc44154392720d8eb3f830694503b889716627ca987ace024f0a85cd662",
+      "width": 512,
+      "height": 512,
+      "file": "assets/21023bc44154392720d8eb3f830694503b889716627ca987ace024f0a85cd662.webp",
+      "error": "",
+      "decision": "retained: ignored by current premium actor resolution"
+    },
+    {
+      "index": 2,
+      "id": "event:story-frostfang-village-4-0:avatar",
+      "eventId": "story-frostfang-village-4-0",
+      "pageIndex": 0,
+      "title": "First Bell",
+      "speaker": "Captain Yura",
+      "scene": "The training yard at first bell, breath-fog in rows, lantern lines overhead",
+      "active": false,
+      "actor": null,
+      "expected": null,
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Captain Yura",
+          "image": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "910f1ebd9eb0a0626e462700b62e1282655172d5af9104df2369791c477f65d7",
+      "width": 512,
+      "height": 512,
+      "file": "assets/910f1ebd9eb0a0626e462700b62e1282655172d5af9104df2369791c477f65d7.webp",
+      "error": "",
+      "decision": "retained: ignored by current premium actor resolution"
+    },
+    {
+      "index": 3,
+      "id": "event:sys-ancient-chest:avatar",
+      "eventId": "sys-ancient-chest",
+      "pageIndex": 0,
+      "title": "A Seal Under the Rubble",
+      "speaker": "Narrator",
+      "scene": "A straight lacquered edge shows beneath the moss of a collapsed waystation.",
+      "active": false,
+      "actor": null,
+      "expected": null,
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Narrator",
+          "image": ""
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "035e4a8ccd07aafad992c4872c1e23497cea4a4d3b502b5999a827ce8792b12a",
+      "width": 512,
+      "height": 512,
+      "file": "assets/035e4a8ccd07aafad992c4872c1e23497cea4a4d3b502b5999a827ce8792b12a.webp",
+      "error": "",
+      "decision": "retained: ignored by current premium actor resolution"
+    },
+    {
+      "index": 4,
+      "id": "vn:builtin-aura-sphere-lv9:page:0:right",
+      "eventId": "builtin-aura-sphere-lv9",
+      "pageIndex": 0,
+      "title": "A Timed Issue Seal",
+      "speaker": "Village Elder",
+      "scene": "A seal sewn into your field kit opens at Ninth Rank, revealing an aura fitting and a recorded message.",
+      "active": true,
+      "actor": "Village Elder",
+      "expected": "/portraits/cinematic/side-stories/village-elder.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Village Elder",
+          "image": "/portraits/cinematic/side-stories/village-elder.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "52f3e9460c0f2e924a266367ce132344e6f76f23f14b4f9b43c27d3a1eaa8320",
+      "width": 512,
+      "height": 512,
+      "file": "assets/52f3e9460c0f2e924a266367ce132344e6f76f23f14b4f9b43c27d3a1eaa8320.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/52f3e9460c0f2e924a266367ce132344e6f76f23f14b4f9b43c27d3a1eaa8320.webp"
+    },
+    {
+      "index": 5,
+      "id": "vn:builtin-aura-sphere-lv9:page:1:right",
+      "eventId": "builtin-aura-sphere-lv9",
+      "pageIndex": 1,
+      "title": "The Sphere Awakens",
+      "speaker": "Village Elder",
+      "scene": "Mist turns slowly over the opened aura fitting while the issue seal finishes its message.",
+      "active": true,
+      "actor": "Village Elder",
+      "expected": "/portraits/cinematic/side-stories/village-elder.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Village Elder",
+          "image": "/portraits/cinematic/side-stories/village-elder.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "52f3e9460c0f2e924a266367ce132344e6f76f23f14b4f9b43c27d3a1eaa8320",
+      "width": 512,
+      "height": 512,
+      "file": "assets/52f3e9460c0f2e924a266367ce132344e6f76f23f14b4f9b43c27d3a1eaa8320.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/52f3e9460c0f2e924a266367ce132344e6f76f23f14b4f9b43c27d3a1eaa8320.webp"
+    },
+    {
+      "index": 6,
+      "id": "vn:builtin-hidden-dungeon:page:0:right",
+      "eventId": "builtin-hidden-dungeon",
+      "pageIndex": 0,
+      "title": "First Seal: The Warden",
+      "speaker": "Dungeon Warden",
+      "scene": "A masked shinobi steps from a hall of old torii gates.",
+      "active": true,
+      "actor": "Dungeon Warden",
+      "expected": "/portraits/cinematic/side-stories/dungeon-warden.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Dungeon Warden",
+          "image": "/portraits/cinematic/side-stories/dungeon-warden.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "522be80141cbd96595fcfec50fd07c1628a7287d6d4ee986f3cc80c069d98c0f",
+      "width": 410,
+      "height": 512,
+      "file": "assets/522be80141cbd96595fcfec50fd07c1628a7287d6d4ee986f3cc80c069d98c0f.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/522be80141cbd96595fcfec50fd07c1628a7287d6d4ee986f3cc80c069d98c0f.webp"
+    },
+    {
+      "index": 7,
+      "id": "vn:builtin-hidden-dungeon:page:1:right",
+      "eventId": "builtin-hidden-dungeon",
+      "pageIndex": 1,
+      "title": "Second Seal: The Chronicle Table",
+      "speaker": "Dungeon Warden",
+      "scene": "Stone cards grind across a square altar. Five slots wait for your deck.",
+      "active": true,
+      "actor": "Dungeon Warden",
+      "expected": "/portraits/cinematic/side-stories/dungeon-warden.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Dungeon Warden",
+          "image": "/portraits/cinematic/side-stories/dungeon-warden.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "54a60954652de9a73c4e06aa9b6dd0ae188c4d80e8f076195f0531942e962b49",
+      "width": 341,
+      "height": 512,
+      "file": "assets/54a60954652de9a73c4e06aa9b6dd0ae188c4d80e8f076195f0531942e962b49.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/54a60954652de9a73c4e06aa9b6dd0ae188c4d80e8f076195f0531942e962b49.webp"
+    },
+    {
+      "index": 8,
+      "id": "vn:builtin-hidden-dungeon:page:2:right",
+      "eventId": "builtin-hidden-dungeon",
+      "pageIndex": 2,
+      "title": "Third Seal: The Companion",
+      "speaker": "Dungeon Warden",
+      "scene": "A rare sector beast circles the final chamber, watching both you and your companion.",
+      "active": true,
+      "actor": "Dungeon Warden",
+      "expected": "/portraits/cinematic/side-stories/dungeon-warden.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Dungeon Warden",
+          "image": "/portraits/cinematic/side-stories/dungeon-warden.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "fd0a2ec59c9789ba3ef75d75adafa22b448a0af84878dc614b20f4114c22b472",
+      "width": 512,
+      "height": 341,
+      "file": "assets/fd0a2ec59c9789ba3ef75d75adafa22b448a0af84878dc614b20f4114c22b472.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/fd0a2ec59c9789ba3ef75d75adafa22b448a0af84878dc614b20f4114c22b472.webp"
+    },
+    {
+      "index": 9,
+      "id": "vn:pet-encounter:page:1:right",
+      "eventId": "pet-encounter",
+      "pageIndex": 1,
+      "active": false,
+      "actor": null,
+      "expected": null,
+      "cast": [],
+      "missingEvent": true,
+      "missingPage": false,
+      "sha256": "035e4a8ccd07aafad992c4872c1e23497cea4a4d3b502b5999a827ce8792b12a",
+      "width": 512,
+      "height": 512,
+      "file": "assets/035e4a8ccd07aafad992c4872c1e23497cea4a4d3b502b5999a827ce8792b12a.webp",
+      "error": "",
+      "decision": "retire: obsolete wizard in pet template alias",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/035e4a8ccd07aafad992c4872c1e23497cea4a4d3b502b5999a827ce8792b12a.webp"
+    },
+    {
+      "index": 10,
+      "id": "vn:story-ashen-leaf-village-100-8:page:0:right",
+      "eventId": "story-ashen-leaf-village-100-8",
+      "pageIndex": 0,
+      "title": "Frost-Fall",
+      "speaker": "Narrator",
+      "scene": "The Register hall, every line glowing faint",
+      "active": true,
+      "actor": "Narrator",
+      "expected": "",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Narrator",
+          "image": ""
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "21023bc44154392720d8eb3f830694503b889716627ca987ace024f0a85cd662",
+      "width": 512,
+      "height": 512,
+      "file": "assets/21023bc44154392720d8eb3f830694503b889716627ca987ace024f0a85cd662.webp",
+      "error": "",
+      "decision": "retire: narration has no character",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/21023bc44154392720d8eb3f830694503b889716627ca987ace024f0a85cd662.webp"
+    },
+    {
+      "index": 11,
+      "id": "vn:story-ashen-leaf-village-100-8:page:1:right",
+      "eventId": "story-ashen-leaf-village-100-8",
+      "pageIndex": 1,
+      "title": "At the Stair",
+      "speaker": "Toma Reed",
+      "scene": "The kiln stair door",
+      "active": true,
+      "actor": "Toma Reed",
+      "expected": "/portraits/cinematic/toma-reed.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Toma Reed",
+          "image": "/portraits/cinematic/toma-reed.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "ffddd4a6111899be4a46e798fff696b502f2d619deda73a2ddf850a336035d6a",
+      "width": 512,
+      "height": 512,
+      "file": "assets/ffddd4a6111899be4a46e798fff696b502f2d619deda73a2ddf850a336035d6a.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/ffddd4a6111899be4a46e798fff696b502f2d619deda73a2ddf850a336035d6a.webp"
+    },
+    {
+      "index": 12,
+      "id": "vn:story-ashen-leaf-village-100-8:page:2:right",
+      "eventId": "story-ashen-leaf-village-100-8",
+      "pageIndex": 2,
+      "title": "The Keeper at the Fire",
+      "speaker": "Kage Hoshina Enju",
+      "scene": "The Rootfire chamber, racks emptied, shears on an anvil",
+      "active": true,
+      "actor": "Kage Hoshina Enju",
+      "expected": "/portraits/cinematic/storywide/kage-hoshina-enju-canon.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Kage Hoshina Enju",
+          "image": "/portraits/cinematic/storywide/kage-hoshina-enju-canon.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "fa61cdabf55d7e217b5064619a089aaa0914dc9d9e2d55b43fb55085aa0cc19d",
+      "width": 512,
+      "height": 512,
+      "file": "assets/fa61cdabf55d7e217b5064619a089aaa0914dc9d9e2d55b43fb55085aa0cc19d.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/fa61cdabf55d7e217b5064619a089aaa0914dc9d9e2d55b43fb55085aa0cc19d.webp"
+    },
+    {
+      "index": 13,
+      "id": "vn:story-ashen-leaf-village-15-1:page:0:right",
+      "eventId": "story-ashen-leaf-village-15-1",
+      "pageIndex": 0,
+      "title": "The Blessing",
+      "speaker": "Narrator",
+      "scene": "Ash-house row at dawn, neighbors gathering",
+      "active": true,
+      "actor": "Narrator",
+      "expected": "",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Narrator",
+          "image": ""
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "21023bc44154392720d8eb3f830694503b889716627ca987ace024f0a85cd662",
+      "width": 512,
+      "height": 512,
+      "file": "assets/21023bc44154392720d8eb3f830694503b889716627ca987ace024f0a85cd662.webp",
+      "error": "",
+      "decision": "retire: narration has no character",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/21023bc44154392720d8eb3f830694503b889716627ca987ace024f0a85cd662.webp"
+    },
+    {
+      "index": 14,
+      "id": "vn:story-ashen-leaf-village-15-1:page:1:right",
+      "eventId": "story-ashen-leaf-village-15-1",
+      "pageIndex": 1,
+      "title": "Eleven Flowers",
+      "speaker": "Toma Reed",
+      "scene": "The fence line, crowd thinning",
+      "active": true,
+      "actor": "Toma Reed",
+      "expected": "/portraits/cinematic/toma-reed.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Toma Reed",
+          "image": "/portraits/cinematic/toma-reed.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "ffddd4a6111899be4a46e798fff696b502f2d619deda73a2ddf850a336035d6a",
+      "width": 512,
+      "height": 512,
+      "file": "assets/ffddd4a6111899be4a46e798fff696b502f2d619deda73a2ddf850a336035d6a.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/ffddd4a6111899be4a46e798fff696b502f2d619deda73a2ddf850a336035d6a.webp"
+    },
+    {
+      "index": 15,
+      "id": "vn:story-ashen-leaf-village-15-1:page:2:right",
+      "eventId": "story-ashen-leaf-village-15-1",
+      "pageIndex": 2,
+      "title": "The Kage at the Fence",
+      "speaker": "Kage Hoshina Enju",
+      "scene": "Imera's gate, winter bundles stacked",
+      "active": true,
+      "actor": "Kage Hoshina Enju",
+      "expected": "/portraits/cinematic/storywide/kage-hoshina-enju-canon.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Kage Hoshina Enju",
+          "image": "/portraits/cinematic/storywide/kage-hoshina-enju-canon.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "fa61cdabf55d7e217b5064619a089aaa0914dc9d9e2d55b43fb55085aa0cc19d",
+      "width": 512,
+      "height": 512,
+      "file": "assets/fa61cdabf55d7e217b5064619a089aaa0914dc9d9e2d55b43fb55085aa0cc19d.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/fa61cdabf55d7e217b5064619a089aaa0914dc9d9e2d55b43fb55085aa0cc19d.webp"
+    },
+    {
+      "index": 16,
+      "id": "vn:story-ashen-leaf-village-25-2:page:0:right",
+      "eventId": "story-ashen-leaf-village-25-2",
+      "pageIndex": 0,
+      "title": "After Hours",
+      "speaker": "Toma Reed",
+      "scene": "The archive, one lamp between the stacks",
+      "active": true,
+      "actor": "Toma Reed",
+      "expected": "/portraits/cinematic/toma-reed.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Toma Reed",
+          "image": "/portraits/cinematic/toma-reed.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "21023bc44154392720d8eb3f830694503b889716627ca987ace024f0a85cd662",
+      "width": 512,
+      "height": 512,
+      "file": "assets/21023bc44154392720d8eb3f830694503b889716627ca987ace024f0a85cd662.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/21023bc44154392720d8eb3f830694503b889716627ca987ace024f0a85cd662.webp"
+    },
+    {
+      "index": 17,
+      "id": "vn:story-ashen-leaf-village-25-2:page:1:right",
+      "eventId": "story-ashen-leaf-village-25-2",
+      "pageIndex": 1,
+      "title": "Jorun's Plans",
+      "speaker": "Narrator",
+      "scene": "The carpenter's slat, held to the lamp",
+      "active": true,
+      "actor": "Narrator",
+      "expected": "",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Narrator",
+          "image": ""
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "ffddd4a6111899be4a46e798fff696b502f2d619deda73a2ddf850a336035d6a",
+      "width": 512,
+      "height": 512,
+      "file": "assets/ffddd4a6111899be4a46e798fff696b502f2d619deda73a2ddf850a336035d6a.webp",
+      "error": "",
+      "decision": "retire: narration has no character",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/ffddd4a6111899be4a46e798fff696b502f2d619deda73a2ddf850a336035d6a.webp"
+    },
+    {
+      "index": 18,
+      "id": "vn:story-ashen-leaf-village-25-2:page:2:right",
+      "eventId": "story-ashen-leaf-village-25-2",
+      "pageIndex": 2,
+      "title": "The Bridge",
+      "speaker": "Toma Reed",
+      "scene": "Between the racks",
+      "active": true,
+      "actor": "Toma Reed",
+      "expected": "/portraits/cinematic/toma-reed.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Toma Reed",
+          "image": "/portraits/cinematic/toma-reed.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "fa61cdabf55d7e217b5064619a089aaa0914dc9d9e2d55b43fb55085aa0cc19d",
+      "width": 512,
+      "height": 512,
+      "file": "assets/fa61cdabf55d7e217b5064619a089aaa0914dc9d9e2d55b43fb55085aa0cc19d.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/fa61cdabf55d7e217b5064619a089aaa0914dc9d9e2d55b43fb55085aa0cc19d.webp"
+    },
+    {
+      "index": 19,
+      "id": "vn:story-ashen-leaf-village-35-3:page:0:right",
+      "eventId": "story-ashen-leaf-village-35-3",
+      "pageIndex": 0,
+      "title": "The Kiln Stair",
+      "speaker": "Elder Mori",
+      "scene": "Beneath the ancestral kiln, heat rising",
+      "active": true,
+      "actor": "Elder Mori",
+      "expected": "/portraits/cinematic/elder-mori.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Elder Mori",
+          "image": "/portraits/cinematic/elder-mori.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "21023bc44154392720d8eb3f830694503b889716627ca987ace024f0a85cd662",
+      "width": 512,
+      "height": 512,
+      "file": "assets/21023bc44154392720d8eb3f830694503b889716627ca987ace024f0a85cd662.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/21023bc44154392720d8eb3f830694503b889716627ca987ace024f0a85cd662.webp"
+    },
+    {
+      "index": 20,
+      "id": "vn:story-ashen-leaf-village-35-3:page:1:right",
+      "eventId": "story-ashen-leaf-village-35-3",
+      "pageIndex": 1,
+      "title": "The Founders' Alcove",
+      "speaker": "Narrator",
+      "scene": "A carved alcove, offerings behind wax",
+      "active": true,
+      "actor": "Narrator",
+      "expected": "",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Narrator",
+          "image": ""
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "ffddd4a6111899be4a46e798fff696b502f2d619deda73a2ddf850a336035d6a",
+      "width": 512,
+      "height": 512,
+      "file": "assets/ffddd4a6111899be4a46e798fff696b502f2d619deda73a2ddf850a336035d6a.webp",
+      "error": "",
+      "decision": "retire: narration has no character",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/ffddd4a6111899be4a46e798fff696b502f2d619deda73a2ddf850a336035d6a.webp"
+    },
+    {
+      "index": 21,
+      "id": "vn:story-ashen-leaf-village-35-3:page:2:right",
+      "eventId": "story-ashen-leaf-village-35-3",
+      "pageIndex": 2,
+      "title": "Given Gladly",
+      "speaker": "Elder Mori",
+      "scene": "The alcove",
+      "active": true,
+      "actor": "Elder Mori",
+      "expected": "/portraits/cinematic/elder-mori.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Elder Mori",
+          "image": "/portraits/cinematic/elder-mori.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "fa61cdabf55d7e217b5064619a089aaa0914dc9d9e2d55b43fb55085aa0cc19d",
+      "width": 512,
+      "height": 512,
+      "file": "assets/fa61cdabf55d7e217b5064619a089aaa0914dc9d9e2d55b43fb55085aa0cc19d.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/fa61cdabf55d7e217b5064619a089aaa0914dc9d9e2d55b43fb55085aa0cc19d.webp"
+    },
+    {
+      "index": 22,
+      "id": "vn:story-ashen-leaf-village-4-0:page:0:right",
+      "eventId": "story-ashen-leaf-village-4-0",
+      "pageIndex": 0,
+      "title": "The Register Hall",
+      "speaker": "Toma Reed",
+      "scene": "Register hall, morning light through cedar smoke",
+      "active": true,
+      "actor": "Toma Reed",
+      "expected": "/portraits/cinematic/toma-reed.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Toma Reed",
+          "image": "/portraits/cinematic/toma-reed.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "21023bc44154392720d8eb3f830694503b889716627ca987ace024f0a85cd662",
+      "width": 512,
+      "height": 512,
+      "file": "assets/21023bc44154392720d8eb3f830694503b889716627ca987ace024f0a85cd662.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/21023bc44154392720d8eb3f830694503b889716627ca987ace024f0a85cd662.webp"
+    },
+    {
+      "index": 23,
+      "id": "vn:story-ashen-leaf-village-4-0:page:1:left",
+      "eventId": "story-ashen-leaf-village-4-0",
+      "pageIndex": 1,
+      "title": "The Fourth Question",
+      "speaker": "Narrator",
+      "scene": "The Register wall, quill waiting",
+      "active": true,
+      "actor": "Narrator",
+      "expected": "",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Narrator",
+          "image": ""
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "ca9b1b174ebfeefda0a61751d07223c2edb24c5dbc485ca9c3a2ef6031e78c52",
+      "width": 512,
+      "height": 341,
+      "file": "assets/ca9b1b174ebfeefda0a61751d07223c2edb24c5dbc485ca9c3a2ef6031e78c52.webp",
+      "error": "",
+      "decision": "retire: narration has no character",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/ca9b1b174ebfeefda0a61751d07223c2edb24c5dbc485ca9c3a2ef6031e78c52.webp"
+    },
+    {
+      "index": 24,
+      "id": "vn:story-ashen-leaf-village-4-0:page:1:right",
+      "eventId": "story-ashen-leaf-village-4-0",
+      "pageIndex": 1,
+      "title": "The Fourth Question",
+      "speaker": "Narrator",
+      "scene": "The Register wall, quill waiting",
+      "active": false,
+      "actor": null,
+      "expected": null,
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Narrator",
+          "image": ""
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "ffddd4a6111899be4a46e798fff696b502f2d619deda73a2ddf850a336035d6a",
+      "width": 512,
+      "height": 512,
+      "file": "assets/ffddd4a6111899be4a46e798fff696b502f2d619deda73a2ddf850a336035d6a.webp",
+      "error": "",
+      "decision": "retire: fallback ninja would surface after scenery portrait is removed",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/ffddd4a6111899be4a46e798fff696b502f2d619deda73a2ddf850a336035d6a.webp"
+    },
+    {
+      "index": 25,
+      "id": "vn:story-ashen-leaf-village-4-0:page:2:right",
+      "eventId": "story-ashen-leaf-village-4-0",
+      "pageIndex": 2,
+      "title": "A Protector",
+      "speaker": "Registry Duty Clerk",
+      "scene": "The Register wall",
+      "active": true,
+      "actor": "Registry Duty Clerk",
+      "expected": "/portraits/cinematic/registry-duty-clerk.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Registry Duty Clerk",
+          "image": "/portraits/cinematic/registry-duty-clerk.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "fa61cdabf55d7e217b5064619a089aaa0914dc9d9e2d55b43fb55085aa0cc19d",
+      "width": 512,
+      "height": 512,
+      "file": "assets/fa61cdabf55d7e217b5064619a089aaa0914dc9d9e2d55b43fb55085aa0cc19d.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/fa61cdabf55d7e217b5064619a089aaa0914dc9d9e2d55b43fb55085aa0cc19d.webp"
+    },
+    {
+      "index": 26,
+      "id": "vn:story-ashen-leaf-village-50-4:page:0:right",
+      "eventId": "story-ashen-leaf-village-50-4",
+      "pageIndex": 0,
+      "title": "The Measuring",
+      "speaker": "Registry Duty Clerk",
+      "scene": "The graft hall, ribbons and calipers",
+      "active": true,
+      "actor": "Registry Duty Clerk",
+      "expected": "/portraits/cinematic/registry-duty-clerk.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Registry Duty Clerk",
+          "image": "/portraits/cinematic/registry-duty-clerk.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "21023bc44154392720d8eb3f830694503b889716627ca987ace024f0a85cd662",
+      "width": 512,
+      "height": 512,
+      "file": "assets/21023bc44154392720d8eb3f830694503b889716627ca987ace024f0a85cd662.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/21023bc44154392720d8eb3f830694503b889716627ca987ace024f0a85cd662.webp"
+    },
+    {
+      "index": 27,
+      "id": "vn:story-ashen-leaf-village-50-4:page:1:right",
+      "eventId": "story-ashen-leaf-village-50-4",
+      "pageIndex": 1,
+      "title": "Before the Bell",
+      "speaker": "Toma Reed",
+      "scene": "The hall steps, Toma pacing",
+      "active": true,
+      "actor": "Toma Reed",
+      "expected": "/portraits/cinematic/toma-reed.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Toma Reed",
+          "image": "/portraits/cinematic/toma-reed.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "ffddd4a6111899be4a46e798fff696b502f2d619deda73a2ddf850a336035d6a",
+      "width": 512,
+      "height": 512,
+      "file": "assets/ffddd4a6111899be4a46e798fff696b502f2d619deda73a2ddf850a336035d6a.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/ffddd4a6111899be4a46e798fff696b502f2d619deda73a2ddf850a336035d6a.webp"
+    },
+    {
+      "index": 28,
+      "id": "vn:story-ashen-leaf-village-50-4:page:2:right",
+      "eventId": "story-ashen-leaf-village-50-4",
+      "pageIndex": 2,
+      "title": "The Grafting",
+      "speaker": "Kage Hoshina Enju",
+      "scene": "The rite circle, Hoshina presiding",
+      "active": true,
+      "actor": "Kage Hoshina Enju",
+      "expected": "/portraits/cinematic/storywide/kage-hoshina-enju-canon.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Kage Hoshina Enju",
+          "image": "/portraits/cinematic/storywide/kage-hoshina-enju-canon.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "fa61cdabf55d7e217b5064619a089aaa0914dc9d9e2d55b43fb55085aa0cc19d",
+      "width": 512,
+      "height": 512,
+      "file": "assets/fa61cdabf55d7e217b5064619a089aaa0914dc9d9e2d55b43fb55085aa0cc19d.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/fa61cdabf55d7e217b5064619a089aaa0914dc9d9e2d55b43fb55085aa0cc19d.webp"
+    },
+    {
+      "index": 29,
+      "id": "vn:story-ashen-leaf-village-65-5:page:0:right",
+      "eventId": "story-ashen-leaf-village-65-5",
+      "pageIndex": 0,
+      "title": "Escort Orders",
+      "speaker": "Registry Duty Clerk",
+      "scene": "The register annex, crates on a wagon",
+      "active": true,
+      "actor": "Registry Duty Clerk",
+      "expected": "/portraits/cinematic/registry-duty-clerk.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Registry Duty Clerk",
+          "image": "/portraits/cinematic/registry-duty-clerk.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "21023bc44154392720d8eb3f830694503b889716627ca987ace024f0a85cd662",
+      "width": 512,
+      "height": 512,
+      "file": "assets/21023bc44154392720d8eb3f830694503b889716627ca987ace024f0a85cd662.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/21023bc44154392720d8eb3f830694503b889716627ca987ace024f0a85cd662.webp"
+    },
+    {
+      "index": 30,
+      "id": "vn:story-ashen-leaf-village-65-5:page:1:right",
+      "eventId": "story-ashen-leaf-village-65-5",
+      "pageIndex": 1,
+      "title": "A Fair Question",
+      "speaker": "Registry Duty Clerk",
+      "scene": "The annex",
+      "active": true,
+      "actor": "Registry Duty Clerk",
+      "expected": "/portraits/cinematic/registry-duty-clerk.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Registry Duty Clerk",
+          "image": "/portraits/cinematic/registry-duty-clerk.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "ffddd4a6111899be4a46e798fff696b502f2d619deda73a2ddf850a336035d6a",
+      "width": 512,
+      "height": 512,
+      "file": "assets/ffddd4a6111899be4a46e798fff696b502f2d619deda73a2ddf850a336035d6a.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/ffddd4a6111899be4a46e798fff696b502f2d619deda73a2ddf850a336035d6a.webp"
+    },
+    {
+      "index": 31,
+      "id": "vn:story-ashen-leaf-village-65-5:page:2:right",
+      "eventId": "story-ashen-leaf-village-65-5",
+      "pageIndex": 2,
+      "title": "The Charts",
+      "speaker": "Registry Duty Clerk",
+      "scene": "The annex, voice low",
+      "active": true,
+      "actor": "Registry Duty Clerk",
+      "expected": "/portraits/cinematic/registry-duty-clerk.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Registry Duty Clerk",
+          "image": "/portraits/cinematic/registry-duty-clerk.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "fa61cdabf55d7e217b5064619a089aaa0914dc9d9e2d55b43fb55085aa0cc19d",
+      "width": 512,
+      "height": 512,
+      "file": "assets/fa61cdabf55d7e217b5064619a089aaa0914dc9d9e2d55b43fb55085aa0cc19d.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/fa61cdabf55d7e217b5064619a089aaa0914dc9d9e2d55b43fb55085aa0cc19d.webp"
+    },
+    {
+      "index": 32,
+      "id": "vn:story-ashen-leaf-village-75-6:page:0:right",
+      "eventId": "story-ashen-leaf-village-75-6",
+      "pageIndex": 0,
+      "title": "Ash on the Wind",
+      "speaker": "Elder Mori",
+      "scene": "The kiln yard at dusk, ash falling upward",
+      "active": true,
+      "actor": "Elder Mori",
+      "expected": "/portraits/cinematic/elder-mori.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Elder Mori",
+          "image": "/portraits/cinematic/elder-mori.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "21023bc44154392720d8eb3f830694503b889716627ca987ace024f0a85cd662",
+      "width": 512,
+      "height": 512,
+      "file": "assets/21023bc44154392720d8eb3f830694503b889716627ca987ace024f0a85cd662.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/21023bc44154392720d8eb3f830694503b889716627ca987ace024f0a85cd662.webp"
+    },
+    {
+      "index": 33,
+      "id": "vn:story-ashen-leaf-village-75-6:page:1:right",
+      "eventId": "story-ashen-leaf-village-75-6",
+      "pageIndex": 1,
+      "title": "The First Flame",
+      "speaker": "First Flame Avatar",
+      "scene": "The Rootfire chamber, flames standing upright",
+      "active": true,
+      "actor": "First Flame Avatar",
+      "expected": "/portraits/cinematic/storywide/first-flame-avatar.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "First Flame Avatar",
+          "image": "/portraits/cinematic/storywide/first-flame-avatar.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "ffddd4a6111899be4a46e798fff696b502f2d619deda73a2ddf850a336035d6a",
+      "width": 512,
+      "height": 512,
+      "file": "assets/ffddd4a6111899be4a46e798fff696b502f2d619deda73a2ddf850a336035d6a.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/ffddd4a6111899be4a46e798fff696b502f2d619deda73a2ddf850a336035d6a.webp"
+    },
+    {
+      "index": 34,
+      "id": "vn:story-ashen-leaf-village-75-6:page:2:right",
+      "eventId": "story-ashen-leaf-village-75-6",
+      "pageIndex": 2,
+      "title": "The Ask",
+      "speaker": "First Flame Avatar",
+      "scene": "The chamber, tokens rising in the heat",
+      "active": true,
+      "actor": "First Flame Avatar",
+      "expected": "/portraits/cinematic/storywide/first-flame-avatar.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "First Flame Avatar",
+          "image": "/portraits/cinematic/storywide/first-flame-avatar.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "fa61cdabf55d7e217b5064619a089aaa0914dc9d9e2d55b43fb55085aa0cc19d",
+      "width": 512,
+      "height": 512,
+      "file": "assets/fa61cdabf55d7e217b5064619a089aaa0914dc9d9e2d55b43fb55085aa0cc19d.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/fa61cdabf55d7e217b5064619a089aaa0914dc9d9e2d55b43fb55085aa0cc19d.webp"
+    },
+    {
+      "index": 35,
+      "id": "vn:story-ashen-leaf-village-85-7:page:0:right",
+      "eventId": "story-ashen-leaf-village-85-7",
+      "pageIndex": 0,
+      "title": "The Detainment Lists",
+      "speaker": "Toma Reed",
+      "scene": "The village square, notices in fresh ink",
+      "active": true,
+      "actor": "Toma Reed",
+      "expected": "/portraits/cinematic/toma-reed.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Toma Reed",
+          "image": "/portraits/cinematic/toma-reed.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "21023bc44154392720d8eb3f830694503b889716627ca987ace024f0a85cd662",
+      "width": 512,
+      "height": 512,
+      "file": "assets/21023bc44154392720d8eb3f830694503b889716627ca987ace024f0a85cd662.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/21023bc44154392720d8eb3f830694503b889716627ca987ace024f0a85cd662.webp"
+    },
+    {
+      "index": 36,
+      "id": "vn:story-ashen-leaf-village-85-7:page:1:right",
+      "eventId": "story-ashen-leaf-village-85-7",
+      "pageIndex": 1,
+      "title": "Jonin",
+      "speaker": "Toma Reed",
+      "scene": "The square's edge",
+      "active": true,
+      "actor": "Toma Reed",
+      "expected": "/portraits/cinematic/toma-reed.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Toma Reed",
+          "image": "/portraits/cinematic/toma-reed.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "ffddd4a6111899be4a46e798fff696b502f2d619deda73a2ddf850a336035d6a",
+      "width": 512,
+      "height": 512,
+      "file": "assets/ffddd4a6111899be4a46e798fff696b502f2d619deda73a2ddf850a336035d6a.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/ffddd4a6111899be4a46e798fff696b502f2d619deda73a2ddf850a336035d6a.webp"
+    },
+    {
+      "index": 37,
+      "id": "vn:story-ashen-leaf-village-85-7:page:2:right",
+      "eventId": "story-ashen-leaf-village-85-7",
+      "pageIndex": 2,
+      "title": "Imera's Kitchen",
+      "speaker": "Imera",
+      "scene": "The house behind the eleven-flower fence",
+      "active": true,
+      "actor": "Imera",
+      "expected": "/portraits/cinematic/storywide/imera.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Imera",
+          "image": "/portraits/cinematic/storywide/imera.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "fa61cdabf55d7e217b5064619a089aaa0914dc9d9e2d55b43fb55085aa0cc19d",
+      "width": 512,
+      "height": 512,
+      "file": "assets/fa61cdabf55d7e217b5064619a089aaa0914dc9d9e2d55b43fb55085aa0cc19d.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/fa61cdabf55d7e217b5064619a089aaa0914dc9d9e2d55b43fb55085aa0cc19d.webp"
+    },
+    {
+      "index": 38,
+      "id": "vn:story-frostfang-village-100-8:page:0:right",
+      "eventId": "story-frostfang-village-100-8",
+      "pageIndex": 0,
+      "title": "The Open Ledgers",
+      "speaker": "Narrator",
+      "scene": "The vault stair, Sova's records room standing open, lamps lit, no keeper",
+      "active": true,
+      "actor": "Narrator",
+      "expected": "",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Narrator",
+          "image": ""
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "910f1ebd9eb0a0626e462700b62e1282655172d5af9104df2369791c477f65d7",
+      "width": 512,
+      "height": 512,
+      "file": "assets/910f1ebd9eb0a0626e462700b62e1282655172d5af9104df2369791c477f65d7.webp",
+      "error": "",
+      "decision": "retire: narration has no character",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/910f1ebd9eb0a0626e462700b62e1282655172d5af9104df2369791c477f65d7.webp"
+    },
+    {
+      "index": 39,
+      "id": "vn:story-frostfang-village-100-8:page:1:right",
+      "eventId": "story-frostfang-village-100-8",
+      "pageIndex": 1,
+      "title": "The Unclosed Door",
+      "speaker": "Narrator",
+      "scene": "The vault antechamber, Sergeant Essen on post by a door ajar",
+      "active": true,
+      "actor": "Narrator",
+      "expected": "",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Narrator",
+          "image": ""
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "d82b9dd22a5ba2562a12277dab911068aadfa28c2484dd234631adee0f445341",
+      "width": 512,
+      "height": 512,
+      "file": "assets/d82b9dd22a5ba2562a12277dab911068aadfa28c2484dd234631adee0f445341.webp",
+      "error": "",
+      "decision": "retire: narration has no character",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/d82b9dd22a5ba2562a12277dab911068aadfa28c2484dd234631adee0f445341.webp"
+    },
+    {
+      "index": 40,
+      "id": "vn:story-frostfang-village-100-8:page:2:right",
+      "eventId": "story-frostfang-village-100-8",
+      "pageIndex": 2,
+      "title": "The Pack Comes Down",
+      "speaker": "Pale Pack Runner",
+      "scene": "The vault forecourt, unmarked figures standing in falling snow",
+      "active": true,
+      "actor": "Pale Pack Runner",
+      "expected": "/portraits/cinematic/storywide/pale-pack-runner.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Pale Pack Runner",
+          "image": "/portraits/cinematic/storywide/pale-pack-runner.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "6e064ed131e4621a7b08719129c2460d2bcbf71e71cc9cf5b8a051077b8e7dc7",
+      "width": 512,
+      "height": 512,
+      "file": "assets/6e064ed131e4621a7b08719129c2460d2bcbf71e71cc9cf5b8a051077b8e7dc7.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/6e064ed131e4621a7b08719129c2460d2bcbf71e71cc9cf5b8a051077b8e7dc7.webp"
+    },
+    {
+      "index": 41,
+      "id": "vn:story-frostfang-village-15-1:page:0:right",
+      "eventId": "story-frostfang-village-15-1",
+      "pageIndex": 0,
+      "title": "Five Names Unanswered",
+      "speaker": "Captain Yura",
+      "scene": "The roll stone at third bell, snow starting, five names hanging",
+      "active": true,
+      "actor": "Captain Yura",
+      "expected": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Captain Yura",
+          "image": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "910f1ebd9eb0a0626e462700b62e1282655172d5af9104df2369791c477f65d7",
+      "width": 512,
+      "height": 512,
+      "file": "assets/910f1ebd9eb0a0626e462700b62e1282655172d5af9104df2369791c477f65d7.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/910f1ebd9eb0a0626e462700b62e1282655172d5af9104df2369791c477f65d7.webp"
+    },
+    {
+      "index": 42,
+      "id": "vn:story-frostfang-village-15-1:page:1:right",
+      "eventId": "story-frostfang-village-15-1",
+      "pageIndex": 1,
+      "title": "The Kage in the Snow",
+      "speaker": "Kage Kael Whitefang",
+      "scene": "The north gate, Kael Whitefang walking in out of the storm carrying a shepherd",
+      "active": true,
+      "actor": "Kage Kael Whitefang",
+      "expected": "/portraits/cinematic/storywide/kage-kael-whitefang.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Kage Kael Whitefang",
+          "image": "/portraits/cinematic/storywide/kage-kael-whitefang.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "d82b9dd22a5ba2562a12277dab911068aadfa28c2484dd234631adee0f445341",
+      "width": 512,
+      "height": 512,
+      "file": "assets/d82b9dd22a5ba2562a12277dab911068aadfa28c2484dd234631adee0f445341.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/d82b9dd22a5ba2562a12277dab911068aadfa28c2484dd234631adee0f445341.webp"
+    },
+    {
+      "index": 43,
+      "id": "vn:story-frostfang-village-15-1:page:2:right",
+      "eventId": "story-frostfang-village-15-1",
+      "pageIndex": 2,
+      "title": "What Yura Knows",
+      "speaker": "Captain Yura",
+      "scene": "The north road, snow thickening",
+      "active": true,
+      "actor": "Captain Yura",
+      "expected": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Captain Yura",
+          "image": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "70fcd190775625079543d4109f064d3c4db978a97ca04a5d6120eddfbb4e1ba4",
+      "width": 512,
+      "height": 512,
+      "file": "assets/70fcd190775625079543d4109f064d3c4db978a97ca04a5d6120eddfbb4e1ba4.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/70fcd190775625079543d4109f064d3c4db978a97ca04a5d6120eddfbb4e1ba4.webp"
+    },
+    {
+      "index": 44,
+      "id": "vn:story-frostfang-village-25-2:page:0:right",
+      "eventId": "story-frostfang-village-25-2",
+      "pageIndex": 0,
+      "title": "Cut From the Ice",
+      "speaker": "Captain Yura",
+      "scene": "A ravine north of the line, three figures standing in cut ice like specimens",
+      "active": true,
+      "actor": "Captain Yura",
+      "expected": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Captain Yura",
+          "image": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "910f1ebd9eb0a0626e462700b62e1282655172d5af9104df2369791c477f65d7",
+      "width": 512,
+      "height": 512,
+      "file": "assets/910f1ebd9eb0a0626e462700b62e1282655172d5af9104df2369791c477f65d7.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/910f1ebd9eb0a0626e462700b62e1282655172d5af9104df2369791c477f65d7.webp"
+    },
+    {
+      "index": 45,
+      "id": "vn:story-frostfang-village-25-2:page:1:right",
+      "eventId": "story-frostfang-village-25-2",
+      "pageIndex": 1,
+      "title": "The Deep Script",
+      "speaker": "Narrator",
+      "scene": "The ravine, three soldiers thawing, wrists black with script to the elbow",
+      "active": true,
+      "actor": "Narrator",
+      "expected": "",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Narrator",
+          "image": ""
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "d82b9dd22a5ba2562a12277dab911068aadfa28c2484dd234631adee0f445341",
+      "width": 512,
+      "height": 512,
+      "file": "assets/d82b9dd22a5ba2562a12277dab911068aadfa28c2484dd234631adee0f445341.webp",
+      "error": "",
+      "decision": "retire: narration has no character",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/d82b9dd22a5ba2562a12277dab911068aadfa28c2484dd234631adee0f445341.webp"
+    },
+    {
+      "index": 46,
+      "id": "vn:story-frostfang-village-25-2:page:2:right",
+      "eventId": "story-frostfang-village-25-2",
+      "pageIndex": 2,
+      "title": "The Seal's Voice",
+      "speaker": "Frost Seal Echo",
+      "scene": "The ravine mouth, the Frost Seal Echo standing on the ice, guardian shapes forming under it",
+      "active": true,
+      "actor": "Frost Seal Echo",
+      "expected": "/portraits/cinematic/storywide/frost-seal-echo.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Frost Seal Echo",
+          "image": "/portraits/cinematic/storywide/frost-seal-echo.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "70fcd190775625079543d4109f064d3c4db978a97ca04a5d6120eddfbb4e1ba4",
+      "width": 512,
+      "height": 512,
+      "file": "assets/70fcd190775625079543d4109f064d3c4db978a97ca04a5d6120eddfbb4e1ba4.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/70fcd190775625079543d4109f064d3c4db978a97ca04a5d6120eddfbb4e1ba4.webp"
+    },
+    {
+      "index": 47,
+      "id": "vn:story-frostfang-village-35-3:page:0:right",
+      "eventId": "story-frostfang-village-35-3",
+      "pageIndex": 0,
+      "title": "The Struck Names",
+      "speaker": "Pale Pack Runner",
+      "scene": "A rebel cavern in the glacier, forty-one people, no marks, warm fires",
+      "active": true,
+      "actor": "Pale Pack Runner",
+      "expected": "/portraits/cinematic/storywide/pale-pack-runner.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Pale Pack Runner",
+          "image": "/portraits/cinematic/storywide/pale-pack-runner.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "910f1ebd9eb0a0626e462700b62e1282655172d5af9104df2369791c477f65d7",
+      "width": 512,
+      "height": 512,
+      "file": "assets/910f1ebd9eb0a0626e462700b62e1282655172d5af9104df2369791c477f65d7.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/910f1ebd9eb0a0626e462700b62e1282655172d5af9104df2369791c477f65d7.webp"
+    },
+    {
+      "index": 48,
+      "id": "vn:story-frostfang-village-35-3:page:1:right",
+      "eventId": "story-frostfang-village-35-3",
+      "pageIndex": 1,
+      "title": "Yura's Roster-Mate",
+      "speaker": "Captain Yura",
+      "scene": "The cavern fires, a big woman standing up slow",
+      "active": true,
+      "actor": "Captain Yura",
+      "expected": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Captain Yura",
+          "image": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "d82b9dd22a5ba2562a12277dab911068aadfa28c2484dd234631adee0f445341",
+      "width": 512,
+      "height": 512,
+      "file": "assets/d82b9dd22a5ba2562a12277dab911068aadfa28c2484dd234631adee0f445341.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/d82b9dd22a5ba2562a12277dab911068aadfa28c2484dd234631adee0f445341.webp"
+    },
+    {
+      "index": 49,
+      "id": "vn:story-frostfang-village-35-3:page:2:right",
+      "eventId": "story-frostfang-village-35-3",
+      "pageIndex": 2,
+      "title": "Returned to the Count",
+      "speaker": "Narrator",
+      "scene": "The cavern mouth, torchlight, a sealed recovery detail forming up outside",
+      "active": true,
+      "actor": "Narrator",
+      "expected": "",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Narrator",
+          "image": ""
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "70fcd190775625079543d4109f064d3c4db978a97ca04a5d6120eddfbb4e1ba4",
+      "width": 512,
+      "height": 512,
+      "file": "assets/70fcd190775625079543d4109f064d3c4db978a97ca04a5d6120eddfbb4e1ba4.webp",
+      "error": "",
+      "decision": "retire: narration has no character",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/70fcd190775625079543d4109f064d3c4db978a97ca04a5d6120eddfbb4e1ba4.webp"
+    },
+    {
+      "index": 50,
+      "id": "vn:story-frostfang-village-4-0:page:0:right",
+      "eventId": "story-frostfang-village-4-0",
+      "pageIndex": 0,
+      "title": "First Bell",
+      "speaker": "Captain Yura",
+      "scene": "The training yard at first bell, breath-fog in rows, lantern lines overhead",
+      "active": true,
+      "actor": "Captain Yura",
+      "expected": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Captain Yura",
+          "image": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "910f1ebd9eb0a0626e462700b62e1282655172d5af9104df2369791c477f65d7",
+      "width": 512,
+      "height": 512,
+      "file": "assets/910f1ebd9eb0a0626e462700b62e1282655172d5af9104df2369791c477f65d7.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/910f1ebd9eb0a0626e462700b62e1282655172d5af9104df2369791c477f65d7.webp"
+    },
+    {
+      "index": 51,
+      "id": "vn:story-frostfang-village-4-0:page:1:right",
+      "eventId": "story-frostfang-village-4-0",
+      "pageIndex": 1,
+      "title": "The Intake",
+      "speaker": "Elder Sova",
+      "scene": "The roll stone, Elder Sova with the Count book open",
+      "active": true,
+      "actor": "Elder Sova",
+      "expected": "/portraits/cinematic/storywide/elder-sova-canon.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Elder Sova",
+          "image": "/portraits/cinematic/storywide/elder-sova-canon.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "d82b9dd22a5ba2562a12277dab911068aadfa28c2484dd234631adee0f445341",
+      "width": 512,
+      "height": 512,
+      "file": "assets/d82b9dd22a5ba2562a12277dab911068aadfa28c2484dd234631adee0f445341.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/d82b9dd22a5ba2562a12277dab911068aadfa28c2484dd234631adee0f445341.webp"
+    },
+    {
+      "index": 52,
+      "id": "vn:story-frostfang-village-4-0:page:2:right",
+      "eventId": "story-frostfang-village-4-0",
+      "pageIndex": 2,
+      "title": "A Guard's Reason",
+      "speaker": "Elder Sova",
+      "scene": "The roll stone",
+      "active": true,
+      "actor": "Elder Sova",
+      "expected": "/portraits/cinematic/storywide/elder-sova-canon.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Elder Sova",
+          "image": "/portraits/cinematic/storywide/elder-sova-canon.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "70fcd190775625079543d4109f064d3c4db978a97ca04a5d6120eddfbb4e1ba4",
+      "width": 512,
+      "height": 512,
+      "file": "assets/70fcd190775625079543d4109f064d3c4db978a97ca04a5d6120eddfbb4e1ba4.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/70fcd190775625079543d4109f064d3c4db978a97ca04a5d6120eddfbb4e1ba4.webp"
+    },
+    {
+      "index": 53,
+      "id": "vn:story-frostfang-village-50-4:page:0:right",
+      "eventId": "story-frostfang-village-50-4",
+      "pageIndex": 0,
+      "title": "Both or Neither",
+      "speaker": "Elder Sova",
+      "scene": "The oath hall, a two-page scroll flat on the stone table",
+      "active": true,
+      "actor": "Elder Sova",
+      "expected": "/portraits/cinematic/storywide/elder-sova-canon.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Elder Sova",
+          "image": "/portraits/cinematic/storywide/elder-sova-canon.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "910f1ebd9eb0a0626e462700b62e1282655172d5af9104df2369791c477f65d7",
+      "width": 512,
+      "height": 512,
+      "file": "assets/910f1ebd9eb0a0626e462700b62e1282655172d5af9104df2369791c477f65d7.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/910f1ebd9eb0a0626e462700b62e1282655172d5af9104df2369791c477f65d7.webp"
+    },
+    {
+      "index": 54,
+      "id": "vn:story-frostfang-village-50-4:page:1:right",
+      "eventId": "story-frostfang-village-50-4",
+      "pageIndex": 1,
+      "title": "The Oath Is a Comfort",
+      "speaker": "Kage Kael Whitefang",
+      "scene": "The oath hall, Kael by the brazier, hands out to the heat",
+      "active": true,
+      "actor": "Kage Kael Whitefang",
+      "expected": "/portraits/cinematic/storywide/kage-kael-whitefang.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Kage Kael Whitefang",
+          "image": "/portraits/cinematic/storywide/kage-kael-whitefang.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "d82b9dd22a5ba2562a12277dab911068aadfa28c2484dd234631adee0f445341",
+      "width": 512,
+      "height": 512,
+      "file": "assets/d82b9dd22a5ba2562a12277dab911068aadfa28c2484dd234631adee0f445341.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/d82b9dd22a5ba2562a12277dab911068aadfa28c2484dd234631adee0f445341.webp"
+    },
+    {
+      "index": 55,
+      "id": "vn:story-frostfang-village-50-4:page:2:right",
+      "eventId": "story-frostfang-village-50-4",
+      "pageIndex": 2,
+      "title": "What Doubt Weighs",
+      "speaker": "Kage Kael Whitefang",
+      "scene": "The oath hall, the brazier crackling",
+      "active": true,
+      "actor": "Kage Kael Whitefang",
+      "expected": "/portraits/cinematic/storywide/kage-kael-whitefang.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Kage Kael Whitefang",
+          "image": "/portraits/cinematic/storywide/kage-kael-whitefang.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "70fcd190775625079543d4109f064d3c4db978a97ca04a5d6120eddfbb4e1ba4",
+      "width": 512,
+      "height": 512,
+      "file": "assets/70fcd190775625079543d4109f064d3c4db978a97ca04a5d6120eddfbb4e1ba4.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/70fcd190775625079543d4109f064d3c4db978a97ca04a5d6120eddfbb4e1ba4.webp"
+    },
+    {
+      "index": 56,
+      "id": "vn:story-frostfang-village-65-5:page:0:right",
+      "eventId": "story-frostfang-village-65-5",
+      "pageIndex": 0,
+      "title": "The Removal Order",
+      "speaker": "Captain Yura",
+      "scene": "The muster yard before dawn, an order pinned under a lamp",
+      "active": true,
+      "actor": "Captain Yura",
+      "expected": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Captain Yura",
+          "image": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "910f1ebd9eb0a0626e462700b62e1282655172d5af9104df2369791c477f65d7",
+      "width": 512,
+      "height": 512,
+      "file": "assets/910f1ebd9eb0a0626e462700b62e1282655172d5af9104df2369791c477f65d7.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/910f1ebd9eb0a0626e462700b62e1282655172d5af9104df2369791c477f65d7.webp"
+    },
+    {
+      "index": 57,
+      "id": "vn:story-frostfang-village-65-5:page:1:right",
+      "eventId": "story-frostfang-village-65-5",
+      "pageIndex": 1,
+      "title": "From Inside",
+      "speaker": "Captain Yura",
+      "scene": "The muster yard, Yura buckling her kit slow",
+      "active": true,
+      "actor": "Captain Yura",
+      "expected": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Captain Yura",
+          "image": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "d82b9dd22a5ba2562a12277dab911068aadfa28c2484dd234631adee0f445341",
+      "width": 512,
+      "height": 512,
+      "file": "assets/d82b9dd22a5ba2562a12277dab911068aadfa28c2484dd234631adee0f445341.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/d82b9dd22a5ba2562a12277dab911068aadfa28c2484dd234631adee0f445341.webp"
+    },
+    {
+      "index": 58,
+      "id": "vn:story-frostfang-village-65-5:page:2:right",
+      "eventId": "story-frostfang-village-65-5",
+      "pageIndex": 2,
+      "title": "The Old Quarry",
+      "speaker": "Pale Pack Runner",
+      "scene": "The quarry floor, tents against the cut walls, children's snow-forts by the pool",
+      "active": true,
+      "actor": "Pale Pack Runner",
+      "expected": "/portraits/cinematic/storywide/pale-pack-runner.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Pale Pack Runner",
+          "image": "/portraits/cinematic/storywide/pale-pack-runner.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "70fcd190775625079543d4109f064d3c4db978a97ca04a5d6120eddfbb4e1ba4",
+      "width": 512,
+      "height": 512,
+      "file": "assets/70fcd190775625079543d4109f064d3c4db978a97ca04a5d6120eddfbb4e1ba4.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/70fcd190775625079543d4109f064d3c4db978a97ca04a5d6120eddfbb4e1ba4.webp"
+    },
+    {
+      "index": 59,
+      "id": "vn:story-frostfang-village-75-6:page:0:right",
+      "eventId": "story-frostfang-village-75-6",
+      "pageIndex": 0,
+      "title": "Drill Fashion",
+      "speaker": "Captain Yura",
+      "scene": "The north tower before first light, Yura's kit laid out in perfect rows",
+      "active": true,
+      "actor": "Captain Yura",
+      "expected": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Captain Yura",
+          "image": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "910f1ebd9eb0a0626e462700b62e1282655172d5af9104df2369791c477f65d7",
+      "width": 512,
+      "height": 512,
+      "file": "assets/910f1ebd9eb0a0626e462700b62e1282655172d5af9104df2369791c477f65d7.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/910f1ebd9eb0a0626e462700b62e1282655172d5af9104df2369791c477f65d7.webp"
+    },
+    {
+      "index": 60,
+      "id": "vn:story-frostfang-village-75-6:page:1:right",
+      "eventId": "story-frostfang-village-75-6",
+      "pageIndex": 1,
+      "title": "Line by Line",
+      "speaker": "Captain Yura",
+      "scene": "The tower room, lamplight, the work begun",
+      "active": true,
+      "actor": "Captain Yura",
+      "expected": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Captain Yura",
+          "image": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "d82b9dd22a5ba2562a12277dab911068aadfa28c2484dd234631adee0f445341",
+      "width": 512,
+      "height": 512,
+      "file": "assets/d82b9dd22a5ba2562a12277dab911068aadfa28c2484dd234631adee0f445341.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/d82b9dd22a5ba2562a12277dab911068aadfa28c2484dd234631adee0f445341.webp"
+    },
+    {
+      "index": 61,
+      "id": "vn:story-frostfang-village-75-6:page:2:right",
+      "eventId": "story-frostfang-village-75-6",
+      "pageIndex": 2,
+      "title": "The Same Hand",
+      "speaker": "Captain Yura",
+      "scene": "The tower room, steam off the kettle",
+      "active": true,
+      "actor": "Captain Yura",
+      "expected": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Captain Yura",
+          "image": "/portraits/cinematic/storywide/captain-yura.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "70fcd190775625079543d4109f064d3c4db978a97ca04a5d6120eddfbb4e1ba4",
+      "width": 512,
+      "height": 512,
+      "file": "assets/70fcd190775625079543d4109f064d3c4db978a97ca04a5d6120eddfbb4e1ba4.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/70fcd190775625079543d4109f064d3c4db978a97ca04a5d6120eddfbb4e1ba4.webp"
+    },
+    {
+      "index": 62,
+      "id": "vn:story-frostfang-village-85-7:page:0:right",
+      "eventId": "story-frostfang-village-85-7",
+      "pageIndex": 0,
+      "title": "The White Silence",
+      "speaker": "Narrator",
+      "scene": "The central square at dawn, forty-three citizens standing frozen in perfect rows",
+      "active": true,
+      "actor": "Narrator",
+      "expected": "",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Narrator",
+          "image": ""
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "910f1ebd9eb0a0626e462700b62e1282655172d5af9104df2369791c477f65d7",
+      "width": 512,
+      "height": 512,
+      "file": "assets/910f1ebd9eb0a0626e462700b62e1282655172d5af9104df2369791c477f65d7.webp",
+      "error": "",
+      "decision": "retire: narration has no character",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/910f1ebd9eb0a0626e462700b62e1282655172d5af9104df2369791c477f65d7.webp"
+    },
+    {
+      "index": 63,
+      "id": "vn:story-frostfang-village-85-7:page:1:right",
+      "eventId": "story-frostfang-village-85-7",
+      "pageIndex": 1,
+      "title": "What Harrow Sells",
+      "speaker": "Kite Harrow",
+      "scene": "The icehouse, Harrow with her collar up and her ledger out",
+      "active": true,
+      "actor": "Kite Harrow",
+      "expected": "/portraits/cinematic/kite-harrow.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Kite Harrow",
+          "image": "/portraits/cinematic/kite-harrow.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "d82b9dd22a5ba2562a12277dab911068aadfa28c2484dd234631adee0f445341",
+      "width": 512,
+      "height": 512,
+      "file": "assets/d82b9dd22a5ba2562a12277dab911068aadfa28c2484dd234631adee0f445341.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/d82b9dd22a5ba2562a12277dab911068aadfa28c2484dd234631adee0f445341.webp"
+    },
+    {
+      "index": 64,
+      "id": "vn:story-frostfang-village-85-7:page:2:right",
+      "eventId": "story-frostfang-village-85-7",
+      "pageIndex": 2,
+      "title": "The Rhythm's Flaw",
+      "speaker": "Kite Harrow",
+      "scene": "The icehouse, a forged mark plate between you on the ice table",
+      "active": true,
+      "actor": "Kite Harrow",
+      "expected": "/portraits/cinematic/kite-harrow.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Kite Harrow",
+          "image": "/portraits/cinematic/kite-harrow.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "70fcd190775625079543d4109f064d3c4db978a97ca04a5d6120eddfbb4e1ba4",
+      "width": 512,
+      "height": 512,
+      "file": "assets/70fcd190775625079543d4109f064d3c4db978a97ca04a5d6120eddfbb4e1ba4.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/70fcd190775625079543d4109f064d3c4db978a97ca04a5d6120eddfbb4e1ba4.webp"
+    },
+    {
+      "index": 65,
+      "id": "vn:story-moonshadow-village-100-8:page:0:right",
+      "eventId": "story-moonshadow-village-100-8",
+      "pageIndex": 0,
+      "title": "The Black Moon",
+      "speaker": "Narrator",
+      "scene": "The tower summit stair, the moon overhead gone black as the Mirror",
+      "active": true,
+      "actor": "Narrator",
+      "expected": "",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Narrator",
+          "image": ""
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "4e690d9e9cc2574da14a926d14669c09e33c3944edff74e2147f375e05b2d433",
+      "width": 512,
+      "height": 512,
+      "file": "assets/4e690d9e9cc2574da14a926d14669c09e33c3944edff74e2147f375e05b2d433.webp",
+      "error": "",
+      "decision": "retire: narration has no character",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/4e690d9e9cc2574da14a926d14669c09e33c3944edff74e2147f375e05b2d433.webp"
+    },
+    {
+      "index": 66,
+      "id": "vn:story-moonshadow-village-100-8:page:1:right",
+      "eventId": "story-moonshadow-village-100-8",
+      "pageIndex": 1,
+      "title": "At the Chamber Door",
+      "speaker": "Nyx",
+      "scene": "The summit door, Nyx with her returned file tucked unopened in her coat",
+      "active": true,
+      "actor": "Nyx",
+      "expected": "/portraits/cinematic/storywide/nyx-neutral.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Nyx",
+          "image": "/portraits/cinematic/storywide/nyx-neutral.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "580dc8ec4d001a7f4f15d177c4b3bf591eee7fa24764340725629c394d7256ca",
+      "width": 512,
+      "height": 512,
+      "file": "assets/580dc8ec4d001a7f4f15d177c4b3bf591eee7fa24764340725629c394d7256ca.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/580dc8ec4d001a7f4f15d177c4b3bf591eee7fa24764340725629c394d7256ca.webp"
+    },
+    {
+      "index": 67,
+      "id": "vn:story-moonshadow-village-100-8:page:2:right",
+      "eventId": "story-moonshadow-village-100-8",
+      "pageIndex": 2,
+      "title": "The Woman and the Tank",
+      "speaker": "Kage Sable Nocturne",
+      "scene": "The Mirror chamber, the black glass vast and still, Sable's shadow no longer matching her",
+      "active": true,
+      "actor": "Kage Sable Nocturne",
+      "expected": "/portraits/cinematic/storywide/kage-sable-nocturne-readable.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Kage Sable Nocturne",
+          "image": "/portraits/cinematic/storywide/kage-sable-nocturne-readable.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "4e690d9e9cc2574da14a926d14669c09e33c3944edff74e2147f375e05b2d433",
+      "width": 512,
+      "height": 512,
+      "file": "assets/4e690d9e9cc2574da14a926d14669c09e33c3944edff74e2147f375e05b2d433.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/4e690d9e9cc2574da14a926d14669c09e33c3944edff74e2147f375e05b2d433.webp"
+    },
+    {
+      "index": 68,
+      "id": "vn:story-moonshadow-village-15-1:page:0:right",
+      "eventId": "story-moonshadow-village-15-1",
+      "pageIndex": 0,
+      "title": "Inside a Locked Room",
+      "speaker": "Narrator",
+      "scene": "Your quarters, door still bolted, a cipher scroll on the pillow",
+      "active": true,
+      "actor": "Narrator",
+      "expected": "",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Narrator",
+          "image": ""
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "2e9ded20c35206265acb4ba62508b6f7adfe4d0cac03a5193f4fde04e7c277ca",
+      "width": 512,
+      "height": 512,
+      "file": "assets/2e9ded20c35206265acb4ba62508b6f7adfe4d0cac03a5193f4fde04e7c277ca.webp",
+      "error": "",
+      "decision": "retire: narration has no character",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/2e9ded20c35206265acb4ba62508b6f7adfe4d0cac03a5193f4fde04e7c277ca.webp"
+    },
+    {
+      "index": 69,
+      "id": "vn:story-moonshadow-village-15-1:page:1:right",
+      "eventId": "story-moonshadow-village-15-1",
+      "pageIndex": 1,
+      "title": "The Money That Sits",
+      "speaker": "Nyx",
+      "scene": "Nyx's stall over the dye canal, the scroll flat between you",
+      "active": true,
+      "actor": "Nyx",
+      "expected": "/portraits/cinematic/storywide/nyx-neutral.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Nyx",
+          "image": "/portraits/cinematic/storywide/nyx-neutral.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "580dc8ec4d001a7f4f15d177c4b3bf591eee7fa24764340725629c394d7256ca",
+      "width": 512,
+      "height": 512,
+      "file": "assets/580dc8ec4d001a7f4f15d177c4b3bf591eee7fa24764340725629c394d7256ca.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/580dc8ec4d001a7f4f15d177c4b3bf591eee7fa24764340725629c394d7256ca.webp"
+    },
+    {
+      "index": 70,
+      "id": "vn:story-moonshadow-village-15-1:page:2:right",
+      "eventId": "story-moonshadow-village-15-1",
+      "pageIndex": 2,
+      "title": "The Kage's Mercy",
+      "speaker": "Kage Sable Nocturne",
+      "scene": "The canal walk at midnight, Sable Nocturne feeding a lantern flame, alone",
+      "active": true,
+      "actor": "Kage Sable Nocturne",
+      "expected": "/portraits/cinematic/storywide/kage-sable-nocturne-readable.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Kage Sable Nocturne",
+          "image": "/portraits/cinematic/storywide/kage-sable-nocturne-readable.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "27b9f79c13f775d6383bbb1b1e06e8f3ccca7e6c11502fdf8189291617c6e181",
+      "width": 512,
+      "height": 512,
+      "file": "assets/27b9f79c13f775d6383bbb1b1e06e8f3ccca7e6c11502fdf8189291617c6e181.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/27b9f79c13f775d6383bbb1b1e06e8f3ccca7e6c11502fdf8189291617c6e181.webp"
+    },
+    {
+      "index": 71,
+      "id": "vn:story-moonshadow-village-25-2:page:0:right",
+      "eventId": "story-moonshadow-village-25-2",
+      "pageIndex": 0,
+      "title": "The Cellar Auction",
+      "speaker": "Nyx",
+      "scene": "Under the whisper market: a lantern-lit cellar, lots on velvet, buyers in masks",
+      "active": true,
+      "actor": "Nyx",
+      "expected": "/portraits/cinematic/storywide/nyx-neutral.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Nyx",
+          "image": "/portraits/cinematic/storywide/nyx-neutral.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "2e9ded20c35206265acb4ba62508b6f7adfe4d0cac03a5193f4fde04e7c277ca",
+      "width": 512,
+      "height": 512,
+      "file": "assets/2e9ded20c35206265acb4ba62508b6f7adfe4d0cac03a5193f4fde04e7c277ca.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/2e9ded20c35206265acb4ba62508b6f7adfe4d0cac03a5193f4fde04e7c277ca.webp"
+    },
+    {
+      "index": 72,
+      "id": "vn:story-moonshadow-village-25-2:page:1:right",
+      "eventId": "story-moonshadow-village-25-2",
+      "pageIndex": 1,
+      "title": "The Prepaid Buyer",
+      "speaker": "Nyx",
+      "scene": "The cellar floor, an empty chair with a standing bid",
+      "active": true,
+      "actor": "Nyx",
+      "expected": "/portraits/cinematic/storywide/nyx-neutral.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Nyx",
+          "image": "/portraits/cinematic/storywide/nyx-neutral.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "580dc8ec4d001a7f4f15d177c4b3bf591eee7fa24764340725629c394d7256ca",
+      "width": 512,
+      "height": 512,
+      "file": "assets/580dc8ec4d001a7f4f15d177c4b3bf591eee7fa24764340725629c394d7256ca.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/580dc8ec4d001a7f4f15d177c4b3bf591eee7fa24764340725629c394d7256ca.webp"
+    },
+    {
+      "index": 73,
+      "id": "vn:story-moonshadow-village-25-2:page:2:right",
+      "eventId": "story-moonshadow-village-25-2",
+      "pageIndex": 2,
+      "title": "The Appraiser's Trace",
+      "speaker": "Kite Harrow",
+      "scene": "The cellar's shadowed gallery, Harrow already there, because of course she is",
+      "active": true,
+      "actor": "Kite Harrow",
+      "expected": "/portraits/cinematic/kite-harrow.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Kite Harrow",
+          "image": "/portraits/cinematic/kite-harrow.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "7a56b8c0cb412bb28d295d169ce5bc685eb790c6f29efcb989736b3d1b16b6e3",
+      "width": 512,
+      "height": 512,
+      "file": "assets/7a56b8c0cb412bb28d295d169ce5bc685eb790c6f29efcb989736b3d1b16b6e3.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/7a56b8c0cb412bb28d295d169ce5bc685eb790c6f29efcb989736b3d1b16b6e3.webp"
+    },
+    {
+      "index": 74,
+      "id": "vn:story-moonshadow-village-35-3:page:0:right",
+      "eventId": "story-moonshadow-village-35-3",
+      "pageIndex": 0,
+      "title": "The Bleeding Page",
+      "speaker": "Nyx",
+      "scene": "A safe room over the canal, a contract that darkens in moonlight",
+      "active": true,
+      "actor": "Nyx",
+      "expected": "/portraits/cinematic/storywide/nyx-neutral.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Nyx",
+          "image": "/portraits/cinematic/storywide/nyx-neutral.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "2e9ded20c35206265acb4ba62508b6f7adfe4d0cac03a5193f4fde04e7c277ca",
+      "width": 512,
+      "height": 512,
+      "file": "assets/2e9ded20c35206265acb4ba62508b6f7adfe4d0cac03a5193f4fde04e7c277ca.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/2e9ded20c35206265acb4ba62508b6f7adfe4d0cac03a5193f4fde04e7c277ca.webp"
+    },
+    {
+      "index": 75,
+      "id": "vn:story-moonshadow-village-35-3:page:1:right",
+      "eventId": "story-moonshadow-village-35-3",
+      "pageIndex": 1,
+      "title": "The Kept No",
+      "speaker": "Nyx",
+      "scene": "The safe room, the contract pinned under a lamp it doesn't like",
+      "active": true,
+      "actor": "Nyx",
+      "expected": "/portraits/cinematic/storywide/nyx-neutral.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Nyx",
+          "image": "/portraits/cinematic/storywide/nyx-neutral.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "580dc8ec4d001a7f4f15d177c4b3bf591eee7fa24764340725629c394d7256ca",
+      "width": 512,
+      "height": 512,
+      "file": "assets/580dc8ec4d001a7f4f15d177c4b3bf591eee7fa24764340725629c394d7256ca.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/580dc8ec4d001a7f4f15d177c4b3bf591eee7fa24764340725629c394d7256ca.webp"
+    },
+    {
+      "index": 76,
+      "id": "vn:story-moonshadow-village-35-3:page:2:right",
+      "eventId": "story-moonshadow-village-35-3",
+      "pageIndex": 2,
+      "title": "The Counterparty",
+      "speaker": "Hollow Moon",
+      "scene": "The safe room, the lamp's light bending toward the wall like a bow",
+      "active": true,
+      "actor": "Hollow Moon",
+      "expected": "/portraits/cinematic/storywide/hollow-moon.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Hollow Moon",
+          "image": "/portraits/cinematic/storywide/hollow-moon.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "fc3a81df215fb84a7d4d9ccad2469299470c2b5382e664bb089a0ebd865aa730",
+      "width": 512,
+      "height": 512,
+      "file": "assets/fc3a81df215fb84a7d4d9ccad2469299470c2b5382e664bb089a0ebd865aa730.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/fc3a81df215fb84a7d4d9ccad2469299470c2b5382e664bb089a0ebd865aa730.webp"
+    },
+    {
+      "index": 77,
+      "id": "vn:story-moonshadow-village-4-0:page:0:right",
+      "eventId": "story-moonshadow-village-4-0",
+      "pageIndex": 0,
+      "title": "Two Names",
+      "speaker": "Shade Master Iro",
+      "scene": "The registry booth at moonrise, violet lanterns on the canal",
+      "active": true,
+      "actor": "Shade Master Iro",
+      "expected": "/portraits/cinematic/storywide/shade-master-iro.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Shade Master Iro",
+          "image": "/portraits/cinematic/storywide/shade-master-iro.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "2e9ded20c35206265acb4ba62508b6f7adfe4d0cac03a5193f4fde04e7c277ca",
+      "width": 512,
+      "height": 512,
+      "file": "assets/2e9ded20c35206265acb4ba62508b6f7adfe4d0cac03a5193f4fde04e7c277ca.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/2e9ded20c35206265acb4ba62508b6f7adfe4d0cac03a5193f4fde04e7c277ca.webp"
+    },
+    {
+      "index": 78,
+      "id": "vn:story-moonshadow-village-4-0:page:1:right",
+      "eventId": "story-moonshadow-village-4-0",
+      "pageIndex": 1,
+      "title": "The First Trade",
+      "speaker": "Shade Master Iro",
+      "scene": "The registry booth, Iro's pen waiting over the intake book",
+      "active": true,
+      "actor": "Shade Master Iro",
+      "expected": "/portraits/cinematic/storywide/shade-master-iro.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Shade Master Iro",
+          "image": "/portraits/cinematic/storywide/shade-master-iro.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "580dc8ec4d001a7f4f15d177c4b3bf591eee7fa24764340725629c394d7256ca",
+      "width": 512,
+      "height": 512,
+      "file": "assets/580dc8ec4d001a7f4f15d177c4b3bf591eee7fa24764340725629c394d7256ca.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/580dc8ec4d001a7f4f15d177c4b3bf591eee7fa24764340725629c394d7256ca.webp"
+    },
+    {
+      "index": 79,
+      "id": "vn:story-moonshadow-village-4-0:page:2:right",
+      "eventId": "story-moonshadow-village-4-0",
+      "pageIndex": 2,
+      "title": "A Guardian's Answer",
+      "speaker": "Shade Master Iro",
+      "scene": "The registry booth",
+      "active": true,
+      "actor": "Shade Master Iro",
+      "expected": "/portraits/cinematic/storywide/shade-master-iro.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Shade Master Iro",
+          "image": "/portraits/cinematic/storywide/shade-master-iro.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "2e9ded20c35206265acb4ba62508b6f7adfe4d0cac03a5193f4fde04e7c277ca",
+      "width": 512,
+      "height": 512,
+      "file": "assets/2e9ded20c35206265acb4ba62508b6f7adfe4d0cac03a5193f4fde04e7c277ca.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/2e9ded20c35206265acb4ba62508b6f7adfe4d0cac03a5193f4fde04e7c277ca.webp"
+    },
+    {
+      "index": 80,
+      "id": "vn:story-moonshadow-village-50-4:page:0:right",
+      "eventId": "story-moonshadow-village-50-4",
+      "pageIndex": 0,
+      "title": "The Mirrored Chamber",
+      "speaker": "Kage Sable Nocturne",
+      "scene": "The tower's mirrored chamber, a hundred reflections, one Kage",
+      "active": true,
+      "actor": "Kage Sable Nocturne",
+      "expected": "/portraits/cinematic/storywide/kage-sable-nocturne-readable.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Kage Sable Nocturne",
+          "image": "/portraits/cinematic/storywide/kage-sable-nocturne-readable.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "4e690d9e9cc2574da14a926d14669c09e33c3944edff74e2147f375e05b2d433",
+      "width": 512,
+      "height": 512,
+      "file": "assets/4e690d9e9cc2574da14a926d14669c09e33c3944edff74e2147f375e05b2d433.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/4e690d9e9cc2574da14a926d14669c09e33c3944edff74e2147f375e05b2d433.webp"
+    },
+    {
+      "index": 81,
+      "id": "vn:story-moonshadow-village-50-4:page:1:right",
+      "eventId": "story-moonshadow-village-50-4",
+      "pageIndex": 1,
+      "title": "The Report She Kept",
+      "speaker": "Kage Sable Nocturne",
+      "scene": "The mirrored chamber, Sable drawing one page from her sleeve",
+      "active": true,
+      "actor": "Kage Sable Nocturne",
+      "expected": "/portraits/cinematic/storywide/kage-sable-nocturne-readable.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Kage Sable Nocturne",
+          "image": "/portraits/cinematic/storywide/kage-sable-nocturne-readable.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "580dc8ec4d001a7f4f15d177c4b3bf591eee7fa24764340725629c394d7256ca",
+      "width": 512,
+      "height": 512,
+      "file": "assets/580dc8ec4d001a7f4f15d177c4b3bf591eee7fa24764340725629c394d7256ca.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/580dc8ec4d001a7f4f15d177c4b3bf591eee7fa24764340725629c394d7256ca.webp"
+    },
+    {
+      "index": 82,
+      "id": "vn:story-moonshadow-village-50-4:page:2:right",
+      "eventId": "story-moonshadow-village-50-4",
+      "pageIndex": 2,
+      "title": "Collateral That Reports",
+      "speaker": "Nyx",
+      "scene": "The tower corridor, Nyx leaning where the guards pretend not to see her",
+      "active": true,
+      "actor": "Nyx",
+      "expected": "/portraits/cinematic/storywide/nyx-neutral.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Nyx",
+          "image": "/portraits/cinematic/storywide/nyx-neutral.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "4e690d9e9cc2574da14a926d14669c09e33c3944edff74e2147f375e05b2d433",
+      "width": 512,
+      "height": 512,
+      "file": "assets/4e690d9e9cc2574da14a926d14669c09e33c3944edff74e2147f375e05b2d433.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/4e690d9e9cc2574da14a926d14669c09e33c3944edff74e2147f375e05b2d433.webp"
+    },
+    {
+      "index": 83,
+      "id": "vn:story-moonshadow-village-65-5:page:0:right",
+      "eventId": "story-moonshadow-village-65-5",
+      "pageIndex": 0,
+      "title": "The Unwritten Order",
+      "speaker": "Narrator",
+      "scene": "The tower's night office, an errand delivered as a whisper, nothing on paper",
+      "active": true,
+      "actor": "Narrator",
+      "expected": "",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Narrator",
+          "image": ""
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "4e690d9e9cc2574da14a926d14669c09e33c3944edff74e2147f375e05b2d433",
+      "width": 512,
+      "height": 512,
+      "file": "assets/4e690d9e9cc2574da14a926d14669c09e33c3944edff74e2147f375e05b2d433.webp",
+      "error": "",
+      "decision": "retire: narration has no character",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/4e690d9e9cc2574da14a926d14669c09e33c3944edff74e2147f375e05b2d433.webp"
+    },
+    {
+      "index": 84,
+      "id": "vn:story-moonshadow-village-65-5:page:1:right",
+      "eventId": "story-moonshadow-village-65-5",
+      "pageIndex": 1,
+      "title": "The Copied Names",
+      "speaker": "Shrine Witness",
+      "scene": "The canal shrine, an old keeper laying pages flat with shaking hands",
+      "active": true,
+      "actor": "Shrine Witness",
+      "expected": "/portraits/cinematic/storywide/shrine-witness.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Shrine Witness",
+          "image": "/portraits/cinematic/storywide/shrine-witness.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "2d9fa989f5fd0feeefc3dacc48507c2be05270f623881663180b68f59adbf62d",
+      "width": 512,
+      "height": 512,
+      "file": "assets/2d9fa989f5fd0feeefc3dacc48507c2be05270f623881663180b68f59adbf62d.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/2d9fa989f5fd0feeefc3dacc48507c2be05270f623881663180b68f59adbf62d.webp"
+    },
+    {
+      "index": 85,
+      "id": "vn:story-moonshadow-village-65-5:page:2:right",
+      "eventId": "story-moonshadow-village-65-5",
+      "pageIndex": 2,
+      "title": "The Third Page",
+      "speaker": "Narrator",
+      "scene": "The shrine, one page under the low lamp",
+      "active": true,
+      "actor": "Narrator",
+      "expected": "",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Narrator",
+          "image": ""
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "49c931aa5b83b401a2dccee8c1cf7b7c55cb6e3f4bdfc7e356141cad483ade5f",
+      "width": 512,
+      "height": 512,
+      "file": "assets/49c931aa5b83b401a2dccee8c1cf7b7c55cb6e3f4bdfc7e356141cad483ade5f.webp",
+      "error": "",
+      "decision": "retire: narration has no character",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/49c931aa5b83b401a2dccee8c1cf7b7c55cb6e3f4bdfc7e356141cad483ade5f.webp"
+    },
+    {
+      "index": 86,
+      "id": "vn:story-moonshadow-village-75-6:page:0:right",
+      "eventId": "story-moonshadow-village-75-6",
+      "pageIndex": 0,
+      "title": "The Red Moon Ledger",
+      "speaker": "Nyx",
+      "scene": "A rooftop over the whisper market, red moon, Nyx's ledger open to a page of shame",
+      "active": true,
+      "actor": "Nyx",
+      "expected": "/portraits/cinematic/storywide/nyx-neutral.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Nyx",
+          "image": "/portraits/cinematic/storywide/nyx-neutral.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "580dc8ec4d001a7f4f15d177c4b3bf591eee7fa24764340725629c394d7256ca",
+      "width": 512,
+      "height": 512,
+      "file": "assets/580dc8ec4d001a7f4f15d177c4b3bf591eee7fa24764340725629c394d7256ca.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/580dc8ec4d001a7f4f15d177c4b3bf591eee7fa24764340725629c394d7256ca.webp"
+    },
+    {
+      "index": 87,
+      "id": "vn:story-moonshadow-village-75-6:page:1:right",
+      "eventId": "story-moonshadow-village-75-6",
+      "pageIndex": 1,
+      "title": "The Free Envelope",
+      "speaker": "Nyx",
+      "scene": "The rooftop, one envelope on the tiles between you, unpriced",
+      "active": true,
+      "actor": "Nyx",
+      "expected": "/portraits/cinematic/storywide/nyx-neutral.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Nyx",
+          "image": "/portraits/cinematic/storywide/nyx-neutral.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "580dc8ec4d001a7f4f15d177c4b3bf591eee7fa24764340725629c394d7256ca",
+      "width": 512,
+      "height": 512,
+      "file": "assets/580dc8ec4d001a7f4f15d177c4b3bf591eee7fa24764340725629c394d7256ca.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/580dc8ec4d001a7f4f15d177c4b3bf591eee7fa24764340725629c394d7256ca.webp"
+    },
+    {
+      "index": 88,
+      "id": "vn:story-moonshadow-village-75-6:page:2:right",
+      "eventId": "story-moonshadow-village-75-6",
+      "pageIndex": 2,
+      "title": "Naming It",
+      "speaker": "Nyx",
+      "scene": "The rooftop, the red moon deepening",
+      "active": true,
+      "actor": "Nyx",
+      "expected": "/portraits/cinematic/storywide/nyx-resolute.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Nyx",
+          "image": "/portraits/cinematic/storywide/nyx-resolute.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "8989f193ff5bd663cfa19445754cd446c5fa2a769f65fd13b4028825632f5436",
+      "width": 512,
+      "height": 512,
+      "file": "assets/8989f193ff5bd663cfa19445754cd446c5fa2a769f65fd13b4028825632f5436.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/8989f193ff5bd663cfa19445754cd446c5fa2a769f65fd13b4028825632f5436.webp"
+    },
+    {
+      "index": 89,
+      "id": "vn:story-moonshadow-village-85-7:page:0:right",
+      "eventId": "story-moonshadow-village-85-7",
+      "pageIndex": 0,
+      "title": "The Night of Open Files",
+      "speaker": "Narrator",
+      "scene": "The whisper market at dawn, forty years of intake dumped on every doorstep",
+      "active": true,
+      "actor": "Narrator",
+      "expected": "",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Narrator",
+          "image": ""
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "2e9ded20c35206265acb4ba62508b6f7adfe4d0cac03a5193f4fde04e7c277ca",
+      "width": 512,
+      "height": 512,
+      "file": "assets/2e9ded20c35206265acb4ba62508b6f7adfe4d0cac03a5193f4fde04e7c277ca.webp",
+      "error": "",
+      "decision": "retire: narration has no character",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/2e9ded20c35206265acb4ba62508b6f7adfe4d0cac03a5193f4fde04e7c277ca.webp"
+    },
+    {
+      "index": 90,
+      "id": "vn:story-moonshadow-village-85-7:page:1:right",
+      "eventId": "story-moonshadow-village-85-7",
+      "pageIndex": 1,
+      "title": "The Controlled Burn",
+      "speaker": "Nyx",
+      "scene": "Nyx's stall, shutters up, her own returned file unopened on the counter",
+      "active": true,
+      "actor": "Nyx",
+      "expected": "/portraits/cinematic/storywide/nyx-neutral.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Nyx",
+          "image": "/portraits/cinematic/storywide/nyx-neutral.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "4e690d9e9cc2574da14a926d14669c09e33c3944edff74e2147f375e05b2d433",
+      "width": 512,
+      "height": 512,
+      "file": "assets/4e690d9e9cc2574da14a926d14669c09e33c3944edff74e2147f375e05b2d433.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/4e690d9e9cc2574da14a926d14669c09e33c3944edff74e2147f375e05b2d433.webp"
+    },
+    {
+      "index": 91,
+      "id": "vn:story-moonshadow-village-85-7:page:2:right",
+      "eventId": "story-moonshadow-village-85-7",
+      "pageIndex": 2,
+      "title": "The Buyer's Name",
+      "speaker": "Kite Harrow",
+      "scene": "The stall's back room, Harrow arriving with her collar up and her license folded away",
+      "active": true,
+      "actor": "Kite Harrow",
+      "expected": "/portraits/cinematic/kite-harrow.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Kite Harrow",
+          "image": "/portraits/cinematic/kite-harrow.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "580dc8ec4d001a7f4f15d177c4b3bf591eee7fa24764340725629c394d7256ca",
+      "width": 512,
+      "height": 512,
+      "file": "assets/580dc8ec4d001a7f4f15d177c4b3bf591eee7fa24764340725629c394d7256ca.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/580dc8ec4d001a7f4f15d177c4b3bf591eee7fa24764340725629c394d7256ca.webp"
+    },
+    {
+      "index": 92,
+      "id": "vn:story-stormveil-village-100-8:page:0:right",
+      "eventId": "story-stormveil-village-100-8",
+      "pageIndex": 0,
+      "title": "The Village Climbs",
+      "speaker": "Narrator",
+      "scene": "The tower road at dusk, the whole village walking up to watch",
+      "active": true,
+      "actor": "Narrator",
+      "expected": "",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Narrator",
+          "image": ""
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "e08f4a1a4a97730887e0ab57f1c535548b3690ee59285fefedd2f15e1779775c",
+      "width": 512,
+      "height": 512,
+      "file": "assets/e08f4a1a4a97730887e0ab57f1c535548b3690ee59285fefedd2f15e1779775c.webp",
+      "error": "",
+      "decision": "retire: narration has no character",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/e08f4a1a4a97730887e0ab57f1c535548b3690ee59285fefedd2f15e1779775c.webp"
+    },
+    {
+      "index": 93,
+      "id": "vn:story-stormveil-village-100-8:page:1:right",
+      "eventId": "story-stormveil-village-100-8",
+      "pageIndex": 1,
+      "title": "At the Gate",
+      "speaker": "Mira Volt",
+      "scene": "The tower gate, Mira with her mother's gloves tucked in her belt",
+      "active": true,
+      "actor": "Mira Volt",
+      "expected": "/portraits/cinematic/storywide/mira-volt-neutral.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Mira Volt",
+          "image": "/portraits/cinematic/storywide/mira-volt-neutral.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "c1670696532c237fbd81ed55d49063eba34e44f867ea9ca71d49868a964221bd",
+      "width": 512,
+      "height": 512,
+      "file": "assets/c1670696532c237fbd81ed55d49063eba34e44f867ea9ca71d49868a964221bd.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/c1670696532c237fbd81ed55d49063eba34e44f867ea9ca71d49868a964221bd.webp"
+    },
+    {
+      "index": 94,
+      "id": "vn:story-stormveil-village-100-8:page:2:right",
+      "eventId": "story-stormveil-village-100-8",
+      "pageIndex": 2,
+      "title": "The Drain Speaks",
+      "speaker": "Kage Raiko Veyr",
+      "scene": "The storm floor, open to the rotating sky, Raiko at the rail",
+      "active": true,
+      "actor": "Kage Raiko Veyr",
+      "expected": "/portraits/cinematic/storywide/kage-raiko-veyr.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Kage Raiko Veyr",
+          "image": "/portraits/cinematic/storywide/kage-raiko-veyr.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "e08f4a1a4a97730887e0ab57f1c535548b3690ee59285fefedd2f15e1779775c",
+      "width": 512,
+      "height": 512,
+      "file": "assets/e08f4a1a4a97730887e0ab57f1c535548b3690ee59285fefedd2f15e1779775c.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/e08f4a1a4a97730887e0ab57f1c535548b3690ee59285fefedd2f15e1779775c.webp"
+    },
+    {
+      "index": 95,
+      "id": "vn:story-stormveil-village-15-1:page:0:right",
+      "eventId": "story-stormveil-village-15-1",
+      "pageIndex": 0,
+      "title": "The Market Breaks",
+      "speaker": "Mira Volt",
+      "scene": "The market square mid-riot, stalls going over, the riot bell hammering",
+      "active": true,
+      "actor": "Mira Volt",
+      "expected": "/portraits/cinematic/storywide/mira-volt-neutral.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Mira Volt",
+          "image": "/portraits/cinematic/storywide/mira-volt-neutral.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "c1670696532c237fbd81ed55d49063eba34e44f867ea9ca71d49868a964221bd",
+      "width": 512,
+      "height": 512,
+      "file": "assets/c1670696532c237fbd81ed55d49063eba34e44f867ea9ca71d49868a964221bd.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/c1670696532c237fbd81ed55d49063eba34e44f867ea9ca71d49868a964221bd.webp"
+    },
+    {
+      "index": 96,
+      "id": "vn:story-stormveil-village-15-1:page:1:right",
+      "eventId": "story-stormveil-village-15-1",
+      "pageIndex": 1,
+      "title": "The Empty Why",
+      "speaker": "Narrator",
+      "scene": "A cornered stall, a button-seller with bleeding knuckles",
+      "active": true,
+      "actor": "Narrator",
+      "expected": "",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Narrator",
+          "image": ""
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "478daa37d0043614a7de94f5b6e7059b0eea8e3cda44387594d2e9a39697dbf6",
+      "width": 512,
+      "height": 512,
+      "file": "assets/478daa37d0043614a7de94f5b6e7059b0eea8e3cda44387594d2e9a39697dbf6.webp",
+      "error": "",
+      "decision": "retire: narration has no character",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/478daa37d0043614a7de94f5b6e7059b0eea8e3cda44387594d2e9a39697dbf6.webp"
+    },
+    {
+      "index": 97,
+      "id": "vn:story-stormveil-village-15-1:page:2:right",
+      "eventId": "story-stormveil-village-15-1",
+      "pageIndex": 2,
+      "title": "The Kage in the Square",
+      "speaker": "Kage Raiko Veyr",
+      "scene": "The square, a big man walking into the riot unarmed",
+      "active": true,
+      "actor": "Kage Raiko Veyr",
+      "expected": "/portraits/cinematic/storywide/kage-raiko-veyr.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Kage Raiko Veyr",
+          "image": "/portraits/cinematic/storywide/kage-raiko-veyr.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "5ea752e14fd4884f98b0d439e5f84c4279d11f041552e38f47ef9c4f84b76f08",
+      "width": 512,
+      "height": 512,
+      "file": "assets/5ea752e14fd4884f98b0d439e5f84c4279d11f041552e38f47ef9c4f84b76f08.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/5ea752e14fd4884f98b0d439e5f84c4279d11f041552e38f47ef9c4f84b76f08.webp"
+    },
+    {
+      "index": 98,
+      "id": "vn:story-stormveil-village-25-2:page:0:right",
+      "eventId": "story-stormveil-village-25-2",
+      "pageIndex": 0,
+      "title": "The Lifted Scroll",
+      "speaker": "Mira Volt",
+      "scene": "Mira's rooftop, rain coming, a stolen scroll between you",
+      "active": true,
+      "actor": "Mira Volt",
+      "expected": "/portraits/cinematic/storywide/mira-volt-neutral.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Mira Volt",
+          "image": "/portraits/cinematic/storywide/mira-volt-neutral.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "478daa37d0043614a7de94f5b6e7059b0eea8e3cda44387594d2e9a39697dbf6",
+      "width": 512,
+      "height": 512,
+      "file": "assets/478daa37d0043614a7de94f5b6e7059b0eea8e3cda44387594d2e9a39697dbf6.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/478daa37d0043614a7de94f5b6e7059b0eea8e3cda44387594d2e9a39697dbf6.webp"
+    },
+    {
+      "index": 99,
+      "id": "vn:story-stormveil-village-25-2:page:1:right",
+      "eventId": "story-stormveil-village-25-2",
+      "pageIndex": 1,
+      "title": "The Name on the Board",
+      "speaker": "Mira Volt",
+      "scene": "The rooftop, wind pulling at an old slate Mira keeps wrapped in oilcloth",
+      "active": true,
+      "actor": "Mira Volt",
+      "expected": "/portraits/cinematic/storywide/mira-volt-neutral.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Mira Volt",
+          "image": "/portraits/cinematic/storywide/mira-volt-neutral.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "1c30c50d6c5ac22243126c4698399f88759cc7509b797b8dc213a62bbd81983d",
+      "width": 512,
+      "height": 512,
+      "file": "assets/1c30c50d6c5ac22243126c4698399f88759cc7509b797b8dc213a62bbd81983d.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/1c30c50d6c5ac22243126c4698399f88759cc7509b797b8dc213a62bbd81983d.webp"
+    },
+    {
+      "index": 100,
+      "id": "vn:story-stormveil-village-25-2:page:2:right",
+      "eventId": "story-stormveil-village-25-2",
+      "pageIndex": 2,
+      "title": "The Same Hand",
+      "speaker": "Mira Volt",
+      "scene": "The rooftop, the lead token flat on the scroll",
+      "active": true,
+      "actor": "Mira Volt",
+      "expected": "/portraits/cinematic/storywide/mira-volt-neutral.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Mira Volt",
+          "image": "/portraits/cinematic/storywide/mira-volt-neutral.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "abf1b04eca341237e4f2f2023c612b0c7274de79ba6e3856f162dcebdb3b9fdb",
+      "width": 512,
+      "height": 512,
+      "file": "assets/abf1b04eca341237e4f2f2023c612b0c7274de79ba6e3856f162dcebdb3b9fdb.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/abf1b04eca341237e4f2f2023c612b0c7274de79ba6e3856f162dcebdb3b9fdb.webp"
+    },
+    {
+      "index": 101,
+      "id": "vn:story-stormveil-village-35-3:page:0:right",
+      "eventId": "story-stormveil-village-35-3",
+      "pageIndex": 0,
+      "title": "Down the Well That Isn't",
+      "speaker": "Mira Volt",
+      "scene": "The maintenance shaft under the arena, rungs slick, a hum below",
+      "active": true,
+      "actor": "Mira Volt",
+      "expected": "/portraits/cinematic/storywide/mira-volt-neutral.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Mira Volt",
+          "image": "/portraits/cinematic/storywide/mira-volt-neutral.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "c1670696532c237fbd81ed55d49063eba34e44f867ea9ca71d49868a964221bd",
+      "width": 512,
+      "height": 512,
+      "file": "assets/c1670696532c237fbd81ed55d49063eba34e44f867ea9ca71d49868a964221bd.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/c1670696532c237fbd81ed55d49063eba34e44f867ea9ca71d49868a964221bd.webp"
+    },
+    {
+      "index": 102,
+      "id": "vn:story-stormveil-village-35-3:page:1:right",
+      "eventId": "story-stormveil-village-35-3",
+      "pageIndex": 1,
+      "title": "Eleven Pipes",
+      "speaker": "Narrator",
+      "scene": "The engine floor: eleven great pipes running from the arena floor overhead into a banked crystal reserve",
+      "active": true,
+      "actor": "Narrator",
+      "expected": "",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Narrator",
+          "image": ""
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "1c30c50d6c5ac22243126c4698399f88759cc7509b797b8dc213a62bbd81983d",
+      "width": 512,
+      "height": 512,
+      "file": "assets/1c30c50d6c5ac22243126c4698399f88759cc7509b797b8dc213a62bbd81983d.webp",
+      "error": "",
+      "decision": "retire: narration has no character",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/1c30c50d6c5ac22243126c4698399f88759cc7509b797b8dc213a62bbd81983d.webp"
+    },
+    {
+      "index": 103,
+      "id": "vn:story-stormveil-village-35-3:page:2:right",
+      "eventId": "story-stormveil-village-35-3",
+      "pageIndex": 2,
+      "title": "The First Storm",
+      "speaker": "Elder Vanta",
+      "scene": "An alcove off the engine floor, founders' slates behind wax",
+      "active": true,
+      "actor": "Elder Vanta",
+      "expected": "/portraits/cinematic/storywide/elder-vanta.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Elder Vanta",
+          "image": "/portraits/cinematic/storywide/elder-vanta.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "e08f4a1a4a97730887e0ab57f1c535548b3690ee59285fefedd2f15e1779775c",
+      "width": 512,
+      "height": 512,
+      "file": "assets/e08f4a1a4a97730887e0ab57f1c535548b3690ee59285fefedd2f15e1779775c.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/e08f4a1a4a97730887e0ab57f1c535548b3690ee59285fefedd2f15e1779775c.webp"
+    },
+    {
+      "index": 104,
+      "id": "vn:story-stormveil-village-4-0:page:0:right",
+      "eventId": "story-stormveil-village-4-0",
+      "pageIndex": 0,
+      "title": "The Challenge Board",
+      "speaker": "Mira Volt",
+      "scene": "The arena rim at dusk, chalk odds on slate, banner cables humming",
+      "active": true,
+      "actor": "Mira Volt",
+      "expected": "/portraits/cinematic/storywide/mira-volt-neutral.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Mira Volt",
+          "image": "/portraits/cinematic/storywide/mira-volt-neutral.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "1c30c50d6c5ac22243126c4698399f88759cc7509b797b8dc213a62bbd81983d",
+      "width": 512,
+      "height": 512,
+      "file": "assets/1c30c50d6c5ac22243126c4698399f88759cc7509b797b8dc213a62bbd81983d.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/1c30c50d6c5ac22243126c4698399f88759cc7509b797b8dc213a62bbd81983d.webp"
+    },
+    {
+      "index": 105,
+      "id": "vn:story-stormveil-village-4-0:page:1:right",
+      "eventId": "story-stormveil-village-4-0",
+      "pageIndex": 1,
+      "title": "The Reason Line",
+      "speaker": "Ledger Clerk",
+      "scene": "The board clerk's stand, a wet brush waiting",
+      "active": true,
+      "actor": "Ledger Clerk",
+      "expected": "/portraits/cinematic/storywide/ledger-clerk.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Ledger Clerk",
+          "image": "/portraits/cinematic/storywide/ledger-clerk.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "478daa37d0043614a7de94f5b6e7059b0eea8e3cda44387594d2e9a39697dbf6",
+      "width": 512,
+      "height": 512,
+      "file": "assets/478daa37d0043614a7de94f5b6e7059b0eea8e3cda44387594d2e9a39697dbf6.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/478daa37d0043614a7de94f5b6e7059b0eea8e3cda44387594d2e9a39697dbf6.webp"
+    },
+    {
+      "index": 106,
+      "id": "vn:story-stormveil-village-4-0:page:2:right",
+      "eventId": "story-stormveil-village-4-0",
+      "pageIndex": 2,
+      "title": "A Shield Reason",
+      "speaker": "Ledger Clerk",
+      "scene": "The clerk's stand",
+      "active": true,
+      "actor": "Ledger Clerk",
+      "expected": "/portraits/cinematic/storywide/ledger-clerk.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Ledger Clerk",
+          "image": "/portraits/cinematic/storywide/ledger-clerk.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "1c30c50d6c5ac22243126c4698399f88759cc7509b797b8dc213a62bbd81983d",
+      "width": 512,
+      "height": 512,
+      "file": "assets/1c30c50d6c5ac22243126c4698399f88759cc7509b797b8dc213a62bbd81983d.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/1c30c50d6c5ac22243126c4698399f88759cc7509b797b8dc213a62bbd81983d.webp"
+    },
+    {
+      "index": 107,
+      "id": "vn:story-stormveil-village-50-4:page:0:right",
+      "eventId": "story-stormveil-village-50-4",
+      "pageIndex": 0,
+      "title": "The Rite of the Posted Rival",
+      "speaker": "Ledger Clerk",
+      "scene": "The arena at noon, banners up, the board scrubbed clean for the rite",
+      "active": true,
+      "actor": "Ledger Clerk",
+      "expected": "/portraits/cinematic/storywide/ledger-clerk.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Ledger Clerk",
+          "image": "/portraits/cinematic/storywide/ledger-clerk.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "e08f4a1a4a97730887e0ab57f1c535548b3690ee59285fefedd2f15e1779775c",
+      "width": 512,
+      "height": 512,
+      "file": "assets/e08f4a1a4a97730887e0ab57f1c535548b3690ee59285fefedd2f15e1779775c.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/e08f4a1a4a97730887e0ab57f1c535548b3690ee59285fefedd2f15e1779775c.webp"
+    },
+    {
+      "index": 108,
+      "id": "vn:story-stormveil-village-50-4:page:1:right",
+      "eventId": "story-stormveil-village-50-4",
+      "pageIndex": 1,
+      "title": "Raiko's Dare",
+      "speaker": "Kage Raiko Veyr",
+      "scene": "The rite chalk, Raiko grinning like the whole village's uncle",
+      "active": true,
+      "actor": "Kage Raiko Veyr",
+      "expected": "/portraits/cinematic/storywide/kage-raiko-veyr.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Kage Raiko Veyr",
+          "image": "/portraits/cinematic/storywide/kage-raiko-veyr.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "478daa37d0043614a7de94f5b6e7059b0eea8e3cda44387594d2e9a39697dbf6",
+      "width": 512,
+      "height": 512,
+      "file": "assets/478daa37d0043614a7de94f5b6e7059b0eea8e3cda44387594d2e9a39697dbf6.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/478daa37d0043614a7de94f5b6e7059b0eea8e3cda44387594d2e9a39697dbf6.webp"
+    },
+    {
+      "index": 109,
+      "id": "vn:story-stormveil-village-50-4:page:2:right",
+      "eventId": "story-stormveil-village-50-4",
+      "pageIndex": 2,
+      "title": "The Missing Chalk Line",
+      "speaker": "Kage Raiko Veyr",
+      "scene": "The rite chalk, the crowd noise far away for a moment",
+      "active": true,
+      "actor": "Kage Raiko Veyr",
+      "expected": "/portraits/cinematic/storywide/kage-raiko-veyr.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Kage Raiko Veyr",
+          "image": "/portraits/cinematic/storywide/kage-raiko-veyr.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "e08f4a1a4a97730887e0ab57f1c535548b3690ee59285fefedd2f15e1779775c",
+      "width": 512,
+      "height": 512,
+      "file": "assets/e08f4a1a4a97730887e0ab57f1c535548b3690ee59285fefedd2f15e1779775c.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/e08f4a1a4a97730887e0ab57f1c535548b3690ee59285fefedd2f15e1779775c.webp"
+    },
+    {
+      "index": 110,
+      "id": "vn:story-stormveil-village-65-5:page:0:right",
+      "eventId": "story-stormveil-village-65-5",
+      "pageIndex": 0,
+      "title": "The Ravine Order",
+      "speaker": "Tempest Guard Captain",
+      "scene": "The tower gatehouse, an order with fresh wax and no clerk's initials",
+      "active": true,
+      "actor": "Tempest Guard Captain",
+      "expected": "/portraits/cinematic/storywide/tempest-guard-captain.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Tempest Guard Captain",
+          "image": "/portraits/cinematic/storywide/tempest-guard-captain.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "5ea752e14fd4884f98b0d439e5f84c4279d11f041552e38f47ef9c4f84b76f08",
+      "width": 512,
+      "height": 512,
+      "file": "assets/5ea752e14fd4884f98b0d439e5f84c4279d11f041552e38f47ef9c4f84b76f08.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/5ea752e14fd4884f98b0d439e5f84c4279d11f041552e38f47ef9c4f84b76f08.webp"
+    },
+    {
+      "index": 111,
+      "id": "vn:story-stormveil-village-65-5:page:1:right",
+      "eventId": "story-stormveil-village-65-5",
+      "pageIndex": 1,
+      "title": "The Ninth Share",
+      "speaker": "Tempest Guard Captain",
+      "scene": "The gatehouse, the order flat between you",
+      "active": true,
+      "actor": "Tempest Guard Captain",
+      "expected": "/portraits/cinematic/storywide/tempest-guard-captain.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Tempest Guard Captain",
+          "image": "/portraits/cinematic/storywide/tempest-guard-captain.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "f6b0d008f313b9a60bf4f2c81e2ca025b456ba0212426415cb87a136ce2c4ab9",
+      "width": 512,
+      "height": 512,
+      "file": "assets/f6b0d008f313b9a60bf4f2c81e2ca025b456ba0212426415cb87a136ce2c4ab9.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/f6b0d008f313b9a60bf4f2c81e2ca025b456ba0212426415cb87a136ce2c4ab9.webp"
+    },
+    {
+      "index": 112,
+      "id": "vn:story-stormveil-village-65-5:page:2:right",
+      "eventId": "story-stormveil-village-65-5",
+      "pageIndex": 2,
+      "title": "The Camp That Keeps Its Anger",
+      "speaker": "Rebel Medic",
+      "scene": "The ravine camp: cook fires, mended tents, slates nailed to posts with reasons written large",
+      "active": true,
+      "actor": "Rebel Medic",
+      "expected": "/portraits/cinematic/storywide/rebel-medic-plain-band-v2.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Rebel Medic",
+          "image": "/portraits/cinematic/storywide/rebel-medic-plain-band-v2.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "e08f4a1a4a97730887e0ab57f1c535548b3690ee59285fefedd2f15e1779775c",
+      "width": 512,
+      "height": 512,
+      "file": "assets/e08f4a1a4a97730887e0ab57f1c535548b3690ee59285fefedd2f15e1779775c.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/e08f4a1a4a97730887e0ab57f1c535548b3690ee59285fefedd2f15e1779775c.webp"
+    },
+    {
+      "index": 113,
+      "id": "vn:story-stormveil-village-75-6:page:0:right",
+      "eventId": "story-stormveil-village-75-6",
+      "pageIndex": 0,
+      "title": "The Estate Closure",
+      "speaker": "Mira Volt",
+      "scene": "The board at dawn, a new slate in the estate column, Mira staring at it",
+      "active": true,
+      "actor": "Mira Volt",
+      "expected": "/portraits/cinematic/storywide/mira-volt-neutral.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Mira Volt",
+          "image": "/portraits/cinematic/storywide/mira-volt-neutral.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "478daa37d0043614a7de94f5b6e7059b0eea8e3cda44387594d2e9a39697dbf6",
+      "width": 512,
+      "height": 512,
+      "file": "assets/478daa37d0043614a7de94f5b6e7059b0eea8e3cda44387594d2e9a39697dbf6.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/478daa37d0043614a7de94f5b6e7059b0eea8e3cda44387594d2e9a39697dbf6.webp"
+    },
+    {
+      "index": 114,
+      "id": "vn:story-stormveil-village-75-6:page:1:right",
+      "eventId": "story-stormveil-village-75-6",
+      "pageIndex": 1,
+      "title": "The Routing Mark",
+      "speaker": "Mira Volt",
+      "scene": "The board, Mira's finger under the slate's corner",
+      "active": true,
+      "actor": "Mira Volt",
+      "expected": "/portraits/cinematic/storywide/mira-volt-neutral.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Mira Volt",
+          "image": "/portraits/cinematic/storywide/mira-volt-neutral.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "478daa37d0043614a7de94f5b6e7059b0eea8e3cda44387594d2e9a39697dbf6",
+      "width": 512,
+      "height": 512,
+      "file": "assets/478daa37d0043614a7de94f5b6e7059b0eea8e3cda44387594d2e9a39697dbf6.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/478daa37d0043614a7de94f5b6e7059b0eea8e3cda44387594d2e9a39697dbf6.webp"
+    },
+    {
+      "index": 115,
+      "id": "vn:story-stormveil-village-75-6:page:2:right",
+      "eventId": "story-stormveil-village-75-6",
+      "pageIndex": 2,
+      "title": "Storm Rules",
+      "speaker": "Mira Volt",
+      "scene": "Mira's rooftop, the plan chalked on slate, her hands steady",
+      "active": true,
+      "actor": "Mira Volt",
+      "expected": "/portraits/cinematic/storywide/mira-volt-neutral.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Mira Volt",
+          "image": "/portraits/cinematic/storywide/mira-volt-neutral.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "23949241e02fdccc1cb90c0b75e1c7998b94073480ca86da17b508e5a1569348",
+      "width": 512,
+      "height": 512,
+      "file": "assets/23949241e02fdccc1cb90c0b75e1c7998b94073480ca86da17b508e5a1569348.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/23949241e02fdccc1cb90c0b75e1c7998b94073480ca86da17b508e5a1569348.webp"
+    },
+    {
+      "index": 116,
+      "id": "vn:story-stormveil-village-85-7:page:0:right",
+      "eventId": "story-stormveil-village-85-7",
+      "pageIndex": 0,
+      "title": "Fees Waived",
+      "speaker": "Tempest Guard Captain",
+      "scene": "The square under a bruise-green sky, clerks posting free bouts as fast as chalk allows",
+      "active": true,
+      "actor": "Tempest Guard Captain",
+      "expected": "/portraits/cinematic/storywide/tempest-guard-captain.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Tempest Guard Captain",
+          "image": "/portraits/cinematic/storywide/tempest-guard-captain.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "1c30c50d6c5ac22243126c4698399f88759cc7509b797b8dc213a62bbd81983d",
+      "width": 512,
+      "height": 512,
+      "file": "assets/1c30c50d6c5ac22243126c4698399f88759cc7509b797b8dc213a62bbd81983d.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/1c30c50d6c5ac22243126c4698399f88759cc7509b797b8dc213a62bbd81983d.webp"
+    },
+    {
+      "index": 117,
+      "id": "vn:story-stormveil-village-85-7:page:1:right",
+      "eventId": "story-stormveil-village-85-7",
+      "pageIndex": 1,
+      "title": "The Balloon Payment",
+      "speaker": "Kite Harrow",
+      "scene": "The rail, Harrow with a valise and no intention of staying",
+      "active": true,
+      "actor": "Kite Harrow",
+      "expected": "/portraits/cinematic/kite-harrow.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Kite Harrow",
+          "image": "/portraits/cinematic/kite-harrow.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "e08f4a1a4a97730887e0ab57f1c535548b3690ee59285fefedd2f15e1779775c",
+      "width": 512,
+      "height": 512,
+      "file": "assets/e08f4a1a4a97730887e0ab57f1c535548b3690ee59285fefedd2f15e1779775c.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/e08f4a1a4a97730887e0ab57f1c535548b3690ee59285fefedd2f15e1779775c.webp"
+    },
+    {
+      "index": 118,
+      "id": "vn:story-stormveil-village-85-7:page:2:right",
+      "eventId": "story-stormveil-village-85-7",
+      "pageIndex": 2,
+      "title": "The Anomaly, Again",
+      "speaker": "Kite Harrow",
+      "scene": "The rail, Harrow looking at her own valise like it betrayed her",
+      "active": true,
+      "actor": "Kite Harrow",
+      "expected": "/portraits/cinematic/kite-harrow.webp?v=891202c8e",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Kite Harrow",
+          "image": "/portraits/cinematic/kite-harrow.webp?v=891202c8e"
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "478daa37d0043614a7de94f5b6e7059b0eea8e3cda44387594d2e9a39697dbf6",
+      "width": 512,
+      "height": 512,
+      "file": "assets/478daa37d0043614a7de94f5b6e7059b0eea8e3cda44387594d2e9a39697dbf6.webp",
+      "error": "",
+      "decision": "retire: legacy image contradicts current cast identity",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/478daa37d0043614a7de94f5b6e7059b0eea8e3cda44387594d2e9a39697dbf6.webp"
+    },
+    {
+      "index": 119,
+      "id": "vn:sys-ancient-chest:page:0:right",
+      "eventId": "sys-ancient-chest",
+      "pageIndex": 0,
+      "title": "A Seal Under the Rubble",
+      "speaker": "Narrator",
+      "scene": "A straight lacquered edge shows beneath the moss of a collapsed waystation.",
+      "active": true,
+      "actor": "Narrator",
+      "expected": "",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Narrator",
+          "image": ""
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "035e4a8ccd07aafad992c4872c1e23497cea4a4d3b502b5999a827ce8792b12a",
+      "width": 512,
+      "height": 512,
+      "file": "assets/035e4a8ccd07aafad992c4872c1e23497cea4a4d3b502b5999a827ce8792b12a.webp",
+      "error": "",
+      "decision": "retire: narration has no character",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/035e4a8ccd07aafad992c4872c1e23497cea4a4d3b502b5999a827ce8792b12a.webp"
+    },
+    {
+      "index": 120,
+      "id": "vn:sys-ancient-chest:page:1:right",
+      "eventId": "sys-ancient-chest",
+      "pageIndex": 1,
+      "title": "The Chest Opens",
+      "speaker": "Narrator",
+      "scene": "The old courier chest opens on a row of oilcloth bundles.",
+      "active": true,
+      "actor": "Narrator",
+      "expected": "",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Narrator",
+          "image": ""
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "035e4a8ccd07aafad992c4872c1e23497cea4a4d3b502b5999a827ce8792b12a",
+      "width": 512,
+      "height": 512,
+      "file": "assets/035e4a8ccd07aafad992c4872c1e23497cea4a4d3b502b5999a827ce8792b12a.webp",
+      "error": "",
+      "decision": "retire: narration has no character",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/035e4a8ccd07aafad992c4872c1e23497cea4a4d3b502b5999a827ce8792b12a.webp"
+    },
+    {
+      "index": 121,
+      "id": "vn:sys-pet-encounter:page:0:right",
+      "eventId": "sys-pet-encounter",
+      "pageIndex": 0,
+      "title": "Tracks Beside Your Own",
+      "speaker": "Narrator",
+      "scene": "A snapped branch stops you on a narrow sector trail.",
+      "active": true,
+      "actor": "Narrator",
+      "expected": "",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Narrator",
+          "image": ""
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "f3d09a8593ae87de528cff51c0dc39a581cef8721a4ce481108e270613e59251",
+      "width": 512,
+      "height": 512,
+      "file": "assets/f3d09a8593ae87de528cff51c0dc39a581cef8721a4ce481108e270613e59251.webp",
+      "error": "",
+      "decision": "retire: narration has no character",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/f3d09a8593ae87de528cff51c0dc39a581cef8721a4ce481108e270613e59251.webp"
+    },
+    {
+      "index": 122,
+      "id": "vn:sys-pet-encounter:page:1:right",
+      "eventId": "sys-pet-encounter",
+      "pageIndex": 1,
+      "title": "Close Enough to See",
+      "speaker": "Narrator",
+      "scene": "The animal stands between two cedars, muddy and watchful.",
+      "active": true,
+      "actor": "Narrator",
+      "expected": "",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Narrator",
+          "image": ""
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "035e4a8ccd07aafad992c4872c1e23497cea4a4d3b502b5999a827ce8792b12a",
+      "width": 512,
+      "height": 512,
+      "file": "assets/035e4a8ccd07aafad992c4872c1e23497cea4a4d3b502b5999a827ce8792b12a.webp",
+      "error": "",
+      "decision": "retire: narration has no character",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/035e4a8ccd07aafad992c4872c1e23497cea4a4d3b502b5999a827ce8792b12a.webp"
+    },
+    {
+      "index": 123,
+      "id": "vn:sys-pet-encounter:page:2:right",
+      "eventId": "sys-pet-encounter",
+      "pageIndex": 2,
+      "title": "An Open Hand",
+      "speaker": "Narrator",
+      "scene": "You hold out an empty hand and let the animal decide the distance.",
+      "active": true,
+      "actor": "Narrator",
+      "expected": "",
+      "cast": [
+        {
+          "name": "Player",
+          "image": ""
+        },
+        {
+          "name": "Narrator",
+          "image": ""
+        }
+      ],
+      "missingEvent": false,
+      "missingPage": false,
+      "sha256": "035e4a8ccd07aafad992c4872c1e23497cea4a4d3b502b5999a827ce8792b12a",
+      "width": 512,
+      "height": 512,
+      "file": "assets/035e4a8ccd07aafad992c4872c1e23497cea4a4d3b502b5999a827ce8792b12a.webp",
+      "error": "",
+      "decision": "retire: narration has no character",
+      "fixture": "shinobij.client/e2e/fixtures/vn-identity-audit/035e4a8ccd07aafad992c4872c1e23497cea4a4d3b502b5999a827ce8792b12a.webp"
+    }
+  ]
+}

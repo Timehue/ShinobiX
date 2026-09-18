@@ -19,6 +19,7 @@ import { isLowEndMobile, prefersReducedMotion } from "../lib/device-tier";
 import { resolveCinematicActorImage, resolveVnPresentation } from "../lib/vn-presentation";
 import { secondaryVnActorAbsent } from '../lib/vn-secondary-artwork';
 import { CinematicVisualNovelStage } from "./CinematicVisualNovelStage";
+import { useVnArtwork } from "../lib/useVnArtwork";
 import { isReusableChoiceHub, makeStoryChoiceReceipt, recordedStoryChoices, storyChoiceId } from "../lib/story-choice-history";
 
 type VnChoice = NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number];
@@ -32,7 +33,8 @@ function initialClassicReader(): boolean {
     }
 }
 
-export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, setPageIndex, setLineIndex, onCancel, onComplete, onBattle, onChoice, onProgress, sharedImages, surface = "immersive", readOnlyReplay = false }: { event: CreatorEvent; character: Character; pageIndex: number; lineIndex: number; setPageIndex: (index: number | ((index: number) => number)) => void; setLineIndex: (index: number | ((index: number) => number)) => void; onCancel: () => void; onComplete: () => void; onBattle: (event: CreatorEvent, battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]) => void; onChoice?: (choice: VnChoice, receipt: StoryChoiceReceipt) => void; onProgress?: (cursor: StoryCursor, history: StoryCursor[]) => void; sharedImages?: Record<string, string>; surface?: "immersive" | "preview" | "classic"; /** Story Hall playback: presentation only, with every mutation/battle affordance removed by the caller. */ readOnlyReplay?: boolean }) {
+export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex, lineIndex, setPageIndex, setLineIndex, onCancel, onComplete, onBattle, onChoice, onProgress, sharedImages, surface = "immersive", readOnlyReplay = false }: { event: CreatorEvent; character: Character; pageIndex: number; lineIndex: number; setPageIndex: (index: number | ((index: number) => number)) => void; setLineIndex: (index: number | ((index: number) => number)) => void; onCancel: () => void; onComplete: () => void; onBattle: (event: CreatorEvent, battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]) => void; onChoice?: (choice: VnChoice, receipt: StoryChoiceReceipt) => void; onProgress?: (cursor: StoryCursor, history: StoryCursor[]) => void; sharedImages?: Record<string, string>; surface?: "immersive" | "preview" | "classic"; /** Story Hall playback: presentation only, with every mutation/battle affordance removed by the caller. */ readOnlyReplay?: boolean }) {
+    const event = useVnArtwork(sourceEvent);
     // The local character object can drift out of sync with the freshly-
     // uploaded avatar (server saves strip images and re-hydrate from the
     // shared image store). Resolve once via the same path the Tavern uses:
@@ -352,8 +354,11 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
         setArmedChoiceKey("");
         const previous = history.at(-1);
         if (!previous) return;
-        setNavigation({ eventId: event.id, history: history.slice(0, -1) });
-        moveTo(previous.pageIndex, previous.lineIndex, false);
+        const remaining = history.slice(0, -1);
+        setNavigation({ eventId: event.id, history: remaining });
+        setPageIndex(previous.pageIndex);
+        setLineIndex(previous.lineIndex);
+        onProgress?.(previous, remaining);
     }
     function nextLine() {
         if (isAtChoicePoint || !beginAction()) return;

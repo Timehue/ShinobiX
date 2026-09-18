@@ -1,6 +1,9 @@
 import type { CreatorEvent } from "../types/vn";
 import { resolveVnActorBaseImage, resolveVnAuthoredActorImage } from "./vn";
 import { resolveStorywideActorImage } from "./vn-storywide-direction";
+import { vnActorImageKey } from './vn-shared-artwork';
+import { isRetiredVnArt } from './vn-retired-artwork';
+import { resolveCinematicActorImage } from './vn-presentation';
 
 export type TowerEnemySpriteKey =
     | "bandit"
@@ -120,15 +123,33 @@ export function resolveDungeonWardenPortrait(
             { side: "right", name: page.rightName || page.speaker, image: page.rightImage },
         ];
         return actors.filter((actor) => actor.name?.trim().toLowerCase() === "dungeon warden")
-            .map((actor) => ({ ...actor, key: `vn:${event.id}:page:${index}:${actor.side}` }));
+            .map((actor) => ({ ...actor, key: `vn:${event.id}:page:${index}:${actor.side}`, namedKey: vnActorImageKey(event.id, index, 'Dungeon Warden') }));
     }).reverse();
-    const published = slots.map((slot) => sharedImages[slot.key]).find(Boolean);
+    const published = slots.map((slot) => resolveVnAuthoredActorImage(event.id, 'Dungeon Warden', sharedImages[slot.namedKey] || sharedImages[slot.key])).find(Boolean);
     if (published) return published;
-    const authored = slots.map((slot) => slot.image).find(Boolean);
+    const authored = slots.map((slot) => resolveVnAuthoredActorImage(event.id, 'Dungeon Warden', slot.image)).find(Boolean);
     if (authored) return authored;
     return resolveVnAuthoredActorImage(event.id, "Dungeon Warden", event.avatarImage)
         || resolveStorywideActorImage(event.id, "Dungeon Warden")
         || undefined;
+}
+
+/** Combat has no React artwork hook. Verify its selected shared portrait before
+ * handing it to the arena, retaining any replacement bytes in an old slot. */
+export async function resolveVerifiedDungeonWardenPortrait(event: DungeonArtEvent, sharedImages: Record<string, string>): Promise<string | undefined> {
+    let current = event, images = sharedImages;
+    let portrait = resolveDungeonWardenPortrait(current, images);
+    while (portrait && await isRetiredVnArt(event.id, portrait)) {
+        const retired = portrait;
+        images = Object.fromEntries(Object.entries(images).filter(([, image]) => image !== retired));
+        current = { ...current, avatarImage: current.avatarImage === retired ? undefined : current.avatarImage,
+            vnPages: current.vnPages?.map(page => ({ ...page,
+                leftImage: page.leftImage === retired ? undefined : page.leftImage,
+                rightImage: page.rightImage === retired ? undefined : page.rightImage,
+            })) };
+        portrait = resolveDungeonWardenPortrait(current, images);
+    }
+    return portrait;
 }
 
 /** A player reply or another speaker must never wear the Warden's portrait. */
@@ -143,5 +164,5 @@ export function resolveDungeonSpeakerPortrait(
     if (name === "dungeon warden") return resolveDungeonWardenPortrait(event, sharedImages);
     const authored = page?.rightName?.trim().toLowerCase() === name ? page.rightImage
         : page?.leftName?.trim().toLowerCase() === name ? page.leftImage : undefined;
-    return resolveVnActorBaseImage(event.id, speaker, authored) || undefined;
+    return resolveCinematicActorImage(event.id, speaker, resolveVnActorBaseImage(event.id, speaker, authored), 'neutral', authored) || undefined;
 }

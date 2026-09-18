@@ -1,15 +1,13 @@
 /* eslint-disable react-hooks/purity */
 import { useState } from "react";
-import { GiCrossedSwords, GiCrownedSkull, GiGraduateCap, GiHealthIncrease, GiPawPrint, GiShield, GiSpiralThrust } from "../components/icons/LightweightGameIcons";
+import { GiCrossedSwords, GiCrownedSkull, GiHealthIncrease, GiPawPrint, GiShield, GiSpiralThrust } from "../components/icons/LightweightGameIcons";
 import "../styles/battle-skin.css";
-import { AURA_SPHERE_VN_ID, AWAKENING_VN_ID, DUNGEON_VN_ID } from "../constants/game";
-import type { Biome, Screen } from "../types/core";
+import type { Screen } from "../types/core";
 import type { Character } from "../types/character";
 import type { Pet } from "../types/pet";
 import { PET_CONSUMABLE_PVE_HEAL_PCT, petConsumableById, petPveGearById, petPveHealOnSummonPct, petPveLifestealPct, petPveLoyalty, petPveSummonDamageMult } from "../data/pet-config";
 import { PET_CRIT_MULT } from "../lib/pet-battle-sim";
 import { boostAmount } from "../lib/village-upgrades";
-import { resolveVnActorBaseImage, defaultVnScene, splitDialogueLine } from "../lib/vn";
 import { gameConfirm } from "../components/GameAlert";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { activeCarriedPets } from "../lib/entitlements";
@@ -23,26 +21,22 @@ import {
 import { spendPetSummonCost } from "../lib/pet-acquisition-api";
 import { isStoryContentVillage } from "../lib/story-content-contract";
 import { readStoryContent } from "../lib/story-content-loader";
-import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { BattleLockKeeper } from "../components/BattleLockKeeper";
 import { BackToVillageButton } from "../components/BackToVillageButton";
-import { extractMentorLines, extractStoryFightScript, requestStoryBossFight } from "../lib/story-fight-theme";
 import { StoryJourney } from "../components/StoryJourney";
 import { LivingChronicle } from "../components/LivingChronicle";
 import { StoryContentBoundary } from "../components/StoryContentBoundary";
-import {
-    type CreatorEvent,
-    type StoryStep,
-} from "../App";
 
 export function StoryArchiveHall({
     character,
     setScreen,
     onResumeStory,
+    sharedImages,
 }: {
     character: Character;
     setScreen: (screen: Screen) => void;
     onResumeStory?: () => void;
+    sharedImages?: Record<string, string>;
 }) {
     const village = character.storyVillage || character.village;
     const [section, setSection] = useState<"stories" | "chronicle">("stories");
@@ -65,134 +59,13 @@ export function StoryArchiveHall({
             </nav>
             {section === "stories" ? (
                 <StoryContentBoundary village={village} onReturn={() => setScreen("village")}>
-                    <StoryJourney character={character} onReturnToVillage={() => setScreen("village")} onResumeStory={onResumeStory} />
+                    <StoryJourney character={character} onReturnToVillage={() => setScreen("village")} onResumeStory={onResumeStory} sharedImages={sharedImages} />
                 </StoryContentBoundary>
             ) : (
                 <LivingChronicle key={`${character.name}:${character.clan ?? ""}`} character={character} />
             )}
         </div>
     );
-}
-
-/** @deprecated The live chapter/boss launcher is retained only for old save
- * recovery. The player-facing Story Hall now renders StoryArchiveHall. */
-type StoryHallProps = {
-    character: Character;
-    setScreen: (screen: Screen) => void;
-    creatorEvents: CreatorEvent[];
-    sharedImages: Record<string, string>;
-    onStartVisualNovel: (event: CreatorEvent) => void;
-};
-
-export function StoryHall(props: StoryHallProps) {
-    const storyVillage = props.character.storyVillage || props.character.village;
-    if (!isStoryContentVillage(storyVillage)) throw new Error(`No story content is published for ${storyVillage || "this village"}.`);
-    return (
-        <StoryContentBoundary village={storyVillage} onReturn={() => props.setScreen("village")}>
-            <StoryHallContent {...props} storyVillage={storyVillage} />
-        </StoryContentBoundary>
-    );
-}
-
-function StoryHallContent({
-    character,
-    setScreen,
-    creatorEvents,
-    sharedImages,
-    onStartVisualNovel,
-    storyVillage,
-}: StoryHallProps & { storyVillage: import("../lib/story-content-contract").StoryContentVillage }) {
-    const storyLine = readStoryContent(storyVillage).chapters;
-    const current = storyLine[character.storyProgress] ?? null;
-    const [lineIndex, setLineIndex] = useState(0);
-    // Gate the village story behind tutorial completion (matches the auto-trigger
-    // gate in App.tsx). Story Hall is no longer part of the Academy tutorial.
-    const storyTutorialLocked = normalizeOnboardingStep(character.onboardingStep) !== "done";
-    if (storyTutorialLocked) {
-        return (
-            <div className="card cinematic-card">
-                <BackToVillageButton onClick={() => setScreen("village")} />
-                <div className="visual-novel">
-                    <div className="vn-stage vn-complete">
-                        <div className="vn-character hero-character"><GiGraduateCap size={54} aria-hidden="true" /></div>
-                        <div className="vn-dialogue">
-                            <div className="vn-speaker">Academy</div>
-                            <p>Complete Academy Training to unlock your village story. Open your Logbook to see what's next on your path to Genin.</p>
-                            <div className="vn-controls">
-                                <button onClick={() => setScreen("logbook")}>Open Logbook</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-    const hiddenCreatorVnIds = new Set([AWAKENING_VN_ID, AURA_SPHERE_VN_ID, DUNGEON_VN_ID]);
-    const creatorVisualNovels = creatorEvents
-        .filter((event) =>
-            event.eventKind === "visualNovel" &&
-            !event.id.startsWith("story-") &&
-            !hiddenCreatorVnIds.has(event.id) &&
-            character.level >= event.levelReq
-        )
-        .sort((a, b) => a.levelReq - b.levelReq || a.name.localeCompare(b.name));
-    const creatorVnShelf = creatorVisualNovels.length > 0 ? (
-        <div className="summary-box">
-            <h3>Available Visual Novels</h3>
-            <div className="location-grid">
-                {creatorVisualNovels.map((event) => (
-                    <button key={event.id} className="location-button" onClick={() => onStartVisualNovel(event)}>
-                        <span className="tile-icon">{event.icon || "?"}</span>
-                        <span>{event.vnTitle || event.name}</span>
-                        <small>Level {event.levelReq} · {event.vnPages?.length ?? 1} page(s)</small>
-                    </button>
-                ))}
-            </div>
-        </div>
-    ) : null;
-    if (!current) return <div className="card cinematic-card"><BackToVillageButton onClick={() => setScreen("village")} /><div className="visual-novel"><div className="vn-stage vn-complete"><div className="vn-character hero-character">{character.name.slice(0, 2).toUpperCase()}</div><div className="vn-dialogue"><div className="vn-speaker">Narrator</div><p>Your village story is complete. The roads beyond level 100 whisper about clan invasions, forbidden bloodlines, and a war waiting under Central.</p></div></div>{creatorVnShelf}</div></div>;
-    const locked = character.level < current.levelReq;
-    const activeLine = current.dialogue[lineIndex] ?? current.dialogue[0] ?? "The night waits for your answer.";
-    const { speaker, text: spoken } = splitDialogueLine(activeLine, "Narrator");
-    const speakerInitials = speaker === "Narrator" ? "..." : speaker.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
-    const storyBiome: Biome = current.biome ?? (character.village?.toLowerCase().includes("frostfang") ? "snow"
-        : character.village?.toLowerCase().includes("stormveil") ? "shadow"
-        : character.village?.toLowerCase().includes("ember") || character.village?.toLowerCase().includes("ash") ? "volcano"
-        : character.village?.toLowerCase().includes("verdant") ? "forest"
-        : "central");
-    // Match the eventId format used by the trigger flow at App.tsx:6881 so
-    // admin-uploaded images stored under the same KV keys are visible here too.
-    const chapterIndex = storyLine.findIndex(s => s.levelReq === current.levelReq);
-    const chapterId = `story-${storyVillage.toLowerCase().replace(/\W+/g, "-")}-${current.levelReq}-${Math.max(0, chapterIndex)}`;
-    // KV lookup first (admin-uploaded via VN editor), then the on-disk
-    // /scenes and /portraits fallbacks, then biome gradient / initials.
-    const storySceneBg = sharedImages[`event:${chapterId}:bg`]
-        || sharedImages[`vn:${chapterId}:page:0`]
-        || defaultVnScene(chapterId, storyBiome);
-    const playerSpeaking = ["player", "%name", character.name.trim().toLowerCase()].includes(speaker.trim().toLowerCase());
-    const speakerPortrait = playerSpeaking ? "" : resolveVnActorBaseImage(
-        chapterId, speaker, sharedImages[`vn:${chapterId}:page:0:right`],
-        sharedImages[`event:${chapterId}:avatar`],
-    );
-    const hideSpeakerSlot = !speakerPortrait && (playerSpeaking || speaker.trim().toLowerCase() === "narrator");
-    // Launch the sealed server fight (api/story/boss-start) through the shared
-    // App-level host, themed with this chapter's scene art + the boss's own
-    // authored lines as mid-fight barks.
-    function startServerBossBattle(step: StoryStep) {
-        const script = extractStoryFightScript(step.pages, step.bossName, step.dialogue);
-        const started = requestStoryBossFight({
-            bossName: step.bossName,
-            chapterLabel: `Chapter ${character.storyProgress + 1}/${storyLine.length} — ${step.title}`,
-            backdropImage: storySceneBg || undefined,
-            // Keep the boss portrait supplied by its sealed combat profile.
-            barks: script.barks,
-            defeatLine: script.defeatLine,
-            ally: extractMentorLines(step.pages, step.bossName, character.name, step.dialogue),
-            village: storyVillage,
-        });
-        if (!started) alert("The story battle could not start. Reload the game and retry.");
-    }
-    return <div className="card cinematic-card"><BackToVillageButton onClick={() => setScreen("village")} /><div className="visual-novel"><div className="vn-header"><div><p className="act-label">{current.cinematicTitle}</p><h2>{current.title}</h2></div><div className="vn-progress">Chapter {character.storyProgress + 1}/{storyLine.length}</div></div><div className={"vn-stage vn-biome-" + storyBiome + (storySceneBg ? " vn-has-image" : "")} style={storySceneBg ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${storySceneBg})` } : undefined}><div className="vn-backdrop"><span className="vn-moon"></span><span className="vn-village-silhouette"></span></div><div className="vn-character mentor-character">{character.avatarImage ? <img src={character.avatarImage} alt={character.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : null}<span className="vn-character-initials">{character.name.slice(0, 2).toUpperCase()}</span></div>{!hideSpeakerSlot && (<div className="vn-character hero-character">{speakerPortrait ? <img src={speakerPortrait} alt={speaker} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : null}<span className="vn-character-initials">{speakerInitials}</span></div>)}<div className="vn-scene-card">{current.scene}</div><div className="vn-dialogue"><div className="vn-speaker">{speaker}</div><p>{spoken}</p><div className="vn-controls"><button disabled={lineIndex === 0} onClick={() => setLineIndex((index) => Math.max(0, index - 1))}>Back</button>{lineIndex < current.dialogue.length - 1 ? <button onClick={() => setLineIndex((index) => Math.min(current.dialogue.length - 1, index + 1))}>Next</button> : locked ? <button disabled>Requires Level {current.levelReq}</button> : <button onClick={() => startServerBossBattle(current)}>Face {current.bossName}</button>}</div></div></div><div className="vn-choice-row"><button onClick={() => setLineIndex(0)}>Replay Scene</button><button onClick={() => setScreen("worldMap")}>Investigate World Map</button><button disabled={locked} onClick={() => startServerBossBattle(current)}><GiCrossedSwords aria-hidden="true" /> Boss: {current.bossName}</button></div><div className="vn-reward-strip"><span>Requirement: Level {current.levelReq}</span><span>Reward: stat points / {current.rewardRyo} ryo</span></div>{creatorVnShelf}</div></div>;
 }
 
 type StoryBossProps = { character: Character; updateCharacter: (next: Character | ((prev: Character | null) => Character)) => void; setScreen: (screen: Screen) => void };

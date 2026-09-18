@@ -34,7 +34,7 @@ for (const entry of entries) {
             const line = page.lines?.[lineIndex] ?? splitDialogueLine(text, page.speaker || event.vnSpeaker || "Narrator");
             const presentation = resolveVnPresentation({ event, page, pageIndex, lineIndex, speaker: line.speaker, speakingSide: line.speaker === right ? "right" : line.speaker === left ? "left" : null, pageImage });
             return {
-                lineIndex, speaker: line.speaker, text: line.text, background: presentation.backgroundImage,
+                lineIndex, speaker: line.speaker, text: line.text, mode: presentation.mode, background: presentation.backgroundImage,
                 actors: [
                     { name: left, pose: presentation.leftActorPose, image: left === "Player" ? "" : resolveCinematicActorImage(event.id, left, defaultVnPortrait(left), presentation.leftActorPose, authoredLeft) },
                     { name: right, pose: presentation.rightActorPose, image: right === "Player" ? "" : resolveCinematicActorImage(event.id, right, resolveVnActorBaseImage(event.id, right, authoredRight, event.avatarImage), presentation.rightActorPose, authoredRight) },

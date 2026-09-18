@@ -32,7 +32,7 @@ function ArchiveIcon({ icon }: { icon: string }) {
     return glyph ? <GameIcon name={glyph} size={18} /> : <>{icon}</>;
 }
 
-export function StoryJourney({ character, onReturnToVillage, onResumeStory }: { character: Character; onReturnToVillage?: () => void; onResumeStory?: () => void }) {
+export function StoryJourney({ character, onReturnToVillage, onResumeStory, sharedImages }: { character: Character; onReturnToVillage?: () => void; onResumeStory?: () => void; sharedImages?: Record<string, string> }) {
     const village = character.storyVillage || character.village;
     if (!isStoryContentVillage(village)) throw new Error(`No story content is published for ${village || "this village"}.`);
     const content = readStoryContent(village);
@@ -70,6 +70,7 @@ export function StoryJourney({ character, onReturnToVillage, onResumeStory }: { 
             onCancel={closeCinematicReplay}
             onComplete={closeCinematicReplay}
             onBattle={closeCinematicReplay}
+            sharedImages={sharedImages}
             readOnlyReplay
         />
     ) : null;

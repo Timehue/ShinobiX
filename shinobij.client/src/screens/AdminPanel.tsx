@@ -51,7 +51,8 @@ import { aiHpForLevel, aiStatsForLevel } from "../lib/ai-stats";
 import { addToAllStats, allocatedStatPoints, baseStats, capStat, earnedForLevel, maxChakraForLevel, maxHpForLevel, maxStaminaForLevel, normalizeStats, reconcileCharacterStatBudget } from "../lib/stats";
 import { armorQualityTiers, equipmentSlotLabel, itemSectionOptions } from "../lib/equipment";
 import { removeItem, countItem } from "../lib/inventory";
-import { compactImage, compressDataUrl, publishSharedImage, readImageFile, safeImageSource } from "../lib/shared-images";
+import { compactImage, compressDataUrl, publishSharedImage, deleteSharedImage, readImageFile, safeImageSource } from "../lib/shared-images";
+import { updateVnPageCast, vnActorImageKey, vnPageActorName } from '../lib/vn-shared-artwork';
 import { deletedItemMarker, getAllItems } from "../lib/items";
 import { describeJutsuEffects } from "../lib/jutsu-effects";
 import { analyzeVnFlow, splitDialogueLine } from "../lib/vn";
@@ -1882,14 +1883,15 @@ export function AdminPanel({
     }
 
     function updateVnPage(index: number, updated: Partial<typeof eventVnPages[number]>) {
-        setEventVnPages((pages) => pages.map((page, pageIndex) => pageIndex === index ? { ...page, ...updated } : page));
+        const nextPage = updateVnPageCast(eventVnPages[index], updated, eventVnSpeaker);
+        setEventVnPages((pages) => pages.map((page, pageIndex) => pageIndex === index ? updateVnPageCast(page, updated, eventVnSpeaker) : page));
         if (!editingEventId) return;
         // Publish any image fields to shared KV so they survive page reload.
         // Use functional updater for setCreatorEvents to avoid stale-closure overwrites
         // when multiple images are uploaded in rapid succession.
         if ('image' in updated) {
             const img = updated.image ?? '';
-            void publishSharedImage(`vn:${editingEventId}:page:${index}`, img);
+            void (img ? publishSharedImage(`vn:${editingEventId}:page:${index}`, img) : deleteSharedImage(`vn:${editingEventId}:page:${index}`));
             setCreatorEvents(prev => prev.map((ev) => {
                 if (ev.id !== editingEventId || !ev.vnPages) return ev;
                 return { ...ev, vnPages: ev.vnPages.map((p, i) => i === index ? { ...p, image: img } : p) };
@@ -1897,7 +1899,8 @@ export function AdminPanel({
         }
         if ('leftImage' in updated) {
             const img = updated.leftImage ?? '';
-            void publishSharedImage(`vn:${editingEventId}:page:${index}:left`, img);
+            const key = vnActorImageKey(editingEventId, index, vnPageActorName(nextPage, 'left', eventVnSpeaker));
+            void (img ? publishSharedImage(key, img) : Promise.all([deleteSharedImage(key), deleteSharedImage(`vn:${editingEventId}:page:${index}:left`)]));
             setCreatorEvents(prev => prev.map((ev) => {
                 if (ev.id !== editingEventId || !ev.vnPages) return ev;
                 return { ...ev, vnPages: ev.vnPages.map((p, i) => i === index ? { ...p, leftImage: img } : p) };
@@ -1905,7 +1908,8 @@ export function AdminPanel({
         }
         if ('rightImage' in updated) {
             const img = updated.rightImage ?? '';
-            void publishSharedImage(`vn:${editingEventId}:page:${index}:right`, img);
+            const key = vnActorImageKey(editingEventId, index, vnPageActorName(nextPage, 'right', eventVnSpeaker));
+            void (img ? publishSharedImage(key, img) : Promise.all([deleteSharedImage(key), deleteSharedImage(`vn:${editingEventId}:page:${index}:right`)]));
             setCreatorEvents(prev => prev.map((ev) => {
                 if (ev.id !== editingEventId || !ev.vnPages) return ev;
                 return { ...ev, vnPages: ev.vnPages.map((p, i) => i === index ? { ...p, rightImage: img } : p) };
@@ -2231,8 +2235,8 @@ export function AdminPanel({
         if (!event.vnPages) return;
         await Promise.all(event.vnPages.flatMap((page, i) => [
             publishSharedImage(`vn:${imageEventId}:page:${i}`,       page.image ?? ""),
-            publishSharedImage(`vn:${imageEventId}:page:${i}:left`,  page.leftImage ?? ""),
-            publishSharedImage(`vn:${imageEventId}:page:${i}:right`, page.rightImage ?? ""),
+            publishSharedImage(vnActorImageKey(imageEventId, i, vnPageActorName(page, 'left', event.vnSpeaker)), page.leftImage ?? ""),
+            publishSharedImage(vnActorImageKey(imageEventId, i, vnPageActorName(page, 'right', event.vnSpeaker)), page.rightImage ?? ""),
             ...(page.choices ?? []).map((choice, choiceIndex) => publishSharedImage(`vn:${imageEventId}:page:${i}:choice:${choiceIndex}:bg`, choice.battle?.backgroundImage ?? "")),
         ]));
     }

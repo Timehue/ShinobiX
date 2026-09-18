@@ -14,6 +14,9 @@ import { buildPetEncounterVn } from "../../lib/pet-encounter-vn";
 import type { Character } from "../../types/character";
 import type { CreatorEvent, VnActorPose } from "../../types/vn";
 import type { StorySceneVariant, StoryVillageKey } from "../../lib/vn-storywide-direction";
+import { overlayVnImages } from '../../lib/vn-shared-artwork';
+import { RETIRED_VN_ART } from '../../lib/vn-retired-artwork';
+import { DungeonEncounter } from '../../screens/Dungeon';
 
 type PreviewCast = {
     left: string;
@@ -242,7 +245,11 @@ function StoryArtPreview({ eventKey }: { eventKey: string }) {
         void import("./art-audit-catalog").then((module) => module.artAuditCatalog()).then((entries) => {
             if (!active) return;
             const entry = entries.find((candidate) => candidate.key === eventKey);
-            if (entry) setEvent(entry.event);
+            if (entry) {
+                const legacyArt = new URLSearchParams(window.location.search).get('legacyArt') === '1';
+                const images = Object.fromEntries(Object.keys(RETIRED_VN_ART).map(id => [id, `/api/img?id=${encodeURIComponent(id)}`]));
+                setEvent(legacyArt ? overlayVnImages(entry.event, entry.event.id, images) : entry.event);
+            }
             else setError(`Unknown story: ${eventKey}`);
         }).catch((reason: unknown) => { if (active) setError(String(reason)); });
         return () => { active = false; };
@@ -267,6 +274,26 @@ function StoryArtPreview({ eventKey }: { eventKey: string }) {
         setPageIndex, setLineIndex, onCancel: () => setPaused("exit"),
         onComplete: () => setPaused("complete"), onBattle: () => setPaused("battle handoff"),
     };
+    if (params.get('reader') === 'dungeon') {
+        const sharedImages: Record<string, string> = params.get('dungeonArt') === '1' ? {
+            [`event:${event.id}:backdrop`]: '/scenes/story/cinematic/side-stories/craft-dungeon-forest.webp',
+            [`event:${event.id}:tilescene`]: '/scenes/story/cinematic/side-stories/craft-dungeon-central.webp',
+            [`event:${event.id}:warden`]: '/portraits/cinematic/side-stories/dungeon-warden.webp?custom=1',
+            ['avatar:' + character.name.trim().toLowerCase()]: qaAvatar('square'),
+        } : {};
+        const proof = { token: 'art-preview', startedAt: 0,
+            ...(pageIndex > 0 ? { combatAuthorityVersion: 1 as const, wardenDefeated: true, wardenProofId: 'previewwarden' } : {}),
+            ...(pageIndex > 1 ? { cardAuthorityVersion: 1 as const, cardDefeated: true, cardLastOutcome: 'player' as const, cardSettledAt: 1, cardDefeatedAt: 1, cardProofId: 'previewcards', cardLastProofId: 'previewcards' } : {}),
+        };
+        return <DungeonEncounter event={event} character={{ ...character, activeDungeonRun: character.activeDungeonRun ?? proof }} creatorCards={[]}
+            sharedImages={sharedImages}
+            dungeonRunToken="art-preview" onVersionedCharacter={(next) => {
+                if (next.name !== character.name || next.activeDungeonRun?.token !== 'art-preview') return false;
+                setCharacter(next); return true;
+            }} lineIndex={lineIndex} setLineIndex={setLineIndex}
+            onStartAiFight={() => setPaused('warden fight')} onTileWin={() => {}} onPetWin={() => {}}
+            onClaimReward={() => {}} onLeave={() => setPaused('dungeon exit')} />;
+    }
     if (params.get("replay") !== "1") return <ActiveStoryVisualNovel {...readerProps}
         setCharacter={setCharacter} onFinaleLane={() => {}} onEpilogueExit={() => setPaused("epilogue exit")} sharedImages={{}} />;
     return <TriggeredVisualNovel {...readerProps}
@@ -275,6 +302,16 @@ function StoryArtPreview({ eventKey }: { eventKey: string }) {
 }
 
 export function CinematicVnPreview() {
-    const eventKey = new URLSearchParams(window.location.search).get("event");
-    return eventKey ? <StoryArtPreview eventKey={eventKey} /> : <PresetVnPreview />;
+    // The QA sweep changes routes without reloading the entire game for each
+    // page. Remount the real reader so no prior scene state leaks into a case.
+    const [search, setSearch] = useState(window.location.search);
+    useEffect(() => {
+        const navigate = () => setSearch(window.location.search);
+        window.addEventListener('popstate', navigate);
+        return () => window.removeEventListener('popstate', navigate);
+    }, []);
+    const eventKey = new URLSearchParams(search).get("event");
+    return <div data-vn-preview-route={search} key={search}>
+        {eventKey ? <StoryArtPreview eventKey={eventKey} /> : <PresetVnPreview />}
+    </div>;
 }

@@ -435,6 +435,7 @@ export type Character = {
         token: string;
         startedAt: number;
         entry?: "free" | "key";
+        presentationEventId?: string;
         sector?: number;
         exploreReceiptId?: string;
         combatAuthorityVersion?: number;

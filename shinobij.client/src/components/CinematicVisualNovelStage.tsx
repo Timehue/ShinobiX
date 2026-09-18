@@ -184,6 +184,8 @@ export function CinematicVisualNovelStage({
     onUseClassicReader,
     onAdvance,
     onCancel,
+    cancelLabel = "Skip",
+    progressLabel = "Page",
     renderFooter,
 }: {
     eventId: string;
@@ -205,6 +207,8 @@ export function CinematicVisualNovelStage({
     onUseClassicReader?: () => void;
     onAdvance: () => void;
     onCancel: () => void;
+    cancelLabel?: string;
+    progressLabel?: string;
     renderFooter: (typingDone: boolean) => ReactNode;
 }) {
     const reduced = prefersReducedMotion();
@@ -463,7 +467,7 @@ export function CinematicVisualNovelStage({
                     <strong>{pageTitle}</strong>
                 </div>
                 <div className="cvn-top-actions">
-                    <span className="cvn-progress" aria-label={`Page ${pageIndex + 1} of ${pageCount}, line ${lineIndex + 1} of ${lineCount}`}>
+                    <span className="cvn-progress" aria-label={`${progressLabel} ${pageIndex + 1} of ${pageCount}, line ${lineIndex + 1} of ${lineCount}`}>
                         {String(pageIndex + 1).padStart(2, "0")} / {String(pageCount).padStart(2, "0")}
                     </span>
                     <button
@@ -521,7 +525,7 @@ export function CinematicVisualNovelStage({
                         {settingsOpen && (
                             <div id={settingsMenuId} className="cvn-settings-menu" role="group" aria-label="Reading settings">
                                 <span className="cvn-settings-progress">
-                                    Page {pageIndex + 1}/{pageCount} · Line {lineIndex + 1}/{lineCount}
+                                    {progressLabel} {pageIndex + 1}/{pageCount} · Line {lineIndex + 1}/{lineCount}
                                 </span>
                                 <button type="button" onClick={cycleTextSpeed}>
                                     {titleForSpeed(speed)}
@@ -557,7 +561,7 @@ export function CinematicVisualNovelStage({
                             </div>
                         )}
                     </div>
-                    <button type="button" className="cvn-skip" onClick={onCancel}>Skip</button>
+                    <button type="button" className="cvn-skip" onClick={onCancel}>{cancelLabel}</button>
                 </div>
             </header>
 

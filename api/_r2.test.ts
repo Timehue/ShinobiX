@@ -6,6 +6,7 @@ import {
     r2ReadEnabled,
     r2WriteEnabled,
     putImage,
+    deleteImage,
     r2ObjectExists,
 } from './_r2.js';
 
@@ -86,5 +87,57 @@ describe('r2ObjectExists', () => {
     it('returns false when reads are disabled (no public base, no network)', async () => {
         clearR2Env();
         assert.equal(await r2ObjectExists('ai:enemy-x'), false);
+    });
+});
+
+describe('image replacement and cleanup', () => {
+    function configure() {
+        clearR2Env();
+        Object.assign(process.env, { R2_PUBLIC_BASE: 'https://img.example.com', R2_ACCOUNT_ID: 'acct', R2_ACCESS_KEY_ID: 'key', R2_SECRET_ACCESS_KEY: 'secret', R2_BUCKET: 'bucket' });
+    }
+
+    it('keeps the manifest version through the CDN redirect and checks each generation', async t => {
+        configure();
+        const urls: string[] = [];
+        t.mock.method(globalThis, 'fetch', async (url: string) => { urls.push(url); return new Response(null, { status: 200 }); });
+        const id = 'vn:version-test:page:0';
+        assert.equal(r2PublicUrl(id, '42'), 'https://img.example.com/vn/version-test/page/0?v=42');
+        await r2ObjectExists(id, { version: '41' });
+        await r2ObjectExists(id, { version: '41' });
+        await r2ObjectExists(id, { version: '42' });
+        assert.equal(urls.length, 2);
+        assert.ok(urls[0].endsWith('?v=41'));
+        assert.ok(urls[1].endsWith('?v=42'));
+    });
+
+    it('signs a real object DELETE and invalidates positive existence checks', async t => {
+        configure();
+        let exists = true;
+        const calls: RequestInit[] = [];
+        t.mock.method(globalThis, 'fetch', async (_url: string, options: RequestInit) => {
+            calls.push(options);
+            if (options.method === 'DELETE') { exists = false; return new Response(null, { status: 204 }); }
+            return new Response(null, { status: exists ? 200 : 404 });
+        });
+        const id = 'vn:delete-test:page:0';
+        assert.equal(await r2ObjectExists(id, { version: '1' }), true);
+        assert.equal(await deleteImage(id), true);
+        assert.equal(await r2ObjectExists(id, { version: '2' }), false);
+        assert.equal(await r2ObjectExists(id, { version: '1' }), false, 'previous positive cache was cleared');
+        const deletion = calls.find(call => call.method === 'DELETE')!;
+        assert.match((deletion.headers as Record<string, string>).Authorization, /^AWS4-HMAC-SHA256 /);
+        assert.equal(deletion.body, undefined);
+    });
+
+    it('keeps deletion failures visible and treats an absent object as already removed', async t => {
+        clearR2Env();
+        assert.equal(await deleteImage('vn:disabled:page:0'), false);
+        configure();
+        t.mock.method(console, 'error', () => {});
+        let status = 503;
+        t.mock.method(globalThis, 'fetch', async () => new Response(null, { status }));
+        assert.equal(await deleteImage('vn:retry-test:page:0'), false);
+        status = 404;
+        assert.equal(await deleteImage('vn:retry-test:page:0'), true);
     });
 });

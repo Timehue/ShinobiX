@@ -2256,7 +2256,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 1322
+            "line": 1303
           }
         ]
       },
@@ -2790,7 +2790,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 1334
+            "line": 1315
           }
         ]
       },
@@ -3044,11 +3044,11 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 979
+            "line": 968
           },
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 1328
+            "line": 1309
           }
         ]
       },
@@ -3067,7 +3067,7 @@
           },
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 1502
+            "line": 1489
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
@@ -3337,10 +3337,6 @@
             "line": 238
           },
           {
-            "source": "shinobij.client/src/styles/relic-dungeons.css",
-            "line": 143
-          },
-          {
             "source": "shinobij.client/src/styles/sunscar-exchange.css",
             "line": 118
           },
@@ -3452,15 +3448,15 @@
           },
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 979
+            "line": 968
           },
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 1136
+            "line": 1125
           },
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 1160
+            "line": 1145
           },
           {
             "source": "shinobij.client/src/styles/index/02-world-map.css",
@@ -3570,7 +3566,7 @@
           },
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 1328
+            "line": 1309
           },
           {
             "source": "shinobij.client/src/styles/index/11-sector-explore-village-themes.css",

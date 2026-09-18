@@ -44,7 +44,7 @@ import type { FieldExploreProgress } from "./lib/world-reward-api";
 import { useEndlessTowerActions } from "./lib/use-endless-tower-actions";
 import { clearSavePreview, readSavePreview, writeSavePreview } from "./lib/save-preview";
 import { setBootKind as perfSetBootKind, notifyScreen as perfNotifyScreen, notifyRestoreComplete as perfNotifyRestoreComplete } from "./lib/perfTelemetry";
-import { lazyWithRetry } from "./lib/lazyWithRetry";
+import { lazyWithRetry, retryDynamicImport } from "./lib/lazyWithRetry";
 import { runSingleFlight } from "./lib/single-flight";
 import { adoptSaveVersion } from "./lib/save-version";
 import { accountKey, forgetAccountToken, loadPlayerAccounts, normalizePendingTravel, rememberAccountToken, savePlayerAccounts } from "./lib/player-accounts";
@@ -187,8 +187,9 @@ import { loadPlayerApi, warmPlayerApi } from "./lib/player-api-loader";
 const WorldMap = lazyWithRetry(() => import("./screens/WorldMap").then(m => ({ default: m.WorldMap })));
 const WorldCrisis = lazyWithRetry(() => import("./screens/WorldCrisis").then(m => ({ default: m.WorldCrisis })));
 const loadMissionCatalog = () => import("./data/missions");
-const mutateDungeonRunServer = (playerName: string, action: "start" | "settle" | "abandon", token = "") =>
-    import("./lib/dungeon-api").then((api) => api.mutateDungeonRunServer(playerName, action, token));
+const mutateDungeonRunServer = (playerName: string, action: "start" | "settle" | "abandon", token = "", presentationEventId?: string) =>
+    import("./lib/dungeon-api").then((api) => api.mutateDungeonRunServer(playerName, action, token, presentationEventId));
+const loadDungeonPresentation = () => retryDynamicImport(() => import('./lib/dungeon-presentation'));
 import { fetchPlayerCombatSave, stringifyPvpSessionPayload, pvpSessionEnvironment, pvpResultReturn, markPvpSectorReturn } from "./lib/pvp-session";
 import { readPvpBrowserBreadcrumb, type PvpRecoveryContext } from "./lib/pvp-pending-session";
 const loadPvpSessionCreate = () => import("./lib/pvp-session-create"), loadPvpPendingFetch = () => import("./lib/pvp-pending-fetch");
@@ -224,6 +225,7 @@ import { BattleLockKeeper } from "./components/BattleLockKeeper";
 import { DEEP_LINKABLE_SCREENS, BATTLE_SCREENS, isHospitalNavigationBlocked, isUnresolvedBattle, hasActiveTowerFight, restoreScreenForSave, safeFallbackScreen, screenResetsSector, isWildSector, setTowerFightRunId, setTowerPvpMatchId } from "./lib/screen-guards";
 import { useAppHistory } from "./lib/app-history";
 import { clearImgCache, imgCacheKey, IMG_CACHE_TTL, scheduleImageCategoryRetry, URL_MODE_CATEGORIES } from "./lib/shared-image-cache";
+import { overlayVnImages } from './lib/vn-shared-artwork';
 import { imageEntries, parseImageManifest } from "./lib/shared-image-manifest";
 import { visiblePoll } from "./lib/poll";
 import { useBattleNavigationGuard } from "./lib/use-battle-navigation-guard";
@@ -1746,9 +1748,19 @@ export default function App() {
     useEffect(() => {
         const run = character?.activeDungeonRun;
         if (screen !== "dungeon" || !run?.token) return;
-        setActiveDungeonRunToken(run.token);
-        setActiveDungeonEvent((current) => current ?? creatorEvents.find((event) => event.id === DUNGEON_VN_ID) ?? hiddenDungeonVnEvent);
-    }, [screen, character?.activeDungeonRun?.token, creatorEvents]);
+        let active = true;
+        void loadDungeonPresentation().then(({ dungeonEventForRun }) => {
+            if (!active) return;
+            setActiveDungeonRunToken(run.token);
+            setActiveDungeonEvent((current) => dungeonEventForRun(run, creatorEvents, current ?? undefined));
+            setDungeonReturnScreen(run.entry === 'key' ? 'centralHub' : 'worldMap');
+        }).catch(() => {
+            if (!active) return;
+            alert('Dungeon artwork could not load. Reload the game to resume your saved run.');
+            setScreen(run.entry === 'key' ? 'centralHub' : 'worldMap');
+        });
+        return () => { active = false; };
+    }, [screen, character?.activeDungeonRun?.token, character?.activeDungeonRun?.presentationEventId, character?.activeDungeonRun?.entry, creatorEvents]);
     // Warn before refresh/close during battle or while hospitalized
     useEffect(() => {
         function handleBeforeUnload(e: BeforeUnloadEvent) {
@@ -3399,27 +3411,9 @@ export default function App() {
     useEffect(() => {
         setActiveTriggeredEvent(prev => {
             if (!prev) return prev;
-            const id = prev.id;
-            const hasNewImages =
-                (sharedImages['event:' + id + ':bg']     && prev.image       !== sharedImages['event:' + id + ':bg'])     ||
-                (sharedImages['event:' + id + ':avatar'] && prev.avatarImage !== sharedImages['event:' + id + ':avatar']) ||
-                prev.vnPages?.some((p, i) =>
-                    (sharedImages[`vn:${id}:page:${i}`]       && p.image      !== sharedImages[`vn:${id}:page:${i}`])       ||
-                    (sharedImages[`vn:${id}:page:${i}:left`]  && p.leftImage  !== sharedImages[`vn:${id}:page:${i}:left`])  ||
-                    (sharedImages[`vn:${id}:page:${i}:right`] && p.rightImage !== sharedImages[`vn:${id}:page:${i}:right`])
-                );
-            if (!hasNewImages) return prev;
-            return {
-                ...prev,
-                ...(sharedImages['event:' + id + ':bg']     ? { image:       sharedImages['event:' + id + ':bg'] }     : {}),
-                ...(sharedImages['event:' + id + ':avatar'] ? { avatarImage: sharedImages['event:' + id + ':avatar'] } : {}),
-                vnPages: prev.vnPages?.map((p, i) => ({
-                    ...p,
-                    ...(sharedImages[`vn:${id}:page:${i}`]       ? { image:      sharedImages[`vn:${id}:page:${i}`] }       : {}),
-                    ...(sharedImages[`vn:${id}:page:${i}:left`]  ? { leftImage:  sharedImages[`vn:${id}:page:${i}:left`] }  : {}),
-                    ...(sharedImages[`vn:${id}:page:${i}:right`] ? { rightImage: sharedImages[`vn:${id}:page:${i}:right`] } : {}),
-                })),
-            };
+            // A discovered pet is bound by buildPetEncounterVn. Loading the
+            // template's art later must not turn that animal into its old NPC.
+            return overlayVnImages(prev, prev.id, sharedImages, { preserveCast: prev.id === 'sys-pet-encounter' });
         });
     }, [sharedImages]);
 
@@ -3537,23 +3531,7 @@ export default function App() {
         else if (cat === 'event') {
             // Helper: apply KV images onto a single event's vnPages
             function patchEventImages(e: CreatorEvent): CreatorEvent {
-                return {
-                    ...e,
-                    ...(images['event:' + e.id + ':bg']     ? { image: images['event:' + e.id + ':bg'] }         : {}),
-                    ...(images['event:' + e.id + ':avatar'] ? { avatarImage: images['event:' + e.id + ':avatar'] } : {}),
-                    ...(e.vnPages ? {
-                        vnPages: e.vnPages.map((p, i) => ({
-                            ...p,
-                            ...(images[`vn:${e.id}:page:${i}`]       ? { image:      images[`vn:${e.id}:page:${i}`] }       : {}),
-                            ...(images[`vn:${e.id}:page:${i}:left`]  ? { leftImage:  images[`vn:${e.id}:page:${i}:left`] }  : {}),
-                            ...(images[`vn:${e.id}:page:${i}:right`] ? { rightImage: images[`vn:${e.id}:page:${i}:right`] } : {}),
-                            choices: p.choices?.map((choice, choiceIndex) => ({
-                                ...choice,
-                                ...(images[`vn:${e.id}:page:${i}:choice:${choiceIndex}:bg`] ? { battle: { ...(choice.battle ?? {}), backgroundImage: images[`vn:${e.id}:page:${i}:choice:${choiceIndex}:bg`] } } : {}),
-                            })),
-                        }))
-                    } : {}),
-                };
+                return overlayVnImages(e, e.id, images);
             }
             setCreatorEvents(prev => {
                 const patched = prev.map(patchEventImages);
@@ -3566,43 +3544,13 @@ export default function App() {
                 for (const builtin of builtinVns) {
                     if (existingIds.has(builtin.id)) continue;
                     // Check if KV has any image for this builtin VN
-                    const hasImage = builtin.vnPages?.some((_, i) =>
-                        images[`vn:${builtin.id}:page:${i}`] ||
-                        images[`vn:${builtin.id}:page:${i}:left`] ||
-                        images[`vn:${builtin.id}:page:${i}:right`]
-                    );
+                    const hasImage = Object.keys(images).some(key => key.startsWith(`vn:${builtin.id}:page:`));
                     if (hasImage) seeded.push(patchEventImages(builtin));
                 }
                 return seeded.length ? [...patched, ...seeded] : patched;
             });
-            setPetEncounterVn(prev => prev.vnPages ? {
-                ...prev,
-                ...(images['event:pet-encounter:bg'] || images['event:sys-pet-encounter:bg'] ? { image: images['event:pet-encounter:bg'] || images['event:sys-pet-encounter:bg'] } : {}),
-                ...(images['event:pet-encounter:avatar'] || images['event:sys-pet-encounter:avatar'] ? { avatarImage: images['event:pet-encounter:avatar'] || images['event:sys-pet-encounter:avatar'] } : {}),
-                vnPages: prev.vnPages.map((p, i) => ({
-                    ...p,
-                    ...(images[`vn:pet-encounter:page:${i}`]        ? { image:      images[`vn:pet-encounter:page:${i}`] }        : {}),
-                    ...(images[`vn:pet-encounter:page:${i}:left`]   ? { leftImage:  images[`vn:pet-encounter:page:${i}:left`] }   : {}),
-                    ...(images[`vn:pet-encounter:page:${i}:right`]  ? { rightImage: images[`vn:pet-encounter:page:${i}:right`] }  : {}),
-                    ...(images[`vn:sys-pet-encounter:page:${i}`]        ? { image:      images[`vn:sys-pet-encounter:page:${i}`] }        : {}),
-                    ...(images[`vn:sys-pet-encounter:page:${i}:left`]   ? { leftImage:  images[`vn:sys-pet-encounter:page:${i}:left`] }   : {}),
-                    ...(images[`vn:sys-pet-encounter:page:${i}:right`]  ? { rightImage: images[`vn:sys-pet-encounter:page:${i}:right`] }  : {}),
-                })),
-            } : prev);
-            setAncientChestVn(prev => prev.vnPages ? {
-                ...prev,
-                ...(images['event:ancient-chest:bg'] || images['event:sys-ancient-chest:bg'] ? { image: images['event:ancient-chest:bg'] || images['event:sys-ancient-chest:bg'] } : {}),
-                ...(images['event:ancient-chest:avatar'] || images['event:sys-ancient-chest:avatar'] ? { avatarImage: images['event:ancient-chest:avatar'] || images['event:sys-ancient-chest:avatar'] } : {}),
-                vnPages: prev.vnPages.map((p, i) => ({
-                    ...p,
-                    ...(images[`vn:ancient-chest:page:${i}`]        ? { image:      images[`vn:ancient-chest:page:${i}`] }        : {}),
-                    ...(images[`vn:ancient-chest:page:${i}:left`]   ? { leftImage:  images[`vn:ancient-chest:page:${i}:left`] }   : {}),
-                    ...(images[`vn:ancient-chest:page:${i}:right`]  ? { rightImage: images[`vn:ancient-chest:page:${i}:right`] }  : {}),
-                    ...(images[`vn:sys-ancient-chest:page:${i}`]        ? { image:      images[`vn:sys-ancient-chest:page:${i}`] }        : {}),
-                    ...(images[`vn:sys-ancient-chest:page:${i}:left`]   ? { leftImage:  images[`vn:sys-ancient-chest:page:${i}:left`] }   : {}),
-                    ...(images[`vn:sys-ancient-chest:page:${i}:right`]  ? { rightImage: images[`vn:sys-ancient-chest:page:${i}:right`] }  : {}),
-                })),
-            } : prev);
+            setPetEncounterVn(prev => overlayVnImages(overlayVnImages(prev, 'pet-encounter', images), 'sys-pet-encounter', images));
+            setAncientChestVn(prev => overlayVnImages(overlayVnImages(prev, 'ancient-chest', images), 'sys-ancient-chest', images));
         }
         else if (cat === 'bloodline')
             // Restore the cover image (stripped on save); keep a fresh inline data:
@@ -4658,7 +4606,7 @@ export default function App() {
     }
     async function triggerDungeonEncounter(returnScreen: Screen = "worldMap", dungeonOverride?: CreatorEvent, freeRunToken = "") {
         if (!character || dungeonActionRef.current) return;
-        const event = dungeonOverride ?? dungeonEventTemplate();
+        let event = dungeonOverride ?? dungeonEventTemplate();
         if (character.level < event.levelReq) return;
         // The explore-tile Hidden Dungeon (no override) is free to enter; only the
         // Central Hub relic dungeons (passed as an override) stay gated behind a key.
@@ -4666,9 +4614,11 @@ export default function App() {
             if (!character.activeDungeonRun?.token && !ownsItem(character, DUNGEON_KEY_ID)) return alert("You need a Dungeon Key to open this relic dungeon.");
             dungeonActionRef.current = true;
             try {
-                const result = await mutateDungeonRunServer(character.name, "start");
+                const { dungeonEventForRun } = await loadDungeonPresentation();
+                const result = await mutateDungeonRunServer(character.name, "start", '', event.id);
                 if (!commitVersionedCharacter(result.character, result._saveVersion)) return;
                 setActiveDungeonRunToken(result.token);
+                event = dungeonEventForRun(result.character.activeDungeonRun, creatorEvents, event);
             } catch (error) {
                 alert(error instanceof Error ? error.message : "The dungeon seal is unavailable.");
                 return;
@@ -4690,8 +4640,10 @@ export default function App() {
         const owner = character.name, event = activeDungeonEvent;
         const runToken = activeDungeonRunToken ?? character.activeDungeonRun?.token;
         if (!runToken) return alert("The Dungeon run seal is missing. Reopen this dungeon from its authoritative entrypoint.");
-        const { resolveDungeonWardenPortrait } = await import("./lib/ai-fight-art");
-        if (characterRef.current?.name !== owner) return;
+        const { resolveVerifiedDungeonWardenPortrait } = await import("./lib/ai-fight-art");
+        const enemyAvatar = await resolveVerifiedDungeonWardenPortrait(event, sharedImages);
+        if (characterRef.current?.name !== owner || characterRef.current?.activeDungeonRun?.token !== runToken
+            || screenRef.current !== 'dungeon') return;
         setCurrentBiome(event.biome);
         setCurrentWeather(weatherForBiome(event.biome));
         if (!requestAiFight({
@@ -4701,7 +4653,7 @@ export default function App() {
             opponentLevel: character.level,
             battleKind: "dungeon",
             dungeonRunToken: runToken,
-            enemyAvatar: resolveDungeonWardenPortrait(event, sharedImages),
+            enemyAvatar,
             returnScreen: "dungeon",
             onResolved: (result) => {
                 if (result.outcome === "win" && result.character?.activeDungeonRun?.wardenDefeated) {
@@ -6029,6 +5981,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "storyHall" && character && (
                     <StoryHall
                         character={character}
+                        sharedImages={sharedImages}
                         setScreen={setScreen}
                         onResumeStory={() => { void resumeStoryFromHall(); }}
                     />
@@ -6111,7 +6064,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "messages" && character && <Messages character={character} onBack={goBack} initialWith={viewingUserName} />}
                 {!activeTriggeredEvent && screen === "hallOfLegends" && character && <HallOfLegends character={character} setScreen={setScreen} playerRoster={playerRoster} updateCharacter={setCharacter} />}
                 {!activeTriggeredEvent && screen === "worldCrisis" && character && <WorldCrisis character={character} setScreen={navigate} sharedImages={sharedImages} onVersionedCharacter={commitVersionedCharacter} onRecordBattle={recordBattle} hostLoadout={(() => { const it = getAllItems(creatorItems); return { pvpItems: getPvpItemLoadout(character, it), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, it), armorRawDR: getCharacterArmorRawDR(character, it), itemDamagePct: getEquippedItemBonus(character, it, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(character, it, "absorbPercent"), itemReflectPct: getEquippedItemBonus(character, it, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(character, it, "lifeStealPercent"), itemShield: getEquippedItemBonus(character, it, "shield") }; })()} />}
-                {!activeTriggeredEvent && screen === "echoesOfWar" && character && <EchoesOfWar character={character} creatorCards={creatorCards} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onBack={goBack} />}
+                {!activeTriggeredEvent && screen === "echoesOfWar" && character && <EchoesOfWar character={character} creatorCards={creatorCards} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onBack={goBack} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "endlessTower" && character && (
                     <EndlessTowerLobby
                         character={character}
