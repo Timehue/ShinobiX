@@ -114,8 +114,8 @@ function personalChronicleRecords(character: Character): PersonalChronicleRecord
         records.push({
             id: "exploration",
             icon: "🧭",
-            title: `${explored.toLocaleString()} sectors explored`,
-            detail: "Roads, ruins, and hidden places entered into the map record.",
+            title: `${explored.toLocaleString()} exploration actions completed`,
+            detail: "Lifetime exploration total, including return visits.",
         });
     }
 
@@ -132,7 +132,7 @@ function clanWarLabel(war: CwWar, clanName: string): { title: string; tone: "win
 export function LivingChronicle({ character }: { character: Character }) {
     const headingId = useId();
     const personalRecords = useMemo(() => personalChronicleRecords(character), [character]);
-    const village = character.storyVillage || character.village;
+    const village = character.village;
     const villageState = loadVillageState(village);
     const villageStanding = loadWarStandings().find((record) => record.village === village);
     const villageWars = endedVillageWarRecordsFor(village, 3);

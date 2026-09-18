@@ -50,7 +50,7 @@ async function grantLiberatorReward(playerName: string, villageName: string, fre
     if (!mutationResult) return undefined;
     if (!mutationResult.granted) return { character: mutationResult.character, _saveVersion: mutationResult._saveVersion };
     try {
-        await postVillageHerald(villageName, 'A Kage Falls', `${playerName} has broken the false Kage's hold over ${villageName}. The seat stands open.`);
+        await postVillageHerald(villageName, 'A Village Story Completed', `${playerName} has completed the ${villageName} story and earned the ${title} title.`);
     } catch { /* best-effort */ }
     if (freshUnlock) {
         try {

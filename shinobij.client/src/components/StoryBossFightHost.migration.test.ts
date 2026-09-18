@@ -10,6 +10,7 @@ import test from "node:test";
 const host = readFileSync(new URL("./StoryBossFightHost.tsx", import.meta.url), "utf8");
 const missionFight = readFileSync(new URL("../screens/MissionArenaFight.tsx", import.meta.url), "utf8");
 const storyApi = readFileSync(new URL("../lib/story-combat-api.ts", import.meta.url), "utf8");
+const rewardSummary = readFileSync(new URL("./StoryRewardSummary.tsx", import.meta.url), "utf8");
 const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
 const battleCss = readFileSync(new URL("../styles/battle-skin.css", import.meta.url), "utf8");
 const immediateResultConsumers = [
@@ -51,7 +52,7 @@ test("story wins keep the sealed run open until the authoritative reward settles
         /renderResult=\{\(\{ won, settleState, settleResult, retry \}\) =>/,
         "the story renderer must retain MissionArenaFight's run-scoped retry callback",
     );
-    assert.match(host, /settleState === "failed"[\s\S]*?<button onClick=\{retry\}>Retry Reward<\/button>/);
+    assert.match(host, /settleState === "failed"[\s\S]*?<button onClick=\{retry\}>\{result \? 'Retry Record Delivery' : 'Retry Reward'\}<\/button>/);
     assert.match(
         host,
         /disabled=\{settleState !== "settled" \|\| !result\} onClick=\{closeFight\}>Continue<\/button>/,
@@ -66,8 +67,9 @@ test("story wins keep the sealed run open until the authoritative reward settles
 
 test("story settlement surfaces newly pressed Living Chronicle records", () => {
     assert.match(storyApi, /chronicleCards\?:\s*string\[\]/);
-    assert.match(host, /result\.chronicleCards\?\.length/);
-    assert.match(host, /Living Chronicle \u00b7 Ihara records the witnessed fall of \{theme\.bossName\}/);
+    assert.match(host, /<StoryRewardSummary result=\{result\}/);
+    assert.match(rewardSummary, /result\.chronicleCards\?\.length/);
+    assert.match(rewardSummary, /Chronicle[\s\S]*recorded for this victory/);
 });
 
 test("story result overlays expose modal semantics", () => {
