@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { Character } from "../types/character.js";
 import type { Biome } from "../types/core.js";
 import { storyReckoningById, storyReckonings } from "../data/story-reckonings.js";
@@ -13,7 +14,7 @@ import { seedStoryFieldContentForTests } from "./story-field-content-loader.js";
 
 seedStoryFieldContentForTests({ schemaVersion: STORY_FIELD_CONTENT_SCHEMA_VERSION, scenes: storyFieldScenes, reckonings: storyReckonings });
 
-const PUBLIC_DIR = path.resolve(process.cwd(), "shinobij.client/public");
+const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "public");
 
 test("story reckonings expose current-canon Stormveil NPCs at eligible outskirts", () => {
     const character = {
