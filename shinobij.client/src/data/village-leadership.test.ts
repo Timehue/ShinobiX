@@ -2,9 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { normalizeVillageLeadershipImages } from "./village-leadership.js";
 
-const PUBLIC_DIR = path.resolve(process.cwd(), "shinobij.client/public");
+const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "public");
 
 test("village leadership NPCs have default portrait images attached", () => {
     const images = normalizeVillageLeadershipImages();
