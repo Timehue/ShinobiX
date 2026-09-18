@@ -1,19 +1,32 @@
+import { randomUUID } from 'node:crypto';
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors, safeName, mergePreservingImages } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { withKvLock } from '../_lock.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
-import { awardClanPointsToPlayerSave } from '../_clan-points.js';
+import { withKvLock, LockContendedError } from '../_lock.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
-import { canAssignStudent, claimableMilestones, mentorPayout } from './_mentor.js';
+import { MENTOR_MILESTONES, canAssignStudent, claimableMilestones } from './_mentor.js';
+import {
+    MentorRecordError,
+    claimMentorMilestones,
+    mentorRecordKey as senseiKey,
+    mentorStudentMarkerKey as studentMarkerKey,
+    pendingMilestonesFor,
+    readMentorRecord,
+    withPairingIds,
+    type MentorExceptionReason,
+    type MentorRecord,
+    type MentorStudentEntry,
+} from './_mentor-settlement.js';
 
 /*
  * /api/clan/mentor — GET (a player's mentor view) + POST (assign / claim / release)
  *
- * Clan Sensei -> Student mentorship. See _mentor.ts for the model + rules.
+ * Clan Sensei -> Student mentorship. See _mentor.ts for the model + rules and
+ * _mentor-settlement.ts (docs/mentor-milestone-settlement.md) for how a claim
+ * is paid exactly once across both saves.
  *
  *   GET  ?player=<name>            → { asSensei: {students...}, asStudent: {sensei} }
  *   POST { action:'assign',  playerName, studentName }
@@ -21,40 +34,55 @@ import { canAssignStudent, claimableMilestones, mentorPayout } from './_mentor.j
  *   POST { action:'release', playerName, studentName }
  *
  * Storage:
- *   clan-mentor:<senseiSlug>     → { students: [{ studentSlug, studentName, startedAt, claimed }] }
- *   clan-mentor-of:<studentSlug> → senseiSlug   (one sensei per student; assign guard)
+ *   clan-mentor:<senseiSlug>         → { students: [{ studentSlug, studentName, startedAt, claimed, pairingId, settledBy }],
+ *                                        settlements: [pending batches], settledLog: [recent, diagnostic] }
+ *   clan-mentor-of:<studentSlug>     → senseiSlug   (one sensei per student; assign guard)
+ *   clan-mentor-pending:<senseiSlug> → discovery pointer for the settlement reconciler
+ * Every write to the mentor record is an exact compare-and-set.
  */
 
-type StudentEntry = { studentSlug: string; studentName: string; startedAt: number; claimed: Record<string, number> };
-type MentorRecord = { students: StudentEntry[] };
 const AUDIT_PREFIX = 'audit:clan-mentor:';
 
-function senseiKey(slug: string): string { return `clan-mentor:${slug}`; }
-function studentMarkerKey(slug: string): string { return `clan-mentor-of:${slug}`; }
 function clanSlugBare(name: string): string { return name.toLowerCase().replace(/[^a-z0-9]/g, ''); }
 function num(v: unknown): number { const n = Number(v); return Number.isFinite(n) ? n : 0; }
-function loadRecord(rec: MentorRecord | null | undefined): MentorRecord {
-    return { students: Array.isArray(rec?.students) ? rec!.students : [] };
-}
+
+const EXCEPTION_TEXT: Record<MentorExceptionReason, string> = {
+    'recipient-missing': 'a player in this pairing no longer has a save',
+    'identity-mismatch': 'a player in this pairing was replaced by a new account with the same name',
+    'receipts-malformed': 'a reward receipt is unreadable',
+    'receipt-conflict': 'a reward receipt does not match this reward',
+    'receipt-capacity': 'too many unfinished mentor rewards',
+};
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     // ── A player's mentor view (own sensei + own students with claimable count) ──
+    // Read-only and unauthenticated, as before: it never settles anything.
     if (req.method === 'GET') {
         const player = safeName(String(req.query.player ?? ''));
         if (!player) return res.status(400).json({ error: 'Missing player.' });
-        const [rec, mySensei] = await Promise.all([
-            kv.get<MentorRecord>(senseiKey(player)),
+        const [raw, mySensei] = await Promise.all([
+            kv.get<Record<string, unknown>>(senseiKey(player)),
             kv.get<string>(studentMarkerKey(player)),
         ]);
-        const students = loadRecord(rec).students;
-        const enriched = await Promise.all(students.map(async (s) => {
+        let record: MentorRecord;
+        try {
+            record = readMentorRecord(raw);
+        } catch {
+            record = { students: Array.isArray(raw?.students) ? raw!.students as MentorStudentEntry[] : [], settlements: [] };
+        }
+        const enriched = await Promise.all(record.students.map(async (s) => {
             const save = await kv.get<Record<string, unknown>>(`save:${s.studentSlug}`);
             const char = (save?.character ?? {}) as Record<string, unknown>;
-            const claimable = claimableMilestones({ onboardingStep: char.onboardingStep as string, level: num(char.level), rankedWins: num(char.rankedWins) }, s.claimed);
-            return { student: s.studentName, startedAt: s.startedAt, claimed: Object.keys(s.claimed ?? {}), claimable };
+            // A reserved-but-unpaid milestone is still owed: keep it on the
+            // "ready to claim" list so the existing Claim button resumes it.
+            const pending: string[] = pendingMilestonesFor(record, s);
+            const fresh = claimableMilestones({ onboardingStep: char.onboardingStep as string, level: num(char.level), rankedWins: num(char.rankedWins) }, s.claimed);
+            const claimable = MENTOR_MILESTONES.filter((m) => pending.includes(m) || fresh.includes(m));
+            const claimed = Object.keys(s.claimed ?? {}).filter((m) => !pending.includes(m));
+            return { student: s.studentName, startedAt: s.startedAt, claimed, claimable, ...(pending.length ? { pending } : {}) };
         }));
         res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json({ asSensei: { students: enriched }, asStudent: { sensei: mySensei ?? null } });
@@ -98,7 +126,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const out = await withKvLock<{ status: number; body: unknown }>(studentMarkerKey(studentName), async () => {
                 const already = await kv.get<string>(studentMarkerKey(studentName));
                 return await withKvLock<{ status: number; body: unknown }>(senseiKey(playerName), async () => {
-                    const rec = loadRecord(await kv.get<MentorRecord>(senseiKey(playerName)));
+                    const raw = await kv.get<Record<string, unknown>>(senseiKey(playerName));
+                    const rec = readMentorRecord(raw);
                     const gate = canAssignStudent({
                         senseiSlug: playerName, studentSlug: studentName,
                         sameClan: !!senseiClan && senseiClan === studentClan,
@@ -108,8 +137,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         senseiStudentCount: rec.students.length,
                     });
                     if (!gate.ok) return { status: 403, body: { error: gate.reason } };
-                    rec.students.push({ studentSlug: studentName, studentName: studentDisplay, startedAt: now, claimed: {} });
-                    await kv.set(senseiKey(playerName), rec);
+                    const entry: MentorStudentEntry = { studentSlug: studentName, studentName: studentDisplay, startedAt: now, claimed: {}, pairingId: randomUUID() };
+                    // CAS: a writer whose lock lapsed must not erase a pending settlement.
+                    const next = { ...(raw ?? {}), students: [...withPairingIds(rec.students), entry] };
+                    if (!(await kv.compareSet(senseiKey(playerName), raw ?? null, next))) {
+                        return { status: 503, body: { error: 'Mentorship changed while assigning. Please retry.' } };
+                    }
                     await kv.set(studentMarkerKey(studentName), playerName, { ex: 365 * 24 * 60 * 60 });
                     return { status: 200, body: { ok: true, student: studentDisplay } };
                 }, { failClosed: true });
@@ -119,104 +152,86 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(out.status).json(out.body);
         }
 
-        // ── CLAIM (pay reached-but-unclaimed milestones) ────────────────────────
+        // ── CLAIM (pay reached milestones; resume any unfinished payment) ───
         if (action === 'claim') {
-            // Anti-alt: a same-connection pairing pays nothing (no laundering ryo/
-            // seals to your main through an alt "student").
+            // Anti-alt: a same-connection pairing earns nothing NEW (no
+            // laundering ryo/seals to your main through an alt "student"). It
+            // gates admission only; a batch already admitted was vetted then.
+            let voided = false;
             if (!identity.admin) {
-                try { if (await hasRecentIpOrFpOverlap(playerName, studentName)) return res.status(403).json({ error: 'Mentor reward voided: you and the student share a connection.' }); } catch { /* fail open */ }
+                try { voided = await hasRecentIpOrFpOverlap(playerName, studentName); } catch { /* fail open */ }
             }
 
-            const out = await withKvLock<{ status: number; body: unknown; paid?: number; character?: Record<string, unknown>; _saveVersion?: number }>(senseiKey(playerName), async () => {
-                const rec = loadRecord(await kv.get<MentorRecord>(senseiKey(playerName)));
-                const entry = rec.students.find((s) => s.studentSlug === studentName);
-                if (!entry) return { status: 404, body: { error: 'That player is not your student.' } };
-                const studentSave = await kv.get<Record<string, unknown>>(`save:${studentName}`);
-                const studentChar = (studentSave?.character ?? null) as Record<string, unknown> | null;
-                if (!studentSave || !studentChar) return { status: 404, body: { error: 'Student save not found.' } };
-                const claimable = claimableMilestones({ onboardingStep: studentChar.onboardingStep as string, level: num(studentChar.level), rankedWins: num(studentChar.rankedWins) }, entry.claimed);
-                if (claimable.length === 0) return { status: 200, body: { ok: true, claimed: 0 } };
-                const payout = mentorPayout(claimable.length);
-
-                // Verify the sensei save exists BEFORE marking claimed — we must not
-                // mark a milestone paid if there's no save to credit (preserves the
-                // old "credit only if both saves exist" guard).
-                const senseiPre = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-                if (!senseiPre || !senseiPre.character) return { status: 404, body: { error: 'Your save was not found.' } };
-
-                // Mark the milestones claimed and persist the mentor record FIRST,
-                // before crediting. Cross-key credits (sensei + student saves) can't
-                // be atomic with this mark, so we choose the safe direction: a crash
-                // or contention-throw after this point loses a payout (rare) but can
-                // NEVER leave a milestone paid-but-unmarked → re-claimable (a mint).
-                for (const m of claimable) entry.claimed[m] = now;
-                await kv.set(senseiKey(playerName), rec);
-
-                // Credit the sensei (Honor Seals + clan contribution) under their save lock.
-                const senseiCredit = await withKvLock<{ character?: Record<string, unknown>; _saveVersion?: number }>(`save:${playerName}`, async () => {
-                    const r = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-                    const c = (r?.character ?? null) as Record<string, unknown> | null;
-                    if (!r || !c) return {};
-                    const character = { ...c, honorSeals: num(c.honorSeals) + payout.seals, clanEventContrib: num(c.clanEventContrib) + payout.contrib };
-                    const nextRecord = bumpSaveVersion({ ...r, character }, { previousCharacter: c });
-                    await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, r));
-                    return { character, _saveVersion: Number(nextRecord._saveVersion ?? 0) };
-                }, { failClosed: true });
-
-                // Boost the student (ryo) under their save lock.
-                await withKvLock<void>(`save:${studentName}`, async () => {
-                    const r = await kv.get<Record<string, unknown>>(`save:${studentName}`);
-                    const c = (r?.character ?? null) as Record<string, unknown> | null;
-                    if (r && c) await kv.set(`save:${studentName}`, mergePreservingImages(bumpSaveVersion({ ...r, character: { ...c, ryo: num(c.ryo) + payout.studentRyo } }, { previousCharacter: c }), r));
-                }, { failClosed: true });
-
-                return {
-                    status: 200,
-                    body: { ok: true, claimed: claimable.length, seals: payout.seals, contrib: payout.contrib, studentRyo: payout.studentRyo, milestones: claimable },
-                    paid: claimable.length,
-                    character: senseiCredit.character,
-                    _saveVersion: senseiCredit._saveVersion,
-                };
-            }, { failClosed: true });
-
-            let awardedCharacter = out.character;
-            let awardedSaveVersion = out._saveVersion;
-            if (out.paid) {
-                await kv.set(`${AUDIT_PREFIX}claim:${Date.now()}`, { ts: now, sensei: playerName, student: studentName, milestones: out.paid }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
-                const award = await awardClanPointsToPlayerSave(playerName, 'mentorMilestone', Math.min(100, out.paid * 25), {
-                    eventId: `mentor:${playerName}:${studentName}:${now}`,
-                    student: studentName,
-                    milestones: out.paid,
+            const result = await claimMentorMilestones({ senseiSlug: playerName, studentSlug: studentName, admitNew: !voided, now });
+            if (result.kind === 'none') return res.status(200).json({ ok: true, claimed: 0 });
+            if (result.kind === 'voided') return res.status(403).json({ error: 'Mentor reward voided: you and the student share a connection.' });
+            if (result.kind === 'refused') return res.status(result.httpStatus).json({ error: result.error, ...(result.httpStatus === 503 ? { retryable: true } : {}) });
+            if (result.kind === 'pending') {
+                // Something is owed and admitted but not finished. Not a success,
+                // and not a reason to give up: this or the server will finish it.
+                return res.status(503).json({
+                    error: 'Your mentor reward is still being delivered. It will finish automatically — you can also retry in a moment.',
+                    retryable: true,
+                    settlementId: result.settlement.id,
+                    pending: result.settlement.milestones,
                 });
-                if (award.found) {
-                    awardedCharacter = award.character;
-                    awardedSaveVersion = award._saveVersion;
-                }
             }
-            return res.status(out.status).json({
-                ...(out.body as Record<string, unknown>),
-                ...(awardedCharacter ? { character: awardedCharacter } : {}),
-                ...(awardedSaveVersion !== undefined ? { _saveVersion: awardedSaveVersion } : {}),
+            if (result.kind === 'exception') {
+                return res.status(409).json({
+                    error: `This mentor reward is held for review: ${EXCEPTION_TEXT[result.reason]}.`,
+                    review: true,
+                    settlementId: result.settlement.id,
+                    pending: result.settlement.milestones,
+                });
+            }
+
+            const batches = result.completed;
+            for (const batch of batches) {
+                if (batch.replayed) continue;
+                await kv.set(`${AUDIT_PREFIX}claim:${Date.now()}:${batch.settlement.id}`, {
+                    ts: now, sensei: playerName, student: studentName, settlementId: batch.settlement.id,
+                    milestones: batch.settlement.milestones, clanPoints: batch.teacherReceipt.clanPoints ?? null,
+                }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
+            }
+            // One record supplies both character and _saveVersion.
+            const teacherRecord = batches[batches.length - 1].teacherRecord;
+            return res.status(200).json({
+                ok: true,
+                claimed: batches.reduce((n, b) => n + b.settlement.milestones.length, 0),
+                seals: batches.reduce((n, b) => n + b.settlement.teacher.seals, 0),
+                contrib: batches.reduce((n, b) => n + b.settlement.teacher.contrib, 0),
+                studentRyo: batches.reduce((n, b) => n + b.settlement.student.ryo, 0),
+                milestones: batches.flatMap((b) => b.settlement.milestones),
+                settlementIds: batches.map((b) => b.settlement.id),
+                replayed: batches.every((b) => b.replayed),
+                character: teacherRecord.character,
+                _saveVersion: Number(teacherRecord._saveVersion ?? 0),
             });
         }
 
         // ── RELEASE (end the pairing) ───────────────────────────────────────────
         if (action === 'release') {
-            await withKvLock(senseiKey(playerName), async () => {
-                const rec = loadRecord(await kv.get<MentorRecord>(senseiKey(playerName)));
-                rec.students = rec.students.filter((s) => s.studentSlug !== studentName);
-                await kv.set(senseiKey(playerName), rec);
+            // Releasing ends the pairing only. Any admitted-but-unfinished reward
+            // stays in `settlements` and is still paid from its sealed terms.
+            const released = await withKvLock(senseiKey(playerName), async () => {
+                const raw = await kv.get<Record<string, unknown>>(senseiKey(playerName));
+                const rec = readMentorRecord(raw);
+                if (!raw || !rec.students.some((s) => s.studentSlug === studentName)) return true;
+                const next = { ...raw, students: rec.students.filter((s) => s.studentSlug !== studentName) };
+                return kv.compareSet(senseiKey(playerName), raw, next);
             }, { failClosed: true });
-            // Only clear the marker if it points at THIS sensei (don't free a student
-            // who was re-assigned elsewhere in a race).
-            const marker = await kv.get<string>(studentMarkerKey(studentName));
-            if (marker === playerName) await kv.del(studentMarkerKey(studentName)).catch(() => undefined);
+            if (!released) return res.status(503).json({ error: 'Mentorship changed while releasing. Please retry.', retryable: true });
+            // Only clear the marker if it still points at THIS sensei (a student
+            // re-assigned elsewhere in a race keeps their new sensei) — atomically.
+            await kv.delIfEqual(studentMarkerKey(studentName), playerName).catch(() => undefined);
             return res.status(200).json({ ok: true });
         }
 
         return res.status(400).json({ error: 'Unknown action.' });
     } catch (err) {
         console.error('[clan/mentor]', safeLogValue(err));
+        if (err instanceof LockContendedError) return res.status(503).json({ error: 'Mentorship is busy. Please retry.', retryable: true });
+        if (err instanceof MentorRecordError) return res.status(409).json({ error: 'This mentorship record needs review before it can change.', review: true });
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }

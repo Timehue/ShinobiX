@@ -29,6 +29,7 @@ import { runEraDailyPass } from '../_era.js';
 import { scheduledJobsDisabled } from '../_launch-controls.js';
 import { runSettlementReconciliation } from './_settlement-reconciliation.js';
 import { recoverPendingExchangeListings } from '../festival/_exchange.js';
+import { recoverPendingMentorSettlements } from '../clan/_mentor-settlement.js';
 import { withScheduledJobLease } from './_job-lease.js';
 import { runGuestSweep } from './_guest-sweep.js';
 import { runKageInactivityPass } from '../village/_kage-inactivity.js';
@@ -85,7 +86,8 @@ async function runLeasedJob<T>(jobName: string, ttlSec: number, fn: () => Promis
     return leased.acquired ? leased.value : null;
 }
 
-async function fireSettlementReconciliation(includeLegacyScan = false): Promise<void> {
+/** One leased settlement-reconciliation tick (exported so restart tests drive the real entry point). */
+export async function fireSettlementReconciliation(includeLegacyScan = false): Promise<void> {
     if (_settlementScanRunning) return;
     _settlementScanRunning = true;
     try {
@@ -96,6 +98,17 @@ async function fireSettlementReconciliation(includeLegacyScan = false): Promise<
                     const exchange = await recoverPendingExchangeListings();
                     if (exchange.failures.length) console.warn('[cron-scheduler] Sunscar trades awaiting recovery:', exchange.failures);
                 } catch (error) { console.warn('[cron-scheduler] Sunscar recovery deferred:', (error as Error).message); }
+                // Mentor milestone rewards admitted but not fully paid (the
+                // browser that claimed them may be long gone). Bounded per run;
+                // the boot pass also re-publishes any missing discovery pointer.
+                try {
+                    const mentor = await recoverPendingMentorSettlements({ discover: includeLegacyScan });
+                    if (mentor.completed.length || mentor.unfinished.length || mentor.exceptions.length || mentor.failures.length) {
+                        console.log(`[cron-scheduler] mentor settlements: ${mentor.completed.length} completed, ${mentor.unfinished.length} retrying, ${mentor.exceptions.length} held for review, ${mentor.deferred} backing off${mentor.truncated ? ' (budget reached)' : ''}.`);
+                    }
+                    for (const held of mentor.exceptions.slice(0, 5)) console.warn(`[cron-scheduler] mentor settlement ${held.settlementId} (${held.sensei} → ${held.student}) needs review at ${held.step}: ${held.reason}`);
+                    if (mentor.failures.length) console.warn('[cron-scheduler] mentor recovery failures:', mentor.failures.slice(0, 5));
+                } catch (error) { console.warn('[cron-scheduler] mentor settlement recovery deferred:', (error as Error).message); }
                 return runSettlementReconciliation({ includeLegacyScan });
             },
             { ttlSec: LEASE_TTL.settlementReconciliation, holdUntilExpiryOnSuccess: true },

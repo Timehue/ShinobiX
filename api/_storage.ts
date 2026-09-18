@@ -55,6 +55,11 @@ const _noCachePrefixes = [
     // proofs. A worker-local pending snapshot must not hide another worker's
     // completion or make that join disagree immediately after a retry.
     'clan:mission-claimed:', 'economy-settlement:clan-exchange-',
+    // Mentor records hold pending milestone settlements and are only ever
+    // replaced by exact CAS; the pointers and student markers beside them are
+    // compare-and-delete guarded. A worker-local snapshot would turn every
+    // write into a spurious conflict or hide another worker's admission.
+    'clan-mentor',
     // Player deletion generations are durable cross-worker save authority.
     // They are intentionally base-primary metadata (not disk-routed), but a
     // cached floor would still let another worker resurrect an old save.

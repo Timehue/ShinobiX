@@ -110,7 +110,11 @@ describe('clan full-character mutation version echoes', { concurrency: false }, 
         });
         const stored = await kv.get<Record<string, unknown>>('save:echosensei');
         assertEchoesStoredVersion(out, stored);
-        assert.equal(out.body?._saveVersion, 7, 'sensei payout and Clan Point award each advance the save exactly once');
+        assert.equal(out.body?._saveVersion, 6, 'seals, contribution, Clan Points and the receipt are one versioned write');
+
+        const replay = await post(mentorHandler, { action: 'claim', playerName: 'EchoSensei', studentName: 'EchoStudent' });
+        assert.equal(replay.statusCode, 200);
+        assert.equal((await kv.get<Record<string, unknown>>('save:echosensei'))?._saveVersion, 6, 'a completed replay manufactures no version');
     });
 
     it('mission claim and idempotent replay echo the final caller version without another bump', async () => {
