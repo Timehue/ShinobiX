@@ -1,18 +1,18 @@
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { rallyPath, rallySection } from '../../../../shared/sunscar/rally-tracks';
-import { sunscarRandom } from '../../../../shared/sunscar/random';
 import type { RallyTrack } from '../../../../shared/sunscar/rally-types';
 import { RallyCrowd, RallyDunes } from './RallyEnvironment';
 import { createCargoTexture, createSandTexture } from './rally-scenery';
+import { RALLY_RIBBON_START, RALLY_RIBBON_STEP, rallyArch, rallyGrandstands, rallyPavilions, rallyRoadHalfWidth, rallyRocks } from './rally-layout';
 
 function ribbon(track: RallyTrack): THREE.BufferGeometry {
     const positions: number[] = [], colors: number[] = [], indices: number[] = [], uv: number[] = [];
     const sand = new THREE.Color(track.palette.sand);
     const stone = new THREE.Color(track.palette.rock).lerp(new THREE.Color('#e4c6a2'), .4);
-    const steps = Math.ceil((track.length + 70) / 8);
+    const steps = Math.ceil((track.length + 70) / RALLY_RIBBON_STEP);
     for (let i = 0; i <= steps; i++) {
-        const d = -20 + i * 8;
+        const d = RALLY_RIBBON_START + i * RALLY_RIBBON_STEP;
         const p = rallyPath(track, d);
         const s = rallySection(track, Math.max(0, d));
         const color = s.terrain === 'stone' || s.terrain === 'alley' ? stone : s.terrain === 'deep-sand' ? sand.clone().multiplyScalar(.85) : sand;
@@ -31,19 +31,19 @@ function RouteScenery({ track }: { track: RallyTrack }) {
     const posts = useRef<THREE.InstancedMesh>(null);
     const rocks = useRef<THREE.InstancedMesh>(null);
     const shapes = useMemo(() => {
-        const random = sunscarRandom(817);
         const markers: THREE.Matrix4[] = [], stones: THREE.Matrix4[] = [];
         const dummy = new THREE.Object3D();
         for (let d = 0; d < track.length + 40; d += 12) {
             const p = rallyPath(track, d);
-            const width = rallySection(track, d).width;
+            const half = rallyRoadHalfWidth(track, d);
             for (const side of [-1, 1]) {
-                dummy.position.set(p.x + side * (width / 2 + .45), p.y + .45, p.z);
+                dummy.position.set(p.x + side * (half + .45), p.y + .45, p.z);
                 dummy.rotation.set(0, 0, side * .06); dummy.scale.set(.15, .9, .15); dummy.updateMatrix(); markers.push(dummy.matrix.clone());
-                const high = track.scenery === 'canyon' ? 6 + random() * 12 : 1 + random() * 5;
-                dummy.position.set(p.x + side * (width / 2 + 6 + random() * 12), p.y + high * .25 - 1, p.z - random() * 8);
-                dummy.rotation.set(random() * .5, random() * 6, random() * .4); dummy.scale.set(high * .7, high, high * .8); dummy.updateMatrix(); stones.push(dummy.matrix.clone());
             }
+        }
+        for (const rock of rallyRocks(track)) {
+            dummy.position.set(...rock.position); dummy.rotation.set(...rock.rotation); dummy.scale.set(...rock.scale);
+            dummy.updateMatrix(); stones.push(dummy.matrix.clone());
         }
         return { markers, stones };
     }, [track]);
@@ -71,7 +71,6 @@ export function RallyTrackScene({ track }: { track: RallyTrack }) {
     const texture = useMemo(() => createSandTexture(), []);
     const cargoTexture = useMemo(() => createCargoTexture(), []);
     useEffect(() => () => { geometry.dispose(); texture.dispose(); cargoTexture.dispose(); }, [geometry, texture, cargoTexture]);
-    const finish = rallyPath(track, track.length);
     return <>
         <color attach="background" args={[track.palette.sky]} />
         <fog attach="fog" args={[track.palette.fog, 45, 175]} />
@@ -100,19 +99,17 @@ export function RallyTrackScene({ track }: { track: RallyTrack }) {
                         </>}
             </group>;
         })}
-        {(track.scenery === 'festival' || track.scenery === 'market') && Array.from({ length: 16 }, (_, i) => {
-            const p = rallyPath(track, i * track.length / 16 + 15);
-            return <Pavilion key={i} x={p.x + (i % 2 ? -11 : 11)} y={p.y} z={p.z} color={i % 3 ? track.palette.accent : '#ddb879'} />;
-        })}
+        {rallyPavilions(track).map((p, i) => <Pavilion key={i} x={p.x} y={p.y} z={p.z} color={p.accent ? track.palette.accent : '#ddb879'} />)}
         {[0, track.length].map(d => {
             const p = rallyPath(track, d);
+            const { half, post, tiles, tile } = rallyArch(track, d);
             return <group key={d} position={[p.x, p.y, p.z]}>
-                {[-6.4, 6.4].map(x => <mesh key={x} position={[x, 3, 0]}><boxGeometry args={[.45, 6, .45]} /><meshStandardMaterial color="#715444" /></mesh>)}
-                <mesh position={[0, 5.5, 0]}><boxGeometry args={[13, 1, .15]} /><meshStandardMaterial color={track.palette.accent} /></mesh>
-                {Array.from({ length: 12 }, (_, i) => <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[-5.5 + i, .045, 0]}><planeGeometry args={[1, 1.7]} /><meshStandardMaterial color={i % 2 ? '#51413a' : '#f3dfb6'} /></mesh>)}
+                {[-post, post].map(x => <mesh key={x} position={[x, 3, 0]}><boxGeometry args={[.45, 6, .45]} /><meshStandardMaterial color="#715444" /></mesh>)}
+                <mesh position={[0, 5.5, 0]}><boxGeometry args={[post * 2 + .2, 1, .15]} /><meshStandardMaterial color={track.palette.accent} /></mesh>
+                {Array.from({ length: tiles }, (_, i) => <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[-half + tile * (i + .5), .045, 0]}><planeGeometry args={[tile, 1.7]} /><meshStandardMaterial color={i % 2 ? '#51413a' : '#f3dfb6'} /></mesh>)}
             </group>;
         })}
-        {[-1, 1].map(side => <group key={side} position={[finish.x + side * 13, finish.y, finish.z + 12]}>
+        {rallyGrandstands(track).map(({ side, x, y, z }) => <group key={side} position={[x, y, z]}>
             {[0, 1, 2].map(row => <mesh key={row} position={[side * row, row * .9 + .4, 0]}><boxGeometry args={[3, .8, 18]} /><meshStandardMaterial color="#a37652" /></mesh>)}
             <Pavilion x={side * 2} y={3} z={-8} color={track.palette.accent} />
         </group>)}
