@@ -1,75 +1,34 @@
-/*
- * Healer profession hub — the screen the right-menu "✚ Healer" button opens
- * once a player has chosen the Healer profession. Visually a hospital ward: it
- * lists injured / knocked-out villagers and (for Healers) lets you heal them.
- *
- * Reuses the same server-authoritative heal flow as the Village Hospital via
- * the shared <HealerInjuredList> component, so there is one heal code path. The
- * actual who-can-heal-whom gating lives server-side in api/player/heal.ts: any
- * Healer can heal admitted same-village allies; Rank 10 unlocks healing injured
- * villagers anywhere in the world.
- */
 import healerBg from "../../assets/professions/healer.webp";
-import { BackToVillageButton } from "../../components/BackToVillageButton";
+import hospitalArt from "../../assets/facilities/hospital.webp";
 import { ProfessionHero } from "../../components/ProfessionHero";
 import { HealerInjuredList } from "../../components/HealerInjuredList";
 import { MasteryPanel } from "../../components/MasteryPanel";
 import { ProfessionRankBar } from "../ProfessionRankBar";
 import { DailyProfessionMissions } from "../DailyProfessionMissions";
+import { ProfessionDestination, ProfessionMetric, ProfessionSectionHeading } from "./ProfessionHubUI";
 import type { Character, PlayerRecord, Screen } from "../../App";
 import type { VersionedCharacterCommit } from "../../types/character";
 
-export function HealerHub({
-    character,
-    updateCharacter,
-    setScreen,
-    onBack,
-    playerRoster,
-    onServerVersion,
-    onVersionedCharacter,
-}: {
-    character: Character;
-    updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
-    setScreen: (s: Screen) => void;
-    onBack: () => void;
-    playerRoster: PlayerRecord[];
-    onServerVersion: (version: unknown) => boolean;
-    onVersionedCharacter: VersionedCharacterCommit;
+export function HealerHub({ character, updateCharacter, setScreen, onBack, playerRoster, onServerVersion, onVersionedCharacter }: {
+    character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; setScreen: (s: Screen) => void; onBack: () => void; playerRoster: PlayerRecord[]; onServerVersion: (version: unknown) => boolean; onVersionedCharacter: VersionedCharacterCommit;
 }) {
     const healerRank = character.professionRank ?? 1;
-
-    return (
-        <div className="card profession-hub profession-hub-healer" style={{ "--profession-accent": "#22d3ee" } as React.CSSProperties}>
-            <BackToVillageButton onClick={onBack} label="← Back" />
-            <ProfessionHero image={healerBg} icon="✚" title="Healer" tagline="Mend what war breaks." accent="#22d3ee" />
-
-            <ProfessionRankBar character={character} />
-
-            <section className="summary-box profession-role-brief" aria-labelledby="healer-role-brief" style={{ background: "linear-gradient(180deg,rgba(34,211,238,0.12),rgba(8,10,22,0.4))", border: "1px solid rgba(34,211,238,0.45)", margin: "1rem 0" }}>
-                <h3 id="healer-role-brief" className="profession-section-eyebrow">Ward directive</h3>
-                <p className="hint" style={{ margin: 0 }}>
-                    Heal wounded and knocked-out allies in <strong>{character.village}</strong>. Each heal grants profession
-                    XP equal to the share of HP you restore. Allies fresh from a fight grant a <strong style={{ color: "#22d3ee" }}>+50% Raid-Assist</strong> bonus.
-                    {healerRank >= 10
-                        ? " At Rank 10 you can heal injured villagers anywhere in the world — see the list below."
-                        : ` Reach Rank 10 to heal injured villagers anywhere in the world (you're Rank ${healerRank}).`}
-                </p>
+    return <div className="profession-hub profession-hub-healer ph-hub">
+        <ProfessionHero image={healerBg} title="Healer" tagline="Mend what war breaks." chapter="The sanctuary / Healing arts" description="Be the reason your village lives to fight another day." village={character.village} onBack={onBack} />
+        <div className="ph-body">
+            <ProfessionRankBar character={character} headquarters />
+            <section className="ph-panel" aria-label="Healer field briefing">
+                <ProfessionSectionHeading eyebrow="The healing arts" title="A village in your care" detail={healerRank >= 10 ? "Worldwide care unlocked" : "Village care"} />
+                <dl className="ph-metrics"><ProfessionMetric label="Chakra available" value={(character.chakra ?? 0).toLocaleString()} detail="Your healing reserve" /><ProfessionMetric label="Raid-assist XP" value="+50%" detail="Treat allies fresh from battle" /><ProfessionMetric label="Worldwide care" value={healerRank >= 10 ? "Unlocked" : "Rank 10"} detail="Reach villagers in any sector" /></dl>
+                <p className="ph-note">Restore wounded and knocked-out allies in {character.village}. Each heal earns profession XP based on the share of HP restored.</p>
             </section>
-
-            <button
-                onClick={() => setScreen("hospital")}
-                className="profession-primary-action"
-                style={{ background: "linear-gradient(#0e7490,#155e75)", borderColor: "#22d3ee", marginBottom: "0.5rem" }}
-            >
-                🏥 Go to the Village Hospital
-            </button>
-
-            <HealerInjuredList character={character} updateCharacter={updateCharacter} playerRoster={playerRoster} onServerVersion={onServerVersion} />
-
-            <div className="profession-hub-lower" style={{ marginTop: "1.5rem" }}>
-                <DailyProfessionMissions character={character} />
-                <MasteryPanel character={character} onVersionedCharacter={onVersionedCharacter} />
-            </div>
+            <section className="ph-ward" aria-label="Village ward">
+                <ProfessionSectionHeading eyebrow="On duty" title="The village ward" />
+                <ProfessionDestination image={hospitalArt} title="Village Hospital" description="Enter the ward and tend to your village" onClick={() => setScreen("hospital")} featured />
+                <HealerInjuredList character={character} updateCharacter={updateCharacter} playerRoster={playerRoster} onServerVersion={onServerVersion} headquarters />
+            </section>
+            <DailyProfessionMissions character={character} headquarters />
+            <MasteryPanel character={character} onVersionedCharacter={onVersionedCharacter} headquarters />
         </div>
-    );
+    </div>;
 }

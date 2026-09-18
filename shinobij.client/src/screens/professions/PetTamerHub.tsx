@@ -1,104 +1,56 @@
+import { useState } from "react";
 import { petTamerPveMultiplier, petTamerTrainingSpeedPct, petTamerExpeditionMult } from "../../lib/profession-bonuses";
-/*
- * Pet Tamer profession hub — the screen the right-menu "🐾 Pet Tamer" button
- * opens once a player has chosen the Pet Tamer profession. A beast-handler's
- * den: it shows the live PvE / training / expedition bonuses the profession is
- * granting right now, lists the player's companions, and links into the Pet
- * Yard and Pet Arena where those bonuses pay off.
- *
- * Read-only over existing character fields + the exported petTamer* helpers —
- * no new endpoints, no reward writes.
- */
+import { petCardImage } from "../../lib/pet-battle-anim";
+import { petDisplayName } from "../../lib/pet";
+import { petVisualVariantClass } from "../../lib/pet-visual-variant";
 import petTamerBg from "../../assets/professions/pettamer.webp";
-import { BackToVillageButton } from "../../components/BackToVillageButton";
+import yardArt from "../../assets/facilities/pet-yard.webp";
+import arenaArt from "../../assets/coliseum/pet-arena-command-v2.webp";
 import { ProfessionHero } from "../../components/ProfessionHero";
 import { MasteryPanel } from "../../components/MasteryPanel";
 import { ProfessionRankBar } from "../ProfessionRankBar";
 import { DailyProfessionMissions } from "../DailyProfessionMissions";
-import {
-    type Character,
-    type Screen
-} from "../../App";
+import { ProfessionDestination, ProfessionMetric, ProfessionSectionHeading } from "./ProfessionHubUI";
+import type { Character, Screen } from "../../App";
+import type { Pet } from "../../types/pet";
 import type { VersionedCharacterCommit } from "../../types/character";
 
-const ACCENT = "#84cc16";
-
-function ProfessionBonusStat({ label, value }: { label: string; value: string }) {
-    return (
-        <div className="summary-box profession-bonus-stat" style={{ flex: "1 1 140px", textAlign: "center", border: `1px solid ${ACCENT}55` }}>
-            <div style={{ fontSize: "1.3rem", fontWeight: 800, color: ACCENT }}>{value}</div>
-            <div className="hint" style={{ fontSize: "0.74rem" }}>{label}</div>
-        </div>
-    );
+function CompanionPortrait({ pet, sharedImages }: { pet: Pet; sharedImages: Record<string, string> }) {
+    const image = petCardImage(pet, sharedImages);
+    const [failedSource, setFailedSource] = useState<string | null>(null);
+    return <div className={`ph-companion-portrait ${petVisualVariantClass(pet)}`}>
+        {image && image !== failedSource ? <img src={image} alt="" loading="lazy" onError={() => setFailedSource(image)} /> : <span className="ph-portrait-monogram" aria-hidden="true">{petDisplayName(pet).slice(0, 1)}</span>}
+        <span className="ph-companion-level">Lv. {pet.level}</span>
+    </div>;
 }
 
-export function PetTamerHub({
-    character,
-    onVersionedCharacter,
-    setScreen,
-    onBack,
-}: {
-    character: Character;
-    onVersionedCharacter: VersionedCharacterCommit;
-    setScreen: (s: Screen) => void;
-    onBack: () => void;
+export function PetTamerHub({ character, onVersionedCharacter, setScreen, onBack, sharedImages }: {
+    character: Character; onVersionedCharacter: VersionedCharacterCommit; setScreen: (s: Screen) => void; onBack: () => void; sharedImages: Record<string, string>;
 }) {
     const pveBonusPct = Math.round((petTamerPveMultiplier(character) - 1) * 1000) / 10;
     const trainSpeedPct = petTamerTrainingSpeedPct(character);
     const expeditionPct = Math.round((petTamerExpeditionMult(character) - 1) * 1000) / 10;
     const pets = character.pets ?? [];
 
-    return (
-        <div className="card profession-hub profession-hub-pet-tamer" style={{ "--profession-accent": ACCENT } as React.CSSProperties}>
-            <BackToVillageButton onClick={onBack} label="← Back" />
-            <ProfessionHero image={petTamerBg} icon="🐾" title="Pet Tamer" tagline="Walk with beasts." accent={ACCENT} />
-
-            <ProfessionRankBar character={character} />
-
-            {/* Live profession bonuses */}
-            <h4 style={{ margin: "1rem 0 0.5rem" }}>Active Bonuses</h4>
-            <div className="profession-bonus-grid" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: "1rem" }}>
-                <ProfessionBonusStat label="PvE Pet Damage" value={`+${pveBonusPct}%`} />
-                <ProfessionBonusStat label="Training Speed" value={`+${trainSpeedPct}%`} />
-                <ProfessionBonusStat label="Expedition Rewards" value={`+${expeditionPct}%`} />
-            </div>
-            <p className="hint" style={{ margin: "0 0 1rem", fontSize: "0.78rem" }}>
-                Your first collected expedition each day grants <strong style={{ color: ACCENT }}>2× Tamer XP, pet XP, and ryo</strong>, plus a large material-find boost. Bonuses scale as you rank up.
-            </p>
-
-            {/* Companions */}
-            <h4 style={{ margin: "0 0 0.5rem" }}>🐾 Your Companions ({pets.length})</h4>
-            {pets.length === 0 ? (
-                <p className="hint" style={{ margin: "0 0 1rem" }}>
-                    You haven't befriended any beasts yet. Visit the Pet Yard to find a companion.
-                </p>
-            ) : (
-                <div className="profession-companion-list" style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: "1rem" }}>
-                    {pets.slice(0, 8).map((p, i) => (
-                        <div key={`${p.name}-${i}`} className="summary-box profession-companion-row" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                            <strong style={{ flex: 1 }}>{p.nickname || p.name}</strong>
-                            <span className="hint" style={{ fontSize: "0.78rem" }}>Lv {p.level}</span>
-                            {p.element && <span style={{ fontSize: "0.74rem", color: ACCENT }}>{p.element}</span>}
-                            <span className="hint" style={{ fontSize: "0.72rem", textTransform: "capitalize" }}>{p.rarity}</span>
-                        </div>
-                    ))}
-                    {pets.length > 8 && <p className="hint" style={{ margin: 0, fontSize: "0.74rem" }}>+{pets.length - 8} more in the Pet Yard…</p>}
-                </div>
-            )}
-
-            {/* Where to use the bonuses */}
-            <h4 style={{ margin: "0 0 0.5rem" }}>Den</h4>
-            <div className="profession-action-grid" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: "1.5rem" }}>
-                <button className="profession-primary-action" onClick={() => setScreen("pets")} style={{ background: `linear-gradient(${ACCENT}cc,${ACCENT}88)`, borderColor: ACCENT, color: "#0a1a02" }}>
-                    🐾 Pet Yard
-                </button>
-                <button onClick={() => setScreen("petArena")} style={{ borderColor: ACCENT }}>
-                    🏟️ Pet Arena
-                </button>
-            </div>
-
-            <DailyProfessionMissions character={character} />
-            <MasteryPanel character={character} onVersionedCharacter={onVersionedCharacter} />
+    return <div className="profession-hub profession-hub-pet-tamer ph-hub">
+        <ProfessionHero image={petTamerBg} title="Pet Tamer" tagline="Walk with beasts." chapter="The wilds / Companion sanctuary" description="A bond forged in trust. A strength shared in battle." village={character.village} onBack={onBack} />
+        <div className="ph-body">
+            <ProfessionRankBar character={character} headquarters />
+            <section className="ph-panel" aria-label="Active profession bonuses">
+                <ProfessionSectionHeading eyebrow="Strength in kinship" title="Your bond, amplified" detail="Active bonuses" />
+                <dl className="ph-metrics"><ProfessionMetric label="PvE pet damage" value={`+${pveBonusPct}%`} detail="Fight as one" /><ProfessionMetric label="Training speed" value={`+${trainSpeedPct}%`} detail="Grow together" /><ProfessionMetric label="Expedition rewards" value={`+${expeditionPct}%`} detail="Bring more home" /></dl>
+                <div className="ph-daily-perk"><strong>2×</strong><p><b>The first journey of the day</b><span>Your first collected expedition grants double Tamer XP, pet XP, and ryo, plus a large material-find boost.</span></p></div>
+            </section>
+            <section aria-label="Pet Tamer destinations">
+                <ProfessionSectionHeading eyebrow="Beyond the sanctuary" title="Answer the wild" />
+                <div className="ph-destinations"><ProfessionDestination image={yardArt} title="Pet Yard" description="Care, training & expeditions" onClick={() => setScreen("pets")} featured /><ProfessionDestination image={arenaArt} title="Pet Arena" description="Put your bond to the test" onClick={() => setScreen("petArena")} /></div>
+            </section>
+            <section className="ph-panel" aria-label="Your companions">
+                <ProfessionSectionHeading eyebrow="Your companions" title="The company you keep" detail={`${pets.length} bonded`} />
+                {pets.length === 0 ? <div className="ph-empty"><strong>Every bond begins with a first encounter.</strong><p>Visit the Pet Yard to find a companion and begin your journey together.</p><button type="button" onClick={() => setScreen("pets")}>Find a companion <span aria-hidden="true">↗</span></button></div> : <><div className="ph-companions">{pets.slice(0, 8).map((pet, i) => <article className={`ph-companion rarity-${pet.rarity}`} key={pet.id ?? `${pet.name}-${i}`}><CompanionPortrait pet={pet} sharedImages={sharedImages} /><div className="ph-companion-copy"><span>{pet.rarity} · {pet.element}</span><h4 title={petDisplayName(pet)}>{petDisplayName(pet)}</h4></div></article>)}</div>{pets.length > 8 && <button type="button" className="ph-roster-link" onClick={() => setScreen("pets")}>View all {pets.length} companions <span aria-hidden="true">↗</span></button>}</>}
+            </section>
+            <DailyProfessionMissions character={character} headquarters />
+            <MasteryPanel character={character} onVersionedCharacter={onVersionedCharacter} headquarters />
         </div>
-    );
+    </div>;
 }

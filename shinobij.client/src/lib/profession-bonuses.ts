@@ -44,6 +44,14 @@ export function petTamerPveMultiplier(character: Character | null | undefined): 
 // VANGUARD_SEALS_PER_KILL / VANGUARD_DAILY_SEAL_CAP /
 // VANGUARD_PER_TARGET_DAILY_CAP moved to ./constants/profession.
 
+/** Display the same UTC-day allowance used by the authoritative PvP reward handler. */
+export function vanguardDailySealProgress(character: Character, todayKey: string): { earned: number; cap: number } {
+    return {
+        earned: character.vanguardDailyResetDate === todayKey ? Math.max(0, character.dailyHonorSealsEarned ?? 0) : 0,
+        cap: VANGUARD_DAILY_SEAL_CAP + Math.min(15, masteryBonus(character, "sealDailyCapFlat")),
+    };
+}
+
 // Vanguard XP per PvP kill: 100 base + 10 per target level above 30.
 export function vanguardXpForKill(opponent: Character | null | undefined): number {
     if (!opponent) return 0;
