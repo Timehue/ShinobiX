@@ -100,3 +100,13 @@ test("Expedition Board exposes caps, real non-Tamer rules, universal risk, and e
   assert.match(board, /Investigate has a 60% enhanced haul and a 40% setback\./);
   assert.doesNotMatch(board, /element|subRole|role affinity/i);
 });
+
+test("Active and 2v2 Partner settle on the server before training can read the roster", () => {
+  // The two roles lead the training five. As local edits waiting on the
+  // debounced autosave, a Start Training pressed right after "Set as Active" was
+  // refused, and a pet reply landing first quietly undid the pick.
+  assert.match(source, /async function assignRosterRole\(role: "active" \| "partner", assign = true\)[\s\S]*?runPetProgress\(role === "active" \? 'set-active' : 'set-partner', \{ assign \}\)/);
+  assert.match(source, /onClick=\{\(\) => void assignRosterRole\("active"\)\}/);
+  assert.match(source, /onClick=\{\(\) => void assignRosterRole\("partner", character\.activePetId2v2 !== selectedPet\.id\)\}/);
+  assert.doesNotMatch(source, /\bactivePetId(?:2v2)?\s*:/, "Pet Yard must not write a roster role locally");
+});
