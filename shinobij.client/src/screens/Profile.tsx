@@ -1,3 +1,4 @@
+import { useActivitySection, useActivitySectionRequests } from "../lib/use-activity-section";
 import { playerLensDiscipline } from "../lib/player-lens-discipline";
 import { getAllJutsus, liveEquippedJutsuIds } from "../lib/jutsu-loadout";
 import { useState, useEffect, useMemo, useRef, type ChangeEvent, type ReactNode } from "react";
@@ -182,7 +183,9 @@ export function Profile({
     const legacyLive = legacyAvailable;
     const TITLE_COST = 10;
     const academyLoadoutStep = normalizeOnboardingStep(character.onboardingStep) === "jutsuLoadout";
-    const [mobileTab, setMobileTab] = useFirstContractLoadoutTab<'overview' | 'stats' | 'jutsu' | 'achievements' | 'battlelogs' | 'legacy'>(character, 'profile', academyLoadoutStep ? 'jutsu' : 'overview', 'jutsu');
+    const initialTab = useActivitySection<'overview' | 'stats' | 'legacy'>("profile.initialTab", ['stats', 'legacy'], 'overview');
+    const [mobileTab, setMobileTab] = useFirstContractLoadoutTab<'overview' | 'stats' | 'jutsu' | 'achievements' | 'battlelogs' | 'legacy'>(character, 'profile', academyLoadoutStep ? 'jutsu' : initialTab, 'jutsu');
+    useActivitySectionRequests<'stats' | 'legacy'>("profile.initialTab", ['stats', 'legacy'], setMobileTab);
     const visibleMobileTab = !legacyAvailable && mobileTab === 'legacy' ? 'overview' : mobileTab;
     const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
     const [achievementCategory, setAchievementCategory] = useState<AchievementCategory | "All">("All");

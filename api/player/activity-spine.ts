@@ -3,10 +3,12 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { kv } from '../_storage.js';
-import { buildActivitySpine } from './_activity-spine.js';
+import { buildActivitySpine, autoFocus, type ActivitySpineInput } from './_activity-spine.js';
 import { publicCapabilities } from './_public-capabilities.js';
 import { progressionHoldForCharacter } from '../_xp-engine.js';
-import { STORY_LEVELS } from '../story/_settle.js';
+import { activitySaveFacts, enrichActivityFacts } from './_activity-spine-facts.js';
+import { normalizeMasteryFocus } from '../../shared/activity-spine.js';
+import { isIncapacitated } from '../_elapsed-state.js';
 import { activePartyForPlayer } from '../clan-boss/_party.js';
 import { clanBossAttemptsLeft, clanBossWeekId, loadClanBossProgress, loadClanBossWeek, resolveClanBossDef } from '../clan-boss/_storage.js';
 import { loadSectorState } from '../clan-boss/_sector-state.js';
@@ -29,36 +31,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const now = Date.now();
         const clanName = typeof character.clan === 'string' ? character.clan : '';
         const weekId = clanBossWeekId(now);
-        const week = await loadClanBossWeek(weekId);
+        const week = clanName ? await loadClanBossWeek(weekId) : null;
         const boss = resolveClanBossDef(week);
         const [progress, party, sector, towerRecovery] = await Promise.all([
             clanName && week ? loadClanBossProgress(weekId, clanName) : null,
-            clanName ? activePartyForPlayer(playerName) : null,
+            clanName ? activePartyForPlayer(playerName, false, true) : null,
             boss && week ? loadSectorState(weekId, boss) : null,
             discoverActivityTowerRecovery(playerName),
         ]);
         const activeTraining = record?.activeTraining as { endsAt?: number } | null | undefined;
         const activeJutsuTraining = record?.activeJutsuTraining as { endsAt?: number } | null | undefined;
         const level = Math.max(1, Math.floor(Number(character.level) || 1));
-        const storyProgress = Math.max(0, Math.min(STORY_LEVELS.length, Math.floor(Number(character.storyProgress) || 0)));
-        const pets = Array.isArray(character.pets) ? character.pets as Array<Record<string, unknown>> : [];
-        const activePetId = typeof character.activePetId === 'string' ? character.activePetId : '';
-        const activePet = pets.find((pet) => pet.id === activePetId) ?? pets[0];
-        const expedition = activePet?.expedition as Record<string, unknown> | undefined;
-        const legacy = character.legacy && typeof character.legacy === 'object'
-            ? character.legacy as Record<string, unknown>
-            : null;
         const hollowRun = character.hollowGateRun && typeof character.hollowGateRun === 'object'
             ? character.hollowGateRun as Record<string, unknown>
             : null;
         const endlessRun = character.endlessTowerRun && typeof character.endlessTowerRun === 'object'
             ? character.endlessTowerRun as Record<string, unknown>
             : null;
-        const spine = buildActivitySpine({
+        const input: ActivitySpineInput = {
             capabilities: publicCapabilities(),
             now,
             level,
-            hospitalized: character.hospitalized === true,
+            hospitalized: isIncapacitated(character, now),
             onboardingStep: typeof character.onboardingStep === 'string' ? character.onboardingStep : '',
             unspentStats: Math.max(0, Math.floor(Number(character.statPoints ?? character.unspentStats) || 0)),
             trainingIdle: !activeTraining,
@@ -78,60 +72,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 : endlessRun
                     ? { title: 'Resume your Endless Tower run', screen: 'endlessTower', context: 'towers', runtimeModeId: 'endless' }
                     : null),
-            facts: {
-                story: {
-                    completed: storyProgress,
-                    total: STORY_LEVELS.length,
-                    nextLevel: STORY_LEVELS[storyProgress] ?? null,
-                    nextEligible: storyProgress >= STORY_LEVELS.length || level >= (STORY_LEVELS[storyProgress] ?? Number.MAX_SAFE_INTEGER),
-                },
-                ranked: {
-                    rating: Math.max(0, Math.floor(Number(character.rankedRating) || 1000)),
-                    wins: Math.max(0, Math.floor(Number(character.rankedWins) || 0)),
-                },
-                towers: {
-                    bestFloor: Math.max(0, Math.floor(Number(character.battleTowerBestFloor) || 0)),
-                    bestWave: Math.max(0, Math.floor(Number(character.endlessTowerBestWave) || 0)),
-                    spireTier: Math.max(0, Math.floor(Number(character.battleTowerAscension) || 0)),
-                    activeRun: Boolean(endlessRun),
-                },
-                companions: {
-                    count: pets.length,
-                    activeName: typeof activePet?.name === 'string' ? activePet.name.slice(0, 40) : '',
-                    activeLevel: Math.max(0, Math.floor(Number(activePet?.level) || 0)),
-                    expeditionActive: Number(expedition?.endsAt ?? 0) > now,
-                    ladderRating: Math.max(0, Math.floor(Number(character.petRankedRating) || 1000)),
-                },
-                chronicle: {
-                    deckCards: Array.isArray(character.cardClashDeck) ? character.cardClashDeck.length : 0,
-                    collectionCards: Array.isArray(character.tileCards) ? character.tileCards.length : 0,
-                    wins: Math.max(0, Math.floor(Number(character.cardClashWins) || 0)),
-                },
-                legacy: {
-                    accepted: Boolean(legacy?.legacyId),
-                    stage: Math.max(0, Math.min(5, Math.floor(Number(legacy?.stage) || 0))),
-                },
-                profession: {
-                    selected: ['healer', 'vanguard', 'petTamer'].includes(String(character.profession ?? '')),
-                    label: typeof character.profession === 'string' ? character.profession : '',
-                    rank: Math.max(0, Math.floor(Number(character.professionRank) || 0)),
-                    xp: Math.max(0, Math.floor(Number(character.professionXp) || 0)),
-                },
-                prestige: {
-                    level,
-                    specialJoninPassed: Array.isArray(character.examsPassed) && character.examsPassed.includes('specialJonin'),
-                    pvpKills: Math.max(0, Math.floor(Number(character.totalPvpKills) || 0)),
-                },
-            },
             clanBoss: {
                 active: !!week && week.endsAt > now && !!boss,
                 killed: !!progress?.killedAt,
-                attemptsLeft: progress ? clanBossAttemptsLeft(progress, playerName) : 5,
+                attemptsLeft: clanBossAttemptsLeft(progress, playerName),
                 partyStatus: party?.status,
                 pressure: sector?.pressure,
                 sectorName: sector?.sectorName,
             },
-        });
+        };
+        const selected = normalizeMasteryFocus(input.focus);
+        const facts = activitySaveFacts(character, now);
+        input.facts = await enrichActivityFacts(facts, character, playerName,
+            selected === 'auto' ? autoFocus(input, facts) : selected, kv, now);
+        const spine = buildActivitySpine(input);
         res.setHeader('Cache-Control', 'private, no-store');
         return res.status(200).json({ ok: true, spine });
     } catch (error) {

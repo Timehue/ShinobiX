@@ -275,17 +275,17 @@ export async function saveParty(party: StoredParty): Promise<void> {
     await registerPartyRecord(party);
 }
 
-export async function activePartyForPlayer(slug: string, clearLegacyIndex = false): Promise<StoredParty | null> {
+export async function activePartyForPlayer(slug: string, clearLegacyIndex = false, readOnly = false): Promise<StoredParty | null> {
     const index = await kv.get<string | { partyId?: string }>(partyPlayerKey(slug));
     const indexedPartyId = typeof index === 'string' ? index : index?.partyId;
     if (!indexedPartyId) return null;
     const party = await loadParty(indexedPartyId);
     if (!party || !party.members.some((member) => member.slug === slug) || (!isOpenStatus(party.status) && party.status !== 'starting' && party.status !== 'active')) {
-        if (typeof index === 'string') await kv.delIfEqual(partyPlayerKey(slug), indexedPartyId).catch(() => false);
+        if (!readOnly && typeof index === 'string') await kv.delIfEqual(partyPlayerKey(slug), indexedPartyId).catch(() => false);
         // Object-valued indices predate compare-and-delete. Only a caller that
         // already owns this player's index lock may remove one; otherwise its
         // short TTL is safer than racing a newly created party index.
-        else if (clearLegacyIndex) await kv.del(partyPlayerKey(slug)).catch(() => 0);
+        else if (!readOnly && clearLegacyIndex) await kv.del(partyPlayerKey(slug)).catch(() => 0);
         return null;
     }
     return party;

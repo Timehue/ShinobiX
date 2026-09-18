@@ -1,3 +1,4 @@
+import { useActivitySection, useActivitySectionRequests } from "../lib/use-activity-section";
 import { HOLLOW_GATE_KEY_DUNGEON_KEY_COST, HOLLOW_GATE_KEY_FATE_SHARD_COST } from "../lib/hollow-gate-prices";
 /* eslint-disable react-hooks/purity */
 import { useState, useEffect, useMemo } from "react";
@@ -257,7 +258,9 @@ export function CentralHub({
     } | null>(null);
     const [showCelestialPanel, setShowCelestialPanel] = useState(false);
     const [showDungeonPanel, setShowDungeonPanel] = useState(false);
-    const [showCrafter, setShowCrafter] = useState(false);
+    const initialPanel = useActivitySection("centralHub.initialPanel", ["crafter"], "closed");
+    const [showCrafter, setShowCrafter] = useState(initialPanel === "crafter");
+    useActivitySectionRequests("centralHub.initialPanel", ["crafter"], () => setShowCrafter(true));
     const [crafterTab, setCrafterTab] = useState<"supplies" | "weapons" | "armor">("supplies");
     // Batch-craft size for the Supplies tab — craft up to this many per click,
     // with the material (craft-point) cost scaled by the same factor.
