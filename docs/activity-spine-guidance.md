@@ -198,3 +198,20 @@ node ./node_modules/@playwright/test/cli.js test -c .tmp/activity-existing-previ
 ```
 
 The task's completion message records the final pushed commit and its CI/production health verification.
+
+### Responsive CI capacity follow-up
+
+Guidance commit `c3788d5e3d74c76ba2b88acf37f71f8e9dbcac3a` reached `main` and production; the public health response matched it and authenticated Post-deploy health run `35329769682` passed. Its build/security, server contracts, release certification, concurrency, Village Stores, Warfront and all combat browser jobs passed. Responsive shard 1 passed. Shard 2 completed all Stronghold audits, then reached test entry 824 of 875 without a reported assertion failure before GitHub cancelled it at the 29-minute job limit. That timeout is not a passing suite.
+
+Following the repository's time-budget policy, a separate CI-only repair partitions the same responsive suite into three shards while retaining the 29-minute limit, all CSP/Stronghold checks, immutable artifact verification, evidence uploads, and the stable fail-closed aggregate. It changes `.github/workflows/ci.yml`, its existing contract test, `docs/CI.md`, and this report; no gameplay or browser application code changes.
+
+Validation used pinned Node 22: `node --test scripts/ci-workflow-contract.test.mjs` passed **8/8**, `npm run check:deployment` passed, and `git diff --check` passed. From the client directory with `CI=1`, discovery ran:
+
+```text
+node ./node_modules/@playwright/test/cli.js test --list --reporter=json
+node ./node_modules/@playwright/test/cli.js test --list --reporter=json --shard=1/3
+node ./node_modules/@playwright/test/cli.js test --list --reporter=json --shard=2/3
+node ./node_modules/@playwright/test/cli.js test --list --reporter=json --shard=3/3
+```
+
+All four commands completed successfully. Comparing discovered test IDs and projects verified **1,750 total entries**, partitioned **584 / 583 / 583**, with **zero omissions and zero duplicates**. Discovery verifies coverage partitioning; the subsequent hosted run supplies execution results.

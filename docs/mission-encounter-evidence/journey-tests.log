@@ -1,0 +1,17 @@
+[kv] isolated in-memory QA backend active
+▶ production-mounted ordinary mission journey (normal player authority)
+  ✔ enforces authentication, ownership, real admission, and rejects unearned rewards (35.707ms)
+  ✔ combat-c-patrol: startup, recovery, actual actions, vitals and exactly-once reward settlement (332.2921ms)
+  ✔ combat-b-escort: startup, recovery, actual actions, vitals and exactly-once reward settlement (745.3711ms)
+  ✔ combat-a-hunt: startup, recovery, actual actions, vitals and exactly-once reward settlement (596.828ms)
+  ✔ combat-s-crisis: startup, recovery, actual actions, vitals and exactly-once reward settlement (1178.6426ms)
+  ✔ flee and actual loss settle physical consequences without paying a mission reward (254.6989ms)
+✔ production-mounted ordinary mission journey (normal player authority) (117265.2726ms)
+ℹ tests 6
+ℹ suites 1
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 141269.0147

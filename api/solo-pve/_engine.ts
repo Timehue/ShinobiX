@@ -1520,8 +1520,8 @@ function authoredAiRuleMatches(session: SoloPveSession, rule: ServerAiRule): boo
     }
 }
 
-function authoredAiRuleAction(session: SoloPveSession, rule: ServerAiRule): SoloPveAction | null {
-    const candidates = aiJutsuCandidates(session);
+function authoredAiRuleAction(session: SoloPveSession, rule: ServerAiRule, candidatesForState?: () => AiJutsuCandidate[]): SoloPveAction | null {
+    const candidates = candidatesForState ? candidatesForState() : aiJutsuCandidates(session);
     if (rule.action === 'use_specific_jutsu') {
         const chosen = candidates.find((candidate) => candidate.jutsu.id === rule.jutsuId);
         return chosen ? { type: 'jutsu', jutsuId: chosen.jutsu.id, ...(chosen.tile === undefined ? {} : { tile: chosen.tile }) } : null;
@@ -1586,17 +1586,29 @@ function authoredAiRuleAction(session: SoloPveSession, rule: ServerAiRule): Solo
     return null;
 }
 
-function authoredAiAction(session: SoloPveSession): SoloPveAction | null {
+function authoredAiAction(session: SoloPveSession, missionTactics = false): SoloPveAction | null {
     const loadoutIds = jutsuList(session.enemy).map((jutsu) => jutsu.id);
     const program = validateServerAiRules(session.enemy.character.aiRules, loadoutIds);
     if (!program.ok || program.rules.length === 0) return null;
+    // One bounded candidate pass for this decision. It is discarded after the
+    // action, so AP, cooldowns, resources and effects are re-read next time.
+    let candidates: AiJutsuCandidate[] | undefined;
+    const candidatesForState = missionTactics ? () => candidates ??= aiJutsuCandidates(session) : undefined;
     for (const rule of program.rules) {
         if (!authoredAiRuleMatches(session, rule)) continue;
-        const action = authoredAiRuleAction(session, rule);
+        const action = authoredAiRuleAction(session, rule, candidatesForState);
         // Matching is not enough: cooldown, range, resources, competence, and
         // board legality may make the action impossible. Continue deterministically
-        // to the next authored rule, then the generic policy.
-        if (action) return action;
+        // to the next authored rule. Mission programs end with a safe Wait;
+        // other profiles can still fall back to the generic policy.
+        if (action) {
+            if (missionTactics && action.type === 'jutsu') {
+                const jutsu = jutsuList(session.enemy).find(j => j.id === action.jutsuId)!;
+                if (!jutsuActionPlan(session, 'enemy', jutsu, action.tile).accepted) continue;
+            }
+            if (missionTactics && action.type === 'move' && !validOpenTile(session, 'enemy', action.tile, 1)) continue;
+            return action;
+        }
     }
     return null;
 }
@@ -1684,8 +1696,11 @@ export function runSoloPveAiUntilPlayer(session: SoloPveSession): void {
             if (session.status === 'active' && session.activeSide === 'enemy' && (session.actionsThisTurn >= MAX_ACTIONS || session.ap.enemy < 30)) endSoloPveTurn(session);
             continue;
         }
-        const tactic = aiTacticalAction(session);
-        const authored = tactic ? null : authoredAiAction(session);
+        // This sealed opt-in belongs only to the four authored mission slots.
+        // Shared NPCs and pre-existing sessions keep generic counter/heal priority.
+        const missionTactics = session.encounter.kind === 'mission' && session.enemy.character.missionTactics === true;
+        const tactic = missionTactics ? null : aiTacticalAction(session);
+        const authored = tactic ? null : (authoredAiAction(session, missionTactics) ?? (missionTactics ? { type: 'wait' as const } : null));
         const jutsu = tactic || authored ? null : aiJutsu(session);
         if (tactic) {
             directAction(session, 'enemy', tactic, {});
