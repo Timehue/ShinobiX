@@ -39,6 +39,7 @@ import {
     floorRayIntensity,
 } from "../lib/pet-evolution-cutscene";
 import { petCloseupPresentationModel } from "../lib/pet-3d-models";
+import { supportsPetWebGl2 } from "../lib/pet-webgl-capability";
 import { petVisualId } from "../data/pet-evolutions";
 import { PetModel3D, DEFAULT_PET_MODEL_FRAME } from "./PetModel3D";
 import { petModelVariantSurface, petPaletteVariant, petVisualVariantClass } from "../lib/pet-visual-variant";
@@ -820,11 +821,14 @@ function EvoModel({ pet, isNew, oldVisualId, element, phase, reduced }: {
     );
 }
 
+// The shared probe, for two reasons the local one missed. It hands its context
+// straight back: the old probe kept a live WebGL context per cutscene until GC,
+// counted against the page's small context limit (WebKit is slowest to let go).
+// And it asks for WebGL2 only: three no longer runs on WebGL1, so a WebGL1-only
+// device passed the old check and then threw inside <Canvas> instead of getting
+// the flat fallback below.
 function hasWebGL(): boolean {
-    try {
-        const c = document.createElement("canvas");
-        return !!(c.getContext("webgl2") || c.getContext("webgl"));
-    } catch { return false; }
+    return supportsPetWebGl2();
 }
 
 /**
