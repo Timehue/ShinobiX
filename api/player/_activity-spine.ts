@@ -11,17 +11,23 @@ import {
     type RuntimeModeCapabilityRequirement,
 } from '../../shared/runtime-mode-capabilities.js';
 import { ATTACKABLE_MIN_LEVEL } from '../_realtime/presence-gating.js';
+import { STORY_TOWER_MIN_LEVEL } from '../towers/_story-eligibility.js';
+import { LEGACY_MIN_LEVEL } from '../_legacy-defs.js';
+import { PROFESSION_CHANGE_LEVEL as PROFESSION_UNLOCK_LEVEL } from '../../shared/profession-change.js';
+import { STARTER_CARDS_MIN_LEVEL } from '../card-clash/_starter-cards.js';
+import { MAIN_DECK_SIZE } from '../../shared/chronicle-duel.js';
 
 type Focus = Exclude<MasteryFocus, 'auto'>;
-type FocusFacts = {
-    story: { completed: number; total: number; nextLevel: number | null; nextEligible: boolean };
-    ranked: { rating: number; wins: number };
-    towers: { bestFloor: number; bestWave: number; spireTier: number; activeRun: boolean };
-    companions: { count: number; activeName: string; activeLevel: number; expeditionActive: boolean; ladderRating: number };
-    chronicle: { deckCards: number; collectionCards: number; wins: number };
-    legacy: { accepted: boolean; stage: number };
+export type FocusFacts = {
+    story: { completed: number; total: number; nextLevel: number | null; nextEligible: boolean; known?: boolean };
+    ranked: { rating: number; wins: number; ready?: boolean; blocker?: string };
+    towers: { bestFloor: number; bestWave: number; spireTier: number; nextFloor?: number; complete?: boolean; entryAffordable?: boolean; entryCost?: number; available?: boolean };
+    companions: { count: number; activeName: string; activeLevel: number; expeditionActive: boolean; ladderRating: number; usableCount?: number; available?: boolean };
+    chronicle: { deckCards: number; collectionCards: number; wins: number; deckValid?: boolean; unlocked?: boolean };
+    legacy: { accepted: boolean; stage: number; trialReady?: boolean; objective?: { stat: string; progress: number; target: number } };
     profession: { selected: boolean; label: string; rank: number; xp: number };
     prestige: { level: number; specialJoninPassed: boolean; pvpKills: number };
+    supplies?: { craftable: boolean };
 };
 
 export type ActivitySpineInput = {
@@ -54,9 +60,9 @@ export type ActivitySpineInput = {
 };
 
 const DEFAULT_FACTS: FocusFacts = {
-    story: { completed: 0, total: 9, nextLevel: 4, nextEligible: true },
+    story: { completed: 0, total: 0, nextLevel: null, nextEligible: false, known: false },
     ranked: { rating: 1000, wins: 0 },
-    towers: { bestFloor: 0, bestWave: 0, spireTier: 0, activeRun: false },
+    towers: { bestFloor: 0, bestWave: 0, spireTier: 0 },
     companions: { count: 0, activeName: '', activeLevel: 0, expeditionActive: false, ladderRating: 1000 },
     chronicle: { deckCards: 0, collectionCards: 0, wins: 0 },
     legacy: { accepted: false, stage: 0 },
@@ -118,21 +124,20 @@ function focusFacts(input: ActivitySpineInput): FocusFacts {
         legacy: { ...DEFAULT_FACTS.legacy, ...input.facts?.legacy },
         profession: { ...DEFAULT_FACTS.profession, ...input.facts?.profession },
         prestige: { ...DEFAULT_FACTS.prestige, ...input.facts?.prestige },
+        supplies: input.facts?.supplies,
     };
 }
 
-function autoFocus(input: ActivitySpineInput, facts: FocusFacts): Focus {
+export function autoFocus(input: ActivitySpineInput, facts: FocusFacts): Focus {
     const clanBossAvailable = serviceAvailability(input, { runtimeModeId: 'clan-boss' }).available;
     const legacyAvailable = serviceAvailability(input, { capabilityId: 'legacy' }).available;
     if (clanBossAvailable && input.clanName && input.clanBoss?.active && !input.clanBoss.killed && input.clanBoss.attemptsLeft > 0) return 'clan-war';
-    if (facts.story.completed < facts.story.total) return 'village-chronicle';
-    if (input.level >= 30 && (facts.towers.bestFloor < 25 || facts.towers.spireTier < 5)) return 'towers-spire';
-    if (facts.companions.count > 0 && facts.companions.activeLevel < 100) return 'companions';
-    if (facts.chronicle.deckCards >= 40 && facts.chronicle.wins < 25) return 'chronicle-showdown';
-    if (legacyAvailable && input.level >= 50 && (!facts.legacy.accepted || facts.legacy.stage < 5)) return 'legacy';
-    if (input.level >= 80 && !facts.prestige.specialJoninPassed) return 'ranked-pvp';
-    if (facts.profession.selected) return 'profession';
-    return input.level >= 15 ? 'ranked-pvp' : 'profession';
+    if (facts.story.known !== false && facts.story.completed < facts.story.total) return 'village-chronicle';
+    if (input.level >= STORY_TOWER_MIN_LEVEL && facts.towers.available && facts.towers.nextFloor && facts.towers.entryAffordable) return 'towers-spire';
+    if (facts.companions.available && (facts.companions.usableCount ?? 0) > 0) return 'companions';
+    if (facts.chronicle.unlocked && facts.chronicle.deckValid) return 'chronicle-showdown';
+    if (legacyAvailable && facts.legacy.accepted && facts.legacy.stage < 5) return 'legacy';
+    return 'profession';
 }
 
 function optionalPrestigeLongTerm(facts: FocusFacts): ActivitySpineItem | null {
@@ -146,9 +151,114 @@ function optionalPrestigeLongTerm(facts: FocusFacts): ActivitySpineItem | null {
     });
 }
 
+/** One deterministic next step. Readiness belongs to the eventual action;
+ * preparation remains usable, and never performs that action on navigation. */
+function focusNow(input: ActivitySpineInput, focus: Focus, facts: FocusFacts): ActivitySpineItem {
+    const review = (id: string, title: string, why: string, screen: string, cta: string,
+        extra: Partial<ActivitySpineItem> = {}) => item('now', {
+        id, title, why, screen, cta, commitment: '2–5 min', eligibility: 'eligible', ...extra,
+    });
+    const progressToward = (goal: string, level: number, context: ActivitySpineItem['context']) => review(
+        `prepare-${focus}`, input.trainingIdle ? `Train toward ${goal}` : `Review growth toward ${goal}`,
+        input.trainingIdle ? `Stat training develops the stat pool that determines your level, bringing ${goal} closer.`
+            : `Your stat session is already running. Review the remaining requirement for ${goal}.`,
+        input.trainingIdle ? 'training' : 'logbook', input.trainingIdle ? 'Open Training' : 'Review Progress',
+        { context, blocker: `Reach level ${level}.`, progress: `Level ${input.level}/${level}`, capabilityId: 'gameplayMutations' });
+
+    switch (focus) {
+        case 'village-chronicle': {
+            const story = facts.story;
+            const progress = story.known === false ? 'Chapter readiness has not been verified' : `${story.completed}/${story.total} chapters complete`;
+            if (story.known !== false && story.total > 0 && story.completed >= story.total) return review('story-complete-now', 'Review your completed Village Chronicle',
+                'Your published village arc is complete. Revisit its recorded chapters and choices.', 'storyHall', 'Review Chronicle', { context: 'story', progress });
+            if (story.known !== false && story.nextEligible) return review('story-now', 'Open your next Village Chronicle chapter',
+                'The next chapter is available at your level and advances your village story.', 'storyHall', 'Open Story Hall',
+                { context: 'story', progress, runtimeModeId: 'story-battles' });
+            if (story.known !== false && story.nextLevel) return progressToward('the next Chronicle chapter', story.nextLevel, 'story');
+            return review('story-review-now', 'Check your Village Chronicle progress', 'Review your recorded progress before choosing another chapter.', 'logbook', 'Open Logbook', { context: 'story', progress });
+        }
+        case 'ranked-pvp':
+            if (input.level < ATTACKABLE_MIN_LEVEL) return progressToward('Ranked PvP entry', ATTACKABLE_MIN_LEVEL, 'pvp');
+            return review('ranked-now', facts.ranked.ready ? 'Visit the Ranked PvP queue' : 'Review Ranked PvP availability',
+                facts.ranked.ready ? 'The season is accepting entries. The queue will recheck your current state; a match depends on available opponents.'
+                    : 'Check the live season and queue status before planning a ranked set. Loadout tuning is optional.',
+                'arenaDistrict', facts.ranked.ready ? 'Open Ranked PvP' : 'Review Ranked Queue',
+                { context: 'pvp', blocker: facts.ranked.ready ? undefined : facts.ranked.blocker ?? 'Queue readiness has not been verified.',
+                    progress: `${facts.ranked.rating} rating • ${facts.ranked.wins} wins`, runtimeModeId: 'ranked-shinobi-pvp' });
+        case 'clan-war': {
+            const boss = input.clanBoss;
+            if (!input.clanName) return review('clan-join-now', 'Explore a clan for cooperative goals',
+                'The Clan Hall lets you review clans before deciding whether to join. Solo play remains available.', 'clan', 'Visit Clan Hall',
+                { context: 'clan-war', blocker: 'Clan operations require membership.' });
+            const ready = boss?.active && !boss.killed && boss.attemptsLeft > 0
+                && serviceAvailability(input, { runtimeModeId: 'clan-boss', capabilityId: 'clanBossParties' }).available;
+            return ready ? review('clan-operation-now', boss.partyStatus ? 'Return to your clan ready room' : 'Prepare an available clan assault',
+                'Review your squad and the current operation before committing an assault.', 'clan', 'Open Clan Operations',
+                { context: 'clan-boss', section: 'clan-boss', runtimeModeId: 'clan-boss', capabilityId: 'clanBossParties', progress: `${boss.attemptsLeft} assaults remaining` })
+                : review('clan-review-now', 'Review your clan’s next goal',
+                    'Coordinate in the Clan Hall while a new assault is unavailable.', 'clan', 'Open Clan Hall', { context: 'clan-war',
+                        blocker: boss?.killed ? 'This week’s threat is complete.' : boss?.active && boss.attemptsLeft <= 0 ? 'Your weekly assaults are used.' : 'No available clan assault is verified.' });
+        }
+        case 'towers-spire':
+            if (input.level < STORY_TOWER_MIN_LEVEL) return progressToward('Battle Towers', STORY_TOWER_MIN_LEVEL, 'towers');
+            return review('towers-now', facts.towers.complete ? 'Review cleared Towers and Spire options' : facts.towers.nextFloor && facts.towers.entryAffordable && facts.towers.available ? 'Prepare your next unlocked Tower floor' : 'Review Tower entry requirements',
+                facts.towers.complete ? 'The published Tower floors are cleared. The lobby shows replay and distinct Spire options.'
+                    : 'The Tower lobby verifies floor access, entry costs, squad readiness, and daily starts before you begin.',
+                'battleTowers', 'Review Tower Lobby', { context: 'towers', runtimeModeId: 'battle-towers',
+                    progress: `Best floor ${facts.towers.bestFloor} • Spire tier ${facts.towers.spireTier}`,
+                    blocker: facts.towers.available === false ? 'Tower admissions are temporarily unavailable.' : facts.towers.entryAffordable === false ? `The next new floor requires ${facts.towers.entryCost} ryo; cleared floors can be replayed free.` : undefined });
+        case 'companions': {
+            const ready = facts.companions.available && (facts.companions.usableCount ?? 0) > 0;
+            return review('companions-now', ready ? 'Practice with a ready companion' : 'Prepare your carried companion roster',
+                ready ? 'A practice Showdown helps you learn your companion’s moves. Practice grants no XP, ranked progress, or items.'
+                    : 'Use the Pet Yard to review carried pets, acquisition, and any training, expedition, or breeding commitments.',
+                ready ? 'petShowdown' : 'pets', ready ? 'Open Practice Showdown' : 'Manage Companions',
+                { context: 'companions', progress: `${facts.companions.usableCount ?? 'Unverified'} usable carried companions`,
+                    blocker: ready ? undefined : facts.companions.available === false ? 'Practice Showdown is temporarily unavailable.' : 'A ready carried companion is needed for practice.',
+                    ...(ready ? { runtimeModeId: 'pet-showdown-practice' } : {}) });
+        }
+        case 'chronicle-showdown': {
+            if (facts.chronicle.unlocked === undefined) return review('chronicle-review-now', 'Review Chronicle access and your deck',
+                'Card Hall will show your current codex access and saved collection. Duel readiness has not been verified.', 'shinobiTiles', 'Review Card Hall', { context: 'chronicle' });
+            if (!facts.chronicle.unlocked) return input.level < STARTER_CARDS_MIN_LEVEL
+                ? progressToward('the Chronicle Scribe encounter', STARTER_CARDS_MIN_LEVEL, 'chronicle')
+                : review('chronicle-unlock-now', 'Look for the Chronicle Scribe', 'The existing road encounter introduces the codex that opens Chronicle duels.', 'worldMap', 'Explore the World Map', { context: 'chronicle', blocker: 'The traveler’s codex has not been claimed.' });
+            return review('chronicle-now', facts.chronicle.deckValid ? 'Prepare a Chronicle Showdown duel' : 'Repair your Chronicle deck',
+                facts.chronicle.deckValid ? 'Your saved deck satisfies the current card and owned-copy rules. Choose a duel in the Card Hall.'
+                    : 'Review the deck validator and your owned collection before selecting a duel.', 'shinobiTiles', facts.chronicle.deckValid ? 'Choose a Duel' : 'Edit Deck',
+                { context: 'chronicle', section: facts.chronicle.deckValid ? 'card-play' : 'card-deck', progress: `${facts.chronicle.deckCards} cards selected`,
+                    blocker: facts.chronicle.deckValid ? undefined : 'The saved deck has not passed the current size, card, and owned-copy rules.',
+                    ...(facts.chronicle.deckValid ? { runtimeModeId: 'card-clash-freeplay' } : {}) });
+        }
+        case 'legacy': {
+            if (!facts.legacy.accepted && input.level < LEGACY_MIN_LEVEL) return progressToward('Legacy eligibility', LEGACY_MIN_LEVEL, 'legacy');
+            const complete = facts.legacy.stage >= 5;
+            const objective = facts.legacy.objective;
+            // A revealed mission-count objective is directly actionable. Other
+            // objectives keep their actual trial UI, without guessing a source.
+            if (objective?.stat === 'missionCompletions') return review('legacy-mission-now', 'Run a mission for your active Legacy trial',
+                'This accepted trial counts new mission completions from its sealed starting point.', 'missions', 'Open Missions',
+                { context: 'legacy', capabilityId: 'legacy', progress: `${objective.progress}/${objective.target} mission completions`, runtimeModeId: input.level < 15 ? 'combat-missions-ed' : 'combat-missions-cbas' });
+            return review('legacy-now', complete ? 'Review your completed Legacy' : facts.legacy.trialReady ? 'Review your finished Legacy trial' : facts.legacy.accepted ? 'Review your active Legacy trial' : 'Review Legacy eligibility and offers',
+                complete ? 'Your accepted path has reached its final stage.' : facts.legacy.accepted ? 'The Legacy panel shows the revealed objective and its verified progress for your accepted path.' : 'Review the requirements and any revealed offer before making a permanent choice.',
+                'profile', 'Open Legacy', { context: 'legacy', section: 'legacy', capabilityId: 'legacy', progress: facts.legacy.accepted ? `Stage ${facts.legacy.stage}/5` : 'No Legacy accepted' });
+        }
+        case 'profession':
+            if (input.level < PROFESSION_UNLOCK_LEVEL) return progressToward('profession selection', PROFESSION_UNLOCK_LEVEL, 'profession');
+            return review('profession-now', facts.profession.selected ? `Review your ${facts.profession.label} opportunities` : 'Compare profession paths',
+                facts.profession.selected ? 'Your profession hub lists current role actions, rank and mastery. Check resource costs and cooldowns there before choosing an action.' : 'Compare the existing roles and their activities before choosing one.',
+                facts.profession.selected ? 'professions' : 'professionPicker', facts.profession.selected ? 'Open Profession Hub' : 'Compare Professions',
+                { context: 'profession', progress: facts.profession.selected ? `Rank ${facts.profession.rank} • ${facts.profession.xp} profession XP` : 'No profession selected' });
+    }
+}
+
 function focusRecommendations(input: ActivitySpineInput, focus: Focus, facts: FocusFacts): [ActivitySpineItem, ActivitySpineItem] {
     if (focus === 'village-chronicle') {
-        const complete = facts.story.completed >= facts.story.total;
+        if (facts.story.known === false) return [
+            item('this-week', { id: 'focus-story-week', title: 'Review Village Chronicle availability', why: 'The saved chapter or village could not be verified. Review your recorded progress before planning a chapter.', commitment: 'Review', screen: 'logbook', cta: 'Review Story Guidance', eligibility: 'eligible', context: 'story', progress: 'Chapter readiness unverified' }),
+            item('long-term', { id: 'focus-story-long', title: 'Review your recorded story milestones', why: 'Your Logbook explains the Chronicle path without assuming an unrevealed chapter is available.', commitment: 'Review', screen: 'logbook', cta: 'Open Logbook', eligibility: 'eligible', context: 'story', progress: 'Chapter readiness unverified' }),
+        ];
+        const complete = facts.story.total > 0 && facts.story.completed >= facts.story.total;
         const blocked = !complete && !facts.story.nextEligible;
         const blocker = blocked && facts.story.nextLevel ? `Reach level ${facts.story.nextLevel} for the next Chronicle milestone.` : undefined;
         return [
@@ -161,7 +271,7 @@ function focusRecommendations(input: ActivitySpineInput, focus: Focus, facts: Fo
             }),
             item('long-term', {
                 id: 'focus-story-long', title: complete ? 'Carry your Chronicle choices forward' : 'Complete your Village Chronicle',
-                why: complete ? 'Completed chapters remain part of your identity and can be reviewed without changing their outcome.' : 'The full nine-chapter arc is a durable personal milestone, not a mandatory content gate.',
+                why: complete ? 'Completed chapters remain part of your identity and can be reviewed without changing their outcome.' : 'Completing the published arc is a personal milestone; other activities remain optional.',
                 commitment: 'Multi-session', progress: `${Math.min(facts.story.completed, facts.story.total)}/${facts.story.total} chapters`,
                 screen: 'storyHall', cta: 'View Chronicle Progress', eligibility: complete ? 'complete' : blocked ? 'blocked' : 'eligible', blocker, context: 'story',
             }),
@@ -177,21 +287,21 @@ function focusRecommendations(input: ActivitySpineInput, focus: Focus, facts: Fo
         // shared constant, so guidance can never again name a threshold the
         // queue does not enforce (the queue's own refusal uses the same number).
         const blocked = input.level < ATTACKABLE_MIN_LEVEL;
-        const blocker = blocked ? `Reach level ${ATTACKABLE_MIN_LEVEL} before entering ranked battles.` : undefined;
+        const blocker = blocked ? `Reach level ${ATTACKABLE_MIN_LEVEL} before entering ranked battles.` : facts.ranked.ready ? undefined : facts.ranked.blocker ?? 'Check live queue availability first.';
         const nextRating = Math.max(1200, Math.ceil((facts.ranked.rating + 1) / 200) * 200);
         const prestige = optionalPrestigeLongTerm(facts);
         return [
             item('this-week', {
-                id: 'focus-ranked-week', title: 'Play a focused Ranked PvP set',
+                id: 'focus-ranked-week', title: facts.ranked.ready ? 'Plan a Ranked PvP set' : 'Review the Ranked PvP season',
                 why: 'A short set turns ordinary PvP execution into season standing and a durable competitive record.',
                 commitment: '10–20 min', progress: `${facts.ranked.rating} rating • ${facts.ranked.wins} ranked wins`,
-                screen: 'battleArena', cta: 'Open Ranked PvP', eligibility: blocked ? 'blocked' : 'eligible', blocker, context: 'pvp', runtimeModeId: 'ranked-shinobi-pvp',
+                screen: 'arenaDistrict', cta: 'Open Ranked PvP', eligibility: 'eligible', blocker, context: 'pvp', runtimeModeId: 'ranked-shinobi-pvp',
             }),
             prestige ?? item('long-term', {
                 id: 'focus-ranked-long', title: `Climb toward ${nextRating} rating`,
                 why: 'A nearby rating milestone gives your season a clear target without making Ranked mandatory.',
                 commitment: 'Multi-session', progress: `${facts.ranked.rating}/${nextRating} rating`,
-                screen: 'battleArena', cta: 'Review Ranked Standing', eligibility: blocked ? 'blocked' : 'eligible', blocker, context: 'pvp', runtimeModeId: 'ranked-shinobi-pvp',
+                screen: 'arenaDistrict', cta: 'Review Ranked Standing', eligibility: 'eligible', blocker, context: 'pvp', runtimeModeId: 'ranked-shinobi-pvp',
             }),
         ];
     }
@@ -207,17 +317,17 @@ function focusRecommendations(input: ActivitySpineInput, focus: Focus, facts: Fo
             id: 'focus-clan-long', title: noClan ? 'Find your clan role' : 'Build a lasting clan and war record',
             why: noClan ? 'Founding or joining a clan opens cooperative goals without changing solo progression.' : 'Contribution, leadership, and war records provide a social endgame alongside solo mastery.',
             commitment: 'Multi-session', progress: noClan ? 'No clan selected' : 'Clan membership active',
-            screen: 'clan', cta: noClan ? 'Visit Clan Hall' : 'Review Clan Goals', eligibility: noClan ? 'blocked' : 'eligible', blocker: noClan ? 'Join or found a clan first.' : undefined, context: 'clan-war',
+            screen: 'clan', cta: noClan ? 'Visit Clan Hall' : 'Review Clan Goals', eligibility: 'eligible', blocker: noClan ? 'Clan operations require membership.' : undefined, context: 'clan-war',
         });
-        if (!serviceAvailability(input, { runtimeModeId: 'clan-boss' }).available) {
+        if (noClan || weeklyBlocked || !serviceAvailability(input, { runtimeModeId: 'clan-boss', capabilityId: 'clanBossParties' }).available) {
             return [
                 item('this-week', {
                     id: 'focus-clan-generic-week',
                     title: noClan ? 'Choose a clan path' : 'Coordinate your clan’s next goal',
                     why: 'Clan membership, chat, leadership, and ordinary clan wars remain available independently of Clan Boss operations.',
                     commitment: '5–15 min', progress: noClan ? 'No clan selected' : 'Clan membership active',
-                    screen: 'clan', cta: noClan ? 'Visit Clan Hall' : 'Open Clan Hall', eligibility: noClan ? 'blocked' : 'eligible',
-                    blocker: noClan ? 'Join or found a clan first.' : undefined, context: 'clan-war',
+                    screen: 'clan', cta: noClan ? 'Visit Clan Hall' : 'Open Clan Hall', eligibility: 'eligible',
+                    blocker: noClan ? 'Clan operations require membership.' : killed ? 'Weekly threat cleared.' : weeklyBlocker, context: 'clan-war',
                 }),
                 prestige ?? genericLong,
             ];
@@ -227,24 +337,24 @@ function focusRecommendations(input: ActivitySpineInput, focus: Focus, facts: Fo
                 id: 'focus-clan-week', title: killed ? 'Clan Boss threat contained' : 'Support your clan operation',
                 why: 'Clan operations connect squad play, profession contribution, and shared weekly progress.',
                 commitment: '10–20 min', progress: killed ? 'Weekly threat cleared' : boss?.active ? `${boss.attemptsLeft} assault${boss.attemptsLeft === 1 ? '' : 's'} available${typeof boss.pressure === 'number' ? ` • ${boss.pressure}% sector pressure` : ''}` : 'Waiting for the next operation',
-                screen: 'clan', cta: killed ? 'Review Clan Result' : 'Open Clan Operations', eligibility: killed ? 'complete' : weeklyBlocked ? 'blocked' : 'eligible', blocker: weeklyBlocker, context: 'clan-boss', runtimeModeId: 'clan-boss',
+                screen: 'clan', cta: killed ? 'Review Clan Result' : 'Open Clan Operations', eligibility: killed ? 'complete' : weeklyBlocked ? 'blocked' : 'eligible', blocker: weeklyBlocker, context: 'clan-boss', runtimeModeId: 'clan-boss', capabilityId: 'clanBossParties',
             }),
             prestige ?? genericLong,
         ];
     }
 
     if (focus === 'towers-spire') {
-        const blocked = input.level < 30;
-        const blocker = blocked ? 'Reach level 30 and keep developing your loadout.' : undefined;
+        const blocked = input.level < STORY_TOWER_MIN_LEVEL;
+        const blocker = blocked ? `Reach level ${STORY_TOWER_MIN_LEVEL} and keep developing your loadout.` : undefined;
         return [
             item('this-week', {
-                id: 'focus-towers-week', title: facts.towers.activeRun ? 'Resume your Tower run' : `Challenge Battle Tower floor ${facts.towers.bestFloor + 1}`,
+                id: 'focus-towers-week', title: facts.towers.complete ? 'Review cleared Battle Towers' : 'Plan an unlocked Battle Tower challenge',
                 why: 'Tower floors test squad construction and tactical consistency on your own schedule.',
                 commitment: '15–30 min', progress: `Best floor ${facts.towers.bestFloor} • Endless wave ${facts.towers.bestWave}`,
-                screen: 'battleTowers', cta: facts.towers.activeRun ? 'Resume Run' : 'Review Towers', eligibility: blocked ? 'blocked' : 'eligible', blocker, context: 'towers', runtimeModeId: 'battle-towers',
+                screen: 'battleTowers', cta: 'Review Towers', eligibility: blocked ? 'blocked' : 'eligible', blocker, context: 'towers', runtimeModeId: 'battle-towers',
             }),
             item('long-term', {
-                id: 'focus-towers-long', title: `Climb toward Spire tier ${facts.towers.spireTier + 1}`,
+                id: 'focus-towers-long', title: 'Review your Spire progression',
                 why: 'The Endless Spire is a durable mastery track for complete builds and repeatable tactical goals.',
                 commitment: 'Multi-session', progress: `Highest Spire tier ${facts.towers.spireTier}`,
                 screen: 'battleTowers', cta: 'Open Towers and Spire', eligibility: blocked ? 'blocked' : 'eligible', blocker, context: 'towers', runtimeModeId: 'endless-spire',
@@ -254,15 +364,12 @@ function focusRecommendations(input: ActivitySpineInput, focus: Focus, facts: Fo
 
     if (focus === 'companions') {
         const noCompanion = facts.companions.count === 0;
-        // Showdown fields the roster that is actually home. A lone companion out
-        // on an expedition leaves nothing to enter with; a second one covers for
-        // it, so the gate is roster size against the one known absence rather
-        // than the expedition flag alone.
-        const onlyOneAway = facts.companions.count === 1 && facts.companions.expeditionActive;
-        const showdownBlocked = noCompanion || onlyOneAway;
+        // The authoritative carried roster and mode-specific busy predicate
+        // establish readiness; total ownership never proves availability.
+        const showdownBlocked = !facts.companions.available || !(facts.companions.usableCount && facts.companions.usableCount > 0);
         const blocker = noCompanion
             ? 'Choose a companion at the Pet Yard first.'
-            : onlyOneAway ? `${facts.companions.activeName || 'Your companion'} is away on an expedition.` : undefined;
+            : showdownBlocked ? 'Review your carried roster and outstanding companion commitments.' : undefined;
         const active = facts.companions.activeName || 'Active companion';
         return [
             item('this-week', {
@@ -287,14 +394,14 @@ function focusRecommendations(input: ActivitySpineInput, focus: Focus, facts: Fo
     }
 
     if (focus === 'chronicle-showdown') {
-        const blocked = facts.chronicle.deckCards < 40;
-        const blocker = blocked ? `Build a valid 40-card Chronicle deck (${facts.chronicle.deckCards}/40 selected).` : undefined;
+        const blocked = !facts.chronicle.deckValid || !facts.chronicle.unlocked;
+        const blocker = blocked ? 'Review codex access and a legal deck from your owned collection.' : undefined;
         return [
             item('this-week', {
                 id: 'focus-chronicle-week', title: blocked ? 'Complete your Chronicle deck' : 'Play a Chronicle Showdown set',
                 why: 'Deck construction and duel decisions form their own strategy game with a durable collection record.',
-                commitment: '10–20 min', progress: `${facts.chronicle.deckCards}/40 deck cards • ${facts.chronicle.wins} duel wins`,
-                screen: 'shinobiTiles', cta: blocked ? 'Open Card Hall' : 'Open Chronicle Showdown', eligibility: blocked ? 'blocked' : 'eligible', blocker, context: 'chronicle',
+                commitment: '10–20 min', progress: `${facts.chronicle.deckCards}/${MAIN_DECK_SIZE} deck cards • ${facts.chronicle.wins} duel wins`,
+                screen: 'shinobiTiles', section: blocked ? 'card-deck' : 'card-play', cta: blocked ? 'Review Card Hall' : 'Open Chronicle Showdown', eligibility: 'eligible', blocker, context: 'chronicle',
                 ...(blocked ? {} : { runtimeModeId: 'card-clash-freeplay' }),
             }),
             item('long-term', {
@@ -307,27 +414,27 @@ function focusRecommendations(input: ActivitySpineInput, focus: Focus, facts: Fo
     }
 
     if (focus === 'legacy') {
-        const levelBlocked = input.level < 50;
+        const levelBlocked = input.level < LEGACY_MIN_LEVEL;
         const complete = facts.legacy.stage >= 5;
-        const blocker = levelBlocked ? 'Reach level 50 before seeking a Legacy.' : undefined;
+        const blocker = levelBlocked ? `Reach level ${LEGACY_MIN_LEVEL} before seeking a Legacy.` : undefined;
         return [
             item('this-week', {
                 id: 'focus-legacy-week', title: complete ? 'Review your completed Legacy' : facts.legacy.accepted ? 'Advance your active Legacy trial' : 'Seek a Legacy path',
                 why: complete ? 'Your completed path remains part of the Hall of Legends record.' : 'Legacy trials turn existing play into a long-term identity path without replacing normal progression.',
                 commitment: complete ? '5 min' : '15–30 min', progress: facts.legacy.accepted ? `Legacy stage ${facts.legacy.stage}/5` : 'No Legacy accepted',
-                screen: 'hallOfLegends', cta: complete ? 'Review Legacy' : 'Open Hall of Legends', eligibility: complete ? 'complete' : levelBlocked ? 'blocked' : 'eligible', blocker, context: 'legacy', capabilityId: 'legacy',
+                screen: 'profile', section: 'legacy', cta: complete ? 'Review Legacy' : 'Open Legacy', eligibility: complete ? 'complete' : 'eligible', blocker, context: 'legacy', capabilityId: 'legacy',
             }),
             item('long-term', {
-                id: 'focus-legacy-long', title: complete ? 'Carry your Legacy title' : 'Complete all five Legacy stages',
-                why: complete ? 'Your summit is permanent history; the Hall remains available for reflection and records.' : 'Each server-verified trial advances the same accepted path toward its final distinction.',
-                commitment: 'Multi-session', progress: `${facts.legacy.stage}/5 stages complete`,
-                screen: 'hallOfLegends', cta: 'Review Legacy Journey', eligibility: complete ? 'complete' : levelBlocked ? 'blocked' : 'eligible', blocker, context: 'legacy', capabilityId: 'legacy',
+                id: 'focus-legacy-long', title: complete ? 'Carry your Legacy title' : facts.legacy.accepted ? 'Complete your accepted Legacy path' : 'Explore a Legacy path',
+                why: complete ? 'Your summit is permanent history; your Legacy remains available for reflection and records.' : facts.legacy.accepted ? 'Each server-verified trial advances the same accepted path toward its final distinction.' : 'The Legacy panel explains eligibility and revealed offers before you choose a path.',
+                commitment: 'Multi-session', progress: facts.legacy.accepted ? `Legacy stage ${facts.legacy.stage}/5` : 'No Legacy accepted',
+                screen: 'profile', section: 'legacy', cta: 'Review Legacy Journey', eligibility: complete ? 'complete' : 'eligible', blocker, context: 'legacy', capabilityId: 'legacy',
             }),
         ];
     }
 
-    const blocked = input.level < 13;
-    const blocker = blocked ? 'Professions unlock at level 13.' : undefined;
+    const blocked = input.level < PROFESSION_UNLOCK_LEVEL;
+    const blocker = blocked ? `Professions unlock at level ${PROFESSION_UNLOCK_LEVEL}.` : undefined;
     const selected = facts.profession.selected || input.hasProfession;
     const label = facts.profession.label || input.profession || 'profession';
     return [
@@ -341,7 +448,7 @@ function focusRecommendations(input: ActivitySpineInput, focus: Focus, facts: Fo
             id: 'focus-profession-long', title: selected ? `Refine ${label} mastery` : 'Build a durable role identity',
             why: 'Rank and mastery investments make your chosen role a multi-session identity goal.',
             commitment: 'Multi-session', progress: selected ? `Profession rank ${facts.profession.rank}` : 'Profession choice pending',
-            screen: selected ? 'professions' : 'professionPicker', cta: selected ? 'Open Mastery' : 'Compare Professions', eligibility: blocked ? 'blocked' : 'eligible', blocker, context: 'profession',
+            screen: selected ? 'professions' : 'professionPicker', cta: selected ? 'Review Profession Hub' : 'Compare Professions', eligibility: blocked ? 'blocked' : 'eligible', blocker, context: 'profession',
         }),
     ];
 }
@@ -450,7 +557,7 @@ export function buildActivitySpine(input: ActivitySpineInput): ActivitySpine {
         now.push(item('now', {
             id: 'spend-growth', title: `Spend ${input.unspentStats} growth point${input.unspentStats === 1 ? '' : 's'}`,
             why: 'Banked growth only helps after it is assigned to your build.',
-            commitment: '2 min', screen: 'profile', cta: 'Tune Build', eligibility: 'eligible', context: 'progression',
+            commitment: '2 min', screen: 'profile', section: 'stats', cta: 'Tune Build', eligibility: 'eligible', context: 'progression',
         }));
     } else if (input.progressionHold) {
         const label = input.progressionHold.exam === 'genin'
@@ -468,13 +575,8 @@ export function buildActivitySpine(input: ActivitySpineInput): ActivitySpine {
             commitment: '2 min', screen: 'profile', cta: 'Review Profile', eligibility: 'eligible', context: 'recovery',
         }));
     } else {
-        const mission = item('now', {
-            id: 'mission-now', title: 'Run a level-appropriate mission',
-            why: 'Missions are the reliable short-session source of growth, ryo, and hunt materials.',
-            commitment: '5–10 min', screen: 'missions', cta: 'Open Missions', eligibility: 'eligible', context: 'progression',
-            runtimeModeId: input.level < 15 ? 'combat-missions-ed' : 'combat-missions-cbas',
-        });
-        now.push(activityServiceAvailable(input, mission) ? mission : item('now', {
+        const immediate = focusNow(input, resolvedFocus, facts);
+        now.push(activityServiceAvailable(input, immediate) ? immediate : item('now', {
             id: 'service-review-now', title: 'Review your current shinobi plan',
             why: 'New gameplay actions are paused, but your saved build and progress remain available to review.',
             commitment: '2 min', screen: 'profile', cta: 'Review Profile', eligibility: 'eligible', context: 'recovery',
@@ -484,7 +586,7 @@ export function buildActivitySpine(input: ActivitySpineInput): ActivitySpine {
 
     const todayCandidates = [item('today', {
         id: 'daily-training', title: input.statTrainingReady ? 'Stat training is ready to claim' : input.trainingIdle ? 'Start stat training' : 'Keep training in motion',
-        why: input.statTrainingReady ? 'Collect the finished session before starting another.' : input.trainingIdle ? 'Idle training time is lost long-term growth.' : 'Your current session is already advancing your build.',
+        why: input.statTrainingReady ? 'Collect the finished session before starting another.' : input.trainingIdle ? 'An optional training session develops your stats toward future requirements.' : 'Your current session is already advancing your build.',
         commitment: input.statTrainingReady ? '1 min' : input.trainingIdle ? '1 min setup' : 'Already running', screen: 'training',
         cta: input.statTrainingReady ? 'Collect Training' : 'Open Training',
         eligibility: input.statTrainingReady || input.trainingIdle ? 'eligible' : 'complete', reward: 'Stat growth', context: 'progression', capabilityId: 'gameplayMutations',
@@ -494,21 +596,13 @@ export function buildActivitySpine(input: ActivitySpineInput): ActivitySpine {
         commitment: input.jutsuTrainingIdle ? '1 min setup' : 'Already running', screen: 'jutsuTraining', cta: 'Open Jutsu Training',
         eligibility: input.jutsuTrainingIdle || !input.hasJutsu ? 'eligible' : 'complete', reward: 'Technique mastery', context: 'progression', capabilityId: 'gameplayMutations',
     }), item('today', {
-        id: 'prepare-supplies', title: 'Turn hunt materials into field supplies',
-        why: 'The Crafter converts existing hunt drops into pills, smoke bombs, and potions consumed authoritatively in operations.',
-        commitment: '3–5 min', screen: 'centralHub', cta: 'Visit the Crafter', eligibility: input.level >= 5 ? 'eligible' : 'blocked',
-        blocker: input.level >= 5 ? undefined : 'Reach level 5 to make preparation worthwhile.', reward: 'Operation supplies', context: 'economy', capabilityId: 'gameplayMutations',
+        id: 'prepare-supplies', title: facts.supplies?.craftable ? 'Prepare an optional smoke bomb' : 'Review field supply recipes',
+        why: facts.supplies?.craftable ? 'Your owned materials cover one smoke bomb recipe. Review what the Crafter will consume before deciding to craft.' : 'Browse the Crafter’s real recipes and material costs before planning supplies.',
+        commitment: '3–5 min', screen: 'centralHub', section: 'crafter', cta: 'Review Recipes', eligibility: 'eligible',
+        context: 'economy', capabilityId: 'gameplayMutations',
     })];
     today.push(...todayCandidates.filter((activity) =>
-        !(now[0]?.id === 'claim-stat-training' && activity.id === 'daily-training') && activityServiceAvailable(input, activity)));
-    if (today.length === 0) {
-        today.push(item('today', {
-            id: 'service-review-today', title: 'Keep today’s plan read-only',
-            why: 'New progression and economy actions are paused; no saved training or inventory progress has been removed.',
-            commitment: 'Review only', screen: 'profile', cta: 'Review Character', eligibility: 'eligible', context: 'recovery',
-            requiresMutation: false,
-        }));
-    }
+        !(now[0]?.screen === activity.screen && now[0]?.section === activity.section) && activityServiceAvailable(input, activity)));
 
     return {
         generatedAt: input.now,

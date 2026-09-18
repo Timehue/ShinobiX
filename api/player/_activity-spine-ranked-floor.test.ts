@@ -23,7 +23,7 @@ function input(level: number): ActivitySpineInput {
         facts: {
             story: { completed: 1, total: 9, nextLevel: 20, nextEligible: false },
             ranked: { rating: 1000, wins: 0 },
-            towers: { bestFloor: 0, bestWave: 0, spireTier: 0, activeRun: false },
+            towers: { bestFloor: 0, bestWave: 0, spireTier: 0 },
             companions: { count: 0, activeName: '', activeLevel: 0, expeditionActive: false, ladderRating: 1000 },
             chronicle: { deckCards: 0, collectionCards: 0, wins: 0 },
             legacy: { accepted: false, stage: 0 },
@@ -47,7 +47,8 @@ describe('ranked guidance eligibility matches the ranked queue floor', () => {
     });
 
     it('levels 9 / 10 / 14 / 15 read the same answer the queue gives', () => {
-        assert.equal(rankedEligibility(9), 'blocked');
+        assert.equal(rankedEligibility(9), 'eligible', 'review navigation remains usable below the queue floor');
+        assert.equal(buildActivitySpine(input(9)).horizons.now[0]?.screen, 'training');
         assert.equal(rankedEligibility(10), 'eligible', 'the queue admits level 10; guidance must agree');
         assert.equal(rankedEligibility(14), 'eligible', 'levels 10–14 were wrongly told Ranked was blocked');
         assert.equal(rankedEligibility(15), 'eligible');

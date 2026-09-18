@@ -19,10 +19,10 @@ const input: ActivitySpineInput = {
     trainingIdle: true, jutsuTrainingIdle: true, hasJutsu: true, hasProfession: true, profession: 'healer', clanName: 'Testers', lastLoginRewardDate: '2026-08-04',
     focus: 'auto',
     facts: {
-        story: { completed: 3, total: 9, nextLevel: 35, nextEligible: true },
+        story: { completed: 3, total: 9, nextLevel: 35, nextEligible: true, known: true },
         ranked: { rating: 1240, wins: 8 },
-        towers: { bestFloor: 6, bestWave: 14, spireTier: 1, activeRun: false },
-        companions: { count: 2, activeName: 'Kumo', activeLevel: 18, expeditionActive: false, ladderRating: 1080 },
+        towers: { bestFloor: 6, bestWave: 14, spireTier: 1 },
+        companions: { count: 2, activeName: 'Kumo', activeLevel: 18, expeditionActive: false, ladderRating: 1080, usableCount: 2, available: true },
         chronicle: { deckCards: 40, collectionCards: 72, wins: 6 },
         legacy: { accepted: false, stage: 0 },
         profession: { selected: true, label: 'Healer', rank: 4, xp: 820 },
@@ -53,7 +53,7 @@ describe('server activity spine', () => {
             }
         }
         assert.deepEqual(spine.horizons['this-week'][0]?.requiredCapabilityIds, [
-            'gameplay', 'gameplayMutations', 'clanBoss',
+            'gameplay', 'gameplayMutations', 'clanBoss', 'clanBossParties',
         ]);
     });
 
@@ -77,7 +77,7 @@ describe('server activity spine', () => {
         assert.equal(resumed.horizons.now[0]?.id, 'resume-active-run');
         assert.equal(resumed.horizons.today.find((entry) => entry.id === 'daily-training')?.cta, 'Collect Training');
         const collected = buildActivitySpine({ ...input, statTrainingReady: false, trainingIdle: true });
-        assert.equal(collected.horizons.now[0]?.id, 'mission-now');
+        assert.equal(collected.horizons.now[0]?.id, 'clan-operation-now');
         assert.equal(collected.horizons.today.find((entry) => entry.id === 'daily-training')?.title, 'Start stat training');
         const paused = buildActivitySpine({ ...input, statTrainingReady: true, trainingIdle: false,
             capabilities: capabilitiesWith({ gameplayMutations: { state: 'temporarily-unavailable', reason: 'maintenance' } }) });
@@ -107,20 +107,20 @@ describe('server activity spine', () => {
 
     it('uses accurate blockers and gives completed focuses a review destination', () => {
         const soloClan = buildActivitySpine({ ...input, focus: 'clan-war', clanName: '' });
-        assert.equal(soloClan.horizons['this-week'][0]?.eligibility, 'blocked');
-        assert.match(soloClan.horizons['this-week'][0]?.blocker ?? '', /Join or found a clan/);
+        assert.equal(soloClan.horizons['this-week'][0]?.eligibility, 'eligible');
+        assert.match(soloClan.horizons['this-week'][0]?.blocker ?? '', /require membership/);
 
         const blockedStory = buildActivitySpine({
             ...input,
             focus: 'village-chronicle',
-            facts: { ...input.facts, story: { completed: 4, total: 9, nextLevel: 50, nextEligible: false } },
+            facts: { ...input.facts, story: { completed: 4, total: 9, nextLevel: 50, nextEligible: false, known: true } },
         });
         assert.match(blockedStory.horizons['this-week'][0]?.blocker ?? '', /level 50/);
 
         const completedStory = buildActivitySpine({
             ...input,
             focus: 'village-chronicle',
-            facts: { ...input.facts, story: { completed: 9, total: 9, nextLevel: null, nextEligible: true } },
+            facts: { ...input.facts, story: { completed: 9, total: 9, nextLevel: null, nextEligible: true, known: true } },
         });
         for (const card of [completedStory.horizons['this-week'][0], completedStory.horizons['long-term'][0]]) {
             assert.equal(card?.eligibility, 'complete');
@@ -130,7 +130,7 @@ describe('server activity spine', () => {
     });
 
     it('points the companion focus at Pet Showdown once a companion is home', () => {
-        const roster = { count: 2, activeName: 'Kumo', activeLevel: 18, expeditionActive: false, ladderRating: 1080 };
+        const roster = { count: 2, activeName: 'Kumo', activeLevel: 18, expeditionActive: false, ladderRating: 1080, usableCount: 2, available: true };
         const companions = (over: Partial<typeof roster>) => buildActivitySpine({
             ...input,
             focus: 'companions',
@@ -141,22 +141,22 @@ describe('server activity spine', () => {
         assert.equal(ready?.screen, 'petShowdown');
         assert.equal(ready?.eligibility, 'eligible');
 
-        const noRoster = companions({ count: 0, activeName: '', activeLevel: 0 });
+        const noRoster = companions({ count: 0, activeName: '', activeLevel: 0, usableCount: 0 });
         assert.equal(noRoster?.screen, 'pets');
         assert.equal(noRoster?.eligibility, 'eligible');
         assert.equal(noRoster?.runtimeModeId, undefined);
         assert.match(noRoster?.blocker ?? '', /Pet Yard/);
 
-        const soleCompanionAway = companions({ count: 1, expeditionActive: true });
+        const soleCompanionAway = companions({ count: 1, expeditionActive: true, usableCount: 0 });
         assert.equal(soleCompanionAway?.screen, 'pets');
         assert.equal(soleCompanionAway?.eligibility, 'eligible');
         assert.equal(soleCompanionAway?.runtimeModeId, undefined);
-        assert.match(soleCompanionAway?.blocker ?? '', /expedition/);
+        assert.match(soleCompanionAway?.blocker ?? '', /carried roster/);
 
         const blockedLadder = buildActivitySpine({
             ...input,
             focus: 'companions',
-            facts: { ...input.facts, companions: { ...roster, count: 0, activeName: '', activeLevel: 0 } },
+            facts: { ...input.facts, companions: { ...roster, count: 0, activeName: '', activeLevel: 0, usableCount: 0 } },
         }).horizons['long-term'][0];
         assert.equal(blockedLadder?.screen, 'petLadder');
         assert.equal(blockedLadder?.eligibility, 'blocked');
@@ -189,9 +189,9 @@ describe('server activity spine', () => {
             hasProfession: true,
             clanBoss: { active: false, killed: false, attemptsLeft: 5 },
             facts: {
-                story: { completed: 9, total: 9, nextLevel: null, nextEligible: true },
+                story: { completed: 9, total: 9, nextLevel: null, nextEligible: true, known: true },
                 ranked: { rating: 1300, wins: 25 },
-                towers: { bestFloor: 50, bestWave: 100, spireTier: 10, activeRun: false },
+                towers: { bestFloor: 50, bestWave: 100, spireTier: 10 },
                 companions: { count: 1, activeName: 'Kumo', activeLevel: 100, expeditionActive: false, ladderRating: 1200 },
                 chronicle: { deckCards: 40, collectionCards: 80, wins: 25 },
                 legacy: { accepted: true, stage: 5 },
@@ -199,8 +199,8 @@ describe('server activity spine', () => {
                 prestige: { level: 85, specialJoninPassed: false, pvpKills: 44 },
             },
         });
-        assert.equal(automatic.resolvedFocus, 'ranked-pvp');
-        assert.equal(automatic.horizons['long-term'][0]?.id, 'focus-special-jonin-prestige');
+        assert.equal(automatic.resolvedFocus, 'profession');
+        assert.equal(automatic.horizons['long-term'][0]?.id, 'focus-profession-long');
     });
 
     it('skips disabled Clan Boss auto-focus and falls selected Boss focus back to generic Clan', () => {
@@ -278,10 +278,7 @@ describe('server activity spine', () => {
         assert.equal(spine.horizons.now[0]?.id, 'service-review-now');
         assert.equal(spine.horizons.now[0]?.eligibility, 'eligible');
         assert.equal(spine.horizons.now[0]?.requiresMutation, false);
-        assert.equal(spine.horizons.today[0]?.id, 'service-review-today');
-        assert.equal(spine.horizons.today[0]?.eligibility, 'eligible');
-        assert.equal(spine.horizons.today[0]?.requiresMutation, false);
-        assert.equal(spine.horizons.today.length, 1);
+        assert.equal(spine.horizons.today.length, 0, 'do not duplicate the Now profile review or fill unavailable slots');
         assert.equal(spine.horizons['this-week'][0]?.runtimeModeId, undefined);
         assert.equal(spine.horizons['long-term'][0]?.runtimeModeId, undefined);
         assert.equal(spine.horizons['this-week'][0]?.id, 'focus-service-review-week');
@@ -301,7 +298,8 @@ describe('server activity spine', () => {
             }),
             focus: 'ranked-pvp',
         });
-        for (const horizon of ['now', 'today', 'this-week', 'long-term'] as const) {
+        assert.equal(spine.horizons.today.length, 0, 'unavailable Today slots are omitted');
+        for (const horizon of ['now', 'this-week', 'long-term'] as const) {
             assert.equal(spine.horizons[horizon][0]?.eligibility, 'blocked');
             assert.match(spine.horizons[horizon][0]?.blocker ?? '', /maintenance/i);
         }

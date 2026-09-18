@@ -107,22 +107,23 @@ export function uiAuditSave(): UiAuditSave {
     };
 }
 
-export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave = uiAuditSave()) {
+export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave = uiAuditSave(), showBriefing = false) {
     let save = structuredClone(initialSave);
     let saveVersion = 1;
     let acknowledgedVersion = 0;
     let saveConflictCount = 0;
     let lastCommit: SaveCommit | null = null;
 
-    await page.addInitScript(() => {
+    await page.addInitScript((showBriefing) => {
         localStorage.setItem("ninjav-admin-build-v1", JSON.stringify({ currentAccountName: "AuditNinja" }));
         localStorage.setItem("ninjav-player-accounts-v1", JSON.stringify({ auditninja: { token: "ui-audit-token" } }));
         localStorage.setItem("shinobix:activePlayerPersist", "AuditNinja");
         localStorage.setItem("shinobix:activeTokenPersist", "ui-audit-token");
         localStorage.setItem("shinobix:storage-notice-ack", "1");
         localStorage.setItem("patchNotes.lastSeenVersion.v1", "2026.07.28-stat-leveling");
-        localStorage.setItem("dailyBriefing.seen.v1", new Date().toISOString().slice(0, 10));
-    });
+        if (showBriefing) localStorage.removeItem("dailyBriefing.seen.v1");
+        else localStorage.setItem("dailyBriefing.seen.v1", new Date().toISOString().slice(0, 10));
+    }, showBriefing);
 
     await page.route("**/api/**", async (route) => {
         const request = route.request();

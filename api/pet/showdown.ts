@@ -10,7 +10,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { writeSaveProjected } from '../save/_projected-write.js';
-import { activeBreedingParentIds } from './_pet-busy.js';
+import { showdownBusyIssue } from './_showdown-readiness.js';
 import { activeCarriedPets } from '../_entitlements.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 import {
@@ -184,21 +184,6 @@ function viewOf(session: ShowdownSession): Record<string, unknown> {
             ? { turnDeadline: session.turnDeadlineAt }
             : {}),
     };
-}
-
-/** Busy gating, shared by every entry that fields pets from a save. Deliberately
- *  ONE-directional (see the note at the practice entry): a pet that is breeding,
- *  training or away cannot ENTER a Showdown, but an in-flight session does not
- *  stamp the pet busy for other systems. */
-function showdownBusyIssue(char: Record<string, unknown>, pets: Pet[]): string | null {
-    const breedingParents = activeBreedingParentIds(char);
-    const now = Date.now();
-    for (const pet of pets) {
-        if (breedingParents.has(String(pet.id))) return `${pet.name} is in the breeding barn.`;
-        if (pet.expedition && Number(pet.expedition.endsAt ?? 0) > now) return `${pet.name} is away on an expedition.`;
-        if (pet.training && Number(pet.training.endsAt ?? 0) > now) return `${pet.name} is mid-training.`;
-    }
-    return null;
 }
 
 function parseCommands(raw: unknown, maxCount: number): ShowdownCommand[] {
