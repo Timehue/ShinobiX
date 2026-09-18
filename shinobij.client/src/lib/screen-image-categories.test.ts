@@ -21,4 +21,5 @@ test("image-heavy routes load every category their first paint consumes", () => 
     expectCategories("hollowGateShrine", ["shrine", "item", "avatar", "ai", "jutsu"]);
     expectCategories("hollowGateTiles", ["card", "shrine"]);
     expectCategories("userView", ["avatar", "pet"]);
+    expectCategories("professions", ["pet"]);
 });

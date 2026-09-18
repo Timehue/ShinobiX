@@ -13,6 +13,7 @@
  * Lazy-loaded by App.tsx; the three hubs ride in this chunk.
  */
 import overviewBg from "../assets/professions/overview.webp";
+import "../styles/profession-hubs.css";
 import healerBg from "../assets/professions/healer.webp";
 import vanguardBg from "../assets/professions/vanguard.webp";
 import petTamerBg from "../assets/professions/pettamer.webp";
@@ -90,7 +91,9 @@ function ProfessionRespecPanel({
                 setError(data.error ?? `Server error (${response.status})`);
                 return;
             }
-            onVersionedCharacter(data.character, data._saveVersion);
+            if (!onVersionedCharacter(data.character, data._saveVersion)) {
+                setError("A newer profession record is already active. Reopen this page to refresh.");
+            }
         } catch {
             setError("Network error. Your profession was not changed; try again.");
         } finally {
@@ -131,6 +134,7 @@ export function Professions({
     playerRoster,
     onVersionedCharacter,
     onServerVersion,
+    sharedImages,
 }: {
     character: Character;
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
@@ -139,6 +143,7 @@ export function Professions({
     playerRoster: PlayerRecord[];
     onVersionedCharacter: VersionedCharacterCommit;
     onServerVersion: (version: unknown) => boolean;
+    sharedImages: Record<string, string>;
 }) {
     let hub: React.ReactNode = null;
     if (character.profession === "healer") {
@@ -146,7 +151,7 @@ export function Professions({
     } else if (character.profession === "vanguard") {
         hub = <VanguardHub character={character} onVersionedCharacter={onVersionedCharacter} setScreen={setScreen} onBack={onBack} />;
     } else if (character.profession === "petTamer") {
-        hub = <PetTamerHub character={character} onVersionedCharacter={onVersionedCharacter} setScreen={setScreen} onBack={onBack} />;
+        hub = <PetTamerHub character={character} onVersionedCharacter={onVersionedCharacter} setScreen={setScreen} onBack={onBack} sharedImages={sharedImages} />;
     }
     if (hub) {
         return <div className={`profession-screen profession-screen-${character.profession}`}>{hub}<ProfessionRespecPanel character={character} onVersionedCharacter={onVersionedCharacter} onOpenMarketplace={() => setScreen("grandMarketplace")} /></div>;

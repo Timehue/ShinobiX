@@ -25,9 +25,11 @@ const ICONS: Record<Profession, string> = {
 export function ProfessionRankBar({
     character,
     compact = false,
+    headquarters = false,
 }: {
     character: Character;
     compact?: boolean;
+    headquarters?: boolean;
 }) {
     if (!character.profession) return null;
     const profession = character.profession;
@@ -48,6 +50,17 @@ export function ProfessionRankBar({
     const accent = ACCENTS[profession];
     const label = LABELS[profession];
     const icon = ICONS[profession];
+
+    if (headquarters) {
+        return <section className="profession-rank-card ph-rank" aria-label={`${label} profession progress`}>
+            <div className="ph-rank-emblem"><span>Rank</span><strong>{String(rank).padStart(2, "0")}</strong></div>
+            <div className="ph-rank-copy">
+                <div className="ph-meter-label"><strong>{nextRankXp === null ? "Profession mastered" : `The path to Rank ${rank + 1}`}</strong><span>{nextRankXp === null ? "Maximum rank" : `${pct}%`}</span></div>
+                <div className="profession-progress-track ph-meter" role="progressbar" aria-label={`${label} rank progress`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}><span style={{ width: `${pct}%` }} /></div>
+                <div className="ph-rank-caption"><span>{xp.toLocaleString()} total XP</span><span>{nextRankXp === null ? "Continue earning XP to deepen your mastery" : `${xpIntoRank.toLocaleString()} / ${xpForNextRank.toLocaleString()} XP to next rank`}</span></div>
+            </div>
+        </section>;
+    }
 
     if (compact) {
         return (

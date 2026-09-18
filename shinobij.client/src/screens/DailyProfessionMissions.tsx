@@ -39,7 +39,7 @@ const PROFESSION_ACCENT: Record<Profession, string> = {
     petTamer: "#84cc16",
 };
 
-export function DailyProfessionMissions({ character }: { character: Character }) {
+export function DailyProfessionMissions({ character, headquarters = false }: { character: Character; headquarters?: boolean }) {
     const [data, setData] = useState<Response | null>(() => readDailyMissionCache(character.name, character.profession ?? null) as Response | null);
     const [loading, setLoading] = useState(() => !readDailyMissionCache(character.name, character.profession ?? null));
     const [error, setError] = useState<string | null>(null);
@@ -111,6 +111,7 @@ export function DailyProfessionMissions({ character }: { character: Character })
                     }
                 }
                 seededRef.current = true;
+                setError(null);
                 setData(json);
                 writeDailyMissionCache(character.name, character.profession ?? null, json);
                 setLoading(false);
@@ -137,8 +138,9 @@ export function DailyProfessionMissions({ character }: { character: Character })
 
     return (
         <section className="card profession-daily-card" aria-labelledby="profession-daily-heading" style={{ border: `1px solid ${accent}55`, marginBottom: "1rem", "--profession-accent": accent } as CSSProperties}>
+            {headquarters && <span className="ph-eyebrow">The daily commission</span>}
             <h3 id="profession-daily-heading" style={{ marginTop: 0, color: accent }}>
-                {isNewbie ? "📜 Daily Missions" : `📜 Daily ${label} Missions`}
+                {headquarters ? "Orders for today" : isNewbie ? "📜 Daily Missions" : `📜 Daily ${label} Missions`}
             </h3>
             {loading && <LoadingState />}
             {error && <p style={{ color: "var(--red-400)" }}>{error}</p>}
@@ -150,7 +152,7 @@ export function DailyProfessionMissions({ character }: { character: Character })
             {!loading && data && missions.length > 0 && (
                 <div className="profession-mission-list" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     {missions.map(m => {
-                        const pct = Math.min(100, Math.round((m.progress / m.target) * 100));
+                        const pct = Math.max(0, Math.min(100, Math.round((m.progress / Math.max(1, m.target)) * 100)));
                         const done = m.completedAt !== null;
                         return (
                             <article
@@ -167,8 +169,8 @@ export function DailyProfessionMissions({ character }: { character: Character })
                                     <strong style={{ color: done ? accent : "var(--slate-200)" }}>
                                         {done && "✓ "}{m.name}
                                     </strong>
-                                    <span className="hint" style={{ fontSize: "0.75rem" }}>
-                                        {isNewbie ? `+${m.ryoReward ?? 0} ryo` : `+${m.xpReward ?? 0} ${label} XP`}
+                                    <span className="hint ph-mission-reward" style={{ fontSize: "0.75rem" }}>
+                                        {isNewbie ? `+${m.ryoReward ?? 0} ryo` : `+${m.xpReward ?? 0} ${headquarters ? "" : `${label} `}XP`}
                                     </span>
                                 </div>
                                 <p className="hint" style={{ margin: "4px 0 6px", fontSize: "0.8rem" }}>

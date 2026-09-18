@@ -20,6 +20,7 @@ export function imageCategoriesForScreen(screen: Screen): readonly ScreenImageCa
         case "worldCrisis": return ["avatar", "landmark", "ai", "jutsu", "item"];
         case "home": case "pets": case "petArena": case "petLadder": case "eventPetBattle": case "sectorPet": case "firstPact": return ["pet", "avatar"];
         case "jutsuTraining": return ["jutsu"];
+        case "professions": return ["pet"];
         case "shop": case "inventory": case "grandMarketplace": return ["item"];
         case "profile": return ["item", "bloodline", "jutsu"];
         case "adminPanel": return ["item", "ai", "bloodline", "jutsu", "event", "card", "pet", "avatar", "shrine"];
