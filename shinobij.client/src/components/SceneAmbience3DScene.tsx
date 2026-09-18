@@ -8,12 +8,13 @@
  * genuine parallax depth behind the flat 2D ambience). Colour keys off biome.
  * Non-interactive, transparent canvas, capped DPR for mobile.
  */
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useCombatCover } from "../lib/combat-cover";
 import * as THREE from "three";
 import type { Biome } from "../types/core";
 import { decorativeCanvasEvents } from "../lib/decorative-canvas-events";
+import { RendererRetirement } from "./RendererRetirement";
 
 const BIOME_COLOR: Record<Biome, string> = {
     snow: "#cfe8ff",
@@ -63,6 +64,11 @@ function DepthMotes({ biome }: { biome: Biome }) {
             sizeAttenuation: true,
         });
     }, [biome]);
+    // Prop-passed resources are not R3F's to dispose. Walking into a sector of a
+    // different biome re-keys the material while this canvas stays mounted, and
+    // the old material and its glow sprite stayed on the GPU until it unmounted.
+    useEffect(() => () => { material.map?.dispose(); material.dispose(); }, [material]);
+    useEffect(() => () => geometry.dispose(), [geometry]);
 
     useFrame((_, dt) => {
         const pts = ref.current;
@@ -116,6 +122,7 @@ export default function SceneAmbience3DScene({ biome }: { biome: Biome }) {
             style={{ background: "transparent" }}
             frameloop={covered ? "never" : "always"}
         >
+            <RendererRetirement />
             <DepthMotes biome={biome} />
         </Canvas>
     );
