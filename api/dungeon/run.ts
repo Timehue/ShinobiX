@@ -79,7 +79,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             }
             const now = Date.now();
-            const out = mutateDungeonRun(character, body.action, body.token, randomUUID().replaceAll('-', ''), now, Math.random(), body.sector, requestId || `admin_${randomUUID().replaceAll('-', '')}`);
+            const out = mutateDungeonRun(character, body.action, body.token, randomUUID().replaceAll('-', ''), now, Math.random(), body.sector, requestId || `admin_${randomUUID().replaceAll('-', '')}`, body.presentationEventId);
             if (!out.ok) {
                 failureReason = out.reason;
                 let error: string = out.reason;

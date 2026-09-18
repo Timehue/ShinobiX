@@ -162,6 +162,7 @@ type EchoesOfWarProps = {
     updateCharacter: (character: Character) => void;
     onVersionedCharacter: (character: Character, saveVersion?: number) => boolean;
     onBack: () => void;
+    sharedImages?: Record<string, string>;
 };
 
 export function EchoesOfWar(props: EchoesOfWarProps) {
@@ -179,7 +180,7 @@ export function EchoesOfWar(props: EchoesOfWarProps) {
     );
 }
 
-function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersionedCharacter, onBack }: EchoesOfWarProps) {
+function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersionedCharacter, onBack, sharedImages }: EchoesOfWarProps) {
     // Suspends to App's lazy-screen fallback on the first visit; the payload is
     // content-addressed and immutable-cached, so every later mount is sync.
     const { scenes: echoesScenes, eras: echoesEraIntros, witness: echoesWitness } = readEchoesContent();
@@ -398,6 +399,7 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
     if (vn) {
         return <TriggeredVisualNovel
             event={vn.event}
+            sharedImages={sharedImages}
             character={character}
             pageIndex={vnPage}
             lineIndex={vnLine}

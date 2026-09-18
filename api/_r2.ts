@@ -59,11 +59,11 @@ export function objectKeyForId(id: string): string {
 }
 
 // Public URL the browser hits for the bytes (Cloudflare-fronted, edge-cached).
-export function r2PublicUrl(id: string): string | null {
+export function r2PublicUrl(id: string, version?: string): string | null {
     const base = env('R2_PUBLIC_BASE');
     if (!base) return null;
     const path = objectKeyForId(id).split('/').map(encodeURIComponent).join('/');
-    return `${base.replace(/\/+$/, '')}/${path}`;
+    return `${base.replace(/\/+$/, '')}/${path}${version ? `?v=${encodeURIComponent(version)}` : ''}`;
 }
 
 // ── AWS SigV4 (single-part PUT), minimal + dependency-free ───────────────────
@@ -96,6 +96,19 @@ export async function putImage(
     body: { mime: string; buf: Buffer },
     opts?: { timeoutMs?: number },
 ): Promise<boolean> {
+    return mutateImage('PUT', id, body, opts);
+}
+
+/** Remove the object as well as database references. A failed removal must
+ * remain retryable, so callers must not claim success on false. */
+export async function deleteImage(id: string, opts?: { timeoutMs?: number }): Promise<boolean> {
+    return mutateImage('DELETE', id, { mime: 'application/octet-stream', buf: Buffer.alloc(0) }, opts);
+}
+
+async function mutateImage(
+    method: 'PUT' | 'DELETE', id: string,
+    body: { mime: string; buf: Buffer }, opts?: { timeoutMs?: number },
+): Promise<boolean> {
     const cfg = writeConfig();
     if (!cfg) return false;
 
@@ -113,7 +126,7 @@ export async function putImage(
         `x-amz-content-sha256:${payloadHash}\n` +
         `x-amz-date:${amzDate}\n`;
     const signedHeaders = 'content-type;host;x-amz-content-sha256;x-amz-date';
-    const canonicalRequest = ['PUT', canonicalUri, '', canonicalHeaders, signedHeaders, payloadHash].join('\n');
+    const canonicalRequest = [method, canonicalUri, '', canonicalHeaders, signedHeaders, payloadHash].join('\n');
 
     const scope = `${dateStamp}/${REGION}/${SERVICE}/aws4_request`;
     const stringToSign = ['AWS4-HMAC-SHA256', amzDate, scope, sha256Hex(canonicalRequest)].join('\n');
@@ -136,45 +149,50 @@ export async function putImage(
     new Uint8Array(ab).set(body.buf);
     try {
         const res = await fetch(`https://${host}${canonicalUri}`, {
-            method: 'PUT',
+            method,
             headers: {
                 'Authorization': authorization,
                 'Content-Type': contentType,
                 'x-amz-content-sha256': payloadHash,
                 'x-amz-date': amzDate,
             },
-            body: new Blob([ab], { type: contentType }),
+            body: method === 'PUT' ? new Blob([ab], { type: contentType }) : undefined,
             signal: AbortSignal.timeout(opts?.timeoutMs ?? 15_000),
         });
-        if (res.ok) return true;
-        console.error(`[r2] PUT ${id} → ${res.status}`);
+        if (res.ok || (method === 'DELETE' && res.status === 404)) {
+            for (const key of _confirmedInR2) if (key.startsWith(`${id}\0`)) _confirmedInR2.delete(key);
+            return true;
+        }
+        console.error(`[r2] ${method} ${id} → ${res.status}`);
         return false;
     } catch (err) {
-        console.error(`[r2] PUT ${id} failed:`, err);
+        console.error(`[r2] ${method} ${id} failed:`, err);
         return false;
     }
 }
 
-// Process-local cache of ids confirmed present in R2, so `/api/img` HEAD-checks
-// each id at most once per instance, then redirects straight to R2 thereafter.
+// Process-local cache of image generations confirmed present in R2. A new
+// manifest version checks a fresh CDN URL; writes/deletes invalidate local hits.
 // Same single-process invariant as onlineStore / _proc-cache (safe on Railway).
 const _confirmedInR2 = new Set<string>();
 
 /**
  * Does the bytes for `id` exist in R2? Unsigned HEAD to the public (Cloudflare)
- * URL — fast + edge-cached. Positive results are cached forever in-process;
+ * URL — fast + edge-cached. Positive results use a bounded generation cache;
  * misses are NOT cached (so a just-dual-written / just-backfilled id converges on
  * the next request). Returns false when reads aren't enabled or on any error, so
  * the caller safely falls back to the existing Postgres path.
  */
-export async function r2ObjectExists(id: string, opts?: { timeoutMs?: number }): Promise<boolean> {
-    if (_confirmedInR2.has(id)) return true;
-    const url = r2PublicUrl(id);
+export async function r2ObjectExists(id: string, opts?: { timeoutMs?: number; version?: string }): Promise<boolean> {
+    const key = `${id}\0${opts?.version ?? ''}`;
+    if (_confirmedInR2.has(key)) return true;
+    const url = r2PublicUrl(id, opts?.version);
     if (!url) return false;
     try {
         const res = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(opts?.timeoutMs ?? 2_500) });
         if (res.ok) {
-            _confirmedInR2.add(id);
+            if (_confirmedInR2.size >= 4096) _confirmedInR2.delete(_confirmedInR2.values().next().value!);
+            _confirmedInR2.add(key);
             return true;
         }
         return false;

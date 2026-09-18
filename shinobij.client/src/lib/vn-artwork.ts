@@ -213,6 +213,7 @@ export const STORY_ARTWORK_CORRECTIONS: Readonly<Record<string, Readonly<Record<
         "Both or Neither", "The Oath Is a Comfort", "What Doubt Weighs", "The Pen Gets Lighter", "The Rank Trial",
     ].map((title) => [title, scene("storywide/frostfang-civic")])),
     "story-frostfang-village-85-7": {
+        "The White Silence": scene("storywide/frostfang-white-silence-dawn-v1"),
         "What Harrow Sells": scene("storywide/frostfang-forger-icehouse-v1"),
         "The Rhythm's Flaw": scene("storywide/frostfang-forger-icehouse-v1"),
         "The Quartermaster of Doubt": scene("storywide/frostfang-civic"),

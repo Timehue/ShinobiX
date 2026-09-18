@@ -121,6 +121,16 @@ function categoryFromImageKey(id: string): string {
 }
 
 export async function publishSharedImage(id: string, img: string): Promise<boolean> {
+    if (!img) return false;
+    return writeSharedImage(id, img);
+}
+
+/** Explicit removal; saving an empty field must not delete an unloaded image. */
+export async function deleteSharedImage(id: string): Promise<boolean> {
+    return writeSharedImage(id, '');
+}
+
+async function writeSharedImage(id: string, img: string): Promise<boolean> {
     if (!id) return false;
     // Phase 2 (image-as-files): a "/api/img" value is the per-image REFERENCE URL
     // the client now hydrates into image fields — not image content. Some flows
@@ -131,9 +141,9 @@ export async function publishSharedImage(id: string, img: string): Promise<boole
     if (img && img.startsWith('/api/img')) return true;
     try {
         const res = await fetch('/api/images', {
-            method: 'POST',
+            method: img ? 'POST' : 'DELETE',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id, image: img }),
+            body: JSON.stringify(img ? { id, image: img } : { id }),
         });
         if (!res.ok) throw new Error(`Image publish failed: ${res.status}`);
         // Bust the per-category sessionStorage cache so a page reload fetches

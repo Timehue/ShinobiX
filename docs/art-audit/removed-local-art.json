@@ -1,0 +1,56 @@
+[
+  {
+    "path": "/portraits/cinematic/side-stories/houndmaster-bel.webp",
+    "bytes": 396534,
+    "sha256": "9c523b4b6c4751fb96a58c3ad4b9fe2a7be0152925159275da4e1e1c25ac1d4b",
+    "recovery": "Tracked original remains in Git history"
+  },
+  {
+    "path": "/portraits/cinematic/side-stories/scout-vessa.webp",
+    "bytes": 159410,
+    "sha256": "d1b8b2bae92748cdfda3087f563eed5b2cb823248ffcefb1bd59b5aa4555d31c",
+    "recovery": "Tracked original remains in Git history"
+  },
+  {
+    "path": "/portraits/cinematic/storywide/elder-sova-solemn.webp",
+    "bytes": 239276,
+    "sha256": "ca4e388d3881dec4ff6df526a8c484ac49e0cdbd4ee062e12c7b04342b5e8f3f",
+    "recovery": "Tracked original remains in Git history"
+  },
+  {
+    "path": "/portraits/cinematic/storywide/kage-hoshina-enju-tense.webp",
+    "bytes": 136176,
+    "sha256": "1ccba5f0e7523553079107b4c6c7a6de81d7cae8f872a6dfa99ca4384e6e500b",
+    "recovery": "Tracked original remains in Git history"
+  },
+  {
+    "path": "/portraits/cinematic/storywide/kage-hoshina-enju.webp",
+    "bytes": 80464,
+    "sha256": "93de9cfab89fdd805583e9ba160455fdbe7cf0ddbbcf24b10b8ca7e8eda5c029",
+    "recovery": "Tracked original remains in Git history"
+  },
+  {
+    "path": "/portraits/cinematic/storywide/rebel-medic.webp",
+    "bytes": 142684,
+    "sha256": "4a6b54726b69803d066a0cb4b898f9dc59a0c21b303296a0be5574406e7988a3",
+    "recovery": "Tracked original remains in Git history"
+  },
+  {
+    "path": "/portraits/cinematic/storywide/seal-keeper-vess.webp",
+    "bytes": 110528,
+    "sha256": "47c86b2f77e657805f35659402d66b3f87a0b777f8e4658b25bedb40a9052a58",
+    "recovery": "Tracked original remains in Git history"
+  },
+  {
+    "path": "/portraits/cinematic/storywide/veil-adaza.webp",
+    "bytes": 62258,
+    "sha256": "ec856fd2a7b06ab6f6d713a6a12f0967f0d4dcdb0b69b8f2ac460146c4e1fadc",
+    "recovery": "Tracked original remains in Git history"
+  },
+  {
+    "path": "/scenes/story/cinematic/ashen-black-flower-reveal.webp",
+    "bytes": 220486,
+    "sha256": "1dc11bfac90ec9cfee161e157a0a6ed61d98763b9588e028d4da3235063e4c1c",
+    "recovery": "Tracked original remains in Git history"
+  }
+]

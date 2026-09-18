@@ -95,6 +95,16 @@ function presentation(event: CreatorEvent, pageIndex: number, lineIndex = 0) {
         speakingSide: "right", pageImage: page.image || event.image || "" });
 }
 
+test('White Silence opens on the new square and follows Harrow into the icehouse', () => {
+    const event = storyToCreatorEvent(storylines['Frostfang Village'][7], 'Frostfang Village', 7);
+    assert.match(presentation(event, 0).backgroundImage, /frostfang-white-silence-dawn-v1/);
+    assert.match(presentation(event, 1).backgroundImage, /frostfang-forger-icehouse-v1/);
+    assert.equal(resolveVnActorBaseImage(event.id, 'Narrator', undefined, '/old-elder.webp'), '');
+    assert.match(resolveCinematicActorImage(event.id, 'Kite Harrow', ''), /cinematic\/kite-harrow/);
+    const custom = { ...event, vnPages: [{ ...event.vnPages![0], image: '/uploads/new-square.webp' }] };
+    assert.equal(presentation(custom, 0).backgroundImage, '/uploads/new-square.webp');
+});
+
 test("explicit art at every authoring level survives pilot and automatic direction", () => {
     const event = opening();
     const page = event.vnPages![7];

@@ -1,5 +1,6 @@
 import { dungeonWardenWasDefeated } from './_ai-fight.js';
 import { dungeonCardWasWon, dungeonPetWasWon } from './_encounter-proof.js';
+import { dungeonPresentationId } from '../../shared/dungeon-presentation.js';
 
 export const DUNGEON_KEY_ID = 'dungeon-key';
 export const DUNGEON_RELIC_ID = 'dungeon-legendary-relic';
@@ -92,6 +93,7 @@ export function mutateDungeonRun(
     randomValue = Math.random(),
     sectorRaw?: unknown,
     requestIdRaw?: unknown,
+    presentationEventIdRaw?: unknown,
 ) {
     const action = typeof actionRaw === 'string' ? actionRaw : '';
     const token = typeof tokenRaw === 'string' ? tokenRaw.slice(0, 80) : '';
@@ -211,7 +213,7 @@ export function mutateDungeonRun(
         if (active?.token) return { ok: true as const, alreadyApplied: true, token: String(active.token), character };
         const removed = removeOne(character, DUNGEON_KEY_ID);
         if (!removed) return { ok: false as const, reason: 'dungeon-key-required' as const };
-        return { ok: true as const, alreadyApplied: false, token: issuedToken, character: { ...character, ...removed, activeDungeonRun: { token: issuedToken, startedAt: now, entry: 'key' } } };
+        return { ok: true as const, alreadyApplied: false, token: issuedToken, character: { ...character, ...removed, activeDungeonRun: { token: issuedToken, startedAt: now, entry: 'key', presentationEventId: dungeonPresentationId(presentationEventIdRaw) } } };
     }
     if (receipts.includes(token)) return { ok: true as const, alreadyApplied: true, token, character };
     if (!active || !token || String(active.token) !== token) return { ok: false as const, reason: 'invalid-dungeon-run' as const };

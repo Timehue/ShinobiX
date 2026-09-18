@@ -236,7 +236,7 @@ test("premium pilot asset package is complete", () => {
     const assets = [
         "scenes/story/cinematic/ashen-register-hall-wide.webp",
         "scenes/story/cinematic/ashen-register-wall.webp",
-        "scenes/story/cinematic/ashen-black-flower-reveal.webp",
+        "scenes/story/cinematic/ashen-black-flower-reveal-v2.webp",
         "scenes/story/cinematic/ashen-old-grove-trial.webp",
         "scenes/story/cinematic/ashen-register-annex.webp",
         "scenes/story/cinematic/ashen-annex-charts.webp",
