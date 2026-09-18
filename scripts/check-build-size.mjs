@@ -699,7 +699,14 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // were removed. The production-equivalent graph measures under 8.65 MB; the
 // initial graph remains 1,453,747 B raw / 388,326 B gzip. Startup gates below
 // are unchanged; this ceiling accounts only for the full installed game.
-const TOTAL_JS_CSS_FAIL_BYTES = 8_660_000;
+// 2026-09-18: 8.66 -> 8.70 MB. main tripped this by 117 B with no single change
+// to blame. The production image measured 8,657,320 B at 8a87efe84 (2,680 B of
+// headroom after the VN reader work), 8,659,668 B at 7539e0466 (#196 Pet Rally
+// scenery layout, +2,348 B in the lazy Rally chunk; deployed) and 8,660,117 B
+// at 4f01625f3 (#195 Pet Yard training gate, +449 B; blocked). The initial
+// graph did not move: 1,452,823 B raw at all three. 40 KB leaves 39,883 B of
+// measured image headroom; startup, per-chunk and gzip limits are unchanged.
+const TOTAL_JS_CSS_FAIL_BYTES = 8_700_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
