@@ -693,6 +693,46 @@ test("a base roster unlocks Tactical while lapsed Supporter overflow stays prese
     await expect(overflowColosseumPet).toContainText("Resting in Sanctuary");
 });
 
+test("the training gate tells overflow and a Supporter's sixth carried pet apart", async ({ page }, testInfo) => {
+    test.setTimeout(120_000);
+    test.skip(!["chromium-desktop", "chromium-mobile", "desktop", "phone"].includes(testInfo.project.name), "the training-gate copy is certified on desktop and touch");
+    const state = await installPetHomeApi(page);
+    // Six pets in array order with no active ids set: a Supporter carries all six
+    // but only the first five can train; after a lapse the sixth is overflow.
+    state.character.pets = [...structuredClone(basePets), ...structuredClone(fullRosterPets)];
+    const sixthPetName = fullRosterPets[fullRosterPets.length - 1].name;
+    const sixthPetCard = page.locator(".pet-slot-card", { hasText: sixthPetName });
+    const trainingHint = page.locator(".pet-yard-workbench p.hint[role='status']", { hasText: "start training" });
+    const openTraining = async () => {
+        await openHome(page);
+        await page.getByRole("button", { name: "Pet Yard" }).click();
+        await page.getByRole("button", { name: `Select ${sixthPetName}` }).click();
+        await page.getByRole("navigation", { name: "Pet Yard activities" }).getByRole("button", { name: "Growth & training" }).click();
+    };
+    const noHorizontalScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
+
+    state.character.patreon = { ...state.character.patreon, active: false };
+    await openTraining();
+    await expect(sixthPetCard).toContainText("Preserved overflow");
+    await expect(page.getByRole("button", { name: "Move into carried roster", exact: true })).toBeDisabled();
+    await expect(trainingHint).toHaveText("This companion is preserved overflow. Move it into your carried roster through the Sanctuary to start training.");
+    await expect.poll(noHorizontalScroll).toBe(true);
+
+    state.character.patreon = { ...state.character.patreon, active: true };
+    await openTraining();
+    // Text, not visibility: the phone layout hides the roster count.
+    await expect(page.locator(".pet-yard-roster-count")).toContainText(`${SUPPORTER_PET_CAP} / ${SUPPORTER_PET_CAP}`);
+    await expect(sixthPetCard).not.toContainText("Preserved overflow");
+    await expect(page.getByRole("button", { name: "Move into active five", exact: true })).toBeDisabled();
+    await expect(trainingHint).toHaveText("This companion is carried but outside your active five. Set it as Active or as your 2v2 Partner, or rest another companion in the Sanctuary, to start training.");
+    await expect.poll(noHorizontalScroll).toBe(true);
+
+    // The advice is true: Set as Active pulls the sixth pet into the training five.
+    await page.getByRole("button", { name: "Set as Active", exact: true }).click();
+    await expect(trainingHint).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Start Training", exact: true })).toBeEnabled();
+});
+
 test("Pet Sanctuary mobile deposit and withdrawal certification", async ({ page }, testInfo) => {
     test.setTimeout(90_000);
     test.skip(testInfo.project.name !== "chromium-mobile", "the mobile Sanctuary contract uses the touch-sized Chromium project");
