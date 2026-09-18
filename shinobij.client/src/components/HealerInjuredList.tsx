@@ -28,11 +28,13 @@ export function HealerInjuredList({
     updateCharacter,
     playerRoster,
     onServerVersion,
+    headquarters = false,
 }: {
     character: Character;
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     playerRoster: PlayerRecord[];
     onServerVersion: (version: unknown) => boolean;
+    headquarters?: boolean;
 }) {
     const isHealer = character.profession === "healer";
     const healerRank = isHealer ? (character.professionRank ?? 1) : 0;
@@ -40,6 +42,7 @@ export function HealerInjuredList({
 
     const [healMsg, setHealMsg] = useState<Record<string, string>>({});
     const [healed, setHealed] = useState<Set<string>>(new Set());
+    const [healing, setHealing] = useState<Set<string>>(new Set());
     const [worldwideInjured, setWorldwideInjured] = useState<Array<{ name: string; level: number; hp: number; maxHp: number; hospitalized: boolean }>>([]);
     const pendingRequestIds = useRef<Record<string, string>>({});
 
@@ -62,6 +65,8 @@ export function HealerInjuredList({
     }, [hasWorldwideVision, character.name]);
 
     async function healPlayer(targetName: string) {
+        if (healing.has(targetName)) return;
+        setHealing(s => new Set(s).add(targetName));
         setHealMsg(m => ({ ...m, [targetName]: "💚 Healing…" }));
         const requestId = pendingRequestIds.current[targetName]
             ?? `heal_${crypto.randomUUID().replaceAll('-', '')}`;
@@ -88,7 +93,10 @@ export function HealerInjuredList({
                 return;
             }
             delete pendingRequestIds.current[targetName];
-            if (!onServerVersion(data._saveVersion)) return;
+            if (!onServerVersion(data._saveVersion)) {
+                setHealMsg(m => ({ ...m, [targetName]: "A newer save is already active. Reopen the ward to refresh." }));
+                return;
+            }
             const xpGained = Number(data.xpGained ?? 0);
             const missionXp = Number(data.missionXpAwarded ?? 0);
             const raidAssist = !!data.raidAssist;
@@ -130,6 +138,8 @@ export function HealerInjuredList({
             setHealed(s => new Set(s).add(targetName));
         } catch {
             setHealMsg(m => ({ ...m, [targetName]: "❌ Network error" }));
+        } finally {
+            setHealing(s => { const next = new Set(s); next.delete(targetName); return next; });
         }
     }
 
@@ -146,9 +156,11 @@ export function HealerInjuredList({
 
     return (
         <>
+            {headquarters && hospitalizedPlayers.length === 0 && <div className="ph-empty ph-ward-empty" role="status"><span className="ph-eyebrow">Ward status</span><strong>No admitted allies need treatment.</strong><p>The ward is quiet. Wounded allies will appear here when they are admitted.</p></div>}
+            {headquarters && Object.entries(healMsg).filter(([name]) => healed.has(name)).map(([name, message]) => <p className="ph-heal-receipt" role="status" key={name}>{name}: {message.replace(/[✅⚔]/gu, "").trim()}</p>)}
             {hospitalizedPlayers.length > 0 && (
                 <section className="healer-patient-list" aria-labelledby="healer-admitted-heading" style={{ marginTop: "1.5rem" }}>
-                    <h4 id="healer-admitted-heading" style={{ marginBottom: "0.5rem" }}>🛏️ Admitted Players{isHealer ? ` — ${character.village}` : ""}</h4>
+                    <h4 id="healer-admitted-heading" style={{ marginBottom: "0.5rem" }}>{headquarters ? "Admitted allies" : "🛏️ Admitted Players"}{isHealer ? ` — ${character.village}` : ""}</h4>
                     {hospitalizedPlayers.map(p => (
                         <div key={p.name} className="summary-box healer-patient-row" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
                             <div style={{ flex: 1 }}>
@@ -159,8 +171,8 @@ export function HealerInjuredList({
                                 </span>
                             </div>
                             {isHealer ? (
-                                <button onClick={() => healPlayer(p.name)} style={{ background: "linear-gradient(#0e7490,#155e75)", borderColor: "#22d3ee" }}>
-                                    ✚ Heal
+                                <button onClick={() => healPlayer(p.name)} disabled={healing.has(p.name)} style={{ background: "linear-gradient(#0e7490,#155e75)", borderColor: "#22d3ee" }}>
+                                    {healing.has(p.name) ? "Healing…" : headquarters ? "Heal ally" : "✚ Heal"}
                                 </button>
                             ) : (
                                 <span className="hint" style={{ color: "var(--text-muted)", fontSize: "0.78rem" }}>
@@ -169,7 +181,7 @@ export function HealerInjuredList({
                             )}
                             {healMsg[p.name] && (
                                 <span className="hint" style={{ color: healMsg[p.name].startsWith("✅") ? "#22d3ee" : "var(--red-400)" }}>
-                                    {healMsg[p.name]}
+                                    {headquarters ? healMsg[p.name].replace(/[✅❌💚⚔]/gu, "").trim() : healMsg[p.name]}
                                 </span>
                             )}
                         </div>
@@ -179,7 +191,7 @@ export function HealerInjuredList({
             {hasWorldwideVision && (
                 <section className="healer-patient-list" aria-labelledby="healer-worldwide-heading" style={{ marginTop: "1.5rem" }}>
                     <h4 id="healer-worldwide-heading" style={{ marginBottom: "0.5rem", color: "#22d3ee" }}>
-                        🌍 Injured Villagers — World-Wide (Rank 10)
+                        {headquarters ? "Worldwide care · Rank 10" : "🌍 Injured Villagers — World-Wide (Rank 10)"}
                     </h4>
                     <p className="hint" style={{ marginTop: 0 }}>
                         Same-village shinobi anywhere in the world with HP below max. Sorted lowest HP first.
@@ -194,7 +206,7 @@ export function HealerInjuredList({
                                     <div style={{ flex: 1 }}>
                                         <strong>{p.name}</strong>
                                         <span className="hint" style={{ marginLeft: 6 }}>Lv {p.level}</span>
-                                        {p.hospitalized && <span style={{ marginLeft: 8, color: "var(--gold)", fontSize: "0.75rem" }}>🛏️ Admitted</span>}
+                                        {p.hospitalized && <span style={{ marginLeft: 8, color: "var(--gold)", fontSize: "0.75rem" }}>{headquarters ? "Admitted" : "🛏️ Admitted"}</span>}
                                         <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>
                                             <div style={{ flex: 1, maxWidth: 200, height: 6, background: "rgba(148,163,184,0.2)", borderRadius: 3, overflow: "hidden" }}>
                                                 <div style={{ width: `${hpPct}%`, height: "100%", background: hpPct < 30 ? "var(--red-400)" : hpPct < 60 ? "var(--gold)" : "#84cc16" }} />
@@ -204,12 +216,12 @@ export function HealerInjuredList({
                                             </span>
                                         </div>
                                     </div>
-                                    <button onClick={() => healPlayer(p.name)} style={{ background: "linear-gradient(#0e7490,#155e75)", borderColor: "#22d3ee" }}>
-                                        ✚ Heal
+                                    <button onClick={() => healPlayer(p.name)} disabled={healing.has(p.name)} style={{ background: "linear-gradient(#0e7490,#155e75)", borderColor: "#22d3ee" }}>
+                                        {healing.has(p.name) ? "Healing…" : headquarters ? "Heal ally" : "✚ Heal"}
                                     </button>
                                     {healMsg[p.name] && (
                                         <span className="hint" style={{ color: healMsg[p.name].startsWith("✅") ? "#22d3ee" : "var(--red-400)" }}>
-                                            {healMsg[p.name]}
+                                            {headquarters ? healMsg[p.name].replace(/[✅❌💚⚔]/gu, "").trim() : healMsg[p.name]}
                                         </span>
                                     )}
                                 </div>

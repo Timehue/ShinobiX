@@ -17,6 +17,7 @@ import {
     petTamerTrainingSpeedPct,
     professionThresholds,
     vanguardSealsForKill,
+    vanguardDailySealProgress,
     vanguardXpForKill,
 } from "./profession-bonuses";
 
@@ -34,6 +35,22 @@ import {
  */
 
 const OLD_ACCOUNT = Date.now() - ANTI_ALT_ACCOUNT_AGE_MS - 1;
+
+describe("Vanguard hub daily allowance", () => {
+    it("discards yesterday's earnings without altering the saved ledger", () => {
+        const saved = character({ profession: "vanguard", dailyHonorSealsEarned: 50, vanguardDailyResetDate: "2026-09-16" });
+        assert.deepEqual(vanguardDailySealProgress(saved, "2026-09-17"), { earned: 0, cap: 50 });
+        assert.equal(saved.dailyHonorSealsEarned, 50);
+    });
+    it("includes Relentless mastery in today's allowance", () => {
+        const saved = character({ profession: "vanguard", professionXp: 100_000, masterySpec: { "seal-cap": 3 }, dailyHonorSealsEarned: 54, vanguardDailyResetDate: "2026-09-17" });
+        assert.deepEqual(vanguardDailySealProgress(saved, "2026-09-17"), { earned: 54, cap: 65 });
+    });
+    it("starts a missing ledger at zero and ignores negative saved earnings", () => {
+        assert.deepEqual(vanguardDailySealProgress(character({ profession: "vanguard" }), "2026-09-17"), { earned: 0, cap: 50 });
+        assert.equal(vanguardDailySealProgress(character({ profession: "vanguard", vanguardDailyResetDate: "2026-09-17", dailyHonorSealsEarned: -10 }), "2026-09-17").earned, 0);
+    });
+});
 
 function character(over: Partial<Character>): Character {
     return { name: "tester", level: 40, createdAt: OLD_ACCOUNT, ...over } as unknown as Character;

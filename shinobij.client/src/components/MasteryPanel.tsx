@@ -26,7 +26,7 @@ const PATH_BLURBS: Record<string, string> = {
     trainer: "Train pets faster and smarter.",
 };
 
-export function MasteryPanel({ character, onVersionedCharacter }: { character: Character; onVersionedCharacter: VersionedCharacterCommit }) {
+export function MasteryPanel({ character, onVersionedCharacter, headquarters = false }: { character: Character; onVersionedCharacter: VersionedCharacterCommit; headquarters?: boolean }) {
     if (!character.profession) return null;
     const paths = MASTERY_TREES[character.profession] ?? [];
     const level = masteryLevel(character);
@@ -56,8 +56,9 @@ export function MasteryPanel({ character, onVersionedCharacter }: { character: C
 
     return (
         <section className="mastery-panel profession-mastery-panel" aria-labelledby="profession-mastery-heading" style={{ marginTop: 14 }}>
+            {headquarters && <span className="ph-eyebrow">Beyond the tenth rank</span>}
             <div className="profession-mastery-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
-                <h3 id="profession-mastery-heading" style={{ margin: 0 }}>⭐ Mastery — Level {level}/{MASTERY_MAX_LEVEL}</h3>
+                <h3 id="profession-mastery-heading" style={{ margin: 0 }}>{headquarters ? "Profession mastery" : `⭐ Mastery — Level ${level}/${MASTERY_MAX_LEVEL}`}</h3>
                 <span style={{ color: available > 0 ? "var(--gold)" : "var(--text-dim)", fontWeight: 700 }}>
                     {available} point{available === 1 ? "" : "s"} to spend
                 </span>
@@ -82,6 +83,8 @@ export function MasteryPanel({ character, onVersionedCharacter }: { character: C
                 );
             })()}
 
+            <details className={headquarters ? "ph-mastery-disclosure" : ""} open={!headquarters || level > 0 || spent > 0}>
+            <summary hidden={!headquarters}><span>{level > 0 ? `Mastery level ${level} / ${MASTERY_MAX_LEVEL}` : "Explore specializations"}</span><span>Three paths to master</span></summary>
             <div className="profession-mastery-paths" style={{ display: "grid", gap: 12 }}>
                 {paths.map((path) => {
                     const inPath = pointsInPath(character, path.id);
@@ -126,6 +129,7 @@ export function MasteryPanel({ character, onVersionedCharacter }: { character: C
                     );
                 })}
             </div>
+            </details>
 
             {spent > 0 && (
                 <button onClick={respec} style={{ marginTop: 12, padding: "6px 14px" }}>
