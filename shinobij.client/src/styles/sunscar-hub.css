@@ -1,0 +1,73 @@
+/* The festival belongs to the same world as the village and profession halls. */
+.sunscar-mode.sunscar-hub-refined { --sun-gold: #d6b77b; --sun-muted: #aeb5b4; --sun-line: #d6b77b38; container: festival / inline-size; max-width: none; padding: 0 26px; background: #0c1115; border: 1px solid var(--sun-line); border-radius: 10px; overflow: hidden; }
+.sunscar-hub-refined :is(h1,h2,h3) { font-family: var(--font-display,Georgia,serif); }
+.sunscar-hub-refined .sunscar-new-hero { position: relative; display: flex; align-items: end; min-height: 355px; margin: 0 -26px; padding: 80px 34px 36px; border: 0; border-bottom: 1px solid var(--sun-line); border-radius: 0; background-position: center 50%; }
+.sunscar-hub-refined .sunscar-new-hero::after { content: ''; position: absolute; inset: 10px; border: 1px solid #ead5ab24; pointer-events: none; }
+.sunscar-location { position: absolute; right: 26px; top: 25px; font-size: 10px; letter-spacing: .07em; color: #e1d7c5; }
+.sunscar-hub-refined .sunscar-hero-copy { max-width: 410px; }
+.sunscar-hub-refined .sunscar-new-hero h1 { font-size: clamp(42px,7cqi,68px); line-height: 1.04; margin: 13px 0 17px; font-weight: 400; color: #fff1d8; letter-spacing: -.03em; }
+.sunscar-hub-refined .sunscar-hero-copy > p:not(.sunscar-eyebrow) { font: 400 21px/1.4 var(--font-display,serif); color: #ddc69d; margin: 0 0 10px; }
+.sunscar-hub-refined .sunscar-hero-copy > span { display: block; max-width: 35ch; font-size: 12px; color: #bdbdb4; line-height: 1.8; }
+.sunscar-hub-refined .sunscar-eyebrow { font-family: var(--font-body,sans-serif); font-size: 9px; }
+.sunscar-daily-ledger { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; padding: 23px 0; border-bottom: 1px solid var(--sun-line); }
+.sunscar-daily-ledger > span { display: grid; gap: 7px; border-right: 1px solid var(--sun-line); }
+.sunscar-daily-ledger > span:last-child { border: 0; }
+.sunscar-daily-ledger small { color: #9ea8a7; font-size: 10px; }
+.sunscar-daily-ledger strong { font-size: 12px; font-weight: 500; color: #d8ccaf; }
+.sunscar-hub-refined .sunscar-hub-heading { margin: 28px 0 19px; }
+.sunscar-hub-refined .sunscar-hub-heading h2 { margin: 4px 0; font-size: 27px; font-weight: 400; }
+.sunscar-hub-refined .sunscar-attractions { gap: 18px; }
+.sunscar-mode.sunscar-hub-refined .sunscar-attraction { display: flex; flex-direction: column; margin: 0; background: #11191e; border: 1px solid var(--sun-line); border-radius: 6px; }
+.sunscar-hub-refined .sunscar-attraction-art { height: 175px; border-bottom: 1px solid var(--sun-line); }
+.sunscar-hub-refined .sunscar-attraction-art > img { width: 100%; height: 100%; inset: 0; object-fit: cover; object-position: center; filter: none; }
+.sunscar-hub-refined .sunscar-attraction-art > .sunscar-racing-art { width: 195%; height: 195%; max-width: none; top: -88%; left: -95%; object-position: right bottom; }
+.sunscar-hub-refined .sunscar-attraction-art > .sunscar-dispatch-art { width: 180%; height: 180%; max-width: none; top: -20%; left: -80%; object-position: right center; }
+.sunscar-hub-refined .sunscar-attraction-art::after { content: ''; position: absolute; inset: 0; background: linear-gradient(0deg,#11191e88,transparent 65%); }
+.sunscar-hub-refined .sunscar-attraction-copy { display: flex; flex-direction: column; flex: 1; padding: 23px; }
+.sunscar-hub-refined .sunscar-attraction-copy h2 { font-size: 33px; font-weight: 400; margin: 2px 0 12px; }
+.sunscar-hub-refined .sunscar-attraction-copy > p:not(.sunscar-eyebrow) { margin: 0; font-size: 12px; line-height: 1.8; min-height: 65px; }
+.sunscar-hub-refined .sunscar-attraction-status { display: block; font-size: 11px; line-height: 1.7; padding: 15px 0; margin-top: auto; }
+.sunscar-hub-refined .sunscar-attraction-status > span { display: block; color: #929e9d; font-size: 10px; }
+.sunscar-hub-refined button { min-height: 44px; border-radius: 4px; font-size: 12px; background: linear-gradient(#d9be84,#b6955e); color: #10171b; text-shadow: none; box-shadow: none; border-color: #d6b77b88; }
+.sunscar-hub-refined .sunscar-attraction-copy > small { margin-top: 10px; font-size: 10px; color: #929e9d; }
+.sunscar-hub-refined .sunscar-market-row { gap: 18px; margin-bottom: 28px; }
+.sunscar-hub-refined .sunscar-market-row > section { margin: 0; border: 1px solid var(--sun-line); border-radius: 6px; overflow: hidden; }
+.sunscar-hub-refined .sunscar-exchange-entrance { min-height: 420px; justify-content: end; background-position: 65% center; padding: 25px; }
+.sunscar-hub-refined .sx-entrance-copy { padding: 0; }
+.sunscar-hub-refined .sx-entrance-copy h2 { font: 400 31px/1.2 var(--font-display,Georgia,serif); margin: 10px 0; }
+.sunscar-hub-refined .sx-entrance-copy p { font-size: 12px; line-height: 1.8; margin-bottom: 24px; }
+.sunscar-hub-refined .sx-entrance-copy > small { text-align: left; color: #b8bfb5; font-size: 10px; }
+.sunscar-hub-refined .sunscar-broker { display: flex; flex-direction: column; padding: 0; gap: 0; background: #12181b; }
+.sunscar-broker-art { position: relative; width: 100%; height: 155px; background: radial-gradient(ellipse at 40% 80%,#b58a4133,transparent 70%),#141b1d; overflow: hidden; border-bottom: 1px solid var(--sun-line); }
+.sunscar-broker-art > .sunscar-broker-crate { position: absolute; left: 10px; bottom: 0; width: 65%; height: 150px; object-fit: contain; filter: drop-shadow(0 10px 14px #0009); }
+.sunscar-broker-art .sunscar-broker-portrait { position: absolute; bottom: -8px; right: 10px; width: 110px; height: 145px; object-fit: contain; opacity: .85; }
+.sunscar-broker-copy { width: 100%; padding: 23px; }
+.sunscar-hub-refined .sunscar-broker h2 { font-size: 31px; font-weight: 400; margin: 5px 0 12px; }
+.sunscar-hub-refined .sunscar-broker p { font-size: 12px; line-height: 1.8; }
+.sunscar-crate-price { display: flex; align-items: baseline; justify-content: space-between; gap: 9px; padding: 8px 0 12px; }
+.sunscar-crate-price strong { color: #e6c88e; font-size: 17px; font-weight: 500; }
+.sunscar-hub-refined .sunscar-crate-price small { display: inline; font-size: 10px; color: #b5b9af; }
+.sunscar-crate-price > span { color: #929e9d; font-size: 10px; }
+.sunscar-broker-copy > button { width: 100%; }
+.sunscar-hub-refined .sunscar-hub-footer { padding: 17px 0; font-size: 10px; margin: 0; color: #929e9d; }
+@container festival (max-width: 610px) {
+    .sunscar-mode.sunscar-hub-refined .sunscar-attractions, .sunscar-hub-refined .sunscar-market-row { grid-template-columns: 1fr; }
+    .sunscar-hub-refined .sunscar-new-hero { min-height: 315px; padding: 80px 24px 28px; }
+    .sunscar-hub-refined .sunscar-attraction-art { height: 190px; }
+    .sunscar-hub-refined .sunscar-attraction-copy > p:not(.sunscar-eyebrow) { min-height: 0; }
+    .sunscar-hub-refined .sunscar-exchange-entrance { min-height: 340px; }
+    .sunscar-daily-ledger { gap: 10px; }
+    .sunscar-daily-ledger strong { font-size: 10px; }
+    .sunscar-daily-ledger small { font-size: 9px; }
+}
+@media(max-width:600px) { .sunscar-mode.sunscar-hub-refined { padding: 0 16px; } .sunscar-hub-refined .sunscar-new-hero { margin: 0 -16px; } }
+.ui-modal-card.bm-crate-dialog { background: radial-gradient(ellipse at 50% 30%,#64502b35,transparent 65%),#0c141b; border: 1px solid #d6b77b66; border-radius: 8px; color: #eee9dd; }
+.bm-crate-dialog .bm-crate-stage { max-width: 100%; padding: 24px; }
+.bm-crate-dialog .bm-crate-tier { font: 400 28px/1.25 var(--font-display,Georgia,serif); }
+.bm-crate-dialog .bm-crate-img { width: min(230px,55vw); }
+.bm-crate-dialog :is(.bm-crate-open-btn,.bm-crate-collect) { min-height: 44px; border-radius: 4px; background: linear-gradient(#d9be84,#b6955e); color: #10171b; border: 1px solid #d6b77b88; font: 600 13px var(--font-body,sans-serif); }
+.bm-crate-dialog .bm-crate-dismiss { min-height: 44px; background: transparent; border: 0; color: #b9c1be; font-size: 12px; }
+.bm-crate-dialog .bm-crate-rewards { width: 100%; }
+.bm-crate-dialog .bm-crate-reward-row { border: 0; border-bottom: 1px solid #d6b77b30; border-radius: 0; background: none; padding: 12px 0; justify-content: space-between; font-size: 14px; }
+.bm-crate-dialog .bm-crate-hint { font: 400 12px/1.7 var(--font-body,sans-serif); }
+@media(prefers-reduced-motion:reduce) { .bm-crate-overlay,.bm-crate-dialog *,.bm-crate-dialog *::before { animation: none !important; } }

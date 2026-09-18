@@ -1,6 +1,7 @@
 import { expect, test, type Page, type Route, type TestInfo } from "@playwright/test";
 import { PUBLIC_CAPABILITY_IDS } from "../../shared/public-capabilities";
 import { PET_CAP_BASE } from "../src/lib/entitlements";
+import AxeBuilder from "@axe-core/playwright";
 
 type PetFixture = Record<string, unknown> & {
     id: string;
@@ -470,6 +471,7 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await expect(page.getByRole("heading", { name: /Pet Yard/ }).first()).toBeVisible();
     const yardHint = page.getByRole("button", { name: /got it/i });
     if (await yardHint.isVisible().catch(() => false)) await yardHint.click();
+    await page.getByRole("navigation", { name: "Pet Yard activities" }).getByRole("button", { name: "Battle & techniques" }).click();
     const readiness = page.locator(".pet-battle-readiness");
     await expect(readiness.getByRole("heading", { name: "Battle Deployment" })).toBeVisible();
     await expect(readiness).toContainText("Pet Colosseum");
@@ -490,6 +492,7 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await page.getByRole("button", { name: "Pet Yard" }).click();
     await expect(page.getByRole("heading", { name: /Pet Yard/ }).first()).toBeVisible();
 
+    await page.getByRole("navigation", { name: "Pet Yard activities" }).getByRole("button", { name: "Battle & techniques" }).click();
     await page.locator(".pet-battle-readiness").getByRole("button", { name: /Deploy Sumi/ }).click();
     await expect(page.getByRole("heading", { name: "The Colosseum", exact: true })).toBeVisible();
     await expect(page.locator(".showdown-roster-card", { hasText: "Sumi" })).toHaveClass(/picked/);
@@ -553,7 +556,7 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
 
 test("Pet battle readiness mirrors server admission and lineage rules", async ({ page }, testInfo) => {
     test.setTimeout(120_000);
-    test.skip(testInfo.project.name !== "chromium-desktop", "the Warfront admission contract is certified once in desktop Chromium");
+    test.skip(!["chromium-desktop", "desktop"].includes(testInfo.project.name), "the Warfront admission contract is certified once in desktop Chromium");
     const consoleErrors: string[] = [];
     const pageErrors: string[] = [];
     page.on("console", (message) => { if (message.type() === "error") consoleErrors.push(message.text()); });
@@ -568,6 +571,7 @@ test("Pet battle readiness mirrors server admission and lineage rules", async ({
     await page.getByRole("button", { name: "Pet Yard" }).click();
     const yardHint = page.getByRole("button", { name: /got it/i });
     if (await yardHint.isVisible().catch(() => false)) await yardHint.click();
+    await page.getByRole("navigation", { name: "Pet Yard activities" }).getByRole("button", { name: "Battle & techniques" }).click();
     let readiness = page.locator(".pet-battle-readiness");
     let warfront = readiness.locator('[data-circuit="warfront"]');
     let colosseum = readiness.locator('[data-circuit="colosseum"]');
@@ -579,6 +583,7 @@ test("Pet battle readiness mirrors server admission and lineage rules", async ({
     selectedPet.expedition = { type: "scout", startedAt: past - 60_000, endsAt: past, durationMs: 60_000 };
     await page.reload({ waitUntil: "networkidle" });
     await expect(page.getByRole("heading", { name: /Pet Yard/ }).first()).toBeVisible();
+    await page.getByRole("navigation", { name: "Pet Yard activities" }).getByRole("button", { name: "Battle & techniques" }).click();
     readiness = page.locator(".pet-battle-readiness");
     warfront = readiness.locator('[data-circuit="warfront"]');
     colosseum = readiness.locator('[data-circuit="colosseum"]');
@@ -590,6 +595,7 @@ test("Pet battle readiness mirrors server admission and lineage rules", async ({
     state.character.petBreeding = session("breeding");
     await page.reload({ waitUntil: "networkidle" });
     await expect(page.getByRole("heading", { name: /Pet Yard/ }).first()).toBeVisible();
+    await page.getByRole("navigation", { name: "Pet Yard activities" }).getByRole("button", { name: "Battle & techniques" }).click();
     readiness = page.locator(".pet-battle-readiness");
     warfront = readiness.locator('[data-circuit="warfront"]');
     colosseum = readiness.locator('[data-circuit="colosseum"]');
@@ -612,6 +618,7 @@ test("Pet battle readiness mirrors server admission and lineage rules", async ({
     selectedPet.breedingSessionId = "completed-breeding-session";
     await openHome(page);
     await page.getByRole("button", { name: "Pet Yard" }).click();
+    await page.getByRole("navigation", { name: "Pet Yard activities" }).getByRole("button", { name: "Battle & techniques" }).click();
     readiness = page.locator(".pet-battle-readiness");
     await expect(readiness.getByRole("button", { name: /Deploy Sumi/ })).toBeEnabled();
     await expect(readiness.getByRole("button", { name: /Add Sumi to Squad/ })).toBeEnabled();
@@ -640,7 +647,7 @@ test("Pet battle readiness mirrors server admission and lineage rules", async ({
 
 test("a base roster unlocks Tactical while lapsed Supporter overflow stays preserved", async ({ page }, testInfo) => {
     test.setTimeout(90_000);
-    test.skip(testInfo.project.name !== "chromium-desktop", "the entitlement transition is certified once in desktop Chromium");
+    test.skip(!["chromium-desktop", "desktop"].includes(testInfo.project.name), "the entitlement transition is certified once in desktop Chromium");
     const state = await installPetHomeApi(page);
     state.character.patreon = { ...state.character.patreon, active: false };
     state.character.pets = structuredClone(basePets);
@@ -657,7 +664,7 @@ test("a base roster unlocks Tactical while lapsed Supporter overflow stays prese
 
     await openHome(page);
     await page.getByRole("button", { name: "Pet Yard" }).click();
-    await expect(page.getByText(new RegExp(`${carried(basePets.length)}/${PET_CAP_BASE} combat-carried · ${basePets.length} owned`))).toBeVisible();
+    await expect(page.locator(".pet-yard-roster-count").filter({ hasText: `${carried(basePets.length)} / ${PET_CAP_BASE}` })).toBeVisible();
     await page.getByRole("button", { name: "Pet Arena" }).click();
     await expect(page.getByRole("button", { name: /Beastbound Warfront/ })).toBeEnabled();
     // The rendered locked copy is "Locked · N/M pets" (middle dot, from the
@@ -671,9 +678,10 @@ test("a base roster unlocks Tactical while lapsed Supporter overflow stays prese
     state.character.pets = [...structuredClone(basePets), ...structuredClone(fullRosterPets)];
     await openHome(page);
     await page.getByRole("button", { name: "Pet Yard" }).click();
-    await expect(page.getByText(new RegExp(`${carried(fullRoster.length)}/${PET_CAP_BASE} combat-carried · ${fullRoster.length} owned`))).toBeVisible();
+    await expect(page.locator(".pet-yard-roster-count").filter({ hasText: `${carried(fullRoster.length)} / ${PET_CAP_BASE}` })).toBeVisible();
     await expect(page.getByText(new RegExp(`${overflowPets.length} preserved overflow`))).toBeVisible();
     await page.getByRole("button", { name: `Select ${overflowPetName}` }).click();
+    await page.getByRole("navigation", { name: "Pet Yard activities" }).getByRole("button", { name: "Battle & techniques" }).click();
     const overflowReadiness = page.locator(".pet-battle-readiness");
     await expect(overflowReadiness.locator('[data-circuit="colosseum"]')).toContainText("Resting in Sanctuary");
     await expect(overflowReadiness.locator('[data-circuit="warfront"]')).toContainText("Resting in Sanctuary");
@@ -719,4 +727,305 @@ test("Pet Sanctuary mobile deposit and withdrawal certification", async ({ page 
 
     expect(withoutAbortedFetches(consoleErrors)).toEqual([]);
     expect(withoutAbortedFetches(pageErrors)).toEqual([]);
+});
+
+test("refined companion and Sunscar pages", async ({ page }, testInfo) => {
+    test.setTimeout(180_000);
+    const errors: string[] = [];
+    page.on("pageerror", error => errors.push(error.message));
+    const state = await installPetHomeApi(page);
+    state.character.level = 1;
+    state.character.ryo = 1_250_000;
+    state.character.fateShards = 350;
+    state.character.pets[0].jutsus = [{ name: "Ember Fang", kind: "damage", power: 24, cooldown: 3 }];
+    const marketAssets = [
+        { id: "qa-blade", kind: "item", category: "weapons", rarity: "legendary", name: "Dawnreaver, the Last Ember", description: "A blade tempered in the final light of the desert.", image: "/items/shop-ashen-dragon-katana-v1.webp", level: 60, stats: [{ label: "Attack", value: "+120" }] },
+        { id: "qa-pet", kind: "pet", category: "pets", rarity: "rare", name: "Ember Ocelot", description: "A swift companion of the southern wilds.", image: "/pet-poses/rare-26-idle.webp", level: 60, stats: [{ label: "Breeding Uses Remaining", value: "8" }] },
+        { id: "qa-hide", kind: "item", category: "materials", rarity: "uncommon", name: "Torn Hide", description: "A sturdy crafting material.", image: "/items/hunt-torn-hide-v1.webp", stats: [] },
+    ];
+    const listings = marketAssets.map((asset, i) => ({ id: `listing-${i}`, asset, quantity: i === 2 ? 12 : 1, price: [425_000, 120_000, 41][i], currency: i === 2 ? "fateShards" : "ryo", fee: 0, proceeds: 0, seller: "miraa", sellerName: "Miraa", state: "active", createdAt: Date.now() - i * 1000 }));
+    const activity: typeof listings = [];
+    const inventory = [{ ...marketAssets[2], quantity: 22 }];
+    await page.route("**/api/festival/exchange", async route => {
+        const body = route.request().postDataJSON();
+        if (body.action === "buy") {
+            const listing = listings.find(row => row.id === body.listingId)!;
+            if (listing.currency === "fateShards") state.character.fateShards -= listing.price;
+            else state.character.ryo -= listing.price;
+            listing.state = "sold";
+            activity.push(listing);
+        }
+        if (body.action === "list") {
+            activity.push({ ...listings[2], id: "my-listing", seller: "pethomevisualqa", sellerName: "PetHomeVisualQA", price: Number(body.price), currency: body.currency, state: "active" });
+        }
+        if (body.action === "cancel") activity.find(row => row.id === body.listingId)!.state = "cancelled";
+        return json(route, { ok: true, character: state.character, _saveVersion: ++state.saveVersion, listings: listings.filter(row => row.state === "active"), activity, inventory, creatorItems: [], recoveryErrors: [] });
+    });
+    async function fit(name: string, selector: string) {
+        await page.locator(selector).scrollIntoViewIfNeeded();
+        await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+        await expect.poll(() => page.locator(`${selector} img`).evaluateAll(images => images.filter(image => !image.complete || !image.naturalWidth).map(image => image.src))).toEqual([]);
+        await page.locator(`${selector} img`).evaluateAll(images => Promise.all(images.map(image => image.decode())));
+        await page.screenshot({ path: testInfo.outputPath(`${name}.png`), fullPage: true, animations: "disabled" });
+        const scan = await new AxeBuilder({ page }).include(selector).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+        expect(scan.violations.map(violation => ({ id: violation.id, nodes: violation.nodes.map(node => ({ target: node.target, summary: node.failureSummary })) }))).toEqual([]);
+        if (name.startsWith("yard-") && name !== "yard-expeditions") {
+            await page.locator(".pet-yard-workbench").scrollIntoViewIfNeeded();
+            await page.screenshot({ path: testInfo.outputPath(`${name}-controls.png`), animations: "disabled" });
+        }
+        if (name === "sunscar-festival") {
+            await page.locator(".sunscar-market-row").scrollIntoViewIfNeeded();
+            await page.screenshot({ path: testInfo.outputPath("sunscar-trading-quarter.png"), animations: "disabled" });
+        }
+    }
+    await page.goto("/#/pets", { waitUntil: "networkidle", timeout: 120_000 });
+    await expect(page.locator(".pet-yard-refined")).toBeVisible();
+    const hint = page.getByRole("button", { name: /got it/i });
+    if (await hint.isVisible()) await hint.click();
+    const activities = page.getByRole("navigation", { name: "Pet Yard activities" });
+    await expect(page.getByRole("heading", { name: "Care & companionship" })).toBeVisible();
+    await expect(page.locator(".pet-expedition-board")).toHaveCount(0);
+    await expect(page.locator(".pet-loadout-panel")).toHaveCount(0);
+    await fit("yard-care", ".pet-yard-refined");
+    await activities.getByRole("button", { name: /Growth & training/ }).click();
+    await expect(page.getByLabel("Duration", { exact: true })).toBeVisible();
+    const initialGrowth = await page.getByLabel("Vitality points", { exact: true }).textContent();
+    await page.getByRole("button", { name: "Add Vitality point", exact: true }).click();
+    await expect(page.getByLabel("Vitality points", { exact: true })).not.toHaveText(initialGrowth!);
+    await page.getByRole("button", { name: "Remove staged Vitality point", exact: true }).click();
+    await expect(page.getByLabel("Vitality points", { exact: true })).toHaveText(initialGrowth!);
+    await fit("yard-growth", ".pet-yard-refined");
+    await activities.getByRole("button", { name: "Equipment", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Loadout", exact: true })).toBeVisible();
+    await fit("yard-equipment", ".pet-yard-refined");
+    await activities.getByRole("button", { name: "Battle & techniques", exact: true }).click();
+    await expect(page.getByText("Ember Fang", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Deploy Sumi" })).toBeEnabled();
+    await fit("yard-techniques", ".pet-yard-refined");
+    await activities.getByRole("button", { name: "Expeditions", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Expedition Board", exact: true })).toBeVisible();
+    await expect(page.getByRole("radiogroup", { name: "Expedition route" }).getByRole("radio")).toHaveCount(3);
+    await fit("yard-expeditions", ".pet-yard-refined");
+    // Entry notifications must still land on the selected companion's expedition.
+    await activities.getByRole("button", { name: "Care", exact: true }).click();
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent("shinobix:open-pet-expedition", { detail: { petId: "qa-fire-1" } })));
+    await expect(page.getByRole("heading", { name: "Expedition Board", exact: true })).toBeVisible();
+
+    await page.goto("/#/sunscarFestival", { waitUntil: "networkidle" });
+    await page.reload({ waitUntil: "networkidle" });
+    await expect(page.locator(".sunscar-hub-refined")).toBeVisible();
+    await fit("sunscar-festival", ".sunscar-hub-refined");
+    await page.getByRole("button", { name: "Enter the Exchange" }).click();
+    await expect(page.locator(".sx-listing")).toHaveCount(3);
+    await fit("sunscar-market", ".sx-refined");
+    await page.getByRole("button", { name: "Pets", exact: true }).click();
+    await expect(page.locator(".sx-listing")).toHaveCount(1);
+    await page.locator(".sx-listing").click();
+    await expect(page.getByRole("dialog")).toContainText("Breeding Uses Remaining");
+    await fit("market-inspection", ".sx-dialog");
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await page.getByRole("button", { name: "All treasures", exact: true }).click();
+    await page.getByRole("searchbox", { name: "Search the Exchange" }).fill("no such treasure");
+    await expect(page.getByText("No treasures match these filters")).toBeVisible();
+    await page.getByRole("button", { name: "Clear filters" }).click();
+    await page.getByRole("combobox", { name: "Listing currency", exact: true }).selectOption("fateShards");
+    await expect(page.locator(".sx-listing")).toHaveCount(1);
+    await page.locator(".sx-listing").click();
+    await page.getByRole("button", { name: "Buy for 41 Fate Shards", exact: true }).click();
+    await expect(page.locator(".sx-success")).toContainText("Purchase complete");
+    await expect(page.locator(".sx-wallet")).toContainText("309 Fate Shards");
+    await page.getByRole("button", { name: "Sell an asset", exact: true }).click();
+    await page.getByText("Torn Hide", { exact: true }).click();
+    await page.getByLabel("Total asking price", { exact: false }).fill("200");
+    await page.getByRole("button", { name: /Review listing/ }).click();
+    await fit("market-sale-review", ".sx-dialog");
+    await page.getByRole("button", { name: "Publish listing", exact: true }).click();
+    await expect(page.locator(".sx-success")).toContainText("Listing published");
+    await page.getByText("Torn Hide", { exact: true }).click();
+    await page.getByRole("button", { name: "Cancel listing & return goods", exact: true }).click();
+    await expect(page.locator(".sx-success")).toContainText("Listing cancelled");
+    await page.getByRole("button", { name: "Sunscar Festival", exact: false }).click();
+    await expect(page.locator(".sunscar-hub-refined")).toBeVisible();
+    expect(withoutAbortedFetches(errors)).toEqual([]);
+});
+
+test("refined integration companion actions and recovery", async ({ page }, testInfo) => {
+    test.setTimeout(180_000);
+    test.skip(!['desktop', 'phone', 'chromium-desktop', 'chromium-mobile'].includes(testInfo.project.name), 'Interaction coverage uses desktop and touch; visual coverage runs at all four widths.');
+    const state = await installPetHomeApi(page);
+    state.character.fateShards = 30;
+    state.character.pets[0].training = { type: 'bond', startedAt: Date.now() - 100_000, endsAt: Date.now() - 1000, durationMs: 900_000, sealedXp: 35 };
+    const requests: Array<Record<string, unknown>> = [];
+    let trainingAttempts = 0;
+    await page.route('**/api/pet/progress', async route => {
+        const body = route.request().postDataJSON();
+        requests.push(body);
+        const current = state.character.pets.find(p => p.id === body.petId)!;
+        if (body.action === 'complete-training') {
+            if (++trainingAttempts === 1) return json(route, { error: 'Training desk unavailable. Please retry.' }, 503);
+            delete current.training;
+            current.xp = Number(current.xp) + 35;
+        } else if (body.action === 'allocate-growth') current.growthAllocation = body.allocation;
+        else if (body.action === 'nickname') {
+            await new Promise(resolve => setTimeout(resolve, 250));
+            current.nickname = body.nickname;
+            state.character.fateShards -= 10;
+        } else if (body.action === 'equip') current.loadout = { ...(current.loadout as object), [body.slot]: body.itemId };
+        return json(route, { ok: true, pet: current, character: state.character, settledTraining: body.action === 'complete-training' ? 'bond' : null, _saveVersion: ++state.saveVersion });
+    });
+    await page.goto('/#/pets', { waitUntil: 'networkidle' });
+    await page.getByRole('button', { name: 'Select Sumi', exact: true }).click();
+    await page.getByRole('button', { name: 'Collect Results', exact: true }).click();
+    await expect(page.getByRole('alertdialog')).toContainText('Training desk unavailable');
+    await page.locator('.game-alert-ok').click();
+    await expect(page.getByRole('button', { name: 'Collect Results', exact: true })).toBeEnabled();
+    await page.getByRole('button', { name: 'Collect Results', exact: true }).click();
+    await expect(page.getByRole('alertdialog')).toContainText('completed bond training');
+    await page.locator('.game-alert-ok').click();
+    await expect(page.getByRole('button', { name: 'Start Training', exact: true })).toBeVisible();
+    await expect(page.locator('.pet-xp-line')).toContainText('35/');
+    await page.getByRole('button', { name: 'Add Vitality point', exact: true }).click();
+    await page.getByRole('button', { name: 'Commit Build', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Commit Build', exact: true })).toBeDisabled();
+    expect(state.character.pets[0].growthAllocation).toMatchObject({ vitality: 1 });
+    const nav = page.getByRole('navigation', { name: 'Pet Yard activities' });
+    await nav.getByRole('button', { name: 'Care', exact: true }).click();
+    await page.locator('summary').filter({ hasText: 'Rename companion' }).click();
+    await page.getByLabel('Nickname', { exact: true }).fill('Unsubmitted name');
+    await page.getByRole('button', { name: 'Select Ember Phoenix', exact: true }).click();
+    await page.locator('summary').filter({ hasText: 'Rename companion' }).click();
+    await expect(page.getByLabel('Nickname', { exact: true })).toHaveValue('');
+    await page.getByRole('button', { name: 'Select Sumi', exact: true }).click();
+    await page.locator('summary').filter({ hasText: 'Rename companion' }).click();
+    await page.getByLabel('Nickname', { exact: true }).fill('Kohaku');
+    await page.getByRole('button', { name: 'Rename', exact: true }).evaluate((button: HTMLButtonElement) => { button.click(); button.click(); });
+    await expect(page.getByRole('button', { name: 'Select Kohaku', exact: true })).toBeVisible();
+    expect(requests.filter(request => request.action === 'nickname')).toHaveLength(1);
+    expect(state.character.fateShards).toBe(20);
+    await nav.getByRole('button', { name: 'Equipment', exact: true }).click();
+    if (testInfo.project.name === 'phone') {
+        await expect(page.locator('#pet-yard-section')).toBeFocused();
+        await expect.poll(() => page.locator('#pet-yard-section').evaluate(el => el.getBoundingClientRect().top)).toBeLessThan(160);
+    }
+    await page.locator('#pet-pvp-gear').selectOption('');
+    await expect(page.getByText('No arena gear owned. Visit the Grand Marketplace to find some.', { exact: true })).toBeVisible();
+    expect(requests.at(-1)).toMatchObject({ action: 'equip', petId: 'qa-fire-1', slot: 'pvp' });
+    const scan = await new AxeBuilder({ page }).include('.pet-yard-refined').withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+    expect(scan.violations.map(v => ({ id: v.id, nodes: v.nodes.map(n => ({ target: n.target, summary: n.failureSummary })) }))).toEqual([]);
+
+    // A subscription lapse must not strand rewards on a preserved sixth pet.
+    state.character.patreon.active = false;
+    state.character.pets.push(...structuredClone(fullRosterPets));
+    const overflow = state.character.pets[5];
+    overflow.expedition = { type: 'scout', startedAt: Date.now() - 100_000, endsAt: Date.now() - 1000, token: 'qa-return', risk: 'safe', provision: 'none', choiceVersion: 1, place: 'Cactus Flats' };
+    let claims = 0;
+    await page.route('**/api/missions/report-pet-event', async route => {
+        const body = route.request().postDataJSON();
+        expect(body).toMatchObject({ petId: overflow.id, expeditionToken: 'qa-return', returnChoice: 'secure' });
+        if (++claims === 1) return json(route, { error: 'The return desk is unavailable.' }, 503);
+        delete overflow.expedition;
+        overflow.xp = Number(overflow.xp) + 40;
+        return json(route, { ok: true, character: state.character, _saveVersion: ++state.saveVersion, petXpEarned: 40, story: 'Returned safely from Cactus Flats.' });
+    });
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.getByRole('button', { name: /Select Stoneback Tanuki/ }).click();
+    await expect(page.getByRole('button', { name: 'Secure haul', exact: true })).toBeEnabled();
+    await page.getByRole('button', { name: 'Secure haul', exact: true }).click();
+    await expect(page.locator('#pet-expedition-claim-error')).toBeVisible();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Secure haul', exact: true }).click();
+    await expect(page.getByRole('dialog')).toContainText('Returned safely from Cactus Flats');
+    await page.getByRole('dialog').getByRole('button', { name: 'Continue', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Select Stoneback Tanuki', exact: true })).toBeFocused();
+    await expect(page.getByRole('button', { name: 'Launch expedition', exact: true })).toBeDisabled();
+    state.character.pets = [];
+    await page.reload({ waitUntil: 'networkidle' });
+    await expect(page.getByRole('button', { name: 'Go to World Map', exact: true })).toBeVisible();
+    await expect(nav).toHaveCount(0);
+});
+
+test("refined integration festival navigation, crate, and market retry", async ({ page }, testInfo) => {
+    test.setTimeout(180_000);
+    test.skip(!['desktop', 'phone', 'chromium-desktop', 'chromium-mobile'].includes(testInfo.project.name), 'Interaction coverage uses desktop and touch.');
+    const state = await installPetHomeApi(page);
+    state.character.ryo = 1_000_000;
+    await page.route('**/api/festival/rally?*', route => json(route, { ok: true, progress: { reputation: 0, best: {}, history: [] }, daily: { day: new Date().toISOString().slice(0, 10), seed: 1, tracks: ['grand-circuit'], rivals: [] }, serverNow: Date.now() }));
+    await page.route('**/api/festival/caravan?*', route => json(route, { ok: true, progress: { reputation: 0, deliveries: 0, chains: {}, history: [] }, daily: { seed: 1, weather: 'clear', contracts: [{ id: 'market-goods', title: 'The morning market', employer: 'Miraa', cargo: 'Market goods', description: 'Carry supplies through the dunes.', destination: 'Cactus Flats', difficulty: 1, reputationRequired: 0, payoutFactor: 1, nodes: 8, supplies: 18, objective: { kind: 'cargo', target: 70, label: 'Deliver at least 70% cargo' } }] }, serverNow: Date.now(), character: state.character, _saveVersion: ++state.saveVersion }));
+    let pulls = 0;
+    await page.route('**/api/festival/black-market', async route => {
+        ++pulls;
+        state.character.ryo -= 70_000;
+        return json(route, { ok: true, reward: { tier: 'haul', label: 'A Tidy Haul', ryo: 5000, fateShards: 0, boneCharms: 0, auraStones: 0, mythicSeals: 0 }, dailyUsed: pulls, character: state.character, _saveVersion: ++state.saveVersion });
+    });
+    const lots = Array.from({ length: 13 }, (_, i) => ({ id: `audit-${i}`, asset: { id: `audit-item-${i}`, name: `Desert keepsake ${i + 1}`, kind: 'item', category: 'materials', rarity: 'uncommon', description: 'A keepsake from the trading quarter.', image: i === 12 ? '/qa-missing-art.webp' : '/items/hunt-torn-hide-v1.webp', stats: [] }, price: i === 0 ? 2_000_000 : 100, quantity: 1, currency: 'ryo', seller: 'miraa', sellerName: 'Miraa', state: 'active', createdAt: Date.now() - i }));
+    const trades: unknown[] = [];
+    const purchases: Record<string, unknown>[] = [];
+    let browseAttempts = 0;
+    await page.route('**/qa-missing-art.webp', route => route.fulfill({ status: 404 }));
+    await page.route('**/api/festival/exchange', async route => {
+        const body = route.request().postDataJSON();
+        if (body.action === 'browse' && ++browseAttempts === 1) return json(route, { error: 'Trading desk temporarily unavailable.' }, 503);
+        if (body.action === 'buy') {
+            purchases.push(body);
+            const lot = lots.find(lot => lot.id === body.listingId)!;
+            if (purchases.length === 1) return json(route, { error: 'Trade confirmation interrupted.', pending: true }, 503);
+            state.character.ryo -= lot.price;
+            lot.state = 'sold';
+            trades.push(lot);
+        }
+        return json(route, { ok: true, character: state.character, _saveVersion: ++state.saveVersion, listings: lots.filter(lot => lot.state === 'active'), activity: trades, inventory: [], creatorItems: [], recoveryErrors: [] });
+    });
+    await page.goto('/#/sunscarFestival', { waitUntil: 'networkidle' });
+    for (const [selector, title, back] of [
+        ['.sunscar-attraction-rally button', 'Pet Rally', '.sunscar-rally .sunscar-back'],
+        ['.sunscar-attraction-caravan button', 'Caravan Run', '.caravan-mode .sunscar-back'],
+    ]) {
+        await page.locator(selector).click();
+        await expect(page.getByRole('heading', { name: title, exact: true })).toBeFocused();
+        await expect.poll(() => page.getByRole('heading', { name: title, exact: true }).evaluate(el => el.getBoundingClientRect().top)).toBeLessThan(360);
+        await page.locator(back).click();
+        await expect(page.locator(selector)).toBeFocused();
+    }
+    await page.getByRole('button', { name: 'Buy a sealed crate', exact: true }).click();
+    const crate = page.getByRole('dialog', { name: 'The Broker’s crate' });
+    await expect(crate).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Open the crate', exact: true })).toBeFocused();
+    await expect(page.locator('#root')).toHaveAttribute('inert', '');
+    await page.getByRole('button', { name: 'Open the crate', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'A Tidy Haul', exact: true })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'Return to the festival', exact: true })).toBeFocused();
+    const scan = await new AxeBuilder({ page }).include('.bm-crate-dialog').withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+    expect(scan.violations).toEqual([]);
+    await crate.locator('img').evaluateAll(images => Promise.all(images.map(image => image.decode())));
+    await page.screenshot({ path: testInfo.outputPath('broker-reward-viewport.png'), animations: 'disabled' });
+    await page.keyboard.press('Escape');
+    await expect(crate).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Buy a sealed crate', exact: true })).toBeFocused();
+    expect(pulls).toBe(1);
+    await page.getByRole('button', { name: 'Enter the Exchange', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Sunscar Exchange', exact: true })).toBeFocused();
+    await expect(page.getByRole('heading', { name: 'The trade ledger is unavailable' })).toBeVisible();
+    await page.getByRole('button', { name: 'Reconnect', exact: true }).click();
+    await expect(page.locator('.sx-listing')).toHaveCount(12);
+    await page.locator('.sx-listing').first().click();
+    await expect(page.getByRole('dialog')).toContainText(/You need more ryo/i);
+    await expect(page.getByRole('button', { name: /^Buy for 2,000,000 ryo$/i })).toBeDisabled();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.sx-listing').first()).toBeFocused();
+    await page.getByRole('button', { name: 'Next →', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Browse the Exchange', exact: true })).toBeFocused();
+    await expect(page.locator('.sx-listing')).toHaveCount(1);
+    await expect(page.locator('.sx-asset-monogram')).toHaveText('Dk');
+    await page.locator('.sx-listing').click();
+    await page.getByRole('button', { name: /^Buy for 100 ryo$/i }).click();
+    await expect(page.getByRole('dialog')).toContainText('Trade confirmation interrupted');
+    await expect(page.getByRole('button', { name: /^Buy for 100 ryo$/i })).toBeDisabled();
+    await page.getByRole('dialog').getByRole('button', { name: 'Retry saved trade', exact: true }).click();
+    await expect(page.locator('.sx-success')).toBeFocused();
+    expect(purchases).toHaveLength(2);
+    expect(purchases[1]).toEqual(purchases[0]);
+    expect(state.character.ryo).toBe(929_900);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
 });

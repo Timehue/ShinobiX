@@ -26,9 +26,7 @@ import {
 
 type Props = {
     character: Character;
-    pets: Pet[];
     selectedPet: Pet | null;
-    selectedPetId: string;
     expeditionType: PetExpeditionType;
     risk: PetExpeditionRisk;
     provision: PetExpeditionProvision;
@@ -36,7 +34,6 @@ type Props = {
     launchBusy: boolean;
     claimBusy: boolean;
     error: string;
-    onSelectPet: (petId: string) => void;
     onTypeChange: (type: PetExpeditionType) => void;
     onRiskChange: (risk: PetExpeditionRisk) => void;
     onProvisionChange: (provision: PetExpeditionProvision) => void;
@@ -57,9 +54,7 @@ const percent = (value: number) => `${Math.round(value * 100)}%`;
 
 export function PetExpeditionBoard({
     character,
-    pets,
     selectedPet,
-    selectedPetId,
     expeditionType,
     risk,
     provision,
@@ -67,7 +62,6 @@ export function PetExpeditionBoard({
     launchBusy,
     claimBusy,
     error,
-    onSelectPet,
     onTypeChange,
     onRiskChange,
     onProvisionChange,
@@ -140,7 +134,7 @@ export function PetExpeditionBoard({
                 <div>
                     <span className="pet-yard-kicker">Field operations</span>
                     <h3 id="pet-expedition-board-title">Expedition Board</h3>
-                    <p>Pick a route, set one universal risk stance, and decide how to handle the final lead when your companion returns.</p>
+                    <p>Choose a route for {selectedPet ? petDisplayName(selectedPet) : "your companion"}. Set the risk, pack provisions, and send them into the wild.</p>
                 </div>
                 <div className="pet-expedition-caps" aria-label="Daily expedition limits">
                     <span><small>Started today</small><strong>{starts}/{dailyCap}</strong></span>
@@ -152,27 +146,6 @@ export function PetExpeditionBoard({
             {badges.length > 0 && <div className="pet-expedition-badges" aria-label="Active expedition bonuses">
                 {badges.map((badge) => <span key={badge}>{badge}</span>)}
             </div>}
-
-            <div className="pet-expedition-companions" aria-label="Carried companion expedition status">
-                {pets.map((pet) => {
-                    const ready = Boolean(pet.expedition && now >= pet.expedition.endsAt);
-                    const away = Boolean(pet.expedition && !ready);
-                    const status = ready ? "Ready" : away ? "Away" : pet.training ? "Training" : pet.level < 20 ? `Locked · Lv ${pet.level}` : "Available";
-                    return (
-                        <button
-                            type="button"
-                            key={pet.id}
-                            className={pet.id === selectedPetId ? "is-selected" : ""}
-                            data-status={ready ? "ready" : away ? "away" : "available"}
-                            aria-pressed={pet.id === selectedPetId}
-                            onClick={() => onSelectPet(pet.id)}
-                        >
-                            <strong>{petDisplayName(pet)}</strong>
-                            <span>{status}</span>
-                        </button>
-                    );
-                })}
-            </div>
 
             <div className="pet-expedition-routes" role="radiogroup" aria-label="Expedition route">
                 {PET_EXPEDITION_TYPES.map((type) => {
@@ -221,7 +194,7 @@ export function PetExpeditionBoard({
                             return <option key={value} value={value}>{rule.label}{owned == null ? "" : ` · owned ${owned}`} · pet XP ×{rule.petXpMultiplier.toFixed(2)}{rule.materialMultiplier > 1 ? ` · finds ×${rule.materialMultiplier.toFixed(2)}` : ""}</option>;
                         })}
                     </select>
-                    <small>Consumed at launch. Golden Apples stay reserved for direct feeding.</small>
+                    <small>Consumed when your companion departs.</small>
                 </label>
             </div>
 
@@ -243,15 +216,15 @@ export function PetExpeditionBoard({
                 ) : (
                     <div>
                         <strong>{selectedPet ? `Send ${petDisplayName(selectedPet)} on ${PET_EXPEDITION_ROUTES[expeditionType].label}` : "Select a carried companion"}</strong>
-                        <span>{selectedLocked ? "Expeditions unlock at pet level 20." : selectedTraining ? "Collect training before departing." : starts >= dailyCap ? "Daily start cap reached. New routes open at the UTC reset." : lacksBoldHappiness ? "This companion needs at least 5 happiness for a bold route." : lacksProvision ? "That provision is no longer in inventory." : !isTamer && selectedPet && selectedPet.level < selectedPet.maxLevel ? "Non-Tamer growing pets earn pet XP only; no ryo or drops." : !isTamer ? "Non-Tamer max-level pets earn half base ryo and find odds." : "The server seals the pet level, route, risk, provision, and current world location."}</span>
+                        <span>{selectedLocked ? "Expeditions unlock at pet level 20." : selectedTraining ? "Collect training before departing." : starts >= dailyCap ? "Daily start cap reached. New routes open at the UTC reset." : lacksBoldHappiness ? "This companion needs at least 5 happiness for a bold route." : lacksProvision ? "That provision is no longer in inventory." : !isTamer && selectedPet && selectedPet.level < selectedPet.maxLevel ? "Non-Tamer growing pets earn pet XP only; no ryo or drops." : !isTamer ? "Non-Tamer max-level pets earn half base ryo and find odds." : "Rewards are locked in when your companion departs."}</span>
                     </div>
                 )}
                 {!selectedPet?.expedition && <button type="button" className="pet-home-primary" disabled={startDisabled} aria-busy={launchBusy} onClick={onStart}>{launchBusy ? "Sending…" : "Launch expedition"}</button>}
             </div>
             {error && <p id="pet-expedition-claim-error" className="pet-expedition-error" role="alert">{error}</p>}
 
-            <div className="pet-expedition-log">
-                <h4>Recent field reports</h4>
+            <details className="pet-expedition-log">
+                <summary>Recent field reports{log.length > 0 ? ` · ${log.length}` : ""}</summary>
                 {log.length === 0 ? <p>No completed expeditions recorded yet.</p> : (
                     <ol>
                         {log.map((entry) => {
@@ -260,7 +233,7 @@ export function PetExpeditionBoard({
                         })}
                     </ol>
                 )}
-            </div>
+            </details>
         </section>
     );
 }

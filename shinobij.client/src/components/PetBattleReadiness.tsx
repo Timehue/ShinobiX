@@ -97,7 +97,7 @@ export function PetBattleReadiness({
         <section className="pet-battle-readiness" aria-labelledby="pet-battle-readiness-title">
             <header className="pet-battle-readiness-heading">
                 <div>
-                    <span className="pet-battle-readiness-kicker">{name} · Lv {pet.level} · {roleMeta.icon} {roleMeta.label}</span>
+                    <span className="pet-battle-readiness-kicker">{name} · Lv {pet.level} · {roleMeta.label}</span>
                     <h4 id="pet-battle-readiness-title">Battle Deployment</h4>
                 </div>
             </header>
