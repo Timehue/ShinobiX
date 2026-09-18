@@ -18,7 +18,7 @@ import { recordPetBreedingProgress, type PetBreedingProgressEvent } from './_bre
 import { activeBreedingParentIds, petBusyMessage, petBusyReason } from './_pet-busy.js';
 import { kv } from '../_storage.js';
 import { moraleForCharacter, applyMoraleToGain } from '../_war-morale.js';
-import { activeTrainingPetIds, PET_TRAINING_CAP } from '../_entitlements.js';
+import { activeCarriedPetIds, activeTrainingPetIds, PET_TRAINING_CAP } from '../_entitlements.js';
 import { applyGrowthAllocation, resetGrowthAllocation } from './_growth.js';
 
 function defensePetIds(defense: unknown): string[] {
@@ -217,6 +217,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const activePetId = character.activePetId === petId ? remaining[0]?.id : character.activePetId;
                 const activePetId2v2 = character.activePetId2v2 === petId ? undefined : character.activePetId2v2;
                 return { ok: true as const, character: { ...character, pets: remaining, activePetId, activePetId2v2 }, value: { action, pet: null } };
+            } else if (action === 'set-active' || action === 'set-partner') {
+                // The Active pick and the 2v2 Partner lead activeTrainingPetIds, so
+                // they decide which five companions may train. They settle here,
+                // under the same lock start-training reads, instead of riding the
+                // debounced autosave: a Start Training pressed right after "Set as
+                // Active" used to reach the server first and be refused, and any pet
+                // reply that landed in that window carried the old role back to the
+                // client, silently undoing the pick.
+                if (!activeCarriedPetIds(character, pets).includes(petId)) {
+                    return { ok: false as const, status: 409, error: 'Move this preserved companion into your carried roster through the Sanctuary before assigning it a role.' };
+                }
+                const field = action === 'set-active' ? 'activePetId' : 'activePetId2v2';
+                // Partner is an explicit assign/clear, never a toggle, so a retried
+                // request cannot flip the choice back.
+                const assign = action === 'set-active' || body.assign !== false;
+                const nextRole = assign ? petId : (character[field] === petId ? undefined : character[field]);
+                if (character[field] === nextRole) return { ok: true as const, character, value: { action, pet: null }, write: false as const };
+                return { ok: true as const, character: { ...character, [field]: nextRole }, value: { action, pet: null } };
             } else return { ok: false as const, status: 400, error: 'Invalid pet action.' };
             const nextPets = pets.map((entry, i) => i === index ? nextPet : entry);
             let finalizedCharacter: Record<string, unknown> = { ...nextCharacter, pets: nextPets };

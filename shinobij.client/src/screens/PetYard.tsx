@@ -601,6 +601,15 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
         try { await runPetProgress('equip', { slot: 'collar', itemId: collarId }); } catch (error) { alert(error instanceof Error ? error.message : 'Equip failed.'); }
     }
 
+    // The Active pick and 2v2 Partner decide which five companions may train, so
+    // the server records them before anything else can read the roster. As a
+    // local edit waiting on the autosave, a Start Training pressed right after
+    // was refused, and a pet reply landing first quietly undid the pick.
+    async function assignRosterRole(role: "active" | "partner", assign = true) {
+        if (!selectedPet) return;
+        try { await runPetProgress(role === "active" ? 'set-active' : 'set-partner', { assign }); } catch (error) { alert(error instanceof Error ? error.message : 'This companion role could not be saved.'); }
+    }
+
     // Equip PVP battle gear (or clear with id = undefined) on the selected pet.
     // Same unlock model as collars: the gear stays in inventory and can be
     // equipped on any pet, so this just records the id on pet.loadout.pvp.
@@ -1000,16 +1009,13 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                             </div>
                             {selectedPet.description && <p className="pet-description">{selectedPet.description}</p>}
                             <div className="menu">
-                                <button disabled={progressBusy || selectedPetBreedingLocked || selectedPetIsOverflow} aria-describedby={selectedPetBreedingLocked || selectedPetIsOverflow ? "pet-yard-roster-lock" : undefined} onClick={() => updateCharacter(prev => prev && ({ ...prev, activePetId: selectedPet.id }))}>
+                                <button disabled={progressBusy || selectedPetBreedingLocked || selectedPetIsOverflow} aria-describedby={selectedPetBreedingLocked || selectedPetIsOverflow ? "pet-yard-roster-lock" : undefined} onClick={() => void assignRosterRole("active")}>
                                     {character.activePetId === selectedPet.id ? "Field companion" : "Set as Active"}
                                 </button>
                                 <button
                                     disabled={progressBusy || selectedPetBreedingLocked || selectedPetIsOverflow}
                                     aria-describedby={selectedPetBreedingLocked || selectedPetIsOverflow ? "pet-yard-roster-lock" : undefined}
-                                    onClick={() => updateCharacter(prev => prev && ({
-                                        ...prev,
-                                        activePetId2v2: prev.activePetId2v2 === selectedPet.id ? undefined : selectedPet.id,
-                                    }))}
+                                    onClick={() => void assignRosterRole("partner", character.activePetId2v2 !== selectedPet.id)}
                                     title="The 2v2 partner pre-fills your reserve slot in the Pet Arena. It is never summoned into PvE."
                                 >
                                     {character.activePetId2v2 === selectedPet.id ? " 2v2 Partner" : "Set as 2v2 Partner"}
