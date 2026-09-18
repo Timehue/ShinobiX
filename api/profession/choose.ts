@@ -7,12 +7,11 @@ import { bumpSaveVersion } from '../save/_save-version.js';
 import {
     PROFESSION_CHANGE_APPROVAL_ID,
     PROFESSION_CHANGE_APPROVAL_NAME,
+    PROFESSION_CHANGE_LEVEL as PROFESSION_UNLOCK_LEVEL,
 } from '../../shared/profession-change.js';
 
 const VALID_PROFESSIONS = ['healer', 'vanguard', 'petTamer'] as const;
 type Profession = typeof VALID_PROFESSIONS[number];
-
-const PROFESSION_UNLOCK_LEVEL = 13;
 
 function consumeProfessionApproval(character: Record<string, unknown>): Record<string, unknown> | null {
     if (!Array.isArray(character.inventory)) return null;

@@ -81,6 +81,8 @@ export const LeftProfileCard = memo(function LeftProfileCard({
                 key={character.name.trim().toLowerCase()}
                 character={character}
                 beginDailyLogin={beginDailyLogin}
+                activeTraining={activeTraining}
+                activeJutsuTraining={activeJutsuTraining}
                 navigate={setScreen}
             />
             {/* Global progression overlays — both portal to <body>, so they show
