@@ -4,7 +4,7 @@ import { enforceRateLimitKv } from './_ratelimit.js';
 import { cors } from './_utils.js';
 import {
     applyWorldCrisis80AdminAction,
-    readWorldCrisis80Projection,
+    readWorldCrisis80ProjectionCached,
     type WorldCrisis80AdminAction,
 } from './world-crisis-80/_state.js';
 
@@ -31,7 +31,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
         if (req.method === 'GET') {
             if (!(await enforceRateLimitKv(req, res, 'world-crisis-80-read', 90, 60_000, null))) return;
-            return res.status(200).json({ crisis: await readWorldCrisis80Projection() });
+            return res.status(200).json({ crisis: await readWorldCrisis80ProjectionCached() });
         }
         if (req.method !== 'POST') return res.status(405).end();
         if (!isFullAdmin(req)) return res.status(401).json({ error: 'Admin authentication required.' });

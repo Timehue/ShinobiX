@@ -47,15 +47,61 @@ export async function getSleeperCamp(name: string): Promise<SleeperCamp | null> 
     return (await listSleeperCamps()).get(safeName(name)) ?? null;
 }
 
+/*
+ * Heartbeats clear the caller's camp so a reconnected player is not left
+ * attackable. kv_hdel rewrites the whole shared camps row even when the field is
+ * absent, and every online player beats every 15–20s, so the beat path skips the
+ * write for a player this process cleared recently. Any camp this process writes
+ * forgets the name first (setSleeperCamp / materializeSleeperCamps), so only a
+ * camp written by another process — a deploy overlap — can outlive a skipped
+ * beat, and the periodic recheck bounds that. Until then it is inert: sleeper
+ * KOs and merc raids refuse online targets (settleSleeperKoLocked) and the
+ * roster ignores camps of online players.
+ */
+export const BEAT_CLEAR_RECHECK_MS = 2 * 60_000;
+const BEAT_CLEARED_PRUNE_AT = 10_000;
+const beatCleared = new Map<string, number>();
+
+function forgetBeatCleared(names: readonly string[]): void {
+    for (const name of names) beatCleared.delete(name);
+}
+
 export async function setSleeperCamp(camp: SleeperCamp): Promise<void> {
     const name = safeName(camp.name);
     if (!name || camp.sector < 1) return;
+    forgetBeatCleared([name]);
     await kv.hset(SLEEPER_CAMPS_KEY, { [name]: { ...camp, name } });
+    // A beat that raced the write may have recorded a clear; drop it so the
+    // next beat removes the camp again.
+    forgetBeatCleared([name]);
 }
 
+async function clearSleeperCampAt(key: string, now: number): Promise<void> {
+    await kv.hdel(SLEEPER_CAMPS_KEY, key);
+    if (beatCleared.size >= BEAT_CLEARED_PRUNE_AT) {
+        for (const [entry, at] of beatCleared) if (now - at >= BEAT_CLEAR_RECHECK_MS) beatCleared.delete(entry);
+    }
+    beatCleared.set(key, now);
+}
+
+// Single-argument on purpose: callers pass it straight to Array#map.
 export async function clearSleeperCamp(name: string): Promise<void> {
     const key = safeName(name);
-    if (key) await kv.hdel(SLEEPER_CAMPS_KEY, key);
+    if (key) await clearSleeperCampAt(key, Date.now());
+}
+
+/** Heartbeat path: skip the shared-row rewrite when this player was cleared recently. */
+export async function clearSleeperCampOnBeat(name: string, now = Date.now()): Promise<void> {
+    const key = safeName(name);
+    if (!key) return;
+    const clearedAt = beatCleared.get(key);
+    if (clearedAt !== undefined && now - clearedAt < BEAT_CLEAR_RECHECK_MS) return;
+    await clearSleeperCampAt(key, now);
+}
+
+/** Test-only: forget every recorded clear. */
+export function __resetBeatClearedForTest(): void {
+    beatCleared.clear();
 }
 
 export function sleeperCampForPresence(player: OnlinePlayer, now: number): SleeperCamp | null {
@@ -100,7 +146,10 @@ export async function materializeSleeperCamps(players: OnlinePlayer[]): Promise<
         patch[player.name] = camp;
     }
     if (!Object.keys(patch).length) return;
+    const campNames = Object.keys(patch).map(safeName);
+    forgetBeatCleared(campNames);
     await kv.hset(SLEEPER_CAMPS_KEY, patch);
+    forgetBeatCleared(campNames);
     // Close the reconnect race: a heartbeat that landed while the hash write was
     // in flight wins, and its camp is removed again immediately.
     await Promise.all(Object.keys(patch).map(async (name) => {

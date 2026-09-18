@@ -1,6 +1,7 @@
 import { addHallEntry, announce } from '../_announce.js';
 import { recordAudit } from '../_audit.js';
 import { withKvLock } from '../_lock.js';
+import { cachedFor, invalidateProcCache } from '../_proc-cache.js';
 import { kv } from '../_storage.js';
 import { safeName } from '../_utils.js';
 import {
@@ -26,6 +27,17 @@ import {
 export const WORLD_CRISIS_80_STATE_KEY = `world:crisis:${WORLD_CRISIS_80_ID}`;
 const WORLD_CRISIS_80_PROOF_PREFIX = `${WORLD_CRISIS_80_STATE_KEY}:proof:`;
 const MAX_APPLIED_PROOFS = WORLD_CRISIS_80_MAX_TARGET * WORLD_CRISIS_80_VILLAGES.length;
+
+// Same short process cache as api/world-crisis/_state.ts: every signed-in tab
+// polls this public projection every 15s. The endpoint is `no-store`, so every
+// state write goes through writeWorldCrisis80State, which drops the cached frame.
+export const WORLD_CRISIS_80_PROJECTION_CACHE_KEY = 'world-crisis-80:projection';
+const WORLD_CRISIS_80_PROJECTION_CACHE_TTL_MS = 3_000;
+
+async function writeWorldCrisis80State(state: WorldCrisis80State): Promise<void> {
+    await kv.set(WORLD_CRISIS_80_STATE_KEY, state);
+    invalidateProcCache(WORLD_CRISIS_80_PROJECTION_CACHE_KEY);
+}
 
 function cleanTarget(value: unknown): number {
     const parsed = Math.floor(Number(value));
@@ -182,7 +194,7 @@ async function loadWorldCrisis80State(): Promise<WorldCrisis80State> {
         const current = await kv.get<WorldCrisis80State>(WORLD_CRISIS_80_STATE_KEY);
         if (current) return normalizeWorldCrisis80State(current);
         const created = newWorldCrisis80State();
-        await kv.set(WORLD_CRISIS_80_STATE_KEY, created);
+        await writeWorldCrisis80State(created);
         return created;
     }, { failClosed: true });
 }
@@ -223,7 +235,7 @@ async function ensureWorldCrisis80Outbox(state: WorldCrisis80State): Promise<voi
             await withKvLock(WORLD_CRISIS_80_STATE_KEY, async () => {
                 const current = normalizeWorldCrisis80State(await kv.get(WORLD_CRISIS_80_STATE_KEY));
                 if (current.runId !== state.runId || current.awakeningAnnouncementId) return;
-                await kv.set(WORLD_CRISIS_80_STATE_KEY, {
+                await writeWorldCrisis80State({
                     ...current,
                     awakeningAnnouncementId: posted.id,
                     revision: current.revision + 1,
@@ -245,7 +257,7 @@ async function ensureWorldCrisis80Outbox(state: WorldCrisis80State): Promise<voi
             await withKvLock(WORLD_CRISIS_80_STATE_KEY, async () => {
                 const current = normalizeWorldCrisis80State(await kv.get(WORLD_CRISIS_80_STATE_KEY));
                 if (current.runId !== state.runId || current.resolutionAnnouncementId) return;
-                await kv.set(WORLD_CRISIS_80_STATE_KEY, {
+                await writeWorldCrisis80State({
                     ...current,
                     resolutionAnnouncementId: posted.id,
                     revision: current.revision + 1,
@@ -261,6 +273,11 @@ export async function readWorldCrisis80Projection(): Promise<WorldCrisis80Projec
     await ensureWorldCrisis80Outbox(state);
     state = await loadWorldCrisis80State();
     return projectWorldCrisis80State(state);
+}
+
+/** The public poll's read: the same projection, rebuilt at most once per 3s. */
+export function readWorldCrisis80ProjectionCached(): Promise<WorldCrisis80Projection> {
+    return cachedFor(WORLD_CRISIS_80_PROJECTION_CACHE_KEY, WORLD_CRISIS_80_PROJECTION_CACHE_TTL_MS, readWorldCrisis80Projection);
 }
 
 function eligibleFirstWitness(playerName: string, auth: Record<string, unknown> | null): boolean {
@@ -301,7 +318,7 @@ export async function observeWorldCrisis80LevelCrossing(input: {
             revision: current.revision + 1,
             updatedAt: now,
         };
-        await kv.set(WORLD_CRISIS_80_STATE_KEY, next);
+        await writeWorldCrisis80State(next);
         awakened = true;
         return next;
     }, { failClosed: true });
@@ -394,7 +411,7 @@ export async function recordWorldCrisis80Defense(input: {
             revision: current.revision + 1,
             updatedAt: now,
         };
-        await kv.set(WORLD_CRISIS_80_STATE_KEY, next);
+        await writeWorldCrisis80State(next);
         return next;
     }, { failClosed: true });
     await ensureWorldCrisis80Outbox(state);
@@ -461,7 +478,7 @@ export async function applyWorldCrisis80AdminAction(input: {
             next.villages = emptyVillages(current.targetPerVillage);
             next.revision = current.revision + 1;
         }
-        await kv.set(WORLD_CRISIS_80_STATE_KEY, next);
+        await writeWorldCrisis80State(next);
         return next;
     }, { failClosed: true });
     await recordAudit({
