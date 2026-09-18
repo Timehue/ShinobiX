@@ -1,20 +1,4 @@
-/* ──────────────────────────────────────────────────────────────────────────
-   LANDING SKIN — cinematic AAA-style homepage for the logged-out start screen.
-   Sits on top of start-skin.css (imported AFTER it) so `.landing-auth-card`
-   can extend `.start-card` and reuse its field/input styling. The adaptive
-   shell owns the full-bleed start-screen geometry; this file owns only the
-   landing content skin. All colours track the shared design tokens.
-   ────────────────────────────────────────────────────────────────────────── */
-
-.landing-root {
-    width: 100%;
-    color: var(--text, #edf6ff);
-    font-family: var(--font-body, "Trebuchet MS", Verdana, Arial, sans-serif);
-    background: #05070b;
-}
-
-/* Guides / Hall of Legends sub-views: re-add breathing room inside the now
-   full-bleed column (they keep .start-screen's max-width + centering). */
+/* Shared account and public policy pages. Homepage styles load with StartScreen. */
 .landing-subscreen {
     padding-top: clamp(14px, 3vw, 28px);
 }
@@ -27,32 +11,14 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    /* flex-start + auto block margins on the frame, NOT justify-content:center.
-       Centring a flex child that is taller than its container clips it at BOTH
-       ends with no way to reach the overflow — which is exactly what happened
-       once the gate grew past a name and a password field: on a 900px-tall
-       desktop with a few remembered shinobi, the password-recovery line fell off
-       the bottom and could not be scrolled to. The auto margins still centre the
-       card whenever there is room. */
     justify-content: flex-start;
     gap: 16px;
-    /* The extra block-end padding reserves the fixed storage-notice bar, which
-       is `position: fixed` with nothing anywhere reserving space for it — so on
-       a first visit it sat over the card's last rows, including the
-       password-recovery line. Measured 60px on desktop/tablet, 129px on a phone
-       where it wraps to three lines. It lives on the CONTAINER rather than the
-       frame on purpose: padding at the end of a scrolling flex column is not
-       reliably included in scrollHeight, so putting it on the child reserved
-       nothing. On a return visit, with the notice dismissed, the auto-centred
-       card just sits slightly higher. */
     padding: clamp(18px, 4vw, 40px) !important;
     padding-block-end: calc(clamp(18px, 4vw, 40px) + 76px) !important;
     background:
         linear-gradient(90deg, rgba(3, 6, 13, 0.98) 0%, rgba(3, 6, 13, 0.84) 34%, rgba(3, 6, 13, 0.42) 66%, rgba(3, 6, 13, 0.76) 100%),
         linear-gradient(180deg, rgba(3, 6, 13, 0.58), rgba(3, 6, 13, 0.18) 42%, rgba(3, 6, 13, 0.92)),
         url("/landing-hero-village-v2.webp") center / cover no-repeat;
-    /* Y scrolls when the card is tall; X stays hidden so the decorative
-       gradients can bleed without ever producing a horizontal scrollbar. */
     overflow-x: hidden;
     overflow-y: auto;
 }
@@ -73,8 +39,6 @@
     width: min(1120px, 100%);
     display: grid;
     gap: 18px;
-    /* Centres the card vertically when it fits, and simply starts at the top
-       when it does not — see the note on .landing-login-screen. */
     margin-block: auto;
 }
 
@@ -148,289 +112,6 @@
     color: #fbbf24;
     filter: drop-shadow(0 0 7px rgba(250, 204, 21, 0.5));
 }
-
-/* ── Sticky top bar ─────────────────────────────────────────────────────── */
-
-.landing-topbar {
-    position: sticky;
-    top: 0;
-    z-index: 50;
-    background: linear-gradient(180deg, rgba(5, 7, 12, 0.97), rgba(6, 9, 15, 0.86));
-    backdrop-filter: blur(18px) saturate(1.18);
-    border-bottom: 1px solid rgba(202, 138, 4, 0.28);
-}
-
-.landing-topbar-inner {
-    max-width: 1280px;
-    margin: 0 auto;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 8px clamp(18px, 3vw, 40px);
-}
-
-.landing-brand {
-    appearance: none;
-    border: none;
-    background: none;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: #fbbf24;
-    padding: 4px 2px;
-    border-radius: 8px;
-    white-space: nowrap;
-    transition: filter 0.15s, transform 0.15s;
-}
-
-@media (hover: hover) {
-    .landing-brand:hover {
-        filter: brightness(1.08);
-        box-shadow: none;
-    }
-}
-
-.landing-logo {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    color: #fbbf24;
-}
-
-.landing-logo-art {
-    display: block;
-    width: auto;
-    height: 38px;
-    object-fit: contain;
-    pointer-events: none;
-    user-select: none;
-}
-
-.landing-logo--nav .landing-logo-art {
-    height: 46px;
-}
-
-.landing-logo--hero {
-    position: relative;
-    align-items: center;
-    isolation: isolate;
-    filter: drop-shadow(0 16px 36px rgba(0, 0, 0, 0.76));
-}
-
-.landing-logo--hero::before {
-    content: "";
-    position: absolute;
-    inset: -18px -24px;
-    z-index: -1;
-    background:
-        radial-gradient(circle at 26% 48%, rgba(250, 204, 21, 0.22), transparent 22%),
-        linear-gradient(90deg, rgba(2, 6, 23, 0.40), rgba(2, 6, 23, 0.02));
-    filter: blur(10px);
-    opacity: 0.95;
-    pointer-events: none;
-}
-
-.landing-logo--hero .landing-logo-art {
-    width: clamp(440px, 44vw, 650px);
-    max-width: min(88vw, 650px);
-    height: auto;
-}
-
-.landing-logo--footer .landing-logo-art {
-    height: 42px;
-}
-
-.landing-topnav {
-    display: flex;
-    align-items: center;
-    gap: clamp(4px, 1.1vw, 14px);
-    flex-wrap: wrap;
-    justify-content: flex-end;
-}
-
-.landing-navlink {
-    appearance: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    background: none;
-    cursor: pointer;
-    color: #d6c081;
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: 13px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    text-decoration: none;
-    padding: 8px 8px;
-    /* 44px minimum touch target (SX-009): grows the hit box only — the
-       13px label and 8px visual padding are unchanged. */
-    min-height: 44px;
-    border-radius: 8px;
-    box-shadow: none;
-    filter: none;
-    line-height: 1;
-    transform: none;
-    transition: color 0.15s, background 0.15s, border-color 0.15s, box-shadow 0.15s;
-    white-space: nowrap;
-}
-
-@media (hover: hover) {
-    .landing-navlink:hover {
-        color: #fff7d6;
-        box-shadow: none;
-        filter: none;
-        transform: none;
-    }
-}
-
-/* ── Hero ───────────────────────────────────────────────────────────────── */
-
-.landing-hero {
-    position: relative;
-    min-height: calc(100svh - 70px);
-    display: flex;
-    align-items: center;
-    padding: clamp(40px, 7vh, 72px) clamp(18px, 4vw, 56px) clamp(70px, 10vh, 110px);
-    overflow: hidden;
-    background:
-        linear-gradient(90deg, rgba(3, 6, 11, 0.98), rgba(3, 6, 11, 0.82) 31%, rgba(3, 6, 11, 0.28) 62%, rgba(3, 6, 11, 0.7)),
-        linear-gradient(180deg, rgba(3, 6, 11, 0.46), rgba(3, 6, 11, 0.12) 42%, rgba(3, 6, 11, 0.96)),
-        url("/landing-hero-village-v2.webp") center 44% / cover no-repeat;
-}
-
-.landing-hero-inner {
-    position: relative;
-    z-index: 1;
-    width: 100%;
-    max-width: 1280px;
-    margin: 0 auto;
-    display: grid;
-    grid-template-columns: minmax(0, 720px);
-    gap: clamp(18px, 4vw, 44px);
-    justify-content: start;
-    align-items: center;
-}
-
-.landing-hero-copy {
-    /* Keep the copy inside the hero's responsive inline padding. The former
-       fixed -72px shift clipped the CTA and first characters at 1280px. */
-    transform: none;
-}
-
-.landing-eyebrow {
-    display: inline-block;
-    margin: 0 0 16px;
-    color: #fbbf24;
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: 12px;
-    letter-spacing: 0.3em;
-    text-transform: uppercase;
-    padding: 6px 15px;
-    border: 1px solid rgba(202, 138, 4, 0.5);
-    border-radius: 999px;
-    background: linear-gradient(180deg, rgba(209, 167, 88, 0.14), rgba(6, 9, 15, 0.58));
-    backdrop-filter: blur(8px);
-}
-
-.landing-title {
-    margin: 0 0 16px;
-    max-width: min(620px, 100%);
-}
-
-.landing-tagline {
-    margin: 0 0 22px;
-    max-width: 49ch;
-    color: #eee6d6;
-    font-size: clamp(16px, 1.45vw, 20px);
-    line-height: 1.62;
-    text-shadow: 0 3px 18px rgba(0, 0, 0, 0.86);
-}
-
-.landing-stat-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin: 0 0 28px;
-}
-
-.landing-stat-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    font-size: 12.5px;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    color: #e7d8a8;
-    padding: 7px 14px;
-    border-radius: 999px;
-    border: 1px solid rgba(202, 138, 4, 0.35);
-    background: rgba(2, 6, 23, 0.5);
-    backdrop-filter: blur(2px);
-}
-
-.landing-hero-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 14px;
-}
-
-.landing-cta {
-    appearance: none;
-    cursor: pointer;
-    text-decoration: none;
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: 15px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    padding: 14px 30px;
-    border-radius: 8px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transition: transform 0.12s ease, filter 0.15s, box-shadow 0.18s, border-color 0.15s, color 0.15s;
-}
-
-.landing-cta--primary {
-    color: #1a1005;
-    background: linear-gradient(135deg, #efce82, #cf9640 48%, #9b5527);
-    border: 1px solid rgba(250, 204, 21, 0.7);
-    box-shadow: 0 10px 30px rgba(120, 53, 15, 0.5), inset 0 0 0 1px rgba(250, 204, 21, 0.15), 0 0 24px rgba(250, 204, 21, 0.12);
-}
-
-@media (hover: hover) {
-    .landing-cta--primary:hover {
-        filter: brightness(1.09);
-        transform: translateY(-2px);
-        box-shadow: 0 14px 40px rgba(120, 53, 15, 0.6), inset 0 0 0 1px rgba(250, 204, 21, 0.28), 0 0 34px rgba(250, 204, 21, 0.26);
-    }
-}
-
-.landing-cta--primary:active {
-    transform: translateY(0);
-}
-
-.landing-cta--ghost {
-    color: var(--gold-300);
-    background: rgba(2, 6, 23, 0.42);
-    border: 1px solid rgba(202, 138, 4, 0.5);
-    backdrop-filter: blur(3px);
-}
-
-@media (hover: hover) {
-    .landing-cta--ghost:hover {
-        color: #fff7d6;
-        border-color: rgba(250, 204, 21, 0.85);
-        transform: translateY(-2px);
-    }
-}
-
-/* ── Auth panel (extends .start-card) ───────────────────────────────────── */
 
 .landing-auth-card {
     width: 100%;
@@ -593,75 +274,6 @@
     margin: 0 0 12px !important;
 }
 
-/* ── Scroll cue ─────────────────────────────────────────────────────────── */
-
-.landing-scroll-cue {
-    position: absolute;
-    left: 50%;
-    bottom: 16px;
-    transform: translateX(-50%) !important;
-    z-index: 1;
-    appearance: none;
-    background: none;
-    border: none;
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    color: #d6c081;
-    font-size: 11px;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    font-weight: 700;
-    opacity: 0.85;
-    transition: opacity 0.15s, color 0.15s, filter 0.15s;
-}
-
-.landing-scroll-cue:focus-visible,
-.landing-scroll-cue:active {
-    transform: translateX(-50%) !important;
-}
-@media (hover: hover) {
-    .landing-scroll-cue:hover {
-        transform: translateX(-50%) !important;
-    }
-}
-
-@media (hover: hover) {
-    .landing-scroll-cue:hover {
-        opacity: 1;
-        color: var(--gold-300);
-        filter: brightness(1.12);
-    }
-}
-
-.landing-scroll-arrow {
-    font-size: 18px;
-    line-height: 1;
-    animation: landing-bounce 1.8s ease-in-out infinite;
-}
-
-@keyframes landing-bounce {
-    0%, 100% { transform: translateY(0); }
-    50%      { transform: translateY(5px); }
-}
-
-/* ── Feature showcase ───────────────────────────────────────────────────── */
-
-.landing-features {
-    position: relative;
-    padding: clamp(68px, 9vh, 110px) clamp(16px, 4vw, 48px);
-    background: linear-gradient(180deg, #05070b, #0a1019 48%, #06080d);
-    border-top: 1px solid rgba(202, 138, 4, 0.14);
-}
-
-.landing-section-head {
-    max-width: 780px;
-    margin: 0 auto clamp(30px, 5vh, 54px);
-    text-align: center;
-}
-
 .landing-kicker {
     margin: 0 0 12px;
     color: #ca8a04;
@@ -671,477 +283,6 @@
     text-transform: uppercase;
     font-size: 13px;
 }
-
-.landing-section-title {
-    margin: 0 0 14px;
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: clamp(32px, 4.2vw, 52px);
-    line-height: 1.05;
-    color: #f1dfad;
-    text-shadow: 0 0 24px rgba(250, 204, 21, 0.2);
-    border: none;
-    padding: 0;
-}
-
-.landing-section-sub {
-    margin: 0;
-    color: #a9b1c2;
-    font-size: clamp(14px, 1.6vw, 18px);
-    line-height: 1.55;
-}
-
-.landing-feature-grid {
-    max-width: 1200px;
-    margin: 0 auto;
-    display: grid;
-    gap: clamp(16px, 2vw, 24px);
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.landing-feature-card {
-    position: relative;
-    overflow: hidden;
-    border-radius: 14px;
-    border: 1px solid rgba(202, 138, 4, 0.24);
-    background: linear-gradient(180deg, rgba(16, 22, 38, 0.94), rgba(8, 11, 22, 0.96));
-    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45);
-    display: flex;
-    flex-direction: column;
-    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
-}
-
-.landing-feature-card:hover {
-    transform: translateY(-7px);
-    border-color: rgba(250, 204, 21, 0.5);
-    box-shadow: 0 26px 60px rgba(0, 0, 0, 0.6), 0 0 30px rgba(202, 138, 4, 0.12);
-}
-
-.landing-feature-media {
-    position: relative;
-    aspect-ratio: 16 / 10;
-    overflow: hidden;
-}
-
-.landing-feature-media img {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-    filter: saturate(0.92) contrast(1.04) brightness(0.9);
-    transition: transform 0.5s ease;
-}
-
-.landing-feature-card:hover .landing-feature-media img {
-    transform: scale(1.06);
-}
-
-.landing-feature-media::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(180deg, transparent 45%, rgba(8, 11, 22, 0.97));
-    pointer-events: none;
-}
-
-.landing-feature-tag {
-    position: absolute;
-    top: 12px;
-    left: 12px;
-    z-index: 1;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: #fff7d6;
-    padding: 5px 11px;
-    border-radius: 999px;
-    background: rgba(120, 53, 15, 0.88);
-    border: 1px solid rgba(250, 204, 21, 0.5);
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
-}
-
-.landing-feature-text {
-    position: relative;
-    z-index: 1;
-    margin-top: -30px;
-    padding: 4px 20px 22px;
-}
-
-.landing-feature-title {
-    margin: 0 0 8px;
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: 20px;
-    color: var(--gold-300);
-    letter-spacing: 0.02em;
-    border: none;
-    padding: 0;
-}
-
-.landing-feature-blurb {
-    margin: 0;
-    color: #b9c1d1;
-    font-size: 14px;
-    line-height: 1.55;
-}
-
-/* ── "Prove your worth" CTA band (key-art + feature strip) ──────────────── */
-
-.landing-band {
-    position: relative;
-    overflow: hidden;
-    padding: clamp(72px, 10vh, 118px) clamp(16px, 4vw, 48px);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    background:
-        linear-gradient(180deg, rgba(5, 8, 16, 0.9), rgba(5, 8, 16, 0.48) 42%, rgba(5, 8, 16, 0.94)),
-        url("/landing-band-v2.webp") center / cover no-repeat;
-    border-top: 1px solid rgba(202, 138, 4, 0.18);
-    border-bottom: 1px solid rgba(202, 138, 4, 0.18);
-}
-
-.landing-band-inner {
-    position: relative;
-    z-index: 1;
-    max-width: 720px;
-}
-
-.landing-band-title {
-    margin: 10px 0 14px;
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: clamp(36px, 5vw, 60px);
-    line-height: 1.06;
-    color: #fff;
-    text-shadow: 0 4px 26px rgba(0, 0, 0, 0.85);
-    border: none;
-    padding: 0;
-}
-
-.landing-band-sub {
-    margin: 0 0 26px;
-    color: #d8dee9;
-    font-size: clamp(15px, 1.8vw, 19px);
-    line-height: 1.5;
-    text-shadow: 0 2px 14px rgba(0, 0, 0, 0.75);
-}
-
-.landing-band-actions {
-    display: flex;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 14px;
-}
-
-.landing-band-feats {
-    position: relative;
-    z-index: 1;
-    list-style: none;
-    width: 100%;
-    max-width: 1000px;
-    margin: clamp(30px, 4vh, 46px) auto 0;
-    padding: clamp(22px, 3vh, 30px) 0 0;
-    border-top: 1px solid rgba(202, 138, 4, 0.22);
-    display: flex;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: clamp(16px, 3vw, 40px);
-}
-
-.landing-band-feats li {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 9px;
-    flex: 0 1 150px;
-    min-width: 108px;
-    color: #e7d8a8;
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: 12px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    text-align: center;
-    line-height: 1.35;
-    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.85);
-}
-
-.landing-band-feats svg {
-    width: 30px;
-    height: 30px;
-    color: #fbbf24;
-    filter: drop-shadow(0 0 8px rgba(250, 204, 21, 0.45));
-}
-
-/* ── Footer ─────────────────────────────────────────────────────────────── */
-
-/* --- Final create flow --- */
-
-.landing-begin {
-    position: relative;
-    overflow: hidden;
-    padding: clamp(82px, 11vh, 130px) clamp(16px, 4vw, 48px) clamp(90px, 12vh, 140px);
-    text-align: center;
-    background:
-        linear-gradient(180deg, rgba(4, 7, 12, 0.98), rgba(4, 7, 12, 0.54) 46%, rgba(4, 7, 12, 0.94) 79%, #05070b),
-        url("/landing-legacy-v2.webp") center 42% / cover no-repeat;
-    border-top: 1px solid rgba(202, 138, 4, 0.16);
-}
-
-.landing-begin::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(90deg, rgba(5, 7, 13, 0.82), rgba(5, 7, 13, 0.18) 50%, rgba(5, 7, 13, 0.82));
-    pointer-events: none;
-}
-
-.landing-begin-inner {
-    position: relative;
-    z-index: 1;
-    max-width: 1200px;
-    margin: 0 auto;
-}
-
-.landing-begin-sub {
-    max-width: 680px;
-    margin: 0 auto clamp(40px, 6vh, 60px);
-    color: #d5dbe3;
-    font-size: clamp(15px, 1.6vw, 19px);
-    line-height: 1.65;
-}
-
-.landing-steps {
-    list-style: none;
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: clamp(16px, 2vw, 24px);
-    margin: 0;
-    padding: 0;
-}
-
-.landing-steps li {
-    min-height: 216px;
-    padding: clamp(24px, 3vw, 32px);
-    border-radius: 14px;
-    border: 1px solid rgba(230, 196, 119, 0.3);
-    background: linear-gradient(145deg, rgba(22, 29, 40, 0.92), rgba(7, 11, 18, 0.96) 62%);
-    box-shadow: inset 0 1px rgba(255, 255, 255, 0.055), 0 24px 62px rgba(0, 0, 0, 0.46);
-    text-align: left;
-}
-
-.landing-step-num {
-    display: inline-flex;
-    margin: 0 0 20px;
-    color: #e2b964;
-    font-family: var(--font-display);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.18em;
-}
-
-.landing-step-title {
-    margin: 0 0 12px;
-    color: #efdaa3;
-    font-family: var(--font-display);
-    font-size: clamp(21px, 2vw, 26px);
-    line-height: 1.15;
-    border: none;
-    padding: 0;
-}
-
-.landing-step-desc {
-    margin: 0;
-    color: #bcc6d2;
-    font-size: 14px;
-    line-height: 1.68;
-}
-
-.landing-guide-spotlight {
-    display: grid;
-    grid-template-columns: minmax(280px, 0.78fr) minmax(0, 1.22fr);
-    column-gap: clamp(30px, 5vw, 64px);
-    margin-top: clamp(54px, 8vh, 84px);
-    padding: clamp(30px, 4vw, 52px);
-    border: 1px solid rgba(230, 196, 119, 0.34);
-    border-radius: 18px;
-    background: linear-gradient(120deg, rgba(21, 27, 36, 0.97), rgba(8, 12, 19, 0.95) 54%, rgba(14, 18, 27, 0.97));
-}
-
-.landing-guide-head {
-    max-width: none;
-    margin: 0;
-    padding-right: clamp(26px, 4vw, 52px);
-    border-right: 1px solid rgba(209, 167, 88, 0.2);
-    text-align: left;
-}
-
-.landing-guide-title {
-    margin: 0 0 16px;
-    color: #f1dfae;
-    font-family: var(--font-display);
-    font-size: clamp(30px, 3.5vw, 45px);
-    line-height: 1.08;
-    border: none;
-    padding: 0;
-}
-
-.landing-guide-sub {
-    margin: 0;
-    color: #b9c3cf;
-    font-size: 15px;
-    line-height: 1.72;
-}
-
-.landing-guide-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    align-content: center;
-    gap: 12px;
-}
-
-.landing-guide-card {
-    min-height: 0;
-    padding: 18px 20px;
-    border-radius: 10px;
-    border: 1px solid rgba(209, 167, 88, 0.2);
-    background: linear-gradient(100deg, rgba(27, 34, 44, 0.76), rgba(7, 11, 18, 0.72));
-    text-align: left;
-}
-
-.landing-guide-card h4 {
-    margin: 0 0 5px;
-    color: #ead69f;
-    font-family: var(--font-display);
-    font-size: 18px;
-    line-height: 1.2;
-    border: none;
-    padding: 0;
-}
-
-.landing-guide-card p {
-    margin: 0;
-    color: #aeb9c5;
-    font-size: 13px;
-    line-height: 1.55;
-}
-
-.landing-guide-cta {
-    margin-top: 28px;
-}
-
-.landing-footer {
-    background: #05070d;
-    border-top: 1px solid rgba(202, 138, 4, 0.2);
-    padding: clamp(28px, 5vh, 44px) clamp(16px, 4vw, 48px) 28px;
-}
-
-.landing-footer-inner {
-    max-width: 1200px;
-    margin: 0 auto;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 20px;
-    flex-wrap: wrap;
-}
-
-.landing-brand--footer {
-    cursor: default;
-}
-
-.landing-footer-tag {
-    margin: 6px 0 0;
-    color: #7c869a;
-    font-size: 13px;
-}
-
-.landing-footer-links {
-    display: flex;
-    flex-wrap: wrap;
-    gap: clamp(10px, 2vw, 24px);
-}
-
-.landing-footer-links a,
-.landing-footer-links button {
-    appearance: none;
-    display: inline-flex;
-    /* 44px minimum touch target (SX-009): hit box only, text unchanged. */
-    min-height: 44px;
-    align-items: center;
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: #b8a36a;
-    font-family: var(--font-display);
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    font-size: 12.5px;
-    text-decoration: none;
-    padding: 4px 6px;
-    transition: color 0.15s;
-}
-
-@media (hover: hover) {
-    .landing-footer-links a:hover,
-    .landing-footer-links button:hover {
-        color: var(--gold-300);
-    }
-}
-
-.landing-footer-legal {
-    max-width: 1200px;
-    margin: 22px auto 0;
-    padding-top: 18px;
-    color: #7d879d;
-    font-size: 12px;
-    border-top: 1px solid rgba(148, 163, 184, 0.1);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px 14px;
-    flex-wrap: wrap;
-}
-
-.landing-footer-legal p {
-    margin: 0;
-}
-
-.landing-footer-policy-links {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 5px 12px;
-    flex-wrap: wrap;
-}
-
-.landing-footer-policy-links a {
-    display: inline-flex;
-    align-items: center;
-    box-sizing: border-box;
-    /* 44px minimum touch target (SX-009), up from 24px. */
-    min-height: 44px;
-    color: #8f9bb0;
-    text-decoration: none;
-    border-left: 1px solid #525d70;
-    padding-left: 12px;
-    transition: color 0.15s ease;
-}
-
-.landing-footer-policy-links a:hover {
-    color: #d9bd72;
-    text-decoration: underline;
-    text-underline-offset: 3px;
-}
-
-/* Public policy pages — intentionally quieter and more readable than the game UI. */
 .legal-page-shell {
     min-height: 100vh;
     background:
@@ -1309,21 +450,16 @@
     text-decoration: none;
 }
 
-.landing-footer-policy-links a:focus-visible,
 .legal-page-shell a:focus-visible {
     outline: 2px solid rgba(250, 204, 21, 0.9);
     outline-offset: 3px;
     border-radius: 5px;
 }
 
-/* ── Responsive ─────────────────────────────────────────────────────────── */
-
 @media (max-width: 900px) {
     .landing-login-screen {
         justify-content: flex-start;
         padding-top: clamp(18px, 4vw, 32px) !important;
-        /* The storage notice wraps to three lines on a phone (129px measured),
-           and the mobile nav sits under it — reserve the taller footprint. */
         padding-block-end: 152px !important;
         background:
             linear-gradient(180deg, rgba(3, 6, 13, 0.74), rgba(3, 6, 13, 0.50) 34%, rgba(3, 6, 13, 0.96)),
@@ -1357,124 +493,12 @@
         width: min(100%, 372px);
         height: 220px;
     }
-    .landing-hero {
-        min-height: auto;
-        padding-top: 34px;
-        padding-bottom: 44px;
-        /* Simpler, uniformly darker overlay so centred copy stays legible. */
-        background:
-            linear-gradient(180deg, rgba(4, 7, 14, 0.72), rgba(4, 7, 14, 0.55) 34%, rgba(4, 7, 14, 0.94)),
-            url("/landing-hero-village-v2.webp") 58% center / cover no-repeat;
-    }
-    .landing-hero-inner {
-        grid-template-columns: 1fr;
-        gap: 26px;
-    }
-    .landing-hero-copy {
-        text-align: center;
-        transform: none;
-    }
-    .landing-title {
-        display: flex;
-        justify-content: center;
-    }
-    .landing-logo--hero {
-        justify-content: center;
-    }
-    .landing-eyebrow {
-        margin-inline: auto;
-    }
-    .landing-tagline {
-        margin-inline: auto;
-    }
-    .landing-stat-chips,
-    .landing-hero-actions {
-        justify-content: center;
-    }
-    .landing-feature-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .landing-steps {
-        grid-template-columns: 1fr;
-    }
-    .landing-guide-grid {
-        grid-template-columns: 1fr;
-    }
-    .landing-guide-spotlight {
-        display: block;
-    }
-    .landing-guide-head {
-        padding: 0 0 30px;
-        border-right: 0;
-        border-bottom: 1px solid rgba(209, 167, 88, 0.2);
-        text-align: center;
-    }
-    .landing-steps li {
-        min-height: 0;
-    }
     .landing-auth-card {
         margin: 0 auto;
-    }
-    .landing-scroll-cue {
-        display: none;
     }
 }
 
 @media (max-width: 680px) {
-    .landing-topbar-inner {
-        flex-direction: column;
-        gap: 2px;
-        justify-content: center;
-        padding: 6px 10px 8px;
-    }
-    .landing-brand {
-        padding-block: 2px;
-    }
-    .landing-logo--nav .landing-logo-art {
-        height: 34px;
-    }
-    .landing-topnav {
-        display: grid;
-        grid-template-columns: repeat(6, minmax(0, 1fr));
-        gap: 5px;
-        width: 100%;
-    }
-    .landing-topnav .landing-navlink {
-        grid-column: span 2;
-        width: 100%;
-        min-height: 44px;
-        font-size: 10px;
-        letter-spacing: 0.04em;
-        padding: 7px 3px;
-        border: 1px solid rgba(214, 192, 129, 0.24);
-        border-radius: 999px;
-        background: linear-gradient(180deg, rgba(255, 247, 214, 0.055), rgba(6, 9, 18, 0.42));
-        box-shadow: inset 0 1px 0 rgba(255, 247, 214, 0.05), 0 3px 10px rgba(0, 0, 0, 0.2);
-        text-align: center;
-    }
-    .landing-topnav .landing-cta--primary {
-        color: #1a1005;
-        border-color: rgba(246, 213, 142, 0.68);
-        background: linear-gradient(135deg, #e8c777, #b97b34);
-    }
-    .landing-topnav .landing-navlink:nth-last-child(-n + 2) {
-        grid-column: span 3;
-    }
-    @media (hover: hover) {
-        .landing-topnav .landing-navlink:hover {
-            color: #fff7d6;
-            border-color: rgba(250, 204, 21, 0.52);
-            background: linear-gradient(180deg, rgba(250, 204, 21, 0.12), rgba(6, 9, 18, 0.5));
-            box-shadow: inset 0 1px 0 rgba(255, 247, 214, 0.08), 0 4px 12px rgba(0, 0, 0, 0.26);
-        }
-    }
-    @media (hover: hover) {
-        .landing-topnav .landing-cta--primary:hover:not(:disabled) {
-            color: #1a1005;
-            border-color: rgba(246, 213, 142, 0.82);
-            background: linear-gradient(135deg, #f1d487, #c98b3d);
-        }
-    }
 }
 
 @media (max-width: 560px) {
@@ -1506,61 +530,6 @@
         font-size: 14px !important;
         letter-spacing: 0.18em !important;
     }
-    .landing-logo--hero {
-        max-width: 100%;
-    }
-    .landing-logo--hero .landing-logo-art {
-        width: min(90vw, 390px);
-        max-width: 90vw;
-    }
-    .landing-title {
-        margin-bottom: 12px;
-    }
-    .landing-hero-actions {
-        flex-direction: column;
-        align-items: center;
-        gap: 6px;
-    }
-    .landing-hero-actions .landing-cta {
-        flex: none;
-    }
-    .landing-hero-actions .landing-cta--primary {
-        width: 100%;
-    }
-    .landing-hero-actions .landing-cta--ghost {
-        width: auto;
-        min-width: 0;
-        padding: 9px 12px;
-        border-color: transparent;
-        background: transparent;
-        box-shadow: none;
-    }
-    .landing-band-actions .landing-cta {
-        flex: 1 1 100%;
-    }
-    .landing-feature-grid {
-        grid-template-columns: 1fr;
-    }
-    .landing-cta {
-        width: 100%;
-        max-width: 420px;
-        padding-inline: 18px;
-        letter-spacing: 0.1em;
-    }
-    .landing-band-feats {
-        gap: 16px;
-    }
-    .landing-band-feats li {
-        flex-basis: 126px;
-    }
-    .landing-footer-inner {
-        flex-direction: column;
-        text-align: center;
-        align-items: center;
-    }
-    .landing-footer-links {
-        justify-content: center;
-    }
 
     .legal-page-content {
         grid-template-columns: 1fr;
@@ -1578,14 +547,6 @@
 }
 
 @media (max-width: 520px) {
-    .landing-footer-legal {
-        flex-direction: column;
-    }
-
-    .landing-footer-policy-links a {
-        border-left: 0;
-        padding-left: 0;
-    }
 
     .legal-page-shell {
         padding-inline: 14px;
@@ -1630,179 +591,11 @@
     }
 }
 
-/* ── Risk-reducer microcopy under the hero CTAs ─────────────────────────── */
-
-.landing-cta-note {
-    margin: 16px 0 0;
-    color: #90a0b6;
-    font-size: 12.5px;
-    letter-spacing: 0.04em;
-}
-
-/* ── "Rise With Your Clan" feature block (image + copy + bullets) ────────── */
-
-.landing-clan {
-    position: relative;
-    padding: clamp(68px, 9vh, 110px) clamp(16px, 4vw, 48px);
-    background: linear-gradient(180deg, #06090e, #0a1018 52%, #06090e);
-    border-top: 1px solid rgba(202, 138, 4, 0.14);
-}
-
-.landing-clan-inner {
-    max-width: 1200px;
-    margin: 0 auto;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: clamp(36px, 6vw, 82px);
-    align-items: center;
-}
-
-.landing-clan-media {
-    position: relative;
-    aspect-ratio: 4 / 3;
-    border-radius: 16px;
-    overflow: hidden;
-    border: 1px solid rgba(202, 138, 4, 0.30);
-    box-shadow: 0 22px 55px rgba(0, 0, 0, 0.55), 0 0 30px rgba(202, 138, 4, 0.08);
-}
-
-.landing-clan-media img {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-}
-
-.landing-clan-media::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(120deg, transparent 58%, rgba(6, 8, 15, 0.4));
-    pointer-events: none;
-}
-
-.landing-clan-title {
-    text-align: left;
-    margin-bottom: 14px;
-}
-
-.landing-clan-lead {
-    margin: 0 0 20px;
-    color: #cdd5e3;
-    font-size: clamp(15px, 1.6vw, 18px);
-    line-height: 1.7;
-}
-
-.landing-clan-points {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.landing-clan-points li {
-    position: relative;
-    padding-left: 30px;
-    color: #c2cad9;
-    font-size: 14.5px;
-    line-height: 1.62;
-}
-
-.landing-clan-points li::before {
-    content: "✦";
-    position: absolute;
-    left: 0;
-    top: 0;
-    color: #fbbf24;
-    font-size: 15px;
-    filter: drop-shadow(0 0 6px rgba(250, 204, 21, 0.5));
-}
-
-/* Reversed variant (copy left, media right) so stacked feature blocks alternate. */
-.landing-clan--reverse .landing-clan-media { order: 2; }
-.landing-clan--reverse .landing-clan-copy { order: 1; }
-
-@media (max-width: 860px) {
-    .landing-clan-inner {
-        grid-template-columns: 1fr;
-        gap: 24px;
-    }
-    /* On mobile, always stack with the image on top (DOM order), both variants. */
-    .landing-clan--reverse .landing-clan-media,
-    .landing-clan--reverse .landing-clan-copy {
-        order: 0;
-    }
-}
-
-/* ── Focus-visible rings (keyboard users on the dark art) ───────────────── */
-
-.landing-cta:focus-visible,
-.landing-navlink:focus-visible,
-.landing-auth-secondary:focus-visible,
-.landing-brand:focus-visible,
-.landing-scroll-cue:focus-visible,
-.landing-footer-links a:focus-visible,
-.landing-footer-links button:focus-visible {
+.landing-auth-secondary:focus-visible {
     outline: 2px solid rgba(250, 204, 21, 0.85);
     outline-offset: 2px;
     border-radius: 8px;
 }
-
-/* ── Reduced motion: stop the infinite pulse / bounce ───────────────────── */
-
-@media (prefers-reduced-motion: reduce) {
-    .landing-scroll-arrow {
-        animation: none !important;
-    }
-    .landing-feature-card,
-    .landing-feature-media img,
-    .landing-cta {
-        transition: none !important;
-    }
-}
-
-/* ── Intermediate width: relieve the hero two-column squeeze ────────────── */
-
-@media (max-width: 1120px) and (min-width: 901px) {
-    .landing-hero {
-        padding-top: clamp(42px, 6vh, 60px);
-        padding-inline: clamp(22px, 4vw, 44px);
-    }
-    .landing-hero-inner {
-        grid-template-columns: minmax(0, min(100%, 680px));
-        gap: 28px;
-    }
-    .landing-hero-copy {
-        max-width: min(100%, 680px);
-        transform: none;
-    }
-    .landing-logo--hero .landing-logo-art {
-        width: clamp(360px, 46vw, 560px);
-        max-width: 100%;
-    }
-    .landing-tagline {
-        max-width: 44ch;
-        font-size: clamp(15px, 1.9vw, 18px);
-    }
-    .landing-cta {
-        padding-inline: 24px;
-    }
-}
-
-/* Roboto, self-hosted, solely for the "Sign in with Google" label.
-   Google's branding guidelines name a specific typeface for that button, and
-   Roboto is the freely-licensed one they have specified for it (Apache 2.0 —
-   see public/fonts/roboto-LICENSE.txt, shipped alongside as that licence
-   requires). Google Sans itself is a restricted trademark and is deliberately
-   NOT used.
-   Self-hosted rather than linked: `font-src 'self' data:` blocks Google Fonts,
-   and a webfont link would send every visitor's IP to Google on page load,
-   which would contradict the privacy policy's no-third-party-requests
-   statement. `display: swap` so a slow font never delays the sign-in button. */
 @font-face {
     font-family: "Roboto";
     font-style: normal;
@@ -1810,13 +603,6 @@
     font-display: swap;
     src: url("/fonts/roboto-v51-latin-regular.woff2") format("woff2");
 }
-
-/* ── The gate (screens/start/LoginGate.tsx) ──────────────────────────────────
-   Sits inside .landing-login-card, so the frame, art header and hint styles
-   above still apply. What is new here is the order of the doors: remembered
-   shinobi first, then the two that need nothing typed, then the password form.
-   Everything below is scoped under .login-gate so it cannot reach the landing
-   hero or the character creator. */
 
 .login-gate .gate-section-label {
     margin: 0 0 8px;
@@ -1840,9 +626,6 @@
     gap: 8px;
     margin-bottom: 18px;
 }
-
-/* The one-click return. Deliberately the heaviest control on the card: for a
-   returning player it is the only thing on this screen they need. */
 .login-gate .gate-account-chip {
     appearance: none;
     display: flex;
@@ -1872,10 +655,6 @@
     opacity: 0.55;
     cursor: default;
 }
-
-/* Initial medallion. Reads as a crest rather than a fallback: the ring and the
-   display face are doing the work a portrait would, and every shinobi gets a
-   visibly different one. */
 .login-gate .gate-account-avatar {
     display: grid;
     place-items: center;
@@ -1893,8 +672,6 @@
     line-height: 1;
     text-transform: uppercase;
 }
-
-/* Marks the character that disappears if it is not claimed. */
 .login-gate .gate-account-tag {
     flex: 0 0 auto;
     padding: 3px 8px;
@@ -1932,16 +709,6 @@
     gap: 8px;
     margin-bottom: 18px;
 }
-
-/* Google's own guidance is a white button with their wordmark colours intact,
-   which is also the only element on this card that is not gold — that contrast
-   is what makes it read as a third-party control rather than a game button. */
-/* Colours, padding, and logo treatment follow Google's light-theme custom-button
-   spec exactly (fill #FFFFFF, 1px #747775 stroke, #1F1F1F text, 12px edge
-   padding, 10px after the logo, logo neither resized in colour nor stretched).
-   Complying is a condition of brand verification, so do not restyle this to
-   match the gold buttons around it — the visual mismatch is the point.
-   https://developers.google.com/identity/branding-guidelines */
 .login-gate .gate-google-btn {
     appearance: none;
     display: flex;
@@ -1956,14 +723,6 @@
     border: 1px solid #747775;
     background: #ffffff;
     color: #1f1f1f;
-    /* Roboto is now shipped with the app (see the @font-face above), so this
-       renders the same on every platform instead of falling through to whatever
-       each OS happened to have. The rest of the stack stays as a safety net for
-       the moments before the font loads or if it fails to.
-       Only weight 400 is bundled. CSS weight matching tries 400 first when 500
-       is asked for, so this uses the real face rather than a synthesised bold —
-       and if a Medium (500) file is ever added, it is picked up automatically
-       with no change here. */
     font-family: "Roboto", system-ui, -apple-system, "Segoe UI Variable Text",
         "Segoe UI", "Noto Sans", Arial, sans-serif;
     font-size: 15px;
@@ -1982,9 +741,6 @@
     opacity: 0.6;
     cursor: default;
 }
-
-/* Square box, square viewBox: Google forbids stretching or recolouring the
-   mark, so this must never pick up a width/height that differ. */
 .login-gate .gate-google-mark {
     width: 20px;
     height: 20px;
@@ -2018,9 +774,6 @@
     opacity: 0.6;
     cursor: default;
 }
-
-/* The trade-off note under "Play as a guest". Sits tight to the button it
-   qualifies, and stays quiet enough not to compete with the choice itself. */
 .login-gate .gate-guest-note {
     margin: 6px 2px 0;
     font-size: 0.76rem;
@@ -2038,5 +791,3 @@
     gap: 12px;
     margin-bottom: 12px;
 }
-
-.landing-navlink:disabled, .landing-cta:disabled { cursor: not-allowed; opacity: 0.56; }

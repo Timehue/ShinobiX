@@ -52,10 +52,10 @@ describe("landing hero preload", () => {
     it("points at an image that ships", () => {
         const href = /LANDING_HERO\s*=\s*'([^']+)'/u.exec(watchdog)?.[1];
         assert.ok(href, "boot-watchdog.js must declare LANDING_HERO");
-        // landing-skin.css is what actually paints it; if the two ever disagree
+        // landing-home.css is what actually paints it; if the two ever disagree
         // the preload warms a file nothing uses, which is worse than no preload.
-        const landingSkin = readFileSync(new URL("./styles/landing-skin.css", import.meta.url), "utf8");
-        assert.ok(landingSkin.includes(href!), `landing-skin.css must reference ${href}`);
+        const landingSkin = readFileSync(new URL("./styles/landing-home.css", import.meta.url), "utf8");
+        assert.ok(landingSkin.includes(href!), `landing-home.css must reference ${href}`);
     });
 
     it("fails open: an unreadable localStorage preloads rather than skipping", () => {

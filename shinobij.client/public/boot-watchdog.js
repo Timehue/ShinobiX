@@ -12,7 +12,7 @@
     // literal because this file is a pre-module classic script and cannot import
     // from the bundle; if that constant is ever renamed, rename it here too.
     var PLAYER_ACCOUNTS_STORAGE = 'ninjav-player-accounts-v1';
-    var LANDING_HERO = '/landing-hero-village-v2.webp';
+    var LANDING_HERO = '/landing/hero-shinobi.webp';
 
     /**
      * True only when this browser clearly holds a saved account, i.e. the player

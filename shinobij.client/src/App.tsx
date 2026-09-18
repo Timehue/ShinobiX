@@ -1419,6 +1419,7 @@ export default function App() {
     // offline player who never responds). Sweep every 20s and drop anything
     // older than 3 minutes that isn't tied to a live battle.
     useEffect(() => {
+        if (!character?.name) return;
         const CHALLENGE_TIMEOUT_MS = 180000; // 3 minutes — keep in sync with CHALLENGE_TTL in api/player/challenge.ts
         const id = setInterval(() => {
             setDuelChallenges((current) => {
@@ -1427,7 +1428,7 @@ export default function App() {
             });
         }, 20000);
         return () => clearInterval(id);
-    }, []);
+    }, [character?.name]);
 
     // Incoming duel challenges arrive over the authenticated heartbeat
     // (`data.pendingChallenges`, merged below), nudged to fire immediately by the
@@ -3418,6 +3419,8 @@ export default function App() {
     }, [sharedImages]);
 
     useEffect(() => {
+        // Anonymous landing/account views have no vitals to regenerate.
+        if (!character?.name) return;
         const interval = setInterval(() => {
             setCharacter((prev) => {
                 if (!prev) return prev;
@@ -3429,7 +3432,7 @@ export default function App() {
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [screen, raidBattleKind, pvpBattleId, pvpCompletionConfirmed, endlessBattleActive, pendingArenaStoryBattle, pendingEventEncounter, activeDungeonEvent, hollowGateTileGameActive, pendingPetBattleOpponent, petBattleActive, missionBattleActive]);
+    }, [character?.name, screen, raidBattleKind, pvpBattleId, pvpCompletionConfirmed, endlessBattleActive, pendingArenaStoryBattle, pendingEventEncounter, activeDungeonEvent, hollowGateTileGameActive, pendingPetBattleOpponent, petBattleActive, missionBattleActive]);
 
     // Image category loader — fetches from shared KV store and hydrates
     // embedded image fields so all existing display code works without changes.
