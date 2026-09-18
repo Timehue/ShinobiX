@@ -3624,7 +3624,7 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-yard-refined.css",
-            "line": 64
+            "line": 66
           }
         ]
       },
@@ -3897,6 +3897,10 @@
           {
             "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
             "line": 974
+          },
+          {
+            "source": "shinobij.client/src/styles/pet-yard-refined.css",
+            "line": 28
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
