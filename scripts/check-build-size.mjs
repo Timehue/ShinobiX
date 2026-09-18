@@ -693,7 +693,13 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // the initial graph passes at 1,453,566 B raw / 388,316 B gzip. Account for this
 // intended presentation change with 40 KB, leaving 26,855 B of measured image
 // headroom. All startup, per-chunk, and gzip limits below remain unchanged.
-const TOTAL_JS_CSS_FAIL_BYTES = 8_640_000;
+// 2026-09-18: 8.64 -> 8.66 MB. The Pet Yard, Sunscar hub and Exchange
+// refresh adds scoped presentation and accessible navigation/recovery controls
+// to lazy screens. Retired roster/expedition selectors and Exchange seal styles
+// were removed. The production-equivalent graph measures under 8.65 MB; the
+// initial graph remains 1,453,747 B raw / 388,326 B gzip. Startup gates below
+// are unchanged; this ceiling accounts only for the full installed game.
+const TOTAL_JS_CSS_FAIL_BYTES = 8_660_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

@@ -1,11 +1,8 @@
 .sunscar-exchange-entrance { position: relative; display: flex; flex-direction: column; justify-content: space-between; min-height: 340px; background-size: cover; background-position: 64% center; overflow: hidden; box-shadow: inset 0 0 0 4px #d3ad6312, 0 12px 32px #0003; }
-.sx-entrance-seal { width: 42px; height: 42px; padding: 8px; color: #ead296; border: 1px solid #d3ad6380; border-radius: 50%; background: #14251dc9; }
 .sx-entrance-copy { padding-top: 58px; }
 .sx-eyebrow { display: block; color: #c5b07c; font: 600 10px/1.6 system-ui, sans-serif; letter-spacing: .18em; }
 .sunscar-exchange-entrance h2 { color: #f3e5be; font-size: clamp(24px, 2vw, 31px); border: 0; margin: 4px 0 8px; padding: 0; }
 .sunscar-exchange-entrance p { font-size: 14px; line-height: 1.5; max-width: 30ch; color: #d3d4c4; margin: 0 0 12px; }
-.sx-entrance-tags { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 16px; }
-.sx-entrance-tags span { padding: 3px 7px; font: 11px/1.5 system-ui, sans-serif; background: #1b302dcc; color: #c9d7cc; border: 1px solid #c5cfa226; border-radius: 3px; }
 .sx-entrance-copy > small { display: block; text-align: center; color: #b9c0b1; font: 11px/1.5 system-ui, sans-serif; margin-top: 8px; }
 .sx-hall { --sx-gold: #d7b577; --sx-text: #ede9dd; --sx-muted: #a9b8b1; color: var(--sx-text); background: #111c1a; border: 1px solid #a58a5360; border-radius: 14px; overflow: hidden; box-shadow: 0 20px 65px #0003; font-family: system-ui, sans-serif; }
 .sx-hall *, .sx-dialog *, .sunscar-exchange-entrance * { box-sizing: border-box; }
