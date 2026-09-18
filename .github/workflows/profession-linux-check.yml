@@ -1,0 +1,48 @@
+name: Profession Linux navigation verification
+on:
+  push:
+    branches: [codex/profession-linux-check]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  navigation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.23.1
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            shinobij.client/package-lock.json
+      - run: npm ci && npm ci --prefix shinobij.client
+      - uses: actions/download-artifact@v8
+        with:
+          name: client-dist-335ef32865eccbb72702489cee79af410c5e6d9b-35304963136
+          path: .ci-artifacts/client
+          run-id: 35304963136
+          github-token: ${{ github.token }}
+      - name: Verify and unpack unchanged application artifact
+        shell: bash
+        run: |
+          cd .ci-artifacts/client
+          sha256sum -c client-dist.tgz.sha256
+          grep -Fx 'sha=335ef32865eccbb72702489cee79af410c5e6d9b' provenance.txt
+          cd ../..
+          tar -xzf .ci-artifacts/client/client-dist.tgz
+      - run: npx playwright install --with-deps webkit
+        working-directory: shinobij.client
+      - name: Repeat both navigation input paths on Linux WebKit
+        run: npx playwright test e2e/navigation-preload.spec.ts --project=webkit-desktop --workers=2 --repeat-each=5
+        working-directory: shinobij.client
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: linux-navigation-evidence
+          path: shinobij.client/test-results/
+          retention-days: 3
