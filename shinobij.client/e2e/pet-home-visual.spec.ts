@@ -177,6 +177,49 @@ function baseCharacter() {
     };
 }
 
+// Live-capability ADMISSIONS fail closed: an unresolved check leaves
+// availability "unknown", which holds boot restore and polling shut so the shell
+// never reaches Pet Home. (It no longer raises a full-screen blocker — that is
+// reserved for an explicit "unavailable" — but the stalled boot is just as fatal
+// here.) Grant the full public set so these tests measure the screen.
+const CAPABILITIES_REPLY = {
+    ok: true,
+    capabilities: Object.fromEntries(PUBLIC_CAPABILITY_IDS.map((id) => [
+        id,
+        { state: "available", reason: "available" },
+    ])),
+};
+
+// Every call this fixture does not model.
+const GENERIC_REPLY = { ok: true, players: [], images: {}, categories: {}, ladder: [], leaderboard: [], announcements: [], eras: [], entries: [], wars: [] };
+
+// `/api/images?ids=1` must be a parseable manifest (src/lib/shared-image-manifest.ts).
+// The generic reply is not one, so the avatar warm-up rejected it and kept
+// retrying, feeding extra requests through the interception path every test.
+const EMPTY_IMAGE_MANIFEST = { version: "1", ids: [] as string[] };
+
+// The stateless shell traffic every fresh document sends in its first second,
+// measured across this whole spec on 2026-09-18. None of it depends on the
+// fixture's state, so each call gets GENERIC_REPLY whether the page or the route
+// answers it. Paths that read or write fixture state are deliberately absent.
+const SHELL_BOOT_PATHS = [
+    "/api/world-state",
+    "/api/game-state",
+    "/api/player/heartbeat",
+    "/api/player/roster",
+    "/api/pvp/session",
+    "/api/battle/lock",
+    "/api/village/tax",
+    "/api/village/intel",
+    "/api/missions/ai-fight-start",
+    "/api/achievements/sync",
+    "/api/messages",
+    "/api/world-crisis",
+    "/api/world-crisis-80",
+    "/api/save/admin%201",
+    "/api/save/admin%202",
+];
+
 async function installPetHomeApi(page: Page) {
     const state = {
         character: baseCharacter(),
@@ -189,7 +232,37 @@ async function installPetHomeApi(page: Page) {
         roleRequests: [] as Array<{ action: string; petId: string; assign?: boolean }>,
     };
 
-    await page.addInitScript(() => {
+    await page.addInitScript((replies) => {
+        // WebKit's page.route drops /api/* requests sent just after a fresh
+        // document starts. They reject with "<url> due to access control
+        // checks." before the route below runs, and the rejection surfaces as a
+        // pageerror. CI has lost world-state, images and capabilities this way,
+        // and local runs have lost game-state and heartbeat. It is a
+        // Playwright/WebKit interception gap, not an app failure, so the
+        // stateless shell calls are answered here, inside the page — the same
+        // bypass pet-mentor-guide.spec.ts uses for its autosave. Anything not
+        // listed, including every test's own page.route override, still goes to
+        // the network and is answered by page.route.
+        const nativeFetch = window.fetch.bind(window);
+        const reply = (body: unknown) => new Response(JSON.stringify(body), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+        });
+        window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+            const url = new URL(
+                typeof input === "string" ? input : input instanceof URL ? input.href : input.url,
+                window.location.href,
+            );
+            if (url.origin === window.location.origin) {
+                const method = (init?.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase();
+                const path = url.pathname.toLowerCase();
+                if (method === "GET" && path === "/api/player/capabilities") return reply(replies.capabilities);
+                if (method === "GET" && path === "/api/images") return reply(url.searchParams.get("ids") === "1" ? replies.imageManifest : {});
+                if (replies.shellBootPaths.includes(path)) return reply(replies.generic);
+            }
+            return nativeFetch(input, init);
+        };
+
         // This certification deliberately mutates its mocked server fixture
         // between hard reloads. The unload guard correctly preserves the old
         // document as a recovery draft, but that synthetic draft must not cover
@@ -202,26 +275,16 @@ async function installPetHomeApi(page: Page) {
         localStorage.setItem("shinobix:activePlayerPersist", "PetHomeVisualQA");
         localStorage.setItem("shinobix:activeTokenPersist", "qa-session-token");
         localStorage.setItem("shinobix:storage-notice-ack", "1");
-    });
+    }, { capabilities: CAPABILITIES_REPLY, imageManifest: EMPTY_IMAGE_MANIFEST, generic: GENERIC_REPLY, shellBootPaths: SHELL_BOOT_PATHS });
 
     await page.route("**/api/**", async (route) => {
         const request = route.request();
-        const path = new URL(request.url()).pathname.toLowerCase();
+        const url = new URL(request.url());
+        const path = url.pathname.toLowerCase();
         if (path === "/api/perf-beacon") return route.fulfill({ status: 204 });
-        // Live-capability ADMISSIONS fail closed: an unresolved check leaves
-        // availability "unknown", which holds boot restore and polling shut so
-        // the shell never reaches Pet Home. (It no longer raises a full-screen
-        // blocker — that is reserved for an explicit "unavailable" — but the
-        // stalled boot is just as fatal here.) Grant the full public set so
-        // these tests measure the screen.
-        if (path === "/api/player/capabilities") {
-            return json(route, {
-                ok: true,
-                capabilities: Object.fromEntries(PUBLIC_CAPABILITY_IDS.map((id) => [
-                    id,
-                    { state: "available", reason: "available" },
-                ])),
-            });
+        if (path === "/api/player/capabilities") return json(route, CAPABILITIES_REPLY);
+        if (path === "/api/images" && request.method() === "GET") {
+            return json(route, url.searchParams.get("ids") === "1" ? EMPTY_IMAGE_MANIFEST : {});
         }
         if (path === "/api/save/pethomevisualqa") {
             if (request.method() === "GET") return json(route, {
@@ -294,7 +357,7 @@ async function installPetHomeApi(page: Page) {
             }
         }
         if (path === "/api/battle-lock") return json(route, { lock: null });
-        return json(route, { ok: true, players: [], images: {}, categories: {}, ladder: [], leaderboard: [], announcements: [], eras: [], entries: [], wars: [] });
+        return json(route, GENERIC_REPLY);
     });
     return state;
 }
