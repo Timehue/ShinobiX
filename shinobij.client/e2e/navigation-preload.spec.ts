@@ -15,18 +15,23 @@ for (const activation of ['keyboard', 'pointer'] as const) {
         const cards = page.locator('.facility-tile');
         for (let index = 0; index < await cards.count(); index++) {
             const card = cards.nth(index);
-            if (!isMobile) {
-                // CI WebKit can stall in hover's geometry-stability wait. Keep
-                // real pointer input and prove the tile actually receives it.
+            // Keep keyboard browsing independent of pointer hover. The CI
+            // WebKit trace hangs in pointer/focus commands when those paths
+            // alternate on every tile; each path still visits every tile here.
+            if (activation === 'keyboard') {
+                await card.focus();
+                await expect(card).toBeFocused();
+            } else if (!isMobile) {
                 await card.evaluate(element => element.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' }));
                 await expect(card).toBeVisible();
                 const box = await card.boundingBox();
                 expect(box).not.toBeNull();
                 await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
                 await expect.poll(() => card.evaluate(element => element.matches(':hover'))).toBe(true);
+            } else {
+                await card.scrollIntoViewIfNeeded();
+                await expect(card).toBeVisible();
             }
-            await card.focus();
-            await expect(card).toBeFocused();
         }
         // Leave time for an incorrectly started import's network request.
         await page.waitForTimeout(500);
