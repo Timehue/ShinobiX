@@ -3,19 +3,11 @@ import type { Character } from "../types/character";
 import { companionCoachName, firstFightLessonForStory } from "../lib/first-fight-coach";
 import type { SoloPveSession } from "../lib/solo-pve-api";
 import type { SavedBloodline, Jutsu, GameItem } from "../types/combat";
-import { lazyWithRetry } from "../lib/lazyWithRetry";
-import {
-    startStoryBossCombat,
-    settleStoryBossCombat,
-    startAcademySparCombat,
-    settleAcademySparCombat,
-    StorySettlementDeliveryError,
-    type StoryBossSettleResult,
-} from "../lib/story-combat-api";
+import { lazyWithRetry, retryDynamicImport } from "../lib/lazyWithRetry";
+import type { StoryBossSettleResult } from "../lib/story-combat-api";
 import { onStoryBossFightRequest, type StoryFightTheme } from "../lib/story-fight-theme";
 import { reportPveFightOutcome } from "../lib/pve-outcome-api";
 import { soloPveArenaTransport, soloPveSessionForArena } from "../lib/solo-pve-arena-adapter";
-import { StoryRewardSummary } from './StoryRewardSummary';
 
 // Story-boss fights render through MissionArenaFight — the SAME server-authoritative
 // arena shell combat missions use (a sealed solo-PvE session and intent-only actions,
@@ -31,6 +23,9 @@ import { StoryRewardSummary } from './StoryRewardSummary';
 // fight request (in parallel with the start-combat network round-trip) — resident by the
 // time the session opens, so there is no visible load gap.
 const MissionArenaFight = lazyWithRetry(() => import("../screens/MissionArenaFight").then((m) => ({ default: m.MissionArenaFight })));
+// Result details are needed only after a story battle, not during initial boot.
+const StoryRewardSummary = lazyWithRetry(() => import("./StoryRewardSummary").then((m) => ({ default: m.StoryRewardSummary })));
+const loadStoryCombatApi = () => retryDynamicImport(() => import("../lib/story-combat-api"));
 
 type ActiveStoryFight = {
     theme: StoryFightTheme;
@@ -301,9 +296,16 @@ export function StoryBossFightHost({
             // A failed load resurfaces through the lazy MissionArenaFight above
             // (retries, then ErrorBoundary); the warm-up must not also escape unhandled.
             void import("../screens/MissionArenaFight").catch(() => {});
-            const start = theme.kind === "academySpar"
-                ? startAcademySparCombat({ playerName: originatingPlayerName })
-                : startStoryBossCombat({ playerName: originatingPlayerName });
+            void import("./StoryRewardSummary").catch(() => {});
+            const start = loadStoryCombatApi().then(({ startAcademySparCombat, startStoryBossCombat }) => {
+                if (!mountedRef.current || startRequestIdRef.current !== requestId
+                    || activePlayerKeyRef.current !== originatingPlayerKey) {
+                    throw new Error("This story battle belongs to a previous account.");
+                }
+                return theme.kind === "academySpar"
+                    ? startAcademySparCombat({ playerName: originatingPlayerName })
+                    : startStoryBossCombat({ playerName: originatingPlayerName });
+            });
             start
                 .then((started) => {
                     if (!mountedRef.current
@@ -361,6 +363,7 @@ export function StoryBossFightHost({
     // winning session — the client never attests the outcome). The resolved reward
     // row is handed back to MissionArenaFight's renderResult for the reward card.
     async function settle(runId: string, _settlingPlayer: string): Promise<StoryBossSettleResult> {
+        const { settleAcademySparCombat, settleStoryBossCombat, StorySettlementDeliveryError } = await loadStoryCombatApi();
         if (activePlayerKeyRef.current !== originatingPlayerKey) {
             throw new Error("This story battle belongs to a previous account.");
         }
@@ -463,7 +466,7 @@ export function StoryBossFightHost({
                                     {won
                                         ? (!result
                                             ? <p className="story-fight-complete-rewards">{settleState === "failed" ? "The sparring reward could not be verified. Your win is still open — retry the reward now." : "Sealing your reward…"}</p>
-                                            : <StoryRewardSummary result={result} />)
+                                            : <Suspense fallback={<p role="status">Personal reward committed.</p>}><StoryRewardSummary result={result} /></Suspense>)
                                         : <p className="story-fight-complete-boss">The dummy got the better of you. Patch up at the Hospital and step back onto the mat.</p>}
                                     {/* escape-hatch-exempt — deliberate, unlike the PvP and AI-fight
                                         result screens. Those two keep a DURABLE handle on an unsettled
@@ -498,7 +501,7 @@ export function StoryBossFightHost({
                                     <p className="story-fight-complete-boss">{theme.bossName} has fallen.</p>
                                     {!result
                                         ? <p className="story-fight-complete-rewards">{settleState === "failed" ? "The reward could not be verified. Your victory is still open — retry the reward now." : "Sealing your reward…"}</p>
-                                        : <StoryRewardSummary result={result} />}
+                                        : <Suspense fallback={<p role="status">Personal reward committed.</p>}><StoryRewardSummary result={result} /></Suspense>}
                                     {/* escape-hatch-exempt — same in-memory run id as the branch above;
                                         see that comment for why leaving is destructive here and what
                                         the real fix is. */}
