@@ -12,7 +12,12 @@ const expedition = source("../../../api/missions/expedition-start.ts");
 const breeding = source("../../../api/pet/breeding-start.ts");
 
 test("preserved overflow stays visible but cannot begin new reward lifecycles", () => {
-    assert.match(yard, /if \(!selectedPetCanTrain\) return alert\(/);
+    // The training gate's copy branches on WHY the pet cannot train. A
+    // Supporter's sixth carried companion is not overflow (it is already in the
+    // carried roster), so telling it to "move into your carried roster" is wrong.
+    assert.match(yard, /if \(!selectedPetCanTrain\) return alert\(selectedPetIsOverflow\s*\? `\$\{petDisplayName\(selectedPet\)\} is preserved overflow\. Move it into your carried roster through the Sanctuary before starting training\.`\s*: `\$\{petDisplayName\(selectedPet\)\} is carried but outside your active five\. Set it as Active or as your 2v2 Partner, or rest another companion in the Sanctuary, before starting training\.`\);/);
+    assert.match(yard, /\{!selectedPetCanTrain && <p [^>]*>\{selectedPetIsOverflow \? "This companion is preserved overflow\. Move it into your carried roster through the Sanctuary to start training\." : "This companion is carried but outside your active five\. Set it as Active or as your 2v2 Partner, or rest another companion in the Sanctuary, to start training\."\}<\/p>\}/);
+    assert.match(yard, /!selectedPetCanTrain \? \(selectedPetIsOverflow \? "Move into carried roster" : "Move into active five"\) : "Start Training"/);
     assert.match(yard, /onClick=\{startTraining\} disabled=\{[^}]*!selectedPetCanTrain/);
     assert.match(yard, /selectedPetIsOverflow[^\n]+Sanctuary before starting an expedition/);
     assert.match(yard, /Preserved overflow/);
