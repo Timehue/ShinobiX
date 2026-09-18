@@ -12,8 +12,8 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import * as THREE from "three";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Billboard, Html, Sparkles, useTexture } from "@react-three/drei";
+import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
+import { Billboard, Html, Sparkles } from "@react-three/drei";
 import { Bloom, EffectComposer } from "@react-three/postprocessing";
 import type { BoardResult } from "../lib/pet-board-sim";
 import { BOARD_COLS } from "../lib/pet-board-sim";
@@ -28,6 +28,7 @@ import { gauntletPetPresentationKey, gauntletTeamFacing, resolveGauntletBoardQua
 import { DEFAULT_PET_MODEL_FRAME, PetModel3D, type PetModelFrame } from "./PetModel3D";
 import { PetModelBoundary } from "./PetModelBoundary";
 import { PetBattleRenderBoundary } from "./PetBattleRenderBoundary";
+import { RendererRetirement } from "./RendererRetirement";
 import gauntletHero from "../assets/coliseum/gauntlet-hero.webp";
 import gauntletBoard from "../assets/coliseum/gauntlet-board.webp";
 import "./PetBoardArena.css";
@@ -35,7 +36,7 @@ import "./PetBoardArena.css";
 // PetGauntlet imports this renderer while the player is drafting/positioning.
 // Warm the approved arena texture during that setup time so entering combat does
 // not spend its first frames waiting on a cold image decode/upload.
-useTexture.preload(gauntletBoard);
+useLoader.preload(THREE.TextureLoader, gauntletBoard);
 
 const STEP_STAGGER = 150;    // ms between sequential impacts within a round (so hits read one-by-one)
 const ROWS = 6;              // 3 enemy + 3 player
@@ -442,12 +443,15 @@ function ArenaBrazier({ x, z, quality }: { x: number; z: number; quality: PetVis
 
 function ArenaFloor({ quality }: { quality: PetVisualQualityConfig }) {
     // The floor is the approved Gauntlet map, not merely a decorative underlay.
-    // useTexture participates in R3F Suspense, so the scene cannot flash the old
+    // useLoader participates in R3F Suspense, so the scene cannot flash the old
     // flat fallback board while an ad-hoc TextureLoader is still in flight.
-    const sourceFloor = useTexture(gauntletBoard);
+    // Not drei's useTexture: it also uploads this ORIGINAL to the GPU, and only
+    // the clone below is drawn — a second copy of the board in video memory whose
+    // binding kept every retired renderer alive (lib/three-renderer-retirement).
+    const sourceFloor = useLoader(THREE.TextureLoader, gauntletBoard);
     const gl = useThree((state) => state.gl);
     const floor = useMemo(() => {
-        // useTexture owns its cached source. Configure a scene-owned clone so
+        // The loader cache owns this source. Configure a scene-owned clone so
         // repeated Gauntlet mounts share the decode without mutating hook state.
         const texture = sourceFloor.clone();
         texture.colorSpace = THREE.SRGBColorSpace;
@@ -836,6 +840,7 @@ export function PetBoardArena({ result, sharedImages = {}, stars, onDone }: { re
                         camera={{ position: [0, 16.2, 11.35], fov: 39, near: 0.35, far: 80 }}
                         onCreated={({ camera }) => camera.lookAt(0, 0, 0.6)}
                     >
+                        <RendererRetirement />
                         <BoardContextGuard onLost={handleArenaFailure} />
                         <BoardScene result={result} round={round} spriteMap={spriteMap} modelConfigs={modelConfigs} quality={quality} stars={stars} />
                     </Canvas>

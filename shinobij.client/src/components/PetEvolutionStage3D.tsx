@@ -23,6 +23,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { Canvas, useFrame } from "@react-three/fiber";
+import { RendererRetirement } from "./RendererRetirement";
 import { Billboard } from "@react-three/drei";
 import type { Pet } from "../types/pet";
 import {
@@ -875,6 +876,7 @@ export function PetEvolutionStage3D({
                 camera.lookAt(0, 1.7, 0);
             }}
         >
+            <RendererRetirement />
             {/* No postprocessing Bloom on purpose: a fullscreen pass on a TRANSPARENT
                 canvas hazes the canvas RECTANGLE (a visible "box"). Lights + additive
                 FX give the glow instead. */}

@@ -196,8 +196,12 @@ test('all full-screen pet modes use the shared takeover contract', () => {
 test('pet WebGL stages release resources', () => {
     const board = readFileSync(join(srcDir, 'components', 'PetBoardArena.tsx'), 'utf8');
     const stages = readFileSync(stageAuthority, 'utf8');
-    assert.match(board, /useTexture\(gauntletBoard\)/);
-    assert.match(board, /useTexture\.preload\(gauntletBoard\)/);
+    // The Suspense-participating cached loader, but not drei's useTexture: that
+    // also uploads the never-drawn original to the GPU, and its binding kept
+    // every retired renderer alive (see RendererRetirement.wiring.test.ts).
+    assert.match(board, /useLoader\(THREE\.TextureLoader, gauntletBoard\)/);
+    assert.match(board, /useLoader\.preload\(THREE\.TextureLoader, gauntletBoard\)/);
+    assert.match(board, /<RendererRetirement \/>/);
     assert.match(board, /data-arena-map="stone-lava"/);
     assert.match(board, /sourceFloor\.clone\(\)/);
     assert.match(board, /floor\.dispose\(\)/);

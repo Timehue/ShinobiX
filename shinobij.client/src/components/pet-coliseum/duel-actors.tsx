@@ -2,6 +2,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { Canvas, useFrame } from "@react-three/fiber";
+import { RendererRetirement } from "../RendererRetirement";
 import { Billboard, Html } from "@react-three/drei";
 import type { Pet } from "../../types/pet";
 import type { PetVisualState } from "../../types/pet-battle";
@@ -919,6 +920,7 @@ export function DuelCutInModelPortrait({ pet, config, style, move, mirror }: {
                         gl.toneMappingExposure = 0.82;
                     }}
                 >
+                    <RendererRetirement />
                     <ambientLight intensity={0.76} color="#d8e5ff" />
                     <directionalLight position={mirror ? [-3, 4, 5] : [3, 4, 5]} intensity={1.7} color="#fff4dc" />
                     <directionalLight position={mirror ? [3, 1, -2] : [-3, 1, -2]} intensity={0.68} color={elementColor(pet.element).glow} />

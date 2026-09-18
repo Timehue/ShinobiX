@@ -17,12 +17,12 @@
  * which also keeps three's colour-space + displacement pipeline correct.
  */
 import { useEffect, useMemo, useRef } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
 import { useCombatCover } from "../lib/combat-cover";
-import { useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import type { Biome } from "../types/core";
 import { decorativeCanvasEvents } from "../lib/decorative-canvas-events";
+import { RendererRetirement } from "./RendererRetirement";
 
 const CAM_Z = 10;       // camera distance
 const FOV = 45;
@@ -113,7 +113,12 @@ function buildHazeTexture(color: string): THREE.CanvasTexture {
 function Backdrop({ image, biome, focus, depth, onReady }: { image: string; biome: Biome; focus: number; depth?: string; onReady?: () => void }) {
     // Load the colour painting and, when present, a baked AI depth map together.
     const urls = useMemo(() => (depth ? [image, depth] : [image]), [image, depth]);
-    const textures = useTexture(urls);
+    // useLoader, not drei's useTexture: useTexture also uploads these ORIGINALS
+    // to the GPU straight away, and only the clones below are ever drawn. That
+    // was a second full-size copy of the painting in video memory, and its
+    // binding on the cached original kept every retired renderer alive
+    // (lib/three-renderer-retirement). Same Suspense, same cache entry.
+    const textures = useLoader(THREE.TextureLoader, urls);
     const colorSrc = textures[0];
     const depthSrc = depth ? textures[1] : null;
     const { size } = useThree();
@@ -227,6 +232,7 @@ export default function SectorScene3DScene({ image, biome, focus, depth, onReady
             gl={{ alpha: true, antialias: false, powerPreference: "low-power" }}
             frameloop={covered ? "never" : "always"}
         >
+            <RendererRetirement />
             <Backdrop image={image} biome={biome} focus={focus} depth={depth} onReady={onReady} />
         </Canvas>
     );

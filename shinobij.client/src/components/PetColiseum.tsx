@@ -24,6 +24,7 @@ import { createPortal } from "react-dom";
 import "../styles/pet-skin.css";
 import * as THREE from "three";
 import { Canvas } from "@react-three/fiber";
+import { RendererRetirement } from "./RendererRetirement";
 import { Html, PerformanceMonitor, Sparkles } from "@react-three/drei";
 import type { Pet } from "../types/pet";
 import { PetBattleAvatar } from "./PetBattleAvatar";
@@ -1133,6 +1134,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 perspective hero camera), so fighters STAND on the floor with real
                 contact shadows instead of floating over a painted wall. */}
             <Canvas key={quality.id} shadows={quality.modelShadows ? { type: THREE.PCFShadowMap } : false} dpr={dpr} frameloop={paused || resultVisible ? "demand" : "always"} camera={{ position: CAM_POS, fov: CAM_FOV }} onCreated={({ camera }) => camera.lookAt(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2])}>
+                <RendererRetirement />
                 {!weatherCue && <fog attach="fog" args={["#2a1c10", 26, 54]} />}
                 <ResponsiveCamera />
                 {/* Adaptive DPR: drop to the tier floor under sustained load, restore with

@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { GameIcon } from ".././icons/GameIcon";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { RendererRetirement } from "../RendererRetirement";
 import { Billboard, Html } from "@react-three/drei";
 import type { Pet } from "../../types/pet";
 import type { PetArenaFrame, PetBattleRecord } from "../../types/pet-arena";
@@ -910,6 +911,7 @@ export function PetColiseum({
                 @media (prefers-reduced-motion: reduce) { .col-announcer { animation: none !important; opacity: 1 !important; transform: none !important; } .col-flash { animation: none !important; opacity: 0 !important; } }
             `}</style>
             <Canvas dpr={[1, 2]} camera={{ position: CAM_POS, fov: CAM_FOV }} onCreated={({ camera }) => camera.lookAt(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2])}>
+                <RendererRetirement />
                 <fog attach="fog" args={["#2a1c10", 26, 54]} />
                 <ResponsiveCamera />
                 <Arena floor={floor} backdrop={backdrop} />
