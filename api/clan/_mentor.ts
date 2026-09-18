@@ -76,3 +76,16 @@ export function mentorPayout(count: number): { seals: number; contrib: number; s
     const n = Math.max(0, Math.floor(count));
     return { seals: n * MENTOR_REWARD_SEALS, contrib: n * MENTOR_REWARD_CONTRIB, studentRyo: n * MENTOR_STUDENT_RYO };
 }
+
+export const MENTOR_CLAN_POINTS_PER_MILESTONE = 25;
+export const MENTOR_CLAN_POINTS_MAX = 100;
+
+/**
+ * Clan Points the sensei requests for ONE claimed batch. The whole batch goes
+ * to awardClanPoints as a single request, so a batch that would cross the
+ * weekly cap is refused whole — never split it into per-milestone awards.
+ */
+export function mentorClanPointsRequest(count: number): number {
+    const n = Math.max(0, Math.floor(count));
+    return Math.min(MENTOR_CLAN_POINTS_MAX, n * MENTOR_CLAN_POINTS_PER_MILESTONE);
+}

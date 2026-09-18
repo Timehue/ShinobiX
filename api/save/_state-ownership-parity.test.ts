@@ -54,7 +54,7 @@ const FROZEN = {
     COMBAT_STRIP_CHAR_FIELDS: [
         'sunscarExchangeReceipts', 'sunscarRally', 'sunscarCaravan',
         // Approved clan recovery evidence is private, co-written server state.
-        'clanExchangeSettlements', 'clanMissionPointReceipts',
+        'clanExchangeSettlements', 'clanMissionPointReceipts', 'mentorRewardReceipts',
         'inventory', 'itemStacks', 'tileCards', 'savedTileDeck',
         'missions', 'missionLog', 'completedMissions', 'activeMissions', 'questLog', 'bankLog',
         'storyTraits', 'storyChoices', 'storyScene', 'pendingStoryReports', 'storyEpilogues', 'storyTitle', 'storyFieldRecords', 'activeStoryReckoning',
@@ -114,7 +114,7 @@ const FROZEN = {
         'petEncounterVn', 'ancientChestVn', 'editablePets',
     ],
     STRICT_SERVER_LEDGER_CHARACTER_FIELDS: [
-        'clanExchangeSettlements', 'clanMissionPointReceipts',
+        'clanExchangeSettlements', 'clanMissionPointReceipts', 'mentorRewardReceipts',
         'settledHollowGateEventIds', 'settledHollowGateCombatIds', 'hollowGatePendingOperation',
         'level', 'xp', 'experience', 'ryo', 'bankRyo',
         'honorSeals', 'fateShards', 'chroniclePoints', 'boneCharms', 'auraStones', 'auraDust',
@@ -136,7 +136,7 @@ const FROZEN = {
         'worldAiChainWins', 'worldAiChainHeals', 'worldAiContextWins', 'worldAiPendingChain', 'worldAiPendingOutcome', 'serverHuntTrails', 'serverFieldMissionRuns', 'raidProgressionSettlements', 'serverFreeDungeonProbeReceipts',
     ],
     ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS: [
-        'clanExchangeSettlements', 'clanMissionPointReceipts',
+        'clanExchangeSettlements', 'clanMissionPointReceipts', 'mentorRewardReceipts',
         'bankRyo', 'rankedRating', 'petRankedRating', 'rankedSeasonSettlementReceipts',
         'professionXp', 'professionRank', 'serverSettlementReceipts', 'pvpRewardSettlementReceipts', 'hollowGateExternalCredits', 'settledHollowGateEventIds', 'settledHollowGateCombatIds', 'hollowGatePendingOperation',
         'warGroundBountyDate', 'villageWarMissionDate', 'villageWarRaidProgress',

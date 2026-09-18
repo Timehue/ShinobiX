@@ -124,6 +124,11 @@ const INDIRECT_VERSION_MUTATION_ROUTES = new Set([
     // versionedPlayerRecord and commits it with compareSet — and it still rereads
     // and echoes the authenticated caller's final `_saveVersion`.
     'pvp/claim-rewards.ts',
+    // Mentor milestone payouts moved into clan/_mentor-settlement.ts, which
+    // credits each save through mutatePlayerSave (exact-CAS versioned writer).
+    // The route still echoes the sensei's committed `_saveVersion` together
+    // with the character from that same record.
+    'clan/mentor.ts',
     // The Honor Seal debit moved into _war-mercenary-hire.ts, so this route no
     // longer names a BUMP_MARKER either. It still bumps through that saga and
     // still echoes the hiring player's `_saveVersion`.
