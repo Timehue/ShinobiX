@@ -75,9 +75,11 @@ function canvasSample(): string {
 }
 
 function webglSample(): string {
+    let canvas: HTMLCanvasElement | null = null;
+    let gl: WebGLRenderingContext | null = null;
     try {
-        const canvas = document.createElement('canvas');
-        const gl = (canvas.getContext('webgl') ?? canvas.getContext('experimental-webgl')) as WebGLRenderingContext | null;
+        canvas = document.createElement('canvas');
+        gl = (canvas.getContext('webgl') ?? canvas.getContext('experimental-webgl')) as WebGLRenderingContext | null;
         if (!gl) return '';
         const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
         const vendor = debugInfo
@@ -89,6 +91,13 @@ function webglSample(): string {
         return `${String(vendor)}|${String(renderer)}`;
     } catch {
         return '';
+    } finally {
+        // This one-shot probe must not keep a GPU context alive on the landing
+        // page while waiting for the detached canvas to be garbage-collected.
+        try { gl?.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* cleanup is best effort */ }
+        if (canvas) {
+            try { canvas.width = 1; canvas.height = 1; } catch { /* detached probe can be discarded */ }
+        }
     }
 }
 

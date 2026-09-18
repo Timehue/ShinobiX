@@ -1,0 +1,56 @@
+{
+  "browserName": "firefox",
+  "performanceSamples": [
+    {
+      "label": "visible hero",
+      "resources": {
+        "observers": 2,
+        "observedElements": 12,
+        "visibilityListeners": 5,
+        "mediaListeners": 2,
+        "intervals": [],
+        "pendingFrames": 0,
+        "frameCallbacks": 0,
+        "webglContexts": 0,
+        "webglContextsCreated": 1
+      }
+    },
+    {
+      "label": "hero offscreen",
+      "resources": {
+        "observers": 2,
+        "observedElements": 11,
+        "visibilityListeners": 5,
+        "mediaListeners": 2,
+        "intervals": [],
+        "pendingFrames": 0,
+        "frameCallbacks": 0,
+        "webglContexts": 0,
+        "webglContextsCreated": 1
+      }
+    }
+  ],
+  "memorySamples": [],
+  "landingBaseline": {
+    "observers": 2,
+    "observedElements": 12,
+    "visibilityListeners": 5,
+    "mediaListeners": 2,
+    "intervals": [],
+    "pendingFrames": 0,
+    "frameCallbacks": 0,
+    "webglContexts": 0,
+    "webglContextsCreated": 1
+  },
+  "loginBaseline": {
+    "observers": 0,
+    "observedElements": 0,
+    "visibilityListeners": 4,
+    "mediaListeners": 1,
+    "intervals": [],
+    "pendingFrames": 0,
+    "frameCallbacks": 0,
+    "webglContexts": 0,
+    "webglContextsCreated": 1
+  }
+}
