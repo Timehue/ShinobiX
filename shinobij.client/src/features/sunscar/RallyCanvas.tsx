@@ -1,5 +1,6 @@
-import { Suspense, useEffect, useMemo, useRef, type RefObject } from 'react';
+import { memo, Suspense, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { RendererRetirement } from '../../components/RendererRetirement';
 import * as THREE from 'three';
 import { rallyPath, rallyTrack } from '../../../../shared/sunscar/rally-tracks';
 import type { RallyState } from '../../../../shared/sunscar/rally-types';
@@ -8,6 +9,8 @@ import { RallyTrackScene } from './RallyTrackScene';
 import { PetModelBoundary } from '../../components/PetModelBoundary';
 import { RallySun } from './RallyEnvironment';
 import { RallyPetEffects } from './RallyPetEffects';
+import { rallyCameraGoal } from './rally-presentation';
+import { isLowEndMobile } from '../../lib/device-tier';
 
 function RaceClock({ advance }: { advance: (delta: number) => void }) {
     useFrame((_, delta) => advance(Math.min(delta, .1)), -2);
@@ -40,13 +43,9 @@ function RaceCamera({ state, reducedMotion }: { state: RefObject<RallyState>; re
     const target = useMemo(() => new THREE.Vector3(), []);
     useFrame(({ camera }, delta) => {
         const race = state.current;
-        const player = race.racers[0];
-        const path = rallyPath(rallyTrack(race.trackId), player.distance);
-        const preview = rallyPath(rallyTrack(race.trackId), player.distance + 20);
-        const finish = race.finished;
-        const finishDistance = Math.max(13, 9 / (camera as THREE.PerspectiveCamera).aspect);
-        desired.set(path.x + (finish ? 0 : player.lane * (reducedMotion ? .7 : 1.2)), path.y + (finish ? 7 : 5) + player.jump * .25, path.z + (finish ? finishDistance : 10));
-        target.set(finish ? path.x : preview.x * .2 + path.x * .8 + player.lane * .7, path.y + 1.45 + player.jump * .6, path.z - (finish ? 2 : 6));
+        const goal = rallyCameraGoal(rallyTrack(race.trackId), race.racers[0], race.finished, (camera as THREE.PerspectiveCamera).aspect, reducedMotion);
+        desired.set(...goal.position);
+        target.set(...goal.look);
         const blend = started.current ? 1 - Math.exp(-Math.min(delta, .1) * 5) : 1;
         camera.position.lerp(desired, blend);
         look.current.lerp(target, blend);
@@ -84,12 +83,21 @@ function Dust({ state }: { state: RefObject<RallyState> }) {
     });
     return <points ref={points} frustumCulled={false}><bufferGeometry><bufferAttribute attach="attributes-position" args={[positions, 3]} /></bufferGeometry><pointsMaterial color="#ead1a0" size={.1} transparent opacity={.38} depthWrite={false} /></points>;
 }
-export default function RallyCanvas({ state, advance, onReady, onFail, reducedMotion, frameloop }: {
+/** Memoised: the race HUD updates ten times a second, and each Canvas
+ * re-render reconciled every mesh on the course for nothing (the scene reads
+ * the race from the ref each frame). That was about half of the race's
+ * JavaScript. Devices on the shared lite gate (weak touch hardware, reduced
+ * motion, or the liteFx.v1 override) draw at 1x without MSAA. */
+export default memo(function RallyCanvas({ state, advance, onReady, onFail, reducedMotion, frameloop }: {
     state: RefObject<RallyState>; advance: (delta: number) => void; onReady: (id: string) => void; onFail: () => void; reducedMotion: boolean; frameloop: 'always' | 'demand';
 }) {
     const track = rallyTrack(state.current.trackId);
-    return <Canvas shadows dpr={[1, 1.5]} frameloop={frameloop} camera={{ fov: 57, near: .1, far: 220 }} gl={{ antialias: true, powerPreference: 'high-performance' }}
+    const [lite] = useState(isLowEndMobile);
+    // 'percentage' is PCF, which three already substitutes for the deprecated
+    // soft default; naming it stops a console warning on every Canvas render.
+    return <Canvas shadows="percentage" dpr={lite ? 1 : [1, 1.5]} frameloop={frameloop} camera={{ fov: 57, near: .1, far: 220 }} gl={{ antialias: !lite, powerPreference: 'high-performance' }}
         onCreated={({ gl }) => { gl.toneMapping = THREE.ACESFilmicToneMapping; gl.toneMappingExposure = 1.05; }}>
+        <RendererRetirement />
         <CanvasLifecycle onFail={onFail}/>
         <RaceClock advance={advance} />
         {import.meta.env.MODE === 'sunscar-modes-qa' && <RallyQaMetrics state={state}/>}
@@ -102,4 +110,4 @@ export default function RallyCanvas({ state, advance, onReady, onFail, reducedMo
             <RallyPetModel state={state} index={index} onReady={onReady} reducedMotion={reducedMotion} />
         </Suspense></PetModelBoundary>)}
     </Canvas>;
-}
+});

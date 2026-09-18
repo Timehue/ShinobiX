@@ -306,7 +306,12 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
         if (petTrainingBusyRef.current) return;
         if (!requireServerSettlement("petTraining")) return;
         if (!selectedPet) return;
-        if (!selectedPetCanTrain) return alert(`Move ${petDisplayName(selectedPet)} into your carried roster before starting training.`);
+        // Two different reasons land here: preserved overflow sits outside the
+        // carried roster entirely, while a Supporter's sixth carried companion is
+        // carried but outside the five that can train (PET_TRAINING_CAP).
+        if (!selectedPetCanTrain) return alert(selectedPetIsOverflow
+            ? `${petDisplayName(selectedPet)} is preserved overflow. Move it into your carried roster through the Sanctuary before starting training.`
+            : `${petDisplayName(selectedPet)} is carried but outside your active five. Set it as Active or as your 2v2 Partner, or rest another companion in the Sanctuary, before starting training.`);
         if (isPetOnExpedition(selectedPet)) return alert(`${selectedPet.name} is away on an expedition.`);
         if (selectedPet.expedition) return alert(`${petDisplayName(selectedPet)} has an unclaimed expedition. Collect it first!`);
         if (selectedPet.training && serverNow() < selectedPet.training.endsAt) return alert(`${selectedPet.name} is already training.`);
@@ -1138,7 +1143,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                     ) : (
                                         <>
                                             <p className="hint">Earn XP while you are away. Each level unlocks a Growth Point.</p>
-                                            {!selectedPetCanTrain && <p className="hint" role="status" style={{ color: "#fbbf24" }}>Move this companion into your carried roster to start training.</p>}
+                                            {!selectedPetCanTrain && <p className="hint" role="status" style={{ color: "#fbbf24" }}>{selectedPetIsOverflow ? "This companion is preserved overflow. Move it into your carried roster through the Sanctuary to start training." : "This companion is carried but outside your active five. Set it as Active or as your 2v2 Partner, or rest another companion in the Sanctuary, to start training."}</p>}
                                             <label htmlFor="pet-training-duration">Duration</label>
                                             <select id="pet-training-duration" value={trainingDuration} onChange={(e) => setTrainingDuration(Number(e.target.value))}>
                                                 {petTrainingDurations.map((d) => (
@@ -1156,7 +1161,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                                     <p className="hint">Fully trained — training no longer raises stats. Use this if a previous session is still waiting to be collected.</p>
                                                 </>
                                             ) : (
-                                                <button className="admin-button" onClick={startTraining} disabled={petTrainingBusy || !selectedPetCanTrain || !!selectedPet.expedition || selectedPetBreedingLocked}>{petTrainingBusy ? "Starting…" : !selectedPetCanTrain ? "Move into carried roster" : "Start Training"}</button>
+                                                <button className="admin-button" onClick={startTraining} disabled={petTrainingBusy || !selectedPetCanTrain || !!selectedPet.expedition || selectedPetBreedingLocked}>{petTrainingBusy ? "Starting…" : !selectedPetCanTrain ? (selectedPetIsOverflow ? "Move into carried roster" : "Move into active five") : "Start Training"}</button>
                                             )}
                                             {selectedPet.expedition && <p className="hint">Collect this companion’s expedition in Expeditions before starting training.</p>}
                                             {selectedPetBreedingLocked && <p className="hint">This companion is in the Breeding Barn until its timer completes.</p>}

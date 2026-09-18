@@ -1,5 +1,6 @@
 import { Component, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ErrorInfo, type ReactNode } from "react";
 import { Canvas } from "@react-three/fiber";
+import { RendererRetirement } from "../../components/RendererRetirement";
 import { decorativeCanvasEvents } from "../../lib/decorative-canvas-events";
 import { ContactShadows, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
@@ -156,6 +157,7 @@ export function IntroCompanion3D({
                             camera.lookAt(0, needsHeadroom && !closeUp ? 0.84 : 0.92, 0);
                         }}
                     >
+                        <RendererRetirement />
                         <ambientLight intensity={0.68} color="#b8d8ff" />
                         <directionalLight position={[3.8, 5.5, 4.5]} intensity={1.55} color="#fff1d6" />
                         <directionalLight position={[-4, 3.2, -2.5]} intensity={0.62} color="#73c8ff" />

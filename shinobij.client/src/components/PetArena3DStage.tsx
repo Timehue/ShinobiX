@@ -15,6 +15,7 @@
  */
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
+import { RendererRetirement } from "./RendererRetirement";
 import { Billboard, Html, Sparkles } from "@react-three/drei";
 import * as THREE from "three";
 import type { Pet } from "../types/pet";
@@ -801,6 +802,7 @@ export function PetArena3DStage({ result, roster, clock, shake, children }: {
                 PCFSoftShadowMap, which three 0.184 deprecates with a PER-FRAME console
                 warning (and silently falls back to PCF anyway). */}
             <Canvas dpr={quality.dpr} shadows={quality.modelShadows ? "percentage" : false} camera={{ fov: A3D_FOV, near: 0.5, far: 120, position: [0, 18, 20] }} gl={{ antialias: true }}>
+                <RendererRetirement />
                 <color attach="background" args={["#05070f"]} />
                 <fog attach="fog" args={["#0a0f1f", 28, 80]} />
                 <hemisphereLight args={["#c9ddff", "#2b2440", 0.85]} />
