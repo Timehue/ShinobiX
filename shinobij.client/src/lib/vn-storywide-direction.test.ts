@@ -67,7 +67,7 @@ test("intermediate pages resolve to a semantic village scene family", () => {
 });
 
 test("major chapter beats receive authored camera, motion, cue, and expression direction", () => {
-    assert.equal(Object.keys(MAJOR_STORY_DIRECTIONS).length, 56);
+    assert.equal(Object.keys(MAJOR_STORY_DIRECTIONS).length, 58);
     const villageKeys = {
         "Stormveil Village": "stormveil",
         "Ashen Leaf Village": "ashen",

@@ -397,10 +397,28 @@
     mask-image: linear-gradient(to bottom, #000 0 86%, transparent 100%);
 }
 
-/* Kael's source cutouts look camera-right. When he occupies the right slot,
-   turn him inward so the conversation reads as an exchange. */
-.cvn-actor.is-right img[src*="/kage-kael-whitefang"] {
-    transform: scaleX(-1);
+/* Reviewed framing brings full-length bundled art into the same conversational
+   scale as waist-up portraits. Keep side silhouettes intact and fade the lower
+   source at the reviewed waist/prop line, without changing the source bytes. */
+.cvn-portrait-frame {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: min(100%, calc(var(--cvn-actor-height) * var(--cvn-portrait-aspect)));
+    aspect-ratio: var(--cvn-portrait-aspect);
+    overflow: visible;
+    transform: translateX(-50%);
+}
+
+.cvn-actor .cvn-portrait-frame img {
+    position: absolute;
+    top: var(--cvn-portrait-top);
+    left: var(--cvn-portrait-left);
+    width: var(--cvn-portrait-width);
+    max-width: none;
+    height: auto;
+    -webkit-mask-image: linear-gradient(to bottom, #000 0 var(--cvn-portrait-fade-start), transparent var(--cvn-portrait-fade-end));
+    mask-image: linear-gradient(to bottom, #000 0 var(--cvn-portrait-fade-start), transparent var(--cvn-portrait-fade-end));
 }
 
 .cvn-actor > span {
@@ -470,8 +488,13 @@
  * and no oversized oval plinth competing with the scene painting.
  */
 .cvn-actor.is-player:has(img.cvn-avatar-square, img.cvn-avatar-wide) {
+    --cvn-avatar-height: min(43dvh, 350px);
+    /* Profile uploads are an inset portrait, with its face in the same upper
+       stage band as the cast rather than floating beside their knees. */
+    top: max(64px, calc(100% - var(--cvn-stage-floor) - var(--cvn-actor-height) - var(--cvn-avatar-height) * .1));
+    bottom: auto;
     width: min(23vw, 300px);
-    height: min(43dvh, 350px);
+    height: var(--cvn-avatar-height);
 }
 
 .cvn-actor.is-player:has(img.cvn-avatar-square, img.cvn-avatar-wide)::before {
@@ -522,14 +545,14 @@
     border-radius: 2px;
     background: rgba(8, 13, 19, .82);
     clip-path: polygon(9% 0, 91% 0, 100% 9%, 100% 91%, 91% 100%, 9% 100%, 0 91%, 0 9%);
-    object-fit: cover;
-    object-position: 50% 24%;
+    object-fit: contain;
+    object-position: 50% 50%;
     -webkit-mask-image: none;
     mask-image: none;
 }
 
 .cvn-actor.is-player img.cvn-avatar-wide {
-    object-position: 50% 34%;
+    object-position: 50% 50%;
 }
 
 .cvn-root.is-moonshadow .cvn-stage::before {
@@ -560,12 +583,18 @@
     filter: saturate(1.02) brightness(1.1);
 }
 
+/* Stacked violet shadows clip to the image rectangle on bundled cutouts.
+   Keep their ordinary grounding shadow within Moonshadow scenes. */
+.cvn-root.is-moonshadow .cvn-actor:not(.is-player) img[src*="/portraits/cinematic/"] {
+    filter: drop-shadow(0 22px 25px rgba(0, 0, 0, .72));
+}
+
 .cvn-actor.is-player:not(.is-speaking) {
-    opacity: .56;
+    opacity: .86;
 }
 
 .cvn-root.has-title-card .cvn-actor.is-player:not(.is-speaking) {
-    opacity: .46;
+    opacity: .82;
 }
 
 .cvn-actor.enters-left { animation: cvn-actor-left 650ms cubic-bezier(.18, .78, .18, 1) both; }
@@ -948,7 +977,8 @@
 }
 
 @media (max-width: 800px), (max-height: 680px) {
-    .cvn-root {
+    .cvn-root:is(.shot-wide, .shot-medium, .shot-close) {
+        --cvn-stage-floor: min(39dvh, 330px);
         --cvn-actor-height: min(50dvh, 470px);
     }
 
@@ -1098,8 +1128,8 @@
 
     .cvn-actor.is-player img.cvn-avatar-square,
     .cvn-actor.is-player img.cvn-avatar-wide {
-        object-fit: cover;
-        object-position: 50% 28%;
+        object-fit: contain;
+        object-position: 50% 50%;
     }
 }
 
@@ -1112,14 +1142,14 @@
     .cvn-actor.is-left { left: -12vw; }
     .cvn-actor.is-right { right: -12vw; }
     .cvn-actor.is-player.is-left:has(img.cvn-avatar-square, img.cvn-avatar-wide) {
+        --cvn-avatar-height: min(38dvh, 320px);
         left: -1vw;
         width: min(46vw, 210px);
-        height: min(38dvh, 320px);
     }
     .cvn-actor.is-player.is-right:has(img.cvn-avatar-square, img.cvn-avatar-wide) {
+        --cvn-avatar-height: min(38dvh, 320px);
         right: -1vw;
         width: min(46vw, 210px);
-        height: min(38dvh, 320px);
     }
 }
 
@@ -1128,7 +1158,8 @@
    stop portraits above the dialogue card, and carry scene context inside that
    card so captions never sit across character art. */
 @media (max-width: 800px) and (orientation: portrait) {
-    .cvn-root {
+    .cvn-root:is(.shot-wide, .shot-medium, .shot-close) {
+        --cvn-stage-floor: min(41dvh, 340px);
         --cvn-actor-height: min(40dvh, 360px);
     }
 
@@ -1190,20 +1221,20 @@
     }
 
     .cvn-actor.is-player:has(img.cvn-avatar-square, img.cvn-avatar-wide) {
+        --cvn-avatar-height: min(26dvh, 238px);
         width: min(34vw, 150px);
-        height: min(26dvh, 238px);
     }
 
     .cvn-actor.is-player.is-left:has(img.cvn-avatar-square, img.cvn-avatar-wide) {
+        --cvn-avatar-height: min(26dvh, 238px);
         left: 1vw;
         width: min(34vw, 150px);
-        height: min(26dvh, 238px);
     }
 
     .cvn-actor.is-player.is-right:has(img.cvn-avatar-square, img.cvn-avatar-wide) {
+        --cvn-avatar-height: min(26dvh, 238px);
         right: 1vw;
         width: min(34vw, 150px);
-        height: min(26dvh, 238px);
     }
 
     .cvn-dialogue-shell {
@@ -1301,8 +1332,9 @@
 }
 
 @media (max-height: 590px) and (orientation: landscape) {
-    .cvn-root {
-        --cvn-actor-height: 66dvh;
+    .cvn-root:is(.shot-wide, .shot-medium, .shot-close) {
+        --cvn-stage-floor: 118px;
+        --cvn-actor-height: min(66dvh, calc(100dvh - 184px));
     }
 
     .cvn-scene-caption,
@@ -1314,6 +1346,9 @@
         bottom: 118px;
         width: 36vw;
     }
+
+    .cvn-actor.is-left { left: 4vw; }
+    .cvn-actor.is-right { right: 4vw; }
 
     .cvn-dialogue-shell {
         right: 16px;

@@ -1,0 +1,25 @@
+# VN integration and avatar sizing follow-up
+
+Implemented and locally runtime verified on 2026-09-17. This follow-up improves portrait composition inside the existing cinematic reader. It does not claim AAA audiovisual production parity or a live deployment.
+
+1. **Coverage.** Rebuilt the complete local inventory: 341 event/state/replay variants, 1,225 reachable pages, 330 resolved artwork assets, zero missing files. Inspected the source proportions/transparency of all 98 resolved NPC portrait variants. Rendered each variant at 1440×900 and 390×844 and checked that the expected asset actually appeared. Private production creator events and actual private uploads remain inaccessible locally.
+
+2. **Fit corrections.** Added reviewed upper-body framing for 49 full-length NPC illustrations, bringing their faces closer to the scale of existing waist-up portraits. Retained the side silhouettes and used the existing soft lower fade. Three illustrations have a wider fit to retain Corvo's keys, Corvane's book and Hasse's letter. Square/wide player uploads now preserve the complete image with `contain`, sit near the cast's face level, and remain more visible while listening. Uploads do not briefly display at the wrong aspect class before loading. Fixed responsive CSS priority so desktop shot sizes cannot override phone/short-landscape height limits; landscape faces clear the top controls.
+
+3. **Paths and consumers.** No new production image paths were introduced. [portrait-framing.json](portrait-framing.json) lists all 49 fitted asset paths, their exact page/branch/replay consumers, framing values and verified screenshots. The fitting rules apply only to enumerated local NPC paths. Player images and custom creator URLs do not inherit these crops.
+
+4. **Retained artwork.** All existing image bytes remain unchanged. Normal waist-up portraits keep their original fit. Bel's kneeling rescue composition keeps the full dog-and-handler image. Existing story-specific identities, poses, asymmetric details and versioned asset URLs remain intact.
+
+5. **Checks.** The final targeted suite passes 53 tests, and the final production build passes. The existing real-reader flow checks pass: choice/branch navigation, Back, serialized exit/resume, delayed reveal, historical replay, battle callback/return, classic/cinematic switching, reduced motion, low-end mode and service-worker cache/offline decode. All 341 event payloads and 4,144 derived presentation lines still pass the prior non-art preservation comparison. Final production build evidence is in `tmp/vn-art-audit/sizing/build-final.log`.
+
+   There are 196 NPC variant captures, six follow-up captures for the three extended-prop refinements, and 15 final player-avatar captures across 1440×900, 390×844, 320×568, 844×390 and 667×375. The final avatar cases include the game's actual square starter portrait, a real tall cutout and a wide aspect fixture, with extra-large text. The 217 recorded checks have zero page errors, missing expected NPC images or document horizontal overflow. All 49 changed NPC fits were visually reviewed on desktop and phone, with the three prop refinements reviewed separately. NPC review sheets predate the final player-card vertical adjustment; final player evidence is in `avatars-final`.
+
+6. **Visual evidence.** [Before/after comparison](../../tmp/vn-art-audit/sizing/before-after.jpg) shows the same Harrow scene, line and tall player fixture. The character now reads at a comparable conversation scale and the player no longer appears so translucent. [Final phone player avatar](../../tmp/vn-art-audit/sizing/avatars-final/player-square-390.png) and [short landscape](../../tmp/vn-art-audit/sizing/avatars-final/player-square-667.png) show the actual supported framed presentation. These are real renderer captures, not mockups.
+
+7. **Performance.** No image bytes, decoded source dimensions, network requests or preload scope were added by the fit changes. The implementation adds a small lookup and a framing element only for listed NPC artwork; it adds no animation loop or canvas processing. Existing active-scene/bounded-lookahead loading remains unchanged. No physical-device FPS or heap measurement is claimed.
+
+8. **Cleanup.** No production artwork or legacy paths were removed. Source inspection, capture, review and summary scripts remain available to reproduce this pass. Unrelated concurrent workspace changes were left alone.
+
+9. **Limits.** Local Chromium viewport/device-mode checks do not replace physical-device testing or inspection of private user uploads. Arbitrary uploaded compositions retain their chosen content; their face scale cannot be made identical without cropping or interpreting the user's image. Production content access and the previously recorded Hob chronology question remain unchanged. Story text, choices, progression, rewards, saves, camera/audio settings and animation timings were preserved.
+
+Evidence directory: `tmp/vn-art-audit/sizing/`. This follow-up is integrated locally and runtime verified; it generated no new production artwork and published nothing.

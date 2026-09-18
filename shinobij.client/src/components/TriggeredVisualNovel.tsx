@@ -17,6 +17,7 @@ import { claimVnAction } from "../lib/vn-action-gate";
 import { biomeLabel } from "../data/world";
 import { isLowEndMobile, prefersReducedMotion } from "../lib/device-tier";
 import { resolveCinematicActorImage, resolveVnPresentation } from "../lib/vn-presentation";
+import { secondaryVnActorAbsent } from '../lib/vn-secondary-artwork';
 import { CinematicVisualNovelStage } from "./CinematicVisualNovelStage";
 import { isReusableChoiceHub, makeStoryChoiceReceipt, recordedStoryChoices, storyChoiceId } from "../lib/story-choice-history";
 
@@ -226,8 +227,10 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     // (the Narrator or an NPC without a configured image AND no /portraits/<slug>.png
     // on disk). The dialogue's <speaker> label already tells the player who's talking.
     const hideLeft = hidePlayerPortraitDuringNarration(speaker, leftName, authoredLeftImage)
+        || secondaryVnActorAbsent(event.id, leftName, leftImage)
         || (!leftImage && leftName.trim().toLowerCase() === "narrator");
     const hideRight = hidePlayerPortraitDuringNarration(speaker, rightName, authoredRightImage)
+        || secondaryVnActorAbsent(event.id, rightName, rightImage)
         || (!rightImage && rightName.trim().toLowerCase() === "narrator");
     const upcomingPageIndex = lineIndex < pageDialogue.length - 1 ? pageIndex : pageIndex + 1;
     const upcomingLineIndex = lineIndex < pageDialogue.length - 1 ? lineIndex + 1 : 0;
@@ -490,10 +493,10 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
             ) : null}
         />
     );
-    const stageStyle = pageImage
+    const stageStyle = presentation.backgroundImage
         ? ({
-            backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${pageImage})`,
-            "--vn-page-image": `url(${pageImage})`,
+            backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${presentation.backgroundImage})`,
+            "--vn-page-image": `url(${presentation.backgroundImage})`,
         } as CSSProperties)
         : undefined;
     if (showFinale) return (
@@ -633,7 +636,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                         <button type="button" className="vn-skip-button" onClick={cancelScene} aria-label="Skip visual novel scene">Skip</button>
                     </div>
                 </div>
-                <div className={"vn-stage vn-biome-" + event.biome + (pageImage ? " vn-has-image" : "")} style={stageStyle}>
+                <div className={"vn-stage vn-biome-" + event.biome + (presentation.backgroundImage ? " vn-has-image" : "")} style={stageStyle}>
                     {/* Scene picture (backdrop + portraits + narration). On mobile
                         this becomes a fixed-height block and the dialogue stacks
                         BELOW it (vn-picture display:contents on desktop = no change). */}

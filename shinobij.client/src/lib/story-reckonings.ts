@@ -78,7 +78,6 @@ function mapPages(pages: StoryReckoningPage[], acceptTrait: string): NonNullable
         scene: page.scene,
         speaker: page.speaker,
         dialogue: page.dialogue,
-        rightImage: defaultVnPortrait(page.speaker) || undefined,
         choices: index === last
             ? page.choices?.map((choice) => ({
                 text: choice.text,
