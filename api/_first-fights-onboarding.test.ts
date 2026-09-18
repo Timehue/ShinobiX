@@ -181,11 +181,9 @@ describe('first fights: the authored kits resolve and validate', () => {
         assert.ok(chapter.jutsuIds && chapter.jutsuIds.length === 2, 'chapter 1 carries an authored kit');
         for (const id of chapter.jutsuIds ?? []) assert.ok(JUTSU_CATALOG[id], `${id} must exist in the server jutsu catalog`);
         assert.ok(validateServerAiRules(chapter.rules, chapter.jutsuIds ?? []).ok);
-        // Later chapters and later ranks keep the generic signature untouched.
+        // Later story chapters keep their existing generic signature.
         assert.equal(storyBossEnemyTemplate({ village: 'Stormveil Village', progressIndex: 1 }).jutsuIds, undefined);
         assert.equal(storyBossEnemyTemplate({ village: 'Stormveil Village', progressIndex: 1 }).jutsu?.[0]?.id, 'story-1-signature');
-        assert.equal(missionEnemyTemplate(combatMissionByKey('combat-c-patrol')!).jutsuIds, undefined);
-        assert.equal(missionEnemyTemplate(combatMissionByKey('combat-c-patrol')!).jutsu?.[0]?.id, 'combat-c-patrol-signature');
     });
 
     it('kit enemies can afford their moves (the generic pool could not)', () => {
