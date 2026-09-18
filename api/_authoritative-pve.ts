@@ -2,6 +2,7 @@ import type { CombatMissionDef } from './missions/_mission-catalog.js';
 import type { EnemySpecialty, EnemyTemplate } from './towers/_enemy-templates.js';
 import type { TowerFloor } from './towers/_floor-catalog.js';
 import type { ServerAiRule } from './combat-core/ai-authoring.js';
+import { AUTHORED_MISSION_KITS } from './missions/_authored-mission-kits.js';
 
 /**
  * A mission template that carries an AUTHORED kit instead of the generic
@@ -13,6 +14,8 @@ import type { ServerAiRule } from './combat-core/ai-authoring.js';
 export type MissionEnemyTemplate = EnemyTemplate & {
     jutsuIds?: string[];
     rules?: ServerAiRule[];
+    missionTactics?: true;
+    missionJutsuDescriptions?: Record<string, string>;
 };
 
 const MISSION_NAMES: Record<string, string> = {
@@ -82,8 +85,8 @@ function genericEnemyJutsu(level: number, specialty: EnemySpecialty, prefix: str
  * a fresh rookie needs two rounds after the approach (and the stat-10 express
  * e2e fixture, seeded at 450 of its normalized 500 HP, still wins on basic
  * attacks alone with 150 HP to spare). The easy-band hit caps and mercy floor (api/_pve-difficulty.ts)
- * keep both fights unloseable from full HP. C-Rank and above keep the generic
- * template: this is onboarding, not a mission rebalance.
+ * keep both fights unloseable from full HP. C-Rank and above have separate
+ * mission-local programs in missions/_authored-mission-kits.ts.
  *
  * Kit enemies also get a level-1-player-sized resource pool (1,000): starter
  * jutsu cost 125/250, and the generic template's 120 + level x 4 pool could
@@ -131,6 +134,7 @@ export function missionEnemyTemplate(def: CombatMissionDef): MissionEnemyTemplat
     const index = Math.max(0, ['combat-e-drill', 'combat-d-errand', 'combat-c-patrol', 'combat-b-escort', 'combat-a-hunt', 'combat-s-crisis'].indexOf(def.key));
     const level = MISSION_LEVELS[def.key] ?? Math.max(1, def.min);
     const kit = FIRST_FIGHT_MISSION_KITS[def.key];
+    const authored = AUTHORED_MISSION_KITS[def.key];
     const specialty = kit?.specialty ?? specialtyForIndex(index);
     const offense = clampInt(150 + level * 27, 180, 2600, 500);
     const defense = clampInt(120 + level * 20, 140, 2100, 400);
@@ -150,9 +154,11 @@ export function missionEnemyTemplate(def: CombatMissionDef): MissionEnemyTemplat
         visual: def.aiProfileId,
         boss: true,
         armorRawDR: index >= 4 ? 0.15 : index >= 2 ? 0.08 : 0,
-        maxChakra: kit ? FIRST_FIGHT_KIT_POOL : 120 + level * 4,
-        maxStamina: kit ? FIRST_FIGHT_KIT_POOL : 120 + level * 4,
-        ...(kit
+        maxChakra: authored?.maxChakra ?? (kit ? FIRST_FIGHT_KIT_POOL : 120 + level * 4),
+        maxStamina: authored?.maxStamina ?? (kit ? FIRST_FIGHT_KIT_POOL : 120 + level * 4),
+        ...(authored
+            ? { jutsuIds: [...authored.jutsuIds], rules: authored.rules.map(rule => ({ ...rule })), missionTactics: true as const, missionJutsuDescriptions: { ...authored.descriptions } }
+            : kit
             ? { jutsuIds: [...kit.jutsuIds], rules: kit.rules.map((rule) => ({ ...rule })) }
             : { jutsu: genericEnemyJutsu(level, specialty, def.key) }),
     };

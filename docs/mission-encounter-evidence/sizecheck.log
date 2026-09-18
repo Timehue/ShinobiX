@@ -1,0 +1,43 @@
+
+> shinobix-api@1.0.0 sizecheck
+> node scripts/check-build-size.mjs
+
+[sizecheck] Top 20 dist assets:
+    2.56 MB  music/koi-kunai.m4a
+    2.47 MB  music/koi-kunai.ogg
+    2.43 MB  music/showdown-lantern-duel.mp3
+    2.24 MB  sfx/production/ambience-shrine.wav
+    2.13 MB  sfx/production/ambience-village.wav
+    2.12 MB  music/vn/hollow-gate-four-debts.m4a
+    2.08 MB  music/vn/hollow-gate-four-debts.ogg
+    2.02 MB  sfx/production/ambience-road.wav
+    1.99 MB  sfx/production/ambience-interior.wav
+    1.85 MB  music/vn/moonshadow-name-under-glass.m4a
+    1.81 MB  sfx/production/ambience-hollow.wav
+    1.79 MB  music/vn/moonshadow-name-under-glass.ogg
+    1.64 MB  music/vn/ashen-future-in-fire.m4a
+    1.63 MB  music/vn/frostfang-warmth-we-keep.m4a
+    1.60 MB  music/vn/frostfang-warmth-we-keep.ogg
+    1.55 MB  music/vn/ashen-future-in-fire.ogg
+    1.44 MB  music/vn/stormveil-reasons-in-rain.m4a
+    1.35 MB  music/vn/stormveil-reasons-in-rain.ogg
+    1.15 MB  music/silk-shuriken-2.m4a
+    1.13 MB  music/silk-shuriken-2.ogg
+[sizecheck] On-demand story JSON: 610.2 KB (624,862 B) raw / 157.4 KB (161,172 B) gzip across 4 village routes + the Echoes of War script.
+  assets/stormveil-749f99b1813f-7HRX03Zs.json: 137.8 KB raw / 34.9 KB gzip
+  assets/ashen-leaf-04980501b3e5-3wqj-gyh.json: 144.5 KB raw / 34.8 KB gzip
+  assets/moonshadow-960b036b4da5-CSmOpLNt.json: 136.4 KB raw / 34.6 KB gzip
+  assets/frostfang-90b09cad45ea-DZptOwny.json: 134.2 KB raw / 34.3 KB gzip
+  assets/echoes-of-war-f50a0d09ec69-DJxWKmzE.json: 57.4 KB raw / 18.8 KB gzip
+[sizecheck] Post-finale epilogue JSON: 40.5 KB (41,445 B) raw / 15.1 KB (15,506 B) gzip across 4 village routes.
+[sizecheck] On-demand field journey JSON: 60.2 KB (61,640 B) raw / 19.7 KB (20,146 B) gzip across 1 payload.
+[sizecheck] On-demand road-event JSON: 51.6 KB (52,882 B) raw / 19.1 KB (19,577 B) gzip across 1 payload.
+[sizecheck] Lazy Three.js vendor: 1.01 MB raw / 274.2 KB gzip.
+[sizecheck] Initial JS/CSS graph: 1.38 MB (1,450,038 B) raw / 378.7 KB (387,813 B) gzip across 12 files.
+[sizecheck] Story Hall / ashen-leaf: 526.0 KB (538,668 B) raw / 124.8 KB (127,759 B) gzip (19 incremental JS/CSS + one village JSON).
+[sizecheck] Story Hall / frostfang: 515.7 KB (528,087 B) raw / 124.3 KB (127,269 B) gzip (19 incremental JS/CSS + one village JSON).
+[sizecheck] Story Hall / moonshadow: 517.9 KB (530,348 B) raw / 124.5 KB (127,519 B) gzip (19 incremental JS/CSS + one village JSON).
+[sizecheck] Story Hall / stormveil: 519.3 KB (531,756 B) raw / 124.9 KB (127,879 B) gzip (19 incremental JS/CSS + one village JSON).
+[sizecheck] Echoes of War: 577.0 KB (590,884 B) raw / 154.3 KB (158,003 B) gzip (24 incremental JS/CSS + the campaign script JSON).
+[sizecheck] Admin Visual Novels: 1.13 MB (1,188,066 B) raw / 308.9 KB (316,348 B) gzip (31 incremental JS/CSS + four village JSON).
+[sizecheck] PASS. Budgeted product JS/CSS: 8.20 MB (8,597,573 B) raw / 2.31 MB (2,419,450 B) gzip; story JSON: 610.2 KB (624,862 B) raw / 157.4 KB (161,172 B) gzip; epilogue JSON: 40.5 KB (41,445 B) raw / 15.1 KB (15,506 B) gzip; field journey JSON: 60.2 KB (61,640 B) raw / 19.7 KB (20,146 B) gzip; road-event JSON: 51.6 KB (52,882 B) raw / 19.1 KB (19,577 B) gzip; combined tracked product: 8.94 MB (9,378,402 B) raw / 2.51 MB (2,635,851 B) gzip; all emitted JS/CSS: 8.20 MB (8,597,573 B) raw / 2.31 MB (2,419,450 B) gzip; lazy Three.js: 1.01 MB.

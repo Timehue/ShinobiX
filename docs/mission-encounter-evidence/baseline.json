@@ -1,0 +1,6520 @@
+{
+  "node": "v24.15.0",
+  "deterministic": true,
+  "rows": [
+    {
+      "key": "combat-c-patrol",
+      "stage": "admission",
+      "level": 15,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 1900,
+      "chakra": 2272,
+      "stamina": 2180,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "elapsedMs": 98.18999999999869,
+      "enemyTurnMs": [
+        40.84469999999874
+      ],
+      "initialBytes": 4827,
+      "finalBytes": 21067
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "admission",
+      "level": 15,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 1900,
+      "chakra": 2272,
+      "stamina": 2180,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 10,
+      "elapsedMs": 18.056099999999788,
+      "enemyTurnMs": [
+        10.227100000000064
+      ],
+      "initialBytes": 4827,
+      "finalBytes": 25064
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "admission",
+      "level": 15,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 1900,
+      "chakra": 2272,
+      "stamina": 2180,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "elapsedMs": 27.24800000000141,
+      "enemyTurnMs": [
+        16.307600000000093
+      ],
+      "initialBytes": 4827,
+      "finalBytes": 21067
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "admission",
+      "level": 15,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 1486,
+      "chakra": 2272,
+      "stamina": 2180,
+      "consumables": {},
+      "enemyActions": {
+        "basicAttack": 2
+      },
+      "statuses": [
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 2,
+      "elapsedMs": 9.271500000000742,
+      "enemyTurnMs": [
+        2.679599999999482
+      ],
+      "initialBytes": 4827,
+      "finalBytes": 19893
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "admission",
+      "level": 15,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 1900,
+      "chakra": 2272,
+      "stamina": 2180,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "elapsedMs": 7.443100000000413,
+      "enemyTurnMs": [
+        1.399199999999837
+      ],
+      "initialBytes": 4812,
+      "finalBytes": 20704
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "admission",
+      "level": 15,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 1900,
+      "chakra": 2272,
+      "stamina": 2180,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 10,
+      "elapsedMs": 7.398299999998926,
+      "enemyTurnMs": [
+        1.2705999999998312
+      ],
+      "initialBytes": 4812,
+      "finalBytes": 24336
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "admission",
+      "level": 15,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 1900,
+      "chakra": 2272,
+      "stamina": 2180,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "elapsedMs": 116.53700000000026,
+      "enemyTurnMs": [
+        91.61939999999959
+      ],
+      "initialBytes": 4812,
+      "finalBytes": 20704
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "admission",
+      "level": 15,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 1619,
+      "chakra": 2272,
+      "stamina": 2180,
+      "consumables": {},
+      "enemyActions": {
+        "basicAttack": 2
+      },
+      "statuses": [],
+      "idleTurns": 0,
+      "proposalsRejected": 2,
+      "elapsedMs": 71.51890000000094,
+      "enemyTurnMs": [
+        69.12540000000081
+      ],
+      "initialBytes": 4812,
+      "finalBytes": 19573
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "admission",
+      "level": 15,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 1900,
+      "chakra": 2180,
+      "stamina": 2272,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "elapsedMs": 5.220100000000457,
+      "enemyTurnMs": [
+        0.8031000000009954
+      ],
+      "initialBytes": 4817,
+      "finalBytes": 21065
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "admission",
+      "level": 15,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 1900,
+      "chakra": 2180,
+      "stamina": 2272,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 10,
+      "elapsedMs": 8.296199999998862,
+      "enemyTurnMs": [
+        1.2227999999995518
+      ],
+      "initialBytes": 4817,
+      "finalBytes": 24697
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "admission",
+      "level": 15,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 1900,
+      "chakra": 2180,
+      "stamina": 2272,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "elapsedMs": 11.868000000000393,
+      "enemyTurnMs": [
+        5.744000000000597
+      ],
+      "initialBytes": 4817,
+      "finalBytes": 21065
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "admission",
+      "level": 15,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 1486,
+      "chakra": 2180,
+      "stamina": 2272,
+      "consumables": {},
+      "enemyActions": {
+        "basicAttack": 2
+      },
+      "statuses": [
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 2,
+      "elapsedMs": 58.808100000000195,
+      "enemyTurnMs": [
+        2.6020000000007713
+      ],
+      "initialBytes": 4817,
+      "finalBytes": 19891
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "admission",
+      "level": 15,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 1900,
+      "chakra": 2180,
+      "stamina": 2272,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Decrease Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "elapsedMs": 36.56640000000152,
+      "enemyTurnMs": [
+        27.780300000000352
+      ],
+      "initialBytes": 4822,
+      "finalBytes": 21120
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "admission",
+      "level": 15,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 1900,
+      "chakra": 2180,
+      "stamina": 2272,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 10,
+      "elapsedMs": 8.770500000000538,
+      "enemyTurnMs": [
+        1.0598000000009051
+      ],
+      "initialBytes": 4822,
+      "finalBytes": 24752
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "admission",
+      "level": 15,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 1900,
+      "chakra": 2180,
+      "stamina": 2272,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Decrease Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "elapsedMs": 3.2013000000006286,
+      "enemyTurnMs": [
+        0.5983000000014727
+      ],
+      "initialBytes": 4822,
+      "finalBytes": 21120
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "admission",
+      "level": 15,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 1486,
+      "chakra": 2180,
+      "stamina": 2272,
+      "consumables": {},
+      "enemyActions": {
+        "basicAttack": 2
+      },
+      "statuses": [
+        "Decrease Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 2,
+      "elapsedMs": 8.346999999999753,
+      "enemyTurnMs": [
+        0.7224000000005617
+      ],
+      "initialBytes": 4822,
+      "finalBytes": 19946
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "later",
+      "level": 23,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 2700,
+      "chakra": 3000,
+      "stamina": 2883,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "elapsedMs": 4.268100000001141,
+      "enemyTurnMs": [
+        0.811200000000099
+      ],
+      "initialBytes": 4829,
+      "finalBytes": 21071
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "later",
+      "level": 23,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 2700,
+      "chakra": 3000,
+      "stamina": 2883,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 10,
+      "elapsedMs": 14.32049999999981,
+      "enemyTurnMs": [
+        0.779500000000553
+      ],
+      "initialBytes": 4829,
+      "finalBytes": 25068
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "later",
+      "level": 23,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 2700,
+      "chakra": 3000,
+      "stamina": 2883,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "elapsedMs": 15.153000000000247,
+      "enemyTurnMs": [
+        2.175699999999779
+      ],
+      "initialBytes": 4829,
+      "finalBytes": 21071
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "later",
+      "level": 23,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 2318,
+      "chakra": 3000,
+      "stamina": 2883,
+      "consumables": {},
+      "enemyActions": {
+        "basicAttack": 2
+      },
+      "statuses": [
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 2,
+      "elapsedMs": 7.184900000000198,
+      "enemyTurnMs": [
+        4.032499999999345
+      ],
+      "initialBytes": 4829,
+      "finalBytes": 19897
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "later",
+      "level": 23,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 2700,
+      "chakra": 3000,
+      "stamina": 2883,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "elapsedMs": 4.1247999999995955,
+      "enemyTurnMs": [
+        0.7793000000001484
+      ],
+      "initialBytes": 4814,
+      "finalBytes": 20708
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "later",
+      "level": 23,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 2700,
+      "chakra": 3000,
+      "stamina": 2883,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 10,
+      "elapsedMs": 5.681400000001304,
+      "enemyTurnMs": [
+        1.1295000000009168
+      ],
+      "initialBytes": 4814,
+      "finalBytes": 24340
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "later",
+      "level": 23,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 2700,
+      "chakra": 3000,
+      "stamina": 2883,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "elapsedMs": 5.181500000000597,
+      "enemyTurnMs": [
+        1.2990000000008877
+      ],
+      "initialBytes": 4814,
+      "finalBytes": 20708
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "later",
+      "level": 23,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 2461,
+      "chakra": 3000,
+      "stamina": 2883,
+      "consumables": {},
+      "enemyActions": {
+        "basicAttack": 2
+      },
+      "statuses": [],
+      "idleTurns": 0,
+      "proposalsRejected": 2,
+      "elapsedMs": 15.571900000000824,
+      "enemyTurnMs": [
+        11.211600000000544
+      ],
+      "initialBytes": 4814,
+      "finalBytes": 19577
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "later",
+      "level": 23,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 2700,
+      "chakra": 2883,
+      "stamina": 3000,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "elapsedMs": 5.611199999999371,
+      "enemyTurnMs": [
+        0.5491999999994732
+      ],
+      "initialBytes": 4819,
+      "finalBytes": 21069
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "later",
+      "level": 23,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 2700,
+      "chakra": 2883,
+      "stamina": 3000,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 10,
+      "elapsedMs": 29.637000000000626,
+      "enemyTurnMs": [
+        1.8454000000001543
+      ],
+      "initialBytes": 4819,
+      "finalBytes": 24701
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "later",
+      "level": 23,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 2700,
+      "chakra": 2883,
+      "stamina": 3000,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "elapsedMs": 12.85280000000057,
+      "enemyTurnMs": [
+        0.9868999999998778
+      ],
+      "initialBytes": 4819,
+      "finalBytes": 21069
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "later",
+      "level": 23,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 2318,
+      "chakra": 2883,
+      "stamina": 3000,
+      "consumables": {},
+      "enemyActions": {
+        "basicAttack": 2
+      },
+      "statuses": [
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 2,
+      "elapsedMs": 17.92239999999947,
+      "enemyTurnMs": [
+        13.636799999998402
+      ],
+      "initialBytes": 4819,
+      "finalBytes": 19895
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "later",
+      "level": 23,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 2700,
+      "chakra": 2883,
+      "stamina": 3000,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Decrease Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "elapsedMs": 13.80789999999979,
+      "enemyTurnMs": [
+        0.9364000000005035
+      ],
+      "initialBytes": 4824,
+      "finalBytes": 21124
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "later",
+      "level": 23,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 2700,
+      "chakra": 2883,
+      "stamina": 3000,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 10,
+      "elapsedMs": 13.042699999999968,
+      "enemyTurnMs": [
+        0.7817999999988388
+      ],
+      "initialBytes": 4824,
+      "finalBytes": 24756
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "later",
+      "level": 23,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 2700,
+      "chakra": 2883,
+      "stamina": 3000,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Decrease Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "elapsedMs": 11.648300000000745,
+      "enemyTurnMs": [
+        0.6696000000010827
+      ],
+      "initialBytes": 4824,
+      "finalBytes": 21124
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "later",
+      "level": 23,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 2318,
+      "chakra": 2883,
+      "stamina": 3000,
+      "consumables": {},
+      "enemyActions": {
+        "basicAttack": 2
+      },
+      "statuses": [
+        "Decrease Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 2,
+      "elapsedMs": 2.167199999999866,
+      "enemyTurnMs": [
+        0.7319000000006781
+      ],
+      "initialBytes": 4824,
+      "finalBytes": 19950
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "overlevel",
+      "level": 40,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4400,
+      "chakra": 4545,
+      "stamina": 4377,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "elapsedMs": 4.826399999999921,
+      "enemyTurnMs": [
+        0.7396000000007916
+      ],
+      "initialBytes": 4830,
+      "finalBytes": 21072
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "overlevel",
+      "level": 40,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4400,
+      "chakra": 4545,
+      "stamina": 4377,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 10,
+      "elapsedMs": 8.847100000000864,
+      "enemyTurnMs": [
+        1.685299999999188
+      ],
+      "initialBytes": 4830,
+      "finalBytes": 25074
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "overlevel",
+      "level": 40,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4400,
+      "chakra": 4545,
+      "stamina": 4377,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "elapsedMs": 3.7577000000001135,
+      "enemyTurnMs": [
+        0.6383000000005268
+      ],
+      "initialBytes": 4830,
+      "finalBytes": 21072
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "overlevel",
+      "level": 40,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4096,
+      "chakra": 4545,
+      "stamina": 4377,
+      "consumables": {},
+      "enemyActions": {
+        "basicAttack": 2
+      },
+      "statuses": [
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 2,
+      "elapsedMs": 2.592499999998836,
+      "enemyTurnMs": [
+        0.787400000001071
+      ],
+      "initialBytes": 4830,
+      "finalBytes": 19898
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "overlevel",
+      "level": 40,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4400,
+      "chakra": 4545,
+      "stamina": 4377,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "elapsedMs": 22.244699999999284,
+      "enemyTurnMs": [
+        1.0115999999998166
+      ],
+      "initialBytes": 4815,
+      "finalBytes": 20709
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "overlevel",
+      "level": 40,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4400,
+      "chakra": 4545,
+      "stamina": 4377,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 10,
+      "elapsedMs": 134.95089999999982,
+      "enemyTurnMs": [
+        7.852100000000064
+      ],
+      "initialBytes": 4815,
+      "finalBytes": 24346
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "overlevel",
+      "level": 40,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4400,
+      "chakra": 4545,
+      "stamina": 4377,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "elapsedMs": 49.997699999999895,
+      "enemyTurnMs": [
+        7.441399999999703
+      ],
+      "initialBytes": 4815,
+      "finalBytes": 20709
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "overlevel",
+      "level": 40,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4296,
+      "chakra": 4545,
+      "stamina": 4377,
+      "consumables": {},
+      "enemyActions": {
+        "basicAttack": 2
+      },
+      "statuses": [],
+      "idleTurns": 0,
+      "proposalsRejected": 2,
+      "elapsedMs": 2.793099999998958,
+      "enemyTurnMs": [
+        0.7224000000005617
+      ],
+      "initialBytes": 4815,
+      "finalBytes": 19578
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "overlevel",
+      "level": 40,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4400,
+      "chakra": 4377,
+      "stamina": 4545,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "elapsedMs": 4.701200000001336,
+      "enemyTurnMs": [
+        0.5813999999991211
+      ],
+      "initialBytes": 4820,
+      "finalBytes": 21070
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "overlevel",
+      "level": 40,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4400,
+      "chakra": 4377,
+      "stamina": 4545,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 10,
+      "elapsedMs": 5.550699999999779,
+      "enemyTurnMs": [
+        0.8593999999993684
+      ],
+      "initialBytes": 4820,
+      "finalBytes": 24707
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "overlevel",
+      "level": 40,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4400,
+      "chakra": 4377,
+      "stamina": 4545,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "elapsedMs": 3.0247999999992317,
+      "enemyTurnMs": [
+        0.5261000000009517
+      ],
+      "initialBytes": 4820,
+      "finalBytes": 21070
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "overlevel",
+      "level": 40,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4096,
+      "chakra": 4377,
+      "stamina": 4545,
+      "consumables": {},
+      "enemyActions": {
+        "basicAttack": 2
+      },
+      "statuses": [
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 2,
+      "elapsedMs": 2.4534999999996217,
+      "enemyTurnMs": [
+        0.923399999999674
+      ],
+      "initialBytes": 4820,
+      "finalBytes": 19896
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "overlevel",
+      "level": 40,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4400,
+      "chakra": 4377,
+      "stamina": 4545,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Decrease Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "elapsedMs": 6.558199999999488,
+      "enemyTurnMs": [
+        0.7195999999985361
+      ],
+      "initialBytes": 4825,
+      "finalBytes": 21125
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "overlevel",
+      "level": 40,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4400,
+      "chakra": 4377,
+      "stamina": 4545,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 10,
+      "elapsedMs": 6.6851000000006024,
+      "enemyTurnMs": [
+        0.7857000000003609
+      ],
+      "initialBytes": 4825,
+      "finalBytes": 24762
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "overlevel",
+      "level": 40,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4400,
+      "chakra": 4377,
+      "stamina": 4545,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Decrease Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "elapsedMs": 10.360800000000381,
+      "enemyTurnMs": [
+        3.989400000000387
+      ],
+      "initialBytes": 4825,
+      "finalBytes": 21125
+    },
+    {
+      "key": "combat-c-patrol",
+      "stage": "overlevel",
+      "level": 40,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4096,
+      "chakra": 4377,
+      "stamina": 4545,
+      "consumables": {},
+      "enemyActions": {
+        "basicAttack": 2
+      },
+      "statuses": [
+        "Decrease Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 2,
+      "elapsedMs": 32.45539999999892,
+      "enemyTurnMs": [
+        20.91779999999926
+      ],
+      "initialBytes": 4825,
+      "finalBytes": 19951
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "admission",
+      "level": 30,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 2380,
+      "chakra": 3636,
+      "stamina": 3429,
+      "consumables": {},
+      "enemyActions": {
+        "move": 2,
+        "combat-b-escort-signature": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 16,
+      "elapsedMs": 10.502700000000914,
+      "enemyTurnMs": [
+        1.4416999999994005,
+        1.9944000000014057
+      ],
+      "initialBytes": 4824,
+      "finalBytes": 31913
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "admission",
+      "level": 30,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 5,
+      "hp": 3400,
+      "chakra": 3636,
+      "stamina": 3498,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 13,
+      "elapsedMs": 15.61030000000028,
+      "enemyTurnMs": [
+        1.1875
+      ],
+      "initialBytes": 4824,
+      "finalBytes": 29159
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "admission",
+      "level": 30,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 2380,
+      "chakra": 3636,
+      "stamina": 3429,
+      "consumables": {},
+      "enemyActions": {
+        "move": 2,
+        "combat-b-escort-signature": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 16,
+      "elapsedMs": 13.150900000000547,
+      "enemyTurnMs": [
+        2.16820000000007,
+        1.352999999999156
+      ],
+      "initialBytes": 4824,
+      "finalBytes": 31913
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "admission",
+      "level": 30,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 2014,
+      "chakra": 3636,
+      "stamina": 3419,
+      "consumables": {},
+      "enemyActions": {
+        "combat-b-escort-signature": 1,
+        "basicAttack": 2,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 5,
+      "elapsedMs": 25.085900000000038,
+      "enemyTurnMs": [
+        11.652799999999843,
+        2.1045000000012806
+      ],
+      "initialBytes": 4824,
+      "finalBytes": 31432
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "admission",
+      "level": 30,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 2813,
+      "chakra": 3636,
+      "stamina": 3429,
+      "consumables": {},
+      "enemyActions": {
+        "move": 2,
+        "combat-b-escort-signature": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 16,
+      "elapsedMs": 11.912600000001476,
+      "enemyTurnMs": [
+        2.6397999999990134,
+        1.6180999999996857
+      ],
+      "initialBytes": 4809,
+      "finalBytes": 30072
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "admission",
+      "level": 30,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 5,
+      "hp": 3400,
+      "chakra": 3636,
+      "stamina": 3498,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 13,
+      "elapsedMs": 12.015799999999217,
+      "enemyTurnMs": [
+        0.8058000000000902
+      ],
+      "initialBytes": 4809,
+      "finalBytes": 28078
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "admission",
+      "level": 30,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 2813,
+      "chakra": 3636,
+      "stamina": 3429,
+      "consumables": {},
+      "enemyActions": {
+        "move": 2,
+        "combat-b-escort-signature": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 16,
+      "elapsedMs": 16.736399999999776,
+      "enemyTurnMs": [
+        1.5166000000008353,
+        1.1523999999990338
+      ],
+      "initialBytes": 4809,
+      "finalBytes": 30072
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "admission",
+      "level": 30,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 2413,
+      "chakra": 3636,
+      "stamina": 3419,
+      "consumables": {},
+      "enemyActions": {
+        "combat-b-escort-signature": 1,
+        "basicAttack": 2,
+        "basicHeal": 1
+      },
+      "statuses": [],
+      "idleTurns": 0,
+      "proposalsRejected": 5,
+      "elapsedMs": 13.467399999999543,
+      "enemyTurnMs": [
+        6.518200000000434,
+        0.8042000000004919
+      ],
+      "initialBytes": 4809,
+      "finalBytes": 29925
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "admission",
+      "level": 30,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 2380,
+      "chakra": 3429,
+      "stamina": 3636,
+      "consumables": {},
+      "enemyActions": {
+        "move": 2,
+        "combat-b-escort-signature": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 16,
+      "elapsedMs": 9.254899999999907,
+      "enemyTurnMs": [
+        0.9680000000007567,
+        1.3554000000003725
+      ],
+      "initialBytes": 4814,
+      "finalBytes": 31473
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "admission",
+      "level": 30,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 5,
+      "hp": 3400,
+      "chakra": 3498,
+      "stamina": 3636,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 13,
+      "elapsedMs": 26.742599999999584,
+      "enemyTurnMs": [
+        0.7882000000008702
+      ],
+      "initialBytes": 4814,
+      "finalBytes": 28630
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "admission",
+      "level": 30,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 2380,
+      "chakra": 3429,
+      "stamina": 3636,
+      "consumables": {},
+      "enemyActions": {
+        "move": 2,
+        "combat-b-escort-signature": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 16,
+      "elapsedMs": 36.958300000000236,
+      "enemyTurnMs": [
+        1.5918000000001484,
+        4.528199999998833
+      ],
+      "initialBytes": 4814,
+      "finalBytes": 31473
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "admission",
+      "level": 30,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 2014,
+      "chakra": 3429,
+      "stamina": 3636,
+      "consumables": {},
+      "enemyActions": {
+        "combat-b-escort-signature": 1,
+        "basicAttack": 2,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 5,
+      "elapsedMs": 20.787599999999657,
+      "enemyTurnMs": [
+        1.0488000000004831,
+        5.484400000001187
+      ],
+      "initialBytes": 4814,
+      "finalBytes": 31335
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "admission",
+      "level": 30,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 2380,
+      "chakra": 3429,
+      "stamina": 3636,
+      "consumables": {},
+      "enemyActions": {
+        "move": 2,
+        "combat-b-escort-signature": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 16,
+      "elapsedMs": 18.894900000001144,
+      "enemyTurnMs": [
+        2.960000000000946,
+        1.7263999999995576
+      ],
+      "initialBytes": 4819,
+      "finalBytes": 31718
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "admission",
+      "level": 30,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 5,
+      "hp": 3400,
+      "chakra": 3498,
+      "stamina": 3636,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 13,
+      "elapsedMs": 20.79190000000017,
+      "enemyTurnMs": [
+        1.119300000000294
+      ],
+      "initialBytes": 4819,
+      "finalBytes": 28710
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "admission",
+      "level": 30,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 2380,
+      "chakra": 3429,
+      "stamina": 3636,
+      "consumables": {},
+      "enemyActions": {
+        "move": 2,
+        "combat-b-escort-signature": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 16,
+      "elapsedMs": 9.885499999998501,
+      "enemyTurnMs": [
+        1.0743000000002212,
+        1.716100000001461
+      ],
+      "initialBytes": 4819,
+      "finalBytes": 31718
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "admission",
+      "level": 30,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 2014,
+      "chakra": 3429,
+      "stamina": 3636,
+      "consumables": {},
+      "enemyActions": {
+        "combat-b-escort-signature": 1,
+        "basicAttack": 2,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 5,
+      "elapsedMs": 56.4421999999995,
+      "enemyTurnMs": [
+        2.2263999999995576,
+        1.1904000000013184
+      ],
+      "initialBytes": 4819,
+      "finalBytes": 31580
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "later",
+      "level": 38,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 3187,
+      "chakra": 4363,
+      "stamina": 4120,
+      "consumables": {},
+      "enemyActions": {
+        "move": 2,
+        "combat-b-escort-signature": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 16,
+      "elapsedMs": 10.965900000001056,
+      "enemyTurnMs": [
+        1.3472000000001572,
+        1.9735000000000582
+      ],
+      "initialBytes": 4824,
+      "finalBytes": 31919
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "later",
+      "level": 38,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 5,
+      "hp": 4200,
+      "chakra": 4363,
+      "stamina": 4201,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 13,
+      "elapsedMs": 6.7444999999988795,
+      "enemyTurnMs": [
+        0.697200000000521
+      ],
+      "initialBytes": 4824,
+      "finalBytes": 29159
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "later",
+      "level": 38,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 3187,
+      "chakra": 4363,
+      "stamina": 4120,
+      "consumables": {},
+      "enemyActions": {
+        "move": 2,
+        "combat-b-escort-signature": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 16,
+      "elapsedMs": 21.02049999999872,
+      "enemyTurnMs": [
+        2.389999999999418,
+        2.358299999999872
+      ],
+      "initialBytes": 4824,
+      "finalBytes": 31919
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "later",
+      "level": 38,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 2857,
+      "chakra": 4363,
+      "stamina": 4110,
+      "consumables": {},
+      "enemyActions": {
+        "combat-b-escort-signature": 1,
+        "basicAttack": 2,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 5,
+      "elapsedMs": 6.219799999998941,
+      "enemyTurnMs": [
+        1.1441999999988184,
+        1.129399999999805
+      ],
+      "initialBytes": 4824,
+      "finalBytes": 31429
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "later",
+      "level": 38,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 3653,
+      "chakra": 4363,
+      "stamina": 4120,
+      "consumables": {},
+      "enemyActions": {
+        "move": 2,
+        "combat-b-escort-signature": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 16,
+      "elapsedMs": 20.88929999999891,
+      "enemyTurnMs": [
+        1.0372999999999593,
+        4.29529999999977
+      ],
+      "initialBytes": 4809,
+      "finalBytes": 30069
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "later",
+      "level": 38,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 5,
+      "hp": 4200,
+      "chakra": 4363,
+      "stamina": 4201,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 13,
+      "elapsedMs": 20.28939999999966,
+      "enemyTurnMs": [
+        8.898000000001048
+      ],
+      "initialBytes": 4809,
+      "finalBytes": 28071
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "later",
+      "level": 38,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 3653,
+      "chakra": 4363,
+      "stamina": 4120,
+      "consumables": {},
+      "enemyActions": {
+        "move": 2,
+        "combat-b-escort-signature": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 16,
+      "elapsedMs": 24.750899999999092,
+      "enemyTurnMs": [
+        1.3960000000006403,
+        2.393500000000131
+      ],
+      "initialBytes": 4809,
+      "finalBytes": 30069
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "later",
+      "level": 38,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 5,
+      "hp": 3231,
+      "chakra": 4363,
+      "stamina": 4191,
+      "consumables": {},
+      "enemyActions": {
+        "combat-b-escort-signature": 1,
+        "basicAttack": 1
+      },
+      "statuses": [],
+      "idleTurns": 0,
+      "proposalsRejected": 4,
+      "elapsedMs": 8.066899999999805,
+      "enemyTurnMs": [
+        1.0859000000000378
+      ],
+      "initialBytes": 4809,
+      "finalBytes": 22294
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "later",
+      "level": 38,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 3187,
+      "chakra": 4120,
+      "stamina": 4363,
+      "consumables": {},
+      "enemyActions": {
+        "move": 2,
+        "combat-b-escort-signature": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 16,
+      "elapsedMs": 8.158800000001065,
+      "enemyTurnMs": [
+        0.8744000000006054,
+        0.99120000000039
+      ],
+      "initialBytes": 4814,
+      "finalBytes": 31479
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "later",
+      "level": 38,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 5,
+      "hp": 4200,
+      "chakra": 4201,
+      "stamina": 4363,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 13,
+      "elapsedMs": 10.793499999999767,
+      "enemyTurnMs": [
+        0.7489999999997963
+      ],
+      "initialBytes": 4814,
+      "finalBytes": 28630
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "later",
+      "level": 38,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 3187,
+      "chakra": 4120,
+      "stamina": 4363,
+      "consumables": {},
+      "enemyActions": {
+        "move": 2,
+        "combat-b-escort-signature": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 16,
+      "elapsedMs": 21.62539999999899,
+      "enemyTurnMs": [
+        1.074800000000323,
+        4.35819999999876
+      ],
+      "initialBytes": 4814,
+      "finalBytes": 31479
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "later",
+      "level": 38,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 2857,
+      "chakra": 4120,
+      "stamina": 4363,
+      "consumables": {},
+      "enemyActions": {
+        "combat-b-escort-signature": 1,
+        "basicAttack": 2,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 5,
+      "elapsedMs": 10.889499999999316,
+      "enemyTurnMs": [
+        3.3078999999997905,
+        1.7404000000005908
+      ],
+      "initialBytes": 4814,
+      "finalBytes": 31332
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "later",
+      "level": 38,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 3187,
+      "chakra": 4120,
+      "stamina": 4363,
+      "consumables": {},
+      "enemyActions": {
+        "move": 2,
+        "combat-b-escort-signature": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 16,
+      "elapsedMs": 15.658799999999246,
+      "enemyTurnMs": [
+        1.4027999999998428,
+        1.2263000000002648
+      ],
+      "initialBytes": 4819,
+      "finalBytes": 31719
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "later",
+      "level": 38,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 5,
+      "hp": 4200,
+      "chakra": 4201,
+      "stamina": 4363,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 13,
+      "elapsedMs": 17.329999999999927,
+      "enemyTurnMs": [
+        2.926499999999578
+      ],
+      "initialBytes": 4819,
+      "finalBytes": 28710
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "later",
+      "level": 38,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 3187,
+      "chakra": 4120,
+      "stamina": 4363,
+      "consumables": {},
+      "enemyActions": {
+        "move": 2,
+        "combat-b-escort-signature": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 16,
+      "elapsedMs": 39.33220000000074,
+      "enemyTurnMs": [
+        1.7219999999997526,
+        5.118800000000192
+      ],
+      "initialBytes": 4819,
+      "finalBytes": 31719
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "later",
+      "level": 38,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 2857,
+      "chakra": 4120,
+      "stamina": 4363,
+      "consumables": {},
+      "enemyActions": {
+        "combat-b-escort-signature": 1,
+        "basicAttack": 2,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 5,
+      "elapsedMs": 14.22990000000027,
+      "enemyTurnMs": [
+        6.403500000000349,
+        1.069499999999607
+      ],
+      "initialBytes": 4819,
+      "finalBytes": 31581
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "overlevel",
+      "level": 55,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 5,
+      "hp": 5115,
+      "chakra": 5909,
+      "stamina": 5695,
+      "consumables": {},
+      "enemyActions": {
+        "move": 1,
+        "combat-b-escort-signature": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 15,
+      "elapsedMs": 10.46270000000004,
+      "enemyTurnMs": [
+        1.341500000000451
+      ],
+      "initialBytes": 4837,
+      "finalBytes": 22599
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "overlevel",
+      "level": 55,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 5900,
+      "chakra": 5909,
+      "stamina": 5695,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 10,
+      "elapsedMs": 4.267199999998411,
+      "enemyTurnMs": [
+        0.6785999999992782
+      ],
+      "initialBytes": 4837,
+      "finalBytes": 25131
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "overlevel",
+      "level": 55,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 5,
+      "hp": 5115,
+      "chakra": 5909,
+      "stamina": 5695,
+      "consumables": {},
+      "enemyActions": {
+        "move": 1,
+        "combat-b-escort-signature": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 15,
+      "elapsedMs": 10.02390000000014,
+      "enemyTurnMs": [
+        0.8711000000002969
+      ],
+      "initialBytes": 4837,
+      "finalBytes": 22599
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "overlevel",
+      "level": 55,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4987,
+      "chakra": 5909,
+      "stamina": 5695,
+      "consumables": {},
+      "enemyActions": {
+        "combat-b-escort-signature": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 2,
+      "elapsedMs": 2.748700000000099,
+      "enemyTurnMs": [
+        0.9346999999997934
+      ],
+      "initialBytes": 4837,
+      "finalBytes": 20155
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "overlevel",
+      "level": 55,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 5450,
+      "chakra": 5909,
+      "stamina": 5695,
+      "consumables": {},
+      "enemyActions": {
+        "move": 1,
+        "combat-b-escort-signature": 1
+      },
+      "statuses": [],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "elapsedMs": 30.83389999999963,
+      "enemyTurnMs": [
+        25.107700000000477
+      ],
+      "initialBytes": 4822,
+      "finalBytes": 18961
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "overlevel",
+      "level": 55,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 5900,
+      "chakra": 5909,
+      "stamina": 5695,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 10,
+      "elapsedMs": 6.789099999999962,
+      "enemyTurnMs": [
+        2.5128999999997177
+      ],
+      "initialBytes": 4822,
+      "finalBytes": 24403
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "overlevel",
+      "level": 55,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 5450,
+      "chakra": 5909,
+      "stamina": 5695,
+      "consumables": {},
+      "enemyActions": {
+        "move": 1,
+        "combat-b-escort-signature": 1
+      },
+      "statuses": [],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "elapsedMs": 8.097500000001673,
+      "enemyTurnMs": [
+        3.061200000000099
+      ],
+      "initialBytes": 4822,
+      "finalBytes": 18961
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "overlevel",
+      "level": 55,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 5322,
+      "chakra": 5909,
+      "stamina": 5695,
+      "consumables": {},
+      "enemyActions": {
+        "combat-b-escort-signature": 1,
+        "basicAttack": 1
+      },
+      "statuses": [],
+      "idleTurns": 0,
+      "proposalsRejected": 2,
+      "elapsedMs": 35.07389999999941,
+      "enemyTurnMs": [
+        25.8125
+      ],
+      "initialBytes": 4822,
+      "finalBytes": 19835
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "overlevel",
+      "level": 55,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 5,
+      "hp": 5115,
+      "chakra": 5695,
+      "stamina": 5909,
+      "consumables": {},
+      "enemyActions": {
+        "move": 1,
+        "combat-b-escort-signature": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 15,
+      "elapsedMs": 8.908900000000358,
+      "enemyTurnMs": [
+        1.136399999999412
+      ],
+      "initialBytes": 4827,
+      "finalBytes": 22436
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "overlevel",
+      "level": 55,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 5900,
+      "chakra": 5695,
+      "stamina": 5909,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 10,
+      "elapsedMs": 4.88130000000092,
+      "enemyTurnMs": [
+        0.768500000000131
+      ],
+      "initialBytes": 4827,
+      "finalBytes": 24762
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "overlevel",
+      "level": 55,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 5,
+      "hp": 5115,
+      "chakra": 5695,
+      "stamina": 5909,
+      "consumables": {},
+      "enemyActions": {
+        "move": 1,
+        "combat-b-escort-signature": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 15,
+      "elapsedMs": 12.176100000000588,
+      "enemyTurnMs": [
+        0.8686999999990803
+      ],
+      "initialBytes": 4827,
+      "finalBytes": 22436
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "overlevel",
+      "level": 55,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4987,
+      "chakra": 5695,
+      "stamina": 5909,
+      "consumables": {},
+      "enemyActions": {
+        "combat-b-escort-signature": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 2,
+      "elapsedMs": 2.753899999999703,
+      "enemyTurnMs": [
+        0.9593999999997322
+      ],
+      "initialBytes": 4827,
+      "finalBytes": 20151
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "overlevel",
+      "level": 55,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 5,
+      "hp": 5115,
+      "chakra": 5695,
+      "stamina": 5909,
+      "consumables": {},
+      "enemyActions": {
+        "move": 1,
+        "combat-b-escort-signature": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Increase Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 15,
+      "elapsedMs": 8.959700000001249,
+      "enemyTurnMs": [
+        1.203300000001036
+      ],
+      "initialBytes": 4832,
+      "finalBytes": 22530
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "overlevel",
+      "level": 55,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 5900,
+      "chakra": 5695,
+      "stamina": 5909,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 10,
+      "elapsedMs": 6.329099999999016,
+      "enemyTurnMs": [
+        0.94629999999961
+      ],
+      "initialBytes": 4832,
+      "finalBytes": 24817
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "overlevel",
+      "level": 55,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 5,
+      "hp": 5115,
+      "chakra": 5695,
+      "stamina": 5909,
+      "consumables": {},
+      "enemyActions": {
+        "move": 1,
+        "combat-b-escort-signature": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Increase Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 15,
+      "elapsedMs": 10.003399999999601,
+      "enemyTurnMs": [
+        1.5941000000002532
+      ],
+      "initialBytes": 4832,
+      "finalBytes": 22530
+    },
+    {
+      "key": "combat-b-escort",
+      "stage": "overlevel",
+      "level": 55,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4987,
+      "chakra": 5695,
+      "stamina": 5909,
+      "consumables": {},
+      "enemyActions": {
+        "combat-b-escort-signature": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Decrease Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 2,
+      "elapsedMs": 5.759299999999712,
+      "enemyTurnMs": [
+        1.2626000000000204
+      ],
+      "initialBytes": 4832,
+      "finalBytes": 20206
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "admission",
+      "level": 50,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 7,
+      "playerActions": 14,
+      "hp": 798,
+      "chakra": 5454,
+      "stamina": 5444,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-a-hunt-signature": 2,
+        "basicAttack": 6,
+        "clear": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 43,
+      "elapsedMs": 212.0679,
+      "enemyTurnMs": [
+        1.5805999999993219,
+        5.446700000000419,
+        3.3520000000007713,
+        1.825299999998606,
+        3.4575000000004366,
+        2.796599999999671
+      ],
+      "initialBytes": 4831,
+      "finalBytes": 82341
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "admission",
+      "level": 50,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 10,
+      "hp": 3271,
+      "chakra": 5454,
+      "stamina": 5315,
+      "consumables": {},
+      "enemyActions": {
+        "move": 4,
+        "clear": 1,
+        "basicHeal": 1,
+        "basicAttack": 2,
+        "combat-a-hunt-signature": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 32,
+      "elapsedMs": 86.1283999999996,
+      "enemyTurnMs": [
+        0.6931000000004133,
+        8.573899999999412,
+        4.46730000000025,
+        2.0656999999991967
+      ],
+      "initialBytes": 4831,
+      "finalBytes": 66599
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "admission",
+      "level": 50,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 7,
+      "playerActions": 14,
+      "hp": 798,
+      "chakra": 5454,
+      "stamina": 5444,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-a-hunt-signature": 2,
+        "basicAttack": 6,
+        "clear": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 43,
+      "elapsedMs": 147.8185999999987,
+      "enemyTurnMs": [
+        0.8677999999999884,
+        1.1422999999995227,
+        2.263199999999415,
+        2.2006000000001222,
+        2.587099999998827,
+        2.3611999999993714
+      ],
+      "initialBytes": 4831,
+      "finalBytes": 82341
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "admission",
+      "level": 50,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 6,
+      "playerActions": 13,
+      "hp": 798,
+      "chakra": 5454,
+      "stamina": 5374,
+      "consumables": {},
+      "enemyActions": {
+        "combat-a-hunt-signature": 2,
+        "basicAttack": 6,
+        "clear": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 27,
+      "elapsedMs": 115.67140000000109,
+      "enemyTurnMs": [
+        0.7686999999987165,
+        4.5416000000004715,
+        1.3390999999992346,
+        2.097200000000157,
+        2.388300000000527
+      ],
+      "initialBytes": 4831,
+      "finalBytes": 71280
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "admission",
+      "level": 50,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 6,
+      "playerActions": 13,
+      "hp": 1219,
+      "chakra": 5454,
+      "stamina": 5374,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-a-hunt-signature": 2,
+        "basicAttack": 5,
+        "basicHeal": 1
+      },
+      "statuses": [],
+      "idleTurns": 0,
+      "proposalsRejected": 37,
+      "elapsedMs": 66.78269999999975,
+      "enemyTurnMs": [
+        0.6387999999988097,
+        1.0254000000004453,
+        1.513199999999415,
+        1.7466999999996915,
+        1.7265999999999622
+      ],
+      "initialBytes": 4816,
+      "finalBytes": 68048
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "admission",
+      "level": 50,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 7,
+      "hp": 5400,
+      "chakra": 5454,
+      "stamina": 5147,
+      "consumables": {},
+      "enemyActions": {
+        "move": 4,
+        "clear": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 18,
+      "elapsedMs": 37.76050000000032,
+      "enemyTurnMs": [
+        15.60819999999876,
+        2.3585000000002765
+      ],
+      "initialBytes": 4816,
+      "finalBytes": 39495
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "admission",
+      "level": 50,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 6,
+      "playerActions": 13,
+      "hp": 1219,
+      "chakra": 5454,
+      "stamina": 5374,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-a-hunt-signature": 2,
+        "basicAttack": 5,
+        "basicHeal": 1
+      },
+      "statuses": [],
+      "idleTurns": 0,
+      "proposalsRejected": 37,
+      "elapsedMs": 91.27900000000045,
+      "enemyTurnMs": [
+        0.6357999999981985,
+        3.7177000000010594,
+        4.092099999999846,
+        2.1291999999994005,
+        2.4228000000002794
+      ],
+      "initialBytes": 4816,
+      "finalBytes": 68048
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "admission",
+      "level": 50,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "loss",
+      "rounds": 5,
+      "playerActions": 11,
+      "hp": 0,
+      "chakra": 5454,
+      "stamina": 5295,
+      "consumables": {},
+      "enemyActions": {
+        "combat-a-hunt-signature": 3,
+        "basicAttack": 5,
+        "basicHeal": 1
+      },
+      "statuses": [],
+      "idleTurns": 0,
+      "proposalsRejected": 23,
+      "elapsedMs": 77.72930000000088,
+      "enemyTurnMs": [
+        1.059900000000198,
+        1.353399999999965,
+        2.514999999999418,
+        1.9399999999986903,
+        2.1380000000008295
+      ],
+      "initialBytes": 4816,
+      "finalBytes": 59650
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "admission",
+      "level": 50,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 3271,
+      "chakra": 5256,
+      "stamina": 5434,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-a-hunt-signature": 1,
+        "basicAttack": 2,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 25,
+      "elapsedMs": 53.43209999999817,
+      "enemyTurnMs": [
+        2.6733000000022002,
+        1.1664999999993597,
+        1.1980000000003201
+      ],
+      "initialBytes": 4821,
+      "finalBytes": 49131
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "admission",
+      "level": 50,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 7,
+      "hp": 5400,
+      "chakra": 5157,
+      "stamina": 5444,
+      "consumables": {},
+      "enemyActions": {
+        "move": 4,
+        "clear": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 18,
+      "elapsedMs": 13.793900000000576,
+      "enemyTurnMs": [
+        0.7420000000020082,
+        0.9872999999970489
+      ],
+      "initialBytes": 4821,
+      "finalBytes": 41332
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "admission",
+      "level": 50,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 3271,
+      "chakra": 5256,
+      "stamina": 5434,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-a-hunt-signature": 1,
+        "basicAttack": 2,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 25,
+      "elapsedMs": 44.027900000000955,
+      "enemyTurnMs": [
+        1.7090000000025611,
+        3.4508999999998196,
+        2.3083000000005995
+      ],
+      "initialBytes": 4821,
+      "finalBytes": 49131
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "admission",
+      "level": 50,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 1314,
+      "chakra": 5256,
+      "stamina": 5434,
+      "consumables": {},
+      "enemyActions": {
+        "combat-a-hunt-signature": 2,
+        "basicAttack": 3,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 15,
+      "elapsedMs": 21.849400000002788,
+      "enemyTurnMs": [
+        0.9357000000018161,
+        1.0959000000002561,
+        1.325700000001234
+      ],
+      "initialBytes": 4821,
+      "finalBytes": 48397
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "admission",
+      "level": 50,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 11,
+      "hp": 3157,
+      "chakra": 5355,
+      "stamina": 5434,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-a-hunt-signature": 1,
+        "basicAttack": 3,
+        "basicHeal": 1,
+        "cleanse": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 29,
+      "elapsedMs": 42.167600000000675,
+      "enemyTurnMs": [
+        0.6012999999984459,
+        2.040899999999965,
+        1.2705000000023574,
+        1.6179000000011001
+      ],
+      "initialBytes": 4826,
+      "finalBytes": 59494
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "admission",
+      "level": 50,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 5400,
+      "chakra": 5157,
+      "stamina": 5454,
+      "consumables": {},
+      "enemyActions": {
+        "move": 4,
+        "clear": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 15,
+      "elapsedMs": 40.51340000000346,
+      "enemyTurnMs": [
+        5.367600000001403,
+        18.01560000000245
+      ],
+      "initialBytes": 4826,
+      "finalBytes": 38545
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "admission",
+      "level": 50,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 11,
+      "hp": 3157,
+      "chakra": 5355,
+      "stamina": 5434,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-a-hunt-signature": 1,
+        "basicAttack": 3,
+        "basicHeal": 1,
+        "cleanse": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 29,
+      "elapsedMs": 89.9922000000006,
+      "enemyTurnMs": [
+        1.6484999999993306,
+        1.010099999999511,
+        1.1103000000002794,
+        3.312900000000809
+      ],
+      "initialBytes": 4826,
+      "finalBytes": 59494
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "admission",
+      "level": 50,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 10,
+      "hp": 1795,
+      "chakra": 5355,
+      "stamina": 5444,
+      "consumables": {},
+      "enemyActions": {
+        "combat-a-hunt-signature": 2,
+        "basicAttack": 4,
+        "basicHeal": 1,
+        "cleanse": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 17,
+      "elapsedMs": 34.8676000000014,
+      "enemyTurnMs": [
+        0.8646999999982654,
+        1.232799999997951,
+        1.6978999999992084,
+        1.4038000000000466
+      ],
+      "initialBytes": 4826,
+      "finalBytes": 56339
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "later",
+      "level": 58,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 6,
+      "playerActions": 13,
+      "hp": 2370,
+      "chakra": 6181,
+      "stamina": 6099,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-a-hunt-signature": 2,
+        "basicAttack": 4,
+        "clear": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 37,
+      "elapsedMs": 54.12960000000021,
+      "enemyTurnMs": [
+        0.5102000000006228,
+        0.8792000000030384,
+        1.0936000000001513,
+        1.5266000000010536,
+        1.8575000000018917
+      ],
+      "initialBytes": 4843,
+      "finalBytes": 72457
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "later",
+      "level": 58,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 6045,
+      "chakra": 6181,
+      "stamina": 5927,
+      "consumables": {},
+      "enemyActions": {
+        "move": 4,
+        "clear": 1,
+        "basicHeal": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 24,
+      "elapsedMs": 42.81049999999959,
+      "enemyTurnMs": [
+        0.8827999999994063,
+        2.0927000000010594,
+        3.5714000000007218
+      ],
+      "initialBytes": 4843,
+      "finalBytes": 54840
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "later",
+      "level": 58,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 6,
+      "playerActions": 13,
+      "hp": 2370,
+      "chakra": 6181,
+      "stamina": 6099,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-a-hunt-signature": 2,
+        "basicAttack": 4,
+        "clear": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 37,
+      "elapsedMs": 171.95660000000134,
+      "enemyTurnMs": [
+        1.2086999999992258,
+        1.537899999999354,
+        5.038300000000163,
+        53.8234999999986,
+        2.643000000000029
+      ],
+      "initialBytes": 4843,
+      "finalBytes": 72457
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "later",
+      "level": 58,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 6,
+      "playerActions": 12,
+      "hp": 2060,
+      "chakra": 6181,
+      "stamina": 6109,
+      "consumables": {},
+      "enemyActions": {
+        "combat-a-hunt-signature": 2,
+        "basicAttack": 6,
+        "clear": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 25,
+      "elapsedMs": 126.37609999999768,
+      "enemyTurnMs": [
+        0.8365999999987253,
+        4.409599999999045,
+        6.3962999999967,
+        1.322599999999511,
+        1.9622000000017579
+      ],
+      "initialBytes": 4843,
+      "finalBytes": 68731
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "later",
+      "level": 58,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 11,
+      "hp": 2791,
+      "chakra": 6181,
+      "stamina": 6008,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-a-hunt-signature": 2,
+        "basicAttack": 3,
+        "basicHeal": 1
+      },
+      "statuses": [],
+      "idleTurns": 0,
+      "proposalsRejected": 29,
+      "elapsedMs": 33.16100000000006,
+      "enemyTurnMs": [
+        1.0720999999975902,
+        0.7560999999986961,
+        0.8574999999982538,
+        1.3901000000005297
+      ],
+      "initialBytes": 4828,
+      "finalBytes": 55766
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "later",
+      "level": 58,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 7,
+      "hp": 6200,
+      "chakra": 6181,
+      "stamina": 5836,
+      "consumables": {},
+      "enemyActions": {
+        "move": 4,
+        "clear": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 18,
+      "elapsedMs": 34.61059999999998,
+      "enemyTurnMs": [
+        0.7622000000010303,
+        2.3195999999989
+      ],
+      "initialBytes": 4828,
+      "finalBytes": 39502
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "later",
+      "level": 58,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 11,
+      "hp": 2791,
+      "chakra": 6181,
+      "stamina": 6008,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-a-hunt-signature": 2,
+        "basicAttack": 3,
+        "basicHeal": 1
+      },
+      "statuses": [],
+      "idleTurns": 0,
+      "proposalsRejected": 29,
+      "elapsedMs": 53.854699999999866,
+      "enemyTurnMs": [
+        0.9297999999980675,
+        1.005300000000716,
+        1.231500000001688,
+        1.5178999999989173
+      ],
+      "initialBytes": 4828,
+      "finalBytes": 55766
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "later",
+      "level": 58,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 10,
+      "hp": 2760,
+      "chakra": 6181,
+      "stamina": 6018,
+      "consumables": {},
+      "enemyActions": {
+        "combat-a-hunt-signature": 2,
+        "basicAttack": 5,
+        "basicHeal": 1
+      },
+      "statuses": [],
+      "idleTurns": 0,
+      "proposalsRejected": 17,
+      "elapsedMs": 316.70080000000235,
+      "enemyTurnMs": [
+        0.7893000000003667,
+        133.9382000000005,
+        55.44750000000204,
+        2.0354999999981374
+      ],
+      "initialBytes": 4828,
+      "finalBytes": 52415
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "later",
+      "level": 58,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 4285,
+      "chakra": 5957,
+      "stamina": 6161,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-a-hunt-signature": 1,
+        "basicAttack": 2,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 25,
+      "elapsedMs": 32.20829999999842,
+      "enemyTurnMs": [
+        0.7713000000003376,
+        1.3845000000001164,
+        2.439600000001519
+      ],
+      "initialBytes": 4833,
+      "finalBytes": 49150
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "later",
+      "level": 58,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 7,
+      "hp": 6200,
+      "chakra": 5846,
+      "stamina": 6171,
+      "consumables": {},
+      "enemyActions": {
+        "move": 4,
+        "clear": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 18,
+      "elapsedMs": 37.20750000000044,
+      "enemyTurnMs": [
+        0.7616999999991094,
+        2.4890999999988708
+      ],
+      "initialBytes": 4833,
+      "finalBytes": 41339
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "later",
+      "level": 58,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 4285,
+      "chakra": 5957,
+      "stamina": 6161,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-a-hunt-signature": 1,
+        "basicAttack": 2,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 25,
+      "elapsedMs": 47.25909999999931,
+      "enemyTurnMs": [
+        0.5167999999976018,
+        1.3389999999999418,
+        1.1736999999993714
+      ],
+      "initialBytes": 4833,
+      "finalBytes": 49150
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "later",
+      "level": 58,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 2525,
+      "chakra": 5957,
+      "stamina": 6161,
+      "consumables": {},
+      "enemyActions": {
+        "combat-a-hunt-signature": 2,
+        "basicAttack": 3,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 11,
+      "elapsedMs": 106.9314000000013,
+      "enemyTurnMs": [
+        36.427999999999884,
+        1.393900000002759,
+        1.8741999999983818
+      ],
+      "initialBytes": 4833,
+      "finalBytes": 45554
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "later",
+      "level": 58,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 10,
+      "hp": 4717,
+      "chakra": 6068,
+      "stamina": 6171,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "basicHeal": 1,
+        "basicAttack": 3,
+        "combat-a-hunt-signature": 1,
+        "cleanse": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 27,
+      "elapsedMs": 42.21510000000126,
+      "enemyTurnMs": [
+        0.43629999999757274,
+        0.8627000000014959,
+        2.972200000000157,
+        2.571699999996781
+      ],
+      "initialBytes": 4838,
+      "finalBytes": 57172
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "later",
+      "level": 58,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 6200,
+      "chakra": 5846,
+      "stamina": 6181,
+      "consumables": {},
+      "enemyActions": {
+        "move": 4,
+        "clear": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 15,
+      "elapsedMs": 18.675500000001193,
+      "enemyTurnMs": [
+        1.7225999999973283,
+        1.0568999999995867
+      ],
+      "initialBytes": 4838,
+      "finalBytes": 38559
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "later",
+      "level": 58,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 10,
+      "hp": 4717,
+      "chakra": 6068,
+      "stamina": 6171,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "basicHeal": 1,
+        "basicAttack": 3,
+        "combat-a-hunt-signature": 1,
+        "cleanse": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 27,
+      "elapsedMs": 61.03399999999965,
+      "enemyTurnMs": [
+        0.5639000000010128,
+        19.389200000001438,
+        1.3849000000009255,
+        1.371500000001106
+      ],
+      "initialBytes": 4838,
+      "finalBytes": 57172
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "later",
+      "level": 58,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 3112,
+      "chakra": 5957,
+      "stamina": 6161,
+      "consumables": {},
+      "enemyActions": {
+        "combat-a-hunt-signature": 2,
+        "basicAttack": 3,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 11,
+      "elapsedMs": 17.641099999997095,
+      "enemyTurnMs": [
+        1.0938999999998487,
+        0.9151999999994587,
+        1.2461999999977706
+      ],
+      "initialBytes": 4838,
+      "finalBytes": 45923
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "overlevel",
+      "level": 75,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 6442,
+      "chakra": 7727,
+      "stamina": 7413,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-a-hunt-signature": 1,
+        "basicAttack": 2,
+        "clear": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 21,
+      "elapsedMs": 31.050500000001193,
+      "enemyTurnMs": [
+        1.642600000002858,
+        0.9403999999994994,
+        1.2692999999999302
+      ],
+      "initialBytes": 4843,
+      "finalBytes": 46287
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "overlevel",
+      "level": 75,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 7900,
+      "chakra": 7727,
+      "stamina": 7316,
+      "consumables": {},
+      "enemyActions": {
+        "move": 4,
+        "clear": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 15,
+      "elapsedMs": 9.747200000001612,
+      "enemyTurnMs": [
+        0.5975999999973283,
+        1.2210000000013679
+      ],
+      "initialBytes": 4843,
+      "finalBytes": 39270
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "overlevel",
+      "level": 75,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 6442,
+      "chakra": 7727,
+      "stamina": 7413,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-a-hunt-signature": 1,
+        "basicAttack": 2,
+        "clear": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 21,
+      "elapsedMs": 30.40610000000015,
+      "enemyTurnMs": [
+        0.6615000000019791,
+        1.2462999999988824,
+        1.2554999999993015
+      ],
+      "initialBytes": 4843,
+      "finalBytes": 46287
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "overlevel",
+      "level": 75,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 10,
+      "hp": 4984,
+      "chakra": 7727,
+      "stamina": 7540,
+      "consumables": {},
+      "enemyActions": {
+        "combat-a-hunt-signature": 2,
+        "basicAttack": 4,
+        "basicHeal": 1,
+        "clear": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 17,
+      "elapsedMs": 38.05289999999877,
+      "enemyTurnMs": [
+        2.3253999999978987,
+        3.7625000000007276,
+        1.1303999999981897,
+        1.4121000000013737
+      ],
+      "initialBytes": 4843,
+      "finalBytes": 56318
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "overlevel",
+      "level": 75,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 10,
+      "hp": 6324,
+      "chakra": 7727,
+      "stamina": 7540,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "basicHeal": 1,
+        "basicAttack": 4,
+        "combat-a-hunt-signature": 1
+      },
+      "statuses": [],
+      "idleTurns": 0,
+      "proposalsRejected": 27,
+      "elapsedMs": 61.28770000000077,
+      "enemyTurnMs": [
+        0.7996000000021013,
+        6.461799999997311,
+        4.17779999999766,
+        2.427400000000489
+      ],
+      "initialBytes": 4828,
+      "finalBytes": 53174
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "overlevel",
+      "level": 75,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 7900,
+      "chakra": 7727,
+      "stamina": 7316,
+      "consumables": {},
+      "enemyActions": {
+        "move": 4,
+        "clear": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 15,
+      "elapsedMs": 19.81260000000111,
+      "enemyTurnMs": [
+        2.0327999999972235,
+        0.8984000000018568
+      ],
+      "initialBytes": 4828,
+      "finalBytes": 36818
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "overlevel",
+      "level": 75,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 10,
+      "hp": 6324,
+      "chakra": 7727,
+      "stamina": 7540,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "basicHeal": 1,
+        "basicAttack": 4,
+        "combat-a-hunt-signature": 1
+      },
+      "statuses": [],
+      "idleTurns": 0,
+      "proposalsRejected": 27,
+      "elapsedMs": 42.141899999998714,
+      "enemyTurnMs": [
+        0.5882999999994354,
+        2.077900000000227,
+        4.110300000000279,
+        2.358799999998155
+      ],
+      "initialBytes": 4828,
+      "finalBytes": 53174
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "overlevel",
+      "level": 75,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 5719,
+      "chakra": 7727,
+      "stamina": 7413,
+      "consumables": {},
+      "enemyActions": {
+        "combat-a-hunt-signature": 2,
+        "basicAttack": 3,
+        "basicHeal": 1
+      },
+      "statuses": [],
+      "idleTurns": 0,
+      "proposalsRejected": 11,
+      "elapsedMs": 20.819299999999203,
+      "enemyTurnMs": [
+        0.9254999999975553,
+        0.6661999999996624,
+        4.395999999997002
+      ],
+      "initialBytes": 4828,
+      "finalBytes": 42584
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "overlevel",
+      "level": 75,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 8,
+      "hp": 6442,
+      "chakra": 7453,
+      "stamina": 7717,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "basicHeal": 1,
+        "basicAttack": 2,
+        "combat-a-hunt-signature": 1
+      },
+      "statuses": [
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 19,
+      "elapsedMs": 49.21509999999762,
+      "enemyTurnMs": [
+        0.65230000000156,
+        1.0269000000007509,
+        1.7691999999988184
+      ],
+      "initialBytes": 4833,
+      "finalBytes": 43543
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "overlevel",
+      "level": 75,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 7900,
+      "chakra": 7316,
+      "stamina": 7727,
+      "consumables": {},
+      "enemyActions": {
+        "move": 4,
+        "clear": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 15,
+      "elapsedMs": 36.05909999999858,
+      "enemyTurnMs": [
+        2.2224000000023807,
+        1.0407000000013795
+      ],
+      "initialBytes": 4833,
+      "finalBytes": 38314
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "overlevel",
+      "level": 75,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 8,
+      "hp": 6442,
+      "chakra": 7453,
+      "stamina": 7717,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "basicHeal": 1,
+        "basicAttack": 2,
+        "combat-a-hunt-signature": 1
+      },
+      "statuses": [
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 19,
+      "elapsedMs": 33.25810000000274,
+      "enemyTurnMs": [
+        0.7740000000012515,
+        1.2868999999991502,
+        1.6163999999989755
+      ],
+      "initialBytes": 4833,
+      "finalBytes": 43543
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "overlevel",
+      "level": 75,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 7,
+      "hp": 6442,
+      "chakra": 7316,
+      "stamina": 7717,
+      "consumables": {},
+      "enemyActions": {
+        "combat-a-hunt-signature": 1,
+        "basicAttack": 2,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 7,
+      "elapsedMs": 13.064800000000105,
+      "enemyTurnMs": [
+        0.7766000000010536,
+        0.8022999999993772
+      ],
+      "initialBytes": 4833,
+      "finalBytes": 34112
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "overlevel",
+      "level": 75,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 8,
+      "hp": 6890,
+      "chakra": 7453,
+      "stamina": 7717,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "basicHeal": 1,
+        "basicAttack": 2,
+        "combat-a-hunt-signature": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 19,
+      "elapsedMs": 71.58550000000105,
+      "enemyTurnMs": [
+        0.5967999999993481,
+        1.2278000000005704,
+        2.399999999997817
+      ],
+      "initialBytes": 4838,
+      "finalBytes": 43865
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "overlevel",
+      "level": 75,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 7900,
+      "chakra": 7316,
+      "stamina": 7727,
+      "consumables": {},
+      "enemyActions": {
+        "move": 4,
+        "clear": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 15,
+      "elapsedMs": 70.81869999999981,
+      "enemyTurnMs": [
+        1.1015000000006694,
+        47.15149999999994
+      ],
+      "initialBytes": 4838,
+      "finalBytes": 38544
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "overlevel",
+      "level": 75,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 8,
+      "hp": 6890,
+      "chakra": 7453,
+      "stamina": 7717,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "basicHeal": 1,
+        "basicAttack": 2,
+        "combat-a-hunt-signature": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 19,
+      "elapsedMs": 29.25039999999717,
+      "enemyTurnMs": [
+        1.7910999999985506,
+        1.9645000000018626,
+        3.7282999999988533
+      ],
+      "initialBytes": 4838,
+      "finalBytes": 43865
+    },
+    {
+      "key": "combat-a-hunt",
+      "stage": "overlevel",
+      "level": 75,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 7,
+      "hp": 6442,
+      "chakra": 7316,
+      "stamina": 7717,
+      "consumables": {},
+      "enemyActions": {
+        "combat-a-hunt-signature": 1,
+        "basicAttack": 2,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 7,
+      "elapsedMs": 12.71900000000096,
+      "enemyTurnMs": [
+        0.7227999999995518,
+        0.8018999999985681
+      ],
+      "initialBytes": 4838,
+      "finalBytes": 34409
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "admission",
+      "level": 70,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 9,
+      "playerActions": 18,
+      "hp": 374,
+      "chakra": 7272,
+      "stamina": 7013,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-s-crisis-signature": 3,
+        "basicAttack": 9,
+        "clear": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 58,
+      "elapsedMs": 301.6877999999997,
+      "enemyTurnMs": [
+        2.546599999997852,
+        1.65849999999773,
+        1.4733999999989464,
+        34.499400000000605,
+        1.796200000000681,
+        2.0305000000007567,
+        5.992399999999179,
+        10.219099999998434
+      ],
+      "initialBytes": 4800,
+      "finalBytes": 110119
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "admission",
+      "level": 70,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 9,
+      "playerActions": 18,
+      "hp": 2408,
+      "chakra": 7272,
+      "stamina": 7003,
+      "consumables": {},
+      "enemyActions": {
+        "move": 4,
+        "clear": 1,
+        "basicHeal": 2,
+        "basicAttack": 8,
+        "combat-s-crisis-signature": 2
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 70,
+      "elapsedMs": 382.65610000000015,
+      "enemyTurnMs": [
+        0.6264000000010128,
+        1.055000000000291,
+        3.7648000000008324,
+        3.333699999999226,
+        2.0887000000002445,
+        2.1741000000001804,
+        3.4004000000022643,
+        3.423500000000786
+      ],
+      "initialBytes": 4800,
+      "finalBytes": 120399
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "admission",
+      "level": 70,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 9,
+      "playerActions": 18,
+      "hp": 374,
+      "chakra": 7272,
+      "stamina": 7013,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-s-crisis-signature": 3,
+        "basicAttack": 9,
+        "clear": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 58,
+      "elapsedMs": 509.9264000000003,
+      "enemyTurnMs": [
+        0.8367999999973108,
+        16.02049999999872,
+        15.475600000001577,
+        3.8539999999993597,
+        1.9102999999995518,
+        7.464500000001863,
+        3.326499999999214,
+        3.81329999999798
+      ],
+      "initialBytes": 4800,
+      "finalBytes": 110119
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "admission",
+      "level": 70,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 9,
+      "playerActions": 18,
+      "hp": 66,
+      "chakra": 7272,
+      "stamina": 7013,
+      "consumables": {},
+      "enemyActions": {
+        "combat-s-crisis-signature": 3,
+        "basicAttack": 11,
+        "clear": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 47,
+      "elapsedMs": 368.9886000000006,
+      "enemyTurnMs": [
+        1.2301000000006752,
+        0.9219000000011874,
+        41.436900000000605,
+        2.4530999999988126,
+        2.91899999999805,
+        21.96020000000135,
+        5.494299999998475,
+        2.8148999999975786
+      ],
+      "initialBytes": 4800,
+      "finalBytes": 105889
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "admission",
+      "level": 70,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "loss",
+      "rounds": 10,
+      "playerActions": 21,
+      "hp": 0,
+      "chakra": 7272,
+      "stamina": 6864,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-s-crisis-signature": 4,
+        "basicAttack": 10,
+        "clear": 1,
+        "basicHeal": 2
+      },
+      "statuses": [
+        "Increase Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 63,
+      "elapsedMs": 253.0619000000006,
+      "enemyTurnMs": [
+        0.6977000000006228,
+        0.8518000000003667,
+        0.9909999999981665,
+        1.27900000000227,
+        19.49409999999989,
+        1.858299999999872,
+        11.625499999998283,
+        2.3179000000018277,
+        2.420299999997951,
+        9.650800000003073
+      ],
+      "initialBytes": 4785,
+      "finalBytes": 119667
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "admission",
+      "level": 70,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 10,
+      "playerActions": 20,
+      "hp": 1685,
+      "chakra": 7272,
+      "stamina": 6864,
+      "consumables": {},
+      "enemyActions": {
+        "move": 4,
+        "clear": 1,
+        "basicHeal": 2,
+        "basicAttack": 9,
+        "combat-s-crisis-signature": 3
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 73,
+      "elapsedMs": 377.36949999999706,
+      "enemyTurnMs": [
+        1.803299999999581,
+        2.0148000000008324,
+        1.7034000000021479,
+        2.4544000000023516,
+        5.67790000000241,
+        3.277799999999843,
+        2.993899999997666,
+        3.524300000000949,
+        3.5269999999982247
+      ],
+      "initialBytes": 4785,
+      "finalBytes": 125649
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "admission",
+      "level": 70,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "loss",
+      "rounds": 10,
+      "playerActions": 21,
+      "hp": 0,
+      "chakra": 7272,
+      "stamina": 6864,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-s-crisis-signature": 4,
+        "basicAttack": 10,
+        "clear": 1,
+        "basicHeal": 2
+      },
+      "statuses": [
+        "Increase Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 63,
+      "elapsedMs": 243.43439999999828,
+      "enemyTurnMs": [
+        0.9421999999976833,
+        0.8302000000003318,
+        1.2197999999989406,
+        4.0152000000016415,
+        1.6477000000013504,
+        1.9851000000016938,
+        2.605599999998958,
+        2.6200000000026193,
+        7.183600000000297,
+        9.957099999999627
+      ],
+      "initialBytes": 4785,
+      "finalBytes": 119667
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "admission",
+      "level": 70,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "loss",
+      "rounds": 7,
+      "playerActions": 15,
+      "hp": 0,
+      "chakra": 7272,
+      "stamina": 7252,
+      "consumables": {},
+      "enemyActions": {
+        "combat-s-crisis-signature": 4,
+        "basicAttack": 8,
+        "basicHeal": 1
+      },
+      "statuses": [],
+      "idleTurns": 0,
+      "proposalsRejected": 39,
+      "elapsedMs": 129.86199999999735,
+      "enemyTurnMs": [
+        0.7733999999982188,
+        0.699800000002142,
+        1.239399999998568,
+        1.5235000000029686,
+        2.7085000000006403,
+        1.5042999999968742,
+        2.043100000002596
+      ],
+      "initialBytes": 4785,
+      "finalBytes": 84184
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "admission",
+      "level": 70,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 9,
+      "playerActions": 18,
+      "hp": 528,
+      "chakra": 7013,
+      "stamina": 7272,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-s-crisis-signature": 3,
+        "basicAttack": 8,
+        "clear": 1,
+        "cleanse": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 58,
+      "elapsedMs": 267.40109999999913,
+      "enemyTurnMs": [
+        0.8250000000007276,
+        7.064800000000105,
+        6.66359999999986,
+        1.6494999999995343,
+        2.1225000000013097,
+        5.091300000000047,
+        2.083100000003469,
+        2.801500000001397
+      ],
+      "initialBytes": 4790,
+      "finalBytes": 109171
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "admission",
+      "level": 70,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 7,
+      "playerActions": 15,
+      "hp": 4750,
+      "chakra": 7272,
+      "stamina": 7252,
+      "consumables": {},
+      "enemyActions": {
+        "move": 4,
+        "clear": 1,
+        "basicHeal": 1,
+        "basicAttack": 5,
+        "cleanse": 1,
+        "combat-s-crisis-signature": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 57,
+      "elapsedMs": 238.3097999999991,
+      "enemyTurnMs": [
+        0.721399999998539,
+        12.45140000000174,
+        3.702000000001135,
+        49.08350000000064,
+        2.5883000000030734,
+        2.6445999999996275
+      ],
+      "initialBytes": 4790,
+      "finalBytes": 93090
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "admission",
+      "level": 70,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 9,
+      "playerActions": 18,
+      "hp": 528,
+      "chakra": 7013,
+      "stamina": 7272,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-s-crisis-signature": 3,
+        "basicAttack": 8,
+        "clear": 1,
+        "cleanse": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 58,
+      "elapsedMs": 250.57979999999952,
+      "enemyTurnMs": [
+        0.682199999999284,
+        1.1318999999966763,
+        1.5914000000011583,
+        1.5253000000011525,
+        1.6641000000017812,
+        2.54320000000007,
+        2.574000000000524,
+        3.2638999999981024
+      ],
+      "initialBytes": 4790,
+      "finalBytes": 109171
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "admission",
+      "level": 70,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 9,
+      "playerActions": 18,
+      "hp": 220,
+      "chakra": 7013,
+      "stamina": 7272,
+      "consumables": {},
+      "enemyActions": {
+        "combat-s-crisis-signature": 3,
+        "basicAttack": 10,
+        "basicHeal": 2,
+        "cleanse": 1
+      },
+      "statuses": [
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 47,
+      "elapsedMs": 258.5132999999987,
+      "enemyTurnMs": [
+        0.8504999999968277,
+        1.1779999999998836,
+        1.509200000000419,
+        1.481999999999971,
+        2.5891000000010536,
+        4.64719999999943,
+        7.228599999998551,
+        2.2379000000000815
+      ],
+      "initialBytes": 4790,
+      "finalBytes": 105099
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "admission",
+      "level": 70,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 9,
+      "playerActions": 18,
+      "hp": 580,
+      "chakra": 7013,
+      "stamina": 7272,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-s-crisis-signature": 3,
+        "basicAttack": 8,
+        "clear": 1,
+        "cleanse": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 58,
+      "elapsedMs": 388.2936000000009,
+      "enemyTurnMs": [
+        1.2865999999994528,
+        1.2669999999998254,
+        1.5566999999973632,
+        1.6049000000020897,
+        20.71689999999944,
+        2.1608000000014727,
+        4.503000000000611,
+        2.6335999999973865
+      ],
+      "initialBytes": 4795,
+      "finalBytes": 109549
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "admission",
+      "level": 70,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 9,
+      "playerActions": 18,
+      "hp": 2614,
+      "chakra": 7013,
+      "stamina": 7272,
+      "consumables": {},
+      "enemyActions": {
+        "move": 4,
+        "clear": 1,
+        "basicHeal": 2,
+        "basicAttack": 7,
+        "cleanse": 1,
+        "combat-s-crisis-signature": 2
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 70,
+      "elapsedMs": 306.64610000000175,
+      "enemyTurnMs": [
+        90.00669999999809,
+        1.2826999999997497,
+        2.5855000000010477,
+        1.360899999999674,
+        6.224500000000262,
+        3.558099999998376,
+        2.2857999999978347,
+        3.0692999999992026
+      ],
+      "initialBytes": 4795,
+      "finalBytes": 118675
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "admission",
+      "level": 70,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 9,
+      "playerActions": 18,
+      "hp": 580,
+      "chakra": 7013,
+      "stamina": 7272,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-s-crisis-signature": 3,
+        "basicAttack": 8,
+        "clear": 1,
+        "cleanse": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 58,
+      "elapsedMs": 271.4438000000009,
+      "enemyTurnMs": [
+        0.6104000000013912,
+        1.4645999999993364,
+        1.128500000002532,
+        8.056700000001001,
+        2.679100000001199,
+        4.747699999999895,
+        2.8202999999994063,
+        3.983799999998155
+      ],
+      "initialBytes": 4795,
+      "finalBytes": 109549
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "admission",
+      "level": 70,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "loss",
+      "rounds": 9,
+      "playerActions": 19,
+      "hp": 0,
+      "chakra": 7013,
+      "stamina": 7262,
+      "consumables": {},
+      "enemyActions": {
+        "combat-s-crisis-signature": 4,
+        "basicAttack": 10,
+        "basicHeal": 2,
+        "cleanse": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 49,
+      "elapsedMs": 341.8790000000008,
+      "enemyTurnMs": [
+        0.8351000000002387,
+        0.9012000000002445,
+        1.4720999999990454,
+        1.3497999999999593,
+        4.001599999999598,
+        2.2946999999985565,
+        5.107299999999668,
+        2.8471000000026834,
+        46.426400000000285
+      ],
+      "initialBytes": 4795,
+      "finalBytes": 110707
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "later",
+      "level": 78,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 9,
+      "playerActions": 18,
+      "hp": 1960,
+      "chakra": 8000,
+      "stamina": 7717,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-s-crisis-signature": 3,
+        "basicAttack": 9,
+        "clear": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 58,
+      "elapsedMs": 215.27019999999902,
+      "enemyTurnMs": [
+        51.93699999999808,
+        1.8321000000069034,
+        1.3238999999957741,
+        1.7957000000023982,
+        1.8119000000006054,
+        2.443299999998999,
+        2.5890999999974156,
+        5.492899999997462
+      ],
+      "initialBytes": 4800,
+      "finalBytes": 110135
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "later",
+      "level": 78,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 9,
+      "playerActions": 18,
+      "hp": 3766,
+      "chakra": 8000,
+      "stamina": 7707,
+      "consumables": {},
+      "enemyActions": {
+        "move": 4,
+        "clear": 1,
+        "basicHeal": 2,
+        "basicAttack": 8,
+        "combat-s-crisis-signature": 2
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 70,
+      "elapsedMs": 374.8948999999993,
+      "enemyTurnMs": [
+        0.7436000000016065,
+        32.52200000000448,
+        1.2744999999995343,
+        1.7558999999964726,
+        1.950700000001234,
+        2.2806999999957043,
+        5.205299999994168,
+        3.309000000001106
+      ],
+      "initialBytes": 4800,
+      "finalBytes": 120371
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "later",
+      "level": 78,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 9,
+      "playerActions": 18,
+      "hp": 1960,
+      "chakra": 8000,
+      "stamina": 7717,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-s-crisis-signature": 3,
+        "basicAttack": 9,
+        "clear": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 58,
+      "elapsedMs": 285.65750000000116,
+      "enemyTurnMs": [
+        0.857800000005227,
+        2.7806999999957043,
+        112.08640000000014,
+        1.885600000001432,
+        3.074800000002142,
+        5.094899999996414,
+        2.4112999999997555,
+        3.4660000000003492
+      ],
+      "initialBytes": 4800,
+      "finalBytes": 110135
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "later",
+      "level": 78,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 9,
+      "playerActions": 18,
+      "hp": 1686,
+      "chakra": 8000,
+      "stamina": 7717,
+      "consumables": {},
+      "enemyActions": {
+        "combat-s-crisis-signature": 3,
+        "basicAttack": 11,
+        "clear": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 47,
+      "elapsedMs": 735.5786000000007,
+      "enemyTurnMs": [
+        1.1136000000042259,
+        0.7740999999950873,
+        1.341999999996915,
+        1.382900000004156,
+        45.69229999999516,
+        3.193700000003446,
+        3.612199999995937,
+        2.259299999997893
+      ],
+      "initialBytes": 4800,
+      "finalBytes": 105912
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "later",
+      "level": 78,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 10,
+      "playerActions": 20,
+      "hp": 2881,
+      "chakra": 8000,
+      "stamina": 7566,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-s-crisis-signature": 3,
+        "basicAttack": 10,
+        "clear": 1,
+        "basicHeal": 2
+      },
+      "statuses": [
+        "Increase Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 61,
+      "elapsedMs": 259.00019999999495,
+      "enemyTurnMs": [
+        0.7456999999994878,
+        3.083599999998114,
+        1.4259999999994761,
+        1.2946000000010827,
+        3.1695999999938067,
+        6.268100000001141,
+        2.0126000000018394,
+        3.165000000000873,
+        3.701099999998405
+      ],
+      "initialBytes": 4785,
+      "finalBytes": 114764
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "later",
+      "level": 78,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 10,
+      "playerActions": 20,
+      "hp": 3239,
+      "chakra": 8000,
+      "stamina": 7556,
+      "consumables": {},
+      "enemyActions": {
+        "move": 4,
+        "clear": 1,
+        "basicHeal": 2,
+        "basicAttack": 9,
+        "combat-s-crisis-signature": 3
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 73,
+      "elapsedMs": 193.3127999999997,
+      "enemyTurnMs": [
+        0.5662999999985914,
+        0.8487999999997555,
+        1.1207999999969616,
+        2.5737999999983003,
+        1.4237999999968451,
+        1.9279000000024098,
+        2.637300000002142,
+        2.0771999999997206,
+        3.918600000004517
+      ],
+      "initialBytes": 4785,
+      "finalBytes": 125642
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "later",
+      "level": 78,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 10,
+      "playerActions": 20,
+      "hp": 2881,
+      "chakra": 8000,
+      "stamina": 7566,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-s-crisis-signature": 3,
+        "basicAttack": 10,
+        "clear": 1,
+        "basicHeal": 2
+      },
+      "statuses": [
+        "Increase Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 61,
+      "elapsedMs": 200.92669999999634,
+      "enemyTurnMs": [
+        0.7164000000047963,
+        13.083999999995285,
+        1.308499999999185,
+        0.9643999999971129,
+        2.459899999994377,
+        2.996500000001106,
+        3.504399999997986,
+        8.95629999999801,
+        2.3387000000002445
+      ],
+      "initialBytes": 4785,
+      "finalBytes": 114764
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "later",
+      "level": 78,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 10,
+      "playerActions": 20,
+      "hp": 896,
+      "chakra": 8000,
+      "stamina": 7566,
+      "consumables": {},
+      "enemyActions": {
+        "combat-s-crisis-signature": 4,
+        "basicAttack": 12,
+        "basicHeal": 2
+      },
+      "statuses": [],
+      "idleTurns": 0,
+      "proposalsRejected": 50,
+      "elapsedMs": 169.89190000000235,
+      "enemyTurnMs": [
+        0.5306000000055064,
+        0.7308999999950174,
+        0.7511999999987893,
+        1.4801000000006752,
+        2.3100999999951455,
+        4.79030000000057,
+        2.1599999999962165,
+        2.5144000000000233,
+        3.25970000000234
+      ],
+      "initialBytes": 4785,
+      "finalBytes": 110796
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "later",
+      "level": 78,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 8,
+      "playerActions": 17,
+      "hp": 3903,
+      "chakra": 8000,
+      "stamina": 7980,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-s-crisis-signature": 2,
+        "basicAttack": 7,
+        "clear": 1,
+        "cleanse": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 54,
+      "elapsedMs": 162.4207000000024,
+      "enemyTurnMs": [
+        0.5542999999961467,
+        2.2119000000020606,
+        1.4020000000018626,
+        1.2943999999988591,
+        1.451100000005681,
+        2.766200000005483,
+        4.597299999993993
+      ],
+      "initialBytes": 4790,
+      "finalBytes": 98961
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "later",
+      "level": 78,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 7,
+      "playerActions": 14,
+      "hp": 5846,
+      "chakra": 8000,
+      "stamina": 7990,
+      "consumables": {},
+      "enemyActions": {
+        "move": 4,
+        "clear": 1,
+        "basicHeal": 1,
+        "basicAttack": 5,
+        "cleanse": 1,
+        "combat-s-crisis-signature": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 54,
+      "elapsedMs": 130.99729999999545,
+      "enemyTurnMs": [
+        0.9607000000032713,
+        0.8781999999991967,
+        1.4375,
+        1.7210000000050059,
+        5.6841999999960535,
+        2.6445999999996275
+      ],
+      "initialBytes": 4790,
+      "finalBytes": 90522
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "later",
+      "level": 78,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 8,
+      "playerActions": 17,
+      "hp": 3903,
+      "chakra": 8000,
+      "stamina": 7980,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-s-crisis-signature": 2,
+        "basicAttack": 7,
+        "clear": 1,
+        "cleanse": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 54,
+      "elapsedMs": 101.32400000000052,
+      "enemyTurnMs": [
+        2.64429999999993,
+        0.7937999999994645,
+        0.9530000000013388,
+        1.2448000000003958,
+        1.6023000000059255,
+        5.333100000003469,
+        2.4495000000024447
+      ],
+      "initialBytes": 4790,
+      "finalBytes": 98961
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "later",
+      "level": 78,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 8,
+      "playerActions": 17,
+      "hp": 1960,
+      "chakra": 8000,
+      "stamina": 7980,
+      "consumables": {},
+      "enemyActions": {
+        "combat-s-crisis-signature": 3,
+        "basicAttack": 9,
+        "basicHeal": 1,
+        "cleanse": 1
+      },
+      "statuses": [
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 43,
+      "elapsedMs": 196.88090000000375,
+      "enemyTurnMs": [
+        0.701600000000326,
+        0.9783999999999651,
+        2.856099999997241,
+        1.9677000000010594,
+        3.1045000000012806,
+        2.0540000000037253,
+        2.58810000000085
+      ],
+      "initialBytes": 4790,
+      "finalBytes": 95185
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "later",
+      "level": 78,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 9,
+      "playerActions": 18,
+      "hp": 2143,
+      "chakra": 7717,
+      "stamina": 8000,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-s-crisis-signature": 3,
+        "basicAttack": 8,
+        "clear": 1,
+        "cleanse": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 58,
+      "elapsedMs": 168.52189999999973,
+      "enemyTurnMs": [
+        0.7746999999944819,
+        2.1115999999965425,
+        6.1445999999996275,
+        1.6872000000003027,
+        2.157999999995809,
+        1.9799999999959255,
+        2.0829000000012456,
+        2.778700000002573
+      ],
+      "initialBytes": 4795,
+      "finalBytes": 109549
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "later",
+      "level": 78,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 9,
+      "playerActions": 18,
+      "hp": 3949,
+      "chakra": 7717,
+      "stamina": 8000,
+      "consumables": {},
+      "enemyActions": {
+        "move": 4,
+        "clear": 1,
+        "basicHeal": 2,
+        "basicAttack": 7,
+        "cleanse": 1,
+        "combat-s-crisis-signature": 2
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 70,
+      "elapsedMs": 245.59629999999743,
+      "enemyTurnMs": [
+        0.6499000000039814,
+        4.022000000004482,
+        1.576999999997497,
+        1.744299999998475,
+        5.177300000003015,
+        2.7796999999991385,
+        4.467899999996007,
+        6.135600000001432
+      ],
+      "initialBytes": 4795,
+      "finalBytes": 118653
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "later",
+      "level": 78,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 9,
+      "playerActions": 18,
+      "hp": 2143,
+      "chakra": 7717,
+      "stamina": 8000,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-s-crisis-signature": 3,
+        "basicAttack": 8,
+        "clear": 1,
+        "cleanse": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 58,
+      "elapsedMs": 194.18940000000293,
+      "enemyTurnMs": [
+        0.8054000000047381,
+        1.081000000005588,
+        1.9209999999948195,
+        1.311199999996461,
+        2.4518000000025495,
+        2.203800000002957,
+        6.771699999997509,
+        14.410100000000966
+      ],
+      "initialBytes": 4795,
+      "finalBytes": 109549
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "later",
+      "level": 78,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 9,
+      "playerActions": 19,
+      "hp": 1869,
+      "chakra": 7717,
+      "stamina": 7990,
+      "consumables": {},
+      "enemyActions": {
+        "combat-s-crisis-signature": 3,
+        "basicAttack": 10,
+        "basicHeal": 2,
+        "cleanse": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 49,
+      "elapsedMs": 303.07999999999447,
+      "enemyTurnMs": [
+        1.323099999994156,
+        2.158099999993283,
+        1.5485000000044238,
+        4.225900000004913,
+        3.7762000000002445,
+        2.591200000002573,
+        19.556399999994028,
+        15.33350000000064
+      ],
+      "initialBytes": 4795,
+      "finalBytes": 108080
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "overlevel",
+      "level": 95,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 8,
+      "playerActions": 16,
+      "hp": 6231,
+      "chakra": 9545,
+      "stamina": 9535,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-s-crisis-signature": 3,
+        "basicAttack": 7,
+        "clear": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 52,
+      "elapsedMs": 188.81779999999708,
+      "enemyTurnMs": [
+        0.8611000000018976,
+        1.0074000000022352,
+        1.5609000000040396,
+        1.6388000000006286,
+        2.547000000005937,
+        3.5464999999967404,
+        3.676400000003923
+      ],
+      "initialBytes": 4808,
+      "finalBytes": 97592
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "overlevel",
+      "level": 95,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 6,
+      "playerActions": 13,
+      "hp": 8537,
+      "chakra": 9545,
+      "stamina": 9473,
+      "consumables": {},
+      "enemyActions": {
+        "move": 4,
+        "clear": 1,
+        "basicHeal": 1,
+        "basicAttack": 4,
+        "combat-s-crisis-signature": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 46,
+      "elapsedMs": 242.1296000000002,
+      "enemyTurnMs": [
+        0.6840999999985797,
+        1.4067999999970198,
+        12.92269999999553,
+        1.9121000000013737,
+        22.528200000000652
+      ],
+      "initialBytes": 4808,
+      "finalBytes": 82691
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "overlevel",
+      "level": 95,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 8,
+      "playerActions": 16,
+      "hp": 6231,
+      "chakra": 9545,
+      "stamina": 9535,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-s-crisis-signature": 3,
+        "basicAttack": 7,
+        "clear": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 52,
+      "elapsedMs": 121.39150000000518,
+      "enemyTurnMs": [
+        0.5868000000045868,
+        1.0508000000045286,
+        1.139100000000326,
+        1.4754000000029919,
+        2.24029999999766,
+        1.9383000000016182,
+        2.1762999999991735
+      ],
+      "initialBytes": 4808,
+      "finalBytes": 97592
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "overlevel",
+      "level": 95,
+      "discipline": "Taijutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 8,
+      "playerActions": 16,
+      "hp": 6063,
+      "chakra": 9545,
+      "stamina": 9535,
+      "consumables": {},
+      "enemyActions": {
+        "combat-s-crisis-signature": 3,
+        "basicAttack": 9,
+        "clear": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 41,
+      "elapsedMs": 162.19519999999466,
+      "enemyTurnMs": [
+        0.6529999999984284,
+        0.669000000001688,
+        1.901000000005297,
+        1.4349999999976717,
+        2.249900000002526,
+        11.23120000000199,
+        25.4033000000054
+      ],
+      "initialBytes": 4808,
+      "finalBytes": 93377
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "overlevel",
+      "level": 95,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 9,
+      "playerActions": 18,
+      "hp": 7026,
+      "chakra": 9545,
+      "stamina": 9210,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-s-crisis-signature": 3,
+        "basicAttack": 9,
+        "clear": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 58,
+      "elapsedMs": 247.68759999999747,
+      "enemyTurnMs": [
+        0.707300000001851,
+        20.63509999999951,
+        0.8578999999954249,
+        1.634699999995064,
+        2.508399999998801,
+        17.04269999999815,
+        2.9275000000052387,
+        7.172599999998056
+      ],
+      "initialBytes": 4793,
+      "finalBytes": 104926
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "overlevel",
+      "level": 95,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 9,
+      "playerActions": 18,
+      "hp": 7579,
+      "chakra": 9545,
+      "stamina": 9200,
+      "consumables": {},
+      "enemyActions": {
+        "move": 4,
+        "clear": 1,
+        "basicHeal": 2,
+        "basicAttack": 8,
+        "combat-s-crisis-signature": 2
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 70,
+      "elapsedMs": 298.19630000000325,
+      "enemyTurnMs": [
+        0.606500000001688,
+        1.0963000000047032,
+        6.459800000004179,
+        7.941800000000512,
+        5.231099999997241,
+        2.909800000001269,
+        2.333699999995588,
+        8.73909999999887
+      ],
+      "initialBytes": 4793,
+      "finalBytes": 113806
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "overlevel",
+      "level": 95,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 9,
+      "playerActions": 18,
+      "hp": 7026,
+      "chakra": 9545,
+      "stamina": 9210,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-s-crisis-signature": 3,
+        "basicAttack": 9,
+        "clear": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 58,
+      "elapsedMs": 284.3058999999994,
+      "enemyTurnMs": [
+        37.63980000000447,
+        1.8366000000023632,
+        1.1045999999987544,
+        7.95060000000376,
+        3.9301999999952386,
+        5.005400000001828,
+        8.586600000002363,
+        5.856599999999162
+      ],
+      "initialBytes": 4793,
+      "finalBytes": 104926
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "overlevel",
+      "level": 95,
+      "discipline": "Bukijutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 9,
+      "playerActions": 18,
+      "hp": 6807,
+      "chakra": 9545,
+      "stamina": 9210,
+      "consumables": {},
+      "enemyActions": {
+        "combat-s-crisis-signature": 3,
+        "basicAttack": 11,
+        "basicHeal": 2
+      },
+      "statuses": [],
+      "idleTurns": 0,
+      "proposalsRejected": 47,
+      "elapsedMs": 164.9412999999986,
+      "enemyTurnMs": [
+        1.032999999995809,
+        0.7885000000023865,
+        1.8561999999947147,
+        2.611400000001595,
+        4.570900000006077,
+        4.168700000001991,
+        2.0345999999990454,
+        2.540899999999965
+      ],
+      "initialBytes": 4793,
+      "finalBytes": 100713
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "overlevel",
+      "level": 95,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 7,
+      "playerActions": 14,
+      "hp": 7426,
+      "chakra": 9545,
+      "stamina": 9535,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-s-crisis-signature": 2,
+        "basicAttack": 5,
+        "clear": 1,
+        "cleanse": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 44,
+      "elapsedMs": 139.14480000000185,
+      "enemyTurnMs": [
+        0.7600999999995111,
+        1.1661000000021886,
+        1.460800000000745,
+        2.227999999995518,
+        1.86359999999695,
+        16.490499999999884
+      ],
+      "initialBytes": 4798,
+      "finalBytes": 84230
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "overlevel",
+      "level": 95,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 10,
+      "hp": 9732,
+      "chakra": 9376,
+      "stamina": 9535,
+      "consumables": {},
+      "enemyActions": {
+        "move": 4,
+        "clear": 1,
+        "basicHeal": 1,
+        "basicAttack": 2,
+        "cleanse": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 32,
+      "elapsedMs": 60.124400000000605,
+      "enemyTurnMs": [
+        0.7433000000019092,
+        2.8418000000019674,
+        1.5254000000059023,
+        1.8043000000034226
+      ],
+      "initialBytes": 4798,
+      "finalBytes": 64826
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "overlevel",
+      "level": 95,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 7,
+      "playerActions": 14,
+      "hp": 7426,
+      "chakra": 9545,
+      "stamina": 9535,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-s-crisis-signature": 2,
+        "basicAttack": 5,
+        "clear": 1,
+        "cleanse": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 44,
+      "elapsedMs": 102.51929999999993,
+      "enemyTurnMs": [
+        0.8254000000015367,
+        4.717799999998533,
+        1.3303999999989173,
+        3.6790000000037253,
+        1.6387000000031549,
+        2.350400000002992
+      ],
+      "initialBytes": 4798,
+      "finalBytes": 84230
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "overlevel",
+      "level": 95,
+      "discipline": "Ninjutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 7,
+      "playerActions": 14,
+      "hp": 7174,
+      "chakra": 9545,
+      "stamina": 9535,
+      "consumables": {},
+      "enemyActions": {
+        "combat-s-crisis-signature": 2,
+        "basicAttack": 8,
+        "basicHeal": 1,
+        "cleanse": 1
+      },
+      "statuses": [
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 33,
+      "elapsedMs": 207.9449999999997,
+      "enemyTurnMs": [
+        4.742099999995844,
+        0.8545999999987544,
+        2.3730999999970663,
+        2.8440999999947962,
+        1.8227000000042608,
+        4.340199999998731
+      ],
+      "initialBytes": 4798,
+      "finalBytes": 80592
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "overlevel",
+      "level": 95,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 8,
+      "playerActions": 17,
+      "hp": 7286,
+      "chakra": 9545,
+      "stamina": 9525,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-s-crisis-signature": 2,
+        "basicAttack": 7,
+        "clear": 1,
+        "cleanse": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 54,
+      "elapsedMs": 126.20599999999831,
+      "enemyTurnMs": [
+        1.1479999999937718,
+        1.9834000000046217,
+        1.5446000000010827,
+        1.846799999999348,
+        1.9576000000015483,
+        5.620100000000093,
+        2.0671999999976833
+      ],
+      "initialBytes": 4803,
+      "finalBytes": 99247
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "overlevel",
+      "level": 95,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 7,
+      "playerActions": 15,
+      "hp": 8481,
+      "chakra": 9545,
+      "stamina": 9525,
+      "consumables": {},
+      "enemyActions": {
+        "move": 4,
+        "clear": 1,
+        "basicHeal": 1,
+        "basicAttack": 5,
+        "cleanse": 1,
+        "combat-s-crisis-signature": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 57,
+      "elapsedMs": 173.6765000000014,
+      "enemyTurnMs": [
+        0.5687000000034459,
+        2.6512999999977183,
+        5.452400000001944,
+        1.7681000000011409,
+        1.8274000000019441,
+        2.3245999999999185
+      ],
+      "initialBytes": 4803,
+      "finalBytes": 93319
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "overlevel",
+      "level": 95,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 8,
+      "playerActions": 17,
+      "hp": 7286,
+      "chakra": 9545,
+      "stamina": 9525,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "combat-s-crisis-signature": 2,
+        "basicAttack": 7,
+        "clear": 1,
+        "cleanse": 1,
+        "basicHeal": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 54,
+      "elapsedMs": 142.13990000000194,
+      "enemyTurnMs": [
+        0.628499999998894,
+        0.9973000000027241,
+        1.2283000000024913,
+        4.775000000001455,
+        1.6059000000022934,
+        2.218399999997928,
+        1.9140000000043074
+      ],
+      "initialBytes": 4803,
+      "finalBytes": 99247
+    },
+    {
+      "key": "combat-s-crisis",
+      "stage": "overlevel",
+      "level": 95,
+      "discipline": "Genjutsu",
+      "variant": "before",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 8,
+      "playerActions": 17,
+      "hp": 6091,
+      "chakra": 9545,
+      "stamina": 9525,
+      "consumables": {},
+      "enemyActions": {
+        "combat-s-crisis-signature": 3,
+        "basicAttack": 9,
+        "basicHeal": 1,
+        "cleanse": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 43,
+      "elapsedMs": 126.283500000005,
+      "enemyTurnMs": [
+        0.569999999999709,
+        0.6509999999980209,
+        0.9188999999969383,
+        2.045799999999872,
+        1.4953999999997905,
+        2.159399999996822,
+        2.019000000000233
+      ],
+      "initialBytes": 4803,
+      "finalBytes": 95426
+    }
+  ]
+}
