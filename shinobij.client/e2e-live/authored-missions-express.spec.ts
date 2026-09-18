@@ -23,7 +23,7 @@ for (const [key,title,opponent,level,moveName] of cases) test(`${title} renders 
     // Seed earned progression only in the isolated memory server, then enter
     // and act with the normally registered player's authority.
     {
-        let prior:Record<string,any>={};
+        let prior:Record<string,unknown>={};
         const seedRequest=()=>request.post(`/api/save/${name}?signal=1`,{headers:{'x-admin-password':'live-express-e2e-admin'},data:{
             ...prior,...fixture,character,currentSector:40,acceptedMissionIds:[],missionProgress:{},
             triggeredEvents:['builtin-awakening-lv2','builtin-aura-sphere-lv9','builtin-hidden-dungeon'],
