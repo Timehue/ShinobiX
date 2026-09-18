@@ -2286,7 +2286,7 @@
           },
           {
             "source": "shinobij.client/src/styles/sunscar-exchange.css",
-            "line": 141
+            "line": 138
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
@@ -2515,7 +2515,7 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-skin.css",
-            "line": 1126
+            "line": 1114
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
@@ -2523,11 +2523,11 @@
           },
           {
             "source": "shinobij.client/src/styles/sunscar-exchange.css",
-            "line": 122
+            "line": 119
           },
           {
             "source": "shinobij.client/src/styles/sunscar-exchange.css",
-            "line": 133
+            "line": 130
           }
         ]
       },
@@ -2849,6 +2849,10 @@
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
             "line": 638
+          },
+          {
+            "source": "shinobij.client/src/styles/sunscar-hub.css",
+            "line": 63
           }
         ]
       },
@@ -2922,15 +2926,15 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-home.css",
-            "line": 303
+            "line": 299
           },
           {
             "source": "shinobij.client/src/styles/pet-home.css",
-            "line": 473
+            "line": 461
           },
           {
             "source": "shinobij.client/src/styles/pet-skin.css",
-            "line": 868
+            "line": 856
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
@@ -3183,7 +3187,7 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-skin.css",
-            "line": 639
+            "line": 627
           },
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
@@ -3338,11 +3342,11 @@
           },
           {
             "source": "shinobij.client/src/styles/sunscar-exchange.css",
-            "line": 121
+            "line": 118
           },
           {
             "source": "shinobij.client/src/styles/sunscar-exchange.css",
-            "line": 129
+            "line": 126
           }
         ]
       },
@@ -3617,6 +3621,10 @@
           {
             "source": "shinobij.client/src/styles/index/22-pet-battle-sprites.css",
             "line": 664
+          },
+          {
+            "source": "shinobij.client/src/styles/pet-yard-refined.css",
+            "line": 64
           }
         ]
       },
@@ -3650,7 +3658,7 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-skin.css",
-            "line": 883
+            "line": 871
           },
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
@@ -3728,7 +3736,7 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-home.css",
-            "line": 286
+            "line": 283
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
@@ -4185,7 +4193,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/sunscar-exchange.css",
-            "line": 120
+            "line": 117
           }
         ]
       },
