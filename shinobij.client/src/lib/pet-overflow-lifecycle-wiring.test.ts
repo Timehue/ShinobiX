@@ -12,7 +12,8 @@ const expedition = source("../../../api/missions/expedition-start.ts");
 const breeding = source("../../../api/pet/breeding-start.ts");
 
 test("preserved overflow stays visible but cannot begin new reward lifecycles", () => {
-    assert.match(yard, /selectedPetCanTrain[^\n]+active five-pet squad can train/);
+    assert.match(yard, /if \(!selectedPetCanTrain\) return alert\(/);
+    assert.match(yard, /onClick=\{startTraining\} disabled=\{[^}]*!selectedPetCanTrain/);
     assert.match(yard, /selectedPetIsOverflow[^\n]+Sanctuary before starting an expedition/);
     assert.match(yard, /Preserved overflow/);
     assert.match(barn, /activeCarriedPetIds\(character\)/);
