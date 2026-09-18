@@ -14,6 +14,8 @@ import type {
     VnTransition,
 } from "../types/vn";
 import { sanitizeVnDirection } from "./vn-cinematic-authoring";
+import { secondaryVnActorImage, secondaryVnActorPose } from './vn-secondary-artwork';
+import { resolveVnArtworkBackground, vnArtworkFocalPoint } from "./vn-artwork";
 import {
     isPremiumVnEvent,
     resolveStoryActorPose,
@@ -100,7 +102,7 @@ const ASHEN_CHAPTER: Record<number, PilotPageDirection> = {
         lineCues: { 2: "reveal" },
         lineDirections: {
             2: {
-                backgroundImage: "/scenes/story/cinematic/ashen-black-flower-reveal.webp",
+                backgroundImage: "/scenes/story/cinematic/ashen-black-flower-reveal-v2.webp",
                 shot: "close",
                 tone: "hollow",
                 atmosphere: "embers",
@@ -110,7 +112,7 @@ const ASHEN_CHAPTER: Record<number, PilotPageDirection> = {
         },
     },
     8: {
-        backgroundImage: "/scenes/story/cinematic/ashen-black-flower-reveal.webp",
+        backgroundImage: "/scenes/story/cinematic/ashen-black-flower-reveal-v2.webp",
         shot: "medium",
         focus: "left",
         backgroundMotion: "pan-right",
@@ -202,6 +204,16 @@ function pilotDirection(eventId: string, pageIndex: number): PilotPageDirection 
     return undefined;
 }
 
+function pilotArtworkDirection(eventId: string, page: VnPage): PilotPageDirection | undefined {
+    // Story Hall removes unchosen pages. A replay's array offset is therefore
+    // not the original story beat, and must never reveal art from that offset.
+    const titles = eventId === ASHEN_CHAPTER_ID
+        ? ["The Register Hall", "The Fourth Question", "A Protector", "The Strongest", "A Builder", "A Seeker", "Not Yet", "The Black Flower", "Elder Mori", "The Grove Trial"]
+        : eventId === ASHEN_INTERLUDE_ID ? ["The Appraiser", "Kite Harrow", "The Refund"] : [];
+    const index = titles.indexOf(page.title);
+    return index < 0 ? undefined : pilotDirection(eventId, index);
+}
+
 function atmosphereFor(biome: Biome): Exclude<VnAtmosphere, "auto"> {
     if (biome === "volcano") return "embers";
     if (biome === "snow") return "snow";
@@ -250,6 +262,7 @@ export function resolveVnPresentation(input: {
     } = input;
     const pilot = pilotDirection(event.id, pageIndex);
     const pilotLine = pilot?.lineDirections?.[lineIndex];
+    const artworkPilot = pilotArtworkDirection(event.id, page);
     const storywide = resolveStorywideDirection(event, page, pageIndex);
     const pageAuthored = sanitizeVnDirection({
         ...storywide,
@@ -279,25 +292,32 @@ export function resolveVnPresentation(input: {
     const actorEntrance = reducedMotion
         ? "fade"
         : resolveAuto(authored.actorEntrance, pageIndex === 0 ? "fade" : "none");
-    const automaticActorPose = isPremiumVnEvent(event.id)
-        ? resolveStoryActorPose(event, page)
-        : "neutral";
+    const swapped = page.rightName?.trim().toLowerCase() === "player";
+    const leftName = swapped ? "Player" : page.leftName || "Player";
+    const rightName = swapped ? page.leftName || page.speaker : page.rightName || page.speaker;
+    const automaticPose = (name: string) => secondaryVnActorPose(event.id, page.title, name)
+        ?? (isPremiumVnEvent(event.id) ? resolveStoryActorPose(event, page, name) : "neutral");
+    const backgroundImage = resolveVnArtworkBackground({ event, page, lineIndex, pageImage,
+        inferredImage: storywide?.backgroundImage,
+        pilotImage: artworkPilot?.lineDirections?.[lineIndex]?.backgroundImage ?? artworkPilot?.backgroundImage });
 
     return {
         mode,
         shot: authored.shot ?? (pageIndex === 0 ? "wide" : "medium"),
         focus,
         backgroundMotion,
-        backgroundPosition: authored.backgroundPosition ?? "50% 50%",
-        backgroundImage: authored.backgroundImage ?? pageImage,
+        backgroundPosition: page.lines?.[lineIndex]?.cinematic?.backgroundPosition
+            ?? page.cinematic?.backgroundPosition ?? event.cinematic?.backgroundPosition
+            ?? vnArtworkFocalPoint(backgroundImage, event.id) ?? authored.backgroundPosition ?? "50% 50%",
+        backgroundImage,
         transition,
         tone: authored.tone ?? toneFor(event.biome),
         atmosphere,
         actorEntrance,
         // Actor art is intentionally locked at page scope. A line may change
         // camera, grade, or impact, but it never causes a cutout to flicker.
-        leftActorPose: pageAuthored.leftActorPose ?? automaticActorPose,
-        rightActorPose: pageAuthored.rightActorPose ?? automaticActorPose,
+        leftActorPose: (swapped ? pageAuthored.rightActorPose : pageAuthored.leftActorPose) ?? automaticPose(leftName),
+        rightActorPose: (swapped ? pageAuthored.leftActorPose : pageAuthored.rightActorPose) ?? automaticPose(rightName),
         impact: reducedMotion ? "none" : (authored.impact ?? "none"),
         titleCard: Boolean(authored.titleCard ?? pageIndex === 0),
         ambience: resolveAuto(authored.ambience, event.id.startsWith("story-road-") ? "road" : "village"),
@@ -319,7 +339,7 @@ export function resolveCinematicActorImage(
     const resolved = authoredImage?.trim()
         || resolveStorywideActorImage(eventId, actorName, pose)
         || fallback;
-    return versionCinematicActorAsset(resolved);
+    return versionCinematicActorAsset(authoredImage?.trim() ? resolved : secondaryVnActorImage(eventId, actorName, resolved, pose));
 }
 
 /**

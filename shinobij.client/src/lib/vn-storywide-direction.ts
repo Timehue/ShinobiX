@@ -120,7 +120,7 @@ export const STORYWIDE_ACTORS: Record<string, string> = {
     "ledger clerk": "/portraits/cinematic/storywide/ledger-clerk.webp",
     "tempest guard captain": "/portraits/cinematic/storywide/tempest-guard-captain.webp",
     "joren pike": "/portraits/cinematic/storywide/joren-pike.webp",
-    "rebel medic": "/portraits/cinematic/storywide/rebel-medic.webp",
+    "rebel medic": "/portraits/cinematic/storywide/rebel-medic-plain-band-v2.webp",
     "toma reed": "/portraits/cinematic/toma-reed.webp",
     "registry duty clerk": "/portraits/cinematic/registry-duty-clerk.webp",
     "elder mori": "/portraits/cinematic/elder-mori.webp",
@@ -133,13 +133,13 @@ export const STORYWIDE_ACTORS: Record<string, string> = {
     "captain yura": "/portraits/cinematic/storywide/captain-yura.webp",
     "pale pack runner": "/portraits/cinematic/storywide/pale-pack-runner.webp",
     "frost seal echo": "/portraits/cinematic/storywide/frost-seal-echo.webp",
-    "seal-keeper vess": "/portraits/cinematic/storywide/seal-keeper-vess.webp",
+    "seal-keeper vess": "/portraits/cinematic/storywide/seal-keeper-vess-clean-alpha-v1.webp",
     "kage kael whitefang": "/portraits/cinematic/storywide/kage-kael-whitefang.webp",
     "kael whitefang": "/portraits/cinematic/storywide/kage-kael-whitefang.webp",
     "elder sova": "/portraits/cinematic/storywide/elder-sova-canon.webp",
     nyx: "/portraits/cinematic/storywide/nyx.webp",
     "hollow moon": "/portraits/cinematic/storywide/hollow-moon.webp",
-    "veil adaza": "/portraits/cinematic/storywide/veil-adaza.webp",
+    "veil adaza": "/portraits/cinematic/storywide/veil-adaza-clean-alpha-v1.webp",
     "shrine witness": "/portraits/cinematic/storywide/shrine-witness.webp",
     "veiled hand collector": "/portraits/cinematic/storywide/veiled-hand-collector.webp",
     "kage sable nocturne": "/portraits/cinematic/storywide/kage-sable-nocturne.webp",
@@ -177,8 +177,8 @@ export const STORYWIDE_ACTORS: Record<string, string> = {
     "wandering sage": "/portraits/cinematic/side-stories/wandering-sage.webp",
     "warden suvi rell": "/portraits/cinematic/side-stories/warden-suvi-rell.webp",
     "senna graveward": "/portraits/cinematic/side-stories/senna-graveward.webp",
-    "scout vessa": "/portraits/cinematic/side-stories/scout-vessa.webp",
-    "houndmaster bel": "/portraits/cinematic/side-stories/houndmaster-bel.webp",
+    "scout vessa": "/portraits/cinematic/side-stories/scout-vessa-clean-alpha-v1.webp",
+    "houndmaster bel": "/portraits/cinematic/side-stories/houndmaster-bel-clean-alpha-v1.webp",
     "recorder sann": "/portraits/cinematic/side-stories/recorder-sann.webp",
     "keeper oru": "/portraits/cinematic/side-stories/keeper-oru.webp",
     "broker nemo": "/portraits/cinematic/side-stories/broker-nemo.webp",
@@ -284,6 +284,9 @@ export const STORYWIDE_CHARACTER_GENDERS: Readonly<Record<string, StoryCharacter
 };
 
 export const STORYWIDE_ACTOR_VARIANTS: Record<string, Partial<Record<VnActorPose, string>>> = {
+    "instructor havek": {
+        tense: "/portraits/cinematic/side-stories/instructor-havek-empty-hand-v1.webp",
+    },
     "mira volt": {
         neutral: "/portraits/cinematic/storywide/mira-volt-neutral.webp",
         tense: STORYWIDE_ACTORS["mira volt"],
@@ -307,6 +310,7 @@ export const STORYWIDE_ACTOR_VARIANTS: Record<string, Partial<Record<VnActorPose
     "captain yura": {
         injured: "/portraits/cinematic/storywide/captain-yura-injured.webp",
         defiant: "/portraits/cinematic/storywide/captain-yura-defiant.webp",
+        resolute: "/portraits/cinematic/storywide/captain-yura-wrist-bound-v1.webp",
     },
     "elder sova": {
         solemn: "/portraits/cinematic/storywide/elder-sova-solemn-canon.webp",
@@ -375,13 +379,15 @@ export const MAJOR_STORY_DIRECTIONS: Readonly<Record<string, VnCinematicDirectio
     "frostfang:the captain's arithmetic": { backgroundImage: "/scenes/story/cinematic/storywide/frostfang-pale-pack-cavern-mouth.webp", shot: "close", focus: "right", backgroundMotion: "none", backgroundPosition: "47% 48%", transition: "crossfade", tone: "elegy", atmosphere: "snow", actorEntrance: "none", ambience: "road", cue: "reveal" },
     "frostfang:one bell": { backgroundImage: "/scenes/story/cinematic/storywide/frostfang-pale-pack-cavern-mouth.webp", shot: "wide", focus: "right", backgroundMotion: "push", backgroundPosition: "50% 48%", transition: "dip-black", tone: "danger", atmosphere: "snow", actorEntrance: "fade", impact: "soft", ambience: "road", cue: "decision" },
     "frostfang:the pen gets lighter": { shot: "close", focus: "left", backgroundMotion: "none", tone: "elegy", atmosphere: "motes", leftActorPose: "defiant", cue: "reveal" },
-    "frostfang:the confiscated kits": { shot: "detail", focus: "left", backgroundMotion: "drift", tone: "elegy", atmosphere: "snow", leftActorPose: "injured", cue: "paper" },
+    "frostfang:the confiscated kits": { shot: "detail", focus: "left", backgroundMotion: "drift", tone: "elegy", atmosphere: "snow", cue: "paper" },
+    "frostfang:her own name": { leftActorPose: "resolute" },
+    "frostfang:the stair held by choice": { leftActorPose: "resolute" },
     "frostfang:self-injury, filed": { shot: "wide", focus: "center", backgroundMotion: "push", transition: "dip-black", tone: "danger", atmosphere: "snow", impact: "soft", cue: "omen" },
     "frostfang:the white silence": { shot: "wide", focus: "center", backgroundMotion: "push", transition: "dip-black", tone: "cold", atmosphere: "snow", titleCard: true, cue: "omen" },
     "frostfang:the alpha guard": { shot: "wide", focus: "center", backgroundMotion: "push", transition: "whip", tone: "danger", atmosphere: "snow", impact: "heavy", cue: "battle" },
     "frostfang:the open ledgers": { shot: "wide", focus: "center", backgroundMotion: "pan-left", transition: "dip-black", tone: "cold", atmosphere: "snow", titleCard: true, cue: "title" },
     "frostfang:the man fused to the door": { shot: "close", focus: "left", backgroundMotion: "push", tone: "danger", atmosphere: "snow", leftActorPose: "tense", impact: "soft", cue: "reveal" },
-    "frostfang:she answers his roll": { shot: "close", focus: "left", backgroundMotion: "none", tone: "cold", atmosphere: "snow", leftActorPose: "defiant", cue: "reveal" },
+    "frostfang:she answers his roll": { shot: "close", focus: "left", backgroundMotion: "none", tone: "cold", atmosphere: "snow", leftActorPose: "resolute", cue: "reveal" },
     "frostfang:the litany, backwards": { shot: "medium", focus: "left", backgroundMotion: "drift", tone: "elegy", atmosphere: "snow", leftActorPose: "solemn", cue: "paper" },
     "frostfang:the meter at zero": { backgroundImage: STORYWIDE_CLIMAX_ENVIRONMENTS.frostfang, shot: "wide", focus: "center", backgroundMotion: "push", transition: "whiteout", tone: "danger", atmosphere: "snow", rightActorPose: "tense", impact: "heavy", cue: "battle" },
 
@@ -500,8 +506,21 @@ export function resolveStorySceneVariant(event: CreatorEvent, page: VnPage): Sto
     return "standard";
 }
 
-export function resolveStoryActorPose(event: CreatorEvent, page: VnPage): VnActorPose {
-    const text = normalizedStoryText(event, page);
+export function resolveStoryActorPose(event: CreatorEvent, page: VnPage, actorName?: string): VnActorPose {
+    // Only stage directions establish physical condition. Dialogue may discuss
+    // someone absent, an old injury, or an event that has not happened yet.
+    const text = page.scene.toLowerCase();
+    if (actorName) {
+        const key = actorName.trim().toLowerCase();
+        if (!key || key === "player" || key === "narrator") return "neutral";
+        if (event.id === 'story-road-second-teacher' && page.title === 'The Mask in the Yard' && key === 'instructor havek') return 'tense';
+        const names = [key, key.replace(/^(?:captain|elder|kage|seal-keeper|shade-master)\s+/, "")];
+        const escaped = names.map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+        const subject = `(?:${escaped})(?:'s)?(?:,|\\s)+(?:is |stands |sits |waits |remains )?`;
+        if (new RegExp(`${subject}(?:wounded|injured|bandaged|bleeding|bloodied|bruised|limping)\\b`).test(text)) return "injured";
+        if (new RegExp(`${subject}(?:tense|braced|weapons? drawn)\\b`).test(text)) return "tense";
+        return "neutral";
+    }
     if (INJURY_PATTERNS.some((pattern) => pattern.test(text))) return "injured";
     if (TENSION_PATTERNS.some((pattern) => pattern.test(text))) return "tense";
     return "neutral";
@@ -623,7 +642,9 @@ export function resolveStorywideActorImage(
     actorName: string,
     pose: VnActorPose = "neutral",
 ): string | undefined {
-    if (!isPremiumVnEvent(eventId)) return undefined;
+    // Aftermaths need the same identities as their rift introductions without
+    // opting into premium sound cues or other presentation behavior.
+    if (!isPremiumVnEvent(eventId) && !eventId.startsWith('rift-first-clear-')) return undefined;
     const key = actorName.trim().toLowerCase();
     const variants = STORYWIDE_ACTOR_VARIANTS[key];
     return variants?.[pose]

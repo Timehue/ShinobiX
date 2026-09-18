@@ -20,7 +20,7 @@ function event(id = "story-ashen-leaf-village-4-0"): CreatorEvent {
         ryoReward: 0,
         staminaReward: 0,
         dialogue: ["Test"],
-        vnPages: [{ title: "Page", scene: "Scene", speaker: "Toma Reed", dialogue: ["Line"] }],
+        vnPages: [{ title: "The Register Hall", scene: "Scene", speaker: "Toma Reed", dialogue: ["Line"] }],
     };
 }
 
@@ -64,7 +64,7 @@ test("black flower reveal is silent until the authored reveal line", () => {
 
 test("Harrow's quartered-circle evidence gets its own delayed camera reveal", () => {
     const e = event("story-interlude-ashen-leaf-village-20");
-    const page = e.vnPages![0];
+    const page = { ...e.vnPages![0], title: "Kite Harrow" };
     const base = {
         event: e,
         page,

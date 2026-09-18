@@ -7,6 +7,7 @@ import { biomeForWorldSector, villageOutskirtsSectorNumber } from '../data/secto
 import { defaultVnPortrait } from './vn';
 import { STORYWIDE_ENVIRONMENTS, type StoryVillageKey } from './vn-storywide-direction';
 import { readStoryFieldContent } from './story-field-content-loader';
+import { fieldArtwork } from './vn-field-artwork';
 
 export const FIELD_STORY_PREFIX = 'story-reckoning-field:';
 const FIELD_VILLAGE_KEYS: Record<string, StoryVillageKey> = {
@@ -42,7 +43,7 @@ function fieldEvent(questId: string, id: string, name: string, pages: readonly S
         dialogue: visible.flatMap((page) => page.dialogue),
         vnPages: visible.map((page, index) => ({
             title: page.title, scene: page.scene, speaker: page.speaker, dialogue: page.dialogue,
-            rightImage: defaultVnPortrait(page.speaker) || undefined,
+            image: fieldArtwork(questId, id, page.title),
             choices: page.choices?.map((choice) => ({
                 id: choice.id, text: choice.text, conclusion: choice.conclusion,
                 requireTrait: choice.requireTrait, forbidTrait: choice.forbidTrait,
@@ -66,6 +67,7 @@ export function storyFieldPointEvent(questId: string, pointId: string, character
     const pages = event.vnPages?.map((page) => ({ ...page, choices: undefined })) ?? [];
     pages.push({
         title: 'Your Recorded Choice', scene: scene.pages.at(-1)?.scene ?? '', speaker: 'Narrator',
+        image: pages.at(-1)?.image,
         dialogue: [`Your choice: ${selectedChoice.text}`, ...(selectedChoice.conclusion ? [selectedChoice.conclusion] : [])],
         choices: undefined,
     });

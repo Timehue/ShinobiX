@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { TriggeredVisualNovel } from "../../components/TriggeredVisualNovel";
+import { ActiveStoryVisualNovel } from "../../components/ActiveStoryVisualNovel";
 import { storylines } from "../../data/storylines";
 import { storyRoadEvents } from "../../data/story-road-events";
 import { hollowRifts } from "../../data/hollow-rifts";
@@ -60,9 +61,12 @@ function qaAvatar(shape: PlayerAvatarShape): string {
 }
 
 function qaCharacter(shape: PlayerAvatarShape): Character {
+    const portrait = new URLSearchParams(window.location.search).get("avatarSource");
+    const localPortrait = portrait && ((portrait.startsWith("/portraits/") && !portrait.includes(".."))
+        || ["/starter-avatar-one.webp", "/starter-avatar-two.webp"].includes(portrait)) ? portrait : "";
     return {
         name: "QA Shinobi",
-        avatarImage: qaAvatar(shape),
+        avatarImage: localPortrait || qaAvatar(shape),
         storyTraits: [],
         pets: [],
     } as unknown as Character;
@@ -184,7 +188,7 @@ function sideStoryEvent(chapter: Exclude<typeof CHAPTERS[number], "semantic" | "
     return hiddenDungeonVnEvent;
 }
 
-export function CinematicVnPreview() {
+function PresetVnPreview() {
     const village = parameter("village", VILLAGES, "moonshadow");
     const variant = parameter("state", VARIANTS, "crisis");
     const playerAvatar = parameter("avatar", PLAYER_AVATAR_SHAPES, "none");
@@ -220,4 +224,57 @@ export function CinematicVnPreview() {
             onBattle={() => {}}
         />
     );
+}
+
+// Uses the real reader and real content, without an account or reward writes.
+function StoryArtPreview({ eventKey }: { eventKey: string }) {
+    const params = new URLSearchParams(window.location.search);
+    const [event, setEvent] = useState<CreatorEvent>();
+    const [error, setError] = useState("");
+    const [pageIndex, setPageIndex] = useState(Math.max(0, Number(params.get("page")) || 0));
+    const [lineIndex, setLineIndex] = useState(Math.max(0, Number(params.get("line")) || 0));
+    const [character, setCharacter] = useState<Character | null>(() => ({
+        ...qaCharacter(parameter("avatar", PLAYER_AVATAR_SHAPES, "none")), storyTraits: params.getAll("trait"),
+    }));
+    const [paused, setPaused] = useState("");
+    useEffect(() => {
+        let active = true;
+        void import("./art-audit-catalog").then((module) => module.artAuditCatalog()).then((entries) => {
+            if (!active) return;
+            const entry = entries.find((candidate) => candidate.key === eventKey);
+            if (entry) setEvent(entry.event);
+            else setError(`Unknown story: ${eventKey}`);
+        }).catch((reason: unknown) => { if (active) setError(String(reason)); });
+        return () => { active = false; };
+    }, [eventKey]);
+    if (!event) return <p role="status">{error || "Loading story artwork preview…"}</p>;
+    if (!character) return <p role="status">Preview character cleared</p>;
+    if (paused) return <section aria-label="Story artwork QA return" data-testid="vn-qa-return">
+        <p role="status">Preview paused: {paused}</p>
+        <output data-testid="vn-qa-save">{JSON.stringify({ scene: character.storyScene, choices: character.storyChoices, traits: character.storyTraits })}</output>
+        <button onClick={() => {
+            // Round-trip the actual production save fields while the reader is
+            // unmounted. This fixture never touches account storage or APIs.
+            const restored = JSON.parse(JSON.stringify(character)) as Character;
+            setCharacter(restored);
+            setPageIndex(restored.storyScene?.pageIndex ?? pageIndex);
+            setLineIndex(restored.storyScene?.lineIndex ?? lineIndex);
+            setPaused("");
+        }}>Resume preview</button>
+    </section>;
+    const readerProps = { event, character,
+        pageIndex: Math.min(pageIndex, (event.vnPages?.length ?? 1) - 1), lineIndex,
+        setPageIndex, setLineIndex, onCancel: () => setPaused("exit"),
+        onComplete: () => setPaused("complete"), onBattle: () => setPaused("battle handoff"),
+    };
+    if (params.get("replay") !== "1") return <ActiveStoryVisualNovel {...readerProps}
+        setCharacter={setCharacter} onFinaleLane={() => {}} onEpilogueExit={() => setPaused("epilogue exit")} sharedImages={{}} />;
+    return <TriggeredVisualNovel {...readerProps}
+        pageIndex={Math.min(pageIndex, (event.vnPages?.length ?? 1) - 1)} lineIndex={lineIndex}
+        readOnlyReplay />;
+}
+
+export function CinematicVnPreview() {
+    const eventKey = new URLSearchParams(window.location.search).get("event");
+    return eventKey ? <StoryArtPreview eventKey={eventKey} /> : <PresetVnPreview />;
 }
