@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page, type Route } from '@playwright/test';
 import { PUBLIC_CAPABILITY_IDS } from '../../shared/public-capabilities';
+import { LEGAL_PAGE_LINKS } from '../src/data/legal';
 
 const FIXED_NOW = Date.UTC(2026, 0, 15, 12, 0, 0);
 
@@ -75,6 +76,79 @@ async function expectNoHorizontalOverflow(page: Page) {
 
 test.beforeEach(async ({ page }) => installDeterministicRuntime(page));
 
+test('landing atmosphere pauses offscreen and respects reduced motion without a toggle', async ({ page }) => {
+    // The removed control's saved preference must not leave returning visitors frozen.
+    await page.addInitScript(() => sessionStorage.setItem('shinobij:landing-atmosphere-paused', '1'));
+    await page.goto('/', { waitUntil: 'networkidle' });
+    const atmosphere = page.locator('.landing-atmosphere');
+    const ember = page.locator('.landing-ember').first();
+    const transform = () => ember.evaluate(element => getComputedStyle(element).transform);
+    await expect(atmosphere).toHaveAttribute('data-running', 'true');
+    const initialTransform = await transform();
+    await expect.poll(transform).not.toBe(initialTransform);
+    for (const selector of ['.landing-valley-mist--far', '.landing-valley-mist--near', '.landing-tail-aura', '.landing-canopy-fleck']) {
+        const layer = page.locator(selector).first();
+        await expect(layer).toBeVisible();
+        const firstTransform = await layer.evaluate(element => getComputedStyle(element).transform);
+        await expect.poll(() => layer.evaluate(element => getComputedStyle(element).transform)).not.toBe(firstTransform);
+    }
+
+    await expect(page.getByRole('button', { name: /(?:Pause|Play) background animation/ })).toHaveCount(0);
+    await page.locator('.landing-footer').scrollIntoViewIfNeeded();
+    await expect(atmosphere).toHaveAttribute('data-running', 'false');
+    await expect(ember).toHaveCSS('animation-play-state', 'paused');
+    for (const selector of ['.landing-valley-mist--far', '.landing-valley-mist--near', '.landing-tail-aura', '.landing-canopy-fleck']) {
+        await expect(page.locator(selector).first()).toHaveCSS('animation-play-state', 'paused');
+    }
+    await page.getByRole('button', { name: 'Shinobi Journey home' }).click();
+    await expect(atmosphere).toHaveAttribute('data-running', 'true');
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole('button', { name: /(?:Pause|Play) background animation/ })).toHaveCount(0);
+    await expect(page.locator('.landing-ember:visible')).toHaveCount(14);
+    await expect(page.locator('.landing-valley-mist--near')).toBeHidden();
+    await expect(page.locator('.landing-tail-aura')).toBeHidden();
+    await expectNoHorizontalOverflow(page);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await expect(atmosphere).toBeHidden();
+    await expect(ember).toHaveCSS('animation-name', 'none');
+    await expect(page.getByTestId('start-create')).toBeVisible();
+});
+
+test('landing scroll reveals play once and keep focused content readable', async ({ page }) => {
+    await page.goto('/', { waitUntil: 'networkidle' });
+    const heading = page.locator('.landing-features .landing-section-head');
+    // Progressive enhancement: offscreen content has no waiting/hidden state.
+    await expect(heading).toHaveCSS('opacity', '1');
+    await heading.evaluate(element => {
+        element.setAttribute('data-entrance-count', '0');
+        element.addEventListener('animationstart', event => {
+            if ((event as AnimationEvent).animationName === 'landing-section-reveal') {
+                element.setAttribute('data-entrance-count', String(Number(element.getAttribute('data-entrance-count')) + 1));
+            }
+        });
+    });
+    const distance = await heading.evaluate(element => element.getBoundingClientRect().top - 300);
+    await page.mouse.wheel(0, distance);
+    await expect(heading).toHaveAttribute('data-entrance-count', '1');
+    await expect(heading).toHaveCSS('opacity', '1');
+    await page.getByRole('button', { name: 'Shinobi Journey home' }).click();
+    await expect(page.locator('.landing-atmosphere')).toHaveAttribute('data-running', 'true');
+    await heading.scrollIntoViewIfNeeded();
+    await expect(heading).toHaveAttribute('data-entrance-count', '1');
+
+    const card = page.locator('.landing-feature-card').last();
+    await card.focus();
+    await expect(card).toBeFocused();
+    await expect(card).toHaveCSS('animation-name', 'none');
+    await expect(card).toHaveCSS('opacity', '1');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.locator('.landing-begin-inner').scrollIntoViewIfNeeded();
+    await expect(page.locator('.landing-begin-inner')).toHaveCSS('animation-name', 'none');
+    await expect(page.locator('.landing-begin-inner')).toHaveCSS('opacity', '1');
+    await expectNoHorizontalOverflow(page);
+});
+
 test('landing hero - desktop', async ({ page }) => {
     await page.goto('/', { waitUntil: 'networkidle' });
     await expect(page.getByTestId('start-create')).toBeVisible();
@@ -96,6 +170,49 @@ test('landing hero - mobile', async ({ page }) => {
     await expect(page.getByTestId('start-create')).toBeVisible();
     await expectNoHorizontalOverflow(page);
     await screenshot(page, 'landing-mobile.png');
+});
+
+test('landing discovery and Discord links stay still on hover', async ({ page }) => {
+    await page.goto('/', { waitUntil: 'networkidle' });
+    await settleVisualState(page);
+    for (const control of [page.getByRole('button', { name: 'Discover your journey' }), page.getByRole('link', { name: /Join the Discord/ })]) {
+        await control.scrollIntoViewIfNeeded();
+        await page.mouse.move(0, 0);
+        const before = await control.boundingBox();
+        await control.hover();
+        expect(await control.boundingBox()).toEqual(before);
+    }
+});
+
+test('landing mobile gallery shows four playable modes and enlarges each capture', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/', { waitUntil: 'networkidle' });
+    await settleVisualState(page);
+    await page.getByRole('tab', { name: 'On Mobile', exact: true }).click();
+    const gallery = page.locator('.landing-mobile-gallery');
+    await expect(gallery.getByRole('button')).toHaveCount(4);
+    await gallery.locator('img').evaluateAll(async (images) => {
+        await Promise.all(images.map((image) => (image as HTMLImageElement).decode()));
+    });
+    await expectNoHorizontalOverflow(page);
+    await page.addStyleTag({ content: '.landing-topbar { visibility: hidden !important; }' });
+    await sectionScreenshot(page, page.locator('.landing-gallery-panel'), 'landing-mobile-gallery.png');
+    const modes = [['Jutsu Combat', 'mobile-combat'], ['Card Battles', 'mobile-cards'], ['Pet Arena', 'mobile-pet-arena'], ['Story', 'mobile-story']];
+    for (const [label, file] of modes) {
+        const trigger = gallery.getByRole('button', { name: `Enlarge mobile ${label} screenshot` });
+        await trigger.click();
+        const dialog = page.getByRole('dialog', { name: `${label} screenshot`, exact: true });
+        await expect(dialog).toBeVisible();
+        await expect(dialog.locator('img')).toHaveAttribute('src', `/landing/${file}.webp`);
+        await page.keyboard.press('Escape');
+        await expect(dialog).not.toBeVisible();
+        await expect(trigger).toBeFocused();
+    }
+    for (const width of [320, 768, 1366]) {
+        await page.setViewportSize({ width, height: 900 });
+        await expectNoHorizontalOverflow(page);
+        await expect(gallery.getByRole('button')).toHaveCount(4);
+    }
 });
 
 test('landing finale - desktop', async ({ page }) => {
@@ -147,6 +264,154 @@ test('landing story sections - mobile', async ({ page }) => {
     await sectionScreenshot(page, page.locator('.landing-clan').nth(1), 'landing-legacy-mobile.png');
     await sectionScreenshot(page, page.locator('.landing-begin'), 'landing-finale-mobile.png');
     await sectionScreenshot(page, page.locator('.landing-footer'), 'landing-footer-mobile.png');
+});
+
+test('landing entry points open the connected creator, account, guides, and leaderboard', async ({ page }) => {
+    await page.goto('/', { waitUntil: 'networkidle' });
+    const entries = [
+        ['.landing-nav-play', 'Begin as a Shinobi', 'Back to Landing'],
+        ['[data-testid="start-create"]', 'Begin as a Shinobi', 'Back to Landing'],
+        ['.landing-begin button', 'Begin as a Shinobi', 'Back to Landing'],
+        ['.landing-footer-links button:nth-child(1)', 'Begin as a Shinobi', 'Back to Landing'],
+        ['.landing-utility button', 'Enter the Village', 'Back'],
+        ['.landing-desktop-login', 'Enter the Village', 'Back'],
+        ['.landing-footer-links button:nth-child(4)', 'Enter the Village', 'Back'],
+        ['.landing-topnav button:nth-child(3)', 'Game guides', 'Return'],
+        ['.landing-story button', 'Game guides', 'Return'],
+        ['#landing-companions button', 'Game guides', 'Return'],
+        ['.landing-footer-links button:nth-child(2)', 'Game guides', 'Return'],
+        ['.landing-topnav button:nth-child(4)', 'Hall of Legends', 'Back'],
+        ['.landing-footer-links button:nth-child(3)', 'Hall of Legends', 'Back'],
+    ];
+    for (const [selector, heading, back] of entries) {
+        await test.step(selector, async () => {
+            await page.locator(selector).click({ timeout: 10_000 });
+            await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
+            await page.getByRole('button', { name: back, exact: true }).click({ timeout: 10_000 });
+            await expect(page.getByTestId('start-create')).toBeVisible();
+        });
+    }
+    await page.getByRole('button', { name: 'Account', exact: true }).click();
+    await page.getByRole('button', { name: 'Use a name and password', exact: true }).click();
+    await expect(page.getByRole('textbox', { name: 'Name', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Show password', exact: true }).click();
+    await expect(page.getByPlaceholder('Enter your password')).toHaveAttribute('type', 'text');
+    await page.getByRole('button', { name: 'Hide password', exact: true }).click();
+    await expect(page.getByPlaceholder('Enter your password')).toHaveAttribute('type', 'password');
+});
+
+test('landing policy links resolve to distinct documents and community links agree', async ({ page }) => {
+    await page.goto('/', { waitUntil: 'networkidle' });
+    const communityLinks = page.locator('#landing-home a[href^="https://discord.gg/"]');
+    await expect(communityLinks).toHaveCount(2);
+    for (const link of await communityLinks.all()) {
+        await expect(link).toHaveAttribute('href', 'https://discord.gg/usr3vzykBh');
+        await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    }
+    const titles = new Set<string>();
+    for (const link of LEGAL_PAGE_LINKS) {
+        await page.getByRole('navigation', { name: 'Legal and player policies' }).getByRole('link', { name: link.label, exact: true }).click();
+        await expect(page).toHaveURL(new RegExp(`/${link.slug}$`));
+        const heading = page.locator('.legal-page-header h1');
+        await expect(heading).toBeVisible();
+        titles.add(await heading.innerText());
+        await page.getByRole('link', { name: 'Back to Shinobi Journey home', exact: true }).click();
+        await expect(page.getByTestId('start-create')).toBeVisible();
+    }
+    expect(titles.size).toBe(LEGAL_PAGE_LINKS.length);
+});
+
+test('landing navigation, gallery keyboard controls, and reduced motion work together', async ({ page }) => {
+    await page.goto('/', { waitUntil: 'networkidle' });
+    await settleVisualState(page);
+    for (const [selector, destination] of [
+        ['.landing-scroll-cue', '#landing-discover'],
+        ['.landing-feature-card:nth-child(1)', '#landing-story'],
+        ['.landing-feature-card:nth-child(2)', '#landing-companions'],
+        ['.landing-feature-card:nth-child(3)', '#landing-gameplay'],
+    ]) {
+        await page.locator(selector).click();
+        await expect(page.locator(destination)).toBeFocused();
+        // Explicit scrollIntoView({ behavior: 'smooth' }) keeps moving even
+        // when the screenshot helper disables CSS scroll-behavior. Wait for
+        // arrival before Playwright scrolls back to click the next feature.
+        await expect.poll(() => page.locator(destination).evaluate(element => {
+            const margin = parseFloat(getComputedStyle(element).scrollMarginTop) || 0;
+            return Math.abs(element.getBoundingClientRect().top - margin) < 2;
+        })).toBe(true);
+    }
+    await expect(page.locator('.landing-lightbox img')).toHaveCount(0);
+    await page.getByRole('tab', { name: 'Jutsu Combat', exact: true }).press('ArrowRight');
+    const cards = page.getByRole('tab', { name: 'Card Battles', exact: true });
+    await expect(cards).toBeFocused();
+    await expect(cards).toHaveAttribute('aria-selected', 'true');
+    await page.getByRole('button', { name: 'Enlarge Card Battles screenshot', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Close screenshot', exact: true })).toBeFocused();
+    await expect(page.locator('html')).toHaveCSS('overflow-y', 'hidden');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.landing-lightbox img')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Enlarge Card Battles screenshot', exact: true })).toBeFocused();
+    await cards.press('End');
+    await expect(page.getByRole('tab', { name: 'On Mobile', exact: true })).toBeFocused();
+    await page.getByRole('tab', { name: 'On Mobile', exact: true }).press('Home');
+    await expect(page.getByRole('tab', { name: 'Jutsu Combat', exact: true })).toBeFocused();
+    for (const selector of ['.landing-brand', '.landing-utility button', '.landing-gallery-tabs button:first-child', '.landing-gallery-image', '.landing-footer-links button:first-child']) {
+        const control = page.locator(selector);
+        await control.scrollIntoViewIfNeeded();
+        await page.mouse.move(0, 0);
+        await control.hover();
+        // Hover may scroll a tab out from under the sticky header. Assert the
+        // hover effect itself rather than mistaking that scroll for animation.
+        await expect(control).toHaveCSS('transform', 'none');
+        await expect(control).toHaveCSS('box-shadow', 'none');
+    }
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.getByTestId('start-create').hover();
+    await expect(page.getByTestId('start-create')).toHaveCSS('transform', 'none');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.getByRole('button', { name: 'Open navigation', exact: true }).press('Enter');
+    await expect(page.getByRole('button', { name: 'The World', exact: true })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('button', { name: 'Open navigation', exact: true })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await page.getByRole('button', { name: 'Gameplay', exact: true }).press('Enter');
+    await expect(page.locator('#landing-gameplay')).toBeFocused();
+    await expect(page.getByRole('button', { name: 'Open navigation', exact: true })).toHaveAttribute('aria-expanded', 'false');
+    await expectNoHorizontalOverflow(page);
+});
+
+test('landing assets and social previews load without page errors', async ({ page, request }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    await page.goto('/', { waitUntil: 'networkidle' });
+    const assets = new Set(await page.locator('#landing-home img').evaluateAll(images => images.map(image => (image as HTMLImageElement).src)));
+    for (const label of ['Card Battles', 'Pet Arena', 'Story', 'On Mobile']) {
+        await page.getByRole('tab', { name: label, exact: true }).click();
+        for (const src of await page.locator('.landing-gallery-panel img').evaluateAll(images => images.map(image => (image as HTMLImageElement).src))) assets.add(src);
+    }
+    const backgroundAssets = await page.locator('#landing-home, #landing-home *').evaluateAll(elements => elements.flatMap(el => Array.from(getComputedStyle(el).backgroundImage.matchAll(/url\(["']?([^"')]+)["']?\)/g), match => match[1])));
+    backgroundAssets.forEach(src => assets.add(src));
+    const shareImage = await page.locator('meta[property="og:image"]').getAttribute('content');
+    expect(shareImage).toBe('https://shinobijourney.com/landing/hero-shinobi.webp');
+    await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute('content', shareImage!);
+    assets.add(new URL(shareImage!).pathname);
+    for (const src of assets) {
+        const response = await request.get(src);
+        expect(response.status(), src).toBe(200);
+        expect(response.headers()['content-type'], src).toMatch(/^image\//);
+    }
+    expect(errors).toEqual([]);
+});
+
+test('landing play buttons respect an explicit registration pause', async ({ page }) => {
+    await page.route('**/api/player/capabilities', route => json(route, { ok: true, capabilities: Object.fromEntries(PUBLIC_CAPABILITY_IDS.map(id => [id, id === 'registrations' ? { state: 'temporarily-unavailable', reason: 'temporarily-disabled' } : { state: 'available', reason: 'available' }])) }));
+    await page.goto('/', { waitUntil: 'networkidle' });
+    for (const selector of ['.landing-nav-play', '[data-testid="start-create"]', '.landing-begin button', '.landing-footer-links button:first-child']) {
+        await expect(page.locator(selector)).toBeDisabled();
+    }
+    await expect(page.locator('.landing-hero [role="status"]')).toContainText(/registration|creation|paused/i);
+    await page.getByRole('button', { name: 'Account', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Enter the Village', exact: true })).toBeVisible();
 });
 
 test('character creator entry', async ({ page }) => {

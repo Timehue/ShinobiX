@@ -1,0 +1,91 @@
+{
+  "browserName": "chromium",
+  "performanceSamples": [
+    {
+      "label": "visible hero",
+      "resources": {
+        "observers": 2,
+        "observedElements": 12,
+        "visibilityListeners": 5,
+        "mediaListeners": 2,
+        "intervals": [],
+        "pendingFrames": 0,
+        "frameCallbacks": 0,
+        "webglContexts": 0,
+        "webglContextsCreated": 1
+      },
+      "elapsedSeconds": 2.012249999999767,
+      "mainThreadTaskSeconds": 0.058924000000000004,
+      "layouts": 0
+    },
+    {
+      "label": "hero offscreen",
+      "resources": {
+        "observers": 2,
+        "observedElements": 11,
+        "visibilityListeners": 5,
+        "mediaListeners": 2,
+        "intervals": [],
+        "pendingFrames": 0,
+        "frameCallbacks": 0,
+        "webglContexts": 0,
+        "webglContextsCreated": 1
+      },
+      "elapsedSeconds": 2.0196560000003956,
+      "mainThreadTaskSeconds": 0.013359999999999997,
+      "layouts": 0
+    }
+  ],
+  "memorySamples": [
+    {
+      "cycle": 3,
+      "usedHeapBytes": 6611560,
+      "documents": 1,
+      "nodes": 1159,
+      "jsEventListeners": 249
+    },
+    {
+      "cycle": 7,
+      "usedHeapBytes": 6862972,
+      "documents": 1,
+      "nodes": 1159,
+      "jsEventListeners": 249
+    },
+    {
+      "cycle": 11,
+      "usedHeapBytes": 6930388,
+      "documents": 1,
+      "nodes": 1159,
+      "jsEventListeners": 249
+    },
+    {
+      "cycle": 15,
+      "usedHeapBytes": 6979068,
+      "documents": 1,
+      "nodes": 1159,
+      "jsEventListeners": 249
+    }
+  ],
+  "landingBaseline": {
+    "observers": 2,
+    "observedElements": 12,
+    "visibilityListeners": 5,
+    "mediaListeners": 2,
+    "intervals": [],
+    "pendingFrames": 0,
+    "frameCallbacks": 0,
+    "webglContexts": 0,
+    "webglContextsCreated": 1
+  },
+  "loginBaseline": {
+    "observers": 0,
+    "observedElements": 0,
+    "visibilityListeners": 4,
+    "mediaListeners": 1,
+    "intervals": [],
+    "pendingFrames": 0,
+    "frameCallbacks": 0,
+    "webglContexts": 0,
+    "webglContextsCreated": 1
+  }
+}

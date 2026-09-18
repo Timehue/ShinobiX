@@ -28,11 +28,11 @@
     <link rel="preload" href="/fonts/inter-v20-latin-wght-400-800.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/marcellus-v14-latin-regular.woff2" as="font" type="font/woff2" crossorigin />
 
-    <!-- The landing hero (193 KB) is NOT preloaded here. It is the LCP element for
+    <!-- The landing hero is NOT preloaded here. It is the LCP element for
          a first-time visitor and worth fetching at high priority for them, but it
-         is only ever painted by .landing-login-screen and the character creator —
+         is painted by the public landing page —
          a returning player with a saved session goes straight to restore and never
-         renders it, so a static preload spent 193 KB of high-priority bandwidth
+         renders it, so a static preload spent high-priority bandwidth
          competing with the entry chunk for a screen they do not see.
          boot-watchdog.js (the blocking classic script above, which therefore runs
          BEFORE the parser would have reached this point) injects the preload only
@@ -52,15 +52,15 @@
     <meta property="og:title" content="Shinobi Journey" />
     <meta property="og:description" content="Create your shinobi, train your chakra, fight in PvP arenas, raid hidden dungeons, raise pets, and shape four rival villages." />
     <meta property="og:site_name" content="Shinobi Journey" />
-    <meta property="og:image" content="https://shinobijourney.com/landing-hero-village-v2.webp" />
-    <meta property="og:image:width" content="1829" />
-    <meta property="og:image:height" content="860" />
-    <meta property="og:image:alt" content="A hidden shinobi village built into misty mountains at sunset" />
+    <meta property="og:image" content="https://shinobijourney.com/landing/hero-shinobi.webp" />
+    <meta property="og:image:width" content="1672" />
+    <meta property="og:image:height" content="941" />
+    <meta property="og:image:alt" content="A shinobi and fox companion overlooking a hidden mountain village at sunset" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Shinobi Journey" />
     <meta name="twitter:description" content="Create your shinobi, train your chakra, fight in PvP arenas, raid hidden dungeons, raise pets, and shape four rival villages." />
-    <meta name="twitter:image" content="https://shinobijourney.com/landing-hero-village-v2.webp" />
-    <meta name="twitter:image:alt" content="A hidden shinobi village built into misty mountains at sunset" />
+    <meta name="twitter:image" content="https://shinobijourney.com/landing/hero-shinobi.webp" />
+    <meta name="twitter:image:alt" content="A shinobi and fox companion overlooking a hidden mountain village at sunset" />
 
   </head>
   <body>

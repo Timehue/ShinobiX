@@ -87,7 +87,7 @@ test('mobile combat VFX stay fighter-sized while preserving capped visual hierar
 });
 
 test('landing page nav and footer links keep 44px touch targets (SX-009)', () => {
-    const landingCss = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'styles', 'landing-skin.css'), 'utf8');
+    const landingCss = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'styles', 'landing-home.css'), 'utf8');
     assert.match(landingCss, /\.landing-navlink\s*\{[^}]*min-height:\s*44px/s, 'landing top-nav links need a 44px hit box');
     assert.match(landingCss, /\.landing-footer-links a,\s*\.landing-footer-links button\s*\{[^}]*min-height:\s*44px/s, 'landing footer links need a 44px hit box');
     assert.match(landingCss, /\.landing-footer-policy-links a\s*\{[^}]*min-height:\s*44px/s, 'landing legal/policy links need a 44px hit box');
