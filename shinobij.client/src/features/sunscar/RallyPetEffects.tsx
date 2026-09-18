@@ -5,7 +5,7 @@ import type { RallyState } from '../../../../shared/sunscar/rally-types';
 import { rallyPetPosition } from './rally-presentation';
 
 const colors = { Fire: '#ff9b44', Lightning: '#d4baff', Wind: '#bcebdd', Earth: '#d4b77f', Water: '#6ad8f1' };
-export function RallyPetEffects({ state, index, color }: { state: RefObject<RallyState>; index: number; color: string }) {
+export function RallyPetEffects({ state, index, color, reducedMotion }: { state: RefObject<RallyState>; index: number; color: string; reducedMotion: boolean }) {
     const group = useRef<THREE.Group>(null), aura = useRef<THREE.Group>(null), particles = useRef<THREE.InstancedMesh>(null), marker = useRef<THREE.Mesh>(null);
     const dummy = useRef(new THREE.Object3D());
     const finishTarget = useRef(new THREE.Vector3());
@@ -13,7 +13,7 @@ export function RallyPetEffects({ state, index, color }: { state: RefObject<Rall
     useFrame((_, delta) => {
         const race = state.current, racer = race.racers[index], p = rallyPetPosition(race, index);
         if (!group.current || !aura.current || !particles.current) return;
-        if (race.finished) group.current.position.lerp(finishTarget.current.set(p.x, p.y + .035, p.z), 1 - Math.exp(-Math.min(delta, .1) * 5));
+        if (race.finished) group.current.position.lerp(finishTarget.current.set(p.x, p.y + .035, p.z), reducedMotion ? 1 : 1 - Math.exp(-Math.min(delta, .1) * 5));
         else group.current.position.set(p.x, p.y + .035, p.z);
         if (marker.current) { marker.current.scale.setScalar(1 + racer.jump * .08); (marker.current.material as THREE.MeshBasicMaterial).opacity = (index === 0 ? .65 : .2) / (1 + racer.jump * .4); }
         const active = racer.techniqueTicks > 0 || racer.armor;

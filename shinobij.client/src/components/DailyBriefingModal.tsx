@@ -41,9 +41,13 @@ const MIN_LEVEL = 5;
 export function DailyBriefingModal({
     character,
     beginDailyLogin,
+    activeTraining,
+    activeJutsuTraining,
     navigate,
 }: {
     character: Character;
+    activeTraining?: { endsAt: number } | null;
+    activeJutsuTraining?: { endsAt: number } | null;
     beginDailyLogin: DailyLoginCommitFactory;
     navigate: (s: Screen) => void;
 }) {
@@ -201,7 +205,7 @@ export function DailyBriefingModal({
                                 </div>
                             </div>
 
-                            <ActivitySpine character={character} onNavigate={go} />
+                            <ActivitySpine character={character} onNavigate={go} trainingState={JSON.stringify([activeTraining?.endsAt, !!activeTraining && now >= activeTraining.endsAt, activeJutsuTraining?.endsAt, !!activeJutsuTraining && now >= activeJutsuTraining.endsAt])} />
 
                             {/* ── Era effort strip (server-wide progress at a glance) ── */}
                             {legacyAvailable && activeEra && (() => {

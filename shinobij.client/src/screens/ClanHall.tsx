@@ -61,6 +61,7 @@ import { applyAuthoritativeSectorTerritory, applyWarCrateGrants, claimServerWarC
 import { warCrateServerAuthEnabled } from "../lib/war-crate-flag";
 import { gameToast } from "../components/GameToast";
 import { CLAN_VIEW_REQUEST_EVENT } from "../lib/use-notifications";
+import { useActivitySectionRequests } from "../lib/use-activity-section";
 
 export function ClanHall({ character, updateCharacter, onVersionedCharacter, creatorItems, setScreen, towerHostLoadout, sharedImages, onRecordBattle }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; onVersionedCharacter: VersionedCharacterCommit; creatorItems: GameItem[]; setScreen: (s: Screen) => void; towerHostLoadout?: TowerHostLoadout; sharedImages?: Record<string, string>; onRecordBattle?: (entry: BattleHistoryEntry) => void }) {
     const lore = clanLore[character.village];
@@ -78,6 +79,7 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
         } catch { return "exchange"; }
     });
     const bossTabAvailability = useCapabilityViewAvailability("clanBoss");
+    useActivitySectionRequests("clan.initialView", ["boss"], setView);
     // The clan ration burn rides the war-map campaign: api/_war-daily.ts returns
     // before the clan block when it is off, and the Cafeteria cook endpoint is
     // closed too. So the stores copy hides rather than advertising a door that
