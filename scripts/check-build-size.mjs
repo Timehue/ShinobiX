@@ -686,7 +686,14 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // The production-variable local reproduction is 8,510,888 B, versus the smaller
 // credential-free graph that missed this release failure. Restore the 100 KB
 // feature-growth allowance described above: 89,458 B of measured image headroom.
-const TOTAL_JS_CSS_FAIL_BYTES = 8_600_000;
+// 2026-09-17 PROFESSION HEADQUARTERS: the production image for 40e2ad145
+// measures 8,613,145 B with production-length analytics/Sentry arguments,
+// versus 8,555,289 B without those arguments locally. The new profession
+// presentation and receipt/progression handling stay in the lazy screen graph;
+// the initial graph passes at 1,453,566 B raw / 388,316 B gzip. Account for this
+// intended presentation change with 40 KB, leaving 26,855 B of measured image
+// headroom. All startup, per-chunk, and gzip limits below remain unchanged.
+const TOTAL_JS_CSS_FAIL_BYTES = 8_640_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
