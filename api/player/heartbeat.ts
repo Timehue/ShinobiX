@@ -9,7 +9,7 @@ import { recordClientIp, clientIpFrom, recordClientFingerprint, clientFpFrom } f
 import { onlineStore } from '../_realtime/online-store.js';
 import { stampPresenceBeat } from '../_realtime/_presence-beat.js';
 import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUntil, toPlayerRecord } from '../_realtime/presence-input.js';
-import { clearSleeperCamp } from '../_realtime/sleeper-camps.js';
+import { clearSleeperCampOnBeat } from '../_realtime/sleeper-camps.js';
 import { getTravelLease, settleTravelLease, travelLeaseSectorAt } from '../_realtime/travel-lease.js';
 import { durablePresenceSectorForWrite } from '../_realtime/world-duel-engagement.js';
 import { noteWalkedTile, readWalkedTile, resumeTileFor } from '../_realtime/walked-tile.js';
@@ -338,7 +338,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Throttled cross-worker presence beat (fallback for consumers like the
         // Kage accept-obligation clock). See _realtime/_presence-beat.ts.
         stampPresenceBeat(name);
-        void clearSleeperCamp(name).catch(() => undefined);
+        void clearSleeperCampOnBeat(name, now).catch(() => undefined);
 
         // Do NOT read-delete the challenge inbox here. A challenge can arrive
         // between mget() and del(); deleting the whole key in that window loses

@@ -41,7 +41,7 @@ import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUnti
 import { setOnSweep, setOnDuelDrop, setOnDuelExpire } from './game-loop.js';
 import { wirePetDuel, notifyPeerGone, notifyInviteExpired } from './pet-duel-socket.js';
 import { setRealtimeEmitter } from './notify.js';
-import { clearSleeperCamp } from './sleeper-camps.js';
+import { clearSleeperCampOnBeat } from './sleeper-camps.js';
 import { getTravelLease, settleTravelLease, travelLeaseSectorAt } from './travel-lease.js';
 import { durablePresenceSectorForWrite } from './world-duel-engagement.js';
 import { readWalkedTile, resumeTileFor } from './walked-tile.js';
@@ -292,7 +292,7 @@ function wireRealtime(io: IOServer): void {
             }
             // Throttled cross-worker presence beat (see _realtime/_presence-beat.ts).
             stampPresenceBeat(displayName);
-            void clearSleeperCamp(displayName).catch(() => undefined);
+            void clearSleeperCampOnBeat(displayName).catch(() => undefined);
             const newSector = stored.sector;
 
             if (newSector !== prevSector) {
