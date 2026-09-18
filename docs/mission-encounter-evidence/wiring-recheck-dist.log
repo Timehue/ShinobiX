@@ -1,0 +1,5 @@
+
+> shinobix-api@1.0.0 verify:dist
+> node scripts/verify-dist.mjs
+
+[verify:dist] OK — server 56.5 KB; client 508.2 MB with no authoring sources and no -webkit-only (backdrop-)filter rules; Vercel config absent.

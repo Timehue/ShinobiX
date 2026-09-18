@@ -1,0 +1,350 @@
+{
+  "15": {
+    "_saveVersion": 1,
+    "savedBloodlines": [],
+    "creatorJutsus": [],
+    "creatorItems": [],
+    "character": {
+      "name": "MissionTester",
+      "level": 15,
+      "rankTitle": "Genin",
+      "specialty": "Ninjutsu",
+      "bloodline": "None",
+      "village": "Stormveil Village",
+      "elements": [
+        "Lightning",
+        "Water",
+        "Earth"
+      ],
+      "stats": {
+        "strength": 243,
+        "speed": 243,
+        "intelligence": 243,
+        "willpower": 243,
+        "taijutsuOffense": 243,
+        "taijutsuDefense": 243,
+        "bukijutsuOffense": 243,
+        "bukijutsuDefense": 243,
+        "ninjutsuOffense": 247,
+        "ninjutsuDefense": 243,
+        "genjutsuOffense": 243,
+        "genjutsuDefense": 243
+      },
+      "earnedStatPoints": 2800,
+      "unspentStats": 0,
+      "xp": 0,
+      "ryo": 0,
+      "hp": 1900,
+      "maxHp": 1900,
+      "chakra": 2272,
+      "maxChakra": 2272,
+      "stamina": 2272,
+      "maxStamina": 2272,
+      "onboardingStep": "done",
+      "examsPassed": [
+        "genin",
+        "chunin",
+        "jonin"
+      ],
+      "inventory": [
+        "rustfang-kunai",
+        "shinobi-vest"
+      ],
+      "equipment": {
+        "hand": "rustfang-kunai",
+        "body": "shinobi-vest"
+      },
+      "itemStacks": [],
+      "pets": [],
+      "equippedJutsuIds": [
+        "starter-nin-lightning-2",
+        "starter-nin-water-2",
+        "starter-gen-earth-1",
+        "starter-universal-flicker"
+      ],
+      "jutsuMastery": [
+        {
+          "jutsuId": "starter-nin-lightning-2",
+          "level": 10,
+          "xp": 0
+        },
+        {
+          "jutsuId": "starter-nin-water-2",
+          "level": 10,
+          "xp": 0
+        },
+        {
+          "jutsuId": "starter-gen-earth-1",
+          "level": 10,
+          "xp": 0
+        },
+        {
+          "jutsuId": "starter-universal-flicker",
+          "level": 10,
+          "xp": 0
+        }
+      ]
+    }
+  },
+  "30": {
+    "_saveVersion": 1,
+    "savedBloodlines": [],
+    "creatorJutsus": [],
+    "creatorItems": [],
+    "character": {
+      "name": "MissionTester",
+      "level": 30,
+      "rankTitle": "Chunin",
+      "specialty": "Ninjutsu",
+      "bloodline": "None",
+      "village": "Stormveil Village",
+      "elements": [
+        "Lightning",
+        "Water",
+        "Earth"
+      ],
+      "stats": {
+        "strength": 526,
+        "speed": 526,
+        "intelligence": 526,
+        "willpower": 526,
+        "taijutsuOffense": 526,
+        "taijutsuDefense": 526,
+        "bukijutsuOffense": 526,
+        "bukijutsuDefense": 526,
+        "ninjutsuOffense": 534,
+        "ninjutsuDefense": 526,
+        "genjutsuOffense": 526,
+        "genjutsuDefense": 526
+      },
+      "earnedStatPoints": 6200,
+      "unspentStats": 0,
+      "xp": 0,
+      "ryo": 0,
+      "hp": 3400,
+      "maxHp": 3400,
+      "chakra": 3636,
+      "maxChakra": 3636,
+      "stamina": 3636,
+      "maxStamina": 3636,
+      "onboardingStep": "done",
+      "examsPassed": [
+        "genin",
+        "chunin",
+        "jonin"
+      ],
+      "inventory": [
+        "rustfang-kunai",
+        "shinobi-vest"
+      ],
+      "equipment": {
+        "hand": "rustfang-kunai",
+        "body": "shinobi-vest"
+      },
+      "itemStacks": [],
+      "pets": [],
+      "equippedJutsuIds": [
+        "starter-nin-lightning-2",
+        "starter-nin-water-2",
+        "starter-gen-earth-1",
+        "starter-universal-flicker"
+      ],
+      "jutsuMastery": [
+        {
+          "jutsuId": "starter-nin-lightning-2",
+          "level": 15,
+          "xp": 0
+        },
+        {
+          "jutsuId": "starter-nin-water-2",
+          "level": 15,
+          "xp": 0
+        },
+        {
+          "jutsuId": "starter-gen-earth-1",
+          "level": 15,
+          "xp": 0
+        },
+        {
+          "jutsuId": "starter-universal-flicker",
+          "level": 15,
+          "xp": 0
+        }
+      ]
+    }
+  },
+  "50": {
+    "_saveVersion": 1,
+    "savedBloodlines": [],
+    "creatorJutsus": [],
+    "creatorItems": [],
+    "character": {
+      "name": "MissionTester",
+      "level": 50,
+      "rankTitle": "Jonin",
+      "specialty": "Ninjutsu",
+      "bloodline": "None",
+      "village": "Stormveil Village",
+      "elements": [
+        "Lightning",
+        "Water",
+        "Earth"
+      ],
+      "stats": {
+        "strength": 976,
+        "speed": 976,
+        "intelligence": 976,
+        "willpower": 976,
+        "taijutsuOffense": 976,
+        "taijutsuDefense": 976,
+        "bukijutsuOffense": 976,
+        "bukijutsuDefense": 976,
+        "ninjutsuOffense": 984,
+        "ninjutsuDefense": 976,
+        "genjutsuOffense": 976,
+        "genjutsuDefense": 976
+      },
+      "earnedStatPoints": 11600,
+      "unspentStats": 0,
+      "xp": 0,
+      "ryo": 0,
+      "hp": 5400,
+      "maxHp": 5400,
+      "chakra": 5454,
+      "maxChakra": 5454,
+      "stamina": 5454,
+      "maxStamina": 5454,
+      "onboardingStep": "done",
+      "examsPassed": [
+        "genin",
+        "chunin",
+        "jonin"
+      ],
+      "inventory": [
+        "rustfang-kunai",
+        "shinobi-vest"
+      ],
+      "equipment": {
+        "hand": "rustfang-kunai",
+        "body": "shinobi-vest"
+      },
+      "itemStacks": [],
+      "pets": [],
+      "equippedJutsuIds": [
+        "starter-nin-lightning-2",
+        "starter-nin-water-2",
+        "starter-gen-earth-1",
+        "starter-universal-flicker"
+      ],
+      "jutsuMastery": [
+        {
+          "jutsuId": "starter-nin-lightning-2",
+          "level": 25,
+          "xp": 0
+        },
+        {
+          "jutsuId": "starter-nin-water-2",
+          "level": 25,
+          "xp": 0
+        },
+        {
+          "jutsuId": "starter-gen-earth-1",
+          "level": 25,
+          "xp": 0
+        },
+        {
+          "jutsuId": "starter-universal-flicker",
+          "level": 25,
+          "xp": 0
+        }
+      ]
+    }
+  },
+  "70": {
+    "_saveVersion": 1,
+    "savedBloodlines": [],
+    "creatorJutsus": [],
+    "creatorItems": [],
+    "character": {
+      "name": "MissionTester",
+      "level": 70,
+      "rankTitle": "Jonin",
+      "specialty": "Ninjutsu",
+      "bloodline": "None",
+      "village": "Stormveil Village",
+      "elements": [
+        "Lightning",
+        "Water",
+        "Earth"
+      ],
+      "stats": {
+        "strength": 1421,
+        "speed": 1421,
+        "intelligence": 1421,
+        "willpower": 1421,
+        "taijutsuOffense": 1421,
+        "taijutsuDefense": 1421,
+        "bukijutsuOffense": 1421,
+        "bukijutsuDefense": 1421,
+        "ninjutsuOffense": 1422,
+        "ninjutsuDefense": 1421,
+        "genjutsuOffense": 1421,
+        "genjutsuDefense": 1421
+      },
+      "earnedStatPoints": 16933,
+      "unspentStats": 0,
+      "xp": 0,
+      "ryo": 0,
+      "hp": 7400,
+      "maxHp": 7400,
+      "chakra": 7272,
+      "maxChakra": 7272,
+      "stamina": 7272,
+      "maxStamina": 7272,
+      "onboardingStep": "done",
+      "examsPassed": [
+        "genin",
+        "chunin",
+        "jonin"
+      ],
+      "inventory": [
+        "rustfang-kunai",
+        "shinobi-vest"
+      ],
+      "equipment": {
+        "hand": "rustfang-kunai",
+        "body": "shinobi-vest"
+      },
+      "itemStacks": [],
+      "pets": [],
+      "equippedJutsuIds": [
+        "starter-nin-lightning-2",
+        "starter-nin-water-2",
+        "starter-gen-earth-1",
+        "starter-universal-flicker"
+      ],
+      "jutsuMastery": [
+        {
+          "jutsuId": "starter-nin-lightning-2",
+          "level": 25,
+          "xp": 0
+        },
+        {
+          "jutsuId": "starter-nin-water-2",
+          "level": 25,
+          "xp": 0
+        },
+        {
+          "jutsuId": "starter-gen-earth-1",
+          "level": 25,
+          "xp": 0
+        },
+        {
+          "jutsuId": "starter-universal-flicker",
+          "level": 25,
+          "xp": 0
+        }
+      ]
+    }
+  }
+}

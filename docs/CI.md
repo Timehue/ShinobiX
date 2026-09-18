@@ -35,7 +35,7 @@ only with the branch-protection migration procedure in this guide.
 | `CI / client-quality` | `client_quality` | 20 min | Locked root/client installs; lint, story-content/TypeScript/production build, build-size and visual-baseline-size gates, client audit, and checksum-backed client artifact production. |
 | `CI / release-certification` | `release_certification` | 15 min | Downloads and verifies the exact compiled release artifacts, then runs the fresh-account/combat certification against them. |
 | `CI / concurrency-smoke` | `concurrency_smoke` | 15 min | Downloads and verifies the release artifacts, then runs the short real-server concurrent-player smoke. It is not a database capacity test. |
-| `CI / e2e-responsive` | `e2e_responsive` | 20 min | Cross-browser responsive and accessibility coverage on Chromium, Firefox, and WebKit. |
+| `CI / e2e-responsive` | `e2e_responsive` | 5 min | Fail-closed aggregate requiring all three responsive browser shards, including CSP and Stronghold checks, to succeed. |
 | `CI / e2e-combat` | `e2e_combat` | 5 min | Fail-closed stable aggregate requiring all three combat browser shards to succeed. |
 | `CI / e2e-warfront` | `e2e_warfront` | 20 min | Warfront positional-mode browser coverage and adaptive-layout evidence. |
 | `CI / e2e-village-stores` | `e2e_village_stores` | 15 min | Village Stores economy loop in a real browser against a live server: cook rations, donate them, and assert the treasury moved server-side. |
@@ -46,6 +46,15 @@ for downstream jobs. The build-size contract remains in `CI / client-quality`.
 The join is
 not a separately required context because every required artifact consumer fails
 closed if that join or its inputs fail.
+
+Responsive coverage runs as three `e2e_responsive_matrix` shards, named
+`CI / e2e-responsive / 1-of-3` through `3-of-3`, each with the existing 29-minute
+ceiling. The complete Playwright suite is partitioned with `--shard=N/3`.
+CSP runs once on shard 1; all three Stronghold modes run sequentially on shard 2.
+Run `35326317976` exhausted the former two-shard budget at test entry 824 of 875
+on shard 2, after its Stronghold checks passed. The third shard creates headroom
+without removing tests or changing their timeouts. Require the stable
+`CI / e2e-responsive` aggregate rather than individual matrix children.
 
 The actual combat work runs as the `e2e_combat_matrix` job with the emitted names
 `CI / e2e-combat / chromium`, `CI / e2e-combat / firefox`, and

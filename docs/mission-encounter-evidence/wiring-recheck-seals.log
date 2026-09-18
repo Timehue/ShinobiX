@@ -1,0 +1,54 @@
+▶ resolveAiProfileJutsu
+  ✔ resolves built-in ids to the server catalog jutsu, in order (6.2814ms)
+  ✔ carries the combat fields the tower engine reads (0.8153ms)
+  ✔ keeps the tag list — the engine reads tags for every status effect (0.6273ms)
+  ✔ drops unknown ids instead of fabricating a jutsu (0.2282ms)
+  ✔ resolves admin-authored ids the built-in catalog does not carry (0.3256ms)
+  ✔ lets the BUILT-IN catalog win an id collision, like resolveEquippedLoadout (0.2839ms)
+  ✔ sanitizes authored values — no instant-kill AI jutsu (0.2427ms)
+  ✔ dedupes ids and caps the loadout size (0.4342ms)
+  ✔ returns [] for junk input so the Solo-PvE builder falls back to a signature (0.2916ms)
+  ✔ resolves a real built-in AI to its full authored kit (10.9152ms)
+✔ resolveAiProfileJutsu (22.7117ms)
+✔ difficulty bands use inclusive bracket boundaries (3.8199ms)
+✔ stat multiplier weakens sub-peer bands and ramps peer to the full-budget mirror (0.5794ms)
+✔ HP multiplier makes sub-peer foes less tanky and ramps peer to full HP (0.2835ms)
+✔ AI mastery scales with enemy level and caps at the mastery ceiling (0.3766ms)
+✔ enemy hit cap clamps early-band damage to a fraction of player HP (0.4679ms)
+✔ hit cap survives junk HP and never returns a sub-1 ceiling (0.1564ms)
+✔ easy-band AI cannot one-shot a full-health player at any low level (0.4915ms)
+✔ easy-band mercy: a player above 50% HP cannot die in one enemy turn (0.2203ms)
+✔ levels <=10: enemy cannot kill a player who started the turn above 25% HP (0.9383ms)
+✔ easy-band per-turn cap bounds cumulative damage (~30% of max HP) (0.304ms)
+✔ hard-band per-turn cap bounds a chained turn (~70% of max HP) (0.2158ms)
+✔ early peer keeps a widening guard and max-level peer passes raw damage unchanged (0.175ms)
+✔ burst jutsu = AP >= 60 (0.1721ms)
+✔ easy band holds burst for the opening rounds, then releases it (0.141ms)
+✔ easy band only goes for the kill when the player is already low (0.1366ms)
+[pvp-loadout] unlearned equipped jutsu id(s) dropped Rill starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped Rill starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped Rill starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped Rill starter-universal-flicker
+▶ PvE seals on the live Solo-PvE combat-mission encounter
+  ✔ builds the mounted runtime shape with the server-owned mission binding (11.1031ms)
+  ✔ applies the mission difficulty band and arms the Solo guard (1.4474ms)
+  ✔ seals enemy mastery without overwriting the authoritative player (1.4699ms)
+  ✔ keeps the rollback switch scoped to the live Solo difficulty seal (5.9733ms)
+✔ PvE seals on the live Solo-PvE combat-mission encounter (22.3222ms)
+✔ missionAiLevelAndBonus tracks the player's level above the rank floor (2.2269ms)
+✔ mission AI level never drops below the rank's min, and bonus scales by rank (2.0304ms)
+✔ mission AI carries an HP floor so low-level foes aren't one-tapped (1.1313ms)
+✔ E-Rank Drill is the gentlest mission: min 1, no stat bonus, low HP floor, no-sustain AI (2.949ms)
+✔ every combat mission's AI id resolves to a real builtin (0.2313ms)
+✔ ranked combat contracts name a repeatable need and truthful closure (0.4554ms)
+✔ relevelBuiltinAi lowers a builtin to the player's level without mutating the catalog (1.1841ms)
+✔ relevelBuiltinAi HP floor lifts low-level foes but is a no-op when natural HP is higher (1.212ms)
+✔ relevelBuiltinAi clamps junk levels into range (0.8937ms)
+ℹ tests 38
+ℹ suites 2
+ℹ pass 38
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3824.8106
