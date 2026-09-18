@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { storylines } from "../data/storylines";
 import { storyEpiloguesByVillage } from '../data/story-epilogues';
 import { storyRoadEvents } from '../data/story-road-events';
@@ -19,6 +20,7 @@ import { resolveVnAuthoredActorImage, resolveVnActorBaseImage } from "./vn";
 import type { CreatorEvent } from "../types/vn";
 
 const opening = (village = "Ashen Leaf Village") => storyToCreatorEvent(storylines[village][0], village, 0);
+const publicRoot = fileURLToPath(new URL("../../public/", import.meta.url));
 const echoEvent = (id: string, image: string, pages: NonNullable<CreatorEvent['vnPages']>): CreatorEvent => ({
     ...opening(), id, image, vnPages: pages, biome: 'central',
 });
@@ -163,10 +165,10 @@ test("opaque uploads and aliases are legitimate; a known different bundled ident
 test("rift aftermaths use the registered speaker portrait and all correction assets exist", () => {
     assert.match(resolveCinematicActorImage("rift-first-clear-hollow-stalker", "Scout Vessa", "/missing.webp"), /portraits\/cinematic\//);
     for (const pages of Object.values(STORY_ARTWORK_CORRECTIONS)) {
-        for (const image of Object.values(pages)) assert.ok(existsSync(resolve("public", image.slice(1))), image);
+        for (const image of Object.values(pages)) assert.ok(existsSync(resolve(publicRoot, image.slice(1))), image);
     }
-    for (const image of Object.values(STORY_ARTWORK_DEFAULTS)) assert.ok(existsSync(resolve('public', image.slice(1))), image);
-    for (const image of Object.values(SECONDARY_ARTWORK_DEFAULTS)) assert.ok(existsSync(resolve('public', image.slice(1))), image);
+    for (const image of Object.values(STORY_ARTWORK_DEFAULTS)) assert.ok(existsSync(resolve(publicRoot, image.slice(1))), image);
+    for (const image of Object.values(SECONDARY_ARTWORK_DEFAULTS)) assert.ok(existsSync(resolve(publicRoot, image.slice(1))), image);
 });
 
 test('proof failures appear at their written line, while explicit direction remains authoritative', () => {
