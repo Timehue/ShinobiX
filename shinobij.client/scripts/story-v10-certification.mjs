@@ -414,7 +414,9 @@ async function certifyTwoSessionConflict(browser, result) {
         const writeA = await request(a.page, `/api/save/${result.account}`, {
             method: 'POST',
             headers: result.playerHeaders,
-            body: { ...snapA.body, currentSector: 41, _baseSaveVersion: baseVersion },
+            // World position is server-owned. Use a real client preference to
+            // prove the accepted write survives a stale second browser save.
+            body: { ...snapA.body, character: { ...snapA.body.character, masteryFocus: 'towers-spire' }, _baseSaveVersion: baseVersion },
         });
         assert.equal(writeA.status, 200, JSON.stringify(writeA.body));
         assert.equal(writeA.body._saveVersion, baseVersion + 1);
@@ -423,14 +425,15 @@ async function certifyTwoSessionConflict(browser, result) {
         const staleWriteB = await request(b.page, `/api/save/${result.account}`, {
             method: 'POST',
             headers: result.playerHeaders,
-            body: { ...snapB.body, currentSector: 42, _baseSaveVersion: baseVersion },
+            body: { ...snapB.body, character: { ...snapB.body.character, masteryFocus: 'auto' }, _baseSaveVersion: baseVersion },
         });
         assert.equal(staleWriteB.status, 409, JSON.stringify(staleWriteB.body));
         assert.equal(staleWriteB.body.currentVersion, baseVersion + 1);
 
         const final = await request(a.page, `/api/save/${result.account}`, { headers: result.playerHeaders });
         assert.equal(final.status, 200);
-        assert.equal(final.body.currentSector, 41, 'the stale second session must not overwrite the first');
+        assert.equal(final.body.character.masteryFocus, 'towers-spire', 'the stale second session must not overwrite the first');
+        assert.equal(final.body.currentSector, snapA.body.currentSector, 'generic saves must preserve server-owned world position');
         return {
             baseVersion,
             acceptedVersion: writeA.body._saveVersion,

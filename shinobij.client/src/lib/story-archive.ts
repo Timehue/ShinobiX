@@ -220,6 +220,9 @@ export function buildCompletedStoryArchive(character: Character, content: StoryC
             };
         });
     const interludes = (content.village === village ? content.interludes : []).flatMap((interlude): CompletedStoryArchiveEntry[] => {
+        // A local selection awaiting acknowledgement (or in conflict) is not a
+        // completed permanent record. Keep its recovery report on the save.
+        if (character.pendingStoryReports?.some(report => report.eventId === interlude.id)) return [];
         const event = interludeToCreatorEvent(interlude);
         const finalChoices = interlude.pages.at(-1)?.choices ?? [];
         const finalPageIndex = Math.max(0, interlude.pages.length - 1);

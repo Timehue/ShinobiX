@@ -20,15 +20,13 @@ const fullLengthPortraits = new Set([
 ]);
 
 const extendedPropPortraits = new Set([
-    "/portraits/cinematic/side-stories/corvo-latch.webp",
-    "/portraits/cinematic/side-stories/emissary-corvane.webp",
-    "/portraits/cinematic/side-stories/proctor-hasse.webp",
-]);
+    "corvo-latch", "emissary-corvane", "proctor-hasse", "village-elder",
+].map(name => `/portraits/cinematic/side-stories/${name}.webp`));
 
 export function vnPortraitFrame(source: string, player = false): VnPortraitFrame | undefined {
     const pathname = source.split(/[?#]/, 1)[0];
     if (player || !fullLengthPortraits.has(pathname)) return undefined;
-    // Their keys, open book and letter extend beyond the torso. Keep that hand
+    // Their keys, open book, letter and raised seal extend beyond the torso. Keep that hand
     // inside the phone crop rather than enforcing an identical magnification.
     if (extendedPropPortraits.has(pathname)) return { x: .2, y: 0, width: .8, height: .74, aspect: (1000 / 1536) * .8 / .74 };
     // Keep heads and the hand/waist prop lane. The rescue portrait of Bel with

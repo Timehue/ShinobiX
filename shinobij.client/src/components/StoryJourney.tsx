@@ -32,29 +32,37 @@ function ArchiveIcon({ icon }: { icon: string }) {
     return glyph ? <GameIcon name={glyph} size={18} /> : <>{icon}</>;
 }
 
-export function StoryJourney({ character, onReturnToVillage, onResumeStory, sharedImages }: { character: Character; onReturnToVillage?: () => void; onResumeStory?: () => void; sharedImages?: Record<string, string> }) {
+type StoryJourneyProps = { character: Character; onReturnToVillage?: () => void; onResumeStory?: () => void; sharedImages?: Record<string, string> };
+
+export function StoryJourney(props: StoryJourneyProps) {
+    return <StoryJourneyContent key={`${props.character.name.trim().toLowerCase()}:${props.character.storyVillage || props.character.village}`} {...props} />;
+}
+
+function StoryJourneyContent({ character, onReturnToVillage, onResumeStory, sharedImages }: StoryJourneyProps) {
     const village = character.storyVillage || character.village;
     if (!isStoryContentVillage(village)) throw new Error(`No story content is published for ${village || "this village"}.`);
     const content = readStoryContent(village);
     const [openId, setOpenId] = useState<string | null>(null);
     const reportConflicts = (character.pendingStoryReports ?? []).filter((report) => report.status === "conflict").length;
-    const [replayEntry, setReplayEntry] = useState<CompletedStoryArchiveEntry | null>(null);
+    const pendingReports = (character.pendingStoryReports ?? []).filter((report) => report.status !== "conflict").length;
+    const [replayId, setReplayId] = useState<string | null>(null);
     const [replayPage, setReplayPage] = useState(0);
     const [replayLine, setReplayLine] = useState(0);
     const archiveHeadingId = useId();
     const guidanceHeadingId = useId();
     const textVars = useMemo(() => vnTextVarsFor(character), [character]);
     const archive = useMemo(() => buildCompletedStoryArchive(character, content), [character, content]);
+    const replayEntry = archive.find(entry => entry.id === replayId);
     const guidance = storyArchiveGuidance(character, content);
 
     function openCinematicReplay(entry: CompletedStoryArchiveEntry) {
         setReplayPage(0);
         setReplayLine(0);
-        setReplayEntry(entry);
+        setReplayId(entry.id);
     }
 
     function closeCinematicReplay() {
-        setReplayEntry(null);
+        setReplayId(null);
         setReplayPage(0);
         setReplayLine(0);
     }
@@ -83,13 +91,16 @@ export function StoryJourney({ character, onReturnToVillage, onResumeStory, shar
                 <p>{guidance.body}</p>
                 {guidance.state !== "complete" && (
                     <p className="story-archive-guidance__recovery">
-                        Unfinished chapters are never consumed or archived. If a battle or reward seal was interrupted, reload and the current chapter can be offered again.
+                        After a victory, use Retry on the battle result to finish reward or record delivery.
                     </p>
                 )}
             </div>
             {reportConflicts > 0 ? (
-                <p className="story-archive-history-note">{reportConflicts} remembered {reportConflicts === 1 ? "choice differs" : "choices differ"} from the permanent Chronicle record. Later choices will keep syncing while the conflicting record remains flagged.</p>
+                <p className="story-archive-history-note">{reportConflicts} {reportConflicts === 1 ? "choice differs" : "choices differ"} from the permanent Chronicle record. Conflicts remain flagged; other deliveries continue.</p>
             ) : null}
+            {pendingReports > 0 ? <p className="story-archive-history-note" role="status">
+                {pendingReports} {pendingReports === 1 ? 'choice awaits' : 'choices await'} the permanent Chronicle record. Retrying automatically; these scenes are not yet archived.
+            </p> : null}
             {guidance.actionLabel && onReturnToVillage ? (
                 <button type="button" onClick={guidance.state === "ready" && onResumeStory ? onResumeStory : onReturnToVillage}>
                     {guidance.state === "ready" && onResumeStory ? "Resume current chapter" : guidance.actionLabel}
@@ -129,7 +140,7 @@ export function StoryJourney({ character, onReturnToVillage, onResumeStory, shar
                 <span className="story-archive-count">{archive.length} archived</span>
             </div>
             <p className="story-archive-intro">
-                A permanent, read-only record of the chapters and choices you have finished.
+                Read-only history of completed chapters and preserved choices.
             </p>
             {guidancePanel}
             <div className="story-archive-list">
@@ -177,7 +188,7 @@ export function StoryJourney({ character, onReturnToVillage, onResumeStory, shar
                                                 <div className="story-archive-transcript">
                                                     {page.lines.map((line, lineIndex) => (
                                                         <p key={lineIndex}>
-                                                            <strong>{line.speaker}</strong>
+                                                            <strong>{applyVnTextVars(line.speaker, textVars)}</strong>
                                                             <span>{applyVnTextVars(line.text, textVars)}</span>
                                                         </p>
                                                     ))}
