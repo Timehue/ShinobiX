@@ -368,3 +368,20 @@ test('Standing Court archived receipts cannot reuse a missing pgKv snapshot from
     assert.ok((selectCount.get(key) ?? 0) > readsBeforeSetReadback,
         'local set/readback must not repopulate the authority cache either');
 });
+
+test('mentor records, discovery pointers and student markers are read from shared storage on every worker', async () => {
+    // Pending mentor settlements live in `clan-mentor:<sensei>` and are only
+    // replaced by exact CAS; a worker-local snapshot would hide another
+    // worker's admission or finalization (api/clan/_mentor-settlement.ts).
+    for (const key of ['clan-mentor:cache-race-sensei', 'clan-mentor-pending:cache-race-sensei', 'clan-mentor-of:cache-race-student']) {
+        await workerA._pgKvForTest.set(key, { revision: 1 });
+        assert.deepEqual(await workerA._pgKvForTest.get(key), { revision: 1 });
+        const readsBeforeRemoteWrite = selectCount.get(key) ?? 0;
+        settleInOtherProcess(key, { revision: 2 });
+
+        assert.deepEqual(await workerA._pgKvForTest.get(key), { revision: 2 },
+            `${key} must observe the other worker's committed mentor state`);
+        assert.ok((selectCount.get(key) ?? 0) > readsBeforeRemoteWrite,
+            `${key} must re-read Postgres instead of serving a process-local snapshot`);
+    }
+});
