@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
 import { liveServiceNotice } from "../lib/live-service-notice";
-import { visiblePoll } from "../lib/poll";
 import { useLiveCapabilities } from "../lib/live-capabilities-context";
-import { fetchWorldCrisis } from "../lib/world-crisis";
-import { fetchWorldCrisis80 } from "../lib/world-crisis-80";
+import { subscribeLiveCrisisFeed } from "../lib/live-crisis-feed";
 import type { Screen } from "../types/core";
 import type { WorldCrisisProjection } from "../../../shared/world-crisis";
 import type { WorldCrisis80Projection } from "../../../shared/world-crisis-80";
@@ -18,13 +16,12 @@ export function LiveServiceNotice({ screen, onNavigate }: { screen: Screen; onNa
     const [crisis, setCrisis] = useState<WorldCrisisProjection | null>(null);
     const [reckoning, setReckoning] = useState<WorldCrisis80Projection | null>(null);
     const [dismissedRun, setDismissedRun] = useState("");
-    useEffect(() => {
-        let alive = true;
-        const refresh = () => { void Promise.all([fetchWorldCrisis(), fetchWorldCrisis80()]).then(([next, next80]) => { if (!alive) return; if (next) setCrisis(next); if (next80) setReckoning(next80); }); };
-        refresh();
-        const stop = visiblePoll(refresh, 15_000);
-        return () => { alive = false; stop(); };
-    }, []);
+    // Shared poll (lib/live-crisis-feed.ts): this component remounts on every
+    // screen change, and the feed keeps the 15s poll running across that.
+    useEffect(() => subscribeLiveCrisisFeed((frame) => {
+        if (frame.crisis) setCrisis(frame.crisis);
+        if (frame.reckoning) setReckoning(frame.reckoning);
+    }), []);
     if (notice) return (
         <aside role="status" aria-live="polite" aria-label="Live service status" className="live-service-notice">
             <strong>{notice.title}</strong><span>{notice.body}</span>
