@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { createFirstPactProgress } from "../../../shared/first-pact-contract.js";
+import { FIRST_PACT_NPCS } from "./first-pact-world.js";
+import { firstPactReactiveDialogue } from "../screens/first-pact/narrative.js";
 import {
     FIRST_PACT_ANCHOR_QUALITIES,
     FIRST_PACT_MAIN_BEATS,
@@ -13,6 +16,23 @@ const screen = ["../screens/FirstPact.tsx", "../screens/first-pact/narrative.ts"
 const apiCopy = readFileSync(new URL("./first-pact-api.ts", import.meta.url), "utf8");
 const aftermath = readFileSync(new URL("./first-pact-aftermath.ts", import.meta.url), "utf8");
 const productionSpec = readFileSync(new URL("../../../docs/first-pact-production-spec.md", import.meta.url), "utf8");
+
+test("companion reactions switch from the NPC's speech to narration", () => {
+    const progress = createFirstPactProgress(1);
+    progress.mainStep = "challenge-court-echo";
+    progress.mainQuest.pactVow = "open-road";
+    progress.mainQuest.pactCompanionIds = ["a", "b", "c", "d"];
+    progress.finalTrial.wins = 1;
+    const companions = ["a", "b", "c", "d"].map(id => ({ id, historicalName: id, currentName: id, available: true }));
+    for (const id of ["registrar-orin", "scribe-vey", "keeper-sena"]) {
+        const npc = FIRST_PACT_NPCS.find(npc => npc.id === id)!;
+        const dialogue = firstPactReactiveDialogue(npc, progress, companions);
+        assert.ok(dialogue.narrationStartsAt !== undefined && dialogue.narrationStartsAt > 0);
+        assert.ok(dialogue.narrationStartsAt < dialogue.lines.length);
+    }
+    const plain = firstPactReactiveDialogue(FIRST_PACT_NPCS.find(npc => npc.id === "scribe-vey")!, createFirstPactProgress(1), []);
+    assert.equal(plain.narrationStartsAt, undefined);
+});
 
 test("First Pact copy uses the main story's plain, zero-dash voice", () => {
     assert.doesNotMatch(`${screen}\n${apiCopy}\n${aftermath}`, /[\u2013\u2014]/u);

@@ -64,7 +64,7 @@ export const eventItems: GameItem[] = [
         cost: 0,
         levelReq: 42,
         description: "A page of the roll that lists the names the official Count struck, blown across the snow and gathered back for Elder Sova.",
-        flavorText: "The Count keeps who is owed. This keeps who is missed.",
+        flavorText: "The official Count struck these names. This page still records them.",
         // No maxChakra/maxStamina here: pools come from LEVEL alone
         // (maxChakraForLevel), so an item vitals bonus never reached any pool —
         // it only showed in the popup. Dropped 2026-08-16 by owner ruling.
@@ -103,7 +103,7 @@ export const eventItems: GameItem[] = [
         cost: 0,
         levelReq: 58,
         description: "A sealed name-file the Auction-Enforcer was selling off the shelf, taken back at the Moonshadow outskirts and closed for good by Shade Master Iro.",
-        flavorText: "Filed under load-bearing. A person. Filed under load-bearing.",
+        flavorText: "The registry valued this person as property. The file is closed now.",
         // No maxChakra/maxStamina here: pools come from LEVEL alone
         // (maxChakraForLevel), so an item vitals bonus never reached any pool —
         // it only showed in the popup. Dropped 2026-08-16 by owner ruling.

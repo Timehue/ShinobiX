@@ -75,13 +75,13 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
             {
                 kicker: "Lesson 1 · Bondwake",
                 title: "Why Kuro carries two tails",
-                body: "Kuro was born with one tail. An ember-ocelot can grow a second only after a mature shinobi bond settles into a stable shared chakra rhythm—a rare change handlers call the Bondwake. The new tail follows the first by a heartbeat, answering learned intent after instinct has already moved.",
+                body: "Kuro was born with one tail. An ember-ocelot can grow a second when it has worked with a shinobi long enough for their chakra rhythms to settle together. Handlers call this rare change the Bondwake. Watch his tails when Tomoe signals: the first moves on instinct, and the second follows as he recognizes her command.",
                 points: [
                     "Bondwake comes from long trust, clear commands, and shared field experience; age or raw power cannot force it.",
                     "The second tail is a visible sign of responsiveness between handler and companion, not ownership or obedience without choice.",
                     "Bondwake grants no hidden stat bonus and is not a separate evolution tier; other species show mature bonds in different ways.",
                 ],
-                callout: "Tomoe: ‘Kuro had one tail when we met. The second appeared the morning he chose my signal before I gave it.’",
+                callout: "Tomoe: ‘Kuro had one tail when we met. The morning I noticed the second, he turned before I finished my signal. We had practiced that turn for years.’",
             },
             {
                 kicker: "Lesson 1 · Readiness",
@@ -143,7 +143,7 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
                 title: "Guard, conditions, and tempo",
                 body: "Guard resolves early. Conditions can change a winning race, but a pet holds only two at a time; a third pushes off the oldest. Fire thaws freeze, frost smothers burn, and shields sit outside the condition limit.",
                 points: [
-                    "Turn order is speed multiplied by move priority—not speed alone.",
+                    "Turn order uses speed multiplied by move priority. Speed alone does not decide who acts first.",
                     "The signature meter fills as a pet deals and takes damage, then empties in one cast.",
                     "A defensive turn is good when it ruins the opponent's expensive turn.",
                 ],
@@ -155,7 +155,7 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
                 points: [
                     "A surviving reserve is worth more than pretty damage numbers.",
                     "Do not overdraft blindly near the judge limit.",
-                    "Training is unlimited—repeat the matchup until you can explain why you won or lost.",
+                    "Training is unlimited. Repeat the matchup until you can explain why you won or lost.",
                 ],
             },
         ],
@@ -168,18 +168,18 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
         eyebrow: "The paid circuit",
         title: "Enter the Colosseum on purpose",
         shortTitle: "Colosseum",
-        summary: "Understand matchmaking, paid-win limits, server-settled results, and when to return to practice.",
+        summary: "Learn how opponents are chosen, how many wins pay each day, and when to return to practice.",
         practiceLabel: "Enter the Colosseum",
         destination: { kind: "screen", screen: "petColiseum" },
         pages: [
             {
                 kicker: "Lesson 3 · Contract",
                 title: "Same combat, real stakes",
-                body: "The Colosseum uses the full Showdown rules you practiced, but the arena chooses the opposition and successful paid bouts count toward the daily purse. The opponent, seed, script, and result are sealed so refreshing cannot shop for a softer fight.",
+                body: "The Colosseum uses the Showdown rules you practiced. The arena chooses your opponent, and paid wins count toward the daily purse. Refreshing keeps the same bout; it will not give you an easier opponent or undo the result.",
                 points: [
                     "Training Grounds is unlimited and unrewarded; Colosseum is matched and rewarded.",
                     "The paid-win counter is a reward cap, not a ban on learning the mode.",
-                    "A loss is matchup information—use Training Grounds before spending another serious attempt.",
+                    "Use what you learned from a loss in Training Grounds before spending another serious attempt.",
                 ],
             },
             {
@@ -220,16 +220,16 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
             {
                 kicker: "Lesson 4 · Pair construction",
                 title: "Your reserve is an answer",
-                body: "A 2v2 team needs two eligible pets on both sides. The reserve should repair a weakness in the lead—element coverage, role coverage, or a technique synergy—not merely be the second-highest power number.",
+                body: "A 2v2 team needs two eligible pets on both sides. Pick a reserve that covers your lead's weak matchups or supports its techniques. The second-highest power number may not be the best partner.",
                 points: [
                     "Set a default 2v2 partner in the Pet Yard, then override it when the matchup demands.",
                     "Do not pair two pets that lose to the same common answer unless their roles compensate.",
-                    "A reserve that enters healthy can decide both the knockout race and the judges' ladder.",
+                    "A healthy reserve gives you another chance to win and improves your position if the match reaches the judges.",
                 ],
             },
             {
                 kicker: "Lesson 4 · Switching",
-                title: "A switch spends tempo to change the question",
+                title: "Switch when the better matchup is worth a turn",
                 body: "Switching gives up immediate pressure, so make the new matchup worth the cost. Switch before the lead is too damaged to contribute later, or when the reserve can absorb the technique the opponent is clearly building toward.",
                 points: [
                     "Preserve useful pets; do not preserve one that has no favorable work left.",
@@ -239,8 +239,8 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
             },
             {
                 kicker: "Lesson 4 · Team identity",
-                title: "Make both pets tell one story",
-                body: "A good pair has a sentence: ‘the defender buys time for the assassin,’ ‘the tracker softens whatever the closer finishes,’ or ‘either element punishes the other's counter.’ If you cannot say the sentence, the team is probably just two pets standing together.",
+                title: "Give each pet a job",
+                body: "A defender can buy time for an assassin's heavy attack. A tracker can weaken a target for its partner to finish. You can also pair elements so each pet covers the other's weakness. Choose what you want the pair to do, then practice that plan.",
                 points: [
                     "Practice the same pair against several elemental spreads.",
                     "Change order as well as membership.",
@@ -274,7 +274,7 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
             {
                 kicker: "Lesson 5 · Two ranked doors",
                 title: "Live queue and ladder are not the same action",
-                body: "The live ranked queue pairs two present players for one server-resolved duel. Ladder challenges target the rival above you and use that mode's sealed defense. Both are authoritative, but their entry, pacing, and climb rules differ.",
+                body: "The live ranked queue pairs two players who are both searching for a duel. A ladder challenge uses the saved defense of a rival above you, even when that player is away. Win the offered ladder challenge to take their place.",
                 points: [
                     "Live queue is immediate matchmaking when another player is searching.",
                     "Ladder challenge is positional: beat the offered rival to take the rung.",
@@ -308,7 +308,7 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
             {
                 kicker: "Lesson 6 · Objective",
                 title: "Everything you watch is the scoreboard",
-                body: "Warfront fields all four of your pets at once against all four of theirs. A clash ends when one side is wiped, and whoever has more pets standing takes it. First to two clashes wins the Rite — there is no objective to capture and no structure to break, so every takedown on screen moves the result.",
+                body: "Warfront fields all four of your pets against all four of theirs. Wipe out the opposing team to win a clash. If time runs out, the side with more pets standing wins it. Win two clashes to take the Rite. There is no flag to capture or structure to break.",
                 points: [
                     "Pets auto-fight by role: defenders hold, sages sustain, trackers pressure, assassins hunt.",
                     "Your work happens before the clash, not during it.",
@@ -329,7 +329,7 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
             {
                 kicker: "Lesson 6 · The band",
                 title: "Four pets, not four individuals",
-                body: "Every pet strengthens the whole band by its role — defenders and sages give health, trackers and assassins give attack — and gives half again when it shares a bandmate’s element. Role spread decides what you get; element spread decides how much.",
+                body: "Every pet strengthens the whole band. Defenders and sages add health; trackers and assassins add attack. A pet contributes 50% more when it shares a bandmate's element. Choose roles for the bonuses you need, then check how the elements affect them.",
                 points: [
                     "A band needs three different elements, or a single counter beats all four of you.",
                     "Elements are the strongest single force in a clash, so never field a one-element band.",
@@ -342,7 +342,7 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
                 body: "In casual Warfront, each unfinished clash pauses to show what every pet has left. Reposition your team or hold the line before the next clash. Your band regroups between clashes, and the side that lost regroups harder. Ranked Warfront instead uses the formation you saved for every clash, so your defense can fight while you are offline.",
                 points: [
                     "Pull a badly wounded pet off the front before it is finished.",
-                    "A pet that fell returns wounded, not dead — the second clash is still yours to take.",
+                    "A pet that fell returns wounded for the next clash. You can still turn the match around.",
                     "Holding the line is a real answer when your read was already right.",
                     "Enter Ranked Beastbound Warfront from Arena District, save four pets and their cells, then challenge a nearby rank. Update your saved defense after training or changing the team.",
                 ],

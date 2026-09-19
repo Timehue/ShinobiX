@@ -234,9 +234,9 @@ type InteriorSpeech = {
     name: string;
     title: string;
     palette: FirstPactNpcDefinition["palette"];
-    /** A painted face when a person is speaking; a furnishing keeps the letter. */
-    portrait?: string;
-    portraitLetter: string;
+    /** Each speaker has their own portrait; observations use the narrator. */
+    portrait: string;
+    portraitAlt: string;
     lines: readonly string[];
 };
 
@@ -310,6 +310,8 @@ const DISTRICT_LABELS: Record<ReturnType<typeof firstPactDistrictAt>, string> = 
     aqueduct: "The Aqueduct",
     gateworks: "Gateworks",
 };
+
+const NARRATOR_PORTRAIT = "/portraits/narrator.webp";
 
 const NPC_PORTRAITS: Readonly<Record<string, string>> = {
     "keeper-sena": senaPortrait,
@@ -5309,7 +5311,7 @@ export function FirstPact({
             title: npc.title,
             palette: npc.palette,
             portrait: NPC_PORTRAITS[npc.id],
-            portraitLetter: npc.name.slice(0, 1),
+            portraitAlt: `${npc.name} portrait`,
             lines: firstPactInteriorNpcLines(npc, progressRef.current.mainStep),
         });
         setDialogLine(0);
@@ -5330,7 +5332,8 @@ export function FirstPact({
                 name: room.focus.label,
                 title: room.name,
                 palette: "cyan",
-                portraitLetter: room.name.slice(0, 1),
+                portrait: NARRATOR_PORTRAIT,
+                portraitAlt: "Narrator portrait",
                 lines: room.focus.lines,
             });
             setDialogLine(0);
@@ -5659,9 +5662,10 @@ export function FirstPact({
             setDialogNpc(null);
             setInteriorSpeech({
                 name: scene.title,
-                title: speaker?.name ?? "The surviving record",
+                title: "Narrator",
                 palette: speaker?.palette ?? "cyan",
-                portraitLetter: (speaker?.name ?? scene.title).slice(0, 1),
+                portrait: NARRATOR_PORTRAIT,
+                portraitAlt: "Narrator portrait",
                 lines: scene.lines,
             });
             setDialogLine(0);
@@ -5818,6 +5822,7 @@ export function FirstPact({
     };
 
     const dialog = dialogNpc ? firstPactReactiveDialogue(dialogNpc, progress, pactCompanions) : null;
+    const dialogNarrated = dialog?.narrationStartsAt !== undefined && dialogLine >= dialog.narrationStartsAt;
     const mainQuest = mainQuestCopy(progress);
     const sideQuest = questCopy(progress);
     const epiloguePages = firstPactEpilogue(progress, pactCompanions);
@@ -6048,9 +6053,7 @@ export function FirstPact({
                 <div className="fp-overlay" role="presentation" onPointerDown={(event) => event.stopPropagation()}>
                     <section className="fp-dialogue" role="dialog" aria-modal="true" aria-label={`Reading ${interiorSpeech.name}`}>
                         <div className={`fp-dialogue-portrait fp-palette-${interiorSpeech.palette}`}>
-                            {interiorSpeech.portrait
-                                ? <img src={interiorSpeech.portrait} alt={`${interiorSpeech.name} portrait`} />
-                                : <span>{interiorSpeech.portraitLetter}</span>}
+                            <img src={interiorSpeech.portrait} alt={interiorSpeech.portraitAlt} />
                         </div>
                         <div className="fp-dialogue-copy">
                             <span className="fp-eyebrow">{interiorSpeech.title}</span>
@@ -6071,13 +6074,14 @@ export function FirstPact({
                 <div className="fp-overlay" role="presentation" onPointerDown={(event) => event.stopPropagation()}>
                     <section className="fp-dialogue" role="dialog" aria-modal="true" aria-label={`Conversation with ${dialogNpc.name}`}>
                         <div className={`fp-dialogue-portrait fp-palette-${dialogNpc.palette}`}>
-                            {NPC_PORTRAITS[dialogNpc.id]
-                                ? <img src={NPC_PORTRAITS[dialogNpc.id]} alt={`${dialogNpc.name} portrait`} />
-                                : <span>{dialogNpc.name.slice(0, 1)}</span>}
+                            <img
+                                src={dialogNarrated ? NARRATOR_PORTRAIT : NPC_PORTRAITS[dialogNpc.id]}
+                                alt={dialogNarrated ? "Narrator portrait" : `${dialogNpc.name} portrait`}
+                            />
                         </div>
                         <div className="fp-dialogue-copy">
-                            <span className="fp-eyebrow">{dialogNpc.title}</span>
-                            <h2>{dialogNpc.name}</h2>
+                            <span className="fp-eyebrow">{dialogNarrated ? "The surviving record" : dialogNpc.title}</span>
+                            <h2>{dialogNarrated ? "Narrator" : dialogNpc.name}</h2>
                             <p>{dialog.lines[Math.min(dialogLine, dialog.lines.length - 1)]}</p>
                             <div className="fp-dialogue-actions">
                                 {dialogLine < dialog.lines.length - 1

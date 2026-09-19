@@ -63,8 +63,8 @@ export function wandererVerbLockReason(
     verb: WandererVerb,
 ): string | null {
     if (!lockedWandererVerbs(character).includes(verb)) return null;
-    if (verb === "gamble") return "Come back when a scribe's put a codex in your pack — no sport in fleecing a man with nothing to play.";
-    if (verb === "petDuel") return "You have no pet to send out — tame one first, and the beast will still be prowling this road.";
+    if (verb === "gamble") return "Come back when a scribe's put a codex in your pack. No sport in fleecing someone with nothing to play.";
+    if (verb === "petDuel") return "You need a companion for this challenge. Befriend one, then look for a beast to challenge on the road.";
     return "You can't take this offer yet.";
 }
 

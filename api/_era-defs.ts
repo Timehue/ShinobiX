@@ -84,7 +84,7 @@ export const ERA_DEFS: readonly EraDef[] = [
     {
         id: 'hollow-gate-opens', number: 2, name: 'Era II: The Hollow Gate Opens',
         description: 'The seal beneath Central cracked, and the world learned what waits below.',
-        lore: 'The Gate does not open for the curious. It opens for the ones who keep coming back.',
+        lore: 'The Warden keeps a rescue team at the intake. Every returning diver brings a correction to the map.',
         chronicle: [
             'Surveyors mapping beneath Central found stonework older than any village and a sealed intake that warmed under chakra.',
             'The first dive teams came back changed; the second came back rich; the third did not come back, and the Warden appeared soon after.',

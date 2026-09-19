@@ -29,7 +29,7 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
                     dialogue: [
                         "The resale marks split here. High line reaches the signal cairn before the rain gets serious. The cable span is broken, and I brought one dry coil to cross it. If we use that coil, the west mast waits until tomorrow.",
                         "The picker road stays below the lightning shelf. Safer, except its storm rail pulled loose last week. I brought the second coil for that. Fixing it costs daylight, and we'll have to ask the flower crews what they carried in public.",
-                        "Fast and exposed, or slow where people can hear my mother's name. I dislike both. Pick one before the cloud does.",
+                        "The high line is faster but exposed. The lower road needs a repair, then we'll have to ask the pickers for help. I'd rather do neither, but the rain won't wait.",
                     ],
                     choices: [
                         choice("sv-take-high-line", "Take the high line. Trust the cable and reach the signal cairn before the rain."),
@@ -47,8 +47,8 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
                     speaker: "Mira Volt",
                     dialogue: [
                         "Anchor's sound. Old cable isn't. I can splice my coil to the far eye, but somebody has to cross while the other holds the brake.",
-                        "Don't volunteer bravely. Decide usefully. You cross first, I learn whether my knot holds. I cross first, you learn whether you can hold my full weight without trying to help the line.",
-                        "You take the shelf. I'll take the brake. If I say slack, give me slack. And don't make me say it twice.",
+                        "One of us has to cross on the repaired cable while the other controls the brake. I'll check the knot under load before either of us leaves the ledge.",
+                        "I'll control the brake. You cross to the far shelf. If I tell you to stop, keep still until I have the line steady.",
                     ],
                     choices: [choice("sv-broken-cable-span-continue", "Cross on Mira's line while she holds the brake.", "The cable drops under your weight, catches, and hums. Mira does not breathe again until both your boots reach rock.")],
                 }],
@@ -64,7 +64,7 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
                     dialogue: [
                         "Picker's wrap. Waxed twice. The broad marker piece is here, and the corner, and the little split near the V. All of it.",
                         "Wait. There's a pressed flower between the pieces. She put those in every book and tool roll, then denied it when they fell out.",
-                        "Wrap it where it was. We spent the west mast's coil getting here. We are not letting the rain take the last inch.",
+                        "Wrap the flower between the pieces again. We used the west mast's coil to reach this packet; I want to get it home dry.",
                     ],
                     choices: [choice("sv-signal-cairn-recover", "Wrap the marker pieces and flower. Carry them back across the line.")],
                 }],
@@ -110,7 +110,7 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
                 requireTrait: "sf-sv-high-line",
                 dialogue: [
                     "The west mast is still waiting for the coil on this span. I told the crew where it went. They were polite enough to save their opinion for my face.",
-                    "Take the brake. I want to check the span under my own weight this time. If I say slack, you know what slack means now.",
+                    "Take the brake. I want to check the span under my own weight this time. If I ask for slack, ease the line out slowly. Keep it locked until then.",
                     "Then we lower the coil, carry it to the mast, and find out whether the soup survived the weather.",
                 ],
             },
@@ -150,7 +150,7 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
                     dialogue: [
                         "Fresh ruts go toward the charcoal yard. If we follow now, we may catch the cedar before the rain pushes it into the sluice.",
                         "The footbridge on the other road has a split stringer. Families still use it because the longer path adds an hour. I brought clamps and two sound offcuts. We can fix it first and risk the trail moving.",
-                        "I know which job has my family's name on it. I also know whose feet use that bridge. Tell me which mistake we're making.",
+                        "I want to follow the plates, but someone could fall through that bridge while we're gone. Which do we do first?",
                     ],
                     choices: [
                         choice("al-repair-first", "Repair the footbridge first. Let the cedar travel while the crossing is made sound."),
@@ -167,9 +167,9 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
                     scene: "The collapsed footbridge, Toma lying on one shoulder beneath the split stringer",
                     speaker: "Toma Reed",
                     dialogue: [
-                        "Pass the short offcut. No, the ugly one. Pretty grain splits clean; ugly grain argues with the break.",
+                        "Pass the short offcut, the one with the twisted grain. It should hold across the split better than the straight piece.",
                         "I can hear the carts from here. I am trying not to count how far the plates have gone while we help a bridge nobody thanked us for noticing.",
-                        "Clamp. Wait. Load it before the grain settles and it splits again. I learned that one the loud way.",
+                        "Set the clamp and wait. If we put weight on the repair before it's secure, it can split again. I've made that mistake.",
                     ],
                     choices: [choice("al-collapsed-footbridge-continue", "Wait for the joint to take, then test the bridge together.", "The repaired span settles without a groan. Toma crosses twice before he trusts it once.")],
                 }],
@@ -183,7 +183,7 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
                     scene: "The east channel catch, Toma kneeling wrist-deep in brown water",
                     speaker: "Toma Reed",
                     dialogue: [
-                        "Don't pull. The wet ash has the letters by the throat. Let the current loosen each plate and lift from underneath.",
+                        "Don't pull at the burned edge. It will crumble. Let the water loosen each plate, then lift it from underneath.",
                         "There. Reed. The chamfer is wrong in exactly the family way. Next one slowly.",
                         "The cart trail is gone. The reeds kept the whole column together. Next one slowly.",
                     ],
@@ -199,7 +199,7 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
                     scene: "The charcoal yard, workers unloading sacks while Toma studies six identical tracks",
                     speaker: "Toma Reed",
                     dialogue: [
-                        "I can spend an hour pretending wheel scars confess. Or I can ask the people standing beside the wheels.",
+                        "These tracks are too mixed to follow. Let's ask the yard workers which cart carried the cedar.",
                         "The yard hand says one cart rattled because cedar was caught under its rear board. It took the sluice road. She also says the footbridge dropped again this morning.",
                         "We chose the plates first. We still owe the bridge. Help me remember that after we find what I came for.",
                     ],
@@ -231,7 +231,7 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
                     scene: "The footbridge after dark, one lamp, four clamps, and rain in the leaves",
                     speaker: "Toma Reed",
                     dialogue: [
-                        "Ugly offcut first. It argues with the split. Hold it while I set the clamp.",
+                        "Use the offcut with the twisted grain. Hold it across the split while I set the clamp.",
                         "I was angry when you chose the cart. I am still a little angry. We found the plates before the rain, and now we're here doing the other job. Both things get to be true.",
                         "Put your weight on the center plank. If it holds you, it will hold the morning baskets. Then we take the names home.",
                     ],
@@ -287,7 +287,7 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
                     dialogue: [
                         "The south watch wants the oil to search the blue-ice gully tonight. The lower kitchen wants it under the broth pot until dawn. Both are asking for people who are cold now.",
                         "Split it, and the search lamps burn low while the stove goes thin. Leave it whole, and the kitchen stays warm while we wait for daylight and trust the drift not to bury the roll deeper.",
-                        "I kept two books because one answer was never enough. Today we only have one jar. Say who waits, then say it where both crews can hear.",
+                        "We can't give both crews as much oil as they need. Tell them which plan you choose so they can prepare.",
                     ],
                     choices: [
                         choice("ff-split-lantern-oil", "Split the oil. Search tonight with low lamps and keep a smaller fire under the broth."),
@@ -320,7 +320,7 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
                     scene: "The blue-ice gully, wall watch and kitchen crews passing pages hand to hand",
                     speaker: "Elder Sova",
                     dialogue: [
-                        "That edge. Do not pry it; warm the ice with your glove and wait. The name has waited longer than your fingers can complain.",
+                        "There's a page edge. Don't pry it loose. Warm the ice with your glove and lift it only when it moves freely.",
                         "The kitchen crew found the lower sheets by following where loose flour settled. The watch found the upper ones because they knew which shelf breaks first. Keep both facts in the report.",
                         "Last page. All here. Take the lamp with the steadier wick and put the roll inside my coat for the road back.",
                     ],
@@ -336,9 +336,9 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
                     scene: "The lower-road kitchen before dawn, route marks pressed into flour on the table",
                     speaker: "Elder Sova",
                     dialogue: [
-                        "The stove keeps its jar. That does not mean the search sleeps. Each person marks where the wind took cloth, ash, or roof snow after midnight.",
+                        "The oil stays with the stove. While we wait for daylight, mark where you saw the wind carry cloth, ash, or snow. That will help us find the pages.",
                         "The wall watch knows the gullies. The cooks know every lee where a delivery sack stays dry. The families know who has boots and who needs a pair before dawn.",
-                        "We leave when the ridge turns grey. Until then, eat. Waiting hungry only makes people call impatience courage.",
+                        "We leave at first light. Eat while the broth is hot and check your boots before we go.",
                     ],
                     choices: [choice("ff-lower-road-kitchen-continue", "Finish the drift map, share the broth, and leave with the first light.")],
                 }],
@@ -425,7 +425,7 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
                     scene: "The dyers' footbridge, colored water passing under two opposite routes",
                     speaker: "Nyx",
                     dialogue: [
-                        "Our watcher took the east bait. Don't look. People always look when told not to; be rarer.",
+                        "The watcher followed our decoy east. Keep walking and don't turn around. We're taking the west path.",
                         "The clerk pressed one thumb here and dragged it west. That is the whole instruction. No signature, no voice, no helpful silhouette under a lamp.",
                         "That drag is all they chose to give us. A fuller answer would make our case easier. We don't take it. West bank. Casually.",
                     ],
@@ -442,7 +442,7 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
                     speaker: "Nyx",
                     dialogue: [
                         "All the torn edges meet. Buyers, prices, delivery marks. My ugly little book lives.",
-                        "Under it: the clerk's account of the raid, sealed in front of me and signed with the private mark we agreed would stand for them. I can verify who spoke. I cannot spend their name to make the statement louder.",
+                        "This is the clerk's account of the raid. They signed it with the private mark we agreed on, then sealed it while I watched. I can vouch for the source without naming them.",
                         "Carry the pages. I carry the account. If anyone asks who helped, the answer is someone who said no to being named.",
                     ],
                     choices: [choice("ms-shuttered-boathouse-recover", "Wrap the ledger pages separately from the protected statement and return to the canal gate.")],
@@ -473,9 +473,9 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
                     scene: "The old toll booth, Nyx matching page tears while holders give separate accounts",
                     speaker: "Nyx",
                     dialogue: [
-                        "Every edge meets. Every buyer's name is here. The route does not agree with itself, which means nobody rehearsed it for us.",
+                        "The torn edges match, and every buyer's name is here. The witnesses give different accounts of the route. We'll need to keep those differences in the record.",
                         "One page came by ferry, two through a fish cart, the rest through hands that will only name the person before them. We write each account as given and leave the gaps visible.",
-                        "The booth clerk owes us nothing. These witnesses chose the lamp. Let the ledger show the difference.",
+                        "These witnesses agreed to be named. The booth clerk didn't. Keep their account out of this public record.",
                     ],
                     choices: [choice("ms-old-toll-booth-recover", "Bind the returned pages in public and carry the witnessed ledger back to the canal gate.")],
                 }],
@@ -489,7 +489,7 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
                 requireTrait: "sf-ms-source-shielded",
                 dialogue: [
                     "The booth clerk can still send corrections through several hands. Sensible person. Their name remains absent, and their account still answers when challenged.",
-                    "You cost us easy testimony and bought a source who can keep speaking. I was prepared to resent that longer.",
+                    "It would be easier to argue our case with a named witness. But keeping the clerk safe means they can keep helping us. You were right about that.",
                     "Watch the front while I check this seal. The back stool stays empty unless they choose it.",
                 ],
             },

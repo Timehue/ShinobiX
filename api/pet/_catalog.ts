@@ -8760,7 +8760,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "unlockedForPve": false,
         "element": "Fire",
         "wildSpawnable": false,
-        "description": "A cinder-crowned heir that only appears when two fire myths have exhausted every ordinary omen.",
+        "description": "A phoenix with a crown of smoldering ash. Every recorded specimen was bred in captivity.",
         "jutsus": [
             {
                 "name": "Ash Crown Aura",
@@ -8840,7 +8840,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "unlockedForPve": false,
         "element": "Water",
         "wildSpawnable": false,
-        "description": "A moon-fed leviathan whose first tide is said to rise from a sealed breeding pool.",
+        "description": "A leviathan raised in breeding pools. No wild specimen has been recorded.",
         "jutsus": [
             {
                 "name": "Moonwell Aura",
@@ -8920,7 +8920,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "unlockedForPve": false,
         "element": "Wind",
         "wildSpawnable": false,
-        "description": "A glass-hoofed kirin glimpsed between two gusts, never on a wild trail.",
+        "description": "A kirin with glasslike hooves, known only from breeding records.",
         "jutsus": [
             {
                 "name": "Skyglass Focus",
@@ -9000,7 +9000,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "unlockedForPve": false,
         "element": "Lightning",
         "wildSpawnable": false,
-        "description": "A thunderbloom that flowers only in the charged space between two lightning myths.",
+        "description": "A kirin whose techniques scatter branching bolts of lightning. Every recorded specimen was bred in captivity.",
         "jutsus": [
             {
                 "name": "Thunderbloom Aura",
@@ -9080,7 +9080,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "unlockedForPve": false,
         "element": "Earth",
         "wildSpawnable": false,
-        "description": "A gravepeak behemoth bred from stone-deep echoes rather than found in the wild.",
+        "description": "A behemoth with powerful earth techniques, known only from breeding records.",
         "jutsus": [
             {
                 "name": "Gravepeak Aura",

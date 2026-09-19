@@ -22,6 +22,7 @@
         "test:release-assets": "node scripts/check-release-assets.mjs",
         "test:pet-breeding-odds": "node --import tsx scripts/pet-breeding-odds-audit.mjs",
         "sizecheck": "node scripts/check-build-size.mjs",
+        "narrative:audit": "node --import tsx scripts/narrative-audit.mts",
         "generate:story-content": "node --import tsx scripts/generate-story-content.mts",
         "check:story-content": "node --import tsx scripts/generate-story-content.mts --check",
         "generate:runtime-mode-docs": "node --import tsx scripts/generate-runtime-mode-docs.mjs",

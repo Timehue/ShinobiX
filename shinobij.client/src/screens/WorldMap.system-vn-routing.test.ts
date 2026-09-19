@@ -19,7 +19,7 @@ test("live pet encounters use the premium reader and keep the discovered pet art
     );
     assert.match(pet, /<TriggeredVisualNovel/);
     assert.match(pet, /event=\{cinematicPetEvent\}/);
-    assert.match(pet, /buildPetEncounterVn\(petEncounterVn, activePetEncounter, petActorImage\)/);
+    assert.match(pet, /buildPetEncounterVn\(canonicalNarrativeEvent\(defaultPetEncounterVn, petEncounterVn, \['pet-encounter'\]\), activePetEncounter, petActorImage\)/);
     assert.match(pet, /petCardImage\(activePetEncounter, sharedImages\)/);
     assert.match(pet, /onComplete=\{\(\) => setPetVnDone\(true\)\}/);
     assert.doesNotMatch(pet, /visual-novel admin-vn-play/);
@@ -32,7 +32,7 @@ test("live ancient chests use the premium reader and still enter the loot step",
     );
     assert.match(chest, /<TriggeredVisualNovel/);
     assert.match(chest, /event=\{cinematicChestEvent\}/);
-    assert.match(chest, /cinematicChestEvent: CreatorEvent = \{ \.\.\.ancientChestVn, biome \}/);
+    assert.match(chest, /cinematicChestEvent: CreatorEvent = \{ \.\.\.canonicalNarrativeEvent\(defaultAncientChestVn, ancientChestVn, \['ancient-chest'\]\), biome \}/);
     assert.match(chest, /onComplete=\{\(\) => setChestVnDone\(true\)\}/);
     assert.doesNotMatch(chest, /visual-novel admin-vn-play/);
 });

@@ -44,7 +44,8 @@ test("the four recovery quests keep distinct enacted costs", () => {
     assert.match(copy("story-reckoning-mira-marker"), /west mast waits until tomorrow/i);
     assert.match(copy("story-reckoning-mira-marker"), /storm rail/i);
     assert.match(copy("story-reckoning-toma-cinders"), /still owe the bridge|go back.*broken crossing/i);
-    assert.match(copy("story-reckoning-sova-true-roll"), /who waits.*both crews/i);
+    assert.match(copy("story-reckoning-sova-true-roll"), /can't give both crews as much oil as they need/i);
+    assert.match(copy("story-reckoning-sova-true-roll"), /oil stays with the stove.*wait for daylight/i);
     assert.match(copy("story-reckoning-nyx-ledger"), /if that notice goes up, they walk away/i);
     assert.match(copy("story-reckoning-nyx-ledger"), /someone who said no to being named/i);
 });

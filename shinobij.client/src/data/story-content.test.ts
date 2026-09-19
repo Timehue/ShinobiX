@@ -224,7 +224,7 @@ test("each level-88 alternative carries into the finale and its specific epilogu
             epilogueTraits: ["ff100-proof-presented-carried", "ff100-proof-presented-deferred"],
         },
         "Moonshadow Village": {
-            proof: /Trust doesn't need an owner\. It needs a witness/i,
+            proof: /eleven people took their records back safely/i,
             finaleTraits: ["ms88-better-truth-ready", "ms88-better-truth-deferred"],
             epilogueTraits: ["ms100-proof-presented-carried", "ms100-proof-presented-deferred"],
         },
@@ -459,9 +459,11 @@ test("Legacy canon is witnessed action, never heredity, reincarnation, or a pres
         .flatMap((rift) => [...rift.intro, ...rift.descent])
         .flatMap((page) => [page.title, page.scene, ...page.dialogue, ...(page.choices ?? []).flatMap((choice) => [choice.text, choice.conclusion ?? ""])])
         .join(" ");
-    assert.match(riftCopy, /ordinary person of the Sunken Court's age/i);
+    assert.match(riftCopy, /ordinary people who lived under the Sunken Court/i);
+    assert.match(riftCopy, /Witnesses preserved accounts.*hundred recurring patterns/i);
+    assert.match(riftCopy, /deeds another person can choose to repeat.*don't inherit/i);
     assert.match(riftCopy, /No soul waits in that stone/i);
-    assert.match(riftCopy, /preserve the deed/i);
+    assert.match(riftCopy, /take a charcoal rubbing of the original mark/i);
     assert.doesNotMatch(riftCopy, /a soul of the Sunken Court|ancestor living|reincarnat/i);
 });
 

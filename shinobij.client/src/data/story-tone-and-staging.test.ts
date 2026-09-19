@@ -236,7 +236,7 @@ test("story and event copy uses shinobi-world language instead of generic fantas
     assert.match(playerFacingCopy, /shrine keeper/i);
     assert.match(playerFacingCopy, /field record/i);
     assert.match(playerFacingCopy, /Shinobi Chronicle Showdown/);
-    assert.match(playerFacingCopy, /sealed record has always cut deeper than an open blade/i);
+    assert.match(playerFacingCopy, /return receipts, the buyer's manifest, and Iro's signed confession/i);
 });
 
 test("all live visual-novel copy follows the zero-dash punctuation rule", () => {

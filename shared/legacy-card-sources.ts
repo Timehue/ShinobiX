@@ -36,7 +36,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "rarity": "mythic",
         "category": "ninjutsu",
         "title": "Hundred Storms",
-        "flavor": "Mission reports credit this shinobi with victories in all four combat disciplines. None of those victories reads like improvisation.",
+        "flavor": "Mission reports follow the same ninjutsu specialist through thousands of victories, great-beast hunts, border wars, and storms that changed the ground beneath whole squads.",
         "badge": "hundred-storms"
     },
     {
@@ -256,7 +256,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "category": "village",
         "villageAffinity": "Frostfang",
         "title": "Frostbound Shield",
-        "flavor": "Frostfang rescue rolls place this shinobi at failed walls and frozen crossings. Every name assigned behind them returned to the Count.",
+        "flavor": "Frostfang rescue rolls place this shinobi at failed walls and frozen crossings. Everyone in their care reached shelter.",
         "badge": "frostbound-shield"
     },
     {
@@ -618,7 +618,7 @@ export const CHRONICLE_LEGACY_SOURCES = [
         "category": "village",
         "villageAffinity": "Frostfang",
         "title": "Northern Fang",
-        "flavor": "Frostfang’s Count lists eight threatened sectors where this shinobi held until the missing names came home.",
+        "flavor": "Frostfang rescue reports list eight threatened sectors where this shinobi held until the missing people came home.",
         "badge": "northern-fang"
     },
     {

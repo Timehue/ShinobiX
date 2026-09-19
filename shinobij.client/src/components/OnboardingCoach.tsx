@@ -438,7 +438,7 @@ export function OnboardingCoach({
     const bannerText: string | null = (() => {
         switch (step) {
             case "training": return "All right, first stop: the Training Grounds. Pick a stat and start any timer. We can keep moving while it runs.";
-            case "jutsu": return "Next, let's give you one technique your bloodline didn't hand you. Pick any untrained jutsu — the first level is free.";
+            case "jutsu": return "Next, let's give you one technique your bloodline didn't hand you. Pick any untrained jutsu. The first level is free.";
             case "jutsuLoadout": {
                 // Every new character starts with STARTING_STAT_POINTS (20) unspent, and
                 // nothing in the tutorial mentioned them: the only prompt lives in the
@@ -457,7 +457,7 @@ export function OnboardingCoach({
                 const equipped = academyEquippedItemCount(character.equipment);
                 return `Before we spar, put on the Rustfang Kunai and Shinobi Vest from your Inventory. That's ${Math.min(equipped, ACADEMY_STARTER_GEAR_TARGET)} of ${ACADEMY_STARTER_GEAR_TARGET} equipped.`;
             }
-            case "academySpar": return "That spar knocked you out. Get patched up at the Hospital — the free checkout only takes a minute — then we'll step back onto the mat.";
+            case "academySpar": return "That spar knocked you out. Get patched up at the Hospital, wait for free checkout, then we'll step back onto the mat.";
             case "cafeteria": return character.hp >= character.maxHp
                 ? "You came through the spar at full HP, so there's nothing to patch up. Let's keep moving."
                 : "The spar cost you HP. Recover in the Cafeteria before we move on.";
