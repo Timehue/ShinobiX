@@ -257,6 +257,9 @@ function createSocketClients(config, measurements) {
         'x-player-name': config.scenario.playerName,
         'x-player-token': config.scenario.playerToken,
         'x-client-fp': `staging-load-${id}`,
+        // Like the real client (src/lib/presence-socket.ts): take batched
+        // presence:updates, so a run measures the path players use.
+        presenceBatch: 1,
         presence,
       },
     });
