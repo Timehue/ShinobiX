@@ -20,6 +20,7 @@ import playerLeaderboardsHandler from './api/player/leaderboards.js';
 import playerTradeHandler from './api/player/trade.js';
 import playerActivitySpineHandler from './api/player/activity-spine.js';
 import playerCapabilitiesHandler from './api/player/capabilities.js';
+import playerAccountDeletionHandler from './api/player/account-deletion.js';
 import playerAccountStatusHandler from './api/player/account-status.js';
 import dailyLoginHandler  from './api/player/daily-login.js';
 import blackMarketHandler from './api/festival/black-market.js';
@@ -356,6 +357,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     // The caller's own account standing (guest vs claimed, Google linked, whether
     // the tavern/message lock applies). Authed counterpart to /player/capabilities.
     route('/player/account-status', playerAccountStatusHandler);
+    route('/player/account-deletion', playerAccountDeletionHandler);
     // Daily login-streak reward — server-authoritative ryo + 7-day fate-shard bonus,
     // once per UTC day under the save lock (failClosed), idempotent via the date
     // stamp on the save itself. See api/player/_daily-login.ts.

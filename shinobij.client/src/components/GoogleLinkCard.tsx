@@ -33,7 +33,7 @@ export function GoogleLinkCard({ playerName }: { playerName: string }) {
     // "Opening Google…" still stuck on; release the button on that restore.
     useBfcacheRestore(() => setBusy(false));
 
-    if (!available) return null;
+    if (!available) return <div className="google-link-card"><h3>Google sign-in</h3><p className="hint">Google account linking is currently unavailable. You can still use a password and recovery code.</p></div>;
 
     async function link() {
         if (busy) return;

@@ -25,14 +25,7 @@ import { storyChoiceStatus } from '../lib/story-choice-presentation';
 
 type VnChoice = NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number];
 
-function initialClassicReader(): boolean {
-    if (typeof window === "undefined") return false;
-    try {
-        return window.localStorage.getItem("vnReaderMode.v1") === "classic";
-    } catch {
-        return false;
-    }
-}
+import { getReaderMode } from "../lib/reader-preference";
 
 export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex, lineIndex, setPageIndex, setLineIndex, onCancel, onComplete, onBattle, onChoice, onProgress, sharedImages, surface = "immersive", readOnlyReplay = false }: { event: CreatorEvent; character: Character; pageIndex: number; lineIndex: number; setPageIndex: (index: number | ((index: number) => number)) => void; setLineIndex: (index: number | ((index: number) => number)) => void; onCancel: () => void; onComplete: () => void; onBattle: (event: CreatorEvent, battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]) => void; onChoice?: (choice: VnChoice, receipt: StoryChoiceReceipt) => void; onProgress?: (cursor: StoryCursor, history: StoryCursor[]) => void; sharedImages?: Record<string, string>; surface?: "immersive" | "preview" | "classic"; /** Story Hall playback: presentation only, with every mutation/battle affordance removed by the caller. */ readOnlyReplay?: boolean }) {
     const event = useVnArtwork(sourceEvent);
@@ -121,7 +114,7 @@ export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex,
     const [armedChoiceKey, setArmedChoiceKey] = useState("");
     const [showFinale, setShowFinale] = useState(false);
     const [pendingChoice, setPendingChoice] = useState<{ conclusion: string; nextPage: number; battle?: VnChoice["battle"] } | null>(null);
-    const [classicReader, setClassicReader] = useState(initialClassicReader);
+    const [classicReader] = useState(() => getReaderMode() === "classic");
     // React state updates are intentionally asynchronous. Without a synchronous
     // gate, two activations in the same frame can skip a line, record a choice
     // twice, or launch the same battle twice before the component re-renders.
@@ -334,14 +327,6 @@ export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex,
             image.src = source;
         }
     }, [preloadImageKey]);
-    function useClassicReader() {
-        setClassicReader(true);
-        try { window.localStorage.setItem("vnReaderMode.v1", "classic"); } catch { /* private mode */ }
-    }
-    function useCinematicReader() {
-        setClassicReader(false);
-        try { window.localStorage.setItem("vnReaderMode.v1", "cinematic"); } catch { /* private mode */ }
-    }
     const readerUsesClassic = surface === "classic" || (surface === "immersive" && classicReader);
     function moveTo(nextPage: number, nextLine: number, remember = true) {
         const nextHistory = remember ? [...history, { pageIndex, lineIndex }].slice(-256) : history;
@@ -480,7 +465,6 @@ export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex,
             presentation={{ ...presentation, titleCard: false, cue: "none", tone: "elegy", backgroundMotion: "drift" }}
             surface={surface}
             allowStageAdvance={false}
-            onUseClassicReader={surface === "immersive" ? useClassicReader : undefined}
             onAdvance={() => {}}
             onCancel={cancelScene}
             renderFooter={(typingDone) => typingDone ? (
@@ -588,7 +572,6 @@ export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex,
             surface={surface}
             allowStageAdvance={!pendingChoice && !isAtChoicePoint}
             decisionPoint={isAtChoicePoint && !pendingChoice}
-            onUseClassicReader={surface === "immersive" ? useClassicReader : undefined}
             onAdvance={nextLine}
             onCancel={cancelScene}
             renderFooter={(typingDone) => {
@@ -636,9 +619,6 @@ export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex,
                     </div>
                     <div className="vn-header-actions">
                         <div className="vn-progress">Page {pageIndex + 1}/{pages.length} | Line {lineIndex + 1}/{Math.max(1, pageDialogue.length)}</div>
-                        {surface === "immersive" && classicReader && presentation.mode === "cinematic" && (
-                            <button type="button" className="vn-skip-button" onClick={useCinematicReader}>Cinematic</button>
-                        )}
                         <button type="button" className="vn-skip-button" onClick={cancelScene} aria-label="Skip visual novel scene">Skip</button>
                     </div>
                 </div>

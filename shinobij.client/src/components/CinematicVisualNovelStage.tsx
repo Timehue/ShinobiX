@@ -12,7 +12,7 @@ import {
 import { createPortal } from "react-dom";
 import { isLowEndMobile, prefersReducedMotion } from "../lib/device-tier";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
-import { isAudioMuted, setAudioMuted, subscribeAudioMute } from "../lib/pet-music";
+import { isAudioMuted } from "../lib/pet-music";
 import { playVnCue, startVnAmbience, stopVnAmbience } from "../lib/vn-cinematic-sfx";
 import {
     duckVnScore,
@@ -144,17 +144,6 @@ function ActorPortrait({ actor }: { actor: Actor }) {
     } as CSSProperties}>{portrait}</div>;
 }
 
-function AudioIcon({ muted }: { muted: boolean }) {
-    return (
-        <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
-            <path d="M4 9v6h4l5 4V5L8 9H4Z" />
-            {muted
-                ? <path d="m17 9 4 6m0-6-4 6" />
-                : <path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" />}
-        </svg>
-    );
-}
-
 function SettingsIcon() {
     return (
         <svg className="cvn-settings-icon" aria-hidden="true" viewBox="0 0 24 24" focusable="false">
@@ -181,7 +170,6 @@ export function CinematicVisualNovelStage({
     surface = "immersive",
     allowStageAdvance,
     decisionPoint = false,
-    onUseClassicReader,
     onAdvance,
     onCancel,
     cancelLabel = "Skip",
@@ -204,7 +192,6 @@ export function CinematicVisualNovelStage({
     surface?: "immersive" | "preview";
     allowStageAdvance: boolean;
     decisionPoint?: boolean;
-    onUseClassicReader?: () => void;
     onAdvance: () => void;
     onCancel: () => void;
     cancelLabel?: string;
@@ -219,7 +206,6 @@ export function CinematicVisualNovelStage({
     const [autoRead, setAutoRead] = useState(initialAutoRead);
     const textKey = `${eventId}:${pageIndex}:${lineIndex}:${spoken}`;
     const [typed, setTyped] = useState<{ key: string; count: number }>({ key: "", count: 0 });
-    const [muted, setMuted] = useState(isAudioMuted);
     const [settingsOpenKey, setSettingsOpenKey] = useState("");
     const cuePlayedRef = useRef("");
     const lastCompleteRef = useRef(0);
@@ -232,7 +218,6 @@ export function CinematicVisualNovelStage({
 
     useBodyScrollLock(immersive);
 
-    useEffect(() => subscribeAudioMute(() => setMuted(isAudioMuted())), []);
     useEffect(() => {
         if (!immersive) return;
         const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -477,38 +462,6 @@ export function CinematicVisualNovelStage({
                     >
                         {titleForSpeed(speed)}
                     </button>
-                    <button
-                        type="button"
-                        className="cvn-icon-control"
-                        aria-label={muted ? "Unmute game audio" : "Mute game audio"}
-                        title={muted ? "Unmute game audio" : "Mute game audio"}
-                        onClick={() => {
-                            const nextMuted = !muted;
-                            setAudioMuted(nextMuted);
-                            setMuted(nextMuted);
-                            if (nextMuted) {
-                                stopVnAmbience(250);
-                                stopVnScore(250);
-                            }
-                            else {
-                                startVnAmbience(presentation.ambience);
-                                startVnScore(scoreKey);
-                                fireCue();
-                            }
-                        }}
-                    >
-                        <AudioIcon muted={muted} />
-                    </button>
-                    {onUseClassicReader && (
-                        <button
-                            type="button"
-                            className="cvn-quiet-control cvn-mode-control cvn-desktop-setting"
-                            title="Use the lightweight classic visual-novel reader"
-                            onClick={onUseClassicReader}
-                        >
-                            Classic
-                        </button>
-                    )}
                     <div className="cvn-settings-wrap">
                         <button
                             type="button"
@@ -547,17 +500,6 @@ export function CinematicVisualNovelStage({
                                 >
                                     Auto-read: {autoRead ? "On" : "Off"}
                                 </button>
-                                {onUseClassicReader && (
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setSettingsOpenKey("");
-                                            onUseClassicReader();
-                                        }}
-                                    >
-                                        Classic reader
-                                    </button>
-                                )}
                             </div>
                         )}
                     </div>

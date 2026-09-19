@@ -3,7 +3,7 @@ import {
   primeGameAudio,
   type GameSfxCue,
 } from "./game-audio";
-import { isAudioMuted } from "./pet-music";
+import { isAudioMuted, setAudioMuted } from "./pet-music";
 
 export type PetSfxKind =
   | "hit"
@@ -31,8 +31,6 @@ export type PetSfxKind =
   | "uiConfirm"   // a row is activated
   | "uiCancel"    // back / undo
   | "uiDenied";   // an unavailable row was pressed
-
-const MUTE_KEY = "petSfxMuted";
 
 const PET_CUES: Record<
   PetSfxKind,
@@ -74,20 +72,12 @@ export function petHaptic(pattern: number | number[]): void {
 }
 
 export function isPetSfxMuted(): boolean {
-  if (isAudioMuted()) return true;
-  try {
-    return localStorage.getItem(MUTE_KEY) === "1";
-  } catch {
-    return false;
-  }
+  return isAudioMuted();
 }
 
+/** Compatibility entry point; Settings owns the single audio preference. */
 export function setPetSfxMuted(muted: boolean): void {
-  try {
-    localStorage.setItem(MUTE_KEY, muted ? "1" : "0");
-  } catch {
-    // Session-only preference when storage is unavailable.
-  }
+  setAudioMuted(muted);
 }
 
 export function primePetSfx(): void {

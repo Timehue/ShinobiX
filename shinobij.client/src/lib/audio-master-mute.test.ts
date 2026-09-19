@@ -2,12 +2,16 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
     isAudioMuted,
+    getAudioVolume,
+    setAudioVolume,
     setAudioMuted,
     startBattleMusic,
     stopBattleMusic,
     subscribeAudioMute,
 } from "./pet-music";
 import { startVnScore, stopVnScore } from "./vn-cinematic-score";
+import { isPetSfxMuted, setPetSfxMuted } from "./pet-sfx";
+import { chronicleSfxMuted, setChronicleSfxMuted } from "./chronicle-sfx";
 
 class MemoryStorage {
     private readonly values = new Map<string, string>();
@@ -20,6 +24,24 @@ class MemoryStorage {
         this.values.set(key, value);
     }
 }
+
+test("Settings mute remains authoritative over retired pet and card preferences", () => {
+    localStorage.setItem("petSfxMuted", "1");
+    localStorage.setItem("chronicleSfx.v1", "off");
+    setAudioMuted(false);
+    assert.equal(isPetSfxMuted(), false);
+    assert.equal(chronicleSfxMuted(), false);
+    setAudioMuted(true);
+    assert.equal(isPetSfxMuted(), true);
+    assert.equal(chronicleSfxMuted(), true);
+    // Compatibility callers also update the same preference, never a hidden override.
+    setPetSfxMuted(false);
+    assert.equal(isAudioMuted(), false);
+    assert.equal(chronicleSfxMuted(), false);
+    setChronicleSfxMuted(true);
+    assert.equal(isAudioMuted(), true);
+    assert.equal(isPetSfxMuted(), true);
+});
 
 class MockAudio {
     static instances: MockAudio[] = [];
@@ -173,4 +195,39 @@ test("each battle theme routes to its OWN track, and none silently falls back to
 
     stopBattleMusic();
     setAudioMuted(true);
+});
+
+test('master volume scales live battle and story music and keeps mute independent', () => {
+    setAudioMuted(false);
+    setAudioVolume(1);
+    startBattleMusic('standard');
+    startVnScore('ashen');
+    // Muting settles the story crossfade in this no-animation-frame fixture.
+    setAudioMuted(true);
+    setAudioMuted(false);
+    const battle = MockAudio.instances[0];
+    const story = MockAudio.instances.slice(1).find(deck => deck.volume > 0)!;
+    const battleFull = battle.volume;
+    const storyFull = story.volume;
+    assert.ok(storyFull > 0);
+    setAudioVolume(0.25);
+    assert.equal(getAudioVolume(), 0.25);
+    assert.equal(battle.volume, battleFull * 0.25);
+    assert.equal(story.volume, storyFull * 0.25);
+    setAudioMuted(true);
+    setAudioVolume(0.5);
+    assert.equal(isAudioMuted(), true);
+    assert.equal(battle.muted, true);
+    setAudioMuted(false);
+    assert.equal(story.volume, storyFull * 0.5);
+    setAudioVolume(0);
+    assert.equal(battle.volume, 0);
+    assert.equal(story.volume, 0);
+    setAudioVolume(NaN);
+    assert.equal(getAudioVolume(), 0);
+    setAudioVolume(3);
+    assert.equal(getAudioVolume(), 1);
+    stopVnScore(0);
+    setAudioMuted(true);
+    stopBattleMusic();
 });

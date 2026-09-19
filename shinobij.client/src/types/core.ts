@@ -23,6 +23,7 @@ export type Screen =
     | "professions"
     | "village"
     | "profile"
+    | "settings"
     | "inventory"
     | "logbook"
     | "training"

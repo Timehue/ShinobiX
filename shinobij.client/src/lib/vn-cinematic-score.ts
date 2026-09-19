@@ -6,7 +6,7 @@
  * dialogue, follows the game's master mute, and retries harmlessly on the next
  * player gesture when browser autoplay policy blocks the initial request.
  */
-import { isAudioMuted, subscribeAudioMute } from "./pet-music";
+import { getAudioVolume, isAudioMuted, subscribeAudioMute } from "./pet-music";
 import { musicDeliverySrc } from "./audio-delivery";
 import { isAudioBackgrounded, subscribeAudioLifecycle } from "./audio-lifecycle";
 import type { VnSoundCue } from "../types/vn";
@@ -60,8 +60,8 @@ function easeInOut(value: number): number {
 
 function renderMix(): void {
     if (!decks) return;
-    decks[0].volume = Math.min(1, BASE_VOLUME * mix[0] * duckMultiplier);
-    decks[1].volume = Math.min(1, BASE_VOLUME * mix[1] * duckMultiplier);
+    decks[0].volume = Math.min(1, BASE_VOLUME * getAudioVolume() * mix[0] * duckMultiplier);
+    decks[1].volume = Math.min(1, BASE_VOLUME * getAudioVolume() * mix[1] * duckMultiplier);
 }
 
 function cancelMixFrame(): void {
@@ -81,6 +81,7 @@ function installListeners(): void {
     listenersInstalled = true;
     const syncPlayback = () => {
         if (!decks) return;
+        renderMix();
         const muted = isAudioMuted() || isAudioBackgrounded();
         decks.forEach((deck) => {
             // The media-element mute is a hard guard against any pending play()

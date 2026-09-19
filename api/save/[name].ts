@@ -30,6 +30,7 @@ import { clientRyoDecreaseAllowed } from '../_release-flags.js';
 import { parseBaseSaveVersion, saveVersionTelemetryKey, isVersionlessPlayerSave, matchesStoredSaveVersion, nextSaveVersion, storedSaveVersion } from './_save-version.js';
 import { recordHollowGateExternalCredits } from '../hollow-gate/_external-credits.js';
 import { shouldWriteRegistry } from './_registry-throttle.js';
+import { assertAccountDeletionReady, AccountDeletionWaitError } from '../_account-deletion-wait.js';
 import { deletePlayerFirstPactState, detachPlayerReferences } from '../_delete-player-account.js';
 import { ClanDissolutionForbiddenError, dissolveClanUnderLock } from '../clan/_dissolve.js';
 import { awardWarEndClanXp } from '../clan/war/_war-xp.js';
@@ -1412,6 +1413,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const lowered = name.toLowerCase();
             const adminLockKey = `admin-lock:${lowered}`;
             const deletionResult = await withKvLock(`save:${lowered}`, async () => {
+                if (!fullAdminAuth && !isClanSave) await assertAccountDeletionReady(lowered);
                 await kv.set(adminLockKey, 1, { ex: 300 });
                 const deletionFenceKey = playerSaveDeletionFenceKey(name, isClanSave);
                 if (deletionFenceKey) {
@@ -1492,6 +1494,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             return res.status(200).json(deletionResult.body);
         } catch (err) {
+            if (err instanceof AccountDeletionWaitError) return res.status(409).json({ error: err.message });
             if (err instanceof ClanDissolutionForbiddenError) {
                 return res.status(403).json({ error: err.message });
             }

@@ -13,11 +13,9 @@ import {
   type ChronicleProjection,
 } from "../lib/chronicle-duel";
 import {
-  chronicleSfxMuted,
   classifyChronicleLogLine,
   playChronicleSfx,
   primeChronicleSfx,
-  setChronicleSfxMuted,
   type ChronicleSfx,
 } from "../lib/chronicle-sfx";
 import { chronicleLegalPlacements } from "../lib/chronicle-placements";
@@ -389,7 +387,6 @@ export function ChronicleDuelBoard({
   const [duelMenuOpen, setDuelMenuOpen] = useState(false);
   const [smartAssist, setSmartAssist] = useState(readSmartAssist);
   const [readyResponseId, setReadyResponseId] = useState<string | null>(null);
-  const [sfxMuted, setSfxMuted] = useState(chronicleSfxMuted);
   const [resolutionFx, setResolutionFx] = useState<ResolutionFx | null>(null);
   const [reaction, setReaction] = useState<DuelReaction | null>(null);
   // Opening splash: only a genuinely fresh duel (turn 1) gets the banner —
@@ -1885,18 +1882,6 @@ export function ChronicleDuelBoard({
             hidden={!duelMenuOpen}
           >
             <strong>Match options</strong>
-            <button
-              type="button"
-              aria-pressed={sfxMuted}
-              onClick={() => {
-                const next = !sfxMuted;
-                setChronicleSfxMuted(next);
-                setSfxMuted(next);
-                if (!next) playChronicleSfx("draw");
-              }}
-            >
-              {sfxMuted ? "Turn sound on" : "Mute duel sounds"}
-            </button>
             <button
               type="button"
               aria-pressed={smartAssist}

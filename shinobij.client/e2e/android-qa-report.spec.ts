@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openLandingLogin } from './helpers/landing-navigation';
 import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
 
 test.describe('touch scrolling', () => {
@@ -66,12 +67,15 @@ test('account rename applies a versioned save and survives a reload on the same 
         runtime.commitServerCharacter(character, version);
         await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, character, _saveVersion: version }) });
     });
-    await expectUiAuditBoot(page, runtime, 'profile');
+    await expectUiAuditBoot(page, runtime, 'settings');
     await page.getByLabel('Account name', { exact: true }).fill('RenamedNinja');
     await page.getByRole('button', { name: 'Save Account Name', exact: true }).click();
     await expect(page.locator('.account-name-card [role=status]')).toContainText('Sign in with RenamedNinja');
-    await expect(page.locator('.shinobi-identity-card h3')).toHaveText('RenamedNinja');
+    await expect(page.getByLabel('Account name', { exact: true })).toHaveValue('RenamedNinja');
     await page.reload();
+    await expect(page.getByLabel('Account name', { exact: true })).toHaveValue('RenamedNinja');
+    await page.locator('.mobile-bottom-nav').getByRole('button', { name: 'Menu', exact: true }).click();
+    await page.getByRole('button', { name: 'Character', exact: true }).click();
     await expect(page.locator('.shinobi-identity-card h3')).toHaveText('RenamedNinja');
     await expect(page.getByRole('complementary', { name: 'Device and server saves diverged' })).toHaveCount(0);
 });
@@ -135,6 +139,15 @@ for (const viewport of [{ width: 360, height: 640 }, { width: 844, height: 390 }
         await expect(page.getByRole('button', { name: 'Upload Avatar', exact: true })).toBeDisabled();
         await expect(page.locator('#profile-avatar-restriction')).toBeVisible();
         await expect(page.locator('.profile-avatar-upload input[type=file]')).toHaveCount(0);
+        await expect(page.getByRole('heading', { name: 'Change Password', exact: true })).toHaveCount(0);
+        const desktopSettings = page.locator('.right-menu-section--system').getByRole('button', { name: 'Settings', exact: true });
+        if (await desktopSettings.isVisible()) await desktopSettings.click();
+        else {
+            await page.locator('.mobile-bottom-nav').getByRole('button', { name: 'Menu', exact: true }).click();
+            await page.getByRole('button', { name: 'Settings', exact: true }).click();
+        }
+        await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'settings');
+        await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
         const scrollPosition = () => page.evaluate(() =>
             (document.scrollingElement?.scrollTop ?? 0) + (document.querySelector('.center-game')?.scrollTop ?? 0));
         const beforeScroll = await scrollPosition();
@@ -143,7 +156,11 @@ for (const viewport of [{ width: 360, height: 640 }, { width: 844, height: 390 }
         if (browserName === 'webkit' && isMobile) await account.scrollIntoViewIfNeeded();
         else {
             await page.mouse.move(content.x + content.width / 2, Math.min(viewport.height - 100, content.y + 180));
-            await page.mouse.wheel(0, 450);
+            // The lazy screen and closing menu can finish after the route changes.
+            await expect.poll(async () => {
+                await page.mouse.wheel(0, 450);
+                return scrollPosition();
+            }).toBeGreaterThan(beforeScroll);
         }
         await expect.poll(scrollPosition).toBeGreaterThan(beforeScroll);
         await account.scrollIntoViewIfNeeded();
@@ -181,7 +198,7 @@ test('renamed login loads the original save and keeps primary navigation connect
         if (body.action === 'verify') expect(body.name).toBe('loginalias');
         await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, token: 'ui-audit-token', name: 'AuditNinja' }) });
     });
-    await page.getByRole('button', { name: 'Log In', exact: true }).click();
+    await openLandingLogin(page);
     await page.getByRole('button', { name: 'Use a name and password', exact: true }).click();
     await page.getByPlaceholder('Enter existing shinobi name', { exact: true }).fill('LoginAlias');
     await page.getByPlaceholder('Enter your password', { exact: true }).fill('ExamplePass123');
@@ -252,8 +269,7 @@ for (const viewport of [{ width: 360, height: 640 }, { width: 844, height: 390 }
         await page.addInitScript(() => localStorage.setItem('shinobix:storage-notice-ack', '1'));
         await page.route('**/api/**', (route) => route.fulfill({ contentType: 'application/json', body: '{}' }));
         await page.goto('/');
-        const openLogin = page.getByRole('button', { name: 'Log In', exact: true });
-        await openLogin.click();
+        await openLandingLogin(page);
         await page.getByRole('button', { name: 'Use a name and password', exact: true }).click();
         const field = page.getByPlaceholder('Enter your password', { exact: true });
         const toggle = page.getByRole('button', { name: 'Show password', exact: true });

@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { openLandingLogin } from './helpers/landing-navigation';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -146,7 +147,7 @@ test('the sign-in gate is reachable, complete, and accessible', async ({ page })
         localStorage.setItem('shinobix:guestName', 'Wanderer');
     });
     await page.goto('/', { waitUntil: 'networkidle' });
-    await page.getByRole('button', { name: 'Log In' }).first().click();
+    await openLandingLogin(page);
     await expect(page.getByRole('heading', { name: 'Enter the Village' })).toBeVisible();
 
     // Every door the capability probe reported is present and pressable.
@@ -267,10 +268,10 @@ test('themed alerts trap focus and restore the invoking control', async ({ page 
     await page.evaluate(() => window.alert('Focus safety check'));
     const dialog = page.getByRole('alertdialog', { name: 'Notice' });
     await expect(dialog).toBeVisible();
-    await expect(page.getByRole('button', { name: 'OK' })).toBeFocused();
+    await expect(dialog.getByRole('button', { name: 'OK', exact: true })).toBeFocused();
 
     await page.keyboard.press('Tab');
-    await expect(page.getByRole('button', { name: 'OK' })).toBeFocused();
+    await expect(dialog.getByRole('button', { name: 'OK', exact: true })).toBeFocused();
     await page.keyboard.press('Escape');
 
     await expect(dialog).toBeHidden();

@@ -208,6 +208,7 @@ export const MobileNav = memo(function MobileNav({
                             <h2 id="mobile-menu-system">System</h2>
                             <div className="mobile-menu-grid">
                                 {isAdminAccount && <button className="mobile-menu-btn" onClick={() => go(adminLoggedIn ? "adminPanel" : "adminLogin")} onPointerDown={() => preloadScreen(adminLoggedIn ? "adminPanel" : "adminLogin")}><GiGears size={20} />Admin</button>}
+                                <button className="mobile-menu-btn" aria-current={screen === "settings" ? "page" : undefined} onClick={() => go("settings")} onPointerDown={() => preloadScreen("settings")}><GiGears size={20} />Settings</button>
                                 <button className="mobile-menu-btn danger" onClick={() => { logoutPlayer(); setOpen(false); }}><GiExitDoor size={20} />Logout</button>
                             </div>
                         </section>

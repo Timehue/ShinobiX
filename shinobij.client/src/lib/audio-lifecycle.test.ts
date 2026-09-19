@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { setAudioMuted, startBattleMusic, stopBattleMusic } from "./pet-music";
+import { setAudioMuted, setAudioVolume, startBattleMusic, stopBattleMusic } from "./pet-music";
 import { startVnScore, stopVnScore } from "./vn-cinematic-score";
 import { playGameSfx, startGameAmbience, stopGameAmbience } from "./game-audio";
 
@@ -171,4 +171,27 @@ test("late decodes cannot replay stale effects or duplicate resumed ambience", a
     hide(false);
     deferLoads = false;
     setAudioMuted(true);
+});
+
+
+test("master volume scales the live SFX and ambience bus without unmuting it", async () => {
+    setAudioMuted(false);
+    setAudioVolume(1);
+    startGameAmbience("ambience-village");
+    await settle();
+    const bus = Context.instance.gains[0].gain;
+    const full = bus.value;
+    assert.ok(full > 0);
+    setAudioVolume(0.3);
+    assert.equal(bus.value, full * 0.3);
+    setAudioMuted(true);
+    setAudioVolume(0.8);
+    assert.equal(bus.value, 0);
+    setAudioMuted(false);
+    assert.equal(bus.value, full * 0.8);
+    setAudioVolume(0);
+    assert.equal(bus.value, 0);
+    stopGameAmbience();
+    setAudioMuted(true);
+    setAudioVolume(1);
 });

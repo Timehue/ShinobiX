@@ -70,6 +70,7 @@ const SCREEN_PRELOADERS: Partial<Record<Screen, () => Promise<unknown>>> = {
     training: () => import("../screens/Training"),
     jutsuTraining: () => import("../screens/Training"), // shares Training.tsx
     profile: () => import("../screens/Profile"),
+    settings: () => import("../screens/Settings"),
     inventory: () => import("../screens/Inventory"),
     pets: () => import("../screens/PetYard"),
     home: () => import("../screens/Home"),

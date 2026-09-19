@@ -8,6 +8,7 @@ import { musicDeliverySrc } from "./audio-delivery";
 import { isAudioBackgrounded, subscribeAudioLifecycle } from "./audio-lifecycle";
 
 const MASTER_MUTE_KEY = "audioMuted";
+const MASTER_VOLUME_KEY = "audioVolume.v1";
 
 const TRACKS = [
     "/music/silk-shuriken.ogg",
@@ -46,6 +47,7 @@ export function standardBattleMusicMix(intensity: BattleMusicIntensity): {
 
 let audioEl: HTMLAudioElement | null = null;
 let lastTrackIndex = -1;
+let battleVolume = 0.4;
 let fadeTimer: number | null = null;
 let currentTheme: BattleMusicTheme | null = null;
 let currentIntensity: BattleMusicIntensity = "calm";
@@ -92,6 +94,21 @@ export function setAudioMuted(muted: boolean): void {
     notifyMuteListeners();
 }
 
+export function getAudioVolume(): number {
+    try {
+        const saved = localStorage.getItem(MASTER_VOLUME_KEY);
+        const value = saved === null ? 1 : Number(saved);
+        return Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 1;
+    } catch { return 1; }
+}
+
+export function setAudioVolume(value: number): void {
+    if (!Number.isFinite(value)) return;
+    try { localStorage.setItem(MASTER_VOLUME_KEY, String(Math.max(0, Math.min(1, value)))); } catch { /* private mode */ }
+    if (audioEl) audioEl.volume = battleVolume * getAudioVolume();
+    notifyMuteListeners();
+}
+
 export function subscribeAudioMute(callback: () => void): () => void {
     muteListeners.add(callback);
     return () => { muteListeners.delete(callback); };
@@ -103,7 +120,7 @@ function ensureEl(): HTMLAudioElement | null {
         audioEl = new Audio();
         audioEl.loop = true;
         audioEl.preload = "auto";
-        audioEl.volume = 0.4;
+        audioEl.volume = 0.4 * getAudioVolume();
         audioEl.muted = isAudioMuted() || isAudioBackgrounded();
         unsubscribeLifecycle = subscribeAudioLifecycle(syncBattlePlayback);
     }
@@ -122,7 +139,8 @@ function applyBattleMix(intensity: BattleMusicIntensity): void {
     const standardMix = standardBattleMusicMix(intensity);
     if (audioEl) {
         const mix = currentTheme === "hollow-gate" ? hollowMix : standardMix;
-        audioEl.volume = mix.musicVolume;
+        battleVolume = mix.musicVolume;
+        audioEl.volume = battleVolume * getAudioVolume();
         audioEl.playbackRate = mix.playbackRate;
     }
 }
@@ -140,7 +158,8 @@ export function duckBattleMusic(level = 0.42, holdMs = 520): void {
     const base = currentTheme === "hollow-gate"
         ? hollowGateMusicMix(currentIntensity).musicVolume
         : standardBattleMusicMix(currentIntensity).musicVolume;
-    audioEl.volume = Math.max(0.04, base * Math.max(0.15, Math.min(1, level)));
+    battleVolume = Math.max(0.04, base * Math.max(0.15, Math.min(1, level)));
+    audioEl.volume = battleVolume * getAudioVolume();
     duckRestoreTimer = window.setTimeout(() => {
         duckRestoreTimer = null;
         applyBattleMix(currentIntensity);
@@ -193,18 +212,20 @@ export function stopBattleMusic(): void {
         return;
     }
 
-    const startVolume = el.volume;
+    const startVolume = battleVolume;
     const steps = 12;
     let step = 0;
     fadeTimer = window.setInterval(() => {
         step += 1;
-        el.volume = Math.max(0, startVolume * (1 - step / steps));
+        battleVolume = Math.max(0, startVolume * (1 - step / steps));
+        el.volume = battleVolume * getAudioVolume();
         if (step >= steps) {
             clearFade();
             el.pause();
             el.currentTime = 0;
             el.playbackRate = 1;
-            el.volume = startVolume;
+            battleVolume = startVolume;
+            el.volume = battleVolume * getAudioVolume();
         }
     }, 40);
 }

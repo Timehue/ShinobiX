@@ -13,19 +13,17 @@
  * Extracted from App.tsx.
  */
 
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useRef, useState } from "react";
 import rightMenuBg from "../assets/rightmenu.webp";
 import type { Profession, Screen } from "../types/core";
 import { PROFESSION_LABEL } from "../data/professions";
 import { isProtectedAdminName } from "../constants/game";
 import { preloadScreen } from "../lib/screen-preload";
-import { isAudioMuted, setAudioMuted, subscribeAudioMute } from "../lib/pet-music";
-import { primeGameAudio } from "../lib/game-audio";
 import { MailUnreadBadge } from "./MailUnreadBadge";
 import { NotificationBar } from "./NotificationBar";
 import { PLAYER_MENU_GROUPS } from "./player-menu-groups";
 // Compact local game glyphs mirror the mobile nav without a second icon library.
-import { GiChatBubble, GiExitDoor, GiGears, GiOpenBook, GiShop, GiSpeaker, GiSpeakerOff } from "./icons/LightweightGameIcons";
+import { GiChatBubble, GiExitDoor, GiGears, GiOpenBook, GiShop } from "./icons/LightweightGameIcons";
 
 // Memo'd — `navigate`/`logoutPlayer` are stable callbacks from App's
 // useCallback hooks (or the navigate wrapper). All other props are
@@ -54,11 +52,6 @@ export const RightMenu = memo(function RightMenu({
 }) {
     const [menuOpen, setMenuOpen] = useState(true);
     const navLockUntilRef = useRef(0);
-    // Global audio master-mute — silences music AND all battle SFX. Mirrored
-    // into local state so the icon re-renders, and subscribed so it stays in
-    // sync if the switch is flipped elsewhere.
-    const [audioMuted, setAudioMutedState] = useState(isAudioMuted());
-    useEffect(() => subscribeAudioMute(() => setAudioMutedState(isAudioMuted())), []);
     const isAdminAccount = isProtectedAdminName(characterName);
     const guardedNavigate = (next: Screen) => {
         const now = Date.now();
@@ -89,17 +82,6 @@ export const RightMenu = memo(function RightMenu({
                 <button onClick={() => setMenuOpen((open) => !open)}>
                     {menuOpen ? "Hide Menu" : "Menu"}
                 </button>
-                <button
-                    className="audio-mute-btn"
-                    onClick={() => {
-                        const next = !audioMuted;
-                        setAudioMuted(next);
-                        setAudioMutedState(next);
-                        if (!next) primeGameAudio();
-                    }}
-                    title={audioMuted ? "Unmute all audio" : "Mute all audio (music + sound effects)"}
-                    aria-label={audioMuted ? "Unmute all audio" : "Mute all audio"}
-                >{audioMuted ? <GiSpeakerOff size={18} /> : <GiSpeaker size={18} />}</button>
             </div>
 
             {menuOpen && (
@@ -132,9 +114,10 @@ export const RightMenu = memo(function RightMenu({
                             </div>
                         </section>
                         <section className="right-menu-section right-menu-section--system" aria-labelledby="right-menu-system">
-                            <h4 id="right-menu-system"><span>System</span><small aria-hidden="true">{isAdminAccount || adminLoggedIn ? "02" : "01"}</small></h4>
+                            <h4 id="right-menu-system"><span>System</span><small aria-hidden="true">{isAdminAccount || adminLoggedIn ? "03" : "02"}</small></h4>
                             <div className="right-menu-section-grid">
                                 {(isAdminAccount || adminLoggedIn) && <button onClick={() => guardedNavigate(adminLoggedIn ? "adminPanel" : "adminLogin")} onPointerDown={() => preloadScreen(adminLoggedIn ? "adminPanel" : "adminLogin")}><span className="right-menu-action-icon"><GiGears size={16} /></span><span className="right-menu-action-label">Admin</span></button>}
+                                <button aria-current={screen === "settings" ? "page" : undefined} onClick={() => guardedNavigate("settings")} onPointerDown={() => preloadScreen("settings")}><span className="right-menu-action-icon"><GiGears size={16} /></span><span className="right-menu-action-label">Settings</span></button>
                                 <button className="right-menu-logout" onClick={logoutPlayer} title="Save progress and return to sign in"><span className="right-menu-action-icon"><GiExitDoor size={16} /></span><span className="right-menu-action-label">Logout</span></button>
                             </div>
                         </section>

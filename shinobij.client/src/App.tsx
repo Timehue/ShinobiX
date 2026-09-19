@@ -48,7 +48,6 @@ import { lazyWithRetry, retryDynamicImport } from "./lib/lazyWithRetry";
 import { runSingleFlight } from "./lib/single-flight";
 import { adoptSaveVersion } from "./lib/save-version";
 import { accountKey, forgetAccountToken, loadPlayerAccounts, normalizePendingTravel, rememberAccountToken, savePlayerAccounts } from "./lib/player-accounts";
-import { requestAccountDeletion } from "./lib/account-deletion-flow";
 // Types only — the tile resolver itself is loaded on demand (see
 // ./lib/hollow-gate-generator-loader); its one call site already awaits the
 // server's step seal first, so the import costs nothing extra.
@@ -173,6 +172,7 @@ const ClanWar2v2Battle = lazyWithRetry(() => import("./screens/ClanWar2v2Battle"
 const CardClashFreePlay = lazyWithRetry(() => import("./screens/CardClashFreePlay").then(m => ({ default: m.CardClashFreePlay })));
 const WeeklyBossArena = lazyWithRetry(() => import("./screens/WeeklyBossArena").then(m => ({ default: m.WeeklyBossArena })));
 const BloodlineMaker = lazyWithRetry(() => import("./screens/BloodlineMaker").then(m => ({ default: m.BloodlineMaker })));
+const Settings = lazyWithRetry(() => import("./screens/Settings").then(m => ({ default: m.Settings })));
 const Profile = lazyWithRetry(() => import("./screens/Profile").then(m => ({ default: m.Profile })));
 const Logbook = lazyWithRetry(() => import("./screens/Logbook").then(m => ({ default: m.Logbook })));
 const HunterBoard = lazyWithRetry(() => import("./screens/HunterBoard").then(m => ({ default: m.HunterBoard })));
@@ -4190,6 +4190,7 @@ export default function App() {
     async function deleteCharacter() {
         if (!character) return;
         const accountName = currentAccountName || character.name;
+        const { requestAccountDeletion } = await import("./lib/account-deletion-flow");
         if (!(await requestAccountDeletion(character.name, accountName))) return;
         const accounts = loadPlayerAccounts();
         delete accounts[accountKey(accountName)]; savePlayerAccounts(accounts); endLocalSession();
@@ -6176,6 +6177,7 @@ export default function App() {
                         onBack={goBack}
                     />
                 )}
+                {!activeTriggeredEvent && screen === "settings" && character && <Settings key={character.name} character={character} onVersionedCharacter={commitVersionedCharacter} onDelete={deleteCharacter} />}
                 {!activeTriggeredEvent && screen === "profile" && character && (
                     <Profile
                         character={character}
@@ -6184,7 +6186,6 @@ export default function App() {
                         creatorJutsus={creatorJutsus}
                         creatorItems={creatorItems}
                         onVersionedCharacter={commitVersionedCharacter}
-                        onDeleteCharacter={deleteCharacter}
                         onOpenBattle={(battleId) => { setViewedBattleId(battleId); setScreen("battleLog"); }}
                         onTrainJutsu={() => navigate("jutsuTraining")}
                     />
