@@ -192,7 +192,7 @@ export function reportHollowGateRunError(
 ): boolean {
     const message = error instanceof Error && error.message ? error.message : fallback;
     if (!isHollowGateRunExpiredMessage(message)) { notify(message); return false; }
-    notify(`${message}\n\nThis dive can no longer be settled, so the shrine has released its hold — returning you to the world map.`);
+    notify(`${message}\n\nThis dive can no longer be settled, so the shrine has released its hold. Returning you to the world map.`);
     onExpired();
     return true;
 }
@@ -287,7 +287,7 @@ export function buildAugmentPickerEvent(
 ): HollowGateModal {
     return {
         title: "Choose Your Hollow Gate Augment",
-        body: "A boon stirs in the dark — choose one to shape this descent. Richer hauls demand greater risk; the shrine remembers what you take.",
+        body: "Choose one boon for this descent. The richer ones carry more risk, and the choice lasts for the rest of this run.",
         kind: "shrine",
         choices: offers.map((o) => ({
             label: `${o.label}${o.riskLabel ? ` — ${o.riskLabel}` : ""}`,

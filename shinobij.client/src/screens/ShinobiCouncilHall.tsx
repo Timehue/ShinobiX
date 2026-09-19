@@ -162,7 +162,7 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
             const data = await res.json().catch(() => ({})) as ServerKageState & { error?: string };
             if (!res.ok) return alert(data.error || "Could not claim the Kage seat.");
             setKageStates(prev => ({ ...prev, [character.village]: data }));
-            alert(`👑 The council rises.\n\n${character.name} of ${character.village} takes the Kage seat. The village answers to you now — hold it against every challenger, and be seen in your own streets: ten days of silence and the council opens the seat again.`);
+            alert(`👑 The council rises.\n\n${character.name} of ${character.village} takes the Kage seat. The village answers to you now. Hold the seat against every challenger, and be seen in your own streets. If you are absent for ten days, the council opens the seat again.`);
         } catch {
             // Without this the rejection was unhandled and the player saw
             // NOTHING — no success, no failure, on the most valuable action in

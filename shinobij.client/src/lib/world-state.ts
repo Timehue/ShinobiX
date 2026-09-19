@@ -695,7 +695,7 @@ function recordWarOutcomeToVillages(war: VillageWar, loserVillage: string, winne
         const noticeTitle = isWinner ? "Village War Won" : "Village War Lost";
         const noticeBody = isWinner
             ? `Our forces defeated ${loserVillage}. Final score ${finalScore}. Surviving raiders may claim a Legendary War Crate.`
-            : `We have fallen to ${winnerVillage}. Final score ${finalScore}. Rebuild and rally — the next campaign begins.`;
+            : `We have fallen to ${winnerVillage}. Final score ${finalScore}. Rebuild and rally. The next campaign begins.`;
         saveVillageState(village, normalizeVillageState(village, {
             ...state,
             warRecords: [record, ...(state.warRecords ?? [])].slice(0, 24),

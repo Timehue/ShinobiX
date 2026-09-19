@@ -14,7 +14,7 @@ import type { HollowGateStartResult } from "./hollow-gate-server";
  * so re-entering the shrine recovers this exact run without spending another.
  */
 export const HOLLOW_GATE_FLOOR_LOAD_FAILED =
-    "The Hollow Gate opened, but its first floor could not be drawn — the connection dropped while loading it. Your key was NOT lost: re-enter the shrine to recover this run (it replays the same start request rather than spending another key).";
+    "The Hollow Gate opened, but its first floor could not be drawn because the connection dropped while loading it. Your key was NOT lost. Re-enter the shrine to recover this run. It replays the same start request rather than spending another key.";
 
 /**
  * Turn a server start response into the local run state.

@@ -106,7 +106,7 @@ export function SageOfferModal({ offer, playerName, actionsAllowed, canMutate, o
         setBusy(true);
         try {
             const sure = await gameConfirm(
-                `You may only ever have ONE Legacy. This cannot be changed later — no respec, no exchange, ever. Accept the ${picked.name} and it is yours for life.`,
+                `You may only ever have ONE Legacy. This cannot be changed later. There is no respec and no exchange, ever. Accept the ${picked.name} and it is yours for life.`,
                 { title: "The Point of No Return", confirmLabel: "I Accept This Path Forever", cancelLabel: "Go Back", danger: true },
             );
             if (!mountedRef.current || request !== requestRef.current || !sure) return;
@@ -131,12 +131,12 @@ export function SageOfferModal({ offer, playerName, actionsAllowed, canMutate, o
                     kindName: "Trial of Awakening",
                     legacyName: picked.name,
                     text: result.intro
-                        ?? "Then walk forward. Your first trial has already begun — the path is watching.",
-                    hint: "Your trial is already underway — track it anytime in Profile → 🌠 Legacy.",
+                        ?? "Then walk forward. Your first trial has already begun.",
+                    hint: "Your trial is already underway. Track it anytime in Profile → 🌠 Legacy.",
                     ...(chronicleRecord ? { chronicleRecord } : {}),
                 });
             } else if (result?.reason === "no-offer") {
-                setNote("“Ah… the moment has passed, shinobi. Do not mourn it — I found you once, and I will find you again.”");
+                setNote("“Ah. I'm afraid this offer has closed, shinobi. Don't worry about it. I found you once, and I will find you again.”");
                 scheduleDeparture(() => { (onDismissed ?? onDeclined)(); onClose(); });
             } else if (result?.reason === "sealed") {
                 setNote("Your path was already sealed to another Legacy. The Sage bows and departs.");
@@ -187,13 +187,13 @@ export function SageOfferModal({ offer, playerName, actionsAllowed, canMutate, o
                 </div>
 
                 <p style={{ margin: "0 0 10px", fontSize: ".76rem", color: "var(--slate-300)" }}>
-                    A <b>Legacy</b> is a permanent identity path — it grants you a <b>signature technique</b> and
+                    A <b>Legacy</b> is a permanent identity path. It grants you a <b>signature technique</b> and
                     deepens through five stages as you prove it. It is separate from your bloodline, and forever.
                 </p>
 
                 <div style={{ background: "rgba(192,132,252,.08)", border: "1px solid rgba(192,132,252,.35)", borderRadius: 8, padding: "8px 10px", marginBottom: 12 }}>
                     <p style={{ margin: 0, fontSize: ".78rem", color: "#e9d5ff" }}>
-                        ⚠ A Legacy is <b>permanent</b>. You may only ever accept <b>one</b> — forever. Turning the Sage down is always free.
+                        ⚠ A Legacy is <b>permanent</b>. You may only ever accept <b>one</b>, and it is yours forever. Turning the Sage down is always free.
                     </p>
                 </div>
 

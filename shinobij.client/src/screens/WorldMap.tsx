@@ -927,7 +927,7 @@ function WorldMapContent({
         // starts — the boss just backs off briefly (like a flee) and you return
         // once rested.
         if ((character.stamina ?? 0) < 20) {
-            alert("You need at least 20 stamina to challenge the boss. It backs off — return once you've rested.");
+            alert("You need at least 20 stamina to challenge the boss. It backs off. Come back once you've rested.");
             coolWeeklyBoss(WEEKLY_BOSS_ROAM_REENGAGE_COOLDOWN_MS);
             return;
         }
@@ -973,7 +973,7 @@ function WorldMapContent({
                 try { lastAnnounced = Number(window.localStorage?.getItem("legacy.sage.lastAnnounced") ?? 0); } catch { /* best-effort */ }
                 if (lastAnnounced !== r.offer.spawnedAt) {
                     try { window.localStorage?.setItem("legacy.sage.lastAnnounced", String(r.offer.spawnedAt)); } catch { /* best-effort */ }
-                    setWhisper({ kicker: "The Sage has appeared", text: `The Wandering Sage is waiting in ${sectorRegionName(r.offer.sector)} — sector ${r.offer.sector} on your map. He's been asking after you by name.` });
+                    setWhisper({ kicker: "The Sage has appeared", text: `The Wandering Sage is waiting in ${sectorRegionName(r.offer.sector)}, sector ${r.offer.sector} on your map. He's been asking after you by name.` });
                 }
             } else {
                 setSageOffer(null);
@@ -1407,7 +1407,7 @@ function WorldMapContent({
         if (data.ok && data.favor) {
             coolWanderer(w.id);
             updateCharacter(prev => prev ? ({ ...prev, activeWandererFavor: data.favor as WandererFavor }) : prev);
-            setWandererDialog({ w, msg: `${w.name} gives you a sealed favor. Deliver it in ${sectorRegionName(data.favor.targetSector)} - sector ${data.favor.targetSector}.` });
+            setWandererDialog({ w, msg: `${w.name} gives you a sealed favor. Deliver it to ${sectorRegionName(data.favor.targetSector)}, sector ${data.favor.targetSector}.` });
         } else if (data.reason === "busy" && data.favor) {
             setWandererDialog({ w, msg: `You already carry a sealed favor for sector ${data.favor.targetSector}. Finish that road first.` });
         } else if (data.reason === "cooldown") {
@@ -1482,7 +1482,7 @@ function WorldMapContent({
                 const parts = [`${d.reward.ryo} ryo`];
                 if (d.reward.fateShards > 0) parts.push(`${d.reward.fateShards} fate shard${d.reward.fateShards === 1 ? "" : "s"}`);
                 if (d.reward.boneCharms > 0) parts.push(`${d.reward.boneCharms} bone charm${d.reward.boneCharms === 1 ? "" : "s"}`);
-                setTimeout(() => alert(`${recovering ? "Recovered ambush ledger — " : "You overwhelmed the bandits and felled their warlord! Loot: "}${parts.join(", ")}.`), 40);
+                setTimeout(() => alert(`${recovering ? "Recovered ambush ledger: " :"You overwhelmed the bandits and felled their warlord! Loot: "}${parts.join(", ")}.`), 40);
                 return true;
             }
         } catch { /* fall through to the no-loot message */ }
@@ -1540,13 +1540,13 @@ function WorldMapContent({
             // kill clear the bounty was the self-clear exploit.)
             setTimeout(() => alert(won
                 ? `You survived ${p.hunterName ?? "the bounty hunter"}. The bounty on your head still stands.`
-                : `${p.hunterName ?? "The bounty hunter"} put you down — but they can't cash a contract this size. The bounty on your head still stands; only a real shinobi can collect it.`), 40);
+                : `${p.hunterName ?? "The bounty hunter"} put you down, but they can't cash a contract this size. The bounty on your head still stands. Only a real shinobi can collect it.`), 40);
             return;
         }
         if (p.mode === "single") {
             if (won && p.nemesis) setTimeout(() => alert(`You put your rival ${p.name ?? "the bandit"} in the dirt at last. Revenge.`), 40);
             else if (!won && p.nemesis) setTimeout(() => alert(`${p.name ?? "Your rival"} bests you again, and grows bolder. This isn't over.`), 40);
-            else if (!won && p.name) setTimeout(() => alert(`${p.name} took what they wanted and laughed. You won't forget that name — and they'll be back.`), 40);
+            else if (!won && p.name) setTimeout(() => alert(`${p.name} took what they wanted and laughed. You won't forget that name, and they'll be back.`), 40);
             return;
         }
         if (p.mode === "ambush") {
@@ -1589,7 +1589,7 @@ function WorldMapContent({
                 const lead = trail?.sector;
                 setTimeout(() => alert(lead
                     ? `The last of the pack goes down. The trail reopens in Sector ${lead}; your target is alone now.`
-                    : "The last of the pack goes down. Your target is alone now — and it knows it."), 40);
+                    : "The last of the pack goes down. Your target is alone now, and it knows it."), 40);
             });
             return;
         }
@@ -1924,7 +1924,7 @@ function WorldMapContent({
             const r = await engageMerc(character.name, village, sec, w.id);
             const msg = r.error ? r.error
                 : r.winner === "player" ? "You cut the mercenary down."
-                : r.winner === "merc" ? (r.context === "village" ? "The mercenary overwhelmed you — your village bleeds for it." : "The mercenary overwhelmed you — your hold on the sector slips.")
+                : r.winner === "merc" ? (r.context === "village" ? "The mercenary overwhelmed you. Your village pays for it." : "The mercenary overwhelmed you. Your hold on the sector slips.")
                 : "You traded blows; the mercenary broke off.";
             setWandererDialog({ w, msg });
             if (village) void fetchSectorRoster(character.name, village, sec).then(r => setMercRoster({ sector: sec, mercs: r.mercs, contest: r.contest })).catch(() => { /* best-effort refresh */ });
@@ -2006,7 +2006,7 @@ function WorldMapContent({
         // everyone): the Pet Arena has its own empty-roster screen, and being walked
         // into it by a beast that just challenged you is a dead end.
         if (!character.pets.length) {
-            setWandererDialog({ w, msg: `The beast waits for a challenger that never comes. You have no pet to send out — tame one first, and it will still be prowling this road.` });
+            setWandererDialog({ w, msg: `The beast waits for a challenger that never comes. You have no pet to send out. Tame one first, and it will still be prowling this road.` });
             return;
         }
         if (selectedSector == null || !isWildSector(selectedSector)) return;
@@ -2048,7 +2048,7 @@ function WorldMapContent({
         // which would just show its "the Chronicle is sealed" wall. Say it
         // in-fiction instead — and point at Ihara, since finding her IS the way through.
         if (cardGameLockStatus(character).locked) {
-            setWandererDialog({ w, msg: `${w.name} squints at your empty hands, then pockets the deck. "Come back when a scribe's put a codex in your pack — no sport in fleecing a man with nothing to play."` });
+            setWandererDialog({ w, msg: `${w.name} squints at your empty hands, then pockets the deck. "Come back when a scribe's put a codex in your pack. There's no sport in fleecing someone with nothing to play."` });
             return;
         }
         // The gambler deals you straight into Chronicle Showdown in the Card Hall.
@@ -2076,7 +2076,7 @@ function WorldMapContent({
             if (data.ok && typeof data.baseline === "number") {
                 coolNaturalWanderer(w);
                 updateCharacter(prev => prev ? ({ ...prev, activeWandererQuest: { id: def.id, target: def.target, baseline: data.baseline! } }) : prev);
-                setWandererDialog({ w, msg: `Quest accepted — ${def.label.toLowerCase()}. Return when it's done.` });
+                setWandererDialog({ w, msg: `Quest accepted: ${def.label.toLowerCase()}. Return when it's done.` });
             } else if (data.reason === "busy") {
                 setWandererDialog({ w, msg: "“Finish the task you already carry first.”" });
             } else if (data.reason === "cooldown") {
@@ -2155,7 +2155,7 @@ function WorldMapContent({
                 coolNaturalWanderer(w);
                 const s0 = entry.stages[0];
                 updateCharacter(prev => prev ? ({ ...prev, activeQuestbook: { id: questId, stage: 0, baseline: (prev[s0.metric] as number | undefined) ?? 0, target: s0.count, deadline: data.deadline ?? null, choices: {} } }) : prev);
-                setWandererDialog({ w, msg: `Epic begun — “${entry.title}.” Your journal is open.` });
+                setWandererDialog({ w, msg: `Epic begun: “${entry.title}.” Your journal is open.` });
             } else if (data.reason === "busy") {
                 setWandererDialog({ w, msg: "“Finish your current quest before taking another.”" });
             } else if (data.reason === "cooldown") {
@@ -2187,7 +2187,7 @@ function WorldMapContent({
                 setTimeout(() => alert("Stage cleared. The next chapter of your epic opens."), 40);
                 return true;
             } else if (data.ok && data.readyToClaim) {
-                if (!auto) setTimeout(() => alert("The final deed is done — claim your reward from the journal."), 40);
+                if (!auto) setTimeout(() => alert("The final deed is done. Claim your reward from the journal."), 40);
                 return true;
             } else if (data.reason === "expired" && typeof data.resetToStage === "number" && cur) {
                 if (data._saveVersion != null && onServerVersion?.(data._saveVersion) === false) return false;
@@ -2200,7 +2200,7 @@ function WorldMapContent({
                 });
                 setTimeout(() => alert("The bell finished ringing before you arrived. This stage has reset. You can try again."), 40);
             } else if (!auto && data.reason === "incomplete") {
-                alert(`Not yet — ${data.progress ?? 0} / ${data.target ?? "?"} done for this stage.`);
+                alert(`Not yet. ${data.progress ?? 0} / ${data.target ?? "?"} done for this stage.`);
             }
         } catch { if (!auto) alert("You couldn't reach the quest-giver."); }
         return false;
@@ -2357,7 +2357,7 @@ function WorldMapContent({
             setCreatorEventLine(0);
             setSelectedCreatorEvent(storyReckoningPayoffEvent(arc, biomeForWorldSector(selectedSector), resp.character ?? character));
         } else {
-            setTimeout(() => alert(`${recovering ? "Recovered reckoning ledger — " : ""}You recovered ${arc.task.targetName}. Return to ${arc.npcName} at the outskirts.`), 40);
+            setTimeout(() => alert(`${recovering ? "Recovered reckoning ledger: " : ""}You recovered ${arc.task.targetName}. Return to ${arc.npcName} at the outskirts.`), 40);
         }
         return true;
     }
@@ -3842,7 +3842,7 @@ function WorldMapContent({
                                 const trait = result.trait as PetTrait | null;
                                 const destination = result.destination === "sanctuary" ? "\nYour carried roster was full, so they are resting safely in the Sanctuary." : "";
                                 alert(trait
-                                    ? `${encounter.name} joined you!\nTrait: ${trait} — ${petTraitDescriptions[trait]}${destination}`
+                                    ? `${encounter.name} joined you!\nTrait: ${trait}. ${petTraitDescriptions[trait]}${destination}`
                                     : `${encounter.name} joined you!${destination}`);
                             });
                         }}
@@ -4270,7 +4270,7 @@ function WorldMapContent({
             if (!rift) return null;
             return {
                 landmark: rift.landmark,
-                title: `Rift: ${rift.bossName} — descend into the Hollow Gate`,
+                title: `Rift: ${rift.bossName}. Descend into the Hollow Gate`,
                 onOpen: () => {
                     setCreatorEventPage(0);
                     setCreatorEventLine(0);
@@ -4467,7 +4467,7 @@ function WorldMapContent({
                                             ? <img src={bossDialog.portrait} alt={bossDialog.name} style={{ width: 104, height: 104, objectFit: "cover", borderRadius: "50%", border: "2px solid #ec5b38", margin: "0 auto 8px", boxShadow: "0 0 18px rgba(236,91,56,.6)" }} />
                                             : <div style={{ fontSize: 60, lineHeight: 1, margin: "0 0 6px" }}>👹</div>}
                                         <h3 style={{ margin: "0 0 4px", color: "#ffb4a0" }}>⚔ {bossDialog.name}</h3>
-                                        <p style={{ fontSize: ".78rem", color: "#9aa3b2", margin: "0 0 8px" }}>The Weekly Boss bears down on you. Stand and deal all the damage you can for the server-wide leaderboard — or flee (free, no attempt spent).</p>
+                                        <p style={{ fontSize: ".78rem", color: "#9aa3b2", margin: "0 0 8px" }}>The Weekly Boss bears down on you. Stand and deal all the damage you can for the server-wide leaderboard, or flee (free, no attempt spent).</p>
                                         <p style={{ fontSize: ".72rem", color: "var(--gold)", margin: "0 0 12px" }}>Attempts used: {bossDialog.attemptsUsed}/3</p>
                                         <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
                                             <button disabled={!globalMutationsOpen} onClick={standBossFight} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "var(--red-400)", fontWeight: 700, opacity: globalMutationsOpen ? 1 : 0.55 }}>{globalMutationsOpen ? "Stand & Fight" : "Fight paused"}</button>
@@ -4493,7 +4493,7 @@ function WorldMapContent({
                                         // silent — the player should know he returns.
                                         setWhisper({
                                             kicker: "The Sage departs",
-                                            text: "There is no shame in waiting. Give me a few days on the road — I will find you again.",
+                                            text: "There is no shame in waiting. Give me a few days on the road. I will find you again.",
                                         });
                                     }}
                                     onDismissed={() => {
@@ -5031,7 +5031,7 @@ function WorldMapContent({
                     const richnessLabel = sectorRichnessLabel(richness);
                     const contract = localSectorContract(sector.id);
                     const sectorTitle = sector.id === 99
-                        ? "Death's Gate - PvP zone: 2x Ryo, stat growth & Jutsu XP, 5% Bone Charm on win"
+                        ? "Death's Gate PvP zone: 2x Ryo, stat growth & Jutsu XP, 5% Bone Charm on win"
                         : huntTrail
                             ? `${huntTrail.mission.name} trail | ${sectorName(sector.id) ?? `Sector ${sector.id}`} (S${sector.id})`
                             : `${sectorName(sector.id) ?? `Sector ${sector.id}`} (S${sector.id}) | ${weatherEffects[weatherForSector(sector.id, biomeForSector(sector.id))].name}${sectorShrine ? ` | ⛩ ${sectorShrine.name}` : ""}`;
@@ -5080,7 +5080,7 @@ function WorldMapContent({
                         {sector.id === weeklyBossSector && (
                             <span
                                 className="atlas-boss-flag"
-                                title={`${roamingBoss?.bossName ?? "Weekly Boss"} is rampaging here — travel in to challenge it`}
+                                title={`${roamingBoss?.bossName ?? "Weekly Boss"} is rampaging here. Travel in to challenge it`}
                             >👹</span>
                         )}
                         {huntTrail && (

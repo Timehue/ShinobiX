@@ -73,7 +73,7 @@ export function EmissaryTrialPanel({ playerName, emissary, onVersionedCharacter 
         setBusy(false);
         if (r?.ok && r.trial) {
             setStatus(s => s ? { ...s, trial: r.trial! } : s);
-            setNote("“Then it begins. I will be watching — I am always watching.”");
+            setNote("“Then it begins. I will be watching.”");
         } else if (r?.reason === "busy") {
             // A trial already runs (started moments ago in the Profile tab) —
             // refresh so it renders here instead of a misleading refusal.
@@ -83,7 +83,7 @@ export function EmissaryTrialPanel({ playerName, emissary, onVersionedCharacter 
         } else if (r?.reason === "complete") {
             setNote("“Your path is already complete. Walk it proudly.”");
         } else {
-            setNote("“Not yet. The moment is not ready for you.”");
+            setNote("“Not yet. I can't start this trial for you right now.”");
         }
     }
     async function complete() {
@@ -103,7 +103,7 @@ export function EmissaryTrialPanel({ playerName, emissary, onVersionedCharacter 
             const chronicleRecord = buildChronicleRecordReceipt(r.chronicleCards, "legacy-awakening", defView?.name);
             // The emissary's own voice — the Sage's completion passage plays in
             // the LegacyMoment, so this line must not echo it.
-            const witnessedNote = r.title ? `“Done, and witnessed. Wear it well: ${r.title}.”` : "“Done, and witnessed. The path remembers.”";
+            const witnessedNote = r.title ? `“Done, and witnessed. Wear it well: ${r.title}.”` : "“Done, and witnessed. It's on the record now.”";
             setNote(!defView && chronicleRecord ? `${witnessedNote} ${chronicleRecord.message}` : witnessedNote);
             if (defView) {
                 setMoment({
@@ -121,7 +121,7 @@ export function EmissaryTrialPanel({ playerName, emissary, onVersionedCharacter 
             setStatus(s => s?.trial ? { ...s, trial: { ...s.trial, objectives: r.objectives! } } : s);
             setNote("“Closer. But the trial is not finished with you.”");
         } else {
-            setNote("“The threads are tangled — come back to me shortly.”");
+            setNote("“I couldn't record that just now. Come back to me in a moment.”");
         }
     }
 
@@ -149,7 +149,7 @@ export function EmissaryTrialPanel({ playerName, emissary, onVersionedCharacter 
                 </button>
             ) : (
                 <p style={{ fontSize: ".75rem", color: "var(--purple-400)", margin: 0, fontStyle: "italic" }}>
-                    “Stage V. There is nothing left I can test in you — only things left to witness.”
+                    “Stage V. There is nothing left for me to test. From here, I only watch what you do.”
                 </p>
             )}
             {note && <p role="status" aria-live="polite" style={{ fontSize: ".74rem", color: "var(--gold)", margin: "8px 0 0", fontStyle: "italic" }}>{note}</p>}

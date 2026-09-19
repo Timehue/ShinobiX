@@ -172,7 +172,7 @@ export function HunterBoard({
         // inward toward targetSector), so point the player there, not at the beast's
         // final ground.
         const firstLead = result.state?.sector ?? result.nextSector ?? huntTrailSector(mission, result.progress ?? result.state?.progress ?? 0, playerSlug(character.name));
-        alert(`${mission.name} accepted. Your first lead is in Sector ${firstLead} — head there and use Hunt to pick up the trail, then follow the paw marker to the beast.`);
+        alert(`${mission.name} accepted. Your first lead is in Sector ${firstLead}. Head there and use Hunt to pick up the trail, then follow the paw marker to the beast.`);
     }
 
     function materialNames(itemIds: string[]): string[] {
@@ -281,7 +281,7 @@ export function HunterBoard({
                     ...prev,
                     [mission.id]: Math.max(0, (mission.exploreCount ?? 1) - 1),
                 }));
-                return alert("The Guild hasn't logged your kill for this contract yet. The trail is hot again — return to the beast's ground and bring it down once more to claim.");
+                return alert("The Guild hasn't logged your kill for this contract yet. The trail is fresh again. Go back to the beast's ground and bring it down once more to claim the reward.");
             }
             return alert(claimReasonMessage(result.reason, result));
         }
@@ -408,7 +408,7 @@ export function HunterBoard({
                             <span className="apex-kicker">Apex Contract · {apexWeek}</span>
                             <h3 className="apex-name">{beast.name}</h3>
                             <p className="apex-sub">
-                                Level {beast.level}. One hunter, one beast, once a week — the Guild
+                                Level {beast.level}. One hunter, one beast, once a week. The Guild
                                 pays the purse to whoever walks back.
                             </p>
                             <span className="apex-purse">

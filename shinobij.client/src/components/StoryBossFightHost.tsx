@@ -465,7 +465,7 @@ export function StoryBossFightHost({
                                     <h2>Academy Sparring Match</h2>
                                     {won
                                         ? (!result
-                                            ? <p className="story-fight-complete-rewards">{settleState === "failed" ? "The sparring reward could not be verified. Your win is still open — retry the reward now." : "Sealing your reward…"}</p>
+                                            ? <p className="story-fight-complete-rewards">{settleState === "failed" ? "The sparring reward could not be verified. Your win still counts. Retry the reward now." : "Sealing your reward…"}</p>
                                             : <Suspense fallback={<p role="status">Personal reward committed.</p>}><StoryRewardSummary result={result} /></Suspense>)
                                         : <p className="story-fight-complete-boss">The dummy got the better of you. Patch up at the Hospital and step back onto the mat.</p>}
                                     {/* escape-hatch-exempt — deliberate, unlike the PvP and AI-fight
@@ -500,7 +500,7 @@ export function StoryBossFightHost({
                                     <h2>{theme.chapterLabel ?? theme.bossName}</h2>
                                     <p className="story-fight-complete-boss">{theme.bossName} has fallen.</p>
                                     {!result
-                                        ? <p className="story-fight-complete-rewards">{settleState === "failed" ? "The reward could not be verified. Your victory is still open — retry the reward now." : "Sealing your reward…"}</p>
+                                        ? <p className="story-fight-complete-rewards">{settleState === "failed" ? "The reward could not be verified. Your victory still counts. Retry the reward now." : "Sealing your reward…"}</p>
                                         : <Suspense fallback={<p role="status">Personal reward committed.</p>}><StoryRewardSummary result={result} /></Suspense>}
                                     {/* escape-hatch-exempt — same in-memory run id as the branch above;
                                         see that comment for why leaving is destructive here and what
@@ -518,7 +518,7 @@ export function StoryBossFightHost({
                             <div className="story-fight-complete-card">
                                 <p className="story-fight-complete-kicker">Chapter Held</p>
                                 <h2>{theme.chapterLabel ?? theme.bossName}</h2>
-                                <p className="story-fight-complete-boss">{theme.bossName} stands firm. No progress was made — recover and try again.</p>
+                                <p className="story-fight-complete-boss">{theme.bossName} stands firm. No progress was made. Recover and try again.</p>
                                 <button onClick={closeFight}>Return to Story</button>
                             </div>
                         </RequiredStoryResultDialog>

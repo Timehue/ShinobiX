@@ -184,8 +184,8 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
                     speaker: "Toma Reed",
                     dialogue: [
                         "Don't pull at the burned edge. It will crumble. Let the water loosen each plate, then lift it from underneath.",
-                        "There. Reed. The chamfer is wrong in exactly the family way. Next one slowly.",
-                        "The cart trail is gone. The reeds kept the whole column together. Next one slowly.",
+                        "There. That one says Reed. The chamfer is off in exactly the way my family always cuts it.",
+                        "The cart trail is gone, but the channel caught the plates and kept them in order. Take the next one slowly.",
                     ],
                     choices: [choice("al-east-channel-catch-recover", "Lift the cedar plates one at a time and carry them over the repaired bridge.")],
                 }],
@@ -406,13 +406,14 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
                     scene: "The canal gate before courier bell, one shutter open the width of two fingers",
                     speaker: "Nyx",
                     dialogue: [
-                        "The clerk from the raided booth saw who took my ledger. They will guide us to the cache if their name stays off every page. I verified the account. You do not get the name.",
-                        "Other route: post this wax pattern at the ferry and ask every holder to bring pages into the open. More witnesses, cleaner custody, and every buyer knows what we're building before night ends.",
-                        "The clerk said if that notice goes up, they walk away before the paste dries. Their choice, not mine. Protect one source or build a public chain without them. Decide where they can hear you.",
+                        "The clerk from the booth that got raided saw who took my ledger. They'll lead us to the pages, but only if their name never goes on any of them. I've checked their story, and it holds. And no, I'm not telling you who they are.",
+                        "The other way is to go public. We put up a notice at the ferry with a wax print of my ledger's stamp, so anyone holding a page can recognize it and bring it back where people can see.",
+                        "More people would witness the returns. But every buyer in the market would know what we're doing before the night is over.",
+                        "The clerk says if that notice goes up, they walk away before the paste dries. That's their decision, not mine. So we either keep them safe and do this quietly, or we go public and lose them. They're listening behind that shutter. Tell them what you decide.",
                     ],
                     choices: [
                         choice("ms-shield-booth-clerk", "Keep the clerk unnamed. Use Nyx's decoy parcel and follow their private signal."),
-                        choice("ms-post-open-call", "Post the wax pattern. Let the clerk withdraw and ask the canal to witness every return."),
+                        choice("ms-post-open-call", "Post the notice at the ferry. Let the clerk walk away, and ask the canal to witness every return."),
                     ],
                 }],
             },
@@ -426,10 +427,10 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
                     speaker: "Nyx",
                     dialogue: [
                         "The watcher followed our decoy east. Keep walking and don't turn around. We're taking the west path.",
-                        "The clerk pressed one thumb here and dragged it west. That is the whole instruction. No signature, no voice, no helpful silhouette under a lamp.",
-                        "That drag is all they chose to give us. A fuller answer would make our case easier. We don't take it. West bank. Casually.",
+                        "See this smear in the wax? The clerk pressed a thumb here and dragged it west. That's the only direction they left us. They didn't sign it, and they didn't stay to explain.",
+                        "I'd like more to go on, but that's all they were willing to give, and I'm not going to push them for more. We cross to the west bank. Walk like you're in no hurry.",
                     ],
-                    choices: [choice("ms-dyers-footbridge-continue", "Leave the decoy untouched and follow the wax drag toward the shuttered boathouse.")],
+                    choices: [choice("ms-dyers-footbridge-continue", "Leave the decoy alone and follow the thumb mark west to the shuttered boathouse.")],
                 }],
             },
             "ms-shuttered-boathouse": {
@@ -450,7 +451,7 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
             },
             "ms-night-ferry-landing": {
                 name: "Night Ferry Landing",
-                greeting: "Nyx's wax-pattern notice hangs under the ferry lamp, surrounded by people pretending they stopped for the tide.",
+                greeting: "Nyx's notice, marked with a wax print of her ledger's stamp, hangs under the ferry lamp, surrounded by people pretending they stopped for the tide.",
                 objective: "Receive public page returns without claiming the protected clerk's testimony.",
                 pages: [{
                     title: "Hands in the Light",

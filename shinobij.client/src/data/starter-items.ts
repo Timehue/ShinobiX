@@ -227,7 +227,7 @@ export const starterItems: GameItem[] = [
         // cost: 0 → not sold in the shop. Earned only as a mission/raid drop.
         cost: 0,
         image: "/items/item-territory-control-scroll-v1.webp",
-        description: "A clan war writ used to claim sectors, restore sector HP, and reinforce territory control. Earned from missions and raids — not sold.",
+        description: "A clan war writ used to claim sectors, restore sector HP, and reinforce territory control. Earned from missions and raids. It is not sold.",
         bonuses: {},
     },
     {
@@ -301,7 +301,7 @@ export const starterItems: GameItem[] = [
         slot: "item",
         rarity: gear.rarity,
         cost: gear.cost,
-        description: `Pet battle gear. ${gear.desc} while equipped in a pet's PVP slot — boosts your pet in pet arena battles.`,
+        description: `Pet battle gear. ${gear.desc} while equipped in a pet's PVP slot. Boosts your pet in pet arena battles.`,
         bonuses: {},
     })),
     // PVE companion gear — boosts the pet when summoned into a PvE ninja fight
@@ -324,7 +324,7 @@ export const starterItems: GameItem[] = [
         slot: "item",
         rarity: c.rarity,
         cost: c.cost,
-        description: `Pet battle consumable (Consumable slot). ${c.desc} — triggers once in a pet battle. When summoned in PvE instead, the pet spends it to shield you. Single use.`,
+        description: `Pet battle consumable (Consumable slot). ${c.desc}. Triggers once in a pet battle. When summoned in PvE instead, the pet spends it to shield you. Single use.`,
         bonuses: {},
     })),
     // -- Hunting materials ----------------------------------------------------
@@ -348,8 +348,8 @@ export const starterItems: GameItem[] = [
     // -- Anbu Vault Infiltration war caches (anbuInfiltration.v1) ---------------
     // Server-minted ONLY (raid settle; the save sanitizer blocks client mints).
     // Ids KEEP IN SYNC with api/_anbu-infiltration.ts CACHE_ITEM_IDS.
-    { id: "war-supply-cache", name: "War Supply Cache", slot: "item", rarity: "rare", cost: 0, image: "/items/war-supply-cache.webp", description: "War supplies skimmed from an enemy sector's vault. Turn in at your Clan Hall — 2 caches per clan point.", bonuses: {} },
-    { id: "war-resource-cache", name: "War Resource Cache", slot: "item", rarity: "rare", cost: 0, image: "/items/war-resource-cache.webp", description: "War resources bled from an enemy village's war chest. Turn in at your Town Hall — 1 village merit each.", bonuses: {} },
+    { id: "war-supply-cache", name: "War Supply Cache", slot: "item", rarity: "rare", cost: 0, image: "/items/war-supply-cache.webp", description: "War supplies skimmed from an enemy sector's vault. Turn in at your Clan Hall. 2 caches earn 1 clan point.", bonuses: {} },
+    { id: "war-resource-cache", name: "War Resource Cache", slot: "item", rarity: "rare", cost: 0, image: "/items/war-resource-cache.webp", description: "War resources bled from an enemy village's war chest. Turn in at your Town Hall for 1 village merit each.", bonuses: {} },
     // -- Weapon forging materials ----------------------------------------------
     { id: "weekly-boss-core", name: "Weekly Boss Core", slot: "item", rarity: "legendary", cost: 0, description: "A time-gated core from the weekly boss. Used to forge epic and legendary weapons.", bonuses: {} },
     { id: "dungeon-key", name: "Dungeon Key", slot: "item", rarity: "rare", cost: 0, image: "/items/starter-dungeon-key-v2.webp", description: "A key that opens one Hidden Dungeon run. Drops from weekly bosses and war crates.", bonuses: {} },
@@ -361,7 +361,7 @@ export const starterItems: GameItem[] = [
     { id: "legendary-war-crate", name: "Legendary War Crate", slot: "item", rarity: "legendary", cost: 0, description: "A crate awarded for major clan or village war victories. Open it for a Warforged Relic and a chance at a Dungeon Key.", bonuses: {} },
     // -- Elemental attunement (Shards → Core → weapon element) ------------------
     { id: "elemental-shard", name: "Elemental Shard", slot: "item", rarity: "epic", cost: 0, image: "/item-elemental-shard.webp", description: "A jagged mote of crystallized elemental chakra shed by a Hollow Gate boss. Combine 10 at the Crafter to forge an Elemental Core.", bonuses: {} },
-    { id: "elemental-core", name: "Elemental Core", slot: "item", rarity: "legendary", cost: 0, image: "/item-elemental-core.webp", description: "A stable orb of pure elemental chakra forged from 10 Elemental Shards. Apply it to a legendary or mythic weapon to attune it to one of your awakened elements — an attuned weapon rides your bloodline's power on every strike.", bonuses: {} },
+    { id: "elemental-core", name: "Elemental Core", slot: "item", rarity: "legendary", cost: 0, image: "/item-elemental-core.webp", description: "A stable orb of pure elemental chakra forged from 10 Elemental Shards. Apply it to a legendary or mythic weapon to attune it to one of your awakened elements. An attuned weapon carries your bloodline's power on every strike.", bonuses: {} },
     // -- Throwable weapons -------------------------------------------------------
     {
         id: "thrown-shuriken",
@@ -416,7 +416,7 @@ export const starterItems: GameItem[] = [
         rarity: "rare",
         cost: 360,
         image: "/items/shop-smoke-bomb-v1.webp",
-        description: "Dense smoke fills the field — both you and the enemy deal 0 damage for 1 round. Pierce tag still deals full damage.",
+        description: "Dense smoke fills the field. Both you and the enemy deal 0 damage for 1 round. Pierce tag still deals full damage.",
         weaponEffect: "Decrease Damage Given",
         weaponEffectValue: 100,
         weaponEffectTarget: "both",

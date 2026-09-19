@@ -167,7 +167,7 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                     kindName: reshaped ? "The Trial, Reshaped" : (TRIAL_NAMES[result.trial.kind] ?? "Legacy Trial"),
                     legacyName: def.name,
                     text: reshaped
-                        ? "You asked me to pose this differently. So I have — the height is the same, the road is new."
+                        ? "You asked me to set this trial differently, so I have. It is just as hard. The tasks are new."
                         : (result.intro ?? "Walk your path where the world can see it."),
                     ...(em ? { speaker: { name: em.name, portrait: `/portraits/${em.slug}.webp` } } : {}),
                 });
@@ -198,7 +198,7 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                     ...(chronicleRecord ? { chronicleRecord } : {}),
                 });
             } else if (result?.reason === "incomplete") {
-                setTrialNote("The trial is not finished yet — the objectives below still wait.");
+                setTrialNote("The trial is not finished yet. Complete the objectives below first.");
                 setTimeout(() => { if (mountedRef.current) setTrialNote(null); }, 5000);
             }
         }
@@ -367,7 +367,7 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                                 <div style={{ minWidth: 0 }}>
                                     <div style={{ fontSize: ".58rem", letterSpacing: ".1em", textTransform: "uppercase", color: "#9aa3b2" }}>🔒 Sealed until the {TRIAL_NAMES.bind}</div>
                                     <b style={{ fontSize: ".86rem", color: "#cbd5e1" }}>{sig.name}</b>
-                                    <p style={{ margin: "2px 0 0", fontSize: ".67rem", color: "#94a3b8" }}>{shape} · pass Stage III — Bound and it becomes your 16th slot, a technique only your Legacy can wield.</p>
+                                    <p style={{ margin: "2px 0 0", fontSize: ".67rem", color: "#94a3b8" }}>{shape} · reach Stage III (Bound) and it becomes your 16th slot, a technique only your Legacy can use.</p>
                                 </div>
                             </div>
                         );
@@ -393,13 +393,13 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                         const unlocksSig = nextStage === LEGACY_SIGNATURE_MIN_STAGE;
                         return (
                             <p style={{ margin: "10px 0 0", fontSize: ".72rem", color: "#c4b5fd" }}>
-                                ↗ Next: the <b>{TRIAL_NAMES[kind]}</b> — passing it carries you to <b>Stage {STAGE_ROMAN[nextStage]} · {STAGE_NAMES[nextStage]}</b>{unlocksSig ? ", where your signature technique awakens" : ""}.
+                                ↗ Next: the <b>{TRIAL_NAMES[kind]}</b>. Passing it carries you to <b>Stage {STAGE_ROMAN[nextStage]} · {STAGE_NAMES[nextStage]}</b>{unlocksSig ? ", where your signature technique awakens" : ""}.
                             </p>
                         );
                     })()}
                     {status.legacy.stage === 5 && (
                         <p style={{ margin: "10px 0 0", fontSize: ".72rem", color: LEGACY_ACCENT, fontStyle: "italic" }}>
-                            ✦ The path is complete. Nothing more will ever be asked of it — only remembered.
+                            ✦ The path is complete. There are no more trials to take.
                         </p>
                     )}
                     </div>
@@ -410,14 +410,14 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                     {status.minLevelReached ? (
                         <p style={{ margin: 0, fontSize: ".8rem", color: "#cbd5e1" }}>
                             You have come far enough for a Legacy. A <b style={{ color: "#c084fc" }}>Wandering Sage</b> watches
-                            shinobi like you — keep playing, and he will find you on the world map.
+                            shinobi like you. Keep playing, and he will find you on the world map.
                             {status.offer && (() => {
                                 const msLeft = (status.offer.expiresAt ?? 0) - nowTs;
                                 const hours = Math.max(0, Math.floor(msLeft / 3_600_000));
                                 const left = hours >= 48 ? `${Math.floor(hours / 24)} days` : hours >= 1 ? `${hours}h` : "less than an hour";
                                 return (
                                     <> He is <b>waiting in sector {status.offer.sector}</b> right now.
-                                    {msLeft > 0 && <> He will not wait forever — <b style={{ color: "#fbbf24" }}>about {left}</b> remains.</>}</>
+                                    {msLeft > 0 && <> He will not wait forever. <b style={{ color: "#fbbf24" }}>About {left}</b> remains.</>}</>
                                 );
                             })()}
                         </p>
@@ -499,7 +499,7 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                         <button
                             disabled={busy}
                             onClick={() => void handleTrial("reroll")}
-                            title={`${em?.name ?? "The Sage"} will pose the same trial a different way. Progress resets — the ask changes, the height doesn't.`}
+                            title={`${em?.name ?? "The Sage"} will set the same trial a different way. Your progress resets. The tasks change, but the trial is just as hard.`}
                             style={{ width: "100%", marginTop: 6, background: "transparent", borderColor: "#6b7280", color: "#9aa3b2", fontSize: ".78rem" }}
                         >
                             Ask for a different proof (progress resets)
@@ -521,7 +521,7 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
             )}
             {status.legacy && status.legacy.stage === 5 && (
                 <p style={{ margin: 0, fontSize: ".78rem", color: "#c084fc", textAlign: "center", fontStyle: "italic" }}>
-                    Stage V — Mythic. Your legacy stands complete in the Hall of Legends.
+                    Stage V, Mythic. Your legacy stands complete in the Hall of Legends.
                 </p>
             )}
 
@@ -555,8 +555,8 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                 <div id="legacy-codex" className="card" style={{ padding: 14 }}>
                     <h4 style={{ margin: "0 0 4px" }}>The Legacy Codex</h4>
                     <p style={{ margin: "0 0 8px", fontSize: ".72rem", color: "#6b7280" }}>
-                        Every path the world remembers, as equals — no path is ranked above another
-                        here. What opens them stays a mystery; the life you live is the key. {defs.size} recorded.
+                        Every recorded path is listed here as an equal. None is ranked above
+                        another. What opens each one is not written down. It depends on how you play. {defs.size} recorded.
                     </p>
                     <input
                         type="search"
