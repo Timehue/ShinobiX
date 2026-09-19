@@ -30,6 +30,26 @@ app.post('/__qa/encounter', async (req, res) => {
     const node = run.map.find((n: any) => n.id === run.available[0]) ?? run.map[0];
     node.eventId = event.id; node.kind = event.kind; node.revealed = true;
     run.currentNodeId = node.id; run.visited = [node.id]; run.status = 'encounter'; run.available = []; run.version++;
+    if (Number.isInteger(req.body.supplies)) run.supplies = Math.max(0, Math.min(30, req.body.supplies));
+    for (const field of ['stamina', 'chakra', 'hp'] as const) {
+        if (Number.isInteger(req.body[field])) save.character[field] = Math.max(0, Math.min(save.character[`max${field[0].toUpperCase()}${field.slice(1)}`], req.body[field]));
+    }
+    if (Number.isInteger(req.body.cargo)) run.cargo = Math.max(1, Math.min(100, req.body.cargo));
+    if (req.body.contractId) {
+        const { CARAVAN_CONTRACTS } = await import('../shared/sunscar/caravan-contracts.js');
+        const { generateCaravanMap } = await import('../shared/sunscar/caravan-map.js');
+        const contract = CARAVAN_CONTRACTS.find(c => c.id === req.body.contractId);
+        if (!contract) { res.status(400).json({ error: 'Unknown fixture contract.' }); return; }
+        const { caravanBaseReward } = await import('../api/festival/_caravan.js');
+        run.baseReward = caravanBaseReward(save.character, contract);
+        run.contract = contract; run.map = generateCaravanMap(run.seed, contract, run.weather);
+        run.currentNodeId = null; run.visited = []; run.status = 'travel'; run.available = run.map.filter((n: any) => n.layer === 0).map((n: any) => n.id);
+    }
+    if (req.body.tracker) {
+        const tracker = createOwnedPet('starter-wind', { origin: 'starter' });
+        save.character.pets.push(tracker); run.selectedPetId = tracker.id; run.tools.feed = 1;
+    }
+    save._regenAt = Date.now(); save._saveAt = Date.now();
     save._saveVersion++; await kv.set('save:' + name, save); res.json({ ok: true });
 });
 // Controlled initial positions for browser coverage of the real combat actions
@@ -57,4 +77,5 @@ for (const [path, source] of [
 }
 app.use(express.static(fileURLToPath(new URL('../.tmp/sunscar-modes-qa-dist/', import.meta.url))));
 app.use(express.static(fileURLToPath(new URL('../shinobij.client/public/', import.meta.url))));
-app.listen(5199, '127.0.0.1', () => console.log('Sunscar modes QA: http://127.0.0.1:5199/sunscar-modes-qa.html'));
+const port = Number(process.env.SUNSCAR_QA_PORT || 5199);
+app.listen(port, '127.0.0.1', () => console.log(`Sunscar modes QA: http://127.0.0.1:${port}/sunscar-modes-qa.html`));

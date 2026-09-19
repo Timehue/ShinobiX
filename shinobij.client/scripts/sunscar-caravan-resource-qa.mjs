@@ -1,5 +1,6 @@
 import { chromium } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
 
 const base = 'http://127.0.0.1:5199';
@@ -73,6 +74,7 @@ try {
     for (let i = 0; i < 6; i++) {
         await page.getByRole('button', { name: 'Rejoin your caravan' }).click();
         await page.locator('.caravan-manifest').waitFor();
+        await page.getByRole('button', { name: 'Route map', exact: true }).click();
         await page.getByRole('button', { name: 'Zoom map in' }).click();
         await page.locator('.caravan-map-node.is-available').first().click();
         await page.getByRole('button', { name: '← Festival grounds' }).click();
@@ -88,6 +90,12 @@ try {
     assert.ok(lastTask <= firstTask + .05, `Caravan idle CPU task time rose from ${firstTask} to ${lastTask}`);
     assert.deepEqual(errors, []);
     console.log(JSON.stringify({ idle, samples, firstHeap, lastHeap, firstTask, lastTask, errors }));
+} catch (error) {
+    if (page) {
+        await page.screenshot({ path: fileURLToPath(new URL('failure.png', out)), fullPage: true });
+        await writeFile(new URL('failure.txt', out), await page.locator('body').innerText());
+    }
+    throw error;
 } finally {
     await writeFile(new URL('report.json', out), JSON.stringify({ samples, errors }, null, 2));
     await browser.close();

@@ -5,12 +5,16 @@ import { petCombatBusyReason } from '../pet/_pet-busy.js';
 import { grantFestivalTitles } from './_prestige.js';
 import { caravanDaily } from '../../shared/sunscar/caravan-contracts.js';
 import { generateCaravanMap } from '../../shared/sunscar/caravan-map.js';
-import { caravanObjectiveComplete, currentCaravanNode, resolveCaravanChoice, selectCaravanNode } from '../../shared/sunscar/caravan-state.js';
+import { caravanChanges, caravanFieldCharacter, caravanRewardPreview, caravanVitalCost, currentCaravanNode, resolveCaravanChoice, selectCaravanNode } from '../../shared/sunscar/caravan-state.js';
+import { petRoleOf } from '../_pet-sim/pet-roles.js';
 import { clamp } from '../../shared/sunscar/random.js';
-import type { CaravanEffect, CaravanProgress, CaravanRun, CaravanTool } from '../../shared/sunscar/caravan-types.js';
+import type { CaravanContract, CaravanEffect, CaravanProgress, CaravanRun, CaravanTool } from '../../shared/sunscar/caravan-types.js';
 import { FestivalError, festivalDay } from './_rally.js';
 
 type Obj = Record<string, unknown>;
+export function caravanBaseReward(character: Obj, contract: CaravanContract): number {
+    return Math.round(dailyLoginRyo(Number(character.level) || 1) * contract.payoutFactor);
+}
 export function caravanProgress(character: Obj): CaravanProgress {
     return character.sunscarCaravan ? structuredClone(character.sunscarCaravan as CaravanProgress) : { reputation: 0, deliveries: 0, lastEntryDay: null, current: null, chains: {}, discoveries: [], history: [] };
 }
@@ -45,7 +49,7 @@ export function departCaravan(character: Obj, player: string, body: Obj, now: nu
         currentNodeId: null, available: map.filter(n => n.layer === 0).map(n => n.id), visited: [], status: 'travel',
         cargo: 100, supplies: contract.supplies, morale: daily.weather === 'night' ? 75 : 65, tools, flags: [], discoveries: [],
         reputation: 0, bonus: 0, enemiesDefeated: 0, travelersHelped: 0, selectedPetId: petId,
-        baseReward: Math.round(dailyLoginRyo(Number(character.level) || 1) * contract.payoutFactor),
+        baseReward: caravanBaseReward(character, contract),
         log: [], combat: null, result: null, lastAction: null, createdAt: now, updatedAt: now,
     };
     progress.lastEntryDay = day;
@@ -58,16 +62,18 @@ function applyVitals(character: Obj, effect: CaravanEffect, morale: number): Obj
         const max = Math.max(0, Number(character[`max${field[0].toUpperCase()}${field.slice(1)}`]) || 0);
         const recovery = percent > 0 ? (morale >= 80 ? 1.15 : morale < 25 ? .8 : 1) : 1;
         // Non-combat choices can exhaust you, but standard combat owns knockout/admission.
-        next[field] = clamp((Number(character[field]) || 0) + Math.round(max * percent * recovery / 100), field === 'hp' ? 1 : 0, max);
+        const delta = percent < 0 && field !== 'hp' ? -caravanVitalCost(max, percent) : Math.round(max * percent * recovery / 100);
+        next[field] = clamp((Number(character[field]) || 0) + delta, field === 'hp' ? 1 : 0, max);
     }
     return next;
 }
 export function finishCaravan(character: Obj, progress: CaravanProgress, reason: string, success: boolean, now: number): Obj {
     const run = progress.current!;
     if (run.result) return character;
-    const objectiveComplete = success && caravanObjectiveComplete(run);
-    const reputation = success ? Math.max(5, 10 + run.contract.difficulty * 5 + run.reputation + (objectiveComplete ? 5 : 0)) : Math.max(0, Math.floor(run.reputation / 2));
-    const ryo = success ? Math.floor(run.baseReward * run.cargo / 100 * (1 + run.bonus / 100 + (objectiveComplete ? .1 : 0))) : 0;
+    const preview = caravanRewardPreview(run);
+    const objectiveComplete = success && preview.objectiveComplete;
+    const reputation = success ? preview.reputation : Math.max(0, Math.floor(run.reputation / 2));
+    const ryo = success ? preview.ryo : 0;
     run.status = success ? 'complete' : 'failed';
     run.result = { ryo, reputation, cargo: run.cargo, objectiveComplete, reason };
     run.updatedAt = now;
@@ -95,7 +101,7 @@ export function advanceCaravan(character: Obj, body: Obj, now: number): { charac
     try {
         if (body.action === 'travel') updated = selectCaravanNode(run, String(body.nodeId));
         else if (body.action === 'choose') {
-            const resolved = resolveCaravanChoice(run, String(body.choiceId), Number(character.ryo) || 0);
+            const resolved = resolveCaravanChoice(run, String(body.choiceId), caravanFieldCharacter(character, petRoleOf), now);
             updated = resolved.run; effect = resolved.effect;
             next = applyVitals({ ...character, ryo: (Number(character.ryo) || 0) - resolved.costRyo }, effect, run.morale);
             if (effect.combat) updated.combat = { sessionId: `caravan:${run.id}:${run.currentNodeId}`, enemy: effect.combat, nodeId: run.currentNodeId!, settled: false };
@@ -109,6 +115,7 @@ export function advanceCaravan(character: Obj, body: Obj, now: number): { charac
     updated.version++;
     updated.updatedAt = now;
     updated.lastAction = { requestId, fingerprint };
+    if (body.action === 'choose' || body.action === 'travel') updated.log[updated.log.length - 1].changes = caravanChanges(run, updated, character, next);
     progress.current = updated;
     next = { ...next, sunscarCaravan: progress };
     if (updated.cargo <= 0) next = finishCaravan(next, progress, body.action === 'retire' ? 'The convoy returned to Sunscar before delivery.' : 'No deliverable cargo remains.', false, now);
@@ -119,6 +126,7 @@ export function settleCaravanCombat(character: Obj, sessionId: string, won: bool
     const { progress, run } = requireCaravan(character);
     if (!run.combat || run.combat.sessionId !== sessionId) throw new FestivalError('This battle does not belong to the active expedition.', 409);
     if (run.combat.settled) return character;
+    const before = structuredClone(run);
     run.combat.settled = true;
     run.version++;
     run.updatedAt = now;
@@ -128,6 +136,6 @@ export function settleCaravanCombat(character: Obj, sessionId: string, won: bool
     run.morale = Math.min(100, run.morale + 5);
     run.status = 'travel';
     run.available = [...currentCaravanNode(run)!.next];
-    run.log.push({ nodeId: run.currentNodeId!, title: 'The road is open', text: 'The crew checks the wagons while you recover your equipment. Your remaining combat condition carries into the journey.', cargo: run.cargo, supplies: run.supplies, morale: run.morale });
+    run.log.push({ nodeId: run.currentNodeId!, title: 'The road is open', text: 'The crew checks the wagons while you recover your equipment. Your remaining combat condition carries into the journey.', cargo: run.cargo, supplies: run.supplies, morale: run.morale, changes: caravanChanges(before, run, character, character) });
     return { ...character, sunscarCaravan: progress };
 }

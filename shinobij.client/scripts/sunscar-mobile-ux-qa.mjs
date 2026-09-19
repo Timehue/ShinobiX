@@ -78,6 +78,7 @@ for (const [browserName, type] of [['chromium', chromium], ['webkit', webkit]]) 
       await page.getByRole('button',{name:'Accept contract & depart'}).click();
       await page.getByRole('heading',{name:'Choose the next road'}).waitFor();
       await measure(page,label+'-departure');
+      await page.getByRole('button',{name:'Route map',exact:true}).click();
       await page.locator('.caravan-map-node.is-available').first().click();
       await measure(page,label+'-map-inspection');
       await page.getByRole('button',{name:'Travel to this stop'}).click();
