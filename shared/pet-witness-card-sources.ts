@@ -18,26 +18,26 @@ export const CHRONICLE_PET_WITNESS_SOURCES = Object.freeze([
     {
         id: 'pet-witness-fire', name: 'Emberbound Witness', element: 'Fire',
         image: '/pet-evos/starter-fire-r.webp', attack: 1_900, defense: 1_500,
-        lore: 'A bonded beast remembers the heat of the deed after every written account has gone cold.',
+        lore: 'Scribes recorded this fire-aligned companion after it earned arena renown. The record belongs to the beast as well as its handler.',
     },
     {
         id: 'pet-witness-water', name: 'Tidebound Witness', element: 'Water',
         image: '/pet-evos/starter-water-r.webp', attack: 1_500, defense: 1_900,
-        lore: 'Water carries a true name farther than rumor. The scribes pressed this record from a companion’s memory.',
+        lore: 'The Chronicle keeps this water-aligned companion’s chosen name beside its arena record.',
     },
     {
         id: 'pet-witness-wind', name: 'Galebound Witness', element: 'Wind',
         image: '/pet-evos/starter-wind-r.webp', attack: 1_800, defense: 1_600,
-        lore: 'No archive kept the footfalls. A companion heard them in the wind and led the scribes back.',
+        lore: 'This wind-aligned companion earned a Chronicle card through its own arena performance.',
     },
     {
         id: 'pet-witness-lightning', name: 'Stormbound Witness', element: 'Lightning',
         image: '/pet-evos/starter-lightning-r.webp', attack: 2_000, defense: 1_400,
-        lore: 'The flash vanished in an instant. The bond that witnessed it did not.',
+        lore: 'The match ended, but the Chronicle kept this lightning-aligned companion’s name and deeds.',
     },
     {
         id: 'pet-witness-earth', name: 'Stonebound Witness', element: 'Earth',
         image: '/pet-evos/starter-earth-r.webp', attack: 1_400, defense: 2_000,
-        lore: 'Stone keeps pressure, tracks, and promises. This companion kept all three until the Chronicle arrived.',
+        lore: 'The Chronicle records this earth-aligned companion’s arena victories under its own name.',
     },
 ] as const satisfies readonly ChroniclePetWitnessSource[]);

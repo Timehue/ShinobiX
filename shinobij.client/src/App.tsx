@@ -13,6 +13,7 @@ import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, us
 import type * as React from "react";
 import { installAuthFetch, setActivePlayer, setActiveToken, setAdminSession, SESSION_EXPIRED_EVENT } from "./authFetch";
 import { isReleaseSafeClientEvent } from "./lib/release-safe-content";
+import { canonicalNarrativeEvent, isReservedNarrativeId } from "./lib/canonical-narrative";
 import { GameAlertHost, GameConfirmHost, GamePasswordPromptHost, gameConfirm } from "./components/GameAlert";
 import { createPlayerLogout } from "./lib/player-logout";
 import { GameToastHost, gameToast } from "./components/GameToast";
@@ -2756,7 +2757,6 @@ export default function App() {
                         // combat reducer. Retire only that browser lock and preserve
                         // the active server run; Seal One can immediately relaunch
                         // through AiFightHost with its exact dungeonRunToken.
-                        const legacy = readArenaStoryContext(normalized.name)?.battle as { eventId?: string } | undefined;
                         void postBattleLock({ action: "resolve", playerName: normalized.name, battleId: bootLock.battleId });
                         try {
                             localStorage.removeItem(arenaStoryCtxKey(normalized.name));
@@ -2767,7 +2767,9 @@ export default function App() {
                         setPendingAiProfileId("");
                         const dungeonToken = normalized.activeDungeonRun?.token;
                         if (dungeonToken) {
-                            setActiveDungeonEvent(creatorEvents.find((event) => event.id === legacy?.eventId) ?? dungeonEventTemplate());
+                            // The dungeon recovery effect rebuilds current canonical
+                            // presentation from this run before showing its reader.
+                            setActiveDungeonEvent(null);
                             setActiveDungeonRunToken(dungeonToken);
                             setDungeonLine(0);
                             gameToast("Dungeon combat upgraded. Challenge the sealed Warden to continue your reserved run.");
@@ -2900,7 +2902,7 @@ export default function App() {
                     target = safeFallbackScreen(isWildSector(Number(snap.currentSector ?? 0)));
                 } else if (target === "dungeon" && normalized.activeDungeonRun?.token) {
                     setActiveDungeonRunToken(normalized.activeDungeonRun.token);
-                    setActiveDungeonEvent(creatorEvents.find((event) => event.id === DUNGEON_VN_ID) ?? hiddenDungeonVnEvent);
+                    setActiveDungeonEvent(canonicalNarrativeEvent(hiddenDungeonVnEvent, creatorEvents.find((event) => event.id === DUNGEON_VN_ID)));
                     setDungeonLine(0);
                     setDungeonReturnScreen(normalized.activeDungeonRun.entry === "key" ? "centralHub" : "worldMap");
                 } else if (target === "dungeon") {
@@ -3316,7 +3318,7 @@ export default function App() {
             return;
         }
         setTriggeredEvents((ids) => ids.includes(AURA_SPHERE_VN_ID) ? ids : [...ids, AURA_SPHERE_VN_ID]);
-        setActiveTriggeredEvent(creatorEvents.find(e => e.id === AURA_SPHERE_VN_ID) ?? auraSphereLv9VnEvent);
+        setActiveTriggeredEvent(canonicalNarrativeEvent(auraSphereLv9VnEvent, creatorEvents.find(e => e.id === AURA_SPHERE_VN_ID)));
         setActiveTriggerReturnScreen(screen);
         setTriggerPage(0);
         setTriggerLine(0);
@@ -3340,6 +3342,7 @@ export default function App() {
         const candidate = creatorEvents.find(
             (ev) =>
                 ev.eventKind === "visualNovel" &&
+                !isReservedNarrativeId(ev.id) &&
                 !ev.trigger &&
                 !triggeredEvents.includes(ev.id) &&
                 character.level >= ev.levelReq
@@ -3377,10 +3380,9 @@ export default function App() {
             if (!next || vnTriggerClaimRef.current || sealedFightEngagedRef.current) return;
             if (forcedId === next.eventId) forcedStoryChapterRef.current = null;
             vnTriggerClaimRef.current = true;
-            // Prefer the admin-edited version from creatorEvents (uploaded images,
-            // custom dialogue, etc.), then overlay any KV-stored images.
+            // Keep current story text and branches; saved copies supply art only.
             const edited = creatorEvents.find(e => e.id === next.eventId);
-            const vnEvent = overlayVnImages({ ...(edited ?? next.base), xpReward: 0, ryoReward: 0 }, next.eventId, sharedImages);
+            const vnEvent = overlayVnImages({ ...canonicalNarrativeEvent(next.base, edited), xpReward: 0, ryoReward: 0 }, next.eventId, sharedImages);
             // Opening a story beat never consumes it. Chapter milestones advance
             // only after the sealed boss win; interludes persist after a recorded
             // choice. A close is session-only and a refresh offers the beat again.
@@ -4510,6 +4512,7 @@ export default function App() {
             const event = creatorEvents.find(
                 (candidate) =>
                     candidate.eventKind === "visualNovel" &&
+                    !isReservedNarrativeId(candidate.id) &&
                     candidate.trigger === "firstBattleArena" &&
                     !triggeredEvents.includes(candidate.id) &&
                     character.level >= candidate.levelReq
@@ -4529,7 +4532,7 @@ export default function App() {
             // Built-in: Awakening Stone VN fires first time leaving village at level 2+
             if (character.level >= 2 && !triggeredEvents.includes(AWAKENING_VN_ID)) {
                 setTriggeredEvents((ids) => [...ids, AWAKENING_VN_ID]);
-                setActiveTriggeredEvent(creatorEvents.find(e => e.id === AWAKENING_VN_ID) ?? awakeningLv2VnEvent);
+                setActiveTriggeredEvent(canonicalNarrativeEvent(awakeningLv2VnEvent, creatorEvents.find(e => e.id === AWAKENING_VN_ID)));
                 setActiveTriggerReturnScreen(nextScreen);
                 setTriggerPage(0);
                 setTriggerLine(0);
@@ -4539,6 +4542,7 @@ export default function App() {
             const event = creatorEvents.find(
                 (candidate) =>
                     candidate.eventKind === "visualNovel" &&
+                    !isReservedNarrativeId(candidate.id) &&
                     candidate.trigger === "firstLeaveVillage" &&
                     !triggeredEvents.includes(candidate.id) &&
                     character.level >= candidate.levelReq
@@ -4606,7 +4610,7 @@ export default function App() {
         }
     }
     function dungeonEventTemplate() {
-        return creatorEvents.find((event) => event.id === DUNGEON_VN_ID) ?? hiddenDungeonVnEvent;
+        return canonicalNarrativeEvent(hiddenDungeonVnEvent, creatorEvents.find((event) => event.id === DUNGEON_VN_ID));
     }
     async function triggerDungeonEncounter(returnScreen: Screen = "worldMap", dungeonOverride?: CreatorEvent, freeRunToken = "") {
         if (!character || dungeonActionRef.current) return;

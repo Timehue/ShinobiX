@@ -125,7 +125,7 @@ export const ECHOES_FLOOR_COUNT = 10;
 export const ECHOES_HERO_COPY = {
     eyebrow: "Celestial Tower · Chapter One · The Sunken Court",
     /** Rendered as the landing subtitle. */
-    subtitle: "The tower keeps the memories of the fallen, not their souls. The Sunken Court built the Hollow Gate and fell to it. Finish the Showdowns the Court never held, and you will know the machine that is feeding on your villages now.",
+    subtitle: "The tower keeps the memories of the fallen, not their souls. The Sunken Court built the Hollow Gate and fell to it. Play the Showdowns it denied its people, and uncover the history of the machinery beneath your villages.",
     /** Rendered as the landing footnote. */
     footnote: "The Sunken Court was the first age the Gate consumed. The villages are the second. Each age holds the memories that never got their Showdown. Chronicle Points, earned here, buy the Basic Card Pack in the Card Shop.",
 } as const;
@@ -221,7 +221,7 @@ export const ECHOES_OPPONENTS: readonly EchoesOpponent[] = [
         lockedHint: "Finish the Watch Captain's Showdown to open this memory.",
         portrait: "/portraits/nima.webp",
         sceneImage: scene("nima"),
-        chronicleNote: "An investigator proved the lower works consumed far more than the city ever received back. Something between the intake and the lamps was drinking the difference. His figures burned.",
+        chronicleNote: "Corvale measured the gap between the lower works' intake and output. Nima burned his only copy to hide that she had held evidence against the Court.",
     },
     {
         id: "echoes-8-eren", floor: 8, name: "Eren", title: "The Chronicle Arbiter",
@@ -285,7 +285,7 @@ export const ECHOES_ERAS: readonly EchoesEra[] = [
     {
         id: "echoes-age-3", ageLabel: "Age III", title: "The Silenced",
         tagline: "When the Gate had a name, and naming it was a crime.",
-        sealedTease: "Three who kept the quiet, kept by the tower in turn.",
+        sealedTease: "Hear from the archivist, arbiter, and engineer who suppressed the evidence.",
         floors: [7, 8, 9], plateImage: eraScene("age-3"), band: "high",
     },
     {

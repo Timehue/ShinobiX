@@ -125,7 +125,7 @@ export const hiddenDungeonVnEvent: CreatorEvent = {
             speaker: "Dungeon Warden",
             dialogue: [
                 "Dungeon Warden: A shinobi who only knows how to strike is easy to bury.",
-                "Dungeon Warden: Set a legal Shinobi Chronicle Showdown deck on the table and win the record laid against you. No deck means no second seal.",
+                "Dungeon Warden: Bring a full, legal Chronicle deck. Win the Shinobi Chronicle Showdown at this table to open the second seal. Come back with your cards if you haven't brought them.",
             ],
             leftName: "Player",
             rightName: "Dungeon Warden",

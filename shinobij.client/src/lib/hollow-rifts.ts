@@ -182,13 +182,13 @@ const REPEAT_REPORTS: Record<string, { title: string; scene: string; lines: stri
     "rift-legacy-echo": {
         title: "A Second Disturbance",
         scene: "Senna compares a fresh rubbing with the first one already filed",
-        lines: ["The rubbing you brought is dry in the archive. This new break is worrying at another copy of the same refusal.", "Meet it in %sector. Bring the mark back without smearing it; I have paper waiting."],
-        decline: "Senna folds the fresh rubbing into oilskin and sets it beside the brush. The marker can wait one more night, she says, if the paper stays dry.",
+        lines: ["Your first rubbing is safe in the archive. Another rift has opened near an inscription of the same deed, and the Gate is making a new copy of the fighter.", "It's in %sector. Stop the copy and bring me a rubbing of that inscription too. I'd like to compare the surviving marks."],
+        decline: "Senna wraps the paper in oilskin. 'I'll keep this ready for you. I hope the inscription holds up until then.'",
     },
     "rift-hollow-stalker": {
         title: "The Seam Opens Again",
         scene: "Vessa adds a new violet line to a map whose older seam is crossed out",
-        lines: ["The seam you closed stopped widening. A new one in %sector has grown legs of its own.", "I already know you can hold your footing. I need the new break contained before it reaches the road."],
+        lines: ["The seam you closed has stayed shut. I've found another one in %sector, with the same kind of creature pulling at the edges.", "I need this break contained before it reaches the road. Can you handle it?"],
         decline: "Vessa weights the new corner of the map with a stone. She will measure the seam again at dusk and leave the figures at this post.",
     },
     "rift-beast-warren": {
@@ -212,7 +212,7 @@ const REPEAT_REPORTS: Record<string, { title: string; scene: string; lines: stri
     "rift-mirror-shard": {
         title: "Glass Sheds Twice",
         scene: "Nemo shutters the booth around a new sliver of moving glass",
-        lines: ["The names from the first rim are back with their keepers. This shard in %sector wears newer reflections.", "Break it before those copies learn which faces make me hesitate."],
+        lines: ["I've returned the first set of names to the people they belong to. Now there's another shard in %sector, copying different faces.", "Break it before it reaches the booths. I'll need its rim to identify the people it copied."],
         decline: "Nemo wraps the sliver without looking into it and locks it in the empty cash drawer. Tonight, he says, the money can sleep elsewhere.",
     },
     "rift-gate-heir": {
@@ -232,7 +232,7 @@ function repeatIntroPages(rift: HollowRift): RiftPage[] {
         speaker: rift.giverName,
         dialogue: report.lines,
         choices: [
-            { text: `Return to the ${rift.bossName}.`, accept: true },
+            { text: `Return to ${rift.bossName}.`, accept: true },
             { text: "Not yet.", conclusion: report.decline },
         ],
     }];
@@ -286,13 +286,39 @@ export function riftIntroEvent(
 }
 
 const FIRST_CLEAR_REACTIONS: Record<string, RiftPage[]> = {
-    "rift-legacy-echo": [{ title: "A Deed Kept", scene: "Senna's brush follows the recovered rubbing without touching its oldest strokes", speaker: "Senna Graveward", dialogue: ["Open hand. Closed gate. Witness mark. The rubbing survived clean enough to read.", "Read the three strokes back to me while I file it. A nameless marker still deserves a careful witness."] }],
-    "rift-hollow-stalker": [{ title: "The Line Holds", scene: "Vessa measures the dead grass beside the sealed seam", speaker: "Scout Vessa", dialogue: ["Dead grass has not moved another inch. Hold the end of this measure.", "Contained at my line. Good. I can put the ridge patrol back on the ridge instead of making them guess where the ground ends."] }],
-    "rift-beast-warren": [{ title: "Water Before Thanks", scene: "Bel kneels outside the warren as Nara breathes against her coat", speaker: "Houndmaster Bel", dialogue: ["The controlling shape let go when you broke it. Nara is hurt, but she is here. Help me get her weight onto the blanket.", "Water first. Thanks after she keeps it down. I am carrying her home; take the front edge and keep it level."] }],
-    "rift-engine-echo": [{ title: "A Name on the Manifest", scene: "Sann lays the recovered manifest flat on the waystation table", speaker: "Recorder Sann", dialogue: ["Set your hand on that corner; it keeps curling. The names are still here, and so is the cause buried beside each one.", "My signature goes under the copy. Mine, not the routing office's. Give me the pen before I find a smaller way to write it."] }],
-    "rift-hollow-name": [{ title: "Filed Beside the Warning", scene: "Oru fits the recovered Hall-mark shard below the face-down slate", speaker: "Keeper Oru", dialogue: ["Cut edge down. There. The shard fits beside the deed and the Hall's condemnation.", "The old name stays protected. Keep the lamp over the warning while I fasten this; my eyes are still old."] }],
-    "rift-mirror-shard": [{ title: "Names Returned", scene: "Nemo reads the recovered rim with the booth shutters closed", speaker: "Broker Nemo", dialogue: ["Every etched name is legible. This one passed through my brokerage; so did this one. I will not price the list.", "I copied the chain of sales in my own hand. Now I wrap the rim for return to the people it recorded."] }],
-    "rift-gate-heir": [{ title: "One Plate, Four Witnesses", scene: "A waystation board where Harrow has called witnesses from four roads", speaker: "Kite Harrow", dialogue: ["The plate matches all four reports. I gave each witness one column and a pen; they are still arguing over the ink.", "Your descent is on this copy. Keep it. Hold the plate level while I drive the second rivet."] }],
+    "rift-legacy-echo": [{
+        title: "A Deed Kept",
+        scene: "Senna lays your charcoal rubbing flat and points to the three surviving symbols.",
+        speaker: "Senna Graveward",
+        dialogue: [
+            "You kept it clear. I can make out the hand, the gate, and the witness mark. Together, they're the record of a person refusing the Court, just as I remembered.",
+            "We still don't have their name. But now we have a copy of what they did, even if the stone wears away. Tell me what you saw at the shrine while I write it down.",
+        ],
+    }],
+    "rift-hollow-stalker": [{
+        title: "The Line Holds", scene: "Vessa measures the dead grass beside the sealed seam.", speaker: "Scout Vessa",
+        dialogue: ["Hold the end of this measure. The dead patch hasn't spread past the line I marked.", "Good. The break is closed, and the ground is holding. I can send the patrol back onto the ridge. Thank you."],
+    }],
+    "rift-beast-warren": [{
+        title: "Water Before Thanks", scene: "Bel kneels outside the warren with Nara resting against her coat.", speaker: "Houndmaster Bel",
+        dialogue: ["It let go when you broke that shape around her. She's hurt, but she's breathing. Help me ease her onto the blanket.", "Let me give her a little water first. Then we'll carry her home. Take the front corners and lift when I do."],
+    }],
+    "rift-engine-echo": [{
+        title: "A Name on the Manifest", scene: "Sann lays the recovered manifest flat on the waystation table.", speaker: "Recorder Sann",
+        dialogue: ["Hold that corner down; it keeps curling. The names are still readable, and each fighter's reason is written beside them.", "I'll sign this copy myself. I helped conceal what happened to these people. I want anyone who reads this to know I'm admitting it."],
+    }],
+    "rift-hollow-name": [{
+        title: "Filed Beside the Warning", scene: "Oru places the recovered Hall-mark shard beside the slate.", speaker: "Keeper Oru",
+        dialogue: ["Set the broken edge down carefully. I'll attach the shard beside the account of what that shinobi did and why the Hall condemned it.", "We'll keep their name covered, as before. Hold the lamp steady while I fasten this. I'd rather not put a nail through my thumb."],
+    }],
+    "rift-mirror-shard": [{
+        title: "Names Returned", scene: "Behind closed shutters, Nemo reads the names etched into the recovered rim.", speaker: "Broker Nemo",
+        dialogue: ["I can read every name. This person's confession went through my brokerage. So did this one's. I recognize far too many of them.", "I'll compare these names with my sales records and contact the people involved. They deserve to know where their confessions went. There won't be a fee."],
+    }],
+    "rift-gate-heir": [{
+        title: "One Plate, Four Witnesses", scene: "Harrow gathers witnesses from all four roads at a waystation noticeboard.", speaker: "Kite Harrow",
+        dialogue: ["The plate matches the markings in all four reports. Each witness has signed beside the part they can verify. Anyone passing through can read it.", "Here's your copy of the report, with your part in it recorded. Now hold the plate level while I drive the second rivet."],
+    }],
 };
 
 /** A reward-free aftermath queued only after the server returns firstClear=true

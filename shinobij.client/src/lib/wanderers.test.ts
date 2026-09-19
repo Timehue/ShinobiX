@@ -128,7 +128,7 @@ describe("content-locked archetypes", () => {
         assert.equal(wandererVerbLockReason(CARD_UNLOCKED, "petDuel"), null);
         assert.equal(wandererVerbLockReason({}, "attack"), null, "unlocked verbs are never refused");
         assert.match(wandererVerbLockReason({ pets: [{}] }, "gamble") ?? "", /codex/i);
-        assert.match(wandererVerbLockReason({ starterCardsClaimed: true, pets: [] }, "petDuel") ?? "", /no pet/i);
+        assert.match(wandererVerbLockReason({ starterCardsClaimed: true, pets: [] }, "petDuel") ?? "", /need a companion.*Befriend one/i);
         // And the gate never changed who is on the road.
         assert.deepEqual(rollWanderers(12, 5000), rollWanderers(12, 5000));
     });

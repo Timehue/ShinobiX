@@ -240,12 +240,36 @@ test("everyone indoors has a painted face, on the room token and in the dialogue
             assert.ok(statSync(art).size > 4096, `${npc.id}.webp is missing or too small to be a portrait`);
         }
     }
-    // Both interior surfaces must READ that map. The letter stays as the fallback
-    // for a furnishing — a shelf is not a person — and for an unpainted newcomer.
+    // Both interior surfaces must read that map. Room observations use the
+    // narrator's portrait instead of borrowing the keeper's identity.
     assert.match(firstPact, /portrait: NPC_PORTRAITS\[npc\.id\],/);
-    assert.match(firstPact, /\{interiorSpeech\.portrait\s*\r?\n?\s*\? <img src=\{interiorSpeech\.portrait\}/);
+    assert.match(firstPact, /<img src=\{interiorSpeech\.portrait\} alt=\{interiorSpeech\.portraitAlt\}/);
     assert.match(firstPact, /<span className="fp-npc-body">\s*\r?\n?\s*\{NPC_PORTRAITS\[npc\.id\]/);
     assert.doesNotMatch(firstPact, /<span className="fp-npc-body"><i>\{npc\.name\.slice\(0, 1\)\}<\/i><\/span>/);
+});
+
+test("every First Pact NPC resolves a distinct, present portrait for their identity", () => {
+    const imports = new Map([...firstPact.matchAll(/import (\w+Portrait) from "(\.\.\/assets\/first-pact\/portraits\/[^"]+)";/g)]
+        .map((match) => [match[1], match[2]]));
+    const mappings = new Map([...firstPact.matchAll(/"([a-z-]+)": (\w+Portrait),/g)]
+        .map((match) => [match[1], imports.get(match[2])]));
+    const streetIdentities: Record<string, string> = {
+        "keeper-sena": "sena-vale", "registrar-orin": "registrar-orin", "court-arbiter": "court-arbiter",
+        "scribe-vey": "scribe-vey", "engineer-tam": "engineer-tam", "bellwarden-isu": "bellwarden-isu",
+        "garden-keeper": "old-kaio", "market-rho": "feed-merchant-rho", "kennel-hand": "stable-hand-pell",
+        "court-courier": "court-courier-nemi", "market-runner": "market-runner-yori",
+    };
+    const cast = [...FIRST_PACT_NPCS, ...FIRST_PACT_INTERIORS.flatMap((room) => room.npcs)];
+    const paths = new Set<string>();
+    for (const npc of cast) {
+        const portrait = mappings.get(npc.id);
+        assert.ok(portrait, `${npc.name} has no portrait mapping`);
+        assert.equal(portrait, `../assets/first-pact/portraits/${streetIdentities[npc.id] ?? npc.id}.webp`, `${npc.name} has the wrong portrait`);
+        assert.ok(statSync(new URL(portrait, new URL("../screens/", import.meta.url))).size > 4096, `${npc.name}'s portrait is missing`);
+        assert.ok(!paths.has(portrait), `${npc.name} is borrowing another NPC's face`);
+        paths.add(portrait);
+    }
+    assert.ok(statSync(new URL("../../public/portraits/narrator.webp", import.meta.url)).size > 4096);
 });
 
 test("a room is walked by clicking it, the same way the street is", () => {
