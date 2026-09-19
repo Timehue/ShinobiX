@@ -122,8 +122,12 @@ async function main() {
     const outDir = resolve(args.find(a => !a.startsWith('--')) ?? `.tmp/retired-vn-images-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}`);
     mkdirSync(outDir, { recursive: true });
     const plan: SlotPlan[] = [];
+    // A unique parameter per check: the CDN cached 404s for these ids during the
+    // 2026-09-19 outage, and a stale edge answer would read as "already gone"
+    // and silently skip a slot that is still stored.
+    const fresh = () => `cb=${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
     for (const { slot, expected } of plannedSlots()) {
-        const res = await fetch(`${base}/api/img?id=${encodeURIComponent(slot)}`, { redirect: 'follow' });
+        const res = await fetch(`${base}/api/img?id=${encodeURIComponent(slot)}&${fresh()}`, { redirect: 'follow', cache: 'no-store', headers: { 'cache-control': 'no-cache' } });
         const buf = res.ok ? Buffer.from(await res.arrayBuffer()) : undefined;
         const sha = buf ? createHash('sha256').update(buf).digest('hex') : undefined;
         const entry: SlotPlan = { slot, status: classify(expected, { status: res.status, sha }), sha, bytes: buf?.length, contentType: res.headers.get('content-type') ?? undefined };
@@ -155,7 +159,7 @@ async function main() {
         for (const f of body.failed ?? []) { failed.push(f.id); console.log(`  NOT removed ${f.id}: ${f.reason}`); }
     }
     // Cheap check: the category index (keys only) must no longer list them.
-    const index = await fetch(`${base}/api/images?cat=event&ids=1&v=${Date.now()}`).then(r => r.ok ? r.json() as Promise<string[]> : null).catch(() => null);
+    const index = await fetch(`${base}/api/images?cat=event&ids=1&${fresh()}`, { cache: 'no-store', headers: { 'cache-control': 'no-cache' } }).then(r => r.ok ? r.json() as Promise<string[]> : null).catch(() => null);
     const stillListed = index ? retire.filter(id => index.includes(id)) : undefined;
     console.log(`Removed ${removed} of ${retire.length}${failed.length ? `, ${failed.length} kept for a retry` : ''}. ${stillListed === undefined ? 'Could not read the image index to confirm.' : `Still listed in the image index: ${stillListed.length}.`} Backup: ${outDir}`);
 }
