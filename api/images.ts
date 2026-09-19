@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { kv } from './_storage.js';
 import { cors, parseJsonBody, safeName } from './_utils.js';
-import { authedPlayerOrAdmin } from './_auth.js';
-import { writeAssetMeta, deleteAssetMeta, imageFormat } from './_asset-registry.js';
+import { authedPlayerOrAdmin, isFullAdmin } from './_auth.js';
+import { writeAssetMeta, deleteAssetMeta, imageFormat, assetMetaKey } from './_asset-registry.js';
 import { recordAudit } from './_audit.js';
 import { r2ReadEnabled, r2WriteEnabled, putImage, deleteImage } from './_r2.js';
 import { bumpImageVersion, readImageVersion } from './_image-version.js';
@@ -334,6 +334,71 @@ export async function imageClaimReject(
     return { status: 403, error: 'This image belongs to another player.' };
 }
 
+/** Admin bulk removal limit per request. */
+export const BATCH_DELETE_MAX = 300;
+
+/** `DELETE /api/images` with `{ ids: [...] }`: validated, de-duplicated ids. */
+export function batchDeleteIds(body: unknown): string[] | { error: string } {
+    const ids = (body as { ids?: unknown } | null)?.ids;
+    if (!Array.isArray(ids) || !ids.length) return { error: 'Expected ids: a non-empty array.' };
+    if (ids.length > BATCH_DELETE_MAX) return { error: `At most ${BATCH_DELETE_MAX} ids per request.` };
+    if (!ids.every((id) => typeof id === 'string' && id.length > 0 && id.length <= 256 && id.includes(':')))
+        return { error: 'Every id must be "<category>:<key>" and at most 256 characters.' };
+    return [...new Set(ids as string[])];
+}
+
+type BatchImageStore = Pick<typeof kv, 'hdel' | 'del' | 'get' | 'set'>;
+
+/**
+ * Remove many images with ONE rewrite of each shared record. A single DELETE
+ * rewrites the whole category hash and legacy bundle (several MB each) for one
+ * image; 253 of them in a row filled the database disk on 2026-09-19. Storage
+ * objects go first, as in the single path, and an image whose object could not
+ * be removed keeps its database record so a retry can finish it.
+ */
+export async function removeImagesBatch(ids: readonly string[], deps: {
+    store: BatchImageStore;
+    removeFromStorage?: (id: string) => Promise<boolean>;
+    bumpVersion: (cat: string) => Promise<void>;
+    audit: (entry: Parameters<typeof recordAudit>[0]) => Promise<unknown>;
+    actor: string;
+    concurrency?: number;
+}): Promise<{ removed: string[]; failed: { id: string; reason: string }[] }> {
+    const failed: { id: string; reason: string }[] = [];
+    let removable = [...new Set(ids)];
+    if (deps.removeFromStorage) {
+        const ok = new Set<string>();
+        let next = 0;
+        await Promise.all(Array.from({ length: Math.min(deps.concurrency ?? 8, removable.length) }, async () => {
+            while (next < removable.length) {
+                const id = removable[next++];
+                if (await deps.removeFromStorage!(id).catch(() => false)) ok.add(id);
+                else failed.push({ id, reason: 'Image storage removal failed; kept for retry.' });
+            }
+        }));
+        removable = removable.filter((id) => ok.has(id));
+    }
+    const byCategory = new Map<string, string[]>();
+    for (const id of removable) byCategory.set(categoryFromId(id), [...(byCategory.get(categoryFromId(id)) ?? []), id]);
+    for (const [cat, catIds] of byCategory) {
+        await deps.store.hdel(catHashKey(cat), ...catIds);
+        const blob = await deps.store.get<Record<string, string>>(catKey(cat));
+        if (blob && catIds.some((id) => id in blob)) {
+            const rest = { ...blob };
+            for (const id of catIds) delete rest[id];
+            if (Object.keys(rest).length) await deps.store.set(catKey(cat), rest);
+            else await deps.store.del(catKey(cat));
+        }
+    }
+    // Per-image keys last, so a legacy lookup racing this call finds nothing to copy back.
+    if (removable.length) await deps.store.del(...removable.flatMap((id) => [`shared:img:${id}`, imgOwnerKey(id), assetMetaKey(id)]));
+    for (const [cat, catIds] of byCategory) {
+        await deps.bumpVersion(cat);
+        await deps.audit({ domain: 'content', actor: deps.actor, action: 'image.delete.batch', entityType: 'image', entityId: `${cat}:*`, meta: { category: cat, count: catIds.length, ids: catIds } });
+    }
+    return { removed: removable, failed };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -561,11 +626,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // flexibility with fetch wrappers that strip DELETE bodies.
             const queryId = typeof req.query.id === 'string' ? req.query.id : '';
             let bodyId = '';
+            let batchBody: unknown;
             if (req.body) {
                 const parsed = parseJsonBody(req.body);
                 if (!parsed.ok) return res.status(400).json({ error: parsed.error });
-                const body = parsed.body as { id?: unknown };
+                const body = parsed.body as { id?: unknown; ids?: unknown };
                 if (body && typeof body.id === 'string') bodyId = body.id;
+                if (body && typeof body === 'object' && 'ids' in body) batchBody = body;
+            }
+            if (batchBody !== undefined) {
+                if (!identity.admin || !isFullAdmin(req)) return res.status(403).json({ error: 'Batch image removal is for full admins.' });
+                const ids = batchDeleteIds(batchBody);
+                if (!Array.isArray(ids)) return res.status(400).json(ids);
+                for (const id of ids) {
+                    const reject = ownershipReject(id, identity);
+                    if (reject) return res.status(reject.status).json({ error: `${id}: ${reject.error}` });
+                }
+                const result = await removeImagesBatch(ids, {
+                    store: kv,
+                    removeFromStorage: r2ReadEnabled() || r2WriteEnabled() ? (id) => deleteImage(id) : undefined,
+                    bumpVersion: (cat) => bumpImageVersion(cat),
+                    audit: (entry) => recordAudit(entry),
+                    actor: 'admin',
+                });
+                return res.status(200).json(result);
             }
             const id = queryId || bodyId;
             if (!id) return res.status(400).json({ error: 'Missing id.' });

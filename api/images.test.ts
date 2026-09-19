@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { isUnsafeImageUrlHost, isValidImageString, avatarImageReject, base64DecodedByteLength, categoryFromId, ownershipReject, isPlayerClaimableImageId } from './images.js';
+import { isUnsafeImageUrlHost, isValidImageString, avatarImageReject, base64DecodedByteLength, categoryFromId, ownershipReject, isPlayerClaimableImageId, removeImagesBatch, batchDeleteIds, BATCH_DELETE_MAX } from './images.js';
 
 // Pure validation logic for the shared-image upload endpoint (audit #23). No KV,
 // no network — covers the internal-host / SSRF guard and the data-URL allowlist.
@@ -203,5 +203,73 @@ describe('categoryFromId — leader category (#16)', () => {
     it('routes avatar:* and unknown prefixes correctly', () => {
         assert.equal(categoryFromId('avatar:rill'), 'avatar');
         assert.equal(categoryFromId('whatever:foo'), 'misc');
+    });
+});
+
+describe('batch image removal (2026-09-19 disk incident)', () => {
+    function fakeStore(initial: Record<string, unknown>) {
+        const data = new Map<string, unknown>(Object.entries(structuredClone(initial)));
+        const writes: string[] = [];
+        const store = {
+            async get<T>(key: string) { return (data.has(key) ? structuredClone(data.get(key)) : null) as T | null; },
+            async set(key: string, value: unknown) { writes.push(`set ${key}`); data.set(key, structuredClone(value)); return 'OK' as const; },
+            async del(...keys: string[]) { writes.push(`del ${keys.length}`); let n = 0; for (const k of keys) if (data.delete(k)) n++; return n; },
+            async hdel(key: string, ...fields: string[]) {
+                writes.push(`hdel ${key}`);
+                const hash = data.get(key) as Record<string, unknown> | undefined;
+                if (hash) for (const f of fields) delete hash[f];
+                return fields.length;
+            },
+        };
+        return { data, writes, store: store as unknown as Parameters<typeof removeImagesBatch>[1]['store'] };
+    }
+    const ids = Array.from({ length: 150 }, (_, i) => `vn:story-x-${i}:page:0`);
+    const initial = {
+        'shared:imgfields:event': Object.fromEntries([...ids.slice(0, 100), 'event:keep:warden'].map((id) => [id, 'data:x'])),
+        'shared:images:event': Object.fromEntries(ids.slice(50).map((id) => [id, 'data:y'])),
+        ...Object.fromEntries(ids.map((id) => [`shared:img:${id}`, 'data:z'])),
+        'shared:img:event:keep:warden': 'data:w',
+    };
+
+    it('rewrites each shared record ONCE however many images it removes, and keeps unrelated art', async () => {
+        const { data, writes, store } = fakeStore(initial);
+        const audits: unknown[] = []; const bumps: string[] = [];
+        const result = await removeImagesBatch([...ids, ids[0]], { store, bumpVersion: async (c) => { bumps.push(c); }, audit: async (e) => { audits.push(e); }, actor: 'admin' });
+        assert.equal(result.removed.length, 150);
+        assert.deepEqual(result.failed, []);
+        assert.equal(writes.filter((w) => w === 'hdel shared:imgfields:event').length, 1, 'one hash rewrite');
+        assert.equal(writes.filter((w) => w.includes('shared:images:event')).length, 0, 'bundle emptied: deleted, not rewritten');
+        assert.equal(writes.length, 3, `writes: ${writes.join(', ')}`);
+        assert.deepEqual(Object.keys(data.get('shared:imgfields:event') as object), ['event:keep:warden']);
+        assert.equal(data.has('shared:images:event'), false);
+        assert.ok(ids.every((id) => !data.has(`shared:img:${id}`)));
+        assert.equal(data.get('shared:img:event:keep:warden'), 'data:w');
+        assert.deepEqual(bumps, ['event']);
+        assert.equal(audits.length, 1);
+    });
+
+    it('a bundle that keeps other images is rewritten once without the removed ones', async () => {
+        const { data, writes, store } = fakeStore({ ...initial, 'shared:images:event': { [ids[60]]: 'a', 'event:keep:pet': 'b' } });
+        await removeImagesBatch(ids, { store, bumpVersion: async () => {}, audit: async () => {}, actor: 'admin' });
+        assert.deepEqual(data.get('shared:images:event'), { 'event:keep:pet': 'b' });
+        assert.equal(writes.filter((w) => w === 'set shared:images:event').length, 1);
+    });
+
+    it('an image whose storage object could not be removed keeps its database record for a retry', async () => {
+        const { data, store } = fakeStore(initial);
+        const result = await removeImagesBatch(ids.slice(0, 3), {
+            store, removeFromStorage: async (id) => id !== ids[1], bumpVersion: async () => {}, audit: async () => {}, actor: 'admin', concurrency: 2,
+        });
+        assert.deepEqual(result.removed.sort(), [ids[0], ids[2]].sort());
+        assert.deepEqual(result.failed.map((f) => f.id), [ids[1]]);
+        assert.ok(data.has(`shared:img:${ids[1]}`));
+        assert.ok(ids[1] in (data.get('shared:imgfields:event') as object));
+    });
+
+    it('rejects malformed or oversized batches before any work', () => {
+        assert.deepEqual(batchDeleteIds({ ids: ['vn:a:page:0', 'vn:a:page:0'] }), ['vn:a:page:0']);
+        for (const bad of [{}, { ids: [] }, { ids: 'vn:a' }, { ids: ['no-category'] }, { ids: [42] }, { ids: Array(BATCH_DELETE_MAX + 1).fill('vn:a:page:0') }]) {
+            assert.ok(!Array.isArray(batchDeleteIds(bad)), JSON.stringify(bad).slice(0, 40));
+        }
     });
 });
