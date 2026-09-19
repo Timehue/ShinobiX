@@ -55,10 +55,13 @@ const STREAM_DURATION_MS = 13 * 60 * 1000;  // 13 minutes
 const HEARTBEAT_INTERVAL_MS = 15_000;
 // The stream no longer re-reads its session every 100 ms (about 20 database
 // reads a second for a quiet 1v1). It sleeps until the session key is written
-// in this process (api/_kv-write-signal.ts — every writer, since the storage
-// backend signals), until the turn clock is due, or until SAFETY_POLL_MS for
-// writes it cannot hear (another process during a deploy overlap). It never
-// wakes more often than the old MIN_WAKE_MS cadence, even for an overdue turn.
+// in this process (api/_kv-write-signal.ts), until the turn clock is due, or
+// until SAFETY_POLL_MS. The Postgres and in-memory backends signal every write;
+// the safety poll covers the writes the stream cannot hear: another process
+// (a deploy overlap), the dormant REST and overlay backends, and a
+// compare-and-set whose commit acknowledgement was lost. The turn clock never
+// wakes it more often than the old MIN_WAKE_MS cadence, even for an overdue
+// turn; a write wakes it at once, and each wake costs at most one read.
 const SAFETY_POLL_MS = 1_000;
 const MIN_WAKE_MS = 100;
 // Wake a hair after the lapse so the deadline check sees it as due.
@@ -102,6 +105,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!battleId) return res.status(400).json({ error: 'Missing id' });
     const key = `pvp:${battleId}`;
 
+    // Listen BEFORE the initial read. A move that commits between that read and
+    // a later subscription would otherwise wait for the safety poll; heard
+    // here, it marks the stream dirty and the first wake re-reads at once.
+    const signals = createStreamSignals();
+    const stopListening = onKeyWritten(key, signals.markDirty);
+    try {
+        await streamSession(req, res, battleId, key, signals);
+    } finally {
+        stopListening();
+    }
+}
+
+type StreamSignals = ReturnType<typeof createStreamSignals>;
+
+/** Shared by the write listener, the client-close handler and the loop. */
+function createStreamSignals() {
+    let wake: (() => void) | null = null;
+    let dirty = false;
+    let aborted = false;
+    return {
+        markDirty: () => { dirty = true; wake?.(); },
+        isDirty: () => dirty,
+        clearDirty: () => { dirty = false; },
+        isAborted: () => aborted,
+        abort: () => { aborted = true; wake?.(); },
+        setWake: (next: (() => void) | null) => { wake = next; },
+    };
+}
+
+async function streamSession(req: VercelRequest, res: VercelResponse, battleId: string, key: string, signals: StreamSignals) {
     // Initial session fetch — bail with 404 if the battle doesn't exist
     // BEFORE upgrading to a stream. Saves an SSE connection on bad IDs.
     const initialRaw = await kv.get<unknown>(key);
@@ -131,7 +164,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     let lastJson = JSON.stringify(initial);
     let lastSentAt = 0;
-    let aborted = false;
 
     function sendEvent(event: string, payload: unknown) {
         try {
@@ -139,7 +171,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             res.write(`data: ${JSON.stringify(payload)}\n\n`);
             lastSentAt = Date.now();
         } catch {
-            aborted = true;
+            signals.abort();
         }
     }
 
@@ -148,33 +180,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     sendEvent('session', initial);
 
     // Sleep until the session is written, the turn clock is due, or the safety
-    // poll — whichever comes first. A write during the read below re-arms `dirty`
-    // so it is never lost between wakes.
-    let wake: (() => void) | null = null;
-    let dirty = false;
-    const stopListening = onKeyWritten(key, () => {
-        dirty = true;
-        wake?.();
-    });
+    // poll — whichever comes first. A write during the read below marks the
+    // stream dirty, so it is never lost between wakes.
     const sleep = (ms: number) => new Promise<void>((resolve) => {
-        if (dirty || aborted) { resolve(); return; }
+        if (signals.isDirty() || signals.isAborted()) { resolve(); return; }
         let timer: ReturnType<typeof setTimeout> | undefined;
-        const done = () => { clearTimeout(timer); wake = null; resolve(); };
+        const done = () => { clearTimeout(timer); signals.setWake(null); resolve(); };
         timer = setTimeout(done, ms);
-        wake = done;
+        signals.setWake(done);
     });
 
     // Tear down on client disconnect. req.on('close') fires when the
     // client goes away (tab close, navigation, network drop).
-    req.on('close', () => { aborted = true; wake?.(); });
+    req.on('close', signals.abort);
 
     const startedAt = Date.now();
     let current: PvpSession = initial;
     try {
-        while (!aborted && (Date.now() - startedAt) < STREAM_DURATION_MS) {
+        // A finished fight has nothing left to stream. Checked before the first
+        // sleep, which would otherwise hold this answer for the safety poll.
+        if (initial.status === 'done') {
+            sendEvent('end', { reason: 'session-done' });
+            return;
+        }
+        while (!signals.isAborted() && (Date.now() - startedAt) < STREAM_DURATION_MS) {
             await sleep(streamWakeDelayMs(current));
-            dirty = false;
-            if (aborted) break;
+            signals.clearDirty();
+            if (signals.isAborted()) break;
             const rawSession = await kv.get<unknown>(key);
             if (!rawSession || pvpSessionPublicationTombstoneFor(rawSession, battleId)) {
                 sendEvent('end', { reason: 'session-expired' });
@@ -209,7 +241,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // connection on idle. Most fights have natural traffic, but
             // a long staring contest needs a keepalive.
             if (Date.now() - lastSentAt > HEARTBEAT_INTERVAL_MS) {
-                try { res.write(`: ping\n\n`); lastSentAt = Date.now(); } catch { aborted = true; }
+                try { res.write(`: ping\n\n`); lastSentAt = Date.now(); } catch { signals.abort(); }
             }
             // Wind down the stream once the fight resolves — client
             // will fall back to the (now-done) session and stop
@@ -222,7 +254,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (err) {
         console.error('[pvp/stream]', err);
     } finally {
-        stopListening();
         try { res.end(); } catch { /* already closed */ }
     }
 }
