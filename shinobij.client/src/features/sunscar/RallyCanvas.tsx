@@ -1,4 +1,4 @@
-import { memo, Suspense, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { memo, Suspense, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { RendererRetirement } from '../../components/RendererRetirement';
 import * as THREE from 'three';
@@ -11,24 +11,41 @@ import { RallySun } from './RallyEnvironment';
 import { RallyPetEffects } from './RallyPetEffects';
 import { rallyCameraGoal } from './rally-presentation';
 import { isLowEndMobile } from '../../lib/device-tier';
+import { RallyShotEffects } from './RallyShotEffects';
+import { newRallyQualitySample, rallyStartsLight, sampleRallyQuality } from './rally-quality';
+import { RallyAimGuide } from './RallyAimGuide';
 
 function RaceClock({ advance }: { advance: (delta: number) => void }) {
     useFrame((_, delta) => advance(Math.min(delta, .1)), -2);
     return null;
 }
-function RallyQaMetrics({ state }: { state: RefObject<RallyState> }) {
+function RallyAdaptiveQuality({ state, onLight }: { state: RefObject<RallyState>; onLight: () => void }) {
+    const sample = useRef(newRallyQualitySample()), lastTick = useRef(0);
+    useFrame((_, delta) => {
+        const race = state.current;
+        if (sampleRallyQuality(sample.current, delta, race.tick !== lastTick.current && !race.finished)) onLight();
+        lastTick.current = race.tick;
+    });
+    return null;
+}
+function RallyQaMetrics({ state, light }: { state: RefObject<RallyState>; light: boolean }) {
     const frames = useRef<number[]>([]);
     const frameCount = useRef(0);
+    const elapsed = useRef(0);
     useFrame(({ gl }, delta) => {
         if (import.meta.env.MODE !== 'sunscar-modes-qa') return;
         frameCount.current++;
         frames.current.push(delta); if (frames.current.length > 120) frames.current.shift();
+        elapsed.current += delta;
+        if (elapsed.current < .1 && frameCount.current > 1) return;
+        elapsed.current = 0;
         // Read-only instrumentation, removed from the normal production build.
         queueMicrotask(() => {
             (window as Window & { sunscarRallyQa?: unknown }).sunscarRallyQa = {
                 state: structuredClone(state.current), geometry: gl.info.memory.geometries, textures: gl.info.memory.textures,
                 calls: gl.info.render.calls, triangles: gl.info.render.triangles,
                 frameCount: frameCount.current,
+                quality: light ? 'light' : 'full', pixelRatio: gl.getPixelRatio(),
                 fps: frames.current.length / frames.current.reduce((sum, time) => sum + time, 0),
             };
         });
@@ -92,20 +109,27 @@ export default memo(function RallyCanvas({ state, advance, onReady, onFail, redu
     state: RefObject<RallyState>; advance: (delta: number) => void; onReady: (id: string) => void; onFail: () => void; reducedMotion: boolean; frameloop: 'always' | 'demand';
 }) {
     const track = rallyTrack(state.current.trackId);
-    const [lite] = useState(isLowEndMobile);
-    // 'percentage' is PCF, which three already substitutes for the deprecated
-    // soft default; naming it stops a console warning on every Canvas render.
-    return <Canvas shadows="percentage" dpr={lite ? 1 : [1, 1.5]} frameloop={frameloop} camera={{ fov: 57, near: .1, far: 220 }} gl={{ antialias: !lite, powerPreference: 'high-performance' }}
+    const [lite] = useState(() => {
+        try { const override = localStorage.getItem('liteFx.v1'); if (override === '0' || override === '1') return override === '1'; } catch { /* storage may be unavailable */ }
+        return isLowEndMobile() || rallyStartsLight(navigator.hardwareConcurrency, (navigator as Navigator & { deviceMemory?: number }).deviceMemory);
+    });
+    const [light, setLight] = useState(lite);
+    const lowerQuality = useCallback(() => setLight(true), []);
+    return <Canvas shadows={light ? false : 'percentage'} dpr={light ? 1 : [1, 1.5]} frameloop={frameloop} camera={{ fov: 57, near: .1, far: light ? 150 : 220 }} gl={{ antialias: !lite, powerPreference: 'high-performance' }}
         onCreated={({ gl }) => { gl.toneMapping = THREE.ACESFilmicToneMapping; gl.toneMappingExposure = 1.05; }}>
         <RendererRetirement />
         <CanvasLifecycle onFail={onFail}/>
         <RaceClock advance={advance} />
-        {import.meta.env.MODE === 'sunscar-modes-qa' && <RallyQaMetrics state={state}/>}
-        <RallySun state={state}/>
-        <RallyTrackScene track={track} />
+        {!light && <RallyAdaptiveQuality state={state} onLight={lowerQuality}/>}
+        {import.meta.env.MODE === 'sunscar-modes-qa' && <RallyQaMetrics state={state} light={light}/>}
+        <RallySun state={state} light={light}/>
+        <directionalLight position={[12, 18, 24]} intensity={.9} color="#d5e9ff" />
+        <RallyTrackScene track={track} light={light} />
         <RaceCamera state={state} reducedMotion={reducedMotion} />
-        <Dust state={state} />
-        {state.current.racers.map((racer, index) => <RallyPetEffects key={racer.id} state={state} index={index} color={index === 0 ? '#ffe6a0' : '#fff0d5'} reducedMotion={reducedMotion}/>)}
+        {!light && !reducedMotion && <Dust state={state} />}
+        <RallyShotEffects state={state} />
+        <RallyAimGuide state={state}/>
+        {state.current.racers.map((racer, index) => <RallyPetEffects key={racer.id} state={state} index={index} light={light || reducedMotion} reducedMotion={reducedMotion} color={index === 0 ? '#ffe6a0' : '#fff0d5'}/>)}
         {state.current.racers.map((racer, index) => <PetModelBoundary key={racer.id} onFail={onFail}><Suspense fallback={null}>
             <RallyPetModel state={state} index={index} onReady={onReady} reducedMotion={reducedMotion} />
         </Suspense></PetModelBoundary>)}
