@@ -30,8 +30,10 @@ export type ActivitySpineItem = {
     why: string;
     commitment: string;
     screen: string;
-    /** A validated, one-shot section hint consumed by an existing destination. */
-    section?: 'clan-boss' | 'card-deck' | 'card-play' | 'crafter' | 'legacy' | 'stats';
+    /** A validated, one-shot section hint consumed by an existing destination.
+     *  `clan-goals` is the Clan Hall's Missions tab — the clan's shared
+     *  objectives, their progress and their rewards. */
+    section?: 'clan-boss' | 'clan-goals' | 'card-deck' | 'card-play' | 'crafter' | 'legacy' | 'stats';
     cta: string;
     /** Eligibility of this CTA, not necessarily of the eventual goal it prepares. */
     eligibility: ActivityEligibility;

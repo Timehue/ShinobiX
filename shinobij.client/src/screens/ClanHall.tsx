@@ -75,11 +75,13 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
     const [view, setView] = useState<"exchange" | "roster" | "guard" | "treasury" | "boosts" | "upgrades" | "missions" | "wars" | "rankings" | "boss" | "territory" | "notices" | "hall" | "mentor" | "chat">(() => {
         try {
             const initial = sessionStorage.getItem("clan.initialView");
-            return initial === "boss" || initial === "territory" ? initial : "exchange";
+            // A one-shot hint from a notification (territory) or an activity
+            // recommendation (the Boss ready room, the clan's goal board).
+            return initial === "boss" || initial === "territory" || initial === "missions" ? initial : "exchange";
         } catch { return "exchange"; }
     });
     const bossTabAvailability = useCapabilityViewAvailability("clanBoss");
-    useActivitySectionRequests("clan.initialView", ["boss"], setView);
+    useActivitySectionRequests("clan.initialView", ["boss", "missions"], setView);
     // The clan ration burn rides the war-map campaign: api/_war-daily.ts returns
     // before the clan block when it is off, and the Cafeteria cook endpoint is
     // closed too. So the stores copy hides rather than advertising a door that
