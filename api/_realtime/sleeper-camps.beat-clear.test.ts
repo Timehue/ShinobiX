@@ -60,3 +60,34 @@ describe('heartbeat sleeper-camp clear', () => {
         assert.equal((await camps.listSleeperCamps()).size, 0);
     });
 });
+
+// A departing player the sweep does not camp must not keep an older camp either:
+// one written by another process (a deploy overlap) could otherwise survive
+// their safe logout, and a sleeper KO only checks the camp's sector.
+const departing = (name: string, sector: number) => ({
+    name, displayName: name, sector, character: null, lastSeenAt: 0, connectedAt: 0, pendingAttacker: null,
+});
+
+describe('sweep clears the camps it does not replace', () => {
+    it('a player who logs off in town loses a camp another process wrote', { concurrency: false }, async () => {
+        await kv.hset(camps.SLEEPER_CAMPS_KEY, { towny: camp('towny', 12) });
+        await camps.materializeSleeperCamps([departing('towny', 0)]);
+        assert.equal((await camps.listSleeperCamps()).has('towny'), false);
+    });
+
+    it('the same sweep still camps a player who logs off in the wild', { concurrency: false }, async () => {
+        await kv.hset(camps.SLEEPER_CAMPS_KEY, { towny: camp('towny', 12), bystander: camp('bystander', 30) });
+        await camps.materializeSleeperCamps([departing('towny', 0), departing('wilder', 15)]);
+        const after = await camps.listSleeperCamps();
+        assert.equal(after.has('towny'), false);
+        assert.equal(after.get('wilder')?.sector, 15);
+        assert.equal(after.get('bystander')?.sector, 30, 'nobody else\'s camp is touched');
+    });
+
+    it('a failed clear does not cost anyone their new camp', { concurrency: false }, async (t) => {
+        t.mock.method(kv, 'hdel', async () => { throw new Error('database unavailable'); });
+        t.mock.method(console, 'warn', () => undefined);
+        await camps.materializeSleeperCamps([departing('towny', 0), departing('wilder', 15)]);
+        assert.equal((await camps.listSleeperCamps()).get('wilder')?.sector, 15);
+    });
+});
