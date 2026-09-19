@@ -706,7 +706,15 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // at 4f01625f3 (#195 Pet Yard training gate, +449 B; blocked). The initial
 // graph did not move: 1,452,823 B raw at all three. 40 KB leaves 39,883 B of
 // measured image headroom; startup, per-chunk and gzip limits are unchanged.
-const TOTAL_JS_CSS_FAIL_BYTES = 8_700_000;
+// 2026-09-19 PET RALLY: production image d4dab1cba measures 8,708,316 B,
+// versus 8,688,015 B for its passing parent 13771806e (+20,301 B). Charged
+// elemental attacks, bounded stat bonuses, driving feedback, finish recap and
+// adaptive rendering remain inside lazy Rally chunks. The INITIAL graph is
+// unchanged at 1,431,937 B raw (385,159 B gzip, +22 B from build identifiers).
+// No dependencies or inlined art were added (464 B base64 across the graph).
+// Allow 40 KB for this intended feature growth, leaving 31,684 B of measured
+// production headroom. Startup, per-chunk, CSS and gzip gates stay unchanged.
+const TOTAL_JS_CSS_FAIL_BYTES = 8_740_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
