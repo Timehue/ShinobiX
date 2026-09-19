@@ -69,3 +69,30 @@ describe('public level-80 crisis poll cache', () => {
         assert.deepEqual(after, await crisis80.readWorldCrisis80Projection(), 'the cached read must match an uncached read');
     });
 });
+
+describe('edge caching of the public crisis polls', () => {
+    type Handler = (req: never, res: never) => Promise<unknown>;
+    async function call(path: '../world-crisis.js' | '../world-crisis-80.js', method: string) {
+        const handler = (await import(path)).default as unknown as Handler;
+        const headers: Record<string, string> = {};
+        const out: { status: number } = { status: 200 };
+        const res = {
+            setHeader(key: string, value: string) { headers[key.toLowerCase()] = value; return res; },
+            status(code: number) { out.status = code; return res; },
+            json() { return res; }, end() { return res; },
+        };
+        await handler({ method, headers: { 'x-forwarded-for': '10.93.0.1' }, socket: { remoteAddress: '10.93.0.1' }, body: {} } as never, res as never);
+        return { status: out.status, cacheControl: headers['cache-control'] };
+    }
+
+    it('lets the CDN hold a successful read for 5s, never a refused admin write', { concurrency: false }, async () => {
+        for (const path of ['../world-crisis.js', '../world-crisis-80.js'] as const) {
+            const read = await call(path, 'GET');
+            assert.equal(read.status, 200);
+            assert.equal(read.cacheControl, 's-maxage=5, stale-while-revalidate=5');
+            const write = await call(path, 'POST');
+            assert.equal(write.status, 401, 'no admin credentials');
+            assert.equal(write.cacheControl, 'no-store');
+        }
+    });
+});
