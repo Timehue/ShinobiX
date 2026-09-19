@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
-import { EXCHANGE_CATEGORIES, EXCHANGE_CURRENCIES, EXCHANGE_FEE_PERCENT, EXCHANGE_LISTING_LIMIT, EXCHANGE_MAX_PRICE, EXCHANGE_SALE_EVENT, exchangeCurrency, exchangeFee, type ExchangeAsset, type ExchangeCategory, type ExchangeCurrency, type ExchangeListing, type ExchangeOwnedAsset } from '../../../shared/sunscar-exchange';
+import { EXCHANGE_CATEGORIES, EXCHANGE_CURRENCIES, EXCHANGE_FEE_PERCENT, EXCHANGE_LISTING_LIMIT, EXCHANGE_MARKET_PAGE_SIZE, EXCHANGE_MAX_PRICE, EXCHANGE_RARITY_ORDER, EXCHANGE_SALE_EVENT, exchangeCurrency, exchangeFee, exchangeMarketFilterKey, type ExchangeAsset, type ExchangeCategory, type ExchangeCurrency, type ExchangeListing, type ExchangeMarketPage, type ExchangeMarketQuery, type ExchangeMarketSort, type ExchangeOwnedAsset } from '../../../shared/sunscar-exchange';
 import type { Character, VersionedCharacterCommit } from '../types/character';
 import type { GameItem } from '../types/combat';
 import { Modal } from './ui/Modal';
 import { getAllItems } from '../lib/items';
-import { ExchangeRequestError, pendingExchangeRequest, requestExchange, savePendingExchangeRequest, type ExchangeRequest, type ExchangeSnapshot } from '../lib/sunscar-exchange';
+import { ExchangeRequestError, pendingExchangeRequest, requestExchange, requestExchangeMarket, savePendingExchangeRequest, type ExchangeRequest, type ExchangeSnapshot } from '../lib/sunscar-exchange';
 import exchangeArt from '../assets/festival/sunscar-exchange-v1.webp';
 import weaponArt from '../assets/clan-exchange/weaponCache.webp';
 import armorArt from '../assets/clan-exchange/armorCache.webp';
@@ -14,7 +14,7 @@ import '../styles/sunscar-market-refined.css';
 const money = (n: number) => n.toLocaleString('en-US');
 const label = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const playerSlug = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
-const rarityOrder: Record<string, number> = { named: 7, mythic: 6, legendary: 5, epic: 4, rare: 3, uncommon: 2, common: 1, standard: 1 };
+const rarityOrder: Readonly<Record<string, number>> = EXCHANGE_RARITY_ORDER;
 const catalogArt = new Map(getAllItems([]).filter(item => item.image).map(item => [item.id, item.image!]));
 
 export function SunscarExchangeEntrance({ onOpen }: { onOpen: () => void }) {
@@ -72,6 +72,18 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
     const [saleRevision, setSaleRevision] = useState(0);
     const refreshedSaleRevision = useRef(0);
     const [pendingRequest, setPendingRequest] = useState<ExchangeRequest | null>(() => pendingExchangeRequest(character.name));
+    // The open market is filtered, sorted and paged by the server: one page
+    // arrives instead of every live listing. `marketKey` is the query the page
+    // in hand answers, so a reply for filters the player has already moved on
+    // from is dropped instead of replacing what they are looking at.
+    const [market, setMarket] = useState<ExchangeMarketPage | null>(null);
+    const [marketKey, setMarketKey] = useState('');
+    const [marketBusy, setMarketBusy] = useState(false);
+    /** A server without market paging answered with every listing; filter locally. */
+    const [legacyMarket, setLegacyMarket] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const marketSeq = useRef(0);
+    const marketFlight = useRef<AbortController | null>(null);
     const actionRef = useRef(false);
     const lifetime = useRef<AbortController | null>(null);
     const callbacks = useRef({ onVersionedCharacter, setCreatorItems });
@@ -101,7 +113,36 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
     const shardBalance = character.fateShards ?? 0;
     const mine = useMemo(() => snapshot?.activity.filter(l => l.seller === player && ['active', 'preparing', 'buying', 'cancelling'].includes(l.state)) ?? [], [snapshot, player]);
 
-    function accept(data: ExchangeSnapshot) {
+    // Every field but the page decides the result set; the page then picks the
+    // slice. Search is applied on a short delay so typing is not a request each
+    // keystroke.
+    const marketQuery: ExchangeMarketQuery = useMemo(() => ({
+        v: 2, page, category, rarity, currency: currencyFilter,
+        sort: (['newest', 'price-low', 'price-high', 'rarity'].includes(sort) ? sort : 'newest') as ExchangeMarketSort,
+        search: searchTerm.slice(0, 80), affordable,
+    }), [page, category, rarity, currencyFilter, sort, searchTerm, affordable]);
+    const marketWanted = `${exchangeMarketFilterKey(marketQuery)}#${page}`;
+    useEffect(() => {
+        if (search === searchTerm) return;
+        const timer = window.setTimeout(() => { setSearchTerm(search); setPage(1); }, 300);
+        return () => window.clearTimeout(timer);
+    }, [search, searchTerm]);
+
+    const marketWantedRef = useRef(marketWanted);
+    useEffect(() => { marketWantedRef.current = marketWanted; }, [marketWanted]);
+
+    function acceptMarket(answered: ExchangeMarketPage, requestedKey: string) {
+        // A reply for filters the player has already left is dropped; otherwise
+        // adopt it, including the page the server clamped to when the one asked
+        // for no longer exists.
+        if (requestedKey !== marketWantedRef.current) return false;
+        setMarket(answered);
+        setMarketKey(`${exchangeMarketFilterKey(answered.query)}#${answered.page}`);
+        setPage(current => (current === answered.page ? current : answered.page));
+        return true;
+    }
+
+    function accept(data: ExchangeSnapshot, requestedKey?: string) {
         if (!callbacks.current.onVersionedCharacter(data.character, data._saveVersion)) throw new ExchangeRequestError('Your character changed while the Exchange was loading. Refresh to confirm the trade and latest balance.', true);
         callbacks.current.setCreatorItems(previous => {
             const items = new Map(previous.map(item => [item.id, item]));
@@ -109,7 +150,11 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
             return [...items.values()];
         });
         setSnapshot(data);
-        setSelected(previous => previous ? data.activity.find(listing => listing.id === previous.id) ?? data.listings.find(listing => listing.id === previous.id) ?? null : null);
+        if (data.market && requestedKey) acceptMarket(data.market, requestedKey);
+        setLegacyMarket(!data.market && Array.isArray(data.listings));
+        setSelected(previous => previous ? data.activity.find(listing => listing.id === previous.id)
+            ?? data.market?.listings.find(listing => listing.id === previous.id)
+            ?? data.listings?.find(listing => listing.id === previous.id) ?? null : null);
     }
 
     async function run(action: ExchangeRequest) {
@@ -118,10 +163,11 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
         actionRef.current = true; setBusy(true); setError(''); setNotice('');
         const mutation = action.action !== 'browse';
         if (mutation) { setPendingRequest(action); savePendingExchangeRequest(character.name, action); }
+        const requestedKey = marketWantedRef.current;
         try {
-            const data = await requestExchange(character.name, action, signal);
+            const data = await requestExchange(character.name, action, signal, marketQuery);
             if (signal?.aborted) return;
-            accept(data);
+            accept(data, requestedKey);
             if (mutation) {
                 setPendingRequest(null); savePendingExchangeRequest(character.name, null);
                 setSelected(null); setSellAsset(null); setReview(false);
@@ -153,7 +199,43 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [saleRevision, busy, pendingRequest]);
 
+    // Fetch the market page whenever the browse tab wants filters or a page the
+    // page in hand does not answer. Only the newest request is ever adopted, so
+    // a slow reply cannot overwrite a newer filter or another account's market.
+    useEffect(() => {
+        const lifetimeSignal = lifetime.current?.signal;
+        if (tab !== 'browse' || legacyMarket || !snapshot || busy || marketKey === marketWanted || !lifetimeSignal || lifetimeSignal.aborted) return;
+        const controller = new AbortController();
+        marketFlight.current?.abort();
+        marketFlight.current = controller;
+        const seq = ++marketSeq.current;
+        const requestedKey = marketWanted;
+        const signal = AbortSignal.any([lifetimeSignal, controller.signal]);
+        setMarketBusy(true);
+        void (async () => {
+            try {
+                const answered = await requestExchangeMarket(character.name, marketQuery, signal);
+                if (seq !== marketSeq.current || signal.aborted) return;
+                acceptMarket(answered, requestedKey);
+                setError('');
+            } catch (caught) {
+                if (seq !== marketSeq.current || signal.aborted) return;
+                setError(caught instanceof Error ? caught.message : 'Unable to reach the Exchange.');
+            } finally { if (seq === marketSeq.current) setMarketBusy(false); }
+        })();
+        return () => controller.abort();
+        // acceptMarket/marketQuery follow marketWanted; the account remounts this screen.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tab, legacyMarket, snapshot, busy, marketKey, marketWanted, character.name]);
+    useEffect(() => () => marketFlight.current?.abort(), []);
+
+    // The open market arrives already filtered, sorted and paged (a server
+    // without market paging still sends every listing, and those are filtered
+    // here exactly as before). Your own collection, listings and history are
+    // bounded per player and stay local.
+    const serverPaged = tab === 'browse' && !legacyMarket && !!market;
     const rows = useMemo(() => {
+        if (tab === 'browse' && !legacyMarket) return (market?.listings ?? []) as Array<ExchangeListing | ExchangeOwnedAsset>;
         const data: Array<ExchangeListing | ExchangeOwnedAsset> = tab === 'sell' ? snapshot?.inventory ?? [] : tab === 'listings' ? mine : tab === 'activity' ? snapshot?.activity.filter(l => ['sold', 'cancelled', 'failed'].includes(l.state)) ?? [] : snapshot?.listings ?? [];
         return data.filter(row => {
             const asset = 'asset' in row ? row.asset : row;
@@ -168,13 +250,16 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
             if (sort === 'rarity') return (rarityOrder[('asset' in b ? b.asset : b).rarity] ?? 0) - (rarityOrder[('asset' in a ? a.asset : a).rarity] ?? 0);
             return 'createdAt' in a && 'createdAt' in b ? b.createdAt - a.createdAt : ('asset' in a ? a.asset : a).name.localeCompare(('asset' in b ? b.asset : b).name);
         });
-    }, [snapshot, tab, category, rarity, currencyFilter, search, affordable, balance, shardBalance, sort, mine]);
-    const pages = Math.max(1, Math.ceil(rows.length / 12));
-    const currentPage = Math.min(page, pages);
+    }, [snapshot, tab, category, rarity, currencyFilter, search, affordable, balance, shardBalance, sort, mine, market, legacyMarket]);
+    const resultCount = serverPaged ? market!.total : rows.length;
+    const pages = serverPaged ? market!.pages : Math.max(1, Math.ceil(rows.length / EXCHANGE_MARKET_PAGE_SIZE));
+    const currentPage = serverPaged ? market!.page : Math.min(page, pages);
+    const visibleRows = serverPaged ? rows : rows.slice((currentPage - 1) * EXCHANGE_MARKET_PAGE_SIZE, currentPage * EXCHANGE_MARKET_PAGE_SIZE);
     const qty = Number(quantity), total = Number(price);
     const validSale = Number.isSafeInteger(qty) && qty >= 1 && qty <= Math.min(sellAsset?.quantity ?? 0, 9999) && (sellAsset?.kind !== 'pet' || qty === 1)
         && Number.isSafeInteger(total) && total >= 1 && total <= EXCHANGE_MAX_PRICE;
-    const resetFilters = () => { setCategory('all'); setSearch(''); setRarity('all'); setCurrencyFilter('all'); setAffordable(false); setPage(1); };
+    const nothingToShowYet = !snapshot || (tab === 'browse' && !legacyMarket && !market);
+    const resetFilters = () => { setCategory('all'); setSearch(''); setSearchTerm(''); setRarity('all'); setCurrencyFilter('all'); setAffordable(false); setPage(1); };
     const closeDetails = () => { setSelected(null); setSellAsset(null); setReview(false); };
     const tradeDisabled = busy || !!pendingRequest;
     const selectedCurrency = selected ? exchangeCurrency(selected) : 'ryo';
@@ -197,13 +282,13 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
         {notice && <div ref={noticeRef} tabIndex={-1} className="sx-message sx-success" role="status">{notice}</div>}
         {snapshot?.recoveryErrors.map(message => <div className="sx-message sx-error" role="status" key={message}>{message}</div>)}
         <div className="sx-workspace"><aside className="sx-categories"><span className="sx-eyebrow">COLLECTIONS</span>{EXCHANGE_CATEGORIES.map(id => <button key={id} aria-pressed={category === id} onClick={() => { setCategory(id); setPage(1); }}><span>{id === 'all' ? 'All treasures' : label(id)}</span><span className="sx-category-mark" aria-hidden="true">{category === id ? '—' : '›'}</span></button>)}<div className="sx-trade-note"><strong>The Exchange ledger</strong><p>Goods are held until sold or cancelled.</p><small>{EXCHANGE_LISTING_LIMIT} open listings per player.</small></div></aside>
-            <section className="sx-market" aria-label="Exchange inventory" aria-busy={busy}>
-                <div className="sx-section-heading"><div><span className="sx-eyebrow">{tab === 'sell' ? 'FROM YOUR COLLECTION' : tab === 'activity' ? 'YOUR TRADE LEDGER' : 'THE OPEN MARKET'}</span><h2 ref={resultsHeadingRef} tabIndex={-1}>{tab === 'sell' ? 'Choose a treasure to sell' : tab === 'listings' ? 'Your listings' : tab === 'activity' ? 'Trade history' : category === 'all' ? 'Browse the Exchange' : label(category)}</h2></div><span className="sx-count">{rows.length} {tab === 'sell' ? 'assets' : 'listings'}</span></div>
+            <section className="sx-market" aria-label="Exchange inventory" aria-busy={busy || marketBusy}>
+                <div className="sx-section-heading"><div><span className="sx-eyebrow">{tab === 'sell' ? 'FROM YOUR COLLECTION' : tab === 'activity' ? 'YOUR TRADE LEDGER' : 'THE OPEN MARKET'}</span><h2 ref={resultsHeadingRef} tabIndex={-1}>{tab === 'sell' ? 'Choose a treasure to sell' : tab === 'listings' ? 'Your listings' : tab === 'activity' ? 'Trade history' : category === 'all' ? 'Browse the Exchange' : label(category)}</h2></div><span className="sx-count">{resultCount} {tab === 'sell' ? 'assets' : 'listings'}</span></div>
                 {tab === 'sell' && <p className="sx-help">Choose an asset, set a price in ryo or Fate Shards, then review your listing. Unequip gear and free busy companions first. Named gear keeps its forged attributes.</p>}
                 <div className={`sx-filters${tab === 'sell' ? ' sx-filters-inventory' : ''}`}><label className="sx-search"><span className="sx-sr-only">Search the Exchange</span><input type="search" placeholder="Search treasures, companions, sellers…" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} /></label><label><span className="sx-sr-only">Rarity</span><select aria-label="Rarity" value={rarity} onChange={e => { setRarity(e.target.value); setPage(1); }}><option value="all">All rarities</option>{Object.keys(rarityOrder).filter(s => s !== 'standard').map(s => <option key={s} value={s}>{label(s)}</option>)}<option value="standard">Standard</option></select></label>{tab !== 'sell' && <label><span className="sx-sr-only">Listing currency</span><select aria-label="Listing currency" value={currencyFilter} onChange={e => { setCurrencyFilter(e.target.value as ExchangeCurrency | 'all'); setPage(1); }}><option value="all">All currencies</option><option value="ryo">Ryo</option><option value="fateShards">Fate Shards</option></select></label>}<label><span className="sx-sr-only">Sort listings</span><select aria-label="Sort listings" value={sort} onChange={e => setSort(e.target.value)}><option value="newest">{tab === 'sell' ? 'Name A–Z' : 'Newest first'}</option>{tab !== 'sell' && <><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option></>}<option value="rarity">Rarity: highest first</option></select></label></div>
                 {tab !== 'sell' && currencyFilter === 'all' && sort.startsWith('price-') && <p className="sx-help sx-sort-note">Prices are sorted within each currency: ryo, then Fate Shards.</p>}
                 {tab === 'browse' && <label className="sx-affordable"><input type="checkbox" checked={affordable} onChange={e => { setAffordable(e.target.checked); setPage(1); }} /> Within my budget</label>}
-                {!snapshot && busy ? <div className="sx-loading" role="status"><div className="sx-skeleton" /><div className="sx-skeleton" /><div className="sx-skeleton" /><p>Opening the trade ledger…</p></div> : !snapshot ? <div className="sx-empty"><h3>The trade ledger is unavailable</h3><p>Reconnect to browse the latest listings.</p><button onClick={() => void run({ action: 'browse' })} disabled={busy}>Reconnect</button></div> : rows.length === 0 ? <div className="sx-empty"><h3>{search || category !== 'all' || rarity !== 'all' || currencyFilter !== 'all' || affordable ? 'No treasures match these filters' : tab === 'sell' ? 'Your trading satchel is empty' : tab === 'activity' ? 'No trades recorded yet' : tab === 'listings' ? 'Your stall is ready' : 'The market is quiet'}</h3><p>{tab === 'sell' ? 'Bring items in your backpack, companions, cards, or resources to list here.' : tab === 'activity' ? 'Completed purchases, sales, and cancellations appear here.' : 'List a treasure from your collection or return for fresh arrivals.'}</p>{search || category !== 'all' || rarity !== 'all' || currencyFilter !== 'all' || affordable ? <button onClick={resetFilters}>Clear filters</button> : tab !== 'sell' && <button className="sx-primary" onClick={() => { setTab('sell'); resetFilters(); }}>Create your first listing</button>}</div> : <div className="sx-listings">{rows.slice((currentPage - 1) * 12, currentPage * 12).map(row => {
+                {nothingToShowYet && (busy || marketBusy) ? <div className="sx-loading" role="status"><div className="sx-skeleton" /><div className="sx-skeleton" /><div className="sx-skeleton" /><p>Opening the trade ledger…</p></div> : !snapshot ? <div className="sx-empty"><h3>The trade ledger is unavailable</h3><p>Reconnect to browse the latest listings.</p><button onClick={() => void run({ action: 'browse' })} disabled={busy}>Reconnect</button></div> : resultCount === 0 ? <div className="sx-empty"><h3>{search || category !== 'all' || rarity !== 'all' || currencyFilter !== 'all' || affordable ? 'No treasures match these filters' : tab === 'sell' ? 'Your trading satchel is empty' : tab === 'activity' ? 'No trades recorded yet' : tab === 'listings' ? 'Your stall is ready' : 'The market is quiet'}</h3><p>{tab === 'sell' ? 'Bring items in your backpack, companions, cards, or resources to list here.' : tab === 'activity' ? 'Completed purchases, sales, and cancellations appear here.' : 'List a treasure from your collection or return for fresh arrivals.'}</p>{search || category !== 'all' || rarity !== 'all' || currencyFilter !== 'all' || affordable ? <button onClick={resetFilters}>Clear filters</button> : tab !== 'sell' && <button className="sx-primary" onClick={() => { setTab('sell'); resetFilters(); }}>Create your first listing</button>}</div> : <div className="sx-listings">{visibleRows.map(row => {
                     const isListing = 'asset' in row; const asset = isListing ? row.asset : row;
                     return <button key={isListing ? row.id : `${row.kind}:${row.id}`} className={`sx-listing sx-border-${asset.rarity}`} onClick={() => { setError(''); if (isListing) setSelected(row); else { setSellAsset(row); setQuantity('1'); setPrice(''); setSaleCurrency('ryo'); setReview(false); } }}>
                         <AssetPortrait asset={asset} /><div className="sx-listing-name"><span className={`sx-rarity sx-rarity-${asset.rarity}`}>{label(asset.rarity)} · {label(asset.category)}</span><strong>{asset.name}</strong><small>{isListing ? `From ${row.sellerName}${row.seller === player ? ' · Your listing' : ''}` : row.unavailable ?? `${money(row.quantity)} available`}</small></div>
