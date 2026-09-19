@@ -36,7 +36,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // same public projection, so the edge may serve it for 5s (plus the
             // 3s process cache). Only this success path is cacheable: rate-limit
             // refusals, errors and admin POSTs keep the `no-store` set above.
-            res.setHeader('Cache-Control', 's-maxage=5, stale-while-revalidate=5');
+            // `?fresh=1` is a read right after the caller's own action (a won
+            // defense, an admin override): it misses the edge copy, and stays
+            // `no-store` so it never becomes one. The process cache is dropped on
+            // every state write, so it is already current.
+            if (req.query?.fresh !== '1') res.setHeader('Cache-Control', 's-maxage=5, stale-while-revalidate=5');
             return res.status(200).json({ crisis });
         }
         if (req.method !== 'POST') return res.status(405).end();

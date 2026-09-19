@@ -29,9 +29,11 @@ const MAX_APPLIED_PROOFS = WORLD_CRISIS_MAX_TARGET * WORLD_CRISIS_VILLAGES.lengt
 
 // Every signed-in tab polls the public projection every 15s and every viewer
 // gets the same answer, so the GET serves it from a short process cache
-// (api/_proc-cache.ts). The endpoint is `no-store`, so every state write below
-// goes through writeWorldCrisisState, which drops the cached frame: on this
-// single-instance server a write is visible on the very next read.
+// (api/_proc-cache.ts). Every state write below goes through
+// writeWorldCrisisState, which drops the cached frame: on this single-instance
+// server a write is visible to the very next read that reaches the process.
+// The edge may still hold a copy for up to 10s (api/world-crisis.ts), so a
+// screen reading back its own action asks for `?fresh=1`.
 export const WORLD_CRISIS_PROJECTION_CACHE_KEY = 'world-crisis:projection';
 const WORLD_CRISIS_PROJECTION_CACHE_TTL_MS = 3_000;
 
