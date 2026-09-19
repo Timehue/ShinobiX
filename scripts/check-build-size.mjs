@@ -706,7 +706,15 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // at 4f01625f3 (#195 Pet Yard training gate, +449 B; blocked). The initial
 // graph did not move: 1,452,823 B raw at all three. 40 KB leaves 39,883 B of
 // measured image headroom; startup, per-chunk and gzip limits are unchanged.
-// 2026-09-19: 8.70 -> 8.76 MB. The production image at d4dab1cba already
+// 2026-09-19 PET RALLY: production image d4dab1cba measures 8,708,316 B,
+// versus 8,688,015 B for its passing parent 13771806e (+20,301 B). Charged
+// elemental attacks, bounded stat bonuses, driving feedback, finish recap and
+// adaptive rendering remain inside lazy Rally chunks. The INITIAL graph is
+// unchanged at 1,431,937 B raw (385,159 B gzip, +22 B from build identifiers).
+// No dependencies or inlined art were added (464 B base64 across the graph).
+// Allow 40 KB for this intended feature growth, leaving 31,684 B of measured
+// production headroom. Startup, per-chunk, CSS and gzip gates stay unchanged.
+// 2026-09-19: 8.74 -> 8.76 MB. The production image at d4dab1cba already
 // measured 8,708,316 B. Caravan shinobi missions, field techniques and mobile
 // feedback add 22,453 B in lazy code/CSS (candidate 6697fac23: 8,730,769 B).
 // The initial graph stays exactly 1,431,937 B raw / 385,156 B gzip. This adds
