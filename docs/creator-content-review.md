@@ -170,7 +170,9 @@ On the live export the audit reports 43 stale built-in copies (8 with retired lo
 
 ## Old VN artwork
 
-Before the rebuild, 244 VN page slots in `shared:img` held artwork drawn for the old drafts. The reader already hides it: `lib/vn-retired-artwork.ts` lists each slot with the SHA-256 of its retired bytes, and `useVnArtwork` refuses a candidate whose bytes still match, so the shipped art shows instead. A later upload to the same slot has different bytes and shows normally.
+Before the rebuild, 244 VN page slots in `shared:img` held artwork drawn for the old drafts. The five Relic Dungeon entrance uploads (`event:craft-dungeon-<biome>:backdrop`) are from the same older set, and the dungeon screen showed them in place of each dungeon's cinematic entrance art. The dungeons' warden, seal-two altar and rare-pet uploads have no built-in counterpart, so they are kept.
+
+The game hides all of these. `lib/vn-retired-artwork.ts` lists each slot with the SHA-256 of its retired bytes. `useVnArtwork` (story pages) and `useVerifiedSharedArt` (the dungeon entrance) download a candidate and show it only when its bytes are proven new. A later upload to the same slot has different bytes and shows normally. Since 2026-09-19, a check that fails (timeout, server error, or a deleted upload returning 404) shows the built-in art. Before that it kept the stored link, so a failed check could show old art. Deleting the uploads under the old rule would also have left dead links on 12 pages, because the stored draft rows still point at these slots: the Frostfang level 4 chapter, the Aura Sphere scene and the ancient chest.
 
 `scripts/retire-old-vn-images.mts` removes those uploads from storage, so they cannot resurface through any path that skips the filter:
 
@@ -180,9 +182,9 @@ SHINOBIX_BASE_URL=https://<host> ADMIN_TOKEN=<token> node --import tsx scripts/r
 SHINOBIX_BASE_URL=https://<host> ADMIN_TOKEN=<token> node --import tsx scripts/retire-old-vn-images.mts --restore <backup dir>
 ```
 
-It covers the 244 page slots plus 4 draft event avatars, which qualify only if their bytes equal a retired portrait. Each slot is downloaded and hashed first, and deleted only if its current bytes still equal the retired hash. Every slot it will delete is backed up beside a `manifest.json` before anything is removed. Deletion goes through the app's own `DELETE /api/images`, which clears R2, the per-image key, the legacy category bundle, the asset registry and the cache version. A direct database delete would not be enough, because `/api/img` rebuilds a missing key from the legacy bundles. After each delete the script reads the slot back and counts it only if it now returns 404.
+It covers the 244 page slots, the 5 dungeon entrances, and 4 draft event avatars, which qualify only if their bytes equal a retired portrait (253 slots). Each slot is downloaded and hashed first, and deleted only if its current bytes still equal the retired hash. Every slot it will delete is backed up beside a `manifest.json` before anything is removed. Deletion goes through the app's own `DELETE /api/images`, which clears R2, the per-image key, the legacy category bundle, the asset registry and the cache version. A direct database delete would not be enough, because `/api/img` rebuilds a missing key from the legacy bundles. After each delete the script reads the slot back and counts it only if it now returns 404.
 
-The dry run against production on 2026-09-18 found 248 slots to retire, 0 newer uploads and 0 missing, with a 6.2 MB backup. The `--apply` step is the owner's to run.
+The dry run against production on 2026-09-18 found 248 slots to retire, 0 newer uploads and 0 missing, with a 6.2 MB backup. That was before the 5 dungeon entrances were added. Run the cleanup only after the fail-closed check is live, and the `--apply` step is the owner's to run.
 
 ## Remaining decisions for the owner
 
