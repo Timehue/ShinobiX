@@ -329,8 +329,11 @@ export async function exchangeSnapshot(player: string, options: { market?: Excha
         // (`record` here carries only settled vitals, which the inventory never reads.)
         const recovered = await recoverExchangeDefinitions({ ...record, character });
         const creatorItems = objects(recovered.creatorItems);
+        // The settle helpers hand back the very same character when they change
+        // nothing, so the inventory only has to be compared when one of them did.
+        const settled = character !== (record.character as Obj);
         const write = !isDeepStrictEqual(creatorItems, objects(record.creatorItems))
-            || !isDeepStrictEqual(exchangeInventory({ ...recovered, character }, catalogs), exchangeInventory(record, catalogs));
+            || (settled && !isDeepStrictEqual(exchangeInventory({ ...recovered, character }, catalogs), exchangeInventory(record, catalogs)));
         return { ok: true, character, value: null, recordPatch: { creatorItems }, write };
     });
     if (!out.ok) throw new ExchangeError(out.error, out.status);
