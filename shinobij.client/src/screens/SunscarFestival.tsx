@@ -95,9 +95,9 @@ export function SunscarFestival({ character, onVersionedCharacter, setCreatorIte
                 <button onClick={() => openDestination('rally')}>{rallyActive ? 'Resume Grand Prix' : 'Visit the race grounds'} <span aria-hidden="true">↗</span></button><small>Bring your own companion · Skill-based racing</small>
             </div></section>
             <section className="sunscar-attraction sunscar-attraction-caravan"><div className="sunscar-attraction-art"><img src={festBg} className="sunscar-dispatch-art" alt="A caravan leaving the Sunscar gate"/></div><div className="sunscar-attraction-copy">
-                <p className="sunscar-eyebrow">02 / Miraa’s dispatch office</p><h2>Caravan Run</h2><p>Take a contract beyond the dunes. Guide your crew through ambushes, ruins and chance encounters.</p>
+                <p className="sunscar-eyebrow">02 / Miraa’s shinobi dispatch</p><h2>Caravan Run</h2><p>Take point on a shinobi escort mission. Scout the dunes, guard sealed cargo, and face rogue ninja beyond the village gates.</p>
                 <div className="sunscar-attraction-status">{caravanActive ? 'On the road · ' + caravan.current!.visited.length + '/' + caravan.current!.contract.nodes + ' legs' : caravanUsed ? 'Manifest closed · ' + (caravan?.current?.result?.ryo ?? 0).toLocaleString() + ' Ryo' : 'Departure available · ' + caravanRank(caravan?.reputation ?? 0).name}<span>{caravan?.reputation ?? 0} reputation</span></div>
-                <button onClick={() => openDestination('caravan')}>{caravanActive ? 'Rejoin your caravan' : 'Read today’s contracts'} <span aria-hidden="true">↗</span></button><small>Branching expedition · Your real combat loadout</small>
+                <button onClick={() => openDestination('caravan')}>{caravanActive ? 'Rejoin your caravan' : 'Read today’s contracts'} <span aria-hidden="true">↗</span></button><small>Shinobi escort missions · Your real combat loadout</small>
             </div></section>
         </div>
         <div className="sunscar-hub-heading"><p className="sunscar-eyebrow">Under the lanterns</p><h2>The trading quarter</h2></div>

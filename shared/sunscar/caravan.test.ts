@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { CARAVAN_EVENTS, caravanEvent } from './caravan-events.js';
 import { CARAVAN_CONTRACTS, caravanDaily } from './caravan-contracts.js';
 import { generateCaravanMap, weightedCaravanEvent } from './caravan-map.js';
-import { caravanChoiceBlock, resolveCaravanChoice, selectCaravanNode } from './caravan-state.js';
+import { caravanChoiceBlock, caravanTravelCost, resolveCaravanChoice, selectCaravanNode } from './caravan-state.js';
 import { sunscarRandom } from './random.js';
 import { advanceCaravan, caravanProgress, departCaravan, settleCaravanCombat } from '../../api/festival/_caravan.js';
 import { CARAVAN_ENEMIES } from '../../api/festival/_caravan-combat.js';
@@ -74,6 +74,25 @@ test('route selection rejects teleporting and charges travel supplies', () => {
     assert.equal(next.visited.length, 1);
     assert.throws(() => selectCaravanNode(next, run.available[0]), /connected/);
 });
+
+test('travel previews match supply consumption and shortages on every leg', () => {
+    for (const weather of ['clear', 'heat'] as const) for (const morale of [24, 25, 80]) {
+        for (const water of [0, 1]) for (const legs of [0, 1, 2, 5]) for (const supplies of [0, 1, 2, 10]) {
+            const run = caravanProgress(started()).current!;
+            Object.assign(run, { weather, morale, supplies });
+            run.tools.water = water;
+            run.visited = Array.from({ length: legs }, (_, i) => `past-${i}`);
+            const cost = caravanTravelCost(run);
+            const next = selectCaravanNode(run, run.available[0]);
+            const expected = 1 + ((legs + 1) % 3 === 0 ? Number(weather === 'heat' && !water) + Number(morale < 25) : 0);
+            assert.equal(cost, expected);
+            assert.equal(next.supplies, Math.max(0, supplies - expected));
+            assert.equal(next.cargo, run.cargo - Math.max(0, expected - supplies) * 5);
+            assert.equal(next.morale, morale - Math.max(0, expected - supplies) * 3);
+            assert.equal(run.visited.length, legs, 'Preview and travel preserve the input state');
+        }
+    }
+});
 test('resource costs, actual vital changes and the cargo floor apply exactly once', () => {
     const c = started();
     const run = eventRun('glass-sand');
@@ -87,26 +106,26 @@ test('resource costs, actual vital changes and the cargo floor apply exactly onc
 test('choice availability respects supplies, tools and money', () => {
     const run = eventRun('wheelwright');
     const choice = caravanEvent('wheelwright').choices[0];
-    assert.match(caravanChoiceBlock(run, choice, 0)!, /Ryo/);
+    assert.match(caravanChoiceBlock(run, choice, { ...base, ryo: 0 })!, /Ryo/);
     const storm = eventRun('sand-wall'); storm.tools.repair = 0; storm.supplies = 0;
-    assert.ok(caravanChoiceBlock(storm, caravanEvent('sand-wall').choices[0], 10000));
-    assert.ok(caravanChoiceBlock(storm, caravanEvent('sand-wall').choices[1], 10000));
-    assert.equal(caravanChoiceBlock(storm, caravanEvent('sand-wall').choices[2], 10000), null);
+    assert.ok(caravanChoiceBlock(storm, caravanEvent('sand-wall').choices.find(c => c.id === 'anchor')!, base));
+    assert.ok(caravanChoiceBlock(storm, caravanEvent('sand-wall').choices.find(c => c.id === 'shelter')!, base));
+    assert.equal(caravanChoiceBlock(storm, caravanEvent('sand-wall').choices.find(c => c.id === 'ride')!, base), null);
 });
 test('a full supply manifest records how much of an offered refill actually fits', () => {
     const run = eventRun('sheltered-well');
     run.supplies = 29;
-    const filled = resolveCaravanChoice(run, 'fill', 10000).run;
+    const filled = resolveCaravanChoice(run, 'fill', base).run;
     assert.equal(filled.supplies, 30);
     assert.match(filled.log.at(-1)!.text, /Only 1 of 4 extra supplies fit/);
 });
 test('seeded event outcomes cannot be rerolled by reload or clock changes', () => {
     const run = eventRun('buried-coins');
-    assert.deepEqual(resolveCaravanChoice(run, 'dig', 10000), resolveCaravanChoice(JSON.parse(JSON.stringify(run)), 'dig', 10000));
+    assert.deepEqual(resolveCaravanChoice(run, 'dig', base), resolveCaravanChoice(JSON.parse(JSON.stringify(run)), 'dig', base));
 });
 test('earlier decisions produce a later authored follow-up', () => {
     const run = eventRun('broken-axle');
-    const resolved = resolveCaravanChoice(run, 'kit', 10000).run;
+    const resolved = resolveCaravanChoice(run, 'kit', base).run;
     const target = resolved.map.find(n => resolved.available.includes(n.id))!;
     target.kind = 'merchant';
     const follow = selectCaravanNode(resolved, target.id);

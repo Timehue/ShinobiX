@@ -1,15 +1,39 @@
 import { caravanEvent, CARAVAN_EVENTS } from './caravan-events.js';
 import { clamp, sunscarHash, sunscarRandom } from './random.js';
-import type { CaravanChoice, CaravanEffect, CaravanNode, CaravanRun } from './caravan-types.js';
+import { CARAVAN_TOOLS, type CaravanCharacter, type CaravanChanges, type CaravanChoice, type CaravanEffect, type CaravanNode, type CaravanRun, type CaravanTool } from './caravan-types.js';
 
 export function currentCaravanNode(run: CaravanRun): CaravanNode | null { return run.map.find(n => n.id === run.currentNodeId) ?? null; }
-export function caravanChoiceBlock(run: CaravanRun, choice: CaravanChoice, ryo: number): string | null {
+export function caravanVitalCost(maximum: unknown, percent: number): number {
+    return Math.max(1, Math.round(Math.max(0, Number(maximum) || 0) * Math.abs(percent) / 100));
+}
+/** The server and client supply their existing, parity-checked pet role rules.
+ * Owned instance IDs include a UUID; native roles are based on the template. */
+export function caravanFieldCharacter<T extends { id: string; templateId?: string; role?: string }>(character: CaravanCharacter, roleOf: (pet: T) => string) {
+    const pets = (Array.isArray(character.pets) ? character.pets : []) as T[];
+    return { ...character, pets: pets.filter(p => p && typeof p.id === 'string').map(p => ({ ...p, role: p.role ?? roleOf({ ...p, id: p.templateId || p.id.split(':')[0] }) })) };
+}
+export function caravanTrackerBlock(run: Pick<CaravanRun, 'selectedPetId'>, character: CaravanCharacter, now: number): string | null {
+    const pet = (Array.isArray(character.pets) ? character.pets : []).find(p => p?.id === run.selectedPetId);
+    if (!pet || pet.role !== 'tracker') return 'Bring a Tracker companion to use this approach.';
+    const breeding = character.petBreeding as { state?: string; readyAt?: number; parentIds?: string[] } | undefined;
+    if (pet.training || pet.expedition || (breeding?.state === 'breeding' && now < Number(breeding.readyAt) && breeding.parentIds?.includes(pet.id))) return 'Your Tracker companion is busy elsewhere.';
+    return null;
+}
+export function caravanChoiceBlock(run: CaravanRun, choice: CaravanChoice, character: CaravanCharacter, now = Date.now()): string | null {
     if (choice.requiresFlag && !run.flags.includes(choice.requiresFlag)) return 'A clue from an earlier encounter is needed.';
     if (choice.excludesFlag && run.flags.includes(choice.excludesFlag)) return 'This route is no longer available.';
+    if (choice.utility && run.flags.includes(`utility-used-${choice.utility}`)) return 'This field technique has already been used on this mission.';
+    if (choice.utility === 'tracker') { const blocked = caravanTrackerBlock(run, character, now); if (blocked) return blocked; }
     if ((choice.cost?.supplies ?? 0) > run.supplies) return `Requires ${choice.cost!.supplies} supplies.`;
-    if (choice.cost?.tool && run.tools[choice.cost.tool] < 1) return `Requires ${choice.cost.tool}.`;
+    if (choice.cost?.tool && run.tools[choice.cost.tool] < 1) return `Requires ${CARAVAN_TOOLS[choice.cost.tool].name.toLowerCase()}.`;
     const price = Math.ceil((choice.cost?.ryoFraction ?? 0) * run.baseReward);
-    if (ryo < price) return `Requires ${price.toLocaleString()} Ryo.`;
+    if ((Number(character.ryo) || 0) < price) return `Requires ${price.toLocaleString()} Ryo.`;
+    for (const [field, maximum, percent] of [['stamina', character.maxStamina, choice.effect.staminaPercent], ['chakra', character.maxChakra, choice.effect.chakraPercent]] as const) {
+        if (percent !== undefined && percent < 0) {
+            const cost = caravanVitalCost(maximum, percent);
+            if ((Number(character[field]) || 0) < cost) return `Requires ${cost} ${field} (${Math.abs(percent)}% of maximum).`;
+        }
+    }
     return null;
 }
 export function revealCaravan(run: CaravanRun, extra = 0): void {
@@ -17,9 +41,41 @@ export function revealCaravan(run: CaravanRun, extra = 0): void {
     const range = (run.weather === 'sandstorm' ? 1 : 2) + (run.tools.map > 0 ? 1 : 0) + extra;
     for (const node of run.map) if (node.layer <= layer + range) node.revealed = true;
 }
-export function caravanObjectiveComplete(run: CaravanRun): boolean {
+export function caravanObjectiveProgress(run: CaravanRun) {
     const objective = run.contract.objective;
-    return (objective.kind === 'cargo' ? run.cargo : objective.kind === 'help' ? run.travelersHelped : objective.kind === 'combat' ? run.enemiesDefeated : run.discoveries.length) >= objective.target;
+    const current = objective.kind === 'cargo' ? run.cargo : objective.kind === 'help' ? run.travelersHelped : objective.kind === 'combat' ? run.enemiesDefeated : run.discoveries.length;
+    const label = { cargo: 'Cargo preserved', help: 'Travelers helped', combat: 'Battles won', discovery: 'Discoveries recorded' }[objective.kind];
+    return { current, target: objective.target, label, complete: current >= objective.target };
+}
+export function caravanObjectiveComplete(run: CaravanRun): boolean { return caravanObjectiveProgress(run).complete; }
+export function caravanRewardPreview(run: CaravanRun) {
+    const objectiveComplete = caravanObjectiveComplete(run);
+    const cargoPay = run.baseReward * run.cargo / 100;
+    const withoutObjective = Math.floor(cargoPay * (1 + run.bonus / 100));
+    const withObjective = Math.floor(cargoPay * (1 + run.bonus / 100 + .1));
+    return { ryo: objectiveComplete ? withObjective : withoutObjective, withoutObjective, objectiveBonus: withObjective - withoutObjective,
+        reputation: Math.max(5, 10 + run.contract.difficulty * 5 + run.reputation + (objectiveComplete ? 5 : 0)), objectiveComplete };
+}
+export function caravanChanges(before: CaravanRun, after: CaravanRun, characterBefore: CaravanCharacter, characterAfter: CaravanCharacter): CaravanChanges {
+    const changes: CaravanChanges = {};
+    for (const field of ['cargo', 'supplies', 'morale', 'reputation', 'bonus', 'travelersHelped', 'enemiesDefeated'] as const) {
+        const delta = after[field] - before[field]; if (delta) changes[field] = delta;
+    }
+    for (const field of ['hp', 'chakra', 'stamina', 'ryo'] as const) {
+        const delta = (Number(characterAfter[field]) || 0) - (Number(characterBefore[field]) || 0); if (delta) changes[field] = delta;
+    }
+    const discoveries = after.discoveries.length - before.discoveries.length;
+    if (discoveries) changes.discoveries = discoveries;
+    const scouted = after.map.filter(n => n.revealed).length - before.map.filter(n => n.revealed).length;
+    if (scouted) changes.scouted = scouted;
+    for (const tool of Object.keys(CARAVAN_TOOLS) as CaravanTool[]) {
+        const delta = after.tools[tool] - before.tools[tool]; if (delta) (changes.tools ??= {})[tool] = delta;
+    }
+    return changes;
+}
+export function caravanTravelCost(run: CaravanRun): number {
+    const thirdLeg = (run.visited.length + 1) % 3 === 0;
+    return 1 + (thirdLeg && run.weather === 'heat' && !run.tools.water ? 1 : 0) + (thirdLeg && run.morale < 25 ? 1 : 0);
 }
 export function selectCaravanNode(source: CaravanRun, nodeId: string): CaravanRun {
     if (source.status !== 'travel' || !source.available.includes(nodeId) || source.visited.includes(nodeId)) throw new Error('Choose one of the connected roads ahead.');
@@ -28,16 +84,14 @@ export function selectCaravanNode(source: CaravanRun, nodeId: string): CaravanRu
     run.currentNodeId = node.id;
     run.visited.push(node.id);
     run.available = [];
-    let cost = 1;
-    if (run.weather === 'heat' && run.visited.length % 3 === 0 && !run.tools.water) cost++;
-    if (run.morale < 25 && run.visited.length % 3 === 0) cost++;
+    const cost = caravanTravelCost(source);
     const shortfall = Math.max(0, cost - run.supplies);
     run.supplies = Math.max(0, run.supplies - cost);
     if (shortfall) { run.cargo = Math.max(0, run.cargo - shortfall * 5); run.morale = Math.max(0, run.morale - shortfall * 3); }
     if (node.kind !== 'destination') {
         // Pay off an earlier decision at the first eligible later encounter,
         // never replace a contract boss or the next mandatory dangerous leg.
-        if (['event', 'traveler', 'merchant', 'camp'].includes(node.kind)) {
+        if (!node.objectiveOpportunity && ['event', 'traveler', 'merchant', 'camp'].includes(node.kind)) {
             const continuation = CARAVAN_EVENTS.find(e => e.requiresFlag && run.flags.includes(e.requiresFlag)
                 && !run.visited.some(id => id !== node.id && run.map.find(n => n.id === id)?.eventId === e.id));
             if (continuation) { node.eventId = continuation.id; node.kind = continuation.kind; }
@@ -45,19 +99,20 @@ export function selectCaravanNode(source: CaravanRun, nodeId: string): CaravanRu
         run.status = 'encounter';
     }
     revealCaravan(run);
-    if (shortfall) run.log.push({ nodeId, title: 'Supplies exhausted', text: `The crew improvised without ${shortfall} needed supply. ${shortfall * 5}% cargo was damaged.`, cargo: run.cargo, supplies: run.supplies, morale: run.morale });
+    run.log.push({ nodeId, title: shortfall ? 'Supplies exhausted' : 'Convoy advanced', text: shortfall ? `The crew improvised without ${shortfall} needed supply. ${shortfall * 5}% cargo was damaged.` : `The convoy reached leg ${node.layer + 1}, spending ${cost} ${cost === 1 ? 'supply' : 'supplies'}.`, cargo: run.cargo, supplies: run.supplies, morale: run.morale });
     return run;
 }
-export function resolveCaravanChoice(source: CaravanRun, choiceId: string, ryo: number): { run: CaravanRun; effect: CaravanEffect; costRyo: number; text: string } {
+export function resolveCaravanChoice(source: CaravanRun, choiceId: string, character: CaravanCharacter, now = Date.now()): { run: CaravanRun; effect: CaravanEffect; costRyo: number; text: string } {
     if (source.status !== 'encounter') throw new Error('Resolve the current road before choosing an encounter.');
     const node = currentCaravanNode(source);
     if (!node) throw new Error('The active encounter could not be found.');
     const event = caravanEvent(node.eventId);
     const choice = event.choices.find(c => c.id === choiceId);
     if (!choice) throw new Error('Choose an available response.');
-    const blocked = caravanChoiceBlock(source, choice, ryo);
+    const blocked = caravanChoiceBlock(source, choice, character, now);
     if (blocked) throw new Error(blocked);
     const run = structuredClone(source);
+    if (choice.utility) run.flags.push(`utility-used-${choice.utility}`);
     const costRyo = Math.ceil((choice.cost?.ryoFraction ?? 0) * run.baseReward);
     run.supplies -= choice.cost?.supplies ?? 0;
     if (choice.cost?.tool) run.tools[choice.cost.tool]--;

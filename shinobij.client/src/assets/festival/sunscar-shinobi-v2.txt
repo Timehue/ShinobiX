@@ -1,0 +1,13 @@
+Caravan Run shinobi escort artwork, 2026-09-18
+Generated with the built-in image_gen tool. Original four-panel atlas inspected before export.
+Deterministic export: split into four equal panels, 768 x 512 WebP, quality 78.
+Only the currently displayed region is requested by the game.
+
+Final workspace assets:
+shinobij.client/src/assets/festival/sunscar-shinobi-dunes-v2.webp (65,166 bytes)
+shinobij.client/src/assets/festival/sunscar-shinobi-canyon-v2.webp (59,060 bytes)
+shinobij.client/src/assets/festival/sunscar-shinobi-ruins-v2.webp (54,062 bytes)
+shinobij.client/src/assets/festival/sunscar-shinobi-oasis-v2.webp (91,914 bytes)
+
+Final generation prompt:
+Use case: stylized-concept. Asset type: production game environment atlas for a shinobi escort mission called Caravan Run, inside the Sunscar desert region of an original anime ninja RPG. Create one landscape image 1536x1024 consisting of exactly FOUR equal rectangular panels in a precise 2 by 2 grid, each panel filling its quadrant edge to edge, with no gutters or borders. Each panel is an original cinematic painted anime environment with a small Japanese wooden cargo cart, bamboo cargo cases wrapped with paper sealing tags, and 2-3 clearly recognizable shinobi escorts in indigo wraps, light flak vests, cloth masks, arm guards, weapon pouches and simple original forehead protectors. No real franchise logos. Composition: wide establishing shots; readable shinobi silhouettes and cart centered vertically in the MIDDLE THIRD of each panel so a shallow horizontal crop stays usable. TOP LEFT: dawn on golden Sunscar dunes near a weathered Japanese gate, masked scout watching from a sandstone ridge, wind pulling a red escort pennant. TOP RIGHT: rust-colored canyon with a narrow wooden bridge, an escort running along a rock ledge above the cart, hanging warning seals, tactical tension. BOTTOM LEFT: moonlit ruins of a desert shrine, broken stone lanterns, a torii gate, sealing talismans with abstract non-legible marks, indigo-clad guards protecting the cargo. BOTTOM RIGHT: green oasis border outpost with bamboo, Japanese tiled checkpoint roofs, a lantern, carts arriving beneath distant sandstone cliffs. Cohesive palette: deep ink indigo, aged parchment, restrained vermilion, warm sandstone, subtle chakra teal. Detailed hand-painted anime game background with strong depth and natural light, clear shapes at small mobile size. No UI, no captions, no readable text, no typography, no watermarks. No European wagons with covered canvas hoops, no cowboys or Arabian palaces. These are humble working shinobi on escort duty, not flashy combat poses.

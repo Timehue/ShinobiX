@@ -13,6 +13,12 @@ const bossEvents = { captain: 'captain-line', wyrm: 'wyrm-crossing', scorpion: '
 export function generateCaravanMap(seed: number, contract: CaravanContract, weather: CaravanWeather): CaravanNode[] {
     const rand = sunscarRandom(seed);
     const map: CaravanNode[] = [];
+    // Reserve distinct, affordable opportunities before filling the random map.
+    // Keeping these events out of the random pool prevents an earlier duplicate
+    // discovery from consuming the objective's later guaranteed opportunity.
+    const objectiveEvents = contract.objective.kind === 'help' ? ['lost-apprentice', 'village-pilgrims']
+        : contract.objective.kind === 'discovery' ? [contract.chain?.id === 'missing-shipment' ? 'watchtower-ledger' : 'dry-cistern', 'buried-coins', 'sunken-bell'] : [];
+    const reserved = new Set(objectiveEvents.slice(0, contract.objective.target));
     const kinds: CaravanNodeKind[] = ['event', 'traveler', 'hazard', 'camp', 'merchant', 'ruins', 'treasure', 'pet', 'combat', 'elite'];
     const weighted = [...kinds, ...(weather === 'sandstorm' || weather === 'heat' ? ['hazard', 'hazard'] : weather === 'bandits' ? ['combat', 'combat'] : weather === 'festival' ? ['merchant', 'traveler'] : weather === 'night' ? ['ruins', 'ruins'] : ['event'])] as CaravanNodeKind[];
     const used = new Set<string>();
@@ -28,8 +34,8 @@ export function generateCaravanMap(seed: number, contract: CaravanContract, weat
             if (layer === contract.nodes - 2 && contract.difficulty === 3 && !contract.guaranteedBoss) kind = 'boss';
             let eventId = '';
             if (!destination) {
-                let pool = CARAVAN_EVENTS.filter(e => e.kind === kind && !e.requiresFlag && (!e.weather || e.weather.includes(weather)) && !used.has(e.id));
-                if (!pool.length) pool = CARAVAN_EVENTS.filter(e => e.kind === kind && !e.requiresFlag);
+                let pool = CARAVAN_EVENTS.filter(e => e.kind === kind && !e.requiresFlag && !reserved.has(e.id) && (!e.weather || e.weather.includes(weather)) && !used.has(e.id));
+                if (!pool.length) pool = CARAVAN_EVENTS.filter(e => e.kind === kind && !e.requiresFlag && !reserved.has(e.id));
                 eventId = weightedCaravanEvent(pool, rand).id;
                 if (kind === 'boss' && contract.guaranteedBoss) eventId = bossEvents[contract.guaranteedBoss];
                 if (layer === 1 && column === 0 && contract.chain?.id === 'missing-shipment' && contract.chain.stage === 1) { eventId = 'watchtower-ledger'; kind = 'ruins'; }
@@ -54,5 +60,15 @@ export function generateCaravanMap(seed: number, contract: CaravanContract, weat
             prev.next.push(node.id);
         }
     }
+    // Objective stops remain optional, but are connected from every approach in
+    // the preceding row. Fixed combat checkpoints, rest stop, and boss row stay intact.
+    [...reserved].forEach((eventId, index) => {
+        const node = map.find(n => n.layer === 1 + index * 3 && n.column === 0)!;
+        const event = CARAVAN_EVENTS.find(e => e.id === eventId)!;
+        node.eventId = eventId; node.kind = event.kind; node.objectiveOpportunity = true;
+        for (const previous of map.filter(n => n.layer === node.layer - 1)) {
+            if (!previous.next.includes(node.id)) previous.next.push(node.id);
+        }
+    });
     return map;
 }
