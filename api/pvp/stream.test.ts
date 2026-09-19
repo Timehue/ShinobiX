@@ -285,3 +285,47 @@ test('the wake delay honours the turn clock and never drops below the old 100 ms
     assert.equal(streamWakeDelayMs(session('d', { turnStartedAt: now - LAPSED }), now), 100, 'an overdue turn retries at the old cadence');
     assert.equal(streamWakeDelayMs(session('d', { turnStartedAt: now }), now), 1_000, 'a far-off lapse still gets the safety poll');
 });
+
+test('a move that lands while the stream is still connecting is streamed at once', async () => {
+    const { signalKeyWritten } = await import('../_kv-write-signal.js');
+    const { kv } = await import('../_storage.js');
+    store.set('pvp:sse-race', clone(session('sse-race')));
+    const original = kv.get;
+    let movedAt = 0;
+    kv.get = (async (key: string) => {
+        const value = await original(key);
+        if (key === 'pvp:sse-race' && !movedAt) {
+            // Bob's move commits just after the stream's first read took its
+            // snapshot. A stream that subscribed only after that read would
+            // not hear it and would sit on the stale frame until the safety poll.
+            store.set('pvp:sse-race', clone({ ...session('sse-race'), log: ['Bob struck first.'] }));
+            movedAt = Date.now();
+            signalKeyWritten('pvp:sse-race');
+        }
+        return value;
+    }) as typeof kv.get;
+    try {
+        const run = openStream('sse-race');
+        while (!movedAt) await new Promise<void>((r) => setTimeout(r, 1));
+        while (!run.chunks.some((chunk) => chunk.includes('Bob struck first.')) && Date.now() - movedAt < 1_500) {
+            await new Promise<void>((r) => setTimeout(r, 5));
+        }
+        const latency = Date.now() - movedAt;
+        run.close();
+        await run.done;
+        assert.ok(latency < 500, `the connect-time move reached the client in ${latency}ms, well inside the 1s safety poll`);
+    } finally {
+        kv.get = original;
+    }
+});
+
+test('a fight that is already over is answered at once, without waiting for a poll', async () => {
+    store.set('pvp:sse-over', clone(session('sse-over', { status: 'done', winner: 'p2' })));
+    const startedAt = Date.now();
+    const run = openStream('sse-over');
+    await run.done;
+    const elapsed = Date.now() - startedAt;
+    assert.deepEqual(run.events.map((e) => e.event), ['session', 'end']);
+    assert.deepEqual(run.events.at(-1), { event: 'end', data: { reason: 'session-done' } });
+    assert.ok(elapsed < 500, `a finished fight held the connection for ${elapsed}ms`);
+});
