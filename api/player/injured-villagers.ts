@@ -4,6 +4,7 @@ import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { professionRankForXp } from '../missions/_progress.js';
 import { battleLockFlagsForPlayers, settleSaveRecord } from '../_elapsed-state.js';
+import { parsePublicPlayerIndexEntry } from './_public-index.js';
 
 // Rank 10 Healer perk: see all injured players in your village anywhere in
 // the world (HP < maxHp), not just those in the hospital. Returns a small
@@ -64,8 +65,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // injured players. Same-village filter applied server-side so we never leak
         // other villages' player data through this endpoint.
         const registry = await kv.hgetall<Record<string, unknown>>(REGISTRY_KEY);
-        const playerSlugs = Object.keys(registry ?? {})
-            .filter(slug => !slug.startsWith('clan-') && !slug.toLowerCase().startsWith('admin'))
+        const playerSlugs = Object.entries(registry ?? {})
+            .filter(([slug]) => !slug.startsWith('clan-') && !slug.toLowerCase().startsWith('admin'))
+            // The index already carries each player's village, so read only the
+            // saves that can match instead of every registered player's full
+            // save (~100 KB each) on every Healer poll. An entry with no village
+            // is still read, and the save-side village check below stays the
+            // authority for every record that is read.
+            .filter(([slug, entry]) => {
+                const indexedVillage = parsePublicPlayerIndexEntry(entry, slug)?.village ?? '';
+                return !indexedVillage || indexedVillage === healerVillage;
+            })
+            .map(([slug]) => slug);
         const playerKeys = playerSlugs.map(slug => `save:${slug}`);
         if (playerKeys.length === 0) {
             res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=30');
