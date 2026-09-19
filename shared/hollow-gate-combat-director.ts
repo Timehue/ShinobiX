@@ -55,7 +55,14 @@ function alpha(turn: number, phase: 1 | 2 | 3, width: number, height: number): H
         return { floor: 5, phase, phaseName: "Guardian", title: charging ? "Gate-Eater's Howl is charging" : "The Alpha tests the surviving wards", instruction: charging ? "Stand inside the violet ward column before the Alpha acts." : "Read the ward lines. The Alpha howls every third turn.", tone: "alpha", hazardTiles: charging ? tilesWhere(width, height, (x, y) => !safe.has(y * width + x)) : EMPTY, safeTiles, hazardDamagePct: charging ? 0.07 : 0, incomingDamageMultiplier: 1, outgoingDamageMultiplier: 1, musicIntensity: "pressure", signature: "Gate-Eater's Howl" };
     }
     if (phase === 2) {
-        const open = turn % 2 === 0, parity = turn % 2;
+        // Rifts open on even turns and inhale on odd ones, and each opening tears
+        // the OTHER set of lanes: turns 2, 6, 10… mark the even columns, turns 4,
+        // 8, 12… the odd ones — the reversal the inhale turn warns about. The
+        // lane set used to read `turn % 2`, which is always 0 on an open turn, so
+        // every pulse hit the same columns and one step made phase II inert.
+        // Indexed off the absolute turn, never off when phase II began, so the
+        // server and every client derive the same lanes from (round, HP) alone.
+        const open = turn % 2 === 0, parity = (Math.floor(turn / 2) + 1) % 2;
         const hazardTiles = open ? tilesWhere(width, height, (x) => x % 2 === parity) : EMPTY;
         const hazard = new Set(hazardTiles);
         return { floor: 5, phase, phaseName: "Riftstalker", title: open ? "The Alpha tears open alternating rift lanes" : "The rifts inhale", instruction: open ? "Cross onto an unmarked lane before the Alpha pounces." : "Reposition now. The lane pattern reverses on the next turn.", tone: "alpha", hazardTiles, safeTiles: open ? tilesWhere(width, height, (x, y) => !hazard.has(y * width + x)) : EMPTY, hazardDamagePct: open ? 0.08 : 0, incomingDamageMultiplier: 1.1, outgoingDamageMultiplier: open ? 1.12 : 1.04, musicIntensity: "climax", signature: "Rift-Hunt Pounce" };
