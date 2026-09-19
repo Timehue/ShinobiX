@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
 import { caravanEvent } from '../../shared/sunscar/caravan-events.ts';
 import { caravanChoiceBlock } from '../../shared/sunscar/caravan-state.ts';
-const base = 'http://127.0.0.1:5199', out = new URL('../../.tmp/sunscar-caravan-flow-qa/', import.meta.url);
+const base = process.env.SUNSCAR_QA_URL || 'http://127.0.0.1:5199', out = new URL('../../.tmp/sunscar-caravan-flow-qa/', import.meta.url);
 await mkdir(out, { recursive: true });
 const browser = await chromium.launch({ headless: true });
 const errors = [], checks = [], receipts = [];
@@ -41,7 +41,7 @@ try {
             await page.getByRole('button', { name: next.kind === 'destination' ? 'Deliver the cargo' : 'Travel to this stop', exact: true }).click();
         } else {
             const event = caravanEvent(run.map.find(n => n.id === run.currentNodeId).eventId);
-            const choices = event.choices.filter(c => !c.effect.combat && !c.effect.petTrail && !caravanChoiceBlock(run, c, data.character.ryo));
+            const choices = event.choices.filter(c => !c.effect.combat && !c.effect.petTrail && !caravanChoiceBlock(run, c, data.character, data.serverNow));
             const choice = choices.sort((a, b) => ((b.effect.cargo ?? 0) + (b.effect.supplies ?? 0) * 3) - ((a.effect.cargo ?? 0) + (a.effect.supplies ?? 0) * 3))[0];
             assert.ok(choice, event.id);
             await page.locator('.caravan-choices button').filter({ has: page.getByText(choice.label, { exact: true }) }).click();

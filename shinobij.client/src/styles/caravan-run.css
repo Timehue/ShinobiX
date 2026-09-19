@@ -1,0 +1,141 @@
+/* Caravan-only layout: keep the current decision within reach on small screens. */
+.caravan-mode button { touch-action: manipulation; }
+.caravan-mode .sunscar-error { scroll-margin-block: 24px; }
+.caravan-mode .sunscar-error .sunscar-button-row { margin-top: 16px; }
+.caravan-view-switch { display: none; }
+.caravan-journey { scroll-margin-top: 16px; }
+.caravan-resource-bar { grid-column: 1 / -1; padding-bottom: 0; }
+.caravan-mode .caravan-chart, .caravan-mode .caravan-encounter { margin-bottom: 0; }
+.caravan-mode .caravan-map-tools button { min-width: 44px; font-size: 12px; }
+.caravan-map-tools { flex-wrap: wrap; font-size: 12px; }
+.caravan-map-tools > div { margin-left: auto; }
+.caravan-map-scroll { overscroll-behavior-y: auto; }
+.caravan-map-node > small { min-width: 0; width: 58px; white-space: normal; overflow-wrap: normal; }
+.caravan-map-key { font-size: 11px; gap: 10px 16px; }
+.caravan-resource.is-low strong { color: #ffbd9c; }
+.caravan-resource.is-low meter { accent-color: #e6a17e; }
+.caravan-resource.is-low meter::-webkit-meter-suboptimum-value,
+.caravan-resource.is-low meter::-webkit-meter-even-less-good-value { background: #e6a17e; }
+.caravan-mode .caravan-travel-cost { color: #dce2b9; font-size: 13px; }
+.caravan-mode .caravan-travel-cost.is-warning { color: #ffc2a2; }
+.caravan-next-stop { outline: 0; scroll-margin: 20px; }
+.caravan-next-stop:focus-visible { outline: 2px solid #a7dfdf; outline-offset: 3px; }
+.caravan-journal summary { min-height: 44px; }
+.caravan-feedback { margin: 0 0 14px; padding: 10px 12px; border-left: 3px solid #a3c4af; background: #233339; font-size: 12px; }
+.caravan-feedback > strong { display: block; color: #e5e4cd; margin-bottom: 6px; }
+.caravan-feedback > div { display: flex; flex-wrap: wrap; gap: 6px 12px; color: #e5efe7; }
+.caravan-mission-status { margin: 0 0 20px; padding: 12px; background: #202f37; border: 1px solid #bca58155; border-radius: 6px; }
+.caravan-objective-progress, .caravan-payout-preview { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; font-size: 13px; color: #f0dfbd; }
+.caravan-mission-status small { display: block; margin-top: 5px; color: #ccd6d6; font-size: 12px; line-height: 1.45; }
+.caravan-payout-preview { margin-top: 10px; padding-top: 10px; border-top: 1px solid #a7997444; }
+.caravan-mission-status .caravan-objective-bonus { color: #d7dfb8; }
+.caravan-mode .caravan-technique-brief { font-size: 12px; color: #cbd5d7; }
+.caravan-base-pay { display: grid; gap: 8px; padding-block: 12px; border-block: 1px solid #bca58155; }
+.caravan-base-pay span, .caravan-mode .caravan-debrief-pay { font-size: 12px; line-height: 1.5; }
+.caravan-opportunity { display: block; color: #d7dfb8; margin-top: 5px; font-size: 12px; }
+.caravan-map-objective { position: absolute; right: -7px; top: -7px; background: #254c45; color: #fff0c9; border: 1px solid #fff0c9; border-radius: 50%; width: 20px; height: 20px; line-height: 18px; font-size: 14px; }
+
+/* Shinobi dispatch: indigo cloth, mission parchment, and vermilion seals. */
+.caravan-mode { --sun-panel: #182129; --sun-line: #d6ccb329; --sun-muted: #c2c6c5; --sun-gold: #e4bc98; }
+.caravan-mode .caravan-mission-header { padding: 28px; min-height: 265px; border: 1px solid #a891704d; border-left: 4px solid #b15d4c; border-radius: 10px; background-size: cover; background-position: center 62%; }
+.caravan-mission-header .sunscar-back { background: #14212bcc; }
+.caravan-mode .caravan-mission-header > div:first-child { max-width: 650px; }
+.caravan-mission-header .sunscar-rank { padding: 16px; border: 1px solid #d6ccb340; background: #14212be6; border-radius: 5px; }
+.caravan-mode .caravan-contract { position: relative; border-top: 3px solid #6b7780; background: linear-gradient(145deg, #26313b, #182028); padding-top: 28px; }
+.caravan-mode .caravan-contract.is-selected { background: linear-gradient(145deg, #343d43, #1c2730); border-color: #c78970; box-shadow: inset 0 0 0 1px #c789703d; }
+.caravan-contract > .sunscar-eyebrow { padding-right: 28px; color: #edc7a5; }
+.caravan-contract-seal { position: absolute; right: 15px; top: 19px; color: #d59178; }
+.caravan-contract .caravan-employer, .caravan-contract-cargo { color: #c6d3d6; }
+.caravan-contract small { color: #c2d1c5; }
+.caravan-preparation, .caravan-journal { background: #182129; }
+.caravan-departure { background: #202c35; }
+.caravan-mode select { background: #1a2932; border-color: #718087; color: #f1e4cb; }
+.caravan-weather { background: #1e2b32; border-left-color: #be7560; color: #d2dcdd; }
+.caravan-mode .caravan-manifest { background: linear-gradient(115deg, #29343c, #182129); border-left: 3px solid #b96552; }
+.caravan-manifest .sunscar-eyebrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.caravan-resource strong { color: #f0e4cc; }
+.caravan-mode .caravan-encounter { background: #19232c; border-color: #c1b39340; }
+.caravan-mode .caravan-scene { background: #1a2932; border-bottom: 2px solid #b36b55; }
+.caravan-scene > img { width: 100%; height: 100%; display: block; object-fit: cover; object-position: 50% 65%; }
+.caravan-scene[data-region="canyon"] > img { object-position: 50% 61%; }
+.caravan-scene[data-region="ruins"] > img { object-position: 50% 78%; }
+.caravan-scene[data-region="oasis"] > img { object-position: 50% 74%; }
+.caravan-scene-caption { max-width: calc(100% - 32px); background: #14212bea; letter-spacing: .13em; }
+.caravan-scene-seal { position: absolute; left: 18px; bottom: 12px; display: grid; place-items: center; width: 38px; height: 43px; color: #99483d; background: #ede0bf; border: 1px solid #fff0cb; box-shadow: 2px 3px 0 #18212988; transform: rotate(-5deg); }
+.caravan-mode .caravan-choices > button { background: #28343d; border-left: 3px solid #a77c61; color: #f0e3cb; }
+.caravan-choices > button span { color: #c9d2d4; }
+.caravan-mode .caravan-route-options button { background: #202e37; border-color: #849a9f66; }
+.caravan-mode .caravan-next-stop { background: #23353c; border-left-color: #c7876c; }
+.caravan-next-stop > strong, .caravan-mode .caravan-travel-cost { color: #e4dfc5; }
+.caravan-mode .caravan-travel-cost.is-warning { color: #ffc2a2; }
+.caravan-mode .caravan-departure > button,
+.caravan-mode .caravan-next-stop .sunscar-button-row > button:first-child,
+.caravan-mode .caravan-encounter > button:not(.sunscar-secondary) { background: #97463b; border-color: #d18871; color: #fff0d6; }
+.caravan-objective { border-top-color: #aa715766; color: #e4c9a8; }
+.caravan-objective > small { color: #bfc7c8; }
+.caravan-tools-inventory > span { background: #202c33; border-color: #738b8b55; color: #e2d6bd; }
+.caravan-mode .caravan-chart { border-color: #a5967c; border-radius: 5px; }
+.caravan-map-tools, .caravan-map-key { background: #202d33; color: #dfd7c2; }
+.caravan-mode .caravan-map-tools button { background: #35424a; border-color: #9d998266; color: #eee1c8; }
+.caravan-mode .caravan-map-node { background: #dcd2b7; border-color: #6c7163; color: #354741; border-radius: 7px; }
+.caravan-mode .caravan-map-node.is-available { background: #f4e9cd; border-color: #a15545; box-shadow: 0 0 0 4px #a1554530; }
+.caravan-mode .caravan-map-node.is-visited { background: #66786f; color: #fff0d2; border-color: #3e554c; }
+.caravan-mode .caravan-map-node.is-current { background: #914639; color: #fff0d2; border-color: #fff0d2; }
+.caravan-mode .caravan-map-node.is-selected { outline-color: #264e54; }
+.caravan-map-node > svg { vertical-align: middle; }
+.caravan-map-key > span { display: inline-flex; gap: 4px; align-items: center; }
+.caravan-mode .sunscar-prestige { background: #1c282e; }
+@media (hover: hover) {
+    .caravan-mode .caravan-contract:hover:not(:disabled),
+    .caravan-mode .caravan-choices > button:hover:not(:disabled),
+    .caravan-mode .caravan-route-options button:hover:not(:disabled) { background: #37454e; color: #fff0d6; }
+    .caravan-mode .caravan-departure > button:hover:not(:disabled),
+    .caravan-mode .caravan-next-stop .sunscar-button-row > button:first-child:hover:not(:disabled) { background: #b35b48; }
+}
+
+@media (min-width: 901px) {
+    .caravan-map-node > small { width: 105px; }
+}
+
+@media (max-width: 900px) {
+    .caravan-journey { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+    .caravan-view-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .caravan-mode .caravan-view-switch button { min-width: 0; font-size: 14px; }
+    .caravan-mode .caravan-view-switch button[aria-pressed="true"] { background: #97463b; border-color: #d18871; color: #fff0d6; }
+    .caravan-journey[data-view="decision"] > .caravan-chart,
+    .caravan-journey[data-view="map"] > .caravan-encounter { display: none; }
+    .caravan-map-scroll { height: min(440px, 60dvh); max-height: none; }
+    .caravan-mode select { font-size: 16px; }
+    .caravan-resource-bar { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 16px; }
+}
+
+@media (max-width: 650px) {
+    .caravan-mode .caravan-mission-header { padding: 20px; min-height: 260px; background-position: 42% 65%; gap: 12px; }
+    .caravan-mission-header .sunscar-rank { padding: 10px 12px; }
+    .caravan-on-road .sunscar-mode-heading { margin-bottom: 16px; padding-bottom: 16px; }
+    .caravan-on-road .sunscar-mode-heading h1 { font-size: 36px; margin-block: 4px 8px; }
+    .caravan-on-road .sunscar-mode-heading h1 + p { display: none; }
+    .caravan-on-road .sunscar-back { margin-bottom: 12px; }
+    .caravan-on-road .sunscar-rank { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; padding: 0; }
+    .caravan-on-road .sunscar-rank strong { font-size: 18px; }
+    .caravan-manifest { gap: 10px; }
+    .caravan-manifest h2 { font-size: 26px; margin-block: 4px 8px; }
+    .caravan-manifest > div:last-child { grid-template-columns: 1fr auto; }
+    .caravan-manifest small { grid-column: 1 / -1; }
+    .caravan-resource > span { flex-direction: column; align-items: flex-start; gap: 4px; font-size: 12px; }
+    .caravan-resource strong { font-size: 12px; }
+    .caravan-resource meter { height: 8px; margin-top: 5px; }
+    .caravan-resource-bar { padding-block: 16px 4px; }
+    .caravan-encounter { padding: 0 16px 20px; }
+    .caravan-scene { margin: 0 -16px 20px; height: 120px; }
+    .caravan-encounter h2 { font-size: 28px; }
+    .caravan-encounter p, .caravan-preparation p, .caravan-contract p { font-size: 14px; }
+    .caravan-choices { margin-block: 18px; }
+    .caravan-choices > button span { font-size: 13px; line-height: 1.5; }
+    .caravan-mode .caravan-route-options button { font-size: 14px; }
+    .caravan-next-stop { padding: 14px; }
+    .caravan-next-stop .sunscar-button-row { align-items: stretch; flex-direction: column; gap: 8px; }
+    .caravan-mode .caravan-condition-note { font-size: 12px; }
+    .caravan-mode .sunscar-error { padding: 20px; }
+    .caravan-mode .sunscar-error button { width: 100%; }
+}

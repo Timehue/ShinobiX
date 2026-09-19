@@ -12,20 +12,27 @@ export type CaravanChoice = {
     id: string; label: string; hint: string; result: string; effect: CaravanEffect;
     cost?: { supplies?: number; tool?: CaravanTool; ryoFraction?: number };
     requiresFlag?: string; excludesFlag?: string;
+    utility?: 'clone' | 'seal' | 'tracker';
     outcomes?: { weight: number; result: string; effect: CaravanEffect }[];
 };
 export type CaravanEvent = {
     id: string; kind: CaravanNodeKind; title: string; scene: string; choices: CaravanChoice[];
     weight?: number; rare?: boolean; requiresFlag?: string; excludesFlag?: string; weather?: CaravanWeather[];
 };
-export type CaravanNode = { id: string; layer: number; column: number; x: number; y: number; kind: CaravanNodeKind; next: string[]; eventId: string; region: 'dunes' | 'canyon' | 'ruins' | 'oasis'; revealed: boolean };
+export type CaravanNode = { id: string; layer: number; column: number; x: number; y: number; kind: CaravanNodeKind; next: string[]; eventId: string; region: 'dunes' | 'canyon' | 'ruins' | 'oasis'; revealed: boolean; objectiveOpportunity?: boolean };
 export type CaravanContract = {
     id: string; title: string; employer: string; cargo: string; description: string; destination: string;
     difficulty: 1 | 2 | 3; reputationRequired: number; payoutFactor: number; nodes: number; supplies: number;
     objective: { kind: 'cargo' | 'help' | 'discovery' | 'combat'; target: number; label: string };
     chain?: { id: string; stage: number }; guaranteedBoss?: CaravanEnemy;
 };
-export type CaravanLog = { nodeId: string; title: string; text: string; cargo: number; supplies: number; morale: number };
+export type CaravanChanges = Partial<Record<'cargo' | 'supplies' | 'morale' | 'hp' | 'chakra' | 'stamina' | 'ryo' | 'reputation' | 'bonus' | 'discoveries' | 'travelersHelped' | 'enemiesDefeated' | 'scouted', number>> & { tools?: Partial<Record<CaravanTool, number>> };
+export type CaravanLog = { nodeId: string; title: string; text: string; cargo: number; supplies: number; morale: number; changes?: CaravanChanges };
+/** Read from the saved character on the server; never accept this context from an action body. */
+export type CaravanCharacter = {
+    ryo?: unknown; hp?: unknown; chakra?: unknown; stamina?: unknown; maxHp?: unknown; maxChakra?: unknown; maxStamina?: unknown;
+    pets?: unknown; petBreeding?: unknown;
+};
 export type CaravanRun = {
     id: string; day: string; seed: number; version: number; contract: CaravanContract; weather: CaravanWeather;
     map: CaravanNode[]; currentNodeId: string | null; available: string[]; visited: string[];
@@ -39,9 +46,9 @@ export type CaravanRun = {
 };
 export type CaravanProgress = { reputation: number; deliveries: number; lastEntryDay: string | null; current: CaravanRun | null; chains: Record<string, number>; discoveries: string[]; history: { id: string; title: string; day: string; result: NonNullable<CaravanRun['result']> }[] };
 export const CARAVAN_TOOLS: Record<CaravanTool, { name: string; description: string }> = {
-    water: { name: 'Extra water', description: 'Shelter against heat and dry wells.' }, repair: { name: 'Repair kit', description: 'Fix cargo without spending general supplies.' },
-    smoke: { name: 'Smoke bombs', description: 'Avoid selected ambushes at a morale cost.' }, map: { name: 'Scout map', description: 'Reveal one more row of the road from the start.' },
-    medicine: { name: 'Medical pack', description: 'Treat wounds or help injured travelers.' }, feed: { name: 'Pet feed', description: 'Calm wildlife and make room for a wild companion.' },
+    water: { name: 'Extra water', description: 'Water skins for long patrols. Shelter against heat and dry wells.' }, repair: { name: 'Repair kit', description: 'Binding wire, spare fittings and paper seals. Fix cargo without spending general supplies.' },
+    smoke: { name: 'Smoke bombs', description: 'Shinobi cover for selected ambushes. Some retreats cost morale.' }, map: { name: 'Scout scroll', description: 'Patrol bearings reveal one more row of the road from the start.' },
+    medicine: { name: 'Medical pack', description: 'Field dressings to treat wounds or help injured travelers.' }, feed: { name: 'Pet feed', description: 'Calm wildlife and make room for a wild companion.' },
 };
 export const CARAVAN_WEATHER: Record<CaravanWeather, { name: string; description: string }> = {
     clear: { name: 'Clear skies', description: 'Good visibility. Two rows of the route are visible.' },

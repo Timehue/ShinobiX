@@ -8,7 +8,7 @@ import { safeLogValue } from '../_safe-log.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { recordEconomyTxn } from '../_economy.js';
 import { FestivalError, festivalDay } from './_rally.js';
-import { advanceCaravan, caravanProgress, departCaravan, requireCaravan } from './_caravan.js';
+import { advanceCaravan, caravanBaseReward, caravanProgress, departCaravan, requireCaravan } from './_caravan.js';
 import { finishCaravanCombat, startCaravanCombat } from './_caravan-combat.js';
 import { caravanDaily } from '../../shared/sunscar/caravan-contracts.js';
 import { readSoloPveSession } from '../solo-pve/_store.js';
@@ -55,7 +55,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && !await enforceRateLimitKv(req, res, 'sunscar-caravan', 60, 60_000, player, { strict: true })) return;
         const respond = (character: Record<string, unknown>, version?: number, extra: Record<string, unknown> = {}) => {
             const progress = caravanProgress(character);
-            return res.status(200).json({ ok: true, progress, daily: caravanDaily(player, festivalDay(Date.now()), progress), serverNow: Date.now(),
+            const daily = caravanDaily(player, festivalDay(Date.now()), progress);
+            return res.status(200).json({ ok: true, progress, daily: { ...daily, baseRewards: Object.fromEntries(daily.contracts.map(c => [c.id, caravanBaseReward(character, c)])) }, serverNow: Date.now(),
                 ...(version === undefined ? {} : { character, _saveVersion: version }), ...extra });
         };
         if (req.method === 'GET') {
