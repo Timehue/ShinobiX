@@ -121,7 +121,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "If you left tonight, where would you go?"),
         ], [
             ch("Tell her where you'd run, if you ran. The real route, not a decoy.", "good", "mira-trust", "You give her your own exit, the one you've never said out loud either. She nods once, files it under storm rules, and moves the packed bag two feet farther from the hatch. Then she asks which road floods first in spring."),
-            ch("Tell her two routes is just sound rigging. Nothing to explain.", "neutral", "mira-respect", "'Redundancy,' you say, and she almost smiles. You've spoken her native language: load paths, failure points, backups for the backups. She doesn't move the bag. But she shows you the real anchor points on the ridge, which she has never shown anyone, strictly, she says, for professional reasons."),
+            ch("Tell her there's nothing wrong with keeping an escape plan.", "neutral", "mira-respect", "'It's sensible to have a way out,' you say, and she almost smiles. She leaves the bag where it is, but shows you where the cables are secured along the ridge. She has never shown anyone else those places. 'Just for work,' she says."),
             ch("Ask what the boat route would be worth to the right buyer.", "bad", "mira-fear", "The rooftop goes quiet in a new way. 'There it is,' she says, not surprised, only tired, and the bag comes back to arm's reach of the hatch. She still works with you after. She is professionally flawless about it. But the gloves go back in the box, and storm rules never quite cover you the same way again."),
         ]),
         interlude("Stormveil Village", 42, "What the Floor Drinks", [
@@ -297,7 +297,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 ] },
             pg("Rigging in the Dark", "The spine cable going up, lanterns swinging, the Captain's guards hauling on ropes", "Narrator",
                 "The Tempest Guard Captain arrives at second bell with eleven guards, out of uniform, on his own time. Nobody discusses it. He takes a rope.",
-                "Mira works the anchor points in a language of grunts and hand signals, and the crew learns it in minutes because her hands make sense the way good rigging makes sense.",
+                "Mira directs the crew with grunts and hand signals. Within minutes, they can follow her.",
                 "At the fourth anchor, Mira stops. The drawing calls for an unfamiliar bolt spacing. She checks the measurements twice before setting the bolts.",
                 "Then she sets the bolts to her mother's spacing, exactly, and says to nobody: 'You'd better be right about this too.'"),
             { ...pg("The First Raise", "The spine cable rising against the storm's first arm, everything singing", "Narrator",
@@ -811,7 +811,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 ] },
             pg("The Water Keeps Climbing", "First gray light, the water still climbing", "Narrator",
                 "By first light the tea has gone cold. Water is still climbing through the screw.",
-                "Jorun sits on the bank flexing his warm hands, unsettled and grinning about it. Sera folds the drying cloth, then unfolds it, then folds it again, because her hands need the job.",
+                "Jorun sits on the bank flexing his warm hands, unsettled and grinning about it. Sera folds the drying cloth, then unfolds it, then folds it again.",
                 "Frost-fall is coming. Fourteen names are still on the transfer register, whatever has happened to the people behind them since. In the channel, a dead man's machine turns and turns.",
                 "Toma scrubs the mud off his jaw with his wrist and looks at you. 'Well,' he says. 'How do you want to do this?'"),
         ], [
@@ -899,7 +899,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                     { text: "Walk on together.", nextPage: 10 }
                 ] },
             pg("The Third Figure", "The road's bend, a survey officer waiting alone", "Narrator",
-                "The third figure wears survey gray, stands alone, off schedule, hands kept visible. Everything about the posture says: I am breaking a rule, carefully.",
+                "The third figure wears survey gray, stands alone, off schedule, hands kept visible.",
                 "'Fourteen names remain on the transfer register,' the officer says quietly, to the middle distance. 'Some may be free, some may still be held, but the order still treats them as kiln stock. I am the officer who countersigns transfers.'",
                 "'Some of us joined the survey to keep records, not to feed fires. If someone were to walk on the tower today, with the village behind them, some of us would countersign... slowly.'",
                 "The officer looks at you once, directly, afraid and doing it anyway. Then gray robes, and gone between the trees."),
@@ -1101,7 +1101,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "But Dren came back because he chose to. I wouldn't repay that by taking someone else's choice away.",
                 "Kael knows the plate still can't place you properly. Now he's offering you a way to command the people it can. Think about what accepting would mean."),
         ], [
-            ch("Turn the plate face-down on its felt. \"Nobody gets bound to me.\"", "good", "ff70-turned-the-plate", "You set the holder's mark face-down, gently, the way you decline a drink from someone who needs to hear no. Vess exhales like a man whose scale finally balanced. Yura says nothing at all, but at the door she gives you the salute she reserves, as far as you know, for one monthly roll call, up a tower, in the snow."),
+            ch("Turn the plate face-down on its felt. \"Nobody gets bound to me.\"", "good", "ff70-turned-the-plate", "You gently set the holder's mark face-down. Vess exhales. Yura says nothing at all, but at the door she gives you the salute she reserves, as far as you know, for one monthly roll call, up a tower, in the snow."),
             ch("Copy the mark's terms and pledges before you refuse it.", "neutral", "ff70-copied-the-terms", "You have Vess read out every clause while you write: who binds, how deep, what the pledged give up, and when. The grammar of ownership, in the Count's own words. Then you slide the case back. 'Declined, in full knowledge.' Vess files your copy-request with a keeper's discreet approval: the only people who read terms are the ones planning to break them properly."),
             ch("Accept the holder's mark and the guaranteed rescue.", "bad", "ff70-took-the-hold", "The mark settles warm against your wrist. By morning three people you barely know are bound to answer when you call, whether they choose to or not. The registry places you among a small circle of holders, most tied to Kael's oldest allies. Yura checks the mark once, then stops looking at you."),
         ]),

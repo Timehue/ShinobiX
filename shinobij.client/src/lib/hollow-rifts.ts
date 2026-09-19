@@ -219,7 +219,7 @@ const REPEAT_REPORTS: Record<string, { title: string; scene: string; lines: stri
         title: "The Backflow Takes Shape",
         scene: "Harrow checks a new pressure report beneath the quartered plate already posted",
         lines: ["The first plate remains on the waystation board. The drains backed up again and built another carrier in %sector.", "That one is already moving. I need it stopped before the pressure report becomes an obituary."],
-        decline: "Harrow writes NOT YET across the pressure report, dates it, and makes you initial the delay. Even refusal gets a receipt with her.",
+        decline: "Harrow writes NOT YET across the pressure report, dates it, and makes you initial the delay.",
     },
 };
 

@@ -180,7 +180,7 @@ export const storylines: Record<string, StoryStep[]> = {
             ]), image: "/scenes/story/story-stormveil-village-15-1.webp" },
             { ...storyPage("The Captain's Line", "The wagon, Besh looking small between two guards", "Narrator", [
                 "The wounded man by the well can't walk. The wagon has room for one more, and the Captain is deciding whether it's the wounded man or the button-seller who can't remember his own anger.",
-                "Mira is already coiling a cable around her fist, which is how she argues.",
+                "Mira is already coiling a cable around her fist.",
                 "The riot bell has stopped. The square is very quiet, the way the arena gets between the bell and the first blow."
             ]), image: "/scenes/story/story-stormveil-village-15-1.webp" },
         ], [
