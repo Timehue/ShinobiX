@@ -1928,7 +1928,7 @@ export default function App() {
                 character: presenceCharacter(char),
                 travelingUntil: isTraveling ? travelingUntil : 0,
                 inBattle: inBattleNow,
-                tile: getLocalSectorTile(), ...heartbeatNoticeAckFields(), ...heartbeatRosterFields(isRealtimePresenceLive()),
+                tile: getLocalSectorTile(), ...heartbeatNoticeAckFields(), ...heartbeatRosterFields({ socketLive: isRealtimePresenceLive(), sector: currentSector, tabVisible }),
             };
             // Mirror the same frame onto the Socket.IO presence channel (no-op when
             // the socket isn't connected). Because a sector change re-runs this
