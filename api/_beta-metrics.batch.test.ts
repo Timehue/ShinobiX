@@ -44,3 +44,44 @@ test('a burst of 50 records takes the day lock once and loses nothing', async (t
     assert.equal(snapshot.totals.events['pvp.settled'], 50);
     assert.equal(snapshot.totals.rewardTotals.ryo, 500);
 });
+
+test('a batch that fails before its write is tried once more instead of dropped', async (t) => {
+    const key = metrics.betaMetricKey('2026-09-19');
+    await kv.del(key);
+    const originalGet = kv.get.bind(kv);
+    let failures = 0;
+    t.mock.method(kv, 'get', async (k: string) => {
+        if (k === key && failures === 0) {
+            failures += 1;
+            throw new Error('connection reset');
+        }
+        return originalGet(k);
+    });
+    await Promise.all(Array.from({ length: 5 }, (_, i) => metrics.recordBetaMetric({
+        event: 'mission.claimed', level: 12, source: 'missions', ts: NOW + i,
+    })));
+    await metrics.flushBetaMetrics();
+    t.mock.restoreAll();
+    const snapshot = await metrics.readBetaMetricsSnapshot(1, { now: NOW });
+    assert.equal(failures, 1);
+    assert.equal(snapshot.totals.events['mission.claimed'], 5, 'nothing was written, so nothing is lost or doubled');
+});
+
+test('a batch whose write fails is dropped, never written twice', async (t) => {
+    const key = metrics.betaMetricKey('2026-09-19');
+    await kv.del(key);
+    const originalSet = kv.set.bind(kv);
+    let dayWrites = 0;
+    t.mock.method(kv, 'set', async (k: string, value: unknown, options?: { ex?: number; nx?: boolean }) => {
+        if (k === key) {
+            dayWrites += 1;
+            // The write may have committed even though it reported failure.
+            throw new Error('acknowledgement lost');
+        }
+        return originalSet(k, value, options);
+    });
+    t.mock.method(console, 'error', () => undefined);
+    await metrics.recordBetaMetric({ event: 'mission.claimed', level: 12, source: 'missions', ts: NOW });
+    await metrics.flushBetaMetrics();
+    assert.equal(dayWrites, 1, 'a second try could count the same events twice');
+});
