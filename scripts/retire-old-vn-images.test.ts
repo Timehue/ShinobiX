@@ -1,7 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { adminTokenProblem, classify, cleanAdminToken, plannedSlots, RETIRED_AVATAR_SLOTS } from './retire-old-vn-images.mts';
+import { adminTokenProblem, BATCH_SIZE, batches, classify, cleanAdminToken, plannedSlots, RETIRED_AVATAR_SLOTS } from './retire-old-vn-images.mts';
+import { BATCH_DELETE_MAX } from '../api/images.ts';
+
+test('removal goes out in batches the server accepts, covering every slot exactly once', () => {
+    const ids = plannedSlots().map(p => p.slot);
+    const chunks = batches(ids, BATCH_SIZE);
+    assert.ok(BATCH_SIZE <= BATCH_DELETE_MAX);
+    assert.ok(chunks.every(c => c.length > 0 && c.length <= BATCH_SIZE));
+    assert.deepEqual(chunks.flat(), ids);
+    assert.equal(chunks.length, Math.ceil(ids.length / BATCH_SIZE));
+});
 
 test('a token pasted from the browser console works with or without its quotes; unusable values stop the run first', () => {
     const now = Date.UTC(2026, 8, 19, 12);
