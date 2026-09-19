@@ -5,6 +5,7 @@ import type { RallyTrack } from '../../../../shared/sunscar/rally-types';
 import { RallyCrowd, RallyDunes } from './RallyEnvironment';
 import { createCargoTexture, createSandTexture } from './rally-scenery';
 import { RALLY_RIBBON_START, RALLY_RIBBON_STEP, rallyArch, rallyGrandstands, rallyPavilions, rallyRoadHalfWidth, rallyRocks } from './rally-layout';
+import { RallyRouteMarkings } from './RallyRouteMarkings';
 
 function ribbon(track: RallyTrack): THREE.BufferGeometry {
     const positions: number[] = [], colors: number[] = [], indices: number[] = [], uv: number[] = [];
@@ -27,13 +28,13 @@ function ribbon(track: RallyTrack): THREE.BufferGeometry {
     geometry.computeVertexNormals();
     return geometry;
 }
-function RouteScenery({ track }: { track: RallyTrack }) {
+function RouteScenery({ track, light }: { track: RallyTrack; light: boolean }) {
     const posts = useRef<THREE.InstancedMesh>(null);
     const rocks = useRef<THREE.InstancedMesh>(null);
     const shapes = useMemo(() => {
         const markers: THREE.Matrix4[] = [], stones: THREE.Matrix4[] = [];
         const dummy = new THREE.Object3D();
-        for (let d = 0; d < track.length + 40; d += 12) {
+        for (let d = 0; d < track.length + 40; d += light ? 24 : 12) {
             const p = rallyPath(track, d);
             const half = rallyRoadHalfWidth(track, d);
             for (const side of [-1, 1]) {
@@ -41,12 +42,12 @@ function RouteScenery({ track }: { track: RallyTrack }) {
                 dummy.rotation.set(0, 0, side * .06); dummy.scale.set(.15, .9, .15); dummy.updateMatrix(); markers.push(dummy.matrix.clone());
             }
         }
-        for (const rock of rallyRocks(track)) {
+        for (const rock of rallyRocks(track).filter((_, i) => !light || i % 2 === 0)) {
             dummy.position.set(...rock.position); dummy.rotation.set(...rock.rotation); dummy.scale.set(...rock.scale);
             dummy.updateMatrix(); stones.push(dummy.matrix.clone());
         }
         return { markers, stones };
-    }, [track]);
+    }, [track, light]);
     useEffect(() => {
         shapes.markers.forEach((m, i) => posts.current?.setMatrixAt(i, m));
         shapes.stones.forEach((m, i) => rocks.current?.setMatrixAt(i, m));
@@ -66,19 +67,20 @@ function Pavilion({ x, y, z, color }: { x: number; y: number; z: number; color: 
         <mesh position={[.6, 5.1, 0]}><planeGeometry args={[1.2, .65]} /><meshStandardMaterial color="#f6d290" side={THREE.DoubleSide} /></mesh>
     </group>;
 }
-export function RallyTrackScene({ track }: { track: RallyTrack }) {
+export function RallyTrackScene({ track, light }: { track: RallyTrack; light: boolean }) {
     const geometry = useMemo(() => ribbon(track), [track]);
     const texture = useMemo(() => createSandTexture(), []);
     const cargoTexture = useMemo(() => createCargoTexture(), []);
     useEffect(() => () => { geometry.dispose(); texture.dispose(); cargoTexture.dispose(); }, [geometry, texture, cargoTexture]);
     return <>
         <color attach="background" args={[track.palette.sky]} />
-        <fog attach="fog" args={[track.palette.fog, 45, 175]} />
+        <fog attach="fog" args={[track.palette.fog, 45, light ? 125 : 175]} />
         <hemisphereLight args={['#c9d4d8', '#806b55', 1.25]} />
-        <RallyDunes track={track}/>
+        <RallyDunes track={track} light={light}/>
         <mesh geometry={geometry} receiveShadow><meshStandardMaterial map={texture} vertexColors roughness={1} side={THREE.DoubleSide} /></mesh>
-        <RouteScenery track={track} />
-        <RallyCrowd track={track}/>
+        <RouteScenery track={track} light={light} />
+        <RallyRouteMarkings track={track}/>
+        {!light && <RallyCrowd track={track}/>}
         {track.obstacles.map(o => {
             const p = rallyPath(track, o.at);
             const color = o.kind === 'shortcut' ? '#62d4b0' : o.kind === 'ramp' ? '#d9b177' : o.kind === 'rock' ? track.palette.rock : track.palette.accent;
@@ -99,7 +101,7 @@ export function RallyTrackScene({ track }: { track: RallyTrack }) {
                         </>}
             </group>;
         })}
-        {rallyPavilions(track).map((p, i) => <Pavilion key={i} x={p.x} y={p.y} z={p.z} color={p.accent ? track.palette.accent : '#ddb879'} />)}
+        {rallyPavilions(track).filter((_, i) => !light || i % 2 === 0).map((p, i) => <Pavilion key={i} x={p.x} y={p.y} z={p.z} color={p.accent ? track.palette.accent : '#ddb879'} />)}
         {[0, track.length].map(d => {
             const p = rallyPath(track, d);
             const { half, post, tiles, tile } = rallyArch(track, d);

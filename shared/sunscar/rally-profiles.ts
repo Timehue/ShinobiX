@@ -8,6 +8,18 @@ export const RALLY_TECHNIQUES: Record<RallyElement, { name: string; description:
     Earth: { name: 'Iron Charge', description: 'Break through the next obstacle without losing momentum.', color: '#d6ad79' },
     Water: { name: 'Flow State', description: 'Ignore terrain drag and recover quickly for six seconds.', color: '#81d7f2' },
 };
+export const RALLY_ATTACK_NAMES: Record<RallyElement, string> = {
+    Fire: 'Ember Shot', Lightning: 'Spark Bolt', Wind: 'Gale Shot', Earth: 'Stone Shot', Water: 'Tidal Shot',
+};
+export const RALLY_STAT_HELP = {
+    speed: 'Speed raises top pace.', acceleration: 'Attack improves acceleration and shot impact.',
+    agility: 'Speed improves steering and jumping.', endurance: 'HP improves Burst stamina and sand handling.',
+    stability: 'Defense softens obstacle hits and elemental slows.',
+} as const;
+export type RallyPetStats = { speed?: unknown; attack?: unknown; defense?: unknown; hp?: unknown };
+// A bounded contribution keeps training useful without overpowering driving.
+const statBonus = (value: unknown, cap: number): number => typeof value === 'number' && Number.isFinite(value)
+    ? Math.round(clamp(value / cap, 0, 1) * 8) : 0;
 const ARCHETYPES: Record<RallyArchetype, RallyProfile> = {
     sprinter: { archetype: 'sprinter', speed: 76, acceleration: 78, agility: 53, endurance: 43, stability: 50 },
     acrobat: { archetype: 'acrobat', speed: 60, acceleration: 61, agility: 82, endurance: 52, stability: 45 },
@@ -20,7 +32,7 @@ export const RALLY_PROFILE_OVERRIDES: Readonly<Record<string, Partial<RallyProfi
     'starter-fire': { archetype: 'sprinter' }, 'starter-lightning': { archetype: 'trickster' },
     'starter-water': { archetype: 'endurance' }, 'starter-earth': { archetype: 'bruiser' }, 'starter-wind': { archetype: 'acrobat' },
 };
-export function rallyProfile(species: { id: string; name: string; speed?: unknown; attack?: unknown; defense?: unknown; hp?: unknown }): RallyProfile {
+export function rallyProfile(species: { id: string; name: string }, stats: RallyPetStats = {}): RallyProfile {
     const override = RALLY_PROFILE_OVERRIDES[species.id] ?? RALLY_PROFILE_OVERRIDES[species.id.replace(/-[rl]$/, '')];
     const archetype: RallyArchetype = override?.archetype ??
         (/bear|boar|turtle|golem|beetle|colossus/i.test(species.name) ? 'bruiser' :
@@ -28,9 +40,12 @@ export function rallyProfile(species: { id: string; name: string; speed?: unknow
                 /serpent|seal|eel|tortoise|wyrm/i.test(species.name) ? 'endurance' :
                     /fox|cat|ocelot|rabbit|weasel|monkey/i.test(species.name) ? 'trickster' : 'sprinter');
     const base = ARCHETYPES[archetype];
-    // Species signature redistributes a tiny number of points. No rarity, growth,
-    // equipment, PvP trait or instance-ID advantage enters this calculation.
+    // Species identity remains the main influence; saved stats add at most eight
+    // points per attribute. Rarity has no separate multiplier.
     const signature = sunscarHash(species.id);
     const skew = signature % 7 - 3;
-    return { ...base, speed: clamp(base.speed + skew, 40, 85), agility: clamp(base.agility - skew, 40, 85), ...override };
+    const profile = { ...base, speed: clamp(base.speed + skew, 40, 85), agility: clamp(base.agility - skew, 40, 85), ...override };
+    return { ...profile, speed: profile.speed + statBonus(stats.speed, 220),
+        acceleration: profile.acceleration + statBonus(stats.attack, 300), agility: profile.agility + statBonus(stats.speed, 220),
+        endurance: profile.endurance + statBonus(stats.hp, 2000), stability: profile.stability + statBonus(stats.defense, 250) };
 }

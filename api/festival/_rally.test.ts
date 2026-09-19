@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { PET_CATALOG } from '../pet/_catalog.js';
 import { beginChampionshipRace, checkpointChampionship, ownedRallyPet, prepareChampionship, rallyDaily, rallyProgress } from './_rally.js';
 import { rallyStandings } from '../../shared/sunscar/rally-championship.js';
+import { rallyProfile } from '../../shared/sunscar/rally-profiles.js';
 
 const now = Date.UTC(2026, 8, 15, 12);
 const character = () => ({ name: 'racer', level: 30, ryo: 1000, pets: [{ ...PET_CATALOG['starter-fire'], id: 'my-fire', templateId: 'starter-fire' }] });
@@ -12,6 +13,17 @@ test('only owned, registered, available pets can enter', () => {
     assert.throws(() => ownedRallyPet({ pets: [{ id: 'x', name: 'fake' }] }, 'x'), /registered/);
     const c = character();
     assert.throws(() => ownedRallyPet({ ...c, pets: [{ ...c.pets[0], expedition: { endsAt: now + 1000 } }] }, 'my-fire'), /busy/);
+});
+test('racing uses saved pet stats and freezes them for the championship', () => {
+    const c = character();
+    const trainedPet = Object.assign(c.pets[0], { speed: 220, attack: 300, defense: 250, hp: 2000 });
+    const expected = rallyProfile({ id: 'starter-fire', name: String(PET_CATALOG['starter-fire'].name) }, trainedPet);
+    assert.deepEqual(ownedRallyPet(c, 'my-fire').profile, expected);
+    const prepared = prepareChampionship(c, 'racer', 'my-fire', now);
+    const run = rallyProgress(prepared).current!;
+    trainedPet.speed = 1;
+    const begun = beginChampionshipRace(prepared, run.id, now);
+    assert.deepEqual(rallyProgress(begun).current!.race!.racers[0].pet.profile, expected);
 });
 test('daily courses are three unique seeded courses and preparation does not spend entry', () => {
     assert.deepEqual(rallyDaily('racer', now), rallyDaily('racer', now + 5000));
