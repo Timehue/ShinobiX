@@ -10,6 +10,17 @@ export function isReservedNarrativeId(id: string): boolean {
 
 const identity = (name: string | undefined) => (name ?? '').trim().toLowerCase();
 
+/** What the Admin Panel lists: each built-in as players receive it (current
+ * text, saved art merged), then genuinely custom events. A saved copy of a
+ * reserved id is never listed as custom, so an old import cannot read as the
+ * live story. Nothing is removed from `saved`; stored copies stay intact. */
+export function adminEditableNarrativeEvents(builtIns: readonly CreatorEvent[], saved: readonly CreatorEvent[]): CreatorEvent[] {
+    return [
+        ...builtIns.map(base => canonicalNarrativeEvent(base, saved.find(event => event.id === base.id))),
+        ...saved.filter(event => !isReservedNarrativeId(event.id)),
+    ];
+}
+
 /** Repository-authored events own their words, speakers, branches and gates.
  * Older admin saves may supply artwork, but cannot replace the story graph.
  * Match a page before reusing art: an index alone is unsafe after a rewrite.

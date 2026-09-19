@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import { buildCorpus, supplementalSources, narrativeConsumers, type Scene, type Page } from './narrative-corpus.mts';
 import { splitDialogueLine } from '../shinobij.client/src/lib/vn.ts';
+import { auditCreatorExport, RETIRED_CANON_TERMS } from './narrative-creator-content.mts';
 export type Finding = {
     severity: 'error' | 'warning';
     code: string;
@@ -11,6 +12,31 @@ export type Finding = {
     detail: string;
 };
 const placeholders = new Set(['player', 'name', 'pet', 'element', 'village', 'sector', 'riftRecord']);
+/** Project rule: player-facing narrative never uses a dash as a pause. Word
+ * hyphens (first-clear), suspended hyphens (first- and second-rank), negative
+ * numbers, a minus sign before a digit and BEM class names are not pauses and
+ * stay legal. `${...}` template code is ignored. Returns the reason, if any. */
+export function dashPunctuation(raw: string): string | undefined {
+    // Template code becomes a neutral word so `fp-palette-${x}` stays a word hyphen
+    // while `${a} — ${b}` is still a pause. CSS custom properties are code.
+    const text = raw.replace(/\$\{[^}]*\}/g, 'X').replace(/var\(--[\w-]+/g, 'var(X');
+    if (/[‒–—―]/u.test(text)) return 'em or en dash';
+    if (/−(?!\s*\d)/u.test(text)) return 'minus sign used as a dash';
+    if (/(?<!\w)--|--(?!\w)/.test(text)) return 'double hyphen';
+    if (/(?:^|\s)-(?:\s|$)/.test(text)) return 'spaced hyphen';
+    if (/(?:^|\s)-(?=[A-Za-z])/.test(text)) return 'hyphen attached to the next word';
+    if (/[A-Za-z]-\s(?!(?:and|or|to)\b)/.test(text)) return 'hyphen attached to the previous word';
+    if (/[A-Za-z]-(?=["'”’)\]]|$)/u.test(text)) return 'hyphen ending an interrupted line';
+    return undefined;
+}
+/** Reviewed exceptions to the dash rule in supplemental source extracts: strings
+ * that are code or UI data rather than prose, listed exactly so a new pause dash
+ * can never hide behind them. Each entry states why it is not narrative. */
+export const DASH_EXCEPTIONS: readonly { file: string; text: string; reason: string }[] = [];
+export function isDashException(file: string, text: string): boolean {
+    return DASH_EXCEPTIONS.some(exception => exception.file === file && exception.text === text);
+}
+const authoredPageFamilies = new Set(['campaign', 'interlude', 'road', 'reckoning', 'field', 'epilogue', 'rift', 'echoes', 'system', 'chronicle', 'creator']);
 export function auditScenes(scenes: Scene[]): Finding[] {
     const findings: Finding[] = [];
     const report = (severity: Finding['severity'], code: string, scene: string, detail: string) => findings.push({ severity, code, scene, detail });
@@ -42,7 +68,22 @@ export function auditScenes(scenes: Scene[]): Finding[] {
             }
             if (!Array.isArray(p.dialogue) || !p.dialogue.length)
                 report('error', 'empty-dialogue', where, 'No dialogue');
+            // Titles and scene captions are shown in the reader for authored pages;
+            // other families synthesize these fields as review annotations.
+            if (authoredPageFamilies.has(s.family))
+                for (const label of [p.title, p.scene]) {
+                    const dash = typeof label === 'string' ? dashPunctuation(label) : undefined;
+                    if (dash)
+                        report('error', 'dash-punctuation', where, `${dash}: ${label}`);
+                }
             const visible = p.lines?.map(l => l.text) ?? p.dialogue ?? [];
+            // A narrator speaking as "I" outside quoted speech is usually a line
+            // that belongs to a character (or the player) under the wrong label.
+            if (!s.catalog && Array.isArray(p.dialogue))
+                for (const line of p.lines ?? p.dialogue.map(text => splitDialogueLine(text, p.speaker ?? '')))
+                    // Text after a colon is usually quoted writing ("the slate reads: someone owes me").
+                    if (line.speaker?.trim().toLowerCase() === 'narrator' && !/(?:^|[\s(])["'“‘]/u.test(line.text) && /\b(?:I|I'm|I've|I'll|I'd|me|my|mine)\b/.test(line.text.split(':')[0]))
+                        report('warning', 'narrator-first-person', where, line.text);
             if (p.lines) {
                 if (p.lines.length !== p.dialogue?.length)
                     report('error', 'typed-line-mirror', where, 'Typed and legacy line counts differ');
@@ -65,12 +106,18 @@ export function auditScenes(scenes: Scene[]): Finding[] {
                 for (const token of text.matchAll(/%([a-zA-Z]+)/g))
                     if (!['name', 'pet'].includes(token[1]))
                         report('error', 'unknown-variable', where, token[0]);
-                if (/[\u2013\u2014]|[.!?]{3,}/u.test(text))
+                const dash = dashPunctuation(text);
+                if (dash)
+                    report('error', 'dash-punctuation', where, `${dash}: ${text}`);
+                if (/[.!?]{3,}|\u2026/u.test(text))
                     report('warning', 'punctuation', where, text);
                 if (text.trim().split(/\s+/).length <= 3)
                     report('warning', 'short-line', where, text);
                 if (/(?:soul|bloodline|ancestor|destiny|chosen one)/i.test(text))
                     report('warning', 'canon-review', where, text);
+                for (const term of RETIRED_CANON_TERMS)
+                    if (term.test(text))
+                        report('error', 'retired-canon', where, `${term.source.replace(/\\b/g, '')}: ${text}`);
                 if (/\b(?:the silence|the road|the wind|the storm)\b.{0,30}\b(?:remembers|knows|owes|answers|understands)\b/i.test(text))
                     report('warning', 'metaphor-review', where, text);
                 const normalized = text.toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
@@ -286,21 +333,23 @@ function sourceFiles(root: string): string[] {
 function main() {
     const args = process.argv.slice(2), option = (name: string) => { const index = args.indexOf(name); return index < 0 ? undefined : args[index + 1]; };
     if (args.includes('--help')) {
-        console.log('npm run narrative:audit -- [--out .tmp/narrative-audit] [--sample 24 --seed 20260919] [--content local-admin-export.json]\nErrors fail. Warnings require contextual review; they never rewrite prose. Local exports are read only.');
+        console.log('npm run narrative:audit -- [--out .tmp/narrative-audit] [--sample 24 --seed 20260919] [--content local-admin-export.json]\nErrors fail. Warnings require contextual review; they never rewrite prose. Local exports are read only.\n--content accepts an event array, {creatorEvents}, or {slots: {admin1, admin2}, published} with petEncounterVn/ancientChestVn; see docs/creator-content-review.md.');
         return;
     }
     const scenes = buildCorpus();
     const input = option('--content');
-    if (input) {
-        const raw = JSON.parse(readFileSync(input, 'utf8'));
-        const events = Array.isArray(raw) ? raw : raw.creatorEvents;
-        if (!Array.isArray(events))
-            throw new Error('Export must be an event array or {creatorEvents: [...]}');
-        for (const [i, e] of events.entries())
-            scenes.push({ id: `external/${e.id ?? i}`, family: 'external', source: input, context: e.name ?? 'Local exported event', graph: true, pages: e.vnPages ?? [{ title: e.vnTitle ?? e.name, scene: e.vnScene, speaker: e.vnSpeaker, dialogue: e.dialogue }] });
-    }
-    const findings = auditScenes(scenes), sources = [...new Set([...scenes.map(s => s.source), ...supplementalSources, 'shinobij.client/src/data/hollow-rifts.ts'])];
+    const creator = input ? auditCreatorExport(JSON.parse(readFileSync(input, 'utf8')), input) : undefined;
+    if (creator)
+        scenes.push(...creator.scenes);
+    const findings = [...auditScenes(scenes), ...(creator?.findings ?? [])];
+    const sources = [...new Set([...scenes.filter(s => s.family !== 'creator').map(s => s.source), ...supplementalSources, 'shinobij.client/src/data/hollow-rifts.ts'])];
     const supplemental = supplementalSources.map(file => ({ file, prose: sourceProse(file) }));
+    for (const { file, prose } of supplemental)
+        for (const { line, text } of prose) {
+            const dash = dashPunctuation(text);
+            if (dash && !isDashException(file, text))
+                findings.push({ severity: 'error', code: 'dash-punctuation', scene: `${file}:${line}`, detail: `${dash}: ${text}` });
+        }
     // Deliberately advisory: this broad discovery also finds readers and interfaces.
     // New producers outside the registry should never silently escape the audit.
     const candidates = [...sourceFiles('shinobij.client/src'), ...sourceFiles('shared'), ...sourceFiles('api')].filter(file => !sources.includes(file) && !narrativeConsumers.includes(file) && /\b(?:dialogue|vnPages|greeting)\s*:/.test(readFileSync(file, 'utf8')));
@@ -323,9 +372,10 @@ function main() {
         findingsByCode: Object.fromEntries([...new Set(codes)].map(code => [code, findings.filter(f => f.code === code).length])),
         supplementalSourceFiles: supplemental.length,
         supplementalProseLiterals: supplemental.reduce((n, s) => n + s.prose.length, 0),
-        note: 'Counts include alternative and repeated variants, not unique scenes experienced by one player. Dialogue includes tutorial instructions; catalog labels/copy are separate. Supplemental AST extracts are review aids, not executed coverage or additional scene counts.',
+        ...(creator ? { creator: creator.summary } : {}),
+        note: 'Counts include alternative and repeated variants, not unique scenes experienced by one player. Dialogue includes tutorial instructions; catalog labels/copy are separate. Supplemental AST extracts are review aids, not executed coverage or additional scene counts. Creator stale copies of built-in scenes are inventoried, not audited as live prose: players get the repository scene.',
     };
-    writeFileSync(`${dir}/report.json`, JSON.stringify({ summary, findings, sources, sceneIndex: scenes.map(({ pages, ...rest }) => ({ ...rest, pages: pages.length })) }, null, 2));
+    writeFileSync(`${dir}/report.json`, JSON.stringify({ summary, findings, sources, sceneIndex: scenes.map(({ pages, ...rest }) => ({ ...rest, pages: pages.length })), ...(creator ? { creatorInventory: creator.inventory } : {}) }, null, 2));
     writeFileSync(`${dir}/supplemental.txt`, supplemental.map(s => `# ${s.file}\n${s.prose.map(p => `${p.line}: ${p.text}`).join('\n')}`).join('\n\n'));
     if (option('--sample')) {
         const seed = Number(option('--seed') ?? 20260919), sample = sampleScenes(scenes, Number(option('--sample')), seed);

@@ -85,6 +85,17 @@ export const supplementalSources = [
     'shinobij.client/src/data/echoes-of-war.ts', 'shinobij.client/src/lib/merc-roam-client.ts',
     'shinobij.client/src/lib/legacy.ts', 'shinobij.client/src/screens/Dungeon.tsx', 'shinobij.client/src/screens/EchoesOfWar.tsx',
     'shared/tile-cards.ts', 'shared/legacy-card-sources.ts', 'shared/pet-witness-card-sources.ts',
+    // Legacy trial speech, emissary and Sage lines, and their server announcements.
+    'api/_legacy-core.ts', 'api/legacy/trial.ts', 'shinobij.client/src/components/EmissaryTrialPanel.tsx',
+    'shinobij.client/src/components/SageOfferModal.tsx', 'shinobij.client/src/screens/LegacyPanel.tsx',
+    // World interaction dialogue and guild/rumor flavor delivered outside VN objects.
+    'shinobij.client/src/components/WorldWandererDialog.tsx', 'shinobij.client/src/screens/HunterBoard.tsx',
+    'shinobij.client/src/lib/chronicle-lock.ts', 'shinobij.client/src/lib/first-fight-coach.ts',
+    // Hollow Gate run narration (tile, shard, wing, boss and recovery messages).
+    'shinobij.client/src/lib/hollow-gate-app-flow.ts', 'shinobij.client/src/lib/hollow-gate-shards.ts',
+    'shinobij.client/src/lib/hollow-gate-tile.ts', 'shinobij.client/src/lib/hollow-gate-wings.ts',
+    'shinobij.client/src/lib/hollow-gate-server.ts', 'shinobij.client/src/lib/hollow-gate-run-build.ts',
+    'shared/hollow-gate-combat-director.ts', 'shinobij.client/src/lib/spire-catalog.ts',
 ];
 /** Inspected transport/reader/editor/preview files. These do not author live scenes. */
 export const narrativeConsumers = [

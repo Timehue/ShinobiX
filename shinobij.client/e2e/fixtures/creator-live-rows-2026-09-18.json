@@ -1,0 +1,264 @@
+{
+  "_source": "Verbatim rows from the live save:admin2 Creator slot, read-only export 2026-09-18 (2026-09-19T02:40:53.769Z). Export transform: choice battle objects reduced to aiProfileId/bossName; story-* top-level dialogue dropped. Used to prove stale stored copies never reach players.",
+  "creatorEvents": [
+    {
+      "id": "story-frostfang-village-4-0",
+      "icon": "⚔️",
+      "name": "Frostfang Village: The Pack Survives",
+      "biome": "central",
+      "image": "/api/img?id=event%3Astory-frostfang-village-4-0%3Abg",
+      "trigger": "manual",
+      "village": "Frostfang Village",
+      "vnPages": [
+        {
+          "image": "/api/img?id=vn%3Astory-frostfang-village-4-0%3Apage%3A0",
+          "scene": "Snow lashes across a frozen training yard.",
+          "title": "The Pack Survives",
+          "speaker": "Elder Sova",
+          "dialogue": [
+            "Elder Sova: The ice remembers footsteps. Walk with purpose, and it carries you.",
+            "Elder Sova: I am Elder Sova.",
+            "Elder Sova: It is my honor to meet someone chosen by the Frost Echo."
+          ],
+          "leftName": "Player",
+          "rightName": "Elder Sova",
+          "rightImage": "/api/img?id=vn%3Astory-frostfang-village-4-0%3Apage%3A0%3Aright"
+        },
+        {
+          "image": "/api/img?id=vn%3Astory-frostfang-village-4-0%3Apage%3A1",
+          "scene": "Snow lashes across a frozen training yard.",
+          "title": "The Warning",
+          "speaker": "Captain Yura",
+          "dialogue": [
+            "Captain Yura: No shinobi stands alone. Your village gives your hands meaning.",
+            "Captain Yura: I am Yura and I will always have your back.",
+            "Captain Yura: The Frost Echo has not chosen someone for generations."
+          ],
+          "leftName": "Player",
+          "rightName": "Captain Yura",
+          "rightImage": "/api/img?id=vn%3Astory-frostfang-village-4-0%3Apage%3A1%3Aright"
+        },
+        {
+          "image": "/api/img?id=vn%3Astory-frostfang-village-4-0%3Apage%3A2",
+          "scene": "Snow lashes across a frozen training yard.",
+          "title": "The Kage's Shadow",
+          "choices": [
+            {
+              "text": "Protect the people.",
+              "trait": "merciful",
+              "battle": {
+                "bossName": "Snow Warden Pup",
+                "aiProfileId": "story-ai-frostfang-village-4"
+              },
+              "nextPage": 2
+            },
+            {
+              "text": "Demand the truth.",
+              "trait": "honorable",
+              "battle": {
+                "bossName": "Snow Warden Pup",
+                "aiProfileId": "story-ai-frostfang-village-4"
+              },
+              "nextPage": 2
+            },
+            {
+              "text": "Move in secret.",
+              "trait": "suspicious",
+              "battle": {
+                "bossName": "Snow Warden Pup",
+                "aiProfileId": "story-ai-frostfang-village-4"
+              },
+              "nextPage": 2
+            }
+          ],
+          "speaker": "Frost Seal Echo",
+          "dialogue": [
+            "Frost Seal Echo: Protect yourself, but think like part of a formation.",
+            "Frost Seal Echo: The pact was made to protect us.",
+            "Frost Seal Echo: Now prove your village deserves another future."
+          ],
+          "leftName": "Player",
+          "rightName": "Frost Seal Echo",
+          "rightImage": "/api/img?id=vn%3Astory-frostfang-village-4-0%3Apage%3A2%3Aright"
+        }
+      ],
+      "vnScene": "Snow lashes across a frozen training yard.",
+      "vnTitle": "The Pack Survives",
+      "levelReq": 4,
+      "xpReward": 120,
+      "eventKind": "visualNovel",
+      "ryoReward": 75,
+      "vnSpeaker": "Elder Sova",
+      "kageFinale": false,
+      "aiProfileId": "story-ai-frostfang-village-4",
+      "avatarImage": "/api/img?id=event%3Astory-frostfang-village-4-0%3Aavatar",
+      "targetSector": 56,
+      "staminaReward": 0,
+      "dialogueDroppedLines": 9
+    },
+    {
+      "id": "builtin-awakening-lv2",
+      "icon": "⚔",
+      "name": "The Awakening Stone Calls",
+      "biome": "central",
+      "trigger": "firstLeaveVillage",
+      "vnPages": [
+        {
+          "image": "/api/img?id=vn%3Abuiltin-awakening-lv2%3Apage%3A0",
+          "scene": "An ancient energy stirs as you step beyond the village gates.",
+          "title": "A Strange Resonance",
+          "speaker": "Narrator",
+          "dialogue": [
+            "Narrator: The moment you step past the gates, a deep hum resonates through your chakra network.",
+            "Narrator: It pulses from far away — from the heart of Central, the Thousand Gates.",
+            "Village Elder: Wait, young one. You feel it, don't you?",
+            "Village Elder: That vibration. The Awakening Stone is calling to you.",
+            "Village Elder: Hidden within Central Hub lies an ancient relic — the Awakening Stone.",
+            "Village Elder: Every shinobi carries a hidden elemental nature — Water, Wind, Earth, Lightning, or Fire.",
+            "Village Elder: The stone will awaken yours and align your chakra to its truest form.",
+            "Village Elder: Travel to Central Hub. Find the Awakening Stone. Discover your element.",
+            "Village Elder: At certain power thresholds — level 2 and level 20 — the stone will read you for free.",
+            "Narrator: A new path opens before you. The Awakening Stone awaits in Central..."
+          ]
+        }
+      ],
+      "dialogue": [],
+      "levelReq": 2,
+      "xpReward": 0,
+      "eventKind": "visualNovel",
+      "ryoReward": 0,
+      "avatarImage": "/api/img?id=event%3Abuiltin-awakening-lv2%3Aavatar",
+      "staminaReward": 0,
+      "currencyRewards": {}
+    },
+    {
+      "id": "event-6ee8ea23-9dc5-40fd-a420-a6f17f6c0266",
+      "icon": "BOSS",
+      "name": "Ryo",
+      "biome": "shadow",
+      "image": "/api/img?id=event%3Aevent-6ee8ea23-9dc5-40fd-a420-a6f17f6c0266%3Abg",
+      "trigger": "firstLeaveVillage",
+      "vnScene": "Rain taps against the village rooftops while an unknown shinobi waits beneath the lanterns.",
+      "vnTitle": "A Stranger at the Gate",
+      "dialogue": [
+        "A strange chakra pressure fills the air.",
+        "Admin Event: Test your strength, shinobi."
+      ],
+      "levelReq": 1,
+      "xpReward": 0,
+      "eventKind": "reward",
+      "ryoReward": 500000,
+      "vnSpeaker": "Unknown Shinobi",
+      "aiProfileId": "builtin-ai-mist-sentinel",
+      "avatarImage": "/api/img?id=event%3Aevent-6ee8ea23-9dc5-40fd-a420-a6f17f6c0266%3Aavatar",
+      "targetSector": 20,
+      "staminaReward": 0
+    }
+  ],
+  "petEncounterVn": {
+    "id": "sys-pet-encounter",
+    "icon": "⚔",
+    "name": "Pet Encounter",
+    "biome": "forest",
+    "trigger": "manual",
+    "vnPages": [
+      {
+        "image": "/api/img?id=vn%3Asys-pet-encounter%3Apage%3A0",
+        "scene": "The rustling of leaves breaks the silence of the sector.",
+        "title": "A Presence in the Shadows",
+        "choices": [],
+        "speaker": "Narrator",
+        "dialogue": [
+          "Narrator: Something stirs at the edge of your senses.",
+          "Narrator: A warmth — not from fire, but from living breath nearby.",
+          "Narrator: You stop moving. So does it."
+        ],
+        "rightImage": "/api/img?id=vn%3Asys-pet-encounter%3Apage%3A0%3Aright"
+      },
+      {
+        "image": "/api/img?id=vn%3Asys-pet-encounter%3Apage%3A1",
+        "scene": "A creature emerges from the undergrowth, watching you carefully.",
+        "title": "The Creature Reveals Itself",
+        "choices": [],
+        "speaker": "Narrator",
+        "dialogue": [
+          "Narrator: Eyes catch yours — ancient, curious, unafraid.",
+          "Narrator: It does not run. It does not attack.",
+          "Narrator: It simply waits."
+        ],
+        "rightImage": "/api/img?id=vn%3Asys-pet-encounter%3Apage%3A1%3Aright"
+      },
+      {
+        "image": "/api/img?id=vn%3Asys-pet-encounter%3Apage%3A2",
+        "scene": "The creature tilts its head as if asking a question only it understands.",
+        "title": "A Choice Before You",
+        "choices": [],
+        "speaker": "Narrator",
+        "dialogue": [
+          "Narrator: Shinobi learn to read animals the way they read the wind.",
+          "Narrator: This one is not lost. It chose to find you.",
+          "Narrator: The question is — will you let it stay?"
+        ],
+        "rightImage": "/api/img?id=vn%3Asys-pet-encounter%3Apage%3A2%3Aright"
+      }
+    ],
+    "vnScene": "The rustling of leaves breaks the silence of the sector.",
+    "vnTitle": "A Presence in the Shadows",
+    "dialogue": [],
+    "levelReq": 1,
+    "xpReward": 0,
+    "eventKind": "visualNovel",
+    "ryoReward": 0,
+    "vnSpeaker": "Narrator",
+    "staminaReward": 0
+  },
+  "ancientChestVn": {
+    "id": "sys-ancient-chest",
+    "icon": "⚔",
+    "name": "Ancient Chest",
+    "biome": "forest",
+    "trigger": "manual",
+    "vnPages": [
+      {
+        "image": "/api/img?id=vn%3Asys-ancient-chest%3Apage%3A0",
+        "scene": "Deep within the wilderness, a faint shimmer catches your eye.",
+        "title": "Something Stirs in the Ruins",
+        "choices": [],
+        "speaker": "Narrator",
+        "dialogue": [
+          "Narrator: You pause. Something between the rubble is glowing.",
+          "Narrator: Half-buried under centuries of earth and stone — an ancient chest.",
+          "Narrator: These runes... pre-war era seals. This thing has been here a long time.",
+          "Narrator: The chakra lock flickers as you approach, as if recognizing your presence.",
+          "Narrator: Whoever left this... they wanted someone strong enough to find it.",
+          "Narrator: You press your hand to the seal. It dissolves at your touch."
+        ],
+        "rightImage": "/api/img?id=vn%3Asys-ancient-chest%3Apage%3A0%3Aright"
+      },
+      {
+        "image": "/api/img?id=vn%3Asys-ancient-chest%3Apage%3A1",
+        "scene": "Golden light spills from the ancient chest as the seal breaks.",
+        "title": "The Chest Opens",
+        "choices": [],
+        "speaker": "Narrator",
+        "dialogue": [
+          "Narrator: The lid swings open with a low resonant hum.",
+          "Narrator: Inside — preserved by chakra for decades — the chest reveals its contents.",
+          "Narrator: ...I wasn't expecting this.",
+          "Narrator: The ancient shinobi who sealed this chest left something worth finding."
+        ],
+        "rightImage": "/api/img?id=vn%3Asys-ancient-chest%3Apage%3A1%3Aright"
+      }
+    ],
+    "vnScene": "Deep within the wilderness, a faint shimmer catches your eye.",
+    "vnTitle": "Something Stirs in the Ruins",
+    "dialogue": [],
+    "levelReq": 1,
+    "xpReward": 0,
+    "eventKind": "visualNovel",
+    "ryoReward": 0,
+    "vnSpeaker": "Narrator",
+    "avatarImage": "/api/img?id=event%3Asys-ancient-chest%3Aavatar",
+    "staminaReward": 0
+  }
+}
