@@ -1,0 +1,296 @@
+{
+  "results": [
+    {
+      "width": 320,
+      "height": 568,
+      "scrollWidth": 320,
+      "handWidth": 96,
+      "dock": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "top": 503,
+          "bottom": 568
+        }
+      ],
+      "smallButtons": []
+    },
+    {
+      "width": 360,
+      "height": 640,
+      "scrollWidth": 360,
+      "handWidth": 96,
+      "dock": [
+        {
+          "width": 360,
+          "scroll": 360,
+          "top": 575,
+          "bottom": 640
+        }
+      ],
+      "smallButtons": []
+    },
+    {
+      "width": 375,
+      "height": 667,
+      "scrollWidth": 375,
+      "handWidth": 96,
+      "dock": [
+        {
+          "width": 375,
+          "scroll": 375,
+          "top": 602,
+          "bottom": 667
+        }
+      ],
+      "smallButtons": []
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "scrollWidth": 390,
+      "handWidth": 96,
+      "dock": [
+        {
+          "width": 390,
+          "scroll": 390,
+          "top": 779,
+          "bottom": 844
+        }
+      ],
+      "smallButtons": []
+    },
+    {
+      "width": 412,
+      "height": 915,
+      "scrollWidth": 412,
+      "handWidth": 96,
+      "dock": [
+        {
+          "width": 412,
+          "scroll": 412,
+          "top": 850,
+          "bottom": 915
+        }
+      ],
+      "smallButtons": []
+    },
+    {
+      "width": 430,
+      "height": 932,
+      "scrollWidth": 430,
+      "handWidth": 96,
+      "dock": [
+        {
+          "width": 430,
+          "scroll": 430,
+          "top": 867,
+          "bottom": 932
+        }
+      ],
+      "smallButtons": []
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "scrollWidth": 768,
+      "handWidth": 96,
+      "dock": [
+        {
+          "width": 768,
+          "scroll": 768,
+          "top": 959,
+          "bottom": 1024
+        }
+      ],
+      "smallButtons": []
+    },
+    {
+      "width": 844,
+      "height": 390,
+      "scrollWidth": 844,
+      "handWidth": 96,
+      "dock": [
+        {
+          "width": 300,
+          "scroll": 300,
+          "top": 325,
+          "bottom": 390
+        }
+      ],
+      "smallButtons": []
+    },
+    {
+      "width": 915,
+      "height": 412,
+      "scrollWidth": 915,
+      "handWidth": 96,
+      "dock": [
+        {
+          "width": 300,
+          "scroll": 300,
+          "top": 347,
+          "bottom": 412
+        }
+      ],
+      "smallButtons": []
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "scrollWidth": 1366,
+      "handWidth": 73.71875,
+      "dock": [
+        {
+          "width": 375,
+          "scroll": 375,
+          "top": 636.796875,
+          "bottom": 750
+        }
+      ],
+      "smallButtons": [
+        {
+          "text": "Reset preview",
+          "width": 105.46875,
+          "height": 28
+        },
+        {
+          "text": "JUTSU/SNARE 1",
+          "width": 69.04409790039062,
+          "height": 43.26130676269531
+        },
+        {
+          "text": "SHINOBIJOURNEYCHRONICLE SHOWDOWN",
+          "width": 68.3944091796875,
+          "height": 43.26130676269531
+        },
+        {
+          "text": "JUTSU/SNARE 3",
+          "width": 68.037109375,
+          "height": 43.26130676269531
+        },
+        {
+          "text": "SHINOBIJOURNEYCHRONICLE SHOWDOWN",
+          "width": 68.3944091796875,
+          "height": 43.26130676269531
+        },
+        {
+          "text": "JUTSU/SNARE 5",
+          "width": 69.044189453125,
+          "height": 43.26130676269531
+        },
+        {
+          "text": "VolcanoJJUTSUfield Jutsu CardDECK LIMIT ",
+          "width": 34.81950378417969,
+          "height": 41.2236328125
+        },
+        {
+          "text": "Start Attacking",
+          "width": 281.234375,
+          "height": 40
+        },
+        {
+          "text": "End Turn",
+          "width": 79.515625,
+          "height": 40
+        },
+        {
+          "text": "Match options",
+          "width": 38,
+          "height": 40
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "flows": [
+    {
+      "scenario": "summon",
+      "action": "{\"action\":\"normal-summon\",\"handIndex\":0,\"zoneIndex\":1,\"tributeZoneIndexes\":[]}"
+    },
+    {
+      "scenario": "defense",
+      "action": "{\"action\":\"set-monster\",\"handIndex\":0,\"zoneIndex\":1,\"tributeZoneIndexes\":[]}"
+    },
+    {
+      "scenario": "tribute",
+      "action": "{\"action\":\"normal-summon\",\"handIndex\":0,\"zoneIndex\":1,\"tributeZoneIndexes\":[0]}"
+    },
+    {
+      "scenario": "jutsu",
+      "action": "{\"action\":\"activate-magic\",\"handIndex\":0,\"targetZoneIndex\":null,\"targetSide\":\"p2\"}"
+    },
+    {
+      "scenario": "target-jutsu",
+      "action": "{\"action\":\"activate-magic\",\"handIndex\":0,\"targetZoneIndex\":0,\"targetSide\":\"p1\"}"
+    },
+    {
+      "scenario": "grave-jutsu",
+      "action": "{\"action\":\"activate-magic\",\"handIndex\":0,\"targetZoneIndex\":null,\"targetSide\":\"p2\",\"graveyardIndex\":0}"
+    },
+    {
+      "scenario": "snare",
+      "action": "{\"action\":\"set-trap\",\"handIndex\":0,\"zoneIndex\":1}"
+    },
+    {
+      "scenario": "attack",
+      "action": "{\"action\":\"attack\",\"attackerZoneIndex\":0,\"targetZoneIndex\":0}"
+    },
+    {
+      "scenario": "direct-attack",
+      "action": "{\"action\":\"attack\",\"attackerZoneIndex\":0,\"targetZoneIndex\":null}"
+    },
+    {
+      "scenario": "hand-inspection",
+      "count": 5
+    },
+    {
+      "scenario": "hand-inspection",
+      "count": 6
+    },
+    {
+      "scenario": "hand-inspection",
+      "count": 8
+    },
+    {
+      "scenario": "hand-inspection",
+      "count": 10
+    },
+    {
+      "scenario": "response-activate"
+    },
+    {
+      "scenario": "response-pass"
+    },
+    {
+      "scenario": "response-other"
+    },
+    {
+      "scenario": "collection-search-filter-inspect"
+    },
+    {
+      "scenario": "deck-search-owned-limit-inspect-add-remove-complete-save"
+    },
+    {
+      "scenario": "field-and-graveyard-inspection-nested-dialog-escape"
+    },
+    {
+      "scenario": "busy-error-tutorial"
+    },
+    {
+      "scenario": "host-clan-request-and-projection"
+    },
+    {
+      "scenario": "host-sector-request-and-projection"
+    },
+    {
+      "scenario": "host-pvp-request-and-projection"
+    },
+    {
+      "scenario": "host-ai-request-and-projection"
+    },
+    {
+      "scenario": "host-echoes-request-and-projection"
+    }
+  ]
+}

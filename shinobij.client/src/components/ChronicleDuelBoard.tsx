@@ -365,6 +365,12 @@ export function ChronicleDuelBoard({
   const me = state[meKey];
   const foe = state[foeKey];
   const [handIndex, setHandIndex] = useState<number | null>(null);
+  const handRailRef = useRef<HTMLDivElement>(null);
+  const commandDockRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (handIndex === null) return;
+    handRailRef.current?.querySelector<HTMLElement>(".selected")?.scrollIntoView({ block: "nearest", inline: "center", behavior: "instant" });
+  }, [handIndex]);
   const [destination, setDestination] = useState<number | null>(null);
   const [target, setTarget] = useState<number | null>(null);
   const [tributes, setTributes] = useState<number[]>([]);
@@ -888,7 +894,11 @@ export function ChronicleDuelBoard({
   }, [zoomedCard]);
 
   function chooseHand(index: number) {
-    setHandIndex(handIndex === index ? null : index);
+    if (handIndex === index || !myTurn || !main) {
+      setZoomedCardId(me.hand?.[index] ?? null);
+      return;
+    }
+    setHandIndex(index);
     setDestination(null);
     setTarget(null);
     setTributes([]);
@@ -924,6 +934,25 @@ export function ChronicleDuelBoard({
   const responseOwner = state.responseWindow
     ? state[state.responseWindow.responder].name
     : null;
+  useEffect(() => {
+    const table = handRailRef.current?.closest<HTMLElement>(".chronicle-table");
+    const dock = commandDockRef.current;
+    if (!table) return;
+    if (!dock) { table.style.setProperty("--chronicle-dock-height", "0px"); return; }
+    const observer = new ResizeObserver(() => table.style.setProperty("--chronicle-dock-height", `${dock.getBoundingClientRect().height}px`));
+    observer.observe(dock);
+    return () => observer.disconnect();
+  }, [myTurn, responseForMe]);
+  const decision = busy ? "Resolving your move…"
+    : state.responseWindow ? (responseForMe ? "Activate a Snare or pass" : `${responseOwner} is deciding`)
+    : !myTurn ? "Waiting for your opponent"
+    : placingMonster ? (state.normalSummonUsed ? "Normal Summon already used"
+      : tributes.length < requiredTributes ? `Select ${requiredTributes - tributes.length} Tribute${requiredTributes - tributes.length === 1 ? "" : "s"}`
+      : destination === null ? "Choose an open Monster Zone" : `Zone ${destination + 1} · Choose Attack or Defense`)
+    : placingTrap ? (destination === null ? "Choose a Jutsu/Snare Zone" : `Zone ${destination + 1} · Set your Snare`)
+    : selected?.cardClass === "magic" ? (selectedMagicTargetReady ? "Ready to activate Jutsu" : targetsGraveyard ? "Choose a card from your Graveyard" : targetsOwnedMonster ? "Choose one of your Monsters" : "Choose an enemy target")
+    : state.phase === "battle" ? (attacker === null ? "Choose a Monster to attack" : foe.monsterZones.some(Boolean) ? "Choose an enemy Monster to strike" : "Ready for a direct attack")
+    : "Choose a card";
   return (
     <section
       className={`chronicle-table ${state.activeField ? "has-field" : ""} ${aiActing ? "ai-acting" : ""} ${attacker !== null ? "targeting-attack" : ""} ${resolutionFx ? `resolving-${resolutionFx.kind}` : ""} ${inspected ? "inspector-open" : ""}`}
@@ -1019,6 +1048,10 @@ export function ChronicleDuelBoard({
         {foe.handCount > opponentHandBacks.length ? (
           <b>+{foe.handCount - opponentHandBacks.length}</b>
         ) : null}
+      </div>
+      <div className="chronicle-mobile-phase" aria-label={`Turn ${state.turnNumber}, ${phaseMeta?.label ?? state.phase}`}>
+        <span>TURN {state.turnNumber}<small>Rival hand: {foe.handCount}</small></span><strong>{phaseMeta?.label ?? state.phase}</strong>
+        <span aria-hidden="true">{CHRONICLE_FOUNDING_FORMAT.phases.map((phase, index) => <i key={phase.id} className={index <= phaseIndex ? "active" : ""} />)}</span>
       </div>
       <ol
         className="chronicle-phase-rail"
@@ -1130,7 +1163,7 @@ export function ChronicleDuelBoard({
                       setInspect(null);
                       setTarget(index);
                     } else if (zone?.cardId)
-                      setInspect({ cardId: zone.cardId, zoneKey });
+                      setZoomedCardId(zone.cardId);
                   }}
                   disabled={!canTarget && !canInspect}
                 >
@@ -1180,6 +1213,8 @@ export function ChronicleDuelBoard({
                   ref={zoneRef(zoneKey)}
                   className={`chronicle-zone monster-zone ${monster?.position === "defense" ? "defense-position" : "attack-position"} ${magicTarget || attackTarget ? "legal-target" : ""} ${target === index && magicTarget ? "selected" : ""} ${!attackTarget && !magicTarget && canInspect ? "inspectable" : ""} ${inspect?.zoneKey === zoneKey ? "inspected" : ""}`}
                   key={index}
+                  aria-label={`${attackTarget ? "Attack" : magicTarget ? "Target" : "Inspect"} opponent Monster Zone ${index + 1}${monster?.cardId ? `: ${cardsById[monster.cardId]?.name ?? monster.cardId}` : monster ? ": face-down Monster" : ": empty"}`}
+                  aria-pressed={magicTarget ? target === index : undefined}
                   aria-describedby={
                     attacker !== null && monster && preview
                       ? previewId
@@ -1206,7 +1241,7 @@ export function ChronicleDuelBoard({
                       setInspect(null);
                       setTarget(index);
                     } else if (monster?.cardId)
-                      setInspect({ cardId: monster.cardId, zoneKey });
+                      setZoomedCardId(monster.cardId);
                   }}
                   disabled={!attackTarget && !magicTarget && !canInspect}
                 >
@@ -1335,6 +1370,8 @@ export function ChronicleDuelBoard({
                   ref={zoneRef(zoneKey)}
                   className={`chronicle-zone monster-zone ${monster?.position === "defense" ? "defense-position" : "attack-position"} ${placementTarget || tributeTarget || (targetsOwnedMonster && legalMagicTarget) || attackCandidate ? "legal-target" : ""} ${attackCandidate ? "attack-candidate" : ""} ${placementTarget ? "placement-open" : ""} ${(placingMonster && destination === index) || attacker === index || fieldMonster === index || tributes.includes(index) || (target === index && legalMagicTarget) ? "selected" : ""} ${(!myTurn || blockedByMagicSelection) && canInspect ? "inspectable" : ""} ${inspect?.zoneKey === zoneKey ? "inspected" : ""}`}
                   key={index}
+                  aria-label={`${tributeTarget ? "Choose Tribute in" : placementTarget ? "Place in" : attackCandidate ? "Choose attacker in" : "Select"} your Monster Zone ${index + 1}${monster?.cardId ? `: ${cardsById[monster.cardId]?.name ?? monster.cardId}` : ": empty"}`}
+                  aria-pressed={(placingMonster && destination === index) || attacker === index || fieldMonster === index || tributes.includes(index) || (target === index && legalMagicTarget)}
                   onClick={() => {
                     const interactive = myTurn && !blockedByMagicSelection;
                     if (tributeTarget) {
@@ -1356,13 +1393,15 @@ export function ChronicleDuelBoard({
                       state.phase === "battle" &&
                       monster?.canAttack
                     ) {
+                      if (attacker === index && monster.cardId) { setZoomedCardId(monster.cardId); return; }
                       setInspect(null);
                       setAttacker(index);
                     } else if (interactive && main && monster) {
+                      if (fieldMonster === index && monster.cardId) { setZoomedCardId(monster.cardId); return; }
                       setInspect(null);
                       setFieldMonster(index);
                     } else if (monster?.cardId)
-                      setInspect({ cardId: monster.cardId, zoneKey });
+                      setZoomedCardId(monster.cardId);
                   }}
                   disabled={(!myTurn || blockedByMagicSelection) && !canInspect}
                 >
@@ -1416,7 +1455,7 @@ export function ChronicleDuelBoard({
                       setInspect(null);
                       setDestination(index);
                     } else if (zone?.cardId)
-                      setInspect({ cardId: zone.cardId, zoneKey });
+                      setZoomedCardId(zone.cardId);
                   }}
                   disabled={!canPlace && !canInspect}
                 >
@@ -1479,6 +1518,12 @@ export function ChronicleDuelBoard({
       </div>
 
       <div className="chronicle-player-console">
+        <div className="chronicle-decision" role="status" aria-live="polite">
+          <strong>{decision}</strong>
+          {selected ? <span>{selected.name} · Tap again to inspect</span> : null}
+          {selected ? <button type="button" onClick={() => { setHandIndex(null); setDestination(null); setTarget(null); setTributes([]); }}>Cancel</button> : null}
+          {targetsGraveyard ? <button type="button" onClick={() => setGraveyardView("me")}>Open Graveyard</button> : null}
+        </div>
         <div className="chronicle-player-bar">
           <div className="chronicle-combatant">
           <ChronicleDuelistAvatar name={me.name} avatar={playerAvatar} />
@@ -1528,6 +1573,7 @@ export function ChronicleDuelBoard({
       {responseForMe ? (
         <div
           className="chronicle-actions chronicle-command-dock response"
+          ref={commandDockRef}
           role="group"
           aria-label="Snare response"
         >
@@ -1560,14 +1606,13 @@ export function ChronicleDuelBoard({
         </div>
       ) : null}
 
-      <div className="chronicle-hand" aria-label="Your hand">
+      <div ref={handRailRef} className="chronicle-hand" aria-label="Your hand">
         {(me.hand ?? []).map((id, index) => (
           <ChronicleCardView
             key={`${id}-${index}`}
             card={cardsById[id]}
             compact
             selected={handIndex === index}
-            disabled={!myTurn || !main}
             onClick={() => chooseHand(index)}
           />
         ))}
@@ -1586,6 +1631,7 @@ export function ChronicleDuelBoard({
       {myTurn ? (
         <div
           className="chronicle-actions chronicle-command-dock"
+          ref={commandDockRef}
           role="group"
           aria-label="Duel actions"
         >
@@ -1780,7 +1826,7 @@ export function ChronicleDuelBoard({
           {state.phase === "main1" ? (
             <>
               <button
-                className="primary"
+                className={`primary ${selected ? "chronicle-phase-action-deferred" : ""}`}
                 disabled={
                   busy ||
                   (state.turnNumber === 1 &&
@@ -1791,7 +1837,7 @@ export function ChronicleDuelBoard({
                 Start Attacking
               </button>
               <button
-                className="secondary"
+                className={`secondary ${selected ? "chronicle-phase-action-deferred" : ""}`}
                 disabled={busy}
                 onClick={() => act({ action: "enter-end-phase" })}
               >
@@ -1843,7 +1889,7 @@ export function ChronicleDuelBoard({
           ) : null}
           {state.phase === "main2" ? (
             <button
-              className="primary"
+              className={`primary ${selected ? "chronicle-phase-action-deferred" : ""}`}
               disabled={busy}
               onClick={() => act({ action: "enter-end-phase" })}
             >
