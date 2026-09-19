@@ -57,7 +57,7 @@ describe("Tamer Tomoe curriculum", () => {
         const bondwake = PET_TUTORIAL_LESSONS[0].pages.find((page) => page.title.includes("two tails"));
         assert.ok(bondwake);
         assert.match(bondwake.body, /born with one tail/i);
-        assert.match(bondwake.body, /mature shinobi bond/i);
+        assert.match(bondwake.body, /worked with a shinobi long enough.*chakra rhythms/i);
         assert.match(bondwake.body, /second/i);
         assert.match(bondwake.points.join(" "), /no hidden stat bonus/i);
 

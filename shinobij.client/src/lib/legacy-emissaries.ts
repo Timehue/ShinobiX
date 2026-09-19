@@ -66,7 +66,7 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
             "A canal blade took my left cheek. The porcelain repair fogs in cold weather and makes children stare. I stare back.",
             "Two reports used the same traveler's name this morning. One called them cautious, one reckless. I trust the mismatch more than either verdict.",
         ],
-        trialLine: "I put a moth-mark on the first post this morning. You walked past it. This time, look twice.",
+        trialLine: "I put a moth-mark on the first post this morning. Start there, and check both sides of each post along the route.",
         quests: [
             { id: "eq-veil-unseen", label: "Win 5 battles along Suzu's marked route", metric: "totalAiKills", target: 5 },
             { id: "eq-veil-moths", label: "Trace 12 tiles between Suzu's moth-marked posts", metric: "totalTilesExplored", target: 12 },
@@ -81,7 +81,7 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
             "The east-post road wore through three pairs of sandals. My training partner rode a cart and called it footwork. We still argue.",
             "A young man once asked me to bless his fists. I blessed his neighbors instead. He understood, eventually.",
         ],
-        trialLine: "Your trial is counted in bruises the record keeper may miss. Bring the tally back; I will inspect what the page leaves out.",
+        trialLine: "Bring your fight tally back when the trial is done. I want to hear where you struggled, too. The record keeper only counts the wins.",
         quests: [
             { id: "eq-iron-tally", label: "Defeat 10 foes and return Daigo's full tally", metric: "totalAiKills", target: 10 },
             { id: "eq-iron-road", label: "Walk 20 tiles of the lantern road", metric: "totalTilesExplored", target: 20 },

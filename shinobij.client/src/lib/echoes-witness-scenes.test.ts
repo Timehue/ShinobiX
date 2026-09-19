@@ -9,7 +9,7 @@ test("only an authoritative era-close beat adds a concrete match callback", () =
 
     const close = echoesReactiveVictory("echoes-3-aya", ECHOES_SCENES["echoes-3-aya"].firstVictory, "recovered-ground", {}, ECHOES_WITNESS_CONTENT);
     assert.equal(close[1].title, "What the Table Kept");
-    assert.match(close[1].dialogue.join(" "), /took the hit.*line came back/i);
+    assert.match(close[1].dialogue.join(" "), /damage.*recovered.*next attack/i);
 });
 
 test("later intros acknowledge only a sealed preceding answer", () => {

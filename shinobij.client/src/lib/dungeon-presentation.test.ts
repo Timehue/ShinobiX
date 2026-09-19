@@ -10,8 +10,11 @@ test('every crafted dungeon keeps its scene and biome across serialized run reco
         const run = JSON.parse(JSON.stringify({ token: 'run12345678', startedAt: 1, entry: 'key', presentationEventId: event.id }));
         assert.equal(dungeonEventForRun(run, []).id, event.id);
         assert.equal(dungeonEventForRun(run, []).biome, event.biome);
-        const edit = { ...event, name: 'Edited vault' };
-        assert.equal(dungeonEventForRun(run, [edit]), edit);
+        const edit = { ...event, name: 'Old vault', image: '/uploaded-vault.webp', vnPages: [] };
+        const restored = dungeonEventForRun(run, [edit]);
+        assert.equal(restored.name, event.name);
+        assert.equal(restored.image, edit.image);
+        assert.deepEqual(restored.vnPages, event.vnPages, 'saved presentation cannot erase current dungeon dialogue');
         assert.equal(dungeonEventForRun(run, [], craftDungeonEvents.find(e => e.id !== event.id)), event,
             'another selected dungeon must not retheme an existing sealed run');
     }

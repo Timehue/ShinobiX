@@ -167,10 +167,17 @@ test("First Pact Chronicle remembers the sealed four and an optional aftermath v
         expect(geometry.intersects).toBe(false);
     }
     const conversation = await openNpcConversation(page, screen, "Isu, Bell Warden", "Conversation with Isu");
+    const isuPortrait = conversation.getByRole("img", { name: "Isu portrait", exact: true });
+    await expect(isuPortrait).toHaveAttribute("src", /bellwarden-isu/);
+    await expect.poll(() => isuPortrait.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
     const inspect = await advanceConversationToAction(conversation, "Inspect the rejected muzzle beneath the bell");
     await inspect.click();
 
     const aftermath = page.getByRole("dialog", { name: "Reading The bell rope" });
+    await expect(aftermath.locator('.fp-eyebrow')).toHaveText('Narrator');
+    const narratorPortrait = aftermath.getByRole("img", { name: "Narrator portrait", exact: true });
+    await expect(narratorPortrait).toHaveAttribute("src", "/portraits/narrator.webp");
+    await expect.poll(() => narratorPortrait.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
     await expect(aftermath).toContainText("rejected muzzle");
     await aftermath.getByRole("button", { name: "Continue", exact: true }).click();
     await expect(aftermath).toContainText("Rook backs toward the open street");
@@ -180,6 +187,15 @@ test("First Pact Chronicle remembers the sealed four and an optional aftermath v
     });
     await expect.poll(() => state.visits).toEqual(["writ-silencing"]);
     await aftermath.getByRole("button", { name: "Step back", exact: true }).click();
+
+    const revisit = await openNpcConversation(page, screen, "Isu, Bell Warden", "Conversation with Isu");
+    await expect(revisit.getByRole("img", { name: "Isu portrait", exact: true })).toHaveAttribute("src", /bellwarden-isu/);
+    const narratedAction = revisit.getByRole("img", { name: "Narrator portrait", exact: true });
+    for (let line = 0; line < 8 && !(await narratedAction.isVisible()); line += 1) {
+        await revisit.getByRole("button", { name: "Continue", exact: true }).click();
+    }
+    await expect(narratedAction).toHaveAttribute("src", "/portraits/narrator.webp");
+    await expect.poll(() => narratedAction.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page.locator(".first-pact-screen")).toBeVisible({ timeout: 20_000 });

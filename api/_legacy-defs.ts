@@ -299,7 +299,7 @@ const LEGENDARY: LegacyDef[] = [
     {
         id: 'frostbound-shield', name: 'Legacy of the Frostbound Shield', rarity: 'legendary', category: 'village',
         villageAffinity: 'Frostfang', title: 'Frostbound Shield',
-        flavor: 'Frostfang rescue rolls place this shinobi at failed walls and frozen crossings. Every name assigned behind them returned to the Count.',
+        flavor: 'Frostfang rescue rolls place this shinobi at failed walls and frozen crossings. Everyone in their care reached shelter.',
         reqs: [r('villageTenureDays', 45, 2), r('sectorDefenses', 18), r('damageBlocked', 500_000), r('defensiveWins', 40)],
     },
     {
@@ -425,7 +425,7 @@ const RARE: LegacyDef[] = [
     { id: 'thunder-raider', name: 'Legacy of the Thunder Raider', rarity: 'rare', category: 'village', villageAffinity: 'Stormveil', title: 'Thunder Raider',
       flavor: 'Raid parties learned to watch for this shinobi at the front whenever Stormveil’s thunder covered an approach.', reqs: [r('villageTenureDays', 21, 2), r('raidsCompleted', 25)] },
     { id: 'northern-fang', name: 'Legacy of the Northern Fang', rarity: 'rare', category: 'village', villageAffinity: 'Frostfang', title: 'Northern Fang',
-      flavor: 'Frostfang’s Count lists eight threatened sectors where this shinobi held until the missing names came home.', reqs: [r('villageTenureDays', 21, 2), r('sectorDefenses', 8)] },
+      flavor: 'Frostfang rescue reports list eight threatened sectors where this shinobi held until the missing people came home.', reqs: [r('villageTenureDays', 21, 2), r('sectorDefenses', 8)] },
     { id: 'winter-sentinel', name: 'Legacy of the Winter Sentinel', rarity: 'rare', category: 'village', villageAffinity: 'Frostfang', title: 'Winter Sentinel',
       flavor: 'Watch captains recorded this shinobi completing the full northern rotation through cold, injury, and repeated attacks.', reqs: [r('villageTenureDays', 21, 2), r('defensiveWins', 12)] },
     { id: 'veiled-lantern', name: 'Legacy of the Veiled Lantern', rarity: 'rare', category: 'village', villageAffinity: 'Moonshadow', title: 'Veiled Lantern',

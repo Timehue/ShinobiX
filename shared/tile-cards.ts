@@ -168,7 +168,7 @@ export const shinobiTileCards: TileCard[] = [
     { id: "tc-135", name: "Void Devourer",          element: "Shadow",    rarity: "legendary", description: "Hungers for all light." },
     { id: "tc-136", name: "Frostfall Empress",      element: "Ice",       rarity: "legendary", description: "Snow obeys her hand." },
     { id: "tc-137", name: "Zen Master Eternal",     element: "Neutral",   rarity: "legendary", description: "Unchanging through all wars." },
-    { id: "tc-138", name: "Legendary Wanderer",     element: "None",      rarity: "legendary", description: "Knows every blade and none." },
+    { id: "tc-138", name: "Legendary Wanderer",     element: "None",      rarity: "legendary", description: "A wandering swordsman trained in many styles." },
     { id: "tc-139", name: "Primordial Dragon",      element: "Earth",     rarity: "legendary", description: "Older than the villages." },
     { id: "tc-140", name: "Plasma God Beast",       element: "Lightning", rarity: "legendary", description: "Lightning made aware." },
     { id: "tc-141", name: "Tidal God Beast",        element: "Water",     rarity: "legendary", description: "The ocean given will." },

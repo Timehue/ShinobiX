@@ -540,7 +540,7 @@ export const rawPetPool: Pet[] = ([
         unlockedForPve: false,
         element: "Fire",
         wildSpawnable: false,
-        description: "A cinder-crowned heir that only appears when two fire myths have exhausted every ordinary omen.",
+        description: "A phoenix with a crown of smoldering ash. Every recorded specimen was bred in captivity.",
         jutsus: [
             { name: "Ash Crown Aura", power: 28, cooldown: 3, currentCooldown: 0, kind: "buff" },
             { name: "Crownfire Talon", power: 190, cooldown: 2, currentCooldown: 0, kind: "damage" },
@@ -563,7 +563,7 @@ export const rawPetPool: Pet[] = ([
         unlockedForPve: false,
         element: "Water",
         wildSpawnable: false,
-        description: "A moon-fed leviathan whose first tide is said to rise from a sealed breeding pool.",
+        description: "A leviathan raised in breeding pools. No wild specimen has been recorded.",
         jutsus: [
             { name: "Moonwell Aura", power: 28, cooldown: 3, currentCooldown: 0, kind: "buff" },
             { name: "Tidal Coil", power: 185, cooldown: 2, currentCooldown: 0, kind: "damage" },
@@ -586,7 +586,7 @@ export const rawPetPool: Pet[] = ([
         unlockedForPve: false,
         element: "Wind",
         wildSpawnable: false,
-        description: "A glass-hoofed kirin glimpsed between two gusts, never on a wild trail.",
+        description: "A kirin with glasslike hooves, known only from breeding records.",
         jutsus: [
             { name: "Skyglass Focus", power: 28, cooldown: 3, currentCooldown: 0, kind: "buff" },
             { name: "Kirin Gale", power: 180, cooldown: 2, currentCooldown: 0, kind: "damage" },
@@ -609,7 +609,7 @@ export const rawPetPool: Pet[] = ([
         unlockedForPve: false,
         element: "Lightning",
         wildSpawnable: false,
-        description: "A thunderbloom that flowers only in the charged space between two lightning myths.",
+        description: "A kirin whose techniques scatter branching bolts of lightning. Every recorded specimen was bred in captivity.",
         jutsus: [
             { name: "Thunderbloom Aura", power: 26, cooldown: 3, currentCooldown: 0, kind: "buff" },
             { name: "Blooming Bolt", power: 200, cooldown: 2, currentCooldown: 0, kind: "damage" },
@@ -632,7 +632,7 @@ export const rawPetPool: Pet[] = ([
         unlockedForPve: false,
         element: "Earth",
         wildSpawnable: false,
-        description: "A gravepeak behemoth bred from stone-deep echoes rather than found in the wild.",
+        description: "A behemoth with powerful earth techniques, known only from breeding records.",
         jutsus: [
             { name: "Gravepeak Aura", power: 30, cooldown: 3, currentCooldown: 0, kind: "buff" },
             { name: "Basalt Fist", power: 176, cooldown: 2, currentCooldown: 0, kind: "damage" },

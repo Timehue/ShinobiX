@@ -164,6 +164,8 @@ import { drainPendingWorldRewardOperations, type WorldRecoveryResult } from "../
 import { ambushRewardFailureMessage } from "../lib/ambush-reward-feedback";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { buildPetEncounterVn } from "../lib/pet-encounter-vn";
+import { canonicalNarrativeEvent } from "../lib/canonical-narrative";
+import { defaultAncientChestVn, defaultPetEncounterVn } from "../data/default-vn-events";
 import { biomeForWorldSector, sectorRegionName, villageOutskirtsSectorNumber, weatherForBiome } from "../data/sectors";
 import { biomeLabel, weatherEffects } from "../data/world";
 import { builtinHuntMissions } from "../data/missions";
@@ -980,7 +982,7 @@ function WorldMapContent({
                     const last = Number(window.localStorage?.getItem("legacy.sage.lastOffer") ?? 0);
                     if (last > 0 && Date.now() > last) {
                         window.localStorage?.removeItem("legacy.sage.lastOffer");
-                        setWhisper({ kicker: "The road is empty", text: "The Sage has moved on. Don't fret it — folk say he always circles back for the ones he's already picked out." });
+                        setWhisper({ kicker: "The road is empty", text: "The Sage has moved on. Keep traveling and completing assignments. He may return with another offer." });
                     }
                 } catch { /* best-effort */ }
             }
@@ -1335,13 +1337,13 @@ function WorldMapContent({
     }
     function roadRumorFor(w: Wanderer): string {
         const favor = character.activeWandererFavor;
-        if (selfBounty) return `${w.name} lowers their voice: "Your face is on the board for ${selfBounty.amount.toLocaleString()} ryo. Hunters will smell that ink."`;
-        if (favor) return `${w.name} taps the map: "A courier is waiting in ${sectorRegionName(favor.targetSector)} - sector ${favor.targetSector}. Do not let the seal go cold."`;
+        if (selfBounty) return `${w.name} lowers their voice: "Your face is on the bounty board for ${selfBounty.amount.toLocaleString()} ryo. Check who's following you."`;
+        if (favor) return `${w.name} taps the map: "Your courier is waiting in ${sectorRegionName(favor.targetSector)}, sector ${favor.targetSector}. Take the package there while the delivery offer is still open."`;
         if (weeklyBossSector) return `${w.name} points toward ${sectorRegionName(weeklyBossSector)}: "Something huge is moving through sector ${weeklyBossSector}."`;
         const wars = activeVillageWarsFor(character.village);
         if (wars.length > 0) return `${w.name} says, "Patrols are tight while your village is at war. Watch border roads and mercenary colors."`;
-        if (legacyAvailable && sageOffer) return `${w.name} smiles faintly: "Old wisdom waits in sector ${sageOffer.sector}. That kind of meeting does not happen twice by accident."`;
-        return `${w.name} studies the road dust: "${sectorRegionName(selectedSector ?? 1)} is quiet for now. Quiet roads usually mean someone is choosing the hour."`;
+        if (legacyAvailable && sageOffer) return `${w.name} says, "The Wandering Sage is in sector ${sageOffer.sector}. He's been asking for you."`;
+        return `${w.name} studies the road dust: "I haven't heard of trouble in ${sectorRegionName(selectedSector ?? 1)} today. Ask the next patrol if anything has changed."`;
     }
     function askRoadRumor(w: Wanderer) {
         rememberWanderer(w);
@@ -1386,7 +1388,7 @@ function WorldMapContent({
                 stamina: data.totals!.stamina ?? prev.stamina,
             }) : prev);
             const offer = data.offer as { cost?: number };
-            setWandererDialog({ w, msg: `${w.name} patches you up for ${offer.cost ?? 0} ryo. Your body remembers how to breathe again.` });
+            setWandererDialog({ w, msg: `${w.name} patches you up for ${offer.cost ?? 0} ryo. The bleeding stops, and you can move without wincing.` });
         } else if (data.reason === "already-well") {
             setWandererDialog({ w, msg: `"You are already steady. Save your ryo for worse days."` });
         } else if (data.reason === "no-ryo") {
@@ -1640,7 +1642,7 @@ function WorldMapContent({
                     if (advanced) clearPendingWorldFollowUp(context);
                 });
             }
-            else { setTimeout(() => alert("The foe stands. Your quest holds — rest, then face them again."), 40); }
+            else { setTimeout(() => alert("You lost the fight. Your quest is still active. Rest, then try again."), 40); }
         }
         if (p.mode === "storyReckoning") {
             const arc = p.storyReckoningId ? storyReckoningForEventId(p.storyReckoningId) : null;
@@ -2155,11 +2157,11 @@ function WorldMapContent({
                 updateCharacter(prev => prev ? ({ ...prev, activeQuestbook: { id: questId, stage: 0, baseline: (prev[s0.metric] as number | undefined) ?? 0, target: s0.count, deadline: data.deadline ?? null, choices: {} } }) : prev);
                 setWandererDialog({ w, msg: `Epic begun — “${entry.title}.” Your journal is open.` });
             } else if (data.reason === "busy") {
-                setWandererDialog({ w, msg: "“Finish the tale you already walk first.”" });
+                setWandererDialog({ w, msg: "“Finish your current quest before taking another.”" });
             } else if (data.reason === "cooldown") {
-                setWandererDialog({ w, msg: "“That story is freshly told. Return another day.”" });
+                setWandererDialog({ w, msg: "“You finished this quest today. Come back tomorrow.”" });
             } else if (data.reason === "band") {
-                setWandererDialog({ w, msg: "“This task is not for one of your standing — not yet.”" });
+                setWandererDialog({ w, msg: "“You need more field experience before I can give you this job.”" });
             } else {
                 setWandererDialog({ w, msg: "They reconsider, and say nothing." });
             }
@@ -2196,7 +2198,7 @@ function WorldMapContent({
                     const baseline = st ? ((prev[st.metric] as number | undefined) ?? 0) : cur.baseline;
                     return { ...prev, activeQuestbook: { ...cur, stage: data.resetToStage!, baseline, target: data.target ?? cur.target, deadline: data.deadline ?? null } };
                 });
-                setTimeout(() => alert("The bell finished its sound — you were too slow. The stage resets; try again."), 40);
+                setTimeout(() => alert("The bell finished ringing before you arrived. This stage has reset. You can try again."), 40);
             } else if (!auto && data.reason === "incomplete") {
                 alert(`Not yet — ${data.progress ?? 0} / ${data.target ?? "?"} done for this stage.`);
             }
@@ -2256,9 +2258,9 @@ function WorldMapContent({
                 if (data.clearedRivalry) bits.push("and your rivalry ends at last");
                 setWandererDialog({ w, msg: `Epic complete! You earn ${bits.join(", ")}.` });
             } else if (data.reason === "incomplete") {
-                setWandererDialog({ w, msg: "“The tale isn't finished yet.”" });
+                setWandererDialog({ w, msg: "“Finish the remaining quest stages, then collect your reward.”" });
             } else {
-                setWandererDialog({ w, msg: "“You carry no epic of mine.”" });
+                setWandererDialog({ w, msg: "“You haven't accepted this quest.”" });
             }
         } catch { setWandererDialog({ w, msg: "You couldn't reach them." }); }
     }
@@ -3763,7 +3765,7 @@ function WorldMapContent({
     }
     if (activePetEncounter && !petVnDone) {
         const petActorImage = petCardImage(activePetEncounter, sharedImages);
-        const cinematicPetEvent = buildPetEncounterVn(petEncounterVn, activePetEncounter, petActorImage);
+        const cinematicPetEvent = buildPetEncounterVn(canonicalNarrativeEvent(defaultPetEncounterVn, petEncounterVn, ['pet-encounter']), activePetEncounter, petActorImage);
         return (
             <TriggeredVisualNovel
                 event={cinematicPetEvent}
@@ -3979,7 +3981,7 @@ function WorldMapContent({
                                 updateCharacter(prev => prev ? ({ ...prev, starterCardsClaimed: true }) : prev);
                             } else {
                                 setTimeout(() => alert(resp.reason === "level"
-                                    ? "Ihara squints at you. \"Not yet. Find your feet first — I'll find the rest of you.\""
+                                    ? "Ihara squints at you. \"A little more road experience first. Keep traveling. I'll find you when you're ready.\""
                                     : "The codex couldn't be claimed. Find Ihara again in a moment."), 40);
                             }
                         });
@@ -4021,7 +4023,7 @@ function WorldMapContent({
     }
     if (activeChest && !chestVnDone) {
         const biome = biomeForSector(selectedSector ?? 40);
-        const cinematicChestEvent: CreatorEvent = { ...ancientChestVn, biome };
+        const cinematicChestEvent: CreatorEvent = { ...canonicalNarrativeEvent(defaultAncientChestVn, ancientChestVn, ['ancient-chest']), biome };
         return (
             <TriggeredVisualNovel
                 event={cinematicChestEvent}

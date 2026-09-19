@@ -51,6 +51,8 @@ type FirstPactDialogueChoice =
 
 type FirstPactDialogue = {
     lines: string[];
+    /** Appended companion actions and aftermath are narrated, not spoken by the NPC. */
+    narrationStartsAt?: number;
     action?: DialogueAction;
     choices?: readonly FirstPactDialogueChoice[];
     /** What the group of choices is for, read out to assistive technology. */
@@ -382,12 +384,12 @@ function firstPactReactiveDialogue(
     const everydayLines = firstPactCompanionEverydayLines(npc.id, progress, companions);
     const reactiveLines = [...courtLines, ...everydayLines];
     if (progress.mainStep !== "return-to-threshold" && progress.mainStep !== "complete") {
-        return reactiveLines.length ? { ...base, lines: [...base.lines, ...reactiveLines] } : base;
+        return reactiveLines.length ? { ...base, narrationStartsAt: base.lines.length, lines: [...base.lines, ...reactiveLines] } : base;
     }
     const aftermath = firstPactAftermathForNpc(npc.id, progress, companions);
     if (!aftermath) return base;
     if (progress.aftermathVisits.includes(aftermath.id)) {
-        return { ...base, lines: [...base.lines, ...aftermath.lines] };
+        return { ...base, narrationStartsAt: base.lines.length, lines: [...base.lines, ...aftermath.lines] };
     }
     return {
         ...base,

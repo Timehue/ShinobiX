@@ -101,8 +101,8 @@ test("cross-village Kite Harrow stands at any outskirts once own arc is done, an
 
 test("conditional reckoning callbacks keep each source choice on the player", () => {
     const cases = [
-        ["story-reckoning-mori-working-copy", "al58-refused-the-cut", /I refused the cut/],
-        ["story-reckoning-sova-true-roll", "ff42-held-the-doubt", /I held my doubt/],
+        ["story-reckoning-mori-working-copy", "al58-refused-the-cut", /I refused your lesson/],
+        ["story-reckoning-sova-true-roll", "ff42-held-the-doubt", /I kept my own notes on Essen/],
         ["story-reckoning-yura-exemption", "ff58-took-the-exemption", /I took the exemption/],
         ["story-reckoning-iro-sealed-shelf", "ms58-took-the-shelf", /I took the shelf/],
     ] as const;
