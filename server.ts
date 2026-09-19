@@ -23,6 +23,7 @@ import { attachSocketServer, closeSocketServer } from './api/_realtime/socket.js
 import { restorePresenceSnapshot, savePresenceSnapshot, startPresenceSnapshots, stopPresenceSnapshots } from './api/_realtime/presence-snapshot.js';
 import { startSnapshotCron, stopSnapshotCron } from './api/cron/_scheduler.js';
 import { closeStoragePool } from './api/_storage.js';
+import { flushBetaMetrics } from './api/_beta-metrics.js';
 import compression from 'compression';
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { createServer } from 'node:http';
@@ -146,7 +147,12 @@ function gracefulShutdown(code: number, reason: string): void {
     const backstop = setTimeout(() => exit('drain-timeout'), 4_000);
     backstop.unref?.();
     if (_httpServer) {
-        _httpServer.close(() => exit('drained'));
+        // Telemetry recorded by the requests that just drained is still queued
+        // (api/_beta-metrics.ts); write it before exiting. The backstop above
+        // still bounds the wait.
+        _httpServer.close(() => {
+            void flushBetaMetrics().catch(() => undefined).finally(() => exit('drained'));
+        });
         _httpServer.closeIdleConnections();
     } else {
         exit('no-server'); // crashed during startup — nothing to drain
