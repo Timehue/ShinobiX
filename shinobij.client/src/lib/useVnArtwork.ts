@@ -34,8 +34,8 @@ export function useVnArtwork(event: CreatorEvent): CreatorEvent {
         return () => { active = false; };
     }, [eventId, key, sourcesKey]);
     // Start with the current cast while checking an old positional slot. This
-    // prevents a flash of the wrong face on slow connections. New bytes (or a
-    // failed check) restore the explicit override as soon as verification ends.
+    // prevents a flash of the wrong face on slow connections. Only proven new
+    // bytes restore the explicit override; a failed check keeps the current cast.
     const retired = verified?.key === key ? verified.sources : new Set<string>(JSON.parse(sourcesKey));
     return omitRetiredVnArt(event, retired);
 }
