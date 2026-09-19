@@ -208,6 +208,12 @@ test("Card Hall AI showdown stays wired and comfortably sized across the device 
     { width: 768, height: 1024 },
     { width: 390, height: 844 },
     { width: 320, height: 568 },
+    { width: 360, height: 640 },
+    { width: 375, height: 667 },
+    { width: 412, height: 915 },
+    { width: 430, height: 932 },
+    { width: 844, height: 390 },
+    { width: 915, height: 412 },
   ];
   for (const viewport of matrix) {
     await page.setViewportSize(viewport);
@@ -220,7 +226,7 @@ test("Card Hall AI showdown stays wired and comfortably sized across the device 
     // settled layout.
     await expect(async () => {
       await expectViewportSafe(page, {
-        horizontalScrollers: [".chronicle-hand", ".chronicle-command-dock"],
+        horizontalScrollers: [".chronicle-hand"],
         overlays: [".chronicle-card-detail-panel"],
       });
       const layout = await measureDuel(page);
@@ -228,21 +234,24 @@ test("Card Hall AI showdown stays wired and comfortably sized across the device 
       expect(layout.document.scrollHeight).toBeLessThanOrEqual(layout.document.height + 1);
       expect(layout.table.height, JSON.stringify(layout.diagnostics, null, 2))
         .toBeGreaterThanOrEqual(viewport.height - 10);
-      expectContained(layout.table, viewport, "duel table");
-      expectContained(layout.playmat, viewport, "playmat");
-      expectContained(layout.console, viewport, "player console");
-      expectContained(layout.firstAction, viewport, "first command");
+      const phone = viewport.width <= 900 || (viewport.height <= 500 && viewport.width <= 960);
+      if (!phone) {
+        expectContained(layout.table, viewport, "duel table");
+        expectContained(layout.playmat, viewport, "playmat");
+        expectContained(layout.console, viewport, "player console");
+        expectContained(layout.firstAction, viewport, "first command");
+      }
       expectContained(layout.roomAction, viewport, "return-to-hall action");
       expect(layout.roomAction.top, "return-to-hall action starts above its banner")
         .toBeGreaterThanOrEqual(layout.roomBanner.top - 1);
       expect(layout.roomAction.bottom, "return-to-hall action ends below its banner")
         .toBeLessThanOrEqual(layout.roomBanner.bottom + 1);
 
-      const compact = viewport.width <= 760;
+      const compact = phone;
       expect(
         layout.firstHandCard.width,
         `${viewport.width}x${viewport.height} hand-card width`,
-      ).toBeGreaterThanOrEqual(compact ? 54 : 62);
+      ).toBeGreaterThanOrEqual(compact ? 88 : 62);
       expect(
         layout.firstZone.width,
         `${viewport.width}x${viewport.height} field-zone width`,
@@ -258,10 +267,7 @@ test("Card Hall AI showdown stays wired and comfortably sized across the device 
   const firstCard = page.locator(".chronicle-hand .chronicle-card").first();
   await firstCard.click();
   await expect(firstCard).toHaveAttribute("aria-pressed", "true");
-  const readCard = page.locator(".chronicle-mobile-card-zoom");
-  await expect(readCard).toBeVisible();
-  await expect(readCard).toHaveAccessibleName(/^Read /);
-  await readCard.click();
+  await firstCard.click();
   await expect(page.getByRole("dialog", { name: "Training Dummy card details" })).toBeVisible();
   await page.getByRole("button", { name: "Close card details" }).click();
 

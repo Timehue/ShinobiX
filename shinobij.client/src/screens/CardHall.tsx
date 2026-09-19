@@ -1,3 +1,4 @@
+import { Collection, DeckBuilder } from "../components/ChronicleCardLibrary";
 import { useActivitySection, useActivitySectionRequests } from "../lib/use-activity-section";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { rememberedCircuitTrial } from '../features/dojo-circuit/client';
@@ -9,13 +10,9 @@ import "../styles/chronicle-duel.css";
 import {
   CHRONICLE_CARD_CATALOG,
   CHRONICLE_FOUNDING_FORMAT,
-  CHRONICLE_ELEMENTS,
   CHRONICLE_ROOM_TITLE,
   CHRONICLE_RULES_VERSION,
-  MAIN_DECK_SIZE,
-  MAX_COPIES_PER_CARD,
   buildChronicleDeck,
-  canAddChronicleCard,
   chronicleAiAction,
   displayCardsById,
   getChronicleCard,
@@ -24,15 +21,12 @@ import {
   validateOwnedChronicleDeck,
   type ChronicleAiResult,
   type ChronicleAiDifficulty,
-  type ChronicleDisplayCard,
   type ChronicleProjection,
 } from "../lib/chronicle-duel";
 import { getAllTileCards } from "../data/tile-cards";
 import { cardGameLockStatus } from "../lib/chronicle-lock";
 import chronicleScribeArt from "../assets/chronicle/chronicle-scribe-lock.webp";
 import { chronicleDuelistAvatar } from "../lib/chronicle-duelist-art";
-import { ChronicleCardView } from "../components/ChronicleCardView";
-import { ChronicleCardInspector } from "../components/ChronicleCardInspector";
 import { ChronicleDuelBoard } from "../components/ChronicleDuelBoard";
 import { CardClashTutorial } from "../components/CardClashTutorial";
 import {
@@ -670,264 +664,6 @@ function CardHallInner({
       {tab === "rules" ? <Rules /> : null}
       {showTutorial ? <CardClashTutorial onClose={closeTutorial} /> : null}
     </main>
-  );
-}
-
-function Collection({
-  cards,
-  owned,
-  catalogSize,
-}: {
-  cards: ChronicleDisplayCard[];
-  /** Copies owned per card id — the Collection is YOUR shelf, not the catalog. */
-  owned: ReadonlyMap<string, number>;
-  catalogSize: number;
-}) {
-  const [cardClass, setCardClass] = useState("all");
-  const [rarity, setRarity] = useState("all");
-  const [monsterTier, setMonsterTier] = useState("all");
-  const [element, setElement] = useState("all");
-  const [inspected, setInspected] = useState<ChronicleDisplayCard | null>(null);
-  const shown = cards.filter(
-    (card) =>
-      (cardClass === "all" || card.cardClass === cardClass) &&
-      (rarity === "all" || card.rarity === rarity) &&
-      (monsterTier === "all" ||
-        (card.cardClass === "monster" && card.powerTier === monsterTier)) &&
-      (element === "all" ||
-        (card.cardClass === "monster" && card.element === element)),
-  );
-  return (
-    <section className="chronicle-panel">
-      <div className="chronicle-toolbar">
-        <strong>{shown.length} cards</strong>
-        <span className="chronicle-collection-progress">
-          {cards.length} of {catalogSize} in the set
-        </span>
-        <label>
-          Class{" "}
-          <select
-            value={cardClass}
-            onChange={(event) => setCardClass(event.target.value)}
-          >
-            <option value="all">All</option>
-            <option value="monster">Monster</option>
-            <option value="magic">Magic</option>
-            <option value="trap">Trap</option>
-          </select>
-        </label>
-        <label>
-          Element{" "}
-          <select
-            value={element}
-            onChange={(event) => setElement(event.target.value)}
-          >
-            <option value="all">All</option>
-            {CHRONICLE_ELEMENTS.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Monster tier{" "}
-          <select
-            value={monsterTier}
-            onChange={(event) => setMonsterTier(event.target.value)}
-          >
-            <option value="all">All</option>
-            <option value="weak">Low</option>
-            <option value="standard">Medium</option>
-            <option value="elite">High / one Tribute</option>
-            <option value="boss">Boss / two Tribute</option>
-            <option value="mythic">Mythic</option>
-          </select>
-        </label>
-        <label>
-          Rarity{" "}
-          <select
-            value={rarity}
-            onChange={(event) => setRarity(event.target.value)}
-          >
-            <option value="all">All</option>
-            <option value="common">Common</option>
-            <option value="rare">Rare</option>
-            <option value="epic">Epic</option>
-            <option value="legendary">Legendary</option>
-            <option value="mythic">Mythic</option>
-          </select>
-        </label>
-      </div>
-      <div className="chronicle-collection">
-        {shown.map((card) => (
-          <button
-            className="chronicle-card-inspect-trigger"
-            key={card.id}
-            type="button"
-            aria-label={`Inspect ${card.name} — you own ${owned.get(card.id) ?? 0}`}
-            onClick={() => setInspected(card)}
-          >
-            <ChronicleCardView card={card} />
-            {/* Copies OWNED. The card foot already prints a number, but that is
-                the deck-building limit ("MAX 3") — it reads like inventory and
-                isn't, which left the collection with no signal of what you
-                actually hold. */}
-            <span className="chronicle-owned-badge">×{owned.get(card.id) ?? 0}</span>
-          </button>
-        ))}
-      </div>
-      <ChronicleCardInspector
-        card={inspected}
-        onClose={() => setInspected(null)}
-        meta={
-          inspected ? `Owned ×${owned.get(inspected.id) ?? 0}` : undefined
-        }
-      />
-    </section>
-  );
-}
-
-function DeckBuilder({
-  cards,
-  cardsById,
-  owned,
-  deck,
-  setDeck,
-  validation,
-  dirty,
-  onSave,
-  onMigrate,
-}: {
-  cards: ChronicleDisplayCard[];
-  cardsById: Record<string, ChronicleDisplayCard>;
-  owned: ReadonlyMap<string, number>;
-  deck: string[];
-  setDeck: (deck: string[]) => void;
-  validation: { valid: boolean; errors: string[] };
-  dirty: boolean;
-  onSave: () => void;
-  onMigrate: () => void;
-}) {
-  const groups = Object.entries(
-    Object.fromEntries(
-      [...new Set(deck)].map((id) => [
-        id,
-        deck.filter((entry) => entry === id).length,
-      ]),
-    ),
-  );
-  const counts = {
-    monster: deck.filter((id) => getChronicleCard(id)?.cardClass === "monster")
-      .length,
-    magic: deck.filter((id) => getChronicleCard(id)?.cardClass === "magic")
-      .length,
-    trap: deck.filter((id) => getChronicleCard(id)?.cardClass === "trap")
-      .length,
-  };
-  const [inspected, setInspected] = useState<ChronicleDisplayCard | null>(null);
-  const addCard = (id: string) => {
-    if (!canAddChronicleCard(deck, id, owned)) setDeck([...deck, id]);
-  };
-  return (
-    <section className="chronicle-panel chronicle-deck">
-      <div>
-        <div className="chronicle-toolbar">
-          <strong>Your cards</strong>
-          <span>
-            Tap a card to read it full size, or the + to add a copy. Up to{" "}
-            {MAX_COPIES_PER_CARD} copies; iconic advanced cards show their lower
-            limit on the frame.
-          </span>
-        </div>
-        <div className="chronicle-collection">
-          {cards.map((card) => {
-            const inDeck = deck.filter((id) => id === card.id).length;
-            const blocked = canAddChronicleCard(deck, card.id, owned);
-            return (
-              <div className="chronicle-deck-slot" key={card.id}>
-                <button
-                  className="chronicle-card-inspect-trigger"
-                  type="button"
-                  aria-label={`Read ${card.name}`}
-                  onClick={() => setInspected(card)}
-                >
-                  <ChronicleCardView card={card} compact />
-                </button>
-                {inDeck > 0 ? (
-                  <span className="chronicle-deck-slot__count">×{inDeck}</span>
-                ) : null}
-                <button
-                  className="chronicle-deck-slot__add"
-                  type="button"
-                  aria-label={`Add ${card.name} to your deck`}
-                  title={blocked ?? "Add to deck"}
-                  disabled={Boolean(blocked)}
-                  onClick={() => addCard(card.id)}
-                >
-                  +
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-      <aside className="chronicle-deck__list">
-        <h2>
-          {deck.length}/{MAIN_DECK_SIZE}
-        </h2>
-        <p>
-          {counts.monster} Monsters · {counts.magic} Jutsu · {counts.trap} Snares
-        </p>
-        {groups.map(([id, count]) => (
-          <div className="chronicle-deck__row" key={id}>
-            <span>{cardsById[id]?.name ?? id}</span>
-            <b>×{count}</b>
-            <button
-              aria-label={`Remove one ${cardsById[id]?.name ?? id}`}
-              onClick={() => {
-                const index = deck.indexOf(id);
-                setDeck([...deck.slice(0, index), ...deck.slice(index + 1)]);
-              }}
-            >
-              Remove
-            </button>
-          </div>
-        ))}
-        {!validation.valid ? (
-          <div className="chronicle-error">{validation.errors.join(" ")}</div>
-        ) : null}
-        <button onClick={onSave} disabled={!validation.valid || !dirty}>
-          Save Deck
-        </button>
-        <button onClick={onMigrate}>Restore Migrated Deck</button>
-        <button onClick={() => setDeck([])}>Clear</button>
-      </aside>
-      <ChronicleCardInspector
-        card={inspected}
-        onClose={() => setInspected(null)}
-        meta={
-          inspected
-            ? `In deck ×${deck.filter((id) => id === inspected.id).length} · owned ×${owned.get(inspected.id) ?? 0}`
-            : undefined
-        }
-        actions={
-          inspected ? (
-            <button
-              className="primary"
-              type="button"
-              disabled={Boolean(canAddChronicleCard(deck, inspected.id, owned))}
-              title={
-                canAddChronicleCard(deck, inspected.id, owned) ?? "Add to deck"
-              }
-              onClick={() => addCard(inspected.id)}
-            >
-              Add to Deck
-            </button>
-          ) : null
-        }
-      />
-    </section>
   );
 }
 

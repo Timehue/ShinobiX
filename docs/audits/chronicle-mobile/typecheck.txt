@@ -1,0 +1,95 @@
+shinobij.client/src/components/BattleLogHistoryPanel.tsx(155,34): error TS2339: Property 'message' does not exist on type 'ApiResult<{ entries: BattleHistorySummary[]; nextCursor?: number; }>'.
+  Property 'message' does not exist on type '{ ok: true; } & { entries: BattleHistorySummary[]; nextCursor?: number; }'.
+shinobij.client/src/components/CombatDetailPortal.tsx(41,35): error TS2488: Type 'NodeListOf<HTMLElement>' must have a '[Symbol.iterator]()' method that returns an iterator.
+shinobij.client/src/components/CombatHudLayout.tsx(179,35): error TS2488: Type 'NodeListOf<HTMLElement>' must have a '[Symbol.iterator]()' method that returns an iterator.
+shinobij.client/src/components/MobileProfileSheet.tsx(54,34): error TS2488: Type 'undefined[] | NodeListOf<HTMLElement>' must have a '[Symbol.iterator]()' method that returns an iterator.
+shinobij.client/src/components/PetBreedingBarn.tsx(140,37): error TS2488: Type 'NodeListOf<HTMLElement>' must have a '[Symbol.iterator]()' method that returns an iterator.
+shinobij.client/src/components/PetShowdownBattle.tsx(3175,36): error TS2339: Property 'ok' does not exist on type 'ShowdownTurnResult'.
+  Property 'ok' does not exist on type '{ expired: true; }'.
+shinobij.client/src/components/PetShowdownBattle.tsx(3184,9): error TS2322: Type 'ShowdownTurnResult' is not assignable to type 'ShowdownTurnResponse'.
+  Type '{ expired: true; }' is missing the following properties from type 'ShowdownTurnResponse': ok, events, state
+shinobij.client/src/components/PetShowdownBattle.tsx(3185,23): error TS2345: Argument of type 'ShowdownTurnResult' is not assignable to parameter of type 'SetStateAction<ShowdownTurnResponse>'.
+  Type '{ expired: true; }' is not assignable to type 'SetStateAction<ShowdownTurnResponse>'.
+shinobij.client/src/components/PetShowdownBattle.tsx(3188,35): error TS2339: Property 'events' does not exist on type 'ShowdownTurnResult'.
+  Property 'events' does not exist on type '{ expired: true; }'.
+shinobij.client/src/components/PetShowdownBattle.tsx(3198,27): error TS2339: Property 'events' does not exist on type 'ShowdownTurnResult'.
+  Property 'events' does not exist on type '{ expired: true; }'.
+shinobij.client/src/components/PetShowdownBattle.tsx(3200,23): error TS2339: Property 'events' does not exist on type 'ShowdownTurnResult'.
+  Property 'events' does not exist on type '{ expired: true; }'.
+shinobij.client/src/components/PetShowdownBattle.tsx(3200,49): error TS2339: Property 'state' does not exist on type 'ShowdownTurnResult'.
+  Property 'state' does not exist on type '{ expired: true; }'.
+shinobij.client/src/components/PetShowdownBattle.tsx(3202,35): error TS2339: Property 'state' does not exist on type 'ShowdownTurnResult'.
+  Property 'state' does not exist on type '{ expired: true; }'.
+shinobij.client/src/components/PetShowdownBattle.tsx(3204,46): error TS2339: Property 'state' does not exist on type 'ShowdownTurnResult'.
+  Property 'state' does not exist on type '{ expired: true; }'.
+shinobij.client/src/components/PetShowdownBattle.tsx(3205,48): error TS2339: Property 'state' does not exist on type 'ShowdownTurnResult'.
+  Property 'state' does not exist on type '{ expired: true; }'.
+shinobij.client/src/components/PetShowdownBattle.tsx(3206,26): error TS2339: Property 'state' does not exist on type 'ShowdownTurnResult'.
+  Property 'state' does not exist on type '{ expired: true; }'.
+shinobij.client/src/components/PetShowdownBattle.tsx(3208,46): error TS2339: Property 'state' does not exist on type 'ShowdownTurnResult'.
+  Property 'state' does not exist on type '{ expired: true; }'.
+shinobij.client/src/components/PetShowdownBattle.tsx(3209,59): error TS2339: Property 'state' does not exist on type 'ShowdownTurnResult'.
+  Property 'state' does not exist on type '{ expired: true; }'.
+shinobij.client/src/components/PetShowdownBattle.tsx(3211,41): error TS2339: Property 'state' does not exist on type 'ShowdownTurnResult'.
+  Property 'state' does not exist on type '{ expired: true; }'.
+shinobij.client/src/components/PetShowdownBattle.tsx(3211,56): error TS2345: Argument of type 'ShowdownTurnResult' is not assignable to parameter of type 'ShowdownTurnResponse'.
+  Type '{ expired: true; }' is missing the following properties from type 'ShowdownTurnResponse': ok, events, state
+shinobij.client/src/components/SectorTraces.tsx(204,28): error TS2339: Property 'message' does not exist on type 'TrailSignPostResult'.
+  Property 'message' does not exist on type '{ ok: true; signs: TrailSignView[]; }'.
+shinobij.client/src/components/SectorTraces.tsx(234,28): error TS2339: Property 'message' does not exist on type 'ShrineOfferResult'.
+  Property 'message' does not exist on type '{ ok: true; ryo: number; shrine: ShrineView; }'.
+shinobij.client/src/features/sunscar/RallySession.tsx(18,33): error TS2488: Type 'NodeListOf<HTMLElement>' must have a '[Symbol.iterator]()' method that returns an iterator.
+shinobij.client/src/lib/admin-weekly-boss-operations.ts(263,30): error TS2322: Type 'AdminWeeklyBossResult<string>' is not assignable to type 'AdminWeeklyBossResult<SpawnedWeeklyBoss>'.
+  Type '{ ok: true; data: string; }' is not assignable to type 'AdminWeeklyBossResult<SpawnedWeeklyBoss>'.
+    Type '{ ok: true; data: string; }' is not assignable to type '{ ok: true; data: SpawnedWeeklyBoss; }'.
+      Types of property 'data' are incompatible.
+        Type 'string' has no properties in common with type 'SpawnedWeeklyBoss'.
+shinobij.client/src/lib/content-publish.ts(128,48): error TS2339: Property 'error' does not exist on type 'PublishResult'.
+  Property 'error' does not exist on type '{ ok: true; published: ContentVersions; versions: ContentVersions; }'.
+shinobij.client/src/lib/sector-attack.ts(93,76): error TS2339: Property 'error' does not exist on type 'WorldAttackClaim'.
+  Property 'error' does not exist on type '{ ok: true; }'.
+shinobij.client/src/screens/AdminPanel.tsx(872,50): error TS2339: Property 'error' does not exist on type 'AdminWeeklyBossResult<{ ok?: boolean; }>'.
+  Property 'error' does not exist on type '{ ok: true; data: { ok?: boolean; }; }'.
+shinobij.client/src/screens/AdminPanel.tsx(892,56): error TS2339: Property 'error' does not exist on type 'AdminWeeklyBossResult<{ ok?: boolean; }>'.
+  Property 'error' does not exist on type '{ ok: true; data: { ok?: boolean; }; }'.
+shinobij.client/src/screens/AdminPanel.tsx(908,47): error TS2339: Property 'error' does not exist on type 'AdminWeeklyBossResult<SpawnedWeeklyBoss>'.
+  Property 'error' does not exist on type '{ ok: true; data: SpawnedWeeklyBoss; }'.
+shinobij.client/src/screens/AdminPanel.tsx(1244,82): error TS2339: Property 'reason' does not exist on type 'AdminPlayerSaveWriteCheck'.
+  Property 'reason' does not exist on type '{ ok: true; write: Readonly<{ ownerKey: string; snapshot: AdminPlayerSaveSnapshot; }>; }'.
+shinobij.client/src/screens/AdminPanel.tsx(1267,86): error TS2339: Property 'reason' does not exist on type 'AdminPlayerSaveWriteCheck'.
+  Property 'reason' does not exist on type '{ ok: true; write: Readonly<{ ownerKey: string; snapshot: AdminPlayerSaveSnapshot; }>; }'.
+shinobij.client/src/screens/AdminPanel.tsx(1287,82): error TS2339: Property 'reason' does not exist on type 'AdminPlayerSaveWriteCheck'.
+  Property 'reason' does not exist on type '{ ok: true; write: Readonly<{ ownerKey: string; snapshot: AdminPlayerSaveSnapshot; }>; }'.
+shinobij.client/src/screens/AdminPanel.tsx(1438,81): error TS2339: Property 'reason' does not exist on type 'AdminPlayerSaveWriteCheck'.
+  Property 'reason' does not exist on type '{ ok: true; write: Readonly<{ ownerKey: string; snapshot: AdminPlayerSaveSnapshot; }>; }'.
+shinobij.client/src/screens/AdminPanel.tsx(1517,81): error TS2339: Property 'reason' does not exist on type 'AdminPlayerSaveWriteCheck'.
+  Property 'reason' does not exist on type '{ ok: true; write: Readonly<{ ownerKey: string; snapshot: AdminPlayerSaveSnapshot; }>; }'.
+shinobij.client/src/screens/BattleLogScreen.tsx(76,42): error TS2339: Property 'kind' does not exist on type 'ApiResult<{ battle: DurableBattleReceipt; entries: DurableActionReceipt[]; source: "receipts" | "legacy-final-log"; nextCursor?: number; legacyLog?: string[]; }>'.
+  Property 'kind' does not exist on type '{ ok: true; } & { battle: DurableBattleReceipt; entries: DurableActionReceipt[]; source: "receipts" | "legacy-final-log"; nextCursor?: number; legacyLog?: string[]; }'.
+shinobij.client/src/screens/BattleLogScreen.tsx(76,61): error TS2339: Property 'message' does not exist on type 'ApiResult<{ battle: DurableBattleReceipt; entries: DurableActionReceipt[]; source: "receipts" | "legacy-final-log"; nextCursor?: number; legacyLog?: string[]; }>'.
+  Property 'message' does not exist on type '{ ok: true; } & { battle: DurableBattleReceipt; entries: DurableActionReceipt[]; source: "receipts" | "legacy-final-log"; nextCursor?: number; legacyLog?: string[]; }'.
+shinobij.client/src/screens/Cafeteria.tsx(108,36): error TS2339: Property 'reason' does not exist on type 'CookGate'.
+  Property 'reason' does not exist on type '{ ok: true; material: string; }'.
+shinobij.client/src/screens/Cafeteria.tsx(250,104): error TS2339: Property 'reason' does not exist on type 'CookGate'.
+  Property 'reason' does not exist on type '{ ok: true; material: string; }'.
+shinobij.client/src/screens/ClanHall.tsx(82,62): error TS2345: Argument of type 'Dispatch<SetStateAction<"missions" | "boss" | "roster" | "guard" | "territory" | "treasury" | "notices" | "upgrades" | "wars" | "hall" | "exchange" | "boosts" | "rankings" | "mentor" | "chat">>' is not assignable to parameter of type '(section: string) => void'.
+  Types of parameters 'value' and 'section' are incompatible.
+    Type 'string' is not assignable to type 'SetStateAction<"missions" | "boss" | "roster" | "guard" | "territory" | "treasury" | "notices" | "upgrades" | "wars" | "hall" | "exchange" | "boosts" | "rankings" | "mentor" | "chat">'.
+shinobij.client/src/screens/ClanHall.tsx(196,30): error TS2339: Property 'reason' does not exist on type '{ ok: true; data: ClanData; } | { ok: false; reason: "error" | "notFound"; }'.
+  Property 'reason' does not exist on type '{ ok: true; data: ClanData; }'.
+shinobij.client/src/screens/ClanHall.tsx(388,45): error TS2339: Property 'reason' does not exist on type '{ ok: true; data: ClanData; } | { ok: false; reason: "error" | "notFound"; }'.
+  Property 'reason' does not exist on type '{ ok: true; data: ClanData; }'.
+shinobij.client/src/screens/ClanHall.tsx(590,64): error TS2339: Property 'reason' does not exist on type 'StoresDonationGate'.
+  Property 'reason' does not exist on type '{ ok: true; }'.
+shinobij.client/src/screens/ClanHall.tsx(991,2296): error TS2339: Property 'reason' does not exist on type 'StoresDonationGate'.
+  Property 'reason' does not exist on type '{ ok: true; }'.
+shinobij.client/src/screens/Inventory.tsx(512,69): error TS2339: Property 'error' does not exist on type 'SettlementResponse<{ kind: "inventory-sale"; itemId: string; quantity: number; ryo: number; }>'.
+  Property 'error' does not exist on type '{ ok: true; character: Character; settlement: { kind: "inventory-sale"; itemId: string; quantity: number; ryo: number; }; _saveVersion?: number; }'.
+shinobij.client/src/screens/Profile.tsx(201,26): error TS2339: Property 'error' does not exist on type '{ ok: true; character: Character; changed: boolean; cost: number; _saveVersion?: number; } | { ok: false; error: string; }'.
+  Property 'error' does not exist on type '{ ok: true; character: Character; changed: boolean; cost: number; _saveVersion?: number; }'.
+shinobij.client/src/screens/TownHall.tsx(623,70): error TS2339: Property 'reason' does not exist on type 'StoresDonationGate'.
+  Property 'reason' does not exist on type '{ ok: true; }'.
+shinobij.client/src/screens/TownHall.tsx(1136,3140): error TS2339: Property 'reason' does not exist on type 'StoresDonationGate'.
+  Property 'reason' does not exist on type '{ ok: true; }'.
+shinobij.client/src/screens/WorldMap.tsx(3667,79): error TS2339: Property 'message' does not exist on type 'SectorContractClaim'.
+  Property 'message' does not exist on type '{ ok: true; ryo: number; totalRyo: number; saveVersion?: number; }'.
