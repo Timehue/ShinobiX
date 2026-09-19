@@ -1,6 +1,4 @@
 import { kv } from '../_storage.js';
-import { isDeepStrictEqual } from 'node:util';
-import { withKvLock } from '../_lock.js';
 import { safeName } from '../_utils.js';
 import {
     normalizeVillageWarRecord,
@@ -10,19 +8,18 @@ import { defenderPointsMultiplier, sectorWarDamageMultiplier } from '../_war-str
 import { sealedSectorWarRoleOf, sectorControlSwing } from '../_war-role.js';
 import {
     applySectorWarBattle,
-    findSectorWarBattleReceipt,
     isSectorWarActive,
-    normalizeSectorWarSession,
-    recordSectorWarBattleOutcome,
-    sectorWarKey,
+    sectorWarId,
 } from '../_sector-war.js';
 import {
+    commitSectorWarBattle,
     commitSectorWarResolutionReceipt,
     activeContestOnSector,
-    findSectorWarAppliedBattle,
+    locateSectorWarAppliedBattle,
     loadSectorWarResolutionReceipt,
     loadSectorWarToken,
     mintSectorWarToken,
+    type SectorWarLocatedBattle,
     type SectorWarResolutionReceipt,
 } from '../_sector-war-store.js';
 import { newSectorWarBattleToken } from '../_sector-war.js';
@@ -56,6 +53,28 @@ function receiptMatchesSession(
         && receipt.p2Name === safeName(session.p2?.name ?? '')
         && receipt.sessionCreatedAt === clock.createdAt
         && receipt.sessionEndedAt === clock.endedAt;
+}
+
+/**
+ * The two contest ids a world battle could have scored in. A contest row is
+ * keyed `<sector>:<attacker>-vs-<defender>`, and a sector-war battle is always
+ * fought between exactly its contest's two villages — in one order or the
+ * other. Empty when the battle carries no usable sector/village evidence.
+ */
+function candidateContestIds(session: PvpSession, p1Village: string, p2Village: string): string[] {
+    const sector = Math.floor(Number(session.rewardSector));
+    if (!Number.isSafeInteger(sector) || sector <= 0 || !p1Village || !p2Village || p1Village === p2Village) return [];
+    const ids = [sectorWarId(sector, p1Village, p2Village), sectorWarId(sector, p2Village, p1Village)];
+    return ids[0] === ids[1] ? [] : ids;
+}
+
+/** Which fighter's village attacked in `contestId`, read from the id's own
+ *  attacker-first ordering. Null when the id is not one of the candidates. */
+function attackerVillageFromContestId(contestId: string, candidates: readonly string[], p1Village: string, p2Village: string): string | null {
+    if (candidates.length !== 2) return null;
+    if (contestId === candidates[0]) return p1Village;
+    if (contestId === candidates[1]) return p2Village;
+    return null;
 }
 
 export type PvpSectorWarRegistration =
@@ -202,67 +221,77 @@ export async function settlePvpSectorWarContinuation(
     const winnerName = winnerSide === 'p1' ? p1Name : p2Name;
     const winnerVillage = winnerSide === 'p1' ? p1Village : p2Village;
 
+    // An applied battle is recovered from its own evidence: the two contest
+    // ids it could belong to follow from its sector and sealed villages, so
+    // recovery is a handful of keyed reads — never a scan of every war.
+    const candidates = candidateContestIds(session, p1Village, p2Village);
+    const locate = (boundContestId: string | null) => locateSectorWarAppliedBattle({
+        contestIds: [...(boundContestId ? [boundContestId] : []), ...candidates],
+        battleId,
+        battleCreatedAt: clock.createdAt,
+        scanContestIds: boundContestId ? [boundContestId] : [],
+    });
+    const proveApplied = (located: SectorWarLocatedBattle, conflict: string) => {
+        const contest = located.session;
+        const participantVillages = new Set([p1Village, p2Village]);
+        // With the row, its own villages decide who attacked (as they always
+        // did). Once the row is gone, the contest id's ordering does.
+        const attackerVillage = contest
+            ? contest.attackerVillage
+            : attackerVillageFromContestId(located.contestId, candidates, p1Village, p2Village);
+        const attackerWon = !!attackerVillage && winnerVillage === attackerVillage;
+        if (!attackerVillage
+            || !candidates.includes(located.contestId)
+            || (contest && (!participantVillages.has(contest.attackerVillage)
+                || !participantVillages.has(contest.defenderVillage)
+                || contest.sector !== session.rewardSector))
+            || located.receipt.attackerWon !== attackerWon
+            || located.receipt.at !== clock.endedAt
+            || safeName(located.receipt.by) !== winnerName) {
+            throw new Error(conflict);
+        }
+        return { attackerWon, attackerPoints: located.tally.attackerPoints, defenderPoints: located.tally.defenderPoints };
+    };
+
     const prior = await loadSectorWarResolutionReceipt(battleId);
     if (prior) {
         if (!receiptMatchesSession(prior, session, clock)) {
             throw new Error('sector-war-resolution-receipt-authority-conflict');
         }
         if (prior.outcome === 'applied') {
-            const recovered = await findSectorWarAppliedBattle(battleId);
-            const contest = recovered?.session;
-            const embeddedReceipt = recovered?.receipt;
-            const participantVillages = new Set([p1Village, p2Village]);
-            const attackerWon = winnerVillage === contest?.attackerVillage;
-            if (!contest
-                || !embeddedReceipt
-                || !p1Village
-                || !p2Village
-                || participantVillages.size !== 2
-                || !participantVillages.has(contest.attackerVillage)
-                || !participantVillages.has(contest.defenderVillage)
-                || contest.sector !== session.rewardSector
-                || embeddedReceipt.attackerWon !== attackerWon
-                || embeddedReceipt.at !== clock.endedAt
-                || safeName(embeddedReceipt.by) !== winnerName
-                || prior.sectorWarId !== contest.id
-                || prior.attackerWon !== attackerWon
-                || prior.points !== embeddedReceipt.points) {
+            const located = await locate(prior.sectorWarId);
+            if (!located) throw new Error('sector-war-resolution-receipt-authority-conflict');
+            const proven = proveApplied(located, 'sector-war-resolution-receipt-authority-conflict');
+            if (prior.sectorWarId !== located.contestId
+                || prior.attackerWon !== proven.attackerWon
+                || prior.points !== located.receipt.points) {
                 throw new Error('sector-war-resolution-receipt-authority-conflict');
             }
-            await helpAppliedSectorWarEffects(battleId, winnerName, attackerWon);
+            await helpAppliedSectorWarEffects(battleId, winnerName, proven.attackerWon);
         }
         return prior;
     }
 
-    const embedded = await findSectorWarAppliedBattle(battleId);
+    // Crash recovery: the contest CAS records the score (and its receipt)
+    // before the per-battle resolution receipt is published. Recover that
+    // exact proof before trusting the registration token, whose TTL is only an
+    // admission horizon.
+    const token = await loadSectorWarToken(battleId);
+    const embedded = await locate(token?.sectorWarId ?? null);
     if (embedded) {
-        const contest = embedded.session;
-        const participantVillages = new Set([p1Village, p2Village]);
-        const attackerWon = winnerVillage === contest.attackerVillage;
-        if (!p1Village
-            || !p2Village
-            || participantVillages.size !== 2
-            || !participantVillages.has(contest.attackerVillage)
-            || !participantVillages.has(contest.defenderVillage)
-            || contest.sector !== session.rewardSector
-            || embedded.receipt.attackerWon !== attackerWon
-            || embedded.receipt.at !== clock.endedAt
-            || safeName(embedded.receipt.by) !== winnerName) {
-            throw new Error('sector-war-embedded-receipt-authority-conflict');
-        }
-        await helpAppliedSectorWarEffects(battleId, winnerName, attackerWon);
+        const proven = proveApplied(embedded, 'sector-war-embedded-receipt-authority-conflict');
+        await helpAppliedSectorWarEffects(battleId, winnerName, proven.attackerWon);
         return commitSectorWarResolutionReceipt({
             ...receiptBase,
             outcome: 'applied',
-            sectorWarId: contest.id,
-            attackerWon,
+            sectorWarId: embedded.contestId,
+            attackerWon: proven.attackerWon,
             points: embedded.receipt.points,
-            attackerPoints: contest.attackerPoints,
-            defenderPoints: contest.defenderPoints,
+            attackerPoints: proven.attackerPoints,
+            defenderPoints: proven.defenderPoints,
         });
     }
 
-    const token = await loadSectorWarToken(battleId);
     if (!token) return commitNoop('not-applicable');
     if (token.battleId !== battleId
         || token.createdAt !== clock.createdAt
@@ -290,69 +319,45 @@ export async function settlePvpSectorWarContinuation(
         clock.createdAt,
     );
 
-    const result = await withKvLock(sectorWarKey(token.sectorWarId), async () => {
-        const rawContest = await kv.get<Parameters<typeof normalizeSectorWarSession>[0]>(
-            sectorWarKey(token.sectorWarId),
-        );
-        const contest = rawContest ? normalizeSectorWarSession(rawContest) : null;
-        if (!contest || clock.createdAt < contest.startedAt) {
-            return { outcome: 'superseded' as const, contest };
-        }
-        if (!isSectorWarActive(contest, clock.endedAt)) {
-            return { outcome: 'superseded' as const, contest };
-        }
-        const existing = findSectorWarBattleReceipt(contest, battleId);
-        if (existing) {
+    const result = await commitSectorWarBattle({
+        contestId: token.sectorWarId,
+        battleId,
+        decide: async (contest) => {
+            // A battle that began before this contest instance belongs to an
+            // earlier war on the sector; one that ended after the war stopped
+            // being live is a defender hold. Both use immutable battle clocks,
+            // never the delayed claim's wall-clock.
+            if (clock.createdAt < contest.startedAt) return { kind: 'skip', reason: 'superseded' };
+            if (!isSectorWarActive(contest, clock.endedAt)) return { kind: 'skip', reason: 'superseded' };
+            const [attackerState, defenderState] = await Promise.all([
+                kv.get<Record<string, unknown>>(villageWarKey(token.attackerVillage)),
+                kv.get<Record<string, unknown>>(villageWarKey(token.defenderVillage)),
+            ]);
+            // Score the kill. Sectors never flip mid-war -- settlement compares
+            // the tallies when the 72 hours close (api/_sector-war-settle.ts).
+            const outcome = applySectorWarBattle(contest, attackerWon, {
+                now: clock.endedAt,
+                roleSwing: sectorControlSwing(winnerRole, loserRole),
+                attackerMult: sectorWarDamageMultiplier(
+                    normalizeVillageWarRecord(token.attackerVillage, attackerState ?? undefined),
+                ),
+                defenderMult: defenderPointsMultiplier(
+                    normalizeVillageWarRecord(token.defenderVillage, defenderState ?? undefined),
+                ),
+                by: winnerName,
+            });
+            return { kind: 'score', outcome, attackerWon, by: winnerName, at: clock.endedAt };
+        },
+        verifyPrior: (existing) => {
             if (existing.attackerWon !== attackerWon
                 || existing.at !== clock.endedAt
                 || safeName(existing.by) !== winnerName) {
                 throw new Error('sector-war-embedded-receipt-conflict');
             }
-            return {
-                outcome: 'applied' as const,
-                replayed: true,
-                awarded: existing.points,
-                session: contest,
-            };
-        }
-        const [attackerState, defenderState] = await Promise.all([
-            kv.get<Record<string, unknown>>(villageWarKey(token.attackerVillage)),
-            kv.get<Record<string, unknown>>(villageWarKey(token.defenderVillage)),
-        ]);
-        const projected = applySectorWarBattle(contest, attackerWon, {
-            now: clock.endedAt,
-            roleSwing: sectorControlSwing(winnerRole, loserRole),
-            attackerMult: sectorWarDamageMultiplier(
-                normalizeVillageWarRecord(token.attackerVillage, attackerState ?? undefined),
-            ),
-            defenderMult: defenderPointsMultiplier(
-                normalizeVillageWarRecord(token.defenderVillage, defenderState ?? undefined),
-            ),
-            by: winnerName,
-        });
-        const recorded = recordSectorWarBattleOutcome(projected, {
-            battleId,
-            attackerWon,
-            by: winnerName,
-            at: clock.endedAt,
-        });
-        try {
-            if (!(await kv.compareSet(sectorWarKey(token.sectorWarId), rawContest, recorded.session))) {
-                throw new Error('sector-war-contest-version-conflict');
-            }
-        } catch (error) {
-            const recovered = await kv.get<unknown>(sectorWarKey(token.sectorWarId)).catch(() => null);
-            if (!isDeepStrictEqual(recovered, recorded.session)) throw error;
-        }
-        return {
-            outcome: 'applied' as const,
-            replayed: false,
-            awarded: projected.awarded,
-            session: recorded.session,
-        };
-    }, { failClosed: true });
+        },
+    });
 
-    if (result.outcome === 'superseded') return commitNoop('superseded', token.sectorWarId);
+    if (result.status !== 'applied') return commitNoop('superseded', token.sectorWarId);
 
     await helpAppliedSectorWarEffects(battleId, winnerName, attackerWon);
     return commitSectorWarResolutionReceipt({
@@ -360,7 +365,7 @@ export async function settlePvpSectorWarContinuation(
         outcome: 'applied',
         sectorWarId: token.sectorWarId,
         attackerWon,
-        points: result.awarded,
+        points: result.receipt.points,
         attackerPoints: result.session.attackerPoints,
         defenderPoints: result.session.defenderPoints,
     });

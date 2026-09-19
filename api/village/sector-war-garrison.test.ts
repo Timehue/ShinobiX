@@ -268,6 +268,75 @@ describe('Sector Combat garrison assault (rebuilt on Solo PvE)', { concurrency: 
         assert.equal(body.character.hospitalized, true);
     });
 
+    it('scores past the old 200-receipt ceiling, and a resolve whose cached reply was lost replays, never re-scores', async () => {
+        const now = Date.now();
+        const old = Array.from({ length: 200 }, (_, i) => ({
+            battleId: `old-${i}`, attackerWon: false, points: 1, by: 'defender', at: now - 3 * 60 * 60 * 1000 + i,
+        })).reverse();
+        await seedBaseState(now, { appliedBattles: old, defenderPoints: 200 });
+        const started = await startGarrison();
+        const runId = (started.body as { runId: string }).runId;
+        await terminateSession(runId, 'win');
+
+        const response = await call({ action: 'garrison-resolve', playerName: ATTACKER_PLAYER, runId });
+        assert.equal(response.statusCode, 200, JSON.stringify(response.body));
+        assert.equal((response.body as { points: number }).points, 2, 'same garrison weight as ever');
+        const contest = await kv.get<{ attackerPoints: number; appliedBattles: unknown[]; battleLedger: { count: number; lastGarrisonAt: number } }>(CONTEST_KEY);
+        assert.equal(contest?.attackerPoints, 2);
+        assert.equal(contest?.appliedBattles.length, 200, 'the in-row mirror did not grow');
+        assert.equal(contest?.battleLedger.count, 201);
+        assert.ok(contest!.battleLedger.lastGarrisonAt > 0);
+
+        // Lose the run's cached settlement (a crash after scoring, before the
+        // run write). The retry must find the battle's receipt — which lives
+        // only externally past the mirror — and replay it.
+        const runKey = `sector-war-garrison:${runId}`;
+        const run = await kv.get<Record<string, unknown>>(runKey);
+        const { settlement: _lost, ...unsettled } = run!;
+        await kv.set(runKey, unsettled);
+        const retried = await call({ action: 'garrison-resolve', playerName: ATTACKER_PLAYER, runId });
+        assert.equal(retried.statusCode, 200, JSON.stringify(retried.body));
+        assert.equal((retried.body as { points: number }).points, 2);
+        const after = await kv.get<{ attackerPoints: number; battleLedger: { count: number } }>(CONTEST_KEY);
+        assert.equal(after?.attackerPoints, 2, 'scored once');
+        assert.equal(after?.battleLedger.count, 201);
+    });
+
+    it('an assault opened against an earlier war on the sector never scores its replacement', async () => {
+        const now = Date.now();
+        await seedBaseState(now);
+        const started = await startGarrison();
+        const runId = (started.body as { runId: string }).runId;
+        await terminateSession(runId, 'win');
+        // The war this run was opened against ended and a new declaration took
+        // the same contest id (and restarted at generation 1) AFTER the run began.
+        const run = await kv.get<{ createdAt: number }>(`sector-war-garrison:${runId}`);
+        const replacementStart = run!.createdAt + 1;
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        await kv.set(CONTEST_KEY, activeContest(now, { startedAt: replacementStart, endsAt: replacementStart + 72 * 3600_000, lastLiveBattleAt: replacementStart }));
+        const response = await call({ action: 'garrison-resolve', playerName: ATTACKER_PLAYER, runId });
+        assert.equal(response.statusCode, 200, JSON.stringify(response.body));
+        assert.equal((response.body as { outcome: string }).outcome, 'superseded');
+        assert.equal((await kv.get<{ attackerPoints: number }>(CONTEST_KEY))?.attackerPoints, 0);
+    });
+
+    it('abandoning copies every battle receipt out before the record starts to expire', async () => {
+        const now = Date.now();
+        const old = Array.from({ length: 150 }, (_, i) => ({
+            battleId: `old-${i}`, attackerWon: i % 2 === 0, points: 1, by: i % 2 === 0 ? ATTACKER_PLAYER : 'defender', at: now - 3 * 60 * 60 * 1000 + i,
+        })).reverse();
+        await seedBaseState(now, { appliedBattles: old, attackerPoints: 75, defenderPoints: 75 });
+        await kv.set('village:kage:moonshadow-village', { seatedKage: ATTACKER_PLAYER });
+        const response = await call({ action: 'abandon', playerName: ATTACKER_PLAYER, sector: SECTOR });
+        assert.equal(response.statusCode, 200, JSON.stringify(response.body));
+        assert.equal((response.body as { contest: Record<string, unknown> }).contest.battleLedger, undefined, 'never projected');
+        const row = await kv.get<Record<string, unknown>>(CONTEST_KEY);
+        assert.equal((row?.battleLedger as { mirrorExternalized: boolean }).mirrorExternalized, true);
+        assert.equal((row?.battleLedger as { pending: unknown[] }).pending.length, 0);
+        const receipts = await kv.keys('shared:sector-war-battle:*');
+        assert.equal(receipts.length, 150, 'every receipt now outlives the conceded record');
+    });
+
     it('only the attacker of THIS assault may resolve it', async () => {
         const now = Date.now();
         await seedBaseState(now);

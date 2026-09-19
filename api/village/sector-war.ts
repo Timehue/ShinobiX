@@ -26,8 +26,6 @@ import {
     newSectorWarSession,
     normalizeSectorWarSession,
     applySectorWarBattle,
-    findSectorWarBattleReceipt,
-    recordSectorWarBattleOutcome,
     canDeclareSectorWar,
     newSectorWarBattleToken,
     sectorDeclareLockKey,
@@ -51,7 +49,9 @@ import {
     loadSectorWarToken,
     loadSectorWarResolutionReceipt,
     commitSectorWarResolutionReceipt,
-    findSectorWarAppliedBattle,
+    commitSectorWarBattle,
+    drainSectorWarLedger,
+    externalizeSectorWarLedger,
     getSectorOwnerVillage,
     activeSectorWarsForVillage,
 } from '../_sector-war-store.js';
@@ -1252,37 +1252,42 @@ async function doGarrisonResolveLocked(res: VercelResponse, identity: Identity, 
     // resolve call after a lost response must be a true no-op replay of the same
     // receipt, not mint a second one every retry.
     const battleId = `garrison:${runId}`;
-    const scored = await withKvLock(sectorWarKey(run.contestId), async () => {
-        const fresh = await loadSectorWar(run.contestId);
-        if (!fresh || !isSectorWarActive(fresh, Date.now())) {
-            return { ok: false as const, contest: fresh };
-        }
-        const prior = findSectorWarBattleReceipt(fresh, battleId);
-        if (prior) return { ok: true as const, awarded: prior.points, session: fresh };
-
-        const attackerRole = await sectorWarRoleOf(run.attackerName, run.attackerVillage);
-        const [winnerRole, loserRole] = attackerWon ? [attackerRole, ROLE_VILLAGER] : [ROLE_VILLAGER, attackerRole];
-        const [atkRaw, defRaw] = await Promise.all([
-            kv.get<Record<string, unknown>>(villageWarKey(fresh.attackerVillage)),
-            kv.get<Record<string, unknown>>(villageWarKey(fresh.defenderVillage)),
-        ]);
-        const outcome = applySectorWarBattle(fresh, attackerWon, {
-            now: Date.now(),
-            roleSwing: sectorControlSwing(winnerRole, loserRole),
-            attackerMult: sectorWarDamageMultiplier(normalizeVillageWarRecord(fresh.attackerVillage, atkRaw ?? undefined)),
-            defenderMult: defenderPointsMultiplier(normalizeVillageWarRecord(fresh.defenderVillage, defRaw ?? undefined)),
-            // Attacker win: the points are the PLAYER's (attribution for the
-            // capture credit). Garrison win: the AI scored.
-            by: attackerWon ? run.attackerName : '',
-            garrisonBattle: attackerWon,
-            mercBattle: !attackerWon,
-        });
-        const recorded = recordSectorWarBattleOutcome(outcome, {
-            battleId, attackerWon, by: attackerWon ? run.attackerName : '', garrison: attackerWon, at: Date.now(),
-        });
-        await saveSectorWar(recorded.session);
-        return { ok: true as const, awarded: outcome.awarded, session: recorded.session };
-    }, { failClosed: true });
+    const attackerRole = await sectorWarRoleOf(run.attackerName, run.attackerVillage);
+    const [winnerRole, loserRole] = attackerWon ? [attackerRole, ROLE_VILLAGER] : [ROLE_VILLAGER, attackerRole];
+    const committed = await commitSectorWarBattle({
+        contestId: run.contestId,
+        battleId,
+        decide: async (fresh) => {
+            const scoredAt = Date.now();
+            // An assault opened against an earlier war on this sector never
+            // scores the war that replaced it.
+            if (run.createdAt < fresh.startedAt || !isSectorWarActive(fresh, scoredAt)) {
+                return { kind: 'skip', reason: 'superseded' };
+            }
+            const [atkRaw, defRaw] = await Promise.all([
+                kv.get<Record<string, unknown>>(villageWarKey(fresh.attackerVillage)),
+                kv.get<Record<string, unknown>>(villageWarKey(fresh.defenderVillage)),
+            ]);
+            const outcome = applySectorWarBattle(fresh, attackerWon, {
+                now: scoredAt,
+                roleSwing: sectorControlSwing(winnerRole, loserRole),
+                attackerMult: sectorWarDamageMultiplier(normalizeVillageWarRecord(fresh.attackerVillage, atkRaw ?? undefined)),
+                defenderMult: defenderPointsMultiplier(normalizeVillageWarRecord(fresh.defenderVillage, defRaw ?? undefined)),
+                // Attacker win: the points are the PLAYER's (attribution for the
+                // capture credit). Garrison win: the AI scored.
+                by: attackerWon ? run.attackerName : '',
+                garrisonBattle: attackerWon,
+                mercBattle: !attackerWon,
+            });
+            return {
+                kind: 'score', outcome, attackerWon,
+                by: attackerWon ? run.attackerName : '', garrison: attackerWon, at: scoredAt,
+            };
+        },
+    });
+    const scored = committed.status === 'applied'
+        ? { ok: true as const, awarded: committed.receipt.points, session: committed.session }
+        : { ok: false as const, contest: committed.status === 'skipped' ? committed.contest : null };
 
     const response = scored.ok
         ? {
@@ -1320,14 +1325,19 @@ async function doAbandon(req: VercelRequest, res: VercelResponse, identity: Iden
         return res.status(403).json({ error: 'Only the attacking village’s seated Kage can call off a sector war.' });
     }
 
+    // The conceded record expires with the cooldown, so its battle receipts must
+    // be copied out first (idempotent; the bulk runs before the lock).
+    const confirmed = await externalizeSectorWarLedger(contest, Date.now()).catch(() => new Set<string>());
     const out = await withKvLock(sectorWarKey(contest.id), async () => {
         const fresh = await loadSectorWar(contest.id);
         if (!fresh || !isSectorWarActive(fresh, Date.now())) return { ok: false as const };
         const { session, changed } = abandonSectorWar(fresh, Date.now());
         // The stamped record carries the re-siege cooldown TTL. (It previously had
         // NO ttl here, so an abandoned siege lingered in the keyspace forever.)
-        if (changed) await saveSectorWar(session, SECTOR_RESIEGE_COOLDOWN_SEC);
-        return { ok: true as const, session };
+        if (!changed) return { ok: true as const, session };
+        const drained = await drainSectorWarLedger(session, Date.now(), kv, confirmed);
+        await saveSectorWar(drained, SECTOR_RESIEGE_COOLDOWN_SEC);
+        return { ok: true as const, session: drained };
     }, { failClosed: true });
 
     if (!out.ok) return res.status(409).json({ error: 'That sector war is already over.' });
