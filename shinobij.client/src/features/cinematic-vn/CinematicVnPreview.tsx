@@ -280,6 +280,9 @@ function StoryArtPreview({ eventKey }: { eventKey: string }) {
             [`event:${event.id}:tilescene`]: '/scenes/story/cinematic/side-stories/craft-dungeon-central.webp',
             [`event:${event.id}:warden`]: '/portraits/cinematic/side-stories/dungeon-warden.webp?custom=1',
             ['avatar:' + character.name.trim().toLowerCase()]: qaAvatar('square'),
+        } : params.get('dungeonArt') === 'shared' ? {
+            // The live slot link, so a QA run can serve retired, new or missing bytes.
+            [`event:${event.id}:backdrop`]: `/api/img?id=${encodeURIComponent(`event:${event.id}:backdrop`)}&v=qa`,
         } : {};
         const proof = { token: 'art-preview', startedAt: 0,
             ...(pageIndex > 0 ? { combatAuthorityVersion: 1 as const, wardenDefeated: true, wardenProofId: 'previewwarden' } : {}),

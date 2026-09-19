@@ -1,6 +1,7 @@
 /**
- * Remove the pre-rebuild VN uploads that the reader already hides
- * (lib/vn-retired-artwork.ts), so no stored copy can ever surface again.
+ * Remove the pre-rebuild VN uploads and the old Relic Dungeon entrance
+ * backdrops that the game already hides (lib/vn-retired-artwork.ts), so no
+ * stored copy can ever surface again.
  *
  *   Dry run (default, read-only, no credentials):
  *     SHINOBIX_BASE_URL=https://<host> node --import tsx scripts/retire-old-vn-images.mts

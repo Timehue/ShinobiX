@@ -1,6 +1,21 @@
 import { useEffect, useState } from 'react';
 import type { CreatorEvent } from '../types/vn';
-import { isRetiredVnArt, omitRetiredVnArt, retiredVnArtSources } from './vn-retired-artwork';
+import { isRetiredVnArt, omitRetiredVnArt, retiredVnArtHash, retiredVnArtSources } from './vn-retired-artwork';
+
+/** A single shared slot read outside the page overlay (a Relic Dungeon entrance).
+ * Hidden while it is checked; kept only when its bytes are not retired art. */
+export function useVerifiedSharedArt(eventId: string, source: string | undefined): string | undefined {
+    const candidate = source && retiredVnArtHash(eventId, source) ? source : undefined;
+    const [kept, setKept] = useState<string>();
+    useEffect(() => {
+        if (!candidate) return;
+        let active = true;
+        void isRetiredVnArt(eventId, candidate).then(retired => { if (active) setKept(retired ? undefined : candidate); });
+        return () => { active = false; };
+    }, [eventId, candidate]);
+    if (!candidate) return source;
+    return kept === candidate ? candidate : undefined;
+}
 
 /** Retire only verified legacy shared exports; future uploads still win. */
 export function useVnArtwork(event: CreatorEvent): CreatorEvent {
