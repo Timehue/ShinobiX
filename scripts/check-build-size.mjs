@@ -706,7 +706,14 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // at 4f01625f3 (#195 Pet Yard training gate, +449 B; blocked). The initial
 // graph did not move: 1,452,823 B raw at all three. 40 KB leaves 39,883 B of
 // measured image headroom; startup, per-chunk and gzip limits are unchanged.
-const TOTAL_JS_CSS_FAIL_BYTES = 8_700_000;
+// 2026-09-19: 8.70 -> 8.76 MB. The production image at d4dab1cba already
+// measured 8,708,316 B. Caravan shinobi missions, field techniques and mobile
+// feedback add 22,453 B in lazy code/CSS (candidate 6697fac23: 8,730,769 B).
+// The initial graph stays exactly 1,431,937 B raw / 385,156 B gzip. This adds
+// 29,231 B of measured image headroom; startup, per-chunk and gzip gates stay
+// unchanged. Region-specific artwork also replaces the old 456 KB atlas with
+// a 65 KB first scene; other region images and combat load only when needed.
+const TOTAL_JS_CSS_FAIL_BYTES = 8_760_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
