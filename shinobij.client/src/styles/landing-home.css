@@ -48,7 +48,7 @@ html:has(.landing-lightbox[open]) { overflow: hidden; scrollbar-gutter: stable; 
 #landing-home .landing-cta--primary { background: linear-gradient(115deg, #e4c997, #ba955f); border: 1px solid #ecd0a0; color: #201a11; box-shadow: inset 0 0 0 3px #36271020; }
 #landing-home .landing-cta--ghost { background: #0e0d0d80; border: 1px solid #bfa77b8a; color: #ede4d2; }
 #landing-home .landing-nav-play { min-height: 44px; padding: 12px 25px; }
-.landing-hero { position: relative; min-height: min(850px, calc(100svh - 121px)); padding: 48px 6% 84px; display: flex; align-items: center; background: linear-gradient(90deg, #0e0d0d80, #0e0d0d20 50%, transparent 75%), linear-gradient(0deg, #0e0d0d, transparent 22%), url('/landing/hero-shinobi.webp') 62% center / cover no-repeat; }
+.landing-hero { --landing-hero-scene: linear-gradient(90deg, #0e0d0d80, #0e0d0d20 50%, transparent 75%), linear-gradient(0deg, #0e0d0d, transparent 22%), url('/landing/hero-shinobi.webp') 62% center / cover no-repeat; position: relative; min-height: min(850px, calc(100svh - 121px)); padding: 48px 6% 84px; display: flex; align-items: center; background: var(--landing-hero-scene); }
 .landing-hero-inner { width: 100%; max-width: 1320px; margin: auto; position: relative; z-index: 1; }
 .landing-atmosphere { position: absolute; inset: 0; overflow: hidden; pointer-events: none; contain: paint; mask-image: linear-gradient(90deg, transparent 20%, #0009 52%, #000 72%); }
 .landing-atmosphere-glow { position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at 63% 28%, #ffd79832, transparent 34%); animation: landing-warm-light 12s ease-in-out infinite; }
@@ -231,6 +231,12 @@ html:has(.landing-lightbox[open]) { overflow: hidden; scrollbar-gutter: stable; 
     #landing-home .landing-text-link:hover, .landing-footer a:hover, .landing-footer button:hover { color: #f1d399; background: none; }
 }
 @media (min-width: 1700px) {
+    /* Cap the scene, not the viewport: a full-width cover at 2560/3440px
+       cuts off the shinobi's head. Keep the artwork and particles together. */
+    .landing-hero { --landing-hero-frame: min(100%, 1800px, calc((100svh - 121px) * 2)); background: var(--landing-ink); }
+    .landing-hero::before { content: ''; position: absolute; inset: 0; width: var(--landing-hero-frame); margin-inline: auto; pointer-events: none; background: var(--landing-hero-scene); mask-image: linear-gradient(90deg, transparent, #000 12%, #000 92%, transparent); }
+    .landing-atmosphere { width: var(--landing-hero-frame); margin-inline: auto; }
+    .landing-hero-caption { right: max(4%, calc((100% - var(--landing-hero-frame)) / 2 + 32px)); }
     .landing-hero-copy { width: 550px; }
     .landing-logo--hero .landing-logo-art { max-height: 325px; }
 }

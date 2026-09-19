@@ -5,7 +5,7 @@ import visualConfig from './playwright.visual.config';
 export default defineConfig({
     ...visualConfig,
     outputDir: 'test-results/landing-audit',
-    grep: /landing (entry points|policy links|navigation,|assets and|play buttons|atmosphere|scroll reveals|lifecycle)/,
+    grep: /landing (entry points|policy links|navigation,|assets and|play buttons|atmosphere|scroll reveals|lifecycle|wide monitors)/,
     workers: 2,
     projects: [
         { name: 'firefox-desktop', use: { browserName: 'firefox' } },
