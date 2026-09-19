@@ -98,7 +98,7 @@ export const storyReckonings: StoryReckoning[] = [
                 ],
                 choices: [
                     { text: "Take the writ. Hunt down Warden Sesk.", accept: true },
-                    { text: "Not yet. This should not be rushed.", trait: "svr-vanta-weighed-it", conclusion: "Vanta nods once. A reckoning that waited six years can wait for you to mean it." },
+                    { text: "Not yet.", trait: "svr-vanta-weighed-it", conclusion: "Vanta folds the writ. 'Sesk is still collecting. Come back when you can help me stop him.'" },
                 ],
             },
         ],
@@ -148,7 +148,7 @@ export const storyReckonings: StoryReckoning[] = [
                 ],
                 choices: [
                     { text: "Take the writ. Meet Mira at the ridge gate.", accept: true },
-                    { text: "Later. I want to do this carefully.", trait: "svr-mira-weighed-it", conclusion: "Mira opens the book just enough to mark your answer. Carefully is allowed, she says." },
+                    { text: "Later.", trait: "svr-mira-weighed-it", conclusion: "Mira closes the book. 'Find me here when you are ready.'" },
                 ],
             },
         ],
@@ -161,7 +161,7 @@ export const storyReckonings: StoryReckoning[] = [
                 dialogue: [
                     "The high line got us there before the rain. The west mast is still waiting for the coil I used. Both go in the report.",
                     "You crossed while I held the brake. I have checked that knot six times since, and it has not improved by being worried at.",
-                    "Set the packet down. We do the stone slowly.",
+                    "Set the packet down. Help me fit the marker pieces back together.",
                 ],
             },
             {
@@ -185,7 +185,7 @@ export const storyReckonings: StoryReckoning[] = [
                     "This pressed flower was wrapped with the marker pieces. Of course. She always pressed one too many. Tuck it behind the marker where the first rain can reach something she chose for herself.",
                 ],
                 choices: [
-                    { text: "We'll keep her marker here. People should know who she was.", trait: "svr-mira-line-carried", conclusion: "Mira writes your name under Kesa's in the book, not as a debt. As a witness." },
+                    { text: "We'll keep her marker here. People should know who she was.", trait: "svr-mira-line-carried", conclusion: "Mira writes your name under Kesa's in the book as a witness." },
                     { text: "Set the marker where everyone leaving sees it.", trait: "svr-mira-public-marker", conclusion: "Mira plants it at the gate, where every road out has to pass the name first." },
                 ],
             },
@@ -226,7 +226,7 @@ export const storyReckonings: StoryReckoning[] = [
                 ],
                 choices: [
                     { text: "Take the oilcloth. Meet Toma at the ash line.", accept: true },
-                    { text: "Later. I want to do this with a clear head.", trait: "alr-toma-weighed-it", conclusion: "A clear head, he says, is more than most of them bring to it. He will wait." },
+                    { text: "Later.", trait: "alr-toma-weighed-it", conclusion: "Toma folds the oilcloth. 'I'll be at the ash line.'" },
                 ],
             },
         ],
@@ -237,8 +237,8 @@ export const storyReckonings: StoryReckoning[] = [
                 speaker: "Toma Reed",
                 requireTrait: "sf-al-repaired-first",
                 dialogue: [
-                    "We fixed the footbridge and watched the cart trail wash away. I spent the whole repair thinking I had traded my family for strangers' feet.",
-                    "Then the channel reeds caught every plate together. We repaired one bridge and found the names. I am letting that be enough for a morning.",
+                    "While we fixed the footbridge, the rain washed away the cart trail. I thought we'd never find my family's plates.",
+                    "But the plates were caught in the channel reeds, all together. I can still read the names.",
                     "Put Reed first. My hands are steady now.",
                 ],
             },
@@ -379,7 +379,7 @@ export const storyReckonings: StoryReckoning[] = [
                 ],
                 choices: [
                     { text: "Take the page case. Meet Sova at the gate stones.", accept: true },
-                    { text: "Later. The cold makes me want to do this right.", trait: "ffr-sova-weighed-it", conclusion: "Sova folds her arms inside her coat. Come back with feeling in your fingers, she says. She will keep the gate." },
+                    { text: "Later.", trait: "ffr-sova-weighed-it", conclusion: "Sova folds her arms inside her coat and looks toward the drifts. 'I'll keep the gate. Those pages are still out there.'" },
                 ],
             },
         ],
@@ -475,7 +475,7 @@ export const storyReckonings: StoryReckoning[] = [
                 ],
                 choices: [
                     { text: "Take the contract. Hunt down Meter-Warden Kree.", accept: true },
-                    { text: "Not yet. This one I want to do clean.", trait: "ffr-yura-weighed-it", conclusion: "Do it clean, Yura says. Just remember he has already lost one night. She turns back to the road and keeps her bare hand visible." },
+                    { text: "Not yet.", trait: "ffr-yura-weighed-it", conclusion: "'He has already lost one night,' Yura says. She turns back to the road and keeps her bare hand visible." },
                 ],
             },
         ],
@@ -516,8 +516,8 @@ export const storyReckonings: StoryReckoning[] = [
                 scene: "The Moonshadow outskirts, lantern light on black water",
                 speaker: "Nyx",
                 dialogue: [
-                    "Watch the water. I will watch you. That is as close to trust as this job gets before breakfast.",
-                    "Every ledger in this village names who owes. Mine names who buys. It is the only book in Moonshadow worth reading twice and the only one nobody wants found.",
+                    "Watch for loose pages along the bank. They may still be washing ashore.",
+                    "My ledger lists the people buying secrets from the booths. Several of them would pay well to have it destroyed.",
                     "A booth got raided last night. My pages went into the canal and the wind. Buyers' names, floating around the outskirts, waiting for the wrong person to gather them.",
                 ],
             },
@@ -527,12 +527,12 @@ export const storyReckonings: StoryReckoning[] = [
                 speaker: "Nyx",
                 dialogue: [
                     "Those pages identify the buyers, what they paid, and which files they bought. I want people to see who has been trading their secrets.",
-                    "The pages left the canal in several hands. Meet me at the canal gate before courier bell. One witness offers a private route; the other route asks the whole canal to answer in public.",
+                    "People have picked up some of the pages. Meet me at the canal gate before courier bell. A witness can help us search privately, or we can post a public call for their return.",
                     "Do that and I will keep the book open where a shelf-keeper cannot reach it. A buyers' ledger only works if it can be read.",
                 ],
                 choices: [
                     { text: "Take the empty binding. Meet Nyx at the canal gate.", accept: true },
-                    { text: "Later. I would rather not do this half awake.", trait: "msr-nyx-weighed-it", conclusion: "Half awake, she says, is how most people lose the important pages. She will keep watch on the water until you are ready." },
+                    { text: "Later.", trait: "msr-nyx-weighed-it", conclusion: "Nyx turns back to the canal. 'I'll keep watch. Come back when you can.'" },
                 ],
             },
         ],
@@ -680,7 +680,7 @@ export const storyReckonings: StoryReckoning[] = [
                 scene: "The village outskirts, Harrow on a wagon's tailboard reading a contract she has already read",
                 speaker: "Kite Harrow",
                 dialogue: [
-                    "I have read this contract enough times to resent every word and the tailboard beneath me. Sit, if you want the arithmetic.",
+                    "I have read this contract enough times to resent every word and the tailboard beneath me. Sit. I have a job for you.",
                     "Since you defeated the Kage, people have been questioning old collection orders. A forger is using that confusion to issue new ones.",
                     "They're stamping stolen tribute with a counterfeit quartered circle and selling it through all four villages. I've been hired to trace it.",
                 ],
@@ -690,9 +690,9 @@ export const storyReckonings: StoryReckoning[] = [
                 scene: "The tailboard, out of the guards' hearing",
                 speaker: "Kite Harrow",
                 dialogue: [
-                    "I am unsworn. No village owns my silence, which means no village will move against a forger who pays a cut to every seat that would have to sign the warrant. That is not cynicism. It is the arithmetic. I checked.",
+                    "Vael pays a cut to officials in every village that would have to sign the warrant. I checked the payments. None of those officials will act, so I am hiring you myself.",
                     "So this is a contract on no roll. Not Central's, not any Kage's, not even mine, officially. Vael, the forger, works the counting-house on the outskirts. Take the forging die off them.",
-                    "Bring me the die and I nail the whole scheme to a waystation board where four villages have to read it at once. I keep the receipt. I always keep the receipt.",
+                    "Bring me the die. I'll post it with the manifests at the waystation, where travelers from all four villages can inspect the evidence.",
                 ],
                 choices: [
                     { text: "Take the contract that isn't on anyone's roll.", accept: true },

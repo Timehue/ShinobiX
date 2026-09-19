@@ -24,6 +24,9 @@ test('Frostfang loads current generated dialogue and choices over stale shared a
     save.character = { ...save.character, village: frost.village, storyVillage: frost.village, level: 4, storyProgress: 0, storyTraits: [], storyChoices: [] };
     save.triggeredEvents = [...(save.triggeredEvents as string[]), ...frost.interludes.map(i => i.id)];
     const stale = { id: 'story-frostfang-village-4-0', name: 'Obsolete intake', biome: 'snow', icon: 'F', eventKind: 'visualNovel', trigger: 'manual', levelReq: 4, xpReward: 0, ryoReward: 0, staminaReward: 0, dialogue: ['STALE NARRATIVE MUST NOT APPEAR'], vnPages: chapter.pages!.map(p => ({ ...p, speaker: 'Wrong Speaker', dialogue: ['STALE NARRATIVE MUST NOT APPEAR'], lines: [{ speaker: 'Wrong Speaker', text: 'STALE TYPED LINE' }], choices: [{ text: 'Obsolete choice', nextPage: 999 }] })) };
+    const savedArt = 'https://story-fixture.invalid/saved-intake.png';
+    stale.vnPages[1].image = savedArt;
+    await page.route(savedArt, route => route.fulfill({ contentType: 'image/png', body: readFileSync(path.resolve(import.meta.dirname, '../public/icon-512.png')) }));
     await installUiAuditRuntime(page, save);
     await preferences(page);
     let sharedReads = 0;
@@ -43,6 +46,7 @@ test('Frostfang loads current generated dialogue and choices over stale shared a
         await next(page);
     await expect(reader).toContainText(intake.dialogue[0]);
     await expect(reader).toContainText('Elder Sova');
+    await expect.poll(() => reader.evaluate(el => getComputedStyle(el).getPropertyValue('--cvn-background'))).toContain(savedArt);
     for (let i = 0; i < 20 && !await reader.locator('.vn-choice-btn').count(); i++)
         await next(page);
     const choice = intake.choices![1];

@@ -194,7 +194,7 @@ const REPEAT_REPORTS: Record<string, { title: string; scene: string; lines: stri
     "rift-beast-warren": {
         title: "A Voice From Another Warren",
         scene: "Bel stands beside Nara, bandaged and awake, while a distant den answers her bark",
-        lines: ["Nara is home and healing. The thing in %sector is a renewed echo using the call it learned from her, not another abduction.", "She wants to follow. She is not going. Close it while I keep her here."],
+        lines: ["Nara is home and healing. A new echo in %sector is using the call it learned from her.", "She wants to follow. She is not going. Close it while I keep her here."],
         decline: "Bel nods once and turns back to Nara before the hound can struggle to her feet again. Neither of them likes waiting.",
     },
     "rift-engine-echo": {
@@ -241,7 +241,7 @@ function repeatIntroPages(rift: HollowRift): RiftPage[] {
 function harrowRiftRecord(firstClears: Readonly<Record<string, unknown>>): string {
     const verified = Object.keys(RIFT_REPORT_LABELS).filter((id) => firstClears[id]);
     if (!verified.length) {
-        return "My ledger holds supplied reports from six breaks. None bears your seal yet; I am hiring you on the evidence, not pretending the earlier work was yours.";
+        return "I have reports from six breaks. The witnesses describe the same drain markings at each one. I need you to investigate where they lead.";
     }
     const labels = verified.map((id) => RIFT_REPORT_LABELS[id]);
     return `Your verified reports cover ${labels.join(", ")}. The other entries came from their local witnesses; I keep the sources separate.`;

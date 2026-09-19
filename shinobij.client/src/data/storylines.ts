@@ -407,10 +407,10 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Three days pass. The bell.", nextPage: 3 }
             ] },
             { ...storyPage("Main Card", "The arena floor, the estate slate hung over the bell, the crowd enormous", "Narrator", [
-                "They hang the estate slate above the bell where everyone can read it: KESA VOLT, CLOSURE. The odds say you beat Mira. They say her grief beats you both.",
+                "They hang the estate slate above the bell where everyone can read it: KESA VOLT, CLOSURE. The odds say you beat Mira.",
                 "Mira stands across the chalk from you, wearing her mother's rigging gloves, and under the crowd noise she mouths the plan's last line: fight me true, and when I raise my hand, hold the ring. Don't let them stop me when I speak.",
-                "Under the sand, faint as a held breath, the seams begin to glow before the first exchange. The board does not care whether tonight's grief is honest. Honest grief has always been its best draw. It has waited six years for this one.",
-                "The bell is up, friend."
+                "Under the sand, the seams begin to glow before the first exchange.",
+                "The bell is up."
             ]), image: "/scenes/story/story-stormveil-village-75-6.webp" },
         ], [
             { text: "Fight her true, and guard the moment she stops to speak.", conclusion: "You meet Mira honestly, exchange for exchange, while the seams brighten under your feet. On the fourth, she raises one rigging glove. The nearest clerk steps onto the chalk before she can read Kesa's grievance. You turn to hold the ring. Mira draws breath behind you.", trait: "loyal" },
@@ -901,7 +901,7 @@ export const storylines: Record<string, StoryStep[]> = {
             { ...storyPage("Did You Give, Or Did You Take", "The threshold, the Rootfire at your back", "Narrator", [
                 "Fire glows behind the Sentinel's open visor. It studies Mori, then lowers its head toward you.",
                 "Then it looks at you, and stops. Whatever it measures people against, you come back unreadable, and unreadable is not on its list of permitted things.",
-                "Its blade arm wakes with a sound like a kiln door opening. It is not wrong to guard this place. That is the terrible part."
+                "Its blade arm wakes with a sound like a kiln door opening."
             ]), image: "/scenes/story/story-ashen-leaf-village-35-3.webp" },
         ], [
             { text: "Douse the nearest rack line and see what happens.", conclusion: "Steam rushes up the flue. The chamber cools, and the heat gauge on the wall drops sharply. The Sentinel advances between you and the remaining racks.", trait: "reckless" },
@@ -1037,7 +1037,7 @@ export const storylines: Record<string, StoryStep[]> = {
             ]), image: "/scenes/story/story-ashen-leaf-village-65-5.webp" },
             { ...storyPage("Lantern Light", "The kiln road, squad closing", "Narrator", [
                 "The lanterns spread out through the trees the way trained squads spread: unhurried, certain, closing from three sides.",
-                "In crate five, paper shifts softly, like letters turning over in their sleep.",
+                "In crate five, paper shifts softly.",
                 "Toma sets down the loom and reaches for the pry bar. The squad is almost at the wagon."
             ]), image: "/scenes/story/story-ashen-leaf-village-65-5.webp" },
         ], [
@@ -1172,7 +1172,7 @@ export const storylines: Record<string, StoryStep[]> = {
             { ...storyPage("Frost-Fall", "The Register hall, every line glowing faint", "Narrator", [
                 "Frost-fall, and the Register wall is lit from inside, forty strides of lives glowing like banked coals. The hall is empty. She sent everyone home warm.",
                 "Your black flower has grown all season. Tonight its petals are fully open, and for the first time, the whole bloom is leaning in one clear direction: toward the kiln stair.",
-                "The stair door stands unlocked. On the top step sits a plate of honey bread, still warm, and a note in a keeper's steady hand: 'You were always going to come tonight. Eat something first.'"
+                "The stair door stands unlocked. Beside a warm plate of honey bread, Hoshina has left a note: 'You were always going to come tonight.'"
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp" },
             { ...storyPage("At the Stair", "The kiln stair door", "Toma Reed", [
                 "I know you have to go down alone. I don't like it.",
@@ -1816,15 +1816,15 @@ export const storylines: Record<string, StoryStep[]> = {
             { ...storyPage("She Answers His Roll", "The vault stair door opening, Yura coming down with the letter", "Captain Yura", [
                 "%name, step back. This is between Dren and me.",
                 "Kael. Dren Coldewe, ridge post four. Struck for desertion on day six. On day nineteen, he came back for me without a mark or an order.",
-                "His letter says: 'Tell Yura: being counted isn't the same as being come for.'",
+                "His letter says: 'Tell Yura: a name on the roll doesn't mean someone will come back for you.'",
                 "Dren Coldewe. Present. Twelve years late."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
                 { text: "Kael stands very still.", nextPage: 12 }
             ] },
             { ...storyPage("The Door, Answered", "The vault floor, the meter's hum faltering", "Kage Kael Whitefang", [
                 "I remember that letter. I ordered it confiscated.",
-                "Being counted isn't the same as being come for.",
-                "No. It isn't.",
+                "A name on the roll doesn't mean someone will come back for you.",
+                "No. It doesn't.",
                 "Yura, I knew he came back for you. I changed the report."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
                 { text: "He stands very still.", nextPage: 16 }
@@ -1961,7 +1961,7 @@ export const storylines: Record<string, StoryStep[]> = {
                 "Then, half a second late, like a clerk thumbing through files to find your page... you.",
                 "The registry clerk looks at the delay, then at you, then writes something long in a book that intake clerks are not supposed to have."
             ]), image: "/scenes/story/story-moonshadow-village-4-0.webp" },
-            { ...storyPage("Line Five", "The canal steps outside, a sharp-eyed woman flipping a coin that isn't a coin", "Nyx", [
+            { ...storyPage("Line Five", "The canal steps outside, a sharp-eyed woman flipping a blank brass token", "Nyx", [
                 "Hey. Over here. Try not to make it obvious.",
                 "Your intake paper says the first test is in two nights. It isn't. It's tonight.",
                 "Nobody will ring a bell or come looking if you miss it. I found that out the hard way.",
@@ -1972,7 +1972,7 @@ export const storylines: Record<string, StoryStep[]> = {
             { ...storyPage("The Silent Yard", "The silk-house yard at moonrise, a veteran trainee unfolding from the shadows", "Narrator", [
                 "The yard is silent because it is built silent: sand raked to swallow footsteps, walls hung with cloth that eats echoes. Whatever happens here happens unheard.",
                 "A veteran trainee waits at the far end of the yard. Their weapon is already drawn.",
-                "There is no instructor. Nyx sits on the wall, watching. She puts away her coin when the veteran approaches you.",
+                "There is no instructor. Nyx sits on the wall, watching. She puts away her token when the veteran approaches you.",
                 "The veteran attacks without an introduction. You'll have to earn your place here before anyone offers to help."
             ]), image: "/scenes/story/story-moonshadow-village-4-0.webp" },
         ], [
@@ -2006,7 +2006,7 @@ export const storylines: Record<string, StoryStep[]> = {
                 "Stay where you are. This will be quicker if you cooperate."
             ]), image: "/scenes/story/story-moonshadow-village-15-1.webp" },
             { ...storyPage("Assessment", "The quarters, the Collector's veils drifting like ink in water", "Narrator", [
-                "It moves like a debt: quietly, patiently, absolutely certain it will be paid.",
+                "It advances without a sound.",
                 "Outside the window, Nyx whispers: 'Veiled Hand. The tower hires them for work it won't admit to. Someone paid a lot to have you tested. Keep it away from your throat.'",
                 "The Collector's veils spread across the doorway, sealing the room the way a seal closes a letter.",
                 "Assessment begins."
@@ -2032,7 +2032,7 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Ask Harrow to trace the account behind the empty chair.", nextPage: 2, requireTrait: "ms20-respected-the-unsworn" },
                 { text: "Get closer to lot eleven before it sells.", nextPage: 3 }
             ] },
-            { ...storyPage("The Appraiser's Trace", "The cellar's shadowed gallery, Harrow already there, because of course she is", "Kite Harrow", [
+            { ...storyPage("The Appraiser's Trace", "The cellar's shadowed gallery, Harrow waiting", "Kite Harrow", [
                 "Don't stare. I'm working.",
                 "I traced the chair through four brokers. Two are dead. The original account carries a quartered circle, the same mark I've seen in three other villages.",
                 "The buyer already knows what's in these lots. That's why the auctioneer barely describes them.",
@@ -2265,7 +2265,7 @@ export const storylines: Record<string, StoryStep[]> = {
                 "The moon goes black at dusk, and nobody in the market needs it explained: the collection date arrived. The buyer's escrow sits full. Tonight the account of Moonshadow settles, one way or the other.",
                 "The village does not follow you up the tower. People stay home with every lamp lit and place their returned files in the windows, where Sable can see them.",
                 "The shrine keeper and a moneylender climb with you, carrying their records. Nyx is waiting on the summit landing.",
-                "At the summit landing, on the last step, someone has left a cup of canal tea, still warm, and a note in a broker's quick hand: 'Argue dry and you'll lose. No charge. N.'",
+                "At the summit landing, a warm cup of canal tea waits on the last step. Nyx's note reads: 'For your throat. You'll need it. N.'",
                 "The Mirror chamber stands open. It has been waiting half a second longer for you than for anyone."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp" },
             { ...storyPage("At the Chamber Door", "The summit door, Nyx with her returned file tucked unopened in her coat", "Nyx", [
@@ -2385,7 +2385,7 @@ export const storylines: Record<string, StoryStep[]> = {
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
                 { text: "The glass waits.", nextPage: 25 }
             ] },
-            { ...storyPage("Iro Reads the Manifest", "The chamber stair, Iro arriving with the buyer's manifest and an expression nobody has ever purchased", "Shade Master Iro", [
+            { ...storyPage("Iro Reads the Manifest", "The chamber stair, Iro arriving with the buyer's manifest", "Shade Master Iro", [
                 "Don't touch that. I need to show it to her myself.",
                 "Sable, this is the buyer's transfer manifest. Everything in the Mirror is listed.",
                 "I'm on line four hundred and six. Not my accounts. Me.",
