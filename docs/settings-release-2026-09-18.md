@@ -12,6 +12,7 @@ The release was prepared in an isolated checkout of current main, including `262
 - Full lint: **0 errors, 14 warnings**. Updated browser-test helpers also pass focused lint.
 - Full root tests: **11,351 passed, 1 failed**. The sole failure was the old landing hover count captured before the main-branch fix was incorporated. Both touch-hover checks pass after incorporating `ce9624991`, including its tighter limit of 58.
 - Settings: **35 browser tests passed** across all seven configured projects.
+- Deferred feature loading: **4/4 browser tests passed** on desktop and mobile. The reader test now uses the saved Cinematic preference in place of the removed in-scene switch and retains its fullscreen styling assertions.
 - Account/navigation integration: **46 passed, 2 intentional skips**, with six phone-checkbox sizing failures subsequently corrected. The final focused recheck passed **12/12**, covering all nine checkbox viewport/browser combinations plus Settings preference persistence in Chromium desktop/mobile and mobile WebKit. The corrected mobile screenshot was inspected. No failure remains in these selected cases.
 - Real local Express release certification: **90/90 checks passed** with isolated memory storage.
 - Generated handoff drift and Railway configuration checks pass.
