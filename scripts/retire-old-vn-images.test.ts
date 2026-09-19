@@ -1,7 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { classify, plannedSlots, RETIRED_AVATAR_SLOTS } from './retire-old-vn-images.mts';
+import { adminTokenProblem, classify, cleanAdminToken, plannedSlots, RETIRED_AVATAR_SLOTS } from './retire-old-vn-images.mts';
+
+test('a token pasted from the browser console works with or without its quotes; unusable values stop the run first', () => {
+    const now = Date.UTC(2026, 8, 19, 12);
+    const valid = `av1.full.${now + 3_600_000}.0.c2lnbmF0dXJl`;
+    for (const pasted of [valid, `'${valid}'`, `"${valid}"`, `  '${valid}'  `]) assert.equal(cleanAdminToken(pasted), valid);
+    assert.equal(adminTokenProblem(valid, now), undefined);
+    assert.equal(adminTokenProblem(`av1.content.${now + 1}.0.sig`, now), undefined);
+    assert.match(adminTokenProblem(cleanAdminToken("'null'")!, now)!, /same browser tab/);
+    assert.match(adminTokenProblem('my-admin-password', now)!, /av1\.full\./);
+    assert.match(adminTokenProblem(`av1.full.${now - 1}.0.sig`, now)!, /expired/);
+    assert.equal(cleanAdminToken('   '), undefined);
+});
 import { RETIRED_VN_ART } from '../shinobij.client/src/lib/vn-retired-artwork.ts';
 
 test('only bytes that still equal a retired hash are deleted; newer uploads and missing slots are left alone', () => {
