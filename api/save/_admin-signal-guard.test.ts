@@ -64,7 +64,8 @@ describe('legacy ?signal=1 publish path', () => {
             src.indexOf('if (!isAdminSave) {'),
             src.indexOf('// ── Admin save path (?signal=1)'),
         );
-        assert.match(ordinaryBranch, /kv\.get\(deletionFenceKey\)/);
+        // Read under the save lock, batched with the other lock-time reads.
+        assert.match(ordinaryBranch, /kv\.mget\([^;]*deletionFenceKey/);
         assert.match(ordinaryBranch, /nextSaveVersion\(storedVersion, deletionFence\)/);
     });
 
