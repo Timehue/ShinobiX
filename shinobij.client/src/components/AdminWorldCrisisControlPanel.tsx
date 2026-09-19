@@ -40,7 +40,9 @@ export function AdminWorldCrisisControlPanel({ adminPw, config }: { adminPw: str
     const [busy, setBusy] = useState(false);
     const refresh = useCallback(async () => {
         try {
-            const response = await fetch(config.endpoint, { cache: "no-store" });
+            // `fresh=1`: an operator checking an override must see it, not the
+            // few-seconds-old copy the edge serves to players.
+            const response = await fetch(`${config.endpoint}?fresh=1`, { cache: "no-store" });
             const payload = await response.json() as { crisis?: CrisisProjection; error?: string };
             if (!response.ok || !payload.crisis) throw new Error(payload.error ?? `HTTP ${response.status}`);
             setCrisis(payload.crisis);

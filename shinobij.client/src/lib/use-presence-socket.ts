@@ -35,6 +35,11 @@ export function updateRealtimeTile(tile: number): void {
     presenceSocketApi?.updatePresenceTile(tile);
 }
 
+/** True while the shared presence socket is connected (false before its chunk loads). */
+export function isRealtimePresenceLive(): boolean {
+    return presenceSocketApi?.isRealtimeConnected() ?? false;
+}
+
 type UsePresenceSocketOptions = {
     characterName?: string;
     characterRef: MutableRefObject<Character | null>;
@@ -91,8 +96,8 @@ export function usePresenceSocket({
             const offMove = api.onMove((sector, name, tile) => {
                 if (sector === currentSectorRef.current) moveLiveSectorPlayer(name, tile, sector);
             });
-            const offGone = api.onGone((names) => {
-                removeLiveSectorPlayers(names);
+            const offGone = api.onGone((names, sector) => {
+                removeLiveSectorPlayers(names, sector);
             });
             const offKick = api.onKick(() => {
                 heartbeatRef.current();

@@ -36,6 +36,9 @@ before(async () => {
 
 beforeEach(async () => {
     for (const key of await kv.keys('*')) await kv.del(key);
+    // The heartbeat/autosave rate windows live in memory now, not in the KV
+    // wiped above; reset them so each test starts with a fresh save-burst.
+    (await import('../_ratelimit.js')).__resetRateLimitsForTest();
     (await import('../_realtime/walked-tile.js')).resetWalkedTileThrottleForTests();
     presence.onlineStore.remove(PLAYER);
     const { PET_BREEDING_MIGRATION_VERSION } = await import('../pet/_owned-pet.js');

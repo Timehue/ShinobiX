@@ -135,6 +135,28 @@ export function slimPresenceCharacter(input: unknown): Record<string, unknown> |
  * the client resolves avatars from its name-keyed cache; shipping the base64
  * blob on every presence frame was the single largest egress cost.
  */
+/**
+ * What a sector-mate can see change about a player, as one comparable string.
+ * Peers receive toPlayerRecord below, which carries no HP, chakra, pets or
+ * titles, so a change to those alone (idle regen ticks every second) must not
+ * fan a `presence:update` out to the whole sector. lastSeenAt and tile are left
+ * out too: lastSeenAt moves on every beat, and tile has its own delta channel
+ * (`presence:move`).
+ */
+export function presenceBroadcastSignature(p: OnlinePlayer | null | undefined): string {
+    if (!p) return '';
+    const ch = p.character as Record<string, unknown> | null;
+    return JSON.stringify([
+        p.displayName,
+        p.inBattle ?? false,
+        p.travelingUntil ?? 0,
+        ch?.level ?? 1,
+        ch?.village ?? '',
+        ch?.clan ?? '',
+        ch?.specialty ?? 'Ninjutsu',
+    ]);
+}
+
 export function toPlayerRecord(p: OnlinePlayer) {
     const ch = p.character as Record<string, unknown> | null;
     return {

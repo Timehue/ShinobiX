@@ -90,6 +90,85 @@ does not itself re-certify a higher number — that requires the staging run
 above plus an owner decision — but the server-code portion of the open
 question is now answered with evidence.
 
+## 2026-09-18 stepped load probe — the real ceiling, and what moved it
+
+A local stepped probe drove a realistic client mix — Socket.IO presence, 90 KB
+saves, heartbeats, reads, claims — in 50-player steps until the server
+failed. Local CPU was scaled by ×0.75 for Railway's slower cores. The database
+side came from production `pg_stat_statements` means (aggregates only).
+
+**Before the fixes:**
+
+- **Crowded** (every new character enters sector 40; 25% of presence frames
+  change): healthy to about 400-450 players and failing at about 550. The
+  cause was the O(N²) `presence:update` fan-out: regen ticks changed the stored
+  character every second, so unchanged-looking records went to the whole
+  sector.
+- **Spread out:** about 700.
+- **Database:** 2.72 DB calls/s per active player. Supabase Micro (2 shared
+  burstable cores, `max_connections` 60) saturates at about 550 active
+  players.
+
+**The fixes** (branch `claude/game-player-capacity-7d34e5`):
+
+- Presence changes go out only when a field peers can see changes
+  (`presenceBroadcastSignature`).
+- Changes are batched per sector every 500 ms as `presence:updates`. Clients
+  send `presenceBatch: 1`; older tabs still get per-player frames.
+- The heartbeat skips the full sector roster for clients whose socket already
+  keeps it current (`lib/heartbeat-roster.ts`).
+- The PvP SSE stream sleeps until its session key is written.
+- Autosave reads its guard keys in one `mget`.
+- The heartbeat and autosave rate windows are counted in memory.
+- The heartbeat no longer rewrites the shared sleeper-camp row on every
+  beat. The sweep clears the camp of anyone it does not camp.
+- Beta telemetry is batched.
+- Injured-villagers reads only saves whose village can match.
+- The public crisis polls are cached for 5 s at the edge (Cloudflare rule
+  "Cache shared API endpoints").
+
+**After the fixes:**
+
+- **Crowded:** 30% CPU at 600 players and 51% at 1,000; failing at 1,500.
+  On Railway that means healthy to about 1,000 and failing at about 1,200.
+- **Database:** 2.34 calls/s per active player.
+- **Order of limits:** Supabase Micro CPU first (about 450-650 active players,
+  estimated), then the 15-connection pool (about 900-1,280), then game-server
+  CPU (about 1,000-1,200).
+- The process never crashed. Overload shows up as 15 s pool waits, timeouts
+  and dropped connections.
+
+**Presence audit on the same branch (2026-09-18).** Skipping the roster
+exposed pushes that had never been sent, so the old per-beat roster had been
+hiding them. All are fixed and tested (`online-store.observer.test.ts`,
+`presence-store-broadcast.test.ts` and `presence-broadcast.integration.test.ts`
+server-side; `presence-store.test.ts` and `heartbeat-roster.test.ts` client-side):
+
+- **Fight start and end.** Fight hosts flip `inBattle` between beats. The
+  store now reports every change to that flag.
+- **Store-side changes.** Trips that settle on a plain read, admin kicks and
+  bans, and restored boot rows whose owner comes back in another sector now
+  all announce the move or removal.
+- **Stronghold entry and exit** are pushed.
+- **Leaves use the account slug.** The server names departures by slug, and
+  the client used to compare that against the display name. A "Shadow Fox"
+  never left anyone's list until a roster refresh.
+- **Leaves for other sectors.** A leave for a sector the client has already
+  moved on from is ignored.
+- **A player missing from a roster** drops 2.5 s later on a timer.
+- **Stale rosters.** A roster that predates a socket event neither brings back
+  a player who just left nor drops one who just arrived.
+- **When the roster is requested:** on the first beat after any sector change,
+  and at least once a minute while the tab is visible.
+
+The crowded measurement above used a roster refresh every sixth beat
+(about 2 minutes). The shipped once-a-minute rule is still about a third of
+the old every-beat cost. The first limit is the database, so the headline
+numbers stand.
+
+**Not yet measured:** combat traffic, the PvP SSE fallback, and real Railway
+and Supabase CPU.
+
 ## Corrected automated local gate
 
 `npm run soak:smoke` now runs in CI after the built-server certification. The

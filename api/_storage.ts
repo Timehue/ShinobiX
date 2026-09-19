@@ -30,6 +30,7 @@
 // bonus; CDN Cache-Control headers are the primary caching layer there.
 
 import type { KvProjection } from './_storage-projection.js';
+import { signalKeyWritten } from './_kv-write-signal.js';
 
 interface CacheEntry { value: unknown; expiresAt: number; }
 const _readCache = new Map<string, CacheEntry>();
@@ -305,7 +306,7 @@ const pgKv = {
                 `SELECT public.kv_set_nx($1, $2::jsonb, $3::timestamptz) AS kv_set_nx`,
                 [key, JSON.stringify(value), exp]
             );
-            if (rows[0].kv_set_nx) _cacheWrite(key, value);
+            if (rows[0].kv_set_nx) { _cacheWrite(key, value); signalKeyWritten(key); }
             return rows[0].kv_set_nx ? 'OK' : null;
         }
         await db.query(
@@ -316,6 +317,7 @@ const pgKv = {
             [key, JSON.stringify(value), exp]
         );
         _cacheWrite(key, value);
+        signalKeyWritten(key);
         return 'OK';
     },
 
@@ -361,7 +363,7 @@ const pgKv = {
             );
             swapped = rows[0]?.swapped === true;
         }
-        if (swapped) _cacheWrite(key, value);
+        if (swapped) { _cacheWrite(key, value); signalKeyWritten(key); }
         return swapped;
     },
 
@@ -371,6 +373,7 @@ const pgKv = {
         const { rowCount } = await getPool().query(
             `DELETE FROM public.kv_store WHERE key = ANY($1::text[])`, [keys]
         );
+        if (rowCount) signalKeyWritten(...keys);
         return rowCount ?? 0;
     },
 
@@ -384,7 +387,9 @@ const pgKv = {
             `DELETE FROM public.kv_store WHERE key = $1 AND value = $2::jsonb`,
             [key, JSON.stringify(expected)]
         );
-        return (rowCount ?? 0) > 0;
+        const deleted = (rowCount ?? 0) > 0;
+        if (deleted) signalKeyWritten(key);
+        return deleted;
     },
 
     async incr(key: string, options?: { ex?: number }): Promise<number> {
@@ -394,6 +399,7 @@ const pgKv = {
             `SELECT public.kv_incr($1, $2::timestamptz) AS kv_incr`,
             [key, exp]
         );
+        signalKeyWritten(key);
         return Number(rows[0].kv_incr);
     },
 
@@ -488,6 +494,7 @@ const pgKv = {
     async hset(key: string, fields: Record<string, unknown>): Promise<number> {
         _cacheInvalidate(key);
         await getPool().query(`SELECT public.kv_hset($1, $2::jsonb)`, [key, JSON.stringify(fields)]);
+        signalKeyWritten(key);
         return Object.keys(fields).length;
     },
 
@@ -495,6 +502,7 @@ const pgKv = {
         if (!fields.length) return 0;
         _cacheInvalidate(key);
         await getPool().query(`SELECT public.kv_hdel($1, $2::text[])`, [key, fields]);
+        signalKeyWritten(key);
         return fields.length;
     },
 };
@@ -1065,6 +1073,7 @@ export function _makeMemoryKv(): KvLike {
             value: clone(value),
             expiresAt: ex ? Date.now() + ex * 1000 : null,
         });
+        signalKeyWritten(key);
     };
 
     return {
@@ -1085,13 +1094,18 @@ export function _makeMemoryKv(): KvLike {
         },
         async del(...keys) {
             let deleted = 0;
-            for (const key of keys) if (entries.delete(key)) deleted += 1;
+            for (const key of keys) {
+                if (!entries.delete(key)) continue;
+                deleted += 1;
+                signalKeyWritten(key);
+            }
             return deleted;
         },
         async delIfEqual(key, expected) {
             const entry = liveEntry(key);
             if (!entry || !_jsonValueEqual(entry.value, expected)) return false;
             entries.delete(key);
+            signalKeyWritten(key);
             return true;
         },
         async incr(key, options) {

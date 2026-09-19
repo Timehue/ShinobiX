@@ -60,11 +60,16 @@ function character(name: string): Record<string, unknown> {
     };
 }
 
+// save-attempt and save-burst count in process memory ({ local: true }), while
+// save-conflict still counts in KV; a budget is the sum of both places.
+let localWindowCount: (key: string) => number = () => 0;
+
 function counter(bucket: string, player: string): number {
     const prefix = `ratelimit:${bucket}:name:${player}:`;
-    return [...store.entries()]
+    const inKv = [...store.entries()]
         .filter(([key]) => key.startsWith(prefix))
         .reduce((sum, [, value]) => sum + (Number(value) || 0), 0);
+    return inKv + localWindowCount(`${bucket}:name:${player}`);
 }
 
 async function post(name: string, token: string, body: Record<string, unknown>) {
@@ -120,6 +125,7 @@ before(async () => {
 
     const auth = await import('../_auth.js');
     issuePlayerToken = auth.issuePlayerToken;
+    localWindowCount = (await import('../_ratelimit.js')).__localWindowCountForTest;
     handler = (await import('./[name].js')).default as unknown as Handler;
 });
 

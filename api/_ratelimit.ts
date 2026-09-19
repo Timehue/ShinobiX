@@ -122,6 +122,48 @@ export async function allowKv(key: string, limit: number, windowMs: number, stri
 }
 
 /**
+ * allowKv's exact fixed-window counting — windows aligned to
+ * floor(now / windowMs), reject once the window's count exceeds `limit` — with
+ * the counter kept in this process instead of a database increment.
+ *
+ * For the hottest per-player limits only (heartbeat, autosave), which cost a
+ * database write on every request. The server runs one instance, so the count
+ * is the same one the database would hold. The single difference: counters
+ * restart when the process restarts (a deploy), which can at most hand a player
+ * a fresh allowance for the window in progress. Never use this for daily caps
+ * or anything else whose window outlives a deploy.
+ */
+function allowAlignedLocal(key: string, limit: number, windowMs: number): RateLimitDecision {
+    _ensureGc();
+    const now = Date.now();
+    const windowIndex = Math.floor(now / windowMs);
+    const resetAt = (windowIndex + 1) * windowMs;
+    const bucketKey = `aligned:${key}:${windowIndex}`;
+    const bucket = _buckets.get(bucketKey);
+    const count = (bucket?.count ?? 0) + 1;
+    _buckets.set(bucketKey, { count, resetAt });
+    if (count > limit) return { ok: false, retryAfterMs: Math.max(0, resetAt - now) };
+    return { ok: true };
+}
+
+/**
+ * Test-only: forget every in-memory bucket. Suites that wipe the KV store
+ * between tests used to reset the heartbeat/autosave windows with it; those
+ * windows now live here ({ local: true }).
+ */
+export function __resetRateLimitsForTest(): void {
+    _buckets.clear();
+}
+
+/** Test-only: the in-memory count charged to `key` (`<bucket>:name:<player>`) across live windows. */
+export function __localWindowCountForTest(key: string): number {
+    const prefix = `aligned:${key}:`;
+    let sum = 0;
+    for (const [bucketKey, bucket] of _buckets) if (bucketKey.startsWith(prefix)) sum += bucket.count;
+    return sum;
+}
+
+/**
  * Extract a stable client key from the request. Prefers the authed player
  * name (most fair — one account, one quota). Falls back to req.ip / X-Forwarded-For.
  */
@@ -218,6 +260,10 @@ export function enforceRateLimit(
  *
  * Pass `{ strict: true }` for cost-bearing / abuse-sensitive endpoints so a KV
  * outage falls back to a per-instance limit instead of fail-open (see allowKv).
+ *
+ * Pass `{ local: true }` to keep the same window in process memory instead of
+ * a database increment (see allowAlignedLocal) — the heartbeat and autosave
+ * limits only. The counter restarts on a deploy; `strict` is moot there.
  */
 export async function enforceRateLimitKv(
     req: { headers: Record<string, string | string[] | undefined>; ip?: string; socket?: { remoteAddress?: string } },
@@ -226,7 +272,7 @@ export async function enforceRateLimitKv(
     limit: number,
     windowMs: number,
     authedName?: string | null,
-    opts?: { strict?: boolean },
+    opts?: { strict?: boolean; local?: boolean },
 ): Promise<boolean> {
     const key = `${bucket}:${clientKey(req, authedName)}`;
     // Per-instance fast path — reject early on hot lambdas without a KV trip.
@@ -236,8 +282,10 @@ export async function enforceRateLimitKv(
         res.status(429).json({ error: 'Rate limit exceeded.', retryAfterMs: localBurstDecision.retryAfterMs });
         return false;
     }
-    // Authoritative path — KV-backed window.
-    const kvDecision = await allowKv(key, limit, windowMs, opts?.strict ?? false);
+    // Authoritative path — KV-backed window (or the same window in memory).
+    const kvDecision = opts?.local
+        ? allowAlignedLocal(key, limit, windowMs)
+        : await allowKv(key, limit, windowMs, opts?.strict ?? false);
     if (!kvDecision.ok) {
         res.status(429).json({ error: 'Rate limit exceeded.', retryAfterMs: kvDecision.retryAfterMs });
         return false;
