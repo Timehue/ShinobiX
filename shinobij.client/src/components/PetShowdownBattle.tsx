@@ -52,7 +52,7 @@ import {
     type BattleScar, type ResidueSpawn, type ClimateState, type KindAccentSpawn, type StreakBurstSpawn,
 } from "./PetShowdownVfx3d";
 import { petCardImage } from "../lib/pet-battle-anim";
-import { startBattleMusic, stopBattleMusic, setBattleMusicIntensity, isAudioMuted, setAudioMuted } from "../lib/pet-music";
+import { startBattleMusic, stopBattleMusic, setBattleMusicIntensity } from "../lib/pet-music";
 import { playPetSfx, primePetSfx, petHaptic } from "../lib/pet-sfx";
 import { appendCapped, petDuelImpactStrength } from "../lib/pet-duel-presentation";
 import { promptablePets } from "../lib/showdown-turn";
@@ -2153,20 +2153,6 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const [endOutcome, setEndOutcome] = useState<"win" | "loss" | null>(null);
     /** Snapshotted from the tally when the battle ends (never read in render). */
     const [recap, setRecap] = useState<{ pet: ShowdownPetView; dmg: number; kos: number; supers: number; mvp: boolean }[]>([]);
-    const [muted, setMuted] = useState(() => isAudioMuted());
-    const toggleAudio = useCallback(() => {
-        const next = !isAudioMuted();
-        setAudioMuted(next);
-        setMuted(next);
-        // Unmuting must RESTART the loop: startBattleMusic early-returns while
-        // muted, so the theme is null and clearing the flag alone resumes
-        // nothing.
-        if (!next) {
-            primePetSfx();
-            startBattleMusic("showdown");
-            setBattleMusicIntensity("pressure");
-        }
-    }, []);
     const [vfx, setVfx] = useState<VfxSpawn[]>([]);
     const [setPieces, setSetPieces] = useState<SetPieceSpawn[]>([]);
     /** Persistent strike scars (capped; oldest evicted) + fading residues. */
@@ -3708,11 +3694,6 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             onClick={() => setFast((f) => !f)}
                         >
                             <ShowdownIcon name="fast" size={15} title={fast ? "Fast playback" : "Normal playback"} />
-                        </button>
-                        {/* The takeover hides the global menu, so this is the
-                            only reachable audio control during a fight. */}
-                        <button type="button" className="showdown-chip icon" onClick={toggleAudio}>
-                            <ShowdownIcon name={muted ? "sound-off" : "sound-on"} size={15} title={muted ? "Sound off" : "Sound on"} />
                         </button>
                         {!battleDecided && !expired && (
                             <button type="button" className="showdown-chip danger icon" aria-label="Forfeit the battle" onClick={() => setConfirmForfeit(true)}>

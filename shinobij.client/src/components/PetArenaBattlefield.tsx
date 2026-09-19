@@ -6,7 +6,7 @@ import { PetBattleAvatar } from "./PetBattleAvatar";
 import { PET_GRID_COLS, PET_GRID_SIZE, PET_SPAWN_1V1 } from "../constants/pet-arena";
 import type { Pet } from "../types/pet";
 import type { PetArenaFrame, PetBattleRecord, PetFrameStatus } from "../types/pet-arena";
-import { isPetSfxMuted, setPetSfxMuted } from "../lib/pet-sfx";
+import { isPetSfxMuted } from "../lib/pet-sfx";
 import { buildPetAnimationEvents, elementVfxKey, petPoseForAvatar } from "../lib/pet-battle-anim";
 import { petBattleCamera, petCameraHoldMs } from "../lib/pet-battle-camera";
 import { usePetBattleFrameSfx } from "../lib/use-pet-battle-sfx";
@@ -127,8 +127,7 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
     // (lib/use-pet-battle-sfx) so the HD-2D PetColiseum renderer reuses the exact
     // same picker. Covers every caller of this component (Pet Arena, Hollow Gate
     // beast duels, PvP). Behaviour unchanged from the old inline effect.
-    const [sfxMuted, setSfxMuted] = useState(isPetSfxMuted());
-    usePetBattleFrameSfx(frame, sfxMuted);
+    usePetBattleFrameSfx(frame, isPetSfxMuted());
 
     const playerPos = frame?.playerPos ?? PET_SPAWN_1V1.player;
     const enemyPos  = frame?.enemyPos  ?? PET_SPAWN_1V1.enemy;
@@ -601,14 +600,6 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
                         onDone={() => setPetSpriteFx((s) => (s && s.id === petSpriteFx.id ? null : s))}
                     />
                 )}
-                {/* Mute toggle for the authored battle SFX. */}
-                <button
-                    type="button"
-                    className="pet-sfx-toggle"
-                    onClick={() => { const next = !sfxMuted; setSfxMuted(next); setPetSfxMuted(next); }}
-                    title={sfxMuted ? "Unmute battle sounds" : "Mute battle sounds"}
-                    aria-label={sfxMuted ? "Unmute battle sounds" : "Mute battle sounds"}
-                >{sfxMuted ? "🔇" : "🔊"}</button>
                 {/* Impact flash — a brief full-stage colour pop at the moment of
                     contact. Keyed per frame so it restarts on every blow even
                     when two hits of the same kind land back-to-back. */}

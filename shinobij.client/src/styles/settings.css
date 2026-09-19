@@ -1,0 +1,22 @@
+.settings-page { width: 100%; max-width: 820px; margin: 0 auto; padding: clamp(16px, 3vw, 32px); text-align: left; }
+.settings-page header { margin-bottom: 24px; }
+.settings-page h1 { margin: 4px 0 12px; }
+.settings-page p { line-height: 1.6; }
+.settings-eyebrow { color: var(--gold); font-size: 11px; letter-spacing: .15em; font-weight: 800; }
+.settings-section { border-top: 1px solid rgba(207, 179, 110, .24); padding: 22px 0; }
+.settings-section h2 { font-size: 20px; margin: 0 0 16px; }
+.settings-section h3 { margin-top: 18px; }
+.settings-section select, .settings-section input:not([type=checkbox]) { width: 100%; max-width: 100%; box-sizing: border-box; min-height: 44px; }
+.settings-section select { margin-top: 8px; padding: 10px; background: #111c29; color: #f3ead8; border: 1px solid #796944; border-radius: 8px; }
+.settings-section input[type=range] { accent-color: #d2b56f; }
+.settings-volume-label, .settings-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.settings-actions { justify-content: flex-start; flex-wrap: wrap; }
+.settings-check { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+.settings-page button { min-height: 44px; white-space: normal; }
+.settings-page .change-password-card, .settings-page .recovery-code-card, .settings-page .google-link-card { margin: 16px 0; padding: 0 0 18px; }
+.settings-danger h2 { color: #f5a7a7; }
+.settings-page .hint { color: #b4bfcb; }
+.settings-page :focus-visible { outline: 2px solid #e7c879; outline-offset: 3px; }
+
+/* Labels provide the touch target; the native checkbox stays compact. */
+.app-shell .settings-page .settings-section input[type=checkbox] { width: 18px; height: 18px; min-width: 18px !important; min-height: 18px !important; min-inline-size: 18px !important; min-block-size: 18px !important; flex: 0 0 18px; margin: 0; padding: 0; accent-color: var(--gold-300); }

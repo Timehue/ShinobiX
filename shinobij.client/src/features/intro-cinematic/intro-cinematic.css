@@ -103,6 +103,8 @@
 .icx-root.is-revealing .icx-stagefill,
 .icx-root.is-revealing .icx-dialogue,
 .icx-root.is-revealing .icx-skip {
+    min-width: 44px;
+    min-height: 44px;
     display: none;
 }
 
@@ -967,13 +969,6 @@
         border-color: rgba(250, 204, 21, 0.6);
     }
 }
-/* Sound opt-in toggle beside Skip (the global unmute lives under the overlay). */
-.icx-skip.icx-sound {
-    right: 92px;
-    min-width: 44px;
-    padding: 6px 11px;
-}
-
 /* ── Companion choice (the fox's gift) ──────────────────────────────────── */
 
 .icx-choose {

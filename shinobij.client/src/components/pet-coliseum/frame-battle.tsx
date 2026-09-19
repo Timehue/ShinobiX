@@ -22,7 +22,7 @@ import { beatTimeline, beatChoreoMs, lerp, shakeAmpForBeat, lungeReach, tileToWo
 import { petVisualId } from "../../data/pet-evolutions";
 import { usePetBattleFrameSfx } from "../../lib/use-pet-battle-sfx";
 import { SceneAmbience } from ".././SceneAmbience";
-import { isPetSfxMuted, setPetSfxMuted } from "../../lib/pet-sfx";
+import { isPetSfxMuted } from "../../lib/pet-sfx";
 import { PetOrbitControls } from ".././PetOrbitControls";
 import { makeGhostMaterial, elementColor, usePetPoses, poseCategory, shadowTexture, dustTexture, decalTexture, projSpriteTexture, projRoundTexture, loadSceneTexture, usePetSprite } from "./sprite-resources";
 import { TARGET_SPRITE_H, FLOOR_Y, type Vec3, CAM_LOOK, type PetBattleSettlementStatus, COLISEUM_FLOOR_URL, COLISEUM_BG_URL, COLISEUM_ENGAGE_GAP, FX_Y, CAM_POS, CAM_FOV, resultBtn } from "./stage";
@@ -615,8 +615,7 @@ export function PetColiseum({
     const desktopPointer = typeof window !== "undefined" && !!window.matchMedia?.("(pointer: fine)").matches;
     // Battle SFX — reuses the shared per-frame picker so sound matches the DOM
     // renderer exactly (only one renderer is mounted at a time → no double-play).
-    const [sfxMuted, setSfxMuted] = useState(isPetSfxMuted());
-    usePetBattleFrameSfx(frame, sfxMuted);
+    usePetBattleFrameSfx(frame, isPetSfxMuted());
 
     // Pre-fight 5-second face-off countdown — same behaviour as the DOM
     // renderer's overlay (5→4→3→2→1→"FIGHT!"). Cosmetic only.
@@ -1094,14 +1093,6 @@ export function PetColiseum({
                     </div>
                 </div>
             )}
-
-            <button
-                onClick={() => { const next = !sfxMuted; setSfxMuted(next); setPetSfxMuted(next); }}
-                title={sfxMuted ? "Unmute battle sound" : "Mute battle sound"}
-                style={{ position: "absolute", top: 14, right: 14, width: 34, height: 34, display: "grid", placeItems: "center", background: "rgba(15,23,42,0.85)", border: "1px solid #334155", borderRadius: 8, color: "#e2e8f0", cursor: "pointer", fontSize: 15 }}
-            >
-                {sfxMuted ? "🔇" : "🔊"}
-            </button>
 
             {/* Always-visible Exit so a full-screen duel can be left mid-fight (the
                 result is already computed + applied, so leaving just skips the replay). */}

@@ -3,6 +3,7 @@ import {
   primeGameAudio,
   type GameSfxCue,
 } from "./game-audio";
+import { isAudioMuted, setAudioMuted } from "./pet-music";
 
 export type ChronicleSfx =
   | "draw"
@@ -20,9 +21,6 @@ export type ChronicleSfx =
   | "reveal-epic"
   | "reveal-legendary"
   | "reveal-mythic";
-
-const MUTE_KEY = "chronicleSfx.v1";
-let muted: boolean | null = null;
 
 const CHRONICLE_CUES: Record<
   ChronicleSfx,
@@ -45,31 +43,17 @@ const CHRONICLE_CUES: Record<
   "reveal-mythic": { cue: "mythic", gain: 0.88 },
 };
 
-function readMuted(): boolean {
-  if (muted !== null) return muted;
-  try {
-    muted = window.localStorage.getItem(MUTE_KEY) === "off";
-  } catch {
-    muted = false;
-  }
-  return muted;
-}
-
 export function chronicleSfxMuted(): boolean {
-  return readMuted();
+  return isAudioMuted();
 }
 
+/** Compatibility entry point; Settings owns the single audio preference. */
 export function setChronicleSfxMuted(next: boolean): void {
-  muted = next;
-  try {
-    window.localStorage.setItem(MUTE_KEY, next ? "off" : "on");
-  } catch {
-    // Session-only preference when storage is unavailable.
-  }
+  setAudioMuted(next);
 }
 
 export function primeChronicleSfx(): void {
-  if (readMuted()) return;
+  if (isAudioMuted()) return;
   primeGameAudio([
     "paper",
     "card-place",
@@ -85,7 +69,7 @@ export function primeChronicleSfx(): void {
 }
 
 export function playChronicleSfx(kind: ChronicleSfx): void {
-  if (readMuted()) return;
+  if (isAudioMuted()) return;
   const mapped = CHRONICLE_CUES[kind];
   playGameSfx(mapped.cue, {
     gain: mapped.gain,

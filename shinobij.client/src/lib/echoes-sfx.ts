@@ -1,6 +1,6 @@
 // Echoes of War audio cues — a thin mapping over the shared game-audio layer
-// (no new synthesis or assets). Honors the SAME mute toggle as the Chronicle
-// board (chronicleSfx.v1), because to the player this is all one card game.
+// (no new synthesis or assets). Honors the master mute preference in Settings,
+// shared by the Chronicle board and every other game audio surface.
 import { playGameSfx, startGameAmbience, stopGameAmbience } from "./game-audio";
 import { chronicleSfxMuted } from "./chronicle-sfx";
 

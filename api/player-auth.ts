@@ -30,6 +30,7 @@ import { recordBetaMetric } from './_beta-metrics.js';
 import { newRegistrationsDisabled } from './_launch-controls.js';
 import { isCleanPlayerName, TEXT_LIMITS } from './_text-moderation.js';
 import crypto from 'crypto';
+import { accountDeletionStatus } from './_account-deletion-wait.js';
 
 // Usernames reserved from the ordinary registration flow. New `register`
 // requests for these names are refused unless the caller passes the admin
@@ -96,6 +97,8 @@ export type AuthRecord = {
      * ageing a guest out costs no extra writes anywhere.
      */
     createdAt?: number;
+    /** Server time of a cancellable, player-requested 24-hour deletion wait. */
+    deletionRequestedAt?: number;
 };
 
 /** True when the record carries no password and can only be entered by token. */
@@ -1223,6 +1226,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 if (!deleteTokenProvesOwnership && !verifyAgainst(record, password as string)) {
                     return res.status(401).json({ ok: false, error: 'Incorrect password.' });
+                }
+                // The old auth-only route must not bypass the waiting period or
+                // strand a live save. Missing-save signup recovery remains supported.
+                if (await kv.get(`save:${safeName(name)}`)
+                    || (record.deletionRequestedAt !== undefined && !accountDeletionStatus(record).ready)) {
+                    return res.status(409).json({ ok: false, error: 'Use Settings to request deletion, wait 24 hours, then delete the save first.' });
                 }
                 await rotatePlayerSessionEpoch(name);
                 await kv.del(key);

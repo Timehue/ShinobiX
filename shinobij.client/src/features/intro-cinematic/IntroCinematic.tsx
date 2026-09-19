@@ -50,7 +50,6 @@ import shiranuiSpeak from "./assets/shiranui-speak.webp";
 import shrineFallsLandscape from "./assets/shrine-falls-landscape.webp";
 import shrineFallsPortrait from "./assets/shrine-falls-portrait.webp";
 import { introCue, startIntroAmbience, stopIntroAmbience } from "./introCinematicSfx";
-import { isAudioMuted, setAudioMuted, subscribeAudioMute } from "../../lib/pet-music";
 import "./intro-cinematic.css";
 
 const FOX_ART = shiranuiArt;
@@ -129,12 +128,6 @@ export function IntroCinematic({
         return () => window.clearTimeout(t);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
-
-    // Master-mute mirror for the in-cinematic sound toggle: the game's global
-    // unmute button is buried under this overlay, so first-time players need
-    // one here to opt in to the ambience at all.
-    const [muted, setMuted] = useState(isAudioMuted);
-    useEffect(() => subscribeAudioMute(() => setMuted(isAudioMuted())), []);
 
 
     // Companion mode — the beat AFTER the shrine cinematic's white-out
@@ -558,19 +551,6 @@ export function IntroCinematic({
 
             {phase.kind === "dialogue" && (
                 <>
-                    <button
-                        type="button"
-                        className="icx-skip icx-sound"
-                        aria-label={muted ? "Unmute game audio" : "Mute game audio"}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            const nowMuted = !muted;
-                            setAudioMuted(nowMuted);
-                            if (!nowMuted && !companionMode) startIntroAmbience();
-                        }}
-                    >
-                        {muted ? "🔇" : "🔊"}
-                    </button>
                     <button type="button" className="icx-skip" onClick={(e) => { e.stopPropagation(); skip(); }}>
                         Skip ▸
                     </button>

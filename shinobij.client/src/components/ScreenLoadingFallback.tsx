@@ -17,6 +17,7 @@ const SCREEN_MESSAGES: Partial<Record<Screen, string>> = {
     jutsuTraining: "Loading Jutsu Training",
     missions: "Loading Missions",
     profile: "Loading Profile",
+    settings: "Loading Settings",
     bank: "Loading Bank",
     shop: "Loading Shop",
     hospital: "Loading Hospital",

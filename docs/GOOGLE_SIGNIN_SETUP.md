@@ -172,7 +172,7 @@ put the family first in `.gate-google-btn`. Do **not** add an external
   symptom to check this against.
 - Walk the four paths once against production: sign up fresh with Google; sign
   out and back in and land on the same character; link Google to an existing
-  password account from Profile; play as a guest and then claim it with Google,
+  password account from Settings; play as a guest and then claim it with Google,
   confirming the save survives.
 
 ## 9. Guest sweep

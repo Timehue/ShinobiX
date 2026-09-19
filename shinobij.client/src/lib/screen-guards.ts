@@ -18,7 +18,7 @@ export { isWildSector };
 // Anything NOT here is transient or session-bound; on reload its dedicated
 // recovery path restores a sealed server session or routes to a safe parent.
 export const DEEP_LINKABLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
-    "village", "profile", "inventory", "logbook", "training",
+    "village", "profile", "settings", "inventory", "logbook", "training",
     "jutsuTraining", "missions", "bloodlineMaker", "clan", "worldMap", "worldCrisis", "townHall",
     "bank", "shop", "premiumShop", "grandMarketplace", "hospital", "cafeteria", "storyHall",
     "centralHub", "home", "pets", "petLadder", "hunting", "tavern", "hallOfLegends", "shinobiCouncil",

@@ -1,6 +1,6 @@
 import { gameConfirm, gamePasswordPrompt } from "../components/GameAlert";
 import { refreshAccountStatus } from "./account-status";
-import { deleteServerAccount, DELETE_ACCOUNT_ERRORS } from "./mission-combat-claim";
+import { deleteServerAccount, DELETE_ACCOUNT_ERRORS } from "./account-deletion-client";
 import { accountKey } from "./player-accounts";
 
 type AlertPlayer = (message: string) => void;
@@ -17,7 +17,7 @@ export async function requestAccountDeletion(
 ): Promise<boolean> {
     const confirmed = await gameConfirm(
         `Delete "${characterName}"? This permanently removes your character and all save data. This cannot be undone.`,
-        { title: "Delete Character", confirmLabel: "Delete", danger: true },
+        { title: "Delete account permanently", confirmLabel: "Delete", danger: true },
     );
     if (!confirmed) return false;
 
