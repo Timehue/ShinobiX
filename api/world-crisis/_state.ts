@@ -1,6 +1,7 @@
 import { addHallEntry, announce } from '../_announce.js';
 import { recordAudit } from '../_audit.js';
 import { withKvLock } from '../_lock.js';
+import { cachedFor, invalidateProcCache } from '../_proc-cache.js';
 import { kv } from '../_storage.js';
 import { safeName } from '../_utils.js';
 import {
@@ -25,6 +26,21 @@ import {
 export const WORLD_CRISIS_STATE_KEY = `world:crisis:${WORLD_CRISIS_ID}`;
 const WORLD_CRISIS_PROOF_PREFIX = `${WORLD_CRISIS_STATE_KEY}:proof:`;
 const MAX_APPLIED_PROOFS = WORLD_CRISIS_MAX_TARGET * WORLD_CRISIS_VILLAGES.length;
+
+// Every signed-in tab polls the public projection every 15s and every viewer
+// gets the same answer, so the GET serves it from a short process cache
+// (api/_proc-cache.ts). Every state write below goes through
+// writeWorldCrisisState, which drops the cached frame: on this single-instance
+// server a write is visible to the very next read that reaches the process.
+// The edge may still hold a copy for up to 10s (api/world-crisis.ts), so a
+// screen reading back its own action asks for `?fresh=1`.
+export const WORLD_CRISIS_PROJECTION_CACHE_KEY = 'world-crisis:projection';
+const WORLD_CRISIS_PROJECTION_CACHE_TTL_MS = 3_000;
+
+async function writeWorldCrisisState(state: WorldCrisisState): Promise<void> {
+    await kv.set(WORLD_CRISIS_STATE_KEY, state);
+    invalidateProcCache(WORLD_CRISIS_PROJECTION_CACHE_KEY);
+}
 
 function cleanTarget(value: unknown): number {
     const parsed = Math.floor(Number(value));
@@ -169,7 +185,7 @@ async function loadWorldCrisisState(): Promise<WorldCrisisState> {
         const current = await kv.get<WorldCrisisState>(WORLD_CRISIS_STATE_KEY);
         if (current) return normalizeWorldCrisisState(current);
         const created = newWorldCrisisState();
-        await kv.set(WORLD_CRISIS_STATE_KEY, created);
+        await writeWorldCrisisState(created);
         return created;
     }, { failClosed: true });
 }
@@ -211,7 +227,7 @@ async function ensureWorldCrisisOutbox(state: WorldCrisisState): Promise<void> {
             await withKvLock(WORLD_CRISIS_STATE_KEY, async () => {
                 const current = normalizeWorldCrisisState(await kv.get(WORLD_CRISIS_STATE_KEY));
                 if (current.runId !== state.runId || current.awakeningAnnouncementId) return;
-                await kv.set(WORLD_CRISIS_STATE_KEY, {
+                await writeWorldCrisisState({
                     ...current,
                     awakeningAnnouncementId: posted.id,
                     revision: current.revision + 1,
@@ -234,7 +250,7 @@ async function ensureWorldCrisisOutbox(state: WorldCrisisState): Promise<void> {
             await withKvLock(WORLD_CRISIS_STATE_KEY, async () => {
                 const current = normalizeWorldCrisisState(await kv.get(WORLD_CRISIS_STATE_KEY));
                 if (current.runId !== state.runId || current.resolutionAnnouncementId) return;
-                await kv.set(WORLD_CRISIS_STATE_KEY, {
+                await writeWorldCrisisState({
                     ...current,
                     resolutionAnnouncementId: posted.id,
                     revision: current.revision + 1,
@@ -250,6 +266,11 @@ export async function readWorldCrisisProjection(): Promise<WorldCrisisProjection
     await ensureWorldCrisisOutbox(state);
     state = await loadWorldCrisisState();
     return projectWorldCrisisState(state);
+}
+
+/** The public poll's read: the same projection, rebuilt at most once per 3s. */
+export function readWorldCrisisProjectionCached(): Promise<WorldCrisisProjection> {
+    return cachedFor(WORLD_CRISIS_PROJECTION_CACHE_KEY, WORLD_CRISIS_PROJECTION_CACHE_TTL_MS, readWorldCrisisProjection);
 }
 
 function eligibleFirstAwakener(playerName: string, auth: Record<string, unknown> | null): boolean {
@@ -292,7 +313,7 @@ export async function observeWorldCrisisLevelCrossing(input: {
             revision: current.revision + 1,
             updatedAt: now,
         };
-        await kv.set(WORLD_CRISIS_STATE_KEY, next);
+        await writeWorldCrisisState(next);
         awakened = true;
         return next;
     }, { failClosed: true });
@@ -377,7 +398,7 @@ export async function recordWorldCrisisDefense(input: {
             revision: current.revision + 1,
             updatedAt: now,
         };
-        await kv.set(WORLD_CRISIS_STATE_KEY, next);
+        await writeWorldCrisisState(next);
         await kv.set(markerKey, { status: 'done', playerName, village, at: now });
         return next;
     }, { failClosed: true });
@@ -438,7 +459,7 @@ export async function applyWorldCrisisAdminAction(input: {
             }])) as WorldCrisisState['villages'];
             next = { ...current, villages, status: 'resolved', phase: 'villages-hold', resolvedAt: now, revision: current.revision + 1, updatedAt: now };
         }
-        await kv.set(WORLD_CRISIS_STATE_KEY, next);
+        await writeWorldCrisisState(next);
         return next;
     }, { failClosed: true });
     await recordAudit({

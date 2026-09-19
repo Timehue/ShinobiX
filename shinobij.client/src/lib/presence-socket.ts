@@ -46,7 +46,8 @@ export type PresenceFrame = {
 type SectorHandler = (sector: number, players: PlayerRecord[]) => void;
 type PlayerHandler = (sector: number, player: PlayerRecord) => void;
 type MoveHandler = (sector: number, name: string, tile: number, sequence: number) => void;
-type GoneHandler = (names: string[]) => void;
+/** `sector` is the sector they left, when the server says (every leave does). */
+type GoneHandler = (names: string[], sector?: number) => void;
 type KickHandler = (reason: string) => void;
 type StatusHandler = (connected: boolean) => void;
 export type TowerRealtimeKick =
@@ -83,6 +84,12 @@ function buildAuth(): Record<string, unknown> {
     if (name) auth['x-player-name'] = name;
     if (!token && password) auth['x-player-password'] = password;
     if (fp) auth['x-client-fp'] = fp;
+    // This client understands batched `presence:updates` frames
+    // (api/_realtime/presence-broadcast.ts); without it the server sends a
+    // `presence:update` per change instead. Single `presence:update` frames
+    // still arrive either way (a travel start, api/player/travel.ts), so that
+    // handler below stays.
+    auth.presenceBatch = 1;
     // Ride initial presence on the handshake for an instant first paint.
     if (latestFrame) auth.presence = latestFrame;
     return auth;
@@ -143,13 +150,23 @@ export function connectRealtime(initialFrame: PresenceFrame): void {
         if (!data?.player || typeof data.sector !== 'number') return;
         updateHandlers.forEach((h) => h(data.sector!, data.player!));
     });
+    // Batched state changes: one frame per sector flush (~2/s) instead of one per
+    // change. Each entry is applied exactly like a single `presence:update`.
+    socket.on('presence:updates', (data: { sector?: number; players?: PlayerRecord[] } | null) => {
+        if (!data || typeof data.sector !== 'number' || !Array.isArray(data.players)) return;
+        for (const player of data.players) {
+            // One malformed entry must not cost the rest of the batch.
+            if (player && typeof player.name === 'string' && player.name) updateHandlers.forEach((h) => h(data.sector!, player));
+        }
+    });
     socket.on('presence:move', (data: { sector?: number; name?: string; tile?: number; sequence?: number } | null) => {
         if (!data || typeof data.sector !== 'number' || typeof data.name !== 'string' || typeof data.tile !== 'number') return;
         moveHandlers.forEach((h) => h(data.sector!, data.name!, data.tile!, Number(data.sequence ?? 0)));
     });
-    socket.on('presence:leave', (data: { names?: string[] } | null) => {
+    socket.on('presence:leave', (data: { names?: string[]; sector?: number } | null) => {
         if (!data?.names?.length) return;
-        goneHandlers.forEach((h) => h(data.names!));
+        const sector = typeof data.sector === 'number' ? data.sector : undefined;
+        goneHandlers.forEach((h) => h(data.names!, sector));
     });
     socket.on('presence:gone', (data: { names?: string[] } | null) => {
         if (!data?.names?.length) return;

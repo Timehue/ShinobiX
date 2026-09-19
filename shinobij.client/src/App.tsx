@@ -66,7 +66,8 @@ import { preloadScreen } from "./lib/screen-preload";
 import { imageCategoriesForScreen } from "./lib/screen-image-categories";
 import { useImageCategoryHydration } from "./lib/image-category-hydration";
 import { STUDIO_SCREEN_PRESENTATION } from "./lib/studio-screen-presentation";
-import { updateRealtimePresence, usePresenceSocket } from "./lib/use-presence-socket";
+import { isRealtimePresenceLive, updateRealtimePresence, usePresenceSocket } from "./lib/use-presence-socket";
+import { heartbeatRosterFields } from "./lib/heartbeat-roster";
 import { useViewportContract } from "./lib/use-viewport-contract";
 import {
     useCapabilityMutationAvailability,
@@ -1929,7 +1930,7 @@ export default function App() {
                 character: presenceCharacter(char),
                 travelingUntil: isTraveling ? travelingUntil : 0,
                 inBattle: inBattleNow,
-                tile: getLocalSectorTile(), ...heartbeatNoticeAckFields(),
+                tile: getLocalSectorTile(), ...heartbeatNoticeAckFields(), ...heartbeatRosterFields({ socketLive: isRealtimePresenceLive(), sector: currentSector, tabVisible }),
             };
             // Mirror the same frame onto the Socket.IO presence channel (no-op when
             // the socket isn't connected). Because a sector change re-runs this

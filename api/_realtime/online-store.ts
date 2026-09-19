@@ -21,7 +21,7 @@
  * Passenger to one worker (passenger_max_pool_size=1) on that box or swap in the
  * Redis-backed store first.
  */
-import type { OnlinePlayer, OnlineStateStore, PresenceUpsert } from './types.js';
+import type { OnlinePlayer, OnlineStateStore, PresenceStoreEvent, PresenceUpsert } from './types.js';
 import { safeName } from '../_utils.js';
 
 /** One persisted presence row — identity and position only, no character blob. */
@@ -52,6 +52,7 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
     private players = new Map<string, OnlinePlayer>();
     private sectors = new Map<number, Set<string>>();
     private settledTravelKeys = new Set<string>();
+    private observer: ((event: PresenceStoreEvent) => void) | null = null;
     private readonly offlineAfterMs: number;
     // Injectable clock so tests can advance time deterministically without sleeps.
     private readonly now: () => number;
@@ -59,6 +60,21 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
     constructor(opts?: { offlineAfterMs?: number; now?: () => number }) {
         this.offlineAfterMs = opts?.offlineAfterMs ?? OFFLINE_AFTER_MS;
         this.now = opts?.now ?? Date.now;
+    }
+
+    setObserver(observer: ((event: PresenceStoreEvent) => void) | null): void {
+        this.observer = observer;
+    }
+
+    // Called from inside reads (a matured trip settles on whichever get/list
+    // notices it), so a listener fault must never surface to that caller.
+    private emit(event: PresenceStoreEvent): void {
+        if (!this.observer) return;
+        try {
+            this.observer(event);
+        } catch (error) {
+            console.error('[online-store] presence observer failed:', (error as Error)?.message ?? error);
+        }
     }
 
     private isFresh(p: OnlinePlayer | undefined, now: number): p is OnlinePlayer {
@@ -78,7 +94,7 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         if (!names.size) this.sectors.delete(sector);
     }
 
-    private settleMaturedTravel(key: string, player: OnlinePlayer, now: number): void {
+    private settleMaturedTravel(key: string, player: OnlinePlayer, now: number, notify = true): void {
         if (player.travelDestinationSector === undefined || player.travelingUntil === undefined || now < player.travelingUntil) return;
         const previousSector = player.sector;
         player.sector = player.travelDestinationSector;
@@ -90,6 +106,7 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         if (previousSector !== player.sector) {
             this.removeFromSector(key, previousSector);
             this.addToSector(key, player.sector);
+            if (notify) this.emit({ type: 'moved', name: key, from: previousSector, to: player.sector });
         }
     }
 
@@ -102,9 +119,11 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         arrivalTile?: number,
     ): OnlinePlayer {
         if (originSector !== undefined && originSector !== player.sector) {
-            this.removeFromSector(key, player.sector);
+            const previousSector = player.sector;
+            this.removeFromSector(key, previousSector);
             player.sector = originSector;
             this.addToSector(key, player.sector);
+            this.emit({ type: 'moved', name: key, from: previousSector, to: player.sector });
         }
         player.travelDestinationSector = destinationSector;
         player.travelDestinationTile = arrivalTile;
@@ -200,9 +219,13 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
                 ? entry.tile ?? prev?.tile : prev?.tile,
             movementSeq: prev?.movementSeq ?? 0,
         };
-        if (prev && prev.sector !== next.sector) this.removeFromSector(key, prev.sector);
+        const movedFrom = prev && prev.sector !== next.sector ? prev.sector : undefined;
+        if (movedFrom !== undefined) this.removeFromSector(key, movedFrom);
         this.players.set(key, next);
         this.addToSector(key, next.sector);
+        // Covers what the caller cannot see: get() hides a restored boot row,
+        // so its owner coming back elsewhere is a move from the snapshot sector.
+        if (movedFrom !== undefined) this.emit({ type: 'moved', name: key, from: movedFrom, to: next.sector });
         return next;
     }
 
@@ -295,6 +318,7 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         if (player) this.removeFromSector(key, player.sector);
         this.players.delete(key);
         this.settledTravelKeys.delete(key);
+        if (player) this.emit({ type: 'removed', name: key, sector: player.sector });
     }
 
     setPendingAttacker(name: string, attacker: unknown): boolean {
@@ -310,8 +334,14 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
     }
 
     setInBattle(name: string, inBattle: boolean): void {
-        const p = this.players.get(canon(name));
-        if (p) p.inBattle = inBattle ? true : undefined;
+        const key = canon(name);
+        const p = this.players.get(key);
+        if (!p) return;
+        const changed = !!p.inBattle !== inBattle;
+        p.inBattle = inBattle ? true : undefined;
+        // Fight hosts flip this between beats, and the next beat compares
+        // against the already-flipped record, so only here is the change seen.
+        if (changed) this.emit({ type: 'changed', name: key, sector: p.sector });
     }
 
     startTravel(name: string, destinationSector: number, arrivalAt: number, originSector?: number, arrivalTile?: number): OnlinePlayer | null {
@@ -368,7 +398,8 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         for (const [k, p] of this.players) {
             if (now - p.lastSeenAt > this.offlineAfterMs) {
                 const departureSector = p.sector;
-                this.settleMaturedTravel(k, p, now);
+                // Silent: the sweep's own onSweep announces this departure.
+                this.settleMaturedTravel(k, p, now, false);
                 this.players.delete(k);
                 this.removeFromSector(k, p.sector);
                 this.settledTravelKeys.delete(k);

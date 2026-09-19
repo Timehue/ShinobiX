@@ -37,11 +37,12 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { kv } from '../_storage.js';
 import { onlineStore } from './online-store.js';
 import { stampPresenceBeat } from './_presence-beat.js';
-import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUntil, toPlayerRecord } from './presence-input.js';
+import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUntil, presenceBroadcastSignature, toPlayerRecord } from './presence-input.js';
+import { queuePresenceUpdate, registerPresenceClient, setPresenceBroadcastIo } from './presence-broadcast.js';
 import { setOnSweep, setOnDuelDrop, setOnDuelExpire } from './game-loop.js';
 import { wirePetDuel, notifyPeerGone, notifyInviteExpired } from './pet-duel-socket.js';
 import { setRealtimeEmitter } from './notify.js';
-import { clearSleeperCamp } from './sleeper-camps.js';
+import { clearSleeperCampOnBeat } from './sleeper-camps.js';
 import { getTravelLease, settleTravelLease, travelLeaseSectorAt } from './travel-lease.js';
 import { durablePresenceSectorForWrite } from './world-duel-engagement.js';
 import { readWalkedTile, resumeTileFor } from './walked-tile.js';
@@ -65,6 +66,7 @@ export async function closeSocketServer(): Promise<void> {
     _io = null;
     setOnSweep(null);
     setRealtimeEmitter(null);
+    setPresenceBroadcastIo(null);
     if (!io) return;
     await new Promise<void>((resolve) => io.close(() => resolve()));
 }
@@ -142,6 +144,9 @@ export function attachSocketServer(httpServer: HttpServer): void {
 
 /** Wire the sweep/notify hooks + connection handlers onto an io instance. */
 function wireRealtime(io: IOServer): void {
+    // Same-sector state changes are batched (presence-broadcast.ts).
+    setPresenceBroadcastIo(io);
+
     // Push departures the instant the game loop sweeps timed-out players. Names
     // are canonical (lowercase); the client compares case-insensitively.
     setOnSweep((removedPlayers) => {
@@ -211,6 +216,9 @@ function wireRealtime(io: IOServer): void {
         // poll immediately (instant attack/challenge delivery). A player with
         // multiple tabs has multiple sockets in the same room — all get kicked.
         socket.join(`user:${name}`);
+        // Current clients take batched `presence:updates`; older open tabs keep
+        // the per-player `presence:update` frames (presence-broadcast.ts).
+        registerPresenceClient(socket, (socket.handshake.auth as HandshakeAuth)?.presenceBatch === 1);
 
         // Accept the client's display-cased name ONLY when it canonicalizes to
         // this socket's authed identity — preserves nice casing, blocks anyone
@@ -263,6 +271,11 @@ function wireRealtime(io: IOServer): void {
                     : undefined),
             );
 
+            // Captured before the upsert, as a plain value: a later read can settle
+            // a matured trip on this record in place. A trip that matured before
+            // this point was settled, and announced, by the get() above (the store
+            // observer in presence-broadcast.ts).
+            const previousSignature = presenceBroadcastSignature(previous);
             // NAME is the authed socket identity — never the client body. No spoofing.
             let stored = onlineStore.upsert({
                 name: displayName,
@@ -292,7 +305,7 @@ function wireRealtime(io: IOServer): void {
             }
             // Throttled cross-worker presence beat (see _realtime/_presence-beat.ts).
             stampPresenceBeat(displayName);
-            void clearSleeperCamp(displayName).catch(() => undefined);
+            void clearSleeperCampOnBeat(displayName).catch(() => undefined);
             const newSector = stored.sector;
 
             if (newSector !== prevSector) {
@@ -304,18 +317,18 @@ function wireRealtime(io: IOServer): void {
                 socket.data.sector = newSector;
                 // The joining socket gets the fresh snapshot immediately…
                 socket.emit('presence:sector', { sector: newSector, players: sectorSnapshot(newSector) });
-                // …and both affected rooms see the membership change.
-                socket.to(sectorRoom(newSector)).emit('presence:join', { sector: newSector, player: toPlayerRecord(stored) });
-            } else {
-                // Same sector — peers may need the state change (inBattle, etc.).
-                const changed = !previous
-                    || previous.displayName !== stored.displayName
-                    || previous.inBattle !== stored.inBattle
-                    || previous.travelingUntil !== stored.travelingUntil
-                    || JSON.stringify(previous.character) !== JSON.stringify(stored.character);
-                if (changed) {
-                    socket.to(sectorRoom(newSector)).emit('presence:update', { sector: newSector, player: toPlayerRecord(stored) });
-                }
+                // …and the new room learns of the arrival on the next batch flush.
+                // Clients apply a join and an update identically (upsert), and a
+                // deploy reconnects every player at once: one frame per arrival
+                // per sector-mate was an O(N²) burst (presence-broadcast.ts).
+                queuePresenceUpdate(name, newSector);
+            } else if (!previous || previousSignature !== presenceBroadcastSignature(stored)) {
+                // Same sector — peers need a state change they can SEE (level,
+                // travel…). HP/chakra ticks change the stored character but
+                // nothing in the record peers receive, so they no longer fan out.
+                // inBattle is flipped by fight hosts and the HTTP beat, and the
+                // store announces it. Delivered on the next batch flush.
+                queuePresenceUpdate(name, newSector);
             }
         };
         const publishPresence = (payload: unknown): void => {

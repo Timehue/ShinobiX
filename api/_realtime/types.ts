@@ -64,7 +64,19 @@ export type PresenceUpsert = {
     tileSector?: number;
 };
 
+/**
+ * A change sector-mates can see that happens inside the store rather than in
+ * the request that asked for it: a trip that matures on whichever read notices
+ * it first, a fight host flipping inBattle, an admin kick. Names are canonical.
+ */
+export type PresenceStoreEvent =
+    | { type: 'moved'; name: string; from: number; to: number }
+    | { type: 'changed'; name: string; sector: number }
+    | { type: 'removed'; name: string; sector: number };
+
 export interface OnlineStateStore {
+    /** Receive PresenceStoreEvents (sweep departures go to game-loop's onSweep). Null clears. */
+    setObserver(observer: ((event: PresenceStoreEvent) => void) | null): void;
     /**
      * Insert or refresh a player's presence (bumps lastSeenAt). Preserves an
      * existing `pendingAttacker` across beats — only attack.ts/clear-attack.ts
