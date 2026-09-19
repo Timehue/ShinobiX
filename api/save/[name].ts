@@ -878,7 +878,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 PLAYER_SAVE_ATTEMPT_LIMIT,
                 PLAYER_SAVE_ATTEMPT_WINDOW_MS,
                 identityName,
-                { strict: true },
+                // Same window kept in memory: a database write on every autosave
+                // cost more than it protected (see allowAlignedLocal).
+                { local: true },
             ))) return;
 
             // If a reset-signal is pending (admin edit in-flight) and this is NOT the admin save,
@@ -976,7 +978,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // Charge the successful-save burst budget only after exact
                     // version authority is established. This keeps a conflict and
                     // its immediate corrected retry from self-throttling.
-                    if (!isClanSave && !(await enforceRateLimitKv(req, res, 'save-burst', 1, 3_000, identityName))) {
+                    if (!isClanSave && !(await enforceRateLimitKv(req, res, 'save-burst', 1, 3_000, identityName, { local: true }))) {
                         return; // 429 already written
                     }
 
