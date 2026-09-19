@@ -254,7 +254,7 @@ function LibraryHarness() {
 }
 const params = new URLSearchParams(location.search);
 function HostHarness() {
-  const character = { name: "Akari", tileCards: [], cardClashDeck: [...CHRONICLE_FIXED_FALLBACK_DECK] } as Character;
+  const character = { name: "Akari", tileCards: [], cardClashDeck: [...CHRONICLE_FIXED_FALLBACK_DECK] } as unknown as Character;
   const host = params.get("host");
   if (host === "clan") return <ClanWarTileCardDuel character={character} setScreen={()=>undefined}/>;
   if (host === "sector") return <SectorWarCardBattle character={character} setScreen={()=>undefined}/>;
