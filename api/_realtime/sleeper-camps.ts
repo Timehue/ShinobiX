@@ -56,7 +56,10 @@ export async function getSleeperCamp(name: string): Promise<SleeperCamp | null> 
  * camp written by another process — a deploy overlap — can outlive a skipped
  * beat, and the periodic recheck bounds that. Until then it is inert: sleeper
  * KOs and merc raids refuse online targets (settleSleeperKoLocked) and the
- * roster ignores camps of online players.
+ * roster ignores camps of online players. It stops being inert when its owner
+ * logs off, so the sweep clears the camp of every departing player it does
+ * not camp (materializeSleeperCamps): a player who logs off in town is never
+ * left with a stale camp in the wild.
  */
 export const BEAT_CLEAR_RECHECK_MS = 2 * 60_000;
 const BEAT_CLEARED_PRUNE_AT = 10_000;
@@ -121,13 +124,19 @@ export function sleeperCampForPresence(player: OnlinePlayer, now: number): Sleep
  */
 export async function materializeSleeperCamps(players: OnlinePlayer[]): Promise<void> {
     const patch: Record<string, SleeperCamp> = {};
+    // Departing players who get no camp. An older camp of theirs (another
+    // process's, from a deploy overlap) must not outlive them either.
+    const uncamped: string[] = [];
     const now = Date.now();
     for (let player of players) {
         if (onlineStore.get(player.name)) continue;
         const lease = await getTravelLease(player.name);
         if (lease) {
             const sector = sleeperSectorForTravelLease(lease, now);
-            if (sector === null || !(await settleTravelLease(player.name, lease, now))) continue;
+            if (sector === null || !(await settleTravelLease(player.name, lease, now))) {
+                uncamped.push(player.name);
+                continue;
+            }
             player = { ...player, sector, travelingUntil: undefined };
         }
         if (player.locationUnverified) {
@@ -135,15 +144,30 @@ export async function materializeSleeperCamps(players: OnlinePlayer[]): Promise<
                 kv.get<{ currentSector?: number; character?: { hospitalized?: boolean } }>(`save:${safeName(player.name)}`),
                 kv.mget(...battleAuthorityKeys(player.name)),
             ]);
-            if (!saved || saved.character?.hospitalized) continue;
+            if (!saved || saved.character?.hospitalized) {
+                uncamped.push(player.name);
+                continue;
+            }
             const battle = await resolveBattleAuthority(player.name, battleEvidenceFrom(evidence));
             player = { ...player, sector: Number(saved.currentSector) || 0,
                 inBattle: battle.inBattle, locationUnverified: false };
         }
         const camp = sleeperCampForPresence(player, now);
-        if (!camp) continue;
+        if (!camp) {
+            uncamped.push(player.name);
+            continue;
+        }
         if (onlineStore.get(player.name)) continue;
         patch[player.name] = camp;
+    }
+    // One write for the whole sweep. Clearing an absent field is a no-op, and
+    // clearing the camp of a player who has just reconnected is what their own
+    // beat would do. A failure here must not cost anyone else their new camp.
+    const stale = uncamped.map(safeName).filter(Boolean);
+    if (stale.length) {
+        await kv.hdel(SLEEPER_CAMPS_KEY, ...stale).catch((error) => {
+            console.warn('[sleeper-camps] stale camp clear failed:', (error as Error)?.message ?? error);
+        });
     }
     if (!Object.keys(patch).length) return;
     const campNames = Object.keys(patch).map(safeName);
