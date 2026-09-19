@@ -134,6 +134,8 @@ test("selectStoryEpilogueEvent builds a zero-reward story-epilogue VN with the f
         assert.ok(!page.choices?.length, "epilogue pages carry no choices");
     }
     // The devastated-Toma variant is the ready-gated one for the taken shears.
-    assert.ok(event!.vnPages!.some((page) => page.dialogue.some((line) => line.includes("sat down in her chair"))));
+    assert.ok(event!.vnPages!.some((page) => page.speaker === "Toma Reed"
+        && page.dialogue.some((line) => line.includes("You carried it in and made her answer for his work"))
+        && page.dialogue.some((line) => line.includes("I can't stay and watch you use them"))));
     assert.equal(await selectStoryEpilogueEvent(character, null), null, "no captured lane, no epilogue");
 });
