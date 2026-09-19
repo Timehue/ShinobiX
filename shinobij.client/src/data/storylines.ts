@@ -1486,7 +1486,7 @@ export const storylines: Record<string, StoryStep[]> = {
                 "It's hesitating.",
                 "Move. The ice is coming up."
             ]), image: "/scenes/story/story-frostfang-village-25-2.webp", choices: [
-                { text: "The ice stands up.", nextPage: 4 }
+                { text: "Draw your weapon.", nextPage: 4 }
             ] },
             { ...storyPage("The Frost Seal Guardian", "The ravine, a guardian of old ice rising between you and the road home", "Captain Yura", [
                 "That's an old Guardian. The seal is controlling it the way it controlled Dain.",

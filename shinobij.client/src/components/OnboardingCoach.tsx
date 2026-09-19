@@ -507,7 +507,7 @@ export function OnboardingCoach({
     };
     const requestSkip = () => setConfirmingSkip(true);
     const guideArt = guidePet ? petPoseImage(guidePet, sharedImages) : "";
-    const guideLabel = guidePet ? `${guidePet.name} — your companion` : "Academy Guide";
+    const guideLabel = guidePet ? `${guidePet.name}, your companion` : "Academy Guide";
     const guideProgressLabel = coachMeta
         ? `${guideLabel} · Phase ${coachMeta.current.phase.index}/${coachMeta.current.phase.total}: ${coachMeta.current.phase.title} · Step ${coachMeta.current.index}/${coachMeta.totalCount}`
         : guideLabel;
@@ -711,7 +711,7 @@ export function OnboardingCoach({
                     <h2 style={{ marginTop: 0 }}>The Resonance Trial</h2>
                     <p style={{ lineHeight: 1.5 }}>
                         Time to see whether our loadout holds together. The Academy has a
-                        training dummy waiting — and after what Shiranui told us, I want
+                        training dummy waiting. After what Shiranui told us, I want
                         to watch its seals. Each turn you spend <strong>AP</strong> (action points):
                         use <strong>Basic Attack</strong> and your <strong>Jutsu</strong> to deal
                         damage, then press <strong>Wait</strong> when your AP runs low. Drop the

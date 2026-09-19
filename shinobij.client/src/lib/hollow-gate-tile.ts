@@ -177,13 +177,13 @@ export function resolveHollowGateTile(
                 if (!adoptServerEvent(result)) return;
                 const damage = Math.max(0, Math.floor(result.damage ?? 0));
                 if (result.revived) {
-                    pushHollowGateLog(`${flavor} The trap's killing blow lands — then Second Wind restores half your HP.`);
+                    pushHollowGateLog(`${flavor} The trap's killing blow lands, and then Second Wind restores half your HP.`);
                     setHollowGateEvent({ title: "Second Wind", body: "The stored Hollow Shards burst into violet flame and restore half your HP.", kind: "trap", choices: [{ label: "Press On", tone: "primary", onSelect: () => setHollowGateEvent(null) }] });
                 } else if (result.ended) {
                     pushHollowGateLog(`${flavor} The seals tear ${damage} HP from you. You collapse and the server closes the run.`);
                     setHollowGateEvent({
                         title: "You Have Fallen",
-                        body: `${flavor}\n\nThe trap drains your final breath. Your verified run ledger is reconciled and you are admitted to the village hospital.\n\n— RUN SUMMARY —\n${buildHollowGateRunSummary()}`,
+                        body: `${flavor}\n\nThe trap drains your final breath. Your verified run ledger is reconciled and you are admitted to the village hospital.\n\nRUN SUMMARY\n${buildHollowGateRunSummary()}`,
                         kind: "trap",
                         choices: [{ label: "Leave Shrine", tone: "danger", onSelect: () => { setHollowGateEvent(null); leaveHollowGateShrine({ death: true }); } }],
                     });
@@ -314,7 +314,7 @@ export function resolveHollowGateTile(
                             // rather than adding to it.
                             const generator = await loadHollowGateGenerator().catch(() => null);
                             if (!generator) {
-                                pushHollowGateLog("The shrine could not draw the floor below this one — the connection dropped mid-load. Nothing was spent; try the staircase again.");
+                                pushHollowGateLog("The shrine could not draw the floor below this one because the connection dropped while it loaded. Nothing was spent. Try the staircase again.");
                                 return;
                             }
                             try {
@@ -410,8 +410,8 @@ export function resolveHollowGateTile(
             setHollowGateEvent({
                 title: noRetreat ? "The Gate Holds You" : "Leave the Hollow Gate",
                 body: noRetreat
-                    ? `${flavor}\n\nBerserker's Gamble binds you — the torii will not open backward. Clear the Hollow Gate or fall.`
-                    : `${flavor}\n\nThe broken torii on this tile opens back to the world map.\n\n— RUN SUMMARY —\n${buildHollowGateRunSummary()}\n\nLeaving ends this run — your progress is forfeit and you'll need another Hollow Gate Key to return.`,
+                    ? `${flavor}\n\nBerserker's Gamble binds you, so the torii will not let you back out. Clear the Hollow Gate or fall.`
+                    : `${flavor}\n\nThe broken torii on this tile opens back to the world map.\n\nRUN SUMMARY\n${buildHollowGateRunSummary()}\n\nLeaving ends this run. You lose your progress, and you'll need another Hollow Gate Key to return.`,
                 kind: "exit",
                 choices: noRetreat
                     ? [{ label: "Press On", tone: "primary", onSelect: () => setHollowGateEvent(null) }]
@@ -474,7 +474,7 @@ export function resolveHollowGateTile(
                     pushHollowGateLog(`A ${rarity} pet emerges from behind the sealed door: ${encounter.name}.`);
                     setHollowGateEvent({
                         title: `${String(rarity).charAt(0).toUpperCase() + String(rarity).slice(1)} Pet Encounter`,
-                        body: `Behind the chains, a ${rarity} spirit-bound creature studies you.\n\n${encounter.name} - Lv. ${encounter.level}\nHP ${encounter.hp} | ATK ${encounter.attack} | DEF ${encounter.defense} | SPD ${encounter.speed}\n\nBefriend it? (Carried ${activeCarriedPets(character).length}/${maxPets(character)}; overflow rests in the Sanctuary)`,
+                        body: `Behind the chains, a ${rarity} spirit-bound creature studies you.\n\n${encounter.name}, Lv. ${encounter.level}\nHP ${encounter.hp} | ATK ${encounter.attack} | DEF ${encounter.defense} | SPD ${encounter.speed}\n\nBefriend it? (Carried ${activeCarriedPets(character).length}/${maxPets(character)}; overflow rests in the Sanctuary)`,
                         kind: "pet_event",
                         choices: [{ label: `Befriend ${encounter.name}`, tone: "primary", onSelect: () => {
                             if (!requireServerSettlement("hollowGatePetBefriend")) return;

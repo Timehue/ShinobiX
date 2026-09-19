@@ -115,7 +115,7 @@ export function wingEntryEffect(run: HollowGateShrineRun, targetWing: number | u
     const themes = run.wingThemes;
     if (!themes) return { blocked: false };                        // legacy / BSP floor — no gating
     if ((run.sealedWings ?? []).includes(targetWing)) {
-        return { blocked: true, message: "Chakra chains have sealed this passage — the path you did not take is closed to you now." };
+        return { blocked: true, message: "Chakra chains have sealed this passage. You chose the other path, so this one is closed now." };
     }
     if (themes[targetWing] === "trial") return { blocked: false }; // the descent path is always open
     if (run.committedDetour == null) {

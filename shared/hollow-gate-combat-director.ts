@@ -61,7 +61,7 @@ function alpha(turn: number, phase: 1 | 2 | 3, width: number, height: number): H
         return { floor: 5, phase, phaseName: "Riftstalker", title: open ? "The Alpha tears open alternating rift lanes" : "The rifts inhale", instruction: open ? "Cross onto an unmarked lane before the Alpha pounces." : "Reposition now. The lane pattern reverses on the next turn.", tone: "alpha", hazardTiles, safeTiles: open ? tilesWhere(width, height, (x, y) => !hazard.has(y * width + x)) : EMPTY, hazardDamagePct: open ? 0.08 : 0, incomingDamageMultiplier: 1.1, outgoingDamageMultiplier: open ? 1.12 : 1.04, musicIntensity: "climax", signature: "Rift-Hunt Pounce" };
     }
     const parity = turn % 2, safeTiles = tilesWhere(width, height, (x, y) => (x + y) % 2 === parity), safe = new Set(safeTiles);
-    return { floor: 5, phase, phaseName: "Gate-Eater", title: "The Alpha devours the arena one seal at a time", instruction: "Move onto a glowing seal. The safe pattern flips every turn—finish the fight.", tone: "alpha", hazardTiles: tilesWhere(width, height, (x, y) => !safe.has(y * width + x)), safeTiles, hazardDamagePct: 0.09, incomingDamageMultiplier: 1.18, outgoingDamageMultiplier: 1.3, musicIntensity: "climax", signature: "Last Shrine Devourer" };
+    return { floor: 5, phase, phaseName: "Gate-Eater", title: "The Alpha devours the arena one seal at a time", instruction: "Move onto a glowing seal. The safe pattern flips every turn, so finish the fight fast.", tone: "alpha", hazardTiles: tilesWhere(width, height, (x, y) => !safe.has(y * width + x)), safeTiles, hazardDamagePct: 0.09, incomingDamageMultiplier: 1.18, outgoingDamageMultiplier: 1.3, musicIntensity: "climax", signature: "Last Shrine Devourer" };
 }
 
 export function hollowGateCombatDirective(input: HollowGateCombatDirectorInput): HollowGateCombatDirective {
@@ -97,6 +97,6 @@ export function hollowGateHazardDamage(directive: HollowGateCombatDirective, pla
 export function hollowGatePhaseTransitionText(previous: number, next: number): string | null {
     if (next <= previous || next < 2) return null;
     return next === 2
-        ? "PHASE II — RIFTSTALKER: the Alpha shatters the first ward and begins hunting through the lanes."
-        : "PHASE III — GATE-EATER: the last guardian abandons restraint and starts devouring the arena.";
+        ? "PHASE II, RIFTSTALKER: the Alpha shatters the first ward and begins hunting through the lanes."
+        : "PHASE III, GATE-EATER: the last guardian stops holding back and starts devouring the arena.";
 }

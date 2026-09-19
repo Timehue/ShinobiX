@@ -30,7 +30,7 @@ export const HOLLOW_SHARD_CONSUMABLES: HollowShardConsumable[] = [
     { id: "hollow-ward", label: "Hollow Ward", cost: 14, icon: "shield-half", desc: "Wipe Threat and hold it back for 6 steps." },
     { id: "diviner-eye", label: "Diviner's Eye", cost: 16, icon: "eye", desc: "Reveal the entire floor.", once: true },
     { id: "sanctify", label: "Sanctify Loot", cost: 14, icon: "lock", desc: "Bank your haul so death can't claw it back." },
-    { id: "second-wind", label: "Second Wind", cost: 30, icon: "heart-plus", desc: "Hold a revive — survive your next death at half HP.", once: true },
+    { id: "second-wind", label: "Second Wind", cost: 30, icon: "heart-plus", desc: "Hold a revive. Survive your next death at half HP.", once: true },
 ];
 
 export const HOLLOW_SHARD_WARD_STEPS = 6;
@@ -62,7 +62,7 @@ export function applyShardConsumable(id: string, run: HollowGateShrineRun, chara
     switch (id) {
         case "reignite":
             run2 = { ...run, torch: 10 };
-            log = "You crush a shard against the Torch of Reiki — it flares back to full.";
+            log = "You crush a shard against the Torch of Reiki. It flares back to full.";
             break;
         case "skeleton-key":
             run2 = { ...run, keys: run.keys + 1 };
@@ -70,21 +70,21 @@ export function applyShardConsumable(id: string, run: HollowGateShrineRun, chara
             break;
         case "hollow-ward":
             run2 = { ...run, threat: 0, wardSteps: HOLLOW_SHARD_WARD_STEPS };
-            log = `A Hollow Ward settles over you — Threat dissipates and stays still for ${HOLLOW_SHARD_WARD_STEPS} steps.`;
+            log = `A Hollow Ward settles over you. Threat drops to zero and stays there for ${HOLLOW_SHARD_WARD_STEPS} steps.`;
             break;
         case "diviner-eye":
             run2 = { ...run, diviner: true, tiles: run.tiles.map((t) => ({ ...t, revealed: true })) };
-            log = "The Diviner's Eye opens — the whole floor burns into your mind.";
+            log = "The Diviner's Eye opens. You can see the whole floor now.";
             break;
         case "sanctify":
             // Re-snapshot entry currencies to NOW, so the death claw-back treats
             // everything earned so far as already secured.
             run2 = { ...run, entryCurrencies: snapshotHollowGateCurrencies(character2) };
-            log = "You sanctify your haul — what you've earned is safe from the dark.";
+            log = "You sanctify your haul. What you've earned so far is safe even if you fall.";
             break;
         case "second-wind":
             run2 = { ...run, secondWindArmed: true };
-            log = "You bind a Second Wind — the next death will not be the end.";
+            log = "You bind a Second Wind. The next time you fall, you will get back up.";
             break;
         default:
             return { ok: false, reason: "Unknown shrine relic." };
@@ -105,6 +105,6 @@ export function tryHollowGateSecondWind(
     return {
         run: { ...run, secondWindArmed: false, threat: 0 },
         character: { ...character, hospitalized: false, hp: Math.max(1, Math.floor(character.maxHp * 0.5)) },
-        log: "Your Second Wind ignites — you are torn back from death at half strength.",
+        log: "Your Second Wind ignites. You get back up with half your HP.",
     };
 }

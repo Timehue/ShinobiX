@@ -247,31 +247,31 @@ export function nextTrialKind(stage: number): TrialKind | null {
 // authored surface stays maintainable. Server-authored so the panel, the
 // emissary dialog, and any future VN all speak identical canon. ──────────────
 const KIND_OPENERS: Record<TrialKind, string> = {
-    awaken: 'The path you chose has been carrying you. Now it asks you to carry it. This first trial is not a test of strength — it is the path learning the sound of your footsteps.',
-    bind: 'A legacy held loosely is a borrowed coat. The Binding asks more: take your path out into the wider world and let the world see you wearing it, until the two of you cannot be told apart.',
-    prove: 'Many awaken. Some bind. Few prove. This trial is the difference between a shinobi who walks a path and a path that is known by its shinobi. It will ask for your discipline, not your enthusiasm.',
-    mythic: 'This is the last thing I will ever ask of you. Beyond this trial there are no more trials — only the name the world will use when it tells your story. Every step you have taken was a rehearsal for this.',
+    awaken: 'Choosing a path was the easy part. Now you earn it. This first trial is not about strength. It asks you to do this work again and again, where other people can see you do it.',
+    bind: 'Plenty of shinobi try a path for a season and then drop it. The Binding asks more. Take your path out into the wider world and keep at it until people know you by it.',
+    prove: 'Many shinobi awaken a path. Some bind it. Few prove it. This trial takes steady discipline over a long stretch, not one good day.',
+    mythic: 'This is the last thing I will ask of you. After this trial there are no more. What remains is the story people will tell about you, so make this one count.',
 };
 const CATEGORY_CLAUSES: Record<LegacyCategory, string> = {
-    ninjutsu: 'Let the elements answer you again — not as tools, but as witnesses.',
-    genjutsu: 'Work quietly. The truest illusions are the ones history itself never notices.',
-    taijutsu: 'Flesh remembers what scrolls forget. Write this one in bruises.',
-    bukijutsu: 'The steel already trusts you. Show it that trust was not misplaced.',
-    pvp: 'Find worthy opponents. Unworthy ones would make this easy, and easy proves nothing.',
-    pve: 'The wilds and the deep places are waiting. They have opinions about you. Change them.',
-    village: 'A village is a promise kept daily. Keep it where the ledgers can see.',
-    support: 'Stand between, again. The ones you shield will never know the cost. I will.',
-    explorer: 'Go where the maps get quiet. The horizon has been asking about you.',
-    pets: 'Your companions chose you long before I did. Honor the better judge.',
-    cards: 'The table reveals what battle hides. Sit down. Win anyway.',
-    war: 'Wars forget soldiers and remember names. Decide which you are carrying into this.',
-    mythic: 'Every arena at once — that is what a mythic path costs. That is why nobody pays it.',
+    ninjutsu: 'Win with your elements again, and let people see how you use them.',
+    genjutsu: 'Work quietly. The best illusions are the ones nobody notices until it is over.',
+    taijutsu: 'Scrolls will not teach you this. Expect to take some hits.',
+    bukijutsu: 'You already know your weapons. Show everyone else that you do.',
+    pvp: 'Find worthy opponents. Weak ones would make this easy, and easy proves nothing.',
+    pve: 'The wilds and the deep places are dangerous. Go into them anyway, and come back.',
+    village: 'A village runs on work people do every day. Do yours where it gets recorded.',
+    support: 'Protect people again. The ones you shield may never know what it cost you. I will.',
+    explorer: 'Go where the maps run out of detail, and see what is out there.',
+    pets: 'Your companions trusted you before I ever did. Do right by them.',
+    cards: 'A card table shows things a fight can hide. Sit down and win there too.',
+    war: 'Most soldiers who fight in a war are forgotten. Decide what you want to be remembered for.',
+    mythic: 'A mythic path asks for results in every arena at once. That is why almost nobody finishes one.',
 };
 const KIND_COMPLETIONS: Record<TrialKind, string> = {
-    awaken: 'It is done. The path has opened its eyes. From today it does not follow you — it walks beside you, and it has a name.',
-    bind: 'The Binding holds. What you are and what you chose are now the same thing, and the world has started to say them in one breath.',
-    prove: 'Proven. Not claimed, not rumored — proven. The doubters have run out of arguments, and the title you carry has grown teeth.',
-    mythic: 'There is nothing left to test. Your legacy stands at its summit, and the Hall of Legends has already begun carving. Walk slowly, shinobi. Let the world get a good look.',
+    awaken: 'It is done. Your path is awakened. People have seen what you did, and they have started to call it by its name.',
+    bind: 'The Binding holds. People no longer talk about you and your path separately. When they mention one, they mean the other.',
+    prove: 'It is proven now, not just claimed or rumored. The doubters have nothing left to argue, and your title carries real weight.',
+    mythic: 'There is nothing left to test. Your legacy stands at its summit, and the Hall of Legends has already started carving your name. Walk slowly, shinobi. Let people get a good look.',
 };
 
 /** The Sage's charge when a trial begins — shown by the panel, the emissary,

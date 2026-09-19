@@ -125,7 +125,7 @@ export const WANDERER_ARCHETYPES: Record<WandererArchetypeId, WandererArchetypeM
         names: ["Wild Emberlynx", "Stray Oni-Hound", "Feral Stormcrow", "Rogue Guardhound", "Lone Sparrowhawk"],
         greetings: [
             "A wild beast bars your path, hackles raised.",
-            "It locks eyes with your pet — a challenge.",
+            "It locks eyes with your pet. It wants a fight.",
             "The creature snarls, daring your beast to step up.",
         ],
     },

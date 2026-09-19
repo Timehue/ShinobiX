@@ -624,7 +624,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                     hallEntries === null
                         ? <p className="hol-empty">Opening the great book…</p>
                         : hallEntries.length === 0
-                        ? <p className="hol-empty">No legends have been written yet. The first mythic awakening, era unlock, or server-first lands here — forever.</p>
+                        ? <p className="hol-empty">No legends have been written yet. The first mythic awakening, era unlock, or server-first will be recorded here permanently.</p>
                         : hallEntries.map((e) => (
                             <div key={e.id} className="card" style={{ padding: "10px 12px", marginBottom: 8, opacity: e.status === "revoked" ? 0.55 : 1 }}>
                                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
@@ -718,10 +718,10 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                                         // show. No new data, no rank/rarity, single violet.
                                         const pct = e.milestones.reduce((a, m) => a + Math.min(1, m.current / Math.max(1, m.required)), 0) / e.milestones.length;
                                         const met = e.milestones.filter((m) => m.done).length;
-                                        const band = pct >= 0.85 ? "The next age is within reach — the world leans toward it."
+                                        const band = pct >= 0.85 ? "The next age is within reach. Nearly all its measures are met."
                                             : pct >= 0.5 ? "The next age stirs; more than half its measures are met."
                                             : pct >= 0.15 ? "The next age is distant, but the world has begun to move."
-                                            : "The next age sleeps — its first stirrings are only beginning.";
+                                            : "The next age is far off. Its first measures are only beginning.";
                                         return (
                                             <p style={{ margin: "4px 0 8px", fontSize: ".74rem", color: "#c4b5fd", fontStyle: "italic" }}>
                                                 {band} <span style={{ color: "#9aa3b2", fontStyle: "normal" }}>({met}/{e.milestones.length} measures met)</span>

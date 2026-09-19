@@ -6088,7 +6088,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
-        "description": "Runs the high ice alone. Herders find its prints circling the camp — never inside.",
+        "description": "Runs the high ice alone. Herders find its prints circling the camp, but never inside it.",
         "role": "defender",
         "subRole": "tank",
         "moveRange": 4,
@@ -6152,7 +6152,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "signature": true
             }
         ],
-        "description": "Rides the drafts ahead of the lightning. Falconers retired the lure — nothing brings it down but weather.",
+        "description": "Rides the drafts ahead of the lightning. Falconers gave up on the lure. Only bad weather brings it down.",
         "role": "tracker",
         "subRole": "control",
         "moveRange": 4,
@@ -8426,7 +8426,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
                 "rounds": 2
             }
         ],
-        "description": "The south wind's firebird. A molted feather won't cool — the coliseum keeps one burning as its eternal flame.",
+        "description": "The south wind's firebird. Its molted feathers never cool, and the coliseum keeps one burning as its eternal flame.",
         "role": "sage",
         "subRole": "support",
         "moveRange": 4

@@ -92,7 +92,7 @@ export function mercTierName(tierId: string): string {
 
 const MERC_TAUNTS = [
     "You're a long way from home, leaf. The contract says you don't get back.",
-    "Hired blade. Nothing personal — just paid to end you.",
+    "Hired blade. Nothing personal. I'm just paid to end you.",
     "Wrong territory to wander into.",
     "The coin says you fall here.",
 ];

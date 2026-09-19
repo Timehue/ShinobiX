@@ -58,15 +58,15 @@ const LEGENDARY_AWAKEN_MSGS: ReadonlyArray<(p: string, defName: string, title: s
 ];
 const MYTHIC_AWAKEN_MSGS: ReadonlyArray<(p: string, defName: string, flavor: string) => string> = [
     (p, n, _f) => `${p} has awakened the ${n}. The world will remember.`,
-    (p, n, f) => `A storied path has opened its eyes: ${p} carries the ${n}. ${f}`,
-    (p, n, _f) => `The taverns will argue about this for a generation — ${p} has awakened the ${n}.`,
+    (p, n, f) => `A storied path is walked again: ${p} carries the ${n}. ${f}`,
+    (p, n, _f) => `The taverns will argue about this for a generation. ${p} has awakened the ${n}.`,
 ];
 const MYTHIC_BIND_MSGS: ReadonlyArray<(p: string, defName: string) => string> = [
-    (p, n) => `${p} has bound the ${n} to their soul. Stage III — few will ever stand here.`,
+    (p, n) => `${p} has completed the Binding of the ${n}. Few shinobi ever reach Stage III.`,
     (p, n) => `The ${n} and ${p} can no longer be told apart. The Binding holds. Stage III.`,
 ];
 const SUMMIT_MSGS: ReadonlyArray<(p: string, defName: string, mythicTitle: string) => string> = [
-    (p, n, t) => `${p} has carried the ${n} to Stage V — Mythic. "${t}" now walks the world.`,
+    (p, n, t) => `${p} has carried the ${n} to Stage V, Mythic. "${t}" now walks the world.`,
     (p, n, t) => `A path is complete: ${p} stands at the summit of the ${n}. History will use the name "${t}".`,
     (p, n, _t) => `The Hall of Legends has begun carving: the ${n} has reached its summit in ${p}'s hands.`,
 ];
@@ -76,7 +76,7 @@ const SUMMIT_MSGS: ReadonlyArray<(p: string, defName: string, mythicTitle: strin
 // name ("Moonshadow"); the herald speaks to that village directly.
 const AFFINITY_AWAKEN_MSGS: ReadonlyArray<(p: string, defName: string, v: string) => string> = [
     (p, n, v) => `${v} raises a cup: one of our own, ${p}, has awakened the ${n}. The village claims this path as ours.`,
-    (p, n, v) => `A favored path returns to ${v} — ${p} has awakened the ${n}. Let the gate-fires burn a little higher tonight.`,
+    (p, n, v) => `A favored path returns to ${v}. ${p} has awakened the ${n}. Let the fires at the village gate burn a little higher tonight.`,
     (p, n, v) => `Word runs the ${v} streets: ${p} carries the ${n} now. This legacy has always belonged to us.`,
 ];
 // Server-local mirror of lib/legacy-emissaries.ts category→emissary mapping (the
@@ -209,14 +209,14 @@ async function deliverTrialCompletionEffects(
             await claimServerFirst({
                 entryType: 'server_first',
                 title: 'First Great Legacy Awakening',
-                description: `${playerName}${village ? ` of ${village}` : ''} was the first shinobi on the server to awaken one of the world's most storied paths — the ${def.name}.`,
+                description: `${playerName}${village ? ` of ${village}` : ''} was the first shinobi on the server to awaken one of the world's most storied paths: the ${def.name}.`,
                 player: playerName, village, legacyId: def.id,
             }, firstKey);
             if (!(await hallClaimDone(firstKey))) return false;
             if ((await hallClaimPlayer(firstKey)) === playerName) {
                 if (!(await announce({
                     type: 'server_first', importance: 'mythic',
-                    title: 'SERVER FIRST — GREAT LEGACY AWAKENING',
+                    title: 'SERVER FIRST: GREAT LEGACY AWAKENING',
                     message: `History: ${playerName} is the FIRST to awaken one of the world's most storied paths. The ${def.name} chose well.`,
                     player: playerName, village, legacyId: def.id,
                 }, { receiptId: `${effectId}:server-first-announcement` }))) return false;
@@ -267,14 +267,14 @@ async function deliverTrialCompletionEffects(
         await claimServerFirst({
             entryType: 'server_first',
             title: 'First Legacy Summit',
-            description: `${playerName}${village ? ` of ${village}` : ''} was the first shinobi on the server to carry a legacy to Stage V — the ${def.name}.`,
+            description: `${playerName}${village ? ` of ${village}` : ''} was the first shinobi on the server to carry a legacy to Stage V: the ${def.name}.`,
             player: playerName, village, legacyId: def.id,
         }, firstKey);
         if (!(await hallClaimDone(firstKey))) return false;
         if ((await hallClaimPlayer(firstKey)) === playerName) {
             if (!(await announce({
                 type: 'server_first', importance: 'mythic',
-                title: 'SERVER FIRST — A LEGACY COMPLETED',
+                title: 'SERVER FIRST: A LEGACY COMPLETED',
                 message: `History: ${playerName} is the FIRST to carry a legacy to its summit. The ${def.name} stands complete.`,
                 player: playerName, village, legacyId: def.id,
             }, { receiptId: `${effectId}:server-first-announcement` }))) return false;
@@ -542,7 +542,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ? LEGACY_JUTSU_CATALOG[def.specialtyJutsuId]?.name ?? null
                     : null;
                 const completion = signatureName
-                    ? `${trialCompletionFor(trial.kind)} The path presses its technique into your hands — ${signatureName} is yours now, a signature only your Legacy can wield.`
+                    ? `${trialCompletionFor(trial.kind)} Your signature technique is ready: ${signatureName}. Only your Legacy can use it.`
                     : trialCompletionFor(trial.kind);
 
                 type SaveCompletion =
