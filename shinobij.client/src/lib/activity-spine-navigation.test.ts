@@ -11,7 +11,8 @@ test('every section hint selects the promised existing screen and rejects unknow
     Object.defineProperty(globalThis, 'sessionStorage', { configurable: true, value: { getItem: (key: string) => data.get(key), setItem: (key: string, value: string) => data.set(key, value) } });
     try {
         for (const [screen, section, key, value] of [
-            ['clan', 'clan-boss', 'clan.initialView', 'boss'], ['profile', 'legacy', 'profile.initialTab', 'legacy'],
+            ['clan', 'clan-boss', 'clan.initialView', 'boss'], ['clan', 'clan-goals', 'clan.initialView', 'missions'],
+            ['profile', 'legacy', 'profile.initialTab', 'legacy'],
             ['profile', 'stats', 'profile.initialTab', 'stats'], ['shinobiTiles', 'card-deck', 'cardHall.initialTab', 'deck'],
             ['shinobiTiles', 'card-play', 'cardHall.initialTab', 'play'], ['centralHub', 'crafter', 'centralHub.initialPanel', 'crafter'],
         ]) {
@@ -25,9 +26,18 @@ test('every section hint selects the promised existing screen and rejects unknow
         }
         assert.equal(activityDestination('not-a-screen'), null);
         assert.equal(activityDestination('arenaDistrict'), 'arenaDistrict');
-        for (const activity of [{ screen: 'unknown' }, { screen: 'missions', section: 'legacy' }]) {
+        for (const activity of [{ screen: 'unknown' }, { screen: 'missions', section: 'legacy' },
+            // A section only its own destination understands is refused rather
+            // than navigating somewhere that cannot honour it.
+            { screen: 'profile', section: 'clan-goals' }, { screen: 'clan', section: 'stats' }, { screen: 'clan', section: 'not-a-section' }]) {
             assert.equal(openActivityDestination(activity as ActivitySpineItem, () => assert.fail('invalid navigation')), false);
         }
+        // A clan recommendation with no section keeps the Clan Hall's own entry view.
+        const plainClan: string[] = [];
+        assert.equal(openActivityDestination({ screen: 'clan' } as ActivitySpineItem, s => plainClan.push(s)), true);
+        assert.deepEqual(plainClan, ['clan']);
+        assert.equal(readActivitySection('clan.initialView', ['boss', 'missions', 'exchange'], 'exchange'), 'missions',
+            'the last explicit hint is what a fresh Clan Hall reads');
     } finally {
         if (original) Object.defineProperty(globalThis, 'sessionStorage', original);
         else Reflect.deleteProperty(globalThis, 'sessionStorage');
