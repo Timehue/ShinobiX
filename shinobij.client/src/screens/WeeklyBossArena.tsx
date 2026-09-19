@@ -363,7 +363,7 @@ export function WeeklyBossArena({
                         )}
                         <p className="hint" style={{ margin: 0, fontSize: "0.78rem" }}>
                             {broken
-                                ? "The realm's shinobi have broken it together. It is staggered, not slain — it fights on at a fraction of its strength until its seventy-two hours run out, and every blow landed still counts on the ledger."
+                                ? "The realm's shinobi have broken it together. It is staggered, not slain. It fights on at a fraction of its strength until its seventy-two hours run out, and every blow landed still counts on the ledger."
                                 : roaming
                                     ? "One boss, one shared HP pool. It roams the world map for 72 hours — track it down and challenge it where it's rampaging. Your fight picks up exactly where the last shinobi left its HP."
                                     : "One boss, one shared HP pool. Every shinobi on the server chips at the same bar — your fight picks up exactly where the last one left its HP. It leaves only when its 72-hour timer hits zero."}

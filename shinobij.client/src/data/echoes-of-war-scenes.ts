@@ -404,7 +404,7 @@ export const ECHOES_SCENES: Readonly<Record<string, EchoesOpponentScenes>> = {
                 "That is the honest result. Mine this time. Not the one Eren printed."),
             pg("The Admission", "The landing, Lyra looking at her scars without flinching", "Lyra",
                 "Then here is what the Court left out.",
-                "I measured what the Gate was taking before the council was willing to name it. Then I spent the three winters when shutdown was still survivable calling the evidence acceptable variance, because the miracle had my name on it.",
+                "I measured what the Gate was taking before the council would admit it. For three winters, we could still have shut it down and survived. I spent all three writing acceptable variance in the margin, because it was my machine, and I needed it to be the miracle everyone called it.",
                 "The sabotage charge was false. The three years I wasted were real."),
             pg("For the Record", "The landing, the tools laid out in a neat row, waiting for no one", "Lyra",
                 "Do not give the Gate intentions. We built a machine that drew from whoever stood nearest, then kept sending the same people near it.",

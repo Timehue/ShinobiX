@@ -242,7 +242,7 @@ export function CentralHub({
         return true;
     };
     const [centralLog, setCentralLog] = useState(
-        "Welcome to Central — the neutral heart of the shinobi world."
+        "Welcome to Central, the neutral heart of the shinobi world."
     );
     const [showArchives, setShowArchives] = useState(false);
     const publicPlayerBloodlines = usePublicBloodlines(showArchives, character.name);

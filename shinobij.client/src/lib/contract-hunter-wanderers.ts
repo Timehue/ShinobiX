@@ -92,7 +92,7 @@ export function contractHunterWanderers(args: {
             waypoints: [home],
             greeting: isSelf
                 ? `${hunter.targetName}, your bounty is worth ${hunter.bountyAmount.toLocaleString()} ryo. Stand still.`
-                : `Not you. I'm hunting ${hunter.targetName} — ${hunter.bountyAmount.toLocaleString()} ryo on their head.`,
+                : `Not you. I'm hunting ${hunter.targetName}. There's ${hunter.bountyAmount.toLocaleString()} ryo on their head.`,
             tellTint: "var(--red-400)",
             avatarKey: "bountyHunter",
             targetName: hunter.targetName,

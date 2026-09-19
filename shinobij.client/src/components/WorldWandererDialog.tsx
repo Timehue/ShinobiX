@@ -74,7 +74,7 @@ export type WorldWandererDialogProps = Readonly<{
 function memoryLine(character: Character, wanderer: Wanderer): string | null {
     const met = character.wandererMemories?.[wanderer.archetype] ?? 0;
     if (met >= 3) return "They recognize your stance before you speak.";
-    if (met >= 1) return "Their eyes linger - this is not your first meeting with their kind.";
+    if (met >= 1) return "Their eyes linger. You have met their kind before.";
     return null;
 }
 
@@ -127,7 +127,7 @@ export function WorldWandererDialog({
             />
             <h3 style={{ margin: "0 0 2px" }}>{wandererDialog.nemesis && character.wandererNemesis ? character.wandererNemesis.name : wandererDialog.w.name}</h3>
             <p style={{ fontSize: ".75rem", color: "#9aa3b2", margin: "0 0 10px" }}>{wandererDialog.nemesis ? `⚔ Your rival · Lv ${Math.min(100, character.level + (character.wandererNemesis?.tier ?? 1))}` : `${wandererDialog.w.verb === "petDuel" ? "Wild beast" : "Wandering shinobi"} · Lv ${wandererDialog.w.level}`}</p>
-            <p style={{ fontStyle: "italic", margin: "0 0 14px" }}>{wandererDialog.msg ?? (wandererDialog.nemesis ? `"You again, ${character.name}. You walked away last time — you won't this time."` : wandererDialog.w.greeting)}</p>
+            <p style={{ fontStyle: "italic", margin: "0 0 14px" }}>{wandererDialog.msg ?? (wandererDialog.nemesis ? `"You again, ${character.name}. You walked away last time. You won't this time."` : wandererDialog.w.greeting)}</p>
             {!wandererDialog.msg && remembered && <p style={{ fontSize: ".72rem", color: "#a7f3d0", margin: "-8px 0 12px", fontStyle: "italic" }}>{remembered}</p>}
             {!wandererDialog.msg && wandererDialog.standingLine && <p style={{ fontStyle: "italic", fontSize: ".8rem", color: wandererDialog.peace ? "var(--green-300)" : "var(--slate-300)", margin: "-6px 0 14px" }}>{wandererDialog.standingLine}</p>}
             {!wandererDialog.msg && wandererDialog.w.verb === "attack" ? (
@@ -217,7 +217,7 @@ export function WorldWandererDialog({
                                 <p style={{ fontSize: ".82rem", margin: "0 0 2px", fontWeight: 700, color: "#c4b5fd" }}>📖 {entry.title}</p>
                                 <p style={{ fontSize: ".7rem", color: "#9aa3b2", margin: "0 0 6px" }}>Stage {epic.stage + 1} of {entry.stages.length}</p>
                                 <p style={{ fontSize: ".8rem", margin: "0 0 8px" }}>{questbookStageText(stage, epic.choices)}</p>
-                                {left && <p style={{ fontSize: ".78rem", margin: "0 0 8px", fontWeight: 700, color: expired ? "var(--red-400)" : "#fbbf24" }}>{expired ? "⏳ The bell rang — your next attempt resets this stage." : `⏳ ${left} before the bell rings`}</p>}
+                                {left && <p style={{ fontSize: ".78rem", margin: "0 0 8px", fontWeight: 700, color: expired ? "var(--red-400)" : "#fbbf24" }}>{expired ? "⏳ The bell rang. Your next attempt restarts this stage." : `⏳ ${left} before the bell rings`}</p>}
                                 {stage.choice ? (
                                     <>
                                         <p style={{ fontSize: ".76rem", fontStyle: "italic", color: "var(--slate-300)", margin: "0 0 10px" }}>{stage.choice.prompt}</p>
@@ -233,7 +233,7 @@ export function WorldWandererDialog({
                                     </>
                                 ) : (
                                     <>
-                                        {scalesRivalry && <p style={{ fontSize: ".75rem", color: "var(--red-300)", margin: "0 0 8px", fontWeight: 600 }}>⚔ He has bested you {rivalTier}× — his promoted form is that much stronger{rivalTier >= 4 ? ", and risen" : ""}.</p>}
+                                        {scalesRivalry && <p style={{ fontSize: ".75rem", color: "var(--red-300)", margin: "0 0 8px", fontWeight: 600 }}>⚔ He has beaten you {rivalTier}×, and each win has made him stronger{rivalTier >= 4 ? ". He has risen in rank" : ""}.</p>}
                                         <p style={{ fontSize: ".74rem", color: "#9aa3b2", margin: "0 0 10px" }}>Progress: {Math.min(got, stage.count)} / {stage.count} {metricLabel(stage.metric)}</p>
                                         <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
                                             {done && isFinal ? (
@@ -276,7 +276,7 @@ export function WorldWandererDialog({
                 return (
                     <>
                         <p style={{ fontSize: ".8rem", margin: "0 0 10px" }}>Task: {def.label}</p>
-                        {offer && <p style={{ fontSize: ".74rem", color: "#c4b5fd", margin: "0 0 10px" }}>📖 {wandererDialog.w.name} carries {offer.giver}'s sealed request: “{offer.title}” — a long, hard tale in stages.</p>}
+                        {offer && <p style={{ fontSize: ".74rem", color: "#c4b5fd", margin: "0 0 10px" }}>📖 {wandererDialog.w.name} carries {offer.giver}'s sealed request: “{offer.title}”. It is a long, hard quest in several stages.</p>}
                         <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
                             <button disabled={wandererDialog.busy} onClick={() => acceptWandererQuest(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Accept task"}</button>
                             {offer && <button disabled={wandererDialog.busy} onClick={() => acceptEpic(wandererDialog.w, offer.id)} style={{ background: "linear-gradient(#3b2f6b,#1e1b3a)", borderColor: "#a78bfa" }}>{wandererDialog.busy ? "…" : "Begin epic"}</button>}
@@ -322,7 +322,7 @@ export function WorldWandererDialog({
                         {legacyTrial}
                         {!character.legacy && character.level >= 50 && (
                             <p style={{ fontSize: ".72rem", color: "#9aa3b2", margin: "8px 0 0", fontStyle: "italic" }}>
-                                “The Sage carries what I cannot give. When he finds you — and he will — listen carefully.”
+                                “The Sage can offer what I cannot. He will find you. When he does, listen carefully.”
                             </p>
                         )}
                         <div style={{ marginTop: 10 }}>

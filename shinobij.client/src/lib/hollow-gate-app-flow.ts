@@ -253,7 +253,7 @@ export function useHollowGateAppFlow(params: {
             const next = character ? applyAttunementToRun(generated, character, false) : generated;
             if (!isSameHollowGateFloor(runRef.current, from)) {
                 // Left / forfeited / already advanced while this was building.
-                pushLog(`The stair below Floor ${from.floor} closes — that descent no longer belongs to this run.`);
+                pushLog(`The stair below Floor ${from.floor} closes. That descent is no longer part of this run.`);
                 return;
             }
             setRun((previous) => hollowGateDescendUpdate(previous, from, next));
@@ -293,7 +293,7 @@ export function useHollowGateAppFlow(params: {
                     eyebrow: "ALPHA SEAL BROKEN · SHRINE RECLAIMED",
                     presentation: "boss-victory",
                     image: hollowGateAlphaCinematicImage(sharedImages),
-                    body: `The Alpha's howl breaks into a thousand violet sparks. For the first time in generations, clean moonlight reaches the shrine floor.\n\nYou did not destroy its old oath—you released it.\n\n— RUN SUMMARY —\n${buildRunSummary()}`,
+                    body: `The Alpha's howl breaks into a thousand violet sparks. For the first time in generations, clean moonlight reaches the shrine floor.\n\nYou did not destroy its old oath. You released it.\n\nRUN SUMMARY\n${buildRunSummary()}`,
                     kind: "boss",
                     choices: [{
                         label: "Take Final Rewards + Leave",
@@ -326,8 +326,8 @@ export function useHollowGateAppFlow(params: {
             threat: 0,
         });
         pushLog(isAmbush
-            ? "The ambush ends. Threat dissipates — but the Torch of Reiki keeps burning down. Find a chest or shrine to rekindle it."
-            : "Hollow Hound defeated. Threat dissipates — the Torch of Reiki, though, keeps burning down.");
+            ? "The ambush ends. Threat fades, but the Torch of Reiki keeps burning down. Find a chest or shrine to rekindle it."
+            : "Hollow Hound defeated. Threat fades, but the Torch of Reiki keeps burning down.");
     }
 
     function onPetBattleEnd(result: HollowGateCombatSettleResult, gate: HollowGatePetFightRef) {

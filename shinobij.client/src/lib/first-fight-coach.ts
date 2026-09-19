@@ -129,7 +129,7 @@ function sparLine(state: FirstFightCoachState): FirstFightCoachLine {
         return band("spar-attack", "Tap Attack. It costs 40 of your 100 AP.");
     }
     if (history.attacked && !history.casted && state.canCastJutsu) {
-        return band("spar-jutsu", "Attack cost 40. A jutsu costs 60 — pick one.");
+        return band("spar-jutsu", "Attack cost 40. A jutsu costs 60. Pick one.");
     }
     if (history.attacked && !history.casted && state.myAp > 0 && state.myAp < 60) {
         return band("spar-low-ap", `${state.myAp} AP left. Tap Wait; AP refills next turn.`);
@@ -153,8 +153,8 @@ function drillBand(state: FirstFightCoachState): FirstFightCoachLine | null {
     if (state.distance > 4 && !state.enemyInMelee) return band("drill-out-of-reach", "Out of reach. Step in, or let it close.");
     if (state.distance >= 0 && state.distance <= 4 && !history.casted) {
         return band("drill-in-range", state.hasKunai
-            ? "In range. Jutsu 60, kunai 40 — watch the AP bar."
-            : "In range. A jutsu is 60 AP — watch the bar.");
+            ? "In range. Jutsu 60, kunai 40. Watch the AP bar."
+            : "In range. A jutsu is 60 AP. Watch the bar.");
     }
     // The payoff of the whole 40/60 design, made tangible: a heavy cast leaves
     // exactly 40 AP, and the cheap technique is lit. Say it once per turn.
@@ -185,7 +185,7 @@ function drillBubble(state: FirstFightCoachState, seen: ReadonlySet<string>): Fi
 function storyBubble(state: FirstFightCoachState, seen: ReadonlySet<string>): FirstFightCoachLine | null {
     const { history } = state;
     if (!seen.has("story-braced") && state.enemyShield > 0) {
-        return bubble("story-braced", "It's braced. That shield eats a heavy technique whole — chip it with something cheap, then commit.");
+        return bubble("story-braced", "It's braced. That shield absorbs a heavy technique completely. Break it with something cheap first, then commit.");
     }
     if (!seen.has("story-wasted") && history.castedSixtyIntoShield && state.enemyShield > 0) {
         return bubble("story-wasted", "Most of that went into the shield. Break the guard with cheap hits; save the big one for underneath.");

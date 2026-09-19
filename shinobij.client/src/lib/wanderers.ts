@@ -280,7 +280,7 @@ export const WANDERER_QUEST_CATALOG: WandererQuestDef[] = [
         label: "Walk one tile in each of the five countries",
         metric: "relicSurveyCount",
         target: 5,
-        brief: "Relics are not forged and not sold — each country keeps its own, "
+        brief: "Relics are not forged and not sold. Each country keeps its own, "
             + "and only an ancient chest out in the wild ever gives one up. Walk all "
             + "five and I will show you which land holds which. Their strength "
             + "answers in the field, never in a duel.",
