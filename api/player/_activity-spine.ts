@@ -195,8 +195,10 @@ function focusNow(input: ActivitySpineInput, focus: Focus, facts: FocusFacts): A
             return ready ? review('clan-operation-now', boss.partyStatus ? 'Return to your clan ready room' : 'Prepare an available clan assault',
                 'Review your squad and the current operation before committing an assault.', 'clan', 'Open Clan Operations',
                 { context: 'clan-boss', section: 'clan-boss', runtimeModeId: 'clan-boss', capabilityId: 'clanBossParties', progress: `${boss.attemptsLeft} assaults remaining` })
+                // The goal it promises is the clan's own objective board, so it
+                // opens there instead of wherever the Clan Hall was left.
                 : review('clan-review-now', 'Review your clan’s next goal',
-                    'Coordinate in the Clan Hall while a new assault is unavailable.', 'clan', 'Open Clan Hall', { context: 'clan-war',
+                    'Coordinate in the Clan Hall while a new assault is unavailable.', 'clan', 'Open Clan Hall', { context: 'clan-war', section: 'clan-goals',
                         blocker: boss?.killed ? 'This week’s threat is complete.' : boss?.active && boss.attemptsLeft <= 0 ? 'Your weekly assaults are used.' : 'No available clan assault is verified.' });
         }
         case 'towers-spire':
@@ -318,6 +320,9 @@ function focusRecommendations(input: ActivitySpineInput, focus: Focus, facts: Fo
             why: noClan ? 'Founding or joining a clan opens cooperative goals without changing solo progression.' : 'Contribution, leadership, and war records provide a social endgame alongside solo mastery.',
             commitment: 'Multi-session', progress: noClan ? 'No clan selected' : 'Clan membership active',
             screen: 'clan', cta: noClan ? 'Visit Clan Hall' : 'Review Clan Goals', eligibility: 'eligible', blocker: noClan ? 'Clan operations require membership.' : undefined, context: 'clan-war',
+            // Without a clan the Hall's own entry view is the one that lists
+            // clans to join; a member asked to review goals gets the goals.
+            ...(noClan ? {} : { section: 'clan-goals' as const }),
         });
         if (noClan || weeklyBlocked || !serviceAvailability(input, { runtimeModeId: 'clan-boss', capabilityId: 'clanBossParties' }).available) {
             return [
@@ -328,6 +333,7 @@ function focusRecommendations(input: ActivitySpineInput, focus: Focus, facts: Fo
                     commitment: '5–15 min', progress: noClan ? 'No clan selected' : 'Clan membership active',
                     screen: 'clan', cta: noClan ? 'Visit Clan Hall' : 'Open Clan Hall', eligibility: 'eligible',
                     blocker: noClan ? 'Clan operations require membership.' : killed ? 'Weekly threat cleared.' : weeklyBlocker, context: 'clan-war',
+                    ...(noClan ? {} : { section: 'clan-goals' as const }),
                 }),
                 prestige ?? genericLong,
             ];

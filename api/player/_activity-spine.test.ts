@@ -305,6 +305,45 @@ describe('server activity spine', () => {
         }
     });
 
+    it('sends every clan recommendation to the section it promises', () => {
+        // "Review your clan's next goal" used to land wherever the Clan Hall
+        // opens by default (the Exchange), leaving the player to hunt for the
+        // goal they were sent to read.
+        const bossUnavailable = capabilitiesWith({
+            clanBoss: { state: 'temporarily-unavailable', reason: 'temporarily-disabled' },
+            clanBossParties: { state: 'temporarily-unavailable', reason: 'temporarily-disabled' },
+        });
+        const goalBoard = buildActivitySpine({ ...input, focus: 'clan-war', capabilities: bossUnavailable });
+        const week = goalBoard.horizons['this-week'][0];
+        assert.equal(week?.id, 'focus-clan-generic-week');
+        assert.equal(week?.screen, 'clan');
+        assert.equal(week?.section, 'clan-goals', 'coordinating the next goal opens the clan goal board');
+        const long = goalBoard.horizons['long-term'][0];
+        if (long?.id === 'focus-clan-long') {
+            assert.equal(long.cta, 'Review Clan Goals');
+            assert.equal(long.section, 'clan-goals');
+        }
+
+        // The "now" review card, shown when no assault is available.
+        const noAssault = buildActivitySpine({ ...input, focus: 'clan-war', clanBoss: { active: true, killed: true, attemptsLeft: 0 } });
+        const review = [...noAssault.horizons.now, ...noAssault.horizons.today].find(activity => activity.id === 'clan-review-now');
+        assert.ok(review, 'the review card is offered when an assault is not available');
+        assert.equal(review?.section, 'clan-goals');
+
+        // The Boss ready room keeps its own destination.
+        const ready = buildActivitySpine({ ...input, focus: 'clan-war' });
+        const operation = [...ready.horizons.now, ...ready.horizons.today].find(activity => activity.id === 'clan-operation-now');
+        assert.equal(operation?.section, 'clan-boss');
+        assert.equal(ready.horizons['this-week'][0]?.context, 'clan-boss');
+
+        // Without a clan there is no goal board to open: the Hall's own entry
+        // view is the one that lists clans to join.
+        const noClan = buildActivitySpine({ ...input, focus: 'clan-war', clanName: '' });
+        for (const activity of [...noClan.horizons.now, ...noClan.horizons.today, ...noClan.horizons['this-week'], ...noClan.horizons['long-term']]) {
+            if (activity.screen === 'clan') assert.equal(activity.section, undefined, activity.id);
+        }
+    });
+
     it('does not confuse generic Companion activity with breeding admission', () => {
         const spine = buildActivitySpine({
             ...input,

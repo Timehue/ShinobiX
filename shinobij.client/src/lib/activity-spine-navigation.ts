@@ -23,6 +23,7 @@ export function openActivityDestination(activity: ActivitySpineItem, navigate: (
     if (!screen) return false;
     const section = activity.section ?? (activity.context === 'clan-boss' ? 'clan-boss' : undefined);
     const hint = section === 'clan-boss' && screen === 'clan' ? ['clan.initialView', 'boss']
+        : section === 'clan-goals' && screen === 'clan' ? ['clan.initialView', 'missions']
         : section === 'legacy' && screen === 'profile' ? ['profile.initialTab', 'legacy']
         : section === 'stats' && screen === 'profile' ? ['profile.initialTab', 'stats']
         : section === 'card-deck' && screen === 'shinobiTiles' ? ['cardHall.initialTab', 'deck']
