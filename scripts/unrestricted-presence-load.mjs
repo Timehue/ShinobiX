@@ -38,6 +38,9 @@ const sockets = accounts.map((account, index) => {
         auth: {
             'x-player-name': account.name,
             'x-player-token': account.token,
+            // Like the real client (lib/presence-socket.ts): take batched
+            // presence:updates, so a run measures the path players use.
+            presenceBatch: 1,
             presence,
         },
     });
