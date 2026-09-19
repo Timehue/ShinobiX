@@ -37,7 +37,8 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { kv } from '../_storage.js';
 import { onlineStore } from './online-store.js';
 import { stampPresenceBeat } from './_presence-beat.js';
-import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUntil, toPlayerRecord } from './presence-input.js';
+import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUntil, presenceBroadcastSignature, toPlayerRecord } from './presence-input.js';
+import { queuePresenceUpdate, registerPresenceClient, setPresenceBroadcastIo } from './presence-broadcast.js';
 import { setOnSweep, setOnDuelDrop, setOnDuelExpire } from './game-loop.js';
 import { wirePetDuel, notifyPeerGone, notifyInviteExpired } from './pet-duel-socket.js';
 import { setRealtimeEmitter } from './notify.js';
@@ -65,6 +66,7 @@ export async function closeSocketServer(): Promise<void> {
     _io = null;
     setOnSweep(null);
     setRealtimeEmitter(null);
+    setPresenceBroadcastIo(null);
     if (!io) return;
     await new Promise<void>((resolve) => io.close(() => resolve()));
 }
@@ -142,6 +144,9 @@ export function attachSocketServer(httpServer: HttpServer): void {
 
 /** Wire the sweep/notify hooks + connection handlers onto an io instance. */
 function wireRealtime(io: IOServer): void {
+    // Same-sector state changes are batched (presence-broadcast.ts).
+    setPresenceBroadcastIo(io);
+
     // Push departures the instant the game loop sweeps timed-out players. Names
     // are canonical (lowercase); the client compares case-insensitively.
     setOnSweep((removedPlayers) => {
@@ -211,6 +216,9 @@ function wireRealtime(io: IOServer): void {
         // poll immediately (instant attack/challenge delivery). A player with
         // multiple tabs has multiple sockets in the same room — all get kicked.
         socket.join(`user:${name}`);
+        // Current clients take batched `presence:updates`; older open tabs keep
+        // the per-player `presence:update` frames (presence-broadcast.ts).
+        registerPresenceClient(socket, (socket.handshake.auth as HandshakeAuth)?.presenceBatch === 1);
 
         // Accept the client's display-cased name ONLY when it canonicalizes to
         // this socket's authed identity — preserves nice casing, blocks anyone
@@ -263,6 +271,9 @@ function wireRealtime(io: IOServer): void {
                     : undefined),
             );
 
+            // Captured before the upsert: arriving travel settles by mutating the
+            // previous record in place, which would hide the change afterwards.
+            const previousSignature = presenceBroadcastSignature(previous);
             // NAME is the authed socket identity — never the client body. No spoofing.
             let stored = onlineStore.upsert({
                 name: displayName,
@@ -306,16 +317,12 @@ function wireRealtime(io: IOServer): void {
                 socket.emit('presence:sector', { sector: newSector, players: sectorSnapshot(newSector) });
                 // …and both affected rooms see the membership change.
                 socket.to(sectorRoom(newSector)).emit('presence:join', { sector: newSector, player: toPlayerRecord(stored) });
-            } else {
-                // Same sector — peers may need the state change (inBattle, etc.).
-                const changed = !previous
-                    || previous.displayName !== stored.displayName
-                    || previous.inBattle !== stored.inBattle
-                    || previous.travelingUntil !== stored.travelingUntil
-                    || JSON.stringify(previous.character) !== JSON.stringify(stored.character);
-                if (changed) {
-                    socket.to(sectorRoom(newSector)).emit('presence:update', { sector: newSector, player: toPlayerRecord(stored) });
-                }
+            } else if (!previous || previousSignature !== presenceBroadcastSignature(stored)) {
+                // Same sector — peers need a state change they can SEE (inBattle,
+                // level, travel…). HP/chakra ticks change the stored character
+                // but nothing in the record peers receive, so they no longer fan
+                // out. Delivered on the next batch flush.
+                queuePresenceUpdate(name, newSector);
             }
         };
         const publishPresence = (payload: unknown): void => {
