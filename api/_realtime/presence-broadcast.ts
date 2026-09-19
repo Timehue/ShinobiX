@@ -19,7 +19,9 @@
  * connected. Membership rides two global rooms, so a sector broadcast can
  * exclude the other kind of client.
  *
- * Joins, leaves, tile moves and snapshots are unchanged and stay immediate.
+ * Arrivals ride the same batch: clients apply a join and an update identically
+ * (an upsert), and a deploy reconnects every player at once. Leaves, tile moves
+ * and the joiner's own snapshot stay immediate.
  * Single-instance only, like the rest of api/_realtime.
  */
 import type { Server as IOServer, Socket } from 'socket.io';
@@ -71,8 +73,18 @@ export function queuePresenceUpdate(name: string, sector: number): void {
     }
     names.add(key);
     if (!flushTimer) {
-        flushTimer = setTimeout(flushPresenceUpdates, PRESENCE_BATCH_MS);
+        flushTimer = setTimeout(flushFromTimer, PRESENCE_BATCH_MS);
         flushTimer.unref?.();
+    }
+}
+
+// A throw inside a timer callback is an uncaught exception, which would take
+// the whole single-instance server down over one bad presence frame.
+function flushFromTimer(): void {
+    try {
+        flushPresenceUpdates();
+    } catch (error) {
+        console.error('[presence] batch flush failed:', (error as Error)?.message ?? error);
     }
 }
 
