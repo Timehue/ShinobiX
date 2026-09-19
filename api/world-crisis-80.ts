@@ -33,8 +33,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!(await enforceRateLimitKv(req, res, 'world-crisis-80-read', 90, 60_000, null))) return;
             const crisis = await readWorldCrisis80ProjectionCached();
             // Same edge caching as api/world-crisis.ts: 5s on the success path
-            // only; refusals, errors and admin POSTs stay `no-store`.
-            res.setHeader('Cache-Control', 's-maxage=5, stale-while-revalidate=5');
+            // only; refusals, errors, admin POSTs and `?fresh=1` reads stay
+            // `no-store`.
+            if (req.query?.fresh !== '1') res.setHeader('Cache-Control', 's-maxage=5, stale-while-revalidate=5');
             return res.status(200).json({ crisis });
         }
         if (req.method !== 'POST') return res.status(405).end();

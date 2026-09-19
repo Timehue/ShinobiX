@@ -79,3 +79,49 @@ test('a failed read keeps the last good frame', async () => {
     await env.refresh!();
     assert.deepEqual(frames.at(-1), { crisis, reckoning });
 });
+
+test('a restart whose first read fails shows nothing rather than the frame from before the stop', async () => {
+    const { env, subscribe, flush, runTimers } = harness();
+    const stop = subscribe(() => undefined);
+    await flush();
+    stop();
+    runTimers();
+    env.failNext = true;
+    const frames: LiveCrisisFrame[] = [];
+    subscribe((frame) => frames.push(frame));
+    await flush();
+    // The old frame may describe a crisis that has since ended.
+    assert.deepEqual(frames, [{ crisis: null, reckoning: null }]);
+});
+
+test('the crisis reads time out and can skip the shared edge copy', async (t) => {
+    const { fetchWorldCrisis, WORLD_CRISIS_FETCH_TIMEOUT_MS } = await import('./world-crisis.ts');
+    const { fetchWorldCrisis80 } = await import('./world-crisis-80.ts');
+    const calls: Array<{ url: string; signal: unknown }> = [];
+    t.mock.method(globalThis, 'fetch', async (url: string, init: { signal?: unknown }) => {
+        calls.push({ url, signal: init?.signal });
+        return new Response(JSON.stringify({ crisis: { runId: 'x' } }), { status: 200 });
+    });
+    await fetchWorldCrisis();
+    await fetchWorldCrisis({ fresh: true });
+    await fetchWorldCrisis80();
+    await fetchWorldCrisis80({ fresh: true });
+    assert.deepEqual(calls.map((c) => c.url), [
+        '/api/world-crisis', '/api/world-crisis?fresh=1', '/api/world-crisis-80', '/api/world-crisis-80?fresh=1',
+    ]);
+    // A hung request would otherwise hold the herald's poll forever.
+    assert.ok(calls.every((c) => c.signal instanceof AbortSignal));
+    assert.ok(WORLD_CRISIS_FETCH_TIMEOUT_MS < 15_000, 'shorter than the herald\'s poll interval');
+});
+
+test('a crisis read that hangs past the timeout gives up instead of stalling', async (t) => {
+    const { fetchWorldCrisis } = await import('./world-crisis.ts');
+    // A server that never answers; only the request's own signal ends it.
+    t.mock.method(globalThis, 'fetch', (_url: string, init: { signal: AbortSignal }) => new Promise((_resolve, reject) => {
+        if (init.signal.aborted) reject(init.signal.reason);
+        else init.signal.addEventListener('abort', () => reject(init.signal.reason));
+    }));
+    const realTimeout = AbortSignal.timeout.bind(AbortSignal);
+    t.mock.method(AbortSignal, 'timeout', () => realTimeout(20));
+    assert.equal(await fetchWorldCrisis(), null);
+});

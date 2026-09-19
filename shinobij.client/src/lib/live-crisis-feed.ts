@@ -6,8 +6,10 @@
 // fired both crisis requests again on top of the 15s cadence. The poll now lives
 // here and survives that brief unmount/mount: a remounted herald receives the
 // latest frame at once and the 15s rhythm is unchanged. When no herald has been
-// mounted for STOP_GRACE_MS (e.g. a story event is open), the poll stops, and the
-// next subscriber starts it with an immediate fetch — exactly as before.
+// mounted for STOP_GRACE_MS (e.g. a story event is open), the poll stops and
+// forgets its frame, and the next subscriber starts it with an immediate fetch —
+// exactly as before. The fetchers time out (lib/world-crisis.ts), so one hung
+// request cannot stall the poll.
 import type { WorldCrisisProjection } from "../../../shared/world-crisis";
 import type { WorldCrisis80Projection } from "../../../shared/world-crisis-80";
 import { visiblePoll } from "./poll";
@@ -61,6 +63,9 @@ export function createLiveCrisisFeed(deps: LiveCrisisFeedDeps) {
                 if (listeners.size || !stopPoll) return;
                 stopPoll();
                 stopPoll = null;
+                // A restart must not replay a frame that may be long over (an
+                // ended crisis) if its first read fails.
+                latest = { crisis: null, reckoning: null };
             }, LIVE_CRISIS_STOP_GRACE_MS);
         };
     };

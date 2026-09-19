@@ -47,15 +47,17 @@ export function WorldCrisis({ character, setScreen, sharedImages, hostLoadout, o
     const [loading, setLoading] = useState(true);
     const [launching, setLaunching] = useState(false);
     const [error, setError] = useState("");
-    const refresh = useCallback(async () => {
-        const next = await fetchWorldCrisis();
+    // `fresh` on arrival and after the player's own fight: the shared copy the
+    // poll reads can trail a just-won defense by a few seconds.
+    const refresh = useCallback(async (fresh = false) => {
+        const next = await fetchWorldCrisis({ fresh });
         if (next) { setCrisis(next); setError(""); }
         else setError("The village signal could not be reached.");
         setLoading(false);
     }, []);
 
     useEffect(() => {
-        const start = window.setTimeout(() => { void refresh(); }, 0);
+        const start = window.setTimeout(() => { void refresh(true); }, 0);
         const stop = visiblePoll(() => { void refresh(); }, 12_000);
         return () => { window.clearTimeout(start); stop(); };
     }, [refresh]);
@@ -78,7 +80,7 @@ export function WorldCrisis({ character, setScreen, sharedImages, hostLoadout, o
             sector: 0,
             returnScreen: "worldCrisis",
             worldEncounter: { kind: "world-crisis", sourceId: encounter.sourceId, sector: 0 },
-            onResolved: () => { setLaunching(false); void refresh(); },
+            onResolved: () => { setLaunching(false); void refresh(true); },
         });
         if (!accepted) {
             setLaunching(false);
