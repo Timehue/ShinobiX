@@ -1822,11 +1822,6 @@ body.coach-banner-open .coach-guide-actions .location-button {
   .app-shell.screen-pets .pet-home-tabs > button:nth-last-child(-n + 2) {
     grid-column: span 3;
   }
-
-  .app-shell.screen-sunscarFestival .sunscar-card {
-    min-width: 0;
-    padding: 14px;
-  }
 }
 
 /* ========================================================================== */

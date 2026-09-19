@@ -382,14 +382,6 @@
     background: radial-gradient(circle, #5b3b12, #111827 70%);
 }
 
-.sunscar-card {
-    min-width: 0;
-    padding: 18px;
-    border-radius: 16px;
-    background: rgba(30, 15, 5, 0.86);
-    border: 2px solid var(--gold);
-}
-
 .sunscar-npc {
     font-size: 70px;
     text-align: center;
