@@ -1,10 +1,12 @@
 /*
  * Village War Map — sector-war IO glue (Phase 4c).
  *
- * Thin persistence primitives for the two record families the sector-war loop
+ * Thin persistence primitives for the record families the sector-war loop
  * uses, on top of the pure model in `_sector-war.ts`:
  *   - the contest:  `shared:sector-war:<id>`        (the Control-HP siege state)
  *   - the token:    `shared:sector-war-token:<bid>` (single-use battle authorization)
+ *   - the receipt:  `shared:sector-war-battle:<id>:<instance>:<bid>` (one scored
+ *     battle, the evidence that outlives the row — see the protocol note below)
  *
  * All orchestration (locks, WR debit, the territory flip) lives in the endpoint
  * `api/village/sector-war.ts`; this file only reads/writes the records. Its

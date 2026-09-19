@@ -533,10 +533,12 @@ export interface SectorBattleOutcome {
 /**
  * The receipt for `battleId` if it is held IN THE ROW — the compatibility mirror
  * or the write-ahead `pending` list. Pure, so it cannot see receipts that live
- * only externally: once a war has more receipts than the mirror holds
- * (`sectorWarHasExternalReceipts`), a caller that must not double-score has to
- * consult the external receipt too. `commitSectorWarBattle` in
- * api/_sector-war-store.ts is the one writer that does both.
+ * only externally: once a war has more receipts than the mirror holds, a caller
+ * that must not double-score has to consult the external receipt too.
+ * `commitSectorWarBattle` in api/_sector-war-store.ts is the one writer that
+ * does both, and it reads the external copy whenever the row does not hold the
+ * receipt — never only past the cap, so a row an older writer overwrote with a
+ * stale copy cannot score a battle whose receipt already exists.
  */
 export function findSectorWarBattleReceipt(session: SectorWarSession, battleId: string): SectorWarBattleReceipt | null {
     return session.appliedBattles?.find((entry) => entry.battleId === battleId)
@@ -593,12 +595,6 @@ export function sectorWarLedgerOf(session: Pick<SectorWarSession, 'appliedBattle
     if (session.battleLedger) return session.battleLedger;
     const mirror = session.appliedBattles ?? [];
     return sectorWarLedgerFromReceipts(mirror, mirror.length);
-}
-
-/** Whether some receipt of this war lives outside the row's mirror, so a
- *  duplicate check that only reads the row is not complete. */
-export function sectorWarHasExternalReceipts(session: Pick<SectorWarSession, 'appliedBattles' | 'battleLedger'>): boolean {
-    return !!session.battleLedger && session.battleLedger.count > (session.appliedBattles?.length ?? 0);
 }
 
 /**

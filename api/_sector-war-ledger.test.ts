@@ -186,7 +186,8 @@ describe('sector-war ledger: the 200-receipt boundary is no longer a ceiling', {
         assert.equal(external.length, 201, 'every battle has an external receipt');
         assert.equal(war.findSectorWarBattleReceipt(session, 'b-201'), null, 'the 201st lives only externally');
         assert.equal((await store.loadSectorWarExternalReceipt(session, 'b-201', kv))?.points, 5);
-        assert.equal(war.sectorWarHasExternalReceipts(session), true);
+        assert.ok(session.battleLedger!.count > session.appliedBattles!.length,
+            'the ledger knows the war holds receipts the row does not');
         // The mirror is exactly the first 200, newest first — the shape an older
         // release reads as a complete, full ledger.
         assert.deepEqual(session.appliedBattles!.map((r) => r.battleId), Array.from({ length: 200 }, (_, i) => `b-${200 - i}`));
