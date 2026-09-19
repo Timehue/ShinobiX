@@ -29,8 +29,9 @@ const WORLD_CRISIS_80_PROOF_PREFIX = `${WORLD_CRISIS_80_STATE_KEY}:proof:`;
 const MAX_APPLIED_PROOFS = WORLD_CRISIS_80_MAX_TARGET * WORLD_CRISIS_80_VILLAGES.length;
 
 // Same short process cache as api/world-crisis/_state.ts: every signed-in tab
-// polls this public projection every 15s. The endpoint is `no-store`, so every
-// state write goes through writeWorldCrisis80State, which drops the cached frame.
+// polls this public projection every 15s. Every state write goes through
+// writeWorldCrisis80State, which drops the cached frame; a screen reading back
+// its own action asks for `?fresh=1` to skip the edge copy.
 export const WORLD_CRISIS_80_PROJECTION_CACHE_KEY = 'world-crisis-80:projection';
 const WORLD_CRISIS_80_PROJECTION_CACHE_TTL_MS = 3_000;
 

@@ -72,7 +72,7 @@ describe('public level-80 crisis poll cache', () => {
 
 describe('edge caching of the public crisis polls', () => {
     type Handler = (req: never, res: never) => Promise<unknown>;
-    async function call(path: '../world-crisis.js' | '../world-crisis-80.js', method: string) {
+    async function call(path: '../world-crisis.js' | '../world-crisis-80.js', method: string, query?: Record<string, string>) {
         const handler = (await import(path)).default as unknown as Handler;
         const headers: Record<string, string> = {};
         const out: { status: number } = { status: 200 };
@@ -81,7 +81,7 @@ describe('edge caching of the public crisis polls', () => {
             status(code: number) { out.status = code; return res; },
             json() { return res; }, end() { return res; },
         };
-        await handler({ method, headers: { 'x-forwarded-for': '10.93.0.1' }, socket: { remoteAddress: '10.93.0.1' }, body: {} } as never, res as never);
+        await handler({ method, ...(query ? { query } : {}), headers: { 'x-forwarded-for': '10.93.0.1' }, socket: { remoteAddress: '10.93.0.1' }, body: {} } as never, res as never);
         return { status: out.status, cacheControl: headers['cache-control'] };
     }
 
@@ -93,6 +93,18 @@ describe('edge caching of the public crisis polls', () => {
             const write = await call(path, 'POST');
             assert.equal(write.status, 401, 'no admin credentials');
             assert.equal(write.cacheControl, 'no-store');
+        }
+    });
+
+    it('keeps a read-back of the caller\'s own action (?fresh=1) out of the edge cache', { concurrency: false }, async () => {
+        // A defender who just won must not be shown the pre-fight count the
+        // edge still holds, and the fresh answer must not become that copy.
+        for (const path of ['../world-crisis.js', '../world-crisis-80.js'] as const) {
+            const fresh = await call(path, 'GET', { fresh: '1' });
+            assert.equal(fresh.status, 200);
+            assert.equal(fresh.cacheControl, 'no-store');
+            const shared = await call(path, 'GET', { fresh: '0' });
+            assert.equal(shared.cacheControl, 's-maxage=5, stale-while-revalidate=5');
         }
     });
 });
