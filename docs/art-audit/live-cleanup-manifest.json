@@ -1,8 +1,8 @@
 {
   "capturedAt": "2026-09-18T06:32:05.868Z",
   "status": "prepared, not applied to production",
-  "prerequisite": "Deploy R2 object deletion and versioned CDN redirect changes before removal. Recheck each SHA immediately before deleting. Preserve any changed or missing image.",
-  "count": 248,
+  "prerequisite": "Deploy the fail-closed art check (24414bc2b and later) before removal, so a deleted upload shows the built-in art instead of a dead link. The R2 deletion and versioned CDN redirect are live (fda38b311). Run scripts/retire-old-vn-images.mts: it rechecks each SHA immediately before deleting and preserves any changed or missing image.",
+  "count": 253,
   "candidates": [
     {
       "id": "event:builtin-awakening-lv2:avatar",
@@ -2235,6 +2235,51 @@
       "bytes": 12246,
       "rollbackFixture": "shinobij.client/e2e/fixtures/vn-identity-audit/035e4a8ccd07aafad992c4872c1e23497cea4a4d3b502b5999a827ce8792b12a.webp",
       "reason": "retire exact reviewed legacy bytes"
+    },
+    {
+      "id": "event:craft-dungeon-forest:backdrop",
+      "eventId": "craft-dungeon-forest",
+      "role": "dungeon-backdrop",
+      "sha256": "918ef7ab677acdf7ab70bac67cc4174fea41bcb0bc26ff20754bc456bc229edb",
+      "bytes": 110722,
+      "rollbackFixture": "shinobij.client/e2e/fixtures/vn-identity-audit/918ef7ab677acdf7ab70bac67cc4174fea41bcb0bc26ff20754bc456bc229edb.webp",
+      "reason": "older Relic Dungeon entrance art that replaced the dungeon's cinematic entrance; retired 2026-09-19"
+    },
+    {
+      "id": "event:craft-dungeon-snow:backdrop",
+      "eventId": "craft-dungeon-snow",
+      "role": "dungeon-backdrop",
+      "sha256": "817113b9f4b8fc3f636c3ae5156c609e73f4a1a3edfea7c06d55795e793f873f",
+      "bytes": 59486,
+      "rollbackFixture": "shinobij.client/e2e/fixtures/vn-identity-audit/817113b9f4b8fc3f636c3ae5156c609e73f4a1a3edfea7c06d55795e793f873f.webp",
+      "reason": "older Relic Dungeon entrance art that replaced the dungeon's cinematic entrance; retired 2026-09-19"
+    },
+    {
+      "id": "event:craft-dungeon-volcano:backdrop",
+      "eventId": "craft-dungeon-volcano",
+      "role": "dungeon-backdrop",
+      "sha256": "8563014059bebb867b72ee9f134d569f753062ac377b62044c55abba1edf61f2",
+      "bytes": 62728,
+      "rollbackFixture": "shinobij.client/e2e/fixtures/vn-identity-audit/8563014059bebb867b72ee9f134d569f753062ac377b62044c55abba1edf61f2.webp",
+      "reason": "older Relic Dungeon entrance art that replaced the dungeon's cinematic entrance; retired 2026-09-19"
+    },
+    {
+      "id": "event:craft-dungeon-shadow:backdrop",
+      "eventId": "craft-dungeon-shadow",
+      "role": "dungeon-backdrop",
+      "sha256": "f737c42e2f2bdba4c192e8a82bdbeb8f3e5ef91537b6b44a547a2239aa419e77",
+      "bytes": 24914,
+      "rollbackFixture": "shinobij.client/e2e/fixtures/vn-identity-audit/f737c42e2f2bdba4c192e8a82bdbeb8f3e5ef91537b6b44a547a2239aa419e77.webp",
+      "reason": "older Relic Dungeon entrance art that replaced the dungeon's cinematic entrance; retired 2026-09-19"
+    },
+    {
+      "id": "event:craft-dungeon-central:backdrop",
+      "eventId": "craft-dungeon-central",
+      "role": "dungeon-backdrop",
+      "sha256": "8accf3db3898c9b2c6ab73be493d04d85b34f8dc43427c046709e243a7ec4176",
+      "bytes": 72070,
+      "rollbackFixture": "shinobij.client/e2e/fixtures/vn-identity-audit/8accf3db3898c9b2c6ab73be493d04d85b34f8dc43427c046709e243a7ec4176.webp",
+      "reason": "older Relic Dungeon entrance art that replaced the dungeon's cinematic entrance; retired 2026-09-19"
     }
   ]
 }

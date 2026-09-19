@@ -6220,7 +6220,7 @@ export function AdminPanel({
                     {
                         slot: "backdrop",
                         label: "VN Backdrop",
-                        hint: "Wide scene art (1024×512+) shown behind all 3 VN pages.",
+                        hint: "Wide scene art (1024×512+) shown at the dungeon entrance (Seal 1). With no upload, players see the built-in entrance art. The pre-rebuild entrance uploads are retired and never shown.",
                         promptTemplate: (biome, dungeonName) => `${biome} hidden dungeon entrance, sealed stone stairwell descending into ancient ruins, atmospheric ${biome} environment, ${dungeonName}, fantasy RPG landscape art, dramatic lighting`,
                     },
                     {

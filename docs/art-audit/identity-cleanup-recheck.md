@@ -9,11 +9,13 @@ Refetched the live public event-image manifest and all 268 assets. The earlier p
 | 120 legacy page portraits | Retire only matching reviewed bytes; retain later uploads |
 | 124 legacy backgrounds | Same protection; 121 are newly covered in this recheck |
 | 4 old event-avatar records | Not used by premium VN cast resolution; included in the storage cleanup list |
-| 20 dungeon-specific assets | Active backdrop, tile, Warden and rare-beast slots; retained |
+| 20 dungeon-specific assets | Tile, Warden and rare-beast slots retained. The 5 entrance backdrops were retired on 2026-09-19 (see below) |
 
 The 124 background slots contain 45 unique images. Four comparison sheets were reviewed against the current scene descriptions and shipped artwork. Several legacy images depict unrelated people or the wrong location; one pet background is a square ninja portrait. These were separate from the earlier 120-slot portrait review.
 
 The 20 dedicated dungeon images were also visually reviewed: each biome has its own matching entrance, card altar, masked Warden and rare beast. They belong to active dungeon-specific slots and are intentionally retained.
+
+**Revised 2026-09-19:** the five entrance backdrops predate the cinematic entrance art that now ships for every dungeon (`/scenes/story/cinematic/side-stories/craft-dungeon-<biome>.webp`), and the dungeon screen showed them in its place. The owner approved retiring them by exact bytes (`RETIRED_DUNGEON_BACKDROPS` in `lib/vn-retired-artwork.ts`, checked by `useVerifiedSharedArt` in the dungeon reader). The altar, Warden and rare-beast uploads have no built-in counterpart and stay.
 
 The static catalog includes 341 event/replay variants, 1,225 pages and 330 resolved assets. The post-cleanup inventory has **zero missing assets**. A new catalog regression checks that removing every reviewed export restores the original background on every affected dialogue line, including compacted replay branches. This caught and fixed an obsolete `/scenes/<story>.png` fallback; story fallbacks now use the actual `/scenes/story/<story>.webp` files.
 
@@ -54,8 +56,6 @@ node node_modules/typescript/bin/tsc -b --pretty false
 
 ## Live storage cleanup status
 
-No production records or CDN objects were deleted. [live-cleanup-manifest.json](live-cleanup-manifest.json) lists the 248 exact cleanup candidates, their byte hashes and rollback fixtures.
+No production records or CDN objects were deleted. [live-cleanup-manifest.json](live-cleanup-manifest.json) lists the 253 exact cleanup candidates (the 248 above plus the 5 dungeon entrances added on 2026-09-19), their byte hashes and rollback fixtures.
 
-Deploy the corrected image-delete endpoint and client first. An authenticated admin can then re-fetch each candidate, compare its SHA-256 with the manifest, and delete only unchanged matches through `/api/images`. Skip changed bytes and keep all 20 active dungeon-specific assets. Verify the refreshed manifest and representative scenes afterward. Rollback uses the archived fixture bytes as an image upload to the recorded ID.
-
-Deleting through the currently deployed endpoint would leave CDN objects behind, which is why the live purge is staged rather than reported as completed. Private/unpublished creator references were not available in this public audit.
+The corrected image-delete endpoint is live (fda38b311). The client must also include the fail-closed check (24414bc2b and later): before it, a failed check kept the stored link, so deleting these uploads would have left dead links on 12 pages whose stale admin rows still point at them. After that, an authenticated admin runs `scripts/retire-old-vn-images.mts --apply` (see [creator-content-review.md](../creator-content-review.md)). It re-fetches each candidate, compares its SHA-256, deletes only unchanged matches through `/api/images`, and reads each slot back. It skips changed bytes and never touches the 15 retained dungeon uploads. Rollback (`--restore`) uploads the backed-up bytes to the recorded ID. Private creator references were not available in this public audit; the later [Creator content review](../creator-content-review.md) read them and found the stale admin rows mentioned above.

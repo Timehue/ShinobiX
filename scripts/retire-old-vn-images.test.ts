@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
 import { classify, plannedSlots, RETIRED_AVATAR_SLOTS } from './retire-old-vn-images.mts';
 import { RETIRED_VN_ART } from '../shinobij.client/src/lib/vn-retired-artwork.ts';
 
@@ -9,6 +10,26 @@ test('only bytes that still equal a retired hash are deleted; newer uploads and 
     assert.equal(classify(expected, { status: 200, sha: 'bbb' }), 'keep-newer-upload');
     assert.equal(classify(expected, { status: 404 }), 'already-gone');
     assert.equal(classify(expected, { status: 503 }), 'unreadable');
+});
+
+test('the code list, the cleanup manifest and the art review record agree slot for slot', () => {
+    const manifest = JSON.parse(readFileSync(new URL('../docs/art-audit/live-cleanup-manifest.json', import.meta.url), 'utf8')) as
+        { count: number; candidates: { id: string; sha256: string; rollbackFixture: string }[] };
+    const record = JSON.parse(readFileSync(new URL('../docs/art-audit/live-art-recheck.json', import.meta.url), 'utf8')) as
+        { rows: { id: string; decision?: string }[] };
+    const plan = new Map(plannedSlots().map(p => [p.slot, p.expected]));
+    const planned = [...plan.keys()].sort();
+    assert.equal(manifest.count, manifest.candidates.length);
+    assert.deepEqual(manifest.candidates.map(c => c.id).sort(), planned, 'cleanup manifest = code list');
+    for (const c of manifest.candidates) {
+        assert.ok(plan.get(c.id)!.has(c.sha256), `${c.id}: manifest hash is not the retired hash`);
+        assert.ok(existsSync(new URL(`../${c.rollbackFixture}`, import.meta.url)), `${c.id}: rollback fixture missing`);
+    }
+    const retiredInRecord = record.rows.filter(r => /^(?:retire|unused premium avatar)/.test(r.decision ?? '')).map(r => r.id).sort();
+    assert.deepEqual(retiredInRecord, planned, 'review record = code list');
+    const kept = record.rows.filter(r => (r.decision ?? '').startsWith('keep')).map(r => r.id);
+    assert.equal(kept.length, 15);
+    assert.ok(kept.every(id => /^event:craft-dungeon-[a-z]+:(?:warden|tilescene|pet)$/.test(id)), 'only dungeon warden, altar and rare-pet art is kept');
 });
 
 test('the plan covers every retired slot plus the four draft avatars, and avatars only match retired bytes', () => {

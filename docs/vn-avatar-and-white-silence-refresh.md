@@ -21,7 +21,7 @@ The browser script exercises the real reader at 2513×1201, 1440×900, 390×844,
 
 Results: 42 focused tests passed; 25 browser cases passed with no page errors or horizontal overflow; the live CDN fingerprint matched through a real browser fetch. TypeScript and focused ESLint checks passed.
 
-Local changes require deployment before live users receive them. The subsequent [live identity review](art-audit/live-identity-review.md) extends coverage to the public portrait library and prevents a cold first-paint flash: the current cast is shown while reviewed slots are checked, and new uploads or failed checks restore their explicit override. Verification is cached for the reader session.
+Local changes require deployment before live users receive them. The subsequent [live identity review](art-audit/live-identity-review.md) extends coverage to the public portrait library and prevents a cold first-paint flash: the current cast is shown while reviewed slots are checked, and new uploads restore their explicit override. Since 2026-09-19 a failed check keeps the current cast. Verification is cached for the reader session.
 
 ## Generated artwork
 
