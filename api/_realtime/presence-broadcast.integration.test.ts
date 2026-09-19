@@ -90,3 +90,57 @@ test('HP ticks stay quiet; visible changes arrive batched (current) or per playe
     assert.deepEqual(legacy.map(([event]) => event), ['presence:update'], 'an older tab still gets the per-player frame');
     assert.equal((legacy[0][1].player as Json).level, 8);
 });
+
+// The fixes for the three roster-refresh regressions, over the wire: a fight
+// flag flipped by a fight host, and a trip that matures on a socket-less
+// player's read, both reach a live client without waiting for a full roster.
+test('a fight host\'s flag flip and a socket-less trip reach a live client', { timeout: 30_000 }, async (t) => {
+    const sockets = await import('./socket.js');
+    const { onlineStore } = await import('./online-store.js');
+    const { noteBattleEnded, noteBattleStarted } = await import('./battle-projection.js');
+    const server = createServer();
+    await new Promise<void>((done) => server.listen(0, '127.0.0.1', done));
+    t.after(async () => { await sockets.closeSocketServer(); if (server.listening) await new Promise<void>((done) => server.close(() => done())); });
+    sockets.attachSocketServer(server);
+    for (let attempt = 0; !sockets.getIo() && attempt < 200; attempt++) await delay(5);
+    assert.ok(sockets.getIo());
+    const address = server.address();
+    assert.ok(address && typeof address !== 'string');
+    const { io } = createRequire(resolve('shinobij.client/package.json'))('socket.io-client');
+
+    const watcher = io(`http://127.0.0.1:${address.port}`, { transports: ['websocket'], reconnection: false, autoConnect: false,
+        auth: { 'x-player-name': WATCHER, 'x-player-token': tokens[WATCHER], presenceBatch: 1 } });
+    t.after(async () => {
+        if (!watcher.connected) { watcher.close(); return; }
+        await new Promise<void>((done) => { watcher.once('disconnect', () => done()); watcher.close(); });
+    });
+    const events: Array<[string, Json]> = [];
+    watcher.onAny((event: string, payload: Json) => events.push([event, payload]));
+    await new Promise<void>((done, fail) => { watcher.once('connect', done); watcher.once('connect_error', fail); watcher.connect(); });
+    const placed = new Promise<void>((done) => watcher.once('presence:sector', () => done()));
+    watcher.emit('presence', { sector: 21, displayName: WATCHER, character: { name: WATCHER, level: 7 } });
+    await placed;
+
+    // A peer in sector 21 with no socket at all (the HTTP heartbeat's world).
+    onlineStore.upsert({ name: MOVER, sector: 21, character: { name: MOVER, level: 7 } });
+    await delay(700);
+    events.length = 0;
+
+    noteBattleStarted(MOVER);
+    await delay(800);
+    const started = events.filter(([event]) => event === 'presence:updates').flatMap(([, p]) => p.players as Json[]);
+    assert.deepEqual(started.map((p) => [p.name, p.inBattle]), [[MOVER, true]], 'peers see the fight start');
+    noteBattleEnded(MOVER);
+    await delay(800);
+    const ended = events.filter(([event]) => event === 'presence:updates').flatMap(([, p]) => p.players as Json[]);
+    assert.deepEqual(ended.map((p) => [p.name, p.inBattle]), [[MOVER, true], [MOVER, false]], 'and the fight end');
+
+    events.length = 0;
+    assert.ok(onlineStore.startTravel(MOVER, 22, Date.now() + 50));
+    await delay(80);
+    assert.equal(onlineStore.get(MOVER)?.sector, 22, 'the trip settles on a plain read');
+    await delay(200);
+    const leaves = events.filter(([event]) => event === 'presence:leave').flatMap(([, p]) => p.names as string[]);
+    assert.deepEqual(leaves, [MOVER], 'the origin hears the departure');
+    onlineStore.remove(MOVER);
+});

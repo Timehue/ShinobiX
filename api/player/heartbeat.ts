@@ -9,7 +9,7 @@ import { recordClientIp, clientIpFrom, recordClientFingerprint, clientFpFrom } f
 import { onlineStore } from '../_realtime/online-store.js';
 import { stampPresenceBeat } from '../_realtime/_presence-beat.js';
 import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUntil, presenceBroadcastSignature, toPlayerRecord } from '../_realtime/presence-input.js';
-import { announcePresenceLeave, queuePresenceUpdate } from '../_realtime/presence-broadcast.js';
+import { queuePresenceUpdate } from '../_realtime/presence-broadcast.js';
 import { clearSleeperCampOnBeat } from '../_realtime/sleeper-camps.js';
 import { getTravelLease, settleTravelLease, travelLeaseSectorAt } from '../_realtime/travel-lease.js';
 import { durablePresenceSectorForWrite } from '../_realtime/world-duel-engagement.js';
@@ -285,8 +285,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // stored character if this beat sent none.
         const slimChar = slimPresenceCharacter(character) ?? existing?.character ?? null;
 
-        // What sector-mates could see before this beat. Captured as plain values:
-        // arriving travel settles by mutating the existing record in place.
+        // What sector-mates could see before this beat, as plain values: a later
+        // read can settle a matured trip on the record in place. A trip that
+        // matured before this point was settled (and announced) by the get()
+        // that produced `existing` — see the store observer in
+        // _realtime/presence-broadcast.ts.
         const sectorBefore = existing?.sector;
         const signatureBefore = presenceBroadcastSignature(existing);
 
@@ -349,14 +352,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         stampPresenceBeat(name);
         void clearSleeperCampOnBeat(name, now).catch(() => undefined);
 
-        // Socket clients no longer take the whole sector roster on every beat
-        // (below), so push what this beat changed that they can see: a first
-        // appearance, a sector move, or the server-derived inBattle flag above.
+        // Socket clients take the whole sector roster only now and then (below),
+        // so push what this beat changed that they can see: a first appearance,
+        // or a display field it carried (level, clan, travel...). Sector moves and
+        // the inBattle flag set above are announced by the store observer, like
+        // every other store-side change.
         const published = onlineStore.get(name);
-        if (published) {
-            const moved = sectorBefore === undefined || sectorBefore !== published.sector;
-            if (sectorBefore !== undefined && moved) announcePresenceLeave(name, sectorBefore);
-            if (moved || signatureBefore !== presenceBroadcastSignature(published)) queuePresenceUpdate(name, published.sector);
+        if (published && (sectorBefore === undefined || signatureBefore !== presenceBroadcastSignature(published))) {
+            queuePresenceUpdate(name, published.sector);
         }
 
         // Do NOT read-delete the challenge inbox here. A challenge can arrive
@@ -388,7 +391,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         //
         // A client whose presence socket is live already receives joins, leaves,
         // moves and state changes pushed per sector, so it asks for the roster
-        // only as a periodic resync (shinobij.client/src/lib/heartbeat-roster.ts).
+        // only when it holds no current one: after a sector change, and about once
+        // a minute otherwise (shinobij.client/src/lib/heartbeat-roster.ts).
         // Serializing every sector-mate into every beat was O(N²) in a crowded
         // sector. The roster still rides every beat for socket-less and older
         // clients, a cold start, and whenever the server corrects the sector.
