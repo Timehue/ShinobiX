@@ -31,7 +31,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
         if (req.method === 'GET') {
             if (!(await enforceRateLimitKv(req, res, 'world-crisis-80-read', 90, 60_000, null))) return;
-            return res.status(200).json({ crisis: await readWorldCrisis80ProjectionCached() });
+            const crisis = await readWorldCrisis80ProjectionCached();
+            // Same edge caching as api/world-crisis.ts: 5s on the success path
+            // only; refusals, errors and admin POSTs stay `no-store`.
+            res.setHeader('Cache-Control', 's-maxage=5, stale-while-revalidate=5');
+            return res.status(200).json({ crisis });
         }
         if (req.method !== 'POST') return res.status(405).end();
         if (!isFullAdmin(req)) return res.status(401).json({ error: 'Admin authentication required.' });
