@@ -23,6 +23,7 @@
         "test:pet-breeding-odds": "node --import tsx scripts/pet-breeding-odds-audit.mjs",
         "sizecheck": "node scripts/check-build-size.mjs",
         "narrative:audit": "node --import tsx scripts/narrative-audit.mts",
+        "narrative:export-creator": "node --import tsx scripts/export-creator-content.mts",
         "generate:story-content": "node --import tsx scripts/generate-story-content.mts",
         "check:story-content": "node --import tsx scripts/generate-story-content.mts --check",
         "generate:runtime-mode-docs": "node --import tsx scripts/generate-runtime-mode-docs.mjs",

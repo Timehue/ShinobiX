@@ -116,6 +116,8 @@ def render_scene(sc, header):
         if sc["isFinale"]: extra += f' &nbsp;·&nbsp; FINALE → title "{esc(sc["liberatorTitle"])}"'
     elif sc["kind"] == "road":
         extra = f' &nbsp;·&nbsp; NPC: {esc(sc["npcName"])} ({esc(sc["npcArchetype"])})' + (" · POST-FINALE" if sc["postFinale"] else "")
+    elif sc["kind"] == "side":
+        extra = f' &nbsp;·&nbsp; {esc(sc["note"])}' if sc.get("note") else ""
     elif sc["kind"] == "epilogue":
         extra = f' &nbsp;·&nbsp; plays once after winning the finale on the <b>{esc(sc["lane"])}</b> choice'
         extra += f' &nbsp;·&nbsp; <font color="#0a5a8a">[only with: {esc(sc["requireTrait"])}]</font>' if sc["requireTrait"] else ' &nbsp;·&nbsp; (base ending)'
@@ -128,7 +130,7 @@ def render_scene(sc, header):
     if sc.get("cast"):
         cast_strip(sc["cast"])
     for pg in sc["pages"]:
-        flow.append(Paragraph(f'Page {pg["index"]+1} &nbsp;— &nbsp;{esc(pg["title"])}', S["page_head"]))
+        flow.append(Paragraph(f'Page {pg["index"]+1} &nbsp;·&nbsp; {esc(pg["title"])}', S["page_head"]))
         scene_caption_box(pg["scene"])
         for ln in pg["lines"]:
             sp, tx = esc(ln["speaker"]), esc(ln["text"])
@@ -153,7 +155,7 @@ def render_scene(sc, header):
 
 # Cover
 flow.append(Spacer(1, 1.6*inch))
-flow.append(Paragraph("ShinobiX — The Story", S["cover_title"]))
+flow.append(Paragraph("ShinobiX: The Story", S["cover_title"]))
 flow.append(Paragraph("Full script export for review and fine-tuning", S["cover_sub"]))
 flow.append(Spacer(1, 0.3*inch))
 tot_ch = sum(len(v["chapters"]) for v in data["villages"])
@@ -161,6 +163,8 @@ tot_il = sum(len(v["interludes"]) for v in data["villages"])
 cover_bits = [f'{len(data["villages"])} village' + ("s" if len(data["villages"]) != 1 else ""),
               f'{tot_ch} chapters', f'{tot_il} interludes']
 if data["roadEvents"]: cover_bits.append(f'{len(data["roadEvents"])} wandering road events')
+side_sections = [s for s in data.get("sideStories", []) if s["scenes"]]
+if side_sections: cover_bits.append(f'{sum(len(s["scenes"]) for s in side_sections)} side-story scenes')
 flow.append(Paragraph(" &nbsp;·&nbsp; ".join(cover_bits), S["cover_sub"]))
 flow.append(Spacer(1, 0.5*inch))
 flow.append(Paragraph(
@@ -184,6 +188,9 @@ for v in data["villages"]:
 if data["roadEvents"]:
     flow.append(Paragraph('<b>Wandering Road Events</b> (cross-village, found on the world map)', S["toc"]))
     flow.append(Paragraph('<font size=8 color="#5b5b78">' + " · ".join(f'L{e["level"]} {esc(e["title"])}' for e in data["roadEvents"]) + '</font>', S["toc"]))
+for section in side_sections:
+    flow.append(Paragraph(f'<b>{esc(section["heading"])}</b> ({len(section["scenes"])} scenes)', S["toc"]))
+    flow.append(Paragraph(f'<font size=8 color="#5b5b78">{esc(section["caption"])}</font>', S["toc"]))
 flow.append(PageBreak())
 
 # Villages
@@ -209,12 +216,21 @@ if data["roadEvents"]:
     for e in data["roadEvents"]:
         render_scene(e, f'ROAD · Level {e["level"]} · {e["title"]}')
 
+# Side stories (reckonings, field scenes, rifts, Echoes of War)
+for section in side_sections:
+    flow.append(PageBreak())
+    flow.append(Paragraph(esc(section["heading"]), S["village"]))
+    hr(ACCENT, 1.4, 1, 8)
+    flow.append(Paragraph(esc(section["caption"]), S["caption"]))
+    for sc in section["scenes"]:
+        render_scene(sc, f'{section["heading"].upper()} · {sc["title"]}')
+
 def footer(canvas, doc):
     canvas.saveState(); canvas.setFont("Body", 7.5); canvas.setFillColor(MUTED)
     canvas.drawRightString(letter[0]-0.75*inch, 0.5*inch, f'ShinobiX story export · page {doc.page}')
     canvas.restoreState()
 
 SimpleDocTemplate(out_path, pagesize=letter, leftMargin=0.85*inch, rightMargin=0.85*inch,
-                  topMargin=0.7*inch, bottomMargin=0.7*inch, title="ShinobiX — The Story",
+                  topMargin=0.7*inch, bottomMargin=0.7*inch, title="ShinobiX: The Story",
                   author="ShinobiX").build(flow, onFirstPage=footer, onLaterPages=footer)
 print("wrote", out_path)

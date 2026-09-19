@@ -198,7 +198,7 @@ Detailed local logs are `.tmp/narrative-full-tests-final.log`, `.tmp/narrative-f
 
 ## Remaining limits
 
-- External custom creator scenes could not be inspected: both anonymous admin-slot requests returned 401. No authenticated export was available. Built-in scenes are protected from stale copies, and `--content` supports auditing a future authorized export; arbitrary custom scenes are not certified by this review.
+- External custom creator scenes could not be inspected: both anonymous admin-slot requests returned 401. No authenticated export was available. Built-in scenes are protected from stale copies, and `--content` supports auditing a future authorized export; arbitrary custom scenes are not certified by this review. **Resolved in the follow-up [Creator content review](creator-content-review.md) (2026-09-18):** every live Creator row was read and audited, and player-facing narrative now has a test-enforced no-dash rule.
 - Browser verification covered representative production-client journeys with fixtures, not every possible save-state combination or a live production account. The source review and graph audit cover the broader repository corpus. Service-worker cache behavior was outside the fixture runs.
 - These changes are local and have not been deployed. Production configuration and deployment checks remain part of the normal release process.
 - Editorial quality cannot be guaranteed by a word filter. The retained complete-scene sampler and contextual warnings make future review repeatable; they do not replace reading new dialogue in its scene.

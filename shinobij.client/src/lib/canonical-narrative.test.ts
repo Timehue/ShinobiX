@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import { canonicalNarrativeEvent, isReservedNarrativeId } from './canonical-narrative';
+import { adminEditableNarrativeEvents, canonicalNarrativeEvent, isReservedNarrativeId } from './canonical-narrative';
 import { storylines } from '../data/storylines';
 import { defaultPetEncounterVn } from '../data/default-vn-events';
 import type { CreatorEvent } from '../types/vn';
@@ -58,6 +58,37 @@ test('old system aliases retain art but cannot revive legacy narration', () => {
     assert.equal(result.image, saved.image);
     assert.deepEqual(result.vnPages, defaultPetEncounterVn.vnPages);
     assert.equal(canonicalNarrativeEvent(defaultPetEncounterVn, saved), defaultPetEncounterVn);
+});
+
+test('the Admin Panel lists built-ins as players receive them, not the stored pre-rebuild copies', () => {
+    // Shape of the live admin2 row for this chapter (read 2026-09-18): the
+    // three-page pre-rebuild draft with retired "Frost Echo" lore.
+    const base = frostfang();
+    const stale: CreatorEvent = {
+        ...base, name: 'Frostfang Village: The Pack Survives', image: '/api/img?id=event%3Astory-frostfang-village-4-0%3Abg',
+        dialogue: ['Elder Sova: The ice remembers footsteps. Walk with purpose, and it carries you.'],
+        vnPages: [
+            { title: 'The Pack Survives', scene: 'Snow lashes across a frozen training yard.', speaker: 'Elder Sova', dialogue: ['Elder Sova: It is my honor to meet someone chosen by the Frost Echo.'] },
+            { title: 'The Warning', scene: 'Snow lashes across a frozen training yard.', speaker: 'Captain Yura', dialogue: ['Captain Yura: The Frost Echo has not chosen someone for generations.'] },
+            { title: "The Kage's Shadow", scene: 'Snow lashes across a frozen training yard.', speaker: 'Frost Seal Echo', dialogue: ['Frost Seal Echo: The pact was made to protect us.'], choices: [{ text: 'Protect the people.', nextPage: 2, trait: 'merciful' }] },
+        ],
+    };
+    const custom: CreatorEvent = { id: 'event-festival', name: 'Lantern Festival', biome: 'forest', icon: 'L', eventKind: 'visualNovel', levelReq: 3, xpReward: 0, ryoReward: 0, staminaReward: 0, dialogue: ['Narrator: The lanterns go up at dusk.'] };
+    const orphan: CreatorEvent = { ...defaultPetEncounterVn, vnPages: [{ title: 'A Presence in the Shadows', scene: 'Old', speaker: 'Narrator', dialogue: ['Narrator: It chose to find you.'] }] };
+    const saved = [stale, custom, orphan];
+    const listed = adminEditableNarrativeEvents([base], saved);
+    assert.deepEqual(listed.map(event => event.id), [base.id, custom.id]);
+    const chapter = listed[0];
+    assert.deepEqual(chapter.vnPages, base.vnPages);
+    assert.deepEqual(chapter.dialogue, base.dialogue);
+    assert.equal(chapter.image, stale.image, 'uploaded event art survives');
+    assert.doesNotMatch(JSON.stringify(chapter), /Frost Echo|ice remembers/);
+    assert.equal(listed[1], custom, 'custom events are listed untouched');
+    assert.equal(saved.length, 3, 'stored copies are not removed');
+    const panel = readFileSync(new URL('../screens/AdminPanel.tsx', import.meta.url), 'utf8');
+    assert.match(panel, /adminEditableNarrativeEvents\(builtInVisualNovels, creatorEvents\)/);
+    assert.match(panel, /canonicalNarrativeEvent\(defaultPetEncounterVn, petEncounterVn, \["pet-encounter"\]\)/);
+    assert.match(panel, /canonicalNarrativeEvent\(defaultAncientChestVn, ancientChestVn, \["ancient-chest"\]\)/);
 });
 
 test('reserved scenes cannot be redelivered through generic saved-event triggers', () => {

@@ -1,5 +1,6 @@
-// Generate a readable PDF of the entire story (chapters, interludes, road
-// events) for review and fine-tuning. Imports the LIVE story data so the PDF
+// Generate a readable PDF of the entire story (chapters, interludes, endings,
+// road events, and the side stories: reckonings, field scenes, Hollow Rifts and
+// Echoes of War) for review and fine-tuning. Imports the LIVE story data so the PDF
 // can never drift from what players see, then hands off to the reportlab
 // renderer (scripts/_story-pdf-build.py; needs `pip install reportlab`).
 //
@@ -28,6 +29,10 @@ import { storyInterludesByVillage } from "../shinobij.client/src/data/story-inte
 import { storyEpiloguesByVillage } from "../shinobij.client/src/data/story-epilogues.ts";
 import { storyRoadEvents } from "../shinobij.client/src/data/story-road-events.ts";
 import { splitDialogueLine } from "../shinobij.client/src/lib/vn.ts";
+import { buildCorpus } from "./narrative-corpus.mts";
+import { storyFieldBackdrop } from "../shinobij.client/src/lib/story-field-work.ts";
+import { hollowRifts } from "../shinobij.client/src/data/hollow-rifts.ts";
+import { ECHOES_OPPONENTS } from "../shinobij.client/src/data/echoes-of-war.ts";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..");
@@ -173,9 +178,42 @@ const roadEvents = villageFilter ? [] : storyRoadEvents.map((e) => ({
     pages: renderPages(e.pages ?? []),
 }));
 
+// Side stories come from the same scene inventory `npm run narrative:audit`
+// checks, so the review copy and the audited corpus cannot drift. Cross-village,
+// so omitted when a single village is selected (like road events).
+const SIDE_SECTIONS = [
+    { family: "reckoning", heading: "Reckonings", caption: "Companion quests offered after a village's chapters: the request and the payoff when the task is turned in." },
+    { family: "field", heading: "Field Scenes", caption: "The world-map stops inside each reckoning, plus the aftermath pages that depend on the route the player chose." },
+    { family: "rift", heading: "Hollow Rifts", caption: "Rift givers' first and repeat visits, the descent scene at the rift, and the reaction after a first clear." },
+    { family: "echoes", heading: "Echoes of War", caption: "The ten Echoes opponents (before the match, defeat, first victory, rematch), each age's introduction, and every witness choice with its later replies." },
+];
+const riftSlug = new Map(hollowRifts.map((r) => [r.id, r.slug]));
+const echoesScene = new Map(ECHOES_OPPONENTS.map((o) => [o.id, o.sceneImage]));
+function sideBackdrop(family, id) {
+    const [key, phase] = id.split("/").slice(1);
+    if (family === "reckoning" || family === "field") return storyFieldBackdrop(key) ?? null;
+    if (family === "rift") return riftSlug.has(key) ? `/scenes/story/${phase === "descent" ? "rift-descend-" : "rift-giver-"}${riftSlug.get(key)}.webp` : null;
+    if (family === "echoes") return echoesScene.get(key) ?? null;
+    return null;
+}
+const corpus = villageFilter ? [] : buildCorpus();
+const sideStories = SIDE_SECTIONS.map((section) => ({
+    heading: section.heading,
+    caption: section.caption,
+    scenes: corpus.filter((s) => s.family === section.family).map((s) => ({
+        kind: "side",
+        title: `${s.pages[0]?.title ?? s.id} (${s.id.split("/").slice(1).join(" / ")})`,
+        note: s.context,
+        editLocator: `${path.basename(s.source)} → ${s.id.split("/").slice(1).join(" → ")}`,
+        backdrop: sideBackdrop(section.family, s.id),
+        pages: renderPages(s.pages),
+    })),
+}));
+
 // Transcode every scene's backdrop + speaker portraits (skipped under --no-images).
 for (const v of villages) for (const sc of [...v.chapters, ...v.interludes, ...v.epilogues]) await attachImages(sc);
 for (const e of roadEvents) await attachImages(e);
+for (const section of sideStories) for (const sc of section.scenes) await attachImages(sc);
 
 const defaultOut = villageFilter
     ? path.join(ROOT, `ShinobiX-Story-${slug(villages[0].village)}.pdf`)
@@ -183,7 +221,7 @@ const defaultOut = villageFilter
 const outPdf = path.resolve(positional[0] ?? defaultOut);
 
 const jsonPath = path.join(tmp, "story-export.json");
-writeFileSync(jsonPath, JSON.stringify({ villages, roadEvents }, null, 2));
+writeFileSync(jsonPath, JSON.stringify({ villages, roadEvents, sideStories }, null, 2));
 
 const py = spawnSync("python", [path.join(HERE, "_story-pdf-build.py"), jsonPath, outPdf], { stdio: "inherit" });
 if (py.status !== 0) {
@@ -192,4 +230,5 @@ if (py.status !== 0) {
 }
 const chCount = villages.reduce((n, v) => n + v.chapters.length, 0);
 const ilCount = villages.reduce((n, v) => n + v.interludes.length, 0);
-console.log(`\nDone: ${chCount} chapters, ${ilCount} interludes, ${roadEvents.length} road events → ${outPdf}`);
+const sideCount = sideStories.reduce((n, s) => n + s.scenes.length, 0);
+console.log(`\nDone: ${chCount} chapters, ${ilCount} interludes, ${roadEvents.length} road events, ${sideCount} side-story scenes → ${outPdf}`);
