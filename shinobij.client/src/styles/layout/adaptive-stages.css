@@ -148,24 +148,7 @@
   }
 }
 
-/* Chronicle Duel: the flexible play field absorbs short-height pressure. */
-@media (max-width: 760px) {
-  .chronicle-shell--duel-active .chronicle-table {
-    min-block-size: 0;
-    grid-template-rows:
-      minmax(28px, auto)
-      minmax(52px, auto)
-      minmax(26px, auto)
-      minmax(0, 1fr)
-      minmax(132px, 32dvh);
-  }
-}
-
-@media (max-height: 620px) and (max-width: 979px) {
-  .chronicle-shell--duel-active .chronicle-table {
-    grid-template-rows: 28px 52px 26px minmax(0, 1fr) minmax(112px, 31dvh);
-  }
-}
+/* Chronicle owns its adaptive battlefield and action tray in chronicle-duel.css. */
 
 /* Three/canvas pet modes are intentional full-viewport takeovers. */
 body.pet-combat-active {

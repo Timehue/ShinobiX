@@ -3782,373 +3782,6 @@ button.chronicle-card {
   }
 }
 
-/* Dedicated phone cockpit: the field camera gets the flexible row while the
-   hand and commands remain fixed at the bottom. */
-@media (max-width: 760px) {
-  .chronicle-shell {
-    min-height: 100dvh;
-    padding: 4px;
-  }
-  .chronicle-table {
-    grid-template-rows: 32px 62px 30px minmax(0, 1fr) 184px;
-    gap: 3px;
-    width: 100%;
-    height: calc(100dvh - 8px);
-    min-height: 620px;
-    max-height: none;
-    padding: 4px;
-    border-radius: 10px;
-  }
-  .chronicle-table[data-attacker="0"] {
-    --chronicle-attack-column: 10%;
-  }
-  .chronicle-table[data-attacker="1"] {
-    --chronicle-attack-column: 30%;
-  }
-  .chronicle-table[data-attacker="2"] {
-    --chronicle-attack-column: 50%;
-  }
-  .chronicle-table[data-attacker="3"] {
-    --chronicle-attack-column: 70%;
-  }
-  .chronicle-table[data-attacker="4"] {
-    --chronicle-attack-column: 90%;
-  }
-  .chronicle-room-banner {
-    min-height: 32px;
-    grid-template-columns: 1fr;
-    margin: 0;
-    padding: 3px 6px;
-  }
-  .chronicle-room-banner > span,
-  .chronicle-room-banner > small {
-    display: none;
-  }
-  .chronicle-room-banner strong {
-    font-size: 0.68rem;
-  }
-  .chronicle-duel-status {
-    grid-template-columns: minmax(0, 1fr) auto;
-    min-height: 62px;
-    gap: 4px;
-    margin: 0;
-  }
-  .chronicle-duel-status > div:last-child {
-    display: none;
-  }
-  .chronicle-duel-status .chronicle-duelist-avatar {
-    width: 42px;
-    height: 42px;
-  }
-  .chronicle-duel-status .chronicle-combatant {
-    grid-template-columns: 42px minmax(0, 1fr);
-  }
-  .chronicle-duel-status .chronicle-health-meter {
-    width: min(92px, 26vw);
-  }
-  .chronicle-turn {
-    align-items: end !important;
-    text-align: right;
-  }
-  .chronicle-turn span {
-    font-size: 0.56rem;
-  }
-  .chronicle-opponent-hand {
-    top: 72px;
-    right: 7px;
-    left: auto;
-    min-height: 28px;
-    padding: 0;
-    transform: scale(0.72);
-    transform-origin: top right;
-  }
-  .chronicle-phase-rail {
-    gap: 3px;
-    padding-block: 1px;
-  }
-  .chronicle-phase-rail li {
-    min-height: 26px;
-    padding: 4px 2px;
-  }
-
-  .chronicle-phase-rail b {
-    font-size: 0.59rem;
-  }
-
-  .chronicle-duel-stage {
-    grid-template-columns: 1fr;
-    grid-template-rows: minmax(0, 1fr) 40px;
-    gap: 3px;
-    min-height: 0;
-  }
-  .chronicle-playmat {
-    --chron-zone-w: min(16.8vw, 65px);
-    grid-column: 1;
-    grid-row: 1;
-    min-height: 0;
-    padding: 2px 3px;
-  }
-  .chronicle-playmat .chronicle-zone-row {
-    grid-template-columns: repeat(5, minmax(42px, 1fr));
-    gap: 2px;
-    margin-block: 0;
-  }
-  .chronicle-playmat .chronicle-zone {
-    min-height: calc(var(--chron-zone-w) * 1.05);
-    padding: 1px;
-    border-radius: 6px;
-  }
-  .chronicle-playmat .chronicle-zone-row.backrow .chronicle-zone {
-    min-height: calc(var(--chron-zone-w) * 0.62);
-  }
-  .chronicle-playmat .chronicle-zone .chronicle-card {
-    width: min(100%, calc(var(--chron-zone-w) - 6px));
-  }
-  .chronicle-playmat .chronicle-zone > small {
-    right: 1px;
-    bottom: 1px;
-    left: 1px;
-    padding: 2px 1px;
-    font-size: 0.43rem;
-  }
-  .chronicle-side-label {
-    font-size: 0.38rem;
-  }
-  .chronicle-field-divider {
-    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
-    min-height: 44px;
-    gap: 3px;
-    margin: 1px -1px;
-    padding: 2px;
-  }
-  .chronicle-field-zone {
-    grid-template-columns: minmax(0, 1fr);
-    min-height: 40px;
-    padding: 2px;
-  }
-  .chronicle-field-zone__label {
-    display: none;
-  }
-  .chronicle-active-field {
-    gap: 4px;
-    min-width: 0;
-  }
-  .chronicle-active-field .chronicle-card {
-    width: 27px;
-  }
-  .chronicle-active-field strong {
-    font-size: 0.56rem;
-  }
-  .chronicle-active-field small {
-    font-size: 0.4rem;
-  }
-  .chronicle-battle-message {
-    padding: 2px 4px;
-  }
-  .chronicle-battle-message .eyebrow {
-    display: none;
-  }
-  .chronicle-battle-message strong {
-    font-size: 0.52rem;
-    line-height: 1.25;
-  }
-  .chronicle-pile-rail {
-    grid-column: 1;
-    grid-row: 2;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    grid-template-rows: 1fr;
-    gap: 3px;
-    min-height: 40px;
-    padding: 2px;
-  }
-  .chronicle-pile-zone {
-    min-height: 34px;
-    grid-template-columns: 1fr auto;
-    align-items: center;
-    padding: 2px 4px;
-  }
-
-  .chronicle-pile-card-back,
-  .chronicle-pile-mark {
-    display: none;
-  }
-  .chronicle-pile-zone > span {
-    font-size: 0.37rem;
-  }
-  .chronicle-pile-zone > b {
-    position: static;
-    min-width: 18px;
-    font-size: 0.52rem;
-  }
-
-  .chronicle-card-detail-panel.open {
-    display: none;
-  }
-
-  .chronicle-player-console {
-    grid-template-columns: minmax(0, 1fr) 38px;
-    grid-template-rows: 44px 84px 48px;
-    gap: 3px;
-    min-height: 184px;
-    padding: 3px;
-  }
-  .chronicle-player-bar {
-    grid-column: 1;
-    grid-row: 1;
-    grid-template-columns: minmax(0, 1fr) auto;
-    padding: 0 2px;
-  }
-  .chronicle-player-bar .chronicle-duelist-avatar {
-    width: 38px;
-    height: 38px;
-  }
-  .chronicle-player-bar .chronicle-combatant {
-    grid-template-columns: 38px minmax(0, 1fr);
-  }
-  .chronicle-player-bar .eyebrow {
-    display: none;
-  }
-  .chronicle-player-bar .chronicle-combatant__identity {
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: center;
-    gap: 3px;
-  }
-  .chronicle-player-bar .chronicle-combatant__identity > strong {
-    grid-column: 1 / -1;
-    font-size: 0.72rem;
-  }
-  .chronicle-player-bar .chronicle-combatant__health {
-    grid-column: 1 / -1;
-  }
-  .chronicle-player-bar .chronicle-health-meter {
-    width: min(78px, 22vw);
-  }
-  .chronicle-player-bar > div:last-child {
-    justify-content: flex-end;
-    padding: 0;
-    font-size: 0.58rem;
-  }
-  .chronicle-hand {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    justify-content: flex-start;
-    gap: 0;
-    height: 84px;
-    padding: 3px 5px 2px;
-    scroll-snap-type: x proximity;
-  }
-  .chronicle-hand .chronicle-card {
-    width: 68px;
-    scroll-snap-align: center;
-  }
-  .chronicle-hand .chronicle-card + .chronicle-card {
-    margin-left: -9px;
-  }
-  .chronicle-hand .chronicle-card.selected {
-    margin-inline: 5px -4px;
-    transform: translateY(-7px) scale(1.04);
-  }
-  .chronicle-command-dock {
-    grid-column: 1 / -1;
-    grid-row: 3;
-    flex-wrap: nowrap;
-    gap: 4px;
-    padding: 1px 42px 1px 1px;
-    overflow-x: auto;
-  }
-  .chronicle-command-context {
-    display: none;
-  }
-  .chronicle-command-dock .chronicle-placement-help {
-    position: absolute;
-    right: 4px;
-    bottom: calc(100% + 3px);
-    left: 4px;
-    overflow: hidden;
-    border-radius: 5px;
-    background: rgba(5, 11, 17, 0.92);
-    padding: 3px 5px;
-    font-size: 0.5rem;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    pointer-events: none;
-  }
-  .chronicle-command-dock button {
-    min-height: 42px;
-    padding: 6px 9px;
-    white-space: nowrap;
-  }
-  .chronicle-command-dock button.primary {
-    flex: 1 0 auto;
-  }
-  .chronicle-mobile-card-zoom {
-    display: flex;
-    right: 44px;
-    bottom: 53px;
-    width: auto;
-    min-height: 28px;
-    margin: 0;
-    padding: 4px 7px;
-    font-size: 0.54rem;
-  }
-  .chronicle-duel-utility {
-    position: absolute;
-    right: 4px;
-    bottom: 4px;
-    width: 38px;
-    height: 42px;
-  }
-  .chronicle-utility-trigger {
-    min-height: 42px;
-  }
-  .chronicle-utility-menu {
-    right: 0;
-    bottom: 48px;
-    width: min(220px, calc(100vw - 24px));
-  }
-
-  .chronicle-log {
-    top: 102px;
-    right: 7px;
-    width: min(310px, calc(100% - 14px));
-    max-height: 50%;
-  }
-  .chronicle-log:not([open]) {
-    width: auto;
-  }
-  .chronicle-graveyards {
-    right: 7px;
-    bottom: 190px;
-    left: 7px;
-    grid-template-columns: 1fr;
-    max-height: 46%;
-  }
-  .chronicle-target-preview {
-    top: 2px;
-    font-size: 0.36rem;
-  }
-  .chronicle-targeting-lane {
-    top: 15%;
-    bottom: 15%;
-  }
-  .chronicle-resolution-fx b {
-    font-size: 1.05rem;
-  }
-  .chronicle-duelist-cut-in {
-    top: 100px;
-    grid-template-columns: 54px minmax(0, 1fr);
-    width: min(300px, 82%);
-    padding: 6px 10px;
-  }
-  .chronicle-duelist-cut-in.foe {
-    grid-template-columns: minmax(0, 1fr) 54px;
-  }
-  .chronicle-duelist-cut-in .chronicle-duelist-avatar {
-    width: 50px;
-    height: 50px;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .chronicle-phase-rail::before,
   .chronicle-playmat .chronicle-zone {
@@ -4772,392 +4405,6 @@ button.chronicle-card {
     min-height: 36px;
     padding-inline: 7px;
     font-size: 0.62rem;
-  }
-}
-
-@media (max-width: 760px) {
-  .chronicle-shell--duel-active {
-    width: 100%;
-    padding: 0;
-  }
-  .chronicle-shell--duel-active .chronicle-table {
-    /* The cockpit row buys its extra height from the mat, which distributes
-       ~120px of dead space with space-around at phone sizes. A taller row is
-       what lets a hand card show whole instead of being cropped top+bottom. */
-    grid-template-rows: 50px 64px 31px minmax(0, 1fr) clamp(194px, 23dvh, 214px);
-    width: 100%;
-    height: 100%;
-    min-height: 0;
-    border-radius: 0;
-    padding: 4px;
-  }
-  .chronicle-shell--duel-active .chronicle-room-banner {
-    min-height: 0;
-    padding-block: 2px;
-    padding-inline: 8px;
-  }
-  .chronicle-shell--duel-active .chronicle-room-banner__actions button {
-    box-sizing: border-box;
-    block-size: 44px;
-    min-block-size: 44px !important;
-  }
-  .chronicle-shell--duel-active .chronicle-duel-status {
-    grid-template-columns: minmax(0, 1fr) auto;
-    min-height: 64px;
-    padding: 2px 3px;
-  }
-  .chronicle-shell--duel-active .chronicle-duel-status .chronicle-combatant,
-  .chronicle-shell--duel-active .chronicle-player-bar .chronicle-combatant {
-    padding: 2px 3px;
-  }
-  /* The AAA depth pass sizes the life plate at 1.24rem with no breakpoint,
-     which made the pod 72px tall inside a 64px status track: the pill hung
-     over the phase rail and buried a phase pill. Phone-sized type keeps the
-     whole pod inside its own row. */
-  .chronicle-shell--duel-active .chronicle-duel-status .chronicle-combatant b,
-  .chronicle-shell--duel-active .chronicle-player-bar .chronicle-combatant b {
-    min-width: 72px;
-    padding: 2px 7px;
-    font-size: 0.9rem;
-    /* A four-figure life total plus its HP suffix must never wrap: a
-       two-line plate is taller than the row that holds it. */
-    white-space: nowrap;
-  }
-  /* The AAA stat plate is 0.74rem and nowrap at every width, so on a
-     phone-sized zone the ATK/DEF read ran out past both borders. */
-  .chronicle-shell--duel-active .chronicle-playmat .chronicle-zone > small {
-    max-width: calc(100% - 2px);
-    overflow: hidden;
-    padding: 1px 5px;
-    font-size: 0.5rem;
-    letter-spacing: 0;
-    text-overflow: ellipsis;
-  }
-  .chronicle-shell--duel-active
-    .chronicle-duel-status
-    .chronicle-combatant__identity
-    > strong {
-    font-size: 0.8rem;
-  }
-  .chronicle-shell--duel-active .chronicle-duel-status .eyebrow {
-    font-size: 0.46rem;
-  }
-  .chronicle-shell--duel-active .chronicle-turn {
-    min-width: 72px;
-    border-color: transparent;
-    background: transparent;
-    padding: 2px 3px;
-    box-shadow: none;
-  }
-  .chronicle-shell--duel-active .chronicle-turn > b {
-    font-size: 0.68rem;
-  }
-  .chronicle-shell--duel-active .chronicle-opponent-hand {
-    top: 73px;
-    right: clamp(94px, 30vw, 120px);
-    left: auto;
-    min-height: 0;
-    padding: 0;
-    transform: none;
-    filter: none;
-  }
-  .chronicle-shell--duel-active .chronicle-opponent-hand__card,
-  .chronicle-shell--duel-active .chronicle-opponent-hand > b {
-    display: none;
-  }
-  .chronicle-shell--duel-active .chronicle-opponent-hand__count {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 3px;
-    border: 1px solid rgba(119, 153, 170, 0.36);
-    border-radius: 999px;
-    background: rgba(4, 11, 16, 0.9);
-    padding: 2px 6px;
-    color: #c2d1da;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.34);
-  }
-  .chronicle-shell--duel-active .chronicle-opponent-hand__count b {
-    color: #f2cc83;
-    font-size: 0.62rem;
-  }
-  .chronicle-shell--duel-active .chronicle-opponent-hand__count small {
-    color: #8096a4;
-    font-size: 0.38rem;
-    font-weight: 900;
-    letter-spacing: 0.08em;
-  }
-  .chronicle-shell--duel-active .chronicle-phase-rail {
-    padding-bottom: 3px;
-  }
-  .chronicle-shell--duel-active .chronicle-duel-stage {
-    min-height: 0;
-  }
-  .chronicle-shell--duel-active .chronicle-field-divider {
-    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  }
-  .chronicle-shell--duel-active .chronicle-player-console {
-    /* 44px, not 42px: the challenger pod measures 44 and was spilling its
-       last two pixels onto the hand strip. */
-    grid-template-rows: 44px minmax(80px, 1fr) 46px;
-    height: 100%;
-    min-height: 0;
-    border-radius: 8px 8px 0 0;
-  }
-  /* The hand strip clips on Y by design (overflow-y: hidden), so a fixed-width
-     card taller than the strip simply lost its top and bottom. Sizing the card
-     FROM the strip height instead means it always shows whole, and it grows on
-     the taller phones that have the room. The extra padding-top is the runway
-     the selected-card lift needs so a picked card is not cropped either. */
-  .chronicle-shell--duel-active .chronicle-hand {
-    height: 100%;
-    padding: 6px 5px 2px;
-    border-inline: 0;
-  }
-  /* The mat knob was width-only, so on a short phone five rows of portrait
-     cards were taller than the stage and the outer rows were cropped away.
-     The height term only ever binds where the board did not fit. */
-  .chronicle-shell--duel-active .chronicle-playmat {
-    --chron-zone-w: min(16.8vw, 7vh, 65px);
-  }
-  .chronicle-shell--duel-active .chronicle-hand .chronicle-card {
-    width: auto;
-    height: 100%;
-    max-height: 100%;
-  }
-  .chronicle-shell--duel-active .chronicle-hand .chronicle-card.selected {
-    transform: translateY(-5px) scale(1.03);
-  }
-  /* At 68px wide the nameplate was left ~10px of width, so every card in hand
-     read as two letters. The element gem moves onto the art — taking over from
-     the seal, which marks the same element — and the name gets the whole
-     header back. */
-  .chronicle-shell--duel-active
-    .chronicle-hand
-    .chronicle-card
-    .chronicle-card__header {
-    grid-template-columns: minmax(0, 1fr);
-    min-height: 0;
-    padding: 2px 4px;
-    /* A backdrop-filter makes the header the containing block for absolutely
-       positioned descendants, which would pin the gem below back on top of
-       the name. A flat translucent plate frosts the art just as well here. */
-    background: rgba(4, 10, 15, 0.52);
-    backdrop-filter: none;
-  }
-  .chronicle-shell--duel-active
-    .chronicle-hand
-    .chronicle-card
-    .chronicle-card__name {
-    font-size: 0.44rem;
-  }
-  .chronicle-shell--duel-active
-    .chronicle-hand
-    .chronicle-card
-    .chronicle-card__element {
-    position: absolute;
-    z-index: 4;
-    right: 4px;
-    bottom: 4px;
-    width: 20px;
-    height: 19px;
-    margin: 0;
-  }
-  .chronicle-shell--duel-active
-    .chronicle-hand
-    .chronicle-card
-    .chronicle-card__art-seal {
-    display: none;
-  }
-  .chronicle-shell--duel-active .chronicle-command-dock {
-    min-height: 0;
-    justify-content: flex-start;
-    scroll-snap-type: x proximity;
-    scrollbar-width: none;
-  }
-  .chronicle-shell--duel-active .chronicle-command-dock::-webkit-scrollbar {
-    display: none;
-  }
-  .chronicle-shell--duel-active .chronicle-command-dock button {
-    flex: 0 0 auto;
-    min-height: 42px;
-    font-size: 0.68rem;
-    scroll-snap-align: start;
-  }
-  .chronicle-shell--duel-active .chronicle-command-dock button.primary {
-    flex: 0 0 auto;
-  }
-  /* Sits just under the phase rail (banner 50 + status 64 + rail 31 + gaps).
-     At 138px the collapsed pill landed ON the rail and hid the End Phase
-     pill behind it. */
-  .chronicle-shell--duel-active .chronicle-log {
-    top: 161px;
-    right: 5px;
-  }
-  /* The floating "Read <card>" chip was pinned over the right end of the
-     hand and covered the last card or two. The challenger row has room for
-     it once the Deck/Grave readout steps aside — the pile rail directly
-     above already spells both counts out in full. */
-  .chronicle-shell--duel-active .chronicle-player-bar > div:last-child {
-    display: none;
-  }
-  .chronicle-shell--duel-active .chronicle-mobile-card-zoom {
-    top: 8px;
-    right: 6px;
-    bottom: auto;
-    display: block;
-    max-width: 40%;
-    overflow: hidden;
-    padding: 6px 9px;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
-  /* Cap the pod so a long duelist name ellipsises instead of running under
-     the chip that now shares this row. */
-  .chronicle-shell--duel-active .chronicle-player-bar .chronicle-combatant {
-    max-width: 56%;
-  }
-  /* The placement tip floats over the pile rail; a rim keeps that reading as
-     a deliberate banner rather than two rows bleeding into each other. */
-  .chronicle-shell--duel-active .chronicle-command-dock .chronicle-placement-help {
-    border: 1px solid rgba(226, 185, 91, 0.34);
-    background: rgba(4, 10, 15, 0.96);
-  }
-}
-
-@media (max-width: 420px) and (max-height: 700px) {
-  .chronicle-shell--duel-active .chronicle-table {
-    grid-template-rows: 50px 50px 24px minmax(0, 1fr) 182px;
-    gap: 2px;
-    padding: 3px;
-  }
-  /* A 50px status track cannot carry an eyebrow as well, and the life plate
-     drops another notch so the pod stays clear of the phase rail. */
-  .chronicle-shell--duel-active .chronicle-duel-status .eyebrow {
-    display: none;
-  }
-  .chronicle-shell--duel-active .chronicle-duel-status .chronicle-combatant b,
-  .chronicle-shell--duel-active .chronicle-player-bar .chronicle-combatant b {
-    font-size: 0.78rem;
-  }
-  .chronicle-shell--duel-active .chronicle-log {
-    top: 137px;
-  }
-  .chronicle-shell--duel-active .chronicle-room-banner {
-    min-height: 0;
-    padding: 2px 5px;
-  }
-  .chronicle-shell--duel-active .chronicle-room-banner strong {
-    font-size: 0.61rem;
-  }
-  .chronicle-shell--duel-active .chronicle-room-banner__actions button {
-    min-height: 44px;
-    padding: 2px 5px;
-    font-size: 0.5rem;
-  }
-  .chronicle-shell--duel-active .chronicle-duel-status {
-    min-height: 50px;
-  }
-  .chronicle-shell--duel-active .chronicle-duel-status .chronicle-duelist-avatar {
-    width: 34px;
-    height: 34px;
-  }
-  .chronicle-shell--duel-active .chronicle-duel-status .chronicle-combatant {
-    grid-template-columns: 34px minmax(0, 1fr);
-  }
-  .chronicle-shell--duel-active .chronicle-duel-status .chronicle-combatant b {
-    min-width: 68px;
-    padding: 2px 5px;
-  }
-  .chronicle-shell--duel-active .chronicle-duel-status .chronicle-health-meter {
-    width: min(76px, 23vw);
-    height: 7px;
-  }
-  .chronicle-shell--duel-active .chronicle-opponent-hand {
-    top: 57px;
-  }
-  .chronicle-shell--duel-active .chronicle-phase-rail li {
-    min-height: 21px;
-    padding: 2px 1px;
-  }
-  .chronicle-shell--duel-active .chronicle-phase-rail b {
-    font-size: 0.5rem;
-  }
-  .chronicle-shell--duel-active .chronicle-playmat {
-    --chron-zone-w: min(15.8vw, 6.9vh, 50px);
-  }
-  .chronicle-shell--duel-active .chronicle-playmat .chronicle-zone {
-    min-height: calc(var(--chron-zone-w) * 0.98);
-  }
-  /* Derived from the knob rather than pinned at 38px, so the height term
-     above can actually shrink the board when it does not fit. */
-  .chronicle-shell--duel-active .chronicle-playmat .chronicle-zone .chronicle-card {
-    width: min(100%, calc(var(--chron-zone-w) - 5px));
-  }
-  .chronicle-shell--duel-active .chronicle-playmat .chronicle-zone-row.backrow .chronicle-zone {
-    min-height: calc(var(--chron-zone-w) * 0.54);
-  }
-  .chronicle-shell--duel-active .chronicle-playmat .chronicle-zone-row.backrow .chronicle-card {
-    width: min(100%, calc(var(--chron-zone-w) - 16px));
-  }
-  .chronicle-shell--duel-active .chronicle-field-divider {
-    min-height: 34px;
-  }
-  .chronicle-shell--duel-active .chronicle-field-zone,
-  .chronicle-shell--duel-active .chronicle-field-zone__empty {
-    min-height: 30px;
-  }
-  .chronicle-shell--duel-active .chronicle-pile-rail {
-    min-height: 32px;
-  }
-  .chronicle-shell--duel-active .chronicle-pile-zone {
-    min-height: 28px;
-  }
-  .chronicle-shell--duel-active .chronicle-player-console {
-    grid-template-rows: 32px minmax(66px, 1fr) 44px;
-    min-height: 0;
-  }
-  /* The pile counters are four text chips here; 34px is all they need, and
-     the six saved pixels go back to the mat. */
-  .chronicle-shell--duel-active .chronicle-duel-stage {
-    grid-template-rows: minmax(0, 1fr) 34px;
-  }
-  .chronicle-shell--duel-active .chronicle-player-bar .chronicle-duelist-avatar {
-    width: 30px;
-    height: 30px;
-  }
-  .chronicle-shell--duel-active .chronicle-player-bar .chronicle-combatant {
-    grid-template-columns: 30px minmax(0, 1fr);
-  }
-  .chronicle-shell--duel-active .chronicle-player-bar .chronicle-combatant__identity > strong {
-    font-size: 0.62rem;
-  }
-  .chronicle-shell--duel-active .chronicle-player-bar .chronicle-combatant b {
-    min-width: 66px;
-    padding: 1px 4px;
-    font-size: 0.7rem;
-  }
-  /* The challenger pod has to fit a 32px track here, or its life plate rides
-     down onto the hand strip. */
-  .chronicle-shell--duel-active .chronicle-player-bar .chronicle-combatant {
-    padding: 0 2px;
-  }
-  .chronicle-shell--duel-active .chronicle-player-bar .chronicle-combatant__identity {
-    gap: 1px;
-  }
-  .chronicle-shell--duel-active .chronicle-player-bar .chronicle-health-meter {
-    height: 6px;
-  }
-  /* Width still comes from the strip height here too — a fixed 54px card was
-     taller than the strip and lost its bottom third. */
-  .chronicle-shell--duel-active .chronicle-hand .chronicle-card {
-    width: auto;
-  }
-  .chronicle-shell--duel-active .chronicle-command-dock button,
-  .chronicle-shell--duel-active .chronicle-utility-trigger {
-    min-height: 44px;
-  }
-  .chronicle-shell--duel-active .chronicle-command-dock {
-    padding-block: 0;
   }
 }
 
@@ -6226,5 +5473,607 @@ button.chronicle-card {
   .chronicle-playmat .chronicle-zone.fx-struck .chronicle-card.compact,
   .chronicle-card-ghost.figure {
     animation: none;
+  }
+}
+
+
+/* Adaptive Chronicle presentation. Rules and action authority remain in the shared engine. */
+.chronicle-mobile-phase, .chronicle-decision {
+  display: none;
+}
+.chronicle-card-search {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.chronicle-card-search label {
+  display: grid;
+  gap: 6px;
+}
+.chronicle-card-search input, .chronicle-card-search select {
+  min-height: 44px;
+  min-width: 0;
+  background: #101c25;
+  color: #f2dfb8;
+  border: 1px solid #77603f;
+  border-radius: 6px;
+  padding: 8px;
+  font: inherit;
+}
+.chronicle-card-filters summary {
+  cursor: pointer;
+  padding: 12px;
+  min-height: 44px;
+  box-sizing: border-box;
+  color: #f2dfb8;
+}
+.chronicle-card-filters > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px;
+}
+.chronicle-deck-status {
+  display: none;
+}
+.chronicle-deck-status nav {
+  display: none;
+}
+.chronicle-deck-owned {
+  display: block;
+  font-size: 12px;
+  color: #ead7ac;
+  padding: 6px;
+}
+.chronicle-binder-meta {
+  display: block;
+  font-size: 12px;
+  color: #ead7ac;
+  padding: 6px 2px;
+  text-transform: capitalize;
+}
+@media (max-width: 900px), (max-height: 500px) and (max-width: 960px) {
+  .chronicle-shell {
+    --chron-touch: 44px;
+    --chron-ink: #081119;
+    --chron-gold: #e3bd76;
+  }
+  .chronicle-shell button, .chronicle-shell select, .chronicle-shell summary {
+    min-height: var(--chron-touch);
+  }
+  .chronicle-shell button {
+    touch-action: manipulation;
+  }
+  .chronicle-shell--duel-active {
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    overflow: auto;
+  }
+  .chronicle-shell--duel-active .chronicle-table {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    height: auto;
+    min-height: 100%;
+    max-height: none;
+    padding: 4px 4px calc(var(--chronicle-dock-height, 64px) + 8px);
+    border-radius: 0;
+  }
+  .chronicle-shell--duel-active .chronicle-room-banner {
+    min-height: 44px;
+    padding: 0 4px;
+    margin: 0;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .chronicle-room-banner > span, .chronicle-room-banner > small {
+    display: none;
+  }
+  .chronicle-shell--duel-active .chronicle-room-banner strong {
+    font-size: 12px;
+  }
+  .chronicle-shell--duel-active .chronicle-room-banner__actions button {
+    min-height: 44px;
+    font-size: 12px;
+  }
+  .chronicle-shell--duel-active .chronicle-duel-status {
+    min-height: 52px;
+    padding: 2px;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .chronicle-duel-status > div:last-child, .chronicle-duel-status .eyebrow {
+    display: none;
+  }
+  .chronicle-shell--duel-active .chronicle-combatant {
+    grid-template-columns: 36px minmax(0, 1fr);
+    padding: 0;
+  }
+  .chronicle-shell--duel-active .chronicle-duelist-avatar {
+    width: 36px;
+    height: 36px;
+  }
+  .chronicle-shell--duel-active .chronicle-combatant__identity > strong {
+    font-size: 12px;
+  }
+  .chronicle-shell--duel-active .chronicle-combatant b {
+    font-size: 16px;
+    padding: 2px 6px;
+    white-space: nowrap;
+  }
+  .chronicle-shell--duel-active .chronicle-health-meter {
+    width: 72px;
+    height: 6px;
+  }
+  .chronicle-shell--duel-active .chronicle-turn {
+    min-width: 72px;
+    padding: 2px;
+  }
+  .chronicle-shell--duel-active .chronicle-turn > b, .chronicle-shell--duel-active .chronicle-turn span {
+    font-size: 12px;
+  }
+  .chronicle-shell--duel-active .chronicle-opponent-hand {
+    display: none;
+  }
+  .chronicle-shell--duel-active .chronicle-phase-rail {
+    display: none;
+  }
+  .chronicle-mobile-phase {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px;
+    color: #f2dfb8;
+    font-size: 13px;
+  }
+  .chronicle-mobile-phase > span:last-child {
+    display: flex;
+    gap: 4px;
+  }
+  .chronicle-mobile-phase small {
+    display: block;
+    font-size: 12px;
+    color: #b6c6cf;
+  }
+  .chronicle-mobile-phase i {
+    width: 6px;
+    height: 6px;
+    border: 1px solid #d2b67f;
+    border-radius: 50%;
+  }
+  .chronicle-mobile-phase i.active {
+    background: #e3bd76;
+  }
+  .chronicle-shell--duel-active .chronicle-duel-stage {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 44px;
+    gap: 4px;
+    flex: 1;
+    min-height: 300px;
+  }
+  .chronicle-shell--duel-active .chronicle-card-detail-panel {
+    display: none;
+  }
+  .chronicle-shell--duel-active .chronicle-playmat {
+    --chron-zone-w: min(16vw, 65px);
+    grid-column: 1;
+    grid-row: 1;
+    min-height: 250px;
+    padding: 3px;
+  }
+  .chronicle-shell--duel-active .chronicle-playmat .chronicle-zone-row {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 3px;
+    margin: 0;
+  }
+  .chronicle-shell--duel-active .chronicle-playmat .chronicle-zone {
+    min-width: 44px;
+    min-height: 54px;
+    padding: 1px;
+    border-radius: 5px;
+  }
+  .chronicle-shell--duel-active .chronicle-playmat .chronicle-zone-row.backrow .chronicle-zone {
+    min-height: 44px;
+  }
+  .chronicle-shell--duel-active .chronicle-playmat .chronicle-zone .chronicle-card {
+    width: min(100%, 38px);
+  }
+  .chronicle-shell--duel-active .chronicle-playmat .backrow .chronicle-zone .chronicle-card {
+    width: 28px;
+  }
+  .chronicle-shell--duel-active .chronicle-active-field .chronicle-card {
+    width: 44px;
+  }
+  .chronicle-shell--duel-active .chronicle-utility-trigger {
+    width: 44px;
+  }
+  .chronicle-shell--duel-active .chronicle-playmat .chronicle-zone > small {
+    font-size: 12px;
+    padding: 1px;
+    letter-spacing: 0;
+    white-space: normal;
+    line-height: 1.1;
+  }
+  .chronicle-shell--duel-active .chronicle-zone.legal-target {
+    border: 2px solid #efd087;
+    box-shadow: inset 0 0 8px #d3aa5260;
+  }
+  .chronicle-shell--duel-active .chronicle-zone.legal-target::after {
+    content: "✓";
+    position: absolute;
+    top: 0;
+    right: 2px;
+    color: #ffe4a7;
+    font-size: 14px;
+  }
+  .chronicle-shell--duel-active .chronicle-zone.selected {
+    outline: 2px solid white;
+    outline-offset: -4px;
+  }
+  .chronicle-playmat:has(.legal-target) .chronicle-zone:not(.legal-target):not(.selected) {
+    opacity: .5;
+  }
+  .chronicle-shell--duel-active .chronicle-field-divider {
+    min-height: 44px;
+    grid-template-columns: 1fr 1fr;
+    padding: 2px;
+    margin: 0;
+  }
+  .chronicle-shell--duel-active .chronicle-field-zone {
+    min-height: 44px;
+    padding: 2px;
+  }
+  .chronicle-field-zone__label, .chronicle-battle-message .eyebrow {
+    display: none;
+  }
+  .chronicle-shell--duel-active .chronicle-battle-message strong {
+    font-size: 12px;
+  }
+  .chronicle-shell--duel-active .chronicle-pile-rail {
+    grid-column: 1;
+    grid-row: 2;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: 44px;
+    padding: 0;
+    gap: 3px;
+  }
+  .chronicle-shell--duel-active .chronicle-pile-zone {
+    min-height: 44px;
+    padding: 2px;
+    grid-template-columns: 1fr auto;
+  }
+  .chronicle-pile-card-back, .chronicle-pile-mark {
+    display: none;
+  }
+  .chronicle-shell--duel-active .chronicle-pile-zone > span {
+    font-size: 11px;
+  }
+  .chronicle-shell--duel-active .chronicle-pile-zone > b {
+    font-size: 13px;
+    position: static;
+  }
+  .chronicle-shell--duel-active .chronicle-player-console {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    min-height: 0;
+    gap: 4px;
+    padding: 4px;
+  }
+  .chronicle-decision {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 3px 8px;
+    align-items: center;
+    padding: 6px 48px 6px 6px;
+    border-left: 3px solid #e3bd76;
+    color: #f4dfb5;
+  }
+  .chronicle-decision strong {
+    font-size: 15px;
+    line-height: 1.35;
+  }
+  .chronicle-decision span {
+    font-size: 13px;
+    grid-column: 1;
+  }
+  .chronicle-decision button {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    font-size: 13px;
+  }
+  .chronicle-decision button + button {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+  .chronicle-shell--duel-active .chronicle-player-bar {
+    display: flex;
+    min-height: 40px;
+    padding-right: 48px;
+  }
+  .chronicle-player-bar .eyebrow, .chronicle-player-bar > div:last-child, .chronicle-player-bar .chronicle-duelist-avatar {
+    display: none;
+  }
+  .chronicle-shell--duel-active .chronicle-player-bar .chronicle-combatant {
+    display: block;
+  }
+  .chronicle-shell--duel-active .chronicle-player-bar .chronicle-combatant__identity {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .chronicle-shell--duel-active .chronicle-hand {
+    justify-content: flex-start;
+    gap: 16px;
+    height: 172px;
+    min-height: 172px;
+    padding: 20px 14px 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-padding-inline: 20px;
+    scroll-snap-type: x proximity;
+  }
+  .chronicle-shell--duel-active .chronicle-hand .chronicle-card {
+    flex: 0 0 96px;
+    width: 96px;
+    height: 134px;
+    max-height: none;
+    margin: 0;
+    scroll-snap-align: center;
+  }
+  .chronicle-shell--duel-active .chronicle-hand .chronicle-card.selected {
+    transform: translateY(-5px) scale(1.14);
+    z-index: 5;
+  }
+  .chronicle-hand:has(.selected) .chronicle-card:not(.selected) {
+    opacity: .7;
+  }
+  .chronicle-shell--duel-active .chronicle-hand .chronicle-card .chronicle-card__header {
+    grid-template-columns: 1fr;
+    padding: 3px;
+    background: #081119e8;
+    backdrop-filter: none;
+  }
+  .chronicle-shell--duel-active .chronicle-hand .chronicle-card .chronicle-card__name {
+    font-size: 12px;
+    line-height: 1.2;
+    white-space: normal;
+    -webkit-line-clamp: 3;
+  }
+  .chronicle-shell--duel-active .chronicle-hand .chronicle-card__element {
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+  }
+  .chronicle-shell--duel-active .chronicle-command-dock {
+    position: fixed;
+    z-index: 50;
+    bottom: env(safe-area-inset-bottom);
+    left: env(safe-area-inset-left);
+    right: env(safe-area-inset-right);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    overflow: visible;
+    height: auto;
+    min-height: 48px;
+    padding: 8px;
+    background: #081119;
+    border-top: 1px solid #d2b67f;
+    box-sizing: border-box;
+  }
+  .chronicle-shell--duel-active .chronicle-command-dock button {
+    flex: 1 1 120px;
+    min-height: 48px;
+    font-size: 14px;
+    white-space: normal;
+    padding: 8px;
+  }
+  .chronicle-shell--duel-active .chronicle-response-waiting strong, .chronicle-shell--duel-active .chronicle-response-waiting b, .chronicle-shell--duel-active .chronicle-error {
+    font-size: 14px;
+  }
+  .chronicle-shell--duel-active .chronicle-utility-menu button {
+    min-height: 44px;
+    font-size: 14px;
+  }
+  .chronicle-shell--duel-active .chronicle-hand .chronicle-card, .chronicle-shell--duel-active .chronicle-zone {
+    scroll-margin-block-end: calc(var(--chronicle-dock-height, 64px) + 12px);
+  }
+  .chronicle-shell--duel-active .chronicle-command-context, .chronicle-shell--duel-active .chronicle-command-dock .chronicle-placement-help, .chronicle-shell--duel-active .chronicle-phase-action-deferred {
+    display: none;
+  }
+  .chronicle-shell--duel-active .chronicle-mobile-card-zoom {
+    position: static;
+    min-height: 44px;
+    width: 100%;
+    font-size: 13px;
+  }
+  .chronicle-shell--duel-active .chronicle-player-console:has(.chronicle-hand .selected) .chronicle-mobile-card-zoom {
+    display: none;
+  }
+  .chronicle-shell--duel-active .chronicle-duel-utility {
+    position: absolute;
+    right: 4px;
+    top: 4px;
+    bottom: auto;
+    width: 44px;
+    height: 44px;
+  }
+  .chronicle-shell--duel-active .chronicle-utility-menu {
+    bottom: 48px;
+    width: min(280px, 85vw);
+  }
+  .chronicle-shell--duel-active .chronicle-log {
+    position: static;
+    z-index: 1;
+    width: auto;
+    max-width: 100%;
+    max-height: none;
+    order: 6;
+  }
+  .chronicle-shell--duel-active .chronicle-log summary {
+    font-size: 13px;
+    padding: 12px;
+  }
+  .chronicle-shell--duel-active .chronicle-playmat .chronicle-zone > .chronicle-target-preview {
+    font-size: 12px;
+    line-height: 1.25;
+    position: static;
+    white-space: normal;
+  }
+  .chronicle-shell--duel-active .chronicle-zone:has(.chronicle-target-preview) > small {
+    position: static;
+  }
+  .chronicle-card-modal {
+    max-width: calc(100vw - 16px);
+    max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px);
+  }
+  .chronicle-card-zoom {
+    padding: 48px 12px 12px;
+  }
+  .chronicle-card-zoom__close {
+    width: 48px;
+    height: 48px;
+  }
+  .chronicle-card-zoom__codex p, .chronicle-card-zoom__stats {
+    font-size: 16px;
+    line-height: 1.5;
+  }
+  .chronicle-card-zoom__actions {
+    position: sticky;
+    bottom: 0;
+    background: #081119;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .chronicle-card-zoom__actions button {
+    min-height: 48px;
+  }
+  .chronicle-tutorial__foot button {
+    min-height: 48px;
+    font-size: 14px;
+  }
+  .chronicle-binder .chronicle-collection, .chronicle-deck .chronicle-collection {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .chronicle-binder .chronicle-card, .chronicle-deck .chronicle-card.compact {
+    width: 100%;
+  }
+  .chronicle-binder .chronicle-card__dossier, .chronicle-binder .chronicle-card__text, .chronicle-binder .chronicle-card__footer, .chronicle-binder .chronicle-card__discipline, .chronicle-binder .chronicle-card__stats, .chronicle-binder .chronicle-card__support-kind {
+    display: none;
+  }
+  .chronicle-binder .chronicle-card {
+    grid-template-rows: auto 1fr;
+  }
+  .chronicle-binder .chronicle-card__name, .chronicle-deck .chronicle-card.compact .chronicle-card__name {
+    font-size: 14px;
+    line-height: 1.3;
+  }
+  .chronicle-binder .chronicle-card__header {
+    padding: 5px;
+  }
+  .chronicle-binder .chronicle-owned-badge {
+    font-size: 14px;
+  }
+  .chronicle-card-search {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .chronicle-card-search input {
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .chronicle-card-filters > div {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .chronicle-deck {
+    display: block;
+  }
+  .chronicle-deck-status {
+    position: sticky;
+    top: 0;
+    z-index: 25;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    background: #081119f5;
+    padding: 12px 4px;
+    border-bottom: 1px solid #d2b67f;
+  }
+  .chronicle-deck-status > span {
+    grid-column: 1 / -1;
+    font-size: 13px;
+  }
+  .chronicle-deck-status > button {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .chronicle-deck-status nav {
+    display: flex;
+    grid-column: 1 / -1;
+    gap: 8px;
+  }
+  .chronicle-deck-status nav button {
+    flex: 1;
+  }
+  .chronicle-deck-status [aria-pressed="true"] {
+    border-color: #efd087;
+    background: #493b24;
+  }
+  .chronicle-deck[data-view="collection"] .chronicle-deck__list, .chronicle-deck[data-view="deck"] .chronicle-deck-catalog {
+    display: none;
+  }
+  .chronicle-deck .chronicle-deck-slot__add {
+    position: static;
+    width: 100%;
+    min-height: 48px;
+    font-size: 24px;
+  }
+  .chronicle-deck__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto 44px 64px;
+    gap: 4px;
+  }
+  .chronicle-deck__row button {
+    min-width: 44px;
+    min-height: 48px;
+  }
+  .chronicle-deck__inspect {
+    text-align: left;
+    font-size: 14px;
+  }
+  .chronicle-tabs button {
+    min-height: 48px;
+    font-size: 14px;
+  }
+}
+@media (max-height: 500px) and (min-width: 761px) and (max-width: 960px) {
+  .chronicle-shell--duel-active .chronicle-table {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    grid-template-rows: 44px 52px auto 1fr;
+  }
+  .chronicle-shell--duel-active .chronicle-room-banner {
+    grid-column: 1 / -1;
+  }
+  .chronicle-shell--duel-active .chronicle-duel-status {
+    grid-column: 1;
+  }
+  .chronicle-shell--duel-active .chronicle-mobile-phase {
+    grid-column: 1;
+  }
+  .chronicle-shell--duel-active .chronicle-duel-stage {
+    grid-column: 1;
+  }
+  .chronicle-shell--duel-active .chronicle-player-console {
+    grid-column: 2;
+    grid-row: 2 / 5;
+    justify-content: center;
+  }
+  .chronicle-shell--duel-active .chronicle-command-dock {
+    left: auto;
+    width: 300px;
   }
 }
