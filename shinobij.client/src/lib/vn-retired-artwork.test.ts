@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import type { CreatorEvent } from '../types/vn';
-import { RETIRED_VN_ART, retiredVnArtHash, retiredVnArtSources, omitRetiredVnArt, isRetiredVnArt } from './vn-retired-artwork';
+import { RETIRED_DUNGEON_BACKDROPS, RETIRED_VN_ART, retiredVnArtHash, retiredVnArtSources, omitRetiredVnArt, isRetiredVnArt } from './vn-retired-artwork';
 import { RETIRED_VN_PORTRAITS } from './vn-retired-portraits';
 import { RETIRED_VN_BACKGROUNDS } from './vn-retired-backgrounds';
 
@@ -52,7 +52,7 @@ test('verified retirement clears only exact matching fields without changing sto
     assert.equal(omitRetiredVnArt(custom, new Set([source('0:right')])).vnPages![0].rightImage, '/uploads/new.webp');
 });
 
-test('new bytes in an old shared slot survive and failed checks can retry', async t => {
+test('a failed check shows the built-in art, retries, and new bytes in an old slot still survive', async t => {
     let requests = 0;
     t.mock.method(globalThis, 'fetch', async () => {
         requests++;
@@ -60,10 +60,39 @@ test('new bytes in an old shared slot survive and failed checks can retry', asyn
         return new Response('a newly published admin image');
     });
     const url = `${source('1')}&v=test-new-art`;
-    assert.equal(await isRetiredVnArt(id, url), false);
-    assert.equal(await isRetiredVnArt(id, url), false);
+    assert.equal(await isRetiredVnArt(id, url), true, 'an unverifiable old slot never outranks the built-in art');
+    assert.equal(await isRetiredVnArt(id, url), false, 'the next check retries and keeps proven new bytes');
     assert.equal(await isRetiredVnArt(id, url), false);
     assert.equal(requests, 2);
+});
+
+test('a deleted upload (404) or a timed-out check never leaves a dead link in the scene', async t => {
+    t.mock.method(globalThis, 'fetch', async (url: string) => {
+        if (url.includes('timeout')) throw new DOMException('The operation timed out.', 'TimeoutError');
+        return new Response('', { status: 404 });
+    });
+    assert.equal(await isRetiredVnArt(id, `${source('2')}&v=deleted`), true);
+    assert.equal(await isRetiredVnArt(id, `${source('2:right')}&v=timeout`), true);
+    assert.equal(await isRetiredVnArt('creator-custom', '/api/img?id=vn%3Acreator-custom%3Apage%3A0'), false, 'unlisted slots are never fetched or hidden');
+});
+
+test('the five old Relic Dungeon entrances match archived bytes; warden, altar and rare-pet art is kept', async t => {
+    t.mock.method(globalThis, 'fetch', async (url: string) => {
+        const key = new URLSearchParams(url.split('?')[1]).get('id')!;
+        return new Response(readFileSync(new URL(`../../e2e/fixtures/vn-identity-audit/${RETIRED_DUNGEON_BACKDROPS[key]}.webp`, import.meta.url)));
+    });
+    assert.equal(Object.keys(RETIRED_DUNGEON_BACKDROPS).length, 5);
+    for (const biome of ['forest', 'snow', 'volcano', 'shadow', 'central']) {
+        const dungeon = `craft-dungeon-${biome}`;
+        const url = `/api/img?id=${encodeURIComponent(`event:${dungeon}:backdrop`)}&v=live`;
+        assert.equal(await isRetiredVnArt(dungeon, url), true, biome);
+        for (const kept of ['warden', 'tilescene', 'pet']) {
+            assert.equal(retiredVnArtHash(dungeon, `/api/img?id=${encodeURIComponent(`event:${dungeon}:${kept}`)}`), undefined, `${biome} ${kept}`);
+        }
+        assert.equal(retiredVnArtHash('craft-dungeon-other', url), undefined, 'a slot only retires for its own dungeon');
+    }
+    const dungeonScreen = readFileSync(new URL('../screens/Dungeon.tsx', import.meta.url), 'utf8');
+    assert.match(dungeonScreen, /const adminBackdrop = useVerifiedSharedArt\(event\.id, sharedImages\[`event:\$\{event\.id\}:backdrop`\]\);/);
 });
 
 test('the six reviewed live exports match their fingerprints and retire successfully', async t => {

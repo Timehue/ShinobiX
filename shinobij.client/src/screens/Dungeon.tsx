@@ -29,7 +29,7 @@ import {
 } from "../lib/dungeon-pet-authority";
 import { resolveDungeonStage } from "../lib/dungeon-stage";
 import { resolveDungeonSpeakerPortrait } from "../lib/ai-fight-art";
-import { useVnArtwork } from '../lib/useVnArtwork';
+import { useVerifiedSharedArt, useVnArtwork } from '../lib/useVnArtwork';
 import { overlayVnImages } from '../lib/vn-shared-artwork';
 import { resolveVnPresentation } from '../lib/vn-presentation';
 import { isLowEndMobile, prefersReducedMotion } from '../lib/device-tier';
@@ -109,7 +109,7 @@ export function DungeonEncounter({
     // backdrop (VN scene), warden (boss portrait), tilescene (seal 2
     // banner), pet (seal 3 rare-beast portrait). Keys piggyback on the
     // existing `event:` category so no server prefix change is needed.
-    const adminBackdrop = sharedImages[`event:${event.id}:backdrop`];
+    const adminBackdrop = useVerifiedSharedArt(event.id, sharedImages[`event:${event.id}:backdrop`]);
     const adminTileScene = sharedImages[`event:${event.id}:tilescene`];
     const adminPet = sharedImages[`event:${event.id}:pet`];
     const presentation = resolveVnPresentation({ event, page, pageIndex: stagePage, lineIndex, speaker,
