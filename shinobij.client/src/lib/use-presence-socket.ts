@@ -96,8 +96,8 @@ export function usePresenceSocket({
             const offMove = api.onMove((sector, name, tile) => {
                 if (sector === currentSectorRef.current) moveLiveSectorPlayer(name, tile, sector);
             });
-            const offGone = api.onGone((names) => {
-                removeLiveSectorPlayers(names);
+            const offGone = api.onGone((names, sector) => {
+                removeLiveSectorPlayers(names, sector);
             });
             const offKick = api.onKick(() => {
                 heartbeatRef.current();
