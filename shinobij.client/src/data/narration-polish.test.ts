@@ -21,7 +21,7 @@ for (const item of approved) test(`${item.id}: approved passage survives generat
     assert.ok(scene, item.scene);
     const page = scene.pages[item.page];
     const keys = item.field.split('.');
-    const field = (value: any) => keys.reduce((v, key) => v[key], value);
+    const field = (value: unknown) => keys.reduce<unknown>((v, key) => (v as Record<string, unknown>)[key], value);
     assert.equal(field(page), item.after);
     if (scene.family !== 'rift') {
         const output = scene.family === 'reckoning'
@@ -36,7 +36,8 @@ for (const item of approved) test(`${item.id}: approved passage survives generat
     // Rift text is exercised through the production repeat-event builder in the corpus.
     const base = { id: item.event.split(':')[0], vnPages: [page] } as CreatorEvent;
     const stale = structuredClone(base);
-    keys.slice(0, -1).reduce((v: any, key) => v[key], stale.vnPages![0])[keys.at(-1)!] = item.before;
+    const parent = keys.slice(0, -1).reduce<unknown>((v, key) => (v as Record<string, unknown>)[key], stale.vnPages![0]);
+    (parent as Record<string, unknown>)[keys.at(-1)!] = item.before;
     assert.deepEqual(clean(canonicalNarrativeEvent(base, stale).vnPages![0]), clean(page));
 });
 
