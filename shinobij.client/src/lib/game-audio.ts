@@ -1,5 +1,6 @@
 import {
   isAudioMuted,
+  getAudioVolume,
   subscribeAudioMute,
 } from "./pet-music";
 import { sfxDeliveryPath } from "./audio-delivery";
@@ -249,7 +250,7 @@ function audioContext(): AudioContext | null {
       context = new Context();
 
       master = context.createGain();
-      master.gain.value = isAudioMuted() || isAudioBackgrounded() ? 0 : MASTER_GAIN;
+      master.gain.value = isAudioMuted() || isAudioBackgrounded() ? 0 : MASTER_GAIN * getAudioVolume();
 
       limiter = context.createDynamicsCompressor();
       limiter.threshold.value = -5;
@@ -278,7 +279,7 @@ function audioContext(): AudioContext | null {
         } else {
           if (master && context) {
             master.gain.cancelScheduledValues(context.currentTime);
-            master.gain.setValueAtTime(MASTER_GAIN, context.currentTime);
+            master.gain.setValueAtTime(MASTER_GAIN * getAudioVolume(), context.currentTime);
           }
           if (context?.state === "suspended") {
             void context.resume().catch(() => {});

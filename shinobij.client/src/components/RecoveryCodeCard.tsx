@@ -131,8 +131,8 @@ export function RecoveryCodeCard({ playerName }: { playerName: string }) {
         <div className="recovery-code-card">
             <h3>Recovery Code</h3>
             <p className="hint recovery-code-blurb">
-                Your shinobi has no email attached, so this code is the only way back in if you
-                forget your password. Generate one and keep it somewhere safe.
+                Use a recovery code to get back in if you forget your password.
+                Generate one and keep it somewhere safe. Linking Google provides another way to sign in.
             </p>
 
             {code ? (

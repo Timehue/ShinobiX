@@ -33,8 +33,8 @@ import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { type MoveChoreoKind } from "../lib/pet-coliseum-scene";
 import { runPetDuel, runPetPartyDuel, DUEL_TPS, type DuelResult } from "../lib/pet-duel-sim";
 import { petVisualId } from "../data/pet-evolutions";
-import { playPetSfx, primePetSfx } from "../lib/pet-sfx";
-import { duckBattleMusic, isAudioMuted, setAudioMuted, setBattleMusicIntensity, startBattleMusic, stopBattleMusic, subscribeAudioMute } from "../lib/pet-music";
+import { playPetSfx } from "../lib/pet-sfx";
+import { duckBattleMusic, isAudioMuted, setBattleMusicIntensity, startBattleMusic, stopBattleMusic } from "../lib/pet-music";
 import { petCloseupPresentationModel, petCombatModel, type PetCombatModelProfile } from "../lib/pet-3d-models";
 import { directPetDuelPresentation } from "../lib/pet-duel-stage-director";
 import { commandedActorId } from "../lib/pet-duel-live";
@@ -167,9 +167,7 @@ const isVersusPlayer = (d: LiveDuel | undefined | null): boolean =>
 export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyReservePet, seed, result, live, onOutcome, onProgress, sharedImages = {}, initialTick = 0, onFightAgain, settlementStatus, onRetrySettlement, settlementCopy, resultSupplement, onExit, onConnectionLost }: PetColiseumDuelProps) {
     const [qualityId, setQualityId] = useState<PetVisualQuality>(() => petVisualQuality().id);
     const quality = PET_VISUAL_QUALITY_PRESETS[qualityId];
-    const [audioMuted, setAudioMutedState] = useState(() => isAudioMuted());
     const battleMusicTheme = hollowHoundSurface(enemyPet) ? "hollow-gate" as const : "standard" as const;
-    useEffect(() => subscribeAudioMute(() => setAudioMutedState(isAudioMuted())), []);
     useEffect(() => {
         if (!isAudioMuted()) {
             setBattleMusicIntensity("calm");
@@ -968,17 +966,6 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         if (!isAudioMuted()) startBattleMusic(battleMusicTheme);
         setRunId((r) => r + 1);
     };
-    const toggleAudio = () => {
-        const nextMuted = !audioMuted;
-        setAudioMuted(nextMuted);
-        if (!nextMuted) {
-            primePetSfx();
-            startBattleMusic(battleMusicTheme);
-            playPetSfx("buff");
-        } else {
-            stopBattleMusic();
-        }
-    };
     const togglePause = () => { setPaused((wasPaused) => { clock.current.playing = wasPaused; return !wasPaused; }); };
     // The live pump. Declared AFTER every clock mutation above on purpose: the
     // immutability lint treats a ref read inside an effect as pinning that ref, so
@@ -1283,15 +1270,6 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                                 <div style={{ marginTop: 7, color: "#fcd34d", font: `800 ${mobileQa ? 8 : 10}px/1.25 Inter,sans-serif`, letterSpacing: ".035em" }}>
                                     Scout read: {petDisplayName(enemyPet)} fights as {enemyFamily.label.toLowerCase()} — {enemyFamily.tell}.
                                 </div>
-                                {audioMuted && (
-                                    <button
-                                        type="button"
-                                        onClick={toggleAudio}
-                                        style={{ marginTop: 9, padding: mobileQa ? "6px 10px" : "7px 13px", borderRadius: 999, border: "1px solid rgba(251,191,36,.72)", background: "linear-gradient(180deg,rgba(120,53,15,.84),rgba(69,26,3,.88))", color: "#fef3c7", boxShadow: "0 0 18px rgba(245,158,11,.18)", font: `900 ${mobileQa ? 8 : 10}px/1 var(--font-display),Inter,sans-serif`, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer" }}
-                                    >
-                                        🔊 Enable cinematic audio
-                                    </button>
-                                )}
                                 <div role="group" aria-label="Opening tactic" style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: mobileQa ? 6 : 10, marginTop: 13 }}>
                                     {PET_OPENING_TACTICS.map((tactic) => {
                                         const selected = openingTactic === tactic.stance;
@@ -1631,9 +1609,6 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             {!ended && !cutIn && <div className="pet-duel-top-controls" style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 8 }}>
                 <button onClick={exitDuel} style={duelBtn}>✕ Exit</button>
                 <button onClick={togglePause} style={duelBtn}>{paused ? "▶ Play" : "❚❚ Pause"}</button>
-                <button onClick={toggleAudio} style={{ ...duelBtn, borderColor: audioMuted ? "#475569" : "#fbbf24", color: audioMuted ? "#cbd5e1" : "#fde68a" }} title={audioMuted ? "Turn on Colosseum music and sound" : "Mute Colosseum audio"}>
-                    {audioMuted ? "🔇 Sound" : "🔊 Sound"}
-                </button>
                 <PetGraphicsQualityControl value={qualityId} onChange={changeQuality} compact={mobileQa} />
                 {/* Replaying mid-fight would discard a live match, so the control is
                     offered only on the result screen there. */}

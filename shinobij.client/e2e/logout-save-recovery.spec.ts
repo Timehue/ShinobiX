@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { openLandingLogin } from './helpers/landing-navigation';
 import AxeBuilder from '@axe-core/playwright';
 import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
 
@@ -95,7 +96,7 @@ for (const retryAfterMs of [2501, undefined]) {
         expect(await page.evaluate(() => localStorage.getItem('shinobix:activeTokenPersist'))).toBeNull();
 
         // Re-enter through the login UI and load the fixture's persisted save.
-        await page.locator('.landing-topnav').getByRole('button', { name: 'Log In', exact: true }).click();
+        await openLandingLogin(page);
         await page.getByRole('button', { name: 'Use a name and password' }).click();
         await page.getByLabel('Name').fill('AuditNinja');
         await page.getByPlaceholder('Enter your password').fill('fixture-password');

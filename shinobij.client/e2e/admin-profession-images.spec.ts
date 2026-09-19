@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openLandingLogin } from './helpers/landing-navigation';
 import { installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
 
 const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1cAAAAASUVORK5CYII=', 'base64');
@@ -29,7 +30,7 @@ for (const role of ['full', 'content'] as const) {
         await page.route('**/api/img?*', (route) => route.fulfill({ contentType: 'image/png', body: pixel }));
 
         await page.goto('/', { waitUntil: 'domcontentloaded' });
-        await page.locator('.landing-topnav').getByRole('button', { name: 'Log In', exact: true }).click();
+        await openLandingLogin(page);
         await page.getByRole('button', { name: 'Use a name and password' }).click();
         await page.getByLabel('Name', { exact: true }).fill('Admin 2');
         await page.getByPlaceholder('Enter your password').fill('qa-profession-password');

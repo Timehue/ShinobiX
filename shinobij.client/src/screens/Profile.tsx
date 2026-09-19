@@ -11,10 +11,6 @@ const PF_COST = { verticalAlign: "-2px", marginRight: "3px" } as const;
 import type { GameItem, Jutsu, SavedBloodline, Stats } from "../types/combat";
 import { ACHIEVEMENTS, ACHIEVEMENT_CATEGORY_ORDER, achievementReward, isAchievementUnlocked, type Achievement, type AchievementCategory } from "../constants/achievements";
 import { ANIMATED_MAX_MB, MAX_LEVEL, statCapForLevel } from "../constants/game";
-import { ChangePasswordCard } from "../components/ChangePasswordCard";
-import { ChangeAccountNameCard } from "../components/ChangeAccountNameCard";
-import { RecoveryCodeCard } from "../components/RecoveryCodeCard";
-import { GoogleLinkCard } from "../components/GoogleLinkCard";
 import { maxLoadout, canCustomAvatar } from "../lib/entitlements";
 import { gameConfirm } from "../components/GameAlert";
 import { JutsuLoadoutPanel } from "../components/JutsuLoadoutPanel";
@@ -62,7 +58,6 @@ export function Profile({
     savedBloodlines,
     creatorJutsus,
     creatorItems,
-    onDeleteCharacter,
     onOpenBattle,
     onTrainJutsu,
     onVersionedCharacter,
@@ -72,7 +67,6 @@ export function Profile({
     savedBloodlines: SavedBloodline[];
     creatorJutsus: Jutsu[];
     creatorItems: GameItem[];
-    onDeleteCharacter?: () => void;
     /** Opens the durable read-only battle record (Screen "battleLog"). */
     onOpenBattle?: (battleId: string) => void;
     onTrainJutsu?: () => void;
@@ -835,18 +829,6 @@ export function Profile({
                 value={{ nindo: character.nindo ?? "", nindoBg: character.nindoBg }}
                 onSave={(v) => updateCharacter((prev) => prev ? { ...prev, ...v } : prev)}
             />
-
-            {onDeleteCharacter && (
-                <section className="profile-build-panel">
-                    <h2>Account</h2>
-                    <GoogleLinkCard playerName={character.name} />
-                    <ChangeAccountNameCard key={character.name} character={character} onVersionedCharacter={onVersionedCharacter} />
-                    <ChangePasswordCard playerName={character.name} />
-                    <RecoveryCodeCard playerName={character.name} />
-                    <button className="danger-button" onClick={onDeleteCharacter}>Delete Character</button>
-                    <p className="hint">Permanently deletes your character and save data. This cannot be undone.</p>
-                </section>
-            )}
 
             </div>{/* end overview tab */}
 

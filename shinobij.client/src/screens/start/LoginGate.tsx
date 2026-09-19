@@ -241,7 +241,7 @@ export function LoginGate({
                                 rule, known up front, reads as a fair trade. */}
                             <p className="hint gate-guest-note">
                                 Jump straight in — the tavern and messages stay closed until you add
-                                a Google account or a password, which you can do any time from Profile.
+                                a Google account or a password, which you can do any time from Settings.
                             </p>
                         </>)}
                     </div>

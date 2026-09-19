@@ -101,7 +101,7 @@ export function AccountRecoveryForm({ initialName = "", onRecovered, onCancel, h
                     </>
                 ) : (
                     <p className="start-hint">
-                        Your password is set. Generate a new recovery code from your profile — the one
+                        Your password is set. Generate a new recovery code from Settings — the one
                         you just used is spent.
                     </p>
                 )}

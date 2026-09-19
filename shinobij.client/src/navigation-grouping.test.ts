@@ -41,7 +41,9 @@ test("grouping preserves every internal menu destination and current-page afford
     assert.match(mobile, /aria-current=/);
     assert.match(desktop, /MailUnreadBadge/);
     assert.match(mobile, /MailUnreadBadge/);
-    assert.match(desktop, /setAudioMuted/);
+    assert.match(desktop, /guardedNavigate\("settings"\)/);
+    assert.match(mobile, /go\("settings"\)/);
+    assert.match(readFileSync(new URL("./screens/Settings.tsx", import.meta.url), "utf8"), /setAudioMuted/);
     assert.match(desktop, /preloadScreen/);
     assert.match(mobile, /preloadScreen/);
 });

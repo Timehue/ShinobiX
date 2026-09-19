@@ -70,6 +70,7 @@ export const STUDIO_SCREEN_PRESENTATION: Record<Screen, StudioScreenPresentation
   professions: companion,
   village: civic,
   profile: archive,
+  settings: archive,
   inventory: archive,
   logbook: archive,
   battleLog: archive,
