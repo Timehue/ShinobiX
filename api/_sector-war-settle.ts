@@ -23,8 +23,15 @@
  */
 
 import { withKvLock } from './_lock.js';
-import { settleSectorWar, sectorWarKey, SECTOR_RESIEGE_COOLDOWN_SEC, type SectorWarSession } from './_sector-war.js';
-import { loadSectorWar, saveSectorWar, listUnsettledDueSectorWars } from './_sector-war-store.js';
+import { kv } from './_storage.js';
+import { settleSectorWar, sectorWarKey, sectorWarLedgerOf, SECTOR_RESIEGE_COOLDOWN_SEC, type SectorWarSession } from './_sector-war.js';
+import {
+    loadSectorWar,
+    saveSectorWar,
+    listUnsettledDueSectorWars,
+    drainSectorWarLedger,
+    externalizeSectorWarLedger,
+} from './_sector-war-store.js';
 import { captureSectorForVillage } from './world-state.js';
 import { recordWarEcoEvent } from './_war-telemetry.js';
 import { legacyEnabled, bumpLegacyStats } from './_legacy-track.js';
@@ -59,16 +66,11 @@ export function sectorWarResolutionAnnouncement(
  *  whoever landed the final blow; the 72h scored war has no final blow, so a
  *  capture now credits EVERYONE who put points on the board for it — which is
  *  what the mythic Founder's Shadow legacy (25 captures) actually honors.
- *  Receipts store display-cased names; dedupe case-insensitively. Exported for
- *  the test. */
-export function captureContributors(session: Pick<SectorWarSession, 'appliedBattles'>): string[] {
-    const seen = new Map<string, string>();
-    for (const r of session.appliedBattles ?? []) {
-        if (!r.attackerWon || !r.by) continue;
-        const k = r.by.toLowerCase();
-        if (!seen.has(k)) seen.set(k, r.by);
-    }
-    return [...seen.values()];
+ *  Receipts store display-cased names; dedupe case-insensitively. Covers every
+ *  receipt of the war, including those past the in-row mirror (the ledger
+ *  keeps the distinct names as each battle lands). Exported for the test. */
+export function captureContributors(session: Pick<SectorWarSession, 'appliedBattles' | 'battleLedger'>): string[] {
+    return [...sectorWarLedgerOf(session).contributors];
 }
 
 export interface SectorWarSettlement {
@@ -94,12 +96,20 @@ export async function settleDueSectorWars(now: number = Date.now()): Promise<Sec
     const settled: SectorWarSettlement[] = [];
     for (const war of due) {
         try {
+            // Every battle receipt must outlive this row: a defended war's
+            // record expires a day after settlement, but PvP replays can still
+            // ask to prove an applied battle for longer than that. Copying the
+            // receipts out is idempotent, so the bulk of it runs before the
+            // lock (a war written before the overflow ledger can hold up to 200
+            // in-row receipts) and the locked drain only finishes what changed.
+            const confirmed = await externalizeSectorWarLedger(war, now).catch(() => new Set<string>());
             const outcome = await withKvLock(sectorWarKey(war.id), async () => {
                 // Re-load inside the lock: another caller may have settled it already.
                 const fresh = await loadSectorWar(war.id);
                 if (!fresh) return null;
-                const verdict = settleSectorWar(fresh, now);
-                if (!verdict.changed) return null;
+                const stamped = settleSectorWar(fresh, now);
+                if (!stamped.changed) return null;
+                const verdict = { ...stamped, session: await drainSectorWarLedger(stamped.session, now, kv, confirmed) };
                 if (verdict.attackerWon) {
                     // Flip BEFORE persisting the verdict, inside the war lock (the
                     // territory write takes its own nested lock; order war → territory,

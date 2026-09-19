@@ -152,6 +152,71 @@ describe('sector-war settlement World Herald', { concurrency: false }, () => {
         assert.deepEqual((await readVillageIntel(DEFENDER, now)).sectors, {});
     });
 
+    it('credits a contributor who appears only past the in-row mirror, and copies every receipt out', async () => {
+        const { commitSectorWarBattle, listSectorWarInstanceReceipts } = await import('./_sector-war-store.js');
+        const { applySectorWarBattle, normalizeSectorWarSession } = await import('./_sector-war.js');
+        process.env.ENABLE_LEGACY = '1';
+        try {
+            const now = Date.now();
+            const live = { ...dueWar(now, { attacker: 0, defender: 0 }), endsAt: now + 60 * 60_000 };
+            await kv.set(CONTEST_KEY, live);
+            for (let i = 0; i < 205; i += 1) {
+                const by = i < 200 ? 'mirrorhero' : 'overflowhero';
+                const at = live.startedAt + 1000 + i;
+                const r = await commitSectorWarBattle({
+                    contestId: CONTEST_ID,
+                    battleId: `b-${i}`,
+                    now: () => at,
+                    decide: (c) => ({
+                        kind: 'score',
+                        outcome: applySectorWarBattle(c, true, { now: at, roleSwing: 5, by }),
+                        attackerWon: true, by, at,
+                    }),
+                });
+                assert.equal(r.status, 'applied');
+            }
+            const row = await kv.get<Record<string, unknown>>(CONTEST_KEY);
+            await kv.set(CONTEST_KEY, { ...row, endsAt: now - 60_000 }); // now due
+
+            const [verdict] = await settle.settleDueSectorWars(now);
+            assert.equal(verdict.attackerWon, true);
+            assert.equal(verdict.attackerPoints, 205 * 5);
+            const overflowHero = await kv.get<{ sectorCaptures?: number }>('legacy:stats:overflowhero');
+            assert.equal(overflowHero?.sectorCaptures, 1, 'capture credit reaches the winner whose battles lie past the mirror');
+            const mirrorHero = await kv.get<{ sectorCaptures?: number }>('legacy:stats:mirrorhero');
+            assert.equal(mirrorHero?.sectorCaptures, 1);
+
+            const settled = normalizeSectorWarSession((await kv.get(CONTEST_KEY)) as never)!;
+            assert.equal(settled.flipped, true);
+            assert.deepEqual(settled.battleLedger?.pending, []);
+            assert.equal(settled.battleLedger?.mirrorExternalized, true);
+            assert.equal((await listSectorWarInstanceReceipts(settled)).length, 205, 'all evidence outlives the row');
+        } finally {
+            delete process.env.ENABLE_LEGACY;
+        }
+    });
+
+    it('a drain that cannot copy a receipt out leaves the war due for the next pass', async () => {
+        const now = Date.now();
+        const receipts = Array.from({ length: 20 }, (_, i) => ({ battleId: `legacy-${i}`, attackerWon: false, points: 1, by: 'holder', at: now - 72 * 60 * 60_000 + i })).reverse();
+        await kv.set(CONTEST_KEY, { ...dueWar(now, { attacker: 0, defender: 20 }), appliedBattles: receipts });
+        const original = kv.compareSet.bind(kv);
+        kv.compareSet = (async (key: string, expected: unknown, value: unknown, options?: { ex?: number }) => {
+            if (key.startsWith('shared:sector-war-battle:')) throw new Error('injected receipt-store outage');
+            return original(key, expected, value, options);
+        }) as typeof kv.compareSet;
+        try {
+            assert.deepEqual(await settle.settleDueSectorWars(now), [], 'nothing settles while evidence cannot be copied');
+        } finally {
+            kv.compareSet = original as typeof kv.compareSet;
+        }
+        const stillDue = await kv.get<Record<string, unknown>>(CONTEST_KEY);
+        assert.equal(stillDue?.expiredAt, undefined, 'the verdict was not stamped');
+        const [verdict] = await settle.settleDueSectorWars(now + 1000);
+        assert.equal(verdict.attackerWon, false, 'the next pass settles it');
+        assert.equal((await kv.keys('shared:sector-war-battle:*')).length, 20);
+    });
+
     it('copy helper names the right village for each verdict', () => {
         const war = { id: CONTEST_ID, sector: SECTOR, attackerVillage: ATTACKER, defenderVillage: DEFENDER };
         assert.equal(settle.sectorWarResolutionAnnouncement(war, { attackerWon: true, attackerPoints: 1, defenderPoints: 0 }).village, ATTACKER);
