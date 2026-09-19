@@ -2569,7 +2569,7 @@
           },
           {
             "source": "shinobij.client/src/styles/sunscar-responsive.css",
-            "line": 37
+            "line": 79
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
@@ -3041,7 +3041,11 @@
           },
           {
             "source": "shinobij.client/src/styles/sunscar-responsive.css",
-            "line": 33
+            "line": 57
+          },
+          {
+            "source": "shinobij.client/src/styles/sunscar-responsive.css",
+            "line": 75
           }
         ]
       },
