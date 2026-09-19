@@ -1,0 +1,92 @@
+[
+  {
+    "id": "R01",
+    "kind": "field",
+    "key": "story-reckoning-nyx-ledger",
+    "point": "ms-canal-gate",
+    "page": 0,
+    "title": "The Name That Stays Off",
+    "speaker": "Nyx",
+    "dialogue": [
+      "The clerk from the booth that got raided saw who took my ledger. They'll lead us to the pages, but only if their name never goes on any of them. I've checked their story, and it holds. And no, I'm not telling you who they are.",
+      "The other way is to go public. We put up a notice at the ferry with a wax print of my ledger's stamp, so anyone holding a page can recognize it and bring it back where people can see.",
+      "More people would witness the returns. But every buyer in the market would know what we're doing before the night is over.",
+      "The clerk says if that notice goes up, they walk away before the paste dries. That's their decision, not mine. So we either keep them safe and do this quietly, or we go public and lose them. They're listening behind that shutter. Tell them what you decide."
+    ],
+    "choices": [
+      {
+        "text": "Post the notice at the ferry. Let the clerk walk away, and ask the canal to witness every return."
+      }
+    ]
+  },
+  {
+    "id": "R02",
+    "kind": "field",
+    "key": "story-reckoning-nyx-ledger",
+    "point": "ms-dyers-footbridge",
+    "page": 0,
+    "title": "Look East, Walk West",
+    "speaker": "Nyx",
+    "dialogue": [
+      "The watcher followed our decoy east. Keep walking and don't turn around. We're taking the west path.",
+      "See this smear in the wax? The clerk pressed a thumb here and dragged it west. That's the only direction they left us. They didn't sign it, and they didn't stay to explain.",
+      "I'd like more to go on, but that's all they were willing to give, and I'm not going to push them for more. We cross to the west bank. Walk like you're in no hurry."
+    ],
+    "choices": [
+      {
+        "text": "Leave the decoy alone and follow the thumb mark west to the shuttered boathouse."
+      }
+    ]
+  },
+  {
+    "id": "R03",
+    "kind": "field",
+    "key": "story-reckoning-toma-cinders",
+    "point": "al-east-channel-catch",
+    "page": 0,
+    "title": "Let the Water Loosen Them",
+    "speaker": "Toma Reed",
+    "dialogue": [
+      "There. That one says Reed. The chamfer is off in exactly the way my family always cuts it.",
+      "The cart trail is gone, but the channel caught the plates and kept them in order. Take the next one slowly."
+    ]
+  },
+  {
+    "id": "R04",
+    "kind": "echoes",
+    "key": "echoes-9-lyra",
+    "page": 1,
+    "title": "The Admission",
+    "speaker": "Lyra",
+    "dialogue": [
+      "I measured what the Gate was taking before the council would admit it. For three winters, we could still have shut it down and survived. I spent all three writing acceptable variance in the margin, because it was my machine, and I needed it to be the miracle everyone called it."
+    ]
+  },
+  {
+    "id": "W01",
+    "kind": "interlude",
+    "key": "Stormveil Village",
+    "page": 8,
+    "title": "The Third Exchange",
+    "speaker": "Joren Pike",
+    "dialogue": [],
+    "choices": [
+      {
+        "text": "Fall on schedule. Let them believe their plumbing works on you.",
+        "conclusion": "You fall in the third exchange as arranged, and the routing office relaxes. They believe the Engine can drain you now. Pike helps you up without asking questions. The purse is split as agreed, and the office underestimates you for the next season."
+      }
+    ]
+  },
+  {
+    "id": "W02",
+    "kind": "interlude",
+    "key": "Ashen Leaf Village",
+    "page": 7,
+    "title": "You Carry the Door",
+    "speaker": "Toma Reed",
+    "dialogue": [
+      "I hid his letter under the floorboards for years. Now I can show Hoshina that his machine works.",
+      "Thank you for helping us get this far."
+    ]
+  }
+]

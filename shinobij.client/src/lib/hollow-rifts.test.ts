@@ -181,8 +181,20 @@ test("repeat rift reports preserve resolved unique consequences", () => {
     const repeat = riftIntroEvent(warren, 47, "shadow", { [warren.id]: { at: 1 } });
     const text = repeat.vnPages!.flatMap((page) => page.dialogue).join(" ");
     assert.match(text, /Nara is home and healing/);
-    assert.match(text, /renewed echo/);
+    assert.match(text, /new echo.*using the call it learned from her/);
+    assert.match(repeat.vnPages![0].scene, /Bel stands beside Nara, bandaged and awake/);
     assert.doesNotMatch(text, /find Nara|abduction.*Nara/i);
+});
+
+test("Harrow attributes supplied rift reports without assigning an unearned clear", () => {
+    const heir = hollowRifts.find(rift => rift.id === "rift-gate-heir")!;
+    const fresh = riftIntroEvent(heir, 47, "shadow").vnPages![0].dialogue.join(" ");
+    assert.match(fresh, /reports from six breaks/);
+    assert.match(fresh, /witnesses describe/);
+    assert.doesNotMatch(fresh, /your (?:verified )?reports|you (?:closed|cleared)|pretending/i);
+    const experienced = riftIntroEvent(heir, 47, "shadow", { "rift-hollow-stalker": { at: 1 } }).vnPages![0].dialogue.join(" ");
+    assert.match(experienced, /Your verified reports cover Vessa's stopped seam/);
+    assert.match(experienced, /other entries came from their local witnesses/);
 });
 
 test("synthRiftGiver is a non-hostile roaming quest NPC", () => {

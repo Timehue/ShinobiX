@@ -367,8 +367,8 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The vault stair, Yura not coming down",
                     speaker: "Captain Yura",
                     dialogue: [
-                        "Nineteen minutes, no marks, Essen alive. Dren's plans went into the record under Dren's name, and Kael heard every figure. You did that.",
-                        "Then you put your hand on the valve and kept it there. The keeper controls know your hand now, and the script has already started at your wrist.",
+                        "Dren's plans are entered under his name: nineteen minutes, no marks, Essen alive. Kael heard every figure. That report stands.",
+                        "Take a look at your wrist. The keeper's script is spreading. You have kept the Count, and it has accepted your hand.",
                         "There's no order that covers that. I looked.",
                         "Dren's letter goes into the ridge archive under his name. Don't send for me when the Count needs a captain. My wrist is bare, and my answer is no.",
                     ],
@@ -397,7 +397,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     speaker: "Captain Yura",
                     dialogue: [
                         "Dren's letter is in the ridge archive under his own name. I read it to Kael while you held the stair, and nobody gets to strike that out again.",
-                        "Then you took the valve before the old script cooled. I waited for you to put it back. You didn't.",
+                        "The valve has a new keeper. You. I will not serve another one.",
                         "I know how to obey someone I disagree with. I don't know how to follow you after that, so I won't.",
                         "I'm taking the north post. The far one. The Count doesn't reach it in winter. As of this morning, that's the point. If anyone comes for me out there, Jonin, they will have chosen it. You taught me to want that. I'm choosing to keep it.",
                     ],
@@ -486,7 +486,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     dialogue: [
                         "Ugly season ahead. I've got odds posted on which neighbors stop speaking first. People have asked me to verify what came back. Some ask me to hold it again. I refuse that service now.",
                         "At noon the shrine witness read one name from her copied pages. A family disputed the spelling for ten minutes, then brought out an old letter and corrected the record together.",
-                        "That is the work now: verify, witness, return, and admit when the page is incomplete. Come to the booth. The tea's honest and the drain is lead.",
+                        "Come to the booth when you have time. There are more files to return, and I'd like your company. I'll put the tea on.",
                     ],
                 },
             ],
@@ -599,8 +599,8 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The chamber door, Nyx not coming in",
                     speaker: "Nyx",
                     dialogue: [
-                        "My file reached the glass under your seal. Sable had to read the bad winter into the room and answer for every return behind it.",
-                        "Then you took the seat instead of the exit. You say holding the tank keeps someone worse from taking it. I heard you. I still watched my file disappear behind a keeper's door again.",
+                        "You took my file in under your seal. Sable read it aloud and answered for the returns. Where is it now?",
+                        "Behind your door. You say keeping the tank prevents someone worse from taking it. I still have to wait out here for my own file.",
                         "Your name on the key doesn't make that hurt less. I haven't decided whether I can trust you with what comes next.",
                     ],
                 },
@@ -658,7 +658,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     speaker: "Toma Reed",
                     dialogue: [
                         "The channel never stopped turning. All night, through everything, it just kept climbing. Ninety mouths, remember. It won't carry the whole village.",
-                        "It proves this channel can be built and run. The next one still needs lumber, hands, and a route that will not flood the low fields. Jorun is drawing his bridge again. Sena is nine and furious with ideas. None of that replaces the missing heat.",
+                        "We'll need lumber and more hands for the next channel, and a route that won't flood the low fields. Jorun is drawing his bridge again. Sena is nine and furious with ideas. We still need fuel for the houses; the water-screw won't warm them.",
                         "Mori brought a spade to the terrace. He wants to help us plant the newly watered ground. I told him to wait for you.",
                     ],
                 },
@@ -769,10 +769,10 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The kiln stair door, Toma not coming in",
                     speaker: "Toma Reed",
                     dialogue: [
-                        "I watched the water climb with my own eyes. Ninety mouths, not one future burned. You carried the proof into that room and made her answer what she buried.",
-                        "Then you sat down in her chair. I kept expecting you to stand up again once the fight was over.",
+                        "I'll send someone for Aren's model. You carried it in and made her answer for his work. It needs to come home now.",
+                        "We watched his machine water fields for ninety mouths without burning one future. Why are the shears still in your hand?",
                         "You knew what the shears did to Aren, and you kept them. I can't stay and watch you use them.",
-                        "I'll send someone for Aren's model. It belongs with our family. Don't ask me to help when the racks fill again. The orders will have your name on them.",
+                        "Don't ask me to help when the racks fill again. The orders will have your name on them.",
                     ],
                 },
             ],

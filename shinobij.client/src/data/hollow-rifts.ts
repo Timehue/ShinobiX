@@ -164,9 +164,9 @@ export const hollowRifts: HollowRift[] = [
                 scene: "The road, a scout catching her breath against a boundary stone",
                 speaker: "Scout Vessa",
                 dialogue: [
-                    "Give me one breath before you ask. I ran the last ridge instead of dying on it, and I would like to enjoy the difference.",
+                    "Give me one breath before you ask. I ran the last ridge.",
                     "A violet seam is hanging above the east slope. No torii, no shrine, just a split in open air with the Hollow Gate's pressure behind it.",
-                    "A long thing climbed out while I marked the map. Too many joints. It went back before I counted the legs, which was polite of it.",
+                    "A long thing climbed out while I marked the map. Too many joints. It went back before I counted the legs.",
                 ],
             },
             {
@@ -175,7 +175,7 @@ export const hollowRifts: HollowRift[] = [
                 speaker: "Scout Vessa",
                 dialogue: [
                     "Here is the short version I can prove: the seam widens when the creature pulls, and the grass beside it lies toward the break instead of the wind.",
-                    "The quartered mark under its forelegs resembles old Court survey marks. That may make the Gate our problem. It does not make me an engineer.",
+                    "The quartered mark under its forelegs resembles old Court survey marks. I cannot tell you what it does.",
                     "I saw it take shape at the opening, then crawl back inside. That's where you'll have to look for it.",
                 ],
             },
@@ -186,7 +186,7 @@ export const hollowRifts: HollowRift[] = [
                 dialogue: [
                     "The seam is in %sector. The dead grass around it widened by six strides while I watched.",
                     "My order says mark anomalies and return. It says nothing about crawling into one, and I am choosing to respect the wording.",
-                    "If you can hold your footing in there, find the creature and close the seam before I need a second sheet of map.",
+                    "If you can hold your footing in there, find the creature and close the seam before it spreads farther.",
                 ],
                 choices: [
                     { text: "Mark the seam. I will close it.", accept: true },

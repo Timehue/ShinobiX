@@ -250,8 +250,8 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "They've set the result to get something out of you. That doesn't mean you have to give it to them.",
                 "We can follow their plan, or you can fight me properly. Give me a sign in the third exchange. I'll be watching you, not the routing box."),
         ], [
-            ch("Follow the plan until the third exchange, then stay on your feet.", "good", "sv70-read-the-mark", "The third exchange arrives, choreographed to the breath, and you just stand there in it, present, unpaid, unrouted, and Pike's punch stops an inch short like the last honest man in the machine refusing to sign. The crowd senses a script tearing without knowing there was one. Above the rim, in the routing box, somebody stands up fast enough to knock over a chair."),
-            ch("Fall on schedule. Let them believe their plumbing works on you.", "neutral", "sv70-fell-on-schedule", "You go down in the third, tasteful as commissioned, and the routing office relaxes for the first time since your slate wouldn't take ink. Let them file you routable. Pike helps you up with an expression carefully empty of the question he isn't asking, and the purse's fixed split buys you a season of being underestimated by the only people watching closely."),
+            ch("Follow the plan until the third exchange, then stay on your feet.", "good", "sv70-read-the-mark", "In the third exchange, you stay on your feet. Pike stops his punch an inch short. Above the rim, in the routing box, somebody stands up fast enough to knock over a chair."),
+            ch("Fall on schedule. Let them believe their plumbing works on you.", "neutral", "sv70-fell-on-schedule", "You fall in the third exchange as arranged, and the routing office relaxes. They believe the Engine can drain you now. Pike helps you up without asking questions. The purse is split as agreed, and the office underestimates you for the next season."),
             ch("Break Pike in the first, off script, and stare at the routing box.", "bad", "sv70-made-him-kneel", "You knock Pike down in the first exchange and look straight at the routing box. He rises to one knee, grinning through a split lip. 'Cost me a fee, that. Worth it.' Above the ring, a clerk crosses out the scheduled result and reaches for another slate."),
         ]),
         interlude("Stormveil Village", 80, "Harrow's Shortcut", [
@@ -306,14 +306,14 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "The Captain drags a guard clear by his collar. Mira doesn't move at all. She stands over the failed splice, wind screaming, staring at the torn lay of it.",
                 "'My splice,' she says. 'I spliced it my way. Not hers. Mine slips when the cable twists and hers doesn't, and I knew that. I've known it since I was nine.'"),
                 choices: [
-                    { text: "\"Back on the roof I asked what your boat route was worth, like I meant to sell it. I'm sorry. I won't do that again.\"", nextPage: 3, requireTrait: "mira-fear", trait: "sv88-repaired-trust" },
+                    { text: "\"I won't sell your way out, Mira. I'm sorry I asked its price.\"", nextPage: 3, requireTrait: "mira-fear", trait: "sv88-repaired-trust" },
                     { text: "Paint KESA VOLT on the mast head before the second raise.", nextPage: 4, trait: "sv88-named-the-rigger" },
                     { text: "Get on the third anchor and hold tension while she resplices.", nextPage: 4 }
                 ] },
             { ...pg("Knots Under Torsion", "The third anchor, the two of you alone with the failed splice", "Mira Volt",
                 "Heard. You don't need to say it twice.",
-                "You asked what my way out was worth like you meant to sell it. I moved the bag back to the hatch that night, and it's been there since. The stupid part is that you were the reason I'd started moving it away.",
-                "I can't tell you we're square. I can tell you what I need right now, which is your hands on this cable while I splice it her way.",
+                "My bag went back beside the hatch that night. It's staying there for now. Pull this end tight.",
+                "Keep that tension while I splice it. I need both hands.",
                 "Over, under, and back against the twist. Everyone ties it the fast way. She tied it the way that holds. Hands where mine are. We're doing it her way."),
                 choices: [
                     { text: "Hold tension. Match her hands.", nextPage: 4 }
@@ -327,8 +327,8 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                     { text: "Dawn shows the district.", nextPage: 5, trait: "sv88-line-held" }
                 ] },
             { ...pg("The Count at Dawn", "First light over the Low Terraces, the Captain counting roofs with a spyglass", "Mira Volt",
-                "Numbers before anybody gets poetic. Captain, count with me and keep me honest.",
-                "Three hundred and eleven roofs under the web. Damage: one loose shutter and a smashed melon frame, and the melon frame was rotten anyway. I checked last week. The engine's draw on this district tonight: zero. Zero. Not one bout, not one fee, not one reason spent.",
+                "Captain, check the roofs through the glass. I'll check the anchors before we let the crew down.",
+                "Three hundred and eleven roofs still standing. Send someone for the loose shutter. Leave the melon frame; it was rotten last week. The engine drew nothing from this district tonight. Not one bout, not one fee, not one reason spent.",
                 "It does not shield the whole coast. It protects one ridge and one district.",
                 "But it proves my mother's anchors can stop a major storm without taking anyone's reason. The council could have tested this years ago.",
                 "It works. We have the readings to prove it. Now we need to get that evidence to the tower before the next payment."),
@@ -346,9 +346,9 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                     { text: "\"You showed me the bag and the boat. Let me carry your mother's answer.\"", nextPage: 11, requireTrait: "mira-trust", trait: "sv88-reason-proof-ready" },
                     { text: "\"You rig, I argue. That's a fair split.\"", nextPage: 11, requireTrait: "mira-respect", trait: "sv88-reason-proof-ready" },
                     { text: "\"I know it's only a start. Let me carry her the last stretch.\"", nextPage: 11, requireTrait: "sv88-repaired-trust", trait: "sv88-reason-proof-ready" },
-                    { text: "\"Stand back. This is Kesa's. Her daughter carries her. I'll hold the sky off you.\"", nextPage: 7, requireTrait: "mira-trust", trait: "sv88-reason-proof-deferred" },
-                    { text: "\"Stand back. This is Kesa's. Her daughter carries her. I'll hold the sky off you.\"", nextPage: 7, requireTrait: "mira-respect", trait: "sv88-reason-proof-deferred" },
-                    { text: "\"Stand back. This is Kesa's. Her daughter carries her. I'll hold the sky off you.\"", nextPage: 7, requireTrait: "sv88-repaired-trust", trait: "sv88-reason-proof-deferred" },
+                    { text: "\"You should present your mother's grievance and plans to Raiko. I'll keep the way clear.\"", nextPage: 7, requireTrait: "mira-trust", trait: "sv88-reason-proof-deferred" },
+                    { text: "\"You should present your mother's grievance and plans to Raiko. I'll keep the way clear.\"", nextPage: 7, requireTrait: "mira-respect", trait: "sv88-reason-proof-deferred" },
+                    { text: "\"You should present your mother's grievance and plans to Raiko. I'll keep the way clear.\"", nextPage: 7, requireTrait: "sv88-repaired-trust", trait: "sv88-reason-proof-deferred" },
                     { text: "Keep the slate in your own kit. Let that be your part.", nextPage: 8 }
                 ] },
             { ...pg("You Hold the Sky", "The mast foot, Mira wrapping the slate in oilcloth with rigger's care", "Mira Volt",
@@ -492,7 +492,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "I also couldn't value your Register line. The numbers wouldn't settle.",
                 "I refunded that part of the fee. I'll be back through eventually."),
         ], [
-            ch("Walk her to the gate, in front of everyone.", "good", "al20-met-her-eye", "She falls in beside you and lets the silence do the walking until the arch. 'The clerks will remember you walking me out,' she says. 'So will I.'"),
+            ch("Walk her to the gate, in front of everyone.", "good", "al20-met-her-eye", "She walks beside you in silence until the arch. 'The clerks will remember you walking me out,' she says. 'So will I.'"),
             ch("Memorize her charts before the clerks fold them away.", "neutral", "al20-took-her-measure", "The charts list yields by household and season. Under OUTSIDE PARTY, you find the name FIFTH ANCHOR. Harrow notices where you are looking and holds the chart open until you finish."),
             ch("Tell the clerks to escort her out. This village isn't for sale.", "bad", "al20-turned-your-back", "She packs without hurry, pays for her own tea, and leaves a calling card on the desk anyway. Toma reads it aloud later: 'For when you find out what already sold.'"),
         ]),
@@ -515,8 +515,8 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "Say something."),
         ], [
             ch("\"Let's finish Aren's water-screw. I'll help you build it.\"", "good", "toma-hope", "His grip loosens on the joint. He sets it on the bench, wipes his face with his wrist, and reaches for paper. 'Then we'll need better tools,' he says."),
-            ch("\"I'll keep the letter safe. That's all I can promise yet.\"", "neutral", "toma-caution", "He nods slowly, wraps the oilcloth himself, and sets it in your hands like a sleeping animal. 'That's more than anyone else has ever done,' he says. 'It isn't enough. But it's more.'"),
-            ch("\"Burn it, Toma. Before it gets you pruned too.\"", "bad", "toma-doubt", "He goes very still, and then laughs once, badly. 'You sound like the survey. You sound sensible.' He hides the letter back under the floor anyway. Something between the two of you goes under the boards with it."),
+            ch("\"I'll keep the letter safe. That's all I can promise yet.\"", "neutral", "toma-caution", "He nods slowly, wraps the oilcloth himself, and sets it in your hands. 'That's more than anyone else has ever done,' he says. 'It isn't enough. But it's more.'"),
+            ch("\"Burn it, Toma. Before it gets you pruned too.\"", "bad", "toma-doubt", "He goes very still, and then laughs once, badly. 'You sound like the survey. You sound sensible.' He hides the letter back under the floor anyway."),
         ]),
         interlude("Ashen Leaf Village", 42, "Pruning Season", [
             { ...pg("Tea at the Reeds'", "Ash-house row, Toma's family door", "Toma Reed",
@@ -751,15 +751,15 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 ] },
             { ...pg("The Water Climbs", "The screw turning, water rising up the flights", "Narrator",
                 "The second turn is nothing like the first. The screw bites, steadies, and begins to lift, and the sound it makes is low and even, like a man humming over a workbench.",
-                "Water reaches the first terrace flight, then the second. It does not rush. It climbs slow and stubborn, in no hurry to amaze anyone, and it does not stop.",
+                "Water reaches the first terrace flight, then the second, in a steady stream.",
                 "'It climbs,' Toma says. Then again, quieter, to himself: 'It climbs.' He scrubs his face with a muddy wrist and leaves it dirtier. 'He was right. Roots take me, he was right.'",
                 "A lamp comes down the terrace path. Sera, with tea and dry cloth, because her son has been sneaking out at night and mothers notice. She looks at the machine a long moment, then at the marks scratched on the housing. 'That's Aren's three,' she says. 'He never closed his threes.'"),
                 choices: [
                     { text: "The water keeps climbing.", nextPage: 5, trait: "al88-water-proven" }
                 ] },
             { ...pg("The Number", "Wet chalk figures on a channel stone", "Toma Reed",
-                "Numbers, before anyone starts crying. Flow, lift, field reach. Jorun, count with me. Keep me honest.",
-                "The east terraces, watered like this through the cold, feed ninety mouths. Ninety, off this one channel, without burning a single future.",
+                "Jorun, check the flow and lift against Aren's figures. How far up the fields will it reach?",
+                "Ninety mouths. That's what the east terraces can feed if we keep this running through the cold. Aren worked it out, and here it is, without burning a single future.",
                 "It won't get us through winter on its own. But we can grow more food without taking anyone's future. We should have been building these years ago.",
                 "So it works, and we can prove it works, and the burning's at frost-fall. What we do next decides whose proof it becomes."),
                 choices: [
@@ -774,7 +774,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 choices: [
                     { text: "\"We built your brother's answer. Now I'll carry it to her.\"", nextPage: 11, requireTrait: "toma-hope", trait: "al88-reed-proof-ready" },
                     { text: "\"You trusted me with the letter. Trust me with the proof.\"", nextPage: 11, requireTrait: "toma-caution", trait: "al88-reed-proof-ready" },
-                    { text: "\"Trust caught up. Let me carry it the rest of the way.\"", nextPage: 11, requireTrait: "al88-repaired-trust", trait: "al88-reed-proof-ready" },
+                    { text: "\"Let me carry Aren's model to Hoshina and show her the proof.\"", nextPage: 11, requireTrait: "al88-repaired-trust", trait: "al88-reed-proof-ready" },
                     { text: "\"This belongs with his family. Let the Reeds carry Aren. I'll keep the stair clear.\"", nextPage: 7, requireTrait: "toma-hope", trait: "al88-reed-proof-deferred" },
                     { text: "\"This belongs with his family. Let the Reeds carry Aren. I'll keep the stair clear.\"", nextPage: 7, requireTrait: "toma-caution", trait: "al88-reed-proof-deferred" },
                     { text: "\"This belongs with his family. Let the Reeds carry Aren. I'll keep the stair clear.\"", nextPage: 7, requireTrait: "al88-repaired-trust", trait: "al88-reed-proof-deferred" },
@@ -783,8 +783,8 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
             { ...pg("You Carry the Door", "The channel bank, Toma holding the model", "Toma Reed",
                 "I'll carry the model and the letter. Keep the stair clear so my mother can come with me. And afterward you're eating at our house. I'm not arguing about that part.",
                 "That's not the small job. Somebody has to make sure there's a village still standing when we reach the tower, and a way out the back if there isn't. That's you.",
-                "I hid his letter under the floorboards for years. Now I can show Hoshina that his machine works. Thank you for helping us get this far.",
-                "Thank you. That's the whole speech I've got, and the rest we'll say to her."),
+                "I hid his letter under the floorboards for years. Now I can show Hoshina that his machine works.",
+                "Thank you for helping us get this far."),
                 choices: [
                     { text: "Let it be theirs to say.", nextPage: 11 }
                 ] },
@@ -804,13 +804,13 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 ] },
             { ...pg("The Extra Lamp", "The channel bank, two lamps beside Toma's clamp bag", "Toma Reed",
                 "I still think we chose the plates and the bridge in the wrong order. I brought a second lamp anyway.",
-                "Going back after dark did not make the first choice disappear. The repaired span is behind us, and my family's names are wrapped above the flood line.",
+                "The plates are safe. Next time we have two jobs, I'd like to see what I'm repairing.",
                 "Put one lamp where Jorun can see the grain. Keep the other low for our hands."),
                 choices: [
                     { text: "Set the lamps. Take the wet side.", nextPage: 1 }
                 ] },
             pg("The Water Keeps Climbing", "First gray light, the water still climbing", "Narrator",
-                "The cold is real now, the tea has gone cold, and the water is still climbing, indifferent to how much it means.",
+                "By first light the tea has gone cold. Water is still climbing through the screw.",
                 "Jorun sits on the bank flexing his warm hands, unsettled and grinning about it. Sera folds the drying cloth, then unfolds it, then folds it again, because her hands need the job.",
                 "Frost-fall is coming. Fourteen names are still on the transfer register, whatever has happened to the people behind them since. In the channel, a dead man's machine turns and turns.",
                 "Toma scrubs the mud off his jaw with his wrist and looks at you. 'Well,' he says. 'How do you want to do this?'"),
@@ -911,7 +911,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
         ], [
             ch("Walk in the open, slowly, letting anyone fall in beside you.", "good", "al92-carried-their-trust", "Sixty people reach the tower gate with you, their hands empty. The survey officer refuses to countersign an order to clear the road. Imera names the guard who signed Sena's transfer. The sergeant lowers his weapon and opens the gate. Sera leads the families through."),
             ch("Go in through the survey door, with Mori's book and the officer's word.", "neutral", "al92-took-the-count", "The officer escorts you and Mori's records through the survey entrance. The families wait outside while you ask for an audience with Hoshina. You have the shipment logs ready for her to examine."),
-            ch("Send word ahead: the flower is coming, and it remembers every cut.", "bad", "al92-wore-their-fear", "Your warning reaches the tower ahead of you. By the time you arrive, extra guards stand at the gate. The families keep following, though they leave a wider gap between themselves and your party."),
+            ch("Warn Hoshina that you are coming to make her answer for the people she pruned.", "bad", "al92-wore-their-fear", "Your warning reaches the tower ahead of you. By the time you arrive, extra guards stand at the gate. The families keep following, though they leave a wider gap between themselves and your party."),
         ]),
     ],
     "Frostfang Village": [
@@ -1117,7 +1117,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "That gives me a way into every weak point in the system. It also gives me a way to fake belonging for anyone I choose.",
                 "What would you do with that? I've had a week to think about it, and I don't like any of my answers."),
                 choices: [
-                    { text: "\"Burn the plates. Some keys shouldn't survive their locksmith.\"", nextPage: 2 },
+                    { text: "\"Burn the forged plates.\"", nextPage: 2 },
                     { text: "\"Sell me the schedule instead. Choke points, rounds, timings.\"", nextPage: 2 }
                 ] },
             { ...pg("What the Vault Pays Into", "The icehouse bench, a copied ledger diagram unrolled, Yura in from the cold at your shoulder", "Kite Harrow",
@@ -1178,14 +1178,14 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "It's Sova who steadies it. She arrives unasked, bare wrists in the cold, reads Dren's schematic once, and starts chanting: the intake litany, repurposed, four beats and a hold, pacing the wick-trimmers down the line. The checked are counted. Trim. The counted are kept. Light. The kept are warm. Move.",
                 "The litany that ran the gate now runs the rescue, and the lamps begin to hold."),
                 choices: [
-                    { text: "\"I pushed you once about who pulled you off this ridge. I shouldn't have. I won't ask again.\"", nextPage: 3, requireTrait: "yura-fear", trait: "ff88-repaired-trust" },
+                    { text: "\"I won't press you about the ridge again. I'm sorry.\"", nextPage: 3, requireTrait: "yura-fear", trait: "ff88-repaired-trust" },
                     { text: "Stitch DREN COLDEWE onto the beacon banner before the second line goes up.", nextPage: 4, trait: "ff88-named-the-walker" },
                     { text: "Take the dead lamps' stakes and hold the line's gap yourself.", nextPage: 4 }
                 ] },
             { ...pg("Fear, Retired", "The third stake, the two of you relighting the same lamp", "Captain Yura",
                 "All right. Don't ask it again.",
-                "You pushed me about who saved me. Then you spent a month posted south, and you never once used what you knew about my floorboard against me. I noticed that too.",
-                "The south posting was the punishment, and that's done. It isn't everything between us. But it's done.",
+                "You kept quiet about the floorboard through a month posted south. I noticed. Lift the wick.",
+                "Your south posting is over. I'll decide the rest after we find Essen.",
                 "Hold the wick. I'll keep the rhythm. Lamp's lit. Next one."),
                 choices: [
                     { text: "Down the line. Four beats and a hold.", nextPage: 4 }
@@ -1570,14 +1570,14 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "And he bolts. Knocks the stool over, puts his back against the canal rail, breathing like a cornered animal, staring at his own name as if it were a drawn knife.",
                 "'You don't return a file,' he manages. 'Returned means spent, means somebody's about to... what do you people want from me?' The whole market, listening from every shadow, holds its breath with him. Everyone here was raised on the same rule."),
                 choices: [
-                    { text: "\"I bought the trainee's reports about me instead of asking you what you knew. That was the wrong way round. I'm done with it.\"", nextPage: 2, requireTrait: "nyx-suspicion", trait: "ms88-repaired-trust" },
+                    { text: "\"I should have asked you instead of buying the trainee's reports. I'm sorry.\"", nextPage: 2, requireTrait: "nyx-suspicion", trait: "ms88-repaired-trust" },
                     { text: "Post the holders' names above the booth: who held his file, and since when.", nextPage: 3, trait: "ms88-named-the-holders" },
                     { text: "Sit down at the table yourself, hands flat, and wait with him.", nextPage: 3 }
                 ] },
-            { ...pg("Fear, Refunded", "The booth's shadow, Nyx very still, the market noise far away", "Nyx",
+            { ...pg("Fear, Refunded", "The booth's shadow, Nyx watching the dye-hand at the canal rail", "Nyx",
                 "All right. You don't need to explain it again.",
-                "You bought the trainee's reports instead of asking what I knew. I noticed. You chose a file over trusting someone, which is exactly the habit this market depends on.",
-                "Sit at the table with him. If he walks out of here with his own file and nobody hurt, we're not square. But it's a start.",
+                "I wondered when you'd ask me. Right now, he thinks we're going to hurt him.",
+                "Sit where he can see you. You can start by helping me get him through this.",
                 "Go on. He needs someone to wait with him."),
                 choices: [
                     { text: "Sit at the table. Wait with him.", nextPage: 3 }
@@ -1594,13 +1594,13 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                     { text: "The queue forms on its own.", nextPage: 4, trait: "ms88-return-proven" }
                 ] },
             { ...pg("Eleven by Dawn", "The booth at first light, a queue down the canal walk, receipts drying on a line", "Nyx",
-                "Here are the numbers before rumors start. Eleven files returned by dawn. Every return was witnessed and agreed to. No fires, no ended marriages, and no duels.",
+                "Pass me those eleven receipts. That's every file we returned by dawn, each with its owner's consent and a witness. No fires, no ended marriages, and no duels.",
                 "One woman fainted. We caught her, gave her tea, and she finished reading. Then she left us a tip. I put it in a jar.",
                 "There are still sold copies out there, and claims in the Mirror. But these eleven people took their records back safely. We can show the others how to do it.",
-                "It worked, and we have the receipts. Now we decide what to do with that proof."),
+                "Keep the receipts dry. There are more people waiting, and the tower will want to see what we've done."),
                 choices: [
                     { text: "Set the bill of sale on the booth table. The oldest sale on the canal, next in the queue.", nextPage: 5, requireTrait: "ms65-saved-the-file", trait: "ms88-eleven-files" },
-                    { text: "Ask Nyx to bring out the page you sent her. Hers to table, hers to time.", nextPage: 5, requireTrait: "ms65-gave-nyx-the-file", trait: "ms88-eleven-files" },
+                    { text: "Ask Nyx if she is ready to show the page you sent her.", nextPage: 5, requireTrait: "ms65-gave-nyx-the-file", trait: "ms88-eleven-files" },
                     { text: "Let the eleven receipts stand on their own.", nextPage: 10, trait: "ms88-eleven-files" }
                 ] },
             { ...pg("The Twelfth File", "The booth table, one file older than the rest, Nyx not touching it", "Nyx",
@@ -1642,7 +1642,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 ] },
             { ...pg("The Scraped Notice", "The disused booth, Nyx cleaning old paste from the front shutter", "Nyx",
                 "The booth clerk kept their word and left. I was angry when you posted the notice. I am not finished being angry.",
-                "Other people brought my pages back and agreed to testify. That helped. It doesn't undo what the notice cost our first witness.",
+                "Other people brought my pages back and agreed to testify. We still don't have the clerk's account of the raid.",
                 "Hold the scraper. I have paste under this nail because apparently public truth requires bad glue."),
                 choices: [
                     { text: "Hold the scraper. Ask about the first return.", nextPage: 1 }
@@ -1667,7 +1667,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "There you are. I'm closing the books early in case tomorrow goes badly.",
                 "I checked your account four times. It does not balance neatly, and that is honest. Fair trades are marked paid. Harms and promises we haven't settled stay open.",
                 "I used to settle everything by naming a price. I can't do that with what happened between us. I won't pretend that returning these files settles it either.",
-                "The black plate over the booth drain has spoken during witnessed returns: owner, witness, no transfer, no claim. If you saw the test, you know the words. If not, the signed receipts carry them. Whatever the Mirror used to be, it knew how to give something back.",
+                "The signed receipts record what the black plate said during the returns: owner, witness, no transfer, no claim. Whatever the Mirror used to be, it knew how to give something back.",
                 "I'm keeping the page. Now go talk to Iro. He's been rehearsing."),
                 choices: [
                     { text: "\"Tomorrow your name comes home. Carried by you, said by you.\"", nextPage: 2, requireTrait: "ms88-nyx-proof-deferred" },
@@ -1711,7 +1711,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
         ], [
             ch("Climb in the open at first dark, the lit windows at your back.", "good", "ms92-vowed-open-ledgers", "You approach the tower openly while returned files and names remain displayed in windows across the canal. Iro serves his signed confession on the watch desk, and three officers refuse an anonymous order to clear the road. The rest stand aside. Nyx follows with her evidence, and the shrine witness waits below to begin reading the names after the confrontation."),
             ch("Climb with the case: receipts, manifest, and Iro's unsealed third draft.", "neutral", "ms92-vowed-a-keeper", "You carry the return receipts, the buyer's manifest, and Iro's signed confession to the tower. The watch checks the seals and admits you. Across the canal, people keep their returned files lit in their windows."),
-            ch("Send word up first: the discrepancy is coming, and it has read its own file.", "bad", "ms92-vowed-to-collect", "You send notice that you have read the buyer's file and will challenge the transfer. At the tower gate, several Veiled Hands refuse an anonymous order to stop you. Nyx checks that you still have the evidence. 'Here we go,' she says. 'Try to look less frightened than I feel.'"),
+            ch("Warn Sable: you have read the buyer's file, and you are coming to stop the transfer.", "bad", "ms92-vowed-to-collect", "You send notice that you have read the buyer's file and will challenge the transfer. At the tower gate, several Veiled Hands refuse an anonymous order to stop you. Nyx checks that you still have the evidence. 'Here we go,' she says. 'Try to look less frightened than I feel.'"),
         ]),
     ],
 };

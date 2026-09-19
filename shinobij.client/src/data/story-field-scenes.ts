@@ -46,8 +46,8 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
                     scene: "The broken cable span, wind pushing rain sideways through the cut",
                     speaker: "Mira Volt",
                     dialogue: [
-                        "Anchor's sound. Old cable isn't. I can splice my coil to the far eye, but somebody has to cross while the other holds the brake.",
-                        "One of us has to cross on the repaired cable while the other controls the brake. I'll check the knot under load before either of us leaves the ledge.",
+                        "Anchor's sound. Old cable isn't. I can splice my coil to the far eye.",
+                        "I'll check the knot under load before either of us leaves the ledge.",
                         "I'll control the brake. You cross to the far shelf. If I tell you to stop, keep still until I have the line steady.",
                     ],
                     choices: [choice("sv-broken-cable-span-continue", "Cross on Mira's line while she holds the brake.", "The cable drops under your weight, catches, and hums. Mira does not breathe again until both your boots reach rock.")],
@@ -216,8 +216,8 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
                     speaker: "Toma Reed",
                     dialogue: [
                         "Reed. And the next name. And the next. The cart got here before the rain; the sluice kept what fell out.",
-                        "Two plates cracked at old nail holes. I brought clamps for a bridge, so tonight they belong to the names first.",
-                        "Wrap them. Then we go back. If I carry my family home over a broken crossing and call the day finished, the clerks have taught me too well.",
+                        "Two plates cracked at old nail holes. The bridge clamps will hold them while we wrap them.",
+                        "Wrap them. Then we go back to fix the crossing. People are still using it.",
                     ],
                     choices: [choice("al-silted-sluice-continue", "Wrap the recovered plates and carry them back to the footbridge.")],
                 }],
@@ -232,7 +232,7 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
                     speaker: "Toma Reed",
                     dialogue: [
                         "Use the offcut with the twisted grain. Hold it across the split while I set the clamp.",
-                        "I was angry when you chose the cart. I am still a little angry. We found the plates before the rain, and now we're here doing the other job. Both things get to be true.",
+                        "The plates are safe above the flood line. I wish we'd fixed this before dark. Someone could have fallen through while we were chasing that cart.",
                         "Put your weight on the center plank. If it holds you, it will hold the morning baskets. Then we take the names home.",
                     ],
                     choices: [choice("al-bridge-after-dark-finish", "Test the repaired span, then carry the cedar plates back to Toma's post.")],
@@ -305,7 +305,7 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
                     speaker: "Elder Sova",
                     dialogue: [
                         "Half a cup each. No heroics beyond the light. A cook goes with every watcher because the cooks know where the wind drops flour sacks and the watch knows where people fall.",
-                        "The corporal says the lamps are too low. The cook says the broth is too thin. Let them complain. It means neither has forgotten what the other gave up.",
+                        "The corporal says the lamps are too low. The cook says the broth is too thin. Neither crew has enough. We'll have to keep close together out there.",
                         "Blue ice next. Call every page edge before you touch it. Wax looks like frost in this light.",
                     ],
                     choices: [choice("ff-south-watch-post-continue", "Take a half-wick lamp and join the paired crews at the blue-ice gully.")],
@@ -501,7 +501,7 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
                 requireTrait: "sf-ms-open-witnesses",
                 dialogue: [
                     "The clerk warned us and left. I was angry when you posted the notice anyway. Then the pages came back in hands the buyers could not all frighten at once.",
-                    "I remain angry. The ledger remains complete. Hold the fresh list flat while I scrape this one down; both statements can share a wall.",
+                    "We have every page back, but we lost the clerk's help. I still think we needed it. Hold the fresh list flat while I scrape this one down.",
                     "Careful with the paste. It costs more than the paper and considerably less than a secret.",
                 ],
             },
