@@ -1,0 +1,137 @@
+[
+  {
+    "id": "NP01",
+    "scene": "campaign/Stormveil Village/15",
+    "page": 5,
+    "field": "dialogue.1",
+    "before": "Mira is already coiling a cable around her fist, which is how she argues.",
+    "after": "Mira is already coiling a cable around her fist.",
+    "event": "story-stormveil-village-15-1"
+  },
+  {
+    "id": "NP02",
+    "scene": "interlude/story-interlude-ashen-leaf-village-88",
+    "page": 11,
+    "field": "dialogue.1",
+    "before": "Jorun sits on the bank flexing his warm hands, unsettled and grinning about it. Sera folds the drying cloth, then unfolds it, then folds it again, because her hands need the job.",
+    "after": "Jorun sits on the bank flexing his warm hands, unsettled and grinning about it. Sera folds the drying cloth, then unfolds it, then folds it again.",
+    "event": "story-interlude-ashen-leaf-village-88"
+  },
+  {
+    "id": "NP03",
+    "scene": "rift/rift-gate-heir/repeat",
+    "page": 0,
+    "field": "choices.1.conclusion",
+    "before": "Harrow writes NOT YET across the pressure report, dates it, and makes you initial the delay. Even refusal gets a receipt with her.",
+    "after": "Harrow writes NOT YET across the pressure report, dates it, and makes you initial the delay.",
+    "event": "rift-giver-gate-heir:repeat"
+  },
+  {
+    "id": "NP04",
+    "scene": "interlude/story-interlude-stormveil-village-88",
+    "page": 1,
+    "field": "dialogue.1",
+    "before": "Mira works the anchor points in a language of grunts and hand signals, and the crew learns it in minutes because her hands make sense the way good rigging makes sense.",
+    "after": "Mira directs the crew with grunts and hand signals. Within minutes, they can follow her.",
+    "event": "story-interlude-stormveil-village-88"
+  },
+  {
+    "id": "NP05",
+    "scene": "interlude/story-interlude-frostfang-village-70",
+    "page": 8,
+    "field": "choices.0.conclusion",
+    "before": "You set the holder's mark face-down, gently, the way you decline a drink from someone who needs to hear no. Vess exhales like a man whose scale finally balanced. Yura says nothing at all, but at the door she gives you the salute she reserves, as far as you know, for one monthly roll call, up a tower, in the snow.",
+    "after": "You gently set the holder's mark face-down. Vess exhales. Yura says nothing at all, but at the door she gives you the salute she reserves, as far as you know, for one monthly roll call, up a tower, in the snow.",
+    "event": "story-interlude-frostfang-village-70"
+  },
+  {
+    "id": "NP06",
+    "scene": "reckoning/story-reckoning-harrow-unbought/payoff",
+    "page": 0,
+    "field": "choices.2.conclusion",
+    "before": "She does not pretend she forgot the two hundred. She wrote something short in her ledger that day, and shows you it now: worth watching. She adds a second line under it. Watched.",
+    "after": "She shows you the entry she made after you collected the two hundred: worth watching. Beneath it, she records your help recovering the forging die.",
+    "event": "story-reckoning-harrow-unbought-return:traits-0"
+  },
+  {
+    "id": "NP07",
+    "scene": "interlude/story-interlude-ashen-leaf-village-92",
+    "page": 10,
+    "field": "dialogue.0",
+    "before": "The third figure wears survey gray, stands alone, off schedule, hands kept visible. Everything about the posture says: I am breaking a rule, carefully.",
+    "after": "The third figure wears survey gray, stands alone, off schedule, hands kept visible.",
+    "event": "story-interlude-ashen-leaf-village-92"
+  },
+  {
+    "id": "MR01.dialogue.1",
+    "scene": "interlude/story-interlude-ashen-leaf-village-92",
+    "page": 7,
+    "field": "dialogue.1",
+    "before": "And these are the survey office's shipment logs. I counted the flowers. I should have counted where the cut futures went.",
+    "after": "And these are the survey office's shipping logs. I counted the flowers. I never counted what the cuts took from people, or where it was sent.",
+    "event": "story-interlude-ashen-leaf-village-92"
+  },
+  {
+    "id": "MR01.dialogue.2",
+    "scene": "interlude/story-interlude-ashen-leaf-village-92",
+    "page": 7,
+    "field": "dialogue.2",
+    "before": "Enough burned here to warm us. The rest went below. I'm going to read the number in the tower and let the village decide what to do with me.",
+    "after": "Enough of it burned here to keep us warm. The rest went below. I'm going to read the number in the tower and let the village decide what to do with me.",
+    "event": "story-interlude-ashen-leaf-village-92"
+  },
+  {
+    "id": "MR02.choices.0.text",
+    "scene": "campaign/Frostfang Village/25",
+    "page": 3,
+    "field": "choices.0.text",
+    "before": "The ice stands up.",
+    "after": "Draw your weapon.",
+    "event": "story-frostfang-village-25-2"
+  },
+  {
+    "id": "MR03.dialogue.1",
+    "scene": "interlude/story-interlude-moonshadow-village-80",
+    "page": 1,
+    "field": "dialogue.1",
+    "before": "The client uses a quartered circle. I traced it through all four villages to a name they avoid writing: Hollow Gate. The Mirror holds four hundred years of surrendered trust. My signature would turn it into legal cargo.",
+    "after": "The client signs with a quartered circle. I followed that mark through all four villages, and it always comes back to a name people avoid writing down. Hollow Gate. That Mirror holds four hundred years of confessions and records of who trusted whom. If I sign, all of it becomes legal cargo.",
+    "event": "story-interlude-moonshadow-village-80"
+  },
+  {
+    "id": "MR03.dialogue.2",
+    "scene": "interlude/story-interlude-moonshadow-village-80",
+    "page": 1,
+    "field": "dialogue.2",
+    "before": "The shipping manifest labels four sources: Stormveil supplies the reasons people fight. Ashen Leaf supplies futures people were becoming. Frostfang supplies the choice to leave. Moonshadow supplies trust people placed in someone.",
+    "after": "Listen to how they wrote the manifest. I'll read it exactly. 'Stormveil supplies the reasons people fight. Ashen Leaf supplies futures people were becoming. Frostfang supplies the choice to leave. Moonshadow supplies trust people placed in someone.'",
+    "event": "story-interlude-moonshadow-village-80"
+  },
+  {
+    "id": "MR03.dialogue.3",
+    "scene": "interlude/story-interlude-moonshadow-village-80",
+    "page": 1,
+    "field": "dialogue.3",
+    "before": "My commission verifies the Mirror line. The other three are the buyer's own inventory labels.",
+    "after": "They only hired me to vouch for the last line, the Mirror. The other three are what the buyer calls the things it takes from the other villages.",
+    "event": "story-interlude-moonshadow-village-80"
+  },
+  {
+    "id": "Mira.text",
+    "scene": "interlude/story-interlude-stormveil-village-30",
+    "page": 3,
+    "field": "choices.1.text",
+    "before": "Tell her two routes is just sound rigging. Nothing to explain.",
+    "after": "Tell her there's nothing wrong with keeping an escape plan.",
+    "event": "story-interlude-stormveil-village-30"
+  },
+  {
+    "id": "Mira.conclusion",
+    "scene": "interlude/story-interlude-stormveil-village-30",
+    "page": 3,
+    "field": "choices.1.conclusion",
+    "before": "'Redundancy,' you say, and she almost smiles. You've spoken her native language: load paths, failure points, backups for the backups. She doesn't move the bag. But she shows you the real anchor points on the ridge, which she has never shown anyone, strictly, she says, for professional reasons.",
+    "after": "'It's sensible to have a way out,' you say, and she almost smiles. She leaves the bag where it is, but shows you where the cables are secured along the ridge. She has never shown anyone else those places. 'Just for work,' she says.",
+    "event": "story-interlude-stormveil-village-30"
+  }
+]
