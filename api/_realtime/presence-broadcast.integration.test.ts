@@ -66,6 +66,11 @@ test('HP ticks stay quiet; visible changes arrive batched (current) or per playe
     await connect(WATCHER, true);
     await connect(LEGACY, false);
     await delay(700);
+    // Arrivals ride the batch too (a join and an update are both an upsert).
+    const arrivals = events[WATCHER].filter(([event]) => event === 'presence:updates')
+        .flatMap(([, payload]) => (payload.players as Json[]).map((p) => p.name));
+    assert.ok(arrivals.includes(LEGACY), 'the watcher hears of a later arrival through the batch');
+    assert.equal(events[WATCHER].some(([event]) => event === 'presence:join'), false);
     for (const list of Object.values(events)) list.length = 0;
 
     // An idle-regen tick changes only HP — nothing a sector-mate receives.

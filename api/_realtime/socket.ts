@@ -315,8 +315,11 @@ function wireRealtime(io: IOServer): void {
                 socket.data.sector = newSector;
                 // The joining socket gets the fresh snapshot immediately…
                 socket.emit('presence:sector', { sector: newSector, players: sectorSnapshot(newSector) });
-                // …and both affected rooms see the membership change.
-                socket.to(sectorRoom(newSector)).emit('presence:join', { sector: newSector, player: toPlayerRecord(stored) });
+                // …and the new room learns of the arrival on the next batch flush.
+                // Clients apply a join and an update identically (upsert), and a
+                // deploy reconnects every player at once: one frame per arrival
+                // per sector-mate was an O(N²) burst (presence-broadcast.ts).
+                queuePresenceUpdate(name, newSector);
             } else if (!previous || previousSignature !== presenceBroadcastSignature(stored)) {
                 // Same sector — peers need a state change they can SEE (inBattle,
                 // level, travel…). HP/chakra ticks change the stored character
