@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { openLandingLogin } from '../e2e/helpers/landing-navigation';
 import { IMAGE_GUARD_ATTRIBUTE } from '../src/lib/imageErrorGuard';
 
 const PLAYER_NAME = 'GoldenNinja';
@@ -94,7 +95,7 @@ test('registration survives refresh and a clean-device login against real Expres
     await page.evaluate(() => localStorage.clear());
     await page.goto('/', { waitUntil: 'networkidle' });
     intentionallyResettingClient = false;
-    await page.getByRole('button', { name: 'Log In' }).click();
+    await openLandingLogin(page);
     await page.getByRole('button', { name: 'Use a name and password' }).click();
     await page.getByLabel('Name').fill(PLAYER_NAME);
     await page.getByPlaceholder('Enter your password').fill(PASSWORD);

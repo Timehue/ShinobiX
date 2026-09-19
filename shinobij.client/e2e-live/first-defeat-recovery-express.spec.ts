@@ -1,4 +1,5 @@
 import { expect, type Route } from '@playwright/test';
+import { openLandingLogin } from '../e2e/helpers/landing-navigation';
 import { API_CONNECTION_RETRIES, test } from './helpers/reconnecting-request';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -331,7 +332,7 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
    await expect(logoutBlocked).toHaveCount(0);
   }
   await expect(loggedOut).toBeVisible();
-  await page.locator('.landing-topnav').getByRole('button', { name: 'Log In', exact: true }).click();
+  await openLandingLogin(page);
   await page.getByRole('button', { name: 'Use a name and password' }).click();
   await page.getByLabel('Name').fill(name);
   await page.getByPlaceholder('Enter your password').fill(password);

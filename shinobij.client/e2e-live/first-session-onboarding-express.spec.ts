@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { openLandingLogin } from '../e2e/helpers/landing-navigation';
 
 type Session = {
     sessionId: string;
@@ -488,7 +489,7 @@ test(`a new player completes the full persisted Academy first session against bu
     expect((await logoutSave).status()).toBe(200);
     await expect(page.getByTestId('start-create')).toBeVisible();
 
-    await page.locator('.landing-topnav').getByRole('button', { name: 'Log In', exact: true }).click();
+    await openLandingLogin(page);
     await page.getByRole('button', { name: 'Use a name and password' }).click();
     await page.getByLabel('Name').fill(playerName);
     await page.getByPlaceholder('Enter your password').fill(password);

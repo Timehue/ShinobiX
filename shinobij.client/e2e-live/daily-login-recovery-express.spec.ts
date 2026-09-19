@@ -1,4 +1,5 @@
 import { expect } from '@playwright/test';
+import { openLandingLogin } from '../e2e/helpers/landing-navigation';
 import { API_CONNECTION_RETRIES, test } from './helpers/reconnecting-request';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 
@@ -80,7 +81,7 @@ test('daily claim survives a lost response, receipt retry, logout and relogin', 
     await expect(loggedOut).toBeVisible();
     const saved = await request.get(`/api/save/${name}`, { headers: { 'x-admin-password': 'live-express-e2e-admin' } });
     expect((await saved.json()).character.fateShards).toBe(25);
-    await page.locator('.landing-topnav').getByRole('button', { name: 'Log In', exact: true }).click();
+    await openLandingLogin(page);
     await page.getByRole('button', { name: 'Use a name and password' }).click();
     await page.getByLabel('Name').fill(name);
     await page.getByPlaceholder('Enter your password').fill(password);

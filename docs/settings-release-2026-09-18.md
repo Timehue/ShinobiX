@@ -15,6 +15,7 @@ The release was prepared in an isolated checkout of current main, including `262
 - Deferred feature loading: **4/4 browser tests passed** on desktop and mobile. The reader test now uses the saved Cinematic preference in place of the removed in-scene switch and retains its fullscreen styling assertions.
 - Account/navigation integration: **46 passed, 2 intentional skips**, with six phone-checkbox sizing failures subsequently corrected. The final focused recheck passed **12/12**, covering all nine checkbox viewport/browser combinations plus Settings preference persistence in Chromium desktop/mobile and mobile WebKit. The corrected mobile screenshot was inspected. No failure remains in these selected cases.
 - Real local Express release certification: **90/90 checks passed** with isolated memory storage.
+- Live Express login journeys: **13/13 passed** after replacing obsolete landing navigation selectors in Academy, daily-reward, defeat-recovery, and clean-device login tests. The instrumented Academy audit also resolves the shared navigation helper from its generated location. These are test-tooling corrections; account and gameplay behavior are unchanged.
 - Generated handoff drift and Railway configuration checks pass.
 - The preceding Settings audit completed strict combat layout verification: **20 passed, 10 intentional skips, 0 failures**. The pushed revision is also subject to the full CI browser, combat, server, and production-image gates before Railway deploys it.
 

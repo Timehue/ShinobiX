@@ -6,6 +6,8 @@ const root = resolve(import.meta.dirname, '..');
 const work = resolve(root, 'test-results/ux-journey-work');
 mkdirSync(work, { recursive: true });
 let source = readFileSync(resolve(root, 'e2e-live/first-session-onboarding-express.spec.ts'), 'utf8');
+// The instrumented copy lives one directory deeper than the source spec.
+source = source.replace("from '../e2e/helpers/landing-navigation';", "from '../../e2e/helpers/landing-navigation';");
 source = source.replace('for (const grantDelayMs of [0, 500])', 'for (const grantDelayMs of [0])');
 source = source.replace('test.setTimeout(240_000)', 'test.setTimeout(420_000)');
 source = source.replace("import { expect, test, type Page } from '@playwright/test';", `import { expect, test, type Page } from '@playwright/test';
