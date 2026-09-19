@@ -146,6 +146,15 @@ function allowAlignedLocal(key: string, limit: number, windowMs: number): RateLi
     return { ok: true };
 }
 
+/**
+ * Test-only: forget every in-memory bucket. Suites that wipe the KV store
+ * between tests used to reset the heartbeat/autosave windows with it; those
+ * windows now live here ({ local: true }).
+ */
+export function __resetRateLimitsForTest(): void {
+    _buckets.clear();
+}
+
 /** Test-only: the in-memory count charged to `key` (`<bucket>:name:<player>`) across live windows. */
 export function __localWindowCountForTest(key: string): number {
     const prefix = `aligned:${key}:`;
