@@ -240,3 +240,48 @@ test('a session that vanishes mid-stream ends the connection instead of hanging'
     await run.done;
     assert.deepEqual(run.events.at(-1), { event: 'end', data: { reason: 'session-expired' } });
 });
+
+test('a write to the session wakes the stream at once instead of waiting for a poll', async () => {
+    const { signalKeyWritten } = await import('../_kv-write-signal.js');
+    store.set('pvp:sse-wake', clone(session('sse-wake')));
+    const run = openStream('sse-wake');
+    while (!run.chunks.length) await new Promise<void>((r) => setTimeout(r, 5));
+    const before = run.chunks.length;
+    store.set('pvp:sse-wake', clone({ ...session('sse-wake'), log: ['Alice threw a kunai.'] }));
+    const writtenAt = Date.now();
+    signalKeyWritten('pvp:sse-wake');
+    while (run.chunks.length === before && Date.now() - writtenAt < 900) await new Promise<void>((r) => setTimeout(r, 5));
+    const latency = Date.now() - writtenAt;
+    run.close();
+    await run.done;
+    assert.ok(latency < 500, `the write reached the client in ${latency}ms, well inside the 1s safety poll`);
+    assert.ok(run.events.some((e) => e.event === 'session' && (e.data as PvpSession).log.includes('Alice threw a kunai.')));
+});
+
+test('a quiet stream reads its session about once a second, not ten times', async () => {
+    store.set('pvp:sse-quiet', clone(session('sse-quiet')));
+    const { kv } = await import('../_storage.js');
+    const original = kv.get;
+    let reads = 0;
+    kv.get = (async (key: string) => { if (key === 'pvp:sse-quiet') reads += 1; return original(key); }) as typeof kv.get;
+    try {
+        const run = openStream('sse-quiet');
+        await new Promise<void>((r) => setTimeout(r, 1_300));
+        run.close();
+        await run.done;
+    } finally {
+        kv.get = original;
+    }
+    // One read before the upgrade plus about one safety poll; the old loop did ~13.
+    assert.ok(reads <= 4, `a quiet stream read its session ${reads} times in 1.3s`);
+});
+
+test('the wake delay honours the turn clock and never drops below the old 100 ms cadence', async () => {
+    const { streamWakeDelayMs } = await import('./stream.js');
+    const now = Date.now();
+    assert.equal(streamWakeDelayMs(session('d', { status: 'done' }), now), 1_000, 'no clock: the safety poll');
+    const dueIn300 = streamWakeDelayMs(session('d', { turnStartedAt: now - (PVP_TURN_MS + PVP_TURN_GRACE_MS) + 300 }), now);
+    assert.ok(dueIn300 >= 300 && dueIn300 <= 320, `wakes right after the lapse (${dueIn300}ms)`);
+    assert.equal(streamWakeDelayMs(session('d', { turnStartedAt: now - LAPSED }), now), 100, 'an overdue turn retries at the old cadence');
+    assert.equal(streamWakeDelayMs(session('d', { turnStartedAt: now }), now), 1_000, 'a far-off lapse still gets the safety poll');
+});

@@ -65,6 +65,19 @@ export function pvpTurnLapsed(session: PvpSession, now = Date.now()): boolean {
     return now >= pvpTurnDeadlineAt(startedAt);
 }
 
+/**
+ * When a reader should next run the deadline check: `now` for a legacy row the
+ * first check must stamp, the lapse moment while the clock runs, or null when
+ * no clock runs. Agrees with pvpTurnDeadlineNeedsWork below.
+ */
+export function pvpTurnNextCheckAt(session: PvpSession, now = Date.now()): number | null {
+    if (!pvpTurnClockRunning(session)) return null;
+    if (session.turnStartedAt === undefined) return now;
+    const startedAt = Number(session.turnStartedAt);
+    if (!Number.isFinite(startedAt) || startedAt <= 0) return null;
+    return pvpTurnDeadlineAt(startedAt);
+}
+
 /** Cheap pre-check so readers skip the lock when there is nothing to do. */
 export function pvpTurnDeadlineNeedsWork(session: PvpSession, now = Date.now()): boolean {
     if (!pvpTurnClockRunning(session)) return false;

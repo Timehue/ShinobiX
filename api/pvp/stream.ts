@@ -8,13 +8,15 @@ import {
     parsePlayerRankedSessionOrphanTombstone,
 } from '../pet/_ranked-preparation.js';
 import { pvpSessionPublicationTombstoneFor } from './_session-publication-tombstone.js';
-import { enforcePvpTurnDeadline } from './_turn-deadline.js';
+import { enforcePvpTurnDeadline, pvpTurnNextCheckAt } from './_turn-deadline.js';
+import { onKeyWritten } from '../_kv-write-signal.js';
 
 // GET /api/pvp/stream?id=<battleId>
 //
 // Server-Sent Events stream of the PvP session record. Replaces the
 // 1-second polling loop on the PvP battle screen — the server holds
-// the connection open, polls KV at 250ms internally, and pushes a
+// the connection open, wakes whenever the session record is written
+// (see SAFETY_POLL_MS below), and pushes a
 // `data: { session }\n\n` chunk whenever the record changes. Both
 // fighters and spectators consume this instead of fetching session
 // state once per second.
@@ -50,8 +52,24 @@ import { enforcePvpTurnDeadline } from './_turn-deadline.js';
 // (sub-100ms means human reaction time can't tell the move was
 // server-mediated).
 const STREAM_DURATION_MS = 13 * 60 * 1000;  // 13 minutes
-const POLL_INTERVAL_MS = 100;
 const HEARTBEAT_INTERVAL_MS = 15_000;
+// The stream no longer re-reads its session every 100 ms (about 20 database
+// reads a second for a quiet 1v1). It sleeps until the session key is written
+// in this process (api/_kv-write-signal.ts — every writer, since the storage
+// backend signals), until the turn clock is due, or until SAFETY_POLL_MS for
+// writes it cannot hear (another process during a deploy overlap). It never
+// wakes more often than the old MIN_WAKE_MS cadence, even for an overdue turn.
+const SAFETY_POLL_MS = 1_000;
+const MIN_WAKE_MS = 100;
+// Wake a hair after the lapse so the deadline check sees it as due.
+const DEADLINE_WAKE_SLACK_MS = 5;
+
+/** How long the stream may sleep before its next read of `session`. */
+export function streamWakeDelayMs(session: PvpSession, now = Date.now()): number {
+    const checkAt = pvpTurnNextCheckAt(session, now);
+    if (checkAt === null) return SAFETY_POLL_MS;
+    return Math.min(SAFETY_POLL_MS, Math.max(MIN_WAKE_MS, checkAt - now + DEADLINE_WAKE_SLACK_MS));
+}
 
 function parseLiveSession(value: unknown, battleId: string): PvpSession | null {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
@@ -129,14 +147,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // render on connect.
     sendEvent('session', initial);
 
+    // Sleep until the session is written, the turn clock is due, or the safety
+    // poll — whichever comes first. A write during the read below re-arms `dirty`
+    // so it is never lost between wakes.
+    let wake: (() => void) | null = null;
+    let dirty = false;
+    const stopListening = onKeyWritten(key, () => {
+        dirty = true;
+        wake?.();
+    });
+    const sleep = (ms: number) => new Promise<void>((resolve) => {
+        if (dirty || aborted) { resolve(); return; }
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const done = () => { clearTimeout(timer); wake = null; resolve(); };
+        timer = setTimeout(done, ms);
+        wake = done;
+    });
+
     // Tear down on client disconnect. req.on('close') fires when the
     // client goes away (tab close, navigation, network drop).
-    req.on('close', () => { aborted = true; });
+    req.on('close', () => { aborted = true; wake?.(); });
 
     const startedAt = Date.now();
+    let current: PvpSession = initial;
     try {
         while (!aborted && (Date.now() - startedAt) < STREAM_DURATION_MS) {
-            await new Promise<void>(r => setTimeout(r, POLL_INTERVAL_MS));
+            await sleep(streamWakeDelayMs(current));
+            dirty = false;
             if (aborted) break;
             const rawSession = await kv.get<unknown>(key);
             if (!rawSession || pvpSessionPublicationTombstoneFor(rawSession, battleId)) {
@@ -162,6 +199,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     console.error('[pvp/stream] turn deadline enforcement failed', error);
                 }
             }
+            current = session;
             const json = JSON.stringify(session);
             if (json !== lastJson) {
                 sendEvent('session', session);
@@ -184,6 +222,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (err) {
         console.error('[pvp/stream]', err);
     } finally {
+        stopListening();
         try { res.end(); } catch { /* already closed */ }
     }
 }

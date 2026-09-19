@@ -912,12 +912,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 try {
                     await withKvLock(`save:${name.toLowerCase()}`, async () => {
                     const deletionFenceKey = playerSaveDeletionFenceKey(name, isClanSave);
-                    const [pendingSignal, adminLock, existing, deletionFence] = await Promise.all([
-                        kv.get(resetSignalKey),
-                        kv.get(adminLockKey),
-                        kv.get(key),
-                        deletionFenceKey ? kv.get(deletionFenceKey) : Promise.resolve(null),
-                    ]);
+                    // One batched read, not four: autosave is the largest share of
+                    // database time, and four parallel gets held four pool
+                    // connections for the same point lookups.
+                    const [pendingSignal, adminLock, existing, deletionFence = null] = await kv.mget(
+                        resetSignalKey,
+                        adminLockKey,
+                        key,
+                        ...(deletionFenceKey ? [deletionFenceKey] : []),
+                    );
                     // Reset signal / admin edit in flight — drop the write so it
                     // can't overwrite the admin's changes. Say so explicitly:
                     // a bare 200 read as "saved" to the client, which then cleared
