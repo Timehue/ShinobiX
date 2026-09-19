@@ -115,9 +115,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         injured.sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp));
-        // Short shared CDN cache to collapse repeated Healer polls of this
-        // full-save scan. Set only on the 200 path so a 500 is never cached.
-        res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=30');
+        // Authenticated, per-healer data: never a shared cache. The edge would
+        // key it by URL alone and hand one healer's list to anyone who asks for
+        // it. The browser may revalidate it (ETag), nothing more.
+        res.setHeader('Cache-Control', 'private, no-cache');
         return res.status(200).json({ injured });
     } catch (err) {
         console.error('[player/injured-villagers]', err);

@@ -43,8 +43,8 @@ before(async () => {
 after(() => { delete process.env.SHINOBIX_QA_MEMORY_KV; });
 
 async function poll() {
-    const out: { status: number; body?: Json } = { status: 200 };
-    const res = { setHeader() {}, status(code: number) { out.status = code; return res; },
+    const out: { status: number; body?: Json; headers: Record<string, string> } = { status: 200, headers: {} };
+    const res = { setHeader(key: string, value: string) { out.headers[key.toLowerCase()] = value; return res; }, status(code: number) { out.status = code; return res; },
         json(value: Json) { out.body = value; return res; }, end() { return res; } };
     await handler({ method: 'GET', query: { healerName: HEALER },
         headers: { 'x-player-name': HEALER, 'x-player-token': token, 'x-forwarded-for': '10.92.0.1' },
@@ -57,6 +57,9 @@ test('lists injured villagers of the healer\'s own village, worst first', async 
     assert.equal(out.status, 200, JSON.stringify(out.body));
     const injured = out.body!.injured as Array<{ name: string; hp: number }>;
     assert.deepEqual(injured.map((p) => p.name), ['hurtally', 'hurtlegacy']);
+    // Authenticated, per-healer data: a shared cache keyed by URL would hand
+    // this list to anyone who asked for ?healerName=<them>.
+    assert.equal(out.headers['cache-control'], 'private, no-cache');
 });
 
 test('reads only saves whose indexed village can match (plus village-less rows)', async (t) => {
