@@ -17,45 +17,61 @@
 .sunscar-hub-refined .sunscar-hub-heading { margin: 28px 0 19px; }
 .sunscar-hub-refined .sunscar-hub-heading h2 { margin: 4px 0; font-size: 27px; font-weight: 400; }
 .sunscar-hub-refined .sunscar-attractions { gap: 18px; }
-.sunscar-mode.sunscar-hub-refined .sunscar-attraction { display: flex; flex-direction: column; margin: 0; background: #11191e; border: 1px solid var(--sun-line); border-radius: 6px; }
-.sunscar-hub-refined .sunscar-attraction-art { height: 175px; border-bottom: 1px solid var(--sun-line); }
-.sunscar-hub-refined .sunscar-attraction-art > img { width: 100%; height: 100%; inset: 0; object-fit: cover; object-position: center; filter: none; }
-.sunscar-hub-refined .sunscar-attraction-art > .sunscar-racing-art { width: 195%; height: 195%; max-width: none; top: -88%; left: -95%; object-position: right bottom; }
-.sunscar-hub-refined .sunscar-attraction-art > .sunscar-dispatch-art { width: 180%; height: 180%; max-width: none; top: -20%; left: -80%; object-position: right center; }
-.sunscar-hub-refined .sunscar-attraction-art::after { content: ''; position: absolute; inset: 0; background: linear-gradient(0deg,#11191e88,transparent 65%); }
-.sunscar-hub-refined .sunscar-attraction-copy { display: flex; flex-direction: column; flex: 1; padding: 23px; }
-.sunscar-hub-refined .sunscar-attraction-copy h2 { font-size: 33px; font-weight: 400; margin: 2px 0 12px; }
-.sunscar-hub-refined .sunscar-attraction-copy > p:not(.sunscar-eyebrow) { margin: 0; font-size: 12px; line-height: 1.8; min-height: 65px; }
-.sunscar-hub-refined .sunscar-attraction-status { display: block; font-size: 11px; line-height: 1.7; padding: 15px 0; margin-top: auto; }
-.sunscar-hub-refined .sunscar-attraction-status > span { display: block; color: #929e9d; font-size: 10px; }
-.sunscar-hub-refined button { min-height: 44px; border-radius: 4px; font-size: 12px; background: linear-gradient(#d9be84,#b6955e); color: #10171b; text-shadow: none; box-shadow: none; border-color: #d6b77b88; }
-.sunscar-hub-refined .sunscar-attraction-copy > small { margin-top: 10px; font-size: 10px; color: #929e9d; }
 .sunscar-hub-refined .sunscar-market-row { gap: 18px; margin-bottom: 28px; }
-.sunscar-hub-refined .sunscar-market-row > section { margin: 0; border: 1px solid var(--sun-line); border-radius: 6px; overflow: hidden; }
-.sunscar-hub-refined .sunscar-exchange-entrance { min-height: 420px; justify-content: end; background-position: 65% center; padding: 25px; }
-.sunscar-hub-refined .sx-entrance-copy { padding: 0; }
-.sunscar-hub-refined .sx-entrance-copy h2 { font: 400 31px/1.2 var(--font-display,Georgia,serif); margin: 10px 0; }
-.sunscar-hub-refined .sx-entrance-copy p { font-size: 12px; line-height: 1.8; margin-bottom: 24px; }
-.sunscar-hub-refined .sx-entrance-copy > small { text-align: left; color: #b8bfb5; font-size: 10px; }
-.sunscar-hub-refined .sunscar-broker { display: flex; flex-direction: column; padding: 0; gap: 0; background: #12181b; }
-.sunscar-broker-art { position: relative; width: 100%; height: 155px; background: radial-gradient(ellipse at 40% 80%,#b58a4133,transparent 70%),#141b1d; overflow: hidden; border-bottom: 1px solid var(--sun-line); }
-.sunscar-broker-art > .sunscar-broker-crate { position: absolute; left: 10px; bottom: 0; width: 65%; height: 150px; object-fit: contain; filter: drop-shadow(0 10px 14px #0009); }
-.sunscar-broker-art .sunscar-broker-portrait { position: absolute; bottom: -8px; right: 10px; width: 110px; height: 145px; object-fit: contain; opacity: .85; }
-.sunscar-broker-copy { width: 100%; padding: 23px; }
-.sunscar-hub-refined .sunscar-broker h2 { font-size: 31px; font-weight: 400; margin: 5px 0 12px; }
-.sunscar-hub-refined .sunscar-broker p { font-size: 12px; line-height: 1.8; }
-.sunscar-crate-price { display: flex; align-items: baseline; justify-content: space-between; gap: 9px; padding: 8px 0 12px; }
-.sunscar-crate-price strong { color: #e6c88e; font-size: 17px; font-weight: 500; }
-.sunscar-hub-refined .sunscar-crate-price small { display: inline; font-size: 10px; color: #b5b9af; }
-.sunscar-crate-price > span { color: #929e9d; font-size: 10px; }
-.sunscar-broker-copy > button { width: 100%; }
+/* Every destination is a poster in the Exchange's style: full-bleed art under a
+   scrim, then eyebrow, title, description, info row, call to action and
+   footnote. A card only chooses where its art is focused. Side by side, both
+   cards of a row share its rows through subgrid, so each line of copy sits at
+   the same height in the two. (A card must not become a size container: that
+   would make it an independent formatting context, which disables subgrid.) */
+.sunscar-mode.sunscar-hub-refined :is(.sunscar-attractions, .sunscar-market-row) { grid-template-columns: 1fr 1fr; grid-template-rows: minmax(120px, 1fr) repeat(6, auto); row-gap: 0; min-height: 440px; }
+.sunscar-mode.sunscar-hub-refined .sunscar-poster { position: relative; isolation: isolate; display: grid; grid-row: span 7; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(120px, 1fr) repeat(6, auto); grid-template-rows: subgrid; align-items: stretch; row-gap: 0; min-height: 0; margin: 0; padding: 0; overflow: hidden; background: #0d1419; border: 1px solid var(--sun-line); border-radius: 6px; box-shadow: 0 12px 32px #0003; }
+.sunscar-mode.sunscar-hub-refined .sunscar-poster::after { content: ''; position: absolute; inset: 10px; z-index: 2; border: 1px solid #ead5ab24; border-radius: 3px; pointer-events: none; }
+.sunscar-mode.sunscar-hub-refined .sunscar-poster-art { position: absolute; inset: 0; z-index: 0; width: auto; height: auto; margin: 0; border: 0; overflow: hidden; background: #0d1419; }
+.sunscar-mode.sunscar-hub-refined .sunscar-poster-art > img { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; object-fit: cover; object-position: var(--art-focus, 50% 50%); transform: scale(var(--art-zoom, 1)); transform-origin: var(--art-origin, 50% 50%); filter: none; }
+.sunscar-mode.sunscar-hub-refined .sunscar-poster-art::after { content: ''; position: absolute; inset: 0; z-index: 1; background: linear-gradient(0deg, #0d1419 0%, #0d1419f0 26%, #0d14198c 40%, #0d141900 60%), linear-gradient(90deg, #0d1419d9, #0d141973 32%, #0d141900 62%); }
+/* Focus = the art point that stays put; zoom scales about origin to frame it. */
+.sunscar-mode.sunscar-hub-refined .sunscar-poster-art > .sunscar-racing-art { --art-focus: 81.4% 68.8%; --art-zoom: 2.2; --art-origin: 90.9% 96.2%; }
+.sunscar-mode.sunscar-hub-refined .sunscar-poster-art > .sunscar-dispatch-art { --art-focus: 89.2% 47.4%; --art-zoom: 1.45; --art-origin: 100% 37.2%; }
+.sunscar-mode.sunscar-hub-refined .sunscar-exchange-entrance .sunscar-poster-art > img { --art-focus: 65% 50%; }
+/* The Broker has no wide painting: a blurred corner of the festival's lantern
+   steps stands in for his stall, and his portrait melts into it. */
+.sunscar-mode.sunscar-hub-refined .sunscar-broker-art::after { background: linear-gradient(0deg, #0d1419 0%, #0d1419f0 26%, #0d14198c 40%, #0d141900 60%); }
+.sunscar-mode.sunscar-hub-refined .sunscar-broker-art::before { content: ''; position: absolute; inset: -24px; background: radial-gradient(ellipse 34% 52% at 9% 6%, #ffb45a5c, transparent 70%), url(../assets/festival/sunscar-festival-v2.webp) 0% 20% / 240% auto no-repeat; filter: blur(7px) brightness(.55) saturate(.85); }
+.sunscar-mode.sunscar-hub-refined .sunscar-broker-art > .sunscar-broker-portrait { inset: 0 0 0 auto; width: auto; height: 100%; aspect-ratio: 341 / 512; object-fit: cover; mask-image: linear-gradient(90deg, transparent, #000 46%); }
+.sunscar-mode.sunscar-hub-refined .sunscar-broker-art > .sunscar-broker-crate { inset: auto; top: 11%; left: 57%; z-index: 1; width: clamp(150px, 28%, 230px); height: auto; aspect-ratio: 1; object-fit: contain; translate: -50% 0; filter: drop-shadow(0 18px 16px #000b); }
+.sunscar-mode.sunscar-hub-refined .sunscar-poster-copy { position: relative; z-index: 1; grid-row: 2 / span 6; display: grid; grid-template-rows: repeat(6, auto); grid-template-rows: subgrid; row-gap: 0; padding: 26px; }
+.sunscar-mode.sunscar-hub-refined .sunscar-poster-copy > :is(.sunscar-eyebrow, .sx-eyebrow) { display: block; margin: 0; font: 600 10px/1.6 var(--font-body,sans-serif); letter-spacing: .18em; text-transform: uppercase; color: var(--sun-gold); text-shadow: 0 1px 6px #000c; }
+.sunscar-mode.sunscar-hub-refined .sunscar-poster .sunscar-poster-copy > h2 { margin: 8px 0 10px; padding: 0; border: 0; font: 400 31px/1.15 var(--font-display,Georgia,serif); letter-spacing: -.01em; color: #f6e9cc; text-shadow: 0 2px 14px #000b; }
+.sunscar-mode.sunscar-hub-refined .sunscar-poster-copy > p:not(.sunscar-eyebrow) { max-width: 46ch; min-height: 0; margin: 0; font-size: 13px; line-height: 1.65; color: #d9d6c9; text-shadow: 0 1px 8px #000c; }
+.sunscar-mode.sunscar-hub-refined .sunscar-poster-meta { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 16px; margin: 16px 0 14px; padding: 10px 0 0; border-top: 1px solid #d6b77b33; font-size: 11px; line-height: 22px; color: #e6d5b2; }
+.sunscar-mode.sunscar-hub-refined .sunscar-poster-meta > span { display: inline; margin: 0; font-size: 11px; color: #a8b2b0; }
+.sunscar-mode.sunscar-hub-refined .sunscar-poster-meta strong { font-size: 15px; font-weight: 600; line-height: 1; color: #ebcd8f; }
+.sunscar-mode.sunscar-hub-refined .sunscar-poster-meta strong small { display: inline; margin: 0; font: 400 11px/1 var(--font-body,sans-serif); color: #c9c3b1; }
+.sunscar-mode.sunscar-hub-refined .sunscar-poster-copy > button { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 44px; margin: 0; padding: 11px 16px; border: 1px solid #f0d5a0; border-radius: 4px; background: linear-gradient(110deg,#e5c891,#c09b57); color: #1b2119; font: 700 13px/1.4 var(--font-body,sans-serif); text-align: left; text-shadow: none; box-shadow: 0 3px 0 #090e1244; }
+@media (hover: hover) { .sunscar-mode.sunscar-hub-refined .sunscar-poster-copy > button:hover:not(:disabled) { background: linear-gradient(110deg,#f0d9ab,#d2af6c); border-color: #f6e0b4; } }
+.sunscar-mode.sunscar-hub-refined .sunscar-poster-copy > small { display: block; margin: 10px 0 0; font: 400 10.5px/1.5 var(--font-body,sans-serif); color: #a9b1ac; text-align: left; }
+/* Below 1140px of hub, every card is under 560px wide: its copy spans the full
+   width, so the art is framed higher and the scrim follows the copy, fading out
+   90px above it however many lines the copy wraps to. */
+@container festival (max-width: 1140px) {
+    .sunscar-mode.sunscar-hub-refined :is(.sunscar-attractions, .sunscar-market-row) { grid-template-rows: minmax(160px, 1fr) repeat(6, auto); }
+    .sunscar-mode.sunscar-hub-refined .sunscar-poster-art::after { background: linear-gradient(0deg, #0d141966, #0d141900 55%); }
+    .sunscar-mode.sunscar-hub-refined .sunscar-poster-copy::before { content: ''; position: absolute; inset: -90px 0 0; z-index: -1; background: linear-gradient(0deg, #0d1419 0%, #0d1419eb calc(100% - 150px), #0d14199e calc(100% - 90px), #0d141900 100%); pointer-events: none; }
+    .sunscar-mode.sunscar-hub-refined .sunscar-poster-art > .sunscar-racing-art { --art-zoom: 2.6; }
+    .sunscar-mode.sunscar-hub-refined .sunscar-poster-art > .sunscar-dispatch-art { --art-zoom: 1.8; --art-origin: 100% 69%; }
+    .sunscar-mode.sunscar-hub-refined .sunscar-broker-art > .sunscar-broker-portrait { height: 72%; }
+    .sunscar-mode.sunscar-hub-refined .sunscar-broker-art > .sunscar-broker-crate { top: 6%; left: 22%; width: 34%; }
+    .sunscar-mode.sunscar-hub-refined .sunscar-poster-copy { padding: 22px 20px 20px; }
+    .sunscar-mode.sunscar-hub-refined .sunscar-poster .sunscar-poster-copy > h2 { font-size: 28px; }
+    .sunscar-mode.sunscar-hub-refined .sunscar-poster-copy > p:not(.sunscar-eyebrow) { max-width: none; font-size: 14px; line-height: 1.6; }
+}
 .sunscar-hub-refined .sunscar-hub-footer { padding: 17px 0; font-size: 10px; margin: 0; color: #929e9d; }
 @container festival (max-width: 610px) {
-    .sunscar-mode.sunscar-hub-refined .sunscar-attractions, .sunscar-hub-refined .sunscar-market-row { grid-template-columns: 1fr; }
+    .sunscar-mode.sunscar-hub-refined :is(.sunscar-attractions, .sunscar-market-row) { grid-template-columns: 1fr; grid-template-rows: none; row-gap: 18px; }
+    .sunscar-mode.sunscar-hub-refined .sunscar-poster { grid-row: auto; grid-template-rows: minmax(160px, 1fr) repeat(6, auto); min-height: 440px; }
     .sunscar-hub-refined .sunscar-new-hero { min-height: 315px; padding: 80px 24px 28px; }
-    .sunscar-hub-refined .sunscar-attraction-art { height: 190px; }
-    .sunscar-hub-refined .sunscar-attraction-copy > p:not(.sunscar-eyebrow) { min-height: 0; }
-    .sunscar-hub-refined .sunscar-exchange-entrance { min-height: 340px; }
+    .sunscar-mode.sunscar-hub-refined .sunscar-poster::after { inset: 8px; }
     .sunscar-daily-ledger { gap: 10px; }
     .sunscar-daily-ledger strong { font-size: 10px; }
     .sunscar-daily-ledger small { font-size: 9px; }

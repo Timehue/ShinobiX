@@ -18,10 +18,12 @@ const rarityOrder: Record<string, number> = { named: 7, mythic: 6, legendary: 5,
 const catalogArt = new Map(getAllItems([]).filter(item => item.image).map(item => [item.id, item.image!]));
 
 export function SunscarExchangeEntrance({ onOpen }: { onOpen: () => void }) {
-    return <section className="sunscar-card sunscar-exchange-entrance" style={{ backgroundImage: `linear-gradient(0deg, #161c1a 5%, rgba(18,24,22,.15) 100%), url(${exchangeArt})` }}>
-        <div className="sx-entrance-copy"><span className="sx-eyebrow">THE CARAVAN’S TRADING HALL</span>
+    return <section className="sunscar-exchange-entrance sunscar-poster">
+        <div className="sunscar-poster-art"><img src={exchangeArt} alt="" /></div>
+        <div className="sx-entrance-copy sunscar-poster-copy"><span className="sx-eyebrow">THE CARAVAN’S TRADING HALL</span>
             <h2>Sunscar Exchange</h2>
             <p>Find your next legend. Give another traveler theirs.</p>
+            <div className="sunscar-poster-meta">Free to list<span>{EXCHANGE_FEE_PERCENT}% fee on sales</span></div>
             <button className="sx-primary" onClick={onOpen}>Enter the Exchange <span aria-hidden="true">↗</span></button>
             <small>Player-to-player trading · Ryo & Fate Shards</small>
         </div>
