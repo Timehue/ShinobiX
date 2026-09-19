@@ -27,14 +27,13 @@ test("cinematic story styles load with the reader after a normal village visit",
     save.character = { ...save.character, storyProgress: 0, storyTraits: [] };
     const runtime = await installUiAuditRuntime(page, save);
     await page.addInitScript(() => {
-        localStorage.setItem("vnReaderMode.v1", "classic");
+        // Reader selection now belongs to Settings. Exercise the saved mode
+        // when the next scene mounts, without an in-scene mode switch.
+        localStorage.setItem("vnReaderMode.v1", "cinematic");
         localStorage.setItem("vnTextSpeed.v1", "instant");
         localStorage.setItem("vnAutoRead.v1", "0");
     });
     await expectUiAuditBoot(page, runtime, "village");
-    const classic = page.locator(".visual-novel.admin-vn-play");
-    await expect(classic).toBeVisible();
-    await classic.getByRole("button", { name: /cinematic/i }).click();
     const stage = page.locator(".cvn-root.is-immersive");
     await expect(stage).toBeVisible();
     await expect(stage).toHaveCSS("position", "fixed");
