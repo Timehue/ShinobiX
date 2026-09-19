@@ -8,7 +8,8 @@ import { stampPlayerIp } from '../_player-ips.js';
 import { recordClientIp, clientIpFrom, recordClientFingerprint, clientFpFrom } from '../admin/moderation.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { stampPresenceBeat } from '../_realtime/_presence-beat.js';
-import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUntil, toPlayerRecord } from '../_realtime/presence-input.js';
+import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUntil, presenceBroadcastSignature, toPlayerRecord } from '../_realtime/presence-input.js';
+import { announcePresenceLeave, queuePresenceUpdate } from '../_realtime/presence-broadcast.js';
 import { clearSleeperCampOnBeat } from '../_realtime/sleeper-camps.js';
 import { getTravelLease, settleTravelLease, travelLeaseSectorAt } from '../_realtime/travel-lease.js';
 import { durablePresenceSectorForWrite } from '../_realtime/world-duel-engagement.js';
@@ -134,7 +135,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         const body = bodyPeek; // reuse the rate-limit peek's parse — avoids a 2nd JSON.parse on the hottest endpoint
-        const { name, sector, character, travelingUntil, inBattle, tile, noticeAck, exchangeSaleNotices, ackNotices, ackHeal } = body as {
+        const { name, sector, character, travelingUntil, inBattle, tile, noticeAck, exchangeSaleNotices, ackNotices, ackHeal, socketLive } = body as {
             name?: string;
             sector?: number;
             character?: unknown;
@@ -149,6 +150,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ackNotices?: unknown;
             /** The `pendingHeal.id` the client has shown. */
             ackHeal?: unknown;
+            /** The client's presence socket is live, so it needs no sector roster this beat. */
+            socketLive?: boolean;
         };
         if (!name) return res.status(400).json({ error: 'Missing name.' });
         // Legacy bodies (no `noticeAck`) keep the consume-on-delivery behavior,
@@ -281,6 +284,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // stored character if this beat sent none.
         const slimChar = slimPresenceCharacter(character) ?? existing?.character ?? null;
 
+        // What sector-mates could see before this beat. Captured as plain values:
+        // arriving travel settles by mutating the existing record in place.
+        const sectorBefore = existing?.sector;
+        const signatureBefore = presenceBroadcastSignature(existing);
+
         // Presence write → PROCESS MEMORY (no per-second DB write). upsert
         // preserves any pendingAttacker queued by attack.ts; we deliver it to this
         // client and clear it (one-shot), matching the old behavior where the
@@ -340,6 +348,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         stampPresenceBeat(name);
         void clearSleeperCampOnBeat(name, now).catch(() => undefined);
 
+        // Socket clients no longer take the whole sector roster on every beat
+        // (below), so push what this beat changed that they can see: a first
+        // appearance, a sector move, or the server-derived inBattle flag above.
+        const published = onlineStore.get(name);
+        if (published) {
+            const moved = sectorBefore === undefined || sectorBefore !== published.sector;
+            if (sectorBefore !== undefined && moved) announcePresenceLeave(name, sectorBefore);
+            if (moved || signatureBefore !== presenceBroadcastSignature(published)) queuePresenceUpdate(name, published.sector);
+        }
+
         // Do NOT read-delete the challenge inbox here. A challenge can arrive
         // between mget() and del(); deleting the whole key in that window loses
         // the new invite forever. Delivery is now acknowledgment-safe: heartbeat
@@ -366,7 +384,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // The in-memory store IS the live roster — no DB scan, no cache layer.
         // toPlayerRecord (shared with the WS path) shapes each entry; avatar
         // image is omitted (client resolves it from its name-keyed cache).
-        const sectorMates = onlineStore.listSector(stored.sector).map(toPlayerRecord);
+        //
+        // A client whose presence socket is live already receives joins, leaves,
+        // moves and state changes pushed per sector, so it asks for the roster
+        // only as a periodic resync (shinobij.client/src/lib/heartbeat-roster.ts).
+        // Serializing every sector-mate into every beat was O(N²) in a crowded
+        // sector. The roster still rides every beat for socket-less and older
+        // clients, a cold start, and whenever the server corrects the sector.
+        const rosterNeeded = socketLive !== true || sectorBefore === undefined
+            || stored.sector !== normalizeSector(sector, stored.sector);
+        const sectorMates = rosterNeeded ? onlineStore.listSector(stored.sector).map(toPlayerRecord) : null;
 
         // Note: the full online roster is intentionally NOT broadcast on every
         // heartbeat (was an O(N²)/payload cost). Clients source the global list
@@ -374,7 +401,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // only. The client tolerates the absent `allPlayers` field (optional).
 
         return res.status(200).json({
-            sectorMates,
+            ...(sectorMates ? { sectorMates } : {}),
             // Server-authoritative world position (lease-gated in online-store, so it
             // can't be teleported past the anti-cheat) + whether a travel lease is in
             // flight. The client reconciles its own currentSector to this each beat

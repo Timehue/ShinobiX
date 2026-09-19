@@ -35,6 +35,11 @@ export function updateRealtimeTile(tile: number): void {
     presenceSocketApi?.updatePresenceTile(tile);
 }
 
+/** True while the shared presence socket is connected (false before its chunk loads). */
+export function isRealtimePresenceLive(): boolean {
+    return presenceSocketApi?.isRealtimeConnected() ?? false;
+}
+
 type UsePresenceSocketOptions = {
     characterName?: string;
     characterRef: MutableRefObject<Character | null>;
