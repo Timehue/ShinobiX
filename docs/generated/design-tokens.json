@@ -2294,7 +2294,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1897
+            "line": 1892
           }
         ]
       },
@@ -2836,7 +2836,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/11-sector-explore-village-themes.css",
-            "line": 804
+            "line": 796
           },
           {
             "source": "shinobij.client/src/styles/index/15-territory-panels.css",
@@ -2864,7 +2864,7 @@
           },
           {
             "source": "shinobij.client/src/styles/sunscar-hub.css",
-            "line": 63
+            "line": 79
           }
         ]
       },
@@ -3548,11 +3548,11 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1921
+            "line": 1916
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1981
+            "line": 1976
           },
           {
             "source": "shinobij.client/src/styles/village-war-map-skin.css",
@@ -3963,7 +3963,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1882
+            "line": 1877
           },
           {
             "source": "shinobij.client/src/styles/world-map-mobile.css",
@@ -4033,7 +4033,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 2025
+            "line": 2020
           }
         ]
       },
@@ -4417,7 +4417,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1915
+            "line": 1910
           }
         ]
       },
