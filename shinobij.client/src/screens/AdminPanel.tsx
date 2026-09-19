@@ -43,6 +43,7 @@ import { STARTER_EVOLUTIONS } from "../data/pet-evolutions";
 import { isWildSpawnable } from "../lib/pet-balance";
 import { PRIMARY_SUBROLE, type PetRole } from "../lib/pet-roles";
 import { storyToCreatorEvent } from "../lib/story-trigger";
+import { adminEditableNarrativeEvents, canonicalNarrativeEvent, isReservedNarrativeId } from "../lib/canonical-narrative";
 import { STORY_CONTENT_VILLAGES, type StoryContentPayload } from "../lib/story-content-contract";
 import { loadStoryContent, refreshStoryContent } from "../lib/story-content-loader";
 import { StoryContentLoadError } from "../lib/story-content-loader-core";
@@ -1743,10 +1744,10 @@ export function AdminPanel({
         auraSphereLv9VnEvent,
         ...adminStoryContent.flatMap(({ village, chapters }) => chapters.map((step, index) => storyToCreatorEvent(step, village, index))),
     ];
-    const allEditableEvents = [
-        ...builtInVisualNovels.filter((builtIn) => !creatorEvents.some((event) => event.id === builtIn.id)),
-        ...creatorEvents,
-    ];
+    // Built-ins list as players get them: current text, a saved copy lends only art.
+    const allEditableEvents = adminEditableNarrativeEvents(builtInVisualNovels, creatorEvents);
+    const petEncounterView = canonicalNarrativeEvent(defaultPetEncounterVn, petEncounterVn, ["pet-encounter"]);
+    const ancientChestView = canonicalNarrativeEvent(defaultAncientChestVn, ancientChestVn, ["ancient-chest"]);
     const missionRanks: MissionRank[] = ["Daily", "D Rank", "C Rank", "B Rank", "A Rank", "S Rank"];
     const allEditableBloodlines = [
         ...starterSavedBloodlines.filter((builtIn) => !savedBloodlines.some((bloodline) => bloodline.name === builtIn.name || bloodline.id === builtIn.id)),
@@ -3393,31 +3394,31 @@ export function AdminPanel({
                                         setPetEncounterVn(petVn);
                                         await publishEventPageImages(petVn, "pet-encounter");
                                         setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
-                                        alert("Pet Encounter VN saved! Players will see this scene when they find a pet.");
+                                        alert("Pet Encounter VN saved. Players see the scene text from the game files; artwork you saved here is used where its page still matches.");
                                     }}
                                 >
                                     💾 Save as Pet Encounter VN
                                 </button>
                             </div>
-                            {editingEventId && <p className="hint">Editing VN: {editingEventId}</p>}
+                            {editingEventId && <p className="hint">Editing VN: {editingEventId}{isReservedNarrativeId(editingEventId) ? ". Built-in scene: only artwork changes reach players." : ""}</p>}
                         </section>
 
                         <section className="summary-box">
                             <h4>🐾 Pet Encounter VN (System)</h4>
-                            <p className="hint">This VN plays every time a player discovers a wild pet. Edit it above and click "Save as Pet Encounter VN".</p>
-                            <p><strong>{petEncounterVn.vnTitle || petEncounterVn.name}</strong> — {petEncounterVn.vnPages?.length ?? 1} page(s)</p>
-                            {petEncounterVn.vnPages?.map((page, i) => (
+                            <p className="hint">This VN plays every time a player discovers a wild pet. Its text, speakers and pages come from the game files, so text edits saved here do not change what players read. Uploaded artwork is kept for pages that still match.</p>
+                            <p><strong>{petEncounterView.vnTitle || petEncounterView.name}</strong> — {petEncounterView.vnPages?.length ?? 1} page(s)</p>
+                            {petEncounterView.vnPages?.map((page, i) => (
                                 <div key={i} className="summary-box" style={{ marginBottom: "0.4rem" }}>
                                     <strong>Page {i + 1}: {page.title}</strong>
                                     <p style={{ color: "#aaa", fontSize: 12 }}>{page.scene}</p>
                                 </div>
                             ))}
                             <div className="menu">
-                                <button onClick={() => loadAdminEvent(petEncounterVn)}>Load for Editing</button>
+                                <button onClick={() => loadAdminEvent(petEncounterView)}>Load for Editing</button>
                                 <button
                                     style={{ background: "#1e3a5f", borderColor: "#60a5fa" }}
                                     onClick={() => {
-                                        setPreviewVn(petEncounterVn);
+                                        setPreviewVn(petEncounterView);
                                         setPreviewVnPage(0);
                                         setPreviewVnLine(0);
                                     }}
@@ -3430,16 +3431,16 @@ export function AdminPanel({
 
                         <section className="summary-box">
                             <h4>📦 Ancient Chest VN (System)</h4>
-                            <p className="hint">This VN plays when a player opens an ancient chest. Load it above, edit, then click "Save as Ancient Chest VN".</p>
-                            <p><strong>{ancientChestVn.vnTitle || ancientChestVn.name}</strong> — {ancientChestVn.vnPages?.length ?? 1} page(s)</p>
-                            {ancientChestVn.vnPages?.map((page, i) => (
+                            <p className="hint">This VN plays when a player opens an ancient chest. Its text, speakers and pages come from the game files, so text edits saved here do not change what players read. Uploaded artwork is kept for pages that still match.</p>
+                            <p><strong>{ancientChestView.vnTitle || ancientChestView.name}</strong> — {ancientChestView.vnPages?.length ?? 1} page(s)</p>
+                            {ancientChestView.vnPages?.map((page, i) => (
                                 <div key={i} className="summary-box" style={{ marginBottom: "0.4rem" }}>
                                     <strong>Page {i + 1}: {page.title}</strong>
                                     <p style={{ color: "#aaa", fontSize: 12 }}>{page.scene}</p>
                                 </div>
                             ))}
                             <div className="menu">
-                                <button onClick={() => loadAdminEvent(ancientChestVn)}>Load for Editing</button>
+                                <button onClick={() => loadAdminEvent(ancientChestView)}>Load for Editing</button>
                                 <button
                                     style={{ background: "#2e4a1e", borderColor: "#a5d6a7" }}
                                     onClick={async () => {
@@ -3448,7 +3449,7 @@ export function AdminPanel({
                                         setAncientChestVn(chestVn);
                                         await publishEventPageImages(chestVn, "ancient-chest");
                                         setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
-                                        alert("Ancient Chest VN saved! Players will see this scene when they open ancient chests.");
+                                        alert("Ancient Chest VN saved. Players see the scene text from the game files; artwork you saved here is used where its page still matches.");
                                     }}
                                 >
                                     💾 Save as Ancient Chest VN
@@ -3456,7 +3457,7 @@ export function AdminPanel({
                                 <button
                                     style={{ background: "#1e3a5f", borderColor: "#60a5fa" }}
                                     onClick={() => {
-                                        setPreviewVn(ancientChestVn);
+                                        setPreviewVn(ancientChestView);
                                         setPreviewVnPage(0);
                                         setPreviewVnLine(0);
                                     }}
@@ -4469,7 +4470,7 @@ export function AdminPanel({
                                             <strong>{selected.icon} {selected.name}</strong>
                                             <p>{selected.eventKind === "visualNovel" ? "Visual Novel" : "Reward Event"} | {selected.biome} | Level {selected.levelReq} | {rewardSummary(selected.ryoReward, selected.staminaReward, selected.currencyRewards)}</p>
                                             {selected.aiProfileId && <p><strong>Battle AI:</strong> {allAdminAis.find((ai) => ai.id === selected.aiProfileId)?.name ?? selected.aiProfileId}</p>}
-                                            {selected.id.startsWith("story-") && !creatorEvents.some((created) => created.id === selected.id) && <p className="hint">Built-in visual novel. Saving creates an editable imported copy.</p>}
+                                            {isReservedNarrativeId(selected.id) && <p className="hint">Built-in scene. Players read its text, speakers and choices from the game files, so text edits saved here have no effect in play. Uploaded artwork is kept.</p>}
                                             {selected.eventKind === "visualNovel" && <p><strong>VN:</strong> {selected.vnTitle}{selected.vnPages ? ` | ${selected.vnPages.length} pages` : ""}</p>}
                                             {selected.image && <div className="admin-event-list-preview"><img src={selected.image} alt={selected.name} /></div>}
                                             <p>{selected.dialogue.join(" ")}</p>
