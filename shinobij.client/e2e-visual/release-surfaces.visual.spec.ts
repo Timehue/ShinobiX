@@ -12,7 +12,7 @@ async function installDeterministicRuntime(page: Page) {
     await page.addInitScript((fixedNow) => {
         const NativeDate = Date;
         class FixedDate extends NativeDate {
-            constructor(...args: ConstructorParameters<typeof Date>) {
+            constructor(...args: [] | ConstructorParameters<typeof Date>) {
                 super(args.length === 0 ? fixedNow : args[0]);
             }
             static now() { return fixedNow; }
@@ -172,6 +172,49 @@ test('landing hero - mobile', async ({ page }) => {
     await screenshot(page, 'landing-mobile.png');
 });
 
+test('landing wide monitors preserve the shinobi and fox artwork', async ({ page }, testInfo) => {
+    await page.goto('/', { waitUntil: 'networkidle' });
+    await settleVisualState(page);
+    for (const viewport of [
+        { width: 2553, height: 1264 },
+        { width: 3440, height: 1440 },
+        { width: 1920, height: 800 },
+        { width: 1920, height: 1080 },
+    ]) {
+        await page.setViewportSize(viewport);
+        await expectNoHorizontalOverflow(page);
+        const composition = await page.locator('.landing-hero').evaluate(async (hero) => {
+            const scene = getComputedStyle(hero, '::before');
+            const image = new Image();
+            image.src = '/landing/hero-shinobi.webp';
+            await image.decode();
+            const width = parseFloat(scene.width), height = parseFloat(scene.height);
+            const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
+            const position = scene.backgroundPosition.split(',').at(-1)!.trim().split(/\s+/);
+            const top = (height - image.naturalHeight * scale) * parseFloat(position[1]) / 100;
+            const left = (width - image.naturalWidth * scale) * parseFloat(position[0]) / 100;
+            const atmosphere = hero.querySelector('.landing-atmosphere')!.getBoundingClientRect();
+            // Authored image bounds enclosing the hair, fox, and glowing tail.
+            return {
+                sceneVisible: scene.content !== 'none',
+                headTop: top + 95 * scale,
+                tailBottom: top + 755 * scale,
+                subjectLeft: left + 1110 * scale,
+                subjectRight: left + 1550 * scale,
+                width, height, atmosphereWidth: atmosphere.width,
+            };
+        });
+        expect(composition.sceneVisible).toBe(true);
+        expect(composition.headTop).toBeGreaterThan(12);
+        expect(composition.tailBottom).toBeLessThan(composition.height - 12);
+        expect(composition.subjectLeft).toBeGreaterThan(0);
+        expect(composition.subjectRight).toBeLessThan(composition.width);
+        expect(composition.atmosphereWidth).toBeCloseTo(composition.width, 0);
+        if (viewport.width === 2553) {
+            await testInfo.attach('wide-monitor-composition', { body: await page.screenshot(), contentType: 'image/png' });
+        }
+    }
+});
 test('landing discovery and Discord links stay still on hover', async ({ page }) => {
     await page.goto('/', { waitUntil: 'networkidle' });
     await settleVisualState(page);
