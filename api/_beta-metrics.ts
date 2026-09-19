@@ -232,15 +232,27 @@ export function recentBetaDates(days: number, now = Date.now()): string[] {
  */
 const pendingMetricDays = new Map<string, BetaMetricInput[]>();
 let metricDrain: Promise<void> | null = null;
+// A batch holds many events, so one transient failure would drop them all.
+export const METRIC_BATCH_RETRY_MS = 1_000;
 
-async function writeMetricBatch(key: string, inputs: BetaMetricInput[]): Promise<void> {
+async function writeMetricBatch(key: string, inputs: BetaMetricInput[], retry = true): Promise<void> {
+    let writeAttempted = false;
     try {
         await withTelemetryLock(key, kv, async () => {
             let day = await kv.get<BetaMetricDay>(key);
             for (const input of inputs) day = applyBetaMetric(day, input);
+            writeAttempted = true;
             await kv.set(key, day, { ex: BETA_METRICS_RETENTION_SECONDS });
         });
     } catch (e) {
+        // A failure before the write (the lock, the read) changed nothing, so
+        // the batch is tried once more. A failed write may still have
+        // committed, and a second try could count it twice: that batch is
+        // dropped, as a single event always was.
+        if (retry && !writeAttempted) {
+            await new Promise<void>((resolve) => setTimeout(resolve, METRIC_BATCH_RETRY_MS));
+            return writeMetricBatch(key, inputs, false);
+        }
         console.error(`[beta-metrics] record failed (${inputs.length} event(s) dropped):`, e);
     }
 }
