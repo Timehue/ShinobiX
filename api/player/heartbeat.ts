@@ -123,15 +123,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // exploring/combat screens (= 60/min), so the cap must sit above 60 with
     // headroom for clock jitter, retries, and the occasional double-fire on a
     // remount; 90 gives ~1.5x margin without opening the abuse window wide.
-    // KV-backed so the window is authoritative across all Vercel lambda
-    // instances — the previous in-process limiter let a player triggering
-    // parallel invocations (cold-start fan-out) blow past the cap on individual
-    // instances, which let the IP/fingerprint capture in this handler be hammered.
+    // This was KV-backed for Vercel, where parallel lambda instances each kept
+    // their own count. Railway runs one process, so the same aligned window is
+    // now counted in memory (allowAlignedLocal in _ratelimit.ts) and the hottest
+    // endpoint no longer pays a database write per beat. The count restarts on
+    // a deploy; the IP backstop still caps name rotation.
     const parsedBody = parseJsonBody(req.body);
     if (!parsedBody.ok) return res.status(400).json({ error: parsedBody.error });
     const bodyPeek = parsedBody.body as Record<string, unknown>;
     const peekName: string | undefined = typeof bodyPeek?.name === 'string' ? bodyPeek.name : undefined;
-    if (!(await enforceRateLimitKv(req, res, 'heartbeat', 90, 60_000, peekName))) return;
+    if (!(await enforceRateLimitKv(req, res, 'heartbeat', 90, 60_000, peekName, { local: true }))) return;
 
     try {
         const body = bodyPeek; // reuse the rate-limit peek's parse — avoids a 2nd JSON.parse on the hottest endpoint
