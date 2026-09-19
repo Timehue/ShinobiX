@@ -1,7 +1,8 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
-import { EXCHANGE_CURRENCIES, EXCHANGE_LISTING_LIMIT, EXCHANGE_MAX_PRICE, EXCHANGE_MAX_QUANTITY, exchangeCurrency, exchangeFee, type ExchangeCurrency, type ExchangeKind, type ExchangeListing } from '../../shared/sunscar-exchange.js';
+import { EXCHANGE_CURRENCIES, EXCHANGE_LISTING_LIMIT, EXCHANGE_MARKET_PAGE_SIZE, EXCHANGE_MAX_PRICE, EXCHANGE_MAX_QUANTITY, compareExchangeMarketRows, exchangeCurrency, exchangeFee, exchangeMarketMatches, type ExchangeCurrency, type ExchangeKind, type ExchangeListing, type ExchangeMarketPage, type ExchangeMarketQuery, type ExchangeMarketRow } from '../../shared/sunscar-exchange.js';
 import { kv } from '../_storage.js';
+import { readKvProjection } from '../_storage-projection.js';
 import { withKvLock } from '../_lock.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { battleLockedFor } from '../_elapsed-state.js';
@@ -235,7 +236,77 @@ export async function actOnExchangeListing(player: string, id: string, action: '
     }, { failClosed: true, ttlSec: 60 });
 }
 
-export async function exchangeSnapshot(player: string) {
+/** What a market filter or sort reads from each listing row. Projected in the
+ *  database (Postgres mgetProjected), so browsing never transfers the sealed
+ *  definitions, stats or artwork of listings that are not on the page. The
+ *  text a search matches is only read when there is a search term. */
+const MARKET_PROJECTION = {
+    state: ['state'], price: ['price'], currency: ['currency'], createdAt: ['createdAt'],
+    category: ['asset', 'category'], rarity: ['asset', 'rarity'],
+} as const;
+const MARKET_SEARCH_PROJECTION = {
+    ...MARKET_PROJECTION, sellerName: ['sellerName'], name: ['asset', 'name'], description: ['asset', 'description'],
+} as const;
+const MARKET_READ_CHUNK = 500;
+
+/**
+ * One page of the open market, filtered, sorted and paged on the server.
+ *
+ * Reads: the live-index hash (ids only), ONE projected read of the listing
+ * rows it names — each row's filter/sort fields, not its sealed asset — and
+ * the full records of the ≤ EXCHANGE_MARKET_PAGE_SIZE listings on the page.
+ * The projected read still visits every live row (bounded by the Exchange's
+ * 2,000-listing capacity): storage has no queryable index over listing
+ * fields, and adding one is a schema change. What it no longer does is load
+ * or ship every listing in full.
+ *
+ * A page is a view, not an authorization: buying re-validates the listing,
+ * its price and currency, the buyer's funds and capacity under the lock.
+ */
+export async function exchangeMarketPage(player: string, query: ExchangeMarketQuery): Promise<ExchangeMarketPage> {
+    const refs = await kv.hgetall<Record<string, number>>(LIVE_INDEX) ?? {};
+    const ids = Object.keys(refs);
+    const projection = query.search.trim() ? MARKET_SEARCH_PROJECTION : MARKET_PROJECTION;
+    const projected: Array<Record<string, unknown> | null> = [];
+    for (let i = 0; i < ids.length; i += MARKET_READ_CHUNK) {
+        projected.push(...await readKvProjection(kv, ids.slice(i, i + MARKET_READ_CHUNK).map(exchangeListingKey), projection));
+    }
+    let balances = { ryo: 0, fateShards: 0 };
+    if (query.affordable) {
+        // The viewer's stored purse — the same balances a purchase is checked against.
+        const [purse] = await readKvProjection(kv, [`save:${player}`], { ryo: ['character', 'ryo'], fateShards: ['character', 'fateShards'] });
+        balances = { ryo: Number(purse?.ryo) || 0, fateShards: Number(purse?.fateShards) || 0 };
+    }
+    const rows: ExchangeMarketRow[] = [];
+    for (const [index, row] of projected.entries()) {
+        if (!row || row.state !== 'active') continue;
+        rows.push({
+            id: ids[index]!, sellerName: String(row.sellerName ?? ''), price: Number(row.price) || 0,
+            ...(row.currency === 'fateShards' || row.currency === 'ryo' ? { currency: row.currency } : {}),
+            createdAt: Number(row.createdAt) || 0, name: String(row.name ?? ''), description: String(row.description ?? ''),
+            category: String(row.category ?? ''), rarity: String(row.rarity ?? ''),
+        });
+    }
+    const matching = rows.filter(row => exchangeMarketMatches(query, row, balances)).sort((a, b) => compareExchangeMarketRows(query.sort, a, b));
+    const pages = Math.max(1, Math.ceil(matching.length / EXCHANGE_MARKET_PAGE_SIZE));
+    // A page past the end (a listing sold since the viewer paged) lands on the last one.
+    const page = Math.min(query.page, pages);
+    const onPage = matching.slice((page - 1) * EXCHANGE_MARKET_PAGE_SIZE, page * EXCHANGE_MARKET_PAGE_SIZE);
+    const records = onPage.length ? await kv.mget<StoredExchangeListing[]>(...onPage.map(row => exchangeListingKey(row.id))) : [];
+    // The full record is re-checked: a listing bought or cancelled between the
+    // two reads drops out rather than being offered.
+    const listings = records.filter((l): l is StoredExchangeListing => !!l && l.state === 'active').map(publicListing);
+    return { v: 2, query: { ...query, page }, page, pageSize: EXCHANGE_MARKET_PAGE_SIZE, pages, total: matching.length, listings };
+}
+
+/**
+ * Everything the Exchange screen shows for `player`. With a `market` query
+ * (current clients) the open market is one server-built page; without one
+ * (a client from before server paging) it is every active listing, exactly as
+ * that client expects — it filters and pages locally and would otherwise
+ * conclude most of the market had vanished.
+ */
+export async function exchangeSnapshot(player: string, options: { market?: ExchangeMarketQuery } = {}) {
     const history = await indexed(playerIndex(player));
     const recoveryErrors: string[] = [];
     for (const listing of history.filter(l => (pending(l) || l.saleNoticePending) && (l.seller === player || l.buyer === player))) {
@@ -246,7 +317,7 @@ export async function exchangeSnapshot(player: string) {
             }, { failClosed: true, ttlSec: 60 });
         } catch (error) { recoveryErrors.push(error instanceof ExchangeError ? error.message : 'A trade is still settling. Refresh to retry safely.'); }
     }
-    const [live, mine, catalogs] = await Promise.all([indexed(LIVE_INDEX), indexed(playerIndex(player)), loadSettlementCatalogs()]);
+    const [live, mine, catalogs] = await Promise.all([options.market ? null : indexed(LIVE_INDEX), indexed(playerIndex(player)), loadSettlementCatalogs()]);
     const out = await mutatePlayerSave(player, async ({ character, record }) => {
         // Browsing is a read. It persists something only when the Exchange's
         // own answer depends on work the stored save does not hold yet: a forged
@@ -269,7 +340,10 @@ export async function exchangeSnapshot(player: string) {
     const record = out.record;
     const defenses = await Promise.all(['coliseum', 'tactical'].map(mode => kv.get<Obj>(`petladder:${mode}:def:${player}`)));
     const defenseIds = new Set(defenses.flatMap(defense => objects(defense?.pets).map(p => String(p.id))));
-    return { listings: live.filter(l => l.state === 'active').map(publicListing),
+    const market = options.market
+        ? { market: await exchangeMarketPage(player, options.market) }
+        : { listings: live!.filter(l => l.state === 'active').map(publicListing) };
+    return { ...market,
         activity: mine.filter(l => l.seller === player || l.buyer === player).sort((a, b) => b.createdAt - a.createdAt).map(publicListing),
         inventory: exchangeInventory(record, catalogs).map(asset => asset.kind === 'pet' && defenseIds.has(asset.id) ? { ...asset, unavailable: 'Remove this companion from your ladder defense before listing it.' } : asset), character: record.character as Obj, _saveVersion: out._saveVersion,
         creatorItems: objects(record.creatorItems),
