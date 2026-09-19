@@ -27,8 +27,8 @@ import { safeName } from './_utils.js';
 import { normalizeVillageWarRecord, villageWarKey } from './_war-state.js';
 import { sectorWarRoleOf, sectorControlSwing, ROLE_MERC } from './_war-role.js';
 import { defenderPointsMultiplier } from './_war-structures.js';
-import { sectorWarKey, applySectorWarBattle, recordSectorWarBattleOutcome } from './_sector-war.js';
-import { loadSectorWar, saveSectorWar, listActiveSectorWars } from './_sector-war-store.js';
+import { applySectorWarBattle } from './_sector-war.js';
+import { commitSectorWarBattle, listActiveSectorWars, type SectorWarBattleDecision } from './_sector-war-store.js';
 import { sectorWarDamageMultiplier } from './_war-structures.js';
 import { applyMercVillageWarDamage, listActiveVillageWars } from './world-state.js';
 import { sealTowerFighter } from './towers/_seal.js';
@@ -222,43 +222,49 @@ export async function deployOneMerc(args: {
     let defenderPoints = 0;
     if (battle.mercWon || battle.playerWon) {
         const playerRole = await sectorWarRoleOf(args.targetPlayer, args.targetVillage);
-        const result = await withKvLock(sectorWarKey(args.contestId), async () => {
-            const live = await loadSectorWar(args.contestId);
-            if (!live) return null;
-            const [atkRaw, defRaw] = await Promise.all([
-                kv.get<Record<string, unknown>>(villageWarKey(args.village)),
-                kv.get<Record<string, unknown>>(villageWarKey(live.defenderVillage)),
-            ]);
-            const atkRecord = normalizeVillageWarRecord(args.village, atkRaw ?? undefined);
-            const defRecord = normalizeVillageWarRecord(live.defenderVillage, defRaw ?? undefined);
-            const roleSwing = battle.mercWon
-                ? sectorControlSwing(ROLE_MERC, playerRole)
-                : sectorControlSwing(playerRole, ROLE_MERC);
-            const outcome = applySectorWarBattle(live, battle.mercWon, {
-                now: args.now,
-                roleSwing,
-                attackerMult: sectorWarDamageMultiplier(atkRecord),
-                defenderMult: defenderPointsMultiplier(defRecord),
-                // A merc kill is the band's, not a player's; a repel is the
-                // defender's (attribution feeds the settlement capture credit).
-                by: battle.mercWon ? '' : args.targetPlayer,
-                mercBattle: true,
-            });
-            const recorded = recordSectorWarBattleOutcome(outcome, {
-                // targetPlayer in the id: two mercs striking DIFFERENT defenders in
-                // the same millisecond must not collide into one receipt (the dedupe
-                // would silently drop the second battle's points).
-                battleId: `merc:${args.contestId}:${args.targetPlayer}:${args.now}`,
-                attackerWon: battle.mercWon,
-                by: battle.mercWon ? '' : args.targetPlayer,
-                at: args.now,
-            });
-            await saveSectorWar(recorded.session);
-            return { attackerPoints: recorded.session.attackerPoints, defenderPoints: recorded.session.defenderPoints };
-        }, { failClosed: true });
-        if (result) {
-            attackerPoints = result.attackerPoints;
-            defenderPoints = result.defenderPoints;
+        const result = await commitSectorWarBattle({
+            contestId: args.contestId,
+            // targetPlayer in the id: two mercs striking DIFFERENT defenders in
+            // the same millisecond must not collide into one receipt (the dedupe
+            // would silently drop the second battle's points).
+            battleId: `merc:${args.contestId}:${args.targetPlayer}:${args.now}`,
+            decide: async (live): Promise<SectorWarBattleDecision> => {
+                // A settled war's row is no longer written, and a deploy aimed at
+                // an earlier war on this sector never scores the one after it.
+                if (live.flipped || live.expiredAt) return { kind: 'skip', reason: 'terminal' };
+                if (args.now < live.startedAt) return { kind: 'skip', reason: 'superseded' };
+                const [atkRaw, defRaw] = await Promise.all([
+                    kv.get<Record<string, unknown>>(villageWarKey(args.village)),
+                    kv.get<Record<string, unknown>>(villageWarKey(live.defenderVillage)),
+                ]);
+                const atkRecord = normalizeVillageWarRecord(args.village, atkRaw ?? undefined);
+                const defRecord = normalizeVillageWarRecord(live.defenderVillage, defRaw ?? undefined);
+                const roleSwing = battle.mercWon
+                    ? sectorControlSwing(ROLE_MERC, playerRole)
+                    : sectorControlSwing(playerRole, ROLE_MERC);
+                const outcome = applySectorWarBattle(live, battle.mercWon, {
+                    now: args.now,
+                    roleSwing,
+                    attackerMult: sectorWarDamageMultiplier(atkRecord),
+                    defenderMult: defenderPointsMultiplier(defRecord),
+                    // A merc kill is the band's, not a player's; a repel is the
+                    // defender's (attribution feeds the settlement capture credit).
+                    by: battle.mercWon ? '' : args.targetPlayer,
+                    mercBattle: true,
+                });
+                return {
+                    kind: 'score',
+                    outcome,
+                    attackerWon: battle.mercWon,
+                    by: battle.mercWon ? '' : args.targetPlayer,
+                    at: args.now,
+                };
+            },
+        });
+        const tally = result.status === 'applied' ? result.session : result.status === 'skipped' ? result.contest : null;
+        if (tally) {
+            attackerPoints = tally.attackerPoints;
+            defenderPoints = tally.defenderPoints;
         }
     }
     return { winner: battle.winner, attackerPoints, defenderPoints, mercsRemaining };

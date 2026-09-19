@@ -174,10 +174,10 @@ describe('Pet sector garrison closes the absent-defence hold', { concurrency: fa
     it('cannot be spammed — the garrison re-forms on the same window it unlocks on', async () => {
         // A Pet garrison duel resolves in ONE request. Without a cooldown an
         // attacker could fire hundreds back to back: garrison points are capped
-        // per war so the spam earns nothing, but each one still writes a battle
-        // receipt, and that ledger is settlement authority with a hard cap that
-        // THROWS when full — filling it would break scoring for every later
-        // battle in the war, including real ones.
+        // per war so the spam earns nothing, but each loss still pumps the
+        // absent defence's tally and each one writes a battle receipt. (The
+        // ledger no longer stops scoring at any size — see the overflow tests
+        // at the end of this file — but the re-form window is authored pacing.)
         const contest = await seedContest('pet', IDLE_MS + 60_000);
         const first = await call(petHandler, { action: 'garrison-duel', playerName: RAIDER, sectorWarId: contest.id, petId: 'atk1' });
         assert.equal(first.statusCode, 200, JSON.stringify(first.body));
@@ -319,5 +319,62 @@ describe('Card sector garrison closes the same hole', { concurrency: false }, ()
         await call(cardHandler, { action: 'join', garrison: true, playerName: RAIDER, sectorWarId: contest.id });
         assert.ok(await kv.get(`sector-card-garrison:${contest.id}`), 'the garrison lives under its own key');
         assert.equal(await kv.get(`sector-card:${contest.id}`), null, 'the live table must be untouched');
+    });
+});
+
+describe('Card and Pet contests keep scoring past the old 200-receipt ceiling', { concurrency: false }, () => {
+    /** A contest that already holds 200 in-row receipts, written the way a
+     *  pre-ledger release wrote them (no `battleLedger`). Their timestamps sit
+     *  well before the idle window so they do not start a garrison cooldown. */
+    async function seedFullContest(winCondition: 'card' | 'pet') {
+        const contest = await seedContest(winCondition, IDLE_MS + 60_000);
+        const receipts = Array.from({ length: 200 }, (_, i) => ({
+            battleId: `old-${i}`, attackerWon: i % 2 === 0, points: 1, by: i % 2 === 0 ? RAIDER : HOLDOUT,
+            at: contest.startedAt + i,
+        })).reverse();
+        const full = { ...contest, appliedBattles: receipts, attackerPoints: 100, defenderPoints: 100 };
+        await kv.set(sectorWarKey(contest.id), full);
+        return full;
+    }
+
+    it('a Pet garrison duel on a full war scores, and its re-form window still holds', async () => {
+        const contest = await seedFullContest('pet');
+        const out = await call(petHandler, { action: 'garrison-duel', playerName: RAIDER, sectorWarId: contest.id, petId: 'atk1' });
+        assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+        const after = (await loadSectorWar(contest.id))!;
+        assert.ok(after.attackerPoints + after.defenderPoints > 200, 'the 201st battle moved the tally');
+        assert.equal(after.appliedBattles?.length, 200, 'the in-row mirror did not grow');
+        assert.equal(after.battleLedger?.count, 201);
+        // The garrison receipt lives past the mirror; the cooldown must still see it.
+        const retry = await call(petHandler, { action: 'garrison-duel', playerName: RAIDER, sectorWarId: contest.id, petId: 'atk1' });
+        assert.equal(retry.statusCode, 409);
+        assert.match(String(retry.body?.error), /re-forming/i);
+        assert.equal((await loadSectorWar(contest.id))!.battleLedger?.count, 201, 'and wrote no second receipt');
+    });
+
+    it('a live Pet duel on a full war scores for whichever side wins', async () => {
+        const contest = await seedFullContest('pet');
+        const opened = await call(petHandler, { action: 'join', playerName: RAIDER, sectorWarId: contest.id, petId: 'atk1' });
+        assert.equal(opened.statusCode, 200, JSON.stringify(opened.body));
+        const answered = await call(petHandler, { action: 'join', playerName: HOLDOUT, sectorWarId: contest.id, petId: 'def1' });
+        assert.equal(answered.statusCode, 200, JSON.stringify(answered.body));
+        const after = (await loadSectorWar(contest.id))!;
+        assert.ok(after.attackerPoints + after.defenderPoints > 200);
+        assert.equal(after.battleLedger?.count, 201);
+        assert.ok(after.lastLiveBattleAt && after.lastLiveBattleAt > contest.lastLiveBattleAt!, 'a live battle re-locks the garrison');
+    });
+
+    it('a Card garrison forfeit on a full war scores the hold at merc-repel weight', async () => {
+        const contest = await seedFullContest('card');
+        const opened = await call(cardHandler, { action: 'join', garrison: true, playerName: RAIDER, sectorWarId: contest.id });
+        assert.equal(opened.statusCode, 200, JSON.stringify(opened.body));
+        const forfeited = await call(cardHandler, { action: 'forfeit', garrison: true, playerName: RAIDER, sectorWarId: contest.id });
+        assert.equal(forfeited.statusCode, 200, JSON.stringify(forfeited.body));
+        const after = (await loadSectorWar(contest.id))!;
+        // Villager swing 5 × MERC_REPEL_POINTS_FRACTION 0.25 → 1 point to the defence.
+        assert.equal(after.defenderPoints, 101);
+        assert.equal(after.attackerPoints, 100);
+        assert.equal(after.battleLedger?.count, 201);
+        assert.ok(after.battleLedger!.lastGarrisonAt > 0, 'the loss still starts the re-form window');
     });
 });

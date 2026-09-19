@@ -7,9 +7,9 @@ import { withKvLock } from '../_lock.js';
 import { normalizeVillageWarRecord, villageWarKey } from '../_war-state.js';
 import { sectorWarDamageMultiplier, defenderPointsMultiplier } from '../_war-structures.js';
 import { sectorWarRoleOf, sectorControlSwing, ROLE_VILLAGER } from '../_war-role.js';
-import { applyContestBattleByWinner, contestGarrisonReady, findSectorWarBattleReceipt, lastGarrisonBattleAt, recordSectorWarBattleOutcome, sectorWarGarrisonIdle, sectorWarKey, GARRISON_UNLOCK_IDLE_MS } from '../_sector-war.js';
+import { applyContestBattleByWinner, contestGarrisonReady, lastGarrisonBattleAt, sectorWarGarrisonIdle, GARRISON_UNLOCK_IDLE_MS } from '../_sector-war.js';
 import { garrisonDefenderFor, NO_GARRISON_DEFENDER_ERROR } from '../_sector-war-garrison-defender.js';
-import { loadSectorWar, saveSectorWar } from '../_sector-war-store.js';
+import { commitSectorWarBattle, loadSectorWar, type SectorWarBattleDecision } from '../_sector-war-store.js';
 import { resolveWarDuel, type WarDuelInput } from '../_pet-showdown/war-duel.js';
 import { sealWarTeam } from '../_pet-showdown/war-team.js';
 import type { ShowdownReplayScript } from '../../shared/pet-showdown-contract.js';
@@ -130,42 +130,46 @@ async function applyPetOutcomeToContest(session: SectorPetSession): Promise<void
             ? [await sectorWarRoleOf(session.p1.name), ROLE_VILLAGER] as const
             : [ROLE_VILLAGER, await sectorWarRoleOf(session.p1.name)] as const)
         : await Promise.all([sectorWarRoleOf(winnerName), sectorWarRoleOf(loserName)]);
-    await withKvLock(sectorWarKey(session.sectorWarId), async () => {
-        const contest = await loadSectorWar(session.sectorWarId);
-        if (!contest) return;
-        const battleId = `pet${session.garrison ? '-garrison' : ''}:${session.sectorWarId}:${session.createdAt}`;
-        if (findSectorWarBattleReceipt(contest, battleId)) return;
-        const [atkRaw, defRaw] = await Promise.all([
-            kv.get<Record<string, unknown>>(villageWarKey(session.attackerVillage)),
-            kv.get<Record<string, unknown>>(villageWarKey(session.defenderVillage)),
-        ]);
-        const winnerName = session.winner === 'p1' ? session.p1.name : session.winner === 'p2' ? (session.p2?.name ?? '') : '';
-        const outcome = applyContestBattleByWinner(contest, session.winner ?? 'draw', {
-            now: Date.now(),
-            roleSwing: sectorControlSwing(winnerRole, loserRole),
-            attackerMult: sectorWarDamageMultiplier(normalizeVillageWarRecord(session.attackerVillage, atkRaw ?? undefined)),
-            defenderMult: defenderPointsMultiplier(normalizeVillageWarRecord(session.defenderVillage, defRaw ?? undefined)),
-            // The AI's win is credited to nobody: `by` feeds the settlement
-            // capture credit, and no player fought for it.
-            by: session.garrison && !attackerWonBattle ? '' : winnerName,
-            // Half-weight + war cap on an attacker win; merc-repel weight when
-            // the garrison holds. Exactly Combat's split.
-            ...(session.garrison ? { garrisonBattle: attackerWonBattle, mercBattle: !attackerWonBattle } : {}),
-        });
-        if (!outcome) return; // draw — nothing scores
-        const recorded = recordSectorWarBattleOutcome(outcome, {
-            battleId,
-            attackerWon: attackerWonBattle,
-            by: session.garrison && !attackerWonBattle ? '' : winnerName,
-            at: Date.now(),
-            // Flagged on EITHER outcome: this is what the re-form window keys
-            // on, and a loss must start that cooldown too. garrisonPointsInWar
-            // filters on attackerWon, so a hold never eats the attacker's cap.
-            ...(session.garrison ? { garrison: true } : {}),
-        });
-        // Sectors never flip mid-war — settlement compares the tallies at 72h.
-        await saveSectorWar(recorded.session);
-    }, { failClosed: true });
+    await commitSectorWarBattle({
+        contestId: session.sectorWarId,
+        battleId: `pet${session.garrison ? '-garrison' : ''}:${session.sectorWarId}:${session.createdAt}`,
+        decide: async (contest): Promise<SectorWarBattleDecision> => {
+            // A settled war's row is no longer written; a duel opened against
+            // an earlier war on this sector never scores the one that replaced it.
+            if (contest.flipped || contest.expiredAt) return { kind: 'skip', reason: 'terminal' };
+            if (session.createdAt < contest.startedAt) return { kind: 'skip', reason: 'superseded' };
+            const at = Date.now();
+            const [atkRaw, defRaw] = await Promise.all([
+                kv.get<Record<string, unknown>>(villageWarKey(session.attackerVillage)),
+                kv.get<Record<string, unknown>>(villageWarKey(session.defenderVillage)),
+            ]);
+            const outcome = applyContestBattleByWinner(contest, session.winner ?? 'draw', {
+                now: at,
+                roleSwing: sectorControlSwing(winnerRole, loserRole),
+                attackerMult: sectorWarDamageMultiplier(normalizeVillageWarRecord(session.attackerVillage, atkRaw ?? undefined)),
+                defenderMult: defenderPointsMultiplier(normalizeVillageWarRecord(session.defenderVillage, defRaw ?? undefined)),
+                // The AI's win is credited to nobody: `by` feeds the settlement
+                // capture credit, and no player fought for it.
+                by: session.garrison && !attackerWonBattle ? '' : winnerName,
+                // Half-weight + war cap on an attacker win; merc-repel weight when
+                // the garrison holds. Exactly Combat's split.
+                ...(session.garrison ? { garrisonBattle: attackerWonBattle, mercBattle: !attackerWonBattle } : {}),
+            });
+            if (!outcome) return { kind: 'skip', reason: 'draw' }; // draw — nothing scores
+            // Sectors never flip mid-war — settlement compares the tallies at 72h.
+            return {
+                kind: 'score',
+                outcome,
+                attackerWon: attackerWonBattle,
+                by: session.garrison && !attackerWonBattle ? '' : winnerName,
+                at,
+                // Flagged on EITHER outcome: this is what the re-form window keys
+                // on, and a loss must start that cooldown too. garrisonPointsInWar
+                // filters on attackerWon, so a hold never eats the attacker's cap.
+                ...(session.garrison ? { garrison: true } : {}),
+            };
+        },
+    });
 }
 
 /** One derivation of the war-duel input for BOTH the resolve and the watch, so
