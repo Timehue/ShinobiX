@@ -23,15 +23,28 @@
  * Renderer/data-flow only: no network, no gameplay, no balance, no saves. The
  * authoritative membership decisions still come from the heartbeat + socket; this
  * just smooths how that membership is presented.
+ *
+ * Players are matched by account slug (playerSlug), never by display name: the
+ * server names a departing player by slug in `presence:leave` / `presence:gone`,
+ * while records carry the display name ("Shadow Fox" vs "shadowfox").
  */
 import { useSyncExternalStore } from "react";
 import type { PlayerRecord } from "../types/character";
+import { playerSlug } from "./utils";
 
 // Grace window: how long a player who drops out of a single snapshot stays shown
 // before we believe they're gone. MUST stay far below the server offline TTL
 // (OFFLINE_AFTER_MS = 90_000) so this can only smooth sub-second gaps, never show
-// a ghost. An explicit presence:gone / sleeper-KO bypasses this entirely.
+// a ghost. An explicit presence:gone / sleeper-KO bypasses this entirely. It
+// expires on a timer: with a live socket the next full roster can be a minute
+// away (lib/heartbeat-roster.ts).
 const LINGER_MS = 2500;
+
+// A full roster from the HTTP beat travels separately from the socket, so it can
+// be older than a socket event that reached us first. For this long after the
+// socket saw a player leave, a roster does not re-add them; for this long after
+// it saw them present, a roster that omits them does not start their linger.
+const ROSTER_RACE_MS = 5000;
 
 let liveArr: PlayerRecord[] = [];
 let liveSig = "";
@@ -45,8 +58,20 @@ let liveSector: number | null = null;
 let rosterArr: PlayerRecord[] = [];
 let rosterSig = "";
 const subscribers = new Set<() => void>();
-// lowercased name -> ms epoch at which a currently-missing player should drop.
+// player key -> ms epoch at which a currently-missing player should drop.
 const lingerUntil = new Map<string, number>();
+let lingerTimer: ReturnType<typeof setTimeout> | null = null;
+// player key -> ms epoch of the socket's last word on them (see ROSTER_RACE_MS).
+const recentLeaves = new Map<string, number>();
+const recentConfirms = new Map<string, number>();
+// The newest complete roster adopted for the current sector, from either
+// channel. lib/heartbeat-roster.ts asks for another when this is missing or old.
+let lastFullRoster: { sector: number; at: number } | null = null;
+
+/** The key presence events use for a player: the server's account slug. */
+function playerKey(name: string): string {
+    return playerSlug(name) || name.toLowerCase();
+}
 // Avatar prefetch hook: App registers ensureAvatarsCached so a newly-seen
 // player's portrait loads the instant they appear, without re-rendering App.
 let prefetch: ((names: string[]) => void) | null = null;
@@ -109,7 +134,31 @@ function clearLiveSectorPlayers(notifySubscribers: boolean): void {
     rosterArr = [];
     rosterSig = "";
     lingerUntil.clear();
+    if (lingerTimer !== null) clearTimeout(lingerTimer);
+    lingerTimer = null;
+    // Socket history is per sector: someone seen leaving the old sector may be
+    // standing in the new one.
+    recentLeaves.clear();
+    recentConfirms.clear();
+    lastFullRoster = null;
     if (notifySubscribers && hadState) notify();
+}
+
+function pruneRecent(map: Map<string, number>, now: number): void {
+    for (const [key, at] of map) if (now - at >= ROSTER_RACE_MS) map.delete(key);
+}
+
+function within(map: Map<string, number>, key: string, now: number): boolean {
+    const at = map.get(key);
+    return at !== undefined && now - at < ROSTER_RACE_MS;
+}
+
+/**
+ * The newest complete roster adopted for the current sector (null after a sector
+ * change or reset). Read by lib/heartbeat-roster.ts.
+ */
+export function getLastFullRoster(): { sector: number; at: number } | null {
+    return lastFullRoster;
 }
 
 /**
@@ -183,23 +232,34 @@ export function pushLiveSectorPlayers(next: PlayerRecord[], sector?: number): vo
         next = next.filter((p) => playerSector(p) === snapshotSector);
     }
     const now = Date.now();
-    const nextNames = new Set(next.map((p) => p.name.toLowerCase()));
+    if (liveSector != null) lastFullRoster = { sector: liveSector, at: now };
+    pruneRecent(recentLeaves, now);
+    pruneRecent(recentConfirms, now);
+    // A roster may predate the socket leave that already removed someone.
+    next = next.filter((p) => !within(recentLeaves, playerKey(p.name), now));
+    const nextKeys = new Set(next.map((p) => playerKey(p.name)));
     // Anyone present in this snapshot is unambiguously here — clear their linger.
-    for (const lname of nextNames) lingerUntil.delete(lname);
+    for (const key of nextKeys) lingerUntil.delete(key);
     // Carry over players who were showing but are absent from THIS snapshot, for up
-    // to LINGER_MS, so a one-beat gap doesn't blink them out.
+    // to LINGER_MS, so a one-beat gap doesn't blink them out. One the socket
+    // confirmed a moment ago is kept outright: the roster may predate them.
     const carried: PlayerRecord[] = [];
     for (const p of liveArr) {
-        const lname = p.name.toLowerCase();
-        if (nextNames.has(lname)) continue;
-        let until = lingerUntil.get(lname);
+        const key = playerKey(p.name);
+        if (nextKeys.has(key)) continue;
+        if (within(recentConfirms, key, now)) {
+            carried.push(p);
+            continue;
+        }
+        let until = lingerUntil.get(key);
         if (until == null) {
             until = now + LINGER_MS;
-            lingerUntil.set(lname, until);
+            lingerUntil.set(key, until);
         }
         if (now < until) carried.push(p);
-        else lingerUntil.delete(lname);
+        else lingerUntil.delete(key);
     }
+    scheduleLingerExpiry(now);
     const merged = carried.length ? [...next, ...carried] : next;
     const memberSig = presenceSignature(merged);
     const sig = liveSignature(merged, memberSig);
@@ -223,9 +283,11 @@ export function upsertLiveSectorPlayer(player: PlayerRecord, sector: number): vo
     const normalized = normalizePlayerRecord(player);
     if (playerSector(normalized) !== snapshotSector) return;
     liveSector = snapshotSector;
-    const lname = normalized.name.toLowerCase();
-    lingerUntil.delete(lname);
-    const index = liveArr.findIndex((p) => p.name.toLowerCase() === lname);
+    const key = playerKey(normalized.name);
+    lingerUntil.delete(key);
+    recentLeaves.delete(key);
+    recentConfirms.set(key, Date.now());
+    const index = liveArr.findIndex((p) => playerKey(p.name) === key);
     const next = index >= 0
         ? liveArr.map((p, i) => i === index ? normalized : p)
         : [...liveArr, normalized];
@@ -246,8 +308,8 @@ export function upsertLiveSectorPlayer(player: PlayerRecord, sector: number): vo
 export function moveLiveSectorPlayer(name: string, tile: number, sector: number): void {
     const snapshotSector = normalizedSector(sector);
     if (snapshotSector == null || (liveSector != null && liveSector !== snapshotSector)) return;
-    const lname = name.toLowerCase();
-    const index = liveArr.findIndex((p) => p.name.toLowerCase() === lname);
+    const key = playerKey(name);
+    const index = liveArr.findIndex((p) => playerKey(p.name) === key);
     if (index < 0 || liveArr[index].tile === tile) return;
     liveArr = liveArr.map((p, i) => i === index ? { ...p, tile } : p);
     liveSig = liveSignature(liveArr, rosterSig);
@@ -257,14 +319,29 @@ export function moveLiveSectorPlayer(name: string, tile: number, sector: number)
 }
 
 /**
- * Remove players authoritatively (socket `presence:gone` sweep). Bypasses the
- * linger grace so a real departure clears within one frame.
+ * Remove players authoritatively (socket `presence:leave` / `presence:gone`).
+ * Bypasses the linger grace so a real departure clears within one frame. The
+ * server names them by slug; a display name works too.
+ *
+ * `sector` is the sector they left. A leave for any other sector is ignored:
+ * the socket can still be in the old sector's room just after this client moved
+ * on, and a companion who left that sector with us may be standing right here.
  */
-export function removeLiveSectorPlayers(names: string[]): void {
+export function removeLiveSectorPlayers(names: string[], sector?: number): void {
     if (!names.length) return;
-    const goneLower = new Set(names.map((n) => n.toLowerCase()));
-    for (const lname of goneLower) lingerUntil.delete(lname);
-    const filtered = liveArr.filter((p) => !goneLower.has(p.name.toLowerCase()));
+    if (sector !== undefined && liveSector != null && normalizedSector(sector) !== liveSector) return;
+    const now = Date.now();
+    const gone = new Set(names.map(playerKey));
+    for (const key of gone) {
+        recentLeaves.set(key, now);
+        recentConfirms.delete(key);
+    }
+    dropPlayers(gone);
+}
+
+function dropPlayers(keys: Set<string>): void {
+    for (const key of keys) lingerUntil.delete(key);
+    const filtered = liveArr.filter((p) => !keys.has(playerKey(p.name)));
     if (filtered.length === liveArr.length) return; // nobody removed
     const memberSig = presenceSignature(filtered);
     liveArr = filtered;
@@ -274,11 +351,33 @@ export function removeLiveSectorPlayers(names: string[]): void {
     notify();
 }
 
+// Arm one timer for the earliest linger deadline, so a player missing from a
+// roster drops LINGER_MS later even when no other roster follows.
+function scheduleLingerExpiry(now: number): void {
+    if (lingerTimer !== null) clearTimeout(lingerTimer);
+    lingerTimer = null;
+    let earliest = Infinity;
+    for (const until of lingerUntil.values()) earliest = Math.min(earliest, until);
+    if (earliest === Infinity) return;
+    lingerTimer = setTimeout(expireLingering, Math.max(0, earliest - now));
+    // Node test runs: never hold the process open for a presentation timer.
+    (lingerTimer as { unref?: () => void }).unref?.();
+}
+
+function expireLingering(): void {
+    lingerTimer = null;
+    const now = Date.now();
+    const expired = new Set<string>();
+    for (const [key, until] of lingerUntil) if (now >= until) expired.add(key);
+    if (expired.size) dropPlayers(expired);
+    scheduleLingerExpiry(now);
+}
+
 /** Clear everything (logout / account switch) so no roster bleeds across sessions. */
 export function resetLiveSectorPlayers(): void {
     pendingLocalCorrection = null;
-    if (!liveArr.length && !lingerUntil.size && liveSector == null) return;
     liveSector = null;
+    // Notifies only when a roster was showing.
     clearLiveSectorPlayers(true);
 }
 

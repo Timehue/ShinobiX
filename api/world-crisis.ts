@@ -4,7 +4,7 @@ import { enforceRateLimitKv } from './_ratelimit.js';
 import { cors } from './_utils.js';
 import {
     applyWorldCrisisAdminAction,
-    readWorldCrisisProjection,
+    readWorldCrisisProjectionCached,
     type WorldCrisisAdminAction,
 } from './world-crisis/_state.js';
 
@@ -31,7 +31,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
         if (req.method === 'GET') {
             if (!(await enforceRateLimitKv(req, res, 'world-crisis-read', 90, 60_000, null))) return;
-            return res.status(200).json({ crisis: await readWorldCrisisProjection() });
+            const crisis = await readWorldCrisisProjectionCached();
+            // Every signed-in tab polls this every 15s and every viewer gets the
+            // same public projection, so the edge may serve it for 5s (plus the
+            // 3s process cache). Only this success path is cacheable: rate-limit
+            // refusals, errors and admin POSTs keep the `no-store` set above.
+            // `?fresh=1` is a read right after the caller's own action (a won
+            // defense, an admin override): it misses the edge copy, and stays
+            // `no-store` so it never becomes one. The process cache is dropped on
+            // every state write, so it is already current.
+            if (req.query?.fresh !== '1') res.setHeader('Cache-Control', 's-maxage=5, stale-while-revalidate=5');
+            return res.status(200).json({ crisis });
         }
         if (req.method !== 'POST') return res.status(405).end();
         if (!isFullAdmin(req)) return res.status(401).json({ error: 'Admin authentication required.' });

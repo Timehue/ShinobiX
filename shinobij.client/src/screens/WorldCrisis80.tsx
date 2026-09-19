@@ -96,13 +96,15 @@ export function WorldCrisis80({
     const [launching, setLaunching] = useState<"shinobi" | "companion" | "">("");
     const [error, setError] = useState("");
 
-    const refresh = useCallback(async () => {
-        const next = await fetchWorldCrisis80();
+    // `fresh` on arrival and after the player's own fight or retry: the shared
+    // copy the poll reads can trail a just-settled defense by a few seconds.
+    const refresh = useCallback(async (fresh = false) => {
+        const next = await fetchWorldCrisis80({ fresh });
         if (next) { setCrisis(next); setError(""); }
         else setError("The four witness relays could not be reached.");
     }, []);
     useEffect(() => {
-        const start = window.setTimeout(() => { void refresh(); }, 0);
+        const start = window.setTimeout(() => { void refresh(true); }, 0);
         const stop = visiblePoll(() => { void refresh(); }, 12_000);
         return () => { window.clearTimeout(start); stop(); };
     }, [refresh]);
@@ -182,10 +184,10 @@ export function WorldCrisis80({
         finally { setLaunching(""); }
     }
     function clearTowerResult() {
-        writeCrumb(towerCrumbKey(character.name), null); setTowerRecovery(""); setTowerSession(null); setTowerFightRunId(null); void refresh();
+        writeCrumb(towerCrumbKey(character.name), null); setTowerRecovery(""); setTowerSession(null); setTowerFightRunId(null); void refresh(true);
     }
     function clearPetResult() {
-        writeCrumb(petCrumbKey(character.name), null); setPetSession(null); setPetTeamIds([]); setTowerFightRunId(null); void refresh();
+        writeCrumb(petCrumbKey(character.name), null); setPetSession(null); setPetTeamIds([]); setTowerFightRunId(null); void refresh(true);
     }
 
     if (towerSession) return (
@@ -210,7 +212,7 @@ export function WorldCrisis80({
             sharedImages={sharedImages}
             submitTurn={(commands: ShowdownCommand[], expectedRound: number) => submitShowdownTurn(character.name, petSession.sessionId, commands, expectedRound)}
             onForfeit={() => { void forfeitShowdown(character.name, petSession.sessionId).finally(clearPetResult); }}
-            onFinished={() => { writeCrumb(petCrumbKey(character.name), null); setTowerFightRunId(null); void refresh(); }}
+            onFinished={() => { writeCrumb(petCrumbKey(character.name), null); setTowerFightRunId(null); void refresh(true); }}
             onExit={clearPetResult}
             onRematch={clearPetResult}
         />
@@ -234,7 +236,7 @@ export function WorldCrisis80({
                 <strong>{crisis ? `${crisis.globalProgressPercent}% CLAIMS BROKEN` : "CONNECTING"}</strong>
                 {crisis?.awakenedBy && <small>{crisis.awakenedBy} became the first level-{crisis.triggerLevel} witness</small>}
             </div>
-            {error && <div className="reckoning__error" role="alert">{error} <button type="button" onClick={() => void refresh()}>Retry signal</button></div>}
+            {error && <div className="reckoning__error" role="alert">{error} <button type="button" onClick={() => void refresh(true)}>Retry signal</button></div>}
 
             <div className="reckoning__layout">
                 <div className="reckoning__outskirts" style={{ "--reckoning-art": `url(${reckoningOutskirtsArt})`, "--collection-art": `url(${collectionCellArt})` } as CSSProperties}>

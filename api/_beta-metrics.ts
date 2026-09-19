@@ -219,9 +219,79 @@ export function recentBetaDates(days: number, now = Date.now()): string[] {
     return dates;
 }
 
+/*
+ * Records on the shared store are batched. Every reward claim, Hollow Gate step,
+ * bank interest claim and registration records a metric, and each record used
+ * to take the day's global telemetry lock and rewrite the whole day document
+ * while the player's request waited — so concurrent claims queued behind one
+ * lock, with retries of up to ~0.9 s each under load. A record on the shared
+ * store is now queued and applied on the next tick: every queued event of a
+ * day in ONE locked read-modify-write, the same document and the same totals.
+ * The caller no longer waits on the database for telemetry. Injected stores
+ * (tests, jobs) keep the immediate path below.
+ */
+const pendingMetricDays = new Map<string, BetaMetricInput[]>();
+let metricDrain: Promise<void> | null = null;
+// A batch holds many events, so one transient failure would drop them all.
+export const METRIC_BATCH_RETRY_MS = 1_000;
+
+async function writeMetricBatch(key: string, inputs: BetaMetricInput[], retry = true): Promise<void> {
+    let writeAttempted = false;
+    try {
+        await withTelemetryLock(key, kv, async () => {
+            let day = await kv.get<BetaMetricDay>(key);
+            for (const input of inputs) day = applyBetaMetric(day, input);
+            writeAttempted = true;
+            await kv.set(key, day, { ex: BETA_METRICS_RETENTION_SECONDS });
+        });
+    } catch (e) {
+        // A failure before the write (the lock, the read) changed nothing, so
+        // the batch is tried once more. A failed write may still have
+        // committed, and a second try could count it twice: that batch is
+        // dropped, as a single event always was.
+        if (retry && !writeAttempted) {
+            await new Promise<void>((resolve) => setTimeout(resolve, METRIC_BATCH_RETRY_MS));
+            return writeMetricBatch(key, inputs, false);
+        }
+        console.error(`[beta-metrics] record failed (${inputs.length} event(s) dropped):`, e);
+    }
+}
+
+function drainPendingMetrics(): Promise<void> {
+    if (!metricDrain) {
+        metricDrain = new Promise<void>((resolve) => setImmediate(resolve))
+            .then(async () => {
+                while (pendingMetricDays.size) {
+                    const batch = [...pendingMetricDays];
+                    pendingMetricDays.clear();
+                    for (const [key, inputs] of batch) await writeMetricBatch(key, inputs);
+                }
+            })
+            .finally(() => {
+                metricDrain = null;
+                if (pendingMetricDays.size) void drainPendingMetrics();
+            });
+    }
+    return metricDrain;
+}
+
+/** Resolves once every metric queued so far is written (tests, shutdown). */
+export function flushBetaMetrics(): Promise<void> {
+    return pendingMetricDays.size || metricDrain ? drainPendingMetrics() : Promise.resolve();
+}
+
 export async function recordBetaMetric(input: BetaMetricInput, opts: { kv?: BetaKv } = {}): Promise<void> {
     captureProductEventFromBetaMetric(input);
     const store = opts.kv ?? kv;
+    if (store === kv) {
+        const ts = input.ts ?? Date.now();
+        const key = betaMetricKey(betaDateKey(ts));
+        const queued = pendingMetricDays.get(key);
+        if (queued) queued.push({ ...input, ts });
+        else pendingMetricDays.set(key, [{ ...input, ts }]);
+        void drainPendingMetrics();
+        return;
+    }
     try {
         const ts = input.ts ?? Date.now();
         const key = betaMetricKey(betaDateKey(ts));
