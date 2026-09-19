@@ -248,16 +248,30 @@ export async function exchangeSnapshot(player: string) {
     }
     const [live, mine, catalogs] = await Promise.all([indexed(LIVE_INDEX), indexed(playerIndex(player)), loadSettlementCatalogs()]);
     const out = await mutatePlayerSave(player, async ({ character, record }) => {
+        // Browsing is a read. It persists something only when the Exchange's
+        // own answer depends on work the stored save does not hold yet: a forged
+        // definition recovered from the registry, or an elapsed settlement (a
+        // finished barn, a pet-shape migration) that changes what can be listed.
+        // Idle regen and the other projections every mutation applies are
+        // re-derived by the next real write, so an unchanged browse no longer
+        // rewrites the save or mints a new _saveVersion on every visit.
+        // (`record` here carries only settled vitals, which the inventory never reads.)
         const recovered = await recoverExchangeDefinitions({ ...record, character });
-        return { ok: true, character, value: null, recordPatch: { creatorItems: objects(recovered.creatorItems) } };
+        const creatorItems = objects(recovered.creatorItems);
+        const write = !isDeepStrictEqual(creatorItems, objects(record.creatorItems))
+            || !isDeepStrictEqual(exchangeInventory({ ...recovered, character }, catalogs), exchangeInventory(record, catalogs));
+        return { ok: true, character, value: null, recordPatch: { creatorItems }, write };
     });
     if (!out.ok) throw new ExchangeError(out.error, out.status);
+    // One record answers everything — the stored save at its stored version
+    // when nothing needed persisting, the committed one otherwise — so the
+    // character, inventory, definitions and version can never disagree.
     const record = out.record;
     const defenses = await Promise.all(['coliseum', 'tactical'].map(mode => kv.get<Obj>(`petladder:${mode}:def:${player}`)));
     const defenseIds = new Set(defenses.flatMap(defense => objects(defense?.pets).map(p => String(p.id))));
     return { listings: live.filter(l => l.state === 'active').map(publicListing),
         activity: mine.filter(l => l.seller === player || l.buyer === player).sort((a, b) => b.createdAt - a.createdAt).map(publicListing),
-        inventory: exchangeInventory(record, catalogs).map(asset => asset.kind === 'pet' && defenseIds.has(asset.id) ? { ...asset, unavailable: 'Remove this companion from your ladder defense before listing it.' } : asset), character: out.character, _saveVersion: out._saveVersion,
+        inventory: exchangeInventory(record, catalogs).map(asset => asset.kind === 'pet' && defenseIds.has(asset.id) ? { ...asset, unavailable: 'Remove this companion from your ladder defense before listing it.' } : asset), character: record.character as Obj, _saveVersion: out._saveVersion,
         creatorItems: objects(record.creatorItems),
         recoveryErrors: [...new Set(recoveryErrors)] };
 }
