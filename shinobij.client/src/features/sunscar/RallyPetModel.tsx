@@ -75,6 +75,9 @@ export function RallyPetModel({ state, index, onReady, reducedMotion }: { state:
         const race = state.current;
         const racer = race.racers[index];
         if (!actor.current) return;
+        const gap = racer.distance - race.racers[0].distance;
+        actor.current.visible = race.finished || index === 0 || gap > -24 && gap < 175;
+        if (!actor.current.visible && ready.current) { lastTick.current = race.tick; return; }
         const path = rallyPath(rallyTrack(race.trackId), racer.distance);
         const position = rallyPetPosition(race, index);
         // Reduced motion jumps straight to the podium pose instead of gliding.

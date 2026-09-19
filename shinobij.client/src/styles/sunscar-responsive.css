@@ -26,6 +26,48 @@
 .sunscar-rally-session .rally-save-note { margin: 5px 0; font-size: 10px; }
 .sunscar-rally-session .rally-results { margin-top: 16px; scroll-margin-top: 8px; }
 .sunscar-mode .rally-controls button { min-width: 44px; }
+.rally-telemetry { position: absolute; bottom: 62px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; justify-content: center; gap: 10px; width: max-content; max-width: calc(100% - 24px); padding: 7px 12px; border-radius: 7px; background: #241c16df; color: #ffeed3; font-size: 11px; pointer-events: none; }
+.rally-speed { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rally-stamina { font-variant-numeric: tabular-nums; }
+.rally-progress.is-final-stretch { border: 1px solid #ffe4a7; background: #54351ce8; }
+.rally-race-hints { position: absolute; top: 112px; left: 18px; right: 18px; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; pointer-events: none; }
+.rally-race-hints > span { max-width: 100%; padding: 6px 10px; border-radius: 5px; background: #241c16e8; color: #ffe8ba; font-size: 12px; line-height: 1.4; }
+.rally-race-hints > .rally-aim-hint { color: #d4e3ec; }
+.rally-race-hints > .has-target { color: #ffdf86; border-left: 3px solid #ffdf86; }
+.rally-race-hints > .rally-event { color: #b7f9dc; border-left: 3px solid currentColor; font-weight: 600; }
+.rally-race-hints > .rally-event-shot-blocked { color: #bfdcff; }
+.rally-race-hints > .rally-event-shot-hit { color: #ffd6a2; }
+.rally-race-hints > span:empty { display: none; }
+.rally-finish-banner { position: absolute; top: 30%; left: 50%; transform: translateX(-50%); max-width: calc(100% - 24px); width: 340px; padding: 18px; text-align: center; background: #2b2118ed; border: 1px solid #f4d396; border-radius: 9px; color: #fff0ce; pointer-events: none; }
+.rally-finish-banner span, .rally-finish-banner small { display: block; font-size: 12px; }
+.rally-finish-banner strong { display: block; margin: 8px 0; font-size: 28px; font-variant-numeric: tabular-nums; }
+.rally-podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 24px; }
+.rally-podium > div { display: flex; flex-direction: column; gap: 7px; padding: 14px 10px; text-align: center; background: #2b2722; border: 1px solid #68533a; border-radius: 8px; overflow-wrap: anywhere; }
+.rally-podium > div:first-child { border-color: #e1b772; background: #443320; }
+.rally-podium span { font: 28px Georgia, serif; color: #f1cd8b; }
+.rally-podium strong { font-size: 13px; }.rally-podium small { color: #dac9ae; font-variant-numeric: tabular-nums; }
+.rally-race-recap { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.rally-race-recap > div { border-top: 1px solid #70573a; padding: 12px 0; }.rally-race-recap dt { color: #cdbda5; font-size: 11px; }.rally-race-recap dd { margin: 8px 0 0; font-size: 23px; font-variant-numeric: tabular-nums; color: #f6dfb9; }
+.sunscar-mode .rally-controls .is-active { border-color: #ffe0a1; box-shadow: inset 0 0 0 1px #ffe0a1; opacity: 1; }
+.sunscar-mode .rally-controls .rally-technique.is-used:disabled { background: #343434; border-color: #606060; color: #c7c7c7; box-shadow: none; opacity: .7; cursor: not-allowed; }
+.sunscar-mode .rally-controls .rally-technique.is-used small { color: inherit; }
+.sunscar-mode .rally-controls .rally-attack { font-size: 12px; background: linear-gradient(90deg, #3e586c var(--rally-charge), #253442 var(--rally-charge)); border-color: #90bfd1; min-width: 108px; }
+.sunscar-mode .rally-controls .rally-attack:disabled { opacity: .8; }
+.sunscar-mode .rally-controls .rally-attack.is-ready { border-color: #d0f4ff; color: #fff; box-shadow: inset 0 0 0 1px #9ddff5; }
+@media (max-width: 650px) {
+    .rally-race-hints { top: 101px; left: 8px; right: 8px; }.rally-race-hints > span { font-size: 10px; padding: 5px 8px; }
+    .rally-race-recap { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .sunscar-mode .rally-controls { flex-wrap: wrap; }
+    .rally-steering { flex: 1; }
+    .rally-steering button { flex: 1; }
+    .sunscar-mode .rally-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; }
+    .sunscar-mode .rally-controls .rally-attack,
+    .sunscar-mode .rally-controls .rally-technique,
+    .sunscar-mode .rally-controls .rally-burst { min-width: 0; max-width: none; padding-inline: 5px; font-size: 11px; }
+    .sunscar-mode .rally-controls button { min-height: 48px; }
+    .rally-telemetry { font-size: 10px; gap: 6px; }
+    .rally-stamina meter { width: 110px; }
+}
 .sunscar-mode .caravan-map-tools button { min-width: 44px; }
 .caravan-journal summary { min-height: 44px; }
 .caravan-next-stop { scroll-margin: 20px; }
@@ -47,4 +89,7 @@
     .sunscar-rally-session .rally-intro-overlay h2 { font-size: 24px; margin-block: 6px; }
     .sunscar-rally-session .rally-intro-overlay p { margin-block: 6px; font-size: 11px; }
     .sunscar-rally-session .rally-stamina { bottom: 8px; padding-block: 5px; }
+    .sunscar-rally-session .rally-telemetry { bottom: 43px; padding-block: 4px; }
+    .sunscar-rally-session .rally-race-hints { top: 73px; gap: 3px; max-width: 58%; }.sunscar-rally-session .rally-race-hints > span { padding: 3px 7px; font-size: 10px; }
+    .sunscar-rally-session .rally-finish-banner { top: 27%; padding: 10px; }.sunscar-rally-session .rally-finish-banner strong { font-size: 23px; margin: 5px 0; }
 }

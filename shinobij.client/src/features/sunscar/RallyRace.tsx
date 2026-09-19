@@ -1,14 +1,16 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { RALLY_HZ, type RallyAction, type RallyState } from '../../../../shared/sunscar/rally-types';
-import { rallyOrder, replayRallyCheckpoint, stepRally } from '../../../../shared/sunscar/rally-simulation';
+import { rallyOrder, replayRallyCheckpoint, restoreRallyRace, stepRally } from '../../../../shared/sunscar/rally-simulation';
 import { rallySection, rallyTrack } from '../../../../shared/sunscar/rally-tracks';
-import { RALLY_TECHNIQUES } from '../../../../shared/sunscar/rally-profiles';
+import { RALLY_ATTACK_NAMES, RALLY_TECHNIQUES } from '../../../../shared/sunscar/rally-profiles';
 import { playPetSfx, primePetSfx } from '../../lib/pet-sfx';
 import type { RallyResponse } from '../../lib/sunscar-rally';
 import { RallyControls } from './RallyControls';
 import { PetModelBoundary } from '../../components/PetModelBoundary';
 import { festivalPrestige } from '../../../../shared/sunscar/prestige';
 import { startGameAmbience, stopGameAmbience } from '../../lib/game-audio';
+import { rallyFeedback } from './rally-feedback';
+import { RALLY_SHOT_PROFILES } from '../../../../shared/sunscar/rally-combat';
 
 const RallyCanvas = lazy(() => import('./RallyCanvas'));
 /** After the finish the canvas keeps drawing for this much presentation time:
@@ -18,6 +20,20 @@ const RallyCanvas = lazy(() => import('./RallyCanvas'));
  * time is counted the way RallyPetModel advances its clips, at most 0.05 s a
  * frame, so a device drawing under 20 fps still sees the whole clip. */
 const FINISH_SETTLE_SECONDS = 2.5;
+function raceHud(race: RallyState) {
+    const player = race.racers[0], track = rallyTrack(race.trackId);
+    const section = rallySection(track, Math.max(0, player.distance));
+    return { ...rallyFeedback(race), tick: race.tick, raceTime: player.finishTick ?? race.tick, stamina: player.stamina, position: rallyOrder(race).findIndex(r => r.id === 'player') + 1,
+        progress: Math.max(0, player.distance / track.length), used: player.techniqueUsed, techniqueActive: player.techniqueTicks > 0,
+        section: player.finishTick !== null ? 'Finish' : section.name, terrain: section.terrain, finished: race.finished,
+        playerFinished: player.finishTick !== null, speed: player.speed, charge: player.attackCharge ?? 0,
+        attackBlocked: player.stagger > 0 || player.recoilTicks > 0,
+        bursting: player.burst && player.stamina > 0 && !player.stagger,
+        status: race.finished ? 'Race complete' : player.finishTick !== null ? 'Across the line · waiting for rivals' : player.stagger > 0 ? 'Obstacle hit · recovering'
+            : player.slowTicks > 0 ? 'Elemental hit · slowed' : player.recoilTicks > 0 ? 'Shot fired · brief slowdown'
+                : player.shortcutTicks > 0 ? 'Shortcut boost' : player.techniqueTicks > 0 ? RALLY_TECHNIQUES[player.pet.element].name
+                    : player.burst && player.stamina > 0 ? 'Burst · +28% pace' : 'Release Burst to recover stamina' };
+}
 type Props = {
     initial: RallyState; difficulty: number; official: boolean; title: string;
     onBegin?: () => Promise<void>;
@@ -28,8 +44,9 @@ type Props = {
     reputation?: number;
 };
 export function RallyRace({ initial, difficulty, official, title, onBegin, onCheckpoint, onExit, onFinished, onFinishPresented, reputation = 0 }: Props) {
-    const state = useRef(structuredClone(initial));
-    const [hud, setHud] = useState(() => ({ tick: initial.tick, stamina: initial.racers[0].stamina, position: 1, progress: 0, used: initial.racers[0].techniqueUsed, section: '', terrain: '', finished: initial.finished }));
+    const [initialState] = useState(() => restoreRallyRace(initial));
+    const state = useRef(initialState);
+    const [hud, setHud] = useState(() => raceHud(initialState));
     const [ready, setReady] = useState<string[]>([]);
     const [countdown, setCountdown] = useState<number | null>(null);
     const [started, setStarted] = useState(false);
@@ -56,7 +73,10 @@ export function RallyRace({ initial, difficulty, official, title, onBegin, onChe
     useLayoutEffect(() => { running.current = started && !paused && !error && !modelError && !state.current.finished && (!official || state.current.tick - acknowledged.current < 600); });
     const onReady = useCallback((id: string) => setReady(old => old.includes(id) ? old : [...old, id]), []);
     const onFail = useCallback(() => { setModelError(true); running.current = false; }, []);
-    const input = useCallback((kind: RallyAction['kind']) => { if (running.current && !queued.current.includes(kind) && queued.current.length < 6) queued.current.push(kind); }, []);
+    const input = useCallback((kind: RallyAction['kind']) => {
+        // Releases must survive a pause or a checkpoint stall.
+        if ((running.current || kind === 'burst-off') && !queued.current.includes(kind) && queued.current.length < 7) queued.current.push(kind);
+    }, []);
     const advance = useCallback((delta: number) => {
         if (state.current.finished && finishTime.current < FINISH_SETTLE_SECONDS) {
             finishTime.current += Math.min(delta, .05);
@@ -70,17 +90,20 @@ export function RallyRace({ initial, difficulty, official, title, onBegin, onChe
             const actions = queued.current.splice(0).map(kind => ({ tick: race.tick, kind }));
             if (official) inputs.current.push(...actions);
             const player = race.racers[0];
-            const hit = player.hits, jump = player.jump, used = player.techniqueUsed;
+            const hit = player.hits, jump = player.jump, used = player.techniqueUsed, fired = player.shotsFired, landed = player.shotsHit, slowed = player.slowTicks;
+            const finishedAt = player.finishTick, distance = player.distance, cleanJumps = player.cleanJumps, shortcuts = player.shortcuts;
             stepRally(race, actions, difficulty);
             if (player.hits > hit) playPetSfx('hit');
             if (player.jump > 0 && jump === 0) playPetSfx('move');
             if (player.techniqueUsed && !used) playPetSfx('finisher');
+            if (player.shotsFired > fired) playPetSfx('command');
+            if (player.shotsHit > landed || player.slowTicks > slowed) playPetSfx('hit');
+            if (player.cleanJumps > cleanJumps || player.shortcuts > shortcuts) playPetSfx('command');
+            if (distance < track.length - 140 && player.distance >= track.length - 140) playPetSfx('crowd');
+            if (finishedAt === null && player.finishTick !== null) playPetSfx('crowd');
             accumulator.current -= 1 / RALLY_HZ;
-            if (race.tick % 6 === 0 || race.finished) {
-                const section = rallySection(track, Math.max(0, player.distance));
-                setHud({ tick: race.tick, stamina: player.stamina, position: rallyOrder(race).findIndex(r => r.id === 'player') + 1,
-                    progress: Math.max(0, player.distance / track.length), used: player.techniqueUsed,
-                    section: player.distance >= track.length ? 'Finish' : section.name, terrain: section.terrain, finished: race.finished });
+            if (race.tick % 6 === 0 || race.finished || player.techniqueUsed !== used || player.finishTick !== finishedAt) {
+                setHud(raceHud(race));
             }
         }
     }, [difficulty, official, track]);
@@ -101,7 +124,8 @@ export function RallyRace({ initial, difficulty, official, title, onBegin, onChe
             // also recovers when another device saved different steering first.
             state.current = saved.tick < race.tick && !saved.finished
                 ? replayRallyCheckpoint(saved, race.tick, inputs.current, difficulty)
-                : structuredClone(saved);
+                : restoreRallyRace(saved);
+            setHud(raceHud(state.current));
             setError('');
             if (saved.finished && !completed.current) { completed.current = true; playPetSfx('victory'); onFinishedRef.current(saved); }
             return true;
@@ -167,20 +191,28 @@ export function RallyRace({ initial, difficulty, official, title, onBegin, onChe
             <div className="rally-hud">
                 {prestige && <span className="rally-prestige-pennant" title={prestige.cosmetic} style={{ color: prestige.color }}>✥</span>}
                 <div className="rally-position"><strong>{hud.position}<small>/4</small></strong><span>{hud.section || title}</span></div>
-                <div className="rally-progress"><span>{track.name}</span><progress aria-label="Race progress" value={hud.progress} max={1} /><small>{(hud.tick / RALLY_HZ).toFixed(1)}s {saving ? '· Saving' : official ? '· Official' : '· Practice'}{hud.terrain === 'deep-sand' && !hud.finished ? ' · Deep sand slows' : ''}</small></div>
-                <button className="rally-pause" aria-label={paused ? 'Resume race' : 'Pause race'} onClick={() => { queued.current = []; input('burst-off'); setPaused(p => !p); }} disabled={!started || hud.finished}>{paused ? 'Resume' : 'Pause'}</button>
+                <div className={`rally-progress${hud.finalStretch ? ' is-final-stretch' : ''}`}><span>{hud.finalStretch ? 'Final stretch' : track.name} · {hud.remaining} m</span><progress aria-label="Race progress" value={hud.progress} max={1} /><small>{(hud.raceTime / RALLY_HZ).toFixed(1)}s {saving ? '· Saving' : official ? '· Official' : '· Practice'}{hud.terrain === 'deep-sand' && !hud.finished ? ' · Deep sand slows' : ''}</small></div>
+                <button className="rally-pause" aria-label={paused ? 'Resume race' : 'Pause race'} onClick={() => { running.current = false; queued.current = ['burst-off']; setPaused(p => !p); }} disabled={!started || hud.finished}>{paused ? 'Resume' : 'Pause'}</button>
             </div>
-            {!started && countdown === null && <div className="rally-intro-overlay"><p className="sunscar-eyebrow">{title}</p><h2>{track.name}</h2><p>{track.description}</p><p className="rally-learn">Steer around tall loads. Jump low barriers. Hold Burst on clear ground. Follow green rings for shortcuts. Deep sand slows grounded racers; jumping briefly avoids the drag.</p>
+            {started && !hud.playerFinished && <div className="rally-race-hints">
+                {hud.roadHint && <span className="rally-road-hint">{hud.roadHint}</span>}
+                {hud.charge >= 100 && !hud.attackBlocked && <span className={`rally-aim-hint${hud.targetId ? ' has-target' : ''}`}>Q · {hud.targetLabel}</span>}
+                <span className={`rally-event rally-event-${hud.eventKind}`} role="status" aria-live="polite">{hud.message}</span>
+            </div>}
+            {started && hud.playerFinished && <div className="rally-finish-banner" role="status"><span>Across the line</span><strong>{['1st', '2nd', '3rd', '4th'][hud.position - 1]} · {(hud.raceTime / RALLY_HZ).toFixed(2)}s</strong><small>{hud.finished ? 'Finish board ready' : 'Rivals are finishing'}</small></div>}
+            {!started && countdown === null && <div className="rally-intro-overlay"><p className="sunscar-eyebrow">{title}</p><h2>{track.name}</h2><p>{track.description}</p><p className="rally-learn">Amber arrows: jump low barriers (+4 Burst). Coral crosses: steer around tall loads. Green arrows: Burst + jump into a shortcut (+7 Burst). Hold Shift for +28% pace. E uses {RALLY_TECHNIQUES[initial.racers[0].pet.element].name} once per race.</p><p className="rally-learn">Q fires a shot every 8 seconds. {RALLY_SHOT_PROFILES[initial.racers[0].pet.element].description} Look for the aiming ring. Firing slows you 10% for 0.45 seconds. Jump or steer to dodge.</p>
                 {modelError ? <p role="alert">A pet model could not load. Return to the race desk and retry; your entry is safe.</p> : <p role="status">{ready.length < 4 ? `Preparing companions · ${ready.length}/4` : 'All companions ready'}</p>}
                 <div className="sunscar-button-row"><button onClick={() => void begin()} disabled={ready.length < 4 || modelError || saving}>{saving ? 'Starting…' : initial.tick > 0 ? 'Resume from checkpoint' : 'Ready to race'}</button><button className="sunscar-secondary" onClick={onExit}>Race desk</button></div>
             </div>}
             {countdown !== null && <div className="rally-countdown" role="status" aria-live="assertive">{countdown || 'GO'}</div>}
             {(paused || error || started && modelError) && <div className="rally-pause-overlay"><h2>{error ? 'Race held safely' : modelError ? 'Rendering interrupted' : 'Taking a breather'}</h2><p role={error ? 'alert' : undefined}>{error || 'Your race clock is paused. Continue when you are ready.'}</p><div className="sunscar-button-row">
                 <button onClick={() => { if (error && started) void checkpoint(true); else if (error) { setError(''); void begin(); } else setPaused(false); }} disabled={saving || modelError}>{saving ? 'Saving…' : error ? 'Retry connection' : 'Continue race'}</button>
-                <button className="sunscar-secondary" onClick={() => void leave()}>Save & return</button>{error && <button className="sunscar-secondary" onClick={onExit}>Return to last saved checkpoint</button>}</div>{error && <small>Returning to the saved checkpoint discards only inputs the race desk has not confirmed.</small>}</div>}
-            <div className="rally-stamina"><span>Burst</span><meter min={0} max={100} value={hud.stamina} aria-label="Burst stamina" /></div>
+                <button className="sunscar-secondary" disabled={saving} onClick={() => void leave()}>Save & return</button>{error && <button className="sunscar-secondary" onClick={onExit}>Return to last saved checkpoint</button>}</div>{error && <small>Returning to the saved checkpoint discards only inputs the race desk has not confirmed.</small>}</div>}
+            <div className="rally-telemetry"><span className="rally-speed">{hud.playerFinished ? 'Finished' : `${(hud.speed * 3.6).toFixed(0)} km/h`}</span><span>{hud.status}</span></div>
+            <div className={`rally-stamina${hud.bursting ? ' is-active' : ''}`}><span>Burst</span><meter min={0} max={100} value={hud.stamina} aria-label="Burst stamina" /><span>{Math.ceil(hud.stamina)}%</span></div>
         </div>
-        <RallyControls input={input} disabled={!started || paused || !!error || modelError || hud.finished} technique={RALLY_TECHNIQUES[initial.racers[0].pet.element].name} techniqueUsed={hud.used} stamina={hud.stamina} />
+        <RallyControls input={input} disabled={!started || paused || !!error || modelError || hud.playerFinished} technique={RALLY_TECHNIQUES[initial.racers[0].pet.element].name} techniqueUsed={hud.used} techniqueActive={hud.techniqueActive} stamina={hud.stamina}
+            bursting={hud.bursting} attack={RALLY_ATTACK_NAMES[initial.racers[0].pet.element]} attackDescription={RALLY_SHOT_PROFILES[initial.racers[0].pet.element].description} charge={hud.charge} attackBlocked={hud.attackBlocked} />
         <p className="rally-save-note">{official ? 'Official checkpoints save during the race. Backgrounding pauses the clock.' : 'Practice is unlimited. No entry or reward is consumed.'}</p>
     </section>;
 }

@@ -7,12 +7,13 @@ import { sunscarRandom } from '../../../../shared/sunscar/random';
 import { createSandTexture } from './rally-scenery';
 import { RALLY_CROWD_BAND, rallyCrowdSpots, rallyRoadHalfWidth } from './rally-layout';
 
-function dunes(track: RallyTrack) {
+function dunes(track: RallyTrack, light: boolean) {
     const positions: number[] = [], colors: number[] = [], uv: number[] = [], indices: number[] = [];
     const base = new THREE.Color(track.palette.sand), shade = new THREE.Color('#b49b74');
-    const steps = Math.ceil((track.length + 180) / 10), cross = 28;
+    const stepSize = light ? 20 : 10;
+    const steps = Math.ceil((track.length + 180) / stepSize), cross = light ? 18 : 28;
     for (let row = 0; row <= steps; row++) {
-        const d = row * 10 - 70, p = rallyPath(track, d), width = rallySection(track, d).width;
+        const d = row * stepSize - 70, p = rallyPath(track, d), width = rallySection(track, d).width;
         for (let col = 0; col <= cross; col++) {
             const column = col - cross / 2;
             // Explicit flat shoulder vertices keep a coarse dune triangle from
@@ -31,19 +32,19 @@ function dunes(track: RallyTrack) {
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3)); geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3)); geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
     geometry.setIndex(indices); geometry.computeVertexNormals(); return geometry;
 }
-export function RallyDunes({ track }: { track: RallyTrack }) {
-    const surface = useMemo(() => ({ geometry: dunes(track), texture: createSandTexture() }), [track]);
+export function RallyDunes({ track, light }: { track: RallyTrack; light: boolean }) {
+    const surface = useMemo(() => ({ geometry: dunes(track, light), texture: createSandTexture() }), [track, light]);
     useEffect(() => () => { surface.geometry.dispose(); surface.texture.dispose(); }, [surface]);
     return <mesh geometry={surface.geometry} receiveShadow><meshStandardMaterial vertexColors map={surface.texture} roughness={1} side={THREE.DoubleSide}/></mesh>;
 }
-export function RallySun({ state }: { state: RefObject<RallyState> }) {
+export function RallySun({ state, light: reduced }: { state: RefObject<RallyState>; light: boolean }) {
     const light = useRef<THREE.DirectionalLight>(null);
     const target = useMemo(() => new THREE.Object3D(), []);
     useFrame(() => {
         const p = rallyPath(rallyTrackFromState(state.current), state.current.racers[0].distance);
         if (light.current) { light.current.position.set(p.x - 24, p.y + 32, p.z - 16); target.position.set(p.x, p.y, p.z - 15); target.updateMatrixWorld(); }
     });
-    return <><primitive object={target}/><directionalLight ref={light} target={target} intensity={2.1} color="#ffdfb1" castShadow shadow-mapSize={[1024, 1024]} shadow-camera-left={-28} shadow-camera-right={28} shadow-camera-top={35} shadow-camera-bottom={-25} shadow-camera-near={1} shadow-camera-far={110} shadow-bias={-.0005} shadow-normalBias={.035}/></>;
+    return <><primitive object={target}/><directionalLight ref={light} target={target} intensity={2.1} color="#ffdfb1" castShadow={!reduced} shadow-mapSize={[1024, 1024]} shadow-camera-left={-28} shadow-camera-right={28} shadow-camera-top={35} shadow-camera-bottom={-25} shadow-camera-near={1} shadow-camera-far={110} shadow-bias={-.0005} shadow-normalBias={.035}/></>;
 }
 // Cache lookup is static; frames do not regenerate track or geometry.
 import { rallyTrack as rallyTrackFromId } from '../../../../shared/sunscar/rally-tracks';

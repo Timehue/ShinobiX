@@ -1,5 +1,6 @@
 import { sunscarHash, sunscarRandom } from './random.js';
 import { RALLY_RIVALS } from './rally-rivals.js';
+import { rallyShotTarget } from './rally-combat.js';
 import type { RallyAction, RallyRacer, RallyState, RallyTrack } from './rally-types.js';
 
 /** Rivals make inputs, then obey the same physics, collisions and stamina as the player. */
@@ -18,7 +19,9 @@ export function rallyAi(state: RallyState, racer: RallyRacer, track: RallyTrack,
         if (closest.kind === 'shortcut' || closest.kind === 'ramp') {
             if (random() < rival.shortcuts && racer.speed >= (closest.minSpeed ?? 13) - 1) {
                 if (racer.targetLane !== closest.lane) push(closest.lane < racer.targetLane ? 'left' : 'right');
-                if (delta < racer.speed * .68 && Math.abs(racer.lane - closest.lane) < .25) push('jump');
+                // Arrive at the ramp while rising; an early jump lands before
+                // the shortcut ring and never receives the ramp's lift.
+                if (delta < racer.speed * (closest.kind === 'ramp' ? .28 : .5) && Math.abs(racer.lane - closest.lane) < .25) push('jump');
             }
         } else if (Math.abs(closest.lane - racer.targetLane) < .4) {
             if (closest.height <= 1.6 && delta < racer.speed * .42 && random() < skill) push('jump');
@@ -35,5 +38,7 @@ export function rallyAi(state: RallyState, racer: RallyRacer, track: RallyTrack,
     if (wantsBurst !== racer.burst) push(wantsBurst ? 'burst-on' : 'burst-off');
     if (!racer.techniqueUsed && racer.distance > track.length * (.28 + (1 - rival.aggression) * .28)
         && (clear || racer.pet.element === 'Earth' || racer.pet.element === 'Water')) push('technique');
+    const takingShortcut = ahead.some(o => (o.kind === 'ramp' || o.kind === 'shortcut') && o.lane === racer.targetLane);
+    if (!takingShortcut && racer.attackCharge >= 100 && !racer.stagger && rallyShotTarget(state, racer) && random() < skill) push('attack');
     return actions;
 }

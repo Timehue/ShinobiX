@@ -3,7 +3,7 @@ import type { Character, VersionedCharacterCommit } from '../../types/character'
 import { requestRally, type RallyResponse } from '../../lib/sunscar-rally';
 import { petCardImage } from '../../lib/pet-battle-anim';
 import { RALLY_TRACKS, rallyTrack } from '../../../../shared/sunscar/rally-tracks';
-import { RALLY_TECHNIQUES, rallyProfile } from '../../../../shared/sunscar/rally-profiles';
+import { RALLY_ATTACK_NAMES, RALLY_STAT_HELP, RALLY_TECHNIQUES, rallyProfile } from '../../../../shared/sunscar/rally-profiles';
 import { RALLY_RIVALS } from '../../../../shared/sunscar/rally-rivals';
 import { rallyRank, rallyStandings } from '../../../../shared/sunscar/rally-championship';
 import { rallyResult } from '../../../../shared/sunscar/rally-simulation';
@@ -11,6 +11,7 @@ import type { RallyAction, RallyElement, RallyState, RallyTrack } from '../../..
 import { RallyRace } from './RallyRace';
 import { RallySession } from './RallySession';
 import { SunscarPrestige } from './SunscarPrestige';
+import { RALLY_SHOT_PROFILES } from '../../../../shared/sunscar/rally-combat';
 import '../../styles/sunscar-modes.css';
 
 function CoursePreview({ track }: { track: RallyTrack }) {
@@ -28,14 +29,24 @@ function RaceResults({ state, response, official, onContinue, onDesk }: { state:
     const complete = official && run?.status === 'complete';
     const standing = official && run ? rallyStandings(run.results) : [];
     const label = (id: string) => id === 'player' ? 'You' : RALLY_RIVALS.find(r => r.id === id)?.name ?? id;
+    const player = state.racers[0];
+    const margin = (results.placements[1].tick - results.placements[0].tick) / 60;
     return <section className="rally-results" aria-labelledby="rally-results-title" tabIndex={-1}>
         <div><p className="sunscar-eyebrow">{complete ? 'Daily championship complete' : official ? 'Official race verified' : 'Practice complete'}</p><h2 id="rally-results-title">{complete ? `${run.reward?.place === 1 ? 'Sunscar is yours today.' : 'A place on the finish board.'}` : 'Across the line'}</h2>
             {complete && run.reward && <p className="rally-earned">{run.reward.ryo.toLocaleString()} Ryo <span>+ {run.reward.reputation} Rally reputation · Saved</span></p>}
         </div>
+        <div className="rally-podium" aria-label="Race podium">{results.placements.slice(0, 3).map((r, i) => <div key={r.id} className={r.id === 'player' ? 'is-player' : ''}><span>{['1st', '2nd', '3rd'][i]}</span><strong>{label(r.id)}</strong><small>{(r.tick / 60).toFixed(2)}s</small></div>)}</div>
+        <p className="rally-finish-margin">{margin < .15 ? 'Photo finish' : 'Winning margin'} · {margin.toFixed(2)}s</p>
+        <dl className="rally-race-recap">
+            <div><dt>Clean jumps</dt><dd>{player.cleanJumps ?? 0}</dd></div>
+            <div><dt>Burst restored</dt><dd>+{Math.round(player.staminaEarned ?? 0)}</dd></div>
+            <div><dt>Shortcut time gained*</dt><dd>~{(player.shortcutTimeGained ?? 0).toFixed(2)}s</dd></div>
+            <div><dt>Rival delay from shots*</dt><dd>~{(player.attackTimeGained ?? 0).toFixed(2)}s</dd></div>
+        </dl><p className="sunscar-fine">*Estimated from boost strength and slow duration. Finish times above are recorded race times.</p>
         <div className="rally-result-tables"><table><caption>This race</caption><thead><tr><th scope="col">Place</th><th scope="col">Handler</th><th scope="col">Time</th><th scope="col">Points</th></tr></thead><tbody>{results.placements.map((r, i) => <tr key={r.id} className={r.id === 'player' ? 'is-player' : ''}><td>{i + 1}</td><th scope="row">{label(r.id)}</th><td>{(r.tick / 60).toFixed(2)}s</td><td>{official ? r.points : '—'}</td></tr>)}</tbody></table>
             {official && <table><caption>Grand Prix standings · {run?.results.length}/3 races</caption><thead><tr><th scope="col">Place</th><th scope="col">Handler</th><th scope="col">Points</th></tr></thead><tbody>{standing.map((r, i) => <tr key={r.id} className={r.id === 'player' ? 'is-player' : ''}><td>{i + 1}</td><th scope="row">{label(r.id)}</th><td>{r.points}</td></tr>)}</tbody></table>}
         </div>
-        <p>{state.racers[0].hits} obstacle contacts · {state.racers[0].shortcuts} shortcuts taken. {RALLY_RIVALS.find(r => r.id === results.placements[0].id)?.outro}</p>
+        <p>{state.racers[0].hits} obstacle contacts · {state.racers[0].shortcuts} shortcuts taken · {state.racers[0].shotsHit ?? 0}/{state.racers[0].shotsFired ?? 0} elemental shots connected. {RALLY_RIVALS.find(r => r.id === results.placements[0].id)?.outro}</p>
         <div className="sunscar-button-row">{official && !complete && <button onClick={onContinue}>Next race · {rallyTrack(run?.tracks[run.results.length] ?? 'grand-circuit').name}</button>}<button className="sunscar-secondary" onClick={onDesk}>Return to the race desk</button></div>
     </section>;
 }
@@ -123,7 +134,7 @@ export default function PetRally({ character, onVersionedCharacter, onBack }: { 
         return adopt(await requestRally(character.name, { action: 'checkpoint', runId: race?.runId, raceIndex: race?.index, fromTick, toTick, actions }));
     }
     const pet = character.pets.find(p => p.id === petId);
-    const profile = pet ? rallyProfile({ id: pet.templateId ?? pet.id, name: pet.name }) : null;
+    const profile = pet ? rallyProfile({ id: pet.templateId ?? pet.id, name: pet.name }, pet) : null;
     const technique = RALLY_TECHNIQUES[(pet?.element ?? 'Fire') as RallyElement];
     const progress = response?.progress;
     const active = progress?.current && progress.current.status !== 'complete' && progress.current.status !== 'ready';
@@ -142,9 +153,9 @@ export default function PetRally({ character, onVersionedCharacter, onBack }: { 
         <SunscarPrestige mode="rally" reputation={progress?.reputation ?? 0}/>
         {progress?.current?.status === 'complete' && progress.current.reward && <section className="rally-championship-card"><div><p className="sunscar-eyebrow">Last Grand Prix · {progress.current.day}</p><h2>Finish board: place {progress.current.reward.place}</h2><p>{progress.current.reward.ryo.toLocaleString()} Ryo and {progress.current.reward.reputation} reputation received. Your result is saved.</p></div><button className="sunscar-secondary" onClick={() => setShowHistory(open => !open)}>{showHistory ? 'Close finish board' : 'View finish board'}</button></section>}
         {showHistory && progress?.current?.status === 'complete' && progress.current.race && <RaceResults state={progress.current.race} response={response} official onContinue={() => undefined} onDesk={() => setShowHistory(false)}/>}
-        {character.pets.length === 0 ? <section className="sunscar-empty"><h2>A companion makes the team</h2><p>Meet your first pet in the Pet Yard, then bring them to the start line. All rarities compete on equal terms.</p><button onClick={onBack}>Back to Sunscar</button></section> : <>
-            <section className="rally-selection" aria-labelledby="rally-pet-heading"><div><p className="sunscar-eyebrow">01 / Your racing partner</p><h2 id="rally-pet-heading">Choose a companion</h2><p>Species have different strengths. Rarity and combat training do not decide the race.</p><div className="rally-pet-list" role="group" aria-label="Owned pets">{character.pets.map(p => <button key={p.id} className={p.id === petId ? 'selected' : ''} aria-pressed={p.id === petId} disabled={!!active} onClick={() => setPetId(p.id)}><img src={petCardImage(p)} alt="" loading="lazy" /><span>{p.nickname || p.name}<small>{p.element}</small></span></button>)}</div></div>
-                <aside className="rally-pet-dossier">{pet && <><img src={petCardImage(pet)} alt={pet.name} /><h3>{pet.nickname || pet.name}</h3><p>{technique?.name}</p><small>{technique?.description}</small>{profile && <dl>{(['speed', 'acceleration', 'agility', 'endurance', 'stability'] as const).map(key => <div key={key}><dt>{key}</dt><dd><meter aria-label={key} min={0} max={100} value={profile[key]} />{profile[key]}</dd></div>)}</dl>}</>}</aside>
+        {character.pets.length === 0 ? <section className="sunscar-empty"><h2>A companion makes the team</h2><p>Meet your first pet in the Pet Yard, then bring them to the start line. Every rarity can compete.</p><button onClick={onBack}>Back to Sunscar</button></section> : <>
+            <section className="rally-selection" aria-labelledby="rally-pet-heading"><div><p className="sunscar-eyebrow">01 / Your racing partner</p><h2 id="rally-pet-heading">Choose a companion</h2><p>Species sets the racing style. Your pet’s stats add small bonuses, capped at +8 per racing attribute. Clean lines and well-timed moves make the biggest difference.</p><div className="rally-pet-list" role="group" aria-label="Owned pets">{character.pets.map(p => <button key={p.id} className={p.id === petId ? 'selected' : ''} aria-pressed={p.id === petId} disabled={!!active} onClick={() => setPetId(p.id)}><img src={petCardImage(p)} alt="" loading="lazy" /><span>{p.nickname || p.name}<small>{p.element}</small></span></button>)}</div><p className="sunscar-fine">Speed improves pace, steering and jumps. Attack improves acceleration and shot impact. HP sustains Burst; Defense softens hits.</p></div>
+                <aside className="rally-pet-dossier">{pet && <><img src={petCardImage(pet)} alt={pet.name} /><h3>{pet.nickname || pet.name}</h3><p>{technique?.name} <small>· E</small></p><small>{technique?.description}</small><p>{RALLY_ATTACK_NAMES[pet.element as RallyElement]} <small>· Q</small></p><small>{RALLY_SHOT_PROFILES[pet.element as RallyElement].description} Charges every 8s; firing briefly costs you speed.</small>{profile && <dl>{(['speed', 'acceleration', 'agility', 'endurance', 'stability'] as const).map(key => <div key={key} title={RALLY_STAT_HELP[key]}><dt>{key}</dt><dd><meter aria-label={`${key}: ${RALLY_STAT_HELP[key]}`} min={0} max={100} value={profile[key]} />{profile[key]}</dd></div>)}</dl>}</>}</aside>
             </section>
             <section className="rally-championship-card"><div><p className="sunscar-eyebrow">02 / The headline event</p><h2>Daily Sunscar Grand Prix</h2><p>Three courses, the same rivals, and a running points table. Your pet stays with you throughout the championship.</p><p className="sunscar-fine">One entry per UTC day · Rewards verified by the race desk · Ties break on combined race time</p><ol className="rally-daily-courses">{(active ? progress?.current?.tracks : response?.daily.tracks)?.map(id => <li key={id}>{rallyTrack(id).name}</li>)}</ol></div><button disabled={busy || !response || !!dailyComplete} onClick={() => void enter(true)}>{busy ? 'Preparing…' : dailyComplete ? 'Return tomorrow' : active ? 'Resume Grand Prix' : 'Prepare Grand Prix'}</button></section>
             <section aria-labelledby="rally-courses-heading"><div className="sunscar-section-heading"><div><p className="sunscar-eyebrow">Learn the road</p><h2 id="rally-courses-heading">Open practice</h2></div><button disabled={busy || !response} onClick={() => void enter(false)}>Practice selected course</button></div><div className="rally-course-grid">{RALLY_TRACKS.map(track => <button key={track.id} className={`rally-course-card ${courseId === track.id ? 'selected' : ''}`} onClick={() => setCourseId(track.id)} aria-pressed={courseId === track.id}><CoursePreview track={track} /><span className="sunscar-eyebrow">{track.subtitle}</span><strong>{track.name}</strong><span>{track.traits.join(' · ')}</span>{progress?.best[track.id] && <small>Official best {(progress.best[track.id] / 60).toFixed(2)}s</small>}</button>)}</div></section>

@@ -26,7 +26,7 @@ function catalogRallyPet(templateId: string, owned?: Obj): RallyPet {
     if (!catalog || !['Fire', 'Water', 'Earth', 'Wind', 'Lightning'].includes(String(catalog.element))) throw new FestivalError('This companion is not eligible for the Rally.');
     return {
         id: String(owned?.id ?? templateId), templateId, name: String(owned?.nickname || catalog.name), element: catalog.element as RallyElement,
-        profile: rallyProfile({ id: templateId, name: String(catalog.name) }), rarity: String(catalog.rarity),
+        profile: rallyProfile({ id: templateId, name: String(catalog.name) }, owned ?? catalog), rarity: String(catalog.rarity),
         ...(typeof owned?.evolutionStage === 'number' ? { evolutionStage: owned.evolutionStage } : {}),
         ...(typeof owned?.paletteVariantId === 'string' ? { paletteVariantId: owned.paletteVariantId } : {}),
     };
