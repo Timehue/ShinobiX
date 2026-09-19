@@ -22,12 +22,23 @@
  * Arrivals ride the same batch: clients apply a join and an update identically
  * (an upsert), and a deploy reconnects every player at once. Leaves, tile moves
  * and the joiner's own snapshot stay immediate.
+ *
+ * Socket clients take a full sector roster only now and then
+ * (shinobij.client/src/lib/heartbeat-roster.ts), so every change a peer can see
+ * must be pushed from where it happens. Request handlers push what their own
+ * request changed. Changes that happen inside the store — a trip maturing on
+ * whichever read notices it, a fight host flipping inBattle, an admin kick —
+ * arrive through the store observer below, and stronghold entry and exit
+ * through the stronghold listener. Duplicates are harmless: clients apply both
+ * kinds of frame idempotently.
  * Single-instance only, like the rest of api/_realtime.
  */
 import type { Server as IOServer, Socket } from 'socket.io';
 import { safeName } from '../_utils.js';
+import { setStrongholdPresenceListener } from '../_stronghold-presence.js';
 import { onlineStore } from './online-store.js';
 import { toPlayerRecord } from './presence-input.js';
+import type { PresenceStoreEvent } from './types.js';
 
 export const PRESENCE_BATCH_MS = 500;
 export const PRESENCE_BATCHED_ROOM = 'presence:batched';
@@ -44,8 +55,21 @@ function sectorRoom(sector: number): string {
     return `sector:${sector}`;
 }
 
+function onStoreEvent(event: PresenceStoreEvent): void {
+    if (event.type === 'changed') {
+        queuePresenceUpdate(event.name, event.sector);
+    } else if (event.type === 'removed') {
+        announcePresenceLeave(event.name, event.sector);
+    } else {
+        announcePresenceLeave(event.name, event.from);
+        queuePresenceUpdate(event.name, event.to);
+    }
+}
+
 export function setPresenceBroadcastIo(next: BroadcastTarget | null): void {
     io = next;
+    onlineStore.setObserver(next ? onStoreEvent : null);
+    setStrongholdPresenceListener(next ? queuePresenceUpdate : null);
     if (!next) {
         pending.clear();
         legacyClients = 0;
@@ -89,9 +113,9 @@ function flushFromTimer(): void {
 }
 
 /**
- * A player left `sector` through a path other than their socket (the HTTP
- * heartbeat). Immediate, like the socket path's own leave; a duplicate is a
- * no-op on clients.
+ * A player left `sector` through a path other than their socket (a store
+ * event). Immediate, like the socket path's own leave; a duplicate is a no-op
+ * on clients.
  */
 export function announcePresenceLeave(name: string, sector: number): void {
     const key = safeName(name);
@@ -109,6 +133,8 @@ export function flushPresenceUpdates(): void {
     for (const [sector, names] of batch) {
         const players = [];
         for (const name of names) {
+            // get() can settle a matured trip, whose observer event queues the
+            // player for the destination and leaves this sector: skipped here.
             const current = onlineStore.get(name);
             if (current && current.sector === sector) players.push(toPlayerRecord(current));
         }

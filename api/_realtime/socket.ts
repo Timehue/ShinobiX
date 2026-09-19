@@ -271,8 +271,10 @@ function wireRealtime(io: IOServer): void {
                     : undefined),
             );
 
-            // Captured before the upsert: arriving travel settles by mutating the
-            // previous record in place, which would hide the change afterwards.
+            // Captured before the upsert, as a plain value: a later read can settle
+            // a matured trip on this record in place. A trip that matured before
+            // this point was settled, and announced, by the get() above (the store
+            // observer in presence-broadcast.ts).
             const previousSignature = presenceBroadcastSignature(previous);
             // NAME is the authed socket identity — never the client body. No spoofing.
             let stored = onlineStore.upsert({
@@ -321,10 +323,11 @@ function wireRealtime(io: IOServer): void {
                 // per sector-mate was an O(N²) burst (presence-broadcast.ts).
                 queuePresenceUpdate(name, newSector);
             } else if (!previous || previousSignature !== presenceBroadcastSignature(stored)) {
-                // Same sector — peers need a state change they can SEE (inBattle,
-                // level, travel…). HP/chakra ticks change the stored character
-                // but nothing in the record peers receive, so they no longer fan
-                // out. Delivered on the next batch flush.
+                // Same sector — peers need a state change they can SEE (level,
+                // travel…). HP/chakra ticks change the stored character but
+                // nothing in the record peers receive, so they no longer fan out.
+                // inBattle is flipped by fight hosts and the HTTP beat, and the
+                // store announces it. Delivered on the next batch flush.
                 queuePresenceUpdate(name, newSector);
             }
         };
