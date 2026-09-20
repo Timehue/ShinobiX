@@ -405,6 +405,21 @@ export function getSocketAuth(): { token: string | null; name: string | null; pa
     return { token: getActiveToken(), name: getActivePlayer(), password: _memPassword };
 }
 
+/**
+ * Does this browser hold a player credential the interceptor above would
+ * actually attach? Mirrors its condition exactly: an active name plus either a
+ * session token or the memory-only password fallback.
+ *
+ * Pollers use this to skip a request that cannot succeed. With no player
+ * credential on the wire, the server's authedPlayerOrAdmin resolves to admin
+ * (when the operator is signed in to the admin panel) or to nothing at all, so
+ * a player-scoped endpoint answers 403 or 401 and never returns data.
+ */
+export function hasPlayerIdentity(): boolean {
+    if (!getActivePlayer()) return false;
+    return !!getActiveToken() || !!_memPassword;
+}
+
 function isApiUrl(input: string | URL | Request): boolean {
     if (typeof input === 'string') return input.startsWith('/api/');
     if (input instanceof URL) return input.pathname.startsWith('/api/');
