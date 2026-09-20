@@ -31,7 +31,6 @@ export function ActivitySpine({
 }) {
     const [retry, setRetry] = useState(0);
     const { availability, snapshot } = useLiveCapabilities();
-    const focus = "auto";
     const projectedAdmissionAllowed = (capabilityIds: ActivitySpineItem["requiredCapabilityIds"]): boolean =>
         !!capabilityIds?.length && capabilityIds.every((id) => availability(id) === "available");
     const capabilityStateSignature = [
@@ -40,12 +39,13 @@ export function ActivitySpine({
     ].join("|");
 
     const source = activitySourceKey(character, trainingState);
-    const { spine, status } = useActivitySpine(character.name, focus, source, capabilityStateSignature, retry);
+    // Omit a client override so the endpoint can honor the saved server focus.
+    const { spine, status } = useActivitySpine(character.name, undefined, source, capabilityStateSignature, retry);
     const navigate = useCallback((activity: ActivitySpineItem, horizon: ActivityHorizon) => {
         if (openActivityDestination(activity, onNavigate)) {
-            captureProductEvent("activity_recommendation_viewed", { screenId: "daily-briefing", mode: "recommendation-opened", focus: spine?.resolvedFocus ?? focus, horizon });
+            captureProductEvent("activity_recommendation_viewed", { screenId: "daily-briefing", mode: "recommendation-opened", focus: spine?.resolvedFocus ?? character.masteryFocus ?? "auto", horizon });
         }
-    }, [focus, spine?.resolvedFocus, onNavigate]);
+    }, [character.masteryFocus, spine?.resolvedFocus, onNavigate]);
 
     const heading = (
         <div className="activity-spine-heading">

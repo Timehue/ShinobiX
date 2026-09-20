@@ -152,6 +152,121 @@ describe('sector-war settlement World Herald', { concurrency: false }, () => {
         assert.deepEqual((await readVillageIntel(DEFENDER, now)).sectors, {});
     });
 
+    it('credits a contributor who appears only past the in-row mirror, and copies every receipt out', async () => {
+        const { commitSectorWarBattle, listSectorWarInstanceReceipts } = await import('./_sector-war-store.js');
+        const { applySectorWarBattle, normalizeSectorWarSession } = await import('./_sector-war.js');
+        process.env.ENABLE_LEGACY = '1';
+        try {
+            const now = Date.now();
+            const live = { ...dueWar(now, { attacker: 0, defender: 0 }), endsAt: now + 60 * 60_000 };
+            await kv.set(CONTEST_KEY, live);
+            for (let i = 0; i < 205; i += 1) {
+                const by = i < 200 ? 'mirrorhero' : 'overflowhero';
+                const at = live.startedAt + 1000 + i;
+                const r = await commitSectorWarBattle({
+                    contestId: CONTEST_ID,
+                    battleId: `b-${i}`,
+                    now: () => at,
+                    decide: (c) => ({
+                        kind: 'score',
+                        outcome: applySectorWarBattle(c, true, { now: at, roleSwing: 5, by }),
+                        attackerWon: true, by, at,
+                    }),
+                });
+                assert.equal(r.status, 'applied');
+            }
+            const row = await kv.get<Record<string, unknown>>(CONTEST_KEY);
+            await kv.set(CONTEST_KEY, { ...row, endsAt: now - 60_000 }); // now due
+
+            const [verdict] = await settle.settleDueSectorWars(now);
+            assert.equal(verdict.attackerWon, true);
+            assert.equal(verdict.attackerPoints, 205 * 5);
+            const overflowHero = await kv.get<{ sectorCaptures?: number }>('legacy:stats:overflowhero');
+            assert.equal(overflowHero?.sectorCaptures, 1, 'capture credit reaches the winner whose battles lie past the mirror');
+            const mirrorHero = await kv.get<{ sectorCaptures?: number }>('legacy:stats:mirrorhero');
+            assert.equal(mirrorHero?.sectorCaptures, 1);
+
+            const settled = normalizeSectorWarSession((await kv.get(CONTEST_KEY)) as never)!;
+            assert.equal(settled.flipped, true);
+            assert.deepEqual(settled.battleLedger?.pending, []);
+            assert.equal(settled.battleLedger?.mirrorExternalized, true);
+            assert.equal((await listSectorWarInstanceReceipts(settled)).length, 205, 'all evidence outlives the row');
+        } finally {
+            delete process.env.ENABLE_LEGACY;
+        }
+    });
+
+    it('a drain that cannot copy a receipt out leaves the war due for the next pass', async () => {
+        const now = Date.now();
+        const receipts = Array.from({ length: 20 }, (_, i) => ({ battleId: `legacy-${i}`, attackerWon: false, points: 1, by: 'holder', at: now - 72 * 60 * 60_000 + i })).reverse();
+        await kv.set(CONTEST_KEY, { ...dueWar(now, { attacker: 0, defender: 20 }), appliedBattles: receipts });
+        const original = kv.compareSet.bind(kv);
+        kv.compareSet = (async (key: string, expected: unknown, value: unknown, options?: { ex?: number }) => {
+            if (key.startsWith('shared:sector-war-battle:')) throw new Error('injected receipt-store outage');
+            return original(key, expected, value, options);
+        }) as typeof kv.compareSet;
+        try {
+            assert.deepEqual(await settle.settleDueSectorWars(now), [], 'nothing settles while evidence cannot be copied');
+        } finally {
+            kv.compareSet = original as typeof kv.compareSet;
+        }
+        const stillDue = await kv.get<Record<string, unknown>>(CONTEST_KEY);
+        assert.equal(stillDue?.expiredAt, undefined, 'the verdict was not stamped');
+        const [verdict] = await settle.settleDueSectorWars(now + 1000);
+        assert.equal(verdict.attackerWon, false, 'the next pass settles it');
+        assert.equal((await kv.keys('shared:sector-war-battle:*')).length, 20);
+    });
+
+    it('a captured record ages out with its receipts instead of living in the keyspace forever', async () => {
+        const now = Date.now();
+        await kv.set(CONTEST_KEY, dueWar(now, { attacker: 40, defender: 5 }));
+        const [verdict] = await settle.settleDueSectorWars(now);
+        assert.equal(verdict.attackerWon, true);
+        assert.ok(await kv.get(CONTEST_KEY), 'the capture record is written');
+
+        // A capture is not a cooldown, so the record outlives the defended
+        // hold's 24h — but it no longer outlives everything. Move the clock
+        // rather than the data: the record carries a real expiry now.
+        const realNow = Date.now;
+        try {
+            Date.now = () => realNow() + 25 * 60 * 60_000;
+            assert.ok(await kv.get(CONTEST_KEY), 'still readable a day later — this is not the re-siege cooldown');
+            Date.now = () => realNow() + 8 * 24 * 60 * 60_000;
+            assert.equal(await kv.get(CONTEST_KEY), null, 'gone once its battle receipts have aged out too');
+        } finally {
+            Date.now = realNow;
+        }
+    });
+
+    it('credits a repeat capture of the same sector, because the receipt names the contest INSTANCE', async () => {
+        process.env.ENABLE_LEGACY = '1';
+        try {
+            const hero = 'repeathero';
+            const receipt = (at: number) => [{ battleId: `b-${at}`, attackerWon: true, points: 40, by: hero, at }];
+            const first = Date.now();
+            await kv.set(CONTEST_KEY, { ...dueWar(first, { attacker: 40, defender: 0 }), appliedBattles: receipt(first - 3_600_000) });
+            assert.equal((await settle.settleDueSectorWars(first))[0]?.attackerWon, true);
+            assert.equal((await kv.get<{ sectorCaptures?: number }>(`legacy:stats:${hero}`))?.sectorCaptures, 1);
+
+            // The sector is fought over again: same sector, same attacker, so
+            // the SAME contest id — a later declaration of it. A receipt keyed
+            // on the pairing alone read as already-delivered here and dropped
+            // the second capture silently.
+            const second = first + 60_000;
+            await kv.set(CONTEST_KEY, {
+                ...dueWar(second, { attacker: 40, defender: 0 }),
+                startedAt: second - 72 * 60 * 60_000,
+                declarationGeneration: 2,
+                appliedBattles: receipt(second - 3_600_000),
+            });
+            assert.equal((await settle.settleDueSectorWars(second))[0]?.attackerWon, true);
+            assert.equal((await kv.get<{ sectorCaptures?: number }>(`legacy:stats:${hero}`))?.sectorCaptures, 2,
+                'the second capture of the same sector is credited too');
+        } finally {
+            delete process.env.ENABLE_LEGACY;
+        }
+    });
+
     it('copy helper names the right village for each verdict', () => {
         const war = { id: CONTEST_ID, sector: SECTOR, attackerVillage: ATTACKER, defenderVillage: DEFENDER };
         assert.equal(settle.sectorWarResolutionAnnouncement(war, { attackerWon: true, attackerPoints: 1, defenderPoints: 0 }).village, ATTACKER);

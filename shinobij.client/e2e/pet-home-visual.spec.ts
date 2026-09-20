@@ -870,6 +870,12 @@ test("refined companion and Sunscar pages", async ({ page }, testInfo) => {
     const inventory = [{ ...marketAssets[2], quantity: 22 }];
     await page.route("**/api/festival/exchange", async route => {
         const body = route.request().postDataJSON();
+        if (body.action === "readiness") {
+            const listing = listings.find(row => row.id === body.listingId)!;
+            return json(route, { ok: true, readiness: {
+                listingId: listing.id, observedAt: Date.now(), status: "ready", listing,
+            } });
+        }
         if (body.action === "buy") {
             const listing = listings.find(row => row.id === body.listingId)!;
             if (listing.currency === "fateShards") state.character.fateShards -= listing.price;
@@ -1080,7 +1086,7 @@ test("refined integration festival navigation, crate, and market retry", async (
         state.character.ryo -= 70_000;
         return json(route, { ok: true, reward: { tier: 'haul', label: 'A Tidy Haul', ryo: 5000, fateShards: 0, boneCharms: 0, auraStones: 0, mythicSeals: 0 }, dailyUsed: pulls, character: state.character, _saveVersion: ++state.saveVersion });
     });
-    const lots = Array.from({ length: 13 }, (_, i) => ({ id: `audit-${i}`, asset: { id: `audit-item-${i}`, name: `Desert keepsake ${i + 1}`, kind: 'item', category: 'materials', rarity: 'uncommon', description: 'A keepsake from the trading quarter.', image: i === 12 ? '/qa-missing-art.webp' : '/items/hunt-torn-hide-v1.webp', stats: [] }, price: i === 0 ? 2_000_000 : 100, quantity: 1, currency: 'ryo', seller: 'miraa', sellerName: 'Miraa', state: 'active', createdAt: Date.now() - i }));
+    const lots = Array.from({ length: 13 }, (_, i) => ({ id: i.toString(16).padStart(32, '0'), asset: { id: `audit-item-${i}`, name: `Desert keepsake ${i + 1}`, kind: 'item', category: 'materials', rarity: 'uncommon', description: 'A keepsake from the trading quarter.', image: i === 12 ? '/qa-missing-art.webp' : '/items/hunt-torn-hide-v1.webp', stats: [] }, price: i === 0 ? 2_000_000 : 100, quantity: 1, currency: 'ryo', seller: 'miraa', sellerName: 'Miraa', state: 'active', createdAt: Date.now() - i }));
     const trades: unknown[] = [];
     const purchases: Record<string, unknown>[] = [];
     let browseAttempts = 0;
@@ -1088,6 +1094,12 @@ test("refined integration festival navigation, crate, and market retry", async (
     await page.route('**/api/festival/exchange', async route => {
         const body = route.request().postDataJSON();
         if (body.action === 'browse' && ++browseAttempts === 1) return json(route, { error: 'Trading desk temporarily unavailable.' }, 503);
+        if (body.action === 'readiness') {
+            const lot = lots.find(lot => lot.id === body.listingId)!;
+            const blocked = lot.price > state.character.ryo;
+            return json(route, { ok: true, readiness: { listingId: lot.id, observedAt: Date.now(), status: blocked ? 'blocked' : 'ready', listing: lot,
+                ...(blocked ? { reasonCode: 'insufficient-funds', message: 'You need more ryo for this listing.' } : {}) } });
+        }
         if (body.action === 'buy') {
             purchases.push(body);
             const lot = lots.find(lot => lot.id === body.listingId)!;

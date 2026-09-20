@@ -26,6 +26,7 @@ export type WandererVerb =
     /** Passive: visible and greets when you walk up, but offers NO action. Used for
      *  a Contract Hunter seen by a bystander — it is hunting someone ELSE. */
     | "watch";
+export type WandererMovement = "stationary" | "patrol" | "pursue";
 export type WandererArchetypeId =
     | "bandit" | "gambler" | "pilgrim" | "beast" | "sage"
     | "merchant" | "medic" | "patrol" | "tracker" | "courier" | "bountyHunter"
@@ -47,6 +48,9 @@ export interface Wanderer {
     homeTile: number;
     /** patrol route (includes home); the wanderer ambles between these */
     waypoints: number[];
+    /** Explicit floor behavior. Stationary actors wait to be approached, patrol
+     *  actors roam their route, and pursue actors actively close on the player. */
+    movement?: WandererMovement;
     /** the line shown when you meet a non-attacker (and as a bandit's opener) */
     greeting: string;
     /** colour of the small "this is a wanderer" tell ring */
@@ -230,6 +234,15 @@ export const WANDERER_ARCHETYPES: Record<WandererArchetypeId, WandererArchetypeM
 
 const ARCHETYPE_IDS = Object.keys(WANDERER_ARCHETYPES) as WandererArchetypeId[];
 
+/** Natural-road movement is authored by role instead of inferred from the verb.
+ *  Service NPCs wait at a recognizable spot; field actors keep the road alive;
+ *  bandits remain the intrusive threat that actively hunts the player. */
+function naturalWandererMovement(archetype: WandererArchetypeId): WandererMovement {
+    if (archetype === "bandit") return "pursue";
+    if (archetype === "beast" || archetype === "patrol" || archetype === "tracker") return "patrol";
+    return "stationary";
+}
+
 // ── Clock ────────────────────────────────────────────────────────────────────
 export const WANDERER_BUCKET_MS = 6 * 60 * 60 * 1000;
 
@@ -323,12 +336,10 @@ export function wandererLevelFor(sector: number, rng: () => number): number {
 // a pair is uncommon. Tune these two thresholds to taste (raise EMPTY_CHANCE for
 // rarer, lower for busier). 2026-07 balance pass: 0.6/0.92 → 0.52/0.88 so the
 // flattened archetype weights above actually get room to show their whole cast.
-const WANDERER_EMPTY_CHANCE = 0.52;  // ~52% of sectors: nobody this window
-// 2026-07 clutter pass: 0.88 → 0.93, so a two-wanderer sector drops from ~12% to
-// ~7%. The EMPTY chance is deliberately left alone — raising it would undo the
-// earlier pass that gave the flattened archetype weights room to show the whole
-// cast. It's the CROWDED tail, not the occupancy rate, that reads as clutter.
-const WANDERER_SINGLE_CHANCE = 0.93; // 0.52–0.93 → one; 0.93–1.0 → two
+const WANDERER_EMPTY_CHANCE = 0.65;  // ~65% of sectors: nobody this window
+// 2026-09 density pass: pairs are now an exceptional 2% tail. Together these
+// thresholds lower the natural average from 0.55 to 0.37 actors per sector.
+const WANDERER_SINGLE_CHANCE = 0.98; // 0.65–0.98 → one; 0.98–1.0 → two
 export function wandererCount(roll: number): 0 | 1 | 2 {
     if (roll < WANDERER_EMPTY_CHANCE) return 0;
     if (roll < WANDERER_SINGLE_CHANCE) return 1;
@@ -352,6 +363,7 @@ export function rollWanderers(sector: number, dayBucket: number): Wanderer[] {
     for (let i = 0; i < count; i++) {
         const archetype = pickWeightedArchetype(rng());
         const meta = WANDERER_ARCHETYPES[archetype];
+        const movement = naturalWandererMovement(archetype);
 
         let home = interiorTile(rng);
         let guard = 0;
@@ -369,7 +381,8 @@ export function rollWanderers(sector: number, dayBucket: number): Wanderer[] {
             verb: meta.verb,
             level: wandererLevelFor(sector, rng),
             homeTile: home,
-            waypoints: Array.from(new Set(waypoints)),
+            waypoints: movement === "stationary" ? [home] : Array.from(new Set(waypoints)),
+            movement,
             greeting: meta.greetings[Math.floor(rng() * meta.greetings.length)],
             tellTint: meta.tellTint,
             avatarKey: archetype,

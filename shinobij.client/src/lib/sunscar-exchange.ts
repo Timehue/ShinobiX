@@ -1,9 +1,14 @@
-import type { ExchangeListing, ExchangeOwnedAsset } from '../../../shared/sunscar-exchange';
+import { isExchangeMarketPage, type ExchangeListing, type ExchangeMarketPage, type ExchangeMarketQuery, type ExchangeOwnedAsset, type ExchangePurchaseReadiness } from '../../../shared/sunscar-exchange';
 import type { Character } from '../types/character';
 import type { GameItem } from '../types/combat';
 
 export type ExchangeSnapshot = {
-    ok: true; listings: ExchangeListing[]; activity: ExchangeListing[];
+    ok: true;
+    /** One server-built page of the open market (servers with market paging). */
+    market?: ExchangeMarketPage;
+    /** Every active listing — only from a server without market paging. */
+    listings?: ExchangeListing[];
+    activity: ExchangeListing[];
     inventory: ExchangeOwnedAsset[]; character: Character; _saveVersion: unknown;
     creatorItems: GameItem[]; recoveryErrors: string[];
 };
@@ -12,21 +17,41 @@ export class ExchangeRequestError extends Error {
     readonly uncertain: boolean;
     constructor(message: string, uncertain: boolean) { super(message); this.uncertain = uncertain; }
 }
-export async function requestExchange(playerName: string, action: ExchangeRequest, signal?: AbortSignal): Promise<ExchangeSnapshot> {
+export async function requestExchange(playerName: string, action: ExchangeRequest, signal?: AbortSignal, market?: ExchangeMarketQuery): Promise<ExchangeSnapshot> {
     let response: Response;
     try {
         const timeout = AbortSignal.timeout(30_000);
-        response = await fetch('/api/festival/exchange', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...action, playerName }), signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
+        response = await fetch('/api/festival/exchange', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...action, playerName, ...(market ? { market } : {}) }), signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
     } catch (error) {
         if (signal?.aborted) throw error;
         throw new ExchangeRequestError('Connection interrupted. Retry the saved trade to check its outcome safely.', true);
     }
     const data = await response.json().catch(() => null);
     if (!response.ok || !data?.ok) throw new ExchangeRequestError(data?.error || 'The Exchange could not be reached. Please retry.', response.ok || response.status >= 500 || !!data?.pending);
-    if (!data.character || !Number.isSafeInteger(data._saveVersion) || !Array.isArray(data.listings) || !Array.isArray(data.inventory) || !Array.isArray(data.activity)) {
+    const marketOk = isExchangeMarketPage(data.market) || Array.isArray(data.listings);
+    if (!data.character || !Number.isSafeInteger(data._saveVersion) || !marketOk || !Array.isArray(data.inventory) || !Array.isArray(data.activity)) {
         throw new ExchangeRequestError('The trade response was incomplete. Retry to confirm its outcome safely.', true);
     }
     return data as ExchangeSnapshot;
+}
+/** One page of the open market. A read — never part of a trade. */
+export async function requestExchangeMarket(playerName: string, market: ExchangeMarketQuery, signal: AbortSignal): Promise<ExchangeMarketPage> {
+    const timeout = AbortSignal.timeout(20_000);
+    const response = await fetch('/api/festival/exchange', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'market', market, playerName }), signal: AbortSignal.any([signal, timeout]) });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data?.ok || !isExchangeMarketPage(data.market)) throw new ExchangeRequestError(data?.error || 'The market could not be loaded. Please retry.', false);
+    return data.market;
+}
+/** Advisory read for one inspected listing. Final purchase always revalidates. */
+export async function requestExchangeReadiness(playerName: string, listingId: string, signal: AbortSignal): Promise<ExchangePurchaseReadiness> {
+    const timeout = AbortSignal.timeout(20_000);
+    const response = await fetch('/api/festival/exchange', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'readiness', playerName, listingId }), signal: AbortSignal.any([signal, timeout]) });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data?.ok || !data.readiness || data.readiness.listingId !== listingId) {
+        throw new ExchangeRequestError(data?.error || 'Purchase readiness could not be checked. Try again.', false);
+    }
+    return data.readiness as ExchangePurchaseReadiness;
 }
 const pendingKey = (player: string) => `sunscar-exchange:pending:${player.trim().toLowerCase()}`;
 export function pendingExchangeRequest(player: string): ExchangeRequest | null {

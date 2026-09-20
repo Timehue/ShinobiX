@@ -60,6 +60,7 @@ test('sector travel does not restart the full public-roster request', async ({ p
     await destination.focus();
     await destination.click();
     await expect.poll(() => travels).toBe(1);
-    await expect(page.getByRole('complementary', { name: 'Sector 39 command panel' })).toBeVisible();
+    await expect(page.locator('.sector-hud-region')).toBeVisible();
+    await expect(page.locator('.sector-hud-region')).toContainText('Sector 39 ·');
     expect(rosterRequests).toBe(initialRequests);
 });

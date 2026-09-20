@@ -15,7 +15,7 @@ import { describe, it } from 'node:test';
 
 const root = resolve(import.meta.dirname, '..');
 const sourceRoots = ['api', 'shared', 'scripts', 'shinobij.client/src', 'shinobij.client/scripts', 'docs', 'tools'];
-const textExtensions = new Set(['.ts', '.tsx', '.mjs', '.cjs', '.json', '.md', '.css', '.html']);
+const textExtensions = new Set(['.ts', '.tsx', '.mjs', '.cjs', '.json', '.md', '.css', '.html', '.txt']);
 const skipDirectories = new Set(['node_modules', 'dist']);
 
 // The direct competitor, and the org slug that identifies their codebase just
@@ -29,10 +29,29 @@ const tcgTokens = ['yu-gi-oh', 'yugioh', 'duel monsters', 'exodia', 'time wizard
 
 // Borrowed franchise names. These keep coming back through test fixtures and
 // generated handoff docs, which is exactly what this gate is for.
-const franchiseTokens = ['naruto', 'sasuke', 'chidori', 'konoha', 'hokage', 'sharingan', 'rasengan'];
+// 'sakura' is deliberately excluded: it is also a legitimate generic cosmetic
+// id (the cherry-blossom Nindo banner preset in nindo-backgrounds.ts and its
+// server allowlist), so word-level banning it would fail on real content. The
+// 2026-09-19 sweep instead renamed the specific test fixtures that used it as
+// a character name.
+const franchiseTokens = [
+    'naruto', 'sasuke', 'chidori', 'konoha', 'hokage', 'sharingan', 'rasengan',
+    'kakashi', 'obito', 'minato', 'hinata', 'tsunade',
+];
 
-const bannedTokens = [...competitorTokens, ...tcgTokens, ...franchiseTokens];
-const bannedPattern = new RegExp(bannedTokens.map((token) => token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'gi');
+// The generic genre phrase this game's name is a deliberate departure from
+// (it echoes the competitor name once the space is removed). "ninja" alone is
+// fine — this is a ninja/shinobi game — only the compound phrase is banned.
+const genericPhraseTokens = ['ninja rpg'];
+
+const bannedTokens = [...competitorTokens, ...tcgTokens, ...franchiseTokens, ...genericPhraseTokens];
+// Word-bounded: unbounded 'minato' also matches inside ordinary words like
+// "terminator" and "denominator" (findBanned's own "contnr" test below checks
+// the same principle for the slug pattern).
+const bannedPattern = new RegExp(
+    bannedTokens.map((token) => `\\b${token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).join('|'),
+    'gi',
+);
 
 // Lowercase `tnr-` / `tnr_` CSS classes and identifiers. Word-bounded so it
 // cannot fire on ordinary words that merely contain the letters.

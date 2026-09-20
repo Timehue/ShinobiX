@@ -84,7 +84,7 @@ import {
     villageWarScreenMountAllowed,
 } from "./lib/live-capability-admission";
 
-import { pushLiveSectorPlayers, getLiveSectorPlayers, setLiveAvatarPrefetch, getLocalSectorTile, setLocalSectorTile, setLiveSectorContext, correctLocalSectorTile } from "./lib/presence-store";
+import { pushLiveSectorPlayers, markSectorRosterUnavailable, getLiveSectorPlayers, setLiveAvatarPrefetch, getLocalSectorTile, setLocalSectorTile, setLiveSectorContext, correctLocalSectorTile } from "./lib/presence-store";
 import { heartbeatNoticeAckFields, noteHeartbeatDelivery, withholdNoticeAck } from "./lib/notice-ack";
 import { worldSectorReconcileTarget } from "./lib/sector-reconcile";
 import { mergeServerPendingWorldRewards } from "./lib/world-reward-recovery";
@@ -201,6 +201,8 @@ import { playerRankedAuthorityFromChallenge } from "./lib/player-ranked-authorit
 const CentralHub = lazyWithRetry(() => import("./screens/CentralHub").then(m => ({ default: m.CentralHub })));
 const BattleTowers = lazyWithRetry(() => import("./screens/BattleTowers").then(m => ({ default: m.BattleTowers })));
 const SunscarFestival = lazyWithRetry(() => import("./screens/SunscarFestival").then(m => ({ default: m.SunscarFestival })));
+const ExchangeReturnPrompt = lazyWithRetry(() => import("./components/ExchangeReturnPrompt").then(m => ({ default: m.ExchangeReturnPrompt })));
+import { clearExchangeReturnContext } from "./lib/exchange-return";
 const PetArena = lazyWithRetry(() => import("./screens/PetArena").then(m => ({ default: m.PetArena })));
 const PetShowdown = lazyWithRetry(() => import("./screens/PetShowdown").then(m => ({ default: m.PetShowdown })));
 const FirstPact = lazyWithRetry(() => import("./screens/FirstPact").then(m => ({ default: m.FirstPact })));
@@ -1953,7 +1955,7 @@ export default function App() {
                     body: JSON.stringify(presenceBody),
                     signal: AbortSignal.timeout(12000),
                 });
-                if (!res.ok) return;
+                if (!res.ok) { if (heartbeatIsCurrent()) markSectorRosterUnavailable(presenceBody.sector); return; }
                 const data: { sectorMates?: PlayerRecord[]; allPlayers?: PlayerRecord[]; pendingAttacker?: Character | null; pendingChallenges?: DuelChallenge[]; pendingHeal?: { by?: string; id?: string } | null; pendingNotices?: unknown; towerPartyInvites?: string[]; forceReload?: boolean; serverNow?: number; sector?: number; tile?: number; traveling?: boolean } = await res.json();
                 if (!heartbeatIsCurrent()) return;
                 noteServerTime(data.serverNow); // the beat is our reference for the clock that mints every deadline
@@ -2075,7 +2077,7 @@ export default function App() {
                     await import("./lib/heartbeat-notices").then((m) => m.applyHeartbeatNotices(notices, { accountKey: heartbeatAccountKey, isCurrent: heartbeatIsCurrent, commit: commitVersionedCharacter }), () => withholdNoticeAck(notices));
                 }
             } catch {
-                // Server unavailable — silently skip
+                if (heartbeatIsCurrent()) markSectorRosterUnavailable(presenceBody.sector);
             } finally {
                 heartbeatGate.finish();
             }
@@ -4488,7 +4490,10 @@ export default function App() {
     logoutPlayerRef.current = logoutPlayer;
     // logoutPlayer is async (it awaits the final save); the menu props take a
     // plain `() => void`. It reports its own failures to the player.
-    const stableLogout = useCallback(() => { void logoutPlayerRef.current(); }, []);
+    const stableLogout = useCallback(() => {
+        if (characterRef.current?.name) clearExchangeReturnContext(characterRef.current.name);
+        void logoutPlayerRef.current();
+    }, []);
 
     function navigate(nextScreen: Screen, authoritativeCharacter?: Character) {
         const currentVillageWarAvailability = viewAvailability("villageWar");
@@ -5494,6 +5499,9 @@ export default function App() {
                 {/* Suspense for lazy screens; the per-screen ErrorBoundary (keyed by screen) isolates a render crash to one view so the nav stays usable and navigating away clears it. */}
                 <Suspense fallback={<ScreenLoadingFallback screen={screen} />}>
                 <ScreenErrorBoundary key={screen}>
+                {character && ['home', 'pets', 'inventory', 'shinobiTiles'].includes(screen) && (
+                    <ExchangeReturnPrompt key={character.name} account={character.name} onReturn={() => navigate('sunscarFestival')} />
+                )}
                 {/* Hidden on the full-screen battle boards — the in-combat side HUDs
                     already show the player's HP/chakra/stamina, so the top status bar
                     is redundant there and just costs vertical space. */}
@@ -5955,15 +5963,17 @@ export default function App() {
                         creatorItems={creatorItems}
                         onVersionedCharacter={commitVersionedCharacter} onOwnSaveRead={adoptOwnSaveRead}
                         capturePvpCreateScope={capturePvpCreateScope}
-                        onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} attackSleeper={(opponent) => { void strikeDownSleeper({ opponent, attackerName: character.name, isTraveling, setCharacter, setPlayerRoster, onServerVersion: (version) => acceptExternalSaveVersion(version, character.name) === "accepted" }); }}
+                        onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} attackSleeper={(opponent) => { return strikeDownSleeper({ opponent, attackerName: character.name, isTraveling, setCharacter, setPlayerRoster, onServerVersion: (version) => acceptExternalSaveVersion(version, character.name) === "accepted" }); }}
                         sectorAttackPlayer={(opponent) => attackSectorPlayer({ opponent, character, isTraveling, creatorItems, creatorJutsus, savedBloodlines, currentSector, currentBiome, currentWeather, capturePvpCreateScope, installPvpRecovery, setPvpBattleId, setPvpRole, setPvpBattleContext, setPvpSeedSession, setRaidBattleKind, setScreen })}
 
                     />
                 )}
                 {!activeTriggeredEvent && screen === "sunscarFestival" && character && (
                     <SunscarFestival
+                        key={character.name}
                         character={character}
                         onVersionedCharacter={commitVersionedCharacter}
+                        setScreen={navigate}
                         setCreatorItems={setCreatorItems} sharedImages={sharedImages} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorItems={creatorItems} onFightOpenChange={setAiFightOpen} onRecordBattle={recordBattle}
                     />
                 )}

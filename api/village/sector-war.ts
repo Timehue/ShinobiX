@@ -16,7 +16,7 @@ import {
     type WinCondition,
 } from '../_war-state.js';
 import { defenderPointsMultiplier, sectorWarDamageMultiplier } from '../_war-structures.js';
-import { sealedSectorWarRoleOf, sectorControlSwing, sectorWarRoleOf, ROLE_VILLAGER } from '../_war-role.js';
+import { sectorControlSwing, sectorWarRoleOf, ROLE_VILLAGER } from '../_war-role.js';
 import { villageWarMapEnabled, villageStoresEnabled } from '../_release-flags.js';
 import { GARRISON_RATIONS_PER_DAY, utcDay } from '../_village-stores.js';
 import {
@@ -26,8 +26,6 @@ import {
     newSectorWarSession,
     normalizeSectorWarSession,
     applySectorWarBattle,
-    findSectorWarBattleReceipt,
-    recordSectorWarBattleOutcome,
     canDeclareSectorWar,
     newSectorWarBattleToken,
     sectorDeclareLockKey,
@@ -50,8 +48,9 @@ import {
     mintSectorWarToken,
     loadSectorWarToken,
     loadSectorWarResolutionReceipt,
-    commitSectorWarResolutionReceipt,
-    findSectorWarAppliedBattle,
+    commitSectorWarBattle,
+    drainSectorWarLedger,
+    externalizeSectorWarLedger,
     getSectorOwnerVillage,
     activeSectorWarsForVillage,
 } from '../_sector-war-store.js';
@@ -908,149 +907,11 @@ async function doResolve(req: VercelRequest, res: VercelResponse, identity: Iden
         return res.status(403).json({ error: 'Only a fighter in that battle may resolve its sector result.' });
     }
 
+    // The authority is pvp/_sector-war-continuation.ts, so this route and the
+    // terminal replay share one server-owned path (an inline resolver used to
+    // sit here, commented out, long after it stopped being the truth).
     const canonical = await settlePvpSectorWarContinuation(battle);
     return sendSectorResolutionReceipt(res, canonical);
-
-    /* Retired inline resolver: the canonical implementation now lives in
-     * pvp/_sector-war-continuation.ts so terminal replay and this route share
-     * one server-owned authority path.
-    const receiptBase = {
-        version: 1 as const,
-        battleId,
-        p1Name: battleP1,
-        p2Name: battleP2,
-        sessionCreatedAt: clock.createdAt,
-        sessionEndedAt: clock.endedAt,
-    };
-    const commitNoop = async (outcome: 'superseded' | 'not-applicable', sectorWarId: string | null = null) => {
-        const receipt = await commitSectorWarResolutionReceipt({
-            ...receiptBase,
-            outcome,
-            sectorWarId,
-            attackerWon: null,
-            points: 0,
-            attackerPoints: null,
-            defenderPoints: null,
-        });
-        return sendSectorResolutionReceipt(res, receipt);
-    };
-
-    if (battle.winner === 'draw') return commitNoop('not-applicable');
-
-    const sealedP1Village = sealedFighterVillage(battle, 'p1');
-    const sealedP2Village = sealedFighterVillage(battle, 'p2');
-    const winnerName = battle.winner === 'p1' ? battleP1 : battleP2;
-    const winnerSide = battle.winner === 'p1' ? 'p1' : 'p2';
-    const loserSide = winnerSide === 'p1' ? 'p2' : 'p1';
-    const winnerVillage = winnerSide === 'p1' ? sealedP1Village : sealedP2Village;
-
-    // Crash recovery: the contest CAS embeds the score before the external
-    // per-battle receipt is published. Recover that exact proof before looking
-    // at the registration token, whose TTL is only an admission horizon.
-    const embedded = await findSectorWarAppliedBattle(battleId);
-    if (embedded) {
-        const contest = embedded.session;
-        const participantVillages = new Set([sealedP1Village, sealedP2Village]);
-        const embeddedAttackerWon = winnerVillage === contest.attackerVillage;
-        if (!sealedP1Village
-            || !sealedP2Village
-            || participantVillages.size !== 2
-            || !participantVillages.has(contest.attackerVillage)
-            || !participantVillages.has(contest.defenderVillage)
-            || contest.sector !== battle.rewardSector
-            || embedded.receipt.attackerWon !== embeddedAttackerWon
-            || embedded.receipt.at !== clock.endedAt
-            || safeName(embedded.receipt.by) !== winnerName) {
-            throw new Error('sector-war-embedded-receipt-authority-conflict');
-        }
-        const durable = await commitSectorWarResolutionReceipt({
-            ...receiptBase,
-            outcome: 'applied',
-            sectorWarId: contest.id,
-            attackerWon: embeddedAttackerWon,
-            points: embedded.receipt.points,
-            attackerPoints: contest.attackerPoints,
-            defenderPoints: contest.defenderPoints,
-        });
-        return sendSectorResolutionReceipt(res, durable);
-    }
-
-    const token = await loadSectorWarToken(battleId);
-    // A sanctioned world fight without a contest token is ordinary territory
-    // PvP. It has no sector-war side effect, but still needs a durable canonical
-    // receipt so both participants and lost-response retries can finish ACK.
-    if (!token) return commitNoop('not-applicable');
-
-    if ((token.p1Name && battleP1 !== token.p1Name) || (token.p2Name && battleP2 !== token.p2Name)) {
-        return res.status(409).json({ error: 'Battle participants no longer match the sealed sector-war token.' });
-    }
-    if (sealedP1Village !== token.p1Village
-        || sealedP2Village !== token.p2Village
-        || battle.rewardSector !== token.sector) {
-        return res.status(409).json({ error: 'Battle authority no longer matches the sealed sector contest.' });
-    }
-    const tokenWinnerVillage = winnerSide === 'p1' ? token.p1Village : token.p2Village;
-    const attackerWon = !!tokenWinnerVillage && tokenWinnerVillage === token.attackerVillage;
-    const tokenLoserVillage = loserSide === 'p1' ? token.p1Village : token.p2Village;
-    // Roles are immutable session evidence. A post-battle village switch or
-    // Kage/ANBU appointment can never amplify an older fight.
-    const winnerRole = sealedSectorWarRoleOf(battle.warRoleEvidence, winnerSide, tokenWinnerVillage, clock.createdAt);
-    const loserRole = sealedSectorWarRoleOf(battle.warRoleEvidence, loserSide, tokenLoserVillage, clock.createdAt);
-
-    const id = token.sectorWarId;
-    const result = await withKvLock(sectorWarKey(id), async () => {
-        const rawContest = await kv.get<Partial<SectorWarSession>>(sectorWarKey(id));
-        const contest = rawContest ? normalizeSectorWarSession(rawContest) : null;
-        if (!contest || clock.createdAt < contest.startedAt) return { outcome: 'superseded' as const, contest };
-        // A siege that timed out (or was called off) while this battle was being
-        // fought is a defender hold. Eligibility uses immutable terminal time,
-        // never delayed claim wall-clock.
-        if (!isSectorWarActive(contest, clock.endedAt)) return { outcome: 'superseded' as const, contest };
-        const prior = findSectorWarBattleReceipt(contest, battleId);
-        if (prior) {
-            if (prior.attackerWon !== attackerWon) throw new Error('sector-war-embedded-receipt-conflict');
-            return { outcome: 'applied' as const, replayed: true, awarded: prior.points, session: contest };
-        }
-        // Score the kill. Sectors never flip mid-war -- settlement compares the
-        // tallies when the 72 hours close (api/_sector-war-settle.ts).
-        const [atkRaw, defRaw] = await Promise.all([
-            kv.get<Record<string, unknown>>(villageWarKey(token.attackerVillage)),
-            kv.get<Record<string, unknown>>(villageWarKey(token.defenderVillage)),
-        ]);
-        const outcome = applySectorWarBattle(contest, attackerWon, {
-            now: clock.endedAt,
-            roleSwing: sectorControlSwing(winnerRole, loserRole),
-            attackerMult: sectorWarDamageMultiplier(normalizeVillageWarRecord(token.attackerVillage, atkRaw ?? undefined)),
-            defenderMult: defenderPointsMultiplier(normalizeVillageWarRecord(token.defenderVillage, defRaw ?? undefined)),
-            by: winnerName,
-        });
-        const recorded = recordSectorWarBattleOutcome(outcome, { battleId, attackerWon, by: winnerName, at: clock.endedAt });
-        try {
-            if (!(await kv.compareSet(sectorWarKey(id), rawContest, recorded.session))) {
-                throw new Error('sector-war-contest-version-conflict');
-            }
-        } catch (error) {
-            const recovered = await kv.get<unknown>(sectorWarKey(id)).catch(() => null);
-            if (!isDeepStrictEqual(recovered, recorded.session)) throw error;
-        }
-        return { outcome: 'applied' as const, replayed: false, awarded: outcome.awarded, session: recorded.session };
-    }, { failClosed: true });
-
-    if (result.outcome === 'superseded') {
-        return commitNoop('superseded', id);
-    }
-
-    const durable = await commitSectorWarResolutionReceipt({
-        ...receiptBase,
-        outcome: 'applied',
-        sectorWarId: id,
-        attackerWon,
-        points: result.awarded,
-        attackerPoints: result.session.attackerPoints,
-        defenderPoints: result.session.defenderPoints,
-    });
-    return sendSectorResolutionReceipt(res, durable);
-    */
 }
 
 // ── garrison-start (assault the sector's ANBU when no defender turns up) ──────
@@ -1252,37 +1113,42 @@ async function doGarrisonResolveLocked(res: VercelResponse, identity: Identity, 
     // resolve call after a lost response must be a true no-op replay of the same
     // receipt, not mint a second one every retry.
     const battleId = `garrison:${runId}`;
-    const scored = await withKvLock(sectorWarKey(run.contestId), async () => {
-        const fresh = await loadSectorWar(run.contestId);
-        if (!fresh || !isSectorWarActive(fresh, Date.now())) {
-            return { ok: false as const, contest: fresh };
-        }
-        const prior = findSectorWarBattleReceipt(fresh, battleId);
-        if (prior) return { ok: true as const, awarded: prior.points, session: fresh };
-
-        const attackerRole = await sectorWarRoleOf(run.attackerName, run.attackerVillage);
-        const [winnerRole, loserRole] = attackerWon ? [attackerRole, ROLE_VILLAGER] : [ROLE_VILLAGER, attackerRole];
-        const [atkRaw, defRaw] = await Promise.all([
-            kv.get<Record<string, unknown>>(villageWarKey(fresh.attackerVillage)),
-            kv.get<Record<string, unknown>>(villageWarKey(fresh.defenderVillage)),
-        ]);
-        const outcome = applySectorWarBattle(fresh, attackerWon, {
-            now: Date.now(),
-            roleSwing: sectorControlSwing(winnerRole, loserRole),
-            attackerMult: sectorWarDamageMultiplier(normalizeVillageWarRecord(fresh.attackerVillage, atkRaw ?? undefined)),
-            defenderMult: defenderPointsMultiplier(normalizeVillageWarRecord(fresh.defenderVillage, defRaw ?? undefined)),
-            // Attacker win: the points are the PLAYER's (attribution for the
-            // capture credit). Garrison win: the AI scored.
-            by: attackerWon ? run.attackerName : '',
-            garrisonBattle: attackerWon,
-            mercBattle: !attackerWon,
-        });
-        const recorded = recordSectorWarBattleOutcome(outcome, {
-            battleId, attackerWon, by: attackerWon ? run.attackerName : '', garrison: attackerWon, at: Date.now(),
-        });
-        await saveSectorWar(recorded.session);
-        return { ok: true as const, awarded: outcome.awarded, session: recorded.session };
-    }, { failClosed: true });
+    const attackerRole = await sectorWarRoleOf(run.attackerName, run.attackerVillage);
+    const [winnerRole, loserRole] = attackerWon ? [attackerRole, ROLE_VILLAGER] : [ROLE_VILLAGER, attackerRole];
+    const committed = await commitSectorWarBattle({
+        contestId: run.contestId,
+        battleId,
+        decide: async (fresh) => {
+            const scoredAt = Date.now();
+            // An assault opened against an earlier war on this sector never
+            // scores the war that replaced it.
+            if (run.createdAt < fresh.startedAt || !isSectorWarActive(fresh, scoredAt)) {
+                return { kind: 'skip', reason: 'superseded' };
+            }
+            const [atkRaw, defRaw] = await Promise.all([
+                kv.get<Record<string, unknown>>(villageWarKey(fresh.attackerVillage)),
+                kv.get<Record<string, unknown>>(villageWarKey(fresh.defenderVillage)),
+            ]);
+            const outcome = applySectorWarBattle(fresh, attackerWon, {
+                now: scoredAt,
+                roleSwing: sectorControlSwing(winnerRole, loserRole),
+                attackerMult: sectorWarDamageMultiplier(normalizeVillageWarRecord(fresh.attackerVillage, atkRaw ?? undefined)),
+                defenderMult: defenderPointsMultiplier(normalizeVillageWarRecord(fresh.defenderVillage, defRaw ?? undefined)),
+                // Attacker win: the points are the PLAYER's (attribution for the
+                // capture credit). Garrison win: the AI scored.
+                by: attackerWon ? run.attackerName : '',
+                garrisonBattle: attackerWon,
+                mercBattle: !attackerWon,
+            });
+            return {
+                kind: 'score', outcome, attackerWon,
+                by: attackerWon ? run.attackerName : '', garrison: attackerWon, at: scoredAt,
+            };
+        },
+    });
+    const scored = committed.status === 'applied'
+        ? { ok: true as const, awarded: committed.receipt.points, session: committed.session }
+        : { ok: false as const, contest: committed.status === 'skipped' ? committed.contest : null };
 
     const response = scored.ok
         ? {
@@ -1320,14 +1186,19 @@ async function doAbandon(req: VercelRequest, res: VercelResponse, identity: Iden
         return res.status(403).json({ error: 'Only the attacking village’s seated Kage can call off a sector war.' });
     }
 
+    // The conceded record expires with the cooldown, so its battle receipts must
+    // be copied out first (idempotent; the bulk runs before the lock).
+    const confirmed = await externalizeSectorWarLedger(contest, Date.now()).catch(() => new Set<string>());
     const out = await withKvLock(sectorWarKey(contest.id), async () => {
         const fresh = await loadSectorWar(contest.id);
         if (!fresh || !isSectorWarActive(fresh, Date.now())) return { ok: false as const };
         const { session, changed } = abandonSectorWar(fresh, Date.now());
         // The stamped record carries the re-siege cooldown TTL. (It previously had
         // NO ttl here, so an abandoned siege lingered in the keyspace forever.)
-        if (changed) await saveSectorWar(session, SECTOR_RESIEGE_COOLDOWN_SEC);
-        return { ok: true as const, session };
+        if (!changed) return { ok: true as const, session };
+        const drained = await drainSectorWarLedger(session, Date.now(), kv, confirmed);
+        await saveSectorWar(drained, SECTOR_RESIEGE_COOLDOWN_SEC);
+        return { ok: true as const, session: drained };
     }, { failClosed: true });
 
     if (!out.ok) return res.status(409).json({ error: 'That sector war is already over.' });

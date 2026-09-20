@@ -7,7 +7,9 @@
  *
  *   · flip  → captureSectorForVillage (the world:territory owner change the WR
  *             faucet and tax tier key off) + sector.capture telemetry. The
- *             settled record persists WITHOUT a ttl as an inert audit row.
+ *             settled record is an inert audit row that ages out with its
+ *             own battle receipts (SECTOR_CAPTURED_RECORD_TTL_SEC); it used
+ *             to be written with no ttl at all and never left the keyspace.
  *   · hold  → the record is stamped 'defended' and saved WITH the re-siege
  *             cooldown TTL, so the lingering record IS the attacker's cooldown.
  *
@@ -23,8 +25,23 @@
  */
 
 import { withKvLock } from './_lock.js';
-import { settleSectorWar, sectorWarKey, SECTOR_RESIEGE_COOLDOWN_SEC, type SectorWarSession } from './_sector-war.js';
-import { loadSectorWar, saveSectorWar, listUnsettledDueSectorWars } from './_sector-war-store.js';
+import { kv } from './_storage.js';
+import {
+    settleSectorWar,
+    sectorWarKey,
+    sectorWarLedgerOf,
+    sectorWarInstanceTag,
+    SECTOR_CAPTURED_RECORD_TTL_SEC,
+    SECTOR_RESIEGE_COOLDOWN_SEC,
+    type SectorWarSession,
+} from './_sector-war.js';
+import {
+    loadSectorWar,
+    saveSectorWar,
+    listUnsettledDueSectorWars,
+    drainSectorWarLedger,
+    externalizeSectorWarLedger,
+} from './_sector-war-store.js';
 import { captureSectorForVillage } from './world-state.js';
 import { recordWarEcoEvent } from './_war-telemetry.js';
 import { legacyEnabled, bumpLegacyStats } from './_legacy-track.js';
@@ -59,16 +76,11 @@ export function sectorWarResolutionAnnouncement(
  *  whoever landed the final blow; the 72h scored war has no final blow, so a
  *  capture now credits EVERYONE who put points on the board for it — which is
  *  what the mythic Founder's Shadow legacy (25 captures) actually honors.
- *  Receipts store display-cased names; dedupe case-insensitively. Exported for
- *  the test. */
-export function captureContributors(session: Pick<SectorWarSession, 'appliedBattles'>): string[] {
-    const seen = new Map<string, string>();
-    for (const r of session.appliedBattles ?? []) {
-        if (!r.attackerWon || !r.by) continue;
-        const k = r.by.toLowerCase();
-        if (!seen.has(k)) seen.set(k, r.by);
-    }
-    return [...seen.values()];
+ *  Receipts store display-cased names; dedupe case-insensitively. Covers every
+ *  receipt of the war, including those past the in-row mirror (the ledger
+ *  keeps the distinct names as each battle lands). Exported for the test. */
+export function captureContributors(session: Pick<SectorWarSession, 'appliedBattles' | 'battleLedger'>): string[] {
+    return [...sectorWarLedgerOf(session).contributors];
 }
 
 export interface SectorWarSettlement {
@@ -94,12 +106,20 @@ export async function settleDueSectorWars(now: number = Date.now()): Promise<Sec
     const settled: SectorWarSettlement[] = [];
     for (const war of due) {
         try {
+            // Every battle receipt must outlive this row: a defended war's
+            // record expires a day after settlement, but PvP replays can still
+            // ask to prove an applied battle for longer than that. Copying the
+            // receipts out is idempotent, so the bulk of it runs before the
+            // lock (a war written before the overflow ledger can hold up to 200
+            // in-row receipts) and the locked drain only finishes what changed.
+            const confirmed = await externalizeSectorWarLedger(war, now).catch(() => new Set<string>());
             const outcome = await withKvLock(sectorWarKey(war.id), async () => {
                 // Re-load inside the lock: another caller may have settled it already.
                 const fresh = await loadSectorWar(war.id);
                 if (!fresh) return null;
-                const verdict = settleSectorWar(fresh, now);
-                if (!verdict.changed) return null;
+                const stamped = settleSectorWar(fresh, now);
+                if (!stamped.changed) return null;
+                const verdict = { ...stamped, session: await drainSectorWarLedger(stamped.session, now, kv, confirmed) };
                 if (verdict.attackerWon) {
                     // Flip BEFORE persisting the verdict, inside the war lock (the
                     // territory write takes its own nested lock; order war → territory,
@@ -111,14 +131,22 @@ export async function settleDueSectorWars(now: number = Date.now()): Promise<Sec
                     // write fails; the war remains due until every winner's
                     // Legacy counter is confirmed.
                     if (legacyEnabled()) {
+                        // Scoped to the contest INSTANCE, not just the pairing: a
+                        // contest id repeats on every re-siege of the same sector
+                        // by the same attacker, so a bare `<id>:<name>` receipt
+                        // made a player's SECOND capture of that sector look
+                        // already-delivered and silently dropped the credit.
+                        const instance = sectorWarInstanceTag(verdict.session);
                         for (const name of captureContributors(verdict.session)) {
                             const delivered = await bumpLegacyStats(name, { sectorCaptures: 1 }, {
-                                receiptId: `sector-capture:${war.id}:${name.toLowerCase()}`,
+                                receiptId: `sector-capture:${war.id}:${instance}:${name.toLowerCase()}`,
                             });
                             if (!delivered) throw new Error('sector-capture-legacy-delivery-pending');
                         }
                     }
-                    await saveSectorWar(verdict.session);
+                    // A captured record is evidence, not a cooldown, and used to
+                    // be written with no expiry at all.
+                    await saveSectorWar(verdict.session, SECTOR_CAPTURED_RECORD_TTL_SEC);
                 } else {
                     // A defended hold carries the attacker's re-siege cooldown as its TTL.
                     await saveSectorWar(verdict.session, SECTOR_RESIEGE_COOLDOWN_SEC);

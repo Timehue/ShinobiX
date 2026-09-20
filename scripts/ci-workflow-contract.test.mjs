@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const workflow = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -67,7 +67,7 @@ test('split CI preserves every release gate and builds each artifact once', () =
     assert.equal(occurrences('npm run build:server'), 1, 'server release artifact must be built exactly once');
     assert.equal(occurrences('npm run build --prefix shinobij.client'), 1, 'client release artifact must be built exactly once');
     assert.ok(workflow.includes('npm run test:e2e --prefix shinobij.client -- --shard=${{ matrix.shard }}/3'), 'responsive certification must run all three Playwright shards');
-    assert.match(workflow, /NODE_VERSION:\s*22\.23\.1/);
+    assert.ok(workflow.includes('node-version-file: .nvmrc'), 'CI must take its Node version from .nvmrc');
 });
 
 test('responsive browser discovery installs runtime and direct QA build dependencies', () => {
@@ -152,6 +152,16 @@ test('live Express CI includes persistence and route integration regressions', (
     assert.ok(command.includes('--project=chromium-desktop-live'), 'the full Academy cases require the desktop live project');
 });
 
+test('live Express CI keeps the Exchange and sector-war player journeys isolated and evidenced', () => {
+    const job = workflow.slice(workflow.indexOf('\n  e2e_village_stores:'), workflow.indexOf('\n  test_build:'));
+    const command = job.split('\n').find(line => line.trim().startsWith('run:') && line.includes('sunscar-exchange-express.spec.ts'));
+    assert.ok(command, 'the required live Express job must execute the Exchange journey');
+    assert.ok(command.includes('sector-war-express.spec.ts'), 'the same built release must execute the sector-war journey');
+    assert.ok(command.includes('--project=chromium-desktop-live'));
+    assert.ok(command.includes('--output=test-results/economy-war-journeys-ci'), 'the journey run must not overwrite earlier Playwright evidence');
+    assert.ok(command.includes('.ci-evidence/e2e-village-stores/economy-war-journeys.log'));
+});
+
 test('current Warfront coverage keeps low-cost interactions and real renderer audits', () => {
     // Check the fixture's behavior, without pinning retired lane-mode variable
     // names or command windows that the current Rite no longer exposes.
@@ -184,4 +194,39 @@ test('required live Express CI runs defeat recovery on desktop and mobile withou
     assert.ok(command.includes('--output=test-results/defeat-recovery-ci'), 'the second Playwright invocation must retain the earlier journey evidence');
     assert.ok(command.includes('.ci-evidence/e2e-village-stores/defeat-recovery.log'));
     assert.doesNotMatch(command, /--grep/, 'all recovery paths must run');
+});
+
+/*
+ * The Node pin lives in exactly ONE place: .nvmrc.
+ *
+ * It used to live in six — ci.yml's env, three other workflows, and both
+ * Dockerfile stages — while .nvmrc itself carried only the floating major `22`.
+ * Nothing compared them, so the file a developer's version manager reads
+ * disagreed with the version CI and Railway actually ran, and `engines: >=22`
+ * silently welcomed anything newer. An operator drifted to Node 24 that way and
+ * lost time to a note blaming the Node version for an unrelated failure.
+ */
+const workflowDir = new URL('../.github/workflows/', import.meta.url);
+const nvmrc = readFileSync(new URL('../.nvmrc', import.meta.url), 'utf8').trim();
+
+test('the Node pin is an exact version, not a floating major', () => {
+    // A bare major resolves to whatever the local version manager happens to
+    // have, which is not what CI installs — the drift this file exists to stop.
+    assert.match(nvmrc, /^\d+\.\d+\.\d+$/, `.nvmrc must pin major.minor.patch, got "${nvmrc}"`);
+});
+
+test('every workflow takes its Node version from .nvmrc', () => {
+    const files = readdirSync(workflowDir).filter((name) => name.endsWith('.yml') || name.endsWith('.yaml'));
+    assert.ok(files.length > 0, 'no workflow files found');
+    for (const file of files) {
+        const body = readFileSync(new URL(file, workflowDir), 'utf8').replace(/\r\n/g, '\n');
+        // A literal here is the drift: it is invisible to .nvmrc and to every
+        // version manager, so it goes stale the moment the pin moves.
+        const literals = [...body.matchAll(/^\s*node-version:\s*(\S+)$/gm)].map((match) => match[1]);
+        assert.deepEqual(literals, [], `${file} hardcodes a Node version (${literals.join(', ')}) instead of node-version-file: .nvmrc`);
+        assert.doesNotMatch(body, /^\s*NODE_VERSION:/m, `${file} reintroduces a NODE_VERSION env copy of the pin`);
+        if (body.includes('actions/setup-node')) {
+            assert.match(body, /node-version-file: \.nvmrc/, `${file} sets up Node without reading .nvmrc`);
+        }
+    }
 });

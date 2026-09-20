@@ -105,6 +105,7 @@ describe('sector-war garrison-feed (Village Stores)', { concurrency: false }, ()
         assert.equal((c.garrisonFeed as Feed)[DEFENDER].on, true);
         assert.equal((c.garrisonFeed as Feed)[ATTACKER], undefined);
         assert.equal('appliedBattles' in c, false, 'client projection');
+        assert.equal('battleLedger' in c, false, 'the aggregate ledger (names, pending receipts) is server-only too');
         let stored = await kv.get<{ garrisonFeed?: Feed; garrisonFed?: unknown }>(CONTEST_KEY);
         assert.equal(stored?.garrisonFeed?.[DEFENDER].on, true);
         assert.equal(stored?.garrisonFeed?.[DEFENDER].by, 'frostkage');

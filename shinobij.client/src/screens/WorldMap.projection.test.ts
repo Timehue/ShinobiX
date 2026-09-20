@@ -12,6 +12,9 @@ const commandPanelBody = readFileSync(new URL("../components/WorldSectorCommandP
 // two tight ones cannot be dodged by moving code across the pair.
 const commandPanelTypes = readFileSync(new URL("../components/WorldSectorCommandPanel.types.ts", import.meta.url), "utf8");
 const commandPanelSource = commandPanelBody + "\n" + commandPanelTypes;
+const hudSource = readFileSync(new URL("../components/SectorHud.tsx", import.meta.url), "utf8");
+const rowSource = readFileSync(new URL("../components/SectorPlayerRow.tsx", import.meta.url), "utf8");
+const rosterSource = readFileSync(new URL("../lib/sector-player-roster.ts", import.meta.url), "utf8");
 const overlaySource = readFileSync(new URL("../components/WorldSectorOverlayLayer.tsx", import.meta.url), "utf8");
 const dialogSource = readFileSync(new URL("../components/WorldWandererDialog.tsx", import.meta.url), "utf8");
 const storyFieldRouteBoundarySource = readFileSync(new URL("../components/StoryFieldRouteBoundary.tsx", import.meta.url), "utf8");
@@ -319,7 +322,7 @@ test("selected-sector canvas preserves stage and stacking order", () => {
 });
 
 test("WorldMap retains controller and portal ownership around the canvas slots", () => {
-    const projection = sliceBetween(worldMapSource, "<WorldSectorCanvas", "<WorldSectorCommandPanel");
+    const projection = sliceBetween(worldMapSource, "<WorldSectorCanvas", "if (selectedVillageTerritory) {");
     assertOrdered(projection, [
         "onSelectTile={setSectorPlayerPos}",
         "onCrossExit={crossSectorExit}",
@@ -336,11 +339,13 @@ test("WorldMap retains controller and portal ownership around the canvas slots",
 });
 
 test("WorldMap projects overlay time, storage, and capability decisions before rendering", () => {
-    const projection = sliceBetween(worldMapSource, "const sectorOverlayWanderers", "<WorldSectorCanvas");
+    const projection = sliceBetween(worldMapSource, "const sectorOverlayBoss", "<WorldSectorCanvas");
+    assert.match(projection, /const sectorOverlayBoss[\s\S]*isWeeklyBossRoamEnabled\(\)[\s\S]*weeklyBossRoamState\(roamingBoss, serverNow\(\)\)/u);
+    assert.match(projection, /capSectorWanderers\([\s\S]*sectorOverlayBoss \? 1 : 0\)/u);
+    assert.match(projection, /const sectorOverlayWanderers = \[\.\.\.cappedSectorWanderers, \.\.\.mercWanderers\]/u);
     assert.match(projection, /const sectorOverlayRift/u);
     assert.match(projection, /const sectorOverlayVault[\s\S]*anbuViewOpen[\s\S]*territory\.ownerVillage/u);
     assert.match(projection, /const sectorOverlayShrine[\s\S]*isSectorTracesEnabled\(\)[\s\S]*shrineForSector/u);
-    assert.match(projection, /const sectorOverlayBoss[\s\S]*isWeeklyBossRoamEnabled\(\)[\s\S]*weeklyBossRoamState\(roamingBoss, serverNow\(\)\)/u);
 });
 
 test("WorldMap owns the wanderer portal, backdrop policy, actions, and projected contextual decisions", () => {
@@ -376,30 +381,22 @@ test("WorldMap owns the wanderer portal, backdrop policy, actions, and projected
     assert.match(worldMapSource, /async function acceptEpic[\s\S]*fetch\("\/api\/sector\/questbook"/u);
 });
 
-test("WorldSectorCommandPanel preserves command hierarchy and action order", () => {
-    assertOrdered(commandPanelSource, [
-        '<aside className="instance-actions sector-command-panel"',
-        '<header className="sector-panel-heading">',
-        '{territory && (',
-        '<SectorTracesCard',
-        '<h4>Players Here</h4>',
-        '{hunt && (',
-        '<div className="sector-action-grid" aria-label="Sector actions">',
-    ], "selected-sector command hierarchy");
-    const actions = commandPanelSource.slice(commandPanelSource.indexOf('<div className="sector-action-grid"'));
-    assertOrdered(actions, [
-        '"Find richer ground" : "Explore"',
-        'onClick={onHunt}',
-        '<span>Recover</span>',
-        '<span>Leave</span>',
-    ], "selected-sector action order");
-    // A drained pool changes the verb; it must never switch the slot off. The
-    // pool is shared and per-sector, so "nothing here" always means "something
-    // nearby" — a disabled button is a dead end that hides that fact.
-    assert.doesNotMatch(actions, /disabled=\{gatherDepleted\}/u);
-    assert.match(actions, /onClick=\{gatherDepleted \? onFindRicherGround : onExplore\}/u);
-    assert.match(commandPanelSource, /aria-label=\{`Sector \$\{sector\} command panel`\}/u);
-    assert.match(commandPanelSource, /player\.status === "Traveling"[\s\S]*player\.status === "Fighting"[\s\S]*"Attack"/u);
+test("sector details retain all secondary content while the HUD owns primary actions", () => {
+    assertOrdered(commandPanelSource, ['{territory && (', '<SectorContractCard', '<SectorIntelCard', '<SectorOrderCard', '<SectorTracesCard', '{sectorContest && (', '{hunt && ('], "complete sector details");
+    assert.doesNotMatch(commandPanelBody, /players\.map|onClick=\{onExplore\}|onClick=\{onLeave\}/u);
+    assert.match(hudSource, /onClick=\{gatherDepleted \? onFindRicherGround : onExplore\}/u);
+    assert.match(hudSource, /disabled=\{!present && !gatherDepleted\}/u);
+    assert.match(hudSource, /onClick=\{onHunt\}/u);
+    assert.doesNotMatch(hudSource, /Players Here|onRecover|onLeave/u);
+    assert.match(hudSource, /Sector Info/u);
+    assert.match(hudSource, /<SectorNearby/u);
+    assert.match(hudSource, /<WorldSectorCommandPanel/u);
+    assert.match(rowSource, /'Strike Down'[\s\S]*sectorContestLabel[\s\S]*'Attack'/u);
+    assert.match(canvasSource, /!suspended && hudLayer/u);
+    assert.ok(lineCount(hudSource) <= 120, 'HUD presentation stays bounded');
+    for (const source of [hudSource, rowSource]) {
+        assert.doesNotMatch(source, /\bfetch\s*\(|\b(?:localStorage|sessionStorage|mutationAvailability)\b/u);
+    }
 });
 
 test("WorldMap keeps live Village War admission checks around command-panel async work", () => {
@@ -419,7 +416,7 @@ test("WorldMap keeps live Village War admission checks around command-panel asyn
         "void launchAiGuardRaid",
     ], "selected-sector Village War authority");
     assert.match(worldMapSource, /onRaidEnemyVillage=\{handleSelectedSectorVillageWarRaid\}/u);
-    assert.match(worldMapSource, /onAttackPlayer=\{handleSelectedSectorPlayerAttack\}/u);
+    assert.match(worldMapSource, /attack: handleSelectedSectorPlayerAttack, strike: handleSelectedSectorSleeperAttack/u);
 });
 
 test("selected-sector scouting is read-only and never impersonates travel", () => {
@@ -427,19 +424,19 @@ test("selected-sector scouting is read-only and never impersonates travel", () =
     assertOrdered(launch, ["sameSector(currentSector, sector)", "capabilityAdmissionAllowed", "requestAiFight"], "World fight location guard");
     assert.doesNotMatch(launch, /setCurrentSector\(/u);
 
-    const projection = sliceBetween(worldMapSource, "<WorldSectorCanvas", "onLeave={handleLeaveSelectedSector}");
+    const projection = sliceBetween(worldMapSource, "<WorldSectorCanvas", "if (selectedVillageTerritory) {");
     assert.match(projection, /wanderers=\{sectorIsCurrent \? sectorOverlayWanderers : \[\]\}/u);
     assert.match(projection, /rift=\{sectorIsCurrent \? sectorOverlayRift : null\}/u);
     assert.match(projection, /vault=\{sectorIsCurrent \? sectorOverlayVault : null\}/u);
     assert.match(projection, /encounterLayer=\{sectorIsCurrent \? \(/u);
-    assert.match(projection, /<WorldSectorCommandPanel[\s\S]*present=\{sectorIsCurrent\}/u);
+    assert.match(projection, /<SectorHud[\s\S]*present=\{sectorIsCurrent\}/u);
 
     assert.match(canvasSource, /disabled=\{!isCurrent\}[\s\S]*onClick/u);
     assert.match(canvasSource, /\{isCurrent && \(\s*<SectorAvatar/u);
     assert.match(commandPanelSource, /disabled=\{!present \|\| !villageWarAdmissionOpen/u);
-    assert.match(commandPanelSource, /disabled=\{!present \|\| player\.actionDisabled\}/u);
-    assert.match(commandPanelSource, /disabled=\{!present\} onClick=\{onHunt\}/u);
-    assert.match(commandPanelSource, /disabled=\{!present\} onClick=\{onRecover\}/u);
+    assert.match(rowSource, /disabled=\{busy \|\| \(spectating \? player\.spectateDisabled : player\.actionDisabled\)\}/u);
+    assert.match(rosterSource, /!sameSector\(currentSector, sector\)\) return \[\]/u);
+    assert.match(hudSource, /disabled=\{!present\} onClick=\{onHunt\}/u);
 
     const keyboard = sliceBetween(worldMapSource, "// ── WASD / E keyboard controls", "// Clear the edge-crossing slide class");
     assertOrdered(keyboard, ["!sameSector(currentSector, selectedSector)", "const activeSector = selectedSector", "void exploreSector(activeSector)", "setSectorPlayerPos"], "remote scouting keyboard guard");

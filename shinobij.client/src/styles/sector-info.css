@@ -1,0 +1,41 @@
+/* Sector Info owns its cards; the retired action sidebar no longer styles them. */
+.sector-panel-heading { display: grid; gap: 8px; }
+.sector-panel-kicker, .sector-panel-card-head, .sector-meter-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sector-panel-kicker { color: #c8bab9; font-size: 12px; }
+.sector-panel-kicker .sector-sky-forecast { display: block; margin-top: 3px; color: #c2aeb9; font-size: 11px; }
+.sector-biome-token, .sector-status-pill {
+    display: inline-flex; align-items: center; justify-content: center; padding: 3px 8px; border-radius: 12px;
+    border: 1px solid currentColor; color: #c8bab9; background: #ffffff08; font-size: 10px; font-weight: 600; line-height: 1.25;
+}
+.sector-biome-shadow { color: #d3b4e8; }
+.sector-biome-forest, .sector-status-pill.is-owned, .sector-status-pill.is-ready { color: #b8d5c5; }
+.sector-biome-volcano, .sector-status-pill.is-fighting { color: #efb2b0; }
+.sector-biome-snow { color: #b2d3ef; }
+.sector-biome-central, .sector-status-pill.is-traveling { color: #e4ca8c; }
+.sector-details-body .sector-panel-card {
+    display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin: 0; padding: 12px;
+    border: 1px solid #624c59; border-radius: 4px; background: #201821; box-shadow: none;
+}
+.sector-details-body .sector-panel-card h4 { display: flex; align-items: center; gap: 6px; margin: 0; color: #ead3b0; font-size: 14px; line-height: 1.3; }
+.sector-details-body p { margin: 0; color: #d0c3ca; font-size: 13px; line-height: 1.5; }
+.sector-owner-line, .sector-guard-list { display: grid; gap: 3px; overflow-wrap: anywhere; }
+.sector-owner-line strong, .sector-guard-list strong, .sector-meter-row span { color: #c2aeb9; font-size: 10px; font-weight: 600; text-transform: uppercase; }
+.sector-meter-row strong { color: #f3ece4; font-size: 12px; overflow-wrap: anywhere; }
+.sector-meter-block { display: grid; gap: 5px; }
+.sector-meter { height: 8px; overflow: hidden; border: 1px solid #624c59; border-radius: 12px; background: #171319; }
+.sector-meter > span { display: block; height: 100%; min-width: 2px; border-radius: inherit; }
+.sector-meter-control > span { background: linear-gradient(90deg, #a18aab, #dec49e); }
+.sector-meter-hp > span { background: linear-gradient(90deg, #a55263, #dec49e); }
+.sector-details-body .sector-empty-note, .sector-details-body .sector-rebuild-note { padding: 10px; border: 1px solid #624c59; border-radius: 3px; background: #171319; }
+.sector-details-body .sector-rebuild-note { border-color: #a08761; color: #e4ca8c; }
+.sector-action-icon { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; }
+.sector-details-body .sector-action-btn { width: 100%; }
+.map-instance .sector-hud .sector-action-btn.is-primary { color: #fff0e5; background: #63303e; border-color: #b68177; }
+.map-instance .sector-hud .sector-action-btn.is-danger { color: #ffd3cf; background: #54252f; border-color: #a67477; }
+.sector-scar-list { display: grid; gap: 3px; margin: 0; padding: 0; list-style: none; }
+.sector-scar-list li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: baseline; gap: 6px; padding: 3px 6px; border-left: 2px solid #a67477; background: #54252f55; }
+.sector-scar-list strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.sector-scar-list small { color: #c2aeb9; white-space: nowrap; }
+.sector-details-body .sector-contract-card { border-left: 3px solid #dec49e; }
+.sector-contract-waiting { color: #b2d3ef; font-size: 12px; }
+.sector-contract-objective { color: #d0c3ca; font-size: 13px; }

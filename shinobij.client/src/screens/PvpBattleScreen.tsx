@@ -8,6 +8,7 @@ import {
     GiCrossedSwords, GiBootPrints, GiHealing, GiMagicSwirl, GiWaterDrop, GiRun, GiSandsOfTime,
 } from "../components/icons/LightweightGameIcons";
 import "../styles/battle-skin.css";
+import "../styles/pvp-spectator.css";
 import { visiblePoll } from "../lib/poll";
 import type { Biome, Screen, WeatherType } from "../types/core";
 import type { Character, BattleHistoryEntry } from "../types/character";
@@ -1350,6 +1351,7 @@ export function PvpBattleScreen({
     /* ── Register ALL PvP fights on spectator board ── */
     useEffect(() => {
         if (!session) return;
+        if (![session.p1.name, session.p2.name].some(name => name.trim().toLowerCase() === character.name.trim().toLowerCase())) return;
         const fight: ArenaSpectatorFight = {
             id: `pvp-${battleId}`,
             title: `${session.p1.name} vs ${session.p2.name}`,
@@ -1372,14 +1374,15 @@ export function PvpBattleScreen({
     type BattleChatMsg = { author: string; text: string; ts: number; role: "fighter" | "spectator" };
     const [battleChatMessages, setBattleChatMessages] = useState<BattleChatMsg[]>([]);
     const [battleChatInput, setBattleChatInput] = useState("");
+    const [battleChatSending, setBattleChatSending] = useState(false);
+    const [battleChatError, setBattleChatError] = useState("");
     // Battle chat is free text shown to an opponent and every spectator, so it
     // carries the same guest lock as the tavern. The layout is deliberately
     // untouched — the input row stays, disabled, rather than being swapped for
     // a panel, because the combat layout matrix measures this row.
     //
-    // `loading` counts as locked here: this sender appends optimistically, so
-    // sending before the answer is in would leave a ghost line in the log that
-    // the server rejected.
+    // Keep composing locked until account eligibility is known; rejected sends
+    // preserve the draft and display the server's error below the feed.
     const { locked: guestChatLocked, loading: guestChatLockLoading } = useSocialLock(character.name);
     const battleChatLocked = guestChatLocked || guestChatLockLoading;
     // The desktop command center owns a dedicated chat column, so it opens by
@@ -1425,28 +1428,35 @@ export function PvpBattleScreen({
         if (battleChatRef.current) battleChatRef.current.scrollTop = battleChatRef.current.scrollHeight;
     }, [battleChatMessages, battleChatVisible]);
 
-    function sendBattleChat() {
+    async function sendBattleChat() {
         const text = battleChatInput.trim();
-        if (!text || !battleId) return;
-        // Belt and braces: the input is disabled while locked, but this appends
-        // optimistically, so never let a rejected line reach the log.
         if (battleChatLocked) return;
-        setBattleChatInput("");
-        const chatRole = amSpectator ? "spectator" : "fighter";
-        // Optimistic local append so message shows immediately
-        const optimisticMsg = { author: character.name, text, ts: Date.now(), role: chatRole as "fighter" | "spectator" };
-        setBattleChatMessages(prev => [...prev, optimisticMsg]);
-        fetch(`/api/pvp/chat?id=${encodeURIComponent(battleId)}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ author: character.name, text, role: chatRole }),
-        })
-            .then(r => {
-                if (!r.ok) { console.warn("[battle-chat] POST failed:", r.status); return null; }
-                return r.json();
-            })
-            .then(msgs => { if (Array.isArray(msgs)) setBattleChatMessages(msgs); })
-            .catch(err => console.warn("[battle-chat] POST error:", err));
+        if (!text || !battleId || battleChatSending) return;
+        const isCurrent = continuationFenceRef.current.capture();
+        setBattleChatSending(true);
+        setBattleChatError("");
+        try {
+            const response = await fetch(`/api/pvp/chat?id=${encodeURIComponent(battleId)}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ author: character.name, text, role: amSpectator ? "spectator" : "fighter" }),
+                signal: AbortSignal.timeout(8_000),
+            });
+            const data: unknown = await response.json().catch(() => null);
+            if (!response.ok || !Array.isArray(data)) {
+                const error = data && typeof data === "object" && "error" in data ? data.error : null;
+                throw new Error(typeof error === "string" ? error : "Message could not be sent. Try again.");
+            }
+            if (!isCurrent() || !isAccountSessionCurrent()) return;
+            // Show only the server-confirmed feed. Preserve a newer draft typed in flight.
+            setBattleChatMessages(data);
+            setBattleChatInput(draft => draft.trim() === text ? "" : draft);
+        } catch (error) {
+            if (isCurrent() && isAccountSessionCurrent())
+                setBattleChatError(error instanceof Error && error.name !== "TimeoutError" ? error.message : "Message could not be sent. Try again.");
+        } finally {
+            if (isCurrent()) setBattleChatSending(false);
+        }
     }
 
     /* ── Spectator list state ── */
@@ -1592,6 +1602,8 @@ export function PvpBattleScreen({
     const oppAp = role === "p1" ? session.ap.p2 : session.ap.p1;
     const myCooldowns = role === "p1" ? session.cooldowns.p1 : session.cooldowns.p2;
     const isMyTurn = amSpectator ? false : session.activePlayer === role;
+    const displayedMyTurn = amSpectator ? session.activePlayer === role : isMyTurn;
+    const displayedTurnName = displayedMyTurn ? me.name : opp.name;
     const done = session.status === "done";
     const iWon = (session.winner === "p1" && role === "p1") || (session.winner === "p2" && role === "p2");
     const isDraw = session.winner === "draw";
@@ -2009,7 +2021,7 @@ export function PvpBattleScreen({
     };
 
     return (
-        <ShinobiCombatShell mode="pvp" className={`pvp-battle-layout arena-bg-${arenaBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
+        <ShinobiCombatShell mode="pvp" className={`pvp-battle-layout${amSpectator ? " pvp-spectator" : ""} arena-bg-${arenaBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
             {connectionState === "reconnecting" && (
                 <div className="pvp-reconnecting-pill" role="status" aria-live="polite">
                     <span className="pvp-reconnecting-dot" />
@@ -2037,7 +2049,7 @@ export function PvpBattleScreen({
             <CombatHudLayout className={battleChatVisible ? undefined : "combat-log-wide combat-chat-collapsed"}>
                 {/* In-grid player HUD — visible on non-xl, hidden on xl via CSS */}
                 <CombatSideHud
-                    name={`${me.name} (You)`}
+                    name={amSpectator ? me.name : `${me.name} (You)`}
                     avatar={myAvatar || "🥷"}
                     hp={me.hp} maxHp={me.maxHp}
                     chakra={me.chakra} maxChakra={me.maxChakra}
@@ -2047,7 +2059,7 @@ export function PvpBattleScreen({
                     turn={session.round}
                     statuses={me.statuses}
                     currentRound={session.round}
-                    isActive={isMyTurn && !done}
+                    isActive={displayedMyTurn && !done}
                     level={me.character?.level as number | undefined}
                     power={pvpEarnedPoints(me.character)}
                 />
@@ -2081,7 +2093,7 @@ export function PvpBattleScreen({
                         <div>
                             <strong>{me.name} AP</strong>
                             <div className="hud-bar ap-display-bar"><span style={{ width: `${myAp}%` }} /></div>
-                            <small>{myAp}/100 | {isMyTurn ? "Active" : "Waiting"}</small>
+                            <small>{myAp}/100 | {displayedMyTurn ? "Active" : "Waiting"}</small>
                         </div>
                         {isMyTurn && !done ? (
                             <CombatRoundTimer
@@ -2104,13 +2116,13 @@ export function PvpBattleScreen({
                                 <div className="round-timer-ring">
                                     <span className="round-timer-num">—</span>
                                 </div>
-                                <small>{done ? "—" : `${opp.name}'s Turn`}</small>
+                                <small>{done ? "—" : `${displayedTurnName}'s Turn`}</small>
                             </div>
                         )}
                         <div>
                             <strong>{opp.name} AP</strong>
                             <div className="hud-bar enemy-ap-display-bar"><span style={{ width: `${oppAp}%` }} /></div>
-                            <small>{oppAp}/100 | {!isMyTurn ? "Active" : "Waiting"}</small>
+                            <small>{oppAp}/100 | {!displayedMyTurn ? "Active" : "Waiting"}</small>
                         </div>
                     </CombatApPanel>
 
@@ -2280,7 +2292,7 @@ export function PvpBattleScreen({
                                             (!!pendingWeapon && i === oppPos && weaponRangeTilesSet.has(i)) ||
                                             (pendingBasicAttack && i === oppPos && basicAttackRangeTiles.has(i));
                                         const isSelfTarget = i === selfTargetTile;
-                                        const tileOccupant = isBarrier ? "Barrier wall, impassable" : isMyTile ? "your position" : isOppTile ? `${opp.name} position` : "empty";
+                                        const tileOccupant = isBarrier ? "Barrier wall, impassable" : isMyTile ? (amSpectator ? `${me.name} position` : "your position") : isOppTile ? `${opp.name} position` : "empty";
                                         const tilePurpose = isPendingTarget || isSelfTarget
                                             ? "target"
                                             : isGroundTarget
@@ -2388,9 +2400,10 @@ export function PvpBattleScreen({
                             aria-label="Jutsu, weapons, and items"
                         >
                             {done ? null : amSpectator ? (
-                                <p style={{ textAlign: "center", color: "#a78bfa", padding: "0.75rem", fontSize: "0.85em", margin: 0 }}>
-                                    👁 Spectating — {session.activePlayer === "p1" ? session.p1.name : session.p2.name}'s turn (Round {session.round})
-                                </p>
+                                <div className="card menu">
+                                    <span>Watching {session.activePlayer === "p1" ? session.p1.name : session.p2.name}'s turn · Round {session.round}</span>
+                                    <button type="button" onClick={() => exitBattle(returnTarget)}>Stop watching</button>
+                                </div>
                             ) : (
                                 <div style={isMyTurn ? { display: "contents" } : { opacity: 0.6 }}>
                                     {/* Cast/use controls are natively disabled while waiting, but
@@ -2473,7 +2486,9 @@ export function PvpBattleScreen({
                                                 const isArmed = pendingWeaponId === item.id;
                                                 // Named (hand) weapons honour their CD server-side — grey
                                                 // out + show the remaining turns, matching the jutsu cards.
-                                                const wCd = myCooldowns[item.id] ?? 0;
+                                                // Server keys this 'weapon:<id>' (api/pvp/move.ts) so it
+                                                // can't collide with a jutsu or combat-item cooldown.
+                                                const wCd = myCooldowns[`weapon:${item.id}`] ?? 0;
                                                 const availability = pvpActionAvailability(item.apCost ?? 40, { cooldownRemaining: wCd });
                                                 const apCost = availability.apCost;
                                                 const onCooldown = availability.onCooldown;
@@ -2522,7 +2537,9 @@ export function PvpBattleScreen({
                                                 const countSuffix = chargesLeft != null ? ` ×${chargesLeft}` : "";
                                                 // Thrown weapons also honour their CD server-side — grey
                                                 // out + show the remaining turns like the jutsu cards.
-                                                const wCd = myCooldowns[item.id] ?? 0;
+                                                // Server keys this 'weapon:<id>' too (thrown shares the
+                                                // same 'weapon' action branch as hand weapons).
+                                                const wCd = myCooldowns[`weapon:${item.id}`] ?? 0;
                                                 const availability = pvpActionAvailability(item.apCost ?? 40, { cooldownRemaining: wCd });
                                                 const apCost = availability.apCost;
                                                 const onCooldown = availability.onCooldown;
@@ -2567,8 +2584,9 @@ export function PvpBattleScreen({
                                                 // Combat items (pills / smoke bomb) honour their CD
                                                 // server-side — grey out + show the remaining turns like
                                                 // the weapon cards. Restore-only potions carry no CD, so
-                                                // wCd stays 0 and they never grey for this reason.
-                                                const wCd = myCooldowns[item.id] ?? 0;
+                                                // wCd stays 0 and they never grey for this reason. Server
+                                                // keys this 'item:<id>' (api/pvp/move.ts).
+                                                const wCd = myCooldowns[`item:${item.id}`] ?? 0;
                                                 const availability = pvpActionAvailability(item.apCost ?? 35, { cooldownRemaining: wCd });
                                                 const apCost = availability.apCost;
                                                 const onCooldown = availability.onCooldown;
@@ -2663,7 +2681,7 @@ export function PvpBattleScreen({
 
                     <PlainCombatBattleLog
                         lines={battleLogLines}
-                        turnLabel={isMyTurn ? "Your Turn" : `${opp.name}'s Turn`}
+                        turnLabel={isMyTurn ? "Your Turn" : `${displayedTurnName}'s Turn`}
                         selfName={me.name}
                         oppName={opp.name}
                     />
@@ -2673,7 +2691,7 @@ export function PvpBattleScreen({
                         of the session's active role; it drives nothing. */}
                     {!done && (
                         <div className={`combat-turn-banner${isMyTurn ? " ctb-player" : " ctb-enemy"}`} aria-hidden="true">
-                            <span className="ctb-name">{isMyTurn ? me.name : opp.name}</span>
+                            <span className="ctb-name">{displayedTurnName}</span>
                             <span className="ctb-suffix">'s Turn</span>
                         </div>
                     )}
@@ -2723,7 +2741,8 @@ export function PvpBattleScreen({
                                     </div>
                                 ))}
                             </div>
-                            <form className="battle-chat-input-row" onSubmit={e => { e.preventDefault(); sendBattleChat(); }}>
+                            {battleChatError && <p role="status" className="battle-chat-error">{battleChatError}</p>}
+                            <form className="battle-chat-input-row" onSubmit={e => { e.preventDefault(); void sendBattleChat(); }}>
                                 <input
                                     type="text"
                                     value={battleChatInput}
@@ -2734,7 +2753,7 @@ export function PvpBattleScreen({
                                     maxLength={200}
                                     disabled={battleChatLocked}
                                 />
-                                <button type="submit" disabled={battleChatLocked || !battleChatInput.trim()}>Send</button>
+                                <button type="submit" disabled={battleChatLocked || battleChatSending || !battleChatInput.trim()}>{battleChatSending ? "Sending…" : "Send"}</button>
                             </form>
                         </>
                     )}
@@ -2751,7 +2770,7 @@ export function PvpBattleScreen({
                     turn={session.round}
                     statuses={opp.statuses}
                     currentRound={session.round}
-                    isActive={!isMyTurn && !done}
+                    isActive={!displayedMyTurn && !done}
                     level={opp.character?.level as number | undefined}
                     power={pvpEarnedPoints(opp.character)}
                 />

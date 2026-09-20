@@ -22,8 +22,11 @@ test('a refreshed outbound journey recovers its map, arrival tile, and presence 
             sectorMates: [], pendingChallenges: [], pendingNotices: [] } });
     });
     await page.goto('/#/village', { waitUntil: 'domcontentloaded' });
-    await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'worldMap');
-    await expect(page.getByRole('complementary', { name: 'Sector 13 command panel' })).toBeVisible();
+    // The authoritative heartbeat decides this redirect. Waiting on the exact
+    // rendered screen avoids racing React boot under a fully parallel run.
+    await page.locator('.app-shell[data-screen="worldMap"]').waitFor({ state: 'visible' });
+    await expect(page.locator('.sector-hud-region')).toBeVisible();
+    await expect(page.locator('.sector-hud-region')).toContainText('Sector 13 ·');
     await expect(page.getByRole('button', { name: 'Current tile row 4 column 9' })).toHaveCount(1);
     await expect.poll(() => frames.some(frame => frame.sector === 13 && frame.tile === 44)).toBe(true);
     await expect.poll(() => saves.some(save => save.currentSector === 13 && save.currentBiome === sectorBiomeOf(13))).toBe(true);

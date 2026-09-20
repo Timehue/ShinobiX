@@ -9,12 +9,13 @@ import { rallyRank } from '../../../shared/sunscar/rally-championship';
 import { caravanRank } from '../../../shared/sunscar/caravan-types';
 import { serverNow } from '../lib/server-clock';
 import festBg from '../assets/festival/sunscar-festival-v2.webp';
-import brokerArt from '../assets/festival/fest-broker.webp';
-import crateArt from '../assets/festival/bm-crate-closed.webp';
+import brokerMarketArt from '../assets/festival/sunscar-broker-market-v3.webp';
 import '../styles/sunscar-modes.css';
 import '../styles/sunscar-caravan.css';
 import '../styles/sunscar-responsive.css';
 import '../styles/sunscar-hub.css';
+import type { Screen } from '../types/core';
+import { peekExchangeReturnContext } from '../lib/exchange-return';
 
 const PetRally = lazy(() => import('../features/sunscar/PetRally'));
 const CaravanRun = lazy(() => import('../features/sunscar/CaravanRun'));
@@ -30,10 +31,11 @@ function FestivalDestination({ children }: { children: ReactNode }) {
     }, []);
     return children;
 }
-export function SunscarFestival({ character, onVersionedCharacter, setCreatorItems, ...catalogs }: CaravanCombatCatalogs & {
+export function SunscarFestival({ character, onVersionedCharacter, setCreatorItems, setScreen, ...catalogs }: CaravanCombatCatalogs & {
     character: Character; onVersionedCharacter: VersionedCharacterCommit; setCreatorItems: Dispatch<SetStateAction<GameItem[]>>;
+    setScreen: (screen: Screen) => void;
 }) {
-    const [mode, setMode] = useState<'hub' | 'rally' | 'caravan' | 'exchange'>('hub');
+    const [mode, setMode] = useState<'hub' | 'rally' | 'caravan' | 'exchange'>(() => peekExchangeReturnContext(character.name) ? 'exchange' : 'hub');
     const hubPosition = useRef<{ document: number; center: number; selector: string } | null>(null);
     function openDestination(destination: 'rally' | 'caravan' | 'exchange') {
         hubPosition.current = {
@@ -71,7 +73,7 @@ export function SunscarFestival({ character, onVersionedCharacter, setCreatorIte
             setBrokerLog(res.reward.label + '. ' + describeReward(res.reward) + '.');
         } finally { bmBusyRef.current = false; setBmBusy(false); }
     }
-    if (mode === 'exchange') return <FestivalDestination key="exchange"><SunscarExchange key={character.name} character={character} onVersionedCharacter={onVersionedCharacter} setCreatorItems={setCreatorItems} onBack={() => setMode('hub')}/></FestivalDestination>;
+    if (mode === 'exchange') return <FestivalDestination key="exchange"><SunscarExchange key={character.name} character={character} onVersionedCharacter={onVersionedCharacter} setCreatorItems={setCreatorItems} onNavigate={setScreen} onBack={() => setMode('hub')}/></FestivalDestination>;
     if (mode === 'rally' || mode === 'caravan') return <Suspense fallback={<div className="sunscar-mode sunscar-loading" role="status">Opening the festival grounds…</div>}><FestivalDestination key={mode}>{mode === 'rally'
         ? <PetRally key={character.name} character={character} onVersionedCharacter={onVersionedCharacter} onBack={() => setMode('hub')}/>
         : <CaravanRun {...catalogs} key={character.name} character={character} onVersionedCharacter={onVersionedCharacter} onBack={() => setMode('hub')}/>}</FestivalDestination></Suspense>;
@@ -101,7 +103,7 @@ export function SunscarFestival({ character, onVersionedCharacter, setCreatorIte
             </div></section>
         </div>
         <div className="sunscar-hub-heading"><p className="sunscar-eyebrow">Under the lanterns</p><h2>The trading quarter</h2></div>
-        <div className="sunscar-market-row"><SunscarExchangeEntrance onOpen={() => openDestination('exchange')}/><section className="sunscar-broker sunscar-poster"><div className="sunscar-broker-art sunscar-poster-art"><img className="sunscar-broker-crate" src={crateArt} alt="The Broker’s sealed treasure crate"/><img className="sunscar-broker-portrait" src={brokerArt} alt="The Broker"/></div><div className="sunscar-broker-copy sunscar-poster-copy"><p className="sunscar-eyebrow">The Black Market</p><h2>The Broker</h2><p role="status">{brokerLog}</p>
+        <div className="sunscar-market-row"><SunscarExchangeEntrance onOpen={() => openDestination('exchange')}/><section className="sunscar-broker sunscar-poster"><div className="sunscar-broker-art sunscar-poster-art"><img className="sunscar-broker-market-art" src={brokerMarketArt} alt="The Broker guarding a sealed treasure chest in Sunscar’s lantern-lit black market"/></div><div className="sunscar-broker-copy sunscar-poster-copy"><p className="sunscar-eyebrow">The Black Market</p><h2>The Broker</h2><p role="status">{brokerLog}</p>
             <div className="sunscar-crate-price sunscar-poster-meta"><strong>{BLACK_MARKET_COST.toLocaleString()} <small>Ryo / crate</small></strong><span>{bmUsed !== null ? `${bmUsed}/${BLACK_MARKET_DAILY_CAP} claimed today` : `${BLACK_MARKET_DAILY_CAP} crates per day`}</span></div>
             <button ref={brokerButtonRef} onClick={() => void buyCrate()} disabled={bmBusy || character.ryo < BLACK_MARKET_COST || bmUsed !== null && bmUsed >= BLACK_MARKET_DAILY_CAP}>{bmBusy ? 'Preparing crate…' : bmUsed !== null && bmUsed >= BLACK_MARKET_DAILY_CAP ? 'Daily crates claimed' : character.ryo < BLACK_MARKET_COST ? 'More Ryo required' : 'Buy a sealed crate'}</button><small>Your purse: {character.ryo.toLocaleString()} Ryo</small>
         </div></section></div><footer className="sunscar-hub-footer">The lanterns stay lit. Daily entries renew at 00:00 UTC.</footer>

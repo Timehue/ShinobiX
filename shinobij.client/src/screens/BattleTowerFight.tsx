@@ -1224,17 +1224,20 @@ export function BattleTowerFight({
         const cooldowns = (myActor?.cooldowns ?? {}) as Record<string, number>;
         const equipped = items.filter(it => it.id && equippedIds.has(it.id));
         const CONSUMABLE = new Set(["item", "item1", "item2", "item3", "potion"]);
+        // Server keys these 'weapon:<id>'/'item:<id>' (api/towers/_engine.ts) so a
+        // weapon/item id can never collide with a jutsu cooldown sharing this same
+        // flat map — mirror that prefix here or every cooldown badge reads as 0.
         const weapons = equipped
             .filter(it => { const s = slotOf(it); return s === "hand" || s === "thrown"; })
             .map(it => {
                 const thrown = slotOf(it) === "thrown";
-                const cdKey = it.id ?? it.name ?? "";
+                const cdKey = `weapon:${it.id ?? it.name ?? ""}`;
                 return { item: it, thrown, range: Math.max(1, Number(it.weaponRange ?? (thrown ? 4 : 1))), left: thrown ? (charges[it.id!] ?? 0) : Infinity, cd: Number(cooldowns[cdKey] ?? 0) };
             });
         const consumables = equipped
             .filter(it => CONSUMABLE.has(slotOf(it)))
             .map(it => {
-                const cdKey = it.id ?? it.name ?? "";
+                const cdKey = `item:${it.id ?? it.name ?? ""}`;
                 return { item: it, left: charges[it.id!] ?? 0, cd: Number(cooldowns[cdKey] ?? 0) };
             });
         return { weapons, consumables };

@@ -1,3 +1,4 @@
+import { SectorPortrait } from "./SectorPortrait";
 /*
  * SectorAvatar — the player's avatar as a grounded, *walking* overlay inside a
  * sector scene. Track 1 of the "living sectors" work.
@@ -230,9 +231,7 @@ export function SectorAvatar({
                 <span className="sector-avatar-aura" style={{ ["--aura"]: AURA[biome] } as CSSProperties} />
                 <span className="sector-avatar-sprite" ref={spriteRef}>
                     <span className="sector-avatar-body">
-                        {avatarImage
-                            ? <img src={avatarImage} alt={name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                            : <span className="sector-avatar-initials">{initials}</span>}
+                        <SectorPortrait key={avatarImage} src={avatarImage} name={initials} />
                         <span className="sector-avatar-pin" />
                     </span>
                 </span>

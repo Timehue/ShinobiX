@@ -43,14 +43,16 @@ import { TriggeredVisualNovel } from "../components/TriggeredVisualNovel";
 import { addStoryTrait } from "../lib/story-choice-mutations";
 import { SceneAmbience } from "../components/SceneAmbience";
 import { SectorAvatar } from "../components/SectorAvatar";
+import { SectorHud } from "../components/SectorHud";
+import { sectorPlayerRoster, projectSectorPlayers } from "../lib/sector-player-roster";
+import { findSectorSpectatorBattle } from "../lib/sector-spectate";
+import { useSectorPlayerAction } from "../lib/use-sector-player-action";
 import { WorldSectorCanvas } from "../components/WorldSectorCanvas";
 import { WorldSectorOverlayLayer } from "../components/WorldSectorOverlayLayer";
 import { ModalDialogScrim } from "../components/ModalDialogScrim";
 import { WorldWandererDialog, type WorldWandererDialogState } from "../components/WorldWandererDialog";
 import {
-    WorldSectorCommandPanel,
     type WorldSectorCommandHunt,
-    type WorldSectorCommandPlayer,
     type WorldSectorCommandTerritory,
 } from "../components/WorldSectorCommandPanel";
 import { resolveOwnAvatar } from "../lib/own-avatar";
@@ -60,7 +62,7 @@ import { resolveOwnAvatar } from "../lib/own-avatar";
 // it is <WorldWandererDialog>, which imports what it needs itself. The
 // <SectorWanderer> named in a comment further down is that component's, not a
 // use from this file.
-import { rollWanderers, isWanderersEnabled, currentWandererDayBucket, wandererPresenceGate, questForWanderer, isWandererOnCooldown, withWandererCooldown, WANDERER_FLEE_COOLDOWN_MS, WANDERER_DECLINE_COOLDOWN_MS, QUEST_GIVER_PRESENCE, pickRoamingQuestGivers, lockedQuestMetrics, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, type Wanderer } from "../lib/wanderers";
+import { rollWanderers, isWanderersEnabled, currentWandererDayBucket, wandererPresenceGate, questForWanderer, isWandererOnCooldown, withWandererCooldown, WANDERER_FLEE_COOLDOWN_MS, WANDERER_DECLINE_COOLDOWN_MS, QUEST_GIVER_PRESENCE, pickRoamingQuestGivers, capSectorWanderers, lockedQuestMetrics, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, type Wanderer } from "../lib/wanderers";
 import { QUEST_BOSSES, questbookEntry, questbookStage, bossStatBonusFromChoices, rivalryEscalation } from "../lib/questbook";
 import { standingReaction } from "../lib/wanderer-standing";
 import {
@@ -107,7 +109,6 @@ import { capabilityAdmissionAllowed, mutationAdmissionMessage } from "../lib/liv
 import { createPortal } from "react-dom";
 import { travelMaskMs } from "../lib/travel-mask";
 import { serverNow } from "../lib/server-clock";
-import { peerIsTraveling } from "../lib/presence-character";
 
 function storyReckoningActionFailure(reason: string | undefined, arc: StoryReckoning, action: "accept" | "turn-in"): string {
     const place = arc.crossVillage ? "an outskirts post" : `${arc.village} outskirts`;
@@ -172,7 +173,7 @@ import { builtinHuntMissions } from "../data/missions";
 import { makeId, playerSlug, sameSector } from "../lib/utils";
 import { setSectorReopen, takeSectorReopen, consumeReloadIntoSector } from "../lib/sector-return";
 import { isRecentlyStruckDown } from "../lib/sleeper-kill";
-import { useLiveSectorRoster, getLocalSectorTile } from "../lib/presence-store";
+import { useLiveSectorRoster, getLocalSectorTile, getLiveSectorRoster, useSectorRosterState, getSectorRosterState } from "../lib/presence-store";
 import { isSectorLivePeersEnabled } from "../components/sector-peers-flag";
 import type { SectorPeer } from "../components/SectorPeers";
 import { isWeeklyBossRoamEnabled, weeklyBossRoamState, weeklyBossRoamCooldownId, WEEKLY_BOSS_ROAM_REENGAGE_COOLDOWN_MS, type RoamingBoss } from "../lib/weekly-boss-roam";
@@ -369,7 +370,7 @@ function WorldMapContent({
     setTravelingUntil: (until: number) => void;
     setPendingTravel: (travel: { destinationSector: number; arrivalAt: number } | null) => void;
     sectorAttackPlayer: (opponent: PlayerRecord) => void | Promise<void>;
-    attackSleeper: (opponent: PlayerRecord) => void;
+    attackSleeper: (opponent: PlayerRecord) => void | Promise<void>;
     acceptedMissionIds: string[];
     setAcceptedMissionIds: React.Dispatch<React.SetStateAction<string[]>>;
     missionProgress: Record<string, number>;
@@ -834,6 +835,7 @@ function WorldMapContent({
             level: Math.max(1, Math.min(100, character.level)),
             homeTile: home,
             waypoints: [home],
+            movement: "stationary",
             greeting: `${favor.giver} said you might come through. Hand it over.`,
             tellTint: "var(--gold-300)",
             avatarKey: "courier",
@@ -861,6 +863,32 @@ function WorldMapContent({
     // roster lags a sector change by one poll), and narrow it to a war this
     // player is actually IN — a bystander village keeps plain world PvP.
     const sectorWarContest = viewerSectorContest(mercRoster.sector === selectedSector ? mercRoster.contest : null, selectedSector ?? -1, character.village, Date.now());
+    const rosterState = useSectorRosterState();
+    function selectedSectorRoster(live = liveSectorPlayers) {
+        return sectorPlayerRoster({ sector: selectedSector, currentSector, viewer: character.name,
+            live, registered: playerRoster, recentlyStruckDown: isRecentlyStruckDown });
+    }
+    function selectedSectorPlayerRows(live = liveSectorPlayers) {
+        const admission = mutationAvailability();
+        const warAdmission = mutationAvailability("villageWar");
+        const presenceReason = getSectorRosterState() !== "current" ? "Waiting for a current sector roster." : undefined;
+        return projectSectorPlayers(selectedSectorRoster(live), { sector: selectedSector ?? -1,
+            village: character.village, images: sharedImages, contest: sectorWarContest, spectateBlockedReason: presenceReason,
+            blockedReason: presenceReason || (capabilityAdmissionAllowed(admission) ? undefined : mutationAdmissionMessage(admission)),
+            contestBlockedReason: capabilityAdmissionAllowed(warAdmission) ? undefined : mutationAdmissionMessage(warAdmission) });
+    }
+    const playerAction = useSectorPlayerAction({ sector: selectedSector,
+        present: selectedSector != null && sameSector(currentSector, selectedSector),
+        rows: () => selectedSectorPlayerRows(getLiveSectorRoster()),
+        attack: handleSelectedSectorPlayerAttack, strike: handleSelectedSectorSleeperAttack,
+        spectate: async (target, isCurrent) => {
+            const battleId = await findSectorSpectatorBattle(target.name, character.name);
+            if (!isCurrent()) throw new Error("This player is no longer available to spectate.");
+            if (!setPvpBattleId || !setPvpRole) throw new Error("Spectating is currently unavailable.");
+            setPvpBattleContext({ spectatingFromSector: selectedSector! });
+            setPvpBattleId(battleId); setPvpRole("p1"); setScreen("pvpBattle");
+        } });
+
 
     // Roaming weekly boss (weeklyBossRoam.v1, default ON — opt out per-device
     // with `weeklyBossRoam.v1 = "off"`). Poll the boss state
@@ -2767,6 +2795,8 @@ function WorldMapContent({
         const activeSector = selectedSector;
         function handleKey(e: KeyboardEvent) {
             const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+            if (e.defaultPrevented || (e.target as HTMLElement)?.closest?.('[data-sector-hud], [contenteditable], [role=dialog]')
+                || document.querySelector('[aria-modal=true], dialog[open]')) return;
             if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
 
             const key = e.key.toLowerCase();
@@ -3602,14 +3632,6 @@ function WorldMapContent({
     function handleSelectedSectorPlayerAttack(player: PlayerRecord) {
         const environment = selectedSectorCombatEnvironment();
         if (!environment) return;
-        if (peerIsTraveling(player)) {
-            alert(`${player.name} is traveling and cannot be attacked right now.`);
-            return;
-        }
-        if (player.inBattle) {
-            alert(`${player.name} is already in a battle.`);
-            return;
-        }
         // §17.2: the sector's win-condition decides WHICH game an attack opens.
         // Card/Pet route to that sector's contest table; everything else falls
         // through to the shinobi fight this button has always launched.
@@ -3621,7 +3643,7 @@ function WorldMapContent({
         focusSectorCombat(environment.sector, environment.biome, environment.weather);
         // sectorAttackPlayer owns routing and only navigates after its sealed PvP
         // session request succeeds.
-        sectorAttackPlayer(player);
+        return sectorAttackPlayer(player);
     }
 
     // A Card/Pet contest never needed a co-located opponent — the attacker opens
@@ -3629,13 +3651,14 @@ function WorldMapContent({
     // the war is reachable from the ground it is fought over and not only from
     // the War Map menu.
     function handleOpenSectorContest(garrison = false) {
+        if (!selectedSectorCombatEnvironment() || !capabilityAdmissionAllowed(mutationAvailability("villageWar"))) return;
         if (selectedSector == null) return;
         const screen = beginSectorContest(sectorContestEntryFor(sectorWarContest, selectedSector, character.village, Date.now()), "worldMap", { garrison });
         if (screen) setScreen(screen);
     }
 
     function handleSelectedSectorSleeperAttack(player: PlayerRecord) {
-        if (selectedSector != null && sameSector(currentSector, selectedSector)) attackSleeper(player);
+        if (selectedSector != null && sameSector(currentSector, selectedSector)) return attackSleeper(player);
     }
 
     function handleOpenSectorSigns() {
@@ -3688,14 +3711,6 @@ function WorldMapContent({
 
     function handleHuntSelectedSector() {
         if (selectedSector != null && sameSector(currentSector, selectedSector)) void huntSector(selectedSector);
-    }
-
-    function handleRecoverSelectedSector() {
-        if (selectedSector != null && sameSector(currentSector, selectedSector)) restInSector(selectedSector);
-    }
-
-    function handleLeaveSelectedSector() {
-        setSelectedSector(null);
     }
 
     function triggerCreatorEvent(event: CreatorEvent) {
@@ -4117,30 +4132,8 @@ function WorldMapContent({
             ? activeVillageWarsFor(character.village).find(war => war.warGroundSector === selectedSector)
             : undefined;
         const villageWarEnemy = villageWar?.villages.find(village => village !== character.village);
-        const livePlayersHere = liveSectorPlayers
-            .filter((p) => p.name.toLowerCase() !== character.name.toLowerCase())
-            .filter((p) => sameSector(p.currentSector, selectedSector) && !p.stronghold);
-        // "Sleeping" targets: players who logged out / closed the tab while
-        // standing in THIS wild sector. They come from playerRoster (which carries
-        // every registered player tagged with their last-saved sector) minus
-        // anyone who is currently LIVE here. Previously these offline players were
-        // shown as if they were live and the attack 404'd ("Target not online") —
-        // the ghost-in-the-sector bug. Now they're rendered distinctly with a 💤
-        // badge and routed to the server-authoritative sleeper-KO flow. Capped so
-        // a sector everyone last passed through (e.g. the default sector) can't
-        // flood the panel. A village / Central logout saves currentSector 0, so
-        // those players never appear here.
-        const liveNamesHere = new Set(liveSectorPlayers.map((p) => p.name.toLowerCase()));
-        const sleepingHere: PlayerRecord[] = playerRoster
-            .filter((player) => player.name.toLowerCase() !== character.name.toLowerCase())
-            .filter((player) => player.sleeping === true)
-            .filter((player) => sameSector(player.currentSector, selectedSector))
-            .filter((player) => !liveNamesHere.has(player.name.toLowerCase()))
-            .filter((player) => !isRecentlyStruckDown(player.name))
-            .slice(0, 15);
-        const sectorPlayers: Array<PlayerRecord & { __sleeping?: boolean }> = sameSector(currentSector, selectedSector)
-            ? [...livePlayersHere, ...sleepingHere.map((p) => ({ ...p, __sleeping: true }))]
-            : [];
+        const sectorPlayers = selectedSectorRoster();
+        const sleepingHere = sectorPlayers.filter(player => player.__sleeping);
         // 2D live peers: when enabled (default), peers render as a walking overlay
         // at their real transmitted tile and the in-tile dots are suppressed to avoid
         // drawing each peer twice. Live peers (with real tiles) are read from the
@@ -4224,45 +4217,46 @@ function WorldMapContent({
                 },
             } : {}),
         } : null;
-        const commandPlayers: WorldSectorCommandPlayer[] = sectorPlayers.map((player) => {
-            const sleeping = Boolean(player.__sleeping);
-            const traveling = peerIsTraveling(player);
-            const fighting = Boolean(player.inBattle);
-            const status: WorldSectorCommandPlayer["status"] = sleeping
-                ? "Sleeping"
-                : traveling ? "Traveling" : fighting ? "Fighting" : "Ready";
-            return {
-                target: player,
-                name: player.name,
-                level: player.level,
-                avatarSrc: sharedImages['avatar:' + player.name.toLowerCase()] || (player.character.avatarImage as string) || "",
-                status,
-                sleeping,
-                actionDisabled: traveling || fighting,
-                // Name the game the button will actually open, but only for a
-                // target who is really on the other side of this war — a
-                // bystander village still gets a plain shinobi Attack.
-                attackLabel: sectorEngagementFor({ contest: sectorWarContest, sector: selectedSector, myVillage: character.village, targetVillage: player.village, now: Date.now() }),
-            };
-        });
+        const commandPlayers = selectedSectorPlayerRows();
         const commandHunt: WorldSectorCommandHunt | null = activeHuntMissionForSector && activeHuntTrailForSector ? {
             targetName: activeHuntAiForSector?.name ?? "Target",
             progress: activeHuntTrailForSector.progress,
             requiredTracks: activeHuntTrailForSector.requiredTracks,
             ready: activeHuntReadyForFight,
         } : null;
-        const sectorOverlayWanderers = [
-            ...sectorWanderers,
-            ...courierWanderers,
-            ...bountyHunterWanderers,
-            ...mercWanderers,
-            ...sageWanderers,
-            ...emissaryWanderers,
-            ...storyReckoningWanderers,
-            ...scribeWanderers,
-            ...petMentor.wanderers,
-            ...roamingQuestGivers,
-        ];
+        const sectorOverlayBoss = (() => {
+            if (!isWeeklyBossRoamEnabled() || !roamingBoss?.aiId || !sectorIsCurrent) return null;
+            const roam = weeklyBossRoamState(roamingBoss, serverNow());
+            if (!roam?.active || roam.currentSector !== selectedSector) return null;
+            if (isWandererOnCooldown(character.wandererCooldowns, weeklyBossRoamCooldownId(roamingBoss.weekKey), serverNow())) return null;
+            if ((roamingBoss.attemptsByPlayer?.[character.name.toLowerCase()] ?? 0) >= 3) return null;
+            return {
+                name: roamingBoss.bossName ?? "Weekly Boss",
+                portrait: sharedImages["ai:" + roamingBoss.aiId] || "",
+                onEngage: handleBossEngage,
+            };
+        })();
+        const targetedHunters = bountyHunterWanderers.filter((wanderer) => wanderer.verb === "bountyHunter");
+        const bystanderHunters = bountyHunterWanderers.filter((wanderer) => wanderer.verb === "watch");
+        const pursuingNaturals = sectorWanderers.filter((wanderer) => wanderer.movement === "pursue");
+        const ambientNaturals = sectorWanderers.filter((wanderer) => wanderer.movement !== "pursue");
+        // Priority is danger/current objective → system unlocks → optional
+        // encounters → ambient life. The Weekly Boss consumes one of the three
+        // ordinary slots; hired war mercenaries are appended afterwards by design.
+        const cappedSectorWanderers = capSectorWanderers([
+            targetedHunters,
+            pursuingNaturals,
+            courierWanderers,
+            storyReckoningWanderers,
+            scribeWanderers,
+            sageWanderers,
+            roamingQuestGivers,
+            emissaryWanderers,
+            petMentor.wanderers,
+            bystanderHunters,
+            ambientNaturals,
+        ], sectorOverlayBoss ? 1 : 0);
+        const sectorOverlayWanderers = [...cappedSectorWanderers, ...mercWanderers];
         const sectorOverlayRift = (() => {
             const activeRiftQuest = character.activeRiftQuest;
             if (!activeRiftQuest || selectedSector !== activeRiftQuest.targetSector) return null;
@@ -4297,18 +4291,6 @@ function WorldMapContent({
             if (!isSectorTracesEnabled()) return null;
             const definition = shrineForSector(selectedSector);
             return definition ? { definition, tier: sectorTraces?.shrine?.tier ?? 0 } : null;
-        })();
-        const sectorOverlayBoss = (() => {
-            if (!isWeeklyBossRoamEnabled() || !roamingBoss?.aiId || !sectorIsCurrent) return null;
-            const roam = weeklyBossRoamState(roamingBoss, serverNow());
-            if (!roam?.active || roam.currentSector !== selectedSector) return null;
-            if (isWandererOnCooldown(character.wandererCooldowns, weeklyBossRoamCooldownId(roamingBoss.weekKey), serverNow())) return null;
-            if ((roamingBoss.attemptsByPlayer?.[character.name.toLowerCase()] ?? 0) >= 3) return null;
-            return {
-                name: roamingBoss.bossName ?? "Weekly Boss",
-                portrait: sharedImages["ai:" + roamingBoss.aiId] || "",
-                onEngage: handleBossEngage,
-            };
         })();
         const wandererDialogEmissary = !wandererDialog?.msg && wandererDialog?.w.verb === "legacyQuest"
             ? EMISSARY_BY_SLUG.get(wandererDialog.w.archetype as EmissarySlug)
@@ -4364,6 +4346,32 @@ function WorldMapContent({
                         sleeperPeers={sleeperPeers}
                         onSelectTile={setSectorPlayerPos}
                         onCrossExit={crossSectorExit}
+                        hudLayer={
+                    <SectorHud key={selectedSector}
+                        sector={selectedSector}
+                        present={sectorIsCurrent}
+                        biome={biome}
+                        weather={sectorWeather}
+                        territory={commandTerritory}
+                        gathering={isWildSector(selectedSector) ? sectorPoolViewFor(selectedSector, territory.ownerVillage, character.village) : null} intel={sectorIntelPlate}
+                        order={sectorOrderFor(loadVillageState(character.village).noticePosts, selectedSector)}
+                        villageWarAdmissionOpen={villageWarAdmissionOpen}
+                        traces={sectorTraces}
+                        sectorContest={sectorWarContest} onOpenSectorContest={() => handleOpenSectorContest(false)}
+                        sectorGarrisonReady={sectorContestGarrisonReady(sectorWarContest, Date.now())} onFightSectorGarrison={() => handleOpenSectorContest(true)}
+                        rosterState={rosterState} playerAction={playerAction} onPlayerAction={playerAction.run}
+                        players={commandPlayers}
+                        hunt={commandHunt}
+                        onRaidEnemyVillage={handleSelectedSectorVillageWarRaid}
+                        onRaidControlledSector={handleSelectedSectorControlledRaid}
+                        onOpenSigns={handleOpenSectorSigns}
+                        onOpenShrine={handleOpenSectorShrine}
+                        contract={sectorContract} contractBusy={contractBusy} onClaimContract={() => { void handleClaimContract(); }}
+                        onExplore={handleExploreSelectedSector}
+                        onFindRicherGround={handleFindRicherGround}
+                        onHunt={handleHuntSelectedSector}
+                    />
+                        }
                         overlayLayer={
                             <>
                             {!vaultRaid && <WorldSectorOverlayLayer
@@ -4662,33 +4670,7 @@ function WorldMapContent({
                         ) : null}
                     />
 
-                    <WorldSectorCommandPanel
-                        sector={selectedSector}
-                        present={sectorIsCurrent}
-                        biome={biome}
-                        weather={sectorWeather}
-                        territory={commandTerritory}
-                        gathering={isWildSector(selectedSector) ? sectorPoolViewFor(selectedSector, territory.ownerVillage, character.village) : null} intel={sectorIntelPlate}
-                        order={sectorOrderFor(loadVillageState(character.village).noticePosts, selectedSector)}
-                        villageWarAdmissionOpen={villageWarAdmissionOpen}
-                        traces={sectorTraces}
-                        hasLivePlayers={livePlayersHere.length > 0} sectorContest={sectorWarContest} onOpenSectorContest={() => handleOpenSectorContest(false)}
-                        sectorGarrisonReady={sectorContestGarrisonReady(sectorWarContest, Date.now())} onFightSectorGarrison={() => handleOpenSectorContest(true)}
-                        players={commandPlayers}
-                        hunt={commandHunt}
-                        onRaidEnemyVillage={handleSelectedSectorVillageWarRaid}
-                        onRaidControlledSector={handleSelectedSectorControlledRaid}
-                        onOpenSigns={handleOpenSectorSigns}
-                        onOpenShrine={handleOpenSectorShrine}
-                        onStrikeSleeper={handleSelectedSectorSleeperAttack}
-                        onAttackPlayer={handleSelectedSectorPlayerAttack}
-                        contract={sectorContract} contractBusy={contractBusy} onClaimContract={() => { void handleClaimContract(); }}
-                        onExplore={handleExploreSelectedSector}
-                        onFindRicherGround={handleFindRicherGround}
-                        onHunt={handleHuntSelectedSector}
-                        onRecover={handleRecoverSelectedSector}
-                        onLeave={handleLeaveSelectedSector}
-                    />
+
                 </div>
                 {codexRevealOverlay}
             </div>

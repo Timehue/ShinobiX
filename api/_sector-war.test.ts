@@ -350,7 +350,7 @@ describe('sector-war: durable battle receipts', () => {
         assert.equal(replay.session.appliedBattles?.length, 1);
     });
 
-    it('never evicts an embedded authority receipt at the cap', () => {
+    it('never evicts an in-row receipt at the cap — the next battle overflows instead of failing', () => {
         const receipts = Array.from({ length: SECTOR_WAR_BATTLE_RECEIPT_CAP }, (_, index) => ({
             battleId: `old-${index}`,
             attackerWon: true,
@@ -364,12 +364,20 @@ describe('sector-war: durable battle receipts', () => {
             roleSwing: 5,
             by: 'aria',
         });
-        assert.throws(() => recordSectorWarBattleOutcome(projected, {
+        // The 201st battle used to throw sector-war-battle-receipt-ledger-full.
+        const next = recordSectorWarBattleOutcome(projected, {
             battleId: 'new-battle',
             attackerWon: true,
             by: 'aria',
             at: NOW + SECTOR_WAR_BATTLE_RECEIPT_CAP + 1,
-        }), /receipt-ledger-full/);
+        });
+        assert.equal(next.receipt.points, 5, 'the overflow battle keeps its points');
+        assert.deepEqual(next.session.appliedBattles, receipts, 'the in-row mirror is neither trimmed nor grown');
+        assert.equal(next.session.battleLedger?.count, SECTOR_WAR_BATTLE_RECEIPT_CAP + 1);
+        assert.deepEqual(next.session.battleLedger?.pending.map((r) => r.battleId), ['new-battle'],
+            'the overflow receipt rides the write-ahead list until its external copy lands');
+        assert.equal(findSectorWarBattleReceipt(next.session, 'new-battle')?.points, 5);
+        // An old in-row receipt still dedupes.
         const replay = recordSectorWarBattleOutcome(projected, {
             battleId: 'old-199',
             attackerWon: true,
@@ -377,6 +385,7 @@ describe('sector-war: durable battle receipts', () => {
             at: NOW + SECTOR_WAR_BATTLE_RECEIPT_CAP + 1,
         });
         assert.equal(replay.receipt.battleId, 'old-199');
+        assert.equal(replay.receipt.points, 1);
         assert.equal(replay.session.appliedBattles?.length, SECTOR_WAR_BATTLE_RECEIPT_CAP);
     });
 
@@ -419,8 +428,9 @@ describe('sector-war: client projection', () => {
         const recorded = recordSectorWarBattleOutcome(out, { battleId: 'b1', attackerWon: true, by: 'aria', at: NOW + 1 });
         const view = projectSectorWarForClient(recorded.session);
         assert.equal((view as Record<string, unknown>).appliedBattles, undefined, 'receipts are server bookkeeping');
+        assert.equal((view as Record<string, unknown>).battleLedger, undefined, 'so is the aggregate ledger (names, pending receipts)');
         // Every OTHER field survives — the client renders score, clock, and garrison state from these.
-        const { appliedBattles: _receipts, ...expected } = recorded.session;
+        const { appliedBattles: _receipts, battleLedger: _ledger, ...expected } = recorded.session;
         assert.deepEqual(view, expected);
     });
 });

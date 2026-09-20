@@ -1,6 +1,18 @@
 export const ACTIVITY_HORIZONS = ['now', 'today', 'this-week', 'long-term'] as const;
 export type ActivityHorizon = typeof ACTIVITY_HORIZONS[number];
 export type ActivityEligibility = 'eligible' | 'blocked' | 'complete';
+export type ActivityReadiness = 'ready' | 'preparable' | 'waiting' | 'complete' | 'unknown' | 'unavailable';
+
+/** Existing application destinations that Activity Spine may emit. Keeping
+ * this shared makes a server recommendation and the client allowlist one
+ * compile-time contract instead of two independently maintained lists. */
+export const ACTIVITY_SCREENS = [
+    'hospital', 'logbook', 'clan', 'battleTowers', 'hollowGateShrine', 'endlessTower',
+    'training', 'profile', 'missions', 'jutsuTraining', 'centralHub', 'storyHall',
+    'arenaDistrict', 'pets', 'petShowdown', 'petColiseum', 'petLadder', 'shinobiTiles',
+    'hallOfLegends', 'professions', 'professionPicker', 'worldMap',
+] as const;
+export type ActivityScreen = typeof ACTIVITY_SCREENS[number];
 
 export const MASTERY_FOCUS_OPTIONS = [
     { id: 'auto', label: 'Auto' },
@@ -29,12 +41,20 @@ export type ActivitySpineItem = {
     title: string;
     why: string;
     commitment: string;
-    screen: string;
-    /** A validated, one-shot section hint consumed by an existing destination. */
-    section?: 'clan-boss' | 'card-deck' | 'card-play' | 'crafter' | 'legacy' | 'stats';
+    screen: ActivityScreen;
+    /** A validated, one-shot section hint consumed by an existing destination.
+     *  `clan-goals` is the Clan Hall's Missions tab — the clan's shared
+     *  objectives, their progress and their rewards. */
+    section?: 'clan-boss' | 'clan-goals' | 'card-deck' | 'card-play' | 'crafter' | 'legacy' | 'stats';
     cta: string;
     /** Eligibility of this CTA, not necessarily of the eventual goal it prepares. */
     eligibility: ActivityEligibility;
+    /** Internal admission projection used to keep an eventual goal separate
+     * from the best useful action right now. Older clients may ignore it. */
+    readiness?: ActivityReadiness;
+    /** The saved focus is unchanged; this card is a deliberately optional
+     * immediate alternative while that focus waits. */
+    optionalAlternative?: boolean;
     /** Prerequisite guidance may accompany an eligible remediation CTA. */
     blocker?: string;
     reward?: string;

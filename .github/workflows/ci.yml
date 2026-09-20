@@ -23,7 +23,6 @@ defaults:
     shell: bash
 
 env:
-  NODE_VERSION: 22.23.1
   VITE_SENTRY_DSN: https://public@example.invalid/1
   VITE_SENTRY_RELEASE: ci
   VITE_BUILD_COMMIT: ${{ github.sha }}
@@ -61,7 +60,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -117,7 +116,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -167,7 +166,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: package-lock.json
       - name: Initialize evidence
@@ -221,7 +220,7 @@ jobs:
           tar -czf .ci-artifacts/server/server-dist.tgz dist
           cd .ci-artifacts/server
           sha256sum server-dist.tgz > server-dist.tgz.sha256
-          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\nnode=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "${{ env.NODE_VERSION }}" > provenance.txt
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\nnode=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$(node -v)" > provenance.txt
       - name: Upload server artifact
         uses: actions/upload-artifact@v7
         with:
@@ -252,7 +251,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -316,7 +315,7 @@ jobs:
           tar -czf .ci-artifacts/client/client-dist.tgz shinobij.client/dist
           cd .ci-artifacts/client
           sha256sum client-dist.tgz > client-dist.tgz.sha256
-          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\nnode=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "${{ env.NODE_VERSION }}" > provenance.txt
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\nnode=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$(node -v)" > provenance.txt
       - name: Upload client artifact
         uses: actions/upload-artifact@v7
         with:
@@ -359,7 +358,7 @@ jobs:
           exit 1
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
       - name: Download server artifact
         uses: actions/download-artifact@v8
         with:
@@ -396,7 +395,7 @@ jobs:
           tar -czf .ci-artifacts/release/release-dist.tgz dist shinobij.client/dist
           cd .ci-artifacts/release
           sha256sum release-dist.tgz > release-dist.tgz.sha256
-          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\nnode=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "${{ env.NODE_VERSION }}" > provenance.txt
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\nnode=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$(node -v)" > provenance.txt
       - name: Upload joined release artifact
         uses: actions/upload-artifact@v7
         with:
@@ -427,7 +426,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: package-lock.json
       - name: Initialize evidence
@@ -484,7 +483,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: package-lock.json
       - name: Initialize evidence
@@ -546,7 +545,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: shinobij.client/package-lock.json
       - name: Initialize evidence
@@ -613,6 +612,10 @@ jobs:
         run: node scripts/stronghold-browser-qa.mjs --resources --output=../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-3/stronghold-resources 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-3/stronghold-resources.log
       - name: Cross-browser responsive and accessibility smoke
         run: npm run test:e2e --prefix shinobij.client -- --shard=${{ matrix.shard }}/3 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-3/playwright.log
+      - name: Sector controls and spectator integration
+        if: ${{ matrix.shard == 1 }}
+        working-directory: shinobij.client
+        run: node node_modules/@playwright/test/cli.js test --config playwright.sector-hud.config.ts --project chromium 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-3/sector-hud.log
       - name: Retain responsive browser evidence
         if: always()
         continue-on-error: true
@@ -676,7 +679,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -773,7 +776,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: shinobij.client/package-lock.json
       - name: Initialize evidence
@@ -829,12 +832,12 @@ jobs:
     runs-on: ubuntu-latest
     # The recovery matrix exercises real admission timers on both viewports in
     # addition to the existing economy, Academy and route journeys.
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: shinobij.client/package-lock.json
       - name: Initialize evidence
@@ -882,6 +885,8 @@ jobs:
         run: npm run test:e2e:live --prefix shinobij.client -- first-defeat-recovery-express.spec.ts daily-login-recovery-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --workers=2 --output=test-results/defeat-recovery-ci 2>&1 | tee .ci-evidence/e2e-village-stores/defeat-recovery.log
       - name: Live Express authored missions on desktop and mobile
         run: npm run test:e2e:live --prefix shinobij.client -- authored-missions-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --output=test-results/authored-missions-ci 2>&1 | tee .ci-evidence/e2e-village-stores/authored-missions.log
+      - name: Live Express Exchange and sector-war player journeys
+        run: npm run test:e2e:live --prefix shinobij.client -- sunscar-exchange-express.spec.ts sector-war-express.spec.ts --project=chromium-desktop-live --output=test-results/economy-war-journeys-ci 2>&1 | tee .ci-evidence/e2e-village-stores/economy-war-journeys.log
       - name: Retain Village Stores browser evidence
         if: always()
         continue-on-error: true

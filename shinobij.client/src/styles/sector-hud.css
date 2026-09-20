@@ -1,0 +1,188 @@
+@import './sector-info.css';
+
+/* Painted sector controls. Actors retain the existing measured grid parent. */
+.map-instance .instance-frame.sector-instance-frame {
+    grid-template-columns: minmax(0, 1fr) !important; grid-template-areas: "scene" !important;
+    padding: 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important; gap: 0;
+}
+.map-instance .instance-frame.sector-instance-frame > main.tile-scene.sector-stage-panel {
+    position: relative; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto;
+    align-items: start; gap: 0; border: 0 !important; background: transparent !important; box-shadow: none !important;
+}
+.map-instance .instance-frame.sector-instance-frame > main.tile-scene > .sector-image-map {
+    grid-column: 1; grid-row: 1; inline-size: min(100%, var(--sector-board-size, 100%)); border-radius: 8px 8px 0 0 !important;
+}
+.sector-hud {
+    --hud-ink: #171319; --hud-border: #654b54; --hud-muted: #c2b6b9;
+    grid-column: 1; grid-row: 2; position: relative; z-index: 30; color: #f3ece4;
+    inline-size: 100%; justify-self: center; box-sizing: border-box;
+    background: #171319 url('/ui/sector-ink-panel-v1.webp') center / 100% 100%;
+    border: 1px solid #805e60; border-radius: 0 0 8px 8px; font-size: 14px; line-height: 1.4; text-align: left;
+}
+.sector-hud-top { display: grid; gap: 0; }
+.sector-hud-identity { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 10px 12px; }
+.sector-hud-help-slot { display: none; }
+.sector-hud-heading { position: relative; display: grid; gap: 3px; min-width: 0; }
+.sector-hud-heading > strong { color: #f4ece1; font-family: var(--font-display); font-size: 17px; font-weight: 500; line-height: 1.25; }
+.sector-hud-region { color: #c8bab9; font-size: 9px; line-height: 1.4; letter-spacing: .015em; text-transform: uppercase; }
+.sector-hud-location { display: grid; justify-items: end; gap: 3px; font-size: 11px; }
+.sector-hud-location > b { color: #dec49e; font-size: 10px; font-weight: 600; }
+.sector-hud-weather { display: grid; color: #e3dce0; }
+.sector-hud-weather small, .sector-hud-weather .sector-sky-forecast { display: none; }
+.sector-hud-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 0 10px 10px; }
+.map-instance .sector-hud button {
+    display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+    min-width: 44px; min-height: 44px; max-width: 100%; margin: 0; padding: 8px 5px;
+    border: 1px solid var(--hud-border); border-radius: 3px; background: #211a22; box-shadow: inset 0 1px 0 #ffffff06;
+    color: #f0e7e2; font: inherit; font-size: 12px; font-weight: 600; line-height: 1.25;
+    text-transform: none; white-space: normal; letter-spacing: normal; cursor: pointer; touch-action: manipulation;
+    transition: background-color 140ms ease, border-color 140ms ease;
+}
+.map-instance .sector-hud button svg { flex-shrink: 0; width: 16px; height: 16px; }
+.map-instance .sector-hud button.is-open { background: #392732; border-color: #b18a88; }
+.map-instance .sector-hud button:active:not(:disabled) { background: #4b303c; }
+.map-instance .sector-hud button:focus-visible { outline: 2px solid #ecd6ae; outline-offset: 2px; }
+.map-instance .sector-hud button:disabled { opacity: .55; cursor: default; }
+.sector-hud-info small { display: block; margin-top: 4px; color: #dec49e; font-size: 10px; }
+.sector-hud-chevron { display: none; margin-left: auto; font-size: 17px; line-height: 1; color: #d3b9b1; }
+.map-instance .sector-hud .sector-hud-explore {
+    display: flex; flex-direction: column; gap: 3px;
+    background: linear-gradient(110deg, #713442e8, #421e2dec), url('/ui/sector-ink-panel-v1.webp') center / cover;
+    border-color: #b68177; color: #fff0e5; box-shadow: inset 0 1px 0 #f3c3ac30;
+}
+.sector-hud-explore small { display: none; }
+.sector-hud-context { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 0 12px 10px; }
+.sector-hud-context:empty { display: none; }
+.map-instance .sector-hud-context > button { background: #221821; border-color: #79535e; padding: 6px 8px; }
+.map-instance .sector-hud-context > .sector-hud-contest { color: #f3c7b4; border-color: #a87868; }
+.sector-hud-warning { font-size: 12px; color: #ffd1a4; }
+.sector-hud-summary { color: #c7b8bf; font-size: 11px; padding-inline: 2px; }
+.map-instance .sector-peers-overlay.is-crowded .sector-peer-label { display: none !important; }
+.sector-stage-panel .sector-avatar-body { container-type: inline-size; }
+.sector-stage-panel .sector-avatar-initials { font-size: clamp(4px, 44cqw, 20px); }
+.map-instance .sector-stage-panel .sector-image-map .sector-player-tile {
+    background: #efc78910 !important; border-color: #dec09288 !important; outline: none !important; box-shadow: inset 0 0 0 1px #ead2a9b3 !important;
+}
+.map-instance .sector-stage-panel .sector-image-map .transparent-sector-tile:focus-visible {
+    outline: 2px solid #edd3aa !important; outline-offset: -2px !important; box-shadow: inset 0 0 0 3px #18121bb3 !important;
+}
+.sector-hud-panel {
+    position: absolute; right: 0; bottom: calc(100% + 6px); width: min(352px, 100%); max-height: min(480px, 60dvh); min-height: 0;
+    display: flex; flex-direction: column; color: #f3ece4; background: #171319 url('/ui/sector-ink-panel-v1.webp') center / cover;
+    border: 1px solid #a5807a; border-radius: 5px; box-shadow: 0 12px 28px #0009; overflow: hidden; outline: none;
+    animation: sector-hud-arrive 140ms ease-out;
+}
+.sector-hud-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 6px 4px 14px; border-bottom: 1px solid #604550; flex-shrink: 0; }
+.sector-hud-panel-heading > strong { font-family: var(--font-display); font-size: 16px; font-weight: 500; }
+.map-instance .sector-hud-panel-heading button { background: transparent; border-color: transparent; font-size: 24px; padding: 4px; }
+.sector-hud-panel-scroll { overflow: auto; overscroll-behavior: contain; touch-action: pan-y; scrollbar-gutter: stable; min-height: 0; padding: 4px 10px 10px; }
+.sector-hud .sector-roster-note { margin: 8px 2px 12px; font-size: 13px; line-height: 1.5; color: #d0c3ca; }
+.sector-roster-list { list-style: none; padding: 0; margin: 0; }
+.sector-player-row { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; align-items: center; gap: 6px 9px; padding: 10px 0; border-top: 1px solid #45323e; content-visibility: auto; contain-intrinsic-block-size: auto 44px; }
+.sector-roster-portrait { position: relative; width: 38px; height: 38px; display: grid; place-items: center; overflow: hidden; border: 1px solid #a18a75; border-radius: 4px; background: #31222d; color: #ead497; font-size: 13px; font-weight: 700; }
+.sector-roster-portrait img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; }
+.sector-roster-person { display: grid; gap: 3px; min-width: 0; }
+.sector-roster-person > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; color: #f2eeeb; }
+.sector-roster-person > span { display: flex; flex-wrap: wrap; gap: 2px 7px; font-size: 12px; color: #cdbfc8; }
+.sector-roster-status.is-ready { color: #b8d5c5; }
+.sector-roster-status.is-fighting { color: #efb2b0; }
+.sector-roster-status.is-traveling, .sector-roster-status.is-sleeping { color: #e4ca8c; }
+.map-instance .sector-hud .sector-roster-action { border-color: #a67477; background: #4b2736; color: #f8d3cc; padding: 7px 9px; max-width: 110px; }
+.map-instance .sector-hud .sector-roster-action.is-spectate { background: #302636; border-color: #9d879c; color: #e5d5eb; }
+.sector-nearby-scroll:focus-visible { outline: 2px solid #ecd6ae; outline-offset: -3px; }
+@media (hover: hover) {
+    .map-instance .sector-hud button:hover:not(:disabled) { background: #392732; border-color: #b18a88; }
+    .map-instance .sector-hud .sector-hud-explore:hover:not(:disabled) { background: #82414e; border-color: #d7a79b; }
+    .map-instance .sector-hud .sector-roster-action:hover:not(:disabled) { background: #663847; }
+}
+.sector-hud .sector-row-feedback { grid-column: 2 / -1; margin: 0; font-size: 12px; line-height: 1.5; color: #e8c0a3; }
+.sector-hud .sector-details-body { display: grid; gap: 12px; padding: 8px 0; background: transparent; }
+.sector-hud .sector-panel-heading { padding: 0; border: 0; background: transparent; box-shadow: none; }
+.map-instance .sector-hud .sector-details-body .sector-panel-card { padding: 12px; border: 1px solid #624c59; border-radius: 4px; background: #201821; box-shadow: none; }
+.map-instance .sector-hud .sector-details-body p, .map-instance .sector-hud .sector-details-body small { font-size: 13px; line-height: 1.5; }
+.map-instance .sector-hud .sector-details-body button { min-height: 44px; font-size: 13px; }
+.map-instance .sector-hud .sector-details-body h4 { font-size: 14px; }
+.sector-nearby { height: var(--sector-nearby-height, 0px); min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.sector-nearby-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 10px 12px 7px; border-top: 1px solid #684b55; }
+.sector-nearby-heading > strong { font: 500 17px/1.3 var(--font-display); }
+.sector-nearby-heading > span { color: #c8b6bc; font-size: 11px; }
+.sector-nearby-scroll { flex: 1; min-height: 0; scrollbar-width: thin; scrollbar-color: #997784 #211a22; overflow: auto; overscroll-behavior: contain; touch-action: pan-y; padding: 0 12px 8px; scrollbar-gutter: stable; }
+.sector-nearby .sector-player-row { padding-block: 8px; }
+.sector-nearby-conditions { font-size: 13px; color: #d5c8cc; }
+.sector-nearby-conditions > p { margin: 8px 0 18px; line-height: 1.5; }
+.sector-routes { text-align: left; color: #e8ded5; }
+.sector-routes > strong { font-family: var(--font-display); font-size: 17px; font-weight: 500; }
+.sector-routes ul { display: grid; gap: 10px 20px; margin: 10px 0 0; padding: 0; list-style: none; }
+.sector-routes li { display: grid; gap: 3px; font-size: 13px; }
+.sector-routes li > span { color: #c5abb4; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
+.sector-routes li > b { font-weight: 500; }
+.sector-stage-routes { display: none; }
+@keyframes sector-hud-arrive { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+@media (min-width: 980px), (min-width: 560px) and (max-height: 450px) {
+    .map-instance .instance-frame.sector-instance-frame > main.tile-scene.sector-stage-panel {
+        grid-template-columns: minmax(0, 1fr) clamp(250px, 27%, 300px); grid-template-rows: auto; gap: 16px;
+    }
+    .map-instance .instance-frame.sector-instance-frame > main.tile-scene > .sector-image-map { inline-size: min(100%, var(--sector-board-size, calc(100dvh - 96px))); border-radius: 8px !important; }
+    .sector-hud { grid-column: 2; grid-row: 1; border-radius: 5px; inline-size: 100%; }
+    .sector-hud-panel { right: calc(100% + 12px); top: 0; bottom: auto; width: 352px; }
+}
+@media (min-width: 980px) {
+    .map-instance .instance-frame.sector-instance-frame > main.tile-scene.sector-stage-panel {
+        grid-template-rows: auto minmax(0, 1fr); min-block-size: var(--sector-stage-height, 0px); row-gap: 12px;
+    }
+    .sector-hud { grid-row: 1 / 3; }
+    .sector-stage-panel[data-sector-routes="true"] > .sector-stage-routes {
+        display: block; grid-column: 1; grid-row: 2; padding: 14px 18px; align-self: stretch;
+        border: 1px solid #644b54; border-radius: 5px; background: #171319 url('/ui/sector-ink-panel-v1.webp') center / cover;
+        max-height: 180px; overflow: auto; box-sizing: border-box;
+    }
+    .sector-stage-routes ul { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+    .sector-hud-identity { display: block; padding: 0; }
+    .sector-hud-heading { padding: 18px 18px 16px; gap: 8px; }
+    .sector-hud-heading > strong { font-size: 25px; line-height: 1.25; }
+    .sector-hud-region { font-size: 10px; letter-spacing: .04em; }
+    .sector-hud-location { margin: 0 18px 18px; padding-top: 14px; border-top: 1px solid #66484e; display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+    .sector-hud-location > b { order: 2; font-size: 10px; }
+    .sector-hud-weather { font-size: 13px; gap: 3px; }
+    .sector-hud-weather small { display: block; color: #c1aeb5; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
+    .sector-hud-weather .sector-sky-forecast { display: block; margin-top: 4px; color: #c2b6bf; font-size: 11px; }
+    .sector-hud-controls { grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 18px 18px; }
+    .sector-hud-controls > .sector-hud-explore { grid-column: 1 / -1; }
+    .sector-hud-controls > .sector-hud-info { grid-column: 1 / -1; justify-content: space-between; padding-inline: 12px; }
+    .map-instance .sector-hud-controls > .sector-hud-explore { min-height: 64px; font-family: var(--font-display); font-size: 20px; }
+    .sector-hud-explore small { display: block; color: #e8c9c4; font-family: var(--font-body); font-size: 11px; font-weight: 400; }
+    .sector-hud-chevron { display: block; }
+    .sector-hud-context { margin: 0 18px 14px; }
+}
+@media (max-width: 350px) {
+    .sector-hud-identity { padding: 8px; gap: 6px; }
+    .sector-hud-heading > strong { font-size: 15px; }
+    .sector-hud-region { font-size: 8px; }
+    .sector-hud-weather, .sector-hud-location > b { font-size: 10px; }
+    .sector-hud-controls { padding: 0 6px 8px; gap: 4px; }
+    .map-instance .sector-hud-controls > button { font-size: 11px; padding-inline: 3px; }
+}
+@media (max-width: 559px), (max-width: 979px) and (min-height: 451px) {
+    body:has(> .screen-hint-worldMap) .sector-hud-identity { grid-template-columns: minmax(0, 1fr) auto 44px; }
+    body:has(> .screen-hint-worldMap) .sector-hud-help-slot { display: block; width: 44px; height: 44px; }
+    body:not(.in-battle):not(:has(> .combat-instance)):has(.sector-stage-panel) > .screen-hint-banner.screen-hint-collapsed.screen-hint-worldMap {
+        position: absolute !important; top: var(--sector-tip-top) !important; left: var(--sector-tip-left) !important; right: auto !important; bottom: auto !important;
+    }
+    body:has(.sector-stage-panel) > .screen-hint-worldMap .screen-hint-battle-trigger {
+        width: 44px; padding: 0 !important; border-color: #795962 !important; border-radius: 3px !important; background: #211a22 !important; color: #e8d1bd !important; box-shadow: none !important;
+    }
+    body:has(.sector-stage-panel) > .screen-hint-worldMap .screen-hint-battle-trigger > span:last-child { display: none; }
+}
+@media (max-height: 450px) and (min-width: 560px) and (max-width: 979px) {
+    .map-instance .instance-frame.sector-instance-frame > main.tile-scene.sector-stage-panel { grid-template-columns: minmax(0, var(--sector-board-size, 260px)) 300px; gap: 12px; justify-content: center; }
+    .sector-hud-identity { min-height: 0; padding-block: 8px; }
+    .sector-hud-heading, .sector-hud-location { position: relative; }
+    .sector-hud-controls { grid-template-columns: 1fr 1fr; padding-bottom: 12px; gap: 6px; }
+    .map-instance .sector-hud-controls > button { min-height: 46px; font-size: 13px; }
+    .sector-hud-context { margin-bottom: 12px; }
+    .sector-hud-panel { width: min(352px, calc(100vw - 380px)); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .sector-hud-panel { animation: none; }
+    .map-instance .sector-hud button { transition: none; }
+}

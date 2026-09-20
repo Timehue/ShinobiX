@@ -5,7 +5,6 @@ import type { Wanderer } from "./wanderers";
 import { villageForOutskirtsSector } from "../data/sectors";
 import { defaultVnPortrait } from "./vn";
 import type { StoryReckoning, StoryReckoningPage } from "../data/story-reckonings";
-import { storyFieldJourney } from "../../../shared/story-field-work";
 import { storyFieldAftermathEvent, storyFieldBackdrop, storyFieldPages, storyFieldReckoningRedeemed } from "./story-field-work";
 import { readStoryFieldContent } from "./story-field-content-loader";
 
@@ -41,10 +40,14 @@ export function storyReckoningEligible(character: Character, quest: StoryReckoni
 export function visibleStoryReckonings(character: Character, sector: number): Wanderer[] {
     const village = villageForOutskirtsSector(sector);
     if (!village) return [];
+    const activeId = character.activeStoryReckoning?.id;
     return readStoryFieldContent().reckonings
         .filter((quest) => (quest.crossVillage === true || quest.village === village)
-            && (storyReckoningEligible(character, quest) || (storyFieldJourney(quest.id)
-                && ((character.storyTraits ?? []).includes(quest.completionTrait) || storyFieldReckoningRedeemed(character, quest.id)))))
+            && storyReckoningEligible(character, quest))
+        .sort((a, b) => (Number(b.id === activeId) - Number(a.id === activeId))
+            || (b.levelReq - a.levelReq)
+            || a.id.localeCompare(b.id))
+        .slice(0, 1)
         .map((quest) => synthStoryReckoningWanderer(quest, sector, character));
 }
 
@@ -64,6 +67,7 @@ export function synthStoryReckoningWanderer(quest: StoryReckoning, sector: numbe
         level: quest.levelReq,
         homeTile: home,
         waypoints: [home],
+        movement: "stationary",
         greeting,
         tellTint: "#c084fc",
         avatarKey: quest.npcName.includes("Mira") ? "pilgrim" : "sage",

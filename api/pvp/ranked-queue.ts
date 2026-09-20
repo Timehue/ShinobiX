@@ -220,7 +220,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Serialize join/leave/poll against the shared QUEUE_KEY blob so
             // two concurrent writers can't get→filter→push→set and silently
             // drop one of the writes. Self-healing on next poll (the dropped
-            // entry re-queues), so this is defense-in-depth.
+            // entry re-queues), so this is defense-in-depth. failClosed matches
+            // every sibling queue (pet-ranked-queue.ts, _ranked-2v2.ts) — without
+            // it, sustained contention would fall through and run this
+            // read-modify-write UNLOCKED instead of throwing a retryable 500.
             const out = await withKvLock<{ status: number; body: Record<string, unknown> }>(QUEUE_KEY, async () => {
                 const queue = await kv.get<QueueEntry[]>(QUEUE_KEY) ?? [];
                 const now = Date.now();
@@ -347,7 +350,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
 
                 return { status: 400, body: { error: 'Invalid action.' } };
-            });
+            }, { failClosed: true });
             return res.status(out.status).json({
                 enabled: playerRankedV2AdmissionsEnabled(),
                 ...out.body,

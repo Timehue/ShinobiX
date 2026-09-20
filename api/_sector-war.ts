@@ -24,6 +24,7 @@
  * transform a resolved battle applies, and settlement. IO-free.
  */
 
+import { isDeepStrictEqual } from 'node:util';
 import { WIN_CONDITIONS, type WinCondition } from './_war-state.js';
 import { GARRISON_POINTS_CAP_FED, unfedStructureMultiplier, utcDay } from './_village-stores.js';
 import { SECTOR_WAR_WR, discountedWrCost } from './_war-economy.js';
@@ -68,9 +69,19 @@ export interface SectorWarSession {
     /** When a LIVE-player battle last resolved. Drives the garrison fallback:
      *  distinct from `updatedAt`, which AI battles refresh too. */
     lastLiveBattleAt?: number;
-    /** Durable receipts for every scored battle (idempotence, the garrison cap,
-     *  and the settlement capture credit). */
+    /** In-row receipts for the FIRST SECTOR_WAR_BATTLE_RECEIPT_CAP battles of
+     *  this contest instance, newest first. This was the whole ledger before
+     *  the overflow ledger existed and it keeps that exact shape so a release
+     *  that predates `battleLedger` still reads a complete ledger for a war
+     *  under the cap (and fails closed at the cap, exactly as it always did).
+     *  It is never trimmed and never grows past the cap; later battles live in
+     *  external per-battle receipts (see `battleLedger`). */
     appliedBattles?: SectorWarBattleReceipt[];
+    /** Compact aggregate of EVERY battle receipt of this contest instance
+     *  (in-row and external) — see SectorWarBattleLedger. Absent on rows no
+     *  ledger-aware writer has touched yet; readers then derive the same
+     *  values from `appliedBattles`, which is complete for such rows. */
+    battleLedger?: SectorWarBattleLedger;
     // ── Village Stores (api/_village-stores.ts; written by the daily pass) ──
     /** False when a participant's provisions could not cover the war today
      *  (undefined = not evaluated yet → treated as fed). Unfed defender → its
@@ -118,7 +129,164 @@ export interface SectorWarBattleReceipt {
     at: number;
 }
 
+/**
+ * How many receipts ride IN the contest row (`appliedBattles`).
+ *
+ * This used to be a hard ceiling: the 201st battle of a war threw
+ * `sector-war-battle-receipt-ledger-full`, and because the PvP continuation is
+ * part of the terminal reward barrier, every later sector battle in that war
+ * also stalled both fighters' PvP settlement. It is now only the size of the
+ * in-row compatibility mirror. Battles past it are scored normally and keep
+ * their exactly-once evidence in an external per-battle receipt
+ * (`sectorWarBattleReceiptKey`), with the war-wide aggregates in
+ * `battleLedger`. The number stays 200 on purpose: it is the ceiling a release
+ * without the overflow ledger enforces, so that release sees a complete
+ * ledger below it and refuses to score at it rather than scoring blind.
+ */
 export const SECTOR_WAR_BATTLE_RECEIPT_CAP = 200;
+
+/**
+ * Upper bound on `battleLedger.pending` a reader will accept. A writer drains
+ * every pending receipt before it commits a new one, so a healthy row carries at
+ * most one; anything near this bound is corruption, not load.
+ */
+export const SECTOR_WAR_LEDGER_PENDING_CAP = 32;
+
+/**
+ * How long an external battle receipt outlives its contest's scheduled end.
+ *
+ * A receipt must exist for as long as anything can still deliver that battle
+ * to a contest that could still score it. The longest delivery horizon is a
+ * world-PvP continuation: the registration token lives SESSION_TTL +
+ * PVP_TERMINAL_REPLAY_TTL (~48h) from registration, and the terminal recovery
+ * snapshot and the resolution receipt 48h from the end of the fight. A
+ * battle can only score while its contest is unsettled, and settlement runs
+ * on every war-map poll plus the daily pass. Seven days past `endsAt` covers
+ * all of that several times over, and replays of an already-applied PvP
+ * battle can still prove their receipt after a defended war's row expires
+ * (that row lives only 24h past settlement).
+ */
+export const SECTOR_WAR_BATTLE_RECEIPT_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * War-wide aggregates of every battle receipt of ONE contest instance.
+ *
+ * The in-row mirror (`appliedBattles`) stops at SECTOR_WAR_BATTLE_RECEIPT_CAP,
+ * so everything the old code derived by walking the whole ledger is kept here
+ * instead, updated in the SAME compare-and-set that moves the tally:
+ *   - `garrisonPoints`  → the garrison cap (garrisonPointsInWar)
+ *   - `lastGarrisonAt`  → the Card/Pet garrison re-form window
+ *   - `contributors`    → the settlement capture credit (distinct attacker-side
+ *                         winners — bounded by the attacking village's roster,
+ *                         never by the number of battles)
+ *   - `count`           → how many receipts exist (> mirror length ⇒ some live
+ *                         only externally, so dedupe must consult them)
+ *
+ * `pending` is the write-ahead half: a receipt enters it in the same CAS that
+ * applies its points, and leaves it only after its external copy is confirmed.
+ * A crash anywhere after that CAS therefore leaves the receipt in the row, and
+ * the next writer (or settlement) finishes the external write — the battle can
+ * never be applied twice or lose its evidence in between.
+ */
+export interface SectorWarBattleLedger {
+    version: 1;
+    count: number;
+    garrisonPoints: number;
+    lastGarrisonAt: number;
+    contributors: string[];
+    pending: SectorWarBattleReceipt[];
+    /** Every `appliedBattles` entry has a confirmed external copy (or is in
+     *  `pending`). False after initialising from a row an older writer built;
+     *  the terminal drain externalises the mirror before the row can expire. */
+    mirrorExternalized: boolean;
+    /** `appliedBattles.length` when this ledger was last written. A mismatch
+     *  means a writer that does not know this ledger changed the mirror, so the
+     *  aggregates are rebuilt rather than trusted. */
+    mirrorCount: number;
+}
+
+function parseSectorWarBattleReceiptEntry(entry: unknown, legacyFields: boolean): SectorWarBattleReceipt {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+        throw new Error('sector-war-battle-receipt-ledger-invalid');
+    }
+    const value = entry as Record<string, unknown>;
+    const allowed = new Set([
+        'battleId', 'attackerWon', 'points', 'by', 'garrison', 'at',
+        // Pre-scored-model receipt fields retained for bounded migration.
+        ...(legacyFields ? ['hpDealt', 'hpRegen'] : []),
+    ]);
+    if (Object.keys(value).some((key) => !allowed.has(key))) {
+        throw new Error('sector-war-battle-receipt-ledger-invalid');
+    }
+    const battleId = typeof value.battleId === 'string' ? value.battleId.trim() : '';
+    const currentShape = value.points !== undefined;
+    const legacyShape = !currentShape && (value.hpDealt !== undefined || value.hpRegen !== undefined);
+    const points = currentShape
+        ? Number(value.points)
+        : Number(value.hpDealt ?? 0) + Number(value.hpRegen ?? 0);
+    if (!battleId
+        || typeof value.attackerWon !== 'boolean'
+        || (!currentShape && !legacyShape)
+        || !Number.isSafeInteger(points)
+        || points < 0
+        || (currentShape && (value.hpDealt !== undefined || value.hpRegen !== undefined))
+        || (value.by !== undefined && typeof value.by !== 'string')
+        || (value.garrison !== undefined && value.garrison !== true)
+        || !Number.isSafeInteger(value.at)
+        || Number(value.at) <= 0) {
+        throw new Error('sector-war-battle-receipt-ledger-invalid');
+    }
+    return {
+        battleId,
+        attackerWon: value.attackerWon,
+        points,
+        by: typeof value.by === 'string' ? value.by : '',
+        ...(value.garrison === true ? { garrison: true } : {}),
+        at: Number(value.at),
+    };
+}
+
+function parseSectorWarBattleLedger(raw: unknown): SectorWarBattleLedger | undefined {
+    if (raw === undefined) return undefined;
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+        throw new Error('sector-war-battle-ledger-invalid');
+    }
+    const value = raw as Record<string, unknown>;
+    const keys = ['contributors', 'count', 'garrisonPoints', 'lastGarrisonAt', 'mirrorCount', 'mirrorExternalized', 'pending', 'version'];
+    if (Object.keys(value).sort().join('|') !== keys.join('|')
+        || value.version !== 1
+        || !Number.isSafeInteger(value.count) || Number(value.count) < 0
+        || !Number.isSafeInteger(value.garrisonPoints) || Number(value.garrisonPoints) < 0
+        || !Number.isSafeInteger(value.lastGarrisonAt) || Number(value.lastGarrisonAt) < 0
+        || !Number.isSafeInteger(value.mirrorCount) || Number(value.mirrorCount) < 0
+        || Number(value.mirrorCount) > SECTOR_WAR_BATTLE_RECEIPT_CAP
+        || Number(value.count) < Number(value.mirrorCount)
+        || typeof value.mirrorExternalized !== 'boolean'
+        || !Array.isArray(value.contributors)
+        || value.contributors.some((name) => typeof name !== 'string' || !name)
+        || !Array.isArray(value.pending)
+        || value.pending.length > SECTOR_WAR_LEDGER_PENDING_CAP) {
+        throw new Error('sector-war-battle-ledger-invalid');
+    }
+    const pending = value.pending.map((entry) => parseSectorWarBattleReceiptEntry(entry, false));
+    if (new Set(pending.map((entry) => entry.battleId)).size !== pending.length) {
+        throw new Error('sector-war-battle-ledger-invalid');
+    }
+    const contributors = value.contributors as string[];
+    if (new Set(contributors.map((name) => name.toLowerCase())).size !== contributors.length) {
+        throw new Error('sector-war-battle-ledger-invalid');
+    }
+    return {
+        version: 1,
+        count: Number(value.count),
+        garrisonPoints: Number(value.garrisonPoints),
+        lastGarrisonAt: Number(value.lastGarrisonAt),
+        contributors: [...contributors],
+        pending,
+        mirrorExternalized: value.mirrorExternalized,
+        mirrorCount: Number(value.mirrorCount),
+    };
+}
 
 function parseSectorWarBattleReceipts(raw: unknown): SectorWarBattleReceipt[] {
     if (raw === undefined) return [];
@@ -128,46 +296,10 @@ function parseSectorWarBattleReceipts(raw: unknown): SectorWarBattleReceipt[] {
     const out: SectorWarBattleReceipt[] = [];
     const ids = new Set<string>();
     for (const entry of raw) {
-        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
-            throw new Error('sector-war-battle-receipt-ledger-invalid');
-        }
-        const value = entry as Record<string, unknown>;
-        const allowed = new Set([
-            'battleId', 'attackerWon', 'points', 'by', 'garrison', 'at',
-            // Pre-scored-model receipt fields retained for bounded migration.
-            'hpDealt', 'hpRegen',
-        ]);
-        if (Object.keys(value).some((key) => !allowed.has(key))) {
-            throw new Error('sector-war-battle-receipt-ledger-invalid');
-        }
-        const battleId = typeof value.battleId === 'string' ? value.battleId.trim() : '';
-        const currentShape = value.points !== undefined;
-        const legacyShape = !currentShape && (value.hpDealt !== undefined || value.hpRegen !== undefined);
-        const points = currentShape
-            ? Number(value.points)
-            : Number(value.hpDealt ?? 0) + Number(value.hpRegen ?? 0);
-        if (!battleId
-            || ids.has(battleId)
-            || typeof value.attackerWon !== 'boolean'
-            || (!currentShape && !legacyShape)
-            || !Number.isSafeInteger(points)
-            || points < 0
-            || (currentShape && (value.hpDealt !== undefined || value.hpRegen !== undefined))
-            || (value.by !== undefined && typeof value.by !== 'string')
-            || (value.garrison !== undefined && value.garrison !== true)
-            || !Number.isSafeInteger(value.at)
-            || Number(value.at) <= 0) {
-            throw new Error('sector-war-battle-receipt-ledger-invalid');
-        }
-        ids.add(battleId);
-        out.push({
-            battleId,
-            attackerWon: value.attackerWon,
-            points,
-            by: typeof value.by === 'string' ? value.by : '',
-            ...(value.garrison === true ? { garrison: true } : {}),
-            at: Number(value.at),
-        });
+        const receipt = parseSectorWarBattleReceiptEntry(entry, true);
+        if (ids.has(receipt.battleId)) throw new Error('sector-war-battle-receipt-ledger-invalid');
+        ids.add(receipt.battleId);
+        out.push(receipt);
     }
     return out;
 }
@@ -330,6 +462,18 @@ export function normalizeSectorWarSession(raw: Partial<SectorWarSession> & {
         ? Math.max(0, nonNeg(raw.controlHpMax) - nonNeg(raw.controlHp))
         : 0;
     const appliedBattles = parseSectorWarBattleReceipts(raw.appliedBattles);
+    const battleLedger = parseSectorWarBattleLedger((raw as { battleLedger?: unknown }).battleLedger);
+    if (battleLedger) {
+        // A pending receipt is either one of the mirror entries or an overflow
+        // receipt; the same battle can never be two different receipts.
+        const mirrorById = new Map(appliedBattles.map((entry) => [entry.battleId, entry]));
+        for (const entry of battleLedger.pending) {
+            const mirrored = mirrorById.get(entry.battleId);
+            if (mirrored && !isDeepStrictEqual(mirrored, entry)) {
+                throw new Error('sector-war-battle-ledger-invalid');
+            }
+        }
+    }
     const garrisonFeed = normalizeGarrisonFeed(raw);
     const legacyReason = raw.expiredReason as unknown;
     return {
@@ -357,6 +501,7 @@ export function normalizeSectorWarSession(raw: Partial<SectorWarSession> & {
             : {}),
         ...(Number(raw.lastLiveBattleAt) > 0 ? { lastLiveBattleAt: Math.floor(Number(raw.lastLiveBattleAt)) } : {}),
         ...(appliedBattles.length ? { appliedBattles } : {}),
+        ...(battleLedger ? { battleLedger } : {}),
         ...(typeof raw.fed === 'boolean' ? { fed: raw.fed } : {}),
         ...(Array.isArray(raw.unfedVillages) ? { unfedVillages: raw.unfedVillages.filter((v): v is string => typeof v === 'string' && !!v).slice(0, 2) } : {}),
         ...(typeof raw.storesDate === 'string' && raw.storesDate ? { storesDate: raw.storesDate.slice(0, 10) } : {}),
@@ -385,8 +530,71 @@ export interface SectorBattleOutcome {
     side: 'attacker' | 'defender' | 'none';
 }
 
+/**
+ * The receipt for `battleId` if it is held IN THE ROW — the compatibility mirror
+ * or the write-ahead `pending` list. Pure, so it cannot see receipts that live
+ * only externally: once a war has more receipts than the mirror holds, a caller
+ * that must not double-score has to consult the external receipt too.
+ * `commitSectorWarBattle` in api/_sector-war-store.ts is the one writer that
+ * does both, and it reads the external copy whenever the row does not hold the
+ * receipt — never only past the cap, so a row an older writer overwrote with a
+ * stale copy cannot score a battle whose receipt already exists.
+ */
 export function findSectorWarBattleReceipt(session: SectorWarSession, battleId: string): SectorWarBattleReceipt | null {
-    return session.appliedBattles?.find((entry) => entry.battleId === battleId) ?? null;
+    return session.appliedBattles?.find((entry) => entry.battleId === battleId)
+        ?? session.battleLedger?.pending.find((entry) => entry.battleId === battleId)
+        ?? null;
+}
+
+/** Distinct attacker-side winners among `receipts`, newest casing kept.
+ *  Receipts are walked newest-first, matching the in-row mirror's order. */
+function contributorsOf(receipts: readonly SectorWarBattleReceipt[]): string[] {
+    const seen = new Map<string, string>();
+    for (const r of receipts) {
+        if (!r.attackerWon || !r.by) continue;
+        const k = r.by.toLowerCase();
+        if (!seen.has(k)) seen.set(k, r.by);
+    }
+    return [...seen.values()];
+}
+
+/**
+ * Build the aggregate ledger from receipts already on hand.
+ *
+ * `receipts` must be every receipt of the instance, NEWEST FIRST (the
+ * mirror's own order; overflow receipts are newer than every mirror entry) —
+ * order only decides which casing of a contributor's name is kept, exactly as
+ * the old full-ledger walk did. `pending` is carried over verbatim and counted
+ * once. Used to initialise a row written before the ledger existed and to
+ * rebuild one an older writer dropped; below the cap the mirror alone IS every
+ * receipt.
+ */
+export function sectorWarLedgerFromReceipts(
+    receipts: readonly SectorWarBattleReceipt[],
+    mirrorCount: number,
+    pending: readonly SectorWarBattleReceipt[] = [],
+    mirrorExternalized = mirrorCount === 0,
+): SectorWarBattleLedger {
+    const byId = new Map<string, SectorWarBattleReceipt>();
+    for (const r of [...pending, ...receipts]) if (!byId.has(r.battleId)) byId.set(r.battleId, r);
+    const all = [...byId.values()];
+    return {
+        version: 1,
+        count: all.length,
+        garrisonPoints: all.filter((r) => r.garrison && r.attackerWon).reduce((sum, r) => sum + nonNeg(r.points), 0),
+        lastGarrisonAt: all.filter((r) => r.garrison).reduce((latest, r) => Math.max(latest, Math.floor(Number(r.at) || 0)), 0),
+        contributors: contributorsOf(all),
+        pending: [...pending],
+        mirrorExternalized,
+        mirrorCount,
+    };
+}
+
+/** The row's ledger, or the one its (then complete) mirror implies. Pure. */
+export function sectorWarLedgerOf(session: Pick<SectorWarSession, 'appliedBattles' | 'battleLedger'>): SectorWarBattleLedger {
+    if (session.battleLedger) return session.battleLedger;
+    const mirror = session.appliedBattles ?? [];
+    return sectorWarLedgerFromReceipts(mirror, mirror.length);
 }
 
 /**
@@ -394,16 +602,15 @@ export function findSectorWarBattleReceipt(session: SectorWarSession, battleId: 
  *
  * `garrison` marks a battle as having been fought against the sealed garrison,
  * either outcome — that is what the Card/Pet re-form window keys on, and a loss
- * has to start that cooldown too or an attacker could retry instantly, filling
- * the receipt ledger and pumping the defence's tally on purpose. The CAP is a
- * different question: it limits what the ATTACKER can extract, so it counts only
- * the battles they won. (No behaviour change for Combat, which only ever flags
- * an attacker win.)
+ * has to start that cooldown too or an attacker could retry instantly and pump
+ * the defence's tally on purpose. The CAP is a different question: it limits
+ * what the ATTACKER can extract, so it counts only the battles they won. (No
+ * behaviour change for Combat, which only ever flags an attacker win.)
+ *
+ * Covers every receipt of the war, including those past the in-row mirror.
  */
-export function garrisonPointsInWar(session: SectorWarSession): number {
-    return (session.appliedBattles ?? [])
-        .filter((r) => r.garrison && r.attackerWon)
-        .reduce((sum, r) => sum + nonNeg(r.points), 0);
+export function garrisonPointsInWar(session: Pick<SectorWarSession, 'appliedBattles' | 'battleLedger'>): number {
+    return sectorWarLedgerOf(session).garrisonPoints;
 }
 
 /**
@@ -493,19 +700,27 @@ export function applyContestBattleByWinner(
     return applySectorWarBattle(session, winner === 'p1', opts);
 }
 
+/**
+ * Add one battle's receipt to the session in the same value that carries its
+ * points, so a single compare-and-set commits both. Pure — the caller persists.
+ *
+ * Never throws for size. While the in-row mirror has room the receipt goes
+ * there (the exact pre-overflow shape); past SECTOR_WAR_BATTLE_RECEIPT_CAP it
+ * goes to the overflow ledger instead. Either way the receipt is appended to
+ * `battleLedger.pending`, the write-ahead list: it stays in the row until its
+ * external copy is confirmed, and nothing is ever evicted.
+ *
+ * Dedupe here only sees receipts held in the row. Once a war has overflowed, a
+ * battle whose receipt is only external would look new — so persisting callers
+ * go through `commitSectorWarBattle` (api/_sector-war-store.ts), which checks
+ * the external receipt first.
+ */
 export function recordSectorWarBattleOutcome(
     outcome: SectorBattleOutcome,
     args: { battleId: string; attackerWon: boolean; by?: string; garrison?: boolean; at: number },
 ): { session: SectorWarSession; receipt: SectorWarBattleReceipt } {
     const prior = findSectorWarBattleReceipt(outcome.session, args.battleId);
     if (prior) return { session: outcome.session, receipt: prior };
-    const receipts = outcome.session.appliedBattles ?? [];
-    if (receipts.length >= SECTOR_WAR_BATTLE_RECEIPT_CAP) {
-        // This ledger is settlement authority, not presentation history. Never
-        // evict an unacknowledged battle proof: a crash before the external
-        // receipt would otherwise allow that battle to score again after churn.
-        throw new Error('sector-war-battle-receipt-ledger-full');
-    }
     const receipt: SectorWarBattleReceipt = {
         battleId: args.battleId,
         attackerWon: args.attackerWon,
@@ -514,22 +729,167 @@ export function recordSectorWarBattleOutcome(
         ...(args.garrison ? { garrison: true } : {}),
         at: args.at,
     };
+    const mirror = outcome.session.appliedBattles ?? [];
+    const ledger = sectorWarLedgerOf(outcome.session);
+    const nextMirror = mirror.length < SECTOR_WAR_BATTLE_RECEIPT_CAP ? [receipt, ...mirror] : mirror;
+    // Newest casing wins, as the full-ledger walk did.
+    const contributors = receipt.attackerWon && receipt.by
+        ? [receipt.by, ...ledger.contributors.filter((name) => name.toLowerCase() !== receipt.by.toLowerCase())]
+        : ledger.contributors;
+    const battleLedger: SectorWarBattleLedger = {
+        version: 1,
+        count: ledger.count + 1,
+        garrisonPoints: ledger.garrisonPoints + (receipt.garrison && receipt.attackerWon ? nonNeg(receipt.points) : 0),
+        lastGarrisonAt: receipt.garrison ? Math.max(ledger.lastGarrisonAt, receipt.at) : ledger.lastGarrisonAt,
+        contributors,
+        pending: [...ledger.pending, receipt],
+        mirrorExternalized: ledger.mirrorExternalized,
+        mirrorCount: nextMirror.length,
+    };
     return {
         session: {
             ...outcome.session,
-            appliedBattles: [receipt, ...receipts],
+            ...(nextMirror.length ? { appliedBattles: nextMirror } : {}),
+            battleLedger,
         },
         receipt,
     };
 }
 
-/** The session as the CLIENT sees it: everything except `appliedBattles`. The
- *  receipt ledger is server bookkeeping (idempotence + the score caps) — up to
- *  200 rows the war-map's 15s poll would otherwise ship to every viewer, with
- *  per-player attribution nobody renders. Keep responses on this projection;
- *  never return a raw session. Pure. */
+/** Drop confirmed receipts from the write-ahead list (and mark the mirror
+ *  externalised when the caller has confirmed that too). Pure. */
+export function clearSectorWarLedgerPending(
+    session: SectorWarSession,
+    confirmedBattleIds: ReadonlySet<string>,
+    mirrorConfirmed = false,
+): SectorWarSession {
+    const ledger = session.battleLedger;
+    if (!ledger) return session;
+    const pending = ledger.pending.filter((entry) => !confirmedBattleIds.has(entry.battleId));
+    const mirrorExternalized = ledger.mirrorExternalized || mirrorConfirmed;
+    if (pending.length === ledger.pending.length && mirrorExternalized === ledger.mirrorExternalized) return session;
+    return { ...session, battleLedger: { ...ledger, pending, mirrorExternalized } };
+}
+
+// ── External battle receipts (the ledger past the in-row mirror) ─────────────
+
+/** Key prefix of the per-battle receipts. `shared:sector-war-battle:` does not
+ *  match the `shared:sector-war:*` contest scan (the character after
+ *  `shared:sector-war` is `-`, as for the token and resolution families). */
+export const SECTOR_WAR_BATTLE_RECEIPT_PREFIX = 'shared:sector-war-battle:';
+
+/**
+ * Identity of ONE contest instance. A contest id repeats across re-sieges of
+ * the same sector by the same attacker, and so can `declarationGeneration`:
+ * once a defended war's record ages out, the next declaration starts again
+ * from generation 1. `startedAt` is what is actually unique per declaration,
+ * so the tag carries both. Receipts are filed under it, so a delayed retry
+ * from an earlier war can never be mistaken for — or dedupe against — a
+ * battle of the war that replaced it.
+ */
+export function sectorWarInstanceTag(session: Pick<SectorWarSession, 'declarationGeneration' | 'startedAt'>): string {
+    const generation = Math.max(0, Math.floor(Number(session.declarationGeneration) || 0));
+    return `g${generation}.s${Math.max(0, Math.floor(Number(session.startedAt) || 0))}`;
+}
+
+/** Prefix of every external receipt of this contest instance. */
+export function sectorWarBattleReceiptPrefix(session: Pick<SectorWarSession, 'id' | 'declarationGeneration' | 'startedAt'>): string {
+    return `${SECTOR_WAR_BATTLE_RECEIPT_PREFIX}${session.id}:${sectorWarInstanceTag(session)}:`;
+}
+
+export function sectorWarBattleReceiptKey(
+    session: Pick<SectorWarSession, 'id' | 'declarationGeneration' | 'startedAt'>,
+    battleId: string,
+): string {
+    return `${sectorWarBattleReceiptPrefix(session)}${battleId}`;
+}
+
+/** The stored value of an external battle receipt. Versioned; the nested
+ *  receipt has exactly the in-row shape. `tally` is the contest score when the
+ *  copy was written (right after the battle applied, for a receipt written by
+ *  its own commit). It is informational — what a replay can report once the
+ *  contest row itself is gone — and is not part of the receipt's identity. */
+export interface SectorWarExternalBattleReceipt {
+    version: 1;
+    contestId: string;
+    generation: number;
+    startedAt: number;
+    receipt: SectorWarBattleReceipt;
+    tally: { attackerPoints: number; defenderPoints: number };
+}
+
+export function sectorWarExternalBattleReceipt(
+    session: Pick<SectorWarSession, 'id' | 'declarationGeneration' | 'startedAt' | 'attackerPoints' | 'defenderPoints'>,
+    receipt: SectorWarBattleReceipt,
+): SectorWarExternalBattleReceipt {
+    return {
+        version: 1,
+        contestId: session.id,
+        generation: Math.max(0, Math.floor(Number(session.declarationGeneration) || 0)),
+        startedAt: Math.max(0, Math.floor(Number(session.startedAt) || 0)),
+        receipt: { ...receipt },
+        tally: { attackerPoints: nonNeg(session.attackerPoints), defenderPoints: nonNeg(session.defenderPoints) },
+    };
+}
+
+/** Same battle in the same contest instance with the same facts. The tally
+ *  snapshot is deliberately ignored: it depends on when the copy was made. */
+export function sameSectorWarExternalBattleReceipt(
+    a: SectorWarExternalBattleReceipt | null,
+    b: SectorWarExternalBattleReceipt | null,
+): boolean {
+    return !!a && !!b
+        && a.contestId === b.contestId
+        && a.generation === b.generation
+        && a.startedAt === b.startedAt
+        && isDeepStrictEqual(a.receipt, b.receipt);
+}
+
+/** Strict reader; null for anything that is not an exact v1 receipt. */
+export function parseSectorWarExternalBattleReceipt(raw: unknown): SectorWarExternalBattleReceipt | null {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+    const value = raw as Record<string, unknown>;
+    const tally = value.tally as Record<string, unknown> | null | undefined;
+    if (Object.keys(value).sort().join('|') !== 'contestId|generation|receipt|startedAt|tally|version'
+        || value.version !== 1
+        || typeof value.contestId !== 'string' || !value.contestId
+        || !Number.isSafeInteger(value.generation) || Number(value.generation) < 0
+        || !Number.isSafeInteger(value.startedAt) || Number(value.startedAt) < 0
+        || !tally || typeof tally !== 'object' || Array.isArray(tally)
+        || Object.keys(tally).sort().join('|') !== 'attackerPoints|defenderPoints'
+        || !Number.isSafeInteger(tally.attackerPoints) || Number(tally.attackerPoints) < 0
+        || !Number.isSafeInteger(tally.defenderPoints) || Number(tally.defenderPoints) < 0) {
+        return null;
+    }
+    try {
+        return {
+            version: 1,
+            contestId: value.contestId,
+            generation: Number(value.generation),
+            startedAt: Number(value.startedAt),
+            receipt: parseSectorWarBattleReceiptEntry(value.receipt, false),
+            tally: { attackerPoints: Number(tally.attackerPoints), defenderPoints: Number(tally.defenderPoints) },
+        };
+    } catch {
+        return null;
+    }
+}
+
+/** Seconds an external receipt written at `now` must live (see
+ *  SECTOR_WAR_BATTLE_RECEIPT_RETENTION_MS). */
+export function sectorWarBattleReceiptTtlSeconds(session: Pick<SectorWarSession, 'endsAt'>, now: number): number {
+    const untilEnd = Math.max(0, Math.floor(Number(session.endsAt) || 0) - now);
+    return Math.ceil((untilEnd + SECTOR_WAR_BATTLE_RECEIPT_RETENTION_MS) / 1000);
+}
+
+/** The session as the CLIENT sees it: everything except the receipt ledgers
+ *  (`appliedBattles`, `battleLedger`) and the funding marker. The ledgers are
+ *  server bookkeeping (idempotence, the caps, the capture credit) — up to 200
+ *  rows plus per-player attribution the war-map's 15s poll would otherwise
+ *  ship to every viewer. Keep responses on this projection; never return a raw
+ *  session. Pure. */
 export function projectSectorWarForClient(session: SectorWarSession, viewerVillage?: string): SectorWarClientView {
-    const { appliedBattles: _receipts, declarationFunding: _funding, ...view } = session;
+    const { appliedBattles: _receipts, battleLedger: _ledger, declarationFunding: _funding, ...view } = session;
     if (!viewerVillage) return view;
     // Compatibility mirror of the VIEWER's own per-village entry only — the
     // other side's feed is never surfaced through these flat fields.
@@ -537,7 +897,7 @@ export function projectSectorWarForClient(session: SectorWarSession, viewerVilla
     if (!mine?.on) return view;
     return { ...view, garrisonFed: true, garrisonFedBy: viewerVillage, garrisonCovered: mine.covered };
 }
-export type SectorWarClientView = Omit<SectorWarSession, 'appliedBattles' | 'declarationFunding'> & {
+export type SectorWarClientView = Omit<SectorWarSession, 'appliedBattles' | 'battleLedger' | 'declarationFunding'> & {
     /** Derived for the viewer's village (see projectSectorWarForClient). */
     garrisonFed?: boolean;
     garrisonFedBy?: string;
@@ -625,11 +985,10 @@ export function sectorWarGarrisonIdle(
     return lastLive > 0 && now - lastLive >= GARRISON_UNLOCK_IDLE_MS;
 }
 
-/** When the sector's garrison last fought, from the war's own receipts. 0 = never. */
-export function lastGarrisonBattleAt(session: Pick<SectorWarSession, 'appliedBattles'>): number {
-    return (session.appliedBattles ?? [])
-        .filter((r) => r.garrison)
-        .reduce((latest, r) => Math.max(latest, Math.floor(Number(r.at) || 0)), 0);
+/** When the sector's garrison last fought, from the war's own receipts —
+ *  including any past the in-row mirror. 0 = never. */
+export function lastGarrisonBattleAt(session: Pick<SectorWarSession, 'appliedBattles' | 'battleLedger'>): number {
+    return sectorWarLedgerOf(session).lastGarrisonAt;
 }
 
 /**
@@ -640,15 +999,15 @@ export function lastGarrisonBattleAt(session: Pick<SectorWarSession, 'appliedBat
  * fight serialized by an active-run key, so it throttles itself. A Card/Pet
  * garrison does not — the Pet duel in particular resolves in a single request —
  * and without a cooldown an attacker could fire hundreds of them back to back.
- * That is worth blocking for two reasons beyond taste: garrison points are
- * capped per war, so the spam is pointless yet still writes a battle receipt
- * each time, and the receipt ledger is settlement authority with a hard
- * SECTOR_WAR_BATTLE_RECEIPT_CAP that THROWS when full — filling it would break
- * scoring for every later battle in that war, including real ones. Reusing the
- * unlock window reads naturally too: the garrison re-forms every couple of hours.
+ * Garrison points are capped per war, so the spam is pointless, yet every one
+ * of those fights would still pump the defence's tally on a loss and write a
+ * battle receipt. (The receipt ledger no longer has a size at which it stops
+ * scoring — see SECTOR_WAR_BATTLE_RECEIPT_CAP — but the cooldown is an authored
+ * pacing rule, not a storage guard, and stays.) Reusing the unlock window reads
+ * naturally too: the garrison re-forms every couple of hours.
  */
 export function contestGarrisonReady(
-    session: Pick<SectorWarSession, 'startedAt' | 'flipped' | 'expiredAt' | 'endsAt' | 'lastLiveBattleAt' | 'declarationFunding' | 'appliedBattles'>,
+    session: Pick<SectorWarSession, 'startedAt' | 'flipped' | 'expiredAt' | 'endsAt' | 'lastLiveBattleAt' | 'declarationFunding' | 'appliedBattles' | 'battleLedger'>,
     now: number,
 ): boolean {
     if (!sectorWarGarrisonIdle(session, now)) return false;
@@ -843,6 +1202,21 @@ export const MAX_ACTIVE_ATTACK_SIEGES = 2;
  *  the cooldown clock — no extra key. Mirrors the village war's rematch
  *  cooldown, scaled to the sector war's shorter rhythm. */
 export const SECTOR_RESIEGE_COOLDOWN_SEC = 24 * 60 * 60;
+
+/** A CAPTURED war's record is not a cooldown — the sector changed hands, so the
+ *  next siege carries a different contest id and nothing consults this row to
+ *  decide it. It was written with no TTL at all, so every capture left a row in
+ *  the keyspace forever and every `listActiveSectorWars` scan loaded it again.
+ *  It now ages out alongside its own battle receipts, which is as long as any
+ *  replay can still ask about the war: while the row is there a recovery reads
+ *  its live tally, and once it is gone the receipt's sealed tally answers
+ *  instead (api/_sector-war-store.ts `locateSectorWarAppliedBattle`).
+ *
+ *  What is lost at expiry is `declarationGeneration` continuity — the next
+ *  declaration on that pairing restarts at 1. Receipt identity does not depend
+ *  on it: `sectorWarInstanceTag` carries `startedAt` as well, precisely because
+ *  a generation can repeat after a record ages out. */
+export const SECTOR_CAPTURED_RECORD_TTL_SEC = Math.ceil(SECTOR_WAR_BATTLE_RECEIPT_RETENTION_MS / 1000);
 
 export interface SectorWarDeclareCheck {
     attackerVillage: string;

@@ -20,13 +20,12 @@
  * first pass grants the pet and advances to the companion's village arrival;
  * that short second pass advances to "training" and unmounts the overlay.
  */
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Character } from "../../App";
 import type { Pet } from "../../types/pet";
 import { STARTER_PETS, type StarterPetOption } from "../../data/starter-pets";
 import { petPoseImage } from "../../lib/pet-battle-anim";
-import { petCloseupPresentationModel } from "../../lib/pet-3d-models";
 import { villagePageImage } from "../../lib/village-page-image";
 import { isLowEndMobile, prefersReducedMotion } from "../../lib/device-tier";
 import { useBodyScrollLock } from "../../lib/useBodyScrollLock";
@@ -53,17 +52,6 @@ import { introCue, startIntroAmbience, stopIntroAmbience } from "./introCinemati
 import "./intro-cinematic.css";
 
 const FOX_ART = shiranuiArt;
-const loadIntroCompanion3D = () => import("./IntroCompanion3D");
-const IntroCompanion3D = lazy(() =>
-    loadIntroCompanion3D().then((module) => ({ default: module.IntroCompanion3D })),
-);
-
-function preloadCompanionModel(pet: Pet): void {
-    if (!petCloseupPresentationModel(pet)) return;
-    void loadIntroCompanion3D()
-        .then((module) => module.preloadIntroCompanion3D(pet))
-        .catch(() => { /* The existing sprite remains the safe fallback. */ });
-}
 
 // Bar scales sized so no starter pegs a bar (Spark Pup's 58 ATK and Pebble
 // Tortoise's 400 HP stay visibly distinct from the runners-up).
@@ -417,24 +405,11 @@ export function IntroCinematic({
             <div className={`icx-stagefill ${inDialogue && line?.speaker === "fox" ? "is-focus" : ""}`}>
                 {showActors && companionMode && companionPet && (
                     <div className={`icx-companion-pet ${!typingDone ? "is-talking" : ""}`}>
-                        <Suspense
-                            fallback={(
-                                <img
-                                    src={petPoseImage(companionPet, sharedImages)}
-                                    alt={companionPet.name}
-                                    onError={(e) => { e.currentTarget.style.display = "none"; }}
-                                />
-                            )}
-                        >
-                            <IntroCompanion3D
-                                key={companionPet.id}
-                                pet={companionPet}
-                                fallbackSrc={petPoseImage(companionPet, sharedImages)}
-                                label={`${companionPet.name}, your companion`}
-                                className="icx-companion-stage-model"
-                                enabled={!liteFx && !reduced && Boolean(petCloseupPresentationModel(companionPet))}
-                            />
-                        </Suspense>
+                        <img
+                            src={petPoseImage(companionPet, sharedImages)}
+                            alt={companionPet.name}
+                            onError={(e) => { e.currentTarget.style.display = "none"; }}
+                        />
                     </div>
                 )}
                 {/* The deity keeps watch (dimmed) while the five spirits present
@@ -486,25 +461,11 @@ export function IntroCinematic({
                         )}
                         {showGiftPet && chosen && (
                             <div className={`icx-gift-pet ${inDialogue && phase.idx === 0 && !typingDone ? "is-talking" : ""}`}>
-                                <Suspense
-                                    fallback={(
-                                        <img
-                                            src={artFor(chosen)}
-                                            alt={chosen.pet.name}
-                                            onError={(e) => { e.currentTarget.style.display = "none"; }}
-                                        />
-                                    )}
-                                >
-                                    <IntroCompanion3D
-                                        key={chosen.pet.id}
-                                        pet={chosen.pet}
-                                        fallbackSrc={artFor(chosen)}
-                                        label={`${chosen.pet.name}, your chosen companion`}
-                                        className="icx-companion-stage-model"
-                                        hero={openingBeat === "bond"}
-                                        enabled={!liteFx && !reduced && Boolean(petCloseupPresentationModel(chosen.pet))}
-                                    />
-                                </Suspense>
+                                <img
+                                    src={artFor(chosen)}
+                                    alt={chosen.pet.name}
+                                    onError={(e) => { e.currentTarget.style.display = "none"; }}
+                                />
                             </div>
                         )}
                         {!reduced && showGiftPet && (
@@ -606,10 +567,7 @@ export function IntroCinematic({
                                     type="button"
                                     className="icx-pet-card"
                                     style={{ "--icx-accent": o.accent } as React.CSSProperties}
-                                    onClick={() => {
-                                        preloadCompanionModel(o.pet);
-                                        setPhase({ kind: "confirm", option: o });
-                                    }}
+                                    onClick={() => setPhase({ kind: "confirm", option: o })}
                                 >
                                     <span className="icx-pet-art">
                                         {art ? (
@@ -645,27 +603,13 @@ export function IntroCinematic({
                 <div className="icx-choose" onClick={(e) => e.stopPropagation()}>
                     <div className="icx-confirm" style={{ "--icx-accent": phase.option.accent } as React.CSSProperties}>
                         <div className="icx-confirm-pet-stage">
-                            <Suspense
-                                fallback={(
-                                    <span className="icx-pet-art">
-                                        <img
-                                            src={artFor(phase.option)}
-                                            alt={phase.option.pet.name}
-                                            onError={(e) => { e.currentTarget.style.display = "none"; }}
-                                        />
-                                    </span>
-                                )}
-                            >
-                                <IntroCompanion3D
-                                    key={phase.option.pet.id}
-                                    pet={phase.option.pet}
-                                    fallbackSrc={artFor(phase.option)}
-                                    label={`${phase.option.pet.name}, your first companion`}
-                                    className="icx-confirm-pet-model"
-                                    hero
-                                    enabled={!liteFx && !reduced && Boolean(petCloseupPresentationModel(phase.option.pet))}
+                            <span className="icx-pet-art">
+                                <img
+                                    src={artFor(phase.option)}
+                                    alt={phase.option.pet.name}
+                                    onError={(e) => { e.currentTarget.style.display = "none"; }}
                                 />
-                            </Suspense>
+                            </span>
                         </div>
                         <p className="icx-choose-kicker">Your First Companion</p>
                         <h2>Walk with {phase.option.pet.name}?</h2>
