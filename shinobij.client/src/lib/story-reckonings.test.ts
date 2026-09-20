@@ -16,7 +16,7 @@ seedStoryFieldContentForTests({ schemaVersion: STORY_FIELD_CONTENT_SCHEMA_VERSIO
 
 const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "public");
 
-test("story reckonings expose current-canon Stormveil NPCs at eligible outskirts", () => {
+test("story reckonings expose only the highest-priority actionable NPC at eligible outskirts", () => {
     const character = {
         level: 58,
         storyVillage: "Stormveil Village",
@@ -24,9 +24,8 @@ test("story reckonings expose current-canon Stormveil NPCs at eligible outskirts
         storyTraits: [],
     } as Character;
     const visible = visibleStoryReckonings(character, 1);
-    assert.deepEqual(visible.map((w) => w.name).sort(), ["Elder Vanta", "Mira Volt"]);
+    assert.deepEqual(visible.map((w) => w.name), ["Elder Vanta"]);
     assert.equal(visible.find((w) => w.name === "Elder Vanta")?.avatarImage, "/portraits/elder-vanta.webp");
-    assert.equal(visible.find((w) => w.name === "Mira Volt")?.avatarImage, "/portraits/mira-volt.webp");
 });
 
 test("story reckoning character portraits exist for every authored character", () => {
@@ -51,7 +50,7 @@ test("story reckoning eligibility retires completed arcs", () => {
     assert.equal(storyReckoningEligible({ level: 25, storyVillage: "Stormveil Village", storyProgress: 3, storyTraits: [quest.completionTrait] } as Character, quest), false);
     assert.equal(storyReckoningEligible({ level: 25, storyVillage: "Stormveil Village", storyProgress: 3, storyTraits: [], redeemedStoryReckonings: [{ questId: quest.id }] } as Character, quest), false);
     const receiptOnly = { level: 25, storyVillage: "Stormveil Village", storyProgress: 3, storyTraits: [], redeemedStoryReckonings: [{ questId: quest.id }] } as Character;
-    assert.ok(visibleStoryReckonings(receiptOnly, 1).some((wanderer) => wanderer.id === quest.id), "receipt-only field completions keep their aftermath giver visible");
+    assert.ok(!visibleStoryReckonings(receiptOnly, 1).some((wanderer) => wanderer.id === quest.id), "completed aftermath reviews stay in the journal instead of occupying the sector floor");
 });
 
 test("story reckoning VN accept uses the sentinel and return ids map back to the arc", () => {
@@ -77,9 +76,9 @@ test("each village exposes its own reckoning NPCs at its outskirts", () => {
     // outskirts sectors (2026-07 numbering): Stormveil 1, Ashen Leaf 9,
     // Frostfang 26, Moonshadow 17 — each village's block starts at its gate.
     const cases: Array<[string, number, number, string[]]> = [
-        ["Ashen Leaf Village", 9, 58, ["Elder Mori", "Toma Reed"]],
-        ["Frostfang Village", 26, 58, ["Captain Yura", "Elder Sova"]],
-        ["Moonshadow Village", 17, 58, ["Nyx", "Shade Master Iro"]],
+        ["Ashen Leaf Village", 9, 58, ["Elder Mori"]],
+        ["Frostfang Village", 26, 58, ["Captain Yura"]],
+        ["Moonshadow Village", 17, 58, ["Shade Master Iro"]],
     ];
     for (const [village, sector, level, expected] of cases) {
         const character = { level, storyVillage: village, storyProgress: 5, storyTraits: [] } as Character;

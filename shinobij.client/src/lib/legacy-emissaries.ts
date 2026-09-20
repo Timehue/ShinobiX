@@ -214,7 +214,7 @@ const EMISSARY_SPAWN_CHANCE = 0.55;
 /** Pre-acceptance: chance the roaming harbinger crosses a given sector the
  *  player enters (per 6h window). Before the 2026-07 balance pass they hid in
  *  ONE unhinted sector of 59 — effectively never met organically. */
-const EMISSARY_ROAM_SECTOR_CHANCE = 0.12;
+const EMISSARY_ROAM_SECTOR_CHANCE = 0.07;
 
 export interface EmissarySpawn {
     def: EmissaryDef;
@@ -286,7 +286,8 @@ export function rollEmissarySpawn(
             verb: "legacyQuest",
             level: wandererLevelFor(sector, rng),
             homeTile: home,
-            waypoints: Array.from(new Set(waypoints)),
+            waypoints: [home],
+            movement: "stationary",
             greeting: def.greeting,
             tellTint: def.tellTint,
             avatarKey: def.slug,

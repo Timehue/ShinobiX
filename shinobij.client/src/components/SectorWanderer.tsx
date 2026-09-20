@@ -193,10 +193,13 @@ export function SectorWanderer({
             const prow = rowOf(playerRef.current);
             const distPlayer = Math.hypot(pcol - p.col, prow - p.row);
             const armed = ts >= armedAtRef.current;
-            // Bandits HUNT: once they spot you they path to you and confront you,
-            // and they keep coming until you break the leash. Everyone else is
-            // passive — they only turn toward you once you come close, then greet.
-            const isHunter = wanderer.verb === "attack" || wanderer.verb === "bountyHunter";
+            const movement = wanderer.movement
+                ?? ((wanderer.verb === "attack" || wanderer.verb === "bountyHunter") ? "pursue" : "patrol");
+            // Pursuers HUNT: once they spot you they path to you and confront you,
+            // and they keep coming until you break the leash. Patrol actors amble
+            // and may approach nearby players; stationary service/story actors hold
+            // their authored spot and only greet when the player comes to them.
+            const isHunter = movement === "pursue";
             if (isHunter) {
                 if (distPlayer <= HUNT_SPOT_TILES) huntingRef.current = true;
                 else if (distPlayer > HUNT_LEASH_TILES) huntingRef.current = false;
@@ -205,6 +208,16 @@ export function SectorWanderer({
             // Slipping out of notice range re-arms the meeting, so a hunter you've
             // outrun can confront you again when it catches back up.
             if (distPlayer > NOTICE_TILES) greetedRef.current = false;
+
+            if (movement === "stationary") {
+                setWalking(false);
+                if (armed && distPlayer <= NOTICE_TILES && !greetedRef.current) {
+                    greetedRef.current = true;
+                    speak(wanderer.greeting);
+                }
+                schedule();
+                return;
+            }
 
             let tCol: number, tRow: number;
 
