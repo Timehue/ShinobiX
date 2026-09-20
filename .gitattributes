@@ -10,6 +10,11 @@ docs/generated/*.csv text eol=lf
 shinobij.client/src/generated/story-content/*.json text eol=lf
 shinobij.client/src/generated/story-content/*.ts text eol=lf
 
+# The Node pin is read by actions/setup-node (node-version-file) and by
+# scripts/run-tests.mjs. A CRLF checkout appends \r to the version string, so
+# keep it LF on Windows as well.
+.nvmrc text eol=lf
+
 ###############################################################################
 # Set default behavior for command prompt diff.
 #

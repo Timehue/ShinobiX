@@ -49,18 +49,25 @@ if (sharded) {
         process.exit(1);
     }
 }
-// The engine this repo targets is pinned in .nvmrc (mirrored by the Dockerfile
-// and CI). A different local major is not an error, but it is the first thing
-// to suspect when a file goes red at FILE level with every subtest green: that
-// is how a native node.exe crash surfaces (see the exit-code logging below),
-// and the 2026-09 investigation traced exactly that to Node 24.15.0 on Windows.
-const pinnedMajor = (() => {
-    try { return Number.parseInt(readFileSync(join(root, '.nvmrc'), 'utf8').trim(), 10); } catch { return NaN; }
+// The engine this repo targets is pinned in .nvmrc — the single source of truth
+// that every workflow reads via `node-version-file` and that the Dockerfile
+// mirrors (enforced by scripts/check-deployment-config.test.mjs).
+//
+// A different local version is NOT an error and this never fails the run. It is
+// printed only because the native node.exe crash behind a file-level red (see
+// the exit-code logging below) is an upstream WINDOWS fault whose known report
+// names an exact patch — nodejs/node#62991 against 24.15.0. So the version is
+// worth knowing, not worth blaming: it is ~1 run in 700 under heavy parallel
+// load, Linux never sees it, and a clean suite neither proves nor disproves it.
+// Read the printed exit code first.
+const pinnedVersion = (() => {
+    try { return readFileSync(join(root, '.nvmrc'), 'utf8').trim(); } catch { return ''; }
 })();
+const pinnedMajor = Number.parseInt(pinnedVersion, 10);
 const runningMajor = Number.parseInt(process.versions.node, 10);
 if (Number.isInteger(pinnedMajor) && runningMajor !== pinnedMajor) {
-    console.error(`[run-tests] warning: running on Node ${process.versions.node}; .nvmrc pins ${pinnedMajor}. ` +
-        'A file-level failure with every subtest passing is usually a child-process crash, not a test bug.');
+    console.error(`[run-tests] note: running on Node ${process.versions.node}; .nvmrc pins ${pinnedVersion}. ` +
+        'Not an error. If a file goes red with every subtest green, read the exit code below first.');
 }
 
 const tests = run({ cwd: root, files: shardFiles, concurrency: true });
