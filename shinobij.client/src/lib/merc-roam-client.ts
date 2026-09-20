@@ -126,6 +126,7 @@ export function synthMercWanderer(merc: RoamingMercView): Wanderer {
         level: merc.level,
         homeTile: home,
         waypoints,
+        movement: "pursue",
         greeting: MERC_TAUNTS[h % MERC_TAUNTS.length],
         tellTint: "#b91c1c", // merc crimson — distinct from the bandit orange-red
         avatarKey: "bandit",

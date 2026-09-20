@@ -339,11 +339,13 @@ test("WorldMap retains controller and portal ownership around the canvas slots",
 });
 
 test("WorldMap projects overlay time, storage, and capability decisions before rendering", () => {
-    const projection = sliceBetween(worldMapSource, "const sectorOverlayWanderers", "<WorldSectorCanvas");
+    const projection = sliceBetween(worldMapSource, "const sectorOverlayBoss", "<WorldSectorCanvas");
+    assert.match(projection, /const sectorOverlayBoss[\s\S]*isWeeklyBossRoamEnabled\(\)[\s\S]*weeklyBossRoamState\(roamingBoss, serverNow\(\)\)/u);
+    assert.match(projection, /capSectorWanderers\([\s\S]*sectorOverlayBoss \? 1 : 0\)/u);
+    assert.match(projection, /const sectorOverlayWanderers = \[\.\.\.cappedSectorWanderers, \.\.\.mercWanderers\]/u);
     assert.match(projection, /const sectorOverlayRift/u);
     assert.match(projection, /const sectorOverlayVault[\s\S]*anbuViewOpen[\s\S]*territory\.ownerVillage/u);
     assert.match(projection, /const sectorOverlayShrine[\s\S]*isSectorTracesEnabled\(\)[\s\S]*shrineForSector/u);
-    assert.match(projection, /const sectorOverlayBoss[\s\S]*isWeeklyBossRoamEnabled\(\)[\s\S]*weeklyBossRoamState\(roamingBoss, serverNow\(\)\)/u);
 });
 
 test("WorldMap owns the wanderer portal, backdrop policy, actions, and projected contextual decisions", () => {
