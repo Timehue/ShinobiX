@@ -610,6 +610,65 @@ describe('solo-PvE engine', () => {
         });
     }
 
+    it('weapon cooldown blocks a same-turn reswing and is stored under a weapon:-namespaced key', () => {
+        const player = makeFighter('Alice', 62, {
+            character: {
+                level: 100, specialty: 'Bukijutsu',
+                stats: { bukijutsuOffense: 1_200 },
+                jutsu: [],
+                pvpItems: [{ id: 'test-kunai', name: 'Kunai', slot: 'hand', weaponEp: 20, apCost: 20, weaponRange: 1, weaponCooldown: 3 }],
+                equipment: { hand: 'test-kunai' },
+            },
+        });
+        const session = createSoloPveSession({
+            sessionId: 'weapon-cooldown', ownerSlug: 'alice',
+            encounter: { kind: 'test', id: 'weapon-cooldown' },
+            player, enemy: makeFighter('Rival', 63), now: NOW,
+        });
+
+        const first = applySoloPveAction(session, { type: 'weapon', itemId: 'test-kunai' });
+        assert.equal(first.applied, true);
+        // Namespaced 'weapon:<id>' — never the bare id — so it can't collide
+        // with a jutsu cooldown sharing this same flat map (mirrors PvP's
+        // api/pvp/move.ts and Tower's api/towers/_engine.ts).
+        assert.equal(first.session.cooldowns.player['weapon:test-kunai'], 3);
+        assert.equal(first.session.cooldowns.player['test-kunai'], undefined);
+
+        const second = applySoloPveAction(first.session, { type: 'weapon', itemId: 'test-kunai' });
+        assert.equal(second.applied, false);
+        assert.equal(second.reason, 'on-cooldown');
+    });
+
+    it('combat-item cooldown blocks reuse and is stored under an item:-namespaced key', () => {
+        const player = makeFighter('Alice', 62, {
+            character: {
+                level: 100, specialty: 'Ninjutsu',
+                stats: {},
+                jutsu: [],
+                pvpItems: [{ id: 'test-stim-pill', name: 'Stim Pill', slot: 'item', weaponCooldown: 4, weaponEffect: 'Increase Damage Given', weaponEffectValue: 20, apCost: 20 }],
+                equipment: { item: 'test-stim-pill' },
+            },
+        });
+        const session = createSoloPveSession({
+            sessionId: 'item-cooldown', ownerSlug: 'alice',
+            encounter: { kind: 'test', id: 'item-cooldown' },
+            player, enemy: makeFighter('Rival', 63), now: NOW,
+        });
+
+        const first = applySoloPveAction(session, { type: 'item', itemId: 'test-stim-pill' });
+        assert.equal(first.applied, true);
+        assert.equal(first.session.cooldowns.player['item:test-stim-pill'], 4);
+        assert.equal(first.session.cooldowns.player['test-stim-pill'], undefined);
+        // weaponSwing: true on the item synth resolves this at mastery-max (20%,
+        // the value printed on the item), not mastery 0 (20-10=10%) — a combat
+        // item has no jutsuMastery row to look up, same as a weapon.
+        assert.equal(first.session.player.statuses.find((st) => st.name === 'Increase Damage Given')?.percent, 20);
+
+        const second = applySoloPveAction(first.session, { type: 'item', itemId: 'test-stim-pill' });
+        assert.equal(second.applied, false);
+        assert.equal(second.reason, 'on-cooldown');
+    });
+
     it('automatically advances a player turn when the accepted action leaves no legal move', () => {
         const session = makeSession();
         session.player.character.jutsu = [{

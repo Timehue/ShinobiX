@@ -552,9 +552,12 @@ function pickAction(self: Fighter, opp: Fighter, apLeft: number, round: number):
     }
 
     // Weapon attack — 40 AP, no chakra, 5-turn CD (matches real top weapons).
-    if (canPayAp(COST_WEAPON) && (self.cooldowns['weapon'] ?? 0) === 0) {
+    // 'weapon:weapon' namespaced — a real jutsu's id could never collide with a
+    // prefixed key, whereas the bare literal 'weapon' shares this same cooldowns
+    // map with real jutsu ids (mirrors the fix in api/pvp/move.ts and friends).
+    if (canPayAp(COST_WEAPON) && (self.cooldowns['weapon:weapon'] ?? 0) === 0) {
         const weapJ: Jutsu = {
-            id: 'weapon', name: 'Weapon', type: 'Bukijutsu',
+            id: 'weapon:weapon', name: 'Weapon', type: 'Bukijutsu',
             apCost: 40, effectPower: self.weaponEp, chakraCost: 0, cooldown: 5,
             tags: self.weaponEffect ? [{ name: self.weaponEffect, percent: self.weaponEffectValue ?? STANDARD_TAG_PCT }] : [],
         };

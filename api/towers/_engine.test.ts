@@ -1020,7 +1020,10 @@ describe('Battle Towers loadout combat (jutsu resources / cooldowns / weapons / 
         const s = makeSession([sq, bigEnemy()]);
         startRound(s);
         assert.ok(applyAction(s, floor, { actorId: 'sq-1', type: 'weapon', targetId: 'en-1', itemId: 'sword' }, makeRng(1)).applied);
-        assert.equal(getActor(s, 'sq-1')!.cooldowns.sword, 5);
+        // 'weapon:'-namespaced — never the bare id — so it can't collide with a
+        // jutsu cooldown sharing this same flat map (mirrors api/pvp/move.ts).
+        assert.equal(getActor(s, 'sq-1')!.cooldowns['weapon:sword'], 5);
+        assert.equal(getActor(s, 'sq-1')!.cooldowns.sword, undefined);
         assert.equal(applyAction(s, floor, { actorId: 'sq-1', type: 'weapon', targetId: 'en-1', itemId: 'sword' }, makeRng(1)).reason, 'on-cooldown');
     });
 
@@ -1072,7 +1075,13 @@ describe('Battle Towers loadout combat (jutsu resources / cooldowns / weapons / 
         const s = makeSession([sq, bigEnemy()]);
         startRound(s);
         assert.ok(applyAction(s, floor, { actorId: 'sq-1', type: 'item', itemId: 'pill' }, makeRng(1)).applied);
-        assert.equal(getActor(s, 'sq-1')!.cooldowns.pill, 5);
+        // 'item:'-namespaced — see the matching note on the weapon cooldown test.
+        assert.equal(getActor(s, 'sq-1')!.cooldowns['item:pill'], 5);
+        assert.equal(getActor(s, 'sq-1')!.cooldowns.pill, undefined);
+        // weaponSwing: true on the item synth resolves this at mastery-max (15%,
+        // the value printed on the item), not mastery 0 (15-10=5%) — a combat
+        // item has no jutsuMastery row to look up, same as a weapon.
+        assert.equal(getActor(s, 'sq-1')!.statuses.find(st => st.name === 'Increase Damage Given')?.percent, 15);
         assert.equal(getActor(s, 'sq-1')!.itemCharges!.pill, 1);
         assert.equal(getActor(s, 'sq-1')!.itemsUsed!.pill, 1);
         assert.equal(applyAction(s, floor, { actorId: 'sq-1', type: 'item', itemId: 'pill' }, makeRng(1)).reason, 'on-cooldown');
@@ -1095,7 +1104,8 @@ describe('Battle Towers loadout combat (jutsu resources / cooldowns / weapons / 
         assert.ok(enemy.statuses.some(st => st.name === 'Decrease Damage Given' && st.kind === 'negative' && st.percent === 100), 'enemy is smoke-debuffed');
         assert.equal(actor.itemCharges!.smoke, 0);
         assert.equal(actor.itemsUsed!.smoke, 1);
-        assert.equal(actor.cooldowns.smoke, 9);
+        assert.equal(actor.cooldowns['item:smoke'], 9);
+        assert.equal(actor.cooldowns.smoke, undefined);
     });
 
     it('Smoke Bomb respects an adds-gated boss barrier while still affecting exposed combatants', () => {
