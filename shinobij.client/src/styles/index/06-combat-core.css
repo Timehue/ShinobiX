@@ -1141,28 +1141,6 @@
         font-weight: 800;
     }
 
-.sector-player-card {
-    display: grid;
-    gap: 5px;
-    padding: 8px;
-    border-radius: 7px;
-    border: 1px solid rgba(250, 204, 21, .46);
-    background: linear-gradient(180deg, rgba(15, 23, 42, .92), rgba(30, 41, 59, .78));
-}
-
-    .sector-player-card strong,
-    .sector-player-card small {
-        color: #f8fafc;
-    }
-
-    .sector-player-card button {
-        min-height: 34px;
-        padding: 6px 8px;
-        color: #fef2f2;
-        border-color: rgba(248, 113, 113, .72);
-        background: linear-gradient(#991b1b, #450a0a);
-    }
-
 .arena-lobby {
     max-width: 980px;
     margin-inline: auto;
@@ -1579,35 +1557,3 @@
 }
 
 /* Keep same-sector player cards readable in the narrow right sector panel. */
-.map-instance .sector-presence .sector-player-card {
-    display: grid !important;
-    grid-template-columns: minmax(0, 1fr) auto !important;
-    align-items: center !important;
-    gap: 6px !important;
-    padding: 6px !important;
-}
-
-.map-instance .sector-presence .sector-player-info {
-    min-width: 0 !important;
-    display: grid !important;
-    gap: 1px !important;
-}
-
-.map-instance .sector-presence .sector-player-info strong,
-.map-instance .sector-presence .sector-player-info small {
-    display: block !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    overflow-wrap: normal !important;
-    word-break: normal !important;
-}
-
-.map-instance .sector-presence .sector-player-card button {
-    width: auto !important;
-    min-width: 48px !important;
-    min-height: 24px !important;
-    padding: 3px 6px !important;
-    font-size: 9px !important;
-    line-height: 1 !important;
-}

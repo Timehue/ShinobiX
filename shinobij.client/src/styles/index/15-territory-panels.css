@@ -141,44 +141,6 @@
     box-shadow: 0 16px 40px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
 }
 
-.map-instance .sector-instance-frame .sector-scene-title {
-    align-items: center !important;
-    gap: var(--sp-3) !important;
-    padding: 9px 12px !important;
-    border-bottom: 1px solid rgba(250, 204, 21, 0.38) !important;
-    background: linear-gradient(90deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.94)) !important;
-}
-
-.map-instance .sector-instance-frame .sector-scene-title > div {
-    display: grid;
-    gap: 2px;
-    min-width: 0;
-}
-
-.map-instance .sector-instance-frame .sector-scene-title strong {
-    color: var(--gold-300) !important;
-    font-family: var(--font-display) !important;
-    font-size: var(--fs-md) !important;
-    line-height: var(--lh-tight) !important;
-}
-
-.map-instance .sector-instance-frame .sector-scene-title span,
-.map-instance .sector-instance-frame .sector-scene-title small {
-    color: var(--slate-300) !important;
-    font-size: var(--fs-xs) !important;
-    line-height: var(--lh-tight) !important;
-}
-
-.map-instance .sector-instance-frame .sector-scene-title small {
-    flex: 0 0 auto;
-    padding: 4px 8px;
-    border: 1px solid rgba(96, 165, 250, 0.34);
-    border-radius: var(--r-pill);
-    background: rgba(14, 165, 233, 0.12);
-    color: var(--blue-300) !important;
-    font-weight: var(--fw-bold);
-}
-
 .map-instance .sector-instance-frame .pixel-map {
     border-radius: 0 0 var(--r-md) var(--r-md) !important;
 }
@@ -236,30 +198,6 @@
     .map-instance .sector-image-map .sector-road-exit-ready {
         animation: none;
     }
-}
-
-.map-instance .sector-instance-frame > aside.sector-command-panel {
-    grid-area: actions !important;
-    grid-column: 2 !important;
-    width: 100% !important;
-    min-width: 280px !important;
-    max-width: 340px !important;
-    min-height: 0 !important;
-    padding: var(--sp-3) !important;
-    gap: var(--sp-3) !important;
-    display: flex !important;
-    flex-direction: column !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    font-size: var(--fs-sm) !important;
-    word-break: normal !important;
-    border: 1px solid rgba(148, 163, 184, 0.34) !important;
-    border-radius: var(--r-md) !important;
-    background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 110px),
-        rgba(8, 13, 26, 0.94) !important;
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
-    scrollbar-gutter: stable;
 }
 
 .sector-panel-heading {
@@ -547,90 +485,7 @@
     line-height: 1.35 !important;
 }
 
-.map-instance .sector-command-panel .sector-player-card {
-    display: grid !important;
-    grid-template-columns: 36px minmax(0, 1fr);
-    gap: var(--sp-2);
-    align-items: center;
-    width: 100% !important;
-    padding: var(--sp-2) !important;
-    border: 1px solid rgba(148, 163, 184, 0.22) !important;
-    border-radius: var(--r-sm) !important;
-    background: rgba(15, 23, 42, 0.58) !important;
-}
-
-.map-instance .sector-command-panel .sector-player-avatar {
-    width: 36px !important;
-    height: 36px !important;
-    border-radius: var(--r-full) !important;
-    overflow: hidden;
-    display: grid;
-    place-items: center;
-    border: 1px solid rgba(250, 204, 21, 0.42);
-    background: radial-gradient(circle, rgba(56, 189, 248, 0.32), rgba(15, 23, 42, 0.96));
-}
-
-.map-instance .sector-command-panel .sector-player-avatar-img {
-    width: 100% !important;
-    height: 100% !important;
-    object-fit: cover !important;
-    display: block !important;
-}
-
-.map-instance .sector-command-panel .sector-player-avatar-emoji {
-    padding: 0 !important;
-    color: var(--slate-50) !important;
-    font-size: var(--fs-2xs) !important;
-    font-weight: var(--fw-black) !important;
-}
-
-.map-instance .sector-command-panel .sector-player-info {
-    min-width: 0;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 3px var(--sp-2);
-}
-
-.map-instance .sector-command-panel .sector-player-info strong,
-.map-instance .sector-command-panel .sector-player-info small {
-    min-width: 0;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.map-instance .sector-command-panel .sector-player-info strong {
-    flex: 1 1 100%;
-    color: var(--slate-50) !important;
-    font-size: var(--fs-xs) !important;
-    line-height: 1.2 !important;
-}
-
-.map-instance .sector-command-panel .sector-player-info small {
-    color: var(--slate-400) !important;
-    font-size: var(--fs-2xs) !important;
-    line-height: 1.2 !important;
-}
-
-.map-instance .sector-command-panel .sector-player-action {
-    grid-column: 1 / -1;
-    width: 100% !important;
-    min-width: 0 !important;
-    min-height: 32px !important;
-    padding: 0 var(--sp-2) !important;
-    white-space: normal !important;
-}
-
-.sector-action-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--sp-2);
-}
-
-.map-instance .sector-command-panel .sector-action-btn,
-.map-instance .sector-command-panel .sector-player-action {
+.map-instance .sector-command-panel .sector-action-btn {
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -729,8 +584,7 @@
     border-color: rgba(148, 163, 184, 0.42) !important;
     background: linear-gradient(180deg, rgba(51, 65, 85, 0.9), rgba(15, 23, 42, 0.96)) !important;
 }
-.map-instance .sector-command-panel .sector-action-btn.is-danger,
-.map-instance .sector-command-panel .sector-player-action {
+.map-instance .sector-command-panel .sector-action-btn.is-danger {
     border-color: rgba(248, 113, 113, 0.42) !important;
     background: linear-gradient(180deg, rgba(185, 28, 28, 0.92), rgba(69, 10, 10, 0.96)) !important;
     color: #fff !important;
@@ -742,8 +596,7 @@
     background: rgba(148, 163, 184, 0.08) !important;
 }
 
-.map-instance .sector-command-panel .sector-action-btn:disabled,
-.map-instance .sector-command-panel .sector-player-action:disabled {
+.map-instance .sector-command-panel .sector-action-btn:disabled {
     opacity: 0.52 !important;
     cursor: not-allowed !important;
     filter: grayscale(0.25) !important;
@@ -770,35 +623,12 @@
     line-height: 1 !important;
 }
 
-@media (min-width: 1280px) {
-    .map-instance .sector-command-panel .sector-player-card {
-        grid-template-columns: 36px minmax(84px, 1fr) minmax(116px, auto);
-    }
-
-    .map-instance .sector-command-panel .sector-player-action {
-        grid-column: auto;
-        white-space: nowrap !important;
-    }
-}
-
 /* Mobile sector flow is owned by layout/adaptive-stages.css. */
 
 @media (max-width: 560px) {
-    .sector-action-grid {
-        grid-template-columns: 1fr;
-    }
 
     .map-instance .sector-command-panel .sector-action-btn.is-primary {
         grid-column: auto;
-    }
-
-    .map-instance .sector-instance-frame .sector-scene-title {
-        align-items: flex-start !important;
-        flex-direction: column;
-    }
-
-    .map-instance .sector-instance-frame .sector-scene-title small {
-        align-self: flex-start;
     }
 }
 

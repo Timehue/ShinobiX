@@ -84,7 +84,7 @@ import {
     villageWarScreenMountAllowed,
 } from "./lib/live-capability-admission";
 
-import { pushLiveSectorPlayers, getLiveSectorPlayers, setLiveAvatarPrefetch, getLocalSectorTile, setLocalSectorTile, setLiveSectorContext, correctLocalSectorTile } from "./lib/presence-store";
+import { pushLiveSectorPlayers, markSectorRosterUnavailable, getLiveSectorPlayers, setLiveAvatarPrefetch, getLocalSectorTile, setLocalSectorTile, setLiveSectorContext, correctLocalSectorTile } from "./lib/presence-store";
 import { heartbeatNoticeAckFields, noteHeartbeatDelivery, withholdNoticeAck } from "./lib/notice-ack";
 import { worldSectorReconcileTarget } from "./lib/sector-reconcile";
 import { mergeServerPendingWorldRewards } from "./lib/world-reward-recovery";
@@ -1953,7 +1953,7 @@ export default function App() {
                     body: JSON.stringify(presenceBody),
                     signal: AbortSignal.timeout(12000),
                 });
-                if (!res.ok) return;
+                if (!res.ok) { if (heartbeatIsCurrent()) markSectorRosterUnavailable(presenceBody.sector); return; }
                 const data: { sectorMates?: PlayerRecord[]; allPlayers?: PlayerRecord[]; pendingAttacker?: Character | null; pendingChallenges?: DuelChallenge[]; pendingHeal?: { by?: string; id?: string } | null; pendingNotices?: unknown; towerPartyInvites?: string[]; forceReload?: boolean; serverNow?: number; sector?: number; tile?: number; traveling?: boolean } = await res.json();
                 if (!heartbeatIsCurrent()) return;
                 noteServerTime(data.serverNow); // the beat is our reference for the clock that mints every deadline
@@ -2075,7 +2075,7 @@ export default function App() {
                     await import("./lib/heartbeat-notices").then((m) => m.applyHeartbeatNotices(notices, { accountKey: heartbeatAccountKey, isCurrent: heartbeatIsCurrent, commit: commitVersionedCharacter }), () => withholdNoticeAck(notices));
                 }
             } catch {
-                // Server unavailable — silently skip
+                if (heartbeatIsCurrent()) markSectorRosterUnavailable(presenceBody.sector);
             } finally {
                 heartbeatGate.finish();
             }
@@ -5955,7 +5955,7 @@ export default function App() {
                         creatorItems={creatorItems}
                         onVersionedCharacter={commitVersionedCharacter} onOwnSaveRead={adoptOwnSaveRead}
                         capturePvpCreateScope={capturePvpCreateScope}
-                        onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} attackSleeper={(opponent) => { void strikeDownSleeper({ opponent, attackerName: character.name, isTraveling, setCharacter, setPlayerRoster, onServerVersion: (version) => acceptExternalSaveVersion(version, character.name) === "accepted" }); }}
+                        onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} attackSleeper={(opponent) => { return strikeDownSleeper({ opponent, attackerName: character.name, isTraveling, setCharacter, setPlayerRoster, onServerVersion: (version) => acceptExternalSaveVersion(version, character.name) === "accepted" }); }}
                         sectorAttackPlayer={(opponent) => attackSectorPlayer({ opponent, character, isTraveling, creatorItems, creatorJutsus, savedBloodlines, currentSector, currentBiome, currentWeather, capturePvpCreateScope, installPvpRecovery, setPvpBattleId, setPvpRole, setPvpBattleContext, setPvpSeedSession, setRaidBattleKind, setScreen })}
 
                     />
