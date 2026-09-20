@@ -69,10 +69,6 @@
 .icx-gift-pet.is-talking img {
     animation: icx-companion-talk 460ms ease-in-out infinite;
 }
-.icx-gift-pet.is-talking .icx-companion-render,
-.icx-companion-pet.is-talking .icx-companion-render {
-    animation: icx-companion-talk 720ms ease-in-out infinite;
-}
 .icx-companion-pet img {
     width: 100%;
     display: block;

@@ -2298,7 +2298,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1892
+            "line": 1883
           }
         ]
       },
@@ -2672,7 +2672,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/features/intro-cinematic/intro-cinematic.css",
-            "line": 1325
+            "line": 1321
           }
         ]
       },
@@ -2999,7 +2999,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1770
+            "line": 1761
           }
         ]
       },
@@ -3458,7 +3458,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/features/intro-cinematic/intro-cinematic.css",
-            "line": 862
+            "line": 858
           }
         ]
       },
@@ -3492,11 +3492,11 @@
           },
           {
             "source": "shinobij.client/src/features/intro-cinematic/intro-cinematic.css",
-            "line": 128
+            "line": 124
           },
           {
             "source": "shinobij.client/src/features/intro-cinematic/intro-cinematic.css",
-            "line": 1263
+            "line": 1259
           },
           {
             "source": "shinobij.client/src/screens/ProfessionPicker.css",
@@ -3612,11 +3612,11 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1916
+            "line": 1907
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1976
+            "line": 1962
           },
           {
             "source": "shinobij.client/src/styles/village-war-map-skin.css",
@@ -3642,7 +3642,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/features/intro-cinematic/intro-cinematic.css",
-            "line": 862
+            "line": 858
           },
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
@@ -3666,7 +3666,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1483
+            "line": 1474
           }
         ]
       },
@@ -3677,7 +3677,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1716
+            "line": 1707
           }
         ]
       },
@@ -3780,7 +3780,7 @@
           },
           {
             "source": "shinobij.client/src/features/intro-cinematic/intro-cinematic.css",
-            "line": 1089
+            "line": 1085
           },
           {
             "source": "shinobij.client/src/screens/WorldCrisis80.css",
@@ -4039,7 +4039,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1877
+            "line": 1868
           },
           {
             "source": "shinobij.client/src/styles/world-map-mobile.css",
@@ -4109,15 +4109,15 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1473
+            "line": 1464
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1716
+            "line": 1707
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 2020
+            "line": 2006
           }
         ]
       },
@@ -4501,7 +4501,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1910
+            "line": 1901
           }
         ]
       },
