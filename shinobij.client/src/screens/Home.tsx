@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import homeArt from "../assets/pet-home/home-hero.webp";
 import { PetBreedingBarn } from "../components/PetBreedingBarn";
 import { PetCollectionGallery } from "../components/PetCollectionGallery";
-import { PetHomeTabs, takePetHomeTabHint, type PetHomeContentTab } from "../components/PetHomeTabs";
+import { clearPetHomeTabHint, peekPetHomeTabHint, PetHomeTabs, type PetHomeContentTab } from "../components/PetHomeTabs";
 import { PetSanctuary } from "../components/PetSanctuary";
 import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { Screen } from "../types/core";
@@ -18,7 +18,8 @@ export function Home({ character, updateCharacter, onVersionedCharacter, onServe
     backLabel?: string;
     sharedImages: Record<string, string>;
 }) {
-    const [tab, setTab] = useState<PetHomeContentTab>(takePetHomeTabHint);
+    const [tab, setTab] = useState<PetHomeContentTab>(peekPetHomeTabHint);
+    useEffect(() => clearPetHomeTabHint(), []);
     const activePet = character.pets.find((pet) => pet.id === character.activePetId);
     return <main className="pet-home-screen">
         <header className="pet-home-hero" style={{ backgroundImage: `linear-gradient(90deg,rgba(3,8,18,.96),rgba(3,8,18,.24) 62%,rgba(3,8,18,.76)),url(${homeArt})` }}>

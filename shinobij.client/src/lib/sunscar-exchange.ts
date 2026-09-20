@@ -1,4 +1,4 @@
-import { isExchangeMarketPage, type ExchangeListing, type ExchangeMarketPage, type ExchangeMarketQuery, type ExchangeOwnedAsset } from '../../../shared/sunscar-exchange';
+import { isExchangeMarketPage, type ExchangeListing, type ExchangeMarketPage, type ExchangeMarketQuery, type ExchangeOwnedAsset, type ExchangePurchaseReadiness } from '../../../shared/sunscar-exchange';
 import type { Character } from '../types/character';
 import type { GameItem } from '../types/combat';
 
@@ -41,6 +41,17 @@ export async function requestExchangeMarket(playerName: string, market: Exchange
     const data = await response.json().catch(() => null);
     if (!response.ok || !data?.ok || !isExchangeMarketPage(data.market)) throw new ExchangeRequestError(data?.error || 'The market could not be loaded. Please retry.', false);
     return data.market;
+}
+/** Advisory read for one inspected listing. Final purchase always revalidates. */
+export async function requestExchangeReadiness(playerName: string, listingId: string, signal: AbortSignal): Promise<ExchangePurchaseReadiness> {
+    const timeout = AbortSignal.timeout(20_000);
+    const response = await fetch('/api/festival/exchange', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'readiness', playerName, listingId }), signal: AbortSignal.any([signal, timeout]) });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data?.ok || !data.readiness || data.readiness.listingId !== listingId) {
+        throw new ExchangeRequestError(data?.error || 'Purchase readiness could not be checked. Try again.', false);
+    }
+    return data.readiness as ExchangePurchaseReadiness;
 }
 const pendingKey = (player: string) => `sunscar-exchange:pending:${player.trim().toLowerCase()}`;
 export function pendingExchangeRequest(player: string): ExchangeRequest | null {

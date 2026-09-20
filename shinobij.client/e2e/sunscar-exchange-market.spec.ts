@@ -127,3 +127,53 @@ test('a save that lands while the market is loading is re-read, not reported to 
     await expect(page.locator('.sx-error')).toHaveCount(0);
     await expect(page.locator('.sx-listing')).toHaveCount(PAGE_SIZE);
 });
+
+test('capacity guidance appears before submission and prepare-return revalidates a sold listing', async ({ page }) => {
+    const save = uiAuditSave();
+    save.character = { ...save.character, ryo: 500_000 };
+    const runtime = await installUiAuditRuntime(page, save);
+    const id = 'a'.repeat(32);
+    const listing = {
+        id, asset: { id: 'pet-offer', name: 'Dune Fox', kind: 'pet', category: 'pets', rarity: 'rare', description: 'A companion.', stats: [], level: 10 },
+        price: 100, quantity: 1, currency: 'ryo', seller: 'miraa', sellerName: 'Miraa', state: 'active', createdAt: 1_700_000_000_000,
+    };
+    const actions: string[] = [];
+    let readinessChecks = 0;
+    await page.route('**/api/pet/sanctuary/list?*', route => route.fulfill({ json: {
+        ok: true, items: [], total: 0, nextCursor: null, carriedCount: 0, carriedCapacity: 5,
+    } }));
+    await page.route('**/api/festival/exchange', async route => {
+        const body = route.request().postDataJSON() as { action?: string; market?: Record<string, unknown> };
+        actions.push(String(body.action));
+        if (body.action === 'readiness') {
+            readinessChecks += 1;
+            const sold = readinessChecks > 1;
+            return route.fulfill({ json: { ok: true, readiness: sold
+                ? { listingId: id, observedAt: Date.now(), status: 'blocked', reasonCode: 'listing-unavailable', message: 'This listing is no longer available.', listing: { ...listing, state: 'sold', buyer: 'rival' } }
+                : { listingId: id, observedAt: Date.now(), status: 'blocked', reasonCode: 'companion-capacity', message: 'Your companion roster is full. Move a companion to the Sanctuary before buying.', prepare: { screen: 'home', section: 'sanctuary', label: 'Manage companion roster' }, listing } } });
+        }
+        const query = { v: 2, page: 1, category: 'all', rarity: 'all', currency: 'all', sort: 'newest', search: '', affordable: false, ...(body.market ?? {}) };
+        const market = { v: 2, query, page: 1, pageSize: PAGE_SIZE, pages: 1, total: 1, listings: [listing] };
+        if (body.action === 'market') return route.fulfill({ json: { ok: true, market } });
+        return route.fulfill({ json: { ok: true, market, activity: [], inventory: [], creatorItems: [], recoveryErrors: [], character: save.character, _saveVersion: runtime.currentVersion() } });
+    });
+
+    await page.goto('/#/sunscarFestival', { waitUntil: 'networkidle' });
+    await page.getByRole('button', { name: 'Enter the Exchange', exact: true }).click();
+    await page.getByRole('button', { name: /Dune Fox/ }).click();
+    await expect(page.getByText(/roster is full/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: /Buy for/ })).toBeDisabled();
+    expect(actions).not.toContain('buy');
+
+    await page.getByRole('button', { name: 'Manage companion roster' }).click();
+    await expect(page.getByRole('heading', { name: 'Pet Home' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Companion Sanctuary' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Return to Exchange' })).toBeVisible();
+    expect(actions).not.toContain('buy');
+
+    await page.getByRole('button', { name: 'Return to Exchange' }).click();
+    await expect(page.getByText('This listing is no longer available.')).toBeVisible();
+    await expect(page.getByText(/Status: Sold/)).toBeVisible();
+    await expect(page.getByRole('button', { name: /Buy for/ })).toHaveCount(0);
+    expect(actions).not.toContain('buy');
+});

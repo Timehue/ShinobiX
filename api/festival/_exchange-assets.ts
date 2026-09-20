@@ -1,4 +1,4 @@
-import { EXCHANGE_RESOURCES, type ExchangeAsset, type ExchangeOwnedAsset, type ExchangeKind } from '../../shared/sunscar-exchange.js';
+import { EXCHANGE_RESOURCES, type ExchangeAsset, type ExchangeOwnedAsset, type ExchangeKind, type ExchangeReadinessReasonCode } from '../../shared/sunscar-exchange.js';
 import { effectiveItemLevelReq } from '../../shared/item-level-gate.js';
 import { CHRONICLE_CARD_CATALOG, CHRONICLE_STARTER_GRANT_IDS } from '../../shared/chronicle-duel.js';
 import { isChronicleProgressionCardId } from '../card-clash/_progression-cards.js';
@@ -12,6 +12,8 @@ import type { SettlementCatalogs } from '../shop/_catalog.js';
 
 type Obj = Record<string, unknown>;
 export type SealedExchangeAsset = { asset: ExchangeAsset; definition: Obj; stackable: boolean; attunement?: string };
+export type ExchangeGrantBlocker = { code: Extract<ExchangeReadinessReasonCode,
+    'invalid-balance' | 'level-required' | 'duplicate-companion' | 'companion-capacity' | 'card-capacity' | 'inventory-capacity' | 'stack-quantity' | 'stack-capacity'>; message: string };
 export class ExchangeError extends Error {
     constructor(message: string, public status = 409, public pending = false) { super(message); }
 }
@@ -120,30 +122,52 @@ export function removeAsset(c: Obj, sealed: SealedExchangeAsset, quantity: numbe
     return { ...c, inventory, itemStacks, equipment, ...(sealed.attunement ? { weaponElements: { ...(c.weaponElements as Obj ?? {}), [id]: null } } : {}) };
 }
 
-export function grantAsset(c: Obj, sealed: SealedExchangeAsset, quantity: number, returning = false): Obj {
+/** Pure authoritative projection shared by purchase preview and final grant. */
+export function exchangeGrantBlocker(c: Obj, sealed: SealedExchangeAsset, quantity: number, returning = false): ExchangeGrantBlocker | null {
     const { kind, id } = sealed.asset;
-    if (kind === 'resource') { const n = balance(c[id] ?? 0) + quantity; return { ...c, [id]: balance(n) }; }
+    if (kind === 'resource') {
+        try { balance(balance(c[id] ?? 0) + quantity); return null; }
+        catch { return { code: 'invalid-balance', message: 'Your stored balance could not be verified.' }; }
+    }
     if (kind === 'pet') {
         const pets = objects(c.pets);
-        if (pets.some(p => p.id === id)) throw new ExchangeError('This companion is already in your roster.');
-        if (!returning && pets.length >= maxPets(c)) throw new ExchangeError('Your companion roster is full. Move a pet to the Sanctuary first.');
-        return { ...c, pets: [...pets, structuredClone(sealed.definition)] };
+        if (pets.some(p => p.id === id)) return { code: 'duplicate-companion', message: 'This companion is already in your roster.' };
+        if (!returning && pets.length >= maxPets(c)) return { code: 'companion-capacity', message: 'Your companion roster is full. Move a companion to the Sanctuary before buying.' };
+        return null;
     }
     if (kind === 'card') {
         const cards = strings(c.tileCards);
-        if (!canAppendPackableChronicleCards(cards, quantity)) throw new ExchangeError('Your card collection is full. Make room before collecting these cards.');
-        return { ...c, tileCards: [...cards, ...Array<string>(quantity).fill(id)] };
+        if (!canAppendPackableChronicleCards(cards, quantity)) return { code: 'card-capacity', message: 'Your card collection is full. Make room before buying these cards.' };
+        return null;
     }
-    if (!returning && Number(c.level ?? 0) < Number(sealed.asset.level ?? 1)) throw new ExchangeError(`This item requires level ${sealed.asset.level}.`);
+    if (!returning && Number(c.level ?? 0) < Number(sealed.asset.level ?? 1)) return { code: 'level-required', message: `This item requires level ${sealed.asset.level}.` };
+    const inventory = strings(c.inventory);
+    if (sealed.stackable) {
+        const stacks = objects(c.itemStacks);
+        let count: number;
+        try { count = ownedQuantity(c, 'item', id) + quantity; }
+        catch { return { code: 'invalid-balance', message: 'Your stored inventory could not be verified.' }; }
+        if (count > 9999) return { code: 'stack-quantity', message: 'There is not enough room in this item stack.' };
+        if (!stacks.some(s => s.itemId === id) && stacks.length >= 200) return { code: 'stack-capacity', message: 'Your stack inventory is full.' };
+        return null;
+    }
+    if (!returning && inventory.length + quantity > INVENTORY_CAP) return { code: 'inventory-capacity', message: 'Your inventory is full.' };
+    return null;
+}
+
+export function grantAsset(c: Obj, sealed: SealedExchangeAsset, quantity: number, returning = false): Obj {
+    const blocker = exchangeGrantBlocker(c, sealed, quantity, returning);
+    if (blocker) throw new ExchangeError(blocker.message);
+    const { kind, id } = sealed.asset;
+    if (kind === 'resource') return { ...c, [id]: balance(balance(c[id] ?? 0) + quantity) };
+    if (kind === 'pet') return { ...c, pets: [...objects(c.pets), structuredClone(sealed.definition)] };
+    if (kind === 'card') return { ...c, tileCards: [...strings(c.tileCards), ...Array<string>(quantity).fill(id)] };
     const inventory = strings(c.inventory);
     if (sealed.stackable) {
         const stacks = objects(c.itemStacks);
         const count = ownedQuantity(c, 'item', id) + quantity;
-        if (count > 9999) throw new ExchangeError('There is not enough room in this item stack.');
-        if (!stacks.some(s => s.itemId === id) && stacks.length >= 200) throw new ExchangeError('Your stack inventory is full.');
         return { ...c, inventory: inventory.filter(v => v !== id), itemStacks: [...stacks.filter(s => s.itemId !== id), { itemId: id, count }] };
     }
-    if (!returning && inventory.length + quantity > INVENTORY_CAP) throw new ExchangeError('Your inventory is full.');
     return { ...c, inventory: [...inventory, ...Array<string>(quantity).fill(id)], ...(sealed.attunement ? { weaponElements: { ...(c.weaponElements as Obj ?? {}), [id]: sealed.attunement } } : {}) };
 }
 

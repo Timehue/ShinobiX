@@ -31,6 +31,6 @@ export function Harness() {
     if (!character) return <p>Opening Sunscar…</p>;
     // App supplies a freshly declared callback on each render. Keep this
     // harness equally demanding so an API-read/render loop cannot hide here.
-    return <main style={{ minHeight: '100dvh', background: '#1a1917' }}><SunscarFestival character={character} onVersionedCharacter={(next, rev) => commit(next, rev)} setCreatorItems={setCreatorItems}/></main>;
+    return <main style={{ minHeight: '100dvh', background: '#1a1917' }}><SunscarFestival character={character} onVersionedCharacter={(next, rev) => commit(next, rev)} setCreatorItems={setCreatorItems} setScreen={() => {}} /></main>;
 }
 createRoot(document.getElementById('root')!).render(<StrictMode><Harness/></StrictMode>);
