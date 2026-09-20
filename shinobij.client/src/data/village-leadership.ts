@@ -1,4 +1,4 @@
-import { STORYWIDE_ACTORS, STORYWIDE_ACTOR_VARIANTS } from "../lib/vn-storywide-direction";
+import { storyLeadershipPortrait } from "./storywide-leadership-portraits";
 
 type VillageLeadershipProfile = { kage: string; elders: string[]; roles: string[]; atWar: boolean; pastWars: string[] };
 export type VillageLeadershipImages = Record<string, { kage?: string; elders?: string[] }>;
@@ -43,21 +43,21 @@ function defaultPortraitFor(name?: string): string {
 // the story. Neutral variants are preferred where the VN has an action pose as
 // its base image, because the Town Hall is a calm civic setting.
 const CANONICAL_LEADERSHIP_PORTRAITS: Record<string, string> = {
-    "kage raiko veyr": STORYWIDE_ACTORS["kage raiko veyr"],
-    "elder vanta": STORYWIDE_ACTORS["elder vanta"],
-    "mira volt": STORYWIDE_ACTOR_VARIANTS["mira volt"]?.neutral ?? STORYWIDE_ACTORS["mira volt"],
-    "tempest guard captain": STORYWIDE_ACTORS["tempest guard captain"],
-    "kage hoshina enju": STORYWIDE_ACTORS["kage hoshina enju"],
-    "elder mori": STORYWIDE_ACTORS["elder mori"],
-    "toma reed": STORYWIDE_ACTORS["toma reed"],
-    "registry duty clerk": STORYWIDE_ACTORS["registry duty clerk"],
-    "kage kael whitefang": STORYWIDE_ACTORS["kage kael whitefang"],
-    "elder sova": STORYWIDE_ACTORS["elder sova"],
-    "captain yura": STORYWIDE_ACTORS["captain yura"],
-    "seal-keeper vess": STORYWIDE_ACTORS["seal-keeper vess"],
-    "kage sable nocturne": STORYWIDE_ACTOR_VARIANTS["kage sable nocturne"]?.neutral ?? STORYWIDE_ACTORS["kage sable nocturne"],
-    "shade master iro": STORYWIDE_ACTORS["shade master iro"],
-    nyx: STORYWIDE_ACTOR_VARIANTS.nyx?.neutral ?? STORYWIDE_ACTORS.nyx,
+    "kage raiko veyr": storyLeadershipPortrait("kage raiko veyr"),
+    "elder vanta": storyLeadershipPortrait("elder vanta"),
+    "mira volt": storyLeadershipPortrait("mira volt", "neutral"),
+    "tempest guard captain": storyLeadershipPortrait("tempest guard captain"),
+    "kage hoshina enju": storyLeadershipPortrait("kage hoshina enju"),
+    "elder mori": storyLeadershipPortrait("elder mori"),
+    "toma reed": storyLeadershipPortrait("toma reed"),
+    "registry duty clerk": storyLeadershipPortrait("registry duty clerk"),
+    "kage kael whitefang": storyLeadershipPortrait("kage kael whitefang"),
+    "elder sova": storyLeadershipPortrait("elder sova"),
+    "captain yura": storyLeadershipPortrait("captain yura"),
+    "seal-keeper vess": storyLeadershipPortrait("seal-keeper vess"),
+    "kage sable nocturne": storyLeadershipPortrait("kage sable nocturne", "neutral"),
+    "shade master iro": storyLeadershipPortrait("shade master iro"),
+    nyx: storyLeadershipPortrait("nyx", "neutral"),
 };
 
 function canonicalLeadershipPortraitFor(name?: string): string {
