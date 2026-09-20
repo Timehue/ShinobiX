@@ -11,7 +11,7 @@ export function activitySourceKey(character: Character, trainingState = ''): str
             'battleTowerBestFloor', 'battleTowerClearedFloors', 'battleTowerAscension', 'endlessTowerBestWave',
             'hollowGateRun', 'endlessTowerRun', 'activePetId', 'activePetId2v2', 'carriedPetIds', 'petBreeding', 'patreon',
             'cardClashDeck', 'tileCards', 'starterCardsClaimed', 'legacy', 'profession', 'professionXp', 'professionRank',
-            'masterySpec', 'inventory', 'itemStacks', 'ryo', 'dailyBattleDate', 'dailyBattleFloors', 'rankedWins',
+            'masteryFocus', 'masterySpec', 'inventory', 'itemStacks', 'ryo', 'dailyBattleDate', 'dailyBattleFloors', 'rankedWins',
             'cardClashWins'].map(key => c[key]),
         character.pets?.map(p => [p.id, p.level, p.training, p.expedition]),
     ]);

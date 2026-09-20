@@ -1,6 +1,7 @@
 import {
     normalizeMasteryFocus,
     type ActivityHorizon,
+    type ActivityScreen,
     type ActivitySpine,
     type ActivitySpineItem,
     type MasteryFocus,
@@ -47,7 +48,7 @@ export type ActivitySpineInput = {
     lastLoginRewardDate: string;
     focus?: unknown;
     progressionHold?: { exam: string; level: number } | null;
-    resume?: { title: string; screen: string; runtimeModeId: string; context?: 'clan-boss' | 'towers' } | null;
+    resume?: { title: string; screen: ActivityScreen; runtimeModeId: string; context?: 'clan-boss' | 'towers' } | null;
     facts?: Partial<FocusFacts>;
     clanBoss?: {
         active: boolean;
@@ -154,7 +155,7 @@ function optionalPrestigeLongTerm(facts: FocusFacts): ActivitySpineItem | null {
 /** One deterministic next step. Readiness belongs to the eventual action;
  * preparation remains usable, and never performs that action on navigation. */
 function focusNow(input: ActivitySpineInput, focus: Focus, facts: FocusFacts): ActivitySpineItem {
-    const review = (id: string, title: string, why: string, screen: string, cta: string,
+    const review = (id: string, title: string, why: string, screen: ActivityScreen, cta: string,
         extra: Partial<ActivitySpineItem> = {}) => item('now', {
         id, title, why, screen, cta, commitment: '2–5 min', eligibility: 'eligible', ...extra,
     });

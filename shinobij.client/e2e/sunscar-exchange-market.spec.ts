@@ -147,7 +147,8 @@ test('capacity guidance appears before submission and prepare-return revalidates
         actions.push(String(body.action));
         if (body.action === 'readiness') {
             readinessChecks += 1;
-            const sold = readinessChecks > 1;
+            if (readinessChecks === 2 || readinessChecks === 3) return route.abort('failed');
+            const sold = readinessChecks > 3;
             return route.fulfill({ json: { ok: true, readiness: sold
                 ? { listingId: id, observedAt: Date.now(), status: 'blocked', reasonCode: 'listing-unavailable', message: 'This listing is no longer available.', listing: { ...listing, state: 'sold', buyer: 'rival' } }
                 : { listingId: id, observedAt: Date.now(), status: 'blocked', reasonCode: 'companion-capacity', message: 'Your companion roster is full. Move a companion to the Sanctuary before buying.', prepare: { screen: 'home', section: 'sanctuary', label: 'Manage companion roster' }, listing } } });
@@ -172,6 +173,10 @@ test('capacity guidance appears before submission and prepare-return revalidates
     expect(actions).not.toContain('buy');
 
     await page.getByRole('button', { name: 'Return to Exchange' }).click();
+    await expect(page.getByRole('button', { name: 'Retry listing check' })).toBeVisible();
+    await page.getByRole('button', { name: 'Retry listing check' }).click();
+    await expect.poll(() => readinessChecks).toBe(3);
+    await page.reload({ waitUntil: 'networkidle' });
     await expect(page.getByText('This listing is no longer available.')).toBeVisible();
     await expect(page.getByText(/Status: Sold/)).toBeVisible();
     await expect(page.getByRole('button', { name: /Buy for/ })).toHaveCount(0);
