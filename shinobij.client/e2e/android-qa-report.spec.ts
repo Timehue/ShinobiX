@@ -141,9 +141,13 @@ for (const viewport of [{ width: 360, height: 640 }, { width: 844, height: 390 }
         await expect(page.locator('.profile-avatar-upload input[type=file]')).toHaveCount(0);
         await expect(page.getByRole('heading', { name: 'Change Password', exact: true })).toHaveCount(0);
         const desktopSettings = page.locator('.right-menu-section--system').getByRole('button', { name: 'Settings', exact: true });
-        if (await desktopSettings.isVisible()) await desktopSettings.click();
-        else {
-            await page.locator('.mobile-bottom-nav').getByRole('button', { name: 'Menu', exact: true }).click();
+        if (viewport.width >= 980) {
+            await expect(desktopSettings).toBeVisible();
+            await desktopSettings.click();
+        } else {
+            const mobileMenu = page.locator('.mobile-bottom-nav').getByRole('button', { name: 'Menu', exact: true });
+            await expect(mobileMenu).toBeVisible();
+            await mobileMenu.click();
             await page.getByRole('button', { name: 'Settings', exact: true }).click();
         }
         await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'settings');
