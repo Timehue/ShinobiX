@@ -1,0 +1,36 @@
+.battle-chat-error { margin: 0; padding: 6px 10px; color: #f8c6b2; font-size: 12px; line-height: 1.4; }
+
+/* Compact spectators need a reachable chat control. Keep fighter layouts intact. */
+@media (max-width: 1279px), (max-height: 699px) {
+    #combat.pvp-spectator .battle-chat-col {
+        display: flex !important;
+        position: absolute !important;
+        inset: auto 12px 12px auto !important;
+        z-index: 90 !important;
+        width: min(340px, calc(100% - 24px)) !important;
+        height: auto !important;
+        max-height: min(360px, 60dvh) !important;
+        min-height: 0 !important;
+        border: 1px solid #88735a !important;
+        border-radius: 8px !important;
+        background: #121722 !important;
+        box-shadow: 0 8px 28px #0009;
+        font-size: 13px;
+    }
+    #combat.pvp-spectator .battle-chat-col.battle-chat-hidden {
+        width: auto !important;
+        max-height: 52px !important;
+    }
+    #combat.pvp-spectator .battle-side-header { min-height: 44px; padding: 2px 8px; }
+    #combat.pvp-spectator .battle-side-header > span { display: block; }
+    #combat.pvp-spectator .battle-chat-toggle { min-width: 44px; min-height: 44px; }
+    #combat.pvp-spectator .battle-chat-messages {
+        min-height: 60px !important;
+        max-height: 200px !important;
+        overscroll-behavior: contain;
+        touch-action: pan-y;
+    }
+    #combat.pvp-spectator .battle-chat-input-row { flex-shrink: 0; }
+    #combat.pvp-spectator .battle-chat-input-row input { min-width: 0; min-height: 44px; font-size: 16px; }
+    #combat.pvp-spectator .battle-chat-input-row button { min-width: 44px; min-height: 44px; }
+}

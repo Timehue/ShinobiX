@@ -31,6 +31,7 @@
 import { useSyncExternalStore } from "react";
 import type { PlayerRecord } from "../types/character";
 import { playerSlug } from "./utils";
+import { peerIsTraveling } from "./presence-character";
 
 // Grace window: how long a player who drops out of a single snapshot stays shown
 // before we believe they're gone. MUST stay far below the server offline TTL
@@ -49,6 +50,21 @@ const ROSTER_RACE_MS = 5000;
 let liveArr: PlayerRecord[] = [];
 let liveSig = "";
 let liveSector: number | null = null;
+export type SectorRosterState = "loading" | "current" | "reconnecting";
+let rosterState: SectorRosterState = "loading";
+/** Metadata from the existing heartbeat/socket ingest; no new polling or clock. */
+export function markSectorRosterUnavailable(sector: number): void {
+    if (sector !== liveSector || rosterState === "reconnecting") return;
+    rosterState = "reconnecting";
+    // The next existing heartbeat must request a full snapshot even if the
+    // socket is still connected; deltas alone cannot confirm roster membership.
+    lastFullRoster = null;
+    notify();
+}
+export function getSectorRosterState(): SectorRosterState { return rosterState; }
+export function useSectorRosterState(): SectorRosterState {
+    return useSyncExternalStore(subscribe, getSectorRosterState);
+}
 // Membership/display-only snapshot (NO within-sector tile): its reference changes
 // only when WHO is in the sector or their display fields change — NOT when a peer
 // walks to a new tile. The "Players Here" panel + sleeper logic subscribe to this
@@ -112,6 +128,7 @@ export function subscribeLocalSectorTileCorrections(listener: (tile: number, sec
 }
 
 function normalizedSector(value: unknown): number | null {
+    if (value == null) return null;
     const sector = Number(value);
     if (!Number.isFinite(sector)) return null;
     return Math.max(0, Math.floor(sector));
@@ -170,7 +187,9 @@ export function setLiveSectorContext(sector: number | null): void {
     if (pendingLocalCorrection?.sector !== undefined && pendingLocalCorrection.sector !== nextSector) pendingLocalCorrection = null;
     if (nextSector === liveSector) return;
     liveSector = nextSector;
-    clearLiveSectorPlayers(true);
+    rosterState = "loading";
+    clearLiveSectorPlayers(false);
+    notify();
 }
 
 /**
@@ -199,10 +218,9 @@ const SEEN_BUCKET_MS = 30_000;
  * short-circuit (Phase 1B).
  */
 export function presenceSignature(list: PlayerRecord[]): string {
-    const now = Date.now();
     return list
         .map((p) =>
-            `${p.name.toLowerCase()}:${p.level ?? ""}:${p.currentSector ?? ""}:${p.village ?? ""}:${p.clan ?? ""}:${p.inBattle ? 1 : 0}:${p.stronghold?.sector ?? ""}:${(p.travelingUntil ?? 0) > now ? 1 : 0}:${Math.floor((p.lastSeenAt ?? 0) / SEEN_BUCKET_MS)}`,
+            `${p.name.toLowerCase()}:${p.level ?? ""}:${p.currentSector ?? ""}:${p.village ?? ""}:${p.clan ?? ""}:${p.inBattle ? 1 : 0}:${p.stronghold?.sector ?? ""}:${peerIsTraveling(p) ? 1 : 0}:${p.travelingUntil ?? 0}:${p.character?.avatarImage ?? ""}:${Math.floor((p.lastSeenAt ?? 0) / SEEN_BUCKET_MS)}`,
         )
         .sort()
         .join("|");
@@ -263,6 +281,9 @@ export function pushLiveSectorPlayers(next: PlayerRecord[], sector?: number): vo
     const merged = carried.length ? [...next, ...carried] : next;
     const memberSig = presenceSignature(merged);
     const sig = liveSignature(merged, memberSig);
+    const stateChanged = rosterState !== "current";
+    rosterState = "current";
+    if (sig === liveSig && stateChanged) notify();
     if (sig === liveSig) return; // unchanged — keep ref, notify nobody
     liveArr = merged;
     liveSig = sig;
@@ -377,8 +398,10 @@ function expireLingering(): void {
 export function resetLiveSectorPlayers(): void {
     pendingLocalCorrection = null;
     liveSector = null;
-    // Notifies only when a roster was showing.
-    clearLiveSectorPlayers(true);
+    const stateChanged = rosterState !== "loading";
+    rosterState = "loading";
+    clearLiveSectorPlayers(!stateChanged);
+    if (stateChanged) notify();
 }
 
 /** Non-reactive snapshot read. Returns a STABLE reference until contents change. */

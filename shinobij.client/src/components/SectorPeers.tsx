@@ -1,3 +1,4 @@
+import { SectorPortrait } from "./SectorPortrait";
 /*
  * SectorPeers — live "walking" overlay for OTHER players in your sector (2D).
  *
@@ -132,7 +133,7 @@ export function SectorPeers({ peers }: { peers: SectorPeer[] }) {
     if (!metrics.w || !metrics.h) {
         // Not measured yet — render the empty overlay so the ResizeObserver's
         // parent lookup still resolves on the first layout pass.
-        return <div className="sector-peers-overlay" ref={wrapRef} aria-hidden="true" />;
+        return <div className={`sector-peers-overlay${peers.length > 8 ? " is-crowded" : ""}`} ref={wrapRef} aria-hidden="true" />;
     }
 
     const tilePx = Math.max(0, (metrics.w - 2 * metrics.padX - (GRID - 1) * metrics.gapX) / GRID);
@@ -144,11 +145,12 @@ export function SectorPeers({ peers }: { peers: SectorPeer[] }) {
         if (a.sleeping !== b.sleeping) return a.sleeping ? 1 : -1;
         return 0;
     });
-    const shown = ordered.slice(0, MAX_MARKERS);
-    const overflow = Math.max(0, peers.length - MAX_MARKERS);
+    const markerBudget = metrics.w < 260 ? 6 : metrics.w < 360 ? 12 : metrics.w < 500 ? 25 : MAX_MARKERS;
+    const shown = ordered.slice(0, markerBudget);
+    const overflow = Math.max(0, peers.length - markerBudget);
 
     return (
-        <div className="sector-peers-overlay" ref={wrapRef} aria-hidden="true">
+        <div className={`sector-peers-overlay${peers.length > 8 ? " is-crowded" : ""}`} ref={wrapRef} aria-hidden="true">
             {shown.map((it) => {
                 const col = it.tile % GRID;
                 const row = Math.floor(it.tile / GRID);
@@ -177,9 +179,7 @@ export function SectorPeers({ peers }: { peers: SectorPeer[] }) {
                             <span className="sector-avatar-shadow" />
                             <span className="sector-avatar-sprite">
                                 <span className="sector-avatar-body" style={{ animationDelay: `${bobDelay(it.name)}s` }}>
-                                    {it.avatar
-                                        ? <img src={it.avatar} alt={it.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                                        : <span className="sector-avatar-initials">{it.name.slice(0, 2).toUpperCase()}</span>}
+                                    <SectorPortrait key={it.avatar} src={it.avatar} name={it.name} />
                                     <span className="sector-avatar-pin" />
                                 </span>
                             </span>

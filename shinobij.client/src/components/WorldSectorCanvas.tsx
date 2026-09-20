@@ -1,11 +1,8 @@
 import type { ReactNode } from "react";
 import type { Biome, WeatherType } from "../types/core";
-import { biomeLabel } from "../data/world";
-import { sectorRegionName } from "../data/sectors";
 import { sectorName } from "../../../shared/sector-geo";
 import type { SectorDirection, SectorExit } from "../../../shared/sector-links";
 import { DayNightSky } from "./DayNightSky";
-import { SectorSkyForecast } from "./SectorSkyForecast";
 import { RegionSplash, SectorGateMarker } from "./WorldWalkFeel";
 import { SceneAmbience } from "./SceneAmbience";
 import { SceneAmbience3D } from "./SceneAmbience3D";
@@ -53,6 +50,7 @@ export type WorldSectorCanvasProps = {
     sleeperPeers: SectorPeer[];
     onSelectTile: (tile: number) => void;
     onCrossExit: (exit: SectorExit) => void;
+    hudLayer: ReactNode;
     overlayLayer: ReactNode;
     encounterLayer: ReactNode;
 };
@@ -86,21 +84,15 @@ export function WorldSectorCanvas({
     sleeperPeers,
     onSelectTile,
     onCrossExit,
+    hudLayer,
     overlayLayer,
     encounterLayer,
 }: WorldSectorCanvasProps) {
-    const playerCol = (playerTile % GRID_SIZE) + 1;
-    const playerRow = Math.floor(playerTile / GRID_SIZE) + 1;
     const mapMode = Boolean(mapImage);
+    const fallbackMarkers = players.slice(0, 48);
     return (
         <main className="tile-scene sector-stage-panel">
-            <div className="scene-title sector-scene-title">
-                <div>
-                    <strong>{sectorName(sector) ?? `Sector ${sector}`}</strong>
-                    <span>Sector {sector} · {sectorRegionName(sector)} | {biomeLabel(biome)} | <SectorSkyForecast sector={sector} biome={biome} fallback={weather} variant="name" /></span>
-                </div>
-                <small>R{playerRow} C{playerCol}{isCurrent ? " | Present" : " | Scouting"}</small>
-            </div>
+            {!suspended && hudLayer}
 
             <div className={`pixel-map walkable-sector-map sector-image-map${enterDirection ? ` sector-enter-${enterDirection}` : ""}`}>
                 {!suspended && <>
@@ -131,7 +123,7 @@ export function WorldSectorCanvas({
                     const roadExit = roadExits.find((exit) => exit.tile === index);
                     const tileCol = (index % GRID_SIZE) + 1;
                     const tileRow = Math.floor(index / GRID_SIZE) + 1;
-                    const otherHere = showLivePeers ? [] : players.filter((player) => playerNameTile(player.name) === index);
+                    const otherHere = showLivePeers ? [] : fallbackMarkers.filter((player) => playerNameTile(player.name) === index);
 
                     return (
                         <button
@@ -181,6 +173,7 @@ export function WorldSectorCanvas({
                         sleepers={sleeperPeers}
                     />
                 )}
+                {!showLivePeers && players.length > fallbackMarkers.length && <div className="sector-peers-overflow" aria-hidden="true">+{players.length - fallbackMarkers.length} more here</div>}
 
                 {isCurrent && (
                     <SectorAvatar

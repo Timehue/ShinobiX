@@ -104,8 +104,12 @@ test("socket deltas add and move a player without replacing the roster", () => {
     setLiveSectorContext(9);
     upsertLiveSectorPlayer(player("Aya", 9, { tile: 10 }), 9);
     assert.equal(getLiveSectorPlayers()[0]?.tile, 10);
+    const roster = getLiveSectorRoster();
     moveLiveSectorPlayer("Aya", 11, 9);
     assert.equal(getLiveSectorPlayers()[0]?.tile, 11);
+    assert.equal(getLiveSectorRoster(), roster, 'walking must not invalidate the display roster');
+    upsertLiveSectorPlayer(player('Aya', 9, { tile: 11, inBattle: true }), 9);
+    assert.notEqual(getLiveSectorRoster(), roster, 'battle state must invalidate the display roster');
 });
 
 const names = () => getLiveSectorPlayers().map((p) => p.name).sort();
@@ -213,4 +217,32 @@ test("a leave for the sector this client just left does not hide a companion who
     assert.deepEqual(names(), ["Companion"], "and leaves no tombstone behind");
     removeLiveSectorPlayers(["companion"], 13);
     assert.deepEqual(names(), [], "a leave for this sector still applies");
+});
+
+test('avatar changes and travel lease extensions invalidate the display roster', () => {
+    const original = player('Aya', 9, { travelingUntil: Date.now() + 60_000 });
+    assert.notEqual(presenceSignature([original]), presenceSignature([{...original, travelingUntil: original.travelingUntil! + 60_000}]));
+    assert.notEqual(presenceSignature([original]), presenceSignature([{...original, character:{...original.character,avatarImage:'/new-portrait.webp'}}]));
+});
+test('an empty confirmed snapshot differs from loading, and a failed old-sector request cannot mark the new sector unavailable', async () => {
+    const store = await import('./presence-store');
+    store.resetLiveSectorPlayers();
+    store.setLiveSectorContext(22);
+    assert.equal(store.getSectorRosterState(), 'loading');
+    store.pushLiveSectorPlayers([], 22);
+    assert.equal(store.getSectorRosterState(), 'current');
+    store.markSectorRosterUnavailable(22);
+    assert.equal(store.getSectorRosterState(), 'reconnecting');
+    store.pushLiveSectorPlayers([], 22);
+    assert.equal(store.getSectorRosterState(), 'current');
+    store.setLiveSectorContext(23);
+    store.markSectorRosterUnavailable(22);
+    store.pushLiveSectorPlayers([], 22);
+    assert.equal(store.getSectorRosterState(), 'loading');
+    store.setLiveSectorContext(null);
+    assert.equal(store.getLiveSectorContext(), null);
+    store.pushLiveSectorPlayers([]);
+    assert.equal(store.getSectorRosterState(), 'current');
+    store.resetLiveSectorPlayers();
+    assert.equal(store.getSectorRosterState(), 'loading', 'account reset clears even an empty confirmed snapshot');
 });

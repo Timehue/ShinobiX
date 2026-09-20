@@ -143,9 +143,6 @@
      grid to the top instead: the board already carries the sector's name and
      weather in its own header, so the panel heading repeating them is what can
      afford to wait. */
-  .map-instance .instance-frame > aside.sector-command-panel > .sector-action-grid {
-    order: -1;
-  }
 }
 
 /* Chronicle owns its adaptive battlefield and action tray in chronicle-duel.css. */

@@ -384,3 +384,12 @@ describe("PvP reliability source wiring", () => {
         assert.match(screen, /if \(!isCurrentScope\(\)\) return;/);
     });
 });
+
+
+it("spectators return to their sector without acquiring raid context", () => {
+    const context = { spectatingFromSector: 22 };
+    assert.deepEqual(pvpResultReturn(context, 1), { returnTarget: "worldMap", returnLabel: "Return to Sector 22" });
+    clearSectorReopen();
+    markPvpSectorReturn("worldMap", context, 1);
+    assert.equal(takeSectorReopen(), 22);
+});

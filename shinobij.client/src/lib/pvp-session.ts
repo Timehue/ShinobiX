@@ -34,10 +34,10 @@ import { setSectorReopen } from "./sector-return";
  */
 export function pvpResultReturn(context: PvpRecoveryContext | null, currentSector: number, hospitalized = false): { returnTarget: Screen; returnLabel: string } {
     if (hospitalized) return { returnTarget: "hospital", returnLabel: "Go to Hospital" };
-    const returnTarget: Screen = context?.sectorAttack ? "worldMap" : context?.mode?.startsWith("clanWar") ? "clan" : "battleArena";
+    const returnTarget: Screen = (context?.sectorAttack || context?.spectatingFromSector != null) ? "worldMap" : context?.mode?.startsWith("clanWar") ? "clan" : "battleArena";
     return {
         returnTarget,
-        returnLabel: returnTarget === "worldMap" ? `Return to Sector ${context?.sector ?? currentSector}`
+        returnLabel: returnTarget === "worldMap" ? `Return to Sector ${context?.spectatingFromSector ?? context?.sector ?? currentSector}`
             : returnTarget === "clan" ? "Return to Clan War" : "Return to Arena",
     };
 }
@@ -61,8 +61,8 @@ export function pvpResultReturn(context: PvpRecoveryContext | null, currentSecto
  * so `isWildSector` correctly leaves those on today's behaviour.
  */
 export function markPvpSectorReturn(target: Screen, context: PvpRecoveryContext | null, currentSector: number): void {
-    if (target !== "worldMap" || !context?.sectorAttack) return;
-    const sector = Number(context.sector ?? currentSector);
+    if (target !== "worldMap" || (!context?.sectorAttack && context?.spectatingFromSector == null)) return;
+    const sector = Number(context.spectatingFromSector ?? context.sector ?? currentSector);
     if (isWildSector(sector)) setSectorReopen(sector);
 }
 

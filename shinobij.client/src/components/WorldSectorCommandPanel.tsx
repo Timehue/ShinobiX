@@ -1,17 +1,12 @@
 import {
-    GiCompass,
     GiCrossedSwords,
-    GiExitDoor,
-    GiHealthPotion,
     GiPawPrint,
     GiShield,
 } from "./icons/LightweightGameIcons";
 import { TERRITORY_CONTROL_MAX, TERRITORY_HP_MAX } from "../constants/game";
 import { biomeLabel } from "../data/world";
-import { sectorRegionName } from "../data/sectors";
 import { sectorGatherLineFor } from "../lib/sector-pool";
 import { sectorContestLabel } from "../lib/sector-war-engagement";
-import { sectorName } from "../../../shared/sector-geo";
 import { SectorTracesCard } from "./SectorTraces";
 import { SectorGatherReadout } from "./SectorGatherReadout";
 import { SectorIntelCard } from "./SectorIntelCard";
@@ -48,39 +43,27 @@ export function WorldSectorCommandPanel({
     order = null,
     villageWarAdmissionOpen,
     traces,
-    hasLivePlayers,
     sectorContest,
     sectorGarrisonReady,
-    players,
     hunt,
     onRaidEnemyVillage,
     onRaidControlledSector,
     onOpenSigns,
     onOpenShrine,
-    onStrikeSleeper,
-    onAttackPlayer,
     onOpenSectorContest,
     onFightSectorGarrison,
     onClaimContract,
-    onExplore,
-    onFindRicherGround,
-    onHunt,
-    onRecover,
-    onLeave,
 }: WorldSectorCommandPanelProps) {
     // The shared pool decides whether Explore can do anything. `gather` is null
     // off a wild sector and `pending` pre-poll; neither may refuse the verb.
     const gather = sectorGatherLineFor(gathering);
-    const gatherDepleted = gather?.depleted === true;
     return (
-        <aside className="instance-actions sector-command-panel" aria-label={`Sector ${sector} command panel`}>
+        <aside className="sector-command-panel sector-details-body" aria-label={`Sector ${sector} command panel`}>
             <header className="sector-panel-heading">
                 <div className="sector-panel-kicker">
                     <span className={`sector-biome-token sector-biome-${biome}`}>{biomeLabel(biome)}</span>
                     <span><SectorSkyForecast sector={sector} biome={biome} fallback={weather} /></span>
                 </div>
-                <h3>{sectorName(sector) ?? `Sector ${sector}`}</h3>
-                <small className="sector-panel-sub">Sector {sector} · {sectorRegionName(sector)}</small>
                 {gather && <SectorGatherReadout gather={gather} />}
                 <SectorSkyForecast sector={sector} biome={biome} fallback={weather} variant="effect" />
             </header>
@@ -206,41 +189,6 @@ export function WorldSectorCommandPanel({
                     )}
                 </section>
             )}
-            <section className="sector-presence sector-panel-card">
-                <div className="sector-panel-card-head">
-                    <h4>Players Here</h4>
-                    {hasLivePlayers && <span className="live-badge">LIVE</span>}
-                </div>
-                {players.length === 0 ? (
-                    <span className="sector-empty-note">No other players in this sector.</span>
-                ) : (
-                    players.map((player) => (
-                        <div className="sector-player-card" key={player.name}>
-                            <div className="sector-player-avatar" aria-hidden="true">
-                                {player.avatarSrc
-                                    ? <img className="sector-player-avatar-img" src={player.avatarSrc} alt="" onError={(event) => { event.currentTarget.style.display = "none"; }} />
-                                    : <span className="sector-player-avatar-emoji">{player.name.slice(0, 2).toUpperCase()}</span>}
-                            </div>
-                            <div className="sector-player-info">
-                                <strong>{player.name}</strong>
-                                <small>Level {player.level}</small>
-                                <span className={`sector-status-pill is-${player.status.toLowerCase()}`}>{player.status}</span>
-                            </div>
-                            {player.sleeping ? (
-                                <button type="button" className="danger-button sector-player-action" disabled={!present} onClick={() => onStrikeSleeper(player.target)}>
-                                    <span className="sector-action-icon" aria-hidden="true"><GiCrossedSwords /></span>
-                                    <span>Strike Down</span>
-                                </button>
-                            ) : (
-                                <button type="button" className="danger-button sector-player-action" disabled={!present || player.actionDisabled} onClick={() => onAttackPlayer(player.target)}>
-                                    <span className="sector-action-icon" aria-hidden="true"><GiCrossedSwords /></span>
-                                    <span>{player.status === "Traveling" ? "Traveling" : (player.status === "Fighting" ? "Fighting" : (player.attackLabel.kind === "contest" ? sectorContestLabel(player.attackLabel.winCondition) : "Attack"))}</span>
-                                </button>
-                            )}
-                        </div>
-                    ))
-                )}
-            </section>
             {hunt && (
                 <section className="sector-presence sector-panel-card">
                     <div className="sector-panel-card-head">
@@ -260,35 +208,6 @@ export function WorldSectorCommandPanel({
                     </p>
                 </section>
             )}
-            <div className="sector-action-grid" aria-label="Sector actions">
-                {/* A picked-clean sector used to leave a dead, disabled button — the
-                    end of the road. The pool is shared and per-sector, so "nothing
-                    here" always means "something nearby": the verb changes rather
-                    than switching off, and points at the ground that still pays. */}
-                <button
-                    type="button"
-                    className={`sector-action-btn is-primary${gatherDepleted ? " is-spent" : ""}`}
-                    disabled={!present && !gatherDepleted}
-                    onClick={gatherDepleted ? onFindRicherGround : onExplore}
-                >
-                    <span className="sector-action-icon" aria-hidden="true"><GiCompass /></span>
-                    <span>{gatherDepleted ? "Find richer ground" : "Explore"}</span>
-                </button>
-                {hunt && (
-                    <button type="button" className="sector-action-btn" disabled={!present} onClick={onHunt}>
-                        <span className="sector-action-icon" aria-hidden="true"><GiPawPrint /></span>
-                        <span>{hunt.ready ? "Fight" : "Track"} {hunt.targetName}</span>
-                    </button>
-                )}
-                <button type="button" className="sector-action-btn" disabled={!present} onClick={onRecover}>
-                    <span className="sector-action-icon" aria-hidden="true"><GiHealthPotion /></span>
-                    <span>Recover</span>
-                </button>
-                <button type="button" className="sector-action-btn is-ghost" onClick={onLeave}>
-                    <span className="sector-action-icon" aria-hidden="true"><GiExitDoor /></span>
-                    <span>Leave</span>
-                </button>
-            </div>
         </aside>
     );
 }
