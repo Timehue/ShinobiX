@@ -14,6 +14,7 @@ import { PROFESSION_CHANGE_LEVEL } from '../../shared/profession-change.js';
 import { applyForge } from '../craft/_forge.js';
 import { showdownBusyIssue } from '../pet/_showdown-readiness.js';
 import { makePlayerRankedAdmission, PET_RANKED_SEASON_GATE_KEY, PET_RANKED_SEASON_GATE_VERSION } from '../pet/_ranked-preparation.js';
+import { SHOWDOWN_DAILY_WIN_CAP } from '../../shared/pet-showdown-contract.js';
 
 const now = Date.UTC(2026, 8, 18);
 const capabilities = Object.fromEntries(PUBLIC_CAPABILITY_IDS.map(id => [id, { state: 'available', reason: 'available' }])) as PublicCapabilities;
@@ -110,6 +111,41 @@ test('Showdown readiness uses carried pets and the exact entry busy rule, withou
     const overflow = Array.from({ length: 20 }, (_, n) => pet(`p${n}`, n < 19 ? away : {}));
     assert.equal(first(input('companions', { pets: overflow })).screen, 'pets');
     assert.equal(first(input('companions', { pets: null })).screen, 'pets');
+});
+
+test('companion guidance reserves practice for newcomers and uses recorded participation for familiar players', () => {
+    const newcomer = first(input('companions', { totalPetWins: 0, petRankedWins: 0, petRankedLosses: 0 }));
+    assert.equal(newcomer.screen, 'petShowdown');
+    assert.equal(newcomer.runtimeModeId, 'pet-showdown-practice');
+    assert.match(newcomer.why, /no XP, ranked progress, or items/);
+
+    const lessonOnly = first(input('companions', { petTutorialProgress: { version: 1, completedLessonIds: ['showdown'] } }));
+    assert.equal(lessonOnly.screen, 'petShowdown', 'reading a lesson is not treated as battle participation');
+    assert.match(lessonOnly.why, /reviewed the Showdown lesson/);
+
+    for (const participation of [{ totalPetWins: 1 }, { petRankedWins: 1 }, { petRankedLosses: 1 }]) {
+        const familiar = first(input('companions', participation));
+        assert.equal(familiar.screen, 'petColiseum');
+        assert.equal(familiar.runtimeModeId, 'pet-coliseum');
+        assert.doesNotMatch(familiar.why, /grants XP|guaranteed/i);
+    }
+
+    const cappedSpine = buildActivitySpine(input('companions', { totalPetWins: 1, dailyPetWins: SHOWDOWN_DAILY_WIN_CAP, lastDailyReset: '2026-09-18' }));
+    const capped = cappedSpine.horizons.now[0]!;
+    assert.equal(cappedSpine.selectedFocus, 'companions');
+    assert.equal(cappedSpine.resolvedFocus, 'companions');
+    assert.equal(capped.optionalAlternative, true, 'a capped focus may expose one separately-labelled verified alternative');
+    assert.equal(capped.screen, 'shinobiTiles');
+    assert.equal(capped.readiness, 'ready');
+    assert.match(capped.why, /midnight UTC/);
+    assert.doesNotMatch(JSON.stringify(capped), /pet-coliseum/, 'a capped save is not advertised as an arena admission');
+
+    const reset = first(input('companions', { totalPetWins: 1, dailyPetWins: SHOWDOWN_DAILY_WIN_CAP, lastDailyReset: '2026-09-17' }));
+    assert.equal(reset.runtimeModeId, 'pet-coliseum', 'a prior-day counter does not block the new UTC day');
+    assert.equal(reset.readiness, 'ready');
+
+    const unavailable = first(input('companions', { totalPetWins: 5, pets: [pet('one', { expedition: { endsAt: now + 10_000 } })] }));
+    assert.equal(unavailable.screen, 'pets', 'participation never bypasses the mode-specific busy rule');
 });
 
 test('correct-length illegal, unowned and unknown decks navigate to preparation without a starter re-claim', () => {

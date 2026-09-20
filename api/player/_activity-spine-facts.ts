@@ -16,6 +16,8 @@ import { parsePetRankedSeasonGate, PET_RANKED_SEASON_GATE_KEY } from '../pet/_ra
 import { legacyTrialKey, nextTrialKind, trialProgress, type LegacyTrial } from '../_legacy-core.js';
 import { legacyStatsKey, type LegacyStats } from '../_legacy-track.js';
 import type { FocusFacts } from './_activity-spine.js';
+import { normalizePetTutorialProgress } from '../../shared/pet-tutorial.js';
+import { SHOWDOWN_DAILY_WIN_CAP } from '../../shared/pet-showdown-contract.js';
 
 const whole = (value: unknown) => Number.isFinite(Number(value)) ? Math.max(0, Math.floor(Number(value))) : 0;
 const object = (value: unknown): Record<string, unknown> | null => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
@@ -44,6 +46,11 @@ export function activitySaveFacts(character: Record<string, unknown>, now: numbe
     const legacy = object(character.legacy);
     const floor = FLOOR_CATALOG.find(f => !hasClearedTowerFloor(character, f.id) && storyTowerEligibility(character, f.id).eligible);
     const cost = towerEntryCost(character, new Date(now).toISOString().slice(0, 10));
+    const petTutorial = normalizePetTutorialProgress(character.petTutorialProgress);
+    const familiarWithCompanionBattles = whole(character.totalPetWins) > 0
+        || whole(character.petRankedWins) + whole(character.petRankedLosses) > 0;
+    const today = new Date(now).toISOString().slice(0, 10);
+    const dailyArenaWins = String(character.lastDailyReset ?? '') === today ? whole(character.dailyPetWins) : 0;
     return {
         story: { completed, total: STORY_LEVELS.length, nextLevel: STORY_LEVELS[completed] ?? null,
             nextEligible: storyKnown && storyBossEligibility(character).ok, known: storyKnown },
@@ -56,7 +63,9 @@ export function activitySaveFacts(character: Record<string, unknown>, now: numbe
             entryCost: cost, available: !towerModeDisabled() },
         companions: { count: pets.length, activeName: typeof active?.name === 'string' ? active.name.slice(0, 40) : '',
             activeLevel: whole(active?.level), expeditionActive: !!active?.expedition, ladderRating: whole(character.petRankedRating) || 1000,
-            usableCount: Array.isArray(character.pets) ? usable.length : undefined, available: process.env.DISABLE_PET_SHOWDOWN !== '1' },
+            usableCount: Array.isArray(character.pets) ? usable.length : undefined, available: process.env.DISABLE_PET_SHOWDOWN !== '1',
+            familiar: familiarWithCompanionBattles, showdownLessonCompleted: petTutorial.completedLessonIds.includes('showdown'),
+            dailyArenaWins, arenaCapReached: dailyArenaWins >= SHOWDOWN_DAILY_WIN_CAP },
         chronicle: { deckCards: deck.length, collectionCards: cards.length, wins: whole(character.cardClashWins),
             deckValid, unlocked: chronicleUnlocked(character) },
         legacy: { accepted: typeof legacy?.legacyId === 'string', stage: whole(legacy?.stage) },
