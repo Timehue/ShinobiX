@@ -107,8 +107,8 @@ test('return handoff appears on a later UTC day and stays off the Arena gateway'
     // Arena lobbies are restorable, but deliberately not hash-deep-linkable.
     // Restore through the real last-screen contract on a fresh document.
     await page.addInitScript(() => localStorage.setItem('lastScreen.v1', 'battleArena'));
-    await page.goto('/?first-contract-arena-check=1#/battleArena', { waitUntil: 'networkidle' });
-    await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'battleArena');
+    await page.goto('/?first-contract-arena-check=1#/battleArena', { waitUntil: 'domcontentloaded' });
+    await page.locator('.app-shell[data-screen="battleArena"]').waitFor({ state: 'visible' });
     await expect(page.locator('.fc-ribbon')).toHaveCount(0);
     await expect(page.locator('.fc-journal')).toHaveCount(0);
 });

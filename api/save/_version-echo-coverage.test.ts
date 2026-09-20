@@ -152,6 +152,11 @@ const PENDING_ECHO = new Set<string>();
  *  - shared helpers / world state — reached through many callers; the caller owns the echo.
  */
 const EXEMPT = new Set([
+    // Test-only Express journey setup. It positions two disposable fixture
+    // accounts at once behind the full-admin gate and is registered only for
+    // NODE_ENV=test + SHINOBIX_QA_MEMORY_KV=1. No player client consumes this
+    // response, and one response cannot safely echo two players' versions.
+    '_qa-sector-war.ts',
     // Head-bounty settlement for a kill with no PvP session behind it. A helper,
     // not a route: it bumps the hunter's save and RETURNS that version to its
     // caller (player/sleeper-kill.ts), which echoes it. Exposing a version from
