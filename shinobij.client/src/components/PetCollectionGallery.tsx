@@ -60,7 +60,7 @@ export function PetCollectionGallery({ character, sharedImages }: { character: C
                         <dl><div><dt>Trait</dt><dd>{pet.trait ?? "—"}</dd></div><div><dt>Generation</dt><dd>{pet.generation ?? 0}</dd></div><div><dt>Breeding</dt><dd>{pet.breedingUsesRemaining ?? 0}/{pet.breedingUsesMax ?? 0}</dd></div></dl>
                         {pet.paletteVariantId && <span className="chromatic-ribbon">Chromatic</span>}
                         {pet.trait && ultraPetTraits.includes(pet.trait) && <span className="apex-trait-ribbon">Apex · {pet.trait}</span>}
-                        <span className={`pet-eligibility ${blocker ? "blocked" : "ready"}`}>{blocker ?? "Barn ready"}</span>
+                        <span className={`pet-eligibility ${blocker ? "blocked" : "ready"}`}>{blocker ?? "Hatchery ready"}</span>
                     </article>;
                 })}
             </div> : <div className="pet-home-empty"><span className="pet-empty-emblem" aria-hidden="true"><GameIcon name="paw" size={44} /></span><strong>No companions match these seals.</strong><span>Clear a filter to reveal the rest of your collection.</span></div>}

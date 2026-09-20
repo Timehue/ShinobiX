@@ -32,7 +32,7 @@ export function clientPetBreedingBlocker(character: Character, pet: Pet, now = D
     if (!pet.element || pet.element === "None") return "No elemental affinity";
     if (Number(pet.level ?? 0) < PET_BREEDING_MIN_LEVEL) return `Requires level ${PET_BREEDING_MIN_LEVEL}`;
     if (Number(pet.breedingUsesRemaining ?? 0) <= 0) return "No breeding uses";
-    if (activeClientBreedingParentIds(character, now).has(pet.id)) return "Already in the barn";
+    if (activeClientBreedingParentIds(character, now).has(pet.id)) return "Already in the hatchery";
     if (pet.training) return "Training in progress";
     if (pet.expedition) return "Expedition in progress";
     if (character.activePetId === pet.id) return "Active PvE pet";

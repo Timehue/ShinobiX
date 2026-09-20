@@ -63,7 +63,7 @@ export function petBusyReason(
 
 export function petBusyMessage(code: PetBusyCode): string {
     switch (code) {
-        case 'pet-is-breeding': return 'This pet is in the breeding barn until the timer completes.';
+        case 'pet-is-breeding': return 'This pet is in the Shinobi Hatchery until the timer completes.';
         case 'pet-is-training': return 'This pet has training in progress or waiting to be collected.';
         case 'pet-is-on-expedition': return 'This pet is on an expedition or has an unclaimed expedition.';
         case 'pet-is-active': return 'Remove this pet from the active PvE slot before breeding.';
