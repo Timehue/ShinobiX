@@ -36,25 +36,25 @@ describe('pet sanctuary storage', () => {
     it('pages an uncapped collection newest-first without loading the entire sanctuary', async () => {
         const store = _makeMemoryKv();
         const count = PET_SANCTUARY_PAGE_SIZE * 3 + 5;
-        for (let index = 0; index < count; index += 1) await storePetInSanctuaryCore(store, 'Hinata', pet(index), 'roster', index);
-        const first = await listPetSanctuaryCore(store, 'Hinata', { limit: 17 });
+        for (let index = 0; index < count; index += 1) await storePetInSanctuaryCore(store, 'Sora', pet(index), 'roster', index);
+        const first = await listPetSanctuaryCore(store, 'Sora', { limit: 17 });
         assert.equal(first.total, count);
         assert.equal(first.items.length, 17);
         assert.equal(first.items[0].pet.id, `ember-fox:${count - 1}`);
         assert.ok(first.nextCursor);
-        const second = await listPetSanctuaryCore(store, 'Hinata', { limit: 17, cursor: first.nextCursor ?? undefined });
+        const second = await listPetSanctuaryCore(store, 'Sora', { limit: 17, cursor: first.nextCursor ?? undefined });
         assert.equal(second.items.length, 17);
         assert.equal(second.items[0].pet.id, `ember-fox:${count - 18}`);
     });
 
     it('filters index metadata and can hide carried duplicates during retry recovery', async () => {
         const store = _makeMemoryKv();
-        await storePetInSanctuaryCore(store, 'Sakura', pet(1, { nickname: 'Cinder' }), 'wild', 1);
-        await storePetInSanctuaryCore(store, 'Sakura', pet(2), 'bred', 2);
-        await storePetInSanctuaryCore(store, 'Sakura', pet(3), 'bred', 3);
-        const fire = await listPetSanctuaryCore(store, 'Sakura', { element: 'fire', search: 'cinder' });
+        await storePetInSanctuaryCore(store, 'Kaede', pet(1, { nickname: 'Cinder' }), 'wild', 1);
+        await storePetInSanctuaryCore(store, 'Kaede', pet(2), 'bred', 2);
+        await storePetInSanctuaryCore(store, 'Kaede', pet(3), 'bred', 3);
+        const fire = await listPetSanctuaryCore(store, 'Kaede', { element: 'fire', search: 'cinder' });
         assert.deepEqual(fire.items.map((item) => item.pet.id), ['ember-fox:1']);
-        const excluded = await listPetSanctuaryCore(store, 'Sakura', { excludePetIds: ['ember-fox:3'] });
+        const excluded = await listPetSanctuaryCore(store, 'Kaede', { excludePetIds: ['ember-fox:3'] });
         assert.equal(excluded.total, 3);
         assert.deepEqual(excluded.items.map((item) => item.pet.id), ['ember-fox:2', 'ember-fox:1']);
     });
@@ -73,9 +73,9 @@ describe('pet sanctuary storage', () => {
 
     it('compacts empty tail pages so large released collections stay cheap to browse', async () => {
         const store = _makeMemoryKv();
-        for (let index = 0; index <= PET_SANCTUARY_PAGE_SIZE; index += 1) await storePetInSanctuaryCore(store, 'Tsunade', pet(index), 'wild', index);
-        await removePetFromSanctuaryCore(store, 'Tsunade', `ember-fox:${PET_SANCTUARY_PAGE_SIZE}`);
-        const listed = await listPetSanctuaryCore(store, 'Tsunade', { limit: PET_SANCTUARY_PAGE_SIZE });
+        for (let index = 0; index <= PET_SANCTUARY_PAGE_SIZE; index += 1) await storePetInSanctuaryCore(store, 'Mira', pet(index), 'wild', index);
+        await removePetFromSanctuaryCore(store, 'Mira', `ember-fox:${PET_SANCTUARY_PAGE_SIZE}`);
+        const listed = await listPetSanctuaryCore(store, 'Mira', { limit: PET_SANCTUARY_PAGE_SIZE });
         assert.equal(listed.items.length, PET_SANCTUARY_PAGE_SIZE);
         assert.equal(listed.nextCursor, null);
     });

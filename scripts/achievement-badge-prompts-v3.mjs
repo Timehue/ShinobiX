@@ -87,7 +87,7 @@ export const ACHIEVEMENT_BADGE_ART_V3 = [
 export function promptForAchievementBadge(asset) {
     return [
         "Use case: stylized-concept",
-        "Asset type: single premium AAA dark-fantasy ninja RPG achievement badge illustration",
+        "Asset type: single premium AAA dark-fantasy shinobi RPG achievement badge illustration",
         `Primary request: ${asset.primary}.`,
         `Scene/backdrop: ${asset.scene}.`,
         `Subject: ${asset.subject}.`,

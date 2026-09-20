@@ -11,7 +11,7 @@ test('public Legacy announcement projection hides tier classifications', () => {
         importance: 'mythic',
         title: 'A MYTHIC LEGACY AWAKENS',
         message: 'A legendary path has reached its summit.',
-        player: 'Kakashi',
+        player: 'Kaito',
         legacyId: 'hundred-storms',
         meta: { rarity: 'mythic', stage: 2 },
     });
@@ -30,7 +30,7 @@ test('public Hall projection hides old tier fields, types, and copy', () => {
         entryType: 'mythic_legacy_claim',
         title: 'Mythic Legacy — Claimed',
         description: 'The first legendary path was chosen.',
-        player: 'Kakashi',
+        player: 'Kaito',
         legacyId: 'hundred-storms',
         rarity: 'mythic',
         status: 'active',
