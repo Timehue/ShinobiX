@@ -34,12 +34,7 @@
 .sunscar-mode.sunscar-hub-refined .sunscar-poster-art > .sunscar-racing-art { --art-focus: 81.4% 68.8%; --art-zoom: 2.2; --art-origin: 90.9% 96.2%; }
 .sunscar-mode.sunscar-hub-refined .sunscar-poster-art > .sunscar-dispatch-art { --art-focus: 89.2% 47.4%; --art-zoom: 1.45; --art-origin: 100% 37.2%; }
 .sunscar-mode.sunscar-hub-refined .sunscar-exchange-entrance .sunscar-poster-art > img { --art-focus: 65% 50%; }
-/* The Broker has no wide painting: a blurred corner of the festival's lantern
-   steps stands in for his stall, and his portrait melts into it. */
-.sunscar-mode.sunscar-hub-refined .sunscar-broker-art::after { background: linear-gradient(0deg, #0d1419 0%, #0d1419f0 26%, #0d14198c 40%, #0d141900 60%); }
-.sunscar-mode.sunscar-hub-refined .sunscar-broker-art::before { content: ''; position: absolute; inset: -24px; background: radial-gradient(ellipse 34% 52% at 9% 6%, #ffb45a5c, transparent 70%), url(../assets/festival/sunscar-festival-v2.webp) 0% 20% / 240% auto no-repeat; filter: blur(7px) brightness(.55) saturate(.85); }
-.sunscar-mode.sunscar-hub-refined .sunscar-broker-art > .sunscar-broker-portrait { inset: 0 0 0 auto; width: auto; height: 100%; aspect-ratio: 341 / 512; object-fit: cover; mask-image: linear-gradient(90deg, transparent, #000 46%); }
-.sunscar-mode.sunscar-hub-refined .sunscar-broker-art > .sunscar-broker-crate { inset: auto; top: 11%; left: 57%; z-index: 1; width: clamp(150px, 28%, 230px); height: auto; aspect-ratio: 1; object-fit: contain; translate: -50% 0; filter: drop-shadow(0 18px 16px #000b); }
+.sunscar-mode.sunscar-hub-refined .sunscar-broker-art > .sunscar-broker-market-art { --art-focus: 50% 38%; }
 .sunscar-mode.sunscar-hub-refined .sunscar-poster-copy { position: relative; z-index: 1; grid-row: 2 / span 6; display: grid; grid-template-rows: repeat(6, auto); grid-template-rows: subgrid; row-gap: 0; padding: 26px; }
 .sunscar-mode.sunscar-hub-refined .sunscar-poster-copy > :is(.sunscar-eyebrow, .sx-eyebrow) { display: block; margin: 0; font: 600 10px/1.6 var(--font-body,sans-serif); letter-spacing: .18em; text-transform: uppercase; color: var(--sun-gold); text-shadow: 0 1px 6px #000c; }
 .sunscar-mode.sunscar-hub-refined .sunscar-poster .sunscar-poster-copy > h2 { margin: 8px 0 10px; padding: 0; border: 0; font: 400 31px/1.15 var(--font-display,Georgia,serif); letter-spacing: -.01em; color: #f6e9cc; text-shadow: 0 2px 14px #000b; }
@@ -60,8 +55,7 @@
     .sunscar-mode.sunscar-hub-refined .sunscar-poster-copy::before { content: ''; position: absolute; inset: -90px 0 0; z-index: -1; background: linear-gradient(0deg, #0d1419 0%, #0d1419eb calc(100% - 150px), #0d14199e calc(100% - 90px), #0d141900 100%); pointer-events: none; }
     .sunscar-mode.sunscar-hub-refined .sunscar-poster-art > .sunscar-racing-art { --art-zoom: 2.6; }
     .sunscar-mode.sunscar-hub-refined .sunscar-poster-art > .sunscar-dispatch-art { --art-zoom: 1.8; --art-origin: 100% 69%; }
-    .sunscar-mode.sunscar-hub-refined .sunscar-broker-art > .sunscar-broker-portrait { height: 72%; }
-    .sunscar-mode.sunscar-hub-refined .sunscar-broker-art > .sunscar-broker-crate { top: 6%; left: 22%; width: 34%; }
+    .sunscar-mode.sunscar-hub-refined .sunscar-broker-art > .sunscar-broker-market-art { --art-focus: 50% 34%; --art-zoom: 1.08; }
     .sunscar-mode.sunscar-hub-refined .sunscar-poster-copy { padding: 22px 20px 20px; }
     .sunscar-mode.sunscar-hub-refined .sunscar-poster .sunscar-poster-copy > h2 { font-size: 28px; }
     .sunscar-mode.sunscar-hub-refined .sunscar-poster-copy > p:not(.sunscar-eyebrow) { max-width: none; font-size: 14px; line-height: 1.6; }
