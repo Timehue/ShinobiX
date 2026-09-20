@@ -1114,33 +1114,6 @@
         border-top: 1px solid rgba(255,255,255,0.08);
     }
 
-.sector-presence,
-.sector-poi-list {
-    display: grid;
-    gap: 8px;
-    padding: 10px;
-    background: rgba(2,6,23,.55);
-    border-top: 2px solid rgba(250,204,21,.36);
-}
-
-.sector-presence {
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-}
-
-    .sector-presence h4 {
-        grid-column: 1 / -1;
-        margin: 0;
-        color: var(--gold);
-    }
-
-    .sector-presence span {
-        padding: 7px 9px;
-        border-radius: 6px;
-        background: rgba(30,58,138,.72);
-        border: 1px solid rgba(186,230,253,.22);
-        font-weight: 800;
-    }
-
 .arena-lobby {
     max-width: 980px;
     margin-inline: auto;

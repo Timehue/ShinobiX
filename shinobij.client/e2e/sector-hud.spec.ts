@@ -172,6 +172,9 @@ test('empty and unknown presence are distinct', async ({page}) => {
 test('stable rows, scrolling, status updates and target departure', async ({page}) => {
     await boot(page,100);
     await expect(page.locator('.sector-player-row')).toHaveCount(100);
+    // This case drives presence directly; later fixture heartbeats must not
+    // replace its status delta with the original boot snapshot.
+    await page.route('**/api/player/heartbeat', route => route.fulfill({json:{ok:true,sector:22}}));
     const lastAction=page.locator('.sector-player-row').last().getByRole('button');
     await lastAction.focus();
     await expect(lastAction).toBeInViewport();
@@ -527,6 +530,7 @@ test('a late spectator lookup cannot navigate after its target leaves',async({pa
 
 test('a hidden sector HUD retires its pending spectator navigation even after reopening',async({page})=>{
     await page.goto('/e2e/fixtures/sector-hud.html');
+    await expect(page.locator('.sector-hud')).toBeVisible();
     await page.evaluate(()=>window.sectorFixture.configure({contest:false,hunt:false,fighting:true,pending:true}));
     await page.getByRole('button',{name:'Spectate A Very Long Shinobi Name From the Northern Watch'}).click();
     await expect(page.getByRole('button',{name:'Spectate A Very Long Shinobi Name From the Northern Watch'})).toHaveText('Opening…');
@@ -541,6 +545,7 @@ test('a hidden sector HUD retires its pending spectator navigation even after re
 
 test('a sleeper waking during a click never changes Strike Down into Attack',async({page})=>{
     await page.goto('/e2e/fixtures/sector-hud.html');
+    await expect(page.locator('.sector-hud')).toBeVisible();
     await page.evaluate(()=>window.sectorFixture.configure({contest:false,hunt:false}));
     const strike=page.getByRole('button',{name:'Strike Down SleepingNinja'});
     await strike.scrollIntoViewIfNeeded();
