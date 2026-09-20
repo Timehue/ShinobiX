@@ -39,7 +39,7 @@
     transition: background-color 140ms ease, border-color 140ms ease;
 }
 .map-instance .sector-hud button svg { flex-shrink: 0; width: 16px; height: 16px; }
-.map-instance .sector-hud button:hover:not(:disabled), .map-instance .sector-hud button.is-open { background: #392732; border-color: #b18a88; }
+.map-instance .sector-hud button.is-open { background: #392732; border-color: #b18a88; }
 .map-instance .sector-hud button:active:not(:disabled) { background: #4b303c; }
 .map-instance .sector-hud button:focus-visible { outline: 2px solid #ecd6ae; outline-offset: 2px; }
 .map-instance .sector-hud button:disabled { opacity: .55; cursor: default; }
@@ -50,7 +50,6 @@
     background: linear-gradient(110deg, #713442e8, #421e2dec), url('/ui/sector-ink-panel-v1.webp') center / cover;
     border-color: #b68177; color: #fff0e5; box-shadow: inset 0 1px 0 #f3c3ac30;
 }
-.map-instance .sector-hud .sector-hud-explore:hover:not(:disabled) { background: #82414e; border-color: #d7a79b; }
 .sector-hud-explore small { display: none; }
 .sector-hud-context { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 0 12px 10px; }
 .sector-hud-context:empty { display: none; }
@@ -91,7 +90,11 @@
 .map-instance .sector-hud .sector-roster-action { border-color: #a67477; background: #4b2736; color: #f8d3cc; padding: 7px 9px; max-width: 110px; }
 .map-instance .sector-hud .sector-roster-action.is-spectate { background: #302636; border-color: #9d879c; color: #e5d5eb; }
 .sector-nearby-scroll:focus-visible { outline: 2px solid #ecd6ae; outline-offset: -3px; }
-.map-instance .sector-hud .sector-roster-action:hover:not(:disabled) { background: #663847; }
+@media (hover: hover) {
+    .map-instance .sector-hud button:hover:not(:disabled) { background: #392732; border-color: #b18a88; }
+    .map-instance .sector-hud .sector-hud-explore:hover:not(:disabled) { background: #82414e; border-color: #d7a79b; }
+    .map-instance .sector-hud .sector-roster-action:hover:not(:disabled) { background: #663847; }
+}
 .sector-hud .sector-row-feedback { grid-column: 2 / -1; margin: 0; font-size: 12px; line-height: 1.5; color: #e8c0a3; }
 .sector-hud .sector-details-body { display: grid; gap: 12px; padding: 8px 0; background: transparent; }
 .sector-hud .sector-panel-heading { padding: 0; border: 0; background: transparent; box-shadow: none; }
@@ -178,10 +181,6 @@
     .map-instance .sector-hud-controls > button { min-height: 46px; font-size: 13px; }
     .sector-hud-context { margin-bottom: 12px; }
     .sector-hud-panel { width: min(352px, calc(100vw - 380px)); }
-    .app-shell.screen-worldMap[data-ui-mode="noncombat"]:has(.sector-stage-panel) .mobile-bottom-nav { min-block-size: 54px; padding-block: 4px; }
-    .app-shell.screen-worldMap[data-ui-mode="noncombat"]:has(.sector-stage-panel) .mobile-nav-btn { min-block-size: 44px; padding-block: 2px; }
-    .app-shell.screen-worldMap[data-ui-mode="noncombat"]:has(.sector-stage-panel) .mobile-nav-btn .mnb-icon { min-block-size: 20px; }
-    .app-shell.screen-worldMap[data-ui-mode="noncombat"]:has(.sector-stage-panel) .mobile-nav-btn svg { width: 20px; height: 20px; }
 }
 @media (prefers-reduced-motion: reduce) {
     .sector-hud-panel { animation: none; }
