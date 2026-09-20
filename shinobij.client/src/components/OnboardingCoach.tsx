@@ -32,7 +32,7 @@
  * normalizeOnboardingStep so legacy "spar"/"tour"/"storyUnlocked" saves keep
  * working). Rendered as an overlay alongside the ProfessionPicker in App.tsx.
  */
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import {
@@ -48,49 +48,28 @@ import { academyStoryMomentFor, academyVowDefinition } from "../lib/academy-narr
 import { commitAcademyNarrativeAction, type AcademyNarrativeAction } from "../lib/academy-narrative-api";
 import { petPoseImage } from "../lib/pet-battle-anim";
 import { requestAcademyTrailFocus } from "../lib/academy-trail-focus";
-import { isLowEndMobile, prefersReducedMotion } from "../lib/device-tier";
+import { prefersReducedMotion } from "../lib/device-tier";
 import type { Pet } from "../types/pet";
 import type { Character, Screen } from "../App";
 import type { VersionedCharacterCommit } from "../types/character";
 import { AcademyFieldTrace, AcademyReturnCeremony, AcademySparOmen } from "./AcademyStoryMoments";
 import "./onboarding-coach.css";
 
-const IntroCompanion3D = lazy(() =>
-    import("../features/intro-cinematic/IntroCompanion3D")
-        .then((module) => ({ default: module.IntroCompanion3D })),
-);
-
 function TutorialCompanionModel({
-    pet,
     fallbackSrc,
     className,
     label,
-    enabled,
 }: {
-    pet: Pet;
     fallbackSrc: string;
     className: string;
     label: string;
-    enabled: boolean;
 }) {
     return (
-        <Suspense
-            fallback={(
-                <img
-                    className={`${className} coach-guide-pet-fallback`}
-                    src={fallbackSrc}
-                    alt={label}
-                />
-            )}
-        >
-            <IntroCompanion3D
-                pet={pet}
-                fallbackSrc={fallbackSrc}
-                label={label}
-                className={className}
-                enabled={enabled}
-            />
-        </Suspense>
+        <img
+            className={`${className} coach-guide-pet-fallback`}
+            src={fallbackSrc}
+            alt={label}
+        />
     );
 }
 
@@ -182,7 +161,6 @@ export function OnboardingCoach({
     const loadoutBaselineRef = useRef<number | null>(null);
     const equipmentBaselineRef = useRef<number | null>(null);
     const reduced = prefersReducedMotion();
-    const liteFx = isLowEndMobile();
     const persistNarrativeAction = async (action: AcademyNarrativeAction, sector?: number, route?: import('../../../shared/first-contract').FirstContractRoute) => {
         if (commitNarrativeAction) { await commitNarrativeAction(action, sector, route); return; }
         const result = await commitAcademyNarrativeAction(character.name, action, sector, route);
@@ -576,16 +554,14 @@ export function OnboardingCoach({
         );
     }
 
-    // The talking-companion banner: live model + speech bubble + actions.
+    // The talking-companion banner: pet standee + speech bubble + actions.
     const renderGuideBanner = (action?: React.ReactNode) => createPortal(
         <div className="onboarding-coach-banner coach-guide" style={guideWrapStyle}>
             {guideArt && guidePet && (
                 <TutorialCompanionModel
-                    pet={guidePet}
                     fallbackSrc={guideArt}
                     label={`${guidePet.name}, your Academy guide`}
                     className={`coach-guide-pet ${talking ? "is-talking" : ""}`}
-                    enabled={!liteFx && !reduced}
                 />
             )}
             <div className="coach-guide-bubble">
@@ -698,11 +674,9 @@ export function OnboardingCoach({
                 <div className="card" style={cardStyle}>
                     {guideArt && guidePet && (
                         <TutorialCompanionModel
-                            pet={guidePet}
                             fallbackSrc={guideArt}
                             label={`${guidePet.name}, your Academy sparring guide`}
                             className="coach-guide-pet coach-guide-pet-modal"
-                            enabled={!liteFx && !reduced}
                         />
                     )}
                     <div style={{ color: "var(--gold)", fontWeight: 800, fontSize: 12, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 8 }}>

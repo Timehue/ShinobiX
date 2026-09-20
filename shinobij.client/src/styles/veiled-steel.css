@@ -1399,15 +1399,6 @@ body.coach-banner-open .coach-guide-pet {
   margin-right: -4px;
 }
 
-/* The live tutorial model needs a larger stage than the legacy pose cutout.
-   Keep it character-sized beside the dialogue instead of reducing it to an
-   icon; OnboardingCoach uses the full-body camera so tall heads remain inside
-   this small canvas. */
-body.coach-banner-open .coach-guide-pet.icx-companion-render {
-  width: clamp(88px, 9vmin, 112px) !important;
-  height: clamp(88px, 9vmin, 112px) !important;
-}
-
 body.coach-banner-open .coach-guide-bubble {
   border-width: 1px;
   border-radius: 10px;
@@ -1922,11 +1913,6 @@ body.coach-banner-open .coach-guide-actions .location-button {
 
   body.coach-banner-open .coach-guide-pet {
     width: 54px;
-  }
-
-  body.coach-banner-open .coach-guide-pet.icx-companion-render {
-    width: 72px !important;
-    height: 72px !important;
   }
 
   body.coach-banner-open .coach-guide-bubble {
