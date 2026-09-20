@@ -15,12 +15,16 @@ import { describe, it } from 'node:test';
 
 const root = resolve(import.meta.dirname, '..');
 const sourceRoots = ['api', 'shared', 'scripts', 'shinobij.client/src', 'shinobij.client/scripts', 'docs', 'tools'];
-const textExtensions = new Set(['.ts', '.tsx', '.mjs', '.cjs', '.json', '.md', '.css', '.html']);
+const textExtensions = new Set(['.ts', '.tsx', '.mjs', '.cjs', '.json', '.md', '.css', '.html', '.txt']);
 const skipDirectories = new Set(['node_modules', 'dist']);
+
+// The competitor's own names are stored ROT13-encoded and decoded here, so the
+// one file that must know them never spells them out: a plain-text search of
+// the repo for the name finds nothing, and this guard still matches it.
+const rot13 = (s) => s.replace(/[a-z]/g, (ch) => String.fromCharCode(((ch.charCodeAt(0) - 97 + 13) % 26) + 97));
 
 // The direct competitor, and the org slug that identifies their codebase just
 // as surely as the name does.
-const rot13 = (s) => s.replace(/[a-z]/g, (ch) => String.fromCharCode(((ch.charCodeAt(0) - 97 + 13) % 26) + 97));
 const competitorTokens = ['guravawnect', 'fghqvr-grpu'].map(rot13);
 
 // The TCG whose format/set/card names Chronicle Showdown was scrubbed of.
@@ -30,14 +34,35 @@ const tcgTokens = ['yu-gi-oh', 'yugioh', 'duel monsters', 'exodia', 'time wizard
 
 // Borrowed franchise names. These keep coming back through test fixtures and
 // generated handoff docs, which is exactly what this gate is for.
-const franchiseTokens = ['naruto', 'sasuke', 'chidori', 'konoha', 'hokage', 'sharingan', 'rasengan'];
+// 'sakura' is deliberately excluded: it is also a legitimate generic cosmetic
+// id (the cherry-blossom Nindo banner preset in nindo-backgrounds.ts and its
+// server allowlist), so word-level banning it would fail on real content. The
+// 2026-09-19 sweep instead renamed the specific test fixtures that used it as
+// a character name.
+const franchiseTokens = [
+    'naruto', 'sasuke', 'chidori', 'konoha', 'hokage', 'sharingan', 'rasengan',
+    'kakashi', 'obito', 'minato', 'hinata', 'tsunade',
+];
 
-const bannedTokens = [...competitorTokens, ...tcgTokens, ...franchiseTokens];
-const bannedPattern = new RegExp(bannedTokens.map((token) => token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'gi');
+// The generic genre phrase this game's name is a deliberate departure from
+// (it echoes the competitor name once the space is removed). "ninja" alone is
+// fine — this is a ninja/shinobi game — only the compound phrase is banned.
+const genericPhraseTokens = ['avawn ect'].map(rot13);
 
-// The competitor's three-letter prefix on CSS classes and identifiers. Word-bounded so it
-// cannot fire on ordinary words that merely contain the letters.
-const competitorSlugPattern = new RegExp(`\\b${rot13('gae')}[-_]`, 'gi');
+const bannedTokens = [...competitorTokens, ...tcgTokens, ...franchiseTokens, ...genericPhraseTokens];
+// Word-bounded: unbounded 'minato' also matches inside ordinary words like
+// "terminator" and "denominator" (findBanned's own "contnr" test below checks
+// the same principle for the slug pattern).
+const bannedPattern = new RegExp(
+    bannedTokens.map((token) => `\\b${token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).join('|'),
+    'gi',
+);
+
+// The competitor's three-letter prefix on CSS classes and identifiers (followed
+// by `-` or `_`). Word-bounded so it cannot fire on ordinary words that merely
+// contain the letters.
+const competitorSlug = rot13('gae');
+const competitorSlugPattern = new RegExp(`\\b${competitorSlug}[-_]`, 'gi');
 
 // Files where the word IS the guard, not a reference. Scrubbing these removes
 // protection: the moderation blocklist stops players impersonating village
@@ -91,7 +116,7 @@ function findBanned(source) {
 
 describe('brand and IP hygiene', () => {
     it('detects every guarded token', () => {
-        for (const token of [...bannedTokens, `${rot13('gae')}-hud`]) {
+        for (const token of [...bannedTokens, `${competitorSlug}-hud`]) {
             assert.equal(findBanned(`before ${token} after`).length > 0, true, `${token} should be detected`);
         }
     });

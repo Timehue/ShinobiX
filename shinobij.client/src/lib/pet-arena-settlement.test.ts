@@ -13,10 +13,10 @@ const appSource = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
 const arenaSource = readFileSync(new URL("../screens/PetArena.tsx", import.meta.url), "utf8");
 
 test("Pet Arena settlement scope expires on unmount or an in-place account swap", () => {
-    const origin = { playerName: "Kakashi", generation: 4 };
+    const origin = { playerName: "Kaito", generation: 4 };
 
     assert.equal(isPetArenaPlayerScopeActive(origin, origin, true), true);
-    assert.equal(isPetArenaPlayerScopeActive(origin, { playerName: "Sakura", generation: 5 }, true), false);
+    assert.equal(isPetArenaPlayerScopeActive(origin, { playerName: "Kaede", generation: 5 }, true), false);
     assert.equal(isPetArenaPlayerScopeActive(origin, origin, false), false);
 });
 
@@ -29,11 +29,11 @@ test("stale same-account snapshots remain distinct from foreign-account response
 });
 
 test("authoritative character receipts cannot cross player identities", () => {
-    const origin = { playerName: "Kakashi", generation: 2 };
+    const origin = { playerName: "Kaito", generation: 2 };
 
-    assert.equal(responseBelongsToPetArenaPlayer(origin, "kAkAsHi"), true);
+    assert.equal(responseBelongsToPetArenaPlayer(origin, "kAiTo"), true);
     assert.equal(responseBelongsToPetArenaPlayer(origin), true);
-    assert.equal(responseBelongsToPetArenaPlayer(origin, "Obito"), false);
+    assert.equal(responseBelongsToPetArenaPlayer(origin, "Rill"), false);
 });
 
 test("Warfront proofs bind the token and report identity to the server-minted seed", () => {
