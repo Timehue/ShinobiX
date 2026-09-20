@@ -522,6 +522,10 @@
     box-shadow: 0 13px 27px rgba(0, 0, 0, 0.42), 0 0 19px color-mix(in srgb, var(--elder-accent) 16%, transparent);
 }
 
+.app-shell.screen-townHall .town-elder-portrait[data-npc="true"] .leader-portrait-img {
+    object-position: center 22%;
+}
+
 .app-shell.screen-townHall .town-elder-role {
     color: color-mix(in srgb, var(--elder-accent) 76%, #fff);
     font-size: 0.69rem;
