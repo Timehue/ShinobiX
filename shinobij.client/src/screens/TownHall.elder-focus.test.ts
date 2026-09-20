@@ -19,6 +19,12 @@ test("AI elders have no focus action or bonus, and only the Kage sees appointmen
     assert.match(source, /!elderFocusForSeats\(elderFocusKey, elderSeats\)/);
 });
 
+test("vacant and council-held Kage surfaces never borrow a story NPC portrait", () => {
+    assert.match(source, /const displayedKageImage = state\.seatedKage \? getLeaderImage\(state\.seatedKage, ""\) : ""/);
+    assert.equal(source.match(/<LeaderPortrait image=\{displayedKageImage\}/g)?.length, 2);
+    assert.doesNotMatch(source, /getLeaderImage\(state\.seatedKage, leadershipImages\.kage\)/);
+});
+
 test("elder contribution is awarded only after the authoritative save is adopted", () => {
     const handler = source.slice(
         source.indexOf("async function supportVillageFocus"),
