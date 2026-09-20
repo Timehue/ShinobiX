@@ -1430,7 +1430,8 @@ export function PvpBattleScreen({
 
     async function sendBattleChat() {
         const text = battleChatInput.trim();
-        if (!text || !battleId || battleChatLocked || battleChatSending) return;
+        if (battleChatLocked) return;
+        if (!text || !battleId || battleChatSending) return;
         const isCurrent = continuationFenceRef.current.capture();
         setBattleChatSending(true);
         setBattleChatError("");

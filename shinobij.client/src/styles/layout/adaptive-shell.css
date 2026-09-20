@@ -440,3 +440,10 @@ html body.coach-banner-open .app-shell[data-shell="adaptive"][data-ui-mode="nonc
     scroll-behavior: auto;
   }
 }
+/* Preserve usable sector space above the navigation in short phone landscape. */
+@media (max-height: 450px) and (min-width: 560px) and (max-width: 979px) {
+  .app-shell.screen-worldMap[data-ui-mode="noncombat"]:has(.sector-stage-panel) .mobile-bottom-nav { min-block-size: 54px; padding-block: 4px; }
+  .app-shell.screen-worldMap[data-ui-mode="noncombat"]:has(.sector-stage-panel) .mobile-nav-btn { min-block-size: 44px; padding-block: 2px; }
+  .app-shell.screen-worldMap[data-ui-mode="noncombat"]:has(.sector-stage-panel) .mobile-nav-btn .mnb-icon { min-block-size: 20px; }
+  .app-shell.screen-worldMap[data-ui-mode="noncombat"]:has(.sector-stage-panel) .mobile-nav-btn svg { width: 20px; height: 20px; }
+}
