@@ -83,6 +83,25 @@ describe('runVillageStoresStep (IO orchestration)', () => {
         assert.equal('skipNextAutoDeploy' in cleared.mercLeases[0], false);
     });
 
+    it('leaves a war that settled since the scan exactly as settlement left it', async () => {
+        // The war list is read once before the per-village loop, so by the time
+        // this stamp runs the war can be over. The stamp writes without a TTL,
+        // and a terminal record's TTL is its whole lifetime — the attacker's
+        // re-siege cooldown on a defended hold, the retention window on a
+        // capture — so stamping one used to strip that expiry and leave the
+        // record in the keyspace for good.
+        for (const terminal of [{ flipped: true }, { expiredAt: NOW - 1000, expiredReason: 'defended' }]) {
+            const store = memStore();
+            store.m.set(STATE, { treasury: { provisions: 500 } });
+            store.m.set(WAR, defaultVillageWarRecord(FROST));
+            const scanned = war('26:moonshadowvillage-vs-frostfangvillage');
+            const settled = { ...scanned, ...terminal };
+            store.m.set(sectorWarKey(scanned.id), settled);
+            await runVillageStoresStep({ village: FROST, today: TODAY, now: NOW, wars: [scanned], store, lock, notifyUnfed: async () => {} });
+            assert.deepEqual(store.m.get(sectorWarKey(scanned.id)), settled, 'the dead war record is not rewritten');
+        }
+    });
+
     it('a fed village clears its own stale unfed mark but the war stays unfed while the other side is', async () => {
         const store = memStore();
         store.m.set(STATE, { treasury: { provisions: 500 } });
