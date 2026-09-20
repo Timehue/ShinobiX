@@ -452,7 +452,11 @@ function playerHasLegalAction(session: SoloPveSession): boolean {
         const slot = normalizeSlot(item.slot);
         if (!['hand', 'thrown', 'item', 'item1', 'item2', 'item3', 'potion'].includes(slot)) continue;
         const cost = Math.max(1, Number(item.apCost ?? (slot === 'hand' || slot === 'thrown' ? 40 : 35)));
-        const cooldownKey = item.id ?? item.name ?? (slot === 'hand' || slot === 'thrown' ? 'weapon' : 'item');
+        // Namespaced 'weapon:'/'item:' to match the real commit keys below (and
+        // api/pvp/move.ts) — must stay in lockstep or this readiness probe would
+        // see a cooling-down item as available again.
+        const cooldownCategory = slot === 'hand' || slot === 'thrown' ? 'weapon' : 'item';
+        const cooldownKey = `${cooldownCategory}:${item.id ?? item.name ?? cooldownCategory}`;
         if (!canAct(session, 'player', cost) || (session.cooldowns.player[cooldownKey] ?? 0) > 0) continue;
         if ((slot === 'thrown' || !['hand', 'thrown'].includes(slot)) && (session.itemCharges[item.id] ?? Infinity) <= 0) continue;
         if ((slot === 'hand' || slot === 'thrown')
@@ -1130,7 +1134,9 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
         if (!item || (slot !== 'hand' && slot !== 'thrown')) return { applied: false, reason: 'no-weapon' };
         const cost = Math.max(1, Number(item.apCost ?? 40));
         const range = Math.max(1, Number(item.weaponRange ?? (slot === 'thrown' ? 3 : 1)));
-        const cooldownKey = item.id ?? item.name ?? 'weapon';
+        // 'weapon:' prefixed so it can't collide with a jutsu cooldown sharing
+        // this same flat cooldowns map — mirrors api/pvp/move.ts.
+        const cooldownKey = `weapon:${item.id ?? item.name ?? 'weapon'}`;
         const cooldown = Math.max(0, Math.floor(Number(item.weaponCooldown ?? 5)));
         if (!canAct(session, side, cost)) return { applied: false, reason: 'cannot-act' };
         if ((session.cooldowns[side][cooldownKey] ?? 0) > 0) return { applied: false, reason: 'on-cooldown' };
@@ -1161,7 +1167,8 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
         const slot = normalizeSlot(item?.slot);
         if (!item || slot === 'hand' || slot === 'thrown') return { applied: false, reason: 'no-item' };
         const cost = Math.max(1, Number(item.apCost ?? 35));
-        const cooldownKey = item.id ?? item.name ?? 'item';
+        // 'item:' prefixed — see the matching note on the weapon branch above.
+        const cooldownKey = `item:${item.id ?? item.name ?? 'item'}`;
         const cooldown = Math.max(0, Math.floor(Number(item.weaponCooldown ?? 0)));
         if (!canAct(session, side, cost)) return { applied: false, reason: 'cannot-act' };
         if ((session.cooldowns[side][cooldownKey] ?? 0) > 0) return { applied: false, reason: 'on-cooldown' };
@@ -1178,7 +1185,11 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
             session.log.push(`${self.name} uses ${item.name ?? 'an item'}.`);
         } else {
             const tags = item.weaponTags?.length ? item.weaponTags : item.weaponEffect ? [{ name: item.weaponEffect, percent: item.weaponEffectValue }] : [{ name: 'Heal' }];
-            const itemJutsu: SoloPveJutsu = { id: `item-${item.id ?? 'equipped'}`, name: item.name ?? 'Item', type: 'Ninjutsu', target: 'SELF', effectPower: Number(item.weaponEp ?? 10), ap: cost, range: 0, tags };
+            // weaponSwing: true mirrors the PvP item fix (api/pvp/move.ts) — a
+            // combat item has no jutsuMastery row either, so its percent-based
+            // tags would otherwise resolve at mastery 0 instead of the item's
+            // authored value.
+            const itemJutsu: SoloPveJutsu = { id: `item-${item.id ?? 'equipped'}`, name: item.name ?? 'Item', type: 'Ninjutsu', target: 'SELF', effectPower: Number(item.weaponEp ?? 10), ap: cost, range: 0, weaponSwing: true, tags };
             session.log.push(`${self.name} uses ${itemJutsu.name}:`);
             resolution = resolutionFacts(applyCast(session, side, itemJutsu));
             if (item.weaponEffectTarget === 'both' && item.weaponEffect === 'Decrease Damage Given') {

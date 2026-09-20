@@ -1495,6 +1495,88 @@ test('both-target consumables emit matching self and opponent VFX', async () => 
     assert.ok(after.vfx?.some(vfx => vfx.key === 'debuff' && vfx.target === 'p1' && vfx.anchor === 'caster' && vfx.intensity === 'minor'));
 });
 
+test('weapon cooldown blocks a same-turn reswing and is stored under a weapon:-namespaced key', async () => {
+    const ironKunai = {
+        id: 'test-iron-kunai',
+        name: 'Iron Kunai',
+        slot: 'hand',
+        weaponRange: 1,
+        weaponCooldown: 3,
+        weaponEp: 20,
+        apCost: 20,
+    };
+    seed(session('weapon-cooldown', {
+        p1: withEquippedItem(fighter('alice', 0), ironKunai, 'hand'),
+    }));
+
+    const first = await postMove('alice', {
+        battleId: 'weapon-cooldown',
+        role: 'p1',
+        action: 'weapon',
+        itemId: 'test-iron-kunai',
+        moveToken: 'weapon-cooldown-1',
+    });
+    assert.equal(first.statusCode, 200);
+    const afterFirst = storedSession('weapon-cooldown');
+    // The key is namespaced 'weapon:<id>', never the bare weapon id — so it can
+    // never collide with a jutsu cooldown sharing this same flat cooldowns map.
+    assert.equal(afterFirst.cooldowns.p1['weapon:test-iron-kunai'], 3);
+    assert.equal(afterFirst.cooldowns.p1['test-iron-kunai'], undefined);
+    assert.equal(afterFirst.ap.p1, 80);
+
+    const second = await postMove('alice', {
+        battleId: 'weapon-cooldown',
+        role: 'p1',
+        action: 'weapon',
+        itemId: 'test-iron-kunai',
+        moveToken: 'weapon-cooldown-2',
+    });
+    assert.equal(second.statusCode, 200);
+    assert.match(String((second.body as PvpSession).rejected?.reason), /cooldown/i);
+    // A cooldown rejection is never committed — AP and the cooldown map stay
+    // exactly where the first, accepted cast left them.
+    assert.deepEqual(storedSession('weapon-cooldown'), afterFirst);
+});
+
+test('combat-item cooldown blocks reuse and is stored under an item:-namespaced key', async () => {
+    const stimPill = {
+        id: 'test-stim-pill',
+        name: 'Stim Pill',
+        slot: 'item',
+        weaponCooldown: 4,
+        weaponEffect: 'Increase Damage Given',
+        weaponEffectValue: 20,
+        apCost: 20,
+    };
+    seed(session('item-cooldown', {
+        p1: withEquippedItem(fighter('alice', 0), stimPill, 'item1'),
+    }));
+
+    const first = await postMove('alice', {
+        battleId: 'item-cooldown',
+        role: 'p1',
+        action: 'item',
+        itemId: 'test-stim-pill',
+        moveToken: 'item-cooldown-1',
+    });
+    assert.equal(first.statusCode, 200);
+    const afterFirst = storedSession('item-cooldown');
+    assert.equal(afterFirst.cooldowns.p1['item:test-stim-pill'], 4);
+    assert.equal(afterFirst.cooldowns.p1['test-stim-pill'], undefined);
+    assert.equal(afterFirst.ap.p1, 80);
+
+    const second = await postMove('alice', {
+        battleId: 'item-cooldown',
+        role: 'p1',
+        action: 'item',
+        itemId: 'test-stim-pill',
+        moveToken: 'item-cooldown-2',
+    });
+    assert.equal(second.statusCode, 200);
+    assert.match(String((second.body as PvpSession).rejected?.reason), /cooldown/i);
+    assert.deepEqual(storedSession('item-cooldown'), afterFirst);
+});
+
 test('successful flee spends the adjusted Overclock cost without negative terminal AP', async () => {
     const originalRandomInt = crypto.randomInt;
     crypto.randomInt = (() => 0) as typeof crypto.randomInt;

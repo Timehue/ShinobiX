@@ -179,7 +179,7 @@ describe('level-aware PvP balance harness integrity', () => {
             opponent.statuses = opponentStatuses;
             self.character.jutsu = jutsu;
             return chooseAction(self, opponent, build.weapon, {
-                [build.weapon.id]: 99,
+                [`weapon:${build.weapon.id}`]: 99,
                 clear: 99,
                 cleanse: 99,
                 basicHeal: 99,
@@ -207,7 +207,7 @@ describe('level-aware PvP balance harness integrity', () => {
         const plain = { ...seed, id: 'a-plain-spacing', name: 'Plain Spacing Hit', ap: 60, range: 4, tags: [] };
         const push = { ...plain, id: 'z-push-spacing', name: 'Push Spacing Hit', tags: [{ name: 'Push' }] };
         const pull = { ...plain, id: 'z-pull-spacing', name: 'Pull Spacing Hit', tags: [{ name: 'Pull' }] };
-        const weaponCooldowns = { [build.weapon.id]: 99, clear: 99, cleanse: 99, basicHeal: 99 };
+        const weaponCooldowns = { [`weapon:${build.weapon.id}`]: 99, clear: 99, cleanse: 99, basicHeal: 99 };
         const select = (jutsu: Array<typeof plain>, selfPos: number, opponentPos: number, opponentStatuses: PvpStatus[] = []) => {
             const self = structuredClone(build.fighter);
             const opponent = structuredClone(build.fighter);
@@ -252,7 +252,7 @@ describe('level-aware PvP balance harness integrity', () => {
         };
         fighter.character.jutsu = [barrier];
         const barrierChoice = chooseAction(
-            fighter, opponent, build.weapon, { [build.weapon.id]: 99 }, 1, 100, 0,
+            fighter, opponent, build.weapon, { [`weapon:${build.weapon.id}`]: 99 }, 1, 100, 0,
         );
         assert.equal(barrierChoice.kind === 'jutsu' ? barrierChoice.jutsu.id : '', barrier.id);
 
@@ -266,13 +266,13 @@ describe('level-aware PvP balance harness integrity', () => {
         };
         fighter.character.jutsu = [discipline];
         const disciplineChoice = chooseAction(
-            fighter, opponent, build.weapon, { [build.weapon.id]: 99 }, 1, 100, 0,
+            fighter, opponent, build.weapon, { [`weapon:${build.weapon.id}`]: 99 }, 1, 100, 0,
         );
         assert.equal(disciplineChoice.kind === 'jutsu' ? disciplineChoice.jutsu.id : '', discipline.id);
 
         fighter.statuses = [active('Buff Prevent', 'negative')];
         const wardedChoice = chooseAction(
-            fighter, opponent, build.weapon, { [build.weapon.id]: 99 }, 1, 100, 0,
+            fighter, opponent, build.weapon, { [`weapon:${build.weapon.id}`]: 99 }, 1, 100, 0,
         );
         assert.notEqual(wardedChoice.kind === 'jutsu' ? wardedChoice.jutsu.id : '', discipline.id);
     });
@@ -307,7 +307,7 @@ describe('level-aware PvP balance harness integrity', () => {
             opponent.statuses = opponentStatuses;
             self.character.jutsu = jutsu;
             return chooseAction(self, opponent, build.weapon, {
-                [build.weapon.id]: 99, clear: 99, cleanse: 99, basicHeal: 99,
+                [`weapon:${build.weapon.id}`]: 99, clear: 99, cleanse: 99, basicHeal: 99,
             }, 1, 100, 0, true);
         };
 
@@ -358,7 +358,7 @@ describe('level-aware PvP balance harness integrity', () => {
             opponent.pos = 42;
             self.character.jutsu = [poisonField];
             opponent.statuses = [ward];
-            return chooseAction(self, opponent, groundBuild.weapon, { [groundBuild.weapon.id]: 99 }, 1, 100, 0, false, [], 'p2');
+            return chooseAction(self, opponent, groundBuild.weapon, { [`weapon:${groundBuild.weapon.id}`]: 99 }, 1, 100, 0, false, [], 'p2');
         };
         const expiringWard = chooseGround({ ...active('Debuff Prevent', 'positive'), rounds: 1 });
         assert.equal(expiringWard.kind === 'jutsu' ? expiringWard.jutsu.id : '', poisonField.id);
@@ -375,7 +375,7 @@ describe('level-aware PvP balance harness integrity', () => {
             tiles: [40], rounds: 2, activeRound: 1,
             tags: [{ name: 'Decrease Damage Given', percent: 30 }],
         };
-        const escape = chooseAction(self, opponent, groundBuild.weapon, { [groundBuild.weapon.id]: 99 }, 1, 100, 0, true, [zone], 'p1');
+        const escape = chooseAction(self, opponent, groundBuild.weapon, { [`weapon:${groundBuild.weapon.id}`]: 99 }, 1, 100, 0, true, [zone], 'p1');
         assert.equal(escape.kind, 'move');
         if (escape.kind === 'move') assert.notEqual(escape.tile, self.pos);
     });

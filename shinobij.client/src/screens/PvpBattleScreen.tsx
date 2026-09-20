@@ -2486,7 +2486,9 @@ export function PvpBattleScreen({
                                                 const isArmed = pendingWeaponId === item.id;
                                                 // Named (hand) weapons honour their CD server-side — grey
                                                 // out + show the remaining turns, matching the jutsu cards.
-                                                const wCd = myCooldowns[item.id] ?? 0;
+                                                // Server keys this 'weapon:<id>' (api/pvp/move.ts) so it
+                                                // can't collide with a jutsu or combat-item cooldown.
+                                                const wCd = myCooldowns[`weapon:${item.id}`] ?? 0;
                                                 const availability = pvpActionAvailability(item.apCost ?? 40, { cooldownRemaining: wCd });
                                                 const apCost = availability.apCost;
                                                 const onCooldown = availability.onCooldown;
@@ -2535,7 +2537,9 @@ export function PvpBattleScreen({
                                                 const countSuffix = chargesLeft != null ? ` ×${chargesLeft}` : "";
                                                 // Thrown weapons also honour their CD server-side — grey
                                                 // out + show the remaining turns like the jutsu cards.
-                                                const wCd = myCooldowns[item.id] ?? 0;
+                                                // Server keys this 'weapon:<id>' too (thrown shares the
+                                                // same 'weapon' action branch as hand weapons).
+                                                const wCd = myCooldowns[`weapon:${item.id}`] ?? 0;
                                                 const availability = pvpActionAvailability(item.apCost ?? 40, { cooldownRemaining: wCd });
                                                 const apCost = availability.apCost;
                                                 const onCooldown = availability.onCooldown;
@@ -2580,8 +2584,9 @@ export function PvpBattleScreen({
                                                 // Combat items (pills / smoke bomb) honour their CD
                                                 // server-side — grey out + show the remaining turns like
                                                 // the weapon cards. Restore-only potions carry no CD, so
-                                                // wCd stays 0 and they never grey for this reason.
-                                                const wCd = myCooldowns[item.id] ?? 0;
+                                                // wCd stays 0 and they never grey for this reason. Server
+                                                // keys this 'item:<id>' (api/pvp/move.ts).
+                                                const wCd = myCooldowns[`item:${item.id}`] ?? 0;
                                                 const availability = pvpActionAvailability(item.apCost ?? 35, { cooldownRemaining: wCd });
                                                 const apCost = availability.apCost;
                                                 const onCooldown = availability.onCooldown;

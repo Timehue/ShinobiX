@@ -112,7 +112,15 @@ export function resolveJutsuActionPlan(input: ResolveJutsuActionPlanInput): Reso
     const affectsOpponent = Number(jutsu.effectPower ?? 0) > 0
         || tagNames.some((name) => OPPONENT_AFFECTING_TAGS.has(name));
     const method = canonicalJutsuMethod(jutsu.method);
-    const range = Math.max(move || groundTarget ? 1 : 0, Number(jutsu.range) || (move || groundTarget ? 4 : 0));
+    // An opponent-affecting cast with no authored range must still get a real
+    // ceiling — falling back to 0 here made `range > 0` below false, which
+    // SKIPPED the out-of-range check entirely (unlimited cast range) rather
+    // than restricting it. Built-in/legacy catalog jutsu and the bloodline
+    // jutsu-schema normalizer always set an explicit range (4 or 5) for an
+    // OPPONENT target, so this fallback only bites a malformed/admin-authored
+    // jutsu that skips that normalizer — 4 matches the same default the
+    // move/groundTarget branch already uses, not a new number.
+    const range = Math.max(move || groundTarget ? 1 : 0, Number(jutsu.range) || 4);
     const targetTile = input.tile === undefined ? undefined : Math.floor(input.tile);
 
     if ((move || groundTarget) && targetTile === undefined) {

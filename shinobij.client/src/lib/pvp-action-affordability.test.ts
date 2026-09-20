@@ -59,4 +59,20 @@ describe("ordinary PvP current-snapshot auto-pass", () => {
         assert.equal(hasAffordablePvpPaidAction({ ...baseSnapshot, availableAp: 20, items: [item], itemCharges: { pill: 1 }, rankedItemsDisabled: true }), false);
         assert.equal(hasAffordablePvpPaidAction({ ...baseSnapshot, availableAp: 100, items: [hand], actionsThisTurn: 5 }), false);
     });
+
+    it("gates a weapon/thrown/item on its server-keyed 'weapon:'/'item:' cooldown, not the bare id", () => {
+        const hand = { id: "blade", name: "Blade", slot: "hand", apCost: 20 };
+        const thrown = { id: "kunai", name: "Kunai", slot: "thrown", apCost: 20 };
+        const item = { id: "pill", name: "Pill", slot: "item", apCost: 20 };
+        // api/pvp/move.ts stores these as 'weapon:<id>' / 'item:<id>' so a weapon
+        // or item id can never collide with a jutsu cooldown sharing this same
+        // flat map — a bare-id cooldown entry must NOT gate the action.
+        assert.equal(hasAffordablePvpPaidAction({ ...baseSnapshot, availableAp: 20, items: [hand], cooldowns: { blade: 5 } }), true);
+        assert.equal(hasAffordablePvpPaidAction({ ...baseSnapshot, availableAp: 20, items: [hand], cooldowns: { "weapon:blade": 5 } }), false);
+        assert.equal(hasAffordablePvpPaidAction({ ...baseSnapshot, availableAp: 20, items: [thrown], itemCharges: { kunai: 1 }, cooldowns: { "weapon:kunai": 5 } }), false);
+        assert.equal(hasAffordablePvpPaidAction({ ...baseSnapshot, availableAp: 20, items: [item], itemCharges: { pill: 1 }, cooldowns: { "item:pill": 5 } }), false);
+        // Only the OTHER prefix on the same id must not gate it (proves it's
+        // namespace-specific, not a match on the raw id alone).
+        assert.equal(hasAffordablePvpPaidAction({ ...baseSnapshot, availableAp: 20, items: [item], itemCharges: { pill: 1 }, cooldowns: { "weapon:pill": 5 } }), true);
+    });
 });

@@ -1338,7 +1338,10 @@ export function chooseAction(
         lagged: activeStatuses(self, round).some((status) => canonicalTagName(status.name) === 'Lag'),
         overclocked: activeStatuses(self, round).some((status) => canonicalTagName(status.name) === 'Overclock'),
     });
-    const weaponKey = weapon.id;
+    // 'weapon:' prefixed so it can't collide with a jutsu cooldown sharing this
+    // same cooldowns map (line ~1578 keys those raw by jutsu.id) — mirrors the
+    // real engines' api/pvp/move.ts / api/towers/_engine.ts / api/solo-pve/_engine.ts.
+    const weaponKey = `weapon:${weapon.id}`;
     if (ap >= weaponAp && (cooldowns[weaponKey] ?? 0) <= 0 && hexDistance(self.pos, opponent.pos) <= Number(weaponJutsu.range ?? 1)) {
         const preview = previewJutsu(self, opponent, weaponJutsu, null, round);
         candidates.push({
