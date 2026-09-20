@@ -276,7 +276,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "The offer is blank. Part of your history is missing, so the system cannot calculate what would persuade you. Its default demand is everything.",
                 "I'd laugh, but I'm scared. It holds records from four villages and still cannot assign you a price.",
                 "We're leaving before it logs another attempt. And remember this: I showed you the payment schedule and told you the truth for free. That's twice.",
-                "Now get me upstairs. I want a locked door and a drink before I remember the first-stupidest thing I've done."),
+                "Now get me upstairs. I want a locked door and a drink before I remember the stupidest thing I've ever done."),
         ], [
             ch("Pull her off the ledge. \"Your name doesn't go on that stone. Ever.\"", "good", "sv80-pulled-her-back", "You take her arm. For one held breath she goes rigid. Then her weight comes back under her. 'Noted,' she says, too quickly. On the stair up she never looks back. Behind you, the counter closes the session without a bargain."),
             ch("Set the terms out loud: she watches the cistern, you watch her.", "neutral", "sv80-set-the-terms", "You make a plain agreement beside the running system: Harrow watches the intake schedules, you watch for signs that its offer is pulling her back, and either of you can end the arrangement by saying 'counter.' She writes down the terms and shakes your hand."),
@@ -1492,7 +1492,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                     { text: "The oldest page.", nextPage: 7 }
                 ] },
             { ...pg("The Open Answer, Priced", "The file, Iro's dragged pen-line reproduced in facsimile", "Narrator",
-                "Your intake answer sits at the file's head, in Iro's copied hand: I don't know what I have left to trade. His pen-drag is reproduced in the margin, annotated with a collector's care.",
+                "Your intake answer sits at the file's head, in Iro's copied hand: I don't know what I have left to trade. The drag of his pen is reproduced in the margin, annotated with a collector's care.",
                 "The buyer's clerk has ruled one line beneath it: SUBJECT CORRECT. PRINCIPAL ASSET PREVIOUSLY ACQUIRED. SEE FOUNDING ENTRY.",
                 "The note confirms that something was taken from your history before you arrived in Moonshadow. The buyer treats the missing record as property they already own.",
                 "The oldest page explains what was taken and who paid for it."),

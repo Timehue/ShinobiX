@@ -88,7 +88,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
             "I don't sleep when the kilns are banked. Saw the whole thing. Two patrols, plain as washing on a line.",
             "First lot wore Frostfang wool, seal-marks at the wrist. Second lot was Ashen Leaf gray, register braids. Stood right where you're standing.",
             "The second lot? Frostfang, I said. Blue wool, wrist-marks. Why do you keep... I said that. Didn't I say that.",
-            "There was a comfort-man through here after the fire. Took the worst of that night off me for two coins. Cheap, I thought.",
+            "A man came through after the fire, selling comfort. Took the worst of that night off me for two coins. Cheap, I thought.",
             "Odd, though. I can tell you every button on the first patrol. The second lot's faces come up smooth. Like river stones.",
             "Kiln three wants feeding. Mind the sparks going down."),
         pg("Lead in the Ash", "The border stones, dusk coming", "Pell Marrow",
