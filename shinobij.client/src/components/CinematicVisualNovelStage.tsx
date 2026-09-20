@@ -22,6 +22,7 @@ import {
 } from "../lib/vn-cinematic-score";
 import type { ResolvedVnPresentation } from "../lib/vn-presentation";
 import { vnPortraitFrame } from "../lib/vn-portrait-framing";
+import { advanceVnTypewriter, type VnTypedState } from "../lib/vn-typewriter";
 
 type Actor = {
     name: string;
@@ -205,7 +206,7 @@ export function CinematicVisualNovelStage({
     const [contrast, setContrast] = useState<Contrast>(initialContrast);
     const [autoRead, setAutoRead] = useState(initialAutoRead);
     const textKey = `${eventId}:${pageIndex}:${lineIndex}:${spoken}`;
-    const [typed, setTyped] = useState<{ key: string; count: number }>({ key: "", count: 0 });
+    const [typed, setTyped] = useState<VnTypedState>({ key: "", count: 0 });
     const [settingsOpenKey, setSettingsOpenKey] = useState("");
     const cuePlayedRef = useRef("");
     const lastCompleteRef = useRef(0);
@@ -244,7 +245,11 @@ export function CinematicVisualNovelStage({
         let count = 0;
         const id = window.setInterval(() => {
             count = Math.min(spoken.length, count + increment);
-            setTyped({ key: textKey, count });
+            setTyped((current) => {
+                const next = advanceVnTypewriter(current, textKey, count, spoken.length);
+                if (next === current) window.clearInterval(id);
+                return next;
+            });
             if (count >= spoken.length) window.clearInterval(id);
         }, interval);
         return () => window.clearInterval(id);
