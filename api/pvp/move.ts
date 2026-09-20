@@ -2398,7 +2398,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // explicit 0 is honoured (?? only fills null/undefined). Keep the default
                 // in sync with PvE (shinobij.client Arena.tsx). Keyed by item id (falls
                 // back to name) and ticked by tickCooldowns exactly like jutsu cooldowns.
-                const wCdKey = serverItem.id ?? serverItem.name ?? 'weapon';
+                // 'weapon:' prefixed so a weapon id can never collide with a jutsu id
+                // (jutsu cooldowns share this same session.cooldowns.p1/p2 map, keyed
+                // raw by jutsu.id) or with an 'item:'-prefixed combat item — mirror any
+                // change here in PvpBattleScreen.tsx / pvp-action-affordability.ts.
+                const wCdKey = `weapon:${serverItem.id ?? serverItem.name ?? 'weapon'}`;
                 const wCdTurns = Math.max(0, Math.floor(Number(serverItem.weaponCooldown ?? 5)));
                 if (wCdTurns > 0 && (myCooldowns[wCdKey] ?? 0) > 0) {
                     return finish(withRejected(session, `${serverItem.name ?? 'That weapon'} is on cooldown (${myCooldowns[wCdKey]} turn(s) left).`));
@@ -2485,7 +2489,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // (the server previously ignored it). Restore-only potions carry no
                 // weaponCooldown → iCdTurns 0 → unaffected (they keep the separate
                 // 2/fight charge cap). Checked before spending a charge.
-                const iCdKey = serverItem.id ?? serverItem.name ?? 'item';
+                // 'item:' prefixed — see the matching note on wCdKey above.
+                const iCdKey = `item:${serverItem.id ?? serverItem.name ?? 'item'}`;
                 const iCdTurns = Math.max(0, Math.floor(Number(serverItem.weaponCooldown ?? 0)));
                 if (iCdTurns > 0 && (myCooldowns[iCdKey] ?? 0) > 0) {
                     return finish(withRejected(session, `${serverItem.name ?? 'That item'} is on cooldown (${myCooldowns[iCdKey]} turn(s) left).`));
@@ -2523,6 +2528,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     effectPower: serverItem.weaponEp ?? 10,
                     ap: iApCost,
                     range: 0,
+                    // Same fix as the weapon synth above: a combat item has no
+                    // jutsuMastery entry either (id 'item' never matches a stored
+                    // row), so its percent-based tags (Poison/Absorb/Reflect/...)
+                    // were silently resolving at mastery 0 — the full ~10-point
+                    // low-mastery ramp docked off the value printed on the item.
+                    // weaponSwing routes tag percents through JUTSU_MAX_LEVEL under
+                    // WEAPON_AMP_TAG_CAP/WEAPON_POISON_TAG_CAP instead, same as a
+                    // weapon swing. Heal/Shield magnitude deliberately keeps real
+                    // (0) mastery, matching the weapon swing's own documented rule.
+                    weaponSwing: true,
                     tags: iTags,
                 };
                 lines.push(`${me.name} uses ${itemJutsu.name}:`);

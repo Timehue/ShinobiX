@@ -135,7 +135,8 @@ function naiveTurn(session: SoloPveSession): SoloPveSession {
         let next: { session: SoloPveSession; applied: boolean };
         if (jutsu) next = act(s, { type: 'jutsu', jutsuId: jutsu.id });
         else if (distance <= 1 && s.ap.player >= 40) next = act(s, { type: 'basicAttack' });
-        else if (distance <= 4 && s.ap.player >= 40 && (s.cooldowns.player['rustfang-kunai'] ?? 0) <= 0) next = act(s, { type: 'weapon', itemId: 'rustfang-kunai' });
+        // Namespaced 'weapon:<id>' (api/solo-pve/_engine.ts) — never the bare id.
+        else if (distance <= 4 && s.ap.player >= 40 && (s.cooldowns.player['weapon:rustfang-kunai'] ?? 0) <= 0) next = act(s, { type: 'weapon', itemId: 'rustfang-kunai' });
         else if (distance > 1 && s.ap.player >= 30) next = act(s, { type: 'move', tile: stepToward(s) });
         else next = act(s, { type: 'wait' });
         s = next.applied ? next.session : act(s, { type: 'wait' }).session;

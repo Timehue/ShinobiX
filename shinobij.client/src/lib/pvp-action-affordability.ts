@@ -86,7 +86,11 @@ export function hasAffordablePvpPaidAction(input: PvpPaidActionSnapshot): boolea
         if (input.rankedItemsDisabled && slot !== "hand") return false;
         const id = item.id ?? "";
         if (slot !== "hand" && id && (input.itemCharges?.[id] ?? 1) <= 0) return false;
-        const cooldownKey = id || item.name || "";
+        const rawKey = id || item.name || "";
+        // Server keys weapon/thrown cooldowns 'weapon:<id>' and item cooldowns
+        // 'item:<id>' (api/pvp/move.ts) so they can't collide with a jutsu
+        // cooldown or each other — mirror that prefix here.
+        const cooldownKey = rawKey ? `${slot === "item" ? "item" : "weapon"}:${rawKey}` : "";
         return availability(item.apCost ?? (slot === "item" ? 35 : 40), {
             cooldownRemaining: cooldownKey ? input.cooldowns[cooldownKey] ?? 0 : 0,
         }).affordable;

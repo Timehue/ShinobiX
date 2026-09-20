@@ -39,7 +39,7 @@ import {
     isCompanionActor, pickCompanionMove, type CompanionMove,
 } from './_companion.js';
 import { directDamageBaseFormula, JUTSU_MAX_LEVEL, jutsuLevelCapForLevel } from '../combat-core/formulas.js';
-import { deleteSafeRecordValue, setSafeRecordValue } from '../_utils.js';
+import { setSafeRecordValue } from '../_utils.js';
 import { GROUND_EFFECT_TAGS, OPPONENT_AFFECTING_TAGS, STACKABLE_STATUS, canonicalTagName } from '../pvp/_tags.js';
 import {
     pveAiCompetence,
@@ -52,6 +52,7 @@ import {
 import { pveMeaningfulBuffCount } from '../_pve-ai-tactics.js';
 import { activeCombatStatuses, isCombatStatusActive } from '../combat-core/statuses.js';
 import { adjustedApCost } from '../combat-core/resources.js';
+import { tickCombatCooldowns } from '../combat-core/cooldowns.js';
 import { resolveCastFlavor } from '../combat-core/cast-flavor.js';
 import { MAX_COMBAT_VFX_TILES, canonicalJutsuTagNames, semanticJutsuVfx } from '../combat-core/jutsu-vfx.js';
 import type { PvpFighter, PvpGroundEffect, PvpStatus } from '../pvp/session.js';
@@ -1804,13 +1805,11 @@ function spendPoison(session: TowerSession, actor: TowerActor, ck: number, st: n
     actor.hp = Math.max(0, actor.hp - dmg);
     session.log.push(`${actor.name} takes ${dmg} Poison damage from exertion.`);
 }
-/** Tick down an actor's jutsu cooldowns at the START of their turn (mirrors PvP's
- *  per-caster tickCooldowns). Removes lapsed entries so the map stays small. */
+/** Tick down an actor's jutsu cooldowns at the START of their turn. Delegates to
+ *  the shared combat-core tickCombatCooldowns (also used by PvP move.ts) instead
+ *  of a hand-rolled copy, so the two can never silently drift. */
 function tickCooldowns(actor: TowerActor): void {
-    for (const k of Object.keys(actor.cooldowns)) {
-        const n = (actor.cooldowns[k] ?? 0) - 1;
-        if (n > 0) setSafeRecordValue(actor.cooldowns, k, n); else deleteSafeRecordValue(actor.cooldowns, k);
-    }
+    actor.cooldowns = tickCombatCooldowns(actor.cooldowns);
 }
 function refreshAp(session: TowerSession): void {
     const actor = activeActor(session);
@@ -2325,7 +2324,11 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
         }
         const wRange = Math.max(1, Number(item.weaponRange ?? (slot === 'thrown' ? 4 : 1)));
         if (hexDistance(actor.pos, wTarget.pos, session.map.width) > wRange) return { applied: false, reason: 'out-of-range' };
-        const wCdKey = item.id ?? item.name ?? 'weapon';
+        // 'weapon:' prefixed so a weapon id can never collide with a jutsu id in
+        // this same flat cooldowns map (jutsu cooldowns are keyed raw by
+        // jutsu.id below) or with an 'item:'-prefixed combat item — mirrors the
+        // PvP fix in api/pvp/move.ts; keep BattleTowerFight.tsx in sync.
+        const wCdKey = `weapon:${item.id ?? item.name ?? 'weapon'}`;
         const wCdTurns = Math.max(0, Math.floor(Number(item.weaponCooldown ?? 5)));
         if (wCdTurns > 0 && (actor.cooldowns[wCdKey] ?? 0) > 0) return { applied: false, reason: 'on-cooldown' };
         // Thrown weapons spend from the sealed charge budget; hand weapons are reusable.
@@ -2494,7 +2497,8 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
         const iCost = Math.max(0, Number(item.apCost ?? 35));
         if (!canAct(session, iCost)) return { applied: false, reason: 'cannot-act' };
         const committedApCost = towerAdjustedApCost(session, actor, iCost);
-        const iCdKey = item.id ?? item.name ?? 'item';
+        // 'item:' prefixed — see the matching note on wCdKey above.
+        const iCdKey = `item:${item.id ?? item.name ?? 'item'}`;
         const iCdTurns = Math.max(0, Math.floor(Number(item.weaponCooldown ?? 0)));
         if (iCdTurns > 0 && (actor.cooldowns[iCdKey] ?? 0) > 0) return { applied: false, reason: 'on-cooldown' };
         if (!spendItemCharge(actor, item.id ?? '')) return { applied: false, reason: 'out-of-item' };
@@ -2529,9 +2533,14 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
             session.log.push(`${actor.name} uses ${item.name ?? 'an item'} — smoke weakens ${affected.length ? affected.join(', ') : 'no one'}.`);
         } else {
             // Heal / self-buff consumable → self-cast jutsu (id 'item-' exempts the 40-AP utility rule).
+            // weaponSwing: true mirrors the PvP item fix (api/pvp/move.ts) — a
+            // combat item has no jutsuMastery row either, so its percent-based
+            // tags (Poison/Absorb/Reflect/...) would otherwise resolve at
+            // mastery 0 (a flat -10 points) instead of the value on the item.
             const itemJutsu: JutsuLike = {
                 id: `item-${item.id}`, name: item.name ?? 'Item', type: 'Ninjutsu', target: 'SELF',
                 effectPower: Number(item.weaponEp ?? 10), ap: iCost, range: 0,
+                weaponSwing: true,
                 tags: (itemTags ?? [{ name: 'Heal' }]) as unknown[],
             };
             session.log.push(`${actor.name} uses ${item.name ?? 'an item'}.`);
