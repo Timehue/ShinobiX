@@ -23,9 +23,9 @@ describe('Warfront start coordination', () => {
         };
         const options = { leaseTtlSeconds: 120, waitForPublishedMs: 2_000, pollIntervalMs: 1 };
 
-        const first = coordinateWarfrontStart(store, 'Kakashi', readPublished, initialize, options);
+        const first = coordinateWarfrontStart(store, 'Kaito', readPublished, initialize, options);
         await new Promise<void>((resolve) => setImmediate(resolve));
-        const second = coordinateWarfrontStart(store, 'Kakashi', readPublished, initialize, options);
+        const second = coordinateWarfrontStart(store, 'Kaito', readPublished, initialize, options);
         await new Promise<void>((resolve) => setImmediate(resolve));
 
         assert.equal(simulations, 1, 'the NX loser must not run the full simulation');
@@ -34,7 +34,7 @@ describe('Warfront start coordination', () => {
         const results = await Promise.all([first, second]);
         assert.deepEqual(results.map((result) => result.status).sort(), ['initialized', 'resumed']);
         assert.deepEqual(results.map((result) => result.status === 'busy' ? null : result.value), [seal, seal]);
-        assert.equal(await store.get(warfrontInitializingKey('Kakashi')), null);
+        assert.equal(await store.get(warfrontInitializingKey('Kaito')), null);
     });
 
     it('fails closed when the lease cannot be acquired or stored', async () => {
@@ -60,7 +60,7 @@ describe('Warfront start coordination', () => {
         await assert.rejects(
             () => coordinateWarfrontStart(
                 broken,
-                'Sakura',
+                'Kaede',
                 async () => null,
                 async () => { simulations += 1; return { token: 'must-not-exist' }; },
                 { leaseTtlSeconds: 120, waitForPublishedMs: 0 },
@@ -86,7 +86,7 @@ describe('Warfront start coordination', () => {
 
         const result = await coordinateWarfrontStart(
             interleavingStore,
-            'Minato',
+            'Sora',
             async () => published,
             async () => { simulations += 1; return seal; },
             { leaseTtlSeconds: 120, waitForPublishedMs: 0 },
@@ -98,10 +98,10 @@ describe('Warfront start coordination', () => {
 
     it('cannot delete a replacement lease after the original owner expires', async () => {
         const store = _makeMemoryKv();
-        const key = warfrontInitializingKey('Obito');
+        const key = warfrontInitializingKey('Rill');
         const result = await coordinateWarfrontStart(
             store,
-            'Obito',
+            'Rill',
             async () => null,
             async () => {
                 await store.set(key, 'replacement-owner', { ex: 120 });
