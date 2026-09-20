@@ -94,11 +94,19 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
     const marketFlight = useRef<AbortController | null>(null);
     const readinessFlight = useRef<AbortController | null>(null);
     const readinessSeq = useRef(0);
+    // Targeted readiness is newer and more specific than a broad browse that
+    // may already be in flight. Preserve that listing until inspection ends.
+    const readinessListing = useRef<ExchangeListing | null>(null);
     const actionRef = useRef(false);
     const lifetime = useRef<AbortController | null>(null);
     const callbacks = useRef({ onVersionedCharacter, setCreatorItems });
     useEffect(() => { callbacks.current = { onVersionedCharacter, setCreatorItems }; }, [onVersionedCharacter, setCreatorItems]);
     const player = playerSlug(character.name);
+    // A successful return replaces the saved id with the same selected id.
+    // Keeping one derived target prevents that state handoff from checking the
+    // same listing twice while still changing whenever the player chooses a
+    // different listing.
+    const readinessTargetId = selected?.seller === player ? '' : selected?.id ?? returnListingId;
     useEffect(() => {
         if (!notice) return;
         const frame = requestAnimationFrame(() => {
@@ -164,9 +172,13 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
         setSnapshot(data);
         if (data.market && requestedKey) acceptMarket(data.market, requestedKey);
         setLegacyMarket(!data.market && Array.isArray(data.listings));
-        setSelected(previous => previous ? data.activity.find(listing => listing.id === previous.id)
-            ?? data.market?.listings.find(listing => listing.id === previous.id)
-            ?? data.listings?.find(listing => listing.id === previous.id) ?? null : null);
+        setSelected(previous => {
+            if (!previous) return null;
+            if (readinessListing.current?.id === previous.id) return readinessListing.current;
+            return data.activity.find(listing => listing.id === previous.id)
+                ?? data.market?.listings.find(listing => listing.id === previous.id)
+                ?? data.listings?.find(listing => listing.id === previous.id) ?? null;
+        });
         return true;
     }
     const staleReply = 'Your character changed while the Exchange was loading. Refresh to confirm the trade and latest balance.';
@@ -196,6 +208,7 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
             }
             if (mutation) {
                 setPendingRequest(null); savePendingExchangeRequest(character.name, null);
+                readinessListing.current = null;
                 setSelected(null); setSellAsset(null); setReview(false);
                 setNotice(action.action === 'list' ? 'Listing published. Your goods are now held by the Exchange.' : action.action === 'buy' ? 'Purchase complete. Your goods have been delivered.' : 'Listing cancelled. Your goods have been returned.');
                 if (action.action === 'list') setTab('listings');
@@ -217,8 +230,9 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
     }, [character.name]);
 
     useEffect(() => {
-        const listingId = selected?.id ?? returnListingId;
-        if (!listingId || selected?.seller === player) return;
+        const listingId = readinessTargetId;
+        if (!listingId) return;
+        const returnCheck = returnListingId === listingId;
         const lifetimeSignal = lifetime.current?.signal;
         if (!lifetimeSignal || lifetimeSignal.aborted) return;
         const controller = new AbortController();
@@ -230,8 +244,9 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
         setReadiness({ kind: 'checking' });
         void requestExchangeReadiness(character.name, listingId, signal).then(answer => {
             if (signal.aborted || seq !== readinessSeq.current || requestedPlayer !== player || answer.listingId !== listingId) return;
-            if (returnListingId === listingId) clearExchangeReturnContext(character.name);
+            if (returnCheck) clearExchangeReturnContext(character.name);
             setReturnListingId('');
+            readinessListing.current = answer.listing ?? null;
             if (answer.listing) setSelected(answer.listing);
             else {
                 setSelected(null);
@@ -241,11 +256,13 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
         }).catch(caught => {
             if (signal.aborted || seq !== readinessSeq.current || requestedPlayer !== player) return;
             const message = caught instanceof Error ? caught.message : 'Purchase readiness could not be checked.';
-            if (returnListingId) setNotice(`${message} Retry the listing check or keep browsing.`);
             setReadiness({ kind: 'error', message });
         });
         return () => controller.abort();
-    }, [selected?.id, selected?.seller, returnListingId, player, character.name, readinessRetry]);
+        // `readinessTargetId` deliberately owns the selected/return identity;
+        // including each source separately would refetch during their handoff.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [readinessTargetId, player, character.name, readinessRetry]);
 
     useEffect(() => {
         // Coalesce incoming sales, and never interrupt an unconfirmed trade.
@@ -322,7 +339,7 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
         && Number.isSafeInteger(total) && total >= 1 && total <= EXCHANGE_MAX_PRICE;
     const nothingToShowYet = !snapshot || (tab === 'browse' && !legacyMarket && !market);
     const resetFilters = () => { setCategory('all'); setSearch(''); setSearchTerm(''); setRarity('all'); setCurrencyFilter('all'); setAffordable(false); setPage(1); };
-    const closeDetails = () => { readinessFlight.current?.abort(); setSelected(null); setSellAsset(null); setReview(false); setReadiness({ kind: 'idle' }); };
+    const closeDetails = () => { readinessFlight.current?.abort(); readinessListing.current = null; setSelected(null); setSellAsset(null); setReview(false); setReadiness({ kind: 'idle' }); };
     const tradeDisabled = busy || !!pendingRequest;
     const selectedCurrency = selected ? exchangeCurrency(selected) : 'ryo';
     const selectedUnit = EXCHANGE_CURRENCIES[selectedCurrency];
@@ -340,8 +357,19 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
         readinessFlight.current?.abort();
         clearExchangeReturnContext(character.name);
         setReturnListingId('');
+        readinessListing.current = null;
         setReadiness({ kind: 'idle' });
         setNotice('Your market view was restored.');
+    };
+    const inspectListing = (listing: ExchangeListing) => {
+        setError('');
+        readinessListing.current = null;
+        if (returnListingId && returnListingId !== listing.id) {
+            clearExchangeReturnContext(character.name);
+            setReturnListingId('');
+        }
+        setSelected(listing);
+        setReadiness({ kind: 'idle' });
     };
     function prepareForPurchase() {
         if (!selected || readinessResult?.status !== 'blocked' || !readinessResult.prepare) return;
@@ -374,7 +402,7 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
                 {tab === 'browse' && <label className="sx-affordable"><input type="checkbox" checked={affordable} onChange={e => { setAffordable(e.target.checked); setPage(1); }} /> Within my budget</label>}
                 {nothingToShowYet && (busy || marketBusy) ? <div className="sx-loading" role="status"><div className="sx-skeleton" /><div className="sx-skeleton" /><div className="sx-skeleton" /><p>Opening the trade ledger…</p></div> : !snapshot ? <div className="sx-empty"><h3>The trade ledger is unavailable</h3><p>Reconnect to browse the latest listings.</p><button onClick={() => void run({ action: 'browse' })} disabled={busy}>Reconnect</button></div> : resultCount === 0 ? <div className="sx-empty"><h3>{search || category !== 'all' || rarity !== 'all' || currencyFilter !== 'all' || affordable ? 'No treasures match these filters' : tab === 'sell' ? 'Your trading satchel is empty' : tab === 'activity' ? 'No trades recorded yet' : tab === 'listings' ? 'Your stall is ready' : 'The market is quiet'}</h3><p>{tab === 'sell' ? 'Bring items in your backpack, companions, cards, or resources to list here.' : tab === 'activity' ? 'Completed purchases, sales, and cancellations appear here.' : 'List a treasure from your collection or return for fresh arrivals.'}</p>{search || category !== 'all' || rarity !== 'all' || currencyFilter !== 'all' || affordable ? <button onClick={resetFilters}>Clear filters</button> : tab !== 'sell' && <button className="sx-primary" onClick={() => { setTab('sell'); resetFilters(); }}>Create your first listing</button>}</div> : <div className="sx-listings">{visibleRows.map(row => {
                     const isListing = 'asset' in row; const asset = isListing ? row.asset : row;
-                    return <button key={isListing ? row.id : `${row.kind}:${row.id}`} className={`sx-listing sx-border-${asset.rarity}`} onClick={() => { setError(''); if (isListing) setSelected(row); else { setSellAsset(row); setQuantity('1'); setPrice(''); setSaleCurrency('ryo'); setReview(false); } }}>
+                    return <button key={isListing ? row.id : `${row.kind}:${row.id}`} className={`sx-listing sx-border-${asset.rarity}`} onClick={() => { setError(''); if (isListing) inspectListing(row); else { setSellAsset(row); setQuantity('1'); setPrice(''); setSaleCurrency('ryo'); setReview(false); } }}>
                         <AssetPortrait asset={asset} /><div className="sx-listing-name"><span className={`sx-rarity sx-rarity-${asset.rarity}`}>{label(asset.rarity)} · {label(asset.category)}</span><strong>{asset.name}</strong><small>{isListing ? `From ${row.sellerName}${row.seller === player ? ' · Your listing' : ''}` : row.unavailable ?? `${money(row.quantity)} available`}</small></div>
                         <div className="sx-listing-meta"><span>{isListing ? `×${money(row.quantity)}` : asset.level ? `Lv. ${asset.level}` : 'Owned'}</span>{isListing ? <><strong>{money(row.price)} <small>{EXCHANGE_CURRENCIES[exchangeCurrency(row)]}</small></strong><small>{tab === 'activity' || row.state !== 'active' ? label(row.state) : row.quantity > 1 ? `${money(Math.round(row.price / row.quantity))} ${EXCHANGE_CURRENCIES[exchangeCurrency(row)]} / unit` : 'View listing →'}</small></> : <strong>{row.unavailable ? 'View details' : 'List asset →'}</strong>}</div>
                     </button>;

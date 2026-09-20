@@ -174,11 +174,14 @@ test('capacity guidance appears before submission and prepare-return revalidates
 
     await page.getByRole('button', { name: 'Return to Exchange' }).click();
     await expect(page.getByRole('button', { name: 'Retry listing check' })).toBeVisible();
+    await expect(page.locator('.sx-success')).toHaveCount(0);
     await page.getByRole('button', { name: 'Retry listing check' }).click();
     await expect.poll(() => readinessChecks).toBe(3);
     await page.reload({ waitUntil: 'networkidle' });
     await expect(page.getByText('This listing is no longer available.')).toBeVisible();
     await expect(page.getByText(/Status: Sold/)).toBeVisible();
     await expect(page.getByRole('button', { name: /Buy for/ })).toHaveCount(0);
+    await page.waitForTimeout(500);
+    expect(readinessChecks).toBe(4);
     expect(actions).not.toContain('buy');
 });
