@@ -152,6 +152,16 @@ test('live Express CI includes persistence and route integration regressions', (
     assert.ok(command.includes('--project=chromium-desktop-live'), 'the full Academy cases require the desktop live project');
 });
 
+test('live Express CI keeps the Exchange and sector-war player journeys isolated and evidenced', () => {
+    const job = workflow.slice(workflow.indexOf('\n  e2e_village_stores:'), workflow.indexOf('\n  test_build:'));
+    const command = job.split('\n').find(line => line.trim().startsWith('run:') && line.includes('sunscar-exchange-express.spec.ts'));
+    assert.ok(command, 'the required live Express job must execute the Exchange journey');
+    assert.ok(command.includes('sector-war-express.spec.ts'), 'the same built release must execute the sector-war journey');
+    assert.ok(command.includes('--project=chromium-desktop-live'));
+    assert.ok(command.includes('--output=test-results/economy-war-journeys-ci'), 'the journey run must not overwrite earlier Playwright evidence');
+    assert.ok(command.includes('.ci-evidence/e2e-village-stores/economy-war-journeys.log'));
+});
+
 test('current Warfront coverage keeps low-cost interactions and real renderer audits', () => {
     // Check the fixture's behavior, without pinning retired lane-mode variable
     // names or command windows that the current Rite no longer exposes.

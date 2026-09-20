@@ -127,6 +127,7 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 390, height: 844 
             await expectUiAuditBoot(page, runtime, 'training');
             await expect(page.locator('.onboarding-coach-banner')).toBeVisible();
             const notice = page.getByRole('region', { name: 'Data storage notice' });
+            await expect(notice).toBeVisible();
             await capture(page, '19-academy-notice');
             const guideBounds = await page.locator('.onboarding-coach-banner').boundingBox();
             const noticeBounds = await notice.boundingBox();

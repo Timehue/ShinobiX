@@ -278,8 +278,12 @@ export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave
 export type UiAuditRuntime = Awaited<ReturnType<typeof installUiAuditRuntime>>;
 
 export async function expectUiAuditBoot(page: Page, runtime: UiAuditRuntime, screen: string) {
-    await page.goto(`/#/${screen}`, { waitUntil: "networkidle" });
-    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", screen);
+    // The game deliberately keeps background polls alive. Network idleness is
+    // therefore incidental browser timing, not proof that the requested screen
+    // is usable. Wait for the production shell contract instead; locator.waitFor
+    // uses the existing test budget and does not inflate the suite's timeouts.
+    await page.goto(`/#/${screen}`, { waitUntil: "domcontentloaded" });
+    await page.locator(`.app-shell[data-screen="${screen}"]`).waitFor({ state: "visible" });
     const commit = runtime.lastCommit();
     if (commit) {
         expect(runtime.persistedStateMatchesLastPost()).toBe(true);

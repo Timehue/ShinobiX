@@ -22,7 +22,7 @@
 // host component so they share the request singleton — disable the Fast-Refresh
 // "only export components" rule for that deliberate mix.
 /* eslint-disable react-refresh/only-export-components */
-import { useEffect, useId, useRef, useState, type RefObject } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 
@@ -441,7 +441,7 @@ export function GameConfirmHost() {
             return q.slice(1);
         });
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (queue.length === 0) return;
         // Escape = cancel. Enter activates the preferred, focused button, so
         // no window-level Enter handler is needed

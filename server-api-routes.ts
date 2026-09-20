@@ -93,6 +93,7 @@ import villageWarStructureHandler from './api/village/war-structure.js';
 import villageWarWinConditionHandler from './api/village/war-win-condition.js';
 import villageWarTerrainHandler from './api/village/war-terrain.js';
 import villageSectorWarHandler from './api/village/sector-war.js';
+import sectorWarQaHandler from './api/_qa-sector-war.js';
 import villageWarMercHandler from './api/village/war-merc.js';
 import villageSectorCardHandler from './api/village/sector-card.js';
 import villageSectorPetHandler  from './api/village/sector-pet.js';
@@ -510,6 +511,9 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     // resolve applies the authoritative winner to Control HP — flipping the sector's
     // ownerVillage on capture. Server-gated by the Sector Map campaign switch.
     route('/village/sector-war', villageSectorWarHandler);
+    if (process.env.NODE_ENV === 'test' && process.env.SHINOBIX_QA_MEMORY_KV === '1') {
+        route('/_qa/sector-war', sectorWarQaHandler);
+    }
     // Village War Map — sector-war "Card" win-condition (Phase 4c-2): an interactive
     // 6-turn Card Clash between an attacker- and defender-village member, settling
     // the same contest Control HP (forked clan-war engine). Gated by the Sector Map switch.
