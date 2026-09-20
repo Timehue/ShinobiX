@@ -2,6 +2,8 @@ import type { PvpSessionState } from "../types/pvp-ui";
 export const PVP_BROWSER_RECOVERY_TTL_MS = 48 * 60 * 60 * 1000;
 
 export type PvpRecoveryContext = {
+    /** Navigation origin only; does not mark the viewer as a combatant. */
+    spectatingFromSector?: number;
     mode?: "standard" | "ranked" | "clanWar1v1" | "clanWar2v2" | "clanWarPet" | "rankedPet";
     clanWarPoints?: number;
     sectorAttack?: boolean;

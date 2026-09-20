@@ -1,0 +1,11 @@
+# Sector controls and spectating
+
+This release puts the controls beside the playable sector on desktop and below it on mobile. One bounded, scrollable Nearby players roster replaces Players Here. Explore and weather remain visible; Sector Info retains contracts, territory, gathering, hunts, signs, shrines and contest information. The obsolete Recover and Leave controls are removed.
+
+Fighting players expose Spectate through the existing public PvP session and battle chat. The spectator can stop watching and return to the same sector. Lookup validates the session before navigation, and pending navigation is retired if the sector or target disappears. Spectators do not join as fighters, publish fights, submit combat moves or claim rewards. Rejected chat sends preserve the draft and show the server error.
+
+The release was integrated onto main `208f72f1748a387fdbb08b17a75d584a7029df76`, preserving its newer presence race handling, heartbeat roster optimization, image hydration, battle card artwork, narration and sector-war changes. Failed heartbeat recovery asks for a complete roster on the next existing heartbeat. Nearby-player and spectator lookup identities use the server's account slug convention.
+
+Validation includes 290 focused unit/API/architecture checks; 30 Chromium checks covering desktop, phone and landscape; full-client lint (zero errors); server compilation; client TypeScript and production build; asset verification and bundle-size gates. The sector browser suite runs with local mocked APIs through `shinobij.client/playwright.sector-hud.config.ts`. CI runs its Chromium project in the responsive gate; source-only fixtures are excluded from the ordinary production-preview test runner.
+
+The [panel texture](../shinobij.client/public/ui/sector-ink-panel-v1.webp) was generated using the built-in image generation tool on 2026-09-19, visually reviewed, resized and encoded with Sharp. It is a 768 × 1152 dark ink/washi material (71,166 bytes). The sector painting appears once, in the map; no duplicate scenic artwork is added to the controls.

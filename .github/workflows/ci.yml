@@ -613,6 +613,10 @@ jobs:
         run: node scripts/stronghold-browser-qa.mjs --resources --output=../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-3/stronghold-resources 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-3/stronghold-resources.log
       - name: Cross-browser responsive and accessibility smoke
         run: npm run test:e2e --prefix shinobij.client -- --shard=${{ matrix.shard }}/3 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-3/playwright.log
+      - name: Sector controls and spectator integration
+        if: ${{ matrix.shard == 1 }}
+        working-directory: shinobij.client
+        run: node node_modules/@playwright/test/cli.js test --config playwright.sector-hud.config.ts --project chromium 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-3/sector-hud.log
       - name: Retain responsive browser evidence
         if: always()
         continue-on-error: true

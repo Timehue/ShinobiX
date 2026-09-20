@@ -47,6 +47,8 @@ export type WorldSectorCommandPlayer = Readonly<{
     status: WorldSectorCommandPlayerStatus;
     sleeping: boolean;
     actionDisabled: boolean;
+    spectateDisabled?: boolean;
+    disabledReason?: string;
     /** What attacking THIS target opens — resolved in WorldMap, which knows the
      *  viewer's village. "combat" keeps the button's historical Attack wording. */
     attackLabel: SectorEngagement;
@@ -77,7 +79,6 @@ export type WorldSectorCommandPanelProps = Readonly<{
     order?: import("../types/clan").NoticePost | null;
     villageWarAdmissionOpen: boolean;
     traces: SectorTracesView | null;
-    hasLivePlayers: boolean;
     /** The sector war running here (null = none). Its win-condition is what an
      *  attack in this sector actually opens — see lib/sector-war-engagement.ts. */
     sectorContest: SectorWarContestEntryView | null;
@@ -90,8 +91,6 @@ export type WorldSectorCommandPanelProps = Readonly<{
     onRaidControlledSector: () => void;
     onOpenSigns: () => void;
     onOpenShrine: () => void;
-    onStrikeSleeper: (target: PlayerRecord) => void;
-    onAttackPlayer: (target: PlayerRecord) => void;
     /** Open this sector's Card/Pet contest table (no co-located opponent needed). */
     onOpenSectorContest: () => void;
     /** Open this sector's contest against its sealed garrison. */
@@ -101,6 +100,4 @@ export type WorldSectorCommandPanelProps = Readonly<{
     /** Depleted-pool replacement for Explore — points at the nearest richer sector. */
     onFindRicherGround: () => void;
     onHunt: () => void;
-    onRecover: () => void;
-    onLeave: () => void;
 }>;

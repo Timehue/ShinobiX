@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { beforeEach, test } from 'node:test';
 import type { PlayerRecord } from '../types/character';
 import { ROSTER_MAX_AGE_MS, heartbeatRosterFields } from './heartbeat-roster.ts';
-import { pushLiveSectorPlayers, resetLiveSectorPlayers, setLiveSectorContext } from './presence-store.ts';
+import { markSectorRosterUnavailable, getSectorRosterState, pushLiveSectorPlayers, resetLiveSectorPlayers, setLiveSectorContext } from './presence-store.ts';
 
 // A beat skips the full sector roster only while the client already holds a
 // current one for the sector it reports. The rule reads that state, so it can
@@ -12,6 +12,20 @@ const peer = (name: string, sector: number) => ({ name, currentSector: sector, l
 const visible = { socketLive: true, tabVisible: true };
 
 beforeEach(() => resetLiveSectorPlayers());
+
+test('a failed heartbeat requests a fresh roster on the next beat even with a live socket', () => {
+    setLiveSectorContext(12);
+    pushLiveSectorPlayers([peer('ally', 12)], 12);
+    markSectorRosterUnavailable(11);
+    assert.equal(getSectorRosterState(), 'current');
+    assert.deepEqual(heartbeatRosterFields({ ...visible, sector: 12 }), { socketLive: true });
+    markSectorRosterUnavailable(12);
+    assert.equal(getSectorRosterState(), 'reconnecting');
+    assert.deepEqual(heartbeatRosterFields({ ...visible, sector: 12 }), {});
+    pushLiveSectorPlayers([peer('ally', 12)], 12);
+    assert.equal(getSectorRosterState(), 'current');
+    assert.deepEqual(heartbeatRosterFields({ ...visible, sector: 12 }), { socketLive: true });
+});
 
 test('without a live socket every beat asks for the roster', () => {
     setLiveSectorContext(12);
