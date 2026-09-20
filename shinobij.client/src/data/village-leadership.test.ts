@@ -18,6 +18,7 @@ test("village leadership NPCs have default portrait images attached", () => {
         "captain-yura",
         "nyx",
         "shade-master-iro",
+        "veiled-hand-grandmaster",
         "kite-harrow",
     ];
     for (const slug of screenshotPortraits) {
@@ -33,6 +34,7 @@ test("village leadership NPCs have default portrait images attached", () => {
         ["Frostfang Village", 1, "captain-yura"],
         ["Moonshadow Village", 0, "shade-master-iro"],
         ["Moonshadow Village", 1, "nyx"],
+        ["Moonshadow Village", 2, "veiled-hand-grandmaster"],
     ] as const;
 
     for (const [village, index, slug] of expected) {
