@@ -4,11 +4,14 @@
 # scheduled VERSION updates that were missing, so a CVE is not the only thing
 # that ever moves a pin. Three sharp edges are encoded below:
 #
-#  1. NO `docker` ecosystem. The Dockerfile pins `node:22.23.1-bookworm-slim` and
-#     .github/workflows/ci.yml pins `NODE_VERSION: 22.23.1`. Those two MUST match
-#     — CI would build on one Node and Railway would run another. Dependabot can
-#     only see the Dockerfile, so it would silently desync them. Node bumps stay
-#     manual: edit BOTH, in one commit.
+#  1. NO `docker` ecosystem. The Node pin lives in ONE place — .nvmrc — which
+#     every workflow reads via `node-version-file` and which local dev and
+#     scripts/run-tests.mjs read too. The Dockerfile must repeat it as a literal
+#     because a `FROM` line cannot read a file, so that repetition is the only
+#     copy left, and scripts/check-deployment-config.test.mjs fails when the two
+#     disagree. Dependabot can see only the Dockerfile, so it would bump that
+#     half alone and turn the gate red. Node bumps stay manual: edit .nvmrc AND
+#     both Dockerfile stages, in one commit.
 #  2. Minor+patch are grouped into one PR per manifest. This repo pushes to main
 #     many times a day; ungrouped updates would bury real work under bot PRs.
 #  3. Majors arrive as their own PR, one at a time, on purpose — react/vite/

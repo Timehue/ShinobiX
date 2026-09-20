@@ -22,13 +22,17 @@
 # node_modules + package.json — verified: no runtime reads of source files (the
 # .git/HEAD read in server.ts is already gracefully optional; .git is dockerignored).
 # ─────────────────────────────────────────────────────────────────────────────
-# Node 22+ is required: @supabase/supabase-js's createClient() builds a Realtime
-# client that needs a native global WebSocket, which only exists in Node 22+.
-# On Node 20 createClient() throws ("Node.js 20 detected without native WebSocket
-# support"), breaking every Supabase read. package.json engines require Node 22+.
+# Node 24 (Krypton) is the Active LTS line, supported to 2028-04-30. Node 22
+# went to maintenance-only in 2025-10 and reaches end of life 2027-04-30.
+# A floor of 22 is a hard requirement, not a preference: @supabase/supabase-js's
+# createClient() builds a Realtime client that needs a native global WebSocket,
+# which only exists in Node 22+. On Node 20 createClient() throws ("Node.js 20
+# detected without native WebSocket support"), breaking every Supabase read.
+# THIS TAG MUST MATCH .nvmrc — scripts/check-deployment-config.test.mjs fails
+# the build if they drift, because .nvmrc is what CI and local dev install.
 
 # ── Stage 1: builder — install everything + build the server bundle + React client ──
-FROM node:22.23.1-bookworm-slim AS builder
+FROM node:24.21.0-bookworm-slim AS builder
 
 WORKDIR /app
 
@@ -108,7 +112,7 @@ RUN set -eux; \
       -exec mv {} /runtime-client/06/shinobij.client/dist/ \;
 
 # ── Stage 2: runtime — production deps + built output only (small final image) ──
-FROM node:22.23.1-bookworm-slim AS runtime
+FROM node:24.21.0-bookworm-slim AS runtime
 
 WORKDIR /app
 # Railway exposes RAILWAY_GIT_COMMIT_SHA automatically at runtime. Generic

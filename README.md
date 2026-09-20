@@ -1,7 +1,7 @@
 # ShinobiX
 
 ![CI](https://github.com/Timehue/ShinobiX/actions/workflows/ci.yml/badge.svg)
-![Node](https://img.shields.io/badge/node-%3E%3D22-2f7d32)
+![Node](https://img.shields.io/badge/node-%3E%3D24-2f7d32)
 ![TypeScript](https://img.shields.io/badge/TypeScript-game%20server%20%2B%20client-3178c6)
 ![Beta](https://img.shields.io/badge/status-live%20public%20beta-2f7d32)
 
@@ -79,7 +79,7 @@ historical rollout evidence.
 
 ## Tech Stack
 
-- Backend: Node 22, Express 5, TypeScript, Supabase/Postgres, Socket.IO.
+- Backend: Node 24, Express 5, TypeScript, Supabase/Postgres, Socket.IO.
 - Client: React 19, Vite 8, TypeScript, Three.js, React Three Fiber.
 - Operations: Railway deployment notes, health checks, release flags,
   audit logs, Sentry integration, and build-size checks.
@@ -89,7 +89,7 @@ historical rollout evidence.
 
 ## Quick Start
 
-Requires Node.js 22 or newer.
+Requires Node.js 24 or newer. The exact version is pinned in `.nvmrc` (currently 24.21.0) — every CI workflow and the Dockerfile follow it, so a version manager that reads `.nvmrc` gives you exactly what CI and Railway run.
 
 ```bash
 npm ci

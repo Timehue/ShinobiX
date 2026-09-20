@@ -44,12 +44,23 @@ test('deployment config requires the repository Dockerfile', () => {
   );
 });
 
-test('Docker build and runtime use the pinned Node 22 release toolchain', async () => {
-  const dockerfile = await readFile('Dockerfile', 'utf8');
+test('Docker build and runtime use the exact Node release pinned in .nvmrc', async () => {
+  // .nvmrc is the single source of truth: every workflow reads it through
+  // `node-version-file`, and so do local dev and scripts/run-tests.mjs. A `FROM`
+  // line cannot read a file, so the Dockerfile must repeat the version — and
+  // that repetition is now the ONLY place drift can start. CI building on one
+  // Node while Railway runs another is the failure this forecloses; before this
+  // gate the version was copied into six files and .nvmrc disagreed with all of
+  // them by carrying a floating major.
+  const [dockerfile, pinned] = await Promise.all([
+    readFile('Dockerfile', 'utf8'),
+    readFile('.nvmrc', 'utf8'),
+  ]);
+  const expected = `node:${pinned.trim()}-bookworm-slim`;
   const images = [...dockerfile.matchAll(/^FROM\s+(node:[^\s]+)\s+AS\s+(builder|runtime)$/gm)];
   assert.deepEqual(images.map((m) => [m[2], m[1]]), [
-    ['builder', 'node:22.23.1-bookworm-slim'],
-    ['runtime', 'node:22.23.1-bookworm-slim'],
+    ['builder', expected],
+    ['runtime', expected],
   ]);
 });
 
