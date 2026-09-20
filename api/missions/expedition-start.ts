@@ -143,7 +143,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             const pet = pets[petIndex];
             if (activeBreedingParentIds(character, requestedAt).has(petId)) {
-                return { ok: false as const, status: 409, error: 'This pet is in the breeding barn.' };
+                return { ok: false as const, status: 409, error: 'This pet is in the Shinobi Hatchery.' };
             }
 
             const receipts = expeditionStartReceipts(character);

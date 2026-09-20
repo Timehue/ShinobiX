@@ -39,7 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!playerName || !parent1Id || !parent2Id || !REQUEST_ID_RE.test(requestId)) return res.status(400).json({ error: 'invalid-breeding-request' });
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
-        if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only use your own breeding barn.' });
+        if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only use your own Shinobi Hatchery.' });
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-breeding-start', 8, 60_000, identity.name))) return;
         const now = Date.now();
         const result = await withKvLock<StartResult>(`save:${playerName}`, async () => {
@@ -54,7 +54,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (existing.startRequestId === requestId) {
                     return { ok: true, character, version: Number(record._saveVersion ?? 0), replayed: true };
                 }
-                return { ok: false, status: 409, error: 'breeding-barn-occupied' };
+                return { ok: false, status: 409, error: 'breeding-barn-occupied', message: 'The Shinobi Hatchery is already occupied.' };
             }
             const receipts = Array.isArray(character.petBreedingReceipts)
                 ? (character.petBreedingReceipts as unknown[]).filter((entry): entry is string => typeof entry === 'string').slice(-63)
