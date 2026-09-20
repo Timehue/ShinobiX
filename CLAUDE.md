@@ -106,12 +106,24 @@ unreachable. `server-routes.test.ts` enforces this both ways
   short explicit list at the top of that script — which is why the two repo-root
   files (`cpanel-dns.test.cjs`, `server-routes.test.ts`) are listed there. Put new
   tests under a scan root, or they silently never run.
+- **The Node version lives in exactly one file: `.nvmrc`** (currently `24.21.0`).
+  Every workflow reads it through `node-version-file`, `scripts/run-tests.mjs`
+  reads it to warn when your local major differs, and the Dockerfile repeats it
+  as a literal only because a `FROM` line cannot read a file — a repetition
+  `scripts/check-deployment-config.test.mjs` fails on if the two ever disagree.
+  `scripts/ci-workflow-contract.test.mjs` fails on any workflow that hardcodes a
+  version instead. **A Node bump means editing `.nvmrc` and both Dockerfile
+  stages in one commit**, and nothing else.
 - **A test FILE going red with every subtest green** (`✖ api/x.test.ts` + the bare
   `'test failed'` at `1:1`) means the child process exited non-zero, not that a test
   failed. The runner prints `child process exited with code N (0xHEX)` under it;
-  a code in the `0xC0000000` range is a native node.exe crash. Traced 2026-09-08 to
-  running the suite on Node 24.15.0 on Windows (the repo pins 22 in `.nvmrc`) —
-  run local tests on the pinned major before suspecting the file.
+  a code in the `0xC0000000` range is a native node.exe crash. That crash is real
+  and was reproduced in 2026-09 over 500+ instrumented runs, but it is **upstream,
+  Windows-only, and rare**: roughly 1 run in 700, only under heavy parallel load
+  (nodejs/node#62991 for 24.15.0 specifically, #56645 for the libuv abort).
+  **Linux is unaffected, so CI and Railway never see it.** A clean run disproves
+  nothing — 11,515 of 11,515 passed on Windows on 2026-09-19. Read the printed
+  exit code first, and do not "fix" the test file.
 - Frontend conventions (the App.tsx drain rule and its line-budget ratchet) live
   in `shinobij.client/CLAUDE.md`, loaded when working under that directory.
 
