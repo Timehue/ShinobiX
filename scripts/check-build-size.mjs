@@ -721,7 +721,14 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // 29,231 B of measured image headroom; startup, per-chunk and gzip gates stay
 // unchanged. Region-specific artwork also replaces the old 456 KB atlas with
 // a 65 KB first scene; other region images and combat load only when needed.
-const TOTAL_JS_CSS_FAIL_BYTES = 8_760_000;
+// 2026-09-20: 8.76 -> 8.78 MB. Activity readiness and the Exchange's
+// prepare/return revalidation flow add 5,336 B to the production image
+// (8,758,216 -> 8,763,552 B). The initial graph moves 2,956 B raw and 1,216 B
+// gzip (1,416,303 -> 1,419,259 B; 383,261 -> 384,477 B), remaining under its
+// independent unchanged gates. The measured ceiling leaves 16,448 B of total
+// product-code headroom; per-chunk, entry, startup, CSS and gzip limits stay
+// unchanged.
+const TOTAL_JS_CSS_FAIL_BYTES = 8_780_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
