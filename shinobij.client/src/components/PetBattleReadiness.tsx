@@ -30,7 +30,7 @@ function colosseumBlocker(pet: Pet, breedingPetIds: ReadonlySet<string>, now: nu
     switch (colosseumPetBusyReason(pet, breedingPetIds, now)) {
         case "expedition": return "On expedition";
         case "training": return "Training in progress";
-        case "breeding": return "Committed to the Breeding Barn";
+        case "breeding": return "Committed to the Shinobi Hatchery";
         default: return null;
     }
 }
@@ -46,7 +46,7 @@ function warfrontBlocker(
     if (isOverflow) return { status: "Resting in Sanctuary", action: "Move to carried roster" };
     switch (warfrontPetBusyReason(pet, breedingPetIds)) {
         case "breeding":
-            return { status: "Committed to the Breeding Barn", action: "Breeding in progress" };
+            return { status: "Committed to the Shinobi Hatchery", action: "Breeding in progress" };
         case "training":
             return pet.training && now >= pet.training.endsAt
                 ? { status: "Training results unclaimed", action: "Collect training results" }

@@ -224,7 +224,7 @@ export function PetBreedingBarn({ character, updateCharacter, onVersionedCharact
     const hatchInitials = hatchedPet ? petDisplayName(hatchedPet).split(/\s+/).map((word) => word[0]).join("").slice(0, 2).toUpperCase() : "";
     const apexTrait = hatchedPet?.trait && ultraPetTraits.includes(hatchedPet.trait) ? hatchedPet.trait : null;
     return <section className="breeding-barn" style={{ backgroundImage: `linear-gradient(180deg,rgba(3,8,18,.28),rgba(3,8,18,.94)),url(${barnArt})` }} aria-labelledby="breeding-barn-title">
-        <div className="pet-home-section-heading"><div><span className="pet-home-kicker">One barn · 24-hour ritual</span><h2 id="breeding-barn-title">Breeding Barn</h2></div><strong>{session ? "Occupied" : "Available"}</strong></div>
+        <div className="pet-home-section-heading"><div><span className="pet-home-kicker">One hatchery · 24-hour ritual</span><h2 id="breeding-barn-title">Shinobi Hatchery</h2></div><strong>{session ? "Occupied" : "Available"}</strong></div>
         {message && <p className="pet-home-message" role="status">{message}</p>}
         {!session ? <div className="breeding-setup">
             {!breedingStartsAvailable && <p className="pet-home-message" role="status">{breedingStartAvailability === "unknown" ? "Checking whether new companion pairings are available…" : "New companion pairings are temporarily paused. Existing timers and eggs remain visible; hatching follows the global action gate."}</p>}

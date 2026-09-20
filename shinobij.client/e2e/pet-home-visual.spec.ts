@@ -436,7 +436,7 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await shot(page, testInfo, "02d-sanctuary-roster-round-trip");
 
     await page.getByRole("button", { name: "Breeding" }).click();
-    await expect(page.getByRole("heading", { name: "Breeding Barn" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Shinobi Hatchery" })).toBeVisible();
     const parent1 = page.getByLabel("First parent");
     const parent2 = page.getByLabel("Second parent");
     await expect(parent1.locator("option", { hasText: "Ember Mole" })).toHaveAttribute("disabled", "");
@@ -593,7 +593,7 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
         message: "the redesigned Pet Arena must not create mobile horizontal overflow",
     }).toBe(true);
     await expect(page.locator(".pet-home-tabs button")).toHaveCount(5);
-    await expect(page.getByRole("button", { name: "Breeding Barn" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Shinobi Hatchery" })).toBeVisible();
     await expect.poll(() => page.locator(".pet-home-tabs").evaluate((tabs) => tabs.scrollWidth <= tabs.clientWidth + 1), {
         message: "all five Pet Home destinations should fit without a clipped mobile tab rail",
     }).toBe(true);
@@ -624,7 +624,7 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await expect(page.locator(".pet-collection-card")).toHaveCount(4);
     await shot(page, testInfo, "15-mobile-home-collection");
     await page.getByRole("button", { name: "Breeding" }).click();
-    await expect(page.getByRole("heading", { name: "Breeding Barn" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Shinobi Hatchery" })).toBeVisible();
     await page.getByRole("button", { name: "Begin 24-hour breeding" }).scrollIntoViewIfNeeded();
     await shot(page, testInfo, "16-mobile-breeding-barn");
 
@@ -678,9 +678,9 @@ test("Pet battle readiness mirrors server admission and lineage rules", async ({
     readiness = page.locator(".pet-battle-readiness");
     warfront = readiness.locator('[data-circuit="warfront"]');
     colosseum = readiness.locator('[data-circuit="colosseum"]');
-    await expect(warfront).toContainText("Committed to the Breeding Barn");
+    await expect(warfront).toContainText("Committed to the Shinobi Hatchery");
     await expect(warfront.getByRole("button", { name: /Breeding in progress/ })).toBeDisabled();
-    await expect(colosseum.getByRole("button", { name: /Committed to the Breeding Barn/ })).toBeDisabled();
+    await expect(colosseum.getByRole("button", { name: /Committed to the Shinobi Hatchery/ })).toBeDisabled();
 
     await page.goto("/#/centralHub", { waitUntil: "networkidle" });
     await page.reload({ waitUntil: "networkidle" });
@@ -691,7 +691,7 @@ test("Pet battle readiness mirrors server admission and lineage rules", async ({
     await expect(page.getByRole("heading", { name: "The Colosseum", exact: true })).toBeVisible();
     const breedingColosseumPet = page.locator(".showdown-roster-card", { hasText: "Sumi" });
     await expect(breedingColosseumPet).toBeDisabled();
-    await expect(breedingColosseumPet).toContainText("Breeding barn");
+    await expect(breedingColosseumPet).toContainText("Shinobi Hatchery");
 
     state.character.petBreeding = null;
     selectedPet.breedingSessionId = "completed-breeding-session";

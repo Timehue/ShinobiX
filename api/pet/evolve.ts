@@ -61,7 +61,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const idx = pets.findIndex((p) => String(p?.id ?? '') === petId);
             if (idx < 0) return { error: 'no-pet' as const };
             if (activeBreedingParentIds(char).has(petId)) {
-                return { reject: { code: 'pet-is-breeding' as const, message: 'This pet is in the breeding barn.' } };
+                return { reject: { code: 'pet-is-breeding' as const, message: 'This pet is in the Shinobi Hatchery.' } };
             }
 
             const inventory = Array.isArray(char.inventory) ? (char.inventory as unknown[]).map(String) : [];

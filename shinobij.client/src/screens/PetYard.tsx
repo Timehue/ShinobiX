@@ -129,7 +129,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
         petHappinessPenaltyNote(selectedPetHappiness),
     ].filter(Boolean).join(" ");
     const releaseBlocker = selectedPetBreedingLocked
-        ? "This companion is committed to the Breeding Barn until its timer completes."
+        ? "This companion is committed to the Shinobi Hatchery until its timer completes."
         : selectedPet?.training
             ? "Collect or finish this companion's training before releasing it."
             : selectedPet?.expedition
@@ -1164,7 +1164,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                                 <button className="admin-button" onClick={startTraining} disabled={petTrainingBusy || !selectedPetCanTrain || !!selectedPet.expedition || selectedPetBreedingLocked}>{petTrainingBusy ? "Starting…" : !selectedPetCanTrain ? (selectedPetIsOverflow ? "Move into carried roster" : "Move into active five") : "Start Training"}</button>
                                             )}
                                             {selectedPet.expedition && <p className="hint">Collect this companion’s expedition in Expeditions before starting training.</p>}
-                                            {selectedPetBreedingLocked && <p className="hint">This companion is in the Breeding Barn until its timer completes.</p>}
+                                            {selectedPetBreedingLocked && <p className="hint">This companion is in the Shinobi Hatchery until its timer completes.</p>}
                                         </>
                                     )}
                                 </div>

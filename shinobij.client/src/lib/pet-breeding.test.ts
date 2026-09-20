@@ -36,7 +36,7 @@ test("client blocker explains active and committed pets", () => {
     assert.equal(clientPetBreedingBlocker(character, pet), "Active PvE pet");
     character.activePetId = undefined;
     character.petBreeding = { sessionId: "breed", state: "breeding", parentIds: ["p1", "p2"], parentNames: ["One", "Two"], parentElement: "Fire", startedAt: 0, readyAt: Date.now() + 10_000, rulesVersion: 1 };
-    assert.equal(clientPetBreedingBlocker(character, pet), "Already in the barn");
+    assert.equal(clientPetBreedingBlocker(character, pet), "Already in the hatchery");
     assert.equal(formatBreedingDuration(3_661_000), "01:01:01");
 });
 

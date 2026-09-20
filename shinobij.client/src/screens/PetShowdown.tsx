@@ -171,7 +171,7 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
         switch (colosseumPetBusyReason(pet, breedingPetIds)) {
             case "expedition": return "On expedition";
             case "training": return "Training";
-            case "breeding": return "Breeding barn";
+            case "breeding": return "Shinobi Hatchery";
             default: return null;
         }
     }, [breedingPetIds, carriedPetIds]);
