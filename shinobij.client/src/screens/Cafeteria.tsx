@@ -90,7 +90,7 @@ export function Cafeteria({
         const res = await buyCafeteriaMeal(character.name, mealId);
         setBusyMeal(null);
         if (!res.ok || !res.character) {
-            alert(res.error ?? "The cafeteria is too busy right now.");
+            alert(res.error ?? "The Noodle Den is too busy right now.");
             return;
         }
         if (!onVersionedCharacter(res.character, res._saveVersion)) return;
@@ -136,7 +136,7 @@ export function Cafeteria({
             <FacilityHero
                 facility="cafeteria"
                 eyebrow={`${character.village} · Commons`}
-                title="Cafeteria"
+                title="Noodle Den"
                 description="Hot food, fast recovery, and a place to reset before the next mission."
                 onBack={onBack}
                 metrics={[

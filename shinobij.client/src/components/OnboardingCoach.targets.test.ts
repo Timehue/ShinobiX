@@ -42,6 +42,7 @@ test("Academy coach explains and safely reveals the highlighted target", () => {
     assert.match(coach, /step === "academySpar" && sparKnockedOut/);
     assert.match(coach, /step === "academySpar" && sparKnockedOut && screen === "hospital"/);
     assert.match(coach, /candidate\.offsetParent !== null/);
+    assert.match(coach, /Go to Noodle Den/);
     assert.match(coach, /rect\.left >= 16/);
     assert.match(coach, /rect\.right <= window\.innerWidth - 16/);
     // The bottom reserve is MEASURED off the banner, never a flat constant: the
