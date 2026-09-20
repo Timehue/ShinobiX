@@ -1,3 +1,5 @@
+import { STORYWIDE_ACTORS, STORYWIDE_ACTOR_VARIANTS } from "../lib/vn-storywide-direction";
+
 type VillageLeadershipProfile = { kage: string; elders: string[]; roles: string[]; atWar: boolean; pastWars: string[] };
 export type VillageLeadershipImages = Record<string, { kage?: string; elders?: string[] }>;
 
@@ -37,13 +39,47 @@ function defaultPortraitFor(name?: string): string {
     return slug ? `/portraits/${slug}.webp` : "";
 }
 
+// Static leadership cards should share the reviewed character identities used by
+// the story. Neutral variants are preferred where the VN has an action pose as
+// its base image, because the Town Hall is a calm civic setting.
+const CANONICAL_LEADERSHIP_PORTRAITS: Record<string, string> = {
+    "kage raiko veyr": STORYWIDE_ACTORS["kage raiko veyr"],
+    "elder vanta": STORYWIDE_ACTORS["elder vanta"],
+    "mira volt": STORYWIDE_ACTOR_VARIANTS["mira volt"]?.neutral ?? STORYWIDE_ACTORS["mira volt"],
+    "tempest guard captain": STORYWIDE_ACTORS["tempest guard captain"],
+    "kage hoshina enju": STORYWIDE_ACTORS["kage hoshina enju"],
+    "elder mori": STORYWIDE_ACTORS["elder mori"],
+    "toma reed": STORYWIDE_ACTORS["toma reed"],
+    "registry duty clerk": STORYWIDE_ACTORS["registry duty clerk"],
+    "kage kael whitefang": STORYWIDE_ACTORS["kage kael whitefang"],
+    "elder sova": STORYWIDE_ACTORS["elder sova"],
+    "captain yura": STORYWIDE_ACTORS["captain yura"],
+    "seal-keeper vess": STORYWIDE_ACTORS["seal-keeper vess"],
+    "kage sable nocturne": STORYWIDE_ACTOR_VARIANTS["kage sable nocturne"]?.neutral ?? STORYWIDE_ACTORS["kage sable nocturne"],
+    "shade master iro": STORYWIDE_ACTORS["shade master iro"],
+    nyx: STORYWIDE_ACTOR_VARIANTS.nyx?.neutral ?? STORYWIDE_ACTORS.nyx,
+};
+
+function canonicalLeadershipPortraitFor(name?: string): string {
+    const normalizedName = (name ?? "").trim().toLowerCase();
+    return CANONICAL_LEADERSHIP_PORTRAITS[normalizedName] || defaultPortraitFor(name);
+}
+
+function normalizeLeadershipPortrait(image: string | undefined, name?: string): string {
+    const legacyDefault = defaultPortraitFor(name);
+    // Migrate the old generated default in memory, including values persisted by
+    // earlier releases. Anything else is an intentional admin override.
+    if (!image || image === legacyDefault) return canonicalLeadershipPortraitFor(name);
+    return image;
+}
+
 export function normalizeVillageLeadershipImages(images?: VillageLeadershipImages): VillageLeadershipImages {
     const normalized: VillageLeadershipImages = {};
     Object.entries(villageLeadership).forEach(([village, leadership]) => {
         const source = images?.[village];
         normalized[village] = {
-            kage: source?.kage || defaultPortraitFor(leadership.kage),
-            elders: Array.from({ length: 3 }, (_, index) => source?.elders?.[index] || defaultPortraitFor(leadership.elders[index])),
+            kage: normalizeLeadershipPortrait(source?.kage, leadership.kage),
+            elders: Array.from({ length: 3 }, (_, index) => normalizeLeadershipPortrait(source?.elders?.[index], leadership.elders[index])),
         };
     });
     return normalized;
