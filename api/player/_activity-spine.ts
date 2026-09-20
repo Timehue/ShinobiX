@@ -22,7 +22,7 @@ export type FocusFacts = {
     story: { completed: number; total: number; nextLevel: number | null; nextEligible: boolean; known?: boolean };
     ranked: { rating: number; wins: number; ready?: boolean; blocker?: string };
     towers: { bestFloor: number; bestWave: number; spireTier: number; nextFloor?: number; complete?: boolean; entryAffordable?: boolean; entryCost?: number; available?: boolean };
-    companions: { count: number; activeName: string; activeLevel: number; expeditionActive: boolean; ladderRating: number; usableCount?: number; available?: boolean };
+    companions: { count: number; activeName: string; activeLevel: number; expeditionActive: boolean; ladderRating: number; usableCount?: number; available?: boolean; familiar?: boolean; showdownLessonCompleted?: boolean; dailyArenaWins?: number; arenaCapReached?: boolean };
     chronicle: { deckCards: number; collectionCards: number; wins: number; deckValid?: boolean; unlocked?: boolean };
     legacy: { accepted: boolean; stage: number; trialReady?: boolean; objective?: { stat: string; progress: number; target: number } };
     profession: { selected: boolean; label: string; rank: number; xp: number };
@@ -163,7 +163,7 @@ function focusNow(input: ActivitySpineInput, focus: Focus, facts: FocusFacts): A
         input.trainingIdle ? `Stat training develops the stat pool that determines your level, bringing ${goal} closer.`
             : `Your stat session is already running. Review the remaining requirement for ${goal}.`,
         input.trainingIdle ? 'training' : 'logbook', input.trainingIdle ? 'Open Training' : 'Review Progress',
-        { context, blocker: `Reach level ${level}.`, progress: `Level ${input.level}/${level}`, capabilityId: 'gameplayMutations' });
+        { context, blocker: `Reach level ${level}.`, progress: `Level ${input.level}/${level}`, capabilityId: 'gameplayMutations', readiness: input.trainingIdle ? 'preparable' : 'waiting' });
 
     switch (focus) {
         case 'village-chronicle': {
@@ -173,9 +173,9 @@ function focusNow(input: ActivitySpineInput, focus: Focus, facts: FocusFacts): A
                 'Your published village arc is complete. Revisit its recorded chapters and choices.', 'storyHall', 'Review Chronicle', { context: 'story', progress });
             if (story.known !== false && story.nextEligible) return review('story-now', 'Open your next Village Chronicle chapter',
                 'The next chapter is available at your level and advances your village story.', 'storyHall', 'Open Story Hall',
-                { context: 'story', progress, runtimeModeId: 'story-battles' });
+                { context: 'story', progress, runtimeModeId: 'story-battles', readiness: 'ready' });
             if (story.known !== false && story.nextLevel) return progressToward('the next Chronicle chapter', story.nextLevel, 'story');
-            return review('story-review-now', 'Check your Village Chronicle progress', 'Review your recorded progress before choosing another chapter.', 'logbook', 'Open Logbook', { context: 'story', progress });
+            return review('story-review-now', 'Check your Village Chronicle progress', 'Review your recorded progress before choosing another chapter.', 'logbook', 'Open Logbook', { context: 'story', progress, readiness: 'unknown' });
         }
         case 'ranked-pvp':
             if (input.level < ATTACKABLE_MIN_LEVEL) return progressToward('Ranked PvP entry', ATTACKABLE_MIN_LEVEL, 'pvp');
@@ -208,16 +208,25 @@ function focusNow(input: ActivitySpineInput, focus: Focus, facts: FocusFacts): A
                     : 'The Tower lobby verifies floor access, entry costs, squad readiness, and daily starts before you begin.',
                 'battleTowers', 'Review Tower Lobby', { context: 'towers', runtimeModeId: 'battle-towers',
                     progress: `Best floor ${facts.towers.bestFloor} • Spire tier ${facts.towers.spireTier}`,
-                    blocker: facts.towers.available === false ? 'Tower admissions are temporarily unavailable.' : facts.towers.entryAffordable === false ? `The next new floor requires ${facts.towers.entryCost} ryo; cleared floors can be replayed free.` : undefined });
+                    blocker: facts.towers.available === false ? 'Tower admissions are temporarily unavailable.' : facts.towers.entryAffordable === false ? `The next new floor requires ${facts.towers.entryCost} ryo; cleared floors can be replayed free.` : undefined,
+                    readiness: facts.towers.complete ? 'complete' : facts.towers.available === false ? 'unavailable' : facts.towers.entryAffordable === false ? 'preparable' : 'unknown' });
         case 'companions': {
-            const ready = facts.companions.available && (facts.companions.usableCount ?? 0) > 0;
-            return review('companions-now', ready ? 'Practice with a ready companion' : 'Prepare your carried companion roster',
-                ready ? 'A practice Showdown helps you learn your companion’s moves. Practice grants no XP, ranked progress, or items.'
+            const rosterReady = facts.companions.available && (facts.companions.usableCount ?? 0) > 0;
+            const familiar = facts.companions.familiar === true;
+            const arenaCapped = familiar && facts.companions.arenaCapReached === true;
+            const ready = rosterReady && !arenaCapped;
+            return review('companions-now', rosterReady ? familiar ? arenaCapped ? 'Wait for the companion Coliseum reset' : 'Enter a companion Coliseum bout' : 'Practice with a ready companion' : 'Prepare your carried companion roster',
+                rosterReady ? familiar
+                    ? arenaCapped
+                        ? 'Your carried roster is ready, but the server-recorded daily arena win cap is complete. The Coliseum resets at midnight UTC.'
+                        : 'Your recorded companion-battle participation shows you know the basics. The Coliseum rechecks the roster before entry; rewards remain subject to its existing daily rules.'
+                    : `${facts.companions.showdownLessonCompleted ? 'You have reviewed the Showdown lesson. ' : ''}Practice lets you try the commands with no XP, ranked progress, or items.`
                     : 'Use the Pet Yard to review carried pets, acquisition, and any training, expedition, or breeding commitments.',
-                ready ? 'petShowdown' : 'pets', ready ? 'Open Practice Showdown' : 'Manage Companions',
+                rosterReady ? familiar ? 'petColiseum' : 'petShowdown' : 'pets', rosterReady ? familiar ? 'Open Pet Coliseum' : 'Open Practice Showdown' : 'Manage Companions',
                 { context: 'companions', progress: `${facts.companions.usableCount ?? 'Unverified'} usable carried companions`,
-                    blocker: ready ? undefined : facts.companions.available === false ? 'Practice Showdown is temporarily unavailable.' : 'A ready carried companion is needed for practice.',
-                    ...(ready ? { runtimeModeId: 'pet-showdown-practice' } : {}) });
+                    blocker: arenaCapped ? 'Daily companion arena wins are complete until midnight UTC.' : rosterReady ? undefined : facts.companions.available === false ? 'Practice Showdown is temporarily unavailable.' : 'A ready carried companion is needed for practice.',
+                    readiness: ready ? 'ready' : arenaCapped ? 'waiting' : facts.companions.available === false ? 'unavailable' : 'preparable',
+                    ...(ready ? { runtimeModeId: familiar ? 'pet-coliseum' : 'pet-showdown-practice' } : {}) });
         }
         case 'chronicle-showdown': {
             if (facts.chronicle.unlocked === undefined) return review('chronicle-review-now', 'Review Chronicle access and your deck',
@@ -230,6 +239,7 @@ function focusNow(input: ActivitySpineInput, focus: Focus, facts: FocusFacts): A
                     : 'Review the deck validator and your owned collection before selecting a duel.', 'shinobiTiles', facts.chronicle.deckValid ? 'Choose a Duel' : 'Edit Deck',
                 { context: 'chronicle', section: facts.chronicle.deckValid ? 'card-play' : 'card-deck', progress: `${facts.chronicle.deckCards} cards selected`,
                     blocker: facts.chronicle.deckValid ? undefined : 'The saved deck has not passed the current size, card, and owned-copy rules.',
+                    readiness: facts.chronicle.deckValid ? 'ready' : 'preparable',
                     ...(facts.chronicle.deckValid ? { runtimeModeId: 'card-clash-freeplay' } : {}) });
         }
         case 'legacy': {
@@ -476,6 +486,12 @@ function resolveFocusRecommendations(
     facts: FocusFacts,
 ): { resolvedFocus: Focus; recommendations: [ActivitySpineItem, ActivitySpineItem] } {
     const automatic = autoFocus(input, facts);
+    if (selectedFocus !== 'auto') {
+        // A service pause or blocked prerequisite must not silently replace a
+        // focus the player deliberately saved. Its CTAs are gated below; only
+        // the immediate card may offer an explicitly optional alternative.
+        return { resolvedFocus: selectedFocus, recommendations: focusRecommendations(input, selectedFocus, facts) };
+    }
     const candidates = selectedFocus === 'auto'
         ? [automatic, ...FOCUS_FALLBACK_ORDER]
         : [selectedFocus, automatic, ...FOCUS_FALLBACK_ORDER];
@@ -507,6 +523,27 @@ function resolveFocusRecommendations(
             }),
         ],
     };
+}
+
+/** Save-projected, deterministic alternatives only. Ranked, clan queues and
+ * other domains that need extra IO are deliberately absent: unknown readiness
+ * is never promoted to a promise. Evaluation is bounded to three candidates. */
+function immediateForFocus(input: ActivitySpineInput, focus: Focus, facts: FocusFacts): ActivitySpineItem {
+    const preferred = focusNow(input, focus, facts);
+    if (preferred.readiness !== 'waiting') return preferred;
+    for (const alternativeFocus of ['towers-spire', 'companions', 'chronicle-showdown'] as const) {
+        if (alternativeFocus === focus) continue;
+        const candidate = focusNow(input, alternativeFocus, facts);
+        if (candidate.readiness !== 'ready' || !activityServiceAvailable(input, candidate)) continue;
+        return {
+            ...candidate,
+            id: `optional-${focus}-${candidate.id}`,
+            title: `Meanwhile: ${candidate.title}`,
+            why: `${preferred.why} This is an optional available activity while that requirement progresses.`,
+            optionalAlternative: true,
+        };
+    }
+    return preferred;
 }
 
 export function buildActivitySpine(input: ActivitySpineInput): ActivitySpine {
@@ -581,7 +618,7 @@ export function buildActivitySpine(input: ActivitySpineInput): ActivitySpine {
             commitment: '2 min', screen: 'profile', cta: 'Review Profile', eligibility: 'eligible', context: 'recovery',
         }));
     } else {
-        const immediate = focusNow(input, resolvedFocus, facts);
+        const immediate = immediateForFocus(input, resolvedFocus, facts);
         now.push(activityServiceAvailable(input, immediate) ? immediate : item('now', {
             id: 'service-review-now', title: 'Review your current shinobi plan',
             why: 'New gameplay actions are paused, but your saved build and progress remain available to review.',

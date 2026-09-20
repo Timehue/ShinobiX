@@ -1,6 +1,7 @@
 export const ACTIVITY_HORIZONS = ['now', 'today', 'this-week', 'long-term'] as const;
 export type ActivityHorizon = typeof ACTIVITY_HORIZONS[number];
 export type ActivityEligibility = 'eligible' | 'blocked' | 'complete';
+export type ActivityReadiness = 'ready' | 'preparable' | 'waiting' | 'complete' | 'unknown' | 'unavailable';
 
 export const MASTERY_FOCUS_OPTIONS = [
     { id: 'auto', label: 'Auto' },
@@ -37,6 +38,12 @@ export type ActivitySpineItem = {
     cta: string;
     /** Eligibility of this CTA, not necessarily of the eventual goal it prepares. */
     eligibility: ActivityEligibility;
+    /** Internal admission projection used to keep an eventual goal separate
+     * from the best useful action right now. Older clients may ignore it. */
+    readiness?: ActivityReadiness;
+    /** The saved focus is unchanged; this card is a deliberately optional
+     * immediate alternative while that focus waits. */
+    optionalAlternative?: boolean;
     /** Prerequisite guidance may accompany an eligible remediation CTA. */
     blocker?: string;
     reward?: string;

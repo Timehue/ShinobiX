@@ -220,15 +220,49 @@ describe('server activity spine', () => {
         assert.equal(selected.horizons['this-week'][0]?.runtimeModeId, undefined);
     });
 
-    it('falls a selected disabled Legacy back to an available focus', () => {
+    it('keeps a selected disabled Legacy as the saved focus and gates its actions', () => {
         const spine = buildActivitySpine({
             ...input,
             focus: 'legacy',
             capabilities: capabilitiesWith({ legacy: { state: 'temporarily-unavailable', reason: 'configuration-unavailable' } }),
         });
         assert.equal(spine.selectedFocus, 'legacy');
-        assert.notEqual(spine.resolvedFocus, 'legacy');
-        assert.doesNotMatch(JSON.stringify(spine.horizons), /focus-legacy-|Hall of Legends|Legacy Journey/);
+        assert.equal(spine.resolvedFocus, 'legacy');
+        assert.equal(spine.horizons['this-week'][0]?.id, 'focus-legacy-week');
+        assert.equal(spine.horizons['this-week'][0]?.eligibility, 'blocked');
+        assert.match(spine.horizons['this-week'][0]?.blocker ?? '', /current server configuration/);
+    });
+
+    it('keeps a locked story as the goal while training runs and offers one verified optional alternative', () => {
+        const locked = {
+            ...input,
+            level: 34,
+            trainingIdle: false,
+            clanBoss: { ...input.clanBoss!, active: false },
+            focus: 'village-chronicle' as const,
+            facts: {
+                ...input.facts,
+                story: { completed: 3, total: 9, nextLevel: 35, nextEligible: false, known: true },
+                towers: { bestFloor: 0, bestWave: 0, spireTier: 0, nextFloor: 1, entryAffordable: true, available: true },
+            },
+        };
+        const spine = buildActivitySpine(locked);
+        assert.equal(spine.selectedFocus, 'village-chronicle');
+        assert.equal(spine.resolvedFocus, 'village-chronicle');
+        assert.equal(spine.horizons['this-week'][0]?.id, 'focus-story-week');
+        assert.equal(spine.horizons.now[0]?.screen, 'petShowdown');
+        assert.equal(spine.horizons.now[0]?.optionalAlternative, true);
+        assert.equal(spine.horizons.now[0]?.readiness, 'ready');
+        assert.deepEqual(spine, buildActivitySpine(locked), 'same state produces the same alternative');
+
+        const unknownAlternatives = buildActivitySpine({ ...locked, facts: {
+            ...locked.facts,
+            towers: { bestFloor: 0, bestWave: 0, spireTier: 0 },
+            companions: { count: 1, activeName: 'Kumo', activeLevel: 5, expeditionActive: false, ladderRating: 1000 },
+            chronicle: { deckCards: 40, collectionCards: 40, wins: 0 },
+        } });
+        assert.equal(unknownAlternatives.horizons.now[0]?.id, 'prepare-village-chronicle');
+        assert.equal(unknownAlternatives.horizons.now[0]?.readiness, 'waiting');
     });
 
     it('keeps active disabled party operations visible as blocked recovery-only state', () => {
@@ -279,14 +313,13 @@ describe('server activity spine', () => {
         assert.equal(spine.horizons.now[0]?.eligibility, 'eligible');
         assert.equal(spine.horizons.now[0]?.requiresMutation, false);
         assert.equal(spine.horizons.today.length, 0, 'do not duplicate the Now profile review or fill unavailable slots');
-        assert.equal(spine.horizons['this-week'][0]?.runtimeModeId, undefined);
-        assert.equal(spine.horizons['long-term'][0]?.runtimeModeId, undefined);
-        assert.equal(spine.horizons['this-week'][0]?.id, 'focus-service-review-week');
-        assert.equal(spine.horizons['long-term'][0]?.id, 'focus-service-review-long');
-        assert.equal(spine.horizons['this-week'][0]?.eligibility, 'eligible');
-        assert.equal(spine.horizons['long-term'][0]?.eligibility, 'eligible');
-        assert.equal(spine.horizons['this-week'][0]?.requiresMutation, false);
-        assert.equal(spine.horizons['long-term'][0]?.requiresMutation, false);
+        assert.equal(spine.resolvedFocus, 'ranked-pvp', 'an explicit focus is not silently replaced');
+        assert.equal(spine.horizons['this-week'][0]?.runtimeModeId, 'ranked-shinobi-pvp');
+        assert.equal(spine.horizons['long-term'][0]?.runtimeModeId, 'ranked-shinobi-pvp');
+        assert.equal(spine.horizons['this-week'][0]?.id, 'focus-ranked-week');
+        assert.equal(spine.horizons['long-term'][0]?.id, 'focus-ranked-long');
+        assert.equal(spine.horizons['this-week'][0]?.eligibility, 'blocked');
+        assert.equal(spine.horizons['long-term'][0]?.eligibility, 'blocked');
     });
 
     it('does not misrepresent local review cards as server-readable during maintenance', () => {
