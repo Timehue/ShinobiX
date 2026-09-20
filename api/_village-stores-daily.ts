@@ -337,6 +337,13 @@ export async function runVillageStoresStep(args: {
         await lock(sectorWarKey(w.id), async () => {
             const raw = await store.get<Record<string, unknown>>(sectorWarKey(w.id));
             if (!raw) return;
+            // The war list was scanned before this loop, so a war can have been
+            // settled since. A terminal record carries its own expiry (the
+            // attacker's re-siege cooldown, or the capture record's retention),
+            // and this stamp writes without one — it used to strip that expiry
+            // and leave the record in the keyspace forever. Nothing reads a dead
+            // war's ration flags either, so leave it exactly as settlement left it.
+            if (raw.flipped === true || Number(raw.expiredAt) > 0) return;
             const sameDay = raw.storesDate === today;
             const prevUnfed = sameDay && Array.isArray(raw.unfedVillages) ? (raw.unfedVillages as string[]).filter((v) => v !== village) : [];
             const unfedVillages = verdict.fed ? prevUnfed : [...prevUnfed, village];
