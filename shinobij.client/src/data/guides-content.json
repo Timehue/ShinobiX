@@ -68,7 +68,7 @@
               "Spend your 20 starting stat points while you are on the Profile screen.",
               "Equip the Rustfang Kunai and Shinobi Vest.",
               "Win the Academy spar and follow its turn-by-turn coaching.",
-              "Recover in the Cafeteria if the spar cost you HP.",
+              "Recover in the Noodle Den if the spar cost you HP.",
               "Claim the Academy Trial in the Mission Hall.",
               "Open the Logbook to see your next goals.",
               "Travel to any numbered sector from the World Map, then return to the village."
@@ -821,7 +821,7 @@
           {
             "type": "list",
             "items": [
-              "Provisions come from ration packs cooked in the Cafeteria and donated through Town Hall. They feed mercenaries, garrisons, and active sectors.",
+              "Provisions come from ration packs cooked in the Noodle Den and donated through Town Hall. They feed mercenaries, garrisons, and active sectors.",
               "Materials come from donated hunt materials and relics. The Supply Depot converts them into War Resources and supports advanced structures.",
               "At the daily UTC store update, Provisions lose 5%, so plan donations around that loss.",
               "Without Provisions, a garrison keeps its normal defense but receives only half of its Watchtower bonus."
@@ -889,7 +889,7 @@
         "blocks": [
           {
             "type": "p",
-            "text": "Pet Home contains Collection, Pet Yard, Pet Arena, Sanctuary, and the Breeding Barn. The carried roster holds four companions by default and six with supporter capacity. Companions in Sanctuary are stored safely but are not available for active squads."
+            "text": "Pet Home contains Collection, Pet Yard, Pet Arena, Sanctuary, and the Shinobi Hatchery. The carried roster holds four companions by default and six with supporter capacity. Companions in Sanctuary are stored safely but are not available for active squads."
           },
           {
             "type": "p",

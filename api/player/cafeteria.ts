@@ -35,7 +35,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!playerName) return res.status(400).json({ error: 'Missing playerName.' });
         if (cooking && !villageStoresEnabled()) return res.status(404).json({ error: 'Not found.' });
         if (cooking && !recipe) return res.status(400).json({ error: 'Unknown cook recipe.' });
-        if (!cooking && !meal) return res.status(400).json({ error: 'Unknown cafeteria meal.' });
+        if (!cooking && !meal) return res.status(400).json({ error: 'Unknown Noodle Den meal.' });
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });

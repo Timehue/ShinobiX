@@ -49,7 +49,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const pet = settlePetHappiness(pets[index], now).pet;
             let nextCharacter = character; let nextPet = pet;
             if (activeBreedingParentIds(character, now).has(petId)) {
-                return { ok: false as const, status: 409, error: 'This pet is in the breeding barn until the timer completes.' };
+                return { ok: false as const, status: 409, error: 'This pet is in the Shinobi Hatchery until the timer completes.' };
             }
             // Set when this call paid out a finished training session (either the
             // explicit collect, or the start-training self-heal below). Drives the

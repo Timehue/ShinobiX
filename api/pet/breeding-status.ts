@@ -20,7 +20,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!playerName) return res.status(400).json({ error: 'Invalid player.' });
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
-        if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only inspect your own breeding barn.' });
+        if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only inspect your own Shinobi Hatchery.' });
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-breeding-status', 120, 60_000, identity.name))) return;
         const serverTime = Date.now();
         const result = await withKvLock(`save:${playerName}`, async () => {

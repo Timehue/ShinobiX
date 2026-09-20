@@ -12,7 +12,7 @@ export function hospitalDischargeMessage(response: HospitalDischargeResponse): s
     const charge = Math.max(0, Number(response.chargedRyo) || 0);
     const receipt = response.alreadyDischarged ? 'Discharge confirmed.'
         : charge > 0 ? `Discharged for ${charge.toLocaleString()} ryo.` : 'Discharged free.';
-    return `${receipt} HP restored. Chakra and stamina recover with rest or a meal at the Cafeteria.`;
+    return `${receipt} HP restored. Chakra and stamina recover with rest or a meal at the Noodle Den.`;
 }
 
 /** A notification is only a reason to read the save, never evidence of healing. */

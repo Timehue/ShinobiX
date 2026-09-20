@@ -27,6 +27,19 @@ describe("Pet Home cross-layer integrity wiring", () => {
         assert.ok(breeding.includes("Breeding takes 24 real hours and cannot be canceled or rerolled."));
     });
 
+    it("presents the Shinobi Hatchery name across navigation, facility UI, and occupied errors", () => {
+        const tabs = source("../components/PetHomeTabs.tsx");
+        const breeding = source("../components/PetBreedingBarn.tsx");
+        const api = source("./pet-breeding-api.ts");
+        const breedingStart = source("../../../api/pet/breeding-start.ts");
+
+        assert.ok(tabs.includes('aria-label="Shinobi Hatchery"'));
+        assert.ok(tabs.includes('full="Shinobi Hatchery"'));
+        assert.ok(breeding.includes(">Shinobi Hatchery</h2>"));
+        assert.ok(api.includes("body.message || body.error"), "friendly API messages must take precedence over stable error codes");
+        assert.ok(breedingStart.includes("error: 'breeding-barn-occupied', message: 'The Shinobi Hatchery is already occupied.'"));
+    });
+
     it("server-authorizes transfer, breeding, and release against combat assignments", () => {
         const transfer = source("../../../api/pet/sanctuary-transfer.ts");
         const breedingStart = source("../../../api/pet/breeding-start.ts");

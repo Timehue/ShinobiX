@@ -438,7 +438,7 @@ export function OnboardingCoach({
             case "academySpar": return "That spar knocked you out. Get patched up at the Hospital, wait for free checkout, then we'll step back onto the mat.";
             case "cafeteria": return character.hp >= character.maxHp
                 ? "You came through the spar at full HP, so there's nothing to patch up. Let's keep moving."
-                : "The spar cost you HP. Recover in the Cafeteria before we move on.";
+                : "The spar cost you HP. Recover in the Noodle Den before we move on.";
             case "firstMission": return "Claim the Academy Trial at the Mission Hall. The reward is real. So was what happened to that dummy.";
             case "logbook": return "Open your Logbook. Shiranui left us a foxfire trail to follow.";
             case "sectorReturn": return visitedSector
@@ -711,7 +711,7 @@ export function OnboardingCoach({
 
     if (step === "cafeteria") {
         return renderGuideBanner(screen !== "cafeteria" && (
-            <button className="start-primary-btn" onClick={() => setScreen("cafeteria")}>Go to Cafeteria</button>
+            <button className="start-primary-btn" onClick={() => setScreen("cafeteria")}>Go to Noodle Den</button>
         ));
     }
 
