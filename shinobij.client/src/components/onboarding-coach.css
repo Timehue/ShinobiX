@@ -29,7 +29,7 @@
     z-index: 1;
 }
 
-.coach-guide-pet.coach-guide-pet-modal.icx-companion-render {
+.coach-guide-pet.coach-guide-pet-modal {
     width: 112px !important;
     height: 112px !important;
     margin: 0 auto 4px;
