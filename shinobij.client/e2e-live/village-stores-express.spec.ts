@@ -262,7 +262,7 @@ test('a village cook turns hunt spoils into Provisions and Materials the server 
         // ── 1. Cafeteria: cook rations (UI) ──────────────────────────────
         await page.goto('/#/cafeteria', { waitUntil: 'networkidle' });
         await dismissBootNotices(page);
-        await expect(page.getByRole('heading', { name: 'Cafeteria' })).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'Noodle Den' })).toBeVisible();
 
         const kitchen = panelFor(page, 'Cook for the village');
         await expect(kitchen).toBeVisible();

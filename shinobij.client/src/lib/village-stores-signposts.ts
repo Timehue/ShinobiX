@@ -52,7 +52,7 @@ export function cookRecipeForMaterial(itemId: string): CookRecipe | null {
  * What an inventory entry means to the Village Stores, or null when it means
  * nothing (which is most items — the Inventory must stay quiet about them).
  *
- * Cookable hunt materials point at the Cafeteria; a cooked ration pack points
+ * Cookable hunt materials point at the Noodle Den; a cooked ration pack points
  * at the Town Hall, because a pack sitting in a backpack feeds nobody.
  */
 export function storesItemSignpost(itemId: string): StoresItemSignpost | null {
@@ -70,8 +70,8 @@ export function storesItemSignpost(itemId: string): StoresItemSignpost | null {
     if (!recipe) return null;
     return {
         itemId: id,
-        line: `Cooks into ${recipe.name} at the Cafeteria — ${recipe.rations.toLocaleString()} rations for your village's stores, ${recipe.ryo.toLocaleString()} ryo a batch.`,
-        actionLabel: "Cook at the Cafeteria",
+        line: `Cooks into ${recipe.name} at the Noodle Den — ${recipe.rations.toLocaleString()} rations for your village's stores, ${recipe.ryo.toLocaleString()} ryo a batch.`,
+        actionLabel: "Cook at the Noodle Den",
         screen: "cafeteria",
     };
 }
@@ -139,9 +139,9 @@ export function villageSupplyCall(input: VillageSupplyCallInput): VillageSupplyC
             tone: "hungry",
             headline: `${village} is marching hungry.`,
             body: provisions > 0
-                ? `A sector war went unfed today and the stores are down to ${provisions.toLocaleString()} rations. Cook ration packs at the Cafeteria, then donate them at the Town Hall.`
-                : "A sector war went unfed today and the stores stand empty. Cook ration packs at the Cafeteria, then donate them at the Town Hall.",
-            actionLabel: "Cook rations at the Cafeteria",
+                ? `A sector war went unfed today and the stores are down to ${provisions.toLocaleString()} rations. Cook ration packs at the Noodle Den, then donate them at the Town Hall.`
+                : "A sector war went unfed today and the stores stand empty. Cook ration packs at the Noodle Den, then donate them at the Town Hall.",
+            actionLabel: "Cook rations at the Noodle Den",
             screen: "cafeteria",
         };
     }
@@ -151,9 +151,9 @@ export function villageSupplyCall(input: VillageSupplyCallInput): VillageSupplyC
         tone: "low",
         headline: `${village} is running short of rations.`,
         body: provisions > 0
-            ? `${provisions.toLocaleString()} rations left, and a siege eats ${WAR_RATIONS_PER_DAY} a day — ${GARRISON_RATIONS_PER_DAY} more for a fed garrison. Cook ration packs at the Cafeteria, then donate them at the Town Hall.`
-            : `The stores stand empty, and a siege eats ${WAR_RATIONS_PER_DAY} rations a day — ${GARRISON_RATIONS_PER_DAY} more for a fed garrison. Cook ration packs at the Cafeteria, then donate them at the Town Hall.`,
-        actionLabel: "Cook rations at the Cafeteria",
+            ? `${provisions.toLocaleString()} rations left, and a siege eats ${WAR_RATIONS_PER_DAY} a day — ${GARRISON_RATIONS_PER_DAY} more for a fed garrison. Cook ration packs at the Noodle Den, then donate them at the Town Hall.`
+            : `The stores stand empty, and a siege eats ${WAR_RATIONS_PER_DAY} rations a day — ${GARRISON_RATIONS_PER_DAY} more for a fed garrison. Cook ration packs at the Noodle Den, then donate them at the Town Hall.`,
+        actionLabel: "Cook rations at the Noodle Den",
         screen: "cafeteria",
     };
 }

@@ -19,6 +19,7 @@ const shellSource = readFileSync(new URL("../components/layout/AdaptiveGameShell
 
 test("every Village destination has a coherent facility art contract", () => {
   assert.equal((presentationSource.match(/:\s*facility\(/g) ?? []).length, facilities.length);
+  assert.ok(presentationSource.includes('cafeteria: facility("Noodle Den", "cafeteria"'), "the stable cafeteria route must present as Noodle Den");
   for (const id of facilities) {
     assert.ok(presentationSource.includes(id.includes("-") ? `"${id}": facility` : `${id}: facility`), `missing ${id} presentation`);
     for (const village of thumbVillages) {

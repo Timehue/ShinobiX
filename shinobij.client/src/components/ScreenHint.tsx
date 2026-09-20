@@ -14,7 +14,7 @@ import { Modal } from "./ui/Modal";
 const HINTS: Partial<Record<Screen, string>> = {
     battleArena: "Battle Arena - practice combat here. Start with AI or mission fights before challenging real players.",
     bank: "Bank - store spare ryo and claim interest once per day. Keep enough cash on hand for healing and gear.",
-    cafeteria: "Cafeteria - quick recovery food for early play. Use Hospital for serious injuries.",
+    cafeteria: "Noodle Den - quick recovery food for early play. Use Hospital for serious injuries.",
     clan: "Clan Hall - join or found a clan when you want group goals; village war content is best after the basics.",
     grandMarketplace: "Grand Marketplace - advanced trading and crafting options. Check costs before spending rare materials.",
     hallOfLegends: "Hall of Legends - long-term records live here. Early progress still comes from missions, training, and Logbook goals.",

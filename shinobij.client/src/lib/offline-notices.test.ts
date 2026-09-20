@@ -198,7 +198,7 @@ test('village-unfed notice names the village, the sector, and where to fix it', 
     assert.equal(parseOfflineNotices([{ kind: 'village-unfed', by: 'Moonshadow Village', village: 'Moonshadow Village', sector: 12, at: 1 }]).length, 1);
     assert.equal(
         offlineNoticeMessage({ kind: 'village-unfed', by: 'Moonshadow Village', village: 'Moonshadow Village', sector: 12, at: 1 }),
-        '🍚 Moonshadow Village marched hungry: the siege of Sector 12 went unfed. Cook rations at the Cafeteria and donate them at the Town Hall.',
+        '🍚 Moonshadow Village marched hungry: the siege of Sector 12 went unfed. Cook rations at the Noodle Den and donate them at the Town Hall.',
     );
     // `village` missing → falls back to `by` (the server stamps the village name there)
     assert.match(offlineNoticeMessage({ kind: 'village-unfed', by: 'Frostfang Village', sector: 3, at: 1 }), /^🍚 Frostfang Village marched hungry: the siege of Sector 3/);
