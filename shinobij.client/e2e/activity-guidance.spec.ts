@@ -17,12 +17,12 @@ const capabilities = Object.fromEntries(PUBLIC_CAPABILITY_IDS.map(id => [id, { s
 async function briefing(page: Page, focus: MasteryFocus, changes: Record<string, unknown> = {}, extra: Partial<ActivitySpineInput> = {}, startScreen = 'village') {
     const save = uiAuditSave();
     const now = Date.now();
-    save.character = { ...save.character, statPoints: 0, unspentStats: 0, lastLoginRewardDate: new Date(now).toISOString().slice(0, 10), ...changes };
+    save.character = { ...save.character, statPoints: 0, unspentStats: 0, masteryFocus: focus, lastLoginRewardDate: new Date(now).toISOString().slice(0, 10), ...changes };
     await installUiAuditRuntime(page, save, true);
     await page.route('**/api/player/activity-spine?**', route => {
-        // Current product is intentionally Auto-only. Explicit paths are seeded
-        // API fixtures, never a claim that a retired selector was exercised.
-        expect(new URL(route.request().url()).searchParams.get('focus')).toBe('auto');
+        // The client must not override the saved preference. Explicit focus
+        // values here seed the saved character and the authoritative fixture.
+        expect(new URL(route.request().url()).searchParams.get('focus')).toBeNull();
         const c = save.character!;
         const spine = buildActivitySpine({ capabilities, now, level: Number(c.level), hospitalized: false, onboardingStep: 'done', unspentStats: 0,
             trainingIdle: true, jutsuTrainingIdle: true, hasJutsu: true, hasProfession: true, profession: 'healer', clanName: '', lastLoginRewardDate: new Date(now).toISOString().slice(0, 10),
@@ -78,6 +78,18 @@ test('unavailable companions go to roster management without starting a battle',
     await page.locator('.activity-horizon-now button').click();
     await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'pets');
     expect(starts).toBe(0);
+});
+
+test('a familiar companion fighter opens the paid Coliseum destination', async ({ page }) => {
+    const pet = {
+        id: 'activity-guide-pet', templateId: 'standard-1', name: 'Kumo', rarity: 'standard',
+        level: 40, hp: 900, attack: 120, defense: 70, speed: 80, element: 'Fire',
+        role: 'assassin', jutsus: [],
+    };
+    await briefing(page, 'companions', { pets: [pet], activePetId: pet.id, totalPetWins: 1 });
+    await expect(page.locator('.activity-horizon-now')).toContainText('companion Coliseum');
+    await page.locator('.activity-horizon-now button').click();
+    await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'petColiseum');
 });
 
 test('a forty-card illegal deck opens the actual Deck section', async ({ page }) => {

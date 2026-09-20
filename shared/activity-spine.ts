@@ -3,6 +3,17 @@ export type ActivityHorizon = typeof ACTIVITY_HORIZONS[number];
 export type ActivityEligibility = 'eligible' | 'blocked' | 'complete';
 export type ActivityReadiness = 'ready' | 'preparable' | 'waiting' | 'complete' | 'unknown' | 'unavailable';
 
+/** Existing application destinations that Activity Spine may emit. Keeping
+ * this shared makes a server recommendation and the client allowlist one
+ * compile-time contract instead of two independently maintained lists. */
+export const ACTIVITY_SCREENS = [
+    'hospital', 'logbook', 'clan', 'battleTowers', 'hollowGateShrine', 'endlessTower',
+    'training', 'profile', 'missions', 'jutsuTraining', 'centralHub', 'storyHall',
+    'arenaDistrict', 'pets', 'petShowdown', 'petColiseum', 'petLadder', 'shinobiTiles',
+    'hallOfLegends', 'professions', 'professionPicker', 'worldMap',
+] as const;
+export type ActivityScreen = typeof ACTIVITY_SCREENS[number];
+
 export const MASTERY_FOCUS_OPTIONS = [
     { id: 'auto', label: 'Auto' },
     { id: 'village-chronicle', label: 'Village Chronicle' },
@@ -30,7 +41,7 @@ export type ActivitySpineItem = {
     title: string;
     why: string;
     commitment: string;
-    screen: string;
+    screen: ActivityScreen;
     /** A validated, one-shot section hint consumed by an existing destination.
      *  `clan-goals` is the Clan Hall's Missions tab — the clan's shared
      *  objectives, their progress and their rewards. */

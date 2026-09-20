@@ -37,7 +37,7 @@ async function request(character = {}, focus?: unknown, auth = true) {
     return { status, body, reads, headers, bytes: Buffer.byteLength(JSON.stringify(body)) };
 }
 
-test('GET uses server save facts, supports explicit API/save focus and Auto-only client override without writing preferences', async () => {
+test('GET uses server save facts, honors saved focus and supports an explicit Auto API override without writing preferences', async () => {
     const explicit = await request({ masteryFocus: 'clan-war' });
     assert.equal(explicit.status, 200);
     assert.equal(explicit.body.spine?.selectedFocus, 'clan-war');
