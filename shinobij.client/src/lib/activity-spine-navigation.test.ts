@@ -2,8 +2,9 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { activityDestination, openActivityDestination, readActivitySection } from './activity-spine-navigation';
 import { activitySourceKey } from './activity-spine-source';
+import { activitySpineRequestPath } from './activity-spine-request';
 import type { Character } from '../types/character';
-import type { ActivitySpineItem } from '../../../shared/activity-spine';
+import { ACTIVITY_SCREENS, type ActivitySpineItem } from '../../../shared/activity-spine';
 
 test('every section hint selects the promised existing screen and rejects unknown destinations', () => {
     const data = new Map<string, string>();
@@ -25,7 +26,8 @@ test('every section hint selects the promised existing screen and rejects unknow
             assert.equal(readActivitySection(key, [value, 'default'], 'default'), value);
         }
         assert.equal(activityDestination('not-a-screen'), null);
-        assert.equal(activityDestination('arenaDistrict'), 'arenaDistrict');
+        for (const screen of ACTIVITY_SCREENS) assert.equal(activityDestination(screen), screen);
+        assert.equal(activityDestination('petColiseum'), 'petColiseum');
         for (const activity of [{ screen: 'unknown' }, { screen: 'missions', section: 'legacy' },
             // A section only its own destination understands is refused rather
             // than navigating somewhere that cannot honour it.
@@ -49,9 +51,18 @@ test('source invalidation tracks meaningful readiness and training boundaries, n
     const key = activitySourceKey(character);
     assert.equal(activitySourceKey({ ...character, hp: 11, stamina: 11, chakra: 11 }), key);
     for (const change of [{ storyProgress: 5 }, { statPoints: 1 }, { hospitalized: true }, { cardClashDeck: ['tc-01'] },
-        { inventory: ['hunt-shadow-pelt'] }, { profession: 'healer' }, { clan: 'new' }, { name: 'other' },
+        { inventory: ['hunt-shadow-pelt'] }, { profession: 'healer' }, { clan: 'new' }, { name: 'other' }, { masteryFocus: 'companions' },
         { patreon: { expiresAt: 100 } }, { village: 'Stormveil Village' }, { pets: [{ id: 'a', training: { endsAt: 100 } }] }]) {
         assert.notEqual(activitySourceKey({ ...character, ...change } as Character), key);
     }
     assert.notEqual(activitySourceKey(character, 'training-ready'), key);
+});
+
+test('the Activity Spine request preserves saved server focus unless an explicit override is requested', () => {
+    const saved = new URL(activitySpineRequestPath('Guide Player'), 'https://shinobix.test');
+    assert.equal(saved.searchParams.get('player'), 'Guide Player');
+    assert.equal(saved.searchParams.has('focus'), false);
+
+    const automatic = new URL(activitySpineRequestPath('Guide Player', 'auto'), 'https://shinobix.test');
+    assert.equal(automatic.searchParams.get('focus'), 'auto');
 });

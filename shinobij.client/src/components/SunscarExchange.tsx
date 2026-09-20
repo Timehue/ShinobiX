@@ -71,6 +71,7 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
     const [selected, setSelected] = useState<ExchangeListing | null>(null);
     const [returnListingId, setReturnListingId] = useState(returnContext?.listingId ?? '');
     const [readiness, setReadiness] = useState<ReadinessView>({ kind: 'idle' });
+    const [readinessRetry, setReadinessRetry] = useState(0);
     const [sellAsset, setSellAsset] = useState<ExchangeOwnedAsset | null>(null);
     const [quantity, setQuantity] = useState('1');
     const [price, setPrice] = useState('');
@@ -96,7 +97,6 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
     const actionRef = useRef(false);
     const lifetime = useRef<AbortController | null>(null);
     const callbacks = useRef({ onVersionedCharacter, setCreatorItems });
-    useEffect(() => clearExchangeReturnContext(character.name), [character.name]);
     useEffect(() => { callbacks.current = { onVersionedCharacter, setCreatorItems }; }, [onVersionedCharacter, setCreatorItems]);
     const player = playerSlug(character.name);
     useEffect(() => {
@@ -230,6 +230,7 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
         setReadiness({ kind: 'checking' });
         void requestExchangeReadiness(character.name, listingId, signal).then(answer => {
             if (signal.aborted || seq !== readinessSeq.current || requestedPlayer !== player || answer.listingId !== listingId) return;
+            if (returnListingId === listingId) clearExchangeReturnContext(character.name);
             setReturnListingId('');
             if (answer.listing) setSelected(answer.listing);
             else {
@@ -240,11 +241,11 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
         }).catch(caught => {
             if (signal.aborted || seq !== readinessSeq.current || requestedPlayer !== player) return;
             const message = caught instanceof Error ? caught.message : 'Purchase readiness could not be checked.';
-            if (returnListingId) { setReturnListingId(''); setNotice(`${message} Your market view was restored.`); }
+            if (returnListingId) setNotice(`${message} Retry the listing check or keep browsing.`);
             setReadiness({ kind: 'error', message });
         });
         return () => controller.abort();
-    }, [selected?.id, selected?.seller, returnListingId, player, character.name]);
+    }, [selected?.id, selected?.seller, returnListingId, player, character.name, readinessRetry]);
 
     useEffect(() => {
         // Coalesce incoming sales, and never interrupt an unconfirmed trade.
@@ -334,6 +335,14 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
         : readinessResult?.status === 'blocked' ? readinessResult.message ?? 'This purchase is currently blocked.'
         : readinessResult?.status === 'ready' ? '' : 'Purchase readiness has not been verified.';
     const buyReady = readinessResult?.status === 'ready' && readinessResult.listingId === selected?.id;
+    const retryReadiness = () => setReadinessRetry(value => value + 1);
+    const cancelReturnCheck = () => {
+        readinessFlight.current?.abort();
+        clearExchangeReturnContext(character.name);
+        setReturnListingId('');
+        setReadiness({ kind: 'idle' });
+        setNotice('Your market view was restored.');
+    };
     function prepareForPurchase() {
         if (!selected || readinessResult?.status !== 'blocked' || !readinessResult.prepare) return;
         saveExchangeReturnContext(character.name, selected.id, marketQuery);
@@ -354,6 +363,7 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
         {error && <div className="sx-message sx-error" role="alert">{error}<button onClick={() => void run(pendingRequest ?? { action: 'browse' })} disabled={busy}>{pendingRequest ? 'Retry saved trade' : 'Try again'}</button></div>}
         {pendingRequest && !error && !busy && <div className="sx-message" role="status">A saved trade is awaiting confirmation.<button onClick={() => void run(pendingRequest)}>Retry saved trade</button></div>}
         {notice && <div ref={noticeRef} tabIndex={-1} className="sx-message sx-success" role="status">{notice}</div>}
+        {returnListingId && readiness.kind === 'error' && <div className="sx-message sx-error" role="status">{readiness.message ?? 'Purchase readiness could not be checked.'}<button type="button" onClick={retryReadiness}>Retry listing check</button><button type="button" onClick={cancelReturnCheck}>Keep browsing</button></div>}
         {snapshot?.recoveryErrors.map(message => <div className="sx-message sx-error" role="status" key={message}>{message}</div>)}
         <div className="sx-workspace"><aside className="sx-categories"><span className="sx-eyebrow">COLLECTIONS</span>{EXCHANGE_CATEGORIES.map(id => <button key={id} aria-pressed={category === id} onClick={() => { setCategory(id); setPage(1); }}><span>{id === 'all' ? 'All treasures' : label(id)}</span><span className="sx-category-mark" aria-hidden="true">{category === id ? '—' : '›'}</span></button>)}<div className="sx-trade-note"><strong>The Exchange ledger</strong><p>Goods are held until sold or cancelled.</p><small>{EXCHANGE_LISTING_LIMIT} open listings per player.</small></div></aside>
             <section className="sx-market" aria-label="Exchange inventory" aria-busy={busy || marketBusy}>
@@ -377,7 +387,8 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
             {selected && <><AssetDetails asset={selected.asset} /><dl className="sx-checkout"><div><dt>Seller</dt><dd>{selected.sellerName}</dd></div><div><dt>Quantity</dt><dd>{money(selected.quantity)}</dd></div><div><dt>Total price</dt><dd>{money(selected.price)} {selectedUnit}</dd></div>{selected.seller === player ? <><div><dt>Exchange fee ({EXCHANGE_FEE_PERCENT}%)</dt><dd>{money(selected.fee)} {selectedUnit}</dd></div><div className="sx-total"><dt>You receive when sold</dt><dd>{money(selected.proceeds)} {selectedUnit}</dd></div></> : <div className="sx-total"><dt>Balance after purchase</dt><dd>{selected.price > selectedBalance ? `Insufficient ${selectedUnit}` : `${money(balanceAfterPurchase)} ${selectedUnit}`}</dd></div>}</dl>
                 {buyBlock && selected.seller !== player && <p id="sx-purchase-readiness" className="sx-help" role={readiness.kind === 'error' ? 'status' : undefined}>{buyBlock}</p>}
                 {readinessResult?.status === 'blocked' && readinessResult.prepare && selected.seller !== player && <button type="button" onClick={prepareForPurchase}>{readinessResult.prepare.label}</button>}
-                {selected.state === 'active' && <div className="sx-dialog-actions"><button onClick={closeDetails}>Keep browsing</button>{selected.seller === player ? <button className="sx-primary" onClick={() => void run({ action: 'cancel', listingId: selected.id })} disabled={tradeDisabled}>Cancel listing & return goods</button> : <button className="sx-primary" aria-describedby="sx-purchase-readiness" onClick={() => void run({ action: 'buy', listingId: selected.id, expectedPrice: selected.price, expectedCurrency: selectedCurrency })} disabled={tradeDisabled || !buyReady}>Buy for {money(selected.price)} {selectedUnit}</button>}</div>}
+                {readiness.kind === 'error' && selected.seller !== player && <button type="button" onClick={retryReadiness}>Retry purchase check</button>}
+                {selected.state === 'active' && <div className="sx-dialog-actions"><button onClick={closeDetails}>Keep browsing</button>{selected.seller === player ? <button className="sx-primary" onClick={() => void run({ action: 'cancel', listingId: selected.id })} disabled={tradeDisabled}>Cancel listing & return goods</button> : <button className="sx-primary" aria-describedby={buyBlock ? "sx-purchase-readiness" : undefined} onClick={() => void run({ action: 'buy', listingId: selected.id, expectedPrice: selected.price, expectedCurrency: selectedCurrency })} disabled={tradeDisabled || !buyReady}>Buy for {money(selected.price)} {selectedUnit}</button>}</div>}
                 {selected.state !== 'active' && <p className="sx-help">Status: {label(selected.state)}{selected.completedAt ? ` · ${new Date(selected.completedAt).toLocaleString()}` : ''}</p>}
             </>}
             {sellAsset && <><AssetDetails asset={sellAsset} />{sellAsset.unavailable ? <p className="sx-message sx-error">{sellAsset.unavailable}</p> : <form onSubmit={e => { e.preventDefault(); if (!validSale || tradeDisabled) return; if (!review) { setReview(true); return; } void run({ action: 'list', requestId: crypto.randomUUID(), kind: sellAsset.kind, assetId: sellAsset.id, quantity: qty, price: total, currency: saleCurrency }); }}>

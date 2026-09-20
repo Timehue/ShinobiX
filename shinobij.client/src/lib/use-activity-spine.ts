@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import type { ActivitySpine } from '../../../shared/activity-spine';
 import { SAVE_VERSION_EVENT, type SaveVersionEventDetail } from '../authFetch';
 import { captureProductEvent } from './analytics';
+import { activitySpineRequestPath } from './activity-spine-request';
 
 type Result = { key: string; spine: ActivitySpine | null; status: 'loading' | 'ready' | 'offline' | 'error' };
 
-export function useActivitySpine(player: string, focus: string, source: string, capabilities: string, retry: number) {
+export function useActivitySpine(player: string, focus: string | undefined, source: string, capabilities: string, retry: number) {
     const [revision, setRevision] = useState(0);
     const [result, setResult] = useState<Result | null>(null);
     const lastSavedSource = useRef('');
@@ -34,7 +35,7 @@ export function useActivitySpine(player: string, focus: string, source: string, 
         const controller = new AbortController();
         // Coalesce a save receipt, character adoption and capability update.
         const timer = setTimeout(() => {
-            fetch(`/api/player/activity-spine?player=${encodeURIComponent(player)}&focus=${encodeURIComponent(focus)}`, { signal: controller.signal, cache: 'no-store' })
+            fetch(activitySpineRequestPath(player, focus), { signal: controller.signal, cache: 'no-store' })
                 .then(async response => {
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
                     return await response.json() as { spine?: ActivitySpine };

@@ -870,6 +870,12 @@ test("refined companion and Sunscar pages", async ({ page }, testInfo) => {
     const inventory = [{ ...marketAssets[2], quantity: 22 }];
     await page.route("**/api/festival/exchange", async route => {
         const body = route.request().postDataJSON();
+        if (body.action === "readiness") {
+            const listing = listings.find(row => row.id === body.listingId)!;
+            return json(route, { ok: true, readiness: {
+                listingId: listing.id, observedAt: Date.now(), status: "ready", listing,
+            } });
+        }
         if (body.action === "buy") {
             const listing = listings.find(row => row.id === body.listingId)!;
             if (listing.currency === "fateShards") state.character.fateShards -= listing.price;

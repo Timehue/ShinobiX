@@ -31,7 +31,7 @@ describe("capability refresh UI contracts", () => {
         assert.match(source, /const capabilityStateSignature = \[/);
         assert.match(source, /snapshot\.freshness/);
         assert.match(source, /PUBLIC_CAPABILITY_IDS\.map\(\(id\) => `\$\{id\}:\$\{availability\(id\)\}`\)/);
-        assert.match(source, /useActivitySpine\(character\.name, focus, source, capabilityStateSignature, retry\)/);
+        assert.match(source, /useActivitySpine\(character\.name, undefined, source, capabilityStateSignature, retry\)/);
         assert.doesNotMatch(source, /\}, \[character\.name, focus, retry, snapshot\.(?:capabilities|freshness|lastUpdatedAt)/);
     });
 });
