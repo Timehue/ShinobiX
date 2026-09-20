@@ -1,3 +1,4 @@
+import { returnToWorldAtlas } from "./helpers/sector-navigation";
 import { expect, test, type Page, type Route } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
@@ -1082,8 +1083,11 @@ test("selected-sector projection keeps controls, receipts, traces, and responsiv
     const commandPanel = page.getByRole("complementary", { name: "Sector 44 command panel" });
     await expect(stage).toBeVisible();
     await expect(stage.getByText("Watchruin Ridge", { exact: true })).toBeVisible();
-    await expect(commandPanel).toBeVisible();
-    await expect(commandPanel.getByRole("heading", { name: "Watchruin Ridge", exact: true })).toBeVisible();
+    const hud = page.locator(".sector-hud");
+    await expect(hud).toBeVisible();
+    await expect(hud.getByText("Watchruin Ridge", { exact: true })).toBeVisible();
+    await expect(commandPanel).toHaveCount(0);
+    await expect(hud.getByRole("button", { name: /^(Recover|Leave|Actions|Players Here)$/ })).toHaveCount(0);
 
     const tiles = stage.locator("button.scene-tile");
     await expect(tiles).toHaveCount(144);
@@ -1159,42 +1163,13 @@ test("selected-sector projection keeps controls, receipts, traces, and responsiv
         redeemedSectorExplorations: [{ id: sharedRequestId, sector: 44, reward: { ryo: 35 } }],
     });
 
-    const readDisplayedStamina = async () => {
-        const label = (await page.locator(".left-profile-stat").filter({ hasText: /^Stamina / }).textContent())?.trim() ?? "";
-        const match = /^Stamina\s+([\d,]+)\/([\d,]+)$/.exec(label);
-        expect(match, `expected a parseable profile stamina label, received ${JSON.stringify(label)}`).not.toBeNull();
-        return {
-            current: Number(match![1].replaceAll(",", "")),
-            max: Number(match![2].replaceAll(",", "")),
-        };
-    };
-    const displayedStaminaBeforeRecover = await readDisplayedStamina();
-    const versionBeforeRecover = api.committedVersion();
-    const staminaBeforeRecover = Number(api.readCharacter().stamina);
-    const maxStaminaBeforeRecover = Number(api.readCharacter().maxStamina);
-    await commandPanel.getByRole("button", { name: "Recover", exact: true }).click();
-    await expect(noticeDialog).toBeVisible();
-    await expect(noticeDialog).toContainText("You recovered in Sector 44. +14 stamina.");
-    // At LEAST the recover grant, not exactly it. Idle vitals regenerate on their
-    // own clock, so a tick can land between the pre-read and this poll and push
-    // the displayed value past the +14 — which made this the flakiest assertion
-    // in the suite (seen as 138 where an exact match wanted 128, on whichever
-    // project happened to run slowest). The guarantee worth holding is that the
-    // recover reached the UI; the server-side check a few lines below already
-    // uses this same >= form for exactly this reason.
-    await expect.poll(async () => (await readDisplayedStamina()).current).toBeGreaterThanOrEqual(
-        Math.min(displayedStaminaBeforeRecover.max, displayedStaminaBeforeRecover.current + 14),
-    );
-    await noticeDialog.getByRole("button", { name: "OK", exact: true }).click();
-    await expect(noticeDialog).toBeHidden();
-    await expect.poll(api.committedVersion, { timeout: 20_000 }).toBeGreaterThan(versionBeforeRecover);
-    await expect.poll(() => Number(api.readCharacter().stamina), { timeout: 20_000 }).toBeGreaterThanOrEqual(
-        Math.min(maxStaminaBeforeRecover, staminaBeforeRecover + 14),
-    );
     await expectCommittedSave(page, api);
 
     await expect.poll(() => traceRequests.length).toBe(1);
     expect(traceRequests).toEqual([{ method: "GET", sector: "44", player: "AdaptiveNinja" }]);
+    await hud.getByRole("button", { name: "Sector Info", exact: true }).click();
+    await expect(commandPanel).toBeVisible();
+    await expectViewportSafe(page, { overlays: [".sector-hud-panel"], logicalStages: [".walkable-sector-map"] });
     const signsButton = commandPanel.getByRole("button", { name: "Trail signs (1)", exact: true });
     const shrineButton = commandPanel.getByRole("button", { name: /Shrine of the Ancients/ });
     await expect(signsButton).toBeVisible();
@@ -1212,6 +1187,9 @@ test("selected-sector projection keeps controls, receipts, traces, and responsiv
     await signsDialog.getByRole("button", { name: "Close", exact: true }).click();
     await expect(signsDialog).toHaveCount(0);
 
+    // Opening a modal retires Sector Info; reopen it for the next interaction.
+    await expect(commandPanel).toHaveCount(0);
+    await hud.getByRole("button", { name: "Sector Info", exact: true }).click();
     await shrineButton.click();
     const shrineDialog = page.getByRole("dialog", { name: "Shrine of the Ancients" });
     await expect(shrineDialog).toBeVisible();
@@ -1224,18 +1202,19 @@ test("selected-sector projection keeps controls, receipts, traces, and responsiv
     await shrineDialog.getByRole("button", { name: "Close", exact: true }).click();
     await expect(shrineDialog).toHaveCount(0);
 
-    await expectNoLargeOverlap(stage, commandPanel);
+    await expect(commandPanel).toHaveCount(0);
+    await expectNoLargeOverlap(stage.locator(".sector-image-map"), hud);
     await expectViewportSafe(page, { logicalStages: [".walkable-sector-map"] });
     const mobileNav = page.locator(".mobile-bottom-nav");
     if (testInfo.project.name === "chromium-mobile") {
         await expect(mobileNav).toBeVisible();
         await expectFinalActionableClearsFixedNavigation(page, page.locator(".map-instance"), mobileNav);
-        await expectNoLargeOverlap(commandPanel.getByRole("button", { name: "Leave", exact: true }), mobileNav);
+        await expectNoLargeOverlap(hud.getByRole("button", { name: "Sector Info", exact: true }), mobileNav);
     } else {
         await expect(mobileNav).toBeHidden();
     }
 
-    await commandPanel.getByRole("button", { name: "Leave", exact: true }).click();
+    await returnToWorldAtlas(page);
     await expect(stage).toHaveCount(0);
     await expect(commandPanel).toHaveCount(0);
     await expect(page.locator(".generated-world-map")).toBeVisible();

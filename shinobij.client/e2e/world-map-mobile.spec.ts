@@ -2,6 +2,7 @@ import { expect, test, type CDPSession, type Page } from "@playwright/test";
 import { writeFileSync } from "node:fs";
 import { installUiAuditRuntime, uiAuditSave, type UiAuditSave } from "./helpers/ui-audit-runtime";
 import { expectViewportSafe } from "./helpers/adaptive-assertions";
+import { returnToWorldAtlas } from "./helpers/sector-navigation";
 
 const regions = ["ashen", "gate", "frost", "storm", "central", "moon"] as const;
 // The focused source runner and the standard responsive CI use different names
@@ -23,11 +24,11 @@ async function bootWorldMap(page: Page, initialSave?: UiAuditSave, setup?: () =>
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "worldMap", { timeout: 45_000 });
     // A cold dev-server dependency refresh can produce a genuine browser
     // reload. The game correctly reopens the saved sector in that case; use
-    // its existing Leave action to reach the atlas under test.
+    // the global Travel navigation to reach the atlas under test.
     await expect.poll(async () => await page.locator(".generated-world-map").count() > 0
-        || await page.getByRole("button", { name: "Leave", exact: true }).isVisible(), { timeout: 45_000 }).toBe(true);
+        || await page.locator('.sector-hud').isVisible(), { timeout: 45_000 }).toBe(true);
     if (await page.locator(".generated-world-map").count() === 0) {
-        await page.getByRole("button", { name: "Leave", exact: true }).click();
+        await returnToWorldAtlas(page);
     }
     await expect(page.locator(".generated-world-map")).toBeVisible();
     await expect(page.locator(".atlas-sector")).toHaveCount(67);
@@ -546,7 +547,7 @@ test("integration: a touch or mouse tap on an edge-clipped sector travels withou
     try {
         for (const input of ["touch", "mouse"] as const) {
             if (input === "mouse") {
-                await page.getByRole("button", { name: "Leave", exact: true }).click();
+                await returnToWorldAtlas(page);
                 await expect(page.locator(".world-atlas-card")).toBeVisible();
             }
             // Travel makes the first sector the current one, so the mouse
@@ -754,7 +755,7 @@ test("integration: sector travel and atlas return restore landscape navigation",
     await page.getByRole("button", { name: /Travel to Harbor Gates \(Sector 1\)/ }).tap();
     await expect.poll(() => destinations).toEqual([1]);
     await expect(page.locator(".world-atlas-card")).toHaveCount(0);
-    await page.getByRole("button", { name: "Leave", exact: true }).click();
+    await returnToWorldAtlas(page);
     await expect(page.locator(".world-atlas-card")).toBeVisible();
     await expectMapFits(page);
     await expect(page.getByRole("button", { name: "You are here, Harbor Gates", exact: true })).toHaveCount(1);
@@ -769,7 +770,7 @@ test("integration: sector travel and atlas return restore landscape navigation",
     await expect(page.locator(".mobile-top-hud")).toBeVisible();
     await expect(page.locator(".mobile-bottom-nav")).toBeVisible();
     expect(destinations, "returning to the current sector is local navigation, without another travel request").toEqual([1]);
-    await page.getByRole("button", { name: "Leave", exact: true }).click();
+    await returnToWorldAtlas(page);
     await expect(page.locator(".world-atlas-card")).toBeVisible();
     await chooseRegion(page, "frost");
     await expectMapFits(page);
@@ -923,7 +924,7 @@ test("animated zoom keeps intermediate landmark targets compact and tappable", a
     const save = uiAuditSave();
     // The lifecycle check returns to Sector 40. Use the same real-character
     // cooldown fixture as adaptive-shell/story-field-work so a roaming bandit
-    // cannot open an unrelated Fight/Flee modal over its Leave action.
+    // cannot open an unrelated Fight/Flee modal over the global Travel action.
     // shared/wanderer-roster.ts pins six-hour buckets and roster indices 0–1;
     // adjacent buckets cover a clock boundary without freezing browser time.
     const now = Date.now();
@@ -1031,7 +1032,7 @@ test("animated zoom keeps intermediate landmark targets compact and tappable", a
     await page.getByRole("button", { name: /Return to Sector 40$/ }).tap();
     await expect(page.locator(".world-atlas-card")).toHaveCount(0);
     expect(await oldMap.evaluate((element) => element.style.getPropertyValue("--wm-marker-motion")), "unmount clears the old transition").toBe("");
-    await page.getByRole("button", { name: "Leave", exact: true }).click();
+    await returnToWorldAtlas(page);
     await expect(map).toBeVisible();
     await settleCamera(page);
     await expect.poll(() => map.evaluate((element) => element.style.getPropertyValue("--wm-marker-motion")), { message: "old completion cannot clear or retain a new camera transition" }).toBe("");
@@ -1176,7 +1177,7 @@ test("integration: active notifications fit portrait and restore after landscape
     await expect(notifications).toBeVisible();
     await expect(page.locator(".mobile-top-hud")).toBeVisible();
     await expect(page.locator(".mobile-bottom-nav")).toBeVisible();
-    await page.getByRole("button", { name: "Leave", exact: true }).click();
+    await returnToWorldAtlas(page);
     await expect(page.locator(".world-atlas-card")).toBeVisible();
     await expect(notifications).toBeHidden();
     await page.setViewportSize({ width: 320, height: 568 });
