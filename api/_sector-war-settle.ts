@@ -7,7 +7,9 @@
  *
  *   · flip  → captureSectorForVillage (the world:territory owner change the WR
  *             faucet and tax tier key off) + sector.capture telemetry. The
- *             settled record persists WITHOUT a ttl as an inert audit row.
+ *             settled record is an inert audit row that ages out with its
+ *             own battle receipts (SECTOR_CAPTURED_RECORD_TTL_SEC); it used
+ *             to be written with no ttl at all and never left the keyspace.
  *   · hold  → the record is stamped 'defended' and saved WITH the re-siege
  *             cooldown TTL, so the lingering record IS the attacker's cooldown.
  *
@@ -24,7 +26,15 @@
 
 import { withKvLock } from './_lock.js';
 import { kv } from './_storage.js';
-import { settleSectorWar, sectorWarKey, sectorWarLedgerOf, SECTOR_RESIEGE_COOLDOWN_SEC, type SectorWarSession } from './_sector-war.js';
+import {
+    settleSectorWar,
+    sectorWarKey,
+    sectorWarLedgerOf,
+    sectorWarInstanceTag,
+    SECTOR_CAPTURED_RECORD_TTL_SEC,
+    SECTOR_RESIEGE_COOLDOWN_SEC,
+    type SectorWarSession,
+} from './_sector-war.js';
 import {
     loadSectorWar,
     saveSectorWar,
@@ -121,14 +131,22 @@ export async function settleDueSectorWars(now: number = Date.now()): Promise<Sec
                     // write fails; the war remains due until every winner's
                     // Legacy counter is confirmed.
                     if (legacyEnabled()) {
+                        // Scoped to the contest INSTANCE, not just the pairing: a
+                        // contest id repeats on every re-siege of the same sector
+                        // by the same attacker, so a bare `<id>:<name>` receipt
+                        // made a player's SECOND capture of that sector look
+                        // already-delivered and silently dropped the credit.
+                        const instance = sectorWarInstanceTag(verdict.session);
                         for (const name of captureContributors(verdict.session)) {
                             const delivered = await bumpLegacyStats(name, { sectorCaptures: 1 }, {
-                                receiptId: `sector-capture:${war.id}:${name.toLowerCase()}`,
+                                receiptId: `sector-capture:${war.id}:${instance}:${name.toLowerCase()}`,
                             });
                             if (!delivered) throw new Error('sector-capture-legacy-delivery-pending');
                         }
                     }
-                    await saveSectorWar(verdict.session);
+                    // A captured record is evidence, not a cooldown, and used to
+                    // be written with no expiry at all.
+                    await saveSectorWar(verdict.session, SECTOR_CAPTURED_RECORD_TTL_SEC);
                 } else {
                     // A defended hold carries the attacker's re-siege cooldown as its TTL.
                     await saveSectorWar(verdict.session, SECTOR_RESIEGE_COOLDOWN_SEC);

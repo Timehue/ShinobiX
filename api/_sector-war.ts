@@ -1203,6 +1203,21 @@ export const MAX_ACTIVE_ATTACK_SIEGES = 2;
  *  cooldown, scaled to the sector war's shorter rhythm. */
 export const SECTOR_RESIEGE_COOLDOWN_SEC = 24 * 60 * 60;
 
+/** A CAPTURED war's record is not a cooldown — the sector changed hands, so the
+ *  next siege carries a different contest id and nothing consults this row to
+ *  decide it. It was written with no TTL at all, so every capture left a row in
+ *  the keyspace forever and every `listActiveSectorWars` scan loaded it again.
+ *  It now ages out alongside its own battle receipts, which is as long as any
+ *  replay can still ask about the war: while the row is there a recovery reads
+ *  its live tally, and once it is gone the receipt's sealed tally answers
+ *  instead (api/_sector-war-store.ts `locateSectorWarAppliedBattle`).
+ *
+ *  What is lost at expiry is `declarationGeneration` continuity — the next
+ *  declaration on that pairing restarts at 1. Receipt identity does not depend
+ *  on it: `sectorWarInstanceTag` carries `startedAt` as well, precisely because
+ *  a generation can repeat after a record ages out. */
+export const SECTOR_CAPTURED_RECORD_TTL_SEC = Math.ceil(SECTOR_WAR_BATTLE_RECEIPT_RETENTION_MS / 1000);
+
 export interface SectorWarDeclareCheck {
     attackerVillage: string;
     defenderVillage: string;
