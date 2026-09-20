@@ -91,8 +91,25 @@ test("the Exchange screen renders the server's page and drops stale replies", ()
     assert.match(screen, /visibleRows = serverPaged \? rows : rows\.slice\(/);
     // A server without paging keeps the old local filtering.
     assert.match(screen, /setLegacyMarket\(!data\.market && Array\.isArray\(data\.listings\)\)/);
-    // Typing does not fire a request per keystroke.
+    // Typing does not fire a request per keystroke: the term settles on a delay,
+    // and until it does the market fetch waits — a keystroke resets to page 1 on
+    // the spot, which on page 2 would otherwise ask for a page the player is
+    // already typing past.
     assert.match(screen, /setTimeout\(\(\) => \{ setSearchTerm\(search\); setPage\(1\); \}, 300\)/);
+    assert.match(screen, /\|\| search !== searchTerm \|\| !lifetimeSignal \|\| lifetimeSignal\.aborted\) return;/);
+});
+
+test("a browse that loses a version race is re-read, and a trade never is", () => {
+    // Browsing does not write a save, so its reply can describe an older
+    // character than the app holds when a save commits mid-flight. That is the
+    // screen's problem to solve, not the player's — but a TRADE still stops,
+    // because its balance is the reason the player is looking.
+    assert.match(screen, /if \(!accept\(data, requestedKey\)\) \{/);
+    assert.match(screen, /if \(mutation\) throw new ExchangeRequestError\(staleReply, true\);/);
+    assert.match(screen, /const fresh = await requestExchange\(character\.name, action, signal, marketQuery\);/);
+    assert.match(screen, /if \(!accept\(fresh, requestedKey\)\) throw new ExchangeRequestError\(staleReply, false\);/);
+    // One retry, not a loop.
+    assert.equal(screen.match(/requestExchange\(character\.name, action, signal, marketQuery\)/g)?.length, 2);
 });
 
 test("the Exchange screen keeps its controls, labels and page size", () => {

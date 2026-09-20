@@ -142,8 +142,10 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
         return true;
     }
 
+    /** Adopt a reply, or report that it is older than the character the app
+     *  already holds — a save that committed while this request was in flight. */
     function accept(data: ExchangeSnapshot, requestedKey?: string) {
-        if (!callbacks.current.onVersionedCharacter(data.character, data._saveVersion)) throw new ExchangeRequestError('Your character changed while the Exchange was loading. Refresh to confirm the trade and latest balance.', true);
+        if (!callbacks.current.onVersionedCharacter(data.character, data._saveVersion)) return false;
         callbacks.current.setCreatorItems(previous => {
             const items = new Map(previous.map(item => [item.id, item]));
             for (const item of data.creatorItems ?? []) items.set(item.id, item);
@@ -155,7 +157,9 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
         setSelected(previous => previous ? data.activity.find(listing => listing.id === previous.id)
             ?? data.market?.listings.find(listing => listing.id === previous.id)
             ?? data.listings?.find(listing => listing.id === previous.id) ?? null : null);
+        return true;
     }
+    const staleReply = 'Your character changed while the Exchange was loading. Refresh to confirm the trade and latest balance.';
 
     async function run(action: ExchangeRequest) {
         const signal = lifetime.current?.signal;
@@ -167,7 +171,19 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
         try {
             const data = await requestExchange(character.name, action, signal, marketQuery);
             if (signal?.aborted) return;
-            accept(data, requestedKey);
+            if (!accept(data, requestedKey)) {
+                // A save committed while this was in flight, so the reply
+                // describes an older character than the app holds. A trade has
+                // to be confirmed by hand — its balance is the whole point. A
+                // browse is only a read, and browsing no longer writes a save
+                // of its own, so ask once more: that read sees the save this
+                // one missed, instead of meeting the player with a refresh
+                // prompt the screen can clear itself.
+                if (mutation) throw new ExchangeRequestError(staleReply, true);
+                const fresh = await requestExchange(character.name, action, signal, marketQuery);
+                if (signal?.aborted) return;
+                if (!accept(fresh, requestedKey)) throw new ExchangeRequestError(staleReply, false);
+            }
             if (mutation) {
                 setPendingRequest(null); savePendingExchangeRequest(character.name, null);
                 setSelected(null); setSellAsset(null); setReview(false);
@@ -204,7 +220,12 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
     // a slow reply cannot overwrite a newer filter or another account's market.
     useEffect(() => {
         const lifetimeSignal = lifetime.current?.signal;
-        if (tab !== 'browse' || legacyMarket || !snapshot || busy || marketKey === marketWanted || !lifetimeSignal || lifetimeSignal.aborted) return;
+        // `search !== searchTerm` means a keystroke is still settling. A keystroke
+        // resets to page 1 immediately (the other tabs filter as you type), so on
+        // page 2 that reset alone would ask the server for the page 1 the player
+        // is already typing past. The settled term sets the page too, and fetches once.
+        if (tab !== 'browse' || legacyMarket || !snapshot || busy || marketKey === marketWanted
+            || search !== searchTerm || !lifetimeSignal || lifetimeSignal.aborted) return;
         const controller = new AbortController();
         marketFlight.current?.abort();
         marketFlight.current = controller;
@@ -226,7 +247,7 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
         return () => controller.abort();
         // acceptMarket/marketQuery follow marketWanted; the account remounts this screen.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tab, legacyMarket, snapshot, busy, marketKey, marketWanted, character.name]);
+    }, [tab, legacyMarket, snapshot, busy, marketKey, marketWanted, search, searchTerm, character.name]);
     useEffect(() => () => marketFlight.current?.abort(), []);
 
     // The open market arrives already filtered, sorted and paged (a server
