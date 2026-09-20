@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
-import { EXCHANGE_CATEGORIES, EXCHANGE_CURRENCIES, EXCHANGE_FEE_PERCENT, EXCHANGE_LISTING_LIMIT, EXCHANGE_MARKET_PAGE_SIZE, EXCHANGE_MAX_PRICE, EXCHANGE_RARITY_ORDER, EXCHANGE_SALE_EVENT, exchangeCurrency, exchangeFee, exchangeMarketFilterKey, type ExchangeAsset, type ExchangeCategory, type ExchangeCurrency, type ExchangeListing, type ExchangeMarketPage, type ExchangeMarketQuery, type ExchangeMarketSort, type ExchangeOwnedAsset } from '../../../shared/sunscar-exchange';
+import { EXCHANGE_CATEGORIES, EXCHANGE_CURRENCIES, EXCHANGE_FEE_PERCENT, EXCHANGE_LISTING_LIMIT, EXCHANGE_MARKET_PAGE_SIZE, EXCHANGE_MAX_PRICE, EXCHANGE_RARITY_ORDER, EXCHANGE_SALE_EVENT, exchangeCurrency, exchangeFee, exchangeMarketFilterKey, type ExchangeAsset, type ExchangeCategory, type ExchangeCurrency, type ExchangeListing, type ExchangeMarketPage, type ExchangeMarketQuery, type ExchangeMarketSort, type ExchangeOwnedAsset, type ExchangePurchaseReadiness } from '../../../shared/sunscar-exchange';
 import type { Character, VersionedCharacterCommit } from '../types/character';
 import type { GameItem } from '../types/combat';
 import { Modal } from './ui/Modal';
 import { getAllItems } from '../lib/items';
-import { ExchangeRequestError, pendingExchangeRequest, requestExchange, requestExchangeMarket, savePendingExchangeRequest, type ExchangeRequest, type ExchangeSnapshot } from '../lib/sunscar-exchange';
+import { ExchangeRequestError, pendingExchangeRequest, requestExchange, requestExchangeMarket, requestExchangeReadiness, savePendingExchangeRequest, type ExchangeRequest, type ExchangeSnapshot } from '../lib/sunscar-exchange';
+import { clearExchangeReturnContext, peekExchangeReturnContext, saveExchangeReturnContext } from '../lib/exchange-return';
+import { setPetHomeTabHint } from './PetHomeTabs';
+import type { Screen } from '../types/core';
 import exchangeArt from '../assets/festival/sunscar-exchange-v1.webp';
 import weaponArt from '../assets/clan-exchange/weaponCache.webp';
 import armorArt from '../assets/clan-exchange/armorCache.webp';
@@ -46,24 +49,28 @@ function AssetDetails({ asset }: { asset: ExchangeAsset }) {
     </>;
 }
 
-type Props = { character: Character; onVersionedCharacter: VersionedCharacterCommit; setCreatorItems: Dispatch<SetStateAction<GameItem[]>>; onBack: () => void };
+type Props = { character: Character; onVersionedCharacter: VersionedCharacterCommit; setCreatorItems: Dispatch<SetStateAction<GameItem[]>>; onBack: () => void; onNavigate: (screen: Screen) => void };
 type Tab = 'browse' | 'sell' | 'listings' | 'activity';
-export function SunscarExchange({ character, onVersionedCharacter, setCreatorItems, onBack }: Props) {
+type ReadinessView = { kind: 'idle' | 'checking' | 'error'; message?: string } | { kind: 'result'; value: ExchangePurchaseReadiness };
+export function SunscarExchange({ character, onVersionedCharacter, setCreatorItems, onBack, onNavigate }: Props) {
+    const [returnContext] = useState(() => peekExchangeReturnContext(character.name));
     const [snapshot, setSnapshot] = useState<ExchangeSnapshot | null>(null);
     const [tab, setTab] = useState<Tab>('browse');
-    const [category, setCategory] = useState<ExchangeCategory>('all');
-    const [search, setSearch] = useState('');
-    const [rarity, setRarity] = useState('all');
-    const [currencyFilter, setCurrencyFilter] = useState<ExchangeCurrency | 'all'>('all');
-    const [sort, setSort] = useState('newest');
-    const [affordable, setAffordable] = useState(false);
-    const [page, setPage] = useState(1);
+    const [category, setCategory] = useState<ExchangeCategory>(returnContext?.market.category ?? 'all');
+    const [search, setSearch] = useState(returnContext?.market.search ?? '');
+    const [rarity, setRarity] = useState(returnContext?.market.rarity ?? 'all');
+    const [currencyFilter, setCurrencyFilter] = useState<ExchangeCurrency | 'all'>(returnContext?.market.currency ?? 'all');
+    const [sort, setSort] = useState(returnContext?.market.sort ?? 'newest');
+    const [affordable, setAffordable] = useState(returnContext?.market.affordable ?? false);
+    const [page, setPage] = useState(returnContext?.market.page ?? 1);
     const [busy, setBusy] = useState(true);
     const [error, setError] = useState('');
     const [notice, setNotice] = useState('');
     const noticeRef = useRef<HTMLDivElement>(null);
     const resultsHeadingRef = useRef<HTMLHeadingElement>(null);
     const [selected, setSelected] = useState<ExchangeListing | null>(null);
+    const [returnListingId, setReturnListingId] = useState(returnContext?.listingId ?? '');
+    const [readiness, setReadiness] = useState<ReadinessView>({ kind: 'idle' });
     const [sellAsset, setSellAsset] = useState<ExchangeOwnedAsset | null>(null);
     const [quantity, setQuantity] = useState('1');
     const [price, setPrice] = useState('');
@@ -81,12 +88,15 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
     const [marketBusy, setMarketBusy] = useState(false);
     /** A server without market paging answered with every listing; filter locally. */
     const [legacyMarket, setLegacyMarket] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
+    const [searchTerm, setSearchTerm] = useState(returnContext?.market.search ?? '');
     const marketSeq = useRef(0);
     const marketFlight = useRef<AbortController | null>(null);
+    const readinessFlight = useRef<AbortController | null>(null);
+    const readinessSeq = useRef(0);
     const actionRef = useRef(false);
     const lifetime = useRef<AbortController | null>(null);
     const callbacks = useRef({ onVersionedCharacter, setCreatorItems });
+    useEffect(() => clearExchangeReturnContext(character.name), [character.name]);
     useEffect(() => { callbacks.current = { onVersionedCharacter, setCreatorItems }; }, [onVersionedCharacter, setCreatorItems]);
     const player = playerSlug(character.name);
     useEffect(() => {
@@ -207,6 +217,36 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
     }, [character.name]);
 
     useEffect(() => {
+        const listingId = selected?.id ?? returnListingId;
+        if (!listingId || selected?.seller === player) return;
+        const lifetimeSignal = lifetime.current?.signal;
+        if (!lifetimeSignal || lifetimeSignal.aborted) return;
+        const controller = new AbortController();
+        readinessFlight.current?.abort();
+        readinessFlight.current = controller;
+        const seq = ++readinessSeq.current;
+        const requestedPlayer = player;
+        const signal = AbortSignal.any([lifetimeSignal, controller.signal]);
+        setReadiness({ kind: 'checking' });
+        void requestExchangeReadiness(character.name, listingId, signal).then(answer => {
+            if (signal.aborted || seq !== readinessSeq.current || requestedPlayer !== player || answer.listingId !== listingId) return;
+            setReturnListingId('');
+            if (answer.listing) setSelected(answer.listing);
+            else {
+                setSelected(null);
+                setNotice(answer.message ?? 'That listing is no longer available. Your market view was restored.');
+            }
+            setReadiness({ kind: 'result', value: answer });
+        }).catch(caught => {
+            if (signal.aborted || seq !== readinessSeq.current || requestedPlayer !== player) return;
+            const message = caught instanceof Error ? caught.message : 'Purchase readiness could not be checked.';
+            if (returnListingId) { setReturnListingId(''); setNotice(`${message} Your market view was restored.`); }
+            setReadiness({ kind: 'error', message });
+        });
+        return () => controller.abort();
+    }, [selected?.id, selected?.seller, returnListingId, player, character.name]);
+
+    useEffect(() => {
         // Coalesce incoming sales, and never interrupt an unconfirmed trade.
         if (saleRevision === refreshedSaleRevision.current || busy || pendingRequest || actionRef.current) return;
         refreshedSaleRevision.current = saleRevision;
@@ -281,14 +321,27 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
         && Number.isSafeInteger(total) && total >= 1 && total <= EXCHANGE_MAX_PRICE;
     const nothingToShowYet = !snapshot || (tab === 'browse' && !legacyMarket && !market);
     const resetFilters = () => { setCategory('all'); setSearch(''); setSearchTerm(''); setRarity('all'); setCurrencyFilter('all'); setAffordable(false); setPage(1); };
-    const closeDetails = () => { setSelected(null); setSellAsset(null); setReview(false); };
+    const closeDetails = () => { readinessFlight.current?.abort(); setSelected(null); setSellAsset(null); setReview(false); setReadiness({ kind: 'idle' }); };
     const tradeDisabled = busy || !!pendingRequest;
     const selectedCurrency = selected ? exchangeCurrency(selected) : 'ryo';
     const selectedUnit = EXCHANGE_CURRENCIES[selectedCurrency];
     const selectedBalance = selectedCurrency === 'fateShards' ? shardBalance : balance;
     const balanceAfterPurchase = selected ? selectedBalance - selected.price + (selected.asset.kind === 'resource' && selected.asset.id === selectedCurrency ? selected.quantity : 0) : selectedBalance;
     const saleUnit = EXCHANGE_CURRENCIES[saleCurrency];
-    const buyBlock = selected && (selected.state !== 'active' ? 'This listing is no longer available.' : selected.price > selectedBalance ? `You need more ${selectedUnit} to buy this listing.` : selected.asset.kind === 'item' && (selected.asset.level ?? 1) > character.level ? `Requires level ${selected.asset.level}.` : '');
+    const readinessResult = readiness.kind === 'result' ? readiness.value : null;
+    const buyBlock = selected?.seller === player ? '' : readiness.kind === 'checking' ? 'Checking current purchase requirements…'
+        : readiness.kind === 'error' ? readiness.message ?? 'Purchase readiness is unknown.'
+        : readinessResult?.status === 'blocked' ? readinessResult.message ?? 'This purchase is currently blocked.'
+        : readinessResult?.status === 'ready' ? '' : 'Purchase readiness has not been verified.';
+    const buyReady = readinessResult?.status === 'ready' && readinessResult.listingId === selected?.id;
+    function prepareForPurchase() {
+        if (!selected || readinessResult?.status !== 'blocked' || !readinessResult.prepare) return;
+        saveExchangeReturnContext(character.name, selected.id, marketQuery);
+        if (readinessResult.prepare.screen === 'home' && readinessResult.prepare.section === 'sanctuary') setPetHomeTabHint('sanctuary');
+        const destination = readinessResult.prepare.screen;
+        closeDetails();
+        onNavigate(destination);
+    }
 
     return <div className="sx-hall sx-refined">
         <header className="sx-hero" style={{ backgroundImage: `linear-gradient(90deg, #090f16ef, #090f1660 60%, #090f1610), linear-gradient(0deg, #0c1115, transparent 70%), url(${exchangeArt})` }}>
@@ -306,7 +359,7 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
             <section className="sx-market" aria-label="Exchange inventory" aria-busy={busy || marketBusy}>
                 <div className="sx-section-heading"><div><span className="sx-eyebrow">{tab === 'sell' ? 'FROM YOUR COLLECTION' : tab === 'activity' ? 'YOUR TRADE LEDGER' : 'THE OPEN MARKET'}</span><h2 ref={resultsHeadingRef} tabIndex={-1}>{tab === 'sell' ? 'Choose a treasure to sell' : tab === 'listings' ? 'Your listings' : tab === 'activity' ? 'Trade history' : category === 'all' ? 'Browse the Exchange' : label(category)}</h2></div><span className="sx-count">{resultCount} {tab === 'sell' ? 'assets' : 'listings'}</span></div>
                 {tab === 'sell' && <p className="sx-help">Choose an asset, set a price in ryo or Fate Shards, then review your listing. Unequip gear and free busy companions first. Named gear keeps its forged attributes.</p>}
-                <div className={`sx-filters${tab === 'sell' ? ' sx-filters-inventory' : ''}`}><label className="sx-search"><span className="sx-sr-only">Search the Exchange</span><input type="search" placeholder="Search treasures, companions, sellers…" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} /></label><label><span className="sx-sr-only">Rarity</span><select aria-label="Rarity" value={rarity} onChange={e => { setRarity(e.target.value); setPage(1); }}><option value="all">All rarities</option>{Object.keys(rarityOrder).filter(s => s !== 'standard').map(s => <option key={s} value={s}>{label(s)}</option>)}<option value="standard">Standard</option></select></label>{tab !== 'sell' && <label><span className="sx-sr-only">Listing currency</span><select aria-label="Listing currency" value={currencyFilter} onChange={e => { setCurrencyFilter(e.target.value as ExchangeCurrency | 'all'); setPage(1); }}><option value="all">All currencies</option><option value="ryo">Ryo</option><option value="fateShards">Fate Shards</option></select></label>}<label><span className="sx-sr-only">Sort listings</span><select aria-label="Sort listings" value={sort} onChange={e => setSort(e.target.value)}><option value="newest">{tab === 'sell' ? 'Name A–Z' : 'Newest first'}</option>{tab !== 'sell' && <><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option></>}<option value="rarity">Rarity: highest first</option></select></label></div>
+                <div className={`sx-filters${tab === 'sell' ? ' sx-filters-inventory' : ''}`}><label className="sx-search"><span className="sx-sr-only">Search the Exchange</span><input type="search" placeholder="Search treasures, companions, sellers…" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} /></label><label><span className="sx-sr-only">Rarity</span><select aria-label="Rarity" value={rarity} onChange={e => { setRarity(e.target.value); setPage(1); }}><option value="all">All rarities</option>{Object.keys(rarityOrder).filter(s => s !== 'standard').map(s => <option key={s} value={s}>{label(s)}</option>)}<option value="standard">Standard</option></select></label>{tab !== 'sell' && <label><span className="sx-sr-only">Listing currency</span><select aria-label="Listing currency" value={currencyFilter} onChange={e => { setCurrencyFilter(e.target.value as ExchangeCurrency | 'all'); setPage(1); }}><option value="all">All currencies</option><option value="ryo">Ryo</option><option value="fateShards">Fate Shards</option></select></label>}<label><span className="sx-sr-only">Sort listings</span><select aria-label="Sort listings" value={sort} onChange={e => setSort(e.target.value as ExchangeMarketSort)}><option value="newest">{tab === 'sell' ? 'Name A–Z' : 'Newest first'}</option>{tab !== 'sell' && <><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option></>}<option value="rarity">Rarity: highest first</option></select></label></div>
                 {tab !== 'sell' && currencyFilter === 'all' && sort.startsWith('price-') && <p className="sx-help sx-sort-note">Prices are sorted within each currency: ryo, then Fate Shards.</p>}
                 {tab === 'browse' && <label className="sx-affordable"><input type="checkbox" checked={affordable} onChange={e => { setAffordable(e.target.checked); setPage(1); }} /> Within my budget</label>}
                 {nothingToShowYet && (busy || marketBusy) ? <div className="sx-loading" role="status"><div className="sx-skeleton" /><div className="sx-skeleton" /><div className="sx-skeleton" /><p>Opening the trade ledger…</p></div> : !snapshot ? <div className="sx-empty"><h3>The trade ledger is unavailable</h3><p>Reconnect to browse the latest listings.</p><button onClick={() => void run({ action: 'browse' })} disabled={busy}>Reconnect</button></div> : resultCount === 0 ? <div className="sx-empty"><h3>{search || category !== 'all' || rarity !== 'all' || currencyFilter !== 'all' || affordable ? 'No treasures match these filters' : tab === 'sell' ? 'Your trading satchel is empty' : tab === 'activity' ? 'No trades recorded yet' : tab === 'listings' ? 'Your stall is ready' : 'The market is quiet'}</h3><p>{tab === 'sell' ? 'Bring items in your backpack, companions, cards, or resources to list here.' : tab === 'activity' ? 'Completed purchases, sales, and cancellations appear here.' : 'List a treasure from your collection or return for fresh arrivals.'}</p>{search || category !== 'all' || rarity !== 'all' || currencyFilter !== 'all' || affordable ? <button onClick={resetFilters}>Clear filters</button> : tab !== 'sell' && <button className="sx-primary" onClick={() => { setTab('sell'); resetFilters(); }}>Create your first listing</button>}</div> : <div className="sx-listings">{visibleRows.map(row => {
@@ -322,8 +375,9 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
         </div>
         <Modal open={!!selected || !!sellAsset} onClose={closeDetails} title={sellAsset ? review ? 'Review your listing' : 'Create a listing' : 'Inspect listing'} size="md" className="sx-dialog" disableBackdropClose={busy}>
             {selected && <><AssetDetails asset={selected.asset} /><dl className="sx-checkout"><div><dt>Seller</dt><dd>{selected.sellerName}</dd></div><div><dt>Quantity</dt><dd>{money(selected.quantity)}</dd></div><div><dt>Total price</dt><dd>{money(selected.price)} {selectedUnit}</dd></div>{selected.seller === player ? <><div><dt>Exchange fee ({EXCHANGE_FEE_PERCENT}%)</dt><dd>{money(selected.fee)} {selectedUnit}</dd></div><div className="sx-total"><dt>You receive when sold</dt><dd>{money(selected.proceeds)} {selectedUnit}</dd></div></> : <div className="sx-total"><dt>Balance after purchase</dt><dd>{selected.price > selectedBalance ? `Insufficient ${selectedUnit}` : `${money(balanceAfterPurchase)} ${selectedUnit}`}</dd></div>}</dl>
-                {buyBlock && selected.seller !== player && <p className="sx-help">{buyBlock}</p>}
-                {selected.state === 'active' && <div className="sx-dialog-actions"><button onClick={closeDetails}>Keep browsing</button>{selected.seller === player ? <button className="sx-primary" onClick={() => void run({ action: 'cancel', listingId: selected.id })} disabled={tradeDisabled}>Cancel listing & return goods</button> : <button className="sx-primary" onClick={() => void run({ action: 'buy', listingId: selected.id, expectedPrice: selected.price, expectedCurrency: selectedCurrency })} disabled={tradeDisabled || !!buyBlock}>Buy for {money(selected.price)} {selectedUnit}</button>}</div>}
+                {buyBlock && selected.seller !== player && <p id="sx-purchase-readiness" className="sx-help" role={readiness.kind === 'error' ? 'status' : undefined}>{buyBlock}</p>}
+                {readinessResult?.status === 'blocked' && readinessResult.prepare && selected.seller !== player && <button type="button" onClick={prepareForPurchase}>{readinessResult.prepare.label}</button>}
+                {selected.state === 'active' && <div className="sx-dialog-actions"><button onClick={closeDetails}>Keep browsing</button>{selected.seller === player ? <button className="sx-primary" onClick={() => void run({ action: 'cancel', listingId: selected.id })} disabled={tradeDisabled}>Cancel listing & return goods</button> : <button className="sx-primary" aria-describedby="sx-purchase-readiness" onClick={() => void run({ action: 'buy', listingId: selected.id, expectedPrice: selected.price, expectedCurrency: selectedCurrency })} disabled={tradeDisabled || !buyReady}>Buy for {money(selected.price)} {selectedUnit}</button>}</div>}
                 {selected.state !== 'active' && <p className="sx-help">Status: {label(selected.state)}{selected.completedAt ? ` · ${new Date(selected.completedAt).toLocaleString()}` : ''}</p>}
             </>}
             {sellAsset && <><AssetDetails asset={sellAsset} />{sellAsset.unavailable ? <p className="sx-message sx-error">{sellAsset.unavailable}</p> : <form onSubmit={e => { e.preventDefault(); if (!validSale || tradeDisabled) return; if (!review) { setReview(true); return; } void run({ action: 'list', requestId: crypto.randomUUID(), kind: sellAsset.kind, assetId: sellAsset.id, quantity: qty, price: total, currency: saleCurrency }); }}>

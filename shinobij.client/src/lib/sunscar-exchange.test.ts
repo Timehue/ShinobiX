@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test, { afterEach } from "node:test";
 import { EXCHANGE_MARKET_DEFAULT_QUERY, EXCHANGE_MARKET_PAGE_SIZE } from "../../../shared/sunscar-exchange";
-import { ExchangeRequestError, requestExchange, requestExchangeMarket } from "./sunscar-exchange";
+import { ExchangeRequestError, requestExchange, requestExchangeMarket, requestExchangeReadiness } from "./sunscar-exchange";
 
 /*
  * The Exchange screen now reads the open market one server-built page at a
@@ -67,6 +67,17 @@ test("a market read returns the page and never claims a trade is in doubt", { co
         assert.equal(error.uncertain, false, "browsing never leaves a trade unconfirmed");
         return true;
     });
+});
+
+test("readiness asks about one listing and rejects a mismatched response", { concurrency: false }, async () => {
+    const listingId = "a".repeat(32);
+    const calls = respondWith({ ok: true, readiness: { listingId, observedAt: 1, status: "ready" } });
+    const answer = await requestExchangeReadiness("Shopper", listingId, new AbortController().signal);
+    assert.equal(answer.status, "ready");
+    assert.deepEqual(calls[0]?.body, { action: "readiness", playerName: "Shopper", listingId });
+
+    respondWith({ ok: true, readiness: { listingId: "b".repeat(32), observedAt: 2, status: "blocked" } });
+    await assert.rejects(requestExchangeReadiness("Shopper", listingId, new AbortController().signal), ExchangeRequestError);
 });
 
 test("a malformed page is refused rather than rendered", { concurrency: false }, async () => {

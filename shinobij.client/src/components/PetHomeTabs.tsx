@@ -8,6 +8,10 @@ export type PetHomeContentTab = Exclude<PetHomeTab, "yard" | "arena">;
 
 const HOME_TAB_HINT = "shinobix:pet-home-tab";
 
+export function setPetHomeTabHint(tab: PetHomeContentTab): void {
+    try { window.sessionStorage.setItem(HOME_TAB_HINT, tab); } catch { /* UI routing hint only. */ }
+}
+
 function PetHomeTabLabel({ full, short }: { full: string; short: string }) {
     return (
         <span className="pet-home-tab-label">
@@ -17,18 +21,21 @@ function PetHomeTabLabel({ full, short }: { full: string; short: string }) {
     );
 }
 
-export function takePetHomeTabHint(): PetHomeContentTab {
+export function peekPetHomeTabHint(): PetHomeContentTab {
     if (typeof window === "undefined") return "collection";
     try {
         const value = window.sessionStorage.getItem(HOME_TAB_HINT);
-        window.sessionStorage.removeItem(HOME_TAB_HINT);
         return value === "sanctuary" || value === "breeding" ? value : "collection";
     } catch { return "collection"; }
 }
 
+export function clearPetHomeTabHint(): void {
+    try { window.sessionStorage.removeItem(HOME_TAB_HINT); } catch { /* UI routing hint only. */ }
+}
+
 function openHomeTab(tab: PetHomeContentTab, onHomeTab: ((tab: PetHomeContentTab) => void) | undefined, setScreen: (screen: Screen) => void) {
     if (onHomeTab) return onHomeTab(tab);
-    try { window.sessionStorage.setItem(HOME_TAB_HINT, tab); } catch { /* UI routing hint only. */ }
+    setPetHomeTabHint(tab);
     setScreen("home");
 }
 
