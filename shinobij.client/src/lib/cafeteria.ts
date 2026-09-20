@@ -159,9 +159,9 @@ export async function buyCafeteriaMeal(playerName: string, mealId: CafeteriaMeal
             body: JSON.stringify({ playerName, mealId }),
         });
         const data = await res.json().catch(() => ({})) as CafeteriaMealResult;
-        if (!res.ok || !data.ok) return { ...data, ok: false, error: data.error || "The cafeteria is too busy right now." };
+        if (!res.ok || !data.ok) return { ...data, ok: false, error: data.error || "The Noodle Den is too busy right now." };
         return { ...data, ok: true };
     } catch {
-        return { ok: false, error: "The cafeteria is too busy right now." };
+        return { ok: false, error: "The Noodle Den is too busy right now." };
     }
 }

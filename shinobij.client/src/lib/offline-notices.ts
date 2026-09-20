@@ -97,7 +97,7 @@ export function offlineNoticeBody(n: OfflineNotice): string {
     const who = n.by.trim() || 'someone';
     if (n.kind === 'village-unfed') {
         const village = n.village ?? (who !== 'someone' ? who : 'Your village');
-        return `${village} marched hungry: the siege of Sector ${n.sector} went unfed. Cook rations at the Cafeteria and donate them at the Town Hall.`;
+        return `${village} marched hungry: the siege of Sector ${n.sector} went unfed. Cook rations at the Noodle Den and donate them at the Town Hall.`;
     }
     if (n.kind === 'kage-challenge-refunded') {
         return `Your Kage challenge in ${n.village ?? 'your village'} was cancelled — the Kage went absent. Your stake was refunded.`;

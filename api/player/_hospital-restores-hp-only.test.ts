@@ -15,7 +15,7 @@ import assert from 'node:assert/strict';
  *
  * Nothing is TAKEN from a defeated player by this change. Defeat simply stops
  * being a reward: HP comes back, and the chakra and stamina spent losing the
- * fight have to be recovered by resting or at the Cafeteria like anyone else's.
+ * fight have to be recovered by resting or at the Noodle Den like anyone else's.
  *
  * F1(C) closes the door beside it: a Healer's self top-up was an uncapped,
  * uncooled free restore that did not even require being hurt.
