@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const source = readFileSync(new URL("./TownHall.tsx", import.meta.url), "utf8");
+const styles = readFileSync(new URL("../styles/town-hall-aaa.css", import.meta.url), "utf8");
 
 test("the active elder focus is status text, not a repeatable action", () => {
     assert.match(source, /selectedElderFocus === elderFocusKey \|\| elderFocusBusyRef\.current/);
@@ -19,10 +20,16 @@ test("AI elders have no focus action or bonus, and only the Kage sees appointmen
     assert.match(source, /!elderFocusForSeats\(elderFocusKey, elderSeats\)/);
 });
 
-test("vacant and council-held Kage surfaces never borrow a story NPC portrait", () => {
-    assert.match(source, /const displayedKageImage = state\.seatedKage \? getLeaderImage\(state\.seatedKage, ""\) : ""/);
+test("the acting council uses story art while an unlocked vacant Kage seat stays empty", () => {
+    assert.match(source, /const displayedKageImage = state\.seatedKage[\s\S]*\? getLeaderImage\(state\.seatedKage, ""\)[\s\S]*: state\.kageSystemUnlocked[\s\S]*\? ""[\s\S]*: leadershipImages\.kage \?\? ""/);
+    assert.match(source, /const displayedKageIsNpc = !state\.seatedKage && Boolean\(displayedKageImage\)/);
     assert.equal(source.match(/<LeaderPortrait image=\{displayedKageImage\}/g)?.length, 2);
-    assert.doesNotMatch(source, /getLeaderImage\(state\.seatedKage, leadershipImages\.kage\)/);
+    assert.equal(source.match(/data-npc=\{displayedKageIsNpc\}/g)?.length, 2);
+});
+
+test("cinematic NPC portraits keep their faces inside the square crop", () => {
+    assert.match(styles, /\.town-leader-row\[data-npc="true"\] \.leader-portrait-img\s*\{[\s\S]*?object-position:\s*center top/);
+    assert.match(styles, /\.town-elder-portrait\[data-npc="true"\] \.leader-portrait-img\s*\{[\s\S]*?object-position:\s*center top/);
 });
 
 test("elder contribution is awarded only after the authoritative save is adopted", () => {
