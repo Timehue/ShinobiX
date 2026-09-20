@@ -4,16 +4,18 @@
  *
  *   node scripts/gen-pwa-icons.mjs
  *
+ * The source is a full-bleed square illustration (no transparency), not a
+ * floating glyph, so the "any" targets use it edge-to-edge (ANY_SCALE = 1).
+ *
  * Why these four:
  *  - icon-192.png / icon-512.png  → `purpose: "any"` in the web manifest. 192 is
  *    the legacy Android launcher size, 512 is what Play and the install prompt
- *    read. Both are painted on the brand background because a transparent
- *    launcher icon renders as a floating glyph on whatever the launcher wants.
+ *    read.
  *  - icon-maskable-512.png        → `purpose: "maskable"`. Android crops icons
- *    to the device's mask (circle, squircle, teardrop). Only the inner ~80% of
- *    the canvas is guaranteed visible, so the glyph is drawn at MASKABLE_SCALE
- *    to sit well inside the safe zone. Reusing the "any" icon here is the
- *    classic bug: the mask eats the edges of the mark.
+ *    to the device's mask (circle, squircle, teardrop). Only the inner safe
+ *    zone is guaranteed visible, so the art is drawn at MASKABLE_SCALE to sit
+ *    inside it. Reusing the "any" icon here is the classic bug: the mask eats
+ *    the edges of the art.
  *  - apple-touch-icon.png         → iOS home-screen, which ignores the manifest
  *    icons and has no maskable concept (it applies its own rounding).
  *
@@ -32,9 +34,9 @@ const SOURCE = join(PUBLIC_DIR, 'shinobi-journey-mark-512-v3.png');
 /** Brand background — matches <meta name="theme-color"> and the boot splash. */
 const BACKGROUND = { r: 15, g: 23, b: 42, alpha: 1 }; // #0f172a
 
-/** Glyph size as a fraction of the canvas, per purpose. */
-const ANY_SCALE = 0.68;
-const MASKABLE_SCALE = 0.54;
+/** Art size as a fraction of the canvas, per purpose. */
+const ANY_SCALE = 1;
+const MASKABLE_SCALE = 0.8;
 
 const TARGETS = [
     { file: 'icon-192.png', size: 192, scale: ANY_SCALE },
