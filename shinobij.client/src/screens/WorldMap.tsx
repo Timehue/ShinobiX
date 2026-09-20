@@ -62,7 +62,7 @@ import { resolveOwnAvatar } from "../lib/own-avatar";
 // it is <WorldWandererDialog>, which imports what it needs itself. The
 // <SectorWanderer> named in a comment further down is that component's, not a
 // use from this file.
-import { rollWanderers, isWanderersEnabled, currentWandererDayBucket, wandererPresenceGate, questForWanderer, isWandererOnCooldown, withWandererCooldown, WANDERER_FLEE_COOLDOWN_MS, WANDERER_DECLINE_COOLDOWN_MS, QUEST_GIVER_PRESENCE, pickRoamingQuestGivers, lockedQuestMetrics, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, type Wanderer } from "../lib/wanderers";
+import { rollWanderers, isWanderersEnabled, currentWandererDayBucket, wandererPresenceGate, questForWanderer, isWandererOnCooldown, withWandererCooldown, WANDERER_FLEE_COOLDOWN_MS, WANDERER_DECLINE_COOLDOWN_MS, QUEST_GIVER_PRESENCE, pickRoamingQuestGivers, capSectorWanderers, lockedQuestMetrics, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, type Wanderer } from "../lib/wanderers";
 import { QUEST_BOSSES, questbookEntry, questbookStage, bossStatBonusFromChoices, rivalryEscalation } from "../lib/questbook";
 import { standingReaction } from "../lib/wanderer-standing";
 import {
@@ -835,6 +835,7 @@ function WorldMapContent({
             level: Math.max(1, Math.min(100, character.level)),
             homeTile: home,
             waypoints: [home],
+            movement: "stationary",
             greeting: `${favor.giver} said you might come through. Hand it over.`,
             tellTint: "var(--gold-300)",
             avatarKey: "courier",
@@ -4223,18 +4224,39 @@ function WorldMapContent({
             requiredTracks: activeHuntTrailForSector.requiredTracks,
             ready: activeHuntReadyForFight,
         } : null;
-        const sectorOverlayWanderers = [
-            ...sectorWanderers,
-            ...courierWanderers,
-            ...bountyHunterWanderers,
-            ...mercWanderers,
-            ...sageWanderers,
-            ...emissaryWanderers,
-            ...storyReckoningWanderers,
-            ...scribeWanderers,
-            ...petMentor.wanderers,
-            ...roamingQuestGivers,
-        ];
+        const sectorOverlayBoss = (() => {
+            if (!isWeeklyBossRoamEnabled() || !roamingBoss?.aiId || !sectorIsCurrent) return null;
+            const roam = weeklyBossRoamState(roamingBoss, serverNow());
+            if (!roam?.active || roam.currentSector !== selectedSector) return null;
+            if (isWandererOnCooldown(character.wandererCooldowns, weeklyBossRoamCooldownId(roamingBoss.weekKey), serverNow())) return null;
+            if ((roamingBoss.attemptsByPlayer?.[character.name.toLowerCase()] ?? 0) >= 3) return null;
+            return {
+                name: roamingBoss.bossName ?? "Weekly Boss",
+                portrait: sharedImages["ai:" + roamingBoss.aiId] || "",
+                onEngage: handleBossEngage,
+            };
+        })();
+        const targetedHunters = bountyHunterWanderers.filter((wanderer) => wanderer.verb === "bountyHunter");
+        const bystanderHunters = bountyHunterWanderers.filter((wanderer) => wanderer.verb === "watch");
+        const pursuingNaturals = sectorWanderers.filter((wanderer) => wanderer.movement === "pursue");
+        const ambientNaturals = sectorWanderers.filter((wanderer) => wanderer.movement !== "pursue");
+        // Priority is danger/current objective → system unlocks → optional
+        // encounters → ambient life. The Weekly Boss consumes one of the three
+        // ordinary slots; hired war mercenaries are appended afterwards by design.
+        const cappedSectorWanderers = capSectorWanderers([
+            targetedHunters,
+            pursuingNaturals,
+            courierWanderers,
+            storyReckoningWanderers,
+            scribeWanderers,
+            sageWanderers,
+            roamingQuestGivers,
+            emissaryWanderers,
+            petMentor.wanderers,
+            bystanderHunters,
+            ambientNaturals,
+        ], sectorOverlayBoss ? 1 : 0);
+        const sectorOverlayWanderers = [...cappedSectorWanderers, ...mercWanderers];
         const sectorOverlayRift = (() => {
             const activeRiftQuest = character.activeRiftQuest;
             if (!activeRiftQuest || selectedSector !== activeRiftQuest.targetSector) return null;
@@ -4269,18 +4291,6 @@ function WorldMapContent({
             if (!isSectorTracesEnabled()) return null;
             const definition = shrineForSector(selectedSector);
             return definition ? { definition, tier: sectorTraces?.shrine?.tier ?? 0 } : null;
-        })();
-        const sectorOverlayBoss = (() => {
-            if (!isWeeklyBossRoamEnabled() || !roamingBoss?.aiId || !sectorIsCurrent) return null;
-            const roam = weeklyBossRoamState(roamingBoss, serverNow());
-            if (!roam?.active || roam.currentSector !== selectedSector) return null;
-            if (isWandererOnCooldown(character.wandererCooldowns, weeklyBossRoamCooldownId(roamingBoss.weekKey), serverNow())) return null;
-            if ((roamingBoss.attemptsByPlayer?.[character.name.toLowerCase()] ?? 0) >= 3) return null;
-            return {
-                name: roamingBoss.bossName ?? "Weekly Boss",
-                portrait: sharedImages["ai:" + roamingBoss.aiId] || "",
-                onEngage: handleBossEngage,
-            };
         })();
         const wandererDialogEmissary = !wandererDialog?.msg && wandererDialog?.w.verb === "legacyQuest"
             ? EMISSARY_BY_SLUG.get(wandererDialog.w.archetype as EmissarySlug)

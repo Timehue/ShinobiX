@@ -144,17 +144,44 @@ export function currentWandererDayBucket(): number {
 // could share a tile. These rates are the single place to tune that, and
 // pickRoamingQuestGivers caps how many may stand in one sector at once.
 //
-// The Chronicle Scribe is NOT in this table and NOT subject to the cap: she gates
-// a whole system rather than offering optional content, so she is always present
-// once eligible and retires permanently on claim. See lib/chronicle-scribe.ts.
+// The Chronicle Scribe is NOT in this rate table because she gates a whole system.
+// Once eligible she receives high priority inside the shared sector cap and retires
+// permanently on claim. See lib/chronicle-scribe.ts.
 export const QUEST_GIVER_PRESENCE = {
-    /** Main-story road beat (was 0.35). */
-    road: 0.25,
+    /** Main-story road beat. */
+    road: 0.15,
     /** Repeatable Hollow Gate rift offer — the most common complaint, since the
      *  offered rift is fixed for a whole UTC day, so it was the SAME face in a
      *  third of every sector you entered all day (was 0.35). */
-    rift: 0.2,
+    rift: 0.1,
 } as const;
+
+/** Ordinary wandering actors allowed on a sector floor at once. Hired war
+ * mercenaries are deliberately outside this budget; callers may reserve a slot
+ * for a separately-rendered exceptional actor such as the Weekly Boss. */
+export const MAX_SECTOR_WANDERERS = 3;
+
+/** Flatten priority-ordered groups into the sector's ordinary actor budget.
+ * Stable de-duplication keeps the first (highest-priority) copy of an id. */
+export function capSectorWanderers(
+    priorityGroups: readonly (readonly Wanderer[])[],
+    reservedSlots = 0,
+    max = MAX_SECTOR_WANDERERS,
+): Wanderer[] {
+    const limit = Math.max(0, Math.floor(max) - Math.max(0, Math.floor(reservedSlots)));
+    if (limit === 0) return [];
+    const seen = new Set<string>();
+    const out: Wanderer[] = [];
+    for (const group of priorityGroups) {
+        for (const wanderer of group) {
+            if (seen.has(wanderer.id)) continue;
+            seen.add(wanderer.id);
+            out.push(wanderer);
+            if (out.length >= limit) return out;
+        }
+    }
+    return out;
+}
 
 /** How many rate-gated quest-giver standees may share one sector. One: they're
  *  meant to feel like a chance meeting on the road, not a job board. (The scribe

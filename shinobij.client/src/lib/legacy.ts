@@ -337,7 +337,8 @@ export function synthSageWanderer(sector: number): Wanderer {
         verb: "quest",
         level: 99,
         homeTile: home,
-        waypoints: [home, home + 1, home - 1],
+        waypoints: [home],
+        movement: "stationary",
         // Deliberately NOT the VN's opening line — the player reads the
         // billboard first and the VN seconds later (polish-audit finding).
         greeting: "An old man checks your name against a bundle of field notes, circles it, and rubs at a blister from the road.",

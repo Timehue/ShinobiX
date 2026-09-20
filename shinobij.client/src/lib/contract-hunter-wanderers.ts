@@ -24,15 +24,14 @@ export type ContractHunterRosterEntry = { name: string; level: number; currentSe
  * `style.transform` — roughly 1,200 layout-invalidating writes a second, on top
  * of the ambient wanderers already on the floor.
  *
- * Six is the cap: enough that a busy hub still reads as "the hunters are out"
- * (the ambient wanderer population in one sector is the same order), small enough
- * that the floor's rAF budget cannot be driven by how many people happen to have
- * a bounty. Slots are filled by HIGHEST bounty first — the pool is what makes a
- * hunter worth looking at — with the viewer's OWN hunter always taking a slot
+ * Two is the cap: the sector-wide ordinary-actor budget is three, and hunters
+ * should not consume the whole floor before objectives and unlock NPCs are
+ * considered. Slots are filled by HIGHEST bounty first — the pool is what makes
+ * a hunter worth looking at — with the viewer's OWN hunter always taking a slot
  * regardless of rank, because that is the one a player can actually engage and
  * silently hiding it would look like the bounty had lapsed.
  */
-export const MAX_CONTRACT_HUNTERS_PER_SECTOR = 6;
+export const MAX_CONTRACT_HUNTERS_PER_SECTOR = 2;
 
 export function contractHunterWanderers(args: {
     sector: number;
@@ -90,6 +89,7 @@ export function contractHunterWanderers(args: {
             level: hunter.level,
             homeTile: home,
             waypoints: [home],
+            movement: isSelf ? "pursue" : "stationary",
             greeting: isSelf
                 ? `${hunter.targetName}, your bounty is worth ${hunter.bountyAmount.toLocaleString()} ryo. Stand still.`
                 : `Not you. I'm hunting ${hunter.targetName}. There's ${hunter.bountyAmount.toLocaleString()} ryo on their head.`,

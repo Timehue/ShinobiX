@@ -5,7 +5,7 @@
  */
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import { rollWanderers, wandererLevelFor, wandererDayBucket, wandererCount, wandererPresenceGate, isWandererOnCooldown, withWandererCooldown, WANDERER_NPC_COOLDOWN_MS, WANDERER_FLEE_COOLDOWN_MS, WANDERER_DECLINE_COOLDOWN_MS, QUEST_GIVER_PRESENCE, MAX_ROAMING_QUEST_GIVERS, pickRoamingQuestGivers, lockedWandererVerbs, wandererVerbLockReason, lockedQuestMetrics, questForWanderer, resolveWandererById, isWanderersEnabled, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, type Wanderer } from "./wanderers";
+import { rollWanderers, wandererLevelFor, wandererDayBucket, wandererCount, wandererPresenceGate, isWandererOnCooldown, withWandererCooldown, WANDERER_NPC_COOLDOWN_MS, WANDERER_FLEE_COOLDOWN_MS, WANDERER_DECLINE_COOLDOWN_MS, QUEST_GIVER_PRESENCE, MAX_ROAMING_QUEST_GIVERS, MAX_SECTOR_WANDERERS, pickRoamingQuestGivers, capSectorWanderers, lockedWandererVerbs, wandererVerbLockReason, lockedQuestMetrics, questForWanderer, resolveWandererById, isWanderersEnabled, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, type Wanderer } from "./wanderers";
 import { MAX_WILD_SECTOR } from "../../../shared/sector-geo";
 
 const GRID = 12;
@@ -32,7 +32,7 @@ describe("rollWanderers", () => {
             total++;
             maxLen = Math.max(maxLen, list.length);
         }
-        assert.ok(empty / total > 0.4, "a healthy share of sectors are empty");
+        assert.ok(empty / total > 0.55, "most sectors should be empty after the density pass");
         assert.ok(maxLen <= 2, "never more than 2 in a sector");
     });
 
@@ -82,6 +82,22 @@ describe("archetype spawn balance (2026-07 pass)", () => {
         // The spread between the most and least common face stays moderate — the
         // old 0.45-weight bandit was ~4.5× the support cast; keep it under 3.5×.
         assert.ok(Math.max(...shares) / Math.min(...shares) < 3.5, "spawn spread stays flat-ish");
+    });
+
+    it("assigns movement by role instead of making every actor roam", () => {
+        const movementByArchetype = new Map<string, Set<string>>();
+        for (let bucket = 5000; bucket < 5060; bucket++) {
+            for (let sector = 1; sector <= 60; sector++) {
+                for (const wanderer of rollWanderers(sector, bucket)) {
+                    const seen = movementByArchetype.get(wanderer.archetype) ?? new Set<string>();
+                    seen.add(wanderer.movement ?? "missing");
+                    movementByArchetype.set(wanderer.archetype, seen);
+                }
+            }
+        }
+        assert.deepEqual([...movementByArchetype.get("bandit") ?? []], ["pursue"]);
+        for (const id of ["beast", "patrol", "tracker"]) assert.deepEqual([...movementByArchetype.get(id) ?? []], ["patrol"]);
+        for (const id of ["gambler", "pilgrim", "sage", "merchant", "medic"]) assert.deepEqual([...movementByArchetype.get(id) ?? []], ["stationary"]);
     });
 });
 
@@ -247,8 +263,8 @@ describe("wandererCount", () => {
         assert.equal(wandererCount(0), 0);
         assert.equal(wandererCount(0.5), 0);
         assert.equal(wandererCount(0.7), 1);
-        assert.equal(wandererCount(0.95), 2);
-        assert.ok(wandererCount(0.99) <= 2);
+        assert.equal(wandererCount(0.95), 1);
+        assert.equal(wandererCount(0.99), 2);
     });
     it("keeps two-wanderer sectors a rare tail (the clutter case)", () => {
         // Roll the whole 0..1 range and count how much of it lands on a pair.
@@ -256,7 +272,32 @@ describe("wandererCount", () => {
         const steps = 1000;
         for (let i = 0; i < steps; i++) if (wandererCount(i / steps) === 2) pairs++;
         const rate = pairs / steps;
-        assert.ok(rate > 0.02 && rate <= 0.08, `pairs should be a rare tail, got ${(rate * 100).toFixed(1)}%`);
+        assert.ok(rate >= 0.015 && rate <= 0.025, `pairs should be about 2%, got ${(rate * 100).toFixed(1)}%`);
+    });
+});
+
+describe("sector wanderer population budget", () => {
+    const actor = (id: string): Wanderer => ({
+        id, name: id, archetype: "sage", verb: "quest", level: 10,
+        homeTile: 30, waypoints: [30], movement: "stationary",
+        greeting: "…", tellTint: "#fff", avatarKey: "sage",
+    });
+
+    it("keeps the first three priority-ordered ordinary actors", () => {
+        const selected = capSectorWanderers([[actor("danger")], [actor("objective")], [actor("unlock")], [actor("ambient")]]);
+        assert.equal(selected.length, MAX_SECTOR_WANDERERS);
+        assert.deepEqual(selected.map((entry) => entry.id), ["danger", "objective", "unlock"]);
+    });
+
+    it("reserves a slot for a separately rendered weekly boss", () => {
+        const selected = capSectorWanderers([[actor("a"), actor("b"), actor("c")]], 1);
+        assert.deepEqual(selected.map((entry) => entry.id), ["a", "b"]);
+        assert.deepEqual(capSectorWanderers([[actor("a")]], 3), []);
+    });
+
+    it("deduplicates before consuming the budget", () => {
+        const selected = capSectorWanderers([[actor("a")], [actor("a"), actor("b"), actor("c")]]);
+        assert.deepEqual(selected.map((entry) => entry.id), ["a", "b", "c"]);
     });
 });
 

@@ -69,7 +69,7 @@ test('all eight routes deliver only their earned return and aftermath, with no r
             for (const page of aftermath.vnPages!) assert.ok(page.image && existsSync(fileURLToPath(new URL(`../../public${page.image}`, import.meta.url))), `${questId}: ${page.title}`);
             assert.equal(storyFieldHistories(character)[0].history.length, progress.visits.length);
             assert.equal(storyFieldObjective(character), null);
-            assert.ok(visibleStoryReckonings(character, graph.points[graph.startPointId].sector).some((giver) => giver.id === questId));
+            assert.ok(!visibleStoryReckonings(character, graph.points[graph.startPointId].sector).some((giver) => giver.id === questId), "completed journey reviews belong in the field journal, not on the crowded sector floor");
         }
     }
 });
