@@ -23,7 +23,6 @@ defaults:
     shell: bash
 
 env:
-  NODE_VERSION: 22.23.1
   VITE_SENTRY_DSN: https://public@example.invalid/1
   VITE_SENTRY_RELEASE: ci
   VITE_BUILD_COMMIT: ${{ github.sha }}
@@ -61,7 +60,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -117,7 +116,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -167,7 +166,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: package-lock.json
       - name: Initialize evidence
@@ -221,7 +220,7 @@ jobs:
           tar -czf .ci-artifacts/server/server-dist.tgz dist
           cd .ci-artifacts/server
           sha256sum server-dist.tgz > server-dist.tgz.sha256
-          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\nnode=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "${{ env.NODE_VERSION }}" > provenance.txt
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\nnode=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$(node -v)" > provenance.txt
       - name: Upload server artifact
         uses: actions/upload-artifact@v7
         with:
@@ -252,7 +251,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -316,7 +315,7 @@ jobs:
           tar -czf .ci-artifacts/client/client-dist.tgz shinobij.client/dist
           cd .ci-artifacts/client
           sha256sum client-dist.tgz > client-dist.tgz.sha256
-          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\nnode=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "${{ env.NODE_VERSION }}" > provenance.txt
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\nnode=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$(node -v)" > provenance.txt
       - name: Upload client artifact
         uses: actions/upload-artifact@v7
         with:
@@ -359,7 +358,7 @@ jobs:
           exit 1
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
       - name: Download server artifact
         uses: actions/download-artifact@v8
         with:
@@ -396,7 +395,7 @@ jobs:
           tar -czf .ci-artifacts/release/release-dist.tgz dist shinobij.client/dist
           cd .ci-artifacts/release
           sha256sum release-dist.tgz > release-dist.tgz.sha256
-          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\nnode=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "${{ env.NODE_VERSION }}" > provenance.txt
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\nnode=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$(node -v)" > provenance.txt
       - name: Upload joined release artifact
         uses: actions/upload-artifact@v7
         with:
@@ -427,7 +426,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: package-lock.json
       - name: Initialize evidence
@@ -484,7 +483,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: package-lock.json
       - name: Initialize evidence
@@ -546,7 +545,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: shinobij.client/package-lock.json
       - name: Initialize evidence
@@ -680,7 +679,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -777,7 +776,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: shinobij.client/package-lock.json
       - name: Initialize evidence
@@ -838,7 +837,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: shinobij.client/package-lock.json
       - name: Initialize evidence
