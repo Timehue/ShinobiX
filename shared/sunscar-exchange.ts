@@ -39,6 +39,28 @@ export type ExchangeListing = {
     completedAt?: number;
     state: 'preparing' | 'active' | 'buying' | 'sold' | 'cancelling' | 'cancelled' | 'failed';
 };
+export const EXCHANGE_READINESS_REASON_CODES = [
+    'listing-missing', 'listing-unavailable', 'own-listing', 'purchase-pending',
+    'insufficient-funds', 'invalid-balance', 'level-required',
+    'duplicate-companion', 'companion-capacity', 'card-capacity',
+    'inventory-capacity', 'stack-quantity', 'stack-capacity',
+] as const;
+export type ExchangeReadinessReasonCode = typeof EXCHANGE_READINESS_REASON_CODES[number];
+export type ExchangePreparationTarget = {
+    screen: 'home' | 'inventory';
+    label: string;
+    section?: 'sanctuary';
+};
+export type ExchangePurchaseReadiness = {
+    listingId: string;
+    observedAt: number;
+    status: 'ready' | 'blocked';
+    reasonCode?: ExchangeReadinessReasonCode;
+    message?: string;
+    prepare?: ExchangePreparationTarget;
+    /** Fresh public state when the listing still exists. Never purchase authority. */
+    listing?: ExchangeListing;
+};
 export function exchangeCurrency(listing: Pick<ExchangeListing, 'currency'>): ExchangeCurrency {
     return listing.currency ?? 'ryo';
 }

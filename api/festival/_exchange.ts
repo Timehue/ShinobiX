@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
-import { EXCHANGE_CURRENCIES, EXCHANGE_LISTING_LIMIT, EXCHANGE_MARKET_PAGE_SIZE, EXCHANGE_MAX_PRICE, EXCHANGE_MAX_QUANTITY, compareExchangeMarketRows, exchangeCurrency, exchangeFee, exchangeMarketMatches, type ExchangeCurrency, type ExchangeKind, type ExchangeListing, type ExchangeMarketPage, type ExchangeMarketQuery, type ExchangeMarketRow } from '../../shared/sunscar-exchange.js';
+import { EXCHANGE_CURRENCIES, EXCHANGE_LISTING_LIMIT, EXCHANGE_MARKET_PAGE_SIZE, EXCHANGE_MAX_PRICE, EXCHANGE_MAX_QUANTITY, compareExchangeMarketRows, exchangeCurrency, exchangeFee, exchangeMarketMatches, type ExchangeCurrency, type ExchangeKind, type ExchangeListing, type ExchangeMarketPage, type ExchangeMarketQuery, type ExchangeMarketRow, type ExchangePurchaseReadiness, type ExchangePreparationTarget, type ExchangeReadinessReasonCode } from '../../shared/sunscar-exchange.js';
 import { kv } from '../_storage.js';
 import { readKvProjection } from '../_storage-projection.js';
 import { withKvLock } from '../_lock.js';
@@ -11,7 +11,7 @@ import { recordEconomyTxn } from '../_economy.js';
 import { pushOfflineNotice } from '../player/_offline-notices.js';
 import { kickPlayer } from '../_realtime/notify.js';
 import { loadSettlementCatalogs, type SettlementCatalogs } from '../shop/_catalog.js';
-import { balance, ExchangeError, exchangeInventory, grantAsset, objects, recoverExchangeDefinitions, removeAsset, sealAsset, type SealedExchangeAsset } from './_exchange-assets.js';
+import { balance, ExchangeError, exchangeGrantBlocker, exchangeInventory, grantAsset, objects, recoverExchangeDefinitions, removeAsset, sealAsset, type SealedExchangeAsset } from './_exchange-assets.js';
 
 type Obj = Record<string, unknown>;
 export type StoredExchangeListing = ExchangeListing & { sealed: SealedExchangeAsset; fingerprint: string; failure?: string; recoveryKey?: string; saleNoticePending?: boolean };
@@ -24,6 +24,42 @@ const pending = (l: ExchangeListing) => ['preparing', 'buying', 'cancelling'].in
 const journal = (c: Obj): string[] => Array.isArray(c.sunscarExchangeReceipts) ? c.sunscarExchangeReceipts as string[] : [];
 const stamp = (c: Obj, marker: string): Obj => ({ ...c, sunscarExchangeReceipts: [...new Set([...journal(c), marker])] });
 export const publicListing = ({ sealed: _sealed, fingerprint: _fp, failure: _failure, recoveryKey: _recovery, saleNoticePending: _notice, ...listing }: StoredExchangeListing): ExchangeListing => ({ ...listing, currency: exchangeCurrency(listing) });
+
+const readinessPreparation = (code: ExchangeReadinessReasonCode): ExchangePreparationTarget | undefined => {
+    if (code === 'companion-capacity' || code === 'duplicate-companion') return { screen: 'home', section: 'sanctuary', label: 'Manage companion roster' };
+    if (code === 'inventory-capacity' || code === 'stack-capacity' || code === 'stack-quantity') return { screen: 'inventory', label: 'Manage inventory' };
+    return undefined;
+};
+
+/** Two point reads, no locks, recovery, save mutation, reservation or events.
+ * The purchase path repeats the same grant/funds checks under its lock. */
+export async function exchangePurchaseReadiness(player: string, id: string): Promise<ExchangePurchaseReadiness> {
+    const observedAt = Date.now();
+    const blocked = (code: ExchangeReadinessReasonCode, message: string, listing?: StoredExchangeListing): ExchangePurchaseReadiness => ({
+        listingId: id, observedAt, status: 'blocked', reasonCode: code, message,
+        ...(readinessPreparation(code) ? { prepare: readinessPreparation(code) } : {}),
+        ...(listing ? { listing: publicListing(listing) } : {}),
+    });
+    if (!/^[a-f0-9]{32}$/.test(id)) return blocked('listing-missing', 'This listing was not found.');
+    const listing = await kv.get<StoredExchangeListing>(exchangeListingKey(id));
+    if (!listing) return blocked('listing-missing', 'This listing was not found.');
+    if (listing.seller === player) return blocked('own-listing', 'You cannot buy your own listing.', listing);
+    if (listing.state === 'buying') return blocked('purchase-pending', listing.buyer === player
+        ? 'This purchase is already awaiting confirmation. Use the saved trade recovery instead.'
+        : 'Another player is purchasing this listing.', listing);
+    if (listing.state !== 'active') return blocked('listing-unavailable', 'This listing is no longer available.', listing);
+    const record = await kv.get<Obj>(`save:${player}`);
+    const character = record?.character as Obj | undefined;
+    if (!character) return blocked('listing-unavailable', 'Your current buyer state could not be verified.', listing);
+    const currency = exchangeCurrency(listing);
+    let available: number;
+    try { available = balance(character[currency] ?? 0); }
+    catch { return blocked('invalid-balance', 'Your stored balance could not be verified.', listing); }
+    if (available < listing.price) return blocked('insufficient-funds', `You do not have enough ${EXCHANGE_CURRENCIES[currency]} for this listing.`, listing);
+    const grantBlocker = exchangeGrantBlocker(character, listing.sealed, listing.quantity);
+    if (grantBlocker) return blocked(grantBlocker.code, grantBlocker.message, listing);
+    return { listingId: id, observedAt, status: 'ready', listing: publicListing(listing) };
+}
 
 function parseCurrency(value: unknown): ExchangeCurrency {
     if (value === undefined) return 'ryo';
