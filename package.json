@@ -4,7 +4,7 @@
     "private": true,
     "description": "ShinobiX game API — Express backend on Railway, Supabase storage",
     "engines": {
-        "node": ">=22"
+        "node": ">=24"
     },
     "scripts": {
         "build:server": "tsc -p tsconfig.cpanel.json",

@@ -6,10 +6,12 @@
  * Mirrors the subscribe pattern used by lib/pet-music's audio-mute switch. Auth
  * rides the global window.fetch interceptor (authFetch.ts) — a bare /api/ fetch
  * is signed automatically — so there is nothing to wire here. The poller only
- * runs while at least one badge is mounted, pauses while the tab is hidden, and
- * re-polls on focus so the badge is fresh when the player returns.
+ * runs while at least one badge is mounted, pauses while the tab is hidden,
+ * re-polls on focus so the badge is fresh when the player returns, and skips
+ * any session that carries no player credential of its own.
  */
 
+import { hasPlayerIdentity } from "../authFetch";
 import { visiblePoll } from "./poll";
 
 const POLL_MS = 30000;
@@ -28,6 +30,12 @@ async function poll(): Promise<void> {
     // Don't poll a backgrounded tab — saves the request and respects the
     // bandwidth budget. The visibilitychange handler re-polls on return.
     if (typeof document !== "undefined" && document.hidden) return;
+    // Admins have no inbox: /api/messages answers 403 for an admin identity and
+    // 401 with no identity at all, so a poll without a player credential can
+    // only ever log a console error. The badge mounts on shared chrome that the
+    // admin panel renders too, which is how the operator's console filled with
+    // red every 30s.
+    if (!hasPlayerIdentity()) return;
     try {
         const r = await fetch("/api/messages");
         if (!r.ok) return; // 401 when logged out, etc. — keep last known count
