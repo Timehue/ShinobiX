@@ -157,7 +157,7 @@ describe('ranked 2v2 matchmaking', { concurrency: false }, () => {
         // Give each fighter deliberately different real stats/gear/weapon
         // choices, and leave one (B2) with no ranked weapon preference at all.
         for (const [slug, weapon] of [
-            [A1, 'elderbranch-katana'], [A2, 'embercoil-scythe'],
+            [A1, 'elderbranch-katana'], [A2, 'tempest-fang-blade'],
             [B1, 'black-lotus-dagger'], [B2, undefined],
         ] as const) {
             await kv.set(`save:${slug}`, {
@@ -179,7 +179,7 @@ describe('ranked 2v2 matchmaking', { concurrency: false }, () => {
 
         const match = (await mod.ranked2v2Status(A1)).match!;
         const weaponBySlug: Record<string, string> = {
-            [A1]: 'elderbranch-katana', [A2]: 'embercoil-scythe',
+            [A1]: 'elderbranch-katana', [A2]: 'tempest-fang-blade',
             [B1]: 'black-lotus-dagger', [B2]: format.RANKED_FORMAT_DEFAULT_WEAPON_ID,
         };
         for (const slug of ALL) {

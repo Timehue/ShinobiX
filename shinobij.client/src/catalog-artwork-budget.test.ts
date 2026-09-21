@@ -138,7 +138,7 @@ test('the complete Ranked Format kit ships production-sized artwork', () => {
         'ranked-format-sabatons',
         'black-lotus-dagger',
         'elderbranch-katana',
-        'embercoil-scythe',
+        'tempest-fang-blade',
         'frostfang-oathblade',
     ];
     for (const id of ids) {

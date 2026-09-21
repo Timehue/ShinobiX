@@ -69,14 +69,14 @@ after(async () => {
 });
 
 describe('ranked format weapon preference', { concurrency: false }, () => {
-    it('persists a whitelisted weapon and returns the authoritative save version', async () => {
-        const out = await post('elderbranch-katana');
+    it('persists the 30% Reflect ranked weapon and returns the authoritative save version', async () => {
+        const out = await post('tempest-fang-blade');
         assert.equal(out.statusCode, 200, JSON.stringify(out.body));
-        assert.equal(out.body?.weaponId, 'elderbranch-katana');
-        assert.equal((out.body?.character as Json)?.rankedFormatWeaponId, 'elderbranch-katana');
+        assert.equal(out.body?.weaponId, 'tempest-fang-blade');
+        assert.equal((out.body?.character as Json)?.rankedFormatWeaponId, 'tempest-fang-blade');
         assert.equal(out.body?._saveVersion, 2);
         const stored = await kv.get<Json>(`save:${PLAYER}`);
-        assert.equal((stored?.character as Json)?.rankedFormatWeaponId, 'elderbranch-katana');
+        assert.equal((stored?.character as Json)?.rankedFormatWeaponId, 'tempest-fang-blade');
     });
 
     it('rejects invalid and cross-account choices without changing the save', async () => {
