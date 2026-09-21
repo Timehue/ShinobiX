@@ -18,7 +18,7 @@ import { starterItems } from "../data/starter-items";
 const RANKED_FORMAT_WEAPON_IDS = [
     "black-lotus-dagger",
     "elderbranch-katana",
-    "embercoil-scythe",
+    "tempest-fang-blade",
     "frostfang-oathblade",
 ] as const;
 
@@ -105,6 +105,7 @@ export function RankedFormatWeaponPicker({
             <p className="hint">
                 Ranked fighters enter with maxed stats and identical neutral gear — your weapon is the one thing you choose.
             </p>
+            <p className="hint" role="status">Selected weapon: <strong>{RANKED_FORMAT_WEAPONS.find((weapon) => weapon.id === selected)?.name}</strong></p>
             {error && <p className="hint" role="alert" style={{ color: "var(--red-400)" }}>{error}</p>}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8 }}>
                 {RANKED_FORMAT_WEAPONS.map((weapon) => (
@@ -112,6 +113,8 @@ export function RankedFormatWeaponPicker({
                         key={weapon.id}
                         type="button"
                         className={weapon.id === selected ? "active" : ""}
+                        aria-pressed={weapon.id === selected}
+                        aria-label={`${weapon.name}${weapon.id === selected ? ", selected" : ""}`}
                         disabled={busy}
                         onClick={() => void choose(weapon.id)}
                         style={{ textAlign: "left", display: "flex", gap: 8, alignItems: "center", padding: 8 }}
@@ -121,6 +124,7 @@ export function RankedFormatWeaponPicker({
                         )}
                         <span>
                             <strong>{weapon.name}</strong>
+                            {weapon.id === selected && <span style={{ display: "block", color: "var(--gold-300)", fontSize: 12, fontWeight: 700 }}>Selected</span>}
                             <div className="hint">{weapon.description}</div>
                         </span>
                     </button>

@@ -507,8 +507,11 @@ test("Arena District serializes ranked join, poll, and leave on desktop and mobi
     for (const image of await weaponPicker.locator("img").all()) {
         await expect.poll(() => image.evaluate((node) => node.naturalWidth)).toBeGreaterThan(0);
     }
-    await weaponPicker.getByRole("button", { name: /Elderbranch Katana/ }).click();
-    await expect.poll(api.rankedWeaponChoices).toEqual(["elderbranch-katana"]);
+    const reflectWeapon = weaponPicker.getByRole("button", { name: /Tempest Fang Blade/ });
+    await expect(reflectWeapon).toHaveAttribute("aria-pressed", "false");
+    await reflectWeapon.click();
+    await expect.poll(api.rankedWeaponChoices).toEqual(["tempest-fang-blade"]);
+    await expect(reflectWeapon).toHaveAttribute("aria-pressed", "true");
 
     const queueUp = page.getByRole("button", { name: "Queue Up for Ranked" });
     await expect(queueUp).toBeEnabled();
