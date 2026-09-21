@@ -81,6 +81,11 @@
     }
 
     html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .wm-topbar {
+        /* In short landscape the atlas frame follows this bar in the DOM and
+           would otherwise paint above it, leaving the visible return button
+           unable to receive touch input. */
+        position: relative;
+        z-index: 31;
         min-height: 44px !important;
         margin: 0 0 8px !important;
         gap: 8px;
