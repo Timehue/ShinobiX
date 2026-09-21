@@ -28,7 +28,9 @@ describe('solo-PvE published content compatibility', () => {
         // 172 → 173: `ration-pack` (Village Stores cooked rations) on this branch,
         // and 172 → 173: profession change approval on main — both landed, so the
         // merged catalog carries BOTH: 174.
-        assert.equal(items.length, 174, 'update the compatibility report when the generated catalog changes');
+        // 174 → 180: Ranked Format's neutral kit (api/pvp/_ranked-format.ts) —
+        // 5 "Ranked Seal" armor pieces + the ranked-format-kunai throwable.
+        assert.equal(items.length, 180, 'update the compatibility report when the generated catalog changes');
     });
 
     it('resolves every catalog AI loadout to compatible server-sealed jutsu', () => {

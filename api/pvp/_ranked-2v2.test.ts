@@ -8,6 +8,7 @@ type Kv = typeof import('../_storage.js').kv;
 let kv: Kv;
 let mod: typeof import('./_ranked-2v2.js');
 let settle: typeof import('./_ranked-2v2-settlement.js');
+let format: typeof import('./_ranked-format.js');
 
 const A1 = 'ash', A2 = 'briar', B1 = 'cinder', B2 = 'dune';
 const ALL = [A1, A2, B1, B2];
@@ -18,6 +19,7 @@ before(async () => {
     ({ kv } = await import('../_storage.js'));
     mod = await import('./_ranked-2v2.js');
     settle = await import('./_ranked-2v2-settlement.js');
+    format = await import('./_ranked-format.js');
 });
 after(() => { delete process.env.SHINOBIX_QA_MEMORY_KV; });
 
@@ -148,6 +150,50 @@ describe('ranked 2v2 matchmaking', { concurrency: false }, () => {
         for (const slug of ALL) {
             const lease = await kv.get<{ meta?: { mode?: string } }>(`battle-lock:${slug}`);
             assert.equal(lease?.meta?.mode, 'ranked-2v2', `${slug} holds a ranked lease`);
+        }
+    });
+
+    it('equalizes stats/gear for every fighter but keeps their own chosen weapon', async () => {
+        // Give each fighter deliberately different real stats/gear/weapon
+        // choices, and leave one (B2) with no ranked weapon preference at all.
+        for (const [slug, weapon] of [
+            [A1, 'elderbranch-katana'], [A2, 'embercoil-scythe'],
+            [B1, 'black-lotus-dagger'], [B2, undefined],
+        ] as const) {
+            await kv.set(`save:${slug}`, {
+                character: {
+                    name: slug, level: 40, ranked2v2Rating: 1000,
+                    maxHp: 1200, maxChakra: 200, maxStamina: 200,
+                    specialty: 'Taijutsu', stats: { strength: 1 }, jutsu: [],
+                    equipment: { hand: 'training-katana', body: 'cloth-robe' },
+                    ...(weapon ? { rankedFormatWeaponId: weapon } : {}),
+                },
+            });
+        }
+        await mod.inviteRanked2v2Partner({ actor: A1, target: A2 });
+        await mod.acceptRanked2v2Invite(A2);
+        await mod.queueRanked2v2(A1);
+        await mod.inviteRanked2v2Partner({ actor: B1, target: B2 });
+        await mod.acceptRanked2v2Invite(B2);
+        await mod.queueRanked2v2(B1);
+
+        const match = (await mod.ranked2v2Status(A1)).match!;
+        const weaponBySlug: Record<string, string> = {
+            [A1]: 'elderbranch-katana', [A2]: 'embercoil-scythe',
+            [B1]: 'black-lotus-dagger', [B2]: format.RANKED_FORMAT_DEFAULT_WEAPON_ID,
+        };
+        for (const slug of ALL) {
+            const actor = match.combat.actors.find(candidate => candidate.ownerSlug === slug)!;
+            const character = actor.character as Record<string, unknown>;
+            const stats = character.stats as Record<string, number>;
+            for (const field of Object.keys(format.RANKED_FORMAT_MAX_STATS)) {
+                assert.equal(stats[field], format.RANKED_FORMAT_MAX_STATS[field], `${slug}.${field} is maxed`);
+            }
+            const equipment = character.equipment as Record<string, string>;
+            assert.equal(equipment.body, format.RANKED_FORMAT_NEUTRAL_EQUIPMENT.body, `${slug} wears the neutral set, not their own`);
+            assert.equal(equipment.thrown, format.RANKED_FORMAT_NEUTRAL_EQUIPMENT.thrown);
+            assert.equal(equipment.hand, weaponBySlug[slug], `${slug} keeps their own chosen (or defaulted) weapon`);
+            assert.equal(actor.itemCharges?.[format.RANKED_FORMAT_NEUTRAL_EQUIPMENT.thrown], format.RANKED_FORMAT_CONSUMABLE_CHARGES);
         }
     });
 

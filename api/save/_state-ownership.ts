@@ -392,6 +392,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('itemStacks', 'character', 'server-clamped', 'inventory', ['combat-strip-char'], 'same regime as inventory'),
     f('equipment', 'character', 'server-clamped', 'equipment', [], 'enforceEquipmentOwnership on every save: slot whitelist, ownership, slot-kind'),
     f('equippedJutsuIds', 'character', 'server-clamped', 'combat-loadout', [], 'capped at maxLoadout; strict: must be learned'),
+    f('rankedFormatWeaponId', 'character', 'server-owned', 'combat-loadout', [], 'locked to stored; only api/pvp/ranked-format-weapon.ts sets it (must be one of RANKED_FORMAT_LEGENDARY_WEAPON_IDS)'),
     f('jutsuMastery', 'character', 'server-owned', 'jutsu', [], 'training endpoints only; non-strict allows ≤100 xp drip on unchanged levels'),
     f('jutsu', 'character', 'deprecated', 'jutsu', ['strict-ledger-char', 'always-ledger-char'], 'legacy loadout snapshot: frozen to the stored copy for migration only; new clients persist equippedJutsuIds'),
     f('pets', 'character', 'server-owned', 'pets', [], 'roster additions only via befriend flow; identity forced per pet-identity boundary'),

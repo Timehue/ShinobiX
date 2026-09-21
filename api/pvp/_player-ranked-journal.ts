@@ -13,6 +13,7 @@ import {
 } from '../pet/_ranked-preparation.js';
 import { isPlayerRankedV2Session, pvpSessionMayReward, type PvpSession } from './session.js';
 import { embedPvpSettlementReceipt, pvpSettlementId } from './_reward-settlement.js';
+import { isValidRankedFormatItemLedger, RANKED_FORMAT_VERSION } from './_ranked-format.js';
 
 export const PLAYER_RANKED_JOURNAL_VERSION = 'player-ranked-journal-v1' as const;
 export const PLAYER_RANKED_SETTLEMENT_STAMP_FIELD = 'playerRankedSettlementStamp' as const;
@@ -280,8 +281,17 @@ export function playerRankedItemUsageFingerprint(
     if (roles.length !== 1 || session.realFighters?.[roles[0]] !== true) {
         throw new Error('player-ranked-item-side-invalid');
     }
-    const used = normalizedItemUsage(session.itemsUsed?.[roles[0]] ?? {});
-    if (Object.keys(used).length > 0) throw new Error('player-ranked-v2-consumables-disabled');
+    const role = roles[0];
+    const used = normalizedItemUsage(session.itemsUsed?.[role] ?? {});
+    if (session.rankedFormatVersion === RANKED_FORMAT_VERSION) {
+        if (!isValidRankedFormatItemLedger(session.itemCharges?.[role], used)) {
+            throw new Error('player-ranked-format-item-ledger-invalid');
+        }
+    } else if (Object.keys(used).length > 0) {
+        // Pre-Ranked-Format player-ranked V2 sessions had every charge pinned
+        // to zero. Non-empty usage on one of those rows remains corruption.
+        throw new Error('player-ranked-v2-consumables-disabled');
+    }
     return createHash('sha256').update(JSON.stringify({
         version: 'player-ranked-item-usage-v1',
         matchId: terminal.matchId,
@@ -298,9 +308,10 @@ function journalItemsFromSession(
     terminal: PlayerRankedTerminal,
 ): PlayerRankedJournal['items'] {
     return {
-        // V2 seals every tracked consumable/throwable id to zero and upgraded
-        // move also rejects those actions. Publication can therefore confirm
-        // the exact empty usage without a cross-save economic step.
+        // Ranked Format usage is a sealed neutral ledger, not an inventory
+        // debit. Publication can therefore confirm its exact fingerprint
+        // without a cross-save economic step. Legacy V2 rows still require
+        // empty usage in playerRankedItemUsageFingerprint above.
         a: { usageFingerprint: playerRankedItemUsageFingerprint(session, terminal, 'a'), confirmed: true },
         b: { usageFingerprint: playerRankedItemUsageFingerprint(session, terminal, 'b'), confirmed: true },
     };

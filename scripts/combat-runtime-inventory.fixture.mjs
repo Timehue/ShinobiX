@@ -50,12 +50,13 @@ const LIVE_PET_DUEL = [transport(
 export const EXPECTED_RUNTIME_MODE_CONTRACTS = deepFreeze([
   C('casual-pvp', PVP_RUNTIME),
   C('direct-pvp-challenges', [route('/player/challenge', 'lifecycle'), ...PVP_RUNTIME]),
-  C('ranked-shinobi-pvp', [route('/pvp/ranked-queue', 'start'), route('/ranked-season', 'leaderboard+record'), route('/pvp/session', 'state'), route('/pvp/move', 'action'), ...PVP_SUPPORT]),
+  C('ranked-shinobi-pvp', [route('/pvp/ranked-queue', 'start'), route('/pvp/ranked-format-weapon', 'start'), route('/ranked-season', 'leaderboard+record'), route('/pvp/session', 'state'), route('/pvp/move', 'action'), ...PVP_SUPPORT]),
   C('village-guard-pvp-human', [route('/village-guard/challenge', 'lifecycle'), ...PVP_RUNTIME]),
   C('kage-succession-pvp', [route('/village/kage-challenge', 'lifecycle+settlement'), ...PVP_RUNTIME]),
   C('clan-war-pvp-1v1', [route('/clan/war/challenge', 'lifecycle'), ...PVP_RUNTIME, route('/clan/war/report', 'settlement')]),
   C('ranked-2v2', [
     route('/pvp/ranked-2v2', 'lifecycle+settlement+start'),
+    route('/pvp/ranked-format-weapon', 'start'),
     route('/towers/pvp-action', 'action'),
     route('/towers/pvp-state', 'state'),
   ]),

@@ -362,6 +362,10 @@ export type Character = {
         completedLessonIds: Array<"bond" | "showdown" | "colosseum" | "party" | "ladder" | "warfront" | "gauntlet">;
     };
     equippedBloodlineId?: string;
+    /** Ranked Format's player-chosen weapon (api/pvp/_ranked-format.ts) — one
+     *  of RANKED_FORMAT_LEGENDARY_WEAPON_IDS. Applies to both ranked 1v1 and
+     *  ranked 2v2, which otherwise equalize stats/gear for both fighters. */
+    rankedFormatWeaponId?: string;
     stats: Stats;
     unspentStats: number;
     equippedJutsuIds: string[];

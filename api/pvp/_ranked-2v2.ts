@@ -271,9 +271,11 @@ async function publishRanked2v2Match(
     now: number,
 ): Promise<StoredTowerPvpMatch | null> {
     const members = [...amber.slugs, ...violet.slugs];
-    // Consumables ON: a rated fight costs what a rated fight costs, exactly like
-    // ranked 1v1. Settlement deducts what was spent.
-    const seeds = await Promise.all(members.map(slug => loadTowerPvpFighter(slug, { consumables: true })));
+    // Ranked Format: maxed stats + neutral legendary gear + each fighter's own
+    // chosen weapon, exactly like ranked 1v1 (api/pvp/_ranked-format.ts).
+    // Consumables ON via a fixed neutral kit — a rated fight costs what a
+    // rated fight costs, but never depends on who happened to stock potions.
+    const seeds = await Promise.all(members.map(slug => loadTowerPvpFighter(slug, { consumables: true, rankedFormat: true })));
     if (seeds.some(seed => !seed)) return null;
 
     const matchId = `tpvp-${randomUUID().replaceAll('-', '')}`;

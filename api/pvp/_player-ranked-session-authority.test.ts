@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
+import {
+    RANKED_FORMAT_CONSUMABLE_CHARGES,
+    RANKED_FORMAT_DEFAULT_WEAPON_ID,
+    RANKED_FORMAT_NEUTRAL_EQUIPMENT,
+} from './_ranked-format.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -29,8 +34,10 @@ function character(name: string) {
         maxStamina: 100,
         stats: { strength: 20, defense: 20, speed: 20, intelligence: 20, chakra: 20 },
         jutsu: [],
-        // Deliberately grandfather a built-in thrown definition under `hand`.
-        // Old move workers classify the catalog definition, not this slot key.
+        // Ranked Format (api/pvp/_ranked-format.ts) replaces this with the
+        // neutral kit entirely, so what's equipped here is deliberately
+        // irrelevant to a ranked match — it only matters for the non-ranked
+        // paths other tests in this suite would exercise.
         equipment: { hand: 'thrown-shuriken' },
         inventory: ['thrown-shuriken'],
         itemStacks: [],
@@ -112,6 +119,7 @@ test('session binds exact matchId, pair, season, and epoch', async () => {
     assert.equal(out.body?.session?.ranked, false);
     assert.equal(out.body?.session?.baseRewards, false);
     assert.equal(out.body?.session?.playerRankedAuthorityVersion, 2);
+    assert.equal(out.body?.session?.rankedFormatVersion, 1);
     assert.equal(out.body?.session?.rankedKind, 'player');
     assert.equal(out.body?.session?.rankedMatchId, matchId);
     assert.equal(out.body?.session?.rankedSeasonId, 1);
@@ -121,15 +129,22 @@ test('session binds exact matchId, pair, season, and epoch', async () => {
     assert.equal(out.body?.session?.p2?.maxHp, 206);
     assert.equal(out.body?.session?.p1?.hp, 206, 'fresh ranked PvP starts at the scaled maximum');
     assert.equal(out.body?.session?.p1?.character?.maxHp, 200, 'the canonical character maximum is not rewritten');
+    // Ranked Format seals the fixed neutral kit, not either fighter's real
+    // gear — a fighter's own equipped item (even a grandfathered
+    // hand->thrown definition) is never a key here at all.
+    assert.equal(out.body?.session?.itemCharges?.p1?.['thrown-shuriken'], undefined);
+    assert.equal(out.body?.session?.itemCharges?.p2?.['thrown-shuriken'], undefined);
     assert.equal(
-        out.body?.session?.itemCharges?.p1?.['thrown-shuriken'],
-        0,
-        'even a grandfathered hand->thrown definition is legacy-worker inert',
+        out.body?.session?.itemCharges?.p1?.[RANKED_FORMAT_NEUTRAL_EQUIPMENT.thrown],
+        RANKED_FORMAT_CONSUMABLE_CHARGES,
+        'ranked format seals the fixed neutral throwable charge instead',
     );
     assert.equal(
-        out.body?.session?.itemCharges?.p2?.['thrown-shuriken'],
-        0,
+        out.body?.session?.itemCharges?.p2?.[RANKED_FORMAT_NEUTRAL_EQUIPMENT.thrown],
+        RANKED_FORMAT_CONSUMABLE_CHARGES,
     );
+    assert.equal(out.body?.session?.p1?.character?.equipment?.hand, RANKED_FORMAT_DEFAULT_WEAPON_ID,
+        'no saved preference resolves to the fixed default legendary weapon');
 });
 
 test('session admission precommit failure leaves queued proof retryable', async () => {
