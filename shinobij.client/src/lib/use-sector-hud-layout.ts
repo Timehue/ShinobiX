@@ -29,7 +29,16 @@ export function useSectorHudLayout(ref: RefObject<HTMLDivElement | null>) {
                 const px = `${Math.max(0, Math.floor(value))}px`;
                 if (stage.style.getPropertyValue(key) !== px) stage.style.setProperty(key, px);
             };
-            set('--sector-board-size', Math.max(180, available - (side ? 0 : base + 112)));
+            // A 12×12 board cannot stay useful when it is squeezed to the old
+            // 180px phone floor: each movement tile is only 15px wide. On a
+            // narrow phone the HUD can continue below the fold, but the board
+            // should claim the available width so its tiles remain tappable.
+            // Tablet/desktop still budget by height to keep their command panel
+            // in view beside or beneath the board.
+            const boardSize = matchMedia('(max-width: 559px)').matches
+                ? stage.clientWidth
+                : Math.max(180, available - (side ? 0 : base + 112));
+            set('--sector-board-size', boardSize);
             const mapHeight = stage.querySelector('.sector-image-map')?.getBoundingClientRect().height ?? 0;
             const extra = available - base - (side ? 0 : mapHeight);
             // The roster scrolls when space is tight. A fixed minimum here can
