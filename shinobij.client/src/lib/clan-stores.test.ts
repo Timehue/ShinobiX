@@ -106,7 +106,7 @@ describe("clanStoresReadout", () => {
         assert.ok(r);
         assert.equal(r.held, null);
         assert.equal(r.tone, "danger");
-        assert.equal(r.line, "No rations are stocked yet, and this war costs 30 rations a day. Cook ration packs at the Cafeteria, then donate them on the Treasury tab.");
+        assert.equal(r.line, "No rations are stocked yet, and this war costs 30 rations a day. Cook ration packs at the Noodle Den, then donate them on the Treasury tab.");
         assert.doesNotMatch(r.line, /\b0 rations\b/);
     });
     it("distinguishes a read empty store from an unread one", () => {
@@ -114,13 +114,13 @@ describe("clanStoresReadout", () => {
         assert.ok(r);
         assert.equal(r.held, "0 rations");
         assert.equal(r.tone, "danger");
-        assert.equal(r.line, "The clan stores stand empty, and this war costs 30 rations a day. Cook ration packs at the Cafeteria, then donate them on the Treasury tab.");
+        assert.equal(r.line, "The clan stores stand empty, and this war costs 30 rations a day. Cook ration packs at the Noodle Den, then donate them on the Treasury tab.");
     });
     it("leads with today's unfed verdict when the pass reported one", () => {
         const r = clanStoresReadout({ clanName: "Alpha", provisions: 12, activeWars: 1, unfedWars: 1 });
         assert.ok(r);
         assert.equal(r.tone, "danger");
-        assert.equal(r.line, "Alpha went unfed today — the war costs 30 rations a day and the stores could not cover it. Cook ration packs at the Cafeteria, then donate them on the Treasury tab.");
+        assert.equal(r.line, "Alpha went unfed today — the war costs 30 rations a day and the stores could not cover it. Cook ration packs at the Noodle Den, then donate them on the Treasury tab.");
     });
     it("cannot report more unfed wars than are running", () => {
         const r = clanStoresReadout({ clanName: "Alpha", provisions: 900, activeWars: 0, unfedWars: 4 });
@@ -133,7 +133,7 @@ describe("clanStoresReadout", () => {
         assert.ok(r);
         assert.equal(r.tone, "warn");
         assert.equal(r.cover, "1 day of war");
-        assert.equal(r.line, `45 rations left against 30 rations a day — under ${CLAN_LOW_RATION_DAYS} days of war. Cook ration packs at the Cafeteria, then donate them on the Treasury tab.`);
+        assert.equal(r.line, `45 rations left against 30 rations a day — under ${CLAN_LOW_RATION_DAYS} days of war. Cook ration packs at the Noodle Den, then donate them on the Treasury tab.`);
     });
     it("reads as a calm status line when the stores are deep", () => {
         const r = clanStoresReadout({ clanName: "Alpha", provisions: 1_240, activeWars: 1 });
@@ -191,7 +191,7 @@ describe("ration donation gate + copy", () => {
         assert.equal(clanRationDonationCount(stale, 5, NOW), 5);
     });
     it("explains the block in a sentence, never only an icon", () => {
-        assert.equal(clanRationDonateBlock(donorWith(0), 0, NOW), "You are not carrying any ration packs. Cook them at the Cafeteria.");
+        assert.equal(clanRationDonateBlock(donorWith(0), 0, NOW), "You are not carrying any ration packs. Cook them at the Noodle Den.");
         assert.equal(
             clanRationDonateBlock(donorWith(DAILY_RATION_DONATION_CAP), 5, NOW),
             "Daily limit reached — 40 rations donated today. The allowance resets at midnight UTC.",

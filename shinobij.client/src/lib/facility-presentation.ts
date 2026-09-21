@@ -62,7 +62,7 @@ export const FACILITY_PRESENTATION: Record<FacilityId, FacilityPresentation> = {
   "clan-hall": facility("Clan Hall", "clan", clanHallHero, "#8fc6e8", "13%", "57%"),
   hospital: facility("Hospital", "hospital", hospitalHero, "#75d4a8", "66%", "56%"),
   "mission-hall": facility("Mission Hall", "missions", missionHallHero, "#d98769", "68%", "75%"),
-  cafeteria: facility("Cafeteria", "cafeteria", cafeteriaHero, "#e59a56", "82%", "45%"),
+  cafeteria: facility("Noodle Den", "cafeteria", cafeteriaHero, "#e59a56", "82%", "45%"),
   tavern: facility("Tavern", "tavern", tavernHero, "#c87e68", "82%", "63%"),
   "stat-training": facility("Stat Training", "training", statTrainingHero, "#dc805d", "83%", "25%"),
   "jutsu-training": facility("Jutsu Training", "jutsuTraining", jutsuTrainingHero, "#68cde6", "80%", "81%"),

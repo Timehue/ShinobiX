@@ -3049,7 +3049,7 @@
           },
           {
             "source": "shinobij.client/src/styles/town-hall-aaa.css",
-            "line": 663
+            "line": 674
           }
         ]
       },
@@ -3870,7 +3870,7 @@
           },
           {
             "source": "shinobij.client/src/styles/town-hall-aaa.css",
-            "line": 633
+            "line": 644
           }
         ]
       },
@@ -4392,7 +4392,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/town-hall-aaa.css",
-            "line": 611
+            "line": 622
           }
         ]
       },
