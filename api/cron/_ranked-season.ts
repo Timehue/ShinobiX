@@ -64,6 +64,8 @@ import {
 
 const SAVE_PREFIX = 'save:';
 export const SEASON_CURRENT_KEY = 'ranked:season:current';
+/** Admin pause marker; keeps the season, standings, and active fights intact. */
+export const SEASON_ADMISSIONS_PAUSED_KEY = 'ranked:season:admissions-paused';
 export const SEASON_ARCHIVE_PREFIX = 'ranked:season:archive:';
 export const SEASON_PLAN_PREFIX = 'ranked:season:plan:';
 // Legacy pre-receipt once-marker. Kept exported so old rows/tools remain
@@ -279,7 +281,7 @@ export function settleRankedSeasonCharacter(
 export type SeasonRolloverResult = {
     ok: boolean;
     // 'inactive' = ranked seasons not started yet (admin must start them).
-    action: 'initialized' | 'pending' | 'rolled-over' | 'skipped' | 'inactive';
+    action: 'initialized' | 'resumed' | 'paused' | 'pending' | 'rolled-over' | 'skipped' | 'inactive';
     seasonId?: number;
     nextSeasonId?: number;
     playerChampion?: string;
@@ -298,6 +300,14 @@ export type RankedSeasonStore = Pick<
     KvLike,
     'get' | 'set' | 'compareSet' | 'del' | 'delIfEqual' | 'keys'
 >;
+
+/** A stopped season rejects only new ranked admissions. */
+export async function rankedSeasonAdmissionsPaused(
+    store: Pick<KvLike, 'get'>,
+    seasonId: number,
+): Promise<boolean> {
+    return Number(await store.get<unknown>(SEASON_ADMISSIONS_PAUSED_KEY)) === seasonId;
+}
 
 const unlockedRankedLock: PetRankedLockRunner = async <T>(
     _key: string,
@@ -371,7 +381,8 @@ export async function startRankedSeasonWithStore(
         else if (gate.state === 'open' && gate.seasonId !== current.id) {
             throw new Error('ranked-season-gate-current-conflict');
         }
-        return { ok: true, action: 'skipped', seasonId: current.id };
+        const resumed = await store.del(SEASON_ADMISSIONS_PAUSED_KEY) > 0;
+        return { ok: true, action: resumed ? 'resumed' : 'skipped', seasonId: current.id };
     }
     const timestamp = Math.max(1, Math.floor(Number(now) || Date.now()));
     const season: RankedSeason = {
@@ -390,11 +401,28 @@ export async function startRankedSeasonWithStore(
         const winner = await readCurrentSeason(store);
         if (!winner || !isDeepStrictEqual(winner, season)) throw new Error('ranked-season-start-conflict');
     }
+    // A server reset can clear the current season before this marker. A newly
+    // created Season 1 must always open entries rather than inherit that pause.
+    await store.del(SEASON_ADMISSIONS_PAUSED_KEY);
     return { ok: true, action: 'initialized', seasonId: season.id };
 }
 
 export async function startRankedSeason(now: number = Date.now()): Promise<SeasonRolloverResult> {
     return startRankedSeasonWithStore(kv, now);
+}
+
+/** Stop accepts no new ranked entries while preserving the current season. */
+export async function stopRankedSeasonWithStore(
+    store: Pick<KvLike, 'get' | 'set'>,
+): Promise<SeasonRolloverResult> {
+    const current = await readCurrentSeason(store);
+    if (!current) return { ok: true, action: 'inactive' };
+    await store.set(SEASON_ADMISSIONS_PAUSED_KEY, current.id);
+    return { ok: true, action: 'paused', seasonId: current.id };
+}
+
+export async function stopRankedSeason(): Promise<SeasonRolloverResult> {
+    return stopRankedSeasonWithStore(kv);
 }
 
 /**

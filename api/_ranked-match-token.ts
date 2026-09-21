@@ -11,7 +11,7 @@ import {
     reservePlayerRankedAdmission,
     type PlayerRankedAdmission,
 } from './pet/_ranked-preparation.js';
-import { playerRankedV2AdmissionsEnabled } from './pvp/_player-ranked-rollout.js';
+import { rankedSeasonAdmissionsPaused } from './cron/_ranked-season.js';
 
 export type RankedLadder = 'player' | 'pet';
 export const PLAYER_RANKED_TOKEN_VERSION = 'player-ranked-match-token-v2' as const;
@@ -161,6 +161,9 @@ export async function mintPlayerRankedMatchTokenWithStore(
         || gate.seasonId !== Number(season?.id)) {
         throw new Error('player-ranked-season-admission-closed');
     }
+    if (await rankedSeasonAdmissionsPaused(store, gate.seasonId)) {
+        throw new Error('player-ranked-season-admission-paused');
+    }
     const admission = makePlayerRankedAdmission({
         matchId: input.matchId ?? `player-ranked-${randomUUID()}`,
         a: input.a,
@@ -180,7 +183,6 @@ export async function mintPlayerRankedMatchTokenWithStore(
 export async function mintPlayerRankedMatchToken(
     input: Parameters<typeof mintPlayerRankedMatchTokenWithStore>[1],
 ): Promise<PlayerRankedMatchToken> {
-    if (!playerRankedV2AdmissionsEnabled()) throw new Error('player-ranked-v2-rollout-disabled');
     return mintPlayerRankedMatchTokenWithStore(kv, input);
 }
 
