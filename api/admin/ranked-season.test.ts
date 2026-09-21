@@ -52,7 +52,7 @@ describe('admin ranked season controls', { concurrency: false }, () => {
     it('reports inactive, starts a season, and exposes its active status to the Admin Panel', async () => {
         const before = await request('GET');
         assert.equal(before.statusCode, 200);
-        assert.deepEqual(before.body, { active: false, current: null });
+        assert.deepEqual(before.body, { active: false, acceptingEntries: false, current: null });
 
         const started = await request('POST', { action: 'start' });
         assert.equal(started.statusCode, 200, JSON.stringify(started.body));
@@ -61,7 +61,16 @@ describe('admin ranked season controls', { concurrency: false }, () => {
         const after = await request('GET');
         assert.equal(after.statusCode, 200);
         assert.equal(after.body?.active, true);
+        assert.equal(after.body?.acceptingEntries, true);
         assert.equal((after.body?.current as Json)?.id, 1);
+
+        const stopped = await request('POST', { action: 'stop' });
+        assert.deepEqual(stopped.body, { ok: true, action: 'paused', seasonId: 1 });
+        assert.equal((await request('GET')).body?.acceptingEntries, false);
+
+        const resumed = await request('POST', { action: 'start' });
+        assert.deepEqual(resumed.body, { ok: true, action: 'resumed', seasonId: 1 });
+        assert.equal((await request('GET')).body?.acceptingEntries, true);
     });
 
     it('requires full admin authority before a start request can mutate the season', async () => {

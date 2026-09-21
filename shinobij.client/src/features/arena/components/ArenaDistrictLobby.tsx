@@ -181,11 +181,11 @@ export function ArenaDistrictLobby({
                             <button className="danger-button" onClick={onLeaveRankedQueue}>Leave Queue</button>
                         ) : (
                             <button disabled={!playerRankedEnabled} onClick={onJoinRankedQueue}>
-                                {playerRankedEnabled ? "Queue Up for Ranked" : "Ranked Rollout Pending"}
+                                {playerRankedEnabled ? "Queue Up for Ranked" : "Ranked Season Closed"}
                             </button>
                         )}
                     </div>
-                    {!playerRankedEnabled && <p className="hint">Ranked matchmaking is temporarily paused during the v2 authority rollout.</p>}
+                    {!playerRankedEnabled && <p className="hint">Ranked matchmaking opens when an administrator starts the current season.</p>}
                     {rankedQueueActive && <p className="hint">Searching for opponent...</p>}
                     <hr style={{ border: "none", borderTop: "1px solid rgba(148,163,184,.25)", margin: "16px 0" }} />
                     <p className="hint"><GiPawPrint style={ARENA_ICON} />Ranked pet battles live in the <strong>Pet Battles</strong> tab — climb the global <strong>Colosseum</strong> (1v1) and <strong>Beastbound Warfront</strong> (4v4 offline) ladders.</p>

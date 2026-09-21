@@ -482,7 +482,7 @@ export function useRankedQueue({
         }
         if (!requireServerSettlement("rankedPvp")) return;
         if (!playerRankedEnabled) {
-            alert("Ranked PvP is temporarily unavailable while the v2 authority rollout completes.");
+            alert("Ranked PvP is not accepting new entries. An administrator can start or resume the current season.");
             return;
         }
         if (!rankedMutationsAvailable || !rankedMutationAllowedNow()) {

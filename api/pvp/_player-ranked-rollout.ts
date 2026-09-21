@@ -1,14 +1,13 @@
 /**
- * Player-ranked v2 is a two-stage rollout because d76a move workers use an
- * unconditional session write and cannot honor the new exact-CAS close fence.
- * Deploy/drain every worker first; only then set the exact enable flag to `1`.
+ * Player-ranked authority is fully deployed. Admissions are now controlled by
+ * the active season and the Admin Panel, rather than process environment.
+ * Retained only as a compatibility shim for older callers.
  */
 export function playerRankedV2AdmissionsEnabled(
-    env: Record<string, string | undefined> = process.env,
+    _env: Record<string, string | undefined> = process.env,
 ): boolean {
-    return env.ENABLE_PLAYER_RANKED_V2 === '1'
-        && env.DISABLE_PLAYER_RANKED_V2 !== '1';
+    return true;
 }
 
 export const PLAYER_RANKED_V2_DISABLED_MESSAGE =
-    'Ranked PvP is temporarily unavailable while the v2 authority rollout completes.';
+    'Ranked PvP is not accepting new entries right now.';

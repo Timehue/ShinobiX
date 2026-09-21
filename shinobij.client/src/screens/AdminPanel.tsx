@@ -1040,6 +1040,7 @@ export function AdminPanel({
     // Ranked seasons (admin start / force-rollover). Seasons do NOT auto-start.
     const [rankedSeasonMsg, setRankedSeasonMsg] = useState("");
     const [rankedSeasonActive, setRankedSeasonActive] = useState<boolean | null>(null);
+    const [rankedSeasonAcceptingEntries, setRankedSeasonAcceptingEntries] = useState<boolean | null>(null);
     const [rankedSeasonId, setRankedSeasonId] = useState<number | null>(null);
     useEffect(() => { if (adminPw) void loadRankedSeasonStatus(); }, [adminPw]);
     const [kageResetVillage, setKageResetVillage] = useState(villages[0]);
@@ -1576,13 +1577,14 @@ export function AdminPanel({
     async function loadRankedSeasonStatus() {
         try {
             const res = await fetch('/api/admin/ranked-season', { headers: { 'x-admin-password': adminPw } });
-            const data = await res.json().catch(() => ({})) as { active?: boolean; current?: { id?: number } | null };
+            const data = await res.json().catch(() => ({})) as { active?: boolean; acceptingEntries?: boolean; current?: { id?: number } | null };
             setRankedSeasonActive(!!data.active);
+            setRankedSeasonAcceptingEntries(data.acceptingEntries === true);
             setRankedSeasonId(data.current?.id ?? null);
         } catch { /* ignore */ }
     }
 
-    async function rankedSeasonAction(action: 'start' | 'rollover') {
+    async function rankedSeasonAction(action: 'start' | 'stop' | 'rollover') {
         if (action === 'rollover' && !(await gameConfirm('Force-end the current ranked season NOW? This rewards the top finishers, archives standings, soft-resets every rating, and starts the next season immediately.', { danger: true, confirmLabel: "Force-end" }))) return;
         setRankedSeasonMsg('⏳ Working…');
         try {
@@ -1594,6 +1596,8 @@ export function AdminPanel({
             const data = await res.json().catch(() => ({})) as { ok?: boolean; action?: string; seasonId?: number; nextSeasonId?: number; playerChampion?: string; petChampion?: string; error?: string };
             if (!res.ok || !data.ok) { setRankedSeasonMsg(`❌ ${data.error ?? 'Failed.'}`); return; }
             if (data.action === 'initialized') setRankedSeasonMsg(`✅ Ranked Season ${data.seasonId} started.`);
+            else if (data.action === 'resumed') setRankedSeasonMsg(`✅ Ranked Season ${data.seasonId} resumed.`);
+            else if (data.action === 'paused') setRankedSeasonMsg(`✅ Ranked Season ${data.seasonId} stopped. Standings are preserved.`);
             else if (data.action === 'skipped') setRankedSeasonMsg('ℹ️ A ranked season is already active.');
             else if (data.action === 'rolled-over') setRankedSeasonMsg(`✅ Season ${data.seasonId} ended (champion: ${data.playerChampion ?? '—'}, pet: ${data.petChampion ?? '—'}). Season ${data.nextSeasonId} started.`);
             else if (data.action === 'inactive') setRankedSeasonMsg('ℹ️ No active season — start one first.');
@@ -5557,17 +5561,22 @@ export function AdminPanel({
                             <h4>🏆 Ranked Seasons</h4>
                             <p className="hint">Ranked seasons do <strong>not</strong> auto-start. Start one to begin the monthly cycle; at season end the top 3 of each ladder are rewarded and ratings soft-reset. "Force rollover" ends the current season immediately.</p>
                             <p className="hint" style={{ color: rankedSeasonActive ? "#4ade80" : "#fbbf24" }}>
-                                {rankedSeasonActive === null ? "Status unknown." : rankedSeasonActive ? `Active — Season ${rankedSeasonId ?? "?"}.` : "Not started."}
+                                {rankedSeasonActive === null ? "Status unknown." : rankedSeasonActive ? `${rankedSeasonAcceptingEntries ? "Active" : "Stopped"} — Season ${rankedSeasonId ?? "?"}.` : "Not started."}
                             </p>
                             {!adminPw && (
                                 <p className="hint" style={{ color: "#f87171", marginBottom: 6 }}>⚠️ Session restored without password. Log out and back in to enable server actions.</p>
                             )}
                             <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
                                 <button
-                                    style={{ padding: "8px 14px", background: adminPw && !rankedSeasonActive ? "#15803d" : "#374151", opacity: adminPw && !rankedSeasonActive ? 1 : 0.6 }}
+                                    style={{ padding: "8px 14px", background: adminPw && (!rankedSeasonActive || !rankedSeasonAcceptingEntries) ? "#15803d" : "#374151", opacity: adminPw && (!rankedSeasonActive || !rankedSeasonAcceptingEntries) ? 1 : 0.6 }}
                                     onClick={() => rankedSeasonAction('start')}
-                                    disabled={!adminPw || rankedSeasonActive === true}
-                                >▶ Start Ranked Season</button>
+                                    disabled={!adminPw || (rankedSeasonActive === true && rankedSeasonAcceptingEntries === true)}
+                                >▶ {rankedSeasonActive ? "Resume Ranked Season" : "Start Ranked Season"}</button>
+                                <button
+                                    style={{ padding: "8px 14px", background: adminPw && rankedSeasonActive && rankedSeasonAcceptingEntries ? "#991b1b" : "#374151", opacity: adminPw && rankedSeasonActive && rankedSeasonAcceptingEntries ? 1 : 0.6 }}
+                                    onClick={() => rankedSeasonAction('stop')}
+                                    disabled={!adminPw || !rankedSeasonActive || !rankedSeasonAcceptingEntries}
+                                >■ Stop Ranked Season</button>
                                 <button
                                     style={{ padding: "8px 14px", background: adminPw && rankedSeasonActive ? "#b45309" : "#374151", opacity: adminPw && rankedSeasonActive ? 1 : 0.6 }}
                                     onClick={() => rankedSeasonAction('rollover')}
