@@ -24,7 +24,7 @@ export type PvpWinMissionCompletion = { id: string; name: string; xpReward: numb
  * here — and before this, threw and re-trapped themselves on the result screen.
  *
  * Deliberately NOT listed: 401 (a re-auth can still deliver it), 429 (the
- * endpoint allows 4/min, so mashing Retry throttles you and waiting clears it),
+ * endpoint allows 120/min, so a temporary throttle can still clear on retry),
  * 503 `legacy-delivery-pending` (the endpoint's own explicit retry signal), and
  * every 5xx. Those can all come out differently on the next attempt, so they
  * keep rejecting rather than silently forfeiting real mission credit.

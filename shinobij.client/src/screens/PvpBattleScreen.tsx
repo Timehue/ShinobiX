@@ -1178,13 +1178,18 @@ export function PvpBattleScreen({
                 else void fetchBountyReceipt(character.name, battleId).then(showBounty).catch(() => { /* Base result remains usable. */ });
             }
             onCompletionConfirmed?.();
-        } catch {
+        } catch (error) {
             if (!isCurrentScope()) return;
             // Keep the marker for a later retry/remount if a parent completion
             // callback throws before its idempotent settlements finish.
             pvpRewardRef.current = false;
             setPvpRewardClaimState("failed");
-            setPvpRewardClaimError("Battle settlement callbacks did not finish. Please retry.");
+            const detail = error instanceof Error ? error.message.trim() : "";
+            setPvpRewardClaimError(detail === "settlement-timeout"
+                ? "Battle settlement is taking longer than expected. Please retry."
+                : detail
+                    ? `Battle settlement is pending: ${detail}`
+                    : "Battle settlement callbacks did not finish. Please retry.");
         } finally {
             window.clearTimeout(completionTimeout);
             if (rewardClaimAbortRef.current === completionAbort) rewardClaimAbortRef.current = null;
