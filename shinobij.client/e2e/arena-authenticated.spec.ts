@@ -162,6 +162,7 @@ async function installArenaApi(page: Page, options: {
     const practiceStartPayloads: PracticeStartPayload[] = [];
     const actionPayloads: SoloActionPayload[] = [];
     const rankedQueueActions: string[] = [];
+    const rankedWeaponChoices: string[] = [];
     let rankedQueueJoined = false;
     let releaseFirstPracticeStart: (() => void) | null = null;
     let releaseRankedJoin: (() => void) | null = null;
@@ -270,6 +271,15 @@ async function installArenaApi(page: Page, options: {
         }
 
         if (path === "/api/pvp/bounty") return json(route, { ok: true, bounties: [] });
+        if (path === "/api/pvp/ranked-format-weapon" && request.method() === "POST") {
+            const payload = request.postDataJSON() as { weaponId?: string };
+            const weaponId = String(payload.weaponId ?? "");
+            rankedWeaponChoices.push(weaponId);
+            saveVersion += 1;
+            const character = { ...(save?.character ?? {}), rankedFormatWeaponId: weaponId };
+            save = { ...(save ?? {}), character };
+            return json(route, { ok: true, weaponId, character, _saveVersion: saveVersion });
+        }
         if (path === "/api/pvp/ranked-queue") {
             if (!options.certifyRankedQueueLifecycle) {
                 return json(route, { enabled: false, inQueue: false, queueSize: 0 });
@@ -326,6 +336,7 @@ async function installArenaApi(page: Page, options: {
         genericResumeSuccessCount: () => genericResumeSuccessCount,
         releaseFirstPracticeStart: () => releaseFirstPracticeStart?.(),
         rankedQueueActions: () => [...rankedQueueActions],
+        rankedWeaponChoices: () => [...rankedWeaponChoices],
         releaseRankedJoin: () => releaseRankedJoin?.(),
         releaseRankedPoll: () => releaseRankedPoll?.(),
     };
@@ -489,6 +500,15 @@ test("Arena District serializes ranked join, poll, and leave on desktop and mobi
     await createAccount(page);
     await expect.poll(api.hasSave).toBe(true);
     await openArenaDistrict(page);
+
+    await expect(page.getByRole("heading", { name: "Ranked 2v2" })).toBeVisible();
+    const weaponPicker = page.getByTestId("ranked-format-weapon-picker");
+    await expect(weaponPicker.locator("img")).toHaveCount(4);
+    for (const image of await weaponPicker.locator("img").all()) {
+        await expect.poll(() => image.evaluate((node) => node.naturalWidth)).toBeGreaterThan(0);
+    }
+    await weaponPicker.getByRole("button", { name: /Elderbranch Katana/ }).click();
+    await expect.poll(api.rankedWeaponChoices).toEqual(["elderbranch-katana"]);
 
     const queueUp = page.getByRole("button", { name: "Queue Up for Ranked" });
     await expect(queueUp).toBeEnabled();

@@ -39,6 +39,7 @@ import { CombatJutsuMeta } from "../components/CombatJutsuMeta";
 import { CombatDetailPortal } from "../components/CombatDetailPortal";
 import { activeBarrierTilesForDisplay, combatActionAvailability, pvpCombatWardKey } from "../lib/combat-action-display";
 import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
+import { starterItemArtworkFor } from "../data/starter-items";
 import { weatherFromElements } from "../../../shared/sector-weather";
 import { getJutsuMastery, scaleJutsuByLevel } from "../lib/jutsu-scaling";
 import { normalizeEquipmentSlot } from "../lib/equipment";
@@ -1667,7 +1668,10 @@ export function PvpBattleScreen({
     const sessionEquippedItems = Array.isArray(me.character?.pvpItems)
         ? (me.character.pvpItems as GameItem[]).map(item => ({
             ...item,
-            image: localItemArtById[item.id] || item.image || sharedImages['item:' + item.id] || "",
+            image: localItemArtById[item.id]
+                || item.image
+                || sharedImages['item:' + item.id]
+                || starterItemArtworkFor(item.id),
         }))
         : equippedItems;
     function clearPendingPvpJutsu() {
