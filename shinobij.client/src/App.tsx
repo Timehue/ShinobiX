@@ -6229,6 +6229,7 @@ export default function App() {
                         sharedImages={sharedImages}
                         character={character}
                         updateCharacter={setCharacter}
+                        onVersionedCharacter={commitVersionedCharacter}
                         savedBloodlines={savedBloodlines}
                         creatorJutsus={creatorJutsus}
                         playerRoster={playerRoster}
