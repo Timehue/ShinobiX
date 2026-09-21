@@ -5134,7 +5134,7 @@ function WorldMapContent({
                 <button
                     type="button"
                     className="world-map-mission-trigger"
-                    onClick={openFirstContract}
+                    onClick={(event) => { event.currentTarget.focus(); openFirstContract(); }}
                     title="First Contract: open your field journal"
                     aria-label="First Contract: open your field journal"
                 >

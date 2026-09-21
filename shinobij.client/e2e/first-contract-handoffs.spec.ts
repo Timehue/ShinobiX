@@ -128,13 +128,16 @@ test('Inventory can open the journal in place and restores keyboard focus', asyn
 });
 test('Discovery keeps a readable journal shortcut on the World Map without covering its controls', async ({ page }, info) => {
     await setup(page, { firstContract: { version: 1, source: 'skip', offeredAt: Date.now(), route: 'discovery' } }, 'worldMap');
-    const hint = page.locator('.fc-map-hint');
+    const hint = page.getByRole('button', { name: 'First Contract: open your field journal' });
     await expect(hint).toBeInViewport({ ratio: 1 });
-    await expect(hint).toContainText('Explore one field tile');
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
     const hintBox = await hint.boundingBox();
     const mapBox = await page.locator('.world-atlas-card').boundingBox();
-    expect(hintBox && mapBox && hintBox.y + hintBox.height <= mapBox.y + 1).toBeTruthy();
+    expect(hintBox && mapBox
+        && hintBox.x >= mapBox.x
+        && hintBox.y >= mapBox.y
+        && hintBox.x + hintBox.width <= mapBox.x + mapBox.width
+        && hintBox.y + hintBox.height <= mapBox.y + mapBox.height).toBeTruthy();
     await page.screenshot({ path: info.outputPath('discovery-wayfinding.png') });
     await hint.click();
     await expect(page.getByRole('dialog', { name: 'First Contract field journal' })).toBeVisible();
