@@ -1,6 +1,63 @@
 /* The atlas is one fitted coordinate stage, with six spatially ordered region
    controls. Only the atlas card inside the mobile game shell participates;
    sector scenes and the desktop overview retain their existing layouts. */
+.world-atlas-frame {
+    position: relative;
+}
+
+/* The active first-contract prompt belongs to the map, not the page flow. This
+   keeps the whole painted board visible on phones while still giving new
+   players a persistent, labelled way back to their assignment and advice. */
+.world-map-mission-trigger {
+    position: absolute;
+    z-index: 30;
+    top: 10px;
+    right: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+    padding: 0;
+    border: 1px solid rgba(246, 211, 142, .82);
+    border-radius: 10px;
+    background: linear-gradient(145deg, rgba(40, 29, 18, .95), rgba(11, 21, 32, .96));
+    color: #f7d58d;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, .5), inset 0 0 0 1px rgba(255, 245, 215, .12);
+    cursor: pointer;
+    touch-action: manipulation;
+}
+.world-map-mission-trigger__badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    display: grid;
+    place-items: center;
+    width: 17px;
+    height: 17px;
+    border: 1px solid #ffddb0;
+    border-radius: 50%;
+    background: #bb5844;
+    color: #fff7e8;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1;
+}
+.world-map-mission-trigger__label { display: none; }
+.world-map-mission-trigger:focus-visible {
+    outline: 3px solid #a8e8ff;
+    outline-offset: 3px;
+}
+@media (hover: hover) {
+    .world-map-mission-trigger:hover {
+        border-color: #fff0c8;
+        color: #fff0c8;
+        filter: brightness(1.12);
+    }
+}
+
 @media (max-width: 979px) {
     /* The help trigger is in the topbar. Keep transient road messages just
        above navigation; the measured frame reserves their space while open. */
@@ -87,6 +144,19 @@
         overflow: clip !important;
         overscroll-behavior: contain;
         background: #10262d;
+    }
+
+    /* Trail-sign artwork is tall, so the old 44px-wide cap made notes dominate
+       a mobile sector board. The image stays easy to recognise at 28px; a
+       transparent 44px hit ring preserves comfortable tapping. */
+    .app-shell.screen-worldMap .sector-trace-sign {
+        width: clamp(20px, 4.2%, 28px);
+    }
+    .app-shell.screen-worldMap .sector-trace-sign::after {
+        content: "";
+        position: absolute;
+        inset: -8px;
+        border-radius: 50%;
     }
 
     /* Permanent transform promotion can retain a low-resolution map raster after

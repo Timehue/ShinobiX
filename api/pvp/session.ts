@@ -62,7 +62,7 @@ import { battleLockFlagsForPlayers, settleSaveRecord } from '../_elapsed-state.j
 import { COMBAT_RESOURCES_V2, v2JutsuCosts } from '../_combat-resources.js';
 import { CHAKRA_CAP_V2, STAMINA_CAP_V2 } from '../_xp-engine.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
-import { LOADOUT_CAP_BASE, maxLoadout } from '../_entitlements.js';
+import { maxLoadout } from '../_entitlements.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
 import {
     PLAYER_RANKED_V2_DISABLED_MESSAGE,
@@ -1488,12 +1488,11 @@ export function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>,
 }
 
 /**
- * Human-vs-human PvP has one neutral regular-technique cap regardless of paid
- * account status. Supporters keep all 15 saved preferences for PvE and UI
- * convenience, but only the first 12 authoritative equipped entries are sealed
- * into a duel. This prevents a purchased three-button counter library from
- * becoming combat power. A separately earned Legacy signature remains its own
- * server-derived slot; it is not one of the paid entitlement entries.
+ * Seal a human fighter's regular techniques to their active account
+ * entitlement. This is defense in depth for session hydration: the primary
+ * resolver already applies the same cap, while this preserves the dedicated
+ * Legacy signature slot outside it. Supporters therefore retain all 15 of
+ * their equipped techniques in PvP instead of losing slots 13–15 at sealing.
  */
 export function normalizeHumanPvpLoadout(character: Record<string, unknown>): Record<string, unknown> {
     if (!Array.isArray(character.jutsu)) return character;
@@ -1506,7 +1505,7 @@ export function normalizeHumanPvpLoadout(character: Record<string, unknown>): Re
         if (id && Object.prototype.hasOwnProperty.call(LEGACY_JUTSU_CATALOG, id)) legacy.push(entry);
         else regular.push(entry);
     }
-    const normalized = [...regular.slice(0, LOADOUT_CAP_BASE), ...legacy.slice(0, 1)];
+    const normalized = [...regular.slice(0, maxLoadout(character)), ...legacy.slice(0, 1)];
     if (normalized.length === character.jutsu.length) return character;
     return { ...character, jutsu: normalized };
 }

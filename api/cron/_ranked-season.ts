@@ -64,6 +64,8 @@ import {
 
 const SAVE_PREFIX = 'save:';
 export const SEASON_CURRENT_KEY = 'ranked:season:current';
+/** Admin pause marker; keeps the season, standings, and active fights intact. */
+export const SEASON_ADMISSIONS_PAUSED_KEY = 'ranked:season:admissions-paused';
 export const SEASON_ARCHIVE_PREFIX = 'ranked:season:archive:';
 export const SEASON_PLAN_PREFIX = 'ranked:season:plan:';
 // Legacy pre-receipt once-marker. Kept exported so old rows/tools remain
@@ -74,6 +76,22 @@ const ARCHIVE_TTL_SECONDS = 400 * 24 * 60 * 60;
 export const SEASON_SETTLEMENT_RECEIPTS_FIELD = 'rankedSeasonSettlementReceipts';
 const MAX_SEASON_SETTLEMENT_RECEIPTS = 16;
 const MAX_PARALLEL = 8;
+
+/**
+ * Health checks briefly create `save:health-probe-*` rows to exercise the
+ * same storage path as a real save.  They are deliberately not player saves
+ * (their value is just `{ probe }`) and must never enter a season snapshot.
+ * Keep the historical admin/Rill exclusions here too: those records have
+ * never belonged to the competitive ladders.
+ */
+export function isRankedSeasonPlayerSaveKey(key: string): boolean {
+    if (!key.startsWith(SAVE_PREFIX)) return false;
+    const name = key.slice(SAVE_PREFIX.length);
+    return name.length > 0
+        && !name.startsWith('health-probe-')
+        && !name.startsWith('Admin ')
+        && name !== 'Rill';
+}
 
 // Reward table. Champion (#1) of each ladder gets the relic; the whole podium
 // gets aura stones by placement. The Warforged Relic ("war material") is
@@ -263,7 +281,7 @@ export function settleRankedSeasonCharacter(
 export type SeasonRolloverResult = {
     ok: boolean;
     // 'inactive' = ranked seasons not started yet (admin must start them).
-    action: 'initialized' | 'pending' | 'rolled-over' | 'skipped' | 'inactive';
+    action: 'initialized' | 'resumed' | 'paused' | 'pending' | 'rolled-over' | 'skipped' | 'inactive';
     seasonId?: number;
     nextSeasonId?: number;
     playerChampion?: string;
@@ -282,6 +300,14 @@ export type RankedSeasonStore = Pick<
     KvLike,
     'get' | 'set' | 'compareSet' | 'del' | 'delIfEqual' | 'keys'
 >;
+
+/** A stopped season rejects only new ranked admissions. */
+export async function rankedSeasonAdmissionsPaused(
+    store: Pick<KvLike, 'get'>,
+    seasonId: number,
+): Promise<boolean> {
+    return Number(await store.get<unknown>(SEASON_ADMISSIONS_PAUSED_KEY)) === seasonId;
+}
 
 const unlockedRankedLock: PetRankedLockRunner = async <T>(
     _key: string,
@@ -344,6 +370,33 @@ async function putImmutable(
     throw new Error(`ranked-season-immutable-conflict:${key}`);
 }
 
+/**
+ * A process can commit the next current-season record and then stop before it
+ * reopens the shared admissions gate.  In that narrow, fully drained state it
+ * is safe to finish publication: current already names the next season, no
+ * match or journal remains from the completed one, and reopen verifies the
+ * exact completed/next season pair before its CAS write.
+ */
+async function recoverAdvancedSeasonGate(
+    store: RankedSeasonStore,
+    current: RankedSeason,
+    gate: PetRankedSeasonGate,
+    now: number,
+): Promise<boolean> {
+    if (gate.state !== 'closing' || gate.nextSeasonId !== current.id) return false;
+    if (gate.admissions.length !== 0 || gate.playerAdmissions.length !== 0) {
+        throw new Error('ranked-season-advanced-with-pending-admissions');
+    }
+    if ((await listPendingPetRankedJournals(store)).length !== 0) {
+        throw new Error('ranked-season-advanced-with-pending-journals');
+    }
+    if ((await listPendingPlayerRankedJournals(store)).length !== 0) {
+        throw new Error('ranked-season-advanced-with-pending-player-journals');
+    }
+    await reopenPetRankedSeasonGate(store, gate.seasonId, current.id, now);
+    return true;
+}
+
 export async function startRankedSeasonWithStore(
     store: RankedSeasonStore,
     now: number = Date.now(),
@@ -352,10 +405,24 @@ export async function startRankedSeasonWithStore(
     if (current) {
         const gate = await readPetRankedSeasonGateFresh(store);
         if (!gate) await ensurePetRankedSeasonGate(store, current.id, now);
-        else if (gate.state === 'open' && gate.seasonId !== current.id) {
+        else if (await recoverAdvancedSeasonGate(store, current, gate, now)) {
+            // Resume repairs an interrupted rollover publication as well as an
+            // explicit admin pause, so the button cannot say "active" while
+            // the player ladder remains closed.
+            await store.del(SEASON_ADMISSIONS_PAUSED_KEY);
+            return { ok: true, action: 'resumed', seasonId: current.id };
+        } else if (gate.state === 'open' && gate.seasonId !== current.id) {
             throw new Error('ranked-season-gate-current-conflict');
+        } else if (gate.state !== 'open') {
+            return {
+                ok: false,
+                action: 'skipped',
+                seasonId: current.id,
+                error: 'Ranked season rollover is still settling. Try again shortly.',
+            };
         }
-        return { ok: true, action: 'skipped', seasonId: current.id };
+        const resumed = await store.del(SEASON_ADMISSIONS_PAUSED_KEY) > 0;
+        return { ok: true, action: resumed ? 'resumed' : 'skipped', seasonId: current.id };
     }
     const timestamp = Math.max(1, Math.floor(Number(now) || Date.now()));
     const season: RankedSeason = {
@@ -374,11 +441,28 @@ export async function startRankedSeasonWithStore(
         const winner = await readCurrentSeason(store);
         if (!winner || !isDeepStrictEqual(winner, season)) throw new Error('ranked-season-start-conflict');
     }
+    // A server reset can clear the current season before this marker. A newly
+    // created Season 1 must always open entries rather than inherit that pause.
+    await store.del(SEASON_ADMISSIONS_PAUSED_KEY);
     return { ok: true, action: 'initialized', seasonId: season.id };
 }
 
 export async function startRankedSeason(now: number = Date.now()): Promise<SeasonRolloverResult> {
     return startRankedSeasonWithStore(kv, now);
+}
+
+/** Stop accepts no new ranked entries while preserving the current season. */
+export async function stopRankedSeasonWithStore(
+    store: Pick<KvLike, 'get' | 'set'>,
+): Promise<SeasonRolloverResult> {
+    const current = await readCurrentSeason(store);
+    if (!current) return { ok: true, action: 'inactive' };
+    await store.set(SEASON_ADMISSIONS_PAUSED_KEY, current.id);
+    return { ok: true, action: 'paused', seasonId: current.id };
+}
+
+export async function stopRankedSeason(): Promise<SeasonRolloverResult> {
+    return stopRankedSeasonWithStore(kv);
 }
 
 /**
@@ -597,10 +681,7 @@ async function performDurableRollover(
     await drainRankedWork(store, closing, lock, now);
 
     const saveKeys = await store.keys(`${SAVE_PREFIX}*`);
-    const playerKeys = saveKeys.filter((key) => {
-        const name = key.slice(SAVE_PREFIX.length);
-        return !name.startsWith('Admin ') && name !== 'Rill';
-    });
+    const playerKeys = saveKeys.filter(isRankedSeasonPlayerSaveKey);
     const playerLadder: LadderEntry[] = [];
     const petLadder: LadderEntry[] = [];
     for (let i = 0; i < playerKeys.length; i += MAX_PARALLEL) {
@@ -730,17 +811,7 @@ async function runRolloverCore(
     if (!gate) gate = await ensurePetRankedSeasonGate(store, current.id, now);
 
     // Recover a crash after advancing current but before reopening admission.
-    if (gate.state === 'closing' && gate.nextSeasonId === current.id) {
-        if (gate.admissions.length !== 0 || gate.playerAdmissions.length !== 0) {
-            throw new Error('ranked-season-advanced-with-pending-admissions');
-        }
-        if ((await listPendingPetRankedJournals(store)).length !== 0) {
-            throw new Error('ranked-season-advanced-with-pending-journals');
-        }
-        if ((await listPendingPlayerRankedJournals(store)).length !== 0) {
-            throw new Error('ranked-season-advanced-with-pending-player-journals');
-        }
-        await reopenPetRankedSeasonGate(store, gate.seasonId, current.id, now);
+    if (await recoverAdvancedSeasonGate(store, current, gate, now)) {
         return { ok: true, action: 'skipped', seasonId: current.id };
     }
     if (gate.seasonId !== current.id) throw new Error('ranked-season-gate-current-conflict');
