@@ -386,6 +386,13 @@
     height: 76px;
 }
 
+/* Cinematic NPC portraits are tall transparent character sheets. The shared
+   square avatar crop defaults to the center, which cuts off their faces. Keep
+   NPC art head-anchored while preserving the centered crop for player avatars. */
+.app-shell.screen-townHall .town-leader-row[data-npc="true"] .leader-portrait-img {
+    object-position: center top;
+}
+
 .app-shell.screen-townHall .elder-seat-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
@@ -520,6 +527,10 @@
     height: 88px;
     border-color: color-mix(in srgb, var(--elder-accent) 68%, #26384a);
     box-shadow: 0 13px 27px rgba(0, 0, 0, 0.42), 0 0 19px color-mix(in srgb, var(--elder-accent) 16%, transparent);
+}
+
+.app-shell.screen-townHall .town-elder-portrait[data-npc="true"] .leader-portrait-img {
+    object-position: center top;
 }
 
 .app-shell.screen-townHall .town-elder-role {

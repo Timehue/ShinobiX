@@ -133,7 +133,7 @@ export type ClanStoresReadoutInput = {
     fedWars?: number | null;
 };
 
-const STOCK_CALL = "Cook ration packs at the Cafeteria, then donate them on the Treasury tab.";
+const STOCK_CALL = "Cook ration packs at the Noodle Den, then donate them on the Treasury tab.";
 
 /**
  * The Clan Wars status readout, or null — silence — when there is nothing to
@@ -231,7 +231,7 @@ export function clanRationDonationCount(character: object, owned: number, now: n
 
 /** Why the ration button is off, as a sentence — null when it is live. */
 export function clanRationDonateBlock(character: object, owned: number, now: number = Date.now()): string | null {
-    if (nonNeg(owned) <= 0) return "You are not carrying any ration packs. Cook them at the Cafeteria.";
+    if (nonNeg(owned) <= 0) return "You are not carrying any ration packs. Cook them at the Noodle Den.";
     if (clanRationDonationCount(character, owned, now) <= 0) {
         return `Daily limit reached — ${DAILY_RATION_DONATION_CAP.toLocaleString()} rations donated today. The allowance resets at midnight UTC.`;
     }

@@ -21,7 +21,7 @@ const SCREEN_MESSAGES: Partial<Record<Screen, string>> = {
     bank: "Loading Bank",
     shop: "Loading Shop",
     hospital: "Loading Hospital",
-    cafeteria: "Loading Cafeteria",
+    cafeteria: "Loading Noodle Den",
     townHall: "Loading Town Hall",
     clan: "Loading Clan Hall",
     petArena: "Preparing Pet Arena",

@@ -435,7 +435,7 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await expect(page.locator(".pet-sanctuary-ledger")).toContainText(`4/${SUPPORTER_PET_CAP}`);
     await shot(page, testInfo, "02d-sanctuary-roster-round-trip");
 
-    await page.getByRole("button", { name: "Breeding" }).click();
+    await page.getByRole("button", { name: "Shinobi Hatchery" }).click();
     await expect(page.getByRole("heading", { name: "Shinobi Hatchery" })).toBeVisible();
     const parent1 = page.getByLabel("First parent");
     const parent2 = page.getByLabel("Second parent");
@@ -472,13 +472,13 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
 
     state.character.petBreeding = session("breeding");
     await reloadHome(page);
-    await page.getByRole("button", { name: "Breeding" }).click();
+    await page.getByRole("button", { name: "Shinobi Hatchery" }).click();
     await expect(page.locator(".breeding-countdown")).toContainText(/\d{2}:\d{2}:\d{2}/);
     await shot(page, testInfo, "07-in-progress-timer");
 
     state.character.petBreeding = session("egg", [0, 0, 0]);
     await reloadHome(page);
-    await page.getByRole("button", { name: "Breeding" }).click();
+    await page.getByRole("button", { name: "Shinobi Hatchery" }).click();
     await expect(page.getByText("Fire egg")).toBeVisible();
     const incompleteHatch = page.getByRole("button", { name: "Complete all three bonds" });
     await expect(incompleteHatch).toBeDisabled();
@@ -487,7 +487,7 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
 
     state.character.petBreeding = session("egg", [2, 1, 3]);
     await reloadHome(page);
-    await page.getByRole("button", { name: "Breeding" }).click();
+    await page.getByRole("button", { name: "Shinobi Hatchery" }).click();
     await expect(page.getByText("2/3")).toBeVisible();
     await expect(page.getByText("1/1")).toBeVisible();
     await expect(page.getByText("3/5")).toBeVisible();
@@ -496,7 +496,7 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
 
     state.character.petBreeding = session("egg", [3, 1, 5]);
     await reloadHome(page);
-    await page.getByRole("button", { name: "Breeding" }).click();
+    await page.getByRole("button", { name: "Shinobi Hatchery" }).click();
     const hatchable = page.getByRole("button", { name: "Hatch companion" });
     await expect(hatchable).toBeEnabled();
     await hatchable.scrollIntoViewIfNeeded();
@@ -505,7 +505,7 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     state.character.pets = [...structuredClone(basePets), ...structuredClone(fullRosterPets)];
     state.character.petBreeding = session("egg", [3, 1, 5]);
     await reloadHome(page);
-    await page.getByRole("button", { name: "Breeding" }).click();
+    await page.getByRole("button", { name: "Shinobi Hatchery" }).click();
     const fullRoster = page.getByRole("button", { name: "Hatch to Sanctuary" });
     await expect(fullRoster).toBeEnabled();
     await expect(page.getByText(/will hatch safely into the Sanctuary/)).toBeVisible();
@@ -524,7 +524,7 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
         origin: "bred", generation: 3, parentInstanceIds: ["qa-fire-1", "qa-fire-2"], trait: "Lucky",
     });
     await reloadHome(page);
-    await page.getByRole("button", { name: "Breeding" }).click();
+    await page.getByRole("button", { name: "Shinobi Hatchery" }).click();
     await page.getByRole("button", { name: "Hatch companion" }).click();
     await expect(page.getByRole("dialog", { name: "Ashglow Kit" })).toBeVisible();
     await expect(page.locator(".hatch-pet")).toBeVisible();
@@ -537,7 +537,7 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
         origin: "bred", generation: 3, parentInstanceIds: ["qa-fire-1", "qa-fire-2"], paletteVariantId: "chromatic-v1", trait: "Battleborn",
     });
     await reloadHome(page);
-    await page.getByRole("button", { name: "Breeding" }).click();
+    await page.getByRole("button", { name: "Shinobi Hatchery" }).click();
     await page.getByRole("button", { name: "Hatch companion" }).click();
     await expect(page.getByText("Chromatic miracle")).toBeVisible();
     await expect(page.locator(".hatch-pet")).toBeVisible();
@@ -623,7 +623,7 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await openHome(page);
     await expect(page.locator(".pet-collection-card")).toHaveCount(4);
     await shot(page, testInfo, "15-mobile-home-collection");
-    await page.getByRole("button", { name: "Breeding" }).click();
+    await page.getByRole("button", { name: "Shinobi Hatchery" }).click();
     await expect(page.getByRole("heading", { name: "Shinobi Hatchery" })).toBeVisible();
     await page.getByRole("button", { name: "Begin 24-hour breeding" }).scrollIntoViewIfNeeded();
     await shot(page, testInfo, "16-mobile-breeding-barn");

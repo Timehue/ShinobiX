@@ -67,7 +67,7 @@ const COMPANION_STEP_DEFINITIONS: CompanionStepDefinition[] = [
     { id: "jutsuLoadout", title: "Equip your jutsu loadout", detail: "Put four techniques on the action bar you will use in battle.", phaseId: "prepare" },
     { id: "inventory", title: "Equip your starter gear", detail: "Ready both Academy items so their combat stats apply.", phaseId: "prepare" },
     { id: "academySpar", title: "Complete the Resonance Trial", detail: "Practice AP, targeting, jutsu, and Wait while watching for the Gate's response.", phaseId: "prove" },
-    { id: "cafeteria", title: "Recover in the Cafeteria", detail: "Learn where to restore HP after a fight.", phaseId: "prove" },
+    { id: "cafeteria", title: "Recover in the Noodle Den", detail: "Learn where to restore HP after a fight.", phaseId: "prove" },
     { id: "firstMission", title: "Claim the Academy Trial", detail: "Complete the fight-to-claim reward loop at the Mission Hall.", phaseId: "prove" },
     { id: "logbook", title: "Read the field assignment", detail: "Use the Logbook to find the foxfire route and your persistent goals.", phaseId: "direction" },
     { id: "sectorReturn", title: "Trace the signal and return", detail: "Inspect the Hollow Gate trace beyond the walls, then bring the evidence home.", phaseId: "direction" },

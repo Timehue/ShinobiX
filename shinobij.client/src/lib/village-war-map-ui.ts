@@ -103,7 +103,7 @@ export function garrisonFedCapLine(village: string, covered: boolean): string {
 
 /** The always-visible Provisions one-liner under the resources stat row (C2). */
 export function provisionsMeaningLine(garrisonRationsPerDay: number): string {
-    return `Provisions feed your sieges — ${WAR_RATIONS_PER_DAY} rations a day per war, ${garrisonRationsPerDay} for a fed garrison. Cook at the Cafeteria, donate at the Town Hall.`;
+    return `Provisions feed your sieges — ${WAR_RATIONS_PER_DAY} rations a day per war, ${garrisonRationsPerDay} for a fed garrison. Cook at the Noodle Den, donate at the Town Hall.`;
 }
 
 /** 3l: the Supply Depot's daily conversion allowance, or "" when there is none. */

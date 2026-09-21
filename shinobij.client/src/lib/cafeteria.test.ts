@@ -66,9 +66,11 @@ test('hasAnyCookMaterial decides whether the kitchen owes an empty state', () =>
     assert.equal(hasAnyCookMaterial({ itemStacks: [{ itemId: 'hunt-ash-scale', count: 0 }] }), false, 'an empty stack is not a material');
 });
 
-test('the Cafeteria screen has an empty state, a toast, and no "?" in a confirmation', async () => {
+test('the Noodle Den screen has an empty state, a toast, and no "?" in a confirmation', async () => {
     const { readFileSync } = await import('node:fs');
     const screen = readFileSync(new URL('../screens/Cafeteria.tsx', import.meta.url), 'utf8');
+    assert.match(screen, /title="Noodle Den"/);
+    assert.match(screen, /The Noodle Den is too busy right now\./);
     // 1a: the dead-button case gets copy that says where the inputs come from.
     assert.match(screen, /You’re carrying no hunt spoils\. Beast Meat and pelts drop from hunting beasts in the wilds/);
     assert.match(screen, /hasSpoils \?/);

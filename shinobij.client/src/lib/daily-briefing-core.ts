@@ -61,7 +61,7 @@ const ONBOARDING_TARGET: Record<string, { screen: Screen; label: string }> = {
     jutsuLoadout: { screen: "profile", label: "Equip your jutsu loadout" },
     inventory: { screen: "inventory", label: "Equip starter gear" },
     academySpar: { screen: "village", label: "Start your Academy spar" },
-    cafeteria: { screen: "cafeteria", label: "Heal in the Cafeteria" },
+    cafeteria: { screen: "cafeteria", label: "Heal in the Noodle Den" },
     firstMission: { screen: "missions", label: "Claim the Academy Trial" },
     logbook: { screen: "logbook", label: "Open your Logbook" },
     sectorReturn: { screen: "worldMap", label: "Visit a sector and return" },
