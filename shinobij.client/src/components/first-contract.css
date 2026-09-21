@@ -246,10 +246,6 @@
 .fc-journal .fc-success { color: #c3e2cf; }
 .fc-success span { margin-right: 8px; color: #9accab; }
 .fc-rail { min-height: 44px; margin-top: 8px; padding: 10px; border: 1px solid #c7a36066; border-radius: 3px 9px 3px 9px; background: linear-gradient(110deg, #302026, #101a26); color: #efca8e; font-size: 11px; line-height: 1.5; text-align: left; cursor: pointer; }
-.fc-map-hint { box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 44px; margin: 0 0 8px; padding: 8px 12px; border: 1px solid #b9945a80; border-left: 3px solid #cf7158; border-radius: 3px 10px 3px 10px; background: #101b29; color: #f5dfba; text-align: left; cursor: pointer; }
-.fc-map-hint .fc-eyebrow { margin: 0; font-size: 9px; }
-.fc-map-hint strong { display: block; font: 600 12px/1.4 var(--font-body, Inter, sans-serif); }
-.fc-map-hint:focus-visible { outline: 3px solid #a8e8ff; outline-offset: 2px; }
 .fc-ribbon button:focus-visible, .fc-journal button:focus-visible, .fc-route:focus-visible, .fc-rail:focus-visible { outline: 3px solid #a8e8ff; outline-offset: 3px; }
 .fc-journal:focus { outline: none; }
 
