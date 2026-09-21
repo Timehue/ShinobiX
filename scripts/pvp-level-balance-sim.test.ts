@@ -399,7 +399,7 @@ describe('level-aware PvP balance harness integrity', () => {
         assert.ok(scoredRate(report) >= 0.50 && scoredRate(report) <= 0.70, `${scoredRate(report)}`);
     });
 
-    it('verifies that human PvP seals 12-slot and 15-slot origins to combat parity', () => {
+    it('verifies that human PvP preserves the active 12-slot and 15-slot entitlements', () => {
         const normal = makeLevelRoster(25, { loadoutSize: LOADOUT_CAP_BASE });
         const supporter = makeLevelRoster(25, { loadoutSize: LOADOUT_CAP_SUB });
         assert.equal(normal.length, supporter.length);
@@ -415,7 +415,7 @@ describe('level-aware PvP balance harness integrity', () => {
         assert.equal(report.fights, ARCHETYPES.length * BLOODLINE_RANKS.length * 4);
         assert.equal(report.base.games, report.fights);
         assert.equal(report.supporter.games, report.fights);
-        assert.equal(scoredRate(report.supporter), 0.5, 'human PvP seals both entitlement tiers to the same 12 techniques');
+        assert.equal(scoredRate(report.supporter), 0.75, 'supporter-origin builds retain their three additional human-PvP techniques');
         assert.deepEqual(report.issues, []);
     });
 });
