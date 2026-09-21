@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
-import { enforceRateLimit } from '../_ratelimit.js';
+import { enforceRateLimitKv } from '../_ratelimit.js';
 import { reportMissionEvent } from './_progress.js';
 import { pvpSessionMayGrantProgress, type PvpSession } from '../pvp/session.js';
 import { loadPvpRewardRecoverySnapshot } from '../pvp/_reward-recovery.js';
@@ -24,6 +24,11 @@ const ACCOUNT_AGE_MIN_MS = 72 * 60 * 60 * 1000;
 // re-submit a battleId pulled from browser history / logs much later if
 // we didn't enforce a recency check.
 const SESSION_REPLAY_WINDOW_MS = 24 * 60 * 60 * 1000;
+// A completed PvP claim can recover and replay its mission-report callback.
+// Keep enough per-player headroom for normal completion and transient retries;
+// enforceRateLimitKv adds the shared-IP backstop separately.
+const PVP_WIN_REPORT_RATE_LIMIT = 120;
+const PVP_WIN_REPORT_RATE_WINDOW_MS = 60_000;
 
 // Server-validated report channel for Vanguard PvP-win missions. The client
 // calls this after handlePvpWin fires. The server cross-checks the reported
@@ -33,13 +38,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
-
-    // Per-player rate limit BEFORE auth so spam at unknown names still
-    // throttles. Session-ID + 24h idem key bound the currency damage, but
-    // KV spam was previously unbounded.
-    const bodyPeek = typeof req.body === 'string' ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })() : (req.body ?? {});
-    const peekName: string | undefined = typeof bodyPeek?.playerName === 'string' ? bodyPeek.playerName : undefined;
-    if (!enforceRateLimit(req, res, 'report-pvp-win', 4, 60_000, peekName)) return;
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
@@ -55,6 +53,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only report your own wins.' });
         }
+
+        // Scope normal completion/recovery traffic to the authenticated player.
+        // The limiter still charges its higher IP backstop, so shared networks
+        // retain abuse protection without sharing a four-request quota.
+        const rateLimitIdentity = identity.admin ? playerName : identity.name;
+        if (!(await enforceRateLimitKv(
+            req,
+            res,
+            'report-pvp-win',
+            PVP_WIN_REPORT_RATE_LIMIT,
+            PVP_WIN_REPORT_RATE_WINDOW_MS,
+            rateLimitIdentity,
+        ))) return;
 
         // Validate the win against the actual PvP session. Key is `pvp:${id}`
         // — must match what session.ts writes and move.ts reads (an earlier
