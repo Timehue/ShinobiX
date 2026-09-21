@@ -25,7 +25,7 @@ export const RANKED_FORMAT_MAX_STATS: Record<string, number> = Object.fromEntrie
 export const RANKED_FORMAT_LEGENDARY_WEAPON_IDS = [
     'black-lotus-dagger',
     'elderbranch-katana',
-    'embercoil-scythe',
+    'tempest-fang-blade',
     'frostfang-oathblade',
 ] as const;
 
