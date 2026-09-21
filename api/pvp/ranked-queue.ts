@@ -19,8 +19,8 @@ import { recordCancelledPlayerRankedAdmission } from './_player-ranked-journal.j
 import { recoverCompletedPlayerRankedFinalizations } from './_ranked-terminal-effects.js';
 import {
     PLAYER_RANKED_V2_DISABLED_MESSAGE,
-    playerRankedV2AdmissionsEnabled,
 } from './_player-ranked-rollout.js';
+import { rankedSeasonAdmissionsPaused } from '../cron/_ranked-season.js';
 import { isBelowAttackableFloor, ATTACKABLE_MIN_LEVEL } from '../_realtime/presence-gating.js';
 import { isIncapacitated } from '../_elapsed-state.js';
 import { hasRecentIpOrFpOverlapStrict } from '../_player-ips.js';
@@ -94,12 +94,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'GET') {
         // Return queue status for a specific player (don't expose other names)
         const name = typeof req.query.name === 'string' ? safeName(req.query.name) : '';
-        const queue = await kv.get<QueueEntry[]>(QUEUE_KEY) ?? [];
+        const [storedQueue, gate, season] = await Promise.all([
+            kv.get<QueueEntry[]>(QUEUE_KEY),
+            readPetRankedSeasonGateFresh(kv),
+            kv.get<{ id?: unknown }>(CURRENT_SEASON_KEY),
+        ]);
+        const queue = storedQueue ?? [];
         const now = Date.now();
         const active = queue.filter(e => queueEntryIsActive(e, now));
         const inQueue = active.some(e => e.name === name);
         res.setHeader('Cache-Control', 'no-store');
-        const enabled = playerRankedV2AdmissionsEnabled();
+        const enabled = !!gate
+            && gate.state === 'open'
+            && gate.seasonId === Number(season?.id)
+            && !(await rankedSeasonAdmissionsPaused(kv, gate.seasonId));
         return res.status(200).json({ enabled, inQueue: enabled && inQueue, queueSize: enabled ? active.length : 0 });
     }
 
@@ -132,11 +140,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(400).json({ error: 'Unknown ranked queue action.' });
             }
             if (action !== 'leave') {
-                // The kill switch/default-off gate prevents every new admission
-                // write, but must not strand already-authoritative work. Help
-                // terminal sagas forward and retire expired queued/unjoined
-                // capabilities before returning disabled; this never adds to
-                // the queue, consumes a rate-limit slot, or mints a token.
+                // While an admin stop pauses new entries, do not strand
+                // already-authoritative work. Help terminal sagas forward and
+                // retire expired queued/unjoined capabilities before returning
+                // disabled; this never adds to the queue or mints a token.
                 await recoverCompletedPlayerRankedFinalizations(
                     kv,
                     (saveKey, action) => withKvLock(saveKey, action, { failClosed: true }),
@@ -156,7 +163,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     await recordCancelledPlayerRankedAdmission(kv, admission, { reason: 'orphan-session-missing' });
                 }
             }
-            if (action !== 'leave' && !playerRankedV2AdmissionsEnabled()) {
+            const currentSeason = await kv.get<{ id?: unknown }>(CURRENT_SEASON_KEY);
+            if (action !== 'leave' && await rankedSeasonAdmissionsPaused(kv, Number(currentSeason?.id))) {
                 return res.status(503).json({ enabled: false, error: PLAYER_RANKED_V2_DISABLED_MESSAGE });
             }
             if (!identity.admin && !(await enforceRateLimitKv(req, res, 'ranked-queue', 60, 60_000, identity.name))) return;
@@ -352,11 +360,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return { status: 400, body: { error: 'Invalid action.' } };
             }, { failClosed: true });
             return res.status(out.status).json({
-                enabled: playerRankedV2AdmissionsEnabled(),
+                enabled: true,
                 ...out.body,
             });
         } catch (err) {
             console.error('[pvp/ranked-queue]', safeLogValue(err));
+            if (err instanceof Error && err.message.includes('ranked-season-admission-paused')) {
+                return res.status(503).json({ enabled: false, error: PLAYER_RANKED_V2_DISABLED_MESSAGE });
+            }
             if (err instanceof Error && err.message.includes('ranked-season-admission-closed')) {
                 return res.status(409).json({ error: 'The ranked season is closing; wait for the next season.' });
             }
