@@ -534,6 +534,31 @@ function storedSession(battleId: string): PvpSession {
     return clone(found) as PvpSession;
 }
 
+test('a lethal hit terminalizes the persisted PvP session before Absorb can revive the defender', async () => {
+    const battleId = 'lethal-absorb-terminal';
+    seed(session(battleId, {
+        p2: fighter('bob', 1, {
+            hp: 1,
+            statuses: [{ name: 'Absorb', rounds: 2, percent: 60, kind: 'positive' }],
+        }),
+    }));
+
+    const out = await postMove('alice', {
+        battleId,
+        role: 'p1',
+        action: 'jutsu',
+        jutsuId: blast.id,
+        moveToken: 'lethal-absorb-terminal-token',
+    });
+
+    assert.equal(out.statusCode, 200);
+    const terminal = storedSession(battleId);
+    assert.equal(terminal.p2.hp, 0, 'the defender remains at zero HP');
+    assert.equal(terminal.status, 'done', 'the terminal session is persisted in the same move');
+    assert.equal(terminal.winner, 'p1');
+    assert.equal(terminal.log.some((line) => line.startsWith('bob absorbs ')), false, 'no post-death absorb heal is recorded');
+});
+
 test('Cleanse preserves deferred Stun, Wound, Drain, and prevention in both round phases', async () => {
     const phases = [
         { role: 'p1' as const, player: 'alice', label: 'opener' },

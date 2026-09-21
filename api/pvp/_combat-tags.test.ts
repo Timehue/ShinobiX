@@ -56,6 +56,47 @@ describe('prevent tags only block at their intended timing', () => {
         const activePrevent: PvpStatus = { name: 'Debuff Prevent', rounds: 2, kind: 'positive' };
         const blocked = applyJutsu(fighter('A'), fighter('B', 1000, [activePrevent]), jutsu([{ name: 'Stun' }]), 1, 'central', 2);
         assert.ok(!blocked.opponent.statuses.some(s => s.name === 'Stun'), 'Stun is blocked by the active Debuff Prevent');
+        assert.ok(blocked.lines.includes('Debuff Prevent: B blocks Stun.'), 'the battle log identifies the block');
+    });
+
+    it('logs every normal debuff blocked by Debuff Prevent', () => {
+        const blockedEffects = [
+            'Stun', 'Poison', 'Drain', 'Decrease Damage Given', 'Increase Damage Taken',
+            'Ignition', 'Buff Prevent', 'Cleanse Prevent', 'Lag', 'Push', 'Pull',
+            'Bloodline Seal', 'Elemental Seal', 'Recoil', 'Wound',
+        ];
+        const result = applyJutsu(
+            fighter('A'),
+            fighter('B', 1000, [{ name: 'Debuff Prevent', rounds: 2, kind: 'positive' }]),
+            jutsu(blockedEffects.map(name => ({ name, percent: 30 }))),
+            1,
+            'central',
+            1,
+        );
+
+        for (const effect of blockedEffects) {
+            assert.ok(result.lines.includes(`Debuff Prevent: B blocks ${effect}.`), `${effect} writes a clear block message`);
+        }
+    });
+
+    it('logs every normal buff blocked by Buff Prevent', () => {
+        const blockedEffects = [
+            'Absorb', 'Reflect', 'Lifesteal', 'Increase Damage Given',
+            'Decrease Damage Taken', 'Clear Prevent', 'Overclock', 'Increase Heal',
+            'Increase Generals', 'Increase Discipline',
+        ];
+        const result = applyJutsu(
+            fighter('A', 1000, [{ name: 'Buff Prevent', rounds: 2, kind: 'negative' }]),
+            fighter('B'),
+            jutsu(blockedEffects.map(name => ({ name, percent: 30 }))),
+            1,
+            'central',
+            1,
+        );
+
+        for (const effect of blockedEffects) {
+            assert.ok(result.lines.includes(`Buff Prevent: A blocks ${effect}.`), `${effect} writes a clear block message`);
+        }
     });
 });
 
@@ -75,6 +116,27 @@ describe('Pierce bypasses shield, reflect, and absorb', () => {
         assert.ok(r.opponent.hp <= 1000, 'no absorb heal on a pierce hit');
         const expected = 1000 - (1000 - r.opponent.hp);
         assert.equal(r.opponent.hp, expected); // tautology guard: HP is deterministic
+    });
+});
+
+describe('lethal hits resolve before absorb heals', () => {
+    it('does not let an active Absorb status revive a fighter at zero HP', () => {
+        const defender = fighter('B', 1, [{ name: 'Absorb', rounds: 2, percent: 60, kind: 'positive' }]);
+        const result = applyJutsu(fighter('A'), defender, jutsu([]), 1, 'central', 1);
+
+        assert.equal(result.opponent.hp, 0, 'a lethal hit must leave the defender defeated');
+        assert.equal(result.lines.some(line => line.startsWith('B absorbs ')), false, 'Absorb must not heal after a lethal hit');
+        assert.equal(result.fx.some(event => event.who === 'opp' && event.kind === 'heal'), false, 'the client must not animate a post-death absorb heal');
+    });
+
+    it('does not let item absorb revive a fighter at zero HP', () => {
+        const defender = fighter('B', 1);
+        defender.character.itemAbsorbPct = 60;
+        const result = applyJutsu(fighter('A'), defender, jutsu([]), 1, 'central', 1);
+
+        assert.equal(result.opponent.hp, 0, 'a lethal hit must also bypass the item absorb heal');
+        assert.equal(result.lines.some(line => line.includes("B's armor absorbs")), false, 'item absorb must not log a post-death heal');
+        assert.equal(result.fx.some(event => event.who === 'opp' && event.kind === 'heal'), false, 'item absorb must not animate a post-death heal');
     });
 });
 

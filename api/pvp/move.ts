@@ -702,6 +702,19 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
     let healing = 0;
     let shieldGain = 0;
     let pierce = false;
+    // Prevention must be observable. The status checks used to silently skip
+    // their payloads, leaving players unable to distinguish a blocked effect
+    // from a resolver failure or an expired status.
+    const blocksDebuff = (target: PvpFighter, effect: string): boolean => {
+        if (!hasStatus(target, 'Debuff Prevent', round)) return false;
+        lines.push(`Debuff Prevent: ${target.name} blocks ${effect}.`);
+        return true;
+    };
+    const blocksBuff = (target: PvpFighter, effect: string): boolean => {
+        if (!hasStatus(target, 'Buff Prevent', round)) return false;
+        lines.push(`Buff Prevent: ${target.name} blocks ${effect}.`);
+        return true;
+    };
     // Flat Heal/Shield ramp by the same mastery fraction as damage, hard-capped at
     // the FLAT ceiling — maxed casts stay exactly HEAL_FLAT/SHIELD_FLAT, low-mastery
     // ones heal/shield proportionally less (curbs early heal-spam). See masteryDamageFrac.
@@ -765,32 +778,38 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
         // sanitizePvpItems strips it from weapon tags at the seal (the real gate).
         if (tagName === 'Barrier') { const tile = nextStepToward(s.pos, o.pos); if (tile !== s.pos && tile !== o.pos) { s = addJutsuStatus(s, jutsu, { name: 'Barrier', rounds: 2, amount: tile, kind: 'positive' }, round); lines.push(`Barrier: ${s.name} blocks hex ${tile} for 2 turns.`); } else lines.push(`Barrier: no room to place a wall.`); damage = 0; continue; }
         if (tagName === 'Pierce') { pierce = true; lines.push(`Pierce: bypasses defenses.`); continue; }
-        if (tagName === 'Stun') { if (!hasStatus(o, 'Debuff Prevent', round) && !hasStatus(o, 'Stun Prevent', round)) { o = addJutsuStatus(o, jutsu, { name: 'Stun', rounds: 1, kind: 'negative' }, round); lines.push(`Stun: ${o.name} loses 40 AP next turn.`); } continue; }
+        if (tagName === 'Stun') {
+            if (blocksDebuff(o, 'Stun')) continue;
+            if (hasStatus(o, 'Stun Prevent', round)) { lines.push(`Stun Prevent: ${o.name} blocks Stun.`); continue; }
+            o = addJutsuStatus(o, jutsu, { name: 'Stun', rounds: 1, kind: 'negative' }, round);
+            lines.push(`Stun: ${o.name} loses 40 AP next turn.`);
+            continue;
+        }
         // Poison skips the generic `pct`: its percent is not on the amp scale, so it
         // takes its own rank ceiling (weapons answer to the A/B one) and ramp.
-        if (tagName === 'Poison') { if (!hasStatus(o, 'Debuff Prevent', round)) { const poisonPct = poisonPercentForTag(tag.percent, tagPercentMastery, jutsu, weaponSwing ? WEAPON_POISON_TAG_CAP : undefined); o = addJutsuStatus(o, jutsu, { name: 'Poison', rounds: 2, percent: poisonPct, kind: 'negative' }, round); if (COMBAT_RESOURCES_V2) { lines.push(`Poison: ${o.name} is poisoned for 2 turns — casting jutsu will hurt.`); } else { const dmg = Math.floor(o.maxChakra * (poisonPct / 100)); lines.push(`Poison: ${o.name} takes ~${dmg}/round for 2 turns.`); } } continue; }
+        if (tagName === 'Poison') { if (!blocksDebuff(o, 'Poison')) { const poisonPct = poisonPercentForTag(tag.percent, tagPercentMastery, jutsu, weaponSwing ? WEAPON_POISON_TAG_CAP : undefined); o = addJutsuStatus(o, jutsu, { name: 'Poison', rounds: 2, percent: poisonPct, kind: 'negative' }, round); if (COMBAT_RESOURCES_V2) { lines.push(`Poison: ${o.name} is poisoned for 2 turns — casting jutsu will hurt.`); } else { const dmg = Math.floor(o.maxChakra * (poisonPct / 100)); lines.push(`Poison: ${o.name} takes ~${dmg}/round for 2 turns.`); } } continue; }
         if (tagName === 'Drain') {
             // v4.3: Drain is single-stack (addStatus replaces on re-apply) and scales with attacker mastery.
             // Tick = clamp(50 + masteryLevel × 5, 50, 300). At mastery 50: 300/tick.
-            if (!hasStatus(o, 'Debuff Prevent', round)) {
+            if (!blocksDebuff(o, 'Drain')) {
                 const drainTickAmount = drainTick(masteryLevel);
                 o = addJutsuStatus(o, jutsu, { name: 'Drain', rounds: 2, amount: drainTickAmount, kind: 'negative' }, round);
                 lines.push(`Drain: ${o.name} loses ${drainTickAmount} HP+chakra/turn for 2 turns.`);
             }
             continue;
         }
-        if (tagName === 'Absorb') { if (!hasStatus(s, 'Buff Prevent', round)) { s = addJutsuStatus(s, jutsu, { name: 'Absorb', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Absorb: ${s.name} converts ${pct}% incoming damage for 2 turns.`); } continue; }
-        if (tagName === 'Reflect') { if (!hasStatus(s, 'Buff Prevent', round)) { s = addJutsuStatus(s, jutsu, { name: 'Reflect', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Reflect: ${s.name} reflects ${pct}% damage for 2 turns.`); } continue; }
-        if (tagName === 'Lifesteal') { if (!hasStatus(s, 'Buff Prevent', round)) { s = addJutsuStatus(s, jutsu, { name: 'Lifesteal', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Lifesteal: ${s.name} heals on hit for 2 turns.`); } continue; }
-        if (tagName === 'Increase Damage Given') { if (!hasStatus(s, 'Buff Prevent', round)) { s = addJutsuStatus(s, jutsu, { name: 'Increase Damage Given', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`+${pct}% Damage Given${stackLabel}: ${s.name} for 2 turns.`); } continue; }
-        if (tagName === 'Decrease Damage Given') { if (!hasStatus(o, 'Debuff Prevent', round)) { o = addJutsuStatus(o, jutsu, { name: 'Decrease Damage Given', rounds: 2, percent: pct, kind: 'negative' }, round); lines.push(`-${pct}% Damage Given: ${o.name} for 2 turns.`); } continue; }
-        if (tagName === 'Increase Damage Taken') { if (!hasStatus(o, 'Debuff Prevent', round)) { o = addJutsuStatus(o, jutsu, { name: 'Increase Damage Taken', rounds: 2, percent: pct, kind: 'negative' }, round); lines.push(`+${pct}% Damage Taken: ${o.name} for 2 turns.`); } continue; }
-        if (tagName === 'Decrease Damage Taken') { if (!hasStatus(s, 'Buff Prevent', round)) { s = addJutsuStatus(s, jutsu, { name: 'Decrease Damage Taken', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`-${pct}% Damage Taken: ${s.name} for 2 turns.`); } continue; }
-        if (tagName === 'Ignition') { if (!hasStatus(o, 'Debuff Prevent', round)) { o = addJutsuStatus(o, jutsu, { name: 'Ignition', rounds: 2, percent: pct, kind: 'negative' }, round); lines.push(`Ignition: ${o.name} +${pct}% damage taken for 2 turns.`); } continue; }
+        if (tagName === 'Absorb') { if (!blocksBuff(s, 'Absorb')) { s = addJutsuStatus(s, jutsu, { name: 'Absorb', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Absorb: ${s.name} converts ${pct}% incoming damage for 2 turns.`); } continue; }
+        if (tagName === 'Reflect') { if (!blocksBuff(s, 'Reflect')) { s = addJutsuStatus(s, jutsu, { name: 'Reflect', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Reflect: ${s.name} reflects ${pct}% damage for 2 turns.`); } continue; }
+        if (tagName === 'Lifesteal') { if (!blocksBuff(s, 'Lifesteal')) { s = addJutsuStatus(s, jutsu, { name: 'Lifesteal', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Lifesteal: ${s.name} heals on hit for 2 turns.`); } continue; }
+        if (tagName === 'Increase Damage Given') { if (!blocksBuff(s, 'Increase Damage Given')) { s = addJutsuStatus(s, jutsu, { name: 'Increase Damage Given', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`+${pct}% Damage Given${stackLabel}: ${s.name} for 2 turns.`); } continue; }
+        if (tagName === 'Decrease Damage Given') { if (!blocksDebuff(o, 'Decrease Damage Given')) { o = addJutsuStatus(o, jutsu, { name: 'Decrease Damage Given', rounds: 2, percent: pct, kind: 'negative' }, round); lines.push(`-${pct}% Damage Given: ${o.name} for 2 turns.`); } continue; }
+        if (tagName === 'Increase Damage Taken') { if (!blocksDebuff(o, 'Increase Damage Taken')) { o = addJutsuStatus(o, jutsu, { name: 'Increase Damage Taken', rounds: 2, percent: pct, kind: 'negative' }, round); lines.push(`+${pct}% Damage Taken: ${o.name} for 2 turns.`); } continue; }
+        if (tagName === 'Decrease Damage Taken') { if (!blocksBuff(s, 'Decrease Damage Taken')) { s = addJutsuStatus(s, jutsu, { name: 'Decrease Damage Taken', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`-${pct}% Damage Taken: ${s.name} for 2 turns.`); } continue; }
+        if (tagName === 'Ignition') { if (!blocksDebuff(o, 'Ignition')) { o = addJutsuStatus(o, jutsu, { name: 'Ignition', rounds: 2, percent: pct, kind: 'negative' }, round); lines.push(`Ignition: ${o.name} +${pct}% damage taken for 2 turns.`); } continue; }
         if (tagName === 'Debuff Prevent') { s = addJutsuStatus(s, jutsu, { name: 'Debuff Prevent', rounds: 2, kind: 'positive' }, round); lines.push(`Debuff Prevent: ${s.name} for 2 turns.`); continue; }
-        if (tagName === 'Buff Prevent') { if (!hasStatus(o, 'Debuff Prevent', round)) { o = addJutsuStatus(o, jutsu, { name: 'Buff Prevent', rounds: 2, kind: 'negative' }, round); lines.push(`Buff Prevent: ${o.name} cannot gain positive effects for 2 turns.`); } continue; }
-        if (tagName === 'Cleanse Prevent') { if (!hasStatus(o, 'Debuff Prevent', round)) { o = addJutsuStatus(o, jutsu, { name: 'Cleanse Prevent', rounds: 2, kind: 'negative' }, round); lines.push(`Cleanse Prevent: ${o.name} cannot cleanse debuffs for 2 turns.`); } continue; }
-        if (tagName === 'Clear Prevent') { if (!hasStatus(s, 'Buff Prevent', round)) { s = addJutsuStatus(s, jutsu, { name: 'Clear Prevent', rounds: 2, kind: 'positive' }, round); lines.push(`Clear Prevent: ${s.name}'s buffs cannot be cleared for 2 turns.`); } continue; }
+        if (tagName === 'Buff Prevent') { if (!blocksDebuff(o, 'Buff Prevent')) { o = addJutsuStatus(o, jutsu, { name: 'Buff Prevent', rounds: 2, kind: 'negative' }, round); lines.push(`Buff Prevent: ${o.name} cannot gain positive effects for 2 turns.`); } continue; }
+        if (tagName === 'Cleanse Prevent') { if (!blocksDebuff(o, 'Cleanse Prevent')) { o = addJutsuStatus(o, jutsu, { name: 'Cleanse Prevent', rounds: 2, kind: 'negative' }, round); lines.push(`Cleanse Prevent: ${o.name} cannot cleanse debuffs for 2 turns.`); } continue; }
+        if (tagName === 'Clear Prevent') { if (!blocksBuff(s, 'Clear Prevent')) { s = addJutsuStatus(s, jutsu, { name: 'Clear Prevent', rounds: 2, kind: 'positive' }, round); lines.push(`Clear Prevent: ${s.name}'s buffs cannot be cleared for 2 turns.`); } continue; }
         if (tagName === 'Stun Prevent') { s = addJutsuStatus(s, jutsu, { name: 'Stun Prevent', rounds: 2, kind: 'positive' }, round); lines.push(`Stun Prevent: ${s.name} is immune to Stun for 2 turns.`); continue; }
         if (tagName === 'Copy') {
             if (!hasStatus(s, 'Buff Prevent', round)) {
@@ -825,15 +844,15 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
         // Lag / Overclock: a FLAT ±TEMPO_AP_SWING on every action the affected
         // fighter takes next round (see combat-core/resources.ts). The percent is
         // still stored so the status shape stays uniform, but nothing reads it.
-        if (tagName === 'Lag') { if (!hasStatus(o, 'Debuff Prevent', round)) { o = addJutsuStatus(o, jutsu, { name: 'Lag', rounds: 1, percent: pct || 20, kind: 'negative' }, round); lines.push(`Lag: each of ${o.name}'s actions costs ${TEMPO_AP_SWING} more AP next round.`); } continue; }
-        if (tagName === 'Overclock') { if (!hasStatus(s, 'Buff Prevent', round)) { s = addJutsuStatus(s, jutsu, { name: 'Overclock', rounds: 1, percent: pct || 20, kind: 'positive' }, round); lines.push(`Overclock: each of ${s.name}'s actions costs ${TEMPO_AP_SWING} less AP next round.`); } continue; }
-        if (tagName === 'Increase Heal') { if (!hasStatus(s, 'Buff Prevent', round)) { s = addJutsuStatus(s, jutsu, { name: 'Increase Heal', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Increase Heal: ${s.name}'s healing is increased by ${pct}% for 2 turns.`); } continue; }
+        if (tagName === 'Lag') { if (!blocksDebuff(o, 'Lag')) { o = addJutsuStatus(o, jutsu, { name: 'Lag', rounds: 1, percent: pct || 20, kind: 'negative' }, round); lines.push(`Lag: each of ${o.name}'s actions costs ${TEMPO_AP_SWING} more AP next round.`); } continue; }
+        if (tagName === 'Overclock') { if (!blocksBuff(s, 'Overclock')) { s = addJutsuStatus(s, jutsu, { name: 'Overclock', rounds: 1, percent: pct || 20, kind: 'positive' }, round); lines.push(`Overclock: each of ${s.name}'s actions costs ${TEMPO_AP_SWING} less AP next round.`); } continue; }
+        if (tagName === 'Increase Heal') { if (!blocksBuff(s, 'Increase Heal')) { s = addJutsuStatus(s, jutsu, { name: 'Increase Heal', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Increase Heal: ${s.name}'s healing is increased by ${pct}% for 2 turns.`); } continue; }
         // Increase Generals: self-buff to str/spd/int/wil for 2 turns. The stat lift is
         // read from active stacks in generalsBonus (pooled + Seal-gated) when the capped
         // fighters are built, so it raises this fighter's offense AND defense. Stores the
         // scaled + rank-capped pct like the amp tags; stacks (STACKABLE_STATUS) but the
         // summed effect is soft-capped by K_GENERALS.
-        if (tagName === 'Increase Generals') { if (!hasStatus(s, 'Buff Prevent', round)) { s = addJutsuStatus(s, jutsu, { name: 'Increase Generals', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Increase Generals: ${s.name} gains ${pct}% general-stat potency for 2 turns.`); } continue; }
+        if (tagName === 'Increase Generals') { if (!blocksBuff(s, 'Increase Generals')) { s = addJutsuStatus(s, jutsu, { name: 'Increase Generals', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Increase Generals: ${s.name} gains ${pct}% general-stat potency for 2 turns.`); } continue; }
         // Increase Discipline (legacy signature jutsu): style-locked self-buff. Lifts
         // ONLY the offense composite of the cast jutsu's discipline — the discipline is
         // captured server-side from jutsu.type here (never client-supplied) and read
@@ -841,7 +860,7 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
         // typeless/'Any' cast so it can't ride the 40-AP utility convention.
         if (tagName === 'Increase Discipline') {
             const disc = DISCIPLINE_OFFENSE_FIELD[String(jutsu.type ?? '')] ? (jutsu.type as PvpStatus['discipline']) : undefined;
-            if (disc && !hasStatus(s, 'Buff Prevent', round)) {
+            if (disc && !blocksBuff(s, 'Increase Discipline')) {
                 s = addJutsuStatus(s, jutsu, { name: 'Increase Discipline', rounds: 2, percent: pct, kind: 'positive', discipline: disc }, round);
                 lines.push(`Increase Discipline: ${s.name} gains ${pct}% ${disc} offense potency for 2 turns.`);
             }
@@ -849,10 +868,10 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
         }
         // Push/Pull resolve INSTANTLY (matches PvE) — was deferred to next round
         // for non-ground jutsus. Displacement happens on cast.
-        if (tagName === 'Push') { if (!hasStatus(o, 'Debuff Prevent', round)) { const dist = Math.max(1, Number(jutsu.range) || 1); let nextPos = o.pos; let movedTiles = 0; for (let step = 0; step < dist; step++) { const away = hexNeighbors(nextPos).filter(t => distance(t, s.pos) > distance(nextPos, s.pos) && t !== s.pos && !tileBlocked(t, round, s, o)); if (!away.length) break; nextPos = away[0]!; movedTiles += 1; } o = { ...o, pos: nextPos }; lines.push(`Push: ${o.name} is pushed ${movedTiles} tile(s).`); } continue; }
-        if (tagName === 'Pull') { if (!hasStatus(o, 'Debuff Prevent', round)) { const dist = Math.max(1, Number(jutsu.range) || 1); let nextPos = o.pos; let movedTiles = 0; for (let step = 0; step < dist; step++) { const toward = hexNeighbors(nextPos).filter(t => distance(t, s.pos) < distance(nextPos, s.pos) && t !== s.pos && !tileBlocked(t, round, s, o)); if (!toward.length) break; nextPos = toward[0]!; movedTiles += 1; } o = { ...o, pos: nextPos }; lines.push(`Pull: ${o.name} is pulled ${movedTiles} tile(s).`); } continue; }
-        if (tagName === 'Bloodline Seal') { if (!hasStatus(o, 'Debuff Prevent', round)) { o = addJutsuStatus(o, jutsu, { name: 'Bloodline Seal', rounds: 2, kind: 'negative' }, round); lines.push(`Bloodline Seal: ${o.name}'s bloodline is sealed.`); } continue; }
-        if (tagName === 'Elemental Seal') { if (!hasStatus(o, 'Debuff Prevent', round)) { o = addJutsuStatus(o, jutsu, { name: 'Elemental Seal', rounds: 1, kind: 'negative' }, round); lines.push(`Elemental Seal: ${o.name}'s elemental jutsu are sealed.`); } continue; }
+        if (tagName === 'Push') { if (!blocksDebuff(o, 'Push')) { const dist = Math.max(1, Number(jutsu.range) || 1); let nextPos = o.pos; let movedTiles = 0; for (let step = 0; step < dist; step++) { const away = hexNeighbors(nextPos).filter(t => distance(t, s.pos) > distance(nextPos, s.pos) && t !== s.pos && !tileBlocked(t, round, s, o)); if (!away.length) break; nextPos = away[0]!; movedTiles += 1; } o = { ...o, pos: nextPos }; lines.push(`Push: ${o.name} is pushed ${movedTiles} tile(s).`); } continue; }
+        if (tagName === 'Pull') { if (!blocksDebuff(o, 'Pull')) { const dist = Math.max(1, Number(jutsu.range) || 1); let nextPos = o.pos; let movedTiles = 0; for (let step = 0; step < dist; step++) { const toward = hexNeighbors(nextPos).filter(t => distance(t, s.pos) < distance(nextPos, s.pos) && t !== s.pos && !tileBlocked(t, round, s, o)); if (!toward.length) break; nextPos = toward[0]!; movedTiles += 1; } o = { ...o, pos: nextPos }; lines.push(`Pull: ${o.name} is pulled ${movedTiles} tile(s).`); } continue; }
+        if (tagName === 'Bloodline Seal') { if (!blocksDebuff(o, 'Bloodline Seal')) { o = addJutsuStatus(o, jutsu, { name: 'Bloodline Seal', rounds: 2, kind: 'negative' }, round); lines.push(`Bloodline Seal: ${o.name}'s bloodline is sealed.`); } continue; }
+        if (tagName === 'Elemental Seal') { if (!blocksDebuff(o, 'Elemental Seal')) { o = addJutsuStatus(o, jutsu, { name: 'Elemental Seal', rounds: 1, kind: 'negative' }, round); lines.push(`Elemental Seal: ${o.name}'s elemental jutsu are sealed.`); } continue; }
         // Recoil applies regardless of THIS jutsu's damage — a zero-damage 40-AP
         // utility jutsu carrying Recoil still seeds it (matches the client/PvE).
         // The self-damage from HAVING Recoil resolves in the post-damage phase
@@ -860,7 +879,7 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
         // every other CAPPED_AMP_TAGS tag — and like the PvE engine's
         // effectiveTagPercent (Arena.tsx) — so the tooltip, PvE and PvP all agree.
         // (Was raw/un-scaled, which made PvP Recoil disagree with both.)
-        if (tagName === 'Recoil') { if (!hasStatus(o, 'Debuff Prevent', round)) { o = addJutsuStatus(o, jutsu, { name: 'Recoil', rounds: 2, percent: pct, kind: 'negative' }, round); lines.push(`Recoil: ${o.name} will suffer ${pct}% recoil on their attacks for 2 turns.`); } continue; }
+        if (tagName === 'Recoil') { if (!blocksDebuff(o, 'Recoil')) { o = addJutsuStatus(o, jutsu, { name: 'Recoil', rounds: 2, percent: pct, kind: 'negative' }, round); lines.push(`Recoil: ${o.name} will suffer ${pct}% recoil on their attacks for 2 turns.`); } continue; }
     }
 
     return { s, o, lines, damage, healing, shieldGain, pierce };
@@ -933,12 +952,15 @@ function resolvePostDamage(sIn: PvpFighter, oIn: PvpFighter, jutsu: Jutsu, round
     // blocked=0 and bypasses the pool entirely; subtracting raw damage here made
     // true damage also erase the shield it was supposed to ignore.
     o = { ...o, hp: Math.max(0, o.hp - finalDmg), shield: Math.max(0, o.shield - blocked) };
-    if (absorbHeal > 0) o = { ...o, hp: Math.min(o.maxHp, o.hp + absorbHeal) };
-    if (itemAbsorbHeal > 0) o = { ...o, hp: Math.min(o.maxHp, o.hp + itemAbsorbHeal) };
+    // A lethal hit ends the defender's participation immediately. Absorb is a
+    // reactive heal, not a death-prevention effect, so it must not bring a
+    // fighter back after their HP has reached zero.
+    if (o.hp > 0 && absorbHeal > 0) o = { ...o, hp: Math.min(o.maxHp, o.hp + absorbHeal) };
+    if (o.hp > 0 && itemAbsorbHeal > 0) o = { ...o, hp: Math.min(o.maxHp, o.hp + itemAbsorbHeal) };
     if (blocked > 0) lines.push(`${blocked} absorbed by ${o.name}'s shield.`);
     if (finalDmg > 0) { lines.push(`${finalDmg} damage to ${o.name}.`); pushFx(fx, 'opp', finalDmg, 'damage'); }
-    if (absorbHeal > 0) { lines.push(`${o.name} absorbs ${absorbHeal} HP.`); pushFx(fx, 'opp', absorbHeal, 'heal'); }
-    if (itemAbsorbHeal > 0) { lines.push(`${o.name}'s armor absorbs ${itemAbsorbHeal} HP.`); pushFx(fx, 'opp', itemAbsorbHeal, 'heal'); }
+    if (o.hp > 0 && absorbHeal > 0) { lines.push(`${o.name} absorbs ${absorbHeal} HP.`); pushFx(fx, 'opp', absorbHeal, 'heal'); }
+    if (o.hp > 0 && itemAbsorbHeal > 0) { lines.push(`${o.name}'s armor absorbs ${itemAbsorbHeal} HP.`); pushFx(fx, 'opp', itemAbsorbHeal, 'heal'); }
     if (reflectedDmg > 0) { s = { ...s, hp: Math.max(0, s.hp - reflectedDmg) }; lines.push(`${s.name} takes ${reflectedDmg} reflected damage.`); pushFx(fx, 'self', reflectedDmg, 'damage'); }
     if (itemReflectedDmg > 0) { s = { ...s, hp: Math.max(0, s.hp - itemReflectedDmg) }; lines.push(`${s.name} takes ${itemReflectedDmg} damage reflected by ${o.name}'s armor.`); pushFx(fx, 'self', itemReflectedDmg, 'damage'); }
     if (itemLifeStealHeal > 0) { s = { ...s, hp: Math.min(s.maxHp, s.hp + itemLifeStealHeal) }; lines.push(`${s.name}'s armor steals ${itemLifeStealHeal} HP.`); pushFx(fx, 'self', itemLifeStealHeal, 'heal'); }
@@ -957,12 +979,16 @@ function resolvePostDamage(sIn: PvpFighter, oIn: PvpFighter, jutsu: Jutsu, round
             jutsu.bloodlineRank,
             weaponSwing ? WEAPON_AMP_TAG_CAP : undefined,
         ));
-        if (tagName === 'Wound' && pct > 0 && finalDmg > 0 && !hasStatus(o, 'Debuff Prevent', round)) {
-            // v4.3: Wound bleeds finalDmg × min(tag.pct, rank_cap, 60%) per tick.
-            // Basic jutsus cap at 25%, A/B-rank bloodline at 30%, S-rank at 35%.
-            const amt = woundAmountForFinalDamage(finalDmg, pct, jutsu);
-            o = capWoundStacks(addJutsuStatus(o, jutsu, { name: 'Wound', rounds: 2, amount: amt, kind: 'negative' }, round), round);
-            lines.push(`Wound: ${o.name} bleeds ${amt}/turn for 2 turns.`);
+        if (tagName === 'Wound' && pct > 0 && finalDmg > 0) {
+            if (hasStatus(o, 'Debuff Prevent', round)) {
+                lines.push(`Debuff Prevent: ${o.name} blocks Wound.`);
+            } else {
+                // v4.3: Wound bleeds finalDmg × min(tag.pct, rank_cap, 60%) per tick.
+                // Basic jutsus cap at 25%, A/B-rank bloodline at 30%, S-rank at 35%.
+                const amt = woundAmountForFinalDamage(finalDmg, pct, jutsu);
+                o = capWoundStacks(addJutsuStatus(o, jutsu, { name: 'Wound', rounds: 2, amount: amt, kind: 'negative' }, round), round);
+                lines.push(`Wound: ${o.name} bleeds ${amt}/turn for 2 turns.`);
+            }
         }
         // Recoil debuff application happens in the status phase so it applies even
         // on zero-damage utility jutsu. (Self-recoil damage is resolved below,
