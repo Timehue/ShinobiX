@@ -83,11 +83,13 @@ async function seededStore() {
 }
 
 describe('ranked season transition durability', () => {
-    it('excludes temporary health-probe rows from the ranked snapshot', async () => {
+    it('excludes temporary and clan records from the ranked snapshot', async () => {
         const store = await seededStore();
         await store.set('save:health-probe-1-1784020032064', { probe: 'temporary' });
+        await store.set('save:clan-jilin', { name: 'Jilin', members: [], treasury: { ryo: 0 } });
 
         assert.equal(isRankedSeasonPlayerSaveKey('save:health-probe-1-1784020032064'), false);
+        assert.equal(isRankedSeasonPlayerSaveKey('save:clan-jilin'), false);
         const rolled = await runRankedSeasonRolloverWithStore(store, NOW + 1, { force: true, lock });
 
         assert.equal(rolled.ok, true, String(rolled.error ?? 'ranked rollover failed'));

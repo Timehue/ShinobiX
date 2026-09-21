@@ -80,15 +80,18 @@ const MAX_PARALLEL = 8;
 /**
  * Health checks briefly create `save:health-probe-*` rows to exercise the
  * same storage path as a real save.  They are deliberately not player saves
- * (their value is just `{ probe }`) and must never enter a season snapshot.
- * Keep the historical admin/Rill exclusions here too: those records have
- * never belonged to the competitive ladders.
+ * (their value is just `{ probe }`). Clan Hall also stores its shared clan
+ * records under `save:clan-*`; those contain a treasury and member roster, not
+ * a character or a ranked rating. Neither may enter a season snapshot. Keep
+ * the historical admin/Rill exclusions here too: those records have never
+ * belonged to the competitive ladders.
  */
 export function isRankedSeasonPlayerSaveKey(key: string): boolean {
     if (!key.startsWith(SAVE_PREFIX)) return false;
     const name = key.slice(SAVE_PREFIX.length);
     return name.length > 0
         && !name.startsWith('health-probe-')
+        && !name.startsWith('clan-')
         && !name.startsWith('Admin ')
         && name !== 'Rill';
 }
