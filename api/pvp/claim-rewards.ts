@@ -88,6 +88,14 @@ export { deductUsedItems } from './_consumable-settlement.js';
 
 const CLAIM_TTL_SECONDS = PVP_PENDING_SESSION_TTL_SECONDS;
 
+// A completed duel normally makes a claim and a completion ACK for each
+// participant. Recovery can legitimately repeat those idempotent requests, so
+// this needs considerably more headroom than a one-shot reward endpoint.
+// It is applied after authentication and keyed to the authenticated account;
+// otherwise every player behind a shared IP spends the same tiny quota.
+const PVP_REWARD_CLAIM_RATE_LIMIT = 120;
+const PVP_REWARD_CLAIM_RATE_WINDOW_MS = 60_000;
+
 function raidProgressionBody(result: CappedRaidProgressionResult | null) {
     if (!result) return undefined;
     return {
@@ -134,11 +142,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
 
-    // Tight rate-limit — a legit win path calls this once. Anything beyond
-    // a handful per minute is either a bug loop or someone hammering for
-    // a race-condition window.
-    if (!(await enforceRateLimitKv(req, res, 'pvp-claim-rewards', 30, 60_000))) return;
-
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const playerName = safeName(String(body?.playerName ?? ''));
@@ -158,6 +161,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only claim your own rewards.' });
         }
+
+        // Account-scoped after authentication. enforceRateLimitKv also applies
+        // its much higher IP backstop, preserving abuse protection without
+        // making players on a shared connection throttle one another.
+        const rateLimitIdentity = identity.admin ? playerName : identity.name;
+        if (!(await enforceRateLimitKv(
+            req,
+            res,
+            'pvp-claim-rewards',
+            PVP_REWARD_CLAIM_RATE_LIMIT,
+            PVP_REWARD_CLAIM_RATE_WINDOW_MS,
+            rateLimitIdentity,
+        ))) return;
 
         const key = claimKey(playerName, battleId);
         if (completionAck) {
