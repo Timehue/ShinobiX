@@ -13,6 +13,7 @@ const PLAYER = 'rankedweaponowner';
 let handler: Handler;
 let kv: typeof import('../_storage.js').kv;
 let issuePlayerToken: typeof import('../_auth.js').issuePlayerToken;
+let sanitizeCharacterSave: typeof import('../save/[name].js').sanitizeCharacterSave;
 let petMigrationVersion: number;
 let ipSeed = 0;
 
@@ -48,6 +49,7 @@ async function post(weaponId: unknown, as = PLAYER) {
 before(async () => {
     ({ kv } = await import('../_storage.js'));
     ({ issuePlayerToken } = await import('../_auth.js'));
+    ({ sanitizeCharacterSave } = await import('../save/[name].js'));
     ({ PET_BREEDING_MIGRATION_VERSION: petMigrationVersion } = await import('../pet/_owned-pet.js'));
     handler = (await import('./ranked-format-weapon.js')).default as unknown as Handler;
 });
@@ -91,5 +93,37 @@ describe('ranked format weapon preference', { concurrency: false }, () => {
         assert.equal(first.statusCode, 200);
         assert.equal(replay.statusCode, 200);
         assert.equal(replay.body?._saveVersion, first.body?._saveVersion);
+    });
+
+    it('keeps the preference server-owned across existing and first-save autosaves', () => {
+        const existing = {
+            character: {
+                name: PLAYER,
+                rankedFormatWeaponId: 'elderbranch-katana',
+            },
+        };
+        const forgedExisting = sanitizeCharacterSave({
+            character: {
+                name: PLAYER,
+                rankedFormatWeaponId: 'frostfang-oathblade',
+            },
+        }, existing);
+        assert.equal(
+            (forgedExisting.character as Json).rankedFormatWeaponId,
+            'elderbranch-katana',
+            'an ordinary autosave must preserve the authoritative stored choice',
+        );
+
+        const forgedFirstSave = sanitizeCharacterSave({
+            character: {
+                name: PLAYER,
+                rankedFormatWeaponId: 'elderbranch-katana',
+            },
+        }, null);
+        assert.equal(
+            (forgedFirstSave.character as Json).rankedFormatWeaponId,
+            undefined,
+            'a first save must not mint a ranked weapon preference',
+        );
     });
 });

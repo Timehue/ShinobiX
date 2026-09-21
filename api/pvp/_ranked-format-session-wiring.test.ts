@@ -40,4 +40,18 @@ describe('ranked format wiring', () => {
         const ranked2v2 = read('api/pvp/_ranked-2v2.ts');
         assert.match(ranked2v2, /loadTowerPvpFighter\(slug, \{ consumables: true, rankedFormat: true \}\)/);
     });
+
+    it('adopts the weapon endpoint response through the authoritative save-version path', () => {
+        const picker = read('shinobij.client/src/components/RankedFormatWeaponPicker.tsx');
+        assert.match(picker, /onVersionedCharacter\(data\.character, data\._saveVersion\)/);
+
+        const district = read('shinobij.client/src/features/arena/components/ArenaDistrictLobby.tsx');
+        assert.match(district, /<RankedFormatWeaponPicker character=\{character\} onVersionedCharacter=\{onVersionedCharacter\} \/>/);
+
+        const arena = read('shinobij.client/src/screens/Arena.tsx');
+        assert.match(arena, /<ArenaDistrictLobby[\s\S]{0,300}onVersionedCharacter=\{onVersionedCharacter\}/);
+
+        const app = read('shinobij.client/src/App.tsx');
+        assert.match(app, /<Arena[\s\S]{0,300}onVersionedCharacter=\{commitVersionedCharacter\}/);
+    });
 });

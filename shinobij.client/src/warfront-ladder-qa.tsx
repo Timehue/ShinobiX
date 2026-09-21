@@ -32,7 +32,7 @@ function WarfrontLadderQa() {
             <button onClick={() => rerender((value) => value + 1)}>Rerender QA account</button>
         </div>
         <output id="qa-pets" hidden>{JSON.stringify(pets)}</output>
-        {district ? <Suspense fallback={<p>Loading district fixture…</p>}><ArenaDistrictLobby character={account} activeTab="petBattles" hasAvailablePet availablePetCount={4}
+        {district ? <Suspense fallback={<p>Loading district fixture…</p>}><ArenaDistrictLobby character={account} onVersionedCharacter={() => false} activeTab="petBattles" hasAvailablePet availablePetCount={4}
             opponentClanData={null} clanWarOpponents={[]} incomingClanWarChallenges={[]} arenaTournament={null}
             tournamentRemaining={0} matchRemaining={0} isAdminTournamentManager={false} playerRankedEnabled={false}
             rankedQueueActive={false} rankedQueueSize={0} spectatorFights={[]} pendingSpectatorChallenges={[]}

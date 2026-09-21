@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Character } from "../types/character";
+import type { Character, VersionedCharacterCommit } from "../types/character";
 import { starterItems } from "../data/starter-items";
 
 /*
@@ -32,11 +32,16 @@ function isRankedFormatWeaponId(value: unknown): value is string {
     return typeof value === "string" && (RANKED_FORMAT_WEAPON_IDS as readonly string[]).includes(value);
 }
 
-export function RankedFormatWeaponPicker({ character }: { character: Character }) {
+export function RankedFormatWeaponPicker({
+    character,
+    onVersionedCharacter,
+}: {
+    character: Character;
+    onVersionedCharacter: VersionedCharacterCommit;
+}) {
     // The server (character.rankedFormatWeaponId) is the source of truth.
-    // Keep a successful local override because this server-side mutation does
-    // not replace the parent character snapshot in-place. A later account
-    // refresh supplies the same stored value; failures clear the override.
+    // `pending` supplies immediate feedback while the request is in flight;
+    // the versioned response then replaces the parent snapshot and clears it.
     const [pending, setPending] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -60,7 +65,14 @@ export function RankedFormatWeaponPicker({ character }: { character: Character }
             if (!response.ok || !data?.ok) {
                 setPending(null);
                 setError(typeof data?.error === "string" ? data.error : "Couldn't save your ranked weapon choice.");
+                return;
             }
+            if (!data.character || !onVersionedCharacter(data.character, data._saveVersion)) {
+                setPending(null);
+                setError("Your save changed while selecting a weapon. Refresh and try again.");
+                return;
+            }
+            setPending(null);
         } catch {
             setPending(null);
             setError("Couldn't reach the server. Try again.");
