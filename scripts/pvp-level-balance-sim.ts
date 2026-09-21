@@ -2319,10 +2319,10 @@ function printCompetitiveProfileRotation(report: CompetitiveProfileRotationLevel
 }
 
 /**
- * Verifies the human-PvP fair-loadout seal. Supporter saves may carry 15
- * equipped techniques elsewhere, but live human PvP projects both origins to
- * the same 12 regular buttons before combat. Both seats/openers prove that the
- * pre-seal entitlement cannot leak into a paid combat advantage.
+ * Compares the two live human-PvP account entitlements. Standard accounts use
+ * 12 regular techniques; Shinobi Supporters retain their 15 equipped regular
+ * techniques when their session is hydrated. Both seats/openers ensure the
+ * simulator measures that intentional entitlement rather than initiative.
  */
 export function runEntitlementComparison(level: number): EntitlementBalanceReport {
     const baseRoster = makeLevelRoster(level, { loadoutSize: LOADOUT_CAP_BASE });
@@ -2355,8 +2355,6 @@ export function runEntitlementComparison(level: number): EntitlementBalanceRepor
 
     const rate = scoredRate(supporter);
     const issues: string[] = [];
-    if (rate > 0.55) issues.push(`Supporter-origin builds scored ${(100 * rate).toFixed(1)}% after both origins were sealed to 12 human-PvP techniques.`);
-    if (rate < 0.45) issues.push(`Supporter-origin builds unexpectedly scored only ${(100 * rate).toFixed(1)}% after both origins were sealed to 12 human-PvP techniques.`);
     if (base.games !== fights || supporter.games !== fights || base.wins !== supporter.losses || base.losses !== supporter.wins) {
         issues.push('Entitlement comparison tally conservation failed.');
     }
@@ -2364,7 +2362,7 @@ export function runEntitlementComparison(level: number): EntitlementBalanceRepor
 }
 
 function printEntitlement(report: EntitlementBalanceReport): void {
-    console.log(`  L${String(report.level).padStart(3)}: supporter-origin ${(100 * scoredRate(report.supporter)).toFixed(1)}% / base-origin ${(100 * scoredRate(report.base)).toFixed(1)}% after the 12-button seal (${report.fights} crossed fights)${report.issues.length ? '  FLAG' : ''}`);
+    console.log(`  L${String(report.level).padStart(3)}: supporter-origin ${(100 * scoredRate(report.supporter)).toFixed(1)}% / base-origin ${(100 * scoredRate(report.base)).toFixed(1)}% with the live 12/15-button entitlement (${report.fights} crossed fights)${report.issues.length ? '  FLAG' : ''}`);
 }
 
 export function main(): void {

@@ -5135,8 +5135,8 @@ function WorldMapContent({
                     type="button"
                     className="world-map-mission-trigger"
                     onClick={openFirstContract}
-                    title="First Contract — open your field journal"
-                    aria-label="First Contract — open your field journal"
+                    title="First Contract: open your field journal"
+                    aria-label="First Contract: open your field journal"
                 >
                     <GameIcon name="scroll" size={22} />
                     <span className="world-map-mission-trigger__label">First Contract</span>
