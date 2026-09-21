@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { Character, VersionedCharacterCommit } from "../types/character";
 import { starterItems } from "../data/starter-items";
 
@@ -54,10 +54,11 @@ export function RankedFormatWeaponPicker({
     const confirmed = isRankedFormatWeaponId(character.rankedFormatWeaponId)
         ? character.rankedFormatWeaponId
         : DEFAULT_RANKED_FORMAT_WEAPON_ID;
-    useEffect(() => {
-        if (savedChoice && character.rankedFormatWeaponId === savedChoice) setSavedChoice(null);
-    }, [character.rankedFormatWeaponId, savedChoice]);
-    const selected = pending ?? savedChoice ?? confirmed;
+    // Once the parent snapshot reaches this choice, `confirmed` already owns
+    // the display. Keep the stale-race fallback out of the render without a
+    // synchronizing setState effect (which would cause a cascading render).
+    const pendingServerSync = savedChoice === character.rankedFormatWeaponId ? null : savedChoice;
+    const selected = pending ?? pendingServerSync ?? confirmed;
 
     async function choose(weaponId: string) {
         if (weaponId === selected || busy) return;
