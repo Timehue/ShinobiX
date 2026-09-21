@@ -75,6 +75,22 @@ export const SEASON_SETTLEMENT_RECEIPTS_FIELD = 'rankedSeasonSettlementReceipts'
 const MAX_SEASON_SETTLEMENT_RECEIPTS = 16;
 const MAX_PARALLEL = 8;
 
+/**
+ * Health checks briefly create `save:health-probe-*` rows to exercise the
+ * same storage path as a real save.  They are deliberately not player saves
+ * (their value is just `{ probe }`) and must never enter a season snapshot.
+ * Keep the historical admin/Rill exclusions here too: those records have
+ * never belonged to the competitive ladders.
+ */
+export function isRankedSeasonPlayerSaveKey(key: string): boolean {
+    if (!key.startsWith(SAVE_PREFIX)) return false;
+    const name = key.slice(SAVE_PREFIX.length);
+    return name.length > 0
+        && !name.startsWith('health-probe-')
+        && !name.startsWith('Admin ')
+        && name !== 'Rill';
+}
+
 // Reward table. Champion (#1) of each ladder gets the relic; the whole podium
 // gets aura stones by placement. The Warforged Relic ("war material") is
 // normally war-crate-only, so it's a meaningful prestige drop.
@@ -597,10 +613,7 @@ async function performDurableRollover(
     await drainRankedWork(store, closing, lock, now);
 
     const saveKeys = await store.keys(`${SAVE_PREFIX}*`);
-    const playerKeys = saveKeys.filter((key) => {
-        const name = key.slice(SAVE_PREFIX.length);
-        return !name.startsWith('Admin ') && name !== 'Rill';
-    });
+    const playerKeys = saveKeys.filter(isRankedSeasonPlayerSaveKey);
     const playerLadder: LadderEntry[] = [];
     const petLadder: LadderEntry[] = [];
     for (let i = 0; i < playerKeys.length; i += MAX_PARALLEL) {

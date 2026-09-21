@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Character, VersionedCharacterCommit } from "../types/character";
 import { starterItems } from "../data/starter-items";
 
@@ -43,12 +43,21 @@ export function RankedFormatWeaponPicker({
     // `pending` supplies immediate feedback while the request is in flight;
     // the versioned response then replaces the parent snapshot and clears it.
     const [pending, setPending] = useState<string | null>(null);
+    // A second server response can arrive first (heartbeat, achievement sync,
+    // or an autosave).  The weapon mutation still committed, but its now-stale
+    // snapshot is correctly rejected by the global version authority.  Retain
+    // that confirmed server choice locally until the newer parent snapshot
+    // reflects it instead of falsely telling the player to refresh.
+    const [savedChoice, setSavedChoice] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const confirmed = isRankedFormatWeaponId(character.rankedFormatWeaponId)
         ? character.rankedFormatWeaponId
         : DEFAULT_RANKED_FORMAT_WEAPON_ID;
-    const selected = pending ?? confirmed;
+    useEffect(() => {
+        if (savedChoice && character.rankedFormatWeaponId === savedChoice) setSavedChoice(null);
+    }, [character.rankedFormatWeaponId, savedChoice]);
+    const selected = pending ?? savedChoice ?? confirmed;
 
     async function choose(weaponId: string) {
         if (weaponId === selected || busy) return;
@@ -67,12 +76,20 @@ export function RankedFormatWeaponPicker({
                 setError(typeof data?.error === "string" ? data.error : "Couldn't save your ranked weapon choice.");
                 return;
             }
-            if (!data.character || !onVersionedCharacter(data.character, data._saveVersion)) {
+            if (!data.character) {
                 setPending(null);
-                setError("Your save changed while selecting a weapon. Refresh and try again.");
+                setError("The server didn't return your ranked weapon choice. Try again.");
                 return;
             }
+            // The server has already committed this specific weapon. If a
+            // newer snapshot won the client-side version race, it is unsafe to
+            // replace that snapshot, but it is also wrong to report a failed
+            // choice. Its preference is server-owned and ordinary autosaves
+            // preserve it, so display the committed choice until the next
+            // parent snapshot catches up.
+            const adopted = onVersionedCharacter(data.character, data._saveVersion);
             setPending(null);
+            if (!adopted) setSavedChoice(weaponId);
         } catch {
             setPending(null);
             setError("Couldn't reach the server. Try again.");
