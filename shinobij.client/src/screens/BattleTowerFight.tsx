@@ -60,6 +60,7 @@ import arenaFloorForest from "../assets/towers/arena-floor-forest.webp";
 import arenaFloorSnow from "../assets/towers/arena-floor-snow.webp";
 import arenaFloorVolcano from "../assets/towers/arena-floor-volcano.webp";
 import arenaFloorCentral from "../assets/towers/arena-floor-central.webp";
+import { starterItemArtworkFor } from "../data/starter-items";
 import arenaFloorShadow from "../assets/towers/arena-floor-shadow.webp";
 import objectFont from "../assets/towers/objects/font.webp";
 import objectShrine from "../assets/towers/objects/shrine.webp";
@@ -1593,7 +1594,9 @@ export function BattleTowerFight({
     // Painted card art — same source as the main combat UI (jutsu.image, else the shared
     // image cache keyed by `jutsu:<id>` / `item:<id>`).
     const jutsuArt = (j: JutsuLike) => (typeof (j as { image?: string }).image === "string" && (j as { image?: string }).image) || sharedImages?.[`jutsu:${j.id}`] || "";
-    const itemArt = (it: ItemLike) => (typeof it.image === "string" && it.image) || sharedImages?.[`item:${it.id}`] || "";
+    const itemArt = (it: ItemLike) => (typeof it.image === "string" && it.image)
+        || sharedImages?.[`item:${it.id}`]
+        || starterItemArtworkFor(it.id ?? "");
     // Self-cast jutsu (heal/shield/buff) arm and are confirmed by clicking your OWN
     // ninja — matching PvP and the main PvE arena — instead of firing the instant
     // the card is clicked. Tower jutsu objects don't carry tags, so the SELF target

@@ -989,6 +989,12 @@ export const starterItems: GameItem[] = [
 ];
 
 const catalogArtwork: Record<string, string> = {
+    "ranked-format-kunai": "/items/ranked-format-kunai-v1.webp",
+    "ranked-format-crown": "/items/ranked-seal-crown-v1.webp",
+    "ranked-format-mantle": "/items/ranked-seal-mantle-v1.webp",
+    "ranked-format-obi": "/items/ranked-seal-obi-v1.webp",
+    "ranked-format-greaves": "/items/ranked-seal-greaves-v1.webp",
+    "ranked-format-sabatons": "/items/ranked-seal-sabatons-v1.webp",
     "legendary-crown": "/items/shop-void-sovereign-crown-v1.webp",
     "legendary-gloves": "/items/shop-void-sovereign-gauntlets-v1.webp",
     "legendary-chest": "/items/shop-void-sovereign-mantle-v1.webp",
@@ -1073,4 +1079,13 @@ const catalogArtwork: Record<string, string> = {
 for (const item of starterItems) {
     const artwork = catalogArtwork[item.id];
     if (artwork) item.image = artwork;
+}
+
+/** Canonical fallback for server-sealed fighters whose compact item rows omit art. */
+const starterItemArtworkById = new Map(
+    starterItems.flatMap((item) => item.image ? [[item.id, item.image] as const] : []),
+);
+
+export function starterItemArtworkFor(itemId: string): string {
+    return starterItemArtworkById.get(itemId) ?? "";
 }

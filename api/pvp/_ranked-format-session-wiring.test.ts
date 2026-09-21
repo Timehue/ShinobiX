@@ -54,4 +54,13 @@ describe('ranked format wiring', () => {
         const app = read('shinobij.client/src/App.tsx');
         assert.match(app, /<Arena[\s\S]{0,300}onVersionedCharacter=\{commitVersionedCharacter\}/);
     });
+
+    it('resolves canonical ranked-kit art in both ranked combat renderers', () => {
+        const solo = read('shinobij.client/src/screens/PvpBattleScreen.tsx');
+        assert.match(solo, /sharedImages\['item:' \+ item\.id\][\s\S]{0,100}starterItemArtworkFor\(item\.id\)/);
+
+        const duo = read('shinobij.client/src/screens/BattleTowerFight.tsx');
+        assert.match(duo, /const itemArt = \(it: ItemLike\)[\s\S]{0,180}starterItemArtworkFor\(it\.id \?\? ""\)/);
+        assert.match(duo, /central: arenaFloorCentral/);
+    });
 });
