@@ -21,6 +21,7 @@ import { commitPvpSessionMutation } from '../pvp/_session-mutation.js';
 import { confirmPlayerRankedTerminalEffects } from '../pvp/_ranked-terminal-effects.js';
 import {
     runRankedSeasonRolloverWithStore,
+    isRankedSeasonPlayerSaveKey,
     SEASON_CURRENT_KEY,
     SEASON_ARCHIVE_PREFIX,
     SEASON_PLAN_PREFIX,
@@ -81,6 +82,18 @@ async function seededStore() {
 }
 
 describe('ranked season transition durability', () => {
+    it('excludes temporary health-probe rows from the ranked snapshot', async () => {
+        const store = await seededStore();
+        await store.set('save:health-probe-1-1784020032064', { probe: 'temporary' });
+
+        assert.equal(isRankedSeasonPlayerSaveKey('save:health-probe-1-1784020032064'), false);
+        const rolled = await runRankedSeasonRolloverWithStore(store, NOW + 1, { force: true, lock });
+
+        assert.equal(rolled.ok, true, String(rolled.error ?? 'ranked rollover failed'));
+        assert.equal(rolled.action, 'rolled-over');
+        assert.equal((await store.get<{ id: number }>(SEASON_CURRENT_KEY))?.id, 2);
+    });
+
     it('recovers a committed terminal past 15m with no client retry, settles effects, then compacts it', async () => {
         const realDateNow = Date.now;
         let clock = NOW;
