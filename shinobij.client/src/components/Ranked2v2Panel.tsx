@@ -126,7 +126,8 @@ export function Ranked2v2Panel({ character, sharedImages }: {
             </p>
             <p className="hint">
                 Pair with one partner, then queue together against another pair. Your own ladder — separate from solo
-                ranked, because a duo result says nothing about solo skill.
+                ranked, because a duo result says nothing about solo skill. Like solo ranked, this is the Ranked
+                Format: maxed stats and identical neutral legendary gear for every fighter.
             </p>
             {error && <p className="hint" role="alert" style={{ color: "var(--red-400)" }}>{error}</p>}
 

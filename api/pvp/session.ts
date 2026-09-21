@@ -69,6 +69,11 @@ import {
     playerRankedV2AdmissionsEnabled,
 } from './_player-ranked-rollout.js';
 import {
+    projectRankedFormatCharacter,
+    resolveRankedFormatWeaponId,
+    sealRankedFormatItemCharges,
+} from './_ranked-format.js';
+import {
     activatePvpPendingSessionPointer,
     clearPvpPendingSessionPointer,
     loadPvpPendingSessionPointer,
@@ -264,8 +269,11 @@ export type PvpSession = {
     // additionally capped at POTION_USES_PER_BATTLE). move.ts decrements a
     // charge on each throw / consumable / potion use and rejects at 0;
     // `itemsUsed` tallies what was actually spent so claim-rewards can deduct it
-    // from the save inventory at settlement. Absent on legacy in-flight sessions
-    // (move.ts then treats every consumable as unlimited, the old behaviour).
+    // from the save inventory at settlement. Ranked Format is the exception:
+    // its version stamp identifies a fixed neutral kit that is validated but
+    // never charged to either player's inventory. Absent on legacy in-flight
+    // sessions (move.ts then treats every consumable as unlimited, the old
+    // behaviour).
     itemCharges?: { p1: Record<string, number>; p2: Record<string, number> };
     itemsUsed?: { p1: Record<string, number>; p2: Record<string, number> };
     /**
@@ -274,9 +282,10 @@ export type PvpSession = {
      * seals a real fighter's charges from their save exactly like an NPC's,
      * move spends against that budget, and settlement deducts what was used,
      * forgiving any shortfall the player created by moving the item mid-fight
-     * rather than wedging their claim. Player-ranked V2 still overrides the
-     * budget to zero (see the ranked stamp below). Missing-version in-flight
-     * sessions keep the legacy post-battle debit during rolling deployment.
+     * rather than wedging their claim. Player-ranked V2 uses the separately
+     * stamped Ranked Format neutral budget (see `rankedFormatVersion` below).
+     * Missing-version in-flight sessions keep the legacy post-battle debit
+     * during rolling deployment.
      */
     pvpConsumableAuthorityVersion?: 1 | 2;
     /** New sessions require the durable browser continuation/ACK protocol. */
@@ -328,6 +337,8 @@ export type PvpSession = {
      * workers recognize this exact authority version and the bound gate proof.
      */
     playerRankedAuthorityVersion?: 2;
+    /** Fixed neutral loadout/consumable ledger; never debited from inventory. */
+    rankedFormatVersion?: 1;
     p1Rating?: number;
     p2Rating?: number;
     rankedMatchId?: string;
@@ -2216,6 +2227,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 finalP2Character = hydrateNpcCharacter(p2Character);
             }
 
+            // Ranked Format (audit: ranked-combat-format): both ranked 1v1 and
+            // ranked 2v2 equalize stats/gear so combat outcomes come down to
+            // weapon choice + bloodline/jutsu, not who ground more or owns
+            // better gear (api/pvp/_ranked-format.ts). Re-hydrating from a
+            // projected save character reuses the exact same derivation
+            // (armor factor, bloodline multiplier, item passives, vitals) as
+            // every other fighter, just fed neutral inputs. Speculative on the
+            // client-claimed `ranked`/`rankedKind` here is fine: the request
+            // still 409s later if the server-minted match proof doesn't check
+            // out, and a mis-projected in-memory object is simply discarded.
+            // Each fighter's OWN save supplies their OWN weapon choice — never
+            // the opponent's or the request body's.
+            const rankedFormatActive = ranked === true && rankedKind === 'player';
+            if (rankedFormatActive && p1Save?.character) {
+                const p1SaveCharacter = projectRankedFormatCharacter(
+                    p1Save.character as Record<string, unknown>,
+                    resolveRankedFormatWeaponId((p1Save.character as Record<string, unknown>).rankedFormatWeaponId),
+                );
+                finalP1Character = hydrateCharacterFromSave(p1SaveCharacter, p1Character, p1Save, admin);
+            }
+            if (rankedFormatActive && p2Save?.character) {
+                const p2SaveCharacter = projectRankedFormatCharacter(
+                    p2Save.character as Record<string, unknown>,
+                    resolveRankedFormatWeaponId((p2Save.character as Record<string, unknown>).rankedFormatWeaponId),
+                );
+                finalP2Character = hydrateCharacterFromSave(p2SaveCharacter, p2Character, p2Save, admin);
+            }
+
             // #4 (newcomer protection / "below level 10 can't be attacked"):
             // a sub-ATTACKABLE_MIN_LEVEL shinobi can't be pulled into a sector
             // raid (useCurrentVitals) or a ranked battle as EITHER fighter.
@@ -2839,25 +2878,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ranked: false,
                     baseRewards: false,
                     playerRankedAuthorityVersion: PLAYER_RANKED_SESSION_AUTHORITY_VERSION,
-                    // Ranked V2 starts with consumable and throwable charges
-                    // pinned off. Inventory is mutable outside this battle, so
-                    // post-terminal charging could otherwise be double-spent
-                    // to wedge both the opponent and season settlement.
+                    rankedFormatVersion: 1,
+                    // Ranked Format's neutral kunai/pill/smoke-bomb/potion kit
+                    // is sealed at a FIXED per-battle charge count, never from
+                    // either player's real owned inventory — so there is
+                    // nothing here to double-spend, unlike the old real-gear
+                    // ranked loadout this replaced (which had to pin charges
+                    // to zero for exactly that reason).
                     itemCharges: {
-                        p1: zeroPlayerRankedItemCharges(
-                            finalP1Character,
-                            sealItemCharges(
-                                finalP1Character,
-                                (p1Save?.character as Record<string, unknown>) ?? null,
-                            ),
-                        ),
-                        p2: zeroPlayerRankedItemCharges(
-                            finalP2Character,
-                            sealItemCharges(
-                                finalP2Character,
-                                (p2Save?.character as Record<string, unknown>) ?? null,
-                            ),
-                        ),
+                        p1: sealRankedFormatItemCharges(),
+                        p2: sealRankedFormatItemCharges(),
                     },
                     itemsUsed: { p1: {}, p2: {} },
                 } : {}),

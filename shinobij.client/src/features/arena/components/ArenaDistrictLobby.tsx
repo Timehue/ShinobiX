@@ -8,6 +8,7 @@ import type { EnhancedClanData } from "../../../types/clan";
 import type { ArenaSpectatorFight, ArenaTournament } from "../../../lib/world-state";
 import type { ArenaDistrictTab } from "../types";
 import { Ranked2v2Panel } from "../../../components/Ranked2v2Panel";
+import { RankedFormatWeaponPicker } from "../../../components/RankedFormatWeaponPicker";
 import { CentralDestinationHeader } from "../../../components/CentralDestinationHeader";
 import { ArenaTournamentPanel } from "./ArenaTournamentPanel";
 
@@ -173,7 +174,8 @@ export function ArenaDistrictLobby({
                 <section className="summary-box">
                     <h3>Ranked Battles (Solo 1v1)</h3>
                     <p>Rating: <strong>{character.rankedRating ?? 1000}</strong> Elo | Wins {character.rankedWins ?? 0} | Losses {character.rankedLosses ?? 0}</p>
-                    <p className="hint">Ranked fights use neutral ground: no terrain or weather modifiers.</p>
+                    <p className="hint">Ranked fights use neutral ground and the Ranked Format: maxed stats and identical neutral legendary gear — only your weapon and your bloodline/jutsu loadout are yours. This weapon choice is shared with Ranked 2v2.</p>
+                    <RankedFormatWeaponPicker character={character} />
                     <p>Players in queue: <strong>{rankedQueueSize}</strong></p>
                     <div style={{ display: "flex", gap: "8px", margin: "8px 0" }}>
                         {rankedQueueActive ? (

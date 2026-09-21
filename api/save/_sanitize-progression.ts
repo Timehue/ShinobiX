@@ -158,6 +158,12 @@ export function sanitizeProgression(
             if (exChar[field] !== undefined) char[field] = exChar[field]; else delete char[field];
         }
     }
+    // Ranked Format weapon choice: locked to stored. Only
+    // api/pvp/ranked-format-weapon.ts (which validates against
+    // RANKED_FORMAT_LEGENDARY_WEAPON_IDS) may set it — a generic save cannot
+    // self-grant or forge a choice.
+    if (exChar.rankedFormatWeaponId !== undefined) char.rankedFormatWeaponId = exChar.rankedFormatWeaponId;
+    else delete char.rankedFormatWeaponId;
 
     // Stat points are an entitlement, not a client-authored gain. Ordinary
     // saves may spend the stored unspent pool or perform the paid full respec,
