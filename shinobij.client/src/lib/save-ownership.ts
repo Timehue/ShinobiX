@@ -37,7 +37,7 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     'auraStones', 'auraDust', 'mythicSeals', 'hollowShards',
     // Stats & progression ledger
     'xp', 'experience', 'stats', 'unspentStats', 'totalStatsTrained', 'rankTitle',
-    'auraSphereLevel', 'hollowGateAttunement', 'rankedRating', 'petRankedRating',
+    'auraSphereLevel', 'hollowGateAttunement', 'rankedRating', 'rankedFormatWeaponId', 'petRankedRating',
     'rankedSeasonSettlementReceipts', 'serverSettlementReceipts', 'hollowGateExternalCredits', 'pvpRewardSettlementReceipts', 'petRankedSettlementStamp',
     'settledHollowGateEventIds', 'settledHollowGateCombatIds',
     'hollowGatePendingOperation',

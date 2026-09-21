@@ -167,7 +167,6 @@ export function ArenaDistrictLobby({
                     onStart={onStartTournament}
                 />
             )}
-
             {activeTab === "ranked" && <Ranked2v2Panel character={character} sharedImages={sharedImages} />}
 
             {activeTab === "ranked" && (
