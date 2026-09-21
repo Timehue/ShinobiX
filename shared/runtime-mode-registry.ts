@@ -277,9 +277,10 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
     }),
     defineMode({
         id: 'ranked-shinobi-pvp', label: 'Ranked PvP', category: 'shinobi-pvp', authorityEngine: E.PVP,
-        clientEntries: ['screens/Arena.tsx', 'screens/HallOfLegends.tsx', 'lib/player-ranked-authority.ts', 'lib/pvp-reward-claim.ts', ...PVP_CLIENT],
+        clientEntries: ['screens/Arena.tsx', 'screens/HallOfLegends.tsx', 'lib/player-ranked-authority.ts', 'lib/pvp-reward-claim.ts', 'components/RankedFormatWeaponPicker.tsx', ...PVP_CLIENT],
         routes: [
             mountedRoute('/pvp/ranked-queue', 'pvp/ranked-queue', ['start']),
+            mountedRoute('/pvp/ranked-format-weapon', 'pvp/ranked-format-weapon', ['start']),
             mountedRoute('/ranked-season', 'ranked-season', ['leaderboard', 'record']),
             ...pvpRuntimeRoutes(['state']),
         ],
@@ -567,11 +568,12 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
         // rating — api/pvp/_ranked-2v2-settlement.ts owns the ladder, which is
         // what keeps the open Team Arena unrated while sharing the same board.
         clientEntries: [
-            'lib/ranked-2v2-api.ts', 'components/Ranked2v2Panel.tsx',
+            'lib/ranked-2v2-api.ts', 'components/Ranked2v2Panel.tsx', 'components/RankedFormatWeaponPicker.tsx',
             'features/arena/components/ArenaDistrictLobby.tsx', 'lib/tower-pvp-api.ts',
         ],
         routes: [
             mountedRoute('/pvp/ranked-2v2', 'pvp/ranked-2v2', ['lifecycle', 'start', 'settlement']),
+            mountedRoute('/pvp/ranked-format-weapon', 'pvp/ranked-format-weapon', ['start']),
             mountedRoute('/towers/pvp-action', 'towers/pvp-action', ['action']),
             mountedRoute('/towers/pvp-state', 'towers/pvp-state', ['state']),
         ],

@@ -13,6 +13,12 @@ import {
 import type { PvpSession } from './session.js';
 import { embedPvpSettlementReceipt, pvpSettlementId } from './_reward-settlement.js';
 import { fencePlayerRankedSessionForClose } from './_session-mutation.js';
+import { settlePvpConsumablesDurably } from './_consumable-settlement.js';
+import {
+    RANKED_FORMAT_NEUTRAL_EQUIPMENT,
+    RANKED_FORMAT_VERSION,
+    sealRankedFormatItemCharges,
+} from './_ranked-format.js';
 import {
     PLAYER_RANKED_SETTLEMENT_STAMP_LIMIT,
     PLAYER_RANKED_SETTLEMENT_STAMP_FIELD,
@@ -108,6 +114,56 @@ describe('player ranked terminal journal', () => {
         assert.equal(char(await store.get('save:bob')).rankedLosses, 1);
         assert.equal(session.ranked === true, false, 'd76a ranked payout branch stays inert after ring churn');
         assert.equal(session.baseRewards === true, false, 'd76a base payout branch stays inert after ring churn');
+    });
+
+    it('accepts the conserved Ranked Format item ledger without debiting inventory', async () => {
+        const { store, session } = await setup();
+        const thrown = RANKED_FORMAT_NEUTRAL_EQUIPMENT.thrown;
+        const p1Charges = sealRankedFormatItemCharges();
+        p1Charges[thrown] -= 1;
+        const rankedSession = {
+            ...session,
+            rankedFormatVersion: RANKED_FORMAT_VERSION,
+            itemCharges: { p1: p1Charges, p2: sealRankedFormatItemCharges() },
+            itemsUsed: { p1: { [thrown]: 1 }, p2: {} },
+        } satisfies PvpSession;
+        await store.set(`pvp:${BATTLE}`, rankedSession, { ex: 900 });
+        const aliceRecord = await store.get<Record<string, unknown>>('save:alice');
+        await store.set('save:alice', {
+            ...aliceRecord,
+            character: { ...char(aliceRecord), itemStacks: [{ itemId: thrown, count: 3 }] },
+        });
+
+        const journal = await publishPlayerRankedTerminal(store, rankedSession, {
+            now: NOW + 3,
+            eligible: async () => true,
+        });
+        await settlePvpConsumablesDurably(
+            store,
+            rankedSession,
+            async <T>(_key: string, action: () => Promise<T>) => action(),
+            { now: NOW + 4, playerRankedJournal: journal },
+        );
+        assert.deepEqual(char(await store.get('save:alice')).itemStacks, [{ itemId: thrown, count: 3 }]);
+        const settled = await settlePlayerRankedJournal(store, journal, NOW + 5);
+        assert.equal(settled.journal.state, 'completed');
+    });
+
+    it('rejects a forged Ranked Format item ledger before terminal publication', async () => {
+        const { store, session } = await setup();
+        const rankedSession = {
+            ...session,
+            rankedFormatVersion: RANKED_FORMAT_VERSION,
+            itemCharges: { p1: sealRankedFormatItemCharges(), p2: sealRankedFormatItemCharges() },
+            itemsUsed: { p1: { forged: 1 }, p2: {} },
+        } satisfies PvpSession;
+        await assert.rejects(
+            publishPlayerRankedTerminal(store, rankedSession, {
+                now: NOW + 3,
+                eligible: async () => true,
+            }),
+            /player-ranked-format-item-ledger-invalid/,
+        );
     });
 
     it('recovers winner/loser save commit acknowledgements without double Elo', async () => {

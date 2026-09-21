@@ -408,6 +408,24 @@ export const starterItems: GameItem[] = [
         weaponCooldown: 5,
         bonuses: {},
     },
+    // Ranked Format's fixed neutral throwable (api/pvp/_ranked-format.ts). Not
+    // shop-purchasable (cost 0) — every ranked fighter is equipped with this
+    // regardless of what they own. Numbers mirror Senbon, the strongest
+    // existing thrown item, so this is a reskin, not a new balance point.
+    {
+        id: "ranked-format-kunai",
+        name: "Kunai",
+        slot: "thrown",
+        rarity: "legendary",
+        cost: 0,
+        description: "The Ranked Format's neutral throwable. Deals 300 damage per round for 2 rounds after impact.",
+        weaponEp: 0,
+        weaponEffect: "Wound",
+        weaponEffectValue: 300,
+        apCost: 20,
+        weaponCooldown: 5,
+        bonuses: {},
+    },
     // -- Combat items ------------------------------------------------------------
     {
         id: "item-smoke-bomb",
@@ -508,6 +526,16 @@ export const starterItems: GameItem[] = [
     { id: "sennin-waist", name: "Sennin God's Obi", slot: "waist", rarity: "legendary", cost: 150, description: "An obi woven by a shinobi who became something beyond human. Each piece of this set amplifies damage dealt by 1%.", armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("damagePercent", 1) },
     { id: "sennin-legs", name: "Sennin God's Greaves", slot: "legs", rarity: "legendary", cost: 150, description: "Greaves forged inside a living storm by a being beyond shinobi. Each piece of this set amplifies damage dealt by 1%.", armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("damagePercent", 1) },
     { id: "sennin-feet", name: "Sennin God's Sandals", slot: "feet", rarity: "legendary", cost: 150, description: "Sandals said to have walked across the heavens themselves. Each piece of this set amplifies damage dealt by 1%.", armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("damagePercent", 1) },
+    // Set 7: Ranked Seal — Ranked Format's fixed neutral armor
+    // (api/pvp/_ranked-format.ts). Not shop-purchasable (cost 0). Same
+    // +30-all-stats magnitude as every other legendary set, but deliberately
+    // carries NO passive: ranked equalizes gear without adding a new always-on
+    // combat effect that doesn't exist anywhere else in the game.
+    { id: "ranked-format-crown", name: "Ranked Seal Crown", slot: "head", rarity: "legendary", cost: 0, description: "Ceremonial headpiece worn by every combatant entering a ranked match.", armorQuality: "Legendary", levelReq: 65, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30 } },
+    { id: "ranked-format-mantle", name: "Ranked Seal Mantle", slot: "body", rarity: "legendary", cost: 0, description: "Ceremonial armor worn by every combatant entering a ranked match.", armorQuality: "Legendary", levelReq: 65, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30 } },
+    { id: "ranked-format-obi", name: "Ranked Seal Obi", slot: "waist", rarity: "legendary", cost: 0, description: "Ceremonial sash worn by every combatant entering a ranked match.", armorQuality: "Legendary", levelReq: 65, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30 } },
+    { id: "ranked-format-greaves", name: "Ranked Seal Greaves", slot: "legs", rarity: "legendary", cost: 0, description: "Ceremonial leg guards worn by every combatant entering a ranked match.", armorQuality: "Legendary", levelReq: 65, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30 } },
+    { id: "ranked-format-sabatons", name: "Ranked Seal Sabatons", slot: "feet", rarity: "legendary", cost: 0, description: "Ceremonial footwear worn by every combatant entering a ranked match.", armorQuality: "Legendary", levelReq: 65, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30 } },
     // -- Head armor ----------------------------------------------------------
     {
         id: "cloth-hood",

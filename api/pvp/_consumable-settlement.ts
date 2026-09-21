@@ -142,7 +142,7 @@ async function settleLegacySide(
     throw new Error('pvp-items-save-cas-busy');
 }
 
-async function confirmDisabledV2Consumables(
+async function confirmPlayerRankedFormatItems(
     store: ConsumableStore,
     session: PvpSession,
     journalInput: PlayerRankedJournal | undefined,
@@ -159,14 +159,9 @@ async function confirmDisabledV2Consumables(
         if (roles.length !== 1 || session.realFighters?.[roles[0]] !== true) {
             throw new Error('player-ranked-item-side-invalid');
         }
-        const used = session.itemsUsed?.[roles[0]] ?? {};
-        // Player-ranked V2 launches with every consumable/throwable charge
-        // disabled. This avoids a terminal whose liveness depends on mutable
-        // inventory after the fight. Any non-empty usage is impossible under
-        // upgraded move workers and therefore fails closed as corruption.
-        if (Object.keys(used).length > 0) {
-            throw new Error('player-ranked-v2-consumables-disabled');
-        }
+        // The fingerprint validates either an exact Ranked Format neutral
+        // charge/usage ledger or (for pre-format V2 rows) exact empty usage.
+        // Neither case performs a mutable inventory debit.
         const fingerprint = playerRankedItemUsageFingerprint(session, journal.terminal, side);
         if (journal.items[side].usageFingerprint !== fingerprint) {
             throw new Error('player-ranked-item-journal-conflict');
@@ -179,10 +174,10 @@ async function confirmDisabledV2Consumables(
  * Legacy sessions retain their bounded-receipt drain behavior, and so do
  * consumable-authority v2 casual sessions (real budgets sealed at create,
  * shortfalls forgiven). Consumable-authority v1 real sides never spent, so any
- * usage there is corruption. Player-ranked V2 has consumables disabled at
- * creation and move validation; the journal records and confirms the exact
- * empty usage for both real participants before Elo can settle, so no mutable
- * post-use inventory can wedge season rollover.
+ * usage there is corruption. Ranked Format sessions instead carry a fully
+ * bounded neutral item ledger; the journal fingerprints and confirms it but
+ * never deducts those free items from either player's mutable inventory.
+ * Pre-format player-ranked V2 rows still require exact empty usage.
  */
 export async function settlePvpConsumablesDurably(
     store: ConsumableStore,
@@ -205,7 +200,7 @@ export async function settlePvpConsumablesDurably(
         if (!isPlayerRankedV2Session(session)) return;
     }
     if (isPlayerRankedV2Session(session)) {
-        await confirmDisabledV2Consumables(store, session, options.playerRankedJournal, settledAt);
+        await confirmPlayerRankedFormatItems(store, session, options.playerRankedJournal, settledAt);
         return;
     }
 

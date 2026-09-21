@@ -283,6 +283,7 @@ import pvpBountyHandler         from './api/pvp/bounty.js';
 import pvpRankedQueueHandler    from './api/pvp/ranked-queue.js';
 import pvpPetRankedQueueHandler from './api/pvp/pet-ranked-queue.js';
 import pvpRanked2v2Handler from './api/pvp/ranked-2v2.js';
+import pvpRankedFormatWeaponHandler from './api/pvp/ranked-format-weapon.js';
 // Pet
 import petBattleStartHandler from './api/pet/battle-start.js';
 import petBattleResultHandler from './api/pet/battle-result.js';
@@ -751,6 +752,9 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     // Ranked 2v2: duo pairing, duo-vs-duo matchmaking and ladder settlement. The
     // fight reuses /towers/pvp-action + /towers/pvp-state.
     route('/pvp/ranked-2v2',       pvpRanked2v2Handler);
+    // Ranked Format's shared weapon preference — read by both ranked 1v1
+    // (session.ts) and ranked 2v2 (towers/_pvp-store.ts) at match-seal time.
+    route('/pvp/ranked-format-weapon', pvpRankedFormatWeaponHandler);
 
     // ─── Pet battle result ─────────────────────────────────────────────────────────
     route('/pet/battle-start',  petBattleStartHandler);

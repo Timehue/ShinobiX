@@ -7,6 +7,11 @@ import { loadAdminCombatContent } from '../_admin-content.js';
 import type { TowerPvpBinding, TowerPvpPresence } from '../../shared/tower-pvp.js';
 import { TOWER_PVP_MATCH_SIZE, TOWER_PVP_REQUEST_ID, towerPvpBindingOf } from '../../shared/tower-pvp.js';
 import { sealTowerFighter, sealTowerItemCharges } from './_seal.js';
+import {
+    projectRankedFormatCharacter,
+    resolveRankedFormatWeaponId,
+    sealRankedFormatItemCharges,
+} from '../pvp/_ranked-format.js';
 import type { TowerKv, TowerLock } from './_tower-store.js';
 import {
     battleLockKey,
@@ -87,10 +92,16 @@ function combatSkill(character: Record<string, unknown>): number {
  * burning a real potion there would cost the player something the mode never
  * pays back. A reward-bearing caller (clan-war 2v2) opts in and gets the same
  * sealed budget clan-war 1v1 receives on the PvP engine.
+ *
+ * `rankedFormat` (ranked 2v2 only — api/pvp/_ranked-2v2.ts) equalizes stats
+ * and gear exactly like ranked 1v1 (api/pvp/_ranked-format.ts): maxed stats,
+ * neutral legendary armor/throwable/consumables, and the fighter's own chosen
+ * legendary weapon. It also seals fixed, non-inventory-derived item charges,
+ * so it implies `consumables` regardless of that option's value.
  */
 export async function loadTowerPvpFighter(
     slugInput: string,
-    options: { consumables?: boolean } = {},
+    options: { consumables?: boolean; rankedFormat?: boolean } = {},
 ): Promise<TowerPvpFighterSeed | null> {
     const slug = safeName(slugInput);
     if (!slug) return null;
@@ -98,13 +109,18 @@ export async function loadTowerPvpFighter(
     const character = save?.character as Record<string, unknown> | undefined;
     if (!save || !character) return null;
     const admin = await loadAdminCombatContent();
-    const sealed = sealTowerFighter(character, save, {}, admin);
+    const sealCharacter = options.rankedFormat
+        ? projectRankedFormatCharacter(character, resolveRankedFormatWeaponId(character.rankedFormatWeaponId))
+        : character;
+    const sealed = sealTowerFighter(sealCharacter, save, {}, admin);
     return {
         slug,
         displayName: String(character.name ?? slug).slice(0, 40),
         skill: combatSkill(sealed),
         character: sealed,
-        ...(options.consumables ? { itemCharges: sealTowerItemCharges(character) } : {}),
+        ...(options.rankedFormat
+            ? { itemCharges: sealRankedFormatItemCharges() }
+            : options.consumables ? { itemCharges: sealTowerItemCharges(character) } : {}),
     };
 }
 

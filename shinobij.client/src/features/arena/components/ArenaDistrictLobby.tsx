@@ -3,18 +3,19 @@ import coliseumLadderImg from "../../../assets/coliseum/coliseum-bg.webp";
 import tacticalLadderImg from "../../../assets/warfront-rite/warfront-rite-keyart.webp";
 import { TACTICAL_ARENA_PET_REQUIREMENT } from "../../../lib/pet";
 import type { DuelChallenge } from "../../../App";
-import type { Character, PlayerRecord } from "../../../types/character";
+import type { Character, PlayerRecord, VersionedCharacterCommit } from "../../../types/character";
 import type { EnhancedClanData } from "../../../types/clan";
 import type { ArenaSpectatorFight, ArenaTournament } from "../../../lib/world-state";
 import type { ArenaDistrictTab } from "../types";
 import { Ranked2v2Panel } from "../../../components/Ranked2v2Panel";
+import { RankedFormatWeaponPicker } from "../../../components/RankedFormatWeaponPicker";
 import { CentralDestinationHeader } from "../../../components/CentralDestinationHeader";
 import { ArenaTournamentPanel } from "./ArenaTournamentPanel";
 
 const ARENA_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 
 type ArenaDistrictLobbyProps = {
-    character: Character;
+    character: Character; onVersionedCharacter: VersionedCharacterCommit;
     activeTab: ArenaDistrictTab;
     hasAvailablePet: boolean;
     availablePetCount: number;
@@ -51,7 +52,7 @@ type ArenaDistrictLobbyProps = {
 };
 
 export function ArenaDistrictLobby({
-    character,
+    character, onVersionedCharacter,
     sharedImages,
     activeTab,
     hasAvailablePet,
@@ -166,14 +167,14 @@ export function ArenaDistrictLobby({
                     onStart={onStartTournament}
                 />
             )}
-
             {activeTab === "ranked" && <Ranked2v2Panel character={character} sharedImages={sharedImages} />}
 
             {activeTab === "ranked" && (
                 <section className="summary-box">
                     <h3>Ranked Battles (Solo 1v1)</h3>
                     <p>Rating: <strong>{character.rankedRating ?? 1000}</strong> Elo | Wins {character.rankedWins ?? 0} | Losses {character.rankedLosses ?? 0}</p>
-                    <p className="hint">Ranked fights use neutral ground: no terrain or weather modifiers.</p>
+                    <p className="hint">Ranked fights use neutral ground and the Ranked Format: maxed stats and identical neutral legendary gear — only your weapon and your bloodline/jutsu loadout are yours. This weapon choice is shared with Ranked 2v2.</p>
+                    <RankedFormatWeaponPicker character={character} onVersionedCharacter={onVersionedCharacter} />
                     <p>Players in queue: <strong>{rankedQueueSize}</strong></p>
                     <div style={{ display: "flex", gap: "8px", margin: "8px 0" }}>
                         {rankedQueueActive ? (

@@ -3,7 +3,7 @@ import { getPvpJutsuLoadout } from "../lib/jutsu-loadout";
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { visiblePoll } from "../lib/poll";
 import type { Screen } from "../types/core";
-import type { Character, PlayerRecord } from "../types/character";
+import type { Character, PlayerRecord, VersionedCharacterCommit } from "../types/character";
 import type { Jutsu, SavedBloodline } from "../types/combat";
 import type { EnhancedClanData } from "../types/clan";
 import type { Pet } from "../types/pet";
@@ -48,6 +48,7 @@ type ArenaProps = {
     sharedImages?: Record<string, string>;
     character: Character;
     updateCharacter: (character: Character) => void;
+    onVersionedCharacter: VersionedCharacterCommit;
     savedBloodlines: SavedBloodline[];
     creatorJutsus: Jutsu[];
     playerRoster: PlayerRecord[];
@@ -82,6 +83,7 @@ export function Arena({
     sharedImages,
     character,
     updateCharacter,
+    onVersionedCharacter,
     savedBloodlines,
     creatorJutsus,
     playerRoster,
@@ -497,6 +499,7 @@ export function Arena({
         <ArenaDistrictLobby
             sharedImages={sharedImages}
             character={character}
+            onVersionedCharacter={onVersionedCharacter}
             activeTab={activeArenaTab}
             hasAvailablePet={combatEligiblePets.some((pet) => !isPetOnExpedition(pet))}
             availablePetCount={availablePetCount}
