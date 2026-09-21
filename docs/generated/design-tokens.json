@@ -2309,7 +2309,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/components/first-contract.css",
-            "line": 289
+            "line": 285
           }
         ]
       },
@@ -2486,7 +2486,7 @@
           },
           {
             "source": "shinobij.client/src/styles/world-map-mobile.css",
-            "line": 11
+            "line": 68
           }
         ]
       },
@@ -3338,7 +3338,7 @@
           },
           {
             "source": "shinobij.client/src/components/first-contract.css",
-            "line": 262
+            "line": 258
           },
           {
             "source": "shinobij.client/src/screens/FirstPact.css",
@@ -4043,7 +4043,7 @@
           },
           {
             "source": "shinobij.client/src/styles/world-map-mobile.css",
-            "line": 4
+            "line": 61
           }
         ]
       },
