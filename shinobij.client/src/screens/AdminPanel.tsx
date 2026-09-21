@@ -1573,26 +1573,19 @@ export function AdminPanel({
             finishPmMutation(mutation);
         }
     }
-
     async function loadRankedSeasonStatus() {
         try {
             const res = await fetch('/api/admin/ranked-season', { headers: { 'x-admin-password': adminPw } });
             const data = await res.json().catch(() => ({})) as { active?: boolean; acceptingEntries?: boolean; current?: { id?: number } | null };
             setRankedSeasonActive(!!data.active);
-            setRankedSeasonAcceptingEntries(data.acceptingEntries === true);
-            setRankedSeasonId(data.current?.id ?? null);
+            setRankedSeasonAcceptingEntries(data.acceptingEntries === true); setRankedSeasonId(data.current?.id ?? null);
         } catch { /* ignore */ }
     }
-
     async function rankedSeasonAction(action: 'start' | 'stop' | 'rollover') {
         if (action === 'rollover' && !(await gameConfirm('Force-end the current ranked season NOW? This rewards the top finishers, archives standings, soft-resets every rating, and starts the next season immediately.', { danger: true, confirmLabel: "Force-end" }))) return;
         setRankedSeasonMsg('⏳ Working…');
         try {
-            const res = await fetch('/api/admin/ranked-season', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
-                body: JSON.stringify({ action }),
-            });
+            const res = await fetch('/api/admin/ranked-season', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw }, body: JSON.stringify({ action }) });
             const data = await res.json().catch(() => ({})) as { ok?: boolean; action?: string; seasonId?: number; nextSeasonId?: number; playerChampion?: string; petChampion?: string; error?: string };
             if (!res.ok || !data.ok) { setRankedSeasonMsg(`❌ ${data.error ?? 'Failed.'}`); return; }
             if (data.action === 'initialized') setRankedSeasonMsg(`✅ Ranked Season ${data.seasonId} started.`);
@@ -1607,7 +1600,6 @@ export function AdminPanel({
             setRankedSeasonMsg('❌ Network error.');
         }
     }
-
     async function serverReset() {
         await runServerReset({
             adminPw,
@@ -1616,7 +1608,6 @@ export function AdminPanel({
             confirm: gameConfirm,
         });
     }
-
     async function pmApproveItem(id: string) {
         const next = Array.from(new Set([...approvedItemIds, id]));
         setApprovedItemIds(next);
