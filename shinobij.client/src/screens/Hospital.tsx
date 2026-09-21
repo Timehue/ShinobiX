@@ -199,8 +199,8 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
                             <p className="facility-eyebrow">Recovery in progress</p>
                             <h3>You are currently admitted</h3>
                             <p>{isHealer
-                                ? "Your healer training closes your own wounds and releases you at no cost. Chakra and stamina recover with rest, or instantly at the Cafeteria."
-                                : "Your wounds are treated at discharge; chakra and stamina return with rest, or instantly at the Cafeteria. Pay for an immediate release or wait for the free checkout."}</p>
+                                ? "Your healer training closes your own wounds and releases you at no cost. Chakra and stamina recover with rest, or instantly at the Noodle Den."
+                                : "Your wounds are treated at discharge; chakra and stamina return with rest, or instantly at the Noodle Den. Pay for an immediate release or wait for the free checkout."}</p>
                         </div>
                     </div>
                     <div className="hospital-vitals-card">

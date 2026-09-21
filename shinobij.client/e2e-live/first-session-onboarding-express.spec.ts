@@ -366,15 +366,15 @@ test(`a new player completes the full persisted Academy first session against bu
     const echoedVow = page.getByRole('dialog', { name: 'Your answer comes back in the wrong voice.' });
     await expect(echoedVow).toBeVisible();
     await echoedVow.getByRole('button', { name: 'Keep the vow' }).click();
-    await expect(page.getByRole('button', { name: 'Go to Cafeteria' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Go to Noodle Den' })).toBeVisible();
     await waitForPersisted(page, playerName, (save) => (
         save.character?.onboardingStep === 'cafeteria'
         && save.character.academySparClaimed === true
         && save.character.academyIncidentSeen === true
     ), 'the sealed spar reward, aftermath, and recovery handoff must persist');
 
-    await page.getByRole('button', { name: 'Go to Cafeteria' }).click();
-    await expect(page.getByRole('heading', { name: 'Cafeteria' })).toBeVisible();
+    await page.getByRole('button', { name: 'Go to Noodle Den' }).click();
+    await expect(page.getByRole('heading', { name: 'Noodle Den' })).toBeVisible();
     const cafeteriaStorageNotice = page.getByRole('region', { name: 'Data storage notice' });
     if (await cafeteriaStorageNotice.isVisible().catch(() => false)) {
         await cafeteriaStorageNotice.getByRole('button', { name: 'Got it', exact: true }).click();

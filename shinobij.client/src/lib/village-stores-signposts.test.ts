@@ -27,8 +27,8 @@ test("every cookable material carries a signpost naming its recipe and yield", (
         const recipe = cookRecipeForMaterial(id);
         assert.ok(recipe);
         assert.equal(sign.screen, "cafeteria");
-        assert.equal(sign.actionLabel, "Cook at the Cafeteria");
-        assert.match(sign.line, new RegExp(`^Cooks into ${recipe.name} at the Cafeteria — `, "u"));
+        assert.equal(sign.actionLabel, "Cook at the Noodle Den");
+        assert.match(sign.line, new RegExp(`^Cooks into ${recipe.name} at the Noodle Den — `, "u"));
         assert.ok(sign.line.includes(`${recipe.rations} rations`), sign.line);
         // Cooking is not free (Field 30 ryo, Campaign 80) — the signpost must
         // say so, or it reads as a costless conversion.
@@ -41,8 +41,8 @@ test("every cookable material carries a signpost naming its recipe and yield", (
 test("the Beast Meat signpost reads as a sentence a hunter can act on", () => {
     assert.deepEqual(storesItemSignpost("hunt-beast-meat"), {
         itemId: "hunt-beast-meat",
-        line: "Cooks into Field Rations at the Cafeteria — 5 rations for your village's stores, 30 ryo a batch.",
-        actionLabel: "Cook at the Cafeteria",
+        line: "Cooks into Field Rations at the Noodle Den — 5 rations for your village's stores, 30 ryo a batch.",
+        actionLabel: "Cook at the Noodle Den",
         screen: "cafeteria",
     });
 });
@@ -113,8 +113,8 @@ test("an unfed war is the loud case and names the village", () => {
     assert.ok(call);
     assert.equal(call.tone, "hungry");
     assert.equal(call.headline, "Frostfang Village is marching hungry.");
-    assert.equal(call.body, "A sector war went unfed today and the stores are down to 12 rations. Cook ration packs at the Cafeteria, then donate them at the Town Hall.");
-    assert.equal(call.actionLabel, "Cook rations at the Cafeteria");
+    assert.equal(call.body, "A sector war went unfed today and the stores are down to 12 rations. Cook ration packs at the Noodle Den, then donate them at the Town Hall.");
+    assert.equal(call.actionLabel, "Cook rations at the Noodle Den");
     assert.equal(call.screen, "cafeteria");
 });
 
@@ -122,7 +122,7 @@ test("an unfed war with empty stores says empty, never \"0 rations\"", () => {
     const call = villageSupplyCall({ ...base, provisions: 0, activeWars: 1, unfedWars: 1 });
     assert.ok(call);
     assert.equal(call.tone, "hungry");
-    assert.equal(call.body, "A sector war went unfed today and the stores stand empty. Cook ration packs at the Cafeteria, then donate them at the Town Hall.");
+    assert.equal(call.body, "A sector war went unfed today and the stores stand empty. Cook ration packs at the Noodle Den, then donate them at the Town Hall.");
 });
 
 test("a war running on thin stores is the quiet case, with both burn rates named", () => {
