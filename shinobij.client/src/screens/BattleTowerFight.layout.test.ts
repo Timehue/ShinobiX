@@ -184,8 +184,8 @@ describe("Tower narrow combat composition", () => {
         assert.match(source, /className="jutsu-layout-card combat-jutsu-bar" role="region" aria-label="Jutsu, weapons, and items"/);
         assert.match(source, /className="combat-jutsu-help"[\s\S]*?aria-haspopup="dialog"[\s\S]*?<CombatDetailPortal/,
             "Tower techniques must retain the PvP/PvE details affordance and shared detail surface");
-        assert.match(source, /const itemArt = \(it: ItemLike\) => \(typeof it\.image === "string" && it\.image\) \|\| sharedImages\?\.\[`item:\$\{it\.id\}`\]/,
-            "sealed Tower items must use the same direct-art then shared-cache resolution as the live trays");
+        assert.match(source, /const itemArt = \(it: ItemLike\)[\s\S]{0,220}\(typeof it\.image === "string" && it\.image\)[\s\S]{0,220}sharedImages\?\.\[`item:\$\{it\.id\}`\][\s\S]{0,220}starterItemArtworkFor\(it\.id \?\? ""\)/,
+            "sealed Tower items must resolve direct art, then the shared cache, then canonical catalog art");
         assert.match(source, /combat-item-button rarity-\$\{wp\.rarity \?\? "common"\}/);
         assert.match(source, /combat-item-button rarity-\$\{cs\.rarity \?\? "common"\}/);
         assert.match(source, /className="tower-sr-only" role="status" aria-live="polite" aria-atomic="true"/);
