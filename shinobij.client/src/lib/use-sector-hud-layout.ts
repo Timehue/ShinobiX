@@ -32,7 +32,9 @@ export function useSectorHudLayout(ref: RefObject<HTMLDivElement | null>) {
             set('--sector-board-size', Math.max(180, available - (side ? 0 : base + 112)));
             const mapHeight = stage.querySelector('.sector-image-map')?.getBoundingClientRect().height ?? 0;
             const extra = available - base - (side ? 0 : mapHeight);
-            set('--sector-nearby-height', Math.max(112, extra));
+            // The roster scrolls when space is tight. A fixed minimum here can
+            // push the entire HUD under the mobile navigation instead.
+            set('--sector-nearby-height', Math.max(0, extra));
             set('--sector-stage-height', available);
             stage.setAttribute('data-sector-routes', String(innerWidth >= 980 && available - mapHeight >= 76));
             // The shared help portal occupies a reserved header slot on phones.
