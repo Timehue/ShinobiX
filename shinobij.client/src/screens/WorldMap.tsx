@@ -29,6 +29,7 @@ import {
 } from "../components/icons/LightweightGameIcons";
 // Currency/material rewards reuse the game's own emblem set so they match the HUD.
 import { GameIcon } from "../components/icons/GameIcon";
+import { firstContractVisible, openFirstContract } from "../lib/first-contract";
 import type { Biome, Screen, WeatherType } from "../types/core";
 import type { Character, HollowGateEventConfig, PlayerRecord, VersionedCharacterCommit } from "../types/character";
 import { gameConfirm } from "../components/GameAlert";
@@ -5129,6 +5130,19 @@ function WorldMapContent({
                 ))}
             </div>
             </div>{/* end world-map-scroll */}
+            {firstContractVisible(character) && (
+                <button
+                    type="button"
+                    className="world-map-mission-trigger"
+                    onClick={openFirstContract}
+                    title="First Contract — open your field journal"
+                    aria-label="First Contract — open your field journal"
+                >
+                    <GameIcon name="scroll" size={22} />
+                    <span className="world-map-mission-trigger__label">First Contract</span>
+                    <span className="world-map-mission-trigger__badge" aria-hidden="true">1</span>
+                </button>
+            )}
             {wmZoom.active && (
                 <div className="wm-village-bar" role="group" aria-label="Jump to region">
                     {WORLD_MAP_REGIONS.map((region) => (

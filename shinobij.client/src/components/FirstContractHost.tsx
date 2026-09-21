@@ -128,10 +128,6 @@ export function FirstContractHost({ character, screen, blocked, navigate, onVers
         </div>
     </>;
     return <>
-        {screen === 'worldMap' && <button type="button" className="fc-map-hint" onClick={(event) => { event.currentTarget.focus(); setOpen(true); }}>
-            <span><span className="fc-eyebrow">{laterDay ? 'Welcome back' : complete ? 'Assignment complete' : 'First Contract'}</span><strong>{laterDay ? 'Choose your next step' : complete ? 'Read your field journal' : route === 'discovery' ? 'Travel to a sector · Explore one field tile' : copy?.title ?? 'Choose your first assignment'}</strong></span>
-            <span aria-hidden="true">↗</span>
-        </button>}
         {screen !== 'worldMap' && <section className="fc-ribbon" aria-label="First Contract">
             <span className="fc-ribbon-mark" aria-hidden="true">01</span><div><span className="fc-eyebrow">{laterDay ? 'Welcome back' : complete ? 'Assignment complete' : 'Your first contract'}</span><strong>{complete ? 'A new entry in your field journal' : copy?.title ?? 'Choose your next step'}</strong></div>
             <button type="button" onClick={(event) => { event.currentTarget.focus(); setOpen(true); }}>{laterDay ? 'Continue' : complete ? 'Read your entry' : route ? 'View assignment' : 'Choose a route'} <span aria-hidden="true">↗</span></button>
