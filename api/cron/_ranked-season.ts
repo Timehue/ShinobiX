@@ -370,6 +370,33 @@ async function putImmutable(
     throw new Error(`ranked-season-immutable-conflict:${key}`);
 }
 
+/**
+ * A process can commit the next current-season record and then stop before it
+ * reopens the shared admissions gate.  In that narrow, fully drained state it
+ * is safe to finish publication: current already names the next season, no
+ * match or journal remains from the completed one, and reopen verifies the
+ * exact completed/next season pair before its CAS write.
+ */
+async function recoverAdvancedSeasonGate(
+    store: RankedSeasonStore,
+    current: RankedSeason,
+    gate: PetRankedSeasonGate,
+    now: number,
+): Promise<boolean> {
+    if (gate.state !== 'closing' || gate.nextSeasonId !== current.id) return false;
+    if (gate.admissions.length !== 0 || gate.playerAdmissions.length !== 0) {
+        throw new Error('ranked-season-advanced-with-pending-admissions');
+    }
+    if ((await listPendingPetRankedJournals(store)).length !== 0) {
+        throw new Error('ranked-season-advanced-with-pending-journals');
+    }
+    if ((await listPendingPlayerRankedJournals(store)).length !== 0) {
+        throw new Error('ranked-season-advanced-with-pending-player-journals');
+    }
+    await reopenPetRankedSeasonGate(store, gate.seasonId, current.id, now);
+    return true;
+}
+
 export async function startRankedSeasonWithStore(
     store: RankedSeasonStore,
     now: number = Date.now(),
@@ -378,8 +405,21 @@ export async function startRankedSeasonWithStore(
     if (current) {
         const gate = await readPetRankedSeasonGateFresh(store);
         if (!gate) await ensurePetRankedSeasonGate(store, current.id, now);
-        else if (gate.state === 'open' && gate.seasonId !== current.id) {
+        else if (await recoverAdvancedSeasonGate(store, current, gate, now)) {
+            // Resume repairs an interrupted rollover publication as well as an
+            // explicit admin pause, so the button cannot say "active" while
+            // the player ladder remains closed.
+            await store.del(SEASON_ADMISSIONS_PAUSED_KEY);
+            return { ok: true, action: 'resumed', seasonId: current.id };
+        } else if (gate.state === 'open' && gate.seasonId !== current.id) {
             throw new Error('ranked-season-gate-current-conflict');
+        } else if (gate.state !== 'open') {
+            return {
+                ok: false,
+                action: 'skipped',
+                seasonId: current.id,
+                error: 'Ranked season rollover is still settling. Try again shortly.',
+            };
         }
         const resumed = await store.del(SEASON_ADMISSIONS_PAUSED_KEY) > 0;
         return { ok: true, action: resumed ? 'resumed' : 'skipped', seasonId: current.id };
@@ -771,17 +811,7 @@ async function runRolloverCore(
     if (!gate) gate = await ensurePetRankedSeasonGate(store, current.id, now);
 
     // Recover a crash after advancing current but before reopening admission.
-    if (gate.state === 'closing' && gate.nextSeasonId === current.id) {
-        if (gate.admissions.length !== 0 || gate.playerAdmissions.length !== 0) {
-            throw new Error('ranked-season-advanced-with-pending-admissions');
-        }
-        if ((await listPendingPetRankedJournals(store)).length !== 0) {
-            throw new Error('ranked-season-advanced-with-pending-journals');
-        }
-        if ((await listPendingPlayerRankedJournals(store)).length !== 0) {
-            throw new Error('ranked-season-advanced-with-pending-player-journals');
-        }
-        await reopenPetRankedSeasonGate(store, gate.seasonId, current.id, now);
+    if (await recoverAdvancedSeasonGate(store, current, gate, now)) {
         return { ok: true, action: 'skipped', seasonId: current.id };
     }
     if (gate.seasonId !== current.id) throw new Error('ranked-season-gate-current-conflict');

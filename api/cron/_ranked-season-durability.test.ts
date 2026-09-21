@@ -11,6 +11,7 @@ import { getPetRankedJournal } from '../pet/_ranked-journal.js';
 import {
     makePetRankedPreparation,
     activatePlayerRankedAdmission,
+    closePetRankedSeasonGate,
     getPlayerRankedAdmission,
     readPetRankedSeasonGateFresh,
     reservePetRankedPreparation,
@@ -92,6 +93,22 @@ describe('ranked season transition durability', () => {
         assert.equal(rolled.ok, true, String(rolled.error ?? 'ranked rollover failed'));
         assert.equal(rolled.action, 'rolled-over');
         assert.equal((await store.get<{ id: number }>(SEASON_CURRENT_KEY))?.id, 2);
+    });
+
+    it('resume reopens a fully drained gate after current-season publication was interrupted', async () => {
+        const store = await seededStore();
+        const first = await store.get<{ id: number; startedAt: number; endsAt: number }>(SEASON_CURRENT_KEY);
+        assert.ok(first);
+        await closePetRankedSeasonGate(store, first.id, NOW + 1);
+        const second = { id: first.id + 1, startedAt: first.endsAt, endsAt: first.endsAt + 30 * 24 * 60 * 60 * 1000 };
+        assert.equal(await store.compareSet(SEASON_CURRENT_KEY, first, second), true);
+
+        const resumed = await startRankedSeasonWithStore(store, NOW + 2);
+
+        assert.deepEqual(resumed, { ok: true, action: 'resumed', seasonId: 2 });
+        const gate = await readPetRankedSeasonGateFresh(store);
+        assert.equal(gate?.state, 'open');
+        assert.equal(gate?.seasonId, 2);
     });
 
     it('recovers a committed terminal past 15m with no client retry, settles effects, then compacts it', async () => {
