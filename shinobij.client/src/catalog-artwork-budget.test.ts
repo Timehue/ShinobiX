@@ -127,3 +127,25 @@ test('every purchasable item resolves to artwork that ships', () => {
         .map((item) => `${item.id} -> ${item.image}`);
     assert.deepEqual(broken, [], 'these item artwork paths do not resolve to a shipped file');
 });
+
+test('the complete Ranked Format kit ships production-sized artwork', () => {
+    const ids = [
+        'ranked-format-kunai',
+        'ranked-format-crown',
+        'ranked-format-mantle',
+        'ranked-format-obi',
+        'ranked-format-greaves',
+        'ranked-format-sabatons',
+        'black-lotus-dagger',
+        'elderbranch-katana',
+        'embercoil-scythe',
+        'frostfang-oathblade',
+    ];
+    for (const id of ids) {
+        const item = starterItems.find((candidate) => candidate.id === id);
+        assert.ok(item?.image?.startsWith('/items/'), `${id} has no canonical item artwork`);
+        const file = join(clientRoot, 'public', item.image);
+        assert.ok(statSync(file).size > 0, `${id} artwork does not ship`);
+        assert.deepEqual(sizeOfWebp(file), { width: 320, height: 320 }, `${id} artwork must fit the 320px catalog budget`);
+    }
+});
