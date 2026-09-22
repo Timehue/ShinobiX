@@ -226,8 +226,11 @@ export async function fetchInitialPvpProjection(options: {
                 continue;
             }
             // A session POST and the first GET can cross during publication.
-            // Retry every 404; only the exhausted series proves bounded absence.
-            if (response.status === 404) continue;
+            // A completed ranked battle can also be briefly unavailable while
+            // its immutable recovery snapshot/pointers are being published.
+            // Neither response proves that the battle expired, so keep both
+            // retryable inside this bounded mount reconciliation window.
+            if (response.status === 404 || response.status === 503) continue;
             if (response.status === 403) {
                 return {
                     kind: "unavailable",
@@ -242,6 +245,13 @@ export async function fetchInitialPvpProjection(options: {
 
     if (lastStatus === 404) {
         return { kind: "missing", message: "The battle session is unavailable or expired." };
+    }
+    if (lastStatus === 503) {
+        return {
+            kind: "unavailable",
+            message: "Battle settlement is still finalizing. Retrying this connection is safe.",
+            seedMayRemainVisible: true,
+        };
     }
     if (sawInvalidProjection) {
         return {

@@ -102,6 +102,12 @@ const PATH_STEP_MS = 130;
 const ORB_PATH_TRANSITION = "left 180ms linear, top 180ms linear";
 const PVP_MAX_ACTIONS = 5;
 const PVP_REWARD_CLAIM_TIMEOUT_MS = 12_000;
+// A Player Ranked terminal claim settles two rating saves, then its durable
+// ranked-progression receipts. It is materially longer than an ordinary PvP
+// claim, especially on mobile connections. Do not abort a healthy server
+// transaction after the generic twelve-second request budget and turn a
+// completed match into a manual retry loop.
+const PLAYER_RANKED_REWARD_CLAIM_TIMEOUT_MS = 45_000;
 /**
  * Ceiling on the whole completion phase (settlement callbacks + the ACK).
  *
@@ -1039,7 +1045,12 @@ export function PvpBattleScreen({
         // Keep the request bounded. This abort can race a committed server
         // receipt, which is why the durable pending marker above must precede
         // it: an alreadyClaimed retry then repairs the skipped callbacks.
-        const claimTimeout = window.setTimeout(() => claimAbort.abort(), PVP_REWARD_CLAIM_TIMEOUT_MS);
+        const claimTimeout = window.setTimeout(
+            () => claimAbort.abort(),
+            resolvedSession.rankedKind === "player" && resolvedSession.playerRankedAuthorityVersion === 2
+                ? PLAYER_RANKED_REWARD_CLAIM_TIMEOUT_MS
+                : PVP_REWARD_CLAIM_TIMEOUT_MS,
+        );
         const result = await postPvpRewardClaim(fetch, claimRequest, { signal: claimAbort.signal });
         window.clearTimeout(claimTimeout);
         if (rewardClaimAbortRef.current === claimAbort) rewardClaimAbortRef.current = null;
