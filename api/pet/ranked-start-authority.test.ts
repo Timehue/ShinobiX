@@ -52,7 +52,7 @@ async function post(handler: Handler, player: string, body: Record<string, unkno
     return out;
 }
 
-async function queuePair(a: string, b: string): Promise<Record<string, unknown>> {
+async function queuePair(a: string, b: string, format?: '2v2'): Promise<Record<string, unknown>> {
     const pairId = randomUUID();
     const createdAt = Date.now();
     const initiator = a < b ? a : b;
@@ -63,6 +63,8 @@ async function queuePair(a: string, b: string): Promise<Record<string, unknown>>
         initiator: a === initiator,
         createdAt,
         pairId,
+        ...(format ? { format } : {}),
+        ...(format ? { teamIds: [`${a}-2`, `${a}-0`, `${a}-1`, `${a}-3`] } : {}),
     };
     const matchB = {
         opponent: a,
@@ -71,6 +73,8 @@ async function queuePair(a: string, b: string): Promise<Record<string, unknown>>
         initiator: b === initiator,
         createdAt,
         pairId,
+        ...(format ? { format } : {}),
+        ...(format ? { teamIds: [`${b}-0`, `${b}-1`, `${b}-2`, `${b}-3`] } : {}),
     };
     await Promise.all([
         kv.set(`pvp:pet-ranked-queue:match:${a}`, matchA, { ex: 30 }),
@@ -110,20 +114,42 @@ before(async () => {
     }
 });
 
+test('a new ranked pairing seals four owned pets per side for field and reserve play', async () => {
+    const a = 'rankedfouralpha';
+    const b = 'rankedfourbravo';
+    for (const name of [a, b]) {
+        const pets = Array.from({ length: 4 }, (_, index) => ({
+            id: `${name}-${index}`, name: `Pet ${index}`, rarity: 'standard', level: 20,
+            hp: 350, attack: 65, defense: 40, speed: 40, element: 'Fire',
+            jutsus: [{ name: 'Strike', power: 50, cooldown: 1, kind: 'damage' }],
+        }));
+        await kv.set(`save:${name}`, { _saveVersion: 1, character: { name, level: 20, pets, activePetId: pets[2].id, petRankedRating: 1000 } });
+    }
+    await queuePair(a, b, '2v2');
+    const started = await post(startHandler, a, { opponentName: b, petId: `${a}-0` });
+    assert.equal(started.statusCode, 200);
+    const proof = await kv.get<Record<string, unknown>>(`pet:ranked-token:${String(started.body?.matchToken)}`);
+    assert.deepEqual((proof?.aTeam as Array<{ id: string }>).map((pet) => pet.id), [`${a}-2`, `${a}-0`, `${a}-1`, `${a}-3`]);
+    assert.equal((proof?.bTeam as unknown[]).length, 4);
+    assert.equal((proof?.aPet as { id: string }).id, `${a}-2`, 'a request body cannot replace the selected lead');
+});
+
 after(() => {
     delete process.env.SHINOBIX_QA_MEMORY_KV;
     delete process.env.SESSION_SECRET;
 });
 
 test('an authenticated caller cannot mint a ranked proof for an arbitrary victim', async () => {
+    const tokensBefore = await kv.keys('pet:ranked-token:*');
+    const registryBefore = await kv.get('pet:ranked-active');
     const out = await post(startHandler, players[0], {
         opponentName: players[1],
         petId: `${players[0]}-pet`,
     });
     assert.equal(out.statusCode, 409);
-    assert.match(String(out.body?.error), /retained reciprocal ranked pairing/i);
-    assert.deepEqual(await kv.keys('pet:ranked-token:*'), []);
-    assert.equal(await kv.get('pet:ranked-active'), null);
+    assert.match(String(out.body?.error), /reciprocal ranked queue pairing/i);
+    assert.deepEqual(await kv.keys('pet:ranked-token:*'), tokensBefore);
+    assert.deepEqual(await kv.get('pet:ranked-active'), registryBefore);
 });
 
 test('a retained reciprocal compatibility proof mints one token and concurrent/lost-response retries reuse it', async () => {
@@ -168,7 +194,7 @@ test('only the proof-selected initiator may bind a pair and one active match blo
     assert.equal(match.initiator, true);
     const nonInitiator = await post(startHandler, echo, { opponentName: delta, petId: `${echo}-pet` });
     assert.equal(nonInitiator.statusCode, 409);
-    assert.match(String(nonInitiator.body?.error), /retained reciprocal ranked pairing/i);
+    assert.match(String(nonInitiator.body?.error), /reciprocal ranked queue pairing/i);
 
     const alpha = players[0];
     const charlie = players[2];

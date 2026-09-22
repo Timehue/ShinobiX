@@ -23,7 +23,7 @@ import {
     type PetRankedQueueMatch,
     type RankedPetActivePointer,
 } from '../pet/_ranked-authority.js';
-import { hasRankedReadyPet, petRatingOf } from '../pet/_ranked-eligibility.js';
+import { petRatingOf, selectRankedTeam } from '../pet/_ranked-eligibility.js';
 import { petRankedQueueEnabled, PET_RANKED_QUEUE_DISABLED_REASON } from '../pet/_ranked-settlement.js';
 
 /*
@@ -60,6 +60,8 @@ export type PetRankedWaitingEntry = {
     rating: number;
     level: number;
     joinedAt: number;
+    format: '2v2';
+    petIds: string[];
 };
 
 function ratingWindow(entry: PetRankedWaitingEntry, now: number): number {
@@ -83,7 +85,10 @@ export function pruneWaiting(value: unknown, now: number): PetRankedWaitingEntry
         const entry = raw as Partial<PetRankedWaitingEntry>;
         const slug = safeName(entry?.slug ?? '');
         const joinedAt = Number(entry?.joinedAt);
-        if (!slug || seen.has(slug) || !Number.isFinite(joinedAt)) return false;
+        if (!slug || seen.has(slug) || !Number.isFinite(joinedAt) || entry.format !== '2v2'
+            || !Array.isArray(entry.petIds) || entry.petIds.length !== 4
+            || entry.petIds.some((id) => typeof id !== 'string' || !id)
+            || new Set(entry.petIds).size !== 4) return false;
         if (joinedAt > now + 60_000 || now - joinedAt >= PET_RANKED_WAITING_TTL_MS) return false;
         seen.add(slug);
         return true;
@@ -100,7 +105,7 @@ export function selectPetRankedOpponent(
     return ordered.find(candidate => petRankedPairable(joiner, candidate, now)) ?? null;
 }
 
-function queueMatch(opponent: PetRankedWaitingEntry, initiator: boolean, pairId: string, now: number): PetRankedQueueMatch {
+function queueMatch(opponent: PetRankedWaitingEntry, initiator: boolean, pairId: string, now: number, ownTeamIds: string[]): PetRankedQueueMatch {
     return {
         opponent: opponent.slug,
         opponentElo: Math.round(opponent.rating),
@@ -108,6 +113,8 @@ function queueMatch(opponent: PetRankedWaitingEntry, initiator: boolean, pairId:
         initiator,
         createdAt: now,
         pairId,
+        format: '2v2',
+        teamIds: ownTeamIds,
     };
 }
 
@@ -142,7 +149,7 @@ async function currentState(slug: string): Promise<Record<string, unknown>> {
     }
     const waiting = pruneWaiting(waitingRaw, Date.now());
     const index = waiting.findIndex(entry => entry.slug === slug);
-    if (index >= 0) return { state: 'queued', queuePosition: index + 1, waiting: waiting.length };
+    if (index >= 0) return { state: 'queued', queuePosition: index + 1, waiting: waiting.length, teamIds: waiting[index].petIds };
     // This link was minted with the token, independently of the prunable
     // reservation registry. An unfinished durable intent remains recoverable
     // even if unrelated matchmaking has pruned its expired reservation.
@@ -239,10 +246,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
         }
         // Admit only a fighter ranked-start would accept, or the pairing burns.
-        if (!hasRankedReadyPet(save)) {
+        const requestedIds = Array.isArray(body.petIds) ? body.petIds : null;
+        const team = requestedIds && requestedIds.every((id: unknown) => typeof id === 'string')
+            ? selectRankedTeam(character, requestedIds as string[]) : null;
+        if (!team) {
             return res.status(409).json({
-                error: 'Carry a pet that is not breeding, training, or on an expedition.',
-                errorCode: 'no-ranked-pet',
+                error: 'Carry four distinct pets that are not breeding, training, or on an expedition.',
+                errorCode: 'no-ranked-team',
             });
         }
 
@@ -261,6 +271,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 rating: petRatingOf(save),
                 level,
                 joinedAt: waiting.find(entry => entry.slug === me)?.joinedAt ?? now,
+                format: '2v2',
+                petIds: team.map((pet) => String(pet.id)),
             };
             const opponent = selectPetRankedOpponent(joiner, waiting.filter(entry => entry.slug !== me), now);
             if (!opponent) {
@@ -273,8 +285,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // and an identical createdAt on both reciprocal records.
             const pairId = randomUUID();
             await Promise.all([
-                kv.set(petRankedQueueMatchKey(me), queueMatch(opponent, true, pairId, now), { ex: PET_RANKED_QUEUE_MATCH_TTL_SECONDS }),
-                kv.set(petRankedQueueMatchKey(opponent.slug), queueMatch(joiner, false, pairId, now), { ex: PET_RANKED_QUEUE_MATCH_TTL_SECONDS }),
+                kv.set(petRankedQueueMatchKey(me), queueMatch(opponent, true, pairId, now, joiner.petIds), { ex: PET_RANKED_QUEUE_MATCH_TTL_SECONDS }),
+                kv.set(petRankedQueueMatchKey(opponent.slug), queueMatch(joiner, false, pairId, now, opponent.petIds), { ex: PET_RANKED_QUEUE_MATCH_TTL_SECONDS }),
             ]);
             const remaining = waiting.filter(entry => entry.slug !== me && entry.slug !== opponent.slug);
             if (remaining.length) await kv.set(PET_RANKED_WAITING_KEY, remaining, { ex: 15 * 60 });

@@ -241,6 +241,31 @@ describe('ranked 2v2 rating', { concurrency: false }, () => {
         const stable = await kv.get<{ character?: Record<string, number> }>(`save:${amberSlugs[0]}`);
         assert.equal(stable?.character?.ranked2v2Rating, settledRating, 'rating never moves twice for one match');
         assert.equal(stable?.character?.ranked2v2Wins, 1);
+        for (const slug of ALL) {
+            assert.equal((await mod.ranked2v2Status(slug)).match, null, `${slug} is released from the finished match`);
+            assert.equal((await mod.duoForPlayer(slug))?.status, 'ready', `${slug} can queue again`);
+        }
+        // The route's towerPvpState call releases terminal battle leases before
+        // settlement; this unit test drives the rating function directly.
+        const { releaseTowerBattleLeases } = await import('../towers/_battle-lease.js');
+        await releaseTowerBattleLeases(base.matchId, ALL);
+        const requeued = await mod.queueRanked2v2(A1);
+        assert.ok(requeued.ok && requeued.value.state === 'queued', 'a settled duo can start another search');
+    });
+
+    it('keeps a partly settled match recoverable until all four saves are credited', async () => {
+        const base = await matchedPair();
+        const done = { ...base, status: 'done' as const, winner: 'amber' as const };
+        const missing = B2;
+        const saved = await kv.get(`save:${missing}`);
+        await kv.del(`save:${missing}`);
+        const partial = await settle.settleRanked2v2Match(done);
+        assert.equal(partial?.length, 3);
+        assert.equal((await mod.ranked2v2Status(A1)).match?.matchId, base.matchId);
+        await kv.set(`save:${missing}`, saved);
+        const complete = await settle.settleRanked2v2Match(done);
+        assert.equal(complete?.length, 4);
+        assert.equal((await mod.ranked2v2Status(A1)).match, null);
     });
 
     it('rates nobody for a duel that never happened', async () => {

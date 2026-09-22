@@ -2,6 +2,8 @@ import { Suspense, useCallback, useEffect, useEffectEvent, useRef, useState } fr
 import type { Character } from "../types/character";
 import type { Pet } from "../types/pet";
 import { activeCarriedPets } from "../lib/entitlements";
+import { activeClientBreedingParentIds } from "../lib/pet-breeding";
+import { isPetAvailableForWarfront, petDisplayName } from "../lib/pet";
 import { lazyWithRetry } from "../lib/lazyWithRetry";
 import { fetchRankedPetDuel, type RankedPetWatch } from "../lib/pet-ranked-watch-api";
 import {
@@ -45,10 +47,20 @@ export function PetLadderQueuePanel({ character, sharedImages = {}, onVersionedC
     const [checking, setChecking] = useState(true);
     const [retryAttempt, setRetryAttempt] = useState(0);
     const [closingToken, setClosingToken] = useState<string | null>(null);
+    const [lineupEdit, setLineupEdit] = useState<string[] | null>(null);
     const mountedRef = useRef(true);
     const startedRef = useRef<string | null>(null);
     const refreshIdRef = useRef(0);
     const playerPets = activeCarriedPets<Pet>(character);
+    const breedingPetIds = activeClientBreedingParentIds(character);
+    const readyPets = playerPets.filter((pet) => isPetAvailableForWarfront(pet, breedingPetIds));
+    const defaultLineup = [
+        ...readyPets.filter((pet) => pet.id === character.activePetId),
+        ...readyPets.filter((pet) => pet.id !== character.activePetId),
+    ].slice(0, 4).map((pet) => pet.id);
+    const readyIds = new Set(readyPets.map((pet) => pet.id));
+    const lineupIds = (lineupEdit ?? defaultLineup).filter((id) => readyIds.has(id));
+    const lineup = lineupIds.map((id) => readyPets.find((pet) => pet.id === id)).filter((pet): pet is Pet => !!pet);
     // Read the current App commit callback without restarting playback when
     // adoption itself rerenders the parent. App rejects older/foreign saves.
     const receiveCharacter = useEffectEvent(onVersionedCharacter);
@@ -149,7 +161,7 @@ export function PetLadderQueuePanel({ character, sharedImages = {}, onVersionedC
         setBusy(true);
         setError(null);
         try {
-            const next = await petRankedQueue(action, character.name);
+            const next = await petRankedQueue(action, character.name, undefined, action === "join" ? lineupIds : undefined);
             if (mountedRef.current) setState(next);
         } catch (actionError) {
             setError(String((actionError as Error)?.message ?? actionError));
@@ -160,7 +172,7 @@ export function PetLadderQueuePanel({ character, sharedImages = {}, onVersionedC
 
     const queueBox = (
         <div className="summary-box" data-testid="pet-ladder-queue" style={{ padding: "0.9rem", marginBottom: "0.9rem" }}>
-            <h3 className="pl-h" style={{ marginTop: 0 }}>Ranked live queue</h3>
+            <h3 className="pl-h" style={{ marginTop: 0 }}>Pet Colosseum ranked queue</h3>
             {error && <p className="hint" role="alert" style={{ color: "var(--red-400)" }}>{error}</p>}
             {error && !busy && <button type="button" onClick={() => {
                 if (closingToken) void closeReplay(closingToken);
@@ -172,10 +184,27 @@ export function PetLadderQueuePanel({ character, sharedImages = {}, onVersionedC
             {state.state === "idle" && (
                 <>
                     <p className="hint" style={{ marginTop: 0 }}>
-                        Face another shinobi's pet for rating. The server resolves the duel and both of you watch that
-                        exact fight — no client ever decides a ranked result.
+                        Queue against another tamer. Your first two pets fight together; the next two rotate in as reserves.
+                        The server resolves the fight and updates Pet Elo for both players.
                     </p>
-                    <button type="button" disabled={busy || checking} onClick={() => void act("join")()}>
+                    <p className="hint">Select four pets in order. Slots 1–2 start on the field; slots 3–4 rotate in as reserves.</p>
+                    <button type="button" disabled={busy || checking} onClick={() => setLineupEdit([])}>Choose lineup order</button>
+                    <div className="pl-pet-grid" role="group" aria-label="Ranked Colosseum lineup">
+                        {readyPets.map((pet) => {
+                            const index = lineupIds.indexOf(pet.id);
+                            return <button key={pet.id} type="button" className={`pl-pet${index >= 0 ? " sel" : ""}`}
+                                aria-pressed={index >= 0} disabled={busy || checking}
+                                style={{ minHeight: 76, paddingTop: 24 }}
+                                onClick={() => setLineupEdit(index >= 0 ? lineupIds.filter((id) => id !== pet.id) : lineupIds.length < 4 ? [...lineupIds, pet.id] : lineupIds)}>
+                                {index >= 0 && <span className="pl-pet-order">{index + 1}</span>}
+                                <div className="pl-pet-body"><div className="pl-pet-name">{petDisplayName(pet)}</div><div className="pl-pet-stat">Lv {pet.level}</div></div>
+                            </button>;
+                        })}
+                    </div>
+                    <p className="hint">{lineup.length === 4
+                        ? lineup.map((pet, index) => `${index < 2 ? "Field" : "Reserve"} ${index % 2 + 1}: ${petDisplayName(pet)}`).join(" · ")
+                        : `Carry and select four available pets (${lineup.length}/4 ready).`}</p>
+                    <button type="button" disabled={busy || checking || lineup.length < 4} onClick={() => void act("join")()}>
                         {checking ? "Checking ranked matches…" : busy ? "Joining…" : "Find ranked match"}
                     </button>
                 </>
@@ -186,6 +215,10 @@ export function PetLadderQueuePanel({ character, sharedImages = {}, onVersionedC
                     <p className="hint" style={{ marginTop: 0 }}>
                         Searching for an opponent near your rating · position {state.queuePosition} of {state.waiting}.
                     </p>
+                    <p className="hint">Lineup locked: {(state.teamIds ?? []).map((id, index) => {
+                        const pet = playerPets.find((candidate) => candidate.id === id);
+                        return `${index < 2 ? "Field" : "Reserve"} ${index % 2 + 1}: ${pet ? petDisplayName(pet) : id}`;
+                    }).join(" · ")}</p>
                     <button type="button" disabled={busy} onClick={() => void act("leave")()}>
                         {busy ? "Leaving…" : "Cancel"}
                     </button>

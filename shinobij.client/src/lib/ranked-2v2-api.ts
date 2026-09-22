@@ -6,6 +6,7 @@
  * queue, and the ladder settle. Nothing here decides an outcome or a rating.
  */
 import type { TowerPvpMatch } from "./tower-pvp-api";
+import type { Character } from "../types/character";
 
 export type Ranked2v2Member = {
     slug: string;
@@ -47,6 +48,8 @@ export type Ranked2v2Settlement = {
     mine: Ranked2v2RatingLine | null;
     duo: Ranked2v2Duo | null;
     match: TowerPvpMatch | null;
+    character?: Character;
+    _saveVersion?: number;
 };
 
 async function post(body: Record<string, unknown>): Promise<Record<string, unknown>> {
@@ -96,6 +99,6 @@ export async function ranked2v2(
  * match id — so the fight screen needs no ranked-specific branch.
  */
 export function settleRanked2v2(playerName: string) {
-    return async (_matchId: string, _caller: string): Promise<Ranked2v2Settlement> =>
-        await post({ action: "settle", playerName }) as unknown as Ranked2v2Settlement;
+    return async (matchId: string, _caller: string): Promise<Ranked2v2Settlement> =>
+        await post({ action: "settle", playerName, matchId }) as unknown as Ranked2v2Settlement;
 }

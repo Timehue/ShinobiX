@@ -43,6 +43,9 @@ export type PetRankedQueueMatch = {
     initiator: boolean;
     createdAt: number;
     pairId: string;
+    /** Present on new ranked Colosseum pairings. */
+    format?: '2v2';
+    teamIds?: string[];
 };
 
 export type RankedPetMatchToken = {
@@ -54,6 +57,9 @@ export type RankedPetMatchToken = {
     bRating: number;
     aPet: Record<string, unknown>;
     bPet: Record<string, unknown>;
+    /** New 2v2 seals. Absent on retained one-pet compatibility proofs. */
+    aTeam?: Record<string, unknown>[];
+    bTeam?: Record<string, unknown>[];
     seed: number;
     createdAt: number;
     settledAt?: number;
@@ -90,6 +96,9 @@ export function isPetRankedQueueMatch(value: unknown): value is PetRankedQueueMa
     if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
     const match = value as Partial<PetRankedQueueMatch>;
     return !!safeName(match.opponent ?? '')
+        && (match.format === undefined || match.format === '2v2')
+        && (match.teamIds === undefined || (Array.isArray(match.teamIds) && match.teamIds.length === 4
+            && match.teamIds.every((id) => typeof id === 'string' && !!id) && new Set(match.teamIds).size === 4))
         && typeof match.initiator === 'boolean'
         && typeof match.pairId === 'string'
         && /^[0-9a-f-]{36}$/i.test(match.pairId)
@@ -99,7 +108,14 @@ export function isPetRankedQueueMatch(value: unknown): value is PetRankedQueueMa
 export function isRankedPetMatchToken(value: unknown): value is RankedPetMatchToken {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
     const token = value as Partial<RankedPetMatchToken>;
-    return token.authority === PET_RANKED_AUTHORITY
+    const validTeam = (team: unknown, lead: unknown): boolean => Array.isArray(team)
+        && team.length === 4
+        && team.every((pet) => !!pet && typeof pet === 'object' && !Array.isArray(pet) && typeof pet.id === 'string' && !!pet.id)
+        && new Set(team.map((pet) => pet.id)).size === 4
+        && !!lead && typeof lead === 'object' && (lead as { id?: unknown }).id === team[0].id;
+    const teamsValid = (token.aTeam === undefined && token.bTeam === undefined)
+        || (validTeam(token.aTeam, token.aPet) && validTeam(token.bTeam, token.bPet));
+    return teamsValid && token.authority === PET_RANKED_AUTHORITY
         && typeof token.pairId === 'string'
         && /^[0-9a-f-]{36}$/i.test(token.pairId)
         && !!safeName(token.a ?? '')

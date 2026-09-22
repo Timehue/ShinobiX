@@ -24,7 +24,7 @@ before(async () => {
 after(() => { delete process.env.SHINOBIX_QA_MEMORY_KV; });
 beforeEach(async () => { await kv.del(WAITING_KEY); });
 
-const entry = (slug: string, rating: number, joinedAt: number) => ({ slug, rating, level: 30, joinedAt });
+const entry = (slug: string, rating: number, joinedAt: number) => ({ slug, rating, level: 30, joinedAt, format: '2v2' as const, petIds: ['p1', 'p2', 'p3', 'p4'] });
 
 describe('live ranked pet matchmaking', { concurrency: false }, () => {
     it('drops stale, duplicate, and future-dated waiting entries', () => {
@@ -34,6 +34,7 @@ describe('live ranked pet matchmaking', { concurrency: false }, () => {
             entry('ash', 1000, now - 2_000),          // duplicate slug
             entry('stale', 1000, now - 10 * 60_000),  // past the waiting TTL
             entry('future', 1000, now + 120_000),     // clock-skewed
+            { slug: 'legacy', rating: 1000, level: 30, joinedAt: now }, // pre-upgrade queue row
             { slug: '', rating: 1, level: 1, joinedAt: now },
         ], now);
         assert.deepEqual(kept.map(e => e.slug), ['ash']);
@@ -73,10 +74,10 @@ describe('live ranked pet matchmaking', { concurrency: false }, () => {
         assert.doesNotMatch(source, /petRankedRating\s*[:=]|creditRankedOutcome|writeSaveProjected\(/);
         assert.match(source, /petRankedQueueMatchKey/);
         // Both reciprocal records, exactly one initiator, identical createdAt.
-        assert.match(source, /queueMatch\(opponent, true, pairId, now\)/);
-        assert.match(source, /queueMatch\(joiner, false, pairId, now\)/);
+        assert.match(source, /queueMatch\(opponent, true, pairId, now, joiner.petIds\)/);
+        assert.match(source, /queueMatch\(joiner, false, pairId, now, opponent.petIds\)/);
         // Newcomer protection and pet eligibility are re-checked server-side.
         assert.match(source, /isBelowAttackableFloor\(level\)/);
-        assert.match(source, /hasRankedReadyPet\(save\)/);
+        assert.match(source, /selectRankedTeam\(character, requestedIds/);
     });
 });

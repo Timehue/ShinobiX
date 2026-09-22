@@ -52,3 +52,14 @@ test('completed-match acknowledgment carries the exact token and preserves the r
     });
     assert.deepEqual(await petRankedQueue('acknowledge', input.playerName, input.matchToken), { state: 'idle' });
 });
+
+test('ranked queue join sends the ordered field and reserve lineup', async (t) => {
+    const petIds = ['lead-a', 'lead-b', 'reserve-a', 'reserve-b'];
+    t.mock.method(globalThis, 'fetch', async (_url, options) => {
+        assert.deepEqual(JSON.parse(String(options?.body)), { action: 'join', name: 'alpha', petIds });
+        return new Response(JSON.stringify({ state: 'queued', queuePosition: 1, waiting: 1, teamIds: petIds }));
+    });
+    assert.deepEqual(await petRankedQueue('join', 'alpha', undefined, petIds), {
+        state: 'queued', queuePosition: 1, waiting: 1, teamIds: petIds,
+    });
+});

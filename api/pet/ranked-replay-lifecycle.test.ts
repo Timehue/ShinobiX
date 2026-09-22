@@ -3,6 +3,7 @@ import { before, test } from 'node:test';
 import { randomUUID } from 'node:crypto';
 import type { ShowdownReplayScript } from '../../shared/pet-showdown-contract.js';
 import { PET_RANKED_ACTIVE_REGISTRY_KEY, petRankedCompletedKey, petRankedResultKey } from './_ranked-authority.js';
+import { REGISTRY_KEY } from '../player/_public-index.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -37,30 +38,56 @@ async function call(handler: Handler, name: string, body: Record<string, unknown
 async function pair(prefix: string) {
     const a = `${prefix}alpha`, b = `${prefix}bravo`;
     for (const [name, multiplier] of [[a, 1], [b, 2]] as const) {
+        const pets = Array.from({ length: 4 }, (_, index) => ({
+            id: `${name}-pet-${index}`, name: index === 0 ? `${name} pet` : `${name} reserve ${index}`,
+            rarity: 'rare', element: 'Fire', role: 'assassin', level: 40,
+            hp: 900 * multiplier, attack: 120 * multiplier, defense: 70, speed: 80, jutsus: [],
+            loadout: { consumable: `sealed-${name}-${index}` },
+        }));
         await kv.set(`save:${name}`, { _saveVersion: 1, character: {
-            name, level: 40, ryo: 0, petRankedRating: 1000,
-            pets: [{ id: `${name}-pet`, name: `${name} pet`, rarity: 'rare', element: 'Fire', role: 'assassin', level: 40,
-                hp: 900 * multiplier, attack: 120 * multiplier, defense: 70, speed: 80, jutsus: [] }],
+            name, level: 40, ryo: 0, petRankedRating: 1000, activePetId: pets[0].id, pets,
         } });
     }
-    assert.equal((await call(queue, a, { name: a, action: 'join' })).body.state, 'queued');
-    assert.equal((await call(queue, b, { name: b, action: 'join' })).body.state, 'paired');
+    const ids = (name: string) => Array.from({ length: 4 }, (_, index) => `${name}-pet-${index}`);
+    assert.equal((await call(queue, a, { name: a, action: 'join', petIds: ids(a) })).body.state, 'queued');
+    assert.equal((await call(queue, b, { name: b, action: 'join', petIds: ids(b) })).body.state, 'paired');
     const begun = await call(start, b, { opponentName: a });
     assert.equal(begun.status, 200);
     return { a, b, matchToken: String(begun.body.matchToken) };
 }
+
+test('queue rejects duplicate and unowned lineup pets before entering matchmaking', async () => {
+    const name = 'rankedinvalidlineup';
+    const pets = Array.from({ length: 4 }, (_, index) => ({ id: `${name}-${index}`, name: `Pet ${index}` }));
+    await kv.set(`save:${name}`, { _saveVersion: 1, character: { name, level: 40, pets, activePetId: pets[0].id } });
+    const valid = pets.map((pet) => pet.id);
+    assert.equal((await call(queue, name, { name, action: 'join', petIds: [valid[0], valid[0], valid[2], valid[3]] })).status, 409);
+    assert.equal((await call(queue, name, { name, action: 'join', petIds: [valid[0], valid[1], valid[2], 'not-owned'] })).status, 409);
+    assert.equal((await call(queue, name, { name, action: 'poll' })).body.state, 'idle');
+});
 
 test('peer settlement preserves discovery and viewer-relative replays, without repaying or blocking another match', async () => {
     const { a, b, matchToken } = await pair('replayflow');
     const bWatch = await call(watch, b, { matchToken });
     assert.equal(bWatch.status, 200);
     const bScript = bWatch.body.script as ShowdownReplayScript;
+    assert.equal(bScript.initialState.player.length, 4);
+    assert.equal(bScript.initialState.player.filter((pet) => pet.benched).length, 2);
     assert.equal(bScript.initialState.player[0].name, `${b} pet`);
     assert.equal(bScript.initialState.enemyTeamName, a);
     assert.equal(bScript.finalState.outcome, bWatch.body.winnerName === b ? 'win' : 'loss');
 
     const first = await call(settle, b, { ranked: true, playerName: b, opponentName: a, matchToken, outcome: bScript.finalState.outcome, reportKey: `${matchToken}:ranked` });
     assert.equal(first.status, 200);
+    const publicIndex = await kv.hgetall<Record<string, { petRankedRating: number }>>(REGISTRY_KEY);
+    assert.equal(publicIndex?.[a]?.petRankedRating, (await kv.get<any>(`save:${a}`))?.character.petRankedRating);
+    assert.equal(publicIndex?.[b]?.petRankedRating, (await kv.get<any>(`save:${b}`))?.character.petRankedRating);
+    for (const name of [a, b]) {
+        const saved = await kv.get<{ character: { pets: Array<{ loadout?: { consumable?: string } }> } }>(`save:${name}`);
+        assert.deepEqual(saved?.character.pets.map((pet) => pet.loadout?.consumable),
+            Array.from({ length: 4 }, (_, index) => `sealed-${name}-${index}`),
+            'ranked Showdown strips consumables before combat and must not spend an equipped item');
+    }
     assert.equal(await kv.get(`pet:ranked-token:${matchToken}`), null);
     assert.equal(await kv.get(`pet:ranked-intent:${matchToken}`), null);
     assert.ok((await kv.get<Record<string, unknown>>(petRankedResultKey(matchToken)))?.replay);
@@ -91,7 +118,7 @@ test('peer settlement preserves discovery and viewer-relative replays, without r
     assert.deepEqual(await Promise.all([kv.get(`save:${a}`), kv.get(`save:${b}`)]), savesBefore);
     assert.equal((await call(queue, b, { name: b, action: 'acknowledge', matchToken })).body.state, 'idle');
     assert.equal((await call(queue, a, { name: a, action: 'poll' })).body.state, 'completed');
-    assert.equal((await call(queue, b, { name: b, action: 'join' })).body.state, 'queued');
+    assert.equal((await call(queue, b, { name: b, action: 'join', petIds: Array.from({ length: 4 }, (_, index) => `${b}-pet-${index}`) })).body.state, 'queued');
     await call(queue, b, { name: b, action: 'leave' });
     // A stale exit from another tab must not discard a newer replay.
     const newerToken = randomUUID();
