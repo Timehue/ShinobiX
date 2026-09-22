@@ -163,34 +163,20 @@ test("the master switch hard-mutes every audio owner without reviving stopped mu
     setAudioMuted(true);
 });
 
-test("each battle theme routes to its OWN track, and none silently falls back to the pool", () => {
-    // Pet Showdown is the flagship mode and shipped for months playing the same
-    // three-track pool as every other fight, so "the headline battle sounds
-    // generic" is a regression this codebase has already had once. The failure
-    // mode is quiet: drop the `showdown` branch and it falls through to the
-    // random pool, still plays music, and nothing else complains.
+test("every battle theme uses the supplied quiet combat track", () => {
     setAudioMuted(false);
 
     startBattleMusic("showdown");
     const el = MockAudio.instances[0];
     assert.ok(el, "battle music element exists");
-    assert.equal(el.src, "/music/showdown-lantern-duel.mp3", "showdown plays its commissioned theme");
+    assert.equal(el.src, "/music/world/wind-blade-jutsu.mp3");
 
     startBattleMusic("hollow-gate");
-    assert.equal(el.src, "/music/silk-shuriken-2.ogg", "hollow-gate keeps its own dedicated track");
+    assert.equal(el.src, "/music/world/wind-blade-jutsu.mp3");
 
-    // NOTE: do NOT assert standard != the hollow-gate track. silk-shuriken-2 is
-    // itself a member of the shared pool, so the pooled theme picking it is
-    // correct behaviour, and asserting otherwise is a coin-flip flake that
-    // passes in isolation and fails in a full run.
-    //
-    // The showdown theme is the one that must never leak into the pool: it is
-    // NOT in TRACKS, so this holds on every random draw.
-    const pool = ["/music/silk-shuriken.ogg", "/music/silk-shuriken-2.ogg", "/music/koi-kunai.ogg"];
     for (let i = 0; i < 24; i++) {
         startBattleMusic("standard");
-        assert.ok(pool.includes(el.src), `standard draws from the pool, got ${el.src}`);
-        assert.notEqual(el.src, "/music/showdown-lantern-duel.mp3", "standard never grabs the showdown theme");
+        assert.equal(el.src, "/music/world/wind-blade-jutsu.mp3");
     }
 
     stopBattleMusic();
