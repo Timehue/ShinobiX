@@ -761,6 +761,7 @@ export function PvpBattleScreen({
         const isCurrentScope = continuationFenceRef.current.capture();
         const joinAbort = new AbortController();
         void (async () => {
+            let lastFailure = "Could not join this battle. Retry by reopening it.";
             for (let attempt = 0; !cancelled && isCurrentScope() && attempt < 4; attempt += 1) {
                 if (attempt > 0) {
                     try { await abortableDelay(400 * attempt, joinAbort.signal); } catch { return; }
@@ -780,10 +781,15 @@ export function PvpBattleScreen({
                     });
                     if (res.ok) {
                         const parsed = applySessionProjection(await res.json(), isCurrentScope);
-                        if (parsed.kind === "session") return;
+                        if (parsed.kind === "session") { setMoveFeedback(""); return; }
+                        lastFailure = parsed.message;
+                    } else {
+                        const body = await res.json().catch(() => ({} as { error?: string }));
+                        lastFailure = typeof body.error === "string" ? body.error : `Join failed (HTTP ${res.status}).`;
                     }
                 } catch { /* retry */ }
             }
+            if (!cancelled && isCurrentScope()) setMoveFeedback(lastFailure);
         })();
         return () => { cancelled = true; joinAbort.abort(); };
     }, [battleId, role, runtimeScopeKey, session?.status, session?.joined?.p1, session?.joined?.p2, session?.p1.name, session?.p2.name]);
@@ -1262,7 +1268,7 @@ export function PvpBattleScreen({
         rankedItemsDisabled: realPvpItemsDisabled,
     }));
     useEffect(() => {
-        if (!session || session.status === "done" || session.activePlayer !== role || submitting || pvpPrefightCountdown !== null) return;
+        if (!session || session.status === "done" || session.activePlayer !== role || session.joined?.p1 !== true || session.joined?.p2 !== true || submitting || pvpPrefightCountdown !== null) return;
         if (!pvpHasAffordablePaidAction) {
             const t = setTimeout(() => submitAction("wait"), 500);
             return () => clearTimeout(t);
@@ -1275,7 +1281,7 @@ export function PvpBattleScreen({
     // rebuild every second was the main cause of mobile combat stutter. This
     // effect just clears any queued auto-wait at the start of each of my turns /
     // after I act, exactly as the old timer effect did on every reset.
-    const pvpIsMyTurn = session?.activePlayer === role;
+    const pvpIsMyTurn = session?.activePlayer === role && session.joined?.p1 === true && session.joined?.p2 === true;
     const pvpDone = session?.status === "done";
     useEffect(() => {
         setPvpPendingAutoWait(false);
@@ -1621,9 +1627,12 @@ export function PvpBattleScreen({
     const myAp = role === "p1" ? session.ap.p1 : session.ap.p2;
     const oppAp = role === "p1" ? session.ap.p2 : session.ap.p1;
     const myCooldowns = role === "p1" ? session.cooldowns.p1 : session.cooldowns.p2;
-    const isMyTurn = amSpectator ? false : session.activePlayer === role;
-    const displayedMyTurn = amSpectator ? session.activePlayer === role : isMyTurn;
+    const bothJoined = session.joined?.p1 === true && session.joined?.p2 === true;
+    const isMyTurn = !amSpectator && bothJoined && session.activePlayer === role;
+    const displayedMyTurn = bothJoined && (amSpectator ? session.activePlayer === role : isMyTurn);
     const displayedTurnName = displayedMyTurn ? me.name : opp.name;
+    const awaitingFighterName = session.joined?.p1 !== true ? session.p1.name
+        : session.joined?.p2 !== true ? session.p2.name : opp.name;
     const done = session.status === "done";
     const iWon = (session.winner === "p1" && role === "p1") || (session.winner === "p2" && role === "p2");
     const isDraw = session.winner === "draw";
@@ -1907,7 +1916,7 @@ export function PvpBattleScreen({
                 const errData = await res.json().catch(() => ({} as Record<string, unknown>));
                 const errMsg = typeof errData?.error === "string" ? errData.error : `Server rejected move (${res.status})`;
                 if (isCurrentScope()) {
-                    if (res.status === 409) {
+                    if (res.status === 409 && pvpAction !== "cancel-unjoined") {
                         markSessionUnavailable("This ranked battle ended as a no-contest.", isCurrentScope);
                         return;
                     }
@@ -2082,7 +2091,7 @@ export function PvpBattleScreen({
                     turn={session.round}
                     statuses={me.statuses}
                     currentRound={session.round}
-                    isActive={displayedMyTurn && !done}
+                    isActive={bothJoined && displayedMyTurn && !done}
                     level={me.character?.level as number | undefined}
                     power={pvpEarnedPoints(me.character)}
                 />
@@ -2116,11 +2125,11 @@ export function PvpBattleScreen({
                         <div>
                             <strong>{me.name} AP</strong>
                             <div className="hud-bar ap-display-bar"><span style={{ width: `${myAp}%` }} /></div>
-                            <small>{myAp}/100 | {displayedMyTurn ? "Active" : "Waiting"}</small>
+                            <small>{myAp}/100 | {!bothJoined ? (session.joined?.[role] ? "Ready" : "Joining") : displayedMyTurn ? "Active" : "Waiting"}</small>
                         </div>
-                        {isMyTurn && !done ? (
+                        {(!bothJoined || isMyTurn) && !done ? (
                             <CombatRoundTimer
-                                active={isMyTurn && !done && pvpPrefightCountdown === null}
+                                active={!done && pvpPrefightCountdown === null}
                                 resetSignal={pvpRoundTimerKey}
                                 // Anchor the ring to the SERVER's turn clock, not
                                 // to when this component mounted: a refresh
@@ -2131,7 +2140,7 @@ export function PvpBattleScreen({
                                 // waiting state instead of counting down to a
                                 // stuck 0 whose `wait` the server refuses.
                                 anchor={{ turnStartedAt: pvpTurnStartedAt }}
-                                opponentName={opp.name}
+                                opponentName={awaitingFighterName}
                                 onExpire={() => setPvpPendingAutoWait(true)}
                             />
                         ) : (
@@ -2145,7 +2154,7 @@ export function PvpBattleScreen({
                         <div>
                             <strong>{opp.name} AP</strong>
                             <div className="hud-bar enemy-ap-display-bar"><span style={{ width: `${oppAp}%` }} /></div>
-                            <small>{oppAp}/100 | {!displayedMyTurn ? "Active" : "Waiting"}</small>
+                            <small>{oppAp}/100 | {!bothJoined ? (session.joined?.[role === "p1" ? "p2" : "p1"] ? "Ready" : "Joining") : !displayedMyTurn ? "Active" : "Waiting"}</small>
                         </div>
                     </CombatApPanel>
 
@@ -2386,7 +2395,10 @@ export function PvpBattleScreen({
                         the grid area it already had. */}
                     <CombatActionTray>
                         {!done && !amSpectator && (
-                            <CombatCommandBar style={isMyTurn ? undefined : { opacity: 0.55 }}>
+                            <CombatCommandBar style={!bothJoined || isMyTurn ? undefined : { opacity: 0.55 }}>
+                                {!bothJoined && <button type="button" onClick={() => void submitAction("cancel-unjoined", undefined, undefined, undefined, { allowWhenNotMyTurn: true })} disabled={submitting}>
+                                    <i className="cmd-icon" aria-hidden="true"><GiRun /></i><span>{submitting ? "Cancelling…" : "Cancel Duel"}</span><small>No penalty</small>
+                                </button>}
                                 <button className={pendingBasicAttack ? "selected-action" : ""}
                                     onClick={() => { clearPendingPvpJutsu(); setPendingWeaponId(""); setSelectedActionId(undefined); setPendingBasicAttack(v => !v); }}
                                     disabled={!isMyTurn || submitting || !basicAttackAvailability.affordable}>
@@ -2704,7 +2716,7 @@ export function PvpBattleScreen({
 
                     <PlainCombatBattleLog
                         lines={battleLogLines}
-                        turnLabel={isMyTurn ? "Your Turn" : `${displayedTurnName}'s Turn`}
+                        turnLabel={!bothJoined ? `Waiting for ${awaitingFighterName}` : isMyTurn ? "Your Turn" : `${displayedTurnName}'s Turn`}
                         selfName={me.name}
                         oppName={opp.name}
                     />
@@ -2712,7 +2724,7 @@ export function PvpBattleScreen({
                     {/* Whose-turn banner — pinned to the board panel's bottom-right
                         corner (absolute, so it takes no grid row). Purely a readout
                         of the session's active role; it drives nothing. */}
-                    {!done && (
+                    {!done && bothJoined && (
                         <div className={`combat-turn-banner${isMyTurn ? " ctb-player" : " ctb-enemy"}`} aria-hidden="true">
                             <span className="ctb-name">{displayedTurnName}</span>
                             <span className="ctb-suffix">'s Turn</span>
@@ -2793,7 +2805,7 @@ export function PvpBattleScreen({
                     turn={session.round}
                     statuses={opp.statuses}
                     currentRound={session.round}
-                    isActive={!displayedMyTurn && !done}
+                    isActive={bothJoined && !displayedMyTurn && !done}
                     level={opp.character?.level as number | undefined}
                     power={pvpEarnedPoints(opp.character)}
                 />

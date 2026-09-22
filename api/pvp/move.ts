@@ -1483,7 +1483,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // A lapsed turn (shared/pvp-turn.ts) also falls through: the inactive
         // player's request must reach the lock so the server can pass the
         // stale turn before deciding whose turn it really is.
-        if (session.activePlayer !== role && action !== 'claim-afk-win' && action !== 'join' && !pvpTurnLapsed(session)) {
+        if (session.activePlayer !== role && action !== 'claim-afk-win' && action !== 'join' && action !== 'cancel-unjoined' && !pvpTurnLapsed(session)) {
             return res.status(200).json(session);
         }
 
@@ -1555,6 +1555,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (session.status === 'done') return finishTerminal(session);
             if (session.rankedCloseFence) {
                 return finishUnavailable(409, 'This ranked match ended as a season-close no-contest.');
+            }
+            // A world duel can be published while its target is online, then
+            // strand the creator if that target goes offline before joining.
+            // Neither side has acted or earned a result yet. Let either bound
+            // fighter close this unstarted match as a draw, without requiring
+            // the absent fighter's handshake or charging a flee penalty.
+            if (action === 'cancel-unjoined') {
+                if ((session.rewardAuthority !== 'world' && session.rewardAuthority !== 'challenge')
+                    || session.ranked === true
+                    || session.rankedKind !== undefined
+                    || session.playerRankedAuthorityVersion !== undefined
+                    || session.kageDuelAuthority
+                    || session.clanWarId
+                    || session.turnStartedAt !== undefined
+                    || session.round !== 1
+                    || session.actionsThisTurn !== 0
+                    || (session.joined?.p1 === true && session.joined?.p2 === true)) {
+                    return finishUnavailable(409, 'This duel cannot be cancelled before combat.');
+                }
+                const endedAt = Date.now();
+                const cancelled: PvpSession = {
+                    ...session,
+                    status: 'done',
+                    winner: 'draw',
+                    endedAt,
+                    lastMoveAt: endedAt,
+                    log: [...session.log, `${session[role].name} cancelled the unstarted duel.`],
+                };
+                const write = await commitPvpSessionMutation(kv, key, session, cancelled, {
+                    ttlSeconds: SESSION_TTL,
+                });
+                return write.status === 'committed'
+                    ? finishTerminal(write.session)
+                    : finishUnavailable(503, 'The duel changed while cancelling; retry.');
             }
             try {
                 await ensureKageDuelAdmission(session);
