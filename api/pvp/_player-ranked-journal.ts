@@ -4,6 +4,7 @@ import type { KvLike } from '../_storage.js';
 import { creditRankedOutcome } from '../_ranked-rating.js';
 import { safeName } from '../_utils.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { buildPublicPlayerIndexEntry, isPublicPlayerIndexKey, REGISTRY_KEY } from '../player/_public-index.js';
 import { inspectSettlementReceipt } from '../_settlement-receipts.js';
 import {
     completePlayerRankedAdmission,
@@ -54,7 +55,21 @@ export type PlayerRankedSettlementResult = {
     ratings: { a: number; b: number };
 };
 
-type JournalStore = Pick<KvLike, 'get' | 'set' | 'compareSet' | 'keys'>;
+type JournalStore = Pick<KvLike, 'get' | 'set' | 'compareSet' | 'keys' | 'hset'>;
+
+async function projectRankedLeaderboardSide(store: JournalStore, slug: string): Promise<void> {
+    if (!isPublicPlayerIndexKey(slug)) return;
+    // A ranked result changes the authoritative save without passing through
+    // the normal player-save handler, which ordinarily refreshes this index.
+    // Read the latest save after the CAS so a retry never publishes an old
+    // rating, then require this projection before confirming the journal side.
+    const record = await store.get<Record<string, unknown>>(`save:${slug}`);
+    const character = record?.character;
+    if (!character || typeof character !== 'object') throw new Error(`player-ranked-save-unreadable:${slug}`);
+    await store.hset(REGISTRY_KEY, {
+        [slug]: buildPublicPlayerIndexEntry(character, slug),
+    });
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -615,6 +630,7 @@ async function settleSide(
             || legacyInspection?.status === 'fresh'
             || Object.keys(stamps).length > PLAYER_RANKED_SETTLEMENT_STAMP_LIMIT;
         if (!needsWrite) {
+            await projectRankedLeaderboardSide(store, slug);
             await confirmSide(store, journal, side, now);
             const currentRating = Number(character.rankedRating);
             return Number.isFinite(currentRating) ? currentRating : ratingAfter;
@@ -622,6 +638,7 @@ async function settleSide(
         const next = bumpSaveVersion({ ...record, character: nextCharacter });
         try {
             if (await store.compareSet(saveKey, record, next)) {
+                await projectRankedLeaderboardSide(store, slug);
                 await confirmSide(store, journal, side, now);
                 return ratingAfter;
             }
@@ -637,6 +654,7 @@ async function settleSide(
             if (recoveredStamp?.fingerprint === terminal.fingerprint
                 && recoveredStamp.role === role
                 && (!legacyFingerprint || recoveredLegacy?.status === 'replay')) {
+                await projectRankedLeaderboardSide(store, slug);
                 await confirmSide(store, journal, side, now);
                 const recoveredRating = Number(recoveredCharacter?.rankedRating);
                 return Number.isFinite(recoveredRating) ? recoveredRating : recoveredStamp.ratingAfter;

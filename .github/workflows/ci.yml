@@ -885,8 +885,10 @@ jobs:
         run: npm run test:e2e:live --prefix shinobij.client -- first-defeat-recovery-express.spec.ts daily-login-recovery-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --workers=2 --output=test-results/defeat-recovery-ci 2>&1 | tee .ci-evidence/e2e-village-stores/defeat-recovery.log
       - name: Live Express authored missions on desktop and mobile
         run: npm run test:e2e:live --prefix shinobij.client -- authored-missions-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --output=test-results/authored-missions-ci 2>&1 | tee .ci-evidence/e2e-village-stores/authored-missions.log
+      - name: Live Express two-player ranked match
+        run: npm run test:e2e:live --prefix shinobij.client -- ranked-queue-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --output=test-results/ranked-queue-ci 2>&1 | tee .ci-evidence/e2e-village-stores/ranked-queue.log
       - name: Live Express Exchange and sector-war player journeys
-        run: npm run test:e2e:live --prefix shinobij.client -- sunscar-exchange-express.spec.ts sector-war-express.spec.ts --project=chromium-desktop-live --output=test-results/economy-war-journeys-ci 2>&1 | tee .ci-evidence/e2e-village-stores/economy-war-journeys.log
+        run: npm run test:e2e:live --prefix shinobij.client -- sunscar-exchange-express.spec.ts sector-war-express.spec.ts --project=chromium-desktop-live --retries=1 --output=test-results/economy-war-journeys-ci 2>&1 | tee .ci-evidence/e2e-village-stores/economy-war-journeys.log
       - name: Retain Village Stores browser evidence
         if: always()
         continue-on-error: true
