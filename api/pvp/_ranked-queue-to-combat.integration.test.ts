@@ -4,6 +4,7 @@ import {
     RANKED_FORMAT_MAX_CHAKRA,
     RANKED_FORMAT_MAX_HP,
     RANKED_FORMAT_MAX_STAMINA,
+    RANKED_FORMAT_NEUTRAL_EQUIPMENT,
 } from './_ranked-format.js';
 
 process.env.NODE_ENV = 'test';
@@ -64,6 +65,16 @@ function request(player: string, body: Record<string, unknown>) {
 async function post(handler: Handler, player: string, body: Record<string, unknown>) {
     const out = response();
     await handler(request(player, body), out.res);
+    return out.out;
+}
+
+async function get(handler: Handler, player: string, query: Record<string, string>) {
+    const out = response();
+    await handler({
+        method: 'GET', body: {}, query,
+        headers: { 'x-player-token': issuePlayerToken(player) },
+        socket: { remoteAddress: '127.0.0.1' },
+    } as never, out.res);
     return out.out;
 }
 
@@ -145,6 +156,13 @@ test('two ranked queue entries create a ranked-format PvP combat session', async
         moveToken: `join-${battleId}-p2`,
     });
     assert.equal(joined.statusCode, 200, joined.body?.error);
+    const responderRecovery = await get(session, BOB, {
+        pending: '1', playerName: BOB, recoveryProbeVersion: '2',
+    });
+    assert.equal(responderRecovery.statusCode, 200, responderRecovery.body?.error);
+    assert.equal(responderRecovery.body?.battleId, battleId);
+    assert.equal(responderRecovery.body?.role, 'p2',
+        'the responder receives a durable recovery pointer after automatic seating');
 
     const activeRole = created.body?.session?.activePlayer as 'p1' | 'p2';
     const activePlayer = activeRole === 'p1' ? ALICE : BOB;
@@ -157,6 +175,19 @@ test('two ranked queue entries create a ranked-format PvP combat session', async
     assert.equal(advanced.statusCode, 200, advanced.body?.error);
     assert.notEqual(advanced.body?.activePlayer, activeRole,
         'a seated ranked match advances the opening turn instead of remaining frozen');
+    const itemRole = advanced.body?.activePlayer as 'p1' | 'p2';
+    const itemPlayer = itemRole === 'p1' ? ALICE : BOB;
+    const usedConsumable = await post(move, itemPlayer, {
+        battleId,
+        role: itemRole,
+        action: 'item',
+        itemId: RANKED_FORMAT_NEUTRAL_EQUIPMENT.item1,
+        moveToken: `ranked-item-${battleId}-${itemRole}`,
+    });
+    assert.equal(usedConsumable.statusCode, 200, usedConsumable.body?.error);
+    assert.equal(usedConsumable.body?.itemCharges?.[itemRole]?.[RANKED_FORMAT_NEUTRAL_EQUIPMENT.item1], 1);
+    assert.equal(usedConsumable.body?.itemsUsed?.[itemRole]?.[RANKED_FORMAT_NEUTRAL_EQUIPMENT.item1], 1,
+        'ranked permits the fixed neutral consumable kit and spends its sealed charge');
     assert.equal(created.body?.session?.rankedKind, 'player');
     assert.equal(created.body?.session?.rankedFormatVersion, 1);
     assert.equal(created.body?.session?.p1?.character?.equipment?.hand, 'elderbranch-katana');
