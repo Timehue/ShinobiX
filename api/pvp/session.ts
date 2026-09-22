@@ -6,6 +6,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { kv } from '../_storage.js';
 import { isWildSector, sectorBiomeOf } from '../../shared/sector-geo.js';
 import { resolveSectorWeather, sectorWeatherElements } from '../../shared/sector-weather.js';
+import { PVP_PREFIGHT_COUNTDOWN_MS } from '../../shared/pvp-turn.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
@@ -2841,12 +2842,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     clanWarId: clanWarReservation.warId,
                     clanWarChallengeId: clanWarReservation.challengeId,
                 } : {}),
-                joined: {
-                    p1: identity.admin || identity.name === p1Norm,
-                    p2: identity.admin || identity.name === p2Norm,
-                },
+                // A player-ranked admission is proof that both named players
+                // opted into this exact queue match. Unlike a challenge, it
+                // needs no second browser-side accept/join round trip before
+                // combat can start. Seating both sides here keeps a matched
+                // pair from being frozen if one client's recovery handshake is
+                // delayed while it changes screens.
+                joined: playerRankedV2
+                    ? { p1: true, p2: true }
+                    : {
+                        p1: identity.admin || identity.name === p1Norm,
+                        p2: identity.admin || identity.name === p2Norm,
+                    },
                 createdAt: sessionCreatedAt,
                 lastMoveAt: sessionCreatedAt,
+                ...(playerRankedV2 ? {
+                    // Match the second-seat path in move.ts: the client shows
+                    // the opening coin-flip countdown, then the active player
+                    // receives the full server-authoritative turn window.
+                    turnStartedAt: sessionCreatedAt + PVP_PREFIGHT_COUNTDOWN_MS,
+                } : {}),
                 // Snapshot environment so /api/pvp/move can't be tricked into
                 // applying a different biome / weather mid-fight.
                 biome: sealedBiome,
@@ -2893,9 +2908,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
 
             // Reserve only the authenticated creator's recovery slot before the
-            // session row becomes visible. The unjoined opponent is never
-            // indexed by an unsolicited create; their own authenticated join
-            // reserves their slot before publishing joined=true in move.ts.
+            // session row becomes visible. A non-ranked opponent is not indexed
+            // by an unsolicited create; their own authenticated join reserves
+            // their slot. A ranked queue opponent is already seated by the
+            // admission, but still activates that recovery pointer on landing.
             const creatorPointer = creatorRole
                 ? pendingPointerForSessionRole(session, creatorRole, 'reserving')
                 : null;
