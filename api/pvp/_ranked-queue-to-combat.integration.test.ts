@@ -142,6 +142,21 @@ test('two ranked queue entries create a ranked-format PvP combat session', async
     assert.ok(Number.isFinite(created.body?.session?.turnStartedAt),
         'the opening ranked turn starts from the server-authoritative countdown');
 
+    // A session published before direct seating can be repaired on its next
+    // read; this is what releases a player stranded by the previous flow.
+    const preSeating = await kv.get<Record<string, any>>(`pvp:${battleId}`);
+    await kv.set(`pvp:${battleId}`, {
+        ...preSeating,
+        joined: { p1: true, p2: false },
+        turnStartedAt: undefined,
+    });
+    const repaired = await get(session, ALICE, { id: battleId });
+    assert.equal(repaired.statusCode, 200, repaired.body?.error);
+    assert.equal(repaired.body?.joined?.p1, true);
+    assert.equal(repaired.body?.joined?.p2, true,
+        'an already-published player-ranked session is repaired instead of remaining stuck');
+    assert.ok(Number.isFinite(repaired.body?.turnStartedAt));
+
     const opponentMatch = await post(rankedQueue, BOB, { name: BOB, action: 'poll' });
     assert.equal(opponentMatch.statusCode, 200);
     assert.equal(opponentMatch.body?.match?.battleId, battleId,
