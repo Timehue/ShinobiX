@@ -119,14 +119,13 @@ describe('player-ranked queue to session wiring', () => {
             'logout must clear A\'s battle before B can become the active character');
     });
 
-    it('keeps consumables and thrown weapons off only for v1 in-flight sessions and Ranked', () => {
+    it('keeps consumables and thrown weapons off only for v1 in-flight sessions', () => {
         const battle = source('../screens/PvpBattleScreen.tsx');
         assert.match(battle, /session\?\.pvpConsumableAuthorityVersion === 1/);
         assert.match(battle, /session\.realFighters\?\.\[role\] === true/);
-        assert.match(battle, /session\?\.playerRankedAuthorityVersion === 2;/);
-        assert.match(battle, /Consumables and thrown weapons are disabled in Ranked\./);
-        assert.doesNotMatch(battle, /pvpConsumableAuthorityVersion === 2/,
-            'the client must not special-case v2: a sealed budget is the default, not a feature flag');
+        assert.match(battle, /same fixed neutral kit/);
+        assert.doesNotMatch(battle, /\|\| session\?\.playerRankedAuthorityVersion === 2/);
+        assert.doesNotMatch(battle, /disabled in Ranked/);
         assert.match(battle, /disabled=\{!isMyTurn \|\| realPvpItemsDisabled \|\| submitting/);
         assert.match(battle, /if \(onCooldown \|\| realPvpItemsDisabled\) return/);
     });
