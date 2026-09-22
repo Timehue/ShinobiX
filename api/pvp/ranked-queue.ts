@@ -147,7 +147,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 await recoverCompletedPlayerRankedFinalizations(
                     kv,
                     (saveKey, action) => withKvLock(saveKey, action, { failClosed: true }),
-                    { eligible: async (a, b) => !(await hasRecentIpOrFpOverlapStrict(a, b, kv)) },
+                    {
+                        eligible: async (a, b) => !(await hasRecentIpOrFpOverlapStrict(a, b, kv)),
+                        onFailure: (matchId, error) => console.error(
+                            '[pvp/ranked-queue] terminal recovery pending', matchId, safeLogValue(error),
+                        ),
+                    },
                 );
                 const recoveryNow = Date.now();
                 await releaseExpiredQueuedPlayerRankedAdmissions(

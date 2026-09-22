@@ -15,6 +15,7 @@ let attack: typeof import('../player/attack.js').default;
 let create: typeof import('./session.js').default;
 let move: typeof import('./move.js').default;
 let claim: typeof import('./claim-rewards.js').default;
+let reportRaid: typeof import('../missions/report-raid.js').default;
 let location: typeof import('../_stronghold-presence.js');
 before(async () => {
     ({ kv } = await import('../_storage.js'));
@@ -25,6 +26,7 @@ before(async () => {
     create = (await import('./session.js')).default as unknown as typeof create;
     move = (await import('./move.js')).default as unknown as typeof move;
     claim = (await import('./claim-rewards.js')).default as unknown as typeof claim;
+    reportRaid = (await import('../missions/report-raid.js')).default as unknown as typeof reportRaid;
     location = await import('../_stronghold-presence.js');
 });
 let seq = 0;
@@ -103,6 +105,28 @@ for (const [suffix, inside, sector, multiplier] of [['inside', true, 99, 4], ['o
         const again = (await kv.get<Record<string, any>>(`save:${one}`))!;
         assert.equal(again.character.ryo, save.character.ryo);
         assert.deepEqual(again.character.jutsuMastery, save.character.jutsuMastery);
+        if (sector === 99) {
+            const nextOpponent = `obsthree${suffix}`;
+            const nextCharacter = await seed(nextOpponent, sector);
+            const nextBody = { p1Character: { name: one }, p2Character: nextCharacter };
+            const blocked = await post(create, one, nextBody);
+            assert.equal(blocked.status, 409, JSON.stringify(blocked.body));
+            assert.match(String(blocked.body.error), /pending PvP battle settlement/);
+
+            const reported = await post(reportRaid, one, { battleId });
+            assert.equal(reported.status, 200, JSON.stringify(reported.body));
+            assert.deepEqual(reported.body.fetchMissionsCredited, []);
+            const acknowledged = await post(claim, one, {
+                battleId, outcome: 'win', completionVersion: 1, completionAck: true,
+            });
+            assert.equal(acknowledged.status, 200, JSON.stringify(acknowledged.body));
+            assert.equal(acknowledged.body.completionPending, false);
+            const { loadPvpPendingSessionPointer } = await import('./_pending-session.js');
+            assert.equal(await loadPvpPendingSessionPointer(kv, one), null);
+
+            const next = await post(create, one, nextBody);
+            assert.equal(next.status, 200, JSON.stringify(next.body));
+        }
     });
 }
 

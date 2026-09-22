@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { consumeSingleUseToken } from '../_single-use-token.js';
 import { pvpSessionMayGrantProgress, sealedWorldRaidAttacker, type PvpSession } from '../pvp/session.js';
+import { loadPvpRewardRecoverySnapshot } from '../pvp/_reward-recovery.js';
 import {
     MAX_RAID_REPORTS_PER_DAY,
     raidProgressionSettlement,
@@ -117,7 +118,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             proofAt = Math.floor(Number(token.mintedAt));
             sector = Math.floor(Number(token.sector));
         } else {
-            const session = await kv.get<PvpSession>(`pvp:${battleId}`);
+            const session = await kv.get<PvpSession>(`pvp:${battleId}`)
+                ?? await loadPvpRewardRecoverySnapshot(kv, battleId);
             if (!session) return res.status(404).json({ error: 'Battle session not found or expired.' });
             if (session.status !== 'done' || !session.winner) {
                 return res.status(409).json({ error: 'Battle not yet decided.' });
@@ -144,8 +146,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         if (!Number.isSafeInteger(proofAt) || proofAt <= 0
-            || !Number.isSafeInteger(sector) || sector < 1 || sector > 66) {
+            || !Number.isSafeInteger(sector) || sector < 1 || (sector > 66 && !(battleId && sector === 99))) {
             return res.status(409).json({ error: 'The sealed raid proof has no valid world sector.' });
+        }
+        // Death's Gate is a valid PvP location, but sector 99 is outside
+        // field-raid progression (1–66). Acknowledge this sealed win with
+        // an exact empty projection so older client outboxes can retire it.
+        if (battleId && sector === 99) {
+            return res.status(200).json({
+                ok: true,
+                reason: 'non-field-raid-sector',
+                fetchMissionsCredited: [],
+                missionsCompleted: [],
+                territoryDamage: 0,
+                sector,
+            });
         }
         const record = await kv.get<Record<string, unknown>>(`save:${playerName}`);
         const character = record?.character as Record<string, unknown> | undefined;

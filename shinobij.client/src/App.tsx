@@ -4433,7 +4433,7 @@ export default function App() {
         }
 
         // The remaining lane is a real PvP raid carrying its server battle id.
-        if (!battleId) return;
+        if (!battleId || !isWildSector(_sector)) return;
         const owner = expectedPlayerName;
         enqueueRaidReport(owner, battleId, _sector);
         requireCurrentOwner();
