@@ -239,6 +239,25 @@ describe("PvP live-session projection authority", () => {
         assert.equal(missingCalls, 4);
         assert.equal(missing.kind, "missing");
     });
+
+    it("keeps a temporarily unavailable terminal settlement retryable instead of calling it expired", async () => {
+        let calls = 0;
+        const settling = await fetchInitialPvpProjection({
+            battleId: "battle-1",
+            attempts: 3,
+            wait: async () => undefined,
+            fetchSession: async () => {
+                calls += 1;
+                return { ok: false, status: 503, async json() { return {}; } };
+            },
+        });
+        assert.equal(calls, 3);
+        assert.equal(settling.kind, "unavailable");
+        if (settling.kind === "unavailable") {
+            assert.match(settling.message, /settlement is still finalizing/i);
+            assert.equal(settling.seedMayRemainVisible, true);
+        }
+    });
 });
 
 describe("PvP create retry authority", () => {

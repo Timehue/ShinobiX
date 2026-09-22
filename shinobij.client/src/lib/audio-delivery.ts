@@ -16,7 +16,7 @@
  *    decoder priming to every wrap. So: Vorbis first, AAC only when Ogg is out.
  *
  *  - Music is already authored as .ogg. On WebKit those files are simply silent,
- *    so the eight tracks under public/music were inaudible on iPhone and iPad.
+ *    so the five Ogg story tracks under public/music would be inaudible on iPhone and iPad.
  *    Each now has an .m4a sibling; WebKit takes that instead.
  *
  * Probes are computed once and cached — canPlayType forces a codec-registry

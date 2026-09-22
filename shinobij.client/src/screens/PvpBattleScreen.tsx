@@ -102,6 +102,12 @@ const PATH_STEP_MS = 130;
 const ORB_PATH_TRANSITION = "left 180ms linear, top 180ms linear";
 const PVP_MAX_ACTIONS = 5;
 const PVP_REWARD_CLAIM_TIMEOUT_MS = 12_000;
+// A Player Ranked terminal claim settles two rating saves, then its durable
+// ranked-progression receipts. It is materially longer than an ordinary PvP
+// claim, especially on mobile connections. Do not abort a healthy server
+// transaction after the generic twelve-second request budget and turn a
+// completed match into a manual retry loop.
+const PLAYER_RANKED_REWARD_CLAIM_TIMEOUT_MS = 45_000;
 /**
  * Ceiling on the whole completion phase (settlement callbacks + the ACK).
  *
@@ -277,12 +283,12 @@ export function PvpBattleScreen({
     const serverPlayerRanked = session?.playerRankedAuthorityVersion === 2 || session?.ranked === true;
     // Items are live for real fighters in casual PvP (consumable authority v2:
     // the server seals the budget from the save and deducts at settlement).
-    // They stay off for the two cases the server refuses the spend: a v1
-    // session still in flight from before the switch, and Ranked, where power
-    // is never bought.
+    // They stay off only for a v1 session still in flight from before the
+    // switch, where the server refuses the spend. Ranked Format seals the
+    // same fixed neutral kit and per-battle charges for everyone, so its
+    // consumables and kunai are fair and deliberately usable.
     const realPvpItemsDisabled = (session?.pvpConsumableAuthorityVersion === 1
-        && session.realFighters?.[role] === true)
-        || session?.playerRankedAuthorityVersion === 2;
+        && session.realFighters?.[role] === true);
     const effectiveIsSpar = isSpar && !serverPlayerRanked;
     const effectiveBattleMode = serverPlayerRanked ? "ranked" : battleMode;
     // Tracks the battleId we've already seeded so a later Realtime/move
@@ -743,9 +749,12 @@ export function PvpBattleScreen({
     }, [battleId, runtimeScopeKey, sessionRetryKey]);
 
     // A fighter is reward-eligible only after this authenticated handshake.
-    // It is idempotent server-side and retries a few times for navigation races.
+    // Ranked queue sessions are seated server-side as soon as both players are
+    // matched, but this still activates the fighter's recovery pointer after
+    // the browser lands on the battle screen. It is idempotent server-side and
+    // retries a few times for navigation races.
     useEffect(() => {
-        if (!session || session.status !== "active" || session.joined?.[role] === true) return;
+        if (!session || session.status !== "active") return;
         const fighter = role === "p1" ? session.p1 : session.p2;
         if (fighter.name.trim().toLowerCase() !== character.name.trim().toLowerCase()) return;
         let cancelled = false;
@@ -1036,7 +1045,12 @@ export function PvpBattleScreen({
         // Keep the request bounded. This abort can race a committed server
         // receipt, which is why the durable pending marker above must precede
         // it: an alreadyClaimed retry then repairs the skipped callbacks.
-        const claimTimeout = window.setTimeout(() => claimAbort.abort(), PVP_REWARD_CLAIM_TIMEOUT_MS);
+        const claimTimeout = window.setTimeout(
+            () => claimAbort.abort(),
+            resolvedSession.rankedKind === "player" && resolvedSession.playerRankedAuthorityVersion === 2
+                ? PLAYER_RANKED_REWARD_CLAIM_TIMEOUT_MS
+                : PVP_REWARD_CLAIM_TIMEOUT_MS,
+        );
         const result = await postPvpRewardClaim(fetch, claimRequest, { signal: claimAbort.signal });
         window.clearTimeout(claimTimeout);
         if (rewardClaimAbortRef.current === claimAbort) rewardClaimAbortRef.current = null;
@@ -2537,7 +2551,7 @@ export function PvpBattleScreen({
                                             {/* ── Thrown weapon cards (green) ── */}
                                             {realPvpItemsDisabled
                                                 && (pvpEquippedThrown.length > 0 || pvpEquippedConsumables.length > 0)
-                                                && <p className="combat-action-hint">{session?.playerRankedAuthorityVersion === 2 ? "Consumables and thrown weapons are disabled in Ranked." : "Consumables and thrown weapons are disabled for this fight."}</p>}
+                                                && <p className="combat-action-hint">Consumables and thrown weapons are disabled for this fight.</p>}
                                             {pvpEquippedThrown.map(item => {
                                                 const wRange = item.weaponRange ?? 4;
                                                 const isArmed = pendingWeaponId === item.id;

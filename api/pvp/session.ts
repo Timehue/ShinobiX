@@ -6,6 +6,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { kv } from '../_storage.js';
 import { isWildSector, sectorBiomeOf } from '../../shared/sector-geo.js';
 import { resolveSectorWeather, sectorWeatherElements } from '../../shared/sector-weather.js';
+import { PVP_PREFIGHT_COUNTDOWN_MS } from '../../shared/pvp-turn.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
@@ -437,6 +438,38 @@ export function pvpSessionHasRankedCloseFence(value: unknown): value is PvpSessi
 export function isAuthoritativePlayerRankedSession(session: PvpSession): boolean {
     return isPlayerRankedV2Session(session)
         || (session.ranked === true && session.rankedKind === 'player');
+}
+
+/**
+ * Player-ranked V2 admissions already prove both players accepted the exact
+ * queue pairing. Sessions written before direct queue seating shipped can
+ * still carry the old p2=false handshake state, which would leave an otherwise
+ * valid match waiting forever. Upgrade only that verified authority shape,
+ * under CAS, when either client next reads the session.
+ */
+async function seatVerifiedPlayerRankedSession(
+    battleId: string,
+    session: PvpSession,
+): Promise<PvpSession> {
+    if (!isPlayerRankedV2Session(session) || session.status !== 'active') return session;
+    const bothSeated = session.joined?.p1 === true && session.joined?.p2 === true;
+    const clockStarted = Number.isFinite(session.turnStartedAt) && Number(session.turnStartedAt) > 0;
+    if (bothSeated && clockStarted) return session;
+
+    const upgraded: PvpSession = {
+        ...session,
+        stateRevision: nextPvpStateRevision(session),
+        joined: { p1: true, p2: true },
+        ...(clockStarted ? {} : { turnStartedAt: Date.now() + PVP_PREFIGHT_COUNTDOWN_MS }),
+    };
+    if (await kv.compareSet(`pvp:${battleId}`, session, upgraded, {
+        ex: PVP_ACTIVE_ROW_TTL,
+    })) return upgraded;
+
+    // A concurrent join or move won the race. Its committed projection is the
+    // authority; a later poll retries the migration only if it still needs it.
+    const current = await kv.get<PvpSession>(`pvp:${battleId}`);
+    return current?.battleId === battleId ? current : session;
 }
 
 export function playerRankedSessionMatchesAdmission(
@@ -1941,6 +1974,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(409).json({ error: 'This ranked match ended as a no-contest.' });
         }
         let session = sessionRaw as PvpSession;
+        try {
+            session = await seatVerifiedPlayerRankedSession(battleId, session);
+        } catch (error) {
+            // A failed repair read must not turn a normally readable fight into
+            // an outage; the next poll retries the CAS upgrade.
+            console.error('[pvp/session] ranked seating repair failed', error);
+        }
         // F08: a duel nobody touched for a whole session TTL is a double
         // walk-out. It is recorded as a draw from the row's own evidence and
         // its terminal effects replayed before anyone is shown a live fight.
@@ -2841,12 +2881,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     clanWarId: clanWarReservation.warId,
                     clanWarChallengeId: clanWarReservation.challengeId,
                 } : {}),
-                joined: {
-                    p1: identity.admin || identity.name === p1Norm,
-                    p2: identity.admin || identity.name === p2Norm,
-                },
+                // A player-ranked admission is proof that both named players
+                // opted into this exact queue match. Unlike a challenge, it
+                // needs no second browser-side accept/join round trip before
+                // combat can start. Seating both sides here keeps a matched
+                // pair from being frozen if one client's recovery handshake is
+                // delayed while it changes screens.
+                joined: playerRankedV2
+                    ? { p1: true, p2: true }
+                    : {
+                        p1: identity.admin || identity.name === p1Norm,
+                        p2: identity.admin || identity.name === p2Norm,
+                    },
                 createdAt: sessionCreatedAt,
                 lastMoveAt: sessionCreatedAt,
+                ...(playerRankedV2 ? {
+                    // Match the second-seat path in move.ts: the client shows
+                    // the opening coin-flip countdown, then the active player
+                    // receives the full server-authoritative turn window.
+                    turnStartedAt: sessionCreatedAt + PVP_PREFIGHT_COUNTDOWN_MS,
+                } : {}),
                 // Snapshot environment so /api/pvp/move can't be tricked into
                 // applying a different biome / weather mid-fight.
                 biome: sealedBiome,
@@ -2893,9 +2947,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
 
             // Reserve only the authenticated creator's recovery slot before the
-            // session row becomes visible. The unjoined opponent is never
-            // indexed by an unsolicited create; their own authenticated join
-            // reserves their slot before publishing joined=true in move.ts.
+            // session row becomes visible. A non-ranked opponent is not indexed
+            // by an unsolicited create; their own authenticated join reserves
+            // their slot. A ranked queue opponent is already seated by the
+            // admission, but still activates that recovery pointer on landing.
             const creatorPointer = creatorRole
                 ? pendingPointerForSessionRole(session, creatorRole, 'reserving')
                 : null;
