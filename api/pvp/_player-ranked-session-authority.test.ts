@@ -3,6 +3,9 @@ import { after, before, test } from 'node:test';
 import {
     RANKED_FORMAT_CONSUMABLE_CHARGES,
     RANKED_FORMAT_DEFAULT_WEAPON_ID,
+    RANKED_FORMAT_MAX_CHAKRA,
+    RANKED_FORMAT_MAX_HP,
+    RANKED_FORMAT_MAX_STAMINA,
     RANKED_FORMAT_NEUTRAL_EQUIPMENT,
 } from './_ranked-format.js';
 
@@ -125,10 +128,14 @@ test('session binds exact matchId, pair, season, and epoch', async () => {
     assert.equal(out.body?.session?.rankedSeasonId, 1);
     assert.equal(out.body?.session?.rankedSeasonEpoch, 1);
     assert.equal(out.body?.session?.rewardAuthority, 'ranked');
-    assert.equal(out.body?.session?.p1?.maxHp, 206, 'level-24 human receives the final 3.33% PvP-only bonus');
-    assert.equal(out.body?.session?.p2?.maxHp, 206);
-    assert.equal(out.body?.session?.p1?.hp, 206, 'fresh ranked PvP starts at the scaled maximum');
-    assert.equal(out.body?.session?.p1?.character?.maxHp, 200, 'the canonical character maximum is not rewritten');
+    assert.equal(out.body?.session?.p1?.maxHp, RANKED_FORMAT_MAX_HP, 'ranked health is equalized at the maximum cap');
+    assert.equal(out.body?.session?.p2?.maxHp, RANKED_FORMAT_MAX_HP);
+    assert.equal(out.body?.session?.p1?.hp, RANKED_FORMAT_MAX_HP, 'fresh ranked PvP starts at the equalized maximum');
+    assert.equal(out.body?.session?.p1?.maxChakra, RANKED_FORMAT_MAX_CHAKRA);
+    assert.equal(out.body?.session?.p1?.chakra, RANKED_FORMAT_MAX_CHAKRA);
+    assert.equal(out.body?.session?.p1?.maxStamina, RANKED_FORMAT_MAX_STAMINA);
+    assert.equal(out.body?.session?.p1?.stamina, RANKED_FORMAT_MAX_STAMINA);
+    assert.equal(out.body?.session?.p1?.character?.maxHp, RANKED_FORMAT_MAX_HP, 'the ranked session snapshots the equalized resource cap');
     // Ranked Format seals the fixed neutral kit, not either fighter's real
     // gear — a fighter's own equipped item (even a grandfathered
     // hand->thrown definition) is never a key here at all.

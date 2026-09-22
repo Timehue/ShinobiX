@@ -173,7 +173,7 @@ export function ArenaDistrictLobby({
                 <section className="summary-box">
                     <h3>Ranked Battles (Solo 1v1)</h3>
                     <p>Rating: <strong>{character.rankedRating ?? 1000}</strong> Elo | Wins {character.rankedWins ?? 0} | Losses {character.rankedLosses ?? 0}</p>
-                    <p className="hint">Ranked fights use neutral ground and the Ranked Format: maxed stats and identical neutral legendary gear — only your weapon and your bloodline/jutsu loadout are yours. This weapon choice is shared with Ranked 2v2.</p>
+                    <p className="hint">Ranked fights use neutral ground and the Ranked Format: maxed stats, maximum HP/chakra/stamina, and identical neutral legendary gear — only your weapon and your bloodline/jutsu loadout are yours. This weapon choice is shared with Ranked 2v2.</p>
                     <RankedFormatWeaponPicker character={character} onVersionedCharacter={onVersionedCharacter} />
                     <p>Players in queue: <strong>{rankedQueueSize}</strong></p>
                     <div style={{ display: "flex", gap: "8px", margin: "8px 0" }}>
