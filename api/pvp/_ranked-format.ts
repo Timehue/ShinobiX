@@ -1,8 +1,8 @@
 /*
  * Ranked Format — the equalized loadout shared by ranked 1v1 and ranked 2v2.
  *
- * Every ranked fighter enters with maxed stats and identical neutral legendary
- * gear (armor/throwable/consumables). The one thing a player still chooses is
+ * Every ranked fighter enters with maxed stats, maximum HP/chakra/stamina, and
+ * identical neutral legendary gear (armor/throwable/consumables). The one thing a player still chooses is
  * their weapon (picked from a small legendary set before queueing); their
  * bloodline and jutsu/technique loadout stay exactly theirs. This keeps ranked
  * outcomes about weapon choice + bloodline/jutsu skill, not who ground more
@@ -16,10 +16,16 @@
  * could drift from it.
  */
 import { MAX_STAT, STAT_CAP_FIELDS } from '../combat-core/formulas.js';
+import { CHAKRA_CAP_V2, HP_CAP, STAMINA_CAP_V2 } from '../_xp-engine.js';
 
 export const RANKED_FORMAT_MAX_STATS: Record<string, number> = Object.fromEntries(
     STAT_CAP_FIELDS.map((field) => [field, MAX_STAT] as const),
 );
+
+/** Every ranked battle uses the same fully restored combat-resource pools. */
+export const RANKED_FORMAT_MAX_HP = HP_CAP;
+export const RANKED_FORMAT_MAX_CHAKRA = CHAKRA_CAP_V2;
+export const RANKED_FORMAT_MAX_STAMINA = STAMINA_CAP_V2;
 
 /** The only legendary weapons a ranked fighter may bring — hand slot only. */
 export const RANKED_FORMAT_LEGENDARY_WEAPON_IDS = [
@@ -131,8 +137,8 @@ export function isValidRankedFormatItemLedger(
 
 /**
  * Project a save's `.character` into the ranked-format equalized shape:
- * maxed stats + neutral gear + the fighter's own chosen weapon. Everything
- * else (name, level, equippedJutsuIds, equippedBloodlineId, legacy,
+ * maxed stats and combat resources + neutral gear + the fighter's own chosen
+ * weapon. Everything else (name, level, equippedJutsuIds, equippedBloodlineId, legacy,
  * specialty, …) passes through untouched, so jutsu/bloodline resolution
  * downstream in hydrateCharacterFromSave still reads the fighter's real data.
  */
@@ -143,6 +149,12 @@ export function projectRankedFormatCharacter(
     return {
         ...saveCharacter,
         stats: { ...RANKED_FORMAT_MAX_STATS },
+        hp: RANKED_FORMAT_MAX_HP,
+        maxHp: RANKED_FORMAT_MAX_HP,
+        chakra: RANKED_FORMAT_MAX_CHAKRA,
+        maxChakra: RANKED_FORMAT_MAX_CHAKRA,
+        stamina: RANKED_FORMAT_MAX_STAMINA,
+        maxStamina: RANKED_FORMAT_MAX_STAMINA,
         equipment: { ...RANKED_FORMAT_NEUTRAL_EQUIPMENT, hand: weaponId },
     };
 }

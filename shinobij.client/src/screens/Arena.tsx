@@ -20,9 +20,12 @@ import { availablePetBattleCount, isPetOnExpedition } from "../lib/pet";
 import { publicEligiblePets } from "../lib/public-pet-roster";
 import type { PlayerRankedAuthority } from "../lib/player-ranked-authority";
 import type { RankedQueueClientSession } from "../lib/ranked-queue-lifecycle";
+import { pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
+import { createPvpSessionWithRecovery } from "../lib/pvp-session-create";
 import {
     useRankedQueue,
     RANKED_QUEUE_REQUEST_TIMEOUT_MS,
+    type RankedQueueMatch,
 } from "../features/arena/hooks/use-ranked-queue";
 import { publishedPracticeOpponentForLevel } from "../lib/creator-event-practice";
 import { requestAiFight } from "../lib/ai-fight-request";
@@ -105,7 +108,7 @@ export function Arena({
         joinRankedQueue,
         leaveRankedQueue,
         isRankedSessionCurrent,
-    } = useRankedQueue({ character, duelChallenges, challengePlayer });
+    } = useRankedQueue({ character, launchRankedMatch });
     const [aiLevel, setAiLevel] = useState(character.level);
     const [sparSearch, setSparSearch] = useState("");
     const [activeArenaTab, setActiveArenaTab] = useState<ArenaDistrictTab>("ranked");
@@ -171,6 +174,47 @@ export function Arena({
         })) {
             alert("The sealed practice arena is unavailable. No fight was started.");
         }
+    }
+
+    async function launchRankedMatch(
+        match: RankedQueueMatch,
+        rankedAuthority: PlayerRankedAuthority,
+        rankedSession: RankedQueueClientSession,
+    ): Promise<"started" | "rejected"> {
+        if (!isRankedSessionCurrent(rankedSession)) return "rejected";
+        if (!setPvpBattleId || !setPvpRole) {
+            alert("Ranked combat is unavailable until the battle screen is ready.");
+            return "rejected";
+        }
+        if (match.battleId) {
+            setPvpBattleId(match.battleId);
+            setPvpRole(match.initiator ? "p1" : "p2");
+            setScreen("pvpBattle");
+            return "started";
+        }
+        if (!match.initiator) return "rejected";
+
+        const createBody = stringifyPvpSessionPayload({
+            p1Character: { name: character.name },
+            p2Character: { name: match.opponent },
+            ranked: true,
+            rankedKind: "player",
+            ...rankedAuthority,
+            ...pvpSessionEnvironment(true, "central", undefined, undefined),
+        });
+        const created = await createPvpSessionWithRecovery(fetch, character.name, createBody);
+        // The session may have committed while its UI owner changed. Preserve
+        // that authoritative admission, but never route a stale account into it.
+        if (!isRankedSessionCurrent(rankedSession)) return "started";
+        if (created.kind === "rejected") {
+            alert(created.error);
+            return "rejected";
+        }
+        const battleId = created.kind === "recovered" ? created.pending.battleId : created.battleId;
+        setPvpBattleId(battleId);
+        setPvpRole("p1");
+        setScreen("pvpBattle");
+        return "started";
     }
 
     async function challengePlayer(

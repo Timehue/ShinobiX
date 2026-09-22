@@ -275,6 +275,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const matchAdmission = myMatch && typeof myMatch.matchId === 'string'
                         ? gate?.playerAdmissions.find((entry) => entry.matchId === myMatch.matchId)
                         : null;
+                    if (myMatch && matchAdmission?.phase === 'active' && matchAdmission.battleId) {
+                        return {
+                            status: 200,
+                            body: {
+                                inQueue: false,
+                                queueSize: active.length,
+                                match: { ...myMatch, battleId: matchAdmission.battleId },
+                            },
+                        };
+                    }
                     if (myMatch && matchAdmission?.phase === 'queued') {
                         return { status: 200, body: { inQueue: false, queueSize: active.length, match: myMatch } };
                     }
@@ -283,7 +293,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // admission committed but before one/both short match mirrors
                     // landed. Rebuild the exact same token/match from the gate.
                     const admitted = await findPlayerRankedAdmissionForPlayer(kv, player);
-                    if (admitted?.phase === 'queued') {
+                    if (admitted && (admitted.phase === 'queued' || (admitted.phase === 'active' && admitted.battleId))) {
                         const token = await mintPlayerRankedMatchToken({
                             a: admitted.a,
                             b: admitted.b,
@@ -305,6 +315,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             matchId: token.matchId,
                             seasonId: token.seasonId,
                             seasonEpoch: token.seasonEpoch,
+                            ...(admitted.phase === 'active' ? { battleId: admitted.battleId } : {}),
                         };
                         await kv.set(matchKey(player), recoveredMatch, { ex: MATCH_TTL_SECONDS });
                         return { status: 200, body: { inQueue: false, queueSize: active.length, match: recoveredMatch } };
@@ -325,9 +336,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                     const remaining = active.filter(e => e.name !== me.name && e.name !== opponent.name);
                     // Deterministic initiator (lexicographically smaller slug) so
-                    // exactly ONE side sends the ranked challenge and the other
-                    // waits for it — no double-challenge, no silent drop. Both get a
-                    // durable match record so neither vanishes if a poll is missed.
+                    // exactly ONE side creates the authoritative ranked session;
+                    // the other waits for its battle id — no duplicate sessions or
+                    // silent drop. Both get a durable match record so neither
+                    // vanishes if a poll is missed.
                     const initiatorName = me.name < opponent.name ? me.name : opponent.name;
                     // The season-gate admission is the first durable commit. If
                     // close wins its CAS first, no token or public match exists.
