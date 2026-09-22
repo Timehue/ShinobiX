@@ -409,6 +409,60 @@ test('an unsolicited opponent cannot claim an AFK win before both fighters join'
     assert.equal(storedSession('unjoined-afk').status, 'active');
 });
 
+test('a fighter can cancel an unjoined world duel without damage or a winner', async () => {
+    const battleId = 'unjoined-world-cancel';
+    seed(session(battleId, {
+        rewardAuthority: 'world',
+        continuousVitals: false,
+        joined: { p1: true, p2: false },
+    }));
+
+    const blocked = await postMove('alice', {
+        battleId, role: 'p1', action: 'move', tile: 2,
+    });
+    assert.match(String((blocked.body as PvpSession).rejected?.reason), /both fighters/i);
+
+    const cancelled = await postMove('alice', {
+        battleId, role: 'p1', action: 'cancel-unjoined',
+    });
+    assert.equal(cancelled.statusCode, 200);
+    assert.equal(storedSession(battleId).status, 'done');
+    assert.equal(storedSession(battleId).winner, 'draw');
+    assert.equal(storedSession(battleId).p1.hp, session(battleId).p1.hp);
+    assert.deepEqual(storedSession(battleId).joined, { p1: true, p2: false });
+
+    const replay = await postMove('alice', {
+        battleId, role: 'p1', action: 'cancel-unjoined',
+    });
+    assert.equal(replay.statusCode, 200);
+    assert.equal(storedSession(battleId).log.filter(line => line.includes('cancelled the unstarted duel')).length, 1);
+});
+
+test('an already seated world duel cannot be cancelled as unstarted', async () => {
+    const battleId = 'seated-world-cancel';
+    seed(session(battleId, {
+        rewardAuthority: 'world',
+        continuousVitals: false,
+    }));
+    const cancelled = await postMove('alice', {
+        battleId, role: 'p1', action: 'cancel-unjoined',
+    });
+    assert.equal(cancelled.statusCode, 409);
+    assert.equal(storedSession(battleId).status, 'active');
+
+    const stampedBattleId = 'stamped-world-cancel';
+    seed(session(stampedBattleId, {
+        rewardAuthority: 'world',
+        joined: { p1: true, p2: false },
+        turnStartedAt: Date.now(),
+    }));
+    const stamped = await postMove('alice', {
+        battleId: stampedBattleId, role: 'p1', action: 'cancel-unjoined',
+    });
+    assert.equal(stamped.statusCode, 409);
+    assert.equal(storedSession(stampedBattleId).status, 'active');
+});
+
 test('join is an authenticated, idempotent membership handshake even out of turn', async () => {
     seed(session('join-handshake', {
         activePlayer: 'p1',
