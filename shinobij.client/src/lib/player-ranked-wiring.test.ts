@@ -10,7 +10,7 @@ function functionSlice(fileSource: string, name: string): string {
     const start = fileSource.indexOf(`function ${name}`);
     assert.notEqual(start, -1, `${name} must exist`);
     const remainder = fileSource.slice(start + 12);
-    const nextOffset = remainder.search(/\n    (?:async )?function /);
+    const nextOffset = remainder.search(/\n {4}(?:async )?function /);
     return fileSource.slice(start, nextOffset === -1 ? fileSource.length : start + 12 + nextOffset);
 }
 

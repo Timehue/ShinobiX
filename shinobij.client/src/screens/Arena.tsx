@@ -176,47 +176,6 @@ export function Arena({
         }
     }
 
-    async function launchRankedMatch(
-        match: RankedQueueMatch,
-        rankedAuthority: PlayerRankedAuthority,
-        rankedSession: RankedQueueClientSession,
-    ): Promise<"started" | "rejected"> {
-        if (!isRankedSessionCurrent(rankedSession)) return "rejected";
-        if (!setPvpBattleId || !setPvpRole) {
-            alert("Ranked combat is unavailable until the battle screen is ready.");
-            return "rejected";
-        }
-        if (match.battleId) {
-            setPvpBattleId(match.battleId);
-            setPvpRole(match.initiator ? "p1" : "p2");
-            setScreen("pvpBattle");
-            return "started";
-        }
-        if (!match.initiator) return "rejected";
-
-        const createBody = stringifyPvpSessionPayload({
-            p1Character: { name: character.name },
-            p2Character: { name: match.opponent },
-            ranked: true,
-            rankedKind: "player",
-            ...rankedAuthority,
-            ...pvpSessionEnvironment(true, "central", undefined, undefined),
-        });
-        const created = await createPvpSessionWithRecovery(fetch, character.name, createBody);
-        // The session may have committed while its UI owner changed. Preserve
-        // that authoritative admission, but never route a stale account into it.
-        if (!isRankedSessionCurrent(rankedSession)) return "started";
-        if (created.kind === "rejected") {
-            alert(created.error);
-            return "rejected";
-        }
-        const battleId = created.kind === "recovered" ? created.pending.battleId : created.battleId;
-        setPvpBattleId(battleId);
-        setPvpRole("p1");
-        setScreen("pvpBattle");
-        return "started";
-    }
-
     async function challengePlayer(
         opponent: PlayerRecord,
         mode: DuelChallenge["mode"] = "standard",
@@ -345,6 +304,47 @@ export function Arena({
             }
             return result("unknown");
         }
+    }
+
+    async function launchRankedMatch(
+        match: RankedQueueMatch,
+        rankedAuthority: PlayerRankedAuthority,
+        rankedSession: RankedQueueClientSession,
+    ): Promise<"started" | "rejected"> {
+        if (!isRankedSessionCurrent(rankedSession)) return "rejected";
+        if (!setPvpBattleId || !setPvpRole) {
+            alert("Ranked combat is unavailable until the battle screen is ready.");
+            return "rejected";
+        }
+        if (match.battleId) {
+            setPvpBattleId(match.battleId);
+            setPvpRole(match.initiator ? "p1" : "p2");
+            setScreen("pvpBattle");
+            return "started";
+        }
+        if (!match.initiator) return "rejected";
+
+        const createBody = stringifyPvpSessionPayload({
+            p1Character: { name: character.name },
+            p2Character: { name: match.opponent },
+            ranked: true,
+            rankedKind: "player",
+            ...rankedAuthority,
+            ...pvpSessionEnvironment(true, "central", undefined, undefined),
+        });
+        const created = await createPvpSessionWithRecovery(fetch, character.name, createBody);
+        // The session may have committed while its UI owner changed. Preserve
+        // that authoritative admission, but never route a stale account into it.
+        if (!isRankedSessionCurrent(rankedSession)) return "started";
+        if (created.kind === "rejected") {
+            alert(created.error);
+            return "rejected";
+        }
+        const battleId = created.kind === "recovered" ? created.pending.battleId : created.battleId;
+        setPvpBattleId(battleId);
+        setPvpRole("p1");
+        setScreen("pvpBattle");
+        return "started";
     }
 
     function startTournament() {
