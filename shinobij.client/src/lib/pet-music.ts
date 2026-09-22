@@ -10,17 +10,11 @@ import { isAudioBackgrounded, subscribeAudioLifecycle } from "./audio-lifecycle"
 const MASTER_MUTE_KEY = "audioMuted";
 const MASTER_VOLUME_KEY = "audioVolume.v1";
 
-const TRACKS = [
-    "/music/silk-shuriken.ogg",
-    "/music/silk-shuriken-2.ogg",
-    "/music/koi-kunai.ogg",
-];
-const HOLLOW_GATE_TRACK = "/music/silk-shuriken-2.ogg";
-/** Pet Showdown's OWN theme. The flagship mode used to draw from the shared
- *  three-track pool, so the headline battle sounded like every other fight in
- *  the game. Commissioned for the mode (see docs/pet-showdown-design.md for the
- *  generator and the exact prompt). */
-const SHOWDOWN_TRACK = "/music/showdown-lantern-duel.mp3";
+// One supplied combat theme is used by every battle surface. Keeping this
+// adapter means existing battle start/stop and lifecycle wiring stays intact.
+const TRACKS = ["/music/world/wind-blade-jutsu.mp3"];
+const HOLLOW_GATE_TRACK = TRACKS[0];
+const SHOWDOWN_TRACK = TRACKS[0];
 
 export type BattleMusicTheme = "standard" | "hollow-gate" | "showdown";
 export type BattleMusicIntensity = "calm" | "pressure" | "climax";
@@ -31,18 +25,18 @@ export function hollowGateMusicMix(intensity: BattleMusicIntensity): {
     droneGain: number;
     droneFrequency: number;
 } {
-    if (intensity === "climax") return { musicVolume: 0.46, playbackRate: 1.04, droneGain: 0.038, droneFrequency: 61 };
-    if (intensity === "pressure") return { musicVolume: 0.42, playbackRate: 1, droneGain: 0.023, droneFrequency: 55 };
-    return { musicVolume: 0.36, playbackRate: 0.97, droneGain: 0.011, droneFrequency: 49 };
+    if (intensity === "climax") return { musicVolume: 0.22, playbackRate: 1.04, droneGain: 0.038, droneFrequency: 61 };
+    if (intensity === "pressure") return { musicVolume: 0.19, playbackRate: 1, droneGain: 0.023, droneFrequency: 55 };
+    return { musicVolume: 0.16, playbackRate: 0.97, droneGain: 0.011, droneFrequency: 49 };
 }
 
 export function standardBattleMusicMix(intensity: BattleMusicIntensity): {
     musicVolume: number;
     playbackRate: number;
 } {
-    if (intensity === "climax") return { musicVolume: 0.47, playbackRate: 1.035 };
-    if (intensity === "pressure") return { musicVolume: 0.42, playbackRate: 1.012 };
-    return { musicVolume: 0.36, playbackRate: 0.985 };
+    if (intensity === "climax") return { musicVolume: 0.22, playbackRate: 1.035 };
+    if (intensity === "pressure") return { musicVolume: 0.19, playbackRate: 1.012 };
+    return { musicVolume: 0.16, playbackRate: 0.985 };
 }
 
 let audioEl: HTMLAudioElement | null = null;

@@ -364,6 +364,7 @@ import {
 import { isPetOnExpedition, resolveAvailablePetBattlePair } from "./lib/pet";
 import { buildAcceptedArenaMatch, type ArenaMatchPayload } from "./lib/arena-challenge";
 import { stopBattleMusic } from "./lib/pet-music";
+import { setBackgroundMusicScene } from "./lib/background-music";
 
 export type { PetPartyBattleMatch, PetPartyBattleResult } from "./lib/pet-battle-sim";
 
@@ -5373,6 +5374,16 @@ export default function App() {
         && character.name !== "Admin 1"
         && character.name !== "Admin 2",
     );
+    // Pet battles own their legacy start gesture; every other sealed battle is
+    // driven here so exploration music cannot leak underneath it.
+    const backgroundCombatActive = !petBattleActive && (sealedFightOpen || isPresenceBattleActive());
+    const backgroundMusicScene = !character ? null
+        : backgroundCombatActive ? "combat"
+        : activeTriggeredEvent || introCinematicActive ? null
+        : isWildSector(currentSector) ? "sector" : "village";
+    useEffect(() => {
+        setBackgroundMusicScene(backgroundMusicScene);
+    }, [backgroundMusicScene]);
 
     const surfaceBlockerMode = playerSurfaceBlockerMode(Boolean(character), screen, gameplayViewAvailability);
     return (
