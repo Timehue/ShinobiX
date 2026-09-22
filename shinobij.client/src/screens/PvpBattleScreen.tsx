@@ -277,12 +277,12 @@ export function PvpBattleScreen({
     const serverPlayerRanked = session?.playerRankedAuthorityVersion === 2 || session?.ranked === true;
     // Items are live for real fighters in casual PvP (consumable authority v2:
     // the server seals the budget from the save and deducts at settlement).
-    // They stay off for the two cases the server refuses the spend: a v1
-    // session still in flight from before the switch, and Ranked, where power
-    // is never bought.
+    // They stay off only for a v1 session still in flight from before the
+    // switch, where the server refuses the spend. Ranked Format seals the
+    // same fixed neutral kit and per-battle charges for everyone, so its
+    // consumables and kunai are fair and deliberately usable.
     const realPvpItemsDisabled = (session?.pvpConsumableAuthorityVersion === 1
-        && session.realFighters?.[role] === true)
-        || session?.playerRankedAuthorityVersion === 2;
+        && session.realFighters?.[role] === true);
     const effectiveIsSpar = isSpar && !serverPlayerRanked;
     const effectiveBattleMode = serverPlayerRanked ? "ranked" : battleMode;
     // Tracks the battleId we've already seeded so a later Realtime/move
@@ -743,9 +743,12 @@ export function PvpBattleScreen({
     }, [battleId, runtimeScopeKey, sessionRetryKey]);
 
     // A fighter is reward-eligible only after this authenticated handshake.
-    // It is idempotent server-side and retries a few times for navigation races.
+    // Ranked queue sessions are seated server-side as soon as both players are
+    // matched, but this still activates the fighter's recovery pointer after
+    // the browser lands on the battle screen. It is idempotent server-side and
+    // retries a few times for navigation races.
     useEffect(() => {
-        if (!session || session.status !== "active" || session.joined?.[role] === true) return;
+        if (!session || session.status !== "active") return;
         const fighter = role === "p1" ? session.p1 : session.p2;
         if (fighter.name.trim().toLowerCase() !== character.name.trim().toLowerCase()) return;
         let cancelled = false;
@@ -2537,7 +2540,7 @@ export function PvpBattleScreen({
                                             {/* ── Thrown weapon cards (green) ── */}
                                             {realPvpItemsDisabled
                                                 && (pvpEquippedThrown.length > 0 || pvpEquippedConsumables.length > 0)
-                                                && <p className="combat-action-hint">{session?.playerRankedAuthorityVersion === 2 ? "Consumables and thrown weapons are disabled in Ranked." : "Consumables and thrown weapons are disabled for this fight."}</p>}
+                                                && <p className="combat-action-hint">Consumables and thrown weapons are disabled for this fight.</p>}
                                             {pvpEquippedThrown.map(item => {
                                                 const wRange = item.weaponRange ?? 4;
                                                 const isArmed = pendingWeaponId === item.id;

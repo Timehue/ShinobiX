@@ -21,6 +21,7 @@ let issuePlayerToken: typeof import('../_auth.js').issuePlayerToken;
 let startRankedSeason: typeof import('../cron/_ranked-season.js').startRankedSeason;
 let rankedQueue: Handler;
 let session: Handler;
+let move: Handler;
 
 function character(name: string) {
     return {
@@ -72,6 +73,7 @@ before(async () => {
     ({ startRankedSeason } = await import('../cron/_ranked-season.js'));
     rankedQueue = (await import('./ranked-queue.js')).default as unknown as Handler;
     session = (await import('./session.js')).default as unknown as Handler;
+    move = (await import('./move.js')).default as unknown as Handler;
 });
 
 beforeEach(async () => {
@@ -123,11 +125,38 @@ test('two ranked queue entries create a ranked-format PvP combat session', async
     assert.equal(created.statusCode, 200, created.body?.error);
     const battleId = String(created.body?.battleId ?? '');
     assert.ok(battleId);
+    assert.equal(created.body?.session?.joined?.p1, true);
+    assert.equal(created.body?.session?.joined?.p2, true,
+        'a confirmed ranked queue pair starts combat without a second accept/join gate');
+    assert.ok(Number.isFinite(created.body?.session?.turnStartedAt),
+        'the opening ranked turn starts from the server-authoritative countdown');
 
     const opponentMatch = await post(rankedQueue, BOB, { name: BOB, action: 'poll' });
     assert.equal(opponentMatch.statusCode, 200);
     assert.equal(opponentMatch.body?.match?.battleId, battleId,
         'the responder discovers the authoritative session through the queue, not a challenge');
+
+    // This remains idempotent for the responder's recovery-pointer handshake,
+    // but combat must not depend on it completing.
+    const joined = await post(move, BOB, {
+        battleId,
+        role: 'p2',
+        action: 'join',
+        moveToken: `join-${battleId}-p2`,
+    });
+    assert.equal(joined.statusCode, 200, joined.body?.error);
+
+    const activeRole = created.body?.session?.activePlayer as 'p1' | 'p2';
+    const activePlayer = activeRole === 'p1' ? ALICE : BOB;
+    const advanced = await post(move, activePlayer, {
+        battleId,
+        role: activeRole,
+        action: 'wait',
+        moveToken: `wait-${battleId}-${activeRole}`,
+    });
+    assert.equal(advanced.statusCode, 200, advanced.body?.error);
+    assert.notEqual(advanced.body?.activePlayer, activeRole,
+        'a seated ranked match advances the opening turn instead of remaining frozen');
     assert.equal(created.body?.session?.rankedKind, 'player');
     assert.equal(created.body?.session?.rankedFormatVersion, 1);
     assert.equal(created.body?.session?.p1?.character?.equipment?.hand, 'elderbranch-katana');
