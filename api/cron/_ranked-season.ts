@@ -301,7 +301,7 @@ export type SeasonRolloverResult = {
  */
 export type RankedSeasonStore = Pick<
     KvLike,
-    'get' | 'set' | 'compareSet' | 'del' | 'delIfEqual' | 'keys'
+    'get' | 'set' | 'compareSet' | 'del' | 'delIfEqual' | 'keys' | 'hset'
 >;
 
 /** A stopped season rejects only new ranked admissions. */

@@ -12,7 +12,7 @@ process.env.SHINOBIX_QA_MEMORY_KV = '1';
 process.env.SESSION_SECRET = 'ranked-queue-to-combat-test-secret';
 
 type Handler = (req: never, res: never) => Promise<unknown>;
-type Out = { statusCode: number; body?: Record<string, any> };
+type Out = { statusCode: number; body?: Record<string, any>; headers: Record<string, string> };
 
 const ALICE = 'rankedqueuecombatalice';
 const BOB = 'rankedqueuecombatbob';
@@ -23,6 +23,8 @@ let startRankedSeason: typeof import('../cron/_ranked-season.js').startRankedSea
 let rankedQueue: Handler;
 let session: Handler;
 let move: Handler;
+let claimRewards: Handler;
+let leaderboards: Handler;
 
 function character(name: string) {
     return {
@@ -44,9 +46,9 @@ function character(name: string) {
 }
 
 function response() {
-    const out: Out = { statusCode: 200 };
+    const out: Out = { statusCode: 200, headers: {} };
     const res = {
-        setHeader: () => res,
+        setHeader(name: string, value: string) { out.headers[name.toLowerCase()] = value; return res; },
         status(statusCode: number) { out.statusCode = statusCode; return res; },
         json(body: Record<string, any>) { out.body = body; return res; },
         end: () => res,
@@ -85,6 +87,8 @@ before(async () => {
     rankedQueue = (await import('./ranked-queue.js')).default as unknown as Handler;
     session = (await import('./session.js')).default as unknown as Handler;
     move = (await import('./move.js')).default as unknown as Handler;
+    claimRewards = (await import('./claim-rewards.js')).default as unknown as Handler;
+    leaderboards = (await import('../player/leaderboards.js')).default as unknown as Handler;
 });
 
 beforeEach(async () => {
@@ -216,4 +220,36 @@ test('two ranked queue entries create a ranked-format PvP combat session', async
     assert.equal((await kv.get<Record<string, any>>(`save:${ALICE}`))?.character?.maxHp, 200,
         'the equalized ranked resources are session-only and never overwrite a player save');
 
+    // Complete this same admitted battle and exercise the claim response and
+    // public board through their real handlers. Combat moves and the terminal
+    // saga have separate tests; this closes their queue-to-report wiring.
+    const lastSession = await kv.get<Record<string, any>>(`pvp:${battleId}`);
+    assert.ok(lastSession);
+    await kv.set(`pvp:${battleId}`, {
+        ...lastSession, status: 'done', winner: 'p1', endedAt: Date.now(),
+    });
+    const winnerClaim = await post(claimRewards, ALICE, {
+        battleId, playerName: ALICE, outcome: 'win', completionVersion: 1,
+    });
+    assert.equal(winnerClaim.statusCode, 200, winnerClaim.body?.error);
+    assert.equal(winnerClaim.body?.rating?.field, 'rankedRating');
+    assert.equal(winnerClaim.body?.rating?.value, 1012);
+    const loserClaim = await post(claimRewards, BOB, {
+        battleId, playerName: BOB, outcome: 'loss', completionVersion: 1,
+    });
+    assert.equal(loserClaim.statusCode, 200, loserClaim.body?.error);
+    assert.equal(loserClaim.body?.rating?.value, 988);
+    for (const [playerName, outcome] of [[ALICE, 'win'], [BOB, 'loss']] as const) {
+        const ack = await post(claimRewards, playerName, {
+            battleId, playerName, outcome, completionVersion: 1, completionAck: true,
+        });
+        assert.equal(ack.statusCode, 200, ack.body?.error);
+        assert.equal(ack.body?.completionPending, false);
+    }
+    const board = await get(leaderboards, ALICE, { limit: '100' });
+    assert.equal(board.statusCode, 200, board.body?.error);
+    assert.equal(board.headers['cache-control'], 'no-store');
+    const rankedRows = board.body?.boards?.find((entry: { id: string }) => entry.id === 'ranked')?.rows;
+    assert.equal(rankedRows?.find((entry: { name: string }) => entry.name === ALICE)?.value, 1012);
+    assert.equal(rankedRows?.find((entry: { name: string }) => entry.name === BOB)?.value, 988);
 });

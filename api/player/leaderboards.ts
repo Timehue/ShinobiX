@@ -24,7 +24,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             .map(([, entry]) => entry);
         const boards = buildPublicLeaderboards(publicEntries, onlineNames, limit);
 
-        res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=10');
+        // Ranked settlement projects the new rating before its journal closes.
+        // A cached board would still show the previous result immediately after
+        // a player returns from that battle.
+        res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json({
             ok: true,
             generatedAt: Date.now(),

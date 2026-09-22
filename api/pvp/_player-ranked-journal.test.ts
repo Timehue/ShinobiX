@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import { _makeMemoryKv, type KvLike } from '../_storage.js';
 import { inspectSettlementReceipt } from '../_settlement-receipts.js';
 import { mintPlayerRankedMatchTokenWithStore } from '../_ranked-match-token.js';
+import { buildPublicLeaderboards, buildPublicPlayerIndexEntry, REGISTRY_KEY } from '../player/_public-index.js';
 import {
     activatePlayerRankedAdmission,
     cancelNonterminalPlayerRankedAdmissions,
@@ -43,6 +44,10 @@ async function setup() {
         store.set('save:alice', { _saveVersion: 1, character: { name: 'Alice', rankedRating: 1000, rankedWins: 0, serverSettlementReceipts: [] } }),
         store.set('save:bob', { _saveVersion: 1, character: { name: 'Bob', rankedRating: 1000, rankedLosses: 0, serverSettlementReceipts: [] } }),
     ]);
+    await store.hset(REGISTRY_KEY, {
+        alice: buildPublicPlayerIndexEntry({ name: 'Alice', rankedRating: 1000 }, 'alice'),
+        bob: buildPublicPlayerIndexEntry({ name: 'Bob', rankedRating: 1000 }, 'bob'),
+    });
     const token = await mintPlayerRankedMatchTokenWithStore(store, {
         a: 'alice', b: 'bob', aLevel: 25, bLevel: 25, aRating: 1000, bRating: 1000,
         now: NOW + 1, matchId: MATCH,
@@ -94,6 +99,11 @@ describe('player ranked terminal journal', () => {
         assert.equal(aliceOnce.rankedWins, 1);
         assert.equal(bobOnce.rankedRating, 988);
         assert.equal(bobOnce.rankedLosses, 1);
+        const registry = await store.hgetall<Record<string, ReturnType<typeof buildPublicPlayerIndexEntry>>>(REGISTRY_KEY);
+        assert.equal(registry?.alice?.rankedWins, 1);
+        assert.equal(registry?.bob?.rankedLosses, 1);
+        assert.deepEqual(buildPublicLeaderboards(Object.values(registry ?? [])).find(board => board.id === 'ranked')?.rows
+            .map(row => [row.name, row.value]), [['Alice', 1012], ['Bob', 988]]);
         assert.ok(aliceOnce[PLAYER_RANKED_SETTLEMENT_STAMP_FIELD][MATCH]);
 
         // The old 50-entry generic receipt ring can churn arbitrarily; a
@@ -114,6 +124,34 @@ describe('player ranked terminal journal', () => {
         assert.equal(char(await store.get('save:bob')).rankedLosses, 1);
         assert.equal(session.ranked === true, false, 'd76a ranked payout branch stays inert after ring churn');
         assert.equal(session.baseRewards === true, false, 'd76a base payout branch stays inert after ring churn');
+    });
+
+    it('retries a failed leaderboard projection before confirming the ranked result', async () => {
+        const { store: base, session } = await setup();
+        const journal = await publishPlayerRankedTerminal(base, session, {
+            now: NOW + 3,
+            eligible: async () => true,
+        });
+        let failProjection = true;
+        const interrupted: KvLike = {
+            ...base,
+            async hset(key, value) {
+                if (key === REGISTRY_KEY && failProjection) throw new Error('ranked-index-unavailable');
+                return base.hset(key, value);
+            },
+        };
+        await assert.rejects(() => settlePlayerRankedJournal(interrupted, journal, NOW + 4), /ranked-index-unavailable/);
+        assert.equal(char(await base.get('save:alice')).rankedRating, 1012);
+        assert.equal((await base.hgetall<Record<string, { rankedRating: number }>>(REGISTRY_KEY))?.alice?.rankedRating, 1000);
+        assert.equal((await getPlayerRankedJournal(base, MATCH))?.state, 'pending');
+
+        failProjection = false;
+        const recovered = await settlePlayerRankedJournal(interrupted, MATCH, NOW + 5);
+        assert.equal(recovered.journal.state, 'completed');
+        assert.equal(char(await base.get('save:alice')).rankedWins, 1);
+        assert.equal(char(await base.get('save:bob')).rankedLosses, 1);
+        assert.equal((await base.hgetall<Record<string, { rankedRating: number }>>(REGISTRY_KEY))?.alice?.rankedRating, 1012);
+        assert.equal((await base.hgetall<Record<string, { rankedRating: number }>>(REGISTRY_KEY))?.bob?.rankedRating, 988);
     });
 
     it('accepts the conserved Ranked Format item ledger without debiting inventory', async () => {
