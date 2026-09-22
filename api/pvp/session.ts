@@ -440,6 +440,38 @@ export function isAuthoritativePlayerRankedSession(session: PvpSession): boolean
         || (session.ranked === true && session.rankedKind === 'player');
 }
 
+/**
+ * Player-ranked V2 admissions already prove both players accepted the exact
+ * queue pairing. Sessions written before direct queue seating shipped can
+ * still carry the old p2=false handshake state, which would leave an otherwise
+ * valid match waiting forever. Upgrade only that verified authority shape,
+ * under CAS, when either client next reads the session.
+ */
+async function seatVerifiedPlayerRankedSession(
+    battleId: string,
+    session: PvpSession,
+): Promise<PvpSession> {
+    if (!isPlayerRankedV2Session(session) || session.status !== 'active') return session;
+    const bothSeated = session.joined?.p1 === true && session.joined?.p2 === true;
+    const clockStarted = Number.isFinite(session.turnStartedAt) && Number(session.turnStartedAt) > 0;
+    if (bothSeated && clockStarted) return session;
+
+    const upgraded: PvpSession = {
+        ...session,
+        stateRevision: nextPvpStateRevision(session),
+        joined: { p1: true, p2: true },
+        ...(clockStarted ? {} : { turnStartedAt: Date.now() + PVP_PREFIGHT_COUNTDOWN_MS }),
+    };
+    if (await kv.compareSet(`pvp:${battleId}`, session, upgraded, {
+        ex: PVP_ACTIVE_ROW_TTL,
+    })) return upgraded;
+
+    // A concurrent join or move won the race. Its committed projection is the
+    // authority; a later poll retries the migration only if it still needs it.
+    const current = await kv.get<PvpSession>(`pvp:${battleId}`);
+    return current?.battleId === battleId ? current : session;
+}
+
 export function playerRankedSessionMatchesAdmission(
     session: PvpSession,
     admission: PlayerRankedAdmission,
@@ -1942,6 +1974,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(409).json({ error: 'This ranked match ended as a no-contest.' });
         }
         let session = sessionRaw as PvpSession;
+        try {
+            session = await seatVerifiedPlayerRankedSession(battleId, session);
+        } catch (error) {
+            // A failed repair read must not turn a normally readable fight into
+            // an outage; the next poll retries the CAS upgrade.
+            console.error('[pvp/session] ranked seating repair failed', error);
+        }
         // F08: a duel nobody touched for a whole session TTL is a double
         // walk-out. It is recorded as a draw from the row's own evidence and
         // its terminal effects replayed before anyone is shown a live fight.
