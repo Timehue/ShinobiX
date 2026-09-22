@@ -28,7 +28,7 @@ import {
     hasDurableVanguardTerminalOutcome,
 } from './_vanguard-rewards.js';
 
-type RankedTerminalStore = Pick<KvLike, 'get' | 'set' | 'compareSet' | 'keys'>;
+type RankedTerminalStore = Pick<KvLike, 'get' | 'set' | 'compareSet' | 'keys' | 'hset'>;
 
 /**
  * Exact proof that nothing can still need the discoverable terminal row: the
