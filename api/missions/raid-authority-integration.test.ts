@@ -218,6 +218,43 @@ describe('sealed raid authority', () => {
         assert.match(String(defended.body?.error), /sealed raid attacker/);
     });
 
+    it('acknowledges a Death\'s Gate win without field-raid credit, even after the live row expires', async () => {
+        const player = 'raidauthdeathsgate';
+        const opponent = 'raiddefenderdeathsgate';
+        const battleId = 'raidbattledeathsgate';
+        const now = Date.now();
+        await seed(player);
+        await seed(opponent);
+        const session = {
+            battleId,
+            p1: { name: player, character: {} },
+            p2: { name: opponent, character: {} },
+            status: 'done',
+            winner: 'p1',
+            joined: { p1: true, p2: true },
+            rewardAuthority: 'world',
+            baseRewards: true,
+            worldAttacker: { side: 'p1', name: player },
+            rewardSector: 99,
+            createdAt: now - 60_000,
+            endedAt: now - 1_000,
+        };
+        await kv.set(`pvp:${battleId}`, session);
+        const first = await post(reportRaid, player, { battleId });
+        assert.equal(first.statusCode, 200, JSON.stringify(first.body));
+        assert.deepEqual(first.body?.fetchMissionsCredited, []);
+        assert.equal(first.body?.reason, 'non-field-raid-sector');
+        const save = await kv.get<Record<string, any>>(`save:${player}`);
+        assert.equal(save?.character.raidProgressionSettlements, undefined);
+
+        const { sealPvpRewardRecoverySnapshot } = await import('../pvp/_reward-recovery.js');
+        await sealPvpRewardRecoverySnapshot(kv, battleId, session as never);
+        await kv.del(`pvp:${battleId}`);
+        const replay = await post(reportRaid, player, { battleId });
+        assert.equal(replay.statusCode, 200, JSON.stringify(replay.body));
+        assert.deepEqual(replay.body?.fetchMissionsCredited, []);
+    });
+
     it('never damages self-controlled territory and returns the post-Legacy save projection', async () => {
         const player = 'raidauthselfterritory';
         await seed(player);

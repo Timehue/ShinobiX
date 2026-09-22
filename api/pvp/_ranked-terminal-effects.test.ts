@@ -253,6 +253,41 @@ describe('unified player-ranked terminal saga', () => {
         assert.equal((await getPlayerRankedAdmission(store, MATCH))?.phase, 'terminal');
     });
 
+    it('isolates an unrecoverable terminal admission during unrelated queue traffic', async () => {
+        const { store, session } = await setup();
+        await publishPlayerRankedTerminal(store, session, {
+            eligible: async () => true,
+            now: NOW + 3,
+        });
+        await store.del(`pvp:${BATTLE}`);
+        const failures: Array<{ matchId: string; error: unknown }> = [];
+        await recoverCompletedPlayerRankedFinalizations(store, lock, {
+            onFailure: (matchId, error) => failures.push({ matchId, error }),
+        });
+        assert.equal(failures.length, 1);
+        assert.equal(failures[0].matchId, MATCH);
+        assert.match(String(failures[0].error), /player-ranked-admission-journal-conflict/);
+        assert.equal((await getPlayerRankedAdmission(store, MATCH))?.phase, 'terminal');
+    });
+
+    it('finishes a pending ranked journal from the sealed recovery snapshot after the live row expires', async () => {
+        const { store, session } = await setup();
+        const terminalSession = { ...session, endedAt: NOW + 2 };
+        await publishPlayerRankedTerminal(store, terminalSession, {
+            eligible: async () => true,
+            now: NOW + 3,
+        });
+        const { sealPvpRewardRecoverySnapshot } = await import('./_reward-recovery.js');
+        await sealPvpRewardRecoverySnapshot(store, BATTLE, terminalSession);
+        await store.del(`pvp:${BATTLE}`);
+
+        await recoverCompletedPlayerRankedFinalizations(store, lock);
+        assert.equal((await getPlayerRankedJournal(store, MATCH))?.state, 'completed');
+        assert.equal(await getPlayerRankedAdmission(store, MATCH), null);
+        assert.equal((await store.get<Record<string, any>>('save:alice'))?.character.rankedRating, 1012);
+        assert.equal((await store.get<Record<string, any>>('save:bob'))?.character.rankedRating, 988);
+    });
+
     it('recovers a second-save commit whose acknowledgement is lost', async () => {
         const { store: base, session } = await setup();
         let lost = false;
