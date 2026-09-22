@@ -12,8 +12,8 @@ test("the opponent's turn does not replace the PvP jutsu or battle-log area", ()
 
     assert.match(
         source,
-        /<CombatCommandBar style=\{isMyTurn \? undefined : \{ opacity: 0\.55 \}\}/,
-        "basic actions should remain visible while waiting",
+        /<CombatCommandBar style=\{!bothJoined \|\| isMyTurn \? undefined : \{ opacity: 0\.55 \}\}/,
+        "basic actions should remain visible while waiting and the unjoined cancel action should stay legible",
     );
     assert.match(
         source,
