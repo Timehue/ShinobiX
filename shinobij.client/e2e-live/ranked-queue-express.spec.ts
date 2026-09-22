@@ -1,4 +1,5 @@
-import { expect, test, type APIRequestContext, type BrowserContext, type Page, type TestInfo } from '@playwright/test';
+import { expect, type APIRequestContext, type BrowserContext, type Page, type TestInfo } from '@playwright/test';
+import { test } from './helpers/reconnecting-request';
 
 const PASSWORD = 'RankedJourney!1234';
 const ADMIN = 'live-express-e2e-admin';
