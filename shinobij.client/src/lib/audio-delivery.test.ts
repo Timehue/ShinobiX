@@ -40,7 +40,7 @@ afterEach(() => {
 
 const WAV = "/sfx/production/ambience-shrine.wav";
 const OGG = "/music/vn/stormveil-reasons-in-rain.ogg";
-const MP3 = "/music/showdown-lantern-duel.mp3";
+const MP3 = "/music/world/wind-blade-jutsu.mp3";
 
 test("Chromium takes gapless Vorbis for looping ambience", () => {
     stubEngine(CHROMIUM);
