@@ -16,6 +16,13 @@ const engineSource = readFileSync(path.join(here, "game-audio.ts"), "utf8");
 const publicDir = path.resolve(here, "..", "..", "public");
 const productionDir = path.join(publicDir, "sfx", "production");
 const musicDir = path.join(publicDir, "music");
+const requiredOggMusicTracks = [
+    "vn/ashen-future-in-fire.ogg",
+    "vn/frostfang-warmth-we-keep.ogg",
+    "vn/hollow-gate-four-debts.ogg",
+    "vn/moonshadow-name-under-glass.ogg",
+    "vn/stormveil-reasons-in-rain.ogg",
+];
 
 test("the WAV master remains the last resort, so a missing sibling is never silence", () => {
     assert.match(
@@ -53,7 +60,11 @@ test("every .ogg music track has an .m4a sibling, or it is silent on iOS", () =>
         }
     };
     walk(musicDir);
-    assert.ok(oggs.length >= 8, `expected the authored music tracks, found ${oggs.length}`);
+    assert.deepEqual(
+        oggs.map((ogg) => path.relative(musicDir, ogg).replaceAll("\\", "/")).sort(),
+        requiredOggMusicTracks,
+        "the published Ogg music manifest changed; update the iOS delivery contract deliberately",
+    );
 
     const missing = oggs
         .map((o) => o.replace(/\.ogg$/, ".m4a"))
