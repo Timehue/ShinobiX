@@ -23,6 +23,7 @@ import {
     type PvpSession,
 } from './session.js';
 import { boundExactPvpSession } from './_session-mutation.js';
+import { loadPvpRewardRecoverySnapshot } from './_reward-recovery.js';
 import {
     grantVanguardRewardsForSession,
     hasDurableVanguardTerminalOutcome,
@@ -149,53 +150,61 @@ export async function confirmPlayerRankedTerminalEffects(
  * Normal queue traffic helps every discoverable terminal phase forward. An
  * active admission may already have an exact done session if the worker died
  * after the session CAS but before gate terminalization; terminal admissions
- * may be at any later journal/effect phase. Only a missing session requires a
- * fully-completed journal before the gate row can be removed.
+ * may be at any later journal/effect phase. A sealed recovery snapshot can
+ * replay an expired live row; without either row, the completed journal must
+ * prove every effect before the gate admission can be removed.
  */
 export async function recoverCompletedPlayerRankedFinalizations(
     store: RankedTerminalStore,
     lock: SaveLockRunner,
     options: {
         eligible?: (a: string, b: string) => Promise<boolean>;
+        onFailure?: (matchId: string, error: unknown) => void;
     } = {},
 ): Promise<void> {
     const gate = await readPetRankedSeasonGateFresh(store);
     for (const admission of gate?.playerAdmissions ?? []) {
         if ((admission.phase !== 'active' && admission.phase !== 'terminal') || !admission.battleId) continue;
-        const raw = await store.get<unknown>(`pvp:${admission.battleId}`);
-        if (raw !== null) {
-            const session = raw as PvpSession;
-            if (session.status !== 'done') {
-                if (admission.phase === 'terminal') throw new Error('player-ranked-terminal-session-conflict');
+        try {
+            const raw = await store.get<unknown>(`pvp:${admission.battleId}`)
+                ?? await loadPvpRewardRecoverySnapshot(store, admission.battleId);
+            if (raw !== null) {
+                const session = raw as PvpSession;
+                if (session.status !== 'done') {
+                    if (admission.phase === 'terminal') throw new Error('player-ranked-terminal-session-conflict');
+                    continue;
+                }
+                if (!isPlayerRankedV2Session(session)
+                    || !playerRankedSessionMatchesAdmission(session, admission)) {
+                    throw new Error('player-ranked-terminal-session-conflict');
+                }
+                await confirmPlayerRankedTerminalEffects(store, session, {
+                    eligible: admission.phase === 'terminal'
+                        ? async () => { throw new Error('player-ranked-eligibility-recomputed'); }
+                        : options.eligible ?? (async () => { throw new Error('player-ranked-eligibility-required'); }),
+                    lock,
+                });
                 continue;
             }
-            if (!isPlayerRankedV2Session(session)
-                || !playerRankedSessionMatchesAdmission(session, admission)) {
-                throw new Error('player-ranked-terminal-session-conflict');
+            if (admission.phase !== 'terminal') continue;
+            const journal = await getPlayerRankedJournal(store, admission.matchId);
+            if (!journal
+                || journal.state !== 'completed'
+                || !journal.confirmations.a
+                || !journal.confirmations.b
+                || !journal.items.a.confirmed
+                || !journal.items.b.confirmed
+                || journal.terminal.battleId !== admission.battleId
+                || journal.terminal.fingerprint !== admission.terminalFingerprint) {
+                throw new Error('player-ranked-admission-journal-conflict');
             }
-            await confirmPlayerRankedTerminalEffects(store, session, {
-                eligible: admission.phase === 'terminal'
-                    ? async () => { throw new Error('player-ranked-eligibility-recomputed'); }
-                    : options.eligible ?? (async () => { throw new Error('player-ranked-eligibility-required'); }),
-                lock,
-            });
-            continue;
+            if (!(await hasDurableVanguardTerminalOutcome(store, journal.terminal))) {
+                throw new Error('player-ranked-vanguard-settlement-pending');
+            }
+            await completePlayerRankedAdmission(store, admission);
+        } catch (error) {
+            if (!options.onFailure) throw error;
+            options.onFailure(admission.matchId, error);
         }
-        if (admission.phase !== 'terminal') continue;
-        const journal = await getPlayerRankedJournal(store, admission.matchId);
-        if (!journal
-            || journal.state !== 'completed'
-            || !journal.confirmations.a
-            || !journal.confirmations.b
-            || !journal.items.a.confirmed
-            || !journal.items.b.confirmed
-            || journal.terminal.battleId !== admission.battleId
-            || journal.terminal.fingerprint !== admission.terminalFingerprint) {
-            throw new Error('player-ranked-admission-journal-conflict');
-        }
-        if (!(await hasDurableVanguardTerminalOutcome(store, journal.terminal))) {
-            throw new Error('player-ranked-vanguard-settlement-pending');
-        }
-        await completePlayerRankedAdmission(store, admission);
     }
 }
