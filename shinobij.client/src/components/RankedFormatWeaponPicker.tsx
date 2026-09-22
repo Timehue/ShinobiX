@@ -103,7 +103,7 @@ export function RankedFormatWeaponPicker({
         <div className="ranked-format-weapon-picker" data-testid="ranked-format-weapon-picker">
             <p className="act-label">Ranked Weapon</p>
             <p className="hint">
-                Ranked fighters enter with maxed stats and identical neutral gear — your weapon is the one thing you choose.
+                Ranked fighters enter with maxed stats, maximum HP/chakra/stamina, and identical neutral gear — your weapon is the one thing you choose.
             </p>
             <p className="hint" role="status">Selected weapon: <strong>{RANKED_FORMAT_WEAPONS.find((weapon) => weapon.id === selected)?.name}</strong></p>
             {error && <p className="hint" role="alert" style={{ color: "var(--red-400)" }}>{error}</p>}

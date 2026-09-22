@@ -8,6 +8,9 @@ import {
     RANKED_FORMAT_CONSUMABLE_CHARGES,
     RANKED_FORMAT_DEFAULT_WEAPON_ID,
     RANKED_FORMAT_LEGENDARY_WEAPON_IDS,
+    RANKED_FORMAT_MAX_CHAKRA,
+    RANKED_FORMAT_MAX_HP,
+    RANKED_FORMAT_MAX_STAMINA,
     RANKED_FORMAT_NEUTRAL_EQUIPMENT,
     resolveRankedFormatWeaponId,
     sealRankedFormatItemCharges,
@@ -40,6 +43,12 @@ describe('ranked format', () => {
         for (const field of STAT_CAP_FIELDS) {
             assert.equal((projected.stats as Record<string, number>)[field], MAX_STAT, `${field} is maxed`);
         }
+        assert.equal(projected.hp, RANKED_FORMAT_MAX_HP);
+        assert.equal(projected.maxHp, RANKED_FORMAT_MAX_HP);
+        assert.equal(projected.chakra, RANKED_FORMAT_MAX_CHAKRA);
+        assert.equal(projected.maxChakra, RANKED_FORMAT_MAX_CHAKRA);
+        assert.equal(projected.stamina, RANKED_FORMAT_MAX_STAMINA);
+        assert.equal(projected.maxStamina, RANKED_FORMAT_MAX_STAMINA);
         assert.deepEqual(projected.equipment, { ...RANKED_FORMAT_NEUTRAL_EQUIPMENT, hand: 'black-lotus-dagger' });
         // Untouched fields pass through verbatim.
         assert.equal(projected.name, 'Ash');
