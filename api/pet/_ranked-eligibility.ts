@@ -37,6 +37,23 @@ export function selectRankedPet(
     return selected && !rankedPetUnavailable(character, selected) ? selected : null;
 }
 
+/** The first two pets enter together; the next two are rotating reserves. */
+export function selectRankedTeam(character: Record<string, unknown>, requestedIds?: readonly string[]): Record<string, unknown>[] | null {
+    const pets = activeCarriedPets<Record<string, unknown>>(character);
+    const ready = pets.filter((pet) => !rankedPetUnavailable(character, pet));
+    if (requestedIds) {
+        if (requestedIds.length !== 4 || new Set(requestedIds).size !== 4) return null;
+        const selected = requestedIds.map((id) => ready.find((pet) => String(pet.id) === id));
+        return selected.every((pet): pet is Record<string, unknown> => !!pet) ? selected as Record<string, unknown>[] : null;
+    }
+    const ordered = [
+        ...ready.filter((pet) => String(pet.id ?? '') === String(character.activePetId ?? '')),
+        ...ready.filter((pet) => String(pet.id ?? '') !== String(character.activePetId ?? '')),
+    ];
+    const unique = [...new Map(ordered.map((pet) => [String(pet.id), pet])).values()];
+    return unique.length >= 4 ? unique.slice(0, 4) : null;
+}
+
 /** True when the account can actually field a ranked pet right now. */
 export function hasRankedReadyPet(save: Record<string, unknown> | null): boolean {
     const character = (save?.character ?? null) as Record<string, unknown> | null;

@@ -12,11 +12,9 @@ export const REGISTRY_KEY = 'player:registry';
 // v2: the `xp` slot changed MEANING with the XP removal — it now carries the
 // earned stat-point ledger (docs/leveling-without-xp-map.md), which tops out at
 // ~29,880, while v1 rows hold cumulative character XP that ran into the
-// millions. Bumping the version marks every v1 row stale
-// (needsPublicPlayerIndexBackfill) so dormant accounts get rebuilt from their
-// save instead of sitting permanently at the top of the "Total Stat Points
-// Earned" board on a dead number.
-export const PUBLIC_INDEX_VERSION = 2;
+// millions. Version 3 adds the separate Ranked 2v2 rating. Older rows are
+// backfilled from authoritative saves with the current leaderboard fields.
+export const PUBLIC_INDEX_VERSION = 3;
 
 export type PublicPlayerIndexEntry = {
     _publicIndexVersion: number;
@@ -30,6 +28,9 @@ export type PublicPlayerIndexEntry = {
     rankedRating: number;
     rankedWins: number;
     rankedLosses: number;
+    ranked2v2Rating: number;
+    ranked2v2Wins: number;
+    ranked2v2Losses: number;
     petRankedRating: number;
     petRankedWins: number;
     petRankedLosses: number;
@@ -48,6 +49,7 @@ export type PublicPlayerIndexEntry = {
 export type PublicLeaderboardBoardId =
     | 'online'
     | 'ranked'
+    | 'ranked2v2'
     | 'petRanked'
     | 'level'
     | 'xp'
@@ -113,7 +115,8 @@ export type PublicPlayerIndexHealth = {
 const PUBLIC_LEADERBOARD_META: Record<PublicLeaderboardBoardId, Omit<PublicLeaderboardBoard, 'rows'>> = {
     online: { id: 'online', label: 'Online Now', valueLabel: 'Presence', suffix: '' },
     ranked: { id: 'ranked', label: 'Ranked Battle Rating', valueLabel: 'Elo', suffix: ' Elo' },
-    petRanked: { id: 'petRanked', label: 'Pet Arena Rating', valueLabel: 'Pet Elo', suffix: ' Elo' },
+    ranked2v2: { id: 'ranked2v2', label: 'Ranked 2v2 Rating', valueLabel: 'Elo', suffix: ' Elo' },
+    petRanked: { id: 'petRanked', label: 'Pet Colosseum Rating', valueLabel: 'Pet Elo', suffix: ' Elo' },
     level: { id: 'level', label: 'Highest Level', valueLabel: 'Level', suffix: '' },
     // Board id stays 'xp' (client tab ids/deep links), but the metric is now the
     // earned stat-point ledger — character XP is retired (leveling-without-xp map).
@@ -134,6 +137,9 @@ type NumberField = {
         | 'rankedRating'
         | 'rankedWins'
         | 'rankedLosses'
+        | 'ranked2v2Rating'
+        | 'ranked2v2Wins'
+        | 'ranked2v2Losses'
         | 'petRankedRating'
         | 'petRankedWins'
         | 'petRankedLosses'
@@ -155,6 +161,9 @@ const NUMBER_FIELDS: readonly NumberField[] = [
     { key: 'rankedRating', fallback: 1000 },
     { key: 'rankedWins', fallback: 0 },
     { key: 'rankedLosses', fallback: 0 },
+    { key: 'ranked2v2Rating', fallback: 1000 },
+    { key: 'ranked2v2Wins', fallback: 0 },
+    { key: 'ranked2v2Losses', fallback: 0 },
     { key: 'petRankedRating', fallback: 1000 },
     { key: 'petRankedWins', fallback: 0 },
     { key: 'petRankedLosses', fallback: 0 },
@@ -220,6 +229,9 @@ export function buildPublicPlayerIndexEntry(
         rankedRating: publicNumber(char.rankedRating, 1000),
         rankedWins: publicNumber(char.rankedWins, 0),
         rankedLosses: publicNumber(char.rankedLosses, 0),
+        ranked2v2Rating: publicNumber(char.ranked2v2Rating, 1000),
+        ranked2v2Wins: publicNumber(char.ranked2v2Wins, 0),
+        ranked2v2Losses: publicNumber(char.ranked2v2Losses, 0),
         petRankedRating: publicNumber(char.petRankedRating, 1000),
         petRankedWins: publicNumber(char.petRankedWins, 0),
         petRankedLosses: publicNumber(char.petRankedLosses, 0),
@@ -291,6 +303,7 @@ export function buildPublicLeaderboards(
             label: () => 'Online',
         }),
         buildPlayerLeaderboard('ranked', publicEntries, (entry) => entry.rankedRating, rowLimit, { includeZero: true }),
+        buildPlayerLeaderboard('ranked2v2', publicEntries, (entry) => entry.ranked2v2Rating, rowLimit, { includeZero: true }),
         buildPlayerLeaderboard('petRanked', publicEntries, (entry) => entry.petRankedRating, rowLimit, { includeZero: true }),
         buildPlayerLeaderboard('level', publicEntries, (entry) => entry.level, rowLimit, { includeZero: true, label: (value) => `Level ${value.toLocaleString()}` }),
         buildPlayerLeaderboard('kills', publicEntries, (entry) => entry.totalPvpKills, rowLimit),
@@ -498,6 +511,9 @@ export function publicIndexToLeaderboardRosterEntry(entry: PublicPlayerIndexEntr
         rankedRating: entry.rankedRating,
         rankedWins: entry.rankedWins,
         rankedLosses: entry.rankedLosses,
+        ranked2v2Rating: entry.ranked2v2Rating,
+        ranked2v2Wins: entry.ranked2v2Wins,
+        ranked2v2Losses: entry.ranked2v2Losses,
         petRankedRating: entry.petRankedRating,
         petRankedWins: entry.petRankedWins,
         petRankedLosses: entry.petRankedLosses,

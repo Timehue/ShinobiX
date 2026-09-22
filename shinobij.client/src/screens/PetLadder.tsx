@@ -4,14 +4,12 @@ import type { Pet } from "../types/pet";
 import type { Screen } from "../types/core";
 import {
     TACTICAL_ARENA_PET_REQUIREMENT,
-    canEnterTacticalArena,
     isPetAvailableForWarfront,
     petDisplayName,
 } from "../lib/pet";
 import { derivePetRole, ROLE_META } from "../lib/pet-roles";
 import { LoadingState } from "../components/ui/LoadingState";
 import { EmptyState } from "../components/ui/EmptyState";
-import { petPvpGearById, petConsumableById } from "../data/pet-config";
 // Keep both battle renderers out of the ladder's initial load.
 const PetWarfrontRite = lazy(() => import("../components/PetWarfrontRite").then((m) => ({ default: m.PetWarfrontRite })));
 const PetShowdownReplay = lazy(() => import("../components/PetShowdownReplay").then((m) => ({ default: m.PetShowdownReplay })));
@@ -38,27 +36,16 @@ import { GiChatBubble } from "../components/icons/LightweightGameIcons";
 import "./PetLadder.css";
 
 /*
- * Pet Ladder — global positional ranking (Sword-x-Staff style) for Pet Coliseum
- * (1v1) and Beastbound Warfront (4v4). Set a sealed defense, challenge close-above rivals
- * (offline), climb. Resolution is server-authoritative; this screen replays the
- * sealed result in the 2.5D/3D cinematic with PvP items applied.
+ * Pet Colosseum uses live matchmaking and the pet Elo leaderboard. Beastbound
+ * Warfront uses an offline positional ladder with sealed four-pet defenses.
  */
 
 const MODE_LABEL: Record<Mode, string> = { coliseum: "Pet Colosseum", tactical: "Beastbound Warfront" };
-const MODE_SUB: Record<Mode, string> = { coliseum: "1v1 duel · defend with one pet", tactical: "4v4 offline ladder · best of three clashes" };
+const MODE_SUB: Record<Mode, string> = { coliseum: "2v2 live queue · two rotating reserves · Pet Elo", tactical: "4v4 offline ladder · best of three clashes" };
 /* Painted mode emblems shared with the Pet Arena activity tiles — the ladder
    and the arena must read as the same two destinations. */
 const MODE_ART: Record<Mode, string> = { coliseum: arenaModeColosseum, tactical: arenaModeWarfront };
 const HERO: Record<Mode, string> = { coliseum: coliseumHero, tactical: tacticalHero };
-
-function gearLabel(pet: Pet): string | null {
-    const g = petPvpGearById(pet.loadout?.pvp);
-    const c = petConsumableById(pet.loadout?.consumable);
-    const parts: string[] = [];
-    if (g) parts.push(g.name);
-    if (c) parts.push(c.name);
-    return parts.length ? parts.join(" · ") : null;
-}
 
 const MEDAL: Record<number, { bg: string; ring: string }> = {
     1: { bg: "radial-gradient(circle at 35% 28%, #fff0b8, #e0a106 72%)", ring: "#fff3c4" },
@@ -110,10 +97,9 @@ export function PetLadder(props: PetLadderProps) {
 }
 
 function PetLadderSession({ character, setScreen, sharedImages, onVersionedCharacter }: PetLadderProps) {
-    const carriedPets = activeCarriedPets<Pet>(character);
     const breedingPetIds = activeClientBreedingParentIds(character);
     const [mode, setMode] = useState<Mode>(() => (
-        sessionStorage.getItem("petLadder.mode") === "tactical" && canEnterTacticalArena(carriedPets, breedingPetIds)
+        sessionStorage.getItem("petLadder.mode") === "tactical"
             ? "tactical"
             : "coliseum"
     ));
@@ -138,10 +124,11 @@ function PetLadderSession({ character, setScreen, sharedImages, onVersionedChara
     const teamSize = mode === "tactical" ? 4 : 1;
     // Admin-comped entitlements can expire while this screen remains mounted.
     const available = activeCarriedPets<Pet>(character).filter((pet) => isPetAvailableForWarfront(pet, breedingPetIds));
-    const tacticalUnlocked = available.length >= TACTICAL_ARENA_PET_REQUIREMENT;
+    const tacticalReady = available.length >= TACTICAL_ARENA_PET_REQUIREMENT;
     const picks = picksEdit ?? view?.you.defensePetIds ?? available.slice(0, teamSize).map((pet) => pet.id);
 
     const refresh = useCallback(async () => {
+        if (mode === "coliseum") return;
         const id = ++refreshId.current;
         try {
             const nextView = await fetchLadder(name, mode);
@@ -152,7 +139,6 @@ function PetLadderSession({ character, setScreen, sharedImages, onVersionedChara
     }, [name, mode]);
 
     const selectMode = (nextMode: Mode) => {
-        if (nextMode === "tactical" && !tacticalUnlocked) return;
         if (nextMode === mode) return;
         refreshId.current += 1;
         setView(null); setErr(null); setMode(nextMode);
@@ -220,12 +206,42 @@ function PetLadderSession({ character, setScreen, sharedImages, onVersionedChara
         return <RankedWarfrontReplay replay={r} sharedImages={sharedImages} onExit={exitCinematic} />;
     }
 
+    if (mode === "coliseum") {
+        return <div className="pl-screen">
+            <button className="pl-back" onClick={() => setScreen("arenaDistrict")}>← Arena District</button>
+            <div className="pl-hero">
+                <span className="pl-hero-badge">Ranked Battle</span>
+                <img src={HERO.coliseum} alt="" />
+                <div className="pl-hero-body">
+                    <h2 className="pl-hero-title"><img className="pl-mode-art" src={MODE_ART.coliseum} alt="" /> Pet Colosseum</h2>
+                    <div className="pl-hero-sub">{MODE_SUB.coliseum}</div>
+                </div>
+            </div>
+            <div className="pl-tabs" role="group" aria-label="Pet Ladder mode">
+                <button className="pl-tab is-active" aria-pressed="true"><img className="pl-mode-art pl-mode-art-tab" src={MODE_ART.coliseum} alt="" /> Pet Colosseum</button>
+                <button className="pl-tab" aria-pressed="false" disabled={busy}
+                    onClick={() => selectMode("tactical")}><img className="pl-mode-art pl-mode-art-tab" src={MODE_ART.tactical} alt="" /> Beastbound Warfront{!tacticalReady ? " · View ladder" : ""}</button>
+            </div>
+            <div className="pl-panel pl-standing">
+                <div className="pl-rank-big"><div className="pl-rank-num">{character.petRankedRating ?? 1000}</div><div className="pl-rank-lbl">Your Pet Elo</div></div>
+                <div className="pl-stats">
+                    <div className="pl-stat"><div className="pl-stat-n">{character.petRankedWins ?? 0}</div><div className="pl-stat-l">Wins</div></div>
+                    <div className="pl-stat"><div className="pl-stat-n">{character.petRankedLosses ?? 0}</div><div className="pl-stat-l">Losses</div></div>
+                </div>
+            </div>
+            <PetLadderQueuePanel character={character} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} />
+            <ColosseumRatingBoard rating={character.petRankedRating ?? 1000} />
+        </div>;
+    }
+
     const you = view?.you;
     const hasUnsavedDefense = !!you?.hasDefense && (
         JSON.stringify(picks) !== JSON.stringify(you.defensePetIds)
         || (mode === "tactical" && JSON.stringify(defPlan) !== JSON.stringify(parseWarfrontLadderPlan(you.warfrontPlan) ?? defaultWarfrontLadderPlan()))
     );
-    const canChallenge = !!you?.hasDefense && !hasUnsavedDefense && (you?.challengesLeft ?? 0) > 0;
+    const defenseReady = !!you?.defensePetIds && you.defensePetIds.length === TACTICAL_ARENA_PET_REQUIREMENT
+        && you.defensePetIds.every((id) => available.some((pet) => pet.id === id));
+    const canChallenge = !!you?.hasDefense && defenseReady && !hasUnsavedDefense && (you?.challengesLeft ?? 0) > 0;
 
     return (
         <div className="pl-screen">
@@ -246,11 +262,10 @@ function PetLadderSession({ character, setScreen, sharedImages, onVersionedChara
                 {(["coliseum", "tactical"] as Mode[]).map((m) => (
                     <button key={m} className={`pl-tab${mode === m ? " is-active" : ""}`}
                         aria-pressed={mode === m}
-                        disabled={busy || (m === "tactical" && !tacticalUnlocked)}
-                        title={m === "tactical" && !tacticalUnlocked ? `Locked: ${available.length}/${TACTICAL_ARENA_PET_REQUIREMENT} available pets` : undefined}
+                        disabled={busy}
                         onClick={() => selectMode(m)}>
                         <img className="pl-mode-art pl-mode-art-tab" src={MODE_ART[m]} alt="" /> {MODE_LABEL[m]}
-                        {m === "tactical" && !tacticalUnlocked ? ` · Locked ${available.length}/${TACTICAL_ARENA_PET_REQUIREMENT}` : ""}
+                        {m === "tactical" && !tacticalReady ? " · View ladder" : ""}
                     </button>
                 ))}
             </div>
@@ -294,13 +309,6 @@ function PetLadderSession({ character, setScreen, sharedImages, onVersionedChara
                 </div>
             )}
 
-            {/* Live ranked matchmaking. The duel is resolved once by the server
-                and replayed to both players; the asynchronous Coliseum and
-                Tactical ladder modes below remain authoritative on their own. */}
-            {mode === "coliseum" && (
-                <PetLadderQueuePanel character={character} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} />
-            )}
-
             {/* Two columns: defense + challenge (left) | the ladder (right) */}
             <div className="pl-cols">
                 <div>
@@ -311,7 +319,7 @@ function PetLadderSession({ character, setScreen, sharedImages, onVersionedChara
                             {mode === "tactical" ? "Pick 4 pets to defend your rank — they fight for you even while you're offline. Trained stats, roles, and formation count. Warfront uses no gear or consumables." : "Pick the pet that defends your rank while you're away. Stats and PvP gear count."}
                         </p>
                         {available.length < teamSize
-                            ? <div className="pl-empty">You need {teamSize} available pet{teamSize > 1 ? "s" : ""} (none on expeditions) to set a defense.</div>
+                            ? <div className="pl-empty">You need {teamSize} available pet{teamSize > 1 ? "s" : ""} (not breeding, training, or on expeditions) to set a defense.</div>
                             : <>
                                 <div className="pl-pet-grid">
                                     {available.map((pet) => {
@@ -320,9 +328,8 @@ function PetLadderSession({ character, setScreen, sharedImages, onVersionedChara
                                         const { role } = pet.role ? { role: pet.role } : derivePetRole(pet);
                                         const rm = ROLE_META[role];
                                         const img = petCardImage(pet, sharedImages);
-                                        const gear = mode === "coliseum" ? gearLabel(pet) : null;
                                         return (
-                                            <button key={pet.id} type="button" className={`pl-pet${sel ? " sel" : ""} ${petVisualVariantClass(pet)}`} onClick={() => togglePick(pet.id)} disabled={busy} title={gear ?? petDisplayName(pet)}>
+                                            <button key={pet.id} type="button" className={`pl-pet${sel ? " sel" : ""} ${petVisualVariantClass(pet)}`} onClick={() => togglePick(pet.id)} disabled={busy} title={petDisplayName(pet)}>
                                                 {sel && teamSize > 1 && <span className="pl-pet-order">{order + 1}</span>}
                                                 {sel && teamSize === 1 && <span className="pl-pet-check">✓</span>}
                                                 {img ? <img className="pl-pet-img" src={img} alt="" /> : <div className="pl-pet-img" />}
@@ -330,7 +337,6 @@ function PetLadderSession({ character, setScreen, sharedImages, onVersionedChara
                                                     <div className="pl-pet-name">{petDisplayName(pet)}</div>
                                                     {rm && <div className="pl-pet-role" style={{ color: rm.color }}>{rm.label}</div>}
                                                     <div className="pl-pet-stat">Lv {pet.level} · {pet.hp}hp · {pet.attack}atk{pet.element && pet.element !== "None" ? ` · ${pet.element}` : ""}</div>
-                                                    {gear && <div className="pl-pet-gear">⚙ {gear}</div>}
                                                 </div>
                                             </button>
                                         );
@@ -355,6 +361,7 @@ function PetLadderSession({ character, setScreen, sharedImages, onVersionedChara
                     <div className="pl-panel">
                         <button className="pl-btn pl-btn-gold pl-cta" onClick={openOffer} disabled={busy || !canChallenge}>⚔ Challenge for rank</button>
                         {!you?.hasDefense && <p className="pl-sub" style={{ textAlign: "center", margin: "9px 0 0" }}>Set a defense first to enter the ladder.</p>}
+                        {you?.hasDefense && !defenseReady && <p className="pl-sub" style={{ textAlign: "center", margin: "9px 0 0" }}>Your sealed defense can still be challenged while its pets train or travel. Bring all four defense pets back before you challenge.</p>}
                         {hasUnsavedDefense && <p className="pl-sub" style={{ textAlign: "center", margin: "9px 0 0" }}>Save your changed team and formation before challenging.</p>}
                         {you?.hasDefense && (you?.challengesLeft ?? 0) <= 0 && <p className="pl-sub" style={{ textAlign: "center", margin: "9px 0 0" }}>You're out of challenges today — back tomorrow.</p>}
                     </div>
@@ -411,4 +418,33 @@ function recordOf(view: LadderView | null, key: "wins" | "losses" | "defended" |
     if (view.you.record) return view.you.record[key];
     const me = view.ladder[view.you.rank - 1];
     return me ? me.record[key] : 0;
+}
+
+type PetRatingRow = { rank: number; name: string; value: number; village?: string };
+
+function ColosseumRatingBoard({ rating }: { rating: number }) {
+    const [rows, setRows] = useState<PetRatingRow[] | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    useEffect(() => {
+        let active = true;
+        void fetch("/api/player/leaderboards?limit=100")
+            .then(async (response) => {
+                if (!response.ok) throw new Error("Pet ratings could not be loaded.");
+                const data = await response.json() as { boards?: Array<{ id: string; rows: PetRatingRow[] }> };
+                if (active) { setRows(data.boards?.find((board) => board.id === "petRanked")?.rows ?? []); setError(null); }
+            })
+            .catch((cause) => { if (active) setError(String((cause as Error).message ?? cause)); });
+        return () => { active = false; };
+    }, [rating]);
+    return <div className="pl-panel">
+        <h3 className="pl-h"><GameIcon name="medal" size={15} /> Pet Colosseum Elo leaderboard</h3>
+        {error ? <p role="alert" className="pl-err">{error}</p>
+            : rows === null ? <LoadingState />
+                : rows.length === 0 ? <p className="pl-empty">No rated tamers yet.</p>
+                    : <div className="pl-list">{rows.map((row) => <div key={row.name} className="pl-row">
+                        <RankBadge rank={row.rank} />
+                        <div className="pl-row-main"><div className="pl-row-name">{row.name}{row.village ? <span className="pl-row-vil"> · {row.village}</span> : null}</div></div>
+                        <div className="pl-row-rec">{row.value} Elo</div>
+                    </div>)}</div>}
+    </div>;
 }
