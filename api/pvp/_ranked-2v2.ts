@@ -417,6 +417,18 @@ export async function ranked2v2Status(actorInput: string): Promise<Ranked2v2Stat
 
 /** Release a settled match's pointers so the duo can queue again. */
 export async function clearRanked2v2Match(match: StoredTowerPvpMatch): Promise<void> {
+    const binding = match.binding;
+    if (binding?.kind !== 'ranked-2v2') return;
+    for (const duoId of [binding.amberDuoId, binding.violetDuoId]) {
+        await withKvLock(duoKey(duoId), async () => {
+            const duo = await loadDuo(duoId);
+            if (duo?.status === 'matched' && duo.matchId === match.matchId) {
+                await saveDuo({ ...duo, status: 'ready', matchId: undefined }, Date.now());
+            }
+        }, { failClosed: true });
+    }
+    // Clear per-player pointers last. A failed duo update can then be retried
+    // from the same match rather than leaving a hidden, unqueueable duo.
     await Promise.all(match.roster.map(async member => {
         const pointer = await kv.get<string>(duoMatchKey(member.slug));
         if (pointer === match.matchId) await kv.del(duoMatchKey(member.slug));

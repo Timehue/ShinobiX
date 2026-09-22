@@ -55,10 +55,13 @@ for (const mode of ['active', 'completed', 'without-webgl2'] as const) {
         }
         const opponent = completed ? 'zulurival' : 'aardvarkrival';
         const pet = (id: string, templateId: string) => ({ id, name: `${id} fighter`, templateId, rarity: 'standard', level: 40, hp: 900, attack: 120, defense: 70, speed: 80, element: 'Fire', role: 'assassin', jutsus: [] });
-        const mine = pet('viewer', 'standard-1');
+        const myTeam = [pet('viewer', 'standard-1'), ...[2, 3, 4].map(index => pet(`viewer-${index}`, `standard-${index}`))];
+        const rivalTeam = [1, 2, 3, 4].map(index => pet(`rival-${index}`, `standard-${index + 4}`));
+        const mine = myTeam[0];
         const token: RankedPetMatchToken = {
             authority: 'pet-ranked-queue-v1', pairId: matchToken, a: viewer, b: opponent,
-            aRating: 1000, bRating: 1000, aPet: mine, bPet: pet('rival', 'standard-2'), seed: 12345, createdAt: 1,
+            aRating: 1000, bRating: 1000, aPet: mine, bPet: rivalTeam[0], aTeam: myTeam, bTeam: rivalTeam,
+            seed: 12345, createdAt: 1,
         };
         const resolved = resolveRankedPetDuel(token);
         const script = rankedPetReplayForViewer(token, resolved.script, viewer);
@@ -70,9 +73,11 @@ for (const mode of ['active', 'completed', 'without-webgl2'] as const) {
         const ending = script.events.filter(event => event.t === 'end');
         script.events = withoutWebGL2 ? [...script.events.slice(0, firstActionIndex + 1), ...ending] : ending;
         const save = uiAuditSave();
-        save.character = { ...save.character, pets: [mine] };
+        expect(script.initialState.player.map(entry => entry.benched)).toEqual([false, false, true, true]);
+        expect(script.initialState.enemy.map(entry => entry.benched)).toEqual([false, false, true, true]);
+        save.character = { ...save.character, pets: myTeam };
         const runtime = await installUiAuditRuntime(page, save);
-        const updatedCharacter = { ...save.character, petRankedRating: 1012, petRankedWins: 1, pets: [{ ...mine, name: 'Authoritative ranked companion' }] };
+        const updatedCharacter = { ...save.character, petRankedRating: 1012, petRankedWins: 1, pets: [{ ...mine, name: 'Authoritative ranked companion' }, ...myTeam.slice(1)] };
         let snapshotPublished = false;
         const publishCharacter = () => {
             if (!snapshotPublished) {
@@ -159,3 +164,111 @@ for (const mode of ['active', 'completed', 'without-webgl2'] as const) {
         expect(errors).toEqual([]);
     });
 }
+
+test('Pet Colosseum lineup queues, resolves, updates Elo, and allows another match', async ({ page }, testInfo) => {
+    test.setTimeout(90_000);
+    const errors: string[] = [];
+    page.on('pageerror', error => errors.push(error.message));
+    const myTeam = [1, 2, 3, 4].map(index => ({
+        id: `audit-${index}`, name: `Ranked Pet ${index}`, templateId: `standard-${index}`,
+        rarity: 'standard', level: 40, hp: 900, attack: 120, defense: 70, speed: 80,
+        element: 'Fire', role: 'assassin', jutsus: [],
+    }));
+    const rivalTeam = [1, 2, 3, 4].map(index => ({ ...myTeam[index - 1], id: `rival-${index}`, name: `Rival Pet ${index}` }));
+    const save = uiAuditSave();
+    save.character = { ...save.character, pets: myTeam, activePetId: myTeam[0].id, petRankedRating: 1000 };
+    const runtime = await installUiAuditRuntime(page, save);
+    const token: RankedPetMatchToken = {
+        authority: 'pet-ranked-queue-v1', pairId: matchToken, a: viewer, b: 'rival',
+        aRating: 1000, bRating: 1000, aPet: myTeam[0], bPet: rivalTeam[0], aTeam: myTeam, bTeam: rivalTeam,
+        seed: 12345, createdAt: 1,
+    };
+    const resolved = resolveRankedPetDuel(token);
+    const script = rankedPetReplayForViewer(token, resolved.script, viewer);
+    script.events = script.events.filter(event => event.t === 'end');
+    let queueState: 'idle' | 'paired' | 'active' = 'idle';
+    let joinedIds: string[] = [];
+    let started = false;
+    let settled = false;
+    let acknowledged = false;
+    const newRating = resolved.winnerName === viewer ? 1012 : 988;
+    await page.route('**/api/pvp/pet-ranked-queue', route => {
+        const body = route.request().postDataJSON();
+        if (body.action === 'join') { joinedIds = body.petIds; queueState = 'paired'; }
+        if (body.action === 'acknowledge') { acknowledged = true; queueState = 'idle'; }
+        return json(route, queueState === 'idle' ? { state: 'idle' }
+            : queueState === 'paired' ? { state: 'paired', opponent: 'rival', opponentElo: 1000, initiator: true, expiresAt: Date.now() + 30_000 }
+                : { state: 'active', matchToken, opponent: 'rival', initiator: true });
+    });
+    await page.route('**/api/pet/ranked-start', route => {
+        started = true; queueState = 'active';
+        return json(route, { ok: true, matchToken });
+    });
+    await page.route('**/api/pet/ranked-watch', route => json(route, { ok: true, winnerName: resolved.winnerName, script }));
+    await page.route('**/api/pet/battle-result', route => {
+        settled = true;
+        const updatedCharacter = { ...save.character, petRankedRating: newRating,
+            petRankedWins: resolved.winnerName === viewer ? 1 : 0,
+            petRankedLosses: resolved.winnerName === viewer ? 0 : 1 };
+        runtime.commitServerCharacter(updatedCharacter, runtime.currentVersion() + 1);
+        return json(route, { ok: true, character: updatedCharacter, _saveVersion: runtime.currentVersion() });
+    });
+    await page.route('**/api/player/leaderboards?limit=100', route => json(route, {
+        boards: [{ id: 'petRanked', rows: [{ rank: 1, name: viewer, value: settled ? newRating : 1000, label: `${settled ? newRating : 1000} Elo` }] }],
+    }));
+
+    await expectUiAuditBoot(page, runtime, 'petLadder');
+    const panel = page.getByTestId('pet-ladder-queue');
+    await expect(panel.getByRole('button', { name: 'Find ranked match' })).toBeEnabled();
+    await panel.getByRole('button', { name: 'Choose lineup order' }).click();
+    for (const index of [3, 1, 4, 2]) await panel.getByRole('button', { name: `Ranked Pet ${index}` }).click();
+    await expect(panel).toContainText('Field 1: Ranked Pet 3');
+    await expect(panel).toContainText('Reserve 2: Ranked Pet 2');
+    await page.screenshot({ path: testInfo.outputPath('pet-colosseum-ranked-lineup.png') });
+    await panel.getByRole('button', { name: 'Find ranked match' }).click();
+    await expect.poll(() => joinedIds).toEqual(['audit-3', 'audit-1', 'audit-4', 'audit-2']);
+    await expect.poll(() => started).toBe(true);
+    const verdict = script.finalState.outcome === 'win' ? 'Victory' : 'Defeat';
+    await expect(page.getByRole('dialog', { name: verdict, exact: true })).toBeVisible({ timeout: 45_000 });
+    await expect(page.getByRole('button', { name: 'Watch Again' })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath('pet-colosseum-ranked-result.png') });
+    expect(settled).toBe(true);
+    await page.getByRole('button', { name: 'Leave the Showdown', exact: true }).click();
+    await expect(panel.getByRole('button', { name: 'Find ranked match' })).toBeEnabled();
+    await expect.poll(() => acknowledged).toBe(true);
+    const boardRating = page.getByText(`${newRating} Elo`, { exact: true }).first();
+    await expect(boardRating).toBeVisible();
+    await boardRating.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath('pet-colosseum-ranked-board.png') });
+    expect(errors).toEqual([]);
+});
+
+test('Warfront rank and offline result remain viewable while a defense pet trains', async ({ page }, testInfo) => {
+    test.setTimeout(45_000);
+    await page.addInitScript(() => sessionStorage.setItem('petLadder.mode', 'tactical'));
+    const save = uiAuditSave();
+    const pets = [1, 2, 3, 4].map(index => ({
+        id: `warfront-${index}`, name: `Warfront Pet ${index}`, templateId: `standard-${index}`,
+        rarity: 'standard', level: 40, hp: 900, attack: 120, defense: 70, speed: 80,
+        element: 'Fire', role: 'defender', jutsus: [],
+        ...(index === 1 ? { training: { startedAt: Date.now() } } : {}),
+    }));
+    save.character = { ...save.character, pets, activePetId: pets[0].id };
+    const runtime = await installUiAuditRuntime(page, save);
+    await page.route('**/api/pet-ladder**', route => json(route, {
+        mode: 'tactical', total: 2,
+        ladder: [{ rank: 1, slug: 'rival', name: 'Rival', record: { wins: 2, losses: 0, defended: 1, defeated: 0 }, summary: [] },
+            { rank: 2, slug: viewer, name: viewer, record: { wins: 1, losses: 1, defended: 0, defeated: 1 }, summary: [] }],
+        you: { rank: 2, record: { wins: 1, losses: 1, defended: 0, defeated: 1 }, hasDefense: true,
+            defense: pets.map(pet => ({ name: pet.name, element: pet.element, level: pet.level, rarity: pet.rarity })),
+            defensePetIds: pets.map(pet => pet.id), challengesLeft: 9, band: 10 },
+        notifications: [{ from: 'Rival', mode: 'tactical', won: true, at: Date.now() }],
+    }));
+    await expectUiAuditBoot(page, runtime, 'petLadder');
+    await expect(page.getByText('Your rank', { exact: true })).toBeVisible();
+    await expect(page.getByText('#2')).toBeVisible();
+    await expect(page.getByText('While you were away')).toBeVisible();
+    await expect(page.getByText('Your sealed defense can still be challenged while its pets train or travel.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Challenge for rank' })).toBeDisabled();
+    await page.screenshot({ path: testInfo.outputPath('warfront-offline-defense-standing.png') });
+});

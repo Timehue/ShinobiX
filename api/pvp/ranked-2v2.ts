@@ -6,6 +6,8 @@ import { LockContendedError } from '../_lock.js';
 import { projectTowerPvpMatchForViewer } from '../towers/_pvp-session.js';
 import { settleTowerPvpMatch, towerPvpState } from '../towers/_pvp-lifecycle.js';
 import { readTowerPvpMatch } from '../towers/_pvp-store.js';
+import { kv } from '../_storage.js';
+import { towerPvpBindingOf } from '../../shared/tower-pvp.js';
 import {
     acceptRanked2v2Invite,
     inviteRanked2v2Partner,
@@ -97,8 +99,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (action === 'settle') {
             const status = await ranked2v2Status(slug);
-            const matchId = status.match?.matchId;
-            if (!matchId) return res.status(404).json({ error: 'No ranked match to settle.', errorCode: 'match-not-found' });
+            // The first fighter to settle frees the duo pointers for everyone.
+            // Accept the fight screen's exact match ID so all four clients can
+            // acknowledge the same persisted result, including retries.
+            const matchId = String(body.matchId ?? status.match?.matchId ?? '');
+            const match = matchId ? await readTowerPvpMatch(matchId) : null;
+            if (!match || towerPvpBindingOf(match).kind !== 'ranked-2v2'
+                || !match.roster.some(member => member.slug === slug)) {
+                return res.status(404).json({ error: 'No ranked match to settle.', errorCode: 'match-not-found' });
+            }
             // Drive the shared lifecycle first so a walked-away duel still
             // reaches a terminal state through the AFK/ready expiry rules.
             const live = await towerPvpState(matchId, slug);
@@ -109,8 +118,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Acknowledge on the match (writes no rating), then move the ladder.
             await settleTowerPvpMatch(matchId, slug);
             const lines = await settleRanked2v2Match(live.match);
+            if (!lines || (live.match.status === 'done' && lines.length !== live.match.roster.length)) {
+                return res.status(503).json({ error: 'The ranked result is still being recorded. Retry settlement.', errorCode: 'settlement-incomplete' });
+            }
             const settled = await readTowerPvpMatch(matchId);
             const mine = (lines ?? []).find(line => line.slug === slug) ?? null;
+            const saved = await kv.get<Record<string, unknown>>(`save:${slug}`);
             return res.status(200).json({
                 settled: true,
                 rating: lines ?? [],
@@ -118,6 +131,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Echo the caller's committed version so their client adopts the
                 // new rating instead of racing a stale local save.
                 ...(mine?.saveVersion ? { _saveVersion: mine.saveVersion } : {}),
+                ...(saved?.character ? { character: saved.character } : {}),
                 duo: (await ranked2v2Status(slug)).duo,
                 match: settled ? projectTowerPvpMatchForViewer(settled, slug) : null,
             });

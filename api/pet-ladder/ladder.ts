@@ -19,8 +19,9 @@ import {
 } from './_core.js';
 
 /*
- * Global Pet Ladders — Pet Coliseum (1v1) + Beastbound Warfront (4v4). A Sword-x-Staff
- * style positional ladder (rank 1..N over real players) with OFFLINE defense:
+ * Historical Pet Colosseum positional records remain readable, but new ranked
+ * Colosseum fights use the live 2v2 queue and Pet Elo. Beastbound Warfront is a
+ * Sword-x-Staff style positional ladder (rank 1..N) with OFFLINE defense:
  *   GET  ?mode=coliseum|tactical[&top=N]   → { ladder, you, notifications }
  *   POST { action:'defense', mode, petIds } → seal your defending pet/team (owned)
  *   POST { action:'offer',   mode }         → 3 close-above opponents (+ AI fill)
@@ -53,7 +54,7 @@ function aiOfferSummary(mode: Mode, i: number): OfferOpponent {
     return { kind: 'ai', id: `ai:${i}`, name: p.name, rank: null, summary: [petLite(p)] };
 }
 
-export function defenseUsesCombatReadyPets(character: Record<string, unknown>, defense: DefenseDoc, expectedMode: Mode = defense.mode): boolean {
+export function defenseUsesCarriedPets(character: Record<string, unknown>, defense: DefenseDoc, expectedMode: Mode = defense.mode): boolean {
     const eligibleById = new Map(activeCarriedPets<Record<string, unknown>>(character)
         .map((pet) => [String(pet.id ?? ''), pet]));
     return defense.mode === expectedMode
@@ -61,8 +62,17 @@ export function defenseUsesCombatReadyPets(character: Record<string, unknown>, d
         && new Set(defense.pets.map((pet) => pet.id)).size === defense.pets.length
         && defense.pets.every((pet) => {
             const current = eligibleById.get(String(pet.id ?? ''));
-            return Boolean(current && !petCombatBusyReason(character, current));
+            return Boolean(current);
         });
+}
+
+export function defenseUsesCombatReadyPets(character: Record<string, unknown>, defense: DefenseDoc, expectedMode: Mode = defense.mode): boolean {
+    if (!defenseUsesCarriedPets(character, defense, expectedMode)) return false;
+    const carried = activeCarriedPets<Record<string, unknown>>(character);
+    return defense.pets.every((pet) => {
+        const current = carried.find((owned) => String(owned.id ?? '') === pet.id);
+        return !!current && !petCombatBusyReason(character, current);
+    });
 }
 const aiDefense = (mode: Mode, i: number): DefenseDoc => (mode === 'tactical' ? aiTacticalDefense(i) : aiColiseumDefense(i));
 
@@ -133,6 +143,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const mode = asMode((body as { mode?: unknown }).mode);
         if (!mode) return res.status(400).json({ error: 'Invalid mode.' });
+        if (mode === 'coliseum') {
+            return res.status(410).json({ error: 'Pet Colosseum ranks now use the live 2v2 queue and Pet Elo leaderboard. Refresh the game to enter.' });
+        }
         if (mode === 'tactical' && action === 'challenge' && body.warfrontRules !== WARFRONT_LADDER_RULES) {
             return res.status(409).json({ error: 'Beastbound Warfront has replaced Pet Tactical. Refresh the game before challenging.' });
         }
@@ -218,7 +231,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!targetDef || targetDef.pets.length === 0) return res.status(404).json({ error: 'Opponent has no defense set.' });
             if (!isAiId(targetId)) {
                 const targetSave = await kv.get<{ character?: Record<string, unknown> }>(`save:${safeName(targetId)}`);
-                if (!targetSave?.character || !defenseUsesCombatReadyPets(targetSave.character, targetDef, mode)) {
+                // An offline defense fights its sealed setup even if an owner
+                // later starts training or an expedition. Stored/removed pets
+                // no longer count as carried and require a new defense.
+                if (!targetSave?.character || !defenseUsesCarriedPets(targetSave.character, targetDef, mode)) {
                     return res.status(409).json({ error: 'Opponent must reset an ineligible carried-pet defense.' });
                 }
                 targetDef = hydrateLadderVisualIdentity(targetDef, activeCarriedPets<Record<string, unknown>>(targetSave.character));

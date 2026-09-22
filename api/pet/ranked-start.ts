@@ -6,7 +6,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { DEFAULT_RANKED_RATING } from '../_ranked-rating.js';
 import { LockContendedError, withKvLock } from '../_lock.js';
-import { petRatingOf, selectRankedPet } from './_ranked-eligibility.js';
+import { petRatingOf, selectRankedPet, selectRankedTeam } from './_ranked-eligibility.js';
 import {
     PET_RANKED_ACTIVE_REGISTRY_KEY,
     PET_RANKED_AUTHORITY,
@@ -28,10 +28,9 @@ import {
 /*
  * /api/pet/ranked-start - POST { opponentName, petId? }
  *
- * Compatibility-only queue binding, not a public direct-challenge endpoint.
- * The live public queue is retired because it launched an unrelated no-reward
- * realtime duel. This handler remains mounted only so a reciprocal pairing that
- * was already minted before retirement can become one server-seeded proof.
+ * Binds a reciprocal ranked queue pairing to one server-seeded proof. New
+ * pairings seal four pets per player; retained pairings without a format marker
+ * keep their original one-pet resolution.
  *
  * A single registry record reserves BOTH participants before the token is
  * returned. That gives one-active-match protection without a half-reserved
@@ -109,7 +108,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!isRankedPetStartClaim(claim)
                     || claim.matchToken !== active.matchToken
                     || !claimNamesMatch(claim, me, opponent)) {
-                    return { status: 409, body: { error: 'Your active ranked match authority is incomplete. Wait for it to expire; new live ranked matchmaking is unavailable.' } };
+                    return { status: 409, body: { error: 'Your active ranked match is still being recovered. Please retry shortly.' } };
                 }
                 if (await kv.get(`pet:ranked-result:${claim.matchToken}`)) {
                     return { status: 409, body: { error: 'That ranked pet match is already settled.' } };
@@ -139,12 +138,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 || myMatch.initiator !== true
                 || opponentMatch.initiator !== false
                 || myMatch.pairId !== opponentMatch.pairId
+                || myMatch.format !== opponentMatch.format
+                || (myMatch.format === '2v2' && (!myMatch.teamIds || !opponentMatch.teamIds))
                 || Number(myMatch.createdAt) !== Number(opponentMatch.createdAt)) {
-                return { status: 409, body: { error: 'A retained reciprocal ranked pairing is required; new live ranked matchmaking is unavailable.' } };
+                return { status: 409, body: { error: 'A reciprocal ranked queue pairing is required. Rejoin the queue.' } };
             }
             const age = now - Number(myMatch.createdAt);
             if (age < -5_000 || age > PET_RANKED_QUEUE_MATCH_TTL_SECONDS * 1_000) {
-                return { status: 409, body: { error: 'That ranked pet compatibility pairing expired; new live ranked matchmaking is unavailable.' } };
+                return { status: 409, body: { error: 'That ranked pet pairing expired. Rejoin the queue.' } };
             }
             if (registry[opponent]) {
                 return { status: 409, body: { error: 'Your opponent already has an active ranked pet match.' } };
@@ -167,10 +168,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!opponentSave?.character) return { status: 404, body: { error: 'Opponent save not found.' } };
                 const meCharacter = meSave.character as Record<string, unknown>;
                 const opponentCharacter = opponentSave.character as Record<string, unknown>;
-                const myPet = selectRankedPet(meCharacter, petId);
-                const opponentPet = selectRankedPet(opponentCharacter);
-                if (!myPet || !opponentPet) {
-                    return { status: 409, body: { error: 'Both players need a pet that is not training, breeding, or on an expedition.' } };
+                const newFormat = myMatch.format === '2v2';
+                const legacyMine = newFormat ? null : selectRankedPet(meCharacter, petId);
+                const legacyOpponent = newFormat ? null : selectRankedPet(opponentCharacter);
+                const myTeam = newFormat ? selectRankedTeam(meCharacter, myMatch.teamIds) : legacyMine ? [legacyMine] : null;
+                const opponentTeam = newFormat ? selectRankedTeam(opponentCharacter, opponentMatch.teamIds) : legacyOpponent ? [legacyOpponent] : null;
+                if (!myTeam || !opponentTeam) {
+                    return { status: 409, body: { error: newFormat
+                        ? 'Both players need four distinct available pets for 2v2 ranked combat.'
+                        : 'Both players need an available pet.' } };
                 }
 
                 const matchToken = randomUUID();
@@ -181,8 +187,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     b: opponent,
                     aRating: petRatingOf(meSave),
                     bRating: petRatingOf(opponentSave),
-                    aPet: myPet,
-                    bPet: opponentPet,
+                    aPet: myTeam[0],
+                    bPet: opponentTeam[0],
+                    ...(newFormat ? { aTeam: myTeam, bTeam: opponentTeam } : {}),
                     seed: randomInt(1, 2 ** 31),
                     createdAt: now,
                 };
@@ -221,7 +228,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (error) {
         console.error('[pet/ranked-start]', error);
         if (error instanceof LockContendedError) {
-            return res.status(503).json({ error: 'Ranked pet compatibility recovery is busy. Please retry.' });
+            return res.status(503).json({ error: 'Ranked pet matchmaking is busy. Please retry.' });
         }
         return res.status(500).json({ error: 'Internal server error.' });
     }

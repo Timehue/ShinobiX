@@ -20,6 +20,7 @@ describe('public player index', () => {
             village: 'Stormveil',
             specialty: 'Ninjutsu',
             rankedRating: 1450,
+            ranked2v2Rating: 1525,
             xp: 12345,
             ryo: 999999,
             inventory: [{ id: 'secret' }],
@@ -29,6 +30,7 @@ describe('public player index', () => {
         assert.equal(entry.name, 'Akira');
         assert.equal(entry.level, 12);
         assert.equal(entry.rankedRating, 1450);
+        assert.equal(entry.ranked2v2Rating, 1525);
         assert.equal(entry.xp, 12345);
         assert.equal(entry.lastSeen, 4000);
         assert.equal('ryo' in entry, false);
@@ -93,6 +95,7 @@ describe('public player index', () => {
             village: 'Stormveil',
             clan: 'Crimson Moon',
             rankedRating: 1200,
+            ranked2v2Rating: 1410,
             rankedWins: 1,
             totalPvpKills: 8,
         }, 'akira', 5000, 4000);
@@ -102,6 +105,7 @@ describe('public player index', () => {
             village: 'Ashvale',
             clan: 'Crimson Moon',
             rankedRating: 1320,
+            ranked2v2Rating: 1190,
             rankedWins: 2,
         }, 'boro', 5000, 4500);
         const admin = buildPublicPlayerIndexEntry({ name: 'admin1', rankedRating: 9999 }, 'admin1');
@@ -111,10 +115,12 @@ describe('public player index', () => {
 
         const boards = buildPublicLeaderboards([akira, boro, admin], ['akira'], 10);
         const ranked = boards.find((board) => board.id === 'ranked');
+        const ranked2v2 = boards.find((board) => board.id === 'ranked2v2');
         const online = boards.find((board) => board.id === 'online');
         const clans = boards.find((board) => board.id === 'clans');
 
         assert.deepEqual(ranked?.rows.map((row) => row.name), ['Boro', 'Akira']);
+        assert.deepEqual(ranked2v2?.rows.map((row) => row.name), ['Akira', 'Boro']);
         assert.deepEqual(online?.rows.map((row) => row.name), ['Akira']);
         assert.equal(clans?.rows[0]?.name, 'Crimson Moon');
         assert.equal(clans?.rows[0]?.members, 2);

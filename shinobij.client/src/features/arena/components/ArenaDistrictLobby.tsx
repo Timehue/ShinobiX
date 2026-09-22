@@ -167,7 +167,7 @@ export function ArenaDistrictLobby({
                     onStart={onStartTournament}
                 />
             )}
-            {activeTab === "ranked" && <Ranked2v2Panel character={character} sharedImages={sharedImages} />}
+            {activeTab === "ranked" && <Ranked2v2Panel key={character.name} character={character} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} />}
 
             {activeTab === "ranked" && (
                 <section className="summary-box">
@@ -188,7 +188,7 @@ export function ArenaDistrictLobby({
                     {!playerRankedEnabled && <p className="hint">Ranked matchmaking opens when an administrator starts the current season.</p>}
                     {rankedQueueActive && <p className="hint">Searching for opponent...</p>}
                     <hr style={{ border: "none", borderTop: "1px solid rgba(148,163,184,.25)", margin: "16px 0" }} />
-                    <p className="hint"><GiPawPrint style={ARENA_ICON} />Ranked pet battles live in the <strong>Pet Battles</strong> tab — climb the global <strong>Colosseum</strong> (1v1) and <strong>Beastbound Warfront</strong> (4v4 offline) ladders.</p>
+                    <p className="hint"><GiPawPrint style={ARENA_ICON} />Ranked pet battles live in the <strong>Pet Battles</strong> tab — queue for <strong>Pet Colosseum</strong> (2v2 with two reserves) or challenge offline <strong>Beastbound Warfront</strong> defenses (4v4).</p>
                 </section>
             )}
 
@@ -208,13 +208,14 @@ export function ArenaDistrictLobby({
             {activeTab === "petBattles" && (
                 <section className="summary-box">
                     <h3><GiPawPrint style={ARENA_ICON} />Ranked Pet Battles</h3>
-                    <p className="hint">Compete on the global pet ranked ladders — climb by beating the rival ranked above you. Casual pet sparring lives in the Village Battle Arena.</p>
+                    <p className="hint">Queue for Pet Colosseum to earn Elo, or set a Warfront defense and challenge nearby ranks. Casual pet sparring lives in the Village Battle Arena.</p>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, margin: "12px 0" }}>
                         {[
-                            { mode: "coliseum" as const, requirement: 1, img: coliseumLadderImg, emoji: <GiColiseum size={18} style={{ verticalAlign: "-0.12em" }} />, title: "Pet Colosseum", sub: "1v1 ranked ladder" },
+                            { mode: "coliseum" as const, requirement: 4, img: coliseumLadderImg, emoji: <GiColiseum size={18} style={{ verticalAlign: "-0.12em" }} />, title: "Pet Colosseum", sub: "2v2 live queue · two reserves · Pet Elo" },
                             { mode: "tactical" as const, requirement: TACTICAL_ARENA_PET_REQUIREMENT, img: tacticalLadderImg, emoji: <GiCrossedSwords size={18} style={{ verticalAlign: "-0.12em" }} />, title: "Beastbound Warfront", sub: "4v4 offline ranked ladder" },
                         ].map((card) => {
-                            const locked = availablePetCount < card.requirement;
+                            const needsPets = availablePetCount < card.requirement;
+                            const locked = card.mode === "coliseum" && needsPets;
                             return (
                                 <button key={card.mode} type="button"
                                     disabled={locked}
@@ -226,7 +227,8 @@ export function ArenaDistrictLobby({
                                     <div style={{ position: "absolute", left: 14, right: 14, bottom: 12 }}>
                                         <div style={{ fontSize: 19, fontWeight: 800, color: "#f7d98a", textShadow: "0 2px 8px #000" }}>{card.emoji} {card.title}</div>
                                         <div style={{ fontSize: 12.5, color: "rgba(231,237,247,.9)", textShadow: "0 1px 5px #000" }}>
-                                            {locked ? `Locked · ${availablePetCount}/${card.requirement} available pets` : `${card.sub} · climb the global rankings`}
+                                            {locked ? `Locked · ${availablePetCount}/${card.requirement} available pets`
+                                                : card.mode === "tactical" && needsPets ? `View ladder · ${availablePetCount}/${card.requirement} ready to fight` : card.sub}
                                         </div>
                                     </div>
                                 </button>

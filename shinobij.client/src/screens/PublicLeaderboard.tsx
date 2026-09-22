@@ -17,6 +17,7 @@ type PublicTournament = {
 
 type PublicLeaderboardBoardId =
     | "ranked"
+    | "ranked2v2"
     | "petRanked"
     | "level"
     | "xp"
@@ -92,7 +93,8 @@ export function PublicLeaderboard({ onBack }: { onBack: () => void }) {
 
     const tabs: { id: PublicLeaderboardTab; label: string; icon: GameIconName }[] = [
         { id: "ranked",      label: "Ranked",       icon: "medal" },
-        { id: "petRanked",   label: "Pet Rating",   icon: "paw" },
+        { id: "ranked2v2",   label: "Ranked 2v2",   icon: "medal" },
+        { id: "petRanked",   label: "Pet Colosseum",   icon: "paw" },
         { id: "level",       label: "Level",        icon: "chakra" },
         { id: "kills",       label: "Kill Streaks", icon: "sword" },
         { id: "xp",          label: "Most Points",  icon: "bolt" },
@@ -109,7 +111,8 @@ export function PublicLeaderboard({ onBack }: { onBack: () => void }) {
         if (t !== "tournament" && boards[t]?.label) return boards[t]!.label;
         switch (t) {
             case "ranked": return "Ranked Battle Rating (Elo)";
-            case "petRanked": return "Pet Arena Rating (Elo)";
+            case "ranked2v2": return "Ranked 2v2 Rating (Elo)";
+            case "petRanked": return "Pet Colosseum Rating (Elo)";
             case "level": return "Highest Level";
             case "kills": return "Total PvP Kills";
             case "xp": return "Total Stat Points Earned";

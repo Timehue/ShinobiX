@@ -98,11 +98,22 @@ describe('ranked pet duel resolution', () => {
         assert.equal(winners.size, 2, 'the seed must be able to change the outcome');
     });
 
-    it('plays 1v1 — the token seals one pet per side', () => {
+    it('replays retained one-pet proofs under their original 1v1 rules', () => {
         const { script } = resolveRankedPetDuel(token());
         assert.equal(script.initialState.player.length, 1);
         assert.equal(script.initialState.enemy.length, 1);
         assert.ok(script.events.length > 0, 'a watchable fight needs an event log');
+    });
+
+    it('fields two pets and benches two from each new ranked Colosseum token', () => {
+        const aTeam = [pet('a-1'), pet('a-2'), pet('a-3'), pet('a-4')];
+        const bTeam = [pet('b-1'), pet('b-2'), pet('b-3'), pet('b-4')];
+        const sealed = token({ aPet: aTeam[0], bPet: bTeam[0], aTeam, bTeam });
+        const { script, winnerName } = resolveRankedPetDuel(sealed);
+        assert.ok(winnerName === sealed.a || winnerName === sealed.b);
+        assert.deepEqual(script.initialState.player.map((actor) => actor.benched), [false, false, true, true]);
+        assert.deepEqual(script.initialState.enemy.map((actor) => actor.benched), [false, false, true, true]);
+        assert.deepEqual(resolveRankedPetDuel(sealed).script, script);
     });
 });
 

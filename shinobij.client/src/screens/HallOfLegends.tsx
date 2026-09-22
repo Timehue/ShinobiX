@@ -6,7 +6,7 @@ import { useEffect, useState, type ReactNode } from "react";
 // Compact local chrome glyphs shared with the rest of the game.
 import {
     GiRank3, GiDaggers, GiUpgrade, GiBlackFlag, GiPawPrint, GiGauntlet, GiVortex,
-    GiCrossedSwords, GiOgre, GiTrophy, GiAnvil, GiHealing, GiColiseum,
+    GiCrossedSwords, GiOgre, GiTrophy, GiAnvil, GiHealing,
     GiShield, GiCrown, GiPunchBlast, GiCastle,
 } from "../components/icons/LightweightGameIcons";
 const HOL_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
@@ -123,9 +123,9 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
         lastSeason: { id: number; endedAt: number; player: SeasonArchiveRow[]; pet: SeasonArchiveRow[] } | null;
     };
     const [season, setSeason] = useState<SeasonInfo | null>(null);
-    // Global Pet Ladder Top-10 boards (Coliseum 1v1 + Tactical 4v4 positional ladders).
+    // Warfront is the offline positional ladder; Colosseum uses Pet Elo above.
     type PetLadderRow = { rank: number; name: string; village?: string; record: { wins: number; losses: number; defended: number; defeated: number } };
-    const [petLadders, setPetLadders] = useState<{ coliseum: PetLadderRow[]; tactical: PetLadderRow[] } | null>(null);
+    const [petLadders, setPetLadders] = useState<{ tactical: PetLadderRow[] } | null>(null);
     useEffect(() => {
         if (tab !== "ranked") return;
         let alive = true;
@@ -133,9 +133,9 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             return r.json();
         });
-        Promise.all([grab("coliseum"), grab("tactical")]).then(([c, t]) => {
+        grab("tactical").then((t) => {
             if (alive) {
-                setPetLadders({ coliseum: (c.ladder ?? []) as PetLadderRow[], tactical: (t.ladder ?? []) as PetLadderRow[] });
+                setPetLadders({ tactical: (t.ladder ?? []) as PetLadderRow[] });
             }
         }).catch(() => { if (alive) setLoadError("ranked", "Global pet ladders could not be loaded."); });
         return () => { alive = false; };
@@ -343,15 +343,11 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                         {sortedTop(c => c.rankedRating ?? 1000).map((c, i) => (
                             <Row key={c.name} rank={i+1} name={c.accountName || c.name} value={c.rankedRating ?? 1000} suffix=" Elo" village={c.village} tier />
                         ))}
-                        <p className="hol-board-label" style={{ marginTop: "1rem" }}><GiPawPrint style={HOL_ICON} />Pet Ranked Rating (Elo)</p>
+                        <p className="hol-board-label" style={{ marginTop: "1rem" }}><GiPawPrint style={HOL_ICON} />Pet Colosseum Rating (Elo)</p>
                         {sortedTop(c => c.petRankedRating ?? 1000).map((c, i) => (
                             <Row key={`pet-${c.name}`} rank={i+1} name={c.accountName || c.name} value={c.petRankedRating ?? 1000} suffix=" Elo" village={c.village} tier />
                         ))}
-                        <p className="hint" style={{ marginTop: "1rem", marginBottom: "0.2rem", opacity: 0.75 }}>🪜 Global Pet Ladders — climb by beating the player ranked above you. All-time standings; no season reset.</p>
-                        <p className="hol-board-label"><GiColiseum style={HOL_ICON} />Pet Colosseum Ladder — Top 10</p>
-                        {petLadders?.coliseum.length
-                            ? petLadders.coliseum.map((e) => <Row key={`plc-${e.rank}`} rank={e.rank} name={e.name} value={`${e.record.wins}W ${e.record.losses}L`} village={e.village} />)
-                            : <p className="hol-empty">No challengers ranked yet.</p>}
+                        <p className="hint" style={{ marginTop: "1rem", marginBottom: "0.2rem", opacity: 0.75 }}>🪜 Warfront is an offline ladder: set a defense and challenge nearby ranks. Standings persist across seasons.</p>
                         <p className="hol-board-label" style={{ marginTop: "1rem" }}><GiShield style={HOL_ICON} />Beastbound Warfront Ladder — Top 10</p>
                         {petLadders?.tactical.length
                             ? petLadders.tactical.map((e) => <Row key={`plt-${e.rank}`} rank={e.rank} name={e.name} value={`${e.record.wins}W ${e.record.losses}L`} village={e.village} />)

@@ -24,6 +24,7 @@ import { safeName } from '../_utils.js';
 import { appendSettlementReceipt, inspectSettlementReceipt } from '../_settlement-receipts.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { writeSaveProjected } from '../save/_projected-write.js';
+import { buildPublicPlayerIndexEntry, isPublicPlayerIndexKey, REGISTRY_KEY } from '../player/_public-index.js';
 import { creditRankedOutcome, DEFAULT_RANKED_RATING, rankedDelta } from '../_ranked-rating.js';
 import { towerPvpBindingOf, type TowerPvpTeamId } from '../../shared/tower-pvp.js';
 import type { StoredTowerPvpMatch } from '../towers/_pvp-session.js';
@@ -34,6 +35,12 @@ export type Ranked2v2Outcome = 'win' | 'loss' | 'draw';
 function currentRating(character: Record<string, unknown>): number {
     const value = Number(character.ranked2v2Rating);
     return Number.isFinite(value) ? value : DEFAULT_RANKED_RATING;
+}
+
+async function projectRanked2v2LeaderboardSide(slug: string, character: Record<string, unknown>): Promise<void> {
+    if (isPublicPlayerIndexKey(slug)) {
+        await kv.hset(REGISTRY_KEY, { [slug]: buildPublicPlayerIndexEntry(character, slug) });
+    }
 }
 
 export type Ranked2v2SettlementLine = {
@@ -110,6 +117,9 @@ export async function settleRanked2v2Match(
             if (inspection.status === 'conflict' || inspection.status === 'invalid') return null;
             if (inspection.status === 'replay') {
                 // Already rated. Report the standing value rather than moving it.
+                // Projection may have failed after the save receipt was written;
+                // retrying settlement repairs that public leaderboard row.
+                await projectRanked2v2LeaderboardSide(slug, character);
                 return {
                     slug,
                     teamId: entry.teamId,
@@ -148,6 +158,7 @@ export async function settleRanked2v2Match(
             );
             const next = bumpSaveVersion<Record<string, unknown>>({ ...record, character: stamped });
             await writeSaveProjected(saveKey, next, record);
+            await projectRanked2v2LeaderboardSide(slug, stamped);
             return {
                 slug,
                 teamId: entry.teamId,
@@ -160,6 +171,8 @@ export async function settleRanked2v2Match(
         if (line) lines.push(line);
     }
 
-    await clearRanked2v2Match(match).catch(() => undefined);
+    // A temporarily missing or busy save must remain recoverable. All four
+    // receipts are required before the duo is freed for its next match.
+    if (lines.length === match.roster.length) await clearRanked2v2Match(match);
     return lines;
 }
