@@ -1,6 +1,6 @@
 import { describe, it, beforeEach } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { _shouldStamp, _resetPlayerIpStampMemo } from './_player-ips.js';
+import { _shouldStamp, _resetPlayerIpStampMemo, hasRecentIpOrFpOverlap, hasRecentIpOrFpOverlapStrict } from './_player-ips.js';
 
 // The heartbeat re-stamp throttle: a (player, ip/fp) pair is written to storage
 // at most once per window. The invariant that protects anti-alt detection is
@@ -35,5 +35,37 @@ describe('_shouldStamp — player-ip re-stamp throttle', () => {
         assert.equal(_shouldStamp(key, 1_000), false);
         _resetPlayerIpStampMemo();                            // simulate restart
         assert.equal(_shouldStamp(key, 2_000), true);         // strictly more writes, never fewer
+    });
+});
+
+describe('ranked IP and fingerprint evidence', () => {
+    function evidence(keys: string[]) {
+        return { keys: async (pattern: string) => keys.filter(key => key.startsWith(pattern.slice(0, -1))) } as never;
+    }
+
+    it('does not suppress Elo for players whose only common addresses are proxy hops', async () => {
+        const store = evidence([
+            'player-ip:branks:10.0.0.3', 'player-ip:rill:10.0.0.3',
+            'player-ip:branks:162.158.14.68', 'player-ip:rill:162.158.14.68',
+            'player-ip:branks:v2:86.123.45.67', 'player-ip:rill:v2:8.8.8.8',
+            `player-fp:branks:${'a'.repeat(32)}`, `player-fp:rill:${'b'.repeat(32)}`,
+        ]);
+        assert.equal(await hasRecentIpOrFpOverlapStrict('Branks', 'Rill', store), false);
+    });
+
+    it('still blocks a shared public visitor IP or browser fingerprint', async () => {
+        const sharedIp = evidence(['player-ip:branks:v2:86.123.45.67', 'player-ip:rill:v2:86.123.45.67']);
+        assert.equal(await hasRecentIpOrFpOverlapStrict('Branks', 'Rill', sharedIp), true);
+        const legacySharedIp = evidence(['player-ip:branks:86.123.45.67', 'player-ip:rill:86.123.45.67']);
+        assert.equal(await hasRecentIpOrFpOverlapStrict('Branks', 'Rill', legacySharedIp), false);
+        const sharedFp = evidence([`player-fp:branks:${'a'.repeat(32)}`, `player-fp:rill:${'a'.repeat(32)}`]);
+        assert.equal(await hasRecentIpOrFpOverlapStrict('Branks', 'Rill', sharedFp), true);
+    });
+
+    it('uses fresh visitor evidence for every non-ranked anti-alt check too', async () => {
+        const oldProxy = evidence(['player-ip:branks:203.0.113.42', 'player-ip:rill:203.0.113.42']);
+        assert.equal(await hasRecentIpOrFpOverlap('Branks', 'Rill', oldProxy), false);
+        const newVisitor = evidence(['player-ip:branks:v2:86.123.45.67', 'player-ip:rill:v2:86.123.45.67']);
+        assert.equal(await hasRecentIpOrFpOverlap('Branks', 'Rill', newVisitor), true);
     });
 });
