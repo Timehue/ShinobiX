@@ -17,7 +17,7 @@
  * under Vite's bundler resolution — plain ESM, no enums, no `.js` imports of
  * anything outside shared/).
  */
-import { MAX_WILD_SECTOR } from "./sector-geo.js";
+import { MAX_WILD_SECTOR, isPlayableWildSector } from "./sector-geo.js";
 
 export type WandererVerb =
     | "attack" | "gift" | "gamble" | "petDuel" | "quest"
@@ -354,7 +354,7 @@ export const WANDERER_MAX_INDEX = 1;
  * and the server re-derives the exact cast before paying anything out.
  */
 export function rollWanderers(sector: number, dayBucket: number): Wanderer[] {
-    if (!Number.isFinite(sector) || sector <= 0) return [];
+    if (!isPlayableWildSector(sector)) return [];
     const rng = mulberry32(wandererSeedFrom(sector, dayBucket));
     const count = wandererCount(rng());
     const used = new Set<number>();
@@ -414,7 +414,7 @@ export function parseWandererId(id: string): { sector: number; dayBucket: number
 export function resolveWandererById(id: string, nowMs: number): Wanderer | null {
     const parsed = parseWandererId(id);
     if (!parsed
-        || !Number.isSafeInteger(parsed.sector) || parsed.sector < 1 || parsed.sector > WANDERER_SECTOR_COUNT
+        || !Number.isSafeInteger(parsed.sector) || !isPlayableWildSector(parsed.sector)
         || !Number.isSafeInteger(parsed.dayBucket) || parsed.dayBucket < 0
         || !Number.isSafeInteger(parsed.index) || parsed.index < 0 || parsed.index > WANDERER_MAX_INDEX
         || parsed.dayBucket !== wandererDayBucketFromMs(nowMs)) return null;
@@ -425,11 +425,14 @@ export function resolveWandererById(id: string, nowMs: number): Wanderer | null 
  *  from (id, the sector it was just found in) and always a DIFFERENT sector, so a
  *  repeat encounter nudges it somewhere new instead of back where it started. */
 export function wandererRelocationSector(id: string, fromSector: number, maxSector: number = WANDERER_SECTOR_COUNT): number {
+    const max = Math.max(2, Math.min(MAX_WILD_SECTOR, Math.floor(Number(maxSector) || WANDERER_SECTOR_COUNT)));
     const h = wandererHash32(`${id}#${fromSector}`);
-    const span = Math.max(1, maxSector - 1);
-    let dest = 1 + (h % span);              // 1..maxSector-1
-    if (dest >= fromSector) dest += 1;      // skip `fromSector` → 1..maxSector minus it
-    return Math.max(1, Math.min(maxSector, dest));
+    const span = max - 1;
+    let dest = 1 + (h % span);              // 1..max-1
+    if (dest >= fromSector) dest += 1;      // skip `fromSector` → 1..max minus it
+    dest = Math.max(1, Math.min(max, dest));
+    while (!isPlayableWildSector(dest) || dest === fromSector) dest = (dest % max) + 1;
+    return dest;
 }
 
 /** Re-home a wanderer into `sector` at a deterministic interior tile + patrol, so a

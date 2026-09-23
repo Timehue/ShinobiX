@@ -1,3 +1,5 @@
+import { MAX_WILD_SECTOR, isPlayableWildSector } from '../../shared/sector-geo.js';
+
 export type WandererMerchantOffer = {
     cost: number;
     boneCharms: number;
@@ -60,13 +62,15 @@ export function wandererMedicOffer(
 }
 
 export function wandererFavorTargetSector(favorId: string, originSector: unknown, maxSector = SECTOR_COUNT): number {
-    const max = Math.max(2, Math.floor(Number(maxSector) || SECTOR_COUNT));
+    const max = Math.max(2, Math.min(MAX_WILD_SECTOR, Math.floor(Number(maxSector) || SECTOR_COUNT)));
     const from = clampInt(originSector, 1, max);
     const h = hashString(`favor:${favorId}:${from}`);
     const span = max - 1;
     let dest = 1 + (h % span);
     if (dest >= from) dest += 1;
-    return Math.max(1, Math.min(max, dest));
+    dest = Math.max(1, Math.min(max, dest));
+    while (!isPlayableWildSector(dest) || dest === from) dest = (dest % max) + 1;
+    return dest;
 }
 
 export function wandererFavorReward(level: unknown, favorId: string): WandererFavorReward {

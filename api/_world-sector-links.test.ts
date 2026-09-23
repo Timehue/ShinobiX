@@ -5,14 +5,14 @@ import { WILD_SECTOR_IDS } from '../shared/sector-geo.js';
 
 test('sector roads cover the whole standard world with reciprocal bounded exits', () => {
     // 82 pre-reorg roads remapped + the approved Upper Terraces ↔ Canal Heart
-    // link + the 12 roads that attached the 2026-07-29 expansion (61-66).
-    assert.equal(SECTOR_ROAD_PAIRS.length, 95);
+    // link + the 12 expansion roads, minus the two roads into Sunscar.
+    assert.equal(SECTOR_ROAD_PAIRS.length, 93);
     assert.equal(SECTOR_EXITS.length, SECTOR_ROAD_PAIRS.length * 2);
 
     for (const sector of WILD_SECTOR_IDS) {
         const exits = sectorExits(sector);
         if (NON_WALKABLE_SECTORS.includes(sector)) {
-            assert.equal(exits.length, 0, `map-travel-only sector ${sector} has no roads`);
+            assert.equal(exits.length, 0, `non-walkable sector ${sector} has no roads`);
             continue;
         }
         assert.ok(exits.length >= 2 && exits.length <= 5, `sector ${sector} has ${exits.length} exits`);
@@ -77,7 +77,8 @@ test('sector roads cover the whole standard world with reciprocal bounded exits'
             queue.push(exit.destinationSector);
         }
     }
-    assert.equal(reached.size, WILD_SECTOR_IDS.length, 'every walkable sector is connected by roads');
+    assert.equal(reached.size, WILD_SECTOR_IDS.length - 1, 'every walkable sector is connected by roads');
+    assert.equal(reached.has(54), false, 'Sunscar is a festival entrance, not a walkable sector');
 });
 
 

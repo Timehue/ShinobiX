@@ -14,7 +14,7 @@ import {
 import { hollowGateIntroPages, hollowGateIntroPagesFor } from "../data/hollow-gate-flavor";
 import { hollowRifts } from "../data/hollow-rifts";
 import { builtinAis } from "./combat-ai";
-import { CASTLE_SECTORS, OUTSKIRTS_SECTORS, MAX_WILD_SECTOR } from "../../../shared/sector-geo";
+import { CASTLE_SECTORS, FESTIVAL_SECTOR, OUTSKIRTS_SECTORS, MAX_WILD_SECTOR } from "../../../shared/sector-geo";
 import { resolveStorywideActorImage } from "./vn-storywide-direction";
 
 const PUBLIC_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "public");
@@ -207,7 +207,7 @@ test("synthRiftGiver is a non-hostile roaming quest NPC", () => {
 });
 
 test("riftTargetSector is deterministic, wilderness-ranged, skips safe hubs", () => {
-    const skip = new Set([...OUTSKIRTS_SECTORS, ...CASTLE_SECTORS]);
+    const skip = new Set([...OUTSKIRTS_SECTORS, ...CASTLE_SECTORS, FESTIVAL_SECTOR]);
     for (const p of ["Aki", "Rill", "player-two"]) {
         const s = riftTargetSector(p, "rift-hollow-stalker");
         assert.equal(s, riftTargetSector(p, "rift-hollow-stalker"));

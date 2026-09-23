@@ -43,6 +43,7 @@ describe('sector exploration settlement', () => {
         // — sector 25: ryo (10+6) + (10+2) = 28, xp always 0.
         assert.deepEqual(sectorExploreReward(25), { sector: 25, xp: 0, ryo: 28 });
         assert.equal(sectorExploreReward(0), null);
+        assert.equal(sectorExploreReward(54), null);
         assert.equal(sectorExploreReward(MAX_WILD_SECTOR + 1), null);
     });
 
@@ -52,6 +53,7 @@ describe('sector exploration settlement', () => {
         // than merely unpaid. The 2026-07 renumbering already widened the
         // world once past the old hard-coded 60.
         for (let sector = 1; sector <= MAX_WILD_SECTOR; sector++) {
+            if (sector === 54) continue; // Sunscar opens a dedicated screen, not a board.
             assert.ok(sectorExploreReward(sector), `sector ${sector} must settle`);
         }
     });

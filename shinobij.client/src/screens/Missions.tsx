@@ -33,6 +33,7 @@ import { emissaryQuestById, emissaryByQuestId } from "../lib/legacy-emissaries";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { reportPveFightOutcome } from "../lib/pve-outcome-api";
 import { sectorPhrase } from "../lib/hollow-rifts";
+import { playableFieldObjectiveSector } from "../../../shared/sector-geo";
 import { MissionArenaFight } from "./MissionArenaFight";
 import type { SoloPveSession } from "../lib/solo-pve-api";
 import { soloPveArenaTransport, soloPveSessionForArena } from "../lib/solo-pve-arena-adapter";
@@ -720,7 +721,7 @@ export function Missions({
                     <div className="mh-fetch-card">
                         <div className="mh-fetch-info">
                             <strong>Hollow Gate Rift: {activeRift.bossName}</strong>
-                            <span className="mh-fetch-meta">A rift has torn open in {sectorPhrase(activeRift.targetSector)}.</span>
+                            <span className="mh-fetch-meta">A rift has torn open in {sectorPhrase(playableFieldObjectiveSector(activeRift.targetSector))}.</span>
                         </div>
                         <div className="mh-fetch-progress-wrap">
                             <div className="mh-fetch-progress-label"><span>Travel to the sector and descend the Hollow Gate.</span></div>

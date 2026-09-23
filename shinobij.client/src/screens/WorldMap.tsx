@@ -250,7 +250,7 @@ import { postWorldHunt, type WorldHuntTrailView } from "../lib/world-hunt-api";
 import { HuntEncounterCard, type HuntEncounterView } from "../components/HuntEncounterCard";
 import { beastPortrait } from "../data/hunter-art";
 
-import { FESTIVAL_SECTOR, isWildSector, MAX_WILD_SECTOR, sectorName } from "../../../shared/sector-geo";
+import { FESTIVAL_SECTOR, isWildSector, MAX_WILD_SECTOR, playableFieldObjectiveSector, sectorName } from "../../../shared/sector-geo";
 import { shrineForSector } from "../../../shared/shrines";
 import { WorldRoadsOverlay, WorldPoiPlates } from "../components/WorldRoadsOverlay";
 import "../components/world-map-charting.css";
@@ -541,7 +541,7 @@ function WorldMapContent({
     // cleared by the Hospital on a KO so a death never reopens the death sector.
     useEffect(() => {
         const reopen = takeSectorReopen();
-        if (reopen !== null) { setSelectedSector(reopen); return; }
+        if (reopen !== null && reopen !== FESTIVAL_SECTOR) { setSelectedSector(reopen); return; }
         // Refresh restore: if the page was reloaded straight onto the World Map
         // while standing in a real explorable sector (see isWildSector), reopen that sector's
         // detail. selectedSector is ephemeral React state, so without this a refresh
@@ -550,7 +550,7 @@ function WorldMapContent({
         // so a wild-sector reload — from the map OR from any menu opened in the field —
         // lands back in that sector; a normal in-session trip to the map still opens on
         // the overview (consumeReloadIntoSector is a one-shot, false on SPA navigation).
-        if (consumeReloadIntoSector() && isWildSector(currentSector)) {
+        if (consumeReloadIntoSector() && isWildSector(currentSector) && currentSector !== FESTIVAL_SECTOR) {
             setSelectedSector(currentSector);
         }
     }, []);
@@ -831,7 +831,7 @@ function WorldMapContent({
     }, [selectedSector, bountyBoard, playerRoster, character.name, character.level, character.wandererCooldowns]);
     const courierWanderers = useMemo<Wanderer[]>(() => {
         const favor = character.activeWandererFavor;
-        if (!isWanderersEnabled() || selectedSector == null || !favor || favor.targetSector !== selectedSector || serverNow() > favor.expiresAt) return [];
+        if (!isWanderersEnabled() || selectedSector == null || !favor || playableFieldObjectiveSector(favor.targetSector) !== selectedSector || serverNow() > favor.expiresAt) return [];
         const home = interiorTileFromKey(`${favor.id}:${selectedSector}`);
         return [{
             id: `courier-${favor.id}`,
@@ -846,7 +846,7 @@ function WorldMapContent({
             tellTint: "var(--gold-300)",
             avatarKey: "courier",
             originSector: favor.originSector,
-            targetSector: favor.targetSector,
+            targetSector: playableFieldObjectiveSector(favor.targetSector),
             expiresAt: favor.expiresAt,
         }];
     }, [selectedSector, character.activeWandererFavor, character.level]);
@@ -1372,7 +1372,10 @@ function WorldMapContent({
     function roadRumorFor(w: Wanderer): string {
         const favor = character.activeWandererFavor;
         if (selfBounty) return `${w.name} lowers their voice: "Your face is on the bounty board for ${selfBounty.amount.toLocaleString()} ryo. Check who's following you."`;
-        if (favor) return `${w.name} taps the map: "Your courier is waiting in ${sectorRegionName(favor.targetSector)}, sector ${favor.targetSector}. Take the package there while the delivery offer is still open."`;
+        if (favor) {
+            const target = playableFieldObjectiveSector(favor.targetSector);
+            return `${w.name} taps the map: "Your courier is waiting in ${sectorRegionName(target)}, sector ${target}. Take the package there while the delivery offer is still open."`;
+        }
         if (weeklyBossSector) return `${w.name} points toward ${sectorRegionName(weeklyBossSector)}: "Something huge is moving through sector ${weeklyBossSector}."`;
         const wars = activeVillageWarsFor(character.village);
         if (wars.length > 0) return `${w.name} says, "Patrols are tight while your village is at war. Watch border roads and mercenary colors."`;
@@ -2498,7 +2501,7 @@ function WorldMapContent({
     const { sectorPlayerPos, setSectorPlayerPos, travelRequestInFlight, travelPresentation } = useWorldTravelPresentation(character.name,
         () => getLocalSectorTile(), // the spot the player last stood on: hydrated at boot from the owner's save read (walked tile, else the arrival tile), set on arrival, kept across a fight; the store's own default is the centre
         (sector) => {
-            setSelectedSector(isWildSector(sector) ? sector : null);
+            setSelectedSector(isWildSector(sector) && sector !== FESTIVAL_SECTOR ? sector : null);
             setSelectedVillageTerritory(null);
             setRouteHoverSector(null);
         });
@@ -2655,13 +2658,7 @@ function WorldMapContent({
         }
     }
     function prefetchTravelDestination(sector: number) {
-        // The festival sector leaves the world map for the Sunscar Festival screen —
-        // warm its lazy chunk (not the sector scene, which isn't shown on that arrival).
-        if (sector === FESTIVAL_SECTOR) {
-            void import("./SunscarFestival").catch(() => {});
-            return;
-        }
-        // Every other sector opens its scene panel on arrival: warm the exact
+        // A field sector opens its scene panel on arrival: warm the exact
         // background + depth image (and, when the flag is on, the top-down map) it
         // will paint. Only the floor is warmed — the vista stack no longer renders
         // for a normal sector, so its art would be a wasted fetch.
@@ -2737,41 +2734,38 @@ function WorldMapContent({
         })();
     }
     function triggerTravelPoint(sector: number) {
-        // Where you stood in the sector you LEFT, captured before any state moves.
-        const originSector = currentSector;
-        beginSectorTravel(sector, (arrivalTile) => {
         if (sector === FESTIVAL_SECTOR) {
-            setCurrentBiome("volcano");
-            setCurrentWeather(weatherForSector(sector, "volcano"));
-            setCurrentSector(sector);
+            setSelectedSector(null);
             setScreen("sunscarFestival");
             return;
         }
-
-        const biome = biomeForSector(sector);
-        setCurrentBiome(biome);
-        setCurrentWeather(weatherForSector(sector, biome));
-        setCurrentSector(sector);
-        setSelectedSector(sector);
-        // Put the player somewhere that makes sense in the sector they are
-        // ENTERING. Travelling used to leave the tile untouched, so you kept the
-        // coordinates you happened to be standing on: leave by the right-hand
-        // edge and you arrived on the RIGHT of the next sector instead of the
-        // left, leave from the top and you arrived at the top. That made every
-        // trip read as a teleport rather than as travelling a direction.
-        // Along a road, arrive on the edge facing the sector you came from —
-        // identical to walking through that gate. With no road, derive that same
-        // edge from the two sectors' map positions, so EVERY arrival comes in
-        // from the side you travelled from; only a trip with no origin at all
-        // (a fresh boot, a village spawn) still starts in the middle.
-        // The SERVER seals this tile from the SAME shared definition, and it is
-        // what everyone else in the destination sees; ours is the fallback for a
-        // response that carries none.
-        const arrival = (Number.isInteger(arrivalTile) ? arrivalTile : undefined)
-            ?? (originSector == null ? null : travelArrivalTile(originSector, sector));
-        setSectorPlayerPos(arrival ?? SECTOR_CENTRE_TILE);
-        const splashLabel = regionSplashLabelFor(sector);
-        if (splashLabel) setRegionSplash({ label: splashLabel, tint: regionTintForSector(sector), stamp: Date.now() });
+        // Where you stood in the sector you LEFT, captured before any state moves.
+        const originSector = currentSector;
+        beginSectorTravel(sector, (arrivalTile) => {
+            const biome = biomeForSector(sector);
+            setCurrentBiome(biome);
+            setCurrentWeather(weatherForSector(sector, biome));
+            setCurrentSector(sector);
+            setSelectedSector(sector);
+            // Put the player somewhere that makes sense in the sector they are
+            // ENTERING. Travelling used to leave the tile untouched, so you kept the
+            // coordinates you happened to be standing on: leave by the right-hand
+            // edge and you arrived on the RIGHT of the next sector instead of the
+            // left, leave from the top and you arrived at the top. That made every
+            // trip read as a teleport rather than as travelling a direction.
+            // Along a road, arrive on the edge facing the sector you came from —
+            // identical to walking through that gate. With no road, derive that same
+            // edge from the two sectors' map positions, so EVERY arrival comes in
+            // from the side you travelled from; only a trip with no origin at all
+            // (a fresh boot, a village spawn) still starts in the middle.
+            // The SERVER seals this tile from the SAME shared definition, and it is
+            // what everyone else in the destination sees; ours is the fallback for a
+            // response that carries none.
+            const arrival = (Number.isInteger(arrivalTile) ? arrivalTile : undefined)
+                ?? (originSector == null ? null : travelArrivalTile(originSector, sector));
+            setSectorPlayerPos(arrival ?? SECTOR_CENTRE_TILE);
+            const splashLabel = regionSplashLabelFor(sector);
+            if (splashLabel) setRegionSplash({ label: splashLabel, tint: regionTintForSector(sector), stamp: Date.now() });
         });
     }
 
@@ -2809,7 +2803,7 @@ function WorldMapContent({
     const SECTOR_GRID_W = 12;
     const SECTOR_GRID_SIZE = 144;
     useEffect(() => {
-        if (!selectedSector || !sameSector(currentSector, selectedSector)) return;
+        if (!selectedSector || selectedSector === FESTIVAL_SECTOR || !sameSector(currentSector, selectedSector)) return;
         const activeSector = selectedSector;
         function handleKey(e: KeyboardEvent) {
             const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
@@ -4048,7 +4042,7 @@ function WorldMapContent({
         />
     );
 
-    if (selectedSector) {
+    if (selectedSector && selectedSector !== FESTIVAL_SECTOR) {
         const biome = biomeForSector(selectedSector);
         const sectorWeather = weatherForSector(selectedSector, biome);
         const territory = loadSectorTerritory(selectedSector);
@@ -4183,7 +4177,7 @@ function WorldMapContent({
         const sectorOverlayWanderers = [...cappedSectorWanderers, ...mercWanderers];
         const sectorOverlayRift = (() => {
             const activeRiftQuest = character.activeRiftQuest;
-            if (!activeRiftQuest || selectedSector !== activeRiftQuest.targetSector) return null;
+            if (!activeRiftQuest || selectedSector !== playableFieldObjectiveSector(activeRiftQuest.targetSector)) return null;
             const rift = hollowRiftById(activeRiftQuest.id);
             if (!rift) return null;
             return {
@@ -4853,14 +4847,14 @@ function WorldMapContent({
             {wmZoom.active ? (
                 <div className="wm-topbar">
                     <BackToVillageButton
-                        onClick={() => isWildSector(currentSector) ? setSelectedSector(currentSector) : setScreen("village")}
-                        label={isWildSector(currentSector) ? `\u2190 Return to Sector ${currentSector}` : "\u2190 Village"}
+                        onClick={() => currentSector === FESTIVAL_SECTOR ? setScreen("sunscarFestival") : isWildSector(currentSector) ? setSelectedSector(currentSector) : setScreen("village")}
+                        label={currentSector === FESTIVAL_SECTOR ? "\u2190 Sunscar Festival" : isWildSector(currentSector) ? `\u2190 Return to Sector ${currentSector}` : "\u2190 Village"}
                     />
                 </div>
             ) : (
                 <BackToVillageButton
-                    onClick={() => isWildSector(currentSector) ? setSelectedSector(currentSector) : setScreen("village")}
-                    label={isWildSector(currentSector) ? `\u2190 Return to Sector ${currentSector}` : "\u2190 Village"}
+                    onClick={() => currentSector === FESTIVAL_SECTOR ? setScreen("sunscarFestival") : isWildSector(currentSector) ? setSelectedSector(currentSector) : setScreen("village")}
+                    label={currentSector === FESTIVAL_SECTOR ? "\u2190 Sunscar Festival" : isWildSector(currentSector) ? `\u2190 Return to Sector ${currentSector}` : "\u2190 Village"}
                 />
             )}
             {hollowGateMenu && (
@@ -4926,6 +4920,19 @@ function WorldMapContent({
                     stands — the sandbox-MMO-style "how would I walk there" glow. */}
                 <RouteGlowOverlay from={currentSector} to={routeHoverSector} />
                 {sectorPoints.map((sector) => {
+                    if (sector.id === FESTIVAL_SECTOR) return (
+                        <button
+                            key={sector.id}
+                            className={"atlas-sector atlas-sector-central" + (currentSector === sector.id ? " atlas-sector-current" : "")}
+                            style={{ left: sector.x + "%", top: sector.y + "%" }}
+                            onClick={() => triggerTravelPoint(sector.id)}
+                            title="Open Sunscar Festival"
+                            aria-label="Open Sunscar Festival"
+                        >
+                            {currentSector === sector.id && <span className="atlas-you-label" aria-hidden="true">YOU</span>}
+                            ☀️
+                        </button>
+                    );
                     const huntTrail = huntTrailForSector(sector.id);
                     const sectorShrine = isSectorTracesEnabled() ? shrineForSector(sector.id) : undefined;
                     // Resolved ONCE per marker. Both of these are real work — the
@@ -4967,7 +4974,7 @@ function WorldMapContent({
                             : `Travel to ${sectorName(sector.id) ?? `Sector ${sector.id}`} (Sector ${sector.id})`}
                     >
                         {currentSector === sector.id && <span className="atlas-you-label" aria-hidden="true">YOU</span>}
-                        {sector.id === 99 ? "💀" : sector.id === FESTIVAL_SECTOR ? "☀️" : sector.id}
+                        {sector.id === 99 ? "💀" : sector.id}
                         {scoutedSectors.has(sector.id) && (
                             <span
                                 style={{ position: "absolute", top: -5, right: -5, fontSize: 11, lineHeight: 1, filter: "drop-shadow(0 0 2px #000)", pointerEvents: "none" }}

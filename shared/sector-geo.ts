@@ -265,9 +265,25 @@ export function remapLegacySector(sector: number): number {
  */
 export const WORLD_GEO_VERSION = 2;
 
-/** Travelling to this sector opens the Sunscar Festival screen (the place that
- *  has always sat on the painted festival tents — old sector 35). */
+/** Sunscar Festival's map pin (old sector 35). The pin opens its dedicated
+ *  screen directly; there is no playable sector board or travel destination. */
 export const FESTIVAL_SECTOR = 54;
+
+/** Reachable Festival Grounds board for older field objectives saved at Sunscar. */
+export const SUNSCAR_FIELD_FALLBACK_SECTOR = 52;
+
+export function playableFieldObjectiveSector(sector: number): number {
+    return sector === FESTIVAL_SECTOR ? SUNSCAR_FIELD_FALLBACK_SECTOR : sector;
+}
+
+/** Sectors with a playable world board. Keep WILD_SECTOR_IDS intact for saved
+ *  geography and legacy mappings; Sunscar is a catalogued place, not field. */
+export const PLAYABLE_WILD_SECTOR_IDS: readonly number[] =
+    WILD_SECTOR_IDS.filter((sector) => sector !== FESTIVAL_SECTOR);
+
+export function isPlayableWildSector(sector: number): boolean {
+    return isWildSector(sector) && sector !== FESTIVAL_SECTOR;
+}
 
 /** Village name → its outskirts sector (the first number of its region block). */
 export const VILLAGE_OUTSKIRTS: Readonly<Record<string, number>> = {

@@ -183,6 +183,17 @@ describe('sector wanderer reward endpoints verify the claimed NPC, not just the 
         assert.equal((honest.body?.favor as { giver: string }).giver, w.name);
     });
 
+    it('lets an older Sunscar favor finish in playable Festival Grounds', async () => {
+        const player = 'claimplayerfestival';
+        const favor = { id: 'favor-old-sunscar', originSector: 53, targetSector: 54, giver: 'Courier', expiresAt: Date.now() + 60_000 };
+        await seedPlayer(player, 52, { activeWandererFavor: favor });
+        await kv.set(`wanderer-favor:${player}`, favor);
+        const out = await post(service, player, { action: 'favor-claim', sector: 52, favorId: favor.id });
+        assert.equal(out.statusCode, 200);
+        assert.equal(out.body?.ok, true, JSON.stringify(out.body));
+        assert.equal(await kv.get(`wanderer-favor:${player}`), null);
+    });
+
     it('an id the current roll does not contain is refused by every endpoint', async () => {
         const player = 'claimplayerstale';
         const { sector } = liveWanderer();

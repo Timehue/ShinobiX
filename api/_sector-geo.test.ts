@@ -35,11 +35,9 @@ const EXPANSION_ROADS_NEW: ReadonlyArray<readonly [number, number]> = [
     [16, 61], [40, 61], [61, 62], [2, 62], [52, 63], [25, 63],
     [56, 64], [23, 64], [27, 65], [31, 65], [60, 66], [33, 66],
 ];
-// Nothing has been removed from the old road set. (A 2026-07-29 change briefly
-// took the Hollow Temple off the graph on the theory that it was the Hollow Gate
-// POI; it isn't — the Hollow Gate is a landmark crest that opens the rift menu —
-// so those four roads were restored.)
-const REMOVED_ROADS_OLD: ReadonlyArray<readonly [number, number]> = [];
+// Sunscar's former sector 35 is now a dedicated festival entrance, not a
+// walkable board. Its two old roads (to 20 and 13) no longer lead to exits.
+const REMOVED_ROADS_OLD: ReadonlyArray<readonly [number, number]> = [[20, 35], [13, 35]];
 
 const OLD_HOME_SECTORS: Record<string, readonly number[]> = {
     'Moonshadow Village': [11, 19, 15, 4, 5, 6, 16, 8],
@@ -147,7 +145,7 @@ test('points and roads: one point per sector, connected graph, degree 2-5, exits
     }
     for (const [id, links] of adj) {
         if (NON_WALKABLE_SECTORS.includes(id)) {
-            assert.equal(links.length, 0, `map-travel-only sector ${id} carries no roads`);
+            assert.equal(links.length, 0, `non-walkable sector ${id} carries no roads`);
             continue;
         }
         assert.ok(links.length >= 2 && links.length <= 5, `sector ${id} has ${links.length} roads (want 2-5)`);
@@ -159,7 +157,8 @@ test('points and roads: one point per sector, connected graph, degree 2-5, exits
         const cur = queue.shift()!;
         for (const nx of adj.get(cur) ?? []) if (!seen.has(nx)) { seen.add(nx); queue.push(nx); }
     }
-    assert.equal(seen.size, WILD_IDS.length, 'road graph is connected across every walkable sector');
+    assert.equal(seen.size, WILD_IDS.length - 1, 'road graph is connected across every walkable sector');
+    assert.equal(seen.has(FESTIVAL_SECTOR), false);
 
     for (const exit of SECTOR_EXITS) {
         const reverse = sectorExits(exit.destinationSector).find((e) => e.destinationSector === exit.sector);

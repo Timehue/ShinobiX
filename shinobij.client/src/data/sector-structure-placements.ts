@@ -122,7 +122,6 @@ export const RIFT_BY_ART: Readonly<Record<number, BoardPoint>> = {
      1: { left: 52, top: 74 }, // s51 East Ring Road (pre-renumbering saves only)
     14: { left: 52, top: 70 }, // s52 Festival Grounds
     33: { left: 58, top: 86 }, // s53 Boardwalk Scrub
-    35: { left: 64, top: 66 }, // s54 Cactus Flats
     12: { left: 14, top: 78 }, // s55 Waymarker Road
     13: { left: 16, top: 86 }, // s56 Lantern Approach
     18: { left: 86, top: 82 }, // s57 Hollow Temple

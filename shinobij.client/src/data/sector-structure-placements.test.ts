@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { CASTLE_SECTORS, MAX_WILD_SECTOR, OUTSKIRTS_SECTORS, remapLegacySector, sectorArtKey } from "../../../shared/sector-geo";
+import { CASTLE_SECTORS, MAX_WILD_SECTOR, OUTSKIRTS_SECTORS, PLAYABLE_WILD_SECTOR_IDS, playableFieldObjectiveSector, remapLegacySector, sectorArtKey } from "../../../shared/sector-geo";
 import { SECTOR_EXITS, sectorExits } from "../../../shared/sector-links";
 import { SHRINE_DEFS } from "../../../shared/shrines";
 import { riftTargetSector } from "../lib/hollow-rifts";
@@ -21,7 +21,7 @@ import {
 const STRONGHOLD_SECTORS = Object.values(HOME_SECTORS).flat();
 // Rift, today: riftTargetSector's range — every wild sector except the outskirts
 // gates and the castle.
-const CURRENT_RIFT_SECTORS = Array.from({ length: MAX_WILD_SECTOR }, (_, index) => index + 1)
+const CURRENT_RIFT_SECTORS = PLAYABLE_WILD_SECTOR_IDS
     .filter((sector) => !OUTSKIRTS_SECTORS.includes(sector) && !CASTLE_SECTORS.includes(sector));
 // Rift, from an old save: before the 2026-07-29 renumbering riftTargetSector drew
 // from 1..55 by range alone — it did NOT skip the outskirts. A quest accepted then is
@@ -29,7 +29,7 @@ const CURRENT_RIFT_SECTORS = Array.from({ length: MAX_WILD_SECTOR }, (_, index) 
 // it on an outskirts gate or the castle: sectors today's function never returns.
 const PRE_RENUMBERING_RIFT_TARGET_MAX = 55;
 const LEGACY_RIFT_SECTORS = [...new Set(
-    Array.from({ length: PRE_RENUMBERING_RIFT_TARGET_MAX }, (_, index) => remapLegacySector(index + 1))
+    Array.from({ length: PRE_RENUMBERING_RIFT_TARGET_MAX }, (_, index) => playableFieldObjectiveSector(remapLegacySector(index + 1)))
         .filter((sector) => sector >= 1 && sector <= MAX_WILD_SECTOR),
 )];
 const RIFT_SECTORS = [...new Set([...CURRENT_RIFT_SECTORS, ...LEGACY_RIFT_SECTORS])].sort((a, b) => a - b);

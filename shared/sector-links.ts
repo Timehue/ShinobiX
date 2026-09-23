@@ -39,7 +39,8 @@ export type SectorExit = {
 //      rewires travel and can orphan a persisted exit id);
 //   2. the new spot is not in the sea (checked against the keyart's own pixels);
 //   3. no pin lands within ~58px of another.
-// Nothing else about the topology moved: SECTOR_ROAD_PAIRS is untouched.
+// Those coordinate nudges did not change roads; the two Sunscar roads were
+// removed later when sector 54 became a festival-only entrance.
 export const SECTOR_POINTS: readonly SectorPoint[] = [
     // Stormveil Harbor (1-8) — the SW stilt harbour
     { id: 1, x: 15, y: 83.5 }, { id: 2, x: 9, y: 66 }, { id: 3, x: 14, y: 63 }, { id: 4, x: 21, y: 61 },
@@ -82,10 +83,10 @@ export const SECTOR_POINTS: readonly SectorPoint[] = [
     { id: 66, x: 62, y: 8 },    // Emberspine Ridge   — deep in the ash
 ];
 
-// Frozen geographic roads — the same 82 place-to-place roads as before the
-// renumbering (remapped id-for-id), plus the Upper Terraces ↔ Canal Heart
-// link (3-8) that closed Stormveil's one internal gap. Every walkable sector
-// has 2-5 connections and the walkable graph is connected.
+// Frozen geographic roads — the original 82 place-to-place roads remapped
+// id-for-id, plus the Upper Terraces ↔ Canal Heart link (3-8), minus the two
+// roads into Sunscar (54), which is a festival screen rather than a walkable
+// board. Every walkable sector has 2-5 connections and the graph is connected.
 //
 // NOTE (2026-07-29): sector 57 Hollow Temple was briefly taken off this graph
 // on the assumption that it WAS the Hollow Gate POI. It isn't — the Hollow Gate
@@ -99,8 +100,8 @@ export const SECTOR_ROAD_PAIRS: readonly SectorRoadPair[] = [
     [21, 24], [22, 24], [23, 25], [25, 52], [25, 57], [26, 31], [26, 33], [26, 35], [27, 31], [27, 32], [28, 29],
     [28, 30], [29, 30], [29, 32], [30, 32], [33, 35], [33, 60], [34, 35], [34, 44], [35, 59], [36, 37],
     [36, 38], [37, 58], [38, 39], [39, 40], [39, 47], [40, 41], [41, 42], [42, 45], [42, 50], [43, 49],
-    [43, 51], [43, 55], [44, 51], [45, 53], [45, 54], [46, 47], [46, 48], [46, 51], [47, 48], [48, 49],
-    [48, 50], [49, 50], [49, 51], [50, 55], [52, 56], [52, 57], [54, 56], [55, 57], [56, 57], [58, 59],
+    [43, 51], [43, 55], [44, 51], [45, 53], [46, 47], [46, 48], [46, 51], [47, 48], [48, 49],
+    [48, 50], [49, 50], [49, 51], [50, 55], [52, 56], [52, 57], [55, 57], [56, 57], [58, 59],
     [58, 60],
     // The 2026-07-29 expansion — each new sector joins the network by two roads
     // to its nearest established neighbours, so it is reachable on foot and has
@@ -114,10 +115,10 @@ export const SECTOR_ROAD_PAIRS: readonly SectorRoadPair[] = [
 ];
 
 /**
- * Sectors that exist on the map but carry no roads: reachable by map travel
- * only, never by walking an edge. Death's Gate is the PvP arena.
+ * Map places without walkable roads. Sunscar (54) opens its dedicated festival
+ * screen from the map pin; Death's Gate (99) remains a map-travel PvP arena.
  */
-export const NON_WALKABLE_SECTORS: readonly number[] = [99];
+export const NON_WALKABLE_SECTORS: readonly number[] = [54, 99];
 
 const GRID_WIDTH = 12;
 
