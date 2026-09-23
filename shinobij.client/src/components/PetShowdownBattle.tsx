@@ -2184,7 +2184,6 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
      *  was accepted (or none has been made). */
     const [failedOrders, setFailedOrders] = useState<ShowdownCommand[] | null>(null);
     const [expired, setExpired] = useState(false);
-    const [letterbox, setLetterbox] = useState(false);
     const [flash, setFlash] = useState(0);
     /** Element tint for the super flash — the full-frame color takeover. */
     const [flashTint, setFlashTint] = useState("#ffffff");
@@ -2761,12 +2760,10 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             }
             if (event.super) {
                 later(() => {
-                    setLetterbox(true);
                     showBanner(event.moveName, "super", durationMs * 0.6);
                     setBattleMusicIntensity("climax");
                     playPetSfx("finisher");
                 }, 0);
-                later(() => setLetterbox(false), durationMs * 0.94);
             }
             // The Colosseum declaration: "Red Fox used Flame Bolt!" opens every
             // non-super action (supers already banner their own name larger).
@@ -3077,10 +3074,8 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             move: event.moveName,
                             element: event.element,
                         });
-                        if (!event.super) setLetterbox(true);
                         later(() => {
                             setFinisher((current) => current?.key === finisherKey ? null : current);
-                            if (!event.super) setLetterbox(false);
                         }, 1320);
                     } else if (event.super) {
                         // A landed signature also brings the stands to their feet.
@@ -3671,13 +3666,6 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 />
             )}
 
-            {/* Cinematic letterbox during signature casts. */}
-            {letterbox && (
-                <div className="showdown-letterbox">
-                    <div className="bar top" />
-                    <div className="bar bottom" />
-                </div>
-            )}
             {/* Full-frame ELEMENT flash on the signature detonation — the
                 whole arena goes the move's color for a beat (the reference
                 whiteout/orange-out), soft radial so the victim stays read. */}

@@ -1355,24 +1355,6 @@
     100% { opacity: 0; transform: translate(-50%, -10px) scale(0.985); }
 }
 
-/* ── Signature letterbox ───────────────────────────────────────────────── */
-
-.showdown-letterbox { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
-.showdown-letterbox .bar {
-    position: absolute;
-    left: 0;
-    right: 0;
-    height: 11%;
-    background: #000;
-    animation: showdown-letterbox-in 0.28s ease-out both;
-}
-.showdown-letterbox .bar.top { top: 0; transform-origin: top; }
-.showdown-letterbox .bar.bottom { bottom: 0; transform-origin: bottom; }
-@keyframes showdown-letterbox-in {
-    from { transform: scaleY(0); }
-    to { transform: scaleY(1); }
-}
-
 /* ── Result / confirm panel ────────────────────────────────────────────── */
 
 /* The LAST frame of every run, and it was a bare scrim with unstyled text
@@ -1872,7 +1854,6 @@
     /* Must repeat :not(.is-disabled) — the declaring selector carries it, and
        a lower-specificity `animation: none` silently loses the cascade. */
     .showdown-tech-pill.signature:not(.is-disabled) .showdown-menu-note,
-    .showdown-letterbox .bar,
     .showdown-vs-side.mine,
     .showdown-vs-side.theirs,
     .showdown-vs-burst {

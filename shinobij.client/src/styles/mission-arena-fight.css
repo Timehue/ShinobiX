@@ -302,6 +302,14 @@ html[data-vp="lg"] .arena-fullscreen.mission-arena-fight .combat-layout {
     pointer-events: none;
 }
 
+/* Keep the fixed feedback slot for stable board sizing, while the hint text
+   floats over the arena without a full-width dark strip. */
+#combat.mission-arena-fight .combat-action-notice {
+    background: transparent !important;
+    border-color: transparent !important;
+    backdrop-filter: none !important;
+}
+
 @media (max-width: 1023px) {
     /* Mobile flattens `.combat-main-area` with `display: contents` and pins every
        band to an explicit row of the OUTER grid, so the notice needs the same kind
@@ -406,9 +414,7 @@ html[data-vp="lg"] .arena-fullscreen.mission-arena-fight .combat-layout {
     }
 
     /* Four command columns leave roughly 70px per tile at the 320px floor.
-       Give the only two-word command a deliberate two-line title instead of
-       ellipsizing it to "Summon…"; its paw and duration stay in their own
-       bounded rows and every target remains above 44px. */
+       Keep the summon glyph, title, and duration in bounded rows. */
     html[data-vp] body > .arena-fullscreen.shinobi-combat-shell.mission-arena-fight .summon-pet-command {
         grid-template-rows: 9px 18px 9px !important;
         gap: 1px !important;
@@ -430,7 +436,7 @@ html[data-vp="lg"] .arena-fullscreen.mission-arena-fight .combat-layout {
         line-height: 9px !important;
         letter-spacing: 0 !important;
         text-overflow: clip !important;
-        white-space: normal !important;
+        white-space: nowrap !important;
     }
 
     html[data-vp] body > .arena-fullscreen.shinobi-combat-shell.mission-arena-fight .summon-pet-command > small {
@@ -589,7 +595,7 @@ html[data-vp="lg"] .arena-fullscreen.mission-arena-fight .combat-layout {
         line-height: 9px !important;
         letter-spacing: 0 !important;
         text-overflow: clip !important;
-        white-space: normal !important;
+        white-space: nowrap !important;
     }
 
     html[data-vp] body > .arena-fullscreen.shinobi-combat-shell.mission-arena-fight .summon-pet-command > small {
@@ -618,7 +624,7 @@ html[data-vp="lg"] .arena-fullscreen.mission-arena-fight .combat-layout {
     margin: 0;
     overflow: hidden;
     white-space: nowrap;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+    text-shadow: 0 1px 4px #000, 0 0 8px rgba(0, 0, 0, 0.9);
 }
 
 .mission-arena-fight .combat-targeting-hint strong {
@@ -650,9 +656,8 @@ html[data-vp="lg"] .arena-fullscreen.mission-arena-fight .combat-layout {
     z-index: 40;
 }
 
-/* The summon title and locked-level copy are the longest command labels. Keep
-   its glyph, title and detail in three contained rows so neither the paw nor
-   the two text lines can escape the 44–56px command tile. */
+/* The summon detail can be long. Keep the glyph, title, and detail in three
+   contained rows so they stay inside the 44–56px command tile. */
 .arena-fullscreen.mission-arena-fight .shinobi-command-bar > .summon-pet-command {
     grid-template-columns: minmax(0, 1fr) !important;
     grid-template-rows: 14px 12px 11px !important;
@@ -706,7 +711,7 @@ html[data-vp="lg"] .arena-fullscreen.mission-arena-fight .combat-layout {
     white-space: nowrap !important;
 }
 
-/* Desktop returns Summon Pet to an eight-column command deck. Its compact
+/* Desktop returns Summon to an eight-column command deck. Its compact
    three-row typography keeps the full label and eligibility copy inside the
    same 48px control as every other basic action. */
 @media (min-width: 1280px) and (min-height: 700px) {
