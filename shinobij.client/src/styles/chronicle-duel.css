@@ -4947,6 +4947,11 @@ button.chronicle-card {
      to support strips underneath the action. */
   .chronicle-playmat {
     --chron-zone-w: clamp(72px, 15.2vmin, 182px);
+    /* The same gap also limits figure width when the five tracks shrink. */
+    --chron-monster-gap: clamp(52px, 5.5vw, 84px);
+  }
+  .chronicle-playmat .chronicle-zone-row:not(.backrow) {
+    gap: var(--chron-monster-gap);
   }
   .chronicle-playmat .chronicle-zone {
     min-height: calc(var(--chron-zone-w) * 1.3);
@@ -5134,7 +5139,10 @@ button.chronicle-card {
     animation: none;
   }
   .chronicle-figure {
-    max-width: calc(var(--chron-zone-w) * 1.6);
+    max-width: min(
+      calc(var(--chron-zone-w) * 1.6),
+      calc(100% + var(--chron-monster-gap) - 8px)
+    );
     max-height: calc(var(--chron-zone-w) * 2.6);
     filter:
       brightness(1.22) contrast(1.06) saturate(1.08)
