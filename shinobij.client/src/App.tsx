@@ -5379,10 +5379,10 @@ export default function App() {
     // Pet battles own their legacy start gesture; every other sealed battle is
     // driven here so exploration music cannot leak underneath it.
     const backgroundCombatActive = !petBattleActive && (sealedFightOpen || isPresenceBattleActive());
-    const backgroundMusicScene = !character ? null
+    const backgroundMusicScene = !character || petBattleActive || petFullscreenActive ? null
         : backgroundCombatActive ? "combat"
         : activeTriggeredEvent || introCinematicActive ? null
-        : isWildSector(currentSector) ? "sector" : "village";
+        : "village";
     useEffect(() => {
         setBackgroundMusicScene(backgroundMusicScene);
     }, [backgroundMusicScene]);
