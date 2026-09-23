@@ -2130,25 +2130,25 @@ function towerActionVfx(session: TowerSession, actor: TowerActor, action: TowerA
             const radius = jutsuAreaRadius(jutsu);
             const method = canonicalJutsuMethod(jutsu.method);
             const ground = method === 'INSTANT_EFFECT' || method === 'AOE_SPIRAL' || String(jutsu.target ?? '') === 'EMPTY_GROUND';
+            const laysGroundZone = (String(jutsu.target ?? '') === 'EMPTY_GROUND'
+                || (method === 'AOE_SPIRAL' && names.includes('Move')))
+                && towerGroundTags(jutsu.tags).length > 0;
             const semantic = semanticJutsuVfx(jutsu as Parameters<typeof semanticJutsuVfx>[0], {
                 ...(ground ? { ground: true } : {}),
                 ...(radius > 0 ? { area: true } : {}),
                 ...(ko ? { ko: true } : {}),
-            const laysGroundZone = (String(jutsu.target ?? '') === 'EMPTY_GROUND'
-                || (method === 'AOE_SPIRAL' && names.includes('Move')))
-                && towerGroundTags(jutsu.tags).length > 0;
             });
             // Anchor on the struck tile when the cast named one, otherwise on the
             // victim (or the caster for a self-cast).
             const centre = action.tile ?? session.actors.find(a => a.id === foe)?.pos;
             const tiles = centre === undefined
                 ? undefined
+                : method === 'INSTANT_EFFECT' && laysGroundZone
+                    ? filledDiskTiles(actor.pos, Math.max(1, Number(jutsu.range ?? 1)), session.map.width, session.map.height)
                 : radius > 0
                     ? filledDiskTiles(centre, radius, session.map.width, session.map.height)
                     : [centre];
             const target = semantic.anchor === 'caster' ? actor.id : foe;
-                : method === 'INSTANT_EFFECT' && laysGroundZone
-                    ? filledDiskTiles(actor.pos, Math.max(1, Number(jutsu.range ?? 1)), session.map.width, session.map.height)
             return [{
                 key: semantic.key,
                 ...(target ? { target } : {}),

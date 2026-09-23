@@ -1320,6 +1320,43 @@ describe('Battle Towers AOE + consumables', () => {
         assert.equal((s.groundEffects ?? []).length, 0, 'the 2-round zone expired');
     });
 
+    it('an Instant Effect ground field covers the caster range instead of the clicked tile ring', () => {
+        const sq = makeActor('sq-1', 'squad', 27, {
+            chakra: 300, maxChakra: 300,
+            character: { specialty: 'Ninjutsu', stats: {}, jutsu: [{
+                id: 'wide-mire', name: 'Wide Mire', type: 'Ninjutsu', method: 'INSTANT_EFFECT',
+                ap: 60, range: 4, target: 'EMPTY_GROUND', tags: [{ name: 'Poison', percent: 10 }],
+            }] },
+        });
+        const en = makeActor('en-1', 'enemy', 30, { character: WEAK });
+        const s = makeSession([sq, en]);
+        startRound(s);
+        const result = applyAction(s, floor, { actorId: sq.id, type: 'jutsu', jutsuId: 'wide-mire', tile: 19 }, makeRng(1));
+        assert.ok(result.applied);
+        const field = s.groundEffects[0]!;
+        assert.ok(field.tiles.length > 7);
+        assert.ok(field.tiles.includes(en.pos), 'the distant enemy stands inside the caster range');
+        assert.ok(getActor(s, en.id)!.statuses.some(status => status.name === 'Poison'));
+    });
+
+    it('a legacy AOE_LINE ground field covers the same caster range', () => {
+        const sq = makeActor('sq-1', 'squad', 27, {
+            chakra: 300, maxChakra: 300,
+            character: { specialty: 'Ninjutsu', stats: {}, jutsu: [{
+                id: 'legacy-mire', name: 'Legacy Mire', type: 'Ninjutsu', method: 'AOE_LINE',
+                ap: 60, range: 4, target: 'EMPTY_GROUND', tags: [{ name: 'Poison', percent: 10 }],
+            }] },
+        });
+        const en = makeActor('en-1', 'enemy', 30, { character: WEAK });
+        const s = makeSession([sq, en]);
+        startRound(s);
+        const result = applyAction(s, floor, { actorId: sq.id, type: 'jutsu', jutsuId: 'legacy-mire', tile: 19 }, makeRng(1));
+        assert.ok(result.applied);
+        assert.ok(s.groundEffects[0]!.tiles.includes(en.pos));
+        assert.ok(getActor(s, en.id)!.statuses.some(status => status.name === 'Poison'));
+        assert.deepEqual(s.vfx?.[0]?.tiles, s.groundEffects[0]!.tiles);
+    });
+
     it('rejects an out-of-range ground jutsu; a no-ground-tag ground jutsu STRIKES the tile (PvE parity) instead of bouncing', () => {
         // A damage-dealing EMPTY_GROUND jutsu with no ground-effect tag (Wound, not Poison/
         // Recoil/Decrease Damage Given) used to bounce with `no-ground-tags`. It now resolves
@@ -1340,6 +1377,7 @@ describe('Battle Towers AOE + consumables', () => {
         assert.ok(r.applied, 'no-ground-tag ground jutsu resolves (no no-ground-tags bounce)');
         assert.ok(getActor(s, 'en-1')!.hp < 9999, 'the enemy on the target tile was struck');
         assert.equal((s.groundEffects ?? []).length, 0, 'a non-ground-tagged jutsu lays no persistent zone');
+        assert.notEqual(s.vfx?.[0]?.persistent, true, 'the direct strike VFX is not shown as a persistent zone');
         // Cast on an EMPTY tile → whiffs harmlessly (still applies / costs AP), never bounces.
         const s2 = makeSession([mkSq(), makeActor('en-1', 'enemy', 1, { hp: 9999, maxHp: 9999, character: { stats: {} } })]);
         startRound(s2);
@@ -1411,43 +1449,6 @@ describe('Battle Towers basic actions', () => {
         const add = makeActor('en-1', 'enemy', 2, { character: WEAK });
         const s = makeSession([
             makeActor('sq-1', 'squad', 0, { character: { specialty: 'Ninjutsu', stats: {} } }),
-    it('an Instant Effect ground field covers the caster range instead of the clicked tile ring', () => {
-        const sq = makeActor('sq-1', 'squad', 27, {
-            chakra: 300, maxChakra: 300,
-            character: { specialty: 'Ninjutsu', stats: {}, jutsu: [{
-                id: 'wide-mire', name: 'Wide Mire', type: 'Ninjutsu', method: 'INSTANT_EFFECT',
-                ap: 60, range: 4, target: 'EMPTY_GROUND', tags: [{ name: 'Poison', percent: 10 }],
-            }] },
-        });
-        const en = makeActor('en-1', 'enemy', 30, { character: WEAK });
-        const s = makeSession([sq, en]);
-        startRound(s);
-        const result = applyAction(s, floor, { actorId: sq.id, type: 'jutsu', jutsuId: 'wide-mire', tile: 19 }, makeRng(1));
-        assert.ok(result.applied);
-        const field = s.groundEffects[0]!;
-        assert.ok(field.tiles.length > 7);
-        assert.ok(field.tiles.includes(en.pos), 'the distant enemy stands inside the caster range');
-        assert.ok(getActor(s, en.id)!.statuses.some(status => status.name === 'Poison'));
-    });
-
-    it('a legacy AOE_LINE ground field covers the same caster range', () => {
-        const sq = makeActor('sq-1', 'squad', 27, {
-            chakra: 300, maxChakra: 300,
-            character: { specialty: 'Ninjutsu', stats: {}, jutsu: [{
-                id: 'legacy-mire', name: 'Legacy Mire', type: 'Ninjutsu', method: 'AOE_LINE',
-                ap: 60, range: 4, target: 'EMPTY_GROUND', tags: [{ name: 'Poison', percent: 10 }],
-            }] },
-        });
-        const en = makeActor('en-1', 'enemy', 30, { character: WEAK });
-        const s = makeSession([sq, en]);
-        startRound(s);
-        const result = applyAction(s, floor, { actorId: sq.id, type: 'jutsu', jutsuId: 'legacy-mire', tile: 19 }, makeRng(1));
-        assert.ok(result.applied);
-        assert.ok(s.groundEffects[0]!.tiles.includes(en.pos));
-        assert.ok(getActor(s, en.id)!.statuses.some(status => status.name === 'Poison'));
-        assert.deepEqual(s.vfx?.[0]?.tiles, s.groundEffects[0]!.tiles);
-    });
-
             boss,
             add,
         ], { objectiveKind: 'kill-adds-first', bossId: 'boss' });
@@ -1468,7 +1469,6 @@ describe('Battle Towers basic actions', () => {
         startRound(s);
         assert.ok(applyAction(s, floor, { actorId: 'sq-1', type: 'dash', tile: 3 }, makeRng(1)).applied);
         assert.equal(getActor(s, 'sq-1')!.pos, 3);
-        assert.notEqual(s.vfx?.[0]?.persistent, true, 'the direct strike VFX is not shown as a persistent zone');
         assert.equal(applyAction(s, floor, { actorId: 'sq-1', type: 'dash', tile: 60 }, makeRng(1)).reason, 'out-of-range');
     });
 

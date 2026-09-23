@@ -292,9 +292,9 @@ function jutsuVfx(session: SoloPveSession, side: SoloPveSide, action: SoloPveAct
         ? undefined
         : method === 'AOE_SPIRAL'
             ? filledDiskTiles(action.tile, SPIRAL_RADIUS, GRID_W, GRID_H)
-            : method === 'AOE_CIRCLE' || method === 'INSTANT_EFFECT'
             : method === 'INSTANT_EFFECT' && jutsu.target === 'EMPTY_GROUND'
                 ? filledDiskTiles(fighter(session, side).pos, Math.max(1, Number(jutsu.range) || 4), GRID_W, GRID_H)
+            : method === 'AOE_CIRCLE' || method === 'INSTANT_EFFECT'
                 ? [action.tile, ...hexNeighbors(action.tile)]
                 : [action.tile];
     return [{
