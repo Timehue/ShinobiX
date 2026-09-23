@@ -14,6 +14,7 @@ import {
 } from "../lib/ranked-2v2-api";
 import { setTowerPvpMatchId } from "../lib/screen-guards";
 import { gameConfirm } from "./GameAlert";
+import { rankedLevelEligible, RANKED_LEVEL_WARNING } from "../../../shared/ranked-eligibility";
 
 /*
  * Ranked 2v2 — pair up, queue together, climb your own ladder.
@@ -80,6 +81,10 @@ export function Ranked2v2Panel({ character, sharedImages, onVersionedCharacter }
     }, [state.match]);
 
     const act = useCallback(async (action: Ranked2v2Action, extra: Record<string, unknown> = {}) => {
+        if ((action === "invite" || action === "accept" || action === "queue") && !rankedLevelEligible(character.level)) {
+            setError(RANKED_LEVEL_WARNING);
+            return;
+        }
         setBusy(action);
         setError(null);
         try {
@@ -90,7 +95,7 @@ export function Ranked2v2Panel({ character, sharedImages, onVersionedCharacter }
         } finally {
             if (mountedRef.current) setBusy(null);
         }
-    }, [me]);
+    }, [me, character.level]);
 
     const duo = state.duo;
     const mine = duo?.members.find(member => member.slug.toLowerCase() === me.toLowerCase());
@@ -149,6 +154,7 @@ export function Ranked2v2Panel({ character, sharedImages, onVersionedCharacter }
                 Format: maxed stats and identical neutral legendary gear for every fighter.
             </p>
             {error && <p className="hint" role="alert" style={{ color: "var(--red-400)" }}>{error}</p>}
+            {!rankedLevelEligible(character.level) && <p className="hint" role="alert">{RANKED_LEVEL_WARNING}</p>}
 
             {!duo && (
                 <form
@@ -165,7 +171,7 @@ export function Ranked2v2Panel({ character, sharedImages, onVersionedCharacter }
                             placeholder="Player name"
                             onChange={event => setPartner(event.target.value)}
                         />
-                        <button type="submit" disabled={Boolean(busy) || !partner.trim()}>
+                        <button type="submit" disabled={Boolean(busy) || !partner.trim() || !rankedLevelEligible(character.level)}>
                             {busy === "invite" ? "Inviting…" : "Invite"}
                         </button>
                     </div>
@@ -176,7 +182,7 @@ export function Ranked2v2Panel({ character, sharedImages, onVersionedCharacter }
                 <div role="status">
                     <p><strong>{other.displayName}</strong> invited you to a ranked duo.</p>
                     <div style={{ display: "flex", gap: 8 }}>
-                        <button type="button" disabled={Boolean(busy)} onClick={() => void act("accept")}>
+                        <button type="button" disabled={Boolean(busy) || !rankedLevelEligible(character.level)} onClick={() => void act("accept")}>
                             {busy === "accept" ? "Accepting…" : "Accept"}
                         </button>
                         <button type="button" className="danger-button" disabled={Boolean(busy)} onClick={() => void act("leave")}>
@@ -203,7 +209,7 @@ export function Ranked2v2Panel({ character, sharedImages, onVersionedCharacter }
                         </div>
                     ) : (
                         <div style={{ display: "flex", gap: 8 }}>
-                            <button type="button" disabled={Boolean(busy) || !ready} onClick={() => void act("queue")}>
+                            <button type="button" disabled={Boolean(busy) || !ready || !rankedLevelEligible(character.level)} onClick={() => void act("queue")}>
                                 {busy === "queue" ? "Queueing…" : "Find ranked match"}
                             </button>
                             <button
