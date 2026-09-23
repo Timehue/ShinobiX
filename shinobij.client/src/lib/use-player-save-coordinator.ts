@@ -20,7 +20,7 @@ export function usePlayerSaveCoordinator({ buildPlayerSavePayload, ...ports }: C
         characterToSave: Character,
         name: string,
         overrides?: PlayerSaveOverrides,
-        opts?: { echoVersion?: boolean; useLatestAtExecution?: boolean },
+        opts?: { echoVersion?: boolean; useLatestAtExecution?: boolean; bloodlineEquipIntent?: string; bloodlineWriteIntent?: string },
     ) {
         return coordinator.pushSaveToServer(buildPlayerSavePayload, characterToSave, name, overrides, opts);
     }

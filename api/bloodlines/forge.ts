@@ -30,17 +30,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 body.rank,
                 randomUUID(),
                 Date.now(),
+                body.resumeOnly === true,
             );
             if (!purchase.ok) return purchase;
             return {
                 ok: true as const,
                 character: purchase.character,
-                recordPatch: { pendingBloodlineForges: purchase.pending },
+                ...(purchase.resumed ? { write: false as const } : { recordPatch: { pendingBloodlineForges: purchase.pending } }),
                 value: {
                     rank: purchase.entitlement.rank,
                     currency: purchase.currency,
                     cost: purchase.cost,
                     balance: purchase.balance,
+                    resumed: purchase.resumed,
                 },
             };
         });

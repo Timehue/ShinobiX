@@ -103,7 +103,8 @@ test('matured travel is committed to the versioned save before its lease is dele
     const name = `travel-lease-${process.pid}`;
     const saveKey = `save:${name}`;
     await kv.set(saveKey, {
-        character: { name },
+        character: { name, equippedBloodlineId: 'bl-new' },
+        savedBloodlines: [{ id: 'bl-new', name: 'New bloodline', rank: 'A Rank', jutsus: [] }],
         currentSector: lease.originSector,
         pendingTravel: { destinationSector: lease.destinationSector, arrivalAt: lease.arrivalAt },
         _saveVersion: 4,
@@ -118,6 +119,8 @@ test('matured travel is committed to the versioned save before its lease is dele
     assert.equal(saved?.currentSector, lease.destinationSector);
     assert.equal(saved?.pendingTravel, null);
     assert.equal(saved?._saveVersion, 5);
+    assert.equal((saved?.character as Record<string, unknown>)?.equippedBloodlineId, 'bl-new');
+    assert.deepEqual((saved?.savedBloodlines as Array<Record<string, unknown>>)?.map((entry) => entry.id), ['bl-new']);
     assert.equal(await travel.getTravelLease(name), null, 'lease clears only after the save commit');
     await kv.del(saveKey);
 });
