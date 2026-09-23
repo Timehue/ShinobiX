@@ -175,6 +175,7 @@ const isSelfCastJutsu = (j: JutsuLike | null | undefined) => Boolean(j)
 function hudStatuses(statuses: ServerArenaStatus[] | undefined): CombatHudStatus[] {
     return (statuses ?? []).map((s) => ({
         name: s.name,
+        source: s.source,
         rounds: s.rounds,
         activeRound: s.activeRound,
         inactiveRound: s.inactiveRound,

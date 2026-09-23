@@ -272,12 +272,12 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
             'ownDotMitigation no longer consumes the shared DR mitigation');
         assert.match(SERVER, /return statuses\.some\(s => s\.source === 'item-defense-pill'\) \? base \* 0\.85 : base/,
             'the neutral Defense Pill must apply its exact reduction after shared DoT mitigation');
-        assert.match(SERVER, /if \(statuses\.some\(s => s\.source === 'item-smoke-bomb'\)\) return 0/,
-            'the neutral Smoke Bomb must fully block ordinary DoT');
+        assert.doesNotMatch(SERVER.match(/function ownDotMitigation\([\s\S]*?\n\}/)?.[0] ?? '', /item-smoke-bomb/,
+            'Smoke Bomb must leave Wound, Poison, and Drain mitigation unchanged');
         assert.match(SERVER, /const dotMitigation = ownDotMitigation\(f, round\)/, 'applyDoTs no longer consumes DR mitigation');
         assert.match(SERVER, /const mitigation = ownDotMitigation\(fighter, round\)/, 'on-spend Poison no longer consumes DR mitigation');
         assert.match(SERVER, /return mitigation <= 0 \? 0 : Math\.max\(1, Math\.floor\(raw \* mitigation\)\)/,
-            'on-spend Poison must preserve full Smoke Bomb prevention and shared mitigation');
+            'on-spend Poison must preserve shared mitigation');
         assertSoloUsesSharedMove('applyDoTs');
     });
     // #5 stacking: PvP's STACKABLE_STATUS set (non-listed statuses replace on

@@ -1444,7 +1444,7 @@ export function CentralHub({
                     { name: "Senbon ×1", cost: 30, desc: "1× Senbon (300 dmg/round, 2 rounds)", itemId: "thrown-senbon", per: 1 },
                     { name: "Serpent Dust ×1", cost: 40, desc: "1× Serpent Dust (10% poison, 2 rounds)", itemId: "thrown-serpent-dust", per: 1 },
                     // Combat items
-                    { name: "Smoke Bomb ×1", cost: 25, desc: "1× Smoke Bomb (100% dmg reduction to both players, 1 round; pierce still deals full dmg)", itemId: "item-smoke-bomb", per: 1 },
+                    { name: "Smoke Bomb ×1", cost: 25, desc: "1× Smoke Bomb (blocks direct damage for both players for 1 round; Pierce and Wound, Poison, and Drain damage still land)", itemId: "item-smoke-bomb", per: 1 },
                     { name: "Attack Pill ×1", cost: 20, desc: "1× Attack Pill (+15% damage dealt, 2 rounds)", itemId: "item-attack-pill", per: 1 },
                     { name: "Defense Pill ×1", cost: 20, desc: "1× Defense Pill (-15% damage received, 2 rounds)", itemId: "item-defense-pill", per: 1 },
                     // Potions stay stackable in the server-side forge settlement.
