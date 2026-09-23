@@ -366,13 +366,17 @@ textarea {
 
 .left-profile-avatar-wrap {
     position: relative !important;
-    display: inline-flex !important;
+    display: flex !important;
+    width: 100%;
+    justify-content: center;
     margin-bottom: 4px !important;
 }
 
 .left-profile-avatar {
-    width: 140px !important;
-    height: 140px !important;
+    width: min(174px, calc(var(--shell-left-current, 220px) - 28px)) !important;
+    height: min(174px, calc(var(--shell-left-current, 220px) - 28px)) !important;
+    box-sizing: border-box;
+    padding: 6px !important;
     display: grid !important;
     place-items: center !important;
     margin-bottom: 0 !important;
@@ -459,11 +463,11 @@ textarea {
 .element-sigil-mark { color: currentColor; filter: drop-shadow(0 0 3px currentColor); }
 
 .left-currencies {
-    width: calc(100% - 32px);
+    width: 100%;
     display: flex;
     flex-direction: column;
     gap: 0.16rem;
-    margin: 0.4rem 16px 0.2rem;
+    margin: 0.4rem 0 0.2rem;
     padding: 0.38rem 0.4rem;
     background:
         linear-gradient(115deg, rgba(234, 201, 119, 0.045), transparent 42%),
@@ -498,6 +502,7 @@ textarea {
 .left-currency-label {
     flex: 1;
     min-width: 0;
+    white-space: nowrap;
     color: #b9c6d4;
     font-weight: 650;
     letter-spacing: 0.01em;
@@ -517,7 +522,7 @@ textarea {
     width: 100%;
     border-top: 1px solid rgba(255,255,255,0.08);
     margin-top: 4px;
-    padding: 4px 6px 0 44px;
+    padding: 6px 8px 0;
     box-sizing: border-box;
 }
 

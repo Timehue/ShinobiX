@@ -20,14 +20,6 @@ html[data-vp="xl"] .right-menu-buttons button {
     font-size: 0.8rem !important;
 }
 
-/* Left profile card: prevent bottom cutoff on 1080p. Top padding seats the
-   avatar/content INSIDE the darker inset panel (::before starts at 56px) —
-   the old 50px let the avatar poke ~6px above the rectangle on xl screens. */
-html[data-vp="xl"] .left-profile-avatar {
-    width: 140px !important;
-    height: 140px !important;
-}
-
 html[data-vp="xl"] .left-profile-name {
     font-size: 0.9rem !important;
 }
@@ -792,11 +784,6 @@ html[data-vp="md"] .right-menu-buttons button {
     padding: 5px 7px !important;
     font-size: 0.76rem !important;
     border-radius: 6px !important;
-}
-
-html[data-vp="md"] .left-profile-avatar {
-    width: clamp(110px, 13vw, 140px) !important;
-    height: clamp(110px, 13vw, 140px) !important;
 }
 
 /* ── sm: mobile / portrait tablet (560–979px) ─────────────────────────────
