@@ -7,7 +7,9 @@ export type HollowGateStepResult = {
     wardSteps?: number;
     stepVersion?: number;
     torchSputtered?: boolean;
-    ambush?: { nodeId: string; kind: "ambush" | "boss" } | null;
+    ambush?: { nodeId: string; kind: "ambush" | "boss" | "card" } | null;
+    pendingAmbush?: { nodeId: string; kind: "ambush" | "boss" | "card" } | null;
+    activeCombat?: { runId: string; nodeId: string; floor: number; kind: "battle" | "elite" | "ambush" | "beast" | "boss"; mode: "pve" | "pet" };
     _saveVersion?: number;
     error?: string;
 };

@@ -26,6 +26,8 @@ import { loadPublishedContent } from '../_content-store.js';
 import { HOLLOW_GATE_LEDGER_ITEM_IDS, type HollowGateRewardLedger } from './_ledger.js';
 import { withKvLock } from '../_lock.js';
 import { isDeepStrictEqual } from 'node:util';
+import { activeCarriedPets } from '../_entitlements.js';
+import { riftEntryReadiness } from '../../shared/rift-entry-readiness.js';
 
 /*
  * /api/hollow-gate/start  — POST only  (docs/hollow-gate-augments.md)
@@ -186,6 +188,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})) as Record<string, unknown>;
         const playerName = safeName(String(body.playerName ?? ''));
         const requestedVariantId = String(body.variantId ?? '').slice(0, 64);
+        const requestedCardDeck = body.cardClashDeck;
         const requestId = typeof body.requestId === 'string' && /^[A-Za-z0-9:_-]{8,96}$/.test(body.requestId) ? body.requestId : '';
         if (!playerName || !requestId) return res.status(400).json({ error: 'Missing playerName or requestId.' });
 
@@ -292,8 +295,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!identity.admin && isIncapacitated(character)) {
                 return { ok: false as const, status: 409, error: 'hospitalized' };
             }
+            // A new rift can contain both a four-pet encounter and a Chronicle
+            // ambush. Refuse an unprepared party before reserving a daily entry.
+            // Existing runs and idempotent retries were handled above.
+            const riftDeck = requestedCardDeck === undefined ? character.cardClashDeck : requestedCardDeck;
+            if (riftDef && !riftEntryReadiness(
+                activeCarriedPets(character).length,
+                riftDeck,
+                character.tileCards,
+            ).ready) {
+                return { ok: false as const, status: 409, error: 'rift-entry-not-ready' };
+            }
+            // The Card Hall save can still be queued when the player descends.
+            // Validate against server-owned cards and commit that selected deck
+            // atomically with the run, so the later ambush sees the same list.
+            const readyCharacter = riftDef && requestedCardDeck !== undefined && Array.isArray(riftDeck)
+                ? { ...character, cardClashDeck: [...riftDeck] }
+                : character;
             const freeEntry = Boolean(riftDef) || eventDef?.keyCost === 0;
-            const afterKey = identity.admin || freeEntry ? character : consumeHollowGateKey(character);
+            const afterKey = identity.admin || freeEntry ? readyCharacter : consumeHollowGateKey(readyCharacter);
             if (!afterKey) return { ok: false as const, status: 409, error: 'hollow-gate-key-required' };
             const attunement = character.hollowGateAttunement && typeof character.hollowGateAttunement === 'object'
                 ? character.hollowGateAttunement as Record<string, unknown>

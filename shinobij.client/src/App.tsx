@@ -498,6 +498,7 @@ import { resumeHollowGateServerRun, settleHollowGateRunOnly, startHollowGateServ
 import { startHollowGateCombat, settleHollowGateCombat, type HollowGateCombatKind, type HollowGateCombatSettleResult, type HollowGateServerFight } from "./lib/hollow-gate-combat-api";
 import { hollowGateRewardLines, resolveHollowGateServerEvent, sealHollowGateFloor } from "./lib/hollow-gate-event-api";
 import { sealHollowGateStep } from "./lib/hollow-gate-step-api";
+import { startHollowGateCardAmbush, settleHollowGateCardAmbush } from "./lib/hollow-gate-card-api";
 import {
     formatHollowGateCombatReward,
     type HollowGatePveFightRef,
@@ -1312,6 +1313,8 @@ export default function App() {
     const [hollowGateRun, setHollowGateRun] = useState<HollowGateShrineRun | null>(null);
     const [hollowGateLog, setHollowGateLog] = useState<string[]>([]);
     const [hollowGatePveFight, setHollowGatePveFight] = useState<HollowGateServerFight | null>(null);
+    const [hollowGateCombatStarting, setHollowGateCombatStarting] = useState(false);
+    const hollowGateCombatStartRef = useRef(false);
     const [hollowGateEvent, setHollowGateEvent] = useState<HollowGateEventModal>(null);
     const [hollowGateHiddenChamber, setHollowGateHiddenChamber] = useState<HiddenChamberState>(null);
     // Intro VN page index — null = not showing, 0..N = pages of the intro sequence.
@@ -1336,7 +1339,11 @@ export default function App() {
         ambushImmediate: boolean;
         step?: { requestId: string; fromX: number; fromY: number; toX: number; toY: number };
     }>>([]);
-    const hollowGatePendingAmbushRef = useRef<{ nodeId: string; kind: "ambush" | "boss" } | null>(null);
+    const [hollowGatePendingAmbush, setHollowGatePendingAmbush] = useState<{
+        token: string; floor: number; nodeId: string; kind: "ambush" | "boss" | "card";
+    } | null>(null);
+    const [hollowGateCardAmbush, setHollowGateCardAmbush] = useState<{ token: string; nodeId: string; matchId: string } | null>(null);
+    const [hollowGateCardStarting, setHollowGateCardStarting] = useState(false);
     const hollowGateStepDrainRef = useRef<Promise<void>>(Promise.resolve());
 
     // A sealed Hollow Gate pet duel, fought on the Showdown engine on the shrine
@@ -1351,7 +1358,7 @@ export default function App() {
     const { walkTo: hollowGateWalkTo, walkTarget: hollowGateWalkTarget } = useHollowGateWalk({
         active: screen === "hollowGateShrine",
         run: hollowGateRun,
-        blocked: !!hollowGateEvent || !!hollowGateHiddenChamber || hollowGateIntroPage !== null || !!hollowGatePveFight || !!hollowGatePetFight,
+        blocked: !!hollowGateEvent || !!hollowGateHiddenChamber || hollowGateIntroPage !== null || !!hollowGatePveFight || !!hollowGatePetFight || !!hollowGatePendingAmbush || !!hollowGateRun?.activeCombat || hollowGateCombatStarting || hollowGateCardStarting,
         moveStep: moveHollowGatePlayer,
     });
 
@@ -1361,6 +1368,45 @@ export default function App() {
     // here. Scattered call sites at the entry points kept missing the restores,
     // which is exactly the path back into a long run.
     useEffect(() => { if (screen === "hollowGateShrine") warmHollowGateGenerator(); }, [screen]);
+
+    // A pending threat ambush lives on the server token, not in the saved board.
+    // Read it on every route into the shrine, including boot restores that never
+    // call resumeHollowGateServerRun. Otherwise refreshing loses the only client
+    // pointer to the encounter and every later step is rejected.
+    useEffect(() => {
+        if (screen !== "hollowGateShrine") {
+            setHollowGatePendingAmbush(null);
+            return;
+        }
+        const token = hollowGateRun?.runToken;
+        const playerName = character?.name;
+        if (!token || !playerName || hollowGateRun?.activeCombat) return;
+        const floor = hollowGateRun.floor;
+        let cancelled = false;
+        void sealHollowGateFloor(playerName, token, hollowGateRun).then((result) => {
+            if (cancelled) return;
+            if (result.position || result.activeCombat) {
+                setHollowGateRun((previous) => {
+                    if (!previous || previous.runToken !== token || previous.floor !== floor) return previous;
+                    return {
+                        ...previous,
+                        ...(result.position && previous.playerX === hollowGateRun.playerX && previous.playerY === hollowGateRun.playerY
+                            ? { playerX: result.position.x, playerY: result.position.y }
+                            : {}),
+                        ...(result.activeCombat ? { activeCombat: result.activeCombat } : {}),
+                    };
+                });
+            }
+            if (result.activeCombat) {
+                return;
+            } else if (!result.ok) {
+                pushHollowGateLog(result.error || "The saved Hollow Gate floor could not be resealed.");
+            } else if (result.pendingAmbush) {
+                setHollowGatePendingAmbush({ ...result.pendingAmbush, token, floor });
+            }
+        });
+        return () => { cancelled = true; };
+    }, [screen, character?.name, hollowGateRun?.runToken, hollowGateRun?.floor]);
 
     // Persist the in-progress shrine run to the character so it survives refresh:
     // mirror local hollowGateRun into character.hollowGateRun whenever it changes inside the shrine.
@@ -1727,11 +1773,8 @@ export default function App() {
         }
     }, [character, screen, clanWarStateVersion, launchClanWarBattle, petBattleActive, pendingPetBattleOpponent, gameplayMutationsOpen]);
 
-    // Tracks whether the player is mid-Shinobi-Tile card game launched from a
-    // Hollow Gate tile_game tile. Used to apply the -20% maxHp penalty on
-    // loss + route back to the shrine afterwards. Now also read: it drives the
-    // App-level battle-lock keeper for the hollow-gate tile seal so a refresh
-    // can't flee the seal back to the shrine.
+    // Keeps the app-level battle lock active while a rift Chronicle ambush is
+    // on screen. The server run and match id remain the actual seal authority.
     const [hollowGateTileGameActive, setHollowGateTileGameActive] = useState(false);
 
     // liveSectorPlayers now lives in lib/presence-store (external store) so the
@@ -2858,11 +2901,19 @@ export default function App() {
                             void postBattleLock({ action: "resolve", playerName: normalized.name, battleId: bootLock.battleId, outcome: "loss" });
                             setScreen("hospital");
                         } else if (bootLock.kind === "hollowGateTiles") {
-                            // Hollow-gate seal but no active run (it ended) — the seal
-                            // is moot; just clear the lock and route to a safe screen.
-                            // No penalty: the run is already over.
+                            // The Chronicle match is bound to the server run, not
+                            // this compatibility lock. Rehydrate the saved board;
+                            // floor reseal will return the pending card ambush and
+                            // card-start will resume its exact AI match.
                             void postBattleLock({ action: "resolve", playerName: normalized.name, battleId: bootLock.battleId });
-                            setScreen(normalized.hollowGateRun && !normalized.hollowGateRun.completed ? "hollowGateShrine" : "village");
+                            if (normalized.hollowGateRun && !normalized.hollowGateRun.completed) {
+                                setHollowGateRun(normalized.hollowGateRun);
+                                setCurrentBiome("shadow");
+                                setCurrentWeather(weatherForBiome("shadow"));
+                                setScreen("hollowGateShrine");
+                            } else {
+                                setScreen("village");
+                            }
                         } else {
                             // arena (and other hospitalizing fights): the server
                             // applies hp:0 + hospitalized atomically with the unlock,
@@ -4850,6 +4901,19 @@ export default function App() {
             return;
         }
 
+        if (variant?.id?.startsWith("rift-")) {
+            const { riftEntryReadiness, riftEntryRequirementMessage } = await import("../../shared/rift-entry-readiness");
+            const readiness = riftEntryReadiness(
+                activeCarriedPets<Pet>(character).length,
+                character.cardClashDeck,
+                character.tileCards,
+            );
+            if (!readiness.ready) {
+                alert(riftEntryRequirementMessage(readiness));
+                return;
+            }
+        }
+
         // Entry rules — BOTH conditions required to start a new run:
         //   (1) The Kage has purchased the Hollow Gate upgrade for this village.
         //       (Event gates skip this unless the config demands it.)
@@ -4887,13 +4951,17 @@ export default function App() {
         // → hard stop. A reward-bearing local fallback is never mounted.
         // The settle ledger scales with floorDepth — a short event gate
         // declares its own depth so settlement matches the shorter run.
-        const serverStart = await startHollowGateServerRun(character.name, hollowGateRunMaxFloor({ variant }), variant?.id);
+        const serverStart = await startHollowGateServerRun(character.name, hollowGateRunMaxFloor({ variant }), variant?.id, undefined, character.cardClashDeck);
         if (serverStart?.reason === "daily-cap") {
             alert("The daily entry seal has reached its limit. Return at dawn.");
             return;
         }
         // Named explicitly: the generic fallback below says to retry when the connection is stable, which is unactionable until discharge.
         if (serverStart?.reason === "hospitalized") { alert("You are still being treated. Leave the hospital before descending — no key was spent."); return; }
+        if (serverStart?.reason === "rift-entry-not-ready") {
+            alert("The rift requires 4 carried pets and a legal 40-card Chronicle deck from Card Hall. Prepare your party and deck, then return. No daily entry was used.");
+            return;
+        }
         if (!serverStart?.token || !serverStart.character) {
             alert("The Hollow Gate could not establish a secure server run. No key was spent locally; retry when the connection is stable.");
             return;
@@ -5011,10 +5079,43 @@ export default function App() {
         setScreen("hollowGateShrine");
         attachStartedRun(serverStart, { playerName: character.name, setRun: setHollowGateRun, setCharacter, setEvent: setHollowGateEvent, pushLog: pushHollowGateLog });
     }
-    // Threat ambushes always present the same readable Hollow Hound choice as
-    // authored battle tiles. The run never silently flips a coin on combat mode.
-    function triggerHollowGateAmbush(sealed?: { nodeId: string; kind: "ambush" | "boss" }) {
+    // The server chooses one card ambush for a rift. Other threat encounters
+    // keep the same readable Hollow Hound choice as authored battle tiles.
+    function triggerHollowGateAmbush(sealed?: { nodeId: string; kind: "ambush" | "boss" | "card" }) {
         if (!character) return;
+        if (sealed?.kind === "card") {
+            const token = hollowGateRun?.runToken;
+            if (!token) return;
+            setHollowGateCardStarting(true);
+            void startHollowGateCardAmbush(character.name, token, sealed.nodeId).then((started) => {
+                setHollowGateCardStarting(false);
+                const activeCharacter = characterRef.current;
+                if (activeCharacter?.name !== character.name || activeCharacter?.hollowGateRun?.runToken !== token) return;
+                if (!started.ok || !started.matchId) {
+                    setHollowGateEvent({
+                        title: "Chronicle Seal Pending",
+                        body: started.error || "The card ambush could not open. Retry when the connection is stable.",
+                        kind: "tile_game",
+                        choices: [
+                            { label: "Retry Showdown", tone: "primary", onSelect: () => {
+                                setHollowGateEvent(null);
+                                triggerHollowGateAmbush(sealed);
+                            } },
+                            { label: "Emergency Forfeit", tone: "danger", onSelect: () => {
+                                setHollowGateEvent(null);
+                                void abandonHollowGateShrine();
+                            } },
+                        ],
+                    });
+                    return;
+                }
+                pushHollowGateLog("A Chronicle Keeper blocks the corridor. Win or withstand the card showdown to break the ambush seal.");
+                setHollowGateCardAmbush({ token, nodeId: sealed.nodeId, matchId: started.matchId });
+                setHollowGateTileGameActive(true);
+                setScreen("hollowGateTiles");
+            });
+            return;
+        }
         // Final-floor ambush → boss fight. Avoids the climax getting cheated by
         // a random ambush firing before the boss tile. The player still sees
         // the boss fight + the shrine-cleared modal on win.
@@ -5026,16 +5127,36 @@ export default function App() {
         pushHollowGateLog("Footsteps converge in the side passages. A Hollow Hound lunges from the mist.");
         void startHollowGateBattle({ isAmbush: true, nodeId: sealed?.nodeId });
     }
+    async function finishHollowGateCardAmbush() {
+        if (!character || !hollowGateCardAmbush) throw new Error("The rift card binding is missing. Return to the shrine and resume it.");
+        const settled = await settleHollowGateCardAmbush(character.name, hollowGateCardAmbush.token, hollowGateCardAmbush.matchId);
+        if (!settled.ok || !settled.character || !commitVersionedCharacter(settled.character, settled._saveVersion)) {
+            throw new Error(settled.error || "The rift card result is still sealing. Retry Continue.");
+        }
+        setHollowGateRun(previous => previous ? { ...previous, threat: 0 } : previous);
+        pushHollowGateLog(settled.won
+            ? `The Chronicle Keeper falls. The card ambush seal breaks. +${settled.reward?.ryo ?? 0} ryo, +${settled.reward?.auraDust ?? 0} Aura Dust.`
+            : "The Chronicle Keeper wins. The ambush seal fades, and you lose 20% max HP.");
+        setHollowGateCardAmbush(null);
+        setHollowGateTileGameActive(false);
+        setScreen("hollowGateShrine");
+    }
     useEffect(() => {
-        if (screen !== "hollowGateShrine" || hollowGateEvent || hollowGateHiddenChamber || hollowGatePveFight || hollowGatePetFight) return;
-        const pending = hollowGatePendingAmbushRef.current;
+        if (screen !== "hollowGateShrine" || hollowGateIntroPage !== null || hollowGateEvent
+            || hollowGateHiddenChamber || hollowGatePveFight || hollowGatePetFight
+            || hollowGateCombatStarting || hollowGateCardStarting || hollowGateRun?.activeCombat) return;
+        const pending = hollowGatePendingAmbush;
         if (!pending) return;
-        hollowGatePendingAmbushRef.current = null;
+        if (pending.token !== hollowGateRun?.runToken || pending.floor !== hollowGateRun?.floor) {
+            setHollowGatePendingAmbush(null);
+            return;
+        }
+        setHollowGatePendingAmbush(null);
         triggerHollowGateAmbush(pending);
-    }, [screen, hollowGateEvent, hollowGateHiddenChamber, hollowGatePveFight, hollowGatePetFight]);
+    }, [screen, hollowGateIntroPage, hollowGateEvent, hollowGateHiddenChamber, hollowGatePveFight, hollowGatePetFight, hollowGateCombatStarting, hollowGateCardStarting, hollowGatePendingAmbush, hollowGateRun?.runToken, hollowGateRun?.floor, hollowGateRun?.activeCombat]);
     async function startHollowGateBattle(opts: { isBoss?: boolean; isAmbush?: boolean; isBeast?: boolean; isElite?: boolean; nodeId?: string; forceMode?: "pve" | "pet" }) {
         if (!character) return;
-        if (hollowGatePveFight || hollowGatePetFight) return;
+        if (hollowGatePveFight || hollowGatePetFight || hollowGateCombatStartRef.current) return;
         const token = hollowGateRun?.runToken;
         if (!token) {
             alert("This legacy Hollow Gate run has no secure combat seal. Leave the shrine and begin a new server-backed run before fighting.");
@@ -5074,6 +5195,8 @@ export default function App() {
             return;
         }
         const mode: "pve" | "pet" = opts.forceMode === "pet" && petReady ? "pet" : "pve";
+        hollowGateCombatStartRef.current = true;
+        setHollowGateCombatStarting(true);
         try {
             const started = await startHollowGateCombat({
                 playerName: character.name,
@@ -5093,6 +5216,9 @@ export default function App() {
         } catch (error) {
             reportHollowGateRunError(error, "The Hollow Gate encounter could not start.", () => clearHollowGateRunState(true));
             return;
+        } finally {
+            hollowGateCombatStartRef.current = false;
+            setHollowGateCombatStarting(false);
         }
     }
 
@@ -5189,7 +5315,7 @@ export default function App() {
             return;
         }
         const { resolveHollowGateTile: resolveHollowGateTileImpl } = runtime;
-        resolveHollowGateTileImpl(tile, x, y, {
+        await resolveHollowGateTileImpl(tile, x, y, {
             character, hollowGateRun,
             setHollowGateRun, setHollowGateEvent, setHollowGateHiddenChamber,
             onVersionedCharacter: commitVersionedCharacter,
@@ -5225,7 +5351,17 @@ export default function App() {
                     playerX: step.position?.x ?? fx.step!.fromX,
                     playerY: step.position?.y ?? fx.step!.fromY,
                 } : previous);
-                continue;
+                if (step.pendingAmbush) {
+                    setHollowGatePendingAmbush({ ...step.pendingAmbush, token: hollowGateRun.runToken, floor: hollowGateRun.floor });
+                } else if (step.activeCombat) {
+                    setHollowGateRun((previous) => previous && previous.runToken === hollowGateRun.runToken
+                        ? { ...previous, activeCombat: step.activeCombat }
+                        : previous);
+                }
+                // The remaining queued origins were plotted from an unaccepted
+                // position. Discard them instead of replaying a string of 409s.
+                hollowGateMoveFxRef.current = [];
+                break;
             }
             acceptExternalSaveVersion(step._saveVersion, character.name);
             setHollowGateRun((previous) => previous ? {
@@ -5237,15 +5373,33 @@ export default function App() {
                 wardSteps: step.wardSteps ?? previous.wardSteps,
             } : previous);
             if (step.torchSputtered) pushHollowGateLog("The Torch of Reiki sputters out. Threat builds faster in the dark.");
-            if (step.ambush) hollowGatePendingAmbushRef.current = step.ambush;
             if (fx.justResolved) {
                 const { tile, nx, ny } = fx.justResolved;
                 await resolveHollowGateTile(tile, nx, ny);
             }
+            if (step.ambush) {
+                // A click-walk may have optimistically drawn one more tile while
+                // this request was in flight. Restore the accepted server tile
+                // before opening combat and discard that unsealed queued step.
+                setHollowGateRun((previous) => previous ? {
+                    ...previous,
+                    playerX: step.position?.x ?? fx.step!.toX,
+                    playerY: step.position?.y ?? fx.step!.toY,
+                } : previous);
+                // An authored fight on this tile takes priority and clears the
+                // threat ambush when its server binding starts. Other tiles may
+                // open a modal; the effect waits until that modal closes.
+                const kind = fx.justResolved?.tile.kind;
+                if (kind !== "battle" && kind !== "elite" && kind !== "boss" && kind !== "pet_battle" && kind !== "tile_game") {
+                    setHollowGatePendingAmbush({ ...step.ambush, token: hollowGateRun.runToken, floor: hollowGateRun.floor });
+                }
+                hollowGateMoveFxRef.current = [];
+                break;
+            }
         }
     }
     function moveHollowGatePlayer(dx: number, dy: number) {
-        if (hollowGateEvent || hollowGateHiddenChamber) return;
+        if (hollowGateEvent || hollowGateHiddenChamber || hollowGatePendingAmbush || hollowGateCardStarting || hollowGateRun?.activeCombat || hollowGateCombatStartRef.current) return;
         if (hollowGateIntroPage !== null) return;
         // A post-boss descend is building the next floor. The current board is
         // about to be replaced, so a step taken now would be discarded — and its
@@ -5571,15 +5725,8 @@ export default function App() {
                     />
                 )}
 
-                {/* App-level battle-lock keeper for the Hollow Gate tile seal.
-                    Lives here (not inside the duel screen, which has many render
-                    branches + leave paths) and is driven by the App-level
-                    hollowGateTileGameActive flag, so it reliably locks while the
-                    seal is in progress and resolves on win/lose/leave. A refresh
-                    is forced back into the seal instead of escaping to the shrine.
-                    (The tile board itself isn't persisted — re-entry starts a
-                    fresh seal; exact board-resume isn't worth the risk for a card
-                    game.) */}
+                {/* Compatibility battle lock for the rift card screen. The
+                    server run and Chronicle match own recovery after refresh. */}
                 {character && (
                     <BattleLockKeeper
                         active={hollowGateTileGameActive}
@@ -6063,31 +6210,38 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "shinobiTiles" && character && <CardHall character={character} updateCharacter={setCharacter} creatorCards={creatorCards} onBack={goBack} onReturnCircuit={() => navigate("dojoCircuit")} autoStart={cardAutoStart} onAutoStartConsumed={() => setCardAutoStart(false)} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} onStartFreePlay={(matchId) => { try { sessionStorage.setItem("cardClashFreePlay.v1", JSON.stringify({ matchId })); } catch { /* ignore */ } setScreen("cardClashFreePlay"); }} />}
                 {!activeTriggeredEvent && screen === "guides" && <GuidesLibrary onExit={goBack} />}
                 {!activeTriggeredEvent && screen === "eventTiles" && character && pendingEventEncounter && <CardClashDuel character={character} creatorCards={creatorCards} tileDifficulty={pendingEventEncounter.battle?.tileDifficulty ?? "normal"} onDungeonWin={completeEventEncounter} onDungeonLeave={leaveEventEncounter} />}
-                {/* Hollow Gate Shinobi Tile card-game tile. Win/lose/leave
-                    callbacks all route back to the shrine; loss applies
-                    the 20% maxHp penalty. Difficulty scales with floor. */}
+                {/* The rift Chronicle ambush resumes its exact server match. */}
                 {!activeTriggeredEvent && screen === "hollowGateTiles" && character && hollowGateRun && (
                     <CardClashDuel
                         character={character}
                         creatorCards={creatorCards}
                         dungeonSceneImage={sharedImages["shrine:tile-tile-game"]}
                         tileDifficulty={hollowGateRun.floor >= 4 ? "normal" : "easy"}
-                        onDungeonWin={() => {
-                            pushHollowGateLog("The retired Tile Seal closes without granting persistent rewards.");
-                            setHollowGateTileGameActive(false);
-                            setScreen("hollowGateShrine");
-                        }}
-                        onDungeonLose={() => {
-                            pushHollowGateLog("The retired Tile Seal closes without changing server-owned HP or Threat.");
-                            setHollowGateTileGameActive(false);
-                            setScreen("hollowGateShrine");
-                        }}
+                        hollowGateCardMatchId={hollowGateCardAmbush?.matchId}
+                        onDungeonWin={finishHollowGateCardAmbush}
+                        onDungeonLose={finishHollowGateCardAmbush}
                         onDungeonLeave={() => {
-                            // Abandoned before result → no penalty, no
-                            // reset (player didn't actually engage).
-                            pushHollowGateLog("You step away from the stone table. The tiles dim.");
+                            const bound = hollowGateCardAmbush;
+                            if (!bound) return;
+                            setHollowGateCardAmbush(null);
                             setHollowGateTileGameActive(false);
                             setScreen("hollowGateShrine");
+                            setHollowGateEvent({
+                                title: "Chronicle Ambush Sealed",
+                                body: "The card match is still bound to this rift. Resume it to clear the corridor, or forfeit the run.",
+                                kind: "tile_game",
+                                choices: [
+                                    { label: "Resume Showdown", tone: "primary", onSelect: () => {
+                                        setHollowGateEvent(null);
+                                        setHollowGatePendingAmbush(null);
+                                        triggerHollowGateAmbush({ nodeId: bound.nodeId, kind: "card" });
+                                    } },
+                                    { label: "Emergency Forfeit", tone: "danger", onSelect: () => {
+                                        setHollowGateEvent(null);
+                                        void abandonHollowGateShrine();
+                                    } },
+                                ],
+                            });
                         }}
                     />
                 )}

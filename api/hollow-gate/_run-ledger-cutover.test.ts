@@ -35,7 +35,8 @@ test('run start is idempotent across a lost response and persists the run before
         'the durable run must be written before the paid character mutation is committed',
     );
     assert.match(client, /for \(let attempt = 0; attempt < 2/);
-    assert.match(client, /JSON\.stringify\(\{ playerName, floorDepth, variantId, requestId \}\)/);
+    assert.match(client, /JSON\.stringify\(\{ playerName, floorDepth, variantId, requestId,/);
+    assert.match(client, /cardClashDeck/);
     const app = source('shinobij.client', 'src', 'App.tsx');
     assert.match(app, /character\.lastHollowGateStart\?\.requestId/);
     assert.match(app, /pending\.requestId/);
