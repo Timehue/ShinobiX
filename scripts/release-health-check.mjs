@@ -39,7 +39,13 @@ async function fetchJson(path) {
         throw new Error(`${url} returned non-JSON body with HTTP ${res.status}`);
     }
     if (!res.ok) {
-        throw new Error(`${url} failed with HTTP ${res.status}`);
+        const failedChecks = path === '/health?deep=1' && body.checks && typeof body.checks === 'object'
+            ? Object.entries(body.checks).filter(([, passed]) => passed === false).map(([name]) => name)
+            : [];
+        const diagnostic = path === '/health?deep=1'
+            ? `; failedChecks=${failedChecks.join(',') || 'none'}; backupFresh=${String(body.backup?.fresh ?? 'unknown')}; probeError=${Boolean(body.error)}`
+            : '';
+        throw new Error(`${url} failed with HTTP ${res.status}${diagnostic}`);
     }
     return body;
 }

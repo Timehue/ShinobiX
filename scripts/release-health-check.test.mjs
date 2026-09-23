@@ -73,6 +73,17 @@ for (const [name, options, error] of [
     });
 }
 
+test('unhealthy deep health identifies failed checks without leaking the provider error', async () => {
+    const result = await probe({ status: 503, deep: {
+        checks: { set: true, get: false, backupFresh: false },
+        backup: { fresh: false },
+        error: 'private-provider-diagnostic',
+    } });
+    assert.notEqual(result.exit, 0);
+    assert.match(result.output, /failedChecks=get,backupFresh; backupFresh=false; probeError=true/);
+    assert.doesNotMatch(result.output, /private-provider-diagnostic/);
+});
+
 const healthy = { count: 25, slo: { healthy: true, evaluable: true, minimumRequests: 20, breaches: [] } };
 
 test('SLO assessment rejects absent, contradictory and insufficient evidence', () => {
