@@ -150,7 +150,7 @@ export function BattleLogHistoryPanel({
             try {
                 const res = await fetchBattleHistory({ signal: ac.signal });
                 if (ac.signal.aborted) return;
-                if (!res.ok) {
+                if (res.ok !== true) {
                     // Keep the legacy list visible; the save copy is still useful.
                     setError(res.message);
                     setLoading(false);

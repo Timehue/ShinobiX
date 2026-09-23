@@ -196,7 +196,7 @@ export function SectorTracesModal({ state, traces, playerName, playerRyo, sector
         setBusy(true); setNote(null);
         const result = await leaveTrailSign(playerName, traces.sector, playerTile, text);
         setBusy(false);
-        if (result.ok) {
+        if (result.ok === true) {
             setDraft("");
             setNote("Your sign is planted on the trail.");
             onTraces({ ...traces, signs: result.signs });
@@ -226,7 +226,7 @@ export function SectorTracesModal({ state, traces, playerName, playerRyo, sector
         setBusy(true); setNote(null);
         const result = await offerAtShrine(playerName, shrine.id, amount);
         setBusy(false);
-        if (result.ok) {
+        if (result.ok === true) {
             onRyo(result.ryo);
             onTraces({ ...traces, shrine: result.shrine });
             setNote(`${def?.blessing ?? "The shrine accepts your offering."}`);

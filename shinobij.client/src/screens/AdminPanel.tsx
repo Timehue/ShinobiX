@@ -869,7 +869,7 @@ export function AdminPanel({
                 if (weeklyBossOperationIsCurrent(operationToken)) setSharedWeeklyBossAiId(committedAiId);
             });
             if (!weeklyBossOperationIsCurrent(operationToken)) return;
-            if (!result.ok) {
+            if (result.ok !== true) {
                 alert(`Override failed: ${result.error}`);
                 return;
             }
@@ -889,7 +889,7 @@ export function AdminPanel({
                 setAdminWeeklyBossAiId("");
             });
             if (!weeklyBossOperationIsCurrent(operationToken)) return;
-            if (!result.ok) {
+            if (result.ok !== true) {
                 alert(`Clear override failed: ${result.error}`);
                 return;
             }
@@ -905,7 +905,7 @@ export function AdminPanel({
         try {
             const result = await spawnAdminWeeklyBoss(fetch, operationToken.adminCredential);
             if (!weeklyBossOperationIsCurrent(operationToken)) return;
-            if (!result.ok) {
+            if (result.ok !== true) {
                 alert(`Spawn failed: ${result.error}`);
                 return;
             }
@@ -1243,7 +1243,7 @@ export function AdminPanel({
     async function pmGive() {
         const loaded = pmLoadedSaveRef.current;
         const initialCheck = prepareAdminPlayerSaveWrite(loaded, pmTargetNameRef.current);
-        if (!initialCheck.ok) { setPmMsg(playerWriteIdentityMessage(initialCheck.reason)); return; }
+        if (initialCheck.ok !== true) { setPmMsg(playerWriteIdentityMessage(initialCheck.reason)); return; }
         if (!adminPw) { setPmMsg("❌ Admin password missing. Log out and back into admin."); return; }
         // Summarize the grant and confirm before writing to the player's save.
         const giftParts: string[] = [];
@@ -1266,7 +1266,7 @@ export function AdminPanel({
                 return;
             }
             const currentCheck = prepareAdminPlayerSaveWrite(loaded, pmTargetNameRef.current);
-            if (!currentCheck.ok) { setPmMsg(playerWriteIdentityMessage(currentCheck.reason)); return; }
+            if (currentCheck.ok !== true) { setPmMsg(playerWriteIdentityMessage(currentCheck.reason)); return; }
             const char: Record<string, unknown> = { ...(currentCheck.write.snapshot.character as Record<string, unknown>) };
             // Give pet
             if (pmGivePetId) {
@@ -1286,7 +1286,7 @@ export function AdminPanel({
             }
             const updated = { ...currentCheck.write.snapshot, character: char };
             const finalCheck = prepareAdminPlayerSaveWrite(loaded, pmTargetNameRef.current, updated);
-            if (!finalCheck.ok) { setPmMsg(playerWriteIdentityMessage(finalCheck.reason)); return; }
+            if (finalCheck.ok !== true) { setPmMsg(playerWriteIdentityMessage(finalCheck.reason)); return; }
             const res = await fetch(adminPlayerSaveUrl(finalCheck.write.ownerKey, true), {
                 method: "POST", headers: { "Content-Type": "application/json", "x-admin-password": adminPw },
                 body: stringifyServerSavePayload(finalCheck.write.snapshot),
@@ -1437,7 +1437,7 @@ export function AdminPanel({
             return;
         }
         const checked = prepareAdminPlayerSaveWrite(loaded, pmEditNameRef.current, updatedSnap);
-        if (!checked.ok) { setPmEditMsg(`❌ ${playerWriteIdentityMessage(checked.reason)}`); return; }
+        if (checked.ok !== true) { setPmEditMsg(`❌ ${playerWriteIdentityMessage(checked.reason)}`); return; }
         if (!adminPw) { setPmEditMsg("❌ Admin password missing. Log out and back into admin."); return; }
         const mutation = beginPmMutation(checked.write.ownerKey);
         if (!mutation) { setPmEditMsg("❌ A player save is already in progress."); return; }
@@ -1516,7 +1516,7 @@ export function AdminPanel({
             );
             const freshSnap = { ...loaded.snapshot, character: fresh };
             const checked = prepareAdminPlayerSaveWrite(loaded, mutation.ownerKey, freshSnap);
-            if (!checked.ok) { setPmMsg(`❌ ${playerWriteIdentityMessage(checked.reason)}`); return; }
+            if (checked.ok !== true) { setPmMsg(`❌ ${playerWriteIdentityMessage(checked.reason)}`); return; }
             const saveRes = await fetch(adminPlayerSaveUrl(checked.write.ownerKey, true), {
                 method: "POST", headers: { "Content-Type": "application/json", "x-admin-password": adminPw },
                 body: stringifyServerSavePayload(checked.write.snapshot),
