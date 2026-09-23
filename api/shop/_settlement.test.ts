@@ -55,6 +55,20 @@ test('Ancient Beast Seals use Fate Shards and remain stackable in the Grand Mark
     assert.deepEqual(bought.character.itemStacks, [{ itemId: 'beast-seal-ancient', count: 2 }]);
 });
 
+test('settlement accepts a 99-seal order and counts an existing seal toward the carry limit', () => {
+    const ancient = item({ id: 'beast-seal-ancient', name: 'Ancient Beast Seal', slot: 'item', rarity: 'legendary', cost: 15, stackable: true, serviceItem: true, levelReq: 1 });
+    const input = character({ level: 1, fateShards: 1500, itemStacks: [{ itemId: ancient.id, count: 1 }] });
+    const bought = applyItemPurchase(input, ancient, 99, 'ancientsealpurchase099', 100);
+    assert.equal(bought.ok, true);
+    if (!bought.ok || bought.value.kind !== 'item-purchase') return;
+    assert.equal(bought.value.quantity, 98);
+    assert.equal(bought.value.totalCost, 1470);
+    assert.equal(bought.character.fateShards, 30);
+    assert.deepEqual(bought.character.itemStacks, [{ itemId: ancient.id, count: 99 }]);
+    assert.equal(applyItemPurchase(bought.character, ancient, 1, 'ancientsealpurchase100', 101).ok, false);
+    assert.equal(applyItemPurchase(character(), item({ id: 'pill', slot: 'item', stackable: true, weaponEffect: 'damage' }), 51, 'regularbulkquantity51', 100).ok, false);
+});
+
 test('card packs draw only from the server rarity pool and debit only once', () => {
     const cards = new Map<string, SettlementCard>([
         ['common-a', { id: 'common-a', rarity: 'common' }],

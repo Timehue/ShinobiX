@@ -1,4 +1,5 @@
 import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
+import { wildBindingSeal } from '../../shared/wild-binding.js';
 
 type Character = Record<string, unknown>;
 
@@ -30,8 +31,9 @@ export function purchaseCatalogItem(character: Character, itemId: unknown, qtyRa
     const currency = premium ? 'fateShards' : 'ryo';
     const combatConsumable = item.slot === 'thrown' || item.slot === 'potion'
         || (item.slot === 'item' && (item.weaponEffect != null || item.apCost != null || item.weaponEp != null || item.restoreChakra != null || item.restoreStamina != null));
-    const cap = item.slot === 'potion' ? 2 : combatConsumable ? 50 : null;
-    let qty = cap == null ? 1 : Math.max(1, Math.min(50, whole(qtyRaw) || 1));
+    const beastSeal = wildBindingSeal(id);
+    const cap = beastSeal ? 99 : item.slot === 'potion' ? 2 : combatConsumable ? 50 : null;
+    let qty = cap == null ? 1 : Math.max(1, Math.min(cap, whole(qtyRaw) || 1));
     if (cap != null) qty = Math.min(qty, Math.max(0, cap - itemCount(character, id)));
     else if (itemCount(character, id) > 0) return { ok: false as const, reason: 'already-owned' as const };
     if (qty <= 0) return { ok: false as const, reason: 'hold-cap' as const };
