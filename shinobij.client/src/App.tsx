@@ -6326,9 +6326,10 @@ export default function App() {
                         const settledBattleId = pvpBattleId;
                         const context = pvpBattleContext;
                         const rewardSector = context?.sector ?? currentSector;
-                        // Hoisted here so every reward/world-state write below can skip a casual spar.
-                        const isFriendlyDuel = !context?.mode
-                            || (context.mode === "standard" && !context.clanWarPoints && !context.sectorAttack);
+                        // Arena-launched ranked matches can have no local battle
+                        // context. Use the server's sanctioned progression decision
+                        // for bounties and missions, never that optional UI state.
+                        const isFriendlyDuel = serverClaim?.progressionAuthorized !== true;
                         // Kage transfer replays from the committed terminal session on the server.
 
                         let projection = pvpContinuationResultRef.current.get(pvpSettlementScopeKey);

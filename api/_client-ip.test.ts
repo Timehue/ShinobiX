@@ -71,6 +71,22 @@ describe('clientIp', () => {
         assert.equal(trustedVisitorIp(r, 'railway'), '86.123.45.67');
     });
 
+    it('selects Railway header handling from its runtime environment', () => {
+        const prior = process.env.RAILWAY_SERVICE_ID;
+        process.env.RAILWAY_SERVICE_ID = 'test-service';
+        try {
+            const r = req({
+                'x-real-ip': '86.123.45.67',
+                'x-forwarded-for': '162.158.14.68, 79.127.200.33',
+            }, '100.64.0.3');
+            assert.equal(clientIp(r), '86.123.45.67');
+            assert.equal(trustedVisitorIp(r), '86.123.45.67');
+        } finally {
+            if (prior === undefined) delete process.env.RAILWAY_SERVICE_ID;
+            else process.env.RAILWAY_SERVICE_ID = prior;
+        }
+    });
+
     it('does not trust a forged Cloudflare visitor header on a direct Railway request', () => {
         const r = req({
             'cf-connecting-ip': '1.2.3.4',

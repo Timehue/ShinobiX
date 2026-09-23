@@ -54,17 +54,13 @@ describe("PvP bounty completion callback", () => {
 });
 
 /*
- * The bounty claim outlives its own usefulness before the settlement it gates
- * does: api/pvp/bounty.ts caps a claim at 2h (SESSION_REPLAY_WINDOW_MS) while
- * pvp:rewarded:<name>:<battleId> lives 48h. A winner who closes the result
- * screen and comes back the next day therefore replays the completion into a
- * 409 — and before this, that threw and re-trapped them on exactly the message
- * the shared-connection 403 used to produce. Verified live 2026-09-02: Rill's
- * save carried ZERO pvp-* battle-history rows across two duels because this one
- * call is the first remote step of App.handlePvpWin.
+ * A 409 after the sealed recovery window is a final no-payout answer about an
+ * optional bounty. It must not re-trap the winner's durable PvP completion.
+ * This call is the first remote step of App.handlePvpWin, so throwing here
+ * previously kept the rest of battle completion pending.
  */
 describe("PvP bounty claims that outlived their window", () => {
-    it("settles a battle that is past the 2h bounty replay window", async () => {
+    it("settles a battle that is past the bounty recovery window", async () => {
         const result = await claimBountyOnWin(
             "Rill",
             "pvp-too-old-for-a-bounty",
