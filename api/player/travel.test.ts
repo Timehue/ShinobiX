@@ -220,4 +220,23 @@ describe('player travel — authoritative origin and durable-first admission', {
         assert.equal(onlineStore.get(PLAYER)?.tile, 77, 'a fresh session resumes on the spot the player last stood on');
         assert.equal((await kv.get<Json>(`save:${PLAYER}`))?.currentTile, exit.destinationTile, 'without a single save write for the walk');
     });
+
+    it('allows rapid road exploration while retaining the map travel cap', async () => {
+        const { __resetRateLimitsForTest } = await import('../_ratelimit.js');
+        __resetRateLimitsForTest();
+        for (let attempt = 0; attempt <= 120; attempt++) {
+            await place(exit.sector, exit.tile);
+            const out = await post(travelHandler, edgeBody());
+            assert.equal(out.statusCode, attempt < 120 ? 200 : 429,
+                `road crossing ${attempt + 1}: ${JSON.stringify(out.body)}`);
+        }
+
+        __resetRateLimitsForTest();
+        for (let attempt = 0; attempt < 31; attempt++) {
+            await place(exit.sector, exit.tile);
+            const out = await post(travelHandler, { destinationSector: exit.destinationSector });
+            assert.equal(out.statusCode, attempt < 30 ? 200 : 429,
+                `map trip ${attempt + 1}: ${JSON.stringify(out.body)}`);
+        }
+    });
 });
