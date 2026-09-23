@@ -234,7 +234,7 @@ test('sleeper-kill handler: an ineligible (same-device) KO leaves the bounty for
     await stage('altfarm', 'dozy', 6);
     // The victim must have been SEEN on that address for the overlap to exist —
     // seeding only the attacker's request IP proves nothing about a shared device.
-    const sharedIp = '10.9.9.9';
+    const sharedIp = '86.123.45.67';
     await stampPlayerIp({ headers: { 'x-forwarded-for': sharedIp }, socket: { remoteAddress: sharedIp } }, 'dozy');
     await stampPlayerIp({ headers: { 'x-forwarded-for': sharedIp }, socket: { remoteAddress: sharedIp } }, 'altfarm');
     assert.equal(await hasRecentIpOrFpOverlap('altfarm', 'dozy'), true, 'test setup: the two must look same-device');

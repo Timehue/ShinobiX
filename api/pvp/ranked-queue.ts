@@ -23,7 +23,7 @@ import {
 import { rankedSeasonAdmissionsPaused } from '../cron/_ranked-season.js';
 import { isBelowAttackableFloor, ATTACKABLE_MIN_LEVEL } from '../_realtime/presence-gating.js';
 import { isIncapacitated } from '../_elapsed-state.js';
-import { hasRecentIpOrFpOverlapStrict } from '../_player-ips.js';
+import { hasRecentIpOrFpOverlapStrict, stampPlayerIp } from '../_player-ips.js';
 
 export type QueueEntry = {
     name: string;
@@ -197,6 +197,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // must not lock a healthy player out of ranked.
             let serverIncapacitated = false;
             if (action === 'join' && !identity.admin) {
+                // Record trusted connection evidence before this player can be
+                // matched, even if their first heartbeat has not arrived yet.
+                await stampPlayerIp(req, identity.name);
                 try {
                     const save = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
                     const char = (save?.character ?? null) as Record<string, unknown> | null;

@@ -904,8 +904,8 @@ describe('mentor settlement save integrity and compatibility', { concurrency: fa
         const restore = fault(STUDENT_KEY, 'before');
         assert.equal((await claim({}, { as: SENSEI })).status, 503);
         restore();
-        await kv.set(`player-ip:${SENSEI}:10.9.9.9`, 1);
-        await kv.set(`player-ip:${STUDENT}:10.9.9.9`, 1);
+        await kv.set(`player-ip:${SENSEI}:v2:86.123.45.67`, 1);
+        await kv.set(`player-ip:${STUDENT}:v2:86.123.45.67`, 1);
         await setStudent({ level: 22 });
         const out = await claim({}, { as: SENSEI });
         assert.equal(out.status, 200, 'the batch vetted at admission is finished');
