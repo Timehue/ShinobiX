@@ -3,7 +3,7 @@ import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { isFullAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
-import { clientIp } from '../_client-ip.js';
+import { isPublicVisitorIp, trustedVisitorIp } from '../_client-ip.js';
 import { withKvLock } from '../_lock.js';
 import { onlineStore } from '../_realtime/online-store.js';
 
@@ -11,8 +11,8 @@ import { onlineStore } from '../_realtime/online-store.js';
 //
 //   mod:ban:<lowercase-name>       — { until, reason, by, at, permanent? }
 //   mod:silence:<lowercase-name>   — { until, reason, by, at }
-//   mod:ip:<lowercase-name>        — { lastIp, ips: string[], lastSeenAt }
-//   mod:by-ip:<ip>                 — string[] of names that have used this IP
+//   mod:ip-v2:<lowercase-name>     — { lastIp, ips: string[], lastSeenAt }
+//   mod:by-ip-v2:<ip>              — names seen on a trusted visitor IP
 //   mod:audit                      — append-only log capped at 200 entries
 //
 // All `mod:*` keys are excluded from server-reset wipes so punishments and
@@ -55,8 +55,10 @@ export type AuditEntry = {
 
 const BAN_KEY_PREFIX = 'mod:ban:';
 const SILENCE_KEY_PREFIX = 'mod:silence:';
-const IP_KEY_PREFIX = 'mod:ip:';
-const BY_IP_KEY_PREFIX = 'mod:by-ip:';
+// Legacy mod:ip/mod:by-ip rows can contain Railway proxy addresses. Keep them
+// as history but do not use them to link players in new moderation lookups.
+const IP_KEY_PREFIX = 'mod:ip-v2:';
+const BY_IP_KEY_PREFIX = 'mod:by-ip-v2:';
 const FP_KEY_PREFIX = 'mod:fp:';
 const BY_FP_KEY_PREFIX = 'mod:by-fp:';
 const AUDIT_KEY = 'mod:audit';
@@ -124,12 +126,11 @@ export function clientFpFrom(req: VercelRequest): string {
 }
 
 /**
- * Extract the request's real client IP. Cloudflare-aware: honors
- * `CF-Connecting-IP` when the request transited Cloudflare, else falls back to
- * the XFF/socket chain. See `api/_client-ip.ts`.
+ * Return only an address verified as the visitor's, never a proxy fallback.
+ * See `api/_client-ip.ts` for the Railway and Cloudflare trust boundaries.
  */
 export function clientIpFrom(req: VercelRequest): string {
-    return clientIp(req) ?? 'unknown';
+    return trustedVisitorIp(req) ?? 'unknown';
 }
 
 /**
@@ -172,7 +173,7 @@ export async function recordClientFingerprint(name: string, fp: string): Promise
 
 /**
  * Record that `name` was just observed coming from `ip`. Updates both
- * mod:ip:<name> (forward lookup) and mod:by-ip:<ip> (reverse index).
+ * mod:ip-v2:<name> (forward lookup) and mod:by-ip-v2:<ip> (reverse index).
  * Safe to call on every heartbeat / login.
  *
  * Fast path: if the IP hasn't changed since the last call AND the reverse
@@ -180,7 +181,7 @@ export async function recordClientFingerprint(name: string, fp: string): Promise
  * for hours at a time, so this short-circuits ~99% of heartbeat writes.
  */
 export async function recordClientIp(name: string, ip: string): Promise<void> {
-    if (!name || !ip || ip === 'unknown') return;
+    if (!name || !ip || !isPublicVisitorIp(ip)) return;
     const n = normalizeName(name);
     try {
         const existing = await kv.get<IpRecord>(ipKey(n));

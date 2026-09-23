@@ -1,9 +1,9 @@
 import { kv, type KvLike } from './_storage.js';
 import { safeName } from './_utils.js';
-import { clientIp } from './_client-ip.js';
+import { isPublicVisitorIp, trustedVisitorIp } from './_client-ip.js';
 
 // Per-player recent-IP / fingerprint tracking. Stamps two keys with 7-day TTL
-// whenever a player is observed: `player-ip:{name}:{ip}` and
+// whenever a player is observed: `player-ip:{name}:v2:{trusted-ip}` and
 // `player-fp:{name}:{fp}`. Lets us cheaply detect alt-account farming.
 //
 // IP-only is bypassable with a VPN. Fingerprint-only is bypassable by clearing
@@ -46,16 +46,17 @@ export function _resetPlayerIpStampMemo(): void {
 }
 
 function ipKey(name: string, ip: string): string {
-    return `player-ip:${safeName(name)}:${ip}`;
+    // Ignore legacy player-ip keys: some contain a Railway proxy's public IP.
+    return `player-ip:${safeName(name)}:v2:${ip}`;
 }
 function fpKey(name: string, fp: string): string {
     return `player-fp:${safeName(name)}:${fp}`;
 }
 
-// Cloudflare-aware client IP (honors CF-Connecting-IP behind Cloudflare, else
-// falls back to the XFF/socket chain). See `api/_client-ip.ts`.
+// Only a verified visitor address is usable as anti-alt evidence. See
+// `api/_client-ip.ts` for the Railway and Cloudflare trust boundaries.
 function extractIp(req: { headers: Record<string, string | string[] | undefined>; ip?: string; socket?: { remoteAddress?: string } }): string | null {
-    return clientIp(req);
+    return trustedVisitorIp(req);
 }
 
 function extractFp(req: { headers: Record<string, string | string[] | undefined> }): string | null {
@@ -83,19 +84,19 @@ export async function stampPlayerIp(req: { headers: Record<string, string | stri
 }
 
 // List the IPs we've recently seen for a player.
-export async function recentIps(name: string): Promise<string[]> {
+export async function recentIps(name: string, store: Pick<KvLike, 'keys'> = kv): Promise<string[]> {
     try {
-        const keys = await kv.keys(`player-ip:${safeName(name)}:*`);
-        const prefix = `player-ip:${safeName(name)}:`;
+        const keys = await store.keys(`player-ip:${safeName(name)}:v2:*`);
+        const prefix = `player-ip:${safeName(name)}:v2:`;
         return keys.map(k => k.slice(prefix.length)).filter(Boolean);
     } catch {
         return [];
     }
 }
 
-export async function recentFps(name: string): Promise<string[]> {
+export async function recentFps(name: string, store: Pick<KvLike, 'keys'> = kv): Promise<string[]> {
     try {
-        const keys = await kv.keys(`player-fp:${safeName(name)}:*`);
+        const keys = await store.keys(`player-fp:${safeName(name)}:*`);
         const prefix = `player-fp:${safeName(name)}:`;
         return keys.map(k => k.slice(prefix.length)).filter(Boolean);
     } catch {
@@ -104,8 +105,8 @@ export async function recentFps(name: string): Promise<string[]> {
 }
 
 // True if the two players share at least one IP within the 7-day window.
-export async function hasRecentIpOverlap(nameA: string, nameB: string): Promise<boolean> {
-    const [a, b] = await Promise.all([recentIps(nameA), recentIps(nameB)]);
+export async function hasRecentIpOverlap(nameA: string, nameB: string, store: Pick<KvLike, 'keys'> = kv): Promise<boolean> {
+    const [a, b] = await Promise.all([recentIps(nameA, store), recentIps(nameB, store)]);
     if (a.length === 0 || b.length === 0) return false;
     const setB = new Set(b);
     return a.some(ip => setB.has(ip));
@@ -113,9 +114,9 @@ export async function hasRecentIpOverlap(nameA: string, nameB: string): Promise<
 
 // True if the two players share an IP OR a browser fingerprint within 7 days.
 // Used by anti-alt checks where either signal indicates alt farming.
-export async function hasRecentIpOrFpOverlap(nameA: string, nameB: string): Promise<boolean> {
+export async function hasRecentIpOrFpOverlap(nameA: string, nameB: string, store: Pick<KvLike, 'keys'> = kv): Promise<boolean> {
     const [ipsA, ipsB, fpsA, fpsB] = await Promise.all([
-        recentIps(nameA), recentIps(nameB), recentFps(nameA), recentFps(nameB),
+        recentIps(nameA, store), recentIps(nameB, store), recentFps(nameA, store), recentFps(nameB, store),
     ]);
     if (ipsA.length > 0 && ipsB.length > 0) {
         const setB = new Set(ipsB);
@@ -137,8 +138,8 @@ export async function hasRecentIpOrFpOverlapStrict(
     const a = safeName(nameA);
     const b = safeName(nameB);
     const [ipKeysA, ipKeysB, fpKeysA, fpKeysB] = await Promise.all([
-        store.keys(`player-ip:${a}:*`),
-        store.keys(`player-ip:${b}:*`),
+        store.keys(`player-ip:${a}:v2:*`),
+        store.keys(`player-ip:${b}:v2:*`),
         store.keys(`player-fp:${a}:*`),
         store.keys(`player-fp:${b}:*`),
     ]);
@@ -149,6 +150,9 @@ export async function hasRecentIpOrFpOverlapStrict(
         const rightSet = new Set(right);
         return left.some((value) => rightSet.has(value));
     };
-    return overlaps(suffixes(ipKeysA, `player-ip:${a}:`), suffixes(ipKeysB, `player-ip:${b}:`))
+    return overlaps(
+        suffixes(ipKeysA, `player-ip:${a}:v2:`).filter(isPublicVisitorIp),
+        suffixes(ipKeysB, `player-ip:${b}:v2:`).filter(isPublicVisitorIp),
+    )
         || overlaps(suffixes(fpKeysA, `player-fp:${a}:`), suffixes(fpKeysB, `player-fp:${b}:`));
 }

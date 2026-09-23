@@ -297,7 +297,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // preserves any pendingAttacker queued by attack.ts; we deliver it to this
         // client and clear it (one-shot), matching the old behavior where the
         // heartbeat read pendingAttacker then rewrote the row with null. Also
-        // stamp the request IP for anti-alt overlap checks (player-ip:{name}:{ip},
+        // stamp the verified visitor IP for anti-alt overlap checks (player-ip:{name}:v2:{ip},
         // 7-day TTL, idempotent).
         let stored = onlineStore.upsert({
             name,

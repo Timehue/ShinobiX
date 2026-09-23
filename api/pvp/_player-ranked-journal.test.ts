@@ -24,6 +24,7 @@ import {
     PLAYER_RANKED_SETTLEMENT_STAMP_LIMIT,
     PLAYER_RANKED_SETTLEMENT_STAMP_FIELD,
     getPlayerRankedJournal,
+    playerRankedJournalKey,
     publishPlayerRankedTerminal,
     settlePlayerRankedJournal,
 } from './_player-ranked-journal.js';
@@ -34,6 +35,16 @@ const BATTLE = 'pvp-12345678-1234-4123-8123-1234567890ab';
 
 function clone<T>(value: T): T {
     return structuredClone(value);
+}
+
+function reorderedObjectKeys(value: unknown): unknown {
+    if (Array.isArray(value)) return value.map(reorderedObjectKeys);
+    if (value && typeof value === 'object') {
+        return Object.fromEntries(Object.entries(value)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([key, entry]) => [key, reorderedObjectKeys(entry)]));
+    }
+    return value;
 }
 
 async function setup() {
@@ -85,6 +96,23 @@ function char(record: unknown): Record<string, any> {
 }
 
 describe('player ranked terminal journal', () => {
+    it('settles a journal whose database reordered its terminal fields', async () => {
+        const { store, session } = await setup();
+        const published = await publishPlayerRankedTerminal(store, session, {
+            now: NOW + 3,
+            eligible: async () => true,
+        });
+        // Postgres JSONB does not preserve the insertion order used when the
+        // terminal fingerprint was sealed. Production got stuck at this read.
+        await store.set(playerRankedJournalKey(MATCH), reorderedObjectKeys(published));
+        const recovered = await getPlayerRankedJournal(store, MATCH);
+        assert.equal(recovered?.terminal.fingerprint, published.terminal.fingerprint);
+        const settled = await settlePlayerRankedJournal(store, MATCH, NOW + 4);
+        assert.equal(settled.journal.state, 'completed');
+        assert.equal(char(await store.get('save:alice')).rankedRating, 1012);
+        assert.equal(char(await store.get('save:bob')).rankedRating, 988);
+    });
+
     it('seals one immutable terminal and ignores shared-receipt churn on replay', async () => {
         const { store, session } = await setup();
         const journal = await publishPlayerRankedTerminal(store, session, {

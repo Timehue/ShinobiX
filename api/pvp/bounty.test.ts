@@ -83,9 +83,9 @@ async function seedHunterWin(battleId: string): Promise<void> {
 }
 
 async function stampSharedConnection(): Promise<void> {
-    const sharedIp = '203.0.113.42';
-    await kv.set(`player-ip:${HUNTER}:${sharedIp}`, true);
-    await kv.set(`player-ip:${TARGET}:${sharedIp}`, true);
+    const sharedIp = '86.123.45.67';
+    await kv.set(`player-ip:${HUNTER}:v2:${sharedIp}`, true);
+    await kv.set(`player-ip:${TARGET}:v2:${sharedIp}`, true);
 }
 
 test('placing a bounty posts Bounty Posted exactly once per board stamp', async () => {

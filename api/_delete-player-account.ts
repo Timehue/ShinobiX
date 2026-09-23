@@ -101,7 +101,7 @@ async function detachFromClan(slug: string, clanName: string, result: DeletePlay
 /**
  * Remove the slug from the moderation reverse indexes it appears in.
  *
- * This is the cleanup that actually matters for anti-cheat. `mod:by-ip:<ip>`
+ * This is the cleanup that actually matters for anti-cheat. `mod:by-ip-v2:<ip>`
  * and `mod:by-fp:<fp>` are capped name lists (MAX_NAMES_PER_IP), so dead
  * accounts left in them evict LIVE players from alt-detection — and a stream of
  * swept guest accounts would do exactly that.
@@ -111,6 +111,7 @@ async function detachFromModerationIndexes(slug: string, result: DeletePlayerAcc
     // respectively — see recordClientIp / recordClientFingerprint.
     const sources: { forwardKey: string; reversePrefix: string; field: 'ips' | 'fps' }[] = [
         { forwardKey: `mod:ip:${slug}`, reversePrefix: 'mod:by-ip', field: 'ips' },
+        { forwardKey: `mod:ip-v2:${slug}`, reversePrefix: 'mod:by-ip-v2', field: 'ips' },
         { forwardKey: `mod:fp:${slug}`, reversePrefix: 'mod:by-fp', field: 'fps' },
     ];
     for (const { forwardKey, reversePrefix, field } of sources) {

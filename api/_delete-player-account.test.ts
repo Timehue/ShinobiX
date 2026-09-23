@@ -66,6 +66,8 @@ beforeEach(() => {
     });
     store.set('mod:ip:wanderer', { lastIp: '1.2.3.4', ips: ['1.2.3.4'] });
     store.set('mod:by-ip:1.2.3.4', ['wanderer', 'realplayer']);
+    store.set('mod:ip-v2:wanderer', { lastIp: '86.123.45.67', ips: ['86.123.45.67'] });
+    store.set('mod:by-ip-v2:86.123.45.67', ['wanderer', 'realplayer']);
 });
 
 describe('player deletion', () => {
@@ -76,6 +78,7 @@ describe('player deletion', () => {
         assert.deepEqual(clan.members.map((m) => m.name), ['Kaze'], 'the clan must stop counting a departed member');
         assert.equal(clan.roleOverrides.wanderer, undefined);
         assert.deepEqual(store.get('mod:by-ip:1.2.3.4'), ['realplayer'], 'a dead name must not hold an alt-detection slot');
+        assert.deepEqual(store.get('mod:by-ip-v2:86.123.45.67'), ['realplayer'], 'trusted IP indexes need the same cleanup');
         assert.equal(store.has('friends:wanderer'), false);
         assert.equal(store.has('player-friends:wanderer'), false);
 
