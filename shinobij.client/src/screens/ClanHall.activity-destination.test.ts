@@ -17,7 +17,7 @@ test('the Clan Hall opens on the goal board when an activity asks for it', () =>
     // The one-shot hint is honoured on a fresh mount…
     assert.match(screen, /return initial === "boss" \|\| initial === "territory" \|\| initial === "missions" \? initial : "exchange";/);
     // …and on a Clan Hall that is already open on another tab.
-    assert.match(screen, /useActivitySectionRequests\("clan\.initialView", \["boss", "missions"\], setView\)/);
+    assert.match(screen, /useActivitySectionRequests(?:<[^>]+>)?\("clan\.initialView", \["boss", "missions"\], setView\)/);
     // Ordinary entry is unchanged: without a hint the Hall still opens on the Exchange.
     assert.match(screen, /} catch \{ return "exchange"; \}/);
     // The goal board is a real tab with the clan's objectives, progress and rewards.
