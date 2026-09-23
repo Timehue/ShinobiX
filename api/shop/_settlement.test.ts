@@ -44,6 +44,17 @@ test('stackable purchases clamp to the carry cap and reject forged catalog or ba
     assert.equal(applyItemPurchase(character({ itemStacks: undefined }), item({ id: 'legacy-item' }), 1, 'purchase00000005', 100).ok, true);
 });
 
+test('Ancient Beast Seals use Fate Shards and remain stackable in the Grand Marketplace', () => {
+    const ancient = item({ id: 'beast-seal-ancient', name: 'Ancient Beast Seal', slot: 'item', rarity: 'legendary', cost: 15, stackable: true, serviceItem: true, levelReq: 1 });
+    const bought = applyItemPurchase(character({ level: 1, fateShards: 40 }), ancient, 2, 'ancientsealpurchase001', 100);
+    assert.equal(bought.ok, true);
+    if (!bought.ok || bought.value.kind !== 'item-purchase') return;
+    assert.equal(bought.value.currency, 'fateShards');
+    assert.equal(bought.value.quantity, 2);
+    assert.equal(bought.character.fateShards, 10);
+    assert.deepEqual(bought.character.itemStacks, [{ itemId: 'beast-seal-ancient', count: 2 }]);
+});
+
 test('card packs draw only from the server rarity pool and debit only once', () => {
     const cards = new Map<string, SettlementCard>([
         ['common-a', { id: 'common-a', rarity: 'common' }],

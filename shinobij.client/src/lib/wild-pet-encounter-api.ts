@@ -14,10 +14,11 @@ import { runSingleFlight } from './single-flight';
  *
  *   /api/pet/encounter-start — rolls the wild pet, counts it against the daily
  *     exploration attempts, and mints a single-use token with the pet sealed in.
- *   /api/pet/befriend        — spends the token, rolls the trait, and commits the
- *     pet to the save under the save lock. Returns the persisted character.
+ *   /api/pet/wild-binding    — runs the server battle and spends a seal on a
+ *     capture attempt. Success commits the normal pet to the save.
+ *   /api/pet/befriend        — legacy/special encounter compatibility only.
  *
- * This is the same pair the Hollow Gate locked-door befriend already uses.
+ * Hollow Gate's locked-door befriend retains its separate authored path.
  */
 
 export type WildPetEncounterResult =

@@ -7,7 +7,8 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { DAILY_WILD_ENCOUNTER_ATTEMPTS, rollWildPet } from './_encounter.js';
 import { sectorPresenceBlock } from '../_sector-presence-gate.js';
-import { isWildSector } from '../../shared/sector-geo.js';
+import { isWildSector, sectorBiomeOf } from '../../shared/sector-geo.js';
+import { resolveSectorWeather, type SectorWeatherOverride } from '../../shared/sector-weather.js';
 import { LockContendedError, withKvLock } from '../_lock.js';
 import {
     cleanPetEncounterPointer,
@@ -33,6 +34,7 @@ type PetAttemptReceipt = {
     worldExploreRequestId?: string;
     caravanRunId?: string;
     resolution?: 'explored-miss' | 'befriended' | 'declined' | 'expired';
+    battleRequired?: boolean;
 };
 
 function cleanRequestId(value: unknown): string {
@@ -73,6 +75,7 @@ function cleanReceipt(raw: unknown): PetAttemptReceipt | null {
         ...(worldExploreRequestId ? { worldExploreRequestId } : {}),
         ...(typeof value.caravanRunId === 'string' ? { caravanRunId: value.caravanRunId } : {}),
         ...(resolution ? { resolution } : {}),
+        ...(value.battleRequired === true ? { battleRequired: true } : {}),
     };
 }
 
@@ -84,6 +87,7 @@ async function persistAuthority(playerName: string, receipt: PetAttemptReceipt):
     await kv.set(petEncounterActiveKey(playerName), {
         playerName,
         requestId: receipt.requestId,
+        ...(receipt.battleRequired ? { battleRequired: true } : {}),
         ...(receipt.caravanRunId ? { caravanRunId: receipt.caravanRunId } : {}),
         outcome: receipt.token ? 'hit' : 'miss',
         ...(receipt.token && receipt.pet ? { token: receipt.token, pet: receipt.pet } : {}),
@@ -103,6 +107,7 @@ async function persistAuthority(playerName: string, receipt: PetAttemptReceipt):
         ...(receipt.caravanRunId ? { caravanRunId: receipt.caravanRunId } : {}),
         mintedAt: receipt.mintedAt,
         requestId: receipt.requestId,
+        ...(receipt.battleRequired ? { battleRequired: true } : {}),
     }, { ex: PET_ENCOUNTER_POINTER_TTL_SECONDS });
 }
 
@@ -154,6 +159,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     day: new Date(active.mintedAt).toISOString().slice(0, 10),
                     sector: active.sector,
                     mintedAt: active.mintedAt,
+                    ...(active.battleRequired ? { battleRequired: true } : {}),
                     ...(active.caravanRunId ? { caravanRunId: active.caravanRunId } : {}),
                     ...(active.outcome === 'hit' && active.token && active.pet
                         ? { token: active.token, pet: active.pet }
@@ -230,16 +236,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     reason: 'daily-limit',
                 };
             }
-            const pet = rollWildPet(() => randomInt(1_000_000_000) / 1_000_000_000);
+            const mintedAt = Date.now();
+            const territory = await kv.get<SectorWeatherOverride>(`world:territory:${sector}`).catch(() => null);
+            const weather = resolveSectorWeather(sectorBiomeOf(sector), sector, mintedAt, territory);
+            const pet = rollWildPet(() => randomInt(1_000_000_000) / 1_000_000_000, mintedAt, { weather });
             const receipt: PetAttemptReceipt = {
                 version: 1,
                 playerName,
                 requestId: stableRequestId,
                 day,
                 sector,
-                mintedAt: Date.now(),
+                mintedAt,
                 ...(caravanRunId ? { caravanRunId } : {}),
                 ...(pet ? { token: randomUUID().replace(/-/g, ''), pet } : {}),
+                ...(pet ? { battleRequired: true } : {}),
             };
             await persistAuthority(playerName, receipt);
             return responseFor(receipt, false);

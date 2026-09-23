@@ -129,7 +129,7 @@ const FIRST_SAVE_BASELINE_CHARACTER: Record<string, unknown> = {
     warsWon: 0, warMvpCount: 0, lifetimeWarDamage: 0,
     monthlyPvpKills: 0, dailyAiKills: 0,
     villageMerit: 0,
-    inventory: ['rustfang-kunai', 'shinobi-vest'], itemStacks: [], jutsuMastery: [], pets: [], savedBloodlines: [], tileCards: [],
+    inventory: ['rustfang-kunai', 'shinobi-vest'], itemStacks: [{ itemId: 'beast-seal-reinforced', count: 1 }], jutsuMastery: [], pets: [], savedBloodlines: [], tileCards: [],
     equipment: {},
 };
 
@@ -304,7 +304,7 @@ function enforceRawSaveLedgerBoundary(
         char.equippedJutsuIds = [...new Set(requestedLoadout
             .filter((id): id is string => typeof id === 'string' && seenStarterJutsu.has(id)))].slice(0, 3);
         char.inventory = structuredClone(FIRST_SAVE_BASELINE_CHARACTER.inventory);
-        char.itemStacks = [];
+        char.itemStacks = structuredClone(FIRST_SAVE_BASELINE_CHARACTER.itemStacks);
         char.pets = [];
         char.equipment = {};
         delete char.activePetId;
