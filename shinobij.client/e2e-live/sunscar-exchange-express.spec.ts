@@ -84,13 +84,16 @@ async function openExchange(page: Page) {
     // valid ready state; both are player-visible and unambiguous.
     await expect(hall.or(enter).or(worldMap)).toBeVisible();
     if (await worldMap.isVisible()) {
-        // A clean login correctly starts in the village safe zone. Return to
-        // Sunscar through the actual map-travel flow instead of relying on a
-        // deep link that the route guard is supposed to reject.
+        // A clean login starts in the village safe zone. Open the Festival
+        // through its map pin instead of bypassing the route guard.
         await worldMap.click();
         await expect(page.locator('.anime-world-map')).toBeVisible();
-        await page.getByRole('button', { name: 'Travel to Cactus Flats (Sector 54)', exact: true }).click();
-        await expect(enter).toBeVisible({ timeout: 15_000 });
+        const festivalPin = page.getByRole('button', { name: 'Open Sunscar Festival', exact: true });
+        // A restored Festival route may finish loading while the map opens.
+        // In that case the hub or Exchange has already become the ready state.
+        await expect(festivalPin.or(enter).or(hall)).toBeVisible({ timeout: 15_000 });
+        if (await festivalPin.isVisible()) await festivalPin.click();
+        await expect(enter.or(hall)).toBeVisible({ timeout: 15_000 });
     }
     if (!(await hall.isVisible())) {
         await expect(enter).toBeVisible();
