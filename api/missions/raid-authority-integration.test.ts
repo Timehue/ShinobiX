@@ -120,6 +120,14 @@ async function seed(playerName: string, character: Record<string, unknown> = {},
 }
 
 describe('sealed raid authority', () => {
+    it('rejects Sunscar as a field raid destination', async () => {
+        const player = 'raidauthsunscar';
+        await seed(player);
+        const out = await post(raidStart, player, { requestId: 'sunscarraidrequest01', sector: 54 });
+        assert.equal(out.statusCode, 400);
+        assert.equal(out.body?.error, 'Invalid raid sector.');
+    });
+
     it('replays one launch before throttling and reconstructs its exact missing token', async () => {
         const player = 'raidauthlaunch';
         const acceptedAt = Date.now() - 1_000;

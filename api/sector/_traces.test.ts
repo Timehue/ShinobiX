@@ -78,9 +78,9 @@ describe('sector traces — footfall + sector guard', () => {
         assert.equal(footfallKey(42, Date.UTC(2026, 6, 16, 12)), 'world:footfall:42:2026-07-16');
     });
 
-    it('trace sectors are the wild sectors only', () => {
+    it('trace sectors have playable field boards', () => {
         assert.ok(isTraceSector(1) && isTraceSector(60) && isTraceSector(MAX_WILD_SECTOR));
-        for (const bad of [0, MAX_WILD_SECTOR + 1, 99, -3, 4.5, NaN, 'x', null]) assert.ok(!isTraceSector(bad), `${String(bad)} should be rejected`);
+        for (const bad of [0, 54, MAX_WILD_SECTOR + 1, 99, -3, 4.5, NaN, 'x', null]) assert.ok(!isTraceSector(bad), `${String(bad)} should be rejected`);
     });
 });
 

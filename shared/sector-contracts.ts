@@ -18,7 +18,7 @@
  * The payout is recomputed here at claim time from the sealed day and sector —
  * never read from the request body.
  */
-import { WILD_SECTOR_IDS } from "./sector-geo.js";
+import { PLAYABLE_WILD_SECTOR_IDS, isPlayableWildSector } from "./sector-geo.js";
 import { isWorldNight, worldNightWindowLabel } from "./world-phase.js";
 
 /** How many sectors carry a contract on any given day. */
@@ -94,12 +94,12 @@ export function utcDayOf(now: number): string {
  * day (some days two sectors, some days eleven), and the promise this makes to
  * the player is that there are always exactly SECTOR_CONTRACT_SLOTS to find.
  */
-export function contractSectorsForDay(day: string, pool: readonly number[] = WILD_SECTOR_IDS): readonly number[] {
+export function contractSectorsForDay(day: string, pool: readonly number[] = PLAYABLE_WILD_SECTOR_IDS): readonly number[] {
     // Memoised for the default pool, and it matters: the world map asks whether
     // each of ~67 markers is posted, several times per marker, on every render.
     // Unmemoised that is hundreds of 66-element sorts per frame on the heaviest
     // screen in the game. A day's board never changes, so compute it once.
-    if (pool === WILD_SECTOR_IDS) {
+    if (pool === PLAYABLE_WILD_SECTOR_IDS) {
         const cached = boardCache.get(day);
         if (cached) return cached;
         const board = rankBoard(day, pool);
@@ -118,7 +118,7 @@ export function contractSectorsForDay(day: string, pool: readonly number[] = WIL
 const boardCache = new Map<string, readonly number[]>();
 
 function rankBoard(day: string, pool: readonly number[]): readonly number[] {
-    const ranked = [...pool]
+    const ranked = pool.filter(isPlayableWildSector)
         .map((sector) => ({ sector, rank: hash(`${day}:${sector}`) }))
         .sort((a, b) => (a.rank - b.rank) || (a.sector - b.sector));
     return ranked.slice(0, Math.min(SECTOR_CONTRACT_SLOTS, ranked.length))
@@ -130,10 +130,10 @@ function rankBoard(day: string, pool: readonly number[]): readonly number[] {
 export function sectorContractFor(
     sector: number,
     day: string,
-    pool: readonly number[] = WILD_SECTOR_IDS,
+    pool: readonly number[] = PLAYABLE_WILD_SECTOR_IDS,
 ): SectorContract | null {
     const id = Math.floor(Number(sector));
-    if (!Number.isFinite(id) || !contractSectorsForDay(day, pool).includes(id)) return null;
+    if (!isPlayableWildSector(id) || !contractSectorsForDay(day, pool).includes(id)) return null;
     const seed = hash(`${day}:contract:${id}`);
     return {
         sector: id,

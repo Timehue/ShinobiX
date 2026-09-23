@@ -6,7 +6,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
-import { isWildSector } from '../../shared/sector-geo.js';
+import { isPlayableWildSector } from '../../shared/sector-geo.js';
 import { sectorPresenceBlock } from '../_sector-presence-gate.js';
 import { homeVillageForSector } from '../_war-map-sectors.js';
 import { loadPublishedContent } from '../_content-store.js';
@@ -256,7 +256,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(409).json(towerBattleActiveErrorBody());
         }
 
-        if (!isWildSector(sector)) return res.status(400).json({ error: 'Invalid raid sector.' });
+        if (!isPlayableWildSector(sector)) return res.status(400).json({ error: 'Invalid raid sector.' });
         const record = await kv.get<Record<string, unknown>>(`save:${playerName}`);
         const char = record?.character as Record<string, unknown> | undefined;
         if (!record || !char) return res.status(404).json({ error: 'Player save not found.' });

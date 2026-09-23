@@ -11,7 +11,7 @@
 import { after, before, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { contractSectorsForDay, sectorContractFor, utcDayOf } from '../../shared/sector-contracts.js';
-import { WILD_SECTOR_IDS } from '../../shared/sector-geo.js';
+import { FESTIVAL_SECTOR, WILD_SECTOR_IDS } from '../../shared/sector-geo.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -97,6 +97,14 @@ describe('/api/sector/contract', () => {
         const out = await call('GET', { playerName: PLAYER, sector: UNPOSTED });
         assert.equal(out.body?.contract, null);
         assert.equal(out.body?.claimable, false);
+    });
+
+    it('never serves or pays a contract at Sunscar', async () => {
+        const status = await call('GET', { playerName: PLAYER, sector: FESTIVAL_SECTOR });
+        assert.equal(status.body?.contract, null);
+        const claim = await call('POST', { playerName: PLAYER, sector: FESTIVAL_SECTOR });
+        assert.equal(claim.body?.reason, 'no-contract');
+        assert.equal(await ryoOnSave(), START_RYO);
     });
 
     it('refuses a claim before the work is done, and pays nothing', async () => {

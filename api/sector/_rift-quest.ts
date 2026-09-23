@@ -15,7 +15,7 @@
  * (shinobij.client/src/data/hollow-rifts.ts) must stay in sync (colocated test).
  */
 
-import { CASTLE_SECTORS, MAX_WILD_SECTOR, OUTSKIRTS_SECTORS, remapLegacySector, WORLD_GEO_VERSION } from '../../shared/sector-geo.js';
+import { CASTLE_SECTORS, FESTIVAL_SECTOR, MAX_WILD_SECTOR, OUTSKIRTS_SECTORS, playableFieldObjectiveSector, remapLegacySector, WORLD_GEO_VERSION } from '../../shared/sector-geo.js';
 
 export const RIFT_DAILY_CAP = 3;                       // paid rift clears per UTC day
 export const RIFT_COOLDOWN_MS = 6 * 60 * 60 * 1000;    // roaming giver stays quiet 6h after a clear
@@ -101,7 +101,9 @@ export function parseRiftQuestSeal(raw: unknown): RiftQuestSeal | null {
     const runToken = typeof value.runToken === 'string' && /^[A-Za-z0-9_-]{8,96}$/.test(value.runToken)
         ? value.runToken
         : undefined;
-    return { id, targetSector, baseline, at, geoV: WORLD_GEO_VERSION, ...(runToken ? { runToken } : {}) };
+    // A pre-change travel-stage seal may still name Sunscar. Move only an
+    // unstarted objective; a bound Gate run keeps its original sealed identity.
+    return { id, targetSector: runToken ? targetSector : playableFieldObjectiveSector(targetSector), baseline, at, geoV: WORLD_GEO_VERSION, ...(runToken ? { runToken } : {}) };
 }
 
 export function parseRiftQuestBossReceipt(raw: unknown): RiftQuestBossReceipt | null {
@@ -175,7 +177,7 @@ export function riftBossKilled(baseline: number, current: number): boolean {
  * Deterministic wilderness sector for a (player, rift). MUST mirror the client
  * (shinobij.client/src/lib/hollow-rifts.ts riftTargetSector) so display and seal
  * agree: same FNV-1a hash, same 1..MAX_WILD_SECTOR draw, same skip set (village
- * outskirts + the neutral castle city — rifts open in the wilds, never in a hub).
+ * outskirts + castle city + Sunscar — rifts open on playable field boards).
  *
  * The draw spans MAX_WILD_SECTOR, so sectors added later become rift homes too.
  * Widening it is safe for quests already underway: `accept` SEALS the drawn
@@ -189,7 +191,7 @@ export function riftTargetSector(playerName: string, riftId: string): number {
     let h = 2166136261;
     const s = `${playerName}|${riftId}`;
     for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
-    const skip = new Set([...OUTSKIRTS_SECTORS, ...CASTLE_SECTORS]);
+    const skip = new Set([...OUTSKIRTS_SECTORS, ...CASTLE_SECTORS, FESTIVAL_SECTOR]);
     let sec = (Math.abs(h) % MAX_WILD_SECTOR) + 1;
     for (let guard = 0; guard < MAX_WILD_SECTOR && skip.has(sec); guard++) sec = (sec % MAX_WILD_SECTOR) + 1;
     return sec;

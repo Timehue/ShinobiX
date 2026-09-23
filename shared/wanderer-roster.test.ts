@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { FESTIVAL_SECTOR } from './sector-geo.js';
 import {
     WANDERER_ARCHETYPES,
     WANDERER_BUCKET_MS,
@@ -87,6 +88,7 @@ test('every rolled wanderer is well formed and stands on the interior of the boa
     }
     assert.ok(seen > 0, 'the sweep found no wanderers at all — the roll is broken');
     assert.equal(rollWanderers(0, BUCKET).length, 0, 'sector 0 is the village — never a road');
+    assert.equal(rollWanderers(FESTIVAL_SECTOR, BUCKET).length, 0, 'Sunscar has no field board');
     assert.equal(rollWanderers(Number.NaN, BUCKET).length, 0);
 });
 
@@ -115,6 +117,7 @@ test('resolveWandererById returns the exact wanderer the id names, or nothing', 
     assert.equal(resolveWandererById(`w-${sector}-${BUCKET}-${WANDERER_MAX_INDEX + 1}`, nowMs), null);
     // Forged sectors.
     assert.equal(resolveWandererById(`w-0-${BUCKET}-0`, nowMs), null);
+    assert.equal(resolveWandererById(`w-${FESTIVAL_SECTOR}-${BUCKET}-0`, nowMs), null);
     assert.equal(resolveWandererById(`w-${WANDERER_SECTOR_COUNT + 1}-${BUCKET}-0`, nowMs), null);
     // A synthesised NPC id never resolves through the natural roll.
     assert.equal(resolveWandererById('merc-frostfang-3', nowMs), null);
@@ -132,6 +135,7 @@ test('relocation is deterministic and always moves the wanderer somewhere else',
         const dest = wandererRelocationSector('w-3-100-0', from);
         assert.equal(wandererRelocationSector('w-3-100-0', from), dest, 'same inputs → same destination');
         assert.notEqual(dest, from, 'a relocation never puts the wanderer back where it was');
+        assert.notEqual(dest, FESTIVAL_SECTOR, 'a relocation never points at Sunscar');
         assert.ok(dest >= 1 && dest <= WANDERER_SECTOR_COUNT, `destination ${dest} out of range`);
     }
 });

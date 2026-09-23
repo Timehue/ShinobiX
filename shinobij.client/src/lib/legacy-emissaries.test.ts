@@ -48,6 +48,7 @@ describe("rollEmissarySpawn", () => {
         assert.equal(a.sector, b.sector);
         assert.equal(a.sector, c.sector);
         assert.ok(a.sector >= 1 && a.sector <= 59);
+        assert.notEqual(a.sector, 54);
         assert.equal(a.def.slug, emissaryForCategory(CATEGORY)!.slug);
         assert.ok(a.wanderer.id.startsWith(EMISSARY_WANDERER_PREFIX));
     });
@@ -77,6 +78,7 @@ describe("rollEmissarySpawn", () => {
         const { name, bucket } = activeWindow();
         // Without a current sector the roaming harbinger has nowhere to stand.
         assert.equal(rollEmissarySpawn(name, 60, null, bucket), null);
+        assert.equal(rollEmissarySpawn(name, 60, null, bucket, 54), null);
 
         let hits = 0;
         const windows = 40;

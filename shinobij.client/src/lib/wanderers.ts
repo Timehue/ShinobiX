@@ -29,6 +29,7 @@ import {
     rollWanderers, parseWandererId, relocateWandererInto, wandererDayBucketFromMs,
     type Wanderer, type WandererVerb,
 } from "../../../shared/wanderer-roster";
+import { isPlayableWildSector } from "../../../shared/sector-geo";
 import { serverNow } from "./server-clock";
 
 // ── Locked content: the NPC is on the road for everyone; the OFFER is gated ──
@@ -235,7 +236,7 @@ export function pruneWandererMoves(
     for (const [id, dest] of Object.entries(moves ?? {})) {
         const parsed = parseWandererId(id);
         if (!parsed || parsed.dayBucket !== currentDayBucket) continue;
-        if (typeof dest === "number" && dest >= 1) out[id] = dest;
+        if (isPlayableWildSector(dest)) out[id] = dest;
     }
     return out;
 }
@@ -246,7 +247,7 @@ export function hasWandererRelocated(
     moves: Record<string, number> | null | undefined,
     id: string,
 ): boolean {
-    return moves != null && typeof moves[id] === "number";
+    return moves != null && typeof moves[id] === "number" && isPlayableWildSector(moves[id]);
 }
 
 /** Wanderers that have wandered INTO `sector` from elsewhere and are ready to be

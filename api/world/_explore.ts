@@ -1,6 +1,6 @@
 import { gainXp } from '../_xp-engine.js';
 import { recordFirstContractActivity } from '../../shared/first-contract.js';
-import { isWildSector, sectorBiomeOf } from '../../shared/sector-geo.js';
+import { isPlayableWildSector, sectorBiomeOf } from '../../shared/sector-geo.js';
 
 export const DAILY_SECTOR_EXPLORE_LIMIT = 150;
 
@@ -44,7 +44,7 @@ export function sectorExploreReward(sectorRaw: unknown): { sector: number; xp: n
     // renumbering widened the world past 60, and a stale ceiling here would
     // refuse to settle the outermost sectors — which now fails the explore
     // outright rather than silently paying nothing.
-    if (!isWildSector(sector)) return null;
+    if (!isPlayableWildSector(sector)) return null;
     // Character XP is retired (leveling-without-xp map): explore is an
     // unlimited-ish repeat channel, so the old xp line (20 + sector/5) folds
     // into ryo instead — the discovery/loot layer stays the draw. `xp` stays in
@@ -73,7 +73,7 @@ export function withRelicSurveyProgress(
     // out-of-range sector), so gate on the world registry first — otherwise a bad
     // sector would silently credit a country the player never walked.
     const sector = Math.floor(Number(sectorRaw));
-    if (!isWildSector(sector)) return character;
+    if (!isPlayableWildSector(sector)) return character;
     const biome = sectorBiomeOf(sector);
     if (!biome) return character;
     const seen = Array.isArray(character.relicSurvey)
