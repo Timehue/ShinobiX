@@ -90,7 +90,7 @@ export async function attackSectorPlayer(opts: SectorAttackOptions): Promise<voi
     // The world path's admission gate — Academy protection and the
     // engaged/traveling/in-battle refusals. See lib/world-attack-claim.
     const claim = await claimWorldAttack(opponent.name, character.name, createScope.signal);
-    if (!createIsCurrent()) return; if (!claim.ok) return void alert(claim.error);
+    if (!createIsCurrent()) return; if (claim.ok !== true) return void alert(claim.error);
     // Use local character data — the server hydrates both
     // fighters from their KV save records directly (see
     // api/pvp/session.ts ~line 502), so the redundant

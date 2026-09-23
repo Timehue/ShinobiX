@@ -4,7 +4,7 @@ import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { dailyMissionsCompleted, dailyHuntsCompleted } from "../lib/character-progress";
 /*
  * Desktop left-rail profile card — avatar + name/rank + HP/Chakra/Stamina
- * + currency bar + daily caps + XP bar + in-flight timers.
+ * + core currencies + daily caps + XP bar + in-flight timers.
  *
  * The visual body lives in ProfileCardBody (exported below) so it can be
  * reused verbatim by the mobile "You" sheet (MobileProfileSheet) — desktop
@@ -103,7 +103,7 @@ export const LeftProfileCard = memo(function LeftProfileCard({
     );
 });
 
-// The card's visual body — avatar/name/rank/vitals/currencies/daily-caps/XP/
+// The card's visual body — avatar/name/rank/vitals/core currencies/daily-caps/XP/
 // timers. Shared verbatim between the desktop left rail (LeftProfileCard) and
 // the mobile "You" sheet (MobileProfileSheet). Deliberately holds NO self-
 // gating modals (those live on the desktop host) so mounting it inside the
@@ -154,16 +154,12 @@ export const ProfileCardBody = memo(function ProfileCardBody({
             <div className="left-profile-stat">Sector {currentSector}</div>
             <div className="left-profile-stat">Weather Clear Skies</div>
 
-            {/* Currencies — icons from the GameIcon SVG set (themeable, no emoji) */}
+            {/* Core currencies — bloodline materials live on the character page. */}
             <div className="left-currencies">
                 {([
                     { icon: "ryo",     label: "Ryo",          value: character.ryo },
                     { icon: "medal",   label: "Honor Seals",  value: character.honorSeals,  valueColor: "var(--gold)" },
-                    { icon: "sparkle", label: "Aura Dust",    value: character.auraDust,    valueColor: "#fef3c7" },
                     { icon: "shard",   label: "Fate Shards",  value: character.fateShards,  valueColor: "#ce93d8" },
-                    { icon: "crystal", label: "Aura Stones",  value: character.auraStones,  valueColor: "var(--blue-400)" },
-                    { icon: "sigil",   label: "Mythic Seals", value: character.mythicSeals, valueColor: "#fde047" },
-                    { icon: "bone",    label: "Bone Charms",  value: character.boneCharms,  valueColor: "var(--text-dim)" },
                 ] as { icon: ShinobiCurrencyIconName; label: string; value: number; valueColor?: string }[]).map((c) => (
                     <div className="left-currency-row" key={c.label}>
                         <span className="left-currency-icon">

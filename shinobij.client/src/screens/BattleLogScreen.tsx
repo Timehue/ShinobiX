@@ -70,7 +70,7 @@ export function BattleLogScreen({
             try {
                 const res = await fetchBattleLog(battleId, { signal: ac.signal });
                 if (ac.signal.aborted) return;
-                if (!res.ok) {
+                if (res.ok !== true) {
                     // Keep whatever is already on screen — a failed refresh must
                     // not blank a record the player is reading.
                     setError({ kind: res.kind, message: res.message });

@@ -124,6 +124,40 @@ after(() => {
     delete process.env.SESSION_SECRET;
 });
 
+test('responder recovers a lost queue mirror before and after session activation', async () => {
+    assert.equal((await post(rankedQueue, ALICE, { name: ALICE, action: 'join' })).statusCode, 200);
+    assert.equal((await post(rankedQueue, BOB, { name: BOB, action: 'join' })).statusCode, 200);
+
+    const matched = await post(rankedQueue, ALICE, { name: ALICE, action: 'poll' });
+    assert.equal(matched.statusCode, 200);
+    const match = matched.body?.match;
+    assert.ok(match?.matchId);
+
+    await kv.del(`pvp:ranked-queue:match:${BOB}`);
+    const queuedRecovery = await post(rankedQueue, BOB, { name: BOB, action: 'poll' });
+    assert.equal(queuedRecovery.statusCode, 200, queuedRecovery.body?.error);
+    assert.equal(queuedRecovery.body?.match?.matchId, match.matchId);
+
+    const created = await post(session, ALICE, {
+        p1Character: { name: ALICE },
+        p2Character: { name: BOB },
+        ranked: true,
+        rankedKind: 'player',
+        rankedMatchId: match.matchId,
+        rankedSeasonId: match.seasonId,
+        rankedSeasonEpoch: match.seasonEpoch,
+    });
+    assert.equal(created.statusCode, 200, created.body?.error);
+    const battleId = String(created.body?.battleId ?? '');
+    assert.ok(battleId);
+
+    await kv.del(`pvp:ranked-queue:match:${BOB}`);
+    const activeRecovery = await post(rankedQueue, BOB, { name: BOB, action: 'poll' });
+    assert.equal(activeRecovery.statusCode, 200, activeRecovery.body?.error);
+    assert.equal(activeRecovery.body?.match?.matchId, match.matchId);
+    assert.equal(activeRecovery.body?.match?.battleId, battleId);
+});
+
 test('two ranked queue entries create a ranked-format PvP combat session', async () => {
     assert.equal((await post(rankedQueue, ALICE, { name: ALICE, action: 'join' })).statusCode, 200);
     assert.equal((await post(rankedQueue, BOB, { name: BOB, action: 'join' })).statusCode, 200);
