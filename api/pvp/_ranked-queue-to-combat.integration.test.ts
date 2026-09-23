@@ -249,6 +249,19 @@ test('two ranked queue entries create a ranked-format PvP combat session', async
     assert.equal(usedConsumable.body?.itemCharges?.[itemRole]?.[RANKED_FORMAT_NEUTRAL_EQUIPMENT.item1], 1);
     assert.equal(usedConsumable.body?.itemsUsed?.[itemRole]?.[RANKED_FORMAT_NEUTRAL_EQUIPMENT.item1], 1,
         'ranked permits the fixed neutral consumable kit and spends its sealed charge');
+    const smokeRole = usedConsumable.body?.activePlayer as 'p1' | 'p2';
+    const smokePlayer = smokeRole === 'p1' ? ALICE : BOB;
+    const usedSmoke = await post(move, smokePlayer, {
+        battleId, role: smokeRole, action: 'item', itemId: 'item-smoke-bomb',
+        moveToken: `ranked-smoke-${battleId}-${smokeRole}`,
+    });
+    assert.equal(usedSmoke.statusCode, 200, usedSmoke.body?.error);
+    assert.equal(usedSmoke.body?.itemCharges?.[smokeRole]?.['item-smoke-bomb'], 1);
+    for (const role of ['p1', 'p2'] as const) {
+        assert.ok(usedSmoke.body?.[role]?.statuses?.some((status: { source?: string; kind?: string }) =>
+            status.source === 'item-smoke-bomb' && status.kind === 'negative'),
+            `${role} receives ranked Smoke Bomb's debuff`);
+    }
     assert.equal(created.body?.session?.rankedKind, 'player');
     assert.equal(created.body?.session?.rankedFormatVersion, 1);
     assert.equal(created.body?.session?.p1?.character?.equipment?.hand, 'elderbranch-katana');
@@ -262,9 +275,12 @@ test('two ranked queue entries create a ranked-format PvP combat session', async
     for (const role of ['p1', 'p2'] as const) {
         const fighter: Record<string, any> | undefined = created.body?.session?.[role];
         assert.equal(fighter?.character?.equipment?.thrown, RANKED_FORMAT_NEUTRAL_EQUIPMENT.thrown);
+        assert.equal(fighter?.character?.equipment?.item3, 'item-smoke-bomb');
+        assert.ok(fighter?.character?.pvpItems?.some((item: { id: string }) => item.id === 'item-smoke-bomb'));
         assert.equal(fighter?.character?.pvpItems?.find((item: { id: string }) => item.id === RANKED_FORMAT_NEUTRAL_EQUIPMENT.thrown)?.weaponEp, 38,
             'the queued ranked fighter receives the tuned server-catalog Kunai, not a stale client item');
         assert.equal(created.body?.session?.itemCharges?.[role]?.[RANKED_FORMAT_NEUTRAL_EQUIPMENT.thrown], 2);
+        assert.equal(created.body?.session?.itemCharges?.[role]?.['item-smoke-bomb'], 2);
     }
     assert.equal((await kv.get<Record<string, any>>(`save:${ALICE}`))?.character?.maxHp, 200,
         'the equalized ranked resources are session-only and never overwrite a player save');

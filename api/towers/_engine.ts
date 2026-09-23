@@ -51,7 +51,7 @@ import {
     pveIsBurstJutsuAp,
 } from '../_pve-difficulty.js';
 import { pveMeaningfulBuffCount } from '../_pve-ai-tactics.js';
-import { activeCombatStatuses, isCombatStatusActive } from '../combat-core/statuses.js';
+import { activeCombatStatuses, isCombatStatusActive, removeActiveCombatStatusesByKind } from '../combat-core/statuses.js';
 import { adjustedApCost } from '../combat-core/resources.js';
 import { tickCombatCooldowns } from '../combat-core/cooldowns.js';
 import { resolveCastFlavor } from '../combat-core/cast-flavor.js';
@@ -2313,9 +2313,12 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
         if (hasActiveStatus(cTarget, 'Clear Prevent', session.round)) {
             session.log.push(`${cTarget.name}'s Clear Prevent blocks the clear.`);
         } else {
-            const removed = cTarget.statuses.filter(s => s.kind === 'positive').map(s => s.name);
-            cTarget.statuses = cTarget.statuses.filter(s => s.kind !== 'positive');
-            session.log.push(`Clear: removed ${removed.length ? removed.join(', ') : 'no positive effects'} from ${cTarget.name}.`);
+            const cleared = removeActiveCombatStatusesByKind(cTarget.statuses, 'positive', session.round);
+            const removed = cleared.removed.map(status => status.name);
+            cTarget.statuses = cleared.statuses;
+            const hadShield = cTarget.shield > 0;
+            cTarget.shield = 0;
+            session.log.push(`Clear: removed ${removed.length ? removed.join(', ') : 'no positive effects'} from ${cTarget.name}${hadShield ? ' and broke their shield' : ''}.`);
         }
         actor.cooldowns['clear'] = CLEAR_CD;
         spendActionAp(session, actor, CLEAR_AP);

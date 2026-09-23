@@ -495,7 +495,7 @@ export const starterItems: GameItem[] = [
         rarity: "rare",
         cost: 360,
         image: "/items/shop-smoke-bomb-v1.webp",
-        description: "Dense smoke fills the field. Ordinary damage is blocked for 1 round. Pierce still deals full damage.",
+        description: "Dense smoke fills the field. Direct damage is blocked for 1 round. Pierce and Wound, Poison, or Drain damage still get through.",
         weaponEffect: "Decrease Damage Given",
         weaponEffectValue: 100,
         weaponEffectTarget: "both",

@@ -1153,11 +1153,51 @@ describe('Battle Towers loadout combat (jutsu resources / cooldowns / weapons / 
         endTurn(s, floor);
         assert.equal(activeActor(s)?.id, 'sq-2');
         const target = getActor(s, 'en-2')!;
+        target.shield = 300;
         const hpBefore = target.hp;
         assert.ok(applyAction(s, floor, { actorId: 'sq-2', type: 'attack', targetId: 'en-2' }, makeRng(1)).applied);
         assert.equal(target.hp, hpBefore, 'the teammate cannot deal ordinary damage through smoke');
+        assert.equal(target.shield, 300, 'smoke does not consume the target shield');
         assert.ok(applyAction(s, floor, { actorId: 'sq-2', type: 'jutsu', jutsuId: 'piercing-hit', targetId: 'en-2' }, makeRng(1)).applied);
-        assert.ok(target.hp < hpBefore, 'the teammate can still deal Pierce damage through smoke');
+        assert.ok(target.hp < hpBefore, 'the teammate can still deal Pierce damage through smoke and shield');
+        assert.equal(target.shield, 300, 'Pierce leaves the bypassed shield intact');
+    });
+
+    it('tower smoke leaves Wound, Drain, and on-spend Poison damage intact', () => {
+        const effects = [
+            { name: 'Wound', amount: 100, rounds: 2, activeRound: 1, kind: 'negative' as const },
+            { name: 'Drain', amount: 80, rounds: 2, activeRound: 1, kind: 'negative' as const },
+            { name: 'Poison', percent: 10, rounds: 2, activeRound: 1, kind: 'negative' as const },
+        ];
+        const smoke = { name: 'Decrease Damage Given', source: 'item-smoke-bomb', percent: 100,
+            rounds: 2, activeRound: 1, kind: 'negative' as const };
+        const tick = (smoked: boolean) => {
+            const squad = makeActor('sq-1', 'squad', 0, { ai: false,
+                statuses: smoked ? [...effects, smoke] : [...effects] });
+            const session = makeSession([squad, makeActor('en-1', 'enemy', 63)]);
+            startRound(session);
+            const round = session.round;
+            for (let turns = 0; session.round === round && turns < 4; turns++) endTurn(session, floor);
+            assert.ok(session.round > round);
+            return { hp: squad.hp, chakra: squad.chakra };
+        };
+        const normalTick = tick(false);
+        assert.ok(normalTick.hp < 1000);
+        assert.deepEqual(tick(true), normalTick);
+
+        const spend = (smoked: boolean) => {
+            const squad = makeActor('sq-1', 'squad', 0, { ai: false,
+                statuses: smoked ? [effects[2]!, smoke] : [effects[2]!],
+                character: { ...WEAK, jutsu: [{ id: 'poison-spend', name: 'Poison Spend', type: 'Taijutsu',
+                    target: 'OPPONENT', ap: 40, range: 1, effectPower: 20, chakraCost: 50, tags: [] }] } });
+            const session = makeSession([squad, makeActor('en-1', 'enemy', 1)]);
+            startRound(session);
+            assert.ok(applyAction(session, floor, { actorId: squad.id, type: 'jutsu', jutsuId: 'poison-spend', targetId: 'en-1' }, makeRng(1)).applied);
+            return squad.hp;
+        };
+        const normalSpend = spend(false);
+        assert.ok(normalSpend < 1000);
+        assert.equal(spend(true), normalSpend);
     });
 
     it('field smoke blocks pet strikes and Defense Pill reduces pet damage', () => {
@@ -1527,11 +1567,23 @@ describe('Battle Towers basic actions', () => {
     });
 
     it('clear strips a hostile target\'s buffs', () => {
-        const en = makeActor('en-1', 'enemy', 1, { statuses: [{ name: 'Reflect', rounds: 2, kind: 'positive' }], character: WEAK });
+        const en = makeActor('en-1', 'enemy', 1, { shield: 400, statuses: [
+            { name: 'Reflect', rounds: 2, kind: 'positive' },
+            { name: 'Absorb', rounds: 2, activeRound: 2, kind: 'positive' },
+        ], character: WEAK });
         const s = makeSession([makeActor('sq-1', 'squad', 0, { character: { specialty: 'Ninjutsu', stats: {} } }), en]);
         startRound(s);
         assert.ok(applyAction(s, floor, { actorId: 'sq-1', type: 'clear', targetId: 'en-1' }, makeRng(1)).applied);
-        assert.ok(!getActor(s, 'en-1')!.statuses.some(x => x.kind === 'positive'), 'enemy buffs cleared');
+        assert.ok(!getActor(s, 'en-1')!.statuses.some(x => x.name === 'Reflect'), 'active enemy buff cleared');
+        assert.ok(getActor(s, 'en-1')!.statuses.some(x => x.name === 'Absorb' && x.activeRound === 2), 'deferred buff remains');
+        assert.equal(getActor(s, 'en-1')!.shield, 0, 'enemy shield cleared');
+
+        const protectedEnemy = makeActor('protected-enemy', 'enemy', 1, { shield: 400,
+            statuses: [{ name: 'Clear Prevent', rounds: 2, activeRound: 1, kind: 'positive' }], character: WEAK });
+        const protectedSession = makeSession([makeActor('sq-1', 'squad', 0, { character: STRONG }), protectedEnemy]);
+        startRound(protectedSession);
+        assert.ok(applyAction(protectedSession, floor, { actorId: 'sq-1', type: 'clear', targetId: protectedEnemy.id }, makeRng(1)).applied);
+        assert.equal(protectedEnemy.shield, 400, 'active Clear Prevent preserves the shield');
     });
 
     it('an adds-gated boss rejects Clear without spending AP or stripping its barrier buffs', () => {

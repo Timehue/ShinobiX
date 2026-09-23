@@ -9,6 +9,10 @@ let kv: Kv;
 let mod: typeof import('./_ranked-2v2.js');
 let settle: typeof import('./_ranked-2v2-settlement.js');
 let format: typeof import('./_ranked-format.js');
+let towerEngine: typeof import('../towers/_engine.js');
+let towerPvp: typeof import('../towers/_pvp-session.js');
+let towerSession: typeof import('../towers/_tower-session.js');
+let makeRng: typeof import('../towers/_sim.js').makeRng;
 
 const A1 = 'ash', A2 = 'briar', B1 = 'cinder', B2 = 'dune';
 const ALL = [A1, A2, B1, B2];
@@ -20,6 +24,10 @@ before(async () => {
     mod = await import('./_ranked-2v2.js');
     settle = await import('./_ranked-2v2-settlement.js');
     format = await import('./_ranked-format.js');
+    towerEngine = await import('../towers/_engine.js');
+    towerPvp = await import('../towers/_pvp-session.js');
+    towerSession = await import('../towers/_tower-session.js');
+    ({ makeRng } = await import('../towers/_sim.js'));
 });
 after(() => { delete process.env.SHINOBIX_QA_MEMORY_KV; });
 
@@ -208,11 +216,24 @@ describe('ranked 2v2 matchmaking', { concurrency: false }, () => {
             const equipment = character.equipment as Record<string, string>;
             assert.equal(equipment.body, format.RANKED_FORMAT_NEUTRAL_EQUIPMENT.body, `${slug} wears the neutral set, not their own`);
             assert.equal(equipment.thrown, format.RANKED_FORMAT_NEUTRAL_EQUIPMENT.thrown);
+            assert.equal(equipment.item3, 'item-smoke-bomb', `${slug} receives the neutral Smoke Bomb`);
+            assert.ok((character.pvpItems as Array<{ id: string }>).some(item => item.id === 'item-smoke-bomb'),
+                `${slug} can use the equipped Smoke Bomb`);
             assert.equal(equipment.hand, weaponBySlug[slug], `${slug} keeps their own chosen (or defaulted) weapon`);
             assert.equal(character.rankedFormatCombat, true);
             assert.equal((character.jutsuMastery as Array<{ jutsuId: string; level: number }>).find(row => row.jutsuId === 'starter-nin-fire-2')?.level, 50);
             assert.equal(actor.itemCharges?.[format.RANKED_FORMAT_NEUTRAL_EQUIPMENT.thrown], format.RANKED_FORMAT_CONSUMABLE_CHARGES);
+            assert.equal(actor.itemCharges?.['item-smoke-bomb'], format.RANKED_FORMAT_CONSUMABLE_CHARGES);
             assert.equal((await kv.get<{ character: { jutsuMastery: Array<{ level: number }> } }>(`save:${slug}`))?.character.jutsuMastery[0]?.level, 1);
+        }
+        towerEngine.startRound(match.combat);
+        const caster = towerSession.activeActor(match.combat)!;
+        assert.ok(towerEngine.applyAction(match.combat, towerPvp.TOWER_PVP_FLOOR,
+            { actorId: caster.id, type: 'item', itemId: 'item-smoke-bomb' }, makeRng(1)).applied);
+        assert.equal(caster.itemCharges?.['item-smoke-bomb'], format.RANKED_FORMAT_CONSUMABLE_CHARGES - 1);
+        for (const actor of match.combat.actors) {
+            assert.ok(actor.statuses.some(status => status.source === 'item-smoke-bomb' && status.kind === 'negative'),
+                `${actor.name} is covered by the ranked Smoke Bomb`);
         }
     });
 
