@@ -1552,7 +1552,7 @@ export function PvpBattleScreen({
         Boolean(jutsu) && !pvpIsGroundTargetJutsu(jutsu) && (jutsu!.target === "SELF" || !pvpAffectsOpponent(jutsu!));
     const boardMyPos = session ? (role === "p1" ? session.p1.pos : session.p2.pos) : -1;
     const boardOppPos = session ? (role === "p1" ? session.p2.pos : session.p1.pos) : -1;
-    const jutsuRange = pendingJutsuDirect ? Math.max(1, Number(pendingJutsuDirect.range) || 1) : 0;
+    const jutsuRange = pendingJutsuDirect ? Math.max(1, Number(pendingJutsuDirect.range) || 4) : 0;
     const allTiles = useMemo(() => Array.from({ length: gridWidth * gridHeight }, (_, i) => i), [gridWidth, gridHeight]);
     const pvpBarrierTiles = useMemo(
         () => session
@@ -1567,9 +1567,12 @@ export function PvpBattleScreen({
     // click on the enemy would fire a self-buff at the wrong tile.
     const jutsuRangeTiles = useMemo(() => new Set(pendingJutsuDirect && !pvpIsSelfTargetJutsu(pendingJutsuDirect) ? allTiles.filter(t => t !== boardMyPos && pvpDist(boardMyPos, t) <= jutsuRange) : []), [pendingJutsuDirect, boardMyPos, jutsuRange, allTiles]);
     const groundJutsuTiles = useMemo(() => new Set(pvpIsGroundTargetJutsu(pendingJutsuDirect) ? allTiles.filter(t => t !== boardMyPos && t !== boardOppPos && !pvpBarrierTiles.has(t) && pvpDist(boardMyPos, t) <= jutsuRange) : []), [pendingJutsuDirect, boardMyPos, boardOppPos, jutsuRange, allTiles, pvpBarrierTiles]);
-    // Hover-reactive by design: only THIS Set recomputes as the cursor moves over a
-    // ground target's range; the rest of the board stays memoized.
+    // Instant ground effects cover the full caster range as soon as they are
+    // armed. Movement effects still preview their landing footprint on hover.
     const groundJutsuAffectedTiles = useMemo(() => {
+        if (pendingJutsuDirect?.method === "INSTANT_EFFECT" && groundJutsuTiles.size > 0) {
+            return jutsuImpactPreviewTiles("INSTANT_EFFECT", [...groundJutsuTiles][0]!, allTiles, pvpDist, pvpHexNeighbors, false, { casterPos: boardMyPos, range: jutsuRange });
+        }
         if (pendingJutsuDirect && pvpIsGroundTargetJutsu(pendingJutsuDirect) && hoveredPvpTile !== null && groundJutsuTiles.has(hoveredPvpTile)) {
             const impact = jutsuImpactPreviewTiles(pendingJutsuDirect.method, hoveredPvpTile, allTiles, pvpDist, pvpHexNeighbors);
             // A pure movement jutsu has no damage area; its hovered destination is
@@ -1578,7 +1581,7 @@ export function PvpBattleScreen({
             return impact;
         }
         return new Set<number>();
-    }, [pendingJutsuDirect, hoveredPvpTile, groundJutsuTiles, allTiles]);
+    }, [pendingJutsuDirect, hoveredPvpTile, groundJutsuTiles, allTiles, boardMyPos, jutsuRange]);
     // Opponent-targeted area methods (especially AOE_BURST) — show their impact
     // area whenever the enemy is in range.
     const opponentJutsuAffectedTiles = useMemo(() => pendingJutsuDirect && !pvpIsGroundTargetJutsu(pendingJutsuDirect) && !pvpIsSelfTargetJutsu(pendingJutsuDirect) && jutsuRangeTiles.has(boardOppPos)
@@ -1739,8 +1742,7 @@ export function PvpBattleScreen({
     const pvpGroundZoneClass = (effect: PvpGroundEffectState | undefined) => {
         if (!effect) return "";
         const tagNames = new Set((effect.tags ?? []).map(tag => normalizeTagName(tag.name)));
-        // A large footprint (> the 7-hex Instant-Effect zone) is an AOE_SPIRAL
-        // nova — give it an extra pulsing treatment so the shockwave reads.
+        // Wide ground fields get an extra pulse so their full area reads clearly.
         const nova = (effect.tiles?.length ?? 0) >= 8 ? " ground-effect-nova" : "";
         if (tagNames.has("Poison")) return " ground-effect-poison" + nova;
         if (tagNames.has("Recoil")) return " ground-effect-fire" + nova;
@@ -1992,9 +1994,8 @@ export function PvpBattleScreen({
     const fallbackIcon = (j: Jutsu) =>
         j.type === "Taijutsu" ? "👊" : j.type === "Bukijutsu" ? "⚔" : j.type === "Genjutsu" ? "👁" : "🌀";
     const combatVfxCenters = (fx: PvpCombatVfx) => {
-        const tiles = (fx.spec.tiles ?? [])
-            .filter(tile => tile >= 0 && tile < gridWidth * gridHeight)
-            .slice(0, liteFx ? 7 : 14);
+        const footprint = (fx.spec.tiles ?? []).filter(tile => tile >= 0 && tile < gridWidth * gridHeight);
+        const tiles = fx.spec.persistent ? footprint : footprint.slice(0, liteFx ? 7 : 14);
         if (tiles.length) return tiles.map(pvpTileCenter);
         const fighter = fx.target === "p1" ? session.p1 : session.p2;
         return [pvpTileCenter(fighter.pos)];

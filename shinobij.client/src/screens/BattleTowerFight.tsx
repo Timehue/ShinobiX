@@ -348,6 +348,11 @@ function isMoveJutsu(j: JutsuLike | null | undefined): boolean {
 function isBurstJutsu(j: JutsuLike | null | undefined): boolean {
     return Boolean(j) && String(j!.method ?? "") === "AOE_BURST";
 }
+function isInstantGroundEffect(j: JutsuLike | null | undefined): boolean {
+    return Boolean(j && j.target === "EMPTY_GROUND"
+        && (j.method === "INSTANT_EFFECT" || j.method === "AOE_LINE")
+        && j.tags?.some(tag => tag.name && ["Poison", "Recoil", "Decrease Damage Given"].some(name => tagMatchesName(tag.name!, name))));
+}
 type ItemLike = {
     id?: string;
     name?: string;
@@ -706,9 +711,8 @@ export function BattleTowerFight({
     // Same markup and class contract as PvP and solo PvE, so all three modes
     // share one stylesheet (.pvp-combat-vfx / .pvp-vfx-* in battle-skin.css).
     const renderCombatVfx = (fx: TowerCombatVfx) => {
-        const tiles = (fx.spec.tiles ?? [])
-            .filter((tile) => tile >= 0 && tile < w * h)
-            .slice(0, liteFx ? 7 : 14);
+        const footprint = (fx.spec.tiles ?? []).filter((tile) => tile >= 0 && tile < w * h);
+        const tiles = fx.spec.persistent ? footprint : footprint.slice(0, liteFx ? 7 : 14);
         const anchored = session.actors.find(a => a.id === fx.target);
         const centers = tiles.length
             ? tiles.map(tileCenter)
@@ -1318,6 +1322,10 @@ export function BattleTowerFight({
         if (mode === "weapon") return towerTilesInRange(myPos, weaponRange, w, h);
         return new Set<number>();
     }, [mode, myActor, selJutsu, weaponRange, myPos, w, h, session.actors, impassableTiles]);
+    // The instant zone is centered on the caster. Clicking a legal tile only
+    // confirms the cast, so the entire effect footprint is visible when armed.
+    const instantGroundPreviewTiles = mode === "jutsu" && isInstantGroundEffect(selJutsu)
+        ? jutsuRangeTiles : new Set<number>();
 
     // AOE Burst splash footprint — the target-centred radius-1 blast (target tile + its
     // 6 touching hexes) that resolveHit → applyAoeSplash applies server-side. Centres on
@@ -1797,6 +1805,10 @@ export function BattleTowerFight({
             metrics.push(`${debuffs.length} debuff${debuffs.length === 1 ? "" : "s"}`);
             return { title: armedActionName, target: myActor.name, metrics, detail: debuffs.length ? `Removes ${debuffs.map(status => status.name).slice(0, 3).join(", ")}. Click your ninja to confirm.` : "No active debuffs to remove." };
         }
+        if (mode === "jutsu" && isInstantGroundEffect(selJutsu)) {
+            metrics.push(`${instantGroundPreviewTiles.size} affected tiles`);
+            return { title: armedActionName, target: "Full highlighted field", metrics, detail: "Click a legal tile to cast. Every highlighted tile receives the ground effect." };
+        }
         if (!target) {
             return { title: armedActionName, target: "Hover or select an enemy", metrics, detail: "Reachable targets are outlined on the battlefield." };
         }
@@ -2182,7 +2194,9 @@ export function BattleTowerFight({
                                     const validAction = isMove
                                         ? (mode === "dash" ? "Dash here" : "Move here")
                                         : isJutsuMoveTarget ? "jutsu move destination"
-                                        : validGroundTarget ? `Place ${selJutsu?.name ?? "jutsu"} here` : undefined;
+                                        : validGroundTarget ? isInstantGroundEffect(selJutsu)
+                                            ? `Cast ${selJutsu?.name ?? "jutsu"} across the highlighted field`
+                                            : `Place ${selJutsu?.name ?? "jutsu"} here` : undefined;
                                     const danger: string[] = [];
                                     if (strikeTiles.has(pos)) danger.push(`${session.bossStrike?.label ?? "Boss strike"} at round end`);
                                     if (ringTiles.has(pos)) danger.push("Outside the safe ring");
@@ -2228,6 +2242,13 @@ export function BattleTowerFight({
                                     return <div className="tower-action-focus-ring tower-hex-tile" aria-hidden="true"
                                         style={{ left, top, width: HEX_W, height: HEX_H }} />;
                                 })()}
+
+                                {/* Instant ground-field preview: all tiles affected by this cast. */}
+                                {[...instantGroundPreviewTiles].map(t => {
+                                    const { left, top } = towerHexPixel(t, w);
+                                    return <div key={`instant-preview-${t}`} className="tower-hex-tile" aria-hidden="true"
+                                        style={{ position: "absolute", left, top, width: HEX_W, height: HEX_H, background: "rgba(34,211,238,0.36)", filter: "drop-shadow(0 0 3px rgba(34,211,238,0.9))", zIndex: 3, pointerEvents: "none" }} />;
+                                })}
 
                                 {/* persistent ground-effect zones (tile-placed jutsu) */}
                                 {(session.groundEffects ?? []).flatMap((z, zi) => z.tiles.map(t => {

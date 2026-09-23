@@ -2,13 +2,15 @@ import type { JutsuMethod } from "../types/core";
 
 /** Build the aiming footprint for every area-method jutsu. */
 export function jutsuImpactPreviewTiles(
-    method: JutsuMethod,
+    method: JutsuMethod | "AOE_LINE",
     center: number,
     allTiles: readonly number[],
     distance: (a: number, b: number) => number,
     neighbors: (center: number) => number[],
     /** Ground/movement AOE_CIRCLE is a ring; direct-target variants include the target. */
     circleIncludesCenter = false,
+    /** Instant ground effects fill the entire cast range around the user. */
+    instantField?: { casterPos: number; range: number },
 ): Set<number> {
     if (center < 0) return new Set<number>();
 
@@ -20,7 +22,13 @@ export function jutsuImpactPreviewTiles(
         return new Set(circleIncludesCenter ? [center, ...neighbors(center)] : neighbors(center));
     }
 
-    if (method === "INSTANT_EFFECT" || method === "AOE_BURST") {
+    if (method === "INSTANT_EFFECT" || method === "AOE_LINE") {
+        return instantField
+            ? new Set(allTiles.filter((tile) => distance(instantField.casterPos, tile) <= instantField.range))
+            : new Set<number>();
+    }
+
+    if (method === "AOE_BURST") {
         return new Set([center, ...neighbors(center)]);
     }
 

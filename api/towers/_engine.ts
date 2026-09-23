@@ -54,7 +54,7 @@ import { activeCombatStatuses, isCombatStatusActive } from '../combat-core/statu
 import { adjustedApCost } from '../combat-core/resources.js';
 import { tickCombatCooldowns } from '../combat-core/cooldowns.js';
 import { resolveCastFlavor } from '../combat-core/cast-flavor.js';
-import { MAX_COMBAT_VFX_TILES, canonicalJutsuTagNames, semanticJutsuVfx } from '../combat-core/jutsu-vfx.js';
+import { MAX_COMBAT_VFX_TILES, canonicalJutsuMethod, canonicalJutsuTagNames, semanticJutsuVfx } from '../combat-core/jutsu-vfx.js';
 import type { PvpFighter, PvpGroundEffect, PvpStatus } from '../pvp/session.js';
 import type { EnemyTemplate } from './_enemy-templates.js';
 import { partyScaleFactor, scaleEnemyStat, getFloorBalanceFor, type TowerFloor, type TowerTargetMode } from './_floor-catalog.js';
@@ -1396,8 +1396,11 @@ function towerGroundTags(tags: unknown): Array<{ name: string; percent?: number 
         .map(t => ({ ...t, name: canonicalTagName(t.name!) }))
         .filter(t => GROUND_EFFECT_TAGS.has(t.name));
 }
-function groundZoneTiles(center: number, w: number, h: number, method?: string): number[] {
-    return String(method ?? 'SINGLE') === 'AOE_SPIRAL'
+function groundZoneTiles(center: number, w: number, h: number, method?: string, casterPos?: number, range?: number): number[] {
+    const canonicalMethod = canonicalJutsuMethod(method);
+    return canonicalMethod === 'INSTANT_EFFECT' && casterPos !== undefined
+        ? filledDiskTiles(casterPos, Math.max(1, Number(range ?? 1)), w, h)
+        : canonicalMethod === 'AOE_SPIRAL'
         ? filledDiskTiles(center, 2, w, h)
         : [center, ...towerNeighbors(center, w, h)];
 }
@@ -1425,7 +1428,7 @@ function layGroundZone(session: TowerSession, actor: TowerActor, jutsuId: string
         id: `gz-${session.round}-${actor.id}-${jutsuId}`,
         owner: actor.side === 'squad' ? 'p1' : 'p2',
         name: jutsu.name ?? 'Ground Effect',
-        tiles: groundZoneTiles(tile, session.map.width, session.map.height, jutsu.method),
+        tiles: groundZoneTiles(tile, session.map.width, session.map.height, jutsu.method, actor.pos, jutsu.range),
         rounds: 2,
         ...(typeof jutsu.bloodlineRank === 'string' && jutsu.bloodlineRank ? { bloodlineRank: jutsu.bloodlineRank } : {}),
         tags,
@@ -2082,7 +2085,8 @@ function tickBossPhases(session: TowerSession): void {
 /** Replace the session's VFX plates and bump the sequence the client watches. */
 function publishTowerVfx(session: TowerSession, plates: TowerVfxEvent[]): void {
     if (!plates.length) return;
-    session.vfx = plates.slice(0, MAX_COMBAT_VFX_TILES);
+    // This limits event count; a single ground event may still carry the full board footprint.
+    session.vfx = plates.slice(0, 18);
     session.vfxSeq = (session.vfxSeq ?? 0) + 1;
 }
 
@@ -2124,12 +2128,15 @@ function towerActionVfx(session: TowerSession, actor: TowerActor, action: TowerA
                 return action.tile === undefined ? [] : [{ key: 'move', anchor: 'tile', tiles: [action.tile] }];
             }
             const radius = jutsuAreaRadius(jutsu);
-            const method = String(jutsu.method ?? 'SINGLE');
+            const method = canonicalJutsuMethod(jutsu.method);
             const ground = method === 'INSTANT_EFFECT' || method === 'AOE_SPIRAL' || String(jutsu.target ?? '') === 'EMPTY_GROUND';
             const semantic = semanticJutsuVfx(jutsu as Parameters<typeof semanticJutsuVfx>[0], {
                 ...(ground ? { ground: true } : {}),
                 ...(radius > 0 ? { area: true } : {}),
                 ...(ko ? { ko: true } : {}),
+            const laysGroundZone = (String(jutsu.target ?? '') === 'EMPTY_GROUND'
+                || (method === 'AOE_SPIRAL' && names.includes('Move')))
+                && towerGroundTags(jutsu.tags).length > 0;
             });
             // Anchor on the struck tile when the cast named one, otherwise on the
             // victim (or the caster for a self-cast).
@@ -2140,12 +2147,14 @@ function towerActionVfx(session: TowerSession, actor: TowerActor, action: TowerA
                     ? filledDiskTiles(centre, radius, session.map.width, session.map.height)
                     : [centre];
             const target = semantic.anchor === 'caster' ? actor.id : foe;
+                : method === 'INSTANT_EFFECT' && laysGroundZone
+                    ? filledDiskTiles(actor.pos, Math.max(1, Number(jutsu.range ?? 1)), session.map.width, session.map.height)
             return [{
                 key: semantic.key,
                 ...(target ? { target } : {}),
                 anchor: semantic.anchor,
                 ...(tiles ? { tiles: tiles.slice(0, MAX_COMBAT_VFX_TILES) } : {}),
-                ...(ground ? { persistent: true } : {}),
+                ...(laysGroundZone ? { persistent: true } : {}),
             }];
         }
         default:
