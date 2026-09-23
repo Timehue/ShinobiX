@@ -4,7 +4,7 @@ import { sanitizeProgression } from './_sanitize-progression.js';
 import { sanitizePetRoster } from './_sanitize-pets.js';
 import { sanitizeInventory } from './_sanitize-inventory.js';
 import { sanitizeExamProgress } from './_sanitize-exams.js';
-import { prepareBloodlineNormalization } from './_sanitize-bloodlines.js';
+import { hasRejectedBloodlineSubmission, prepareBloodlineNormalization, preserveEquippedBloodline } from './_sanitize-bloodlines.js';
 import { sanitizeChallengeProgress } from './_sanitize-challenges.js';
 import { sanitizeCardsAndHistory } from './_sanitize-cards-history.js';
 import { sanitizeClaimsAndHospital } from './_sanitize-claims-hospital.js';
@@ -280,7 +280,7 @@ export function sanitizeCharacterSave(
     // than preserved there: it is personal, and anything on those slots is
     // published to every client. Defaults false, so ordinary player saves are
     // unaffected.
-    opts: { adminContentSlot?: boolean; now?: number } = {},
+    opts: { adminContentSlot?: boolean; now?: number; bloodlineEquipIntent?: string; bloodlineWriteIntent?: string } = {},
 ): Record<string, unknown> {
     const isFirstSave = existing == null;
     const inChar = incoming.character as Record<string, unknown> | undefined;
@@ -300,7 +300,7 @@ export function sanitizeCharacterSave(
     sanitizePetRoster(char, exChar, strictLedger);
     sanitizeInventory(char, exChar);
     sanitizeExamProgress(char, exChar, isFirstSave);
-    const { normalizeBloodlineArray, pendingBloodlineForges, consumedBloodlineForgeIds, RAW_BLOODLINE_IMAGE_MAX_BYTES } = prepareBloodlineNormalization(char, exChar, existing);
+    const { normalizeBloodlineArray, pendingBloodlineForges, consumedBloodlineForgeIds, RAW_BLOODLINE_IMAGE_MAX_BYTES } = prepareBloodlineNormalization(char, exChar, existing, opts.adminContentSlot, opts.bloodlineWriteIntent);
     sanitizeChallengeProgress(char, exChar);
     sanitizeCardsAndHistory(char, exChar);
     sanitizeClaimsAndHospital(char, exChar);
@@ -353,6 +353,8 @@ export function sanitizeCharacterSave(
     if (!isFirstSave) out.activeTraining = existing?.activeTraining ?? null;
     if (!isFirstSave) out.activeJutsuTraining = existing?.activeJutsuTraining ?? null;
     if (Array.isArray(incoming.savedBloodlines)) out.savedBloodlines = normalizeBloodlineArray(incoming.savedBloodlines, existing?.savedBloodlines, true);
+    preserveEquippedBloodline(finalChar, exChar, out.savedBloodlines ?? existing?.savedBloodlines,
+        opts.bloodlineEquipIntent, consumedBloodlineForgeIds.size > 0);
     grantOwnedBloodlineJutsuMastery(finalChar, out.savedBloodlines);
     // equippedJutsuIds is an ID preference, not proof that a technique was
     // learned. Accept any persisted mastery row (including legitimate level 0),
@@ -1007,7 +1009,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         safeIncoming = sanitizeCharacterSave(
                             incoming as Record<string, unknown>,
                             (existing as Record<string, unknown> | null) ?? null,
-                            { adminContentSlot: isAdminContentSlot(name) },
+                            { adminContentSlot: isAdminContentSlot(name),
+                                bloodlineEquipIntent: typeof req.headers['x-bloodline-equip-intent'] === 'string'
+                                    ? req.headers['x-bloodline-equip-intent'].slice(0, 128) : '',
+                                bloodlineWriteIntent: typeof req.headers['x-bloodline-write-intent'] === 'string'
+                                    ? req.headers['x-bloodline-write-intent'].slice(0, 128) : '' },
                         );
                         // Cross-validate clan / clanFounder / village against
                         // canonical clan records. This is the gate that stops
@@ -1020,6 +1026,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 (existing as Record<string, unknown> | null) ?? null,
                                 identityName,
                             );
+                        }
+                        // Older open clients do not inspect the bloodline receipt.
+                        // If the sanitizer rejected a new id or rank upgrade, fail
+                        // the whole write instead of returning a misleading 200.
+                        if (hasRejectedBloodlineSubmission(
+                            (incoming as Record<string, unknown>).savedBloodlines,
+                            (safeIncoming as Record<string, unknown>).savedBloodlines,
+                        )) {
+                            return res.status(422).json({
+                                error: 'Bloodline was not saved. Refresh the game and retry the Awakening ritual.',
+                                code: 'BLOODLINE_SAVE_REJECTED',
+                            });
                         }
                     }
 
@@ -1256,9 +1274,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // new ryo) converges on every successful autosave.
                     const persistedRyo = Number(((payload as Record<string, unknown>).character as Record<string, unknown> | undefined)?.ryo);
                     const persistedFateShards = Number(((payload as Record<string, unknown>).character as Record<string, unknown> | undefined)?.fateShards);
+                    const persistedBloodlines = (payload as Record<string, unknown>).savedBloodlines;
                     return res.status(200).json(isClanSave
                         ? { ok: true }
                         : { ok: true, _saveVersion: nextVersion,
+                            ...(typeof req.headers['x-bloodline-equip-intent'] === 'string' && req.headers['x-bloodline-equip-intent']
+                                ? { savedBloodlineIds: Array.isArray(persistedBloodlines)
+                                    ? persistedBloodlines.map((bloodline) => String((bloodline as Record<string, unknown>)?.id ?? '')).filter(Boolean)
+                                    : [],
+                                    savedBloodlineRanks: Object.fromEntries(Array.isArray(persistedBloodlines)
+                                        ? persistedBloodlines.filter((bloodline) => bloodline && typeof bloodline === 'object')
+                                            .map((bloodline) => [String((bloodline as Record<string, unknown>).id ?? ''), String((bloodline as Record<string, unknown>).rank ?? '')])
+                                            .filter(([id]) => Boolean(id))
+                                        : []),
+                                    equippedBloodlineId: ((payload as Record<string, unknown>).character as Record<string, unknown> | undefined)?.equippedBloodlineId ?? null }
+                                : {}),
                             ...(Number.isFinite(persistedRyo) ? { ryo: persistedRyo } : {}),
                             ...(Number.isFinite(persistedFateShards) ? { fateShards: persistedFateShards } : {}) });
                     }, { failClosed: true });

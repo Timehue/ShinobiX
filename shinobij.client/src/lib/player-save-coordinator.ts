@@ -116,7 +116,7 @@ export function createPlayerSaveCoordinator({
         characterToSave: Character,
         name: string,
         overrides?: Parameters<typeof buildPlayerSavePayload>[1],
-        opts?: { echoVersion?: boolean; useLatestAtExecution?: boolean },
+        opts?: { echoVersion?: boolean; useLatestAtExecution?: boolean; bloodlineEquipIntent?: string; bloodlineWriteIntent?: string },
     ) {
         const captured = opts?.useLatestAtExecution ? null : {
             character: characterToSave, payload: buildPlayerSavePayload(characterToSave, overrides), revision: savePayloadRevisionRef.current,
@@ -126,6 +126,8 @@ export function createPlayerSaveCoordinator({
             const effectiveCharacter = executionSnapshot?.character ?? characterToSave;
             return { name, payload: executionSnapshot?.payload ?? buildPlayerSavePayload(effectiveCharacter, overrides),
                 revision: executionSnapshot?.revision ?? savePayloadRevisionRef.current, echoVersion: opts?.echoVersion ?? true,
+                bloodlineEquipIntent: opts?.bloodlineEquipIntent,
+                bloodlineWriteIntent: opts?.bloodlineWriteIntent,
                 isStillCurrent: () => latestSaveRef.current?.character === effectiveCharacter,
                 onCommitted: () => { if (saveSoonTimerRef.current) { clearTimeout(saveSoonTimerRef.current); saveSoonTimerRef.current = null; } },
             };

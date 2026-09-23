@@ -120,6 +120,7 @@ import {
 } from "./lib/jutsu-scaling";
 import { useJutsuTrainingQueueRunner } from "./lib/jutsu-training-queue";
 import { useBloodlineMakerFlow } from "./lib/use-bloodline-maker-flow";
+import { assertBloodlineSaveAcknowledged } from "./lib/bloodline-save-ack";
 import { normalizeJutsu } from "./lib/jutsu";
 import { normalizeOnboardingStep } from "./lib/onboarding-step";
 import {
@@ -3120,7 +3121,7 @@ export default function App() {
         characterToSave: Character,
         name: string,
         overrides?: Parameters<typeof buildPlayerSavePayload>[1],
-        opts?: { echoVersion?: boolean; useLatestAtExecution?: boolean },
+        opts?: { echoVersion?: boolean; useLatestAtExecution?: boolean; bloodlineEquipIntent?: string; bloodlineWriteIntent?: string },
     ) {
         return saveCoordinator.pushSaveToServer(characterToSave, name, overrides, opts);
     }
@@ -6476,7 +6477,11 @@ export default function App() {
                         editingBloodline={bloodlineMaker.editingBloodline}
                         onSaveBloodlines={async (nextBloodlines, nextCharacter) => {
                             if (!character || !currentAccountName) throw new Error("No active player save is available.");
-                            await pushSaveToServer(nextCharacter ?? character, currentAccountName, { savedBloodlines: nextBloodlines });
+                            const committed = await pushSaveToServer(nextCharacter ?? character, currentAccountName,
+                                { savedBloodlines: nextBloodlines },
+                                { bloodlineEquipIntent: (nextCharacter ?? character).equippedBloodlineId,
+                                    bloodlineWriteIntent: nextBloodlines === savedBloodlines ? undefined : (nextCharacter ?? character).equippedBloodlineId });
+                            assertBloodlineSaveAcknowledged(committed.value, nextBloodlines, (nextCharacter ?? character).equippedBloodlineId);
                         }}
                         onClose={() => bloodlineMaker.close(isAdminAccountName(character.name) ? "adminPanel" : "centralHub")}
                         onOpenAwakening={isAdminAccountName(character.name) ? undefined : bloodlineMaker.openAwakening}

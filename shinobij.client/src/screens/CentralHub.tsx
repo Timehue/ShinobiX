@@ -580,21 +580,21 @@ export function CentralHub({
         void rollAwakening(AWAKENING_PAID_BOTH_ID);
     }
 
-    async function awakeningCreateBloodline(rank: Rank, materialKey: "boneCharms" | "auraStones" | "mythicSeals", cost: number) {
+    async function awakeningCreateBloodline(rank: Rank, materialKey: "boneCharms" | "auraStones" | "mythicSeals", cost: number, resumeOnly = false) {
         if (bloodlineForgeBusy) return;
-        if ((character[materialKey] ?? 0) < cost) {
+        if (!resumeOnly && (character[materialKey] ?? 0) < cost) {
             const label = materialKey === "boneCharms" ? "Bone Charms" : materialKey === "auraStones" ? "Aura Stones" : "Mythic Seals";
             setAwakeningMsg(`❌ Not enough ${label} — you need ${cost}.`);
             return;
         }
         setBloodlineForgeBusy(true);
         try {
-            const result = await purchaseBloodlineForge(character.name, rank);
+            const result = await purchaseBloodlineForge(character.name, rank, resumeOnly);
             if (!result.ok || !result.character) throw new Error(result.error || "The Bloodline Awakening ritual rejected this purchase.");
             if (result.rank !== rank) throw new Error("The Bloodline Awakening ritual returned a mismatched grade. No builder was opened.");
             if (!commitServerCharacter(result.character, result._saveVersion)) return;
             setShowAwakening(false);
-            setCentralLog(`${rank} Bloodline Awakening attuned. Finish shaping your legacy in Bloodline Awakening.`);
+            setCentralLog(`${rank} Bloodline Awakening ${result.resumed ? "resumed" : "attuned"}. Finish shaping your legacy in Bloodline Awakening.`);
             onOpenBloodlineMaker(rank, getCharacterElements(result.character)[0] ?? "");
         } catch (error) {
             setAwakeningMsg(`❌ ${error instanceof Error ? error.message : "Bloodline Awakening is unavailable."}`);
@@ -1378,11 +1378,11 @@ export function CentralHub({
                                             </div>
                                             <button
                                                 className="aw-forge-btn"
-                                                onClick={() => awakeningCreateBloodline(tier.rank, tier.materialKey, 100)}
-                                                disabled={!isReady || bloodlineForgeBusy}
+                                                onClick={() => awakeningCreateBloodline(tier.rank, tier.materialKey, 100, !isReady)}
+                                                disabled={bloodlineForgeBusy}
                                             >
-                                                <span>{bloodlineForgeBusy && isReady ? "Attuning..." : `Awaken ${tier.rank}`}</span>
-                                                <small>{isReady ? "Enter Bloodline Awakening" : `Collect ${remaining} more`}</small>
+                                                <span>{bloodlineForgeBusy ? "Attuning..." : isReady ? `Awaken ${tier.rank}` : "Resume paid ritual"}</span>
+                                                <small>{isReady ? "Enter Bloodline Awakening" : `Collect ${remaining} more to begin a new ritual`}</small>
                                                 <b aria-hidden="true">→</b>
                                             </button>
                                         </article>
