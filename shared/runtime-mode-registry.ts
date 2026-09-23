@@ -885,6 +885,18 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
         participantModel: 'solo', rewardPolicy: 'parent-mode-settlement', replayKind: 'expiring-chronicle-projection-and-parent-run-proof-receipt', status: 'match',
     }),
     defineMode({
+        id: 'hollow-gate-rift-card', label: 'Hollow Gate rift card ambush', category: 'card', authorityEngine: E.CHRONICLE,
+        orchestrationOwner: O.HOLLOW_GATE,
+        clientEntries: ['screens/CardClashDuel.tsx', 'lib/chronicle-duel.ts', 'lib/hollow-gate-card-api.ts'],
+        routes: [
+            mountedRoute('/hollow-gate/card-start', 'hollow-gate/card-start', ['start', 'recovery']),
+            mountedRoute('/card-clash/ai-move', 'card-clash/ai-move', ['action', 'state', 'settlement']),
+            mountedRoute('/hollow-gate/card-settle', 'hollow-gate/card-settle', ['settlement']),
+        ],
+        participantModel: 'solo', rewardPolicy: 'parent-mode-settlement', replayKind: 'expiring-chronicle-projection-and-parent-run-proof-receipt', status: 'match',
+        statusDetail: 'The first threat ambush in a rift binds a Chronicle AI match to the run token. The Hollow Gate settle route verifies its terminal result, credits normal ambush currency once on a win, applies 20% max HP recoil on a loss or draw, and clears the pending seal through the run recovery proof.',
+    }),
+    defineMode({
         id: 'celestial-first-pact', label: 'Celestial Tower: The First Pact', category: 'pet-showdown', authorityEngine: E.PET_SHOWDOWN,
         clientEntries: ['screens/FirstPact.tsx', 'lib/first-pact-api.ts', 'lib/first-pact-world.ts', 'lib/pet-showdown-api.ts'],
         routes: [

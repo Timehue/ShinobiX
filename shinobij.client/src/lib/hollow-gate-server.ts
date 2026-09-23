@@ -15,7 +15,6 @@
  * none of the dungeon logic, so App.tsx only needs one-line call sites.
  */
 import type { Character, HollowGateShrineRun, HollowGateAugmentOffer, HollowGateTileKind, VersionedCharacterCommit } from "../types/character";
-import { sealHollowGateFloor } from "./hollow-gate-event-api";
 
 export type HollowGateOutcome = "extract" | "death";
 
@@ -61,7 +60,7 @@ export type HollowGateSettleResult = {
 };
 
 // ── Fetch wrappers (auth headers are auto-attached by installAuthFetch) ─────────
-export async function startHollowGateServerRun(playerName: string, floorDepth: number, variantId?: string, recoveryRequestId?: string): Promise<HollowGateStartResult | null> {
+export async function startHollowGateServerRun(playerName: string, floorDepth: number, variantId?: string, recoveryRequestId?: string, cardClashDeck?: readonly string[]): Promise<HollowGateStartResult | null> {
     if (!playerName) return null;
     const requestId = recoveryRequestId && /^[A-Za-z0-9:_-]{8,96}$/.test(recoveryRequestId)
         ? recoveryRequestId
@@ -73,7 +72,7 @@ export async function startHollowGateServerRun(playerName: string, floorDepth: n
             const r = await fetch("/api/hollow-gate/start", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ playerName, floorDepth, variantId, requestId }),
+                body: JSON.stringify({ playerName, floorDepth, variantId, requestId, ...(variantId?.startsWith("rift-") ? { cardClashDeck } : {}) }),
             });
             const data = (await r.json().catch(() => ({}))) as HollowGateStartResult;
             if (!r.ok) return { ...data, ok: false, reason: data.reason || data.error || `start-failed-${r.status}` };
@@ -350,11 +349,7 @@ export function resumeHollowGateServerRun(opts: {
     pushLog: (line: string) => void;
 }): void {
     const run = opts.run;
-    if (run?.runToken) {
-        void sealHollowGateFloor(opts.playerName, run.runToken, run).then((result) => {
-            if (!result.ok) opts.pushLog(result.error || "The saved Hollow Gate floor could not be resealed.");
-        });
-    }
+    // App reseals every shrine entry, including boot restores that bypass this helper.
     if (!hollowGateServerEnabled() || !shouldResumeAugmentPicker(run)) return;
     presentAugmentPicker({
         playerName: opts.playerName,

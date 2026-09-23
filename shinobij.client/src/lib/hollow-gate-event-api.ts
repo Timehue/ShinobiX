@@ -54,7 +54,13 @@ export async function resolveHollowGateServerEvent(params: {
     }
 }
 
-export async function sealHollowGateFloor(playerName: string, token: string, run: HollowGateShrineRun): Promise<{ ok: boolean; error?: string }> {
+export async function sealHollowGateFloor(playerName: string, token: string, run: HollowGateShrineRun): Promise<{
+    ok: boolean;
+    pendingAmbush?: { nodeId: string; kind: "ambush" | "boss" | "card" } | null;
+    activeCombat?: HollowGateShrineRun["activeCombat"];
+    position?: { x: number; y: number };
+    error?: string;
+}> {
     try {
         const response = await fetch("/api/hollow-gate/floor-seal", {
             method: "POST",
@@ -70,8 +76,10 @@ export async function sealHollowGateFloor(playerName: string, token: string, run
                 tiles: run.tiles.map((tile) => ({ kind: tile.kind, terrain: tile.terrain })),
             }),
         });
-        const data = await response.json().catch(() => ({})) as { ok?: boolean; error?: string };
-        return response.ok && data.ok ? { ok: true } : { ok: false, error: data.error || `Floor seal failed (${response.status}).` };
+        const data = await response.json().catch(() => ({})) as { ok?: boolean; pendingAmbush?: { nodeId: string; kind: "ambush" | "boss" | "card" } | null; activeCombat?: HollowGateShrineRun["activeCombat"]; position?: { x: number; y: number }; error?: string };
+        return response.ok && data.ok
+            ? { ok: true, position: data.position, pendingAmbush: data.pendingAmbush }
+            : { ok: false, position: data.position, activeCombat: data.activeCombat, error: data.error || `Floor seal failed (${response.status}).` };
     } catch {
         return { ok: false, error: "The Hollow Gate floor seal is unreachable." };
     }

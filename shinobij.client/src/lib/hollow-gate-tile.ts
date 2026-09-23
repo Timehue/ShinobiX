@@ -4,11 +4,9 @@
  * This was a 654-line function declared inside the App component, and it alone held
  * App.tsx hard against its line-budget ratchet, blocking unrelated fixes from landing.
  *
- * The body below is a VERBATIM move: dedented one level, otherwise character-for-
- * character what ran before. Everything it used to close over arrives through `ctx`
- * and is destructured under the same names, so the logic reads identically and
- * behaviour is preserved. Please keep it that way — this applies rewards, hazards and
- * death, so a "tidy-up" here is a balance change wearing a refactor's clothes.
+ * Everything it used to close over arrives through `ctx`. Tile server calls
+ * return their promise so the movement queue can finish a tile before opening a
+ * threat ambush on that same step. Changes here affect rewards, hazards and death.
  *
  * Server event routes own all rewards, traps, and run-state consequences.
  */
@@ -80,7 +78,7 @@ export function resolveHollowGateTile(
     x: number,
     y: number,
     ctx: HollowGateTileCtx,
-): void {
+): void | Promise<void> {
     const {
         character, hollowGateRun,
         setHollowGateRun, setHollowGateEvent, setHollowGateHiddenChamber,
@@ -167,7 +165,7 @@ export function resolveHollowGateTile(
         }
         case "trap": {
             if (!hollowGateRun.runToken) return;
-            void resolveHollowGateServerEvent({
+            return resolveHollowGateServerEvent({
                 playerName: character.name,
                 token: hollowGateRun.runToken,
                 nodeId: `floor:${hollowGateRun.floor}:tile:${idx}`,
@@ -192,11 +190,10 @@ export function resolveHollowGateTile(
                     setHollowGateEvent({ title: "Ancient Seal Trap", body: `${flavor}\n\nYou take ${damage} HP damage (33% of max).`, kind: "trap", choices: [{ label: "Press On", onSelect: () => setHollowGateEvent(null), tone: "primary" }] });
                 }
             });
-            return;
         }
         case "chest": {
             if (!hollowGateRun.runToken) return;
-            void resolveHollowGateServerEvent({ playerName: character.name, token: hollowGateRun.runToken, nodeId: `floor:${hollowGateRun.floor}:tile:${idx}`, action: "chest" }).then((result) => {
+            return resolveHollowGateServerEvent({ playerName: character.name, token: hollowGateRun.runToken, nodeId: `floor:${hollowGateRun.floor}:tile:${idx}`, action: "chest" }).then((result) => {
                 if (!result.ok) return pushHollowGateLog(result.error || "The chest seal did not resolve.");
                 if (!adoptServerEvent(result)) return;
                 const lines = hollowGateRewardLines(result.reward);
@@ -209,17 +206,15 @@ export function resolveHollowGateTile(
                     choices: [{ label: "Continue", onSelect: () => setHollowGateEvent(null), tone: "primary" }],
                 });
             });
-            return;
         }
         case "shard_vein": {
             if (!hollowGateRun.runToken) return;
-            void resolveHollowGateServerEvent({ playerName: character.name, token: hollowGateRun.runToken, nodeId: `floor:${hollowGateRun.floor}:tile:${idx}`, action: "shard-vein" }).then((result) => {
+            return resolveHollowGateServerEvent({ playerName: character.name, token: hollowGateRun.runToken, nodeId: `floor:${hollowGateRun.floor}:tile:${idx}`, action: "shard-vein" }).then((result) => {
                 if (!result.ok) return pushHollowGateLog(result.error || "The shard vein did not resolve.");
                 if (!adoptServerEvent(result)) return;
                 const gain = Math.max(0, Math.floor(result.reward?.currencies?.hollowShards ?? 0));
                 pushHollowGateLog(`${flavor} You pry ${gain} Hollow Shards loose.`);
             });
-            return;
         }
         case "pet_event": {
             // Flavor only — pet pawprints are atmosphere, not a reward source.
@@ -241,7 +236,7 @@ export function resolveHollowGateTile(
         case "shrine": {
             const nodeId = `floor:${hollowGateRun.floor}:tile:${idx}`;
             if (!hollowGateRun.runToken) return;
-            void resolveHollowGateServerEvent({
+            return resolveHollowGateServerEvent({
                 playerName: character.name,
                 token: hollowGateRun.runToken,
                 nodeId,
@@ -252,7 +247,6 @@ export function resolveHollowGateTile(
                 pushHollowGateLog(`${floorProfile.shrineTitle}: ${floorProfile.shrineRite} The Torch of Reiki flares to full.`);
                 setHollowGateHiddenChamber({ searched: false, relicTaken: false, nodeId });
             });
-            return;
         }
         case "story": {
             // Flavor only — story tiles teach you about the shrine. No rewards
@@ -439,7 +433,7 @@ export function resolveHollowGateTile(
                     pushHollowGateLog("This legacy run has no server seal. Leave and begin a new run before opening locked doors.");
                     return;
                 }
-                void (async () => {
+                return (async () => {
                     const eventResult = await resolveHollowGateServerEvent({
                         playerName: character.name,
                         token: serverRunToken,
@@ -486,7 +480,6 @@ export function resolveHollowGateTile(
                         } }, { label: "Leave it", onSelect: () => setHollowGateEvent(null) }],
                     });
                 })();
-                return;
             } else {
                 pushHollowGateLog(`${flavor} Without a Shrine Key, the door will not open.`);
                 setHollowGateEvent({

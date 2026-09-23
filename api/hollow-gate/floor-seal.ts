@@ -7,6 +7,8 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { cors, safeName } from '../_utils.js';
 import { hollowGateRunKey, type HollowGateRunToken } from './_run-token.js';
 import { validateHollowGateFloorManifest } from './_floor-manifest.js';
+import { hollowGateCombatBindingKey, type HollowGateCombatBinding } from './_combat-session.js';
+import { hollowGateEncounterRecovery } from './_encounter-recovery.js';
 
 /** Validate a generated floor once and seal its gameplay-relevant manifest into
  * the run token. Later endpoints never trust mutable saved tiles. */
@@ -28,7 +30,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const result = await withKvLock(runKey, async () => {
             const run = await recoverHollowGatePendingOperation(kv, runKey, await kv.get<HollowGateRunToken>(runKey), playerName, token);
             if (!run || run.playerName !== playerName) return { status: 409, body: { error: 'The Hollow Gate run has expired.' } };
-            if (run.activeEncounter) return { status: 409, body: { error: 'Finish the active encounter first.' } };
+            if (run.activeEncounter) {
+                const active = run.activeEncounter;
+                const binding = await kv.get<HollowGateCombatBinding>(hollowGateCombatBindingKey(active.runId));
+                return { status: 409, body: {
+                    error: 'Finish the active encounter first.',
+                    position: run.position,
+                    ...hollowGateEncounterRecovery(run, binding, playerName, token),
+                } };
+            }
             const floor = Math.max(1, Math.floor(Number(run.currentFloor) || 1));
             if (Number(body.floor) !== floor) return { status: 409, body: { error: 'The floor does not match the sealed run.' } };
             if ((run.floorWidth != null && Number(body.width) !== run.floorWidth)
@@ -53,7 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (JSON.stringify(existing) !== JSON.stringify(validation.manifest)) {
                     return { status: 409, body: { error: 'The floor manifest is already sealed.' } };
                 }
-                return { status: 200, body: { ok: true, alreadyReported: true, manifest: existing } };
+                return { status: 200, body: { ok: true, alreadyReported: true, manifest: existing, position: run.position, pendingAmbush: run.pendingAmbush ?? null } };
             }
             const next: HollowGateRunToken = {
                 ...run,
@@ -61,7 +71,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 position: validation.manifest.spawn,
             };
             await kv.set(runKey, next);
-            return { status: 200, body: { ok: true, manifest: validation.manifest } };
+            return { status: 200, body: { ok: true, manifest: validation.manifest, position: next.position, pendingAmbush: next.pendingAmbush ?? null } };
         }, { failClosed: true, ttlSec: 10 });
         return res.status(result.status).json(result.body);
     } catch (error) {

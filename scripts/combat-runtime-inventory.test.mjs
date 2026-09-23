@@ -158,7 +158,9 @@ describe('executable multi-engine runtime registry', () => {
     // together).
     // 65 as of 2026-09-22: wild-pet binding entered with its own sealed
     // Explore encounter, Showdown turns, and server-settled capture.
-    assert.equal(ids.length, 65, 'The corrected inventory must retain the independently pinned 65-row model.');
+    // 66 as of 2026-09-23: one Hollow Gate rift ambush uses a run-bound
+    // Chronicle match and a server-settled parent-run receipt.
+    assert.equal(ids.length, 66, 'The corrected inventory must retain the independently pinned 66-row model.');
     assert.equal(new Set(ids).size, ids.length, 'Runtime mode ids must be unique.');
     assert.equal(new Set(labels).size, labels.length, 'Runtime mode labels must be unique.');
     assert.equal(new Set(expectedIds).size, expectedIds.length, 'Independent expected mode ids must be unique.');
