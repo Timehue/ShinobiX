@@ -361,7 +361,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         };
     }, [resultVisible]);
     const [paused, setPaused] = useState(false);
-    const [numbers, setNumbers] = useState<Array<{ id: number; text: string; pos: Vec3; crit: boolean; heal: boolean }>>([]);
+    const [numbers, setNumbers] = useState<Array<{ id: number; text: string; pos: Vec3; crit: boolean; heal: boolean; shield?: boolean }>>([]);
     const [impacts, setImpacts] = useState<Array<{ id: number; pos: Vec3; color: string; big: boolean; mode: DuelImpactMode }>>([]);
     const [elementBursts, setElementBursts] = useState<Array<{ id: number; pos: Vec3; kind: DuelElementBurstKind; color: string; big: boolean; heading: number; style: PetHeroMoveStyle }>>([]);
     const [aftermathFx, setAftermathFx] = useState<Array<{ id: number; pos: Vec3; kind: DuelElementBurstKind; color: string; big: boolean }>>([]);
@@ -461,10 +461,10 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
 
     // FX map through the SAME field→floor placement as the fighters, at mid-body
     // height, so impacts / numbers / casts land on the right pet in the 3D scene.
-    const spawnNumber = (n: { x: number; z: number; text: string; crit: boolean; heal: boolean }) => {
+    const spawnNumber = (n: { x: number; z: number; text: string; crit: boolean; heal: boolean; shield?: boolean }) => {
         const id = seqRef.current++;
         const fp = duelFieldToFloor(n.x, n.z);
-        setNumbers((arr) => appendCapped(arr, { id, text: n.text, pos: [fp.wx, FLOOR_Y + TARGET_SPRITE_H * 1.05, fp.wz], crit: n.crit, heal: n.heal }, 4));
+        setNumbers((arr) => appendCapped(arr, { id, text: n.text, pos: [fp.wx, FLOOR_Y + TARGET_SPRITE_H * 1.05, fp.wz], crit: n.crit, heal: n.heal, shield: n.shield }, 4));
         window.setTimeout(() => setNumbers((arr) => arr.filter((x) => x.id !== id)), 850);
     };
     const spawnImpact = (n: { x: number; z: number; color: string; big: boolean; mode?: DuelImpactMode }) => {
@@ -1104,6 +1104,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 .pet-duel-weather-read span { color:#94a3b8; font:900 8px/1 Inter,system-ui,sans-serif; letter-spacing:.2em; }
                 .pet-duel-weather-read strong { color:#f8fafc; font:900 16px/.95 var(--font-display); letter-spacing:.07em; text-shadow:0 0 16px var(--weather-color); }
                 .pet-duel-weather-read em { grid-column:1/-1; color:color-mix(in srgb,var(--weather-color) 76%,#fff); font:800 9px/1.2 Inter,system-ui,sans-serif; font-style:normal; letter-spacing:.12em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+                .pet-duel-weather-read small { grid-column:1/-1; color:#d7e1f2; font:700 9px/1.35 Inter,system-ui,sans-serif; letter-spacing:.02em; text-transform:none; }
                 @media (max-width: 600px) { .pet-duel-hero-cutin { padding-inline: 12px; gap: 8px; } .pet-duel-hero-cutin .pet-cutin-portrait .pet-battle-avatar, .pet-duel-hero-cutin .pet-cutin-portrait > img, .pet-duel-hero-cutin .pet-cutin-model { width: 145px; height: 145px; } .pet-duel-hero-cutin .pet-cutin-text { flex: 1; min-width: 0; max-width: 213px; } .pet-duel-hero-cutin .pet-cutin-move { font-size: 26px; } .pet-duel-hero-cutin .pet-cutin-release { letter-spacing:.18em; } .pet-move-scene { top:15%; left:12px; right:12px; width:auto; } .pet-move-scene .pet-move-card { padding-block:9px 10px; } .pet-move-scene .pet-move-title { font-size:25px; } .pet-duel-mode-badge { display: none; } .pet-duel-top-controls button { padding: 5px 7px !important; font-size: 10px !important; } .pet-duel-weather-read { top:92px;left:10px;max-width:56vw;padding:7px 10px; } .pet-duel-weather-read strong { font-size:13px; } .pet-duel-weather-read span { font-size:7px; } }
                 @media (prefers-reduced-motion: reduce) {
                     .pet-duel-hero-cutin,.pet-duel-hero-cutin::before,.pet-duel-hero-cutin .pet-cutin-slab,.pet-duel-hero-cutin .pet-cutin-chroma,.pet-duel-hero-cutin .pet-cutin-portrait,.pet-duel-hero-cutin .pet-cutin-text,.pet-move-scene,.pet-move-scene .pet-move-title,.pet-move-scene .pet-move-rail { animation:none !important; opacity:1; transform:none; filter:none; }
@@ -1184,7 +1185,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 ))}
                 {numbers.map((l) => (
                     <Html key={l.id} position={l.pos} center pointerEvents="none" zIndexRange={[20, 0]}>
-                        <span className={l.crit ? "damage-number crit-text" : l.heal ? "heal-number" : "damage-number"} style={{ font: l.crit ? "900 26px Inter, system-ui, sans-serif" : "800 18px Inter, system-ui, sans-serif", display: "inline-block", animation: l.crit ? "petDuelCritPop 360ms ease-out" : undefined }}>{l.text}</span>
+                        <span className={l.crit ? "damage-number crit-text" : l.heal ? "heal-number" : "damage-number"} style={{ font: l.crit ? "900 26px Inter, system-ui, sans-serif" : "800 18px Inter, system-ui, sans-serif", display: "inline-block", color: l.shield ? "#b9edff" : undefined, textShadow: l.shield ? "0 2px 4px #031320, 0 0 13px #37baff" : undefined, animation: l.crit ? "petDuelCritPop 360ms ease-out" : undefined }}>{l.text}</span>
                     </Html>
                 ))}
                 <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={finishDuel} canEnd={!live || live.settled} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnElementBurst={spawnElementBurst} spawnAftermath={spawnAftermath} spawnFx={spawnFx} spawnSupport={spawnSupport} spawnShock={spawnShock} spawnDust={spawnDust} spawnScorch={spawnScorch} spawnPowerUp={spawnPowerUp} spawnTrail={spawnTrail} spawnDash={spawnDash} spawnPressure={spawnPressure} spawnSetPiece={spawnSetPiece} elementById={elementById} nameById={nameById} speciesNameById={speciesNameById} petIdById={petIdById} profileById={profileById} ultById={ultById} heroMoveById={heroMoveById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} onAnnounce={triggerAnnounce} onMoveCallout={triggerMoveCallout} onWeather={triggerWeather} onClashResult={triggerClashResult} onFinisher={triggerFinisher} />
@@ -1203,6 +1204,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         <span>Battlefield weather</span>
                         <strong>{weatherCue.weather.label}</strong>
                         <em>{weatherCue.move}</em>
+                        <small>Attack resolves on hit · Visual field for 8.5 seconds</small>
                     </div>
                 </>
             )}

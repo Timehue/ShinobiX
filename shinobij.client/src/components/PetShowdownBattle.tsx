@@ -114,7 +114,7 @@ import {
     type PetVisualQuality,
     type PetVisualQualityConfig,
 } from "../lib/pet-visual-quality";
-import { SHOWDOWN_GUARD_COST, SHOWDOWN_REST_PCT, SHOWDOWN_METER_ON_GUARDED_HIT, SHOWDOWN_METER_ON_HIT_TAKEN } from "../../../shared/pet-showdown-contract";
+import { SHOWDOWN_ELEMENT_BEATS, SHOWDOWN_GUARD_COST, SHOWDOWN_REST_PCT, SHOWDOWN_METER_ON_GUARDED_HIT, SHOWDOWN_METER_ON_HIT_TAKEN, SHOWDOWN_WEATHER_BOOST, SHOWDOWN_WEATHER_DAMPEN, SHOWDOWN_WEATHER_ROUNDS } from "../../../shared/pet-showdown-contract";
 import type { Pet } from "../types/pet";
 import type {
     ShowdownCommand,
@@ -2220,6 +2220,12 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const climateElement = weatherPreview
         ? (weatherPreview.element ?? climate?.element ?? null)
         : (stateView.weather?.element ?? climate?.element ?? null);
+    const standingWeather = weatherPreview
+        ? (weatherPreview.element ? { element: weatherPreview.element, roundsLeft: SHOWDOWN_WEATHER_ROUNDS } : null)
+        : stateView.weather;
+    const weatherCounter = standingWeather
+        ? Object.entries(SHOWDOWN_ELEMENT_BEATS).find(([, beaten]) => beaten === standingWeather.element)?.[0]
+        : undefined;
     /** Per-kind move accents + impact streak-throughs + debris chunks. */
     const [kindFx, setKindFx] = useState<KindAccentSpawn[]>([]);
     const [streakFx, setStreakFx] = useState<StreakBurstSpawn[]>([]);
@@ -3660,7 +3666,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 <SceneAmbience
                     biome={ELEMENT_WEATHER[climateElement].biome}
                     weather={ELEMENT_WEATHER[climateElement].weather}
-                    intensity={1.25}
+                    intensity={1.5}
                     hazeStyle="wisps"
                     className="showdown-sky"
                 />
@@ -3728,11 +3734,19 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         {/* stateView.round reconciles at playback end, so the round
                             IN PROGRESS (command or playing) is always round + 1. */}
                         <div className="showdown-round">R{stateView.finished ? stateView.round : stateView.round + 1}/{stateView.turnCap}</div>
-                        {stateView.weather && (
-                            <div className={`showdown-weather ${stateView.weather.element.toLowerCase()}`}
-                                title={`${stateView.weather.element} weather: ${stateView.weather.element} techniques hit harder, its counter is dampened`}>
-                                <ShowdownIcon name={elementCrest(stateView.weather.element)} size={12} />
-                                {stateView.weather.roundsLeft}
+                        {standingWeather && (
+                            <div className="showdown-weather"
+                                style={{ "--weather-tint": ELEMENT_TINT[standingWeather.element] } as React.CSSProperties}
+                                role="status">
+                                <span className="showdown-weather-heading">
+                                    <ShowdownIcon name={elementCrest(standingWeather.element)} size={14} />
+                                    <strong>{standingWeather.element} field</strong>
+                                    <span>{standingWeather.roundsLeft}R</span>
+                                </span>
+                                <span className="showdown-weather-effect">
+                                    {standingWeather.element} +{Math.round((SHOWDOWN_WEATHER_BOOST - 1) * 100)}%
+                                    {weatherCounter && <> · {weatherCounter} −{Math.round((1 - SHOWDOWN_WEATHER_DAMPEN) * 100)}%</>}
+                                </span>
                             </div>
                         )}
                         {stateView.turnDeadline !== undefined && phase === "command" && !spectator && (
@@ -3754,7 +3768,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     </div>
                 </div>
 
-                {banner && <div key={banner.key} className={`showdown-banner ${banner.cls}`}>{banner.text}</div>}
+                {banner && panel !== "result" && <div key={banner.key} className={`showdown-banner ${banner.cls}`}>{banner.text}</div>}
 
 
                 <div className="showdown-playerbar">

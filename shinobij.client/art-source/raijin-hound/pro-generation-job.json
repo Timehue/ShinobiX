@@ -1,0 +1,14 @@
+{
+  "endpoint": "fal-ai/hunyuan-3d/v3.1/pro/image-to-3d",
+  "requestId": "01a0cfc7-b6c9-7e50-8579-f88687fad32c",
+  "statusUrl": "https://queue.fal.run/fal-ai/hunyuan-3d/requests/01a0cfc7-b6c9-7e50-8579-f88687fad32c/status",
+  "responseUrl": "https://queue.fal.run/fal-ai/hunyuan-3d/requests/01a0cfc7-b6c9-7e50-8579-f88687fad32c",
+  "state": "downloaded",
+  "submittedAt": "2026-09-23T19:39:26.008Z",
+  "checkedAt": "2026-09-23T19:44:00.669Z",
+  "output": {
+    "path": "art-source/raijin-hound/pro-generation-candidate.glb",
+    "bytes": 58991380,
+    "sha256": "5992e4e27f4dd8af10d05f9b92a7d9074af8032fb8e26bced8f5c98ef5fa4b1c"
+  }
+}

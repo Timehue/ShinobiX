@@ -678,10 +678,14 @@ export function DuelElementDecal({ at, kind, color, size }: { at: Vec3; kind: Du
 
 export function DuelSupportEffect({ at, color, kind, actorId, duel, clock, onDone }: { at: Vec3; color: string; kind: DuelSupportKind; actorId?: string; duel: DuelResult; clock: { current: DuelClock }; onDone: () => void }) {
     const root = useRef<THREE.Group>(null);
+    const shieldShell = useRef<THREE.MeshBasicMaterial>(null);
+    const shieldRim = useRef<THREE.MeshBasicMaterial>(null);
+    const shieldOrbit = useRef<THREE.MeshBasicMaterial>(null);
+    const shieldOrbitMesh = useRef<THREE.Mesh>(null);
     const strokes = useRef<Array<THREE.Mesh | null>>([]);
     const strokeMats = useRef<Array<THREE.MeshToonMaterial | null>>([]);
     const start = useRef<number | null>(null);
-    const duration = kind === "shield" ? 0.84 : 0.76;
+    const duration = kind === "shield" ? 1.45 : 0.76;
     const strokeCount = kind === "shield" ? 7 : 8;
     const strokeGeometries = useMemo(() => Array.from({ length: strokeCount }, (_, i) => makeAnimeStrokeGeometry(
         kind === "shield" ? 0.82 + (i % 3) * 0.08 : 0.72 + (i % 4) * 0.07,
@@ -701,6 +705,13 @@ export function DuelSupportEffect({ at, color, kind, actorId, duel, clock, onDon
             const live = liveDuelEffectPosition(duel, clock, actorId);
             if (live) root.current.position.set(live.wx, at[1], live.wz);
             root.current.scale.setScalar(0.68 + settle * 0.32);
+        }
+        if (kind === "shield") {
+            const pulse = 0.86 + Math.sin(elapsed * 11) * 0.14;
+            if (shieldShell.current) shieldShell.current.opacity = fade * settle * 0.13 * pulse;
+            if (shieldRim.current) shieldRim.current.opacity = fade * settle * 0.72;
+            if (shieldOrbit.current) shieldOrbit.current.opacity = fade * settle * 0.38;
+            if (shieldOrbitMesh.current) shieldOrbitMesh.current.rotation.y = elapsed * 1.6;
         }
         strokes.current.forEach((stroke, i) => {
             if (!stroke) return;
@@ -727,6 +738,20 @@ export function DuelSupportEffect({ at, color, kind, actorId, duel, clock, onDon
     });
     return (
         <group ref={root} position={at}>
+            {kind === "shield" && <>
+                <mesh position={[0, 0.04, 0]} scale={[1, 1.75, 1]} renderOrder={29}>
+                    <sphereGeometry args={[1.14, 28, 18, 0, Math.PI * 2, 0, Math.PI / 2]} />
+                    <meshBasicMaterial ref={shieldShell} color={color} transparent opacity={0} depthWrite={false} side={THREE.FrontSide} toneMapped={false} blending={THREE.AdditiveBlending} />
+                </mesh>
+                <mesh position={[0, 0.065, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={30}>
+                    <torusGeometry args={[1.13, 0.024, 8, 64]} />
+                    <meshBasicMaterial ref={shieldRim} color={coreColor} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                </mesh>
+                <mesh ref={shieldOrbitMesh} position={[0, 0.82, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={30}>
+                    <torusGeometry args={[0.96, 0.012, 6, 56]} />
+                    <meshBasicMaterial ref={shieldOrbit} color={color} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                </mesh>
+            </>}
             {strokeGeometries.map((geometry, i) => (
                 <mesh key={`${kind}-brush-${i}`} ref={(mesh) => { strokes.current[i] = mesh; }} geometry={geometry} renderOrder={31}>
                     <meshToonMaterial

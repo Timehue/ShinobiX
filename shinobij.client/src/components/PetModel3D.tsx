@@ -1085,6 +1085,22 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
             if (animation.activeOutlineAction) animation.activeOutlineAction.timeScale = THREE.MathUtils.lerp(animation.activeOutlineAction.timeScale, locomotionRate, rateBlend);
             mixer.update(presentationDelta);
             outlineMixer?.update(presentationDelta);
+            // Raijin's weighted mane and paws must keep the reviewed side-fall
+            // silhouette after the one-shot reaches its settle frame. Re-sample
+            // that frame while KO is held so later mixer updates cannot relax
+            // the sculpt back toward its standing bind pose.
+            if (config.visualId === "starter-lightning-l" && family === "death" && motionAge >= 1.03 && animation.activeClip && animation.activeAction) {
+                const settleTime = Math.min(animation.activeClip.duration - 0.001, 1.03);
+                const hold = (action: THREE.AnimationAction, owner: THREE.AnimationMixer) => {
+                    action.enabled = true;
+                    action.paused = true;
+                    action.time = settleTime;
+                    action.setEffectiveWeight(1);
+                    owner.update(0);
+                };
+                hold(animation.activeAction, mixer);
+                if (animation.activeOutlineAction && outlineMixer) hold(animation.activeOutlineAction, outlineMixer);
+            }
             if (phaseWindow && f.attackPhaseProgress !== undefined && animation.activeClip && animation.activeAction) {
                 // Seek only the active take, leaving mixer time free to finish
                 // crossfades. Wall-clock playback otherwise parks at the end of

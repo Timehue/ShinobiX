@@ -18,6 +18,7 @@ export { elementVfxKey, petStripVariant } from './pet-presentation-keys';
 import type { Pet } from "../types/pet";
 import { petVisualId } from "../data/pet-evolutions";
 import { hasPetPose } from "./pet-pose-availability";
+import { versionPetArtUrl } from "./pet-art-revision";
 import type {
     PetSpriteMode,
     PetVfxKey,
@@ -114,7 +115,7 @@ function breedingMythicPortrait(artIds: readonly string[]): string {
 // or browser would otherwise keep serving the stale (dark-background) version.
 // Bump this whenever the pose art is re-cleaned or regenerated.
 export const POSE_ASSET_V = 4;
-const idlePoseUrl = (id: string) => `/pet-poses/${id}-idle.webp?v=${POSE_ASSET_V}`;
+const idlePoseUrl = (id: string) => versionPetArtUrl(`/pet-poses/${id}-idle.webp?v=${POSE_ASSET_V}`);
 
 /**
  * Resolve a pet's depth-sliced parallax layers (Phase B), if all three bands
@@ -176,17 +177,17 @@ export function petBattleSprite(
 ): { mode: PetSpriteMode; src: string } {
     const artIds = petArtIds(pet);
     const variantSprite = publishedVariantSprite(pet, sharedImages, artIds);
-    if (variantSprite) return variantSprite;
+    if (variantSprite) return { ...variantSprite, src: versionPetArtUrl(variantSprite.src) };
     // Evolved starters keep their base id but carry a stage `visualId`
     // (starter-fire-r / -l). Try the stage art FIRST, then fall back to the base
     // art — so an evolved pet shows its own form once that art is published, and
     // the unchanged base art until then (no regression). See data/pet-evolutions.
     const body = firstSharedImage(sharedImages, variantImageKeys(PET_BODY_PREFIX, pet, artIds)) || pet.bodyImage || "";
-    if (body) return { mode: "fullBodySprite", src: body };
+    if (body) return { mode: "fullBodySprite", src: versionPetArtUrl(body) };
     const circle = firstSharedImage(sharedImages, variantImageKeys(PET_IMG_PREFIX, pet, artIds))
         || pet.image
         || breedingMythicPortrait(artIds);
-    return { mode: "circleFallback", src: circle };
+    return { mode: "circleFallback", src: versionPetArtUrl(circle) };
 }
 
 /**
@@ -224,7 +225,7 @@ export function petCardImage(
         || pet.image
         || breedingMythicPortrait(artIds)
         || "";
-    if (direct) return direct;
+    if (direct) return versionPetArtUrl(direct);
     // The legacy idle pose for this species has baked alpha/masking artifacts.
     // Keep published and owned art ahead of this curated fallback.
     if (artIds.includes("standard-1")) return SNOW_RABBIT_CARD_PORTRAIT;

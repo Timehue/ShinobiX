@@ -87,7 +87,7 @@ import {
     type WarfrontPerformanceSample,
     type WarfrontRuntimeRoute,
 } from "../lib/pet-warfront-render-budget";
-import { warfrontImpostorEntry } from "../lib/pet-warfront-impostor";
+import { warfrontImpostorAtlasUrl } from "../lib/pet-warfront-impostor-url";
 import { createWarfrontRendererResources } from "../lib/pet-warfront-renderer-lifecycle";
 import {
     ATTACK_STREAK_DURATION_MS,
@@ -1005,7 +1005,7 @@ const IMPOSTOR_ATLAS_COLUMNS = 4;
 const IMPOSTOR_ATLAS_ROWS = 4;
 function criticalSoftwareImpostorUrl(pet: Pet): string | null {
     const sourceUrl = petCombatModel(pet)?.url;
-    return sourceUrl ? warfrontImpostorEntry(sourceUrl)?.atlasUrl ?? null : null;
+    return sourceUrl ? warfrontImpostorAtlasUrl(sourceUrl) : null;
 }
 
 /** Software WebGL cannot submit even one 10k-triangle pet inside 100ms on the

@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Pet } from "../types/pet";
+import { RAIJIN_ART_REVISION } from "./pet-art-revision";
 import {
     buildPetAnimationEvents,
     petPoseForAvatar,
@@ -58,6 +59,16 @@ test("petCardImage: a starter falls back to its idle pose (no inline image)", ()
     // Starters ship NO inline image but DO have a baked idle pose — this is the
     // pet-yard bug fix: without the pose fallback the card shows name initials.
     assert.equal(petCardImage(mkPet({ id: "starter-fire", rarity: "standard" })), "/pet-poses/starter-fire-idle.webp?v=4");
+});
+
+test("Raijin's saved portrait and pose paths resolve to the current art", () => {
+    const raijin = mkPet({ id: "starter-lightning", evolutionStage: 2, image: "/pet-evos/starter-lightning-l.webp" });
+    const portrait = `/pet-evos/starter-lightning-l.webp?v=${RAIJIN_ART_REVISION}`;
+    const idle = `/pet-poses/starter-lightning-l-idle.webp?v=${RAIJIN_ART_REVISION}`;
+    assert.equal(petCardImage(raijin), portrait);
+    assert.deepEqual(petBattleSprite(raijin), { mode: "circleFallback", src: portrait });
+    assert.equal(petPoseImage(raijin), idle);
+    assert.equal(petCardImage({ ...raijin, image: "" }), idle);
 });
 
 test("petCardImage: Snow Rabbit uses clean card art for wild and owned instances", () => {

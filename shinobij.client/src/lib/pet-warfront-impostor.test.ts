@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { petCombatModel } from "./pet-3d-models";
+import { rawPetPool } from "../data/pet-pool";
+import { STARTER_PETS } from "../data/starter-pets";
+import { STARTER_EVOLUTIONS } from "../data/pet-evolutions";
 import { PET_RIG_REPAIR_REVISIONS } from "./pet-proper-animation-assets";
 import { WARFRONT_IMPOSTOR_MANIFEST } from "../generated/pet-warfront-impostor-manifest";
 import { warfrontImpostorEntry } from "./pet-warfront-impostor";
@@ -23,6 +26,18 @@ test("the lightweight runtime derivation matches every generated atlas URL", () 
         assert.equal(warfrontImpostorAtlasUrl(`${source}?v=approved`), `${entry.atlasUrl}?v=approved`);
     }
     assert.equal(warfrontImpostorAtlasUrl("/external/not-approved.glb"), null);
+});
+
+test("every production pet keeps a generated atlas when software rendering is selected", () => {
+    const entries = new Map(Object.entries(WARFRONT_IMPOSTOR_MANIFEST));
+    for (const pet of [...rawPetPool, ...STARTER_PETS.map(option => option.pet), ...STARTER_EVOLUTIONS]) {
+        const source = petCombatModel(pet)?.url;
+        assert.ok(source, `${pet.id}: approved combat model missing`);
+        const sourcePath = new URL(source, "https://local.invalid").pathname;
+        const atlas = entries.get(sourcePath);
+        assert.ok(atlas, `${pet.id}: generated software atlas missing`);
+        assert.equal(warfrontImpostorAtlasUrl(source)?.split("?", 1)[0], atlas.atlasUrl);
+    }
 });
 
 test("the repaired Hound invalidates its fallback atlas with the model", () => {

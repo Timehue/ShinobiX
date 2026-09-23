@@ -381,7 +381,7 @@ export interface DuelAiDebug {
 export type DuelEventType = "dash" | "maneuver" | "dodge" | "windup" | "cast" | "hit" | "whiff" | "stagger" | "heal" | "shield" | "buff" | "ultimate" | "ko"
     | "seal_capture" | "vault_open" | "relic_pickup" | "relic_drop" | "relic_return" | "capture";
 export type DuelPerfectRole = "punish" | "counter" | "rally" | "shift";
-export interface DuelEvent { t: number; type: DuelEventType; side: "player" | "enemy"; actorId: string; targetId?: string; dmg?: number; crit?: boolean; element?: string | null; kind?: PetJutsu["kind"]; ranged?: boolean; move?: string; signature?: boolean; combo?: string; perfect?: DuelPerfectRole; verdict?: string; }
+export interface DuelEvent { t: number; type: DuelEventType; side: "player" | "enemy"; actorId: string; targetId?: string; dmg?: number; shieldHp?: number; crit?: boolean; element?: string | null; kind?: PetJutsu["kind"]; ranged?: boolean; move?: string; signature?: boolean; combo?: string; perfect?: DuelPerfectRole; verdict?: string; }
 
 export interface DuelResult {
     result: "win" | "loss" | "draw";   // from the PLAYER team's perspective
@@ -610,7 +610,7 @@ function castSupport(f: Fighter, ab: Ability, fighters: Fighter[], t: number, ev
         events.push({ t, type: "heal", side: f.team, actorId: f.id, targetId: ally.id, dmg: Math.round(heal) });
     } else if (ab.kind === "shield" || ab.kind === "barrier" || ab.kind === "absorb") {
         ally.statuses.shieldHp = Math.max(ally.statuses.shieldHp, Math.round(ally.maxHp * 0.2 * (ab.power / 100)));
-        events.push({ t, type: "shield", side: f.team, actorId: f.id, targetId: ally.id });
+        events.push({ t, type: "shield", side: f.team, actorId: f.id, targetId: ally.id, shieldHp: ally.statuses.shieldHp });
     } else if (ab.kind === "buff") {
         const tgt = f; // self-buff
         tgt.statuses.buffLeft = statusTicks(ab); tgt.statuses.buffMag = Math.max(tgt.statuses.buffMag, 0.25);

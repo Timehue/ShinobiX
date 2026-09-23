@@ -18631,11 +18631,11 @@
     },
     {
       "sourceUrl": "/pet-models/showdown-v2/starter-lightning-l.glb",
-      "lodUrl": "/pet-models/warfront-lod/showdown-v2/starter-lightning-l.glb?v=20260902-battle-lod-v1-9958bffe551d",
-      "lodSha256": "fff147cb2678e6dc392ea26aae575e646778d553b7c95825211972b52690ccc1",
+      "lodUrl": "/pet-models/warfront-lod/showdown-v2/starter-lightning-l.glb?v=20260902-battle-lod-v1-657bdd99ae01",
+      "lodSha256": "9f0cd7b3ed3e4f5625b3e1746fe479432d1b434a5ecfac7379aa19ee52846ed8",
       "atlasUrl": "/pet-models/warfront-impostors/showdown-v2/starter-lightning-l.webp",
-      "atlasSha256": "356b74f632d2a7dda2eacc2914b39f5283920d96bea182921ce3491e63c530a8",
-      "atlasBytes": 81784,
+      "atlasSha256": "d4ec8a3c66af4e55bc21c7e5099e8e07a5ae18479f568a3312b5b4e349153a85",
+      "atlasBytes": 113870,
       "width": 512,
       "height": 512,
       "columns": 4,
@@ -18724,7 +18724,7 @@
         0.345,
         0.828,
         1.311,
-        0.48972
+        0.6325
       ],
       "clipDurationsSeconds": {
         "idle": 1.9,
@@ -18733,28 +18733,28 @@
         "attack": 1,
         "idle_hitreact1": 0.54,
         "death": 1.38,
-        "cast": 0.8904
+        "cast": 1.15
       },
       "occupiedPixels": [
-        2428,
-        2386,
-        2396,
-        2414,
-        2374,
-        2437,
-        2424,
-        2315,
-        2618,
-        2125,
-        2422,
-        2245,
-        2447,
-        2545,
-        2571,
-        2222
+        3323,
+        3298,
+        3325,
+        3315,
+        3272,
+        3360,
+        3312,
+        3266,
+        3657,
+        3383,
+        3314,
+        3353,
+        2983,
+        2181,
+        2361,
+        3344
       ],
-      "trianglesPerFrame": 9998,
-      "projectedAspect": 0.613094
+      "trianglesPerFrame": 17902,
+      "projectedAspect": 0.916337
     },
     {
       "sourceUrl": "/pet-models/starter-earth-l.glb",

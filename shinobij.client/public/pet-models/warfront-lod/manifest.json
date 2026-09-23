@@ -4,6 +4,8 @@
   "policy": {
     "targetLodTriangles": 10000,
     "maxLodTriangles": 15000,
+    "raijinMaxLodTriangles": 18000,
+    "raijinMinTriangleReduction": 0.54,
     "maxError": 0.05,
     "minTriangleReduction": 0.6,
     "lowPolySourceLimit": 25000,
@@ -12,10 +14,10 @@
     "minSilhouetteIoU": 0.975
   },
   "totals": {
-    "sourceBytes": 86984624,
-    "lodBytes": 53523788,
-    "sourceTriangles": 5909137,
-    "lodTriangles": 1604709
+    "sourceBytes": 88308428,
+    "lodBytes": 54027216,
+    "sourceTriangles": 5919006,
+    "lodTriangles": 1612613
   },
   "entries": [
     {
@@ -3670,27 +3672,27 @@
     },
     {
       "sourceUrl": "/pet-models/showdown-v2/starter-lightning-l.glb",
-      "lodUrl": "/pet-models/warfront-lod/showdown-v2/starter-lightning-l.glb?v=20260902-battle-lod-v1-9958bffe551d",
-      "sourceBytes": 1095396,
-      "lodBytes": 333464,
-      "sourceSha256": "9958bffe551d9469260bcab9d4a954ebcb209f4fc0dbac997cd92525b8800aa3",
-      "lodSha256": "fff147cb2678e6dc392ea26aae575e646778d553b7c95825211972b52690ccc1",
-      "sourceTriangles": 29808,
-      "lodTriangles": 9998,
-      "reduction": 0.664587,
+      "lodUrl": "/pet-models/warfront-lod/showdown-v2/starter-lightning-l.glb?v=20260902-battle-lod-v1-657bdd99ae01",
+      "sourceBytes": 2419200,
+      "lodBytes": 836892,
+      "sourceSha256": "657bdd99ae014bcbe9359eeb715de92bc04b5e2a132ddca0d99346da32022489",
+      "lodSha256": "9f0cd7b3ed3e4f5625b3e1746fe479432d1b434a5ecfac7379aa19ee52846ed8",
+      "sourceTriangles": 39677,
+      "lodTriangles": 17902,
+      "reduction": 0.548807,
       "lowPolySource": false,
-      "sourceVertices": 23763,
-      "lodVertices": 9588,
+      "sourceVertices": 51214,
+      "lodVertices": 25190,
       "skins": 1,
       "joints": 21,
       "animations": 13,
-      "materials": 5,
-      "textures": 1,
-      "boundsMaxDelta": 0,
+      "materials": 1,
+      "textures": 3,
+      "boundsMaxDelta": 0.002197,
       "silhouettes": {
-        "front": 0.99077,
-        "threeQuarter": 0.988889,
-        "side": 0.992242
+        "front": 0.990368,
+        "threeQuarter": 0.982795,
+        "side": 0.97542
       }
     },
     {
