@@ -10,6 +10,7 @@ import { hollowGateRefundCurrencySource } from '../hollow-gate/_external-credits
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { pvpSessionMayGrantProgress, type PvpSession } from './session.js';
 import { loadPvpRewardRecoverySnapshot } from './_reward-recovery.js';
+import { pvpTerminalRecoveryExpiresAt } from './_pending-session.js';
 import { normalizeBoard, placeBounty, claimBounty, findBounty, BOUNTY_KEY, BOUNTY_AUDIT_PREFIX, type BountyBoard } from './_bounty.js';
 import { pushOfflineNotice } from '../player/_offline-notices.js';
 import { announce } from '../_announce.js';
@@ -233,11 +234,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(403).json({ error: 'Only the winner of that battle can claim its bounty.' });
             }
             // A completed payout can be read back for the result panel without
-            // reopening the two-hour window for a new claim.
+            // reopening eligibility for a new claim.
             const priorReceipt = await kv.get<{ amount?: number; target?: string; balances?: { ryo: number } }>(`pvp:bounty-claimed:${battleId}`);
             if (priorReceipt?.amount && priorReceipt.balances) return res.status(200).json({ ok: true, alreadyClaimed: true, ...priorReceipt });
-            if (now - num(session.createdAt) > SESSION_REPLAY_WINDOW_MS) {
-                return res.status(409).json({ error: 'That battle is too old to claim a bounty.' });
+            const delayedClaim = now - num(session.createdAt) > SESSION_REPLAY_WINDOW_MS;
+            const terminalAt = num(session.endedAt);
+            // A failed reward settlement can keep the client from reaching this
+            // optional claim for hours. Recovery snapshots last 48h. For a late
+            // claim, require a sealed terminal time and prove below that the
+            // current bounty head already existed before that terminal.
+            if (delayedClaim) {
+                let recoveryExpiresAt: number | null = null;
+                try { recoveryExpiresAt = pvpTerminalRecoveryExpiresAt(session); } catch { /* invalid terminal */ }
+                if (!recoveryExpiresAt || now >= recoveryExpiresAt) {
+                    return res.status(409).json({ error: 'That battle is too old to claim a bounty.' });
+                }
             }
 
             const out = await withKvLock<{ status: number; body: unknown; paid?: number }>(BOUNTY_KEY, async () => {
@@ -252,6 +263,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return { status: 200, body: { ok: true, alreadyClaimed: true, amount: 0, ...(receipt?.amount && receipt.balances ? receipt : {}) } };
                 }
                 const board = normalizeBoard(await kv.get<BountyBoard>(BOUNTY_KEY));
+                if (delayedClaim) {
+                    const head = findBounty(board, loserName);
+                    // A bounty posted or increased after this battle cannot be
+                    // collected by replaying its old result. If the head changed
+                    // since the battle, its old amount cannot be proven here.
+                    if (!head || head.updatedAt <= 0 || head.updatedAt > terminalAt) {
+                        return { status: 200, body: { ok: true, amount: 0 } };
+                    }
+                }
                 const result = claimBounty(board, loserName);
                 if (!result.ok) return { status: 200, body: { ok: true, amount: 0 } }; // no bounty on the loser — harmless no-op
                 // A shared connection voids only the optional bounty payout; it
