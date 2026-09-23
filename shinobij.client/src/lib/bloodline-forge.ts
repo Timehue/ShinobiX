@@ -8,16 +8,17 @@ export interface BloodlineForgeResult {
     currency?: 'boneCharms' | 'auraStones' | 'mythicSeals';
     cost?: number;
     balance?: number;
+    resumed?: boolean;
     character?: Character;
     _saveVersion?: number;
 }
 
-export async function purchaseBloodlineForge(playerName: string, rank: Rank): Promise<BloodlineForgeResult> {
+export async function purchaseBloodlineForge(playerName: string, rank: Rank, resumeOnly = false): Promise<BloodlineForgeResult> {
     try {
         const response = await fetch('/api/bloodlines/forge', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ playerName, rank }),
+            body: JSON.stringify({ playerName, rank, ...(resumeOnly ? { resumeOnly: true } : {}) }),
         });
         const data = await response.json().catch(() => ({})) as BloodlineForgeResult;
         if (!response.ok || !data.ok || !data.character) {

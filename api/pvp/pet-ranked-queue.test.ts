@@ -5,6 +5,7 @@ import { after, before, beforeEach, describe, it } from 'node:test';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
+process.env.SESSION_SECRET = 'pet-ranked-queue-level-test-secret-32-bytes';
 
 type Kv = typeof import('../_storage.js').kv;
 
@@ -13,15 +14,19 @@ let pruneWaiting: typeof import('./pet-ranked-queue.js').pruneWaiting;
 let petRankedPairable: typeof import('./pet-ranked-queue.js').petRankedPairable;
 let selectPetRankedOpponent: typeof import('./pet-ranked-queue.js').selectPetRankedOpponent;
 let WAITING_KEY: string;
+let queueHandler: typeof import('./pet-ranked-queue.js').default;
+let issuePlayerToken: typeof import('../_auth.js').issuePlayerToken;
 
 before(async () => {
     ({ kv } = await import('../_storage.js'));
     const mod = await import('./pet-ranked-queue.js');
     ({ pruneWaiting, petRankedPairable, selectPetRankedOpponent } = mod);
+    queueHandler = mod.default as unknown as typeof queueHandler;
+    ({ issuePlayerToken } = await import('../_auth.js'));
     WAITING_KEY = mod.PET_RANKED_WAITING_KEY;
 });
 
-after(() => { delete process.env.SHINOBIX_QA_MEMORY_KV; });
+after(() => { delete process.env.SHINOBIX_QA_MEMORY_KV; delete process.env.SESSION_SECRET; });
 beforeEach(async () => { await kv.del(WAITING_KEY); });
 
 const entry = (slug: string, rating: number, joinedAt: number) => ({ slug, rating, level: 30, joinedAt, format: '2v2' as const, petIds: ['p1', 'p2', 'p3', 'p4'] });
@@ -35,6 +40,7 @@ describe('live ranked pet matchmaking', { concurrency: false }, () => {
             entry('stale', 1000, now - 10 * 60_000),  // past the waiting TTL
             entry('future', 1000, now + 120_000),     // clock-skewed
             { slug: 'legacy', rating: 1000, level: 30, joinedAt: now }, // pre-upgrade queue row
+            { ...entry('levelten', 1000, now), level: 10 },
             { slug: '', rating: 1, level: 1, joinedAt: now },
         ], now);
         assert.deepEqual(kept.map(e => e.slug), ['ash']);
@@ -76,8 +82,33 @@ describe('live ranked pet matchmaking', { concurrency: false }, () => {
         // Both reciprocal records, exactly one initiator, identical createdAt.
         assert.match(source, /queueMatch\(opponent, true, pairId, now, joiner.petIds\)/);
         assert.match(source, /queueMatch\(joiner, false, pairId, now, opponent.petIds\)/);
-        // Newcomer protection and pet eligibility are re-checked server-side.
-        assert.match(source, /isBelowAttackableFloor\(level\)/);
+        // Ranked eligibility and pet availability are re-checked server-side.
+        assert.match(source, /rankedLevelEligible\(level\)/);
         assert.match(source, /selectRankedTeam\(character, requestedIds/);
+    });
+
+    it('blocks level 10 from the live queue and admits level 11 past the level gate', async () => {
+        const name = 'petrankedfloor';
+        const post = async () => {
+            const out: { status: number; body?: Record<string, unknown> } = { status: 200 };
+            const res = {
+                setHeader: () => res,
+                status: (status: number) => { out.status = status; return res; },
+                json: (body: Record<string, unknown>) => { out.body = body; return res; },
+                end: () => res,
+            };
+            await queueHandler({ method: 'POST', body: { action: 'join', name, petIds: [] }, headers: {
+                'content-type': 'application/json', 'x-player-token': issuePlayerToken(name) ?? '',
+            }, socket: { remoteAddress: '127.0.0.88' } } as never, res as never);
+            return out;
+        };
+        await kv.set(`save:${name}`, { character: { name, level: 10 } });
+        const blocked = await post();
+        assert.equal(blocked.status, 403);
+        assert.equal(blocked.body?.errorCode, 'ranked-level-locked');
+        assert.match(String(blocked.body?.error), /level 11/);
+        await kv.set(`save:${name}`, { character: { name, level: 11 } });
+        const eligible = await post();
+        assert.equal(eligible.body?.errorCode, 'no-ranked-team');
     });
 });

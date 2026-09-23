@@ -1,5 +1,6 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 import { PUBLIC_CAPABILITY_IDS } from "../../shared/public-capabilities";
+import { RANKED_MIN_LEVEL } from "../../shared/ranked-eligibility";
 import type { SoloPveActionInput, SoloPveSession } from "../src/lib/solo-pve-api";
 
 type SavePayload = {
@@ -209,7 +210,7 @@ async function installArenaApi(page: Page, options: {
                     character: {
                         ...(incoming.character ?? {}),
                         onboardingStep: "done",
-                        level: 1,
+                        level: options.certifyRankedQueueLifecycle ? RANKED_MIN_LEVEL : 1,
                         ryo: 1_000_000,
                     },
                 };
@@ -365,9 +366,22 @@ async function restoreVillage(page: Page) {
     await expect(page.getByRole("button", { name: "Enter Battle Arena" })).toBeVisible();
 }
 
-async function openArenaDistrict(page: Page) {
+async function openArenaDistrict(page: Page, dismissLevelUpPrompts = false) {
     await page.goto("/#/centralHub");
     await page.reload({ waitUntil: "networkidle" });
+    if (dismissLevelUpPrompts) {
+        // The eligible fixture crosses several story thresholds at once; finish
+        // each queued scene before entering the Arena District.
+        const skipScene = page.getByRole("button", { name: "Skip", exact: true });
+        await skipScene.click({ timeout: 20_000 });
+        for (let scene = 1; scene < 8; scene += 1) {
+            try {
+                await skipScene.click({ timeout: 5_000 });
+            } catch {
+                break;
+            }
+        }
+    }
     await page.getByRole("button", { name: /Arena District/ }).click();
     await expect(page.getByRole("heading", { name: "Arena District" })).toBeVisible();
 }
@@ -496,10 +510,13 @@ test("Arena District serializes ranked join, poll, and leave on desktop and mobi
     const isMobile = testInfo.project.name === "chromium-mobile";
     test.skip(!isDesktop && !isMobile, "ranked lifecycle runs at the canonical desktop and mobile viewports");
 
+    await page.addInitScript(() => {
+        localStorage.setItem("dailyBriefing.seen.v1", new Date().toISOString().slice(0, 10));
+    });
     const api = await installArenaApi(page, { certifyRankedQueueLifecycle: true });
     await createAccount(page);
     await expect.poll(api.hasSave).toBe(true);
-    await openArenaDistrict(page);
+    await openArenaDistrict(page, true);
 
     await expect(page.getByRole("heading", { name: "Ranked 2v2" })).toBeVisible();
     const weaponPicker = page.getByTestId("ranked-format-weapon-picker");

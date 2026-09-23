@@ -19,6 +19,7 @@ import "./PetShowdown.css";
 import type { Character } from "../types/character";
 import type { Pet } from "../types/pet";
 import type { Screen } from "../types/core";
+import type { PetArenaOpponent } from "../data/pet-arena-opponents";
 import { colosseumPetBusyReason, isPetAvailableForColosseum } from "../lib/pet";
 import { activeCarriedPetIds } from "../lib/entitlements";
 import { petCardImage } from "../lib/pet-battle-anim";
@@ -28,6 +29,7 @@ import { activeClientBreedingParentIds } from "../lib/pet-breeding";
 import { preloadPetColiseumModels, warmShowdownModels } from "../lib/pet-model-preload";
 import {
     startShowdown,
+    startWandererShowdown,
     submitShowdownTurn,
     forfeitShowdown,
     fetchShowdownState,
@@ -59,17 +61,19 @@ const SESSION_BREADCRUMB_KEY = "showdown.session.v1";
 // gone from KV and the crumb is noise.
 const SESSION_BREADCRUMB_TTL_MS = 45 * 60 * 1000;
 
-type SessionBreadcrumb = { sessionId: string; petIds: string[]; playerName: string };
+type SessionBreadcrumb = { sessionId: string; petIds: string[]; playerName: string; roadChallenge?: boolean; roadOpponentName?: string };
 
 function readSessionBreadcrumb(playerName: string): SessionBreadcrumb | null {
     try {
         const raw = localStorage.getItem(SESSION_BREADCRUMB_KEY);
         if (!raw) return null;
-        const parsed = JSON.parse(raw) as { sessionId?: unknown; petIds?: unknown; playerName?: unknown; savedAt?: unknown };
+        const parsed = JSON.parse(raw) as { sessionId?: unknown; petIds?: unknown; playerName?: unknown; roadChallenge?: unknown; roadOpponentName?: unknown; savedAt?: unknown };
         if (typeof parsed.sessionId !== "string" || !Array.isArray(parsed.petIds)) return null;
         if (parsed.playerName !== playerName) return null;
         if (Date.now() - (Number(parsed.savedAt) || 0) > SESSION_BREADCRUMB_TTL_MS) return null;
-        return { sessionId: parsed.sessionId, petIds: parsed.petIds.map(String), playerName };
+        return { sessionId: parsed.sessionId, petIds: parsed.petIds.map(String), playerName,
+            roadChallenge: parsed.roadChallenge === true,
+            roadOpponentName: typeof parsed.roadOpponentName === "string" ? parsed.roadOpponentName : undefined };
     } catch {
         return null;
     }
@@ -106,7 +110,7 @@ const TIERS: { id: ShowdownOpposition; label: string; icon: GameIconName; blurb:
     { id: "champion", label: "Champion", icon: "medal", blurb: "Legendary and mythic pets with traits and battle gear." },
 ];
 
-export function PetShowdown({ character, updateCharacter, setScreen, sharedImages, onBattleActiveChange, onFullscreenActiveChange, bout = "practice" }: {
+export function PetShowdown({ character, updateCharacter, setScreen, sharedImages, onBattleActiveChange, onFullscreenActiveChange, bout = "practice", pendingWanderer, onPendingWandererStarted, onVersionedCharacter }: {
     character: Character;
     /** Which kind of bout this screen opens.
      *
@@ -117,6 +121,9 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
      *               slider bolted to a faucet (the server derives it and would
      *               ignore one anyway). */
     bout?: "practice" | "arena";
+    pendingWanderer?: PetArenaOpponent | null;
+    onPendingWandererStarted?: () => void;
+    onVersionedCharacter?: (next: Character, version: number) => boolean;
     updateCharacter: (next: Character) => void;
     setScreen: (screen: Screen) => void;
     sharedImages: Record<string, string>;
@@ -156,6 +163,11 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
     const [error, setError] = useState<string | null>(null);
     const [battle, setBattle] = useState<{ state: ShowdownStateView; key: number } | null>(null);
     const battleKey = useRef(1);
+    const [roadChallenge, setRoadChallenge] = useState(() => Boolean(
+        pendingWanderer?.wanderer || (bout === "arena" && readSessionBreadcrumb(character.name)?.roadChallenge),
+    ));
+    const [roadOpponentName, setRoadOpponentName] = useState(pendingWanderer?.owner ?? "Road Beast");
+    const roadLaunchId = useRef<string | null>(null);
     const mounted = useRef(false);
     useEffect(() => {
         mounted.current = true;
@@ -208,6 +220,7 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
     // crumb is dropped on the same pass, so a decided session is only ever
     // claimed once and never outlives its own TTL.
     useEffect(() => {
+        if (pendingWanderer?.wanderer) return;
         const crumb = readSessionBreadcrumb(character.name);
         if (!crumb) return;
         let cancelled = false;
@@ -215,24 +228,32 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
             const state = await fetchShowdownState(character.name, crumb.sessionId);
             if (cancelled) return;
             if (state && !state.finished) {
+                if (crumb.roadChallenge) {
+                    setRoadChallenge(true);
+                    setRoadOpponentName(crumb.roadOpponentName ?? "Road Beast");
+                }
                 // A resumed fight mounts just as directly as a fresh one, so it
                 // needs the same warm-up — after a reload nothing is cached.
                 // The full roster here, not the picked team: `selected` is
                 // restored from the crumb on the line below, so there is no
                 // team yet. A superset resolves the same pets by id.
+                setSignals(true, true);
                 await warmShowdownModels(state, pets);
                 if (cancelled) return;
                 setSelected(crumb.petIds);
                 setBattle({ state, key: battleKey.current++ });
-                setSignals(true, true);
                 return;
             }
             writeSessionBreadcrumb(null);
-            if (!state || state.outcome !== "win") return;
+            if (!state || state.outcome !== "win") {
+                if (crumb.roadChallenge) setScreen("worldMap");
+                return;
+            }
             const settlement = await submitShowdownTurn(character.name, crumb.sessionId, []);
             if (cancelled || !settlement || "expired" in settlement) return;
             const settled = settlement.character as Character | undefined;
             if (settled && typeof settled === "object") updateCharacter(settled);
+            if (crumb.roadChallenge) setScreen("worldMap");
         })();
         return () => { cancelled = true; };
         // Mount-only: the breadcrumb is a one-shot restore.
@@ -277,12 +298,59 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
         setSignals(true, true);
     }, [starting, selected, size, character.name, format, tier, bout, selectedPets, setSignals]);
 
+    const launchRoadChallenge = async () => {
+        const ref = pendingWanderer?.wanderer;
+        if (!ref || roadLaunchId.current === ref.id) return;
+        roadLaunchId.current = ref.id;
+        setStarting("matching");
+        setError(null);
+        const result = await startWandererShowdown(character.name, ref);
+        if ("error" in result) {
+            roadLaunchId.current = null;
+            if (mounted.current) { setStarting(false); setError(result.error); }
+            return;
+        }
+        // The kickoff spent this exact road encounter. Adopt its versioned save
+        // before another autosave can restore the old cooldown or location.
+        onVersionedCharacter?.(result.character as Character, result.saveVersion);
+        writeSessionBreadcrumb({ sessionId: result.state.sessionId, petIds: result.petIds, playerName: character.name,
+            roadChallenge: true, roadOpponentName });
+        // The server has committed the fight. Hold the navigation lock during
+        // model loading too, before the fullscreen battle renderer mounts.
+        setSignals(true, true);
+        onPendingWandererStarted?.();
+        if (!mounted.current) return;
+        setFormat(result.state.format);
+        setSelected(result.petIds);
+        setStarting("fielding");
+        await warmShowdownModels(result.state, result.petIds
+            .map((id) => character.pets.find((pet) => pet.id === id))
+            .filter((pet): pet is Pet => Boolean(pet)));
+        if (!mounted.current) return;
+        setStarting(false);
+        setBattle({ state: result.state, key: battleKey.current++ });
+    };
+
+    useEffect(() => {
+        if (pendingWanderer?.wanderer) void launchRoadChallenge();
+        // The pending encounter is one-shot. The server resumes the same session
+        // if React mounts this screen twice while its first request is in flight.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pendingWanderer?.wanderer?.id, pendingWanderer?.wanderer?.sector]);
+
     const activeSession = battle?.state.sessionId ?? null;
 
     const handleSubmitTurn = useCallback(async (commands: ShowdownCommand[], expectedRound: number) => {
         if (!activeSession) return null;
-        return submitShowdownTurn(character.name, activeSession, commands, expectedRound);
-    }, [character.name, activeSession]);
+        const response = await submitShowdownTurn(character.name, activeSession, commands, expectedRound);
+        if (response && "state" in response) {
+            // The server renews its 45-minute session lease on each round.
+            // Keep the refresh pointer on the same lease while this fight runs.
+            writeSessionBreadcrumb({ sessionId: activeSession, petIds: selected, playerName: character.name,
+                ...(roadChallenge ? { roadChallenge: true, roadOpponentName } : {}) });
+        }
+        return response;
+    }, [character.name, activeSession, selected, roadChallenge, roadOpponentName]);
 
     const handleFinished = useCallback((outcome: "win" | "loss", settlement: ShowdownTurnResponse | null) => {
         // Decided: release the nav lock; the fullscreen result panel stays up.
@@ -300,19 +368,35 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
         writeSessionBreadcrumb(null);
         setBattle(null);
         setSignals(false, false);
-    }, [activeSession, character.name, setSignals]);
+        if (roadChallenge) setScreen("worldMap");
+    }, [activeSession, character.name, setSignals, setScreen, roadChallenge]);
 
     const handleExit = useCallback(() => {
         writeSessionBreadcrumb(null);
         setBattle(null);
         setSignals(false, false);
-    }, [setSignals]);
+        if (roadChallenge) setScreen("worldMap");
+    }, [setSignals, setScreen, roadChallenge]);
 
     const handleRematch = useCallback(() => {
         setBattle(null);
         setSignals(false, false);
         void launch();
     }, [launch, setSignals]);
+
+    if (roadChallenge && !battle) {
+        return <div className="showdown-screen">
+            <div className="showdown-header">
+                <h1>Pet Colosseum Challenge</h1>
+                <p className="showdown-tagline">{starting ? "Drawing your team and a random opponent…" : "The road beast is ready to fight."}</p>
+            </div>
+            {error && <div className="showdown-error" role="alert">{error}</div>}
+            {error && <div className="showdown-launch">
+                <button type="button" className="showdown-cta" onClick={() => void launchRoadChallenge()}>Retry challenge</button>
+                <button type="button" className="showdown-chip" onClick={() => { onPendingWandererStarted?.(); setScreen("worldMap"); }}>Return to the road</button>
+            </div>}
+        </div>;
+    }
 
     return (
         <div className="showdown-screen">
@@ -515,8 +599,10 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                     onFinished={handleFinished}
                     onExit={handleExit}
                     onRematch={handleRematch}
-                    eventLabel={rememberedCircuitTrial(character.name) === 'pets' ? 'Dojo Circuit' : undefined}
-                    resultNote={rememberedCircuitTrial(character.name) === 'pets' ? outcome => outcome === 'win' ? 'Return to the Circuit scribe to record a qualifying rewarded victory.' : 'Your Circuit trial remains open. Try again when you are ready.' : undefined}
+                    hideRematch={roadChallenge}
+                    exitLabel={roadChallenge ? "Return to the road" : undefined}
+                    eventLabel={roadChallenge ? roadOpponentName : rememberedCircuitTrial(character.name) === 'pets' ? 'Dojo Circuit' : undefined}
+                    resultNote={!roadChallenge && rememberedCircuitTrial(character.name) === 'pets' ? outcome => outcome === 'win' ? 'Return to the Circuit scribe to record a qualifying rewarded victory.' : 'Your Circuit trial remains open. Try again when you are ready.' : undefined}
                 />
             )}
         </div>

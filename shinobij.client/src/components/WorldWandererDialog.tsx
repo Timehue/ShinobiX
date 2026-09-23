@@ -48,7 +48,6 @@ export type WorldWandererDialogProps = Readonly<{
     closeWandererDialog: () => void;
     dismissWandererDialog: () => void;
     startWandererAttack: (wanderer: Wanderer, nemesis?: boolean) => ActionResult;
-    startBountyHunterFight: WandererAction;
     tradeWithWanderer: WandererAction;
     askRoadRumor: WandererAction;
     visitWandererMedic: WandererAction;
@@ -94,7 +93,6 @@ export function WorldWandererDialog({
     closeWandererDialog,
     dismissWandererDialog,
     startWandererAttack,
-    startBountyHunterFight,
     tradeWithWanderer,
     askRoadRumor,
     visitWandererMedic,
@@ -143,10 +141,7 @@ export function WorldWandererDialog({
                     </div>
                 )
             ) : !wandererDialog.msg && wandererDialog.w.verb === "bountyHunter" ? (
-                <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                    <button disabled={wandererDialog.busy} onClick={() => startBountyHunterFight(wandererDialog.w)} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "var(--red-400)", fontWeight: 700 }}>{wandererDialog.busy ? "..." : "Stand & Fight"}</button>
-                    <button onClick={dismissWandererDialog}>Flee</button>
-                </div>
+                <p role="status" style={{ color: "var(--red-300)", fontWeight: 700 }}>The hunter attacks. Combat is starting…</p>
             ) : !wandererDialog.msg && wandererDialog.w.verb === "merchant" ? (
                 <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
                     <button disabled={wandererDialog.busy} onClick={() => tradeWithWanderer(wandererDialog.w)}>{wandererDialog.busy ? "..." : "Trade"}</button>

@@ -17,6 +17,15 @@ let rankedPairSequence = 0;
 const PLAYER = 'petauthorityprobe';
 const OPPONENT = 'petauthorityrival';
 
+async function setCharacterLevel(slug: string, level: number): Promise<void> {
+    const save = await kv.get<Record<string, unknown>>(`save:${slug}`);
+    assert.ok(save?.character);
+    await kv.set(`save:${slug}`, {
+        ...save,
+        character: { ...(save.character as Record<string, unknown>), level },
+    });
+}
+
 function response() {
     const out: Out = { statusCode: 200 };
     const res = {
@@ -51,7 +60,7 @@ async function authorizeRankedQueuePair(initiator: string, opponent: string): Pr
         kv.set(`pvp:pet-ranked-queue:match:${initiator}`, {
             opponent,
             opponentElo: 1000,
-            opponentLevel: 1,
+            opponentLevel: 11,
             initiator: true,
             createdAt,
             pairId,
@@ -59,7 +68,7 @@ async function authorizeRankedQueuePair(initiator: string, opponent: string): Pr
         kv.set(`pvp:pet-ranked-queue:match:${opponent}`, {
             opponent: initiator,
             opponentElo: 1000,
-            opponentLevel: 1,
+            opponentLevel: 11,
             initiator: false,
             createdAt,
             pairId,
@@ -386,7 +395,7 @@ test('ranked proof is retired after both authoritative saves and a lost response
     await kv.set(`save:${OPPONENT}`, {
         _saveVersion: 1,
         character: {
-            name: OPPONENT, level: 1, ryo: 0, professionRank: 0,
+            name: OPPONENT, level: 11, ryo: 0, professionRank: 0,
             activePetId: rivalPet.id,
             pets: [rivalPet],
         },
@@ -396,6 +405,7 @@ test('ranked proof is retired after both authoritative saves and a lost response
     Date.now = () => realDateNow() + 120_000;
     try {
         const started = response();
+        await setCharacterLevel(PLAYER, 11);
         await authorizeRankedQueuePair(PLAYER, OPPONENT);
         await rankedStartHandler(request({ opponentName: OPPONENT, petId: 'owned-pet' }), started.res);
         assert.equal(started.out.statusCode, 200);
@@ -642,7 +652,7 @@ test('ranked settlement keeps its proof and writes neither participant when one 
     };
     await kv.set(`save:${missingOpponent}`, {
         _saveVersion: 1,
-        character: { name: missingOpponent, level: 1, activePetId: pet.id, pets: [pet] },
+        character: { name: missingOpponent, level: 11, activePetId: pet.id, pets: [pet] },
     });
 
     const realDateNow = Date.now;
@@ -650,6 +660,7 @@ test('ranked settlement keeps its proof and writes neither participant when one 
     let matchToken = '';
     try {
         const started = response();
+        await setCharacterLevel(PLAYER, 11);
         await authorizeRankedQueuePair(PLAYER, missingOpponent);
         await rankedStartHandler(request({ opponentName: missingOpponent, petId: 'owned-pet' }), started.res);
         assert.equal(started.out.statusCode, 200);

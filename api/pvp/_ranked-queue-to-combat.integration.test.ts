@@ -25,6 +25,9 @@ let session: Handler;
 let move: Handler;
 let claimRewards: Handler;
 let leaderboards: Handler;
+let buildBattleReceipt: typeof import('../_receipts.js').buildBattleReceipt;
+let readBattleReceipt: typeof import('../_receipts.js').readBattleReceipt;
+let receiptKey: typeof import('../_receipts.js').receiptKey;
 
 function character(name: string) {
     return {
@@ -89,6 +92,7 @@ before(async () => {
     move = (await import('./move.js')).default as unknown as Handler;
     claimRewards = (await import('./claim-rewards.js')).default as unknown as Handler;
     leaderboards = (await import('../player/leaderboards.js')).default as unknown as Handler;
+    ({ buildBattleReceipt, readBattleReceipt, receiptKey } = await import('../_receipts.js'));
 });
 
 beforeEach(async () => {
@@ -98,6 +102,10 @@ beforeEach(async () => {
     for (const key of await kv.keys('challenges:*')) await kv.del(key);
     for (const key of await kv.keys('challenge-outgoing:*')) await kv.del(key);
     for (const key of await kv.keys('pvp:pvp-*')) await kv.del(key);
+    for (const player of [ALICE, BOB]) {
+        for (const key of await kv.keys(`player-ip:${player}:*`)) await kv.del(key);
+        for (const key of await kv.keys(`player-fp:${player}:*`)) await kv.del(key);
+    }
     await startRankedSeason(Date.now());
     await Promise.all([
         kv.set(`save:${ALICE}`, {
@@ -217,6 +225,13 @@ test('two ranked queue entries create a ranked-format PvP combat session', async
     assert.equal(created.body?.session?.p2?.hp, RANKED_FORMAT_MAX_HP);
     assert.equal(created.body?.session?.p1?.chakra, RANKED_FORMAT_MAX_CHAKRA);
     assert.equal(created.body?.session?.p2?.stamina, RANKED_FORMAT_MAX_STAMINA);
+    for (const role of ['p1', 'p2'] as const) {
+        const fighter: Record<string, any> | undefined = created.body?.session?.[role];
+        assert.equal(fighter?.character?.equipment?.thrown, RANKED_FORMAT_NEUTRAL_EQUIPMENT.thrown);
+        assert.equal(fighter?.character?.pvpItems?.find((item: { id: string }) => item.id === RANKED_FORMAT_NEUTRAL_EQUIPMENT.thrown)?.weaponEp, 38,
+            'the queued ranked fighter receives the tuned server-catalog Kunai, not a stale client item');
+        assert.equal(created.body?.session?.itemCharges?.[role]?.[RANKED_FORMAT_NEUTRAL_EQUIPMENT.thrown], 2);
+    }
     assert.equal((await kv.get<Record<string, any>>(`save:${ALICE}`))?.character?.maxHp, 200,
         'the equalized ranked resources are session-only and never overwrite a player save');
 
@@ -225,20 +240,34 @@ test('two ranked queue entries create a ranked-format PvP combat session', async
     // saga have separate tests; this closes their queue-to-report wiring.
     const lastSession = await kv.get<Record<string, any>>(`pvp:${battleId}`);
     assert.ok(lastSession);
-    await kv.set(`pvp:${battleId}`, {
-        ...lastSession, status: 'done', winner: 'p1', endedAt: Date.now(),
-    });
+    // The players have distinct public connections/devices but share two
+    // infrastructure hops. These must not turn an official fight unrated.
+    for (const player of [ALICE, BOB]) {
+        await kv.set(`player-ip:${player}:10.0.0.3`, 1);
+        await kv.set(`player-ip:${player}:162.158.14.68`, 1);
+    }
+    await kv.set(`player-ip:${ALICE}:86.123.45.67`, 1);
+    await kv.set(`player-ip:${BOB}:8.8.8.8`, 1);
+    await kv.set(`player-fp:${ALICE}:${'a'.repeat(32)}`, 1);
+    await kv.set(`player-fp:${BOB}:${'b'.repeat(32)}`, 1);
+    const terminal = { ...lastSession, status: 'done', winner: 'p1', endedAt: Date.now() };
+    await kv.set(`pvp:${battleId}`, terminal);
+    await kv.set(receiptKey(battleId), buildBattleReceipt(terminal as never, terminal.endedAt));
     const winnerClaim = await post(claimRewards, ALICE, {
         battleId, playerName: ALICE, outcome: 'win', completionVersion: 1,
     });
     assert.equal(winnerClaim.statusCode, 200, winnerClaim.body?.error);
     assert.equal(winnerClaim.body?.rating?.field, 'rankedRating');
     assert.equal(winnerClaim.body?.rating?.value, 1012);
+    assert.equal(winnerClaim.body?.rating?.delta, 12);
     const loserClaim = await post(claimRewards, BOB, {
         battleId, playerName: BOB, outcome: 'loss', completionVersion: 1,
     });
     assert.equal(loserClaim.statusCode, 200, loserClaim.body?.error);
     assert.equal(loserClaim.body?.rating?.value, 988);
+    assert.equal(loserClaim.body?.rating?.delta, -12, 'the loser sees the rating drop, not a positive gain');
+    assert.equal((await readBattleReceipt(battleId))?.settlement?.ratingDelta, 12,
+        'the shared battle receipt reports the same Elo movement regardless of who claims last');
     for (const [playerName, outcome] of [[ALICE, 'win'], [BOB, 'loss']] as const) {
         const ack = await post(claimRewards, playerName, {
             battleId, playerName, outcome, completionVersion: 1, completionAck: true,
@@ -252,4 +281,74 @@ test('two ranked queue entries create a ranked-format PvP combat session', async
     const rankedRows = board.body?.boards?.find((entry: { id: string }) => entry.id === 'ranked')?.rows;
     assert.equal(rankedRows?.find((entry: { name: string }) => entry.name === ALICE)?.value, 1012);
     assert.equal(rankedRows?.find((entry: { name: string }) => entry.name === BOB)?.value, 988);
+});
+
+test('level 15 and level 100 can enter one ranked fight with maxed jutsu and unchanged saves', async () => {
+    const jutsuId = 'starter-nin-fire-2';
+    for (const [player, level, mastery] of [[ALICE, 15, 1], [BOB, 100, 5]] as const) {
+        const save = await kv.get<Record<string, any>>(`save:${player}`);
+        assert.ok(save);
+        await kv.set(`save:${player}`, {
+            ...save,
+            character: {
+                ...save.character,
+                level,
+                specialty: 'Ninjutsu',
+                equippedJutsuIds: [jutsuId],
+                jutsuMastery: [{ jutsuId, level: mastery }],
+            },
+        });
+    }
+    assert.equal((await post(rankedQueue, ALICE, { name: ALICE, action: 'join' })).statusCode, 200);
+    assert.equal((await post(rankedQueue, BOB, { name: BOB, action: 'join' })).statusCode, 200);
+    const matched = await post(rankedQueue, ALICE, { name: ALICE, action: 'poll' });
+    assert.equal(matched.statusCode, 200, matched.body?.error);
+    assert.equal(matched.body?.match?.opponent, BOB);
+    const match = matched.body?.match;
+    const created = await post(session, ALICE, {
+        p1Character: { name: ALICE },
+        p2Character: { name: BOB },
+        ranked: true,
+        rankedKind: 'player',
+        rankedMatchId: match.matchId,
+        rankedSeasonId: match.seasonId,
+        rankedSeasonEpoch: match.seasonEpoch,
+    });
+    assert.equal(created.statusCode, 200, created.body?.error);
+    const fighters = [created.body?.session?.p1, created.body?.session?.p2];
+    assert.deepEqual(fighters.map(f => f?.character?.level), [15, 100]);
+    for (const fighter of fighters) {
+        assert.equal(fighter?.character?.rankedFormatCombat, true);
+        assert.equal(fighter?.character?.jutsuMastery?.find((row: { jutsuId: string }) => row.jutsuId === jutsuId)?.level, 50);
+        assert.equal(fighter?.character?.jutsu?.some((j: { id: string }) => j.id === jutsuId), true);
+    }
+    assert.equal(fighters[0]?.character?.jutsu?.[0]?.chakraCost, fighters[1]?.character?.jutsu?.[0]?.chakraCost,
+        'ranked resource cost uses the same combat tier at both character levels');
+    const { applyJutsu } = await import('./move.js');
+    const lowLevelCast = applyJutsu(fighters[0], fighters[1], fighters[0].character.jutsu[0]);
+    const highLevelCast = applyJutsu(fighters[1], fighters[0], fighters[1].character.jutsu[0]);
+    assert.equal(lowLevelCast.opponent.hp, highLevelCast.opponent.hp,
+        'equalized stats and mastery produce the same direct hit at level 15 and level 100');
+    assert.equal((await kv.get<Record<string, any>>(`save:${ALICE}`))?.character?.jutsuMastery?.[0]?.level, 1);
+    assert.equal((await kv.get<Record<string, any>>(`save:${BOB}`))?.character?.jutsuMastery?.[0]?.level, 5);
+});
+
+test('ranked queue blocks level 10 even when the client claims a higher level, then admits level 11', async () => {
+    const saved = await kv.get<Record<string, any>>(`save:${ALICE}`);
+    assert.ok(saved);
+    await kv.set(`save:${ALICE}`, { ...saved, character: { ...saved.character, level: 10 } });
+    const blocked = await post(rankedQueue, ALICE, { name: ALICE, action: 'join', level: 100 });
+    assert.equal(blocked.statusCode, 403);
+    assert.equal(blocked.body?.errorCode, 'ranked-level-locked');
+    assert.match(String(blocked.body?.error), /level 11/);
+    const bypass = await post(session, ALICE, {
+        p1Character: { name: ALICE }, p2Character: { name: BOB },
+        ranked: true, rankedKind: 'player',
+    });
+    assert.equal(bypass.statusCode, 403, 'direct session creation also enforces the ranked floor');
+    assert.equal(bypass.body?.errorCode, 'ranked-level-locked');
+    await kv.set(`save:${ALICE}`, { ...saved, character: { ...saved.character, level: 11 } });
+    const allowed = await post(rankedQueue, ALICE, { name: ALICE, action: 'join', level: 1 });
+    assert.equal(allowed.statusCode, 200, allowed.body?.error);
+    assert.equal(allowed.body?.inQueue, true);
 });

@@ -92,6 +92,7 @@ import { earnedStatPoints } from "../lib/stats";
 import { useSocialLock } from "../lib/account-status";
 import { fetchBountyReceipt, type BountyReceipt } from "../lib/pvp-bounty";
 import { PvpBattleResultPanel, type PvpBattleOutcome } from "../components/PvpBattleResultPanel";
+import { canCancelUnstartedPvpDuel, isCancelledUnstartedPvpDuel } from "../../../shared/pvp-cancellation";
 
 // Avatar travel animation. A fighter's marker steps through each hex on the line
 // between its old and new cell (PATH_STEP_MS apart) and CSS-glides each hop, so
@@ -1073,7 +1074,7 @@ export function PvpBattleScreen({
             spar: effectiveIsSpar,
         }));
         setPvpImpactLines(isDrawNow || effectiveIsSpar ? [] : pvpRewardImpactLines(result));
-        const runCompletion = shouldRunPvpRewardCompletion(
+        const runCompletion = !isCancelledUnstartedPvpDuel(resolvedSession) && shouldRunPvpRewardCompletion(
             completionStorage,
             claimRequest,
             result.completionPending,
@@ -1183,6 +1184,9 @@ export function PvpBattleScreen({
                     setPvpRewardClaimError(ack.message);
                     return;
                 }
+            }
+            if (isCancelledUnstartedPvpDuel(resolvedSession)) {
+                completePvpRewardCompletion(completionStorage, claimRequest);
             }
             if (!isCurrentScope()) return;
             setPvpRewardClaimState("confirmed");
@@ -1639,7 +1643,9 @@ export function PvpBattleScreen({
     const done = session.status === "done";
     const iWon = (session.winner === "p1" && role === "p1") || (session.winner === "p2" && role === "p2");
     const isDraw = session.winner === "draw";
-    const battleOutcome: PvpBattleOutcome = isDraw
+    const battleOutcome: PvpBattleOutcome = isCancelledUnstartedPvpDuel(session)
+        ? "cancelled"
+        : isDraw
         ? "draw"
         : amSpectator
             ? "spectator"
@@ -2397,7 +2403,7 @@ export function PvpBattleScreen({
                     <CombatActionTray>
                         {!done && !amSpectator && (
                             <CombatCommandBar style={!bothJoined || isMyTurn ? undefined : { opacity: 0.55 }}>
-                                {!bothJoined && <button type="button" onClick={() => void submitAction("cancel-unjoined", undefined, undefined, undefined, { allowWhenNotMyTurn: true })} disabled={submitting}>
+                                {canCancelUnstartedPvpDuel(session) && <button type="button" onClick={() => void submitAction("cancel-unjoined", undefined, undefined, undefined, { allowWhenNotMyTurn: true })} disabled={submitting}>
                                     <i className="cmd-icon" aria-hidden="true"><GiRun /></i><span>{submitting ? "Cancelling…" : "Cancel Duel"}</span><small>No penalty</small>
                                 </button>}
                                 <button className={pendingBasicAttack ? "selected-action" : ""}
@@ -2679,7 +2685,8 @@ export function PvpBattleScreen({
                                     })()}
                                     {inspectedJutsu && (() => {
                                         const mastery = getJutsuMastery(character, inspectedJutsu.id);
-                                        const scaled = scaleJutsuByLevel(inspectedJutsu, mastery.level);
+                                        const combatMasteryLevel = session.rankedFormatVersion === 1 ? JUTSU_MAX_LEVEL : mastery.level;
+                                        const scaled = scaleJutsuByLevel(inspectedJutsu, combatMasteryLevel);
                                         const detailDescription = jutsuDetailDescription(inspectedJutsu);
                                         return (
                                             <CombatDetailPortal
@@ -2689,7 +2696,7 @@ export function PvpBattleScreen({
                                                 onClose={() => setInspectedJutsuId("")}
                                             >
                                                 <div className="combat-jutsu-detail-header">
-                                                    <div><strong id={`pvp-combat-detail-label-jutsu-${inspectedJutsu.id}`}>{inspectedJutsu.name}</strong><small>Level {mastery.level} / {JUTSU_MAX_LEVEL}</small></div>
+                                                    <div><strong id={`pvp-combat-detail-label-jutsu-${inspectedJutsu.id}`}>{inspectedJutsu.name}</strong><small>Level {combatMasteryLevel} / {JUTSU_MAX_LEVEL}</small></div>
                                                     <button type="button" data-combat-detail-close aria-label="Close combat details" onClick={() => setInspectedJutsuId("")}>x</button>
                                                 </div>
                                                 <div className="combat-jutsu-detail-grid">
@@ -2705,7 +2712,7 @@ export function PvpBattleScreen({
                                                 {(() => { const t = jutsuTargetingLabel(inspectedJutsu); return <p className="combat-jutsu-detail-desc"><strong style={{ color: "var(--purple-400)" }}>🎯 {t.short}:</strong> {t.detail}</p>; })()}
                                                 {detailDescription && <p className="combat-jutsu-detail-desc">{detailDescription}</p>}
                                                 <div className="combat-jutsu-effects-list">
-                                                    <JutsuEffectCards jutsu={inspectedJutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} lensDiscipline={playerLensDiscipline(character)} />
+                                                    <JutsuEffectCards jutsu={inspectedJutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={combatMasteryLevel} lensDiscipline={playerLensDiscipline(character)} />
                                                 </div>
                                             </CombatDetailPortal>
                                         );

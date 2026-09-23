@@ -51,6 +51,7 @@ export type BloodlineForgePurchase =
         currency: BloodlineForgeCurrency;
         cost: number;
         balance: number;
+        resumed: boolean;
     }
     | { ok: false; status: number; error: string };
 
@@ -60,10 +61,21 @@ export function applyBloodlineForgePurchase(
     rankRaw: unknown,
     entitlementId: string,
     now: number,
+    resumeOnly = false,
 ): BloodlineForgePurchase {
     const rank = parseBloodlineForgeRank(rankRaw);
     if (!rank) return { ok: false, status: 400, error: 'Invalid bloodline rank.' };
     const pending = readPendingBloodlineForges(pendingRaw);
+    // A failed maker save leaves its paid entitlement in the save. Returning
+    // that entitlement lets a refreshed client reopen the builder without
+    // debiting materials a second time.
+    const existing = pending.find((entry) => entry.rank === rank);
+    if (existing) {
+        const { currency } = BLOODLINE_FORGE_COSTS[rank];
+        return { ok: true, character, pending, entitlement: existing,
+            currency, cost: 0, balance: Math.max(0, Math.floor(Number(character[currency]) || 0)), resumed: true };
+    }
+    if (resumeOnly) return { ok: false, status: 409, error: 'No paid Bloodline Awakening is pending for this rank.' };
     if (pending.length >= PENDING_FORGE_CAP) {
         return { ok: false, status: 409, error: 'Finish your pending Bloodline Awakening before beginning another.' };
     }
@@ -79,5 +91,6 @@ export function applyBloodlineForgePurchase(
         currency,
         cost,
         balance: balance - cost,
+        resumed: false,
     };
 }

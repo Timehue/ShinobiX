@@ -91,6 +91,11 @@ describe("consumableHoldCap — single-pool carry limits", () => {
         assert.equal(consumableHoldCap({ slot: "item", restoreStamina: 25 }), COMBAT_ITEM_HOLD_CAP);
     });
 
+    it("allows Beast Seals to be bought as counted stacks", () => {
+        assert.equal(consumableHoldCap({ id: "beast-seal-ancient", slot: "item" }), 99);
+        assert.equal(consumableHoldCap({ id: "beast-seal-reinforced", slot: "item" }), 99);
+    });
+
     it("returns null for uncapped stackables and plain gear", () => {
         assert.equal(consumableHoldCap({ slot: "item" }), null); // pet food / material / collar
         assert.equal(consumableHoldCap({ slot: "head" }), null); // armor

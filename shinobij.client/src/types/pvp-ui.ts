@@ -65,6 +65,7 @@ export type PvpSessionState = {
     groundEffects?: PvpGroundEffectState[];
     log: string[];
     status: "active" | "done";
+    terminalReason?: "cancelled-unjoined";
     winner: "p1" | "p2" | "draw" | null;
     rewardAuthority?: "challenge" | "clan-war" | "ranked" | "world" | "admin";
     progressionAuthorityVersion?: 1;
@@ -79,6 +80,8 @@ export type PvpSessionState = {
     rewardStronghold?: 'deathsgate';
     ranked?: boolean;
     rankedKind?: "player" | "pet";
+    /** Equalized ranked fighter snapshot, including combat-only mastery. */
+    rankedFormatVersion?: 1;
     /** Server-minted Player Ranked V2 authority marker. Ordinary/casual fights omit it. */
     playerRankedAuthorityVersion?: 2;
     /** Server authority cutover: real fighters cannot spend mutable inventory in PvP. */

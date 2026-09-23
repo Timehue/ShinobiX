@@ -11,6 +11,7 @@ export type PetEncounterPointer = {
     sector: number;
     mintedAt: number;
     caravanRunId?: string;
+    battleRequired?: boolean;
 };
 
 export function petEncounterActiveKey(playerName: string): string {
@@ -52,5 +53,6 @@ export function cleanPetEncounterPointer(raw: unknown): PetEncounterPointer | nu
         sector,
         mintedAt,
         ...(typeof value.caravanRunId === 'string' ? { caravanRunId: value.caravanRunId } : {}),
+        ...(value.battleRequired === true ? { battleRequired: true } : {}),
     };
 }

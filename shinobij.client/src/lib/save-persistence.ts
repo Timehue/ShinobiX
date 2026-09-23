@@ -21,6 +21,8 @@ export type RequiredSave<TPayload> = {
     payload: TPayload;
     revision: number;
     echoVersion: boolean;
+    bloodlineEquipIntent?: string;
+    bloodlineWriteIntent?: string;
     isStillCurrent: () => boolean;
     onCommitted: () => void;
 };
@@ -324,7 +326,9 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
         const signal = requestSignal();
         const response = await fetch(`/api/save/${encodeURIComponent(save.name.toLowerCase())}`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json",
+                ...(save.bloodlineEquipIntent ? { "x-bloodline-equip-intent": save.bloodlineEquipIntent } : {}),
+                ...(save.bloodlineWriteIntent ? { "x-bloodline-write-intent": save.bloodlineWriteIntent } : {}) },
             body: pending.serializedBody,
             signal,
         });
@@ -354,6 +358,10 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
             const rejection = await response.json().catch(() => null) as { retryAfterMs?: unknown } | null;
             throw new SaveRateLimitError(rejection?.retryAfterMs);
         }
+        if (response.status === 422) {
+            const rejection = await response.json().catch(() => null) as { error?: unknown } | null;
+            throw new Error(typeof rejection?.error === "string" ? rejection.error : `Server returned ${response.status}`);
+        }
         if (!response.ok) throw new Error(`Server returned ${response.status}`);
         if (save.echoVersion && !params.isCurrentSession(accountKey, epoch)) {
             throw new Error("The active save account changed before this write completed.");
@@ -367,6 +375,9 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
             reason?: string;
             ryo?: number;
             fateShards?: number;
+            savedBloodlineIds?: string[];
+            savedBloodlineRanks?: Record<string, string>;
+            equippedBloodlineId?: string | null;
         } | null;
         if (save.echoVersion && !params.isCurrentSession(accountKey, epoch)) {
             throw new Error("The active save account changed before this write completed.");
@@ -375,7 +386,7 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
             params.dirty.current = true;
             throw new Error(`Save deferred by the server (${acknowledgement.reason ?? "locked"})`);
         }
-        if (!save.echoVersion) { clearUnresolvedPost(pending); return; }
+        if (!save.echoVersion) { clearUnresolvedPost(pending); return acknowledgement; }
         if (!validAcknowledgementVersion(acknowledgement?._saveVersion)) throw new Error("Save acknowledgement did not include a valid authoritative version.");
         clearUnresolvedPost(pending);
         params.latestVersion.current = adoptSaveVersion(params.latestVersion.current, acknowledgement?._saveVersion);
@@ -386,6 +397,7 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
             params.dirty.current = false;
             save.onCommitted();
         }
+        return acknowledgement;
         });
     };
 

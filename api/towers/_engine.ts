@@ -39,6 +39,7 @@ import {
     isCompanionActor, pickCompanionMove, type CompanionMove,
 } from './_companion.js';
 import { directDamageBaseFormula, JUTSU_MAX_LEVEL, jutsuLevelCapForLevel } from '../combat-core/formulas.js';
+import { rankedCombatLevel } from '../pvp/_ranked-format.js';
 import { setSafeRecordValue } from '../_utils.js';
 import { GROUND_EFFECT_TAGS, OPPONENT_AFFECTING_TAGS, STACKABLE_STATUS, canonicalTagName } from '../pvp/_tags.js';
 import {
@@ -151,7 +152,7 @@ function towerStatusMatches(name: string, canonicalName: string): boolean {
 }
 function addTowerStatus(actor: TowerActor, status: PvpStatus): void {
     const name = canonicalTagName(status.name);
-    const adjusted: PvpStatus = { ...status, name, rounds: statusDurationFor(name, status.rounds) };
+    const adjusted: PvpStatus = { ...status, name, rounds: status.source === 'item-smoke-bomb' ? status.rounds : statusDurationFor(name, status.rounds) };
     if (STACKABLE_STATUS.has(name)) {
         actor.statuses = [...actor.statuses, adjusted];
         return;
@@ -1100,7 +1101,11 @@ function runJutsu(session: TowerSession, actor: TowerActor, target: TowerActor, 
     if (!selfCast && isCompanionActor(actor)) {
         const flat = Math.max(1, Math.floor(Number(actor.character.companionDamage ?? 0)));
         const cap = Math.max(1, Math.floor(target.maxHp * COMPANION_MAX_DAMAGE_FRAC));
-        const dealt = Math.min(flat, cap);
+        const smoked = [actor, target].some(combatant => activeCombatStatuses(combatant.statuses, session.round)
+            .some(status => status.source === 'item-smoke-bomb'));
+        const defended = activeCombatStatuses(target.statuses, session.round)
+            .some(status => status.source === 'item-defense-pill');
+        const dealt = smoked ? 0 : Math.floor(Math.min(flat, cap) * (defended ? 0.85 : 1));
         target.hp = Math.max(0, target.hp - dealt);
         session.log.push(`${actor.name} strikes ${target.name} for ${dealt}.`);
         return;
@@ -1825,7 +1830,7 @@ function refreshAp(session: TowerSession): void {
         // combatResourcesV2: the active actor regenerates chakra/stamina at turn start
         // (mirrors PvP move.ts endTurn regen). Costs + the bigger pool are already sealed
         // via _seal.ts → the PvP hydrator.
-        const rgLvl = Number((actor.character as { level?: number } | undefined)?.level) || 1;
+        const rgLvl = rankedCombatLevel(actor.character);
         const rg = v2ResourceRegen(rgLvl);
         actor.chakra = Math.min(actor.maxChakra, actor.chakra + rg);
         actor.stamina = Math.min(actor.maxStamina, actor.stamina + rg);
@@ -2497,8 +2502,8 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
     }
 
     // ── item: a self-targeted consumable (potion / combat item). Restore-only potions
-    // refill chakra/stamina directly; everything else (Heal potions, self-buffs, smoke)
-    // synthesizes a SELF jutsu and resolves through the PvP engine. Mirrors move.ts. ──
+    // refill chakra/stamina directly; the neutral ranked kit applies exact
+    // utility statuses; other items synthesize a SELF utility jutsu. ──
     if (action.type === 'item') {
         const item = equippedItem(actor, action.itemId);
         const slot = item ? normalizeSlot(item.slot) : '';
@@ -2522,6 +2527,33 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
             actor.chakra = Math.min(actor.maxChakra, actor.chakra + restoreCk);
             actor.stamina = Math.min(actor.maxStamina, actor.stamina + restoreSt);
             session.log.push(`${actor.name} uses ${item.name ?? 'a potion'} — restores ${restoreCk} chakra, ${restoreSt} stamina.`);
+        } else if (item.id === 'item-attack-pill' || item.id === 'item-defense-pill' || item.id === 'item-smoke-bomb') {
+            const smoke = item.id === 'item-smoke-bomb';
+            // When the opposing side already acted this round, carry smoke
+            // across the imminent tick so it still protects the next exchange.
+            const hostileTurnRemains = session.turnQueue.slice(session.activeIndex + 1).some(id => {
+                const nextActor = session.actors.find(candidate => candidate.id === id);
+                return nextActor?.hp && hostileSidesFor(actor.side).includes(nextActor.side);
+            });
+            const status: PvpStatus = smoke
+                ? { name: 'Decrease Damage Given', source: item.id, rounds: hostileTurnRemains ? 1 : 2, percent: 100, kind: 'negative', activeRound: session.round }
+                : item.id === 'item-attack-pill'
+                    ? { name: 'Increase Damage Given', source: item.id, rounds: 2, percent: 15, kind: 'positive', activeRound: session.round }
+                    : { name: 'Decrease Damage Taken', source: item.id, rounds: 2, percent: 15, kind: 'positive', activeRound: session.round };
+            addTowerStatus(actor, status);
+            if (smoke) {
+                // Team Arena has two fighters on each side. The smoke covers
+                // the whole field, including the caster's teammate.
+                for (const fighter of session.actors) {
+                    if (fighter.id === actor.id || fighter.hp <= 0 || fighter.side === 'npc') continue;
+                    // Smoke is a field-wide item rule, including bosses protected
+                    // from hostile debuffs by an objective barrier.
+                    addTowerStatus(fighter, status);
+                }
+            }
+            session.log.push(`${actor.name} uses ${item.name ?? 'an item'} — ${smoke
+                ? 'both sides deal 0 ordinary damage for 1 round; Pierce bypasses the smoke.'
+                : item.id === 'item-attack-pill' ? 'deals 15% more damage for 2 rounds.' : 'takes 15% less damage for 2 rounds.'}`);
         } else if (canonicalTagName(String(item.weaponEffect ?? '')) === 'Decrease Damage Given') {
             // Smoke Bomb-style combat items are field debuffs: the enemy side is always
             // weakened, and weaponEffectTarget="both" also weakens the user.
@@ -2549,6 +2581,7 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
             const itemJutsu: JutsuLike = {
                 id: `item-${item.id}`, name: item.name ?? 'Item', type: 'Ninjutsu', target: 'SELF',
                 effectPower: Number(item.weaponEp ?? 10), ap: iCost, range: 0,
+                isUtility: true,
                 weaponSwing: true,
                 tags: (itemTags ?? [{ name: 'Heal' }]) as unknown[],
             };
@@ -2687,7 +2720,7 @@ function pveBandFor(session: TowerSession, actor: TowerActor): { enemyLevel: num
  *  performs (sealed per-jutsu entry, rank-capped), falling back to the band's
  *  level-derived mastery when the template carries no array. Estimate only. */
 function aiMasteryFor(actor: TowerActor, jutsu: JutsuLike): number {
-    const level = Number(actor.character.level) || 1;
+    const level = rankedCombatLevel(actor.character);
     const entries = actor.character.jutsuMastery as Array<{ jutsuId?: unknown; level?: unknown }> | null | undefined;
     if (Array.isArray(entries)) {
         const hit = entries.find(m => String(m?.jutsuId ?? '') === String(jutsu.id ?? ''));
@@ -3164,6 +3197,8 @@ function companionDealDamage(session: TowerSession, actor: TowerActor, target: T
     if (objectiveBossDamageLocked(session, target)) return 0;
     const base = Number(actor.character.companionDamage ?? 0);
     const owner = companionOwner(session);
+    if ([actor, target, owner].some(combatant => combatant && activeCombatStatuses(combatant.statuses, session.round)
+        .some(status => status.source === 'item-smoke-bomb'))) return 0;
     const gearId = String(actor.character.companionPveGear ?? '');
     const enemyHpPct = target.maxHp > 0 ? (target.hp / target.maxHp) * 100 : 100;
     const ownerHpPct = owner && owner.maxHp > 0 ? (owner.hp / owner.maxHp) * 100 : 100;
@@ -3172,7 +3207,9 @@ function companionDealDamage(session: TowerSession, actor: TowerActor, target: T
         * companionGearDamageMult(gearId, enemyHpPct, ownerHpPct);
     if (raw <= 0) return 0;
     const cap = Math.max(1, Math.floor(target.maxHp * COMPANION_MAX_DAMAGE_FRAC));
-    const dealt = Math.max(0, Math.min(Math.floor(raw), cap));
+    const defended = activeCombatStatuses(target.statuses, session.round)
+        .some(status => status.source === 'item-defense-pill');
+    const dealt = Math.floor(Math.max(0, Math.min(Math.floor(raw), cap)) * (defended ? 0.85 : 1));
     target.hp = Math.max(0, target.hp - dealt);
     // Loyal Hunter-style gear bleeds part of the pet's damage back to its owner.
     const lifestealPct = companionOwnerLifestealPct(gearId);

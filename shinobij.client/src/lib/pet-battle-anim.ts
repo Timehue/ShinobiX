@@ -58,6 +58,7 @@ const BREEDING_MYTHIC_PORTRAITS: Readonly<Record<string, string>> = {
 };
 
 const STORM_GULL_CARD_PORTRAIT = "/pet-portraits/standard-17-card-v2.webp";
+const SNOW_RABBIT_CARD_PORTRAIT = "/pet-portraits/standard-1-card-v2.webp";
 
 // Reviewed single-character alternatives for cards whose idle art contains
 // stacked figures or a baked checkerboard. Only the final static-card fallback
@@ -224,6 +225,9 @@ export function petCardImage(
         || breedingMythicPortrait(artIds)
         || "";
     if (direct) return direct;
+    // The legacy idle pose for this species has baked alpha/masking artifacts.
+    // Keep published and owned art ahead of this curated fallback.
+    if (artIds.includes("standard-1")) return SNOW_RABBIT_CARD_PORTRAIT;
     const posedId = artIds.find(hasPetPose);
     if (posedId) {
         const reviewedPose = CARD_FALLBACK_POSE_FILES[posedId];

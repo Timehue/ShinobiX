@@ -153,8 +153,8 @@ export async function readBattleReceipt(
 }
 
 // Pure: merge a settlement patch onto an existing receipt. Last-writer-wins on
-// individual fields, which is benign for this debug-only summary (the winner's
-// claim writes ryo/xp/ratingDelta; the loser's writes their ratingDelta).
+// individual fields. The ranked claim path supplies the same battle-level
+// rating magnitude from either participant, regardless of claim order.
 export function mergeSettlement(
     existing: BattleReceipt,
     patch: Partial<BattleSettlement>,

@@ -78,6 +78,23 @@ export async function startShowdown(
     return { state: data.state };
 }
 
+/** A natural road beast opens a server-selected, unpaid Colosseum fight. */
+export async function startWandererShowdown(
+    playerName: string,
+    wanderer: { id: string; sector: number },
+): Promise<{ state: ShowdownStateView; petIds: string[]; character: unknown; saveVersion: number } | { error: string }> {
+    const r = await post({ action: "wanderer", playerName, wanderer });
+    if (!r) return { error: "Network error — could not reach the Colosseum." };
+    const data = await r.json().catch(() => null) as {
+        state?: ShowdownStateView; petIds?: unknown; character?: unknown; _saveVersion?: unknown; error?: string;
+    } | null;
+    if (!r.ok || !data?.state || !Array.isArray(data.petIds) || !data.petIds.every((id) => typeof id === "string")
+        || !data.character || !Number.isSafeInteger(data._saveVersion)) {
+        return { error: data?.error ?? "The beast's challenge could not be started." };
+    }
+    return { state: data.state, petIds: data.petIds, character: data.character, saveVersion: Number(data._saveVersion) };
+}
+
 export async function startFirstPactShowdown(
     playerName: string,
     encounterId: FirstPactEncounterId,
