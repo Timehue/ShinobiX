@@ -15,6 +15,17 @@ import { NAMED_ITEM_LEVEL_REQ } from '../../shared/item-level-gate.js';
 import { namedForgePointTotal } from '../../shared/named-forge-economy.js';
 
 const cleanToken = (v: unknown) => typeof v === 'string' && /^[A-Za-z0-9]{16,96}$/.test(v) ? v : '';
+const REGISTRY_UNAVAILABLE = 'Named gear storage is temporarily unavailable. Retry this forge with the same roll.';
+
+async function registerNamedItem(item: Record<string, unknown>): Promise<boolean> {
+    try {
+        await recordForgedItem(item, { required: true });
+        return true;
+    } catch (error) {
+        console.error('[craft/named] registry write failed', safeLogValue(error));
+        return false;
+    }
+}
 
 /**
  * Named gear is the level-90 tier (shared/item-level-gate.ts), so the FORGE
@@ -64,6 +75,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const creatorItems = Array.isArray(record.creatorItems) ? record.creatorItems as Array<Record<string, unknown>> : [];
             const replay = resolveNamedForgeReplay(receipts, token, creatorItems);
             if (replay.matched) {
+                if (replay.item && !(await registerNamedItem(replay.item))) {
+                    return { ok: false as const, status: 503, error: REGISTRY_UNAVAILABLE };
+                }
                 return { ok: true as const, character, write: false, value: { replayed: true, item: replay.item } };
             }
             const sealed = await kv.get<{ playerName: string; roll: NamedRoll }>(`named-forge:${playerName}:${token}`);
@@ -87,14 +101,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // both survive a refusal and the player can retry with room.
             const grew = inventoryGrowthBlock(character, forgedCharacter);
             if (grew) return { ok: false as const, status: grew.status, error: grew.error };
+            // The registry copy must exist before the paid save commits. A
+            // failed write leaves the roll and materials available for retry.
+            if (!(await registerNamedItem(item))) {
+                return { ok: false as const, status: 503, error: REGISTRY_UNAVAILABLE };
+            }
             return { ok: true as const, character: forgedCharacter, recordPatch: { creatorItems: [...creatorItems.slice(-199), item] }, value: { replayed: false, item } };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
-        // P0-3: durable definition registry — the in-save creatorItems copy is a
-        // client-mirrored field, so a lost entry used to erase the item's only
-        // definition. Best-effort post-commit: replay-safe (same id, same item).
-        const mintedItem = (result.value as { item?: Record<string, unknown> })?.item;
-        if (mintedItem) await recordForgedItem(mintedItem);
         await kv.del(`named-forge:${playerName}:${token}`).catch(() => undefined);
         return res.status(200).json({ ok: true, ...result.value, character: result.character, _saveVersion: result._saveVersion });
     } catch (error) { console.error('[craft/named]', safeLogValue(error)); return res.status(500).json({ error: 'Internal server error.' }); }

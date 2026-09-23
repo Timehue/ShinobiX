@@ -38,7 +38,7 @@ import {
     getPvpItemLoadout,
 } from "./equipment-stats";
 import { getBloodlineMultiplier } from "./combat-math";
-import { fetchPlayerCombatSave, pvpSessionEnvironment, stringifyPvpSessionPayload } from "./pvp-session";
+import { pvpSessionEnvironment, stringifyPvpSessionPayload } from "./pvp-session";
 import { makeId } from "./utils";
 import { weatherEffects } from "../data/world";
 import { getPvpJutsuLoadout } from "./jutsu-loadout";
@@ -91,13 +91,9 @@ export async function attackSectorPlayer(opts: SectorAttackOptions): Promise<voi
     // engaged/traveling/in-battle refusals. See lib/world-attack-claim.
     const claim = await claimWorldAttack(opponent.name, character.name, createScope.signal);
     if (!createIsCurrent()) return; if (claim.ok !== true) return void alert(claim.error);
-    // Use local character data — the server hydrates both
-    // fighters from their KV save records directly (see
-    // api/pvp/session.ts ~line 502), so the redundant
-    // fetchPlayerCombatSave round trips that used to gate
-    // this flow are unnecessary. The payload below is
-    // only consulted as a fallback for fighters without
-    // a save (NPCs).
+    // Use local character data for the request body. The server hydrates both
+    // fighters from their saves and rejects this player attack if either save
+    // cannot be loaded, including its named gear.
     const selfChar = character;
     const selfAllItems = getAllItems(creatorItems);
     const p1Jutsus = getPvpJutsuLoadout(savedBloodlines, creatorJutsus, selfChar);
@@ -111,20 +107,11 @@ export async function attackSectorPlayer(opts: SectorAttackOptions): Promise<voi
     // battleId, so the empty id just renders the
     // loading card; once we set the real id below the
     // effect re-runs and loads the grid.
-    // Sector-mate records from /api/player/heartbeat only carry { avatarImage }
-    // (the full character is intentionally stripped for bandwidth). Fetch the
-    // opponent's combat save and resolve their FULL loadout — stats, armor,
-    // weapons + consumables/throwables (pvpItems), jutsu and bloodline — from
-    // THEIR own bloodlines + creator content. fetchPlayerCombatSave returns null
-    // (never throws) on failure, so the optimistic navigation above stays safe;
-    // the server also re-hydrates authoritatively from the save by p2Character.name.
-    const oppSave = await fetchPlayerCombatSave(opponent.name);
-    if (!createIsCurrent()) return;
-    const oppChar = oppSave?.character ?? normalizeCharacter(opponent.character as Character);
-    const oppBloodlines = oppSave?.savedBloodlines?.length ? oppSave.savedBloodlines : savedBloodlines;
-    const oppCreatorJutsus = oppSave?.creatorJutsus?.length ? [...creatorJutsus, ...oppSave.creatorJutsus] : creatorJutsus;
-    const opponentAllItems = getAllItems(oppSave?.creatorItems?.length ? [...creatorItems, ...oppSave.creatorItems] : creatorItems);
-    const p2Jutsus = getPvpJutsuLoadout(oppBloodlines, oppCreatorJutsus, oppChar);
+    // Heartbeat roster characters can be avatar-only. The session server loads
+    // the opponent's full save and named gear by name before publication.
+    const oppChar = normalizeCharacter({ ...(opponent.character as Character | undefined), name: opponent.name } as Character);
+    const opponentAllItems = selfAllItems;
+    const p2Jutsus = getPvpJutsuLoadout(savedBloodlines, creatorJutsus, oppChar);
 
     const createBody = stringifyPvpSessionPayload({
         useCurrentVitals: true,
@@ -133,7 +120,7 @@ export async function attackSectorPlayer(opts: SectorAttackOptions): Promise<voi
         rewardSector: currentSector,
         ...pvpSessionEnvironment(false, currentBiome, weatherEffects[currentWeather]?.positiveElement, weatherEffects[currentWeather]?.negativeElement),
         p1Character: { ...selfChar, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(selfChar, selfAllItems), bloodlineMult: getBloodlineMultiplier(selfChar, savedBloodlines), armorFactor: getCharacterArmorFactor(selfChar, selfAllItems), armorRawDR: getCharacterArmorRawDR(selfChar, selfAllItems), itemDamagePct: getEquippedItemBonus(selfChar, selfAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(selfChar, selfAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(selfChar, selfAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(selfChar, selfAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(selfChar, selfAllItems, "shield") },
-        p2Character: { ...oppChar, name: opponent.name, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(oppChar, opponentAllItems), bloodlineMult: getBloodlineMultiplier(oppChar, oppBloodlines), armorFactor: getCharacterArmorFactor(oppChar, opponentAllItems), armorRawDR: getCharacterArmorRawDR(oppChar, opponentAllItems), itemDamagePct: getEquippedItemBonus(oppChar, opponentAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(oppChar, opponentAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(oppChar, opponentAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(oppChar, opponentAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(oppChar, opponentAllItems, "shield") },
+        p2Character: { ...oppChar, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(oppChar, opponentAllItems), bloodlineMult: getBloodlineMultiplier(oppChar, savedBloodlines), armorFactor: getCharacterArmorFactor(oppChar, opponentAllItems), armorRawDR: getCharacterArmorRawDR(oppChar, opponentAllItems), itemDamagePct: getEquippedItemBonus(oppChar, opponentAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(oppChar, opponentAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(oppChar, opponentAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(oppChar, opponentAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(oppChar, opponentAllItems, "shield") },
     });
     setPvpBattleId((await loadPvpSessionCreate()).pvpStableBattleIdFromRequestBody(createBody));
     setPvpRole("p1");

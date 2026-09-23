@@ -38,11 +38,20 @@ export function forgedItemKey(id: string): string {
     return `${FORGED_ITEM_KEY_PREFIX}${id.toLowerCase()}`;
 }
 
-/** Mint-time write. Best-effort: the in-save copy is still written first. */
-export async function recordForgedItem(item: Record<string, unknown>, opts: { kv?: RegistryKv } = {}): Promise<void> {
+/** Mint-time writes may be required before the paid save mutation commits. */
+export async function recordForgedItem(item: Record<string, unknown>, opts: { kv?: RegistryKv; required?: boolean } = {}): Promise<void> {
     const id = typeof item?.id === 'string' ? item.id : '';
-    if (!id || !FORGED_ITEM_ID.test(id)) return;
+    if (!id || !FORGED_ITEM_ID.test(id)) {
+        if (opts.required) throw new Error('invalid-forged-item-id');
+        return;
+    }
     const store = opts.kv ?? await getDefaultKv();
+    if (opts.required) {
+        if (await store.set(forgedItemKey(id), item) !== 'OK') {
+            throw new Error('forged-item-registry-write-failed');
+        }
+        return;
+    }
     await store.set(forgedItemKey(id), item).catch((err) => {
         console.error('[forged-registry] record failed', safeLogValue(id), safeLogValue(err));
     });

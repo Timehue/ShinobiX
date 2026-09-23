@@ -523,6 +523,22 @@ describe('indexBattleForParticipants (both sides, idempotent, best-effort)', () 
         assert.equal(bob[0].outcome, 'loss');
     });
 
+    it('starts distinct player history writes together before either lock completes', async () => {
+        const kv = makeFakeKv();
+        const started: string[] = [];
+        let release!: () => void;
+        const gate = new Promise<void>((resolve) => { release = resolve; });
+        const lock = async <T,>(key: string, fn: () => Promise<T>): Promise<T> => {
+            started.push(key);
+            await gate;
+            return fn();
+        };
+        const pending = indexBattleForParticipants(receiptFor(), { kv, lock });
+        assert.deepEqual(started, [historyKey('alice'), historyKey('bob')]);
+        release();
+        assert.deepEqual(await pending, { p1: true, p2: true });
+    });
+
     it('is IDEMPOTENT — a retried terminal settlement adds no duplicate', async () => {
         const kv = makeFakeKv();
         await indexBattleForParticipants(receiptFor(), { kv, lock: passThroughLock });
