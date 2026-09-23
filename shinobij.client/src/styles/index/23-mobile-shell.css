@@ -942,11 +942,10 @@
 
 .mobile-profile-sheet-body > * { flex-shrink: 0; }
 
-/* The desktop avatar is a large 140px block; trim it a touch so the card
-   header reads well inside the narrower mobile sheet. */
+/* Keep the portrait prominent in the narrower mobile sheet. */
 .mobile-profile-sheet-body .left-profile-avatar {
-  width: 112px !important;
-  height: 112px !important;
+  width: 136px !important;
+  height: 136px !important;
 }
 
 /* =============================================

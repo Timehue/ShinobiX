@@ -138,6 +138,16 @@ async function materializePlayerToken(
     throw new Error('player-ranked-token-busy');
 }
 
+/** Restore a queue mirror from its existing admission without reserving it again. */
+export async function restorePlayerRankedMatchTokenWithStore(
+    store: TokenStore,
+    matchId: string,
+): Promise<PlayerRankedMatchToken | null> {
+    const admission = await getPlayerRankedAdmission(store, matchId);
+    if (!admission || (admission.phase !== 'queued' && admission.phase !== 'active')) return null;
+    return materializePlayerToken(store, admission);
+}
+
 export async function mintPlayerRankedMatchTokenWithStore(
     store: TokenStore,
     input: {

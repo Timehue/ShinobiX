@@ -125,7 +125,7 @@ export function useAdminContentPublisher(adminPw: string) {
         slot?: string,
     ): Promise<void> => {
         const result = await publishContent(fields, { adminPw, slot, baseVersions: versionsRef.current });
-        if (!result.ok) throw new Error(result.error);
+        if (result.ok !== true) throw new Error(result.error);
         versionsRef.current = result.versions;
     }, [adminPw]);
 }

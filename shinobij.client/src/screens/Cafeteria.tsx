@@ -105,7 +105,7 @@ export function Cafeteria({
         const recipe = COOK_RECIPES.find((r) => r.id === recipeId);
         if (!recipe) return;
         const gate = cookRecipeGate(character, recipe);
-        if (!gate.ok) { alert(gate.reason); return; }
+        if (gate.ok !== true) { alert(gate.reason); return; }
         setBusyRecipe(recipeId);
         const res = await cookRations(character.name, recipeId);
         setBusyRecipe(null);
@@ -247,7 +247,7 @@ export function Cafeteria({
                                         <br />
                                         <small>{busy ? "Cooking…" : cookRecipeLine(recipe)}</small>
                                     </button>
-                                    {!gate.ok && <p className="cafe-recipe-reason" id={reasonId}>{gate.reason}</p>}
+                                    {gate.ok !== true && <p className="cafe-recipe-reason" id={reasonId}>{gate.reason}</p>}
                                 </article>
                             );
                         })}

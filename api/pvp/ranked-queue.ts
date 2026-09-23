@@ -5,7 +5,7 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
-import { mintPlayerRankedMatchToken } from '../_ranked-match-token.js';
+import { mintPlayerRankedMatchToken, restorePlayerRankedMatchTokenWithStore } from '../_ranked-match-token.js';
 import {
     findPlayerRankedAdmissionForPlayer,
     cancelExpiredOrphanPlayerRankedAdmissions,
@@ -276,16 +276,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // landed. Rebuild the exact same token/match from the gate.
                     const admitted = await findPlayerRankedAdmissionForPlayer(kv, player);
                     if (admitted && (admitted.phase === 'queued' || (admitted.phase === 'active' && admitted.battleId))) {
-                        const token = await mintPlayerRankedMatchToken({
-                            a: admitted.a,
-                            b: admitted.b,
-                            aLevel: admitted.aLevel,
-                            bLevel: admitted.bLevel,
-                            aRating: admitted.aRating,
-                            bRating: admitted.bRating,
-                            now: admitted.createdAt,
-                            matchId: admitted.matchId,
-                        });
+                        const token = await restorePlayerRankedMatchTokenWithStore(kv, admitted.matchId);
+                        if (!token) return { status: 200, body: { inQueue: false, queueSize: active.length, match: null } };
                         const opponentName = player === admitted.a ? admitted.b : admitted.a;
                         const playerIsA = player === admitted.a;
                         const recoveredMatch = {
