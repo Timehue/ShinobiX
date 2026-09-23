@@ -1,7 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Character, VersionedCharacterCommit } from '../../types/character';
 import { requestCaravan, type CaravanResponse } from '../../lib/sunscar-caravan';
-import { befriendWildPet, declineWildPetEncounter, startWildPetEncounter, type WildPetEncounterResult } from '../../lib/wild-pet-encounter-api';
+import { declineWildPetEncounter, startWildPetEncounter, type WildPetEncounterResult } from '../../lib/wild-pet-encounter-api';
+import { WildPetBinding } from '../../components/WildPetBinding';
 import { petCardImage } from '../../lib/pet-battle-anim';
 import type { SoloPveSession } from '../../lib/solo-pve-api';
 import { CARAVAN_RANKS, CARAVAN_TOOLS, CARAVAN_WEATHER, caravanRank, type CaravanChoice, type CaravanNode, type CaravanRun as CaravanRunState, type CaravanTool } from '../../../../shared/sunscar/caravan-types';
@@ -47,6 +48,7 @@ export default function CaravanRun({ character, onVersionedCharacter, onBack, ..
     const [view, setView] = useState<'decision' | 'map'>('decision');
     const [session, setSession] = useState<SoloPveSession | null>(null);
     const [wild, setWild] = useState<WildPetEncounterResult | null>(null);
+    const [wildBattleOpen, setWildBattleOpen] = useState(false);
     const [petMessage, setPetMessage] = useState('');
     const [retire, setRetire] = useState(false);
     const [hasPending, setHasPending] = useState(false);
@@ -126,16 +128,14 @@ export default function CaravanRun({ character, onVersionedCharacter, onBack, ..
         } catch (cause) { setError(cause instanceof Error ? cause.message : 'The trail could not be reached.'); }
         finally { busyRef.current = false; setBusy(false); }
     }
-    async function resolvePet(befriend: boolean) {
+    async function leavePet() {
         if (wild?.kind !== 'hit' || busyRef.current) return;
         busyRef.current = true; setBusy(true); setError('');
         try {
-            if (befriend) {
-                const result = await befriendWildPet(character.name, wild.token);
-                if (!result.character) throw new Error(result.error || 'The companion could not be befriended.');
-                onVersionedCharacter(result.character, result.saveVersion);
-                setPetMessage(`${wild.pet.name} has joined ${result.destination === 'sanctuary' ? 'your sanctuary' : 'your companions'}${result.trait ? ` with the ${result.trait} trait` : ''}.`);
-            } else { const result = await declineWildPetEncounter(character.name, wild.token); if (!result.ok) throw new Error(result.error); }
+            const result = await declineWildPetEncounter(character.name, wild.token);
+            if (!result.ok) throw new Error(result.error);
+            setWild({ kind: 'resolved', requestId: wild.requestId, sector: wild.sector,
+                replayed: false, resolution: 'declined' });
             adopt(await requestCaravan(character.name, { action: 'pet-return', runId: run?.id })); setWild(null);
         } catch (cause) { setError(cause instanceof Error ? cause.message : 'Your encounter could not be saved.'); }
         finally { busyRef.current = false; setBusy(false); }
@@ -157,6 +157,24 @@ export default function CaravanRun({ character, onVersionedCharacter, onBack, ..
     const fieldCharacter = caravanFieldCharacter(character, petRoleOf);
     const trackerReady = !caravanTrackerBlock({ selectedPetId: petId }, fieldCharacter, serverNow ?? 0);
     return <div className={`sunscar-mode caravan-mode${active ? ' caravan-on-road' : ''}`}>
+        {wildBattleOpen && wild?.kind === 'hit' && <WildPetBinding
+            character={character}
+            token={wild.token}
+            pet={wild.pet}
+            sharedImages={catalogs.sharedImages ?? {}}
+            onVersionedCharacter={onVersionedCharacter}
+            onResolved={(outcome, destination) => {
+                setWildBattleOpen(false);
+                setWild({ kind: 'resolved', requestId: wild.requestId, sector: wild.sector,
+                    replayed: false, resolution: outcome === 'captured' ? 'befriended' : 'declined' });
+                setPetMessage(outcome === 'captured'
+                    ? `${wild.pet.name} joined ${destination === 'sanctuary' ? 'your Sanctuary' : 'your companions'}.`
+                    : 'The wild encounter has ended.');
+                void requestCaravan(character.name, { action: 'pet-return', runId: run?.id })
+                    .then((data) => { adopt(data); setWild(null); })
+                    .catch((cause) => setError(cause instanceof Error ? cause.message : 'Return to the caravan when the connection recovers.'));
+            }}
+        />}
         <header className={`sunscar-mode-heading${active ? '' : ' caravan-mission-header'}`} style={active ? undefined : { backgroundImage: `linear-gradient(90deg, #121c24f5, #121c24d9 45%, #121c2433), url(${dunesArt})` }}><div><button className="sunscar-back" onClick={onBack}>← Festival grounds</button><p className="sunscar-eyebrow">Sunscar Shinobi Dispatch</p><h1>Caravan Run</h1><p>Guard the convoy. Read the signs. Complete the mission.</p></div><div className="sunscar-rank"><strong>{rank.name}</strong><span>{progress?.reputation ?? 0} reputation · {progress?.deliveries ?? 0} deliveries</span>{nextRank && <small>{nextRank.at - (progress?.reputation ?? 0)} to {nextRank.name}</small>}</div></header>
         {error && <div ref={errorPanel} tabIndex={-1} className="sunscar-error" role="alert"><span>{error}</span><div className="sunscar-button-row"><button disabled={busy} onClick={() => void send(pending.current ?? undefined)}>{busy ? 'Reconnecting…' : hasPending ? 'Retry this choice' : 'Reload expedition'}</button>{hasPending && <button disabled={busy} className="sunscar-secondary" onClick={() => void send()}>Read saved state</button>}</div></div>}
         {!response && !error && <div className="sunscar-loading" role="status">Unsealing today’s mission scrolls…</div>}
@@ -179,7 +197,7 @@ export default function CaravanRun({ character, onVersionedCharacter, onBack, ..
                 <div className="caravan-scene" data-region={node?.region ?? 'dunes'} aria-hidden="true"><img src={journeyArt[node?.region ?? 'dunes']} alt="" decoding="async" width={768} height={512}/><span className="caravan-scene-caption">{CARAVAN_REGIONS[node?.region ?? 'dunes']}</span><span className="caravan-scene-seal"><GameIcon name="chakra" size={26}/></span></div>
                 <CaravanChangeSummary changes={last?.changes} title={last?.title}/>
                 <CaravanMissionStatus run={run}/>
-                {awaitingPet ? <><p className="sunscar-eyebrow">A rare discovery</p><h2>Tracks in the luminous sand</h2>{wild?.kind === 'hit' ? <><img className="caravan-wild-portrait" src={petCardImage(wild.pet)} alt={wild.pet.name}/><p><strong>{wild.pet.name}</strong> watches from the shade. There is room to approach slowly.</p><div className="sunscar-button-row"><button disabled={busy} onClick={() => void resolvePet(true)}>Befriend companion</button><button disabled={busy} className="sunscar-secondary" onClick={() => void resolvePet(false)}>Leave in peace</button></div></> : wild?.kind === 'miss' || wild?.kind === 'resolved' ? <><p>{wild.kind === 'miss' ? 'The tracks end at a cool, empty hollow. Your crew rests a moment before returning to the wagons.' : 'This discovery has already been resolved. The crew is waiting on the road.'}</p><button disabled={busy} onClick={() => void send({ action: 'pet-return', runId: run.id }).then(data => { if (data) setWild(null); })}>Return to the road</button></> : <><p>Your forward scout signals fresh tracks beneath the rock shelter. Follow them to see whether a wild companion is still nearby.</p><button disabled={busy} onClick={() => void followTrail()}>{busy ? 'Following tracks…' : 'Follow the wild trail'}</button><button disabled={busy} className="sunscar-secondary" onClick={() => void send({ action: 'pet-skip', runId: run.id })}>Leave the trail undisturbed</button><small>Wild companions use the usual exploration chance and daily limit. You can continue without approaching.</small></>}</>
+                {awaitingPet ? <><p className="sunscar-eyebrow">A rare discovery</p><h2>Tracks in the luminous sand</h2>{wild?.kind === 'hit' ? <><img className="caravan-wild-portrait" src={petCardImage(wild.pet)} alt={wild.pet.name}/><p><strong>{wild.pet.name}</strong> watches from the shade. There is room to approach slowly.</p><div className="sunscar-button-row"><button disabled={busy} onClick={() => setWildBattleOpen(true)}>Face companion</button><button disabled={busy} className="sunscar-secondary" onClick={() => void leavePet()}>Leave in peace</button></div></> : wild?.kind === 'miss' || wild?.kind === 'resolved' ? <><p>{wild.kind === 'miss' ? 'The tracks end at a cool, empty hollow. Your crew rests a moment before returning to the wagons.' : 'This discovery has already been resolved. The crew is waiting on the road.'}</p><button disabled={busy} onClick={() => void send({ action: 'pet-return', runId: run.id }).then(data => { if (data) setWild(null); })}>Return to the road</button></> : <><p>Your forward scout signals fresh tracks beneath the rock shelter. Follow them to see whether a wild companion is still nearby.</p><button disabled={busy} onClick={() => void followTrail()}>{busy ? 'Following tracks…' : 'Follow the wild trail'}</button><button disabled={busy} className="sunscar-secondary" onClick={() => void send({ action: 'pet-skip', runId: run.id })}>Leave the trail undisturbed</button><small>Wild companions use the usual exploration chance and daily limit. You can continue without approaching.</small></>}</>
                 : run.status === 'combat' ? <><p className="sunscar-eyebrow">The convoy is halted</p><h2>Hold the road</h2><p>{last?.text}</p><p>The drivers shelter behind the cargo while your shinobi escort holds the perimeter. Victory opens the next leg. Defeat ends the mission.</p><button disabled={busy} onClick={() => void openCombat()}>{busy ? 'Preparing encounter…' : 'Enter battle'}</button></>
                 : encounter ? <><p className="sunscar-eyebrow">{CARAVAN_NODE_LABELS[node!.kind]} · Leg {node!.layer + 1}</p><h2>{encounter.title}</h2><p className="caravan-scene-copy">{encounter.scene}</p><div className="caravan-choices">{encounter.choices.map(choice => {
                     const blocked = caravanChoiceBlock(run, choice, fieldCharacter, serverNow);

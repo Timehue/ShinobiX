@@ -1407,10 +1407,11 @@ export function CentralHub({
                 // consumables clamp the batch to the carry cap so crafting can't
                 // exceed what the shop lets you hold; affordability clamps the rest.
                 async function craftRecipe(
-                    recipe: { name: string; cost: number; itemId: string; per?: number },
+                    recipe: { name: string; cost: number; itemId: string; per?: number; levelReq?: number },
                     qty: number,
                 ) {
                     if (!requireServerSettlement("creatorItemCraft")) return;
+                    if (character.level < (recipe.levelReq ?? 1)) return alert(`Reach level ${recipe.levelReq} to craft ${recipe.name}.`);
                     const affordable = Math.floor(totalPts / recipe.cost);
                     if (affordable < 1) return alert(`Not enough materials. Need ${recipe.cost} craft points, you have ${totalPts}.`);
                     let quantity = Math.min(Math.max(1, Math.floor(qty)), affordable);
@@ -1432,9 +1433,10 @@ export function CentralHub({
                     }
                 }
 
-                const recipes: Array<{ name: string; cost: number; desc: string; itemId: string; per?: number }> = [
+                const recipes: Array<{ name: string; cost: number; desc: string; itemId: string; per?: number; levelReq?: number }> = [
                     { name: "Pet Treats", cost: 50, desc: "1× Treats (+100 pet XP)", itemId: "pet-treat", per: 1 },
                     { name: "Elemental Treats", cost: 100, desc: "1× Elemental Treats (+250 pet XP)", itemId: "elemental-pet-treat", per: 1 },
+                    { name: "Master Beast Seal", cost: 450, desc: "1× Master Beast Seal · bind wild pets at 65% Resolve or lower · level 30", itemId: "beast-seal-master", per: 1, levelReq: 30 },
                     { name: "Aura Dust", cost: 50, desc: "+50 Aura Dust", itemId: "currency:aura-dust" },
                     { name: "Bone Charm", cost: 1000, desc: "+1 Bone Charm", itemId: "currency:bone-charm" },
                     // Thrown weapons
@@ -1710,8 +1712,8 @@ export function CentralHub({
                                                 <div className="cf-meter-fill" style={{ width: `${fillPct}%` }} />
                                             </div>
                                             <small className="cf-points">{Math.min(totalPts, batchCost)}/{batchCost} pts</small>
-                                            <button onClick={() => craftRecipe(recipe, craftQty)} disabled={!canAffordOne || atCap}>
-                                                {atCap ? "At carry limit" : `Craft ×${craftQty}`}
+                                            <button onClick={() => craftRecipe(recipe, craftQty)} disabled={!canAffordOne || atCap || character.level < (recipe.levelReq ?? 1)}>
+                                                {character.level < (recipe.levelReq ?? 1) ? `Level ${recipe.levelReq} required` : atCap ? "At carry limit" : `Craft ×${craftQty}`}
                                             </button>
                                         </div>
                                     );

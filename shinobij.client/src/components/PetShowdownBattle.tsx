@@ -42,6 +42,7 @@ import { petBloomEnabled } from "../lib/pet-coliseum-flag";
 import * as THREE from "three";
 import { PetModel3D, DEFAULT_PET_MODEL_FRAME, type PetModelFrame } from "./PetModel3D";
 import { PetModelBoundary } from "./PetModelBoundary";
+import { WildBindingArenaFx, type WildBindingCinematic } from "./WildBindingArenaFx";
 import { supportsPetWebGl2 } from "../lib/pet-webgl-capability";
 import { PetGraphicsQualityControl } from "./PetGraphicsQualityControl";
 import { petCombatModel, showdownFighterIdentity, type PetCombatModelConfig } from "../lib/pet-3d-models";
@@ -814,12 +815,13 @@ const WIDE_LOOK: readonly [number, number, number] = [0, 1.0, -0.6];
  *  now pulls back by however much its horizontal FOV actually demands. */
 const BOARD_RADIUS = SLOT_SPACING + 1.4;
 
-function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
+function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced, wildBinding }: {
     beatRef: React.MutableRefObject<SceneBeat>;
     fxRef: React.MutableRefObject<SceneFx>;
     posRef: React.MutableRefObject<Map<string, [number, number, number]>>;
     lineup: Lineup;
     reduced: boolean;
+    wildBinding?: WildBindingCinematic | null;
 }) {
     const pos = useRef(new THREE.Vector3(WIDE_POS[0], WIDE_POS[1], WIDE_POS[2]));
     const look = useRef(new THREE.Vector3(0, 1.1, -0.4));
@@ -1069,6 +1071,31 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
         if (view.length() < needed) {
             targetPos.copy(targetLook).add(viewDir.clone().multiplyScalar(needed));
         }
+        // Wild binding is a player-initiated arena beat, outside the server's
+        // combat event queue. Begin over the caster, then dolly onto the wild
+        // pet while the scroll crosses the field. The extra portrait distance
+        // keeps both silhouettes inside the narrow phone view.
+        if (wildBinding && !reduced) {
+            const caster = posRef.current.get(wildBinding.playerId);
+            const target = posRef.current.get(wildBinding.enemyId);
+            if (caster && target) {
+                const t = Math.max(0, Math.min(1, (now - wildBinding.startedAt) / wildBinding.durationMs));
+                const advance = THREE.MathUtils.smoothstep(t, .22, .7);
+                const portraitDistance = Math.max(0, .9 - aspect) * 6;
+                const opening = new THREE.Vector3(caster[0] + 3.3, 4.8, caster[2] + 6.3 + portraitDistance);
+                const close = new THREE.Vector3(target[0] + 3.7, 3.25, target[2] + 5.9 + portraitDistance);
+                targetPos.copy(opening.lerp(close, advance));
+                targetLook.set(
+                    THREE.MathUtils.lerp(caster[0], target[0], .48 + advance * .52),
+                    1.4 + advance * .25,
+                    THREE.MathUtils.lerp(caster[2], target[2], .48 + advance * .52),
+                );
+                const impact = Math.sin(Math.PI * THREE.MathUtils.smoothstep(t, .77, .93));
+                targetPos.z -= impact * .55;
+                nextShot = `wild-binding:${wildBinding.startedAt}`;
+                cutOnChange = true;
+            }
+        }
         // Containment: never below the floor, never outside the arena shell
         // (floor radius 14, backdrop wall at 19, night cap at y 16.4). Raised
         // from 13, then 16.5, alongside the framing floors above — a pushed-back
@@ -1108,7 +1135,7 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced }: {
 
 interface PopupEntry { key: number; petId: string; text: string; cls: string }
 
-function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, introActive, beatRef, fxRef, posRef, radii, benchedRef, restingTargetId, popups, highlight, targetable, quality, onPick, onHover }: {
+function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, introActive, beatRef, fxRef, posRef, radii, benchedRef, restingTargetId, popups, highlight, targetable, quality, reduced, wildBinding, onPick, onHover }: {
     info: FighterSlotInfo;
     displayHp: number;
     ko: boolean;
@@ -1134,6 +1161,8 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
     targetable: boolean;
     /** One battle-selected preset owns model materials, identity VFX, and lights. */
     quality: PetVisualQualityConfig;
+    reduced: boolean;
+    wildBinding?: WildBindingCinematic | null;
     onPick: (petId: string) => void;
     onHover: (petId: string | null) => void;
 }) {
@@ -1490,13 +1519,22 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         f.statuses = statuses.map((status) => status.kind);
         f.victorious = victorious && !ko;
         f.desperate = !ko && displayHp / Math.max(1, info.view.maxHp) < 0.25;
+        const bindingT = wildBinding ? Math.max(0, Math.min(1, (now - wildBinding.startedAt) / wildBinding.durationMs)) : -1;
+        if (wildBinding && !ko && !introActive && info.view.id === wildBinding.playerId && !reduced) {
+            if (bindingT > .08 && bindingT < .44) { f.motion = "windup"; f.casting = true; f.moveStyle = baseStyle; }
+            else if (bindingT >= .44 && bindingT < .6) { f.motion = "strike"; f.casting = true; f.moveStyle = baseStyle; }
+        }
+        const beingBound = wildBinding && !ko && info.view.id === wildBinding.enemyId;
+        const pull = beingBound && !reduced ? THREE.MathUtils.smoothstep(bindingT, .48, .87) : 0;
+        if (beingBound && pull > 0) f.motion = "stagger";
         if (group.current) {
             // The withdrawal rides on the group transform, so it composes with
             // whatever pose the death clip left the rig in.
             const ease = koSink * koSink;
             const calibratedGround = info.model && !modelFailed ? modelCalibration?.groundOffset ?? 0 : 0;
-            group.current.position.set(px, py + calibratedGround - ease * 1.7, pz);
-            group.current.scale.setScalar(Math.max(0.02, 1 - ease * 0.55));
+            group.current.position.set(px, py + calibratedGround - ease * 1.7 + pull * 2.35, pz);
+            group.current.scale.setScalar(Math.max(0.02, 1 - ease * 0.55) * (1 - pull * .98));
+            if (beingBound && bindingT > .91) group.current.visible = false;
         }
 
         // Impact burst: an expanding, fading shockwave ring at the feet for
@@ -2093,7 +2131,7 @@ const SR_ONLY: React.CSSProperties = {
     border: 0,
 };
 
-export function PetShowdownBattle({ initialState, playerPets, sharedImages, submitTurn, onForfeit, onFinished, onExit, onRematch, resultNote, eventLabel, spectator = false, reducedMotion: motionPreference }: {
+export function PetShowdownBattle({ initialState, playerPets, sharedImages, submitTurn, onForfeit, onFinished, onExit, onRematch, resultNote, resultTitle, exitLabel = "Leave the Showdown", hideRematch = false, eventLabel, spectator = false, reducedMotion: motionPreference, wildBinding, onRenderMode, onCommandReady, inputLocked = false }: {
     eventLabel?: string;
     initialState: ShowdownStateView;
     /** The player's real roster Pets (for 3D model + art resolution). */
@@ -2109,6 +2147,12 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     spectator?: boolean;
     /** Hosts may supply their accessibility preference; otherwise use the OS. */
     reducedMotion?: boolean;
+    /** Optional in-arena seal ceremony, supplied only by wild encounters. */
+    wildBinding?: WildBindingCinematic | null;
+    onRenderMode?: (webGlAvailable: boolean) => void;
+    onCommandReady?: (ready: boolean) => void;
+    /** Block battle commands while a host-owned result or capture ritual is open. */
+    inputLocked?: boolean;
     /** Fired once when the end event has played; settlement may carry rewards. */
     onFinished: (outcome: "win" | "loss", settlement: ShowdownTurnResponse | null) => void;
     onExit: () => void;
@@ -2118,8 +2162,12 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
      *  should be answered by the Court rather than by silence and a rematch
      *  button. Modes that have nothing to say pass nothing and are unchanged. */
     resultNote?: (outcome: "win" | "loss") => string | null | undefined;
+    resultTitle?: (outcome: "win" | "loss") => string;
+    exitLabel?: string;
+    hideRematch?: boolean;
 }) {
     const [webGlAvailable] = useState(() => supportsPetWebGl2());
+    useEffect(() => { onRenderMode?.(webGlAvailable); }, [onRenderMode, webGlAvailable]);
     const [qualityId, setQualityId] = useState<PetVisualQuality>(() => petVisualQuality().id);
     const renderQuality = PET_VISUAL_QUALITY_PRESETS[qualityId];
     const [stateView, setStateView] = useState(initialState);
@@ -2214,6 +2262,9 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         const timer = window.setTimeout(() => setIntro(false), 2600);
         return () => window.clearTimeout(timer);
     }, []);
+    useEffect(() => {
+        onCommandReady?.(phase === "command" && !intro && !expired && !failedOrders && !stateView.finished && !spectator);
+    }, [phase, intro, expired, failedOrders, stateView.finished, spectator, onCommandReady]);
 
     const settlementRef = useRef<ShowdownTurnResponse | null>(null);
     /** True from the moment a round is submitted until its response has been
@@ -2294,6 +2345,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         ).filter((el) => el.getClientRects().length > 0);
         const onKeyDown = (e: KeyboardEvent) => {
             if (e.key !== "Tab") return;
+            if (takeoverRef.current?.inert) return;
             const items = stops();
             if (!items.length) {
                 e.preventDefault();
@@ -2332,6 +2384,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
             if (e.key !== "Escape") return;
+            if (takeoverRef.current?.inert) return;
             if (confirmForfeit) {
                 e.preventDefault();
                 playPetSfx("uiCancel");
@@ -3151,7 +3204,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     // Fire the round: called from the LAST pushCommand (event handler, not an
     // effect — every setState here runs in handler/async context).
     const submitRound = useCallback(async (commands: ShowdownCommand[]) => {
-        if (submitInFlight.current || !mounted.current) return;
+        if (inputLocked || submitInFlight.current || !mounted.current) return;
         // Order matters. The stale queue from LAST round is dropped before the
         // phase flips, and the in-flight hold is raised before anything else:
         // the beat player wakes the moment phase changes, and what it must see
@@ -3213,7 +3266,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 }
             }
         }
-    }, [submitTurn, onFinished, stateView.round]);
+    }, [submitTurn, onFinished, stateView.round, inputLocked]);
 
     // Spectator auto-advance: the moment the deck WOULD open, submit empty
     // orders instead. The replay driver ignores the commands and returns the
@@ -3224,20 +3277,20 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     // delay is invisible here (the deck is hidden in spectator mode anyway) and
     // it lets the render that opened the phase finish first.
     useEffect(() => {
-        if (!spectator || phase !== "command" || expired || failedOrders) return;
+        if (inputLocked || !spectator || phase !== "command" || expired || failedOrders) return;
         const id = window.setTimeout(() => { void submitRound([]); }, 0);
         return () => window.clearTimeout(id);
-    }, [spectator, phase, expired, failedOrders, submitRound]);
+    }, [spectator, phase, expired, failedOrders, submitRound, inputLocked]);
 
     // Drive the soft-lock guard (see `roundStalled`). Deliberately on a short
     // delay rather than instantly: the player should SEE the "no orders" panel
     // register before the round resolves, otherwise a stunned round looks like
     // the game skipped their turn for no reason.
     useEffect(() => {
-        if (!roundStalled) return;
+        if (inputLocked || !roundStalled) return;
         const t = setTimeout(() => { void submitRound([]); }, 900);
         return () => clearTimeout(t);
-    }, [roundStalled, submitRound]);
+    }, [roundStalled, submitRound, inputLocked]);
 
     // Say whose turn it is. The deck is a list of buttons that names the move
     // but never the pet being asked, nor the shape it is in — both of which a
@@ -3496,6 +3549,8 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             className="pet-combat-takeover showdown-takeover"
             data-testid="pet-showdown-root"
             data-pet-visual-audit={visualAudit}
+            data-wild-binding={wildBinding ? "active" : undefined}
+            inert={inputLocked}
             role="dialog"
             aria-modal="true"
             aria-label={`Pet Showdown — your team against ${stateView.enemyTeamName}`}
@@ -3521,7 +3576,13 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             >
                 <RendererRetirement />
                 <StageEnvironment stage={stage} beatRef={beatRef} fxRef={fxRef} quality={renderQuality} reduced={reducedMotion} />
-                <CameraDirector beatRef={beatRef} fxRef={fxRef} posRef={posRef} lineup={lineup} reduced={reducedMotion} />
+                <CameraDirector beatRef={beatRef} fxRef={fxRef} posRef={posRef} lineup={lineup} reduced={reducedMotion} wildBinding={wildBinding} />
+                {wildBinding && <WildBindingArenaFx
+                    cinematic={wildBinding}
+                    player={slots.get(wildBinding.playerId)?.basePos ?? [0, FLOOR_Y, PLAYER_Z]}
+                    enemy={slots.get(wildBinding.enemyId)?.basePos ?? [0, FLOOR_Y, ENEMY_Z]}
+                    reduced={reducedMotion}
+                />}
                 <BeatDrivenVfx beatRef={beatRef} posRef={posRef} radii={fighterRadii} signatures={fighterSignatures} reducedMotion={reducedMotion} quality={renderQuality} />
                 <SuperPillar drive={pillarDrive} />
                 <ShowdownVfxLayer spawns={vfx} />
@@ -3574,8 +3635,10 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         highlight={commander?.id === info.view.id ? "commander"
                             : pendingMove && ((info.side === "enemy" && !targetingAllies) || (info.side === "player" && targetingAllies)) && !(display[info.view.id]?.ko) ? "targeted"
                             : "none"}
-                        targetable={isTargetable(info)}
+                        targetable={!wildBinding && isTargetable(info)}
                         quality={renderQuality}
+                        reduced={reducedMotion}
+                        wildBinding={wildBinding}
                         onPick={pickTarget}
                         onHover={setHoveredTarget}
                     />
@@ -3821,9 +3884,9 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 </div>
 
                 {panel === "result" && (
-                    <div className="showdown-result" role="dialog" aria-modal="true" aria-label={outcome === "win" ? "Victory" : "Defeat"}>
+                    <div className="showdown-result" role="dialog" aria-modal="true" aria-label={outcome ? resultTitle?.(outcome) ?? (outcome === "win" ? "Victory" : "Defeat") : "Encounter ended"}>
                         <div className={`showdown-result-title ${outcome === "win" ? "win" : "loss"}`}>
-                            {outcome === "win" ? "VICTORY" : "DEFEAT"}
+                            {outcome ? resultTitle?.(outcome) ?? (outcome === "win" ? "VICTORY" : "DEFEAT") : "ENCOUNTER ENDED"}
                         </div>
                         {outcome === "win" && (settlement?.reward ?? 0) > 0 && (
                             <div className="showdown-result-reward">+{settlement?.reward} ryo</div>
@@ -3866,8 +3929,8 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             <div className="showdown-result-reward capped">Daily arena reward cap reached</div>
                         )}
                         <div className="showdown-result-buttons">
-                            <button type="button" className="showdown-cta" autoFocus onClick={onRematch}>{spectator ? "Watch Again" : "Battle Again"}</button>
-                            <button type="button" className="showdown-chip" onClick={onExit}>Leave the Showdown</button>
+                            {!hideRematch && <button type="button" className="showdown-cta" autoFocus onClick={onRematch}>{spectator ? "Watch Again" : "Battle Again"}</button>}
+                            <button type="button" className="showdown-chip" onClick={onExit}>{exitLabel}</button>
                         </div>
                     </div>
                 )}

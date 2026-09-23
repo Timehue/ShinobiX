@@ -1,17 +1,33 @@
 import { PET_CATALOG } from './_catalog.js';
-import { createOwnedPet, resolvePetTemplateId } from './_owned-pet.js';
+import { createOwnedPet, resolvePetTemplateId, rollOwnedPetTrait } from './_owned-pet.js';
+import { sectorWeatherElements, type SectorWeather } from '../../shared/sector-weather.js';
 
 const TRAITS = ['Loyal', 'Aggressive', 'Guardian', 'Swift', 'Lucky', 'Battleborn'] as const;
 export type WildPetTrait = typeof TRAITS[number];
 export const DAILY_WILD_ENCOUNTER_ATTEMPTS = 150;
 
-export function rollWildPet(random: () => number, now = Date.now()): Record<string, unknown> | null {
+export function rollWildPet(random: () => number, now = Date.now(), condition?: { weather: SectorWeather }): Record<string, unknown> | null {
     const roll = random();
     const rarity = roll <= 0.002 ? 'mythic' : roll <= 0.007 ? 'legendary' : roll <= 0.01 ? 'rare' : roll <= 0.05 ? 'standard' : null;
     if (!rarity) return null;
     const pool = Object.values(PET_CATALOG).filter((pet) => pet.rarity === rarity && pet.wildSpawnable !== false);
-    const template = pool[Math.floor(Math.max(0, Math.min(0.999999, random())) * pool.length)];
-    return template ? { ...structuredClone(template), id: `${template.id}-${now}` } : null;
+    const unit = Math.max(0, Math.min(0.999999, random()));
+    let template: typeof pool[number] | undefined = pool[Math.floor(unit * pool.length)];
+    // World weather changes WHICH pet of the sealed rarity appears, never the
+    // original hit/miss or rarity roll above. Clan-stamped skies are resolved by
+    // encounter-start before this function receives the condition.
+    if (condition && pool.length > 0) {
+        const elements = sectorWeatherElements(condition.weather);
+        const weights = pool.map((pet) => pet.element === elements.positiveElement ? 2.5
+            : pet.element === elements.negativeElement ? 0.75 : 1);
+        const target = unit * weights.reduce((sum, weight) => sum + weight, 0);
+        let cumulative = 0;
+        template = pool.find((_, index) => (cumulative += weights[index]) > target) ?? pool.at(-1);
+    }
+    if (!template) return null;
+    const secureInt = (min: number, max: number) => min + Math.floor(Math.max(0, Math.min(0.999999999, random())) * (max - min));
+    const trait = rollOwnedPetTrait(template.rarity, secureInt) as WildPetTrait;
+    return { ...structuredClone(template), id: `${template.id}-${now}`, trait };
 }
 
 export function grantWildPet(character: Record<string, unknown>, pet: Record<string, unknown>, random: () => number) {
@@ -24,6 +40,7 @@ export function grantWildPet(character: Record<string, unknown>, pet: Record<str
         instanceId: String(pet.id ?? ''),
         existingIds: pets.map((entry) => String(entry.id ?? '')),
         basePet: pet,
+        ...(TRAITS.includes(pet.trait as WildPetTrait) ? { trait: pet.trait as WildPetTrait } : {}),
         secureInt,
     });
     const trait = granted.trait as WildPetTrait;

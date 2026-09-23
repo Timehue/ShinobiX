@@ -9,7 +9,7 @@ delete process.env.ADMIN_PASSWORD;
 type Obj = Record<string, any>;
 type Handler = typeof import('./caravan.js').default;
 let kv: typeof import('../_storage.js').kv;
-let rally: Handler, caravan: Handler, save: Handler, action: Handler, wildStart: Handler, befriend: Handler;
+let rally: Handler, caravan: Handler, save: Handler, action: Handler, wildStart: Handler, wildBinding: Handler, befriend: Handler;
 let issue: typeof import('../_auth.js').issuePlayerToken;
 const realNow = Date.now;
 let now = realNow();
@@ -23,6 +23,7 @@ before(async () => {
     save = (await import('../save/[name].js')).default as unknown as Handler;
     action = (await import('../solo-pve/action.js')).default as unknown as Handler;
     wildStart = (await import('../pet/encounter-start.js')).default as unknown as Handler;
+    wildBinding = (await import('../pet/wild-binding.js')).default as unknown as Handler;
     befriend = (await import('../pet/befriend.js')).default as unknown as Handler;
     Date.now = () => now;
 });
@@ -222,12 +223,25 @@ test('a legitimate Caravan trail uses normal wild chance, seals retries, and clo
     const found = ok(await call(wildStart, payload));
     assert.equal(found.requestId, payload.requestId);
     assert.deepEqual(ok(await call(wildStart, payload)), { ...found, replayed: true });
-    if (found.pet) ok(await call(befriend, { token: found.token }));
+    if (found.pet) {
+        assert.equal((await call(befriend, { token: found.token })).status, 409);
+        const save = await stored();
+        save.character.itemStacks.push({ itemId: 'beast-seal-reinforced', count: 1 });
+        await kv.set(`save:${player}`, save);
+        ok(await call(wildBinding, { token: found.token, action: 'start', petId }));
+        assert.equal(ok(await call(wildBinding, { token: found.token, action: 'capture',
+            sealId: 'beast-seal-reinforced', attemptId: 'caravantrailattempt001' })).capture.success, true);
+    }
     const ended = ok(await call(caravan, { action: 'pet-return', runId: run.id }));
     assert.equal(ended.progress.current.petEncounter.state, 'resolved');
     assert.equal(await kv.get(`pet-encounter-active:${player}`), null);
     const count = ended.character.pets.length;
-    if (found.pet) { ok(await call(befriend, { token: found.token })); assert.equal((await stored()).character.pets.length, count); }
+    if (found.pet) {
+        const replay = ok(await call(wildBinding, { token: found.token, action: 'capture',
+            sealId: 'beast-seal-reinforced', attemptId: 'caravantrailattempt001' }));
+        assert.equal(replay.capture.replayed, true);
+        assert.equal((await stored()).character.pets.length, count);
+    }
     assert.equal((await call(wildStart, { ...payload, requestId: 'different_caravan_trail' })).status, 409);
 });
 
@@ -259,4 +273,33 @@ test('pointer-only wild-hit recovery retains Caravan authority and normal befrie
     assert.equal(ended.progress.current.petEncounter.state, 'resolved');
     ok(await call(befriend, { token }));
     assert.equal((await stored()).character.pets.length, 2);
+});
+
+test('a Caravan wild battle binds once and pet-return recovers after a lost response', async () => {
+    const run = await prepareTrail();
+    const { PET_CATALOG } = await import('../pet/_catalog.js');
+    const token = 'caravanbindingtoken1234567890';
+    const pet = { ...structuredClone(PET_CATALOG['standard-1']), templateId: 'standard-1', id: 'caravan-bound-rabbit' };
+    const record = await stored();
+    record.character.itemStacks.push({ itemId: 'beast-seal-reinforced', count: 1 });
+    await kv.set(`save:${player}`, record);
+    await kv.set(`pet-encounter-active:${player}`, { playerName: player, requestId: run.petEncounter.requestId,
+        outcome: 'hit', token, pet, battleRequired: true, sector: 54, mintedAt: now, caravanRunId: run.id });
+    await kv.set(`pet-encounter:${player}:${token}`, { playerName: player, token, requestId: run.petEncounter.requestId,
+        pet, battleRequired: true, sector: 54, mintedAt: now, caravanRunId: run.id });
+    await kv.set(`pet-encounter-request:${player}:${run.petEncounter.requestId}`, { version: 1, playerName: player,
+        requestId: run.petEncounter.requestId, sector: 54, token, pet, battleRequired: true, caravanRunId: run.id,
+        mintedAt: now });
+
+    const opened = ok(await call(wildBinding, { token, action: 'start', petId }));
+    assert.equal(opened.wild.tutorial, true);
+    const captured = ok(await call(wildBinding, { token, action: 'capture',
+        sealId: 'beast-seal-reinforced', attemptId: 'caravanboundattempt001' }));
+    assert.equal(captured.capture.success, true);
+    assert.equal(captured.character.pets.length, 2);
+    const returned = ok(await call(caravan, { action: 'pet-return', runId: run.id }));
+    assert.equal(returned.progress.current.petEncounter.state, 'resolved');
+    const replay = ok(await call(caravan, { action: 'pet-return', runId: run.id }));
+    assert.equal(replay._saveVersion, returned._saveVersion);
+    assert.equal(replay.character.pets.length, 2);
 });

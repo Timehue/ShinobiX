@@ -8,6 +8,7 @@ import type { SettlementCard, SettlementItem } from './_catalog.js';
 import { canAppendPackableChronicleCards } from '../card-clash/_collection-cap.js';
 import { isMarketplaceCard } from '../clan/war/_card-catalog.js';
 import { effectiveItemLevelReq, meetsItemLevelReq } from '../../shared/item-level-gate.js';
+import { wildBindingSeal } from '../../shared/wild-binding.js';
 
 export type ShopPackId = 'standard' | 'epic' | 'legendary';
 // 'chroniclePoints' is valid for card packs only (the Basic Card Pack); shop
@@ -95,6 +96,7 @@ function itemCount(items: StoredItems, itemId: string): number {
 }
 
 function holdCap(item: SettlementItem): number | null {
+    if (wildBindingSeal(item.id)) return 99;
     const slot = item.slot === 'weapon' ? 'hand' : item.slot === 'armor' ? 'body' : item.slot === 'accessory' ? 'aura' : item.slot;
     if (slot === 'potion') return 2;
     if (slot === 'thrown') return 50;
