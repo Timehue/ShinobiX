@@ -453,6 +453,7 @@ describe("wanderer relocation", () => {
 
     it("hasWandererRelocated / pruneWandererMoves track and expire entries", () => {
         assert.equal(hasWandererRelocated({ "w-7-5000-0": 12 }, "w-7-5000-0"), true);
+        assert.equal(hasWandererRelocated({ "w-7-5000-0": 54 }, "w-7-5000-0"), false);
         assert.equal(hasWandererRelocated({ "w-7-5000-0": 12 }, "w-7-5000-1"), false);
         assert.equal(hasWandererRelocated(undefined, "w-7-5000-0"), false);
         // prune keeps current-bucket entries, drops stale-bucket + malformed ones

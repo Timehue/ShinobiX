@@ -7,7 +7,7 @@ import { getIo } from '../_realtime/socket.js';
 import { toPlayerRecord } from '../_realtime/presence-input.js';
 import { randomUUID } from 'node:crypto';
 import { sectorExitById, travelArrivalTile, SECTOR_TILE_COUNT, type SectorExit } from '../../shared/sector-links.js';
-import { isWildSector } from '../../shared/sector-geo.js';
+import { isPlayableWildSector } from '../../shared/sector-geo.js';
 import { clearTravelLeaseIfSame, setTravelLease, TravelLeaseHeldError, type TravelLease } from '../_realtime/travel-lease.js';
 
 // Intentional UX contract: travel is a short loading mask, not a distance tax.
@@ -40,7 +40,7 @@ export const WORLD_TRAVEL_MAP_LIMIT_PER_MINUTE = 30;
 export function isPlayableWorldSector(value: unknown): value is number {
     return typeof value === 'number'
         && Number.isInteger(value)
-        && (value === 0 || value === 99 || isWildSector(value));
+        && (value === 0 || value === 99 || isPlayableWildSector(value));
 }
 
 export type EdgeTravelInput = {

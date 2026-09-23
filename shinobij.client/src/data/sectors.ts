@@ -6,7 +6,7 @@
  *
  *   • villages                       — canonical four-village list
  *   • worldSectorOptions             — admin dropdown options for sector picker
- *                                      (1..60 plus the special "99" lava sector)
+ *                                      (playable wild sectors plus special "99")
  *   • weatherForBiome(biome)         — default-weather lookup
  *   • biomeForWorldSector(sector)    — sector number → biome
  *   • villageOutskirtsSectorNumber() — village name → sector right outside it
@@ -20,13 +20,13 @@
 
 import type { Biome } from "../types/core";
 import { biomeWeatherTables } from "./world";
-import { sectorBiomeOf, sectorRegionLabel, VILLAGE_OUTSKIRTS, WILD_SECTOR_IDS } from "../../../shared/sector-geo";
+import { sectorBiomeOf, sectorRegionLabel, VILLAGE_OUTSKIRTS, PLAYABLE_WILD_SECTOR_IDS } from "../../../shared/sector-geo";
 
 export const villages = ["Stormveil Village", "Ashen Leaf Village", "Frostfang Village", "Moonshadow Village"];
 
 // Every standard sector plus sector 99 (the special lava arena slot). The count
 // lives in shared/sector-geo.ts so adding a sector reaches every consumer.
-export const worldSectorOptions = [...WILD_SECTOR_IDS, 99];
+export const worldSectorOptions = [...PLAYABLE_WILD_SECTOR_IDS, 99];
 
 /** Default weather for a biome — first entry of its rotation table. */
 export function weatherForBiome(biome: Biome) {

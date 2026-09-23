@@ -5,7 +5,7 @@ import {
     isRiftQuestId, riftQuestRyo, riftBossKilled, riftTargetSector,
     parseRiftQuestSeal, parseRiftQuestBossReceipt, reconcileRiftRunBinding, riftBossReceiptMatches,
 } from './_rift-quest.js';
-import { CASTLE_SECTORS, OLD_TO_NEW_SECTOR, OUTSKIRTS_SECTORS, WORLD_GEO_VERSION, MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
+import { CASTLE_SECTORS, FESTIVAL_SECTOR, OLD_TO_NEW_SECTOR, OUTSKIRTS_SECTORS, WORLD_GEO_VERSION, MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
 
 type ClientChoice = { text: string; conclusion?: string; accept?: boolean; descend?: boolean };
 type ClientPage = { title: string; scene: string; speaker: string; dialogue: string[]; choices?: ClientChoice[] };
@@ -42,7 +42,7 @@ test('riftBossKilled needs one foe-kill past the sealed baseline', () => {
 });
 
 test('riftTargetSector is deterministic, wilderness-ranged, and skips safe hubs', () => {
-    const skip = new Set([...OUTSKIRTS_SECTORS, ...CASTLE_SECTORS]);
+    const skip = new Set([...OUTSKIRTS_SECTORS, ...CASTLE_SECTORS, FESTIVAL_SECTOR]);
     for (const player of ['Aki', 'Rill', 'ZZZ', 'a', 'player-two']) {
         const s = riftTargetSector(player, 'rift-hollow-stalker');
         assert.equal(s, riftTargetSector(player, 'rift-hollow-stalker'), 'stable per call');
@@ -55,7 +55,7 @@ test('rifts can open in EVERY eligible sector, including ones added after launch
     // The draw spans MAX_WILD_SECTOR. Sweep enough players to show the range is
     // genuinely reachable — otherwise a stale `% 60` would pass unnoticed as long
     // as the handful of sampled names happened to draw low.
-    const skip = new Set([...OUTSKIRTS_SECTORS, ...CASTLE_SECTORS]);
+    const skip = new Set([...OUTSKIRTS_SECTORS, ...CASTLE_SECTORS, FESTIVAL_SECTOR]);
     const hit = new Set<number>();
     for (let i = 0; i < 4000; i += 1) hit.add(riftTargetSector(`sweep-${i}`, 'rift-hollow-stalker'));
     for (const s of hit) {
@@ -79,6 +79,9 @@ test('parseRiftQuestSeal round-trips a stamped seal and remaps a pre-reorg one',
     // there, so rejecting it would silently void an in-flight rift.
     const newest = { ...seal, targetSector: MAX_WILD_SECTOR };
     assert.deepEqual(parseRiftQuestSeal(newest), newest);
+    assert.deepEqual(parseRiftQuestSeal({ ...seal, targetSector: FESTIVAL_SECTOR }), { ...seal, targetSector: 52 });
+    assert.deepEqual(parseRiftQuestSeal({ ...seal, targetSector: FESTIVAL_SECTOR, runToken: 'riftRunToken1234' }),
+        { ...seal, targetSector: FESTIVAL_SECTOR, runToken: 'riftRunToken1234' });
     // A seal written before the 2026-07 renumbering (no geoV) carries an OLD
     // sector number — parse remaps it once and re-stamps. `at` defaults to 0
     // for the oldest KV writes.

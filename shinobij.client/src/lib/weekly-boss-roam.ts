@@ -26,7 +26,7 @@
  */
 
 import { SECTOR_POINTS } from "../../../shared/sector-links";
-import { isWildSector } from "../../../shared/sector-geo";
+import { isPlayableWildSector } from "../../../shared/sector-geo";
 
 // The whole roaming layer — world-map marker, in-sector encounter, and the
 // tracker reskin — is live for everyone: the weekly boss is fought by HUNTING it
@@ -64,10 +64,10 @@ export const WEEKLY_BOSS_TRAIL_LEN = 4;
 // never dead-ends (every sector always has K neighbours).
 const ROAM_NEIGHBOR_K = 5;
 
-// The boss roams every standard sector. Sector 99 (the special lava-arena slot)
-// is excluded — it isn't a normal overworld destination.
+// The boss roams playable world boards. Sunscar (54) and Death's Gate (99)
+// are excluded because neither has a standard field encounter board.
 const ROAM_SECTOR_IDS: readonly number[] = SECTOR_POINTS
-    .filter((p) => isWildSector(p.id))
+    .filter((p) => isPlayableWildSector(p.id))
     .map((p) => p.id);
 
 export type WeeklyBossRoamInput = {
@@ -89,7 +89,7 @@ export type RoamingBoss = WeeklyBossRoamInput & {
 export type WeeklyBossRoamState = {
     /** false before the boss has started or once it has despawned/expired. */
     active: boolean;
-    /** Sector (1–60) the boss is in right now. */
+    /** Playable wild sector the boss is in right now. */
     currentSector: number;
     /** The telegraphed next hop (a neighbour of currentSector). */
     nextSector: number;
@@ -127,7 +127,7 @@ function hopRand(seed: number, hop: number): number {
 // precomputed once. Distance ties break by lower id so the graph is fully
 // deterministic (identical on every client).
 const NEIGHBORS: ReadonlyMap<number, readonly number[]> = (() => {
-    const pts = SECTOR_POINTS.filter((p) => isWildSector(p.id));
+    const pts = SECTOR_POINTS.filter((p) => isPlayableWildSector(p.id));
     const map = new Map<number, number[]>();
     for (const a of pts) {
         const near = pts

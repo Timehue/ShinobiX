@@ -18,7 +18,7 @@
  *   world:shrine:<id>                      (ShrineState under withKvLock)
  */
 
-import { isWildSector } from '../../shared/sector-geo.js';
+import { isPlayableWildSector } from '../../shared/sector-geo.js';
 
 export const TRAIL_SIGN_TTL_MS = 72 * 60 * 60 * 1000;
 export const MAX_SIGNS_PER_SECTOR = 8;
@@ -68,9 +68,9 @@ export function shrineKey(shrineId: string): string {
     return `world:shrine:${shrineId}`;
 }
 
-/** Wild-sector guard for traces (the safe zone has no wilderness to mark). */
+/** Playable wild-sector guard for traces (festival and safe zones have no field board). */
 export function isTraceSector(sector: unknown): sector is number {
-    return isWildSector(Number(sector));
+    return isPlayableWildSector(Number(sector));
 }
 
 /** ISO-8601 week key, e.g. "2026-W29" — the shrine board's reset boundary. */

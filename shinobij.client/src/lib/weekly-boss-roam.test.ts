@@ -6,7 +6,7 @@ import {
     WEEKLY_BOSS_HOP_INTERVAL_MS,
     WEEKLY_BOSS_TRAIL_LEN,
 } from "./weekly-boss-roam";
-import { MAX_WILD_SECTOR } from "../../../shared/sector-geo";
+import { FESTIVAL_SECTOR, MAX_WILD_SECTOR } from "../../../shared/sector-geo";
 
 const T0 = 1_783_124_683_778; // a fixed spawn time (Ashen Dragon, 2026-W27)
 const boss = (over: Partial<{ weekKey: string; startedAt: number; expiresAt: number }> = {}) => ({
@@ -57,6 +57,8 @@ test("current + next sectors are always standard wild sectors (never 99)", () =>
         const s = weeklyBossRoamState(boss(), T0 + h * WEEKLY_BOSS_HOP_INTERVAL_MS)!;
         assert.ok(s.currentSector >= 1 && s.currentSector <= MAX_WILD_SECTOR, `current ${s.currentSector} @hop ${h}`);
         assert.ok(s.nextSector >= 1 && s.nextSector <= MAX_WILD_SECTOR, `next ${s.nextSector} @hop ${h}`);
+        assert.notEqual(s.currentSector, FESTIVAL_SECTOR, `Sunscar at hop ${h}`);
+        assert.notEqual(s.nextSector, FESTIVAL_SECTOR, `Sunscar next at hop ${h}`);
     }
 });
 
@@ -87,10 +89,17 @@ test("consecutive hops step between adjacent sectors (connected path)", () => {
 test("neighbours are real, distinct sectors and never self", () => {
     for (let id = 1; id <= MAX_WILD_SECTOR; id += 1) {
         const ns = roamNeighbors(id);
+        if (id === FESTIVAL_SECTOR) {
+            assert.deepEqual(ns, [], "Sunscar has no roaming encounters");
+            continue;
+        }
         assert.ok(ns.length > 0, `sector ${id} has no neighbours`);
         assert.ok(!ns.includes(id), `sector ${id} lists itself`);
         assert.equal(new Set(ns).size, ns.length, `sector ${id} has duplicate neighbours`);
-        for (const n of ns) assert.ok(n >= 1 && n <= MAX_WILD_SECTOR, `sector ${id} neighbour ${n} out of range`);
+        for (const n of ns) {
+            assert.ok(n >= 1 && n <= MAX_WILD_SECTOR, `sector ${id} neighbour ${n} out of range`);
+            assert.notEqual(n, FESTIVAL_SECTOR);
+        }
     }
 });
 

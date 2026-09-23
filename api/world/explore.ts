@@ -7,7 +7,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { applySectorExploreReward, rollSectorExploreOutcome } from './_explore.js';
-import { isWildSector } from '../../shared/sector-geo.js';
+import { isPlayableWildSector } from '../../shared/sector-geo.js';
 import { DAILY_ANCIENT_CHEST_LIMIT } from './_chest.js';
 import { sectorPresenceBlock } from '../_sector-presence-gate.js';
 import { kv } from '../_storage.js';
@@ -132,7 +132,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // it inside spent part of that lock's 5s TTL on KV round-trips under
         // exactly the crowd the pool exists for.
         const requestedSector = Math.floor(Number(body.sector));
-        if (poolEnabled && isWildSector(requestedSector)) {
+        if (poolEnabled && isPlayableWildSector(requestedSector)) {
             pool.frame = await loadSectorPoolFrame(requestedSector).catch(() => null);
         }
         const result = await withKvLock(activePetKey, async () => {

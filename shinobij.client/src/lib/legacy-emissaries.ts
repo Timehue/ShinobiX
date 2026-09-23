@@ -15,6 +15,7 @@
 import type { WandererQuestMetric } from "./wanderers";
 import type { Wanderer } from "./wanderers";
 import { wandererLevelFor, wandererHash32 as hash32, mulberry32 } from "./wanderers";
+import { FESTIVAL_SECTOR } from "../../../shared/sector-geo";
 
 export type EmissarySlug =
     | "storm-caller-ryn" | "veil-mother-suzu" | "iron-pilgrim-daigo" | "blade-keeper-hana"
@@ -257,10 +258,11 @@ export function rollEmissarySpawn(
     const categoryDef = emissaryForCategory(legacyCategory);
     const def = categoryDef ?? randomDef;
     let sector = 1 + Math.floor(rng() * (SECTOR_COUNT - 1)); // 1..59 (always drawn: rng parity)
+    if (sector === FESTIVAL_SECTOR) sector = FESTIVAL_SECTOR + 1;
     if (!categoryDef) {
         // Pre-acceptance roaming branch — only meaningful on the world map,
         // where the caller supplies the sector being viewed.
-        if (currentSector == null || currentSector < 1) return null;
+        if (currentSector == null || currentSector < 1 || currentSector === FESTIVAL_SECTOR) return null;
         const gate = mulberry32(hash32(`emissary-roam#${def.slug}#${currentSector}#${dayBucket}`))();
         if (gate > EMISSARY_ROAM_SECTOR_CHANCE) return null;
         sector = currentSector;
