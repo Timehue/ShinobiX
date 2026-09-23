@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
     isAudioMuted,
     getAudioVolume,
+    BATTLE_MUSIC_TRACKS,
     setAudioVolume,
     setAudioMuted,
     startBattleMusic,
@@ -53,6 +54,7 @@ class MockAudio {
     playbackRate = 1;
     currentTime = 0;
     muted = false;
+    onended: (() => void) | null = null;
     playCount = 0;
     pauseCount = 0;
 
@@ -163,21 +165,28 @@ test("the master switch hard-mutes every audio owner without reviving stopped mu
     setAudioMuted(true);
 });
 
-test("every battle theme uses the supplied quiet combat track", () => {
+test("Pet Coliseum and PvP/PvE rotate both combat tracks", () => {
     setAudioMuted(false);
 
     startBattleMusic("showdown");
     const el = MockAudio.instances[0];
     assert.ok(el, "battle music element exists");
-    assert.equal(el.src, "/music/world/wind-blade-jutsu.mp3");
+    assert.ok(BATTLE_MUSIC_TRACKS.some((track) => track === el.src));
+    assert.equal(el.loop, false);
+    const firstShowdownTrack = el.src;
+    el.onended?.();
+    assert.notEqual(el.src, firstShowdownTrack);
 
     startBattleMusic("hollow-gate");
     assert.equal(el.src, "/music/world/wind-blade-jutsu.mp3");
+    assert.equal(el.loop, true);
 
-    for (let i = 0; i < 24; i++) {
+    const standardTracks = new Set<string>();
+    for (let i = 0; i < 4; i++) {
         startBattleMusic("standard");
-        assert.equal(el.src, "/music/world/wind-blade-jutsu.mp3");
+        standardTracks.add(el.src);
     }
+    assert.deepEqual(standardTracks, new Set(BATTLE_MUSIC_TRACKS));
 
     stopBattleMusic();
     setAudioMuted(true);
