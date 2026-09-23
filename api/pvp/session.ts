@@ -7,6 +7,7 @@ import { kv } from '../_storage.js';
 import { isWildSector, sectorBiomeOf } from '../../shared/sector-geo.js';
 import { resolveSectorWeather, sectorWeatherElements } from '../../shared/sector-weather.js';
 import { PVP_PREFIGHT_COUNTDOWN_MS } from '../../shared/pvp-turn.js';
+import { isCancelledUnstartedPvpDuel } from '../../shared/pvp-cancellation.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
@@ -196,6 +197,7 @@ export type PvpSession = {
     groundEffects?: PvpGroundEffect[];
     log: string[];
     status: 'active' | 'done';
+    terminalReason?: 'cancelled-unjoined';
     winner: 'p1' | 'p2' | 'draw' | null;
     // Durable proof that this battle was created by a sanctioned server flow.
     // A client may still create an unsanctioned/casual session, but every reward
@@ -1903,6 +1905,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return res.status(404).json({ error: 'Pending PvP session expired.' });
                 }
                 if (session.status === 'done') {
+                    if (isCancelledUnstartedPvpDuel(session)) {
+                        await ensurePvpTerminalRecoveryPublication(kv, pointer.battleId, session);
+                        if (String(req.query.recoveryProbeVersion ?? '') === '2') return res.status(204).end();
+                        return res.status(404).json({ error: 'Duel was cancelled before combat.' });
+                    }
                     if (liveRaw) session = await ensurePvpTerminalRecoveryPublication(
                         kv,
                         pointer.battleId,
@@ -2985,7 +2992,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (current && !currentSession) stale = !pvpPendingReservationIsFresh(current);
                     if (current && currentSession) stale = !pendingPointerMatchesSession(current, currentSession);
                     if (!stale && currentSession?.status === 'done') {
-                        if (!currentSession.winner) {
+                        if (isCancelledUnstartedPvpDuel(currentSession)) {
+                            await ensurePvpTerminalRecoveryPublication(kv, currentSession.battleId, currentSession);
+                            stale = true;
+                        } else if (!currentSession.winner) {
                             stale = true;
                         } else {
                             const receipt = await kv.get<unknown>(

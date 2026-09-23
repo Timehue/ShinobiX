@@ -35,6 +35,7 @@ import {
     type CappedRaidProgressionResult,
 } from '../missions/_raid-progression.js';
 import { replayCommittedPvpTerminalEffects } from './_committed-terminal-effects.js';
+import { isCancelledUnstartedPvpDuel } from '../../shared/pvp-cancellation.js';
 import type { PlayerRankedJournal } from './_player-ranked-journal.js';
 import {
     acknowledgePvpRewardCompletion,
@@ -297,6 +298,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
 
+        if (isCancelledUnstartedPvpDuel(session)) {
+            await replayCommittedPvpTerminalEffects(session);
+            return res.status(200).json({
+                ok: true,
+                alreadyClaimed: false,
+                completionPending: false,
+                rewardAuthorized: false,
+                progressionAuthorized: false,
+            });
+        }
+
         const rewardAuthorized = pvpSessionMayReward(session);
         const progressionAuthorized = pvpSessionMayGrantProgress(session);
         const playerRankedV2Claim = exactPlayerRankedV2Terminal
@@ -361,12 +373,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!reservation.completionPending) {
                 await clearPvpPendingSessionPointer(kv, playerName, battleId, session.createdAt);
             }
+            const finalSave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+            const finalChar = (finalSave?.character ?? null) as Record<string, unknown> | null;
             return res.status(200).json({
                 ok: true,
                 alreadyClaimed: reservation.alreadyClaimed,
                 completionPending: reservation.completionPending,
                 rewardAuthorized: false,
                 progressionAuthorized: false,
+                ...(finalChar ? { character: finalChar, _saveVersion: Number(finalSave?._saveVersion ?? 0) } : {}),
             });
         }
 
