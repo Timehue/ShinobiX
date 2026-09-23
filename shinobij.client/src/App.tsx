@@ -193,7 +193,7 @@ const loadMissionCatalog = () => import("./data/missions");
 const mutateDungeonRunServer = (playerName: string, action: "start" | "settle" | "abandon", token = "", presentationEventId?: string) =>
     import("./lib/dungeon-api").then((api) => api.mutateDungeonRunServer(playerName, action, token, presentationEventId));
 const loadDungeonPresentation = () => retryDynamicImport(() => import('./lib/dungeon-presentation'));
-import { fetchPlayerCombatSave, stringifyPvpSessionPayload, pvpSessionEnvironment, pvpResultReturn, markPvpSectorReturn } from "./lib/pvp-session";
+import { fetchPlayerCombatSave, stringifyPvpSessionPayload, pvpSessionEnvironment, pvpResultReturn, markPvpSectorReturn, preloadPvpChallengeModules, pvpChallengeAcceptanceMessage, hasVersionedPvpClaimSnapshot } from "./lib/pvp-session";
 import { readPvpBrowserBreadcrumb, type PvpRecoveryContext } from "./lib/pvp-pending-session";
 const loadPvpSessionCreate = () => import("./lib/pvp-session-create"), loadPvpPendingFetch = () => import("./lib/pvp-pending-fetch");
 import { usePvpSessionController } from "./lib/use-pvp-session-controller";
@@ -2512,11 +2512,9 @@ export default function App() {
         if (processingChallengeIds.includes(challenge.id)) return;
         if (!acceptanceIsCurrent()) return;
         setProcessingChallengeIds(prev => [...prev, challenge.id]);
-        // Load the create and battle chunks while the save reads and session
-        // publication run. Data-saver connections wait until each is needed.
-        const saveData = !!(navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
-        const createModulePromise = saveData ? Promise.resolve(null) : loadPvpSessionCreate().catch(() => null);
-        if (!saveData) void loadPvpBattleScreen().catch(() => {});
+        const createModulePromise = preloadPvpChallengeModules(
+            !!(navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData,
+            loadPvpSessionCreate, loadPvpBattleScreen);
         const challenger = normalizeCharacter(challenge.challenger);
         dismissChallengeLocally(challenge.id);
         try {
@@ -2642,12 +2640,7 @@ export default function App() {
             if (!acceptanceIsCurrent()) return;
             setDuelChallenges(prev => prev.some(c => c.id === challenge.id) ? prev : [challenge, ...prev]);
             if (!acceptanceIsCurrent()) return;
-            alert(error instanceof Error && (
-                error.message.startsWith("Equipped named gear could not be loaded.")
-                || error.message.startsWith("One fighter's save could not be loaded.")
-            )
-                ? error.message
-                : `${challenge.fromName}'s challenge could not be accepted. Try again if it is still pending.`);
+            alert(pvpChallengeAcceptanceMessage(error, challenge.fromName));
         } finally {
             setProcessingChallengeIds(prev => prev.filter(id => id !== challenge.id));
         }
@@ -6341,15 +6334,8 @@ export default function App() {
                         // context. Use the server's sanctioned progression decision
                         // for bounties and missions, never that optional UI state.
                         const isFriendlyDuel = serverClaim?.progressionAuthorized !== true;
-                        // Kage transfer replays from the committed terminal session on the server.
 
-                        // A friendly duel has no bounty, raid, or mission write
-                        // after the claim. onRewardClaim already adopted this
-                        // versioned server snapshot, so another owner-save GET
-                        // only delays the result confirmation and ACK.
-                        if (isFriendlyDuel && serverClaim?.character
-                            && Number.isSafeInteger(serverClaim._saveVersion)
-                            && Number(serverClaim._saveVersion) > 0) {
+                        if (isFriendlyDuel && hasVersionedPvpClaimSnapshot(serverClaim)) {
                             requirePvpContinuation(activeContinuation);
                             pvpCompletionUiRef.current.add(pvpSettlementScopeKey);
                             return null;
