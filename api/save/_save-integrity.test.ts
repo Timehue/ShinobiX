@@ -271,7 +271,7 @@ describe('saved bloodline identity boundary', () => {
             { savedBloodlines: [existingBloodline] },
         );
 
-        const out = sanitizeCompatible(incoming, existing);
+        const out = withStrictLedger(false, () => sanitizeCharacterSave(incoming, existing, { bloodlineWriteIntent: 'owned-bl' }));
         const saved = out.savedBloodlines as Array<Record<string, unknown>>;
         assert.equal(saved.length, 1);
         assert.deepEqual(

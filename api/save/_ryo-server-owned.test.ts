@@ -21,10 +21,11 @@ type KvSetOptions = { ex?: number; nx?: boolean };
 const store = new Map<string, unknown>();
 const clone = <T,>(value: T): T => structuredClone(value);
 let handler: Handler;
+let forgeHandler: Handler;
 let issuePlayerToken: (name: string) => string | null;
 let originalKv: Record<string, unknown>;
 
-function fakeReq(name: string, token: string, body: Record<string, unknown>) {
+function fakeReq(name: string, token: string, body: Record<string, unknown>, extraHeaders: Record<string, string> = {}) {
     return {
         method: 'POST',
         query: { name },
@@ -34,6 +35,7 @@ function fakeReq(name: string, token: string, body: Record<string, unknown>) {
             'x-player-token': token,
             'content-type': 'application/json',
             'x-forwarded-for': '203.0.113.45',
+            ...extraHeaders,
         },
         socket: { remoteAddress: '203.0.113.45' },
     } as never;
@@ -106,6 +108,7 @@ before(async () => {
     const auth = await import('../_auth.js');
     issuePlayerToken = auth.issuePlayerToken;
     handler = (await import('./[name].js')).default as unknown as Handler;
+    forgeHandler = (await import('../bloodlines/forge.js')).default as unknown as Handler;
 });
 
 after(async () => {
@@ -125,6 +128,97 @@ test('an agreeing ryo is a normal write that echoes the same balance', async () 
     const out = await autosave('ryo-agreeing', 750, 750);
     assert.equal(out.statusCode, 200);
     assert.deepEqual(out.body, { ok: true, _saveVersion: 5, ryo: 750, fateShards: 0 });
+});
+
+test('a purchased bloodline maker write persists the roster and acknowledges the stored selection', async () => {
+    const name = 'bloodline-maker-persist';
+    const token = issuePlayerToken(name);
+    assert.ok(token);
+    const entitlement = { id: '12345678-1234-1234-1234-123456789abc', rank: 'A Rank', issuedAt: Date.now() };
+    store.set(`save:${name}`, { _saveVersion: 4, character: character(name, 500),
+        savedBloodlines: [], pendingBloodlineForges: [entitlement] });
+    const bloodline = { id: 'bl-new', name: 'New bloodline', rank: 'A Rank', jutsus: [] };
+    const response = fakeRes();
+    await handler(fakeReq(name, token, { _baseSaveVersion: 4,
+        character: { ...character(name, 500), equippedBloodlineId: bloodline.id }, savedBloodlines: [bloodline] },
+    { 'x-bloodline-equip-intent': bloodline.id, 'x-bloodline-write-intent': bloodline.id }), response.res);
+    assert.equal(response.out.statusCode, 200);
+    const saved = store.get(`save:${name}`) as Record<string, unknown>;
+    assert.deepEqual((saved.savedBloodlines as Array<Record<string, unknown>>).map((entry) => entry.id), [bloodline.id]);
+    assert.deepEqual(saved.pendingBloodlineForges, []);
+    assert.equal((saved.character as Record<string, unknown>).equippedBloodlineId, bloodline.id);
+    assert.deepEqual(response.out.body, { ok: true, _saveVersion: 5, savedBloodlineIds: [bloodline.id],
+        savedBloodlineRanks: { [bloodline.id]: bloodline.rank }, equippedBloodlineId: bloodline.id,
+        ryo: 500, fateShards: 0 });
+});
+
+test('an older maker client cannot receive a success response for a discarded bloodline', async () => {
+    const name = 'bloodline-old-client';
+    const token = issuePlayerToken(name);
+    assert.ok(token);
+    const entitlement = { id: '12345678-1234-1234-1234-123456789abd', rank: 'A Rank', issuedAt: Date.now() };
+    const before = { _saveVersion: 4, character: character(name, 500),
+        savedBloodlines: [], pendingBloodlineForges: [entitlement] };
+    store.set(`save:${name}`, clone(before));
+    const bloodline = { id: 'bl-old-client', name: 'Unstored draft', rank: 'A Rank', jutsus: [] };
+    const response = fakeRes();
+    await handler(fakeReq(name, token, { _baseSaveVersion: 4,
+        character: { ...character(name, 500), equippedBloodlineId: bloodline.id }, savedBloodlines: [bloodline] }), response.res);
+    assert.equal(response.out.statusCode, 422);
+    assert.equal((response.out.body as { code?: string }).code, 'BLOODLINE_SAVE_REJECTED');
+    assert.deepEqual(store.get(`save:${name}`), before, 'the purchase remains available for a refreshed client');
+});
+
+test('a rejected rank upgrade cannot return success or consume the wrong forge purchase', async () => {
+    const name = 'bloodline-wrong-rank';
+    const token = issuePlayerToken(name);
+    assert.ok(token);
+    const entitlement = { id: '12345678-1234-1234-1234-123456789abe', rank: 'A Rank', issuedAt: Date.now() };
+    const before = { _saveVersion: 4, character: character(name, 500),
+        savedBloodlines: [], pendingBloodlineForges: [entitlement] };
+    store.set(`save:${name}`, clone(before));
+    const bloodline = { id: 'bl-wrong-rank', name: 'Wrong rank', rank: 'S Rank', jutsus: [] };
+    const response = fakeRes();
+    await handler(fakeReq(name, token, { _baseSaveVersion: 4,
+        character: { ...character(name, 500), equippedBloodlineId: bloodline.id }, savedBloodlines: [bloodline] },
+    { 'x-bloodline-equip-intent': bloodline.id, 'x-bloodline-write-intent': bloodline.id }), response.res);
+    assert.equal(response.out.statusCode, 422);
+    assert.deepEqual(store.get(`save:${name}`), before);
+});
+
+test('a stale full save cannot replace a newly stored bloodline with the old id', async () => {
+    const name = 'bloodline-stale-client';
+    const token = issuePlayerToken(name);
+    assert.ok(token);
+    const fresh = { id: 'bl-fresh', name: 'Fresh', rank: 'A Rank', jutsus: [] };
+    const old = { id: 'bl-old', name: 'Old', rank: 'B Rank', jutsus: [] };
+    const before = { _saveVersion: 4,
+        character: { ...character(name, 500), equippedBloodlineId: fresh.id },
+        savedBloodlines: [fresh], pendingBloodlineForges: [] };
+    store.set(`save:${name}`, clone(before));
+    const response = fakeRes();
+    await handler(fakeReq(name, token, { _baseSaveVersion: 4,
+        character: { ...character(name, 500), equippedBloodlineId: old.id }, savedBloodlines: [old] }), response.res);
+    assert.equal(response.out.statusCode, 422);
+    assert.deepEqual(store.get(`save:${name}`), before);
+});
+
+test('a pending Awakening Stone purchase reopens the maker without a second debit', async () => {
+    const name = 'bloodline-resume';
+    const token = issuePlayerToken(name);
+    assert.ok(token);
+    const entitlement = { id: '12345678-1234-1234-1234-123456789abf', rank: 'A Rank', issuedAt: Date.now() };
+    const before = { _saveVersion: 4, character: { ...character(name, 500), auraStones: 40 },
+        savedBloodlines: [], pendingBloodlineForges: [entitlement] };
+    store.set(`save:${name}`, clone(before));
+    const response = fakeRes();
+    await forgeHandler(fakeReq(name, token, { playerName: name, rank: 'A Rank', resumeOnly: true }), response.res);
+    assert.equal(response.out.statusCode, 200);
+    const body = response.out.body as Record<string, unknown>;
+    assert.deepEqual({ ...body, character: undefined }, { ok: true, rank: 'A Rank', currency: 'auraStones',
+        cost: 0, balance: 40, resumed: true, character: undefined, _saveVersion: 4 });
+    assert.equal((body.character as Record<string, unknown>).auraStones, 40);
+    assert.deepEqual(store.get(`save:${name}`), before);
 });
 
 test('a higher ryo is still rejected atomically with the authoritative balance', async () => {
