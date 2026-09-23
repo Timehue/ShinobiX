@@ -6,7 +6,7 @@ import { resolveNaturalWanderer } from '../sector/_wanderer-encounter.js';
 import { QUEST_BOOK, finalStageIndex, parseQuestbookSeal, questStage, stageTimerMs } from '../sector/_questbook.js';
 import { STORY_RECKONINGS, ownedItemCount, parseStoryReckoningSeal } from '../sector/_story-reckoning.js';
 import { findBounty, normalizeBoard } from '../pvp/_bounty.js';
-import { deriveContractHunter } from '../../shared/contract-hunter.js';
+import { CONTRACT_HUNTER_COOLDOWN_MS, contractHunterCooldownKey, deriveContractHunter } from '../../shared/contract-hunter.js';
 import { huntMissionById } from './_mission-catalog.js';
 import { savedCurrentSector } from './_mission-progress-receipt.js';
 import { loadAiFightProfile, type AiFightProfile } from './_ai-fight-encounter.js';
@@ -28,7 +28,7 @@ const MAX_WORLD_SECTOR = MAX_WILD_SECTOR;
 export const WORLD_AI_FIGHT_TTL_SECONDS = 30 * 60;
 export const WORLD_AI_ACTIVE_TTL_SECONDS = WORLD_AI_FIGHT_TTL_SECONDS;
 export const WORLD_AI_CHAIN_TTL_SECONDS = 60 * 60;
-export const WORLD_AI_BOUNTY_COOLDOWN_SECONDS = 30 * 60;
+export const WORLD_AI_BOUNTY_COOLDOWN_SECONDS = CONTRACT_HUNTER_COOLDOWN_MS / 1_000;
 
 export type WorldAiFightSpec = {
     profile: AiFightProfile;
@@ -296,7 +296,7 @@ export function worldAiChainKey(playerName: string, kind: string, sourceId: stri
 }
 
 export function worldAiBountyCooldownKey(playerName: string, sourceId: string): string {
-    return `world-ai-bounty-cooldown:${playerName}:${sourceId}`;
+    return contractHunterCooldownKey(playerName, sourceId);
 }
 
 function cleanWorldAiChainLease(raw: unknown): WorldAiChainLease | null {
@@ -554,14 +554,14 @@ export async function buildWorldAiFightSpec(params: {
         const cooldown = await kv.get<{ until?: unknown }>(worldAiBountyCooldownKey(params.playerName, request.sourceId));
         if (Number(cooldown?.until) > now) throw new Error('world-bounty-cooldown');
         const board = normalizeBoard(await kv.get('pvp:bounties'));
-        const bounty = findBounty(board, params.playerName);
+        const bounty = findBounty(board, String(character.name ?? params.playerName));
         if (!bounty) throw new Error('world-bounty-missing');
         // The hunter is derived from the SHARED bounty record + this player's
         // validated level / settled sector (shared/contract-hunter.ts — the same
         // function every client in the sector renders from). Nothing in the
         // request body shapes it: a sourceId that does not match the derived id
         // is a stale or forged hunter and is refused.
-        const hunter = deriveContractHunter(bounty, { name: params.playerName, level, currentSector: request.sector });
+        const hunter = deriveContractHunter(bounty, { name: bounty.target, level, currentSector: request.sector });
         if (!hunter) throw new Error('world-bounty-missing');
         if (request.sourceId !== hunter.id) throw new Error('world-bounty-stale');
         return { profile: runtimeProfile(`world-bounty-${request.sourceId}`, hunter.name, hunter.level, hunter.power, 'boss'), environment,
@@ -698,6 +698,18 @@ export function applyWorldAiFightSettlement(
 ): Record<string, unknown> {
     const won = outcome === 'win';
     let next = character;
+
+    // The KV cooldown guards fight starts; mirror its deadline in the saved
+    // character so the World Map removes this hunter as soon as settlement ACKs
+    // and still keeps it hidden after a reload.
+    if (context.kind === 'bounty-hunter') {
+        const now = Date.now();
+        const cooldowns = character.wandererCooldowns && typeof character.wandererCooldowns === 'object' && !Array.isArray(character.wandererCooldowns)
+            ? character.wandererCooldowns as Record<string, unknown>
+            : {};
+        const currentUntil = Number(cooldowns[context.sourceId]) || 0;
+        next = { ...next, wandererCooldowns: { ...cooldowns, [context.sourceId]: Math.max(currentUntil, now + CONTRACT_HUNTER_COOLDOWN_MS) } };
+    }
 
     if (context.kind === 'wanderer') {
         const streak = Math.max(0, Math.floor(Number(character.robberStreak) || 0));

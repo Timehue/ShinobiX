@@ -5940,6 +5940,8 @@ export default function App() {
                         setScreen={navigate}
                         character={character}
                         updateCharacter={setCharacter}
+                        combatActive={sealedFightOpen || isPresenceBattleActive()}
+                        isCombatActive={() => sealedFightEngagedRef.current || isPresenceBattleActive()}
                         creatorEvents={creatorEvents}
                         creatorRaids={creatorRaids}
                         petEncounterVn={petEncounterVn}

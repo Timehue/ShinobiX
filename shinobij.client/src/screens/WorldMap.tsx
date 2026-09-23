@@ -306,6 +306,8 @@ function WorldMapContent({
     setScreen,
     character,
     updateCharacter,
+    combatActive,
+    isCombatActive,
     creatorEvents,
     creatorRaids,
     petEncounterVn,
@@ -352,6 +354,8 @@ function WorldMapContent({
     setScreen: (screen: Screen) => void;
     character: Character;
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
+    combatActive: boolean;
+    isCombatActive: () => boolean;
     creatorEvents: CreatorEvent[];
     creatorRaids: CreatorRaid[];
     petEncounterVn: CreatorEvent;
@@ -448,6 +452,8 @@ function WorldMapContent({
     const [travelToast, setTravelToast] = useState<HuntToast | null>(null);
     const [huntEncounter, setHuntEncounter] = useState<HuntEncounterState | null>(null);
     const aiRaidLaunchInFlight = useRef(false);
+    const pendingBountyHunterRef = useRef<{ hunterId: string; sector: number } | null>(null);
+    const bountyHunterStartInFlightRef = useRef(false);
     const [authoritativeHuntStates, setAuthoritativeHuntStates] = useState<Record<string, WorldHuntTrailView>>({});
     const activeHuntTrails = useMemo<ActiveHuntTrail[]>(() => (
         builtinHuntMissions
@@ -821,7 +827,7 @@ function WorldMapContent({
     // lib/contract-hunter-wanderers.ts (same function the server settles from).
     const bountyHunterWanderers = useMemo<Wanderer[]>(() => {
         if (!isWanderersEnabled() || selectedSector == null) return [];
-        return contractHunterWanderers({ sector: selectedSector, bountyBoard, roster: playerRoster, now: Date.now(), interiorTileFromKey, self: { name: character.name, level: character.level, wandererCooldowns: character.wandererCooldowns } });
+        return contractHunterWanderers({ sector: selectedSector, bountyBoard, roster: playerRoster, now: serverNow(), interiorTileFromKey, self: { name: character.name, level: character.level, wandererCooldowns: character.wandererCooldowns } });
     }, [selectedSector, bountyBoard, playerRoster, character.name, character.level, character.wandererCooldowns]);
     const courierWanderers = useMemo<Wanderer[]>(() => {
         const favor = character.activeWandererFavor;
@@ -1475,12 +1481,34 @@ function WorldMapContent({
     }
     async function startBountyHunterFight(w: Wanderer) {
         if (selectedSector == null) return;
+        if (combatActive || isCombatActive()) {
+            pendingBountyHunterRef.current = { hunterId: w.id, sector: selectedSector };
+            return;
+        }
+        if (bountyHunterStartInFlightRef.current) return;
+        bountyHunterStartInFlightRef.current = true;
         setWandererDialog({ w, busy: true });
         const gate = await startBountyHunter(character.name, w.id);
+        bountyHunterStartInFlightRef.current = false;
+        if (combatActive || isCombatActive()) {
+            pendingBountyHunterRef.current = { hunterId: w.id, sector: selectedSector };
+            setWandererDialog(null);
+            return;
+        }
         if (!gate.ok) {
             if (gate.reason === "no-bounty") {
                 setBountyBoard(prev => prev.filter(b => b.target.trim().toLowerCase() !== character.name.trim().toLowerCase()));
                 setWandererDialog({ w, msg: "The hunter checks the board slip, curses, and walks away. The bounty is gone." });
+            } else if (gate.reason === "stale-hunter" && gate.bounty) {
+                const currentBounty = gate.bounty;
+                setBountyBoard(prev => [...prev.filter(b => b.target.trim().toLowerCase() !== character.name.trim().toLowerCase()), currentBounty]);
+                setWandererDialog({ w, msg: "The bounty changed. This hunter's contract is out of date." });
+            } else if (gate.reason === "cooldown") {
+                const until = gate.cooldownUntil;
+                if (until && until > serverNow()) {
+                    updateCharacter(prev => prev ? { ...prev, wandererCooldowns: { ...prev.wandererCooldowns, [w.id]: Math.max(prev.wandererCooldowns?.[w.id] ?? 0, until) } } : prev);
+                }
+                setWandererDialog({ w, msg: "The hunter has withdrawn for now." });
             } else {
                 setWandererDialog({ w, msg: gate.error ?? "The hunter loses the trail." });
             }
@@ -1490,9 +1518,27 @@ function WorldMapContent({
         const lvl = bountyHunterLevel(character.level, amount);
         const ai = makeBuiltinAi(`bounty-ai-${w.id}`, w.name, "BH", lvl, "Bounty Board", [], Math.min(18, 8 + Math.floor(amount / 100_000)), undefined, "boss");
         ai.image = wandererAvatar("bountyHunter");
+        const admission = mutationAvailability();
+        if (!capabilityAdmissionAllowed(admission)) {
+            setWandererDialog({ w, msg: mutationAdmissionMessage(admission) });
+            return;
+        }
         setWandererDialog(null);
         launchWorldMapFight(ai, selectedSector, { kind: "bounty-hunter", sourceId: w.id, sector: selectedSector, stage: 0 });
     }
+    const pendingWorldHandoff = character as Character & { worldAiPendingChain?: unknown; worldAiPendingOutcome?: unknown };
+    useEffect(() => {
+        // A sealed ambush or hunt chain already owns the next fight. Let its
+        // server-proved wave (or pending reward claim) finish before the hunter.
+        if (combatActive || isCombatActive() || pendingWorldHandoff.worldAiPendingChain || pendingWorldHandoff.worldAiPendingOutcome) return;
+        const pending = pendingBountyHunterRef.current;
+        if (!pending) return;
+        pendingBountyHunterRef.current = null;
+        if (isTraveling || character.hospitalized || Number(character.hp) <= 0
+            || selectedSector !== pending.sector || !sameSector(currentSector, pending.sector)) return;
+        const hunter = bountyHunterWanderers.find((candidate) => candidate.id === pending.hunterId && candidate.verb === "bountyHunter");
+        if (hunter) void startBountyHunterFight(hunter);
+    }, [combatActive, bountyHunterWanderers, selectedSector, currentSector, isTraveling, character.hospitalized, character.hp, pendingWorldHandoff.worldAiPendingChain, pendingWorldHandoff.worldAiPendingOutcome]);
     function launchAmbushStage(stage: number, sector: number, chainId: string) {
         // Robbers at the player's level (+0/+1/+2); the boss a few levels above —
         // scaled to the player so the gauntlet is hard, not impossible.
@@ -1817,6 +1863,10 @@ function WorldMapContent({
     }
     function handleWandererEngage(w: Wanderer) {
         if (selectedSector == null || !sameSector(currentSector, selectedSector)) return;
+        if (combatActive || isCombatActive()) {
+            if (w.verb === "bountyHunter") pendingBountyHunterRef.current = { hunterId: w.id, sector: selectedSector };
+            return;
+        }
         rememberWanderer(w);
         // Fresh scene, fresh verdict: whether the LAST giver's offer was taken must
         // never carry into this one's decline check. (The rift-accept branch closes
@@ -1914,7 +1964,7 @@ function WorldMapContent({
         // A roaming mercenary doesn't parley — it forces a server-resolved fight.
         if (isMercAiId(w.id)) { void engageRoamingMerc(w); return; }
         if (w.verb === "bountyHunter") {
-            setWandererDialog({ w });
+            void startBountyHunterFight(w);
             return;
         }
         // A bandit you face while you have a rival has a chance of BEING that rival,
@@ -1967,8 +2017,9 @@ function WorldMapContent({
     // (`msg`) dialogs just close; the cooldown was set when the action ran.
     function dismissWandererDialog() {
         const d = wandererDialog;
+        if (d?.w.verb === "bountyHunter" && !d.msg) return;
         setWandererDialog(null);
-        if (d && !d.msg && (d.w.verb === "attack" || d.w.verb === "bountyHunter")) coolWanderer(d.w.id, WANDERER_FLEE_COOLDOWN_MS);
+        if (d && !d.msg && d.w.verb === "attack") coolWanderer(d.w.id, WANDERER_FLEE_COOLDOWN_MS);
     }
     function handleWandererBackdropClick() {
         if (requiresWandererChoice(wandererDialog)) return;
@@ -3651,7 +3702,7 @@ function WorldMapContent({
         const result = await claimSectorContract(character.name, selectedSector);
         setContractBusy(false);
         bumpSectorContractRevision();
-        if (!result.ok) {
+        if (result.ok === false) {
             setTravelToast({ id: Date.now(), kicker: "Contract", text: result.message });
             return;
         }
@@ -4427,7 +4478,6 @@ function WorldMapContent({
                                         closeWandererDialog={() => setWandererDialog(null)}
                                         dismissWandererDialog={dismissWandererDialog}
                                         startWandererAttack={startWandererAttack}
-                                        startBountyHunterFight={startBountyHunterFight}
                                         tradeWithWanderer={tradeWithWanderer}
                                         askRoadRumor={askRoadRumor}
                                         visitWandererMedic={visitWandererMedic}
