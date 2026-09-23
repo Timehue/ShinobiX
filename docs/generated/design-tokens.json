@@ -2741,7 +2741,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/screens/EchoesOfWar.css",
-            "line": 1014
+            "line": 1031
           },
           {
             "source": "shinobij.client/src/screens/PetLadder.css",
@@ -2758,6 +2758,10 @@
           {
             "source": "shinobij.client/src/styles/central-hub-forge.css",
             "line": 599
+          },
+          {
+            "source": "shinobij.client/src/styles/chronicle-packs.css",
+            "line": 191
           },
           {
             "source": "shinobij.client/src/styles/index/03-rails-daily-briefing.css",
@@ -3239,7 +3243,7 @@
           },
           {
             "source": "shinobij.client/src/screens/EchoesOfWar.css",
-            "line": 857
+            "line": 874
           },
           {
             "source": "shinobij.client/src/styles/hub-screens-skin.css",
@@ -3766,6 +3770,17 @@
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
             "line": 3152
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 880,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/chronicle-packs.css",
+            "line": 185
           }
         ]
       },
