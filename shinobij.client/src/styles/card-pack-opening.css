@@ -1,6 +1,6 @@
 /* Card-pack opening cinematic (components/CardPackOpening.tsx).
  *
- * Imported by components/Shop.tsx (the lazy shop chunk owns it — never import
+ * Imported by screens/CardHall.tsx (the lazy hall chunk owns it — never import
  * this from the component itself; node tests import component modules and
  * cannot load CSS). Everything animates transform/opacity only, so the show
  * stays smooth on mobile. Theme vars (--pack-accent, --pack-foil-a/b) and the

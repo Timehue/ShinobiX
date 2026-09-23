@@ -162,6 +162,7 @@ type EchoesOfWarProps = {
     updateCharacter: (character: Character) => void;
     onVersionedCharacter: (character: Character, saveVersion?: number) => boolean;
     onBack: () => void;
+    onOpenCardPacks: () => void;
     sharedImages?: Record<string, string>;
 };
 
@@ -180,7 +181,7 @@ export function EchoesOfWar(props: EchoesOfWarProps) {
     );
 }
 
-function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersionedCharacter, onBack, sharedImages }: EchoesOfWarProps) {
+function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersionedCharacter, onBack, onOpenCardPacks, sharedImages }: EchoesOfWarProps) {
     // Suspends to App's lazy-screen fallback on the first visit; the payload is
     // content-addressed and immutable-cached, so every later mount is sync.
     const { scenes: echoesScenes, eras: echoesEraIntros, witness: echoesWitness } = readEchoesContent();
@@ -550,7 +551,7 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
                     {subline ? <p className="echoes-sub">{ECHOES_HERO_COPY.subtitle}</p> : null}
                 </div>
                 <div className="echoes-header-stats">
-                    <span className="echoes-points-chip" title="Chronicle Points buy the Basic Card Pack in the Card Shop.">🏛️ Chronicle Points: <strong>{chroniclePoints}</strong></span>
+                    <span className="echoes-points-chip" title="Spend Chronicle Points on card packs in the Card Hall.">🏛️ Chronicle Points: <strong>{chroniclePoints}</strong></span>
                     <span className="echoes-stat">Highest memory: Floor {highestFloor}</span>
                     <div className="echoes-progress" aria-label={`Stories completed: ${completed} of ${ECHOES_OPPONENTS.length}`}>
                         <span>Stories {completed}/{ECHOES_OPPONENTS.length}</span>
@@ -595,7 +596,7 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
                         <span className="echoes-kicker">Echoes of War · Floor {selected.floor}{selected.isBoss ? " · Chapter Boss" : ""}</span>
                         <h1>{selected.name}, {selected.title}</h1>
                     </div>
-                    <span className="echoes-points-chip" title="Chronicle Points buy the Basic Card Pack in the Card Shop.">🏛️ {chroniclePoints}</span>
+                    <span className="echoes-points-chip" title="Spend Chronicle Points on card packs in the Card Hall.">🏛️ {chroniclePoints}</span>
                 </header>
                 <section className={`echoes-detail-stage ${selected.isBoss ? "echoes-detail-stage--boss" : ""}`}>
                     <div className="echoes-detail-backdrop" style={{ backgroundImage: `url(${selected.sceneImage})` }} aria-hidden="true" />
@@ -737,7 +738,7 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
                 <ol className="echoes-ladder echoes-ladder--era">
                     {eraOpponents.map(renderNode)}
                 </ol>
-                <p className="echoes-footnote">Chronicle Points buy the Basic Card Pack in the Card Shop. Losses cost nothing except the climb back down.</p>
+                <p className="echoes-footnote">Spend Chronicle Points on card packs in the Card Hall. Losses cost nothing except the climb back down. <button type="button" className="echoes-pack-link" onClick={onOpenCardPacks}>Open Card Packs →</button></p>
             </div>
         );
     }
@@ -791,7 +792,7 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
                     );
                 })}
             </div>
-            <p className="echoes-footnote">{ECHOES_HERO_COPY.footnote}</p>
+            <p className="echoes-footnote">{ECHOES_HERO_COPY.footnote} <button type="button" className="echoes-pack-link" onClick={onOpenCardPacks}>Open Card Packs →</button></p>
         </div>
     );
 }

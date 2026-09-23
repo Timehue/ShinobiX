@@ -4,8 +4,8 @@
  * The card game stays sealed until the Chronicle Scribe event hands the player
  * their traveler's codex (lib/chronicle-scribe.ts sets `starterCardsClaimed`
  * via the server claim). Split from the scribe module rift-run-style so the
- * entry-bundle Shop component can gate its pack section without pulling the
- * scribe's VN content into every player's initial download.
+ * Card Hall can gate its pack section without pulling the scribe's VN content
+ * into every player's initial download.
  *
  * The server enforces the same lock on the player-initiated card surfaces
  * (api/card-clash/_starter-cards.ts `chronicleUnlocked`): AI duels, the PvP
@@ -19,7 +19,7 @@ export const SCRIBE_MIN_LEVEL = 17;
 export type CardGameLockStatus = { locked: boolean; title: string; body: string };
 
 /** Whether the Chronicle mode is sealed for this character, with the message
- *  the Card Hall / Shop show. Unlocks the moment Ihara hands over the codex. */
+ *  the Card Hall shows. Unlocks the moment Ihara hands over the codex. */
 export function cardGameLockStatus(character: Pick<Character, "level" | "starterCardsClaimed">): CardGameLockStatus {
     if (character.starterCardsClaimed === true) return { locked: false, title: "", body: "" };
     if ((character.level ?? 0) < SCRIBE_MIN_LEVEL) {

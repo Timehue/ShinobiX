@@ -63,8 +63,23 @@ async function stored() {
     return { record, character: record.character as Json, version: Number(record._saveVersion) };
 }
 
+test('pack telemetry counts the rarity of the card ID actually awarded', async () => {
+    const { betaDateKey, betaMetricKey, flushBetaMetrics } = await import('../_beta-metrics.js');
+    const { BUILTIN_CLASH } = await import('../clan/war/_card-catalog.js');
+    const result = await post({ packType: 'epic', requestId: REQUEST_ID });
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    const cardId = (result.body.cards as string[])[0];
+    const rarity = BUILTIN_CLASH[cardId]?.rarity;
+    assert.ok(rarity === 'rare' || rarity === 'epic');
+    await flushBetaMetrics();
+    const day = await kv.get<Json>(betaMetricKey(betaDateKey()));
+    assert.ok(day);
+    assert.equal((day.rareGrants as Json)[`card:${rarity}`], 1);
+});
+
 for (const [packType, currency, cost, count] of [
     ['standard', 'chroniclePoints', 100, 5],
+    ['fire', 'chroniclePoints', 100, 5],
     ['epic', 'fateShards', 10, 1],
 ] as const) {
     test(`${packType}: lost committed response retries the original cards and spends once`, async () => {

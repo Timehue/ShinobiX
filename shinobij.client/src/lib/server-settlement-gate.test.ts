@@ -78,7 +78,8 @@ describe("server settlement policy", () => {
 
         const shop = source("../components/Shop.tsx");
         assertGuardBefore(shop, "buy", "shopPurchase", "fetch('/api/shop/purchase'");
-        assertGuardBefore(shop, "openPack", "shopCardPack", "openCardPack(");
+        const packs = source("../components/ChroniclePackGallery.tsx");
+        assertGuardBefore(packs, "open", "shopCardPack", "openCardPack(");
 
         const inventory = source("../screens/Inventory.tsx");
         assertGuardBefore(inventory, "consumeItem", "warCrateOpen", "openWarCrate(");
