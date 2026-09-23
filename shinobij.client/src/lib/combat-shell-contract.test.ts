@@ -54,10 +54,10 @@ test("mode-only chat and pet controls stay owned by their battle screens", () =>
     );
     assert.match(
         tacticalPve,
-        /<CombatCommandBar[\s\S]*?type: "summon"[\s\S]*?Summon Pet[\s\S]*?<\/CombatCommandBar>/,
+        /<CombatCommandBar[\s\S]*?type: "summon"[\s\S]*?<span>Summon<\/span>[\s\S]*?<\/CombatCommandBar>/,
         "tactical PvE must expose the server-owned pet summon when a companion is sealed",
     );
-    assert.match(solo, /<span>Summon Pet<\/span>/, "authoritative PvE must label the summon explicitly");
+    assert.match(solo, /<span>Summon<\/span>/, "authoritative PvE must label the summon consistently");
 });
 
 test("wide desktop shares one command center and gives unused mode space to the battle log", () => {
