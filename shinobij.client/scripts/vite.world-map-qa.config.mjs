@@ -29,7 +29,7 @@ export default defineConfig({
     }],
     resolve: { alias: { "@": fileURLToPath(new URL("../src", import.meta.url)) } },
     optimizeDeps: {
-        noDiscovery: true,
+        noDiscovery: false,
         include: ["react", "react-dom/client", "react/jsx-runtime", "react/jsx-dev-runtime"],
     },
     server: { watch: null },
