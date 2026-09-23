@@ -1136,7 +1136,7 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
         const blocked = activeStatuses(opponent, session.round).some((status) => status.name === 'Clear Prevent');
         if (!blocked) {
             const cleared = removeActiveCombatStatusesByKind(opponent.statuses, 'positive', session.round);
-            setFighter(session, otherSide(side), { ...opponent, statuses: cleared.statuses });
+            setFighter(session, otherSide(side), { ...opponent, shield: 0, statuses: cleared.statuses });
         }
         session.cooldowns[side].clear = 10;
         spendAction(session, side, CLEAR_AP);

@@ -1,7 +1,10 @@
 import { strict as assert } from "node:assert";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { partitionCombatDisplayStatuses } from "../lib/combat-action-display.js";
+import { CombatEffectsPanel, MobileEffectsStrip } from "./CombatSideHud.js";
 
 const source = readFileSync(new URL("./CombatSideHud.tsx", import.meta.url), "utf8");
 const missionSource = readFileSync(new URL("../screens/MissionArenaFight.tsx", import.meta.url), "utf8");
@@ -41,8 +44,25 @@ describe("CombatSideHud deferred status display", () => {
         assert.match(source, /raw potency, converted into a flat bonus through diminishing returns/);
     });
 
+    it("shows the Smoke Bomb source by name in player debuffs", () => {
+        const smoke = { name: "Decrease Damage Given", source: "item-smoke-bomb", percent: 100, rounds: 1, kind: "negative" as const };
+        const desktop = renderToStaticMarkup(createElement(CombatEffectsPanel, { title: "Debuffs", tone: "negative", statuses: [smoke] }));
+        assert.match(desktop, /Smoke Bomb/);
+        assert.doesNotMatch(desktop, /Damage dealt ↓/);
+        const mobile = renderToStaticMarkup(createElement(MobileEffectsStrip, { statuses: [smoke] }));
+        assert.match(mobile, /title="Smoke Bomb/);
+        assert.match(mobile, />Smoke</);
+        const crowded = renderToStaticMarkup(createElement(MobileEffectsStrip, {
+            statuses: [{ name: "Increase Damage Given", rounds: 2, kind: "positive" as const }, smoke], max: 1,
+        }));
+        assert.match(crowded, /title="Smoke Bomb/);
+        assert.match(towerSource, /status\.source === "item-smoke-bomb" \? "SMOKE"/);
+        assert.match(towerSource, /Number\(b\.source === "item-smoke-bomb"\)/);
+    });
+
     it("preserves timing fields in the Mission HUD and round-filters Tower status chips", () => {
         assert.match(missionSource, /activeRound: s\.activeRound/);
+        assert.match(missionSource, /source: s\.source/);
         assert.match(missionSource, /inactiveRound: s\.inactiveRound/);
         assert.equal((missionSource.match(/currentRound=\{session\.round\}/g) ?? []).length, 2);
         assert.match(towerSource, /activeCombatDisplayStatuses\(actor\.statuses, round\)/);

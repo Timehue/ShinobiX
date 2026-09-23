@@ -2892,7 +2892,8 @@ function ActorCard({ actor, round, highlight, avatar, emoji, boss, ally, unknown
     const pct = Math.max(0, Math.min(100, (actor.hp / Math.max(1, actor.maxHp)) * 100));
     const dead = actor.hp <= 0;
     const accent = actor.side === "squad" ? "var(--green-400)" : actor.side === "npc" ? "var(--gold)" : "var(--red-400)";
-    const visibleStatuses = activeCombatDisplayStatuses(actor.statuses, round);
+    const visibleStatuses = [...activeCombatDisplayStatuses(actor.statuses, round)]
+        .sort((a, b) => Number(b.source === "item-smoke-bomb") - Number(a.source === "item-smoke-bomb"));
     const enemyJutsu = Array.isArray(actor.character.jutsu) ? actor.character.jutsu as JutsuLike[] : [];
     const maximumRange = Math.max(1, ...enemyJutsu.map(jutsu => Math.max(1, Number(jutsu.range ?? 1))));
     const defensiveStatuses = visibleStatuses.filter(status => status.kind === "positive").map(status => status.name).slice(0, 2);
@@ -2955,8 +2956,9 @@ const STATUS_ABBR: Record<string, string> = {
 };
 function StatusChip({ status }: { status: TowerStatus }) {
     const positive = status.kind === "positive";
-    const label = STATUS_ABBR[status.name] ?? status.name.slice(0, 5).toUpperCase();
-    const detail = `${status.name}${status.percent ? ` ${status.percent}%` : ""}${status.rounds ? ` · ${status.rounds} turn${status.rounds !== 1 ? "s" : ""}` : ""}`;
+    const name = status.source === "item-smoke-bomb" ? "Smoke Bomb" : status.name;
+    const label = status.source === "item-smoke-bomb" ? "SMOKE" : STATUS_ABBR[name] ?? name.slice(0, 5).toUpperCase();
+    const detail = `${name}${status.percent ? ` ${status.percent}%` : ""}${status.rounds ? ` · ${status.rounds} turn${status.rounds !== 1 ? "s" : ""}` : ""}`;
     return (
         <span title={detail} style={{
             fontSize: 8, fontWeight: 800, padding: "0 3px", borderRadius: 3, lineHeight: "12px", letterSpacing: 0.2,

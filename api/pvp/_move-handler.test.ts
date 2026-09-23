@@ -22,6 +22,7 @@ type Handler = (req: never, res: never) => Promise<unknown>;
 let moveHandler: Handler;
 let applyJutsu: typeof import('./move.js').applyJutsu;
 let applyDoTs: typeof import('./move.js').applyDoTs;
+let poisonSpendDamage: typeof import('./move.js').poisonSpendDamage;
 let issuePlayerToken: (name: string, ttlMs?: number) => string | null;
 
 before(async () => {
@@ -79,6 +80,7 @@ before(async () => {
     moveHandler = moveModule.default as unknown as Handler;
     applyJutsu = moveModule.applyJutsu;
     applyDoTs = moveModule.applyDoTs;
+    poisonSpendDamage = moveModule.poisonSpendDamage;
     issuePlayerToken = (await import('../_auth.js')).issuePlayerToken;
 });
 
@@ -675,7 +677,7 @@ test('Clear preserves deferred positive prevention statuses in both round phases
             { name: 'Stun Prevent', rounds: 2, activeRound: 2, kind: 'positive' },
         ];
         const active: PvpStatus = { name: 'Increase Heal', rounds: 2, activeRound: 1, percent: 30, kind: 'positive' };
-        const target = fighter(phase.target === 'p1' ? 'alice' : 'bob', phase.target === 'p1' ? 0 : 1, { statuses: [active, ...pending] });
+        const target = fighter(phase.target === 'p1' ? 'alice' : 'bob', phase.target === 'p1' ? 0 : 1, { shield: 750, statuses: [active, ...pending] });
         const battleId = `clear-pending-${phase.label}`;
         seed(session(battleId, {
             round: 1,
@@ -694,6 +696,8 @@ test('Clear preserves deferred positive prevention statuses in both round phases
         assert.equal(out.statusCode, 200);
         const after = storedSession(battleId);
         const statuses = phase.target === 'p1' ? after.p1.statuses : after.p2.statuses;
+        assert.equal((phase.target === 'p1' ? after.p1 : after.p2).shield, 0,
+            `${phase.label}: Clear removes the target's shield`);
         assert.equal(statuses.some((status) => status.name === 'Increase Heal'), false,
             `${phase.label}: active buff is cleared`);
         for (const expected of pending) {
@@ -701,6 +705,19 @@ test('Clear preserves deferred positive prevention statuses in both round phases
                 `${phase.label}: pending ${expected.name} survives until activation`);
         }
     }
+});
+
+test('active Clear Prevent keeps the target shield intact', async () => {
+    seed(session('clear-prevent-shield', {
+        p2: fighter('bob', 1, { shield: 700, statuses: [
+            { name: 'Clear Prevent', rounds: 2, activeRound: 1, kind: 'positive' },
+        ] }),
+    }));
+    const out = await postMove('alice', {
+        battleId: 'clear-prevent-shield', role: 'p1', action: 'clear', moveToken: 'clear-prevent-shield',
+    });
+    assert.equal(out.statusCode, 200);
+    assert.equal(storedSession('clear-prevent-shield').p2.shield, 700);
 });
 
 test('Copy and Mirror persist their deferred contracts through the authoritative move handler', async () => {
@@ -1706,6 +1723,10 @@ test('ranked pill percentages are exact and smoke blocks ordinary hits but not P
     assert.equal(dealt(attacker, withStatus(defender, 'Decrease Damage Taken', 'item-defense-pill', 15, 'positive'), pierce),
         plainPierce, 'Defense Pill cannot reduce Pierce');
     assert.equal(dealt(smoke, defender, pierce), plainPierce, 'Smoke Bomb cannot reduce Pierce');
+    const shielded = { ...defender, shield: 1000 };
+    const pierced = applyJutsu(smoke, shielded, pierce, 1, 'central', 1).opponent;
+    assert.equal(shielded.hp - pierced.hp, plainPierce, 'Pierce reaches HP through smoke and shield');
+    assert.equal(pierced.shield, shielded.shield, 'Pierce does not consume the bypassed shield');
     const statBuffed = { ...attacker, statuses: [
         { name: 'Increase Generals', percent: 35, kind: 'positive', rounds: 2, activeRound: 1 },
         { name: 'Increase Discipline', percent: 35, discipline: 'Ninjutsu', kind: 'positive', rounds: 2, activeRound: 1 },
@@ -1726,13 +1747,22 @@ test('Defense Pill also reduces a bleed tick by exactly 15%', () => {
     assert.equal(protectedTick, Math.floor(withoutPill * 0.85));
 });
 
-test('Smoke Bomb prevents existing bleed damage while active', () => {
-    const wounded = { ...fighter('alice', 0), statuses: [
+test('Smoke Bomb leaves Wound, Drain, and Poison damage unchanged', () => {
+    const afflicted = { ...fighter('alice', 0), statuses: [
         { name: 'Wound', amount: 100, kind: 'negative', rounds: 2, activeRound: 1 },
-        { name: 'Decrease Damage Given', source: 'item-smoke-bomb', percent: 100,
-            kind: 'negative', rounds: 1, activeRound: 1 },
+        { name: 'Drain', amount: 80, kind: 'negative', rounds: 2, activeRound: 1 },
+        { name: 'Poison', percent: 6, kind: 'negative', rounds: 2, activeRound: 1 },
     ] } as PvpFighter;
-    assert.equal(applyDoTs(wounded, 1).fighter.hp, wounded.hp);
+    const smoked = { ...afflicted, statuses: [...afflicted.statuses,
+        { name: 'Decrease Damage Given', source: 'item-smoke-bomb', percent: 100,
+            kind: 'negative', rounds: 1, activeRound: 1 } as PvpStatus] };
+    const normalTick = applyDoTs(afflicted, 1).fighter;
+    const smokedTick = applyDoTs(smoked, 1).fighter;
+    assert.ok(normalTick.hp < afflicted.hp);
+    assert.equal(smokedTick.hp, normalTick.hp);
+    assert.equal(smokedTick.chakra, normalTick.chakra);
+    assert.ok(poisonSpendDamage(afflicted, 100, 1) > 0);
+    assert.equal(poisonSpendDamage(smoked, 100, 1), poisonSpendDamage(afflicted, 100, 1));
 });
 
 test('smoke cast by the round closer survives the round boundary', async () => {

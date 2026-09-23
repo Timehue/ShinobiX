@@ -1107,13 +1107,12 @@ export function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu,
 
 // ─── DoTs applied at start of each turn ───────────────────────────────────────
 // A fighter's own mitigation against damage-over-time: armor + active Decrease
-// Damage Taken, at DR_DOT_SCALE. Smoke Bomb fully blocks ordinary DoT. Shared by
+// Damage Taken, at DR_DOT_SCALE. Smoke Bomb affects direct hits only. Shared by
 // applyDoTs (Wound/Drain ticks) and the on-spend Poison hit (poisonSpendDamage).
 function ownDotMitigation(f: PvpFighter, round: number): number {
     const ownArmor = armorRawDrFromCharacter(f.character as Record<string, unknown>);
     let ownStatusDR = 0;
     const statuses = activeStatuses(f, round);
-    if (statuses.some(s => s.source === 'item-smoke-bomb')) return 0;
     for (const s of statuses) {
         if (s.name === 'Decrease Damage Taken' && s.source !== 'item-defense-pill') ownStatusDR += (s.percent ?? 0) / 100;
     }
@@ -2105,8 +2104,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 } else {
                     const cleared = removeActiveCombatStatusesByKind(opp.statuses, 'positive', session.round);
                     const removed = cleared.removed.map(s => s.name);
-                    lines.push(`Clear: removed ${removed.length ? removed.join(', ') : 'no positive effects'} from ${opp.name}.`);
-                    result = commit(null, { ...opp, statuses: cleared.statuses }, 60, { clear: 10 }, undefined, undefined, [vfxEvent('opp', 'cleanse', 'target')]);
+                    lines.push(`Clear: removed ${removed.length ? removed.join(', ') : 'no positive effects'} from ${opp.name}${opp.shield > 0 ? ' and broke their shield' : ''}.`);
+                    result = commit(null, { ...opp, shield: 0, statuses: cleared.statuses }, 60, { clear: 10 }, undefined, undefined, [vfxEvent('opp', 'cleanse', 'target')]);
                 }
                 break;
             }
