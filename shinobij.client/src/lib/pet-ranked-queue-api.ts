@@ -16,7 +16,7 @@ import type { Character } from "../types/character";
 
 export type PetRankedQueueState =
     | { state: "idle" }
-    | { state: "queued"; queuePosition: number; waiting: number }
+    | { state: "queued"; queuePosition: number; waiting: number; teamIds: string[] }
     | { state: "paired"; opponent: string; opponentElo: number; initiator: boolean; expiresAt: number }
     | { state: "active"; matchToken: string; opponent: string; initiator: boolean }
     | { state: "completed"; matchToken: string; opponent: string };
@@ -60,11 +60,12 @@ export async function petRankedQueue(
     action: "join" | "leave" | "poll" | "acknowledge",
     playerName: string,
     matchToken?: string,
+    petIds?: string[],
 ): Promise<PetRankedQueueState> {
     // Never trust the body's shape: a proxy, an error page, or a preview build
     // with no API mounted all answer 200 with HTML, which parses to `{}`.
     // Adopting that would blank `state` and throw on the next render.
-    const raw = await post({ action, name: playerName, ...(matchToken ? { matchToken } : {}) });
+    const raw = await post({ action, name: playerName, ...(matchToken ? { matchToken } : {}), ...(petIds ? { petIds } : {}) });
     return typeof raw.state === "string"
         ? raw as unknown as PetRankedQueueState
         : { state: "idle" };

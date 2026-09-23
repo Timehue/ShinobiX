@@ -3866,7 +3866,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             <div className="showdown-result-reward capped">Daily arena reward cap reached</div>
                         )}
                         <div className="showdown-result-buttons">
-                            <button type="button" className="showdown-cta" autoFocus onClick={onRematch}>Battle Again</button>
+                            <button type="button" className="showdown-cta" autoFocus onClick={onRematch}>{spectator ? "Watch Again" : "Battle Again"}</button>
                             <button type="button" className="showdown-chip" onClick={onExit}>Leave the Showdown</button>
                         </div>
                     </div>

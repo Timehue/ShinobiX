@@ -25,9 +25,8 @@
  * rated fight, replayed from the same inputs. Nothing is stored: the replay
  * doctrine here is "store inputs, not fights", and the token IS the input.
  *
- * FORMAT IS 1v1. A ranked match token seals exactly one pet per side, so the
- * 2v2-plus-bench war format would put two lone pets in a shape built for
- * reserves and switch play. See WarDuelInput.format.
+ * New tokens seal four pets per side: two on the field and two rotating in.
+ * Retained one-pet proofs replay under their original 1v1 format.
  *
  * DETERMINISM: nothing here may read a clock, a save, or a random source. Two
  * calls with the same token must produce byte-identical scripts forever, or the
@@ -58,8 +57,10 @@ export function resolveRankedPetDuel(token: RankedPetMatchToken): RankedPetDuelR
     const aIsCanonical = token.a <= token.b;
     const fromName = aIsCanonical ? token.a : token.b;
     const toName = aIsCanonical ? token.b : token.a;
-    const fromPet = (aIsCanonical ? token.aPet : token.bPet) as unknown as Pet;
-    const toPet = (aIsCanonical ? token.bPet : token.aPet) as unknown as Pet;
+    const fromTeam = (aIsCanonical ? token.aTeam : token.bTeam) as Pet[] | undefined;
+    const toTeam = (aIsCanonical ? token.bTeam : token.aTeam) as Pet[] | undefined;
+    const fromPets = fromTeam ?? [(aIsCanonical ? token.aPet : token.bPet) as unknown as Pet];
+    const toPets = toTeam ?? [(aIsCanonical ? token.bPet : token.aPet) as unknown as Pet];
     const { outcome, script } = resolveWarDuel({
         // Derived from the pair id, never a clock — the session id feeds the
         // arena/stage pick, so a wall-clock label would restage the same fight
@@ -68,9 +69,9 @@ export function resolveRankedPetDuel(token: RankedPetMatchToken): RankedPetDuelR
         seed: token.seed,
         fromName,
         toName,
-        fromPets: [fromPet],
-        toPets: [toPet],
-        format: '1v1',
+        fromPets,
+        toPets,
+        format: fromTeam && toTeam ? '2v2' : '1v1',
     });
     return { winnerName: outcome === 'from' ? fromName : toName, script };
 }

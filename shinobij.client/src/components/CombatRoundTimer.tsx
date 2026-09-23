@@ -87,7 +87,7 @@ export function CombatRoundTimer({
     // An open-ended wait with no subject and no bound is the worst state this
     // component can show: the player cannot tell a stalled match from a slow
     // one, and does not know whether leaving forfeits. After WAITING_HINT_MS
-    // the wait says so, and says leaving is safe.
+    // the wait points to the unstarted-duel cancellation control.
     const waiting = anchored && active && anchorStartedAt === undefined;
     const [waitedLong, setWaitedLong] = useState(false);
     useEffect(() => {
@@ -148,8 +148,8 @@ export function CombatRoundTimer({
                 </div>
                 <small aria-live="polite">
                     {waitedLong
-                        ? `${who} hasn't joined. You can leave — the match will resolve on its own.`
-                        : `Waiting for ${who}`}
+                        ? `${who} hasn't joined. You can cancel the unstarted duel.`
+                        : `Waiting for ${who} to join`}
                 </small>
             </div>
         );

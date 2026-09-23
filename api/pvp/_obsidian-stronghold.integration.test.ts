@@ -15,6 +15,7 @@ let attack: typeof import('../player/attack.js').default;
 let create: typeof import('./session.js').default;
 let move: typeof import('./move.js').default;
 let claim: typeof import('./claim-rewards.js').default;
+let reportRaid: typeof import('../missions/report-raid.js').default;
 let location: typeof import('../_stronghold-presence.js');
 before(async () => {
     ({ kv } = await import('../_storage.js'));
@@ -25,6 +26,7 @@ before(async () => {
     create = (await import('./session.js')).default as unknown as typeof create;
     move = (await import('./move.js')).default as unknown as typeof move;
     claim = (await import('./claim-rewards.js')).default as unknown as typeof claim;
+    reportRaid = (await import('../missions/report-raid.js')).default as unknown as typeof reportRaid;
     location = await import('../_stronghold-presence.js');
 });
 let seq = 0;
@@ -103,6 +105,28 @@ for (const [suffix, inside, sector, multiplier] of [['inside', true, 99, 4], ['o
         const again = (await kv.get<Record<string, any>>(`save:${one}`))!;
         assert.equal(again.character.ryo, save.character.ryo);
         assert.deepEqual(again.character.jutsuMastery, save.character.jutsuMastery);
+        if (sector === 99) {
+            const nextOpponent = `obsthree${suffix}`;
+            const nextCharacter = await seed(nextOpponent, sector);
+            const nextBody = { p1Character: { name: one }, p2Character: nextCharacter };
+            const blocked = await post(create, one, nextBody);
+            assert.equal(blocked.status, 409, JSON.stringify(blocked.body));
+            assert.match(String(blocked.body.error), /pending PvP battle settlement/);
+
+            const reported = await post(reportRaid, one, { battleId });
+            assert.equal(reported.status, 200, JSON.stringify(reported.body));
+            assert.deepEqual(reported.body.fetchMissionsCredited, []);
+            const acknowledged = await post(claim, one, {
+                battleId, outcome: 'win', completionVersion: 1, completionAck: true,
+            });
+            assert.equal(acknowledged.status, 200, JSON.stringify(acknowledged.body));
+            assert.equal(acknowledged.body.completionPending, false);
+            const { loadPvpPendingSessionPointer } = await import('./_pending-session.js');
+            assert.equal(await loadPvpPendingSessionPointer(kv, one), null);
+
+            const next = await post(create, one, nextBody);
+            assert.equal(next.status, 200, JSON.stringify(next.body));
+        }
     });
 }
 
@@ -113,4 +137,40 @@ test('Death’s Gate players on opposite sides of the entrance cannot fight', as
     const blocked = await post(attack, one, { targetName: two, attacker: { name: one } });
     assert.equal(blocked.status, 409);
     assert.match(String(blocked.body.error), /stronghold/);
+});
+
+test('an offline defender leaves an unjoined world duel cancellable and the attacker can start again', async () => {
+    const one = 'obsunjoinedone', two = 'obsunjoinedtwo', sector = 12;
+    const p1Character = await seed(one, sector);
+    const p2Character = await seed(two, sector);
+    const admission = await post(attack, one, { targetName: two, attacker: { name: one } });
+    assert.equal(admission.status, 200, JSON.stringify(admission.body));
+    const made = await post(create, one, {
+        battleId: 'obsunjoinedworld000000000', p1Character, p2Character,
+        baseRewards: true, rewardSector: sector, useCurrentVitals: true, requireWorldCoLocation: true,
+    });
+    assert.equal(made.status, 200, JSON.stringify(made.body));
+    const battleId = made.body.battleId as string;
+    online.remove(two); // The target goes to sleep before its join handshake.
+
+    const unjoined = (await kv.get<PvpSession>(`pvp:${battleId}`))!;
+    assert.deepEqual(unjoined.joined, { p1: true, p2: false });
+    assert.equal(unjoined.turnStartedAt, undefined);
+    const cancelled = await post(move, one, { battleId, role: 'p1', action: 'cancel-unjoined' });
+    assert.equal(cancelled.status, 200, JSON.stringify(cancelled.body));
+    assert.equal(cancelled.body.status, 'done');
+    assert.equal(cancelled.body.winner, 'draw');
+
+    const claimDraw = await post(claim, one, { battleId, outcome: 'draw', completionVersion: 1 });
+    assert.equal(claimDraw.status, 200, JSON.stringify(claimDraw.body));
+    const acknowledged = await post(claim, one, { battleId, outcome: 'draw', completionVersion: 1, completionAck: true });
+    assert.equal(acknowledged.status, 200, JSON.stringify(acknowledged.body));
+    const { loadPvpPendingSessionPointer } = await import('./_pending-session.js');
+    assert.equal(await loadPvpPendingSessionPointer(kv, one), null);
+    assert.equal((await kv.get<Record<string, any>>(`save:${one}`))?.character.hp, 10000);
+
+    const nextOpponent = 'obsunjoinedthree';
+    const nextCharacter = await seed(nextOpponent, sector);
+    const next = await post(create, one, { p1Character: { name: one }, p2Character: nextCharacter });
+    assert.equal(next.status, 200, JSON.stringify(next.body));
 });

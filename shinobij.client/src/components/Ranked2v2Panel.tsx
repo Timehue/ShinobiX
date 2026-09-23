@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Character } from "../types/character";
+import type { Character, VersionedCharacterCommit } from "../types/character";
 import { BattleTowerFight } from "../screens/BattleTowerFight";
 import {
     fetchTowerPvpSession,
@@ -27,9 +27,10 @@ import { gameConfirm } from "./GameAlert";
  * the server from ratings sealed at match time; this panel reports nothing it
  * decided itself.
  */
-export function Ranked2v2Panel({ character, sharedImages }: {
+export function Ranked2v2Panel({ character, sharedImages, onVersionedCharacter }: {
     character: Character;
     sharedImages?: Record<string, string>;
+    onVersionedCharacter: VersionedCharacterCommit;
 }) {
     const me = character.name;
     const [state, setState] = useState<Ranked2v2State>({ duo: null, queue: { state: "idle" }, match: null });
@@ -64,11 +65,11 @@ export function Ranked2v2Panel({ character, sharedImages }: {
         return () => { alive = false; };
     }, [me]);
 
-    // Poll only while something is pending. An idle panel costs nothing, and a
-    // live board polls through the fight screen instead.
+    // An unpaired player must keep polling to discover an invitation from
+    // another account. The live board polls through the fight screen instead.
     const phase = state.match ? "match" : state.queue.state === "queued" ? "queued" : state.duo?.status ?? "idle";
     useEffect(() => {
-        if (phase === "match" || phase === "idle") return;
+        if (phase === "match") return;
         const id = window.setInterval(() => { void refresh(); }, phase === "queued" ? 2_000 : 4_000);
         return () => window.clearInterval(id);
     }, [phase, refresh]);
@@ -98,6 +99,23 @@ export function Ranked2v2Panel({ character, sharedImages }: {
     const ready = Boolean(duo && duo.members.length === 2 && duo.members.every(member => member.accepted));
     const rating = character.ranked2v2Rating ?? 1000;
 
+    if (state.match?.status === "cancelled") {
+        return <section className="summary-box" data-testid="ranked-2v2-panel">
+            <h3>Ranked 2v2</h3>
+            <p className="hint">The ready check expired. No rating changed.</p>
+            {error && <p role="alert">{error}</p>}
+            <button type="button" disabled={Boolean(busy)} onClick={() => { void (async () => {
+                setBusy("queue"); setError(null);
+                try {
+                    await settleRanked2v2(me)(state.match!.matchId, me);
+                    setTowerPvpMatchId(null);
+                    await refresh();
+                } catch (cause) { setError(String((cause as Error)?.message ?? cause)); }
+                finally { setBusy(null); }
+            })(); }}>Return to duo queue</button>
+        </section>;
+    }
+
     if (state.match) {
         return (
             <BattleTowerFight
@@ -111,6 +129,7 @@ export function Ranked2v2Panel({ character, sharedImages }: {
                 // /api/towers/pvp-settle refuses this match outright, so the ladder
                 // can only ever move through here.
                 settleFn={settleRanked2v2(me)}
+                onVersionedCharacter={onVersionedCharacter}
                 settleOnAnyDone
                 variant="team-pvp"
                 onExit={() => { setTowerPvpMatchId(null); void refresh(); }}

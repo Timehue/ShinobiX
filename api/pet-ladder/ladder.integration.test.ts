@@ -85,6 +85,15 @@ test('ranked handler authenticates GET and rejects another player identity befor
     assert.equal(own.body.you.rank, 2, 'GET query name must not substitute for authenticated identity');
 });
 
+test('the retired Colosseum positional ladder cannot accept new ranked challenges', async () => {
+    const f = await fixture();
+    const oldOrder = await kv.get('petladder:coliseum');
+    const result = await call(f.attacker, 'challenge', { mode: 'coliseum', targetId: 'ai:0' });
+    assert.equal(result.status, 410);
+    assert.match(result.body.error, /live 2v2 queue/i);
+    assert.deepEqual(await kv.get('petladder:coliseum'), oldOrder);
+});
+
 test('save → offer → challenge scores the sealed Rite and preserves history, quota, and offline notification', async () => {
     const f = await fixture();
     const legacy = await call(f.defender, null);
@@ -192,6 +201,19 @@ test('a losing human challenge preserves rank and records a held offline defense
     assert.deepEqual(order?.[0].record, { ...f.record, defended: 6 });
     assert.deepEqual(order?.[1].record, { ...f.record, losses: 4 });
     assert.equal(await kv.get(dailyKey(f.defender)), 1);
+});
+
+test('an offline sealed Warfront defense remains challengeable while its pets train or travel', async () => {
+    const f = await fixture();
+    const save = await kv.get<any>(`save:${f.defender}`);
+    save.character.pets[0].training = { endsAt: Date.now() + 60_000 };
+    save.character.pets[1].expedition = { endsAt: Date.now() + 60_000 };
+    await kv.set(`save:${f.defender}`, save);
+    const challenged = await call(f.attacker, 'challenge', { targetId: f.defender, warfrontRules: WARFRONT_LADDER_RULES });
+    assert.equal(challenged.status, 200);
+    assert.equal(challenged.body.won, true);
+    assert.equal(challenged.body.rank, 1);
+    assert.equal((await call(f.defender, null)).body.you.rank, 2, 'an offline loss moves the defender down');
 });
 
 test('an unranked AI victory inducts the player without truncating existing standings or history', async () => {

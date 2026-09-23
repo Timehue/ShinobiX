@@ -24,6 +24,7 @@ import {
 } from '../_pet-sim/pet-warfront-rite.js';
 import type { WfTheme } from '../_pet-sim/pet-warfront-map.js';
 import { writeSaveProjected } from '../save/_projected-write.js';
+import { buildPublicPlayerIndexEntry, isPublicPlayerIndexKey, REGISTRY_KEY } from '../player/_public-index.js';
 import { bumpLegacyStats, legacyBootstrapBeforeCounterIncrement } from '../_legacy-track.js';
 import { petWitnessReceiptForSettlement, recordPetArenaVictory } from '../card-clash/_pet-witness.js';
 import { casualPvePetSnapshot, parseCasualPveBattleSeal, parseSealedPetSnapshots, type CasualPveBattleSeal } from './_casual-pve-seal.js';
@@ -344,6 +345,13 @@ async function retireRankedMatchProof(key: string, token: RankedPetMatchToken): 
  *  the very log this call produces. */
 function rankedWinnerFromToken(token: RankedPetMatchToken): string | null {
     return resolveRankedPetDuel(token).winnerName;
+}
+
+async function projectPetRankedLeaderboardSide(slug: string): Promise<void> {
+    if (!isPublicPlayerIndexKey(slug)) return;
+    const save = await kv.get<Record<string, unknown>>(`save:${slug}`);
+    if (!save?.character || typeof save.character !== 'object') throw new Error(`pet-ranked-save-unreadable:${slug}`);
+    await kv.hset(REGISTRY_KEY, { [slug]: buildPublicPlayerIndexEntry(save.character, slug) });
 }
 
 async function establishRankedSettlementIntent(
@@ -1248,7 +1256,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (simulatedWinner === null) {
                 const settleDrawPet = async (
                     slug: string,
-                    petSnapshot: Record<string, unknown>,
                     record: Record<string, unknown>,
                 ) => {
                     const sk = `save:${slug}`;
@@ -1257,16 +1264,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const receipts = readRankedPetSaveReceipts(char)
                         .slice(-(RANKED_SAVE_RECEIPT_CAP - 1));
                     if (receipts.some((entry) => rankedPetSaveReceiptToken(entry) === matchToken)) return;
-                    const combatPetId = String(petSnapshot.id ?? '');
-                    const pets = Array.isArray(char.pets) ? char.pets as Array<Record<string, unknown>> : [];
-                    const nextPets = pets.map((pet) => String(pet?.id ?? '') === combatPetId && pet.loadout && typeof pet.loadout === 'object'
-                        ? { ...pet, loadout: { ...(pet.loadout as Record<string, unknown>), consumable: undefined } }
-                        : pet);
                     const updated = bumpSaveVersion({
                         ...record,
                         character: {
                             ...char,
-                            pets: nextPets,
                             redeemedPetRankedMatchTokens: [
                                 ...receipts,
                                 makeRankedPetSaveReceipt(matchToken, tok, null, slug),
@@ -1285,8 +1286,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                          if (!characterFromSave(aRecord) || !characterFromSave(bRecord)) {
                              throw new Error('Both ranked participant saves must exist before settlement.');
                          }
-                         await settleDrawPet(tok.a, tok.aPet!, aRecord!);
-                         await settleDrawPet(tok.b, tok.bPet!, bRecord!);
+                         await settleDrawPet(tok.a, aRecord!);
+                         await settleDrawPet(tok.b, bRecord!);
                      }, { failClosed: true }), { failClosed: true });
                      await writeRankedSettlementReceipt(matchToken, tok, null);
                      const finalSave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
@@ -1309,7 +1310,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const loserRating = outcome === 'win' ? oppRating : myRating;
 
             // Settle one side once. The receipt lives in the same save write as
-            // rating + consumable + witness progress, so a failed write cannot
+            // rating + witness progress, so a failed write cannot
             // strand an external NX marker and a failed response can be replayed.
             const settlePet = async (
                 slug: string,
@@ -1338,14 +1339,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     };
                 }
                 const combatPetId = String((slug === tok.a ? tok.aPet : tok.bPet)?.id ?? '');
-                const pets = Array.isArray(char.pets) ? char.pets as Array<Record<string, unknown>> : [];
-                const nextPets = pets.map((pet) => String(pet?.id ?? '') === combatPetId && pet.loadout && typeof pet.loadout === 'object'
-                    ? { ...pet, loadout: { ...(pet.loadout as Record<string, unknown>), consumable: undefined } }
-                    : pet);
                 const rankedCharacter = {
                     ...char,
                     ...r.patch,
-                    pets: nextPets,
                     redeemedPetRankedMatchTokens: [
                         ...receipts,
                         makeRankedPetSaveReceipt(matchToken, tok, winnerName, slug),
@@ -1381,6 +1377,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const l = await settlePet(loserName, 'loser', loserRecord!);
                      return { rating: playerName === winnerName ? w : l };
                  }, { failClosed: true }), { failClosed: true });
+                 // The public Pet Elo board reads this index, not full saves.
+                 // Project both durable ratings before publishing completion;
+                 // a retry re-reads the latest saves if projection fails.
+                 await projectPetRankedLeaderboardSide(winnerName);
+                 await projectPetRankedLeaderboardSide(loserName);
                  // Resume the winner-only Legacy side effect as soon as both
                  // authoritative saves are durable. Its stable receipt makes this
                  // safe on every retry; the structured save ledger can retry it if
