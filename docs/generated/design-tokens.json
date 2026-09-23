@@ -2286,7 +2286,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
-            "line": 395
+            "line": 403
           },
           {
             "source": "shinobij.client/src/styles/sunscar-exchange.css",
@@ -2474,7 +2474,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
-            "line": 1795
+            "line": 1777
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
@@ -2568,7 +2568,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
-            "line": 446
+            "line": 452
           }
         ]
       },
@@ -2591,15 +2591,15 @@
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 5537
+            "line": 5545
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 6052
+            "line": 6060
           },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
-            "line": 446
+            "line": 452
           },
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
@@ -2637,7 +2637,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/14-menu-panels-bloodline-vn.css",
-            "line": 1566
+            "line": 1571
           },
           {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
@@ -2687,11 +2687,11 @@
           },
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
-            "line": 1579
+            "line": 1561
           },
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
-            "line": 1928
+            "line": 1909
           },
           {
             "source": "shinobij.client/src/styles/index/36-clan-boss-operation.css",
@@ -2773,7 +2773,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
-            "line": 457
+            "line": 452
           },
           {
             "source": "shinobij.client/src/styles/index/28-desktop-scaling.css",
@@ -2866,7 +2866,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
-            "line": 395
+            "line": 403
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
@@ -2924,6 +2924,17 @@
       {
         "direction": "max",
         "axis": "height",
+        "valuePx": 610,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/components/WildPetBindingCinematic.css",
+            "line": 218
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "height",
         "valuePx": 620,
         "occurrences": [
           {
@@ -2971,7 +2982,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/14-menu-panels-bloodline-vn.css",
-            "line": 1424
+            "line": 1429
           },
           {
             "source": "shinobij.client/src/styles/index/29-clan-exchange-storefront.css",
@@ -3071,7 +3082,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
-            "line": 360
+            "line": 368
           }
         ]
       },
@@ -3186,7 +3197,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
-            "line": 1660
+            "line": 1642
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
@@ -3205,7 +3216,7 @@
           },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
-            "line": 712
+            "line": 717
           }
         ]
       },
@@ -3214,6 +3225,14 @@
         "axis": "width",
         "valuePx": 700,
         "occurrences": [
+          {
+            "source": "shinobij.client/src/components/WildPetBinding.css",
+            "line": 83
+          },
+          {
+            "source": "shinobij.client/src/components/WildPetBindingCinematic.css",
+            "line": 204
+          },
           {
             "source": "shinobij.client/src/features/intro-cinematic/intro-cinematic-preview.css",
             "line": 112
@@ -3286,7 +3305,7 @@
           },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
-            "line": 334
+            "line": 342
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
@@ -3301,7 +3320,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
-            "line": 1928
+            "line": 1909
           }
         ]
       },
@@ -3370,7 +3389,7 @@
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 5111
+            "line": 5116
           },
           {
             "source": "shinobij.client/src/styles/index/01-base-app-chrome.css",
@@ -3436,7 +3455,7 @@
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 6052
+            "line": 6060
           }
         ]
       },
@@ -3584,7 +3603,7 @@
           },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
-            "line": 334
+            "line": 342
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
@@ -3662,7 +3681,7 @@
           },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
-            "line": 360
+            "line": 368
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
@@ -3796,7 +3815,7 @@
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 5537
+            "line": 5545
           },
           {
             "source": "shinobij.client/src/styles/index/02-world-map.css",
@@ -3881,7 +3900,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
-            "line": 446
+            "line": 452
           }
         ]
       },
@@ -3892,11 +3911,11 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 5537
+            "line": 5545
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 6052
+            "line": 6060
           }
         ]
       },
@@ -3911,7 +3930,7 @@
           },
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
-            "line": 1547
+            "line": 1529
           },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
@@ -3935,11 +3954,11 @@
           },
           {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
-            "line": 408
+            "line": 403
           },
           {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
-            "line": 417
+            "line": 412
           },
           {
             "source": "shinobij.client/src/styles/index/23-mobile-shell.css",
@@ -3955,7 +3974,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/23-mobile-shell.css",
-            "line": 969
+            "line": 968
           },
           {
             "source": "shinobij.client/src/styles/index/24-combat-mobile-restore.css",
@@ -4081,7 +4100,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
-            "line": 391
+            "line": 386
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
@@ -4187,11 +4206,11 @@
           },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
-            "line": 305
+            "line": 313
           },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
-            "line": 360
+            "line": 368
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
@@ -4250,23 +4269,23 @@
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 4968
+            "line": 4973
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 5005
+            "line": 5010
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 5116
+            "line": 5121
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 5163
+            "line": 5171
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 5369
+            "line": 5377
           },
           {
             "source": "shinobij.client/src/styles/index/24-combat-mobile-restore.css",
@@ -4467,7 +4486,7 @@
           },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
-            "line": 712
+            "line": 717
           }
         ]
       },

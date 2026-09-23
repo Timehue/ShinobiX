@@ -692,6 +692,13 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
         participantModel: 'solo', rewardPolicy: 'none', replayKind: 'expiring-showdown-turn-script', status: 'match',
     }),
     defineMode({
+        id: 'wild-pet-binding', label: 'Wild pet binding', category: 'pet-showdown', authorityEngine: E.PET_SHOWDOWN,
+        clientEntries: ['components/WildPetBinding.tsx', 'lib/wild-binding-api.ts'],
+        routes: [mountedRoute('/pet/wild-binding', 'pet/wild-binding', ['start', 'action', 'state', 'settlement'])],
+        participantModel: 'solo', rewardPolicy: 'server-settled', replayKind: 'expiring-showdown-turn-script', status: 'match',
+        statusDetail: 'A settled Explore pet token starts one server-owned Showdown battle. Turns alter sealed HP and Resolve; a spent Beast Seal settles capture to the roster or Sanctuary.',
+    }),
+    defineMode({
         id: 'pet-wanderer-showdown', label: 'Natural sector pet wanderer', category: 'pet-showdown', authorityEngine: E.PET_SHOWDOWN,
         clientEntries: ['screens/WorldMap.tsx', 'screens/PetArena.tsx', 'data/pet-arena-opponents.ts'],
         routes: [
@@ -876,6 +883,18 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
             mountedRoute('/dungeon/run', 'dungeon/run', ['settlement']),
         ],
         participantModel: 'solo', rewardPolicy: 'parent-mode-settlement', replayKind: 'expiring-chronicle-projection-and-parent-run-proof-receipt', status: 'match',
+    }),
+    defineMode({
+        id: 'hollow-gate-rift-card', label: 'Hollow Gate rift card ambush', category: 'card', authorityEngine: E.CHRONICLE,
+        orchestrationOwner: O.HOLLOW_GATE,
+        clientEntries: ['screens/CardClashDuel.tsx', 'lib/chronicle-duel.ts', 'lib/hollow-gate-card-api.ts'],
+        routes: [
+            mountedRoute('/hollow-gate/card-start', 'hollow-gate/card-start', ['start', 'recovery']),
+            mountedRoute('/card-clash/ai-move', 'card-clash/ai-move', ['action', 'state', 'settlement']),
+            mountedRoute('/hollow-gate/card-settle', 'hollow-gate/card-settle', ['settlement']),
+        ],
+        participantModel: 'solo', rewardPolicy: 'parent-mode-settlement', replayKind: 'expiring-chronicle-projection-and-parent-run-proof-receipt', status: 'match',
+        statusDetail: 'The first threat ambush in a rift binds a Chronicle AI match to the run token. The Hollow Gate settle route verifies its terminal result, credits normal ambush currency once on a win, applies 20% max HP recoil on a loss or draw, and clears the pending seal through the run recovery proof.',
     }),
     defineMode({
         id: 'celestial-first-pact', label: 'Celestial Tower: The First Pact', category: 'pet-showdown', authorityEngine: E.PET_SHOWDOWN,

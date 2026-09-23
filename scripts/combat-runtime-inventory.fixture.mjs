@@ -105,6 +105,7 @@ export const EXPECTED_RUNTIME_MODE_CONTRACTS = deepFreeze([
   C('clan-war-tilecards', [route('/clan/war/challenge', 'lifecycle'), route('/clan/war/tilecards', 'action+settlement+start+state')]),
   C('clan-war-pet', [route('/clan/war/challenge', 'lifecycle'), route('/clan/war/pet', 'settlement+start+state')]),
   C('pet-showdown-practice', [route('/pet/showdown', 'action+settlement+start+state')]),
+  C('wild-pet-binding', [route('/pet/wild-binding', 'action+settlement+start+state')]),
   C('pet-wanderer-showdown', [route('/pet/battle-start', 'recovery+start'), route('/pet/battle-result', 'settlement')]),
   C('pet-coliseum', [route('/pet/showdown', 'action+settlement+start+state')]),
   C('celestial-first-pact', [route('/first-pact/state', 'lifecycle+settlement+state'), route('/pet/showdown', 'action+settlement+start+state')]),
@@ -132,6 +133,7 @@ export const EXPECTED_RUNTIME_MODE_CONTRACTS = deepFreeze([
   C('card-clash-ai', [route('/card-clash/ai-start', 'start'), route('/card-clash/ai-move', 'action+settlement+state')]),
   C('echoes-of-war', [route('/card-clash/ai-start', 'start'), route('/card-clash/ai-move', 'action+settlement+state')]),
   C('dungeon-card', [route('/card-clash/ai-start', 'start'), route('/card-clash/ai-move', 'action+settlement+state'), route('/dungeon/run', 'settlement')]),
+  C('hollow-gate-rift-card', [route('/hollow-gate/card-start', 'recovery+start'), route('/card-clash/ai-move', 'action+settlement+state'), route('/hollow-gate/card-settle', 'settlement')]),
 ]);
 
 const F = (authorityEngine, intendedAuthorityEngine, participantModel, rewardPolicy, status) => ({
@@ -186,6 +188,7 @@ export const EXPECTED_RUNTIME_MODE_FACTS = deepFreeze({
   'clan-war-tilecards': F('chronicle', null, 'two-player', 'server-settled', 'match'),
   'clan-war-pet': F('pet-showdown', null, 'party', 'server-settled', 'match'),
   'pet-showdown-practice': F('pet-showdown', null, 'solo', 'none', 'match'),
+  'wild-pet-binding': F('pet-showdown', null, 'solo', 'server-settled', 'match'),
   'pet-wanderer-showdown': F('pet-showdown', null, 'solo', 'none', 'match'),
   'pet-coliseum': F('pet-showdown', null, 'solo', 'server-capped', 'match'),
   'celestial-first-pact': F('pet-showdown', null, 'solo', 'server-progression', 'match'),
@@ -208,6 +211,7 @@ export const EXPECTED_RUNTIME_MODE_FACTS = deepFreeze({
   'card-clash-ai': F('chronicle', null, 'solo', 'server-capped', 'match'),
   'echoes-of-war': F('chronicle', null, 'solo', 'server-settled', 'match'),
   'dungeon-card': F('chronicle', null, 'solo', 'parent-mode-settlement', 'match'),
+  'hollow-gate-rift-card': F('chronicle', null, 'solo', 'parent-mode-settlement', 'match'),
 });
 
 /** Capability bindings are independently pinned because a valid capability id
@@ -268,6 +272,7 @@ export const EXPECTED_RUNTIME_MODE_METADATA = deepFreeze({
   'clan-war-tilecards': M('card', 'expiring-chronicle-projection', 'clan-war'),
   'clan-war-pet': M('pet-showdown', 'derived-showdown-script', 'clan-war'),
   'pet-showdown-practice': M('pet-showdown', 'expiring-showdown-turn-script'),
+  'wild-pet-binding': M('pet-showdown', 'expiring-showdown-turn-script'),
   'pet-wanderer-showdown': M('pet-showdown', 'immutable-returned-showdown-script'),
   'pet-coliseum': M('pet-showdown', 'expiring-showdown-turn-script'),
   'celestial-first-pact': M('pet-showdown', 'durable-campaign-plus-expiring-showdown-turn-script'),
@@ -290,6 +295,7 @@ export const EXPECTED_RUNTIME_MODE_METADATA = deepFreeze({
   'card-clash-ai': M('card', 'expiring-chronicle-projection'),
   'echoes-of-war': M('card', 'expiring-chronicle-projection'),
   'dungeon-card': M('card', 'expiring-chronicle-projection-and-parent-run-proof-receipt', 'dungeon'),
+  'hollow-gate-rift-card': M('card', 'expiring-chronicle-projection-and-parent-run-proof-receipt', 'hollow-gate'),
 });
 
 /**

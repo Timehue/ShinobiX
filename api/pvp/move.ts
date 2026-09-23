@@ -43,6 +43,7 @@ import {
     shieldAmountForMastery,
     WEAPON_AMP_TAG_CAP,
     WEAPON_POISON_TAG_CAP,
+    WEAPON_SWING_DAMAGE_MULTIPLIER,
     statusDurationFor,
     weatherMultiplier,
     withDisciplineBonuses,
@@ -62,6 +63,7 @@ import {
     tickCombatStatuses,
 } from '../combat-core/statuses.js';
 import type { CombatFxEvent, CombatTag } from '../combat-core/types.js';
+import { rankedCombatLevel } from './_ranked-format.js';
 import {
     CASTER_WARD_VFX_KEYS as VFX_CASTER_WARD_KEYS,
     ELEMENTAL_60_VFX_KEYS as VFX_ELEMENTAL_60_KEYS,
@@ -176,6 +178,7 @@ const DEFAULT_ACTION_CATEGORIES: Record<string, ActionReceiptCategory> = {
     join: 'system',
 };
 import { replayCommittedPvpTerminalEffects } from './_committed-terminal-effects.js';
+import { canCancelUnstartedPvpDuel, isCancelledUnstartedPvpDuel } from '../../shared/pvp-cancellation.js';
 import { commitPvpSessionMutation } from './_session-mutation.js';
 import { enforcePvpTurnDeadlineLocked, pvpTurnLapsed } from './_turn-deadline.js';
 import { PVP_PREFIGHT_COUNTDOWN_MS, PVP_TURN_MS } from '../../shared/pvp-turn.js';
@@ -414,7 +417,7 @@ function addStatus(f: PvpFighter, s: PvpStatus, currentRound?: number): PvpFight
     return {
         ...f,
         statuses: addCombatStatus(f.statuses, s, {
-            durationFor: statusDurationFor,
+            durationFor: (name, fallback) => s.source === 'item-smoke-bomb' ? fallback : statusDurationFor(name, fallback),
             isStackable: name => STACKABLE_STATUS.has(name),
             nameMatches,
             currentRound,
@@ -590,7 +593,10 @@ function tickCooldowns(cds: Record<string, number>): Record<string, number> {
 // v4.3: DDT/DDG are stackable; each instance contributes its percent to the DR pool.
 // Soft-capped via K_DR so stacking always helps but with diminishing returns.
 function drContributionFor(attacker: PvpFighter, defender: PvpFighter, round: number): number {
-    return drContributionFromStatuses(activeStatuses(attacker, round), activeStatuses(defender, round));
+    return drContributionFromStatuses(
+        activeStatuses(attacker, round).filter(status => status.source !== 'item-smoke-bomb'),
+        activeStatuses(defender, round).filter(status => status.source !== 'item-defense-pill'),
+    );
 }
 // Amplifiers (offensive / vulnerability buffs). All amp tags feed a single
 // diminishing-returns pool, mirroring K_DR for defensive stacks:
@@ -600,7 +606,11 @@ function drContributionFor(attacker: PvpFighter, defender: PvpFighter, round: nu
 // Stack 1 of 35% gives ~1.41×; stack 4 of 35% gives ~1.74× (was ~3.32×).
 // Also stops the IDG-+-Ignition combo from compounding past the soft cap.
 function ampMultiplierFor(attacker: PvpFighter, defender: PvpFighter, round: number): number {
-    return ampMultiplierFromStatuses(activeStatuses(attacker, round), activeStatuses(defender, round), nameMatches);
+    return ampMultiplierFromStatuses(
+        activeStatuses(attacker, round).filter(status => status.source !== 'item-attack-pill'),
+        activeStatuses(defender, round),
+        nameMatches,
+    );
 }
 
 // Amp/DR tags whose percent is rank-capped (CAPPED_AMP_TAGS from ./_tags —
@@ -886,14 +896,19 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
 }
 
 // Phase 3 — collapse the running damage to a single final number. Pierce is true
-// damage (offense-scaled, bypasses everything downstream); otherwise the base is
+// damage (offense-scaled, bypasses all damage increases and reductions). Otherwise the base is
 // reduced by the DR pool and amplified by the IDG/IDT/Ignition amp pool. Amp/DR
 // read the ORIGINAL fighters so a buff applied THIS cast can't feed back in.
 function resolveDamageNumber(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, round: number, masteryLevel: number, offStats: Record<string, number>, damageIn: number, pierce: boolean, effectiveDR: number): number {
-    return directDamageNumberFormula({
+    // Pierce uses the fighter's capped base offense. Temporary stat buffs must
+    // not change it, just as damage buffs, reduction, smoke, and armor do not.
+    const offenseStats = pierce
+        ? perRankStatCap((self.character.stats as Record<string, number>) ?? {}, rankedCombatLevel(self.character))
+        : offStats;
+    const damage = directDamageNumberFormula({
         damageIn,
         pierce,
-        offenseComposite: getOffense(offStats, jutsu.type),
+        offenseComposite: getOffense(offenseStats, jutsu.type),
         jutsuAp: jutsu.ap ?? 40,
         masteryLevel,
         effectiveDR,
@@ -901,6 +916,14 @@ function resolveDamageNumber(self: PvpFighter, opponent: PvpFighter, jutsu: Juts
         guardDefensePct: opponent.character.guardDefensePct,
         elderWarDefensePct: opponent.character.elderWarDefensePct,
     });
+    const attackerStatuses = activeStatuses(self, round);
+    const defenderStatuses = activeStatuses(opponent, round);
+    const attackPill = attackerStatuses.some(status => status.source === 'item-attack-pill') ? 1.15 : 1;
+    if (pierce) return damage;
+    if (attackerStatuses.some(status => status.source === 'item-smoke-bomb')) return 0;
+    const defensePill = defenderStatuses.some(status => status.source === 'item-defense-pill') ? 0.85 : 1;
+    const weaponSwing = jutsu.weaponSwing === true ? WEAPON_SWING_DAMAGE_MULTIPLIER : 1;
+    return Math.max(0, Math.floor(damage * weaponSwing * attackPill * defensePill));
 }
 
 // Phase 4 — the post-damage consequence pipeline. Resolution order is LOAD-BEARING
@@ -1040,7 +1063,7 @@ export function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu,
     // below) to the caster's rank ceiling. Authoritative anti-twink guard — even a
     // tampered client that reports mastery 50 can't exceed the rank cap here. The
     // stored value is untouched (save-safe); ranking up unlocks the rest.
-    const masteryLevel = Math.min(storedMastery, jutsuLevelCapForLevel(Number(self.character.level) || 1));
+    const masteryLevel = Math.min(storedMastery, jutsuLevelCapForLevel(rankedCombatLevel(self.character)));
 
     // Per-rank STAT cap (anti-twink): clamp the stats the DAMAGE FORMULA reads to each
     // fighter's rank ceiling — never the stored/sealed stat. Only the offStats/defStats
@@ -1055,8 +1078,8 @@ export function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu,
     // not get to shop across every active style buff for an extra maximum. This
     // matches the client preview's exact status.discipline === jutsu.type rule.
     const castHasDiscipline = ['Ninjutsu', 'Taijutsu', 'Bukijutsu', 'Genjutsu'].includes(jutsu.type);
-    const cappedSelf = { ...self, character: { ...self.character, stats: withDisciplineBonuses(withGeneralsBonus(perRankStatCap((self.character.stats as Record<string, number>) ?? {}, Number(self.character.level) || 1), generalsBonus(self, round)), castHasDiscipline ? disciplineBonuses(self, round) : {}) } };
-    const cappedOpp = { ...opponent, character: { ...opponent.character, stats: withDisciplineBonuses(withGeneralsBonus(perRankStatCap((opponent.character.stats as Record<string, number>) ?? {}, Number(opponent.character.level) || 1), generalsBonus(opponent, round)), disciplineBonuses(opponent, round)) } };
+    const cappedSelf = { ...self, character: { ...self.character, stats: withDisciplineBonuses(withGeneralsBonus(perRankStatCap((self.character.stats as Record<string, number>) ?? {}, rankedCombatLevel(self.character)), generalsBonus(self, round)), castHasDiscipline ? disciplineBonuses(self, round) : {}) } };
+    const cappedOpp = { ...opponent, character: { ...opponent.character, stats: withDisciplineBonuses(withGeneralsBonus(perRankStatCap((opponent.character.stats as Record<string, number>) ?? {}, rankedCombatLevel(opponent.character)), generalsBonus(opponent, round)), disciplineBonuses(opponent, round)) } };
 
     const resolved = resolveCoreJutsu({
         self,
@@ -1084,15 +1107,17 @@ export function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu,
 
 // ─── DoTs applied at start of each turn ───────────────────────────────────────
 // A fighter's own mitigation against damage-over-time: armor + active Decrease
-// Damage Taken, at DR_DOT_SCALE so a DoT can never be fully negated. Shared by
+// Damage Taken, at DR_DOT_SCALE. Smoke Bomb affects direct hits only. Shared by
 // applyDoTs (Wound/Drain ticks) and the on-spend Poison hit (poisonSpendDamage).
 function ownDotMitigation(f: PvpFighter, round: number): number {
     const ownArmor = armorRawDrFromCharacter(f.character as Record<string, unknown>);
     let ownStatusDR = 0;
-    for (const s of activeStatuses(f, round)) {
-        if (s.name === 'Decrease Damage Taken') ownStatusDR += (s.percent ?? 0) / 100;
+    const statuses = activeStatuses(f, round);
+    for (const s of statuses) {
+        if (s.name === 'Decrease Damage Taken' && s.source !== 'item-defense-pill') ownStatusDR += (s.percent ?? 0) / 100;
     }
-    return dotMitigationFromRawDr(ownArmor, ownStatusDR);
+    const base = dotMitigationFromRawDr(ownArmor, ownStatusDR);
+    return statuses.some(s => s.source === 'item-defense-pill') ? base * 0.85 : base;
 }
 
 // combatResourcesV2 Poison, paid when the poisoned fighter spends chakra/stamina
@@ -1108,7 +1133,8 @@ export function poisonSpendDamage(fighter: PvpFighter, spend: number, round: num
     if (pct <= 0) return 0;
     const raw = v2PoisonOnSpend(spend, pct);
     if (raw <= 0) return 0;
-    return Math.max(1, Math.floor(raw * ownDotMitigation(fighter, round)));
+    const mitigation = ownDotMitigation(fighter, round);
+    return mitigation <= 0 ? 0 : Math.max(1, Math.floor(raw * mitigation));
 }
 
 // v4.3: DoT ticks are partially mitigated by the defender's own DR pool (armor + DDT stacks),
@@ -1282,7 +1308,7 @@ function endTurn(session: PvpSession): PvpSession {
     nextFighter = dots.fighter;
     lines.push(...dots.lines);
     if (COMBAT_RESOURCES_V2) {
-        const rgLvl = Number((nextFighter.character as { level?: number } | undefined)?.level) || 1;
+        const rgLvl = rankedCombatLevel(nextFighter.character);
         const rg = v2ResourceRegen(rgLvl);
         nextFighter = { ...nextFighter, chakra: Math.min(nextFighter.maxChakra, nextFighter.chakra + rg), stamina: Math.min(nextFighter.maxStamina, nextFighter.stamina + rg) };
     }
@@ -1454,7 +1480,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Repair a process death immediately after the preceding combat CAS.
         // This runs before any later mutation can replace its replay capsule.
-        await replayCommittedPvpActionReceipt(kv, session);
+        if (session.status !== 'done') await replayCommittedPvpActionReceipt(kv, session);
 
         // Idempotency: if the token already landed, return the exact current
         // projection. Terminal reads also replay post-CAS settlement after a
@@ -1546,7 +1572,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return finishUnavailable(409, 'This battle session is no longer active.');
             }
             session = fresh;
-            await replayCommittedPvpActionReceipt(kv, session);
+            if (session.status !== 'done') await replayCommittedPvpActionReceipt(kv, session);
             if (action !== 'join' && moveToken
                 && Array.isArray(session.recentMoveTokens)
                 && session.recentMoveTokens.includes(moveToken)) {
@@ -1562,16 +1588,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // fighter close this unstarted match as a draw, without requiring
             // the absent fighter's handshake or charging a flee penalty.
             if (action === 'cancel-unjoined') {
-                if ((session.rewardAuthority !== 'world' && session.rewardAuthority !== 'challenge')
-                    || session.ranked === true
-                    || session.rankedKind !== undefined
-                    || session.playerRankedAuthorityVersion !== undefined
-                    || session.kageDuelAuthority
-                    || session.clanWarId
-                    || session.turnStartedAt !== undefined
-                    || session.round !== 1
-                    || session.actionsThisTurn !== 0
-                    || (session.joined?.p1 === true && session.joined?.p2 === true)) {
+                if (!canCancelUnstartedPvpDuel(session)) {
                     return finishUnavailable(409, 'This duel cannot be cancelled before combat.');
                 }
                 const endedAt = Date.now();
@@ -1579,6 +1596,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ...session,
                     status: 'done',
                     winner: 'draw',
+                    terminalReason: 'cancelled-unjoined',
                     endedAt,
                     lastMoveAt: endedAt,
                     log: [...session.log, `${session[role].name} cancelled the unstarted duel.`],
@@ -1679,7 +1697,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (current && !priorSession) stale = !pvpPendingReservationIsFresh(current);
                     if (current && priorSession) stale = !pendingPointerMatchesSession(current, priorSession);
                     if (!stale && current && priorSession?.status === 'done') {
-                        if (!priorSession.winner) {
+                        if (isCancelledUnstartedPvpDuel(priorSession)) {
+                            await helpCommittedTerminal(priorSession);
+                            stale = true;
+                        } else if (!priorSession.winner) {
                             stale = true;
                         } else {
                             const completion = pvpRewardCompletionStatus(await kv.get<unknown>(
@@ -2083,8 +2104,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 } else {
                     const cleared = removeActiveCombatStatusesByKind(opp.statuses, 'positive', session.round);
                     const removed = cleared.removed.map(s => s.name);
-                    lines.push(`Clear: removed ${removed.length ? removed.join(', ') : 'no positive effects'} from ${opp.name}.`);
-                    result = commit(null, { ...opp, statuses: cleared.statuses }, 60, { clear: 10 }, undefined, undefined, [vfxEvent('opp', 'cleanse', 'target')]);
+                    lines.push(`Clear: removed ${removed.length ? removed.join(', ') : 'no positive effects'} from ${opp.name}${opp.shield > 0 ? ' and broke their shield' : ''}.`);
+                    result = commit(null, { ...opp, shield: 0, statuses: cleared.statuses }, 60, { clear: 10 }, undefined, undefined, [vfxEvent('opp', 'cleanse', 'target')]);
                 }
                 break;
             }
@@ -2575,6 +2596,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     result = commit(restoredMe, null, iApCost, iCd, iSpend.patch, undefined, [vfxEvent('self', 'buff', 'caster')]);
                     break;
                 }
+                // The ranked neutral combat kit is pure utility. Resolve its
+                // advertised percentages directly rather than feeding them
+                // through jutsu mastery and the generic soft-capped tag pools.
+                // The source also lets the damage resolver keep Pierce exempt.
+                if (serverItem.id === 'item-attack-pill' || serverItem.id === 'item-defense-pill' || serverItem.id === 'item-smoke-bomb') {
+                    const id = serverItem.id;
+                    const pct = id === 'item-smoke-bomb' ? 100 : 15;
+                    // A closer's cast would expire at the imminent round tick
+                    // before either player can attack through the smoke.
+                    const smokeRounds = role === roundOpenerFor(session) ? 1 : 2;
+                    const status: PvpStatus = id === 'item-attack-pill'
+                        ? { name: 'Increase Damage Given', source: id, rounds: 2, percent: pct, kind: 'positive', activeRound: session.round }
+                        : id === 'item-defense-pill'
+                            ? { name: 'Decrease Damage Taken', source: id, rounds: 2, percent: pct, kind: 'positive', activeRound: session.round }
+                            : { name: 'Decrease Damage Given', source: id, rounds: smokeRounds, percent: pct, kind: 'negative', activeRound: session.round };
+                    const affectedMe = addStatus(me, status, session.round);
+                    const affectedOpp = id === 'item-smoke-bomb' ? addStatus(opp, status, session.round) : opp;
+                    lines.push(`${me.name} uses ${serverItem.name ?? 'Item'}: ${id === 'item-smoke-bomb'
+                        ? 'both fighters deal 0 ordinary damage for 1 round; Pierce bypasses the smoke.'
+                        : id === 'item-attack-pill'
+                            ? 'deals 15% more damage for 2 rounds.'
+                            : 'takes 15% less damage for 2 rounds.'}`);
+                    result = commit(
+                        affectedMe, affectedOpp, iApCost, iCd, iSpend.patch, undefined,
+                        id === 'item-smoke-bomb'
+                            ? [vfxEvent('opp', 'debuff', 'target'), vfxEvent('self', 'debuff', 'caster', 'minor')]
+                            : [vfxEvent('self', 'buff', 'caster')],
+                    );
+                    break;
+                }
                 const iTags: JutsuTag[] = serverItem.weaponTags?.length
                     ? serverItem.weaponTags
                     : serverItem.weaponEffect
@@ -2585,6 +2636,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     name: serverItem.name ?? 'Item',
                     type: 'Ninjutsu',
                     target: 'SELF',
+                    isUtility: true,
                     effectPower: serverItem.weaponEp ?? 10,
                     ap: iApCost,
                     range: 0,
@@ -2686,7 +2738,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!current || current.rankedCloseFence) {
                 return res.status(409).json({ error: 'This ranked match ended as a season-close no-contest.' });
             }
-            await replayCommittedPvpActionReceipt(kv, current);
+            // Terminal replay materializes this same action receipt. Avoid a
+            // duplicate durable read before the final result can be returned.
+            if (current.status !== 'done') await replayCommittedPvpActionReceipt(kv, current);
             await helpCommittedTerminal(current);
             return res.status(200).json(withRejected(current, 'The battle advanced before this action committed. Please retry.'));
         }
@@ -2695,7 +2749,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // The receipt body uses a deterministic revision-derived key and is
         // recoverable from the committed capsule. Propagate a transient failure:
         // the same-token retry repairs it before returning current combat state.
-        await replayCommittedPvpActionReceipt(kv, persisted);
+        // The terminal helper includes action-receipt replay; doing it here as
+        // well adds an extra KV round trip to every finishing move.
+        if (persisted.status !== 'done') await replayCommittedPvpActionReceipt(kv, persisted);
         await helpCommittedTerminal(persisted);
         return res.status(200).json(persisted);
     } catch (err) {

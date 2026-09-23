@@ -27,7 +27,7 @@
  */
 
 import { kv } from './_storage.js';
-import { isWildSector } from '../shared/sector-geo.js';
+import { isPlayableWildSector } from '../shared/sector-geo.js';
 import { contractAcceptsWorkAt, sectorContractFor, utcDayOf, type SectorContract } from '../shared/sector-contracts.js';
 import { sectorContractsEnabled } from './_release-flags.js';
 
@@ -97,7 +97,7 @@ export async function creditSectorContractProgress(
     if (!sectorContractsEnabled()) return null;
     const id = Math.floor(Number(sector));
     const name = String(playerName ?? '').trim();
-    if (!name || !isWildSector(id)) return null;
+    if (!name || !isPlayableWildSector(id)) return null;
     const day = utcDayOf(now);
     const contract = sectorContractFor(id, day);
     if (!contract) return null;
@@ -129,7 +129,7 @@ export async function readSectorContractStatus(
     if (!sectorContractsEnabled()) return NO_CONTRACT;
     const id = Math.floor(Number(sector));
     const name = String(playerName ?? '').trim();
-    if (!name || !isWildSector(id)) return NO_CONTRACT;
+    if (!name || !isPlayableWildSector(id)) return NO_CONTRACT;
     const day = utcDayOf(now);
     const contract = sectorContractFor(id, day);
     if (!contract) return NO_CONTRACT;

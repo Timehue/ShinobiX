@@ -197,7 +197,7 @@ export function Profile({
     const secretsRemaining = achievementStates.filter(entry => entry.a.hidden && !entry.unlocked).length;
     async function runPaidProfileAction(action: ProfileSettlementAction): Promise<boolean> {
         const result = await settleProfileAction(character.name, action);
-        if (!result.ok) {
+        if (result.ok !== true) {
             alert(result.error);
             return false;
         }
@@ -476,16 +476,15 @@ export function Profile({
                 { label: "Bank", value: formatAmount(character.bankRyo), detail: "stored ryo" },
                 { label: "Honor Seals", value: <><GameIcon name="medal" size={14} style={PF_COST} />{formatAmount(character.honorSeals)}</>, detail: "village currency", tone: "gold" },
                 { label: "Fate Shards", value: <><GameIcon name="shard" size={14} style={PF_COST} />{formatAmount(character.fateShards)}</>, detail: "legacy currency", tone: "legacy" },
-                { label: "Aura Dust", value: <><GameIcon name="sparkle" size={14} style={PF_COST} />{formatAmount(character.auraDust)}</>, detail: "aura growth", tone: "gold" },
             ],
         },
         {
-            title: "Combat Pools",
+            title: "Bloodline Materials",
             rows: [
-                { label: "HP", value: `${formatAmount(character.hp)}/${formatAmount(character.maxHp)}`, detail: "health" },
-                { label: "Chakra", value: `${formatAmount(character.chakra)}/${formatAmount(character.maxChakra)}`, detail: "jutsu resource", tone: "village" },
-                { label: "Stamina", value: `${formatAmount(character.stamina)}/${formatAmount(character.maxStamina)}`, detail: "action resource", tone: "gold" },
-                { label: "Regen", value: `+${formatAmount(1 + auraBonuses.regen)}/sec`, detail: "outside battle", tone: auraBonuses.regen > 0 ? "gold" : "neutral" },
+                { label: "Bone Charms", value: <><GameIcon name="bone" size={14} style={PF_COST} />{formatAmount(character.boneCharms)}</>, detail: "Forge B-rank bloodlines", tone: "legacy" },
+                { label: "Aura Stones", value: <><GameIcon name="crystal" size={14} style={PF_COST} />{formatAmount(character.auraStones)}</>, detail: "Forge A-rank bloodlines", tone: "village" },
+                { label: "Mythic Seals", value: <><GameIcon name="sigil" size={14} style={PF_COST} />{formatAmount(character.mythicSeals)}</>, detail: "Forge S-rank bloodlines", tone: "gold" },
+                { label: "Aura Dust", value: <><GameIcon name="sparkle" size={14} style={PF_COST} />{formatAmount(character.auraDust)}</>, detail: "Feed the Aura Sphere to grow its bonuses", tone: "gold" },
             ],
         },
         {

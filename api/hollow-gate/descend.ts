@@ -43,7 +43,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 : Math.max(1, Math.floor(Number(run.currentFloor) || 1));
             if (fromFloor < currentFloor) return { status: 200, body: { ok: true, floor: currentFloor, alreadyAdvanced: true } };
             if (fromFloor !== currentFloor) return { status: 409, body: { error: 'The staircase does not match the sealed floor.' } };
-            if (run.activeEncounter) return { status: 409, body: { error: 'Finish the active Hollow Gate encounter before descending.' } };
+            if (run.activeEncounter || run.pendingAmbush) return { status: 409, body: {
+                error: 'Finish the sealed Hollow Gate encounter before descending.',
+                pendingAmbush: run.pendingAmbush ?? null,
+            } };
             if (currentFloor >= run.floorDepth) return { status: 409, body: { error: 'This is the sealed final floor.' } };
             const position = run.position;
             const manifest = run.floorManifests?.[String(currentFloor)];

@@ -15,7 +15,7 @@ const endlessFight = readFileSync("shinobij.client/src/screens/EndlessTowerFight
 describe("Central Hub release authority", () => {
     it("settles Awakening and Bloodline Forge on the server", () => {
         assert.match(hub, /rollAwakeningServer\(character\.name,\s*kind\)/);
-        assert.match(hub, /purchaseBloodlineForge\(character\.name,\s*rank\)/);
+        assert.match(hub, /purchaseBloodlineForge\(character\.name,\s*rank,\s*resumeOnly\)/);
         assert.doesNotMatch(hub, /rollNewAwakeningElement|rollAwakeningElements/);
     });
 

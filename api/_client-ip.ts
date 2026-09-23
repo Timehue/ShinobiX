@@ -1,28 +1,21 @@
 /**
  * Cloudflare-aware client IP extraction (shared by all player-facing IP sites).
  *
- * The app runs behind Cloudflare → (Railway | cPanel/Passenger). On that path
- * the request's *immediate* peer and the left-most `X-Forwarded-For` hop are a
- * Cloudflare edge IP (e.g. 162.158.x.x), NOT the visitor. Cloudflare puts the
- * real visitor in the `CF-Connecting-IP` header. The naive `xff.split(',')[0]`
- * therefore records Cloudflare PoPs instead of players, which makes IP-based
- * anti-cheat (alt-account / ban-evasion detection, IP rate-limit fallback)
- * group unrelated players by data center. See `clientIp()` below.
+ * The app runs behind Cloudflare → (Railway | cPanel/Passenger). Cloudflare
+ * puts the visitor in `CF-Connecting-IP`; Railway also provides a trusted
+ * `X-Real-IP` for the visitor. An X-Forwarded-For hop can be a public proxy
+ * address and must not become evidence that unrelated players share a network.
  *
- * Trust model: `CF-Connecting-IP` is only honored when we can corroborate that
- * the request actually transited Cloudflare — i.e. the immediate peer or the
- * proxy-facing (right-most) valid `X-Forwarded-For` hop is within Cloudflare's
- * published ranges. Trusting any hop lets a direct-origin attacker inject a
- * fake Cloudflare address before Railway appends the real direct peer. If a request
- * reaches the origin *directly* (local dev, or a direct-to-origin hit that
- * bypasses Cloudflare) the header is ignored and we fall back to the previous
- * XFF/socket logic. This keeps a direct-to-origin caller from spoofing an
- * arbitrary IP via a forged `CF-Connecting-IP` alone.
+ * Trust model: on Railway, use its edge-owned `X-Real-IP`; it validates the
+ * Cloudflare connection before replacing that header with the visitor's IP.
+ * Elsewhere, `CF-Connecting-IP` is only honored when the immediate peer or
+ * proxy-facing XFF hop is within Cloudflare's published ranges. Direct-origin
+ * callers cannot establish identity by adding a Cloudflare-looking XFF hop.
  *
  * NOTE: the fully robust mitigation against direct-to-origin spoofing is an
  * infra one — restrict the origin to Cloudflare (Authenticated Origin Pulls or
  * a firewall allowlist of Cloudflare IPs). This helper is the best the app
- * layer can do, and it is a strict improvement over recording the edge IP.
+ * layer can do, and it is a strict improvement over recording a proxy IP.
  *
  * Cloudflare ranges below are from https://www.cloudflare.com/ips-v4 and
  * https://www.cloudflare.com/ips-v6 (fetched 2026-06-22). They change very
@@ -177,6 +170,13 @@ const CF_RANGES: ParsedCidr[] = [...CLOUDFLARE_CIDRS_V4, ...CLOUDFLARE_CIDRS_V6]
     .map(parseCidr)
     .filter((c): c is ParsedCidr => c !== null);
 
+const NON_VISITOR_RANGES: ParsedCidr[] = [
+    '0.0.0.0/8', '10.0.0.0/8', '100.64.0.0/10', '127.0.0.0/8',
+    '169.254.0.0/16', '172.16.0.0/12', '192.168.0.0/16',
+    '198.18.0.0/15', '224.0.0.0/4', '240.0.0.0/4',
+    '::/128', '::1/128', 'fc00::/7', 'fe80::/10', 'ff00::/8',
+].map(parseCidr).filter((c): c is ParsedCidr => c !== null);
+
 /** True if `raw` parses to an address inside any Cloudflare published range. */
 export function isCloudflareIp(raw: string): boolean {
     const ip = parseIp(raw);
@@ -187,9 +187,32 @@ export function isCloudflareIp(raw: string): boolean {
     return false;
 }
 
+/** Proxy and private addresses are not evidence that two ranked players share a connection. */
+export function isPublicVisitorIp(raw: string): boolean {
+    const ip = parseIp(raw);
+    if (!ip || isCloudflareIp(raw)) return false;
+    return !NON_VISITOR_RANGES.some(range => range.version === ip.version && (ip.value & range.mask) === range.base);
+}
+
 function firstHeader(req: IpRequestLike, name: string): string | undefined {
     const raw = req.headers[name];
     return Array.isArray(raw) ? raw[0] : raw;
+}
+
+type IpPlatform = 'railway' | 'other';
+
+function ipPlatform(): IpPlatform {
+    return process.env.RAILWAY_SERVICE_ID || process.env.RAILWAY_ENVIRONMENT_ID || process.env.RAILWAY_ENVIRONMENT
+        ? 'railway' : 'other';
+}
+
+function railwayRealIp(req: IpRequestLike): string | null {
+    // Railway replaces X-Real-IP at its edge with the connecting visitor's IP,
+    // including when the request came through Cloudflare. A public Railway hop
+    // can be the rightmost XFF entry, so XFF is not ranked identity evidence.
+    const raw = req.headers['x-real-ip'];
+    if (typeof raw !== 'string' || !parseIp(raw)) return null;
+    return normalizeIp(raw);
 }
 
 function forwardedIps(req: IpRequestLike): string[] {
@@ -206,15 +229,18 @@ export function requestTransitedCloudflare(req: IpRequestLike): boolean {
 }
 
 /**
- * Resolve the real client IP for a request.
+ * Resolve the client IP for logging, moderation, and rate limiting.
  *
- * Honors `CF-Connecting-IP` when the request demonstrably came through
- * Cloudflare; otherwise uses the proxy-facing valid `X-Forwarded-For` hop,
- * then `req.ip` / the socket peer. The right-most fallback is conservative:
- * a platform proxy may group callers, but a direct-origin attacker cannot
- * rotate a forged left-most value to evade an IP bucket.
+ * Railway's edge-owned `X-Real-IP` takes precedence there. Elsewhere, honor
+ * `CF-Connecting-IP` when Cloudflare transit is verified, then use the
+ * proxy-facing XFF hop or socket. Anti-alt stamps require the stricter
+ * `trustedVisitorIp()` function below.
  */
-export function clientIp(req: IpRequestLike): string | null {
+export function clientIp(req: IpRequestLike, platform: IpPlatform = ipPlatform()): string | null {
+    if (platform === 'railway') {
+        const realIp = railwayRealIp(req);
+        if (realIp) return realIp;
+    }
     const cf = firstHeader(req, 'cf-connecting-ip');
     if (cf && cf.trim() && parseIp(cf) && requestTransitedCloudflare(req)) {
         return normalizeIp(cf);
@@ -225,4 +251,22 @@ export function clientIp(req: IpRequestLike): string | null {
 
     const fallback = req.ip || req.socket?.remoteAddress;
     return fallback ? fallback.trim() : null;
+}
+
+/** IP suitable for anti-alt evidence only when its provenance is trusted. */
+export function trustedVisitorIp(req: IpRequestLike, platform: IpPlatform = ipPlatform()): string | null {
+    if (platform === 'railway') {
+        const realIp = railwayRealIp(req);
+        return realIp && isPublicVisitorIp(realIp) ? realIp : null;
+    }
+
+    const cf = firstHeader(req, 'cf-connecting-ip');
+    if (cf && parseIp(cf) && requestTransitedCloudflare(req)) {
+        const visitor = normalizeIp(cf);
+        return isPublicVisitorIp(visitor) ? visitor : null;
+    }
+
+    // With no proxy, the TCP peer is the only non-spoofable address available.
+    const peer = req.socket?.remoteAddress;
+    return peer && isPublicVisitorIp(peer) ? normalizeIp(peer) : null;
 }

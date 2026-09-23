@@ -47,7 +47,7 @@ export type EchoesDuelBinding = {
  * torch and seal consequences; the showdown server owns every card-game decision. */
 export function CardClashDuel({
     character, creatorCards, tileDifficulty = "normal", dungeonSceneImage,
-    opponentAvatar, dungeonRunToken, echoes, onVersionedCharacter, onEchoesSettled, onMatchStarted,
+    opponentAvatar, dungeonRunToken, echoes, hollowGateCardMatchId, onVersionedCharacter, onEchoesSettled, onMatchStarted,
     onDungeonWin, onDungeonLose, onDungeonDraw, onDungeonLeave,
 }: {
     character: Character;
@@ -57,15 +57,17 @@ export function CardClashDuel({
     opponentAvatar?: string;
     dungeonRunToken?: string;
     echoes?: EchoesDuelBinding;
+    /** Already bound to the server-owned rift ambush. */
+    hollowGateCardMatchId?: string;
     onVersionedCharacter?: (character: Character, saveVersion: number) => boolean;
     /** Fires once the server has committed an Echoes settlement (null on a
      * loss/draw settle). Settlement lands BEFORE the replay animation ends. */
     onEchoesSettled?: (summary: EchoesSettleSummary | null) => void;
     /** Fires with the live match id so hosts can persist a resume pointer. */
     onMatchStarted?: (matchId: string) => void;
-    onDungeonWin: () => void;
-    onDungeonLose?: () => void;
-    onDungeonDraw?: () => void;
+    onDungeonWin: () => void | Promise<void>;
+    onDungeonLose?: () => void | Promise<void>;
+    onDungeonDraw?: () => void | Promise<void>;
     onDungeonLeave: () => void;
 }) {
     const cardsById = useMemo(() => displayCardsById(getAllTileCards(creatorCards)), [creatorCards]);
@@ -85,6 +87,7 @@ export function CardClashDuel({
     async function presentSession(result: ChronicleAiResult) {
         const final = result.session;
         if (!final) return false;
+        if (hollowGateCardMatchId && final.status === "complete") setDungeonTerminalReady(true);
         if ((dungeonRunToken || echoes) && final.status === "complete") {
             const version = Number(result._saveVersion);
             if (!result.character || !Number.isSafeInteger(version) || version < 1) {
@@ -132,7 +135,9 @@ export function CardClashDuel({
         // busy=true with the encounter unfinishable.
         void (async () => {
             try {
-                const result = echoes?.resumeMatchId
+                const result = hollowGateCardMatchId
+                    ? await chronicleAiAction(hollowGateCardMatchId, { action: "state" })
+                    : echoes?.resumeMatchId
                     ? await chronicleAiAction(echoes.resumeMatchId, { action: "state" })
                     : await startChronicleAi(
                         character.name,
@@ -143,7 +148,7 @@ export function CardClashDuel({
                         echoes?.encounterId,
                     );
                 if (!result.ok || !result.session) { setError(result.error ?? "Could not prepare the sealed showdown."); return; }
-                const liveMatchId = echoes?.resumeMatchId ?? result.matchId ?? result.session.matchId;
+                const liveMatchId = hollowGateCardMatchId ?? echoes?.resumeMatchId ?? result.matchId ?? result.session.matchId;
                 setMatchId(liveMatchId);
                 if (result.session.status !== "complete") onMatchStarted?.(liveMatchId);
                 let authoritative = result;
@@ -179,16 +184,25 @@ export function CardClashDuel({
         }
     }
 
-    function resolve() {
-        if ((dungeonRunToken || echoes) && !dungeonTerminalReady) {
-            setError(echoes
+    async function resolve() {
+        if ((dungeonRunToken || echoes || hollowGateCardMatchId) && !dungeonTerminalReady) {
+            setError(hollowGateCardMatchId
+                ? "The rift card result is still waiting for server confirmation."
+                : echoes
                 ? "The showdown result is still waiting for server confirmation."
                 : "The Dungeon Card proof is still waiting for server confirmation.");
             return;
         }
-        if (duel && duel.winner === duel.viewerSide) onDungeonWin();
-        else if (duel?.winner === "draw") (onDungeonDraw ?? onDungeonLose ?? onDungeonLeave)();
-        else (onDungeonLose ?? onDungeonLeave)();
+        setBusy(true);
+        try {
+            if (duel && duel.winner === duel.viewerSide) await onDungeonWin();
+            else if (duel?.winner === "draw") await (onDungeonDraw ?? onDungeonLose ?? onDungeonLeave)();
+            else await (onDungeonLose ?? onDungeonLeave)();
+        } catch (reason) {
+            setError(reason instanceof Error ? reason.message : "The encounter could not be sealed. Retry Continue.");
+        } finally {
+            setBusy(false);
+        }
     }
 
     const done = duel?.status === "complete";
@@ -212,7 +226,9 @@ export function CardClashDuel({
     const sceneStyle = dungeonSceneImage ? { "--chronicle-scene": `url(${dungeonSceneImage})` } as CSSProperties : undefined;
     // Encounter hosts don't pass an avatar, so the Keeper resolves its own.
     const foeName = duel ? duel[duel.viewerSide === "p1" ? "p2" : "p1"].name : "";
-    const headerSmall = echoes
+    const headerSmall = hollowGateCardMatchId
+        ? "Rift · Chronicle Ambush"
+        : echoes
         ? `Echoes of War · Floor ${echoes.floor} · ${echoes.opponentName}, ${echoes.opponentTitle}`
         : tileDifficulty === "hard" ? "Sealed Encounter · Hard" : tileDifficulty === "easy" ? "Sealed Encounter · Easy" : "Sealed Encounter · Medium";
 
@@ -257,7 +273,7 @@ export function CardClashDuel({
                 <button className="echoes-primary" onClick={resolve}>Continue</button>
             </section>
         ) : done ? (
-            <section className="chronicle-panel" style={{ marginBottom: 12, textAlign: "center" }}><h2>{won ? "Seal Claimed" : draw ? "Draw — Seal Holds" : "Seal Holds"}</h2><p>{won ? "You won the Chronicle Showdown." : draw ? "A draw is not enough to break the seal." : "The Chronicle Keeper won the showdown."}</p><button onClick={resolve}>Continue</button></section>
+            <section className="chronicle-panel" style={{ marginBottom: 12, textAlign: "center" }}><h2>{won ? "Seal Claimed" : hollowGateCardMatchId ? draw ? "Draw — Ambush Fades" : "Keeper Wins" : draw ? "Draw — Seal Holds" : "Seal Holds"}</h2><p>{won ? "You won the Chronicle Showdown." : hollowGateCardMatchId ? "The ambush fades after dealing 20% max HP recoil." : draw ? "A draw is not enough to break the seal." : "The Chronicle Keeper won the showdown."}</p><button onClick={() => void resolve()} disabled={busy}>Continue</button></section>
         ) : null}
         {duel ? <ChronicleDuelBoard key={matchId || "duel"} state={duel} cardsById={cardsById} playerAvatar={character.avatarImage} opponentAvatar={opponentAvatar ?? chronicleDuelistAvatar(foeName)} busy={busy} aiActing={aiActing} error={error} onExit={onDungeonLeave} exitLabel="Leave encounter" onAction={(intent) => void act(intent)} /> : null}
     </main>;

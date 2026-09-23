@@ -149,6 +149,19 @@ describe("pvp-reward-claim", () => {
         assert.deepEqual(pvpRewardImpactLines(result), ["Sector 44: 250 territory damage recorded"]);
     });
 
+    it("shows a ranked loss as a rating decrease", () => {
+        const result = {
+            status: "confirmed" as const,
+            alreadyClaimed: false,
+            completionPending: false,
+            rewardAuthorized: true,
+            progressionAuthorized: true,
+            rating: { field: "rankedRating", value: 988, delta: -12 },
+        };
+        assert.equal(pvpRewardSettlementNotice(result, { draw: false, spar: false }),
+            "Result recorded — -12 Rating.");
+    });
+
     it("shows raid impact only from an authoritative receipt after final confirmation", () => {
         const receipt = {
             status: "confirmed" as const, alreadyClaimed: true, completionPending: false,
@@ -318,6 +331,14 @@ describe("pvp-reward-claim", () => {
             "the authenticated claim route must own completion acknowledgement");
         assert.match(app, /if \(claim\.character[\s\S]*commitVersionedCharacter\(claim\.character, claim\._saveVersion\)/,
             "the claim callback must adopt the exact authoritative snapshot before later continuations");
+        const friendlySnapshot = app.indexOf("if (isFriendlyDuel && hasVersionedPvpClaimSnapshot(serverClaim))");
+        const ownerSaveRead = app.indexOf("const ownerSave = await readPvpOwnerSaveForContinuation(", friendlySnapshot);
+        assert.ok(friendlySnapshot >= 0 && ownerSaveRead > friendlySnapshot,
+            "a friendly duel should ACK its adopted claim snapshot without a redundant owner-save GET");
+        assert.match(app, /const isFriendlyDuel = serverClaim\?\.progressionAuthorized !== true/,
+            "missing browser context must not make a server-authorized match take the spar shortcut");
+        assert.match(screen, /const effectiveIsSpar = isSpar && !serverPlayerRanked && !serverProgressionMatch/,
+            "recovered world and Clan War matches must keep their server-sealed result presentation");
         assert.match(app, /context\?\.raidKind === "raidPlayer"[\s\S]*!serverClaim\?\.raidProgression/,
             "legacy raid repair is attacker-only; a defending winner without progression must still ACK");
         assert.match(app, /const pvpSettlementScopeKey = `\$\{playerSlug\(pvpOriginatingPlayerName\)\}:\$\{pvpOriginatingSessionEpoch\}:\$\{pvpRole\}:\$\{pvpBattleId\}`/,

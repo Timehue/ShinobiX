@@ -5,6 +5,8 @@ import { syncBuiltinESMExports } from 'node:module';
 import { isDeepStrictEqual } from 'node:util';
 import { applyCombatResolveResultToPvpSession, pvpSessionToCombatBattleState } from '../combat-adapters/pvpAdapter.js';
 import { activeCombatStatuses } from '../combat-core/statuses.js';
+import { ITEM_CATALOG } from './_item-catalog.js';
+import { RANKED_FORMAT_MAX_HP, RANKED_FORMAT_MAX_STATS } from './_ranked-format.js';
 import type { PvpFighter, PvpSession, PvpStatus } from './session.js';
 
 process.env.SUPABASE_URL ??= 'http://localhost:1';
@@ -18,6 +20,9 @@ let beforeCompareSet: ((key: string, expected: unknown, value: unknown) => Promi
 
 type Handler = (req: never, res: never) => Promise<unknown>;
 let moveHandler: Handler;
+let applyJutsu: typeof import('./move.js').applyJutsu;
+let applyDoTs: typeof import('./move.js').applyDoTs;
+let poisonSpendDamage: typeof import('./move.js').poisonSpendDamage;
 let issuePlayerToken: (name: string, ttlMs?: number) => string | null;
 
 before(async () => {
@@ -71,7 +76,11 @@ before(async () => {
         return removed;
     };
 
-    moveHandler = (await import('./move.js')).default as unknown as Handler;
+    const moveModule = await import('./move.js');
+    moveHandler = moveModule.default as unknown as Handler;
+    applyJutsu = moveModule.applyJutsu;
+    applyDoTs = moveModule.applyDoTs;
+    poisonSpendDamage = moveModule.poisonSpendDamage;
     issuePlayerToken = (await import('../_auth.js')).issuePlayerToken;
 });
 
@@ -668,7 +677,7 @@ test('Clear preserves deferred positive prevention statuses in both round phases
             { name: 'Stun Prevent', rounds: 2, activeRound: 2, kind: 'positive' },
         ];
         const active: PvpStatus = { name: 'Increase Heal', rounds: 2, activeRound: 1, percent: 30, kind: 'positive' };
-        const target = fighter(phase.target === 'p1' ? 'alice' : 'bob', phase.target === 'p1' ? 0 : 1, { statuses: [active, ...pending] });
+        const target = fighter(phase.target === 'p1' ? 'alice' : 'bob', phase.target === 'p1' ? 0 : 1, { shield: 750, statuses: [active, ...pending] });
         const battleId = `clear-pending-${phase.label}`;
         seed(session(battleId, {
             round: 1,
@@ -687,6 +696,8 @@ test('Clear preserves deferred positive prevention statuses in both round phases
         assert.equal(out.statusCode, 200);
         const after = storedSession(battleId);
         const statuses = phase.target === 'p1' ? after.p1.statuses : after.p2.statuses;
+        assert.equal((phase.target === 'p1' ? after.p1 : after.p2).shield, 0,
+            `${phase.label}: Clear removes the target's shield`);
         assert.equal(statuses.some((status) => status.name === 'Increase Heal'), false,
             `${phase.label}: active buff is cleared`);
         for (const expected of pending) {
@@ -694,6 +705,19 @@ test('Clear preserves deferred positive prevention statuses in both round phases
                 `${phase.label}: pending ${expected.name} survives until activation`);
         }
     }
+});
+
+test('active Clear Prevent keeps the target shield intact', async () => {
+    seed(session('clear-prevent-shield', {
+        p2: fighter('bob', 1, { shield: 700, statuses: [
+            { name: 'Clear Prevent', rounds: 2, activeRound: 1, kind: 'positive' },
+        ] }),
+    }));
+    const out = await postMove('alice', {
+        battleId: 'clear-prevent-shield', role: 'p1', action: 'clear', moveToken: 'clear-prevent-shield',
+    });
+    assert.equal(out.statusCode, 200);
+    assert.equal(storedSession('clear-prevent-shield').p2.shield, 700);
 });
 
 test('Copy and Mirror persist their deferred contracts through the authoritative move handler', async () => {
@@ -1415,7 +1439,7 @@ test('ground cast pulse is phase-aware while both phases begin recurrence on the
         role: 'p1',
         action: 'jutsu',
         jutsuId: 'phase-aware-ground',
-        tile: 12,
+        tile: 24,
         moveToken: 'ground-opener-cast-token',
     });
     assert.equal(openerCast.statusCode, 200);
@@ -1425,6 +1449,8 @@ test('ground cast pulse is phase-aware while both phases begin recurrence on the
     assert.equal(afterOpenerCast.groundEffects?.[0]?.rounds, 2);
     assert.equal(afterOpenerCast.groundEffects?.[0]?.activeRound, 2);
     assert.equal(afterOpenerCast.groundEffects?.[0]?.castPulseConsumed, true);
+    assert.ok(afterOpenerCast.groundEffects?.[0]?.tiles.includes(afterOpenerCast.p2.pos),
+        'the opponent is caught by the caster range even when far from the clicked tile');
 
     seed(session('ground-closer-cast', {
         roundOpener: 'p1',
@@ -1437,7 +1463,7 @@ test('ground cast pulse is phase-aware while both phases begin recurrence on the
         role: 'p2',
         action: 'jutsu',
         jutsuId: 'phase-aware-ground',
-        tile: 12,
+        tile: 24,
         moveToken: 'ground-closer-cast-token',
     });
     assert.equal(closerCast.statusCode, 200);
@@ -1572,6 +1598,196 @@ test('both-target consumables emit matching self and opponent VFX', async () => 
     const after = storedSession('smoke-vfx');
     assert.ok(after.vfx?.some(vfx => vfx.key === 'debuff' && vfx.target === 'p2' && vfx.anchor === 'target'));
     assert.ok(after.vfx?.some(vfx => vfx.key === 'debuff' && vfx.target === 'p1' && vfx.anchor === 'caster' && vfx.intensity === 'minor'));
+});
+
+test('ranked pills and smoke spend a charge without dealing item damage', async () => {
+    for (const [id, effect, value] of [
+        ['item-attack-pill', 'Increase Damage Given', 15],
+        ['item-defense-pill', 'Decrease Damage Taken', 15],
+        ['item-smoke-bomb', 'Decrease Damage Given', 100],
+    ] as const) {
+        const battleId = `ranked-utility-${id}`;
+        const item = {
+            id, name: id, slot: 'item', apCost: 20, weaponCooldown: 5,
+            weaponEffect: effect, weaponEffectValue: value,
+            ...(id === 'item-smoke-bomb' ? { weaponEffectTarget: 'both' } : {}),
+        };
+        seed(session(battleId, {
+            p1: withEquippedItem(fighter('alice', 0), item, 'item1'),
+            itemCharges: { p1: { [id]: 2 }, p2: {} },
+        }));
+        const out = await postMove('alice', {
+            battleId, role: 'p1', action: 'item', itemId: id, moveToken: `use-${id}`,
+        });
+        assert.equal(out.statusCode, 200);
+        const after = storedSession(battleId);
+        assert.equal(after.p1.hp, 5000, `${id} must not hurt its user`);
+        assert.equal(after.p2.hp, 5000, `${id} must not hurt its opponent`);
+        assert.equal(after.p1.statuses.find(status => status.source === id)?.percent, value);
+        assert.equal(after.p2.statuses.some(status => status.source === id), id === 'item-smoke-bomb');
+        assert.equal(after.itemCharges?.p1[id], 1);
+    }
+});
+
+test('the ranked Kunai uses the damaging thrown-weapon path and spends its charge', async () => {
+    const id = 'ranked-format-kunai';
+    const kunaiEp = ITEM_CATALOG[id]?.weaponEp;
+    assert.equal(kunaiEp, 38, 'the server catalog carries the tuned neutral Kunai');
+    seed(session('ranked-kunai-damage', {
+        p1: withEquippedItem(fighter('alice', 0), {
+            id, name: 'Kunai', slot: 'thrown', apCost: 20,
+            weaponCooldown: 5, weaponEp: kunaiEp,
+            weaponEffect: 'Wound', weaponEffectValue: 300,
+        }, 'thrown'),
+        itemCharges: { p1: { [id]: 2 }, p2: {} },
+    }));
+    const out = await postMove('alice', {
+        battleId: 'ranked-kunai-damage', role: 'p1', action: 'weapon',
+        itemId: id, moveToken: 'ranked-kunai-throw',
+    });
+    assert.equal(out.statusCode, 200);
+    const after = storedSession('ranked-kunai-damage');
+    assert.ok(after.p2.hp < 5000, 'Kunai damages the opponent through the weapon resolver');
+    assert.equal(after.itemCharges?.p1[id], 1);
+    assert.equal(after.itemsUsed?.p1[id], 1);
+});
+
+test('ordinary weapon swings gain 30%, while Pierce weapon swings stay fixed', () => {
+    const attacker = fighter('alice', 0);
+    const defender = fighter('bob', 1);
+    const hand = { id: 'weapon', name: 'Test Blade', type: 'Bukijutsu', ap: 40,
+        effectPower: 27, isUtility: false, tags: [] as Array<{ name: string }> };
+    const dealt = (weaponSwing: boolean, tags: Array<{ name: string }> = []) =>
+        defender.hp - applyJutsu(attacker, defender, { ...hand, weaponSwing, tags }, 1, 'central', 1).opponent.hp;
+    assert.equal(dealt(true), Math.floor(dealt(false) * 1.3));
+    assert.equal(dealt(true, [{ name: 'Pierce' }]), dealt(false, [{ name: 'Pierce' }]));
+});
+
+test('jutsu damage buffs and pills lift both hand swings and thrown Kunai, but never Pierce', () => {
+    const attacker = fighter('alice', 0);
+    const defender = fighter('bob', 1);
+    const withStatus = (source: string, percent: number): PvpFighter => ({
+        ...attacker,
+        statuses: [{ name: 'Increase Damage Given', source, percent, kind: 'positive', rounds: 2, activeRound: 1 }],
+    });
+    for (const [name, effectPower, ap] of [['hand', 27, 40], ['Kunai', 38, 20]] as const) {
+        const weapon = { id: 'weapon', name, type: 'Bukijutsu' as const, ap, effectPower,
+            isUtility: false, weaponSwing: true, suppressBloodline: true, tags: [] as Array<{ name: string }> };
+        const dealt = (self: PvpFighter, tags: Array<{ name: string }> = []) =>
+            defender.hp - applyJutsu(self, defender, { ...weapon, tags }, 1, 'central', 1).opponent.hp;
+        const plain = dealt(attacker);
+        assert.ok(dealt(withStatus('jutsu-damage-buff', 35)) > plain, `${name} receives jutsu damage buffs`);
+        assert.equal(dealt(withStatus('item-attack-pill', 15)), Math.floor(plain * 1.15), `${name} receives the exact pill bonus`);
+        const plainPierce = dealt(attacker, [{ name: 'Pierce' }]);
+        assert.equal(dealt(withStatus('jutsu-damage-buff', 35), [{ name: 'Pierce' }]), plainPierce);
+        assert.equal(dealt(withStatus('item-attack-pill', 15), [{ name: 'Pierce' }]), plainPierce);
+    }
+});
+
+test('unbuffed ranked Kunai impact lands between 300 and 400 against maxed ranked armor', () => {
+    const maxed = (name: string, pos: number): PvpFighter => {
+        const base = fighter(name, pos);
+        return { ...base, hp: RANKED_FORMAT_MAX_HP, maxHp: RANKED_FORMAT_MAX_HP,
+            character: { ...base.character, level: 100, stats: { ...RANKED_FORMAT_MAX_STATS }, armorRawDR: 0.35 } };
+    };
+    const attacker = maxed('alice', 0);
+    const defender = maxed('bob', 1);
+    const direct = defender.hp - applyJutsu(attacker, defender, {
+        id: 'weapon', name: 'Kunai', type: 'Bukijutsu', ap: 20, range: 4,
+        effectPower: ITEM_CATALOG['ranked-format-kunai']!.weaponEp!,
+        isUtility: false, weaponSwing: true, suppressBloodline: true,
+        tags: [{ name: 'Wound', percent: 300 }],
+    }, 1, 'central', 1).opponent.hp;
+    assert.ok(direct >= 300 && direct <= 400, `Kunai impact was ${direct}`);
+});
+
+test('ranked pill percentages are exact and smoke blocks ordinary hits but not Pierce', () => {
+    const attacker = fighter('alice', 0);
+    const defender = fighter('bob', 1);
+    const dealt = (self: PvpFighter, opponent: PvpFighter, jutsu: Parameters<typeof applyJutsu>[2] = blast) =>
+        opponent.hp - applyJutsu(self, opponent, jutsu, 1, 'central', 1).opponent.hp;
+    const ordinary = dealt(attacker, defender);
+    assert.ok(ordinary > 0);
+    const withStatus = (base: PvpFighter, name: string, source: string, percent: number, kind: PvpStatus['kind']): PvpFighter => ({
+        ...base, statuses: [{ name, source, percent, kind, rounds: 2, activeRound: 1 }],
+    });
+    assert.equal(dealt(withStatus(attacker, 'Increase Damage Given', 'item-attack-pill', 15, 'positive'), defender), Math.floor(ordinary * 1.15));
+    assert.equal(dealt(attacker, withStatus(defender, 'Decrease Damage Taken', 'item-defense-pill', 15, 'positive')), Math.floor(ordinary * 0.85));
+    const smoke = withStatus(attacker, 'Decrease Damage Given', 'item-smoke-bomb', 100, 'negative');
+    assert.equal(dealt(smoke, defender), 0);
+    assert.ok(dealt(smoke, defender, { ...blast, tags: [{ name: 'Pierce' }] }) > 0);
+    const pierce = { ...blast, tags: [{ name: 'Pierce' }] };
+    const plainPierce = dealt(attacker, defender, pierce);
+    assert.equal(dealt(withStatus(attacker, 'Increase Damage Given', 'item-attack-pill', 15, 'positive'), defender, pierce),
+        plainPierce, 'Attack Pill cannot increase Pierce');
+    assert.equal(dealt(attacker, withStatus(defender, 'Decrease Damage Taken', 'item-defense-pill', 15, 'positive'), pierce),
+        plainPierce, 'Defense Pill cannot reduce Pierce');
+    assert.equal(dealt(smoke, defender, pierce), plainPierce, 'Smoke Bomb cannot reduce Pierce');
+    const shielded = { ...defender, shield: 1000 };
+    const pierced = applyJutsu(smoke, shielded, pierce, 1, 'central', 1).opponent;
+    assert.equal(shielded.hp - pierced.hp, plainPierce, 'Pierce reaches HP through smoke and shield');
+    assert.equal(pierced.shield, shielded.shield, 'Pierce does not consume the bypassed shield');
+    const statBuffed = { ...attacker, statuses: [
+        { name: 'Increase Generals', percent: 35, kind: 'positive', rounds: 2, activeRound: 1 },
+        { name: 'Increase Discipline', percent: 35, discipline: 'Ninjutsu', kind: 'positive', rounds: 2, activeRound: 1 },
+    ] } as PvpFighter;
+    assert.equal(dealt(statBuffed, defender, pierce), plainPierce, 'temporary stat buffs cannot increase Pierce');
+});
+
+test('Defense Pill also reduces a bleed tick by exactly 15%', () => {
+    const wounded = { ...fighter('alice', 0), statuses: [
+        { name: 'Wound', amount: 100, kind: 'negative', rounds: 2, activeRound: 1 },
+    ] } as PvpFighter;
+    const withoutPill = wounded.hp - applyDoTs(wounded, 1).fighter.hp;
+    const withPill = { ...wounded, statuses: [...wounded.statuses,
+        { name: 'Decrease Damage Taken', source: 'item-defense-pill', percent: 15,
+            kind: 'positive', rounds: 2, activeRound: 1 } as PvpStatus,
+    ] };
+    const protectedTick = withPill.hp - applyDoTs(withPill, 1).fighter.hp;
+    assert.equal(protectedTick, Math.floor(withoutPill * 0.85));
+});
+
+test('Smoke Bomb leaves Wound, Drain, and Poison damage unchanged', () => {
+    const afflicted = { ...fighter('alice', 0), statuses: [
+        { name: 'Wound', amount: 100, kind: 'negative', rounds: 2, activeRound: 1 },
+        { name: 'Drain', amount: 80, kind: 'negative', rounds: 2, activeRound: 1 },
+        { name: 'Poison', percent: 6, kind: 'negative', rounds: 2, activeRound: 1 },
+    ] } as PvpFighter;
+    const smoked = { ...afflicted, statuses: [...afflicted.statuses,
+        { name: 'Decrease Damage Given', source: 'item-smoke-bomb', percent: 100,
+            kind: 'negative', rounds: 1, activeRound: 1 } as PvpStatus] };
+    const normalTick = applyDoTs(afflicted, 1).fighter;
+    const smokedTick = applyDoTs(smoked, 1).fighter;
+    assert.ok(normalTick.hp < afflicted.hp);
+    assert.equal(smokedTick.hp, normalTick.hp);
+    assert.equal(smokedTick.chakra, normalTick.chakra);
+    assert.ok(poisonSpendDamage(afflicted, 100, 1) > 0);
+    assert.equal(poisonSpendDamage(smoked, 100, 1), poisonSpendDamage(afflicted, 100, 1));
+});
+
+test('smoke cast by the round closer survives the round boundary', async () => {
+    const id = 'item-smoke-bomb';
+    seed(session('smoke-closer', {
+        roundOpener: 'p2', activePlayer: 'p1',
+        p1: withEquippedItem(fighter('alice', 0), {
+            id, name: 'Smoke Bomb', slot: 'item', apCost: 20,
+            weaponEffect: 'Decrease Damage Given', weaponEffectValue: 100,
+            weaponEffectTarget: 'both',
+        }, 'item1'),
+        itemCharges: { p1: { [id]: 2 }, p2: {} },
+    }));
+    assert.equal((await postMove('alice', {
+        battleId: 'smoke-closer', role: 'p1', action: 'item', itemId: id,
+        moveToken: 'smoke-closer-use',
+    })).statusCode, 200);
+    assert.equal((await postMove('alice', {
+        battleId: 'smoke-closer', role: 'p1', action: 'wait',
+        moveToken: 'smoke-closer-wait',
+    })).statusCode, 200);
+    const after = storedSession('smoke-closer');
+    assert.equal(after.round, 2);
+    assert.equal(after.p1.statuses.find(status => status.source === id)?.rounds, 1);
+    assert.equal(after.p2.statuses.find(status => status.source === id)?.rounds, 1);
 });
 
 test('weapon cooldown blocks a same-turn reswing and is stored under a weapon:-namespaced key', async () => {

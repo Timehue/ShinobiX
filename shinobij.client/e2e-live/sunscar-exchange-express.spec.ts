@@ -84,13 +84,16 @@ async function openExchange(page: Page) {
     // valid ready state; both are player-visible and unambiguous.
     await expect(hall.or(enter).or(worldMap)).toBeVisible();
     if (await worldMap.isVisible()) {
-        // A clean login correctly starts in the village safe zone. Return to
-        // Sunscar through the actual map-travel flow instead of relying on a
-        // deep link that the route guard is supposed to reject.
+        // A clean login starts in the village safe zone. Open the Festival
+        // through its map pin instead of bypassing the route guard.
         await worldMap.click();
         await expect(page.locator('.anime-world-map')).toBeVisible();
-        await page.getByRole('button', { name: 'Travel to Cactus Flats (Sector 54)', exact: true }).click();
-        await expect(enter).toBeVisible({ timeout: 15_000 });
+        const festivalPin = page.getByRole('button', { name: 'Open Sunscar Festival', exact: true });
+        // A restored Festival route may finish loading while the map opens.
+        // In that case the hub or Exchange has already become the ready state.
+        await expect(festivalPin.or(enter).or(hall)).toBeVisible({ timeout: 15_000 });
+        if (await festivalPin.isVisible()) await festivalPin.click();
+        await expect(enter.or(hall)).toBeVisible({ timeout: 15_000 });
     }
     if (!(await hall.isVisible())) {
         await expect(enter).toBeVisible();
@@ -130,10 +133,10 @@ async function listAsset(page: Page, name: string, price: number, currency: 'ryo
     await expect(page.getByText('Listing published. Your goods are now held by the Exchange.', { exact: true })).toBeVisible();
 }
 
-async function inspectListing(page: Page, name: string) {
+async function inspectListing(page: Page, name: string, sellerName: string) {
     await page.getByRole('button', { name: 'Browse market', exact: true }).click();
     await page.getByRole('searchbox', { name: 'Search the Exchange' }).fill(name);
-    const listing = page.locator('.sx-listing', { hasText: name });
+    const listing = page.locator('.sx-listing', { hasText: name }).filter({ hasText: `From ${sellerName}` });
     await expect(listing).toHaveCount(1);
     await listing.click();
 }
@@ -192,23 +195,28 @@ test('real players list, safely retry, spend both currencies, make roster room, 
             const body = route.request().postDataJSON() as { action?: string } | null;
             if (body?.action !== 'buy' || droppedCommittedBuy) return route.continue();
             const response = await route.fetch({ maxRetries: API_CONNECTION_RETRIES });
-            expect(response.status(), 'the real server committed the purchase before its response was lost').toBe(200);
+            expect(response.status(), 'the real server committed the purchase before the client received an uncertain result').toBe(200);
             droppedCommittedBuy = true;
-            await route.abort();
+            await route.fulfill({
+                status: 503,
+                contentType: 'application/json',
+                body: JSON.stringify({ ok: false, pending: true, error: 'Connection interrupted. Retry the saved trade to check its outcome safely.' }),
+            });
         });
-        await inspectListing(buyerPage, 'Training Katana');
+        await inspectListing(buyerPage, 'Training Katana', seller.name);
         await buyerPage.getByRole('button', { name: 'Buy for 201 ryo', exact: true }).click();
         await expect.poll(() => droppedCommittedBuy).toBe(true);
         await expect(buyerPage.getByRole('alert')).toContainText('Connection interrupted. Retry the saved trade');
         await buyerPage.unroute('**/api/festival/exchange');
-        await buyerPage.getByRole('button', { name: 'Retry saved trade', exact: true }).click();
+        await buyerPage.getByRole('dialog', { name: 'Inspect listing' })
+            .getByRole('button', { name: 'Retry saved trade', exact: true }).click();
         await expect(buyerPage.getByText('Purchase complete. Your goods have been delivered.', { exact: true })).toBeVisible();
 
-        await inspectListing(buyerPage, 'Black Lotus Dagger');
+        await inspectListing(buyerPage, 'Black Lotus Dagger', seller.name);
         await buyerPage.getByRole('button', { name: 'Buy for 202 Fate Shards', exact: true }).click();
         await expect(buyerPage.getByText('Purchase complete. Your goods have been delivered.', { exact: true })).toBeVisible();
 
-        await inspectListing(buyerPage, offeredPet.name);
+        await inspectListing(buyerPage, offeredPet.name, seller.name);
         await expect(buyerPage.getByText('Your companion roster is full. Move a companion to the Sanctuary before buying.', { exact: true })).toBeVisible();
         await expect(buyerPage.getByRole('button', { name: 'Buy for 303 ryo', exact: true })).toBeDisabled();
         await buyerPage.getByRole('button', { name: 'Manage companion roster', exact: true }).click();
@@ -234,7 +242,7 @@ test('real players list, safely retry, spend both currencies, make roster room, 
         // The browser receives its genuine winning or losing response; either
         // way exactly one account may be debited and receive the escrowed item.
         await listAsset(page, 'Training Katana', 404, 'ryo');
-        await inspectListing(buyerPage, 'Training Katana');
+        await inspectListing(buyerPage, 'Training Katana', seller.name);
         let race: { buyerStatus: number; rivalStatus: number } | null = null;
         await buyerPage.route('**/api/festival/exchange', async route => {
             const body = route.request().postDataJSON() as { action?: string; listingId?: string; expectedPrice?: number } | null;

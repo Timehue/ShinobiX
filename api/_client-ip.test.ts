@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { clientIp, isCloudflareIp, requestTransitedCloudflare, type IpRequestLike } from './_client-ip.js';
+import { clientIp, isCloudflareIp, isPublicVisitorIp, requestTransitedCloudflare, trustedVisitorIp, type IpRequestLike } from './_client-ip.js';
 
 // Verifies the Cloudflare-aware client-IP extraction shared by the player IP
 // tracker, the moderation IP index, and the rate-limiter fallback. The bug
@@ -32,6 +32,16 @@ describe('isCloudflareIp', () => {
     });
 });
 
+describe('isPublicVisitorIp', () => {
+    it('accepts public visitors and rejects proxy, private, and malformed addresses', () => {
+        assert.equal(isPublicVisitorIp('86.123.45.67'), true);
+        assert.equal(isPublicVisitorIp('2001:4860:4860::8888'), true);
+        for (const ip of ['162.158.14.68', '10.0.0.3', '172.20.1.4', '192.168.1.2', '100.64.0.1', '127.0.0.1', '::1', 'fc00::1', 'fe80::1', 'not-an-ip']) {
+            assert.equal(isPublicVisitorIp(ip), false, ip);
+        }
+    });
+});
+
 describe('requestTransitedCloudflare', () => {
     it('is true when an XFF hop is a Cloudflare edge IP', () => {
         assert.equal(requestTransitedCloudflare(req({ 'x-forwarded-for': '162.158.14.68' })), true);
@@ -51,14 +61,53 @@ describe('requestTransitedCloudflare', () => {
 });
 
 describe('clientIp', () => {
+    it('uses Railway-owned X-Real-IP instead of a public proxy at the end of XFF', () => {
+        const r = req({
+            'cf-connecting-ip': '86.123.45.67',
+            'x-real-ip': '86.123.45.67',
+            'x-forwarded-for': '86.123.45.67, 162.158.14.68, 79.127.200.33',
+        }, '100.64.0.3');
+        assert.equal(clientIp(r, 'railway'), '86.123.45.67');
+        assert.equal(trustedVisitorIp(r, 'railway'), '86.123.45.67');
+    });
+
+    it('selects Railway header handling from its runtime environment', () => {
+        const prior = process.env.RAILWAY_SERVICE_ID;
+        process.env.RAILWAY_SERVICE_ID = 'test-service';
+        try {
+            const r = req({
+                'x-real-ip': '86.123.45.67',
+                'x-forwarded-for': '162.158.14.68, 79.127.200.33',
+            }, '100.64.0.3');
+            assert.equal(clientIp(r), '86.123.45.67');
+            assert.equal(trustedVisitorIp(r), '86.123.45.67');
+        } finally {
+            if (prior === undefined) delete process.env.RAILWAY_SERVICE_ID;
+            else process.env.RAILWAY_SERVICE_ID = prior;
+        }
+    });
+
+    it('does not trust a forged Cloudflare visitor header on a direct Railway request', () => {
+        const r = req({
+            'cf-connecting-ip': '1.2.3.4',
+            'x-real-ip': '86.123.45.67',
+            'x-forwarded-for': '1.2.3.4, 86.123.45.67',
+        }, '100.64.0.3');
+        assert.equal(trustedVisitorIp(r, 'railway'), '86.123.45.67');
+    });
+
+    it('does not stamp a Railway proxy fallback when X-Real-IP is missing', () => {
+        const r = req({ 'x-forwarded-for': '86.123.45.67, 79.127.200.33' }, '100.64.0.3');
+        assert.equal(trustedVisitorIp(r, 'railway'), null);
+    });
+
     it('returns the real visitor from CF-Connecting-IP when behind Cloudflare', () => {
-        // Production shape: Railway sees XFF[0] = Cloudflare egress; the visitor
-        // is in CF-Connecting-IP.
+        // Cloudflare-aware fallback for hosts without Railway's trusted header.
         const r = req({
             'cf-connecting-ip': '86.123.45.67',
             'x-forwarded-for': '162.158.14.68',
         });
-        assert.equal(clientIp(r), '86.123.45.67');
+        assert.equal(clientIp(r, 'other'), '86.123.45.67');
     });
 
     it('handles an IPv6 visitor behind Cloudflare', () => {
@@ -85,6 +134,7 @@ describe('clientIp', () => {
 
     it('does not trust a standalone spoofable x-real-ip header', () => {
         assert.equal(clientIp(req({ 'x-real-ip': '1.2.3.4' }, '86.123.45.67')), '86.123.45.67');
+        assert.equal(trustedVisitorIp(req({ 'x-real-ip': '1.2.3.4' }, '86.123.45.67'), 'other'), '86.123.45.67');
     });
 
     it('does not honor forged CF identity from a non-proxy-facing Cloudflare hop', () => {

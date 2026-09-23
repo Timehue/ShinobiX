@@ -87,6 +87,7 @@ export function createCharacter(name: string, village: string, specialty: JutsuT
         unspentStats: STARTING_STAT_POINTS,
         equippedJutsuIds: equippedStarterIds,
         inventory: ["rustfang-kunai", "shinobi-vest"],
+        itemStacks: [{ itemId: "beast-seal-reinforced", count: 1 }],
         equipment: {},
         jutsuMastery: bloodlineJutsuIds.map((id) => ({ jutsuId: id, level: 1, xp: 0 })),
         pets: [],

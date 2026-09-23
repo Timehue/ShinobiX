@@ -8,7 +8,7 @@ import { CHRONICLE_FIXED_FALLBACK_DECK } from '../../shared/chronicle-duel.js';
 import { STORY_LEVELS } from '../story/_settle.js';
 import { STORY_TOWER_MIN_LEVEL } from '../towers/_story-eligibility.js';
 import { FLOOR_CATALOG } from '../towers/_floor-catalog.js';
-import { ATTACKABLE_MIN_LEVEL } from '../_realtime/presence-gating.js';
+import { RANKED_MIN_LEVEL } from '../../shared/ranked-eligibility.js';
 import { LEGACY_MIN_LEVEL } from '../_legacy-defs.js';
 import { PROFESSION_CHANGE_LEVEL } from '../../shared/profession-change.js';
 import { applyForge } from '../craft/_forge.js';
@@ -173,7 +173,7 @@ test('supplies are craftable only when the real immutable forge decision accepts
 });
 
 test('Legacy and profession preparation honor canonical floors and completion stays a review', () => {
-    for (const [focus, minimum] of [['legacy', LEGACY_MIN_LEVEL], ['profession', PROFESSION_CHANGE_LEVEL], ['ranked-pvp', ATTACKABLE_MIN_LEVEL]] as const) {
+    for (const [focus, minimum] of [['legacy', LEGACY_MIN_LEVEL], ['profession', PROFESSION_CHANGE_LEVEL], ['ranked-pvp', RANKED_MIN_LEVEL]] as const) {
         for (const level of [minimum - 1, minimum, minimum + 1]) {
             assert.equal(first(input(focus, { level, profession: '' })).screen === 'training', level < minimum);
         }

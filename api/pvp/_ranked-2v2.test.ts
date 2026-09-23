@@ -9,6 +9,10 @@ let kv: Kv;
 let mod: typeof import('./_ranked-2v2.js');
 let settle: typeof import('./_ranked-2v2-settlement.js');
 let format: typeof import('./_ranked-format.js');
+let towerEngine: typeof import('../towers/_engine.js');
+let towerPvp: typeof import('../towers/_pvp-session.js');
+let towerSession: typeof import('../towers/_tower-session.js');
+let makeRng: typeof import('../towers/_sim.js').makeRng;
 
 const A1 = 'ash', A2 = 'briar', B1 = 'cinder', B2 = 'dune';
 const ALL = [A1, A2, B1, B2];
@@ -20,6 +24,10 @@ before(async () => {
     mod = await import('./_ranked-2v2.js');
     settle = await import('./_ranked-2v2-settlement.js');
     format = await import('./_ranked-format.js');
+    towerEngine = await import('../towers/_engine.js');
+    towerPvp = await import('../towers/_pvp-session.js');
+    towerSession = await import('../towers/_tower-session.js');
+    ({ makeRng } = await import('../towers/_sim.js'));
 });
 after(() => { delete process.env.SHINOBIX_QA_MEMORY_KV; });
 
@@ -68,11 +76,25 @@ describe('ranked 2v2 pairing', { concurrency: false }, () => {
         assert.equal((await mod.inviteRanked2v2Partner({ actor: B1, target: A2 })).ok, false, 'cannot poach');
     });
 
-    it('applies the shared newcomer floor to BOTH partners', async () => {
-        await seed(4);
+    it('requires both partners to be above level 10', async () => {
+        await seed(10);
         const low = await mod.inviteRanked2v2Partner({ actor: A1, target: A2 });
         assert.equal(low.ok, false);
         if (!low.ok) assert.equal(low.code, 'ranked-level-locked');
+        await seed(11);
+        assert.equal((await mod.inviteRanked2v2Partner({ actor: A1, target: A2 })).ok, true);
+    });
+
+    it('rechecks both partners when an existing duo queues', async () => {
+        await seed(11);
+        await mod.inviteRanked2v2Partner({ actor: A1, target: A2 });
+        await mod.acceptRanked2v2Invite(A2);
+        const saved = await kv.get<{ character: { level: number } }>(`save:${A2}`);
+        assert.ok(saved);
+        await kv.set(`save:${A2}`, { ...saved, character: { ...saved.character, level: 10 } });
+        const queued = await mod.queueRanked2v2(A1);
+        assert.equal(queued.ok, false);
+        if (!queued.ok) assert.equal(queued.code, 'ranked-level-locked');
     });
 
     it('lets either partner leave, freeing both to pair again', async () => {
@@ -153,7 +175,7 @@ describe('ranked 2v2 matchmaking', { concurrency: false }, () => {
         }
     });
 
-    it('equalizes stats/gear for every fighter but keeps their own chosen weapon', async () => {
+    it('equalizes stats, mastery and gear for every fighter but keeps their own chosen weapon', async () => {
         // Give each fighter deliberately different real stats/gear/weapon
         // choices, and leave one (B2) with no ranked weapon preference at all.
         for (const [slug, weapon] of [
@@ -162,9 +184,11 @@ describe('ranked 2v2 matchmaking', { concurrency: false }, () => {
         ] as const) {
             await kv.set(`save:${slug}`, {
                 character: {
-                    name: slug, level: 40, ranked2v2Rating: 1000,
+                    name: slug, level: slug === A1 ? 15 : slug === B1 ? 100 : 40, ranked2v2Rating: 1000,
                     maxHp: 1200, maxChakra: 200, maxStamina: 200,
-                    specialty: 'Taijutsu', stats: { strength: 1 }, jutsu: [],
+                    specialty: 'Taijutsu', stats: { strength: 1 },
+                    equippedJutsuIds: ['starter-nin-fire-2'],
+                    jutsuMastery: [{ jutsuId: 'starter-nin-fire-2', level: 1 }],
                     equipment: { hand: 'training-katana', body: 'cloth-robe' },
                     ...(weapon ? { rankedFormatWeaponId: weapon } : {}),
                 },
@@ -192,8 +216,24 @@ describe('ranked 2v2 matchmaking', { concurrency: false }, () => {
             const equipment = character.equipment as Record<string, string>;
             assert.equal(equipment.body, format.RANKED_FORMAT_NEUTRAL_EQUIPMENT.body, `${slug} wears the neutral set, not their own`);
             assert.equal(equipment.thrown, format.RANKED_FORMAT_NEUTRAL_EQUIPMENT.thrown);
+            assert.equal(equipment.item3, 'item-smoke-bomb', `${slug} receives the neutral Smoke Bomb`);
+            assert.ok((character.pvpItems as Array<{ id: string }>).some(item => item.id === 'item-smoke-bomb'),
+                `${slug} can use the equipped Smoke Bomb`);
             assert.equal(equipment.hand, weaponBySlug[slug], `${slug} keeps their own chosen (or defaulted) weapon`);
+            assert.equal(character.rankedFormatCombat, true);
+            assert.equal((character.jutsuMastery as Array<{ jutsuId: string; level: number }>).find(row => row.jutsuId === 'starter-nin-fire-2')?.level, 50);
             assert.equal(actor.itemCharges?.[format.RANKED_FORMAT_NEUTRAL_EQUIPMENT.thrown], format.RANKED_FORMAT_CONSUMABLE_CHARGES);
+            assert.equal(actor.itemCharges?.['item-smoke-bomb'], format.RANKED_FORMAT_CONSUMABLE_CHARGES);
+            assert.equal((await kv.get<{ character: { jutsuMastery: Array<{ level: number }> } }>(`save:${slug}`))?.character.jutsuMastery[0]?.level, 1);
+        }
+        towerEngine.startRound(match.combat);
+        const caster = towerSession.activeActor(match.combat)!;
+        assert.ok(towerEngine.applyAction(match.combat, towerPvp.TOWER_PVP_FLOOR,
+            { actorId: caster.id, type: 'item', itemId: 'item-smoke-bomb' }, makeRng(1)).applied);
+        assert.equal(caster.itemCharges?.['item-smoke-bomb'], format.RANKED_FORMAT_CONSUMABLE_CHARGES - 1);
+        for (const actor of match.combat.actors) {
+            assert.ok(actor.statuses.some(status => status.source === 'item-smoke-bomb' && status.kind === 'negative'),
+                `${actor.name} is covered by the ranked Smoke Bomb`);
         }
     });
 

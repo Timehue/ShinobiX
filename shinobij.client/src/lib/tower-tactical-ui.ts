@@ -57,7 +57,7 @@ type PreviewActor = {
     hp: number;
     maxHp: number;
     shield?: number;
-    statuses?: Array<{ name: string; percent?: number; rounds?: number; activeRound?: number }>;
+    statuses?: Array<{ name: string; source?: string; percent?: number; rounds?: number; activeRound?: number; inactiveRound?: number }>;
     character?: Record<string, unknown>;
 };
 
@@ -86,9 +86,14 @@ export function estimateTowerActionDamage(input: {
     type?: string;
     actionId?: string;
     biome?: string;
+    round?: number;
+    ap?: number;
+    pierce?: boolean;
+    weaponElement?: string;
 }): { rawDamage: number; hpDamage: number; shieldAbsorbed: number } {
     const effectPower = Math.max(0, Number(input.effectPower) || 0);
-    if (effectPower <= 0) return { rawDamage: 0, hpDamage: 0, shieldAbsorbed: 0 };
+    const weaponSwing = input.actionId === "weapon";
+    if (effectPower <= 0 && !weaponSwing && !input.pierce) return { rawDamage: 0, hpDamage: 0, shieldAbsorbed: 0 };
     const type = String(input.type || "Taijutsu");
     const attackerCharacter = input.attacker.character ?? {};
     const defenderCharacter = input.target.character ?? {};
@@ -101,10 +106,25 @@ export function estimateTowerActionDamage(input: {
         ? attackerCharacter.jutsuMastery as Array<{ jutsuId?: unknown; level?: unknown }>
         : [];
     const masteryRow = masteryRows.find(row => String(row.jutsuId ?? "") === String(input.actionId ?? ""));
-    const mastery = masteryRow ? Math.max(0, Math.min(50, Number(masteryRow.level) || 0)) : 0;
+    const mastery = weaponSwing ? 50
+        : masteryRow ? Math.max(0, Math.min(50, Number(masteryRow.level) || 0)) : 0;
+    if (input.pierce) {
+        // Pierce ignores every damage modifier, including the weapon swing bonus and guard.
+        const apFactor = Math.max(0.5, (Number(input.ap) || 60) / 60);
+        const masteryFactor = 1 + (weaponSwing ? 50 : mastery) * 0.005;
+        const rawDamage = Math.floor(Math.max(100, Math.min(900, offense * 0.35 * apFactor * masteryFactor)));
+        return { rawDamage, hpDamage: rawDamage, shieldAbsorbed: 0 };
+    }
     const masteryFraction = 0.3 + 0.7 * (mastery / 50);
     const scaledEp = (effectPower + 10) * masteryFraction;
-    const bloodline = Math.max(0, Number(attackerCharacter.bloodlineMult) || 1);
+    const ownedElements = [
+        ...(Array.isArray(attackerCharacter.elements) ? attackerCharacter.elements : []),
+        attackerCharacter.element,
+    ].map(element => String(element ?? "").trim().toLowerCase());
+    const weaponOwnsElement = Boolean(input.weaponElement)
+        && ownedElements.includes(String(input.weaponElement).trim().toLowerCase());
+    const bloodline = weaponSwing && !weaponOwnsElement
+        ? 1 : Math.max(0, Number(attackerCharacter.bloodlineMult) || 1);
     const item = 1 + Math.max(0, Number(attackerCharacter.itemDamagePct) || 0) / 100;
     const partyScale = Math.max(0, Number(attackerCharacter.towerDmgScale) || 1);
     const biome = String(input.biome ?? "central");
@@ -112,9 +132,17 @@ export function estimateTowerActionDamage(input: {
         || (biome === "snow" && type === "Bukijutsu")
         || (biome === "volcano" && type === "Ninjutsu")
         || (biome === "shadow" && type === "Genjutsu") ? 1.1 : 1;
-    const attackerStatuses = input.attacker.statuses ?? [];
-    const targetStatuses = input.target.statuses ?? [];
-    const rawAmp = [...attackerStatuses.filter(status => status.name === "Increase Damage Given"),
+    const isActive = (status: { activeRound?: number; inactiveRound?: number }) => input.round === undefined
+        || ((status.activeRound === undefined || status.activeRound <= input.round)
+            && (status.inactiveRound === undefined || status.inactiveRound > input.round));
+    const attackerStatuses = (input.attacker.statuses ?? []).filter(isActive);
+    const targetStatuses = (input.target.statuses ?? []).filter(isActive);
+    if (attackerStatuses.some(status => status.source === "item-smoke-bomb")) {
+        return { rawDamage: 0, hpDamage: 0, shieldAbsorbed: 0 };
+    }
+    const attackPill = attackerStatuses.some(status => status.source === "item-attack-pill") ? 1.15 : 1;
+    const defensePill = targetStatuses.some(status => status.source === "item-defense-pill") ? 0.85 : 1;
+    const rawAmp = [...attackerStatuses.filter(status => status.name === "Increase Damage Given" && status.source !== "item-attack-pill"),
         ...targetStatuses.filter(status => status.name === "Increase Damage Taken" || status.name === "Ignition")]
         .reduce((total, status) => total + Math.max(0, Number(status.percent) || 0) / 100, 0);
     const amp = rawAmp > 0 ? 1 + rawAmp / (rawAmp + 0.5) : 1;
@@ -123,13 +151,14 @@ export function estimateTowerActionDamage(input: {
     const rawArmor = authoredArmor != null
         ? Math.min(1.5, Math.max(0, Number(authoredArmor) || 0))
         : Math.max(0, 1 - armorFactor);
-    const rawStatusDr = [...attackerStatuses.filter(status => status.name === "Decrease Damage Given"),
-        ...targetStatuses.filter(status => status.name === "Decrease Damage Taken")]
+    const rawStatusDr = [...attackerStatuses.filter(status => status.name === "Decrease Damage Given" && status.source !== "item-smoke-bomb"),
+        ...targetStatuses.filter(status => status.name === "Decrease Damage Taken" && status.source !== "item-defense-pill")]
         .reduce((total, status) => total + Math.max(0, Number(status.percent) || 0) / 100, 0);
     const rawDr = rawArmor + rawStatusDr;
     const effectiveDr = rawDr > 0 ? rawDr / (rawDr + 0.5) : 0;
     const guardMitigation = Math.min(0.5, Math.max(0, Number(defenderCharacter.guardDefensePct) || 0) / 100);
-    const rawDamage = Math.max(0, Math.floor(scaledEp * 32 * statFactor * terrain * bloodline * item * partyScale * amp * (1 - effectiveDr) * (1 - guardMitigation)));
+    // Display-only mirror of api/combat-core/formulas.ts weapon swing bonus.
+    const rawDamage = Math.max(0, Math.floor(scaledEp * 32 * statFactor * terrain * bloodline * item * partyScale * amp * (1 - effectiveDr) * (1 - guardMitigation) * (weaponSwing ? 1.3 : 1) * attackPill * defensePill));
     const shieldAbsorbed = Math.min(Math.max(0, Number(input.target.shield) || 0), rawDamage);
     return { rawDamage, hpDamage: Math.max(0, rawDamage - shieldAbsorbed), shieldAbsorbed };
 }

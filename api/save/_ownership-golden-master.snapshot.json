@@ -523,7 +523,12 @@
       "clanBattleContrib": 0,
       "clanEventContrib": 0,
       "clanMissionContrib": 0,
-      "itemStacks": [],
+      "itemStacks": [
+        {
+          "itemId": "beast-seal-reinforced",
+          "count": 1
+        }
+      ],
       "examsPassed": [],
       "tileCards": [],
       "pvpShieldUntil": null,
@@ -654,7 +659,12 @@
       "clanBattleContrib": 0,
       "clanEventContrib": 0,
       "clanMissionContrib": 0,
-      "itemStacks": [],
+      "itemStacks": [
+        {
+          "itemId": "beast-seal-reinforced",
+          "count": 1
+        }
+      ],
       "examsPassed": [],
       "tileCards": [],
       "pvpShieldUntil": null,

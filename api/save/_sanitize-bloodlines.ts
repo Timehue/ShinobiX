@@ -3,11 +3,63 @@ import { sanitizeUserText, TEXT_LIMITS } from '../_text-moderation.js';
 import { sanitizeJutsuVisualEffect } from '../_jutsu-visuals.js';
 import { normalizePlayerBloodlineJutsus } from '../bloodlines/_jutsu-schema.js';
 import { enforceBloodlineBudget, type RawJutsu, bloodlinePoints } from '../_jutsu-points.js';
+import { BUILTIN_BLOODLINES } from '../pvp/_bloodline-gate.js';
+
+const BUILTIN_BLOODLINE_IDS = new Set(BUILTIN_BLOODLINES.map((bloodline) => bloodline.id));
+
+/** A save must never acknowledge a bloodline that normalization discarded or downgraded. */
+export function hasRejectedBloodlineSubmission(submitted: unknown, retained: unknown): boolean {
+    if (!Array.isArray(submitted)) return false;
+    const retainedRanks = new Map<string, string>();
+    if (Array.isArray(retained)) {
+        for (const entry of retained) {
+            if (!entry || typeof entry !== 'object') continue;
+            const bloodline = entry as Record<string, unknown>;
+            if (typeof bloodline.id === 'string' && typeof bloodline.rank === 'string') {
+                retainedRanks.set(bloodline.id, bloodline.rank);
+            }
+        }
+    }
+    const seen = new Set<string>();
+    for (const entry of submitted) {
+        if (!entry || typeof entry !== 'object') return true;
+        const bloodline = entry as Record<string, unknown>;
+        if (typeof bloodline.id !== 'string' || !bloodline.id) return true;
+        if (seen.has(bloodline.id) || retainedRanks.get(bloodline.id) !== bloodline.rank) return true;
+        seen.add(bloodline.id);
+    }
+    return false;
+}
+
+export function preserveEquippedBloodline(
+    character: Record<string, unknown>,
+    storedCharacter: Record<string, unknown>,
+    savedBloodlines: unknown,
+    equipIntent = '',
+    acceptedForge = false,
+): void {
+    const ownedIds = new Set(Array.isArray(savedBloodlines)
+        ? savedBloodlines.map((entry) => entry && typeof entry === 'object' ? (entry as Record<string, unknown>).id : null)
+            .filter((id): id is string => typeof id === 'string' && id.length > 0)
+        : []);
+    const requested = typeof character.equippedBloodlineId === 'string' ? character.equippedBloodlineId : '';
+    const stored = typeof storedCharacter.equippedBloodlineId === 'string' ? storedCharacter.equippedBloodlineId : '';
+    // A stale full-save payload must not point a newly forged character back to
+    // a removed bloodline (or to the starter slot). Only an owned custom id may
+    // replace an already equipped custom id.
+    if (ownedIds.has(requested) && (requested === stored || requested === equipIntent || acceptedForge)) return;
+    if (BUILTIN_BLOODLINE_IDS.has(requested) && (requested === stored || requested === equipIntent || !stored)) return;
+    if (ownedIds.has(stored) || BUILTIN_BLOODLINE_IDS.has(stored)) character.equippedBloodlineId = stored;
+    else if (ownedIds.size > 0) character.equippedBloodlineId = ownedIds.values().next().value;
+    else if (requested || stored) character.equippedBloodlineId = '';
+}
 
 export function prepareBloodlineNormalization(
     char: Record<string, unknown>,
     exChar: Record<string, unknown>,
     existing: Record<string, unknown> | null | undefined,
+    allowRemoval = false,
+    writeIntent = '',
 ) {
 
     // ─── savedBloodlines normalization ────────────────────────────────────────
@@ -41,12 +93,14 @@ export function prepareBloodlineNormalization(
     const normalizeBloodlineArray = (arr: unknown, existingArr: unknown, mayConsumeForge = false): unknown[] => {
         if (!Array.isArray(arr)) return arr as unknown[];
         const existingRankById = new Map<string, string>();
+        const existingById = new Map<string, Record<string, unknown>>();
         if (Array.isArray(existingArr)) {
             for (const eb of existingArr as Array<Record<string, unknown>>) {
                 if (eb && typeof eb === 'object') {
                     const eid = String(eb.id ?? '');
                     const er = String(eb.rank ?? '');
                     if (eid && KNOWN_BLOODLINE_RANKS.has(er)) existingRankById.set(eid, er);
+                    if (eid) existingById.set(eid, eb);
                 }
             }
         }
@@ -55,7 +109,18 @@ export function prepareBloodlineNormalization(
         const seenBloodlineIds = new Set<string>();
         const normalized = (arr as Array<Record<string, unknown>>).slice(0, BLOODLINE_CAP).map((bl) => {
             if (!bl || typeof bl !== 'object') return {};
-            const out: Record<string, unknown> = { ...bl };
+            const requestedId = String(bl.id ?? '');
+            const storedEntry = existingById.get(requestedId);
+            const requestedRank = String(bl.rank ?? '');
+            const storedRank = requestedId ? existingRankById.get(requestedId) : undefined;
+            const paidUpgrade = storedRank !== undefined
+                && (BLOODLINE_RANK_ORDER[requestedRank] ?? 0) > (BLOODLINE_RANK_ORDER[storedRank] ?? 0)
+                && requestedId === writeIntent
+                && pendingBloodlineForges.some((entry) => entry.rank === parseBloodlineForgeRank(requestedRank));
+            // Ordinary full saves carry a snapshot of every bloodline. Only a
+            // maker write or paid rank upgrade may change a stored definition;
+            // combat and autosave snapshots can be older than its refinement.
+            const out: Record<string, unknown> = { ...(mayConsumeForge && storedEntry && requestedId !== writeIntent && !paidUpgrade ? storedEntry : bl) };
             // Existing ids may retain or lower their stored rank. New ids and rank
             // upgrades must consume an exact-rank forge purchase. With no purchase,
             // a new entry is discarded rather than silently granting free B rank.
@@ -68,12 +133,11 @@ export function prepareBloodlineNormalization(
             // row into one carried kit. First occurrence wins deterministically.
             if (blId && seenBloodlineIds.has(blId)) return null;
             if (blId) seenBloodlineIds.add(blId);
-            const storedRank = blId ? existingRankById.get(blId) : undefined;
             const isUpgrade = storedRank !== undefined
                 && (BLOODLINE_RANK_ORDER[rank] ?? 0) > (BLOODLINE_RANK_ORDER[storedRank] ?? 0);
             if (!storedRank || isUpgrade) {
                 const requestedRank = parseBloodlineForgeRank(rawRank);
-                const forge = mayConsumeForge && requestedRank
+                const forge = mayConsumeForge && requestedRank && blId === writeIntent
                     ? pendingBloodlineForges.find((entry) => entry.rank === requestedRank && !consumedBloodlineForgeIds.has(entry.id))
                     : undefined;
                 if (forge) {
@@ -175,6 +239,20 @@ export function prepareBloodlineNormalization(
         // still allowed to replace the old one in the same request.
         if (mayConsumeForge && rejectedUnentitledNew && acceptedEntitledNew === 0 && Array.isArray(existingArr) && existingArr.length > 0) {
             return structuredClone((existingArr as unknown[]).slice(0, BLOODLINE_CAP));
+        }
+        // Ordinary saves have no delete action. A stale payload (including an
+        // empty roster) must not erase an already forged bloodline. A paid new
+        // forge may replace the oldest slot; admin content editing may delete.
+        if (mayConsumeForge && !allowRemoval && acceptedEntitledNew === 0 && Array.isArray(existingArr)) {
+            const ids = new Set(normalized.map((bloodline) => String(bloodline.id ?? '')));
+            for (const entry of existingArr) {
+                if (!entry || typeof entry !== 'object') continue;
+                const id = String((entry as Record<string, unknown>).id ?? '');
+                if (id && !ids.has(id) && normalized.length < BLOODLINE_CAP) {
+                    normalized.push(structuredClone(entry as Record<string, unknown>));
+                    ids.add(id);
+                }
+            }
         }
         return normalized;
     };

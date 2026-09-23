@@ -22,7 +22,7 @@ import {
 import { bumpEraContributionOnce } from '../_era.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
 import { sectorPresenceBlock } from '../_sector-presence-gate.js';
-import { MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
+import { MAX_WILD_SECTOR, playableFieldObjectiveSector } from '../../shared/sector-geo.js';
 
 type FavorRecord = {
     id: string;
@@ -181,7 +181,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const favorKey = favorKeyFor(playerName);
                 const existing = await kv.get<FavorRecord>(favorKey);
                 if (existing && num(existing.expiresAt) > now) {
-                    return { status: 200, body: { ok: false, reason: 'busy', favor: existing } };
+                    return { status: 200, body: { ok: false, reason: 'busy', favor: { ...existing, targetSector: playableFieldObjectiveSector(existing.targetSector) } } };
                 }
                 if (existing) await kv.del(favorKey).catch(() => undefined);
 
@@ -256,8 +256,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
                     return { status: 200, body: { ok: false, reason: 'expired', _saveVersion: Number(nextRecord._saveVersion ?? 0) } };
                 }
-                if (sector !== favor.targetSector) {
-                    return { status: 200, body: { ok: false, reason: 'wrong-sector', favor } };
+                if (sector !== playableFieldObjectiveSector(favor.targetSector)) {
+                    return { status: 200, body: { ok: false, reason: 'wrong-sector', favor: { ...favor, targetSector: playableFieldObjectiveSector(favor.targetSector) } } };
                 }
                 const reward = wandererFavorReward(char.level, favor.id);
                 await kv.del(favorKey).catch(() => undefined);

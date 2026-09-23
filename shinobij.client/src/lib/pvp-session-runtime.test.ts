@@ -8,6 +8,7 @@ import {
     decidePvpSessionRevision,
     fetchInitialPvpProjection,
     parsePvpSessionProjection,
+    pvpMoveIntent,
     pvpRuntimeScopeKey,
     splitPvpMoveResponse,
 } from "./pvp-session-runtime";
@@ -48,6 +49,18 @@ function projection(stateRevision: number, patch: Partial<PvpSessionState> = {})
         ...patch,
     };
 }
+
+it("reuses a PvP token only for the same move on the same server revision", () => {
+    let issued = 0;
+    const createToken = () => `token-${++issued}`;
+    const attack = { battleId: "battle-1", role: "p1", action: "basicAttack" };
+    const first = pvpMoveIntent(null, 4, attack, createToken);
+    const retry = pvpMoveIntent(first, 4, { ...attack }, createToken);
+    assert.equal(retry.token, first.token);
+    assert.equal(issued, 1);
+    assert.notEqual(pvpMoveIntent(retry, 4, { ...attack, action: "wait" }, createToken).token, first.token);
+    assert.notEqual(pvpMoveIntent(retry, 5, attack, createToken).token, first.token);
+});
 
 it("returns a finished PvP player to the exact battlefield origin", () => {
     assert.deepEqual(pvpResultReturn({ sectorAttack: true, sector: 44 }, 1), { returnTarget: "worldMap", returnLabel: "Return to Sector 44" });

@@ -35,7 +35,7 @@ export default defineConfig({
             SESSION_SECRET: 'live-express-e2e-session-secret-32-bytes-minimum',
             ADMIN_PASSWORD: 'live-express-e2e-admin',
             DISABLE_SCHEDULED_JOBS: '1',
-            DISABLE_REALTIME: '1',
+            DISABLE_REALTIME: process.env.LIVE_E2E_REALTIME === '1' ? '0' : '1',
             DISABLE_SNAPSHOT_CRON: '1',
             // Both default ON (api/_release-flags.ts kills them only on '1'),
             // but village-stores-express.spec.ts asserts the Cafeteria kitchen,

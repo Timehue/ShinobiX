@@ -39,6 +39,7 @@ import {
     isCompanionActor, pickCompanionMove, type CompanionMove,
 } from './_companion.js';
 import { directDamageBaseFormula, JUTSU_MAX_LEVEL, jutsuLevelCapForLevel } from '../combat-core/formulas.js';
+import { rankedCombatLevel } from '../pvp/_ranked-format.js';
 import { setSafeRecordValue } from '../_utils.js';
 import { GROUND_EFFECT_TAGS, OPPONENT_AFFECTING_TAGS, STACKABLE_STATUS, canonicalTagName } from '../pvp/_tags.js';
 import {
@@ -50,11 +51,11 @@ import {
     pveIsBurstJutsuAp,
 } from '../_pve-difficulty.js';
 import { pveMeaningfulBuffCount } from '../_pve-ai-tactics.js';
-import { activeCombatStatuses, isCombatStatusActive } from '../combat-core/statuses.js';
+import { activeCombatStatuses, isCombatStatusActive, removeActiveCombatStatusesByKind } from '../combat-core/statuses.js';
 import { adjustedApCost } from '../combat-core/resources.js';
 import { tickCombatCooldowns } from '../combat-core/cooldowns.js';
 import { resolveCastFlavor } from '../combat-core/cast-flavor.js';
-import { MAX_COMBAT_VFX_TILES, canonicalJutsuTagNames, semanticJutsuVfx } from '../combat-core/jutsu-vfx.js';
+import { MAX_COMBAT_VFX_TILES, canonicalJutsuMethod, canonicalJutsuTagNames, semanticJutsuVfx } from '../combat-core/jutsu-vfx.js';
 import type { PvpFighter, PvpGroundEffect, PvpStatus } from '../pvp/session.js';
 import type { EnemyTemplate } from './_enemy-templates.js';
 import { partyScaleFactor, scaleEnemyStat, getFloorBalanceFor, type TowerFloor, type TowerTargetMode } from './_floor-catalog.js';
@@ -151,7 +152,7 @@ function towerStatusMatches(name: string, canonicalName: string): boolean {
 }
 function addTowerStatus(actor: TowerActor, status: PvpStatus): void {
     const name = canonicalTagName(status.name);
-    const adjusted: PvpStatus = { ...status, name, rounds: statusDurationFor(name, status.rounds) };
+    const adjusted: PvpStatus = { ...status, name, rounds: status.source === 'item-smoke-bomb' ? status.rounds : statusDurationFor(name, status.rounds) };
     if (STACKABLE_STATUS.has(name)) {
         actor.statuses = [...actor.statuses, adjusted];
         return;
@@ -1100,7 +1101,11 @@ function runJutsu(session: TowerSession, actor: TowerActor, target: TowerActor, 
     if (!selfCast && isCompanionActor(actor)) {
         const flat = Math.max(1, Math.floor(Number(actor.character.companionDamage ?? 0)));
         const cap = Math.max(1, Math.floor(target.maxHp * COMPANION_MAX_DAMAGE_FRAC));
-        const dealt = Math.min(flat, cap);
+        const smoked = [actor, target].some(combatant => activeCombatStatuses(combatant.statuses, session.round)
+            .some(status => status.source === 'item-smoke-bomb'));
+        const defended = activeCombatStatuses(target.statuses, session.round)
+            .some(status => status.source === 'item-defense-pill');
+        const dealt = smoked ? 0 : Math.floor(Math.min(flat, cap) * (defended ? 0.85 : 1));
         target.hp = Math.max(0, target.hp - dealt);
         session.log.push(`${actor.name} strikes ${target.name} for ${dealt}.`);
         return;
@@ -1396,8 +1401,11 @@ function towerGroundTags(tags: unknown): Array<{ name: string; percent?: number 
         .map(t => ({ ...t, name: canonicalTagName(t.name!) }))
         .filter(t => GROUND_EFFECT_TAGS.has(t.name));
 }
-function groundZoneTiles(center: number, w: number, h: number, method?: string): number[] {
-    return String(method ?? 'SINGLE') === 'AOE_SPIRAL'
+function groundZoneTiles(center: number, w: number, h: number, method?: string, casterPos?: number, range?: number): number[] {
+    const canonicalMethod = canonicalJutsuMethod(method);
+    return canonicalMethod === 'INSTANT_EFFECT' && casterPos !== undefined
+        ? filledDiskTiles(casterPos, Math.max(1, Number(range ?? 1)), w, h)
+        : canonicalMethod === 'AOE_SPIRAL'
         ? filledDiskTiles(center, 2, w, h)
         : [center, ...towerNeighbors(center, w, h)];
 }
@@ -1425,7 +1433,7 @@ function layGroundZone(session: TowerSession, actor: TowerActor, jutsuId: string
         id: `gz-${session.round}-${actor.id}-${jutsuId}`,
         owner: actor.side === 'squad' ? 'p1' : 'p2',
         name: jutsu.name ?? 'Ground Effect',
-        tiles: groundZoneTiles(tile, session.map.width, session.map.height, jutsu.method),
+        tiles: groundZoneTiles(tile, session.map.width, session.map.height, jutsu.method, actor.pos, jutsu.range),
         rounds: 2,
         ...(typeof jutsu.bloodlineRank === 'string' && jutsu.bloodlineRank ? { bloodlineRank: jutsu.bloodlineRank } : {}),
         tags,
@@ -1822,7 +1830,7 @@ function refreshAp(session: TowerSession): void {
         // combatResourcesV2: the active actor regenerates chakra/stamina at turn start
         // (mirrors PvP move.ts endTurn regen). Costs + the bigger pool are already sealed
         // via _seal.ts → the PvP hydrator.
-        const rgLvl = Number((actor.character as { level?: number } | undefined)?.level) || 1;
+        const rgLvl = rankedCombatLevel(actor.character);
         const rg = v2ResourceRegen(rgLvl);
         actor.chakra = Math.min(actor.maxChakra, actor.chakra + rg);
         actor.stamina = Math.min(actor.maxStamina, actor.stamina + rg);
@@ -2082,7 +2090,8 @@ function tickBossPhases(session: TowerSession): void {
 /** Replace the session's VFX plates and bump the sequence the client watches. */
 function publishTowerVfx(session: TowerSession, plates: TowerVfxEvent[]): void {
     if (!plates.length) return;
-    session.vfx = plates.slice(0, MAX_COMBAT_VFX_TILES);
+    // This limits event count; a single ground event may still carry the full board footprint.
+    session.vfx = plates.slice(0, 18);
     session.vfxSeq = (session.vfxSeq ?? 0) + 1;
 }
 
@@ -2124,8 +2133,11 @@ function towerActionVfx(session: TowerSession, actor: TowerActor, action: TowerA
                 return action.tile === undefined ? [] : [{ key: 'move', anchor: 'tile', tiles: [action.tile] }];
             }
             const radius = jutsuAreaRadius(jutsu);
-            const method = String(jutsu.method ?? 'SINGLE');
+            const method = canonicalJutsuMethod(jutsu.method);
             const ground = method === 'INSTANT_EFFECT' || method === 'AOE_SPIRAL' || String(jutsu.target ?? '') === 'EMPTY_GROUND';
+            const laysGroundZone = (String(jutsu.target ?? '') === 'EMPTY_GROUND'
+                || (method === 'AOE_SPIRAL' && names.includes('Move')))
+                && towerGroundTags(jutsu.tags).length > 0;
             const semantic = semanticJutsuVfx(jutsu as Parameters<typeof semanticJutsuVfx>[0], {
                 ...(ground ? { ground: true } : {}),
                 ...(radius > 0 ? { area: true } : {}),
@@ -2136,6 +2148,8 @@ function towerActionVfx(session: TowerSession, actor: TowerActor, action: TowerA
             const centre = action.tile ?? session.actors.find(a => a.id === foe)?.pos;
             const tiles = centre === undefined
                 ? undefined
+                : method === 'INSTANT_EFFECT' && laysGroundZone
+                    ? filledDiskTiles(actor.pos, Math.max(1, Number(jutsu.range ?? 1)), session.map.width, session.map.height)
                 : radius > 0
                     ? filledDiskTiles(centre, radius, session.map.width, session.map.height)
                     : [centre];
@@ -2145,7 +2159,7 @@ function towerActionVfx(session: TowerSession, actor: TowerActor, action: TowerA
                 ...(target ? { target } : {}),
                 anchor: semantic.anchor,
                 ...(tiles ? { tiles: tiles.slice(0, MAX_COMBAT_VFX_TILES) } : {}),
-                ...(ground ? { persistent: true } : {}),
+                ...(laysGroundZone ? { persistent: true } : {}),
             }];
         }
         default:
@@ -2299,9 +2313,12 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
         if (hasActiveStatus(cTarget, 'Clear Prevent', session.round)) {
             session.log.push(`${cTarget.name}'s Clear Prevent blocks the clear.`);
         } else {
-            const removed = cTarget.statuses.filter(s => s.kind === 'positive').map(s => s.name);
-            cTarget.statuses = cTarget.statuses.filter(s => s.kind !== 'positive');
-            session.log.push(`Clear: removed ${removed.length ? removed.join(', ') : 'no positive effects'} from ${cTarget.name}.`);
+            const cleared = removeActiveCombatStatusesByKind(cTarget.statuses, 'positive', session.round);
+            const removed = cleared.removed.map(status => status.name);
+            cTarget.statuses = cleared.statuses;
+            const hadShield = cTarget.shield > 0;
+            cTarget.shield = 0;
+            session.log.push(`Clear: removed ${removed.length ? removed.join(', ') : 'no positive effects'} from ${cTarget.name}${hadShield ? ' and broke their shield' : ''}.`);
         }
         actor.cooldowns['clear'] = CLEAR_CD;
         spendActionAp(session, actor, CLEAR_AP);
@@ -2488,8 +2505,8 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
     }
 
     // ── item: a self-targeted consumable (potion / combat item). Restore-only potions
-    // refill chakra/stamina directly; everything else (Heal potions, self-buffs, smoke)
-    // synthesizes a SELF jutsu and resolves through the PvP engine. Mirrors move.ts. ──
+    // refill chakra/stamina directly; the neutral ranked kit applies exact
+    // utility statuses; other items synthesize a SELF utility jutsu. ──
     if (action.type === 'item') {
         const item = equippedItem(actor, action.itemId);
         const slot = item ? normalizeSlot(item.slot) : '';
@@ -2513,6 +2530,33 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
             actor.chakra = Math.min(actor.maxChakra, actor.chakra + restoreCk);
             actor.stamina = Math.min(actor.maxStamina, actor.stamina + restoreSt);
             session.log.push(`${actor.name} uses ${item.name ?? 'a potion'} — restores ${restoreCk} chakra, ${restoreSt} stamina.`);
+        } else if (item.id === 'item-attack-pill' || item.id === 'item-defense-pill' || item.id === 'item-smoke-bomb') {
+            const smoke = item.id === 'item-smoke-bomb';
+            // When the opposing side already acted this round, carry smoke
+            // across the imminent tick so it still protects the next exchange.
+            const hostileTurnRemains = session.turnQueue.slice(session.activeIndex + 1).some(id => {
+                const nextActor = session.actors.find(candidate => candidate.id === id);
+                return nextActor?.hp && hostileSidesFor(actor.side).includes(nextActor.side);
+            });
+            const status: PvpStatus = smoke
+                ? { name: 'Decrease Damage Given', source: item.id, rounds: hostileTurnRemains ? 1 : 2, percent: 100, kind: 'negative', activeRound: session.round }
+                : item.id === 'item-attack-pill'
+                    ? { name: 'Increase Damage Given', source: item.id, rounds: 2, percent: 15, kind: 'positive', activeRound: session.round }
+                    : { name: 'Decrease Damage Taken', source: item.id, rounds: 2, percent: 15, kind: 'positive', activeRound: session.round };
+            addTowerStatus(actor, status);
+            if (smoke) {
+                // Team Arena has two fighters on each side. The smoke covers
+                // the whole field, including the caster's teammate.
+                for (const fighter of session.actors) {
+                    if (fighter.id === actor.id || fighter.hp <= 0 || fighter.side === 'npc') continue;
+                    // Smoke is a field-wide item rule, including bosses protected
+                    // from hostile debuffs by an objective barrier.
+                    addTowerStatus(fighter, status);
+                }
+            }
+            session.log.push(`${actor.name} uses ${item.name ?? 'an item'} — ${smoke
+                ? 'both sides deal 0 ordinary damage for 1 round; Pierce bypasses the smoke.'
+                : item.id === 'item-attack-pill' ? 'deals 15% more damage for 2 rounds.' : 'takes 15% less damage for 2 rounds.'}`);
         } else if (canonicalTagName(String(item.weaponEffect ?? '')) === 'Decrease Damage Given') {
             // Smoke Bomb-style combat items are field debuffs: the enemy side is always
             // weakened, and weaponEffectTarget="both" also weakens the user.
@@ -2540,6 +2584,7 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
             const itemJutsu: JutsuLike = {
                 id: `item-${item.id}`, name: item.name ?? 'Item', type: 'Ninjutsu', target: 'SELF',
                 effectPower: Number(item.weaponEp ?? 10), ap: iCost, range: 0,
+                isUtility: true,
                 weaponSwing: true,
                 tags: (itemTags ?? [{ name: 'Heal' }]) as unknown[],
             };
@@ -2678,7 +2723,7 @@ function pveBandFor(session: TowerSession, actor: TowerActor): { enemyLevel: num
  *  performs (sealed per-jutsu entry, rank-capped), falling back to the band's
  *  level-derived mastery when the template carries no array. Estimate only. */
 function aiMasteryFor(actor: TowerActor, jutsu: JutsuLike): number {
-    const level = Number(actor.character.level) || 1;
+    const level = rankedCombatLevel(actor.character);
     const entries = actor.character.jutsuMastery as Array<{ jutsuId?: unknown; level?: unknown }> | null | undefined;
     if (Array.isArray(entries)) {
         const hit = entries.find(m => String(m?.jutsuId ?? '') === String(jutsu.id ?? ''));
@@ -3155,6 +3200,8 @@ function companionDealDamage(session: TowerSession, actor: TowerActor, target: T
     if (objectiveBossDamageLocked(session, target)) return 0;
     const base = Number(actor.character.companionDamage ?? 0);
     const owner = companionOwner(session);
+    if ([actor, target, owner].some(combatant => combatant && activeCombatStatuses(combatant.statuses, session.round)
+        .some(status => status.source === 'item-smoke-bomb'))) return 0;
     const gearId = String(actor.character.companionPveGear ?? '');
     const enemyHpPct = target.maxHp > 0 ? (target.hp / target.maxHp) * 100 : 100;
     const ownerHpPct = owner && owner.maxHp > 0 ? (owner.hp / owner.maxHp) * 100 : 100;
@@ -3163,7 +3210,9 @@ function companionDealDamage(session: TowerSession, actor: TowerActor, target: T
         * companionGearDamageMult(gearId, enemyHpPct, ownerHpPct);
     if (raw <= 0) return 0;
     const cap = Math.max(1, Math.floor(target.maxHp * COMPANION_MAX_DAMAGE_FRAC));
-    const dealt = Math.max(0, Math.min(Math.floor(raw), cap));
+    const defended = activeCombatStatuses(target.statuses, session.round)
+        .some(status => status.source === 'item-defense-pill');
+    const dealt = Math.floor(Math.max(0, Math.min(Math.floor(raw), cap)) * (defended ? 0.85 : 1));
     target.hp = Math.max(0, target.hp - dealt);
     // Loyal Hunter-style gear bleeds part of the pet's damage back to its owner.
     const lifestealPct = companionOwnerLifestealPct(gearId);

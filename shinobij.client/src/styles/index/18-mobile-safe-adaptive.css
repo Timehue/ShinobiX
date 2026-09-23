@@ -374,11 +374,6 @@ button.combat-jutsu-button,
         --battle-board-h: clamp(320px, 44dvh, 560px);
     }
 
-    .left-profile-avatar {
-        width: clamp(110px, 14vw, 140px) !important;
-        height: clamp(110px, 14vw, 140px) !important;
-    }
-
     .right-menu-buttons button {
         min-height: 34px !important;
         padding: 6px 8px !important;

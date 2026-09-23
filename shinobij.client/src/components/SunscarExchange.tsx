@@ -296,10 +296,10 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
                 const answered = await requestExchangeMarket(character.name, marketQuery, signal);
                 if (seq !== marketSeq.current || signal.aborted) return;
                 acceptMarket(answered, requestedKey);
-                setError('');
+                if (!pendingExchangeRequest(character.name)) setError('');
             } catch (caught) {
                 if (seq !== marketSeq.current || signal.aborted) return;
-                setError(caught instanceof Error ? caught.message : 'Unable to reach the Exchange.');
+                if (!pendingExchangeRequest(character.name)) setError(caught instanceof Error ? caught.message : 'Unable to reach the Exchange.');
             } finally { if (seq === marketSeq.current) setMarketBusy(false); }
         })();
         return () => controller.abort();
@@ -426,6 +426,7 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
                 <div className="sx-dialog-actions"><button type="button" onClick={() => review ? setReview(false) : closeDetails()}>{review ? 'Edit listing' : 'Back'}</button><button className="sx-primary" type="submit" disabled={!validSale || tradeDisabled || mine.length >= EXCHANGE_LISTING_LIMIT}>{busy ? 'Publishing…' : review ? 'Publish listing' : 'Review listing →'}</button></div>
             </form>}</>}
             {error && <div className="sx-message sx-error" role="alert">{error}{pendingRequest && <button onClick={() => void run(pendingRequest)} disabled={busy}>Retry saved trade</button>}</div>}
+            {pendingRequest && !error && !busy && <div className="sx-message" role="status">A saved trade is awaiting confirmation.<button onClick={() => void run(pendingRequest)}>Retry saved trade</button></div>}
         </Modal>
     </div>;
 }

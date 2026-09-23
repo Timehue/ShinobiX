@@ -508,7 +508,7 @@ export function Inventory({
         setSaleError(null);
         try {
             const result = await settleInventorySale(character.name, item.id, selected.source, qty, equipmentSlot);
-            if (!result.ok) {
+            if (result.ok !== true) {
                 setSaleError({ selection: selected, message: result.error });
                 return;
             }

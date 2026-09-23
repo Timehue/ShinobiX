@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, beforeEach, test } from 'node:test';
+import { contractHunterCooldownKey, contractHunterIdFor } from '../../shared/contract-hunter.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -83,10 +84,42 @@ async function seedHunterWin(battleId: string): Promise<void> {
 }
 
 async function stampSharedConnection(): Promise<void> {
-    const sharedIp = '203.0.113.42';
-    await kv.set(`player-ip:${HUNTER}:${sharedIp}`, true);
-    await kv.set(`player-ip:${TARGET}:${sharedIp}`, true);
+    const sharedIp = '86.123.45.67';
+    await kv.set(`player-ip:${HUNTER}:v2:${sharedIp}`, true);
+    await kv.set(`player-ip:${TARGET}:v2:${sharedIp}`, true);
 }
+
+test('AI hunter start rejects stale contracts and active cooldowns', async () => {
+    const placed = await call(PLACER, { action: 'place', target: 'Bounty Target', amount: 1_000 });
+    assert.equal(placed.statusCode, 200, JSON.stringify(placed.body));
+    const board = await kv.get<{ bounties: Array<{ target: string; amount: number; updatedAt: number }> }>('pvp:bounties');
+    assert.ok(board?.bounties[0]);
+    const hunterId = contractHunterIdFor('Bounty Target', board.bounties[0]);
+
+    const open = await call(TARGET, { action: 'ai-hunter-start', hunterId });
+    assert.equal(open.body?.ok, true, JSON.stringify(open));
+    const { buildWorldAiFightSpec } = await import('../missions/_world-ai-fight.js');
+    const fight = await buildWorldAiFightSpec({
+        playerName: TARGET,
+        request: { kind: 'bounty-hunter', sourceId: hunterId, sector: 25 },
+        save: { currentSector: 25, character: { name: 'Bounty Target', level: 20 } },
+    });
+    assert.equal(fight.context.sourceId, hunterId, 'the sealed fight must accept the displayed hunter');
+
+    const cooldownUntil = Date.now() + 60_000;
+    await kv.set(contractHunterCooldownKey(TARGET, hunterId), { until: cooldownUntil });
+    const cooled = await call(TARGET, { action: 'ai-hunter-start', hunterId });
+    assert.equal(cooled.body?.reason, 'cooldown', JSON.stringify(cooled));
+    assert.equal(cooled.body?.cooldownUntil, cooldownUntil);
+
+    const renewed = { ...board.bounties[0], updatedAt: board.bounties[0].updatedAt + 1 };
+    await kv.set('pvp:bounties', { ...board, bounties: [renewed] });
+    const stale = await call(TARGET, { action: 'ai-hunter-start', hunterId });
+    assert.equal(stale.body?.reason, 'stale-hunter');
+    assert.deepEqual(stale.body?.bounty, renewed);
+    const newHunterId = contractHunterIdFor('Bounty Target', renewed);
+    assert.equal((await call(TARGET, { action: 'ai-hunter-start', hunterId: newHunterId })).body?.ok, true);
+});
 
 test('placing a bounty posts Bounty Posted exactly once per board stamp', async () => {
     const frozen = 1_900_000_000_000;
@@ -165,6 +198,86 @@ test('collecting a bounty heralds Bounty Collected exactly once per battle', asy
     assert.equal(claimed[0].amount, 2_000);
     assert.equal(claimed[0].sector, 0);
     assert.equal(await kv.get(`offline-notices:${HUNTER}`), null, 'winner gets no notice');
+});
+
+test('legacy shared proxy IP cannot block bounty placement or payout', async () => {
+    const oldProxyIp = '79.127.200.33';
+    for (const player of [PLACER, HUNTER, TARGET]) {
+        await kv.set(`player-ip:${player}:${oldProxyIp}`, true);
+    }
+    await kv.set(`player-fp:${HUNTER}:${'a'.repeat(32)}`, true);
+    await kv.set(`player-fp:${TARGET}:${'b'.repeat(32)}`, true);
+
+    const placed = await call(PLACER, { action: 'place', target: 'Bounty Target', amount: 2_000 });
+    assert.equal(placed.statusCode, 200, JSON.stringify(placed.body));
+
+    const battleId = 'pvp-bounty-legacy-proxy-ip-12345678';
+    await seedHunterWin(battleId);
+    const claimed = await call(HUNTER, { action: 'claim', battleId });
+    assert.equal(claimed.statusCode, 200, JSON.stringify(claimed.body));
+    assert.equal(claimed.body?.amount, 2_000);
+    assert.equal(claimed.body?.voided, undefined);
+    assert.equal((await kv.get<{ character: { ryo: number } }>(`save:${HUNTER}`))?.character.ryo, 2_100);
+});
+
+test('verified shared visitor IP still blocks bounty placement', async () => {
+    const sharedVisitorIp = '86.123.45.67';
+    await kv.set(`player-ip:${PLACER}:v2:${sharedVisitorIp}`, true);
+    await kv.set(`player-ip:${TARGET}:v2:${sharedVisitorIp}`, true);
+
+    const result = await call(PLACER, { action: 'place', target: 'Bounty Target', amount: 2_000 });
+    assert.equal(result.statusCode, 403, JSON.stringify(result.body));
+    assert.equal((await kv.get<{ character: { ryo: number } }>(`save:${PLACER}`))?.character.ryo, 50_000);
+});
+
+test('a delayed reward confirmation can still collect a bounty that predates the battle', async () => {
+    const battleId = 'pvp-bounty-delayed-settlement-12345678';
+    const createdAt = Date.now() - 3 * 60 * 60_000;
+    const endedAt = createdAt + 5 * 60_000;
+    await kv.set('pvp:bounties', { bounties: [{
+        target: 'Bounty Target', amount: 2_000, contributors: [PLACER], updatedAt: createdAt - 60_000,
+    }] });
+    await seedHunterWin(battleId);
+    const session = await kv.get<Record<string, unknown>>(`pvp:${battleId}`);
+    await kv.set(`pvp:${battleId}`, { ...session, createdAt, endedAt });
+
+    const result = await call(HUNTER, { action: 'claim', battleId });
+    assert.equal(result.statusCode, 200, JSON.stringify(result.body));
+    assert.equal(result.body?.amount, 2_000);
+    assert.equal((await kv.get<{ character: { ryo: number } }>(`save:${HUNTER}`))?.character.ryo, 2_100);
+});
+
+test('a delayed claim cannot collect a bounty posted after its battle', async () => {
+    const battleId = 'pvp-bounty-later-head-12345678';
+    const createdAt = Date.now() - 3 * 60 * 60_000;
+    const endedAt = createdAt + 5 * 60_000;
+    await seedHunterWin(battleId);
+    const session = await kv.get<Record<string, unknown>>(`pvp:${battleId}`);
+    await kv.set(`pvp:${battleId}`, { ...session, createdAt, endedAt });
+    const placed = await call(PLACER, { action: 'place', target: 'Bounty Target', amount: 2_000 });
+    assert.equal(placed.statusCode, 200, JSON.stringify(placed.body));
+
+    const result = await call(HUNTER, { action: 'claim', battleId });
+    assert.equal(result.statusCode, 200, JSON.stringify(result.body));
+    assert.equal(result.body?.amount, 0);
+    assert.equal((await kv.get<{ character: { ryo: number } }>(`save:${HUNTER}`))?.character.ryo, 100);
+    const board = await kv.get<{ bounties: Array<{ amount: number }> }>('pvp:bounties');
+    assert.equal(board?.bounties[0]?.amount, 2_000);
+});
+
+test('a battle beyond the sealed recovery horizon cannot collect a bounty', async () => {
+    const battleId = 'pvp-bounty-expired-recovery-12345678';
+    const endedAt = Date.now() - 49 * 60 * 60_000;
+    await kv.set('pvp:bounties', { bounties: [{
+        target: 'Bounty Target', amount: 2_000, contributors: [PLACER], updatedAt: endedAt - 60_000,
+    }] });
+    await seedHunterWin(battleId);
+    const session = await kv.get<Record<string, unknown>>(`pvp:${battleId}`);
+    await kv.set(`pvp:${battleId}`, { ...session, createdAt: endedAt - 5 * 60_000, endedAt });
+
+    const result = await call(HUNTER, { action: 'claim', battleId });
+    assert.equal(result.statusCode, 409, JSON.stringify(result.body));
+    assert.equal((await kv.get<{ character: { ryo: number } }>(`save:${HUNTER}`))?.character.ryo, 100);
 });
 
 test('a no-bounty win settles successfully even when both players share a connection', async () => {

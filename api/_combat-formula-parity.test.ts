@@ -239,7 +239,8 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
         // PvE gets STATUS_DURATIONS_OVERRIDE for free: it applies statuses via the
         // server's applyJutsu, so there are no PvE-side per-site literals left to
         // drift.
-        assert.match(SERVER, /durationFor: statusDurationFor/, 'move.ts no longer routes status duration through the shared override');
+        assert.match(SERVER, /durationFor: \(name, fallback\) => s\.source === 'item-smoke-bomb' \? fallback : statusDurationFor\(name, fallback\)/,
+            'move.ts must route jutsu status duration through the shared override while preserving the neutral Smoke Bomb duration');
         assertSoloUsesSharedMove('applyJutsu');
     });
     // Drain executes in the shared resolver. The DRAIN_* value parity is covered
@@ -267,9 +268,16 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
         // that same applyDoTs — so a heavy-armour build cannot tank DoTs
         // differently in PvE than in PvP, or Poison differently from Wound.
         assert.match(SERVER_FORMULAS, /export function dotMitigationFromRawDr/, 'shared DoT mitigation helper is missing');
-        assert.match(SERVER, /return dotMitigationFromRawDr\(ownArmor, ownStatusDR\)/, 'ownDotMitigation no longer consumes the shared DR mitigation');
+        assert.match(SERVER, /const base = dotMitigationFromRawDr\(ownArmor, ownStatusDR\)/,
+            'ownDotMitigation no longer consumes the shared DR mitigation');
+        assert.match(SERVER, /return statuses\.some\(s => s\.source === 'item-defense-pill'\) \? base \* 0\.85 : base/,
+            'the neutral Defense Pill must apply its exact reduction after shared DoT mitigation');
+        assert.doesNotMatch(SERVER.match(/function ownDotMitigation\([\s\S]*?\n\}/)?.[0] ?? '', /item-smoke-bomb/,
+            'Smoke Bomb must leave Wound, Poison, and Drain mitigation unchanged');
         assert.match(SERVER, /const dotMitigation = ownDotMitigation\(f, round\)/, 'applyDoTs no longer consumes DR mitigation');
-        assert.match(SERVER, /Math\.floor\(raw \* ownDotMitigation\(fighter, round\)\)/, 'on-spend Poison no longer consumes DR mitigation');
+        assert.match(SERVER, /const mitigation = ownDotMitigation\(fighter, round\)/, 'on-spend Poison no longer consumes DR mitigation');
+        assert.match(SERVER, /return mitigation <= 0 \? 0 : Math\.max\(1, Math\.floor\(raw \* mitigation\)\)/,
+            'on-spend Poison must preserve shared mitigation');
         assertSoloUsesSharedMove('applyDoTs');
     });
     // #5 stacking: PvP's STACKABLE_STATUS set (non-listed statuses replace on

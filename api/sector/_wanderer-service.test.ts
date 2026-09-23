@@ -39,6 +39,9 @@ describe("wanderer favor chain", () => {
         assert.equal(target, wandererFavorTargetSector("favor-a", 12));
         assert.ok(target >= 1 && target <= 60);
         assert.notEqual(target, 12);
+        for (let i = 0; i < 500; i += 1) {
+            assert.notEqual(wandererFavorTargetSector(`favor-${i}`, 12), 54);
+        }
     });
 
     it("rewards modest ryo and 1-2 bone charms", () => {

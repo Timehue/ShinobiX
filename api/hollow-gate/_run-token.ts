@@ -169,7 +169,9 @@ export interface HollowGateRunToken {
     recentConsumableIds?: string[];
     wardSteps?: number;
     divinerUsed?: boolean;
-    pendingAmbush?: { nodeId: string; kind: 'ambush' | 'boss' } | null;
+    pendingAmbush?: { nodeId: string; kind: 'ambush' | 'boss' | 'card' } | null;
+    /** Chronicle AI match bound to the currently sealed card ambush. */
+    cardAmbushMatchId?: string | null;
     floorManifests?: Record<string, HollowGateFloorManifest>;
     /** Currency already committed by authoritative combat. Final extraction
      * treats this as a stored baseline, so a stale browser cannot erase it. */

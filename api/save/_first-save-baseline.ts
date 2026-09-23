@@ -50,7 +50,7 @@ export function applyCanonicalFirstSave(character: Record<string, unknown>): Rec
     next.maxStamina = maxStamina;
     next.rankTitle = 'Academy Student';
     next.inventory = [...FIRST_SAVE_INVENTORY];
-    next.itemStacks = [];
+    next.itemStacks = [{ itemId: 'beast-seal-reinforced', count: 1 }];
     next.pets = [];
     next.tileCards = [];
     next.equipment = {};

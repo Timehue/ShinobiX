@@ -1,3 +1,4 @@
+import React from "react";
 import { K_AMP_PVE } from "../lib/combat-math";
 import { isImageAvatar } from "../lib/avatar";
 import { partitionCombatDisplayStatuses, type CombatDisplayStatus } from "../lib/combat-action-display";
@@ -49,6 +50,7 @@ const TINY_LABELS: Record<string, string> = {
     "Absorb": "Absorb",
     "Reflect": "Reflect",
     "Ignition": "Burn",
+    "Smoke Bomb": "Smoke",
 };
 function tinyStatusLabel(name: string): string {
     return TINY_LABELS[name] ?? (name.length > 8 ? name.slice(0, 8) : name);
@@ -63,17 +65,18 @@ export type CombatHudStatus = CombatDisplayStatus & {
 // Group duplicate stacking statuses into one entry with a ×count, summing raw
 // percent/amount. Shared by the desktop panel and the mobile strip so both read
 // identically.
-function groupStatuses(statuses: readonly { name: string; rounds: number; amount?: number; percent?: number }[]): GroupedStatus[] {
+function groupStatuses(statuses: readonly { name: string; rounds: number; amount?: number; percent?: number; source?: string }[]): GroupedStatus[] {
     const grouped: GroupedStatus[] = [];
     for (const s of statuses) {
-        const g = grouped.find((x) => x.name === s.name);
+        const name = s.source === "item-smoke-bomb" ? "Smoke Bomb" : s.name;
+        const g = grouped.find((x) => x.name === name);
         if (g) {
             g.count += 1;
             g.rounds = Math.max(g.rounds, s.rounds);
             if (s.percent != null) g.percent = (g.percent ?? 0) + s.percent;
             if (s.amount != null) g.amount = (g.amount ?? 0) + s.amount;
         } else {
-            grouped.push({ name: s.name, count: 1, percent: s.percent, amount: s.amount, rounds: s.rounds });
+            grouped.push({ name, count: 1, percent: s.percent, amount: s.amount, rounds: s.rounds });
         }
     }
     return grouped;
@@ -280,7 +283,7 @@ export function CombatEffectsPanel({
     tone = "positive",
 }: {
     title: string;
-    statuses: readonly { name: string; rounds: number; amount?: number; percent?: number }[];
+    statuses: readonly { name: string; rounds: number; amount?: number; percent?: number; source?: string }[];
     tone?: "positive" | "negative";
 }) {
     // Group duplicate stacking statuses (e.g. three "Increase Damage Given")
@@ -336,13 +339,13 @@ export function MobileEffectsStrip({
     statuses,
     max = 6,
 }: {
-    statuses: readonly { name: string; rounds: number; amount?: number; percent?: number; kind: "positive" | "negative" }[];
+    statuses: readonly { name: string; rounds: number; amount?: number; percent?: number; source?: string; kind: "positive" | "negative" }[];
     max?: number;
 }) {
     const entries = [
         ...groupStatuses(statuses.filter((s) => s.kind === "positive")).map((g) => ({ g, tone: "positive" as const })),
         ...groupStatuses(statuses.filter((s) => s.kind === "negative")).map((g) => ({ g, tone: "negative" as const })),
-    ];
+    ].sort((a, b) => Number(b.g.name === "Smoke Bomb") - Number(a.g.name === "Smoke Bomb"));
     if (entries.length === 0) return null;
     const shown = entries.slice(0, max);
     const overflow = entries.length - shown.length;

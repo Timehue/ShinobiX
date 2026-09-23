@@ -37,7 +37,7 @@ import { gameToast } from "../components/GameToast";
 import type { CreatorAi } from "../types/creator-ai";
 import type { CreatorMission, CreatorRaid } from "../types/missions";
 import type { GameItem, Jutsu, SavedBloodline } from "../types/combat";
-import type { Pet, PetTrait } from "../types/pet";
+import type { Pet } from "../types/pet";
 import { TERRITORY_HP_MAX, TERRITORY_REBUILD_COOLDOWN_MS } from "../constants/game";
 import { getAllTileCards } from "../data/tile-cards";
 import { TriggeredVisualNovel } from "../components/TriggeredVisualNovel";
@@ -141,8 +141,8 @@ import { TravelingOverlay } from "../components/TravelingOverlay";
 import { ATLAS_SECTOR_POINTS } from "../data/sector-points";
 import { sectorExits as roadExitsForSector, travelArrivalTile, type SectorExit } from "../../../shared/sector-links";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
-import { scaleWandererPetOpponent } from "../lib/pet-balance";
-import { befriendWildPet, declineWildPetEncounter, startWildPetEncounter, wildPetEncounterFailureMessage } from "../lib/wild-pet-encounter-api";
+import { startWildPetEncounter, wildPetEncounterFailureMessage } from "../lib/wild-pet-encounter-api";
+import { WildPetBinding } from "../components/WildPetBinding";
 import {
     openAncientChest,
     recordSectorExplore,
@@ -192,7 +192,6 @@ import { fetchClanData } from "../lib/clan-api";
 import { scoutIntelTier } from "../lib/clan-upgrades";
 import { getCharacterArmorFactor, getCharacterArmorRawDR, getEquippedItemBonus, getPvpItemLoadout } from "../lib/equipment-stats";
 import { hiddenDungeonVnEvent } from "../data/vn-events";
-import { petTraitDescriptions } from "../data/pet-config";
 import { starterItems } from "../data/starter-items";
 import worldMapBg from "../assets/Maps/world_map-v2.webp";
 import castleImg from "../assets/castle.webp";
@@ -251,7 +250,7 @@ import { postWorldHunt, type WorldHuntTrailView } from "../lib/world-hunt-api";
 import { HuntEncounterCard, type HuntEncounterView } from "../components/HuntEncounterCard";
 import { beastPortrait } from "../data/hunter-art";
 
-import { FESTIVAL_SECTOR, isWildSector, MAX_WILD_SECTOR, sectorName } from "../../../shared/sector-geo";
+import { FESTIVAL_SECTOR, isWildSector, MAX_WILD_SECTOR, playableFieldObjectiveSector, sectorName } from "../../../shared/sector-geo";
 import { shrineForSector } from "../../../shared/shrines";
 import { WorldRoadsOverlay, WorldPoiPlates } from "../components/WorldRoadsOverlay";
 import "../components/world-map-charting.css";
@@ -307,6 +306,8 @@ function WorldMapContent({
     setScreen,
     character,
     updateCharacter,
+    combatActive,
+    isCombatActive,
     creatorEvents,
     creatorRaids,
     petEncounterVn,
@@ -353,6 +354,8 @@ function WorldMapContent({
     setScreen: (screen: Screen) => void;
     character: Character;
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
+    combatActive: boolean;
+    isCombatActive: () => boolean;
     creatorEvents: CreatorEvent[];
     creatorRaids: CreatorRaid[];
     petEncounterVn: CreatorEvent;
@@ -449,6 +452,8 @@ function WorldMapContent({
     const [travelToast, setTravelToast] = useState<HuntToast | null>(null);
     const [huntEncounter, setHuntEncounter] = useState<HuntEncounterState | null>(null);
     const aiRaidLaunchInFlight = useRef(false);
+    const pendingBountyHunterRef = useRef<{ hunterId: string; sector: number } | null>(null);
+    const bountyHunterStartInFlightRef = useRef(false);
     const [authoritativeHuntStates, setAuthoritativeHuntStates] = useState<Record<string, WorldHuntTrailView>>({});
     const activeHuntTrails = useMemo<ActiveHuntTrail[]>(() => (
         builtinHuntMissions
@@ -536,7 +541,7 @@ function WorldMapContent({
     // cleared by the Hospital on a KO so a death never reopens the death sector.
     useEffect(() => {
         const reopen = takeSectorReopen();
-        if (reopen !== null) { setSelectedSector(reopen); return; }
+        if (reopen !== null && reopen !== FESTIVAL_SECTOR) { setSelectedSector(reopen); return; }
         // Refresh restore: if the page was reloaded straight onto the World Map
         // while standing in a real explorable sector (see isWildSector), reopen that sector's
         // detail. selectedSector is ephemeral React state, so without this a refresh
@@ -545,7 +550,7 @@ function WorldMapContent({
         // so a wild-sector reload — from the map OR from any menu opened in the field —
         // lands back in that sector; a normal in-session trip to the map still opens on
         // the overview (consumeReloadIntoSector is a one-shot, false on SPA navigation).
-        if (consumeReloadIntoSector() && isWildSector(currentSector)) {
+        if (consumeReloadIntoSector() && isWildSector(currentSector) && currentSector !== FESTIVAL_SECTOR) {
             setSelectedSector(currentSector);
         }
     }, []);
@@ -822,11 +827,11 @@ function WorldMapContent({
     // lib/contract-hunter-wanderers.ts (same function the server settles from).
     const bountyHunterWanderers = useMemo<Wanderer[]>(() => {
         if (!isWanderersEnabled() || selectedSector == null) return [];
-        return contractHunterWanderers({ sector: selectedSector, bountyBoard, roster: playerRoster, now: Date.now(), interiorTileFromKey, self: { name: character.name, level: character.level, wandererCooldowns: character.wandererCooldowns } });
+        return contractHunterWanderers({ sector: selectedSector, bountyBoard, roster: playerRoster, now: serverNow(), interiorTileFromKey, self: { name: character.name, level: character.level, wandererCooldowns: character.wandererCooldowns } });
     }, [selectedSector, bountyBoard, playerRoster, character.name, character.level, character.wandererCooldowns]);
     const courierWanderers = useMemo<Wanderer[]>(() => {
         const favor = character.activeWandererFavor;
-        if (!isWanderersEnabled() || selectedSector == null || !favor || favor.targetSector !== selectedSector || serverNow() > favor.expiresAt) return [];
+        if (!isWanderersEnabled() || selectedSector == null || !favor || playableFieldObjectiveSector(favor.targetSector) !== selectedSector || serverNow() > favor.expiresAt) return [];
         const home = interiorTileFromKey(`${favor.id}:${selectedSector}`);
         return [{
             id: `courier-${favor.id}`,
@@ -841,7 +846,7 @@ function WorldMapContent({
             tellTint: "var(--gold-300)",
             avatarKey: "courier",
             originSector: favor.originSector,
-            targetSector: favor.targetSector,
+            targetSector: playableFieldObjectiveSector(favor.targetSector),
             expiresAt: favor.expiresAt,
         }];
     }, [selectedSector, character.activeWandererFavor, character.level]);
@@ -1367,7 +1372,10 @@ function WorldMapContent({
     function roadRumorFor(w: Wanderer): string {
         const favor = character.activeWandererFavor;
         if (selfBounty) return `${w.name} lowers their voice: "Your face is on the bounty board for ${selfBounty.amount.toLocaleString()} ryo. Check who's following you."`;
-        if (favor) return `${w.name} taps the map: "Your courier is waiting in ${sectorRegionName(favor.targetSector)}, sector ${favor.targetSector}. Take the package there while the delivery offer is still open."`;
+        if (favor) {
+            const target = playableFieldObjectiveSector(favor.targetSector);
+            return `${w.name} taps the map: "Your courier is waiting in ${sectorRegionName(target)}, sector ${target}. Take the package there while the delivery offer is still open."`;
+        }
         if (weeklyBossSector) return `${w.name} points toward ${sectorRegionName(weeklyBossSector)}: "Something huge is moving through sector ${weeklyBossSector}."`;
         const wars = activeVillageWarsFor(character.village);
         if (wars.length > 0) return `${w.name} says, "Patrols are tight while your village is at war. Watch border roads and mercenary colors."`;
@@ -1476,12 +1484,34 @@ function WorldMapContent({
     }
     async function startBountyHunterFight(w: Wanderer) {
         if (selectedSector == null) return;
+        if (combatActive || isCombatActive()) {
+            pendingBountyHunterRef.current = { hunterId: w.id, sector: selectedSector };
+            return;
+        }
+        if (bountyHunterStartInFlightRef.current) return;
+        bountyHunterStartInFlightRef.current = true;
         setWandererDialog({ w, busy: true });
         const gate = await startBountyHunter(character.name, w.id);
+        bountyHunterStartInFlightRef.current = false;
+        if (combatActive || isCombatActive()) {
+            pendingBountyHunterRef.current = { hunterId: w.id, sector: selectedSector };
+            setWandererDialog(null);
+            return;
+        }
         if (!gate.ok) {
             if (gate.reason === "no-bounty") {
                 setBountyBoard(prev => prev.filter(b => b.target.trim().toLowerCase() !== character.name.trim().toLowerCase()));
                 setWandererDialog({ w, msg: "The hunter checks the board slip, curses, and walks away. The bounty is gone." });
+            } else if (gate.reason === "stale-hunter" && gate.bounty) {
+                const currentBounty = gate.bounty;
+                setBountyBoard(prev => [...prev.filter(b => b.target.trim().toLowerCase() !== character.name.trim().toLowerCase()), currentBounty]);
+                setWandererDialog({ w, msg: "The bounty changed. This hunter's contract is out of date." });
+            } else if (gate.reason === "cooldown") {
+                const until = gate.cooldownUntil;
+                if (until && until > serverNow()) {
+                    updateCharacter(prev => prev ? { ...prev, wandererCooldowns: { ...prev.wandererCooldowns, [w.id]: Math.max(prev.wandererCooldowns?.[w.id] ?? 0, until) } } : prev);
+                }
+                setWandererDialog({ w, msg: "The hunter has withdrawn for now." });
             } else {
                 setWandererDialog({ w, msg: gate.error ?? "The hunter loses the trail." });
             }
@@ -1491,9 +1521,27 @@ function WorldMapContent({
         const lvl = bountyHunterLevel(character.level, amount);
         const ai = makeBuiltinAi(`bounty-ai-${w.id}`, w.name, "BH", lvl, "Bounty Board", [], Math.min(18, 8 + Math.floor(amount / 100_000)), undefined, "boss");
         ai.image = wandererAvatar("bountyHunter");
+        const admission = mutationAvailability();
+        if (!capabilityAdmissionAllowed(admission)) {
+            setWandererDialog({ w, msg: mutationAdmissionMessage(admission) });
+            return;
+        }
         setWandererDialog(null);
         launchWorldMapFight(ai, selectedSector, { kind: "bounty-hunter", sourceId: w.id, sector: selectedSector, stage: 0 });
     }
+    const pendingWorldHandoff = character as Character & { worldAiPendingChain?: unknown; worldAiPendingOutcome?: unknown };
+    useEffect(() => {
+        // A sealed ambush or hunt chain already owns the next fight. Let its
+        // server-proved wave (or pending reward claim) finish before the hunter.
+        if (combatActive || isCombatActive() || pendingWorldHandoff.worldAiPendingChain || pendingWorldHandoff.worldAiPendingOutcome) return;
+        const pending = pendingBountyHunterRef.current;
+        if (!pending) return;
+        pendingBountyHunterRef.current = null;
+        if (isTraveling || character.hospitalized || Number(character.hp) <= 0
+            || selectedSector !== pending.sector || !sameSector(currentSector, pending.sector)) return;
+        const hunter = bountyHunterWanderers.find((candidate) => candidate.id === pending.hunterId && candidate.verb === "bountyHunter");
+        if (hunter) void startBountyHunterFight(hunter);
+    }, [combatActive, bountyHunterWanderers, selectedSector, currentSector, isTraveling, character.hospitalized, character.hp, pendingWorldHandoff.worldAiPendingChain, pendingWorldHandoff.worldAiPendingOutcome]);
     function launchAmbushStage(stage: number, sector: number, chainId: string) {
         // Robbers at the player's level (+0/+1/+2); the boss a few levels above —
         // scaled to the player so the gauntlet is hard, not impossible.
@@ -1818,6 +1866,10 @@ function WorldMapContent({
     }
     function handleWandererEngage(w: Wanderer) {
         if (selectedSector == null || !sameSector(currentSector, selectedSector)) return;
+        if (combatActive || isCombatActive()) {
+            if (w.verb === "bountyHunter") pendingBountyHunterRef.current = { hunterId: w.id, sector: selectedSector };
+            return;
+        }
         rememberWanderer(w);
         // Fresh scene, fresh verdict: whether the LAST giver's offer was taken must
         // never carry into this one's decline check. (The rift-accept branch closes
@@ -1915,7 +1967,7 @@ function WorldMapContent({
         // A roaming mercenary doesn't parley — it forces a server-resolved fight.
         if (isMercAiId(w.id)) { void engageRoamingMerc(w); return; }
         if (w.verb === "bountyHunter") {
-            setWandererDialog({ w });
+            void startBountyHunterFight(w);
             return;
         }
         // A bandit you face while you have a rival has a chance of BEING that rival,
@@ -1968,8 +2020,9 @@ function WorldMapContent({
     // (`msg`) dialogs just close; the cooldown was set when the action ran.
     function dismissWandererDialog() {
         const d = wandererDialog;
+        if (d?.w.verb === "bountyHunter" && !d.msg) return;
         setWandererDialog(null);
-        if (d && !d.msg && (d.w.verb === "attack" || d.w.verb === "bountyHunter")) coolWanderer(d.w.id, WANDERER_FLEE_COOLDOWN_MS);
+        if (d && !d.msg && d.w.verb === "attack") coolWanderer(d.w.id, WANDERER_FLEE_COOLDOWN_MS);
     }
     function handleWandererBackdropClick() {
         if (requiresWandererChoice(wandererDialog)) return;
@@ -2031,45 +2084,28 @@ function WorldMapContent({
         }
     }
     function startWandererPetDuel(w: Wanderer) {
-        // The interaction gate, same as the gambler's (the beast is on the road for
-        // everyone): the Pet Arena has its own empty-roster screen, and being walked
-        // into it by a beast that just challenged you is a dead end.
+        // Keep the challenge on the road when there is no team to field.
         if (!character.pets.length) {
             setWandererDialog({ w, msg: `The beast waits for a challenger that never comes. You have no pet to send out. Tame one first, and it will still be prowling this road.` });
             return;
         }
         if (selectedSector == null || !isWildSector(selectedSector)) return;
-        // This card is only a preview. The exact roster slot, verb, sector,
-        // player pet, tier, scaling, seed and outcome are reconstructed/sealed
-        // by battle-start before the wanderer cooldown is committed.
-        const targetLevel = Math.max(1, Math.min(100, character.level));
-        const tmpl = targetLevel < 20 ? genericPetArenaOpponents[0]
-            : targetLevel < 45 ? genericPetArenaOpponents[1]
-            : genericPetArenaOpponents[2];
-        const preview = scaleWandererPetOpponent(tmpl.pet, targetLevel);
-        // Deterministic preview identity from the wanderer + player tile. The
-        // server ignores it and owns the actual Showdown seed.
-        let seed = (sectorPlayerPos + 1) >>> 0;
-        for (let i = 0; i < w.id.length; i++) seed = (Math.imul(seed, 31) + w.id.charCodeAt(i)) >>> 0;
+        // This is only a navigation marker. The Showdown endpoint validates the
+        // exact wanderer and chooses the format, both teams and seed itself.
         setPendingPetBattleOpponent({
             owner: w.name,
-            // Shown on the matchup card. The SERVER builds the beast it actually
-            // fights from the same rule (tier by the caller's own saved level,
-            // then scaled), so this is a preview of that opponent rather than
-            // the opponent itself — the arena never fights what the client sends.
-            pet: preview,
-            // `sector` travels with the id: the sealed wanderer session validates
-            // the encounter against the sector the SAVE says you stand in, and
-            // rejects a duel claimed from anywhere else.
+            // PetArenaOpponent is the existing navigation envelope. This pet
+            // is never shown or sent to Showdown; the server draws the real team.
+            pet: genericPetArenaOpponents[0].pet,
+            // The server checks this exact road position against the save.
             wanderer: { id: w.id, sector: selectedSector },
-            battleSeed: seed,
             returnScreen: "worldMap",
         });
         // Remember the sector so returning from the duel reopens it (the pet battle
         // returns to the World Map, which consumes this latch on remount).
         setSectorReopen(selectedSector != null && isWildSector(selectedSector) ? selectedSector : null);
         setWandererDialog(null);
-        setScreen("petArena");
+        setScreen("petColiseum");
     }
     function startWandererCardDuel(w: Wanderer) {
         // The interaction gate (the roster is shared by everyone, so a sealed
@@ -2448,29 +2484,13 @@ function WorldMapContent({
     }, [wandererDialog, character.activeQuestbook?.deadline]);
     const [activePetEncounter, setActivePetEncounter] = useState<Pet | null>(null);
     // The single-use token /api/pet/encounter-start minted for the pet on screen.
-    // Befriending spends it; the server owns the roll, the trait, and the roster
-    // write, so nothing about this pet is real until that call succeeds.
+    // The battle binds to this token; the server owns the roll and capture.
     const petEncounterToken = useRef("");
-    // Keep the external-explore receipt until the player explicitly Befriends
-    // or Leaves. A refresh during the choice then restages the same sealed pet.
+    // Keep the external-explore receipt until the battle or departure resolves.
     const petEncounterExploreOperationId = useRef("");
-    const [petBefriendPending, setPetBefriendPending] = useState(false);
     const [petVnDone, setPetVnDone] = useState(false);
     const [petVnPage, setPetVnPage] = useState(0);
     const [petVnLine, setPetVnLine] = useState(0);
-    // Hard-lock the "Befriend / Leave" decision screen for a brief grace window
-    // after it appears. Players who rapid-click through the encounter VN would
-    // otherwise have a leftover/queued click land on "Leave" (it sits right under
-    // where the VN's "Continue" button just was), silently discarding the pet
-    // before they ever see the choice. Disarming the buttons for a moment forces
-    // a fresh, deliberate click to keep or release the pet.
-    const [petDecisionReady, setPetDecisionReady] = useState(false);
-    useEffect(() => {
-        if (!activePetEncounter || !petVnDone) { setPetDecisionReady(false); return; }
-        setPetDecisionReady(false);
-        const t = setTimeout(() => setPetDecisionReady(true), 650);
-        return () => clearTimeout(t);
-    }, [activePetEncounter, petVnDone]);
     // Reopening a sector after a fight restores the TILE too, not just the
     // board: "return to the sector" has to mean the spot you attacked from, and
     // this state is otherwise recreated at the centre on every remount (which
@@ -2481,7 +2501,7 @@ function WorldMapContent({
     const { sectorPlayerPos, setSectorPlayerPos, travelRequestInFlight, travelPresentation } = useWorldTravelPresentation(character.name,
         () => getLocalSectorTile(), // the spot the player last stood on: hydrated at boot from the owner's save read (walked tile, else the arrival tile), set on arrival, kept across a fight; the store's own default is the centre
         (sector) => {
-            setSelectedSector(isWildSector(sector) ? sector : null);
+            setSelectedSector(isWildSector(sector) && sector !== FESTIVAL_SECTOR ? sector : null);
             setSelectedVillageTerritory(null);
             setRouteHoverSector(null);
         });
@@ -2638,13 +2658,7 @@ function WorldMapContent({
         }
     }
     function prefetchTravelDestination(sector: number) {
-        // The festival sector leaves the world map for the Sunscar Festival screen —
-        // warm its lazy chunk (not the sector scene, which isn't shown on that arrival).
-        if (sector === FESTIVAL_SECTOR) {
-            void import("./SunscarFestival").catch(() => {});
-            return;
-        }
-        // Every other sector opens its scene panel on arrival: warm the exact
+        // A field sector opens its scene panel on arrival: warm the exact
         // background + depth image (and, when the flag is on, the top-down map) it
         // will paint. Only the floor is warmed — the vista stack no longer renders
         // for a normal sector, so its art would be a wasted fetch.
@@ -2720,41 +2734,38 @@ function WorldMapContent({
         })();
     }
     function triggerTravelPoint(sector: number) {
-        // Where you stood in the sector you LEFT, captured before any state moves.
-        const originSector = currentSector;
-        beginSectorTravel(sector, (arrivalTile) => {
         if (sector === FESTIVAL_SECTOR) {
-            setCurrentBiome("volcano");
-            setCurrentWeather(weatherForSector(sector, "volcano"));
-            setCurrentSector(sector);
+            setSelectedSector(null);
             setScreen("sunscarFestival");
             return;
         }
-
-        const biome = biomeForSector(sector);
-        setCurrentBiome(biome);
-        setCurrentWeather(weatherForSector(sector, biome));
-        setCurrentSector(sector);
-        setSelectedSector(sector);
-        // Put the player somewhere that makes sense in the sector they are
-        // ENTERING. Travelling used to leave the tile untouched, so you kept the
-        // coordinates you happened to be standing on: leave by the right-hand
-        // edge and you arrived on the RIGHT of the next sector instead of the
-        // left, leave from the top and you arrived at the top. That made every
-        // trip read as a teleport rather than as travelling a direction.
-        // Along a road, arrive on the edge facing the sector you came from —
-        // identical to walking through that gate. With no road, derive that same
-        // edge from the two sectors' map positions, so EVERY arrival comes in
-        // from the side you travelled from; only a trip with no origin at all
-        // (a fresh boot, a village spawn) still starts in the middle.
-        // The SERVER seals this tile from the SAME shared definition, and it is
-        // what everyone else in the destination sees; ours is the fallback for a
-        // response that carries none.
-        const arrival = (Number.isInteger(arrivalTile) ? arrivalTile : undefined)
-            ?? (originSector == null ? null : travelArrivalTile(originSector, sector));
-        setSectorPlayerPos(arrival ?? SECTOR_CENTRE_TILE);
-        const splashLabel = regionSplashLabelFor(sector);
-        if (splashLabel) setRegionSplash({ label: splashLabel, tint: regionTintForSector(sector), stamp: Date.now() });
+        // Where you stood in the sector you LEFT, captured before any state moves.
+        const originSector = currentSector;
+        beginSectorTravel(sector, (arrivalTile) => {
+            const biome = biomeForSector(sector);
+            setCurrentBiome(biome);
+            setCurrentWeather(weatherForSector(sector, biome));
+            setCurrentSector(sector);
+            setSelectedSector(sector);
+            // Put the player somewhere that makes sense in the sector they are
+            // ENTERING. Travelling used to leave the tile untouched, so you kept the
+            // coordinates you happened to be standing on: leave by the right-hand
+            // edge and you arrived on the RIGHT of the next sector instead of the
+            // left, leave from the top and you arrived at the top. That made every
+            // trip read as a teleport rather than as travelling a direction.
+            // Along a road, arrive on the edge facing the sector you came from —
+            // identical to walking through that gate. With no road, derive that same
+            // edge from the two sectors' map positions, so EVERY arrival comes in
+            // from the side you travelled from; only a trip with no origin at all
+            // (a fresh boot, a village spawn) still starts in the middle.
+            // The SERVER seals this tile from the SAME shared definition, and it is
+            // what everyone else in the destination sees; ours is the fallback for a
+            // response that carries none.
+            const arrival = (Number.isInteger(arrivalTile) ? arrivalTile : undefined)
+                ?? (originSector == null ? null : travelArrivalTile(originSector, sector));
+            setSectorPlayerPos(arrival ?? SECTOR_CENTRE_TILE);
+            const splashLabel = regionSplashLabelFor(sector);
+            if (splashLabel) setRegionSplash({ label: splashLabel, tint: regionTintForSector(sector), stamp: Date.now() });
         });
     }
 
@@ -2792,7 +2803,7 @@ function WorldMapContent({
     const SECTOR_GRID_W = 12;
     const SECTOR_GRID_SIZE = 144;
     useEffect(() => {
-        if (!selectedSector || !sameSector(currentSector, selectedSector)) return;
+        if (!selectedSector || selectedSector === FESTIVAL_SECTOR || !sameSector(currentSector, selectedSector)) return;
         const activeSector = selectedSector;
         function handleKey(e: KeyboardEvent) {
             const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
@@ -2938,7 +2949,6 @@ function WorldMapContent({
         if (proof?.kind !== "pet" || !operation.petEncounter) return false;
         petEncounterToken.current = proof.token;
         petEncounterExploreOperationId.current = operation.id;
-        setPetBefriendPending(false);
         setActivePetEncounter(operation.petEncounter);
         setPetVnDone(false);
         setPetVnPage(0);
@@ -3305,7 +3315,6 @@ function WorldMapContent({
                 if (!explored) return "blocked";
                 petEncounterToken.current = petEncounter.token;
                 petEncounterExploreOperationId.current = explored.operation.id;
-                setPetBefriendPending(false);
                 setActivePetEncounter(petEncounter.pet);
                 setPetVnDone(false);
                 setPetVnPage(0);
@@ -3687,7 +3696,7 @@ function WorldMapContent({
         const result = await claimSectorContract(character.name, selectedSector);
         setContractBusy(false);
         bumpSectorContractRevision();
-        if (!result.ok) {
+        if (result.ok === false) {
             setTravelToast({ id: Date.now(), kicker: "Contract", text: result.message });
             return;
         }
@@ -3799,112 +3808,20 @@ function WorldMapContent({
     }
 
     if (activePetEncounter && petVnDone) {
-        return (
-            <div className="card cinematic-card">
-                <h2><GiPawPrint style={{ verticalAlign: "-0.12em", marginRight: "0.35rem" }} />{activePetEncounter.name} Wants to Join You!</h2>
-
-                <div className="summary-box">
-                    <h3>{activePetEncounter.name}</h3>
-                    <p><strong>Rarity:</strong> {activePetEncounter.rarity}</p>
-                    <p><strong>Level:</strong> {activePetEncounter.level}</p>
-                    <p>
-                        HP {activePetEncounter.hp} | ATK {activePetEncounter.attack} |
-                        DEF {activePetEncounter.defense} | SPD {activePetEncounter.speed}
-                    </p>
-
-                    {(() => {
-                        const encImg = petCardImage(activePetEncounter, sharedImages);
-                        return encImg ? (
-                            <div className="admin-jutsu-preview">
-                                <img src={encImg} alt={activePetEncounter.name} onError={(e) => { e.currentTarget.style.display = "none"; }} />
-                            </div>
-                        ) : null;
-                    })()}
-                </div>
-
-                <div className="menu">
-                    <button
-                        disabled={!petDecisionReady || petBefriendPending}
-                        onClick={() => {
-                            // Ignore clicks during the grace window — a rapid-click
-                            // carried over from the VN must not auto-resolve this.
-                            if (!petDecisionReady || petBefriendPending) return;
-                            const encounter = activePetEncounter;
-                            const token = petEncounterToken.current;
-                            if (!token) return alert("This encounter has expired. Explore again to find another companion.");
-                            // The server rolls the trait and commits the roster. Hold the
-                            // card up (disabled) until it answers rather than showing the
-                            // pet as joined and having the save strip it a moment later.
-                            setPetBefriendPending(true);
-                            void befriendWildPet(character.name, token).then((result) => {
-                                setPetBefriendPending(false);
-                                if (!result.character) {
-                                    if (result.error === "invalid-or-spent-encounter") {
-                                        petEncounterToken.current = "";
-                                        setActivePetEncounter(null);
-                                        window.setTimeout(() => { void recoverPendingWorldRewards(true); }, 0);
-                                        return alert("The Guild is revalidating this pet choice from its sealed discovery receipt.");
-                                    }
-                                    return alert(result.error ?? "The pet could not be befriended.");
-                                }
-                                // Adopt the server's persisted character wholesale — a
-                                // locally merged roster would be stripped on the next save.
-                                if (!onVersionedCharacter(result.character, result.saveVersion)) return;
-                                const operationId = petEncounterExploreOperationId.current;
-                                if (operationId) completeWorldRewardOperation(character.name, operationId);
-                                petEncounterExploreOperationId.current = "";
-                                petEncounterToken.current = "";
-                                setActivePetEncounter(null);
-                                const trait = result.trait as PetTrait | null;
-                                const destination = result.destination === "sanctuary" ? "\nYour carried roster was full, so they are resting safely in the Sanctuary." : "";
-                                alert(trait
-                                    ? `${encounter.name} joined you!\nTrait: ${trait}. ${petTraitDescriptions[trait]}${destination}`
-                                    : `${encounter.name} joined you!${destination}`);
-                            });
-                        }}
-                    >
-                        {petBefriendPending ? "Befriending…" : petDecisionReady ? "Befriend Pet" : "Befriend Pet…"}
-                    </button>
-
-                    <button
-                        className="danger-button"
-                        disabled={!petDecisionReady || petBefriendPending}
-                        onClick={() => {
-                            if (!petDecisionReady || petBefriendPending) return;
-                            const token = petEncounterToken.current;
-                            if (!token) return alert("This encounter has expired. Reopen the map to recover it.");
-                            setPetBefriendPending(true);
-                            void declineWildPetEncounter(character.name, token).then((result) => {
-                                setPetBefriendPending(false);
-                                if (!result.ok) {
-                                    if (!result.retryable) {
-                                        petEncounterToken.current = "";
-                                        setActivePetEncounter(null);
-                                        window.setTimeout(() => { void recoverPendingWorldRewards(true); }, 0);
-                                        return alert("The Guild is reconciling this pet choice from its sealed discovery receipt.");
-                                    }
-                                    alert(result.error ?? "The pet is still waiting. Try Leave again when the connection recovers.");
-                                    return;
-                                }
-                                const operationId = petEncounterExploreOperationId.current;
-                                if (operationId) completeWorldRewardOperation(character.name, operationId);
-                                petEncounterExploreOperationId.current = "";
-                                petEncounterToken.current = "";
-                                setActivePetEncounter(null);
-                            });
-                        }}
-                    >
-                        Leave
-                    </button>
-                </div>
-
-                {!petDecisionReady && (
-                    <p className="pet-encounter-hint" style={{ textAlign: "center", opacity: 0.7, marginTop: 8 }}>
-                        Make your choice…
-                    </p>
-                )}
-            </div>
-        );
+        return <WildPetBinding
+            character={character}
+            token={petEncounterToken.current}
+            pet={activePetEncounter}
+            sharedImages={sharedImages}
+            onVersionedCharacter={onVersionedCharacter}
+            onResolved={() => {
+                const operationId = petEncounterExploreOperationId.current;
+                if (operationId) completeWorldRewardOperation(character.name, operationId);
+                petEncounterExploreOperationId.current = "";
+                petEncounterToken.current = "";
+                setActivePetEncounter(null);
+            }}
+        />;
     }
     if (legacyAvailable && sageVnEvent) {
         // The Wandering Sage's introduction. Completing it opens the offer
@@ -4125,7 +4042,7 @@ function WorldMapContent({
         />
     );
 
-    if (selectedSector) {
+    if (selectedSector && selectedSector !== FESTIVAL_SECTOR) {
         const biome = biomeForSector(selectedSector);
         const sectorWeather = weatherForSector(selectedSector, biome);
         const territory = loadSectorTerritory(selectedSector);
@@ -4260,7 +4177,7 @@ function WorldMapContent({
         const sectorOverlayWanderers = [...cappedSectorWanderers, ...mercWanderers];
         const sectorOverlayRift = (() => {
             const activeRiftQuest = character.activeRiftQuest;
-            if (!activeRiftQuest || selectedSector !== activeRiftQuest.targetSector) return null;
+            if (!activeRiftQuest || selectedSector !== playableFieldObjectiveSector(activeRiftQuest.targetSector)) return null;
             const rift = hollowRiftById(activeRiftQuest.id);
             if (!rift) return null;
             return {
@@ -4555,7 +4472,6 @@ function WorldMapContent({
                                         closeWandererDialog={() => setWandererDialog(null)}
                                         dismissWandererDialog={dismissWandererDialog}
                                         startWandererAttack={startWandererAttack}
-                                        startBountyHunterFight={startBountyHunterFight}
                                         tradeWithWanderer={tradeWithWanderer}
                                         askRoadRumor={askRoadRumor}
                                         visitWandererMedic={visitWandererMedic}
@@ -4931,14 +4847,14 @@ function WorldMapContent({
             {wmZoom.active ? (
                 <div className="wm-topbar">
                     <BackToVillageButton
-                        onClick={() => isWildSector(currentSector) ? setSelectedSector(currentSector) : setScreen("village")}
-                        label={isWildSector(currentSector) ? `\u2190 Return to Sector ${currentSector}` : "\u2190 Village"}
+                        onClick={() => currentSector === FESTIVAL_SECTOR ? setScreen("sunscarFestival") : isWildSector(currentSector) ? setSelectedSector(currentSector) : setScreen("village")}
+                        label={currentSector === FESTIVAL_SECTOR ? "\u2190 Sunscar Festival" : isWildSector(currentSector) ? `\u2190 Return to Sector ${currentSector}` : "\u2190 Village"}
                     />
                 </div>
             ) : (
                 <BackToVillageButton
-                    onClick={() => isWildSector(currentSector) ? setSelectedSector(currentSector) : setScreen("village")}
-                    label={isWildSector(currentSector) ? `\u2190 Return to Sector ${currentSector}` : "\u2190 Village"}
+                    onClick={() => currentSector === FESTIVAL_SECTOR ? setScreen("sunscarFestival") : isWildSector(currentSector) ? setSelectedSector(currentSector) : setScreen("village")}
+                    label={currentSector === FESTIVAL_SECTOR ? "\u2190 Sunscar Festival" : isWildSector(currentSector) ? `\u2190 Return to Sector ${currentSector}` : "\u2190 Village"}
                 />
             )}
             {hollowGateMenu && (
@@ -5004,6 +4920,19 @@ function WorldMapContent({
                     stands — the sandbox-MMO-style "how would I walk there" glow. */}
                 <RouteGlowOverlay from={currentSector} to={routeHoverSector} />
                 {sectorPoints.map((sector) => {
+                    if (sector.id === FESTIVAL_SECTOR) return (
+                        <button
+                            key={sector.id}
+                            className={"atlas-sector atlas-sector-central" + (currentSector === sector.id ? " atlas-sector-current" : "")}
+                            style={{ left: sector.x + "%", top: sector.y + "%" }}
+                            onClick={() => triggerTravelPoint(sector.id)}
+                            title="Open Sunscar Festival"
+                            aria-label="Open Sunscar Festival"
+                        >
+                            {currentSector === sector.id && <span className="atlas-you-label" aria-hidden="true">YOU</span>}
+                            ☀️
+                        </button>
+                    );
                     const huntTrail = huntTrailForSector(sector.id);
                     const sectorShrine = isSectorTracesEnabled() ? shrineForSector(sector.id) : undefined;
                     // Resolved ONCE per marker. Both of these are real work — the
@@ -5045,7 +4974,7 @@ function WorldMapContent({
                             : `Travel to ${sectorName(sector.id) ?? `Sector ${sector.id}`} (Sector ${sector.id})`}
                     >
                         {currentSector === sector.id && <span className="atlas-you-label" aria-hidden="true">YOU</span>}
-                        {sector.id === 99 ? "💀" : sector.id === FESTIVAL_SECTOR ? "☀️" : sector.id}
+                        {sector.id === 99 ? "💀" : sector.id}
                         {scoutedSectors.has(sector.id) && (
                             <span
                                 style={{ position: "absolute", top: -5, right: -5, fontSize: 11, lineHeight: 1, filter: "drop-shadow(0 0 2px #000)", pointerEvents: "none" }}

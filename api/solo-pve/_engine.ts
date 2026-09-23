@@ -54,7 +54,7 @@ import {
     tickStatuses,
 } from '../pvp/move.js';
 import { characterOwnsElement } from '../pvp/_elements.js';
-import { trimPvpLog, type PvpFighter, type PvpGroundEffect } from '../pvp/session.js';
+import { trimPvpLog, type PvpFighter, type PvpGroundEffect, type PvpStatus } from '../pvp/session.js';
 import {
     hollowGateCombatDirective,
     hollowGateHazardDamage,
@@ -83,6 +83,7 @@ const BASIC_HEAL_AP = 60;
 const BASIC_HEAL_CHAKRA = 10;
 const CLEAR_AP = 60;
 const CLEANSE_AP = 60;
+const ROUND_TIMED_ITEM_STATUSES = new Set(['item-attack-pill', 'item-defense-pill', 'item-smoke-bomb']);
 
 export type SoloPveEngineOptions = {
     /** Server-owned escape decision. Never derive this from request data. */
@@ -281,7 +282,8 @@ function jutsuVfx(session: SoloPveSession, side: SoloPveSide, action: SoloPveAct
     if (pureMove) return [];
     const method = normalizedMethod(jutsu);
     const area = method === 'AOE_CIRCLE' || method === 'AOE_SPIRAL';
-    const persistent = method === 'INSTANT_EFFECT' || method === 'AOE_SPIRAL';
+    const persistent = (method === 'INSTANT_EFFECT' && jutsu.target === 'EMPTY_GROUND')
+        || (method === 'AOE_SPIRAL' && (jutsu.target === 'EMPTY_GROUND' || names.includes('Move')));
     const semantic = semanticJutsuVfx(jutsu, {
         ...(persistent || method === 'AOE_SPIRAL' ? { ground: true } : {}),
         ...(area ? { area: true } : {}),
@@ -291,6 +293,8 @@ function jutsuVfx(session: SoloPveSession, side: SoloPveSide, action: SoloPveAct
         ? undefined
         : method === 'AOE_SPIRAL'
             ? filledDiskTiles(action.tile, SPIRAL_RADIUS, GRID_W, GRID_H)
+            : method === 'INSTANT_EFFECT' && jutsu.target === 'EMPTY_GROUND'
+                ? filledDiskTiles(fighter(session, side).pos, Math.max(1, Number(jutsu.range) || 4), GRID_W, GRID_H)
             : method === 'AOE_CIRCLE' || method === 'INSTANT_EFFECT'
                 ? [action.tile, ...hexNeighbors(action.tile)]
                 : [action.tile];
@@ -460,7 +464,7 @@ function playerHasLegalAction(session: SoloPveSession): boolean {
         if (!canAct(session, 'player', cost) || (session.cooldowns.player[cooldownKey] ?? 0) > 0) continue;
         if ((slot === 'thrown' || !['hand', 'thrown'].includes(slot)) && (session.itemCharges[item.id] ?? Infinity) <= 0) continue;
         if ((slot === 'hand' || slot === 'thrown')
-            && hexDistance(self.pos, opponent.pos) > Math.max(1, Number(item.weaponRange ?? (slot === 'thrown' ? 3 : 1)))) continue;
+            && hexDistance(self.pos, opponent.pos) > Math.max(1, Number(item.weaponRange ?? (slot === 'thrown' ? 4 : 1)))) continue;
         return true;
     }
 
@@ -607,6 +611,12 @@ function appendCompanionEvent(
 }
 
 function companionDealDamage(session: SoloPveSession, companion: SoloPveCompanion, move: CompanionMove | null): CombatResolutionFacts & { dealt: number } {
+    // Companion strikes have their own flat-damage path, so honor the field
+    // smoke and the target's pill before applying HP loss.
+    if ([session.player, session.enemy].some(combatant => activeStatuses(combatant, session.round)
+        .some(status => status.source === 'item-smoke-bomb'))) {
+        return { dealt: 0, rawDamage: 0, resolvedDamage: 0 };
+    }
     const inc = activeStatuses(companion, session.round)
         .filter((status) => status.name === 'Increase Damage Given')
         .reduce((sum, status) => sum + Number(status.percent ?? 0), 0);
@@ -618,7 +628,9 @@ function companionDealDamage(session: SoloPveSession, companion: SoloPveCompanio
     if (raw <= 0) return { dealt: 0, rawDamage: 0, resolvedDamage: 0 };
     const cap = Math.max(1, Math.floor(session.enemy.maxHp * COMPANION_MAX_DAMAGE_FRAC));
     const uncapped = Math.max(0, Math.floor(raw * soloPveDamageMultiplier(session, 'player')));
-    const dealt = Math.min(uncapped, cap);
+    const blockedByDefensePill = activeStatuses(session.enemy, session.round)
+        .some(status => status.source === 'item-defense-pill');
+    const dealt = Math.floor(Math.min(uncapped, cap) * (blockedByDefensePill ? 0.85 : 1));
     session.enemy.hp = Math.max(0, session.enemy.hp - dealt);
     const lifestealPct = companionOwnerLifestealPct(companion.pveGearId);
     if (dealt > 0 && lifestealPct > 0 && session.player.hp > 0) {
@@ -782,7 +794,25 @@ export function endSoloPveTurn(session: SoloPveSession): void {
             if (session.status !== 'active') return;
         }
     }
-    setFighter(session, current, tickStatuses(fighter(session, current), session.round));
+    // Solo PvE normally ticks the acting fighter at the end of each turn. The
+    // canonical combat items promise full rounds, so age both sides' item
+    // statuses together at the end of the enemy phase instead.
+    const currentFighter = fighter(session, current);
+    if (current === 'player') {
+        const itemStatuses = currentFighter.statuses.filter(status => ROUND_TIMED_ITEM_STATUSES.has(status.source ?? ''));
+        const other = tickStatuses({ ...currentFighter, statuses: currentFighter.statuses.filter(status => !ROUND_TIMED_ITEM_STATUSES.has(status.source ?? '')) }, session.round);
+        setFighter(session, current, { ...other, statuses: [...other.statuses, ...itemStatuses] });
+    } else {
+        setFighter(session, current, tickStatuses(currentFighter, session.round));
+        const playerItems = session.player.statuses.filter(status => ROUND_TIMED_ITEM_STATUSES.has(status.source ?? ''));
+        if (playerItems.length) {
+            const agedItems = tickStatuses({ ...session.player, statuses: playerItems }, session.round).statuses;
+            session.player = { ...session.player, statuses: [
+                ...session.player.statuses.filter(status => !ROUND_TIMED_ITEM_STATUSES.has(status.source ?? '')),
+                ...agedItems,
+            ] };
+        }
+    }
     session.cooldowns[current] = tickCombatCooldowns(session.cooldowns[current]);
     if (current === 'enemy') {
         session.groundEffects = tickGroundEffects(session.groundEffects);
@@ -1106,7 +1136,7 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
         const blocked = activeStatuses(opponent, session.round).some((status) => status.name === 'Clear Prevent');
         if (!blocked) {
             const cleared = removeActiveCombatStatusesByKind(opponent.statuses, 'positive', session.round);
-            setFighter(session, otherSide(side), { ...opponent, statuses: cleared.statuses });
+            setFighter(session, otherSide(side), { ...opponent, shield: 0, statuses: cleared.statuses });
         }
         session.cooldowns[side].clear = 10;
         spendAction(session, side, CLEAR_AP);
@@ -1133,7 +1163,7 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
         const slot = normalizeSlot(item?.slot);
         if (!item || (slot !== 'hand' && slot !== 'thrown')) return { applied: false, reason: 'no-weapon' };
         const cost = Math.max(1, Number(item.apCost ?? 40));
-        const range = Math.max(1, Number(item.weaponRange ?? (slot === 'thrown' ? 3 : 1)));
+        const range = Math.max(1, Number(item.weaponRange ?? (slot === 'thrown' ? 4 : 1)));
         // 'weapon:' prefixed so it can't collide with a jutsu cooldown sharing
         // this same flat cooldowns map — mirrors api/pvp/move.ts.
         const cooldownKey = `weapon:${item.id ?? item.name ?? 'weapon'}`;
@@ -1183,13 +1213,33 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
                 stamina: Math.min(self.maxStamina, self.stamina + restoreStamina),
             });
             session.log.push(`${self.name} uses ${item.name ?? 'an item'}.`);
+        } else if (item.id === 'item-attack-pill' || item.id === 'item-defense-pill' || item.id === 'item-smoke-bomb') {
+            const smoke = item.id === 'item-smoke-bomb';
+            const status: PvpStatus = smoke
+                ? { name: 'Decrease Damage Given', source: item.id, rounds: side === 'player' ? 1 : 2, percent: 100, kind: 'negative', activeRound: session.round }
+                : item.id === 'item-attack-pill'
+                    ? { name: 'Increase Damage Given', source: item.id, rounds: 2, percent: 15, kind: 'positive', activeRound: session.round }
+                    : { name: 'Decrease Damage Taken', source: item.id, rounds: 2, percent: 15, kind: 'positive', activeRound: session.round };
+            for (const recipient of (smoke ? ['player', 'enemy'] : [side]) as SoloPveSide[]) {
+                const target = fighter(session, recipient);
+                setFighter(session, recipient, {
+                    ...target,
+                    statuses: addCombatStatus(target.statuses, status, {
+                        isStackable: (name) => STACKABLE_STATUS.has(name),
+                        currentRound: session.round,
+                    }),
+                });
+            }
+            session.log.push(`${self.name} uses ${item.name ?? 'an item'}: ${smoke
+                ? 'both fighters deal 0 ordinary damage for 1 round; Pierce bypasses the smoke.'
+                : item.id === 'item-attack-pill' ? 'deals 15% more damage for 2 rounds.' : 'takes 15% less damage for 2 rounds.'}`);
         } else {
             const tags = item.weaponTags?.length ? item.weaponTags : item.weaponEffect ? [{ name: item.weaponEffect, percent: item.weaponEffectValue }] : [{ name: 'Heal' }];
             // weaponSwing: true mirrors the PvP item fix (api/pvp/move.ts) — a
             // combat item has no jutsuMastery row either, so its percent-based
             // tags would otherwise resolve at mastery 0 instead of the item's
             // authored value.
-            const itemJutsu: SoloPveJutsu = { id: `item-${item.id ?? 'equipped'}`, name: item.name ?? 'Item', type: 'Ninjutsu', target: 'SELF', effectPower: Number(item.weaponEp ?? 10), ap: cost, range: 0, weaponSwing: true, tags };
+            const itemJutsu: SoloPveJutsu = { id: `item-${item.id ?? 'equipped'}`, name: item.name ?? 'Item', type: 'Ninjutsu', target: 'SELF', isUtility: true, effectPower: Number(item.weaponEp ?? 10), ap: cost, range: 0, weaponSwing: true, tags };
             session.log.push(`${self.name} uses ${itemJutsu.name}:`);
             resolution = resolutionFacts(applyCast(session, side, itemJutsu));
             if (item.weaponEffectTarget === 'both' && item.weaponEffect === 'Decrease Damage Given') {
@@ -1652,6 +1702,9 @@ function enemyActsOnCompanion(session: SoloPveSession): boolean {
     const level = Number(session.enemy.character.level ?? 1);
     const fraction = level >= 80 ? 0.3 : level >= 40 ? 0.26 : 0.22;
     let damage = Math.max(1, Math.floor(companion.maxHp * fraction));
+    const enemyStatuses = activeStatuses(session.enemy, session.round);
+    if (enemyStatuses.some(status => status.source === 'item-smoke-bomb')) damage = 0;
+    else if (enemyStatuses.some(status => status.source === 'item-attack-pill')) damage = Math.floor(damage * 1.15);
     const ddt = activeStatuses(companion, session.round)
         .filter((status) => status.name === 'Decrease Damage Taken')
         .reduce((sum, status) => sum + Number(status.percent ?? 0), 0);

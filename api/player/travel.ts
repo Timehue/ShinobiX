@@ -7,7 +7,7 @@ import { getIo } from '../_realtime/socket.js';
 import { toPlayerRecord } from '../_realtime/presence-input.js';
 import { randomUUID } from 'node:crypto';
 import { sectorExitById, travelArrivalTile, SECTOR_TILE_COUNT, type SectorExit } from '../../shared/sector-links.js';
-import { isWildSector } from '../../shared/sector-geo.js';
+import { isPlayableWildSector } from '../../shared/sector-geo.js';
 import { clearTravelLeaseIfSame, setTravelLease, TravelLeaseHeldError, type TravelLease } from '../_realtime/travel-lease.js';
 
 // Intentional UX contract: travel is a short loading mask, not a distance tax.
@@ -23,7 +23,7 @@ export const WORLD_TRAVEL_MS = 3_000;
 // walking is free movement; only map fast-travel wears the timed mask). The
 // lease is still minted with arrivalAt = now so every arrival keeps flowing
 // through the same authoritative machinery — presence settle, anti-teleport,
-// footfall — and the battle lock + the exit-tile check + the 30/min rate limit
+// footfall — and the battle lock + the exit-tile check + a bounded travel rate
 // remain the real guards. WORLD_TRAVEL_EDGE_MS is a server dial to reintroduce
 // a delay without a code change if live feel ever wants one (0..WORLD_TRAVEL_MS).
 const EDGE_MS_RAW = Number(process.env.WORLD_TRAVEL_EDGE_MS ?? 0);
@@ -31,10 +31,16 @@ export const WORLD_TRAVEL_EDGE_MS = Number.isFinite(EDGE_MS_RAW)
     ? Math.min(WORLD_TRAVEL_MS, Math.max(0, Math.floor(EDGE_MS_RAW)))
     : 0;
 
+// Walking through a road exit is instant, so searching neighboring sectors can
+// legitimately exceed the map's 30 trips/minute. Keep fast travel at its old
+// budget while giving validated edge crossings enough room for exploration.
+export const WORLD_TRAVEL_EDGE_LIMIT_PER_MINUTE = 120;
+export const WORLD_TRAVEL_MAP_LIMIT_PER_MINUTE = 30;
+
 export function isPlayableWorldSector(value: unknown): value is number {
     return typeof value === 'number'
         && Number.isInteger(value)
-        && (value === 0 || value === 99 || isWildSector(value));
+        && (value === 0 || value === 99 || isPlayableWildSector(value));
 }
 
 export type EdgeTravelInput = {
@@ -87,11 +93,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const identity = await authedPlayerOrAdmin(req);
     if (!identity || identity.admin) return res.status(401).json({ error: 'Player authentication required.' });
-    if (!enforceRateLimit(req, res, 'player-travel', 30, 60_000, identity.name)) return;
-
     const parsed = parseJsonBody(req.body);
+    const body = parsed.ok && parsed.body && typeof parsed.body === 'object' && !Array.isArray(parsed.body)
+        ? parsed.body as Record<string, unknown> : {};
+    const mode = body.mode === 'edge' ? 'edge' : 'map';
+    if (!enforceRateLimit(req, res,
+        mode === 'edge' ? 'player-travel-edge' : 'player-travel',
+        mode === 'edge' ? WORLD_TRAVEL_EDGE_LIMIT_PER_MINUTE : WORLD_TRAVEL_MAP_LIMIT_PER_MINUTE,
+        60_000, identity.name)) return;
     if (!parsed.ok) return res.status(400).json({ error: parsed.error });
-    const body = parsed.body as Record<string, unknown>;
     const destinationSector = Number(body.destinationSector);
     if (!isPlayableWorldSector(destinationSector) || destinationSector === 0) {
         return res.status(400).json({ error: 'Invalid travel destination.' });
@@ -99,7 +109,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const player = onlineStore.get(identity.name);
     if (!player) return res.status(409).json({ error: 'World presence is not ready. Please try again.' });
-    const mode = body.mode === 'edge' ? 'edge' : 'map';
     let arrivalTile: number | undefined;
     let edgeOriginSector: number | undefined;
     if (mode === 'edge') {

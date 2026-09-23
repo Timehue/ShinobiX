@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { WILD_SECTOR_IDS } from "./sector-geo.js";
+import { FESTIVAL_SECTOR, PLAYABLE_WILD_SECTOR_IDS, WILD_SECTOR_IDS } from "./sector-geo.js";
 import { WORLD_DAY_MS, WORLD_HOUR_MS } from "./world-clock.js";
 import {
     CONTRACT_RYO_BASE, CONTRACT_RYO_PER_SECTOR, CONTRACT_TARGET_MIN, CONTRACT_TARGET_SPREAD,
@@ -15,7 +15,7 @@ test("exactly SECTOR_CONTRACT_SLOTS sectors are posted, every day, all wild", ()
         const posted = contractSectorsForDay(day);
         assert.equal(posted.length, SECTOR_CONTRACT_SLOTS, day);
         assert.equal(new Set(posted).size, posted.length, `${day} posted a duplicate`);
-        for (const sector of posted) assert.ok(WILD_SECTOR_IDS.includes(sector), `${day} posted ${sector}`);
+        for (const sector of posted) assert.ok(PLAYABLE_WILD_SECTOR_IDS.includes(sector), `${day} posted ${sector}`);
         assert.deepEqual(posted, [...posted].sort((a, b) => a - b), "posted list must be ascending");
     }
 });
@@ -64,10 +64,14 @@ test("chasing every posted contract cannot consume a player's daily explore ceil
     }
 });
 
-test("non-wild sectors are never posted and never carry a contract", () => {
+test("non-playable sectors are never posted and never carry a contract", () => {
     const day = "2026-08-25";
-    for (const sector of [0, -1, 99, 1000, 1.5, Number.NaN]) {
+    for (const sector of [0, -1, FESTIVAL_SECTOR, 99, 1000, 1.5, Number.NaN]) {
         assert.equal(sectorContractFor(sector, day), null, `sector ${sector}`);
+    }
+    for (let dayOffset = 0; dayOffset < 30; dayOffset++) {
+        const date = new Date(Date.UTC(2026, 8, 1 + dayOffset)).toISOString().slice(0, 10);
+        assert.equal(contractSectorsForDay(date).includes(FESTIVAL_SECTOR), false, date);
     }
 });
 

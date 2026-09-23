@@ -372,7 +372,7 @@ export function resolveCombatVfxSpec(intent: CombatVfxIntent = {}): CombatVfxSpe
         durationMs: defaults.durationMs,
         persistent: intent.persistent || key === "shield" || target === "area",
         maxParticles: defaults.maxParticles,
-        tiles: intent.tiles?.slice(0, 18),
+        tiles: intent.tiles?.slice(0, 120),
     };
 }
 
@@ -421,6 +421,6 @@ export function safeCombatVfxSpec(
         durationMs: Math.max(120, Math.min(1400, Number(spec?.durationMs ?? defaults.durationMs))),
         persistent: Boolean(spec?.persistent),
         maxParticles: Math.max(0, Math.min(24, Number(spec?.maxParticles ?? defaults.maxParticles))),
-        tiles: spec?.tiles?.slice(0, 18),
+        tiles: spec?.tiles?.slice(0, 120),
     };
 }

@@ -2,7 +2,9 @@ import { sanitizeJutsuVisualEffect } from '../_jutsu-visuals.js';
 import { canonicalTagName } from '../pvp/_tags.js';
 import type { CombatJutsu, CombatTag } from './types.js';
 
-export const MAX_COMBAT_VFX_TILES = 18;
+// At most one plate per hex on the 12x10 PvP/Solo board. Full-range ground
+// fields must not lose their outer tiles during event projection.
+export const MAX_COMBAT_VFX_TILES = 120;
 
 export type CombatVfxSemanticKey =
     | 'fire' | 'fire60' | 'water' | 'water60' | 'wind' | 'wind60'

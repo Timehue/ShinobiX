@@ -23,6 +23,7 @@ import { towerActorToPvpFighter } from '../combat-adapters/clanBossAdapter.js';
 import { getEnemyTemplate } from './_enemy-templates.js';
 import { TOWER_PVP_TOWER_ID } from './_pvp-session.js';
 import { sealTowerFighter } from './_seal.js';
+import { companionActor } from './_companion.js';
 import type { AdminCombatContent } from '../_admin-content.js';
 
 const MAP8: TowerMap = { width: 8, height: 8, blockedTiles: [], hazardTiles: [], objectiveTiles: [] };
@@ -1108,6 +1109,119 @@ describe('Battle Towers loadout combat (jutsu resources / cooldowns / weapons / 
         assert.equal(actor.cooldowns.smoke, undefined);
     });
 
+    it('the ranked neutral pills and smoke apply utility effects without item damage', () => {
+        for (const [id, expectedStatus, percent] of [
+            ['item-attack-pill', 'Increase Damage Given', 15],
+            ['item-defense-pill', 'Decrease Damage Taken', 15],
+            ['item-smoke-bomb', 'Decrease Damage Given', 100],
+        ] as const) {
+            const item = { id, name: id, slot: 'item', apCost: 20, weaponCooldown: 5,
+                weaponEffect: expectedStatus, weaponEffectValue: percent,
+                ...(id === 'item-smoke-bomb' ? { weaponEffectTarget: 'both' } : {}) };
+            const actor = makeActor('sq-1', 'squad', 0, {
+                itemCharges: { [id]: 2 },
+                character: { ...STRONG, pvpItems: [item], equipment: { item: id } },
+            });
+            const s = makeSession([actor, bigEnemy()]);
+            startRound(s);
+            const opponentHp = getActor(s, 'en-1')!.hp;
+            assert.ok(applyAction(s, floor, { actorId: 'sq-1', type: 'item', itemId: id }, makeRng(1)).applied);
+            assert.equal(getActor(s, 'en-1')!.hp, opponentHp, `${id} must not deal direct damage`);
+            assert.equal(getActor(s, 'sq-1')!.statuses.find(status => status.source === id)?.percent, percent);
+            assert.equal(getActor(s, 'en-1')!.statuses.some(status => status.source === id), id === 'item-smoke-bomb');
+        }
+    });
+
+    it('ranked Smoke Bomb covers both fighters on each team', () => {
+        const id = 'item-smoke-bomb';
+        const actors = frontline();
+        actors[0] = makeActor('sq-1', 'squad', 0, {
+            itemCharges: { [id]: 2 },
+            character: { ...STRONG, pvpItems: [{ id, slot: 'item', apCost: 20 }], equipment: { item: id } },
+        });
+        actors[1] = makeActor('sq-2', 'squad', 8, {
+            character: { ...STRONG, jutsu: [{ id: 'piercing-hit', type: 'Taijutsu',
+                target: 'OPPONENT', effectPower: 30, ap: 60, range: 1,
+                tags: [{ name: 'Pierce' }] }] },
+        });
+        const s = makeSession(actors);
+        startRound(s);
+        assert.ok(applyAction(s, floor, { actorId: 'sq-1', type: 'item', itemId: id }, makeRng(1)).applied);
+        for (const fighter of s.actors) {
+            assert.equal(fighter.statuses.some(status => status.source === id), true, `${fighter.id} is covered by smoke`);
+        }
+        endTurn(s, floor);
+        assert.equal(activeActor(s)?.id, 'sq-2');
+        const target = getActor(s, 'en-2')!;
+        target.shield = 300;
+        const hpBefore = target.hp;
+        assert.ok(applyAction(s, floor, { actorId: 'sq-2', type: 'attack', targetId: 'en-2' }, makeRng(1)).applied);
+        assert.equal(target.hp, hpBefore, 'the teammate cannot deal ordinary damage through smoke');
+        assert.equal(target.shield, 300, 'smoke does not consume the target shield');
+        assert.ok(applyAction(s, floor, { actorId: 'sq-2', type: 'jutsu', jutsuId: 'piercing-hit', targetId: 'en-2' }, makeRng(1)).applied);
+        assert.ok(target.hp < hpBefore, 'the teammate can still deal Pierce damage through smoke and shield');
+        assert.equal(target.shield, 300, 'Pierce leaves the bypassed shield intact');
+    });
+
+    it('tower smoke leaves Wound, Drain, and on-spend Poison damage intact', () => {
+        const effects = [
+            { name: 'Wound', amount: 100, rounds: 2, activeRound: 1, kind: 'negative' as const },
+            { name: 'Drain', amount: 80, rounds: 2, activeRound: 1, kind: 'negative' as const },
+            { name: 'Poison', percent: 10, rounds: 2, activeRound: 1, kind: 'negative' as const },
+        ];
+        const smoke = { name: 'Decrease Damage Given', source: 'item-smoke-bomb', percent: 100,
+            rounds: 2, activeRound: 1, kind: 'negative' as const };
+        const tick = (smoked: boolean) => {
+            const squad = makeActor('sq-1', 'squad', 0, { ai: false,
+                statuses: smoked ? [...effects, smoke] : [...effects] });
+            const session = makeSession([squad, makeActor('en-1', 'enemy', 63)]);
+            startRound(session);
+            const round = session.round;
+            for (let turns = 0; session.round === round && turns < 4; turns++) endTurn(session, floor);
+            assert.ok(session.round > round);
+            return { hp: squad.hp, chakra: squad.chakra };
+        };
+        const normalTick = tick(false);
+        assert.ok(normalTick.hp < 1000);
+        assert.deepEqual(tick(true), normalTick);
+
+        const spend = (smoked: boolean) => {
+            const squad = makeActor('sq-1', 'squad', 0, { ai: false,
+                statuses: smoked ? [effects[2]!, smoke] : [effects[2]!],
+                character: { ...WEAK, jutsu: [{ id: 'poison-spend', name: 'Poison Spend', type: 'Taijutsu',
+                    target: 'OPPONENT', ap: 40, range: 1, effectPower: 20, chakraCost: 50, tags: [] }] } });
+            const session = makeSession([squad, makeActor('en-1', 'enemy', 1)]);
+            startRound(session);
+            assert.ok(applyAction(session, floor, { actorId: squad.id, type: 'jutsu', jutsuId: 'poison-spend', targetId: 'en-1' }, makeRng(1)).applied);
+            return squad.hp;
+        };
+        const normalSpend = spend(false);
+        assert.ok(normalSpend < 1000);
+        assert.equal(spend(true), normalSpend);
+    });
+
+    it('field smoke blocks pet strikes and Defense Pill reduces pet damage', () => {
+        const petDamage = (ownerSmoked: boolean, enemyDefended: boolean) => {
+            const smoke = { name: 'Decrease Damage Given', source: 'item-smoke-bomb', percent: 100,
+                rounds: 1, activeRound: 1, kind: 'negative' as const };
+            const defense = { name: 'Decrease Damage Taken', source: 'item-defense-pill', percent: 15,
+                rounds: 2, activeRound: 1, kind: 'positive' as const };
+            const owner = makeActor('a-owner', 'squad', 0, { ai: false, statuses: ownerSmoked ? [smoke] : [] });
+            const pet = companionActor({ petId: 'pet-1', name: 'Fang', hp: 300, damage: 100,
+                happiness: 100, loyal: true, moves: [], pveGearId: '' }, 8);
+            const enemy = makeActor('en-1', 'enemy', 9, { ai: false,
+                statuses: [...(ownerSmoked ? [smoke] : []), ...(enemyDefended ? [defense] : [])] });
+            const session = makeSession([owner, pet, enemy]);
+            startRound(session);
+            endTurn(session, floor);
+            runAiUntilHuman(session, floor, makeRng(1));
+            return enemy.maxHp - enemy.hp;
+        };
+        assert.equal(petDamage(false, false), 200);
+        assert.equal(petDamage(false, true), 170);
+        assert.equal(petDamage(true, false), 0);
+    });
+
     it('Smoke Bomb respects an adds-gated boss barrier while still affecting exposed combatants', () => {
         const sq = makeActor('sq-1', 'squad', 0, {
             itemCharges: { smoke: 1 },
@@ -1122,6 +1236,23 @@ describe('Battle Towers loadout combat (jutsu resources / cooldowns / weapons / 
         assert.ok(getActor(s, 'sq-1')!.statuses.some(status => status.name === 'Decrease Damage Given'));
         assert.ok(getActor(s, 'en-1')!.statuses.some(status => status.name === 'Decrease Damage Given'));
         assert.ok(!getActor(s, 'boss')!.statuses.some(status => status.name === 'Decrease Damage Given'), 'protected boss ignores the field debuff');
+    });
+
+    it('the canonical smoke field also covers an adds-gated boss', () => {
+        const id = 'item-smoke-bomb';
+        const squad = makeActor('sq-1', 'squad', 0, {
+            itemCharges: { [id]: 1 },
+            character: { ...STRONG, pvpItems: [{ id, name: 'Smoke Bomb', slot: 'item', apCost: 20 }], equipment: { item: id } },
+        });
+        const s = makeSession([
+            squad,
+            makeActor('boss', 'enemy', 1, { character: WEAK }),
+            makeActor('en-1', 'enemy', 2, { character: WEAK }),
+        ], { objectiveKind: 'kill-adds-first', bossId: 'boss' });
+        startRound(s);
+        assert.ok(applyAction(s, makeFloor('kill-adds-first'), { actorId: 'sq-1', type: 'item', itemId: id }, makeRng(1)).applied);
+        assert.ok(getActor(s, 'boss')!.statuses.some(status => status.source === id));
+        assert.ok(getActor(s, 'en-1')!.statuses.some(status => status.source === id));
     });
 
     it('biome terrain gives the matching discipline +10%', () => {
@@ -1320,6 +1451,43 @@ describe('Battle Towers AOE + consumables', () => {
         assert.equal((s.groundEffects ?? []).length, 0, 'the 2-round zone expired');
     });
 
+    it('an Instant Effect ground field covers the caster range instead of the clicked tile ring', () => {
+        const sq = makeActor('sq-1', 'squad', 27, {
+            chakra: 300, maxChakra: 300,
+            character: { specialty: 'Ninjutsu', stats: {}, jutsu: [{
+                id: 'wide-mire', name: 'Wide Mire', type: 'Ninjutsu', method: 'INSTANT_EFFECT',
+                ap: 60, range: 4, target: 'EMPTY_GROUND', tags: [{ name: 'Poison', percent: 10 }],
+            }] },
+        });
+        const en = makeActor('en-1', 'enemy', 30, { character: WEAK });
+        const s = makeSession([sq, en]);
+        startRound(s);
+        const result = applyAction(s, floor, { actorId: sq.id, type: 'jutsu', jutsuId: 'wide-mire', tile: 19 }, makeRng(1));
+        assert.ok(result.applied);
+        const field = s.groundEffects[0]!;
+        assert.ok(field.tiles.length > 7);
+        assert.ok(field.tiles.includes(en.pos), 'the distant enemy stands inside the caster range');
+        assert.ok(getActor(s, en.id)!.statuses.some(status => status.name === 'Poison'));
+    });
+
+    it('a legacy AOE_LINE ground field covers the same caster range', () => {
+        const sq = makeActor('sq-1', 'squad', 27, {
+            chakra: 300, maxChakra: 300,
+            character: { specialty: 'Ninjutsu', stats: {}, jutsu: [{
+                id: 'legacy-mire', name: 'Legacy Mire', type: 'Ninjutsu', method: 'AOE_LINE',
+                ap: 60, range: 4, target: 'EMPTY_GROUND', tags: [{ name: 'Poison', percent: 10 }],
+            }] },
+        });
+        const en = makeActor('en-1', 'enemy', 30, { character: WEAK });
+        const s = makeSession([sq, en]);
+        startRound(s);
+        const result = applyAction(s, floor, { actorId: sq.id, type: 'jutsu', jutsuId: 'legacy-mire', tile: 19 }, makeRng(1));
+        assert.ok(result.applied);
+        assert.ok(s.groundEffects[0]!.tiles.includes(en.pos));
+        assert.ok(getActor(s, en.id)!.statuses.some(status => status.name === 'Poison'));
+        assert.deepEqual(s.vfx?.[0]?.tiles, s.groundEffects[0]!.tiles);
+    });
+
     it('rejects an out-of-range ground jutsu; a no-ground-tag ground jutsu STRIKES the tile (PvE parity) instead of bouncing', () => {
         // A damage-dealing EMPTY_GROUND jutsu with no ground-effect tag (Wound, not Poison/
         // Recoil/Decrease Damage Given) used to bounce with `no-ground-tags`. It now resolves
@@ -1340,6 +1508,7 @@ describe('Battle Towers AOE + consumables', () => {
         assert.ok(r.applied, 'no-ground-tag ground jutsu resolves (no no-ground-tags bounce)');
         assert.ok(getActor(s, 'en-1')!.hp < 9999, 'the enemy on the target tile was struck');
         assert.equal((s.groundEffects ?? []).length, 0, 'a non-ground-tagged jutsu lays no persistent zone');
+        assert.notEqual(s.vfx?.[0]?.persistent, true, 'the direct strike VFX is not shown as a persistent zone');
         // Cast on an EMPTY tile → whiffs harmlessly (still applies / costs AP), never bounces.
         const s2 = makeSession([mkSq(), makeActor('en-1', 'enemy', 1, { hp: 9999, maxHp: 9999, character: { stats: {} } })]);
         startRound(s2);
@@ -1398,11 +1567,23 @@ describe('Battle Towers basic actions', () => {
     });
 
     it('clear strips a hostile target\'s buffs', () => {
-        const en = makeActor('en-1', 'enemy', 1, { statuses: [{ name: 'Reflect', rounds: 2, kind: 'positive' }], character: WEAK });
+        const en = makeActor('en-1', 'enemy', 1, { shield: 400, statuses: [
+            { name: 'Reflect', rounds: 2, kind: 'positive' },
+            { name: 'Absorb', rounds: 2, activeRound: 2, kind: 'positive' },
+        ], character: WEAK });
         const s = makeSession([makeActor('sq-1', 'squad', 0, { character: { specialty: 'Ninjutsu', stats: {} } }), en]);
         startRound(s);
         assert.ok(applyAction(s, floor, { actorId: 'sq-1', type: 'clear', targetId: 'en-1' }, makeRng(1)).applied);
-        assert.ok(!getActor(s, 'en-1')!.statuses.some(x => x.kind === 'positive'), 'enemy buffs cleared');
+        assert.ok(!getActor(s, 'en-1')!.statuses.some(x => x.name === 'Reflect'), 'active enemy buff cleared');
+        assert.ok(getActor(s, 'en-1')!.statuses.some(x => x.name === 'Absorb' && x.activeRound === 2), 'deferred buff remains');
+        assert.equal(getActor(s, 'en-1')!.shield, 0, 'enemy shield cleared');
+
+        const protectedEnemy = makeActor('protected-enemy', 'enemy', 1, { shield: 400,
+            statuses: [{ name: 'Clear Prevent', rounds: 2, activeRound: 1, kind: 'positive' }], character: WEAK });
+        const protectedSession = makeSession([makeActor('sq-1', 'squad', 0, { character: STRONG }), protectedEnemy]);
+        startRound(protectedSession);
+        assert.ok(applyAction(protectedSession, floor, { actorId: 'sq-1', type: 'clear', targetId: protectedEnemy.id }, makeRng(1)).applied);
+        assert.equal(protectedEnemy.shield, 400, 'active Clear Prevent preserves the shield');
     });
 
     it('an adds-gated boss rejects Clear without spending AP or stripping its barrier buffs', () => {

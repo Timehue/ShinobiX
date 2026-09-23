@@ -84,14 +84,17 @@ import {
     decidePvpSessionRevision,
     fetchInitialPvpProjection,
     parsePvpSessionProjection,
+    pvpMoveIntent,
     pvpRuntimeScopeKey,
     splitPvpMoveResponse,
+    type PendingPvpMove,
 } from "../lib/pvp-session-runtime";
 import { fetchPendingPvpRecovery } from "../lib/pvp-pending-fetch";
 import { earnedStatPoints } from "../lib/stats";
 import { useSocialLock } from "../lib/account-status";
 import { fetchBountyReceipt, type BountyReceipt } from "../lib/pvp-bounty";
 import { PvpBattleResultPanel, type PvpBattleOutcome } from "../components/PvpBattleResultPanel";
+import { canCancelUnstartedPvpDuel, isCancelledUnstartedPvpDuel } from "../../../shared/pvp-cancellation";
 
 // Avatar travel animation. A fighter's marker steps through each hex on the line
 // between its old and new cell (PATH_STEP_MS apart) and CSS-glides each hop, so
@@ -289,7 +292,14 @@ export function PvpBattleScreen({
     // consumables and kunai are fair and deliberately usable.
     const realPvpItemsDisabled = (session?.pvpConsumableAuthorityVersion === 1
         && session.realFighters?.[role] === true);
-    const effectiveIsSpar = isSpar && !serverPlayerRanked;
+    // Recovery can restore a server battle without its browser context. Keep
+    // reward and result presentation tied to the sealed session purpose.
+    const serverProgressionMatch = session?.progressionAuthorityVersion === 1
+        || session?.baseRewards === true
+        || session?.rewardAuthority === "ranked"
+        || session?.rewardAuthority === "world"
+        || session?.rewardAuthority === "clan-war";
+    const effectiveIsSpar = isSpar && !serverPlayerRanked && !serverProgressionMatch;
     const effectiveBattleMode = serverPlayerRanked ? "ranked" : battleMode;
     // Tracks the battleId we've already seeded so a later Realtime/move
     // update on the same fight doesn't get clobbered by a re-apply of the
@@ -312,6 +322,9 @@ export function PvpBattleScreen({
     }, [seedSession, battleId]);
     const [submitting, setSubmitting] = useState(false);
     const submitInFlightRef = useRef(false);
+    // A timed-out POST may still commit on the server. Keep its token for an
+    // exact retry against the same session revision so it cannot spend twice.
+    const pendingMoveRef = useRef<PendingPvpMove | null>(null);
     const [selectedActionId, setSelectedActionId] = useState<"move" | undefined>(undefined);
     const [pendingJutsuId, setPendingJutsuId] = useState("");
     const [pendingJutsuDirect, setPendingJutsuDirect] = useState<Jutsu | null>(null);
@@ -401,7 +414,7 @@ export function PvpBattleScreen({
         if (!session) return;
         if (session.status !== "done") { watchedActiveRef.current = true; return; }
         if (resultRevealed) return;
-        const hold = watchedActiveRef.current && !prefersReducedMotion() ? ARENA_KO_HOLD_MS + 520 : 0;
+        const hold = watchedActiveRef.current && !prefersReducedMotion() ? ARENA_KO_HOLD_MS : 0;
         const id = armPresentationTimer(() => setResultRevealed(true), hold);
         return () => window.clearTimeout(id);
     }, [session?.status]);
@@ -416,6 +429,7 @@ export function PvpBattleScreen({
             exitCheckAbortRef.current?.abort();
             exitCheckAbortRef.current = null;
             pvpRewardRef.current = false;
+            pendingMoveRef.current = null;
             continuationFenceRef.current.invalidate();
         };
     }, [runtimeScopeKey]);
@@ -1073,7 +1087,7 @@ export function PvpBattleScreen({
             spar: effectiveIsSpar,
         }));
         setPvpImpactLines(isDrawNow || effectiveIsSpar ? [] : pvpRewardImpactLines(result));
-        const runCompletion = shouldRunPvpRewardCompletion(
+        const runCompletion = !isCancelledUnstartedPvpDuel(resolvedSession) && shouldRunPvpRewardCompletion(
             completionStorage,
             claimRequest,
             result.completionPending,
@@ -1183,6 +1197,9 @@ export function PvpBattleScreen({
                     setPvpRewardClaimError(ack.message);
                     return;
                 }
+            }
+            if (isCancelledUnstartedPvpDuel(resolvedSession)) {
+                completePvpRewardCompletion(completionStorage, claimRequest);
             }
             if (!isCurrentScope()) return;
             setPvpRewardClaimState("confirmed");
@@ -1552,7 +1569,7 @@ export function PvpBattleScreen({
         Boolean(jutsu) && !pvpIsGroundTargetJutsu(jutsu) && (jutsu!.target === "SELF" || !pvpAffectsOpponent(jutsu!));
     const boardMyPos = session ? (role === "p1" ? session.p1.pos : session.p2.pos) : -1;
     const boardOppPos = session ? (role === "p1" ? session.p2.pos : session.p1.pos) : -1;
-    const jutsuRange = pendingJutsuDirect ? Math.max(1, Number(pendingJutsuDirect.range) || 1) : 0;
+    const jutsuRange = pendingJutsuDirect ? Math.max(1, Number(pendingJutsuDirect.range) || 4) : 0;
     const allTiles = useMemo(() => Array.from({ length: gridWidth * gridHeight }, (_, i) => i), [gridWidth, gridHeight]);
     const pvpBarrierTiles = useMemo(
         () => session
@@ -1567,9 +1584,12 @@ export function PvpBattleScreen({
     // click on the enemy would fire a self-buff at the wrong tile.
     const jutsuRangeTiles = useMemo(() => new Set(pendingJutsuDirect && !pvpIsSelfTargetJutsu(pendingJutsuDirect) ? allTiles.filter(t => t !== boardMyPos && pvpDist(boardMyPos, t) <= jutsuRange) : []), [pendingJutsuDirect, boardMyPos, jutsuRange, allTiles]);
     const groundJutsuTiles = useMemo(() => new Set(pvpIsGroundTargetJutsu(pendingJutsuDirect) ? allTiles.filter(t => t !== boardMyPos && t !== boardOppPos && !pvpBarrierTiles.has(t) && pvpDist(boardMyPos, t) <= jutsuRange) : []), [pendingJutsuDirect, boardMyPos, boardOppPos, jutsuRange, allTiles, pvpBarrierTiles]);
-    // Hover-reactive by design: only THIS Set recomputes as the cursor moves over a
-    // ground target's range; the rest of the board stays memoized.
+    // Instant ground effects cover the full caster range as soon as they are
+    // armed. Movement effects still preview their landing footprint on hover.
     const groundJutsuAffectedTiles = useMemo(() => {
+        if (pendingJutsuDirect?.method === "INSTANT_EFFECT" && groundJutsuTiles.size > 0) {
+            return jutsuImpactPreviewTiles("INSTANT_EFFECT", [...groundJutsuTiles][0]!, allTiles, pvpDist, pvpHexNeighbors, false, { casterPos: boardMyPos, range: jutsuRange });
+        }
         if (pendingJutsuDirect && pvpIsGroundTargetJutsu(pendingJutsuDirect) && hoveredPvpTile !== null && groundJutsuTiles.has(hoveredPvpTile)) {
             const impact = jutsuImpactPreviewTiles(pendingJutsuDirect.method, hoveredPvpTile, allTiles, pvpDist, pvpHexNeighbors);
             // A pure movement jutsu has no damage area; its hovered destination is
@@ -1578,7 +1598,7 @@ export function PvpBattleScreen({
             return impact;
         }
         return new Set<number>();
-    }, [pendingJutsuDirect, hoveredPvpTile, groundJutsuTiles, allTiles]);
+    }, [pendingJutsuDirect, hoveredPvpTile, groundJutsuTiles, allTiles, boardMyPos, jutsuRange]);
     // Opponent-targeted area methods (especially AOE_BURST) — show their impact
     // area whenever the enemy is in range.
     const opponentJutsuAffectedTiles = useMemo(() => pendingJutsuDirect && !pvpIsGroundTargetJutsu(pendingJutsuDirect) && !pvpIsSelfTargetJutsu(pendingJutsuDirect) && jutsuRangeTiles.has(boardOppPos)
@@ -1636,7 +1656,9 @@ export function PvpBattleScreen({
     const done = session.status === "done";
     const iWon = (session.winner === "p1" && role === "p1") || (session.winner === "p2" && role === "p2");
     const isDraw = session.winner === "draw";
-    const battleOutcome: PvpBattleOutcome = isDraw
+    const battleOutcome: PvpBattleOutcome = isCancelledUnstartedPvpDuel(session)
+        ? "cancelled"
+        : isDraw
         ? "draw"
         : amSpectator
             ? "spectator"
@@ -1739,8 +1761,7 @@ export function PvpBattleScreen({
     const pvpGroundZoneClass = (effect: PvpGroundEffectState | undefined) => {
         if (!effect) return "";
         const tagNames = new Set((effect.tags ?? []).map(tag => normalizeTagName(tag.name)));
-        // A large footprint (> the 7-hex Instant-Effect zone) is an AOE_SPIRAL
-        // nova — give it an extra pulsing treatment so the shockwave reads.
+        // Wide ground fields get an extra pulse so their full area reads clearly.
         const nova = (effect.tiles?.length ?? 0) >= 8 ? " ground-effect-nova" : "";
         if (tagNames.has("Poison")) return " ground-effect-poison" + nova;
         if (tagNames.has("Recoil")) return " ground-effect-fire" + nova;
@@ -1814,7 +1835,8 @@ export function PvpBattleScreen({
     const fleeAvailability = pvpActionAvailability(100);
 
     async function submitAction(pvpAction: string, pvpTile?: number, pvpJutsuId?: string, pvpItem?: GameItem, opts?: { auto?: boolean; allowWhenNotMyTurn?: boolean }) {
-        if (submitInFlightRef.current || done) return;
+        const currentSession = session;
+        if (!currentSession || submitInFlightRef.current || done) return;
         if (!isMyTurn && !opts?.allowWhenNotMyTurn) return;
         const isCurrentScope = continuationFenceRef.current.capture();
         submitInFlightRef.current = true;
@@ -1828,19 +1850,12 @@ export function PvpBattleScreen({
         const moveAbort = new AbortController();
         const moveTimeout = setTimeout(() => moveAbort.abort(), 12000);
         try {
-            // Per-move idempotency token. If this request retries (network
-            // blip, double-tap), the server's recentMoveTokens check
-            // short-circuits the second arrival without re-applying.
-            const moveToken = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-                ? crypto.randomUUID()
-                : `mt-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
             // Biome + weather are NOT sent here — the server intentionally
             // ignores them on every move (it would be a trust-the-client hole)
             // and reads from the sealed session instead. Sealing happens at
             // /api/pvp/session POST via pvpSessionEnvironment().
             const body: Record<string, unknown> = {
                 battleId, role, action: pvpAction,
-                moveToken,
             };
             if (opts?.auto) body.auto = true;
             if (pvpTile !== undefined) body.tile = pvpTile;
@@ -1859,6 +1874,16 @@ export function PvpBattleScreen({
                     weaponEffectValue: pvpItem.weaponEffectValue ?? 0,
                 };
             }
+            // The revision distinguishes a legitimate repeat on a later turn
+            // from a retry whose first response was lost. Include the complete
+            // intent so changing targets or items creates a fresh token.
+            const pending = pvpMoveIntent(pendingMoveRef.current, currentSession.stateRevision, body, () =>
+                typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+                    ? crypto.randomUUID()
+                    : `mt-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
+            const moveToken = pending.token;
+            pendingMoveRef.current = pending;
+            body.moveToken = moveToken;
             const res = await fetch("/api/pvp/move", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -1870,6 +1895,7 @@ export function PvpBattleScreen({
                 const parsed = parsePvpSessionProjection(moveEnvelope.projection, battleId);
                 if (!isCurrentScope()) return;
                 if (parsed.kind === "terminal") {
+                    if (pendingMoveRef.current?.token === moveToken) pendingMoveRef.current = null;
                     markSessionUnavailable(parsed.message, isCurrentScope);
                     return;
                 }
@@ -1884,6 +1910,7 @@ export function PvpBattleScreen({
                 // last line — and KEEP the pending selection so the player can
                 // adjust without re-arming. Don't reset the round timer.
                 if (moveEnvelope.rejected) {
+                    if (pendingMoveRef.current?.token === moveToken) pendingMoveRef.current = null;
                     const reason = moveEnvelope.rejected.reason;
                     setMoveFeedback(reason);
                     setSession(current => {
@@ -1896,6 +1923,7 @@ export function PvpBattleScreen({
                     });
                     return;
                 }
+                if (pendingMoveRef.current?.token === moveToken) pendingMoveRef.current = null;
                 setMoveFeedback("");
                 setSession(current => acceptRevision(current, data));
                 // Clear only the technique this response actually applied. A
@@ -1916,6 +1944,9 @@ export function PvpBattleScreen({
                 const errData = await res.json().catch(() => ({} as Record<string, unknown>));
                 const errMsg = typeof errData?.error === "string" ? errData.error : `Server rejected move (${res.status})`;
                 if (isCurrentScope()) {
+                    // A 5xx may follow a successful combat commit whose receipt
+                    // or response failed. Keep that token for an exact retry.
+                    if (res.status < 500 && pendingMoveRef.current?.token === moveToken) pendingMoveRef.current = null;
                     if (res.status === 409 && pvpAction !== "cancel-unjoined") {
                         markSessionUnavailable("This ranked battle ended as a no-contest.", isCurrentScope);
                         return;
@@ -1935,8 +1966,10 @@ export function PvpBattleScreen({
             // Network error or 12s timeout. Leave selections so the player can
             // retry; surface a timeout so a stalled turn doesn't look silently
             // frozen. The round-timer auto-wait re-fires once `submitting` clears.
-            if (isCurrentScope() && (err as { name?: string } | null)?.name === "AbortError") {
-                setMoveFeedback("Move timed out — try again or your turn will auto-pass.");
+            if (isCurrentScope()) {
+                setMoveFeedback((err as { name?: string } | null)?.name === "AbortError"
+                    ? "Move timed out. Retry the same action to check whether it landed."
+                    : "The move response was lost. Retry the same action to check whether it landed.");
             }
         }
         finally {
@@ -1992,9 +2025,8 @@ export function PvpBattleScreen({
     const fallbackIcon = (j: Jutsu) =>
         j.type === "Taijutsu" ? "👊" : j.type === "Bukijutsu" ? "⚔" : j.type === "Genjutsu" ? "👁" : "🌀";
     const combatVfxCenters = (fx: PvpCombatVfx) => {
-        const tiles = (fx.spec.tiles ?? [])
-            .filter(tile => tile >= 0 && tile < gridWidth * gridHeight)
-            .slice(0, liteFx ? 7 : 14);
+        const footprint = (fx.spec.tiles ?? []).filter(tile => tile >= 0 && tile < gridWidth * gridHeight);
+        const tiles = fx.spec.persistent ? footprint : footprint.slice(0, liteFx ? 7 : 14);
         if (tiles.length) return tiles.map(pvpTileCenter);
         const fighter = fx.target === "p1" ? session.p1 : session.p2;
         return [pvpTileCenter(fighter.pos)];
@@ -2396,7 +2428,7 @@ export function PvpBattleScreen({
                     <CombatActionTray>
                         {!done && !amSpectator && (
                             <CombatCommandBar style={!bothJoined || isMyTurn ? undefined : { opacity: 0.55 }}>
-                                {!bothJoined && <button type="button" onClick={() => void submitAction("cancel-unjoined", undefined, undefined, undefined, { allowWhenNotMyTurn: true })} disabled={submitting}>
+                                {canCancelUnstartedPvpDuel(session) && <button type="button" onClick={() => void submitAction("cancel-unjoined", undefined, undefined, undefined, { allowWhenNotMyTurn: true })} disabled={submitting}>
                                     <i className="cmd-icon" aria-hidden="true"><GiRun /></i><span>{submitting ? "Cancelling…" : "Cancel Duel"}</span><small>No penalty</small>
                                 </button>}
                                 <button className={pendingBasicAttack ? "selected-action" : ""}
@@ -2678,7 +2710,8 @@ export function PvpBattleScreen({
                                     })()}
                                     {inspectedJutsu && (() => {
                                         const mastery = getJutsuMastery(character, inspectedJutsu.id);
-                                        const scaled = scaleJutsuByLevel(inspectedJutsu, mastery.level);
+                                        const combatMasteryLevel = session.rankedFormatVersion === 1 ? JUTSU_MAX_LEVEL : mastery.level;
+                                        const scaled = scaleJutsuByLevel(inspectedJutsu, combatMasteryLevel);
                                         const detailDescription = jutsuDetailDescription(inspectedJutsu);
                                         return (
                                             <CombatDetailPortal
@@ -2688,7 +2721,7 @@ export function PvpBattleScreen({
                                                 onClose={() => setInspectedJutsuId("")}
                                             >
                                                 <div className="combat-jutsu-detail-header">
-                                                    <div><strong id={`pvp-combat-detail-label-jutsu-${inspectedJutsu.id}`}>{inspectedJutsu.name}</strong><small>Level {mastery.level} / {JUTSU_MAX_LEVEL}</small></div>
+                                                    <div><strong id={`pvp-combat-detail-label-jutsu-${inspectedJutsu.id}`}>{inspectedJutsu.name}</strong><small>Level {combatMasteryLevel} / {JUTSU_MAX_LEVEL}</small></div>
                                                     <button type="button" data-combat-detail-close aria-label="Close combat details" onClick={() => setInspectedJutsuId("")}>x</button>
                                                 </div>
                                                 <div className="combat-jutsu-detail-grid">
@@ -2704,7 +2737,7 @@ export function PvpBattleScreen({
                                                 {(() => { const t = jutsuTargetingLabel(inspectedJutsu); return <p className="combat-jutsu-detail-desc"><strong style={{ color: "var(--purple-400)" }}>🎯 {t.short}:</strong> {t.detail}</p>; })()}
                                                 {detailDescription && <p className="combat-jutsu-detail-desc">{detailDescription}</p>}
                                                 <div className="combat-jutsu-effects-list">
-                                                    <JutsuEffectCards jutsu={inspectedJutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} lensDiscipline={playerLensDiscipline(character)} />
+                                                    <JutsuEffectCards jutsu={inspectedJutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={combatMasteryLevel} lensDiscipline={playerLensDiscipline(character)} />
                                                 </div>
                                             </CombatDetailPortal>
                                         );

@@ -18,6 +18,7 @@ import { legacyStatsKey, type LegacyStats } from '../_legacy-track.js';
 import type { FocusFacts } from './_activity-spine.js';
 import { normalizePetTutorialProgress } from '../../shared/pet-tutorial.js';
 import { SHOWDOWN_DAILY_WIN_CAP } from '../../shared/pet-showdown-contract.js';
+import { rankedLevelEligible, RANKED_LEVEL_WARNING } from '../../shared/ranked-eligibility.js';
 
 const whole = (value: unknown) => Number.isFinite(Number(value)) ? Math.max(0, Math.floor(Number(value))) : 0;
 const object = (value: unknown): Record<string, unknown> | null => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
@@ -89,6 +90,7 @@ export async function enrichActivityFacts(
 ): Promise<FocusFacts> {
     const focus = normalizeMasteryFocus(focusValue);
     if (focus === 'ranked-pvp') {
+        if (!rankedLevelEligible(character.level)) return { ...facts, ranked: { ...facts.ranked, ready: false, blocker: RANKED_LEVEL_WARNING } };
         if (!playerRankedV2AdmissionsEnabled()) return { ...facts, ranked: { ...facts.ranked, blocker: 'Ranked queue admissions are temporarily unavailable.' } };
         const [rawGate, season] = await Promise.all([
             reader.get<unknown>(PET_RANKED_SEASON_GATE_KEY), reader.get<{ id?: unknown }>('ranked:season:current'),

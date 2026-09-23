@@ -80,7 +80,24 @@ function exactKeys(value: Record<string, unknown>, keys: readonly string[]): boo
 }
 
 function terminalCore(terminal: Omit<PlayerRankedTerminal, 'fingerprint'>): string {
-    return JSON.stringify(terminal);
+    // Postgres JSONB reorders object keys when the admission/journal is read
+    // back. The fingerprint must use the same field order as the original
+    // sessionTerminalCore() publication regardless of storage serialization.
+    // Keep this order stable so already-published terminal fingerprints remain
+    // valid and recoverable after deployment.
+    return JSON.stringify({
+        matchId: terminal.matchId,
+        battleId: terminal.battleId,
+        a: terminal.a,
+        b: terminal.b,
+        aRating: terminal.aRating,
+        bRating: terminal.bRating,
+        seasonId: terminal.seasonId,
+        seasonEpoch: terminal.seasonEpoch,
+        winner: terminal.winner,
+        rankedEligible: terminal.rankedEligible,
+        terminalAt: terminal.terminalAt,
+    });
 }
 
 export function playerRankedTerminalFingerprint(

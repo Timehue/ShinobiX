@@ -19,6 +19,7 @@
  */
 
 import { setSafeRecordValue } from '../_utils.js';
+import { isPlayableWildSector } from '../../shared/sector-geo.js';
 import {
     parseWandererId,
     resolveWandererById,
@@ -62,7 +63,7 @@ export function resolveNaturalWanderer(
         ? movesRaw as Record<string, unknown>
         : {};
     const moved = Math.floor(Number(moves[id]));
-    const visibleSector = Number.isFinite(moved) && moved >= 1 && moved <= WANDERER_SECTOR_COUNT ? moved : parsed.sector;
+    const visibleSector = isPlayableWildSector(moved) ? moved : parsed.sector;
     if (requestedSector !== undefined && visibleSector !== requestedSector) return null;
     return w;
 }
@@ -155,7 +156,7 @@ export function pruneWandererMovesForSave(
         const parsed = parseNaturalWandererId(id);
         const sector = Math.floor(num(rawSector));
         if (!parsed || parsed.dayBucket !== currentDayBucket) continue;
-        if (sector >= 1 && sector <= WANDERER_SECTOR_COUNT) setSafeRecordValue(out, id, sector);
+        if (isPlayableWildSector(sector)) setSafeRecordValue(out, id, sector);
     }
     return out;
 }

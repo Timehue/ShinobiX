@@ -17,6 +17,7 @@ import {
     useLiveCapabilities,
 } from "../../../lib/live-capabilities-context";
 import { requireServerSettlement } from "../../../lib/server-settlement-gate";
+import { rankedLevelEligible, RANKED_LEVEL_WARNING } from "../../../../../shared/ranked-eligibility";
 
 /**
  * Ranked queue lifecycle for the Arena District lobby.
@@ -378,6 +379,10 @@ export function useRankedQueue({
     async function joinRankedQueue() {
         if (rankedQueueLifecycle.currentSession()?.phase === "launching") {
             alert("Your ranked match is already launching. The combat session will open automatically.");
+            return;
+        }
+        if (!rankedLevelEligible(character.level)) {
+            alert(RANKED_LEVEL_WARNING);
             return;
         }
         if (!requireServerSettlement("rankedPvp")) return;

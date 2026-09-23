@@ -13,9 +13,9 @@ const previewRoot = previewRootFor(port);
 // item-artwork-coverage is deliberately NOT in this list: it is only 2 tests and
 // it decodes the actual WebP catalog, which is precisely the thing that can
 // differ between Chromium, Firefox and WebKit. It keeps running everywhere.
-// Sector interaction fixtures run through their dedicated Vite config in CI.
+// Source fixtures run through their dedicated Vite configs in CI.
 // They are source fixtures, so the immutable production-preview server cannot serve them.
-const SOURCE_FIXTURE_SPECS = ['**/sector-hud.spec.ts'];
+const SOURCE_FIXTURE_SPECS = ['**/sector-hud.spec.ts', '**/wild-binding.spec.ts'];
 const SCREEN_WALK_SPEC = ['**/non-combat-ui-audit.spec.ts', ...SOURCE_FIXTURE_SPECS];
 
 export default defineConfig({

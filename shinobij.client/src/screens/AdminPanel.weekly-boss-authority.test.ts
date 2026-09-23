@@ -48,7 +48,7 @@ describe("AdminPanel Weekly Boss authority", () => {
         assertOrdered(setOverride, [
             "await persistAdminWeeklyBossOverride",
             "if (!weeklyBossOperationIsCurrent(operationToken)) return;",
-            "if (!result.ok)",
+            "if (result.ok !== true)",
             "Override set to",
         ]);
 
@@ -56,7 +56,7 @@ describe("AdminPanel Weekly Boss authority", () => {
         assertOrdered(clearOverride, [
             "await persistAdminWeeklyBossOverride",
             "if (!weeklyBossOperationIsCurrent(operationToken)) return;",
-            "if (!result.ok)",
+            "if (result.ok !== true)",
             "Override cleared.",
         ]);
 
@@ -64,7 +64,7 @@ describe("AdminPanel Weekly Boss authority", () => {
         assertOrdered(spawn, [
             "await spawnAdminWeeklyBoss",
             "if (!weeklyBossOperationIsCurrent(operationToken)) return;",
-            "if (!result.ok)",
+            "if (result.ok !== true)",
             "Boss spawned:",
         ]);
         assert.doesNotMatch(source, /persistSharedGameState\(\{ kind: "weeklyBossOverride"/,

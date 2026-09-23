@@ -16,7 +16,7 @@ import type { Biome } from "../types/core";
 import type { CreatorEvent } from "../types/vn";
 import type { Wanderer, WandererArchetypeId } from "./wanderers";
 import { sectorRegionName, villageForOutskirtsSector } from "../data/sectors";
-import { CASTLE_SECTORS, MAX_WILD_SECTOR, OUTSKIRTS_SECTORS } from "../../../shared/sector-geo";
+import { CASTLE_SECTORS, FESTIVAL_SECTOR, MAX_WILD_SECTOR, OUTSKIRTS_SECTORS } from "../../../shared/sector-geo";
 import { hollowRifts, hollowRiftById, type HollowRift, type RiftGiverArchetype, type RiftPage } from "../data/hollow-rifts";
 import { serverNow } from "./server-clock";
 
@@ -71,7 +71,7 @@ export function riftBossPortrait(rift: HollowRift): string {
     return `/portraits/${rift.bossAiId}.webp`;
 }
 /** Deterministic wilderness sector for a (player, rift): stable, avoids village
- *  outskirts + the neutral castle city + the lava arena. The server recomputes
+ *  outskirts + the neutral castle city + Sunscar + the lava arena. The server recomputes
  *  the SAME value at accept (api/sector/_rift-quest.ts riftTargetSector — keep
  *  in lockstep), so client display and server seal always agree. The draw spans
  *  MAX_WILD_SECTOR so later-added sectors are rift homes too; an accepted quest
@@ -80,7 +80,7 @@ export function riftTargetSector(playerName: string, riftId: string): number {
     let h = 2166136261;
     const s = `${playerName}|${riftId}`;
     for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
-    const skip = new Set([...OUTSKIRTS_SECTORS, ...CASTLE_SECTORS]);
+    const skip = new Set([...OUTSKIRTS_SECTORS, ...CASTLE_SECTORS, FESTIVAL_SECTOR]);
     let sec = (Math.abs(h) % MAX_WILD_SECTOR) + 1; // 99 (lava) is out of range by construction
     for (let guard = 0; guard < MAX_WILD_SECTOR && skip.has(sec); guard++) sec = (sec % MAX_WILD_SECTOR) + 1;
     return sec;

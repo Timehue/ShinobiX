@@ -153,8 +153,8 @@ export async function readBattleReceipt(
 }
 
 // Pure: merge a settlement patch onto an existing receipt. Last-writer-wins on
-// individual fields, which is benign for this debug-only summary (the winner's
-// claim writes ryo/xp/ratingDelta; the loser's writes their ratingDelta).
+// individual fields. The ranked claim path supplies the same battle-level
+// rating magnitude from either participant, regardless of claim order.
 export function mergeSettlement(
     existing: BattleReceipt,
     patch: Partial<BattleSettlement>,
@@ -616,6 +616,16 @@ export async function indexBattleForParticipants(
     const p1Name = norm(String(receipt.p1?.name ?? ''));
     const p2Name = norm(String(receipt.p2?.name ?? ''));
     const results = { p1: false, p2: false };
+    // Distinct players have distinct history keys and locks. Indexing both
+    // together removes one serial KV round trip from the finishing move.
+    // Preserve the old ordering for admin-authored same-name fixtures.
+    if (p1Name && p2Name && p1Name !== p2Name) {
+        const [p1, p2] = await Promise.all([
+            indexOne(p1Name, buildHistorySummary(receipt, 'p1'), store, lock),
+            indexOne(p2Name, buildHistorySummary(receipt, 'p2'), store, lock),
+        ]);
+        return { p1, p2 };
+    }
     if (p1Name) results.p1 = await indexOne(p1Name, buildHistorySummary(receipt, 'p1'), store, lock);
     if (p2Name) results.p2 = await indexOne(p2Name, buildHistorySummary(receipt, 'p2'), store, lock);
     return results;
