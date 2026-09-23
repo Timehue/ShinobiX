@@ -44,35 +44,10 @@ const STALE_MS = 60 * 1000;           // Remove entries older than 60s (must re-
 const MATCH_TTL_SECONDS = 30;
 const matchKey = (slug: string) => `${QUEUE_KEY}:match:${slug}`;
 const CURRENT_SEASON_KEY = 'ranked:season:current';
-// Ranked measures combat choices, not who happened to cross a progression
-// breakpoint. Keep a small widening window for queue health, but never cross a
-// stat/mastery-cap tier and never widen into the old level-10-vs-100 outcome.
-const LEVEL_BAND_BASE = 2;
-const LEVEL_BAND_MAX = 5;
-const LEVEL_BAND_OPEN_INTERVAL_MS = 30_000;
-
-function combatProgressionBand(level: number): number {
-    const value = Math.max(1, Math.min(100, Math.floor(Number(level) || 1)));
-    if (value >= 80) return 4;
-    if (value >= 50) return 3;
-    if (value >= 30) return 2;
-    if (value >= 15) return 1;
-    return 0;
-}
-
-export function rankedLevelBand(joinedAt: number, now: number): number {
-    const waitMs = Math.max(0, now - joinedAt);
-    return Math.min(LEVEL_BAND_MAX, LEVEL_BAND_BASE + Math.floor(waitMs / LEVEL_BAND_OPEN_INTERVAL_MS));
-}
-
-export function selectRankedOpponent(me: QueueEntry, others: QueueEntry[], now: number): QueueEntry | undefined {
-    const myBand = rankedLevelBand(me.joinedAt, now);
-    return others
-        .filter((candidate) => {
-            const mutuallyAllowedBand = Math.min(myBand, rankedLevelBand(candidate.joinedAt, now));
-            return combatProgressionBand(candidate.level) === combatProgressionBand(me.level)
-                && Math.abs(candidate.level - me.level) <= mutuallyAllowedBand;
-        })
+export function selectRankedOpponent(me: QueueEntry, others: QueueEntry[], _now: number): QueueEntry | undefined {
+    // Ranked Format equalizes the combat tier, so character level is not a
+    // matchmaking restriction. Prefer the nearest rating among active entries.
+    return [...others]
         .sort((a, b) => {
             const eloGap = Math.abs(a.elo - me.elo) - Math.abs(b.elo - me.elo);
             return eloGap || a.joinedAt - b.joinedAt || a.name.localeCompare(b.name);
@@ -333,8 +308,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const opponent = selectRankedOpponent(me, others, now);
                     if (!opponent) {
                         // Refresh liveness without resetting joinedAt: the latter is
-                        // the authoritative wait clock used by the 15-second widening
-                        // schedule. Resetting it here kept the band permanently at 10.
+                        // the authoritative queue wait clock and Elo tie-breaker.
                         const refreshed = active.map(e => e.name === me.name ? { ...e, lastPolledAt: now } : e);
                         await kv.set(QUEUE_KEY, refreshed, { ex: KV_TTL_SECONDS });
                         return { status: 200, body: { inQueue: true, queueSize: active.length, match: null } };

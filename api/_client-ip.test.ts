@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { clientIp, isCloudflareIp, requestTransitedCloudflare, type IpRequestLike } from './_client-ip.js';
+import { clientIp, isCloudflareIp, isPublicVisitorIp, requestTransitedCloudflare, type IpRequestLike } from './_client-ip.js';
 
 // Verifies the Cloudflare-aware client-IP extraction shared by the player IP
 // tracker, the moderation IP index, and the rate-limiter fallback. The bug
@@ -29,6 +29,16 @@ describe('isCloudflareIp', () => {
         assert.equal(isCloudflareIp('2001:4860:4860::8888'), false);
         assert.equal(isCloudflareIp('not-an-ip'), false);
         assert.equal(isCloudflareIp(''), false);
+    });
+});
+
+describe('isPublicVisitorIp', () => {
+    it('accepts public visitors and rejects proxy, private, and malformed addresses', () => {
+        assert.equal(isPublicVisitorIp('86.123.45.67'), true);
+        assert.equal(isPublicVisitorIp('2001:4860:4860::8888'), true);
+        for (const ip of ['162.158.14.68', '10.0.0.3', '172.20.1.4', '192.168.1.2', '100.64.0.1', '127.0.0.1', '::1', 'fc00::1', 'fe80::1', 'not-an-ip']) {
+            assert.equal(isPublicVisitorIp(ip), false, ip);
+        }
     });
 });
 

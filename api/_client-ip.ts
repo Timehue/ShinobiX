@@ -177,6 +177,13 @@ const CF_RANGES: ParsedCidr[] = [...CLOUDFLARE_CIDRS_V4, ...CLOUDFLARE_CIDRS_V6]
     .map(parseCidr)
     .filter((c): c is ParsedCidr => c !== null);
 
+const NON_VISITOR_RANGES: ParsedCidr[] = [
+    '0.0.0.0/8', '10.0.0.0/8', '100.64.0.0/10', '127.0.0.0/8',
+    '169.254.0.0/16', '172.16.0.0/12', '192.168.0.0/16',
+    '198.18.0.0/15', '224.0.0.0/4', '240.0.0.0/4',
+    '::/128', '::1/128', 'fc00::/7', 'fe80::/10', 'ff00::/8',
+].map(parseCidr).filter((c): c is ParsedCidr => c !== null);
+
 /** True if `raw` parses to an address inside any Cloudflare published range. */
 export function isCloudflareIp(raw: string): boolean {
     const ip = parseIp(raw);
@@ -185,6 +192,13 @@ export function isCloudflareIp(raw: string): boolean {
         if (range.version === ip.version && (ip.value & range.mask) === range.base) return true;
     }
     return false;
+}
+
+/** Proxy and private addresses are not evidence that two ranked players share a connection. */
+export function isPublicVisitorIp(raw: string): boolean {
+    const ip = parseIp(raw);
+    if (!ip || isCloudflareIp(raw)) return false;
+    return !NON_VISITOR_RANGES.some(range => range.version === ip.version && (ip.value & range.mask) === range.base);
 }
 
 function firstHeader(req: IpRequestLike, name: string): string | undefined {

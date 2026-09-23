@@ -79,6 +79,8 @@ export type PvpSessionState = {
     rewardStronghold?: 'deathsgate';
     ranked?: boolean;
     rankedKind?: "player" | "pet";
+    /** Equalized ranked fighter snapshot, including combat-only mastery. */
+    rankedFormatVersion?: 1;
     /** Server-minted Player Ranked V2 authority marker. Ordinary/casual fights omit it. */
     playerRankedAuthorityVersion?: 2;
     /** Server authority cutover: real fighters cannot spend mutable inventory in PvP. */
