@@ -13,7 +13,8 @@ import { activeCarriedPets } from '../_entitlements.js';
 import { createShowdownSession, resolveShowdownRound, showdownStateView, type ShowdownSession } from '../_pet-showdown/engine.js';
 import { chooseShowdownAiCommands } from '../_pet-showdown/ai.js';
 import type { ShowdownCommand } from '../../shared/pet-showdown-contract.js';
-import { wildBindingChance, wildBindingOpportunity, wildBindingSeal, wildBindingSuccess, wildResolveLoss, wildTraitHint, WILD_BINDING_SEALS } from '../../shared/wild-binding.js';
+import { wildBindingChance, wildBindingOpportunity, wildBindingSeal, wildResolveLoss, wildTraitHint, WILD_BINDING_SEALS } from '../../shared/wild-binding.js';
+import { resolveSealAttempt, sealCount } from './_wild-binding-seal.js';
 import { cleanPetEncounterPointer, petEncounterActiveKey, petEncounterRequestKey, PET_ENCOUNTER_POINTER_TTL_SECONDS } from './_encounter-pointer.js';
 import { cleanWorldExploreAuthorityReceipt, worldExploreAuthorityKey } from '../world/_explore-authority.js';
 import { caravanPetDiscovery } from '../festival/_caravan-pet.js';
@@ -44,22 +45,6 @@ const battleKey = (player: string, token: string) => `pet:wild-binding:${player}
 const encounterKey = (player: string, token: string) => `pet-encounter:${player}:${token}`;
 const pct = (current: number, max: number) => max > 0 ? Math.max(0, Math.min(100, Math.round(current * 100 / max))) : 0;
 const roll = () => randomInt(1_000_000_000) / 1_000_000_000;
-
-function sealCount(character: Record<string, unknown>, id: string): number {
-    const stacks = Array.isArray(character.itemStacks) ? character.itemStacks as Array<{ itemId?: unknown; count?: unknown }> : [];
-    return Math.min(9999, stacks.reduce((sum, stack) => stack.itemId === id
-        ? sum + Math.max(0, Math.floor(Number(stack.count) || 0)) : sum, 0));
-}
-
-function spendSeal(character: Record<string, unknown>, id: string): Record<string, unknown> {
-    const stacks = Array.isArray(character.itemStacks) ? character.itemStacks as Array<{ itemId: string; count: number }> : [];
-    let spent = false;
-    return { ...character, itemStacks: stacks.flatMap((stack) => {
-        if (spent || stack.itemId !== id || stack.count < 1) return [stack];
-        spent = true;
-        return stack.count > 1 ? [{ ...stack, count: stack.count - 1 }] : [];
-    }) };
-}
 
 function publicView(session: WildSession, character: Record<string, unknown>) {
     const enemy = session.enemy[0];
@@ -280,9 +265,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const spent = await mutatePlayerSave(playerName, async ({ character }) => {
                     const prior = receiptFor(character, token, attemptId);
                     if (prior) return { ok: true as const, character, value: { success: prior === `${receiptPrefix}1`, replayed: true, pet: null, destination: null } };
-                    if (sealCount(character, seal.id) < 1) return { ok: false as const, status: 409, error: 'You have no seal of that type.' };
-                    const success = wildBindingSuccess(chance, roll());
-                    let next = spendSeal(character, seal.id);
+                    const sealAttempt = resolveSealAttempt(character, seal.id, chance, roll);
+                    if (!sealAttempt) return { ok: false as const, status: 409, error: 'You have no seal of that type.' };
+                    const { success } = sealAttempt;
+                    let next = sealAttempt.character;
                     let pet: Record<string, unknown> | null = null;
                     let destination: 'roster' | 'sanctuary' | null = null;
                     if (success) {

@@ -15,6 +15,7 @@ let kv: typeof import('../_storage.js').kv;
 let issuePlayerToken: typeof import('../_auth.js').issuePlayerToken;
 let wildHandler: Handler;
 let befriendHandler: Handler;
+let purchaseHandler: Handler;
 let catalog: typeof import('./_catalog.js').PET_CATALOG;
 
 before(async () => {
@@ -23,6 +24,7 @@ before(async () => {
     ({ PET_CATALOG: catalog } = await import('./_catalog.js'));
     wildHandler = (await import('./wild-binding.js')).default as unknown as Handler;
     befriendHandler = (await import('./befriend.js')).default as unknown as Handler;
+    purchaseHandler = (await import('../shop/purchase.js')).default as unknown as Handler;
 });
 
 beforeEach(async () => {
@@ -69,6 +71,29 @@ async function post(handler: Handler, body: Json): Promise<{ status: number; bod
 }
 
 describe('server-authoritative wild binding', { concurrency: false }, () => {
+    it('carries a bulk shop purchase into the encounter and spends one seal on capture', async () => {
+        const save = await kv.get<Record<string, unknown>>(`save:${player}`);
+        await kv.set(`save:${player}`, { ...save, character: { ...(save?.character as Record<string, unknown>), ryo: 2500 } });
+        const purchase = { itemId: 'beast-seal-reinforced', qty: 9, requestId: 'bulksealpurchase001' };
+        const bought = await post(purchaseHandler, purchase);
+        assert.equal(bought.status, 200);
+        assert.equal(((bought.body.purchase as Record<string, unknown>).qty), 9);
+        assert.deepEqual((bought.body.character as Record<string, unknown>).itemStacks,
+            [{ itemId: 'beast-seal-reinforced', count: 10 }]);
+        const replay = await post(purchaseHandler, purchase);
+        assert.equal(replay.status, 200);
+        assert.equal(replay.body.replayed, true);
+
+        assert.equal((await post(wildHandler, { action: 'start', petId: 'owned-fox-001' })).status, 200);
+        const captured = await post(wildHandler, { action: 'capture', sealId: 'beast-seal-reinforced', attemptId: 'bulkbindattempt001' });
+        assert.equal(captured.status, 200);
+        assert.equal((captured.body.capture as Record<string, unknown>).success, true);
+        assert.deepEqual((captured.body.character as Record<string, unknown>).itemStacks,
+            [{ itemId: 'beast-seal-reinforced', count: 9 }]);
+        const stored = (await kv.get<Record<string, unknown>>(`save:${player}`))?.character as Record<string, unknown>;
+        assert.deepEqual(stored.itemStacks, [{ itemId: 'beast-seal-reinforced', count: 9 }]);
+    });
+
     it('requires battle for a newly rolled discovery and seals a single tutorial fight', async () => {
         const direct = await post(befriendHandler, {});
         assert.equal(direct.status, 409);

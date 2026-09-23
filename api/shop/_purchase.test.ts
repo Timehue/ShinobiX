@@ -52,6 +52,35 @@ describe('catalog shop purchase', () => {
         assert.deepEqual(result.character.itemStacks, [{ itemId: 'other', count: 3 }, { itemId: 'thrown-shuriken', count: 15 }]);
     });
 
+    it('buys more Beast Seals after owning one and respects the 99-seal carry limit', () => {
+        const owned = { level: 1, ryo: 30_000, inventory: [], itemStacks: [{ itemId: 'beast-seal-reinforced', count: 1 }] };
+        const bought = purchaseCatalogItem(owned, 'beast-seal-reinforced', 9);
+        assert.equal(bought.ok, true);
+        if (!bought.ok) return;
+        assert.equal(bought.item.qty, 9);
+        assert.equal(bought.item.totalCost, 2160);
+        assert.equal(bought.character.ryo, 27_840);
+        assert.deepEqual(bought.character.itemStacks, [{ itemId: 'beast-seal-reinforced', count: 10 }]);
+
+        const filled = purchaseCatalogItem(bought.character, 'beast-seal-reinforced', 99);
+        assert.equal(filled.ok, true);
+        if (!filled.ok) return;
+        assert.equal(filled.item.qty, 89);
+        assert.deepEqual(filled.character.itemStacks, [{ itemId: 'beast-seal-reinforced', count: 99 }]);
+        const capped = purchaseCatalogItem(filled.character, 'beast-seal-reinforced', 1);
+        assert.deepEqual(capped, { ok: false, reason: 'hold-cap' });
+    });
+
+    it('counts legacy inventory seals against the cap and sells Ancient Seals for Fate Shards', () => {
+        const ancient = purchaseCatalogItem({ level: 1, fateShards: 60, inventory: ['beast-seal-ancient'], itemStacks: [] }, 'beast-seal-ancient', 3);
+        assert.equal(ancient.ok, true);
+        if (!ancient.ok) return;
+        assert.equal(ancient.item.currency, 'fateShards');
+        assert.equal(ancient.item.qty, 3);
+        assert.equal(ancient.character.fateShards, 15);
+        assert.deepEqual(ancient.character.itemStacks, [{ itemId: 'beast-seal-ancient', count: 3 }]);
+    });
+
     it('still spends a real inventory slot for non-stackable gear', () => {
         const result = purchaseCatalogItem({ level: 10, ryo: 1000, inventory: [], itemStacks: [] }, 'shinobi-vest', 1);
         assert.equal(result.ok, true);
