@@ -684,6 +684,35 @@ function vanguardMarkerFromCharacter(
     return parseVanguardRewardSettlementMarker(raw) ?? 'invalid';
 }
 
+/** Repair only the known outcome-union merge, backed by the exact committed intent. */
+async function repairMergedVanguardMarker(
+    store: VanguardRewardStore,
+    saveKey: string,
+    record: Record<string, unknown>,
+): Promise<{ record: Record<string, unknown>; _saveVersion: number } | null> {
+    const character = record.character;
+    if (!vanguardRecord(character)) return null;
+    const raw = character[VANGUARD_REWARD_SETTLEMENT_FIELD];
+    if (!vanguardRecord(raw) || !vanguardRecord(raw.outcome)
+        || !vanguardExactKeys(raw.outcome, ['granted', 'seals', 'xp', 'reason'])) return null;
+    // Do not relax the normal parser or infer a payout from the current fight.
+    // Keep the stored discriminator and its amounts/reason, then require every
+    // ownership/authority/version field to agree with the committed receipt.
+    const outcome = raw.outcome.granted === true
+        ? { granted: true, seals: raw.outcome.seals, xp: raw.outcome.xp }
+        : { granted: raw.outcome.granted, reason: raw.outcome.reason };
+    const marker = parseVanguardRewardSettlementMarker({ ...raw, outcome });
+    if (!marker || marker.state !== 'settled' || saveKey !== `save:${marker.winner}`) return null;
+    const intent = parseVanguardRewardIntent(await store.get(vanguardReceiptKey(marker.battleId)));
+    if (!intent || !isDeepStrictEqual(intent, committedVanguardIntent(marker))) return null;
+    // This replaces evidence only. Seals/XP were already credited atomically
+    // with the original marker and must never be granted a second time.
+    return writeVanguardSave(store, saveKey, record, {
+        ...character,
+        [VANGUARD_REWARD_SETTLEMENT_FIELD]: marker,
+    });
+}
+
 function makeReservedVanguardMarker(
     authority: VanguardRewardAuthority,
     ownerId: string,
@@ -952,8 +981,15 @@ export async function grantVanguardRewardsForSession(
             return { granted: false };
         }
 
-        const readMarker = vanguardMarkerFromCharacter(winnerChar);
-        if (readMarker === 'invalid') throw new Error('vanguard-reward-marker-invalid');
+        let readMarker = vanguardMarkerFromCharacter(winnerChar);
+        if (readMarker === 'invalid') {
+            const repaired = await repairMergedVanguardMarker(store, winnerKey, winnerRecord);
+            if (!repaired) throw new Error('vanguard-reward-marker-invalid');
+            winnerRecord = repaired.record;
+            winnerChar = winnerRecord.character as Record<string, unknown>;
+            readMarker = vanguardMarkerFromCharacter(winnerChar);
+            if (readMarker === 'invalid') throw new Error('vanguard-reward-marker-invalid');
+        }
         let marker = readMarker;
         if (marker?.state === 'settled') {
             await commitVanguardMarker(store, marker);
