@@ -260,7 +260,7 @@ export async function spawnAdminWeeklyBoss(
     let attempt = resetState.load();
     if (!attempt) {
         const expectation = await loadWeeklyBossResetExpectation(fetcher, adminCredential);
-        if (!expectation.ok) return expectation;
+        if (expectation.ok !== true) return expectation;
         try {
             attempt = parseResetAttempt({
                 expectedSpawnId: expectation.data,
