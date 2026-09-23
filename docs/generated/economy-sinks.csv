@@ -4,6 +4,9 @@ shop,ash-wrapped-tanto,ryo,220,per unit,api/pvp/_item-catalog.ts,common hand
 shop,ashen-dragon-katana,fateShards,100,per unit,api/pvp/_item-catalog.ts,mythic hand
 shop,ashen-leaf-saber,ryo,480,per unit,api/pvp/_item-catalog.ts,rare hand
 shop,ashglass-katana,ryo,1050,per unit,api/pvp/_item-catalog.ts,epic hand
+shop,beast-seal-ancient,fateShards,15,per unit,api/pvp/_item-catalog.ts,legendary item
+shop,beast-seal-reinforced,ryo,240,per unit,api/pvp/_item-catalog.ts,uncommon item
+shop,beast-seal-worn,ryo,80,per unit,api/pvp/_item-catalog.ts,common item
 shop,black-lotus-dagger,fateShards,100,per unit,api/pvp/_item-catalog.ts,legendary hand
 shop,blue-thread-dagger,ryo,420,per unit,api/pvp/_item-catalog.ts,rare hand
 shop,bulwark-chest,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary body

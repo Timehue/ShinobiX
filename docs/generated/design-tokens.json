@@ -2924,6 +2924,17 @@
       {
         "direction": "max",
         "axis": "height",
+        "valuePx": 610,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/components/WildPetBindingCinematic.css",
+            "line": 218
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "height",
         "valuePx": 620,
         "occurrences": [
           {
@@ -3214,6 +3225,14 @@
         "axis": "width",
         "valuePx": 700,
         "occurrences": [
+          {
+            "source": "shinobij.client/src/components/WildPetBinding.css",
+            "line": 83
+          },
+          {
+            "source": "shinobij.client/src/components/WildPetBindingCinematic.css",
+            "line": 204
+          },
           {
             "source": "shinobij.client/src/features/intro-cinematic/intro-cinematic-preview.css",
             "line": 112
