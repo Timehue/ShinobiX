@@ -130,10 +130,10 @@ async function listAsset(page: Page, name: string, price: number, currency: 'ryo
     await expect(page.getByText('Listing published. Your goods are now held by the Exchange.', { exact: true })).toBeVisible();
 }
 
-async function inspectListing(page: Page, name: string) {
+async function inspectListing(page: Page, name: string, sellerName: string) {
     await page.getByRole('button', { name: 'Browse market', exact: true }).click();
     await page.getByRole('searchbox', { name: 'Search the Exchange' }).fill(name);
-    const listing = page.locator('.sx-listing', { hasText: name });
+    const listing = page.locator('.sx-listing', { hasText: name }).filter({ hasText: `From ${sellerName}` });
     await expect(listing).toHaveCount(1);
     await listing.click();
 }
@@ -192,23 +192,28 @@ test('real players list, safely retry, spend both currencies, make roster room, 
             const body = route.request().postDataJSON() as { action?: string } | null;
             if (body?.action !== 'buy' || droppedCommittedBuy) return route.continue();
             const response = await route.fetch({ maxRetries: API_CONNECTION_RETRIES });
-            expect(response.status(), 'the real server committed the purchase before its response was lost').toBe(200);
+            expect(response.status(), 'the real server committed the purchase before the client received an uncertain result').toBe(200);
             droppedCommittedBuy = true;
-            await route.abort();
+            await route.fulfill({
+                status: 503,
+                contentType: 'application/json',
+                body: JSON.stringify({ ok: false, pending: true, error: 'Connection interrupted. Retry the saved trade to check its outcome safely.' }),
+            });
         });
-        await inspectListing(buyerPage, 'Training Katana');
+        await inspectListing(buyerPage, 'Training Katana', seller.name);
         await buyerPage.getByRole('button', { name: 'Buy for 201 ryo', exact: true }).click();
         await expect.poll(() => droppedCommittedBuy).toBe(true);
         await expect(buyerPage.getByRole('alert')).toContainText('Connection interrupted. Retry the saved trade');
         await buyerPage.unroute('**/api/festival/exchange');
-        await buyerPage.getByRole('button', { name: 'Retry saved trade', exact: true }).click();
+        await buyerPage.getByRole('dialog', { name: 'Inspect listing' })
+            .getByRole('button', { name: 'Retry saved trade', exact: true }).click();
         await expect(buyerPage.getByText('Purchase complete. Your goods have been delivered.', { exact: true })).toBeVisible();
 
-        await inspectListing(buyerPage, 'Black Lotus Dagger');
+        await inspectListing(buyerPage, 'Black Lotus Dagger', seller.name);
         await buyerPage.getByRole('button', { name: 'Buy for 202 Fate Shards', exact: true }).click();
         await expect(buyerPage.getByText('Purchase complete. Your goods have been delivered.', { exact: true })).toBeVisible();
 
-        await inspectListing(buyerPage, offeredPet.name);
+        await inspectListing(buyerPage, offeredPet.name, seller.name);
         await expect(buyerPage.getByText('Your companion roster is full. Move a companion to the Sanctuary before buying.', { exact: true })).toBeVisible();
         await expect(buyerPage.getByRole('button', { name: 'Buy for 303 ryo', exact: true })).toBeDisabled();
         await buyerPage.getByRole('button', { name: 'Manage companion roster', exact: true }).click();
@@ -234,7 +239,7 @@ test('real players list, safely retry, spend both currencies, make roster room, 
         // The browser receives its genuine winning or losing response; either
         // way exactly one account may be debited and receive the escrowed item.
         await listAsset(page, 'Training Katana', 404, 'ryo');
-        await inspectListing(buyerPage, 'Training Katana');
+        await inspectListing(buyerPage, 'Training Katana', seller.name);
         let race: { buyerStatus: number; rivalStatus: number } | null = null;
         await buyerPage.route('**/api/festival/exchange', async route => {
             const body = route.request().postDataJSON() as { action?: string; listingId?: string; expectedPrice?: number } | null;
