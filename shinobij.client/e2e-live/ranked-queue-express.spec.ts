@@ -1,5 +1,6 @@
 import { expect, type APIRequestContext, type BrowserContext, type Page, type TestInfo } from '@playwright/test';
 import { test } from './helpers/reconnecting-request';
+import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 
 const PASSWORD = 'RankedJourney!1234';
 const ADMIN = 'live-express-e2e-admin';
@@ -37,7 +38,7 @@ async function seedFighter(request: APIRequestContext, info: TestInfo, side: str
 }
 
 async function openRanked(context: BrowserContext, account: Awaited<ReturnType<typeof seedFighter>>) {
-    await context.addInitScript(({ name, token, canonical }) => {
+    await context.addInitScript(({ name, token, canonical, patchVersion }) => {
         if (localStorage.getItem('ranked-journey-installed') === name) return;
         localStorage.setItem('ninjav-admin-build-v1', JSON.stringify({ currentAccountName: name }));
         localStorage.setItem('ninjav-player-accounts-v1', JSON.stringify({ [name]: { token } }));
@@ -45,9 +46,10 @@ async function openRanked(context: BrowserContext, account: Awaited<ReturnType<t
         localStorage.setItem('shinobix:activeTokenPersist', token);
         localStorage.setItem(`ninjav-save-preview-v1:${name.toLowerCase()}`, JSON.stringify(canonical));
         localStorage.setItem('shinobix:storage-notice-ack', '1');
+        localStorage.setItem('patchNotes.lastSeenVersion.v1', patchVersion);
         localStorage.setItem('dailyBriefing.seen.v1', new Date().toISOString().slice(0, 10));
         localStorage.setItem('ranked-journey-installed', name);
-    }, account);
+    }, { ...account, patchVersion: LATEST_PATCH_NOTE.version });
     const page = await context.newPage();
     await page.goto('/#/centralHub', { waitUntil: 'domcontentloaded' });
     const arenaEntry = page.getByRole('button', { name: /Arena District/ });

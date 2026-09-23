@@ -1,6 +1,6 @@
 import React from "react";
 
-export type PvpBattleOutcome = "victory" | "defeat" | "draw" | "escaped" | "spectator";
+export type PvpBattleOutcome = "victory" | "defeat" | "draw" | "escaped" | "spectator" | "cancelled";
 export type PvpSettlementState = "idle" | "claiming" | "failed" | "confirmed";
 
 type Props = {
@@ -19,7 +19,8 @@ type Props = {
 };
 
 export function PvpBattleResultPanel(p: Props) {
-    const title = p.outcome === "victory" ? "Victory"
+    const cancelled = p.outcome === "cancelled";
+    const title = cancelled ? "Duel Cancelled" : p.outcome === "victory" ? "Victory"
         : p.outcome === "defeat" ? "Defeat"
             : p.outcome === "draw" ? "Draw"
                 : p.outcome === "escaped" ? "Escaped" : "Battle Over";
@@ -33,20 +34,20 @@ export function PvpBattleResultPanel(p: Props) {
             role="dialog" aria-modal="true" aria-labelledby="pvp-battle-result-title">
             <article className="card battle-ended-card pvp-result-card">
                 <header>
-                    <small>Duel complete · Round {p.round}</small>
+                    <small>{cancelled ? "Duel ended before combat" : `Duel complete · Round ${p.round}`}</small>
                     <h2 id="pvp-battle-result-title" className={p.outcome === "victory" ? "battle-result-win" : p.outcome === "defeat" ? "battle-result-loss" : ""}>{title}</h2>
                     <strong>{p.combatants}</strong>
                 </header>
 
-                <section className="pvp-result-rewards" aria-label="Battle rewards">
+                {cancelled ? <p>No rewards or penalties.</p> : <section className="pvp-result-rewards" aria-label="Battle rewards">
                     <header><b>Battle Rewards</b><small>{confirmed ? "Server verified" : "Settlement pending"}</small></header>
                     <p>{p.isSpectator ? "Spectators receive no rewards."
                         : confirmed ? p.settlementNotice || "No personal payout for this result."
                             : failed ? "Reward details will appear after settlement succeeds."
                                 : "Calculating official rewards…"}</p>
-                </section>
+                </section>}
 
-                {confirmed && !p.isSpectator && p.impactLines.length > 0 ? (
+                {confirmed && !cancelled && !p.isSpectator && p.impactLines.length > 0 ? (
                     <section className="pvp-result-impact" aria-label="Battle impact">
                         <b>What changed</b>
                         {p.impactLines.map((line) => <p key={line}>{line}</p>)}
@@ -55,9 +56,9 @@ export function PvpBattleResultPanel(p: Props) {
 
                 <div className={"pvp-result-settlement" + (failed ? " is-failed" : "")}
                     role={failed ? "alert" : "status"}>
-                    <span>{confirmed ? "✓ Result secured by the server."
+                    <span>{confirmed ? cancelled ? "✓ Cancellation confirmed." : "✓ Result secured by the server."
                         : failed ? "! " + (p.settlementError || "Battle settlement is pending.")
-                            : "Securing the official result…"}</span>
+                            : cancelled ? "Confirming cancellation…" : "Securing the official result…"}</span>
                     {failed ? <button type="button" onClick={p.onRetrySettlement}>Retry</button> : null}
                 </div>
 
