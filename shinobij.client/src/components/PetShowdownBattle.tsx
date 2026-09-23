@@ -3226,7 +3226,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             setExpired(true);
             return;
         }
-        if (!response || !response.ok) {
+        if (!response || !("ok" in response) || response.ok !== true) {
             // HOLD THE ROUND. A 3v3 draft is six decisions, and throwing them
             // away turns the server's failure into the player's re-entry work.
             // The orders are kept verbatim so the retry sends exactly what was
