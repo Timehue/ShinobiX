@@ -42,8 +42,11 @@ async function fetchJson(path) {
         const failedChecks = path === '/health?deep=1' && body.checks && typeof body.checks === 'object'
             ? Object.entries(body.checks).filter(([, passed]) => passed === false).map(([name]) => name)
             : [];
+        const backupAgeHours = Number.isFinite(body.backup?.ageMs)
+            ? (body.backup.ageMs / 3_600_000).toFixed(1)
+            : 'unknown';
         const diagnostic = path === '/health?deep=1'
-            ? `; failedChecks=${failedChecks.join(',') || 'none'}; backupFresh=${String(body.backup?.fresh ?? 'unknown')}; probeError=${Boolean(body.error)}`
+            ? `; failedChecks=${failedChecks.join(',') || 'none'}; backupFresh=${String(body.backup?.fresh ?? 'unknown')}; backupAgeHours=${backupAgeHours}; probeError=${Boolean(body.error)}`
             : '';
         throw new Error(`${url} failed with HTTP ${res.status}${diagnostic}`);
     }

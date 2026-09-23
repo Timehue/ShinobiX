@@ -76,11 +76,11 @@ for (const [name, options, error] of [
 test('unhealthy deep health identifies failed checks without leaking the provider error', async () => {
     const result = await probe({ status: 503, deep: {
         checks: { set: true, get: false, backupFresh: false },
-        backup: { fresh: false },
+        backup: { fresh: false, ageMs: 28.5 * 3_600_000 },
         error: 'private-provider-diagnostic',
     } });
     assert.notEqual(result.exit, 0);
-    assert.match(result.output, /failedChecks=get,backupFresh; backupFresh=false; probeError=true/);
+    assert.match(result.output, /failedChecks=get,backupFresh; backupFresh=false; backupAgeHours=28\.5; probeError=true/);
     assert.doesNotMatch(result.output, /private-provider-diagnostic/);
 });
 
