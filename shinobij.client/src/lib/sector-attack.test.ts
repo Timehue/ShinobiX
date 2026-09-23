@@ -224,6 +224,8 @@ describe("what happens to the claim after the battle server answers", () => {
 
         await attackSectorPlayer(opts);
 
+        assert.ok(!rec.fetches.some((url) => url.startsWith("/api/save/")),
+            "sector attacks must not wait for a duplicate opponent-save GET before session publication");
         assert.ok(rec.fetches.some((u) => u.includes(RELEASE)),
             "a refused session must release the claim — otherwise the target stays engaged for a fight that never began");
         assert.deepEqual(alerts, ["Refused by the arbiter."]);

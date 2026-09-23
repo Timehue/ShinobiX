@@ -331,6 +331,14 @@ describe("pvp-reward-claim", () => {
             "the authenticated claim route must own completion acknowledgement");
         assert.match(app, /if \(claim\.character[\s\S]*commitVersionedCharacter\(claim\.character, claim\._saveVersion\)/,
             "the claim callback must adopt the exact authoritative snapshot before later continuations");
+        const friendlySnapshot = app.indexOf("if (isFriendlyDuel && serverClaim?.character");
+        const ownerSaveRead = app.indexOf("const ownerSave = await readPvpOwnerSaveForContinuation(", friendlySnapshot);
+        assert.ok(friendlySnapshot >= 0 && ownerSaveRead > friendlySnapshot,
+            "a friendly duel should ACK its adopted claim snapshot without a redundant owner-save GET");
+        assert.match(app, /const isFriendlyDuel = serverClaim\?\.progressionAuthorized !== true/,
+            "missing browser context must not make a server-authorized match take the spar shortcut");
+        assert.match(screen, /const effectiveIsSpar = isSpar && !serverPlayerRanked && !serverProgressionMatch/,
+            "recovered world and Clan War matches must keep their server-sealed result presentation");
         assert.match(app, /context\?\.raidKind === "raidPlayer"[\s\S]*!serverClaim\?\.raidProgression/,
             "legacy raid repair is attacker-only; a defending winner without progression must still ACK");
         assert.match(app, /const pvpSettlementScopeKey = `\$\{playerSlug\(pvpOriginatingPlayerName\)\}:\$\{pvpOriginatingSessionEpoch\}:\$\{pvpRole\}:\$\{pvpBattleId\}`/,

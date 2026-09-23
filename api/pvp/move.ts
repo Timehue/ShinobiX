@@ -1480,7 +1480,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Repair a process death immediately after the preceding combat CAS.
         // This runs before any later mutation can replace its replay capsule.
-        await replayCommittedPvpActionReceipt(kv, session);
+        if (session.status !== 'done') await replayCommittedPvpActionReceipt(kv, session);
 
         // Idempotency: if the token already landed, return the exact current
         // projection. Terminal reads also replay post-CAS settlement after a
@@ -1572,7 +1572,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return finishUnavailable(409, 'This battle session is no longer active.');
             }
             session = fresh;
-            await replayCommittedPvpActionReceipt(kv, session);
+            if (session.status !== 'done') await replayCommittedPvpActionReceipt(kv, session);
             if (action !== 'join' && moveToken
                 && Array.isArray(session.recentMoveTokens)
                 && session.recentMoveTokens.includes(moveToken)) {
@@ -2738,7 +2738,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!current || current.rankedCloseFence) {
                 return res.status(409).json({ error: 'This ranked match ended as a season-close no-contest.' });
             }
-            await replayCommittedPvpActionReceipt(kv, current);
+            // Terminal replay materializes this same action receipt. Avoid a
+            // duplicate durable read before the final result can be returned.
+            if (current.status !== 'done') await replayCommittedPvpActionReceipt(kv, current);
             await helpCommittedTerminal(current);
             return res.status(200).json(withRejected(current, 'The battle advanced before this action committed. Please retry.'));
         }
@@ -2747,7 +2749,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // The receipt body uses a deterministic revision-derived key and is
         // recoverable from the committed capsule. Propagate a transient failure:
         // the same-token retry repairs it before returning current combat state.
-        await replayCommittedPvpActionReceipt(kv, persisted);
+        // The terminal helper includes action-receipt replay; doing it here as
+        // well adds an extra KV round trip to every finishing move.
+        if (persisted.status !== 'done') await replayCommittedPvpActionReceipt(kv, persisted);
         await helpCommittedTerminal(persisted);
         return res.status(200).json(persisted);
     } catch (err) {

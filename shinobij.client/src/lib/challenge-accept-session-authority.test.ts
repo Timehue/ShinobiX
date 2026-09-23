@@ -78,13 +78,12 @@ describe("challenge acceptance save-session authority", () => {
         assertOrdered(playerAccept, [
             "const { captureOwnSaveRead } = await loadOwnSaveRead();",
             "if (!acceptanceIsCurrent()) return;",
-            "const [p1CombatSave, p2CombatSave] = await Promise.all([",
+            "const p2CombatSave = await fetchPlayerCombatSave(acceptingCharacter.name);",
             "if (!acceptanceIsCurrent()) return;",
             "const ownSaveReadResult = await adoptOwnSaveRead(",
             'if (!acceptanceIsCurrent() || ownSaveReadResult === "foreign") return;',
-            // The creator is imported lazily so it stays off the startup graph;
-            // the ordering it sits in is unchanged.
-            "const createResult = await (await loadPvpSessionCreate()).createPvpSessionWithRecovery(fetch, acceptingCharacter.name, createBody",
+            // The creator is imported lazily so it stays off the startup graph.
+            "const createResult = await createModule.createPvpSessionWithRecovery(fetch, acceptingCharacter.name, createBody",
             "if (!acceptanceIsCurrent()) return;",
             "const battleId = createResult.battleId;",
             "setPvpSeedSession(createResult.session);",
@@ -115,10 +114,17 @@ describe("challenge acceptance save-session authority", () => {
         );
         assert.match(playerAccept, /may not be pulled in automatically/,
             "a failed notice must still tell the accepter their opponent needs to reopen the game");
+        assert.doesNotMatch(playerAccept, /fetchPlayerCombatSave\(challenge\.fromName\)/,
+            "the browser must not repeat the server's challenger-save read before connecting");
+        assertOrdered(playerAccept, [
+            "const p2CombatSave = await fetchPlayerCombatSave(acceptingCharacter.name);",
+            "const ownSaveReadResult = await adoptOwnSaveRead(",
+            "const createResult = await createModule.createPvpSessionWithRecovery(",
+        ], "own save receipt must be adopted before publication");
     });
 
     it("silences stale failures while preserving exact processing-id cleanup", () => {
-        const playerCatch = sliceBetween(playerAccept, "} catch {", "} finally {");
+        const playerCatch = sliceBetween(playerAccept, "} catch (error) {", "} finally {");
         assertOrdered(playerCatch, [
             "if (!acceptanceIsCurrent()) return;",
             "setDuelChallenges(",

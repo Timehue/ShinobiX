@@ -84,8 +84,10 @@ import {
     decidePvpSessionRevision,
     fetchInitialPvpProjection,
     parsePvpSessionProjection,
+    pvpMoveIntent,
     pvpRuntimeScopeKey,
     splitPvpMoveResponse,
+    type PendingPvpMove,
 } from "../lib/pvp-session-runtime";
 import { fetchPendingPvpRecovery } from "../lib/pvp-pending-fetch";
 import { earnedStatPoints } from "../lib/stats";
@@ -290,7 +292,14 @@ export function PvpBattleScreen({
     // consumables and kunai are fair and deliberately usable.
     const realPvpItemsDisabled = (session?.pvpConsumableAuthorityVersion === 1
         && session.realFighters?.[role] === true);
-    const effectiveIsSpar = isSpar && !serverPlayerRanked;
+    // Recovery can restore a server battle without its browser context. Keep
+    // reward and result presentation tied to the sealed session purpose.
+    const serverProgressionMatch = session?.progressionAuthorityVersion === 1
+        || session?.baseRewards === true
+        || session?.rewardAuthority === "ranked"
+        || session?.rewardAuthority === "world"
+        || session?.rewardAuthority === "clan-war";
+    const effectiveIsSpar = isSpar && !serverPlayerRanked && !serverProgressionMatch;
     const effectiveBattleMode = serverPlayerRanked ? "ranked" : battleMode;
     // Tracks the battleId we've already seeded so a later Realtime/move
     // update on the same fight doesn't get clobbered by a re-apply of the
@@ -313,6 +322,9 @@ export function PvpBattleScreen({
     }, [seedSession, battleId]);
     const [submitting, setSubmitting] = useState(false);
     const submitInFlightRef = useRef(false);
+    // A timed-out POST may still commit on the server. Keep its token for an
+    // exact retry against the same session revision so it cannot spend twice.
+    const pendingMoveRef = useRef<PendingPvpMove | null>(null);
     const [selectedActionId, setSelectedActionId] = useState<"move" | undefined>(undefined);
     const [pendingJutsuId, setPendingJutsuId] = useState("");
     const [pendingJutsuDirect, setPendingJutsuDirect] = useState<Jutsu | null>(null);
@@ -402,7 +414,7 @@ export function PvpBattleScreen({
         if (!session) return;
         if (session.status !== "done") { watchedActiveRef.current = true; return; }
         if (resultRevealed) return;
-        const hold = watchedActiveRef.current && !prefersReducedMotion() ? ARENA_KO_HOLD_MS + 520 : 0;
+        const hold = watchedActiveRef.current && !prefersReducedMotion() ? ARENA_KO_HOLD_MS : 0;
         const id = armPresentationTimer(() => setResultRevealed(true), hold);
         return () => window.clearTimeout(id);
     }, [session?.status]);
@@ -417,6 +429,7 @@ export function PvpBattleScreen({
             exitCheckAbortRef.current?.abort();
             exitCheckAbortRef.current = null;
             pvpRewardRef.current = false;
+            pendingMoveRef.current = null;
             continuationFenceRef.current.invalidate();
         };
     }, [runtimeScopeKey]);
@@ -1822,7 +1835,8 @@ export function PvpBattleScreen({
     const fleeAvailability = pvpActionAvailability(100);
 
     async function submitAction(pvpAction: string, pvpTile?: number, pvpJutsuId?: string, pvpItem?: GameItem, opts?: { auto?: boolean; allowWhenNotMyTurn?: boolean }) {
-        if (submitInFlightRef.current || done) return;
+        const currentSession = session;
+        if (!currentSession || submitInFlightRef.current || done) return;
         if (!isMyTurn && !opts?.allowWhenNotMyTurn) return;
         const isCurrentScope = continuationFenceRef.current.capture();
         submitInFlightRef.current = true;
@@ -1836,19 +1850,12 @@ export function PvpBattleScreen({
         const moveAbort = new AbortController();
         const moveTimeout = setTimeout(() => moveAbort.abort(), 12000);
         try {
-            // Per-move idempotency token. If this request retries (network
-            // blip, double-tap), the server's recentMoveTokens check
-            // short-circuits the second arrival without re-applying.
-            const moveToken = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-                ? crypto.randomUUID()
-                : `mt-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
             // Biome + weather are NOT sent here — the server intentionally
             // ignores them on every move (it would be a trust-the-client hole)
             // and reads from the sealed session instead. Sealing happens at
             // /api/pvp/session POST via pvpSessionEnvironment().
             const body: Record<string, unknown> = {
                 battleId, role, action: pvpAction,
-                moveToken,
             };
             if (opts?.auto) body.auto = true;
             if (pvpTile !== undefined) body.tile = pvpTile;
@@ -1867,6 +1874,16 @@ export function PvpBattleScreen({
                     weaponEffectValue: pvpItem.weaponEffectValue ?? 0,
                 };
             }
+            // The revision distinguishes a legitimate repeat on a later turn
+            // from a retry whose first response was lost. Include the complete
+            // intent so changing targets or items creates a fresh token.
+            const pending = pvpMoveIntent(pendingMoveRef.current, currentSession.stateRevision, body, () =>
+                typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+                    ? crypto.randomUUID()
+                    : `mt-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
+            const moveToken = pending.token;
+            pendingMoveRef.current = pending;
+            body.moveToken = moveToken;
             const res = await fetch("/api/pvp/move", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -1878,6 +1895,7 @@ export function PvpBattleScreen({
                 const parsed = parsePvpSessionProjection(moveEnvelope.projection, battleId);
                 if (!isCurrentScope()) return;
                 if (parsed.kind === "terminal") {
+                    if (pendingMoveRef.current?.token === moveToken) pendingMoveRef.current = null;
                     markSessionUnavailable(parsed.message, isCurrentScope);
                     return;
                 }
@@ -1892,6 +1910,7 @@ export function PvpBattleScreen({
                 // last line — and KEEP the pending selection so the player can
                 // adjust without re-arming. Don't reset the round timer.
                 if (moveEnvelope.rejected) {
+                    if (pendingMoveRef.current?.token === moveToken) pendingMoveRef.current = null;
                     const reason = moveEnvelope.rejected.reason;
                     setMoveFeedback(reason);
                     setSession(current => {
@@ -1904,6 +1923,7 @@ export function PvpBattleScreen({
                     });
                     return;
                 }
+                if (pendingMoveRef.current?.token === moveToken) pendingMoveRef.current = null;
                 setMoveFeedback("");
                 setSession(current => acceptRevision(current, data));
                 // Clear only the technique this response actually applied. A
@@ -1924,6 +1944,9 @@ export function PvpBattleScreen({
                 const errData = await res.json().catch(() => ({} as Record<string, unknown>));
                 const errMsg = typeof errData?.error === "string" ? errData.error : `Server rejected move (${res.status})`;
                 if (isCurrentScope()) {
+                    // A 5xx may follow a successful combat commit whose receipt
+                    // or response failed. Keep that token for an exact retry.
+                    if (res.status < 500 && pendingMoveRef.current?.token === moveToken) pendingMoveRef.current = null;
                     if (res.status === 409 && pvpAction !== "cancel-unjoined") {
                         markSessionUnavailable("This ranked battle ended as a no-contest.", isCurrentScope);
                         return;
@@ -1943,8 +1966,10 @@ export function PvpBattleScreen({
             // Network error or 12s timeout. Leave selections so the player can
             // retry; surface a timeout so a stalled turn doesn't look silently
             // frozen. The round-timer auto-wait re-fires once `submitting` clears.
-            if (isCurrentScope() && (err as { name?: string } | null)?.name === "AbortError") {
-                setMoveFeedback("Move timed out — try again or your turn will auto-pass.");
+            if (isCurrentScope()) {
+                setMoveFeedback((err as { name?: string } | null)?.name === "AbortError"
+                    ? "Move timed out. Retry the same action to check whether it landed."
+                    : "The move response was lost. Retry the same action to check whether it landed.");
             }
         }
         finally {

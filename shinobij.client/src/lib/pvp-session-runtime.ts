@@ -1,5 +1,18 @@
 import type { PvpSessionState } from "../types/pvp-ui";
 
+export type PendingPvpMove = { intent: string; token: string };
+
+/** Keep one token for an ambiguous response to the exact same revisioned move. */
+export function pvpMoveIntent(
+    previous: PendingPvpMove | null,
+    stateRevision: number,
+    body: Record<string, unknown>,
+    createToken: () => string,
+): PendingPvpMove {
+    const intent = JSON.stringify([stateRevision, body]);
+    return previous?.intent === intent ? previous : { intent, token: createToken() };
+}
+
 export function abortableDelay(ms: number, signal?: AbortSignal): Promise<void> {
     if (signal?.aborted) return Promise.reject(new DOMException("Aborted", "AbortError"));
     return new Promise<void>((resolve, reject) => {
