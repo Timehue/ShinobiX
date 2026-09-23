@@ -19,6 +19,28 @@ import { bindPvpSessionCreateIntent } from "./pvp-session-intent";
 import { isWildSector } from "./screen-guards";
 import { setSectorReopen } from "./sector-return";
 
+export function preloadPvpChallengeModules<T>(
+    saveData: boolean,
+    loadCreate: () => Promise<T>,
+    loadScreen: () => Promise<unknown>,
+): Promise<T | null> {
+    if (saveData) return Promise.resolve(null);
+    void loadScreen().catch(() => {});
+    return loadCreate().catch(() => null);
+}
+
+export function pvpChallengeAcceptanceMessage(error: unknown, challengerName: string): string {
+    if (error instanceof Error && (
+        error.message.startsWith("Equipped named gear could not be loaded.")
+        || error.message.startsWith("One fighter's save could not be loaded.")
+    )) return error.message;
+    return `${challengerName}'s challenge could not be accepted. Try again if it is still pending.`;
+}
+
+export function hasVersionedPvpClaimSnapshot(claim: { character?: unknown; _saveVersion?: number } | undefined): boolean {
+    return !!claim?.character && Number.isSafeInteger(claim._saveVersion) && Number(claim._saveVersion) > 0;
+}
+
 /*
  * Where a finished PvP fight sends this player, and what the button promises.
  *
