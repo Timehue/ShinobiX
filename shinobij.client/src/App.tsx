@@ -2512,34 +2512,36 @@ export default function App() {
         if (processingChallengeIds.includes(challenge.id)) return;
         if (!acceptanceIsCurrent()) return;
         setProcessingChallengeIds(prev => [...prev, challenge.id]);
+        // Load the create and battle chunks while the save reads and session
+        // publication run. Data-saver connections wait until each is needed.
+        const saveData = !!(navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
+        const createModulePromise = saveData ? Promise.resolve(null) : loadPvpSessionCreate().catch(() => null);
+        if (!saveData) void loadPvpBattleScreen().catch(() => {});
         const challenger = normalizeCharacter(challenge.challenger);
         dismissChallengeLocally(challenge.id);
         try {
             const { captureOwnSaveRead } = await loadOwnSaveRead();
             if (!acceptanceIsCurrent()) return;
             const p2ReadAnchor = captureOwnSaveRead(acceptingCharacter);
-            const [p1CombatSave, p2CombatSave] = await Promise.all([
-                fetchPlayerCombatSave(challenge.fromName),
-                fetchPlayerCombatSave(acceptingCharacter.name),
-            ]);
+            // The session server reads the challenger's authoritative save while
+            // publishing the fight. Keep the accepter's read for save versioning.
+            const p2CombatSave = await fetchPlayerCombatSave(acceptingCharacter.name);
             if (!acceptanceIsCurrent()) return;
             if (p2CombatSave) {
                 const ownSaveReadResult = await adoptOwnSaveRead(p2ReadAnchor, p2CombatSave.character, p2CombatSave._saveVersion);
                 if (!acceptanceIsCurrent() || ownSaveReadResult === "foreign") return;
             }
-            const p1SavedBloodlines = p1CombatSave?.savedBloodlines ?? savedBloodlines;
-            const p1CreatorJutsus = p1CombatSave?.creatorJutsus ?? creatorJutsus;
+            const p1SavedBloodlines = savedBloodlines;
+            const p1CreatorJutsus = creatorJutsus;
             const p2SavedBloodlines = p2CombatSave?.savedBloodlines ?? savedBloodlines;
             const p2CreatorJutsus = p2CombatSave?.creatorJutsus ?? creatorJutsus;
-            const p1Character = p1CombatSave?.character ?? challenger;
+            const p1Character = challenger;
             const p2Character = p2CombatSave?.character ?? acceptingCharacter;
-            const p1AllItems = getAllItems(p1CombatSave?.creatorItems ?? creatorItems);
+            const p1AllItems = getAllItems(creatorItems);
             const p2AllItems = getAllItems(p2CombatSave?.creatorItems ?? creatorItems);
-            const p1Jutsus = p1CombatSave?.character
-                ? getPvpJutsuLoadout(p1SavedBloodlines, p1CreatorJutsus, p1Character)
-                : challenge.challengerJutsus?.length
-                    ? challenge.challengerJutsus.map(normalizeJutsu)
-                    : getPvpJutsuLoadout(p1SavedBloodlines, p1CreatorJutsus, p1Character);
+            const p1Jutsus = challenge.challengerJutsus?.length
+                ? challenge.challengerJutsus.map(normalizeJutsu)
+                : getPvpJutsuLoadout(p1SavedBloodlines, p1CreatorJutsus, p1Character);
             const p2Jutsus = getPvpJutsuLoadout(p2SavedBloodlines, p2CreatorJutsus, p2Character);
             const createBody = stringifyPvpSessionPayload({
                     challengeId: challenge.id,
@@ -2599,7 +2601,8 @@ export default function App() {
                     },
                 });
             const createScope = capturePvpCreateScope(acceptingCharacter.name);
-            const createResult = await (await loadPvpSessionCreate()).createPvpSessionWithRecovery(fetch, acceptingCharacter.name, createBody, {
+            const createModule = await createModulePromise ?? await loadPvpSessionCreate();
+            const createResult = await createModule.createPvpSessionWithRecovery(fetch, acceptingCharacter.name, createBody, {
                 signal: createScope.signal,
                 isCurrent: () => acceptanceIsCurrent() && createScope.isCurrent(),
             });
@@ -2635,11 +2638,16 @@ export default function App() {
                     alert(`${challenge.fromName} may not be pulled in automatically. Ask them to reopen the game or wait for heartbeat.`);
                 }
             });
-        } catch {
+        } catch (error) {
             if (!acceptanceIsCurrent()) return;
             setDuelChallenges(prev => prev.some(c => c.id === challenge.id) ? prev : [challenge, ...prev]);
             if (!acceptanceIsCurrent()) return;
-            alert(`${challenge.fromName}'s challenge could not be accepted. Try again if it is still pending.`);
+            alert(error instanceof Error && (
+                error.message.startsWith("Equipped named gear could not be loaded.")
+                || error.message.startsWith("One fighter's save could not be loaded.")
+            )
+                ? error.message
+                : `${challenge.fromName}'s challenge could not be accepted. Try again if it is still pending.`);
         } finally {
             setProcessingChallengeIds(prev => prev.filter(id => id !== challenge.id));
         }
@@ -6334,6 +6342,18 @@ export default function App() {
                         // for bounties and missions, never that optional UI state.
                         const isFriendlyDuel = serverClaim?.progressionAuthorized !== true;
                         // Kage transfer replays from the committed terminal session on the server.
+
+                        // A friendly duel has no bounty, raid, or mission write
+                        // after the claim. onRewardClaim already adopted this
+                        // versioned server snapshot, so another owner-save GET
+                        // only delays the result confirmation and ACK.
+                        if (isFriendlyDuel && serverClaim?.character
+                            && Number.isSafeInteger(serverClaim._saveVersion)
+                            && Number(serverClaim._saveVersion) > 0) {
+                            requirePvpContinuation(activeContinuation);
+                            pvpCompletionUiRef.current.add(pvpSettlementScopeKey);
+                            return null;
+                        }
 
                         let projection = pvpContinuationResultRef.current.get(pvpSettlementScopeKey);
                         if (!projection) {

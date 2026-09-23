@@ -395,13 +395,15 @@ export function MissionArenaFight({
             && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
         // One timeline for the whole server batch: the player's action, then the
-        // enemy's reply beat by beat. Under reduced motion everything lands at
-        // once, exactly as before. A batch that arrives while the previous one is
+        // enemy's reply beat by beat. Reduced-motion and lite-FX devices land
+        // the batch at once instead of delaying the result behind effects they
+        // cannot render smoothly. A batch that arrives while the previous one is
         // still playing queues behind it (bounded, so a laggy poll cannot pile up).
-        const schedule = arenaBeatSchedule(freshBeats, { instant: reduceMotion });
+        const instant = reduceMotion || liteFx;
+        const schedule = arenaBeatSchedule(freshBeats, { instant });
         const startAt = new Map(schedule.beats.map(({ beat, at }) => [beat.seq, at]));
         const now = performance.now();
-        const base = reduceMotion ? 0 : Math.max(0, Math.min(1200, batchTailRef.current - now));
+        const base = instant ? 0 : Math.max(0, Math.min(1200, batchTailRef.current - now));
         batchBaseRef.current = base;
         batchTailRef.current = now + base + schedule.total;
 

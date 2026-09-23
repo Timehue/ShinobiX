@@ -6,6 +6,7 @@ process.env.SHINOBIX_QA_MEMORY_KV = '1';
 process.env.SESSION_SECRET = 'pvp-session-consumable-authority-test';
 
 let kv: typeof import('../_storage.js').kv;
+let online: typeof import('../_realtime/online-store.js').onlineStore;
 let handler: typeof import('./session.js').default;
 let issuePlayerToken: typeof import('../_auth.js').issuePlayerToken;
 
@@ -71,6 +72,7 @@ async function seedPlayers(...names: string[]) {
 
 before(async () => {
     ({ kv } = await import('../_storage.js'));
+    ({ onlineStore: online } = await import('../_realtime/online-store.js'));
     ({ issuePlayerToken } = await import('../_auth.js'));
     handler = (await import('./session.js')).default as unknown as typeof handler;
 });
@@ -104,6 +106,133 @@ test('new real-player casual sessions stamp v1 and expose zero consumable charge
     assert.equal(session?.itemCharges?.p1?.['thrown-shuriken'], 2, 'p1 thrown budget is the owned count from the save');
     assert.equal(session?.itemCharges?.p2?.['thrown-shuriken'], 2, 'p2 thrown budget is the owned count from the save');
     assert.deepEqual(session?.itemsUsed, { p1: {}, p2: {} });
+});
+
+test('ordinary PvP session fetch avoids a KV counter write while pending recovery keeps it', async () => {
+    const creator = 'fastfetchcreator';
+    const opponent = 'fastfetchopponent';
+    const battleId = 'pvp-66666666-6666-4666-8666-666666666666';
+    const ip = '127.0.0.6';
+    await seedPlayers(creator, opponent);
+    const created = response();
+    await handler(createRequest(creator, creator, opponent, battleId, ip), created.res);
+    assert.equal(created.out.statusCode, 200);
+
+    const originalIncr = kv.incr.bind(kv);
+    let counterWrites = 0;
+    (kv as any).incr = async (...args: Parameters<typeof kv.incr>) => {
+        counterWrites += 1;
+        return originalIncr(...args);
+    };
+    try {
+        const fetched = response();
+        await handler({ method: 'GET', query: { id: battleId }, headers: { 'x-forwarded-for': ip }, socket: { remoteAddress: ip } } as never, fetched.res);
+        assert.equal(fetched.out.statusCode, 200);
+        assert.equal(fetched.out.body?.battleId, battleId);
+        assert.equal(counterWrites, 0);
+
+        const pending = response();
+        await handler({ method: 'GET', query: { pending: '1' }, headers: { 'x-forwarded-for': ip }, socket: { remoteAddress: ip } } as never, pending.res);
+        assert.equal(pending.out.statusCode, 401);
+        assert.equal(counterWrites, 1);
+    } finally {
+        (kv as any).incr = originalIncr;
+    }
+});
+
+test('PvP restores equipped named weapons and armor before publishing the battle', async () => {
+    const weapon = 'named-weapon-00000000-0000-4000-8000-000000000061';
+    const armor = 'named-armor-00000000-0000-4000-8000-000000000062';
+    const creator = 'gearcreator';
+    const opponent = 'gearopponent';
+    const battleId = 'pvp-77777777-7777-4777-8777-777777777777';
+    await kv.set(`save:${creator}`, { _saveVersion: 1, character: {
+        ...character(creator), equipment: { hand: weapon }, inventory: [weapon],
+    }, creatorItems: [] });
+    await kv.set(`save:${opponent}`, { _saveVersion: 1, character: {
+        ...character(opponent), equipment: { body: armor }, inventory: [armor],
+    }, creatorItems: [] });
+    await kv.set(`forged-item:${weapon}`, { id: weapon, name: 'Named Blade', slot: 'hand', rarity: 'legendary', bonuses: { bukijutsuOffense: 30 } });
+    await kv.set(`forged-item:${armor}`, { id: armor, name: 'Named Coat', slot: 'body', rarity: 'legendary', armorQuality: 'Legendary', bonuses: { taijutsuDefense: 30 } });
+
+    const created = response();
+    await handler(createRequest(creator, creator, opponent, battleId, '127.0.0.7'), created.res);
+    assert.equal(created.out.statusCode, 200);
+    assert.ok(created.out.body?.session?.p1?.character?.pvpItems?.some((item: { id?: string }) => item.id === weapon));
+    assert.ok(created.out.body?.session?.p2?.character?.pvpItems?.some((item: { id?: string }) => item.id === armor));
+});
+
+test('PvP refuses to publish a battle with unresolved equipped named armor', async () => {
+    const creator = 'missingarmorcreator';
+    const opponent = 'missingarmoropponent';
+    const armor = 'named-armor-00000000-0000-4000-8000-000000000063';
+    const battleId = 'pvp-88888888-8888-4888-8888-888888888888';
+    await kv.set(`save:${creator}`, { _saveVersion: 1, character: character(creator) });
+    await kv.set(`save:${opponent}`, { _saveVersion: 1, character: {
+        ...character(opponent), equipment: { body: armor }, inventory: [armor],
+    }, creatorItems: [] });
+
+    const created = response();
+    await handler(createRequest(creator, creator, opponent, battleId, '127.0.0.8'), created.res);
+    assert.equal(created.out.statusCode, 422);
+    assert.equal(created.out.body?.errorCode, 'pvp-named-gear-unavailable');
+    assert.equal(await kv.get(`pvp:${battleId}`), null);
+});
+
+test('real player duels refuse a missing opponent save instead of sealing an NPC fallback', async () => {
+    for (const [suffix, marker] of [
+        ['challenge', { challengeId: 'challenge-missing-opponent' }],
+        ['sector', { requireWorldCoLocation: true }],
+    ] as const) {
+        const creator = `nosave${suffix}creator`;
+        const opponent = `nosave${suffix}opponent`;
+        const battleId = suffix === 'challenge'
+            ? 'pvp-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+            : 'pvp-bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+        await kv.set(`save:${creator}`, { _saveVersion: 1, character: character(creator) });
+        if (suffix === 'sector') {
+            online.upsert({ name: creator, sector: 3, character: character(creator) });
+            online.upsert({ name: opponent, sector: 3, character: character(opponent) });
+        }
+        const req = createRequest(creator, creator, opponent, battleId, suffix === 'challenge' ? '127.0.0.10' : '127.0.0.11') as {
+            body: Record<string, unknown>;
+        };
+        req.body = { ...req.body, ...marker };
+        const created = response();
+        await handler(req as never, created.res);
+        assert.equal(created.out.statusCode, 422, `${suffix}: ${JSON.stringify(created.out.body)}`);
+        assert.equal(created.out.body?.errorCode, 'pvp-player-save-unavailable');
+        assert.equal(await kv.get(`pvp:${battleId}`), null);
+        if (suffix === 'sector') {
+            online.remove(creator);
+            online.remove(opponent);
+        }
+    }
+});
+
+test('a temporary named-gear registry read failure cannot publish an incomplete battle', async () => {
+    const creator = 'readfailurecreator';
+    const opponent = 'readfailureopponent';
+    const weapon = 'named-weapon-00000000-0000-4000-8000-000000000064';
+    const battleId = 'pvp-99999999-9999-4999-8999-999999999999';
+    await kv.set(`save:${creator}`, { _saveVersion: 1, character: {
+        ...character(creator), equipment: { hand: weapon }, inventory: [weapon],
+    }, creatorItems: [] });
+    await kv.set(`save:${opponent}`, { _saveVersion: 1, character: character(opponent) });
+    const originalGet = kv.get.bind(kv);
+    (kv as any).get = async (key: string) => {
+        if (key === `forged-item:${weapon}`) throw new Error('temporary registry outage');
+        return originalGet(key);
+    };
+    try {
+        const created = response();
+        await handler(createRequest(creator, creator, opponent, battleId, '127.0.0.9'), created.res);
+        assert.equal(created.out.statusCode, 422);
+        assert.equal(created.out.body?.errorCode, 'pvp-named-gear-unavailable');
+        assert.equal(await kv.get(`pvp:${battleId}`), null);
+    } finally {
+        (kv as any).get = originalGet;
+    }
 });
 
 test('a stable create capability resumes one session and never indexes the unsolicited opponent', async () => {

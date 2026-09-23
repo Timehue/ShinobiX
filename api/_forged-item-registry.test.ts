@@ -29,6 +29,18 @@ describe('forged-item registry', () => {
         assert.equal(stored?.name, 'Soulrender');
     });
 
+    it('required recording refuses a failed registry write before a paid forge can commit', async () => {
+        await assert.rejects(recordForgedItem({ id: 'invalid' }, { kv, required: true }), /invalid-forged-item-id/);
+        const failingKv = {
+            get: kv.get.bind(kv),
+            set: async () => { throw new Error('registry unavailable'); },
+        };
+        await assert.rejects(recordForgedItem({ id: FORGED, name: 'Soulrender' }, { kv: failingKv, required: true }), /registry unavailable/);
+        await assert.rejects(recordForgedItem({ id: FORGED, name: 'Soulrender' }, {
+            kv: { get: kv.get.bind(kv), set: async () => null }, required: true,
+        }), /forged-item-registry-write-failed/);
+    });
+
     it('grafts a missing equipped forged definition back into creatorItems', async () => {
         await recordForgedItem({ id: FORGED, name: 'Soulrender', slot: 'hand' }, opts);
         const save = {
@@ -62,9 +74,9 @@ describe('forged-item registry', () => {
 });
 
 describe('mint-time recording is wired', () => {
-    it('craft/named.ts records the minted definition post-commit', () => {
+    it('craft/named.ts requires the registry definition before save commit', () => {
         const src = readFileSync(join(process.cwd(), 'api', 'craft', 'named.ts'), 'utf8');
-        assert.match(src, /recordForgedItem\(/);
+        assert.match(src, /recordForgedItem\(item, \{ required: true \}\)/);
     });
 
     it('every fighter-sealing entry point grafts recovered definitions', () => {

@@ -64,7 +64,7 @@ import { normalizePlayerBloodlineJutsus } from '../bloodlines/_jutsu-schema.js';
 import { battleLockFlagsForPlayers, settleSaveRecord } from '../_elapsed-state.js';
 import { COMBAT_RESOURCES_V2, v2JutsuCosts } from '../_combat-resources.js';
 import { CHAKRA_CAP_V2, STAMINA_CAP_V2 } from '../_xp-engine.js';
-import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
+import { augmentSaveWithForgedDefs, FORGED_ITEM_ID } from '../_forged-item-registry.js';
 import { maxLoadout } from '../_entitlements.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
 import {
@@ -1321,10 +1321,9 @@ function resolveEquippedPvpItems(
         }
         resolved.push(copy);
     }
-    // An id we can't resolve is still DROPPED (never a throw — a fight must not
-    // fail to start over one piece of gear), but it no longer happens silently:
-    // this is the signature of a lost item definition (erased creatorItems entry,
-    // deleted admin item, or a renamed id) and it used to leave no trace at all.
+    // Log every unresolved id. Normal PvP creation checks the sealed loadout
+    // below and refuses to publish if an equipped named piece is missing;
+    // legacy/admin item behavior still follows this resolver's general path.
     if (unresolved.length > 0) {
         console.warn(
             '[pvp-items] unresolved equipped item id(s)',
@@ -1333,6 +1332,22 @@ function resolveEquippedPvpItems(
         );
     }
     return resolved;
+}
+
+/** A real fighter must not enter a normal PvP match without equipped named gear. */
+function missingEquippedForgedItems(
+    save: Record<string, unknown> | null,
+    fighter: Record<string, unknown>,
+): string[] {
+    const character = save?.character as Record<string, unknown> | undefined;
+    const equipment = character?.equipment;
+    if (!equipment || typeof equipment !== 'object' || Array.isArray(equipment)) return [];
+    const sealed = new Set((Array.isArray(fighter.pvpItems) ? fighter.pvpItems : [])
+        .map((item: unknown) => item && typeof item === 'object'
+            ? String((item as Record<string, unknown>).id ?? '').toLowerCase() : ''));
+    return [...new Set(Object.values(equipment as Record<string, unknown>)
+        .filter((id): id is string => typeof id === 'string' && FORGED_ITEM_ID.test(id)))]
+        .filter((id) => !sealed.has(id.toLowerCase()));
 }
 
 // Hydrate a fighter character from the authoritative save. The client payload
@@ -1854,8 +1869,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Poll endpoint — clients hit this every ~1s while the battle screen
         // is open. Generous budget per IP so two players + spectators can
         // share an IP, but block obvious abuse (≥10 polls/sec sustained).
-        if (!(await enforceRateLimitKv(req, res, 'pvp-session-get', 360, 60_000))) return;
         if (String(req.query.pending ?? '') === '1') {
+            // Keep recovery probes on the shared limiter because they may do
+            // extra pointer and reward-publication work.
+            if (!(await enforceRateLimitKv(req, res, 'pvp-session-get', 360, 60_000))) return;
             const identity = await authedPlayerOrAdmin(req);
             if (!identity) return res.status(401).json({ error: 'Authentication required.' });
             const requestedPlayer = safeName(String(
@@ -1950,6 +1967,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         const battleId = String(req.query.id ?? '');
         if (!battleId) return res.status(400).json({ error: 'Missing id' });
+        // The deployed game uses one API process. A local aligned window gives
+        // this frequent session path the same cap without a database increment
+        // before every first load, reconnect, and fallback poll. Session repair
+        // and deadline enforcement below remain lock-protected and idempotent.
+        if (!(await enforceRateLimitKv(req, res, 'pvp-session-get', 360, 60_000, undefined, { local: true }))) return;
         // Absence and close-fence responses participate in mount-time
         // reconciliation too. Never let a CDN/browser cache the first 404 and
         // hide a session that finishes publishing during the bounded retry.
@@ -2248,14 +2270,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 battleLockFlagsForPlayers([p1Norm ?? '', p2Norm ?? '']),
                 loadAdminCombatContent(),
             ]);
-            // P0-3: graft any equipped-but-missing forged definitions back from
-            // the durable registry before hydration (named-weapon drop fix).
-            const p1Save = await augmentSaveWithForgedDefs(p1SaveRaw
+            // A player challenge, ranked duel, or live world attack names two
+            // real fighters. A missing opponent save must not turn that player
+            // into a body-supplied NPC with missing named weapons or armor.
+            const requiresTwoPlayerSaves = !identity.admin && (
+                (typeof challengeId === 'string' && challengeId.trim().length > 0)
+                || (typeof clanWarChallengeId === 'string' && clanWarChallengeId.trim().length > 0)
+                || (ranked === true && rankedKind === 'player')
+                || requireWorldCoLocation === true
+            );
+            if (requiresTwoPlayerSaves && (!p1SaveRaw?.character || !p2SaveRaw?.character)) {
+                return res.status(422).json({
+                    error: 'One fighter\'s save could not be loaded. Retry the battle.',
+                    errorCode: 'pvp-player-save-unavailable',
+                });
+            }
+            // Ranked Format replaces personal gear with its neutral kit, so it
+            // does not need personal forged-item registry reads.
+            const rankedFormatActive = ranked === true && rankedKind === 'player';
+            // Keep conditional recovery reads sequential. They are rare, and
+            // doubling registry pressure cannot improve gear correctness.
+            const p1SaveSettled = p1SaveRaw
                 ? settleSaveRecord(p1SaveRaw, { battleLocked: p1Norm ? battleLocks.get(p1Norm) === true : false }).record
-                : p1SaveRaw);
-            const p2Save = await augmentSaveWithForgedDefs(p2SaveRaw
+                : p1SaveRaw;
+            const p2SaveSettled = p2SaveRaw
                 ? settleSaveRecord(p2SaveRaw, { battleLocked: p2Norm ? battleLocks.get(p2Norm) === true : false }).record
-                : p2SaveRaw);
+                : p2SaveRaw;
+            const p1Save = rankedFormatActive ? p1SaveSettled : await augmentSaveWithForgedDefs(p1SaveSettled);
+            const p2Save = rankedFormatActive ? p2SaveSettled : await augmentSaveWithForgedDefs(p2SaveSettled);
 
             if (p1Save?.character) {
                 finalP1Character = hydrateCharacterFromSave(p1Save.character as Record<string, unknown>, p1Character, p1Save, admin);
@@ -2290,7 +2332,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // out, and a mis-projected in-memory object is simply discarded.
             // Each fighter's OWN save supplies their OWN weapon choice — never
             // the opponent's or the request body's.
-            const rankedFormatActive = ranked === true && rankedKind === 'player';
             if (rankedFormatActive && p1Save?.character) {
                 const p1SaveCharacter = projectRankedFormatCharacter(
                     p1Save.character as Record<string, unknown>,
@@ -2304,6 +2345,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     resolveRankedFormatWeaponId((p2Save.character as Record<string, unknown>).rankedFormatWeaponId),
                 );
                 finalP2Character = sealRankedFormatCombatCharacter(hydrateCharacterFromSave(p2SaveCharacter, p2Character, p2Save, admin));
+            }
+
+            if (!rankedFormatActive) {
+                const missingP1 = missingEquippedForgedItems(p1Save, finalP1Character);
+                const missingP2 = missingEquippedForgedItems(p2Save, finalP2Character);
+                if (missingP1.length || missingP2.length) {
+                    console.error('[pvp/session] refusing incomplete named gear loadout',
+                        safeLogValue(p1Name), safeLogValue(missingP1.join(',')),
+                        safeLogValue(p2Name), safeLogValue(missingP2.join(',')));
+                    return res.status(422).json({
+                        error: 'Equipped named gear could not be loaded. Retry the battle; if this continues, contact support.',
+                        errorCode: 'pvp-named-gear-unavailable',
+                    });
+                }
             }
 
             // Ranked has its own level-11 floor; sector raids retain the general
