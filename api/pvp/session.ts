@@ -13,6 +13,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { strongholdLocation } from '../_stronghold-presence.js';
 import { sessionOpponentBlock, worldInteractionBlock, isBelowAttackableFloor, ATTACKABLE_MIN_LEVEL } from '../_realtime/presence-gating.js';
+import { rankedLevelEligible, RANKED_LEVEL_WARNING } from '../../shared/ranked-eligibility.js';
 import {
     consumeRankedMatchTokenForBattle,
     proveRankedMatchTokenForBattle,
@@ -2298,20 +2299,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 finalP2Character = sealRankedFormatCombatCharacter(hydrateCharacterFromSave(p2SaveCharacter, p2Character, p2Save, admin));
             }
 
-            // #4 (newcomer protection / "below level 10 can't be attacked"):
-            // a sub-ATTACKABLE_MIN_LEVEL shinobi can't be pulled into a sector
-            // raid (useCurrentVitals) or a ranked battle as EITHER fighter.
+            // Ranked has its own level-11 floor; sector raids retain the general
+            // attackable floor of level 10. Both use authoritative save levels.
             // Read from the AUTHORITATIVE save level (not the online store, which
             // can momentarily race to level 0), so a directly-POSTed / pre-created
             // session can't bypass the attack.ts / ranked-queue gates. Consensual
             // spars (useCurrentVitals=false & not ranked) stay open to everyone;
-            // admins keep their test override.
-            if (!identity.admin && (useCurrentVitals === true || ranked === true)) {
+            // admin sector-raid test overrides retain their existing behavior.
+            if (useCurrentVitals === true || ranked === true) {
                 const p1Level = Number((finalP1Character.level as number) ?? 0);
                 const p2Level = Number((finalP2Character.level as number) ?? 0);
-                if (isBelowAttackableFloor(p1Level) || isBelowAttackableFloor(p2Level)) {
+                if (ranked === true && (!rankedLevelEligible(finalP1Character.level) || !rankedLevelEligible(finalP2Character.level))) {
+                    return res.status(403).json({ error: RANKED_LEVEL_WARNING, errorCode: 'ranked-level-locked' });
+                }
+                if (!identity.admin && useCurrentVitals === true && (isBelowAttackableFloor(p1Level) || isBelowAttackableFloor(p2Level))) {
                     return res.status(403).json({
-                        error: `Shinobi below level ${ATTACKABLE_MIN_LEVEL} are under newcomer protection — they can't take part in sector raids or ranked battles yet.`,
+                        error: `Shinobi below level ${ATTACKABLE_MIN_LEVEL} are under newcomer protection — they can't take part in sector raids yet.`,
                     });
                 }
             }

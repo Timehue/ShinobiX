@@ -332,3 +332,23 @@ test('level 15 and level 100 can enter one ranked fight with maxed jutsu and unc
     assert.equal((await kv.get<Record<string, any>>(`save:${ALICE}`))?.character?.jutsuMastery?.[0]?.level, 1);
     assert.equal((await kv.get<Record<string, any>>(`save:${BOB}`))?.character?.jutsuMastery?.[0]?.level, 5);
 });
+
+test('ranked queue blocks level 10 even when the client claims a higher level, then admits level 11', async () => {
+    const saved = await kv.get<Record<string, any>>(`save:${ALICE}`);
+    assert.ok(saved);
+    await kv.set(`save:${ALICE}`, { ...saved, character: { ...saved.character, level: 10 } });
+    const blocked = await post(rankedQueue, ALICE, { name: ALICE, action: 'join', level: 100 });
+    assert.equal(blocked.statusCode, 403);
+    assert.equal(blocked.body?.errorCode, 'ranked-level-locked');
+    assert.match(String(blocked.body?.error), /level 11/);
+    const bypass = await post(session, ALICE, {
+        p1Character: { name: ALICE }, p2Character: { name: BOB },
+        ranked: true, rankedKind: 'player',
+    });
+    assert.equal(bypass.statusCode, 403, 'direct session creation also enforces the ranked floor');
+    assert.equal(bypass.body?.errorCode, 'ranked-level-locked');
+    await kv.set(`save:${ALICE}`, { ...saved, character: { ...saved.character, level: 11 } });
+    const allowed = await post(rankedQueue, ALICE, { name: ALICE, action: 'join', level: 1 });
+    assert.equal(allowed.statusCode, 200, allowed.body?.error);
+    assert.equal(allowed.body?.inQueue, true);
+});
