@@ -38,8 +38,10 @@ test('run start is idempotent across a lost response and persists the run before
     assert.match(client, /JSON\.stringify\(\{ playerName, floorDepth, variantId, requestId,/);
     assert.match(client, /cardClashDeck/);
     const app = source('shinobij.client', 'src', 'App.tsx');
-    assert.match(app, /character\.lastHollowGateStart\?\.requestId/);
-    assert.match(app, /pending\.requestId/);
+    const entry = source('shinobij.client', 'src', 'lib', 'hollow-gate-entry.ts');
+    assert.match(app, /enterHollowGateShrineFlow\(/);
+    assert.match(entry, /character\.lastHollowGateStart\?\.requestId/);
+    assert.match(entry, /pending\.requestId/);
     assert.match(source('api', 'hollow-gate', 'settle.ts'), /delete next\.lastHollowGateStart/);
 });
 
