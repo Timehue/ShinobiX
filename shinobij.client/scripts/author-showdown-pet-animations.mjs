@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import * as THREE from "three";
 
 /**
@@ -12,6 +12,7 @@ import * as THREE from "three";
  * shared generated motion with species-directed keyframes. The five presentation
  * states are remixed from each pet's own bespoke core takes, keeping movement
  * vocabulary and anatomy consistent across the entire Colosseum state machine.
+ * Raijin's finished pass gives all five presentation states their own poses.
  */
 
 const align4 = (value) => (value + 3) & ~3;
@@ -271,13 +272,176 @@ function quadrupedBank(style) {
             r(foreR, [z, [-0.3, 0, 0.1], [0.38, 0, -0.14], [-0.12, 0, -0.1], [-0.28, 0, -0.08], [-0.3, 0, -0.06], [-0.3, 0, -0.06]]),
             r("tail_1", [z, [0.12, 0.08, 0.08], [-0.08, -0.12, -0.1], [-0.18, -0.2, -0.16], [-0.24, -0.24, -0.2], [-0.26, -0.24, -0.2], [-0.26, -0.24, -0.2]]),
         ] : [
-            t("root", [z, [0, 0.03, -0.03], [0, -0.015, -0.12], [-0.025, -0.1, -0.15], [-0.06, -0.21, -0.1], [-0.08, -0.28, -0.04], [-0.08, -0.29, -0.04]]),
-            r("pelvis", [z, [-0.12, 0, 0], [0.2, 0, -0.12], [0.38, 0, -0.38], [0.44, 0, -0.78], [0.4, 0, -1.02], [0.4, 0, -1.05]]),
-            r("spine", [z, [0.12, 0, 0], [-0.18, 0, 0.05], [-0.34, 0, 0.12], [-0.42, 0, 0.16], [-0.46, 0, 0.14], [-0.46, 0, 0.14]]),
-            r("head", [idleHead, [-0.12, -0.05, 0], [0.22, 0.08, 0.08], [0.4, 0, 0.16], [0.56, 0, 0.18], [0.66, 0, 0.14], [0.68, 0, 0.14]]),
-            r(foreL, [z, [-0.28, 0, -0.06], [0.42, 0, 0.08], [0.68, 0, 0.12], [0.24, 0, 0.04], [0.16, 0, 0.02], [0.16, 0, 0.02]]),
-            r(foreR, [z, [-0.28, 0, 0.06], [0.42, 0, -0.08], [0.1, 0, -0.08], [-0.24, 0, -0.05], [-0.28, 0, -0.04], [-0.28, 0, -0.04]]),
-            r("tail_1", [z, [0.08, -0.08, 0], [-0.05, 0.12, 0.08], [-0.16, 0.18, 0.12], [-0.22, 0.2, 0.14], [-0.24, 0.2, 0.14], [-0.24, 0.2, 0.14]]),
+            t("root", [z, [0, 0.03, -0.03], [0, -0.015, -0.1], [0, -0.02, -0.12], [0, -0.015, -0.08], [0, -0.02, -0.04], [0, -0.02, -0.04]]),
+            r("pelvis", [z, [-0.05, 0, 0], [0.03, 0, -0.03], [0.09, 0, -0.08], [0.1, 0, -0.12], [0.1, 0, -0.14], [0.1, 0, -0.14]]),
+            r("spine", [z, [0.06, 0, 0], [0.12, 0, 0.02], [0.2, 0, 0.04], [0.3, 0, 0.07], [0.32, 0, 0.07], [0.32, 0, 0.07]]),
+            r("head", [idleHead, [-0.1, -0.05, 0], [0.03, 0.04, 0], [0.2, 0, 0.05], [0.34, 0, 0.06], [0.39, 0, 0.06], [0.39, 0, 0.06]]),
+            r(foreL, [z, [-0.25, 0, -0.05], [0.08, 0, 0.05], [-0.03, 0, 0.08], [-0.13, 0, 0.08], [-0.16, 0, 0.08], [-0.16, 0, 0.08]]),
+            r(foreR, [z, [-0.25, 0, 0.05], [0.1, 0, -0.05], [0.13, 0, -0.08], [0.08, 0, -0.08], [0.05, 0, -0.08], [0.05, 0, -0.08]]),
+            r("tail_1", [z, [0.1, -0.1, 0], [-0.05, 0.1, 0], [-0.14, 0.16, 0], [-0.2, 0.18, 0], [-0.22, 0.18, 0], [-0.22, 0.18, 0]]),
+        ]),
+    ];
+}
+
+/** Raijin's larger sculpt needs planted lower legs, delayed tail motion, and
+ * clear silhouette changes that the earlier seven-bone blockout could not give
+ * it. These are small joint arcs around the existing bind pose, so the face and
+ * shoulder armour stay attached throughout the performance. */
+function raijinArtistBank() {
+    const core = quadrupedBank("lightning");
+    const detail = {
+        idle: [
+            r("chest", [z, [-0.035, 0, 0], [0.025, 0, 0], [-0.03, 0, 0], [0.018, 0, 0], z]),
+            r("neck", [z, [0.015, -0.025, 0], [-0.012, 0.015, 0], [0.02, 0.02, 0], [-0.01, -0.015, 0], z]),
+            r("tail_3", [z, [0.035, -0.075, 0], [0.02, 0.06, 0], [-0.025, 0.09, 0], [-0.015, -0.055, 0], z]),
+        ],
+        idle_2: [
+            r("pelvis", [z, [-0.055, 0, 0], [0.035, 0.02, 0], [0.025, -0.02, 0], [-0.025, 0, 0], z]),
+            r("neck", [z, [0.035, 0.025, 0], [-0.06, -0.04, 0], [0.045, -0.025, 0], [0.02, 0.025, 0], z]),
+            r("front_lower.L", [z, [0.09, 0, 0], [-0.16, 0, 0], [0.045, 0, 0], z, z]),
+            r("front_lower.R", [z, [0.045, 0, 0], [-0.09, 0, 0], [0.07, 0, 0], z, z]),
+            r("tail_1", [z, [0.02, -0.08, 0], [-0.015, 0.12, 0], [0.02, 0.08, 0], [0, -0.04, 0], z]),
+            r("tail_2", [z, [0.04, -0.06, 0], [0.02, 0.1, 0], [-0.025, 0.12, 0], [0, -0.04, 0], z]),
+        ],
+        walk: [
+            r("chest", [z, [0.035, 0, -0.025], z, [0.035, 0, 0.025], z]),
+            r("head", [z, [-0.045, 0.015, 0], [0.015, 0, 0], [-0.045, -0.015, 0], z]),
+            r("front_lower.L", [[-0.13, 0, 0], [0.09, 0, 0], [0.19, 0, 0], [-0.06, 0, 0], [-0.13, 0, 0]]),
+            r("front_lower.R", [[0.19, 0, 0], [-0.06, 0, 0], [-0.13, 0, 0], [0.09, 0, 0], [0.19, 0, 0]]),
+            r("hind_lower.L", [[0.16, 0, 0], [-0.05, 0, 0], [-0.12, 0, 0], [0.1, 0, 0], [0.16, 0, 0]]),
+            r("hind_lower.R", [[-0.12, 0, 0], [0.1, 0, 0], [0.16, 0, 0], [-0.05, 0, 0], [-0.12, 0, 0]]),
+            r("tail_1", [[0, -0.065, 0], [0.025, 0.045, 0], [0, 0.075, 0], [-0.025, -0.045, 0], [0, -0.065, 0]]),
+            r("tail_2", [[0, 0.025, 0], [0.03, -0.04, 0], [0, -0.05, 0], [-0.03, 0.05, 0], [0, 0.025, 0]]),
+        ],
+        gallop: [
+            r("pelvis", [[-0.06, 0, 0], [0.12, 0, 0], [-0.05, 0, 0], [0.11, 0, 0], [-0.06, 0, 0]]),
+            r("head", [[0.035, 0, 0], [-0.08, 0, 0], [0.04, 0, 0], [-0.07, 0, 0], [0.035, 0, 0]]),
+            r("front_lower.L", [[0.26, 0, 0], [-0.12, 0, 0], [-0.28, 0, 0], [0.16, 0, 0], [0.26, 0, 0]]),
+            r("front_lower.R", [[0.2, 0, 0], [-0.1, 0, 0], [-0.24, 0, 0], [0.18, 0, 0], [0.2, 0, 0]]),
+            r("hind_lower.L", [[-0.22, 0, 0], [0.31, 0, 0], [0.16, 0, 0], [-0.25, 0, 0], [-0.22, 0, 0]]),
+            r("hind_lower.R", [[-0.18, 0, 0], [0.27, 0, 0], [0.2, 0, 0], [-0.23, 0, 0], [-0.18, 0, 0]]),
+            r("tail_2", [[0, -0.08, 0], [0.04, -0.16, 0], [0, 0.04, 0], [-0.04, 0.15, 0], [0, -0.08, 0]]),
+            r("tail_3", [[0, 0.08, 0], [0.025, -0.06, 0], [0, -0.12, 0], [-0.025, 0.07, 0], [0, 0.08, 0]]),
+        ],
+        gallop_jump: [
+            r("spine", [z, [-0.14, 0, 0], [0.13, 0, 0], [-0.08, 0, 0], z]),
+            r("head", [z, [0.06, 0, 0], [-0.11, 0, 0], [0.05, 0, 0], z]),
+            r("front_lower.L", [z, [0.18, 0, 0], [-0.25, 0, 0], [0.21, 0, 0], z]),
+            r("front_lower.R", [z, [0.14, 0, 0], [-0.22, 0, 0], [0.18, 0, 0], z]),
+            r("hind_lower.L", [z, [0.27, 0, 0], [0.35, 0, 0], [-0.19, 0, 0], z]),
+            r("hind_lower.R", [z, [0.23, 0, 0], [0.32, 0, 0], [-0.16, 0, 0], z]),
+            r("tail_1", [z, [-0.09, -0.08, 0], [-0.19, 0.06, 0], [0.04, 0.12, 0], z]),
+            r("tail_2", [z, [0.02, -0.08, 0], [-0.1, -0.12, 0], [0.04, 0.08, 0], z]),
+        ],
+        attack: [
+            r("chest", [z, [-0.04, 0, 0], [-0.08, 0, -0.015], [0.06, 0, 0.02], [0.12, 0, 0.04], [0.04, 0, 0], [-0.02, 0, 0], z]),
+            r("neck", [z, [0.03, 0, 0], [0.06, 0, 0], [-0.06, 0, 0], [-0.1, 0, 0], [0.02, 0, 0], [0.005, 0, 0], z]),
+            r("front_lower.L", [z, [0.12, 0, 0], [0.28, 0, 0], [-0.27, 0, 0], [-0.37, 0, 0], [0.05, 0, 0], z, z]),
+            r("front_lower.R", [z, [0.08, 0, 0], [0.2, 0, 0], [-0.2, 0, 0], [-0.31, 0, 0], [0.1, 0, 0], z, z]),
+            r("tail_1", [z, [-0.06, -0.1, 0], [-0.11, -0.16, 0], [0.08, 0.04, 0], [0.16, 0.12, 0], [-0.03, 0.06, 0], z, z]),
+            r("tail_2", [z, [0.035, -0.04, 0], [-0.05, -0.13, 0], [-0.13, -0.1, 0], [0.07, 0.04, 0], [0.11, 0.1, 0], z, z]),
+        ],
+        idle_hitreact1: [
+            r("chest", [z, [-0.13, 0, -0.1], [0.07, 0, 0.06], [-0.025, 0, 0], z]),
+            r("neck", [z, [0.16, 0, 0.06], [-0.11, 0, -0.03], [0.025, 0, 0], z]),
+            r("front_lower.L", [z, [0.19, 0, 0], [-0.09, 0, 0], z, z]),
+            r("front_lower.R", [z, [0.15, 0, 0], [-0.07, 0, 0], z, z]),
+            r("tail_1", [z, [-0.12, -0.16, 0], [0.07, 0.12, 0], [0.03, 0.05, 0], z]),
+            r("tail_2", [z, [0.05, -0.1, 0], [-0.09, -0.08, 0], [0.02, 0.1, 0], z]),
+        ],
+        death: [
+            // The shared battle KO overlay pitches backward for older rigs.
+            // Counter it on Raijin's +Z sculpt, then let the shoulder and knee
+            // tracks carry the visible weight down to the floor.
+            r("root", [z, [0.08, 0, 0], [0.27, 0, -0.1], [0.5, 0, -0.36], [0.67, 0, -0.78], [0.72, 0, -1.1], [0.72, 0, -1.1]]),
+            r("chest", [z, [0.06, 0, 0], [-0.1, 0, 0], [-0.16, 0, 0], [-0.11, 0, 0], [-0.08, 0, 0], [-0.08, 0, 0]]),
+            r("front_lower.L", [z, [0.12, 0, 0], [0.22, 0, 0], [0.09, 0, 0], [-0.04, 0, 0], [-0.08, 0, 0], [-0.08, 0, 0]]),
+            r("front_lower.R", [z, [0.11, 0, 0], [0.18, 0, 0], [0.03, 0, 0], [-0.1, 0, 0], [-0.12, 0, 0], [-0.12, 0, 0]]),
+            r("tail_2", [z, [0.03, 0.02, 0], [-0.1, 0.08, 0], [-0.13, 0.12, 0], [-0.06, 0.08, 0], [-0.03, 0.05, 0], [-0.03, 0.05, 0]]),
+        ],
+    };
+    const limbScale = { idle_2: 0.7, walk: 0.65, gallop: 0.55, gallop_jump: 0.6, attack: 0.75 };
+    const lowerScale = { walk: 0.8, gallop: 0.65, gallop_jump: 0.7, attack: 0.75 };
+    const scaleTracks = (tracks, takeName, scales, bonePattern) => tracks.map((track) => {
+        const factor = bonePattern.test(track.node) ? scales[takeName] ?? 1 : 1;
+        return factor === 1 ? track : {
+            ...track,
+            values: track.values.map((value) => value.map((component) => Number((component * factor).toFixed(5)))),
+        };
+    });
+    const articulated = core.map((take) => ({
+        ...take,
+        tracks: [
+            ...scaleTracks(take.tracks, take.name, limbScale, /^(front_upper|hind_upper)\.[LR]$/u),
+            ...scaleTracks(detail[take.name], take.name, lowerScale, /^(front_lower|hind_lower)\.[LR]$/u),
+        ],
+    }));
+    return [...articulated, ...raijinPresentationBank()];
+}
+
+function raijinPresentationBank() {
+    const foreL = "front_upper.L", foreR = "front_upper.R";
+    const hindL = "hind_upper.L", hindR = "hind_upper.R";
+    return [
+        clip("entrance", [0, 0.12, 0.28, 0.46, 0.64, 0.86, 1.08], [
+            t("root", [z, [0, -0.065, -0.04], [0, 0.1, 0.015], [0, 0.16, 0.065], [0, 0.035, 0.035], [0, -0.035, 0], z]),
+            r("pelvis", [z, [-0.17, 0, 0], [0.14, 0, 0], [0.08, 0, 0], [-0.11, 0, 0], [0.025, 0, 0], z]),
+            r("spine", [z, [-0.2, 0, 0], [0.19, 0, 0], [0.13, 0, 0], [-0.15, 0, 0], [0.055, 0, 0], z]),
+            r("neck", [z, [0.09, 0, 0], [-0.12, 0, 0], [-0.07, 0, 0], [0.08, 0, 0], [-0.03, 0, 0], z]),
+            r("head", [z, [0.11, -0.12, 0], [-0.16, 0.04, 0], [-0.1, 0.08, 0], [0.09, -0.09, 0], [0.015, 0.12, 0], z]),
+            r(foreL, [z, [-0.18, 0, 0], [-0.48, 0, -0.05], [0.28, 0, 0], [0.17, 0, 0], [-0.07, 0, 0], z]),
+            r(foreR, [z, [-0.16, 0, 0], [-0.44, 0, 0.05], [0.24, 0, 0], [0.14, 0, 0], [-0.05, 0, 0], z]),
+            r(hindL, [z, [0.27, 0, 0], [0.37, 0, 0], [-0.18, 0, 0], [0.14, 0, 0], z, z]),
+            r(hindR, [z, [0.24, 0, 0], [0.34, 0, 0], [-0.16, 0, 0], [0.12, 0, 0], z, z]),
+            r("tail_1", [z, [-0.08, -0.09, 0], [-0.17, 0, 0], [0.08, 0.08, 0], [0.13, 0.11, 0], [0.02, 0.05, 0], z]),
+            r("tail_2", [z, [0.02, -0.08, 0], [-0.1, -0.11, 0], [-0.08, 0.02, 0], [0.07, 0.09, 0], [0.04, 0.06, 0], z]),
+        ]),
+        clip("cast", [0, 0.14, 0.3, 0.46, 0.58, 0.73, 0.91, 1.15], [
+            t("root", [z, [0, -0.035, -0.035], [0, -0.055, -0.06], [0, 0.015, -0.035], [0, 0.045, 0.045], [0, 0.025, 0.09], [0, -0.015, 0.025], z]),
+            r("pelvis", [z, [-0.1, 0, 0], [-0.16, 0, 0], [0.08, 0, 0], [0.17, 0, 0], [0.1, 0, 0], [-0.04, 0, 0], z]),
+            r("spine", [z, [-0.06, 0, 0], [-0.11, 0, 0], [0.05, 0, 0], [0.13, 0, 0], [0.09, 0, 0], [-0.025, 0, 0], z]),
+            r("neck", [z, [0.07, 0, 0], [0.15, 0, 0], [-0.09, 0, 0], [-0.21, 0, 0], [-0.12, 0, 0], [0.025, 0, 0], z]),
+            r("head", [[-0.015, 0.1, 0], [0.09, 0.08, 0], [0.16, 0.04, 0], [-0.12, -0.06, 0], [-0.26, -0.04, 0], [-0.12, 0.05, 0], [0.025, 0.1, 0], [-0.015, 0.1, 0]]),
+            r(foreL, [z, [-0.015, 0, -0.01], [-0.025, 0, -0.015], [-0.035, 0, -0.01], [0.015, 0, 0.01], [0.025, 0, 0.015], [0.01, 0, 0], z]),
+            r(foreR, [z, [-0.01, 0, 0.01], [-0.02, 0, 0.015], [-0.03, 0, 0.01], [0.01, 0, -0.01], [0.02, 0, -0.015], [0.01, 0, 0], z]),
+            r("front_lower.L", [z, [0.015, 0, 0], [0.025, 0, 0], [-0.01, 0, 0], [-0.02, 0, 0], [-0.01, 0, 0], z, z]),
+            r("front_lower.R", [z, [0.015, 0, 0], [0.02, 0, 0], [-0.01, 0, 0], [-0.02, 0, 0], [-0.01, 0, 0], z, z]),
+            r("tail_1", [z, [-0.06, -0.08, 0], [-0.11, -0.12, 0], [-0.08, 0.04, 0], [0.1, 0.12, 0], [0.15, 0.13, 0], [0.03, 0.06, 0], z]),
+            r("tail_2", [z, [0.025, -0.05, 0], [-0.07, -0.12, 0], [-0.1, -0.08, 0], [0.02, 0.08, 0], [0.1, 0.12, 0], [0.04, 0.06, 0], z]),
+        ]),
+        clip("guard", [0, 0.14, 0.32, 0.54, 0.76, 0.98, 1.18], [
+            t("root", [z, [0, -0.045, -0.015], [0, -0.075, -0.025], [0, -0.067, -0.025], [0, -0.05, -0.02], [0, -0.025, -0.01], z]),
+            r("spine", [z, [-0.015, 0, 0], [-0.025, 0, 0], [-0.025, 0, 0], [-0.02, 0, 0], [-0.01, 0, 0], z]),
+            r("chest", [z, [-0.02, 0, 0], [-0.035, 0, 0], [-0.035, 0, 0], [-0.025, 0, 0], [-0.01, 0, 0], z]),
+            r("head", [[-0.015, 0.1, 0], [0.11, 0.06, 0], [0.17, 0.03, 0], [0.15, 0.02, 0], [0.12, 0.02, 0], [0.04, 0.07, 0], [-0.015, 0.1, 0]]),
+            r(foreL, [z, z, z, z, z, z, z]),
+            r(foreR, [z, z, z, z, z, z, z]),
+            r("front_lower.L", [z, z, z, z, z, z, z]),
+            r("front_lower.R", [z, z, z, z, z, z, z]),
+            r("tail_1", [z, [-0.08, 0, 0], [-0.13, 0.02, 0], [-0.12, 0.03, 0], [-0.09, 0.03, 0], [-0.03, 0, 0], z]),
+        ]),
+        clip("rest", [0, 0.18, 0.46, 0.8, 1.16, 1.55, 1.92], [
+            t("root", [z, [0, -0.045, -0.015], [0, -0.085, -0.025], [0, -0.09, -0.025], [0, -0.078, -0.02], [0, -0.035, -0.01], z]),
+            r("pelvis", [z, [-0.035, 0, 0], [-0.055, 0, 0], [-0.06, 0, 0], [-0.045, 0, 0], [-0.02, 0, 0], z]),
+            r("chest", [z, [-0.025, 0, 0], [-0.045, 0, 0], [-0.05, 0, 0], [-0.035, 0, 0], [-0.015, 0, 0], z]),
+            r("neck", [z, [0.05, 0, 0], [0.12, 0, 0], [0.14, 0, 0], [0.08, 0, 0], [0.02, 0, 0], z]),
+            r("head", [[-0.015, 0.1, 0], [0.09, 0.05, 0], [0.19, 0.03, 0], [0.21, 0.01, 0], [0.13, 0.04, 0], [0.025, 0.08, 0], [-0.015, 0.1, 0]]),
+            r(foreL, [z, z, z, z, z, z, z]),
+            r(foreR, [z, z, z, z, z, z, z]),
+            r("tail_1", [z, [-0.1, -0.04, 0], [-0.16, -0.02, 0], [-0.14, 0.02, 0], [-0.08, 0.04, 0], [-0.025, 0.02, 0], z]),
+            r("tail_2", [z, [-0.03, -0.02, 0], [-0.08, -0.06, 0], [-0.11, -0.03, 0], [-0.07, 0.02, 0], [-0.015, 0.02, 0], z]),
+        ]),
+        clip("victory", [0, 0.13, 0.32, 0.51, 0.72, 0.98, 1.24, 1.52], [
+            t("root", [z, [0, -0.04, -0.035], [0, 0.075, 0.025], [0, 0.11, 0.06], [0, 0.025, 0.02], [0, 0.06, 0.01], [0, 0.025, 0], z]),
+            r("pelvis", [z, [-0.12, 0, 0], [0.11, 0, 0], [0.16, 0, 0], [-0.035, 0, 0], [0.05, 0, 0], z, z]),
+            r("spine", [z, [-0.14, 0, 0], [0.18, 0, 0], [0.3, 0, 0], [0.08, 0, 0], [0.17, 0, 0], [0.06, 0, 0], z]),
+            r("chest", [z, [-0.04, 0, 0], [0.07, 0, 0], [0.13, 0, 0], [0.03, 0, 0], [0.08, 0, 0], [0.02, 0, 0], z]),
+            r("neck", [z, [0.04, 0, 0], [-0.05, 0, 0], [-0.1, 0, 0], [-0.05, 0, 0], [-0.08, 0, 0], [-0.02, 0, 0], z]),
+            r("head", [[-0.015, 0.1, 0], [0.08, 0.06, 0], [-0.21, 0.04, 0], [-0.33, 0.02, 0], [-0.08, 0.12, 0], [-0.27, 0.1, 0], [-0.07, 0.1, 0], [-0.015, 0.1, 0]]),
+            r(foreL, [z, [-0.12, 0, 0], [-0.34, 0, -0.05], [-0.19, 0, 0], [0.31, 0, 0], [0.08, 0, 0], z, z]),
+            r(foreR, [z, [-0.1, 0, 0], [-0.2, 0, 0.05], [-0.31, 0, 0], [0.24, 0, 0], [0.07, 0, 0], z, z]),
+            r("tail_1", [z, [-0.1, -0.12, 0], [0.05, 0.06, 0], [0.17, 0.16, 0], [-0.05, 0.2, 0], [0.12, 0.13, 0], [0.04, 0.06, 0], z]),
+            r("tail_2", [z, [-0.03, -0.04, 0], [-0.09, -0.11, 0], [0.06, 0.07, 0], [0.12, 0.18, 0], [-0.05, 0.11, 0], [0.03, 0.07, 0], z]),
         ]),
     ];
 }
@@ -345,13 +509,13 @@ const PETS = [
         performance: { label: "inferno-fenrir-power-coil", pace: 1.02, side: -1, entranceAmp: 0.94, entranceTwist: 0.1, castAmp: 0.9, castTwist: -0.12, guardAmp: 0.68, guardTwist: 0.07, restAmp: 0.3, restTwist: -0.025, victoryAmp: 1.08, victoryTwist: 0.14, rootSway: 0.014, lift: 0.042 },
     },
     {
-        id: "starter-lightning-l", input: "public/pet-models/starter-lightning-l.glb", bank: () => quadrupedBank("lightning"),
-        performance: { label: "raijin-hound-phase-snap", pace: 0.84, side: 1, entranceAmp: 1.12, entranceTwist: -0.14, castAmp: 0.78, castTwist: 0.17, guardAmp: 0.62, guardTwist: -0.09, restAmp: 0.28, restTwist: 0.035, victoryAmp: 0.96, victoryTwist: -0.18, rootSway: 0.022, lift: 0.048 },
+        id: "starter-lightning-l", input: "public/pet-models/starter-lightning-l.glb", bank: raijinArtistBank, completeBank: true,
+        performance: { label: "raijin-hound-articulated-battle-v1" },
     },
 ];
 
-async function authorPet(clientRoot, pet) {
-    const source = parseGlb(await readFile(resolve(clientRoot, pet.input)), pet.id);
+async function authorPet(clientRoot, pet, sourceOverride, outputOverride) {
+    const source = parseGlb(await readFile(resolve(clientRoot, sourceOverride ?? pet.input)), pet.id);
     const json = structuredClone(source.json);
     const nodeByName = new Map(json.nodes.map((node, index) => [node.name, index]));
     const chunks = [{ offset: 0, bytes: source.bin }];
@@ -373,7 +537,7 @@ async function authorPet(clientRoot, pet) {
     };
 
     const core = pet.bank();
-    const bank = [...core, ...presentationBank(core, pet.performance)];
+    const bank = pet.completeBank ? core : [...core, ...presentationBank(core, pet.performance)];
     json.animations = [];
     for (const take of bank) {
         invariant(take.times.length >= 2, `${pet.id}/${take.name}: at least two keyframes required`);
@@ -408,29 +572,37 @@ async function authorPet(clientRoot, pet) {
 
     invariant(json.animations.length === 13, `${pet.id}: expected thirteen authored clips`);
     const fingerprint = createHash("sha256").update(JSON.stringify(bank)).digest("hex").slice(0, 24).toUpperCase();
-    json.asset = { ...json.asset, generator: `Shinobi Journey Showdown ${pet.id} Animation Bank v3` };
+    json.asset = { ...json.asset, generator: `Shinobi Journey Showdown ${pet.id} Animation Bank ${pet.completeBank ? "v4" : "v3"}` };
     json.extras = {
         ...(json.extras ?? {}),
         showdownAnimationBank: "20260825-showcase-identity-v3",
         animationAuthoring: "bespoke-species-performance-v3",
+        ...(pet.completeBank ? { showdownAnimationArtPass: "20260923-raijin-articulated-v1" } : {}),
         showdownAnimationIdentity: { key: pet.id, fingerprint, style: pet.performance.label },
     };
-    json.buffers = [{ byteLength: align4(byteLength) }];
+    // Meshopt assets may contain a fallback buffer declaration after buffer 0.
+    // Keep it while appending the new animation streams to the GLB BIN chunk.
+    json.buffers = [{ ...json.buffers[0], byteLength: align4(byteLength) }, ...json.buffers.slice(1)];
     const binary = new Uint8Array(align4(byteLength));
     for (const chunk of chunks) binary.set(chunk.bytes, chunk.offset);
 
-    const outputDirectory = resolve(clientRoot, "public/pet-models/showdown-v2");
-    await mkdir(outputDirectory, { recursive: true });
-    const outputPath = resolve(outputDirectory, `${pet.id}.glb`);
+    const outputPath = outputOverride
+        ? resolve(clientRoot, outputOverride)
+        : resolve(clientRoot, "public/pet-models/showdown-v2", `${pet.id}.glb`);
+    await mkdir(dirname(outputPath), { recursive: true });
     const encoded = encodeGlb(json, binary);
     await writeFile(outputPath, encoded);
     return { id: pet.id, outputPath, bytes: encoded.byteLength, fingerprint, clips: json.animations.map((animation) => animation.name) };
 }
 
 const clientRoot = resolve(import.meta.dirname, "..");
-const requested = new Set(process.argv.slice(2));
+const args = process.argv.slice(2);
+const requested = new Set(args.filter((arg) => !arg.startsWith("--")));
+const sourceOverride = args.find((arg) => arg.startsWith("--source="))?.slice("--source=".length);
+const outputOverride = args.find((arg) => arg.startsWith("--output="))?.slice("--output=".length);
 const selected = requested.size ? PETS.filter((pet) => requested.has(pet.id)) : PETS;
 invariant(selected.length > 0, "No Showdown pet ids matched.");
+invariant(!sourceOverride && !outputOverride || selected.length === 1, "Source/output overrides require exactly one pet id.");
 const results = [];
-for (const pet of selected) results.push(await authorPet(clientRoot, pet));
+for (const pet of selected) results.push(await authorPet(clientRoot, pet, sourceOverride, outputOverride));
 console.log(JSON.stringify(results, null, 2));

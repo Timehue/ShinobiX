@@ -399,10 +399,22 @@ export function storedStatusKind(kind: string, format?: ShowdownFormat, foeCount
 }
 
 /** Server-authored effect line for the move button. Never computed client-side. */
-export function moveEffectText(kind: string, power: number): string {
+export function moveEffectText(kind: string, power: number, element?: string): string {
     if (!hasOwn(KIND_FX, kind)) return 'Straight damage';
     const fx = KIND_FX[kind];
     if (kind === 'heal') return `Restores ~${Math.round(Math.min(0.3, Math.max(60, power) / 700) * 100)}% max HP`;
+    if (kind === 'weather') {
+        const counter = element ? elementCounteredBy(element) : undefined;
+        const boost = Math.round((SHOWDOWN_WEATHER_BOOST - 1) * 100);
+        const dampen = Math.round((1 - SHOWDOWN_WEATHER_DAMPEN) * 100);
+        return element && counter
+            ? `${element} damage +${boost}%; ${counter} damage -${dampen}% for ${SHOWDOWN_WEATHER_ROUNDS} rounds. Replaces current weather.`
+            : `Boosts your element by ${boost}% and weakens its counter by ${dampen}% for ${SHOWDOWN_WEATHER_ROUNDS} rounds.`;
+    }
+    if (kind === 'shield' || kind === 'barrier' || kind === 'absorb') {
+        return `Absorbs ${Math.max(40, Math.round(power * 1.05))} damage for up to 2 rounds.`;
+    }
+    if (kind === 'protect') return 'Blocks all damage this round. Fails if used in consecutive rounds.';
     if (fx.mult === 0) return fx.blurb;
     if (fx.mult === 1) return fx.blurb;
     return `${fx.blurb} · ${Math.round(fx.mult * 100)}% hit`;
@@ -2483,7 +2495,7 @@ function petView(pet: ShowdownPet): ShowdownPetView {
             ? { consumableName: pet.consumable.name } : {}),
         moves: pet.moves.map((m) => ({
             name: m.name, power: m.power, kind: m.kind, cost: m.cost, signature: false,
-            priority: m.priority, hold: m.hold, effect: moveEffectText(m.kind, m.power),
+            priority: m.priority, hold: m.hold, effect: moveEffectText(m.kind, m.power, m.element ?? pet.element),
             element: m.element ?? pet.element, cls: m.cls ?? moveClass(m.kind),
             ...(m.synergyElement ? { synergyElement: m.synergyElement } : {}),
         })).concat([{

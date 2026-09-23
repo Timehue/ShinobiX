@@ -1,0 +1,20 @@
+{
+  "asset": "Raijin Hound",
+  "status": "prepared_not_submitted",
+  "endpoint": "fal-ai/hunyuan-3d/v3.1/pro/image-to-3d",
+  "inputs": {
+    "input_image_url": "art-source/raijin-hound/views/front.png",
+    "back_image_url": "art-source/raijin-hound/views/back.png",
+    "left_image_url": "art-source/raijin-hound/views/side.png",
+    "right_front_image_url": "art-source/raijin-hound/views/three-quarter.png"
+  },
+  "settings": {
+    "generate_type": "Normal",
+    "enable_pbr": true
+  },
+  "estimatedCostUsd": 0.675,
+  "requestedSpendCeilingUsd": 0.75,
+  "maxSubmissions": 1,
+  "output": "art-source/raijin-hound/pro-generation-candidate.glb",
+  "pricingSource": "https://fal.ai/models/fal-ai/hunyuan-3d/v3.1/pro/image-to-3d"
+}

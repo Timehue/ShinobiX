@@ -15,8 +15,16 @@ const CRITICAL_MOTION_CLIPS = new Set([
     "gallop_jump", "attack", "idle_hitreact1", "death", "entrance", "cast", "guard", "victory",
 ]);
 const clientRoot = resolve(import.meta.dirname, "..");
+const modelFilter = process.argv.find(arg => arg.startsWith('--model='))?.slice('--model='.length);
+const assetOverride = process.argv.find(arg => arg.startsWith('--asset='))?.slice('--asset='.length);
+const reportLabel = process.argv.find(arg => arg.startsWith('--label='))?.slice('--label='.length);
+if (assetOverride && !modelFilter) throw new Error('--asset requires --model');
+const auditedPetModels = modelFilter
+    ? runtimePetModels.filter(({ pet, model }) => pet.id === modelFilter || model.visualId === modelFilter)
+    : runtimePetModels;
+if (!auditedPetModels.length) throw new Error(`No combat model matches ${modelFilter}`);
 const outputRoot = resolve(clientRoot, ".tmp/pet-animation-audit");
-const outputPath = resolve(outputRoot, "all-pet-motion-audit.json");
+const outputPath = resolve(outputRoot, modelFilter ? `${modelFilter}${reportLabel ? `-${reportLabel}` : ''}-motion-audit.json` : "all-pet-motion-audit.json");
 function invariant(condition, message) {
     if (!condition) throw new Error(message);
 }
@@ -130,8 +138,9 @@ const identityFingerprints = new Map();
 const failures = [];
 const deformationWarnings = [];
 
-for (const { pet, model, path, source } of runtimePetModels) {
+for (const { pet, model, path: runtimePath, source } of auditedPetModels) {
     try {
+        const path = assetOverride ? resolve(assetOverride) : runtimePath;
         const bytes = texturelessGlb(await readFile(path));
         const gltf = await loader.parseAsync(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), "");
         const meshes = [];
@@ -195,7 +204,20 @@ for (const { pet, model, path, source } of runtimePetModels) {
                     const length = points[edge.a].distanceTo(points[edge.b]);
                     return length / edge.length > 8 && length > bind.diagonal * 0.04;
                 }).length;
-                if (severeEdges) deformationWarnings.push({ id: pet.id, assetId: model.visualId, clip: clipName, progress: Number(sample.toFixed(4)), severeEdges, maximumEdgeStretch: Number(ratios.at(-1).toFixed(3)) });
+                if (severeEdges) {
+                    const worstEdges = modelFilter ? edges.map(edge => ({
+                        edge,
+                        ratio: points[edge.a].distanceTo(points[edge.b]) / edge.length,
+                        length: points[edge.a].distanceTo(points[edge.b]),
+                    })).filter(item => item.ratio > 8 && item.length > bind.diagonal * 0.04)
+                        .sort((a, b) => b.ratio - a.ratio).slice(0, 3)
+                        .map(({ edge, ratio }) => ({
+                            vertices: [plans[0]?.vertices[edge.a], plans[0]?.vertices[edge.b]],
+                            bindMidpoint: bindPoints[edge.a].clone().add(bindPoints[edge.b]).multiplyScalar(0.5).toArray().map(value => Number(value.toFixed(3))),
+                            ratio: Number(ratio.toFixed(3)),
+                        })) : undefined;
+                    deformationWarnings.push({ id: pet.id, assetId: model.visualId, clip: clipName, progress: Number(sample.toFixed(4)), severeEdges, maximumEdgeStretch: Number(ratios.at(-1).toFixed(3)), ...(worstEdges ? { worstEdges } : {}) });
+                }
                 samples.push({
                     edgeStretchP99: Number((ratios[Math.floor(ratios.length * 0.99)] ?? 1).toFixed(5)),
                     maximumEdgeStretch: Number((ratios.at(-1) ?? 1).toFixed(5)),
@@ -232,13 +254,13 @@ for (const { pet, model, path, source } of runtimePetModels) {
         mixer.stopAllAction();
         gltf.scene.traverse(object => { if (object.isMesh) { object.geometry.dispose(); for (const material of [].concat(object.material)) material.dispose(); } });
     } catch (error) { failures.push({ id: pet.id, assetId: model.visualId, runtimeUrl: model.url, error: error.message }); }
-    if ((report.length + failures.length) % 20 === 0) console.log('Audited ' + (report.length + failures.length) + '/160 pet identities');
+    if ((report.length + failures.length) % 20 === 0) console.log('Audited ' + (report.length + failures.length) + '/' + auditedPetModels.length + ' pet identities');
 }
 
 const summary = {
-    attemptedModels: runtimePetModels.length,
+    attemptedModels: auditedPetModels.length,
     auditedModels: report.length,
-    distinctRuntimeAssets: new Set(runtimePetModels.map(entry => entry.path)).size,
+    distinctRuntimeAssets: new Set(auditedPetModels.map(entry => entry.path)).size,
     failedModels: failures.length,
     deformationWarnings: deformationWarnings.length,
     petsWithDeformationWarnings: new Set(deformationWarnings.map(entry => entry.id)).size,

@@ -1,5 +1,6 @@
 import { HOLLOW_GATE_KEY_DUNGEON_KEY_COST, HOLLOW_GATE_KEY_FATE_SHARD_COST, HOLLOW_GATE_UNLOCK_COST, setHollowGateKeyDungeonKeyCost, setHollowGateKeyFateShardCost, setHollowGateUnlockCost } from "../lib/hollow-gate-prices";
 import { stringifyServerSavePayload } from "../lib/server-save-payload";
+import { versionPetArtUrl } from "../lib/pet-art-revision";
 import { adminIconOptions } from "../data/admin-icons";
 import { createCharacter } from "../lib/create-character";
 import { defaultAncientChestVn, defaultPetEncounterVn } from "../data/default-vn-events";
@@ -112,7 +113,7 @@ import {
 // avatar grid would render them as "no image" even though the art exists. Use
 // the bundled hero art as the grid's avatar fallback for exactly these ids.
 const EVO_TEMPLATE_IDS: ReadonlySet<string> = new Set(STARTER_EVOLUTIONS.map((p) => p.id));
-const evoTemplateArt = (id: string): string => (EVO_TEMPLATE_IDS.has(id) ? `/pet-evos/${id}.webp` : "");
+const evoTemplateArt = (id: string): string => (EVO_TEMPLATE_IDS.has(id) ? versionPetArtUrl(`/pet-evos/${id}.webp`) : "");
 const VILLAGE_ELDER_ROLE_LABELS = ["War Elder", "Trade Elder", "Training Elder"];
 
 

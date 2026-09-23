@@ -486,8 +486,12 @@ async function auditGlb(path, { requireRig, minimumAtlasBytes, minimumVertices =
     }
     invariant(usedMaterials.size === glb.json.materials.length, id + ': unused production material');
     if (id === 'starter-lightning-l') {
-        const expected = ['outline', 'gold', 'pupil', 'glint'].flatMap(part => ['eye-' + part + '-left', 'eye-' + part + '-right']).concat('nose').sort();
-        invariant(JSON.stringify(faceFeatures.sort()) === JSON.stringify(expected), id + ': missing reviewed eye/nose details');
+        if (glb.json.extras?.raijinSculptRevision === '20260923-multiview-sculpt-v1') {
+            invariant(primitives.length === 1 && faceFeatures.length === 0, id + ': sculpt must use one coherent textured surface');
+        } else {
+            const expected = ['outline', 'gold', 'pupil', 'glint'].flatMap(part => ['eye-' + part + '-left', 'eye-' + part + '-right']).concat('nose', 'snout-upper', 'jaw-lower').sort();
+            invariant(JSON.stringify(faceFeatures.sort()) === JSON.stringify(expected), id + ': missing reviewed eye/nose details');
+        }
     }
     const primitive = glb.json.meshes?.[0]?.primitives?.[0];
     invariant(Number.isInteger(primitive?.material), `${id}: mesh has no material`);

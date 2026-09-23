@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { visiblePoll } from "../lib/poll";
 import { serverNow } from "../lib/server-clock";
 import { activeCarriedPetIds, activeCarriedPets, activeTrainingPetIds, maxPets } from "../lib/entitlements";
+import "../styles/index/05-pet-yard.css";
 import "../styles/pet-skin.css";
 import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { Pet, PetExpeditionProvision, PetExpeditionReturnChoice, PetExpeditionRisk, PetExpeditionType, PetGrowthAllocation, PetTrainingType } from "../types/pet";
@@ -24,6 +25,7 @@ import {
     petHappinessTier,
 } from "../../../shared/pet-happiness";
 import { petCardImage, petPoseImage } from "../lib/pet-battle-anim";
+import { versionPetArtUrl } from "../lib/pet-art-revision";
 import { PET_PVE_DURABILITY, petCollarById, petCollarVisual, petCollars, petConsumableById, petConsumables, petExpeditionOptions, petFeedItems, petPveGear, petPveGearById, petPvpGear, petPvpGearById, petTrainingDurations, petTrainingOptions, petTraitDescriptions, ultraPetTraits } from "../data/pet-config";
 
 import { countItem, ownsItem } from "../lib/inventory";
@@ -735,8 +737,8 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
             // locally as a fallback for a server that predates that. image/bodyImage
             // are the universal portrait/sprite source, so this lights up the
             // cutscene reveal, the Pet Yard portrait, and the arena sprite at once.
-            const evoArt = data.pet.image ?? `/pet-evos/${petVisualId(data.pet)}.webp`;
-            const evolved: Pet = { ...data.pet, image: evoArt, bodyImage: data.pet.bodyImage ?? evoArt };
+            const evoArt = versionPetArtUrl(data.pet.image ?? `/pet-evos/${petVisualId(data.pet)}.webp`);
+            const evolved: Pet = { ...data.pet, image: evoArt, bodyImage: versionPetArtUrl(data.pet.bodyImage ?? evoArt) };
             // This write lands AFTER the /api/pet/evolve await, so a concurrent
             // regen/heartbeat/image-hydration setState could clobber it (reverting
             // currency or other live state). Rebuild from the LATEST `prev`: drop
