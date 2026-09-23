@@ -46,6 +46,10 @@ const CLAN_BOSS_PARTY_SWEEP_TICK_MS = 5 * 60_000;
 const TERRITORY_LIFECYCLE_TICK_MS = 5 * 60_000;
 const BATTLE_LAPSE_TICK_MS = 10 * 60_000; // F08 backstop: fights nobody came back to
 const SNAPSHOT_RECOVERY_TICK_MS = 60 * 60_000;
+const SNAPSHOT_RECOVERY_RETRY_MS = 5 * 60_000;
+// The snapshot pass has a five-minute budget. Keep crash ownership only a little
+// longer; an interrupted deploy must not suppress recovery for nearly an hour.
+const SNAPSHOT_RECOVERY_LEASE_SEC = 7 * 60;
 const TARGET_UTC_HOUR = 3; // 03:00 UTC — matches the retired Vercel schedule "0 3 * * *".
 // No serverless timeout here, so give the nightly pass a generous budget to
 // snapshot every player in one run rather than leaning on next-day catch-up.
@@ -78,6 +82,7 @@ let _clanBossPartySweepInterval: ReturnType<typeof setInterval> | null = null;
 let _territoryLifecycleInterval: ReturnType<typeof setInterval> | null = null;
 let _battleLapseInterval: ReturnType<typeof setInterval> | null = null;
 let _snapshotRecoveryInterval: ReturnType<typeof setInterval> | null = null;
+let _snapshotRecoveryRetryTimeout: ReturnType<typeof setTimeout> | null = null;
 let _settlementScanRunning = false;
 let _clanBossPartySweepRunning = false;
 let _territoryLifecycleRunning = false;
@@ -204,6 +209,15 @@ function msUntilNextTargetHour(now: number): number {
     return next.getTime() - now;
 }
 
+function scheduleSnapshotRecoveryRetry(): void {
+    if (_snapshotRecoveryRetryTimeout || process.env.DISABLE_SNAPSHOT_CRON === '1') return;
+    _snapshotRecoveryRetryTimeout = setTimeout(() => {
+        _snapshotRecoveryRetryTimeout = null;
+        void runBootSnapshotCatchUp();
+    }, SNAPSHOT_RECOVERY_RETRY_MS);
+    _snapshotRecoveryRetryTimeout.unref?.();
+}
+
 async function runBootSnapshotCatchUp(): Promise<void> {
     let staleMarkerExists = false;
     try {
@@ -219,10 +233,10 @@ async function runBootSnapshotCatchUp(): Promise<void> {
     }
 
     try {
-        // This guard serializes all boot/periodic recovery attempts across
-        // replicas and holds a 50m backoff after an incomplete result.
+        // This guard serializes recovery across replicas. Version the name to
+        // leave behind the old 50m lease held by a stopped deployment.
         const recovery = await withScheduledJobLease(
-            'snapshot-recovery',
+            'snapshot-recovery-v2',
             async () => {
                 const normal = await withScheduledJobLease(
                     'snapshot',
@@ -237,13 +251,23 @@ async function runBootSnapshotCatchUp(): Promise<void> {
                 if (!staleMarkerExists) return null;
                 return runSnapshotSaves(NIGHTLY_BUDGET_MS);
             },
-            { ttlSec: 50 * 60, holdUntilExpiryOnSuccess: true },
+            {
+                ttlSec: SNAPSHOT_RECOVERY_LEASE_SEC,
+                holdUntilExpiryOnSuccess: true,
+                holdUntilExpiryWhen: (result) => result?.ok === true,
+            },
         );
-        if (!recovery.acquired || !recovery.value) return;
+        if (!recovery.acquired || !recovery.value) {
+            console.log('[cron-scheduler] snapshot recovery deferred; retrying in 5 min.');
+            scheduleSnapshotRecoveryRetry();
+            return;
+        }
         const result = recovery.value;
-        console.log(`[cron-scheduler] boot catch-up: ${result.snapshotted} saved, ${result.skipped} skipped, ${result.failed.length} failed; ${result.ok ? 'healthy' : 'UNHEALTHY'}.`);
+        console.log(`[cron-scheduler] boot catch-up: ${result.snapshotted} saved, ${result.skipped} skipped, ${result.failed.length} failed (${result.processed}/${result.total}, ${result.elapsedMs}ms${result.truncated ? ', TRUNCATED' : ''}${result.emptyKeyspace ? ', EMPTY KEYSPACE' : ''}${result.writeOutage ? ', WRITE OUTAGE' : ''}${result.healthMarkerFailed ? ', MARKER WRITE FAILED' : ''}); ${result.ok ? 'healthy' : 'UNHEALTHY'}.`);
+        if (!result.ok) scheduleSnapshotRecoveryRetry();
     } catch (err) {
         console.error('[cron-scheduler] boot catch-up threw:', (err as Error).message);
+        scheduleSnapshotRecoveryRetry();
     }
 }
 
@@ -431,6 +455,7 @@ export function stopSnapshotCron(): void {
     if (_territoryLifecycleInterval) { clearInterval(_territoryLifecycleInterval); _territoryLifecycleInterval = null; }
     if (_battleLapseInterval) { clearInterval(_battleLapseInterval); _battleLapseInterval = null; }
     if (_snapshotRecoveryInterval) { clearInterval(_snapshotRecoveryInterval); _snapshotRecoveryInterval = null; }
+    if (_snapshotRecoveryRetryTimeout) { clearTimeout(_snapshotRecoveryRetryTimeout); _snapshotRecoveryRetryTimeout = null; }
     _settlementScanRunning = false;
     _clanBossPartySweepRunning = false;
     _territoryLifecycleRunning = false;
