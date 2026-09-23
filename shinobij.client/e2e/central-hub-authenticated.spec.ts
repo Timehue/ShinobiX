@@ -19,6 +19,8 @@ async function installAuthenticatedApi(page: Page) {
     let save: SavePayload | null = null;
     let saveVersion = 0;
     let failNextAwakeningSave = false;
+    let ignoreNextAwakeningSave = false;
+    const materialBalances = { boneCharms: 500, auraStones: 500, mythicSeals: 500 };
 
     await page.addInitScript(() => {
         for (let index = localStorage.length - 1; index >= 0; index -= 1) {
@@ -60,6 +62,15 @@ async function installAuthenticatedApi(page: Page) {
                     failNextAwakeningSave = false;
                     return json(route, { error: "Injected persistence failure" }, 500);
                 }
+                if (ignoreNextAwakeningSave && incomingBloodlineCount > savedBloodlineCount) {
+                    ignoreNextAwakeningSave = false;
+                    saveVersion += 1;
+                    const retained = (save?.savedBloodlines as Array<{ id: string; rank: string }> | undefined) ?? [];
+                    return json(route, { ok: true, _saveVersion: saveVersion,
+                        savedBloodlineIds: retained.map((bloodline) => bloodline.id),
+                        savedBloodlineRanks: Object.fromEntries(retained.map((bloodline) => [bloodline.id, bloodline.rank])),
+                        equippedBloodlineId: save?.character?.equippedBloodlineId ?? null });
+                }
                 saveVersion += 1;
                 save = {
                     ...incoming,
@@ -68,9 +79,7 @@ async function installAuthenticatedApi(page: Page) {
                         onboardingStep: "done",
                         ryo: 1_000_000,
                         fateShards: 500,
-                        boneCharms: 500,
-                        auraStones: 500,
-                        mythicSeals: 500,
+                        ...materialBalances,
                         element: "Water",
                         elements: ["Water", "Wind"],
                         inventory: [
@@ -79,7 +88,13 @@ async function installAuthenticatedApi(page: Page) {
                         ],
                     },
                 };
-                return json(route, { ok: true, _saveVersion: saveVersion });
+                const retained = (save.savedBloodlines as Array<{ id: string; rank: string }> | undefined) ?? [];
+                return json(route, { ok: true, _saveVersion: saveVersion,
+                    ...(request.headers()["x-bloodline-equip-intent"] ? {
+                        savedBloodlineIds: retained.map((bloodline) => bloodline.id),
+                        savedBloodlineRanks: Object.fromEntries(retained.map((bloodline) => [bloodline.id, bloodline.rank])),
+                        equippedBloodlineId: save.character?.equippedBloodlineId ?? null,
+                    } : {}) });
             }
         }
 
@@ -110,6 +125,11 @@ async function installAuthenticatedApi(page: Page) {
         getSave: () => save,
         getSaveVersion: () => saveVersion,
         failNextAwakeningSave: () => { failNextAwakeningSave = true; },
+        ignoreNextAwakeningSave: () => { ignoreNextAwakeningSave = true; },
+        setMaterialBalance: (currency: keyof typeof materialBalances, balance: number) => {
+            materialBalances[currency] = balance;
+            if (save?.character) save.character[currency] = balance;
+        },
     };
 }
 
@@ -341,6 +361,12 @@ for (const contract of bloodlineAwakeningContracts) {
             await expect(saveButton).toBeEnabled();
             expect(api.getSave()?.savedBloodlines).toEqual(preAwakeningBloodlines);
             expect((api.getSave()?.character as Record<string, unknown>).equippedBloodlineId).toBe(preAwakeningCharacter.equippedBloodlineId);
+            api.ignoreNextAwakeningSave();
+            await saveButton.click();
+            const silentlyRejected = page.getByRole("alertdialog", { name: "Notice" });
+            await expect(silentlyRejected).toContainText("was not saved");
+            await silentlyRejected.getByRole("button", { name: "OK" }).click();
+            expect(api.getSave()?.savedBloodlines).toEqual(preAwakeningBloodlines);
         }
         await saveButton.click();
 
@@ -366,6 +392,32 @@ for (const contract of bloodlineAwakeningContracts) {
         }
     });
 }
+
+test("a paid ritual can be resumed after refresh with no materials left", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "chromium-desktop", "one desktop recovery flow is sufficient");
+    const api = await installAuthenticatedApi(page);
+    await createAccount(page);
+    await expect.poll(api.hasSave).toBe(true);
+    api.setMaterialBalance("auraStones", 0);
+    await returnToCentral(page);
+    let resumeOnly = false;
+    await page.route("**/api/bloodlines/forge", async (route) => {
+        const body = route.request().postDataJSON() as { rank?: string; resumeOnly?: boolean };
+        resumeOnly = body.rank === "A Rank" && body.resumeOnly === true;
+        return json(route, { ok: true, rank: "A Rank", currency: "auraStones", cost: 0,
+            balance: 0, resumed: true, character: api.getSave()?.character,
+            _saveVersion: api.getSaveVersion() + 1 });
+    });
+    await page.locator(".central-card").filter({ hasText: "Awakening Stone" }).click();
+    const card = page.getByRole("dialog", { name: "Awakening Stone" }).locator(".aw-forge-card.rank-a");
+    const resume = card.locator(".aw-forge-btn");
+    await expect(resume).toContainText("Resume paid ritual");
+    await expect(resume).toBeEnabled();
+    await resume.click();
+    await expect.poll(() => resumeOnly).toBe(true);
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "bloodlineMaker");
+    await expect(page.getByText("Ritual attuned")).toBeVisible();
+});
 
 test("Central premium destinations stay within the mobile viewport", async ({ page }, testInfo) => {
     test.setTimeout(120_000);

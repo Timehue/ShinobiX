@@ -156,7 +156,9 @@ describe('executable multi-engine runtime registry', () => {
     // Sunken Court campaign, riding the existing Showdown routes with its own
     // durable progression record (a conscious addition, built and registered
     // together).
-    assert.equal(ids.length, 64, 'The corrected inventory must retain the independently pinned 64-row model.');
+    // 65 as of 2026-09-22: wild-pet binding entered with its own sealed
+    // Explore encounter, Showdown turns, and server-settled capture.
+    assert.equal(ids.length, 65, 'The corrected inventory must retain the independently pinned 65-row model.');
     assert.equal(new Set(ids).size, ids.length, 'Runtime mode ids must be unique.');
     assert.equal(new Set(labels).size, labels.length, 'Runtime mode labels must be unique.');
     assert.equal(new Set(expectedIds).size, expectedIds.length, 'Independent expected mode ids must be unique.');

@@ -360,6 +360,9 @@ type ItemLike = {
     rarity?: string;
     slot?: string;
     weaponEp?: number;
+    weaponElement?: string;
+    weaponEffect?: string;
+    weaponTags?: Array<{ name: string; percent?: number }>;
     weaponRange?: number;
     apCost?: number;
     restoreChakra?: number;
@@ -1818,6 +1821,9 @@ export function BattleTowerFight({
                 : Number(selJutsu?.effectPower ?? 0);
         const discipline = mode === "attack" ? String(myActor.character.specialty ?? "Taijutsu")
             : mode === "weapon" ? "Bukijutsu" : String(selJutsu?.type ?? "Ninjutsu");
+        const pierce = mode === "weapon"
+            ? armedWeapon?.item.weaponEffect === "Pierce" || armedWeapon?.item.weaponTags?.some(tag => tag.name === "Pierce") === true
+            : mode === "jutsu" && selJutsu?.tags?.some(tag => tag.name === "Pierce") === true;
         const estimate = estimateTowerActionDamage({
             attacker: myActor,
             target,
@@ -1825,6 +1831,10 @@ export function BattleTowerFight({
             type: discipline,
             actionId: mode === "attack" ? "basic-attack" : mode === "weapon" ? "weapon" : selJutsu?.id,
             biome: session.map.biome,
+            round: session.round,
+            ap: mode === "weapon" ? armedWeapon?.item.apCost ?? 40 : mode === "jutsu" ? selJutsu?.ap : 40,
+            pierce,
+            weaponElement: mode === "weapon" ? armedWeapon?.item.weaponElement : undefined,
         });
         if (estimate.rawDamage > 0) metrics.push(`≈${estimate.rawDamage.toLocaleString()} damage`);
         if (estimate.shieldAbsorbed > 0) metrics.push(`${estimate.shieldAbsorbed.toLocaleString()} into guard`);

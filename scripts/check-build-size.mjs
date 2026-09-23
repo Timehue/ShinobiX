@@ -728,7 +728,11 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // independent unchanged gates. The measured ceiling leaves 16,448 B of total
 // product-code headroom; per-chunk, entry, startup, CSS and gzip limits stay
 // unchanged.
-const TOTAL_JS_CSS_FAIL_BYTES = 8_780_000;
+// 2026-09-23 WILD BINDING: the production Linux image measured 8,825,087 B
+// after adding the encounter battle, guided capture, seal artwork UI and
+// effects. 8.85 MB leaves 24,913 B of measured headroom; startup,
+// per-chunk, CSS and gzip gates stay unchanged.
+const TOTAL_JS_CSS_FAIL_BYTES = 8_850_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

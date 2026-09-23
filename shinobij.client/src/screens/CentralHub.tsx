@@ -580,21 +580,21 @@ export function CentralHub({
         void rollAwakening(AWAKENING_PAID_BOTH_ID);
     }
 
-    async function awakeningCreateBloodline(rank: Rank, materialKey: "boneCharms" | "auraStones" | "mythicSeals", cost: number) {
+    async function awakeningCreateBloodline(rank: Rank, materialKey: "boneCharms" | "auraStones" | "mythicSeals", cost: number, resumeOnly = false) {
         if (bloodlineForgeBusy) return;
-        if ((character[materialKey] ?? 0) < cost) {
+        if (!resumeOnly && (character[materialKey] ?? 0) < cost) {
             const label = materialKey === "boneCharms" ? "Bone Charms" : materialKey === "auraStones" ? "Aura Stones" : "Mythic Seals";
             setAwakeningMsg(`❌ Not enough ${label} — you need ${cost}.`);
             return;
         }
         setBloodlineForgeBusy(true);
         try {
-            const result = await purchaseBloodlineForge(character.name, rank);
+            const result = await purchaseBloodlineForge(character.name, rank, resumeOnly);
             if (!result.ok || !result.character) throw new Error(result.error || "The Bloodline Awakening ritual rejected this purchase.");
             if (result.rank !== rank) throw new Error("The Bloodline Awakening ritual returned a mismatched grade. No builder was opened.");
             if (!commitServerCharacter(result.character, result._saveVersion)) return;
             setShowAwakening(false);
-            setCentralLog(`${rank} Bloodline Awakening attuned. Finish shaping your legacy in Bloodline Awakening.`);
+            setCentralLog(`${rank} Bloodline Awakening ${result.resumed ? "resumed" : "attuned"}. Finish shaping your legacy in Bloodline Awakening.`);
             onOpenBloodlineMaker(rank, getCharacterElements(result.character)[0] ?? "");
         } catch (error) {
             setAwakeningMsg(`❌ ${error instanceof Error ? error.message : "Bloodline Awakening is unavailable."}`);
@@ -1378,11 +1378,11 @@ export function CentralHub({
                                             </div>
                                             <button
                                                 className="aw-forge-btn"
-                                                onClick={() => awakeningCreateBloodline(tier.rank, tier.materialKey, 100)}
-                                                disabled={!isReady || bloodlineForgeBusy}
+                                                onClick={() => awakeningCreateBloodline(tier.rank, tier.materialKey, 100, !isReady)}
+                                                disabled={bloodlineForgeBusy}
                                             >
-                                                <span>{bloodlineForgeBusy && isReady ? "Attuning..." : `Awaken ${tier.rank}`}</span>
-                                                <small>{isReady ? "Enter Bloodline Awakening" : `Collect ${remaining} more`}</small>
+                                                <span>{bloodlineForgeBusy ? "Attuning..." : isReady ? `Awaken ${tier.rank}` : "Resume paid ritual"}</span>
+                                                <small>{isReady ? "Enter Bloodline Awakening" : `Collect ${remaining} more to begin a new ritual`}</small>
                                                 <b aria-hidden="true">→</b>
                                             </button>
                                         </article>
@@ -1407,10 +1407,11 @@ export function CentralHub({
                 // consumables clamp the batch to the carry cap so crafting can't
                 // exceed what the shop lets you hold; affordability clamps the rest.
                 async function craftRecipe(
-                    recipe: { name: string; cost: number; itemId: string; per?: number },
+                    recipe: { name: string; cost: number; itemId: string; per?: number; levelReq?: number },
                     qty: number,
                 ) {
                     if (!requireServerSettlement("creatorItemCraft")) return;
+                    if (character.level < (recipe.levelReq ?? 1)) return alert(`Reach level ${recipe.levelReq} to craft ${recipe.name}.`);
                     const affordable = Math.floor(totalPts / recipe.cost);
                     if (affordable < 1) return alert(`Not enough materials. Need ${recipe.cost} craft points, you have ${totalPts}.`);
                     let quantity = Math.min(Math.max(1, Math.floor(qty)), affordable);
@@ -1432,9 +1433,10 @@ export function CentralHub({
                     }
                 }
 
-                const recipes: Array<{ name: string; cost: number; desc: string; itemId: string; per?: number }> = [
+                const recipes: Array<{ name: string; cost: number; desc: string; itemId: string; per?: number; levelReq?: number }> = [
                     { name: "Pet Treats", cost: 50, desc: "1× Treats (+100 pet XP)", itemId: "pet-treat", per: 1 },
                     { name: "Elemental Treats", cost: 100, desc: "1× Elemental Treats (+250 pet XP)", itemId: "elemental-pet-treat", per: 1 },
+                    { name: "Master Beast Seal", cost: 450, desc: "1× Master Beast Seal · bind wild pets at 65% Resolve or lower · level 30", itemId: "beast-seal-master", per: 1, levelReq: 30 },
                     { name: "Aura Dust", cost: 50, desc: "+50 Aura Dust", itemId: "currency:aura-dust" },
                     { name: "Bone Charm", cost: 1000, desc: "+1 Bone Charm", itemId: "currency:bone-charm" },
                     // Thrown weapons
@@ -1710,8 +1712,8 @@ export function CentralHub({
                                                 <div className="cf-meter-fill" style={{ width: `${fillPct}%` }} />
                                             </div>
                                             <small className="cf-points">{Math.min(totalPts, batchCost)}/{batchCost} pts</small>
-                                            <button onClick={() => craftRecipe(recipe, craftQty)} disabled={!canAffordOne || atCap}>
-                                                {atCap ? "At carry limit" : `Craft ×${craftQty}`}
+                                            <button onClick={() => craftRecipe(recipe, craftQty)} disabled={!canAffordOne || atCap || character.level < (recipe.levelReq ?? 1)}>
+                                                {character.level < (recipe.levelReq ?? 1) ? `Level ${recipe.levelReq} required` : atCap ? "At carry limit" : `Craft ×${craftQty}`}
                                             </button>
                                         </div>
                                     );

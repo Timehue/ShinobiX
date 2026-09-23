@@ -22,7 +22,7 @@ import { kv } from '../_storage.js';
 import { withKvLock } from '../_lock.js';
 import { safeName } from '../_utils.js';
 import { DEFAULT_RANKED_RATING } from '../_ranked-rating.js';
-import { ATTACKABLE_MIN_LEVEL, isBelowAttackableFloor } from '../_realtime/presence-gating.js';
+import { rankedLevelEligible, RANKED_MIN_LEVEL } from '../../shared/ranked-eligibility.js';
 import { claimTowerBattleLeases, releaseTowerBattleLeases, towerBattleLeaseForMember } from '../towers/_battle-lease.js';
 import {
     createTowerPvpMatch,
@@ -170,12 +170,12 @@ async function ratingFor(slug: string): Promise<{ rating: number; level: number;
     };
 }
 
-/** Newcomer protection, read from the authoritative save exactly as 1v1 ranked does. */
+/** Ranked-only level gate, read from the authoritative save. */
 async function admissible(slug: string): Promise<Ranked2v2Result<{ rating: number; displayName: string }>> {
     const profile = await ratingFor(slug);
     if (!profile) return fail(404, 'save-not-found', 'That shinobi has no save.');
-    if (isBelowAttackableFloor(profile.level)) {
-        return fail(403, 'ranked-level-locked', `Both partners must reach level ${ATTACKABLE_MIN_LEVEL} to enter ranked.`);
+    if (!rankedLevelEligible(profile.level)) {
+        return fail(403, 'ranked-level-locked', `Both partners must reach level ${RANKED_MIN_LEVEL} to enter ranked.`);
     }
     return { ok: true, value: { rating: profile.rating, displayName: profile.displayName } };
 }
@@ -276,7 +276,7 @@ async function publishRanked2v2Match(
     // Consumables ON via a fixed neutral kit — a rated fight costs what a
     // rated fight costs, but never depends on who happened to stock potions.
     const seeds = await Promise.all(members.map(slug => loadTowerPvpFighter(slug, { consumables: true, rankedFormat: true })));
-    if (seeds.some(seed => !seed)) return null;
+    if (seeds.some(seed => !seed || !rankedLevelEligible(seed.character.level))) return null;
 
     const matchId = `tpvp-${randomUUID().replaceAll('-', '')}`;
     if (!TOWER_PVP_ID.test(matchId)) throw new Error('Invalid generated ranked 2v2 match ID.');
@@ -325,6 +325,13 @@ export async function queueRanked2v2(actorInput: string): Promise<Ranked2v2Resul
     if (!duo) return fail(404, 'no-duo', 'Pair with a partner before queueing.');
     if (!duoIsQueueable(duo)) return fail(409, 'duo-incomplete', 'Your partner has not accepted yet.');
     if (duo.status === 'matched' && duo.matchId) return { ok: true, value: { state: 'matched', matchId: duo.matchId } };
+
+    // A duo can outlive a save restore or level correction. Recheck both
+    // partners when they actually request ranked admission.
+    for (const member of duo.members) {
+        const admitted = await admissible(member.slug);
+        if (!admitted.ok) return admitted;
+    }
 
     // A member already in ANY other battle cannot be pulled into a rated match.
     for (const member of duo.members) {

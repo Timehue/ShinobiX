@@ -424,6 +424,42 @@ test('an official draw closes the accepted Kage challenge as a durable defense b
     assert.equal(ack.out.statusCode, 200);
 });
 
+test('real draws return each settled save and its current version on first claim and retry', async () => {
+    const now = Date.now();
+    const battleId = 'pvp-draw-vitals-snapshot';
+    const names = ['drawsnapshotone', 'drawsnapshottwo'];
+    for (const name of names) await kv.set(`save:${name}`, {
+        _saveVersion: 20,
+        character: { name, hp: 100, maxHp: 100, chakra: 100, maxChakra: 100,
+            stamina: 100, maxStamina: 100, inventory: [], itemStacks: [] },
+    });
+    await kv.set(`pvp:${battleId}`, {
+        battleId, status: 'done', winner: 'draw', rewardAuthority: 'world', continuousVitals: true,
+        p1: { name: names[0], hp: 70, chakra: 40, stamina: 60, character: { name: names[0] } },
+        p2: { name: names[1], hp: 30, chakra: 60, stamina: 80, character: { name: names[1] } },
+        joined: { p1: true, p2: true }, realFighters: { p1: true, p2: true },
+        round: 4, actionsThisTurn: 0, itemsUsed: { p1: {}, p2: {} }, log: [],
+        createdAt: now - 1000, endedAt: now,
+    });
+    for (const name of names) {
+        const first = response();
+        await handler(request(name, battleId, 'draw'), first.res);
+        assert.equal(first.out.statusCode, 200);
+        const save = await kv.get<Record<string, any>>(`save:${name}`);
+        assert.deepEqual(first.out.body?.character, save?.character);
+        assert.equal(first.out.body?._saveVersion, save?._saveVersion);
+        assert.ok(Number(first.out.body?._saveVersion) > 20);
+        const replay = response();
+        await handler(request(name, battleId, 'draw'), replay.res);
+        assert.equal(replay.out.statusCode, 200);
+        assert.deepEqual(replay.out.body?.character, save?.character);
+        assert.equal(replay.out.body?._saveVersion, save?._saveVersion);
+        const ack = response();
+        await handler(request(name, battleId, 'draw', true), ack.res);
+        assert.equal(ack.out.statusCode, 200);
+    }
+});
+
 test('a transient Vanguard saga failure keeps completion pending and retry credits exactly once', async () => {
     const now = Date.now();
     const winner = 'strictvanguardwinner';

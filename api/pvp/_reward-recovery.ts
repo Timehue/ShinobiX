@@ -1,4 +1,6 @@
 import { isDeepStrictEqual } from 'node:util';
+import { isCancelledUnstartedPvpDuel } from '../../shared/pvp-cancellation.js';
+import { releasePvpTerminalPresence } from './_terminal-presence.js';
 import type { KvLike } from '../_storage.js';
 import type { PvpSession } from './session.js';
 import { pvpRewardCompletionStatus } from './_reward-completion.js';
@@ -143,6 +145,18 @@ export async function ensurePvpTerminalRecoveryPublication(
     session: PvpSession,
 ): Promise<PvpSession> {
     const terminal = await sealPvpRewardRecoverySnapshot(store, battleId, session);
+    await releasePvpTerminalPresence(store, terminal);
+    if (isCancelledUnstartedPvpDuel(terminal)) {
+        // Cancellation has no browser continuation. Release both sides here,
+        // including the unjoined target, so moves, polls, and recovery retries
+        // all repair a crash after the terminal CAS without touching a save.
+        for (const role of ['p1', 'p2'] as const) {
+            if (terminal.realFighters?.[role] === false) continue;
+            const name = terminal[role].name;
+            await clearPvpPendingSessionPointer(store, name, battleId, terminal.createdAt, role);
+        }
+        return terminal;
+    }
     for (const pointer of pendingPointersForSession(terminal)) {
         const completion = pvpRewardCompletionStatus(await store.get<unknown>(
             `pvp:rewarded:${pointer.playerName}:${battleId}`,

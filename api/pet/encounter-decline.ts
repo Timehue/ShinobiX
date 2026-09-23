@@ -44,6 +44,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return { replayed: true };
             }
             const encounter = await kv.get<Record<string, unknown>>(`pet-encounter:${playerName}:${token}`);
+            if (encounter?.battleRequired === true && await kv.get(`pet:wild-binding:${playerName}:${token}`)) {
+                return { error: 'Finish or forfeit the active wild battle.' };
+            }
             if (!encounter || safeName(String(encounter.playerName ?? '')) !== playerName
                 || active?.outcome !== 'hit' || active.token !== token) {
                 return { error: 'invalid-or-spent-encounter' };

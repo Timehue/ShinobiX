@@ -12,6 +12,30 @@ test('forge purchase debits the rank-specific authoritative material and seals a
     assert.equal(result.character.mythicSeals, 999);
     assert.deepEqual(result.entitlement, { id, rank: 'A Rank', issuedAt: 12345 });
     assert.deepEqual(result.pending, [result.entitlement]);
+    assert.equal(result.resumed, false);
+});
+
+test('a pending paid forge resumes after refresh without another material debit', () => {
+    const first = applyBloodlineForgePurchase({ auraStones: 140 }, [], 'A Rank', id, 12345);
+    assert.equal(first.ok, true);
+    if (!first.ok) return;
+    const resumed = applyBloodlineForgePurchase(first.character, first.pending, 'A Rank',
+        '12345678-1234-1234-1234-123456789abd', 12346);
+    assert.equal(resumed.ok, true);
+    if (!resumed.ok) return;
+    assert.equal(resumed.resumed, true);
+    assert.equal(resumed.cost, 0);
+    assert.equal(resumed.balance, 40);
+    assert.equal(resumed.character.auraStones, 40);
+    assert.deepEqual(resumed.pending, first.pending);
+    assert.deepEqual(resumed.entitlement, first.entitlement);
+});
+
+test('resume-only cannot start or charge for a new ritual', () => {
+    assert.deepEqual(
+        applyBloodlineForgePurchase({ auraStones: 140 }, [], 'A Rank', id, 12345, true),
+        { ok: false, status: 409, error: 'No paid Bloodline Awakening is pending for this rank.' },
+    );
 });
 
 test('forge purchase fails closed on insufficient balance or invalid rank', () => {

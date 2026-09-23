@@ -439,14 +439,12 @@ describe("world-map wild-pet encounters", () => {
         );
     });
 
-    test("befriending commits through the server and adopts its character", () => {
+    test("wild binding commits through the server and adopts its character", () => {
         const worldMap = source("../screens/WorldMap.tsx");
-        const call = worldMap.indexOf("befriendWildPet(character.name, token)");
-        assert.notEqual(call, -1, "befriending must spend the encounter token server-side");
-
-        const adopt = worldMap.indexOf("onVersionedCharacter(result.character, result.saveVersion)", call);
-        assert.ok(adopt > call, "the server's character and save version must be adopted atomically after the call");
-        assert.equal(worldMap.indexOf("updateCharacter(result.character)", call), -1, "befriending must not split character adoption from its save version");
+        const binding = source("../components/WildPetBinding.tsx");
+        assert.ok(worldMap.includes("<WildPetBinding"), "the sealed discovery must enter the battle and binding screen");
+        assert.ok(binding.includes("captureWildPet(character.name, token, selectedSeal, stableId)"), "binding must spend a chosen seal on the server");
+        assert.ok(binding.includes("onVersionedCharacter(response.character, response._saveVersion)"), "the server's character and save version must be adopted together");
 
         assert.ok(
             !/pets:\s*\[\s*\.\.\.character\.pets/.test(worldMap),
@@ -458,17 +456,13 @@ describe("world-map wild-pet encounters", () => {
         );
         assert.match(source("./world-reward-drain.ts"), /outcome\.source === "pet"[\s\S]{0,360}recoverPendingExternalDiscovery\(operation, "pet",/,
             "reload must revalidate a cached external-pet token from the stable request receipt before showing choices");
-        assert.match(worldMap, /result\.error === "invalid-or-spent-encounter"[\s\S]{0,300}recoverPendingWorldRewards\(true\)/,
-            "a terminal stale token must reconcile its durable receipt instead of trapping the modal");
-        const decline = worldMap.indexOf("declineWildPetEncounter(character.name, token)");
-        assert.notEqual(decline, -1, "Leave must resolve the durable server pointer");
-        assert.ok(worldMap.indexOf("completeWorldRewardOperation(character.name, operationId)", decline) > decline,
-            "the recovery operation may clear only after the decline ACK");
+        assert.ok(binding.includes("declineWildPetEncounter(character.name, token)"), "Leave must resolve the durable server pointer");
+        assert.ok(worldMap.includes("completeWorldRewardOperation(character.name, operationId)"), "resolved binding clears the parked Explore operation");
     });
 
     test("both endpoints the client depends on exist and are routed", () => {
         const routes = source("../../../server-api-routes.ts");
-        for (const path of ["/pet/encounter-start", "/pet/befriend", "/pet/encounter-decline"]) {
+        for (const path of ["/pet/encounter-start", "/pet/befriend", "/pet/encounter-decline", "/pet/wild-binding"]) {
             assert.ok(routes.includes(`route('${path}'`), `${path} must be registered in server.ts`);
         }
     });

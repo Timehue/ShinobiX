@@ -109,6 +109,13 @@ describe('player ranked terminal journal', () => {
         assert.equal(recovered?.terminal.fingerprint, published.terminal.fingerprint);
         const settled = await settlePlayerRankedJournal(store, MATCH, NOW + 4);
         assert.equal(settled.journal.state, 'completed');
+        assert.equal(await getPlayerRankedAdmission(store, MATCH), null);
+        const rematchId = 'player-ranked-12345678-1234-4123-8123-1234567890ac';
+        const rematch = await mintPlayerRankedMatchTokenWithStore(store, {
+            a: 'alice', b: 'bob', aLevel: 25, bLevel: 25, aRating: 1012, bRating: 988,
+            now: NOW + 5, matchId: rematchId,
+        });
+        assert.equal(rematch.matchId, rematchId);
         assert.equal(char(await store.get('save:alice')).rankedRating, 1012);
         assert.equal(char(await store.get('save:bob')).rankedRating, 988);
     });

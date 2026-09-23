@@ -34,7 +34,7 @@ Each immediate action is deterministic. Today excludes the same screen/section a
 | --- | --- |
 | Story | `STORY_LEVELS`, published village map and `storyBossEligibility`; unknown progress/village becomes a Logbook review |
 | Progression | Existing `progressionHoldForCharacter`; finished training and growth remain higher priorities |
-| Ranked | `ATTACKABLE_MIN_LEVEL`, rollout predicate, parsed season admission authority/current season, existing incapacitation rule; no invented loadout/power requirement |
+| Ranked | `RANKED_MIN_LEVEL`, rollout predicate, parsed season admission authority/current season, existing incapacitation rule; no invented loadout/power requirement |
 | Clan | Existing week, progress, attempts, party and sector helpers; guidance uses a read-only party lookup so stale pointers are not cleaned up by a GET |
 | Tower | Published `FLOOR_CATALOG`, `storyTowerEligibility`, cleared-floor and fee helpers, mode flag; lobby still verifies daily admission/squad rules |
 | Companions | `activeCarriedPets` and the exact extracted Showdown busy predicate; practice does not borrow unrelated defense/PvE assignment locks |

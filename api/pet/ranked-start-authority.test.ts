@@ -134,6 +134,26 @@ test('a new ranked pairing seals four owned pets per side for field and reserve 
     assert.equal((proof?.aPet as { id: string }).id, `${a}-2`, 'a request body cannot replace the selected lead');
 });
 
+test('a paired level-10 player cannot start a ranked pet match until level 11', async () => {
+    const a = 'rankedstartflooralpha';
+    const b = 'rankedstartfloorbravo';
+    for (const [name, level] of [[a, 11], [b, 10]] as const) {
+        const pet = { id: `${name}-pet`, name: 'Test Pet', rarity: 'standard', level: 20,
+            hp: 300, attack: 60, defense: 40, speed: 35,
+            jutsus: [{ name: 'Strike', power: 50, cooldown: 1, kind: 'damage' }] };
+        await kv.set(`save:${name}`, { _saveVersion: 1, character: { name, level, pets: [pet], activePetId: pet.id } });
+    }
+    await queuePair(a, b);
+    const blocked = await post(startHandler, a, { opponentName: b, petId: `${a}-pet` });
+    assert.equal(blocked.statusCode, 403);
+    assert.equal(blocked.body?.errorCode, 'ranked-level-locked');
+    assert.match(String(blocked.body?.error), /level 11/);
+    const saved = await kv.get<Record<string, unknown>>(`save:${b}`);
+    await kv.set(`save:${b}`, { ...saved, character: { ...(saved?.character as Record<string, unknown>), level: 11 } });
+    const admitted = await post(startHandler, a, { opponentName: b, petId: `${a}-pet` });
+    assert.equal(admitted.statusCode, 200);
+});
+
 after(() => {
     delete process.env.SHINOBIX_QA_MEMORY_KV;
     delete process.env.SESSION_SECRET;

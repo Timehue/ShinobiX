@@ -101,3 +101,46 @@ test("target forecast accounts for target shield before HP damage", () => {
     assert.equal(result.shieldAbsorbed, 150);
     assert.equal(result.hpDamage, result.rawDamage - 150);
 });
+
+test("weapon forecast includes the ordinary weapon swing damage bonus", () => {
+    const stats = { strength: 100, intelligence: 100, bukijutsuOffense: 100, bukijutsuDefense: 100 };
+    const input = {
+        attacker: { hp: 1000, maxHp: 1000, character: { stats, jutsuMastery: [{ jutsuId: "ordinary-jutsu", level: 50 }] } },
+        target: { hp: 1000, maxHp: 1000, character: { stats } },
+        effectPower: 27,
+        type: "Bukijutsu",
+    };
+    const ordinary = estimateTowerActionDamage({ ...input, actionId: "ordinary-jutsu" });
+    const weapon = estimateTowerActionDamage({ ...input, actionId: "weapon" });
+    assert.equal(weapon.rawDamage, Math.floor(ordinary.rawDamage * 1.3));
+});
+
+test("weapon forecast honors element ownership and canonical combat items", () => {
+    const stats = { strength: 100, intelligence: 100, bukijutsuOffense: 100, bukijutsuDefense: 100 };
+    const attacker = { hp: 1000, maxHp: 1000, character: { stats, bloodlineMult: 1.5, elements: ["Fire"] } };
+    const target = { hp: 1000, maxHp: 1000, character: { stats } };
+    const input = { attacker, target, effectPower: 38, type: "Bukijutsu", actionId: "weapon", round: 2 };
+    const neutral = estimateTowerActionDamage(input);
+    const fire = estimateTowerActionDamage({ ...input, weaponElement: "Fire" });
+    assert.ok(fire.rawDamage > neutral.rawDamage, "only an owned elemental weapon gets bloodline damage");
+    const pill = estimateTowerActionDamage({
+        ...input,
+        attacker: { ...attacker, statuses: [{ name: "Increase Damage Given", source: "item-attack-pill", percent: 15 }] },
+    });
+    assert.ok(Math.abs(pill.rawDamage - Math.floor(neutral.rawDamage * 1.15)) <= 1);
+    const guarded = estimateTowerActionDamage({
+        ...input,
+        target: { ...target, statuses: [{ name: "Decrease Damage Taken", source: "item-defense-pill", percent: 15 }] },
+    });
+    assert.ok(Math.abs(guarded.rawDamage - Math.floor(neutral.rawDamage * 0.85)) <= 1);
+    const smokeAttacker = { ...attacker, statuses: [{ name: "Decrease Damage Given", source: "item-smoke-bomb", percent: 100, activeRound: 2 }] };
+    const smoked = estimateTowerActionDamage({ ...input, attacker: smokeAttacker });
+    assert.equal(smoked.rawDamage, 0);
+    assert.equal(estimateTowerActionDamage({ ...input, round: 1, attacker: smokeAttacker }).rawDamage, neutral.rawDamage);
+    const pierce = estimateTowerActionDamage({ ...input, pierce: true, attacker: smokeAttacker });
+    assert.ok(pierce.rawDamage > 0, "Pierce bypasses Smoke Bomb");
+    assert.equal(pierce.shieldAbsorbed, 0);
+    const pillAttacker = { ...attacker, statuses: [{ name: "Increase Damage Given", source: "item-attack-pill", percent: 15 }] };
+    const pillTarget = { ...target, statuses: [{ name: "Decrease Damage Taken", source: "item-defense-pill", percent: 15 }] };
+    assert.equal(estimateTowerActionDamage({ ...input, pierce: true, weaponElement: "Fire", attacker: pillAttacker, target: pillTarget }).rawDamage, pierce.rawDamage);
+});

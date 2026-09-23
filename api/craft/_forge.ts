@@ -15,8 +15,9 @@ export const CRAFT_POINTS: Record<string, number> = {
     'weekly-boss-core': 150, 'dungeon-legendary-relic': 200, 'warforged-relic': 250, 'veil-of-the-hollow': 250,
 };
 
-const SUPPLY_RECIPES: Record<string, { points: number; count?: number; currency?: 'auraDust' | 'boneCharms'; amount?: number }> = {
+const SUPPLY_RECIPES: Record<string, { points: number; count?: number; currency?: 'auraDust' | 'boneCharms'; amount?: number; levelReq?: number }> = {
     'pet-treat': { points: 50 }, 'elemental-pet-treat': { points: 100 },
+    'beast-seal-master': { points: 450, levelReq: 30 },
     'currency:aura-dust': { points: 50, currency: 'auraDust', amount: 50 },
     'currency:bone-charm': { points: 1000, currency: 'boneCharms', amount: 1 },
     'thrown-shuriken': { points: 15, count: 3 }, 'thrown-senbon': { points: 30 },
@@ -111,7 +112,7 @@ export function applyForge(character: Record<string, unknown>, kind: CraftKind, 
         return addOwned(removeOwned(character, 'dungeon-legendary-fragment', 5), recipeId, 1, true);
     }
     if (kind === 'supply') {
-        const recipe = SUPPLY_RECIPES[recipeId]; if (!recipe) return null;
+        const recipe = SUPPLY_RECIPES[recipeId]; if (!recipe || count(character.level) < (recipe.levelReq ?? 1)) return null;
         const paid = consumeCraftPoints(character, recipe.points * quantity); if (!paid) return null;
         if (recipe.currency) return { ...paid, [recipe.currency]: count(paid[recipe.currency]) + (recipe.amount ?? 0) * quantity };
         return addOwned(paid, recipeId, (recipe.count ?? 1) * quantity, true);
