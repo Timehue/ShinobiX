@@ -68,11 +68,25 @@ describe('ranked 2v2 pairing', { concurrency: false }, () => {
         assert.equal((await mod.inviteRanked2v2Partner({ actor: B1, target: A2 })).ok, false, 'cannot poach');
     });
 
-    it('applies the shared newcomer floor to BOTH partners', async () => {
-        await seed(4);
+    it('requires both partners to be above level 10', async () => {
+        await seed(10);
         const low = await mod.inviteRanked2v2Partner({ actor: A1, target: A2 });
         assert.equal(low.ok, false);
         if (!low.ok) assert.equal(low.code, 'ranked-level-locked');
+        await seed(11);
+        assert.equal((await mod.inviteRanked2v2Partner({ actor: A1, target: A2 })).ok, true);
+    });
+
+    it('rechecks both partners when an existing duo queues', async () => {
+        await seed(11);
+        await mod.inviteRanked2v2Partner({ actor: A1, target: A2 });
+        await mod.acceptRanked2v2Invite(A2);
+        const saved = await kv.get<{ character: { level: number } }>(`save:${A2}`);
+        assert.ok(saved);
+        await kv.set(`save:${A2}`, { ...saved, character: { ...saved.character, level: 10 } });
+        const queued = await mod.queueRanked2v2(A1);
+        assert.equal(queued.ok, false);
+        if (!queued.ok) assert.equal(queued.code, 'ranked-level-locked');
     });
 
     it('lets either partner leave, freeing both to pair again', async () => {
@@ -153,7 +167,7 @@ describe('ranked 2v2 matchmaking', { concurrency: false }, () => {
         }
     });
 
-    it('equalizes stats/gear for every fighter but keeps their own chosen weapon', async () => {
+    it('equalizes stats, mastery and gear for every fighter but keeps their own chosen weapon', async () => {
         // Give each fighter deliberately different real stats/gear/weapon
         // choices, and leave one (B2) with no ranked weapon preference at all.
         for (const [slug, weapon] of [
@@ -162,9 +176,11 @@ describe('ranked 2v2 matchmaking', { concurrency: false }, () => {
         ] as const) {
             await kv.set(`save:${slug}`, {
                 character: {
-                    name: slug, level: 40, ranked2v2Rating: 1000,
+                    name: slug, level: slug === A1 ? 15 : slug === B1 ? 100 : 40, ranked2v2Rating: 1000,
                     maxHp: 1200, maxChakra: 200, maxStamina: 200,
-                    specialty: 'Taijutsu', stats: { strength: 1 }, jutsu: [],
+                    specialty: 'Taijutsu', stats: { strength: 1 },
+                    equippedJutsuIds: ['starter-nin-fire-2'],
+                    jutsuMastery: [{ jutsuId: 'starter-nin-fire-2', level: 1 }],
                     equipment: { hand: 'training-katana', body: 'cloth-robe' },
                     ...(weapon ? { rankedFormatWeaponId: weapon } : {}),
                 },
@@ -193,7 +209,10 @@ describe('ranked 2v2 matchmaking', { concurrency: false }, () => {
             assert.equal(equipment.body, format.RANKED_FORMAT_NEUTRAL_EQUIPMENT.body, `${slug} wears the neutral set, not their own`);
             assert.equal(equipment.thrown, format.RANKED_FORMAT_NEUTRAL_EQUIPMENT.thrown);
             assert.equal(equipment.hand, weaponBySlug[slug], `${slug} keeps their own chosen (or defaulted) weapon`);
+            assert.equal(character.rankedFormatCombat, true);
+            assert.equal((character.jutsuMastery as Array<{ jutsuId: string; level: number }>).find(row => row.jutsuId === 'starter-nin-fire-2')?.level, 50);
             assert.equal(actor.itemCharges?.[format.RANKED_FORMAT_NEUTRAL_EQUIPMENT.thrown], format.RANKED_FORMAT_CONSUMABLE_CHARGES);
+            assert.equal((await kv.get<{ character: { jutsuMastery: Array<{ level: number }> } }>(`save:${slug}`))?.character.jutsuMastery[0]?.level, 1);
         }
     });
 

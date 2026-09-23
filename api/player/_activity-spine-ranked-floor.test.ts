@@ -1,15 +1,11 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { PUBLIC_CAPABILITY_IDS, type PublicCapabilities } from '../../shared/public-capabilities.js';
-import { ATTACKABLE_MIN_LEVEL } from '../_realtime/presence-gating.js';
+import { RANKED_MIN_LEVEL } from '../../shared/ranked-eligibility.js';
 import { buildActivitySpine, type ActivitySpineInput } from './_activity-spine.js';
 
 /*
- * F19 — the ranked guidance said "blocked below 15" while the ranked queue
- * (api/pvp/ranked-queue.ts) admits at the attackable floor, level 10. The
- * eligibility FACT now comes from the shared constant; the authored blocker
- * copy is deliberately untouched (behavior-only scope) and recorded as a
- * deferred UI dependency in docs/RPG_BEHAVIOR_HANDOFF_TRACKING.md.
+ * Ranked guidance and the ranked queue share a floor of level 11.
  */
 
 const capabilities = Object.fromEntries(PUBLIC_CAPABILITY_IDS.map((id) => [id, { state: 'available', reason: 'available' }])) as PublicCapabilities;
@@ -42,23 +38,24 @@ function rankedEligibility(level: number): string | undefined {
 }
 
 describe('ranked guidance eligibility matches the ranked queue floor', () => {
-    it('the queue floor is the level-10 attackable floor, not the Academy threshold', () => {
-        assert.equal(ATTACKABLE_MIN_LEVEL, 10);
+    it('the queue floor is level 11', () => {
+        assert.equal(RANKED_MIN_LEVEL, 11);
     });
 
-    it('levels 9 / 10 / 14 / 15 read the same answer the queue gives', () => {
+    it('levels 9 and 10 get preparation guidance; 11 and above can review the queue', () => {
         assert.equal(rankedEligibility(9), 'eligible', 'review navigation remains usable below the queue floor');
         assert.equal(buildActivitySpine(input(9)).horizons.now[0]?.screen, 'training');
-        assert.equal(rankedEligibility(10), 'eligible', 'the queue admits level 10; guidance must agree');
-        assert.equal(rankedEligibility(14), 'eligible', 'levels 10–14 were wrongly told Ranked was blocked');
-        assert.equal(rankedEligibility(15), 'eligible');
+        assert.equal(buildActivitySpine(input(10)).horizons.now[0]?.screen, 'training');
+        assert.equal(rankedEligibility(10), 'eligible', 'the Arena review link remains usable');
+        assert.equal(buildActivitySpine(input(11)).horizons.now[0]?.screen, 'arenaDistrict');
+        assert.equal(rankedEligibility(11), 'eligible');
     });
 
     it('a blocked level names the threshold the queue actually enforces', () => {
         const spine = buildActivitySpine(input(9));
         const week = spine.horizons['this-week'].find((item) => item.id === 'focus-ranked-week');
         assert.ok(week?.blocker, 'blocked guidance keeps a blocker');
-        assert.match(week.blocker, new RegExp(`level ${ATTACKABLE_MIN_LEVEL}\\b`));
+        assert.match(week.blocker, new RegExp(`level ${RANKED_MIN_LEVEL}\\b`));
         assert.doesNotMatch(week.blocker, /level 15/, 'the old Academy number must not survive');
     });
 });

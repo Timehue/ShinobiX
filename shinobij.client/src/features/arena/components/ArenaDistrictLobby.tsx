@@ -9,6 +9,7 @@ import { RankedFormatWeaponPicker } from "../../../components/RankedFormatWeapon
 import { CentralDestinationHeader } from "../../../components/CentralDestinationHeader";
 import { ArenaTournamentPanel } from "./ArenaTournamentPanel";
 import { PetRankedModeCards } from "./PetRankedModeCards";
+import { rankedLevelEligible, RANKED_LEVEL_WARNING } from "../../../../../shared/ranked-eligibility";
 
 const ARENA_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 
@@ -178,12 +179,13 @@ export function ArenaDistrictLobby({
                         {rankedQueueActive ? (
                             <button className="danger-button" onClick={onLeaveRankedQueue}>Leave Queue</button>
                         ) : (
-                            <button disabled={!playerRankedEnabled} onClick={onJoinRankedQueue}>
+                            <button disabled={!playerRankedEnabled || !rankedLevelEligible(character.level)} onClick={onJoinRankedQueue}>
                                 {playerRankedEnabled ? "Queue Up for Ranked" : "Ranked Season Closed"}
                             </button>
                         )}
                     </div>
                     {!playerRankedEnabled && <p className="hint">Ranked matchmaking opens when an administrator starts the current season.</p>}
+                    {!rankedLevelEligible(character.level) && <p className="hint" role="alert">{RANKED_LEVEL_WARNING}</p>}
                     {rankedQueueActive && <p className="hint">Searching for opponent...</p>}
                     <hr style={{ border: "none", borderTop: "1px solid rgba(148,163,184,.25)", margin: "16px 0" }} />
                     <p className="hint"><GiPawPrint style={ARENA_ICON} />Ranked pet battles live in the <strong>Pet Battles</strong> tab — queue for <strong>Pet Colosseum</strong> (2v2 with two reserves) or challenge offline <strong>Beastbound Warfront</strong> defenses (4v4).</p>

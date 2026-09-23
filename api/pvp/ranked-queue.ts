@@ -21,7 +21,7 @@ import {
     PLAYER_RANKED_V2_DISABLED_MESSAGE,
 } from './_player-ranked-rollout.js';
 import { rankedSeasonAdmissionsPaused } from '../cron/_ranked-season.js';
-import { isBelowAttackableFloor, ATTACKABLE_MIN_LEVEL } from '../_realtime/presence-gating.js';
+import { rankedLevelEligible, RANKED_LEVEL_WARNING } from '../../shared/ranked-eligibility.js';
 import { isIncapacitated } from '../_elapsed-state.js';
 import { hasRecentIpOrFpOverlapStrict } from '../_player-ips.js';
 
@@ -76,7 +76,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ]);
         const queue = storedQueue ?? [];
         const now = Date.now();
-        const active = queue.filter(e => queueEntryIsActive(e, now));
+        const active = queue.filter(e => queueEntryIsActive(e, now) && rankedLevelEligible(e.level));
         const inQueue = active.some(e => e.name === name);
         res.setHeader('Cache-Control', 'no-store');
         const enabled = !!gate
@@ -168,12 +168,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // entering the lock so the lock body stays fast.
             let serverLevel = 1;
             let serverElo = 1000;
-            // Fails OPEN, matching the best-effort read below: a storage hiccup
-            // must not lock a healthy player out of ranked.
+            // Missing level data fails closed at the ranked-only admission gate.
             let serverIncapacitated = false;
-            if (action === 'join' && !identity.admin) {
+            if (action === 'join') {
                 try {
-                    const save = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
+                    const save = await kv.get<Record<string, unknown>>(`save:${safeName(name)}`);
                     const char = (save?.character ?? null) as Record<string, unknown> | null;
                     if (char) {
                         if (typeof char.level === 'number') serverLevel = char.level;
@@ -195,12 +194,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         errorCode: 'hospitalized',
                     });
                 }
-                // #4 newcomer protection: sub-floor shinobi can't enter ranked —
-                // it would match them against far stronger players for a free loss.
-                // Gated on the authoritative save level read just above.
-                if (isBelowAttackableFloor(serverLevel)) {
+                // Ranked requires level 11+ even though the general PvP floor is 10.
+                // The authoritative save level, never the client body, decides.
+                if (!rankedLevelEligible(serverLevel)) {
                     return res.status(403).json({
-                        error: `You must reach level ${ATTACKABLE_MIN_LEVEL} before entering ranked battles.`,
+                        error: RANKED_LEVEL_WARNING,
+                        errorCode: 'ranked-level-locked',
                     });
                 }
             }
@@ -215,7 +214,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const out = await withKvLock<{ status: number; body: Record<string, unknown> }>(QUEUE_KEY, async () => {
                 const queue = await kv.get<QueueEntry[]>(QUEUE_KEY) ?? [];
                 const now = Date.now();
-                const active = queue.filter(e => queueEntryIsActive(e, now));
+                const active = queue.filter(e => queueEntryIsActive(e, now) && rankedLevelEligible(e.level));
 
                 if (action === 'leave') {
                     const filtered = active.filter(e => e.name !== safeName(name));

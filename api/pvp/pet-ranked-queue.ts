@@ -5,7 +5,7 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { LockContendedError, withKvLock } from '../_lock.js';
-import { ATTACKABLE_MIN_LEVEL, isBelowAttackableFloor } from '../_realtime/presence-gating.js';
+import { rankedLevelEligible, RANKED_LEVEL_WARNING } from '../../shared/ranked-eligibility.js';
 import {
     PET_RANKED_ACTIVE_REGISTRY_KEY,
     PET_RANKED_QUEUE_KEY,
@@ -88,6 +88,7 @@ export function pruneWaiting(value: unknown, now: number): PetRankedWaitingEntry
         if (!slug || seen.has(slug) || !Number.isFinite(joinedAt) || entry.format !== '2v2'
             || !Array.isArray(entry.petIds) || entry.petIds.length !== 4
             || entry.petIds.some((id) => typeof id !== 'string' || !id)
+            || !rankedLevelEligible(entry.level)
             || new Set(entry.petIds).size !== 4) return false;
         if (joinedAt > now + 60_000 || now - joinedAt >= PET_RANKED_WAITING_TTL_MS) return false;
         seen.add(slug);
@@ -236,12 +237,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const save = await kv.get<Record<string, unknown>>(`save:${me}`);
         const character = (save?.character ?? null) as Record<string, unknown> | null;
         if (!character) return res.status(404).json({ error: 'Your save was not found.', errorCode: 'save-not-found' });
-        // Newcomer protection, read from the authoritative save exactly as the
-        // shinobi ranked queue does.
-        const level = Math.floor(Number(character.level ?? 0)) || 0;
-        if (isBelowAttackableFloor(level)) {
+        // The ranked-only floor comes from the authoritative save.
+        const level = character.level;
+        if (!rankedLevelEligible(level)) {
             return res.status(403).json({
-                error: `You must reach level ${ATTACKABLE_MIN_LEVEL} before entering ranked battles.`,
+                error: RANKED_LEVEL_WARNING,
                 errorCode: 'ranked-level-locked',
             });
         }
