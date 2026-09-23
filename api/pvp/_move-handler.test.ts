@@ -1415,7 +1415,7 @@ test('ground cast pulse is phase-aware while both phases begin recurrence on the
         role: 'p1',
         action: 'jutsu',
         jutsuId: 'phase-aware-ground',
-        tile: 12,
+        tile: 24,
         moveToken: 'ground-opener-cast-token',
     });
     assert.equal(openerCast.statusCode, 200);
@@ -1432,12 +1432,14 @@ test('ground cast pulse is phase-aware while both phases begin recurrence on the
         p2: withExtraJutsu(fighter('bob', 1), phaseAwareGroundJutsu),
     }));
 
+    assert.ok(afterOpenerCast.groundEffects?.[0]?.tiles.includes(afterOpenerCast.p2.pos),
+        'the opponent is caught by the caster range even when far from the clicked tile');
     const closerCast = await postMove('bob', {
         battleId: 'ground-closer-cast',
         role: 'p2',
         action: 'jutsu',
         jutsuId: 'phase-aware-ground',
-        tile: 12,
+        tile: 24,
         moveToken: 'ground-closer-cast-token',
     });
     assert.equal(closerCast.statusCode, 200);

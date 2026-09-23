@@ -156,7 +156,7 @@ export function jutsuTargetingLabel(jutsu: Jutsu): { short: string; detail: stri
         case "INSTANT_EFFECT":
             return {
                 short: "AOE Ground",
-                detail: "Creates a persistent 2-round zone on a chosen tile and its surrounding ring.",
+                detail: "Creates a persistent 2-round zone across every tile in the user's jutsu range. Choose a highlighted ground tile to cast it.",
             };
         case "ALL":
             return {

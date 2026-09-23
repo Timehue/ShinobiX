@@ -281,7 +281,8 @@ function jutsuVfx(session: SoloPveSession, side: SoloPveSide, action: SoloPveAct
     if (pureMove) return [];
     const method = normalizedMethod(jutsu);
     const area = method === 'AOE_CIRCLE' || method === 'AOE_SPIRAL';
-    const persistent = method === 'INSTANT_EFFECT' || method === 'AOE_SPIRAL';
+    const persistent = (method === 'INSTANT_EFFECT' && jutsu.target === 'EMPTY_GROUND')
+        || (method === 'AOE_SPIRAL' && (jutsu.target === 'EMPTY_GROUND' || names.includes('Move')));
     const semantic = semanticJutsuVfx(jutsu, {
         ...(persistent || method === 'AOE_SPIRAL' ? { ground: true } : {}),
         ...(area ? { area: true } : {}),
@@ -292,6 +293,8 @@ function jutsuVfx(session: SoloPveSession, side: SoloPveSide, action: SoloPveAct
         : method === 'AOE_SPIRAL'
             ? filledDiskTiles(action.tile, SPIRAL_RADIUS, GRID_W, GRID_H)
             : method === 'AOE_CIRCLE' || method === 'INSTANT_EFFECT'
+            : method === 'INSTANT_EFFECT' && jutsu.target === 'EMPTY_GROUND'
+                ? filledDiskTiles(fighter(session, side).pos, Math.max(1, Number(jutsu.range) || 4), GRID_W, GRID_H)
                 ? [action.tile, ...hexNeighbors(action.tile)]
                 : [action.tile];
     return [{

@@ -467,13 +467,15 @@ describe('authoritative PvP/Solo-PvE jutsu parity', () => {
         assert.ok(ground.pvp.zones[0].tiles.length > 1);
         assert.ok(ground.pvp.target.statuses.some((status) => status.name === 'Poison'));
         assert.equal(ground.pvp.vfx[0]?.persistent, true);
+        assert.equal(ground.pvp.vfx[0]?.tiles.length, ground.pvp.zones[0].tiles.length);
 
         const spiral = await runParityCase(customJutsu('target-spiral', {
             target: 'EMPTY_GROUND', method: 'AOE_SPIRAL', effectPower: 0,
             tags: [{ name: 'Move' }, { name: 'Poison', percent: 9 }],
         }), 1102, { tile: 64 });
         assertParity(spiral, 'spiral footprint');
-        assert.ok(spiral.pvp.zones[0].tiles.length > ground.pvp.zones[0].tiles.length);
+        assert.ok(ground.pvp.zones[0].tiles.length > spiral.pvp.zones[0].tiles.length,
+            'Instant Effect now fills the caster range; Spiral keeps its radius-two landing zone');
 
         for (const [index, name] of [[1103, 'Push'], [1104, 'Pull']] as const) {
             const displaced = await runParityCase(customJutsu(`target-${name.toLowerCase()}`, {

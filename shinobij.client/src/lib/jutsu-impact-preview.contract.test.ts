@@ -20,8 +20,8 @@ const neighbors = (centre: number) => towerNeighbors(centre, W, H);
 const board = { width: W, height: H, unavailableTiles: new Set<number>() };
 
 /** The client-side telegraph, exactly as MissionArenaFight computes it. */
-function previewCatchesEnemy(method: string, centre: number, enemyPos: number): boolean {
-    return jutsuImpactPreviewTiles(method as Parameters<typeof jutsuImpactPreviewTiles>[0], centre, ALL, dist, neighbors).has(enemyPos);
+function previewCatchesEnemy(method: string, centre: number, enemyPos: number, casterPos = centre, range = 1): boolean {
+    return jutsuImpactPreviewTiles(method as Parameters<typeof jutsuImpactPreviewTiles>[0], centre, ALL, dist, neighbors, false, { casterPos, range }).has(enemyPos);
 }
 
 function plan(jutsu: Record<string, unknown>, casterPos: number, opponentPos: number, tile: number) {
@@ -85,22 +85,19 @@ test("landing ON the enemy's own hex is never sold as a hit", () => {
     }
 });
 
-test("a ground zone's footprint agrees with the server, centre included", () => {
-    // Unlike the movement ring, a zone covers the hex it is placed on, so the
-    // preview must include the centre or a zone dropped straight onto the enemy
-    // would read as a miss.
-    const casterPos = 50, enemyPos = 52;
+test("an instant ground field previews the full caster range for every legal click", () => {
+    const casterPos = 50;
     const zone = {
         id: "mud", name: "Mud Trap", ap: 40, range: 3, method: "INSTANT_EFFECT",
-        target: "EMPTY_GROUND", tags: [{ name: "Slow" }],
+        target: "EMPTY_GROUND", tags: [{ name: "Poison", percent: 12 }],
     };
-    for (const tile of [enemyPos, ...towerNeighbors(enemyPos, W, H), 40, 61]) {
-        const result = plan(zone, casterPos, enemyPos, tile);
-        if (!result.accepted) continue;
-        assert.equal(
-            previewCatchesEnemy("INSTANT_EFFECT", tile, enemyPos),
-            result.hitsOpponent,
-            `ground zone on ${tile} disagrees with the server about reaching ${enemyPos}`,
-        );
+    for (const enemyPos of [52, 95]) {
+        for (const tile of [40, 51, 61]) {
+            const result = plan(zone, casterPos, enemyPos, tile);
+            assert.ok(result.accepted);
+            const preview = jutsuImpactPreviewTiles("INSTANT_EFFECT", tile, ALL, dist, neighbors, false, { casterPos, range: zone.range });
+            assert.deepEqual([...preview], result.footprint, `clicking ${tile} must preview the server's entire field`);
+            assert.equal(previewCatchesEnemy("INSTANT_EFFECT", tile, enemyPos, casterPos, zone.range), result.hitsOpponent);
+        }
     }
 });
