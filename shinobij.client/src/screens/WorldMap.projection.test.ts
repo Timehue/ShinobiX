@@ -258,7 +258,7 @@ test("WorldWandererDialog stays hook-free, network-free, persistence-free, porta
     assert.doesNotMatch(dialogSource, /position:\s*"fixed"|inset:\s*0|zIndex:\s*9999/u);
 });
 
-test("WorldWandererDialog preserves forced-choice dismissal and button order", () => {
+test("WorldWandererDialog preserves bandit flee and forces bounty hunter combat", () => {
     const attackChoices = sliceBetween(dialogSource, 'wandererDialog.w.verb === "attack"', ') : !wandererDialog.msg && wandererDialog.w.verb === "bountyHunter"');
     assertOrdered(attackChoices, [
         'onClick={dismissWandererDialog}>Pass in peace</button>',
@@ -269,11 +269,8 @@ test("WorldWandererDialog preserves forced-choice dismissal and button order", (
         'onClick={dismissWandererDialog}>Flee</button>',
     ], "wanderer attack choice order");
     const bountyChoices = sliceBetween(dialogSource, 'wandererDialog.w.verb === "bountyHunter"', ') : !wandererDialog.msg && wandererDialog.w.verb === "merchant"');
-    assertOrdered(bountyChoices, [
-        'startBountyHunterFight(wandererDialog.w)',
-        '"Stand & Fight"',
-        'onClick={dismissWandererDialog}>Flee</button>',
-    ], "bounty hunter forced-choice order");
+    assert.match(bountyChoices, /The hunter attacks\. Combat is starting/u);
+    assert.doesNotMatch(bountyChoices, /<button|Flee|dismissWandererDialog/u);
     assert.match(dialogSource, /wandererDialog\.w\.verb === "merchant"[\s\S]*onClick=\{closeWandererDialog\}>Leave<\/button>/u);
 });
 
@@ -368,13 +365,13 @@ test("WorldMap owns the wanderer portal, backdrop policy, actions, and projected
     ], "wanderer portal projection");
     assert.match(worldMapSource, /function handleWandererBackdropClick\(\)[\s\S]*requiresWandererChoice\(wandererDialog\)[\s\S]*dismissWandererDialog\(\)/u);
     // The encounter dialog is the ONLY one in the game that can open with no
-    // player action (a bandit arms itself and walks to you), so it must not go
-    // back to being a bare div: announced, focusable, and escapable even when
-    // the backdrop deliberately refuses a forced choice.
+    // player action (a pursuer arms itself and walks to you), so it must not go
+    // back to being a bare div: announced and focusable, with Escape delegated
+    // to the encounter's dismissal policy.
     assert.match(portal, /<ModalDialogScrim label=\{`\$\{wandererDialog\.w\.name\}/u,
         "the wanderer portal must render through the accessible scrim, labelled with the wanderer");
     assert.match(portal, /onEscape=\{dismissWandererDialog\}/u,
-        "Escape must be a real exit — fleeing already costs the wanderer cooldown");
+        "Escape must follow the owning encounter's dismissal policy");
     assert.doesNotMatch(portal, /zIndex:\s*9999/u,
         "the scrim's own styling belongs in ModalDialogScrim, not inline here");
     assert.match(worldMapSource, /async function tradeWithWanderer[\s\S]*postWandererService/u);

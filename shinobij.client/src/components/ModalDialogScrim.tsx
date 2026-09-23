@@ -12,11 +12,9 @@ import { useEffect, useRef, type ReactNode } from "react";
  * forced choice pushed in front of them silently, with focus still parked on
  * whatever was behind the scrim.
  *
- * Escape always dismisses, including for the "you must choose" encounters that
- * deliberately refuse a backdrop click. Fleeing is a legitimate answer and
- * already costs the 30-minute wanderer cooldown, so honouring Escape keeps the
- * forced-choice rule intact while giving the keyboard the same exit the mouse
- * has had all along.
+ * Escape follows the encounter's dismissal policy. Bandits allow fleeing with
+ * Escape and apply the same cooldown as their Flee button. A bounty hunter's
+ * forced fight cannot be dismissed while it is starting.
  *
  * Deliberately NOT using `inert` on the background. An earlier modal that
  * closed and navigated in the same click leaked `inert` onto #root and left the
@@ -29,7 +27,7 @@ export function ModalDialogScrim({ label, onBackdrop, onEscape, children }: {
     label: string;
     /** Backdrop click. May legitimately be a no-op for a forced choice. */
     onBackdrop: () => void;
-    /** Escape. Always a real exit, even when the backdrop refuses. */
+    /** Escape delegates to the owning encounter's dismissal policy. */
     onEscape: () => void;
     children: ReactNode;
 }) {

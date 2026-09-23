@@ -42,6 +42,11 @@ export type ContractHunter = {
 };
 
 export const CONTRACT_HUNTER_NAME = 'Contract Hunter';
+export const CONTRACT_HUNTER_COOLDOWN_MS = 30 * 60 * 1000;
+
+export function contractHunterCooldownKey(playerName: string, hunterId: string): string {
+    return `world-ai-bounty-cooldown:${playerName}:${hunterId}`;
+}
 
 export function contractHunterSlug(targetName: string): string {
     return String(targetName ?? '').toLowerCase().replace(/[^a-z0-9_-]/g, '-').slice(0, 32) || 'target';

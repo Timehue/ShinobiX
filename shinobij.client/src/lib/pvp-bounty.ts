@@ -90,15 +90,15 @@ export async function claimBountyOnWin(
     return (data.amount ?? 0) > 0 && data.balances ? { amount: data.amount!, target: data.target ?? "your opponent", balances: data.balances } : null;
 }
 
-export async function startBountyHunter(playerName: string, hunterId: string): Promise<{ ok: boolean; error?: string; reason?: string; bounty?: BountyEntry }> {
+export async function startBountyHunter(playerName: string, hunterId: string): Promise<{ ok: boolean; error?: string; reason?: string; bounty?: BountyEntry; cooldownUntil?: number }> {
     try {
         const res = await fetch("/api/pvp/bounty", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ action: "ai-hunter-start", playerName, hunterId }),
         });
-        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; reason?: string; bounty?: BountyEntry };
-        if (!res.ok || !data.ok) return { ok: false, error: data.error || "The hunter lost the trail.", reason: data.reason };
+        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; reason?: string; bounty?: BountyEntry; cooldownUntil?: number };
+        if (!res.ok || !data.ok) return { ok: false, error: data.error || "The hunter lost the trail.", reason: data.reason, bounty: data.bounty, cooldownUntil: data.cooldownUntil };
         return { ok: true, bounty: data.bounty };
     } catch {
         return { ok: false, error: "The hunter lost the trail." };
