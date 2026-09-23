@@ -9,6 +9,7 @@ import { activeElderFocus } from "../lib/village-elder-focus";
  */
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { effectiveItemLevelReq, meetsItemLevelReq } from "../../../shared/item-level-gate";
+import { wildBindingSeal } from "../../../shared/wild-binding";
 // Shop is a lazy screen-level chunk, so it owns the CSS for the pack-opening
 // cinematic (component modules must stay CSS-free for node tests). The
 // chronicle-duel styles render the revealed cards themselves.
@@ -141,7 +142,7 @@ function ShopBase({
         const s = normalizeEquipmentSlot(item.slot);
         return s === "potion" || (s === "item" && (!!item.weaponEffect || item.restoreChakra != null || item.restoreStamina != null));
     };
-    const slotGroups: { label: string; slots: EquipmentSlot[]; consumables?: boolean }[] = [
+    const slotGroups: { label: string; slots: EquipmentSlot[]; consumables?: boolean; beastSeals?: boolean }[] = [
         { label: "Head", slots: ["head"] },
         { label: "Chest", slots: ["body", "armor"] },
         { label: "Waist", slots: ["waist"] },
@@ -150,6 +151,7 @@ function ShopBase({
         { label: "Weapon / Hand", slots: ["hand", "weapon", "thrown"] },
         { label: "Aura / Accessory", slots: ["aura", "accessory", "item"] },
         { label: "Relic", slots: ["relic"] },
+        { label: "Beast Seals", slots: ["item"], beastSeals: true },
         { label: "Consumables", slots: ["potion", "item"], consumables: true },
     ];
 
@@ -256,9 +258,9 @@ function ShopBase({
 
             {slotGroups.map((group) => {
                 const groupItems = shopItems.filter((item) =>
-                    group.consumables
-                        ? isConsumable(item)
-                        : group.slots.includes(normalizeEquipmentSlot(item.slot)) && !isConsumable(item));
+                    group.beastSeals ? Boolean(wildBindingSeal(item.id))
+                        : group.consumables ? isConsumable(item)
+                            : group.slots.includes(normalizeEquipmentSlot(item.slot)) && !isConsumable(item) && !wildBindingSeal(item.id));
                 if (groupItems.length === 0) return null;
 
                 return (
@@ -290,7 +292,9 @@ function ShopBase({
                                             </small>
                                         )}
 
-                                        <small>{isConsumable(item) ? "Consumable" : equipmentSlotLabel(item.slot)}</small>
+                                        <small>{wildBindingSeal(item.id)
+                                            ? `Wild binding · ≤${wildBindingSeal(item.id)!.resolveThreshold}% Resolve`
+                                            : isConsumable(item) ? "Consumable" : equipmentSlotLabel(item.slot)}</small>
 
                                         {levelLocked
                                             ? <small style={{ color: "#ef4444", fontWeight: "bold" }}>🔒 Lv.{effectiveItemLevelReq(item)} Required</small>
@@ -338,7 +342,14 @@ function ShopBase({
                                     {selectedItem.description}
                                 </p>
 
-                                <div className="item-popup-detail-grid">
+                                {wildBindingSeal(selectedItem.id) ? <div className="item-popup-detail-grid">
+                                    <p><strong>Use:</strong> Bind a wild pet during an Explore or Caravan encounter</p>
+                                    <p><strong>Resolve required:</strong> {wildBindingSeal(selectedItem.id)!.resolveThreshold}% or lower</p>
+                                    <p><strong>Binding bonus:</strong> +{wildBindingSeal(selectedItem.id)!.captureBonus} chance points</p>
+                                    <p><strong>Owned:</strong> {countItem(character, selectedItem.id)} / {consumableHoldCap(selectedItem)}</p>
+                                    <p><strong>Consumed:</strong> One per attempt</p>
+                                    <p><strong>Shop Price:</strong> {currencyIcon} {getShopCost(selectedItem.cost)} {currencyLabel}{shopDiscountPercent > 0 ? ` (was ${selectedItem.cost})` : ""}</p>
+                                </div> : <div className="item-popup-detail-grid">
                                     <p><strong>Battle Type:</strong> PvE / PvP</p>
                                     <p><strong>Rarity:</strong> {selectedItem.rarity}</p>
                                     <p><strong>Item Type:</strong> {equipmentSlotLabel(selectedItem.slot)}</p>
@@ -352,7 +363,7 @@ function ShopBase({
                                     <p><strong>Equip:</strong> {!stackableItemIds.has(selectedItem.id) && ["head", "body", "waist", "legs", "feet", "hand", "aura", "relic", "thrown"].includes(normalizeEquipmentSlot(selectedItem.slot)) ? "yes" : "no"}</p>
                                     <p><strong>Required Level:</strong> {effectiveItemLevelReq(selectedItem)}</p>
                                     <p><strong>Shop Price:</strong> {currencyIcon} {getShopCost(selectedItem.cost)} {currencyLabel}{shopDiscountPercent > 0 ? ` (was ${selectedItem.cost})` : ""}</p>
-                                </div>
+                                </div>}
 
                                 {petFeedXpForItem(selectedItem.id) && (
                                     <div className="item-popup-effect-box">

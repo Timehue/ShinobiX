@@ -129,6 +129,15 @@ describe('ancient chest settlement', () => {
         assert.deepEqual(next.inventory, ['pet-treat', 'pet-treat']);
     });
 
+    it('drops Tempered Beast Seals into a counted stack without changing the relic band', () => {
+        const loot = rollAncientChestLoot(1, sequence(0.9, 0.18, 0.9));
+        assert.equal(loot?.itemId, 'beast-seal-tempered');
+        const first = applyAncientChestLoot({ inventory: [], itemStacks: [] }, loot!);
+        const second = applyAncientChestLoot(first, loot!);
+        assert.deepEqual(second.itemStacks, [{ itemId: 'beast-seal-tempered', count: 2 }]);
+        assert.deepEqual(second.inventory, []);
+    });
+
     it('replaces an over-cap card with an explicit Fate Shard before writing the receipt', () => {
         const full = Array.from({ length: 1_200 }, (_, index) => `owned-${index}`);
         const settled = settleAncientChestLoot(

@@ -60,6 +60,14 @@ test("petCardImage: a starter falls back to its idle pose (no inline image)", ()
     assert.equal(petCardImage(mkPet({ id: "starter-fire", rarity: "standard" })), "/pet-poses/starter-fire-idle.webp?v=4");
 });
 
+test("petCardImage: Snow Rabbit uses clean card art for wild and owned instances", () => {
+    const portrait = "/pet-portraits/standard-1-card-v2.webp";
+    assert.equal(petCardImage(mkPet({ id: "standard-1-1700000000000" })), portrait);
+    assert.equal(petCardImage(mkPet({ id: "owned-rabbit", templateId: "standard-1" })), portrait);
+    assert.equal(petCardImage(mkPet({ id: "standard-1", image: "published.png" })), "published.png");
+    assert.equal(petCardImage(mkPet({ id: "standard-1" }), { "pet:standard-1": "shared.png" }), "shared.png");
+});
+
 const reviewedCardPoses = [
     ["standard-3", "standard-3-windup.webp"],
     ["standard-30", "standard-30-recover.webp"],
@@ -200,7 +208,7 @@ test("petCardImage: an evolved starter prefers its stage pose", () => {
 });
 
 test("petCardImage: an encounter clone resolves the pose by variant-stripped base id", () => {
-    assert.equal(petCardImage(mkPet({ id: "standard-1-1700000000000" })), "/pet-poses/standard-1-idle.webp?v=4");
+    assert.equal(petCardImage(mkPet({ id: "standard-2-1700000000000" })), "/pet-poses/standard-2-idle.webp?v=4");
 });
 
 test("petCardImage: an id with no pose and no image → empty string (caller shows initials)", () => {

@@ -13,6 +13,7 @@
  */
 
 import type { EquipmentSlot, EquipmentSlots, ArmorQuality, GameItem } from "../types/combat";
+import { wildBindingSeal } from "../../../shared/wild-binding";
 
 // Canonical equipment slots + their human-readable labels. Aliases like
 // "weapon" / "armor" / "accessory" are normalised by normalizeEquipmentSlot
@@ -137,8 +138,9 @@ export const POTION_HOLD_CAP = 2;
 // potion). Pet food, scrolls, keys, crafting materials etc. return null and
 // stay uncapped, unchanged from before.
 export function consumableHoldCap(
-    item: Pick<GameItem, "slot" | "weaponEffect" | "apCost" | "weaponEp" | "restoreChakra" | "restoreStamina">,
+    item: Pick<GameItem, "slot" | "weaponEffect" | "apCost" | "weaponEp" | "restoreChakra" | "restoreStamina"> & { id?: string },
 ): number | null {
+    if (wildBindingSeal(item.id)) return 99;
     const slot = normalizeEquipmentSlot(item.slot);
     if (slot === "potion") return POTION_HOLD_CAP;
     if (slot === "thrown") return THROWN_HOLD_CAP;

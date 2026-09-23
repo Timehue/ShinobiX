@@ -46,6 +46,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 requestId?: string;
             }>(key);
             if (!encounter || encounter.playerName !== playerName) return { ok: false as const, status: 409, error: 'invalid-or-spent-encounter' };
+            if ((encounter as Record<string, unknown>).battleRequired === true) return { ok: false as const, status: 409, error: 'wild-battle-required' };
             const exploreReceiptId = typeof encounter.exploreReceiptId === 'string' ? encounter.exploreReceiptId : '';
             const projectedExplored = exploreReceiptId && Array.isArray(character.redeemedSectorExplorations)
                 && (character.redeemedSectorExplorations as Array<Record<string, unknown>>).some((entry) => entry?.id === exploreReceiptId);

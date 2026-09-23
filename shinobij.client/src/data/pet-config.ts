@@ -119,6 +119,8 @@ export const petFeedItems = [
 // All petFeedItems are stackable plus a few hand-picked special-case ids.
 export const stackableItemIds = new Set<string>([
     ...petFeedItems.map((item) => item.id),
+    "beast-seal-worn", "beast-seal-reinforced", "beast-seal-tempered",
+    "beast-seal-master", "beast-seal-ancient",
     TERRITORY_CONTROL_SCROLL_ID,
     "hollow-gate-key",
     "dungeon-legendary-fragment",

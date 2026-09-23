@@ -37,7 +37,7 @@ import { gameToast } from "../components/GameToast";
 import type { CreatorAi } from "../types/creator-ai";
 import type { CreatorMission, CreatorRaid } from "../types/missions";
 import type { GameItem, Jutsu, SavedBloodline } from "../types/combat";
-import type { Pet, PetTrait } from "../types/pet";
+import type { Pet } from "../types/pet";
 import { TERRITORY_HP_MAX, TERRITORY_REBUILD_COOLDOWN_MS } from "../constants/game";
 import { getAllTileCards } from "../data/tile-cards";
 import { TriggeredVisualNovel } from "../components/TriggeredVisualNovel";
@@ -142,7 +142,8 @@ import { ATLAS_SECTOR_POINTS } from "../data/sector-points";
 import { sectorExits as roadExitsForSector, travelArrivalTile, type SectorExit } from "../../../shared/sector-links";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
 import { scaleWandererPetOpponent } from "../lib/pet-balance";
-import { befriendWildPet, declineWildPetEncounter, startWildPetEncounter, wildPetEncounterFailureMessage } from "../lib/wild-pet-encounter-api";
+import { startWildPetEncounter, wildPetEncounterFailureMessage } from "../lib/wild-pet-encounter-api";
+import { WildPetBinding } from "../components/WildPetBinding";
 import {
     openAncientChest,
     recordSectorExplore,
@@ -192,7 +193,6 @@ import { fetchClanData } from "../lib/clan-api";
 import { scoutIntelTier } from "../lib/clan-upgrades";
 import { getCharacterArmorFactor, getCharacterArmorRawDR, getEquippedItemBonus, getPvpItemLoadout } from "../lib/equipment-stats";
 import { hiddenDungeonVnEvent } from "../data/vn-events";
-import { petTraitDescriptions } from "../data/pet-config";
 import { starterItems } from "../data/starter-items";
 import worldMapBg from "../assets/Maps/world_map-v2.webp";
 import castleImg from "../assets/castle.webp";
@@ -2448,29 +2448,13 @@ function WorldMapContent({
     }, [wandererDialog, character.activeQuestbook?.deadline]);
     const [activePetEncounter, setActivePetEncounter] = useState<Pet | null>(null);
     // The single-use token /api/pet/encounter-start minted for the pet on screen.
-    // Befriending spends it; the server owns the roll, the trait, and the roster
-    // write, so nothing about this pet is real until that call succeeds.
+    // The battle binds to this token; the server owns the roll and capture.
     const petEncounterToken = useRef("");
-    // Keep the external-explore receipt until the player explicitly Befriends
-    // or Leaves. A refresh during the choice then restages the same sealed pet.
+    // Keep the external-explore receipt until the battle or departure resolves.
     const petEncounterExploreOperationId = useRef("");
-    const [petBefriendPending, setPetBefriendPending] = useState(false);
     const [petVnDone, setPetVnDone] = useState(false);
     const [petVnPage, setPetVnPage] = useState(0);
     const [petVnLine, setPetVnLine] = useState(0);
-    // Hard-lock the "Befriend / Leave" decision screen for a brief grace window
-    // after it appears. Players who rapid-click through the encounter VN would
-    // otherwise have a leftover/queued click land on "Leave" (it sits right under
-    // where the VN's "Continue" button just was), silently discarding the pet
-    // before they ever see the choice. Disarming the buttons for a moment forces
-    // a fresh, deliberate click to keep or release the pet.
-    const [petDecisionReady, setPetDecisionReady] = useState(false);
-    useEffect(() => {
-        if (!activePetEncounter || !petVnDone) { setPetDecisionReady(false); return; }
-        setPetDecisionReady(false);
-        const t = setTimeout(() => setPetDecisionReady(true), 650);
-        return () => clearTimeout(t);
-    }, [activePetEncounter, petVnDone]);
     // Reopening a sector after a fight restores the TILE too, not just the
     // board: "return to the sector" has to mean the spot you attacked from, and
     // this state is otherwise recreated at the centre on every remount (which
@@ -2938,7 +2922,6 @@ function WorldMapContent({
         if (proof?.kind !== "pet" || !operation.petEncounter) return false;
         petEncounterToken.current = proof.token;
         petEncounterExploreOperationId.current = operation.id;
-        setPetBefriendPending(false);
         setActivePetEncounter(operation.petEncounter);
         setPetVnDone(false);
         setPetVnPage(0);
@@ -3305,7 +3288,6 @@ function WorldMapContent({
                 if (!explored) return "blocked";
                 petEncounterToken.current = petEncounter.token;
                 petEncounterExploreOperationId.current = explored.operation.id;
-                setPetBefriendPending(false);
                 setActivePetEncounter(petEncounter.pet);
                 setPetVnDone(false);
                 setPetVnPage(0);
@@ -3799,112 +3781,20 @@ function WorldMapContent({
     }
 
     if (activePetEncounter && petVnDone) {
-        return (
-            <div className="card cinematic-card">
-                <h2><GiPawPrint style={{ verticalAlign: "-0.12em", marginRight: "0.35rem" }} />{activePetEncounter.name} Wants to Join You!</h2>
-
-                <div className="summary-box">
-                    <h3>{activePetEncounter.name}</h3>
-                    <p><strong>Rarity:</strong> {activePetEncounter.rarity}</p>
-                    <p><strong>Level:</strong> {activePetEncounter.level}</p>
-                    <p>
-                        HP {activePetEncounter.hp} | ATK {activePetEncounter.attack} |
-                        DEF {activePetEncounter.defense} | SPD {activePetEncounter.speed}
-                    </p>
-
-                    {(() => {
-                        const encImg = petCardImage(activePetEncounter, sharedImages);
-                        return encImg ? (
-                            <div className="admin-jutsu-preview">
-                                <img src={encImg} alt={activePetEncounter.name} onError={(e) => { e.currentTarget.style.display = "none"; }} />
-                            </div>
-                        ) : null;
-                    })()}
-                </div>
-
-                <div className="menu">
-                    <button
-                        disabled={!petDecisionReady || petBefriendPending}
-                        onClick={() => {
-                            // Ignore clicks during the grace window — a rapid-click
-                            // carried over from the VN must not auto-resolve this.
-                            if (!petDecisionReady || petBefriendPending) return;
-                            const encounter = activePetEncounter;
-                            const token = petEncounterToken.current;
-                            if (!token) return alert("This encounter has expired. Explore again to find another companion.");
-                            // The server rolls the trait and commits the roster. Hold the
-                            // card up (disabled) until it answers rather than showing the
-                            // pet as joined and having the save strip it a moment later.
-                            setPetBefriendPending(true);
-                            void befriendWildPet(character.name, token).then((result) => {
-                                setPetBefriendPending(false);
-                                if (!result.character) {
-                                    if (result.error === "invalid-or-spent-encounter") {
-                                        petEncounterToken.current = "";
-                                        setActivePetEncounter(null);
-                                        window.setTimeout(() => { void recoverPendingWorldRewards(true); }, 0);
-                                        return alert("The Guild is revalidating this pet choice from its sealed discovery receipt.");
-                                    }
-                                    return alert(result.error ?? "The pet could not be befriended.");
-                                }
-                                // Adopt the server's persisted character wholesale — a
-                                // locally merged roster would be stripped on the next save.
-                                if (!onVersionedCharacter(result.character, result.saveVersion)) return;
-                                const operationId = petEncounterExploreOperationId.current;
-                                if (operationId) completeWorldRewardOperation(character.name, operationId);
-                                petEncounterExploreOperationId.current = "";
-                                petEncounterToken.current = "";
-                                setActivePetEncounter(null);
-                                const trait = result.trait as PetTrait | null;
-                                const destination = result.destination === "sanctuary" ? "\nYour carried roster was full, so they are resting safely in the Sanctuary." : "";
-                                alert(trait
-                                    ? `${encounter.name} joined you!\nTrait: ${trait}. ${petTraitDescriptions[trait]}${destination}`
-                                    : `${encounter.name} joined you!${destination}`);
-                            });
-                        }}
-                    >
-                        {petBefriendPending ? "Befriending…" : petDecisionReady ? "Befriend Pet" : "Befriend Pet…"}
-                    </button>
-
-                    <button
-                        className="danger-button"
-                        disabled={!petDecisionReady || petBefriendPending}
-                        onClick={() => {
-                            if (!petDecisionReady || petBefriendPending) return;
-                            const token = petEncounterToken.current;
-                            if (!token) return alert("This encounter has expired. Reopen the map to recover it.");
-                            setPetBefriendPending(true);
-                            void declineWildPetEncounter(character.name, token).then((result) => {
-                                setPetBefriendPending(false);
-                                if (!result.ok) {
-                                    if (!result.retryable) {
-                                        petEncounterToken.current = "";
-                                        setActivePetEncounter(null);
-                                        window.setTimeout(() => { void recoverPendingWorldRewards(true); }, 0);
-                                        return alert("The Guild is reconciling this pet choice from its sealed discovery receipt.");
-                                    }
-                                    alert(result.error ?? "The pet is still waiting. Try Leave again when the connection recovers.");
-                                    return;
-                                }
-                                const operationId = petEncounterExploreOperationId.current;
-                                if (operationId) completeWorldRewardOperation(character.name, operationId);
-                                petEncounterExploreOperationId.current = "";
-                                petEncounterToken.current = "";
-                                setActivePetEncounter(null);
-                            });
-                        }}
-                    >
-                        Leave
-                    </button>
-                </div>
-
-                {!petDecisionReady && (
-                    <p className="pet-encounter-hint" style={{ textAlign: "center", opacity: 0.7, marginTop: 8 }}>
-                        Make your choice…
-                    </p>
-                )}
-            </div>
-        );
+        return <WildPetBinding
+            character={character}
+            token={petEncounterToken.current}
+            pet={activePetEncounter}
+            sharedImages={sharedImages}
+            onVersionedCharacter={onVersionedCharacter}
+            onResolved={() => {
+                const operationId = petEncounterExploreOperationId.current;
+                if (operationId) completeWorldRewardOperation(character.name, operationId);
+                petEncounterExploreOperationId.current = "";
+                petEncounterToken.current = "";
+                setActivePetEncounter(null);
+            }}
+        />;
     }
     if (legacyAvailable && sageVnEvent) {
         // The Wandering Sage's introduction. Completing it opens the offer
