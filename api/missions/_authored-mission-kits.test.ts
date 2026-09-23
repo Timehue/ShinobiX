@@ -122,7 +122,7 @@ describe('distinct actual rule execution', () => {
         assert.deepEqual(enemyActions(far).slice(0,2),['starter-nin-earth-1','starter-buki-water-2']);
         assert.ok(far.enemy.shield>0);
         const clear=applySoloPveAction(far,{type:'clear'});
-        assert.ok(clear.applied); assert.equal(clear.session.enemy.shield,far.enemy.shield,'Clear does not remove flat shields');
+        assert.ok(clear.applied); assert.equal(clear.session.enemy.shield,0,'Clear removes flat shields');
         const near=board('combat-s-crisis',1); runSoloPveAiUntilPlayer(near);
         assert.equal(enemyActions(near)[0],'starter-tai-lightning-2'); assert.ok(names(near,'enemy').includes('Reflect'));
         const unavailable=board('combat-s-crisis',1); unavailable.cooldowns.enemy['starter-tai-lightning-2']=5;
