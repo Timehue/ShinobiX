@@ -423,10 +423,12 @@ describe('solo-PvE engine', () => {
             id: 'poison-zone', name: 'Poison Zone', type: 'Ninjutsu', target: 'EMPTY_GROUND', method: 'INSTANT_EFFECT',
             effectPower: 0, ap: 40, range: 4, tags: [{ name: 'Poison', percent: 12 }],
         }];
-        const zone = applySoloPveAction(ground, { type: 'jutsu', jutsuId: 'poison-zone', tile: 51 });
+        // The clicked hex confirms the cast; it is not the centre of the field.
+        const zone = applySoloPveAction(ground, { type: 'jutsu', jutsuId: 'poison-zone', tile: 38 });
         assert.equal(zone.applied, true);
         assert.equal(zone.session.groundEffects.length, 1);
         assert.ok(zone.session.groundEffects[0]!.tiles.includes(ground.enemy.pos));
+        assert.ok(zone.session.groundEffects[0]!.tiles.length > 7, 'the whole cast range becomes a zone');
         assert.ok(zone.session.enemy.statuses.some((status) => status.name === 'Poison'));
 
         const barrier = makeSession();

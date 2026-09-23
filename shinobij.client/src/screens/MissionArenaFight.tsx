@@ -79,6 +79,7 @@ import { FighterHpBadge } from "../components/FighterHpBadge";
 import { BattlefieldActor } from "../components/BattlefieldActor";
 import { battlefieldFacingTowardNearest, battlefieldSpriteHeadroom } from "../lib/battlefield-sprite";
 import { jutsuImpactPreviewTiles } from "../lib/jutsu-impact-preview";
+import { groundZoneTilesForDisplay } from "../lib/ground-zone-display";
 import { getJutsuMastery, scaleJutsuByLevel } from "../lib/jutsu-scaling";
 import { jutsuDetailDescription, jutsuTargetingLabel } from "../lib/jutsu-effects";
 import { isImageAvatar } from "../lib/avatar";
@@ -536,9 +537,9 @@ export function MissionArenaFight({
     // Same markup and class contract as PvpBattleScreen so both modes share one
     // stylesheet (.pvp-combat-vfx / .pvp-vfx-* in battle-skin.css).
     const renderCombatVfx = (fx: ArenaCombatVfx) => {
-        const tiles = (fx.spec.tiles ?? [])
-            .filter((tile) => tile >= 0 && tile < w * h)
-            .slice(0, liteFx ? 7 : 14);
+        const footprint = (fx.spec.tiles ?? []).filter((tile) => tile >= 0 && tile < w * h);
+        // A ground cast must mark its complete area, even on the lite FX tier.
+        const tiles = fx.spec.persistent ? footprint : footprint.slice(0, liteFx ? 7 : 14);
         const centers = tiles.length
             ? tiles.map(tileCenter)
             : [tileCenter(session.actors.find(a => a.id === fx.target)?.pos ?? 0)];
@@ -1010,11 +1011,12 @@ export function MissionArenaFight({
         () => new Set([...impassableTiles, ...occupiedTiles]),
         [impassableTiles, occupiedTiles],
     );
+    const armedJutsuRange = Math.max(1, Number(selJutsu?.range) || (selJutsu?.method === "INSTANT_EFFECT" || selJutsu?.method === "AOE_LINE" ? 4 : 1));
 
     // Whether the (single) enemy is reachable by the currently-armed action.
     const enemyInRange = (() => {
         if (!enemy || enemy.hp <= 0 || myPos < 0) return false;
-        const range = mode === "clear" ? Infinity : mode === "jutsu" ? Math.max(1, Number(selJutsu?.range ?? 1)) : mode === "weapon" ? weaponRange : 1;
+        const range = mode === "clear" ? Infinity : mode === "jutsu" ? armedJutsuRange : mode === "weapon" ? weaponRange : 1;
         return towerHexDistance(myPos, enemy.pos, w) <= range;
     })();
 
@@ -1028,7 +1030,7 @@ export function MissionArenaFight({
     const rangeTiles = (() => {
         if (!myActor) return new Set<number>();
         if (mode === "jutsu") {
-            const inRange = towerTilesInRange(myPos, Math.max(1, Number(selJutsu?.range ?? 1)), w, h);
+            const inRange = towerTilesInRange(myPos, armedJutsuRange, w, h);
             if (isMoveJutsu(selJutsu)) {
                 return new Set([...inRange].filter(t => t !== myPos && !occupiedTiles.has(t) && !impassableTiles.has(t)));
             }
@@ -1045,12 +1047,18 @@ export function MissionArenaFight({
     // and Move+AOE — Blitz lands you on a hex and detonates the ring around it,
     // and until now nothing on the board said where that ring falls.
     const allTiles = useMemo(() => Array.from({ length: w * h }, (_, i) => i), [w, h]);
+    const activeGroundZoneTiles = useMemo(
+        () => groundZoneTilesForDisplay(session.groundEffects, w * h),
+        [session.groundEffects, w, h],
+    );
     const footprintOf = (tile: number) => jutsuImpactPreviewTiles(
         String(selJutsu?.method ?? "SINGLE") as JutsuMethod,
         tile,
         allTiles,
         (a, b) => towerHexDistance(a, b, w),
         (centre) => towerNeighbors(centre, w, h),
+        false,
+        { casterPos: myPos, range: armedJutsuRange },
     );
     // Legal centres for the armed cast — a Move landing tile or a ground placement.
     const tileTargets = (() => {
@@ -1059,8 +1067,12 @@ export function MissionArenaFight({
         if (selJutsu.target === "EMPTY_GROUND") return new Set([...rangeTiles].filter(t => !unavailableGroundTiles.has(t)));
         return new Set<number>();
     })();
-    // What the tile under the cursor (or keyboard focus) would actually hit.
+    // Instant ground fields show their full caster range as soon as armed;
+    // movement impacts still follow the hovered or focused landing tile.
     const hoveredFootprint = (() => {
+        if ((selJutsu?.method === "INSTANT_EFFECT" || selJutsu?.method === "AOE_LINE") && tileTargets.size > 0) {
+            return footprintOf([...tileTargets][0]!);
+        }
         if (hoverTile === null || !tileTargets.has(hoverTile)) return new Set<number>();
         const impact = footprintOf(hoverTile);
         // Pure movement has no blast, but its destination still needs a marker
@@ -1073,6 +1085,7 @@ export function MissionArenaFight({
     // AOE_CIRCLE ring excludes its own centre (the hex you land on), and
     // `footprintOf` already excludes it by passing circleIncludesCenter=false.
     const hittingTargets = (() => {
+        if (selJutsu?.method === "INSTANT_EFFECT" || selJutsu?.method === "AOE_LINE") return new Set<number>();
         if (!enemy || enemy.hp <= 0 || enemyPos < 0 || tileTargets.size === 0) return new Set<number>();
         return new Set([...tileTargets].filter(t => footprintOf(t).has(enemyPos)));
     })();
@@ -1413,6 +1426,7 @@ export function MissionArenaFight({
                                     // where nothing is ever hovered — which legal centres would land
                                     // that blast on the enemy.
                                     const isFootprintTile = hoveredFootprint.has(i);
+                                    const activeGroundZone = activeGroundZoneTiles.get(i);
                                     const isHittingTarget = hittingTargets.has(i);
                                     const isBarrier = barrierTiles.has(i);
                                     const isBlockedTerrain = session.map.blockedTiles.includes(i);
@@ -1440,7 +1454,7 @@ export function MissionArenaFight({
                                                     : isRangeTile
                                                         ? "in range"
                                                         : null;
-                                    const tileLabel = `Tile ${i + 1}, row ${Math.floor(i / w) + 1}, column ${(i % w) + 1}: ${tileOccupant}${tilePurpose ? `, ${tilePurpose}` : ""}`;
+                                    const tileLabel = `Tile ${i + 1}, row ${Math.floor(i / w) + 1}, column ${(i % w) + 1}: ${tileOccupant}${tilePurpose ? `, ${tilePurpose}` : ""}${activeGroundZone ? `, ${activeGroundZone.label}` : ""}`;
                                     const cls = [
                                         "hex-tile",
                                         i === myPos ? "hex-player" : "",
@@ -1450,7 +1464,8 @@ export function MissionArenaFight({
                                         isGroundTile ? "ground-target-tile" : "",
                                         isEnemyTarget ? "jutsu-target-tile" : "",
                                         isSelfTarget ? "jutsu-target-tile jutsu-self-target-tile" : "",
-                                        isFootprintTile ? "ground-affected-tile" : "",
+                                        activeGroundZone ? `mission-ground-zone-tile mission-ground-zone-${activeGroundZone.tone}` : "",
+                                        isFootprintTile ? "ground-affected-tile mission-ground-preview-tile" : "",
                                         isHittingTarget ? "jutsu-aoe-tile" : "",
                                         gateHazards.has(i) ? "hg-hazard-tile" : "",
                                         gateSafe.has(i) ? "hg-safe-tile" : "",

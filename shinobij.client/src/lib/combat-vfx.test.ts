@@ -112,6 +112,20 @@ test("AoE and ground jutsu return area or tile VFX", () => {
     assert.equal(ground.target, "tile");
 });
 
+test("a radius-two ground nova keeps all 19 tiles through client VFX parsing", () => {
+    const disk = Array.from({ length: 19 }, (_, tile) => tile);
+    const cast = resolveCombatVfxSpec({ action: "jutsu", method: "AOE_SPIRAL", ground: true, tiles: disk });
+    assert.deepEqual(cast.tiles, disk);
+    assert.deepEqual(safeCombatVfxSpec(cast).tiles, disk);
+});
+
+test("an instant ground field keeps its full 61-tile range through client VFX parsing", () => {
+    const field = Array.from({ length: 61 }, (_, tile) => tile);
+    const cast = resolveCombatVfxSpec({ action: "jutsu", method: "INSTANT_EFFECT", target: "EMPTY_GROUND", ground: true, tiles: field });
+    assert.deepEqual(cast.tiles, field);
+    assert.deepEqual(safeCombatVfxSpec(cast).tiles, field);
+});
+
 test("weapon hits, named weapon hits, and throwables use distinct keys", () => {
     const weapon = resolveCombatVfxSpec({ action: "weapon" });
     const named = resolveCombatVfxSpec({ action: "weapon", named: true });

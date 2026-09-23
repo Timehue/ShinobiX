@@ -149,10 +149,14 @@ export function resolveJutsuActionPlan(input: ResolveJutsuActionPlanInput): Reso
         return { accepted: false, rejection: 'ground-effect-needs-supported-tag' };
     }
 
+    // Instant ground fields fill the range already shown around the caster;
+    // their selected open tile confirms the cast without moving the field.
     const footprint = targetTile === undefined
         ? []
         : method === 'AOE_SPIRAL'
             ? filledDiskTiles(targetTile, SPIRAL_RADIUS, board.width, board.height)
+            : groundTarget && method === 'INSTANT_EFFECT'
+                ? filledDiskTiles(input.casterPos, range, board.width, board.height)
             : method === 'AOE_CIRCLE' || method === 'INSTANT_EFFECT'
                 ? [targetTile, ...hexNeighbors(targetTile, board.width, board.height)]
                 : [targetTile];
