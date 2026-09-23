@@ -18,7 +18,7 @@ export type ScheduledJobLeaseResult<T> =
     | { acquired: false }
     | { acquired: true; value: T };
 
-export type ScheduledJobLeaseOptions = {
+export type ScheduledJobLeaseOptions<T = unknown> = {
     /** Crash-recovery TTL in seconds. Must exceed the job's normal maximum runtime. */
     ttlSec: number;
     /**
@@ -27,6 +27,8 @@ export type ScheduledJobLeaseOptions = {
      * same tick after the first process finishes.
      */
     holdUntilExpiryOnSuccess?: boolean;
+    /** A completed call may still report an unsuccessful result. Release its lease so recovery can retry. */
+    holdUntilExpiryWhen?: (value: T) => boolean;
 };
 
 function leaseKey(jobName: string): string {
@@ -41,7 +43,7 @@ export async function withScheduledJobLeaseCore<T>(
     store: Pick<KvLike, 'set' | 'delIfEqual'>,
     jobName: string,
     fn: () => Promise<T>,
-    options: ScheduledJobLeaseOptions,
+    options: ScheduledJobLeaseOptions<T>,
 ): Promise<ScheduledJobLeaseResult<T>> {
     if (!/^[a-z0-9][a-z0-9:_-]{0,119}$/i.test(jobName)) {
         throw new Error(`Invalid scheduled job name: ${jobName}`);
@@ -55,13 +57,14 @@ export async function withScheduledJobLeaseCore<T>(
     const acquired = await store.set(key, ownerToken, { nx: true, ex: options.ttlSec });
     if (acquired !== 'OK') return { acquired: false };
 
-    let succeeded = false;
+    let holdUntilExpiry = false;
     try {
         const value = await fn();
-        succeeded = true;
+        holdUntilExpiry = options.holdUntilExpiryOnSuccess === true
+            && (options.holdUntilExpiryWhen?.(value) ?? true);
         return { acquired: true, value };
     } finally {
-        if (!(succeeded && options.holdUntilExpiryOnSuccess)) {
+        if (!holdUntilExpiry) {
             // Compare-and-delete is load-bearing: if this process stalled past
             // the TTL, it must not release a newer owner's replacement lease.
             await store.delIfEqual(key, ownerToken).catch(() => undefined);
@@ -73,7 +76,7 @@ export async function withScheduledJobLeaseCore<T>(
 export function withScheduledJobLease<T>(
     jobName: string,
     fn: () => Promise<T>,
-    options: ScheduledJobLeaseOptions,
+    options: ScheduledJobLeaseOptions<T>,
 ): Promise<ScheduledJobLeaseResult<T>> {
     return withScheduledJobLeaseCore(kv, jobName, fn, options);
 }
