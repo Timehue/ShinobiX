@@ -149,6 +149,19 @@ describe("pvp-reward-claim", () => {
         assert.deepEqual(pvpRewardImpactLines(result), ["Sector 44: 250 territory damage recorded"]);
     });
 
+    it("shows a ranked loss as a rating decrease", () => {
+        const result = {
+            status: "confirmed" as const,
+            alreadyClaimed: false,
+            completionPending: false,
+            rewardAuthorized: true,
+            progressionAuthorized: true,
+            rating: { field: "rankedRating", value: 988, delta: -12 },
+        };
+        assert.equal(pvpRewardSettlementNotice(result, { draw: false, spar: false }),
+            "Result recorded — -12 Rating.");
+    });
+
     it("shows raid impact only from an authoritative receipt after final confirmation", () => {
         const receipt = {
             status: "confirmed" as const, alreadyClaimed: true, completionPending: false,

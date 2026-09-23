@@ -6,6 +6,8 @@ import type { PvpFighter } from '../pvp/session.js';
 import { hydrateCharacterFromSave } from '../pvp/session.js';
 import type { AdminCombatContent } from '../_admin-content.js';
 import { buildSoloPveAiEncounter } from './_ai-encounter.js';
+import { hexDistance } from '../combat-core/grid.js';
+import { GRID_H, GRID_W } from '../combat-core/constants.js';
 import { applySoloPveAction, endSoloPveTurn } from './_engine.js';
 import { executeSoloPveAction, type SoloPveLock } from './_action-service.js';
 import {
@@ -575,6 +577,69 @@ describe('solo-PvE engine', () => {
         assert.ok(result.session.enemy.statuses.some((status) => status.name === 'Decrease Damage Given'));
     });
 
+    it('uses the canonical pills and smoke as damage-free utility in solo combat', () => {
+        for (const [id, effect, percent] of [
+            ['item-attack-pill', 'Increase Damage Given', 15],
+            ['item-defense-pill', 'Decrease Damage Taken', 15],
+            ['item-smoke-bomb', 'Decrease Damage Given', 100],
+        ] as const) {
+            const player = makeFighter('Alice', 62, {
+                character: {
+                    level: 100, specialty: 'Ninjutsu', stats: {}, jutsu: [],
+                    pvpItems: [{ id, name: id, slot: 'item', apCost: 20, weaponEffect: effect, weaponEffectValue: percent }],
+                    equipment: { item1: id },
+                },
+            });
+            const session = makeSession({ player, itemCharges: { [id]: 1 } });
+            const result = applySoloPveAction(session, { type: 'item', itemId: id });
+            assert.equal(result.applied, true, id);
+            assert.equal(result.session.player.hp, session.player.hp, `${id} must not hurt the user`);
+            assert.equal(result.session.enemy.hp, session.enemy.hp, `${id} must not hurt the enemy`);
+            assert.equal(result.session.player.statuses.find(status => status.source === id)?.percent, percent);
+            assert.equal(result.session.enemy.statuses.some(status => status.source === id), id === 'item-smoke-bomb');
+            assert.equal(result.session.itemCharges[id], 0);
+        }
+    });
+
+    it('keeps solo smoke active through the enemy turn, then expires it', () => {
+        const id = 'item-smoke-bomb';
+        const player = makeFighter('Alice', 62, {
+            character: {
+                level: 100, specialty: 'Ninjutsu', stats: {}, jutsu: [],
+                pvpItems: [{ id, name: 'Smoke Bomb', slot: 'item', apCost: 20 }],
+                equipment: { item1: id },
+            },
+        });
+        const result = applySoloPveAction(makeSession({ player, itemCharges: { [id]: 1 } }), { type: 'item', itemId: id });
+        assert.equal(result.applied, true);
+        endSoloPveTurn(result.session);
+        assert.equal(result.session.activeSide, 'enemy');
+        assert.equal(result.session.player.statuses.find(status => status.source === id)?.rounds, 1);
+        assert.equal(result.session.enemy.statuses.find(status => status.source === id)?.rounds, 1);
+        endSoloPveTurn(result.session);
+        assert.equal(result.session.player.statuses.some(status => status.source === id), false);
+        assert.equal(result.session.enemy.statuses.some(status => status.source === id), false);
+    });
+
+    it('keeps a solo Defense Pill active for two full enemy turns', () => {
+        const id = 'item-defense-pill';
+        const player = makeFighter('Alice', 62, {
+            character: {
+                level: 100, specialty: 'Ninjutsu', stats: {}, jutsu: [],
+                pvpItems: [{ id, name: 'Defense Pill', slot: 'item', apCost: 20 }],
+                equipment: { item1: id },
+            },
+        });
+        const result = applySoloPveAction(makeSession({ player, itemCharges: { [id]: 1 } }), { type: 'item', itemId: id });
+        assert.equal(result.applied, true);
+        for (const roundsAfterEnemy of [1, 0]) {
+            endSoloPveTurn(result.session);
+            assert.equal(result.session.player.statuses.find(status => status.source === id)?.rounds, roundsAfterEnemy + 1);
+            endSoloPveTurn(result.session);
+            assert.equal(result.session.player.statuses.find(status => status.source === id)?.rounds ?? 0, roundsAfterEnemy);
+        }
+    });
+
     // End-to-end guard for the zero-damage weapon bug: a named weapon that rolled
     // Heal or Shield (2 of the 12 tags in craft/_named.ts WEAPON_TAGS), and the
     // built-in Shield weapons, used to swing for exactly 0 in PvE — the tag hit the
@@ -611,6 +676,26 @@ describe('solo-PvE engine', () => {
             );
         });
     }
+
+    it('an unspecified thrown weapon reaches four hexes, as in PvP and Tower', () => {
+        const enemyPos = Array.from({ length: GRID_W * GRID_H }, (_, pos) => pos)
+            .find(pos => hexDistance(62, pos) === 4);
+        assert.notEqual(enemyPos, undefined);
+        const player = makeFighter('Alice', 62, {
+            character: {
+                level: 100, specialty: 'Bukijutsu', stats: { bukijutsuOffense: 1_200 }, jutsu: [],
+                pvpItems: [{ id: 'plain-throw', name: 'Plain Throw', slot: 'thrown', weaponEp: 20, apCost: 20 }],
+                equipment: { thrown: 'plain-throw' },
+            },
+        });
+        const session = createSoloPveSession({
+            sessionId: 'thrown-range', ownerSlug: 'alice', encounter: { kind: 'test', id: 'thrown-range' },
+            player, enemy: makeFighter('Rival', enemyPos!), itemCharges: { 'plain-throw': 1 }, now: NOW,
+        });
+        const result = applySoloPveAction(session, { type: 'weapon', itemId: 'plain-throw' });
+        assert.equal(result.applied, true, String(result.reason ?? 'thrown attack was rejected'));
+        assert.equal(result.session.itemCharges['plain-throw'], 0);
+    });
 
     it('weapon cooldown blocks a same-turn reswing and is stored under a weapon:-namespaced key', () => {
         const player = makeFighter('Alice', 62, {
@@ -860,6 +945,14 @@ describe('solo-PvE engine', () => {
         const enemyBefore = summoned.session.enemy.hp;
         const advanced = applySoloPveAction(summoned.session, { type: 'wait' });
         assert.ok(advanced.session.enemy.hp < enemyBefore, 'the pet damages the enemy on its own phase');
+        const smoked = structuredClone(summoned.session);
+        const smoke = { name: 'Decrease Damage Given', source: 'item-smoke-bomb', percent: 100,
+            rounds: 1, activeRound: smoked.round, kind: 'negative' as const };
+        smoked.player.statuses.push(smoke);
+        smoked.enemy.statuses.push(smoke);
+        const smokedTurn = applySoloPveAction(smoked, { type: 'wait' });
+        assert.ok(smokedTurn.session.log.some(line => line.includes('Fang') && line.includes('for 0.')),
+            'the pet cannot deal ordinary damage through smoke');
         const tail = advanced.session.events.slice(1).map((event) => event.actor);
         assert.equal(tail[0], 'player');
         assert.ok(tail.indexOf('companion') > tail.indexOf('player'));

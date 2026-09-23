@@ -410,16 +410,17 @@ export const starterItems: GameItem[] = [
     },
     // Ranked Format's fixed neutral throwable (api/pvp/_ranked-format.ts). Not
     // shop-purchasable (cost 0) — every ranked fighter is equipped with this
-    // regardless of what they own. Numbers mirror Senbon, the strongest
-    // existing thrown item, so this is a reskin, not a new balance point.
+    // regardless of what they own. 38 EP plus the shared weapon-swing bonus
+    // lands near 350 direct damage against equal maxed ranked armor. Its Wound
+    // rider remains unchanged.
     {
         id: "ranked-format-kunai",
         name: "Kunai",
         slot: "thrown",
         rarity: "legendary",
         cost: 0,
-        description: "The Ranked Format's neutral throwable. Deals 300 damage per round for 2 rounds after impact.",
-        weaponEp: 0,
+        description: "The Ranked Format's neutral throwable. A stronger impact applies Wound for 2 rounds.",
+        weaponEp: 38,
         weaponEffect: "Wound",
         weaponEffectValue: 300,
         apCost: 20,
@@ -434,7 +435,7 @@ export const starterItems: GameItem[] = [
         rarity: "rare",
         cost: 360,
         image: "/items/shop-smoke-bomb-v1.webp",
-        description: "Dense smoke fills the field. Both you and the enemy deal 0 damage for 1 round. Pierce tag still deals full damage.",
+        description: "Dense smoke fills the field. Ordinary damage is blocked for 1 round. Pierce still deals full damage.",
         weaponEffect: "Decrease Damage Given",
         weaponEffectValue: 100,
         weaponEffectTarget: "both",
@@ -449,7 +450,7 @@ export const starterItems: GameItem[] = [
         rarity: "rare",
         cost: 320,
         image: "/items/shop-attack-pill-v1.webp",
-        description: "A chakra-laced stimulant that sharpens your strikes. Increases your damage output by 15% for 2 rounds.",
+        description: "A chakra-laced stimulant that sharpens your strikes. Increases ordinary damage by 15% for 2 rounds; Pierce is unchanged.",
         weaponEffect: "Increase Damage Given",
         weaponEffectValue: 15,
         apCost: 20,
@@ -463,7 +464,7 @@ export const starterItems: GameItem[] = [
         rarity: "rare",
         cost: 320,
         image: "/items/shop-defense-pill-v1.webp",
-        description: "A hardening compound that reinforces the body. Decreases all damage you take by 15% for 2 rounds.",
+        description: "A hardening compound that reinforces the body. Reduces ordinary damage taken by 15% for 2 rounds; Pierce is unchanged.",
         weaponEffect: "Decrease Damage Taken",
         weaponEffectValue: 15,
         apCost: 20,

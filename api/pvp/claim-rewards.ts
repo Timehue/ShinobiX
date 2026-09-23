@@ -574,7 +574,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             ? journal.terminal.bRating
                             : journal.terminal.aRating;
                         const delta = journal.terminal.rankedEligible && journal.terminal.winner !== 'draw'
-                            ? rankedDelta(winnerSnapshot, loserSnapshot)
+                            ? rankedDelta(winnerSnapshot, loserSnapshot) * (side === journal.terminal.winner ? 1 : -1)
                             : 0;
                         playerRankedRatingOut = { field: 'rankedRating', value, delta };
                     }
@@ -613,7 +613,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (decision.fresh) {
                     const credited = embedPvpSettlementReceipt({ ...char, ...r.patch }, decision.receipts, sid, `rating-${role}`, Date.now());
                     await writeVersionedPlayerSave(saveKey, record, credited);
-                    return { field: ratingField, value: r.newRating, delta: r.delta };
+                    return { field: ratingField, value: r.newRating, delta: role === 'winner' ? r.delta : -r.delta };
                 }
                 if (decision.needsBackfill) {
                     const backfilled = embedPvpSettlementReceipt(
@@ -627,7 +627,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 // Already settled — return the stored authoritative rating.
                 const cur = Number(char[ratingField]);
-                return { field: ratingField, value: Number.isFinite(cur) ? cur : r.newRating, delta: r.delta };
+                return { field: ratingField, value: Number.isFinite(cur) ? cur : r.newRating, delta: role === 'winner' ? r.delta : -r.delta };
             };
 
             // Credit the winner's base ryo+XP exactly once, ATOMICALLY: the credit
@@ -882,12 +882,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 });
                 // Record the server-credited settlement on the durable battle
                 // receipt (Priority 4 visibility). Best-effort: never blocks or
-                // fails the claim. `rating.delta` is the authoritative Elo change;
+                // fails the claim. The shared receipt stores the unsigned Elo
+                // movement; each fighter's claim keeps its signed delta.
                 // base ryo+XP is flagged via a note (the summary returns totals,
                 // not the per-battle gain, so we don't mislabel it as the reward).
                 await patchBattleSettlement(battleId, {
-                    ratingDelta: out.rating?.delta,
-                    note: creditBase ? 'base ryo+XP credited to winner' : undefined,
+                    ...(out.rating ? { ratingDelta: Math.abs(out.rating.delta) } : {}),
+                    ...(creditBase ? { note: 'base ryo+XP credited to winner' } : {}),
                 });
                 const finalSave = await kv.get<Record<string, unknown>>(`save:${playerName}`).catch(() => null);
                 const finalChar = (finalSave?.character ?? null) as Record<string, unknown> | null;

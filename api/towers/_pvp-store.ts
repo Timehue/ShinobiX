@@ -9,6 +9,7 @@ import { TOWER_PVP_MATCH_SIZE, TOWER_PVP_REQUEST_ID, towerPvpBindingOf } from '.
 import { sealTowerFighter, sealTowerItemCharges } from './_seal.js';
 import {
     projectRankedFormatCharacter,
+    sealRankedFormatCombatCharacter,
     resolveRankedFormatWeaponId,
     sealRankedFormatItemCharges,
 } from '../pvp/_ranked-format.js';
@@ -112,7 +113,8 @@ export async function loadTowerPvpFighter(
     const sealCharacter = options.rankedFormat
         ? projectRankedFormatCharacter(character, resolveRankedFormatWeaponId(character.rankedFormatWeaponId))
         : character;
-    const sealed = sealTowerFighter(sealCharacter, save, {}, admin);
+    const hydrated = sealTowerFighter(sealCharacter, save, {}, admin);
+    const sealed = options.rankedFormat ? sealRankedFormatCombatCharacter(hydrated) : hydrated;
     return {
         slug,
         displayName: String(character.name ?? slug).slice(0, 40),
