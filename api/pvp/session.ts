@@ -71,6 +71,7 @@ import {
 } from './_player-ranked-rollout.js';
 import {
     projectRankedFormatCharacter,
+    sealRankedFormatCombatCharacter,
     resolveRankedFormatWeaponId,
     sealRankedFormatItemCharges,
 } from './_ranked-format.js';
@@ -1349,6 +1350,8 @@ function resolveEquippedPvpItems(
 export function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>, clientCharacter: Record<string, unknown>, save: Record<string, unknown> | null = null, admin: AdminCombatContent | null = null): Record<string, unknown> {
     // Start with the save (server is authority for HP, level, stats, etc.).
     const merged: Record<string, unknown> = { ...saveCharacter };
+    // Only the server's Ranked Format path may add this combat-only authority.
+    delete merged.rankedFormatCombat;
     // This is a session-only stamp, added after field-war authority is checked.
     merged.elderWarDefensePct = 0;
     // For derived fields the client computes, fall back to the client value
@@ -1579,6 +1582,7 @@ function clampStatsObject(raw: unknown): Record<string, number> {
 // arena PvP-vs-AI flows that don't persist.
 function hydrateNpcCharacter(clientCharacter: Record<string, unknown>): Record<string, unknown> {
     const out: Record<string, unknown> = { ...clientCharacter };
+    delete out.rankedFormatCombat;
     out.elderWarDefensePct = 0;
     out.bloodlineMult = clampNumber(out.bloodlineMult, 1.0, 3.0, 1.0);
     out.armorFactor = clampNumber(out.armorFactor, 0.25, 1.0, 1.0);
@@ -2284,14 +2288,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     p1Save.character as Record<string, unknown>,
                     resolveRankedFormatWeaponId((p1Save.character as Record<string, unknown>).rankedFormatWeaponId),
                 );
-                finalP1Character = hydrateCharacterFromSave(p1SaveCharacter, p1Character, p1Save, admin);
+                finalP1Character = sealRankedFormatCombatCharacter(hydrateCharacterFromSave(p1SaveCharacter, p1Character, p1Save, admin));
             }
             if (rankedFormatActive && p2Save?.character) {
                 const p2SaveCharacter = projectRankedFormatCharacter(
                     p2Save.character as Record<string, unknown>,
                     resolveRankedFormatWeaponId((p2Save.character as Record<string, unknown>).rankedFormatWeaponId),
                 );
-                finalP2Character = hydrateCharacterFromSave(p2SaveCharacter, p2Character, p2Save, admin);
+                finalP2Character = sealRankedFormatCombatCharacter(hydrateCharacterFromSave(p2SaveCharacter, p2Character, p2Save, admin));
             }
 
             // #4 (newcomer protection / "below level 10 can't be attacked"):

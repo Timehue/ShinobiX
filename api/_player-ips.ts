@@ -1,6 +1,6 @@
 import { kv, type KvLike } from './_storage.js';
 import { safeName } from './_utils.js';
-import { clientIp } from './_client-ip.js';
+import { clientIp, isPublicVisitorIp } from './_client-ip.js';
 
 // Per-player recent-IP / fingerprint tracking. Stamps two keys with 7-day TTL
 // whenever a player is observed: `player-ip:{name}:{ip}` and
@@ -149,6 +149,9 @@ export async function hasRecentIpOrFpOverlapStrict(
         const rightSet = new Set(right);
         return left.some((value) => rightSet.has(value));
     };
-    return overlaps(suffixes(ipKeysA, `player-ip:${a}:`), suffixes(ipKeysB, `player-ip:${b}:`))
+    return overlaps(
+        suffixes(ipKeysA, `player-ip:${a}:`).filter(isPublicVisitorIp),
+        suffixes(ipKeysB, `player-ip:${b}:`).filter(isPublicVisitorIp),
+    )
         || overlaps(suffixes(fpKeysA, `player-fp:${a}:`), suffixes(fpKeysB, `player-fp:${b}:`));
 }

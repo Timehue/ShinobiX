@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { STAT_CAP_FIELDS, MAX_STAT } from '../combat-core/formulas.js';
+import { applyJutsu } from './move.js';
+import type { PvpFighter } from './session.js';
 import {
     isRankedFormatWeaponId,
     isValidRankedFormatItemLedger,
     projectRankedFormatCharacter,
+    rankedCombatLevel,
+    sealRankedFormatCombatCharacter,
     RANKED_FORMAT_CONSUMABLE_CHARGES,
     RANKED_FORMAT_DEFAULT_WEAPON_ID,
     RANKED_FORMAT_LEGENDARY_WEAPON_IDS,
@@ -56,6 +60,43 @@ describe('ranked format', () => {
         assert.equal(projected.specialty, 'Ninjutsu');
         assert.deepEqual(projected.equippedJutsuIds, ['a', 'b']);
         assert.equal(projected.equippedBloodlineId, 'starter-bloodline-iron-fang');
+    });
+
+    it('maxes only the resolved ranked combat snapshot and leaves the save untouched', () => {
+        const saved = {
+            level: 15,
+            jutsu: [{ id: 'learned' }, { id: 'legacy-signature' }],
+            jutsuMastery: [{ jutsuId: 'learned', level: 2 }],
+        };
+        const sealed = sealRankedFormatCombatCharacter(saved);
+        assert.equal(rankedCombatLevel(sealed), 100);
+        assert.equal(rankedCombatLevel(saved), 15);
+        assert.equal(sealed.level, 15);
+        assert.deepEqual(sealed.jutsuMastery, [
+            { jutsuId: 'learned', level: 50 },
+            { jutsuId: 'legacy-signature', level: 50 },
+        ]);
+        assert.deepEqual(saved.jutsuMastery, [{ jutsuId: 'learned', level: 2 }]);
+    });
+
+    it('uses full mastery during a low-level ranked cast', () => {
+        const fighter = (name: string, character: Record<string, unknown>): PvpFighter => ({
+            name, hp: 100, maxHp: 1000, chakra: 1000, maxChakra: 1000,
+            stamina: 1000, maxStamina: 1000, shield: 0, statuses: [], pos: 0, character,
+        });
+        const saved = { level: 15, specialty: 'Ninjutsu', stats: {}, jutsuMastery: [{ jutsuId: 'heal', level: 2 }], jutsu: [{ id: 'heal' }] };
+        const ranked = fighter('Ash', sealRankedFormatCombatCharacter(saved));
+        const ordinary = fighter('Ash', { ...saved, jutsuMastery: [{ jutsuId: 'heal', level: 50 }] });
+        const opponent = fighter('Rival', { level: 15, stats: {}, jutsuMastery: [] });
+        const heal = {
+            id: 'heal', name: 'Heal', type: 'Ninjutsu', element: 'Water', ap: 40,
+            range: 0, effectPower: 0, cooldown: 0, chakraCost: 0, staminaCost: 0,
+            target: 'SELF', method: 'SINGLE', tags: [{ name: 'Heal' }],
+        } as Parameters<typeof applyJutsu>[2];
+        const rankedResult = applyJutsu(ranked, opponent, heal);
+        const ordinaryResult = applyJutsu(ordinary, opponent, heal);
+        assert.equal(rankedResult.self.hp, 850);
+        assert.ok(ordinaryResult.self.hp < rankedResult.self.hp, 'ordinary PvP retains the level 15 mastery cap');
     });
 
     it('seals fixed, non-inventory-derived charges for the neutral kit', () => {

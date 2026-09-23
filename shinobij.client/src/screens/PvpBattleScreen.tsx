@@ -2679,7 +2679,8 @@ export function PvpBattleScreen({
                                     })()}
                                     {inspectedJutsu && (() => {
                                         const mastery = getJutsuMastery(character, inspectedJutsu.id);
-                                        const scaled = scaleJutsuByLevel(inspectedJutsu, mastery.level);
+                                        const combatMasteryLevel = session.rankedFormatVersion === 1 ? JUTSU_MAX_LEVEL : mastery.level;
+                                        const scaled = scaleJutsuByLevel(inspectedJutsu, combatMasteryLevel);
                                         const detailDescription = jutsuDetailDescription(inspectedJutsu);
                                         return (
                                             <CombatDetailPortal
@@ -2689,7 +2690,7 @@ export function PvpBattleScreen({
                                                 onClose={() => setInspectedJutsuId("")}
                                             >
                                                 <div className="combat-jutsu-detail-header">
-                                                    <div><strong id={`pvp-combat-detail-label-jutsu-${inspectedJutsu.id}`}>{inspectedJutsu.name}</strong><small>Level {mastery.level} / {JUTSU_MAX_LEVEL}</small></div>
+                                                    <div><strong id={`pvp-combat-detail-label-jutsu-${inspectedJutsu.id}`}>{inspectedJutsu.name}</strong><small>Level {combatMasteryLevel} / {JUTSU_MAX_LEVEL}</small></div>
                                                     <button type="button" data-combat-detail-close aria-label="Close combat details" onClick={() => setInspectedJutsuId("")}>x</button>
                                                 </div>
                                                 <div className="combat-jutsu-detail-grid">
@@ -2705,7 +2706,7 @@ export function PvpBattleScreen({
                                                 {(() => { const t = jutsuTargetingLabel(inspectedJutsu); return <p className="combat-jutsu-detail-desc"><strong style={{ color: "var(--purple-400)" }}>🎯 {t.short}:</strong> {t.detail}</p>; })()}
                                                 {detailDescription && <p className="combat-jutsu-detail-desc">{detailDescription}</p>}
                                                 <div className="combat-jutsu-effects-list">
-                                                    <JutsuEffectCards jutsu={inspectedJutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} lensDiscipline={playerLensDiscipline(character)} />
+                                                    <JutsuEffectCards jutsu={inspectedJutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={combatMasteryLevel} lensDiscipline={playerLensDiscipline(character)} />
                                                 </div>
                                             </CombatDetailPortal>
                                         );
