@@ -100,7 +100,7 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
     }
 
     if (variant?.id?.startsWith("rift-")) {
-        const { riftEntryReadiness, riftEntryRequirementMessage } = await import("../../shared/rift-entry-readiness");
+        const { riftEntryReadiness, riftEntryRequirementMessage } = await import("../../../shared/rift-entry-readiness");
         const readiness = riftEntryReadiness(
             activeCarriedPets<Pet>(character).length,
             character.cardClashDeck,
