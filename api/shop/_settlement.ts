@@ -174,7 +174,8 @@ export function applyItemPurchase(
     now: number,
 ): ShopSettlementResult {
     const requested = whole(quantityRaw);
-    if (requested === null || requested < 1 || requested > 50) return { ok: false, status: 400, error: 'Quantity must be a whole number from 1 to 50.' };
+    const maxPurchase = wildBindingSeal(item.id) ? 99 : 50;
+    if (requested === null || requested < 1 || requested > maxPurchase) return { ok: false, status: 400, error: `Quantity must be a whole number from 1 to ${maxPurchase}.` };
     const fingerprint = `shop:item:${item.id}:${requested}`;
     const prior = inspect(character, requestId, fingerprint);
     if (!prior.fresh) return prior.result;

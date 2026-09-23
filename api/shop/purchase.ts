@@ -35,7 +35,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!bought.ok) return { ok: false as const, status: 409, error: bought.reason };
             // Reachable ONLY for non-stackable gear, which is always qty 1:
             // `purchaseCatalogItem` routes every stackable buy into `itemStacks`,
-            // and all 7 catalog items that allow qty > 1 are stackable, so a bulk
+            // and the catalog items that allow qty > 1 are stackable, so a bulk
             // consumable order never touches `inventory[]` and can never be
             // refused here. That ordering is load-bearing — gating the raw
             // pre-routing result would have told a full-bag veteran "Your
