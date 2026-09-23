@@ -1702,8 +1702,9 @@ export default function App() {
         // Don't yank players out of an active battle / story / boss screen.
         // Mixed pet/tower screens stay launchable until their active owner says
         // the player is actually committed to another fight.
+        const mixedPetScreen = screen === "petArena" || screen === "petColiseum";
         const blocksBattleScreen = BATTLE_SCREENS.has(screen)
-            && (screen !== "petArena" || petBattleActive)
+            && (!mixedPetScreen || petBattleActive || !!pendingPetBattleOpponent)
             && (screen !== "battleTowers" || hasActiveTowerFight());
         if (blocksBattleScreen) return;
 
@@ -1724,7 +1725,7 @@ export default function App() {
                 return; // launch one at a time
             }
         }
-    }, [character, screen, clanWarStateVersion, launchClanWarBattle, petBattleActive, gameplayMutationsOpen]);
+    }, [character, screen, clanWarStateVersion, launchClanWarBattle, petBattleActive, pendingPetBattleOpponent, gameplayMutationsOpen]);
 
     // Tracks whether the player is mid-Shinobi-Tile card game launched from a
     // Hollow Gate tile_game tile. Used to apply the -20% maxHp penalty on
@@ -6025,7 +6026,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "petShowdown" && character && <PetShowdown character={character} updateCharacter={setCharacter} setScreen={setScreen} sharedImages={sharedImages} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} />}
                 {!activeTriggeredEvent && screen === "firstPact" && character && <FirstPact character={character} sharedImages={sharedImages} onExit={() => setScreen("centralHub")} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} onVersionedCharacter={commitVersionedCharacter} />}
                 {/* The Coliseum proper: the same arena, opened as a PAID bout. */}
-                {!activeTriggeredEvent && screen === "petColiseum" && character && <PetShowdown bout="arena" character={character} updateCharacter={setCharacter} setScreen={setScreen} sharedImages={sharedImages} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} />}
+                {!activeTriggeredEvent && screen === "petColiseum" && character && <PetShowdown bout="arena" character={character} updateCharacter={setCharacter} setScreen={setScreen} sharedImages={sharedImages} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} pendingWanderer={pendingPetBattleOpponent?.wanderer ? pendingPetBattleOpponent : null} onPendingWandererStarted={() => setPendingPetBattleOpponent(null)} onVersionedCharacter={commitVersionedCharacter} />}
 
                 {!activeTriggeredEvent && screen === "petLadder" && character && <PetLadder character={character} setScreen={setScreen} sharedImages={sharedImages} onVersionedCharacter={commitVersionedCharacter} />}
                 {/* An authored VN pet battle. The opponent is no longer scaled here:

@@ -52,6 +52,10 @@ describe("screen navigation guards", () => {
         assert.equal(isUnresolvedBattle(signals({ screen: "arena", arenaBattleActive: true })), true);
         assert.equal(isUnresolvedBattle(signals({ screen: "petArena" })), false);
         assert.equal(isUnresolvedBattle(signals({ screen: "petArena", petBattleActive: true })), true);
+        assert.equal(BATTLE_SCREENS.has("petColiseum"), true);
+        assert.equal(isUnresolvedBattle(signals({ screen: "petColiseum" })), false);
+        assert.equal(isUnresolvedBattle(signals({ screen: "petColiseum", pendingPetBattle: true })), true);
+        assert.equal(isUnresolvedBattle(signals({ screen: "petColiseum", petBattleActive: true })), true);
     });
 
     it("blocks mission navigation only while the server-owned arena fight is unresolved", () => {

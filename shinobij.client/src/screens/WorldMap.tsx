@@ -141,7 +141,6 @@ import { TravelingOverlay } from "../components/TravelingOverlay";
 import { ATLAS_SECTOR_POINTS } from "../data/sector-points";
 import { sectorExits as roadExitsForSector, travelArrivalTile, type SectorExit } from "../../../shared/sector-links";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
-import { scaleWandererPetOpponent } from "../lib/pet-balance";
 import { startWildPetEncounter, wildPetEncounterFailureMessage } from "../lib/wild-pet-encounter-api";
 import { WildPetBinding } from "../components/WildPetBinding";
 import {
@@ -2031,45 +2030,28 @@ function WorldMapContent({
         }
     }
     function startWandererPetDuel(w: Wanderer) {
-        // The interaction gate, same as the gambler's (the beast is on the road for
-        // everyone): the Pet Arena has its own empty-roster screen, and being walked
-        // into it by a beast that just challenged you is a dead end.
+        // Keep the challenge on the road when there is no team to field.
         if (!character.pets.length) {
             setWandererDialog({ w, msg: `The beast waits for a challenger that never comes. You have no pet to send out. Tame one first, and it will still be prowling this road.` });
             return;
         }
         if (selectedSector == null || !isWildSector(selectedSector)) return;
-        // This card is only a preview. The exact roster slot, verb, sector,
-        // player pet, tier, scaling, seed and outcome are reconstructed/sealed
-        // by battle-start before the wanderer cooldown is committed.
-        const targetLevel = Math.max(1, Math.min(100, character.level));
-        const tmpl = targetLevel < 20 ? genericPetArenaOpponents[0]
-            : targetLevel < 45 ? genericPetArenaOpponents[1]
-            : genericPetArenaOpponents[2];
-        const preview = scaleWandererPetOpponent(tmpl.pet, targetLevel);
-        // Deterministic preview identity from the wanderer + player tile. The
-        // server ignores it and owns the actual Showdown seed.
-        let seed = (sectorPlayerPos + 1) >>> 0;
-        for (let i = 0; i < w.id.length; i++) seed = (Math.imul(seed, 31) + w.id.charCodeAt(i)) >>> 0;
+        // This is only a navigation marker. The Showdown endpoint validates the
+        // exact wanderer and chooses the format, both teams and seed itself.
         setPendingPetBattleOpponent({
             owner: w.name,
-            // Shown on the matchup card. The SERVER builds the beast it actually
-            // fights from the same rule (tier by the caller's own saved level,
-            // then scaled), so this is a preview of that opponent rather than
-            // the opponent itself — the arena never fights what the client sends.
-            pet: preview,
-            // `sector` travels with the id: the sealed wanderer session validates
-            // the encounter against the sector the SAVE says you stand in, and
-            // rejects a duel claimed from anywhere else.
+            // PetArenaOpponent is the existing navigation envelope. This pet
+            // is never shown or sent to Showdown; the server draws the real team.
+            pet: genericPetArenaOpponents[0].pet,
+            // The server checks this exact road position against the save.
             wanderer: { id: w.id, sector: selectedSector },
-            battleSeed: seed,
             returnScreen: "worldMap",
         });
         // Remember the sector so returning from the duel reopens it (the pet battle
         // returns to the World Map, which consumes this latch on remount).
         setSectorReopen(selectedSector != null && isWildSector(selectedSector) ? selectedSector : null);
         setWandererDialog(null);
-        setScreen("petArena");
+        setScreen("petColiseum");
     }
     function startWandererCardDuel(w: Wanderer) {
         // The interaction gate (the roster is shared by everyone, so a sealed
