@@ -2548,7 +2548,7 @@ export function BattleTowerFight({
                                         ? `${summonedCompanion.name} is already on the field`
                                         : `Summon ${session.pendingCompanion?.name ?? "your active pet"}`}
                                 >
-                                    <i className="cmd-icon" aria-hidden="true"><GiPawPrint /></i><span>Summon Pet</span>
+                                    <i className="cmd-icon" aria-hidden="true"><GiPawPrint /></i><span>Summon</span>
                                     <small>{summonedCompanion?.name ?? session.pendingCompanion?.name ?? "Active pet"}</small>
                                 </button>
                             )}

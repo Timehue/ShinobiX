@@ -47,6 +47,7 @@ test("mission fight reserves a row for its action notice instead of displacing t
     assert.match(wrapper![1], /className=\{`combat-targeting-hint/, "the targeting hint belongs in the wrapper");
     assert.match(wrapper![1], /actionNotice \? <span>\{actionNotice\}<\/span>/, "action feedback takes precedence over Academy guidance");
     assert.match(wrapper![1], /: <span>\{"\\u00a0"\}<\/span>/, "the idle row must remain mounted");
+    assert.match(missionCss, /#combat\.mission-arena-fight \.combat-action-notice\s*\{[^}]*background:\s*transparent\s*!important;[^}]*border-color:\s*transparent\s*!important;/, "action feedback must not paint a dark bar");
 
     // Nothing may render either notice as a direct child of .combat-main-area.
     assert.equal(
@@ -129,8 +130,8 @@ test("mission fight reserves a row for its action notice instead of displacing t
     );
     assert.match(
         missionCss,
-        /@media \(max-width:\s*360px\) and \(max-height:\s*600px\)[\s\S]*?\.summon-pet-command > span\s*\{[^}]*font-size:\s*8\.5px\s*!important;[^}]*white-space:\s*normal\s*!important;/,
-        "minimum-width mission combat must wrap the full Summon Pet title instead of clipping it",
+        /@media \(max-width:\s*360px\) and \(max-height:\s*600px\)[\s\S]*?\.summon-pet-command > span\s*\{[^}]*font-size:\s*8\.5px\s*!important;[^}]*white-space:\s*nowrap\s*!important;/,
+        "minimum-width mission combat must keep the short Summon title on one line",
     );
     assert.match(
         missionCss,
@@ -144,8 +145,8 @@ test("mission fight reserves a row for its action notice instead of displacing t
     );
     assert.match(
         missionCss,
-        /@media \(min-width:\s*480px\) and \(max-width:\s*932px\) and \(max-height:\s*500px\)[\s\S]*?\.summon-pet-command > span\s*\{[^}]*font-size:\s*8px\s*!important;[^}]*white-space:\s*normal\s*!important;/,
-        "short landscape must preserve the complete wrapped Summon Pet label in its narrow control column",
+        /@media \(min-width:\s*480px\) and \(max-width:\s*932px\) and \(max-height:\s*500px\)[\s\S]*?\.summon-pet-command > span\s*\{[^}]*font-size:\s*8px\s*!important;[^}]*white-space:\s*nowrap\s*!important;/,
+        "short landscape must preserve the complete Summon label on one line",
     );
 
     // The fix is load-bearing on that class still reserving a track.
@@ -199,7 +200,7 @@ test("the mission summon command contains its icon and long lock copy", () => {
     assert.match(
         battleSkinCss,
         /#combat\.mission-arena-fight \.shinobi-command-bar\s*\{[^}]*grid-template-columns: repeat\(8, minmax\(0, 1fr\)\) !important/s,
-        "desktop PvE must keep Summon Pet beside Cleanse in its eight-command strip",
+        "desktop PvE must keep Summon beside Cleanse in its eight-command strip",
     );
     assert.match(
         battleSkinCss,

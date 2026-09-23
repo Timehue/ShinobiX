@@ -1550,7 +1550,7 @@ export function MissionArenaFight({
                                             : unavailableCompanionCopy.title}
                             >
                                 <i className="cmd-icon" aria-hidden="true"><GiPawPrint /></i>
-                                <span>Summon Pet</span>
+                                <span>Summon</span>
                                 <small>{companion
                                     ? `${companion.name} · ${companionRoundsLeft}⟳`
                                     : session.pendingCompanion
