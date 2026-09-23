@@ -25,6 +25,7 @@ describe("createCharacter — the starting grant", () => {
         const c = NEW();
         assert.equal(c.ryo, 100);
         assert.deepEqual(c.inventory, ["rustfang-kunai", "shinobi-vest"]);
+        assert.deepEqual(c.itemStacks, [{ itemId: "beast-seal-reinforced", count: 1 }]);
         assert.equal(c.unspentStats, STARTING_STAT_POINTS);
         assert.equal(c.bankRyo, 0);
         assert.equal(c.honorSeals, 0);

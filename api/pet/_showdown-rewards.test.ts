@@ -166,6 +166,7 @@ describe('showdown.ts wires practice as unpaid', () => {
         // itself unpaid whatever the body says. On the arena entry the same flag
         // would be a difficulty dial on a faucet — the exact thing `body.tier` is
         // already barred from doing there.
+        const wandererAt = indexOfOrFail("if (action === 'wanderer') {");
         const practiceAt = indexOfOrFail("action === 'start'");
         // Full opening line, as above: the Hollow Gate admission guard tests
         // `action === 'arena'` BEFORE the practice entry, so the loose needle
@@ -173,9 +174,14 @@ describe('showdown.ts wires practice as unpaid', () => {
         // unsatisfiable for every reader.
         const arenaAt = indexOfOrFail("if (action === 'arena') {");
         const sparringReads = [...src.matchAll(/body\.sparring/g)].map((m) => m.index ?? -1);
-        assert.ok(sparringReads.length > 0, 'the practice entry reads the sparring flag');
+        const wandererBlock = src.slice(wandererAt, practiceAt);
+        assert.match(wandererBlock, /body\.sparring !== undefined[\s\S]*?return res\.status\(400\)/,
+            'the road encounter rejects any caller-supplied sparring flag');
+        const rejectionRead = src.indexOf('body.sparring !== undefined', wandererAt);
+        assert.ok(sparringReads.some(at => at > practiceAt && at < arenaAt), 'the practice entry reads the sparring flag');
         for (const at of sparringReads) {
-            assert.ok(at > practiceAt && at < arenaAt, 'body.sparring may only be read inside the practice entry');
+            assert.ok(at === rejectionRead || (at > practiceAt && at < arenaAt),
+                'body.sparring may only be rejected by the road entry or read inside unpaid practice');
         }
     });
 

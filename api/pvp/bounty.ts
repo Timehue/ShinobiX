@@ -14,6 +14,7 @@ import { pvpTerminalRecoveryExpiresAt } from './_pending-session.js';
 import { normalizeBoard, placeBounty, claimBounty, findBounty, BOUNTY_KEY, BOUNTY_AUDIT_PREFIX, type BountyBoard } from './_bounty.js';
 import { pushOfflineNotice } from '../player/_offline-notices.js';
 import { announce } from '../_announce.js';
+import { contractHunterCooldownKey, contractHunterIdFor } from '../../shared/contract-hunter.js';
 
 /*
  * /api/pvp/bounty — GET (board) + POST (place / claim)
@@ -191,8 +192,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(400).json({ error: 'Missing hunterId.' });
             }
             const board = normalizeBoard(await kv.get<BountyBoard>(BOUNTY_KEY));
-            const bounty = findBounty(board, playerName);
+            const bounty = board.bounties.find((entry) => safeName(entry.target) === playerName);
             if (!bounty) return res.status(200).json({ ok: false, reason: 'no-bounty' });
+            // The displayed hunter may come from an older board poll. Confirm
+            // the exact contract before opening the combat overlay.
+            if (hunterId !== contractHunterIdFor(bounty.target, bounty)) {
+                return res.status(200).json({ ok: false, reason: 'stale-hunter', bounty });
+            }
+            const cooldown = await kv.get<{ until?: unknown }>(contractHunterCooldownKey(playerName, hunterId));
+            const cooldownUntil = Number(cooldown?.until) || 0;
+            if (cooldownUntil > Date.now()) {
+                return res.status(200).json({ ok: false, reason: 'cooldown', cooldownUntil });
+            }
             return res.status(200).json({
                 ok: true,
                 bounty: { target: bounty.target, amount: bounty.amount, contributors: bounty.contributors, updatedAt: bounty.updatedAt },

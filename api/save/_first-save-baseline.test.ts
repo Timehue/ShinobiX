@@ -24,7 +24,7 @@ describe('canonical first player save', () => {
         assert.equal(out.fateShards, 0);
         assert.equal(out.unspentStats, 20);
         assert.deepEqual(out.inventory, [...FIRST_SAVE_INVENTORY]);
-        assert.deepEqual(out.itemStacks, []);
+        assert.deepEqual(out.itemStacks, [{ itemId: 'beast-seal-reinforced', count: 1 }]);
         assert.deepEqual(out.pets, []);
         assert.deepEqual(out.tileCards, []);
         assert.deepEqual(out.equipment, {});
@@ -60,7 +60,7 @@ describe('canonical first player save', () => {
         assert.equal(character.ryo, FIRST_SAVE_RYO);
         assert.equal(character.fateShards, 0);
         assert.deepEqual(character.inventory, [...FIRST_SAVE_INVENTORY]);
-        assert.deepEqual(character.itemStacks, []);
+        assert.deepEqual(character.itemStacks, [{ itemId: 'beast-seal-reinforced', count: 1 }]);
         assert.deepEqual(character.pets, []);
         assert.deepEqual(character.tileCards, []);
     });

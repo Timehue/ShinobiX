@@ -23,6 +23,7 @@ import { towerActorToPvpFighter } from '../combat-adapters/clanBossAdapter.js';
 import { getEnemyTemplate } from './_enemy-templates.js';
 import { TOWER_PVP_TOWER_ID } from './_pvp-session.js';
 import { sealTowerFighter } from './_seal.js';
+import { companionActor } from './_companion.js';
 import type { AdminCombatContent } from '../_admin-content.js';
 
 const MAP8: TowerMap = { width: 8, height: 8, blockedTiles: [], hazardTiles: [], objectiveTiles: [] };
@@ -1108,6 +1109,79 @@ describe('Battle Towers loadout combat (jutsu resources / cooldowns / weapons / 
         assert.equal(actor.cooldowns.smoke, undefined);
     });
 
+    it('the ranked neutral pills and smoke apply utility effects without item damage', () => {
+        for (const [id, expectedStatus, percent] of [
+            ['item-attack-pill', 'Increase Damage Given', 15],
+            ['item-defense-pill', 'Decrease Damage Taken', 15],
+            ['item-smoke-bomb', 'Decrease Damage Given', 100],
+        ] as const) {
+            const item = { id, name: id, slot: 'item', apCost: 20, weaponCooldown: 5,
+                weaponEffect: expectedStatus, weaponEffectValue: percent,
+                ...(id === 'item-smoke-bomb' ? { weaponEffectTarget: 'both' } : {}) };
+            const actor = makeActor('sq-1', 'squad', 0, {
+                itemCharges: { [id]: 2 },
+                character: { ...STRONG, pvpItems: [item], equipment: { item: id } },
+            });
+            const s = makeSession([actor, bigEnemy()]);
+            startRound(s);
+            const opponentHp = getActor(s, 'en-1')!.hp;
+            assert.ok(applyAction(s, floor, { actorId: 'sq-1', type: 'item', itemId: id }, makeRng(1)).applied);
+            assert.equal(getActor(s, 'en-1')!.hp, opponentHp, `${id} must not deal direct damage`);
+            assert.equal(getActor(s, 'sq-1')!.statuses.find(status => status.source === id)?.percent, percent);
+            assert.equal(getActor(s, 'en-1')!.statuses.some(status => status.source === id), id === 'item-smoke-bomb');
+        }
+    });
+
+    it('ranked Smoke Bomb covers both fighters on each team', () => {
+        const id = 'item-smoke-bomb';
+        const actors = frontline();
+        actors[0] = makeActor('sq-1', 'squad', 0, {
+            itemCharges: { [id]: 2 },
+            character: { ...STRONG, pvpItems: [{ id, slot: 'item', apCost: 20 }], equipment: { item: id } },
+        });
+        actors[1] = makeActor('sq-2', 'squad', 8, {
+            character: { ...STRONG, jutsu: [{ id: 'piercing-hit', type: 'Taijutsu',
+                target: 'OPPONENT', effectPower: 30, ap: 60, range: 1,
+                tags: [{ name: 'Pierce' }] }] },
+        });
+        const s = makeSession(actors);
+        startRound(s);
+        assert.ok(applyAction(s, floor, { actorId: 'sq-1', type: 'item', itemId: id }, makeRng(1)).applied);
+        for (const fighter of s.actors) {
+            assert.equal(fighter.statuses.some(status => status.source === id), true, `${fighter.id} is covered by smoke`);
+        }
+        endTurn(s, floor);
+        assert.equal(activeActor(s)?.id, 'sq-2');
+        const target = getActor(s, 'en-2')!;
+        const hpBefore = target.hp;
+        assert.ok(applyAction(s, floor, { actorId: 'sq-2', type: 'attack', targetId: 'en-2' }, makeRng(1)).applied);
+        assert.equal(target.hp, hpBefore, 'the teammate cannot deal ordinary damage through smoke');
+        assert.ok(applyAction(s, floor, { actorId: 'sq-2', type: 'jutsu', jutsuId: 'piercing-hit', targetId: 'en-2' }, makeRng(1)).applied);
+        assert.ok(target.hp < hpBefore, 'the teammate can still deal Pierce damage through smoke');
+    });
+
+    it('field smoke blocks pet strikes and Defense Pill reduces pet damage', () => {
+        const petDamage = (ownerSmoked: boolean, enemyDefended: boolean) => {
+            const smoke = { name: 'Decrease Damage Given', source: 'item-smoke-bomb', percent: 100,
+                rounds: 1, activeRound: 1, kind: 'negative' as const };
+            const defense = { name: 'Decrease Damage Taken', source: 'item-defense-pill', percent: 15,
+                rounds: 2, activeRound: 1, kind: 'positive' as const };
+            const owner = makeActor('a-owner', 'squad', 0, { ai: false, statuses: ownerSmoked ? [smoke] : [] });
+            const pet = companionActor({ petId: 'pet-1', name: 'Fang', hp: 300, damage: 100,
+                happiness: 100, loyal: true, moves: [], pveGearId: '' }, 8);
+            const enemy = makeActor('en-1', 'enemy', 9, { ai: false,
+                statuses: [...(ownerSmoked ? [smoke] : []), ...(enemyDefended ? [defense] : [])] });
+            const session = makeSession([owner, pet, enemy]);
+            startRound(session);
+            endTurn(session, floor);
+            runAiUntilHuman(session, floor, makeRng(1));
+            return enemy.maxHp - enemy.hp;
+        };
+        assert.equal(petDamage(false, false), 200);
+        assert.equal(petDamage(false, true), 170);
+        assert.equal(petDamage(true, false), 0);
+    });
+
     it('Smoke Bomb respects an adds-gated boss barrier while still affecting exposed combatants', () => {
         const sq = makeActor('sq-1', 'squad', 0, {
             itemCharges: { smoke: 1 },
@@ -1122,6 +1196,23 @@ describe('Battle Towers loadout combat (jutsu resources / cooldowns / weapons / 
         assert.ok(getActor(s, 'sq-1')!.statuses.some(status => status.name === 'Decrease Damage Given'));
         assert.ok(getActor(s, 'en-1')!.statuses.some(status => status.name === 'Decrease Damage Given'));
         assert.ok(!getActor(s, 'boss')!.statuses.some(status => status.name === 'Decrease Damage Given'), 'protected boss ignores the field debuff');
+    });
+
+    it('the canonical smoke field also covers an adds-gated boss', () => {
+        const id = 'item-smoke-bomb';
+        const squad = makeActor('sq-1', 'squad', 0, {
+            itemCharges: { [id]: 1 },
+            character: { ...STRONG, pvpItems: [{ id, name: 'Smoke Bomb', slot: 'item', apCost: 20 }], equipment: { item: id } },
+        });
+        const s = makeSession([
+            squad,
+            makeActor('boss', 'enemy', 1, { character: WEAK }),
+            makeActor('en-1', 'enemy', 2, { character: WEAK }),
+        ], { objectiveKind: 'kill-adds-first', bossId: 'boss' });
+        startRound(s);
+        assert.ok(applyAction(s, makeFloor('kill-adds-first'), { actorId: 'sq-1', type: 'item', itemId: id }, makeRng(1)).applied);
+        assert.ok(getActor(s, 'boss')!.statuses.some(status => status.source === id));
+        assert.ok(getActor(s, 'en-1')!.statuses.some(status => status.source === id));
     });
 
     it('biome terrain gives the matching discipline +10%', () => {

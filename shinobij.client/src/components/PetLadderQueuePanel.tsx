@@ -5,6 +5,7 @@ import { activeCarriedPets } from "../lib/entitlements";
 import { activeClientBreedingParentIds } from "../lib/pet-breeding";
 import { isPetAvailableForWarfront, petDisplayName } from "../lib/pet";
 import { lazyWithRetry } from "../lib/lazyWithRetry";
+import { rankedLevelEligible, RANKED_LEVEL_WARNING } from "../../../shared/ranked-eligibility";
 import { fetchRankedPetDuel, type RankedPetWatch } from "../lib/pet-ranked-watch-api";
 import {
     petRankedQueue,
@@ -157,6 +158,10 @@ export function PetLadderQueuePanel({ character, sharedImages = {}, onVersionedC
     };
 
     const act = (action: "join" | "leave") => async () => {
+        if (action === "join" && !rankedLevelEligible(character.level)) {
+            setError(RANKED_LEVEL_WARNING);
+            return;
+        }
         refreshIdRef.current += 1;
         setBusy(true);
         setError(null);
@@ -173,6 +178,7 @@ export function PetLadderQueuePanel({ character, sharedImages = {}, onVersionedC
     const queueBox = (
         <div className="summary-box" data-testid="pet-ladder-queue" style={{ padding: "0.9rem", marginBottom: "0.9rem" }}>
             <h3 className="pl-h" style={{ marginTop: 0 }}>Pet Colosseum ranked queue</h3>
+            {!rankedLevelEligible(character.level) && <p className="hint" role="alert">{RANKED_LEVEL_WARNING}</p>}
             {error && <p className="hint" role="alert" style={{ color: "var(--red-400)" }}>{error}</p>}
             {error && !busy && <button type="button" onClick={() => {
                 if (closingToken) void closeReplay(closingToken);
@@ -204,7 +210,7 @@ export function PetLadderQueuePanel({ character, sharedImages = {}, onVersionedC
                     <p className="hint">{lineup.length === 4
                         ? lineup.map((pet, index) => `${index < 2 ? "Field" : "Reserve"} ${index % 2 + 1}: ${petDisplayName(pet)}`).join(" · ")
                         : `Carry and select four available pets (${lineup.length}/4 ready).`}</p>
-                    <button type="button" disabled={busy || checking || lineup.length < 4} onClick={() => void act("join")()}>
+                    <button type="button" disabled={busy || checking || lineup.length < 4 || !rankedLevelEligible(character.level)} onClick={() => void act("join")()}>
                         {checking ? "Checking ranked matches…" : busy ? "Joining…" : "Find ranked match"}
                     </button>
                 </>

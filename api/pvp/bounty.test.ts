@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, beforeEach, test } from 'node:test';
+import { contractHunterCooldownKey, contractHunterIdFor } from '../../shared/contract-hunter.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -87,6 +88,38 @@ async function stampSharedConnection(): Promise<void> {
     await kv.set(`player-ip:${HUNTER}:v2:${sharedIp}`, true);
     await kv.set(`player-ip:${TARGET}:v2:${sharedIp}`, true);
 }
+
+test('AI hunter start rejects stale contracts and active cooldowns', async () => {
+    const placed = await call(PLACER, { action: 'place', target: 'Bounty Target', amount: 1_000 });
+    assert.equal(placed.statusCode, 200, JSON.stringify(placed.body));
+    const board = await kv.get<{ bounties: Array<{ target: string; amount: number; updatedAt: number }> }>('pvp:bounties');
+    assert.ok(board?.bounties[0]);
+    const hunterId = contractHunterIdFor('Bounty Target', board.bounties[0]);
+
+    const open = await call(TARGET, { action: 'ai-hunter-start', hunterId });
+    assert.equal(open.body?.ok, true, JSON.stringify(open));
+    const { buildWorldAiFightSpec } = await import('../missions/_world-ai-fight.js');
+    const fight = await buildWorldAiFightSpec({
+        playerName: TARGET,
+        request: { kind: 'bounty-hunter', sourceId: hunterId, sector: 25 },
+        save: { currentSector: 25, character: { name: 'Bounty Target', level: 20 } },
+    });
+    assert.equal(fight.context.sourceId, hunterId, 'the sealed fight must accept the displayed hunter');
+
+    const cooldownUntil = Date.now() + 60_000;
+    await kv.set(contractHunterCooldownKey(TARGET, hunterId), { until: cooldownUntil });
+    const cooled = await call(TARGET, { action: 'ai-hunter-start', hunterId });
+    assert.equal(cooled.body?.reason, 'cooldown', JSON.stringify(cooled));
+    assert.equal(cooled.body?.cooldownUntil, cooldownUntil);
+
+    const renewed = { ...board.bounties[0], updatedAt: board.bounties[0].updatedAt + 1 };
+    await kv.set('pvp:bounties', { ...board, bounties: [renewed] });
+    const stale = await call(TARGET, { action: 'ai-hunter-start', hunterId });
+    assert.equal(stale.body?.reason, 'stale-hunter');
+    assert.deepEqual(stale.body?.bounty, renewed);
+    const newHunterId = contractHunterIdFor('Bounty Target', renewed);
+    assert.equal((await call(TARGET, { action: 'ai-hunter-start', hunterId: newHunterId })).body?.ok, true);
+});
 
 test('placing a bounty posts Bounty Posted exactly once per board stamp', async () => {
     const frozen = 1_900_000_000_000;

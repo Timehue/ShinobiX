@@ -21,7 +21,7 @@ import {
     PLAYER_RANKED_V2_DISABLED_MESSAGE,
 } from './_player-ranked-rollout.js';
 import { rankedSeasonAdmissionsPaused } from '../cron/_ranked-season.js';
-import { isBelowAttackableFloor, ATTACKABLE_MIN_LEVEL } from '../_realtime/presence-gating.js';
+import { rankedLevelEligible, RANKED_LEVEL_WARNING } from '../../shared/ranked-eligibility.js';
 import { isIncapacitated } from '../_elapsed-state.js';
 import { hasRecentIpOrFpOverlapStrict, stampPlayerIp } from '../_player-ips.js';
 
@@ -44,35 +44,10 @@ const STALE_MS = 60 * 1000;           // Remove entries older than 60s (must re-
 const MATCH_TTL_SECONDS = 30;
 const matchKey = (slug: string) => `${QUEUE_KEY}:match:${slug}`;
 const CURRENT_SEASON_KEY = 'ranked:season:current';
-// Ranked measures combat choices, not who happened to cross a progression
-// breakpoint. Keep a small widening window for queue health, but never cross a
-// stat/mastery-cap tier and never widen into the old level-10-vs-100 outcome.
-const LEVEL_BAND_BASE = 2;
-const LEVEL_BAND_MAX = 5;
-const LEVEL_BAND_OPEN_INTERVAL_MS = 30_000;
-
-function combatProgressionBand(level: number): number {
-    const value = Math.max(1, Math.min(100, Math.floor(Number(level) || 1)));
-    if (value >= 80) return 4;
-    if (value >= 50) return 3;
-    if (value >= 30) return 2;
-    if (value >= 15) return 1;
-    return 0;
-}
-
-export function rankedLevelBand(joinedAt: number, now: number): number {
-    const waitMs = Math.max(0, now - joinedAt);
-    return Math.min(LEVEL_BAND_MAX, LEVEL_BAND_BASE + Math.floor(waitMs / LEVEL_BAND_OPEN_INTERVAL_MS));
-}
-
-export function selectRankedOpponent(me: QueueEntry, others: QueueEntry[], now: number): QueueEntry | undefined {
-    const myBand = rankedLevelBand(me.joinedAt, now);
-    return others
-        .filter((candidate) => {
-            const mutuallyAllowedBand = Math.min(myBand, rankedLevelBand(candidate.joinedAt, now));
-            return combatProgressionBand(candidate.level) === combatProgressionBand(me.level)
-                && Math.abs(candidate.level - me.level) <= mutuallyAllowedBand;
-        })
+export function selectRankedOpponent(me: QueueEntry, others: QueueEntry[], _now: number): QueueEntry | undefined {
+    // Ranked Format equalizes the combat tier, so character level is not a
+    // matchmaking restriction. Prefer the nearest rating among active entries.
+    return [...others]
         .sort((a, b) => {
             const eloGap = Math.abs(a.elo - me.elo) - Math.abs(b.elo - me.elo);
             return eloGap || a.joinedAt - b.joinedAt || a.name.localeCompare(b.name);
@@ -101,7 +76,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ]);
         const queue = storedQueue ?? [];
         const now = Date.now();
-        const active = queue.filter(e => queueEntryIsActive(e, now));
+        const active = queue.filter(e => queueEntryIsActive(e, now) && rankedLevelEligible(e.level));
         const inQueue = active.some(e => e.name === name);
         res.setHeader('Cache-Control', 'no-store');
         const enabled = !!gate
@@ -193,15 +168,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // entering the lock so the lock body stays fast.
             let serverLevel = 1;
             let serverElo = 1000;
-            // Fails OPEN, matching the best-effort read below: a storage hiccup
-            // must not lock a healthy player out of ranked.
+            // Missing level data fails closed at the ranked-only admission gate.
             let serverIncapacitated = false;
-            if (action === 'join' && !identity.admin) {
+            if (action === 'join') {
                 // Record trusted connection evidence before this player can be
                 // matched, even if their first heartbeat has not arrived yet.
-                await stampPlayerIp(req, identity.name);
+                if (!identity.admin) await stampPlayerIp(req, identity.name);
                 try {
-                    const save = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
+                    const save = await kv.get<Record<string, unknown>>(`save:${safeName(name)}`);
                     const char = (save?.character ?? null) as Record<string, unknown> | null;
                     if (char) {
                         if (typeof char.level === 'number') serverLevel = char.level;
@@ -223,12 +197,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         errorCode: 'hospitalized',
                     });
                 }
-                // #4 newcomer protection: sub-floor shinobi can't enter ranked —
-                // it would match them against far stronger players for a free loss.
-                // Gated on the authoritative save level read just above.
-                if (isBelowAttackableFloor(serverLevel)) {
+                // Ranked requires level 11+ even though the general PvP floor is 10.
+                // The authoritative save level, never the client body, decides.
+                if (!rankedLevelEligible(serverLevel)) {
                     return res.status(403).json({
-                        error: `You must reach level ${ATTACKABLE_MIN_LEVEL} before entering ranked battles.`,
+                        error: RANKED_LEVEL_WARNING,
+                        errorCode: 'ranked-level-locked',
                     });
                 }
             }
@@ -243,7 +217,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const out = await withKvLock<{ status: number; body: Record<string, unknown> }>(QUEUE_KEY, async () => {
                 const queue = await kv.get<QueueEntry[]>(QUEUE_KEY) ?? [];
                 const now = Date.now();
-                const active = queue.filter(e => queueEntryIsActive(e, now));
+                const active = queue.filter(e => queueEntryIsActive(e, now) && rankedLevelEligible(e.level));
 
                 if (action === 'leave') {
                     const filtered = active.filter(e => e.name !== safeName(name));
@@ -336,8 +310,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const opponent = selectRankedOpponent(me, others, now);
                     if (!opponent) {
                         // Refresh liveness without resetting joinedAt: the latter is
-                        // the authoritative wait clock used by the 15-second widening
-                        // schedule. Resetting it here kept the band permanently at 10.
+                        // the authoritative queue wait clock and Elo tie-breaker.
                         const refreshed = active.map(e => e.name === me.name ? { ...e, lastPolledAt: now } : e);
                         await kv.set(QUEUE_KEY, refreshed, { ex: KV_TTL_SECONDS });
                         return { status: 200, body: { inQueue: true, queueSize: active.length, match: null } };

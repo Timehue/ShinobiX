@@ -692,6 +692,13 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
         participantModel: 'solo', rewardPolicy: 'none', replayKind: 'expiring-showdown-turn-script', status: 'match',
     }),
     defineMode({
+        id: 'wild-pet-binding', label: 'Wild pet binding', category: 'pet-showdown', authorityEngine: E.PET_SHOWDOWN,
+        clientEntries: ['components/WildPetBinding.tsx', 'lib/wild-binding-api.ts'],
+        routes: [mountedRoute('/pet/wild-binding', 'pet/wild-binding', ['start', 'action', 'state', 'settlement'])],
+        participantModel: 'solo', rewardPolicy: 'server-settled', replayKind: 'expiring-showdown-turn-script', status: 'match',
+        statusDetail: 'A settled Explore pet token starts one server-owned Showdown battle. Turns alter sealed HP and Resolve; a spent Beast Seal settles capture to the roster or Sanctuary.',
+    }),
+    defineMode({
         id: 'pet-wanderer-showdown', label: 'Natural sector pet wanderer', category: 'pet-showdown', authorityEngine: E.PET_SHOWDOWN,
         clientEntries: ['screens/WorldMap.tsx', 'screens/PetArena.tsx', 'data/pet-arena-opponents.ts'],
         routes: [

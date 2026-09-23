@@ -149,7 +149,7 @@ export function isHospitalNavigationBlocked(hospitalized: boolean, screen: Scree
 // isUnresolvedBattle() below decides whether a mixed lobby/fight screen is
 // actively locked.
 export const BATTLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
-    "pvpBattle", "petArena", "petShowdown", "arena", "storyBoss", "weeklyBoss", "villageWar",
+    "pvpBattle", "petArena", "petShowdown", "petColiseum", "arena", "storyBoss", "weeklyBoss", "villageWar",
     "hollowGateShrine", "hollowGateTiles", "endlessTower", "dungeon", "eventTiles",
     "eventPetBattle", "tilecardsDuel", "sectorCard", "cardClashFreePlay", "battleTowers",
     "clanWar2v2", "firstPact",
@@ -262,9 +262,11 @@ export function isUnresolvedBattle(s: BattleGuardSignals): boolean {
         case "petArena":
             return s.petBattleActive || s.pendingPetBattle;
         case "petShowdown":
+        case "petColiseum":
             // Showdown lifts the same signal PetArena does: true only while a
-            // server session is unresolved (the lobby stays freely navigable).
-            return s.petBattleActive;
+            // server session is unresolved. A road challenger also carries a
+            // pending selector while the server is minting its session.
+            return s.petBattleActive || (s.screen === "petColiseum" && s.pendingPetBattle);
         case "firstPact":
             // The overworld is freely explorable; only its embedded, sealed
             // four-pet tournament battle commits the player to the arena.

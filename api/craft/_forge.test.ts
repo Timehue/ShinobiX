@@ -9,6 +9,13 @@ describe('server Crafter forge', () => {
         assert.equal(craftPointTotal(out), craftPointTotal(base) - 156); // cheapest-first discrete materials overspend the 100-point bill like the client
         assert.deepEqual((out.itemStacks as any[])?.find((s: any) => s.itemId === 'pet-treat'), { itemId: 'pet-treat', count: 2 });
     });
+    it('gates the Master Beast Seal to late game crafting and stacks the result', () => {
+        const materials = { level: 29, itemStacks: [{ itemId: 'weekly-boss-core', count: 3 }], inventory: [] };
+        assert.equal(applyForge(materials, 'supply', 'beast-seal-master', 1), null);
+        const crafted = applyForge({ ...materials, level: 30 }, 'supply', 'beast-seal-master', 1)!;
+        assert.equal(countOwned(crafted, 'beast-seal-master'), 1);
+        assert.equal(countOwned(crafted, 'weekly-boss-core'), 0);
+    });
     it('rejects unknown recipes and grants only canonical built-in weapons', () => {
         assert.equal(applyForge(base, 'weapon', 'forged-client-item', 1), null);
         const out = applyForge(base, 'weapon', 'ashen-leaf-saber', 1)!;

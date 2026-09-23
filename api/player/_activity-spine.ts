@@ -11,7 +11,7 @@ import {
     runtimeModeCapabilityAvailability,
     type RuntimeModeCapabilityRequirement,
 } from '../../shared/runtime-mode-capabilities.js';
-import { ATTACKABLE_MIN_LEVEL } from '../_realtime/presence-gating.js';
+import { RANKED_LEVEL_WARNING, RANKED_MIN_LEVEL } from '../../shared/ranked-eligibility.js';
 import { STORY_TOWER_MIN_LEVEL } from '../towers/_story-eligibility.js';
 import { LEGACY_MIN_LEVEL } from '../_legacy-defs.js';
 import { PROFESSION_CHANGE_LEVEL as PROFESSION_UNLOCK_LEVEL } from '../../shared/profession-change.js';
@@ -179,7 +179,7 @@ function focusNow(input: ActivitySpineInput, focus: Focus, facts: FocusFacts): A
             return review('story-review-now', 'Check your Village Chronicle progress', 'Review your recorded progress before choosing another chapter.', 'logbook', 'Open Logbook', { context: 'story', progress, readiness: 'unknown' });
         }
         case 'ranked-pvp':
-            if (input.level < ATTACKABLE_MIN_LEVEL) return progressToward('Ranked PvP entry', ATTACKABLE_MIN_LEVEL, 'pvp');
+            if (input.level < RANKED_MIN_LEVEL) return progressToward('Ranked PvP entry', RANKED_MIN_LEVEL, 'pvp');
             return review('ranked-now', facts.ranked.ready ? 'Visit the Ranked PvP queue' : 'Review Ranked PvP availability',
                 facts.ranked.ready ? 'The season is accepting entries. The queue will recheck your current state; a match depends on available opponents.'
                     : 'Check the live season and queue status before planning a ranked set. Loadout tuning is optional.',
@@ -292,15 +292,10 @@ function focusRecommendations(input: ActivitySpineInput, focus: Focus, facts: Fo
     }
 
     if (focus === 'ranked-pvp') {
-        // The ranked queue admits at the attackable floor (api/pvp/ranked-queue.ts
-        // gates on isBelowAttackableFloor, level 10). This used to say 15 — the
-        // Academy threshold that governs guard duty and being CHALLENGED — so
-        // levels 10–14 were told Ranked was blocked while the queue would have
-        // taken them. The eligibility fact AND the blocker text come from the
-        // shared constant, so guidance can never again name a threshold the
-        // queue does not enforce (the queue's own refusal uses the same number).
-        const blocked = input.level < ATTACKABLE_MIN_LEVEL;
-        const blocker = blocked ? `Reach level ${ATTACKABLE_MIN_LEVEL} before entering ranked battles.` : facts.ranked.ready ? undefined : facts.ranked.blocker ?? 'Check live queue availability first.';
+        // Match the queue's ranked-only floor, which is one level above the
+        // general attackability floor used by sector raids.
+        const blocked = input.level < RANKED_MIN_LEVEL;
+        const blocker = blocked ? RANKED_LEVEL_WARNING : facts.ranked.ready ? undefined : facts.ranked.blocker ?? 'Check live queue availability first.';
         const nextRating = Math.max(1200, Math.ceil((facts.ranked.rating + 1) / 200) * 200);
         const prestige = optionalPrestigeLongTerm(facts);
         return [

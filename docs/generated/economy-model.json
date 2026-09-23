@@ -700,6 +700,33 @@
     },
     {
       "system": "shop",
+      "id": "beast-seal-ancient",
+      "currency": "fateShards",
+      "amount": 15,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary item"
+    },
+    {
+      "system": "shop",
+      "id": "beast-seal-reinforced",
+      "currency": "ryo",
+      "amount": 240,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "uncommon item"
+    },
+    {
+      "system": "shop",
+      "id": "beast-seal-worn",
+      "currency": "ryo",
+      "amount": 80,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "common item"
+    },
+    {
+      "system": "shop",
       "id": "black-lotus-dagger",
       "currency": "fateShards",
       "amount": 100,
@@ -2039,6 +2066,33 @@
       "slot": "hand",
       "levelReq": 25,
       "baseCost": 1050,
+      "currency": "ryo"
+    },
+    {
+      "id": "beast-seal-ancient",
+      "name": "Ancient Beast Seal",
+      "rarity": "legendary",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 15,
+      "currency": "fateShards"
+    },
+    {
+      "id": "beast-seal-reinforced",
+      "name": "Reinforced Beast Seal",
+      "rarity": "uncommon",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 240,
+      "currency": "ryo"
+    },
+    {
+      "id": "beast-seal-worn",
+      "name": "Worn Beast Seal",
+      "rarity": "common",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 80,
       "currency": "ryo"
     },
     {

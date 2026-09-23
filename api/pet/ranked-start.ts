@@ -7,6 +7,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { DEFAULT_RANKED_RATING } from '../_ranked-rating.js';
 import { LockContendedError, withKvLock } from '../_lock.js';
 import { petRatingOf, selectRankedPet, selectRankedTeam } from './_ranked-eligibility.js';
+import { rankedLevelEligible, RANKED_LEVEL_WARNING } from '../../shared/ranked-eligibility.js';
 import {
     PET_RANKED_ACTIVE_REGISTRY_KEY,
     PET_RANKED_AUTHORITY,
@@ -151,6 +152,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return { status: 409, body: { error: 'Your opponent already has an active ranked pet match.' } };
             }
 
+            // Queue records can outlive a save change. Recheck both players
+            // before binding a new ranked proof.
+            const [meSave, opponentSave] = await Promise.all([
+                kv.get<Record<string, unknown>>(`save:${me}`),
+                kv.get<Record<string, unknown>>(`save:${opponent}`),
+            ]);
+            if (!meSave?.character) return { status: 400, body: { error: 'Your character save was not found.' } };
+            if (!opponentSave?.character) return { status: 404, body: { error: 'Opponent save not found.' } };
+            const meCharacter = meSave.character as Record<string, unknown>;
+            const opponentCharacter = opponentSave.character as Record<string, unknown>;
+            if (!rankedLevelEligible(meCharacter.level) || !rankedLevelEligible(opponentCharacter.level)) {
+                return { status: 403, body: { error: RANKED_LEVEL_WARNING, errorCode: 'ranked-level-locked' } };
+            }
+
             const claimKey = petRankedStartClaimKey(myMatch.pairId);
             let claim = await kv.get<RankedPetStartClaim>(claimKey);
             if (claim && (!isRankedPetStartClaim(claim) || !claimNamesMatch(claim, me, opponent))) {
@@ -160,14 +175,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!claim) {
                 // Both fighters must have a save and an available pet. No request-
                 // body seed or opponent snapshot is ever accepted.
-                const [meSave, opponentSave] = await Promise.all([
-                    kv.get<Record<string, unknown>>(`save:${me}`),
-                    kv.get<Record<string, unknown>>(`save:${opponent}`),
-                ]);
-                if (!meSave?.character) return { status: 400, body: { error: 'Your character save was not found.' } };
-                if (!opponentSave?.character) return { status: 404, body: { error: 'Opponent save not found.' } };
-                const meCharacter = meSave.character as Record<string, unknown>;
-                const opponentCharacter = opponentSave.character as Record<string, unknown>;
                 const newFormat = myMatch.format === '2v2';
                 const legacyMine = newFormat ? null : selectRankedPet(meCharacter, petId);
                 const legacyOpponent = newFormat ? null : selectRankedPet(opponentCharacter);

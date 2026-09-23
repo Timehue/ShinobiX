@@ -271,7 +271,7 @@ describe('saved bloodline identity boundary', () => {
             { savedBloodlines: [existingBloodline] },
         );
 
-        const out = sanitizeCompatible(incoming, existing);
+        const out = withStrictLedger(false, () => sanitizeCharacterSave(incoming, existing, { bloodlineWriteIntent: 'owned-bl' }));
         const saved = out.savedBloodlines as Array<Record<string, unknown>>;
         assert.equal(saved.length, 1);
         assert.deepEqual(
@@ -485,7 +485,7 @@ describe('raw save server-ledger boundary', () => {
             ninjutsuOffense: 10, ninjutsuDefense: 10,
         });
         assert.deepEqual(char.inventory, ['rustfang-kunai', 'shinobi-vest']);
-        assert.deepEqual(char.itemStacks, []);
+        assert.deepEqual(char.itemStacks, [{ itemId: 'beast-seal-reinforced', count: 1 }]);
         assert.deepEqual(char.jutsuMastery, [{ jutsuId: 'ashen-eyes-blood-gaze', level: 1, xp: 0 }]);
         assert.deepEqual(char.equippedJutsuIds, ['ashen-eyes-blood-gaze']);
         assert.deepEqual(char.pets, []);

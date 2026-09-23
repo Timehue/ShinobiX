@@ -283,7 +283,7 @@ export function pvpRewardSettlementNotice(
         result.clanWarScrollDrop?.awarded && "+1 Territory Scroll",
         result.rating?.delta && `${result.rating.delta > 0 ? "+" : ""}${result.rating.delta} Rating`,
     ].filter(Boolean);
-    if (rewards.length) return `Rewards secured — ${rewards.join(" · ")}.`;
+    if (rewards.length) return `${result.rating?.delta !== undefined && result.rating.delta < 0 ? "Result recorded" : "Rewards secured"} — ${rewards.join(" · ")}.`;
     if (result.clanWarScrollDrop) return `No Territory Control Scroll this time (${result.clanWarScrollDrop.chancePercent}% chance per win).`;
     return "Official result verified; no personal payout for this result.";
 }

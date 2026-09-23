@@ -132,6 +132,7 @@ import petBefriendHandler from './api/pet/befriend.js';
 import petEncounterDeclineHandler from './api/pet/encounter-decline.js';
 import petChooseStarterHandler from './api/pet/choose-starter.js';
 import petEncounterStartHandler from './api/pet/encounter-start.js';
+import petWildBindingHandler from './api/pet/wild-binding.js';
 import petProgressHandler from './api/pet/progress.js';
 import petBreedingStatusHandler from './api/pet/breeding-status.js';
 import petBreedingStartHandler from './api/pet/breeding-start.js';
@@ -827,6 +828,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     route('/pet/encounter-decline', petEncounterDeclineHandler);
     route('/pet/choose-starter', petChooseStarterHandler);
     route('/pet/encounter-start', petEncounterStartHandler);
+    route('/pet/wild-binding', petWildBindingHandler);
     route('/pet/progress', petProgressHandler);
     route('/pet/breeding/status', petBreedingStatusHandler);
     route('/pet/breeding/start', petBreedingStartHandler);

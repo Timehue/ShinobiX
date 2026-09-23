@@ -200,6 +200,41 @@ test("a save acknowledgement's stored ryo patches only the wallet, and only when
     assert.equal(f.characterRef.current, converged, "an agreeing wallet does not replace the character (no extra autosave)");
 });
 
+test("required bloodline save exposes the server's stored roster acknowledgement", async () => {
+    const f = fixture();
+    let equipIntent = "";
+    let writeIntent = "";
+    globalThis.fetch = async (_url, init) => { equipIntent = new Headers(init?.headers).get("x-bloodline-equip-intent") ?? "";
+        writeIntent = new Headers(init?.headers).get("x-bloodline-write-intent") ?? ""; return new Response(JSON.stringify({
+        ok: true, _saveVersion: 6, savedBloodlineIds: ["bl-new"], savedBloodlineRanks: { "bl-new": "A Rank" }, equippedBloodlineId: "bl-new",
+    }), { status: 200 }); };
+    const result = await f.owner.pushSaveToServer(
+        f.fields.buildPlayerSavePayload,
+        { ...f.initial, equippedBloodlineId: "bl-new" },
+        f.initial.name,
+        undefined,
+        { bloodlineEquipIntent: "bl-new", bloodlineWriteIntent: "bl-new" },
+    );
+    assert.equal(equipIntent, "bl-new");
+    assert.equal(writeIntent, "bl-new");
+    assert.deepEqual(result.value?.savedBloodlineIds, ["bl-new"]);
+    assert.equal(result.value?.equippedBloodlineId, "bl-new");
+});
+
+test("a rejected bloodline save surfaces the server reason and does not advance local authority", async () => {
+    const f = fixture();
+    globalThis.fetch = async () => new Response(JSON.stringify({
+        code: "BLOODLINE_SAVE_REJECTED",
+        error: "Bloodline was not saved. Refresh the game and retry the Awakening ritual.",
+    }), { status: 422 });
+    await assert.rejects(
+        f.owner.pushSaveToServer(f.fields.buildPlayerSavePayload, f.initial, f.initial.name,
+            undefined, { bloodlineEquipIntent: "bl-new", bloodlineWriteIntent: "bl-new" }),
+        /Bloodline was not saved\. Refresh the game/,
+    );
+    assert.equal(f.owner.latestSaveVersionRef.current, 5);
+});
+
 test("a failed autosave arms retry; a successful required save clears the pending debounce timer", async () => {
     const f = fixture();
     globalThis.fetch = async () => new Response("offline", { status: 503 });

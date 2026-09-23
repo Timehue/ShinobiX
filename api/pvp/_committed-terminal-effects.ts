@@ -1,4 +1,5 @@
 import { kv } from '../_storage.js';
+import { isCancelledUnstartedPvpDuel } from '../../shared/pvp-cancellation.js';
 import { withKvLock } from '../_lock.js';
 import { hasRecentIpOrFpOverlapStrict } from '../_player-ips.js';
 import {
@@ -8,8 +9,6 @@ import {
     receiptKey,
     type BattleReceipt,
 } from '../_receipts.js';
-import { onlineStore } from '../_realtime/online-store.js';
-import { noteBattleEnded, retireBattleProjection } from '../_realtime/battle-projection.js';
 import { safeName } from '../_utils.js';
 import {
     discoverAcceptedKageDuelPointer,
@@ -102,25 +101,12 @@ export async function replayCommittedPvpTerminalEffects(
     // A private-mode/full reload can then discover and repair completion without
     // any browser storage breadcrumb.
     await ensurePvpTerminalRecoveryPublication(kv, session.battleId, session);
+    if (isCancelledUnstartedPvpDuel(session)) return {};
 
     // A terminal retry is also the final action's durable replay path. The
     // capsule lives in the exact committed session, so no uncommitted move can
     // publish history and a crash after combat CAS remains repairable.
     await replayCommittedPvpActionReceipt(kv, session);
-
-    // Presence is a cache projection. Repeating these clears is harmless and
-    // ensures a process death after the terminal CAS cannot leave either player
-    // looking permanently engaged once any terminal reader retries.
-    try {
-        for (const fighter of [session.p1.name, session.p2.name]) {
-            noteBattleEnded(fighter);
-            onlineStore.clearPendingAttacker(fighter);
-            // Retire the lapse projection only if it still names this duel.
-            await retireBattleProjection(kv, fighter, session.battleId).catch(() => false);
-        }
-    } catch (error) {
-        console.error('[pvp/terminal] presence cleanup failed', error);
-    }
 
     // What the fight cost the two bodies. Settled HERE rather than in
     // claim-rewards so a continuous engagement still charges its damage when

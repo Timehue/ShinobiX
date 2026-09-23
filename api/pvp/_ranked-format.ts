@@ -1,21 +1,23 @@
 /*
  * Ranked Format — the equalized loadout shared by ranked 1v1 and ranked 2v2.
  *
- * Every ranked fighter enters with maxed stats, maximum HP/chakra/stamina, and
+ * Every ranked fighter enters with maxed stats, jutsu mastery, maximum HP/chakra/stamina, and
  * identical neutral legendary gear (armor/throwable/consumables). The one thing a player still chooses is
  * their weapon (picked from a small legendary set before queueing); their
  * bloodline and jutsu/technique loadout stay exactly theirs. This keeps ranked
  * outcomes about weapon choice + bloodline/jutsu skill, not who ground more
  * stats or owns better armor.
  *
- * `projectRankedFormatCharacter` produces a save-shaped character with only
- * `.stats` and `.equipment` overridden, then callers feed it into the SAME
+ * `projectRankedFormatCharacter` produces a save-shaped character with combat
+ * stats, resources, and gear overridden, then callers feed it into the SAME
  * `hydrateCharacterFromSave` (api/pvp/session.ts) every other combat mode
  * uses — so armor factor, bloodline multiplier, item passives, and vitals are
  * all derived by the one canonical code path instead of a second one that
- * could drift from it.
+ * could drift from it. `sealRankedFormatCombatCharacter` then maxes mastery
+ * on that resolved, session-only fighter.
  */
-import { MAX_STAT, STAT_CAP_FIELDS } from '../combat-core/formulas.js';
+import { JUTSU_MAX_LEVEL, MAX_STAT, STAT_CAP_FIELDS } from '../combat-core/formulas.js';
+import { COMBAT_RESOURCES_V2, v2JutsuCosts } from '../_combat-resources.js';
 import { CHAKRA_CAP_V2, HP_CAP, STAMINA_CAP_V2 } from '../_xp-engine.js';
 
 export const RANKED_FORMAT_MAX_STATS: Record<string, number> = Object.fromEntries(
@@ -26,6 +28,36 @@ export const RANKED_FORMAT_MAX_STATS: Record<string, number> = Object.fromEntrie
 export const RANKED_FORMAT_MAX_HP = HP_CAP;
 export const RANKED_FORMAT_MAX_CHAKRA = CHAKRA_CAP_V2;
 export const RANKED_FORMAT_MAX_STAMINA = STAMINA_CAP_V2;
+
+/** Ranked caps use the equalized combat tier without changing the player's displayed level. */
+export function rankedCombatLevel(character: Record<string, unknown>): number {
+    return character.rankedFormatCombat === true ? 100 : Number(character.level) || 1;
+}
+
+/** Apply mastery only to a server-resolved combat snapshot, never to a save. */
+export function sealRankedFormatCombatCharacter(character: Record<string, unknown>): Record<string, unknown> {
+    const mastery = Array.isArray(character.jutsuMastery)
+        ? character.jutsuMastery as Array<{ jutsuId?: unknown; level?: unknown }>
+        : [];
+    const byId = new Map<string, { jutsuId: string; level: number }>();
+    for (const row of mastery) {
+        if (typeof row?.jutsuId === 'string' && row.jutsuId) {
+            byId.set(row.jutsuId, { jutsuId: row.jutsuId, level: JUTSU_MAX_LEVEL });
+        }
+    }
+    for (const jutsu of Array.isArray(character.jutsu) ? character.jutsu : []) {
+        if (typeof jutsu?.id === 'string' && jutsu.id) {
+            byId.set(jutsu.id, { jutsuId: jutsu.id, level: JUTSU_MAX_LEVEL });
+        }
+    }
+    const jutsu = Array.isArray(character.jutsu) && COMBAT_RESOURCES_V2
+        ? character.jutsu.map((entry: Record<string, unknown>) => ({
+            ...entry,
+            ...v2JutsuCosts(entry, 100, String(character.specialty ?? '')),
+        }))
+        : character.jutsu;
+    return { ...character, jutsu, jutsuMastery: [...byId.values()], rankedFormatCombat: true };
+}
 
 /** The only legendary weapons a ranked fighter may bring — hand slot only. */
 export const RANKED_FORMAT_LEGENDARY_WEAPON_IDS = [

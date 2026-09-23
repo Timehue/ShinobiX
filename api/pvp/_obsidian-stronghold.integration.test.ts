@@ -163,8 +163,7 @@ test('an offline defender leaves an unjoined world duel cancellable and the atta
 
     const claimDraw = await post(claim, one, { battleId, outcome: 'draw', completionVersion: 1 });
     assert.equal(claimDraw.status, 200, JSON.stringify(claimDraw.body));
-    const acknowledged = await post(claim, one, { battleId, outcome: 'draw', completionVersion: 1, completionAck: true });
-    assert.equal(acknowledged.status, 200, JSON.stringify(acknowledged.body));
+    assert.equal(claimDraw.body.completionPending, false, 'cancellation needs no browser save or completion ACK');
     const { loadPvpPendingSessionPointer } = await import('./_pending-session.js');
     assert.equal(await loadPvpPendingSessionPointer(kv, one), null);
     assert.equal((await kv.get<Record<string, any>>(`save:${one}`))?.character.hp, 10000);
