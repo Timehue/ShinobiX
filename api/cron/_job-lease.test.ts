@@ -61,6 +61,17 @@ describe('distributed scheduled-job lease', () => {
         assert.deepEqual(delayed, { acquired: false });
     });
 
+    it('releases a completed but unhealthy snapshot so a recovery pass can retry', async () => {
+        const store = _makeMemoryKv();
+        const options = { ttlSec: 60, holdUntilExpiryOnSuccess: true, holdUntilExpiryWhen: (result: { ok: boolean }) => result.ok };
+        const failed = await withScheduledJobLeaseCore(store, 'snapshot', async () => ({ ok: false }), options);
+        const retried = await withScheduledJobLeaseCore(store, 'snapshot', async () => ({ ok: true }), options);
+        const duplicate = await withScheduledJobLeaseCore(store, 'snapshot', async () => ({ ok: true }), options);
+        assert.deepEqual(failed, { acquired: true, value: { ok: false } });
+        assert.deepEqual(retried, { acquired: true, value: { ok: true } });
+        assert.deepEqual(duplicate, { acquired: false });
+    });
+
     it('never deletes a replacement lease owned by another process', async () => {
         const store = _makeMemoryKv();
         let replace!: () => Promise<void>;
