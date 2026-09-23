@@ -178,6 +178,7 @@ const DEFAULT_ACTION_CATEGORIES: Record<string, ActionReceiptCategory> = {
     join: 'system',
 };
 import { replayCommittedPvpTerminalEffects } from './_committed-terminal-effects.js';
+import { canCancelUnstartedPvpDuel, isCancelledUnstartedPvpDuel } from '../../shared/pvp-cancellation.js';
 import { commitPvpSessionMutation } from './_session-mutation.js';
 import { enforcePvpTurnDeadlineLocked, pvpTurnLapsed } from './_turn-deadline.js';
 import { PVP_PREFIGHT_COUNTDOWN_MS, PVP_TURN_MS } from '../../shared/pvp-turn.js';
@@ -1588,16 +1589,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // fighter close this unstarted match as a draw, without requiring
             // the absent fighter's handshake or charging a flee penalty.
             if (action === 'cancel-unjoined') {
-                if ((session.rewardAuthority !== 'world' && session.rewardAuthority !== 'challenge')
-                    || session.ranked === true
-                    || session.rankedKind !== undefined
-                    || session.playerRankedAuthorityVersion !== undefined
-                    || session.kageDuelAuthority
-                    || session.clanWarId
-                    || session.turnStartedAt !== undefined
-                    || session.round !== 1
-                    || session.actionsThisTurn !== 0
-                    || (session.joined?.p1 === true && session.joined?.p2 === true)) {
+                if (!canCancelUnstartedPvpDuel(session)) {
                     return finishUnavailable(409, 'This duel cannot be cancelled before combat.');
                 }
                 const endedAt = Date.now();
@@ -1605,6 +1597,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ...session,
                     status: 'done',
                     winner: 'draw',
+                    terminalReason: 'cancelled-unjoined',
                     endedAt,
                     lastMoveAt: endedAt,
                     log: [...session.log, `${session[role].name} cancelled the unstarted duel.`],
@@ -1705,7 +1698,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (current && !priorSession) stale = !pvpPendingReservationIsFresh(current);
                     if (current && priorSession) stale = !pendingPointerMatchesSession(current, priorSession);
                     if (!stale && current && priorSession?.status === 'done') {
-                        if (!priorSession.winner) {
+                        if (isCancelledUnstartedPvpDuel(priorSession)) {
+                            await helpCommittedTerminal(priorSession);
+                            stale = true;
+                        } else if (!priorSession.winner) {
                             stale = true;
                         } else {
                             const completion = pvpRewardCompletionStatus(await kv.get<unknown>(

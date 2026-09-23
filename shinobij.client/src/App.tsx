@@ -6284,10 +6284,10 @@ export default function App() {
                         continuation?: PvpRewardContinuationContext,
                     ): Promise<void> {
                         requirePvpContinuation(continuation);
-                        // A lost completion ACK replays the claim snapshot. Once
-                        // this battle's local projection has landed, do not replace
-                        // it with the earlier claim row and then add its deltas again.
-                        if (claim.character && !pvpCompletionUiRef.current.has(pvpSettlementScopeKey)) {
+                        // Every retry returns the current server save. Adopt its
+                        // version even when outcome callbacks already ran; those
+                        // callbacks have their own idempotency fences.
+                        if (claim.character) {
                             requirePvpContinuation(continuation);
                             commitVersionedCharacter(claim.character, claim._saveVersion);
                         }
@@ -6445,7 +6445,9 @@ export default function App() {
                             onRewardClaim={handlePvpRewardClaim}
                             onCompletionConfirmed={() => setPvpCompletionConfirmed(true)}
                             onExit={(target) => { markPvpSectorReturn(target, pvpBattleContext, currentSector); clearPvpBattleState(); setScreen(target); }}
-                            onRecordBattle={recordBattle}
+                            // PvP history is indexed from the server receipt.
+                            // A second whole-save history write races settlement
+                            // and must never gate completion or world movement.
                             onLoss={async (_opponent, _serverRating, serverClaim, continuation) => {
                                 const activeContinuation = requirePvpContinuation(continuation);
                                 if (!pvpCompletionUiRef.current.has(pvpSettlementScopeKey)) {
