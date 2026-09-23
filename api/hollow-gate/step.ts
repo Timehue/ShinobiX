@@ -9,6 +9,8 @@ import { cors, mergePreservingImages, safeName } from '../_utils.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { hollowGateRunKey, type HollowGateRunToken } from './_run-token.js';
 import { hollowGateManifestNode, hollowGatePositionNodeId } from './_floor-manifest.js';
+import { hollowGateCombatBindingKey, type HollowGateCombatBinding } from './_combat-session.js';
+import { hollowGateEncounterRecovery } from './_encounter-recovery.js';
 
 const coord = (value: unknown): number => Math.floor(Number(value));
 const bounded = (x: number, y: number): boolean => Number.isInteger(x) && Number.isInteger(y) && x >= 0 && x < 31 && y >= 0 && y < 21;
@@ -43,7 +45,7 @@ async function persistRunProjection(playerName: string, token: string, run: Holl
 }
 
 export function deriveHollowGateStepState(
-    run: Pick<HollowGateRunToken, 'torch' | 'threat' | 'wardSteps' | 'stepVersion' | 'currentFloor' | 'floorDepth'>,
+    run: Pick<HollowGateRunToken, 'torch' | 'threat' | 'wardSteps' | 'stepVersion' | 'currentFloor' | 'floorDepth'> & Partial<Pick<HollowGateRunToken, 'variantId' | 'resolvedEncounterIds'>>,
     torchDrains: boolean,
 ) {
     const torchBefore = Math.max(0, Math.min(10, Math.floor(Number(run.torch) || 0)));
@@ -54,9 +56,11 @@ export function deriveHollowGateStepState(
     const threat = wardBefore > 0 ? threatBefore : Math.min(100, threatBefore + 4 * (torch === 0 ? 2 : 1));
     const stepVersion = Math.max(0, Math.floor(Number(run.stepVersion) || 0)) + 1;
     const floor = Math.max(1, Math.floor(Number(run.currentFloor) || 1));
+    const cardAlreadyResolved = (run.resolvedEncounterIds ?? []).some((entry) => entry.includes(':card:floor:'));
+    const cardAmbush = run.variantId?.startsWith('rift-') === true && !cardAlreadyResolved;
     const pendingAmbush = threat >= 100 ? {
         nodeId: `floor:${floor}:ambush:threat-v${stepVersion}`,
-        kind: floor >= run.floorDepth ? 'boss' as const : 'ambush' as const,
+        kind: cardAmbush ? 'card' as const : floor >= run.floorDepth ? 'boss' as const : 'ambush' as const,
     } : null;
     return { torchBefore, torch, wardSteps, threat, stepVersion, pendingAmbush };
 }
@@ -108,7 +112,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     _saveVersion: saveVersion,
                 } };
             }
-            if (run.activeEncounter || run.pendingAmbush) return { status: 409, body: { error: 'Resolve the sealed encounter before moving.' } };
+            if (run.activeEncounter || run.pendingAmbush) {
+                const active = run.activeEncounter;
+                const binding = active ? await kv.get<HollowGateCombatBinding>(hollowGateCombatBindingKey(active.runId)) : null;
+                const recovery = hollowGateEncounterRecovery(run, binding, playerName, token);
+                return { status: 409, body: {
+                    error: 'Resolve the sealed encounter before moving.',
+                    position: run.position,
+                    ...recovery,
+                } };
+            }
             if (!run.position || run.position.x !== from.x || run.position.y !== from.y) {
                 return { status: 409, body: { error: 'The step origin is stale.', position: run.position } };
             }

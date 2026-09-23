@@ -96,6 +96,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (run.activeEncounter && outcome !== 'death') {
             return res.status(409).json({ error: 'Finish the active Hollow Gate encounter before leaving.' });
         }
+        if (run.pendingAmbush && outcome !== 'death') {
+            return res.status(409).json({ error: 'Resolve the sealed ambush before leaving.', pendingAmbush: run.pendingAmbush });
+        }
         // Emergency forfeits must remain available even if a combat renderer or
         // resume pointer is broken. A death settlement receives no combat reward,
         // closes the active binding, and then applies the normal run-loss rules.
