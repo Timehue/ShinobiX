@@ -85,7 +85,9 @@ describe("server settlement policy", () => {
         assertGuardBefore(inventory, "sellSelectedItem", "inventorySale", "settleInventorySale(");
 
         const app = source("../App.tsx");
-        assertGuardBefore(app, "enterHollowGateShrine", "hollowGateRun", "setHollowGateRun(");
+        assert.match(app, /enterHollowGateShrineFlow\(/, "App must delegate shrine entry to the guarded flow");
+        const hollowEntry = source("./hollow-gate-entry.ts");
+        assertGuardBefore(hollowEntry, "enterHollowGateShrineFlow", "hollowGateRun", "setHollowGateRun(");
         // The tile resolver was drained out of App.tsx into lib/hollow-gate-tile.ts
         // (2026-07-28) as a verbatim move, so the befriend guard now lives there. The
         // invariant is unchanged — only the file it has to hold in did.
