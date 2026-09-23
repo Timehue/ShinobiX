@@ -2637,7 +2637,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/14-menu-panels-bloodline-vn.css",
-            "line": 1566
+            "line": 1571
           },
           {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
@@ -2773,7 +2773,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
-            "line": 457
+            "line": 452
           },
           {
             "source": "shinobij.client/src/styles/index/28-desktop-scaling.css",
@@ -2982,7 +2982,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/14-menu-panels-bloodline-vn.css",
-            "line": 1424
+            "line": 1429
           },
           {
             "source": "shinobij.client/src/styles/index/29-clan-exchange-storefront.css",
@@ -3954,11 +3954,11 @@
           },
           {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
-            "line": 408
+            "line": 403
           },
           {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
-            "line": 417
+            "line": 412
           },
           {
             "source": "shinobij.client/src/styles/index/23-mobile-shell.css",
@@ -3974,7 +3974,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/23-mobile-shell.css",
-            "line": 969
+            "line": 968
           },
           {
             "source": "shinobij.client/src/styles/index/24-combat-mobile-restore.css",
@@ -4100,7 +4100,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
-            "line": 391
+            "line": 386
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
