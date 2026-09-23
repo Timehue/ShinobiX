@@ -71,7 +71,7 @@ test("reviewed mesh forward axes face the opponent from either side of the arena
         { id: "legendary-4", name: "Ironfang Tiger", localForward: [0, 1], evolutionStage: 0 as const },
         { id: "mythic-9", name: "Worldroot Colossus", localForward: [0, 1], evolutionStage: 0 as const },
         { id: "legendary-29", name: "Verdant Treant", localForward: [0, 1], evolutionStage: 0 as const },
-        { id: "starter-lightning", name: "Raijin Hound", localForward: [1, 0], evolutionStage: 2 as const },
+        { id: "starter-lightning", name: "Raijin Hound", localForward: [0, 1], evolutionStage: 2 as const },
     ];
     for (const { localForward, ...pet } of models) {
         const model = petCombatModel({ ...pet, rarity: "legendary" })!;

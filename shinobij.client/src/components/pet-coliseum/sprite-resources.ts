@@ -8,6 +8,7 @@ import { type ProjTexKind } from "../../lib/pet-projectile-vfx";
 import { spriteBoundsFromAlpha, DEFAULT_SPRITE_BOUNDS, type SpriteBounds } from "../../lib/pet-coliseum-scene";
 import { type ShrineKind } from "../../lib/pet-arena-sim";
 import { POSED_PET_IDS, POSED_RUN_IDS, POSED_MOVE_IDS } from "../../assets/coliseum/pet-poses-manifest";
+import { versionPetArtUrl } from "../../lib/pet-art-revision";
 
 
 /** Load a bundled scene texture (sRGB). */
@@ -164,7 +165,7 @@ const MOVE_CATS: PoseCat[] = ["windup", "lunge", "impact", "recover"];
  // generated attack sequence
 // Poses are served as STATIC files (public/pet-poses/) and loaded on demand per
 // fighting pet — the manifest says which of the 148 pets have a generated set.
-export const poseUrl = (id: string, cat: PoseCat) => `/pet-poses/${id}-${cat}.webp`;
+export const poseUrl = (id: string, cat: PoseCat) => versionPetArtUrl(`/pet-poses/${id}-${cat}.webp`);
 
 /** The posed-asset id for a pet (its own id, or the stripped base id), or null
  *  if no pose set was generated for it. */

@@ -1,0 +1,33 @@
+{
+  "endpoint": "fal-ai/hunyuan-3d/v3.1/pro/image-to-3d",
+  "createdAt": "2026-09-23T19:39:22.907Z",
+  "estimatedCostUsd": 0.675,
+  "spendCeilingUsd": 0.75,
+  "inputProof": {
+    "input_image_url": {
+      "path": "art-source/raijin-hound/views/front.png",
+      "bytes": 721406,
+      "sha256": "6bffa690193245d047ae70ad1577493a21dc0bc962d6cbb8293ae0d0969e7d90"
+    },
+    "back_image_url": {
+      "path": "art-source/raijin-hound/views/back.png",
+      "bytes": 688185,
+      "sha256": "f8522017073a5225caa7a4a1d35544bd91a4dfe9ae5c31b5685871cc81698ceb"
+    },
+    "left_image_url": {
+      "path": "art-source/raijin-hound/views/side.png",
+      "bytes": 1412605,
+      "sha256": "fc4638f71fc7e89af7300fbec0169b97324bdfea6f74f1773772102f90033af1"
+    },
+    "right_front_image_url": {
+      "path": "art-source/raijin-hound/views/three-quarter.png",
+      "bytes": 2084953,
+      "sha256": "cbd19c4c6898cbe60895b71a25fd8264d1ff26e0efbf1542a54e46ba5b2a937f"
+    }
+  },
+  "settings": {
+    "generate_type": "Normal",
+    "enable_pbr": true
+  },
+  "state": "submission_attempted"
+}

@@ -9,6 +9,7 @@ import {
     PET_SHOWDOWN_ANIMATION_ASSET_REVISION,
     PET_SHOWDOWN_ANIMATION_MODEL_IDS,
     petShowdownAnimationModelUrl,
+    petShowdownAnimationYawOffset,
 } from "./pet-showdown-animation-assets.ts";
 
 const EXPECTED_CLIPS = [
@@ -64,6 +65,7 @@ test("the screenshot lineup uses four versioned species-authored GLBs", () => {
         );
     }
     assert.notEqual(PET_RIG_REPAIR_REVISIONS["starter-lightning-l"], PET_SHOWDOWN_ANIMATION_ASSET_REVISION, "the repaired Hound must invalidate the previously cached face");
+    assert.equal(petShowdownAnimationYawOffset("starter-lightning-l"), 0, "the replacement sculpt already faces combat +Z");
     assert.equal(petShowdownAnimationModelUrl("standard-8"), null);
 });
 
@@ -88,9 +90,13 @@ test("each replacement preserves its reviewed model but carries a full identity 
         fingerprints.add(authored.json.extras.showdownAnimationIdentity.fingerprint);
         assert.match(authored.json.asset?.generator ?? "", new RegExp(id));
         assert.deepEqual(authored.json.animations.map((animation: { name: string }) => animation.name), EXPECTED_CLIPS);
+        if (id === "starter-lightning-l") {
+            assert.equal(authored.json.extras?.showdownAnimationArtPass, "20260923-raijin-articulated-v1");
+            assert.ok(authored.json.animations.some((animation: { channels: unknown[] }) => animation.channels.length > 8), "Raijin's polished pass must articulate more than the original blockout");
+        }
         for (const animation of authored.json.animations) {
             assert.ok(animation.channels.length >= 4, `${id}/${animation.name}: performance is too sparse`);
-            assert.ok(animation.channels.length <= 8, `${id}/${animation.name}: inherited generic all-bone take detected`);
+            assert.ok(animation.channels.length <= (id === "starter-lightning-l" ? 16 : 8), `${id}/${animation.name}: excessive whole-rig animation channels`);
             assert.equal(animation.channels.length, animation.samplers.length);
         }
         assert.ok(authored.file.byteLength > 300_000, `${id}: output is unexpectedly truncated`);

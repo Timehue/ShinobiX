@@ -1083,6 +1083,14 @@
     line-height: 1.4;
 }
 
+.hunt-sector-guidance {
+    margin: 4px 0 0;
+    color: #bae6fd;
+    font-size: 0.85rem;
+    font-weight: 700;
+    line-height: 1.4;
+}
+
 .hunt-progress-bar {
     position: relative;
     width: 100%;

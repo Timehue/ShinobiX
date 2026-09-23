@@ -73,7 +73,7 @@ test("Showdown models carry their visually certified forward-axis correction", (
     assert.equal(frostHare?.yawOffset, 0);
     assert.equal(ashenCrow?.yawOffset, 0);
     assert.equal(infernoFenrir?.yawOffset, 0);
-    assert.equal(raijinHound?.yawOffset, -Math.PI / 2, "Raijin's local +X nose needs a quarter-turn into +Z combat space");
+    assert.equal(raijinHound?.yawOffset, 0, "Raijin's replacement sculpt faces local +Z like the other quadrupeds");
 });
 
 test("unrelated unmodeled pets keep the safe standee fallback", () => {

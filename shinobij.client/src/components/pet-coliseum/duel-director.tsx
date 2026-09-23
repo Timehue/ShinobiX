@@ -22,7 +22,7 @@ export function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, 
     onEnd: () => void;
     /** False while a live duel is still simulating — see the end check below. */
     canEnd?: boolean;
-    spawnNumber: (n: { x: number; z: number; text: string; crit: boolean; heal: boolean }) => void;
+    spawnNumber: (n: { x: number; z: number; text: string; crit: boolean; heal: boolean; shield?: boolean }) => void;
     spawnImpact: (n: { x: number; z: number; color: string; big: boolean; mode?: DuelImpactMode }) => void;
     spawnElementBurst: (n: { x: number; z: number; element?: string | null; move?: string; color: string; big: boolean; heading?: number; style?: PetHeroMoveStyle }) => void;
     spawnAftermath: (n: { x: number; z: number; element?: string | null; move?: string; color: string; big: boolean }) => void;
@@ -602,6 +602,9 @@ export function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, 
                     const a = findActor(snapAt, e.targetId);
                     if (a) {
                         playPetSfx("shield");
+                        if (e.shieldHp !== undefined) {
+                            spawnNumber({ x: a.x, z: a.y, text: `${e.shieldHp} SHIELD`, crit: false, heal: false, shield: true });
+                        }
                         if (spotlight && e.perfect && e.verdict) {
                             playPetSfx("crit");
                             onCallout(e.verdict);
@@ -610,10 +613,10 @@ export function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, 
                             onFlash("#dff7ff", 0.3);
                             savor(0.42, 0.32);
                         }
-                        if (!majorVfxBusy()) {
-                            spawnSupport({ x: a.x, z: a.y, color: elementColor(elementById[e.targetId]).glow, kind: "shield", actorId: a.id });
-                            if (spotlight) onFlash("#bfe3ff", 0.14);
-                        }
+                        // Defense must remain legible even when an attack owns the
+                        // larger effect budget. Only the full-screen flash is gated.
+                        spawnSupport({ x: a.x, z: a.y, color: elementColor(elementById[e.targetId]).glow, kind: "shield", actorId: a.id });
+                        if (spotlight && !majorVfxBusy()) onFlash("#bfe3ff", 0.14);
                     }
                 } else if (e.type === "buff" && e.actorId) {
                     // Dedicated Super-Saiyan-style power column. This deliberately

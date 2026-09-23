@@ -20,6 +20,7 @@ import { Logger, NodeIO, getBounds } from "@gltf-transform/core";
 import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
 import { compactPrimitive, reorder } from "@gltf-transform/functions";
 import { MeshoptDecoder, MeshoptEncoder, MeshoptSimplifier } from "meshoptimizer";
+import sharp from "sharp";
 
 const clientRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const publicRoot = resolve(clientRoot, "public");
@@ -31,6 +32,13 @@ const tsManifestPath = resolve(clientRoot, "src/generated/pet-warfront-lod-manif
 const REVISION = "20260902-battle-lod-v1";
 const TARGET_LOD_TRIANGLES = 10_000;
 const MAX_LOD_TRIANGLES = 15_000;
+// Dense mane and tail contours need a modestly larger distant mesh. Keep the
+// same silhouette gate while requiring at least 54% less geometry than source.
+const RAIJIN_MAX_LOD_TRIANGLES = 18_000;
+const RAIJIN_MIN_TRIANGLE_REDUCTION = 0.54;
+// Raijin's 2048px PBR maps are retained for close-ups. The distant rig needs
+// only 1024px maps, saving transfer bytes without changing its silhouette.
+const RAIJIN_LOD_TEXTURE_SIZE = 1024;
 const MAX_ERROR = 0.05;
 const MIN_TRIANGLE_REDUCTION = 0.6;
 const MAX_BOUNDS_DELTA = 0.02;
@@ -152,7 +160,7 @@ function accessorFloatArray(accessor) {
  * error metric. Sparse joint IDs are categorical, so expand the four weights
  * into one dense channel per joint before simplifying. The original compact
  * JOINTS_0/WEIGHTS_0 streams are still the streams copied to the final GLB. */
-function skinAwareSimplifyDocument(document, ratio) {
+function skinAwareSimplifyDocument(document, ratio, featureSamples = 32, silhouetteBands = 0) {
     const root = document.getRoot();
     const jointCount = Math.max(...root.listSkins().map((skin) => skin.listJoints().length));
     invariant(jointCount > 0 && jointCount <= 29, `unsupported Warfront joint count ${jointCount}`);
@@ -212,15 +220,15 @@ function skinAwareSimplifyDocument(document, ratio) {
             vertexLock[maxIndex] = 1;
         }
         // Sample the convex silhouette in the three battle-relevant views.
-        // Locking ~50–90 feature-tip vertices retains ears, wings, weapons,
-        // and tails without turning every UV seam into an immutable border.
+        // Locking sampled feature tips retains ears, wings, weapons, and tails
+        // without turning every UV seam into an immutable border.
         const viewAxes = [
             [[1, 0, 0], [0, 1, 0]],
             [[0, 0, 1], [0, 1, 0]],
             [[Math.SQRT1_2, 0, -Math.SQRT1_2], [0, 1, 0]],
         ];
-        for (const [uAxis, vAxis] of viewAxes) for (let step = 0; step < 32; step++) {
-            const angle = step / 32 * Math.PI * 2;
+        for (const [uAxis, vAxis] of viewAxes) for (let step = 0; step < featureSamples; step++) {
+            const angle = step / featureSamples * Math.PI * 2;
             const cos = Math.cos(angle);
             const sin = Math.sin(angle);
             let bestIndex = usedVertices[0];
@@ -237,6 +245,24 @@ function skinAwareSimplifyDocument(document, ratio) {
                 }
             }
             vertexLock[bestIndex] = 1;
+        }
+        if (silhouetteBands) for (const [uAxis, vAxis] of viewAxes) {
+            let minV = Infinity, maxV = -Infinity;
+            for (const vertex of usedVertices) {
+                const x = positionArray[vertex * 3], y = positionArray[vertex * 3 + 1], z = positionArray[vertex * 3 + 2];
+                const v = x * vAxis[0] + y * vAxis[1] + z * vAxis[2];
+                minV = Math.min(minV, v); maxV = Math.max(maxV, v);
+            }
+            const left = Array(silhouetteBands).fill(null), right = Array(silhouetteBands).fill(null);
+            for (const vertex of usedVertices) {
+                const x = positionArray[vertex * 3], y = positionArray[vertex * 3 + 1], z = positionArray[vertex * 3 + 2];
+                const u = x * uAxis[0] + y * uAxis[1] + z * uAxis[2];
+                const v = x * vAxis[0] + y * vAxis[1] + z * vAxis[2];
+                const band = Math.min(silhouetteBands - 1, Math.floor((v - minV) / Math.max(1e-6, maxV - minV) * silhouetteBands));
+                if (!left[band] || u < left[band].u) left[band] = { vertex, u };
+                if (!right[band] || u > right[band].u) right[band] = { vertex, u };
+            }
+            for (const edge of [...left, ...right]) if (edge) vertexLock[edge.vertex] = 1;
         }
         const [simplifiedIndices, error] = MeshoptSimplifier.simplifyWithAttributes(
             sourceIndices,
@@ -441,21 +467,24 @@ function silhouetteIoU(source, lod, sourceBounds) {
     return scores;
 }
 
-function assertAssetPair(sourcePath, sourceStats, lodPath, lodStats, silhouettes) {
+function assertAssetPair(sourcePath, sourceStats, lodPath, lodStats, silhouettes, expectedTextures = sourceStats.textures) {
     const label = slash(relative(clientRoot, sourcePath));
+    const detailedHound = sourcePath.endsWith('starter-lightning-l.glb');
+    const maxTriangles = detailedHound ? RAIJIN_MAX_LOD_TRIANGLES : MAX_LOD_TRIANGLES;
     const reduction = 1 - lodStats.triangles / sourceStats.triangles;
     if (sourceStats.triangles <= LOW_POLY_SOURCE_LIMIT) {
         invariant(lodStats.triangles <= 12_000, `${label}: low-poly source exception still exceeds 12k`);
         invariant(reduction >= 0.3, `${label}: low-poly source reduction ${(reduction * 100).toFixed(1)}% < 30%`);
     } else {
-        invariant(reduction >= MIN_TRIANGLE_REDUCTION, `${label}: triangle reduction ${(reduction * 100).toFixed(1)}% < 60%`);
+        const minimumReduction = detailedHound ? RAIJIN_MIN_TRIANGLE_REDUCTION : MIN_TRIANGLE_REDUCTION;
+        invariant(reduction >= minimumReduction, `${label}: triangle reduction ${(reduction * 100).toFixed(1)}% < ${(minimumReduction * 100).toFixed(0)}%`);
     }
-    invariant(lodStats.triangles <= 15_000, `${label}: ${lodStats.triangles} LOD triangles exceeds 15k`);
+    invariant(lodStats.triangles <= maxTriangles, `${label}: ${lodStats.triangles} LOD triangles exceeds ${maxTriangles}`);
     invariant(JSON.stringify(lodStats.skins) === JSON.stringify(sourceStats.skins), `${label}: skeleton/joint identity changed`);
     invariant(JSON.stringify(lodStats.animations) === JSON.stringify(sourceStats.animations), `${label}: animation bank changed`);
     invariant(JSON.stringify(lodStats.materials) === JSON.stringify(sourceStats.materials), `${label}: materials changed`);
     invariant(JSON.stringify(lodStats.attributeSets) === JSON.stringify(sourceStats.attributeSets), `${label}: vertex attribute set changed`);
-    invariant(JSON.stringify(lodStats.textures) === JSON.stringify(sourceStats.textures), `${label}: embedded texture payload changed`);
+    invariant(JSON.stringify(lodStats.textures) === JSON.stringify(expectedTextures), `${label}: embedded texture payload changed`);
     invariant(lodStats.primitives === lodStats.weightedPrimitives, `${label}: a LOD primitive lost JOINTS_0/WEIGHTS_0`);
     invariant(lodStats.weightRange[0] >= 0.98 && lodStats.weightRange[1] <= 1.02, `${label}: normalized bone weights escaped [0.98, 1.02]`);
     invariant(lodStats.maxJoint < Math.max(...lodStats.skins.map((skin) => skin.joints.length)), `${label}: joint index exceeds skin joint count`);
@@ -482,32 +511,65 @@ function outputPathFor(sourcePath) {
     return resolve(outputRoot, relative(modelRoot, sourcePath));
 }
 
+async function raijinLodTextures(source) {
+    return Promise.all(source.getRoot().listTextures().map(async (texture) => {
+        const image = texture.getImage();
+        invariant(image && texture.getMimeType() === "image/webp", `Raijin texture ${texture.getName()} is missing its WebP source`);
+        const reduced = await sharp(Buffer.from(image))
+            .resize(RAIJIN_LOD_TEXTURE_SIZE, RAIJIN_LOD_TEXTURE_SIZE, { fit: "inside", withoutEnlargement: true })
+            .webp({ quality: 90, effort: 6 }).toBuffer();
+        return { name: texture.getName(), mimeType: "image/webp", image: reduced };
+    }));
+}
+
+function textureStats(payloads) {
+    return payloads.map(({ name, mimeType, image }) => ({
+        name, mimeType, bytes: image.byteLength, sha256: typedArraySha256(image),
+    }));
+}
+
+function applyLodTextures(document, payloads) {
+    const textures = document.getRoot().listTextures();
+    invariant(textures.length === payloads.length, "Raijin texture count changed during LOD generation");
+    textures.forEach((texture, index) => {
+        invariant(texture.getName() === payloads[index].name, "Raijin texture order changed during LOD generation");
+        texture.setImage(payloads[index].image).setMimeType(payloads[index].mimeType);
+    });
+}
+
 async function processAsset(sourcePath) {
     const lodPath = outputPathFor(sourcePath);
     const source = await readDocument(sourcePath);
     const sourceStats = modelStats(source);
+    const detailedHound = sourcePath.endsWith('starter-lightning-l.glb');
+    const reducedTextures = detailedHound ? await raijinLodTextures(source) : null;
+    const expectedTextures = reducedTextures ? textureStats(reducedTextures) : sourceStats.textures;
     if (!checkOnly) {
         const lowPolySource = sourceStats.triangles <= LOW_POLY_SOURCE_LIMIT;
         let ratio = lowPolySource
             ? Math.min(0.7, 12_000 / sourceStats.triangles)
             : TARGET_LOD_TRIANGLES / sourceStats.triangles;
+        const maxTriangles = sourcePath.endsWith('starter-lightning-l.glb') ? RAIJIN_MAX_LOD_TRIANGLES : MAX_LOD_TRIANGLES;
+        const minReduction = sourcePath.endsWith('starter-lightning-l.glb') ? RAIJIN_MIN_TRIANGLE_REDUCTION : MIN_TRIANGLE_REDUCTION;
         const maxRatio = lowPolySource
             ? ratio
-            : Math.min(MAX_LOD_TRIANGLES / sourceStats.triangles, 1 - MIN_TRIANGLE_REDUCTION);
+            : Math.min(maxTriangles / sourceStats.triangles, 1 - minReduction);
         let document;
         while (true) {
             document = await readDocument(sourcePath);
             mergeAccessorBuffers(document);
-            skinAwareSimplifyDocument(document, ratio);
+            skinAwareSimplifyDocument(document, ratio,
+                detailedHound ? 64 : 32, detailedHound ? 48 : 0);
             // Optimize the post-transform vertex cache for repeated animated
             // draw performance, not merely transmission size.
             await document.transform(reorder({ encoder: MeshoptEncoder, target: "performance" }));
+            if (reducedTextures) applyLodTextures(document, reducedTextures);
             const candidateStats = modelStats(document);
             const candidateSilhouettes = silhouetteIoU(source, document, sourceStats.bounds);
             const candidatePasses = Math.min(...candidateSilhouettes.map((score) => score.iou)) >= MIN_SILHOUETTE_IOU
                 && boundsMaxDelta(sourceStats, candidateStats) <= MAX_BOUNDS_DELTA;
             if (candidatePasses || ratio >= maxRatio - 1e-8) {
-                assertAssetPair(sourcePath, sourceStats, lodPath, candidateStats, candidateSilhouettes);
+                assertAssetPair(sourcePath, sourceStats, lodPath, candidateStats, candidateSilhouettes, expectedTextures);
                 break;
             }
             ratio = Math.min(maxRatio, ratio + 0.025);
@@ -519,7 +581,7 @@ async function processAsset(sourcePath) {
     const lod = await readDocument(lodPath);
     const lodStats = modelStats(lod);
     const silhouettes = silhouetteIoU(source, lod, sourceStats.bounds);
-    assertAssetPair(sourcePath, sourceStats, lodPath, lodStats, silhouettes);
+    assertAssetPair(sourcePath, sourceStats, lodPath, lodStats, silhouettes, expectedTextures);
     const sourceRelative = slash(relative(publicRoot, sourcePath));
     const lodRelative = slash(relative(publicRoot, lodPath));
     const [sourceFile, lodFile, sourceHash, lodHash] = await Promise.all([
@@ -589,6 +651,8 @@ if (!criticalOnly) {
         policy: {
             targetLodTriangles: TARGET_LOD_TRIANGLES,
             maxLodTriangles: MAX_LOD_TRIANGLES,
+            raijinMaxLodTriangles: RAIJIN_MAX_LOD_TRIANGLES,
+            raijinMinTriangleReduction: RAIJIN_MIN_TRIANGLE_REDUCTION,
             maxError: MAX_ERROR,
             minTriangleReduction: MIN_TRIANGLE_REDUCTION,
             lowPolySourceLimit: LOW_POLY_SOURCE_LIMIT,

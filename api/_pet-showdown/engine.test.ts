@@ -840,7 +840,7 @@ test('an under-charged super cannot buy guard-tier turn priority', () => {
 test('every known move kind has a KIND_FX entry and a stable stored status', () => {
     for (const kind of ['damage', 'buff', 'heal', 'debuff', 'dot', 'move', 'barrier', 'movelock',
         'lifesteal', 'shield', 'absorb', 'burn', 'freeze', 'confuse', 'stun', 'crush', 'wound',
-        'mark', 'slow', 'haste', 'taunt', 'push', 'pull']) {
+        'mark', 'slow', 'haste', 'taunt', 'push', 'pull', 'weather', 'protect']) {
         assert.ok(KIND_FX[kind], `KIND_FX covers ${kind}`);
         assert.ok(moveEffectText(kind, 120).length > 0, `${kind} has effect text`);
     }
@@ -857,6 +857,12 @@ test('every known move kind has a KIND_FX entry and a stable stored status', () 
     assert.equal(storedStatusKind('movelock'), 'movelock');
     assert.equal(storedStatusKind('taunt', '2v2', 2), 'taunt');
     assert.equal(storedStatusKind('taunt', '1v1', 1), 'tauntGuard');
+});
+
+test('utility move descriptions state the actual weather and ward rules', () => {
+    assert.match(moveEffectText('weather', 70, 'Fire'), /Fire damage \+18%; Water damage -12% for 8 rounds/);
+    assert.match(moveEffectText('barrier', 100), /105 damage for up to 2 rounds/);
+    assert.match(moveEffectText('protect', 90), /Fails if used in consecutive rounds/);
 });
 
 test('a self-buff is stored on the ACTOR under its renamed kind', () => {

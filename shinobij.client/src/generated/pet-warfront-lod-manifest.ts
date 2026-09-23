@@ -732,9 +732,9 @@ export const WARFRONT_PET_LOD_MANIFEST = {
         "lodTriangles": 9590
     },
     "/pet-models/showdown-v2/starter-lightning-l.glb": {
-        "lodUrl": "/pet-models/warfront-lod/showdown-v2/starter-lightning-l.glb?v=20260902-battle-lod-v1-9958bffe551d",
-        "sourceTriangles": 29808,
-        "lodTriangles": 9998
+        "lodUrl": "/pet-models/warfront-lod/showdown-v2/starter-lightning-l.glb?v=20260902-battle-lod-v1-657bdd99ae01",
+        "sourceTriangles": 39677,
+        "lodTriangles": 17902
     },
     "/pet-models/starter-earth-l.glb": {
         "lodUrl": "/pet-models/warfront-lod/starter-earth-l.glb?v=20260902-battle-lod-v1",
