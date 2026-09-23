@@ -68,6 +68,10 @@ const REPLACE_SUBTREE_KEYS = new Set<string>([
     // Each proof describes one committed operation; positional merging of its
     // change list must not retain a previous operation's before/after fields.
     'hollowGatePendingOperation',
+    // This is one exact battle outcome. Merging a prior no-payout reason into
+    // a paid outcome (or prior amounts into a no-payout) invalidates the proof
+    // and blocks every subsequent PvP reward claim for the winner.
+    'vanguardRewardSettlementStamp',
 ]);
 const PROTOTYPE_POLLUTION_KEYS = new Set<string>(['__proto__', 'constructor', 'prototype']);
 
