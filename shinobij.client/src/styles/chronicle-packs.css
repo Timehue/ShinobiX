@@ -197,5 +197,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .chronicle-pack { transition: none; }
+}
+
+@media (prefers-reduced-motion: reduce) and (hover: hover) {
   .chronicle-pack:hover { transform: none; }
 }
