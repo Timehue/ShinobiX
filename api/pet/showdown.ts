@@ -11,6 +11,7 @@ import { withKvLock, LockContendedError } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { writeSaveProjected } from '../save/_projected-write.js';
 import { showdownBusyIssue } from './_showdown-readiness.js';
+import { startNaturalWandererShowdown } from './_wanderer-showdown.js';
 import { activeCarriedPets } from '../_entitlements.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 import {
@@ -100,6 +101,8 @@ import {
  *   start   — seal the player's chosen pets from the save, build an AI team
  *             from the catalog, and mint an unpaid practice KV session. The
  *             ENGINE RUNS ONLY HERE on the server; the client is presentation.
+ *   wanderer — validate a natural road beast, roll a fieldable 1v1/2v2/3v3
+ *             format and random AI team, and enter an unpaid interactive fight.
  *   turn    — submit one round of commands; the server resolves the round and
  *             returns the turn script + updated public state. The finishing
  *             turn also pays out (win only) under the save lock with an
@@ -599,6 +602,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await publishShowdownPresence(kv, playerName, sessionId); // F01: a live showdown is provable presence
             await kv.set(showdownFirstPactKey(playerName, sessionId), binding, { ex: SESSION_TTL_SECONDS });
             return res.status(200).json({ ok: true, state: viewOf(session), firstPact: { encounterId: encounter.id, progress } });
+        }
+
+        if (action === 'wanderer') {
+            if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-showdown-wanderer', 20, 60_000, identity.name))) return;
+            // The world encounter selects the format, both teams and the AI seed.
+            // Accept only its selector so no arena or practice fields can steer it.
+            if (body.format !== undefined || body.petIds !== undefined || body.tier !== undefined
+                || body.sparring !== undefined || body.hollowGate !== undefined) {
+                return res.status(400).json({ error: 'A road challenge only accepts its wanderer selector.' });
+            }
+            const started = await startNaturalWandererShowdown(playerName, body.wanderer);
+            if (!started.ok) return res.status(started.status).json({ error: started.error });
+            await publishShowdownPresence(kv, playerName, started.session.sessionId);
+            return res.status(200).json({
+                ok: true,
+                state: viewOf(started.session),
+                petIds: started.petIds,
+                character: started.character,
+                _saveVersion: started._saveVersion,
+            });
         }
 
         if (action === 'start') {
