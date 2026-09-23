@@ -774,7 +774,7 @@ export function CentralHub({
                     badge: "Elite stock",
                     art: grandMarketplaceArt,
                     artPosition: "66% center",
-                    text: "Browse legendary gear, companion equipment, and premium card packs.",
+                    text: "Browse legendary gear and companion equipment.",
                     action: () => setScreen("grandMarketplace"),
                 },
                 {

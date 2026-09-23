@@ -9,11 +9,11 @@
  * pops out → each tap flips a card with a rarity-scaled flourish → summary fan
  * with NEW badges and an "open another" shortcut.
  *
- * Also plays once outside the shop: the Chronicle Scribe's traveler's codex
+ * Also plays for the Chronicle Scribe's traveler's codex
  * hand-off ends on it (screens/WorldMap), which is what `title`/`countLabel`
  * are for — the same cinematic, named as the codex rather than a shop pack.
  *
- * Styles live in ../styles/card-pack-opening.css, imported by Shop.tsx and
+ * Styles live in ../styles/card-pack-opening.css, imported by CardHall.tsx and
  * WorldMap.tsx — the screen chunk owns the CSS import; component modules must stay CSS-free so
  * node tests can import them. Portaled to <body> at z-index 1000000 per the
  * overlay pattern (the fixed nav/side rails paint over anything inside

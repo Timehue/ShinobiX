@@ -2,9 +2,7 @@
  * Premium offers — the real-money products: Fate Shard tiers and the
  * recurring Shinobi Supporter tier.
  *
- * Deliberately a SECTION of the existing Shop rather than a screen of its own,
- * matching CardPackSection directly above it: the nav's "Shop" button is where
- * players already go to spend, so that is where buying belongs.
+ * This section sells Fate Shards. Card packs spend them in the Card Hall.
  *
  * Nothing here grants currency. A tile opens a Tebex checkout bound server-side
  * to the signed-in player; shards arrive later via the webhook. The only local
@@ -167,7 +165,7 @@ export function PremiumOffers({ character, onVersionedCharacter }: {
         <div className="card" style={{ marginTop: "1rem" }}>
             <h2><GameIcon name="crystal" size={18} style={{ display: "inline-block", verticalAlign: "-3px" }} /> Fate Shards</h2>
             <p style={{ color: "#aaa", marginBottom: "0.4rem" }}>
-                Fate Shards buy card packs, legendary gear and forge rolls at the Grand Marketplace.
+                Fate Shards buy premium card packs in the Card Hall, plus legendary gear and forge rolls at the Grand Marketplace.
             </p>
             <p style={{ marginBottom: "0.8rem" }}>Balance: <strong>{character.fateShards}</strong> Fate Shards</p>
 

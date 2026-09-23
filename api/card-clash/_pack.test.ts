@@ -1,8 +1,41 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BUILTIN_CLASH, isMarketplaceCard } from '../clan/war/_card-catalog.js';
-import { CHRONICLE_STARTER_GRANT_IDS, deckLimitForCard } from '../../shared/chronicle-duel.js';
-import { applyCardPackOpen, cardPackCost, cardPackDiscountPercent } from './_pack.js';
+import { CHRONICLE_STARTER_GRANT_IDS, deckLimitForCard, getChronicleCard } from '../../shared/chronicle-duel.js';
+import { applyCardPackOpen, cardPackCost, cardPackDiscountPercent, parseCardPackType } from './_pack.js';
+
+test('each elemental Basic pack draws five matching Monsters for 100 Chronicle Points', () => {
+    for (const element of ['fire', 'water', 'earth', 'wind', 'lightning'] as const) {
+        assert.equal(parseCardPackType(element), element);
+        const character = { chroniclePoints: 100, ryo: 1000, fateShards: 50, tileCards: [] };
+        assert.equal(cardPackCost(character, element), 100);
+        const opened = applyCardPackOpen(character, element, (max) => max - 1);
+        assert.equal(opened.ok, true, element);
+        if (!opened.ok) continue;
+        assert.equal(opened.cards.length, 5);
+        assert.equal(opened.balance, 0);
+        assert.equal(opened.character.ryo, 1000);
+        assert.equal(opened.character.fateShards, 50);
+        for (const id of opened.cards) {
+            const card = getChronicleCard(id);
+            assert.equal(card?.cardClass, 'monster');
+            if (card?.cardClass === 'monster') assert.equal(card.element.toLowerCase(), element);
+            assert.ok(['common', 'rare'].includes(BUILTIN_CLASH[id].rarity));
+            assert.equal(isMarketplaceCard(id), false);
+        }
+    }
+});
+
+test('the Random Pack keeps neutral Jutsu and Snares in its mixed Basic pool', () => {
+    const pool = Object.entries(BUILTIN_CLASH)
+        .filter(([id, card]) => ['common', 'rare'].includes(card.rarity) && !isMarketplaceCard(id))
+        .map(([id]) => id);
+    const supportIndex = pool.findIndex((id) => getChronicleCard(id)?.cardClass !== 'monster');
+    assert.ok(supportIndex >= 0);
+    const opened = applyCardPackOpen({ chroniclePoints: 100, tileCards: [] }, 'standard', () => supportIndex);
+    assert.equal(opened.ok, true);
+    if (opened.ok) assert.notEqual(getChronicleCard(opened.cards[0])?.cardClass, 'monster');
+});
 
 test('the Basic pack costs exactly 100 Chronicle Points, ignores ryo-economy discounts, and never touches ryo', () => {
     const character = {
@@ -31,7 +64,7 @@ test('the Basic pack costs exactly 100 Chronicle Points, ignores ryo-economy dis
     assert.equal(opened.character.fateShards, 50);
     assert.equal(opened.cards.length, 5);
     assert.equal(opened.character.tileCards instanceof Array, true);
-    // Shop pack draws only the weaker half: Commons + non-marketplace Rares.
+    // Basic pack draws Commons and Rares outside the premium pool.
     for (const id of opened.cards) {
         assert.ok(['common', 'rare'].includes(BUILTIN_CLASH[id].rarity));
         assert.equal(isMarketplaceCard(id), false);
@@ -52,13 +85,13 @@ test('a player with exactly 100 Chronicle Points can buy the Basic pack; 99 cann
     assert.equal(character.fateShards, 999);
 });
 
-test('premium packs debit Fate Shards and draw only best-50% Marketplace cards', () => {
+test('premium packs debit Fate Shards and draw only Marketplace cards', () => {
     const epic = applyCardPackOpen({ fateShards: 10, tileCards: [] }, 'epic', (max) => max - 1);
     assert.equal(epic.ok, true);
     if (epic.ok) {
         assert.equal(epic.balance, 0);
         assert.equal(epic.cards.length, 1);
-        // Elite pack: a best-50% Rare or Epic.
+        // Elite pack: a Marketplace Rare or Epic.
         assert.ok(['rare', 'epic'].includes(BUILTIN_CLASH[epic.cards[0]].rarity));
         assert.equal(isMarketplaceCard(epic.cards[0]), true);
     }

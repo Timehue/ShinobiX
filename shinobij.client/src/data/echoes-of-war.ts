@@ -127,7 +127,7 @@ export const ECHOES_HERO_COPY = {
     /** Rendered as the landing subtitle. */
     subtitle: "The tower keeps the memories of the fallen, not their souls. The Sunken Court built the Hollow Gate and fell to it. Play the Showdowns it denied its people, and uncover the history of the machinery beneath your villages.",
     /** Rendered as the landing footnote. */
-    footnote: "The Sunken Court was the first age the Gate consumed. The villages are the second. Each age holds the memories that never got their Showdown. Chronicle Points, earned here, buy the Basic Card Pack in the Card Shop.",
+    footnote: "The Sunken Court was the first age the Gate consumed. The villages are the second. Each age holds the memories that never got their Showdown. Spend Chronicle Points earned here on card packs in the Card Hall.",
 } as const;
 
 /** The tower interior key art (ladder hero + lock/loading backdrops). */
