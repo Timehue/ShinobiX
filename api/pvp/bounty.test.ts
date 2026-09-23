@@ -167,6 +167,36 @@ test('collecting a bounty heralds Bounty Collected exactly once per battle', asy
     assert.equal(await kv.get(`offline-notices:${HUNTER}`), null, 'winner gets no notice');
 });
 
+test('legacy shared proxy IP cannot block bounty placement or payout', async () => {
+    const oldProxyIp = '79.127.200.33';
+    for (const player of [PLACER, HUNTER, TARGET]) {
+        await kv.set(`player-ip:${player}:${oldProxyIp}`, true);
+    }
+    await kv.set(`player-fp:${HUNTER}:${'a'.repeat(32)}`, true);
+    await kv.set(`player-fp:${TARGET}:${'b'.repeat(32)}`, true);
+
+    const placed = await call(PLACER, { action: 'place', target: 'Bounty Target', amount: 2_000 });
+    assert.equal(placed.statusCode, 200, JSON.stringify(placed.body));
+
+    const battleId = 'pvp-bounty-legacy-proxy-ip-12345678';
+    await seedHunterWin(battleId);
+    const claimed = await call(HUNTER, { action: 'claim', battleId });
+    assert.equal(claimed.statusCode, 200, JSON.stringify(claimed.body));
+    assert.equal(claimed.body?.amount, 2_000);
+    assert.equal(claimed.body?.voided, undefined);
+    assert.equal((await kv.get<{ character: { ryo: number } }>(`save:${HUNTER}`))?.character.ryo, 2_100);
+});
+
+test('verified shared visitor IP still blocks bounty placement', async () => {
+    const sharedVisitorIp = '86.123.45.67';
+    await kv.set(`player-ip:${PLACER}:v2:${sharedVisitorIp}`, true);
+    await kv.set(`player-ip:${TARGET}:v2:${sharedVisitorIp}`, true);
+
+    const result = await call(PLACER, { action: 'place', target: 'Bounty Target', amount: 2_000 });
+    assert.equal(result.statusCode, 403, JSON.stringify(result.body));
+    assert.equal((await kv.get<{ character: { ryo: number } }>(`save:${PLACER}`))?.character.ryo, 50_000);
+});
+
 test('a no-bounty win settles successfully even when both players share a connection', async () => {
     const battleId = 'pvp-no-bounty-shared-connection-12345678';
     await stampSharedConnection();
