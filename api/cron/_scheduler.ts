@@ -45,6 +45,7 @@ const SETTLEMENT_RECONCILIATION_TICK_MS = 5 * 60_000;
 const CLAN_BOSS_PARTY_SWEEP_TICK_MS = 5 * 60_000;
 const TERRITORY_LIFECYCLE_TICK_MS = 5 * 60_000;
 const BATTLE_LAPSE_TICK_MS = 10 * 60_000; // F08 backstop: fights nobody came back to
+const SNAPSHOT_RECOVERY_TICK_MS = 60 * 60_000;
 const TARGET_UTC_HOUR = 3; // 03:00 UTC — matches the retired Vercel schedule "0 3 * * *".
 // No serverless timeout here, so give the nightly pass a generous budget to
 // snapshot every player in one run rather than leaning on next-day catch-up.
@@ -76,13 +77,14 @@ let _settlementInterval: ReturnType<typeof setInterval> | null = null;
 let _clanBossPartySweepInterval: ReturnType<typeof setInterval> | null = null;
 let _territoryLifecycleInterval: ReturnType<typeof setInterval> | null = null;
 let _battleLapseInterval: ReturnType<typeof setInterval> | null = null;
+let _snapshotRecoveryInterval: ReturnType<typeof setInterval> | null = null;
 let _settlementScanRunning = false;
 let _clanBossPartySweepRunning = false;
 let _territoryLifecycleRunning = false;
 let _battleLapseRunning = false;
 
-async function runLeasedJob<T>(jobName: string, ttlSec: number, fn: () => Promise<T>): Promise<T | null> {
-    const leased = await withScheduledJobLease(jobName, fn, { ttlSec, holdUntilExpiryOnSuccess: true });
+async function runLeasedJob<T>(jobName: string, ttlSec: number, fn: () => Promise<T>, holdLeaseWhen?: (value: T) => boolean): Promise<T | null> {
+    const leased = await withScheduledJobLease(jobName, fn, { ttlSec, holdUntilExpiryOnSuccess: true, holdUntilExpiryWhen: holdLeaseWhen });
     return leased.acquired ? leased.value : null;
 }
 
@@ -203,25 +205,42 @@ function msUntilNextTargetHour(now: number): number {
 }
 
 async function runBootSnapshotCatchUp(): Promise<void> {
+    let staleMarkerExists = false;
     try {
         const marker = await readSnapshotSuccessMarker();
         if (isSnapshotMarkerFresh(marker)) {
             console.log(`[cron-scheduler] backup freshness ok; last complete run ${new Date(marker!.completedAt).toISOString()}.`);
             return;
         }
+        staleMarkerExists = !!marker;
         console.warn('[cron-scheduler] no complete snapshot run in the last 26h; starting boot catch-up.');
     } catch (err) {
         console.error('[cron-scheduler] backup marker read failed; attempting boot catch-up:', (err as Error).message);
     }
 
     try {
-        const leased = await withScheduledJobLease(
-            'snapshot',
-            () => runSnapshotSaves(NIGHTLY_BUDGET_MS),
-            { ttlSec: LEASE_TTL.snapshot, holdUntilExpiryOnSuccess: true },
+        // This guard serializes all boot/periodic recovery attempts across
+        // replicas and holds a 50m backoff after an incomplete result.
+        const recovery = await withScheduledJobLease(
+            'snapshot-recovery',
+            async () => {
+                const normal = await withScheduledJobLease(
+                    'snapshot',
+                    () => runSnapshotSaves(NIGHTLY_BUDGET_MS),
+                    { ttlSec: LEASE_TTL.snapshot, holdUntilExpiryOnSuccess: true, holdUntilExpiryWhen: (result) => result.ok },
+                );
+                if (normal.acquired) return normal.value;
+                // An older worker may have kept the 20h snapshot lease after
+                // an incomplete run. An existing stale marker proves that no
+                // complete backup was published, so recover under this guard
+                // without deleting the older worker's lease.
+                if (!staleMarkerExists) return null;
+                return runSnapshotSaves(NIGHTLY_BUDGET_MS);
+            },
+            { ttlSec: 50 * 60, holdUntilExpiryOnSuccess: true },
         );
-        if (!leased.acquired) return;
-        const result = leased.value;
+        if (!recovery.acquired || !recovery.value) return;
+        const result = recovery.value;
         console.log(`[cron-scheduler] boot catch-up: ${result.snapshotted} saved, ${result.skipped} skipped, ${result.failed.length} failed; ${result.ok ? 'healthy' : 'UNHEALTHY'}.`);
     } catch (err) {
         console.error('[cron-scheduler] boot catch-up threw:', (err as Error).message);
@@ -231,7 +250,7 @@ async function runBootSnapshotCatchUp(): Promise<void> {
 async function fire(): Promise<void> {
     if (process.env.DISABLE_SNAPSHOT_CRON !== '1') {
         try {
-            const r = await runLeasedJob('snapshot', LEASE_TTL.snapshot, () => runSnapshotSaves(NIGHTLY_BUDGET_MS));
+            const r = await runLeasedJob('snapshot', LEASE_TTL.snapshot, () => runSnapshotSaves(NIGHTLY_BUDGET_MS), (result) => result.ok);
             if (!r) {
                 // Another process owns this invocation.
             } else if (r.emptyKeyspace) {
@@ -366,6 +385,10 @@ export function startSnapshotCron(): void {
     if (snapshotDisabled) {
         console.log('[cron-scheduler] save-snapshot cron disabled via DISABLE_SNAPSHOT_CRON=1');
     }
+    if (!snapshotDisabled && !_snapshotRecoveryInterval) {
+        _snapshotRecoveryInterval = setInterval(() => void runBootSnapshotCatchUp(), SNAPSHOT_RECOVERY_TICK_MS);
+        _snapshotRecoveryInterval.unref?.();
+    }
     if (_timeout || _interval) return;
     // NOTE: ranked seasons do NOT auto-start — an admin starts them from the
     // Admin Panel (/api/admin/ranked-season). The daily fire() still calls the
@@ -407,6 +430,7 @@ export function stopSnapshotCron(): void {
     if (_clanBossPartySweepInterval) { clearInterval(_clanBossPartySweepInterval); _clanBossPartySweepInterval = null; }
     if (_territoryLifecycleInterval) { clearInterval(_territoryLifecycleInterval); _territoryLifecycleInterval = null; }
     if (_battleLapseInterval) { clearInterval(_battleLapseInterval); _battleLapseInterval = null; }
+    if (_snapshotRecoveryInterval) { clearInterval(_snapshotRecoveryInterval); _snapshotRecoveryInterval = null; }
     _settlementScanRunning = false;
     _clanBossPartySweepRunning = false;
     _territoryLifecycleRunning = false;
