@@ -100,6 +100,30 @@ const PUBLIC_AUTHORING_PREFIXES = [
     'pet-models/roster-references',
 ] as const;
 const PUBLIC_LOCAL_ONLY_ASSETS = new Set([
+    // Retired presentation art stays available locally for authoring.
+    'landing-petclash-v2.webp',
+    'landing-legacy-v2.webp',
+    'landing-hero-keyart.webp',
+    'landing-hero.webp',
+    'landing-hero-village.webp',
+    'landing-band-v2.webp',
+    'landing-band.webp',
+    'landing-petclash.webp',
+    'landing-clanwar.webp',
+    'landing-legacy.webp',
+    'deathsgate-arena-v2.webp',
+    'bloodline-shadow-lotus.webp',
+    'shinobi-journey-title-art.webp',
+    'shinobi-journey-logo-wide.webp',
+    // The PWA icon is the byte-identical 512px mark in the shipped bundle.
+    'shinobi-journey-mark-512-v3.png',
+    'assets/warfront/kage-fire-impact-burst-v1.png',
+    'assets/warfront/kage-tactics-temple-court-v2-landscape.webp',
+    'assets/warfront/kage-tactics-temple-court-v2-portrait.webp',
+    // Pebble now resolves to the reviewed standard-5 roster model.
+    'pet-models/starter-earth.glb',
+    // The live Raijin resolver loads showdown-v2; this top-level copy is an authoring input.
+    'pet-models/starter-lightning-l.glb',
     'pet-models/mythic-10.glb',
     'pet-models/mythic-11.glb',
     'pet-models/mythic-12.glb',

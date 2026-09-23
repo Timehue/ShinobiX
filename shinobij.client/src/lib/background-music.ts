@@ -1,24 +1,25 @@
 // Contextual world music. This owns the quiet exploration/combat score while
 // preserving the Settings screen's one master mute and volume preference.
 
-import { getAudioVolume, isAudioMuted, subscribeAudioMute } from "./pet-music";
+import { BATTLE_MUSIC_TRACKS, getAudioVolume, isAudioMuted, subscribeAudioMute } from "./pet-music";
 import { isAudioBackgrounded, subscribeAudioLifecycle } from "./audio-lifecycle";
 
-export type BackgroundMusicScene = "village" | "sector" | "combat" | null;
+export type BackgroundMusicScene = "village" | "combat" | null;
 
 const VILLAGE_TRACKS = [
     "/music/world/wind-of-the-ninja-village.mp3",
     "/music/world/ninja-night.mp3",
+    "/music/world/ninja-wind-melody.mp3",
+    "/music/world/village-background-sj.mp3",
 ];
-const SECTOR_TRACK = "/music/world/ninja-wind-melody.mp3";
-const COMBAT_TRACK = "/music/world/wind-blade-jutsu.mp3";
+const TRACKS = { village: VILLAGE_TRACKS, combat: BATTLE_MUSIC_TRACKS };
 
 // Keep the continuous score comfortably beneath UI feedback and combat SFX.
 export const BACKGROUND_MUSIC_VOLUME = 0.18;
 
 let audioEl: HTMLAudioElement | null = null;
 let currentScene: BackgroundMusicScene = null;
-let lastVillageTrack = -1;
+const lastTrackIndex = { village: -1, combat: -1 };
 let unsubscribeLifecycle: (() => void) | null = null;
 
 function syncPlayback(): void {
@@ -46,21 +47,26 @@ function syncPlayback(): void {
 function ensureAudio(): HTMLAudioElement | null {
     if (typeof window === "undefined") return null;
     if (!audioEl) {
-        audioEl = new Audio();
-        audioEl.loop = true;
-        audioEl.preload = "auto";
+        const el = new Audio();
+        audioEl = el;
+        el.preload = "auto";
+        el.onended = () => {
+            if (currentScene === null || el.loop) return;
+            el.src = trackFor(currentScene);
+            el.currentTime = 0;
+            syncPlayback();
+        };
         unsubscribeLifecycle = subscribeAudioLifecycle(syncPlayback);
     }
     return audioEl;
 }
 
 function trackFor(scene: Exclude<BackgroundMusicScene, null>): string {
-    if (scene === "combat") return COMBAT_TRACK;
-    if (scene === "sector") return SECTOR_TRACK;
-    let index = Math.floor(Math.random() * VILLAGE_TRACKS.length);
-    if (VILLAGE_TRACKS.length > 1 && index === lastVillageTrack) index = (index + 1) % VILLAGE_TRACKS.length;
-    lastVillageTrack = index;
-    return VILLAGE_TRACKS[index];
+    const tracks = TRACKS[scene];
+    let index = Math.floor(Math.random() * tracks.length);
+    if (tracks.length > 1 && index === lastTrackIndex[scene]) index = (index + 1) % tracks.length;
+    lastTrackIndex[scene] = index;
+    return tracks[index];
 }
 
 /** Select the score for the player's actual location or active battle. */
@@ -74,6 +80,7 @@ export function setBackgroundMusicScene(scene: BackgroundMusicScene): void {
 
     const el = ensureAudio();
     if (!el) return;
+    el.loop = TRACKS[scene].length === 1;
     el.src = trackFor(scene);
     el.currentTime = 0;
     syncPlayback();

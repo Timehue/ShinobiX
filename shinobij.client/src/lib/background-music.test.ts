@@ -6,6 +6,7 @@ import { setAudioMuted, setAudioVolume } from "./pet-music";
 class MockAudio {
     static instances: MockAudio[] = [];
     src = ""; loop = false; preload = ""; volume = 1; muted = false; currentTime = 0; paused = true;
+    onended: (() => void) | null = null;
     playCount = 0;
     constructor() { MockAudio.instances.push(this); }
     play() { this.playCount += 1; this.paused = false; return Promise.resolve(); }
@@ -28,30 +29,55 @@ Object.defineProperties(globalThis, {
     } },
 });
 
-test("world music follows village, sector, and combat context at a quiet master-scaled level", () => {
-    setAudioMuted(false);
-    setAudioVolume(1);
-    setBackgroundMusicScene("village");
-    const music = MockAudio.instances.at(-1)!;
-    assert.ok(["/music/world/wind-of-the-ninja-village.mp3", "/music/world/ninja-night.mp3"].includes(music.src));
-    assert.equal(music.volume, BACKGROUND_MUSIC_VOLUME);
-    assert.equal(music.loop, true);
+test("village music rotates through all tracks while combat uses the pet battle playlist", () => {
+    const random = Math.random;
+    const picks = [0, 0.26, 0.51, 0.76];
+    Math.random = () => picks.shift() ?? 0;
+    try {
+        setAudioMuted(false);
+        setAudioVolume(1);
+        setBackgroundMusicScene("village");
+        const music = MockAudio.instances.at(-1)!;
+        assert.equal(music.src, "/music/world/wind-of-the-ninja-village.mp3");
+        assert.equal(music.volume, BACKGROUND_MUSIC_VOLUME);
+        assert.equal(music.loop, false);
 
-    setBackgroundMusicScene("sector");
-    assert.equal(music.src, "/music/world/ninja-wind-melody.mp3");
-    setBackgroundMusicScene("combat");
-    assert.equal(music.src, "/music/world/wind-blade-jutsu.mp3");
+        music.currentTime = 42;
+        const playCount = music.playCount;
+        setBackgroundMusicScene("village"); // Village-to-sector travel keeps the same scene.
+        assert.equal(music.src, "/music/world/wind-of-the-ninja-village.mp3");
+        assert.equal(music.currentTime, 42);
+        assert.equal(music.playCount, playCount);
 
-    setAudioVolume(0.5);
-    assert.equal(music.volume, BACKGROUND_MUSIC_VOLUME * 0.5);
-    setAudioMuted(true);
-    assert.equal(music.paused, true);
-    setAudioMuted(false);
-    assert.equal(music.muted, false);
-    assert.ok(music.playCount >= 2);
+        music.onended?.();
+        assert.equal(music.src, "/music/world/ninja-night.mp3");
+        music.onended?.();
+        assert.equal(music.src, "/music/world/ninja-wind-melody.mp3");
+        music.onended?.();
+        assert.equal(music.src, "/music/world/village-background-sj.mp3");
 
-    setBackgroundMusicScene(null);
-    assert.equal(music.paused, true);
-    setAudioMuted(true);
-    setAudioVolume(1);
+        setBackgroundMusicScene("combat");
+        assert.equal(music.src, "/music/world/wind-blade-jutsu.mp3");
+        assert.equal(music.loop, false);
+        music.onended?.();
+        assert.equal(music.src, "/music/showdown-lantern-duel.mp3");
+        music.onended?.();
+        assert.equal(music.src, "/music/world/wind-blade-jutsu.mp3");
+
+        setAudioVolume(0.5);
+        assert.equal(music.volume, BACKGROUND_MUSIC_VOLUME * 0.5);
+        setAudioMuted(true);
+        assert.equal(music.paused, true);
+        setAudioMuted(false);
+        assert.equal(music.muted, false);
+        assert.ok(music.playCount >= 2);
+
+        setBackgroundMusicScene(null);
+        assert.equal(music.paused, true);
+    } finally {
+        Math.random = random;
+        setBackgroundMusicScene(null);
+        setAudioMuted(true);
+        setAudioVolume(1);
+    }
 });
