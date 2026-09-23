@@ -78,13 +78,11 @@ export async function claimBountyOnWin(
     // the PvP completion ACK. Other authorization failures remain retryable.
     if (res.status === 403
         && data.error === "Bounty not paid: you and that player share a connection.") return null;
-    // The bounty's own replay window is 2h (SESSION_REPLAY_WINDOW_MS in
-    // api/pvp/bounty.ts) but the PvP reward receipt lives 48h, so a winner who
-    // returns to an unfinished settlement after two hours gets 409 "too old",
-    // and 404 once the live session and its sealed recovery snapshot have both
-    // expired. Both are decided answers about an OPTIONAL payout that no retry
-    // can ever change, so they must not wedge the battle settlement the way the
-    // shared-connection 403 did. Auth and throttle failures stay retryable.
+    // The server can pay a delayed claim while its sealed recovery snapshot is
+    // alive if the bounty predates the battle. Once the recovery window expires,
+    // 409 (or 404 after both session copies expire) is a final answer about this
+    // optional payout. It must not wedge battle completion. Auth and throttle
+    // failures remain retryable.
     if (res.status === 404 || res.status === 409) return null;
     if (!res.ok) throw new Error(data.error || `Bounty settlement failed (HTTP ${res.status}).`);
     return (data.amount ?? 0) > 0 && data.balances ? { amount: data.amount!, target: data.target ?? "your opponent", balances: data.balances } : null;
