@@ -767,9 +767,15 @@ html[data-vp="lg"] .arena-fullscreen.mission-arena-fight .combat-layout {
     content: none;
 }
 
-/* The authoritative zone persists after the aiming preview clears. Every tile
-   supplied by the server receives the same visible field treatment. */
-.arena-fullscreen.mission-arena-fight .hex-tile.mission-ground-zone-tile {
+/* The authoritative zone persists after the aiming preview clears. Tiles the
+   server puts in the field get the same visible treatment, except tiles that
+   already carry a more urgent marking: a Hollow Gate hazard or safe mark, a
+   wall or blocked terrain, or a live aiming telegraph (range, landing, ground
+   target, blast footprint, target). Four classes plus `!important` would
+   otherwise paint over those markings (the hazard rule has three), hiding a
+   damaging tile for the field's two rounds. PvP boards already let those
+   markings win. */
+.arena-fullscreen.mission-arena-fight .hex-tile.mission-ground-zone-tile:not(:is(.hg-hazard-tile, .hg-safe-tile, .combat-barrier-tile, .combat-blocked-tile, .jutsu-range-tile, .dash-target-tile, .ground-target-tile, .ground-affected-tile, .jutsu-target-tile, .jutsu-aoe-tile)) {
     background: var(--mission-zone-fill) !important;
     outline: 3px solid var(--mission-zone-edge) !important;
     box-shadow: inset 0 0 24px var(--mission-zone-glow), 0 0 16px var(--mission-zone-edge) !important;
