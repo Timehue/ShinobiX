@@ -418,6 +418,18 @@ for (const screen of NON_COMBAT_SCREENS) {
         const runtimeErrors = collectRuntimeErrors(page);
         const runtime = await installUiAuditRuntime(page);
         await expectUiAuditBoot(page, runtime, screen);
+        // Pet Home is a lazy screen. The shell can be visible while its route
+        // still shows "Loading Screen", which used to yield false-green artwork
+        // checks and screenshots of the loader instead of the player's roster.
+        if (screen === "pets") {
+            await expect(page.getByRole("heading", { name: "Pet Yard", exact: true })).toBeVisible();
+        }
+        if (screen === "inventory") {
+            await expect(page.locator(".inventory-page")).toBeVisible();
+        }
+        if (screen === "shop") {
+            await expect(page.locator(".shop-screen")).toBeVisible();
+        }
         await expect(page.locator(".center-game")).toBeVisible();
         await expect(page.locator(".app-background")).toHaveAttribute("style", /background-image:\s*url\(.+\)/);
         await expectViewportSafe(page, {

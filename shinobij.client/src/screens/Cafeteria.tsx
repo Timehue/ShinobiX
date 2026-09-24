@@ -1,4 +1,5 @@
 import { useState } from "react";
+import "../styles/index/19-town-hall.css";
 import type { Character, VersionedCharacterCommit } from "../types/character";
 import { gameToast } from "../components/GameToast";
 import { useCapabilityViewAvailability } from "../lib/live-capabilities-context";
