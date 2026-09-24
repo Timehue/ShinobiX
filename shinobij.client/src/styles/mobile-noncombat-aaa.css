@@ -290,6 +290,20 @@
     white-space: nowrap;
   }
 
+  /* Keep every companion destination visible in the same position. */
+  .app-shell[data-ui-mode="noncombat"] .center-game .pet-home-tabs {
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    inline-size: calc(100% - 1rem);
+    overflow: visible !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .center-game .pet-home-tabs > button {
+    inline-size: 100% !important;
+    min-width: 0;
+    padding-inline: 2px;
+  }
+
   .app-shell[data-ui-mode="noncombat"] .center-game :where(.town-tabs, .clan-tabs, .hol-tabs, .council-tabs, .user-hub-tabs) {
     position: sticky;
     inset-block-start: calc(var(--mobile-aaa-hud-height) + env(safe-area-inset-top, 0px));
@@ -997,5 +1011,19 @@
     min-inline-size: 44px;
     min-block-size: 44px;
     pointer-events: auto !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .app-shell[data-ui-mode="noncombat"] .center-game .pet-home-tabs {
+    grid-template-columns: repeat(6,minmax(0,1fr));
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .center-game .pet-home-tabs > button {
+    grid-column: span 2;
+  }
+
+  .app-shell[data-ui-mode="noncombat"] .center-game .pet-home-tabs > button:nth-last-child(-n+2) {
+    grid-column: span 3;
   }
 }
