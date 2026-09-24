@@ -96,6 +96,53 @@ type ClaimResponse = {
 type ClaimFetch = (input: string, init: RequestInit) => Promise<ClaimResponse>;
 export type PvpRewardOutcome = "win" | "loss" | "draw";
 
+/**
+ * The claim and its completion ACK are exactly-once on the server (NX
+ * receipts), so a reply that only says "not yet" is safe to resend unchanged:
+ * a 503 while the finishing move and the other fighter's claim hold this
+ * battle's settlement locks, a 502/504 from the edge, or a dropped connection.
+ * Two quick automatic resends turn that routine contention into a short wait
+ * instead of a manual Retry. Every other answer returns at once, and the
+ * caller's AbortSignal still bounds the whole exchange.
+ */
+export const PVP_CLAIM_TRANSIENT_RETRY_DELAYS_MS: readonly number[] = [300, 900];
+
+function isTransientClaimStatus(status: number): boolean {
+    return status === 502 || status === 503 || status === 504;
+}
+
+function claimRetryPause(ms: number, signal?: AbortSignal): Promise<boolean> {
+    if (signal?.aborted) return Promise.resolve(false);
+    return new Promise((resolve) => {
+        const onAbort = () => { clearTimeout(timer); resolve(false); };
+        const timer = setTimeout(() => {
+            signal?.removeEventListener("abort", onAbort);
+            resolve(true);
+        }, ms);
+        signal?.addEventListener("abort", onAbort, { once: true });
+    });
+}
+
+async function sendClaimRequest(
+    fetchClaim: ClaimFetch,
+    init: RequestInit,
+    retryDelaysMs: readonly number[],
+): Promise<ClaimResponse> {
+    const signal = init.signal ?? undefined;
+    for (let attempt = 0; ; attempt += 1) {
+        const lastAttempt = attempt >= retryDelaysMs.length;
+        try {
+            const response = await fetchClaim("/api/pvp/claim-rewards", init);
+            if (lastAttempt || !isTransientClaimStatus(response.status)) return response;
+        } catch (error) {
+            if (lastAttempt || signal?.aborted) throw error;
+        }
+        if (!(await claimRetryPause(retryDelaysMs[attempt], signal))) {
+            throw new DOMException("PvP reward claim aborted.", "AbortError");
+        }
+    }
+}
+
 export type PvpRewardCompletionStorage = {
     getItem(key: string): string | null;
     setItem(key: string, value: string): void;
@@ -340,15 +387,15 @@ function cleanRaidProgression(raw: unknown): PvpRaidProgression | undefined {
 export async function postPvpRewardClaim(
     fetchClaim: ClaimFetch,
     request: { playerName: string; battleId: string; outcome: PvpRewardOutcome },
-    options: { signal?: AbortSignal } = {},
+    options: { signal?: AbortSignal; transientRetryDelaysMs?: readonly number[] } = {},
 ): Promise<PvpRewardClaimResult> {
     try {
-        const response = await fetchClaim("/api/pvp/claim-rewards", {
+        const response = await sendClaimRequest(fetchClaim, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ ...request, completionVersion: 1 }),
             ...(options.signal ? { signal: options.signal } : {}),
-        });
+        }, options.transientRetryDelaysMs ?? PVP_CLAIM_TRANSIENT_RETRY_DELAYS_MS);
         const body = await response.json().catch(() => null);
         const payload = body && typeof body === "object" ? body as Record<string, unknown> : null;
         if (!response.ok || payload?.ok !== true) {
@@ -407,15 +454,15 @@ export async function postPvpRewardClaim(
 export async function postPvpRewardCompletionAck(
     fetchClaim: ClaimFetch,
     request: { playerName: string; battleId: string; outcome: PvpRewardOutcome },
-    options: { signal?: AbortSignal } = {},
+    options: { signal?: AbortSignal; transientRetryDelaysMs?: readonly number[] } = {},
 ): Promise<{ status: "confirmed" } | PvpRewardClaimRetry> {
     try {
-        const response = await fetchClaim("/api/pvp/claim-rewards", {
+        const response = await sendClaimRequest(fetchClaim, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ ...request, completionVersion: 1, completionAck: true }),
             ...(options.signal ? { signal: options.signal } : {}),
-        });
+        }, options.transientRetryDelaysMs ?? PVP_CLAIM_TRANSIENT_RETRY_DELAYS_MS);
         const body = await response.json().catch(() => null);
         const payload = body && typeof body === "object" ? body as Record<string, unknown> : null;
         if (!response.ok || payload?.ok !== true || payload.completionPending !== false) {

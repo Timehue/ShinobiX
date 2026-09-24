@@ -44,7 +44,9 @@ code) or **INFERRED**.
 - **TTL:** default **5s** (`_lock.ts:98`). Crashed holders auto-release via TTL.
 - **Retry/backoff:** 5 attempts, exponential 25ms·2^n plus jitter (`_lock.ts:104-114`);
   worst case ~775ms. `api/_realtime/travel-lease.ts:100` raises to 8 attempts for
-  the player-facing lease claim (documented).
+  the player-facing lease claim (documented). *(2026-09-24: a `failClosed` lock no
+  longer sleeps after its last try, so it answers at ~375ms — same attempts, same
+  timing, the old last step bought nothing.)*
 - **failClosed vs fail-open:** default is **fail-open** — on contention, `fn`
   runs UNLOCKED (`_lock.ts:17-21,162-163`). `{ failClosed: true }` throws
   `LockContendedError` *before* `fn` (`_lock.ts:118-120`).

@@ -39,8 +39,9 @@ import { withKvLock } from '../_lock.js';
  * two explorers racing for the last slot cannot both win it. The lock budget is
  * deliberately many-short-attempts (SECTOR_POOL_LOCK): these run NESTED inside
  * `lock:save:<name>` (5s TTL), so the whole wait has to finish well inside it —
- * 7 attempts at a 15ms base is ~1.9s worst case against the old 5 × 25ms
- * (~0.78s), which is more patience under a crowd without risking the save lock.
+ * 7 attempts at a 15ms base make their last try ~1s in, against ~0.4s for the
+ * default 5 × 25ms, which is more patience under a crowd without risking the
+ * save lock.
  */
 
 export const SECTOR_EXPLORE_POOL_PER_DAY = 1500;
@@ -143,8 +144,9 @@ export function sectorPoolHasRoom(frame: SectorPoolFrame, kind: SectorPoolKind, 
 /**
  * Lock budget for the pool row. See the module docstring: more attempts than
  * the 5×25ms default so a crowd retries instead of 500ing, but a SHORTER base
- * so the total (~1.9s) still fits inside the enclosing save lock's 5s TTL. The
- * pool row's own TTL is generous — its critical section is one get + one set.
+ * so the whole wait (last try ~1s in, where this fail-closed lock gives up)
+ * still fits inside the enclosing save lock's 5s TTL. The pool row's own TTL is
+ * generous — its critical section is one get + one set.
  */
 export const SECTOR_POOL_LOCK = Object.freeze({ failClosed: true as const, maxAttempts: 7, baseBackoffMs: 15, ttlSec: 10 });
 
