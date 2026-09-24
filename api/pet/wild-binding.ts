@@ -18,6 +18,7 @@ import { resolveSealAttempt, sealCount } from './_wild-binding-seal.js';
 import { cleanPetEncounterPointer, petEncounterActiveKey, petEncounterRequestKey, PET_ENCOUNTER_POINTER_TTL_SECONDS } from './_encounter-pointer.js';
 import { cleanWorldExploreAuthorityReceipt, worldExploreAuthorityKey } from '../world/_explore-authority.js';
 import { caravanPetDiscovery } from '../festival/_caravan-pet.js';
+import { trackerTrailDiscovery } from '../sector/_tracker-trail.js';
 import { showdownBusyIssue } from './_showdown-readiness.js';
 import { publishShowdownPresence, retireShowdownPresence } from './_showdown-presence.js';
 import { grantWildPet } from './_encounter.js';
@@ -95,7 +96,8 @@ async function settledDiscovery(playerName: string, token: string, character: Re
         && durable.sector === Math.floor(Number(encounter.sector))
         && durable.outcome?.kind === 'external'
         && durable.outcome?.source === 'pet')
-        || caravanPetDiscovery(character, encounter.caravanRunId, encounter.requestId);
+        || caravanPetDiscovery(character, encounter.caravanRunId, encounter.requestId)
+        || await trackerTrailDiscovery(playerName, encounter.trackerTrailId, encounter.requestId);
     return explored ? encounter : null;
 }
 

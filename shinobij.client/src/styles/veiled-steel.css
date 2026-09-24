@@ -1794,25 +1794,36 @@ body.coach-banner-open .coach-guide-actions .location-button {
   }
 
   .app-shell.screen-home .pet-home-tabs,
-  .app-shell.screen-pets .pet-home-tabs {
+  .app-shell.screen-pets .pet-home-tabs,
+  .app-shell.screen-petArena .pet-home-tabs {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     overflow: visible;
     border-radius: 18px;
   }
 
   .app-shell.screen-home .pet-home-tabs > button,
-  .app-shell.screen-pets .pet-home-tabs > button {
-    grid-column: span 2;
+  .app-shell.screen-pets .pet-home-tabs > button,
+  .app-shell.screen-petArena .pet-home-tabs > button {
     width: 100%;
     min-width: 0;
     padding-inline: 6px;
   }
 
-  .app-shell.screen-home .pet-home-tabs > button:nth-last-child(-n + 2),
-  .app-shell.screen-pets .pet-home-tabs > button:nth-last-child(-n + 2) {
-    grid-column: span 3;
-  }
+}
+
+@media (max-width: 520px) {
+  .app-shell.screen-home .pet-home-tabs,
+  .app-shell.screen-pets .pet-home-tabs,
+  .app-shell.screen-petArena .pet-home-tabs { grid-template-columns: repeat(6,minmax(0,1fr)); }
+
+  .app-shell.screen-home .pet-home-tabs > button,
+  .app-shell.screen-pets .pet-home-tabs > button,
+  .app-shell.screen-petArena .pet-home-tabs > button { grid-column: span 2; }
+
+  .app-shell.screen-home .pet-home-tabs > button:nth-last-child(-n+2),
+  .app-shell.screen-pets .pet-home-tabs > button:nth-last-child(-n+2),
+  .app-shell.screen-petArena .pet-home-tabs > button:nth-last-child(-n+2) { grid-column: span 3; }
 }
 
 /* ========================================================================== */

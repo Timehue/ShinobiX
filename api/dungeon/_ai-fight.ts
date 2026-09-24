@@ -80,7 +80,13 @@ export function resolveDungeonAiFightAuthority(params: {
  * but can never satisfy Dungeon settlement. A free run found while exploring
  * a sector ENDS on any non-win: fleeing or losing the Warden closes the
  * encounter and resolves its discovery receipt, so the world map never pulls
- * the player back into a fight they walked away from. */
+ * the player back into a fight they walked away from.
+ *
+ * A token whose run is gone (abandoned or replaced mid-fight) settles as a
+ * consequence-only fight: no run is stamped and nothing is proved, but the
+ * caller still applies the HP outcome and releases the token. Refusing here
+ * used to wedge the fight on "outcome could not be confirmed" forever, since
+ * no retry can bring an abandoned run back. */
 export function applyDungeonWardenSettlement(params: {
     character: Record<string, unknown>;
     dungeonRunToken: unknown;
@@ -94,9 +100,10 @@ export function applyDungeonWardenSettlement(params: {
         && !Array.isArray(params.character.activeDungeonRun)
         ? params.character.activeDungeonRun as Record<string, unknown>
         : null;
-    if (!dungeonRunToken || !active || active.token !== dungeonRunToken) {
+    if (!dungeonRunToken) {
         return { ok: false, error: 'The sealed Warden fight no longer matches the active Dungeon run.' };
     }
+    if (!active || active.token !== dungeonRunToken) return { ok: true, character: params.character };
     if (active.wardenDefeated === true) {
         return active.wardenProofId === params.proofId
             ? { ok: true, character: params.character }
