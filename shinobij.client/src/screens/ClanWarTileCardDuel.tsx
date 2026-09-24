@@ -80,6 +80,7 @@ export function CardClashDuelScreen({
       typeof document === "undefined" ||
       document.visibilityState === "visible",
   );
+  const [resolutionReady, setResolutionReady] = useState(false);
   const joined = useRef(false);
   const actionInFlight = useRef(false);
   const requestOrder = useRef(createChronicleRequestOrder());
@@ -274,7 +275,7 @@ export function CardClashDuelScreen({
 
   return (
     <main
-      className={`chronicle-shell ${view?.status === "active" ? "chronicle-shell--duel-active" : ""}`}
+      className={`chronicle-shell ${view && !resolutionReady ? "chronicle-shell--duel-active" : ""}`}
     >
       <header className="chronicle-header">
         <button onClick={() => void leaveTable()}>{config.backLabel}</button>
@@ -299,7 +300,7 @@ export function CardClashDuelScreen({
         </section>
       ) : (
         <>
-          {view.status === "complete" ? (
+          {view.status === "complete" && resolutionReady ? (
             <section
               className="chronicle-panel"
               style={{ marginBottom: 12, textAlign: "center" }}
@@ -312,6 +313,7 @@ export function CardClashDuelScreen({
           ) : null}
           <ChronicleDuelBoard
             state={view}
+            onResolutionReadyChange={setResolutionReady}
             cardsById={cardsById}
             playerAvatar={playerAvatar}
             opponentAvatar={opponentAvatar}

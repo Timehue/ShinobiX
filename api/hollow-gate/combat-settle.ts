@@ -401,6 +401,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         hospitalizedAt: now,
                         hospitalizedUntil: now + HOSPITAL_DURATION_MS,
                         hollowGateRun: null,
+                        // The run is over; a leftover start marker would make the
+                        // next entry replay a dead run. `undefined`, never delete:
+                        // mergePreservingImages would restore a deleted key.
+                        lastHollowGateStart: undefined,
                     };
                 }
                 const settledIds = Array.isArray(next.settledHollowGateCombatIds)
