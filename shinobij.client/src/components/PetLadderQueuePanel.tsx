@@ -91,10 +91,36 @@ export function PetLadderQueuePanel({ character, sharedImages = {}, onVersionedC
     }, [refresh]);
 
     // Completed-match discovery survives settlement, regardless of poll timing.
+    // A chain, not setInterval: each poll waits for the previous reply, and a
+    // hidden tab slows to 5s. The old 800ms interval overlapped slow replies and
+    // kept running in background tabs, so a long pairing (up to 30s) or a second
+    // tab ran past the server's 60/min pet-ranked-queue limit.
     useEffect(() => {
         if (busy || (state.state !== "queued" && state.state !== "paired")) return;
-        const id = window.setInterval(() => { void refresh(); }, state.state === "paired" ? 800 : 2_500);
-        return () => window.clearInterval(id);
+        const baseMs = state.state === "paired" ? 1_100 : 2_500;
+        const nextDelay = () => (document.visibilityState === "hidden" ? 5_000 : baseMs);
+        let cancelled = false;
+        let polling = false;
+        let timer = 0;
+        const tick = async () => {
+            polling = true;
+            try { await refresh(); } finally { polling = false; }
+            if (!cancelled) timer = window.setTimeout(() => { void tick(); }, nextDelay());
+        };
+        timer = window.setTimeout(() => { void tick(); }, nextDelay());
+        // Coming back to the tab polls at once instead of finishing the slow
+        // hidden-tab wait; a request already in flight is left to reschedule.
+        const onVisible = () => {
+            if (cancelled || polling || document.visibilityState !== "visible") return;
+            window.clearTimeout(timer);
+            void tick();
+        };
+        document.addEventListener("visibilitychange", onVisible);
+        return () => {
+            cancelled = true;
+            window.clearTimeout(timer);
+            document.removeEventListener("visibilitychange", onVisible);
+        };
     }, [refresh, state.state, busy]);
 
     // Only a match can reach playback, so start fetching the renderer as soon

@@ -178,6 +178,41 @@ export function clientKey(
 }
 
 /**
+ * A rate-limit key for a PUBLIC read that every signed-in player polls: the
+ * (unverified) `x-player-name` authFetch attaches, PAIRED with the client IP.
+ * Returns null for a request with no name, which stays purely IP-keyed.
+ *
+ * Why not the IP alone: an IP-keyed limit is shared by everyone behind one
+ * address — a household, a dorm, a mobile carrier's CGNAT — so ordinary play by
+ * a few neighbours trips it. Why not the name alone: the header is unverified,
+ * so anyone anywhere could send a victim's name and drain THEIR budget (end a
+ * ranked fight by exhausting pvp-session-get, say). Name@IP gives each account
+ * on a shared address its own budget while a stranger on another address can
+ * only ever spend their own. Rotating names from one address still mints
+ * buckets, so pair this with a tight ipBackstopMultiplier
+ * (PUBLIC_READ_IP_BACKSTOP) on anything expensive.
+ *
+ * For an endpoint that authenticates anyway, rate-limit AFTER authentication
+ * on the verified identity instead — that is strictly better than this.
+ */
+export function requestPlayerKey(req: { headers: Record<string, string | string[] | undefined>; ip?: string; socket?: { remoteAddress?: string } }, nameOverride?: unknown): string | null {
+    const raw = nameOverride !== undefined ? nameOverride : req.headers['x-player-name'];
+    const value = Array.isArray(raw) ? raw[0] : raw;
+    if (typeof value !== 'string') return null;
+    const name = value.toLowerCase().replace(/[^a-z0-9\-_]/g, '').slice(0, 32); // safeName()'s rule
+    if (!name) return null;
+    return `${name}@${clientIp(req) ?? 'unknown'}`;
+}
+
+/**
+ * IP backstop for requestPlayerKey buckets: how many players' worth of budget one
+ * address may spend. Covers a household or small shared network at full rate
+ * while holding a single client that rotates names to 4x the per-player limit,
+ * not the 20x the general backstop allows (see IP_BACKSTOP_MULTIPLIER).
+ */
+export const PUBLIC_READ_IP_BACKSTOP = 4;
+
+/**
  * How much total budget one IP gets when a bucket is keyed on a player name.
  *
  * Many handlers pass a name peeked from the request body BEFORE authenticating it
@@ -213,10 +248,93 @@ function chargeIpBackstop(
     limit: number,
     windowMs: number,
     authedName?: string | null,
+    multiplier: number = IP_BACKSTOP_MULTIPLIER,
 ): RateLimitDecision {
     if (!authedName) return { ok: true };
     const ip = clientIp(req) ?? 'unknown';
-    return allow(`${bucket}:ipcap:${ip}`, limit * IP_BACKSTOP_MULTIPLIER, windowMs);
+    return allow(`${bucket}:ipcap:${ip}`, limit * Math.max(1, multiplier), windowMs);
+}
+
+/**
+ * The body of every rate-limit 429, written for a player, not a developer.
+ * `code: 'RATE_LIMITED'` marks it for API callers. Screens that surface the
+ * message through alert() are recognised by its WORDING instead (the alert
+ * layer only sees text) and shown as a quiet toast, not a blocking notice —
+ * shinobij.client/src/lib/slow-down-notice.ts; scripts/slow-down-notice-contract
+ * .test.mjs fails if this wording and that matcher ever drift apart.
+ */
+export function rateLimitBody(retryAfterMs: number): { error: string; code: 'RATE_LIMITED'; retryAfterMs: number } {
+    const seconds = Math.max(1, Math.ceil(Math.max(0, retryAfterMs) / 1000));
+    return { error: `You're going a little fast — try again in ${seconds}s.`, code: 'RATE_LIMITED', retryAfterMs };
+}
+
+// ── Refusal log ─────────────────────────────────────────────────────────────
+// Which limits players actually hit, without a log line per refusal: counts are
+// gathered in memory and written as ONE summary line a minute, only when
+// something was refused. Players are named (they are who we need to find);
+// address-keyed refusals are counted but the address itself is never logged.
+const REFUSAL_LOG_INTERVAL_MS = 60_000;
+const refusals = new Map<string, { total: number; who: Map<string, number> }>();
+let refusalTimer: ReturnType<typeof setInterval> | null = null;
+
+/**
+ * "name:kaya" / "name:kaya@1.2.3.4" → "kaya"; an address key → "by address".
+ * Several limits key on a name read from the request body BEFORE auth, so the
+ * name is attacker-controlled: reduce it to safeName()'s alphabet (which also
+ * strips newlines, control codes and the spaces a forged "by address" needs).
+ */
+function refusalLabel(clientKeyValue: string): string {
+    if (!clientKeyValue.startsWith('name:')) return 'by address';
+    const name = clientKeyValue.slice(5).split('@')[0].toLowerCase().replace(/[^a-z0-9\-_]/g, '').slice(0, 32);
+    return name || 'unknown';
+}
+
+function noteRefusal(bucket: string, who: string): void {
+    let entry = refusals.get(bucket);
+    if (!entry) { entry = { total: 0, who: new Map() }; refusals.set(bucket, entry); }
+    entry.total += 1;
+    entry.who.set(who, (entry.who.get(who) ?? 0) + 1);
+    if (refusalTimer === null) {
+        refusalTimer = setInterval(() => { flushRefusalLog(); }, REFUSAL_LOG_INTERVAL_MS);
+        if (typeof refusalTimer === 'object' && refusalTimer !== null && 'unref' in refusalTimer) {
+            (refusalTimer as { unref: () => void }).unref();
+        }
+    }
+}
+
+/**
+ * Write (and clear) the pending summary, e.g.
+ * `[ratelimit] refusals in the last minute: heartbeat 12 (nero×10, kaya×2) · pvp-stream 3 (by address×3)`.
+ * Returns the line, or null when nothing was refused. Exported for tests.
+ */
+export function flushRefusalLog(log: (line: string) => void = (line) => console.warn(line)): string | null {
+    if (refusals.size === 0) return null;
+    const parts = [...refusals.entries()]
+        .sort((a, b) => b[1].total - a[1].total)
+        .slice(0, 12)
+        .map(([bucket, entry]) => {
+            const who = [...entry.who.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5)
+                .map(([name, n]) => `${name}×${n}`).join(', ');
+            return `${bucket} ${entry.total} (${who})`;
+        });
+    refusals.clear();
+    // Names are as the requests CLAIMED them — some limits run before auth — so
+    // treat them as leads to check, not proof of who sent the traffic.
+    const line = `[ratelimit] refusals in the last minute (names as claimed): ${parts.join(' · ')}`;
+    log(line);
+    return line;
+}
+
+/** Record a refusal and write the 429. */
+function refuse(
+    res: { status: (n: number) => { json: (body: unknown) => void } },
+    bucket: string,
+    who: string,
+    retryAfterMs: number,
+): false {
+    noteRefusal(bucket, who);
+    res.status(429).json(rateLimitBody(retryAfterMs));
+    return false;
 }
 
 /**
@@ -231,22 +349,18 @@ export function enforceRateLimit(
     limit: number,
     windowMs: number,
     authedName?: string | null,
+    opts?: { ipBackstopMultiplier?: number },
 ): boolean {
-    const key = `${bucket}:${clientKey(req, authedName)}`;
+    const who = clientKey(req, authedName);
+    const key = `${bucket}:${who}`;
     const d = allow(key, limit, windowMs);
     // Reject on the per-account limit BEFORE touching the shared IP backstop. Charging
     // an already-rejected request would let one abusive account drain the budget its
     // co-located neighbours share, turning a per-account limit into collateral lockout
     // for everyone behind the same address.
-    if (!d.ok) {
-        res.status(429).json({ error: 'Rate limit exceeded.', retryAfterMs: d.retryAfterMs });
-        return false;
-    }
-    const backstop = chargeIpBackstop(req, bucket, limit, windowMs, authedName);
-    if (!backstop.ok) {
-        res.status(429).json({ error: 'Rate limit exceeded.', retryAfterMs: backstop.retryAfterMs });
-        return false;
-    }
+    if (!d.ok) return refuse(res, bucket, refusalLabel(who), d.retryAfterMs);
+    const backstop = chargeIpBackstop(req, bucket, limit, windowMs, authedName, opts?.ipBackstopMultiplier);
+    if (!backstop.ok) return refuse(res, bucket, 'address cap', backstop.retryAfterMs);
     return true;
 }
 
@@ -272,33 +386,37 @@ export async function enforceRateLimitKv(
     limit: number,
     windowMs: number,
     authedName?: string | null,
-    opts?: { strict?: boolean; local?: boolean },
+    opts?: { strict?: boolean; local?: boolean; ipBackstopMultiplier?: number },
 ): Promise<boolean> {
-    const key = `${bucket}:${clientKey(req, authedName)}`;
+    const who = clientKey(req, authedName);
+    const key = `${bucket}:${who}`;
+    // A tightened backstop marks a requestPlayerKey bucket, whose name half is
+    // unverified: a client rotating names gets a fresh per-name bucket every
+    // request, so without this each one would reach the KV increment below
+    // before the backstop refused it. Peek (don't charge) the address's budget
+    // first so an exhausted address never touches the database.
+    if (authedName && opts?.ipBackstopMultiplier !== undefined) {
+        const backstopKey = `${bucket}:ipcap:${clientIp(req) ?? 'unknown'}`;
+        if (!hasBudget(backstopKey, limit * Math.max(1, opts.ipBackstopMultiplier))) {
+            const resetAt = _buckets.get(backstopKey)?.resetAt ?? 0;
+            return refuse(res, bucket, 'address cap', resetAt > Date.now() ? resetAt - Date.now() : windowMs);
+        }
+    }
     // Per-instance fast path — reject early on hot lambdas without a KV trip.
     const localBurstLimit = Math.max(limit, 5); // small local cushion
     const localBurstDecision = allow(`local:${key}`, localBurstLimit, windowMs);
-    if (!localBurstDecision.ok) {
-        res.status(429).json({ error: 'Rate limit exceeded.', retryAfterMs: localBurstDecision.retryAfterMs });
-        return false;
-    }
+    if (!localBurstDecision.ok) return refuse(res, bucket, refusalLabel(who), localBurstDecision.retryAfterMs);
     // Authoritative path — KV-backed window (or the same window in memory).
     const kvDecision = opts?.local
         ? allowAlignedLocal(key, limit, windowMs)
         : await allowKv(key, limit, windowMs, opts?.strict ?? false);
-    if (!kvDecision.ok) {
-        res.status(429).json({ error: 'Rate limit exceeded.', retryAfterMs: kvDecision.retryAfterMs });
-        return false;
-    }
+    if (!kvDecision.ok) return refuse(res, bucket, refusalLabel(who), kvDecision.retryAfterMs);
     // IP backstop LAST, so only a request that would otherwise be allowed charges the
     // budget its co-located neighbours share. Rotating the name still lands here — each
     // fresh name passes its own per-account window and then meets this cap — so
     // ordering costs nothing in coverage and avoids punishing an IP for requests that
     // were already refused (see IP_BACKSTOP_MULTIPLIER).
-    const backstop = chargeIpBackstop(req, bucket, limit, windowMs, authedName);
-    if (!backstop.ok) {
-        res.status(429).json({ error: 'Rate limit exceeded.', retryAfterMs: backstop.retryAfterMs });
-        return false;
-    }
+    const backstop = chargeIpBackstop(req, bucket, limit, windowMs, authedName, opts?.ipBackstopMultiplier);
+    if (!backstop.ok) return refuse(res, bucket, 'address cap', backstop.retryAfterMs);
     return true;
 }

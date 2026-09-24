@@ -5,7 +5,7 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
-import { masteryBonus } from '../_profession-mastery.js';
+import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
 import { applyPetSummonCost, gainServerPetXp, PET_FEED_XP, PET_TRAINING_DURATIONS, PET_TRAINING_FOCI, petTrainingUpgradeBonusPct, removePetItem, settleFinishedTraining } from './_progress.js';
 import { grantPetHappiness, petFreeInteraction, settlePetHappiness } from './_happiness.js';
 import {
@@ -20,6 +20,7 @@ import { kv } from '../_storage.js';
 import { moraleForCharacter, applyMoraleToGain } from '../_war-morale.js';
 import { activeCarriedPetIds, activeTrainingPetIds, PET_TRAINING_CAP } from '../_entitlements.js';
 import { applyGrowthAllocation, resetGrowthAllocation } from './_growth.js';
+import { randomUUID } from 'node:crypto';
 
 function defensePetIds(defense: unknown): string[] {
     if (!defense || typeof defense !== 'object') return [];
@@ -29,8 +30,25 @@ function defensePetIds(defense: unknown): string[] {
         : [];
 }
 
+/*
+ * Pet Tamer capstone "Prodigy": once per day, a pet training session finishes
+ * instantly with doubled XP. Opt-in per session (start-training with
+ * `prodigy: true`) so the player picks which session gets it. The day is UTC.
+ * Usage is a dated key outside the save — the same shape as the other
+ * per-period counters — so no client autosave can reset it; it is claimed NX
+ * under the save lock and handed back if the write fails.
+ */
+const PRODIGY_ID = 'prodigy';
+const PRODIGY_KEY_TTL_SEC = 2 * 24 * 60 * 60;
+const utcDay = (now: number) => new Date(now).toISOString().slice(0, 10);
+const nextUtcMidnight = (now: number) => Date.parse(`${utcDay(now)}T00:00:00.000Z`) + 24 * 60 * 60 * 1000;
+export const prodigyKey = (playerName: string, now: number) => `prodigy-training:${playerName}:${utcDay(now)}`;
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-    cors(res, req); if (req.method === 'OPTIONS') return res.status(200).end(); if (req.method !== 'POST') return res.status(405).end();
+    cors(res, req); if (req.method === 'OPTIONS') return res.status(200).end();
+    if (req.method === 'GET') return prodigyStatus(req, res);
+    if (req.method !== 'POST') return res.status(405).end();
+    let prodigyClaim: { key: string; token: string } | null = null;
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
         const playerName = safeName(String(body.playerName ?? '')); const action = String(body.action ?? ''); const petId = String(body.petId ?? '').slice(0, 64);
@@ -106,7 +124,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         Math.max(15, Math.round(baseXp * mult * (1 + trainingXpBonus / 100))),
                         petMorale.xpMult,
                     );
-                    nextPet = { ...workingPet, training: { type: focus, startedAt: now, endsAt: now + effectiveMs, durationMs, sealedXp } };
+                    if (body.prodigy === true) {
+                        // Pet Tamer "Prodigy" capstone: once per UTC day, this session
+                        // is sealed already finished with doubled XP.
+                        if (character.profession !== 'petTamer' || !masteryHasCapstone(character.profession, character.masterySpec, PRODIGY_ID)) {
+                            return { ok: false as const, status: 403, error: 'Instant training needs the Prodigy mastery capstone.' };
+                        }
+                        // Claim with a unique token recorded BEFORE the write, so a
+                        // write that lands but throws can still be handed back —
+                        // delete-if-still-ours never touches another request's claim.
+                        const key = prodigyKey(playerName, now);
+                        const token = `${now}:${randomUUID()}`;
+                        prodigyClaim = { key, token };
+                        if (!(await kv.set(key, token, { nx: true, ex: PRODIGY_KEY_TTL_SEC }))) {
+                            prodigyClaim = null;
+                            // A retry after a lost reply lands here too: say where the
+                            // session went instead of only "already used".
+                            const pending = (pet.training as Record<string, unknown> | undefined)?.prodigy === true;
+                            return { ok: false as const, status: 409, error: pending
+                                ? 'Prodigy is already used today — this companion\'s instant session is ready to collect.'
+                                : 'Prodigy is already used today. It returns at midnight UTC.' };
+                        }
+                        nextPet ={ ...workingPet, training: { type: focus, startedAt: now, endsAt: now, durationMs, sealedXp: sealedXp * 2, prodigy: true } };
+                    } else {
+                        nextPet = { ...workingPet, training: { type: focus, startedAt: now, endsAt: now + effectiveMs, durationMs, sealedXp } };
+                    }
                 }
             } else if (action === 'complete-training') {
                 // Same settle as the start-training self-heal — one implementation,
@@ -250,7 +292,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (action === 'pet' || action === 'feed') finalizedCharacter = recordFirstContractActivity(finalizedCharacter, 'companion', { kind: 'companion-care' }, now);
             return { ok: true as const, character: finalizedCharacter, value: { action, pet: nextPet, settledTraining } };
         });
-        if (!result.ok) return res.status(result.status).json({ error: result.error });
+        if (!result.ok) {
+            await releaseProdigyClaim(prodigyClaim);
+            return res.status(result.status).json({ error: result.error });
+        }
+        // The save holding the Prodigy session is committed: the claim is now
+        // spent for good. A later failure (the mission report below) must not
+        // hand it back, or the same day could seal a second instant session.
+        prodigyClaim = null;
         let missionsCompleted: CompletedMissionInfo[] = [];
         // A settled training earns Pet Tamer "trained a pet" credit whether it was
         // collected explicitly OR healed during a start-training attempt.
@@ -259,5 +308,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             missionsCompleted = missionResult.missionsCompleted;
         }
         return res.status(200).json({ ok: true, ...result.value, character: result.character, missionsCompleted, _saveVersion: result._saveVersion });
-    } catch (error) { console.error('[pet/progress]', safeLogValue(error)); return res.status(500).json({ error: 'Internal server error.' }); }
+    } catch (error) {
+        // A claimed Prodigy whose save write never landed is handed back.
+        await releaseProdigyClaim(prodigyClaim);
+        console.error('[pet/progress]', safeLogValue(error)); return res.status(500).json({ error: 'Internal server error.' });
+    }
+}
+
+/** Hand back a claim only while it is still ours (the token matches). */
+async function releaseProdigyClaim(claim: { key: string; token: string } | null): Promise<void> {
+    if (!claim) return;
+    try { await kv.delIfEqual(claim.key, claim.token); } catch { /* the day's key expires on its own */ }
+}
+
+/** GET ?playerName= — is today's Prodigy instant training still available? */
+async function prodigyStatus(req: VercelRequest, res: VercelResponse) {
+    try {
+        const playerName = safeName(String(req.query.playerName ?? ''));
+        if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
+        const identity = await authedPlayerOrAdmin(req, playerName);
+        if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+        if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Not your character.' });
+        const record = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+        const character = (record?.character ?? {}) as Record<string, unknown>;
+        const now = Date.now();
+        const owned = character.profession === 'petTamer' && masteryHasCapstone(character.profession, character.masterySpec, PRODIGY_ID);
+        const used = owned ? Boolean(await kv.get(prodigyKey(playerName, now))) : false;
+        res.setHeader('Cache-Control', 'no-store');
+        return res.status(200).json({ prodigy: { owned, available: owned && !used, resetsAt: nextUtcMidnight(now) } });
+    } catch (error) {
+        console.error('[pet/progress status]', safeLogValue(error));
+        return res.status(500).json({ error: 'Internal server error.' });
+    }
 }

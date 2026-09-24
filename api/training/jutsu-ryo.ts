@@ -5,7 +5,7 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
-import { advanceQueuedJutsuRyoTraining, cancelQueuedJutsuRyoTraining, queueJutsuRyoTraining, settleJutsuRyoTraining, startJutsuRyoTraining, type ServerJutsuTraining } from './_jutsu-ryo.js';
+import { advanceQueuedJutsuRyoTraining, cancelQueuedJutsuRyoTraining, promoteQueuedLesson, queueJutsuRyoTraining, queueJutsuSealTraining, settleJutsuRyoTraining, startJutsuRyoTraining, startJutsuSealTraining, type ServerJutsuTraining } from './_jutsu-ryo.js';
 import { JUTSU_CATALOG } from '../pvp/_jutsu-catalog.js';
 import { loadAdminJutsuObjects, type AdminJutsu } from '../_admin-jutsu-catalog.js';
 import { characterMayUseJutsu } from '../pvp/_bloodline-gate.js';
@@ -71,12 +71,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // independently of the player's verified village/focus/aura bonuses.
             const jutsuMorale = await moraleForCharacter(character, Date.now());
             const trainingBonus = jutsuTrainingBonusPct(character);
+            // Levels 30-40 are bought with Honor Seals as the same timed lesson.
+            const paysWithSeals = body.payWith === 'honorSeals';
             if (action === 'start') {
                 if (record.activeJutsuTraining) return { ok: false as const, status: 409, error: 'jutsu-training-already-active' };
                 const jutsuId = String(body.jutsuId ?? '').trim().toLowerCase(); if (!JUTSU_ID.test(jutsuId)) return { ok: false as const, status: 400, error: 'invalid-jutsu-id' };
                 if (!jutsuIsKnown(jutsuId)) return { ok: false as const, status: 409, error: 'unknown-or-unowned-jutsu' };
                 if (jutsuBloodlineBlocked(jutsuId)) return { ok: false as const, status: 409, error: 'bloodline-required' };
-                changed = startJutsuRyoTraining(character, jutsuId, String(body.label ?? jutsuId), randomUUID().replace(/-/g, ''), Date.now(), trainingBonus, jutsuMorale.jutsuTimeMult);
+                const start = paysWithSeals ? startJutsuSealTraining : startJutsuRyoTraining;
+                changed = start(character, jutsuId, String(body.label ?? jutsuId), randomUUID().replace(/-/g, ''), Date.now(), trainingBonus, jutsuMorale.jutsuTimeMult);
             } else {
                 const active = record.activeJutsuTraining && typeof record.activeJutsuTraining === 'object' ? record.activeJutsuTraining as ServerJutsuTraining : null;
                 // A pre-modern lease carries no serverToken at all, so token matching
@@ -95,7 +98,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const jutsuId = String(body.jutsuId ?? '').trim().toLowerCase();
                     if (!JUTSU_ID.test(jutsuId) || !jutsuIsKnown(jutsuId)) return { ok: false as const, status: 409, error: 'unknown-or-unowned-jutsu' };
                     if (jutsuBloodlineBlocked(jutsuId)) return { ok: false as const, status: 409, error: 'bloodline-required' };
-                    changed = queueJutsuRyoTraining(character, active, jutsuId, String(body.label ?? jutsuId), randomUUID().replace(/-/g, ''), trainingBonus, jutsuMorale.jutsuTimeMult);
+                    const queue = paysWithSeals ? queueJutsuSealTraining : queueJutsuRyoTraining;
+                    changed = queue(character, active, jutsuId, String(body.label ?? jutsuId), randomUUID().replace(/-/g, ''), trainingBonus, jutsuMorale.jutsuTimeMult);
                 } else if (action === 'cancel-queue') {
                     changed = cancelQueuedJutsuRyoTraining(character, active);
                 } else if (action === 'advance') {
@@ -103,22 +107,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 } else {
                     changed = settleJutsuRyoTraining(character, active, action as 'complete' | 'cancel' | 'finish', Date.now());
                     if (changed.ok && (action === 'complete' || action === 'finish') && active.next) {
-                        const startedAt = Date.now();
-                        changed = {
-                            ...changed,
-                            active: {
-                                serverToken: active.next.serverToken,
-                                jutsuId: active.next.jutsuId,
-                                label: active.next.label,
-                                fromLevel: active.next.fromLevel,
-                                toLevel: active.next.toLevel,
-                                ryoCost: active.next.ryoCost,
-                                startedAt,
-                                endsAt: startedAt + active.next.durationMs,
-                                next: null,
-                                autoClaim: true,
-                            },
-                        };
+                        changed = { ...changed, active: promoteQueuedLesson(active.next, Date.now()) };
                     }
                 }
             }
