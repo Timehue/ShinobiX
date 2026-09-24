@@ -28,6 +28,12 @@ const forbiddenClientPrefixes = [
     'pet-models/roster-concepts/',
     'pet-models/roster-references/',
 ];
+const forbiddenClientPaths = [
+    'pet-models/roster-manifest.json',
+    'pet-models/roster-reference-report.json',
+    'pet-models/warfront-lod/manifest.json',
+    'pet-models/warfront-impostors/manifest.json',
+];
 // Authoring/intermediate formats that must never reach the runtime artifact.
 // The public/ copy filter is a DENYLIST of five `pet-models/*` prefixes, so an
 // authoring folder added anywhere else in public/ ships by default and nothing
@@ -160,6 +166,8 @@ if (collapsedPrefixes.length) {
 
 const leakedAuthoringPath = clientRelativeFiles.find((file) => forbiddenClientPrefixes.some((prefix) => file.startsWith(prefix)));
 if (leakedAuthoringPath) fail(`client dist contains pet authoring output: ${leakedAuthoringPath}`);
+const leakedAuthoringManifest = forbiddenClientPaths.find((file) => clientRelativeFileSet.has(file));
+if (leakedAuthoringManifest) fail(`client dist contains a pet authoring manifest: ${leakedAuthoringManifest}`);
 const leakedSourceFile = clientRelativeFiles.find((file) => {
     const dot = file.lastIndexOf('.');
     return dot >= 0 && forbiddenClientExtensions.has(file.slice(dot).toLowerCase());

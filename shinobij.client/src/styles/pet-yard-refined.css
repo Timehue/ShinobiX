@@ -1,6 +1,7 @@
 /* Companion management shares the game's painted locations, ink and aged gold.
    Extra specificity retires the older fixed-overlay skin on this screen only. */
 .pet-yard-screen.pet-yard-refined {
+    box-sizing: border-box;
     --yard-gold: #d6b77b;
     --yard-line: #d6b77b38;
     position: relative !important;
@@ -17,15 +18,17 @@
 }
 .pet-yard-refined * { box-sizing: border-box; }
 .pet-yard-refined .pet-yard-overlay { min-height: 0 !important; padding: 0 24px 28px !important; gap: 22px !important; background: none !important; backdrop-filter: none !important; }
-.pet-yard-refined.pet-yard-screen > .pet-home-tabs { position: relative; top: auto; width: 100% !important; margin: 0 !important; padding: 0 12px !important; border: 0 !important; border-bottom: 1px solid var(--yard-line); border-radius: 0 !important; background: #10171b !important; backdrop-filter: none !important; box-shadow: none !important; }
-.pet-yard-refined .pet-home-tabs button { min-height: 50px !important; border-radius: 0 !important; font-size: 11px; font-weight: 500; }
-.pet-yard-refined .pet-home-tabs button[aria-current] { color: #ecd7a7 !important; background: #d6b77b0c !important; border-color: transparent; border-bottom-color: var(--yard-gold); box-shadow: none !important; }
-.pet-yard-refined .pet-home-tabs button svg { display: none !important; }
+.pet-yard-refined .pet-home-tabs { flex: 0 0 auto; width: min(920px,100%); margin: 0 auto; }
+.pet-yard-screen.pet-yard-refined .pet-empty-state { width: min(520px,100%); align-self: center; min-height: 310px; margin: clamp(.5rem,2vw,2rem) auto; padding: clamp(1.25rem,3vw,2rem); border: 1px solid var(--yard-line); border-radius: 16px; color: #d4dedb !important; background: radial-gradient(circle at 50% 0,rgba(214,183,123,.11),transparent 55%),#10191e; font: 400 14px/1.5 var(--font-body,sans-serif) !important; font-style: normal; box-shadow: 0 18px 48px #0004; }
+.pet-yard-refined .pet-empty-state .pet-home-kicker { color: #d6b77b; font-size: 11px; }
+.pet-yard-refined .pet-empty-state .pet-empty-emblem { margin: .25rem 0; }
+.pet-yard-screen.pet-yard-refined .pet-empty-state h3 { margin: 0 !important; color: #f6e9ce !important; font: 500 clamp(1.55rem,4vw,2rem)/1.15 var(--font-display,Georgia,serif) !important; text-align: center; }
+.pet-yard-refined .pet-empty-state p { max-width: 34ch; margin: 0; color: #b8c9c8; }
+.pet-yard-refined .pet-empty-state button { min-height: 48px; margin-top: .35rem; border: 1px solid #f2d59a; border-radius: 10px; color: #10191e; background: linear-gradient(135deg,#f0ce86,#a8dbc0); padding: .65rem 1.2rem; font-weight: 800; }
+.pet-yard-refined .pet-empty-state button:focus-visible { outline: 2px solid #f3dda8; outline-offset: 3px; }
 .pet-yard-screen.pet-yard-refined .pet-yard-header { position: relative; display: flex !important; align-items: end !important; justify-content: space-between; flex-wrap: nowrap; min-height: 270px !important; margin: 0 -24px !important; padding: 80px 28px 30px !important; border: 0 !important; border-bottom: 1px solid var(--yard-line); background: linear-gradient(90deg,#090f16e6,#090f1640 80%),linear-gradient(0deg,#0c1115,transparent 70%),url('/pet-yard.webp') center 52% / cover !important; }
 .pet-yard-refined .pet-yard-header::after { content: ''; position: absolute; inset: 10px; border: 1px solid #ead5ab24 !important; pointer-events: none; }
-.pet-yard-screen.pet-yard-refined .pet-yard-header .pet-yard-return { position: absolute; top: 22px; left: 28px; min-height: 38px !important; padding: 7px 12px !important; border-radius: 4px !important; background: #0c1115b3 !important; color: #ebddbf !important; font: 500 12px var(--font-body, sans-serif) !important; }
-/* Touch viewports keep the 44px target floor; the header's 80px top padding still clears it. */
-@media (max-width: 979px) { .pet-yard-screen.pet-yard-refined .pet-yard-header .pet-yard-return { min-height: 44px !important; } }
+.pet-yard-screen.pet-yard-refined .pet-yard-header .pet-yard-return { position: absolute; top: 22px; left: 28px; min-height: 50px !important; padding: 7px 12px !important; border-radius: 12px !important; background: #0c1115b3 !important; color: #ebddbf !important; font: 500 12px var(--font-body, sans-serif) !important; }
 .pet-yard-screen.pet-yard-refined .pet-yard-header h2 { margin: 8px 0 !important; font: 400 clamp(40px,6cqi,62px)/1.12 var(--font-display,Georgia,serif) !important; letter-spacing: -.025em !important; text-transform: none !important; color: #fff2d9 !important; text-shadow: 0 3px 24px #0006; }
 .pet-yard-refined .pet-yard-title p { margin: 0 !important; color: #cccabe !important; font: 400 13px/1.7 var(--font-body, sans-serif) !important; }
 .pet-yard-refined .pet-yard-kicker { color: var(--yard-gold) !important; font: 600 9px/1.6 var(--font-body, sans-serif) !important; letter-spacing: .17em !important; text-transform: uppercase !important; }
@@ -121,6 +124,10 @@
     .pet-yard-screen.pet-yard-refined .pet-feed-grid > button { grid-template-columns: 42px 1fr auto !important; gap: 10px !important; }
     .pet-yard-refined .pet-home-tab-label-full { display: none !important; }
     .pet-yard-refined .pet-home-tab-label-short { display: inline !important; }
+}
+@media (max-width: 520px) {
+    .pet-yard-refined .pet-home-tab-label-full { display: inline !important; }
+    .pet-yard-refined .pet-home-tab-label-short { display: none !important; }
 }
 .pet-yard-screen.pet-yard-refined .pet-yard-header { width: calc(100% + 48px) !important; max-width: none !important; border-radius: 0 !important; background-image: linear-gradient(90deg,#090f16d9,#090f1610 85%),linear-gradient(0deg,#0c1115,transparent 72%),url('../assets/facilities/pet-yard.webp') !important; }
 .pet-yard-refined .pet-yard-header h2::after { display: none; }

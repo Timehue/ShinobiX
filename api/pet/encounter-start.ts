@@ -18,6 +18,7 @@ import {
 } from './_encounter-pointer.js';
 import { unresolvedFreeDungeonMiss } from '../dungeon/_run.js';
 import { caravanPetDiscovery } from '../festival/_caravan-pet.js';
+import { loadTrackerTrail, saveTrackerTrail, trackerTrailCanFlush } from '../sector/_tracker-trail.js';
 
 const ATTEMPT_RECEIPT_TTL_SECONDS = PET_ENCOUNTER_POINTER_TTL_SECONDS;
 
@@ -33,6 +34,7 @@ type PetAttemptReceipt = {
     resolvedAt?: number;
     worldExploreRequestId?: string;
     caravanRunId?: string;
+    trackerTrailId?: string;
     resolution?: 'explored-miss' | 'befriended' | 'declined' | 'expired';
     battleRequired?: boolean;
 };
@@ -74,6 +76,7 @@ function cleanReceipt(raw: unknown): PetAttemptReceipt | null {
         ...(Number.isSafeInteger(resolvedAt) && resolvedAt > 0 ? { resolvedAt } : {}),
         ...(worldExploreRequestId ? { worldExploreRequestId } : {}),
         ...(typeof value.caravanRunId === 'string' ? { caravanRunId: value.caravanRunId } : {}),
+        ...(typeof value.trackerTrailId === 'string' ? { trackerTrailId: value.trackerTrailId } : {}),
         ...(resolution ? { resolution } : {}),
         ...(value.battleRequired === true ? { battleRequired: true } : {}),
     };
@@ -105,6 +108,7 @@ async function persistAuthority(playerName: string, receipt: PetAttemptReceipt):
         pet: receipt.pet,
         sector: receipt.sector,
         ...(receipt.caravanRunId ? { caravanRunId: receipt.caravanRunId } : {}),
+        ...(receipt.trackerTrailId ? { trackerTrailId: receipt.trackerTrailId } : {}),
         mintedAt: receipt.mintedAt,
         requestId: receipt.requestId,
         ...(receipt.battleRequired ? { battleRequired: true } : {}),
@@ -147,8 +151,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const caravanRunId = typeof body.caravanRunId === 'string' ? body.caravanRunId : '';
             const caravanSave = caravanRunId ? await kv.get<{ character?: Record<string, unknown> }>(`save:${playerName}`) : null;
             if (caravanRunId && (sector !== 54 || !caravanPetDiscovery(caravanSave?.character, caravanRunId, stableRequestId))) return { error: 'This expedition has no matching wild pet trail.', status: 409 };
+            // A Tracker trail's final sector: the row must be at its last leg,
+            // in this sector, under the request id it sealed at start.
+            const trackerTrailId = !caravanRunId && typeof body.trackerTrailId === 'string' ? body.trackerTrailId : '';
+            const trackerTrail = trackerTrailId ? await loadTrackerTrail(playerName) : null;
+            if (trackerTrailId && !trackerTrailCanFlush(trackerTrail, trackerTrailId, stableRequestId, sector)) {
+                return { error: 'These tracks have gone cold.', status: 409, reason: 'trail-cold' };
+            }
             const active = cleanPetEncounterPointer(await kv.get(activeKey));
-            if (caravanRunId && active && active.requestId !== stableRequestId) return { error: 'Resolve your existing wild encounter in the world before following this trail.', status: 409 };
+            if ((caravanRunId || trackerTrailId) && active && active.requestId !== stableRequestId) return { error: 'Resolve your existing wild encounter in the world before following this trail.', status: 409 };
             if (active && active.playerName.toLowerCase() === playerName.toLowerCase()) {
                 let activeReceipt: PetAttemptReceipt = cleanReceipt(await kv.get(
                     petEncounterRequestKey(playerName, active.requestId),
@@ -237,9 +248,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 };
             }
             const mintedAt = Date.now();
+            // Stamp the trail BEFORE minting: a crash between the two leaves a
+            // flushed trail that simply mints on the retry, never a minted pet
+            // whose battle cannot prove where it came from.
+            if (trackerTrail && !trackerTrail.flushedAt) await saveTrackerTrail(playerName, { ...trackerTrail, flushedAt: mintedAt }, mintedAt);
             const territory = await kv.get<SectorWeatherOverride>(`world:territory:${sector}`).catch(() => null);
             const weather = resolveSectorWeather(sectorBiomeOf(sector), sector, mintedAt, territory);
-            const pet = rollWildPet(() => randomInt(1_000_000_000) / 1_000_000_000, mintedAt, { weather });
+            // Deterministic discovery in the isolated, in-memory Express QA
+            // server only. The admin secret prevents ordinary test players from
+            // selecting a hit; production always uses crypto randomness.
+            const qaHit = process.env.NODE_ENV === 'test'
+                && process.env.SHINOBIX_QA_MEMORY_KV === '1'
+                && Boolean(process.env.ADMIN_PASSWORD)
+                && req.headers['x-qa-wild-hit'] === process.env.ADMIN_PASSWORD;
+            const pet = rollWildPet(qaHit
+                ? () => 0.02
+                : () => randomInt(1_000_000_000) / 1_000_000_000, mintedAt, { weather }, { guaranteed: !!trackerTrail });
             const receipt: PetAttemptReceipt = {
                 version: 1,
                 playerName,
@@ -248,6 +272,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 sector,
                 mintedAt,
                 ...(caravanRunId ? { caravanRunId } : {}),
+                ...(trackerTrail ? { trackerTrailId: trackerTrail.id } : {}),
                 ...(pet ? { token: randomUUID().replace(/-/g, ''), pet } : {}),
                 ...(pet ? { battleRequired: true } : {}),
             };

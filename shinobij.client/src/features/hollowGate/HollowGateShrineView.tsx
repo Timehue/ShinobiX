@@ -18,6 +18,7 @@
  * icon variants (shrine:icon-*) and decorations all overlay the CSS look.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import "../../styles/index/33-hollow-gate-cinematic.css";
 import type { CSSProperties } from "react";
 import { HollowGateAvatar } from "./HollowGateAvatar";
 import { HollowGateBossCinematic } from "./HollowGateBossCinematic";
