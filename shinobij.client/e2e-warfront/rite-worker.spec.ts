@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test('failed simulation can retry without sealing another formation or leaking workers', async ({ page }, info) => {
     test.skip(info.project.name !== 'desktop');
     await page.route('**/*pet-rite.worker*', (route) => route.abort());
-    await page.goto('/petvfx.html?rite=1&riteqa=1&petQuality=low', { waitUntil: 'domcontentloaded' });
+    await page.goto('/petvfx.html?rite=1&riteqa=1&petQuality=low&ritespeed=30', { waitUntil: 'domcontentloaded' });
     await page.getByRole('button', { name: 'Lock formation', exact: true }).click();
     await expect(page.getByRole('alert')).toContainText('Unable to prepare the battle');
     await expect(page.getByRole('button', { name: 'Lock formation', exact: true })).toBeEnabled();
@@ -12,6 +12,15 @@ test('failed simulation can retry without sealing another formation or leaking w
     await page.getByRole('button', { name: 'Lock formation', exact: true }).click();
     await expect(page.getByTestId('wfr-stage-curtain')).toHaveAttribute('data-stage-ready', 'true');
     await expect.poll(() => page.workers().length).toBe(0);
+    await expect(page.getByRole('button', { name: 'Leave the Warfront', exact: true })).toHaveCount(0);
+    const verdict = page.getByRole('heading', { name: /The Rite is (yours|lost)/ });
+    const rematch = page.getByRole('button', { name: 'Lock & rematch', exact: true });
+    for (let clash = 0; clash < 3; clash += 1) {
+        await expect(verdict.or(rematch)).toBeVisible();
+        if (await verdict.isVisible()) break;
+        await rematch.click();
+    }
+    await expect(verdict).toBeVisible();
     await page.getByRole('button', { name: 'Leave the Warfront', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Reopen Warfront' })).toBeVisible();
     await expect(page.locator('canvas')).toHaveCount(0);

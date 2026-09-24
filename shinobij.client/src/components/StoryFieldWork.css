@@ -1,24 +1,55 @@
 .story-field-journal {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px 20px;
-    align-items: center;
-    padding: 14px 16px;
-    margin: 12px 0;
-    border: 1px solid #766144;
-    border-radius: 10px;
-    background: #181d26;
-    color: #eee6d9;
+    --journal-bg: #181d26;
+    --journal-border: #766144;
+    --journal-ink: #eee6d9;
+    --journal-muted: #c7b99e;
+    position: absolute;
+    z-index: 35;
+    top: 8px;
+    left: 8px;
+    width: min(240px, calc(100% - 16px));
+    max-height: min(360px, calc(100% - 16px));
+    overflow: auto;
+    overscroll-behavior: contain;
+    box-sizing: border-box;
+    border: 1px solid var(--journal-border);
+    border-radius: 8px;
+    background: var(--journal-bg);
+    color: var(--journal-ink);
+    box-shadow: 0 4px 16px #0006;
+    font-size: 13px;
+    line-height: 1.4;
     text-align: left;
 }
-.story-field-journal > div:first-child { flex: 1 1 250px; min-width: 0; }
-.story-field-journal p { margin: 5px 0; line-height: 1.5; }
-.story-field-journal span { color: #c7b99e; font-size: .88rem; }
-.story-field-journal-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.story-field-journal details { flex-basis: 100%; }
-.story-field-journal summary { cursor: pointer; padding: 5px 0; }
+.story-field-journal:has(> details[open]) { width: min(320px, calc(100% - 16px)); }
+.story-field-journal .story-field-journal-toggle {
+    position: sticky;
+    top: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 52px;
+    padding: 8px 12px;
+    box-sizing: border-box;
+    background: var(--journal-bg);
+    cursor: pointer;
+    list-style: none;
+}
+.story-field-journal-toggle::-webkit-details-marker { display: none; }
+.story-field-journal-toggle > span:first-child { min-width: 0; }
+.story-field-journal-toggle strong { display: block; overflow-wrap: anywhere; }
+.story-field-journal-toggle small { display: block; color: var(--journal-muted); font-size: 11px; }
+.story-field-journal-chevron { flex: none; color: var(--journal-muted); font-size: 20px; }
+.story-field-journal-disclosure[open] > summary .story-field-journal-chevron { transform: rotate(180deg); }
+.story-field-journal-body { padding: 0 12px 10px; border-top: 1px solid var(--journal-border); }
+.story-field-journal p { margin: 10px 0; line-height: 1.5; }
+.story-field-journal-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.story-field-journal-actions button { flex: 1 1 125px; }
+.story-field-journal-body summary { cursor: pointer; padding: 10px 0; }
+.story-field-journal summary:focus-visible { outline: 2px solid var(--journal-muted); outline-offset: -3px; }
 .story-field-journal li { margin: 6px 0; }
-.story-field-journal button { min-height: 44px; white-space: normal; overflow-wrap: anywhere; }
+.story-field-journal button { min-height: 44px; padding: 6px 8px; font-size: 12px; white-space: normal; overflow-wrap: anywhere; }
 .story-field-status {
     position: fixed;
     z-index: 100010;
@@ -45,7 +76,4 @@
 @media (max-width: 480px) {
     /* Override the shared reader's important padding to clear the map hint. */
     .story-field-scene .visual-novel .vn-controls { padding-inline-end: 64px !important; }
-    .story-field-journal { padding: 12px; gap: 10px; }
-    .story-field-journal-actions { width: 100%; }
-    .story-field-journal-actions button { flex: 1 1 140px; }
 }

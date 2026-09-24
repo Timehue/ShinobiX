@@ -174,6 +174,48 @@ test('Bank confirms accepted moves and refuses a stale character response', asyn
     await expect(page.locator('.game-toast-stack').filter({ hasText: '137' })).toHaveCount(0);
 });
 
+test('Bank keeps its receipt ID through refresh and a temporary rate limit', async ({ page }) => {
+    const { save, runtime } = await bankFixture(page, { ryo: 500, bankRyo: 0 });
+    const requests: Array<{ requestId: string; action: string; amount: number }> = [];
+    const settled = { ...save.character, ryo: 0, bankRyo: 500 };
+    let settledVersion = 0;
+    await page.route('**/api/bank/transfer', async route => {
+        const body = route.request().postDataJSON() as { requestId: string; action: string; amount: number };
+        requests.push(body);
+        if (requests.length === 1) {
+            settledVersion = runtime.currentVersion() + 1;
+            runtime.commitServerCharacter(settled, settledVersion);
+            return route.abort('failed'); // the server committed, but its response was lost
+        }
+        if (requests.length === 2) return route.fulfill({ status: 429, json: { error: 'Too many requests. Retry shortly.' } });
+        return route.fulfill({ json: { character: settled, _saveVersion: settledVersion, replayed: true } });
+    });
+    await expectUiAuditBoot(page, runtime, 'bank');
+    const amount = page.locator('#bank-transfer-amount');
+    await amount.fill('500');
+    await page.getByRole('button', { name: 'Deposit to vault', exact: true }).click();
+    await expect(page.getByRole('alertdialog', { name: 'Notice', exact: true })).toContainText('Action unconfirmed. Refresh before retrying.');
+    await dismissNotice(page);
+    await page.reload({ waitUntil: 'networkidle' });
+    await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'bank');
+    await expect(page.locator('.bank-balance-rail')).toContainText('500');
+    await amount.fill('500');
+    await page.getByRole('button', { name: 'Deposit to vault', exact: true }).click();
+    await expect.poll(() => requests.length).toBe(2);
+    await expect(page.getByRole('alertdialog', { name: 'Notice', exact: true })).toContainText('Too many requests. Retry shortly.');
+    await dismissNotice(page);
+    await page.getByRole('button', { name: 'Deposit to vault', exact: true }).click();
+    await expect.poll(() => requests.length).toBe(3);
+    expect(requests.map(request => [request.action, request.amount, request.requestId])).toEqual([
+        ['deposit', 500, requests[0].requestId],
+        ['deposit', 500, requests[0].requestId],
+        ['deposit', 500, requests[0].requestId],
+    ]);
+    await expect(amount).toHaveValue('0');
+    await expect(page.locator('.game-toast-stack')).toContainText('Transfer already completed.');
+    await expect(page.locator('.bank-balance-rail')).toContainText('500');
+});
+
 test('Bank distinguishes server rejection from uncertain responses without reporting success', async ({ page }) => {
     const { runtime } = await bankFixture(page);
     let mode = 'rejected', requests = 0;

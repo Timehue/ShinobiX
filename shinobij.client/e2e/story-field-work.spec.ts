@@ -298,12 +298,67 @@ async function installFieldRuntime(page: Page, firstFieldResult: "temporary-erro
 
 async function abandonFromJournal(page: Page) {
     const journal = page.getByRole("complementary", { name: "Personal quest" });
+    await openJournal(journal);
     await journal.getByRole("button", { name: "Abandon reckoning" }).click();
     const confirmation = page.getByRole("alertdialog", { name: "Confirm" });
     await expect(confirmation).toContainText("progress and recovered keepsake will remain");
     await confirmation.getByRole("button", { name: "Abandon", exact: true }).click();
     await expect(journal.getByRole("button", { name: "Abandon reckoning" })).toHaveCount(0);
 }
+
+async function openJournal(journal: Locator) {
+    if (await journal.locator('.story-field-journal-disclosure').getAttribute('open') === null) {
+        await journal.locator('.story-field-journal-toggle').click();
+    }
+}
+
+test("the personal quest opens over the map without moving or resizing it", async ({ page }, testInfo) => {
+    test.skip(!["chromium-desktop", "chromium-mobile"].includes(testInfo.project.name), "desktop and phone certify the map overlay");
+    await configureReader(page);
+    await installFieldRuntime(page);
+    await page.goto("/#/worldMap", { waitUntil: "networkidle" });
+    await openCurrentSectorForMobileFieldWork(page);
+
+    const journal = page.getByRole("complementary", { name: "Personal quest" });
+    await expect(journal).toBeVisible();
+    const map = page.locator('.sector-image-map, .world-atlas-frame').filter({ has: journal });
+    await expect(map).toHaveCount(1);
+    const closedMap = await map.boundingBox();
+    const closedJournal = await journal.boundingBox();
+    expect(closedMap).not.toBeNull();
+    expect(closedJournal!.height).toBeLessThanOrEqual(72);
+    await page.screenshot({ path: testInfo.outputPath('quest-collapsed.png') });
+
+    await journal.locator('.story-field-journal-toggle').focus();
+    await page.keyboard.press('Enter');
+    await expect(journal.getByRole('button', { name: 'Show destination' })).toBeVisible();
+    const openMap = await map.boundingBox();
+    expect(openMap).toEqual(closedMap);
+    const journalBounds = await journal.boundingBox();
+    expect(journalBounds!.width).toBeLessThanOrEqual(320);
+    expect(journalBounds!.x).toBeGreaterThanOrEqual(openMap!.x);
+    expect(journalBounds!.y).toBeGreaterThanOrEqual(openMap!.y);
+    expect(journalBounds!.x + journalBounds!.width).toBeLessThanOrEqual(openMap!.x + openMap!.width);
+    expect(journalBounds!.y + journalBounds!.height).toBeLessThanOrEqual(openMap!.y + openMap!.height);
+    await page.screenshot({ path: testInfo.outputPath('quest-expanded.png') });
+
+    await journal.locator('.story-field-journal-toggle').click();
+    await expect(journal.getByRole('button', { name: 'Show destination' })).toBeHidden();
+    expect(await map.boundingBox()).toEqual(closedMap);
+    await openJournal(journal);
+    await journal.getByRole('button', { name: 'Show destination' }).click();
+    const sectorMap = page.locator('.sector-image-map');
+    await expect(sectorMap).toBeVisible();
+    const sectorJournal = sectorMap.getByRole('complementary', { name: 'Personal quest' });
+    await expect(sectorJournal).toBeVisible();
+    const sectorBounds = await sectorMap.boundingBox();
+    await openJournal(sectorJournal);
+    expect(await sectorMap.boundingBox()).toEqual(sectorBounds);
+    await page.screenshot({ path: testInfo.outputPath('sector-quest-expanded.png') });
+    await sectorJournal.locator('.story-field-journal-toggle').click();
+    expect(await sectorMap.boundingBox()).toEqual(sectorBounds);
+    await page.screenshot({ path: testInfo.outputPath('sector-quest-collapsed.png') });
+});
 
 test("field work saves a route choice, resumes its next objective, and replays history read-only", async ({ page }, testInfo) => {
     test.skip(!["chromium-desktop", "chromium-mobile"].includes(testInfo.project.name), "covered at desktop and mobile widths in Chromium");
@@ -328,6 +383,7 @@ test("field work saves a route choice, resumes its next objective, and replays h
     await expect(journal).toBeVisible();
     await expect(journal).toContainText("Kesa's Marker");
     await expect(journal).toContainText("Ridge Gate · Sector 1");
+    await openJournal(journal);
     await journal.getByRole("button", { name: "Explore Ridge Gate" }).click();
 
     const novel = page.locator(".visual-novel.admin-vn-play");
@@ -347,6 +403,7 @@ test("field work saves a route choice, resumes its next objective, and replays h
     await expect(novel).toHaveCount(0);
     await expect(journal).toContainText("Rig the crossing with Mira's dry coil.");
     await expect(journal).toContainText("Broken Cable Span · Sector 2");
+    await openJournal(journal);
     expect(runtime.fieldAttempts()).toBe(2);
     expect(runtime.fieldBodies()).toEqual([
         { action: "field-act", playerName: "AuditNinja", questId: QUEST_ID, pointId: START_POINT, choiceId: START_CHOICE },
@@ -376,6 +433,7 @@ test("field work saves a route choice, resumes its next objective, and replays h
     await openCurrentSectorForMobileFieldWork(page);
     const restoredJournal = page.getByRole("complementary", { name: "Personal quest" });
     await expect(restoredJournal).toContainText("Broken Cable Span · Sector 2");
+    await openJournal(restoredJournal);
     await restoredJournal.getByText("Your route so far", { exact: true }).click();
     await restoredJournal.getByRole("button", { name: "Ridge Gate", exact: true }).click();
 
@@ -432,6 +490,7 @@ test("a stale successful field response stays open until same-choice replay is a
     await openCurrentSectorForMobileFieldWork(page);
 
     const journal = page.getByRole("complementary", { name: "Personal quest" });
+    await openJournal(journal);
     await journal.getByRole("button", { name: "Explore Ridge Gate" }).click();
     const novel = page.locator(".visual-novel.admin-vn-play");
     const highLine = novel.getByRole("button", { name: /Take the high line/ });
