@@ -1,8 +1,13 @@
-import { useEffect, useEffectEvent } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { CapabilityAvailability } from "./live-capabilities";
 import { capabilityAdmissionAllowed } from "./live-capability-admission";
+import { AUTOSAVE_RETRY } from "./save-persistence";
 
 type MutableBox<T> = { current: T };
+
+/** How soon a deferred immediate flush tries again (the blocking save is ≤ ~3s). */
+const FLUSH_RETRY_MS = 1_000;
+const FLUSH_RETRY_MAX_MS = 8_000;
 
 type DebounceTriggers = Readonly<{
     character: unknown;
@@ -58,6 +63,8 @@ export function useCapabilityGuardedAutosave<T>({
         void persistSave(snapshot);
     });
 
+    const [flushRetryTick, setFlushRetryTick] = useState(0);
+    const flushRetryStreakRef = useRef(0);
     const flushDirtySnapshot = useEffectEvent(() => {
         if (!enabled || !capabilityAdmissionAllowed(mutationAvailability()) || isPresenceBattleActive()
             || (!flushRef.current && !(immediateTriggers.hospitalized && dirtyRef.current))) return;
@@ -70,7 +77,20 @@ export function useCapabilityGuardedAutosave<T>({
             debounceTimerRef.current = null;
         }
         dirtyRef.current = false;
-        void persistSave(snapshot);
+        void Promise.resolve(persistSave(snapshot)).then((result) => {
+            const outcome = result as { status?: unknown; value?: unknown } | null | undefined;
+            if (outcome?.status !== "deferred" && outcome?.value !== AUTOSAVE_RETRY) {
+                flushRetryStreakRef.current = 0;
+                return;
+            }
+            // Another save held the flight (e.g. waiting out the server's save
+            // window), or this one waited and then stood down because authority
+            // moved. An immediate flush — travel, training start, a KO — must not
+            // slide to the 15s interval: re-arm it and try again shortly.
+            flushRef.current = true;
+            flushRetryStreakRef.current += 1;
+            setFlushRetryTick((tick) => tick + 1);
+        });
     });
 
     useEffect(() => {
@@ -97,6 +117,15 @@ export function useCapabilityGuardedAutosave<T>({
         const id = setInterval(persistDirtySnapshot, 15_000);
         return () => clearInterval(id);
     }, [dirtyRef, enabled, intervalPresenceActive, latestSnapshotRef]);
+
+    useEffect(() => {
+        if (!flushRetryTick) return;
+        // Back off (1s, 2s, 4s, 8s) so a long server wait — up to a minute after
+        // the per-minute save cap — costs a handful of App re-renders, not one a second.
+        const streak = Math.max(1, flushRetryStreakRef.current);
+        const id = setTimeout(() => flushDirtySnapshot(), Math.min(FLUSH_RETRY_MAX_MS, FLUSH_RETRY_MS * 2 ** (streak - 1)));
+        return () => clearTimeout(id);
+    }, [flushRetryTick]);
 
     useEffect(() => {
         flushDirtySnapshot();

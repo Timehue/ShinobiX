@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { cors } from './_utils.js';
 import { isAdmin } from './_auth.js';
-import { enforceRateLimitKv } from './_ratelimit.js';
+import { enforceRateLimitKv, PUBLIC_READ_IP_BACKSTOP, requestPlayerKey } from './_ratelimit.js';
 import { readHallEntries } from './_announce.js';
 import { legacyEnabled } from './_legacy-track.js';
 
@@ -45,7 +45,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'GET') return res.status(405).end();
     if (!legacyEnabled()) return res.status(200).json({ entries: [] });
-    if (!(await enforceRateLimitKv(req, res, 'hall-of-legends', 30, 60_000, null))) return;
+    if (!(await enforceRateLimitKv(req, res, 'hall-of-legends', 30, 60_000, requestPlayerKey(req), { ipBackstopMultiplier: PUBLIC_READ_IP_BACKSTOP }))) return;
 
     try {
         const admin = isAdmin(req);

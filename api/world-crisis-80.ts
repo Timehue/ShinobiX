@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { isFullAdmin } from './_auth.js';
-import { enforceRateLimitKv } from './_ratelimit.js';
+import { enforceRateLimitKv, PUBLIC_READ_IP_BACKSTOP, requestPlayerKey } from './_ratelimit.js';
 import { cors } from './_utils.js';
 import {
     applyWorldCrisis80AdminAction,
@@ -30,7 +30,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         if (req.method === 'GET') {
-            if (!(await enforceRateLimitKv(req, res, 'world-crisis-80-read', 90, 60_000, null))) return;
+            if (!(await enforceRateLimitKv(req, res, 'world-crisis-80-read', 90, 60_000, requestPlayerKey(req), { ipBackstopMultiplier: PUBLIC_READ_IP_BACKSTOP }))) return;
             const crisis = await readWorldCrisis80ProjectionCached();
             // Same edge caching as api/world-crisis.ts: 5s on the success path
             // only; refusals, errors, admin POSTs and `?fresh=1` reads stay

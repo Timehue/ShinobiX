@@ -1,6 +1,7 @@
 import { petTamerExpeditionMult, petTamerTrainingSpeedPct } from "../lib/profession-bonuses";
 import { PetBattleReadiness } from "../components/PetBattleReadiness";
 import { useState, useEffect, useRef } from "react";
+import { masteryHasCapstone } from "../lib/profession-mastery";
 import { visiblePoll } from "../lib/poll";
 import { serverNow } from "../lib/server-clock";
 import { activeCarriedPetIds, activeCarriedPets, activeTrainingPetIds, maxPets } from "../lib/entitlements";
@@ -304,7 +305,35 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
         } finally { setGrowthBusy(false); }
     }
 
-    async function startTraining() {
+    // Pet Tamer "Prodigy" capstone: once per UTC day, one training session is
+    // sealed already finished with doubled XP. The server owns the daily usage.
+    const ownsProdigy = character.profession === "petTamer" && masteryHasCapstone(character, "prodigy");
+    const [prodigyStatus, setProdigyStatus] = useState<{ available: boolean; resetsAt: number } | null>(null);
+    // Bumped after every Prodigy attempt so the status is re-read from the server
+    // (used in another tab, refused, or a reply the client couldn't adopt).
+    const [prodigyCheck, setProdigyCheck] = useState(0);
+    useEffect(() => {
+        if (!ownsProdigy) return;
+        let cancelled = false;
+        void fetch(`/api/pet/progress?playerName=${encodeURIComponent(character.name)}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((data: { prodigy?: { available?: boolean; resetsAt?: number } } | null) => {
+                if (!cancelled && data?.prodigy) setProdigyStatus({ available: data.prodigy.available === true, resetsAt: Number(data.prodigy.resetsAt) || 0 });
+            })
+            .catch(() => undefined);
+        return () => { cancelled = true; };
+    }, [ownsProdigy, character.name, prodigyCheck]);
+    // Come back at midnight UTC without needing to leave the screen.
+    useEffect(() => {
+        if (!ownsProdigy || !prodigyStatus?.resetsAt || prodigyStatus.available) return;
+        const wait = prodigyStatus.resetsAt - Date.now() + 1_000;
+        if (wait > 24 * 60 * 60 * 1000) return;
+        const id = window.setTimeout(() => setProdigyCheck((n) => n + 1), Math.max(1_000, wait));
+        return () => window.clearTimeout(id);
+    }, [ownsProdigy, prodigyStatus]);
+    const prodigyAvailable = ownsProdigy && prodigyStatus?.available === true;
+
+    async function startTraining(_event?: unknown, prodigy = false) {
         if (petTrainingBusyRef.current) return;
         if (!requireServerSettlement("petTraining")) return;
         if (!selectedPet) return;
@@ -326,7 +355,14 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
         petTrainingBusyRef.current = true;
         setPetTrainingBusy(true);
         try {
-            const data = await runPetProgress('start-training', { focus: trainingType, durationMs: trainingDuration });
+            const data = await runPetProgress('start-training', { focus: trainingType, durationMs: trainingDuration, ...(prodigy ? { prodigy: true } : {}) });
+            // Only claim success when the server actually sealed a Prodigy session
+            // (collecting a previous session can max the pet so none starts).
+            if (prodigy && (data.pet?.training as { prodigy?: boolean } | undefined)?.prodigy === true) {
+                // Spent — hide the button now rather than waiting on the status re-read.
+                setProdigyStatus((s) => ({ available: false, resetsAt: s?.resetsAt ?? 0 }));
+                gameToast(`Prodigy: ${petDisplayName(selectedPet)}'s ${trainingType} training finished instantly with doubled XP — collect it now.`);
+            }
             // The server self-heals an orphaned finished session: if we'd lost
             // sight of a completed training, start-training pays out its sealed XP
             // before starting the new one. Surface that so the payout isn't silent —
@@ -340,7 +376,11 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
             }
         }
         catch (error) { alert(error instanceof Error ? error.message : 'Training could not be started.'); }
-        finally { petTrainingBusyRef.current = false; setPetTrainingBusy(false); }
+        finally {
+            petTrainingBusyRef.current = false; setPetTrainingBusy(false);
+            // Whatever happened, ask the server whether today's Prodigy is still unused.
+            if (prodigy) setProdigyCheck((n) => n + 1);
+        }
     }
 
     // Recovery escape hatch for the exact stuck state in the bug report: a pet
@@ -1163,7 +1203,18 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                                     <p className="hint">Fully trained — training no longer raises stats. Use this if a previous session is still waiting to be collected.</p>
                                                 </>
                                             ) : (
-                                                <button className="admin-button" onClick={startTraining} disabled={petTrainingBusy || !selectedPetCanTrain || !!selectedPet.expedition || selectedPetBreedingLocked}>{petTrainingBusy ? "Starting…" : !selectedPetCanTrain ? (selectedPetIsOverflow ? "Move into carried roster" : "Move into active five") : "Start Training"}</button>
+                                                <>
+                                                    <button className="admin-button" onClick={startTraining} disabled={petTrainingBusy || !selectedPetCanTrain || !!selectedPet.expedition || selectedPetBreedingLocked}>{petTrainingBusy ? "Starting…" : !selectedPetCanTrain ? (selectedPetIsOverflow ? "Move into carried roster" : "Move into active five") : "Start Training"}</button>
+                                                    {prodigyAvailable && selectedPetCanTrain && (
+                                                        <>
+                                                            <button className="admin-button" onClick={() => void startTraining(undefined, true)} disabled={petTrainingBusy || !!selectedPet.expedition || selectedPetBreedingLocked}
+                                                                title="Pet Tamer mastery: once per day, this session finishes instantly with doubled XP.">
+                                                                {petTrainingBusy ? "Starting…" : "Train instantly · 2× XP (Prodigy, daily)"}
+                                                            </button>
+                                                            <p className="hint">Prodigy doubles the XP of the duration picked above and skips the wait — a longer session pays more. Once per day (resets at midnight UTC).</p>
+                                                        </>
+                                                    )}
+                                                </>
                                             )}
                                             {selectedPet.expedition && <p className="hint">Collect this companion’s expedition in Expeditions before starting training.</p>}
                                             {selectedPetBreedingLocked && <p className="hint">This companion is in the Shinobi Hatchery until its timer completes.</p>}

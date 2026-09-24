@@ -74,8 +74,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === 'POST' || req.method === 'DELETE') {
-        // Social-list spam guard, by IP, KV-backed (survives instance hops).
-        if (!(await enforceRateLimitKv(req, res, 'friends-mutate', 40, 60_000))) return;
+        // Social-list spam guard, per (already verified) player, KV-backed.
+        if (!(await enforceRateLimitKv(req, res, 'friends-mutate', 40, 60_000, playerName))) return;
 
         const targetRaw = await resolvePlayerReference(String(bodyObj.targetName ?? '').trim());
         const targetSlug = safeName(targetRaw);

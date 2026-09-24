@@ -310,9 +310,12 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
         // including older wins from warHistory that aged out of the shared cache. The
         // functional updateCharacter composes on the latest state; endpoint is idempotent.
         if (warCrateServerAuthEnabled()) {
-            void claimServerWarCrates(character, clanData).then((ids) => {
+            void claimServerWarCrates(character, clanData).then(({ ids, character: granted, _saveVersion }) => {
                 if (!ids.length) return;
-                updateCharacter((prev) => prev ? applyWarCrateGrants(prev, ids).character : prev);
+                // Adopt the server's versioned save; mirror locally only if it can't be.
+                if (!granted || !onVersionedCharacter(granted, _saveVersion)) {
+                    updateCharacter((prev) => prev ? applyWarCrateGrants(prev, ids).character : prev);
+                }
                 alert(`You received ${ids.length} Legendary War Crate${ids.length > 1 ? "s" : ""} from a clan war victory! Check your inventory.`);
             });
         }

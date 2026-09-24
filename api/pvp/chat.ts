@@ -57,9 +57,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === 'POST') {
-        // Cap chat posts at 20/min per IP — keeps the KV-lock R-M-W from
-        // being a DOS vector while still allowing fast banter.
-        if (!(await enforceRateLimitKv(req, res, 'pvp-chat-post', 20, 60_000))) return;
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { author, text } = body as {
@@ -76,6 +73,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!identity.admin && identity.name !== authorNorm) {
                 return res.status(403).json({ error: 'Cannot post as another player.' });
             }
+            // Cap chat posts at 20/min per VERIFIED player — keeps the KV-lock
+            // R-M-W from being a DOS vector while allowing fast banter. Keyed after
+            // auth on purpose: it used to be per IP (shared by a household), and a
+            // pre-auth name key would let anyone exhaust a named player's budget.
+            if (!(await enforceRateLimitKv(req, res, 'pvp-chat-post', 20, 60_000, identity.admin ? null : identity.name))) return;
 
             // Unclaimed guests can fight and spectate, but battle chat is still
             // free text shown to strangers, so it sits behind the same lock.

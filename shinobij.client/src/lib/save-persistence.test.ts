@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 import { createSaveConflictRevision, saveConflictAccountKey, type SaveConflictDraft } from "./save-conflict";
 import { SAVE_FAILURE_BANNER_THRESHOLD, createSaveFlightCoordinator, type SaveFlightCoordinator } from "./save-flight";
-import { createSavePersistence, SAVE_MIN_SPACING_MS, SaveConflictError, SaveRateLimitError } from "./save-persistence";
+import { AUTOSAVE_RETRY, createSavePersistence, SaveConflictError, SaveRateLimitError } from "./save-persistence";
 
 type Payload = {
     character: { name: string; level: number; ryo?: number };
@@ -55,7 +55,7 @@ function harness(options?: {
     const acknowledgedSnapshots: Payload[] = [];
     let allowApply = true;
     // Pacing sleeps advance a fake clock instantly and are recorded.
-    const clock = { now: 1_000_000, sleeps: [] as number[] };
+    const clock = { now: 1_000_000, sleeps: [] as number[], onSleep: null as null | (() => void) };
 
     const persistence = createSavePersistence<Payload>({
         flight: options?.flight ?? createSaveFlightCoordinator(),
@@ -90,7 +90,7 @@ function harness(options?: {
         onAcknowledgedSnapshot: snapshot => acknowledgedSnapshots.push(snapshot.payload),
         pacingClock: {
             now: () => clock.now,
-            sleep: async (ms) => { clock.sleeps.push(ms); clock.now += ms; },
+            sleep: async (ms) => { clock.sleeps.push(ms); clock.now += ms; clock.onSleep?.(); },
         },
     });
 
@@ -837,28 +837,87 @@ describe("save pacing against the server's one-save-per-3s window", () => {
         globalThis.fetch = (async () => {
             sentAt.push(h.clock.now);
             version += 1;
-            return jsonResponse(200, { ok: true, _saveVersion: version });
+            // Mirrors api/save/[name].ts: the rest of the aligned window just used.
+            return jsonResponse(200, { ok: true, _saveVersion: version, nextSaveInMs: WINDOW - (h.clock.now % WINDOW) });
         }) as typeof fetch;
         return sentAt;
     }
+    const WINDOW = 3_000;
+    const windowOf = (at: number) => Math.floor(at / WINDOW);
 
-    it("spaces back-to-back autosave, required and logout saves at least one window apart", async () => {
-        const h = harness();
-        const sentAt = acceptingServer(h);
-        await h.persistence.persistAutosave(snapshot());
-        await h.persistence.persistRequired(() => requiredSave());
-        await h.persistence.persistRequired(() => requiredSave());
-        assert.equal(sentAt.length, 3);
-        for (let i = 1; i < sentAt.length; i += 1) {
-            assert.ok(sentAt[i] - sentAt[i - 1] >= SAVE_MIN_SPACING_MS, `send ${i} came ${sentAt[i] - sentAt[i - 1]}ms after the last`);
+    it("never lands two back-to-back autosave, required and logout saves in one server window", async () => {
+        for (const start of [1_000_000, 1_000_001, 1_002_999, 1_001_500]) {
+            const h = harness();
+            h.clock.now = start;
+            const sentAt = acceptingServer(h);
+            await h.persistence.persistAutosave(snapshot());
+            await h.persistence.persistRequired(() => requiredSave());
+            await h.persistence.persistRequired(() => requiredSave());
+            assert.equal(sentAt.length, 3);
+            for (let i = 1; i < sentAt.length; i += 1) {
+                assert.notEqual(windowOf(sentAt[i]), windowOf(sentAt[i - 1]), `start ${start}: send ${i} shared a window`);
+                assert.ok(sentAt[i] - sentAt[i - 1] <= WINDOW + 50, `start ${start}: waited only until the next window`);
+            }
         }
     });
 
-    it("does not wait when the last save is already a window old", async () => {
+    it("does not wait when the server's window has already rolled over", async () => {
         const h = harness();
         acceptingServer(h);
         await h.persistence.persistAutosave(snapshot());
-        h.clock.now += SAVE_MIN_SPACING_MS;
+        h.clock.now += WINDOW;
+        await h.persistence.persistAutosave(snapshot());
+        assert.deepEqual(h.clock.sleeps, []);
+    });
+
+    it("drops a waiting autosave whose snapshot was overtaken by a server write during the wait", async () => {
+        const h = harness();
+        const posted: Array<Record<string, unknown>> = [];
+        let version = h.latestVersion.current;
+        globalThis.fetch = (async (_input, init) => {
+            posted.push(JSON.parse(String(init?.body)));
+            version += 1;
+            return jsonResponse(200, { ok: true, _saveVersion: version, nextSaveInMs: 2_000 });
+        }) as typeof fetch;
+        await h.persistence.persistAutosave(snapshot(1));
+        // While the next autosave waits for its slot, a server mutation (a war
+        // claim, a lesson settling) installs a newer version.
+        h.clock.onSleep = () => { h.latestVersion.current += 5; };
+        h.dirty.current = false;
+        const outcome = await h.persistence.persistAutosave(snapshot(2));
+        assert.equal(posted.length, 1, "the pre-wait snapshot is never stamped with the newer version and sent");
+        assert.equal(h.dirty.current, true, "the next tick sends current state instead");
+        assert.deepEqual(outcome, { status: "completed", value: AUTOSAVE_RETRY }, "an immediate flush is told to retry soon");
+    });
+
+    it("drops a pacing slot left over from a wall clock that jumped backwards", async () => {
+        const h = harness();
+        const sentAt = acceptingServer(h);
+        await h.persistence.persistAutosave(snapshot());
+        h.clock.now -= 60 * 60_000;
+        await h.persistence.persistAutosave(snapshot());
+        assert.equal(sentAt.length, 2, "the second save still goes out");
+        assert.deepEqual(h.clock.sleeps, [], "without waiting an hour for real time to catch up");
+    });
+
+    it("still raises the save-error banner when hinted 429s never stop", async () => {
+        const h = harness();
+        globalThis.fetch = (async () => jsonResponse(429, { error: "Rate limit exceeded.", retryAfterMs: 1_000 })) as typeof fetch;
+        for (let attempt = 0; attempt < 8; attempt += 1) await h.persistence.persistAutosave(snapshot());
+        assert.equal(h.blocked.at(-1), true);
+
+        const long = harness();
+        globalThis.fetch = (async () => jsonResponse(429, { error: "Rate limit exceeded.", retryAfterMs: 45_000 })) as typeof fetch;
+        await long.persistence.persistAutosave(snapshot());
+        assert.equal(long.failureCount.current, 1, "a long hint counts at once");
+    });
+
+    it("does not pace against a server that sends no window hint", async () => {
+        const h = harness();
+        let version = 5;
+        globalThis.fetch = (async () => jsonResponse(200, { ok: true, _saveVersion: ++version })) as typeof fetch;
+        await h.persistence.persistAutosave(snapshot());
+        await h.persistence.persistRequired(() => requiredSave());
         await h.persistence.persistAutosave(snapshot());
         assert.deepEqual(h.clock.sleeps, []);
     });
@@ -872,6 +931,15 @@ describe("save pacing against the server's one-save-per-3s window", () => {
         acceptingServer(h);
         await h.persistence.persistAutosave(snapshot());
         assert.deepEqual(h.clock.sleeps, []);
+    });
+
+    it("tells an immediate flush to retry after a short hinted 429 (the save lock) instead of waiting for the interval", async () => {
+        const h = harness();
+        globalThis.fetch = (async () => jsonResponse(429, { error: "Another change is saving.", retryAfterMs: 1_000 })) as typeof fetch;
+        const outcome = await h.persistence.persistAutosave(snapshot());
+        assert.deepEqual(outcome, { status: "completed", value: AUTOSAVE_RETRY });
+        assert.equal(h.dirty.current, true);
+        assert.equal(h.failureCount.current, 0);
     });
 
     it("keeps a hinted autosave 429 dirty without counting toward the save-error banner, then honours the hint", async () => {

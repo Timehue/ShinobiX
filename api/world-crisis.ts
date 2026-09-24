@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { isFullAdmin } from './_auth.js';
-import { enforceRateLimitKv } from './_ratelimit.js';
+import { enforceRateLimitKv, PUBLIC_READ_IP_BACKSTOP, requestPlayerKey } from './_ratelimit.js';
 import { cors } from './_utils.js';
 import {
     applyWorldCrisisAdminAction,
@@ -30,7 +30,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         if (req.method === 'GET') {
-            if (!(await enforceRateLimitKv(req, res, 'world-crisis-read', 90, 60_000, null))) return;
+            if (!(await enforceRateLimitKv(req, res, 'world-crisis-read', 90, 60_000, requestPlayerKey(req), { ipBackstopMultiplier: PUBLIC_READ_IP_BACKSTOP }))) return;
             const crisis = await readWorldCrisisProjectionCached();
             // Every signed-in tab polls this every 15s and every viewer gets the
             // same public projection, so the edge may serve it for 5s (plus the
