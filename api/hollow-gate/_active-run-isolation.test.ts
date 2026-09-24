@@ -155,6 +155,19 @@ test('a legitimately settled dive permits the next entry and an old token cannot
     assert.deepEqual(await kv.get(f.saveKey), current);
 });
 
+test('settling a dive clears its start marker so the next entry is not replayed as spent', async () => {
+    const f = await preparedRun('marker');
+    const settle = (await import('./settle.js')).default as unknown as Handler;
+    await kv.set(f.runKey, { ...f.run, resolvedEncounterIds: ['5:boss:final'] });
+    const extracted = await call(settle, f.name, { token: f.token, action: 'extract' });
+    assert.equal(extracted.status, 200, String(extracted.body?.error));
+    const after = (await kv.get<Save>(f.saveKey))!;
+    assert.ok((after.character.redeemedHollowGateRuns as string[]).includes(f.token));
+    // A deleted key was restored by the merging save writer, leaving a marker
+    // for a redeemed run: every later entry replayed it and got 409 spent.
+    assert.equal(after.character.lastHollowGateStart, undefined);
+});
+
 test('an unpaid orphan token cannot settle against a different active dive', async () => {
     const f = await preparedRun('stale');
     const settle = (await import('./settle.js')).default as unknown as Handler;

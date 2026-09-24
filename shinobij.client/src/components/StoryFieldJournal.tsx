@@ -11,20 +11,28 @@ export function StoryFieldJournal({ character, currentSector, abandonBusy = fals
     const remembered = storyFieldHistories(character);
     if (!objective && !remembered.length) return null;
     return <aside className="story-field-journal" aria-label="Personal quest">
-        {objective && <><div><strong>{objective.title}</strong><p>{objective.objective}</p>
-            <span>{objective.name} · Sector {objective.sector}</span></div>
+        <details className="story-field-journal-disclosure">
+        <summary className="story-field-journal-toggle">
+            <span><strong>{objective?.title ?? 'Your journeys'}</strong>
+                <small>{objective ? `${objective.name} · Sector ${objective.sector}` : 'Review your past routes'}</small></span>
+            <span className="story-field-journal-chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <div className="story-field-journal-body">
+        {objective && <><p>{objective.objective}</p>
         <div className="story-field-journal-actions">
-            <button onClick={() => onLocate(objective.sector)}>Show destination</button>
-            {objective.pointId && currentSector === objective.sector && <button onClick={() => onOpen(objective.questId, objective.pointId!)}>Explore {objective.name}</button>}
-            <button disabled={abandonBusy} onClick={onAbandon}>{abandonBusy ? 'Releasing…' : 'Abandon reckoning'}</button>
+            <button type="button" onClick={() => onLocate(objective.sector)}>Show destination</button>
+            {objective.pointId && currentSector === objective.sector && <button type="button" onClick={() => onOpen(objective.questId, objective.pointId!)}>Explore {objective.name}</button>}
+            <button type="button" disabled={abandonBusy} onClick={onAbandon}>{abandonBusy ? 'Releasing…' : 'Abandon reckoning'}</button>
         </div>
         {objective.history.length > 0 && <details><summary>Your route so far</summary>
-            <ol>{objective.history.map((visit) => <li key={visit.pointId}><button onClick={() => onReview(objective.questId, visit.pointId)}>{visit.name}</button></li>)}</ol>
+            <ol>{objective.history.map((visit) => <li key={visit.pointId}><button type="button" onClick={() => onReview(objective.questId, visit.pointId)}>{visit.name}</button></li>)}</ol>
         </details>}</>}
         {remembered.length > 0 && <details><summary>Your journeys</summary>
             {remembered.map((journey) => <div key={journey.questId}><strong>{journey.title}</strong>
-                <ol>{journey.history.map((visit) => <li key={visit.pointId}><button onClick={() => onReview(journey.questId, visit.pointId)}>{visit.name}</button></li>)}</ol>
+                <ol>{journey.history.map((visit) => <li key={visit.pointId}><button type="button" onClick={() => onReview(journey.questId, visit.pointId)}>{visit.name}</button></li>)}</ol>
             </div>)}
         </details>}
+        </div>
+        </details>
     </aside>;
 }

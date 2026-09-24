@@ -1334,7 +1334,6 @@ function WarfrontRiteMatch({
                 )
             ) : null}
 
-            <button type="button" className="wfr-exit" onClick={onExit} aria-label="Leave the Warfront">✕</button>
         </div>
     );
 }
