@@ -2948,6 +2948,10 @@
             "line": 392
           },
           {
+            "source": "shinobij.client/src/styles/pet-arena-lobby.css",
+            "line": 404
+          },
+          {
             "source": "shinobij.client/src/styles/profile-skin.css",
             "line": 638
           },
@@ -3039,6 +3043,10 @@
           {
             "source": "shinobij.client/src/styles/pet-home.css",
             "line": 492
+          },
+          {
+            "source": "shinobij.client/src/styles/pet-home.css",
+            "line": 562
           },
           {
             "source": "shinobij.client/src/styles/pet-skin.css",
