@@ -39,6 +39,8 @@ try {
     page.on('pageerror', error => failures.push(`${engineName}: ${error.message}`));
     for (const [scenario, expected] of [['effect-pitfall', /was destroyed/], ['effect-block', /stops the attack/], ['effect-return', /returned to Keeper/], ['effect-stat', /ATK.*→/], ['effect-sweep', /was destroyed/]]) {
       await page.goto(`${origin}/?scenario=${scenario}&refresh=1`, { waitUntil: 'domcontentloaded' });
+      // The unminified harness must hydrate before timing the response prompt.
+      await expect(page.getByRole('region', { name: 'Shinobi Journey Chronicle Showdown board' })).toBeVisible({ timeout: 30_000 });
       const response = page.getByRole('group', { name: 'Snare response' });
       await expect(response).toBeVisible();
       const responseBounds = await response.boundingBox();
