@@ -3,6 +3,7 @@ import { before, beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { deriveHollowGateStepState } from './step.js';
 import { cardClashAiTokenKey } from '../card-clash/_ai-reward.js';
+import { CHRONICLE_FIXED_FALLBACK_DECK } from '../../shared/chronicle-duel.js';
 import { hollowGateCombatReward } from './_combat-session.js';
 import { hollowGateRunKey, rewardMultiplierForToken, type HollowGateRunToken } from './_run-token.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
@@ -79,6 +80,41 @@ test('starting a card ambush binds one resumable Chronicle match to the run', as
     assert.equal(stored?.playerName, 'riftplayer');
     assert.equal(stored?.settlementMode, 'external');
     assert.equal(stored?.hollowGateCard.nodeId, nodeId);
+});
+
+test('a card ambush fights with the player\'s own legal deck and lends one only when there is none', async () => {
+    const nodeId = 'floor:1:ambush:threat-v9';
+    const deck = [...CHRONICLE_FIXED_FALLBACK_DECK];
+    const cases = [
+        // Card Hall opened: the deck resolves exactly as every Chronicle start.
+        { label: 'opened', character: { starterCardsClaimed: true, tileCards: deck, cardClashDeck: deck }, loaner: false },
+        // Still sealed but already owns a legal deck: read it, write nothing.
+        { label: 'sealed-owned', character: { tileCards: deck, cardClashDeck: deck }, loaner: false },
+        // Still sealed and the saved list is not backed by owned cards: lend.
+        { label: 'sealed-unowned', character: { tileCards: [], cardClashDeck: deck }, loaner: true },
+        { label: 'sealed-empty', character: {}, loaner: true },
+    ];
+    for (const entry of cases) {
+        const token = `card-deck-${entry.label}`;
+        await kv.set(hollowGateRunKey('riftplayer', token), {
+            playerName: 'riftplayer', mintedAt: Date.now(), floorDepth: 1, currentFloor: 1,
+            seed: 'seed', entryCurrencies: {}, offeredAugmentIds: ['keen-edge'],
+            chosenAugmentId: 'keen-edge', dailyRunOrdinal: 1, variantId: 'rift-legacy-echo',
+            pendingAmbush: { nodeId, kind: 'card' },
+        } satisfies HollowGateRunToken);
+        await kv.set('save:riftplayer', { _saveVersion: 1, character: {
+            name: 'riftplayer', level: 12, hollowGateRun: { runToken: token, floor: 1 }, ...entry.character,
+        } });
+        const before = await kv.get('save:riftplayer');
+        const started = await call(start, { token, nodeId });
+        assert.equal(started.status, 200, `${entry.label}: ${JSON.stringify(started.body)}`);
+        assert.equal(started.body?.loanerDeck === true, entry.loaner, entry.label);
+        const session = await kv.get<{ hollowGateCard: { loanerDeck?: boolean } }>(cardClashAiTokenKey(String(started.body?.matchId)));
+        assert.equal(session?.hollowGateCard.loanerDeck === true, entry.loaner, entry.label);
+        if (entry.label !== 'opened') {
+            assert.deepEqual(await kv.get('save:riftplayer'), before, `${entry.label}: a sealed Chronicle is never written to`);
+        }
+    }
 });
 
 test('pending card ambush blocks staircase descent and normal extraction', async () => {
