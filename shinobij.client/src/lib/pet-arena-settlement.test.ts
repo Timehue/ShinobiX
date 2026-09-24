@@ -198,9 +198,9 @@ test("rewarded Warfronts render and settle only the server-minted seed", () => {
         "the queued rewarded replay must freeze the server seal's seed without local derivation or mutation");
     assert.match(arenaSource, /startArenaMatch\(selectedTacticalPets, \[\], [^\n]+true\)/);
     assert.match(arenaSource, /playerPetIds: bluePets\.map\(\(p\) => p\.id\),[\s\S]*stance: config\.stance/);
-    // The Rite is decided by the sealed bands + the sealed seed + the batting
-    // order the player commits. The renderer therefore takes the seed and the
-    // two bands and nothing else that could shift the outcome.
+    // The Rite is decided by the sealed bands + the sealed seed + the plan the
+    // player commits (deployment and re-form locks). The renderer therefore takes
+    // the seed and the two bands and nothing else that could shift the outcome.
     assert.match(arenaSource, /<PetWarfrontRite\b/);
     assert.match(arenaSource, /blue=\{arenaMatch\.blue\} red=\{arenaMatch\.red\} seed=\{arenaMatch\.seed\}/);
     assert.match(arenaSource, /const matchConfig = sealedPlans[\s\S]*theme: "central" as WfTheme/,
@@ -237,8 +237,21 @@ test("rewarded Warfronts render and settle only the server-minted seed", () => {
         "the lobby must explain why this is tactical rather than a collision brawl");
     assert.match(setupSource, /Best of three/, "the match is best-of-three clashes");
     assert.match(setupSource, /RE-FORM/, "the one mid-match decision must be advertised");
-    assert.doesNotMatch(setupSource, /Winner stays in|SWAP TOKEN|batting order/i,
+    assert.doesNotMatch(setupSource, /once per Rite/i,
+        "a re-form is offered after every clash that does not end the Rite, not once per match");
+    const retiredSequentialCopy = /Winner stays in|stays in wounded|one duel at a time|SWAP TOKEN|batting order/i;
+    assert.doesNotMatch(setupSource, retiredSequentialCopy,
         "that is the retired sequential design — the Rite fights all eight at once");
+    // The Battle Plan panel renders in this lobby, but its tips are defined in
+    // BattlePlan near the top of the file, outside the slice above. Scan that
+    // component too. The line-ending match tolerates a CRLF checkout. The guard
+    // needs the tip TEXT inside the slice, not just its container: tips moved to
+    // a constant or a child component would otherwise pass this ban unscanned.
+    const battlePlanSource = arenaSource.match(/function BattlePlan\([\s\S]*?\n\}\r?\n/)?.[0] ?? "";
+    assert.match(battlePlanSource, /className="bp-tips">\s*<div>[^<{]+<\/div>/,
+        "the scan must reach the Battle Plan tip text the lobby renders — if the tips move, move this scan with them");
+    assert.doesNotMatch(battlePlanSource, retiredSequentialCopy,
+        "the Battle Plan tips describe the retired sequential design — the Rite fights all eight at once");
     // Composition is the player's call (owner ruling 2026-09-01): the lobby must
     // not advertise an element requirement that no longer exists.
     assert.doesNotMatch(setupSource, /needs \d+ different elements|three or more elements/i,
