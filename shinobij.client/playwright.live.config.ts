@@ -49,7 +49,9 @@ export default defineConfig({
             SENTRY_DSN: '',
         },
     },
-    projects: [
+    projects: process.env.LIVE_E2E_COMPACT === '1' ? [
+        { name: 'chromium-compact-live', use: { browserName: 'chromium', viewport: { width: 360, height: 780 }, isMobile: true, hasTouch: true } },
+    ] : [
         { name: 'chromium-desktop-live', use: { browserName: 'chromium', viewport: { width: 1366, height: 768 } } },
         { name: 'chromium-mobile-live', use: { browserName: 'chromium', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
     ],
