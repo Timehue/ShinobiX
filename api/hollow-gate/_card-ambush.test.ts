@@ -162,7 +162,8 @@ test('card settlement rejects an unrelated match and applies a loss once', async
     const saved = await kv.get<{ character: { hp: number; hollowGateRun: { threat: number }; settledHollowGateEventIds: string[] } }>('save:riftplayer');
     assert.equal(saved?.character.hp, 60);
     assert.equal(saved?.character.hollowGateRun.threat, 0);
-    assert.deepEqual(saved?.character.settledHollowGateEventIds, [`card:${matchId}`]);
+    assert.deepEqual(saved?.character.settledHollowGateEventIds, [`card:1:card:${nodeId}`, `card:${matchId}`],
+        'the receipt names the ambush encounter as well as the match');
     const cleared = await kv.get<HollowGateRunToken>(hollowGateRunKey('riftplayer', token));
     assert.equal(cleared?.pendingAmbush, null);
     assert.deepEqual(cleared?.resolvedEncounterIds, [`1:card:${nodeId}`]);
@@ -204,4 +205,106 @@ test('a card win banks the normal ambush currency once in save and run ledger', 
     assert.equal(updatedRun?.rewardLedger?.currencies.ryo, expectedRyo);
     assert.equal(updatedRun?.rewardLedger?.currencies.auraDust, expectedDust);
     assert.deepEqual(updatedRun?.rewardLedger?.sourceIds, [`card:1:card:${nodeId}`]);
+});
+
+type SaveWithWallet = { character: { ryo: number; auraDust: number; hollowGateExternalCredits?: unknown; settledHollowGateEventIds?: string[] } };
+const digestOf = (token: string) => createHash('sha256').update(token).digest('hex');
+
+/** A won-or-lost terminal Chronicle match bound to `token`'s ambush `nodeId`. */
+async function terminalMatch(token: string, nodeId: string, winner: 'player' | 'opponent', matchId = randomUUID()) {
+    await kv.set(cardClashAiTokenKey(matchId), { matchId, playerName: 'riftplayer',
+        status: 'done', winner, settledAt: Date.now(), settlementMode: 'external',
+        hollowGateCard: { tokenDigest: digestOf(token), nodeId } });
+    return matchId;
+}
+
+async function sealedCardAmbush(token: string, nodeId: string, matchId: string, overrides: Partial<HollowGateRunToken> = {}) {
+    const run: HollowGateRunToken = {
+        playerName: 'riftplayer', mintedAt: Date.now() - 600_000, floorDepth: 2, currentFloor: 1,
+        seed: 'seed', entryCurrencies: { ryo: 100, auraDust: 2 }, entryItems: {}, offeredAugmentIds: ['keen-edge'],
+        chosenAugmentId: 'keen-edge', dailyRunOrdinal: 1, variantId: 'rift-hollow-stalker',
+        pendingAmbush: { nodeId, kind: 'card' }, cardAmbushMatchId: matchId, ...overrides,
+    };
+    await kv.set(hollowGateRunKey('riftplayer', token), run);
+    await kv.set('save:riftplayer', { character: { name: 'riftplayer', hp: 80, maxHp: 100,
+        ryo: 100, auraDust: 2, itemStacks: [], hollowGateRun: { runToken: token, floor: 1, threat: 100 } }, _saveVersion: 1 });
+    return run;
+}
+
+test('card ambush winnings are run loot: death keeps only the retention share', async () => {
+    // Probe from the 2026-09-24 review: entry 100 ryo, a floor-1 card win,
+    // then an abandoned (death) run kept the whole win because the save write
+    // recorded it as an external credit.
+    const token = 'card-death-token';
+    const nodeId = 'floor:1:ambush:threat-v12';
+    const matchId = await terminalMatch(token, nodeId, 'player');
+    const run = await sealedCardAmbush(token, nodeId, matchId);
+    const won = await call(settle, { token, matchId });
+    assert.equal(won.status, 200, JSON.stringify(won.body));
+    const reward = hollowGateCombatReward(1, 'ambush');
+    const multiplier = rewardMultiplierForToken(run);
+    const ryoWin = Math.floor(reward.ryo * multiplier);
+    const dustWin = Math.floor(reward.auraDust * multiplier);
+    const afterWin = (await kv.get<SaveWithWallet>('save:riftplayer'))!;
+    assert.equal(afterWin.character.ryo, 100 + ryoWin, 'the win is paid immediately');
+    const { hollowGateExternalCredits } = await import('./_external-credits.js');
+    assert.deepEqual(hollowGateExternalCredits(afterWin.character, token), {}, 'the win is not an external credit');
+
+    const died = await call(endRun, { token, action: 'abandon' });
+    assert.equal(died.status, 200, JSON.stringify(died.body));
+    const afterDeath = (await kv.get<SaveWithWallet>('save:riftplayer'))!;
+    assert.equal(afterDeath.character.ryo, 100 + Math.floor(ryoWin * 0.5), 'death keeps half the run loot, as for combat wins');
+    assert.equal(afterDeath.character.auraDust, 2 + Math.floor(dustWin * 0.5));
+});
+
+test('a second Chronicle match for an already-settled ambush pays nothing', async () => {
+    // After a Chronicle rules-version bump, card-start mints a fresh match for
+    // the same ambush and leaves the old one (here already won) behind.
+    const token = 'card-double-token';
+    const nodeId = 'floor:1:ambush:threat-v20';
+    const oldMatch = await terminalMatch(token, nodeId, 'player');
+    const newMatch = await terminalMatch(token, nodeId, 'player');
+    const run = await sealedCardAmbush(token, nodeId, newMatch);
+    const ryoWin = Math.floor(hollowGateCombatReward(1, 'ambush').ryo * rewardMultiplierForToken(run));
+
+    const first = await call(settle, { token, matchId: newMatch });
+    assert.equal(first.status, 200, JSON.stringify(first.body));
+    assert.equal((await kv.get<SaveWithWallet>('save:riftplayer'))!.character.ryo, 100 + ryoWin);
+
+    const second = await call(settle, { token, matchId: oldMatch });
+    assert.equal(second.status, 409, JSON.stringify(second.body));
+    assert.match(String(second.body?.error), /already settled/);
+    assert.equal((await kv.get<SaveWithWallet>('save:riftplayer'))!.character.ryo, 100 + ryoWin, 'the ambush paid once');
+
+    // The match that did settle still replays idempotently after a lost reply.
+    const replay = await call(settle, { token, matchId: newMatch });
+    assert.equal(replay.status, 200, JSON.stringify(replay.body));
+    assert.equal((await kv.get<SaveWithWallet>('save:riftplayer'))!.character.ryo, 100 + ryoWin);
+});
+
+test('a save settled before encounter receipts existed keeps its match receipt honored', async () => {
+    // Pre-change settlement wrote only `card:<matchId>` and resolved the
+    // encounter on the run. That exact match must still replay, and any other
+    // match for the same ambush must still be refused.
+    const token = 'card-legacy-token';
+    const nodeId = 'floor:1:ambush:threat-v31';
+    const settledMatch = await terminalMatch(token, nodeId, 'player');
+    const otherMatch = await terminalMatch(token, nodeId, 'player');
+    await sealedCardAmbush(token, nodeId, settledMatch, {
+        pendingAmbush: null, cardAmbushMatchId: null, threat: 0,
+        resolvedEncounterIds: [`1:card:${nodeId}`],
+        rewardLedger: { currencies: { ryo: 1000 }, items: {}, sourceIds: [`card:1:card:${nodeId}`] },
+    });
+    const legacy = (await kv.get<Record<string, any>>('save:riftplayer'))!;
+    legacy.character.ryo = 1100;
+    legacy.character.settledHollowGateEventIds = [`card:${settledMatch}`];
+    await kv.set('save:riftplayer', legacy);
+
+    const replay = await call(settle, { token, matchId: settledMatch });
+    assert.equal(replay.status, 200, JSON.stringify(replay.body));
+    const refused = await call(settle, { token, matchId: otherMatch });
+    assert.equal(refused.status, 409, JSON.stringify(refused.body));
+    const after = (await kv.get<SaveWithWallet>('save:riftplayer'))!;
+    assert.equal(after.character.ryo, 1100);
+    assert.deepEqual(after.character.settledHollowGateEventIds, [`card:${settledMatch}`]);
 });
