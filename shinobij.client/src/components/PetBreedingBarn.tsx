@@ -26,6 +26,7 @@ import { shouldApplyBreedingStatus } from "../lib/pet-breeding-status-guard";
 import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { Pet, PetBreedingSession } from "../types/pet";
 import { BreedingCountdown } from "./BreedingCountdown";
+import { CompanionIdentity } from "./CompanionIdentity";
 import {
     useCapabilityMutationAvailability,
     useCapabilityViewAvailability,
@@ -50,7 +51,7 @@ function ParentPicker({ label, value, character, other, onChange, sharedImages }
         const duplicate = other?.id === pet.id;
         const reason = blocker || (duplicate ? "Already selected" : mismatch ? `Needs ${other.element}` : "");
         return <option key={pet.id} value={pet.id} disabled={Boolean(reason)}>{petDisplayName(pet)} · {pet.element ?? "None"} · {pet.breedingUsesRemaining ?? 0} uses{reason ? ` — ${reason}` : ""}</option>;
-    })}</select>{value && (() => { const pet = character.pets.find((entry) => entry.id === value); const art = pet ? petCardImage(pet, sharedImages) : ""; return pet ? <span className={`breeding-parent-preview ${petVisualVariantClass(pet)}`}>{art ? <img src={art} alt="" /> : null}<strong>{petDisplayName(pet)}</strong><small>{pet.rarity} · {pet.element} · {pet.breedingUsesRemaining}/{pet.breedingUsesMax} uses</small></span> : null; })()}</label>;
+    })}</select>{value && (() => { const pet = character.pets.find((entry) => entry.id === value); return pet ? <span className={`breeding-parent-preview companion-card rarity-${pet.rarity} ${petVisualVariantClass(pet)}`}><CompanionIdentity pet={pet} sharedImages={sharedImages} compact /><small>{pet.breedingUsesRemaining}/{pet.breedingUsesMax} breeding uses</small></span> : null; })()}</label>;
 }
 
 export function PetBreedingBarn({ character, updateCharacter, onVersionedCharacter, onServerVersion, sharedImages }: {
