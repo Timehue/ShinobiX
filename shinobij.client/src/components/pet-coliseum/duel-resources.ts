@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { lerp } from "../../lib/pet-coliseum-scene";
 import { type PetVisualQuality, type PetVisualQualityConfig } from "../../lib/pet-visual-quality";
 import { type PetHeroMoveStyle } from "../../lib/pet-hero-moves";
+import { petElementVfxProfile } from "../../lib/pet-element-vfx";
 import { FLOOR_Y, type Vec3 } from "./stage";
 import { type DuelElementBurstKind, type DuelDashCue, dashPathPoint } from "./duel-stage";
 
@@ -11,11 +12,10 @@ type DuelFxPalette = { dark: string; body: string; accent: string; core: string 
 
 
 export function duelFxPalette(kind: DuelElementBurstKind, fallback: string): DuelFxPalette {
-    if (kind === "fire") return { dark: "#421008", body: "#d92d12", accent: "#ff7a18", core: "#ffd36a" };
-    if (kind === "water") return { dark: "#042b55", body: "#0877bd", accent: "#21c7e6", core: "#d8fbff" };
-    if (kind === "wind") return { dark: "#073b3d", body: "#14796f", accent: "#50d9b8", core: "#e0fff3" };
-    if (kind === "lightning") return { dark: "#211047", body: "#5c38c4", accent: "#b48cff", core: "#fff3a3" };
-    if (kind === "earth") return { dark: "#2c190e", body: "#754321", accent: "#ce8f38", core: "#ffe0a1" };
+    if (kind === "fire" || kind === "water" || kind === "wind" || kind === "lightning" || kind === "earth") {
+        const profile = petElementVfxProfile(kind === "lightning" ? "Lightning" : kind[0].toUpperCase() + kind.slice(1));
+        return { dark: profile.dark, body: profile.body, accent: profile.primary, core: profile.highlight };
+    }
     if (kind === "abyss") return { dark: "#15081d", body: "#47102f", accent: "#e5224f", core: "#ffad86" };
     const base = new THREE.Color(fallback);
     return {
