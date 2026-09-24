@@ -29,6 +29,7 @@ import { bumpLegacyStats, legacyBootstrapBeforeCounterIncrement } from '../_lega
 import { petWitnessReceiptForSettlement, recordPetArenaVictory } from '../card-clash/_pet-witness.js';
 import { casualPvePetSnapshot, parseCasualPveBattleSeal, parseSealedPetSnapshots, type CasualPveBattleSeal } from './_casual-pve-seal.js';
 import { removePetItem } from './_progress.js';
+import { WARFRONT_KICKOFF_PACE_MS, warfrontNextStartKey } from './_warfront-pace.js';
 import { applyDungeonPetTerminal } from '../dungeon/_encounter-proof.js';
 import {
     DUNGEON_PET_RESULT_TTL_SECONDS,
@@ -98,9 +99,11 @@ const RANKED_RESULT_RECEIPT_TTL_SECONDS = 24 * 60 * 60;
 // if the shared receipt store stays unavailable until the short proof expires.
 const RANKED_SAVE_RECEIPT_CAP = 256;
 // Warfront settlement must follow the battle the player actually commanded,
-// not the automatic baseline sealed at kickoff. Keep the same anti-seed-oracle
-// floor and small playback skew as the start route.
-const WARFRONT_MIN_SETTLE_MS = 60_000;
+// not the automatic baseline sealed at kickoff. The start route sealed its
+// settleAfter with this same minute floor, so it is still needed to recover the
+// kickoff time from a proof that predates playbackStartedAt; the minute itself
+// now paces the next kickoff (./_warfront-pace.ts), not this receipt.
+const WARFRONT_MIN_SETTLE_MS = WARFRONT_KICKOFF_PACE_MS;
 const WARFRONT_SETTLE_CLOCK_SKEW_MS = 5_000;
 
 /**
@@ -477,7 +480,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         const rateLimitIdentity = identity.admin ? null : identity.name;
         if (!enforceRateLimit(req, res, 'pet-battle-result', 12, 60_000, rateLimitIdentity)) return;
-        if (!enforceRateLimit(req, res, 'pet-battle-result-burst', 1, ARENA_WIN_RATE_LIMIT, rateLimitIdentity)) return;
+        // The one-settlement-per-5s burst pace is charged further down, only
+        // once a request is actually about to settle. Charged here it also
+        // counted a Warfront receipt the settle clock refused (425), so the
+        // client's scheduled resend a few seconds later was refused 429 and the
+        // player was left on a manual Retry behind a locked Leave button.
 
         // reportKey is REQUIRED for wins. Previously optional, which let a
         // botted client omit it (or randomize per call) and farm the daily
@@ -791,7 +798,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return res.status(400).json({ error: 'The Warfront formation transcript is invalid.' });
                 }
                 const seed = Number(tokenData.seed);
-                let commandedSettleAfter = baselineSettleAfter;
+                // The receipt may retire once the fight it describes could have
+                // been watched at real time from kickoff: the commanded duel
+                // chain's own length, less clock skew. The client plays at 0.78x
+                // behind a countdown, so a real player always gets there first.
+                // The 60s anti-seed-shopping minimum used to hold every short
+                // match's RESULT here for up to half a minute; it now paces the
+                // next kickoff instead (warfrontNextStartKey), which keeps new
+                // seeds to one a minute exactly as before.
+                let commandedSettleAfter = playbackStartedAt + Math.max(0, baselineDurationMs - WARFRONT_SETTLE_CLOCK_SKEW_MS);
                 if (plan && rivalPets?.length === RITE_BAND_SIZE && casualPvePlayerPets.length === RITE_BAND_SIZE
                     && Number.isSafeInteger(seed) && seed > 0) {
                     try {
@@ -802,7 +817,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         outcome = replay.winner === 'blue' ? 'win' : replay.winner === 'red' ? 'loss' : 'draw';
                         const commandedDurationMs = Math.ceil(replay.totalSeconds * 1_000);
                         commandedSettleAfter = playbackStartedAt + Math.max(
-                            WARFRONT_MIN_SETTLE_MS,
+                            0,
                             commandedDurationMs - WARFRONT_SETTLE_CLOCK_SKEW_MS,
                         );
                     } catch (replayError) {
@@ -816,6 +831,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         error: 'Beastbound Warfront is still in progress.',
                         retryAfterMs: commandedSettleAfter - Date.now(),
                     });
+                }
+                // Settling inside the kickoff's first minute hands the rest of
+                // that minute to the NEXT Warfront kickoff. Written before this
+                // receipt can retire the active proof, so no fresh seed is ever
+                // reachable earlier than it was when the minute gated settlement.
+                const nextStartAt = playbackStartedAt + WARFRONT_KICKOFF_PACE_MS;
+                if (Date.now() < nextStartAt) {
+                    try {
+                        await kv.set(warfrontNextStartKey(playerName), { notBefore: nextStartAt, battleToken }, {
+                            ex: Math.max(1, Math.ceil((nextStartAt - Date.now()) / 1_000)) + 5,
+                        });
+                    } catch (error) {
+                        console.error('[pet/battle-result] Warfront kickoff pace not recorded', error);
+                        return res.status(503).json({ error: 'The Warfront result is still being sealed. Please retry.' });
+                    }
                 }
             }
             if (tokenData.pvpChallengeId) {
@@ -916,6 +946,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 };
             }
         }
+
+        if (!enforceRateLimit(req, res, 'pet-battle-result-burst', 1, ARENA_WIN_RATE_LIMIT, rateLimitIdentity)) return;
 
         const releaseCasualBattle = async (): Promise<void> => {
             if (casualBattleTokenKey) await kv.del(casualBattleTokenKey).catch(() => undefined);
