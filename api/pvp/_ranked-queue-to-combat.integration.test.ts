@@ -16,6 +16,8 @@ type Out = { statusCode: number; body?: Record<string, any>; headers: Record<str
 
 const ALICE = 'rankedqueuecombatalice';
 const BOB = 'rankedqueuecombatbob';
+const CAROL = 'rankedqueuecombatcarol';
+const DAVE = 'rankedqueuecombatdave';
 
 let kv: typeof import('../_storage.js').kv;
 let issuePlayerToken: typeof import('../_auth.js').issuePlayerToken;
@@ -102,7 +104,8 @@ beforeEach(async () => {
     for (const key of await kv.keys('challenges:*')) await kv.del(key);
     for (const key of await kv.keys('challenge-outgoing:*')) await kv.del(key);
     for (const key of await kv.keys('pvp:pvp-*')) await kv.del(key);
-    for (const player of [ALICE, BOB]) {
+    for (const key of await kv.keys('player:ranked-*')) await kv.del(key);
+    for (const player of [ALICE, BOB, CAROL, DAVE]) {
         for (const key of await kv.keys(`player-ip:${player}:*`)) await kv.del(key);
         for (const key of await kv.keys(`player-fp:${player}:*`)) await kv.del(key);
     }
@@ -116,6 +119,8 @@ beforeEach(async () => {
             _saveVersion: 1,
             character: { ...character(BOB), rankedFormatWeaponId: 'frostfang-oathblade' },
         }),
+        kv.set(`save:${CAROL}`, { _saveVersion: 1, character: character(CAROL) }),
+        kv.set(`save:${DAVE}`, { _saveVersion: 1, character: character(DAVE) }),
     ]);
 });
 
@@ -401,4 +406,114 @@ test('ranked queue blocks level 10 even when the client claims a higher level, t
     const allowed = await post(rankedQueue, ALICE, { name: ALICE, action: 'join', level: 1 });
     assert.equal(allowed.statusCode, 200, allowed.body?.error);
     assert.equal(allowed.body?.inQueue, true);
+});
+
+/** CAROL vs DAVE ended, but its settlement is stuck: the gate still holds a terminal admission. */
+async function stuckTerminalAdmission() {
+    const { mintPlayerRankedMatchTokenWithStore } = await import('../_ranked-match-token.js');
+    const { activatePlayerRankedAdmission, getPlayerRankedAdmission } = await import('../pet/_ranked-preparation.js');
+    const { publishPlayerRankedTerminal } = await import('./_player-ranked-journal.js');
+    const matchId = 'player-ranked-d2345678-1234-4123-8123-1234567890ab';
+    const battleId = 'pvp-d2345678-1234-4123-8123-1234567890ab';
+    const token = await mintPlayerRankedMatchTokenWithStore(kv, {
+        a: CAROL, b: DAVE, aLevel: 24, bLevel: 24, aRating: 1000, bRating: 1000, matchId,
+    });
+    await activatePlayerRankedAdmission(kv, matchId, battleId);
+    await publishPlayerRankedTerminal(kv, {
+        battleId,
+        p1: { name: CAROL },
+        p2: { name: DAVE },
+        status: 'done',
+        winner: 'p1',
+        ranked: false,
+        rankedKind: 'player',
+        playerRankedAuthorityVersion: 2,
+        rankedMatchId: matchId,
+        rankedSeasonId: token.seasonId,
+        rankedSeasonEpoch: token.seasonEpoch,
+        p1Rating: 1000,
+        p2Rating: 1000,
+        joined: { p1: true, p2: true },
+        rewardAuthority: 'ranked',
+        baseRewards: false,
+        realFighters: { p1: true, p2: true },
+        itemCharges: { p1: {}, p2: {} },
+        itemsUsed: { p1: {}, p2: {} },
+        log: [],
+        createdAt: Date.now() - 60_000,
+    } as never, { eligible: async () => true });
+    // Its session row is gone, so queue traffic cannot finish it either.
+    assert.equal((await getPlayerRankedAdmission(kv, matchId))?.phase, 'terminal');
+    return matchId;
+}
+
+test('a poll whose nearest opponent is still settling a match pairs past them instead of failing', async () => {
+    await stuckTerminalAdmission();
+    const aliceSave = await kv.get<Record<string, any>>(`save:${ALICE}`);
+    const bobSave = await kv.get<Record<string, any>>(`save:${BOB}`);
+    await kv.set(`save:${BOB}`, { ...bobSave, character: { ...bobSave!.character, rankedRating: 1100 } });
+    assert.equal(aliceSave?.character.rankedRating, 1000);
+
+    const carolJoin = await post(rankedQueue, CAROL, { name: CAROL, action: 'join' });
+    assert.equal(carolJoin.statusCode, 409, 'a player whose match still holds the gate is never re-queued');
+    assert.equal(carolJoin.body?.errorCode, 'ranked-settlement-pending');
+    assert.match(String(carolJoin.body?.error), /still being settled/);
+    assert.equal(carolJoin.body?.inQueue, false);
+
+    assert.equal((await post(rankedQueue, ALICE, { name: ALICE, action: 'join' })).statusCode, 200);
+    assert.equal((await post(rankedQueue, BOB, { name: BOB, action: 'join' })).statusCode, 200);
+    // An entry that predates this rule (or raced it): CAROL is Alice's
+    // nearest rating, but her gate admission makes any pair with her unmintable.
+    const queue = await kv.get<Array<Record<string, unknown>>>('pvp:ranked-queue') ?? [];
+    const now = Date.now();
+    await kv.set('pvp:ranked-queue', [...queue, {
+        name: CAROL, level: 24, elo: 1000, joinedAt: now, lastPolledAt: now,
+    }], { ex: 7200 });
+
+    const alicePoll = await post(rankedQueue, ALICE, { name: ALICE, action: 'poll' });
+    assert.equal(alicePoll.statusCode, 200, alicePoll.body?.error);
+    assert.equal(alicePoll.body?.match?.opponent, BOB, 'the settling player is skipped, not minted');
+
+    const carolPoll = await post(rankedQueue, CAROL, { name: CAROL, action: 'poll' });
+    assert.equal(carolPoll.statusCode, 409);
+    assert.equal(carolPoll.body?.errorCode, 'ranked-settlement-pending');
+    const remaining = await kv.get<Array<{ name: string }>>('pvp:ranked-queue') ?? [];
+    assert.equal(remaining.some((entry) => entry.name === CAROL), false, 'she leaves the pool with a reason');
+});
+
+test('a player who re-joins mid-match is never offered to others and gets the match back', async () => {
+    assert.equal((await post(rankedQueue, ALICE, { name: ALICE, action: 'join' })).statusCode, 200);
+    assert.equal((await post(rankedQueue, BOB, { name: BOB, action: 'join' })).statusCode, 200);
+    const matched = await post(rankedQueue, ALICE, { name: ALICE, action: 'poll' });
+    const match = matched.body?.match;
+    assert.equal(match?.opponent, BOB);
+    const created = await post(session, ALICE, {
+        p1Character: { name: ALICE },
+        p2Character: { name: BOB },
+        ranked: true,
+        rankedKind: 'player',
+        rankedMatchId: match.matchId,
+        rankedSeasonId: match.seasonId,
+        rankedSeasonEpoch: match.seasonEpoch,
+    });
+    assert.equal(created.statusCode, 200, created.body?.error);
+    const battleId = String(created.body?.battleId ?? '');
+
+    const rejoin = await post(rankedQueue, ALICE, { name: ALICE, action: 'join' });
+    assert.equal(rejoin.statusCode, 200, rejoin.body?.error);
+    assert.equal(rejoin.body?.inQueue, true);
+    assert.equal(rejoin.body?.resumingMatch, true);
+    const queue = await kv.get<Array<{ name: string }>>('pvp:ranked-queue') ?? [];
+    assert.equal(queue.some((entry) => entry.name === ALICE), false, 'an admitted fighter is not in the pairing pool');
+
+    assert.equal((await post(rankedQueue, DAVE, { name: DAVE, action: 'join' })).statusCode, 200);
+    const davePoll = await post(rankedQueue, DAVE, { name: DAVE, action: 'poll' });
+    assert.equal(davePoll.statusCode, 200, davePoll.body?.error);
+    assert.equal(davePoll.body?.inQueue, true);
+    assert.equal(davePoll.body?.match, null);
+
+    const alicePoll = await post(rankedQueue, ALICE, { name: ALICE, action: 'poll' });
+    assert.equal(alicePoll.statusCode, 200, alicePoll.body?.error);
+    assert.equal(alicePoll.body?.match?.matchId, match.matchId);
+    assert.equal(alicePoll.body?.match?.battleId, battleId, 'her poll restores the match she is already in');
 });
