@@ -1,0 +1,14 @@
+Generated with the built-in image_gen tool on 2026-09-23.
+Source: signal-cairn-v1.png (original alpha retained).
+Runtime: public/landmarks/signal-cairn-v1.webp (512px, WebP quality 88, alpha quality 100).
+Used for sv-signal-cairn and sv-rain-split-cairn map objectives.
+
+Use case: stylized-concept
+Asset type: production transparent 2.5D map landmark sprite for a painted ninja adventure RPG.
+Primary request: create a proper Signal Cairn landmark to replace a generic diamond quest marker.
+Input images: Image 1 (anbu-vault.webp) is a STYLE AND ISOMETRIC CAMERA reference only: match its clean painterly stone forms, elevated three-quarter map perspective and transparent isolated silhouette. Image 2 (stormveil-field-signal-cairn-v1.webp) is a SUBJECT reference: the squat ancient stack of dark weathered stones with a split capstone and tiny tied packet tucked beneath it. Do not include the landscape from either reference.
+Subject: one compact cairn built from four irregular broad stacked slate stones, split capstone slightly displaced, soft patches of olive moss and lichen, small brown waxcloth packet tied with pale cord visible in a crevice. A thin old wooden signal pole with a short faded ochre pennant stands immediately behind the stones. A minimal irregular rocky footing with two small grass tufts.
+Style/medium: polished hand-painted fantasy game environment sprite; readable broad shapes and carefully painted material edges, consistent with a lush green and teal terrain map. Neither photorealistic nor cartoon outline.
+Composition/framing: single centered complete object, elevated isometric three-quarter view looking down about 35 degrees, square canvas, base near bottom, object occupies 85% of canvas, all edges contained, no cropping.
+Lighting: warm daylight from upper left, cool slate shadows, restrained ochre accent. Enough value separation to read at 72 pixels.
+Constraints: genuinely transparent alpha background surrounding the object. No rectangle, no backdrop, no sky, no other structures, no characters, no letters, no labels, no icon frame, no UI, no watermark, no baked checkerboard. Keep the cairn recognizable as a stack of natural stones rather than a temple or building.

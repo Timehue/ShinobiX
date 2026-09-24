@@ -4303,7 +4303,7 @@ function WorldMapContent({
                                 shrine={sectorOverlayShrine}
                                 boss={sectorOverlayBoss}
                                 fieldStory={sectorIsCurrent && fieldObjective?.pointId && fieldObjective.sector === selectedSector ? {
-                                    title: fieldObjective.name, tile: fieldObjective.tile,
+                                    pointId: fieldObjective.pointId, title: fieldObjective.name, tile: fieldObjective.tile,
                                     onOpen: () => setFieldScene({ questId: fieldObjective.questId, pointId: fieldObjective.pointId! }),
                                 } : null}
                                 onEngageWanderer={handleWandererEngage}
