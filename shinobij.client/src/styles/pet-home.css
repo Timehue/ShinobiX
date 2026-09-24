@@ -30,7 +30,7 @@
 
 .pet-home-hero::after { content: ""; position: absolute; z-index: -1; inset: 0; background: radial-gradient(circle at 72% 28%,rgba(120,217,189,.16),transparent 30%); pointer-events: none; }
 .pet-home-hero-copy { max-width: 650px; }
-.pet-home-hero h1 { margin: .1rem 0; font: 700 clamp(3rem, 7vw, 6.5rem)/.9 Georgia, serif; letter-spacing: -.04em; }
+.pet-home-hero h1 { margin: .1rem 0; font: 700 clamp(3rem, 5vw, 4.75rem)/.95 Georgia, serif; letter-spacing: -.04em; }
 .pet-home-hero p { max-width: 34rem; margin: .8rem 0 0; color: #c4d3dc; font-size: clamp(1rem, 2vw, 1.2rem); }
 .pet-home-kicker { color: var(--home-gold); font-size: .72rem; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; }
 .pet-home-back { position: absolute; top: 1rem; left: 1rem; display: inline-flex; align-items: center; gap: .7rem; min-height: 48px; border: 1px solid rgba(230,189,112,.38); border-radius: 12px; color: white; background: rgba(3, 8, 18, .78); padding: .55rem .85rem; box-shadow: 0 12px 30px rgba(0,0,0,.28); backdrop-filter: blur(10px); }
@@ -48,26 +48,31 @@
     box-sizing: border-box;
     position: relative;
     z-index: 20;
-    display: flex;
-    justify-content: center;
-    gap: .35rem;
-    width: min(920px, calc(100% - 2rem));
-    margin: .75rem auto 1.5rem;
-    padding: .4rem;
-    border: 1px solid rgba(230, 189, 112, .3);
-    border-radius: 18px;
-    background: rgba(5, 12, 23, .94);
-    box-shadow: 0 16px 45px rgba(0, 0, 0, .35);
-    backdrop-filter: blur(14px);
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+    width: min(1260px, calc(100% - 2rem));
+    margin: 1rem auto 1.75rem;
+    padding: 6px;
+    border: 1px solid rgba(230, 189, 112, .28);
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(17, 31, 40, .96), rgba(6, 15, 26, .98));
+    box-shadow: 0 18px 44px rgba(0, 0, 0, .32), inset 0 1px rgba(255, 255, 255, .04);
 }
 
-.pet-home-tabs button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: .48rem; min-height: 48px; border: 1px solid transparent; border-radius: 13px; color: #aebfca; background: transparent; font-weight: 800; transition: color .16s ease,background .16s ease,border-color .16s ease,transform .16s ease; }
-.pet-home-tabs button svg { flex: 0 0 auto; color: #687f8d; }
+.pet-home-tabs button { position: relative; display: flex; align-items: center; justify-content: flex-start; gap: .72rem; min-width: 0; min-height: 84px; border: 1px solid rgba(178, 210, 229, .1); border-radius: 10px; color: #cfdae0; background: rgba(4, 12, 22, .56); padding: .65rem .8rem; text-align: left; transition: color .16s ease,background .16s ease,border-color .16s ease,transform .16s ease; }
+.pet-home-tab-symbol { display: grid; flex: 0 0 auto; place-items: center; width: 38px; height: 38px; border: 1px solid rgba(230, 189, 112, .23); border-radius: 10px; color: #e1c58b; background: rgba(230, 189, 112, .08); }
+.pet-home-tab-copy { display: grid; min-width: 0; gap: .12rem; }
+.pet-home-tab-step { color: #d4b981; font-size: .57rem; font-weight: 900; letter-spacing: .13em; white-space: nowrap; }
+.pet-home-tab-label { min-width: 0; color: inherit; font-size: .95rem; font-weight: 850; line-height: 1.15; }
+.pet-home-tab-detail { color: #9db0b8; font-size: .69rem; line-height: 1.2; white-space: nowrap; }
 @media (hover: hover) {
-    .pet-home-tabs button:hover { color: #f4e2b5; background: rgba(255,255,255,.045); transform: translateY(-1px); }
+    .pet-home-tabs button:hover { color: #fff1d0; border-color: rgba(230, 189, 112, .42); background: rgba(45, 63, 69, .72); transform: translateY(-2px); }
 }
-.pet-home-tabs button[aria-current="page"] { border-color: rgba(255,255,255,.26); color: #08111e; background: linear-gradient(135deg, #f0ce86, #75d9be); box-shadow: 0 6px 22px rgba(120, 217, 189, .22); }
-.pet-home-tabs button[aria-current="page"] svg { color: #0a2730; }
+.pet-home-tabs button[aria-current="page"] { border-color: rgba(228, 199, 139, .68); color: #fff4d8; background: linear-gradient(135deg, rgba(144, 106, 52, .38), rgba(20, 73, 74, .68)); box-shadow: 0 8px 25px rgba(0, 0, 0, .24), inset 0 1px rgba(255, 255, 255, .08); }
+.pet-home-tabs button[aria-current="page"]::after { content: ""; position: absolute; right: 18px; bottom: -1px; left: 18px; height: 3px; border-radius: 3px 3px 0 0; background: linear-gradient(90deg, #edcb86, #7bdcc2); box-shadow: 0 0 14px rgba(123, 220, 194, .5); }
+.pet-home-tabs button[aria-current="page"] .pet-home-tab-symbol { border-color: rgba(240, 206, 134, .65); color: #fff0c7; background: rgba(240, 206, 134, .18); }
+.pet-home-tabs button[aria-current="page"] .pet-home-tab-detail { color: #d3e2db; }
 .pet-home-tabs button:focus-visible { outline: 2px solid var(--home-gold); outline-offset: 2px; }
 .pet-home-tab-label-short { display: none; }
 
@@ -282,6 +287,12 @@
 @media (max-width: 900px) {
     .pet-home-hero { grid-template-columns: 1fr; }
     .pet-home-hero-ledger { width: min(620px,100%); }
+    .pet-home-tabs button { flex-direction: column; justify-content: center; gap: .3rem; min-height: 68px; padding: .5rem .2rem; text-align: center; }
+    .pet-home-tab-symbol { width: 30px; height: 30px; border-radius: 8px; }
+    .pet-home-tab-symbol svg { width: 17px; height: 17px; }
+    .pet-home-tab-copy { justify-items: center; }
+    .pet-home-tab-step, .pet-home-tab-detail { display: none; }
+    .pet-home-tab-label { font-size: .78rem; }
     .pet-yard-screen .pet-yard-header { grid-template-columns: auto minmax(0,1fr); }
     .pet-collection-filters { grid-template-columns: repeat(4, minmax(0,1fr)); }
     .pet-collection-filters .pet-search { grid-column: span 2; }
@@ -307,10 +318,11 @@
     .pet-home-hero-ledger span { color: #a8bdc7; font-size: .65rem; }
     .pet-home-hero-ledger small { color: #b1c2c9; font-size: .68rem; }
     .pet-home-hero-ledger > div:last-child { grid-column: 1 / -1; }
-    .pet-home-tabs { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: .2rem; overflow: visible; width: calc(100% - 1rem); padding: .3rem; border-radius: 15px; }
-    .pet-home-tabs button { flex: none; flex-direction: column; gap: .2rem; min-width: 0; min-height: 52px; padding: .35rem .08rem; font-size: .65rem; line-height: 1; white-space: nowrap; }
-    .pet-home-tabs button svg { width: 17px; height: 17px; }
-    .pet-home-tab-label { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+    .pet-home-tabs { grid-template-columns: repeat(5,minmax(0,1fr)); gap: .2rem; overflow: visible; width: calc(100% - 1rem); padding: .3rem; border-radius: 15px; }
+    .pet-home-tabs button { gap: .2rem; min-height: 60px; padding: .35rem .08rem; }
+    .pet-home-tab-symbol { width: 26px; height: 26px; }
+    .pet-home-tab-symbol svg { width: 15px; height: 15px; }
+    .pet-home-tab-label { max-width: 100%; font-size: .68rem; line-height: 1.15; white-space: normal; overflow-wrap: anywhere; }
     .pet-home-tab-label-full { display: none; }
     .pet-home-tab-label-short { display: inline; }
     .pet-yard-screen .pet-yard-header { grid-template-columns: 1fr; align-items: stretch; }
@@ -353,7 +365,7 @@
 
 @media (max-width: 520px) {
     .pet-home-tabs { grid-template-columns: repeat(6,minmax(0,1fr)); }
-    .pet-home-tabs button { grid-column: span 2; font-size: .68rem; }
+    .pet-home-tabs button { grid-column: span 2; min-height: 62px; }
     .pet-home-tabs button:nth-last-child(-n+2) { grid-column: span 3; }
     .pet-home-tab-label-full { display: inline; }
     .pet-home-tab-label-short { display: none; }

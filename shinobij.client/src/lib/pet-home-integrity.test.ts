@@ -33,8 +33,8 @@ describe("Pet Home cross-layer integrity wiring", () => {
         const api = source("./pet-breeding-api.ts");
         const breedingStart = source("../../../api/pet/breeding-start.ts");
 
-        assert.ok(tabs.includes('aria-label="Shinobi Hatchery"'));
-        assert.ok(tabs.includes('full="Shinobi Hatchery"'));
+        assert.ok(tabs.includes('id: "breeding", full: "Shinobi Hatchery"'));
+        assert.ok(tabs.includes('aria-label={tab.full}') && tabs.includes('<PetHomeTabLabel full={tab.full}'));
         assert.ok(breeding.includes(">Shinobi Hatchery</h2>"));
         assert.ok(api.includes("body.message || body.error"), "friendly API messages must take precedence over stable error codes");
         assert.ok(breedingStart.includes("error: 'breeding-barn-occupied', message: 'The Shinobi Hatchery is already occupied.'"));

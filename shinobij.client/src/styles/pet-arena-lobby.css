@@ -37,8 +37,8 @@
 .pet-arena-lobby > * { position: relative; z-index: 1; }
 
 .pet-arena-lobby > .pet-home-tabs {
-    width: min(920px, calc(100% - 2rem));
-    margin: .75rem auto 1.5rem !important;
+    width: min(1260px, calc(100% - 2rem));
+    margin: 1rem auto 1.75rem !important;
 }
 
 /* ── Cinematic command header ─────────────────────────────────────────── */

@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components -- the session routing helper is tested with the tabs */
 import type { Screen } from "../types/core";
-import { GameIcon } from "./icons/GameIcon";
+import { GameIcon, type GameIconName } from "./icons/GameIcon";
 
 export type PetHomeTab = "collection" | "yard" | "arena" | "sanctuary" | "breeding";
 
@@ -20,6 +20,21 @@ function PetHomeTabLabel({ full, short }: { full: string; short: string }) {
         </span>
     );
 }
+
+const PET_HOME_DESTINATIONS: ReadonlyArray<{
+    id: PetHomeTab;
+    full: string;
+    short: string;
+    step: string;
+    detail: string;
+    icon: GameIconName;
+}> = [
+    { id: "collection", full: "Collection", short: "Collection", step: "01 / ARCHIVE", detail: "Browse your roster", icon: "medal" },
+    { id: "yard", full: "Pet Yard", short: "Yard", step: "02 / CARE", detail: "Train and equip", icon: "paw" },
+    { id: "arena", full: "Pet Arena", short: "Arena", step: "03 / COMBAT", detail: "Enter the ring", icon: "sword" },
+    { id: "sanctuary", full: "Sanctuary", short: "Sanctuary", step: "04 / REST", detail: "Manage capacity", icon: "shield" },
+    { id: "breeding", full: "Shinobi Hatchery", short: "Hatchery", step: "05 / BLOODLINES", detail: "Raise a new bond", icon: "sparkle" },
+];
 
 export function peekPetHomeTabHint(): PetHomeContentTab {
     if (typeof window === "undefined") return "collection";
@@ -44,13 +59,28 @@ export function PetHomeTabs({ active, onHomeTab, setScreen }: {
     onHomeTab?: (tab: PetHomeContentTab) => void;
     setScreen: (screen: Screen) => void;
 }) {
+    const openTab = (tab: PetHomeTab) => {
+        if (tab === "yard") setScreen("pets");
+        else if (tab === "arena") setScreen("petArena");
+        else openHomeTab(tab, onHomeTab, setScreen);
+    };
+
     return (
         <nav className="pet-home-tabs" aria-label="Companion Home sections">
-            <button type="button" aria-label="Collection" aria-current={active === "collection" ? "page" : undefined} onClick={() => openHomeTab("collection", onHomeTab, setScreen)}><GameIcon name="medal" /><PetHomeTabLabel full="Collection" short="Collection" /></button>
-            <button type="button" aria-label="Pet Yard" aria-current={active === "yard" ? "page" : undefined} onClick={() => setScreen("pets")}><GameIcon name="paw" /><PetHomeTabLabel full="Pet Yard" short="Yard" /></button>
-            <button type="button" aria-label="Pet Arena" aria-current={active === "arena" ? "page" : undefined} onClick={() => setScreen("petArena")}><GameIcon name="sword" /><PetHomeTabLabel full="Pet Arena" short="Arena" /></button>
-            <button type="button" aria-label="Sanctuary" aria-current={active === "sanctuary" ? "page" : undefined} onClick={() => openHomeTab("sanctuary", onHomeTab, setScreen)}><GameIcon name="shield" /><PetHomeTabLabel full="Sanctuary" short="Sanctuary" /></button>
-            <button type="button" aria-label="Shinobi Hatchery" aria-current={active === "breeding" ? "page" : undefined} onClick={() => openHomeTab("breeding", onHomeTab, setScreen)}><GameIcon name="sparkle" /><PetHomeTabLabel full="Shinobi Hatchery" short="Hatchery" /></button>
+            {PET_HOME_DESTINATIONS.map((tab) => <button
+                key={tab.id}
+                type="button"
+                aria-label={tab.full}
+                aria-current={active === tab.id ? "page" : undefined}
+                onClick={() => openTab(tab.id)}
+            >
+                <span className="pet-home-tab-symbol" aria-hidden="true"><GameIcon name={tab.icon} size={20} /></span>
+                <span className="pet-home-tab-copy">
+                    <span className="pet-home-tab-step" aria-hidden="true">{tab.step}</span>
+                    <PetHomeTabLabel full={tab.full} short={tab.short} />
+                    <span className="pet-home-tab-detail" aria-hidden="true">{tab.detail}</span>
+                </span>
+            </button>)}
         </nav>
     );
 }
