@@ -214,7 +214,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             next.hollowGateRun = null;
             next.hollowGatePendingOperation = null;
-            delete next.lastHollowGateStart;
+            // `undefined`, NEVER `delete`: writeVersionedPlayerSaveWithStore
+            // merges onto the stored record, so a deleted key is restored and
+            // the stale marker then blocks every later entry as "spent".
+            next.lastHollowGateStart = undefined;
             next.redeemedHollowGateRuns = [...redeemedRuns.slice(-99), token];
             fragmentsClampedTo = itemStackCount(next.itemStacks, HG_HIGH_VALUE_ITEM_ID);
             const updated = await writeVersionedPlayerSaveWithStore(kv, saveKey, fresh, next, {}, { hollowGateCurrencySource: 'run' });
