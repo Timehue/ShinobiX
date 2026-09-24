@@ -35,8 +35,10 @@ test('run start is idempotent across a lost response and persists the run before
         'the durable run must be written before the paid character mutation is committed',
     );
     assert.match(client, /for \(let attempt = 0; attempt < 2/);
-    assert.match(client, /JSON\.stringify\(\{ playerName, floorDepth, variantId, requestId,/);
-    assert.match(client, /cardClashDeck/);
+    assert.match(client, /JSON\.stringify\(\{ playerName, floorDepth, variantId, requestId \}\)/);
+    // Rift entry has no deck requirement, so the start request carries no deck.
+    assert.doesNotMatch(client, /cardClashDeck/);
+    assert.doesNotMatch(api, /cardClashDeck|rift-entry-not-ready/);
     const app = source('shinobij.client', 'src', 'App.tsx');
     const entry = source('shinobij.client', 'src', 'lib', 'hollow-gate-entry.ts');
     assert.match(app, /enterHollowGateShrineFlow\(/);

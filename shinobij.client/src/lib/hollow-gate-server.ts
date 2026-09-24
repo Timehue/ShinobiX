@@ -60,7 +60,7 @@ export type HollowGateSettleResult = {
 };
 
 // ── Fetch wrappers (auth headers are auto-attached by installAuthFetch) ─────────
-export async function startHollowGateServerRun(playerName: string, floorDepth: number, variantId?: string, recoveryRequestId?: string, cardClashDeck?: readonly string[]): Promise<HollowGateStartResult | null> {
+export async function startHollowGateServerRun(playerName: string, floorDepth: number, variantId?: string, recoveryRequestId?: string): Promise<HollowGateStartResult | null> {
     if (!playerName) return null;
     const requestId = recoveryRequestId && /^[A-Za-z0-9:_-]{8,96}$/.test(recoveryRequestId)
         ? recoveryRequestId
@@ -72,7 +72,7 @@ export async function startHollowGateServerRun(playerName: string, floorDepth: n
             const r = await fetch("/api/hollow-gate/start", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ playerName, floorDepth, variantId, requestId, ...(variantId?.startsWith("rift-") ? { cardClashDeck } : {}) }),
+                body: JSON.stringify({ playerName, floorDepth, variantId, requestId }),
             });
             const data = (await r.json().catch(() => ({}))) as HollowGateStartResult;
             if (!r.ok) return { ...data, ok: false, reason: data.reason || data.error || `start-failed-${r.status}` };
