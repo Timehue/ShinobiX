@@ -73,10 +73,10 @@ export function kickPlayer(name: string | undefined | null, reason: 'attack' | '
 /**
  * Tell a player's own tabs about a save version the server committed with NO
  * request of theirs in flight to carry it — today, a travel arrival settled by
- * the heartbeat/socket settler. Only for writes that touch server-owned fields
- * and leave the character untouched: the client adopts the version alone, so
- * its local character must already be correct at the new base. No-op without a
- * socket; the 409 → refetch recovery stays the fallback.
+ * the heartbeat/socket settler. Only for writes whose changes an autosave cannot
+ * undo (server-owned fields, server-clamped vitals): the client adopts the
+ * version alone, without a character. No-op without a socket; the 409 →
+ * refetch recovery stays the fallback.
  */
 export function pushSaveVersion(name: string | undefined | null, version: number): void {
     if (!_emit || !name || !Number.isSafeInteger(version) || version <= 0) return;
