@@ -158,6 +158,34 @@ export function parsePvpSessionProjection(raw: unknown, expectedBattleId: string
 
 export type PvpRevisionDecision = "accept" | "duplicate" | "stale" | "foreign" | "conflict";
 
+/**
+ * Equality of two parsed JSON values, ignoring object key order (and, as JSON
+ * text does, keys whose value is undefined). The same committed revision
+ * reaches the mover twice: once in its own move response, whose keys are in the
+ * server's insertion order, and once from Realtime/SSE/GET, which read the
+ * Postgres jsonb row back in jsonb's own key order. Comparing JSON text called
+ * those identical rows a "conflict" after every one of the mover's moves, and a
+ * conflict tears the live transport down and re-reads the whole session.
+ */
+export function sameJsonValue(a: unknown, b: unknown): boolean {
+    if (a === b) return true;
+    if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
+    if (Array.isArray(a) || Array.isArray(b)) {
+        if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+        for (let i = 0; i < a.length; i++) if (!sameJsonValue(a[i], b[i])) return false;
+        return true;
+    }
+    const left = a as Record<string, unknown>;
+    const right = b as Record<string, unknown>;
+    const leftKeys = Object.keys(left).filter((key) => left[key] !== undefined);
+    const rightKeys = Object.keys(right).filter((key) => right[key] !== undefined);
+    if (leftKeys.length !== rightKeys.length) return false;
+    for (const key of leftKeys) {
+        if (!Object.prototype.hasOwnProperty.call(right, key) || !sameJsonValue(left[key], right[key])) return false;
+    }
+    return true;
+}
+
 /** Accept only a strictly newer projection for this exact battle. */
 export function decidePvpSessionRevision(
     current: PvpSessionState | null,
@@ -167,7 +195,7 @@ export function decidePvpSessionRevision(
     if (!current) return "accept";
     if (incoming.stateRevision > current.stateRevision) return "accept";
     if (incoming.stateRevision === current.stateRevision) {
-        if (JSON.stringify(incoming) === JSON.stringify(current)) return "duplicate";
+        if (sameJsonValue(incoming, current)) return "duplicate";
         // Rolling deploy: an old move worker may terminalize an unrevisioned
         // row without adding stateRevision. Never freeze that decisive legacy
         // transition behind equal synthetic revision zero.
