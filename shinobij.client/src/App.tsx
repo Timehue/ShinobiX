@@ -1795,10 +1795,10 @@ export default function App() {
     const [dungeonLine, setDungeonLine] = useState(0);
     const [dungeonReturnScreen, setDungeonReturnScreen] = useState<Screen>("worldMap");
     // Rebuild presentation from the active run after refresh. DungeonEncounter
-    // derives the exact Warden/Card/Pet stage from server-owned proofs.
+    // derives the exact Warden/Card/Pet stage from server-owned proofs. A run that ended (fled Warden) routes back out.
     useEffect(() => {
         const run = character?.activeDungeonRun;
-        if (screen !== "dungeon" || !run?.token) return;
+        if (screen !== "dungeon" || !character) return; if (!run?.token) { if (sealedFightOpen) return; setActiveDungeonEvent(null); setActiveDungeonRunToken(null); setScreen(dungeonReturnScreen); return; }
         let active = true;
         void loadDungeonPresentation().then(({ dungeonEventForRun }) => {
             if (!active) return;
@@ -1811,7 +1811,7 @@ export default function App() {
             setScreen(run.entry === 'key' ? 'centralHub' : 'worldMap');
         });
         return () => { active = false; };
-    }, [screen, character?.activeDungeonRun?.token, character?.activeDungeonRun?.presentationEventId, character?.activeDungeonRun?.entry, creatorEvents]);
+    }, [screen, character?.name, character?.activeDungeonRun?.token, character?.activeDungeonRun?.presentationEventId, character?.activeDungeonRun?.entry, creatorEvents, dungeonReturnScreen, sealedFightOpen]);
     // Warn before refresh/close during battle or while hospitalized
     useEffect(() => {
         function handleBeforeUnload(e: BeforeUnloadEvent) {
