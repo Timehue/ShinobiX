@@ -82,7 +82,7 @@ test('travel lease bounds the arrival tile by the board, not a literal 143', () 
 // holds this same lock across mutatePlayerSave, which takes a NESTED lock:save:<name>.
 // Because edge crossings are instant, the settle for the crossing you just made is
 // often still holding the key when you walk into the next one. The default 5-attempt
-// budget gave up at ~775ms, setTravelLease is failClosed, and api/player/travel.ts
+// budget makes its last try ~375ms in, setTravelLease is failClosed, and api/player/travel.ts
 // turned the throw into a 503 — the player did not move. Asserts the wait outlasts a
 // realistic settle; only the positive is asserted so a slow CI box can't flake it.
 test('a travel request outwaits a settle that is holding the lease lock', async () => {
