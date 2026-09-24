@@ -245,6 +245,29 @@ test("rewarded Warfronts render and settle only the server-minted seed", () => {
         "there is no element requirement — do not re-advertise one");
 });
 
+test("a paced Warfront kickoff waits on its button, keeps its sealed band, and resets with the account", () => {
+    const mintStart = arenaSource.indexOf("function mintWarfrontToken");
+    const reportStart = arenaSource.indexOf("function reportTacticalArenaResult", mintStart);
+    assert.ok(mintStart >= 0 && reportStart > mintStart);
+    const mintSource = arenaSource.slice(mintStart, reportStart);
+    // One resend, and only for the server's own kickoff-pace refusal.
+    assert.match(mintSource, /if \(r\.status !== 429 \|\| attempt > 0\) break;/);
+    assert.match(mintSource, /pace\?\.code !== "WARFRONT_KICKOFF_PACE"/);
+    assert.match(mintSource, /if \(!await waitOutWarfrontPace\(/);
+    // The countdown belongs to one player: an in-place account swap purges it
+    // with the rest of the battle-owned state.
+    const purgeStart = arenaSource.indexOf("every battle-owned value so the incoming player");
+    const purgeEnd = arenaSource.indexOf("}, [character.name]);", purgeStart);
+    assert.ok(purgeStart >= 0 && purgeEnd > purgeStart);
+    const purge = arenaSource.slice(purgeStart, purgeEnd);
+    assert.match(purge, /setWarfrontSetupPending\(false\);/);
+    assert.match(purge, /setWarfrontPaceSeconds\(null\);/);
+    // The waiting kickoff already carries its four pets, so the grid may not
+    // show a different band while it waits.
+    assert.match(arenaSource, /pickGrid\(tacticalPicks, setTacticalPicks, tacticalSize, warfrontPaceSeconds !== null\)/);
+    assert.match(arenaSource, /disabled=\{atMax \|\| locked\}/);
+});
+
 test("the retired lane war is unreachable from anything a player can open", () => {
     // Arena, co-op, and the offline ranked ladder all use the Rite now. Retained
     // lane-war implementation files must not expose another player-facing mode.
