@@ -60,18 +60,18 @@
     box-shadow: 0 18px 44px rgba(0, 0, 0, .32), inset 0 1px rgba(255, 255, 255, .04);
 }
 
-.pet-home-tabs button { position: relative; display: flex; align-items: center; justify-content: flex-start; gap: .72rem; min-width: 0; min-height: 84px; border: 1px solid rgba(178, 210, 229, .1); border-radius: 10px; color: #cfdae0; background: rgba(4, 12, 22, .56); padding: .65rem .8rem; text-align: left; transition: color .16s ease,background .16s ease,border-color .16s ease,transform .16s ease; }
-.pet-home-tab-symbol { display: grid; flex: 0 0 auto; place-items: center; width: 38px; height: 38px; border: 1px solid rgba(230, 189, 112, .23); border-radius: 10px; color: #e1c58b; background: rgba(230, 189, 112, .08); }
-.pet-home-tab-copy { display: grid; min-width: 0; gap: .12rem; }
-.pet-home-tab-step { color: #d4b981; font-size: .57rem; font-weight: 900; letter-spacing: .13em; white-space: nowrap; }
+.pet-home-tabs button { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .1rem; min-width: 0; min-height: 128px; border: 1px solid rgba(178, 210, 229, .1); border-radius: 10px; color: #cfdae0; background: radial-gradient(circle at 50% 28%, rgba(226, 193, 127, .09), transparent 58%), rgba(4, 12, 22, .56); padding: .55rem .4rem; text-align: center; transition: color .16s ease,background .16s ease,border-color .16s ease,transform .16s ease; }
+.pet-home-tab-art { display: block; flex: 0 0 72px; width: 72px; height: 72px; object-fit: contain; filter: drop-shadow(0 6px 7px rgba(0, 0, 0, .55)); transition: transform .2s ease, filter .2s ease; }
+.pet-home-tab-copy { display: grid; justify-items: center; min-width: 0; gap: .12rem; }
 .pet-home-tab-label { min-width: 0; color: inherit; font-size: .95rem; font-weight: 850; line-height: 1.15; }
 .pet-home-tab-detail { color: #9db0b8; font-size: .69rem; line-height: 1.2; white-space: nowrap; }
 @media (hover: hover) {
     .pet-home-tabs button:hover { color: #fff1d0; border-color: rgba(230, 189, 112, .42); background: rgba(45, 63, 69, .72); transform: translateY(-2px); }
+    .pet-home-tabs button:hover .pet-home-tab-art { transform: translateY(-3px) scale(1.05); filter: drop-shadow(0 9px 10px rgba(0, 0, 0, .65)); }
 }
 .pet-home-tabs button[aria-current="page"] { border-color: rgba(228, 199, 139, .68); color: #fff4d8; background: linear-gradient(135deg, rgba(144, 106, 52, .38), rgba(20, 73, 74, .68)); box-shadow: 0 8px 25px rgba(0, 0, 0, .24), inset 0 1px rgba(255, 255, 255, .08); }
 .pet-home-tabs button[aria-current="page"]::after { content: ""; position: absolute; right: 18px; bottom: -1px; left: 18px; height: 3px; border-radius: 3px 3px 0 0; background: linear-gradient(90deg, #edcb86, #7bdcc2); box-shadow: 0 0 14px rgba(123, 220, 194, .5); }
-.pet-home-tabs button[aria-current="page"] .pet-home-tab-symbol { border-color: rgba(240, 206, 134, .65); color: #fff0c7; background: rgba(240, 206, 134, .18); }
+.pet-home-tabs button[aria-current="page"] .pet-home-tab-art { filter: drop-shadow(0 4px 10px rgba(226, 191, 115, .3)); }
 .pet-home-tabs button[aria-current="page"] .pet-home-tab-detail { color: #d3e2db; }
 .pet-home-tabs button:focus-visible { outline: 2px solid var(--home-gold); outline-offset: 2px; }
 .pet-home-tab-label-short { display: none; }
@@ -287,11 +287,10 @@
 @media (max-width: 900px) {
     .pet-home-hero { grid-template-columns: 1fr; }
     .pet-home-hero-ledger { width: min(620px,100%); }
-    .pet-home-tabs button { flex-direction: column; justify-content: center; gap: .3rem; min-height: 68px; padding: .5rem .2rem; text-align: center; }
-    .pet-home-tab-symbol { width: 30px; height: 30px; border-radius: 8px; }
-    .pet-home-tab-symbol svg { width: 17px; height: 17px; }
+    .pet-home-tabs button { gap: .15rem; min-height: 102px; padding: .4rem .2rem; }
+    .pet-home-tab-art { flex-basis: 58px; width: 58px; height: 58px; }
     .pet-home-tab-copy { justify-items: center; }
-    .pet-home-tab-step, .pet-home-tab-detail { display: none; }
+    .pet-home-tab-detail { display: none; }
     .pet-home-tab-label { font-size: .78rem; }
     .pet-yard-screen .pet-yard-header { grid-template-columns: auto minmax(0,1fr); }
     .pet-collection-filters { grid-template-columns: repeat(4, minmax(0,1fr)); }
@@ -319,9 +318,8 @@
     .pet-home-hero-ledger small { color: #b1c2c9; font-size: .68rem; }
     .pet-home-hero-ledger > div:last-child { grid-column: 1 / -1; }
     .pet-home-tabs { grid-template-columns: repeat(5,minmax(0,1fr)); gap: .2rem; overflow: visible; width: calc(100% - 1rem); padding: .3rem; border-radius: 15px; }
-    .pet-home-tabs button { gap: .2rem; min-height: 60px; padding: .35rem .08rem; }
-    .pet-home-tab-symbol { width: 26px; height: 26px; }
-    .pet-home-tab-symbol svg { width: 15px; height: 15px; }
+    .pet-home-tabs button { gap: .12rem; min-height: 76px; padding: .28rem .08rem; }
+    .pet-home-tab-art { flex-basis: 42px; width: 42px; height: 42px; }
     .pet-home-tab-label { max-width: 100%; font-size: .68rem; line-height: 1.15; white-space: normal; overflow-wrap: anywhere; }
     .pet-home-tab-label-full { display: none; }
     .pet-home-tab-label-short { display: inline; }
@@ -365,7 +363,7 @@
 
 @media (max-width: 520px) {
     .pet-home-tabs { grid-template-columns: repeat(6,minmax(0,1fr)); }
-    .pet-home-tabs button { grid-column: span 2; min-height: 62px; }
+    .pet-home-tabs button { grid-column: span 2; min-height: 84px; }
     .pet-home-tabs button:nth-last-child(-n+2) { grid-column: span 3; }
     .pet-home-tab-label-full { display: inline; }
     .pet-home-tab-label-short { display: none; }
