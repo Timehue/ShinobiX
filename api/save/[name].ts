@@ -4,7 +4,7 @@ import { sanitizeProgression } from './_sanitize-progression.js';
 import { sanitizePetRoster } from './_sanitize-pets.js';
 import { sanitizeInventory } from './_sanitize-inventory.js';
 import { sanitizeExamProgress } from './_sanitize-exams.js';
-import { hasRejectedBloodlineSubmission, prepareBloodlineNormalization, preserveEquippedBloodline } from './_sanitize-bloodlines.js';
+import { hasRejectedBloodlineForgeAttempt, hasRejectedBloodlineSubmission, prepareBloodlineNormalization, preserveEquippedBloodline } from './_sanitize-bloodlines.js';
 import { sanitizeChallengeProgress } from './_sanitize-challenges.js';
 import { sanitizeCardsAndHistory } from './_sanitize-cards-history.js';
 import { sanitizeClaimsAndHospital } from './_sanitize-claims-hospital.js';
@@ -1040,12 +1040,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             );
                         }
                         // Older open clients do not inspect the bloodline receipt.
-                        // If the sanitizer rejected a new id or rank upgrade, fail
-                        // the whole write instead of returning a misleading 200.
-                        if (hasRejectedBloodlineSubmission(
-                            (incoming as Record<string, unknown>).savedBloodlines,
-                            (safeIncoming as Record<string, unknown>).savedBloodlines,
-                        )) {
+                        // If the sanitizer rejected a maker write's bloodline, or
+                        // an older client's Awakening that a pending forge could
+                        // pay for, fail the whole write instead of returning a
+                        // misleading 200. Any other stale list (another tab's
+                        // swap, a restored draft, duplicate rows) was already
+                        // normalized to the stored roster; failing it would
+                        // refuse every later autosave until a reload.
+                        const bloodlineWriteIntent = typeof req.headers['x-bloodline-write-intent'] === 'string'
+                            ? req.headers['x-bloodline-write-intent'] : '';
+                        const submittedBloodlines = (incoming as Record<string, unknown>).savedBloodlines;
+                        const retainedBloodlines = (safeIncoming as Record<string, unknown>).savedBloodlines;
+                        if (bloodlineWriteIntent
+                            ? hasRejectedBloodlineSubmission(submittedBloodlines, retainedBloodlines)
+                            : hasRejectedBloodlineForgeAttempt(submittedBloodlines, retainedBloodlines,
+                                (existing as Record<string, unknown> | null)?.pendingBloodlineForges)) {
                             return res.status(422).json({
                                 error: 'Bloodline was not saved. Refresh the game and retry the Awakening ritual.',
                                 code: 'BLOODLINE_SAVE_REJECTED',
