@@ -162,8 +162,10 @@ describe('wiring: every converted limit uses a key no stranger can spend', () =>
         for (const [rel, bucket] of [['./pvp/chat.ts', 'pvp-chat-post'], ['./village/chat.ts', 'village-chat-post'], ['./messages.ts', 'dm-send']]) {
             assert.match(limitLine(source(rel), bucket), /identity\.name/, `${rel}: ${bucket} keys on the verified player`);
         }
-        assert.match(limitLine(source('./pvp/session.ts'), 'pvp-session-pending'), /identity\.name/,
-            'pending recovery probes key on the verified player');
+        // Pending recovery stays BEFORE auth (failed-auth probes must pay too),
+        // so it keys on name@address like the public reads, never the bare name.
+        assert.match(limitLine(source('./pvp/session.ts'), 'pvp-session-pending'), /requestPlayerKey\(req\)/,
+            'pending recovery probes key per player at their address');
         assert.match(limitLine(source('./player/friends.ts'), 'friends-mutate'), /playerName\)/, 'friends keys on the verified player');
     });
 });

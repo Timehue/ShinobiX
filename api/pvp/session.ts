@@ -1870,14 +1870,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // is open. Players sharing a connection don't share one budget (see the
         // keys below), and nobody can spend another player's.
         if (String(req.query.pending ?? '') === '1') {
-            const identity = await authedPlayerOrAdmin(req);
-            if (!identity) return res.status(401).json({ error: 'Authentication required.' });
             // Keep recovery probes on the shared (KV) limiter because they may do
-            // extra pointer and reward-publication work — keyed on the VERIFIED
-            // player, after auth.
+            // extra pointer and reward-publication work. Charged BEFORE auth so
+            // failed-auth probes are capped too; keyed per player at their
+            // address, so neighbours and name-spoofers can't spend it.
             // Its own bucket: sharing 'pvp-session-get' let recovery probes spend
             // the live-poll path's per-address backstop.
-            if (!(await enforceRateLimitKv(req, res, 'pvp-session-pending', 360, 60_000, identity.admin ? null : identity.name))) return;
+            if (!(await enforceRateLimitKv(req, res, 'pvp-session-pending', 360, 60_000, requestPlayerKey(req), { ipBackstopMultiplier: PUBLIC_READ_IP_BACKSTOP }))) return;
+            const identity = await authedPlayerOrAdmin(req);
+            if (!identity) return res.status(401).json({ error: 'Authentication required.' });
             const requestedPlayer = safeName(String(
                 req.query.playerName ?? (identity.admin ? '' : identity.name),
             ));
