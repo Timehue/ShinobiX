@@ -4751,6 +4751,7 @@ export default function App() {
     async function leaveDungeon() {
         const current = character;
         const token = activeDungeonRunToken;
+        if (sealedFightEngagedRef.current) return;
         if (current && token && !dungeonActionRef.current) {
             dungeonActionRef.current = true;
             try {
@@ -4771,11 +4772,9 @@ export default function App() {
         setScreen(dungeonReturnScreen);
     }
 
-    // (failDungeon lived here — the loss path for the dungeon Warden fight when
-    // the browser-side Arena reducer hosted it. Warden fights are sealed
-    // Solo-PvE now and a defeat settles server-side in
-    // api/missions/report-ai-fight.ts via applyDungeonWardenSettlement, which
-    // owns the run token. leaveDungeon() above still covers a manual exit.)
+    // A Warden defeat settles server-side (report-ai-fight → applyDungeonWardenSettlement),
+    // which needs the run. So leaveDungeon() refuses while a sealed fight is engaged, and the
+    // Dungeon VN (whose window-level Escape = Leave) is unmounted under the fight.
 
     async function completeDungeon() {
         if (!character || !activeDungeonEvent || dungeonActionRef.current) return;
@@ -5717,7 +5716,7 @@ export default function App() {
                     />
                 )}
 
-                {!activeTriggeredEvent && screen === "dungeon" && character && activeDungeonEvent && (
+                {!activeTriggeredEvent && !sealedFightOpen && screen === "dungeon" && character && activeDungeonEvent && (
                     <DungeonEncounter
                         event={activeDungeonEvent}
                         character={character}
