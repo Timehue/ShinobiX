@@ -309,6 +309,9 @@ function previewSealCost(fromLevel: number, character: Character): number {
     return base;
 }
 
+/** Mirrors the 1-per-30s `train-with-seals` limit in api/jutsu/train-with-seals.ts. */
+const SEAL_TRAIN_COOLDOWN_MS = 30_000;
+
 function JutsuSealPanel({
     character,
     updateCharacter,
@@ -327,6 +330,30 @@ function JutsuSealPanel({
     const [busy, setBusy] = useState(false);
     const busyRef = useRef(false);
     const [msg, setMsg] = useState<string | null>(null);
+    // The server allows one Seal level per 30s (api/jutsu/train-with-seals.ts) by
+    // design. Without a visible cooldown the button stayed live and every quick
+    // second click came back as a bare "Rate limit exceeded."
+    const [sealTrainReadyAt, setSealTrainReadyAt] = useState(0);
+    const [speedUpReadyAt, setSpeedUpReadyAt] = useState(0);
+    const [clock, setClock] = useState(() => Date.now());
+    const cooling = clock < Math.max(sealTrainReadyAt, speedUpReadyAt);
+    useEffect(() => {
+        if (!cooling) return;
+        const id = setInterval(() => setClock(Date.now()), 500);
+        return () => clearInterval(id);
+    }, [cooling]);
+    const sealTrainWaitSec = Math.ceil(Math.max(0, sealTrainReadyAt - clock) / 1000);
+    const speedUpWaitSec = Math.ceil(Math.max(0, speedUpReadyAt - clock) / 1000);
+    const startCooldown = (setReadyAt: (at: number) => void, ms: number) => {
+        const now = Date.now();
+        setClock(now);
+        setReadyAt(now + ms);
+    };
+    const throttledMessage = (retryAfterMs: unknown, setReadyAt: (at: number) => void) => {
+        const ms = typeof retryAfterMs === "number" && Number.isFinite(retryAfterMs) && retryAfterMs > 0 ? retryAfterMs : 5_000;
+        startCooldown(setReadyAt, ms);
+        return `⏳ Your Seals need a moment to settle. Try again in ${Math.ceil(ms / 1000)}s.`;
+    };
 
     const hasDiscount = character.profession === "vanguard" && (character.professionRank ?? 0) >= 8;
     const fromLevel = selectedMastery?.level ?? 0;
@@ -335,7 +362,7 @@ function JutsuSealPanel({
     const balance = character.honorSeals ?? 0;
 
     async function trainWithSeals() {
-        if (!selectedJutsu || !eligibleForSealLevel || busyRef.current) return;
+        if (!selectedJutsu || !eligibleForSealLevel || busyRef.current || Date.now() < sealTrainReadyAt) return;
         busyRef.current = true;
         setBusy(true);
         setMsg(null);
@@ -346,10 +373,15 @@ function JutsuSealPanel({
                 body: JSON.stringify({ playerName: character.name, jutsuId: selectedJutsu.id }),
             });
             const data = await res.json().catch(() => ({}));
+            if (res.status === 429) {
+                setMsg(throttledMessage(data.retryAfterMs, setSealTrainReadyAt));
+                return;
+            }
             if (!res.ok) {
                 setMsg(`❌ ${data.error ?? 'Failed'}`);
                 return;
             }
+            startCooldown(setSealTrainReadyAt, SEAL_TRAIN_COOLDOWN_MS);
             // Mirror server-side mutations locally. Functional updater: the
             // write lands after an await, so merge onto the latest state to
             // avoid clobbering a concurrent setState (regen tick, hydration).
@@ -376,7 +408,7 @@ function JutsuSealPanel({
     }
 
     async function speedUp(sealsRequested: number) {
-        if (!activeJutsuTraining || busyRef.current) return;
+        if (!activeJutsuTraining || busyRef.current || Date.now() < speedUpReadyAt) return;
         busyRef.current = true;
         setBusy(true);
         setMsg(null);
@@ -387,6 +419,10 @@ function JutsuSealPanel({
                 body: JSON.stringify({ playerName: character.name, seals: sealsRequested }),
             });
             const data = await res.json().catch(() => ({}));
+            if (res.status === 429) {
+                setMsg(throttledMessage(data.retryAfterMs, setSpeedUpReadyAt));
+                return;
+            }
             if (!res.ok) {
                 setMsg(`❌ ${data.error ?? 'Failed'}`);
                 return;
@@ -422,10 +458,10 @@ function JutsuSealPanel({
                 {selectedJutsu && eligibleForSealLevel ? (
                     <button
                         onClick={() => void trainWithSeals()}
-                        disabled={busy || balance < sealLevelCost}
+                        disabled={busy || balance < sealLevelCost || sealTrainWaitSec > 0}
                         style={{ background: "linear-gradient(#854d0e,#422006)", borderColor: "#facc15" }}
                     >
-                        {busy ? "…" : `Pay ${sealLevelCost} Seals → Lv ${fromLevel + 1}`}
+                        {busy ? "…" : sealTrainWaitSec > 0 ? `Next Seal level in ${sealTrainWaitSec}s` : `Pay ${sealLevelCost} Seals → Lv ${fromLevel + 1}`}
                     </button>
                 ) : (
                     <span className="hint" style={{ fontSize: "0.78rem" }}>
@@ -438,10 +474,10 @@ function JutsuSealPanel({
                 )}
                 {activeJutsuTraining && serverNow() < activeJutsuTraining.endsAt && (
                     <>
-                        <button onClick={() => void speedUp(1)} disabled={busy || balance < (hasDiscount ? 1 : 1)} style={{ background: "linear-gradient(#422006,#1c1006)", borderColor: "#fde68a" }}>
-                            {busy ? "…" : "−10 min (1 Seal)"}
+                        <button onClick={() => void speedUp(1)} disabled={busy || balance < (hasDiscount ? 1 : 1) || speedUpWaitSec > 0} style={{ background: "linear-gradient(#422006,#1c1006)", borderColor: "#fde68a" }}>
+                            {busy ? "…" : speedUpWaitSec > 0 ? `Ready in ${speedUpWaitSec}s` : "−10 min (1 Seal)"}
                         </button>
-                        <button onClick={() => void speedUp(10)} disabled={busy || balance < (hasDiscount ? 9 : 10)} style={{ background: "linear-gradient(#422006,#1c1006)", borderColor: "#fde68a" }}>
+                        <button onClick={() => void speedUp(10)} disabled={busy || balance < (hasDiscount ? 9 : 10) || speedUpWaitSec > 0} style={{ background: "linear-gradient(#422006,#1c1006)", borderColor: "#fde68a" }}>
                             {busy ? "…" : `Finish now (${hasDiscount ? 9 : 10} Seals)`}
                         </button>
                     </>

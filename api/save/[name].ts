@@ -1299,7 +1299,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // withKvLock already released any lock it held; real errors from
                     // the RMW propagate to the outer handler catch → 500.
                     if (lockErr instanceof LockContendedError) {
-                        return res.status(429).json({ error: 'Concurrent save in flight. Retry.' });
+                        // The hint marks this as transient: another write (a travel or
+                        // reward settlement) holds the save for well under the lock's
+                        // 5s TTL, so the client keeps the change dirty and retries
+                        // instead of counting it toward the "Couldn't save" banner.
+                        return res.status(429).json({ error: 'Concurrent save in flight. Retry.', retryAfterMs: 1_000 });
                     }
                     throw lockErr;
                 }
