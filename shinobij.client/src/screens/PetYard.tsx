@@ -25,7 +25,7 @@ import {
     petHappinessPenaltyNote,
     petHappinessTier,
 } from "../../../shared/pet-happiness";
-import { petCardImage, petPoseImage } from "../lib/pet-battle-anim";
+import { petPoseImage } from "../lib/pet-battle-anim";
 import { versionPetArtUrl } from "../lib/pet-art-revision";
 import { PET_PVE_DURABILITY, petCollarById, petCollarVisual, petCollars, petConsumableById, petConsumables, petExpeditionOptions, petFeedItems, petPveGear, petPveGearById, petPvpGear, petPvpGearById, petTrainingDurations, petTrainingOptions, petTraitDescriptions, ultraPetTraits } from "../data/pet-config";
 
@@ -33,6 +33,8 @@ import { countItem, ownsItem } from "../lib/inventory";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { gameToast } from "../components/GameToast";
 import { PetHomeTabs } from "../components/PetHomeTabs";
+import { CompanionIdentity } from "../components/CompanionIdentity";
+import { PetArtwork } from "../components/PetArtwork";
 import { Modal } from "../components/ui/Modal";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import { activeClientBreedingParentIds } from "../lib/pet-breeding";
@@ -946,23 +948,13 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                 type="button"
                                 key={pet.id}
                                 ref={selectedPet?.id === pet.id ? selectedPetSlotRef : undefined}
-                                className={`pet-slot-card${selectedPet?.id === pet.id ? " pet-selected" : ""}${character.activePetId === pet.id ? " pet-active" : ""} ${petVisualVariantClass(pet)}`}
+                                className={`pet-slot-card companion-card companion-card--select rarity-${pet.rarity}${selectedPet?.id === pet.id ? " pet-selected" : ""}${character.activePetId === pet.id ? " pet-active" : ""} ${petVisualVariantClass(pet)}`}
                                 onClick={() => { if (pet.id !== selectedPet?.id) { setNicknameInput(""); setNicknameMsg(""); setEvolveMsg(""); } setSelectedPetId(pet.id); setExpeditionError(""); setPetMsg(""); if (expeditionReady) setYardSection("expeditions"); else if (pet.training && now >= pet.training.endsAt) setYardSection("growth"); }}
                                 disabled={progressBusy || evolveBusy || expeditionBusy || expeditionLaunchBusy}
                                 aria-pressed={selectedPet?.id === pet.id}
                                 aria-label={`Select ${petDisplayName(pet)}${expeditionReady ? "; expedition ready to claim" : ""}`}
                             >
-                                <span className="pet-slot-avatar">
-                                    {(() => {
-                                        const avatar = petCardImage(pet, sharedImages);
-                                        return avatar
-                                            ? <img src={avatar} alt={pet.name} onError={(e) => { e.currentTarget.style.display = "none"; }} />
-                                            : <span className="pet-initials">{pet.name.slice(0, 2).toUpperCase()}</span>;
-                                    })()}
-                                </span>
-                                <span className="pet-slot-name">{petDisplayName(pet)}</span>
-                                <span className={`pet-rarity-tag rarity-${pet.rarity}`}>{pet.rarity}</span>
-                                <span className="pet-slot-level">Level {pet.level}</span>
+                                <CompanionIdentity pet={pet} sharedImages={sharedImages} compact />
                                 {!combatEligiblePetIds.has(pet.id) && <span className="pet-training-tag">Preserved overflow</span>}
                                 {character.activePetId === pet.id && <span className="pet-active-tag">Active</span>}
                                 {character.activePetId2v2 === pet.id && <span className="pet-2v2-tag">2v2</span>}
@@ -1011,13 +1003,12 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                     // glow color it gives the pet in battle (prismatic cycles).
                                     const detailCollar = petCollarVisual(selectedPet.loadout?.collar);
                                     const detailGlowClass = detailCollar ? (detailCollar.prismatic ? " pet-collar-detail-prismatic" : " pet-collar-detail-glow") : "";
-                                    const detailImg = petCardImage(selectedPet, sharedImages);
                                     return (
                                         <div
                                             className={`pet-detail-avatar${detailGlowClass} ${petVisualVariantClass(selectedPet)}`}
                                             style={detailCollar ? { ["--collar-glow" as string]: detailCollar.glow } : undefined}
                                         >
-                                            {detailImg ? <img src={detailImg} alt={selectedPet.name} onError={(e) => { e.currentTarget.style.display = "none"; }} /> : <span className="pet-detail-initials">{selectedPet.name.slice(0, 2).toUpperCase()}</span>}
+                                            <PetArtwork pet={selectedPet} sharedImages={sharedImages} alt={selectedPet.name} fallbackClassName="pet-detail-initials" loading="eager" />
                                             {detailCollar?.prismatic && <span className="pet-collar-sparkles" aria-hidden="true" />}
                                         </div>
                                     );

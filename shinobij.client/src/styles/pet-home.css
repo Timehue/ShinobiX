@@ -503,3 +503,69 @@
     .pet-expedition-action,.pet-expedition-return-choice { align-items: stretch; flex-direction: column; }
     .pet-expedition-action button,.pet-expedition-return-choice button { width: 100%; }
 }
+
+/* Companion card system: one portrait, identity order and material across tabs. */
+.companion-card {
+    --companion-accent: #a9c2c8;
+    --companion-glow: rgba(141, 185, 191, .11);
+    position: relative;
+    isolation: isolate;
+    min-width: 0;
+    border: 1px solid color-mix(in srgb, var(--companion-accent) 42%, transparent);
+    border-radius: 16px;
+    color: #e9f0ee;
+    background: radial-gradient(circle at 50% 4%, var(--companion-glow), transparent 56%), linear-gradient(155deg, #17232c, #0b141e 72%);
+    box-shadow: inset 0 1px rgba(255,255,255,.055), 0 14px 30px rgba(0,0,0,.22);
+}
+.companion-card.rarity-rare { --companion-accent: #78cce6; --companion-glow: rgba(55,157,197,.15); }
+.companion-card.rarity-legendary { --companion-accent: #e4c079; --companion-glow: rgba(209,156,59,.16); }
+.companion-card.rarity-mythic { --companion-accent: #c99aea; --companion-glow: rgba(150,86,204,.17); }
+.companion-card--select { cursor: pointer; transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
+.companion-card--select:focus-visible { outline: 2px solid #f4d99b; outline-offset: 3px; }
+.companion-card--select:disabled { cursor: not-allowed; }
+@media (hover:hover) {
+    .companion-card--select:hover:not(:disabled) { transform: translateY(-3px); border-color: var(--companion-accent); box-shadow: inset 0 1px rgba(255,255,255,.08),0 20px 36px rgba(0,0,0,.3); }
+}
+.companion-identity { display: grid; gap: .75rem; min-width: 0; width: 100%; text-align: left; }
+.companion-identity-art { position: relative; isolation: isolate; display: grid; place-items: center; width: 100%; aspect-ratio: 1.22; overflow: hidden; border: 1px solid rgba(218,227,220,.1); border-radius: 11px; background: radial-gradient(ellipse at 50% 38%, var(--companion-glow), transparent 64%),linear-gradient(145deg,#151f2a,#0a111a); }
+.companion-identity-art::after { content: ""; position: absolute; inset: auto 14% 5%; height: 12%; border-radius: 50%; background: rgba(0,0,0,.26); filter: blur(9px); pointer-events: none; }
+.companion-identity-art img { box-sizing: border-box; position: absolute; z-index: 1; inset: 0; display: block; width: 100%; height: 100%; padding: 6px; object-fit: contain; object-position: center; filter: drop-shadow(0 9px 10px rgba(0,0,0,.5)); }
+.companion-card.pet-visual--chromatic .companion-identity-art img { filter: saturate(1.35) hue-rotate(24deg) drop-shadow(0 0 12px rgba(188,137,255,.55)); }
+.companion-identity-fallback { color: var(--companion-accent); font: 800 2rem Georgia,serif; }
+.companion-identity-copy { display: grid; gap: .4rem; min-width: 0; }
+.companion-identity-name { display: -webkit-box; min-width: 0; overflow: hidden; color: #f3eee3; font: 700 1.12rem/1.17 Georgia,serif; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; }
+.companion-identity-meta { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .45rem; color: #a6bac1; font: 700 .68rem/1.2 var(--font-body, sans-serif); }
+.companion-identity-meta > span + span::before { content: "·"; margin-right: .45rem; color: #637d87; }
+.companion-identity-rarity { color: var(--companion-accent); text-transform: uppercase; letter-spacing: .09em; font-size: .61rem; }
+.companion-identity--compact { justify-items: stretch; gap: .5rem; }
+.companion-identity--compact .companion-identity-art { aspect-ratio: 1.25; }
+.companion-identity--compact .companion-identity-name { min-height: 2.3em; font-size: .84rem; }
+.companion-identity--compact .companion-identity-meta { font-size: .59rem; }
+.companion-identity--compact .companion-identity-rarity { font-size: .56rem; }
+.companion-card-context { margin: .45rem 0 0; color: #8ca6af; font-size: .67rem; text-transform: capitalize; }
+
+.pet-collection-grid { grid-template-columns: repeat(auto-fill,minmax(232px,1fr)); }
+.pet-collection-card.companion-card,.pet-sanctuary-card.companion-card { display: flex; flex-direction: column; gap: 0; padding: .75rem; }
+.pet-collection-card.companion-card .pet-eligibility { margin-top: auto; }
+.pet-collection-card.companion-card dl { margin: .7rem 0 .8rem; }
+.pet-collection-card.companion-card dl div,.pet-sanctuary-card.companion-card dl div { border: 1px solid rgba(174,204,210,.07); background: rgba(3,11,19,.3); }
+.pet-collection-card.companion-card dd { white-space: nowrap; }
+.pet-sanctuary-grid { grid-template-columns: repeat(auto-fill,minmax(232px,1fr)); }
+.pet-sanctuary-card.companion-card .pet-sanctuary-copy { padding: .5rem .1rem 0; }
+.pet-sanctuary-card.companion-card .pet-sanctuary-actions { margin-top: auto; }
+.pet-sanctuary-card.companion-card dl { margin: .65rem 0 .8rem; }
+.breeding-parent-preview.companion-card { display: grid; grid-template-columns: minmax(0,1fr); grid-template-rows: auto; gap: .4rem; padding: .6rem; }
+.breeding-parent-preview.companion-card .companion-identity { grid-template-columns: 78px minmax(0,1fr); align-items: center; }
+.breeding-parent-preview.companion-card .companion-identity-art { aspect-ratio: 1; }
+.breeding-parent-preview.companion-card .companion-identity-art img { grid-row: auto; width: 100%; height: 100%; }
+.breeding-parent-preview.companion-card > small { color: #9cb4bc; font-size: .65rem; }
+@media (max-width:620px) {
+    .pet-collection-card.companion-card,.pet-sanctuary-card.companion-card { display: grid; grid-template-columns: 112px minmax(0,1fr); gap: .55rem .75rem; }
+    .pet-collection-card.companion-card .companion-identity,.pet-sanctuary-card.companion-card .companion-identity { display: contents; }
+    .pet-collection-card.companion-card .companion-identity-art,.pet-sanctuary-card.companion-card .companion-identity-art { grid-column: 1; grid-row: 1 / 3; align-self: start; aspect-ratio: 1; }
+    .pet-collection-card.companion-card .companion-identity-copy,.pet-sanctuary-card.companion-card .companion-identity-copy { grid-column: 2; align-self: end; }
+    .pet-collection-card.companion-card .companion-card-context,.pet-sanctuary-card.companion-card .pet-sanctuary-copy { grid-column: 2; margin: 0; align-self: start; }
+    .pet-collection-card.companion-card dl,.pet-collection-card.companion-card .pet-eligibility,.pet-sanctuary-card.companion-card dl,.pet-sanctuary-card.companion-card .pet-sanctuary-actions { grid-column: 1 / -1; margin: 0; }
+    .pet-sanctuary-card.companion-card .pet-sanctuary-copy { padding: 0; }
+}
+@media (prefers-reduced-motion:reduce) { .companion-card--select { transition: none; } }
