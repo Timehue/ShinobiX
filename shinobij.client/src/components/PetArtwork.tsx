@@ -18,7 +18,7 @@ function ArtworkSource({ pet, sources, alt, className, fallbackClassName, loadin
 }
 
 /** Shared pet art resolution for roster cards and their selected-pet panels. */
-export function PetArtwork({ pet, sharedImages, alt = "", className, fallbackClassName, loading = "lazy" }: {
+export function PetArtwork({ pet, sharedImages, alt = "", className, fallbackClassName, loading = "eager" }: {
     pet: Pet;
     sharedImages: Record<string, string>;
     alt?: string;
