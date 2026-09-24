@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
-import { enforceRateLimitKv } from '../_ratelimit.js';
+import { enforceRateLimitKv, PUBLIC_READ_IP_BACKSTOP, requestPlayerKey } from '../_ratelimit.js';
 import { pvpSessionHasRankedCloseFence, type PvpSession } from './session.js';
 import {
     parsePlayerRankedSessionCloseTombstone,
@@ -95,11 +95,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'GET') return res.status(405).end();
 
-    // Each streaming connection counts as one expensive invocation, so
-    // rate-limit aggressively per IP. A single battler + a few
-    // spectators is the legitimate ceiling per battle per IP; 30/min
-    // covers reconnects under flaky networks.
-    if (!(await enforceRateLimitKv(req, res, 'pvp-stream', 30, 60_000))) return;
+    // Each streaming connection counts as one expensive invocation; 30/min
+    // covers reconnects under flaky networks. EventSource cannot send the
+    // x-player-name header, so the client names itself in `viewer`, and the
+    // budget is keyed per player AT this address (requestPlayerKey): players
+    // behind one connection no longer share it, and nobody elsewhere can spend
+    // it. Streams are long-lived, so name rotation from one address is held to
+    // PUBLIC_READ_IP_BACKSTOP x 30/min, not the general 20x backstop.
+    if (!(await enforceRateLimitKv(req, res, 'pvp-stream', 30, 60_000, requestPlayerKey(req, req.query.viewer),
+        { ipBackstopMultiplier: PUBLIC_READ_IP_BACKSTOP }))) return;
 
     const battleId = String(req.query.id ?? '');
     if (!battleId) return res.status(400).json({ error: 'Missing id' });

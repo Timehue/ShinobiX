@@ -25,6 +25,8 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
+import { createAlertRouter } from "../lib/slow-down-notice";
+import { gameToast } from "./GameToast";
 
 type AlertRequest = { message: string; restoreFocus: HTMLElement | null };
 type Listener = (request: AlertRequest) => void;
@@ -87,7 +89,18 @@ function useDialogFocusTrap(
     }, [open, cardRef, restoreFocusRef]);
 }
 
+const routeAlert = createAlertRouter();
+
 function showGameAlert(message: string): void {
+    // A rate-limit "slow down" refusal only asks the player to wait — never
+    // worth a modal to click through. It becomes a quiet toast, and a repeat of
+    // the same notice within SLOW_DOWN_TOAST_GAP_MS is dropped (see
+    // lib/slow-down-notice.ts). Every other alert keeps its modal.
+    const route = routeAlert(message, Date.now());
+    if (route !== "modal") {
+        if (route === "toast") gameToast(message, { kind: "info" });
+        return;
+    }
     const request: AlertRequest = {
         message,
         restoreFocus: document.activeElement as HTMLElement | null,

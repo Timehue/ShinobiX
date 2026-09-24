@@ -45,7 +45,7 @@ export const VANGUARD_SEALS_PER_KILL = [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5] as cons
  * Honor Seals a Vanguard may earn per day (plus up to +15 from mastery).
  *
  * Raised 50 → 150. Honor Seals are the Vanguard's whole economy: they buy jutsu
- * mastery levels 31-50 via /api/jutsu/train-with-seals, and the seated Kage spends
+ * mastery levels 31-40 as timed Seal lessons (api/training/jutsu-ryo.ts), and the seated Kage spends
  * 10,000 of them to open the village's Hollow Gate. At 50/day that unlock was ~200
  * days of flawless play for the single best-placed player on the server, which put an
  * endgame activity out of reach for a launch season rather than merely far away.

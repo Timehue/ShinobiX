@@ -23,6 +23,9 @@ export function friendlyJutsuTrainingError(error: string | undefined): string {
         "jutsu-training-queue-full": "The training queue already has a second lesson.",
         "unknown-or-unowned-jutsu": "That jutsu is no longer available to this character.",
         "bloodline-required": "Equip the bloodline that grants this jutsu before training it.",
+        "not-enough-honor-seals": "You do not have enough Honor Seals for that lesson.",
+        "seal-training-below-level-30": "Train this jutsu to level 30 with ryo before its Honor Seal lessons.",
+        "jutsu-at-seal-training-cap": "Honor Seal lessons can't take this jutsu further — it's at level 40 or your rank's cap.",
     };
     // The mutation helper cannot prove whether these responses reached the save.
     // Preserve its existing retries; ask the player to reconcile before a new intent.

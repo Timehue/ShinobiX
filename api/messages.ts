@@ -143,7 +143,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === 'POST') {
-        if (!(await enforceRateLimitKv(req, res, 'dm-send', 20, 60_000))) return;
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { to, text } = body as { to?: string; text?: string };
@@ -152,6 +151,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const identity = await authedPlayerOrAdmin(req);
             if (!identity) return res.status(401).json({ error: 'Authentication required.' });
             if (identity.admin) return res.status(403).json({ error: 'Direct messages require a player account.' });
+            // 20 DMs/min per VERIFIED sender (was per IP, shared by a household;
+            // keyed after auth so no one else can spend a player's budget).
+            if (!(await enforceRateLimitKv(req, res, 'dm-send', 20, 60_000, identity.name))) return;
             const from = identity.name;
             const recipient = norm(await resolvePlayerReference(to));
             if (recipient === from) return res.status(400).json({ error: 'Cannot message yourself.' });

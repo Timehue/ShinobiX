@@ -10,7 +10,7 @@ import { PVP_PREFIGHT_COUNTDOWN_MS } from '../../shared/pvp-turn.js';
 import { isCancelledUnstartedPvpDuel } from '../../shared/pvp-cancellation.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
-import { enforceRateLimitKv } from '../_ratelimit.js';
+import { enforceRateLimitKv, PUBLIC_READ_IP_BACKSTOP, requestPlayerKey } from '../_ratelimit.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { strongholdLocation } from '../_stronghold-presence.js';
 import { sessionOpponentBlock, worldInteractionBlock, isBelowAttackableFloor, ATTACKABLE_MIN_LEVEL } from '../_realtime/presence-gating.js';
@@ -1867,12 +1867,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (req.method === 'GET') {
         // Poll endpoint — clients hit this every ~1s while the battle screen
-        // is open. Generous budget per IP so two players + spectators can
-        // share an IP, but block obvious abuse (≥10 polls/sec sustained).
+        // is open. Players sharing a connection don't share one budget (see the
+        // keys below), and nobody can spend another player's.
         if (String(req.query.pending ?? '') === '1') {
-            // Keep recovery probes on the shared limiter because they may do
-            // extra pointer and reward-publication work.
-            if (!(await enforceRateLimitKv(req, res, 'pvp-session-get', 360, 60_000))) return;
+            // Keep recovery probes on the shared (KV) limiter because they may do
+            // extra pointer and reward-publication work. Charged BEFORE auth so
+            // failed-auth probes are capped too; keyed per player at their
+            // address, so neighbours and name-spoofers can't spend it.
+            // Its own bucket: sharing 'pvp-session-get' let recovery probes spend
+            // the live-poll path's per-address backstop.
+            if (!(await enforceRateLimitKv(req, res, 'pvp-session-pending', 360, 60_000, requestPlayerKey(req), { ipBackstopMultiplier: PUBLIC_READ_IP_BACKSTOP }))) return;
             const identity = await authedPlayerOrAdmin(req);
             if (!identity) return res.status(401).json({ error: 'Authentication required.' });
             const requestedPlayer = safeName(String(
@@ -1971,7 +1975,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // this frequent session path the same cap without a database increment
         // before every first load, reconnect, and fallback poll. Session repair
         // and deadline enforcement below remain lock-protected and idempotent.
-        if (!(await enforceRateLimitKv(req, res, 'pvp-session-get', 360, 60_000, undefined, { local: true }))) return;
+        if (!(await enforceRateLimitKv(req, res, 'pvp-session-get', 360, 60_000, requestPlayerKey(req), { local: true, ipBackstopMultiplier: PUBLIC_READ_IP_BACKSTOP }))) return;
         // Absence and close-fence responses participate in mount-time
         // reconciliation too. Never let a CDN/browser cache the first 404 and
         // hide a session that finishes publishing during the bounded retry.

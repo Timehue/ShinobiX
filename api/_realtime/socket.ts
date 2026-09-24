@@ -339,7 +339,7 @@ function wireRealtime(io: IOServer): void {
 
         // Per-socket throttle for the `presence` event. Each applyPresence runs
         // an O(n) onlineStore scan plus a sector room broadcast, and — unlike the
-        // HTTP heartbeat (90/min cap, see api/player/heartbeat.ts) — the socket
+        // HTTP heartbeat (180/min cap, see api/player/heartbeat.ts) — the socket
         // path is otherwise uncapped, so an authed client could loop `presence`
         // emits to amplify broadcasts far past the heartbeat budget. Bound it to
         // one apply per PRESENCE_MIN_INTERVAL_MS with a LEADING edge (first emit

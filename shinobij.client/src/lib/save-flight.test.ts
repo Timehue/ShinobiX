@@ -216,7 +216,7 @@ describe("save-persistence wiring through the App coordinator", () => {
         assert.match(coordinatorSource, /const persistSave = savePersistenceRef\.current\.persistAutosave/);
         assert.match(lifecycleSource, /useCapabilityGuardedAutosave\(\{[\s\S]*?persistSave,[\s\S]*?\}\)/,
             "App must delegate every delayed autosave clock to the guarded hook");
-        assert.equal((autosaveSource.match(/void persistSave\(snapshot\)/g) ?? []).length, 2,
+        assert.equal((autosaveSource.match(/void (?:Promise\.resolve\()?persistSave\(snapshot\)/g) ?? []).length, 2,
             "both guarded dirty/flush paths must use the extracted persistence coordinator");
         assert.match(
             coordinatorSource,

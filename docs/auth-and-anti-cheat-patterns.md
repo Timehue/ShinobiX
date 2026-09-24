@@ -279,6 +279,20 @@ The browser fingerprint (`fingerprint.ts` → `x-client-fp`) is a **soft**
 anti-alt signal only — trivially spoofable. Never gate auth, rate-limit, or
 anti-cheat decisions on it as if it were trusted.
 
+The same holds for `x-player-name` read **before** authentication: anyone can
+send any name. It is fine as a rate-limit key only when a stranger cannot spend
+someone else's budget with it:
+
+- If the endpoint authenticates anyway, rate-limit **after** auth on
+  `identity.name` (chat posts, DMs, PvP pending recovery, friends).
+- For a public read every signed-in player polls, key on `requestPlayerKey(req)`
+  (`name@ip`, `api/_ratelimit.ts`) with `ipBackstopMultiplier:
+  PUBLIC_READ_IP_BACKSTOP`. Neighbours on one address each get a budget; a
+  stranger elsewhere spends only their own; name rotation from one address is
+  held to 4× the limit. A bare pre-auth name key would let anyone exhaust a named
+  player's budget — e.g. end their ranked fight via `pvp-session-get`.
+  `api/_ratelimit-player-key.test.ts` pins both rules.
+
 ---
 
 ## 2. Reward integrity — the mint-token pattern

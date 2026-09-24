@@ -126,7 +126,7 @@ export function sanitizeProgression(
     //     /api/profession/choose endpoint is the only path that may set the
     //     initial value. Without this branch a fresh-account save POST could
     //     self-grant `profession: 'vanguard'` and immediately unlock the
-    //     Vanguard discount path on jutsu/speedup / train-with-seals, or
+    //     Vanguard discount path on jutsu/speedup / Seal lessons, or
     //     profession: 'healer' to unlock cross-village healing, etc.
     char.profession = exChar.profession;
     const exProfXp = Math.max(0, Number(exChar.professionXp ?? 0));

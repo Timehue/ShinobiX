@@ -892,10 +892,35 @@ export function unlockVillageKageSystem(village: string, playerName: string): Vi
  * server failures fail closed and are retried by the next polling sweep; only an
  * explicit granted response is mirrored into client state.
  */
+/**
+ * War claims that already got a server answer, and until when to trust it.
+ * Both sweeps run on every world poll (15s) and clan-war poll (30s) and used to
+ * re-post every war from the last 7 days each time — with a handful of recent
+ * wars that outran the 30/min `claim-war-reward` limit. A GRANTED claim is final
+ * for the session. A "nothing to grant" answer is only rechecked after
+ * WAR_CLAIM_RECHECK_MS: usually final, but a clan war's end can be persisted
+ * lazily after the client already sees it as ended, and its payout must still
+ * arrive without a reload. Only a parsed 2xx lands here; a failure is retried.
+ */
+const settledWarClaims = new Map<string, number>();
+const WAR_CLAIM_RECHECK_MS = 5 * 60_000;
+const warClaimKey = (character: Character, id: string) => `${character.name.toLowerCase()}|${id}`;
+const warClaimSettled = (key: string) => (settledWarClaims.get(key) ?? 0) > Date.now();
+const settleWarClaim = (key: string, granted: boolean) =>
+    settledWarClaims.set(key, granted ? Number.POSITIVE_INFINITY : Date.now() + WAR_CLAIM_RECHECK_MS);
+
+/** Test-only: forget the settled-claim memory. */
+export function __resetSettledWarClaimsForTest(): void {
+    settledWarClaims.clear();
+}
+
+/** Crates the server granted, plus the versioned save its last grant wrote. */
+export type WarCrateClaimResult = { ids: string[]; character: Character | null; _saveVersion: unknown };
+
 export async function claimServerWarCrates(
     character: Character,
     clanData: { warHistory?: { result: string; warCrateId?: string; endedAt?: number }[] } | null = null,
-): Promise<string[]> {
+): Promise<WarCrateClaimResult> {
     const claimed = new Set(character.claimedWarCrateIds ?? []);
     const now = Date.now();
     const eligible = new Set<string>();   // dedupe across the three sources
@@ -915,9 +940,11 @@ export async function claimServerWarCrates(
         if (record.endedAt && now - record.endedAt > WAR_CRATE_EXPIRY_MS) continue;
         if (!claimed.has(record.warCrateId)) eligible.add(record.warCrateId);
     }
-    if (eligible.size === 0) return [];
-    const granted: string[] = [];
+    const result: WarCrateClaimResult = { ids: [], character: null, _saveVersion: undefined };
+    if (eligible.size === 0) return result;
     for (const warCrateId of eligible) {
+        const settledKey = warClaimKey(character, `crate:${warCrateId}`);
+        if (warClaimSettled(settledKey)) continue;
         try {
             const r = await fetch("/api/village/claim-war-crate", {
                 method: "POST",
@@ -925,14 +952,21 @@ export async function claimServerWarCrates(
                 body: JSON.stringify({ playerName: character.name, warCrateId }),
             });
             if (!r.ok) continue;
-            const res = (await r.json().catch(() => null)) as { granted?: boolean } | null;
-            if (res?.granted) granted.push(warCrateId);
+            const res = (await r.json().catch(() => null)) as { granted?: boolean; character?: Character; _saveVersion?: unknown } | null;
+            if (res) settleWarClaim(settledKey, res.granted === true);
+            if (res?.granted) {
+                result.ids.push(warCrateId);
+                // The grant is a versioned server write. Keep its save so the
+                // caller adopts that version; mirroring only the crate left the
+                // client a version behind and turned the next autosave into a 409.
+                if (res.character) { result.character = res.character; result._saveVersion = res._saveVersion; }
+            }
             // a definitive granted:false (server says not-winner / already-claimed / …) is respected.
         } catch {
             // Fail closed. The polling caller retries after connectivity returns.
         }
     }
-    return granted;
+    return result;
 }
 
 export type ServerWarRewardClaim = {
@@ -973,6 +1007,8 @@ export async function claimServerWarRewards(character: Character): Promise<Serve
     let consolation = false;
     let lifetimeDamage = 0;
     for (const candidate of candidates.values()) {
+        const settledKey = warClaimKey(character, `${candidate.kind}:${candidate.warId}`);
+        if (warClaimSettled(settledKey)) continue;
         try {
             const response = await fetch("/api/war/claim-reward", {
                 method: "POST",
@@ -981,7 +1017,10 @@ export async function claimServerWarRewards(character: Character): Promise<Serve
             });
             if (!response.ok) continue;
             const result = await response.json() as Partial<ServerWarRewardClaim>;
-            if (result.character) {
+            settleWarClaim(settledKey, result.granted === true);
+            // A no-op claim returns the stored save unchanged; adopting it could
+            // only paint over unsaved local edits, so commit granted claims only.
+            if (result.character && result.granted === true) {
                 latest = result.character;
                 latestSaveVersion = result._saveVersion;
             }

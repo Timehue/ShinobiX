@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { cors } from './_utils.js';
-import { enforceRateLimitKv } from './_ratelimit.js';
+import { enforceRateLimitKv, PUBLIC_READ_IP_BACKSTOP, requestPlayerKey } from './_ratelimit.js';
 import { recentAnnouncements } from './_announce.js';
 
 type PublicAnnouncement = Awaited<ReturnType<typeof recentAnnouncements>>[number];
@@ -44,7 +44,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'GET') return res.status(405).end();
-    if (!(await enforceRateLimitKv(req, res, 'announcements', 30, 60_000, null))) return;
+    if (!(await enforceRateLimitKv(req, res, 'announcements', 30, 60_000, requestPlayerKey(req), { ipBackstopMultiplier: PUBLIC_READ_IP_BACKSTOP }))) return;
 
     try {
         const since = Math.max(0, Math.floor(Number(req.query.since) || 0));

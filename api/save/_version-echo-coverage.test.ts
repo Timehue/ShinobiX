@@ -67,8 +67,11 @@ const ECHOES_VERSION = new Set([
     'hollow-gate/settle.ts',
     'hollow-gate/step.ts',
     'hollow-gate/use-consumable.ts',
-    'jutsu/speedup.ts',
-    'jutsu/train-with-seals.ts',
+    // jutsu/speedup.ts now commits through mutatePlayerSave, so the
+    // "every mutatePlayerSave route acknowledges the committed version" test
+    // below covers it (it used to echo the pre-bump version — a stale ack).
+    // jutsu/train-with-seals.ts no longer writes: Seal levels are timed lessons
+    // through training/jutsu-ryo.ts (payWith: 'honorSeals'), which echoes.
     'legacy/trial.ts',
     'missions/claim-mission.ts',
     'missions/queue-combat-claim.ts',
