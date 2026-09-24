@@ -336,8 +336,31 @@ test('pet, PvP, and war proofs, results, queues, and shared sessions stay author
     }
 });
 
+test('player-ranked settlement authority is read back as stored, never from the writer\'s own cache', async () => {
+    // The journal a worker writes is the object it would otherwise serve back
+    // from its cache in JS key order, while a restarted worker reads the JSONB
+    // row with its keys reordered. That asymmetry hid a key-order-dependent
+    // fingerprint from every uninterrupted saga; every reader must see the row.
+    const match = 'player-ranked-12345678-1234-4123-8123-1234567890ab';
+    for (const key of [
+        `player:ranked-journal:${match}`,
+        `player:ranked-cancelled:${match}`,
+        `player:ranked-settling:${match}`,
+    ]) {
+        await workerA._pgKvForTest.set(key, { terminal: { matchId: match, battleId: 'b' }, state: 'pending' });
+        const readsBeforeReorder = selectCount.get(key) ?? 0;
+        settleInOtherProcess(key, { state: 'pending', terminal: { battleId: 'b', matchId: match } });
+
+        const read = await workerA._pgKvForTest.get<Record<string, Record<string, unknown>>>(key);
+        assert.deepEqual(Object.keys(read ?? {}), ['state', 'terminal'], `${key} returns the stored row`);
+        assert.deepEqual(Object.keys(read?.terminal ?? {}), ['battleId', 'matchId']);
+        assert.ok((selectCount.get(key) ?? 0) > readsBeforeReorder,
+            `${key} must re-read Postgres instead of serving this worker's own write`);
+    }
+});
+
 test('the no-cache scope stays narrow: safe game and snapshot keys retain pgKv caching', async () => {
-    for (const key of ['game:cache-probe', 'save-snapshot:cache-race:123']) {
+    for (const key of ['game:cache-probe', 'save-snapshot:cache-race:123', 'player:registry']) {
         await workerA._pgKvForTest.set(key, { revision: 1 });
         assert.deepEqual(await workerA._pgKvForTest.get(key), { revision: 1 });
         settleInOtherProcess(key, { revision: 2 });
