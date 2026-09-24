@@ -344,3 +344,27 @@ test("AI turns emit per-move step snapshots the client can replay", () => {
   assert.equal(last.p2.monsterZones.filter(Boolean).length,
     session.state.p2.monsterZones.filter(Boolean).length);
 });
+
+
+test("player summon remains visible before an automatic AI Snare resolves", () => {
+  const session = createAiMatch("match-response-replay", "Tester", [...CHRONICLE_FIXED_FALLBACK_DECK], "hard", 1_000, () => 0);
+  session.state.activePlayer = "p1";
+  session.state.turnNumber = 4;
+  session.state.phase = "main1";
+  session.state.normalSummonUsed = false;
+  const monster = CHRONICLE_CARD_CATALOG.filter(card => card.cardClass === "monster" && card.level <= 4 && card.monsterType === "normal")
+    .sort((a, b) => (b.cardClass === "monster" ? b.attack : 0) - (a.cardClass === "monster" ? a.attack : 0))[0];
+  session.state.p1.hand = [monster.id];
+  session.state.p1.monsterZones.fill(null);
+  session.state.p2.magicTrapZones.fill(null);
+  session.state.p2.magicTrapZones[1] = { instanceId: "ai-snare", owner: "p2", zoneIndex: 1, cardId: "chronicle-pitfall-tag-array", faceUp: false, setOnTurn: 2 };
+  const steps: ChronicleProjection[] = [];
+  const result = applyPlayerAction(session, { action: "normal-summon", handIndex: 0, zoneIndex: 0 }, 5_000, state => captureAiStep(steps, state));
+  assert.equal(result.ok, true);
+  assert.ok(steps.length >= 2);
+  assert.equal(steps[0].p1.monsterZones[0]?.cardId, monster.id);
+  assert.equal(steps[0].responseWindow?.responder, "p2");
+  assert.equal(steps[0].p2.magicTrapZones[1]?.cardId, undefined);
+  assert.equal(steps.at(-1)?.p1.monsterZones[0], null);
+  assert.ok(steps.at(-1)?.events?.some(event => event.kind === "trap-activated"));
+});

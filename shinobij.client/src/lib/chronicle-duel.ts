@@ -44,8 +44,8 @@ export type ChronicleAiResult = {
         aiDeckName: string;
         winnerResult?: "player" | "opponent" | "draw";
     };
-    /** Board snapshots after each individual AI action; the client replays
-     *  these with pacing beats so the Keeper's turn reads move by move. */
+    /** The committed player action followed by individual AI replies. These
+     * snapshots let the client show each cause before the next response. */
     aiSteps?: ChronicleProjection[];
     reward?: { result: "player" | "opponent" | "draw"; ryo: number; dailyBonus: boolean; echoes?: EchoesSettleSummary };
     character?: Character;
