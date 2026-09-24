@@ -349,6 +349,7 @@ export function settleSaveRecord<T extends SaveRecord>(
         next = changed ? next : cloneRecord(base);
         char = cloneCharacter(char);
         char.hollowGateRun = undefined;
+        char.lastHollowGateStart = undefined;
         (next as Record<string, unknown>).character = char;
         changed = true;
         hollowGateRunCleared = true;
