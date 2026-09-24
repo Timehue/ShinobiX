@@ -2928,6 +2928,10 @@
             "line": 237
           },
           {
+            "source": "shinobij.client/src/styles/index/21-pet-arena-fx.css",
+            "line": 653
+          },
+          {
             "source": "shinobij.client/src/styles/index/22-pet-battle-sprites.css",
             "line": 1367
           },
@@ -3603,7 +3607,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/17-shop-inventory-loadout.css",
-            "line": 298
+            "line": 268
           },
           {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
