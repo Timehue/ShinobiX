@@ -7,6 +7,7 @@ import { createRoot } from "react-dom/client";
 import {
   CHRONICLE_CARD_CATALOG,
   CHRONICLE_FIXED_FALLBACK_DECK,
+  CHRONICLE_RULES_VERSION,
   createMatch,
   displayCardsById,
   projectMatchForViewer,
@@ -25,6 +26,7 @@ import { CardClashTutorial } from "./components/CardClashTutorial";
 import { ClanWarTileCardDuel } from "./screens/ClanWarTileCardDuel";
 import { SectorWarCardBattle } from "./screens/SectorWarCardBattle";
 import { CardClashFreePlay } from "./screens/CardClashFreePlay";
+import { CardHall } from "./screens/CardHall";
 import { CardClashDuel } from "./screens/CardClashDuel";
 import type { Character } from "./types/character";
 import { chronicleDuelistAvatar } from "./lib/chronicle-duelist-art";
@@ -202,10 +204,7 @@ function Harness() {
 }
 
 const previewRoot = createRoot(document.getElementById("root")!);
-function GameplayHarness() {
-  const params = new URLSearchParams(location.search);
-  const scenario = params.get("scenario") ?? "summon";
-  const [match, setMatch] = useState(() => {
+function gameplayMatch(scenario: string) {
     const state = createMatch("Akari", CHRONICLE_FIXED_FALLBACK_DECK, "Keeper", CHRONICLE_FIXED_FALLBACK_DECK, () => 0, Date.now());
     state.turnNumber = 4; state.activePlayer = "p1"; state.phase = scenario.includes("attack") ? "battle" : "main1";
     const low = monsters.find(card => card.cardClass === "monster" && card.level <= 4)!;
@@ -215,6 +214,28 @@ function GameplayHarness() {
     const chosen = scenario === "tribute" ? high : scenario === "jutsu" ? magic : scenario === "target-jutsu" ? cardsById["chronicle-soldier-pill"] : scenario === "grave-jutsu" ? support.find(card=>card.cardClass === "magic" && card.effect.kind === "reviveLevel4OrLowerMonster")! : scenario === "snare" ? trap : low;
     state.p1.hand = Array.from({length:Number(params.get("hand") ?? 6)}, () => chosen.id);
     state.p1.graveyard = [low.id, magic.id];
+    if (scenario.startsWith("effect-")) {
+      state.activePlayer = "p2";
+      const effectKind = scenario === "effect-block" ? "negateOneAttack" : scenario === "effect-return" ? "returnOneMonsterToHand" : scenario === "effect-stat" ? "weakenSummonedMonster" : scenario === "effect-sweep" ? "destroyAllMonsters" : "destroyOneMonster";
+      const snare = support.find(card => card.cardClass === "trap" && card.effect.kind === effectKind && card.effect.trigger === (scenario === "effect-block" ? "onAttackDeclared" : "onMonsterSummoned"))!;
+      if (snare.cardClass === "trap" && snare.effect.requiresFaceUpElement) {
+        const ally = monsters.find(card => card.cardClass === "monster" && card.element === snare.effect.requiresFaceUpElement)!;
+        state.p1.monsterZones[4] = fieldMonster("p1", 4, ally.id, "defense");
+      }
+      state.p1.magicTrapZones[1] = supportZone("p1", 1, snare.id, false);
+      state.p2.hand = [low.id];
+      if (scenario === "effect-sweep") {
+        state.p1.monsterZones[2] = fieldMonster("p1", 2, low.id);
+        state.p2.monsterZones[3] = fieldMonster("p2", 3, low.id);
+      }
+      if (scenario === "effect-block") {
+        state.phase = "battle";
+        state.p2.monsterZones[0] = fieldMonster("p2", 0, low.id);
+      }
+      const result = applyAction(state, "p2", scenario === "effect-block" ? { action: "attack", attackerZoneIndex: 0, targetZoneIndex: null } : { action: "normal-summon", handIndex: 0, zoneIndex: 0 });
+      if (!result.ok) throw new Error(result.error);
+      return result.state;
+    }
     if (scenario === "tribute" || scenario === "target-jutsu" || scenario.includes("attack")) state.p1.monsterZones[0] = fieldMonster("p1",0,low.id);
     if (scenario === "attack") state.p2.monsterZones[0] = fieldMonster("p2",0,low.id);
     if (scenario.startsWith("response")) {
@@ -228,8 +249,13 @@ function GameplayHarness() {
       if (result.ok === true) return result.state;
       throw new Error(result.error);
     }
+    if (scenario === "finishing-attack") state.p2.lifePoints = 100;
     return state;
-  });
+}
+function GameplayHarness() {
+  const params = new URLSearchParams(location.search);
+  const scenario = params.get("scenario") ?? "summon";
+  const [match, setMatch] = useState(() => gameplayMatch(scenario));
   const [error, setError] = useState("");
   const [lastAction, setLastAction] = useState("");
   return <main className="chronicle-shell chronicle-shell--duel-active">
@@ -237,7 +263,12 @@ function GameplayHarness() {
     <ChronicleDuelBoard state={projectMatchForViewer(match,"p1")} cardsById={cardsById} busy={scenario === "busy"} timedTurns={scenario.startsWith("response")} error={scenario === "error" ? "The duel server could not be reached. Try again." : error} onExit={() => location.reload()} onAction={intent => {
       setLastAction(JSON.stringify(intent));
       const result=applyAction(match,"p1",intent);
-      if(result.ok === true) {setMatch(result.state);setError("");} else setError(result.error);
+      if(result.ok === true) {
+        setMatch(result.state);setError("");
+        if (params.has("refresh") && !result.state.responseWindow) window.setTimeout(() => {
+          setMatch(current => structuredClone(current));
+        }, 150);
+      } else setError(result.error);
     }}/>
   </main>;
 }
@@ -254,15 +285,25 @@ function LibraryHarness() {
 }
 const params = new URLSearchParams(location.search);
 function HostHarness() {
-  const character = { name: "Akari", tileCards: [], cardClashDeck: [...CHRONICLE_FIXED_FALLBACK_DECK] } as unknown as Character;
+  const character = { name: "Akari", level: 30, starterCardsClaimed: true, cardClashTutorialVersion: CHRONICLE_RULES_VERSION, tileCards: [], cardClashDeck: [...CHRONICLE_FIXED_FALLBACK_DECK] } as unknown as Character;
   const host = params.get("host");
+  if (host === "hall") return <CardHall character={character} updateCharacter={()=>undefined} creatorCards={[]} onBack={()=>undefined} autoStart/>;
   if (host === "clan") return <ClanWarTileCardDuel character={character} setScreen={()=>undefined}/>;
   if (host === "sector") return <SectorWarCardBattle character={character} setScreen={()=>undefined}/>;
   if (host === "pvp") return <CardClashFreePlay character={character} setScreen={()=>undefined}/>;
   return <CardClashDuel character={character} creatorCards={[]} onDungeonWin={()=>undefined} onDungeonLeave={()=>undefined}
     echoes={host === "echoes" ? {encounterId:"qa-encounter",floor:1,opponentName:"Keeper",opponentTitle:"QA"} : undefined}/>;
 }
-previewRoot.render(params.has("fixture") ? <output data-testid="fixture">{JSON.stringify(previewState)}</output> : params.has("tutorial") ? <CardClashTutorial onClose={()=>location.assign("?library=collection")}/> : <div className="app-shell" data-shell="adaptive"><div className="center-game">{params.has("host") ? <HostHarness /> : params.has("library") ? <LibraryHarness /> : params.has("scenario") ? <GameplayHarness /> : <Harness />}</div></div>);
+function effectFixture() {
+  const before = gameplayMatch("effect-pitfall");
+  const next = applyAction(before, "p1", { action: "activate-trap", zoneIndex: 1 });
+  if (!next.ok) throw new Error(next.error);
+  const finisher = gameplayMatch("finishing-attack");
+  const finished = applyAction(finisher, "p1", { action: "attack", attackerZoneIndex: 0, targetZoneIndex: null });
+  if (!finished.ok) throw new Error(finished.error);
+  return { before: projectMatchForViewer(before, "p1"), after: projectMatchForViewer(next.state, "p1"), finisher: projectMatchForViewer(finisher, "p1"), finished: projectMatchForViewer(finished.state, "p1") };
+}
+previewRoot.render(params.has("effect-fixture") ? <output data-testid="fixture">{JSON.stringify(effectFixture())}</output> : params.has("fixture") ? <output data-testid="fixture">{JSON.stringify(previewState)}</output> : params.has("tutorial") ? <CardClashTutorial onClose={()=>location.assign("?library=collection")}/> : <div className="app-shell" data-shell="adaptive"><div className="center-game">{params.has("host") ? <HostHarness /> : params.has("library") ? <LibraryHarness /> : params.has("scenario") ? <GameplayHarness /> : <Harness />}</div></div>);
 
 if (import.meta.hot) {
   import.meta.hot.dispose(() => previewRoot.unmount());
