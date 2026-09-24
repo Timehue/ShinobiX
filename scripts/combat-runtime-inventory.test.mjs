@@ -269,7 +269,7 @@ describe('executable multi-engine runtime registry', () => {
 
     assert.deepEqual(failures, [], failures.join('\n'));
     assert.ok(statuses.has('match'));
-    assert.ok(statuses.has('defect'));
+    assert.equal(statuses.has('defect'), false, 'resolved defects must leave no stale defect row');
     assert.ok(statuses.has('surface-gap'));
   });
 
@@ -644,8 +644,8 @@ describe('executable multi-engine runtime registry', () => {
     assert.doesNotMatch(petSocketSource, /petRankedRating|recordPetArenaVictory|writeSaveProjected/);
 
     const rankedCompat = runtimeModeById('pet-ranked-legacy-compat');
-    assert.equal(rankedCompat.status, 'defect');
-    assert.equal(rankedCompat.authorityEngine, E.LEGACY_PET_DUEL);
+    assert.equal(rankedCompat.status, 'match');
+    assert.equal(rankedCompat.authorityEngine, E.PET_SHOWDOWN);
     assert.match(rankedPetStartSource, /_ranked-authority\.js/);
     assert.doesNotMatch(rankedPetStartSource, /_ranked-engine\.js/);
     // The CLIENT half of this defect row is closed. Ranked used to be resolved
@@ -659,9 +659,8 @@ describe('executable multi-engine runtime registry', () => {
       'ranked must never be simulated on the client again — it is watched, not fought');
     assert.match(petArenaSource, /fetchRankedPetDuel\(opponent\.petRankedToken/,
       'the ranked screen must read the fight the server actually rated');
-    // The row itself stays `defect`: the legacy start/settlement pair it names
-    // is still the compatibility path, and retiring it is an owner decision.
-    assert.match(petBattleResultSource, /runPetDuel/);
+    assert.match(petBattleResultSource, /resolveRankedPetDuel\(/);
+    assert.match(rankedCompat.statusDetail, /Retained reciprocal one-pet proofs/);
 
     const hollowGatePet = runtimeModeById('hollow-gate-pet-cinematic');
     assert.equal(hollowGatePet.status, 'owner-decision');

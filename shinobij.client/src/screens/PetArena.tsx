@@ -1409,7 +1409,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 // let the player retry than to show a lie.
                 showBattleSetupIssue(
                     battleScope,
-                    "The ranked match could not be loaded from the arena. Your rating is untouched — retry when the connection is stable.",
+                    "The ranked match could not be verified. Check your Pet Ladder result, then retry when the connection is stable.",
                     () => { void startBattle(opponent); },
                 );
                 return;
