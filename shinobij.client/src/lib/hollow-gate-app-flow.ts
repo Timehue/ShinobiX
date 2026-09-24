@@ -78,6 +78,16 @@ export function hollowGateDescendUpdate(
     };
 }
 
+/**
+ * The open pet-duel encounter, re-pointed at a shinobi fight for the same node.
+ * Anything else is returned unchanged. See onPetFightUnavailable below.
+ */
+export function hollowGateShinobiFallback(run: HollowGateShrineRun | null): HollowGateShrineRun | null {
+    return run?.activeCombat?.mode === "pet"
+        ? { ...run, activeCombat: { ...run.activeCombat, mode: "pve" } }
+        : run;
+}
+
 export function useHollowGateAppFlow(params: {
     character: Character | null;
     run: HollowGateShrineRun | null;
@@ -213,8 +223,14 @@ export function useHollowGateAppFlow(params: {
         if (!character) return;
         const token = run?.runToken ?? character.hollowGateRun?.runToken;
         const activePet = (character.pets ?? []).find((pet) => pet.id === character.activePetId);
-        if (!token || !activePet || !activePet.unlockedForPve || isPetOnExpedition(activePet)) {
+        if (!token) {
             window.alert("The active pet for this sealed duel is unavailable. Use Emergency Forfeit if the pet cannot be restored.");
+            return;
+        }
+        // The pet left, went on an expedition, or lost PvE clearance since the
+        // duel was sealed: the encounter is fought as a shinobi instead.
+        if (!activePet || !activePet.unlockedForPve || isPetOnExpedition(activePet)) {
+            onPetFightUnavailable();
             return;
         }
         pushLog(`[Pet Duel] ${activePet.name} enters the seal against ${hollowGateHoundName(fight.floor, fight.kind)}.`);
@@ -226,6 +242,24 @@ export function useHollowGateAppFlow(params: {
             kind: fight.kind,
             houndId: hollowHoundEncounterId(hollowGatePetEncounterSeed(fight.runId)),
         });
+    }
+
+    /*
+     * The pet duel could not open. Its Showdown admission is refused for every
+     * Hollow Gate encounter today, and a dropped connection ends the same way.
+     * Leaving the encounter pointed at the pet made App's resume effect reopen
+     * the refused duel in a loop until rate limits cut it off, with movement
+     * sealed and Emergency Forfeit as the only exit.
+     *
+     * Point the open encounter at a shinobi fight instead. The resume effect
+     * then asks combat-start for the same node in PvE mode, and the server
+     * swaps out the untouched pet duel (retireUnstartedHollowGatePetBinding).
+     */
+    function onPetFightUnavailable() {
+        const petName = (character?.pets ?? []).find((pet) => pet.id === character?.activePetId)?.name ?? "Your companion";
+        setRun(hollowGateShinobiFallback);
+        setPetFight(null);
+        pushLog(`${petName} could not enter the seal, so you step into the fight yourself.`);
     }
 
     function markResolvedTile(tiles: HollowGateTile[], nodeId?: string): HollowGateTile[] {
@@ -356,6 +390,7 @@ export function useHollowGateAppFlow(params: {
         leave,
         abandon,
         launchPetFight,
+        onPetFightUnavailable,
         onBattleWin,
         onPetBattleEnd,
     };
