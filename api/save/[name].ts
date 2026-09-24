@@ -618,9 +618,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const ownerTravel = !isClanSave && !identity.admin && identity.name === name
             ? await (await import('../_realtime/travel-lease.js')).getTravelLease(name)
             : null;
+        // Owner reads wait out the arrival settler instead of failing fast. The
+        // heartbeat settles each arrival while HOLDING the lease lock, and this read
+        // is exactly the 409-recovery refetch that follows a trip — so with the
+        // default ~775ms budget it collided with that settle, answered 503, and the
+        // client counted a failed recovery toward the red save-failure banner (two
+        // failures raise it). Same budget and reasoning as a waiting action
+        // (TRAVEL_ACTION_SETTLE_ATTEMPTS: last try ~3.2s, worst ~6.4s, well inside
+        // the client's 15s save-request timeout). Mutual exclusion is unchanged.
         if (ownerTravel && Date.now() >= ownerTravel.arrivalAt) {
             try {
-                await (await import('../_realtime/travel-lease.js')).settleTravelLease(name, ownerTravel);
+                const travel = await import('../_realtime/travel-lease.js');
+                await travel.settleTravelLease(name, ownerTravel, undefined, travel.TRAVEL_ACTION_SETTLE_ATTEMPTS);
             } catch {
                 return res.status(503).json({ error: 'Your arrival is still settling. Please retry.' });
             }
@@ -661,7 +670,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const travel = await import('../_realtime/travel-lease.js');
             if (data.worldTravelReceipt !== travel.travelLeaseReceipt(ownerTravel)) {
                 try {
-                    await travel.settleTravelLease(name, ownerTravel, positionNow);
+                    await travel.settleTravelLease(name, ownerTravel, positionNow, travel.TRAVEL_ACTION_SETTLE_ATTEMPTS);
                     const arrived = await kv.get<Record<string, unknown>>(key);
                     if (arrived) data = arrived;
                 } catch {
