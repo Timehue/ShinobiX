@@ -100,6 +100,11 @@ function runAfterCombatSettlement(
     if (!activeIsThisFight && !alreadyResolved) {
         return run;
     }
+    // Leaving alive without clearing the encounter must not strand the player
+    // on its tile: step.ts refuses to leave an unresolved combat tile unless
+    // the encounter is recorded here.
+    const withdrew = (receipt.revived || receipt.escaped || receipt.petDefeat) && activeIsThisFight && !alreadyResolved;
+    const withdrawn = Array.isArray(run.withdrawnEncounterIds) ? run.withdrawnEncounterIds : [];
     const ledgerResult = receipt.won && !alreadyResolved
         ? creditHollowGateLedger(run, `combat:${encounterKey}`, {
             currencies: {
@@ -125,6 +130,9 @@ function runAfterCombatSettlement(
         resolvedEncounterIds: receipt.revived || receipt.escaped || receipt.petDefeat || alreadyResolved
             ? resolved
             : [...resolved.slice(-127), encounterKey],
+        ...(withdrew && !withdrawn.includes(encounterKey)
+            ? { withdrawnEncounterIds: [...withdrawn.slice(-63), encounterKey] }
+            : {}),
         rewardLedger: ledgerResult.ledger,
         serverCreditedCurrencies: ledgerResult.ledger.currencies,
     };

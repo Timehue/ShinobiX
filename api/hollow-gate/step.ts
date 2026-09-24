@@ -132,8 +132,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const currentKind = hollowGateManifestNode(manifest, currentNodeId);
             if (currentKind === 'battle' || currentKind === 'elite' || currentKind === 'boss' || currentKind === 'pet_battle') {
                 const expectedKind = currentKind === 'pet_battle' ? 'beast' : currentKind;
+                const encounterKey = `${floor}:${expectedKind}:${currentNodeId}`;
                 const resolved = Array.isArray(run.resolvedEncounterIds) ? run.resolvedEncounterIds : [];
-                if (!resolved.includes(`${floor}:${expectedKind}:${currentNodeId}`)) {
+                // A fight left alive (escape, Second Wind, pet defeat) keeps its
+                // tile unresolved but must not pin the player to it forever.
+                const withdrawn = Array.isArray(run.withdrawnEncounterIds) ? run.withdrawnEncounterIds : [];
+                if (!resolved.includes(encounterKey) && !withdrawn.includes(encounterKey)) {
                     return { status: 409, body: { error: 'Resolve the sealed combat node before moving.' } };
                 }
             }

@@ -158,6 +158,11 @@ export interface HollowGateRunToken {
      * key into resolvedEncounterIds before another fight can start. */
     activeEncounter?: HollowGateActiveEncounter | null;
     resolvedEncounterIds?: string[];
+    /** Encounters the player left alive without clearing them: a verified
+     * escape, a Second Wind revive, or a pet defeat. The encounter stays
+     * unresolved (stepping back onto its tile fights it again), but its tile
+     * no longer pins the player in place. */
+    withdrawnEncounterIds?: string[];
     /** Server-owned dungeon resources and one-time non-combat event identities. */
     keys?: number;
     torch?: number;

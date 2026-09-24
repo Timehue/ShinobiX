@@ -65,6 +65,27 @@ describe("the Hollow Gate pet duel is bound to its run", () => {
     });
 });
 
+describe("a pet duel that cannot open never seals the run", () => {
+    it("App hands the refused duel to the shinobi fallback instead of dropping it", () => {
+        const app = stripComments(read("App.tsx"));
+        assert.match(app, /onUnavailable=\{onHollowGatePetFightUnavailable\}/);
+        // Dropping the fight while the encounter still said "pet" made the
+        // resume effect reopen the refused duel in a loop.
+        assert.equal(/The seal refused the duel/.test(app), false);
+        // The resume effect must carry the encounter's CURRENT mode, which is
+        // what lets combat-start swap the untouched pet duel for a PvE fight,
+        // and must re-run when only that mode changes (launchPetFight falls
+        // back from inside the effect's own continuation).
+        assert.match(app, /mode: active\.mode,/);
+        assert.match(app, /hollowGateRun\?\.activeCombat\?\.runId, hollowGateRun\?\.activeCombat\?\.mode, hollowGatePveFight, hollowGatePetFight\]\);/);
+        const flow = stripComments(read("lib", "hollow-gate-app-flow.ts"));
+        assert.match(flow, /function onPetFightUnavailable\(\)[\s\S]*?setRun\(hollowGateShinobiFallback\);[\s\S]*?setPetFight\(null\);/);
+        // An unavailable companion falls back too, instead of an alert that
+        // told the player to forfeit the run.
+        assert.match(flow, /isPetOnExpedition\(activePet\)\) \{\s*onPetFightUnavailable\(\);/);
+    });
+});
+
 describe("the Pet Arena screen no longer knows about the Gate", () => {
     const arena = stripComments(read("screens", "PetArena.tsx"));
 
