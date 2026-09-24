@@ -139,6 +139,18 @@
 .pet-yard-refined .pet-happiness-meter { background: #ffffff03; border-color: #d6b77b30; border-radius: 4px; }
 .pet-yard-refined .pet-happiness-meter-top { font: 400 11px var(--font-body,sans-serif); text-transform: none; }
 .pet-yard-refined .pet-happiness-track > span { background: #abbf9d !important; }
+
+/* The Yard uses the same companion card material and identity as the archive. */
+.pet-yard-screen.pet-yard-refined .pet-slots-row { grid-template-columns: repeat(auto-fit,minmax(188px,205px)) !important; gap: 12px !important; }
+.pet-yard-screen.pet-yard-refined .pet-slot-card.companion-card { justify-content: flex-start; align-items: stretch; min-height: 220px !important; gap: .4rem !important; padding: .65rem !important; border: 1px solid color-mix(in srgb,var(--companion-accent) 42%,transparent) !important; border-radius: 16px !important; color: #e9f0ee; background: radial-gradient(circle at 50% 4%,var(--companion-glow),transparent 56%),linear-gradient(155deg,#17232c,#0b141e 72%) !important; box-shadow: inset 0 1px rgba(255,255,255,.055),0 14px 30px rgba(0,0,0,.22) !important; }
+.pet-yard-screen.pet-yard-refined .pet-slot-card.companion-card.pet-selected { border-color: #e4c079 !important; box-shadow: inset 0 0 0 1px rgba(228,192,121,.5),0 0 24px rgba(228,192,121,.12) !important; }
+.pet-yard-screen.pet-yard-refined .pet-slot-card.companion-card .companion-identity { flex: 1 0 auto; }
+.pet-yard-screen.pet-yard-refined .pet-slot-card.companion-card .companion-identity-art { max-height: 112px; }
+.pet-yard-screen.pet-yard-refined .pet-slot-card.companion-card :is(.pet-active-tag,.pet-2v2-tag,.pet-ready-tag,.pet-training-tag) { align-self: flex-start; border: 1px solid rgba(167,198,157,.2) !important; border-radius: 999px !important; padding: .2rem .5rem !important; color: #b9d6b7 !important; background: rgba(70,119,84,.15) !important; font-size: .58rem !important; }
+@container yard (max-width:640px) {
+    .pet-yard-screen.pet-yard-refined .pet-slots-row { display: flex !important; }
+    .pet-yard-screen.pet-yard-refined .pet-slot-card.companion-card { flex: 0 0 155px; min-height: 196px !important; }
+}
 .pet-yard-refined .pet-expedition-board__header { align-items: start; padding-bottom: 20px; border-bottom: 1px solid var(--yard-line); }
 .pet-yard-refined .pet-expedition-routes { gap: 12px; margin-top: 20px; }
 .pet-yard-refined .pet-expedition-routes > button { border-radius: 4px; background: #101b21; box-shadow: none; padding: 16px; }

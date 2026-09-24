@@ -37,13 +37,13 @@ import type { Screen, JutsuElement } from "../types/core";
 import { PET_ELEMENT_BEATS } from "../constants/pet-arena";
 import { PetArenaCard } from "../components/PetBattleAvatar";
 import { PetHomeTabs } from "../components/PetHomeTabs";
+import { CompanionIdentity } from "../components/CompanionIdentity";
 import { GameIcon } from "../components/icons/GameIcon";
 import { PetChronicleCeremony } from "../components/PetChronicleCeremony";
 import { PetChronicleProgress } from "../components/PetChronicleProgress";
 import { PetDuelLiveHost, type PetDuelLiveHandle } from "../components/PetDuelLiveHost";
 import { fetchRankedPetDuel } from "../lib/pet-ranked-watch-api";
 import type { ShowdownReplayScript } from "../../../shared/pet-showdown-contract";
-import { petCardImage } from "../lib/pet-battle-anim";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import {
     TACTICAL_ARENA_PET_REQUIREMENT,
@@ -346,6 +346,20 @@ function newWarfrontChallengeStamp(): { createdAt: number } {
     return { createdAt: Date.now() };
 }
 
+/** Wait `ms`, reporting whole seconds left each second; resolves false as soon as `stillHere()` does. */
+async function countDownWarfrontPace(
+    ms: number,
+    stillHere: () => boolean,
+    onSecondsLeft: (seconds: number) => void,
+): Promise<boolean> {
+    const endsAt = Date.now() + ms;
+    while (Date.now() < endsAt && stillHere()) {
+        onSecondsLeft(Math.max(1, Math.ceil((endsAt - Date.now()) / 1_000)));
+        await new Promise((resolve) => window.setTimeout(resolve, Math.min(1_000, Math.max(0, endsAt - Date.now()))));
+    }
+    return stillHere();
+}
+
 function settlementErrorMessage(error: unknown): string {
     if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
         return "The arena took too long to respond. Retry Settlement to recover this same battle receipt.";
@@ -442,6 +456,9 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     const warfrontSetupErrorRef = useRef<string | null>(null);
     const warfrontResumeProbeScopeRef = useRef<string | null>(null);
     const [warfrontSetupPending, setWarfrontSetupPending] = useState(false);
+    // Seconds left while "Start vs AI" waits out the one-seed-a-minute kickoff
+    // pace (see mintWarfrontToken); null when it is not waiting.
+    const [warfrontPaceSeconds, setWarfrontPaceSeconds] = useState<number | null>(null);
     // Co-op (play the Hollow Warfront 4v4 with friends) — opens the lobby overlay.
     const [showCoop, setShowCoop] = useState(false);
     // Top-level view switch. "battle" is the classic cinematic 1v1/2v2 duel;
@@ -819,6 +836,13 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         });
     }
 
+    /** Count the kickoff pace down on the button; false if the player left meanwhile. */
+    async function waitOutWarfrontPace(ms: number, scope: PetArenaPlayerScope): Promise<boolean> {
+        const stillHere = await countDownWarfrontPace(ms, () => playerScopeIsActive(scope), setWarfrontPaceSeconds);
+        if (stillHere) setWarfrontPaceSeconds(null);
+        return stillHere;
+    }
+
     // Hollow Warfront vs-AI is SERVER-AUTHORITATIVE. Kickoff seals the stored
     // roster, AI team, seed, plan modifiers, and an automatic fallback outcome.
     // Settlement replays the validated deployment + ordered re-form locks on
@@ -830,17 +854,29 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     ): Promise<WarfrontRewardSeal | null> {
         const request = (async () => {
             try {
-                const r = await fetch("/api/pet/warfront-start", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        playerName: scope.playerName,
-                        playerPetIds: bluePets.map((p) => p.id),
-                        stance: config.stance,
-                        doctrine: config.doctrine,
-                        buyPolicy: config.buyPolicy,
-                    }),
-                });
+                let r: Response;
+                for (let attempt = 0; ; attempt += 1) {
+                    r = await fetch("/api/pet/warfront-start", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            playerName: scope.playerName,
+                            playerPetIds: bluePets.map((p) => p.id),
+                            stance: config.stance,
+                            doctrine: config.doctrine,
+                            buyPolicy: config.buyPolicy,
+                        }),
+                    });
+                    if (r.status !== 429 || attempt > 0) break;
+                    // One fresh Warfront kickoff a minute. A short Rite now
+                    // settles as soon as it has played, so a player can be back
+                    // here inside that minute: wait out the rest on this button
+                    // instead of meeting an error and a Retry.
+                    const pace = await r.clone().json().catch(() => null) as { code?: unknown; retryAfterMs?: unknown } | null;
+                    const paceMs = Number(pace?.retryAfterMs);
+                    if (pace?.code !== "WARFRONT_KICKOFF_PACE" || !Number.isFinite(paceMs) || paceMs <= 0 || paceMs > 65_000) break;
+                    if (!await waitOutWarfrontPace(paceMs + 250, scope)) return null;
+                }
                 if (!r.ok) {
                     const payload = await r.json().catch(() => null) as { error?: unknown } | null;
                     const serverMessage = typeof payload?.error === "string"
@@ -1142,6 +1178,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         setSettlementPresentation(null);
         setBattleSetupIssue(null);
         setWarfrontSetupPending(false);
+        setWarfrontPaceSeconds(null);
         setChronicleCeremony(null);
         setChronicleProgress(null);
         setSelectedPetId(
@@ -1731,28 +1768,24 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     // Shared by the cinematic battle view's pickers below — replaces the bare
     // <select> dropdowns so picking a pet is a tap on its art, not a text line.
     const petPickCard = (key: string, pet: Pet, sel: boolean, onClick: () => void, opts?: { owner?: string; dim?: boolean }) => {
-        const img = petCardImage(pet, sharedImages);
         const { role } = pet.role && pet.subRole ? { role: pet.role } : derivePetRole(pet);
         const rm = ROLE_META[role];
         const name = petDisplayName(pet);
         return (
             <button key={key} type="button"
-                className={`pet-pick${sel ? " selected" : ""} ${petVisualVariantClass(pet)}`}
+                className={`pet-pick companion-card companion-card--select rarity-${pet.rarity}${sel ? " selected" : ""} ${petVisualVariantClass(pet)}`}
                 title={opts?.dim ? `${name} is exploring and unavailable` : opts?.owner ? `${opts.owner}: ${name}` : name}
                 aria-pressed={sel}
                 disabled={opts?.dim}
                 style={opts?.dim ? { opacity: 0.5 } : undefined}
                 onClick={onClick}>
-                {img
-                    ? <img className="pet-pick-img" src={img} alt="" />
-                    : <div className="pet-pick-img placeholder" />}
-                <span className="pet-pick-name">{name}</span>
+                <CompanionIdentity pet={pet} sharedImages={sharedImages} compact />
                 {rm && (
                     <span className="pet-pick-role" style={{ color: rm.color }}>
                         <img className="pet-pick-role-icon" src={ROLE_ICON[role]} alt="" aria-hidden="true" /> {rm.label}
                     </span>
                 )}
-                <span className="pet-pick-meta">{opts?.owner ? `${opts.owner} · ` : ""}Lv {pet.level}{pet.element && pet.element !== "None" ? <> · <ElIcon el={pet.element} size={13} />{pet.element}</> : ""}</span>
+                {opts?.owner && <span className="companion-card-context">{opts.owner}</span>}
             </button>
         );
     };
@@ -2195,34 +2228,29 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                         // its native combat role badge (so the player can build a
                         // balanced comp at a glance), and a level/element line. The
                         // order badge in the corner shows battle order when picked.
-                        const pickGrid = (picks: string[], setPicks: (ids: string[]) => void, max: number) => (
+                        const pickGrid = (picks: string[], setPicks: (ids: string[]) => void, max: number, locked = false) => (
                             <div className="pet-pick-grid">
                                 {available.map((pet) => {
                                     const sel = picks.includes(pet.id);
                                     const order = picks.indexOf(pet.id);
-                                    const img = petCardImage(pet, sharedImages);
                                     const { role, subRole } = pet.role && pet.subRole ? { role: pet.role, subRole: pet.subRole } : derivePetRole(pet);
                                     const rm = ROLE_META[role];
                                     const atMax = !sel && picks.length >= max;
                                     return (
                                         <button key={pet.id} type="button"
-                                            className={`pet-pick${sel ? " selected" : ""} ${petVisualVariantClass(pet)}`}
+                                            className={`pet-pick companion-card companion-card--select rarity-${pet.rarity}${sel ? " selected" : ""} ${petVisualVariantClass(pet)}`}
                                             title={rm ? `${petDisplayName(pet)} — ${rm.label} (${subRole})` : petDisplayName(pet)}
                                             aria-pressed={sel}
-                                            disabled={atMax}
+                                            disabled={atMax || locked}
                                             style={atMax ? { opacity: 0.45 } : undefined}
                                             onClick={() => setPicks(sel ? picks.filter((x) => x !== pet.id) : atMax ? picks : [...picks, pet.id])}>
                                             {sel && <span className="pet-pick-order">{order + 1}</span>}
-                                            {img
-                                                ? <img className="pet-pick-img" src={img} alt="" />
-                                                : <div className="pet-pick-img placeholder" />}
-                                            <span className="pet-pick-name">{petDisplayName(pet)}</span>
+                                            <CompanionIdentity pet={pet} sharedImages={sharedImages} compact />
                                             {rm && (
                                                 <span className="pet-pick-role" style={{ color: rm.color }}>
                                                     <img className="pet-pick-role-icon" src={ROLE_ICON[role]} alt="" aria-hidden="true" /> {rm.label}
                                                 </span>
                                             )}
-                                            <span className="pet-pick-meta">Lv {pet.level}{pet.element && pet.element !== "None" ? <> · <ElIcon el={pet.element} size={13} />{pet.element}</> : ""}</span>
                                         </button>
                                     );
                                 })}
@@ -2305,7 +2333,9 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                             <div style={{ marginTop: 6 }}>
                                                 {available.length < tacticalSize
                                                     ? <p className="hint" style={{ color: "var(--gold-2)", margin: 0 }}>This 4v4 mode requires {tacticalSize} available pets. You currently have {available.length}; breeding, training, and expedition assignments do not count until cleared.</p>
-                                                    : <div className="pet-pick-panel">{pickGrid(tacticalPicks, setTacticalPicks, tacticalSize)}</div>}
+                                                    // The kickoff already sealed these four; while it waits
+                                                    // out the pace, the grid must keep showing that band.
+                                                    : <div className="pet-pick-panel">{pickGrid(tacticalPicks, setTacticalPicks, tacticalSize, warfrontPaceSeconds !== null)}</div>}
                                             </div>
                                         </div>
                                     </div>
@@ -2327,7 +2357,9 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                                 // combat roster participates in a rewarded replay.
                                                 void startArenaMatch(selectedTacticalPets, [], (Date.now() % 100000) || 1, true);
                                             }}>
-                                            {warfrontSetupPending ? "Sealing Warfront…" : "Start vs AI"}
+                                            {warfrontSetupPending
+                                                ? warfrontPaceSeconds !== null ? `Next Rite in ${warfrontPaceSeconds}s…` : "Sealing Warfront…"
+                                                : "Start vs AI"}
                                         </button>
                                     </div>
 

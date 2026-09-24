@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import { petDisplayName } from "../lib/pet";
-import { petCardImage } from "../lib/pet-battle-anim";
 import { clientPetBreedingBlocker } from "../lib/pet-breeding";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import { ultraPetTraits } from "../data/pet-config";
 import { GameIcon } from "./icons/GameIcon";
+import { CompanionIdentity } from "./CompanionIdentity";
 import type { Character } from "../types/character";
 import type { PetOrigin, PetRarity } from "../types/pet";
 
@@ -52,11 +52,10 @@ export function PetCollectionGallery({ character, sharedImages }: { character: C
             </div>
             {pets.length ? <div className="pet-collection-grid">
                 {pets.map((pet) => {
-                    const image = petCardImage(pet, sharedImages);
                     const blocker = clientPetBreedingBlocker(character, pet);
-                    return <article key={pet.id} className={`pet-collection-card rarity-${pet.rarity} ${petVisualVariantClass(pet)}`}>
-                        <div className="pet-collection-portrait">{image ? <img src={image} alt="" /> : <span>{pet.name.slice(0, 2).toUpperCase()}</span>}<em>{pet.element ?? "None"}</em></div>
-                        <div className="pet-collection-copy"><h3>{petDisplayName(pet)}</h3><p>{pet.rarity} · Lv {pet.level} · {pet.origin ?? "legacy"}</p></div>
+                    return <article key={pet.id} className={`pet-collection-card companion-card rarity-${pet.rarity} ${petVisualVariantClass(pet)}`}>
+                        <CompanionIdentity pet={pet} sharedImages={sharedImages} />
+                        <p className="companion-card-context">{pet.origin ?? "Legacy"} companion</p>
                         <dl><div><dt>Trait</dt><dd>{pet.trait ?? "—"}</dd></div><div><dt>Generation</dt><dd>{pet.generation ?? 0}</dd></div><div><dt>Breeding</dt><dd>{pet.breedingUsesRemaining ?? 0}/{pet.breedingUsesMax ?? 0}</dd></div></dl>
                         {pet.paletteVariantId && <span className="chromatic-ribbon">Chromatic</span>}
                         {pet.trait && ultraPetTraits.includes(pet.trait) && <span className="apex-trait-ribbon">Apex · {pet.trait}</span>}
