@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   CHRONICLE_FOUNDING_FORMAT,
   CHRONICLE_ROOM_TITLE,
@@ -26,6 +26,8 @@ import { figureFlip } from "../lib/chronicle-figure-facing";
 import { prefersLiteCombatFx } from "../lib/device-tier";
 import { ChronicleCardInspector } from "./ChronicleCardInspector";
 import { Modal } from "./ui/Modal";
+import { chronicleBeats, chronicleEventCopy } from "../lib/chronicle-presentation";
+import { ChronicleResolutionDirector } from "./ChronicleResolutionDirector";
 
 type SideKey = "p1" | "p2";
 type DuelReaction = {
@@ -163,10 +165,11 @@ function spawnCardGhost(
   image: string | undefined,
   side: "me" | "foe",
   figure = false,
+  departure: "destroyed" | "returned" | "resolved" = "destroyed",
 ): void {
   if (!zone || !image) return;
   const ghost = document.createElement("span");
-  ghost.className = `chronicle-card-ghost ${side}${figure ? " figure" : ""}`;
+  ghost.className = `chronicle-card-ghost ${side}${figure ? " figure" : ""} ${departure}`;
   ghost.style.backgroundImage = `url(${JSON.stringify(image)})`;
   ghost.setAttribute("aria-hidden", "true");
   zone.appendChild(ghost);
@@ -188,86 +191,6 @@ function resolutionCopy(
   if (cue === "attack") return { kind: "attack", label: "STRIKE" };
   if (cue === "destroy") return { kind: "destroy", label: "BREAK" };
   return null;
-}
-
-function presentationForEvent(
-  event: ChroniclePresentationEvent,
-): { cue: ChronicleSfx; fx: ResolutionFx } | null {
-  if (event.kind === "monster-summoned" || event.kind === "monster-flipped")
-    return {
-      cue: "summon",
-      fx: { kind: "summon", label: "SHINOBI SUMMON" },
-    };
-  if (event.kind === "monster-set" || event.kind === "trap-set")
-    return {
-      cue: "set",
-      fx: {
-        kind: "set",
-        label: event.kind === "monster-set" ? "SHADOW SET" : "SNARE PREPARED",
-      },
-    };
-  if (event.kind === "magic-activated" || event.kind === "trap-activated")
-    return {
-      cue: "activate",
-      fx: {
-        kind: "activate",
-        label:
-          event.kind === "trap-activated" ? "SNARE RELEASE" : "JUTSU RELEASE",
-      },
-    };
-  if (event.kind === "attack-declared")
-    return { cue: "attack", fx: { kind: "attack", label: "STRIKE" } };
-  if (event.kind === "card-destroyed")
-    return { cue: "destroy", fx: { kind: "destroy", label: "BREAK" } };
-  return null;
-}
-
-function eventTimelineCopy(
-  event: ChroniclePresentationEvent,
-  cardsById: Record<string, ChronicleDisplayCard>,
-  names: Record<SideKey, string>,
-): string {
-  const actorName = event.actor ? names[event.actor] : undefined;
-  const sideName = event.side ? names[event.side] : undefined;
-  const cardName = event.cardId
-    ? (cardsById[event.cardId] ?? getChronicleCard(event.cardId))?.name
-    : undefined;
-  switch (event.kind) {
-    case "monster-summoned":
-      return `${actorName} summoned ${cardName ?? "a Monster"}.`;
-    case "monster-set":
-      return `${actorName} set ${cardName ?? "a hidden Monster"}.`;
-    case "monster-flipped":
-      return `${actorName} Flip Summoned ${cardName ?? "a Monster"}.`;
-    case "position-changed":
-      return `${actorName} changed ${cardName ?? "a Monster"}'s battle position.`;
-    case "magic-activated":
-      return `${actorName} activated ${cardName ?? "a Jutsu"}.`;
-    case "trap-set":
-      return `${actorName} set ${cardName ?? "a hidden Snare"}.`;
-    case "trap-activated":
-      return `${actorName} activated ${cardName ?? "a Snare"}.`;
-    case "attack-declared":
-      return `${actorName} declared an attack with ${cardName ?? "a Monster"}.`;
-    case "response-opened":
-      return `${actorName} received a Snare response window.`;
-    case "response-passed":
-      return `${actorName} passed the Snare response.`;
-    case "card-destroyed":
-      return `${cardName ?? "A card"} controlled by ${sideName} was destroyed.`;
-    case "damage":
-      return `${sideName} took ${(event.amount ?? 0).toLocaleString()} damage.`;
-    case "healing":
-      return `${sideName} recovered ${(event.amount ?? 0).toLocaleString()} Health Points.`;
-    case "phase-changed":
-      return `${actorName} entered ${(event.phase ?? "the next phase").replace(/(\d)/, " $1")}.`;
-    case "turn-started":
-      return `Turn ${event.turnNumber} began for ${actorName}.`;
-    case "duel-ended":
-      return event.winner === "draw"
-        ? "The duel ended in a draw."
-        : `${names[event.winner ?? "p1"]} won the duel.`;
-  }
 }
 
 /** Health Points readout that ticks toward its target instead of jumping.
@@ -340,6 +263,7 @@ export function ChronicleDuelBoard({
   exitLabel = "Leave table",
   eventLabel,
   onAction,
+  onResolutionReadyChange,
 }: {
   state: ChronicleProjection;
   cardsById: Record<string, ChronicleDisplayCard>;
@@ -355,6 +279,8 @@ export function ChronicleDuelBoard({
   exitLabel?: string;
   eventLabel?: string;
   onAction: (intent: ChronicleActionIntent) => void;
+  /** Hosts show result panels only once the final board resolution finishes. */
+  onResolutionReadyChange?: (ready: boolean) => void;
 }) {
   const stageFigures = useStageFigures();
   useEffect(() => {
@@ -391,6 +317,7 @@ export function ChronicleDuelBoard({
   const [graveyardView, setGraveyardView] = useState<"me" | "foe" | null>(null);
   const [forfeitArmed, setForfeitArmed] = useState(false);
   const [duelMenuOpen, setDuelMenuOpen] = useState(false);
+  const [recapOpen, setRecapOpen] = useState(false);
   const [smartAssist, setSmartAssist] = useState(readSmartAssist);
   const [readyResponseId, setReadyResponseId] = useState<string | null>(null);
   const [resolutionFx, setResolutionFx] = useState<ResolutionFx | null>(null);
@@ -403,6 +330,25 @@ export function ChronicleDuelBoard({
   const [outcome, setOutcome] = useState<
     "victory" | "defeat" | "draw" | null
   >(null);
+  const announceOutcome = useCallback((winner: SideKey | "draw") => {
+    if (!document.hidden) {
+      if (winner !== "draw") playChronicleSfx(winner === meKey ? "victory" : "defeat");
+      setOutcome(winner === "draw" ? "draw" : winner === meKey ? "victory" : "defeat");
+    }
+    onResolutionReadyChange?.(true);
+  }, [meKey, onResolutionReadyChange]);
+  const initiallyComplete = useRef(state.status === "complete");
+  useEffect(() => {
+    // Resuming a finished duel or receiving its result in a background tab
+    // must reveal the result without replaying a stale victory ceremony.
+    if (state.status === "active") onResolutionReadyChange?.(false);
+    else if (initiallyComplete.current || document.hidden) onResolutionReadyChange?.(true);
+  }, [state.status, onResolutionReadyChange]);
+  useEffect(() => {
+    if (!outcome) return;
+    const timer = window.setTimeout(() => setOutcome(null), 2_650);
+    return () => window.clearTimeout(timer);
+  }, [outcome]);
   const playmatRef = useRef<HTMLDivElement | null>(null);
   const duelMenuRef = useRef<HTMLDivElement | null>(null);
   const duelMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -413,7 +359,6 @@ export function ChronicleDuelBoard({
   const prevStateRef = useRef<ChronicleProjection | null>(null);
   const reactionStateRef = useRef<ChronicleProjection | null>(null);
   const seenLogTail = useRef<string | undefined>(undefined);
-  const seenEventIds = useRef<Set<string> | null>(null);
   const seenStatus = useRef<string | undefined>(undefined);
   const smartAdvanceKey = useRef<string | null>(null);
   const zoneRef = (zoneKey: string) => (el: HTMLButtonElement | null) => {
@@ -565,10 +510,18 @@ export function ChronicleDuelBoard({
     state.phase === "battle" &&
     availableAttackers === 0;
   const presentationEvents = state.events ?? EMPTY_PRESENTATION_EVENTS;
-  const duelistNames: Record<SideKey, string> = {
+  const duelistNames = useMemo(() => ({
     [meKey]: me.name,
     [foeKey]: foe.name,
-  } as Record<SideKey, string>;
+  }) as Record<SideKey, string>, [meKey, foeKey, me.name, foe.name]);
+  const recentBeats = useMemo(() => chronicleBeats(presentationEvents, cardsById, duelistNames), [presentationEvents, cardsById, duelistNames]);
+  const lastEffect = recentBeats.at(-1);
+  const pendingTrigger = state.responseWindow ? presentationEvents.findLast(event => ["monster-summoned", "monster-flipped", "attack-declared", "magic-activated"].includes(event.kind)) : undefined;
+  const responseHint = state.responseWindow?.trigger === "onMonsterSummoned"
+    ? "The summon has landed. Activate a Snare now, or pass to leave the Monster in play."
+    : state.responseWindow?.trigger === "onAttackDeclared"
+      ? "The attack is paused before damage. Activate a Snare, or pass to let the attack continue."
+      : "The Jutsu is waiting to resolve. Activate a Snare, or pass to let its effect continue.";
 
   useEffect(() => {
     if (!timedTurns) return;
@@ -627,52 +580,6 @@ export function ChronicleDuelBoard({
   const logTail = state.log.at(-1);
   const logBeforeTail = state.log.at(-2);
   useEffect(() => {
-    const seen = seenEventIds.current;
-    if (!seen) {
-      seenEventIds.current = new Set(
-        presentationEvents.map((event) => event.id),
-      );
-      return;
-    }
-    const freshEvents = presentationEvents.filter(
-      (event) => !seen.has(event.id),
-    );
-    for (const event of freshEvents) seen.add(event.id);
-    const beats = freshEvents
-      .map(presentationForEvent)
-      .filter(
-        (
-          beat,
-        ): beat is {
-          cue: ChronicleSfx;
-          fx: ResolutionFx;
-        } => Boolean(beat),
-      )
-      .slice(-3);
-    if (beats.length === 0) return;
-    const timers: number[] = [];
-    beats.forEach((beat, index) => {
-      timers.push(
-        window.setTimeout(() => {
-          playChronicleSfx(beat.cue);
-          setResolutionFx(beat.fx);
-          if (beat.cue === "destroy") {
-            const mat = playmatRef.current;
-            if (mat) pulseFx(mat, "impact", 450);
-          }
-        }, index * 420),
-      );
-    });
-    timers.push(
-      window.setTimeout(
-        () => setResolutionFx(null),
-        beats.length * 420 + 560,
-      ),
-    );
-    return () => timers.forEach((timer) => window.clearTimeout(timer));
-  }, [presentationEvents]);
-
-  useEffect(() => {
     // Persisted pre-event sessions retain the log classifier as a fallback.
     // New matches use the typed event stream above.
     if (state.events !== undefined) {
@@ -728,20 +635,11 @@ export function ChronicleDuelBoard({
     const previous = seenStatus.current;
     seenStatus.current = state.status;
     if (previous !== "active" || state.status !== "complete") return;
-    playChronicleSfx(state.winner === meKey ? "victory" : "defeat");
-    const kind =
-      state.winner === meKey
-        ? "victory"
-        : state.winner === "draw"
-          ? "draw"
-          : "defeat";
-    const show = window.setTimeout(() => setOutcome(kind), 30);
-    const hide = window.setTimeout(() => setOutcome(null), 2_650);
-    return () => {
-      window.clearTimeout(show);
-      window.clearTimeout(hide);
-    };
-  }, [state.status, state.winner, meKey]);
+    // Typed replays announce victory only after the finishing effect lands.
+    if (state.events !== undefined) return;
+    const show = window.setTimeout(() => announceOutcome(state.winner ?? "draw"), 30);
+    return () => window.clearTimeout(show);
+  }, [state.status, state.winner, state.events, announceOutcome]);
 
   useEffect(() => {
     if (!showIntro) return;
@@ -788,6 +686,8 @@ export function ChronicleDuelBoard({
     prevStateRef.current = state;
     if (!prev || prev === state) return;
     if (state.turnNumber < prev.turnNumber) return; // different duel
+    const seenEvents = new Set(prev.events?.map(event => event.id));
+    const newEvents = state.events?.filter(event => !seenEvents.has(event.id)) ?? [];
     const sides = [
       { sideKey: meKey, prefix: "me", floatAnchor: meFloatRef.current },
       { sideKey: foeKey, prefix: "foe", floatAnchor: foeFloatRef.current },
@@ -819,8 +719,9 @@ export function ChronicleDuelBoard({
             was.faceUp && was.position === "attack" && was.cardId?.startsWith("tc-")
               ? `/chronicle/figures/${was.cardId}${prefix === "me" ? "-back" : ""}.webp`
               : undefined;
-          spawnCardGhost(el, figureGhost ?? card?.image, prefix, Boolean(figureGhost));
-          pulseFx(el, "fx-destroyed", 580);
+          const returned = newEvents.some(event => event.affectedZones?.some(zone => zone.side === sideKey && zone.row === "monster" && zone.zoneIndex === index && zone.change === "returned"));
+          spawnCardGhost(el, figureGhost ?? card?.image, prefix, Boolean(figureGhost), returned ? "returned" : "destroyed");
+          if (!returned) pulseFx(el, "fx-destroyed", 580);
         }
       });
       now.magicTrapZones.forEach((zone, index) => {
@@ -834,8 +735,9 @@ export function ChronicleDuelBoard({
           const card = was.cardId
             ? (cardsById[was.cardId] ?? getChronicleCard(was.cardId))
             : undefined;
-          spawnCardGhost(el, card?.image, prefix);
-          pulseFx(el, "fx-destroyed", 580);
+          const activated = newEvents.some(event => event.kind === "trap-activated" && event.actor === sideKey && event.sourceZoneIndex === index);
+          spawnCardGhost(el, card?.image, prefix, false, activated ? "resolved" : "destroyed");
+          if (!activated) pulseFx(el, "fx-destroyed", 580);
         }
       });
       spawnLifeFloat(floatAnchor, now.lifePoints - before.lifePoints);
@@ -877,12 +779,16 @@ export function ChronicleDuelBoard({
           : null;
     if (!changed) return;
     const show = window.setTimeout(() => setReaction(changed), 0);
-    const hide = window.setTimeout(() => setReaction(null), 1_450);
-    return () => {
-      window.clearTimeout(show);
-      window.clearTimeout(hide);
-    };
+    return () => window.clearTimeout(show);
   }, [state, me, foe, meKey, foeKey]);
+
+  useEffect(() => {
+    if (!reaction) return;
+    // Polling can refresh the same HP during a cut-in. Its expiry belongs to
+    // the reaction, so a projection refresh cannot leave it stuck onscreen.
+    const hide = window.setTimeout(() => setReaction(null), 1_450);
+    return () => window.clearTimeout(hide);
+  }, [reaction]);
 
   useEffect(() => {
     if (!zoomedCard) return;
@@ -938,10 +844,21 @@ export function ChronicleDuelBoard({
     const table = handRailRef.current?.closest<HTMLElement>(".chronicle-table");
     const dock = commandDockRef.current;
     if (!table) return;
-    if (!dock) { table.style.setProperty("--chronicle-dock-height", "0px"); return; }
-    const observer = new ResizeObserver(() => table.style.setProperty("--chronicle-dock-height", `${dock.getBoundingClientRect().height}px`));
+    // A response floats over the table; only the fixed action dock needs
+    // bottom clearance. Write outside ResizeObserver's delivery cycle.
+    if (!dock || responseForMe) { table.style.setProperty("--chronicle-dock-height", "0px"); return; }
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      const height = `${Math.ceil(dock.getBoundingClientRect().height)}px`;
+      if (table.style.getPropertyValue("--chronicle-dock-height") !== height)
+        table.style.setProperty("--chronicle-dock-height", height);
+    };
+    const schedule = () => { if (!frame) frame = window.requestAnimationFrame(measure); };
+    const observer = new ResizeObserver(schedule);
     observer.observe(dock);
-    return () => observer.disconnect();
+    schedule();
+    return () => { observer.disconnect(); window.cancelAnimationFrame(frame); };
   }, [myTurn, responseForMe]);
   const decision = busy ? "Resolving your move…"
     : state.responseWindow ? (responseForMe ? "Activate a Snare or pass" : `${responseOwner} is deciding`)
@@ -1126,6 +1043,7 @@ export function ChronicleDuelBoard({
           className={`chronicle-playmat ${attacker !== null ? "targeting" : ""}`}
           ref={playmatRef}
         >
+          <ChronicleResolutionDirector events={presentationEvents} cards={cardsById} viewer={meKey} names={duelistNames} zones={zoneEls} mat={playmatRef} onComplete={announceOutcome} />
           <div className="chronicle-atmosphere" aria-hidden="true">
             {Array.from({ length: 9 }, (_, index) => (
               <i key={index} style={{ "--particle": index } as CSSProperties} />
@@ -1325,22 +1243,23 @@ export function ChronicleDuelBoard({
                 </div>
               )}
             </div>
-            <div className="chronicle-battle-message" aria-live="polite">
-              <span className="eyebrow">LATEST ACTION</span>
+            <div className="chronicle-battle-message">
+              <span className="eyebrow">{lastEffect ? "LAST EFFECT" : "LATEST ACTION"}</span>
               <strong
                 key={
                   presentationEvents.at(-1)?.id ??
                   `${state.log.length}-${state.log.at(-1) ?? ""}`
                 }
               >
-                {presentationEvents.length
-                  ? eventTimelineCopy(
+                {lastEffect ? `${lastEffect.card?.name ?? lastEffect.title}: ${lastEffect.results[0]}` : presentationEvents.length
+                  ? chronicleEventCopy(
                       presentationEvents.at(-1)!,
                       cardsById,
                       duelistNames,
                     )
                   : (state.log.at(-1) ?? "The duel begins.")}
               </strong>
+              {lastEffect ? <button type="button" className="chronicle-recap-trigger" onClick={() => setRecapOpen(true)}>Last effect · Read recap</button> : null}
             </div>
           </div>
 
@@ -1566,6 +1485,7 @@ export function ChronicleDuelBoard({
               ? "Opening your response options"
               : `${responseOwner} is deciding`}
           </strong>
+          <p className="chronicle-response-explanation">{pendingTrigger ? chronicleEventCopy(pendingTrigger, cardsById, duelistNames) : responseHint}</p>
           {timedTurns ? <b>{secondsRemaining}s</b> : <i />}
         </div>
       ) : null}
@@ -1577,22 +1497,24 @@ export function ChronicleDuelBoard({
           role="group"
           aria-label="Snare response"
         >
-          <strong>
-            Respond to{" "}
-            {state.responseWindow?.trigger
-              .replace(/([A-Z])/g, " $1")
-              .toLowerCase()}
-          </strong>
+          <div className="chronicle-response-context">
+            <strong>Your response{timedTurns ? ` · ${secondsRemaining}s` : ""}</strong>
+            <p>{pendingTrigger ? chronicleEventCopy(pendingTrigger, cardsById, duelistNames) : "A Snare can answer this action."}</p>
+            <small>{responseHint}</small>
+          </div>
           {state.responseWindow?.eligibleZoneIndexes?.map((zoneIndex) => {
             const id = me.magicTrapZones[zoneIndex]?.cardId;
+            const snare = id ? cardsById[id] ?? getChronicleCard(id) : undefined;
             return (
               <button
-                className="primary"
+                className="primary chronicle-response-choice"
                 key={zoneIndex}
+                aria-label={`Activate ${snare?.name ?? "Snare"}`}
                 disabled={busy}
                 onClick={() => act({ action: "activate-trap", zoneIndex })}
               >
-                Activate {id ? cardsById[id]?.name : "Snare"}
+                <b>Activate {snare?.name ?? "Snare"}</b>
+                <small>{snare?.effectText}</small>
               </button>
             );
           })}
@@ -1601,7 +1523,7 @@ export function ChronicleDuelBoard({
             disabled={busy}
             onClick={() => act({ action: "pass-response" })}
           >
-            Pass
+            Pass · Continue
           </button>
         </div>
       ) : null}
@@ -2010,7 +1932,7 @@ export function ChronicleDuelBoard({
               .map((event) => (
                 <p key={event.id} data-event={event.kind}>
                   <b>T{event.turnNumber}</b>{" "}
-                  {eventTimelineCopy(event, cardsById, duelistNames)}
+                  <span>{chronicleEventCopy(event, cardsById, duelistNames)}{event.details?.map((detail, index) => <small className="chronicle-log-detail" key={index}>{detail}</small>)}</span>
                 </p>
               ))
           : state.log
@@ -2029,6 +1951,17 @@ export function ChronicleDuelBoard({
           </details>
         ) : null}
       </details>
+
+      {recapOpen ? <Modal open onClose={() => setRecapOpen(false)} size="lg" title="What happened" className="chronicle-recap-modal">
+        <p>Recent actions, newest first. Each result is recorded when the action resolves.</p>
+        {recentBeats.slice(-16).reverse().map(beat => <article key={beat.id} className={`chronicle-recap-entry ${beat.tone}`}>
+          <header><span>TURN {beat.event.turnNumber} · {beat.actor}</span><b>{beat.title}</b></header>
+          <strong>{beat.card?.name ?? beat.title}</strong>
+          {beat.explanation ? <p>{beat.explanation}</p> : null}
+          <ul>{beat.results.map((result, index) => <li key={index}>{result}</li>)}</ul>
+          {beat.card ? <button type="button" onClick={() => { setRecapOpen(false); setZoomedCardId(beat.card!.id); }}>Read card</button> : null}
+        </article>)}
+      </Modal> : null}
 
       {reaction ? (
         <div

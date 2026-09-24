@@ -3325,7 +3325,8 @@ button.chronicle-card {
   box-shadow:
     0 0 0 2px rgba(121, 204, 235, 0.3),
     0 0 20px rgba(65, 169, 211, 0.28);
-  animation: chronicle-attacker-ready 1.15s ease-in-out infinite;
+  /* Keep the hit area stationary while the player chooses. */
+  animation: none;
 }
 .chronicle-playmat.targeting
   .chronicle-zone:not(.legal-target):not(.selected) {
@@ -3347,7 +3348,7 @@ button.chronicle-card {
     0 0 0 2px rgba(240, 194, 109, 0.34),
     0 0 22px rgba(240, 160, 68, 0.34),
     inset 0 0 22px rgba(240, 194, 109, 0.13);
-  animation: chronicle-target-breathe 1.05s ease-in-out infinite;
+  animation: none;
 }
 .chronicle-targeting-lane {
   position: absolute;
@@ -5805,12 +5806,20 @@ button.chronicle-card {
   }
   .chronicle-shell--duel-active .chronicle-player-bar .chronicle-combatant {
     display: block;
+    flex: 1;
+    grid-template-columns: minmax(0, 1fr);
   }
   .chronicle-shell--duel-active .chronicle-player-bar .chronicle-combatant__identity {
     display: flex;
     gap: 8px;
     align-items: center;
   }
+  .chronicle-shell--duel-active .chronicle-player-bar .chronicle-combatant__identity > strong {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+  }
+  .chronicle-player-bar .chronicle-combatant__health { flex: 0 0 auto; }
   .chronicle-shell--duel-active .chronicle-hand {
     justify-content: flex-start;
     gap: 16px;
@@ -6085,3 +6094,219 @@ button.chronicle-card {
     width: 300px;
   }
 }
+.chronicle-duel-stage > .chronicle-effect-stage {
+  --effect-color: #91d9f5;
+  position: absolute;
+  inset: 0;
+  z-index: 32;
+  pointer-events: none;
+}
+.chronicle-effect-stage.snare { --effect-color: #eda6ff; }
+.chronicle-effect-stage.jutsu { --effect-color: #83efce; }
+.chronicle-effect-stage.strike { --effect-color: #ffe0a0; }
+.chronicle-effect-stage.break { --effect-color: #ffac94; }
+/* Reveal, transfer, impact and settle use one clock in the director. */
+.chronicle-effect-paths { position: absolute; inset: 0; overflow: hidden; }
+.chronicle-effect-links { position: absolute; inset: 0; overflow: visible; }
+.chronicle-effect-links path {
+  fill: none;
+  stroke: var(--effect-color);
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: chronicle-energy-arrive .36s cubic-bezier(.3, 0, .7, 1) forwards, chronicle-energy-fade .8s .5s forwards;
+}
+.chronicle-effect-links .effect-link-halo { stroke-width: 8px; opacity: .35; filter: blur(2px); }
+.chronicle-effect-links .effect-link-core { stroke: #fff3e2; stroke-width: 1.6px; }
+.chronicle-effect-source, .chronicle-effect-target {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: var(--target-w);
+  height: var(--target-h);
+  transform: translate(-50%, -50%);
+  color: #fff6e7;
+  font: 800 10px/1.3 system-ui, sans-serif;
+  letter-spacing: .1em;
+}
+.chronicle-effect-source {
+  border: 1px solid var(--effect-color);
+  border-radius: 5px;
+  background: radial-gradient(ellipse, color-mix(in srgb, var(--effect-color) 40%, transparent), transparent 70%);
+  box-shadow: inset 0 0 12px color-mix(in srgb, var(--effect-color) 40%, transparent), 0 0 18px color-mix(in srgb, var(--effect-color) 24%, transparent);
+}
+.chronicle-effect-source i { width: 10px; height: 10px; transform: rotate(45deg); background: #fff0d5; box-shadow: 0 0 14px 4px var(--effect-color); animation: chronicle-source-flare .65s ease-out both; }
+.chronicle-effect-target b {
+  position: absolute;
+  bottom: 3px;
+  width: max-content;
+  max-width: var(--target-w);
+  box-sizing: border-box;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--effect-color);
+  background: linear-gradient(90deg, #0a101aee, #18202af7, #0a101aee);
+  box-shadow: 0 3px 10px #0008;
+  text-align: center;
+  z-index: 2;
+}
+.chronicle-effect-sigil { position: absolute; width: 140%; height: 140%; overflow: visible; fill: none; stroke: var(--effect-color); stroke-width: 1; opacity: .9; animation: chronicle-sigil-lock .65s ease-out both; }
+.chronicle-effect-sigil .sigil-outer { stroke-dasharray: 2 5; stroke-width: 3; }
+.chronicle-effect-sigil .sigil-inner { stroke-dasharray: 54 15; stroke-width: 1.5; }
+.chronicle-effect-target i { position: absolute; inset: -8%; border: 1px solid var(--effect-color); border-radius: 50%; opacity: 0; animation: chronicle-shockwave .65s ease-out both; }
+.chronicle-effect-target i:nth-of-type(2) { animation-delay: .09s; }
+.chronicle-effect-target i:nth-of-type(3) { animation-delay: .18s; }
+.chronicle-effect-target.shatter { background: radial-gradient(ellipse, #fff4cfaa 0, color-mix(in srgb, var(--effect-color) 25%, transparent) 30%, transparent 68%); }
+.chronicle-effect-target.shatter .chronicle-effect-sigil { animation: chronicle-sigil-break .85s ease-out both; }
+.chronicle-effect-target.recall .chronicle-effect-sigil { animation: chronicle-sigil-recall .95s cubic-bezier(.3, .1, .4, 1) both; }
+.chronicle-effect-target.surge { background: radial-gradient(ellipse at 50% 80%, #78e8c766, transparent 70%); }
+.chronicle-effect-target.impact .chronicle-effect-sigil { animation: chronicle-sigil-break .65s ease-out both; }
+.chronicle-effect-target.shatter em { position: absolute; top: 50%; left: 50%; width: 5px; height: 25px; background: linear-gradient(#fff4d7, var(--effect-color), transparent); clip-path: polygon(50% 0, 100% 30%, 70% 100%, 0 70%); animation: chronicle-effect-fragment .85s ease-out both; }
+@keyframes chronicle-energy-arrive { to { stroke-dashoffset: 0; } }
+@keyframes chronicle-energy-fade { to { opacity: 0; } }
+@keyframes chronicle-source-flare { from { opacity: 1; transform: rotate(45deg) scale(.3); } 35% { opacity: 1; transform: rotate(45deg) scale(1.2); } to { opacity: 0; transform: rotate(45deg) scale(.2); } }
+@keyframes chronicle-shockwave { from { opacity: .8; transform: scale(.65); } to { opacity: 0; transform: scale(1.65); } }
+@keyframes chronicle-sigil-lock { from { opacity: 0; transform: scale(1.45) rotate(-28deg); } to { opacity: .9; transform: scale(1) rotate(0); } }
+@keyframes chronicle-sigil-break { from { opacity: 1; transform: scale(.75) rotate(-12deg); } 25% { opacity: 1; transform: scale(1.05); } to { opacity: 0; transform: scale(1.6) rotate(25deg); } }
+@keyframes chronicle-sigil-recall { from { opacity: 0; transform: scale(1.3) rotate(-65deg); } 25% { opacity: 1; } to { opacity: 0; transform: scale(.15) rotate(100deg); } }
+@keyframes chronicle-effect-fragment { from { opacity: 1; transform: rotate(calc(var(--shard) * 45deg)) translateY(-12px); } to { opacity: 0; transform: rotate(calc(var(--shard) * 45deg + 20deg)) translateY(-85px) scale(.25); } }
+.chronicle-effect-callout {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  width: min(470px, 58%);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--effect-color) 65%, transparent);
+  border-left: 3px solid var(--effect-color);
+  border-radius: 4px 14px 14px 4px;
+  color: #f5f2ed;
+  background: linear-gradient(115deg, #191629fa, #080f18f5);
+  box-shadow: 0 12px 36px #0009, inset 0 1px #ffffff12;
+  animation: chronicle-effect-enter .3s ease-out both;
+}
+.chronicle-effect-card { flex: 0 0 78px; perspective: 500px; }
+.chronicle-effect-stage.callout-right .chronicle-effect-callout { left: auto; right: 14px; }
+.chronicle-effect-card .chronicle-card.compact {
+  width: 78px;
+  min-width: 0;
+  transform: rotate(-5deg);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--effect-color) 25%, transparent);
+  animation: chronicle-effect-reveal .55s ease-out both;
+}
+.chronicle-effect-copy { min-width: 0; flex: 1; }
+.chronicle-effect-kicker { display: block; margin-bottom: 5px; color: var(--effect-color); font: 800 10px/1.4 system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+.chronicle-effect-kicker i { font-style: normal; color: #c4c3d2; }
+.chronicle-effect-copy > strong { display: block; font: 700 clamp(16px, 1.6vw, 22px)/1.15 Georgia, serif; }
+.chronicle-effect-copy p { margin: 8px 0; font: 12px/1.5 system-ui, sans-serif; color: #d6dbe4; }
+.chronicle-effect-result { display: grid; gap: 3px; margin-top: 9px; padding-top: 8px; border-top: 1px solid #ffffff24; }
+.chronicle-effect-result > b { font: 800 9px/1.4 system-ui, sans-serif; color: var(--effect-color); letter-spacing: .12em; }
+.chronicle-effect-result > span { font: 600 12px/1.45 system-ui, sans-serif; }
+.chronicle-effect-copy > small { display: block; margin-top: 6px; color: #b5c5d3; font-size: 10px; }
+@keyframes chronicle-effect-enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes chronicle-effect-reveal { from { opacity: 0; transform: rotateY(85deg) rotate(-5deg); } to { opacity: 1; transform: rotateY(0deg) rotate(-5deg); } }
+.chronicle-battle-message .chronicle-recap-trigger {
+  width: fit-content;
+  min-height: 28px;
+  padding: 3px 8px;
+  border: 1px solid #9faab452;
+  border-radius: 4px;
+  background: #101a24;
+  color: #f1d7a7;
+  font: 700 11px/1.3 system-ui, sans-serif;
+  cursor: pointer;
+}
+.chronicle-table .chronicle-command-dock.response {
+  position: absolute;
+  z-index: 70;
+  right: 6px;
+  left: auto;
+  bottom: calc(100% + 8px);
+  width: min(420px, calc(100% - 12px));
+  max-height: min(390px, 52dvh);
+  height: auto;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  align-content: stretch;
+  align-items: stretch;
+  gap: 8px;
+  padding: 14px;
+  overflow-y: auto;
+  border: 1px solid #d9a0ed;
+  border-top: 3px solid #d9a0ed;
+  background: linear-gradient(130deg, #23172cfb, #0b111afb);
+  box-shadow: 0 12px 36px #000b;
+}
+.chronicle-response-context strong { color: #f3c5ff; font: 700 17px/1.3 Georgia, serif; }
+.chronicle-response-context p, .chronicle-response-explanation { margin: 6px 0; color: #f0f1f5; font: 12px/1.45 system-ui, sans-serif; }
+.chronicle-response-context small { display: block; color: #c6becf; font: 12px/1.5 system-ui, sans-serif; }
+.chronicle-response-waiting .chronicle-response-explanation { grid-column: 1/-1; }
+.chronicle-command-dock.response button { flex: 0 0 auto; white-space: normal; min-height: 44px; }
+.chronicle-response-choice { text-align: left; }
+.chronicle-response-context { flex: 0 0 auto; min-width: 0; }
+.chronicle-response-choice b { display: block; font: 750 13px/1.4 system-ui, sans-serif; }
+.chronicle-response-choice small { display: block; margin-top: 4px; color: #fff1d9; font: 12px/1.5 system-ui, sans-serif; }
+.chronicle-log-detail { display: block; color: #d0d9e1; padding-top: 4px; font-size: 11px; line-height: 1.45; }
+.chronicle-recap-modal { color: #e0e8ee; }
+.chronicle-recap-entry { padding: 16px; margin: 12px 0; border: 1px solid #8995aa55; border-left: 3px solid #87c5de; background: #101b26; border-radius: 6px; }
+.chronicle-recap-entry.snare { border-left-color: #eda6ff; }
+.chronicle-recap-entry header { display: flex; flex-wrap: wrap; gap: 6px 16px; justify-content: space-between; color: #bac8d7; font-size: 11px; margin-bottom: 8px; }
+.chronicle-recap-entry > strong { font: 700 20px/1.3 Georgia, serif; color: #fff0d1; }
+.chronicle-recap-entry p, .chronicle-recap-entry li { font-size: 14px; line-height: 1.6; }
+.chronicle-recap-entry ul { margin: 8px 0; padding-left: 20px; }
+.chronicle-recap-entry button { min-height: 44px; padding: 8px 16px; border: 1px solid #98b4c1; background: #1b3041; color: #fff; border-radius: 4px; cursor: pointer; }
+@media (max-width: 900px), (max-height: 500px) {
+  .chronicle-effect-callout { top: 6px; left: 6px; width: min(440px, calc(100% - 12px)); gap: 10px; padding: 10px; }
+  .chronicle-effect-card { flex-basis: 56px; }
+  .chronicle-effect-card .chronicle-card.compact { width: 56px; }
+  .chronicle-effect-copy > strong { font-size: 17px; }
+  .chronicle-effect-copy p { margin: 5px 0; font-size: 12px; }
+  .chronicle-effect-result { margin-top: 5px; padding-top: 5px; }
+  .chronicle-shell--duel-active .chronicle-battle-message { padding: 2px 5px; gap: 3px; }
+  .chronicle-battle-message .chronicle-recap-trigger { min-height: 44px; }
+  .chronicle-shell--duel-active .chronicle-battle-message:has(.chronicle-recap-trigger) > strong { display: none; }
+  .chronicle-table .chronicle-command-dock.response { padding: 10px; max-height: 52dvh; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chronicle-effect-stage *, .chronicle-effect-stage path { animation: none !important; }
+  .chronicle-effect-target i, .chronicle-effect-target em { display: none; }
+  .chronicle-effect-card .chronicle-card.compact { transform: none; }
+  .chronicle-effect-links path { stroke-dashoffset: 0; opacity: .55; }
+  .chronicle-effect-source i { display: none; }
+  .chronicle-effect-sigil { opacity: .7; }
+}
+@media (max-width: 600px) {
+  .chronicle-effect-stage[data-phase="settle"] .chronicle-effect-callout { top: auto; bottom: 7px; padding: 8px 10px; }
+  .chronicle-effect-stage[data-phase="settle"] .chronicle-effect-card,
+  .chronicle-effect-stage[data-phase="settle"] .chronicle-effect-copy > p,
+  .chronicle-effect-stage[data-phase="settle"] .chronicle-effect-kicker { display: none; }
+  .chronicle-effect-stage.callout-right .chronicle-effect-callout { right: 6px; }
+  .chronicle-effect-target b { font-size: 8.5px; letter-spacing: .02em; padding: 3px; }
+}
+@media (max-height: 500px) {
+  .chronicle-table .chronicle-command-dock.response {
+    position: fixed;
+    top: 60px;
+    bottom: auto;
+    right: 8px;
+    width: min(420px, calc(100vw - 16px));
+    max-height: calc(100dvh - 76px);
+  }
+}
+
+/* Departures keep their rules meaning: return to hand, consumed seal, or loss. */
+.chronicle-card-ghost.returned {
+  border-color: #b9def6;
+  box-shadow: 0 0 20px #97cbe766;
+  animation: chronicle-return-to-hand .8s ease-in both;
+  --return-y: 120%;
+}
+.chronicle-card-ghost.returned.foe { --return-y: -120%; }
+.chronicle-card-ghost.resolved { animation: chronicle-seal-consumed .65s ease-out both; }
+@keyframes chronicle-return-to-hand { to { transform: translateY(var(--return-y)) scale(.35); opacity: 0; filter: brightness(1.3); } }
+@keyframes chronicle-seal-consumed { to { transform: scale(1.1); opacity: 0; filter: brightness(1.5); } }
