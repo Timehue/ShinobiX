@@ -264,6 +264,12 @@ jobs:
         run: npm ci 2>&1 | tee .ci-evidence/client-quality/root-install.log
       - name: Install client dependencies
         run: npm ci --prefix shinobij.client 2>&1 | tee .ci-evidence/client-quality/client-install.log
+      - name: Certify shipped pet rigs and animations
+        run: npm run qa:pet-models --prefix shinobij.client 2>&1 | tee .ci-evidence/client-quality/pet-models.log
+      - name: Certify all Warfront and Rally LODs
+        run: npm run check:warfront-pet-lods --prefix shinobij.client 2>&1 | tee .ci-evidence/client-quality/pet-lods.log
+      - name: Certify all Warfront impostors
+        run: npm run check:warfront-pet-impostors --prefix shinobij.client 2>&1 | tee .ci-evidence/client-quality/pet-impostors.log
       - name: Client lint
         run: npm run lint --prefix shinobij.client 2>&1 | tee .ci-evidence/client-quality/lint.log
       - name: Story-content, TypeScript, and production client build
