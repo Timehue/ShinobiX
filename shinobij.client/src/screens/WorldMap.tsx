@@ -1427,7 +1427,7 @@ function WorldMapContent({
         const data = await postWandererService({ action: "merchant", playerName: character.name, sector: selectedSector ?? 0, wandererId: w.id });
         if (data.ok && data.offer && data.totals) {
             coolWanderer(w.id);
-            updateCharacter(prev => prev ? ({ ...prev, ryo: data.totals!.ryo ?? prev.ryo, boneCharms: data.totals!.boneCharms ?? prev.boneCharms }) : prev);
+            if (onServerVersion?.(data._saveVersion) !== false) updateCharacter(prev => prev ? ({ ...prev, ryo: data.totals!.ryo ?? prev.ryo, boneCharms: data.totals!.boneCharms ?? prev.boneCharms }) : prev);
             const offer = data.offer as { cost?: number; boneCharms?: number };
             setWandererDialog({ w, msg: `${w.name} trades ${offer.boneCharms ?? 0} bone charm${offer.boneCharms === 1 ? "" : "s"} for ${offer.cost ?? 0} ryo, then packs up for another road.` });
         } else if (data.reason === "no-ryo") {
@@ -1445,7 +1445,7 @@ function WorldMapContent({
         const data = await postWandererService({ action: "medic", playerName: character.name, sector: selectedSector ?? 0, wandererId: w.id });
         if (data.ok && data.offer && data.totals) {
             coolWanderer(w.id);
-            updateCharacter(prev => prev ? ({
+            if (onServerVersion?.(data._saveVersion) !== false) updateCharacter(prev => prev ? ({
                 ...prev,
                 ryo: data.totals!.ryo ?? prev.ryo,
                 hp: data.totals!.hp ?? prev.hp,
@@ -1471,7 +1471,7 @@ function WorldMapContent({
         const data = await postWandererService({ action: "favor-start", playerName: character.name, sector: selectedSector ?? 0, wandererId: w.id, wandererName: w.name });
         if (data.ok && data.favor) {
             coolWanderer(w.id);
-            updateCharacter(prev => prev ? ({ ...prev, activeWandererFavor: data.favor as WandererFavor }) : prev);
+            if (onServerVersion?.(data._saveVersion) !== false) updateCharacter(prev => prev ? ({ ...prev, activeWandererFavor: data.favor as WandererFavor }) : prev);
             setWandererDialog({ w, msg: `${w.name} gives you a sealed favor. Deliver it to ${sectorRegionName(data.favor.targetSector)}, sector ${data.favor.targetSector}.` });
         } else if (data.reason === "busy" && data.favor) {
             setWandererDialog({ w, msg: `You already carry a sealed favor for sector ${data.favor.targetSector}. Finish that road first.` });
@@ -1488,12 +1488,14 @@ function WorldMapContent({
         setWandererDialog({ w, busy: true });
         const data = await postWandererService({ action: "favor-claim", playerName: character.name, sector: selectedSector ?? 0, favorId: favor.id });
         if (data.ok && data.reward && data.totals) {
-            updateCharacter(prev => prev ? ({ ...prev, activeWandererFavor: null, ryo: data.totals!.ryo ?? prev.ryo, boneCharms: data.totals!.boneCharms ?? prev.boneCharms }) : prev);
+            if (onServerVersion?.(data._saveVersion) !== false) updateCharacter(prev => prev ? ({ ...prev, activeWandererFavor: null, ryo: data.totals!.ryo ?? prev.ryo, boneCharms: data.totals!.boneCharms ?? prev.boneCharms }) : prev);
             setWandererDialog({ w, msg: `The courier breaks the seal and pays you ${data.reward.ryo} ryo and ${data.reward.boneCharms} bone charm${data.reward.boneCharms === 1 ? "" : "s"}.` });
         } else if (data.reason === "wrong-sector" && data.favor) {
             setWandererDialog({ w, msg: `Wrong road. The delivery belongs in sector ${data.favor.targetSector}.` });
         } else {
-            updateCharacter(prev => prev ? ({ ...prev, activeWandererFavor: null }) : prev);
+            // "none"/"expired" cleared the favor server-side and bumped the save;
+            // adopt that version so the next autosave is not a stale 409.
+            if (data._saveVersion == null || onServerVersion?.(data._saveVersion) !== false) updateCharacter(prev => prev ? ({ ...prev, activeWandererFavor: null }) : prev);
             setWandererDialog({ w, msg: "The courier checks the seal and shakes their head. This favor is gone." });
         }
     }
