@@ -248,7 +248,7 @@ async function installApi(page: Page, currentSector = 0, completedLessonIds: str
 async function openArena(page: Page) {
     await page.goto("/#/village", { waitUntil: "networkidle" });
     await page.getByRole("button", { name: "Enter Pet Home" }).click();
-    await expect(page.getByRole("heading", { name: "Pet Home", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Your Companions", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Pet Arena" }).click();
     await expect(page.getByRole("heading", { name: "Pet Colosseum", exact: true })).toBeVisible();
     await expect(page.locator(".session-restore-overlay")).toHaveCount(0);
