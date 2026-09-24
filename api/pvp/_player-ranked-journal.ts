@@ -250,19 +250,24 @@ async function materializeJournal(
     return winner;
 }
 
+/** Map the session's p1/p2 result onto the sorted a/b sides of a match. */
+function sessionWinnerSide(session: PvpSession, a: string): PlayerRankedTerminal['winner'] {
+    const p1 = safeName(session.p1?.name ?? '');
+    const p2 = safeName(session.p2?.name ?? '');
+    return session.winner === 'draw'
+        ? 'draw'
+        : session.winner === 'p1'
+            ? (p1 === a ? 'a' : 'b')
+            : (p2 === a ? 'a' : 'b');
+}
+
 function sessionTerminalCore(
     session: PvpSession,
     admission: PlayerRankedAdmission,
     rankedEligible: boolean,
     terminalAt: number,
 ): Omit<PlayerRankedTerminal, 'fingerprint'> {
-    const p1 = safeName(session.p1?.name ?? '');
-    const p2 = safeName(session.p2?.name ?? '');
-    const winner = session.winner === 'draw'
-        ? 'draw'
-        : session.winner === 'p1'
-            ? (p1 === admission.a ? 'a' : 'b')
-            : (p2 === admission.a ? 'a' : 'b');
+    const winner = sessionWinnerSide(session, admission.a);
     return {
         matchId: admission.matchId,
         battleId: admission.battleId!,
@@ -350,6 +355,62 @@ function journalItemsFromSession(
 }
 
 /**
+ * The same session-to-authority checks publication makes through the gate
+ * admission (pair, battle, season, epoch) plus the sealed winner mapping, made
+ * against the journal's sealed terminal instead.
+ */
+function sessionMatchesTerminal(session: PvpSession, terminal: PlayerRankedTerminal): boolean {
+    const pair = [safeName(session.p1?.name ?? ''), safeName(session.p2?.name ?? '')].sort();
+    return isPlayerRankedV2Session(session)
+        && session.battleId === terminal.battleId
+        && session.rankedMatchId === terminal.matchId
+        && session.rankedSeasonId === terminal.seasonId
+        && session.rankedSeasonEpoch === terminal.seasonEpoch
+        && pair[0] === terminal.a
+        && pair[1] === terminal.b
+        && sessionWinnerSide(session, terminal.a) === terminal.winner;
+}
+
+/**
+ * Publication when the gate no longer holds this match's admission.
+ *
+ * A journal can only ever be created from a gate admission already sealed in
+ * the terminal phase (terminalFromAdmission), and parsing re-verifies that
+ * sealed terminal's fingerprint. Terminal admissions are never cancelled —
+ * close and orphan cleanup only cancel queued or active ones — and every
+ * ordinary path removes an admission only after its journal has completed. So
+ * once a journal exists the admission adds nothing to the outcome's authority:
+ * a PENDING journal whose admission is gone (a gate lost out of band) is still
+ * the one sealed result, and every effect downstream is fenced by receipts that
+ * do not involve the gate (Elo stamps in both saves, journal item/side
+ * confirmations, elder and Vanguard receipts, exact-CAS session compaction).
+ * The exact committed session must still match that sealed terminal.
+ */
+async function publishedJournalWithoutAdmission(
+    store: JournalStore,
+    session: PvpSession,
+    matchId: string,
+): Promise<PlayerRankedJournal> {
+    const journal = await getPlayerRankedJournal(store, matchId);
+    if (!journal) {
+        // Nothing was ever sealed for this match. Only a recorded no-contest
+        // explains that honestly; anything else has no result to settle.
+        const cancelled = await store.get<unknown>(`${PLAYER_RANKED_CANCELLED_PREFIX}${matchId}`);
+        throw new Error(cancelled !== null ? 'player-ranked-admission-cancelled' : 'player-ranked-admission-missing');
+    }
+    if (!sessionMatchesTerminal(session, journal.terminal)) throw new Error('player-ranked-journal-conflict');
+    if (journal.terminal.rankedEligible && !pvpSessionMayReward(session)) {
+        throw new Error('player-ranked-terminal-participants-unconfirmed');
+    }
+    const items = journalItemsFromSession(session, journal.terminal);
+    if (journal.items.a.usageFingerprint !== items.a.usageFingerprint
+        || journal.items.b.usageFingerprint !== items.b.usageFingerprint) {
+        throw new Error('player-ranked-journal-conflict');
+    }
+    return journal;
+}
+
+/**
  * Publish terminal authority after the durable session commit. The gate CAS
  * seals outcome/snapshots/eligibility first; the per-match journal is a durable
  * mirror that claim and cron can reconstruct after a crash or lost ack.
@@ -369,16 +430,7 @@ export async function publishPlayerRankedTerminal(
         || !session.battleId) throw new Error('player-ranked-session-not-terminal');
 
     const admission = await getPlayerRankedAdmission(store, session.rankedMatchId);
-    if (!admission) {
-        const completed = await getPlayerRankedJournal(store, session.rankedMatchId);
-        if (completed?.state === 'completed' && completed.terminal.battleId === session.battleId) {
-            const items = journalItemsFromSession(session, completed.terminal);
-            if (completed.items.a.usageFingerprint === items.a.usageFingerprint
-                && completed.items.b.usageFingerprint === items.b.usageFingerprint) return completed;
-            throw new Error('player-ranked-journal-conflict');
-        }
-        throw new Error('player-ranked-admission-missing');
-    }
+    if (!admission) return publishedJournalWithoutAdmission(store, session, session.rankedMatchId);
     const pair = [safeName(session.p1?.name ?? ''), safeName(session.p2?.name ?? '')].sort();
     if (admission.a !== pair[0]
         || admission.b !== pair[1]
@@ -402,17 +454,27 @@ export async function publishPlayerRankedTerminal(
         const terminalAt = Math.max(1, Math.floor(options.now ?? Date.now()));
         const core = sessionTerminalCore(session, admission, eligible, terminalAt);
         const fingerprint = playerRankedTerminalFingerprint(core);
-        terminalAdmission = await markPlayerRankedAdmissionTerminal(
-            store,
-            admission.matchId,
-            admission.battleId,
-            {
-                winner: core.winner,
-                rankedEligible: core.rankedEligible,
-                terminalAt,
-                terminalFingerprint: fingerprint,
-            },
-        );
+        try {
+            terminalAdmission = await markPlayerRankedAdmissionTerminal(
+                store,
+                admission.matchId,
+                admission.battleId,
+                {
+                    winner: core.winner,
+                    rankedEligible: core.rankedEligible,
+                    terminalAt,
+                    terminalFingerprint: fingerprint,
+                },
+            );
+        } catch (error) {
+            // A concurrent helper sealed and fully settled this match between
+            // the admission read above and this CAS, removing the admission.
+            // Its journal is the authority now; never report that as a void.
+            if (error instanceof Error && error.message === 'player-ranked-admission-missing') {
+                return publishedJournalWithoutAdmission(store, session, admission.matchId);
+            }
+            throw error;
+        }
     }
     const terminal = terminalFromAdmission(terminalAdmission);
     if (terminal.rankedEligible && !pvpSessionMayReward(session)) {

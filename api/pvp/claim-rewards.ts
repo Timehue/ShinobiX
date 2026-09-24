@@ -118,6 +118,24 @@ function claimKey(playerName: string, battleId: string): string {
     return `pvp:rewarded:${safeName(playerName)}:${battleId}`;
 }
 
+/**
+ * The two ranked answers a retry can never change. Everything else the ranked
+ * saga throws is transient (a lock, a CAS race, a journal still settling —
+ * including one whose gate admission was lost, which publication and the
+ * server-side settlement sweep both finish) and stays a retryable 503.
+ */
+function playerRankedClaimRefusal(error: unknown): string | null {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes('player-ranked-admission-cancelled')) {
+        return 'This ranked match was cancelled as a no-contest.';
+    }
+    if (message.includes('player-ranked-admission-missing')) {
+        // No terminal was ever sealed and no no-contest was recorded.
+        return 'This ranked match has no recorded result to settle.';
+    }
+    return null;
+}
+
 // Every claim-side replay runs after the claim has sealed (or loaded) the exact
 // terminal row's recovery snapshot, so the barrier may skip re-proving it.
 const SEALED_TERMINAL_REPLAY = { recoverySnapshotSealed: true } as const;
@@ -373,6 +391,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             } catch (error) {
                 console.error('[pvp/claim-rewards] draw terminal settlement pending', error);
+                const refusal = exactPlayerRankedV2Terminal ? playerRankedClaimRefusal(error) : null;
+                if (refusal) return res.status(409).json({ error: refusal });
                 return res.status(503).json({
                     error: 'Draw settlement is still finalizing. Retry this claim.',
                 });
@@ -430,10 +450,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         } catch (error) {
             console.error('[pvp/claim-rewards] consumable settlement pending', error);
-            const message = error instanceof Error ? error.message : String(error);
-            if (message.includes('admission-cancelled') || message.includes('admission-missing')) {
-                return res.status(409).json({ error: 'This ranked match was cancelled as a season-close no-contest.' });
-            }
+            const refusal = playerRankedClaimRefusal(error);
+            if (refusal) return res.status(409).json({ error: refusal });
             return res.status(503).json({
                 error: 'The ranked result is still being confirmed. Retry this claim.',
             });
@@ -605,10 +623,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         playerRankedRatingOut = { field: 'rankedRating', value, delta };
                     }
                 } catch (error) {
-                    const message = error instanceof Error ? error.message : String(error);
-                    if (message.includes('admission-cancelled') || message.includes('admission-missing')) {
-                        return res.status(409).json({ error: 'This ranked match was cancelled as a season-close no-contest.' });
-                    }
+                    const refusal = playerRankedClaimRefusal(error);
+                    if (refusal) return res.status(409).json({ error: refusal });
                     throw error;
                 }
             }
