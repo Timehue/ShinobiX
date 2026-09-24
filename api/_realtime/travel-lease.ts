@@ -212,8 +212,12 @@ export async function settleTravelLease(
         if (!result.ok) return false;
         // The settle usually runs fire-and-forget from a heartbeat, so no response
         // carries the bumped version and the player's next autosave used to 409
-        // after every trip. The patch is server-owned top-level fields only, so
-        // the client can adopt the version without a character.
+        // after every trip. Adopting the version without a character is safe:
+        // the patch is server-owned top-level fields, and what mutatePlayerSave
+        // settles into the character on the way (idle vitals regen, the pet
+        // migration, breeding readiness, elder focus) is either server-owned or a
+        // server-clamped vital the client regenerates itself, so an autosave at
+        // the new base cannot undo it.
         if (result.value) pushSaveVersion(name, result._saveVersion);
         // Refresh the walked-tile checkpoint only for a newly committed arrival.
         // A cleanup retry must preserve steps taken after that arrival.
