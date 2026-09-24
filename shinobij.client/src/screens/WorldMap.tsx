@@ -63,7 +63,7 @@ import { resolveOwnAvatar } from "../lib/own-avatar";
 // it is <WorldWandererDialog>, which imports what it needs itself. The
 // <SectorWanderer> named in a comment further down is that component's, not a
 // use from this file.
-import { rollWanderers, isWanderersEnabled, currentWandererDayBucket, wandererPresenceGate, questForWanderer, isWandererOnCooldown, withWandererCooldown, WANDERER_FLEE_COOLDOWN_MS, WANDERER_DECLINE_COOLDOWN_MS, QUEST_GIVER_PRESENCE, pickRoamingQuestGivers, capSectorWanderers, lockedQuestMetrics, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, type Wanderer } from "../lib/wanderers";
+import { rollWanderers, isWanderersEnabled, currentWandererDayBucket, wandererPresenceGate, questForWanderer, isWandererOnCooldown, withWandererCooldown, WANDERER_FLEE_COOLDOWN_MS, WANDERER_DECLINE_COOLDOWN_MS, QUEST_GIVER_PRESENCE, pickRoamingQuestGivers, capSectorWanderers, lockedQuestMetrics, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, WANDERER_ARCHETYPES, type Wanderer } from "../lib/wanderers";
 import { QUEST_BOSSES, questbookEntry, questbookStage, bossStatBonusFromChoices, rivalryEscalation } from "../lib/questbook";
 import { standingReaction } from "../lib/wanderer-standing";
 import {
@@ -252,6 +252,7 @@ import { beastPortrait } from "../data/hunter-art";
 
 import { FESTIVAL_SECTOR, isWildSector, MAX_WILD_SECTOR, playableFieldObjectiveSector, sectorName } from "../../../shared/sector-geo";
 import { shrineForSector } from "../../../shared/shrines";
+import { trackerTrailBeastLine, trackerTrailNextSector, trackerTrailTracksLine } from "../../../shared/tracker-trail";
 import { WorldRoadsOverlay, WorldPoiPlates } from "../components/WorldRoadsOverlay";
 import "../components/world-map-charting.css";
 import { RouteGlowOverlay, regionSplashLabelFor, regionTintForSector } from "../components/WorldWalkFeel";
@@ -850,6 +851,32 @@ function WorldMapContent({
             expiresAt: favor.expiresAt,
         }];
     }, [selectedSector, character.activeWandererFavor, character.level]);
+    // The tracker who gave you a trail waits at its next stop: fresh tracks in
+    // the first sector, the wild pet in the second (shared/tracker-trail.ts).
+    const activeTrackerTrail = character.activeTrackerTrail ?? null;
+    const trackerTrailTarget = activeTrackerTrail && serverNow() <= activeTrackerTrail.expiresAt
+        ? trackerTrailNextSector(activeTrackerTrail) : null;
+    const trackerTrailWanderers = useMemo<Wanderer[]>(() => {
+        const trail = activeTrackerTrail;
+        if (!isWanderersEnabled() || selectedSector == null || !trail || trackerTrailTarget !== selectedSector) return [];
+        const home = interiorTileFromKey(`${trail.id}:${trail.step}`);
+        return [{
+            id: `trackertrail-${trail.id}-${trail.step}`,
+            name: trail.giver,
+            archetype: "tracker",
+            verb: "trackerTrail",
+            level: Math.max(1, Math.min(100, character.level)),
+            homeTile: home,
+            waypoints: [home],
+            movement: "stationary",
+            greeting: trail.step === 0 ? trackerTrailTracksLine(trail.id) : trackerTrailBeastLine(trail.id),
+            tellTint: WANDERER_ARCHETYPES.tracker.tellTint,
+            avatarKey: "tracker",
+            originSector: trail.originSector,
+            targetSector: trail.sectors[1],
+            expiresAt: trail.expiresAt,
+        }];
+    }, [selectedSector, activeTrackerTrail, trackerTrailTarget, character.level]);
     // Roaming mercenaries (Phase 5) — a hired enemy band patrols this sector as
     // hostile, wanderer-shaped NPCs. The roster is SERVER-sourced (which bands roam
     // here keys off live wars + leases); the fight is server-resolved. villageWarMap.v1 only.
@@ -1376,6 +1403,7 @@ function WorldMapContent({
             const target = playableFieldObjectiveSector(favor.targetSector);
             return `${w.name} taps the map: "Your courier is waiting in ${sectorRegionName(target)}, sector ${target}. Take the package there while the delivery offer is still open."`;
         }
+        if (trackerTrailTarget != null && activeTrackerTrail) return `${w.name} nods at your muddy boots: "${activeTrackerTrail.giver} is waiting for you in ${sectorRegionName(trackerTrailTarget)}, sector ${trackerTrailTarget}. Hurry before those tracks go cold."`;
         if (weeklyBossSector) return `${w.name} points toward ${sectorRegionName(weeklyBossSector)}: "Something huge is moving through sector ${weeklyBossSector}."`;
         const wars = activeVillageWarsFor(character.village);
         if (wars.length > 0) return `${w.name} says, "Patrols are tight while your village is at war. Watch border roads and mercenary colors."`;
@@ -1399,7 +1427,7 @@ function WorldMapContent({
         const data = await postWandererService({ action: "merchant", playerName: character.name, sector: selectedSector ?? 0, wandererId: w.id });
         if (data.ok && data.offer && data.totals) {
             coolWanderer(w.id);
-            updateCharacter(prev => prev ? ({ ...prev, ryo: data.totals!.ryo ?? prev.ryo, boneCharms: data.totals!.boneCharms ?? prev.boneCharms }) : prev);
+            if (onServerVersion?.(data._saveVersion) !== false) updateCharacter(prev => prev ? ({ ...prev, ryo: data.totals!.ryo ?? prev.ryo, boneCharms: data.totals!.boneCharms ?? prev.boneCharms }) : prev);
             const offer = data.offer as { cost?: number; boneCharms?: number };
             setWandererDialog({ w, msg: `${w.name} trades ${offer.boneCharms ?? 0} bone charm${offer.boneCharms === 1 ? "" : "s"} for ${offer.cost ?? 0} ryo, then packs up for another road.` });
         } else if (data.reason === "no-ryo") {
@@ -1417,7 +1445,7 @@ function WorldMapContent({
         const data = await postWandererService({ action: "medic", playerName: character.name, sector: selectedSector ?? 0, wandererId: w.id });
         if (data.ok && data.offer && data.totals) {
             coolWanderer(w.id);
-            updateCharacter(prev => prev ? ({
+            if (onServerVersion?.(data._saveVersion) !== false) updateCharacter(prev => prev ? ({
                 ...prev,
                 ryo: data.totals!.ryo ?? prev.ryo,
                 hp: data.totals!.hp ?? prev.hp,
@@ -1443,7 +1471,7 @@ function WorldMapContent({
         const data = await postWandererService({ action: "favor-start", playerName: character.name, sector: selectedSector ?? 0, wandererId: w.id, wandererName: w.name });
         if (data.ok && data.favor) {
             coolWanderer(w.id);
-            updateCharacter(prev => prev ? ({ ...prev, activeWandererFavor: data.favor as WandererFavor }) : prev);
+            if (onServerVersion?.(data._saveVersion) !== false) updateCharacter(prev => prev ? ({ ...prev, activeWandererFavor: data.favor as WandererFavor }) : prev);
             setWandererDialog({ w, msg: `${w.name} gives you a sealed favor. Deliver it to ${sectorRegionName(data.favor.targetSector)}, sector ${data.favor.targetSector}.` });
         } else if (data.reason === "busy" && data.favor) {
             setWandererDialog({ w, msg: `You already carry a sealed favor for sector ${data.favor.targetSector}. Finish that road first.` });
@@ -1460,12 +1488,14 @@ function WorldMapContent({
         setWandererDialog({ w, busy: true });
         const data = await postWandererService({ action: "favor-claim", playerName: character.name, sector: selectedSector ?? 0, favorId: favor.id });
         if (data.ok && data.reward && data.totals) {
-            updateCharacter(prev => prev ? ({ ...prev, activeWandererFavor: null, ryo: data.totals!.ryo ?? prev.ryo, boneCharms: data.totals!.boneCharms ?? prev.boneCharms }) : prev);
+            if (onServerVersion?.(data._saveVersion) !== false) updateCharacter(prev => prev ? ({ ...prev, activeWandererFavor: null, ryo: data.totals!.ryo ?? prev.ryo, boneCharms: data.totals!.boneCharms ?? prev.boneCharms }) : prev);
             setWandererDialog({ w, msg: `The courier breaks the seal and pays you ${data.reward.ryo} ryo and ${data.reward.boneCharms} bone charm${data.reward.boneCharms === 1 ? "" : "s"}.` });
         } else if (data.reason === "wrong-sector" && data.favor) {
             setWandererDialog({ w, msg: `Wrong road. The delivery belongs in sector ${data.favor.targetSector}.` });
         } else {
-            updateCharacter(prev => prev ? ({ ...prev, activeWandererFavor: null }) : prev);
+            // "none"/"expired" cleared the favor server-side and bumped the save;
+            // adopt that version so the next autosave is not a stale 409.
+            if (data._saveVersion == null || onServerVersion?.(data._saveVersion) !== false) updateCharacter(prev => prev ? ({ ...prev, activeWandererFavor: null }) : prev);
             setWandererDialog({ w, msg: "The courier checks the seal and shakes their head. This favor is gone." });
         }
     }
@@ -1478,9 +1508,77 @@ function WorldMapContent({
         setWandererDialog(null);
         launchWorldMapFight(ai, selectedSector, { kind: "patrol", sourceId: w.id, sector: selectedSector, stage: 0 });
     }
-    function followTracker(w: Wanderer) {
-        setWandererDialog({ w, msg: `${w.name} leads you to claw marks, snapped brush, and a beast that wants to test your companion.` });
-        setTimeout(() => startWandererPetDuel(w), 450);
+    // Follow tracks: the tracker gives a two-sector trail (shared/tracker-trail.ts).
+    // The first sector holds more tracks; the second holds a wild pet that goes
+    // straight into the wild-binding capture battle. The server owns the route.
+    async function followTracker(w: Wanderer) {
+        setWandererDialog({ w, busy: true });
+        const data = await postWandererService({ action: "tracker-trail-start", playerName: character.name, sector: selectedSector ?? 0, wandererId: w.id, wandererName: w.name });
+        if (data.ok && data.trail) {
+            const trail = data.trail;
+            coolWanderer(w.id);
+            // The server wrote the save: adopt its version before patching the
+            // local copy, or the next autosave is stale and hits a 409.
+            if (onServerVersion?.(data._saveVersion) !== false) updateCharacter(prev => prev ? ({ ...prev, activeTrackerTrail: trail }) : prev);
+            setWandererDialog({ w, msg: `${w.name} kneels over the prints. "It went toward ${sectorRegionName(trail.sectors[0])}. Meet me in sector ${trail.sectors[0]}, and move quickly. Tracks don't stay fresh for long."` });
+        } else if (data.reason === "busy" && data.trail) {
+            setWandererDialog({ w, msg: `"You're already following a trail. Finish it in sector ${trackerTrailNextSector(data.trail)}, or give it up, before I find you another."` });
+        } else if (data.reason === "cooldown") {
+            coolWanderer(w.id);
+            setWandererDialog({ w, msg: "They have already moved on. Search another sector." });
+        } else {
+            setWandererDialog({ w, msg: data.error ?? "They study the dirt a while, then shake their head. The tracks are too old to follow." });
+        }
+    }
+    // The pet at the end of a trail, while its capture battle is open.
+    const petEncounterTrailId = useRef("");
+    async function abandonTrackerTrail(w?: Wanderer, quiet = false) {
+        const trail = character.activeTrackerTrail;
+        if (!trail) return;
+        const data = await postWandererService({ action: "tracker-trail-abandon", playerName: character.name, trailId: trail.id });
+        if (data.reason === "in-battle") {
+            if (w && !quiet) setWandererDialog({ w, msg: "The beast is still out there waiting for you. Finish that encounter first." });
+            return;
+        }
+        if (onServerVersion?.(data._saveVersion) !== false) updateCharacter(prev => prev && prev.activeTrackerTrail?.id === trail.id ? ({ ...prev, activeTrackerTrail: null }) : prev);
+        if (w && !quiet) setWandererDialog({ w, msg: `${trail.giver} shrugs. "Another day, then. The road always has more tracks."` });
+    }
+    async function followTrackerTrail(w: Wanderer) {
+        const trail = character.activeTrackerTrail;
+        if (!trail || selectedSector == null) return;
+        setWandererDialog({ w, busy: true });
+        if (trail.step === 0) {
+            const data = await postWandererService({ action: "tracker-trail-step", playerName: character.name, sector: selectedSector, trailId: trail.id });
+            if (data.ok && data.trail) {
+                const next = data.trail;
+                if (onServerVersion?.(data._saveVersion) !== false) updateCharacter(prev => prev ? ({ ...prev, activeTrackerTrail: next }) : prev);
+                setWandererDialog({ w, msg: `${w.name} points down the road. "It's headed for ${sectorRegionName(next.sectors[1])}. Sector ${next.sectors[1]}. That's where it's resting."` });
+            } else if (data.reason === "expired" || data.reason === "none") {
+                if (onServerVersion?.(data._saveVersion) !== false) updateCharacter(prev => prev ? ({ ...prev, activeTrackerTrail: null }) : prev);
+                setWandererDialog({ w, msg: "Rain and wind have wiped the prints away. This trail has gone cold." });
+            } else {
+                setWandererDialog({ w, msg: data.error ?? "You lose the tracks in the brush. Try again in a moment." });
+            }
+            return;
+        }
+        const found = await startWildPetEncounter(character.name, selectedSector, trail.requestId, undefined, trail.id);
+        if (found.kind === "hit") {
+            setWandererDialog(null);
+            petEncounterTrailId.current = trail.id;
+            petEncounterToken.current = found.token;
+            petEncounterExploreOperationId.current = "";
+            setActivePetEncounter(found.pet);
+            setPetVnDone(false);
+            setPetVnPage(0);
+            setPetVnLine(0);
+            return;
+        }
+        if (found.kind === "resolved" || found.kind === "miss" || found.reason === "trail-cold") {
+            await abandonTrackerTrail(undefined, true);
+            setWandererDialog({ w, msg: found.kind === "blocked" ? "The beast is gone. This trail has gone cold." : "The beast has already slipped away. This trail is finished." });
+            return;
+        }
+        setWandererDialog({ w, msg: wildPetEncounterFailureMessage(found) });
     }
     async function startBountyHunterFight(w: Wanderer) {
         if (selectedSector == null) return;
@@ -3819,6 +3917,9 @@ function WorldMapContent({
                 if (operationId) completeWorldRewardOperation(character.name, operationId);
                 petEncounterExploreOperationId.current = "";
                 petEncounterToken.current = "";
+                // A tracker trail ends with its pet, caught or not.
+                if (petEncounterTrailId.current) void abandonTrackerTrail(undefined, true);
+                petEncounterTrailId.current = "";
                 setActivePetEncounter(null);
             }}
         />;
@@ -4165,6 +4266,7 @@ function WorldMapContent({
             targetedHunters,
             pursuingNaturals,
             courierWanderers,
+            trackerTrailWanderers,
             storyReckoningWanderers,
             scribeWanderers,
             sageWanderers,
@@ -4477,6 +4579,8 @@ function WorldMapContent({
                                         visitWandererMedic={visitWandererMedic}
                                         startPatrolFight={startPatrolFight}
                                         followTracker={followTracker}
+                                        followTrackerTrail={followTrackerTrail}
+                                        abandonTrackerTrail={(w) => abandonTrackerTrail(w)}
                                         startWandererFavor={startWandererFavor}
                                         claimWandererFavor={claimWandererFavor}
                                         claimWandererGift={claimWandererGift}
@@ -4999,6 +5103,12 @@ function WorldMapContent({
                             <span
                                 className="atlas-hunt-flag"
                                 title={`${huntTrail.mission.name} trail is active here`}
+                            ><GiPawPrint /></span>
+                        )}
+                        {!huntTrail && trackerTrailTarget === sector.id && activeTrackerTrail && (
+                            <span
+                                className="atlas-hunt-flag"
+                                title={`${activeTrackerTrail.giver} is waiting here on the trail`}
                             ><GiPawPrint /></span>
                         )}
                         {academySectorTargetId === sector.id && (
