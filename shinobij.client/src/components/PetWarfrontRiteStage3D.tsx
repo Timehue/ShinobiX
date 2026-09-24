@@ -48,6 +48,8 @@ import {
     WARFRONT_ARENA_Y,
 } from "../lib/pet-duel-cinematic";
 import { petCombatModel } from "../lib/pet-3d-models";
+import { cachedPetElementImpactGeometry, preparePetElementImpactTexture } from "../lib/pet-element-impact-texture";
+import { PET_ELEMENT_IMPACT_ATLAS_URL, petElementImpactUvCell } from "../lib/pet-element-vfx";
 import { petHeroMoveAt, petHeroMoveStyle, petHeroMoveWindows, type PetHeroMoveStyle } from "../lib/pet-hero-moves";
 import { warfrontCameraFrame } from "../lib/pet-warfront-camera";
 import {
@@ -1490,6 +1492,9 @@ const KAGE_SLATE_TEXTURE_URL = "/assets/warfront/kage-tactics-slate-v1.webp";
 // Begin the one route-specific network/decode warm as soon as the WebGL stage
 // chunk is requested. The live layer consumes this same useLoader cache entry.
 useLoader.preload(THREE.TextureLoader, WARFRONT_HERO_FIRE_IMPACT_SPRITE_URL);
+useLoader.preload(THREE.TextureLoader, PET_ELEMENT_IMPACT_ATLAS_URL);
+
+const PET_ELEMENT_IMPACT_ELEMENTS = ["Fire", "Water", "Wind", "Earth", "Lightning"] as const;
 
 function worldUnitsPerScreenPixel(
     camera: THREE.Camera,
@@ -1668,8 +1673,8 @@ function HeroFireImpactTexturePreloader({ onReady }: { onReady: () => void }) {
 }
 
 /** One authoritative visual sentence: attacker origin -> target streak ->
- * contact flash. All attacks share three instanced draw families, so an AOE or
- * simultaneous exchange cannot multiply materials/programs on software GL. */
+ * contact flash. Fixed pools carry overlapping cues, and all atlas cells share
+ * one material, so AOE does not create a material/program per attack. */
 function AttackCausalityLayer({ result, cues, clockRef, heroImpactAssetReady }: {
     result: DuelResult;
     cues: readonly WarfrontAttackCue[];
@@ -1677,10 +1682,25 @@ function AttackCausalityLayer({ result, cues, clockRef, heroImpactAssetReady }: 
     heroImpactAssetReady: boolean;
 }) {
     const heroImpactTexture = useHeroFireImpactTexture();
+    const rawElementImpactAtlas = useLoader(THREE.TextureLoader, PET_ELEMENT_IMPACT_ATLAS_URL);
+    const elementImpactAtlas = useMemo(() => preparePetElementImpactTexture(rawElementImpactAtlas), [rawElementImpactAtlas]);
+    const elementImpactMaterial = useMemo(() => new THREE.MeshBasicMaterial({
+        map: elementImpactAtlas,
+        color: "#ffffff",
+        transparent: true,
+        alphaTest: 0.025,
+        opacity: 0.82,
+        side: THREE.DoubleSide,
+        depthTest: false,
+        depthWrite: false,
+        toneMapped: false,
+        blending: THREE.NormalBlending,
+    }), [elementImpactAtlas]);
     const streaks = useRef<THREE.InstancedMesh>(null);
     const tells = useRef<THREE.InstancedMesh>(null);
     const contacts = useRef<THREE.InstancedMesh>(null);
     const particles = useRef<THREE.InstancedMesh>(null);
+    const elementImpactMeshes = useRef<Array<THREE.InstancedMesh | null>>(Array(PET_ELEMENT_IMPACT_ELEMENTS.length).fill(null));
     const heroFlare = useRef<THREE.Mesh>(null);
     const heroTravelCore = useRef<THREE.Mesh>(null);
     const heroTravelPlume = useRef<THREE.Mesh>(null);
@@ -1718,6 +1738,7 @@ function AttackCausalityLayer({ result, cues, clockRef, heroImpactAssetReady }: 
     const heroCameraForward = useMemo(() => new THREE.Vector3(), []);
     const heroContactBehindPoint = useMemo(() => new THREE.Vector3(), []);
     const heroContactFrontPoint = useMemo(() => new THREE.Vector3(), []);
+    const elementImpactPoint = useMemo(() => new THREE.Vector3(), []);
     const heroDamagePoint = useMemo(() => new THREE.Vector3(), []);
     const heroProjectedA = useMemo(() => new THREE.Vector3(), []);
     const heroProjectedB = useMemo(() => new THREE.Vector3(), []);
@@ -1762,7 +1783,10 @@ function AttackCausalityLayer({ result, cues, clockRef, heroImpactAssetReady }: 
         [],
     );
 
-    useEffect(() => () => heroDamageTexture.dispose(), [heroDamageTexture]);
+    useEffect(() => () => {
+        heroDamageTexture.dispose();
+        elementImpactMaterial.dispose();
+    }, [elementImpactMaterial, heroDamageTexture]);
 
     useLayoutEffect(() => {
         transform.position.set(0, -100, 0);
@@ -1774,7 +1798,8 @@ function AttackCausalityLayer({ result, cues, clockRef, heroImpactAssetReady }: 
         const contactMesh = contacts.current;
         const particleMesh = particles.current;
         if (!streakMesh || !tellMesh || !contactMesh || !particleMesh) return;
-        for (const mesh of [streakMesh, tellMesh, contactMesh, particleMesh]) {
+        for (const mesh of [streakMesh, tellMesh, contactMesh, particleMesh, ...elementImpactMeshes.current]) {
+            if (!mesh) continue;
             mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
             for (let index = 0; index < mesh.count; index++) mesh.setMatrixAt(index, transform.matrix);
             mesh.instanceMatrix.needsUpdate = true;
@@ -1946,6 +1971,15 @@ function AttackCausalityLayer({ result, cues, clockRef, heroImpactAssetReady }: 
         const contactMesh = contacts.current;
         const particleMesh = particles.current;
         if (!streakMesh || !tellMesh || !contactMesh || !particleMesh) return;
+        const impactMeshes = elementImpactMeshes.current;
+        transform.position.set(0, -100, 0);
+        transform.rotation.set(0, 0, 0);
+        transform.scale.setScalar(0);
+        transform.updateMatrix();
+        for (const mesh of impactMeshes) {
+            if (!mesh) continue;
+            for (let index = 0; index < ATTACK_CAUSALITY_CAPACITY; index++) mesh.setMatrixAt(index, transform.matrix);
+        }
         const tick = clockRef.current;
         if (heroFlare.current) {
             heroFlare.current.visible = false;
@@ -2214,6 +2248,34 @@ function AttackCausalityLayer({ result, cues, clockRef, heroImpactAssetReady }: 
             transform.updateMatrix();
             contactMesh.setMatrixAt(slot, transform.matrix);
             contactMesh.setColorAt(slot, tint.set(elementColor).multiplyScalar(0.72 + impactStrength * 0.34));
+            const impactCell = petElementImpactUvCell(cue.element);
+            if (!isHero && impactStrength > 0 && impactCell) {
+                const impactMesh = impactMeshes[impactCell.column + impactCell.row * 3];
+                if (impactMesh) {
+                    elementImpactPoint.set(impactTx, 0.82, impactTz);
+                    camera.getWorldDirection(heroCameraForward);
+                    elementImpactPoint.addScaledVector(heroCameraForward, -WARFRONT_THREE_HERO_CONTACT_DEPTH_OFFSET_WORLD);
+                    const impactWorldPerPixel = worldUnitsPerScreenPixel(
+                        camera,
+                        elementImpactPoint,
+                        viewport.height,
+                        heroCameraSpace,
+                    );
+                    const targetWidthPx = WARFRONT_THREE_HERO_TARGET_WIDTH_WORLD / Math.max(0.001, impactWorldPerPixel);
+                    const spriteWidthPx = Math.max(36, Math.min(92, targetWidthPx * 0.9)) * impactStrength;
+                    heroProjectedA.set(ox, 0.62, oz).project(camera);
+                    heroProjectedB.set(impactTx, 0.62, impactTz).project(camera);
+                    const impactScreenDx = (heroProjectedB.x - heroProjectedA.x) * viewport.width * 0.5;
+                    const impactScreenDy = (heroProjectedB.y - heroProjectedA.y) * viewport.height * 0.5;
+                    transform.position.copy(elementImpactPoint);
+                    transform.quaternion.copy(camera.quaternion);
+                    transform.rotateZ(Math.atan2(impactScreenDy, impactScreenDx));
+                    const spriteWorldSpan = impactWorldPerPixel * spriteWidthPx;
+                    transform.scale.set(spriteWorldSpan, spriteWorldSpan, 1);
+                    transform.updateMatrix();
+                    impactMesh.setMatrixAt(slot, transform.matrix);
+                }
+            }
             if (phase.contact > 0) contactCount++;
             if (phase.result > 0) resultCount++;
 
@@ -2404,7 +2466,8 @@ function AttackCausalityLayer({ result, cues, clockRef, heroImpactAssetReady }: 
         for (let index = slot * ATTACK_PARTICLES_PER_CUE; index < ATTACK_CAUSALITY_CAPACITY * ATTACK_PARTICLES_PER_CUE; index++) {
             particleMesh.setMatrixAt(index, transform.matrix);
         }
-        for (const mesh of [streakMesh, tellMesh, contactMesh, particleMesh]) {
+        for (const mesh of [streakMesh, tellMesh, contactMesh, particleMesh, ...impactMeshes]) {
+            if (!mesh) continue;
             mesh.instanceMatrix.needsUpdate = true;
             if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
         }
@@ -2502,6 +2565,22 @@ function AttackCausalityLayer({ result, cues, clockRef, heroImpactAssetReady }: 
                 <octahedronGeometry args={[1, 0]} />
                 <meshBasicMaterial color="#fff" wireframe transparent opacity={0.78} depthTest={false} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
             </instancedMesh>
+            {PET_ELEMENT_IMPACT_ELEMENTS.map((element) => {
+                const cell = petElementImpactUvCell(element);
+                const geometry = cachedPetElementImpactGeometry(element);
+                if (!cell || !geometry) return null;
+                const index = cell.column + cell.row * 3;
+                return (
+                    <instancedMesh
+                        key={`element-impact-${element}`}
+                        ref={(mesh) => { elementImpactMeshes.current[index] = mesh; }}
+                        args={[geometry, elementImpactMaterial, ATTACK_CAUSALITY_CAPACITY]}
+                        dispose={null}
+                        frustumCulled={false}
+                        renderOrder={7.5}
+                    />
+                );
+            })}
             <instancedMesh ref={particles} args={[undefined, undefined, ATTACK_CAUSALITY_CAPACITY * ATTACK_PARTICLES_PER_CUE]} frustumCulled={false} renderOrder={8}>
                 <tetrahedronGeometry args={[1, 0]} />
                 <meshBasicMaterial color="#fff" transparent opacity={0.68} depthTest={false} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />

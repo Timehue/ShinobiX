@@ -51,6 +51,8 @@ import { petDuelModelCalibration } from "../lib/pet-duel-model-presentation";
 import { resolvePetDuelVisualLayers } from "../lib/pet-duel-visual-layers";
 import { petCombatFamilyPresentation } from "../lib/pet-combat-family";
 import { petDisplayName } from "../lib/pet";
+import { PET_ELEMENT_IMPACT_ATLAS_URL } from "../lib/pet-element-vfx";
+import { preparePetElementImpactTexture } from "../lib/pet-element-impact-texture";
 import { petDuelBroadcastRead, petDuelRecap } from "../lib/pet-duel-broadcast";
 import { petColiseumWeatherDurationTicks, type PetColiseumWeather } from "../lib/pet-coliseum-weather";
 import { type DuelClock, TARGET_SPRITE_H, FLOOR_Y, FX_Y, type Vec3, CAM_LOOK, CAM_POS, type PetBattleSettlementStatus, COLISEUM_FLOOR_URL, COLISEUM_BG_URL, CAM_FOV, duelBtn, resultBtn } from "./pet-coliseum/stage";
@@ -166,7 +168,20 @@ const isVersusPlayer = (d: LiveDuel | undefined | null): boolean =>
 
 export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyReservePet, seed, result, live, onOutcome, onProgress, sharedImages = {}, initialTick = 0, onFightAgain, settlementStatus, onRetrySettlement, settlementCopy, resultSupplement, onExit, onConnectionLost }: PetColiseumDuelProps) {
     const [qualityId, setQualityId] = useState<PetVisualQuality>(() => petVisualQuality().id);
+    const [elementImpactAtlas, setElementImpactAtlas] = useState<THREE.Texture | null>(null);
     const quality = PET_VISUAL_QUALITY_PRESETS[qualityId];
+    useEffect(() => {
+        let active = true;
+        const texture = new THREE.TextureLoader().load(PET_ELEMENT_IMPACT_ATLAS_URL, (loaded) => {
+            preparePetElementImpactTexture(loaded);
+            if (active) setElementImpactAtlas(loaded);
+            else loaded.dispose();
+        });
+        return () => {
+            active = false;
+            texture.dispose();
+        };
+    }, []);
     const battleMusicTheme = hollowHoundSurface(enemyPet) ? "hollow-gate" as const : "standard" as const;
     useEffect(() => {
         if (!isAudioMuted()) {
@@ -1147,7 +1162,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                     <DuelImpact key={im.id} at={im.pos} color={im.color} big={im.big} mode={im.mode} onDone={() => setImpacts((p) => p.filter((x) => x.id !== im.id))} />
                 ))}
                 {visualLayers.elements && elementBursts.map((burst) => (
-                    <DuelElementVolume key={burst.id} at={burst.pos} kind={burst.kind} color={burst.color} big={burst.big} heading={burst.heading} phase="contact" quality={quality} heroStyle={burst.style} onDone={() => setElementBursts((p) => p.filter((x) => x.id !== burst.id))} />
+                    <DuelElementVolume key={burst.id} at={burst.pos} kind={burst.kind} color={burst.color} big={burst.big} heading={burst.heading} phase="contact" quality={quality} heroStyle={burst.style} impactAtlas={elementImpactAtlas} onDone={() => setElementBursts((p) => p.filter((x) => x.id !== burst.id))} />
                 ))}
                 {visualLayers.aftermath && aftermathFx.map((fx) => (
                     <DuelElementVolume key={fx.id} at={fx.pos} kind={fx.kind} color={fx.color} big={fx.big} phase="aftermath" quality={quality} onDone={() => setAftermathFx((p) => p.filter((x) => x.id !== fx.id))} />
