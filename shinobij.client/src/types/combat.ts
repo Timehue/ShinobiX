@@ -200,6 +200,9 @@ export type QueuedJutsuTraining = {
     fromLevel: number;
     toLevel: number;
     ryoCost: number;
+    /** "honorSeals" for a Lv 30→40 Seal lesson (sealCost Seals); absent = a ryo lesson. */
+    currency?: "ryo" | "honorSeals";
+    sealCost?: number;
     durationMs: number;
 };
 
@@ -210,6 +213,9 @@ export type ActiveJutsuTraining = {
     fromLevel: number;
     toLevel: number;
     ryoCost: number;
+    /** "honorSeals" for a Lv 30→40 Seal lesson (sealCost Seals); absent = a ryo lesson. */
+    currency?: "ryo" | "honorSeals";
+    sealCost?: number;
     startedAt: number;
     endsAt: number;
     // Optional queued 2nd training; auto-promotes to active on completion.

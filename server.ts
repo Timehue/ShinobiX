@@ -30,7 +30,7 @@ import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { readFileSync, readdirSync } from 'node:fs';
-import { enforceRateLimit } from './api/_ratelimit.js';
+import { enforceRateLimit, flushRefusalLog } from './api/_ratelimit.js';
 import { readRequestMetrics, recordRequestMetric, requestSloAlert } from './api/_request-metrics.js';
 import { safeLogValue } from './api/_safe-log.js';
 
@@ -114,6 +114,9 @@ function gracefulShutdown(code: number, reason: string): void {
     if (_shutdownStarted) return;
     _shutdownStarted = true;
     console.log(`[shutdown] draining in-flight requests (${reason})`);
+    // Write the rate-limit refusals counted since the last minute's summary, so
+    // a deploy doesn't swallow them (api/_ratelimit.ts).
+    try { flushRefusalLog(); } catch { /* logging must never block shutdown */ }
     stopGameLoop();
     stopSnapshotCron();
     // Hand the live online roster to the next process. Presence is process memory, so

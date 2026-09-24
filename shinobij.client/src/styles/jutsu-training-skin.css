@@ -296,6 +296,11 @@
 .jutsu-queue-card > div,
 .jutsu-queue-empty > div { display: grid; gap: 4px; min-width: 0; }
 .jutsu-queue-card > div > strong { overflow: hidden; color: #e7edf7; text-overflow: ellipsis; white-space: nowrap; }
+/* The "Up next / name" column keeps a readable width; the price line wraps
+   instead of crushing it (a Seal price like "25 Honor Seals paid · ~30 min"
+   squeezed it to nothing and stacked "Up next" over the level route). */
+.jutsu-queue-card { grid-template-columns: minmax(88px, 1.2fr) auto minmax(0, auto) auto; }
+.jutsu-queue-card > span { min-width: 0; }
 .jutsu-queue-empty { grid-template-columns: minmax(0, 1fr) auto; }
 .jutsu-training-screen .jutsu-queue-empty p { margin: 0 !important; color: #9dacbf !important; font: 500 11px/1.35 Inter, sans-serif !important; text-align: left !important; }
 

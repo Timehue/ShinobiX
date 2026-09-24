@@ -649,7 +649,9 @@ export function PvpBattleScreen({
                 return;
             }
             try {
-                es = new EventSource(`/api/pvp/stream?id=${encodeURIComponent(battleId)}`);
+                // `viewer` keys the server's stream budget per player; EventSource
+                // cannot carry the x-player-name header that fetch requests do.
+                es = new EventSource(`/api/pvp/stream?id=${encodeURIComponent(battleId)}&viewer=${encodeURIComponent(character.name)}`);
                 es.addEventListener("session", (e) => {
                     if (!active || !isCurrentScope()) return;
                     // Any message arriving means the channel is healthy.
@@ -685,10 +687,16 @@ export function PvpBattleScreen({
                     // Surface the gap so players see "reconnecting…" rather
                     // than a frozen board.
                     setConnectionState("reconnecting");
+                    // Once a session has loaded, back off 1.5s → 3s → 6s → 10s cap: a
+                    // flat 1.5s retry through a sustained error ran ~40 reconnects/min
+                    // against a 30/min limit, so the outage itself locked the stream
+                    // out. Before the first session keep the flat 1.5s, so a battle
+                    // that never existed is still reported within a few seconds. Any
+                    // accepted session resets streamFailures (acceptSession).
                     pollTimer = window.setTimeout(() => {
                         if (!active) return;
                         startStream();
-                    }, 1500);
+                    }, hasLoadedSession ? Math.min(10_000, 1500 * 2 ** Math.max(0, streamFailures - 1)) : 1500);
                 };
             } catch {
                 if (active) setConnectionState("reconnecting");

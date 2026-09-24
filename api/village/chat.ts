@@ -102,10 +102,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === 'POST') {
-        // Cap chat posts at 20/min per IP — keeps the KV-lock R-M-W
-        // from being a DOS vector while leaving room for fast banter.
-        // Matches the PvP chat ceiling.
-        if (!(await enforceRateLimitKv(req, res, 'village-chat-post', 20, 60_000))) return;
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { author, text, replyTo } = body as {
@@ -122,6 +118,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!identity.admin && identity.name !== safeName(author)) {
                 return res.status(403).json({ error: 'Cannot post as another player.' });
             }
+            // Cap chat posts at 20/min per VERIFIED player — keeps the KV-lock
+            // R-M-W from being a DOS vector while leaving room for fast banter
+            // (matches the PvP chat ceiling). After auth on purpose: per IP it was
+            // shared by a household; a pre-auth name key could be spent by anyone.
+            if (!(await enforceRateLimitKv(req, res, 'village-chat-post', 20, 60_000, identity.admin ? null : identity.name))) return;
             if (!identity.admin && !await memberCharacter(identity.name, village)) {
                 return res.status(403).json({ error: 'You can only post in your own village chat.' });
             }

@@ -12,7 +12,10 @@
  * purely presentational — no modal to click through.
  *
  * Deliberately NOT a window.* patch. alert() keeps its meaning, and demoting a
- * message is an explicit, reviewable edit at the call site.
+ * message is an explicit, reviewable edit at the call site — with ONE global
+ * exception: a rate-limit "slow down" refusal routed through alert() becomes an
+ * info toast (repeats dropped) in GameAlert.tsx, because it only asks the player
+ * to wait. See lib/slow-down-notice.ts for the exact matcher.
  */
 /* eslint-disable react-refresh/only-export-components */
 import { useEffect, useRef, useState } from "react";
