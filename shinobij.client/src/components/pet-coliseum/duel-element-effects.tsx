@@ -7,6 +7,7 @@ import { lerp, meleeTrailSpec, type MoveChoreoKind } from "../../lib/pet-coliseu
 import { DUEL_TPS, type DuelResult } from "../../lib/pet-duel-sim";
 import { type PetVisualQualityConfig } from "../../lib/pet-visual-quality";
 import { type PetHeroMoveStyle } from "../../lib/pet-hero-moves";
+import { cachedPetElementImpactGeometry } from "../../lib/pet-element-impact-texture";
 import { type DuelClock, FLOOR_Y, type Vec3 } from "./stage";
 import { trailStreakTexture, projCrescentTexture } from "./sprite-resources";
 import { type DuelImpactMode, type DuelElementBurstKind, type DuelSupportKind, liveDuelEffectPosition, type DuelAttackWeight } from "./duel-stage";
@@ -313,7 +314,7 @@ function LegacyDuelElementAftermath({ at, kind, color, big, onDone }: { at: Vec3
  * lightning branches, earth displaces mass, abyss smolders, and arcane energy
  * orbits. The effect scales from a quick hit to an arena signature without
  * falling back to the old beveled brush cards. */
-export function DuelElementVolume({ at, kind, color, big, heading = 0, phase, quality, heroStyle = "generic", delay = 0, simClock, simStartTick, onDone }: {
+export function DuelElementVolume({ at, kind, color, big, heading = 0, phase, quality, heroStyle = "generic", delay = 0, simClock, simStartTick, impactAtlas, onDone }: {
     at: Vec3;
     kind: DuelElementBurstKind;
     color: string;
@@ -325,6 +326,7 @@ export function DuelElementVolume({ at, kind, color, big, heading = 0, phase, qu
     delay?: number;
     simClock?: { current: DuelClock };
     simStartTick?: number;
+    impactAtlas?: THREE.Texture | null;
     onDone: () => void;
 }) {
     const root = useRef<THREE.Group>(null);
@@ -334,6 +336,7 @@ export function DuelElementVolume({ at, kind, color, big, heading = 0, phase, qu
     const particles = useRef<THREE.InstancedMesh>(null);
     const sparks = useRef<THREE.InstancedMesh>(null);
     const sparkMat = useRef<THREE.MeshBasicMaterial>(null);
+    const impactSpriteMat = useRef<THREE.MeshBasicMaterial>(null);
     const materials = useRef<Array<(THREE.Material & { opacity: number }) | null>>([]);
     const light = useRef<THREE.PointLight>(null);
     const start = useRef<number | null>(null);
@@ -357,6 +360,7 @@ export function DuelElementVolume({ at, kind, color, big, heading = 0, phase, qu
     // Rebuilding TubeGeometry synchronously on each hit was the largest visible
     // CPU hitch in effect-heavy exchanges.
     const curves = useMemo(() => cachedElementVolumeCurves(kind, phase, curveCount), [curveCount, kind, phase]);
+    const impactSpriteGeometry = useMemo(() => cachedPetElementImpactGeometry(kind), [kind]);
     // Ordinary contacts already own curved element volumes, particles, body
     // posing and camera response. The extruded hero cards are reserved for a
     // true signature set piece; layering them onto buffs, hits or dashes created
@@ -481,6 +485,15 @@ export function DuelElementVolume({ at, kind, color, big, heading = 0, phase, qu
             sparkMesh.instanceMatrix.needsUpdate = true;
         }
         if (sparkMat.current) sparkMat.current.opacity = Math.max(0, Math.min(1, p / 0.06, (0.46 - p) / 0.18)) * (signature ? 0.96 : 0.78);
+        if (impactSpriteMat.current) {
+            const impactAge = Math.max(0, elapsed);
+            const impactEnvelope = phase === "contact" || signature
+                ? impactAge < 0.04 ? impactAge / 0.04
+                    : impactAge < 0.1 ? 1
+                        : Math.max(0, 1 - (impactAge - 0.1) / 0.22)
+                : 0;
+            impactSpriteMat.current.opacity = impactEnvelope * (signature ? 0.94 : big ? 0.84 : 0.74);
+        }
         materials.current.forEach((material) => {
             if (material) material.opacity = Number(material.userData.baseOpacity ?? 1) * fade;
         });
@@ -531,6 +544,25 @@ export function DuelElementVolume({ at, kind, color, big, heading = 0, phase, qu
                     </mesh>
                 </group>
             ))}
+
+            {impactAtlas && impactSpriteGeometry && phase !== "aftermath" && phase !== "dash" && (
+                <Billboard position={[0, 0.4, 0]} follow lockX={false} lockZ={false}>
+                    <mesh geometry={impactSpriteGeometry} scale={signature ? 1.4 : big ? 1.22 : 1.08} renderOrder={39}>
+                        <meshBasicMaterial
+                            ref={impactSpriteMat}
+                            map={impactAtlas}
+                            color="#ffffff"
+                            transparent
+                            alphaTest={0.025}
+                            opacity={0}
+                            depthTest={false}
+                            depthWrite={false}
+                            side={THREE.DoubleSide}
+                            toneMapped={false}
+                        />
+                    </mesh>
+                </Billboard>
+            )}
 
             {kind === "earth" && Array.from({ length: earthSpireCount }, (_, index) => {
                 const angle = index * 2.399;

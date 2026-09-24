@@ -9,6 +9,10 @@ import {
     warfrontHeroTravelSpanFraction,
     type WarfrontElementSignature,
 } from "./pet-warfront-spectacle";
+import {
+    PET_ELEMENT_IMPACT_CELL_SIZE,
+    petElementImpactUvCell,
+} from "./pet-element-vfx";
 
 const TAU = Math.PI * 2;
 
@@ -562,6 +566,8 @@ export function drawWarfrontElementResult(
     result: number,
     particleBudget: number,
     seed: number,
+    impactAtlas?: CanvasImageSource | null,
+    incomingAngle = 0,
 ): void {
     const strength = Math.max(contact, result);
     if (strength <= 0) return;
@@ -611,6 +617,26 @@ export function drawWarfrontElementResult(
         context.rotate(Math.PI / 4);
         diamond(context, radius * expansion * 0.72); context.stroke();
         context.beginPath(); context.moveTo(-radius * 0.65, 0); context.lineTo(radius * 0.65, 0); context.moveTo(0, -radius * 0.65); context.lineTo(0, radius * 0.65); context.stroke();
+    }
+    const impactCell = petElementImpactUvCell(signature.element);
+    if (impactAtlas && impactCell) {
+        const size = radius * (signature.shape === "flare" ? 2.55 : 2.2) * expansion;
+        context.save();
+        context.rotate(incomingAngle);
+        context.globalCompositeOperation = "source-over";
+        context.globalAlpha = Math.min(0.92, 0.34 + strength * 0.58);
+        context.drawImage(
+            impactAtlas,
+            impactCell.column * PET_ELEMENT_IMPACT_CELL_SIZE,
+            impactCell.row * PET_ELEMENT_IMPACT_CELL_SIZE,
+            PET_ELEMENT_IMPACT_CELL_SIZE,
+            PET_ELEMENT_IMPACT_CELL_SIZE,
+            -size * 0.5,
+            -size * 0.5,
+            size,
+            size,
+        );
+        context.restore();
     }
     context.globalAlpha = result * 0.58;
     const particles = Math.max(0, Math.min(4, particleBudget));
