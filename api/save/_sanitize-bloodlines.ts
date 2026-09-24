@@ -7,7 +7,43 @@ import { BUILTIN_BLOODLINES } from '../pvp/_bloodline-gate.js';
 
 const BUILTIN_BLOODLINE_IDS = new Set(BUILTIN_BLOODLINES.map((bloodline) => bloodline.id));
 
-/** A save must never acknowledge a bloodline that normalization discarded or downgraded. */
+/**
+ * A save with no write intent (an autosave, or a client from before the maker
+ * sent one) must not fail as a whole because its bloodline list is stale:
+ * normalization already kept the stored roster, and refusing the save would
+ * refuse every later autosave too until the player reloads. It fails only for
+ * what looks like an older client's Awakening: a new bloodline or a rank
+ * upgrade that normalization dropped although a pending forge purchase at that
+ * rank could have paid for it. A 200 there would tell that client the
+ * bloodline was saved when it was not.
+ */
+export function hasRejectedBloodlineForgeAttempt(submitted: unknown, retained: unknown, pendingForges: unknown): boolean {
+    if (!Array.isArray(submitted)) return false;
+    const payableRanks = new Set(readPendingBloodlineForges(pendingForges).map((forge) => forge.rank));
+    if (payableRanks.size === 0) return false;
+    const retainedRanks = new Map<string, string>();
+    if (Array.isArray(retained)) {
+        for (const entry of retained) {
+            if (!entry || typeof entry !== 'object') continue;
+            const bloodline = entry as Record<string, unknown>;
+            if (typeof bloodline.id === 'string' && typeof bloodline.rank === 'string') {
+                retainedRanks.set(bloodline.id, bloodline.rank);
+            }
+        }
+    }
+    const order: Record<string, number> = { 'B Rank': 0, 'A Rank': 1, 'S Rank': 2 };
+    for (const entry of submitted) {
+        if (!entry || typeof entry !== 'object') continue;
+        const bloodline = entry as Record<string, unknown>;
+        const rank = parseBloodlineForgeRank(bloodline.rank);
+        if (typeof bloodline.id !== 'string' || !bloodline.id || !rank || !payableRanks.has(rank)) continue;
+        const kept = retainedRanks.get(bloodline.id);
+        if (kept === undefined || (order[rank] ?? 0) > (order[kept] ?? 0)) return true;
+    }
+    return false;
+}
+
+/** A maker write must never acknowledge a bloodline that normalization discarded or downgraded. */
 export function hasRejectedBloodlineSubmission(submitted: unknown, retained: unknown): boolean {
     if (!Array.isArray(submitted)) return false;
     const retainedRanks = new Map<string, string>();
@@ -58,6 +94,8 @@ export function prepareBloodlineNormalization(
     char: Record<string, unknown>,
     exChar: Record<string, unknown>,
     existing: Record<string, unknown> | null | undefined,
+    // True only for the admin content slots (admin1/admin2), whose saves are
+    // the Admin Panel's authored edits: they may delete and edit bloodlines.
     allowRemoval = false,
     writeIntent = '',
 ) {
@@ -120,7 +158,12 @@ export function prepareBloodlineNormalization(
             // Ordinary full saves carry a snapshot of every bloodline. Only a
             // maker write or paid rank upgrade may change a stored definition;
             // combat and autosave snapshots can be older than its refinement.
-            const out: Record<string, unknown> = { ...(mayConsumeForge && storedEntry && requestedId !== writeIntent && !paidUpgrade ? storedEntry : bl) };
+            // The admin content slots are the exception: the Admin Panel edits
+            // and re-images their bloodline jutsu (one or all at once) and
+            // persists through the ordinary save, so replacing its payload
+            // with the stored copy silently discarded every admin edit. The
+            // same schema, budget and rank normalization below still applies.
+            const out: Record<string, unknown> = { ...(mayConsumeForge && storedEntry && requestedId !== writeIntent && !paidUpgrade && !allowRemoval ? storedEntry : bl) };
             // Existing ids may retain or lower their stored rank. New ids and rank
             // upgrades must consume an exact-rank forge purchase. With no purchase,
             // a new entry is discarded rather than silently granting free B rank.

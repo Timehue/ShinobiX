@@ -208,9 +208,56 @@ test('a stale full save cannot replace a newly stored bloodline with the old id'
     store.set(`save:${name}`, clone(before));
     const response = fakeRes();
     await handler(fakeReq(name, token, { _baseSaveVersion: 4,
-        character: { ...character(name, 500), equippedBloodlineId: old.id }, savedBloodlines: [old] }), response.res);
-    assert.equal(response.out.statusCode, 422);
-    assert.deepEqual(store.get(`save:${name}`), before);
+        character: { ...character(name, 500), level: 2, equippedBloodlineId: old.id }, savedBloodlines: [old] }), response.res);
+    // Another tab replaced the bloodline. This tab's autosave carries the old
+    // list, which normalization drops, so the stored roster and equip stand.
+    // The rest of the save still lands: refusing it would refuse every later
+    // autosave from this tab until a reload.
+    assert.equal(response.out.statusCode, 200);
+    const saved = store.get(`save:${name}`) as Record<string, unknown>;
+    assert.equal(saved._saveVersion, 5);
+    assert.deepEqual((saved.savedBloodlines as Array<Record<string, unknown>>).map((entry) => entry.id), [fresh.id]);
+    assert.equal((saved.character as Record<string, unknown>).equippedBloodlineId, fresh.id);
+    assert.deepEqual(saved.pendingBloodlineForges, []);
+});
+
+test('duplicate bloodline rows in an autosave are folded instead of refusing the save', async () => {
+    const name = 'bloodline-duplicate-rows';
+    const token = issuePlayerToken(name);
+    assert.ok(token);
+    const stored = { id: 'bl-dup', name: 'Twice', rank: 'B Rank', jutsus: [] };
+    store.set(`save:${name}`, { _saveVersion: 4,
+        character: { ...character(name, 500), equippedBloodlineId: stored.id },
+        savedBloodlines: [stored], pendingBloodlineForges: [] });
+    const response = fakeRes();
+    await handler(fakeReq(name, token, { _baseSaveVersion: 4,
+        character: { ...character(name, 500), equippedBloodlineId: stored.id }, savedBloodlines: [stored, stored] }), response.res);
+    assert.equal(response.out.statusCode, 200);
+    const saved = store.get(`save:${name}`) as Record<string, unknown>;
+    assert.deepEqual((saved.savedBloodlines as Array<Record<string, unknown>>).map((entry) => entry.id), [stored.id]);
+});
+
+test('an Admin Panel edit to an admin-slot bloodline persists through the ordinary save', async () => {
+    for (const [name, persists] of [['admin1', true], ['bloodline-player-rename', false]] as const) {
+        const token = issuePlayerToken(name);
+        assert.ok(token);
+        const stored = { id: `bl-${name}`, name: 'Original line', rank: 'A Rank', jutsus: [] };
+        store.set(`save:${name}`, { _saveVersion: 4,
+            character: { ...character(name, 500), equippedBloodlineId: stored.id },
+            savedBloodlines: [stored], pendingBloodlineForges: [] });
+        const response = fakeRes();
+        await handler(fakeReq(name, token, { _baseSaveVersion: 4,
+            character: { ...character(name, 500), equippedBloodlineId: stored.id },
+            savedBloodlines: [{ ...stored, name: 'Edited line' }] }), response.res);
+        assert.equal(response.out.statusCode, 200, name);
+        const saved = store.get(`save:${name}`) as Record<string, unknown>;
+        const line = (saved.savedBloodlines as Array<Record<string, unknown>>)[0];
+        // A player's autosave snapshot may predate a Maker refinement, so it
+        // keeps the stored definition. The admin slots are edited by the
+        // Admin Panel through that same save, so their edit must land.
+        assert.equal(line?.name, persists ? 'Edited line' : 'Original line', name);
+        assert.equal(line?.rank, 'A Rank', `${name} keeps its paid rank`);
+    }
 });
 
 test('a pending Awakening Stone purchase reopens the maker without a second debit', async () => {
