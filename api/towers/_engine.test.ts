@@ -1132,7 +1132,7 @@ describe('Battle Towers loadout combat (jutsu resources / cooldowns / weapons / 
         }
     });
 
-    it('ranked Smoke Bomb covers both fighters on each team', () => {
+    it('ranked Smoke Bomb covers both fighters on each team from the next round', () => {
         const id = 'item-smoke-bomb';
         const actors = frontline();
         actors[0] = makeActor('sq-1', 'squad', 0, {
@@ -1147,10 +1147,18 @@ describe('Battle Towers loadout combat (jutsu resources / cooldowns / weapons / 
         const s = makeSession(actors);
         startRound(s);
         assert.ok(applyAction(s, floor, { actorId: 'sq-1', type: 'item', itemId: id }, makeRng(1)).applied);
+        const castRound = s.round;
         for (const fighter of s.actors) {
-            assert.equal(fighter.statuses.some(status => status.source === id), true, `${fighter.id} is covered by smoke`);
+            // Like every tag, the smoke starts next round, so every fighter's
+            // copy waits for the same round boundary wherever they act.
+            assert.equal(fighter.statuses.find(status => status.source === id)?.activeRound, castRound + 1,
+                `${fighter.id} is covered by smoke from the next round`);
         }
-        endTurn(s, floor);
+        let guard = 0;
+        while (s.round === castRound && s.status === 'active' && guard++ < 20) endTurn(s, floor);
+        assert.equal(s.round, castRound + 1);
+        guard = 0;
+        while (activeActor(s)?.id !== 'sq-2' && s.status === 'active' && guard++ < 20) endTurn(s, floor);
         assert.equal(activeActor(s)?.id, 'sq-2');
         const target = getActor(s, 'en-2')!;
         target.shield = 300;

@@ -2603,21 +2603,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (serverItem.id === 'item-attack-pill' || serverItem.id === 'item-defense-pill' || serverItem.id === 'item-smoke-bomb') {
                     const id = serverItem.id;
                     const pct = id === 'item-smoke-bomb' ? 100 : 15;
-                    // A closer's cast would expire at the imminent round tick
-                    // before either player can attack through the smoke.
-                    const smokeRounds = role === roundOpenerFor(session) ? 1 : 2;
+                    // Like every other tag, the effect starts next round. Round
+                    // ticks age both fighters together, so a next-round status
+                    // covers the same whole rounds whichever seat used it; an
+                    // instant status covered one opponent turn fewer for the
+                    // round closer than for the opener.
+                    const activeRound = session.round + 1;
                     const status: PvpStatus = id === 'item-attack-pill'
-                        ? { name: 'Increase Damage Given', source: id, rounds: 2, percent: pct, kind: 'positive', activeRound: session.round }
+                        ? { name: 'Increase Damage Given', source: id, rounds: 2, percent: pct, kind: 'positive', activeRound }
                         : id === 'item-defense-pill'
-                            ? { name: 'Decrease Damage Taken', source: id, rounds: 2, percent: pct, kind: 'positive', activeRound: session.round }
-                            : { name: 'Decrease Damage Given', source: id, rounds: smokeRounds, percent: pct, kind: 'negative', activeRound: session.round };
+                            ? { name: 'Decrease Damage Taken', source: id, rounds: 2, percent: pct, kind: 'positive', activeRound }
+                            : { name: 'Decrease Damage Given', source: id, rounds: 1, percent: pct, kind: 'negative', activeRound };
                     const affectedMe = addStatus(me, status, session.round);
                     const affectedOpp = id === 'item-smoke-bomb' ? addStatus(opp, status, session.round) : opp;
                     lines.push(`${me.name} uses ${serverItem.name ?? 'Item'}: ${id === 'item-smoke-bomb'
-                        ? 'both fighters deal 0 ordinary damage for 1 round; Pierce bypasses the smoke.'
+                        ? 'next round, both fighters deal 0 ordinary damage; Pierce bypasses the smoke.'
                         : id === 'item-attack-pill'
-                            ? 'deals 15% more damage for 2 rounds.'
-                            : 'takes 15% less damage for 2 rounds.'}`);
+                            ? 'deals 15% more damage for 2 rounds, starting next round.'
+                            : 'takes 15% less damage for 2 rounds, starting next round.'}`);
                     result = commit(
                         affectedMe, affectedOpp, iApCost, iCd, iSpend.patch, undefined,
                         id === 'item-smoke-bomb'
