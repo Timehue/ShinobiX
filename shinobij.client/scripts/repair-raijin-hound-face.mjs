@@ -1,7 +1,8 @@
 /** Restore Raijin Hound's facial landmarks and cohesive head binding.
  * The source reconstruction faces +X but inherited a +Z weight mask, splitting
  * the muzzle between pelvis and head. Keep the original surface/atlas, blend
- * its skull to the head joint, and fit small gold eyes and a dark nose to it.
+ * its skull to the head joint, and fit a tapered snout, lower jaw, eyes,
+ * and nose to it.
  * Run this, then author-showdown-pet-animations.mjs starter-lightning-l.
  * The stored original boundary makes repeated repairs deterministic.
  */
@@ -15,6 +16,9 @@ import { MeshoptDecoder } from 'meshoptimizer';
 const path = process.argv[2] ? resolve(process.argv[2]) : resolve(import.meta.dirname, '../public/pet-models/starter-lightning-l.glb');
 const bytes = await readFile(path), jsonLength = bytes.readUInt32LE(12);
 const json = JSON.parse(bytes.subarray(20, 20 + jsonLength));
+if (json.extras?.raijinSculptRevision) {
+    throw new Error('The current Raijin sculpt has a complete textured face; the legacy face repair must not be applied.');
+}
 const source = json.extras?.raijinFaceRepair?.source ?? {
     binLength: bytes.readUInt32LE(20 + jsonLength),
     accessorCount: json.accessors.length,
@@ -107,6 +111,8 @@ const ink = material('Raijin face | charcoal', 0x18130f, .48);
 const gold = material('Raijin face | storm gold eyes', 0xffdd55, .38, .18);
 const pupil = material('Raijin face | pupils', 0x281608, .5);
 const glint = material('Raijin face | eye glint', 0xfff3b0, .3, .08);
+const fur = material('Raijin face | snout fur', 0xc2a46a, .88);
+const chin = material('Raijin face | chin fur', 0xdac792, .92);
 const features = new Map();
 function collect(name, geometry, mat) {
     // Sphere UVs are unused; every facial feature is a solid native material.
@@ -134,6 +140,49 @@ function eye(name, y, z, height, width, slant, offset, mat) {
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
     geometry.setIndex(indices); geometry.computeVertexNormals(); collect(name, geometry, mat);
 }
+function snoutLoft(rings) {
+    const sides = 24, vertices = [], indices = [];
+    for (const { x, y, radiusY, radiusZ } of rings) {
+        for (let side = 0; side < sides; side++) {
+            const angle = side / sides * Math.PI * 2;
+            vertices.push(x, y + Math.sin(angle) * radiusY, .06 + Math.cos(angle) * radiusZ);
+        }
+    }
+    for (let ring = 0; ring < rings.length - 1; ring++) {
+        for (let side = 0; side < sides; side++) {
+            const a = ring * sides + side, b = (ring + 1) * sides + side;
+            const c = ring * sides + (side + 1) % sides, d = (ring + 1) * sides + (side + 1) % sides;
+            indices.push(a, b, c, b, d, c);
+        }
+    }
+    const rear = vertices.length / 3, tip = rear + 1;
+    vertices.push(rings[0].x, rings[0].y, .06);
+    vertices.push(rings.at(-1).x, rings.at(-1).y, .06);
+    for (let side = 0; side < sides; side++) {
+        const next = (side + 1) % sides;
+        indices.push(rear, side, next);
+        const end = (rings.length - 1) * sides;
+        indices.push(tip, end + next, end + side);
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    geometry.setIndex(indices); geometry.computeVertexNormals();
+    return geometry;
+}
+// The source face has almost no forward muzzle. A continuous tapered snout
+// restores the canine silhouette; its roots sit inside the original cheeks.
+const bridge = front(.12, .06);
+collect('snout-upper', snoutLoft([
+    { x: bridge - .08, y: .10, radiusY: .08, radiusZ: .17 },
+    { x: bridge + .01, y: .09, radiusY: .09, radiusZ: .14 },
+    { x: bridge + .13, y: .06, radiusY: .065, radiusZ: .105 },
+    { x: bridge + .21, y: .055, radiusY: .045, radiusZ: .075 },
+]), fur);
+collect('jaw-lower', snoutLoft([
+    { x: bridge - .04, y: -.025, radiusY: .045, radiusZ: .12 },
+    { x: bridge + .08, y: -.028, radiusY: .045, radiusZ: .10 },
+    { x: bridge + .19, y: -.014, radiusY: .028, radiusZ: .065 },
+]), chin);
 // Existing portrait: gold almond eyes, dark lids, and a small charcoal nose.
 for (const [side, sign] of [['left', -1], ['right', 1]]) {
     const z = .06 + sign * .205, y = .205;
@@ -142,8 +191,8 @@ for (const [side, sign] of [['left', -1], ['right', 1]]) {
     eye(`eye-pupil-${side}`, y, z, .019, .006, 0, .023, pupil);
     eye(`eye-glint-${side}`, y + .009, z - .012, .004, .009, 0, .030, glint);
 }
-const nose = new THREE.SphereGeometry(1, 16, 10);
-nose.scale(.044, .034, .056); nose.translate(front(.1, .06) + .015, .105, .06);
+const nose = new THREE.SphereGeometry(1, 20, 12);
+nose.scale(.045, .036, .072); nose.translate(bridge + .215, .067, .06);
 collect('nose', nose, ink);
 for (const [mat, group] of features) {
     // One primitive per material keeps nine landmarks to four additional draws.
@@ -165,6 +214,6 @@ for (const [mat, group] of features) {
         material: mat, mode: 4, extras: { raijinFaceFeatures: group.names },
     });
 }
-json.extras = { ...json.extras, raijinFaceRepair: { revision: '20260915-raijin-face-repair-v1', source } };
+json.extras = { ...json.extras, raijinFaceRepair: { revision: '20260923-raijin-snout-v4', source } };
 await writeFile(path, encode());
 console.log(`Repaired Raijin face: ${positions.count} original vertices retained; ${features.size} fitted feature materials.`);

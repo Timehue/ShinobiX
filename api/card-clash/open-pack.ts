@@ -9,6 +9,7 @@ import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { appendSettlementReceipt, inspectSettlementReceipt, parseSettlementRequestId } from '../_settlement-receipts.js';
 import { applyCardPackOpen, parseCardPackType, type CardPackCurrency } from './_pack.js';
 import { chronicleUnlocked, CHRONICLE_LOCKED_ERROR } from './_starter-cards.js';
+import { BUILTIN_CLASH } from '../clan/war/_card-catalog.js';
 
 type PackSettlement = { cards: string[]; currency: CardPackCurrency; cost: number; balance: number; replayed?: boolean };
 
@@ -87,7 +88,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             playerName,
             source: String(body.packType ?? 'unknown'),
             itemCount: openedCards.length,
-            rareGrants: betaRareGrantTally('card', openedCards.map((card) => (card as { rarity?: unknown })?.rarity)),
+            rareGrants: betaRareGrantTally('card', openedCards.map((id) => BUILTIN_CLASH[id]?.rarity)),
         });
         return res.status(200).json({ ok: true, ...result.value, character: result.character, _saveVersion: result._saveVersion });
     } catch (err) {

@@ -10,11 +10,12 @@ import { isAudioBackgrounded, subscribeAudioLifecycle } from "./audio-lifecycle"
 const MASTER_MUTE_KEY = "audioMuted";
 const MASTER_VOLUME_KEY = "audioVolume.v1";
 
-// One supplied combat theme is used by every battle surface. Keeping this
-// adapter means existing battle start/stop and lifecycle wiring stays intact.
-const TRACKS = ["/music/world/wind-blade-jutsu.mp3"];
-const HOLLOW_GATE_TRACK = TRACKS[0];
-const SHOWDOWN_TRACK = TRACKS[0];
+// Pet battles and shinobi PvP/PvE draw from the same combat playlist.
+export const BATTLE_MUSIC_TRACKS = [
+    "/music/world/wind-blade-jutsu.mp3",
+    "/music/showdown-lantern-duel.mp3",
+] as const;
+const HOLLOW_GATE_TRACK = BATTLE_MUSIC_TRACKS[0];
 
 export type BattleMusicTheme = "standard" | "hollow-gate" | "showdown";
 export type BattleMusicIntensity = "calm" | "pressure" | "climax";
@@ -111,14 +112,27 @@ export function subscribeAudioMute(callback: () => void): () => void {
 function ensureEl(): HTMLAudioElement | null {
     if (typeof window === "undefined") return null;
     if (!audioEl) {
-        audioEl = new Audio();
-        audioEl.loop = true;
-        audioEl.preload = "auto";
-        audioEl.volume = 0.4 * getAudioVolume();
-        audioEl.muted = isAudioMuted() || isAudioBackgrounded();
+        const el = new Audio();
+        audioEl = el;
+        el.preload = "auto";
+        el.volume = 0.4 * getAudioVolume();
+        el.muted = isAudioMuted() || isAudioBackgrounded();
+        el.onended = () => {
+            if (currentTheme === null || el.loop) return;
+            el.src = musicDeliverySrc(nextBattleTrack());
+            el.currentTime = 0;
+            syncBattlePlayback();
+        };
         unsubscribeLifecycle = subscribeAudioLifecycle(syncBattlePlayback);
     }
     return audioEl;
+}
+
+function nextBattleTrack(): string {
+    let index = Math.floor(Math.random() * BATTLE_MUSIC_TRACKS.length);
+    if (BATTLE_MUSIC_TRACKS.length > 1 && index === lastTrackIndex) index = (index + 1) % BATTLE_MUSIC_TRACKS.length;
+    lastTrackIndex = index;
+    return BATTLE_MUSIC_TRACKS[index];
 }
 
 function clearFade(): void {
@@ -168,18 +182,12 @@ export function startBattleMusic(theme: BattleMusicTheme = "standard"): void {
     clearFade();
     currentTheme = theme;
 
-    // musicDeliverySrc redirects .ogg to its .m4a sibling on WebKit, which
-    // decodes no Ogg container — battle music was silent on Safari/iOS. The
-    // .mp3 showdown theme passes through untouched; it already plays everywhere.
+    // Both combat tracks are MP3s, so musicDeliverySrc leaves them unchanged.
+    el.loop = theme === "hollow-gate";
     if (theme === "hollow-gate") {
         el.src = musicDeliverySrc(HOLLOW_GATE_TRACK);
-    } else if (theme === "showdown") {
-        el.src = musicDeliverySrc(SHOWDOWN_TRACK);
     } else {
-        let index = Math.floor(Math.random() * TRACKS.length);
-        if (TRACKS.length > 1 && index === lastTrackIndex) index = (index + 1) % TRACKS.length;
-        lastTrackIndex = index;
-        el.src = musicDeliverySrc(TRACKS[index]);
+        el.src = musicDeliverySrc(nextBattleTrack());
     }
 
     el.currentTime = 0;

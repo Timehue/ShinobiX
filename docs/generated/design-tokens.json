@@ -2346,7 +2346,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
-            "line": 1232
+            "line": 1206
           }
         ]
       },
@@ -2509,7 +2509,7 @@
           },
           {
             "source": "shinobij.client/src/components/StoryFieldWork.css",
-            "line": 45
+            "line": 76
           },
           {
             "source": "shinobij.client/src/screens/WorldCrisis.css",
@@ -2603,7 +2603,7 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
-            "line": 888
+            "line": 865
           },
           {
             "source": "shinobij.client/src/styles/sunscar-responsive.css",
@@ -2730,7 +2730,7 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
-            "line": 1241
+            "line": 1215
           }
         ]
       },
@@ -2741,7 +2741,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/screens/EchoesOfWar.css",
-            "line": 1014
+            "line": 1031
           },
           {
             "source": "shinobij.client/src/screens/PetLadder.css",
@@ -2758,6 +2758,10 @@
           {
             "source": "shinobij.client/src/styles/central-hub-forge.css",
             "line": 599
+          },
+          {
+            "source": "shinobij.client/src/styles/chronicle-packs.css",
+            "line": 191
           },
           {
             "source": "shinobij.client/src/styles/index/03-rails-daily-briefing.css",
@@ -2809,7 +2813,7 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
-            "line": 1001
+            "line": 976
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
@@ -2897,15 +2901,15 @@
           },
           {
             "source": "shinobij.client/src/styles/index/22-pet-battle-sprites.css",
-            "line": 1359
+            "line": 1367
           },
           {
             "source": "shinobij.client/src/styles/index/22-pet-battle-sprites.css",
-            "line": 2511
+            "line": 2519
           },
           {
             "source": "shinobij.client/src/styles/index/22-pet-battle-sprites.css",
-            "line": 2627
+            "line": 2635
           },
           {
             "source": "shinobij.client/src/styles/pet-arena-lobby.css",
@@ -3239,7 +3243,7 @@
           },
           {
             "source": "shinobij.client/src/screens/EchoesOfWar.css",
-            "line": 857
+            "line": 874
           },
           {
             "source": "shinobij.client/src/styles/hub-screens-skin.css",
@@ -3286,11 +3290,11 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
-            "line": 763
+            "line": 741
           },
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
-            "line": 881
+            "line": 858
           }
         ]
       },
@@ -3761,11 +3765,22 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
-            "line": 822
+            "line": 799
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
             "line": 3152
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 880,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/chronicle-packs.css",
+            "line": 185
           }
         ]
       },

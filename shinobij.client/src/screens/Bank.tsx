@@ -8,6 +8,7 @@ import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
 import { gameToast } from "../components/GameToast";
 import { useSharedNow } from "../lib/use-shared-now";
+import { pendingBankTransferIntent, readPendingBankTransferIntent } from "../lib/bank-transfer-intent";
 import type { VersionedCharacterCommit } from "../types/character";
 import { FacilityHero } from "../components/FacilityHero";
 import { GameIcon, ShinobiCurrencyIcon } from "../components/icons/GameIcon";
@@ -94,11 +95,12 @@ export function Bank({ character, updateCharacter, onVersionedCharacter, onBack 
         // is false — without this the transfer would proceed and write `ryo - NaN
         // = NaN`, corrupting the save.
         const value = Math.max(0, Math.floor(Number.isFinite(amount) ? amount : 0));
+        const pending = readPendingBankTransferIntent(character.name, direction, value);
         const validation = value <= 0
             ? "Enter a positive amount."
-            : direction === "deposit" && value > character.ryo
+            : !pending && direction === "deposit" && value > character.ryo
                 ? "Not enough ryo. Enter an amount within your wallet balance."
-                : direction === "withdraw" && value > character.bankRyo
+                : !pending && direction === "withdraw" && value > character.bankRyo
                     ? "Not enough banked ryo. Enter an amount within your vault balance."
                     : null;
         if (validation) {
@@ -110,25 +112,28 @@ export function Bank({ character, updateCharacter, onVersionedCharacter, onBack 
         if (bankBusyRef.current) return;
         bankBusyRef.current = true;
         setBankBusy(true);
+        const intent = pendingBankTransferIntent(character.name, direction, value);
         try {
             const response = await fetch("/api/bank/transfer", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                // `action` is what the server reads (it now also accepts `direction`);
-                // `requestId` is this operation's replay identity — one per intent, so a
-                // retried request returns the previous move instead of moving twice.
-                body: JSON.stringify({ playerName: character.name, direction, action: direction, amount: value, requestId: crypto.randomUUID() }),
+                body: JSON.stringify({ playerName: character.name, direction, action: direction, amount: value, requestId: intent.requestId }),
             });
-            const data = await response.json().catch(() => null) as { error?: string; character?: Character; _saveVersion?: number } | null;
+            const data = await response.json().catch(() => null) as { error?: string; character?: Character; _saveVersion?: number; replayed?: boolean } | null;
             if (!response.ok || !data?.character) {
+                // A rate limit or expired login can arrive after the first
+                // attempt committed and lost its response. Keep that receipt ID
+                // until the server confirms the outcome of this same operation.
+                if (response.status === 400 || response.status === 409 || response.status === 422) intent.complete();
                 return alert(response.status >= 400 && response.status < 500 && response.status !== 408
                     ? data?.error || "Bank transfer was rejected."
                     : AMBIGUOUS_ACTION_MESSAGE);
             }
             if (!onVersionedCharacter(data.character, data._saveVersion)) return alert(AMBIGUOUS_ACTION_MESSAGE);
+            intent.complete();
             setAmount(0);
             setInterestError(null);
-            gameToast(direction === "deposit"
+            gameToast(data.replayed ? "Transfer already completed. Your balance is up to date." : direction === "deposit"
                 ? `Deposited ${value.toLocaleString()} ryo to your vault.`
                 : `Withdrew ${value.toLocaleString()} ryo to your wallet.`);
         } catch {

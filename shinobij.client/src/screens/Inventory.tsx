@@ -934,7 +934,7 @@ export function Inventory({
 
                             {tileCardStacks.length === 0 ? (
                                 <p className="inventory-empty">
-                                    No Shinobi Chronicle Showdown cards yet. Buy card packs from the Shop or Grand Marketplace.
+                                    No Shinobi Chronicle Showdown cards yet. Open card packs in the Card Hall.
                                 </p>
                             ) : (
                                 <div className="tile-card-inventory-grid">

@@ -551,11 +551,28 @@ export function StatusAuraFx({ statuses }: { statuses: readonly { kind: string }
         // survived, so a stun could lose its aura to a buff purely because of
         // insertion order.
         .sort((a, b) => AURA_PRIORITY.indexOf(a.kind) - AURA_PRIORITY.indexOf(b.kind))
-        .slice(0, 2)
-        .map((s) => STATUS_AURA[s.kind]);
+        .slice(0, 2);
     return (
         <group>
-            {active.map((aura, i) => <StatusAuraLoop key={`${aura.frames}-${i}`} aura={aura} phase={i * 0.5} />)}
+            {active.map((status, i) => status.kind === "shield" || status.kind === "protect"
+                ? <DefenseStatusAura key={status.kind} kind={status.kind} />
+                : <StatusAuraLoop key={`${status.kind}-${i}`} aura={STATUS_AURA[status.kind]} phase={i * 0.5} />)}
+        </group>
+    );
+}
+
+function DefenseStatusAura({ kind }: { kind: "shield" | "protect" }) {
+    const color = kind === "shield" ? "#7dd3fc" : "#c4f2ff";
+    return (
+        <group>
+            <mesh position={[0, 0.26, 0]}>
+                <sphereGeometry args={[1.36, kind === "protect" ? 8 : 24, kind === "protect" ? 5 : 14, 0, Math.PI * 2, 0, Math.PI * 0.54]} />
+                <meshBasicMaterial color={color} wireframe={kind === "protect"} transparent opacity={kind === "protect" ? 0.48 : 0.15} depthWrite={false} side={THREE.DoubleSide} toneMapped={false} />
+            </mesh>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.25, 0]}>
+                <torusGeometry args={[1.35, 0.023, 6, 48]} />
+                <meshBasicMaterial color={color} transparent opacity={0.63} depthWrite={false} toneMapped={false} />
+            </mesh>
         </group>
     );
 }

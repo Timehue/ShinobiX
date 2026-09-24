@@ -1,0 +1,67 @@
+{
+  "source": "C:\\Users\\Tyler R\\source\\repos\\NinjaK\\shinobij.client\\art-source\\raijin-hound\\pro-generation-candidate.glb",
+  "objects": [
+    {
+      "name": "node_0",
+      "type": "MESH",
+      "vertices": 353585,
+      "polygons": 495976,
+      "triangles": 495976,
+      "bounds": [
+        [
+          -0.20724600553512573,
+          -0.50931316614151,
+          -6.843070821105357e-08
+        ],
+        [
+          0.2069779932498932,
+          0.5575200319290161,
+          0.8043221831321716
+        ]
+      ],
+      "materials": [
+        "Material.001"
+      ],
+      "has_uv": true,
+      "has_skin": false
+    }
+  ],
+  "images": [
+    {
+      "name": "Render Result",
+      "size": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "texture_pbr_20250901",
+      "size": [
+        4096,
+        4096
+      ]
+    },
+    {
+      "name": "texture_pbr_20250901_metallic-texture_pbr_20250901_roughness",
+      "size": [
+        4096,
+        4096
+      ]
+    },
+    {
+      "name": "texture_pbr_20250901_normal",
+      "size": [
+        4096,
+        4096
+      ]
+    },
+    {
+      "name": "Viewer Node",
+      "size": [
+        256,
+        256
+      ]
+    }
+  ],
+  "actions": []
+}

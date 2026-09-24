@@ -40,9 +40,15 @@ test('run start is idempotent across a lost response and persists the run before
     const app = source('shinobij.client', 'src', 'App.tsx');
     const entry = source('shinobij.client', 'src', 'lib', 'hollow-gate-entry.ts');
     assert.match(app, /enterHollowGateShrineFlow\(/);
-    assert.match(entry, /character\.lastHollowGateStart\?\.requestId/);
+    assert.match(entry, /character\.lastHollowGateStart/);
     assert.match(entry, /pending\.requestId/);
-    assert.match(source('api', 'hollow-gate', 'settle.ts'), /delete next\.lastHollowGateStart/);
+    // A spent marker (its run already settled) must not dead-end entry.
+    assert.match(entry, /recovered\?\.reason !== "hollow-gate-start-spent"/);
+    // `delete` is undone by the merging save writer; the marker must be
+    // overwritten with undefined so it is actually dropped.
+    const settle = source('api', 'hollow-gate', 'settle.ts');
+    assert.match(settle, /next\.lastHollowGateStart = undefined/);
+    assert.doesNotMatch(settle, /delete next\.lastHollowGateStart/);
 });
 
 test('all live Hollow Gate reward sources feed the exact server ledger', () => {

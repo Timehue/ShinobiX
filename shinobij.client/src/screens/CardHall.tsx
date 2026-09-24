@@ -1,4 +1,5 @@
 import { Collection, DeckBuilder } from "../components/ChronicleCardLibrary";
+import { ChroniclePackGallery } from "../components/ChroniclePackGallery";
 import { useActivitySection, useActivitySectionRequests } from "../lib/use-activity-section";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { rememberedCircuitTrial } from '../features/dojo-circuit/client';
@@ -7,6 +8,8 @@ import type { Character, VersionedCharacterCommit } from "../types/character";
 import { visiblePoll } from "../lib/poll";
 import type { TileCard } from "../data/tile-cards";
 import "../styles/chronicle-duel.css";
+import "../styles/chronicle-packs.css";
+import "../styles/card-pack-opening.css";
 import {
   CHRONICLE_CARD_CATALOG,
   CHRONICLE_FOUNDING_FORMAT,
@@ -41,7 +44,7 @@ import {
 import { syncChronicleProgression } from "../lib/chronicle-progression-sync";
 import { chronicleResponseAuthority } from "../lib/chronicle-response-authority";
 
-type Tab = "collection" | "deck" | "play" | "pvp" | "rules";
+type Tab = "collection" | "packs" | "deck" | "play" | "pvp" | "rules";
 type AiDuelState = NonNullable<ChronicleAiResult["session"]>;
 
 // Pacing beats between the Chronicle Keeper's replayed moves: a full beat when
@@ -79,6 +82,7 @@ type CardHallProps = {
   autoStart?: boolean;
   onAutoStartConsumed?: () => void;
   onStartFreePlay?: (matchId: string) => void;
+  onOpenEchoesOfWar?: () => void;
   /** Return false when a newer mutation version has already been adopted. */
   onServerVersion?: (version?: number) => boolean | void;
   onVersionedCharacter?: VersionedCharacterCommit;
@@ -131,6 +135,7 @@ function CardHallInner({
   autoStart = false,
   onAutoStartConsumed,
   onStartFreePlay,
+  onOpenEchoesOfWar,
   onServerVersion,
   onVersionedCharacter,
   sharedImages = {},
@@ -164,9 +169,9 @@ function CardHallInner({
   const [deck, setDeck] = useState<string[]>(() =>
     savedValid ? [...savedDeck] : migratedDeck,
   );
-  const initialTab = useActivitySection<Tab>("cardHall.initialTab", ["deck", "play"], autoStart ? "play" : "collection");
+  const initialTab = useActivitySection<Tab>("cardHall.initialTab", ["packs", "deck", "play"], autoStart ? "play" : "collection");
   const [tab, setTab] = useState<Tab>(initialTab);
-  useActivitySectionRequests<Tab>("cardHall.initialTab", ["deck", "play"], setTab);
+  useActivitySectionRequests<Tab>("cardHall.initialTab", ["packs", "deck", "play"], setTab);
   const [showTutorial, setShowTutorial] = useState(
     () =>
       Number(character.cardClashTutorialVersion ?? 0) < CHRONICLE_RULES_VERSION,
@@ -503,6 +508,7 @@ function CardHallInner({
         {(
           [
             "collection",
+            "packs",
             "deck",
             "play",
             ...(onStartFreePlay ? ["pvp" as const] : []),
@@ -516,14 +522,23 @@ function CardHallInner({
             aria-pressed={tab === item}
             onClick={() => setTab(item)}
           >
-            {item === "pvp"
-              ? "Free-Play PvP"
-              : item[0].toUpperCase() + item.slice(1)}
+            {item === "pvp" ? "Free-Play PvP" : item === "packs" ? "Card Packs" : item[0].toUpperCase() + item.slice(1)}
           </button>
         ))}
       </nav>
 
       {tab === "collection" ? <Collection cards={ownedCards} owned={ownedCounts} catalogSize={CHRONICLE_CARD_CATALOG.length} /> : null}
+      {tab === "packs" ? <ChroniclePackGallery
+        character={character}
+        cardsById={cardsById}
+        onOpenEchoesOfWar={onOpenEchoesOfWar}
+        onVersionedCharacter={(next, version) => {
+          if (onVersionedCharacter) return onVersionedCharacter(next, version);
+          if (onServerVersion?.(typeof version === "number" ? version : undefined) === false) return false;
+          updateCharacter(next);
+          return true;
+        }}
+      /> : null}
       {tab === "deck" ? (
         <DeckBuilder
           cards={ownedCards}

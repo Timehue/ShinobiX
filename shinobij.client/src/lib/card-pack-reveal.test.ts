@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import {
     packArtUrl,
     packParticles,
@@ -52,16 +54,26 @@ test("unknown rarities sort as common instead of crashing", () => {
     assert.deepEqual(plan.map((entry) => entry.id), ["tc-99", "tc-03"]);
 });
 
-test("packTheme labels the three storefront packs", () => {
-    assert.equal(packTheme("standard").label, "Standard Pack");
+test("packTheme labels every Card Hall pack", () => {
+    assert.equal(packTheme("standard").label, "Random Pack");
+    for (const element of ["fire", "water", "earth", "wind", "lightning"] as const) {
+        assert.equal(packTheme(element).label, `${element[0].toUpperCase()}${element.slice(1)} Pack`);
+    }
     assert.equal(packTheme("epic").label, "Elite Pack");
     assert.equal(packTheme("legendary").label, "Legendary Pack");
 });
 
-test("pack wrapper art maps the epic pack to its Elite storefront name", () => {
-    assert.equal(packArtUrl("standard"), "/chronicle/packs/standard.webp");
-    assert.equal(packArtUrl("epic"), "/chronicle/packs/elite.webp");
-    assert.equal(packArtUrl("legendary"), "/chronicle/packs/legendary.webp");
+test("pack wrapper art maps every Card Hall pack", () => {
+    assert.equal(packArtUrl("standard"), "/chronicle/packs/random.webp");
+    for (const element of ["fire", "water", "earth", "wind", "lightning"] as const) {
+        assert.equal(packArtUrl(element), `/chronicle/packs/${element}.webp`);
+    }
+    assert.equal(packArtUrl("epic"), "/chronicle/packs/elite-cardgame.webp");
+    assert.equal(packArtUrl("legendary"), "/chronicle/packs/legendary-cardgame.webp");
+    for (const type of ["standard", "fire", "water", "earth", "wind", "lightning", "epic", "legendary"] as const) {
+        const asset = new URL(`../../public${packArtUrl(type)}`, import.meta.url);
+        assert.equal(existsSync(fileURLToPath(asset)), true, `${type} wrapper art must ship`);
+    }
 });
 
 test("reveal stings scale with rarity and commons stay quiet", () => {
