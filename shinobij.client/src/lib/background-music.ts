@@ -1,7 +1,14 @@
 // Contextual world music. This owns the quiet exploration/combat score while
 // preserving the Settings screen's one master mute and volume preference.
 
-import { BATTLE_MUSIC_TRACKS, getAudioVolume, isAudioMuted, subscribeAudioMute } from "./pet-music";
+import {
+    BATTLE_MUSIC_TRACKS,
+    getAudioVolume,
+    isAudioMuted,
+    isBattleMusicActive,
+    subscribeAudioMute,
+    subscribeBattleMusic,
+} from "./pet-music";
 import { isAudioBackgrounded, subscribeAudioLifecycle } from "./audio-lifecycle";
 
 export type BackgroundMusicScene = "village" | "combat" | null;
@@ -31,7 +38,10 @@ function syncPlayback(): void {
 
     const el = ensureAudio();
     if (!el) return;
-    const blocked = isAudioMuted() || isAudioBackgrounded();
+    // A pet battle, a dungeon fight or the Hollow Gate runs its own battle
+    // score. The world score pauses under it rather than playing a second
+    // track, then resumes where it stopped.
+    const blocked = isAudioMuted() || isAudioBackgrounded() || isBattleMusicActive();
     el.muted = blocked;
     el.volume = BACKGROUND_MUSIC_VOLUME * getAudioVolume();
     if (blocked) {
@@ -88,10 +98,12 @@ export function setBackgroundMusicScene(scene: BackgroundMusicScene): void {
 
 // The player can unmute after a scene has already been selected.
 const unsubscribeMute = subscribeAudioMute(syncPlayback);
+const unsubscribeBattleMusic = subscribeBattleMusic(syncPlayback);
 
 if (import.meta.hot) {
     import.meta.hot.dispose(() => {
         unsubscribeMute();
+        unsubscribeBattleMusic();
         unsubscribeLifecycle?.();
         audioEl?.pause();
     });
