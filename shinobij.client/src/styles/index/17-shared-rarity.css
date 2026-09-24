@@ -1,0 +1,31 @@
+/* Shared rarity colors precede later override passes even when Shop and
+   Inventory have not loaded. Keep these global rules in the eager manifest. */
+.rarity-common {
+    background: rgba(148, 163, 184, 0.25);
+    color: var(--slate-200);
+}
+
+.rarity-uncommon {
+    background: rgba(132, 204, 22, 0.25);
+    color: #d9f99d;
+}
+
+.rarity-rare {
+    background: rgba(59, 130, 246, 0.25);
+    color: #bfdbfe;
+}
+
+.rarity-epic {
+    background: rgba(168, 85, 247, 0.25);
+    color: #e9d5ff;
+}
+
+.rarity-legendary {
+    background: rgba(250, 204, 21, 0.22);
+    color: var(--gold-300);
+}
+
+.rarity-mythic {
+    background: rgba(239, 68, 68, 0.24);
+    color: #fecaca;
+}

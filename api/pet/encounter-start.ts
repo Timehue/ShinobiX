@@ -254,7 +254,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (trackerTrail && !trackerTrail.flushedAt) await saveTrackerTrail(playerName, { ...trackerTrail, flushedAt: mintedAt }, mintedAt);
             const territory = await kv.get<SectorWeatherOverride>(`world:territory:${sector}`).catch(() => null);
             const weather = resolveSectorWeather(sectorBiomeOf(sector), sector, mintedAt, territory);
-            const pet = rollWildPet(() => randomInt(1_000_000_000) / 1_000_000_000, mintedAt, { weather }, { guaranteed: !!trackerTrail });
+            // Deterministic discovery in the isolated, in-memory Express QA
+            // server only. The admin secret prevents ordinary test players from
+            // selecting a hit; production always uses crypto randomness.
+            const qaHit = process.env.NODE_ENV === 'test'
+                && process.env.SHINOBIX_QA_MEMORY_KV === '1'
+                && Boolean(process.env.ADMIN_PASSWORD)
+                && req.headers['x-qa-wild-hit'] === process.env.ADMIN_PASSWORD;
+            const pet = rollWildPet(qaHit
+                ? () => 0.02
+                : () => randomInt(1_000_000_000) / 1_000_000_000, mintedAt, { weather }, { guaranteed: !!trackerTrail });
             const receipt: PetAttemptReceipt = {
                 version: 1,
                 playerName,
