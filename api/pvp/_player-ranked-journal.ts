@@ -20,7 +20,15 @@ export const PLAYER_RANKED_JOURNAL_VERSION = 'player-ranked-journal-v1' as const
 export const PLAYER_RANKED_SETTLEMENT_STAMP_FIELD = 'playerRankedSettlementStamp' as const;
 export const PLAYER_RANKED_JOURNAL_PREFIX = 'player:ranked-journal:';
 export const PLAYER_RANKED_CANCELLED_PREFIX = 'player:ranked-cancelled:';
-const JOURNAL_TTL_SECONDS = 400 * 24 * 60 * 60;
+/**
+ * Discovery pointers for the server-side settlement sweep. Deliberately NOT
+ * under PLAYER_RANKED_JOURNAL_PREFIX: every `player:ranked-journal:*` key must
+ * parse as a journal (listPendingPlayerRankedJournals, season close).
+ */
+export const PLAYER_RANKED_SETTLING_PREFIX = 'player:ranked-settling:';
+export const PLAYER_RANKED_SETTLING_VERSION = 'player-ranked-settling-v1' as const;
+export const PLAYER_RANKED_JOURNAL_TTL_SECONDS = 400 * 24 * 60 * 60;
+const JOURNAL_TTL_SECONDS = PLAYER_RANKED_JOURNAL_TTL_SECONDS;
 export const PLAYER_RANKED_SETTLEMENT_STAMP_LIMIT = 64;
 
 export type PlayerRankedTerminal = {
@@ -180,6 +188,88 @@ export async function getPlayerRankedJournal(
     return journal;
 }
 
+/**
+ * "This match may still owe settlement work." One small row per match, written
+ * before its journal is created and deleted once the whole saga is proven
+ * settled (compactSettledPlayerRankedSession). It carries no authority: the
+ * sweep re-derives everything from the journal, the gate and the session. It
+ * exists so a match stays discoverable after its gate admission is gone, and
+ * so an idle server can list outstanding work without reading every journal.
+ */
+export type PlayerRankedSettlingPointer = {
+    version: typeof PLAYER_RANKED_SETTLING_VERSION;
+    matchId: string;
+    battleId: string;
+    /** Terminal time. The sweep leaves younger work to the saga still running it. */
+    since: number;
+    /** Failed sweep attempts, for backoff. The saga itself never writes these. */
+    attempts: number;
+    nextAttemptAt: number;
+    lastError: string | null;
+};
+
+export function playerRankedSettlingKey(matchId: string): string {
+    return `${PLAYER_RANKED_SETTLING_PREFIX}${matchId}`;
+}
+
+export function parsePlayerRankedSettlingPointer(value: unknown): PlayerRankedSettlingPointer | null {
+    if (!isRecord(value) || !exactKeys(value, [
+        'version', 'matchId', 'battleId', 'since', 'attempts', 'nextAttemptAt', 'lastError',
+    ])) return null;
+    const pointer = value as PlayerRankedSettlingPointer;
+    if (pointer.version !== PLAYER_RANKED_SETTLING_VERSION
+        || typeof pointer.matchId !== 'string'
+        || !/^player-ranked-[0-9a-f-]{36}$/.test(pointer.matchId)
+        || typeof pointer.battleId !== 'string'
+        || !/^pvp-[0-9a-f-]{36}$/.test(pointer.battleId)
+        || !Number.isSafeInteger(pointer.since)
+        || pointer.since <= 0
+        || !Number.isSafeInteger(pointer.attempts)
+        || pointer.attempts < 0
+        || !Number.isSafeInteger(pointer.nextAttemptAt)
+        || pointer.nextAttemptAt <= 0
+        || (pointer.lastError !== null && typeof pointer.lastError !== 'string')) return null;
+    return pointer;
+}
+
+/**
+ * Publish discovery for one match; true when this call created it. NX: an
+ * existing pointer keeps the sweep's backoff state. Carries the journal TTL so
+ * an abandoned pointer can never outlive the journal it points at.
+ */
+export async function ensurePlayerRankedSettlingPointer(
+    store: Pick<KvLike, 'set'>,
+    input: { matchId: string; battleId: string; since: number },
+): Promise<boolean> {
+    const since = Math.max(1, Math.floor(input.since));
+    const pointer: PlayerRankedSettlingPointer = {
+        version: PLAYER_RANKED_SETTLING_VERSION,
+        matchId: input.matchId,
+        battleId: input.battleId,
+        since,
+        attempts: 0,
+        nextAttemptAt: since,
+        lastError: null,
+    };
+    if (!parsePlayerRankedSettlingPointer(pointer)) throw new Error('player-ranked-settling-pointer-invalid');
+    return await store.set(playerRankedSettlingKey(input.matchId), pointer, {
+        nx: true,
+        ex: JOURNAL_TTL_SECONDS,
+    }) === 'OK';
+}
+
+/** Best-effort: a pointer that survives only costs the sweep one re-verification. */
+export async function clearPlayerRankedSettlingPointer(
+    store: Pick<KvLike, 'del'>,
+    matchId: string,
+): Promise<void> {
+    try {
+        await store.del(playerRankedSettlingKey(matchId));
+    } catch {
+        // The sweep re-proves settlement before it deletes a leftover pointer.
+    }
+}
+
 function terminalFromAdmission(admission: PlayerRankedAdmission): PlayerRankedTerminal {
     if (admission.phase !== 'terminal'
         || !admission.battleId
@@ -230,6 +320,15 @@ async function materializeJournal(
         state: 'pending',
         updatedAt: terminal.terminalAt,
     };
+    // Discovery lands BEFORE the journal it describes, so no crash can leave a
+    // pending journal the server-side sweep cannot find — even if the gate
+    // admission is later lost. A pointer without a journal is harmless: the
+    // sweep finds the admission (or nothing) and clears it.
+    await ensurePlayerRankedSettlingPointer(store, {
+        matchId: terminal.matchId,
+        battleId: terminal.battleId,
+        since: terminal.terminalAt,
+    });
     try {
         if (await store.set(key, initial, { nx: true, ex: JOURNAL_TTL_SECONDS }) === 'OK') return initial;
     } catch (error) {
