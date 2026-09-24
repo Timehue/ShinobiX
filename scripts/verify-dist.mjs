@@ -13,6 +13,7 @@
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { findCollapsedPrefixes } from './lib/css-prefix-collapse.mjs';
@@ -103,6 +104,42 @@ function walkFiles(dir) {
 const clientFiles = walkFiles(clientDist);
 const clientRelativeFiles = clientFiles.map((file) => relative(clientDist, file).replaceAll('\\', '/'));
 const clientRelativeFileSet = new Set(clientRelativeFiles);
+// The public copy is filtered by Vite. Verify the actual artifact against the
+// approved runtime manifests, including bytes, and reject retired full GLBs.
+const petLodManifest = JSON.parse(readFileSync(join(root, 'shinobij.client', 'public', 'pet-models', 'warfront-lod', 'manifest.json'), 'utf8'));
+const petImpostorManifest = JSON.parse(readFileSync(join(root, 'shinobij.client', 'public', 'pet-models', 'warfront-impostors', 'manifest.json'), 'utf8'));
+if (petLodManifest.entries?.length !== 159 || petImpostorManifest.entries?.length !== 159) {
+    fail('pet runtime manifests must each contain 159 selected models');
+}
+const expectedPetFiles = new Map();
+function addExpectedPetFile(url, bytes, sha256) {
+    const relativePath = url.split('?', 1)[0].replace(/^\//u, '');
+    if (!relativePath.startsWith('pet-models/') || relativePath.includes('..') || expectedPetFiles.has(relativePath)) {
+        fail(`invalid or repeated pet runtime URL: ${url}`);
+    }
+    expectedPetFiles.set(relativePath, { bytes, sha256 });
+}
+const impostorBySource = new Map(petImpostorManifest.entries.map((entry) => [entry.sourceUrl, entry]));
+for (const entry of petLodManifest.entries) {
+    addExpectedPetFile(entry.sourceUrl, entry.sourceBytes, entry.sourceSha256);
+    addExpectedPetFile(entry.lodUrl, entry.lodBytes, entry.lodSha256);
+    const impostor = impostorBySource.get(entry.sourceUrl);
+    if (!impostor || impostor.lodSha256 !== entry.lodSha256) {
+        fail(`missing or stale pet impostor for ${entry.sourceUrl}`);
+    }
+    addExpectedPetFile(impostor.atlasUrl, impostor.atlasBytes, impostor.atlasSha256);
+}
+if (expectedPetFiles.size !== 477) fail(`expected 477 selected pet assets, found ${expectedPetFiles.size}`);
+for (const [relativePath, expected] of expectedPetFiles) {
+    if (!clientRelativeFileSet.has(relativePath)) fail(`client dist is missing ${relativePath}`);
+    const file = join(clientDist, relativePath);
+    if (statSync(file).size !== expected.bytes) fail(`${relativePath} has the wrong byte count`);
+    const hash = createHash('sha256').update(readFileSync(file)).digest('hex');
+    if (hash !== expected.sha256) fail(`${relativePath} differs from its certified manifest hash`);
+}
+const unexpectedPetFile = clientRelativeFiles.find((file) =>
+    file.startsWith('pet-models/') && /\.(?:glb|webp)$/iu.test(file) && !expectedPetFiles.has(file));
+if (unexpectedPetFile) fail(`client dist copied an unselected pet asset: ${unexpectedPetFile}`);
 const clientIndex = readFileSync(join(clientDist, 'index.html'), 'utf8');
 const referencedClientAssets = [...clientIndex.matchAll(/(?:src|href)=["']\/([^"']+)["']/g)].map((match) => match[1]);
 const missingReferencedClientAsset = referencedClientAssets.find((file) => !clientRelativeFileSet.has(file));
