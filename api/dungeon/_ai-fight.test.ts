@@ -67,4 +67,31 @@ describe('sealed Dungeon Warden adapter', () => {
         });
         assert.equal(stale.ok, false);
     });
+
+    it('ends a free explore-found run on flee or loss so the player is never stuck in it', () => {
+        for (const outcome of ['forfeit', 'loss', 'draw'] as const) {
+            const character = {
+                activeDungeonRun: { token: 'freerun000002', entry: 'free', sector: 12, exploreReceiptId: 'exploreproof02' },
+                serverFreeDungeonProbeReceipts: [
+                    { requestId: 'probe00000001', day: '2026-09-23', sector: 12, found: true, token: 'freerun000002', at: 1 },
+                    { requestId: 'probe00000000', day: '2026-09-23', sector: 3, found: false, token: '', at: 0 },
+                ],
+            };
+            const settled = applyDungeonWardenSettlement({
+                character, dungeonRunToken: 'freerun000002', opponentId: 'dungeon-warden-50',
+                proofId: 'fleefightproof01', outcome, now: 50,
+            });
+            assert.equal(settled.ok, true); if (!settled.ok) return;
+            assert.equal(settled.character.activeDungeonRun, null);
+            const receipts = settled.character.serverFreeDungeonProbeReceipts as Array<Record<string, unknown>>;
+            assert.equal(receipts[0]!.resolvedAt, 50);
+            assert.equal(receipts[1]!.resolvedAt, undefined);
+        }
+        const win = applyDungeonWardenSettlement({
+            character: { activeDungeonRun: { token: 'freerun000003', entry: 'free', sector: 12, exploreReceiptId: 'exploreproof03' } },
+            dungeonRunToken: 'freerun000003', opponentId: 'dungeon-warden-50', proofId: 'winfightproof0003', outcome: 'win', now: 60,
+        });
+        assert.equal(win.ok, true); if (!win.ok) return;
+        assert.equal((win.character.activeDungeonRun as Record<string, unknown>).wardenDefeated, true);
+    });
 });
