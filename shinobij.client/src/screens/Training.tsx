@@ -41,7 +41,8 @@ import { mutateJutsuRyoTraining } from "../lib/jutsu-ryo-api";
 import { friendlyJutsuTrainingError, jutsuHallNoticeTitle, trainingResponseError, type JutsuHallNotice } from "../lib/training-feedback";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
-import { JUTSU_TRAINING_CAP } from "../constants/game";
+import { JUTSU_TRAINING_CAP, jutsuLevelCapForLevel } from "../constants/game";
+import { masteryBonus, masteryHasCapstone } from "../lib/profession-mastery";
 
 import { TRAINING_TIERS, trainingStatGain, rookieStatMultiplier } from "../lib/training-config";
 import type { Character, VersionedCharacterCommit } from "../types/character";
@@ -290,23 +291,45 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
     );
 }
 
-// Honor Seal sinks: Vanguards (and clan-donated recipients later) spend Seals
-// to (1) level a jutsu from 30→40 without grinding PvP, and (2) skip jutsu
-// training time. Both endpoints live in api/jutsu/ and apply the Vanguard
-// Rank 8+ 10% discount server-side. Server is source of truth for Seal
-// debits and jutsu levels; client mirrors locally on success.
+// Honor Seals train jutsu Lv 30→40 as TIMED LESSONS — the same 30-minute
+// lesson and the same two slots as ryo training, bought from the curriculum
+// card (api/training/jutsu-ryo.ts, payWith: "honorSeals"). This panel shows
+// the balance and the Seal speed-ups, which work on any active lesson. The
+// server prices every lesson (Vanguard discounts included); this is a preview.
 const SEAL_COST_BY_FROM_LEVEL: Record<number, number> = {
     30: 20, 31: 25, 32: 30, 33: 35, 34: 40,
     35: 45, 36: 50, 37: 55, 38: 60, 39: 65,
 };
 
+/** Same arithmetic as the server's jutsuSealTrainingCost (api/training/_jutsu-ryo.ts). */
 function previewSealCost(fromLevel: number, character: Character): number {
-    const base = SEAL_COST_BY_FROM_LEVEL[fromLevel] ?? 0;
-    if (base === 0) return 0;
-    if (character.profession === "vanguard" && (character.professionRank ?? 0) >= 8) {
-        return Math.ceil(base * 0.9);
-    }
-    return base;
+    let cost = SEAL_COST_BY_FROM_LEVEL[fromLevel] ?? 0;
+    if (cost === 0) return 0;
+    if (character.profession === "vanguard" && (character.professionRank ?? 0) >= 8) cost *= 0.9;
+    // Vanguard mastery (Quartermaster → Efficient Forging) stacks, capped at 50%.
+    const masteryPct = Math.min(50, masteryBonus(character, "sealTrainCostPct"));
+    if (masteryPct > 0) cost *= 1 - masteryPct / 100;
+    return Math.max(1, Math.ceil(cost));
+}
+
+/** Seal lessons run from Lv 30 up to 40, never past the player's rank cap. */
+const SEAL_LESSON_MIN_LEVEL = 30;
+function sealLessonCap(character: Character): number {
+    return Math.min(40, jutsuLevelCapForLevel(Number(character.level) || 1));
+}
+
+/** The Seal lesson that would train a jutsu FROM `fromLevel`, or null when Seals can't. */
+function sealLessonFrom(fromLevel: number, character: Character): { cost: number } | null {
+    if (fromLevel < SEAL_LESSON_MIN_LEVEL || fromLevel >= sealLessonCap(character)) return null;
+    const cost = previewSealCost(fromLevel, character);
+    return cost > 0 ? { cost } : null;
+}
+
+/** "150 ryo" or "20 Honor Seals" — what a lesson was paid with. */
+function lessonPrice(lesson: { currency?: string; ryoCost: number; sealCost?: number }, share = 1): string {
+    return lesson.currency === "honorSeals"
+        ? `${Math.floor((lesson.sealCost ?? 0) * share).toLocaleString()} Honor Seals`
+        : `${Math.floor(lesson.ryoCost * share).toLocaleString()} ryo`;
 }
 
 function JutsuSealPanel({
@@ -327,46 +350,101 @@ function JutsuSealPanel({
     const [busy, setBusy] = useState(false);
     const busyRef = useRef(false);
     const [msg, setMsg] = useState<string | null>(null);
+    // A throttled speed-up gets a visible wait instead of a bare "Rate limit exceeded."
+    const [speedUpReadyAt, setSpeedUpReadyAt] = useState(0);
+    const [clock, setClock] = useState(() => Date.now());
+    const cooling = clock < speedUpReadyAt;
+    useEffect(() => {
+        if (!cooling) return;
+        const id = setInterval(() => setClock(Date.now()), 500);
+        return () => clearInterval(id);
+    }, [cooling]);
+    const speedUpWaitSec = Math.ceil(Math.max(0, speedUpReadyAt - clock) / 1000);
+    const throttledMessage = (retryAfterMs: unknown) => {
+        const ms = typeof retryAfterMs === "number" && Number.isFinite(retryAfterMs) && retryAfterMs > 0 ? retryAfterMs : 5_000;
+        const now = Date.now();
+        setClock(now);
+        setSpeedUpReadyAt(now + ms);
+        return `⏳ Your Seals need a moment to settle. Try again in ${Math.ceil(ms / 1000)}s.`;
+    };
 
     const hasDiscount = character.profession === "vanguard" && (character.professionRank ?? 0) >= 8;
     const fromLevel = selectedMastery?.level ?? 0;
-    const eligibleForSealLevel = !!selectedJutsu && fromLevel >= 30 && fromLevel < 40;
-    const sealLevelCost = eligibleForSealLevel ? previewSealCost(fromLevel, character) : 0;
+    const sealLesson = selectedJutsu ? sealLessonFrom(fromLevel, character) : null;
     const balance = character.honorSeals ?? 0;
+    // "Finish now" buys exactly the 10-minute blocks left (api/jutsu/speedup.ts
+    // sells at most that many). A flat 10 Seals asked for 100 minutes and was
+    // refused on every 30-minute lesson.
+    // 2s of margin so a request landing just past a 10-minute boundary is not
+    // over the server's count (at worst a second or two remains, which completes).
+    const remainingMinutes = activeJutsuTraining ? Math.max(0, Math.ceil((activeJutsuTraining.endsAt - serverNow() - 2_000) / 60_000)) : 0;
+    const finishSeals = Math.max(1, Math.min(20, Math.ceil(remainingMinutes / 10)));
+    // Same arithmetic as the server's effectiveSpeedupCost (api/jutsu/speedup.ts):
+    // Vanguard Rank 8+ pays 90%, and the Quartermaster "Stockpile" node stacks.
+    const stockpilePct = Math.min(50, masteryBonus(character, "sealSpeedupCostPct"));
+    const speedupCost = (seals: number) =>
+        Math.max(1, Math.ceil(seals * (hasDiscount ? 0.9 : 1) * (1 - stockpilePct / 100)));
+    const finishCost = speedupCost(finishSeals);
 
-    async function trainWithSeals() {
-        if (!selectedJutsu || !eligibleForSealLevel || busyRef.current) return;
+    // Quartermaster "Logistician" capstone: one free Finish-now per week. The
+    // server owns the weekly usage; ask it whether this week's is still unused.
+    const ownsLogistician = masteryHasCapstone(character, "logistician");
+    const [freeSpeedup, setFreeSpeedup] = useState<{ available: boolean; resetsAt: number } | null>(null);
+    // Bumped after a refused free finish so the status is re-read from the server.
+    const [freeCheck, setFreeCheck] = useState(0);
+    useEffect(() => {
+        if (!ownsLogistician) return;
+        let cancelled = false;
+        void fetch(`/api/jutsu/speedup?playerName=${encodeURIComponent(character.name)}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((data: { logistician?: { available?: boolean; resetsAt?: number } } | null) => {
+                if (cancelled || !data?.logistician) return;
+                setFreeSpeedup({ available: data.logistician.available === true, resetsAt: Number(data.logistician.resetsAt) || 0 });
+            })
+            .catch(() => undefined);
+        return () => { cancelled = true; };
+    }, [ownsLogistician, character.name, activeJutsuTraining?.serverToken, freeCheck]);
+    // Come back at the weekly reset (Monday 00:00 UTC) without leaving the screen.
+    useEffect(() => {
+        if (!ownsLogistician || !freeSpeedup?.resetsAt || freeSpeedup.available) return;
+        const wait = freeSpeedup.resetsAt - Date.now() + 1_000;
+        if (wait > 24 * 60 * 60 * 1000) return;
+        const id = window.setTimeout(() => setFreeCheck((n) => n + 1), Math.max(1_000, wait));
+        return () => window.clearTimeout(id);
+    }, [ownsLogistician, freeSpeedup]);
+
+    // Replies patch the lesson the panel sees NOW, never the copy captured when
+    // the request left — a queue, advance or cancel may have landed meanwhile.
+    const lessonRef = useRef(activeJutsuTraining);
+    useEffect(() => { lessonRef.current = activeJutsuTraining; });
+    const patchLessonEndsAt = (serverToken: string | undefined, endsAt: number) => {
+        const latest = lessonRef.current;
+        if (!latest || latest.serverToken !== serverToken || !Number.isFinite(endsAt)) return;
+        setActiveJutsuTraining({ ...latest, endsAt: Math.min(latest.endsAt, endsAt) });
+    };
+
+    async function freeFinish() {
+        if (!activeJutsuTraining || busyRef.current || !freeSpeedup?.available) return;
+        const lessonToken = activeJutsuTraining.serverToken;
         busyRef.current = true;
         setBusy(true);
         setMsg(null);
         try {
-            const res = await fetch('/api/jutsu/train-with-seals', {
+            const res = await fetch('/api/jutsu/speedup', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ playerName: character.name, jutsuId: selectedJutsu.id }),
+                body: JSON.stringify({ playerName: character.name, free: true }),
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
-                setMsg(`❌ ${data.error ?? 'Failed'}`);
+                if (res.status === 409) setFreeSpeedup((prev) => prev ? { ...prev, available: false } : prev);
+                if (res.status === 403 || res.status === 409) setFreeCheck((n) => n + 1);
+                setMsg(res.status === 429 ? throttledMessage(data.retryAfterMs) : `❌ ${data.error ?? 'Failed'}`);
                 return;
             }
-            // Mirror server-side mutations locally. Functional updater: the
-            // write lands after an await, so merge onto the latest state to
-            // avoid clobbering a concurrent setState (regen tick, hydration).
-            updateCharacter(prev => {
-                if (!prev) return prev;
-                const existing = prev.jutsuMastery?.length ? prev.jutsuMastery : [];
-                const newMastery = [
-                    ...existing.filter(m => m.jutsuId !== selectedJutsu.id),
-                    { jutsuId: selectedJutsu.id, level: Number(data.newLevel), xp: 0 },
-                ];
-                return {
-                    ...prev,
-                    honorSeals: Number(data.honorSealsRemaining),
-                    jutsuMastery: newMastery,
-                };
-            });
-            setMsg(`✅ ${selectedJutsu.name} → Lv ${data.newLevel} (spent ${data.sealsSpent} Seals)`);
+            patchLessonEndsAt(lessonToken, Number(data.newEndsAt));
+            setFreeSpeedup((prev) => ({ available: false, resetsAt: Number(data.freeResetsAt) || prev?.resetsAt || 0 }));
+            setMsg(`✅ Logistician: lesson finished for free. Your next free speedup comes back next week.`);
         } catch {
             setMsg(`❌ ${AMBIGUOUS_ACTION_MESSAGE}`);
         } finally {
@@ -376,7 +454,8 @@ function JutsuSealPanel({
     }
 
     async function speedUp(sealsRequested: number) {
-        if (!activeJutsuTraining || busyRef.current) return;
+        if (!activeJutsuTraining || busyRef.current || Date.now() < speedUpReadyAt) return;
+        const lessonToken = activeJutsuTraining.serverToken;
         busyRef.current = true;
         setBusy(true);
         setMsg(null);
@@ -387,16 +466,17 @@ function JutsuSealPanel({
                 body: JSON.stringify({ playerName: character.name, seals: sealsRequested }),
             });
             const data = await res.json().catch(() => ({}));
+            if (res.status === 429) {
+                setMsg(throttledMessage(data.retryAfterMs));
+                return;
+            }
             if (!res.ok) {
                 setMsg(`❌ ${data.error ?? 'Failed'}`);
                 return;
             }
             const minutesReduced: number = Number(data.minutesReduced ?? 0);
-            const reductionMs = minutesReduced * 60 * 1000;
-            setActiveJutsuTraining({
-                ...activeJutsuTraining,
-                endsAt: Math.max(serverNow(), activeJutsuTraining.endsAt - reductionMs),
-            });
+            // The server's own new end time, applied to the lesson as it is now.
+            patchLessonEndsAt(lessonToken, Number(data.newEndsAt));
             updateCharacter(prev => prev ? ({ ...prev, honorSeals: Number(data.honorSealsRemaining) }) : prev);
             setMsg(`✅ -${minutesReduced} min (spent ${data.sealsSpent} Seals)`);
         } catch {
@@ -413,37 +493,38 @@ function JutsuSealPanel({
             <span className="hint" style={{ marginLeft: 10 }}>
                 Balance: <strong style={{ color: "#facc15" }}>{balance.toLocaleString()}</strong>
                 {hasDiscount && <span style={{ marginLeft: 8, color: "#f97316" }}> · Vanguard 10% off</span>}
+                {stockpilePct > 0 && <span style={{ marginLeft: 8, color: "#f97316" }}> · Stockpile −{stockpilePct}% speed-ups</span>}
             </span>
             <p className="hint" style={{ margin: "6px 0 8px", fontSize: "0.8rem" }}>
-                Skip the PvP grind for jutsu levels 30→40, or shave time off active training.
-                Levels 40+ still require PvP.
+                Past level 30, jutsu lessons are paid in Honor Seals up to level 40 — the same
+                30-minute lessons, started from the curriculum card above. Seals can also shave
+                time off an active lesson. Levels 40+ still require PvP.
             </p>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {selectedJutsu && eligibleForSealLevel ? (
-                    <button
-                        onClick={() => void trainWithSeals()}
-                        disabled={busy || balance < sealLevelCost}
-                        style={{ background: "linear-gradient(#854d0e,#422006)", borderColor: "#facc15" }}
-                    >
-                        {busy ? "…" : `Pay ${sealLevelCost} Seals → Lv ${fromLevel + 1}`}
-                    </button>
-                ) : (
-                    <span className="hint" style={{ fontSize: "0.78rem" }}>
-                        {selectedJutsu
-                            ? (fromLevel < 30
+                <span className="hint" style={{ fontSize: "0.78rem" }}>
+                    {!selectedJutsu
+                        ? "Select a jutsu to see its Seal lesson."
+                        : sealLesson
+                            ? `Next Seal lesson: Lv ${fromLevel} → ${fromLevel + 1} for ${sealLesson.cost} Seals.`
+                            : fromLevel < SEAL_LESSON_MIN_LEVEL
                                 ? `Selected jutsu is Lv ${fromLevel} — train it to Lv 30 with ryo first.`
-                                : `Selected jutsu is at the Seal-training cap (Lv 40). PvP from here.`)
-                            : "Select a jutsu to see Seal training cost."}
-                    </span>
-                )}
+                                : fromLevel >= 40
+                                    ? "Selected jutsu is past the Seal lessons (Lv 40). PvP from here."
+                                    : "Your rank caps this jutsu here. Rank up to keep training it."}
+                </span>
                 {activeJutsuTraining && serverNow() < activeJutsuTraining.endsAt && (
                     <>
-                        <button onClick={() => void speedUp(1)} disabled={busy || balance < (hasDiscount ? 1 : 1)} style={{ background: "linear-gradient(#422006,#1c1006)", borderColor: "#fde68a" }}>
-                            {busy ? "…" : "−10 min (1 Seal)"}
+                        <button onClick={() => void speedUp(1)} disabled={busy || balance < speedupCost(1) || speedUpWaitSec > 0} style={{ background: "linear-gradient(#422006,#1c1006)", borderColor: "#fde68a" }}>
+                            {busy ? "…" : speedUpWaitSec > 0 ? `Ready in ${speedUpWaitSec}s` : "−10 min (1 Seal)"}
                         </button>
-                        <button onClick={() => void speedUp(10)} disabled={busy || balance < (hasDiscount ? 9 : 10)} style={{ background: "linear-gradient(#422006,#1c1006)", borderColor: "#fde68a" }}>
-                            {busy ? "…" : `Finish now (${hasDiscount ? 9 : 10} Seals)`}
+                        <button onClick={() => void speedUp(finishSeals)} disabled={busy || balance < finishCost || speedUpWaitSec > 0} style={{ background: "linear-gradient(#422006,#1c1006)", borderColor: "#fde68a" }}>
+                            {busy ? "…" : `Finish now (${finishCost} Seal${finishCost === 1 ? "" : "s"})`}
                         </button>
+                        {ownsLogistician && freeSpeedup?.available && remainingMinutes >= 2 && (
+                            <button onClick={() => void freeFinish()} disabled={busy} style={{ background: "linear-gradient(#14532d,#052e16)", borderColor: "#86efac" }}>
+                                {busy ? "…" : "Finish now · free (Logistician, weekly)"}
+                            </button>
+                        )}
                     </>
                 )}
             </div>
@@ -569,17 +650,25 @@ export function JutsuTrainingHall({
         }
 
         const mastery = getJutsuMastery(character, selectedJutsuId);
-        if (mastery.level >= ryoTrainCap) {
-            return alert(mastery.level >= JUTSU_TRAINING_CAP
-                ? "Training Hall can only train jutsu to level 30. Levels 31-50 must be earned from battles."
-                : "That jutsu is at your rank's training cap. Rank up to train it further.");
+        // Past the ryo cap, Lv 30→40 is the same timed lesson paid in Honor Seals.
+        const sealLesson = mastery.level >= ryoTrainCap ? sealLessonFrom(mastery.level, character) : null;
+        if (mastery.level >= ryoTrainCap && !sealLesson) {
+            return alert(mastery.level >= 40
+                ? "Honor Seal lessons stop at level 40. Levels 41-50 must be earned from battles."
+                : mastery.level >= JUTSU_TRAINING_CAP
+                    ? "Your rank caps this jutsu here. Rank up to keep training it."
+                    : "That jutsu is at your rank's training cap. Rank up to train it further.");
         }
+        if (sealLesson && (character.honorSeals ?? 0) < sealLesson.cost) return alert(`Not enough Honor Seals. You need ${sealLesson.cost}.`);
 
         const cost = jutsuTrainingCost(mastery.level);
-        if (mastery.level > 0 && character.ryo < cost) return alert(`Not enough ryo. You need ${cost}.`);
+        if (!sealLesson && mastery.level > 0 && character.ryo < cost) return alert(`Not enough ryo. You need ${cost}.`);
         if (!beginJutsuAction("start")) return;
         try {
-            const result = await mutateJutsuRyoTraining(character.name, 'start', { jutsuId: selectedJutsu.id, label: selectedJutsu.name, bonusPct: jutsuTrainingBonus });
+            const result = await mutateJutsuRyoTraining(character.name, 'start', {
+                jutsuId: selectedJutsu.id, label: selectedJutsu.name, bonusPct: jutsuTrainingBonus,
+                ...(sealLesson ? { payWith: "honorSeals" } : {}),
+            });
             if (!result.character) return rejectJutsuAction(result.error);
             if (!onVersionedCharacter(result.character, result._saveVersion)) return rejectJutsuAction(AMBIGUOUS_ACTION_MESSAGE);
             setActiveJutsuTraining(result.activeJutsuTraining ?? null);
@@ -587,7 +676,7 @@ export function JutsuTrainingHall({
                 tone: "success",
                 message: mastery.level === 0
                     ? `${selectedJutsu.name} unlocked at level 1.`
-                    : `${selectedJutsu.name} training started. Your ryo payment is saved.`,
+                    : `${selectedJutsu.name} training started. Your ${sealLesson ? "Honor Seal" : "ryo"} payment is saved.`,
             });
         } finally {
             endJutsuAction();
@@ -622,15 +711,15 @@ export function JutsuTrainingHall({
     async function cancelPaidJutsuTraining() {
         if (!requireServerSettlement("timedJutsuTraining")) return;
         if (!activeJutsuTraining) return;
-        const refund = Math.floor(activeJutsuTraining.ryoCost * 0.5);
-        if (!(await gameConfirm(`Cancel ${activeJutsuTraining.label} training? You'll get ${refund} ryo back (50% of ${activeJutsuTraining.ryoCost}) and forfeit the training progress.`))) return;
+        const refund = lessonPrice(activeJutsuTraining, 0.5);
+        if (!(await gameConfirm(`Cancel ${activeJutsuTraining.label} training? You'll get ${refund} back (50% of ${lessonPrice(activeJutsuTraining)}) and forfeit the training progress.`))) return;
         if (!beginJutsuAction("cancel")) return;
         try {
             const result = await mutateJutsuRyoTraining(character.name, 'cancel', { serverToken: activeJutsuTraining.serverToken ?? '' });
             if (!result.character) return rejectJutsuAction(result.error);
             if (!onVersionedCharacter(result.character, result._saveVersion)) return rejectJutsuAction(AMBIGUOUS_ACTION_MESSAGE);
             setActiveJutsuTraining(result.activeJutsuTraining ?? null);
-            setJutsuNotice({ tone: "success", message: `Training cancelled. ${result.refund ?? refund} ryo returned.` });
+            setJutsuNotice({ tone: "success", message: `Training cancelled. ${refund} returned.` });
         } finally {
             endJutsuAction();
         }
@@ -670,10 +759,12 @@ export function JutsuTrainingHall({
         const fromLevel = selectedJutsu.id === activeJutsuTraining.jutsuId
             ? activeJutsuTraining.toLevel
             : getJutsuMastery(character, selectedJutsu.id).level;
-        if (fromLevel >= ryoTrainCap) return alert("That jutsu is already at its Training Hall cap.");
+        const sealLesson = fromLevel >= ryoTrainCap ? sealLessonFrom(fromLevel, character) : null;
+        if (fromLevel >= ryoTrainCap && !sealLesson) return alert("That jutsu has no further lesson to queue at your rank.");
         if (fromLevel === 0) return alert("Train a level 0 jutsu directly to unlock it for free.");
+        if (sealLesson && (character.honorSeals ?? 0) < sealLesson.cost) return alert(`Not enough Honor Seals to queue. You need ${sealLesson.cost}.`);
         const cost = jutsuTrainingCost(fromLevel);
-        if (character.ryo < cost) return alert(`Not enough ryo to queue. You need ${cost}.`);
+        if (!sealLesson && character.ryo < cost) return alert(`Not enough ryo to queue. You need ${cost}.`);
         if (!activeJutsuTraining.serverToken) return rejectJutsuAction('invalid-or-legacy-jutsu-training');
         if (!beginJutsuAction("queue")) return;
         try {
@@ -682,6 +773,7 @@ export function JutsuTrainingHall({
                 jutsuId: selectedJutsu.id,
                 label: selectedJutsu.name,
                 trainingBonusPct: jutsuTrainingBonus,
+                ...(sealLesson ? { payWith: "honorSeals" } : {}),
             });
             if (!result.character) return rejectJutsuAction(result.error);
             if (!onVersionedCharacter(result.character, result._saveVersion)) return rejectJutsuAction(AMBIGUOUS_ACTION_MESSAGE);
@@ -697,7 +789,7 @@ export function JutsuTrainingHall({
         if (!requireServerSettlement("timedJutsuTrainingQueue")) return;
         if (!activeJutsuTraining?.next) return;
         const queued = activeJutsuTraining.next;
-        if (!(await gameConfirm(`Remove the queued ${queued.label} training? You'll get all ${queued.ryoCost} ryo back — it hasn't started.`))) return;
+        if (!(await gameConfirm(`Remove the queued ${queued.label} training? You'll get all ${lessonPrice(queued)} back — it hasn't started.`))) return;
         if (!activeJutsuTraining.serverToken) return rejectJutsuAction('invalid-or-legacy-jutsu-training');
         if (!beginJutsuAction("cancel-queue")) return;
         try {
@@ -705,7 +797,7 @@ export function JutsuTrainingHall({
             if (!result.character) return rejectJutsuAction(result.error);
             if (!onVersionedCharacter(result.character, result._saveVersion)) return rejectJutsuAction(AMBIGUOUS_ACTION_MESSAGE);
             setActiveJutsuTraining(result.activeJutsuTraining ?? null);
-            setJutsuNotice({ tone: "success", message: `Queued lesson removed. ${result.refund ?? queued.ryoCost} ryo returned.` });
+            setJutsuNotice({ tone: "success", message: `Queued lesson removed. ${lessonPrice(queued)} returned.` });
         } finally {
             endJutsuAction();
         }
@@ -724,8 +816,11 @@ export function JutsuTrainingHall({
     const mobileInfoJutsu = availableJutsus.find((jutsu) => jutsu.id === mobileJutsuInfoId) ?? null;
     const mobileInfoMastery = mobileInfoJutsu ? getJutsuMastery(character, mobileInfoJutsu.id) : null;
     const mobileInfoCost = mobileInfoMastery ? jutsuTrainingCost(mobileInfoMastery.level) : 0;
-    const mobileInfoAtCap = !!mobileInfoMastery && mobileInfoMastery.level >= ryoTrainCap;
-    const mobileInfoInsufficientRyo = !!mobileInfoMastery && mobileInfoMastery.level > 0 && character.ryo < mobileInfoCost;
+    const mobileInfoSealLesson = mobileInfoMastery && mobileInfoMastery.level >= ryoTrainCap ? sealLessonFrom(mobileInfoMastery.level, character) : null;
+    const mobileInfoAtCap = !!mobileInfoMastery && mobileInfoMastery.level >= ryoTrainCap && !mobileInfoSealLesson;
+    const mobileInfoInsufficientRyo = mobileInfoSealLesson
+        ? (character.honorSeals ?? 0) < mobileInfoSealLesson.cost
+        : !!mobileInfoMastery && mobileInfoMastery.level > 0 && character.ryo < mobileInfoCost;
 
     function renderJutsuDetails(jutsu: Jutsu) {
         const mastery = getJutsuMastery(character, jutsu.id);
@@ -748,7 +843,13 @@ export function JutsuTrainingHall({
                 <p><strong>Targeting · {targeting.short}</strong><br />{targeting.detail}</p>
                 <p><strong>Resource cost</strong><br />{jutsuResourceDisplay(jutsu, "chakra", character.level, character.specialty, mastery.level)} chakra · {jutsuResourceDisplay(jutsu, "stamina", character.level, character.specialty, mastery.level)} stamina</p>
                 <p><strong>Tags</strong><br />{displayJutsu.tags.map((tag) => `${tag.name}${tag.percent ? ` ${tag.percent}%` : ""}`).join(", ") || "None"}</p>
-                <p><strong>Training route</strong><br />{mastery.level === 0 ? "Free, instant level 1 unlock" : mastery.level < ryoTrainCap ? `${cost.toLocaleString()} ryo · ${duration / 60000} min · +1 level` : "Battle-earned mastery"}</p>
+                <p><strong>Training route</strong><br />{mastery.level === 0
+                    ? "Free, instant level 1 unlock"
+                    : mastery.level < ryoTrainCap
+                        ? `${cost.toLocaleString()} ryo · ${duration / 60000} min · +1 level`
+                        : sealLessonFrom(mastery.level, character)
+                            ? `${sealLessonFrom(mastery.level, character)!.cost} Honor Seals · ${duration / 60000} min · +1 level`
+                            : "Battle-earned mastery"}</p>
                 <p><strong>Effects</strong><br />{describeJutsuEffects(jutsu, mastery.level, tagLensDiscipline)}</p>
                 <JutsuEffectCards jutsu={jutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} lensDiscipline={tagLensDiscipline} />
             </div>
@@ -783,7 +884,7 @@ export function JutsuTrainingHall({
             </div>
             <div className="jutsu-session-metrics">
                 <span><small>Time remaining</small><strong>{activeRemaining > 0 ? formatTrainingTime(activeRemaining) : "Complete"}</strong></span>
-                <span><small>Ryo paid</small><strong>{activeJutsuTraining.ryoCost.toLocaleString()}</strong></span>
+                <span><small>Paid</small><strong>{lessonPrice(activeJutsuTraining)}</strong></span>
             </div>
             <p className="jutsu-session-message">
                 {activeRemaining > 0
@@ -813,7 +914,7 @@ export function JutsuTrainingHall({
                 <div className="jutsu-queue-card">
                     <div><span className="jutsu-eyebrow"><GiFastForwardButton /> Up next</span><strong>{queued.label}</strong></div>
                     <span>Lv {queued.fromLevel} → {queued.toLevel}</span>
-                    <span>{queued.ryoCost.toLocaleString()} ryo paid · ~{Math.round(queued.durationMs / 60000)} min</span>
+                    <span>{lessonPrice(queued)} paid · ~{Math.round(queued.durationMs / 60000)} min</span>
                     <button type="button" onClick={cancelQueuedJutsuTraining} disabled={!!jutsuAction}>{jutsuAction === "cancel-queue" ? "Removing…" : "Remove · full refund"}</button>
                 </div>
             ) : (
@@ -831,8 +932,17 @@ export function JutsuTrainingHall({
         </div>
     ) : null;
 
-    const selectedAtCap = !!selectedMastery && selectedMastery.level >= ryoTrainCap;
-    const selectedInsufficientRyo = !!selectedMastery && selectedMastery.level > 0 && character.ryo < selectedCost;
+    // Past the ryo cap the next lesson (if any) is a Seal lesson; with none, the
+    // card says so instead of pricing a ryo lesson that can't exist.
+    const selectedSealLesson = selectedMastery && selectedMastery.level >= ryoTrainCap ? sealLessonFrom(selectedMastery.level, character) : null;
+    const selectedAtCap = !!selectedMastery && selectedMastery.level >= ryoTrainCap && !selectedSealLesson;
+    // Capped by RANK rather than by the lesson ladder: battles can't raise it
+    // either (mastery XP stops at the rank cap), so the way forward is ranking up.
+    const rankCapped = (level: number) => level < 40 && level >= jutsuLevelCapForLevel(Number(character.level) || 1);
+    const selectedRankCapped = selectedAtCap && rankCapped(selectedMastery!.level);
+    const selectedInsufficientRyo = selectedSealLesson
+        ? (character.honorSeals ?? 0) < selectedSealLesson.cost
+        : !!selectedMastery && selectedMastery.level > 0 && character.ryo < selectedCost;
 
     return (
         <div className="card jutsu-training-screen">
@@ -841,7 +951,7 @@ export function JutsuTrainingHall({
             <header className="jutsu-hall-hero">
                 <span className="jutsu-eyebrow">Technique development</span>
                 <h2>Jutsu Training Hall</h2>
-                <p>Study techniques with ryo through level 30. Advanced mastery from levels 31–50 is earned in battle.</p>
+                <p>Study techniques with ryo through level 30, then with Honor Seals through level 40. Mastery from levels 41–50 is earned in battle.</p>
                 <div className="jutsu-hall-stats" aria-label="Training hall status">
                     <span><small>Hall cap</small><strong>Lv {ryoTrainCap}</strong></span>
                     <span><small>Available ryo</small><strong>{character.ryo.toLocaleString()}</strong></span>
@@ -881,15 +991,17 @@ export function JutsuTrainingHall({
                                 <span className="jutsu-plan-art">{selectedJutsu.image ? <img src={selectedJutsu.image} alt="" /> : selectedJutsu.type.slice(0, 3).toUpperCase()}</span>
                                 <div>
                                     <span>{selectedJutsu.type} · {selectedJutsu.element}{bloodlineLabel(selectedJutsu) && <em className="jutsu-plan-bloodline"> · {bloodlineLabel(selectedJutsu)}</em>}</span>
-                                    <strong>Level {selectedMastery.level} → {Math.min(ryoTrainCap, selectedMastery.level + 1)}</strong>
-                                    <small>{selectedAtCap ? "Battle-earned mastery from here" : "One complete mastery level"}</small>
+                                    <strong>{selectedAtCap ? `Level ${selectedMastery.level}` : `Level ${selectedMastery.level} → ${selectedMastery.level + 1}`}</strong>
+                                    <small>{selectedRankCapped ? "Your rank caps this jutsu — rank up to keep training" : selectedAtCap ? "Battle-earned mastery from here" : selectedSealLesson ? "Honor Seal lesson · one mastery level" : "One complete mastery level"}</small>
                                 </div>
                             </div>
-                            <div className="jutsu-plan-metrics">
-                                <span><small>Tuition</small><strong>{selectedMastery.level === 0 ? "Free" : `${selectedCost.toLocaleString()} ryo`}</strong></span>
-                                <span><small>Duration</small><strong>{selectedMastery.level === 0 ? "Instant" : `${selectedDuration / 60000} min`}</strong></span>
-                                <span><small>Reward</small><strong>+1 level</strong></span>
-                            </div>
+                            {!selectedAtCap && (
+                                <div className="jutsu-plan-metrics">
+                                    <span><small>Tuition</small><strong>{selectedMastery.level === 0 ? "Free" : selectedSealLesson ? `${selectedSealLesson.cost} Honor Seals` : `${selectedCost.toLocaleString()} ryo`}</strong></span>
+                                    <span><small>Duration</small><strong>{selectedMastery.level === 0 ? "Instant" : `${selectedDuration / 60000} min`}</strong></span>
+                                    <span><small>Reward</small><strong>+1 level</strong></span>
+                                </div>
+                            )}
                             <button
                                 className={`jutsu-primary-action jutsu-start-action${showAcademyJutsuHint && selectedMastery.level === 0 ? " academy-click-target" : ""}`}
                                 data-academy-hint={showAcademyJutsuHint && selectedMastery.level === 0 ? "Next · unlock this" : undefined}
@@ -903,12 +1015,16 @@ export function JutsuTrainingHall({
                                     : activeJutsuTraining
                                         ? "Another lesson is active"
                                         : selectedAtCap
-                                            ? "Battle training required"
-                                            : selectedInsufficientRyo
-                                                ? `Need ${(selectedCost - character.ryo).toLocaleString()} more ryo`
-                                                : selectedMastery.level === 0
-                                                    ? "Unlock level 1 · free"
-                                                    : `Pay ${selectedCost.toLocaleString()} ryo & train`}
+                                            ? selectedRankCapped ? "Rank up to train further" : "Battle training required"
+                                            : selectedSealLesson
+                                                ? selectedInsufficientRyo
+                                                    ? `Need ${(selectedSealLesson.cost - (character.honorSeals ?? 0)).toLocaleString()} more Honor Seals`
+                                                    : `Pay ${selectedSealLesson.cost} Honor Seals & train`
+                                                : selectedInsufficientRyo
+                                                    ? `Need ${(selectedCost - character.ryo).toLocaleString()} more ryo`
+                                                    : selectedMastery.level === 0
+                                                        ? "Unlock level 1 · free"
+                                                        : `Pay ${selectedCost.toLocaleString()} ryo & train`}
                             </button>
                             <p className="jutsu-plan-footnote">Payments and mastery claims are settled against your server save.</p>
                         </>
@@ -971,12 +1087,16 @@ export function JutsuTrainingHall({
                                 : activeJutsuTraining
                                     ? "Another lesson is active"
                                     : mobileInfoAtCap
-                                        ? "Battle training required"
-                                        : mobileInfoInsufficientRyo
-                                            ? `Need ${(mobileInfoCost - character.ryo).toLocaleString()} more ryo`
-                                            : mobileInfoMastery.level === 0
-                                                ? "Unlock level 1 · free"
-                                                : `Train · ${mobileInfoCost.toLocaleString()} ryo`}
+                                        ? rankCapped(mobileInfoMastery.level) ? "Rank up to train further" : "Battle training required"
+                                        : mobileInfoSealLesson
+                                            ? mobileInfoInsufficientRyo
+                                                ? `Need ${(mobileInfoSealLesson.cost - (character.honorSeals ?? 0)).toLocaleString()} more Honor Seals`
+                                                : `Train · ${mobileInfoSealLesson.cost} Honor Seals`
+                                            : mobileInfoInsufficientRyo
+                                                ? `Need ${(mobileInfoCost - character.ryo).toLocaleString()} more ryo`
+                                                : mobileInfoMastery.level === 0
+                                                    ? "Unlock level 1 · free"
+                                                    : `Train · ${mobileInfoCost.toLocaleString()} ryo`}
                         </button>
                     </div>
                 )}

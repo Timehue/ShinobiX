@@ -367,13 +367,13 @@ async function openHome(page: Page) {
     // The SPA intentionally applies bookmarked hashes during boot rather than
     // reacting to hash-only changes after mount, so force the normal restore path.
     await page.reload({ waitUntil: "networkidle" });
-    await expect(page.getByRole("heading", { name: "Pet Home", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Your Companions", exact: true })).toBeVisible();
     await expect(page.locator(".session-restore-overlay")).toHaveCount(0);
 }
 
 async function reloadHome(page: Page) {
     await page.reload({ waitUntil: "networkidle" });
-    await expect(page.getByRole("heading", { name: "Pet Home", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Your Companions", exact: true })).toBeVisible();
 }
 
 async function shot(page: Page, testInfo: TestInfo, name: string) {
@@ -395,6 +395,56 @@ function withoutAbortedFetches(messages: string[]): string[] {
     return messages.filter((message) => !message.endsWith("Failed to fetch"));
 }
 
+async function expectCompanionAvatars(page: Page, selector: string, expected: number) {
+    const frames = page.locator(`${selector} .companion-identity-art`);
+    await expect(frames).toHaveCount(expected);
+    for (let index = 0; index < expected; index += 1) {
+        const frame = frames.nth(index);
+        await frame.scrollIntoViewIfNeeded();
+        const image = frame.locator("img");
+        await expect(image).toHaveCount(1);
+        await expect.poll(() => image.evaluate((node: HTMLImageElement) => node.complete && node.naturalWidth > 0)).toBe(true);
+        await expect(image).toHaveCSS("object-fit", "contain");
+        expect(await image.evaluate((node: HTMLImageElement) => {
+            const art = node.parentElement!.getBoundingClientRect();
+            const avatar = node.getBoundingClientRect();
+            return avatar.left >= art.left - 1 && avatar.top >= art.top - 1
+                && avatar.right <= art.right + 1 && avatar.bottom <= art.bottom + 1;
+        })).toBe(true);
+    }
+}
+
+test("pet avatars load and fit in every Companion Home card", async ({ page }) => {
+    const state = await installPetHomeApi(page);
+    // A missing saved portrait must recover to the shipped species pose.
+    state.character.pets[0].image = "/pet-portraits/missing-sumi.webp";
+    await openHome(page);
+    await expectCompanionAvatars(page, ".pet-collection-card", 4);
+    await expect(page.locator('.pet-collection-card:has-text("Sumi") .companion-identity-art img')).toHaveAttribute("src", /rare-26-idle\.webp/);
+
+    await page.getByRole("button", { name: "Pet Yard" }).click();
+    await expectCompanionAvatars(page, ".pet-slot-card.companion-card", 4);
+    await page.locator('.pet-slot-card:has-text("Ember Phoenix")').click();
+    await expect(page.locator(".pet-detail-avatar img")).toHaveAttribute("src", /legendary-6-idle\.webp/);
+    await page.locator('.pet-slot-card:has-text("Sumi")').click();
+    await expect(page.locator(".pet-detail-avatar img")).toHaveAttribute("src", /rare-26-idle\.webp/);
+
+    await page.getByRole("button", { name: "Pet Arena" }).click();
+    await expectCompanionAvatars(page, '.pet-arena-selector[data-side="player"] .pet-pick.companion-card', 4);
+    await page.locator('.pet-arena-selector[data-side="player"] .pet-pick:has-text("Ember Phoenix")').click();
+    await expect(page.locator('.pet-arena-selector[data-side="player"] .pet-arena-avatar img')).toHaveAttribute("src", /legendary-6-idle\.webp/);
+    await page.locator('.pet-arena-selector[data-side="player"] .pet-pick:has-text("Sumi")').click();
+    await expect(page.locator('.pet-arena-selector[data-side="player"] .pet-arena-avatar img')).toHaveAttribute("src", /rare-26-idle\.webp/);
+
+    await page.getByRole("button", { name: "Sanctuary", exact: true }).click();
+    await expectCompanionAvatars(page, ".pet-sanctuary-card", 2);
+
+    await page.getByRole("button", { name: "Shinobi Hatchery" }).click();
+    await page.getByLabel("First parent").selectOption("qa-fire-1");
+    await page.getByLabel("Second parent").selectOption("qa-fire-2");
+    await expectCompanionAvatars(page, ".breeding-parent-preview", 2);
+});
+
 test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     test.setTimeout(180_000);
     test.skip(testInfo.project.name !== "chromium-desktop", "one deterministic Chromium visual certification is sufficient");
@@ -409,14 +459,15 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await expect(homeFacility).toBeVisible();
     await shot(page, testInfo, "01-village-home-facility");
     await homeFacility.click();
-    await expect(page.getByRole("heading", { name: "Pet Home", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Your Companions", exact: true })).toBeVisible();
     await expect(page.locator(".pet-collection-card")).toHaveCount(4);
     await shot(page, testInfo, "02-desktop-home-collection");
 
     await page.getByRole("button", { name: "Sanctuary", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "A Place to Rest", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Companion Sanctuary" })).toBeVisible();
     await expect(page.locator(".pet-sanctuary-card")).toHaveCount(2);
-    await expect(page.locator(".pet-sanctuary-card .pet-sanctuary-portrait img")).toHaveCount(2);
+    await expect(page.locator(".pet-sanctuary-card .companion-identity-art img")).toHaveCount(2);
     await expect(page.getByText("No ownership cap")).toBeVisible();
     await shot(page, testInfo, "02b-desktop-companion-sanctuary");
     await page.locator(".pet-sanctuary-card").first().scrollIntoViewIfNeeded();

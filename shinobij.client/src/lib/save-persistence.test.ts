@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 import { createSaveConflictRevision, saveConflictAccountKey, type SaveConflictDraft } from "./save-conflict";
 import { SAVE_FAILURE_BANNER_THRESHOLD, createSaveFlightCoordinator, type SaveFlightCoordinator } from "./save-flight";
-import { createSavePersistence, SaveConflictError, SaveRateLimitError } from "./save-persistence";
+import { AUTOSAVE_RETRY, createSavePersistence, SaveConflictError, SaveRateLimitError } from "./save-persistence";
 
 type Payload = {
     character: { name: string; level: number; ryo?: number };
@@ -54,6 +54,8 @@ function harness(options?: {
     const shardAdoptions: Array<{ accountName: string; fateShards: number }> = [];
     const acknowledgedSnapshots: Payload[] = [];
     let allowApply = true;
+    // Pacing sleeps advance a fake clock instantly and are recorded.
+    const clock = { now: 1_000_000, sleeps: [] as number[], onSleep: null as null | (() => void) };
 
     const persistence = createSavePersistence<Payload>({
         flight: options?.flight ?? createSaveFlightCoordinator(),
@@ -86,10 +88,15 @@ function harness(options?: {
         onAuthoritativeRyo: (accountName, ryo) => ryoAdoptions.push({ accountName, ryo }),
         onAuthoritativeFateShards: (accountName, fateShards) => shardAdoptions.push({ accountName, fateShards }),
         onAcknowledgedSnapshot: snapshot => acknowledgedSnapshots.push(snapshot.payload),
+        pacingClock: {
+            now: () => clock.now,
+            sleep: async (ms) => { clock.sleeps.push(ms); clock.now += ms; clock.onSleep?.(); },
+        },
     });
 
     return {
         persistence,
+        clock,
         latestVersion,
         latestPayloadRevision,
         dirty,
@@ -439,6 +446,39 @@ describe("extracted save persistence", () => {
 
         assert.equal(await h.persistence.refetchAfterConflict("Kaya"), false);
         assert.equal(h.latestVersion.current, 9);
+        assert.equal(h.applied.length, 0);
+    });
+
+    it("reads once more when a newer version was adopted while the conflict GET was in flight", async () => {
+        // The travel-arrival push (or any mutation response) can land version 9
+        // while a recovery GET that started earlier is still returning 8. The
+        // server already holds 9, so one re-read recovers instead of counting a
+        // failed recovery toward the red save banner.
+        const h = harness({ latestVersion: 9 });
+        const versions = [8, 9];
+        let calls = 0;
+        globalThis.fetch = (async () => {
+            calls += 1;
+            return jsonResponse(200, { character: { name: "Kaya", level: 3 }, _saveVersion: versions.shift() });
+        }) as typeof fetch;
+
+        assert.equal(await h.persistence.refetchAfterConflict("Kaya"), true);
+        assert.equal(calls, 2);
+        assert.equal(h.latestVersion.current, 9);
+        assert.equal(h.applied.length, 1);
+        assert.equal(h.applied[0]._saveVersion, 9, "only the fresh snapshot is painted, never the stale one");
+    });
+
+    it("re-reads a stale conflict snapshot at most once", async () => {
+        const h = harness({ latestVersion: 9 });
+        let calls = 0;
+        globalThis.fetch = (async () => {
+            calls += 1;
+            return jsonResponse(200, { character: { name: "Kaya", level: 2 }, _saveVersion: 8 });
+        }) as typeof fetch;
+
+        assert.equal(await h.persistence.refetchAfterConflict("Kaya"), false);
+        assert.equal(calls, 2, "one retry, not a loop against a server that keeps answering stale");
         assert.equal(h.applied.length, 0);
     });
 
@@ -820,5 +860,165 @@ describe("extracted save persistence", () => {
         await assert.rejects(h.persistence.persistRequired(() => requiredSave()), /valid authoritative version/i);
         assert.ok(h.persistence.getUnresolvedPost());
         assert.equal(h.latestVersion.current, 4);
+    });
+});
+
+describe("save pacing against the server's one-save-per-3s window", () => {
+    function acceptingServer(h: ReturnType<typeof harness>) {
+        const sentAt: number[] = [];
+        let version = h.latestVersion.current;
+        globalThis.fetch = (async () => {
+            sentAt.push(h.clock.now);
+            version += 1;
+            // Mirrors api/save/[name].ts: the rest of the aligned window just used.
+            return jsonResponse(200, { ok: true, _saveVersion: version, nextSaveInMs: WINDOW - (h.clock.now % WINDOW) });
+        }) as typeof fetch;
+        return sentAt;
+    }
+    const WINDOW = 3_000;
+    const windowOf = (at: number) => Math.floor(at / WINDOW);
+
+    it("never lands two back-to-back autosave, required and logout saves in one server window", async () => {
+        for (const start of [1_000_000, 1_000_001, 1_002_999, 1_001_500]) {
+            const h = harness();
+            h.clock.now = start;
+            const sentAt = acceptingServer(h);
+            await h.persistence.persistAutosave(snapshot());
+            await h.persistence.persistRequired(() => requiredSave());
+            await h.persistence.persistRequired(() => requiredSave());
+            assert.equal(sentAt.length, 3);
+            for (let i = 1; i < sentAt.length; i += 1) {
+                assert.notEqual(windowOf(sentAt[i]), windowOf(sentAt[i - 1]), `start ${start}: send ${i} shared a window`);
+                assert.ok(sentAt[i] - sentAt[i - 1] <= WINDOW + 50, `start ${start}: waited only until the next window`);
+            }
+        }
+    });
+
+    it("does not wait when the server's window has already rolled over", async () => {
+        const h = harness();
+        acceptingServer(h);
+        await h.persistence.persistAutosave(snapshot());
+        h.clock.now += WINDOW;
+        await h.persistence.persistAutosave(snapshot());
+        assert.deepEqual(h.clock.sleeps, []);
+    });
+
+    it("drops a waiting autosave whose snapshot was overtaken by a server write during the wait", async () => {
+        const h = harness();
+        const posted: Array<Record<string, unknown>> = [];
+        let version = h.latestVersion.current;
+        globalThis.fetch = (async (_input, init) => {
+            posted.push(JSON.parse(String(init?.body)));
+            version += 1;
+            return jsonResponse(200, { ok: true, _saveVersion: version, nextSaveInMs: 2_000 });
+        }) as typeof fetch;
+        await h.persistence.persistAutosave(snapshot(1));
+        // While the next autosave waits for its slot, a server mutation (a war
+        // claim, a lesson settling) installs a newer version.
+        h.clock.onSleep = () => { h.latestVersion.current += 5; };
+        h.dirty.current = false;
+        const outcome = await h.persistence.persistAutosave(snapshot(2));
+        assert.equal(posted.length, 1, "the pre-wait snapshot is never stamped with the newer version and sent");
+        assert.equal(h.dirty.current, true, "the next tick sends current state instead");
+        assert.deepEqual(outcome, { status: "completed", value: AUTOSAVE_RETRY }, "an immediate flush is told to retry soon");
+    });
+
+    it("drops a pacing slot left over from a wall clock that jumped backwards", async () => {
+        const h = harness();
+        const sentAt = acceptingServer(h);
+        await h.persistence.persistAutosave(snapshot());
+        h.clock.now -= 60 * 60_000;
+        await h.persistence.persistAutosave(snapshot());
+        assert.equal(sentAt.length, 2, "the second save still goes out");
+        assert.deepEqual(h.clock.sleeps, [], "without waiting an hour for real time to catch up");
+    });
+
+    it("still raises the save-error banner when hinted 429s never stop", async () => {
+        const h = harness();
+        globalThis.fetch = (async () => jsonResponse(429, { error: "Rate limit exceeded.", retryAfterMs: 1_000 })) as typeof fetch;
+        for (let attempt = 0; attempt < 8; attempt += 1) await h.persistence.persistAutosave(snapshot());
+        assert.equal(h.blocked.at(-1), true);
+
+        const long = harness();
+        globalThis.fetch = (async () => jsonResponse(429, { error: "Rate limit exceeded.", retryAfterMs: 45_000 })) as typeof fetch;
+        await long.persistence.persistAutosave(snapshot());
+        assert.equal(long.failureCount.current, 1, "a long hint counts at once");
+    });
+
+    it("does not pace against a server that sends no window hint", async () => {
+        const h = harness();
+        let version = 5;
+        globalThis.fetch = (async () => jsonResponse(200, { ok: true, _saveVersion: ++version })) as typeof fetch;
+        await h.persistence.persistAutosave(snapshot());
+        await h.persistence.persistRequired(() => requiredSave());
+        await h.persistence.persistAutosave(snapshot());
+        assert.deepEqual(h.clock.sleeps, []);
+    });
+
+    it("does not pace after a conflict, which the server never charges", async () => {
+        const h = harness({ latestVersion: 5, payloadRevision: 1 });
+        globalThis.fetch = (async (_input, init) => init?.method === "POST"
+            ? jsonResponse(409, { error: "conflict" })
+            : jsonResponse(200, { character: { name: "Kaya", level: 9 }, _saveVersion: 7 })) as typeof fetch;
+        await h.persistence.persistAutosave(snapshot());
+        acceptingServer(h);
+        await h.persistence.persistAutosave(snapshot());
+        assert.deepEqual(h.clock.sleeps, []);
+    });
+
+    it("tells an immediate flush to retry after a short hinted 429 (the save lock) instead of waiting for the interval", async () => {
+        const h = harness();
+        globalThis.fetch = (async () => jsonResponse(429, { error: "Another change is saving.", retryAfterMs: 1_000 })) as typeof fetch;
+        const outcome = await h.persistence.persistAutosave(snapshot());
+        assert.deepEqual(outcome, { status: "completed", value: AUTOSAVE_RETRY });
+        assert.equal(h.dirty.current, true);
+        assert.equal(h.failureCount.current, 0);
+    });
+
+    it("keeps a hinted autosave 429 dirty without counting toward the save-error banner, then honours the hint", async () => {
+        const h = harness();
+        globalThis.fetch = (async () => jsonResponse(429, { error: "Rate limit exceeded.", retryAfterMs: 2_000 })) as typeof fetch;
+        for (let attempt = 0; attempt < SAVE_FAILURE_BANNER_THRESHOLD + 1; attempt += 1) {
+            await h.persistence.persistAutosave(snapshot());
+        }
+        assert.equal(h.dirty.current, true);
+        assert.equal(h.failureCount.current, 0);
+        assert.deepEqual(h.blocked, []);
+
+        const sentAt = acceptingServer(h);
+        const throttledAt = h.clock.now;
+        await h.persistence.persistAutosave(snapshot());
+        assert.equal(sentAt.length, 1);
+        assert.ok(sentAt[0] - throttledAt >= 2_000, "waited out the server hint");
+        assert.equal(h.failureCount.current, 0);
+    });
+
+    it("still counts an unhinted autosave 429 (a per-minute gain cap) toward the banner", async () => {
+        const h = harness();
+        globalThis.fetch = (async () => jsonResponse(429, { error: "XP gain rate-limited (over 1000000 / 60s)." })) as typeof fetch;
+        for (let attempt = 0; attempt < SAVE_FAILURE_BANNER_THRESHOLD; attempt += 1) {
+            await h.persistence.persistAutosave(snapshot());
+        }
+        assert.equal(h.failureCount.current, SAVE_FAILURE_BANNER_THRESHOLD);
+        assert.equal(h.blocked.at(-1), true);
+    });
+
+    it("never stalls a player's action on a long server hint", async () => {
+        const h = harness();
+        globalThis.fetch = (async () => jsonResponse(429, { retryAfterMs: 45_000 })) as typeof fetch;
+        await assert.rejects(h.persistence.persistRequired(() => requiredSave()), SaveRateLimitError);
+        const sentAt = acceptingServer(h);
+        await h.persistence.persistRequired(() => requiredSave());
+        assert.equal(sentAt.length, 1, "a required save sends rather than waiting 45s");
+        assert.deepEqual(h.clock.sleeps, []);
+
+        const later = harness();
+        globalThis.fetch = (async () => jsonResponse(429, { retryAfterMs: 45_000 })) as typeof fetch;
+        await later.persistence.persistAutosave(snapshot());
+        let posts = 0;
+        globalThis.fetch = (async () => { posts += 1; return jsonResponse(200, { _saveVersion: 9 }); }) as typeof fetch;
+        await later.persistence.persistAutosave(snapshot());
+        assert.equal(posts, 0, "an autosave defers to a later tick instead of holding the flight");
+        assert.equal(later.dirty.current, true);
     });
 });

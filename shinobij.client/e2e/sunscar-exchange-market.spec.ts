@@ -167,7 +167,7 @@ test('capacity guidance appears before submission and prepare-return revalidates
     expect(actions).not.toContain('buy');
 
     await page.getByRole('button', { name: 'Manage companion roster' }).click();
-    await expect(page.getByRole('heading', { name: 'Pet Home' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'A Place to Rest', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Companion Sanctuary' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Return to Exchange' })).toBeVisible();
     expect(actions).not.toContain('buy');

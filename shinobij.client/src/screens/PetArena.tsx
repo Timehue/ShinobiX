@@ -37,13 +37,13 @@ import type { Screen, JutsuElement } from "../types/core";
 import { PET_ELEMENT_BEATS } from "../constants/pet-arena";
 import { PetArenaCard } from "../components/PetBattleAvatar";
 import { PetHomeTabs } from "../components/PetHomeTabs";
+import { CompanionIdentity } from "../components/CompanionIdentity";
 import { GameIcon } from "../components/icons/GameIcon";
 import { PetChronicleCeremony } from "../components/PetChronicleCeremony";
 import { PetChronicleProgress } from "../components/PetChronicleProgress";
 import { PetDuelLiveHost, type PetDuelLiveHandle } from "../components/PetDuelLiveHost";
 import { fetchRankedPetDuel } from "../lib/pet-ranked-watch-api";
 import type { ShowdownReplayScript } from "../../../shared/pet-showdown-contract";
-import { petCardImage } from "../lib/pet-battle-anim";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import {
     TACTICAL_ARENA_PET_REQUIREMENT,
@@ -1731,28 +1731,24 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     // Shared by the cinematic battle view's pickers below — replaces the bare
     // <select> dropdowns so picking a pet is a tap on its art, not a text line.
     const petPickCard = (key: string, pet: Pet, sel: boolean, onClick: () => void, opts?: { owner?: string; dim?: boolean }) => {
-        const img = petCardImage(pet, sharedImages);
         const { role } = pet.role && pet.subRole ? { role: pet.role } : derivePetRole(pet);
         const rm = ROLE_META[role];
         const name = petDisplayName(pet);
         return (
             <button key={key} type="button"
-                className={`pet-pick${sel ? " selected" : ""} ${petVisualVariantClass(pet)}`}
+                className={`pet-pick companion-card companion-card--select rarity-${pet.rarity}${sel ? " selected" : ""} ${petVisualVariantClass(pet)}`}
                 title={opts?.dim ? `${name} is exploring and unavailable` : opts?.owner ? `${opts.owner}: ${name}` : name}
                 aria-pressed={sel}
                 disabled={opts?.dim}
                 style={opts?.dim ? { opacity: 0.5 } : undefined}
                 onClick={onClick}>
-                {img
-                    ? <img className="pet-pick-img" src={img} alt="" />
-                    : <div className="pet-pick-img placeholder" />}
-                <span className="pet-pick-name">{name}</span>
+                <CompanionIdentity pet={pet} sharedImages={sharedImages} compact />
                 {rm && (
                     <span className="pet-pick-role" style={{ color: rm.color }}>
                         <img className="pet-pick-role-icon" src={ROLE_ICON[role]} alt="" aria-hidden="true" /> {rm.label}
                     </span>
                 )}
-                <span className="pet-pick-meta">{opts?.owner ? `${opts.owner} · ` : ""}Lv {pet.level}{pet.element && pet.element !== "None" ? <> · <ElIcon el={pet.element} size={13} />{pet.element}</> : ""}</span>
+                {opts?.owner && <span className="companion-card-context">{opts.owner}</span>}
             </button>
         );
     };
@@ -1863,7 +1859,6 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 </aside>,
                 document.body,
             )}
-            {showPetHomeTabs ? <PetHomeTabs active="arena" setScreen={setScreen} /> : null}
             <header className={`pet-arena-command${isHollowGate ? " is-forced" : ""}`} style={arenaHeroStyle}>
                 <div className="pet-arena-command-topline">
                     <button
@@ -1873,7 +1868,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                         onClick={leaveCurrentPetBattle}
                     >
                         <span className="pet-arena-return-arrow" aria-hidden="true">←</span>
-                        <span><small>Exit arena</small><strong>{returnLabel}</strong></span>
+                        <span><small>Return to</small><strong>{returnLabel}</strong></span>
                     </button>
                     <span className="pet-arena-season"><i aria-hidden="true" /> Arena command online</span>
                     <button
@@ -1925,6 +1920,8 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                     </nav>
                 ) : null}
             </header>
+
+            {showPetHomeTabs ? <PetHomeTabs active="arena" setScreen={setScreen} /> : null}
 
             {/* The async "accept a pet challenge" banner is GONE with the sender that fed
                 it: PvP pet duels are live-only now (plan §10), so an invite arrives over
@@ -2199,29 +2196,24 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                 {available.map((pet) => {
                                     const sel = picks.includes(pet.id);
                                     const order = picks.indexOf(pet.id);
-                                    const img = petCardImage(pet, sharedImages);
                                     const { role, subRole } = pet.role && pet.subRole ? { role: pet.role, subRole: pet.subRole } : derivePetRole(pet);
                                     const rm = ROLE_META[role];
                                     const atMax = !sel && picks.length >= max;
                                     return (
                                         <button key={pet.id} type="button"
-                                            className={`pet-pick${sel ? " selected" : ""} ${petVisualVariantClass(pet)}`}
+                                            className={`pet-pick companion-card companion-card--select rarity-${pet.rarity}${sel ? " selected" : ""} ${petVisualVariantClass(pet)}`}
                                             title={rm ? `${petDisplayName(pet)} — ${rm.label} (${subRole})` : petDisplayName(pet)}
                                             aria-pressed={sel}
                                             disabled={atMax}
                                             style={atMax ? { opacity: 0.45 } : undefined}
                                             onClick={() => setPicks(sel ? picks.filter((x) => x !== pet.id) : atMax ? picks : [...picks, pet.id])}>
                                             {sel && <span className="pet-pick-order">{order + 1}</span>}
-                                            {img
-                                                ? <img className="pet-pick-img" src={img} alt="" />
-                                                : <div className="pet-pick-img placeholder" />}
-                                            <span className="pet-pick-name">{petDisplayName(pet)}</span>
+                                            <CompanionIdentity pet={pet} sharedImages={sharedImages} compact />
                                             {rm && (
                                                 <span className="pet-pick-role" style={{ color: rm.color }}>
                                                     <img className="pet-pick-role-icon" src={ROLE_ICON[role]} alt="" aria-hidden="true" /> {rm.label}
                                                 </span>
                                             )}
-                                            <span className="pet-pick-meta">Lv {pet.level}{pet.element && pet.element !== "None" ? <> · <ElIcon el={pet.element} size={13} />{pet.element}</> : ""}</span>
                                         </button>
                                     );
                                 })}

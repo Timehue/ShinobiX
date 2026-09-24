@@ -59,6 +59,8 @@ const CLAN_DISSOLUTION_LOCK_TTL_SEC = 120;
  * while bounding requests that would otherwise enter the per-save lock. */
 export const PLAYER_SAVE_ATTEMPT_LIMIT = 120;
 export const PLAYER_SAVE_ATTEMPT_WINDOW_MS = 60_000;
+/** One accepted player save per aligned window of this length (`save-burst`). */
+export const SAVE_BURST_WINDOW_MS = 3_000;
 
 // Non-owner reads use an explicit ALLOWLIST at BOTH the root and character
 // level (see buildPublicSaveDTO). A blacklist is not the boundary anymore: the
@@ -618,9 +620,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const ownerTravel = !isClanSave && !identity.admin && identity.name === name
             ? await (await import('../_realtime/travel-lease.js')).getTravelLease(name)
             : null;
+        // Owner reads wait out the arrival settler instead of failing fast. The
+        // heartbeat settles each arrival while HOLDING the lease lock, and this read
+        // is exactly the 409-recovery refetch that follows a trip — so with the
+        // default ~775ms budget it collided with that settle, answered 503, and the
+        // client counted a failed recovery toward the red save-failure banner (two
+        // failures raise it). Same budget and reasoning as a waiting action
+        // (TRAVEL_ACTION_SETTLE_ATTEMPTS: last try ~3.2s, worst ~6.4s, well inside
+        // the client's 15s save-request timeout). Mutual exclusion is unchanged.
         if (ownerTravel && Date.now() >= ownerTravel.arrivalAt) {
             try {
-                await (await import('../_realtime/travel-lease.js')).settleTravelLease(name, ownerTravel);
+                const travel = await import('../_realtime/travel-lease.js');
+                await travel.settleTravelLease(name, ownerTravel, undefined, travel.TRAVEL_ACTION_SETTLE_ATTEMPTS);
             } catch {
                 return res.status(503).json({ error: 'Your arrival is still settling. Please retry.' });
             }
@@ -661,7 +672,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const travel = await import('../_realtime/travel-lease.js');
             if (data.worldTravelReceipt !== travel.travelLeaseReceipt(ownerTravel)) {
                 try {
-                    await travel.settleTravelLease(name, ownerTravel, positionNow);
+                    await travel.settleTravelLease(name, ownerTravel, positionNow, travel.TRAVEL_ACTION_SETTLE_ATTEMPTS);
                     const arrived = await kv.get<Record<string, unknown>>(key);
                     if (arrived) data = arrived;
                 } catch {
@@ -981,7 +992,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // Charge the successful-save burst budget only after exact
                     // version authority is established. This keeps a conflict and
                     // its immediate corrected retry from self-throttling.
-                    if (!isClanSave && !(await enforceRateLimitKv(req, res, 'save-burst', 1, 3_000, identityName, { local: true }))) {
+                    if (!isClanSave && !(await enforceRateLimitKv(req, res, 'save-burst', 1, SAVE_BURST_WINDOW_MS, identityName, { local: true }))) {
                         return; // 429 already written
                     }
 
@@ -1290,7 +1301,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                     equippedBloodlineId: ((payload as Record<string, unknown>).character as Record<string, unknown> | undefined)?.equippedBloodlineId ?? null }
                                 : {}),
                             ...(Number.isFinite(persistedRyo) ? { ryo: persistedRyo } : {}),
-                            ...(Number.isFinite(persistedFateShards) ? { fateShards: persistedFateShards } : {}) });
+                            ...(Number.isFinite(persistedFateShards) ? { fateShards: persistedFateShards } : {}),
+                            // When the next save can land: the rest of the aligned
+                            // save-burst window this write just used. Measured after
+                            // the charge and read by the client after the reply
+                            // arrives, so waiting this long from arrival always
+                            // reaches the next window, whatever the clock skew.
+                            nextSaveInMs: SAVE_BURST_WINDOW_MS - (Date.now() % SAVE_BURST_WINDOW_MS) });
                     }, { failClosed: true });
                     return; // the locked closure already sent the response
                 } catch (lockErr) {
@@ -1299,7 +1316,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // withKvLock already released any lock it held; real errors from
                     // the RMW propagate to the outer handler catch → 500.
                     if (lockErr instanceof LockContendedError) {
-                        return res.status(429).json({ error: 'Concurrent save in flight. Retry.' });
+                        // The hint marks this as transient: another write (a travel or
+                        // reward settlement) holds the save for well under the lock's
+                        // 5s TTL, so the client keeps the change dirty and retries
+                        // instead of counting it toward the "Couldn't save" banner.
+                        return res.status(429).json({ error: 'Concurrent save in flight. Retry.', retryAfterMs: 1_000 });
                     }
                     throw lockErr;
                 }

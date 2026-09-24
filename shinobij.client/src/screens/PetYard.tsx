@@ -1,6 +1,7 @@
 import { petTamerExpeditionMult, petTamerTrainingSpeedPct } from "../lib/profession-bonuses";
 import { PetBattleReadiness } from "../components/PetBattleReadiness";
 import { useState, useEffect, useRef } from "react";
+import { masteryHasCapstone } from "../lib/profession-mastery";
 import { visiblePoll } from "../lib/poll";
 import { serverNow } from "../lib/server-clock";
 import { activeCarriedPetIds, activeCarriedPets, activeTrainingPetIds, maxPets } from "../lib/entitlements";
@@ -24,7 +25,7 @@ import {
     petHappinessPenaltyNote,
     petHappinessTier,
 } from "../../../shared/pet-happiness";
-import { petCardImage, petPoseImage } from "../lib/pet-battle-anim";
+import { petPoseImage } from "../lib/pet-battle-anim";
 import { versionPetArtUrl } from "../lib/pet-art-revision";
 import { PET_PVE_DURABILITY, petCollarById, petCollarVisual, petCollars, petConsumableById, petConsumables, petExpeditionOptions, petFeedItems, petPveGear, petPveGearById, petPvpGear, petPvpGearById, petTrainingDurations, petTrainingOptions, petTraitDescriptions, ultraPetTraits } from "../data/pet-config";
 
@@ -32,6 +33,8 @@ import { countItem, ownsItem } from "../lib/inventory";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { gameToast } from "../components/GameToast";
 import { PetHomeTabs } from "../components/PetHomeTabs";
+import { CompanionIdentity } from "../components/CompanionIdentity";
+import { PetArtwork } from "../components/PetArtwork";
 import { Modal } from "../components/ui/Modal";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import { activeClientBreedingParentIds } from "../lib/pet-breeding";
@@ -304,7 +307,35 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
         } finally { setGrowthBusy(false); }
     }
 
-    async function startTraining() {
+    // Pet Tamer "Prodigy" capstone: once per UTC day, one training session is
+    // sealed already finished with doubled XP. The server owns the daily usage.
+    const ownsProdigy = character.profession === "petTamer" && masteryHasCapstone(character, "prodigy");
+    const [prodigyStatus, setProdigyStatus] = useState<{ available: boolean; resetsAt: number } | null>(null);
+    // Bumped after every Prodigy attempt so the status is re-read from the server
+    // (used in another tab, refused, or a reply the client couldn't adopt).
+    const [prodigyCheck, setProdigyCheck] = useState(0);
+    useEffect(() => {
+        if (!ownsProdigy) return;
+        let cancelled = false;
+        void fetch(`/api/pet/progress?playerName=${encodeURIComponent(character.name)}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((data: { prodigy?: { available?: boolean; resetsAt?: number } } | null) => {
+                if (!cancelled && data?.prodigy) setProdigyStatus({ available: data.prodigy.available === true, resetsAt: Number(data.prodigy.resetsAt) || 0 });
+            })
+            .catch(() => undefined);
+        return () => { cancelled = true; };
+    }, [ownsProdigy, character.name, prodigyCheck]);
+    // Come back at midnight UTC without needing to leave the screen.
+    useEffect(() => {
+        if (!ownsProdigy || !prodigyStatus?.resetsAt || prodigyStatus.available) return;
+        const wait = prodigyStatus.resetsAt - Date.now() + 1_000;
+        if (wait > 24 * 60 * 60 * 1000) return;
+        const id = window.setTimeout(() => setProdigyCheck((n) => n + 1), Math.max(1_000, wait));
+        return () => window.clearTimeout(id);
+    }, [ownsProdigy, prodigyStatus]);
+    const prodigyAvailable = ownsProdigy && prodigyStatus?.available === true;
+
+    async function startTraining(_event?: unknown, prodigy = false) {
         if (petTrainingBusyRef.current) return;
         if (!requireServerSettlement("petTraining")) return;
         if (!selectedPet) return;
@@ -326,7 +357,14 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
         petTrainingBusyRef.current = true;
         setPetTrainingBusy(true);
         try {
-            const data = await runPetProgress('start-training', { focus: trainingType, durationMs: trainingDuration });
+            const data = await runPetProgress('start-training', { focus: trainingType, durationMs: trainingDuration, ...(prodigy ? { prodigy: true } : {}) });
+            // Only claim success when the server actually sealed a Prodigy session
+            // (collecting a previous session can max the pet so none starts).
+            if (prodigy && (data.pet?.training as { prodigy?: boolean } | undefined)?.prodigy === true) {
+                // Spent — hide the button now rather than waiting on the status re-read.
+                setProdigyStatus((s) => ({ available: false, resetsAt: s?.resetsAt ?? 0 }));
+                gameToast(`Prodigy: ${petDisplayName(selectedPet)}'s ${trainingType} training finished instantly with doubled XP — collect it now.`);
+            }
             // The server self-heals an orphaned finished session: if we'd lost
             // sight of a completed training, start-training pays out its sealed XP
             // before starting the new one. Surface that so the payout isn't silent —
@@ -340,7 +378,11 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
             }
         }
         catch (error) { alert(error instanceof Error ? error.message : 'Training could not be started.'); }
-        finally { petTrainingBusyRef.current = false; setPetTrainingBusy(false); }
+        finally {
+            petTrainingBusyRef.current = false; setPetTrainingBusy(false);
+            // Whatever happened, ask the server whether today's Prodigy is still unused.
+            if (prodigy) setProdigyCheck((n) => n + 1);
+        }
     }
 
     // Recovery escape hatch for the exact stuck state in the bug report: a pet
@@ -775,8 +817,6 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
 
     return (
         <div className="pet-yard-screen pet-yard-refined">
-            <PetHomeTabs active="yard" setScreen={setScreen} />
-
             {evolveCutscene && (
                 <PetEvolutionCutscene
                     pet={evolveCutscene.pet}
@@ -877,10 +917,11 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
 
             <div className="pet-yard-overlay">
                 <header className="pet-yard-header">
-                    <button type="button" className="back-btn pet-yard-return" onClick={onBack} aria-label={`Back to ${backLabel}`}>← {backLabel}</button>
-                    <div className="pet-yard-title"><span className="pet-yard-kicker">Companion sanctuary</span><h2>Pet Yard</h2><p>Every great journey begins with a bond.</p></div>
+                    <button type="button" className="back-btn pet-yard-return" onClick={onBack} aria-label={`Back to ${backLabel}`}><span aria-hidden="true">←</span><span><small>Return to</small><strong>{backLabel}</strong></span></button>
+                    <div className="pet-yard-title"><span className="pet-yard-kicker">Companion home · Care & training</span><h2>Pet Yard</h2><p>Every great journey begins with a bond.</p></div>
                     <div className="pet-yard-roster-count"><strong>{combatEligiblePets.length}<small> / {maxPets(character)}</small></strong><span>Carried companions</span></div>
                 </header>
+                <PetHomeTabs active="yard" setScreen={setScreen} />
 
                 {preservedOverflowCount > 0 ? (
                     <p className="hint" role="status" style={{ color: "var(--gold-2)", margin: "0.35rem 0" }}>
@@ -907,23 +948,13 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                 type="button"
                                 key={pet.id}
                                 ref={selectedPet?.id === pet.id ? selectedPetSlotRef : undefined}
-                                className={`pet-slot-card${selectedPet?.id === pet.id ? " pet-selected" : ""}${character.activePetId === pet.id ? " pet-active" : ""} ${petVisualVariantClass(pet)}`}
+                                className={`pet-slot-card companion-card companion-card--select rarity-${pet.rarity}${selectedPet?.id === pet.id ? " pet-selected" : ""}${character.activePetId === pet.id ? " pet-active" : ""} ${petVisualVariantClass(pet)}`}
                                 onClick={() => { if (pet.id !== selectedPet?.id) { setNicknameInput(""); setNicknameMsg(""); setEvolveMsg(""); } setSelectedPetId(pet.id); setExpeditionError(""); setPetMsg(""); if (expeditionReady) setYardSection("expeditions"); else if (pet.training && now >= pet.training.endsAt) setYardSection("growth"); }}
                                 disabled={progressBusy || evolveBusy || expeditionBusy || expeditionLaunchBusy}
                                 aria-pressed={selectedPet?.id === pet.id}
                                 aria-label={`Select ${petDisplayName(pet)}${expeditionReady ? "; expedition ready to claim" : ""}`}
                             >
-                                <span className="pet-slot-avatar">
-                                    {(() => {
-                                        const avatar = petCardImage(pet, sharedImages);
-                                        return avatar
-                                            ? <img src={avatar} alt={pet.name} onError={(e) => { e.currentTarget.style.display = "none"; }} />
-                                            : <span className="pet-initials">{pet.name.slice(0, 2).toUpperCase()}</span>;
-                                    })()}
-                                </span>
-                                <span className="pet-slot-name">{petDisplayName(pet)}</span>
-                                <span className={`pet-rarity-tag rarity-${pet.rarity}`}>{pet.rarity}</span>
-                                <span className="pet-slot-level">Level {pet.level}</span>
+                                <CompanionIdentity pet={pet} sharedImages={sharedImages} compact />
                                 {!combatEligiblePetIds.has(pet.id) && <span className="pet-training-tag">Preserved overflow</span>}
                                 {character.activePetId === pet.id && <span className="pet-active-tag">Active</span>}
                                 {character.activePetId2v2 === pet.id && <span className="pet-2v2-tag">2v2</span>}
@@ -972,13 +1003,12 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                     // glow color it gives the pet in battle (prismatic cycles).
                                     const detailCollar = petCollarVisual(selectedPet.loadout?.collar);
                                     const detailGlowClass = detailCollar ? (detailCollar.prismatic ? " pet-collar-detail-prismatic" : " pet-collar-detail-glow") : "";
-                                    const detailImg = petCardImage(selectedPet, sharedImages);
                                     return (
                                         <div
                                             className={`pet-detail-avatar${detailGlowClass} ${petVisualVariantClass(selectedPet)}`}
                                             style={detailCollar ? { ["--collar-glow" as string]: detailCollar.glow } : undefined}
                                         >
-                                            {detailImg ? <img src={detailImg} alt={selectedPet.name} onError={(e) => { e.currentTarget.style.display = "none"; }} /> : <span className="pet-detail-initials">{selectedPet.name.slice(0, 2).toUpperCase()}</span>}
+                                            <PetArtwork pet={selectedPet} sharedImages={sharedImages} alt={selectedPet.name} fallbackClassName="pet-detail-initials" loading="eager" />
                                             {detailCollar?.prismatic && <span className="pet-collar-sparkles" aria-hidden="true" />}
                                         </div>
                                     );
@@ -1163,7 +1193,18 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                                     <p className="hint">Fully trained — training no longer raises stats. Use this if a previous session is still waiting to be collected.</p>
                                                 </>
                                             ) : (
-                                                <button className="admin-button" onClick={startTraining} disabled={petTrainingBusy || !selectedPetCanTrain || !!selectedPet.expedition || selectedPetBreedingLocked}>{petTrainingBusy ? "Starting…" : !selectedPetCanTrain ? (selectedPetIsOverflow ? "Move into carried roster" : "Move into active five") : "Start Training"}</button>
+                                                <>
+                                                    <button className="admin-button" onClick={startTraining} disabled={petTrainingBusy || !selectedPetCanTrain || !!selectedPet.expedition || selectedPetBreedingLocked}>{petTrainingBusy ? "Starting…" : !selectedPetCanTrain ? (selectedPetIsOverflow ? "Move into carried roster" : "Move into active five") : "Start Training"}</button>
+                                                    {prodigyAvailable && selectedPetCanTrain && (
+                                                        <>
+                                                            <button className="admin-button" onClick={() => void startTraining(undefined, true)} disabled={petTrainingBusy || !!selectedPet.expedition || selectedPetBreedingLocked}
+                                                                title="Pet Tamer mastery: once per day, this session finishes instantly with doubled XP.">
+                                                                {petTrainingBusy ? "Starting…" : "Train instantly · 2× XP (Prodigy, daily)"}
+                                                            </button>
+                                                            <p className="hint">Prodigy doubles the XP of the duration picked above and skips the wait — a longer session pays more. Once per day (resets at midnight UTC).</p>
+                                                        </>
+                                                    )}
+                                                </>
                                             )}
                                             {selectedPet.expedition && <p className="hint">Collect this companion’s expedition in Expeditions before starting training.</p>}
                                             {selectedPetBreedingLocked && <p className="hint">This companion is in the Shinobi Hatchery until its timer completes.</p>}
@@ -1452,9 +1493,10 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                     </div>
                 ) : (
                     <div className="pet-empty-state">
+                        <span className="pet-home-kicker">First companion</span>
                         <span className="pet-empty-emblem" aria-hidden="true"><GameIcon name="paw" size={44} /></span>
-                        <p>You haven't captured any pets yet.</p>
-                        <p>Explore the World Map to encounter and befriend pets!</p>
+                        <h3>Your journey starts with a bond</h3>
+                        <p>Explore the World Map to meet and befriend your first companion.</p>
                         <button onClick={() => setScreen("worldMap")}>Go to World Map</button>
                     </div>
                 )}

@@ -3,12 +3,12 @@ import sanctuaryArt from "../assets/pet-home/companion-sanctuary.webp";
 import { ultraPetTraits } from "../data/pet-config";
 import { activeCarriedPetIds, activeCarriedPets, maxPets } from "../lib/entitlements";
 import { petDisplayName } from "../lib/pet";
-import { petCardImage } from "../lib/pet-battle-anim";
 import { fetchPetSanctuary, transferPetSanctuary, type PetSanctuaryFilters, type PetSanctuaryItem } from "../lib/pet-sanctuary-api";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { Pet } from "../types/pet";
 import { gameConfirm } from "./GameAlert";
+import { CompanionIdentity } from "./CompanionIdentity";
 
 const ELEMENTS = ["all", "Fire", "Water", "Wind", "Lightning", "Earth"] as const;
 const RARITIES = ["all", "standard", "rare", "legendary", "mythic"] as const;
@@ -16,10 +16,6 @@ const ORIGINS = ["all", "starter", "wild", "bred", "event", "admin"] as const;
 
 function title(value: string): string {
     return value ? value.charAt(0).toUpperCase() + value.slice(1) : "Unknown";
-}
-
-function initials(pet: Pet): string {
-    return petDisplayName(pet).split(/\s+/).map((word) => word[0]).join("").slice(0, 2).toUpperCase();
 }
 
 function storedLabel(storedAt: number): string {
@@ -147,14 +143,13 @@ export function PetSanctuary({ character, updateCharacter, onVersionedCharacter,
         </div>
         {loading ? <div className="pet-sanctuary-loading" role="status"><span /><p>Opening the habitats…</p></div> : items.length ? <div className="pet-sanctuary-grid">{items.map((item) => {
             const pet = item.pet;
-            const art = petCardImage(pet, sharedImages);
             const apex = pet.trait && ultraPetTraits.includes(pet.trait) ? pet.trait : null;
             const isBusy = busyPetId === pet.id;
             const rosterFull = eligibleCarried.length >= carriedCapacity;
-            return <article key={pet.id} className={`pet-sanctuary-card rarity-${pet.rarity} ${petVisualVariantClass(pet)}`}>
-                <div className="pet-sanctuary-portrait">{art ? <img src={art} alt={petDisplayName(pet)} /> : <span aria-label={`${petDisplayName(pet)} artwork unavailable`}>{initials(pet)}</span>}<em>Lv. {pet.level}</em></div>
+            return <article key={pet.id} className={`pet-sanctuary-card companion-card rarity-${pet.rarity} ${petVisualVariantClass(pet)}`}>
+                <CompanionIdentity pet={pet} sharedImages={sharedImages} />
                 {pet.paletteVariantId && <strong className="chromatic-ribbon">Chromatic</strong>}{apex && <strong className="apex-trait-ribbon">Apex · {apex}</strong>}
-                <div className="pet-sanctuary-copy"><span>{title(pet.rarity)} · {pet.element ?? "Neutral"}</span><h3>{petDisplayName(pet)}</h3><p>{pet.trait ?? "Unrevealed trait"} · {title(item.source)} arrival</p><small>{storedLabel(item.storedAt)}</small></div>
+                <div className="pet-sanctuary-copy"><p>{pet.trait ?? "Unrevealed trait"} · {title(item.source)} arrival</p><small>{storedLabel(item.storedAt)}</small></div>
                 <dl><div><dt>HP</dt><dd>{pet.hp}</dd></div><div><dt>ATK</dt><dd>{pet.attack}</dd></div><div><dt>DEF</dt><dd>{pet.defense}</dd></div><div><dt>SPD</dt><dd>{pet.speed}</dd></div></dl>
                 <div className="pet-sanctuary-actions"><button type="button" className="pet-home-primary" disabled={rosterFull || Boolean(busyPetId)} title={rosterFull ? `Carried roster full (${eligibleCarried.length}/${carriedCapacity})` : undefined} onClick={() => void moveToRoster(item)}>{isBusy ? "Moving…" : rosterFull ? "Roster full" : "Add to carried"}</button><button type="button" className="pet-sanctuary-release" disabled={Boolean(busyPetId)} onClick={() => void release(item)}>Release</button></div>
             </article>;

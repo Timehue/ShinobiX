@@ -35,6 +35,7 @@ import {
 } from "../lib/pet-warfront-rite-presentation";
 import { WARFRONT_PREFLIGHT_THRESHOLD_MS, WARFRONT_ROUTE_STORAGE_KEY, warfront3dQaCanaryRequested, warfrontShouldAttempt3d } from "../lib/pet-warfront-render-budget";
 import { warfrontCanvasFrame } from "../lib/pet-warfront-camera";
+import { PET_ELEMENT_IMPACT_ATLAS_URL } from "../lib/pet-element-vfx";
 import type { PetVisualQualityConfig } from "../lib/pet-visual-quality";
 import {
     WARFRONT_HERO_AXIS_TAIL_PX,
@@ -452,6 +453,7 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
     const urls = useMemo(() => fighters.map((fighter) => impostorUrl(fighter.pet)), [fighters]);
     const [images, setImages] = useState<readonly HTMLImageElement[] | null>(null);
     const [heroImpactSprite, setHeroImpactSprite] = useState<HTMLImageElement | null>(null);
+    const [elementImpactAtlas, setElementImpactAtlas] = useState<HTMLImageElement | null>(null);
     const cues = useMemo(() => warfrontAttackCues(result.events), [result.events]);
     const heroCue = useMemo(() => warfrontHeroAttackCue(cues), [cues]);
     const fighterByActorId = useMemo(() => new Map(fighters.map((fighter) => [
@@ -500,15 +502,18 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setImages(null);
         setHeroImpactSprite(null);
+        setElementImpactAtlas(null);
         onRendererAvailability?.(true);
         onLoadProgress?.(0);
         const load = urls.map((url) => url
             ? loadImpostorImage(url)
             : Promise.reject<HTMLImageElement>(new Error("Missing exact Warfront impostor")));
-        void Promise.all([Promise.all(load), loadImpostorImage(WARFRONT_HERO_FIRE_IMPACT_SPRITE_URL)]).then(([loaded, impactSprite]) => {
+        const optionalImpactAtlas = loadImpostorImage(PET_ELEMENT_IMPACT_ATLAS_URL).catch(() => null);
+        void Promise.all([Promise.all(load), loadImpostorImage(WARFRONT_HERO_FIRE_IMPACT_SPRITE_URL), optionalImpactAtlas]).then(([loaded, impactSprite, impactAtlas]) => {
             if (active) {
                 setImages(loaded);
                 setHeroImpactSprite(impactSprite);
+                setElementImpactAtlas(impactAtlas);
             }
         }).catch(() => {
             if (active) onAssetFailure();
@@ -1339,6 +1344,8 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
                         );
                     }
                 } else {
+                    const source = sampleActorByIdInto(result, cue.actorId, cue.contactTick, cueOrigin);
+                    const [sourceX, sourceY] = project(source.x, source.z);
                     drawWarfrontElementResult(
                         context,
                         signature,
@@ -1349,6 +1356,8 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
                         phase.result,
                         particlesPerCue,
                         cueIndex + cue.contactTick * 0.019,
+                        elementImpactAtlas,
+                        Math.atan2(impactY - sourceY, tx - sourceX),
                     );
                 }
             }
@@ -1626,7 +1635,7 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
                 root.style.removeProperty("--wfr-camera-shift-y");
             }
         };
-    }, [clockRef, cues, fighterByActorId, fighters.length, groundingQaEnabled, heroCue, heroImpactSprite, images, onAssetFailure, quality, reducedMotion, result]);
+    }, [clockRef, cues, elementImpactAtlas, fighterByActorId, fighters.length, groundingQaEnabled, heroCue, heroImpactSprite, images, onAssetFailure, quality, reducedMotion, result]);
 
     useEffect(() => {
         const canvas = canvasRef.current;

@@ -226,5 +226,5 @@ test("App rechecks live mutation admission inside delayed save callbacks", () =>
     assert.match(autosave, /const persistDirtySnapshot = useEffectEvent\([\s\S]*capabilityAdmissionAllowed\(mutationAvailability\(\)\)[\s\S]*void persistSave\(snapshot\)/);
     assert.match(autosave, /setTimeout\(\(\) => \{[\s\S]*persistDirtySnapshot\(\)[\s\S]*\}, 3000\)/);
     assert.match(autosave, /setInterval\(persistDirtySnapshot, 15_000\)/);
-    assert.match(autosave, /const flushDirtySnapshot = useEffectEvent\([\s\S]*capabilityAdmissionAllowed\(mutationAvailability\(\)\)[\s\S]*void persistSave\(snapshot\)/);
+    assert.match(autosave, /const flushDirtySnapshot = useEffectEvent\([\s\S]*capabilityAdmissionAllowed\(mutationAvailability\(\)\)[\s\S]*void Promise\.resolve\(persistSave\(snapshot\)\)/);
 });

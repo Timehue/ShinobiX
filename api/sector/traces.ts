@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
-import { enforceRateLimit } from '../_ratelimit.js';
+import { enforceRateLimit, PUBLIC_READ_IP_BACKSTOP, requestPlayerKey } from '../_ratelimit.js';
 import { shrineForSector, shrineTier } from '../../shared/shrines.js';
 import { readSectorScars } from '../_sector-scars.js';
 import {
@@ -35,7 +35,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'GET') return res.status(405).end();
-    if (!enforceRateLimit(req, res, 'sector-traces', 90, 60_000)) return;
+    if (!enforceRateLimit(req, res, 'sector-traces', 90, 60_000, requestPlayerKey(req), { ipBackstopMultiplier: PUBLIC_READ_IP_BACKSTOP })) return;
 
     try {
         const sector = Math.floor(Number((req.query?.sector as string) ?? NaN));

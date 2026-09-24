@@ -36,7 +36,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const reward = kind === 'village'
                 ? settleVillageWarRewards(character, war as VillageWarRewardRecord)
                 : settleClanWarRewards(character, war as ClanWar);
-            return { ok: true as const, character: reward.character, value: reward };
+            // Nothing new to settle (already claimed, or no stake in this war):
+            // answer with the stored save instead of rewriting it. Writing bumped
+            // _saveVersion on every no-op claim, and clients re-poll these, so the
+            // version moved under open autosaves and turned them into 409s.
+            return { ok: true as const, character: reward.character, value: reward, write: reward.granted };
         });
         if (!outcome.ok) return res.status(outcome.status).json({ error: outcome.error });
         return res.status(200).json({

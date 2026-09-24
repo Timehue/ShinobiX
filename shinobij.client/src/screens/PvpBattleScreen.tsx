@@ -358,6 +358,27 @@ export function PvpBattleScreen({
     // wondering whether to refresh. The fetch/subscribe effect flips
     // this on Realtime status callbacks and SSE error/open events.
     const [connectionState, setConnectionState] = useState<"connected" | "reconnecting">("connected");
+    // An established stream can stay silent when the browser loses network,
+    // so transport callbacks alone may leave the board looking connected.
+    const [browserOffline, setBrowserOffline] = useState(() => typeof navigator !== "undefined" && !navigator.onLine);
+    useEffect(() => {
+        const offline = () => {
+            setBrowserOffline(true);
+            setConnectionState("reconnecting");
+        };
+        const online = () => {
+            setBrowserOffline(false);
+            setConnectionState("reconnecting");
+            // Re-read the server and rebuild the stream after a lost link.
+            setSessionRetryKey(key => key + 1);
+        };
+        window.addEventListener("offline", offline);
+        window.addEventListener("online", online);
+        return () => {
+            window.removeEventListener("offline", offline);
+            window.removeEventListener("online", online);
+        };
+    }, []);
     // Weak phones / desktops skip the dash-trail flourish (the only animation-heavy
     // PvP cosmetic); the floating ±damage numbers below are kept as the impact cue.
     const liteFx = prefersLiteCombatFx();
@@ -649,7 +670,9 @@ export function PvpBattleScreen({
                 return;
             }
             try {
-                es = new EventSource(`/api/pvp/stream?id=${encodeURIComponent(battleId)}`);
+                // `viewer` keys the server's stream budget per player; EventSource
+                // cannot carry the x-player-name header that fetch requests do.
+                es = new EventSource(`/api/pvp/stream?id=${encodeURIComponent(battleId)}&viewer=${encodeURIComponent(character.name)}`);
                 es.addEventListener("session", (e) => {
                     if (!active || !isCurrentScope()) return;
                     // Any message arriving means the channel is healthy.
@@ -685,10 +708,16 @@ export function PvpBattleScreen({
                     // Surface the gap so players see "reconnecting…" rather
                     // than a frozen board.
                     setConnectionState("reconnecting");
+                    // Once a session has loaded, back off 1.5s → 3s → 6s → 10s cap: a
+                    // flat 1.5s retry through a sustained error ran ~40 reconnects/min
+                    // against a 30/min limit, so the outage itself locked the stream
+                    // out. Before the first session keep the flat 1.5s, so a battle
+                    // that never existed is still reported within a few seconds. Any
+                    // accepted session resets streamFailures (acceptSession).
                     pollTimer = window.setTimeout(() => {
                         if (!active) return;
                         startStream();
-                    }, 1500);
+                    }, hasLoadedSession ? Math.min(10_000, 1500 * 2 ** Math.max(0, streamFailures - 1)) : 1500);
                 };
             } catch {
                 if (active) setConnectionState("reconnecting");
@@ -2086,7 +2115,7 @@ export function PvpBattleScreen({
 
     return (
         <ShinobiCombatShell mode="pvp" className={`pvp-battle-layout${amSpectator ? " pvp-spectator" : ""} arena-bg-${arenaBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
-            {connectionState === "reconnecting" && (
+            {(browserOffline || connectionState === "reconnecting") && (
                 <div className="pvp-reconnecting-pill" role="status" aria-live="polite">
                     <span className="pvp-reconnecting-dot" />
                     Reconnecting…
