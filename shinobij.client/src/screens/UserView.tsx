@@ -13,6 +13,7 @@
 
 import { useState, useEffect, type CSSProperties } from "react";
 import { ReportControl } from "../components/ReportControl";
+import "../styles/index/25-mobile-profile-tabs.css";
 import "../styles/profile-skin.css";
 import type { Character, ServerPlayerSummary, PlayerRecord } from "../types/character";
 import type { SavedBloodline, Jutsu } from "../types/combat";

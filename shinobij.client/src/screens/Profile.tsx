@@ -2,6 +2,7 @@ import { useActivitySection, useActivitySectionRequests } from "../lib/use-activ
 import { playerLensDiscipline } from "../lib/player-lens-discipline";
 import { getAllJutsus, liveEquippedJutsuIds } from "../lib/jutsu-loadout";
 import { useState, useEffect, useMemo, useRef, type ChangeEvent, type ReactNode } from "react";
+import "../styles/index/25-mobile-profile-tabs.css";
 import "../styles/profile-skin.css";
 import "../styles/training-skin.css";
 import type { Character, VersionedCharacterCommit } from "../types/character";
