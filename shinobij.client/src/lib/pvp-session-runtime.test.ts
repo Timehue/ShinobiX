@@ -183,6 +183,15 @@ describe("PvP live-session projection authority", () => {
         assert.equal(decidePvpSessionRevision(current, projection(9, { battleId: "battle-2" })), "foreign");
         assert.equal(decidePvpSessionRevision(null, projection(1)), "accept");
         assert.equal(decidePvpSessionRevision(current, projection(8, { round: 2 })), "conflict");
+        // The mover's own move response (server insertion order) and the
+        // Realtime/SSE copy of the SAME revision (Postgres jsonb key order) are
+        // one row. Treating them as a conflict restarted the live transport
+        // after every move.
+        const reordered = JSON.parse(JSON.stringify(
+            Object.fromEntries(Object.entries(current).reverse()),
+        )) as typeof current;
+        assert.notEqual(JSON.stringify(reordered), JSON.stringify(current), "precondition: key order differs");
+        assert.equal(decidePvpSessionRevision(current, reordered), "duplicate");
         assert.equal(decidePvpSessionRevision(
             projection(0),
             projection(0, { status: "done", winner: "p1" }),
@@ -345,7 +354,7 @@ describe("PvP reliability source wiring", () => {
             "the exact-CAS candidate must match remote JSON readback bytes");
         assert.match(terminalEffects, /buildBattleReceipt\(session, committedTerminalAt\(session\)\)/,
             "terminal receipt replay must use an immutable timestamp");
-        assert.match(terminalEffects, /await ensurePvpTerminalRecoveryPublication\(kv, session\.battleId, session\)/,
+        assert.match(terminalEffects, /await ensurePvpTerminalRecoveryPublication\(kv, session\.battleId, session[,)]/,
             "terminal move success must wait for the recovery snapshot and player discovery pointers");
         assert.match(terminalEffects, /recordPendingKageSettle\(pointer\.village, session, pointer\.challengeId\)[\s\S]*settleKageDuelFromSession/,
             "an official Kage pointer must be durably settled from the committed terminal row");
