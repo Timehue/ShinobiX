@@ -53,6 +53,8 @@ export type WorldWandererDialogProps = Readonly<{
     visitWandererMedic: WandererAction;
     startPatrolFight: WandererAction;
     followTracker: WandererAction;
+    followTrackerTrail: WandererAction;
+    abandonTrackerTrail: WandererAction;
     startWandererFavor: WandererAction;
     claimWandererFavor: WandererAction;
     claimWandererGift: WandererAction;
@@ -98,6 +100,8 @@ export function WorldWandererDialog({
     visitWandererMedic,
     startPatrolFight,
     followTracker,
+    followTrackerTrail,
+    abandonTrackerTrail,
     startWandererFavor,
     claimWandererFavor,
     claimWandererGift,
@@ -124,7 +128,7 @@ export function WorldWandererDialog({
                 style={{ width: 96, height: 96, objectFit: "cover", borderRadius: "50%", border: `2px solid ${wandererDialog.w.tellTint}`, margin: "0 auto 8px" }}
             />
             <h3 style={{ margin: "0 0 2px" }}>{wandererDialog.nemesis && character.wandererNemesis ? character.wandererNemesis.name : wandererDialog.w.name}</h3>
-            <p style={{ fontSize: ".75rem", color: "#9aa3b2", margin: "0 0 10px" }}>{wandererDialog.nemesis ? `⚔ Your rival · Lv ${Math.min(100, character.level + (character.wandererNemesis?.tier ?? 1))}` : `${wandererDialog.w.verb === "petDuel" ? "Wild beast" : "Wandering shinobi"} · Lv ${wandererDialog.w.level}`}</p>
+            <p style={{ fontSize: ".75rem", color: "#9aa3b2", margin: "0 0 10px" }}>{wandererDialog.nemesis ? `⚔ Your rival · Lv ${Math.min(100, character.level + (character.wandererNemesis?.tier ?? 1))}` : wandererDialog.w.verb === "trackerTrail" ? "On the trail" : `${wandererDialog.w.verb === "petDuel" ? "Wild beast" : "Wandering shinobi"} · Lv ${wandererDialog.w.level}`}</p>
             <p style={{ fontStyle: "italic", margin: "0 0 14px" }}>{wandererDialog.msg ?? (wandererDialog.nemesis ? `"You again, ${character.name}. You walked away last time. You won't this time."` : wandererDialog.w.greeting)}</p>
             {!wandererDialog.msg && remembered && <p style={{ fontSize: ".72rem", color: "#a7f3d0", margin: "-8px 0 12px", fontStyle: "italic" }}>{remembered}</p>}
             {!wandererDialog.msg && wandererDialog.standingLine && <p style={{ fontStyle: "italic", fontSize: ".8rem", color: wandererDialog.peace ? "var(--green-300)" : "var(--slate-300)", margin: "-6px 0 14px" }}>{wandererDialog.standingLine}</p>}
@@ -162,11 +166,20 @@ export function WorldWandererDialog({
                 </div>
             ) : !wandererDialog.msg && wandererDialog.w.verb === "tracker" ? (
                 <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                    {/* Follow tracks leads into a pet duel — hide it, rather than
-                        locking the whole tracker, when there's no pet to send. */}
-                    {character.pets.length > 0 && <button onClick={() => followTracker(wandererDialog.w)}>Follow tracks</button>}
+                    {/* Follow tracks starts a two-sector trail that ends at a wild
+                        pet you can capture. No pet needed: the capture battle lends
+                        a Guild Fox to players who have none. */}
+                    <button disabled={wandererDialog.busy} onClick={() => followTracker(wandererDialog.w)}>{wandererDialog.busy ? "..." : "Follow tracks"}</button>
                     <button disabled={wandererDialog.busy} onClick={() => startWandererFavor(wandererDialog.w)}>{wandererDialog.busy ? "..." : "Take a favor"}</button>
                     <button onClick={() => askRoadRumor(wandererDialog.w)}>Ask about the road</button>
+                    <button onClick={closeWandererDialog}>Leave</button>
+                </div>
+            ) : !wandererDialog.msg && wandererDialog.w.verb === "trackerTrail" ? (
+                <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+                    <button disabled={wandererDialog.busy} onClick={() => followTrackerTrail(wandererDialog.w)}>
+                        {wandererDialog.busy ? "..." : character.activeTrackerTrail?.step === 1 ? "Approach the beast" : "Keep following"}
+                    </button>
+                    <button disabled={wandererDialog.busy} onClick={() => abandonTrackerTrail(wandererDialog.w)} style={{ background: "transparent", borderColor: "#6b7280", color: "#9aa3b2" }}>Give up the trail</button>
                     <button onClick={closeWandererDialog}>Leave</button>
                 </div>
             ) : !wandererDialog.msg && wandererDialog.w.verb === "courier" ? (
