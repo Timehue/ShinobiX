@@ -132,6 +132,11 @@ const PUBLIC_LOCAL_ONLY_ASSETS = new Set([
     // Kept as the authoring input for showdown-v2, which is the live resolver's
     // Raijin model. The top-level copy is never requested by the game.
     'pet-models/starter-lightning-l.glb',
+    // These originals remain in the authoring tree, but production identities
+    // resolve to their individually animated showdown-v2 variants.
+    'pet-models/starter-fire-l.glb',
+    'pet-models/roster/rare-1.glb',
+    'pet-models/roster/standard-7.glb',
     'pet-models/mythic-10.glb',
     'pet-models/mythic-11.glb',
     'pet-models/mythic-12.glb',

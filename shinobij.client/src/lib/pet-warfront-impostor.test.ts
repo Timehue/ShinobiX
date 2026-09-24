@@ -4,8 +4,8 @@ import { petCombatModel } from "./pet-3d-models";
 import { rawPetPool } from "../data/pet-pool";
 import { STARTER_PETS } from "../data/starter-pets";
 import { STARTER_EVOLUTIONS } from "../data/pet-evolutions";
-import { PET_RIG_REPAIR_REVISIONS } from "./pet-proper-animation-assets";
 import { WARFRONT_IMPOSTOR_MANIFEST } from "../generated/pet-warfront-impostor-manifest";
+import { WARFRONT_IMPOSTOR_ATLAS_REVISIONS } from "../generated/pet-warfront-impostor-url-manifest";
 import { warfrontImpostorEntry } from "./pet-warfront-impostor";
 import { warfrontImpostorAtlasUrl } from "./pet-warfront-impostor-url";
 
@@ -22,8 +22,9 @@ test("an uncertified source stays on the skinned fallback", () => {
 
 test("the lightweight runtime derivation matches every generated atlas URL", () => {
     for (const [source, entry] of Object.entries(WARFRONT_IMPOSTOR_MANIFEST)) {
-        assert.equal(warfrontImpostorAtlasUrl(source), entry.atlasUrl);
-        assert.equal(warfrontImpostorAtlasUrl(`${source}?v=approved`), `${entry.atlasUrl}?v=approved`);
+        const expected = `${entry.atlasUrl}?v=${WARFRONT_IMPOSTOR_ATLAS_REVISIONS[source as keyof typeof WARFRONT_IMPOSTOR_ATLAS_REVISIONS]}`;
+        assert.equal(warfrontImpostorAtlasUrl(source), expected);
+        assert.equal(warfrontImpostorAtlasUrl(`${source}?v=approved`), expected);
     }
     assert.equal(warfrontImpostorAtlasUrl("/external/not-approved.glb"), null);
 });
@@ -40,7 +41,7 @@ test("every production pet keeps a generated atlas when software rendering is se
     }
 });
 
-test("the repaired Hound invalidates its fallback atlas with the model", () => {
+test("the repaired Hound invalidates its fallback atlas with the baked image", () => {
     const hound = petCombatModel({ id: "starter-lightning", rarity: "legendary", evolutionStage: 2 })!;
-    assert.equal(warfrontImpostorAtlasUrl(hound.url), `/pet-models/warfront-impostors/showdown-v2/starter-lightning-l.webp?v=${PET_RIG_REPAIR_REVISIONS["starter-lightning-l"]}`);
+    assert.equal(warfrontImpostorAtlasUrl(hound.url), `/pet-models/warfront-impostors/showdown-v2/starter-lightning-l.webp?v=${WARFRONT_IMPOSTOR_ATLAS_REVISIONS["/pet-models/showdown-v2/starter-lightning-l.glb"]}`);
 });

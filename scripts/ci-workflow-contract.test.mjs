@@ -70,6 +70,23 @@ test('split CI preserves every release gate and builds each artifact once', () =
     assert.ok(workflow.includes('node-version-file: .nvmrc'), 'CI must take its Node version from .nvmrc');
 });
 
+test('client release artifact requires the complete pet asset chain', () => {
+    const quality = workflow.split('  client_quality:\n')[1]?.split('\n  release_artifact:\n')[0];
+    assert.ok(quality, 'client quality job must exist');
+    const build = quality.indexOf('run: npm run build --prefix shinobij.client');
+    for (const command of [
+        'npm run qa:pet-models --prefix shinobij.client',
+        'npm run check:warfront-pet-lods --prefix shinobij.client',
+        'npm run check:warfront-pet-impostors --prefix shinobij.client',
+    ]) {
+        const step = quality.split('      - name: ').find((value) => value.includes(`run: ${command}`));
+        assert.ok(step, `missing pet asset release gate: ${command}`);
+        assert.ok(quality.indexOf(`run: ${command}`) < build, `${command} must certify assets before the release build`);
+        assert.doesNotMatch(step, /continue-on-error/, `${command} must fail the client quality job`);
+    }
+    assert.match(workflow, /release_artifact:\n[\s\S]*?needs: \[server_build_security, client_quality\]/);
+});
+
 test('responsive browser discovery installs runtime and direct QA build dependencies', () => {
     // A client-only install passes locally when an earlier root install exists,
     // but fails while discovering the ranked replay fixture on a fresh runner.
