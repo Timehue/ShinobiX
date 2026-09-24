@@ -736,28 +736,6 @@
 .wfr-settling { margin: 0; font-size: 0.8rem; color: #ffd166; }
 .wfr-settling p { margin: 0 0 10px; line-height: 1.5; }
 
-.wfr-exit {
-    position: absolute;
-    bottom: max(12px, env(safe-area-inset-bottom));
-    right: max(12px, env(safe-area-inset-right));
-    /* Remains available if a model CDN failure correctly keeps the atomic
-       reveal curtain closed instead of exposing a partial formation. */
-    z-index: 9;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    border: 1px solid rgba(120, 190, 215, 0.3);
-    background: rgba(8, 18, 26, 0.8);
-    color: #cfe6ef;
-    font-size: 1rem;
-    cursor: pointer;
-    display: grid;
-    place-items: center;
-}
-@media (hover: hover) {
-    .wfr-exit:hover { background: rgba(20, 44, 58, 0.92); }
-}
-
 /* ── Mobile ────────────────────────────────────────────────────────────── */
 
 @media (max-width: 720px) {
@@ -798,7 +776,6 @@
     .wfr-placement-grid > button { min-height: 44px; }
     .wfr-deploy-actions { position: sticky; bottom: 0; padding-top: 8px; background: linear-gradient(to bottom, transparent, rgba(9, 18, 26, 0.99) 24%); }
     .wfr-deploy-actions > button { flex: 1 1 0; }
-    .wfr-exit { top: auto; bottom: max(12px, env(safe-area-inset-bottom)); }
     .wfr-canvas-fallback { padding-top: 22vh; }
 }
 
@@ -988,18 +965,15 @@
 .wfr-inspect-ack:focus-visible,
 .wfr-reform-drawer-trigger:focus-visible,
 .wfr-report-ack:focus-visible,
-.wfr-sound-gate:focus-visible,
-.wfr-exit:focus-visible {
+.wfr-sound-gate:focus-visible {
     outline: 3px solid #f1d9a5;
     outline-offset: 2px;
 }
-.wfr-exit { width: 44px; height: 44px; }
 
 /* Galaxy S25+ portrait (roughly 412 × 915 CSS px at default density).
    All decision surfaces fit in one stable frame; shorter phones may scroll the
    panel, but the action row remains after—not over—the board. */
 @media (max-width: 560px) and (orientation: portrait) {
-    .wfr-root:has(.wfr-reform) > .wfr-exit { display: none; }
     .wfr-deploy {
         width: calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 12px);
         height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 12px);
@@ -1239,7 +1213,6 @@
    dialog placed the board below the fold; these named areas keep the causal
    lesson, board, matchup, and lock boundary simultaneously visible. */
 @media (orientation: landscape) and (max-height: 560px) {
-    .wfr-root:has(.wfr-reform) > .wfr-exit { display: none; }
     .wfr-deploy {
         width: calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 12px);
         height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 12px);
@@ -1598,5 +1571,4 @@
     .wfr-reform-footer > .wfr-deploy-actions > button { min-width: 0; min-height: 48px; padding: 5px; font-size: 14px; line-height: 1.1; white-space: normal; }
 
     .wfr-hud { padding-top: max(6px, env(safe-area-inset-top)); padding-left: max(10px, env(safe-area-inset-left)); padding-right: max(10px, env(safe-area-inset-right)); }
-    .wfr-exit { top: auto; right: max(10px, env(safe-area-inset-right)); bottom: max(10px, env(safe-area-inset-bottom)); }
 }

@@ -1409,7 +1409,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 // let the player retry than to show a lie.
                 showBattleSetupIssue(
                     battleScope,
-                    "The ranked match could not be loaded from the arena. Your rating is untouched — retry when the connection is stable.",
+                    "The ranked match could not be verified. Check your Pet Ladder result, then retry when the connection is stable.",
                     () => { void startBattle(opponent); },
                 );
                 return;
@@ -1863,7 +1863,6 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 </aside>,
                 document.body,
             )}
-            {showPetHomeTabs ? <PetHomeTabs active="arena" setScreen={setScreen} /> : null}
             <header className={`pet-arena-command${isHollowGate ? " is-forced" : ""}`} style={arenaHeroStyle}>
                 <div className="pet-arena-command-topline">
                     <button
@@ -1873,7 +1872,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                         onClick={leaveCurrentPetBattle}
                     >
                         <span className="pet-arena-return-arrow" aria-hidden="true">←</span>
-                        <span><small>Exit arena</small><strong>{returnLabel}</strong></span>
+                        <span><small>Return to</small><strong>{returnLabel}</strong></span>
                     </button>
                     <span className="pet-arena-season"><i aria-hidden="true" /> Arena command online</span>
                     <button
@@ -1925,6 +1924,8 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                     </nav>
                 ) : null}
             </header>
+
+            {showPetHomeTabs ? <PetHomeTabs active="arena" setScreen={setScreen} /> : null}
 
             {/* The async "accept a pet challenge" banner is GONE with the sender that fed
                 it: PvP pet duels are live-only now (plan §10), so an invite arrives over

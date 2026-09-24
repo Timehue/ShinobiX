@@ -100,7 +100,14 @@ const PUBLIC_AUTHORING_PREFIXES = [
     'pet-models/roster-references',
 ] as const;
 const PUBLIC_LOCAL_ONLY_ASSETS = new Set([
-    // Retired presentation art stays available locally for authoring.
+    // Approval and LOD generation records are read from public/ by the asset
+    // pipeline and tests. Runtime model URLs come from the generated TS maps.
+    'pet-models/roster-manifest.json',
+    'pet-models/roster-reference-report.json',
+    'pet-models/warfront-lod/manifest.json',
+    'pet-models/warfront-impostors/manifest.json',
+    // Retired presentation art. Keep the originals in public/ for authoring,
+    // but only the current landing, bloodline, Deathsgate, and Warfront art ships.
     'landing-petclash-v2.webp',
     'landing-legacy-v2.webp',
     'landing-hero-keyart.webp',
@@ -122,7 +129,8 @@ const PUBLIC_LOCAL_ONLY_ASSETS = new Set([
     'assets/warfront/kage-tactics-temple-court-v2-portrait.webp',
     // Pebble now resolves to the reviewed standard-5 roster model.
     'pet-models/starter-earth.glb',
-    // The live Raijin resolver loads showdown-v2; this top-level copy is an authoring input.
+    // Kept as the authoring input for showdown-v2, which is the live resolver's
+    // Raijin model. The top-level copy is never requested by the game.
     'pet-models/starter-lightning-l.glb',
     'pet-models/mythic-10.glb',
     'pet-models/mythic-11.glb',

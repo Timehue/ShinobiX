@@ -810,15 +810,16 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
         statusDetail: 'The queue produces only a reciprocal pairing. resolveRankedPetDuel is the single resolution: /pet/ranked-watch re-derives it for BOTH players and settlement rates that same derivation, so the fight on screen is the rated fight. DISABLE_PET_RANKED_QUEUE=1 closes matchmaking; DISABLE_PET_RANKED_SERVER_V1=1 closes the whole mode.',
     }),
     defineMode({
-        id: 'pet-ranked-legacy-compat', label: 'Pet ranked legacy compatibility challenge', category: 'pet-legacy', authorityEngine: E.LEGACY_PET_DUEL,
+        id: 'pet-ranked-legacy-compat', label: 'Pet ranked legacy compatibility challenge', category: 'pet-legacy', authorityEngine: E.PET_SHOWDOWN,
         clientEntries: ['screens/Arena.tsx', 'screens/PetArena.tsx'],
         routes: [
             mountedRoute('/player/challenge', 'player/challenge', ['lifecycle']),
             mountedRoute('/pet/ranked-start', 'pet/ranked-start', ['start', 'state']),
+            mountedRoute('/pet/ranked-watch', 'pet/ranked-watch', ['state', 'observation']),
             mountedRoute('/pet/battle-result', 'pet/battle-result', ['settlement']),
         ],
-        participantModel: 'two-player', rewardPolicy: 'server-settled', replayKind: 'sealed-legacy-ranked-outcome-and-receipt', status: 'defect',
-        statusDetail: 'New rankedPet challenge creation is retired fail-closed. Retained notices/start tokens/results remain recoverable, but the client displays runPetDuelCinematic while settlement replays legacy runPetDuel, so a retained compatibility notice can display a winner that the server rejects. The current Pet Ladder queue does not enter this path.',
+        participantModel: 'two-player', rewardPolicy: 'server-settled', replayKind: 'derived-showdown-script', status: 'match',
+        statusDetail: 'New rankedPet challenge creation is retired fail-closed. Retained reciprocal one-pet proofs can still start; both the watched 1v1 script and rating settlement derive from the sealed token through resolveRankedPetDuel. Completed receipts retain the replay for 24 hours; a historical receipt whose recorded winner differs from the current derivation is refused instead of displaying a contradictory result. The current Pet Ladder queue uses a separate admission path.',
     }),
     defineMode({
         id: 'hollow-gate-pet-cinematic', label: 'Hollow Gate pet', category: 'pet-legacy', authorityEngine: E.PET_CINEMATIC_DUEL,

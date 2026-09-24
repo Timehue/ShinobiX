@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { FiGrid, FiPackage } from "../components/icons/LightweightGameIcons";
 import "../styles/profile-skin.css";
 import "../styles/inventory-aaa.css";
+import "../styles/index/17-shop-inventory-loadout.css";
 // The Chronicle card reader opened from the card tab lives in that stylesheet.
 import "../styles/chronicle-duel.css";
 import { CloseButton } from "../components/ui/CloseButton";

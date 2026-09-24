@@ -599,6 +599,9 @@ export type Character = {
     // Active courier favor picked up from a road wanderer. Display mirror only;
     // api/sector/wanderer-service.ts seals the destination/reward in KV.
     activeWandererFavor?: { id: string; originSector: number; targetSector: number; giver: string; expiresAt: number } | null;
+    // Active tracker trail (shared/tracker-trail.ts). Display mirror only;
+    // api/sector/_tracker-trail.ts owns the route and the final pet encounter.
+    activeTrackerTrail?: { id: string; requestId: string; giver: string; originSector: number; sectors: [number, number]; step: 0 | 1; expiresAt: number } | null;
     // Consecutive sector-wanderer robbers fended off. At 5 the next bandit springs
     // an ambush (3 robbers + a boss); resets to 0 on a loss or after the ambush.
     robberStreak?: number;

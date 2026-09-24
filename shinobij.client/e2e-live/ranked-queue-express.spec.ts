@@ -68,7 +68,7 @@ async function openRanked(context: BrowserContext, account: Awaited<ReturnType<t
 }
 
 test('two ranked players enter one live PvP session and can advance its first turn', async ({ browser, context, request }, info) => {
-    test.setTimeout(120_000);
+    test.setTimeout(info.project.name === 'chromium-compact-live' ? 240_000 : 120_000);
     const started = await request.post('/api/admin/ranked-season', {
         headers: { 'x-admin-password': ADMIN }, data: { action: 'start' },
     });
@@ -80,6 +80,8 @@ test('two ranked players enter one live PvP session and can advance its first tu
         viewport: info.project.use.viewport,
         isMobile: info.project.use.isMobile,
         hasTouch: info.project.use.hasTouch,
+        reducedMotion: 'reduce',
+        serviceWorkers: 'block',
     });
     try {
         const alicePage = await openRanked(context, alice);
@@ -130,6 +132,50 @@ test('two ranked players enter one live PvP session and can advance its first tu
         await expect(bobPage.locator('.pvp-countdown-overlay')).toHaveCount(0);
         await alicePage.screenshot({ path: info.outputPath('ranked-initiator.png') });
         await bobPage.screenshot({ path: info.outputPath('ranked-responder.png') });
+        // Both players must recover the same authoritative battle after a
+        // mobile browser reload, including a brief lost connection.
+        if (info.project.name === 'chromium-compact-live') {
+            await bobContext.setOffline(true);
+            expect(await bobPage.evaluate(() => navigator.onLine)).toBe(false);
+            await expect(bobPage.locator('.pvp-reconnecting-pill')).toBeVisible({ timeout: 15_000 });
+            await bobPage.screenshot({ path: info.outputPath('ranked-offline.png'), animations: 'disabled' });
+            await bobContext.setOffline(false);
+            await expect(bobPage.locator('.pvp-reconnecting-pill')).toHaveCount(0, { timeout: 15_000 });
+            expect(await bobPage.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(true);
+            await Promise.all([alicePage.reload(), bobPage.reload()]);
+            await expect(alicePage.locator('.app-shell[data-screen="pvpBattle"]')).toBeVisible({ timeout: 45_000 });
+            await expect(bobPage.locator('.app-shell[data-screen="pvpBattle"]')).toBeVisible({ timeout: 45_000 });
+            for (const page of [alicePage, bobPage]) {
+                await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+            }
+            const recovered = await request.get(`/api/pvp/session?id=${battleId}`, { headers: alice.headers });
+            expect(recovered.status(), await recovered.text()).toBe(200);
+            expect((await recovered.json()).rankedFormatVersion).toBe(1);
+            await alicePage.screenshot({ path: info.outputPath('ranked-initiator-after-reconnect.png'), animations: 'disabled' });
+            await bobPage.screenshot({ path: info.outputPath('ranked-responder-after-reconnect.png'), animations: 'disabled' });
+            const currentState = async () => (await (await request.get(`/api/pvp/session?id=${battleId}`, {
+                headers: alice.headers,
+            })).json()) as { status: string; activePlayer: 'p1' | 'p2'; stateRevision: number };
+            // Finish through real server actions and observe both clients'
+            // settled view, rather than treating battle entry as a full journey.
+            for (let attempt = 0; attempt < 20; attempt++) {
+                const current = await currentState();
+                if (current.status === 'done') break;
+                const actor = current.activePlayer === 'p1' ? alicePage : bobPage;
+                await actor.getByRole('button', { name: /^Flee /i }).click();
+                await expect.poll(async () => (await currentState()).stateRevision).toBeGreaterThan(current.stateRevision);
+                await expect.poll(async () => {
+                    const next = await currentState();
+                    return next.status === 'done' || next.activePlayer !== current.activePlayer;
+                }).toBe(true);
+            }
+            await expect.poll(async () => (await currentState()).status).toBe('done');
+            for (const page of [alicePage, bobPage]) {
+                await expect(page.getByText('Result secured by the server.')).toBeVisible({ timeout: 45_000 });
+            }
+            await alicePage.screenshot({ path: info.outputPath('ranked-initiator-settled.png'), animations: 'disabled' });
+            await bobPage.screenshot({ path: info.outputPath('ranked-responder-settled.png'), animations: 'disabled' });
+        }
     } finally {
         await bobContext.close();
     }

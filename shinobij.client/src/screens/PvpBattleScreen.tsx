@@ -358,6 +358,27 @@ export function PvpBattleScreen({
     // wondering whether to refresh. The fetch/subscribe effect flips
     // this on Realtime status callbacks and SSE error/open events.
     const [connectionState, setConnectionState] = useState<"connected" | "reconnecting">("connected");
+    // An established stream can stay silent when the browser loses network,
+    // so transport callbacks alone may leave the board looking connected.
+    const [browserOffline, setBrowserOffline] = useState(() => typeof navigator !== "undefined" && !navigator.onLine);
+    useEffect(() => {
+        const offline = () => {
+            setBrowserOffline(true);
+            setConnectionState("reconnecting");
+        };
+        const online = () => {
+            setBrowserOffline(false);
+            setConnectionState("reconnecting");
+            // Re-read the server and rebuild the stream after a lost link.
+            setSessionRetryKey(key => key + 1);
+        };
+        window.addEventListener("offline", offline);
+        window.addEventListener("online", online);
+        return () => {
+            window.removeEventListener("offline", offline);
+            window.removeEventListener("online", online);
+        };
+    }, []);
     // Weak phones / desktops skip the dash-trail flourish (the only animation-heavy
     // PvP cosmetic); the floating ±damage numbers below are kept as the impact cue.
     const liteFx = prefersLiteCombatFx();
@@ -2094,7 +2115,7 @@ export function PvpBattleScreen({
 
     return (
         <ShinobiCombatShell mode="pvp" className={`pvp-battle-layout${amSpectator ? " pvp-spectator" : ""} arena-bg-${arenaBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
-            {connectionState === "reconnecting" && (
+            {(browserOffline || connectionState === "reconnecting") && (
                 <div className="pvp-reconnecting-pill" role="status" aria-live="polite">
                     <span className="pvp-reconnecting-dot" />
                     Reconnecting…

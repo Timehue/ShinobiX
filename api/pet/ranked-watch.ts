@@ -66,17 +66,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             kv.get<unknown>(`pet:ranked-token:${matchToken}`),
             kv.get<unknown>(petRankedSettlementIntentKey(matchToken)),
         ]);
+        const completed = await kv.get<unknown>(petRankedResultKey(matchToken));
         const token: RankedPetMatchToken | null = isRankedPetMatchToken(stored)
             ? stored
             : isRankedPetSettlementIntent(intent) && intent.matchToken === matchToken
                 ? intent.token
-                : rankedPetResultReplay(await kv.get<unknown>(petRankedResultKey(matchToken)));
+                : rankedPetResultReplay(completed);
         if (!token) return res.status(404).json({ error: 'That ranked pet match is no longer available to watch.' });
         if (!identity.admin && token.a !== identity.name && token.b !== identity.name) {
             return res.status(403).json({ error: 'That ranked match does not name you.' });
         }
 
         const { winnerName, script } = resolveRankedPetDuel(token);
+        // A pre-reconciliation result may have been rated by the retired duel
+        // engine. Never present a newly derived win as that recorded result.
+        if (completed !== null) {
+            const receipt = completed as { a?: unknown; b?: unknown; winnerName?: unknown; settledAt?: unknown };
+            if (!receipt || typeof receipt !== 'object' || receipt.a !== token.a || receipt.b !== token.b
+                || !Number.isFinite(Number(receipt.settledAt)) || Number(receipt.settledAt) <= 0
+                || receipt.winnerName !== winnerName) {
+                return res.status(409).json({ error: 'The recorded ranked result cannot be safely replayed.' });
+            }
+        }
         return res.status(200).json({
             ok: true,
             script: rankedPetReplayForViewer(token, script, identity.admin ? '' : identity.name),

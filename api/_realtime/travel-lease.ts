@@ -3,6 +3,7 @@ import { safeName } from '../_utils.js';
 import { withKvLock } from '../_lock.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { recordArrivalTile } from './walked-tile.js';
+import { pushSaveVersion } from './notify.js';
 import { footfallKey, FOOTFALL_TTL_SEC } from '../sector/_traces.js';
 import { isWildSector, sectorBiomeOf } from '../../shared/sector-geo.js';
 import { SECTOR_TILE_COUNT } from '../../shared/sector-links.js';
@@ -127,7 +128,7 @@ export async function getTravelLease(name: string): Promise<TravelLease | null> 
  * never whether the critical section is locked.
  */
 const TRAVEL_LEASE_CLAIM_ATTEMPTS = 8;
-const TRAVEL_ACTION_SETTLE_ATTEMPTS = 8;
+export const TRAVEL_ACTION_SETTLE_ATTEMPTS = 8;
 
 /**
  * Persist a journey's lease. This is the DURABLE admission of the move — the
@@ -209,6 +210,15 @@ export async function settleTravelLease(
             },
         }));
         if (!result.ok) return false;
+        // The settle usually runs fire-and-forget from a heartbeat, so no response
+        // carries the bumped version and the player's next autosave used to 409
+        // after every trip. Adopting the version without a character is safe:
+        // the patch is server-owned top-level fields, and what mutatePlayerSave
+        // settles into the character on the way (idle vitals regen, the pet
+        // migration, breeding readiness, elder focus) is either server-owned or a
+        // server-clamped vital the client regenerates itself, so an autosave at
+        // the new base cannot undo it.
+        if (result.value) pushSaveVersion(name, result._saveVersion);
         // Refresh the walked-tile checkpoint only for a newly committed arrival.
         // A cleanup retry must preserve steps taken after that arrival.
         if (result.value) await recordArrivalTile(kv, name, lease.destinationSector, lease.arrivalTile, now).catch(() => undefined);

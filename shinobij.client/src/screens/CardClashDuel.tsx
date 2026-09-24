@@ -16,12 +16,9 @@ import {
 import { chronicleDuelistAvatar } from "../lib/chronicle-duelist-art";
 import { playEchoesSfx } from "../lib/echoes-sfx";
 import { ChronicleDuelBoard } from "../components/ChronicleDuelBoard";
+import { chronicleReplayDelay } from "../lib/chronicle-presentation";
 import "../styles/chronicle-duel.css";
 
-// Same replay pacing the Card Hall uses: a full beat per logged Keeper move,
-// a quiet beat for silent phase bookkeeping.
-const AI_STEP_BEAT_MS = 1_250;
-const AI_STEP_QUIET_MS = 650;
 
 type TileDifficulty = "easy" | "normal" | "hard";
 const ENCOUNTER_AI_DIFFICULTY: Record<TileDifficulty, ChronicleAiDifficulty> = {
@@ -77,6 +74,7 @@ export function CardClashDuel({
     const [error, setError] = useState("");
     const [busy, setBusy] = useState(true);
     const [aiActing, setAiActing] = useState(false);
+    const [resolutionReady, setResolutionReady] = useState(false);
     const [dungeonTerminalReady, setDungeonTerminalReady] = useState(false);
     const [echoesSummary, setEchoesSummary] = useState<EchoesSettleSummary | null>(null);
     const started = useRef(false);
@@ -112,14 +110,14 @@ export function CardClashDuel({
         const steps = result.aiSteps ?? [];
         const token = ++replayToken.current;
         if (steps.length > 0) {
-            setAiActing(true);
-            let previousLast = duel?.log.at(-1);
+            let previous = duel;
             for (const step of steps) {
+                setAiActing(step.activePlayer !== step.viewerSide || Boolean(step.responseWindow && step.responseWindow.responder !== step.viewerSide));
                 setDuel(step);
-                const beat = step.log.at(-1) !== previousLast ? AI_STEP_BEAT_MS : AI_STEP_QUIET_MS;
+                const beat = chronicleReplayDelay(previous, step);
                 await new Promise<void>((resolve) => window.setTimeout(resolve, beat));
                 if (replayToken.current !== token) return false;
-                previousLast = step.log.at(-1);
+                previous = step;
             }
             setAiActing(false);
         }
@@ -205,7 +203,7 @@ export function CardClashDuel({
         }
     }
 
-    const done = duel?.status === "complete";
+    const done = duel?.status === "complete" && resolutionReady;
     const won = Boolean(done && duel && duel.winner === duel.viewerSide);
     const draw = done && duel.winner === "draw";
 
@@ -232,7 +230,7 @@ export function CardClashDuel({
         ? `Echoes of War · Floor ${echoes.floor} · ${echoes.opponentName}, ${echoes.opponentTitle}`
         : tileDifficulty === "hard" ? "Sealed Encounter · Hard" : tileDifficulty === "easy" ? "Sealed Encounter · Easy" : "Sealed Encounter · Medium";
 
-    return <main className={`chronicle-shell chronicle-encounter ${duel?.status === "active" ? "chronicle-shell--duel-active" : ""}`} style={sceneStyle}>
+    return <main className={`chronicle-shell chronicle-encounter ${duel && !done ? "chronicle-shell--duel-active" : ""}`} style={sceneStyle}>
         <header className="chronicle-header">
             {/* Never disabled: this is the only exit, and the server owns the
                 match state — abandoning mid-request is always safe. */}
@@ -275,6 +273,6 @@ export function CardClashDuel({
         ) : done ? (
             <section className="chronicle-panel" style={{ marginBottom: 12, textAlign: "center" }}><h2>{won ? "Seal Claimed" : hollowGateCardMatchId ? draw ? "Draw — Ambush Fades" : "Keeper Wins" : draw ? "Draw — Seal Holds" : "Seal Holds"}</h2><p>{won ? "You won the Chronicle Showdown." : hollowGateCardMatchId ? "The ambush fades after dealing 20% max HP recoil." : draw ? "A draw is not enough to break the seal." : "The Chronicle Keeper won the showdown."}</p><button onClick={() => void resolve()} disabled={busy}>Continue</button></section>
         ) : null}
-        {duel ? <ChronicleDuelBoard key={matchId || "duel"} state={duel} cardsById={cardsById} playerAvatar={character.avatarImage} opponentAvatar={opponentAvatar ?? chronicleDuelistAvatar(foeName)} busy={busy} aiActing={aiActing} error={error} onExit={onDungeonLeave} exitLabel="Leave encounter" onAction={(intent) => void act(intent)} /> : null}
+        {duel ? <ChronicleDuelBoard key={matchId || "duel"} state={duel} onResolutionReadyChange={setResolutionReady} cardsById={cardsById} playerAvatar={character.avatarImage} opponentAvatar={opponentAvatar ?? chronicleDuelistAvatar(foeName)} busy={busy} aiActing={aiActing} error={error} onExit={onDungeonLeave} exitLabel="Leave encounter" onAction={(intent) => void act(intent)} /> : null}
     </main>;
 }
