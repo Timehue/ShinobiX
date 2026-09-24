@@ -128,7 +128,7 @@ export async function getTravelLease(name: string): Promise<TravelLease | null> 
  * never whether the critical section is locked.
  */
 const TRAVEL_LEASE_CLAIM_ATTEMPTS = 8;
-const TRAVEL_ACTION_SETTLE_ATTEMPTS = 8;
+export const TRAVEL_ACTION_SETTLE_ATTEMPTS = 8;
 
 /**
  * Persist a journey's lease. This is the DURABLE admission of the move — the
