@@ -37,6 +37,24 @@ test("the server's settlement wait remains retryable without changing its durati
     } finally { globalThis.fetch = originalFetch; }
 });
 
+test("a paced 429 resend waits and resends instead of failing the settlement", async () => {
+    // A 425 retry landing inside the 5s settlement burst window used to come
+    // back 429 and was treated as a failed battle: a manual Retry behind a
+    // locked Leave button.
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => Response.json({ error: "Rate limit exceeded.", retryAfterMs: 3200 }, { status: 429 });
+    try {
+        await assert.rejects(postPetBattleReceipt({}), (error: unknown) => {
+            assert.ok(error instanceof PetSettlementRetryError);
+            assert.equal(error.retryAfterMs, 3200);
+            return true;
+        });
+        // A 429 with no stated wait is still an ordinary failure.
+        globalThis.fetch = async () => Response.json({ error: "Rate limit exceeded." }, { status: 429 });
+        await assert.rejects(postPetBattleReceipt({}), (error: unknown) => !(error instanceof PetSettlementRetryError));
+    } finally { globalThis.fetch = originalFetch; }
+});
+
 test("failed or unreadable receipts never count as a recorded result", async () => {
     const originalFetch = globalThis.fetch;
     try {

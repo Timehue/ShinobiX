@@ -28,7 +28,7 @@ import type { PlayerRankedJournal } from './_player-ranked-journal.js';
 import { replayCommittedPvpActionReceipt } from './_action-receipt-replay.js';
 import { ensurePvpTerminalRecoveryPublication } from './_reward-recovery.js';
 import { settlePvpTerminalVitals } from './_vitals-settlement.js';
-import { settleTerminalWorldRaid } from './_terminal-world-raid.js';
+import { settleTerminalWorldRaid, type TerminalWorldSettlement } from './_terminal-world-raid.js';
 import { settlePvpSectorWarContinuation } from './_sector-war-continuation.js';
 import type { SectorWarResolutionReceipt } from '../_sector-war-store.js';
 import { settlePvpClanWarContinuation } from '../clan/war/_pvp-settlement.js';
@@ -38,6 +38,22 @@ export type CommittedPvpTerminalReplay = {
     playerRankedJournal?: PlayerRankedJournal;
     clanWarSettlement?: PvpClanWarSettlement;
     sectorWarSettlement?: SectorWarResolutionReceipt;
+    /**
+     * What the barrier's own world-raid step settled, when it succeeded. The
+     * claim reuses `raid` instead of settling the same proof a second time;
+     * absent means "not settled here", never "nothing to settle".
+     */
+    worldSettlement?: TerminalWorldSettlement;
+};
+
+export type CommittedPvpTerminalReplayOptions = {
+    /**
+     * The caller has just sealed this exact terminal row's recovery snapshot
+     * (claim-rewards does so before anything else), so the barrier may skip
+     * re-reading and re-comparing that multi-hundred-KB row. Pointer and
+     * presence publication still run.
+     */
+    recoverySnapshotSealed?: boolean;
 };
 
 function jsonCanonical<T>(value: T): T {
@@ -82,6 +98,32 @@ async function ensureCommittedBattleReceipt(session: PvpSession): Promise<Battle
     throw new Error('pvp-battle-receipt-unconfirmed');
 }
 
+/*
+ * One process serves every player, and a finishing move plus BOTH players'
+ * reward claims all replay this saga for the same frozen terminal row within
+ * about a second of each other: Realtime (or its SSE fallback) pushes the
+ * terminal row to both clients within ~100ms of the move's CAS, so their claims
+ * start while the mover's copy is still running. Side by side, the copies contend for the same fail-closed
+ * save locks; each loser sleeps through the lock backoff and can 503 the player
+ * into a manual Retry. Callers for the SAME committed row therefore share one
+ * in-flight run. The entry is dropped the moment that run settles, so a failure
+ * is never handed to a later caller, and a caller arriving afterwards still does
+ * its own (idempotent) replay. Separate processes (a deploy overlap) still
+ * serialize through the distributed locks inside, exactly as before.
+ */
+const inFlightTerminalReplays = new Map<string, Promise<CommittedPvpTerminalReplay>>();
+
+function terminalReplayKey(session: PvpSession): string {
+    return JSON.stringify([
+        session.battleId,
+        session.stateRevision ?? null,
+        session.winner ?? null,
+        session.createdAt ?? null,
+        session.endedAt ?? null,
+        session.lastMoveAt ?? null,
+    ]);
+}
+
 /**
  * Help a terminal session's idempotent side effects forward.
  *
@@ -91,16 +133,45 @@ async function ensureCommittedBattleReceipt(session: PvpSession): Promise<Battle
  * non-expiring terminal row remains the durable recovery anchor until the
  * journal, item, Elo, Vanguard, and admission saga completes.
  */
-export async function replayCommittedPvpTerminalEffects(
+export function replayCommittedPvpTerminalEffects(
     session: PvpSession,
+    options: CommittedPvpTerminalReplayOptions = {},
 ): Promise<CommittedPvpTerminalReplay> {
-    if (session.status !== 'done') return {};
+    if (session.status !== 'done') return Promise.resolve({});
+    const key = terminalReplayKey(session);
+    const running = inFlightTerminalReplays.get(key);
+    // Joiners read the settlement receipts; only the ranked journal is handed
+    // on to further saga code, so each caller gets its own copy of it.
+    if (running) {
+        return running.then((replay) => (replay.playerRankedJournal
+            ? { ...replay, playerRankedJournal: structuredClone(replay.playerRankedJournal) }
+            : { ...replay }));
+    }
+    const run = runCommittedPvpTerminalEffects(session, options);
+    inFlightTerminalReplays.set(key, run);
+    const release = () => {
+        if (inFlightTerminalReplays.get(key) === run) inFlightTerminalReplays.delete(key);
+    };
+    run.then(release, release);
+    return run;
+}
 
+/** Test seam: how many terminal replays are currently shared in flight. */
+export function _inFlightPvpTerminalReplayCount(): number {
+    return inFlightTerminalReplays.size;
+}
+
+async function runCommittedPvpTerminalEffects(
+    session: PvpSession,
+    options: CommittedPvpTerminalReplayOptions,
+): Promise<CommittedPvpTerminalReplay> {
     // Refresh both real-player recovery pointers from the exact committed row
     // and seal the terminal snapshot before shorter-lived presentation work.
     // A private-mode/full reload can then discover and repair completion without
     // any browser storage breadcrumb.
-    await ensurePvpTerminalRecoveryPublication(kv, session.battleId, session);
+    await ensurePvpTerminalRecoveryPublication(kv, session.battleId, session, {
+        snapshotSealed: options.recoverySnapshotSealed === true,
+    });
     if (isCancelledUnstartedPvpDuel(session)) return {};
 
     // A terminal retry is also the final action's durable replay path. The
@@ -177,14 +248,14 @@ export async function replayCommittedPvpTerminalEffects(
     // own territory proof. This never throws: claim-rewards remains the
     // authority and retries, and both settlers are proof-idempotent, so its
     // call simply replays whatever landed here.
-    await settleTerminalWorldRaid(session);
+    const worldSettlement = await settleTerminalWorldRaid(session);
 
     if (isPlayerRankedV2Session(session)) {
         const playerRankedJournal = await confirmPlayerRankedTerminalEffects(kv, session, {
             eligible: async (a, b) => !(await hasRecentIpOrFpOverlapStrict(a, b, kv)),
             lock: (saveKey, action) => withKvLock(saveKey, action, { failClosed: true }),
         });
-        return { playerRankedJournal, clanWarSettlement, sectorWarSettlement };
+        return { playerRankedJournal, clanWarSettlement, sectorWarSettlement, worldSettlement };
     }
 
     // The receipt inside the Vanguard settlement is the authority; the old
@@ -198,5 +269,5 @@ export async function replayCommittedPvpTerminalEffects(
         await grantVanguardRewardsForSession(session);
     }
 
-    return { clanWarSettlement, sectorWarSettlement };
+    return { clanWarSettlement, sectorWarSettlement, worldSettlement };
 }

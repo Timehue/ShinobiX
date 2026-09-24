@@ -3,9 +3,10 @@ import { petDisplayName } from "../lib/pet";
 import { ROLE_META, derivePetRole } from "../lib/pet-roles";
 import { ROLE_ICON } from "../lib/role-icons";
 import { petCollarVisual, petTraitDescriptions } from "../data/pet-config";
-import { petBattleSprite, petBattleLayers, petBattleSheet, petAvatarStateClass, petCardImage } from "../lib/pet-battle-anim";
+import { petBattleSprite, petBattleLayers, petBattleSheet, petAvatarStateClass } from "../lib/pet-battle-anim";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import type { PetVisualState } from "../types/pet-battle";
+import { PetArtwork } from "./PetArtwork";
 
 export function PetBattleAvatar({ pet, side, active, hit, status, sharedImages = {}, visualState = "idle" }: { pet: Pet; side: "player" | "enemy"; active: boolean; hit?: boolean; status?: { poisoned?: number; atkBuff?: boolean; defBuff?: boolean }; sharedImages?: Record<string, string>; visualState?: PetVisualState }) {
     // Sprite mode, most-dimensional first:
@@ -56,7 +57,6 @@ export function PetBattleAvatar({ pet, side, active, hit, status, sharedImages =
 }
 
 export function PetArenaCard({ owner, pet, sharedImages = {} }: { owner: string; pet: Pet; sharedImages?: Record<string, string> }) {
-    const img = petCardImage(pet, sharedImages);
     // Native combat role (backfilled on load; derive as a fallback). Shown as a
     // colored badge so a player can read a pet's role + sub-role at a glance.
     const { role, subRole } = pet.role && pet.subRole ? { role: pet.role, subRole: pet.subRole } : derivePetRole(pet);
@@ -64,7 +64,7 @@ export function PetArenaCard({ owner, pet, sharedImages = {} }: { owner: string;
     return (
         <div className={`pet-arena-card ${petVisualVariantClass(pet)}`}>
             <div className="pet-arena-avatar">
-                {img ? <img src={img} alt={petDisplayName(pet)} /> : <span>{petDisplayName(pet).slice(0, 2).toUpperCase()}</span>}
+                <PetArtwork pet={pet} sharedImages={sharedImages} alt={petDisplayName(pet)} loading="eager" />
             </div>
             <div>
                 <strong>{petDisplayName(pet)}</strong>

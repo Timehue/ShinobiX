@@ -379,4 +379,33 @@ describe('settlePvpTerminalVitals', () => {
         assert.equal(maxHeld, 1, 'never holds two save locks at once');
         assert.deepEqual(order, ['save:rill', 'save:dopey']);
     });
+
+    it('a replay of a settled fight takes no save lock and reads no save', async () => {
+        // The finishing move settles vitals, then BOTH players' claims replay the
+        // barrier. Each replay used to take the fail-closed save lock and read the
+        // whole save just to find the marker; the marker alone answers it.
+        const store = _makeMemoryKv();
+        await store.set('save:rill', save({ name: 'Rill' }));
+        await store.set('save:dopey', save({ name: 'Dopey' }));
+        await settlePvpTerminalVitals(store, session(), deps());
+
+        const locked: string[] = [];
+        const saveReads: string[] = [];
+        const watched = {
+            ...store,
+            get: async (key: string) => {
+                if (key.startsWith('save:')) saveReads.push(key);
+                return store.get(key);
+            },
+            set: store.set.bind(store),
+            compareSet: store.compareSet.bind(store),
+            del: store.del.bind(store),
+        } as unknown as Parameters<typeof settlePvpTerminalVitals>[0];
+        await settlePvpTerminalVitals(watched, session(), {
+            now: NOW + 1_000,
+            lock: async <T>(key: string, action: () => Promise<T>) => { locked.push(key); return action(); },
+        });
+        assert.deepEqual(locked, []);
+        assert.deepEqual(saveReads, []);
+    });
 });
