@@ -24,7 +24,9 @@ import {
     PLAYER_RANKED_SETTLEMENT_STAMP_LIMIT,
     PLAYER_RANKED_SETTLEMENT_STAMP_FIELD,
     getPlayerRankedJournal,
+    parsePlayerRankedSettlingPointer,
     playerRankedJournalKey,
+    playerRankedSettlingKey,
     publishPlayerRankedTerminal,
     settlePlayerRankedJournal,
 } from './_player-ranked-journal.js';
@@ -631,6 +633,29 @@ describe('player ranked terminal journal', () => {
         assert.equal(journal.terminal.terminalAt, NOW + 4, 'the winner\'s sealed terminal, not this attempt\'s');
         assert.equal(await getPlayerRankedAdmission(store, MATCH), null);
         assert.equal(char(await store.get('save:alice')).rankedRating, 1012);
+    });
+
+    it('publishes the settlement sweep pointer before the journal it describes', async () => {
+        const { store, session } = await setup();
+        const order: string[] = [];
+        const observed: KvLike = {
+            ...store,
+            async set(key, value, options) {
+                if (key === playerRankedSettlingKey(MATCH) || key === playerRankedJournalKey(MATCH)) order.push(key);
+                return store.set(key, value, options);
+            },
+        };
+        await publishPlayerRankedTerminal(observed, session, { now: NOW + 3, eligible: async () => true });
+        assert.deepEqual(order, [playerRankedSettlingKey(MATCH), playerRankedJournalKey(MATCH)]);
+        const pointer = parsePlayerRankedSettlingPointer(await store.get(playerRankedSettlingKey(MATCH)));
+        assert.deepEqual(pointer && {
+            matchId: pointer.matchId, battleId: pointer.battleId, since: pointer.since, attempts: pointer.attempts,
+        }, { matchId: MATCH, battleId: BATTLE, since: NOW + 3, attempts: 0 });
+
+        // A replayed publication never recreates or resets the pointer.
+        await store.del(playerRankedSettlingKey(MATCH));
+        await publishPlayerRankedTerminal(observed, session, { now: NOW + 4, eligible: async () => true });
+        assert.equal(await store.get(playerRankedSettlingKey(MATCH)), null);
     });
 
     it('completed replay after a season reset returns current ratings and never reapplies delta', async () => {
