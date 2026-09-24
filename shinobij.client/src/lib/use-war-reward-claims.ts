@@ -25,11 +25,18 @@ export function useWarRewardClaims(
         if (!claimCharacter || !warCrateServerAuthEnabled()) return;
         let cancelled = false;
         void (async () => {
-            const ids = await claimServerWarCrates(claimCharacter);
+            const crates = await claimServerWarCrates(claimCharacter);
+            // A granted claim is remembered as settled, so no later sweep will
+            // deliver it again: adopt it even if a newer poll cancelled this run.
+            // The commit itself refuses an older or foreign version. Only if the
+            // server's save can't be adopted, mirror the crate locally.
+            const adopted = !!crates.character && commitRef.current(crates.character, crates._saveVersion);
+            if (crates.ids.length && !adopted) {
+                setCharacter((prev) => prev && prev.name === claimCharacter.name ? applyWarCrateGrants(prev, crates.ids).character : prev);
+            }
             if (cancelled) return;
-            if (ids.length) setCharacter((prev) => prev ? applyWarCrateGrants(prev, ids).character : prev);
             const reward = await claimServerWarRewards(claimCharacter);
-            if (cancelled || !reward) return;
+            if (!reward) return;
             if (!commitRef.current(reward.character, reward._saveVersion)) return;
             if (reward.crates > 0) alert(`You received ${reward.crates} Legendary War Crate${reward.crates > 1 ? "s" : ""} from recent war rewards! Check your inventory.`);
             else if (reward.mvp) alert("MVP rewards delivered: bonus ryo, honor seals, and fate shards added to your account.");

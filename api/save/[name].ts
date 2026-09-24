@@ -59,6 +59,8 @@ const CLAN_DISSOLUTION_LOCK_TTL_SEC = 120;
  * while bounding requests that would otherwise enter the per-save lock. */
 export const PLAYER_SAVE_ATTEMPT_LIMIT = 120;
 export const PLAYER_SAVE_ATTEMPT_WINDOW_MS = 60_000;
+/** One accepted player save per aligned window of this length (`save-burst`). */
+export const SAVE_BURST_WINDOW_MS = 3_000;
 
 // Non-owner reads use an explicit ALLOWLIST at BOTH the root and character
 // level (see buildPublicSaveDTO). A blacklist is not the boundary anymore: the
@@ -981,7 +983,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // Charge the successful-save burst budget only after exact
                     // version authority is established. This keeps a conflict and
                     // its immediate corrected retry from self-throttling.
-                    if (!isClanSave && !(await enforceRateLimitKv(req, res, 'save-burst', 1, 3_000, identityName, { local: true }))) {
+                    if (!isClanSave && !(await enforceRateLimitKv(req, res, 'save-burst', 1, SAVE_BURST_WINDOW_MS, identityName, { local: true }))) {
                         return; // 429 already written
                     }
 
@@ -1290,7 +1292,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                     equippedBloodlineId: ((payload as Record<string, unknown>).character as Record<string, unknown> | undefined)?.equippedBloodlineId ?? null }
                                 : {}),
                             ...(Number.isFinite(persistedRyo) ? { ryo: persistedRyo } : {}),
-                            ...(Number.isFinite(persistedFateShards) ? { fateShards: persistedFateShards } : {}) });
+                            ...(Number.isFinite(persistedFateShards) ? { fateShards: persistedFateShards } : {}),
+                            // When the next save can land: the rest of the aligned
+                            // save-burst window this write just used. Measured after
+                            // the charge and read by the client after the reply
+                            // arrives, so waiting this long from arrival always
+                            // reaches the next window, whatever the clock skew.
+                            nextSaveInMs: SAVE_BURST_WINDOW_MS - (Date.now() % SAVE_BURST_WINDOW_MS) });
                     }, { failClosed: true });
                     return; // the locked closure already sent the response
                 } catch (lockErr) {

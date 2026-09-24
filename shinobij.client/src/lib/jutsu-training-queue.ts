@@ -75,11 +75,18 @@ export function useJutsuTrainingQueueRunner(
         if (!playerName || !activeJutsuTraining.serverToken) return;
         let cancelled = false;
         let timer = 0;
+        let failures = 0;
         const reconcile = async () => {
             const result = await mutateJutsuRyoTraining(playerName, "advance", { serverToken: activeJutsuTraining.serverToken });
             if (cancelled) return;
             if (!result.character) {
-                timer = window.setTimeout(() => { void reconcile(); }, 10_000);
+                // Back off 10s → 20s → 40s → 60s cap. A flat 10s retry against a
+                // queue the server keeps refusing spent most of the 20/min jutsu-ryo
+                // budget the Training screen's own buttons share; the cap stays
+                // short so a due lesson settles within a minute of a deploy ending.
+                const delay = Math.min(60_000, 10_000 * 2 ** failures);
+                failures += 1;
+                timer = window.setTimeout(() => { void reconcile(); }, delay);
                 return;
             }
             if (!commitCharacter(result.character, result._saveVersion)) return;

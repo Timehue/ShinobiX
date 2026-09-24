@@ -119,10 +119,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
 
-    // 90/min per player heartbeat. The client beats once per second on the
-    // exploring/combat screens (= 60/min), so the cap must sit above 60 with
-    // headroom for clock jitter, retries, and the occasional double-fire on a
-    // remount; 90 gives ~1.5x margin without opening the abuse window wide.
+    // 180/min per player heartbeat. With its socket down, a client in a fight or
+    // on guard duty beats once per second (= 60/min, lib/heartbeat-cadence.ts),
+    // and every screen/sector/travel change fires an extra immediate beat. The
+    // old 90 left one tab ~1.5x headroom, so a second visible window or a phone
+    // alongside the PC (both beating for the same account) ran ~120/min and got
+    // 429s, which blanked the sector roster mid-play. 180 covers two fighting
+    // tabs with the same margin; it is still 3/s, and the IP backstop still caps
+    // name rotation.
     // This was KV-backed for Vercel, where parallel lambda instances each kept
     // their own count. Railway runs one process, so the same aligned window is
     // now counted in memory (allowAlignedLocal in _ratelimit.ts) and the hottest
@@ -132,7 +136,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!parsedBody.ok) return res.status(400).json({ error: parsedBody.error });
     const bodyPeek = parsedBody.body as Record<string, unknown>;
     const peekName: string | undefined = typeof bodyPeek?.name === 'string' ? bodyPeek.name : undefined;
-    if (!(await enforceRateLimitKv(req, res, 'heartbeat', 90, 60_000, peekName, { local: true }))) return;
+    if (!(await enforceRateLimitKv(req, res, 'heartbeat', 180, 60_000, peekName, { local: true }))) return;
 
     try {
         const body = bodyPeek; // reuse the rate-limit peek's parse — avoids a 2nd JSON.parse on the hottest endpoint

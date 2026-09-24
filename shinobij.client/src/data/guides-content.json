@@ -290,7 +290,7 @@
         "blocks": [
           {
             "type": "p",
-            "text": "Ryo lessons in the Jutsu Training Hall stop at mastery 30, subject to your rank cap. Honor Seal Training can carry a technique from 30 to 40. At present, mastery 40 is the practical limit; there is no supported way to reach 41–50."
+            "text": "Ryo lessons in the Jutsu Training Hall stop at mastery 30, subject to your rank cap. From 30 to 40 the same 30-minute lessons are paid in Honor Seals instead — they use the same lesson and queue slots, and Seals or ryo can speed them up. Mastery 41–50 is earned in PvP battles, up to your rank's cap (Jonin and above)."
           },
           {
             "type": "table",

@@ -50,4 +50,33 @@ describe('jutsu ryo client mutation', () => {
         assert.equal(calls, 1);
         assert.equal(result.error, 'jutsu-at-training-cap');
     });
+
+    it('waits out a short rate-limit hint before its one retry', async () => {
+        const sentAt: number[] = [];
+        globalThis.fetch = (async () => {
+            sentAt.push(Date.now());
+            return sentAt.length === 1
+                ? new Response(JSON.stringify({ error: 'Rate limit exceeded.', retryAfterMs: 400 }), { status: 429 })
+                : new Response(JSON.stringify({ character: { name: 'Tester' }, _saveVersion: 2 }), { status: 200 });
+        }) as typeof fetch;
+
+        const result = await mutateJutsuRyoTraining('Tester', 'advance', { serverToken: 'token' });
+
+        assert.equal(sentAt.length, 2);
+        assert.ok(sentAt[1] - sentAt[0] >= 400, `retried after ${sentAt[1] - sentAt[0]}ms, inside the window`);
+        assert.equal(result.character?.name, 'Tester');
+    });
+
+    it('does not burn a retry on a long rate-limit hint and never shows the raw limiter text', async () => {
+        let calls = 0;
+        globalThis.fetch = (async () => {
+            calls += 1;
+            return new Response(JSON.stringify({ error: 'Rate limit exceeded.', retryAfterMs: 42_000 }), { status: 429 });
+        }) as typeof fetch;
+
+        const result = await mutateJutsuRyoTraining('Tester', 'start', { jutsuId: 'fireball' });
+
+        assert.equal(calls, 1);
+        assert.equal(result.error, 'Jutsu training is busy. Try again in 42s.');
+    });
 });
