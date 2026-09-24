@@ -1765,29 +1765,52 @@ test('Smoke Bomb leaves Wound, Drain, and Poison damage unchanged', () => {
     assert.equal(poisonSpendDamage(smoked, 100, 1), poisonSpendDamage(afflicted, 100, 1));
 });
 
-test('smoke cast by the round closer survives the round boundary', async () => {
-    const id = 'item-smoke-bomb';
-    seed(session('smoke-closer', {
-        roundOpener: 'p2', activePlayer: 'p1',
-        p1: withEquippedItem(fighter('alice', 0), {
-            id, name: 'Smoke Bomb', slot: 'item', apCost: 20,
-            weaponEffect: 'Decrease Damage Given', weaponEffectValue: 100,
-            weaponEffectTarget: 'both',
-        }, 'item1'),
-        itemCharges: { p1: { [id]: 2 }, p2: {} },
-    }));
-    assert.equal((await postMove('alice', {
-        battleId: 'smoke-closer', role: 'p1', action: 'item', itemId: id,
-        moveToken: 'smoke-closer-use',
-    })).statusCode, 200);
-    assert.equal((await postMove('alice', {
-        battleId: 'smoke-closer', role: 'p1', action: 'wait',
-        moveToken: 'smoke-closer-wait',
-    })).statusCode, 200);
-    const after = storedSession('smoke-closer');
-    assert.equal(after.round, 2);
-    assert.equal(after.p1.statuses.find(status => status.source === id)?.rounds, 1);
-    assert.equal(after.p2.statuses.find(status => status.source === id)?.rounds, 1);
+test('pills and smoke start next round and cover the same rounds from either seat', async () => {
+    // Like every other tag, the neutral items resolve next round. Round ticks
+    // age both fighters together, so the round opener and the round closer
+    // get exactly the same whole rounds of cover. An instant status gave the
+    // closer one opponent turn less.
+    for (const [id, effect, value, rounds] of [
+        ['item-attack-pill', 'Increase Damage Given', 15, [2, 3]],
+        ['item-defense-pill', 'Decrease Damage Taken', 15, [2, 3]],
+        ['item-smoke-bomb', 'Decrease Damage Given', 100, [2]],
+    ] as const) {
+        for (const seat of ['opener', 'closer'] as const) {
+            const battleId = `next-round-${id}-${seat}`;
+            seed(session(battleId, {
+                roundOpener: seat === 'opener' ? 'p1' : 'p2',
+                activePlayer: 'p1',
+                p1: withEquippedItem(fighter('alice', 0), {
+                    id, name: id, slot: 'item', apCost: 20, weaponCooldown: 5,
+                    weaponEffect: effect, weaponEffectValue: value,
+                    ...(id === 'item-smoke-bomb' ? { weaponEffectTarget: 'both' } : {}),
+                }, 'item1'),
+                itemCharges: { p1: { [id]: 2 }, p2: {} },
+            }));
+            assert.equal((await postMove('alice', {
+                battleId, role: 'p1', action: 'item', itemId: id, moveToken: `${battleId}-use`,
+            })).statusCode, 200);
+            const holders = id === 'item-smoke-bomb' ? ['p1', 'p2'] as const : ['p1'] as const;
+            const seen = new Map<string, Set<number>>(holders.map(role => [role, new Set<number>()]));
+            for (let turn = 1; turn <= 12; turn += 1) {
+                const now = storedSession(battleId);
+                if (now.round > 5) break;
+                for (const role of holders) {
+                    if (activeCombatStatuses(now[role].statuses, now.round).some(status => status.source === id)) {
+                        seen.get(role)!.add(now.round);
+                    }
+                }
+                const actor = now.activePlayer;
+                assert.equal((await postMove(actor === 'p1' ? 'alice' : 'bob', {
+                    battleId, role: actor, action: 'wait', moveToken: `${battleId}-wait-${turn}`,
+                })).statusCode, 200);
+            }
+            for (const role of holders) {
+                assert.deepEqual([...seen.get(role)!].sort((a, b) => a - b), [...rounds],
+                    `${id} used by the round ${seat} is active for ${role} in rounds ${rounds.join(' and ')} only`);
+            }
+        }
+    }
 });
 
 test('weapon cooldown blocks a same-turn reswing and is stored under a weapon:-namespaced key', async () => {

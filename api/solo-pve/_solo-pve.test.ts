@@ -610,7 +610,7 @@ describe('solo-PvE engine', () => {
         }
     });
 
-    it('keeps solo smoke active through the enemy turn, then expires it', () => {
+    it('starts solo smoke next round, holds it through both turns of that round, then expires it', () => {
         const id = 'item-smoke-bomb';
         const player = makeFighter('Alice', 62, {
             character: {
@@ -621,13 +621,27 @@ describe('solo-PvE engine', () => {
         });
         const result = applySoloPveAction(makeSession({ player, itemCharges: { [id]: 1 } }), { type: 'item', itemId: id });
         assert.equal(result.applied, true);
-        endSoloPveTurn(result.session);
-        assert.equal(result.session.activeSide, 'enemy');
-        assert.equal(result.session.player.statuses.find(status => status.source === id)?.rounds, 1);
-        assert.equal(result.session.enemy.statuses.find(status => status.source === id)?.rounds, 1);
-        endSoloPveTurn(result.session);
-        assert.equal(result.session.player.statuses.some(status => status.source === id), false);
-        assert.equal(result.session.enemy.statuses.some(status => status.source === id), false);
+        const battle = result.session;
+        const smokeActive = (side: 'player' | 'enemy') => battle[side].statuses.some(status =>
+            status.source === id && (status.activeRound ?? 0) <= battle.round && status.rounds > 0);
+        // Like every tag, the smoke waits for the next round: the enemy's reply
+        // in the casting round is not smoked.
+        endSoloPveTurn(battle);
+        assert.equal(battle.activeSide, 'enemy');
+        assert.equal(battle.round, 1);
+        assert.equal(smokeActive('player'), false);
+        assert.equal(smokeActive('enemy'), false);
+        endSoloPveTurn(battle);
+        assert.equal(battle.round, 2);
+        for (const turn of ['player', 'enemy'] as const) {
+            assert.equal(battle.activeSide, turn);
+            assert.equal(smokeActive('player'), true, `the player is smoked on the ${turn} turn of round 2`);
+            assert.equal(smokeActive('enemy'), true, `the enemy is smoked on the ${turn} turn of round 2`);
+            endSoloPveTurn(battle);
+        }
+        assert.equal(battle.round, 3);
+        assert.equal(battle.player.statuses.some(status => status.source === id), false);
+        assert.equal(battle.enemy.statuses.some(status => status.source === id), false);
     });
 
     it('Pierce hits HP through solo smoke and shield without consuming the shield', () => {
@@ -676,7 +690,7 @@ describe('solo-PvE engine', () => {
         assert.equal(smokeCast.session.player.hp, normalCast.session.player.hp);
     });
 
-    it('keeps a solo Defense Pill active for two full enemy turns', () => {
+    it('keeps a solo Defense Pill active for two full enemy turns, starting next round', () => {
         const id = 'item-defense-pill';
         const player = makeFighter('Alice', 62, {
             character: {
@@ -687,11 +701,20 @@ describe('solo-PvE engine', () => {
         });
         const result = applySoloPveAction(makeSession({ player, itemCharges: { [id]: 1 } }), { type: 'item', itemId: id });
         assert.equal(result.applied, true);
+        const battle = result.session;
+        const pill = () => battle.player.statuses.find(status => status.source === id);
+        // Like every tag, the pill starts next round: the enemy's reply in the
+        // casting round is not reduced, and the timer does not run yet.
+        assert.equal(pill()?.activeRound, battle.round + 1);
+        endSoloPveTurn(battle);
+        endSoloPveTurn(battle);
+        assert.equal(battle.round, 2);
+        assert.equal(pill()?.rounds, 2);
         for (const roundsAfterEnemy of [1, 0]) {
-            endSoloPveTurn(result.session);
-            assert.equal(result.session.player.statuses.find(status => status.source === id)?.rounds, roundsAfterEnemy + 1);
-            endSoloPveTurn(result.session);
-            assert.equal(result.session.player.statuses.find(status => status.source === id)?.rounds ?? 0, roundsAfterEnemy);
+            endSoloPveTurn(battle);
+            assert.equal(pill()?.rounds, roundsAfterEnemy + 1, 'the pill still covers this enemy turn');
+            endSoloPveTurn(battle);
+            assert.equal(pill()?.rounds ?? 0, roundsAfterEnemy);
         }
     });
 
