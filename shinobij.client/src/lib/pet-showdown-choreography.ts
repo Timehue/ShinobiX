@@ -88,6 +88,14 @@ export interface ShowdownTravelRoute {
     points: readonly ShowdownPathPoint[];
     length: number;
 }
+
+/** Presentation anchor for a Beast Seal handoff. The reserve is released into
+ *  the outgoing companion's exact field slot instead of travelling from the
+ *  offstage bench to a newly chosen position. */
+export interface ShowdownSwitchCue {
+    position: [number, number, number];
+    role: "seal" | "release";
+}
 export interface ShowdownMeleeRoute extends ShowdownTravelRoute {
     impactX: number;
     impactZ: number;

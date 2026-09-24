@@ -20,6 +20,8 @@ export type PetSfxKind =
   | "victory"
   | "superEffective"
   | "command"
+  | "sealClose"
+  | "sealOpen"
   | "finisher"
   | "crowd"
   // ── Menu / input feedback ────────────────────────────────────────────────
@@ -50,6 +52,8 @@ const PET_CUES: Record<
   victory: { cue: "victory-seal" },
   superEffective: { cue: "reveal", gain: 0.52, playbackRate: 1.04 },
   command: { cue: "command" },
+  sealClose: { cue: "paper", gain: 0.9, playbackRate: 0.86 },
+  sealOpen: { cue: "reveal", gain: 0.9, playbackRate: 1.1 },
   finisher: { cue: "battle-transition", gain: 0.7 },
   crowd: { cue: "crowd" },
   uiMove: { cue: "paper", gain: 0.3, playbackRate: 1.5 },
@@ -93,6 +97,8 @@ export function primePetSfx(): void {
     "victory-seal",
     "command",
     "battle-transition",
+    "paper",
+    "reveal",
   ]);
 }
 
