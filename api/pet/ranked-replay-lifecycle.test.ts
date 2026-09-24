@@ -66,6 +66,69 @@ test('queue rejects duplicate and unowned lineup pets before entering matchmakin
     assert.equal((await call(queue, name, { name, action: 'poll' })).body.state, 'idle');
 });
 
+test('a retained one-pet proof shows the same winner before and after ranked settlement', async () => {
+    const { a, b, matchToken } = await pair('legacywatch');
+    const key = `pet:ranked-token:${matchToken}`;
+    const sealed = await kv.get<Record<string, unknown>>(key);
+    assert.ok(sealed);
+    const { aTeam: _aTeam, bTeam: _bTeam, ...onePetProof } = sealed;
+    await kv.set(key, onePetProof, { ex: 15 * 60 });
+
+    const before = await call(watch, a, { matchToken });
+    assert.equal(before.status, 200);
+    assert.equal((before.body.script as ShowdownReplayScript).initialState.player.length, 1);
+    const outcome = before.body.winnerName === a ? 'win' : 'loss';
+    const settled = await call(settle, a, { ranked: true, playerName: a, opponentName: b, matchToken, outcome, reportKey: `${matchToken}:ranked` });
+    assert.equal(settled.status, 200, JSON.stringify(settled.body));
+    const receipt = await kv.get<Record<string, unknown>>(petRankedResultKey(matchToken));
+    assert.equal(receipt?.winnerName, before.body.winnerName);
+    assert.ok(receipt?.replay);
+    const after = await call(watch, b, { matchToken });
+    assert.equal(after.status, 200);
+    assert.equal(after.body.winnerName, receipt?.winnerName);
+    assert.equal((after.body.script as ShowdownReplayScript).initialState.player.length, 1);
+    assert.equal((after.body.script as ShowdownReplayScript).finalState.outcome, after.body.winnerName === b ? 'win' : 'loss');
+
+    await kv.set(petRankedResultKey(matchToken), { ...receipt, winnerName: receipt?.winnerName === a ? b : a }, { ex: 60 });
+    const mismatchedHistory = await call(watch, b, { matchToken });
+    assert.equal(mismatchedHistory.status, 409, 'a historical result from another engine cannot display a contradictory replay');
+    assert.match(String(mismatchedHistory.body.error), /cannot be safely replayed/);
+});
+
+test('watch reads the completed receipt after live proof cleanup races its first reads', async () => {
+    const { a, matchToken } = await pair('watchcleanup');
+    const liveKey = `pet:ranked-token:${matchToken}`;
+    const resultKey = petRankedResultKey(matchToken);
+    const sealed = await kv.get<Record<string, unknown>>(liveKey);
+    assert.ok(sealed);
+    const before = await call(watch, a, { matchToken });
+    assert.equal(before.status, 200);
+    const receipt = {
+        a: sealed.a, b: sealed.b, winnerName: before.body.winnerName,
+        settledAt: Date.now(), replay: sealed,
+    };
+    const originalGet = kv.get;
+    let completedReadTooEarly = false;
+    try {
+        kv.get = async <T>(key: string): Promise<T | null> => {
+            if (key === liveKey) {
+                await new Promise((resolve) => setTimeout(resolve, 0));
+                await kv.set(resultKey, receipt, { ex: 60 });
+                await kv.del(liveKey);
+                return null;
+            }
+            if (key === `pet:ranked-intent:${matchToken}`) return null;
+            const value = await originalGet<T>(key);
+            if (key === resultKey && value === null) completedReadTooEarly = true;
+            return value;
+        };
+        const raced = await call(watch, a, { matchToken });
+        assert.equal(raced.status, 200, JSON.stringify(raced.body));
+        assert.equal(raced.body.winnerName, before.body.winnerName);
+        assert.equal(completedReadTooEarly, false, 'the completed receipt must be read after live proof cleanup');
+    } finally { kv.get = originalGet; }
+});
+
 test('peer settlement preserves discovery and viewer-relative replays, without repaying or blocking another match', async () => {
     const { a, b, matchToken } = await pair('replayflow');
     const bWatch = await call(watch, b, { matchToken });

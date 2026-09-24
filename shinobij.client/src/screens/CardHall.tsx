@@ -43,14 +43,12 @@ import {
 } from "../lib/free-play-queue-client";
 import { syncChronicleProgression } from "../lib/chronicle-progression-sync";
 import { chronicleResponseAuthority } from "../lib/chronicle-response-authority";
+import { chronicleReplayDelay } from "../lib/chronicle-presentation";
 
 type Tab = "collection" | "packs" | "deck" | "play" | "pvp" | "rules";
 type AiDuelState = NonNullable<ChronicleAiResult["session"]>;
 
-// Pacing beats between the Chronicle Keeper's replayed moves: a full beat when
-// the step landed a new log line, a quiet beat for silent phase bookkeeping.
-const AI_STEP_BEAT_MS = 1_250;
-const AI_STEP_QUIET_MS = 650;
+// Replay pacing shares the board director's effect durations.
 const sleep = (ms: number) =>
   new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 
@@ -184,6 +182,7 @@ function CardHallInner({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [aiActing, setAiActing] = useState(false);
+  const [resolutionReady, setResolutionReady] = useState(false);
   const [progressionReceipt, setProgressionReceipt] = useState<string[]>([]);
   const [progressionSyncError, setProgressionSyncError] = useState("");
   const [resumableMatchId, setResumableMatchId] = useState<string | null>(
@@ -295,12 +294,11 @@ function CardHallInner({
     const steps = result.aiSteps ?? [];
     const token = ++replayToken.current;
     if (steps.length > 0) {
-      setAiActing(true);
-      let previous: Pick<ChronicleProjection, "log"> | null = duel;
+      let previous: ChronicleProjection | null = duel;
       for (const step of steps) {
+        setAiActing(step.activePlayer !== step.viewerSide || Boolean(step.responseWindow && step.responseWindow.responder !== step.viewerSide));
         setDuel({ ...final, ...step });
-        const newLine = step.log.at(-1) !== previous?.log.at(-1);
-        await sleep(newLine ? AI_STEP_BEAT_MS : AI_STEP_QUIET_MS);
+        await sleep(chronicleReplayDelay(previous, step));
         if (replayToken.current !== token) return;
         previous = step;
       }
@@ -441,7 +439,7 @@ function CardHallInner({
 
   return (
     <main
-      className={`chronicle-shell ${duel?.status === "active" ? "chronicle-shell--duel-active" : ""}`}
+      className={`chronicle-shell ${duel && !resolutionReady ? "chronicle-shell--duel-active" : ""}`}
     >
       <header className="chronicle-header">
         <button onClick={onBack}>Back</button>
@@ -557,7 +555,7 @@ function CardHallInner({
       {tab === "play" ? (
         duel ? (
           <div>
-            {duel.status === "complete" && rememberedCircuitTrial(character.name) === 'cards' && onReturnCircuit ? <CircuitCardResult won={duel.winner === duel.viewerSide} draw={duel.winner === 'draw'} onReturn={onReturnCircuit} /> : duel.status === "complete" ? (
+            {resolutionReady && duel.status === "complete" && rememberedCircuitTrial(character.name) === 'cards' && onReturnCircuit ? <CircuitCardResult won={duel.winner === duel.viewerSide} draw={duel.winner === 'draw'} onReturn={onReturnCircuit} /> : resolutionReady && duel.status === "complete" ? (
               <div
                 className="chronicle-panel"
                 style={{ marginBottom: 12, textAlign: "center" }}
@@ -606,6 +604,7 @@ function CardHallInner({
             <ChronicleDuelBoard
               key={matchId ?? "duel"}
               state={duel}
+              onResolutionReadyChange={setResolutionReady}
               cardsById={cardsById}
               playerAvatar={
                 character.avatarImage ||

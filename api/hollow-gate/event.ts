@@ -148,6 +148,9 @@ function reconcileDeath(character: Record<string, unknown>, run: HollowGateRunTo
         hospitalizedAt: now,
         hospitalizedUntil: now + HOSPITAL_DURATION_MS,
         hollowGateRun: null,
+        // `undefined`, never delete: mergePreservingImages would restore a
+        // deleted key, and a stale marker blocks every later entry.
+        lastHollowGateStart: undefined,
     };
 }
 

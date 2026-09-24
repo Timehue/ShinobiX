@@ -10,6 +10,10 @@ export type ChronicleSfx =
   | "summon"
   | "set"
   | "activate"
+  | "snare"
+  | "guard"
+  | "recall"
+  | "heal"
   | "attack"
   | "destroy"
   | "victory"
@@ -30,6 +34,10 @@ const CHRONICLE_CUES: Record<
   summon: { cue: "reveal", gain: 0.82, playbackRate: 0.96 },
   set: { cue: "card-place" },
   activate: { cue: "reveal", gain: 0.62, playbackRate: 1.04 },
+  snare: { cue: "omen", gain: 0.74, playbackRate: 1.16 },
+  guard: { cue: "guard", gain: 0.72 },
+  recall: { cue: "evade", gain: 0.65, playbackRate: 0.9 },
+  heal: { cue: "chakra-positive", gain: 0.6 },
   attack: { cue: "impact-light", gain: 0.88 },
   destroy: { cue: "impact-heavy", gain: 0.94 },
   victory: { cue: "victory-seal" },
@@ -65,6 +73,9 @@ export function primeChronicleSfx(): void {
     "impact-heavy",
     "victory-seal",
     "omen",
+    "guard",
+    "evade",
+    "chakra-positive",
   ]);
 }
 

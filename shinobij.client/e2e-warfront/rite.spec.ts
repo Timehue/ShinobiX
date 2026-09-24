@@ -688,6 +688,11 @@ test("spectator mode traverses the same report state with a deterministic auto-l
     });
     await expect(page.getByText(/AUTO RE-FORM · locking a deterministic response/)).toBeVisible({ timeout: 180_000 });
     await expect(page.locator(".wfr-hud .wfr-duel-no")).toHaveText("BEASTBOUND · CLASH 2", { timeout: 30_000 });
+    await expect(page.getByRole("button", { name: "Leave the Warfront" })).toHaveCount(0);
+    const leave = page.getByRole("button", { name: "Leave the Warfront", exact: true });
+    await expect(leave).toBeEnabled({ timeout: 120_000 });
+    await leave.click();
+    await expect(page.getByRole("button", { name: "Reopen Warfront" })).toBeVisible();
 });
 
 test("the deployment panel stays usable at phone width", async ({ page }, testInfo) => {
@@ -959,7 +964,7 @@ test("the fullscreen battle escapes the lobby's positioning and clipping", async
     await page.getByRole("button", { name: "Lock formation" }).click();
     await expect(page.locator(".wfr-canvas canvas").last()).toBeVisible();
     await assertFullscreen();
-    await expect(page.getByRole("button", { name: "Leave the Warfront" })).toBeInViewport();
+    await expect(page.getByRole("button", { name: "Leave the Warfront" })).toHaveCount(0);
     const stage = await page.locator(".wfr-stage").boundingBox();
     const hud = await page.locator(".wfr-hud").boundingBox();
     expect(stage!.y).toBeGreaterThanOrEqual(hud!.y + hud!.height - 24);
@@ -983,5 +988,5 @@ test("a failed authored rig recovers behind the formation veil", async ({ page }
     await expect.poll(() => failedModel).not.toBe("");
     await expect(page.getByTestId("wfr-stage-curtain")).toHaveAttribute("data-stage-ready", "true", { timeout: 120_000 });
     await expect.poll(async () => Number(await page.getByTestId("wfr-clock").getAttribute("data-tick")), { timeout: 30_000 }).toBeGreaterThan(5);
-    await expect(page.getByRole("button", { name: "Leave the Warfront" })).toBeInViewport();
+    await expect(page.getByRole("button", { name: "Leave the Warfront" })).toHaveCount(0);
 });
