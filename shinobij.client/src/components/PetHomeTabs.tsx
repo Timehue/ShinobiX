@@ -1,6 +1,10 @@
 /* eslint-disable react-refresh/only-export-components -- the session routing helper is tested with the tabs */
 import type { Screen } from "../types/core";
-import { GameIcon, type GameIconName } from "./icons/GameIcon";
+import collectionArt from "../assets/pet-home/tabs/collection.webp";
+import yardArt from "../assets/pet-home/tabs/yard.webp";
+import arenaArt from "../assets/pet-home/tabs/arena.webp";
+import sanctuaryArt from "../assets/pet-home/tabs/sanctuary.webp";
+import hatcheryArt from "../assets/pet-home/tabs/hatchery.webp";
 
 export type PetHomeTab = "collection" | "yard" | "arena" | "sanctuary" | "breeding";
 
@@ -25,15 +29,14 @@ const PET_HOME_DESTINATIONS: ReadonlyArray<{
     id: PetHomeTab;
     full: string;
     short: string;
-    step: string;
     detail: string;
-    icon: GameIconName;
+    art: string;
 }> = [
-    { id: "collection", full: "Collection", short: "Collection", step: "01 / ARCHIVE", detail: "Browse your roster", icon: "medal" },
-    { id: "yard", full: "Pet Yard", short: "Yard", step: "02 / CARE", detail: "Train and equip", icon: "paw" },
-    { id: "arena", full: "Pet Arena", short: "Arena", step: "03 / COMBAT", detail: "Enter the ring", icon: "sword" },
-    { id: "sanctuary", full: "Sanctuary", short: "Sanctuary", step: "04 / REST", detail: "Manage capacity", icon: "shield" },
-    { id: "breeding", full: "Shinobi Hatchery", short: "Hatchery", step: "05 / BLOODLINES", detail: "Raise a new bond", icon: "sparkle" },
+    { id: "collection", full: "Collection", short: "Collection", detail: "Browse your roster", art: collectionArt },
+    { id: "yard", full: "Pet Yard", short: "Yard", detail: "Train and equip", art: yardArt },
+    { id: "arena", full: "Pet Arena", short: "Arena", detail: "Enter the ring", art: arenaArt },
+    { id: "sanctuary", full: "Sanctuary", short: "Sanctuary", detail: "Manage capacity", art: sanctuaryArt },
+    { id: "breeding", full: "Shinobi Hatchery", short: "Hatchery", detail: "Raise a new bond", art: hatcheryArt },
 ];
 
 export function peekPetHomeTabHint(): PetHomeContentTab {
@@ -74,9 +77,8 @@ export function PetHomeTabs({ active, onHomeTab, setScreen }: {
                 aria-current={active === tab.id ? "page" : undefined}
                 onClick={() => openTab(tab.id)}
             >
-                <span className="pet-home-tab-symbol" aria-hidden="true"><GameIcon name={tab.icon} size={20} /></span>
+                <img className="pet-home-tab-art" src={tab.art} alt="" aria-hidden="true" draggable={false} />
                 <span className="pet-home-tab-copy">
-                    <span className="pet-home-tab-step" aria-hidden="true">{tab.step}</span>
                     <PetHomeTabLabel full={tab.full} short={tab.short} />
                     <span className="pet-home-tab-detail" aria-hidden="true">{tab.detail}</span>
                 </span>
