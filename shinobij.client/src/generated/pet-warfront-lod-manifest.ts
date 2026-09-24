@@ -162,27 +162,27 @@ export const WARFRONT_PET_LOD_MANIFEST = {
         "lodTriangles": 10000
     },
     "/pet-models/roster/mythic-10.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/mythic-10.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/mythic-10.glb?v=20260902-battle-lod-v1-c3d94d1d9245-tx1024-876c1e6e587f",
         "sourceTriangles": 15558,
         "lodTriangles": 10890
     },
     "/pet-models/roster/mythic-11.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/mythic-11.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/mythic-11.glb?v=20260902-battle-lod-v1-4b8d34ae4414-tx1024-64bc085236ab",
         "sourceTriangles": 12992,
         "lodTriangles": 9093
     },
     "/pet-models/roster/mythic-12.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/mythic-12.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/mythic-12.glb?v=20260902-battle-lod-v1-3ae786208f0a-tx1024-0a8ffe4c9d44",
         "sourceTriangles": 20063,
         "lodTriangles": 11999
     },
     "/pet-models/roster/mythic-13.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/mythic-13.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/mythic-13.glb?v=20260902-battle-lod-v1-45c9c4417a89-tx1024-0889d003bcbb",
         "sourceTriangles": 16142,
         "lodTriangles": 11298
     },
     "/pet-models/roster/mythic-14.glb": {
-        "lodUrl": "/pet-models/warfront-lod/roster/mythic-14.glb?v=20260902-battle-lod-v1",
+        "lodUrl": "/pet-models/warfront-lod/roster/mythic-14.glb?v=20260902-battle-lod-v1-6d52508e756c-tx1024-c7de4b1168d2",
         "sourceTriangles": 22328,
         "lodTriangles": 12000
     },

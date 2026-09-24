@@ -39,6 +39,12 @@ const RAIJIN_MIN_TRIANGLE_REDUCTION = 0.54;
 // Raijin's 2048px PBR maps are retained for close-ups. The distant rig needs
 // only 1024px maps, saving transfer bytes without changing its silhouette.
 const RAIJIN_LOD_TEXTURE_SIZE = 1024;
+// These five breeding rigs carry three 2048px PBR maps each. At battle
+// distance, keep their close-view sources intact and reduce only the LOD maps.
+const BREEDING_MYTHIC_TEXTURE_IDS = new Set([
+    "mythic-10", "mythic-11", "mythic-12", "mythic-13", "mythic-14",
+]);
+const BREEDING_MYTHIC_LOD_TEXTURE_SIZE = 1024;
 const MAX_ERROR = 0.05;
 const MIN_TRIANGLE_REDUCTION = 0.6;
 const MAX_BOUNDS_DELTA = 0.02;
@@ -511,12 +517,12 @@ function outputPathFor(sourcePath) {
     return resolve(outputRoot, relative(modelRoot, sourcePath));
 }
 
-async function raijinLodTextures(source) {
+async function reducedLodTextures(source, size) {
     return Promise.all(source.getRoot().listTextures().map(async (texture) => {
         const image = texture.getImage();
-        invariant(image && texture.getMimeType() === "image/webp", `Raijin texture ${texture.getName()} is missing its WebP source`);
+        invariant(image && texture.getMimeType() === "image/webp", `LOD texture ${texture.getName()} is missing its WebP source`);
         const reduced = await sharp(Buffer.from(image))
-            .resize(RAIJIN_LOD_TEXTURE_SIZE, RAIJIN_LOD_TEXTURE_SIZE, { fit: "inside", withoutEnlargement: true })
+            .resize(size, size, { fit: "inside", withoutEnlargement: true })
             .webp({ quality: 90, effort: 6 }).toBuffer();
         return { name: texture.getName(), mimeType: "image/webp", image: reduced };
     }));
@@ -530,9 +536,9 @@ function textureStats(payloads) {
 
 function applyLodTextures(document, payloads) {
     const textures = document.getRoot().listTextures();
-    invariant(textures.length === payloads.length, "Raijin texture count changed during LOD generation");
+    invariant(textures.length === payloads.length, "texture count changed during LOD generation");
     textures.forEach((texture, index) => {
-        invariant(texture.getName() === payloads[index].name, "Raijin texture order changed during LOD generation");
+        invariant(texture.getName() === payloads[index].name, "texture order changed during LOD generation");
         texture.setImage(payloads[index].image).setMimeType(payloads[index].mimeType);
     });
 }
@@ -542,7 +548,11 @@ async function processAsset(sourcePath) {
     const source = await readDocument(sourcePath);
     const sourceStats = modelStats(source);
     const detailedHound = sourcePath.endsWith('starter-lightning-l.glb');
-    const reducedTextures = detailedHound ? await raijinLodTextures(source) : null;
+    const breedingMythic = BREEDING_MYTHIC_TEXTURE_IDS.has(sourcePath.split(sep).at(-1).slice(0, -4))
+        && slash(relative(modelRoot, sourcePath)).startsWith("roster/");
+    const textureSize = detailedHound ? RAIJIN_LOD_TEXTURE_SIZE
+        : breedingMythic ? BREEDING_MYTHIC_LOD_TEXTURE_SIZE : null;
+    const reducedTextures = textureSize ? await reducedLodTextures(source, textureSize) : null;
     const expectedTextures = reducedTextures ? textureStats(reducedTextures) : sourceStats.textures;
     if (!checkOnly) {
         const lowPolySource = sourceStats.triangles <= LOW_POLY_SOURCE_LIMIT;
@@ -592,7 +602,9 @@ async function processAsset(sourcePath) {
     ]);
     return {
         sourceUrl: `/${sourceRelative}`,
-        lodUrl: `/${lodRelative}?v=${REVISION}-${sourceHash.slice(0, 12)}`,
+        // A battle-only texture change leaves the close source hash untouched.
+        // Include the LOD hash for these variants so a cached LOD cannot survive.
+        lodUrl: `/${lodRelative}?v=${REVISION}-${sourceHash.slice(0, 12)}${breedingMythic ? `-tx${textureSize}-${lodHash.slice(0, 12)}` : ""}`,
         sourceBytes: sourceFile.size,
         lodBytes: lodFile.size,
         sourceSha256: sourceHash,
@@ -653,6 +665,8 @@ if (!criticalOnly) {
             maxLodTriangles: MAX_LOD_TRIANGLES,
             raijinMaxLodTriangles: RAIJIN_MAX_LOD_TRIANGLES,
             raijinMinTriangleReduction: RAIJIN_MIN_TRIANGLE_REDUCTION,
+            breedingMythicTextureSize: BREEDING_MYTHIC_LOD_TEXTURE_SIZE,
+            breedingMythicTextureIds: [...BREEDING_MYTHIC_TEXTURE_IDS],
             maxError: MAX_ERROR,
             minTriangleReduction: MIN_TRIANGLE_REDUCTION,
             lowPolySourceLimit: LOW_POLY_SOURCE_LIMIT,

@@ -34,6 +34,7 @@
     "qa:pet-models": "node ../node_modules/tsx/dist/cli.mjs scripts/pet-model-certification.mjs",
     "build:warfront-pet-lods": "node scripts/generate-warfront-pet-lods.mjs",
     "check:warfront-pet-lods": "node scripts/generate-warfront-pet-lods.mjs --check --quiet",
+    "check:warfront-pet-impostors": "node scripts/generate-warfront-pet-impostors.mjs --check --quiet",
     "qa:pet-animations": "node ../node_modules/tsx/dist/cli.mjs scripts/audit-all-pet-animation-poses.mjs",
     "build:pet-colosseum-qa": "vite build --config scripts/vite.pet-colosseum-qa.config.mjs",
     "qa:pet-colosseum-visual": "npm run build && npm run build:pet-colosseum-qa && node scripts/verify-pet-colosseum-vfx.mjs",
