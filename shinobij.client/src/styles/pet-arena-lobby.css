@@ -392,3 +392,16 @@
 @media (max-width: 600px) {
     .pet-arena-guide-button span { display: none; }
 }
+
+/* Arena picks share the Companion Home card language. Role remains a secondary cue. */
+.pet-arena-screen .pet-pick-grid.pet-pick-strip { grid-template-columns: repeat(auto-fit,minmax(164px,1fr)) !important; gap: .65rem !important; max-height: 490px; }
+.pet-arena-screen .pet-pick.companion-card { align-content: start; justify-items: stretch; gap: .45rem; min-height: 206px; padding: .65rem !important; border: 1px solid color-mix(in srgb,var(--companion-accent) 42%,transparent) !important; border-radius: 16px !important; color: #e9f0ee !important; background: radial-gradient(circle at 50% 4%,var(--companion-glow),transparent 56%),linear-gradient(155deg,#17232c,#0b141e 72%) !important; box-shadow: inset 0 1px rgba(255,255,255,.055),0 14px 30px rgba(0,0,0,.22); text-align: left; }
+.pet-arena-screen .pet-pick.companion-card.selected { border-color: #82d9d9 !important; background: radial-gradient(circle at 50% 4%,rgba(55,157,167,.22),transparent 56%),linear-gradient(155deg,#172b33,#0b1923 72%) !important; box-shadow: inset 0 0 0 1px rgba(130,217,217,.5),0 0 24px rgba(73,196,203,.12); }
+.pet-arena-screen .pet-pick.companion-card .companion-identity-art { max-height: 105px; }
+.pet-arena-screen .pet-pick.companion-card .pet-pick-role { justify-self: start; margin-top: .1rem; }
+.pet-arena-screen .pet-pick.companion-card .pet-pick-order { z-index: 2; }
+.pet-arena-lobby .pet-arena-selector .pet-pick-strip .pet-pick.companion-card { min-height: 206px; }
+@media (max-width:600px) {
+    .pet-arena-screen .pet-pick-grid.pet-pick-strip { display: flex !important; max-height: none; }
+    .pet-arena-lobby .pet-arena-selector .pet-pick-strip .pet-pick.companion-card { flex: 0 0 150px; min-height: 190px; }
+}
