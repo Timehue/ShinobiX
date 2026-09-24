@@ -129,10 +129,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // A small burst is valid when collecting queued pet actions. Rate limit
     // BEFORE auth check so spam
-    // attempts at unknown names also get throttled.
+    // attempts at unknown names also get throttled. 12, not 6: a supporter
+    // roster runs six expeditions, and collecting all six plus one retry in a
+    // minute used to answer "Rate limit exceeded." This limit guards no payout —
+    // every reward needs a single-use, time-gated token under a daily cap below.
     const bodyPeek = typeof req.body === 'string' ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })() : (req.body ?? {});
     const peekName: string | undefined = typeof bodyPeek?.playerName === 'string' ? bodyPeek.playerName : undefined;
-    if (!enforceRateLimit(req, res, 'report-pet-event', 6, 60_000, peekName)) return;
+    if (!enforceRateLimit(req, res, 'report-pet-event', 12, 60_000, peekName)) return;
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;

@@ -137,13 +137,16 @@ describe('IP backstop for name-keyed buckets', () => {
         // it, so the key is attacker-controlled: rotating it mints a fresh bucket per
         // request and the per-account limit means nothing without this backstop.
         assert.match(source, /const IP_BACKSTOP_MULTIPLIER = \d+;/);
-        assert.match(source, /allow\(`\$\{bucket\}:ipcap:\$\{ip\}`, limit \* IP_BACKSTOP_MULTIPLIER, windowMs\)/);
+        // The multiplier defaults to IP_BACKSTOP_MULTIPLIER; a caller may only
+        // tighten it (PUBLIC_READ_IP_BACKSTOP), never below 1x.
+        assert.match(source, /multiplier: number = IP_BACKSTOP_MULTIPLIER/);
+        assert.match(source, /allow\(`\$\{bucket\}:ipcap:\$\{ip\}`, limit \* Math\.max\(1, multiplier\), windowMs\)/);
 
         // Both enforcement entry points must charge it, or the bypass survives in one.
         const sync = source.slice(source.indexOf('export function enforceRateLimit('), source.indexOf('export async function enforceRateLimitKv('));
         const durable = source.slice(source.indexOf('export async function enforceRateLimitKv('));
-        assert.match(sync, /chargeIpBackstop\(req, bucket, limit, windowMs, authedName\)/);
-        assert.match(durable, /chargeIpBackstop\(req, bucket, limit, windowMs, authedName\)/);
+        assert.match(sync, /chargeIpBackstop\(req, bucket, limit, windowMs, authedName, opts\?\.ipBackstopMultiplier\)/);
+        assert.match(durable, /chargeIpBackstop\(req, bucket, limit, windowMs, authedName, opts\?\.ipBackstopMultiplier\)/);
     });
 
     it('is a no-op when the bucket is already IP-keyed', () => {

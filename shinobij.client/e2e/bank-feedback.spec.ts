@@ -202,8 +202,10 @@ test('Bank keeps its receipt ID through refresh and a temporary rate limit', asy
     await amount.fill('500');
     await page.getByRole('button', { name: 'Deposit to vault', exact: true }).click();
     await expect.poll(() => requests.length).toBe(2);
-    await expect(page.getByRole('alertdialog', { name: 'Notice', exact: true })).toContainText('Too many requests. Retry shortly.');
-    await dismissNotice(page);
+    // A rate-limit refusal only asks the player to wait, so it is a quiet toast
+    // (lib/slow-down-notice.ts), never a modal the player must click through.
+    await expect(page.locator('.game-toast-stack')).toContainText('Too many requests. Retry shortly.');
+    await expect(page.getByRole('alertdialog', { name: 'Notice', exact: true })).toHaveCount(0);
     await page.getByRole('button', { name: 'Deposit to vault', exact: true }).click();
     await expect.poll(() => requests.length).toBe(3);
     expect(requests.map(request => [request.action, request.amount, request.requestId])).toEqual([

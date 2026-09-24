@@ -133,6 +133,11 @@ export function useHollowGateWalk({ active, run, blocked, moveStep }: {
     // is not in a text field. (Moved here from App.tsx.)
     useEffect(() => {
         if (!active) return;
+        // A held key auto-repeats at the OS rate (~30/s), and every move is a
+        // server step. Let a repeat through at most once per walk cadence, so
+        // holding a key walks exactly as fast as click-to-move and stays inside
+        // the hollow-gate-step limit. Fresh presses are never delayed.
+        let lastKeyStepAt = 0;
         function handleKey(e: KeyboardEvent) {
             const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
             if (tag === "input" || tag === "textarea" || tag === "select") return;
@@ -144,6 +149,9 @@ export function useHollowGateWalk({ active, run, blocked, moveStep }: {
                 : null;
             if (!dir) return;
             e.preventDefault();
+            const now = performance.now();
+            if (e.repeat && now - lastKeyStepAt < HOLLOW_GATE_STEP_MS) return;
+            lastKeyStepAt = now;
             stopRef.current();
             if (!blockedRef.current) moveRef.current(dir[0], dir[1]);
         }

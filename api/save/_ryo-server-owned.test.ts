@@ -46,10 +46,20 @@ function fakeRes() {
     const res = {
         setHeader: () => res,
         status: (statusCode: number) => { out.statusCode = statusCode; return res; },
-        json: (body: unknown) => { out.body = body; return res; },
+        json: (body: unknown) => { out.body = withoutSavePacingHint(body); return res; },
         end: () => res,
     };
     return { res: res as never, out };
+}
+
+/** Save acknowledgements carry a timing hint (`nextSaveInMs`, the rest of the
+ * save-burst window) that differs per run; check its range, then drop it so the
+ * exact-shape assertions below stay about ryo and roster authority. */
+function withoutSavePacingHint(body: unknown): unknown {
+    if (!body || typeof body !== 'object' || !('nextSaveInMs' in body)) return body;
+    const { nextSaveInMs, ...rest } = body as { nextSaveInMs: unknown };
+    assert.ok(typeof nextSaveInMs === 'number' && nextSaveInMs > 0 && nextSaveInMs <= 3_000, `nextSaveInMs ${String(nextSaveInMs)}`);
+    return rest;
 }
 
 function character(name: string, ryo: number): Record<string, unknown> {

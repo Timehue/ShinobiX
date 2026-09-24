@@ -201,14 +201,26 @@ Currently jutsu leveling 30→50 requires PvP. Honor Seals provide an alternativ
 | 39 → 40 | 65 |
 | **Total 30→40** | **425 Seals** |
 
-No power increase vs the PvP path — same end state, different route. Bloodline-locked jutsu are eligible.
+No power increase vs the PvP path — same end state, different route.
+
+**Each level is a timed lesson** (since 2026-09-24): the same 30-minute lesson
+as ryo training (same bonuses and war morale), in the same two slots (one
+active + one queued), started from the Jutsu Training Hall and settled through
+`api/training/jutsu-ryo.ts` with `payWith: 'honorSeals'`. Cancelling refunds half
+the Seals; removing a queued lesson refunds all of them. Seal lessons also
+require the jutsu's bloodline to be equipped, like ryo lessons. (The old instant
+`/api/jutsu/train-with-seals` now refuses with 410.)
 
 ### Sink 2 — Jutsu training speedup
 
-Spend Honor Seals to reduce the current training timer.
+Spend Honor Seals to cut time off the active jutsu lesson (ryo or Seal).
 
-- 1 Seal = -10 min off current training timer
-- 10 Seals = finish current training instantly
+- 1 Seal = −10 min; the last Seal may cover a partial 10-minute block
+- "Finish now" buys exactly the blocks left
+- Vanguard Rank 8+ pays 90%; the Quartermaster **Stockpile** mastery node takes
+  a further 5% per rank off (capped at 50% combined)
+- The Quartermaster **Logistician** capstone gives one free "Finish now" per
+  week (resets Monday 00:00 UTC; not on a lesson with under a minute left)
 
 No power increase, just time skip.
 

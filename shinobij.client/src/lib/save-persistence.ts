@@ -40,13 +40,60 @@ export class SaveRateLimitError extends Error {
     constructor(retryAfterMs?: unknown) {
         super("Server returned 429");
         this.name = "SaveRateLimitError";
-        this.retryAfterMs = typeof retryAfterMs === "number" && Number.isSafeInteger(retryAfterMs) && retryAfterMs >= 0
-            ? retryAfterMs
-            : null;
+        this.retryAfterMs = validRetryAfterMs(retryAfterMs);
     }
 }
 
+function validRetryAfterMs(value: unknown): number | null {
+    return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
+
 export const SAVE_PERSISTENCE_REQUEST_TIMEOUT_MS = 15_000;
+
+/**
+ * The server accepts one successful player save per aligned 3-second window
+ * (`save-burst` in api/save/[name].ts) and answers 429 to the next. Nothing on
+ * the client respected that: a travel or training flush, a mission-progress
+ * flush, the 15s interval and a purchase's required save could all land inside
+ * one window, so ordinary play produced 429s, the save-error banner and the
+ * logout "Save temporarily paused" prompt.
+ *
+ * Each accepted save's acknowledgement now carries `nextSaveInMs`: the rest of
+ * the window it used. The next POST waits that long, counted from when the
+ * acknowledgement ARRIVED. The server measured it after charging the window and
+ * replied afterwards, so the wait always reaches the next window, whatever the
+ * latency or clock skew — and it is only as long as the window really needs
+ * (1.5s on average), never a blanket 3s. No hint, no pacing.
+ */
+const SAVE_PACING_MARGIN_MS = 25;
+/** Beyond any hint the server sends (save-attempt's retryAfterMs is ≤ its 60s window). */
+const MAX_PLAUSIBLE_SLOT_MS = 61_000;
+/** An autosave that held the flight but sent nothing: the caller should retry soon. */
+export const AUTOSAVE_RETRY = "retry" as const;
+/** Hinted autosave 429s in a row that still count as pacing rather than failure. */
+const MAX_HINTED_THROTTLE_STREAK = 4;
+/** One full save-burst window plus margin, for a save whose hint we never read. */
+const EXCLUSIVE_SAVE_SPACING_MS = 3_100;
+/** Upper bound on a trusted `nextSaveInMs`; a larger value is ignored. */
+const MAX_NEXT_SAVE_HINT_MS = 10_000;
+
+/**
+ * Longest a write will wait for its slot. A server `retryAfterMs` can be far
+ * longer (the per-minute attempt cap); rather than stall a player's action on
+ * it, a required save sends anyway and surfaces the 429 as before, and an
+ * autosave defers to a later tick.
+ */
+export const SAVE_MAX_PACING_WAIT_MS = 5_000;
+
+export type SavePacingClock = Readonly<{
+    now: () => number;
+    sleep: (ms: number) => Promise<void>;
+}>;
+
+const realPacingClock: SavePacingClock = {
+    now: () => Date.now(),
+    sleep: (ms) => new Promise(resolve => setTimeout(resolve, ms)),
+};
 
 /**
  * Exact JSON-safe POST body that has not yet received a durable acknowledgement.
@@ -109,8 +156,49 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
     onAuthoritativeFateShards?: (accountName: string, fateShards: number) => void;
     onAcknowledgedSnapshot?: (snapshot: SaveSnapshot<TPayload>) => void;
     requestTimeoutMs?: number;
+    pacingClock?: SavePacingClock;
 }) {
     const conflictFlights = new Map<string, Promise<boolean>>();
+    const clock = params.pacingClock ?? realPacingClock;
+    // Earliest time the next save POST for `accountKey` may leave — the server's
+    // save window is per account, so another account in this tab never waits on
+    // it. Only touched inside the flight coordinator, so there is one writer.
+    // `streak` counts consecutive hinted autosave 429s for that account. A few
+    // are pacing; a long run (or a long hint) means saves really aren't landing,
+    // and the player must be told. Switching account starts both afresh.
+    let pacing = { accountKey: "", at: 0, streak: 0 };
+    // With no account (a required save waits before prepare() names it, a draft
+    // restore never names one here), wait on the latest slot: it belongs to the
+    // account that just saved, which is the active one outside a switch.
+    const saveSlotWaitMs = (accountKey?: string) => {
+        if (accountKey !== undefined && pacing.accountKey !== accountKey) return 0;
+        const wait = pacing.at - clock.now();
+        // No server hint ever reaches this far ahead; a slot that does is left
+        // over from a wall clock that jumped backwards — drop it rather than
+        // silently holding every autosave back until real time catches up.
+        if (wait > MAX_PLAUSIBLE_SLOT_MS) { pacing = { ...pacing, at: 0 }; return 0; }
+        return Math.max(0, wait);
+    };
+    const pushSlot = (accountKey: string, at: number) => {
+        pacing = pacing.accountKey === accountKey
+            ? { ...pacing, at: Math.max(pacing.at, at) }
+            : { accountKey, at, streak: 0 };
+    };
+    const noteSaveAccepted = (accountKey: string, acknowledgement: unknown) => {
+        if (pacing.accountKey === accountKey) pacing = { ...pacing, streak: 0 };
+        const hint = Number((acknowledgement as { nextSaveInMs?: unknown } | null)?.nextSaveInMs);
+        if (!Number.isFinite(hint) || hint < 0 || hint > MAX_NEXT_SAVE_HINT_MS) return;
+        pushSlot(accountKey, clock.now() + hint + SAVE_PACING_MARGIN_MS);
+    };
+    const noteSaveThrottled = (accountKey: string, retryAfterMs: number | null) => {
+        if (retryAfterMs !== null) pushSlot(accountKey, clock.now() + retryAfterMs);
+    };
+    /** Count one more hinted autosave 429 for `accountKey`; returns the run length. */
+    const bumpThrottleStreak = (accountKey: string) => {
+        if (pacing.accountKey !== accountKey) pacing = { accountKey, at: 0, streak: 0 };
+        pacing = { ...pacing, streak: pacing.streak + 1 };
+        return pacing.streak;
+    };
     let authorityGeneration = 0;
     let unresolvedSequence = 0;
     let unresolvedPost: (Omit<UnresolvedSavePost, "body"> & { sequence: number }) | null = null;
@@ -252,9 +340,33 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
 
     const persistAutosave = async (snapshot: SaveSnapshot<TPayload>) => {
         const result = await params.flight.runAutosave(async () => {
-            const body = { ...snapshot.payload, _baseSaveVersion: params.latestVersion.current };
             const accountKey = saveConflictAccountKey(snapshot.name);
             const epoch = params.currentSessionEpoch();
+            // Wait for the server's save window inside the flight, so a required
+            // save cannot slip in between the wait and the send.
+            const wait = saveSlotWaitMs(accountKey);
+            // "retry" (below): this autosave held the flight but sent nothing, so
+            // an immediate flush that asked for it must try again shortly rather
+            // than slide to the next interval tick.
+            if (wait > SAVE_MAX_PACING_WAIT_MS) { params.dirty.current = true; return AUTOSAVE_RETRY; }
+            if (wait > 0) {
+                const versionBefore = params.latestVersion.current;
+                const generationBefore = authorityGeneration;
+                await clock.sleep(wait);
+                // `snapshot` was captured before the wait. If authority moved
+                // meanwhile (a server mutation installed a newer version, a
+                // conflict or forced reload retired it, the session changed), it
+                // must not be stamped with the NEW version — that would slip an
+                // old payload past the server's version check and undo the newer
+                // write. Leave the state dirty; the next tick sends current state.
+                if (!params.isCurrentSession(accountKey, epoch)
+                    || params.latestVersion.current !== versionBefore
+                    || authorityGeneration !== generationBefore) {
+                    params.dirty.current = true;
+                    return AUTOSAVE_RETRY;
+                }
+            }
+            const body = { ...snapshot.payload, _baseSaveVersion: params.latestVersion.current };
             try {
                 if (!params.isCurrentSession(accountKey, epoch)) throw new Error("The active save account changed.");
                 const pending = registerUnresolvedPost(snapshot.name, accountKey, epoch, snapshot.revision, body);
@@ -282,6 +394,25 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
                     } finally { authorityGeneration += 1; }
                     return;
                 }
+                if (response.status === 429) {
+                    const retryAfterMs = validRetryAfterMs((await response.json().catch(() => null) as { retryAfterMs?: unknown } | null)?.retryAfterMs);
+                    // A short hinted 429 (the save window from another tab, or a
+                    // travel or reward write briefly holding the save lock) says when
+                    // to come back, so it is not a failing save: keep the state dirty
+                    // for the next tick without advancing toward the save-error
+                    // banner. A long hint, a long run of them, or a 429 with no hint
+                    // (a per-minute gain cap) means saves aren't landing — count it.
+                    if (retryAfterMs !== null) {
+                        noteSaveThrottled(accountKey, retryAfterMs);
+                        const streak = bumpThrottleStreak(accountKey);
+                        if (retryAfterMs <= SAVE_MAX_PACING_WAIT_MS && streak < MAX_HINTED_THROTTLE_STREAK) {
+                            params.dirty.current = true;
+                            // An immediate flush that met the lock comes back after
+                            // the hint instead of sliding to the 15s interval.
+                            return AUTOSAVE_RETRY;
+                        }
+                    }
+                }
                 if (!response.ok) {
                     console.warn(`[autosave] server rejected save (status ${response.status})`);
                     params.dirty.current = true;
@@ -293,6 +424,7 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
                     if (signal.aborted) throw error;
                     return null;
                 }) as { _saveVersion?: number; persisted?: boolean; reason?: string; ryo?: number; fateShards?: number } | null;
+                noteSaveAccepted(accountKey, acknowledgement);
                 if (!params.isCurrentSession(accountKey, epoch)) return;
                 if (acknowledgement?.persisted === false) throw new Error(`Save deferred by the server (${acknowledgement.reason ?? "locked"}).`);
                 if (!validAcknowledgementVersion(acknowledgement?._saveVersion)) throw new Error("Save acknowledgement did not include a valid authoritative version.");
@@ -322,6 +454,8 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
     const persistRequired = async (prepare: () => RequiredSave<TPayload>) => {
         const queuedGeneration = authorityGeneration;
         return params.flight.runRequired(async () => {
+        const wait = saveSlotWaitMs();
+        if (wait > 0 && wait <= SAVE_MAX_PACING_WAIT_MS) await clock.sleep(wait);
         if (queuedGeneration !== authorityGeneration) throw new SaveConflictError("This queued save was retired after authority changed. Your local draft remains protected.");
         const save = prepare();
         const accountKey = saveConflictAccountKey(save.name);
@@ -366,7 +500,9 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
         }
         if (response.status === 429) {
             const rejection = await response.json().catch(() => null) as { retryAfterMs?: unknown } | null;
-            throw new SaveRateLimitError(rejection?.retryAfterMs);
+            const error = new SaveRateLimitError(rejection?.retryAfterMs);
+            noteSaveThrottled(accountKey, error.retryAfterMs);
+            throw error;
         }
         if (response.status === 422) {
             const rejection = await response.json().catch(() => null) as { error?: unknown } | null;
@@ -389,6 +525,7 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
             savedBloodlineRanks?: Record<string, string>;
             equippedBloodlineId?: string | null;
         } | null;
+        noteSaveAccepted(accountKey, acknowledgement);
         if (save.echoVersion && !params.isCurrentSession(accountKey, epoch)) {
             throw new Error("The active save account changed before this write completed.");
         }
@@ -411,9 +548,17 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
         });
     };
 
+    // Exclusive work (restoring a protected draft) POSTs its own save, so it
+    // waits for the window too, and — since its acknowledgement isn't read here —
+    // holds the next save back a full window after it.
     const runExclusive = <T>(work: () => Promise<T>) => params.flight.runRequired(async () => {
+        const wait = saveSlotWaitMs();
+        if (wait > 0 && wait <= SAVE_MAX_PACING_WAIT_MS) await clock.sleep(wait);
         authorityGeneration += 1;
-        try { return await work(); } finally { authorityGeneration += 1; }
+        try { return await work(); } finally {
+            authorityGeneration += 1;
+            if (pacing.accountKey) pushSlot(pacing.accountKey, clock.now() + EXCLUSIVE_SAVE_SPACING_MS);
+        }
     });
 
     /** Synchronously retires captured/queued writes when authority changes elsewhere. */

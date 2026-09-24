@@ -236,8 +236,11 @@ describe("server settlement policy", () => {
         const claimEnd = world.indexOf("export function applyWarCrateGrants", claimStart);
         const claim = world.slice(claimStart, claimEnd);
         assert.match(claim, /if \(!r\.ok\) continue;/);
-        assert.doesNotMatch(claim, /if \(!r\.ok\)[^\n]*granted\.push/);
-        assert.doesNotMatch(claim, /catch\s*\{[^}]*granted\.push/s);
+        // A crate is recorded only from an explicit granted reply — never on a
+        // failed response or a thrown request.
+        assert.match(claim, /if \(res\?\.granted\) \{\s*result\.ids\.push\(warCrateId\)/);
+        assert.doesNotMatch(claim, /if \(!r\.ok\)[^\n]*ids\.push/);
+        assert.doesNotMatch(claim, /catch\s*\{[^}]*ids\.push/s);
         assert.match(world, /fetch\("\/api\/war\/claim-reward"/);
         assert.match(world, /export async function claimServerWarRewards/);
 
