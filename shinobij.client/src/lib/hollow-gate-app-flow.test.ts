@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
 import type { HollowGateShrineRun } from "../types/character";
-import { hollowGateDescendUpdate, isSameHollowGateFloor } from "./hollow-gate-app-flow";
+import { hollowGateDescendUpdate, hollowGateShinobiFallback, isSameHollowGateFloor } from "./hollow-gate-app-flow";
 
 /**
  * A post-boss descend generates the next floor behind an `await` on the
@@ -81,6 +81,19 @@ describe("hollow gate descend — stale-write guard", () => {
 
     it("drops the new floor when the player left the run entirely", () => {
         assert.equal(hollowGateDescendUpdate(null, run(), run({ floor: 3 })), null);
+    });
+
+    it("re-points only an open pet duel at a shinobi fight for the same node", () => {
+        const petDuel = { runId: "hgcombat-pet", nodeId: "floor:2:tile:40", floor: 2, kind: "battle" as const, mode: "pet" as const };
+        const fallback = hollowGateShinobiFallback(run({ activeCombat: petDuel }));
+        assert.deepEqual(fallback?.activeCombat, { ...petDuel, mode: "pve" });
+        assert.equal(fallback?.floor, 2, "only the encounter's mode changes");
+
+        const shinobi = run({ activeCombat: { ...petDuel, mode: "pve" } });
+        assert.equal(hollowGateShinobiFallback(shinobi), shinobi);
+        const idle = run();
+        assert.equal(hollowGateShinobiFallback(idle), idle);
+        assert.equal(hollowGateShinobiFallback(null), null);
     });
 
     it("never resurrects a run from a null live state, even with a matching token", () => {

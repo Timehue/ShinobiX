@@ -1443,7 +1443,7 @@ export default function App() {
             if (!cancelled) reportHollowGateRunError(error, "The active encounter could not be resumed. Retry from the shrine.", () => clearHollowGateRunState(true)); // self-heal on run-expiry instead of locking the player in the shrine
         });
         return () => { cancelled = true; };
-    }, [screen, character?.name, hollowGateRun?.runToken, hollowGateRun?.activeCombat?.runId, hollowGatePveFight, hollowGatePetFight]);
+    }, [screen, character?.name, hollowGateRun?.runToken, hollowGateRun?.activeCombat?.runId, hollowGateRun?.activeCombat?.mode, hollowGatePveFight, hollowGatePetFight]);
 
     function savedJutsuPool(source: Partial<ReturnType<typeof buildPlayerSavePayload>>) { return restoredJutsuPool(source); }
 
@@ -1496,6 +1496,7 @@ export default function App() {
         leave: leaveHollowGateShrine,
         abandon: abandonHollowGateShrine,
         launchPetFight: launchHollowGatePetFight,
+        onPetFightUnavailable: onHollowGatePetFightUnavailable,
         onBattleWin: onHollowGateBattleWin,
         onPetBattleEnd: onHollowGatePetBattleEnd,
     } = useHollowGateAppFlow({
@@ -6125,10 +6126,7 @@ export default function App() {
                                 if (result.character) commitVersionedCharacter(result.character, result._saveVersion);
                                 onHollowGatePetBattleEnd(result, gate);
                             }}
-                            onUnavailable={(reason) => {
-                                setHollowGatePetFight(null);
-                                pushHollowGateLog(`The seal refused the duel: ${reason}`);
-                            }}
+                            onUnavailable={onHollowGatePetFightUnavailable}
                         />
                     </Suspense>
                 )}

@@ -5,6 +5,7 @@ import {
     HOLLOW_GATE_PET_AUTHORITY_VERSION,
     hollowGateCombatBindingKey,
     hollowGatePetAuthorityMatches,
+    isHollowGatePetAuthority,
     parseHollowGatePetResultReceipt,
     type HollowGateCombatBinding,
     type HollowGatePetResultReceipt,
@@ -105,6 +106,52 @@ export async function validateHollowGateCinematicPublication(params: {
             await retireHollowGatePetChildLease(params.playerName, params.proofId);
         }
         return valid;
+    }, { failClosed: true });
+}
+
+/**
+ * Retire a Pet-mode encounter whose pet duel never began, so the same node can
+ * be fought as a shinobi instead.
+ *
+ * The browser's pet duel opens through /pet/showdown, which has refused new
+ * Hollow Gate admission since the parent binding began preselecting a
+ * cinematic proof. A player who chose "Send pet" was therefore left with an
+ * encounter no client could fight, movement sealed, and Emergency Forfeit as
+ * the only exit. Which engine the pet duel should run on is an open owner
+ * decision (runtime-mode-registry `hollow-gate-pet-cinematic`); this only
+ * guarantees the encounter can always be finished.
+ *
+ * Runs under the binding lock that every pet admission path also takes
+ * (claim, publication, result write), so no child proof can appear after this
+ * returns true. It refuses whenever child evidence exists: a published
+ * cinematic lease or a written result receipt, or a legacy/Showdown authority
+ * whose children it cannot see. Nothing is paid or charged; the encounter
+ * stays unresolved and is settled by the fight that replaces it.
+ */
+export async function retireUnstartedHollowGatePetBinding(params: {
+    runId: string;
+    playerName: string;
+}): Promise<boolean> {
+    const bindingKey = hollowGateCombatBindingKey(params.runId);
+    return withKvLock(bindingKey, async () => {
+        const binding = await kv.get<HollowGateCombatBinding>(bindingKey);
+        if (!binding
+            || binding.runId !== params.runId
+            || binding.playerName !== params.playerName
+            || binding.combatMode !== 'pet'
+            || binding.status !== 'active'
+            || binding.settledAt) {
+            return false;
+        }
+        const authority = isHollowGatePetAuthority(binding.petAuthority) ? binding.petAuthority : null;
+        if (!authority || authority.engine !== 'cinematic') return false;
+        const [lease, receipt] = await Promise.all([
+            kv.get(`pet:battle-token:${params.playerName}:${authority.proofId}`),
+            kv.get(hollowGatePetResultKey(params.playerName, authority.proofId)),
+        ]);
+        if (lease || receipt) return false;
+        await kv.del(bindingKey);
+        return true;
     }, { failClosed: true });
 }
 

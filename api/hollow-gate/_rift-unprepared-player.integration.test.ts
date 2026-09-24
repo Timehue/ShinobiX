@@ -194,6 +194,16 @@ test('an unprepared level-12 player descends the intro rift and resolves every e
     const toHound = await step(token, [2, 1], [3, 1]);
     assert.equal(toHound.status, 200, 'the card ambush no longer seals movement');
     const houndNode = `floor:1:tile:${tileIndex(3, 1)}`;
+    // An outmatched novice flees first. That must not pin them to the tile.
+    const firstTry = await call('combatStart', { token, floor: 1, kind: 'battle', nodeId: houndNode, mode: 'pve' });
+    assert.equal(firstTry.status, 200, JSON.stringify(firstTry.body));
+    await finishFight(String(firstTry.body.runId), 'fled');
+    const fled = await call('combatSettle', { token, runId: firstTry.body.runId });
+    assert.equal(fled.status, 200, JSON.stringify(fled.body));
+    assert.equal(fled.body.escaped, true);
+    assert.equal((await readSave()).character.ryo, 250, 'fleeing pays nothing');
+    assert.equal((await step(token, [3, 1], [2, 1])).status, 200, 'a fled Hound no longer seals the tile');
+    assert.equal((await step(token, [2, 1], [3, 1])).status, 200);
     const houndStart = await call('combatStart', { token, floor: 1, kind: 'battle', nodeId: houndNode, mode: 'pve' });
     assert.equal(houndStart.status, 200, JSON.stringify(houndStart.body));
     assert.equal(houndStart.body.combatMode, 'solo-pve');
