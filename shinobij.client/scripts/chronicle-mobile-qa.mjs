@@ -109,11 +109,11 @@ for(const response of ['activate','pass','other']) {
   await page.goto(`${origin}/?scenario=response${response==='other'?'-other':''}`);
   if(response==='other') {
     await expect(page.locator('.chronicle-response-waiting')).toContainText('Keeper is deciding');
-    await expect(page.getByRole('button',{name:'Pass',exact:true})).toHaveCount(0);
+    await expect(page.getByRole('button',{name:'Pass · Continue',exact:true})).toHaveCount(0);
   } else {
     const group=page.getByRole('group',{name:'Snare response'});
     await expect(group).toBeVisible();
-    await group.getByRole('button',{name:response==='pass'?'Pass':/^Activate /}).click();
+    await group.getByRole('button',{name:response==='pass'?'Pass · Continue':/^Activate /}).click();
     await expect(page.locator('.chronicle-error')).toHaveCount(0);
     await expect(group).toHaveCount(0);
   }
