@@ -11,10 +11,12 @@ import type { HollowGateStartResult } from "./hollow-gate-server";
  * Shown when the first floor cannot be built after the server has already
  * started the run — i.e. after the Hollow Gate Key was debited. The key is NOT
  * lost: the start is durable and replays from character.lastHollowGateStart,
- * so re-entering the shrine recovers this exact run without spending another.
+ * so entering the shrine again recovers this exact run without spending another.
+ * It asks for a reload first because a generator chunk that failed to download
+ * stays failed for the life of the page (see ./hollow-gate-generator-loader).
  */
 export const HOLLOW_GATE_FLOOR_LOAD_FAILED =
-    "The Hollow Gate opened, but its first floor could not be drawn because the connection dropped while loading it. Your key was NOT lost. Re-enter the shrine to recover this run. It replays the same start request rather than spending another key.";
+    "The Hollow Gate opened, but its first floor could not be drawn because the connection dropped while loading it. Your key was NOT lost. Reload the page, then enter the shrine again to recover this run. It replays the same start request rather than spending another key.";
 
 /**
  * Turn a server start response into the local run state.

@@ -498,13 +498,13 @@ import { resumeHollowGateServerRun, settleHollowGateRunOnly, startHollowGateServ
 import { startHollowGateCombat, settleHollowGateCombat, type HollowGateCombatKind, type HollowGateCombatSettleResult, type HollowGateServerFight } from "./lib/hollow-gate-combat-api";
 import { hollowGateRewardLines, resolveHollowGateServerEvent, sealHollowGateFloor } from "./lib/hollow-gate-event-api";
 import { sealHollowGateStep } from "./lib/hollow-gate-step-api";
-import { startHollowGateCardAmbush, settleHollowGateCardAmbush } from "./lib/hollow-gate-card-api";
+import { startHollowGateCardAmbush, settleHollowGateCardAmbush, hollowGateCardAmbushLogLine } from "./lib/hollow-gate-card-api";
 import {
     formatHollowGateCombatReward,
     type HollowGatePveFightRef,
 } from "./lib/hollow-gate-pve";
 import { useHollowGateAppFlow } from "./lib/hollow-gate-app-flow";
-import { enterHollowGateShrineFlow } from "./lib/hollow-gate-entry";
+import { enterHollowGateShrineFlow, reportHollowGateEntryFailure } from "./lib/hollow-gate-entry";
 import type { StoryBossSettleResult } from "./lib/story-combat-api";
 import { requestStoryBossFight } from "./lib/story-fight-theme";
 import { useSealedFightPresence } from "./lib/use-sealed-fight-presence";
@@ -4846,7 +4846,7 @@ export default function App() {
         return enterHollowGateShrineFlow({
             eventCfg, character, setHollowGateRun, setHollowGateLog, setHollowGateEvent, setHollowGateHiddenChamber,
             setCharacter, setCurrentBiome, setCurrentWeather, setScreen, setHollowGateIntroPage, pushHollowGateLog,
-        });
+        }).catch(reportHollowGateEntryFailure);
     }    // ── Admin-only ops for the Hollow Gate panel ──────────────────────────
     function adminHollowGateForceUnlock(unlock: boolean) {
         if (!character) return;
@@ -4954,7 +4954,7 @@ export default function App() {
                     });
                     return;
                 }
-                pushHollowGateLog("A Chronicle Keeper blocks the corridor. Win or withstand the card showdown to break the ambush seal.");
+                pushHollowGateLog(hollowGateCardAmbushLogLine(started));
                 setHollowGateCardAmbush({ token, nodeId: sealed.nodeId, matchId: started.matchId });
                 setHollowGateTileGameActive(true);
                 setScreen("hollowGateTiles");

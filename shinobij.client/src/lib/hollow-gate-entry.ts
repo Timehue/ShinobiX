@@ -2,10 +2,8 @@ import type { Dispatch, SetStateAction } from "react";
 import { gameConfirm } from "../components/GameAlert";
 import { HOLLOW_GATE_KEY_ID } from "../constants/game";
 import { weatherForBiome } from "../data/sectors";
-import type { Pet } from "../types/pet";
 import type { Character, HollowGateEventConfig, HollowGateShrineRun } from "../types/character";
 import type { Screen, WeatherType } from "../types/core";
-import { activeCarriedPets } from "./entitlements";
 import { countItem } from "./inventory";
 import { currentDateKey } from "./utils";
 import { attunementDailyBonus } from "./hollow-gate-attunement";
@@ -16,6 +14,9 @@ import { hollowGateRunMaxFloor, hollowGateBossDisplayName, variantFromEventConfi
 import { isHollowGateUnlocked, loadVillageState } from "./world-state";
 import { requireServerSettlement } from "./server-settlement-gate";
 import type { HiddenChamberState, HollowGateEventModal } from "./hollow-gate-tile";
+
+// App attaches this to its fire-and-forget entry call (see the module).
+export { reportHollowGateEntryFailure } from "./hollow-gate-entry-failure";
 
 type SetState<T> = Dispatch<SetStateAction<T>>;
 
@@ -104,19 +105,6 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
         return;
     }
 
-    if (variant?.id?.startsWith("rift-")) {
-        const { riftEntryReadiness, riftEntryRequirementMessage } = await import("../../../shared/rift-entry-readiness");
-        const readiness = riftEntryReadiness(
-            activeCarriedPets<Pet>(character).length,
-            character.cardClashDeck,
-            character.tileCards,
-        );
-        if (!readiness.ready) {
-            alert(riftEntryRequirementMessage(readiness));
-            return;
-        }
-    }
-
     // Entry rules — BOTH conditions required to start a new run:
     //   (1) The Kage has purchased the Hollow Gate upgrade for this village.
     //       (Event gates skip this unless the config demands it.)
@@ -154,17 +142,13 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
     // → hard stop. A reward-bearing local fallback is never mounted.
     // The settle ledger scales with floorDepth — a short event gate
     // declares its own depth so settlement matches the shorter run.
-    const serverStart = await startHollowGateServerRun(character.name, hollowGateRunMaxFloor({ variant }), variant?.id, undefined, character.cardClashDeck);
+    const serverStart = await startHollowGateServerRun(character.name, hollowGateRunMaxFloor({ variant }), variant?.id);
     if (serverStart?.reason === "daily-cap") {
         alert("The daily entry seal has reached its limit. Return at dawn.");
         return;
     }
     // Named explicitly: the generic fallback below says to retry when the connection is stable, which is unactionable until discharge.
     if (serverStart?.reason === "hospitalized") { alert("You are still being treated. Leave the hospital before descending — no key was spent."); return; }
-    if (serverStart?.reason === "rift-entry-not-ready") {
-        alert("The rift requires 4 carried pets and a legal 40-card Chronicle deck from Card Hall. Prepare your party and deck, then return. No daily entry was used.");
-        return;
-    }
     if (!serverStart?.token || !serverStart.character) {
         alert("The Hollow Gate could not establish a secure server run. No key was spent locally; retry when the connection is stable.");
         return;
