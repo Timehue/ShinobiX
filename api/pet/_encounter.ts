@@ -6,9 +6,17 @@ const TRAITS = ['Loyal', 'Aggressive', 'Guardian', 'Swift', 'Lucky', 'Battleborn
 export type WildPetTrait = typeof TRAITS[number];
 export const DAILY_WILD_ENCOUNTER_ATTEMPTS = 150;
 
-export function rollWildPet(random: () => number, now = Date.now(), condition?: { weather: SectorWeather }): Record<string, unknown> | null {
-    const roll = random();
-    const rarity = roll <= 0.002 ? 'mythic' : roll <= 0.007 ? 'legendary' : roll <= 0.01 ? 'rare' : roll <= 0.05 ? 'standard' : null;
+/** The Explore hit ceiling: a roll above this is a miss. */
+const WILD_HIT_CEILING = 0.05;
+
+/**
+ * `guaranteed` (a Tracker trail's final sector) always yields a pet: the first
+ * roll is scaled into the hit band, so the rarity mix is exactly an Explore
+ * HIT's (80% standard, 6% rare, 10% legendary, 4% mythic).
+ */
+export function rollWildPet(random: () => number, now = Date.now(), condition?: { weather: SectorWeather }, options?: { guaranteed?: boolean }): Record<string, unknown> | null {
+    const roll = options?.guaranteed ? random() * WILD_HIT_CEILING : random();
+    const rarity = roll <= 0.002 ? 'mythic' : roll <= 0.007 ? 'legendary' : roll <= 0.01 ? 'rare' : roll <= WILD_HIT_CEILING ? 'standard' : null;
     if (!rarity) return null;
     const pool = Object.values(PET_CATALOG).filter((pet) => pet.rarity === rarity && pet.wildSpawnable !== false);
     const unit = Math.max(0, Math.min(0.999999, random()));

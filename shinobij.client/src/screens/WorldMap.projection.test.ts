@@ -16,6 +16,7 @@ const hudSource = readFileSync(new URL("../components/SectorHud.tsx", import.met
 const rowSource = readFileSync(new URL("../components/SectorPlayerRow.tsx", import.meta.url), "utf8");
 const rosterSource = readFileSync(new URL("../lib/sector-player-roster.ts", import.meta.url), "utf8");
 const overlaySource = readFileSync(new URL("../components/WorldSectorOverlayLayer.tsx", import.meta.url), "utf8");
+const fieldMarkerSource = readFileSync(new URL("../components/SectorStoryFieldMarker.tsx", import.meta.url), "utf8");
 const dialogSource = readFileSync(new URL("../components/WorldWandererDialog.tsx", import.meta.url), "utf8");
 const storyFieldRouteBoundarySource = readFileSync(new URL("../components/StoryFieldRouteBoundary.tsx", import.meta.url), "utf8");
 
@@ -166,9 +167,11 @@ test("WorldMap and its selected-sector leaves keep the projection line-budget ra
         // 162 (-4): per-sector placements (data/sector-structure-placements.ts)
         // replaced the one-position-plus-shrine-step-aside stopgap, which was longer
         // than the lookup that superseded it. Tightened to lock the win in.
-        lineCount(overlaySource) <= 163,
-        `WorldSectorOverlayLayer.tsx grew past 163 lines; portals and workflows must remain in WorldMap.`,
+        // 160: the cairn art and nameplate live in the separately budgeted marker.
+        lineCount(overlaySource) <= 160,
+        `WorldSectorOverlayLayer.tsx grew past 160 lines; portals and workflows must remain in WorldMap.`,
     );
+    assert.ok(lineCount(fieldMarkerSource) <= 30, "SectorStoryFieldMarker must stay a small presentation leaf.");
     assert.ok(
         lineCount(dialogSource) <= 375,
         `WorldWandererDialog.tsx grew past 375 lines; workflows and authority must remain in WorldMap.`,
@@ -237,12 +240,14 @@ test("WorldSectorCommandPanel stays hook-free, network-free, persistence-free, a
 });
 
 test("WorldSectorOverlayLayer stays wrapper-free, hook-free, network-free, persistence-free, and authority-free", () => {
-    assert.doesNotMatch(overlaySource, /\buse(?:State|Effect|LayoutEffect|Reducer|Ref|Memo|Callback|ImperativeHandle)\s*\(/u);
-    assert.doesNotMatch(overlaySource, /\bfetch\s*\(/u);
-    assert.doesNotMatch(overlaySource, /\b(?:localStorage|sessionStorage)\b/u);
-    assert.doesNotMatch(overlaySource, /\bcreatePortal\s*\(/u);
-    assert.doesNotMatch(overlaySource, /\bDate\.now\s*\(|\b(?:setInterval|setTimeout)\s*\(/u);
-    assert.doesNotMatch(overlaySource, /\b(?:mutationAvailability|capabilityAdmissionAllowed|loadSectorTerritory|isSectorTracesEnabled|isWeeklyBossRoamEnabled|weeklyBossRoamState)\b/u);
+    // Include the extracted field marker so moving code cannot bypass this guard.
+    const presentation = [overlaySource, fieldMarkerSource].join('\n');
+    assert.doesNotMatch(presentation, /\buse(?:State|Effect|LayoutEffect|Reducer|Ref|Memo|Callback|ImperativeHandle)\s*\(/u);
+    assert.doesNotMatch(presentation, /\bfetch\s*\(/u);
+    assert.doesNotMatch(presentation, /\b(?:localStorage|sessionStorage)\b/u);
+    assert.doesNotMatch(presentation, /\bcreatePortal\s*\(/u);
+    assert.doesNotMatch(presentation, /\bDate\.now\s*\(|\b(?:setInterval|setTimeout)\s*\(/u);
+    assert.doesNotMatch(presentation, /\b(?:mutationAvailability|capabilityAdmissionAllowed|loadSectorTerritory|isSectorTracesEnabled|isWeeklyBossRoamEnabled|weeklyBossRoamState)\b/u);
     assert.match(overlaySource, /return \(\s*<>/u);
     assert.doesNotMatch(overlaySource, /return \(\s*<(?:div|main|section|aside)\b/u);
 });

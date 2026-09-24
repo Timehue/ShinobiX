@@ -46,11 +46,11 @@ export function PetHomeTabs({ active, onHomeTab, setScreen }: {
 }) {
     return (
         <nav className="pet-home-tabs" aria-label="Companion Home sections">
-            <button type="button" aria-label="Collection" aria-current={active === "collection" ? "page" : undefined} onClick={() => openHomeTab("collection", onHomeTab, setScreen)}><GameIcon name="medal" /><PetHomeTabLabel full="Collection" short="Roster" /></button>
+            <button type="button" aria-label="Collection" aria-current={active === "collection" ? "page" : undefined} onClick={() => openHomeTab("collection", onHomeTab, setScreen)}><GameIcon name="medal" /><PetHomeTabLabel full="Collection" short="Collection" /></button>
             <button type="button" aria-label="Pet Yard" aria-current={active === "yard" ? "page" : undefined} onClick={() => setScreen("pets")}><GameIcon name="paw" /><PetHomeTabLabel full="Pet Yard" short="Yard" /></button>
             <button type="button" aria-label="Pet Arena" aria-current={active === "arena" ? "page" : undefined} onClick={() => setScreen("petArena")}><GameIcon name="sword" /><PetHomeTabLabel full="Pet Arena" short="Arena" /></button>
             <button type="button" aria-label="Sanctuary" aria-current={active === "sanctuary" ? "page" : undefined} onClick={() => openHomeTab("sanctuary", onHomeTab, setScreen)}><GameIcon name="shield" /><PetHomeTabLabel full="Sanctuary" short="Sanctuary" /></button>
-            <button type="button" aria-label="Shinobi Hatchery" aria-current={active === "breeding" ? "page" : undefined} onClick={() => openHomeTab("breeding", onHomeTab, setScreen)}><GameIcon name="sparkle" /><PetHomeTabLabel full="Shinobi Hatchery" short="Breed" /></button>
+            <button type="button" aria-label="Shinobi Hatchery" aria-current={active === "breeding" ? "page" : undefined} onClick={() => openHomeTab("breeding", onHomeTab, setScreen)}><GameIcon name="sparkle" /><PetHomeTabLabel full="Shinobi Hatchery" short="Hatchery" /></button>
         </nav>
     );
 }
