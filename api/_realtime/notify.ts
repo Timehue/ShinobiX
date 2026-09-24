@@ -70,6 +70,23 @@ export function kickPlayer(name: string | undefined | null, reason: 'attack' | '
     }
 }
 
+/**
+ * Tell a player's own tabs about a save version the server committed with NO
+ * request of theirs in flight to carry it — today, a travel arrival settled by
+ * the heartbeat/socket settler. Only for writes whose changes an autosave cannot
+ * undo (server-owned fields, server-clamped vitals): the client adopts the
+ * version alone, without a character. No-op without a socket; the 409 →
+ * refetch recovery stays the fallback.
+ */
+export function pushSaveVersion(name: string | undefined | null, version: number): void {
+    if (!_emit || !name || !Number.isSafeInteger(version) || version <= 0) return;
+    try {
+        _emit(`user:${canon(name)}`, 'save:version', { version });
+    } catch {
+        /* best-effort — the save route's 409 recovery remains authoritative */
+    }
+}
+
 /** Publish only a revision hint; clients refetch authenticated Tower authority. */
 export function kickTowerPlayers(
     names: Iterable<string | undefined | null>,
