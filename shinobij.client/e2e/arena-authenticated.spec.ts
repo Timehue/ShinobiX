@@ -1,6 +1,7 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 import { PUBLIC_CAPABILITY_IDS } from "../../shared/public-capabilities";
 import { RANKED_MIN_LEVEL } from "../../shared/ranked-eligibility";
+import { LATEST_PATCH_NOTE } from "../src/data/patch-notes";
 import type { SoloPveActionInput, SoloPveSession } from "../src/lib/solo-pve-api";
 
 type SavePayload = {
@@ -510,9 +511,12 @@ test("Arena District serializes ranked join, poll, and leave on desktop and mobi
     const isMobile = testInfo.project.name === "chromium-mobile";
     test.skip(!isDesktop && !isMobile, "ranked lifecycle runs at the canonical desktop and mobile viewports");
 
-    await page.addInitScript(() => {
+    await page.addInitScript((patchVersion) => {
         localStorage.setItem("dailyBriefing.seen.v1", new Date().toISOString().slice(0, 10));
-    });
+        // This test certifies ranked queue behavior; the established-player
+        // patch note may otherwise open after the story scenes and block it.
+        localStorage.setItem("patchNotes.lastSeenVersion.v1", patchVersion);
+    }, LATEST_PATCH_NOTE?.version ?? "");
     const api = await installArenaApi(page, { certifyRankedQueueLifecycle: true });
     await createAccount(page);
     await expect.poll(api.hasSave).toBe(true);
