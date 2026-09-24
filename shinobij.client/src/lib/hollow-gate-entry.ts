@@ -50,14 +50,19 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
     // If the start response or first browser save was interrupted, replay
     // the exact request marker. This neither spends a second key nor bumps
     // the daily count; the start endpoint returns the durable original run.
-    if (!character.hollowGateRun && character.lastHollowGateStart?.requestId) {
-        const pending = character.lastHollowGateStart;
-        const recovered = await startHollowGateServerRun(
+    // A marker the server reports as spent belongs to a run that already
+    // ended; fall through to a fresh start (new request id, full entry checks).
+    let recovered: Awaited<ReturnType<typeof startHollowGateServerRun>> = null;
+    const pending = !character.hollowGateRun ? character.lastHollowGateStart : undefined;
+    if (pending?.requestId) {
+        recovered = await startHollowGateServerRun(
             character.name,
             hollowGateRunMaxFloor({ variant }),
             variant?.id,
             pending.requestId,
         );
+    }
+    if (pending?.requestId && recovered?.reason !== "hollow-gate-start-spent") {
         if (!recovered?.token || recovered.token !== pending.token) {
             alert("Your paid Hollow Gate start could not be recovered safely. No new key was spent; retry after reconnecting.");
             return;
