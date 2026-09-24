@@ -189,13 +189,23 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
         if (existing) return existing;
         const request = (async () => {
             try {
-                const response = await fetch(`/api/save/${encodeURIComponent(accountName.toLowerCase())}`, {
-                    cache: "no-store",
-                    signal: requestSignal(),
-                });
-                if (!response.ok || !params.isCurrentSession(accountKey, epoch)) return false;
-                const snapshot = await response.json() as TPayload & { _saveVersion?: number };
-                if (!params.isCurrentSession(accountKey, epoch)) return false;
+                let snapshot: TPayload & { _saveVersion?: number };
+                for (let attempt = 0; ; attempt += 1) {
+                    const response = await fetch(`/api/save/${encodeURIComponent(accountName.toLowerCase())}`, {
+                        cache: "no-store",
+                        signal: requestSignal(),
+                    });
+                    if (!response.ok || !params.isCurrentSession(accountKey, epoch)) return false;
+                    snapshot = await response.json() as TPayload & { _saveVersion?: number };
+                    if (!params.isCurrentSession(accountKey, epoch)) return false;
+                    // A version adopted while this GET was in flight (a mutation
+                    // response, or the server's push after it settles a travel
+                    // arrival) can outrun it. The server already holds that newer
+                    // save, so read once more rather than fail the recovery: a failed
+                    // recovery counts toward the red save-failure banner. Still
+                    // stale after that, it is rejected below exactly as before.
+                    if (attempt >= 1 || acceptVersionedSnapshot(params.latestVersion.current, snapshot._saveVersion).accepted) break;
+                }
                 const localAtInstall = params.currentSnapshot();
                 if (currencyRecovery) {
                     // Classification is rare and user-visible, so its ownership
