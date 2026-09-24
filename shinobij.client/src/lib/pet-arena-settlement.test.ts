@@ -237,6 +237,8 @@ test("rewarded Warfronts render and settle only the server-minted seed", () => {
         "the lobby must explain why this is tactical rather than a collision brawl");
     assert.match(setupSource, /Best of three/, "the match is best-of-three clashes");
     assert.match(setupSource, /RE-FORM/, "the one mid-match decision must be advertised");
+    assert.doesNotMatch(setupSource, /once per Rite/i,
+        "a re-form is offered after every clash that does not end the Rite, not once per match");
     const retiredSequentialCopy = /Winner stays in|stays in wounded|one duel at a time|SWAP TOKEN|batting order/i;
     assert.doesNotMatch(setupSource, retiredSequentialCopy,
         "that is the retired sequential design — the Rite fights all eight at once");

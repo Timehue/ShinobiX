@@ -2277,7 +2277,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                                 <div><span>THE CLASH</span><strong>Control sight and space</strong><small>Owned cells prevent shoving; shoji, cover, smoke, range, and roles shape every route.</small></div>
                                                 <div><span>VICTORY</span><strong>Best of three</strong><small>First to two clashes. Bodies standing, then remaining health, decides each clash.</small></div>
                                             </div>
-                                            <p><span>♜ RE-FORM</span>Once per Rite, after the opening clash, you may move any pet to any open deployment cell.</p>
+                                            <p><span>♜ RE-FORM</span>Between clashes, you may move any pet to any open deployment cell.</p>
                                             <p><span>◐ ELEMENTS</span>Type advantage matters, but the band is yours to build — bring whatever you think wins.</p>
                                         </div>
 
