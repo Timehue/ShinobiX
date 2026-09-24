@@ -46,6 +46,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 requestId?: string;
             }>(key);
             if (!encounter || encounter.playerName !== playerName) return { ok: false as const, status: 409, error: 'invalid-or-spent-encounter' };
+            // Tracker-trail pets (api/sector/_tracker-trail.ts) are always minted
+            // battleRequired, so they stop here and this path never needs their
+            // trail proof. If that ever changes, add trackerTrailDiscovery below.
             if ((encounter as Record<string, unknown>).battleRequired === true) return { ok: false as const, status: 409, error: 'wild-battle-required' };
             const exploreReceiptId = typeof encounter.exploreReceiptId === 'string' ? encounter.exploreReceiptId : '';
             const projectedExplored = exploreReceiptId && Array.isArray(character.redeemedSectorExplorations)
