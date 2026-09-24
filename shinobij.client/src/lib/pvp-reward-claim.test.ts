@@ -257,7 +257,7 @@ describe("pvp-reward-claim", () => {
             // The server may already have committed its receipt; the browser
             // observes only the dropped acknowledgement.
             throw new Error("response lost after commit");
-        }, request);
+        }, request, { transientRetryDelaysMs: [0, 0] });
         assert.equal(lostAck.status, "retry");
         const replay = await postPvpRewardClaim(async () => response(200, {
             ok: true,
@@ -365,7 +365,7 @@ describe("pvp-reward-claim", () => {
         assert.match(screen, /renewDeadline = \(\) => \{[\s\S]*?completionPhaseStartedAt = Date\.now\(\)/,
             "a completed stage must restart the phase budget, or a slow-but-progressing settlement "
             + "aborts at the same ceiling on every retry and can never finish");
-        assert.match(serverClaim, /if \(terminalIsDraw\)[\s\S]*await replayCommittedPvpTerminalEffects\(session\)/,
+        assert.match(serverClaim, /if \(terminalIsDraw\)[\s\S]*await replayCommittedPvpTerminalEffects\(session, SEALED_TERMINAL_REPLAY\)/,
             "draw claims must help forward official terminal effects before completion");
         const pvpMount = app.slice(
             app.indexOf('{screen === "pvpBattle"'),
@@ -381,20 +381,53 @@ describe("pvp-reward-claim", () => {
             new URL("../../../api/pvp/_committed-terminal-effects.ts", import.meta.url), "utf8");
         assert.match(terminalEffects, /await settlePvpClanWarContinuation\(session\)/,
             "either participant claim must help the sealed Clan War result forward");
-        assert.match(serverClaim, /replayCommittedPvpTerminalEffects\(session\)/,
+        assert.match(serverClaim, /replayCommittedPvpTerminalEffects\(session, SEALED_TERMINAL_REPLAY\)/,
             "the claim must route through the replay that owns that settlement");
         assert.ok(!screen.includes("damageSectorTerritory("), "the PvP claim UI must not write territory locally");
     });
 
     it("keeps non-2xx receipt failures retryable", async () => {
-        const result = await postPvpRewardClaim(async () => response(503, {
-            error: "Could not reserve the battle reward receipt. Please retry.",
-        }), { playerName: "rin", battleId: "battle-1", outcome: "win" });
+        let calls = 0;
+        const result = await postPvpRewardClaim(async () => {
+            calls += 1;
+            return response(503, { error: "Could not reserve the battle reward receipt. Please retry." });
+        }, { playerName: "rin", battleId: "battle-1", outcome: "win" }, { transientRetryDelaysMs: [0, 0] });
 
         assert.deepEqual(result, {
             status: "retry",
             message: "Could not reserve the battle reward receipt. Please retry.",
         });
+        assert.equal(calls, 3, "a persistent 503 is resent twice before the player sees Retry");
+    });
+
+    it("resends a transient settlement 503 automatically instead of stranding the player on Retry", async () => {
+        const replies = [
+            response(503, { error: "The ranked result is still being confirmed. Retry this claim." }),
+            response(200, { ok: true, alreadyClaimed: false, completionPending: true, rewardAuthorized: true }),
+        ];
+        const bodies: string[] = [];
+        const result = await postPvpRewardClaim(async (_input, init) => {
+            bodies.push(String(init.body));
+            return replies.shift()!;
+        }, { playerName: "rin", battleId: "battle-1", outcome: "win" }, { transientRetryDelaysMs: [0, 0] });
+        assert.equal(result.status, "confirmed");
+        assert.equal(bodies.length, 2);
+        assert.equal(bodies[0], bodies[1], "the resend is the identical exactly-once request");
+
+        const ackReplies = [response(503, {}), response(200, { ok: true, completionPending: false })];
+        const ack = await postPvpRewardCompletionAck(async () => ackReplies.shift()!,
+            { playerName: "rin", battleId: "battle-1", outcome: "win" }, { transientRetryDelaysMs: [0] });
+        assert.deepEqual(ack, { status: "confirmed" });
+    });
+
+    it("never resends a decisive refusal", async () => {
+        let calls = 0;
+        const result = await postPvpRewardClaim(async () => {
+            calls += 1;
+            return response(409, { error: "Claim outcome does not match the terminal battle." });
+        }, { playerName: "rin", battleId: "battle-1", outcome: "win" }, { transientRetryDelaysMs: [0, 0] });
+        assert.equal(result.status, "retry");
+        assert.equal(calls, 1);
     });
 
     it("fails closed on malformed 2xx responses", async () => {
@@ -408,7 +441,7 @@ describe("pvp-reward-claim", () => {
     it("keeps network failures retryable", async () => {
         const result = await postPvpRewardClaim(async () => {
             throw new Error("offline");
-        }, { playerName: "rin", battleId: "battle-1", outcome: "loss" });
+        }, { playerName: "rin", battleId: "battle-1", outcome: "loss" }, { transientRetryDelaysMs: [0, 0] });
 
         assert.deepEqual(result, {
             status: "retry",

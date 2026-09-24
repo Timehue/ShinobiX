@@ -143,8 +143,14 @@ export async function ensurePvpTerminalRecoveryPublication(
     store: RecoveryPublicationStore,
     battleId: string,
     session: PvpSession,
+    options: { snapshotSealed?: boolean } = {},
 ): Promise<PvpSession> {
-    const terminal = await sealPvpRewardRecoverySnapshot(store, battleId, session);
+    // A claim seals this exact row (or loads it from the seal) before it asks
+    // for the replay, so re-reading and deep-comparing the multi-hundred-KB
+    // snapshot here would only repeat that proof. Pointers still publish below.
+    const terminal = options.snapshotSealed && session.battleId === battleId
+        ? session
+        : await sealPvpRewardRecoverySnapshot(store, battleId, session);
     await releasePvpTerminalPresence(store, terminal);
     if (isCancelledUnstartedPvpDuel(terminal)) {
         // Cancellation has no browser continuation. Release both sides here,

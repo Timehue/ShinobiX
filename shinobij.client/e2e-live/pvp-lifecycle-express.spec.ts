@@ -2,6 +2,7 @@ import { expect, type APIRequestContext, type Page } from '@playwright/test';
 import { API_CONNECTION_RETRIES, test } from './helpers/reconnecting-request';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 import { AURA_SPHERE_VN_ID } from '../src/constants/game';
+import { PVP_CLAIM_TRANSIENT_RETRY_DELAYS_MS } from '../src/lib/pvp-reward-claim';
 import { WORLD_GEO_VERSION } from '../../shared/sector-geo';
 
 async function seed(request: APIRequestContext, suffix: string) {
@@ -144,15 +145,18 @@ test('two players join, take turns, refresh, finish, and recover lost claim and 
         await expect.poll(async () => (await state()).activePlayer).not.toBe(firstRole);
         await defender.reload();
         await expect(defender.locator('.pvp-battle-layout')).toBeVisible();
-        let droppedClaim = false;
-        let droppedAck = false;
+        // The client resends a lost claim or ACK on its own before it offers
+        // Retry, so drop that whole automatic run to reach the manual path.
+        const triesPerPress = 1 + PVP_CLAIM_TRANSIENT_RETRY_DELAYS_MS.length;
+        let droppedClaims = 0;
+        let droppedAcks = 0;
         await page.route('**/api/pvp/claim-rewards', async route => {
             const ack = route.request().postDataJSON()?.completionAck === true;
-            if (ack ? !droppedAck : !droppedClaim) {
+            if (ack ? droppedAcks < triesPerPress : droppedClaims < triesPerPress) {
                 const committed = await route.fetch({ maxRetries: API_CONNECTION_RETRIES });
                 expect(committed.status(), await committed.text()).toBe(200);
-                if (ack) droppedAck = true;
-                else droppedClaim = true;
+                if (ack) droppedAcks += 1;
+                else droppedClaims += 1;
                 await route.abort('failed');
             } else await route.continue();
         });
@@ -173,8 +177,9 @@ test('two players join, take turns, refresh, finish, and recover lost claim and 
         }
         await expect.poll(async () => (await state()).status).toBe('done');
         await expect(page.getByRole('button', { name: 'Retry', exact: true })).toBeVisible();
+        expect(droppedClaims, 'the lost claim was resent automatically before Retry was offered').toBe(triesPerPress);
         await page.getByRole('button', { name: 'Retry', exact: true }).click();
-        await expect.poll(() => droppedAck).toBe(true);
+        await expect.poll(() => droppedAcks).toBe(triesPerPress);
         await expect(page.getByRole('button', { name: 'Retry', exact: true })).toBeVisible();
         // The first successful continuation also settles first-win achievement
         // rewards. Compare only after those legitimate credits and the ACK

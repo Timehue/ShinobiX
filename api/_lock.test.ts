@@ -63,6 +63,48 @@ describe('withLockCore', () => {
         assert.equal(attempts, 2, 'retried up to maxAttempts before failing closed');
     });
 
+    // Runs every continuation that is not waiting on a (mocked) timer.
+    const drainMicrotasks = () => new Promise<void>((resolve) => setImmediate(resolve));
+
+    it('fails closed without sleeping after its final attempt', async (t) => {
+        // The last backoff step (400ms at the default settings) used to run
+        // before the throw, delaying every contended settlement's 503.
+        t.mock.timers.enable({ apis: ['setTimeout'] });
+        let attempts = 0;
+        const prims: LockPrimitives = {
+            tryAcquire: async () => { attempts++; return null; },
+            release: async () => { /* unused */ },
+        };
+        let outcome: unknown = 'pending';
+        void withLockCore('save:slow', async () => 1, prims, { maxAttempts: 2, baseBackoffMs: 500, failClosed: true })
+            .then(() => { outcome = 'resolved'; }, (err: unknown) => { outcome = err; });
+        await drainMicrotasks();
+        assert.equal(attempts, 1);
+        t.mock.timers.tick(999); // the one pause between attempts: 500ms plus up to 499ms of jitter
+        await drainMicrotasks();
+        assert.equal(attempts, 2);
+        assert.ok(outcome instanceof LockContendedError, 'threw straight after the last attempt, with no timer left to wait on');
+    });
+
+    it('still pauses after its final attempt before running fn unlocked', async (t) => {
+        // The fall-through path keeps the pause: it gives the holder time to
+        // finish before the unlocked run.
+        t.mock.timers.enable({ apis: ['setTimeout'] });
+        let ran = false;
+        const prims: LockPrimitives = {
+            tryAcquire: async () => null,
+            release: async () => { /* unused */ },
+        };
+        const run = withLockCore('chat-slow', async () => { ran = true; return 'ok'; }, prims, { maxAttempts: 2, baseBackoffMs: 500 });
+        await drainMicrotasks();
+        t.mock.timers.tick(999);
+        await drainMicrotasks();
+        assert.equal(ran, false, 'the pause after the last attempt (1000ms or more) is still running');
+        t.mock.timers.tick(1_499);
+        assert.equal(await run, 'ok');
+        assert.equal(ran, true);
+    });
+
     it('acquires on a later attempt and runs fn', async () => {
         let n = 0;
         const released: string[] = [];
