@@ -37,10 +37,8 @@
 .pet-arena-lobby > * { position: relative; z-index: 1; }
 
 .pet-arena-lobby > .pet-home-tabs {
-    width: min(980px, calc(100% - 2rem));
-    margin: .75rem auto !important;
-    border-color: rgba(240, 202, 121, .24);
-    background: rgba(4, 11, 20, .9);
+    width: min(920px, calc(100% - 2rem));
+    margin: .75rem auto 1.5rem !important;
 }
 
 /* ── Cinematic command header ─────────────────────────────────────────── */
@@ -123,7 +121,9 @@
 .pet-arena-season i { width: 7px; height: 7px; border-radius: 50%; background: #51e5a5; box-shadow: 0 0 12px rgba(81,229,165,.9); }
 
 .pet-arena-command-copy {
+    box-sizing: border-box;
     align-self: center;
+    min-width: 0;
     width: min(700px, 64%);
     padding: 4.6rem clamp(1.25rem, 4vw, 3.5rem) 7rem;
 }
@@ -170,6 +170,7 @@
     .pet-arena-activity-nav button:hover:not(:disabled) { transform: translateY(-2px); border-color: rgba(240,202,121,.48); background: rgba(12,24,36,.9); }
 }
 .pet-arena-activity-nav button.active { border-color: rgba(102,224,223,.7); color: #e9ffff; background: linear-gradient(135deg,rgba(22,83,92,.88),rgba(7,27,40,.9)); box-shadow: 0 0 0 1px rgba(102,224,223,.14) inset,0 10px 28px rgba(0,0,0,.2); }
+.pet-arena-activity-nav button:focus-visible { outline: 2px solid var(--arena-gold); outline-offset: 2px; }
 .pet-arena-activity-nav button:disabled { opacity: .5; cursor: not-allowed; }
 .pet-arena-activity-icon { display: grid; place-items: center; overflow: hidden; width: 39px; height: 39px; border: 1px solid rgba(240,202,121,.24); border-radius: 10px; color: var(--arena-gold); background: rgba(240,202,121,.07); }
 .pet-arena-activity-nav button.active .pet-arena-activity-icon { border-color: rgba(102,224,223,.45); color: var(--arena-cyan); background: rgba(102,224,223,.1); }
@@ -333,19 +334,20 @@
     .pet-arena-command-topline { top: .7rem; right: .7rem; left: .7rem; }
     .pet-arena-season { display: none; }
     .pet-arena-return { max-width: 100%; }
-    .pet-arena-command-copy { min-height: 350px; padding: 5.45rem .9rem .75rem; }
+    .pet-arena-command-copy { min-height: 0; padding: 5.45rem .9rem .9rem; }
     .pet-arena-command h1 { max-width: 8ch; font-size: clamp(2.65rem,14vw,3.8rem); }
     .pet-arena-command-copy > p { max-width: 31rem; font-size: .74rem; line-height: 1.45; }
     .pet-arena-eyebrow { margin-bottom: .55rem; font-size: .56rem; letter-spacing: .18em; }
-    .pet-arena-readiness { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: .35rem; margin-top: .9rem; }
-    .pet-arena-readiness > div { gap: 0; min-height: 52px; padding: .42rem .38rem; }
+    .pet-arena-readiness { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .4rem; margin-top: .9rem; }
+    .pet-arena-readiness > div { gap: 0; min-height: 56px; padding: .5rem .6rem; }
+    .pet-arena-readiness > div:last-child { grid-column: 1 / -1; }
     .pet-arena-readiness > div > svg { display: none; }
-    .pet-arena-readiness small { font-size: .43rem; letter-spacing: .08em; }
-    .pet-arena-readiness strong { font-size: .61rem; }
+    .pet-arena-readiness small { font-size: .61rem; letter-spacing: .08em; }
+    .pet-arena-readiness strong { font-size: .74rem; }
     .pet-arena-activity-nav { gap: .35rem; margin: 0 .7rem .7rem; }
-    .pet-arena-activity-nav button { grid-template-columns: 1fr; justify-items: center; gap: .25rem; min-height: 72px; padding: .45rem .2rem; text-align: center; }
+    .pet-arena-activity-nav button { grid-template-columns: 1fr; justify-items: center; gap: .25rem; min-height: 78px; padding: .45rem .2rem; text-align: center; }
     .pet-arena-activity-nav small { display: none; }
-    .pet-arena-activity-nav strong { font-size: .58rem; line-height: 1.15; white-space: normal; }
+    .pet-arena-activity-nav strong { font-size: .68rem; line-height: 1.15; white-space: normal; }
     .pet-arena-activity-icon { width: 32px; height: 32px; border-radius: 9px; }
     .pet-arena-panel-heading { grid-template-columns: auto minmax(0,1fr); }
     .pet-arena-panel-heading > strong { grid-column: 2; justify-self: start; }
