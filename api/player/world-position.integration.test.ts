@@ -112,6 +112,26 @@ test('owner reads settle the durable journey and keep its arrival on later autos
     assert.equal((await kv.get<Json>(SAVE))?.currentTile, 44);
 });
 
+// REGRESSION (red "Couldn't save your progress" after travel): this GET is the
+// client's 409-recovery refetch, and it lands while the heartbeat's arrival
+// settle holds the lease lock. The default ~775ms budget answered 503, the
+// client counted a failed recovery, and two of those raised the banner.
+test('an owner read outwaits an arrival settle holding the lease lock', async () => {
+    await travel.setTravelLease(PLAYER, { originSector: 12, destinationSector: 13,
+        arrivalAt: Date.now() - 10, arrivalTile: 44, moveId: 'owner-read-contended' });
+    const lockKey = `lock:${travel.travelLeaseKey(PLAYER)}`;
+    await kv.set(lockKey, 'held-by-heartbeat-settle', { nx: true, ex: 5 });
+    const release = setTimeout(() => { void kv.del(lockKey); }, 1_200);
+    try {
+        const out = await request(saveHandler, 'GET');
+        assert.equal(out.status, 200, JSON.stringify(out.body));
+        assert.equal(out.body?.currentSector, 13);
+    } finally {
+        clearTimeout(release);
+        await kv.del(lockKey);
+    }
+});
+
 test('owner reads recover an in-flight loading mask from the server lease only', async () => {
     const arrivalAt = Date.now() + 60_000;
     await travel.setTravelLease(PLAYER, { originSector: 12, destinationSector: 13,
