@@ -3985,6 +3985,18 @@ export type ChroniclePresentationEventKind =
  */
 export interface ChroniclePresentationEvent {
   id: string;
+  /** Events from one committed action share a presentation beat. */
+  actionId?: string;
+  /** Public, authoritative resolution notes; never inferred by the client. */
+  details?: string[];
+  affectedZones?: Array<{
+    side: ChronicleSideKey;
+    zoneIndex: number;
+    row: "monster" | "backrow";
+    change?: "returned" | "removed" | "stats" | "position";
+    attackDelta?: number;
+    defenseDelta?: number;
+  }>;
   kind: ChroniclePresentationEventKind;
   turnNumber: number;
   at: number;
@@ -6368,6 +6380,13 @@ export function activateTrap(
         ]?.instanceId
       : undefined;
   const trapResolution = resolveTrapEffect(next, card, copiedWindow);
+  if (copiedWindow.trigger === "onAttackDeclared") {
+    trapResolution.state.log.push(
+      trapResolution.cancelPending
+        ? `${card.name} stops the attack. No battle damage is dealt.`
+        : `${card.name} resolves. The attack continues with the updated field.`,
+    );
+  }
   if (trapResolution.cancelPending) return success(trapResolution.state);
   const pendingResolution = resolvePending(trapResolution.state, copiedWindow);
   if (
@@ -7068,6 +7087,7 @@ function appendActionPresentationEvents(
   now: number,
 ): void {
   after.events ??= (before.events ?? []).slice();
+  const previousEventIds = new Set((before.events ?? []).map((event) => event.id));
   const handCardId = before[actor].hand[Number(intent.handIndex)];
   const actorMonster = before[actor].monsterZones[
     Number(intent.attackerZoneIndex ?? intent.zoneIndex)
@@ -7127,6 +7147,10 @@ function appendActionPresentationEvents(
                         before[actor].magicTrapZones[Number(intent.zoneIndex)]
                           ?.cardId,
                       sourceZoneIndex: Number(intent.zoneIndex),
+                      targetSide: before.responseWindow?.pendingAction.actor,
+                      targetZoneIndex:
+                        before.responseWindow?.pendingAction.attackerZoneIndex ??
+                        before.responseWindow?.pendingAction.zoneIndex,
                     }
                   : intent.action === "attack"
                     ? {
@@ -7281,6 +7305,52 @@ function appendActionPresentationEvents(
       },
       now,
     );
+
+  const committedEvents = after.events.filter((event) => !previousEventIds.has(event.id));
+  const firstEvent = committedEvents[0];
+  if (firstEvent) {
+    for (const event of committedEvents) event.actionId = firstEvent.id;
+    const affectedZones: NonNullable<ChroniclePresentationEvent["affectedZones"]> = [];
+    // Existing rules messages are already public in both viewer projections.
+    // Add missing visible changes so a return, stat change or seal cannot be silent.
+    const details = after.log.slice(before.log.length).filter((line) =>
+      !/ activates | may respond| passes the Snare response| declares an attack| enters /i.test(line),
+    );
+    for (const sideKey of ["p1", "p2"] as const) {
+      const handBefore = graveyardCounts(before[sideKey].hand);
+      const handAfter = graveyardCounts(after[sideKey].hand);
+      before[sideKey].monsterZones.forEach((monster, index) => {
+        if (!monster) return;
+        const current = after[sideKey].monsterZones[index];
+        const name = monster.faceUp ? getChronicleCard(monster.cardId)?.name ?? "Monster" : "A face-down Monster";
+        const returned = !current && (handAfter.get(monster.cardId) ?? 0) > (handBefore.get(monster.cardId) ?? 0);
+        if (!current || current.instanceId !== monster.instanceId)
+          affectedZones.push({ side: sideKey, zoneIndex: index, row: "monster", change: returned ? "returned" : "removed" });
+        else if (current.faceUp !== monster.faceUp || current.position !== monster.position)
+          affectedZones.push({ side: sideKey, zoneIndex: index, row: "monster", change: "position" });
+        if (returned)
+          details.push(`${name} returned to ${after[sideKey].name}'s hand.`);
+        if (current?.instanceId !== monster.instanceId) return;
+        if (monster.faceUp && current.faceUp) {
+          const oldAttack = effectiveAttack(monster, before.activeField, before);
+          const newAttack = effectiveAttack(current, after.activeField, after);
+          const oldDefense = effectiveDefense(monster);
+          const newDefense = effectiveDefense(current);
+          if (oldAttack !== newAttack || oldDefense !== newDefense)
+            affectedZones.push({ side: sideKey, zoneIndex: index, row: "monster", change: "stats", attackDelta: newAttack - oldAttack, defenseDelta: newDefense - oldDefense });
+          if (oldAttack !== newAttack) details.push(`${name}: ATK ${oldAttack} → ${newAttack}.`);
+          if (oldDefense !== newDefense) details.push(`${name}: DEF ${oldDefense} → ${newDefense}.`);
+        }
+        if (monster.faceUp && !current.faceUp) details.push(`${name} is now face-down in Defense Position.`);
+        else if (monster.faceUp && current.faceUp && monster.position !== current.position)
+          details.push(`${name} changed to ${current.position === "defense" ? "Defense" : "Attack"} Position.`);
+      });
+    }
+    // Set identities remain private; setting a card needs only its normal event.
+    if (firstEvent.kind !== "monster-set" && firstEvent.kind !== "trap-set")
+      firstEvent.details = [...new Set(details)];
+    firstEvent.affectedZones = affectedZones;
+  }
 }
 
 export function applyAction(

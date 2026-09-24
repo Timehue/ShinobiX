@@ -10,6 +10,7 @@ import {
     claimWandererUseCooldown,
     currentWandererCooldownUntil,
     naturalWandererClaimOk,
+    resolveNaturalWanderer,
     wandererUseCooldownKey,
     withWandererUseState,
 } from './_wanderer-encounter.js';
@@ -23,6 +24,9 @@ import { bumpEraContributionOnce } from '../_era.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
 import { sectorPresenceBlock } from '../_sector-presence-gate.js';
 import { MAX_WILD_SECTOR, playableFieldObjectiveSector } from '../../shared/sector-geo.js';
+import { randomUUID } from 'node:crypto';
+import { TRACKER_TRAIL_TTL_MS, trackerTrailSectors, type TrackerTrail } from '../../shared/tracker-trail.js';
+import { loadTrackerTrail, saveTrackerTrail, trackerTrailEncounterLive, trackerTrailInProgress, trackerTrailKey } from './_tracker-trail.js';
 
 type FavorRecord = {
     id: string;
@@ -79,7 +83,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(presenceBlock.status).json({ error: presenceBlock.error, reason: presenceBlock.reason });
         }
 
-        if (action === 'merchant' || action === 'medic' || action === 'favor-start') {
+        if (action === 'merchant' || action === 'medic' || action === 'favor-start' || action === 'tracker-trail-start') {
             const wandererId = typeof body.wandererId === 'string' ? body.wandererId.trim() : '';
             // Not just the id's SHAPE: the server re-rolls the roster and refuses
             // an id it does not currently put on the road, plus any archetype/
@@ -171,6 +175,48 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 chakra: used.character.chakra,
                                 stamina: used.character.stamina,
                             },
+                            cooldownUntil: used.cooldownUntil,
+                            moveToSector: used.moveToSector,
+                            _saveVersion: Number(nextRecord._saveVersion ?? 0),
+                        },
+                    };
+                }
+
+                if (action === 'tracker-trail-start') {
+                    // Only a tracker gives a trail, and it must be standing in
+                    // the sector the player is in (relocation honoured).
+                    const tracker = resolveNaturalWanderer(wandererId, now, char, sector);
+                    if (tracker?.verb !== 'tracker') {
+                        return { status: 200, body: { ok: false, reason: 'invalid-wanderer' } };
+                    }
+                    const existingTrail = await loadTrackerTrail(playerName);
+                    if (existingTrail && await trackerTrailInProgress(playerName, existingTrail, now)) {
+                        return { status: 200, body: { ok: false, reason: 'busy', trail: existingTrail } };
+                    }
+                    const hardCooldown = await claimWandererUseCooldown(kv, playerName, wandererId, now);
+                    if (!hardCooldown.ok) {
+                        return { status: 200, body: { ok: false, reason: hardCooldown.reason, cooldownUntil: hardCooldown.cooldownUntil } };
+                    }
+                    const trailId = `trail-${wandererId}-${now}`;
+                    const trail: TrackerTrail = {
+                        id: trailId,
+                        requestId: `trk_${randomUUID().replace(/-/g, '')}`,
+                        giver: tracker.name,
+                        originSector: sector,
+                        sectors: trackerTrailSectors(trailId, sector),
+                        step: 0,
+                        expiresAt: now + TRACKER_TRAIL_TTL_MS,
+                    };
+                    await saveTrackerTrail(playerName, trail, now);
+                    const used = withWandererUseState({ ...char, activeTrackerTrail: trail }, wandererId, now, sector);
+                    legacyWandererId = wandererId;
+                    const nextRecord = bumpSaveVersion({ ...rec, character: used.character });
+                    await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
+                    return {
+                        status: 200,
+                        body: {
+                            ok: true,
+                            trail,
                             cooldownUntil: used.cooldownUntil,
                             moveToSector: used.moveToSector,
                             _saveVersion: Number(nextRecord._saveVersion ?? 0),
@@ -283,6 +329,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // parcel is not a second NPC discovery; counting both made one
             // wanderer worth two sector discoveries and had no replay-safe
             // server receipt after the favor row was consumed.
+            return res.status(out.status).json(out.body);
+        }
+
+        if (action === 'tracker-trail-step' || action === 'tracker-trail-abandon') {
+            const trailId = typeof body.trailId === 'string' ? body.trailId.trim() : '';
+            if (!trailId) return res.status(400).json({ error: 'Missing trailId.' });
+
+            const out = await withKvLock<{ status: number; body: unknown }>(`save:${playerName}`, async () => {
+                const now = Date.now();
+                const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+                const char = (rec?.character ?? null) as Record<string, unknown> | null;
+                if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
+                const trail = await loadTrackerTrail(playerName);
+                // Clears the display mirror (and the row, when it is this one).
+                const clear = async (reason: string, deleteRow: boolean) => {
+                    if (deleteRow) await kv.del(trackerTrailKey(playerName)).catch(() => undefined);
+                    if (!char.activeTrackerTrail) return { status: 200, body: { ok: action === 'tracker-trail-abandon', reason, _saveVersion: Number(rec._saveVersion ?? 0) } };
+                    const nextRecord = bumpSaveVersion({ ...rec, character: { ...char, activeTrackerTrail: null } });
+                    await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
+                    return { status: 200, body: { ok: action === 'tracker-trail-abandon', reason, _saveVersion: Number(nextRecord._saveVersion ?? 0) } };
+                };
+
+                if (!trail || trail.id !== trailId) return clear('none', false);
+
+                if (action === 'tracker-trail-abandon') {
+                    // Never pull the proof out from under a live capture battle.
+                    if (await trackerTrailEncounterLive(playerName, trail)) {
+                        return { status: 200, body: { ok: false, reason: 'in-battle', trail } };
+                    }
+                    return clear('abandoned', true);
+                }
+
+                if (!trail.flushedAt && trail.expiresAt <= now) return clear('expired', true);
+                if (trail.step === 1) return { status: 200, body: { ok: true, trail } };
+                if (sectorFrom(body.sector) !== trail.sectors[0]) {
+                    return { status: 200, body: { ok: false, reason: 'wrong-sector', trail } };
+                }
+                const advanced: TrackerTrail = { ...trail, step: 1 };
+                await saveTrackerTrail(playerName, advanced, now);
+                const nextRecord = bumpSaveVersion({ ...rec, character: { ...char, activeTrackerTrail: advanced } });
+                await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
+                return { status: 200, body: { ok: true, trail: advanced, _saveVersion: Number(nextRecord._saveVersion ?? 0) } };
+            }, { failClosed: true });
             return res.status(out.status).json(out.body);
         }
 

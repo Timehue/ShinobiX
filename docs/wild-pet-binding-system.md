@@ -56,6 +56,17 @@ The wild pet rolls its ordinary trait when discovered, shows it before and durin
 
 These values affect when a seal becomes usable, not the capture chance formula. The first encounter still starts at 35 Resolve and binds at 100% with its gifted Reinforced Seal. A separate track or clue chain can follow later if Explore gains persistent search steps; the current weather forecast already provides a world condition players can plan around.
 
+## Tracker trails
+
+A Tracker wanderer (Ibo the Tracker, Kana Reed-Eyes, Old Pawprint, Shin of the Bent Grass) offers **Follow tracks**. The server seals a trail across two road-connected sectors: the first holds more tracks, and the second holds a wild pet. The tracker waits at each stop as a synthesized sector NPC, and the world map marks the next stop with a paw print. The trail goes cold after 2 hours, and a player follows one trail at a time.
+
+The final sector calls `encounter-start` with the trail id. That roll is **guaranteed**: it is scaled into the Explore hit band, so the rarity mix is exactly an Explore hit's (80% standard, 6% rare, 10% legendary, 4% mythic, owner-approved 2026-09-23). It still counts against the 150 daily wild searches, and it enters the same battle-and-seal capture with the same odds. The tracker's normal encounter cooldown applies, so each tracker gives a player one trail per sighting.
+
+- `shared/tracker-trail.ts` derives the route from the trail id and origin, and holds the tracker's lines.
+- `api/sector/_tracker-trail.ts` owns the KV row (`tracker-trail:<player>`). `character.activeTrackerTrail` is only a display mirror.
+- `api/sector/wanderer-service.ts` handles `tracker-trail-start`, `tracker-trail-step` and `tracker-trail-abandon`. Abandon is refused while the trail's capture battle is still open.
+- The final mint stamps `flushedAt` on the row. `wild-binding` accepts that flushed row as the battle's discovery proof, alongside the Explore receipt and the Caravan trail.
+
 ## Implementation ownership
 
 - `api/pet/encounter-start.ts` owns Explore's encounter RNG and its durable token.

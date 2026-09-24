@@ -75,8 +75,18 @@ export function resolveDungeonAiFightAuthority(params: {
     };
 }
 
-/** Stamp only the exact active run represented by the sealed AI token. Loss,
- * draw and forfeit remain retryable but can never satisfy Dungeon settlement. */
+/** Stamp only the exact active run represented by the sealed AI token. On a
+ * key-bought run, loss, draw and forfeit remain retryable (the key is spent)
+ * but can never satisfy Dungeon settlement. A free run found while exploring
+ * a sector ENDS on any non-win: fleeing or losing the Warden closes the
+ * encounter and resolves its discovery receipt, so the world map never pulls
+ * the player back into a fight they walked away from.
+ *
+ * A token whose run is gone (abandoned or replaced mid-fight) settles as a
+ * consequence-only fight: no run is stamped and nothing is proved, but the
+ * caller still applies the HP outcome and releases the token. Refusing here
+ * used to wedge the fight on "outcome could not be confirmed" forever, since
+ * no retry can bring an abandoned run back. */
 export function applyDungeonWardenSettlement(params: {
     character: Record<string, unknown>;
     dungeonRunToken: unknown;
@@ -90,13 +100,29 @@ export function applyDungeonWardenSettlement(params: {
         && !Array.isArray(params.character.activeDungeonRun)
         ? params.character.activeDungeonRun as Record<string, unknown>
         : null;
-    if (!dungeonRunToken || !active || active.token !== dungeonRunToken) {
+    if (!dungeonRunToken) {
         return { ok: false, error: 'The sealed Warden fight no longer matches the active Dungeon run.' };
     }
+    if (!active || active.token !== dungeonRunToken) return { ok: true, character: params.character };
     if (active.wardenDefeated === true) {
         return active.wardenProofId === params.proofId
             ? { ok: true, character: params.character }
             : { ok: false, error: 'This Dungeon Warden was already defeated by another sealed fight.' };
+    }
+    if (active.entry === 'free' && params.outcome !== 'win') {
+        const now = params.now ?? Date.now();
+        const receipts = Array.isArray(params.character.serverFreeDungeonProbeReceipts)
+            ? params.character.serverFreeDungeonProbeReceipts as unknown[]
+            : [];
+        return { ok: true, character: {
+            ...params.character,
+            activeDungeonRun: null,
+            serverFreeDungeonProbeReceipts: receipts.map((entry) => {
+                if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return entry;
+                const receipt = entry as Record<string, unknown>;
+                return receipt.token === dungeonRunToken && !receipt.resolvedAt ? { ...receipt, resolvedAt: now } : receipt;
+            }),
+        } };
     }
     const nextRun: Record<string, unknown> = {
         ...active,

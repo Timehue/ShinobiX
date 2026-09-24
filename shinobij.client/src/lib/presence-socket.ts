@@ -25,7 +25,7 @@
  * backend — the server allowlists localhost origins for the socket CORS.
  */
 import { io, type Socket } from 'socket.io-client';
-import { getSocketAuth } from '../authFetch';
+import { getSocketAuth, SAVE_VERSION_EVENT, type SaveVersionEventDetail } from '../authFetch';
 import { getFingerprintSync } from '../fingerprint';
 import type { PlayerRecord } from '../types/character';
 
@@ -178,6 +178,16 @@ export function connectRealtime(initialFrame: PresenceFrame): void {
     socket.on('tower:kick', (data: TowerRealtimeKick | null) => {
         if (!data || typeof data.channel !== 'string') return;
         towerKickHandlers.forEach((handler) => handler(data));
+    });
+    // A save version the server committed with no response of ours to carry it
+    // (a travel arrival settled by the heartbeat). Routed through the same event
+    // authFetch raises for `_saveVersion` bodies, so adoption stays monotonic and
+    // account-scoped; without it the next autosave took a 409 after every trip.
+    socket.on('save:version', (data: { version?: number } | null) => {
+        const version = Number(data?.version);
+        if (!Number.isSafeInteger(version) || version <= 0) return;
+        const detail: SaveVersionEventDetail = { version, accountName: getSocketAuth().name, source: 'mutation' };
+        try { window.dispatchEvent(new CustomEvent(SAVE_VERSION_EVENT, { detail })); } catch { /* no window */ }
     });
 
     if (pingTimer) clearInterval(pingTimer);

@@ -1795,10 +1795,10 @@ export default function App() {
     const [dungeonLine, setDungeonLine] = useState(0);
     const [dungeonReturnScreen, setDungeonReturnScreen] = useState<Screen>("worldMap");
     // Rebuild presentation from the active run after refresh. DungeonEncounter
-    // derives the exact Warden/Card/Pet stage from server-owned proofs.
+    // derives the exact Warden/Card/Pet stage from server-owned proofs. A run that ended (fled Warden) routes back out.
     useEffect(() => {
         const run = character?.activeDungeonRun;
-        if (screen !== "dungeon" || !run?.token) return;
+        if (screen !== "dungeon" || !character) return; if (!run?.token) { if (sealedFightOpen) return; setActiveDungeonEvent(null); setActiveDungeonRunToken(null); setScreen(dungeonReturnScreen); return; }
         let active = true;
         void loadDungeonPresentation().then(({ dungeonEventForRun }) => {
             if (!active) return;
@@ -1811,7 +1811,7 @@ export default function App() {
             setScreen(run.entry === 'key' ? 'centralHub' : 'worldMap');
         });
         return () => { active = false; };
-    }, [screen, character?.activeDungeonRun?.token, character?.activeDungeonRun?.presentationEventId, character?.activeDungeonRun?.entry, creatorEvents]);
+    }, [screen, character?.name, character?.activeDungeonRun?.token, character?.activeDungeonRun?.presentationEventId, character?.activeDungeonRun?.entry, creatorEvents, dungeonReturnScreen, sealedFightOpen]);
     // Warn before refresh/close during battle or while hospitalized
     useEffect(() => {
         function handleBeforeUnload(e: BeforeUnloadEvent) {
@@ -4751,6 +4751,7 @@ export default function App() {
     async function leaveDungeon() {
         const current = character;
         const token = activeDungeonRunToken;
+        if (sealedFightEngagedRef.current) return;
         if (current && token && !dungeonActionRef.current) {
             dungeonActionRef.current = true;
             try {
@@ -4771,11 +4772,9 @@ export default function App() {
         setScreen(dungeonReturnScreen);
     }
 
-    // (failDungeon lived here — the loss path for the dungeon Warden fight when
-    // the browser-side Arena reducer hosted it. Warden fights are sealed
-    // Solo-PvE now and a defeat settles server-side in
-    // api/missions/report-ai-fight.ts via applyDungeonWardenSettlement, which
-    // owns the run token. leaveDungeon() above still covers a manual exit.)
+    // A Warden defeat settles server-side (report-ai-fight → applyDungeonWardenSettlement),
+    // which needs the run. So leaveDungeon() refuses while a sealed fight is engaged, and the
+    // Dungeon VN (whose window-level Escape = Leave) is unmounted under the fight.
 
     async function completeDungeon() {
         if (!character || !activeDungeonEvent || dungeonActionRef.current) return;
@@ -5717,7 +5716,7 @@ export default function App() {
                     />
                 )}
 
-                {!activeTriggeredEvent && screen === "dungeon" && character && activeDungeonEvent && (
+                {!activeTriggeredEvent && !sealedFightOpen && screen === "dungeon" && character && activeDungeonEvent && (
                     <DungeonEncounter
                         event={activeDungeonEvent}
                         character={character}

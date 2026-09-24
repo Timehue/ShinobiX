@@ -650,6 +650,14 @@
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
     pointer-events: none;
 }
+@media (max-width: 600px) {
+    .pvp-reconnecting-pill {
+        top: calc(164px + env(safe-area-inset-top, 0px));
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+    }
+}
 .pvp-reconnecting-dot {
     width: 8px;
     height: 8px;

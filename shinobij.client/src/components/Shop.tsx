@@ -1,4 +1,5 @@
 import { activeElderFocus } from "../lib/village-elder-focus";
+import "../styles/index/17-shop-inventory-loadout.css";
 /**
  * Shop family — item/equipment shop (ryo, with Town-Hall discount) and the
  * Grand Marketplace (Fate-Shard legendary/mythic items).

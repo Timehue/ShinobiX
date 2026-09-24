@@ -815,8 +815,6 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
 
     return (
         <div className="pet-yard-screen pet-yard-refined">
-            <PetHomeTabs active="yard" setScreen={setScreen} />
-
             {evolveCutscene && (
                 <PetEvolutionCutscene
                     pet={evolveCutscene.pet}
@@ -917,10 +915,11 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
 
             <div className="pet-yard-overlay">
                 <header className="pet-yard-header">
-                    <button type="button" className="back-btn pet-yard-return" onClick={onBack} aria-label={`Back to ${backLabel}`}>← {backLabel}</button>
-                    <div className="pet-yard-title"><span className="pet-yard-kicker">Companion sanctuary</span><h2>Pet Yard</h2><p>Every great journey begins with a bond.</p></div>
+                    <button type="button" className="back-btn pet-yard-return" onClick={onBack} aria-label={`Back to ${backLabel}`}><span aria-hidden="true">←</span><span><small>Return to</small><strong>{backLabel}</strong></span></button>
+                    <div className="pet-yard-title"><span className="pet-yard-kicker">Companion home · Care & training</span><h2>Pet Yard</h2><p>Every great journey begins with a bond.</p></div>
                     <div className="pet-yard-roster-count"><strong>{combatEligiblePets.length}<small> / {maxPets(character)}</small></strong><span>Carried companions</span></div>
                 </header>
+                <PetHomeTabs active="yard" setScreen={setScreen} />
 
                 {preservedOverflowCount > 0 ? (
                     <p className="hint" role="status" style={{ color: "var(--gold-2)", margin: "0.35rem 0" }}>
@@ -1503,9 +1502,10 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                     </div>
                 ) : (
                     <div className="pet-empty-state">
+                        <span className="pet-home-kicker">First companion</span>
                         <span className="pet-empty-emblem" aria-hidden="true"><GameIcon name="paw" size={44} /></span>
-                        <p>You haven't captured any pets yet.</p>
-                        <p>Explore the World Map to encounter and befriend pets!</p>
+                        <h3>Your journey starts with a bond</h3>
+                        <p>Explore the World Map to meet and befriend your first companion.</p>
                         <button onClick={() => setScreen("worldMap")}>Go to World Map</button>
                     </div>
                 )}

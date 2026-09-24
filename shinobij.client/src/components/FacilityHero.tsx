@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
+import "../styles/index/39-civic-facilities.css";
 import { FACILITY_PRESENTATION, type FacilityId } from "../lib/facility-presentation";
 import { BackToVillageButton } from "./BackToVillageButton";
 

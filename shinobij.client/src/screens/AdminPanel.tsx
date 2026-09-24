@@ -1,6 +1,6 @@
 import { HOLLOW_GATE_KEY_DUNGEON_KEY_COST, HOLLOW_GATE_KEY_FATE_SHARD_COST, HOLLOW_GATE_UNLOCK_COST, setHollowGateKeyDungeonKeyCost, setHollowGateKeyFateShardCost, setHollowGateUnlockCost } from "../lib/hollow-gate-prices";
 import { stringifyServerSavePayload } from "../lib/server-save-payload";
-import { versionPetArtUrl } from "../lib/pet-art-revision";
+import { evoTemplateArt } from "../lib/admin-pet-template-art";
 import { adminIconOptions } from "../data/admin-icons";
 import { createCharacter } from "../lib/create-character";
 import { defaultAncientChestVn, defaultPetEncounterVn } from "../data/default-vn-events";
@@ -23,6 +23,7 @@ import { ModerationPanel } from "./ModerationPanel";
 import { AdminLegacyPanel } from "./AdminLegacyPanel";
 import { AdminDiagnosticsPanel } from "./AdminDiagnosticsPanel";
 import { AdminVillageLeadersPanel } from "./AdminVillageLeadersPanel";
+import "../styles/index/19-town-hall.css";
 import { makeAdminJutsuActions } from "./admin-jutsu-actions";
 import { runServerReset } from "./admin-server-reset";
 import { AiImagePrompt } from "../components/AiImagePrompt";
@@ -40,7 +41,6 @@ import { getAllTileCards, shinobiTileCards, type TileCard } from "../data/tile-c
 import { mergeBuiltinMissions, missionRaidRequirement } from "../data/missions";
 import { creatorMissionEligibility, validateCreatorMissionEligibility } from "../lib/creator-mission-eligibility";
 import { petRarityOrder } from "../data/pet-config";
-import { STARTER_EVOLUTIONS } from "../data/pet-evolutions";
 import { isWildSpawnable } from "../lib/pet-balance";
 import { PRIMARY_SUBROLE, type PetRole } from "../lib/pet-roles";
 import { storyToCreatorEvent } from "../lib/story-trigger";
@@ -106,16 +106,7 @@ import {
     sameAdminBloodlineOwner,
 } from "../lib/admin-bloodline-owner";
 
-// The 10 starter-evolution templates (`starter-<element>-r`/`-l`) ship their
-// canonical portrait as a bundled static file at /pet-evos/<id>.webp — the same
-// art the evolution cutscene shows and the coliseum/arena pose flipbooks are cut
-// from. Unlike wild pool pets, they carry no `pet:` shared image, so the admin
-// avatar grid would render them as "no image" even though the art exists. Use
-// the bundled hero art as the grid's avatar fallback for exactly these ids.
-const EVO_TEMPLATE_IDS: ReadonlySet<string> = new Set(STARTER_EVOLUTIONS.map((p) => p.id));
-const evoTemplateArt = (id: string): string => (EVO_TEMPLATE_IDS.has(id) ? versionPetArtUrl(`/pet-evos/${id}.webp`) : "");
 const VILLAGE_ELDER_ROLE_LABELS = ["War Elder", "Trade Elder", "Training Elder"];
-
 
 export function AdminPanel({
     character,
