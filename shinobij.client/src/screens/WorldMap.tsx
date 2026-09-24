@@ -4231,10 +4231,6 @@ function WorldMapContent({
         return (
             <div className="map-instance">
                 {petMentor.guide}
-                <StoryFieldJournal character={character} currentSector={currentSector} onLocate={setSelectedSector}
-                    onOpen={(questId, pointId) => setFieldScene({ questId, pointId })}
-                    onReview={(questId, pointId) => setFieldScene({ questId, pointId, review: true })}
-                    abandonBusy={storyReckoningAbandonBusy} onAbandon={() => void handleStoryReckoningAbandon()} />
                 <div className="instance-frame sector-instance-frame">
                     <WorldSectorCanvas
                         suspended={!!vaultRaid}
@@ -4292,6 +4288,10 @@ function WorldMapContent({
                         }
                         overlayLayer={
                             <>
+                            {!vaultRaid && <StoryFieldJournal character={character} currentSector={currentSector} onLocate={setSelectedSector}
+                                onOpen={(questId, pointId) => setFieldScene({ questId, pointId })}
+                                onReview={(questId, pointId) => setFieldScene({ questId, pointId, review: true })}
+                                abandonBusy={storyReckoningAbandonBusy} onAbandon={() => void handleStoryReckoningAbandon()} />}
                             {!vaultRaid && <WorldSectorOverlayLayer
                                 sector={selectedSector}
                                 biome={ambienceBiomeForSector(selectedSector)}
@@ -4840,10 +4840,6 @@ function WorldMapContent({
 
     return (
         <div className="card world-atlas-card">
-            {!wmZoom.active && <StoryFieldJournal character={character} currentSector={currentSector} onLocate={setSelectedSector}
-                onOpen={(questId, pointId) => setFieldScene({ questId, pointId })}
-                onReview={(questId, pointId) => setFieldScene({ questId, pointId, review: true })}
-                abandonBusy={storyReckoningAbandonBusy} onAbandon={() => void handleStoryReckoningAbandon()} />}
             {wmZoom.active ? (
                 <div className="wm-topbar">
                     <BackToVillageButton
@@ -4870,6 +4866,10 @@ function WorldMapContent({
             {/* All map coordinates share one camera. The six mobile areas
                 overlap and re-fit to the available screen after rotation. */}
             <div className="world-atlas-frame" ref={wmFrameRef}>
+            {!wmZoom.active && <StoryFieldJournal character={character} currentSector={currentSector} onLocate={setSelectedSector}
+                onOpen={(questId, pointId) => setFieldScene({ questId, pointId })}
+                onReview={(questId, pointId) => setFieldScene({ questId, pointId, review: true })}
+                abandonBusy={storyReckoningAbandonBusy} onAbandon={() => void handleStoryReckoningAbandon()} />}
             <div
                 className="world-map-scroll"
                 role="group"
