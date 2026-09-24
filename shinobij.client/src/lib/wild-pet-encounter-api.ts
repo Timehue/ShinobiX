@@ -42,16 +42,16 @@ const pendingWildPetSearches = new Map<string, Promise<WildPetEncounterResult>>(
  * response is a miss. Transport failures and incomplete responses block normal
  * exploration so retry can recover the same server-owned discovery.
  */
-export async function startWildPetEncounter(playerName: string, sector: number, requestId: string, caravanId?: string): Promise<WildPetEncounterResult> {
+export async function startWildPetEncounter(playerName: string, sector: number, requestId: string, caravanId?: string, trackerTrailId?: string): Promise<WildPetEncounterResult> {
     if (!/^[A-Za-z0-9_-]{8,96}$/.test(requestId)) {
         return { kind: "blocked", error: "The pet attempt has no stable recovery id.", retryable: false };
     }
-    const key = JSON.stringify([playerName, sector, requestId, caravanId ?? ""]);
+    const key = JSON.stringify([playerName, sector, requestId, caravanId ?? "", trackerTrailId ?? ""]);
     const pending = pendingWildPetSearches.get(key);
     if (pending) return pending;
     // Map-open recovery and a quick Explore click can ask for the same result.
     // Share one request/retry sequence instead of contending on its server lock.
-    const search = retryWildPetEncounter(playerName, sector, requestId, caravanId);
+    const search = retryWildPetEncounter(playerName, sector, requestId, caravanId, trackerTrailId);
     pendingWildPetSearches.set(key, search);
     try {
         return await search;
@@ -60,9 +60,9 @@ export async function startWildPetEncounter(playerName: string, sector: number, 
     }
 }
 
-async function retryWildPetEncounter(playerName: string, sector: number, requestId: string, caravanId?: string): Promise<WildPetEncounterResult> {
+async function retryWildPetEncounter(playerName: string, sector: number, requestId: string, caravanId?: string, trackerTrailId?: string): Promise<WildPetEncounterResult> {
     for (let attempt = 0; ; attempt++) {
-        const result = await requestWildPetEncounter(playerName, sector, requestId, caravanId);
+        const result = await requestWildPetEncounter(playerName, sector, requestId, caravanId, trackerTrailId);
         // Replay this exact id after a lost ACK without rerolling or spending
         // another attempt. Do not hammer throttling or auth refusals.
         const transient = result.kind === "blocked" && result.retryable
@@ -73,11 +73,11 @@ async function retryWildPetEncounter(playerName: string, sector: number, request
     }
 }
 
-async function requestWildPetEncounter(playerName: string, sector: number, requestId: string, caravanId?: string): Promise<WildPetEncounterResult> {
+async function requestWildPetEncounter(playerName: string, sector: number, requestId: string, caravanId?: string, trackerTrailId?: string): Promise<WildPetEncounterResult> {
     try {
         const response = await fetch('/api/pet/encounter-start', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ playerName, sector, requestId, ...(caravanId ? { caravanRunId: caravanId } : {}) }),
+            body: JSON.stringify({ playerName, sector, requestId, ...(caravanId ? { caravanRunId: caravanId } : {}), ...(trackerTrailId ? { trackerTrailId } : {}) }),
         });
         const data = await response.json().catch(() => null) as {
             token?: string;

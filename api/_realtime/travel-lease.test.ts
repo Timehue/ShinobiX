@@ -125,6 +125,34 @@ test('matured travel is committed to the versioned save before its lease is dele
     await kv.del(saveKey);
 });
 
+// REGRESSION (one 409 after every trip): the heartbeat settles arrivals
+// fire-and-forget, so no response carried the bumped version and the owner's
+// next autosave echoed a stale `_baseSaveVersion`. The settle now pushes the
+// committed version to the owner's own socket room — once, not on a replay.
+test('a committed arrival pushes its save version to the owner, once', async () => {
+    const notify = await import('./notify.js');
+    const name = `travel-push-${process.pid}`;
+    const saveKey = `save:${name}`;
+    const pushed: Array<{ room: string; event: string; payload: unknown }> = [];
+    notify.setRealtimeEmitter((room, event, payload) => { pushed.push({ room, event, payload }); });
+    try {
+        await kv.set(saveKey, { character: { name }, currentSector: lease.originSector, _saveVersion: 20 });
+        await travel.setTravelLease(name, lease);
+        assert.equal(await travel.settleTravelLease(name, lease, lease.arrivalAt), true);
+        assert.deepEqual(pushed, [{ room: `user:${name}`, event: 'save:version', payload: { version: 21 } }]);
+
+        // A cleanup retry of the same (already-receipted) arrival writes nothing
+        // and must not announce a version.
+        await travel.setTravelLease(name, lease);
+        assert.equal(await travel.settleTravelLease(name, lease, lease.arrivalAt), true);
+        assert.equal(pushed.length, 1);
+        assert.equal((await kv.get<Record<string, unknown>>(saveKey))?._saveVersion, 21);
+    } finally {
+        notify.setRealtimeEmitter(null);
+        await kv.del(saveKey, travel.travelLeaseKey(name));
+    }
+});
+
 test('an action reconciles a matured travel receipt before sector validation', async () => {
     const name = `travel-action-${process.pid}`;
     const saveKey = `save:${name}`;

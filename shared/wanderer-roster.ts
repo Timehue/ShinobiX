@@ -23,6 +23,9 @@ export type WandererVerb =
     | "attack" | "gift" | "gamble" | "petDuel" | "quest"
     | "merchant" | "medic" | "patrol" | "tracker" | "courier" | "bountyHunter"
     | "legacyQuest"
+    /** The tracker waiting further along a trail the player is following
+     *  (shared/tracker-trail.ts). Synthesized per player, never rolled. */
+    | "trackerTrail"
     /** Passive: visible and greets when you walk up, but offers NO action. Used for
      *  a Contract Hunter seen by a bystander — it is hunting someone ELSE. */
     | "watch";

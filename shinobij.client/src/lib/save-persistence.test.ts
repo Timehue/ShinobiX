@@ -449,6 +449,39 @@ describe("extracted save persistence", () => {
         assert.equal(h.applied.length, 0);
     });
 
+    it("reads once more when a newer version was adopted while the conflict GET was in flight", async () => {
+        // The travel-arrival push (or any mutation response) can land version 9
+        // while a recovery GET that started earlier is still returning 8. The
+        // server already holds 9, so one re-read recovers instead of counting a
+        // failed recovery toward the red save banner.
+        const h = harness({ latestVersion: 9 });
+        const versions = [8, 9];
+        let calls = 0;
+        globalThis.fetch = (async () => {
+            calls += 1;
+            return jsonResponse(200, { character: { name: "Kaya", level: 3 }, _saveVersion: versions.shift() });
+        }) as typeof fetch;
+
+        assert.equal(await h.persistence.refetchAfterConflict("Kaya"), true);
+        assert.equal(calls, 2);
+        assert.equal(h.latestVersion.current, 9);
+        assert.equal(h.applied.length, 1);
+        assert.equal(h.applied[0]._saveVersion, 9, "only the fresh snapshot is painted, never the stale one");
+    });
+
+    it("re-reads a stale conflict snapshot at most once", async () => {
+        const h = harness({ latestVersion: 9 });
+        let calls = 0;
+        globalThis.fetch = (async () => {
+            calls += 1;
+            return jsonResponse(200, { character: { name: "Kaya", level: 2 }, _saveVersion: 8 });
+        }) as typeof fetch;
+
+        assert.equal(await h.persistence.refetchAfterConflict("Kaya"), false);
+        assert.equal(calls, 2, "one retry, not a loop against a server that keeps answering stale");
+        assert.equal(h.applied.length, 0);
+    });
+
     it("does not adopt or paint a conflict response after the account epoch changes", async () => {
         const h = harness({ latestVersion: 5 });
         const jsonGate = deferred<Payload>();
