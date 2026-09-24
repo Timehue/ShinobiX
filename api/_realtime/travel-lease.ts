@@ -3,6 +3,7 @@ import { safeName } from '../_utils.js';
 import { withKvLock } from '../_lock.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { recordArrivalTile } from './walked-tile.js';
+import { pushSaveVersion } from './notify.js';
 import { footfallKey, FOOTFALL_TTL_SEC } from '../sector/_traces.js';
 import { isWildSector, sectorBiomeOf } from '../../shared/sector-geo.js';
 import { SECTOR_TILE_COUNT } from '../../shared/sector-links.js';
@@ -209,6 +210,11 @@ export async function settleTravelLease(
             },
         }));
         if (!result.ok) return false;
+        // The settle usually runs fire-and-forget from a heartbeat, so no response
+        // carries the bumped version and the player's next autosave used to 409
+        // after every trip. The patch is server-owned top-level fields only, so
+        // the client can adopt the version without a character.
+        if (result.value) pushSaveVersion(name, result._saveVersion);
         // Refresh the walked-tile checkpoint only for a newly committed arrival.
         // A cleanup retry must preserve steps taken after that arrival.
         if (result.value) await recordArrivalTile(kv, name, lease.destinationSector, lease.arrivalTile, now).catch(() => undefined);
