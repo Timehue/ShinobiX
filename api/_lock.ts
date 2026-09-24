@@ -108,6 +108,12 @@ export async function withLockCore<T>(
         } catch {
             // Lock acquire failed (KV hiccup) — fall through, retry
         }
+        // A fail-closed caller is about to throw; sleeping after its LAST attempt
+        // only delays that answer (the longest backoff step, ~400ms by default),
+        // and a 503 the client retries is the whole point of failing closed. The
+        // fall-through path keeps the pause: it gives the holder time to finish
+        // before the unlocked run below.
+        if (opts.failClosed && attempt === maxAttempts - 1) break;
         // Backoff with jitter so contending writers don't synchronize their retries.
         const delay = base * Math.pow(2, attempt) + Math.floor(Math.random() * base);
         await sleep(delay);

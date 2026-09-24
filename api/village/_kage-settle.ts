@@ -239,8 +239,13 @@ export async function discoverAcceptedKageDuelPointer(
     ].filter(Boolean));
     const fighters = new Set([safeName(session.p1?.name), safeName(session.p2?.name)]);
     let found: KageDuelPointer | null = null;
-    for (const village of candidates) {
-        const state = await kv.get<KageStateLike>(kageKey(village));
+    // Every terminal PvP replay (the finishing move and both claims) runs this
+    // discovery for an ordinary non-Kage duel. One batched read replaces a round
+    // trip per village; the per-village checks below are unchanged.
+    const villages = [...candidates];
+    const states = await kv.mget<KageStateLike[]>(...villages.map(kageKey));
+    for (const [index, village] of villages.entries()) {
+        const state = states[index] as KageStateLike | null;
         const challenge = state?.challenge;
         if (challenge?.status !== 'accepted' || challenge.battleId !== session.battleId) continue;
         const challengeId = typeof challenge.challengeId === 'string' ? challenge.challengeId.trim() : '';
