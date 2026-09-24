@@ -22,6 +22,20 @@ describe('wild pet encounter authority', () => {
             }
         }
     });
+    it('a guaranteed (tracker trail) roll always hits with the Explore hit rarity mix', () => {
+        // The first roll is scaled into the 0..0.05 hit band, so each rarity
+        // keeps exactly its share of an Explore HIT: 4/6/10/80 percent.
+        const cases: Array<[number, string]> = [
+            [0, 'mythic'], [0.039, 'mythic'], [0.0401, 'legendary'], [0.139, 'legendary'],
+            [0.1401, 'rare'], [0.199, 'rare'], [0.2001, 'standard'], [0.999999, 'standard'],
+        ];
+        for (const [unit, rarity] of cases) {
+            const values = [unit, 0.45, 0.1]; let i = 0;
+            assert.equal(rollWildPet(() => values[i++] ?? 0, 123, { weather: 'clear' }, { guaranteed: true })?.rarity, rarity, `unit ${unit}`);
+        }
+        // Without the flag the same high roll is still an ordinary miss.
+        assert.equal(rollWildPet(() => 0.999999, 123), null);
+    });
     it('favors weather-matched elements only within the rolled rarity', () => {
         const counts = (weather: 'clear' | 'rain') => {
             const elements = new Map<string, number>();
