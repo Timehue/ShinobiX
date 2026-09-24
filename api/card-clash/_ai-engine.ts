@@ -52,8 +52,8 @@ export type AiMatchProjection = ChronicleProjection & {
   winnerResult?: AiMatchResult;
 };
 
-/** Called after each individual AI action so callers can capture the board
- *  between moves (the client replays these snapshots with pacing beats). */
+/** Captures the committed player action and each individual AI reply so the
+ *  client can present the board between moves with readable pacing. */
 export type AiStepListener = (state: ChronicleMatch) => void;
 
 /** Trim intermediate replay snapshots: the client ticker only needs the log
@@ -834,6 +834,9 @@ export function applyPlayerAction(
   const out = applyAction(session.state, "p1", intent, now);
   if (!out.ok) return { ok: false, error: out.error };
   session.state = out.state;
+  // Preserve the player's committed board before an automatic response can
+  // remove its cards. Replay must show the cause before the Keeper's answer.
+  onAiStep?.(session.state);
   advanceAi(session, now, onAiStep);
   syncTerminal(session);
   return { ok: true };
