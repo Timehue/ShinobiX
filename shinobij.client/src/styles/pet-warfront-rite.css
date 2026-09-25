@@ -221,6 +221,30 @@
 .wfr-reduced-status > span { color: #b8d1da; font-size: 0.75rem; }
 .wfr-reduced-standing b { color: #e8f4f7; font-variant-numeric: tabular-nums; }
 
+/* Replays and shared spectating only: jump to the verdict. Never rendered for
+   a rewarded Warfront, and it is not an exit — the result screen is. */
+.wfr-skip {
+    position: fixed;
+    right: max(10px, env(safe-area-inset-right));
+    bottom: max(10px, env(safe-area-inset-bottom));
+    z-index: 10;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 16px;
+    border: 1px solid rgba(211, 179, 111, 0.46);
+    border-radius: 999px;
+    background: rgba(3, 10, 14, 0.86);
+    color: #e7d09e;
+    font: 700 0.75rem/1 system-ui, sans-serif;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+.wfr-skip:disabled { opacity: 0.6; cursor: default; }
+@media (hover: hover) {
+    .wfr-skip:not(:disabled):hover { background: rgba(20, 44, 58, 0.94); }
+}
+
 .wfr-eyebrow {
     margin: 0;
     font-size: 0.68rem;
@@ -1052,7 +1076,8 @@
 .wfr-inspect-ack:focus-visible,
 .wfr-reform-drawer-trigger:focus-visible,
 .wfr-report-ack:focus-visible,
-.wfr-sound-gate:focus-visible {
+.wfr-sound-gate:focus-visible,
+.wfr-skip:focus-visible {
     outline: 3px solid #f1d9a5;
     outline-offset: 2px;
 }
