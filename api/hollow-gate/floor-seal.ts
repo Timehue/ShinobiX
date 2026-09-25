@@ -6,7 +6,7 @@ import { withKvLock } from '../_lock.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { cors, safeName } from '../_utils.js';
 import { hollowGateRunKey, type HollowGateRunToken } from './_run-token.js';
-import { validateHollowGateFloorManifest } from './_floor-manifest.js';
+import { hollowGateMarkVisited, validateHollowGateFloorManifest } from './_floor-manifest.js';
 import { hollowGateCombatBindingKey, type HollowGateCombatBinding } from './_combat-session.js';
 import { hollowGateEncounterRecovery } from './_encounter-recovery.js';
 
@@ -69,6 +69,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ...run,
                 floorManifests: { ...manifests, [String(floor)]: validation.manifest },
                 position: validation.manifest.spawn,
+                visitedTiles: hollowGateMarkVisited(run.visitedTiles, validation.manifest, validation.manifest.spawn),
             };
             await kv.set(runKey, next);
             return { status: 200, body: { ok: true, manifest: validation.manifest, position: next.position, pendingAmbush: next.pendingAmbush ?? null } };

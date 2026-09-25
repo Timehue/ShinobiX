@@ -8,7 +8,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { cors, mergePreservingImages, safeName } from '../_utils.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { hollowGateRunKey, type HollowGateRunToken } from './_run-token.js';
-import { hollowGateManifestNode, hollowGatePositionNodeId } from './_floor-manifest.js';
+import { hollowGateManifestNode, hollowGateMarkVisited, hollowGatePositionNodeId } from './_floor-manifest.js';
 import { hollowGateCombatBindingKey, type HollowGateCombatBinding } from './_combat-session.js';
 import { hollowGateEncounterRecovery } from './_encounter-recovery.js';
 
@@ -170,6 +170,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 stepVersion,
                 recentStepIds: [...recent, requestId].slice(-64),
                 pendingAmbush,
+                visitedTiles: hollowGateMarkVisited(run.visitedTiles, manifest, to),
             };
             await kv.set(runKey, next);
             let saveVersion = 0;
