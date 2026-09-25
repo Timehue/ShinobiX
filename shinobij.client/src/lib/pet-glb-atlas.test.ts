@@ -89,7 +89,7 @@ test("the material base-colour binding wins over an earlier PBR normal map", () 
 test("every approved roster GLB contains a non-placeholder colour atlas", async () => {
     const rosterDir = new URL("../../public/pet-models/roster/", import.meta.url);
     const files = (await readdir(rosterDir)).filter((file) => file.endsWith(".glb")).sort();
-    assert.equal(files.length, 145);
+    assert.equal(files.length, 146);
     const hashes = new Set<string>();
     for (const file of files) {
         const atlas = await atlasFromRosterModel(file);

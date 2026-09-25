@@ -14444,11 +14444,67 @@
           "victory"
         ]
       }
+    },
+    "mythic-15": {
+      "id": "mythic-15",
+      "source": "art-source\\dawnmane-seraph\\prepared-replacement-source.glb",
+      "model": "public\\pet-models\\roster\\mythic-15.glb",
+      "status": "approved_rigged",
+      "approved": true,
+      "profile": "quadruped",
+      "generatedAt": "2026-09-25T02:21:41.000Z",
+      "provider": "fal-ai/hunyuan-3d/v3.1/pro/image-to-3d + deterministic 27-bone production rig",
+      "textured": true,
+      "visualReview": {
+        "passed": true,
+        "views": [
+          "front",
+          "left",
+          "back",
+          "right"
+        ],
+        "reason": "Replacement fal mesh and reduced source were reviewed from front, left, back, and right. One curled tail with a single tuft is visible in the idle, gallop, cast, victory, and LOD renders; the white lion retains four paws, two gold horns, a mane, and two feathered gold-edged wings."
+      },
+      "validation": {
+        "ok": true,
+        "bytes": 1238708,
+        "triangles": 39718,
+        "vertices": 45222,
+        "materials": 1,
+        "textures": 3,
+        "images": 3,
+        "skins": 1,
+        "animations": 13,
+        "bones": 27
+      },
+      "sha256": "568BC3DC23BA571D6CC0FE2E3D2E9C222681C1D3086854C432065D84FC37ED73",
+      "animationBank": {
+        "revision": "20260825-identity-v5",
+        "family": "pouncer",
+        "rig": "quadruped",
+        "signatureSeed": 816969798,
+        "identityFingerprint": "5C711372A7C5BD3B543A09BC",
+        "clips": [
+          "idle",
+          "idle_2",
+          "walk",
+          "gallop",
+          "gallop_jump",
+          "attack",
+          "idle_hitreact1",
+          "death",
+          "entrance",
+          "cast",
+          "guard",
+          "rest",
+          "victory"
+        ]
+      }
     }
   },
   "animationBank": {
     "revision": "20260825-identity-v5",
-    "authoredModels": 143,
+    "authoredModels": 144,
     "individualModels": 2
   }
 }
