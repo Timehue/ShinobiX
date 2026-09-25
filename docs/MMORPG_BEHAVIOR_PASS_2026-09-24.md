@@ -178,7 +178,10 @@ Express server on desktop and mobile, now a step of its own in the required
    would show the row too — and a Healer treats them (the patient is discharged, the
    Healer banks profession XP);
 2. "Stand & Fight" seals a real Weekly Boss run, the fight mounts, and leaving it returns
-   the hunter to the same sector's board with their location unchanged.
+   the hunter to the same sector's board with their location unchanged;
+3. leaving a live Card Hall showdown asks first, choosing to stay keeps it, leaving for
+   real forfeits it on the server, the Hall shows the loss, and Back then lets the player
+   out (see Owner rulings, item 4).
 
 `e2e-live/first-defeat-recovery-express.spec.ts` used a practice bout as its "next activity
 after recovery" and asserted the OLD practice rule (an abandon costs HP). It now asserts
@@ -353,3 +356,9 @@ since the build these runs used, and the server rows ran on the final server bui
 | Sector HUD (`playwright.sector-hud.config.ts --project chromium`) | 30 passed, 4 skipped (first round; the card and war-host changes since do not reach it) |
 | Stronghold browser QA (`stronghold-browser-qa.mjs`: default, `--dismissal`, `--resources`) | all 3 pass, no page errors (first round, same reason) |
 | `npm run test:e2e:warfront` | not run: every spec loads the standalone `/petvfx.html`, whose runtime import graph (179 modules) reaches none of the files this pass changed |
+
+**After merging `main`** (30 commits, one conflict in `use-battle-navigation-guard.ts`,
+resolved to keep `main`'s `useLayoutEffect` with this branch's signal ref): root build
+PASS (initial graph 383,561 B gzip), lint 0 errors, all six live Express steps,
+`certify:release` 90 of 90, the five server checks, and the unit suite 12,054 of 12,054.
+The full browser suites run in CI on the pull request.
