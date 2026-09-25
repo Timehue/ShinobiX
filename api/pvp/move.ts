@@ -767,6 +767,8 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
     //
     // The flat Heal/Shield MAGNITUDE deliberately keeps the real mastery — a swing
     // heals its ~30% share, not a full jutsu's 750. See _weapon-damage.test.ts.
+    // (A swing's EP and Pierce are a separate carve-out: they resolve at the rank's
+    // mastery cap, in damageMasteryFor above.)
     const weaponSwing = isWeaponSwing(jutsu);
     const tagPercentMastery = weaponSwing ? JUTSU_MAX_LEVEL : masteryLevel;
     for (const tag of tags) {
