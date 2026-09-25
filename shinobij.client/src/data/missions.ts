@@ -43,6 +43,43 @@ export function missionRaidRequirement(mission: CreatorMission) {
     return Math.max(0, Number(mission.raidCount ?? 0));
 }
 
+export function fieldMissionRaidNeeded(mission: CreatorMission, raidProgress: number): boolean {
+    return Math.max(0, Number(raidProgress) || 0) < missionRaidRequirement(mission);
+}
+
+export type FieldMissionObjective = "explore" | "raid" | "claim";
+
+/** One next-action rule shared by the mission board, tracker, and world map. */
+export function nextFieldMissionObjective(
+    mission: CreatorMission,
+    exploreProgress: number,
+    raidProgress: number,
+): FieldMissionObjective {
+    if (Math.max(0, Number(exploreProgress) || 0) < Math.max(0, Number(mission.exploreCount) || 0)) return "explore";
+    if (fieldMissionRaidNeeded(mission, raidProgress)) return "raid";
+    return "claim";
+}
+
+export function fieldMissionNextAction(
+    mission: CreatorMission,
+    exploreProgress: number,
+    raidProgress: number,
+    currentSector: number,
+): { objective: FieldMissionObjective; instruction: string; label: string } {
+    const objective = nextFieldMissionObjective(mission, exploreProgress, raidProgress);
+    if (objective === "claim") return { objective, instruction: "All objectives complete. Claim your reward.", label: "Claim Reward" };
+    if (objective === "explore") return {
+        objective,
+        instruction: mission.id === "fetch-d-supply-trail"
+            ? "Explore the supply trail in Sector 18."
+            : `Explore the trail in Sector ${mission.targetSector}.`,
+        label: `Explore Sector ${mission.targetSector}`,
+    };
+    return currentSector === mission.targetSector
+        ? { objective, instruction: "Raid Mission Outpost.", label: "Raid Mission Outpost" }
+        : { objective, instruction: `Go to Mission Outpost in Sector ${mission.targetSector}.`, label: "Go to Mission Outpost" };
+}
+
 export function mergeBuiltinMissions(customMissions: CreatorMission[]) {
     const customById = new Map(customMissions.map((mission) => [mission.id, mission]));
     return [

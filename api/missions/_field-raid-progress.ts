@@ -100,6 +100,10 @@ export async function creditFieldRaidProgress(opts: {
     proofAt?: number;
     /** Sector sealed into the raid token/PvP session. */
     raidSector: number;
+    /** When present, only this accepted mission receives the sealed proof. */
+    missionId?: string;
+    /** Mission raids may only credit the run sealed at launch. */
+    missionRunId?: string;
     now?: number;
 }): Promise<string[]> {
     const proofId = typeof opts.proofId === 'string' ? opts.proofId.trim() : '';
@@ -110,9 +114,10 @@ export async function creditFieldRaidProgress(opts: {
     const credited: string[] = [];
     const character = (opts.save?.character ?? opts.save) as Record<string, unknown> | null | undefined;
     const proofAt = Number.isFinite(Number(opts.proofAt)) ? Number(opts.proofAt) : Number.POSITIVE_INFINITY;
-    for (const mission of acceptedRaidFetchMissions(opts.save, proofAt, raidSector)) {
+    for (const mission of acceptedRaidFetchMissions(opts.save, proofAt, raidSector)
+        .filter((entry) => !opts.missionId || entry.id === opts.missionId)) {
         const run = serverFieldMissionRun(character, mission.id);
-        if (!run) continue;
+        if (!run || (opts.missionRunId && run.runId !== opts.missionRunId)) continue;
         const receiptKey = missionProgressReceiptKey(opts.playerName, mission.id);
         await withKvLock(receiptKey, async () => {
             const existing = cleanMissionProgressReceipt(await kv.get(receiptKey));

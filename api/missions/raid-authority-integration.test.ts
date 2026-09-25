@@ -9,12 +9,15 @@ type Handler = (req: never, res: never) => Promise<unknown>;
 type Out = { statusCode: number; body?: Record<string, unknown> };
 
 const FIELD_MISSION = 'fetch-d-supply-trail';
+let raidStartDailyResetDelay: typeof import('./raid-start.js').raidStartDailyResetDelay;
+let utcDateKey: typeof import('./_progress.js').utcDateKey;
 let kv: typeof import('../_storage.js').kv;
 let issuePlayerToken: typeof import('../_auth.js').issuePlayerToken;
 let onlineStore: typeof import('../_realtime/online-store.js').onlineStore;
 let raidStart: Handler;
 let reportRaid: Handler;
 let settleRaidProgression: typeof import('./_raid-progression.js').settleRaidProgression;
+let settleMissionOutpostRaid: typeof import('./_raid-progression.js').settleMissionOutpostRaid;
 let settleRaidTerritoryDamage: typeof import('./_raid-territory.js').settleRaidTerritoryDamage;
 let raidTerritoryProofKey: typeof import('./_raid-territory.js').raidTerritoryProofKey;
 let sealedWorldRaidAttacker: typeof import('../pvp/session.js').sealedWorldRaidAttacker;
@@ -24,9 +27,13 @@ before(async () => {
     ({ issuePlayerToken } = await import('../_auth.js'));
     ({ onlineStore } = await import('../_realtime/online-store.js'));
     ({ settleRaidProgression } = await import('./_raid-progression.js'));
+    ({ settleMissionOutpostRaid } = await import('./_raid-progression.js'));
     ({ settleRaidTerritoryDamage, raidTerritoryProofKey } = await import('./_raid-territory.js'));
     ({ sealedWorldRaidAttacker } = await import('../pvp/session.js'));
-    raidStart = (await import('./raid-start.js')).default as unknown as Handler;
+    const raidStartModule = await import('./raid-start.js');
+    raidStart = raidStartModule.default as unknown as Handler;
+    raidStartDailyResetDelay = raidStartModule.raidStartDailyResetDelay;
+    ({ utcDateKey } = await import('./_progress.js'));
     reportRaid = (await import('./report-raid.js')).default as unknown as Handler;
 });
 
@@ -120,12 +127,128 @@ async function seed(playerName: string, character: Record<string, unknown> = {},
 }
 
 describe('sealed raid authority', () => {
+    it('computes the next reset from UTC midnight', () => {
+        assert.equal(raidStartDailyResetDelay(Date.UTC(2026, 8, 24, 23, 59, 59, 500)), 500);
+    });
+
     it('rejects Sunscar as a field raid destination', async () => {
         const player = 'raidauthsunscar';
         await seed(player);
         const out = await post(raidStart, player, { requestId: 'sunscarraidrequest01', sector: 54 });
         assert.equal(out.statusCode, 400);
         assert.equal(out.body?.error, 'Invalid raid sector.');
+    });
+
+    it('seals an introductory outpost for each village without sweep ordering or guard scaling', async () => {
+        const { loadAiFightProfile } = await import('./_ai-fight-encounter.js');
+        const { FIELD_MISSIONS } = await import('./_mission-catalog.js');
+        for (const mission of FIELD_MISSIONS.filter((entry) => entry.id.startsWith('fetch-'))) {
+            assert.ok(mission.raidAiProfileId);
+            assert.ok(await loadAiFightProfile(mission.raidAiProfileId), `${mission.id} has a server encounter`);
+        }
+        await kv.set('guard:veteran-outpost-test', { village: 'Mist', level: 100 });
+        await kv.set('world:territory:18', { sector: 18, ownerVillage: 'Mist', ownerClan: 'MistClan', hp: 20_000 });
+        for (const village of ['Leaf', 'Mist', 'Sand', 'Cloud']) {
+            const player = `raidauthmission${village.toLowerCase()}`;
+            const runId = `fieldrunmission${village.toLowerCase()}01`;
+            await seed(player, {
+                level: 1, village, clan: '',
+                serverFieldMissionRuns: {
+                    [FIELD_MISSION]: { missionId: FIELD_MISSION, runId, acceptedAt: Date.now() - 1_000 },
+                },
+            }, { acceptedMissionIds: [FIELD_MISSION] });
+            onlineStore.upsert({ name: player, sector: 18, character: { name: player, hp: 100, maxHp: 100 } });
+            const started = await post(raidStart, player, {
+                requestId: `missionoutpost${village.toLowerCase()}01`, missionId: FIELD_MISSION, sector: 18,
+                aiId: 'builtin-ai-central-champion',
+            });
+            assert.equal(started.statusCode, 200, village);
+            assert.equal(started.body?.opponentId, 'mission-outpost-d-supply-trail');
+            assert.equal(started.body?.source, 'field-mission-raid');
+            const token = await kv.get<Record<string, unknown>>(`raid-token:${player}:${started.body?.token}`);
+            assert.equal(token?.missionRunId, runId);
+            assert.equal(token?.aiId, 'mission-outpost-d-supply-trail');
+        }
+        await kv.del('guard:veteran-outpost-test');
+    });
+
+    it('rejects an outpost in the wrong sector', async () => {
+        const player = 'raidauthmissiontarget';
+        await seed(player, {
+            level: 1,
+            serverFieldMissionRuns: {
+                [FIELD_MISSION]: { missionId: FIELD_MISSION, runId: 'fieldrunmissiontarget01', acceptedAt: Date.now() - 1_000 },
+            },
+        }, { acceptedMissionIds: [FIELD_MISSION] });
+        onlineStore.upsert({ name: player, sector: 18, character: { name: player, hp: 100, maxHp: 100 } });
+
+        const wrongSector = await post(raidStart, player, {
+            requestId: 'missionwrongsectorrequest01', missionId: FIELD_MISSION, sector: 19,
+            aiId: 'builtin-ai-academy-sparring',
+        });
+        assert.equal(wrongSector.statusCode, 409);
+        assert.equal(wrongSector.body?.reason, 'mission-raid-sector-mismatch');
+
+        assert.equal(await kv.get(`raid-start-count:${player}:${utcDateKey()}`), null);
+    });
+
+    it('mission outpost victory stamps one fetch receipt and has no Vanguard, Legacy, or territory effects', async () => {
+        const player = 'raidauthmissiononly';
+        const acceptedAt = Date.now() - 1_000;
+        await seed(player, {
+            level: 1,
+            profession: 'vanguard',
+            professionRank: 10,
+            professionXp: 123,
+            ryo: 77,
+            honorSeals: 4,
+            serverFieldMissionRuns: {
+                [FIELD_MISSION]: { missionId: FIELD_MISSION, runId: 'fieldrunmissiononly001', acceptedAt },
+            },
+        }, { acceptedMissionIds: [FIELD_MISSION] });
+        await kv.set('world:territory:18', {
+            sector: 18, ownerVillage: 'Mist', ownerClan: 'MistClan', hp: 20_000,
+            guards: [], controlScore: 0, terrainBuffStat: 'bukijutsuOffense', warSupply: 0, updatedAt: Date.now(),
+        });
+        const { missionProgressReceiptKey } = await import('./_mission-progress-receipt.js');
+        const first = await settleMissionOutpostRaid({
+            playerName: player, missionId: FIELD_MISSION, proofId: 'mission-outpost-proof-0001', proofAt: Date.now(), sector: 18,
+        });
+        const replay = await settleMissionOutpostRaid({
+            playerName: player, missionId: FIELD_MISSION, proofId: 'mission-outpost-proof-0001', proofAt: Date.now(), sector: 18,
+        });
+        const receipt = await kv.get<Record<string, unknown>>(missionProgressReceiptKey(player, FIELD_MISSION));
+        const save = await kv.get<Record<string, unknown>>(`save:${player}`);
+        const territory = await kv.get<Record<string, unknown>>('world:territory:18');
+        assert.deepEqual(first.fetchMissionsCredited, [FIELD_MISSION]);
+        assert.deepEqual(replay.fetchMissionsCredited, [FIELD_MISSION]);
+        assert.equal(receipt?.raidCount, 1, 'proof-specific evidence prevents duplicate credit');
+        assert.equal(first.xpAwarded, 0);
+        assert.equal(first.bonusRyo, 0);
+        assert.equal(first.bonusSeals, 0);
+        assert.equal(first.territoryDamage, 0);
+        assert.equal((save?.character as Record<string, unknown>)?.professionXp, 123);
+        assert.equal((save?.character as Record<string, unknown>)?.ryo, 77);
+        assert.equal((save?.character as Record<string, unknown>)?.honorSeals, 4);
+        assert.equal(await kv.get(`legacy:stats:${player}`), null);
+        assert.equal(territory?.hp, 20_000);
+    });
+
+    it('does not credit a replacement contract run from an older mission raid', async () => {
+        const player = 'raidauthreplacedrun';
+        await seed(player, {
+            level: 1,
+            serverFieldMissionRuns: {
+                [FIELD_MISSION]: { missionId: FIELD_MISSION, runId: 'fieldrunreplacement01', acceptedAt: Date.now() - 1_000 },
+            },
+        }, { acceptedMissionIds: [FIELD_MISSION] });
+        const settled = await settleMissionOutpostRaid({
+            playerName: player, missionId: FIELD_MISSION, missionRunId: 'fieldrunprevious001',
+            proofId: 'mission-outpost-old-proof-0001', proofAt: Date.now(), sector: 18,
+        });
+        const { missionProgressReceiptKey } = await import('./_mission-progress-receipt.js');
+        assert.deepEqual(settled.fetchMissionsCredited, []);
+        assert.equal(await kv.get(missionProgressReceiptKey(player, FIELD_MISSION)), null);
     });
 
     it('replays one launch before throttling and reconstructs its exact missing token', async () => {
@@ -157,6 +280,31 @@ describe('sealed raid authority', () => {
         const restored = await kv.get<Record<string, unknown>>(`raid-token:${player}:${token}`);
         assert.equal(restored?.requestId, requestId);
         assert.equal(restored?.sector, 18);
+    });
+
+    it('returns the UTC reset deadline when the daily launch cap is reached', async () => {
+        const player = 'raidauthdailycap';
+        const acceptedAt = Date.now() - 1_000;
+        await seed(player, {
+            serverFieldMissionRuns: {
+                [FIELD_MISSION]: { missionId: FIELD_MISSION, runId: 'fieldrundailycap001', acceptedAt },
+            },
+        }, { acceptedMissionIds: [FIELD_MISSION] });
+        onlineStore.upsert({ name: player, sector: 18, character: { name: player, hp: 100, maxHp: 100 } });
+        await kv.set(`raid-start-count:${player}:${utcDateKey()}`, 30);
+
+        const requestId = 'raid-daily-cap-request01';
+        const capped = await post(raidStart, player, { requestId, sector: 18 });
+        assert.equal(capped.statusCode, 200);
+        assert.equal(capped.body?.reason, 'daily-mint-cap');
+        assert.equal(capped.body?.token, null);
+        assert.ok(Number(capped.body?.retryAfterMs) > 0);
+        assert.ok(Math.abs(Number(capped.body?.retryAfterMs) - raidStartDailyResetDelay()) < 1_000);
+
+        const replayed = await post(raidStart, player, { requestId, sector: 18 });
+        assert.equal(replayed.statusCode, 200);
+        assert.equal(replayed.body?.reason, 'daily-mint-cap');
+        assert.equal(replayed.body?.retryAfterMs, capped.body?.retryAfterMs);
     });
 
     it('binds PvP raid credit to the sealed creator side, not fighter ordering', async () => {
