@@ -10,6 +10,7 @@ import {
     hollowGatePetReceiptMatchesBinding,
     hollowGatePostWinHp,
     normalizeHollowGateNodeId,
+    parseHollowGatePetResultReceipt,
     settleHollowGateCombatBinding,
     validateHollowGatePetClaim,
     validateHollowGateSoloPveSession,
@@ -57,13 +58,15 @@ test('pet Hollow Hound receipts remain a separate server-verified branch', () =>
     const active = { runId: pet.runId, nodeId: pet.nodeId, floor: pet.floor, kind: pet.kind, enemyProfileId: pet.enemyProfileId, createdAt: pet.createdAt };
     assert.equal(validateHollowGatePetClaim({ binding: pet, activeEncounter: active, playerName, token }).ok, true);
     assert.equal(validateHollowGatePetClaim({ binding: { ...pet, combatMode: 'solo-pve' }, activeEncounter: active, playerName, token }).ok, false);
-    assert.equal(pet.petAuthority?.engine, 'cinematic');
+    // A new pet encounter is mounted on Showdown: the parent names the session
+    // id before any client can ask a pet endpoint to start work.
+    assert.equal(pet.petAuthority?.engine, 'showdown');
     assert.match(pet.petAuthority?.proofId ?? '', /^[A-Za-z0-9]{8,96}$/);
-    assert.equal(hollowGatePetAuthorityMatches(pet, 'cinematic', pet.petAuthority!.proofId), true);
-    assert.equal(hollowGatePetAuthorityMatches(pet, 'showdown', pet.petAuthority!.proofId), false);
+    assert.equal(hollowGatePetAuthorityMatches(pet, 'showdown', pet.petAuthority!.proofId), true);
+    assert.equal(hollowGatePetAuthorityMatches(pet, 'cinematic', pet.petAuthority!.proofId), false);
     const receipt = {
         version: HOLLOW_GATE_PET_AUTHORITY_VERSION,
-        engine: 'cinematic' as const,
+        engine: 'showdown' as const,
         proofId: pet.petAuthority!.proofId,
         playerName,
         runId: pet.runId,
@@ -73,6 +76,17 @@ test('pet Hollow Hound receipts remain a separate server-verified branch', () =>
     };
     assert.equal(hollowGatePetReceiptMatchesBinding(pet, receipt, playerName), true);
     assert.equal(hollowGatePetReceiptMatchesBinding(pet, { ...receipt, proofId: 'differentproof01' }, playerName), false);
+    assert.equal(hollowGatePetReceiptMatchesBinding(pet, { ...receipt, engine: 'cinematic' }, playerName), false);
+});
+
+test('a pet result receipt keeps every pet of a 3v3 and nothing beyond it', () => {
+    const receipt = {
+        version: HOLLOW_GATE_PET_AUTHORITY_VERSION, engine: 'showdown', proofId: 'showdownproof01', playerName,
+        runId: 'hgcombat-pet', outcome: 'win', playerPetIds: ['pet-1', 'pet-2', 'pet-3', 'pet-4'], settledAt: 2_000,
+    };
+    assert.deepEqual(parseHollowGatePetResultReceipt(receipt)?.playerPetIds, ['pet-1', 'pet-2', 'pet-3']);
+    assert.deepEqual(parseHollowGatePetResultReceipt({ ...receipt, playerPetIds: ['pet-1', 'pet-2', 'pet-3'] })?.playerPetIds,
+        ['pet-1', 'pet-2', 'pet-3'], 'a 3v3 result must read back exactly as it was written');
 });
 
 test('node ids and encounter keys reject identity reuse', () => {

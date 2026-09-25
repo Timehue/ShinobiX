@@ -822,17 +822,16 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
         statusDetail: 'New rankedPet challenge creation is retired fail-closed. Retained reciprocal one-pet proofs can still start; both the watched 1v1 script and rating settlement derive from the sealed token through resolveRankedPetDuel. Completed receipts retain the replay for 24 hours; a historical receipt whose recorded winner differs from the current derivation is refused instead of displaying a contradictory result. The current Pet Ladder queue uses a separate admission path.',
     }),
     defineMode({
-        id: 'hollow-gate-pet-cinematic', label: 'Hollow Gate pet', category: 'pet-legacy', authorityEngine: E.PET_CINEMATIC_DUEL,
+        id: 'hollow-gate-pet-showdown', label: 'Hollow Gate pet', category: 'pet-showdown', authorityEngine: E.PET_SHOWDOWN,
         orchestrationOwner: O.HOLLOW_GATE,
-        clientEntries: ['lib/hollow-gate-combat-api.ts', 'screens/PetArena.tsx'],
+        clientEntries: ['lib/hollow-gate-combat-api.ts', 'components/HollowGatePetFight.tsx', 'lib/pet-showdown-api.ts'],
         routes: [
             mountedRoute('/hollow-gate/combat-start', 'hollow-gate/combat-start', ['lifecycle']),
-            mountedRoute('/pet/battle-start', 'pet/battle-start', ['start', 'state']),
-            mountedRoute('/pet/battle-result', 'pet/battle-result', ['lifecycle']),
+            mountedRoute('/pet/showdown', 'pet/showdown', ['start', 'action', 'state']),
             mountedRoute('/hollow-gate/combat-settle', 'hollow-gate/combat-settle', ['settlement']),
         ],
-        participantModel: 'solo', rewardPolicy: 'parent-mode-settlement', replayKind: 'server-replayed-cinematic-input-log-and-parent-run-receipt', status: 'owner-decision', migrationStatus: 'keep',
-        statusDetail: 'Current execution preselects one exact cinematic proof in the parent binding; duplicate starts reuse it and parent settlement accepts only its versioned engine/proof receipt. New Hollow Gate Showdown admission and adoption of unbound legacy Showdown siblings fail closed; a legacy parent may recover only the unique exact active same-player/run cinematic child. That compatibility is not a second live authority. The long-term replatform choice remains owner-controlled.',
+        participantModel: 'solo', rewardPolicy: 'parent-mode-settlement', replayKind: 'expiring-showdown-turn-script-plus-parent-run-receipt', status: 'match',
+        statusDetail: 'Owner ruling: Send pet fights the road-beast Colosseum duel. The parent binding preselects one Showdown proof, and that proof is the session id. The hollow-gate Showdown entry opens or resumes it under the parent lock with the road draw: a random 1v1, 2v2 or 3v3 capped by the ready carried pets, led by the active pet, against one server-built Hollow Hound per fielded pet. The session is reward-ineligible. Its terminal turn or concession writes the exact versioned receipt, and combat-settle pays the encounter once from the run reward table, or records a pet defeat as withdrawn and unpaid. A duel that never began, or lapsed undecided, falls back to a shinobi fight on the same node. A binding sealed before the cutover keeps its cinematic proof, which the Showdown entry refuses, so that encounter is fought as a shinobi.',
     }),
     defineMode({
         id: 'dungeon-pet-cinematic', label: 'Dungeon pet', category: 'pet-legacy', authorityEngine: E.PET_CINEMATIC_DUEL,
