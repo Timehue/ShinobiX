@@ -321,6 +321,111 @@ describe('google sign-in', () => {
         });
     });
 
+    // Google refuses to sign in inside a WebView, so the Android app runs the
+    // Google pages in a Chrome Auth Tab and needs the result handed back to it.
+    // Every outcome of an app flow must return to the app — an error that lands
+    // on the website strands the player inside the app's sign-in tab.
+    describe('android app return', () => {
+        const APP = 'shinobijourney://auth?';
+
+        async function appStartState(body: Record<string, unknown> = {}): Promise<string> {
+            const out = await call(startHandler, 'POST', { body: { nonce: NONCE, client: 'android-app', ...body } });
+            assert.equal(out.statusCode, 200);
+            return new URL(String(out.body?.url)).searchParams.get('state')!;
+        }
+
+        it('seals the app flag into the signed state, and web states stay flagless', async () => {
+            assert.equal(verifyState(await appStartState())?.ret, 'app');
+
+            const web = await call(startHandler, 'POST', { body: { nonce: NONCE } });
+            const webState = verifyState(new URL(String(web.body?.url)).searchParams.get('state')!);
+            assert.equal(webState?.mode, 'login');
+            assert.equal(webState && 'ret' in webState, false, 'a web state must be exactly what it was');
+        });
+
+        it('refuses an unknown client rather than quietly treating it as the web', async () => {
+            for (const client of ['ios-app', 'web', '', null, 1]) {
+                const out = await call(startHandler, 'POST', { body: { nonce: NONCE, client } });
+                assert.equal(out.statusCode, 400, `client ${JSON.stringify(client)} must be refused`);
+            }
+        });
+
+        it('refuses a signed state carrying any other return flag', () => {
+            assert.equal(verifyState(signState({ mode: 'login', nonce: NONCE, ret: 'web' as never })), null);
+            assert.equal(verifyState(signState({ mode: 'login', nonce: NONCE, ret: 'app' }))?.ret, 'app');
+        });
+
+        it('returns signup and sign-in to the app, and the ticket still needs the nonce', async () => {
+            const signup = await call(callbackHandler, 'GET', { query: { code: 'auth-code', state: await appStartState() } });
+            assert.ok(signup.headers.location?.startsWith(APP), signup.headers.location);
+            assert.equal(bounceParams(signup).gauth, 'signup');
+
+            store.set('auth:kaze', { google: { sub: '110000000000000000001', email: 'x@y.test', linkedAt: 1 }, sessionEpoch: 0 });
+            store.set('auth-google:110000000000000000001', { name: 'kaze' });
+            const ok = await call(callbackHandler, 'GET', { query: { code: 'auth-code', state: await appStartState() } });
+            assert.ok(ok.headers.location?.startsWith(APP), ok.headers.location);
+            const { gauth, gticket } = bounceParams(ok);
+            assert.equal(gauth, 'ok');
+
+            // Another app that registers the same scheme could receive the
+            // ticket, but without the WebView's nonce it can only burn it.
+            const stolen = await call(claimHandler, 'POST', { body: { ticket: gticket, nonce: 'another-apps-guess-at-the-nonce' } });
+            assert.equal(stolen.statusCode, 410);
+        });
+
+        it('returns a finished claim to the rightful WebView', async () => {
+            store.set('auth:kaze', { google: { sub: '110000000000000000001', email: 'x@y.test', linkedAt: 1 }, sessionEpoch: 0 });
+            store.set('auth-google:110000000000000000001', { name: 'kaze' });
+            const ok = await call(callbackHandler, 'GET', { query: { code: 'auth-code', state: await appStartState() } });
+            const claimed = await call(claimHandler, 'POST', { body: { ticket: bounceParams(ok).gticket, nonce: NONCE } });
+            assert.equal(claimed.statusCode, 200);
+            assert.equal(await verifyPlayerToken(String(claimed.body?.token)), 'kaze');
+        });
+
+        it('returns every failure to the app too', async () => {
+            const cases: [string, Record<string, string>][] = [
+                ['a cancel at Google (no code)', { error: 'access_denied', state: signState({ mode: 'login', nonce: NONCE, ret: 'app' }) }],
+                ['a state older than five minutes', { code: 'c', state: signState({ mode: 'login', nonce: NONCE, ret: 'app' }, -1) }],
+            ];
+            for (const [why, query] of cases) {
+                const out = await call(callbackHandler, 'GET', { query });
+                assert.ok(out.headers.location?.startsWith(APP), `${why}: ${out.headers.location}`);
+                assert.equal(bounceParams(out).gauth, 'error', why);
+                assert.equal(bounceParams(out).gticket, '', `${why} must carry no ticket`);
+            }
+
+            nextIdToken = null;
+            const refused = await call(callbackHandler, 'GET', { query: { code: 'c', state: await appStartState() } });
+            assert.ok(refused.headers.location?.startsWith(APP), 'a refused code exchange');
+
+            process.env.DISABLE_GOOGLE_AUTH = '1';
+            const disabled = await call(callbackHandler, 'GET', { query: { code: 'c', state: signState({ mode: 'login', nonce: NONCE, ret: 'app' }) } });
+            assert.ok(disabled.headers.location?.startsWith(APP), 'the kill switch');
+        });
+
+        it('returns a link outcome to the app', async () => {
+            store.set('auth:kaze', { hash: 'scrypt:x', salt: 's', sessionEpoch: 0 });
+            const state = signState({ mode: 'link', name: 'kaze', epoch: 0, nonce: NONCE, ret: 'app' });
+            const out = await call(callbackHandler, 'GET', { query: { code: 'auth-code', state } });
+            assert.ok(out.headers.location?.startsWith(APP), out.headers.location);
+            assert.equal(bounceParams(out).gauth, 'linked');
+        });
+
+        it('never lets a forged state choose the app', async () => {
+            // Unsigned JSON claiming the app flag must fall back to the website.
+            const payload = Buffer.from(JSON.stringify({ mode: 'login', nonce: NONCE, ret: 'app', exp: Date.now() + 60_000 })).toString('base64url');
+            const out = await call(callbackHandler, 'GET', { query: { code: 'c', state: `${payload}.not-the-signature` } });
+            assert.equal(out.headers.location, '/?gauth=error');
+        });
+
+        it('leaves web flows returning to the website', async () => {
+            const out = await runLoginFlow();
+            assert.ok(out.headers.location?.startsWith('/?'), out.headers.location);
+            const cancel = await call(callbackHandler, 'GET', { query: { error: 'access_denied', state: signState({ mode: 'login', nonce: NONCE }) } });
+            assert.equal(cancel.headers.location, '/?gauth=error');
+        });
+    });
+
     describe('linking an existing account', () => {
         async function linkFlow(name: string, epoch: number) {
             const state = signState({ mode: 'link', name, epoch, nonce: NONCE });
