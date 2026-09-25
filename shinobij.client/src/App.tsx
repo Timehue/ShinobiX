@@ -497,6 +497,7 @@ import {
 } from "./lib/hollow-gate-pve";
 import { hollowGateRunAfterUnresolvedFight, useHollowGateAppFlow } from "./lib/hollow-gate-app-flow";
 import { enterHollowGateShrineFlow, reportHollowGateEntryFailure } from "./lib/hollow-gate-entry";
+import { recoverHollowGateRun } from "./lib/hollow-gate-recovery";
 import type { StoryBossSettleResult } from "./lib/story-combat-api";
 import { requestStoryBossFight } from "./lib/story-fight-theme";
 import { useSealedFightPresence } from "./lib/use-sealed-fight-presence";
@@ -2647,6 +2648,13 @@ export default function App() {
             const normalized = normalizeAdminCharacter(snap.character);
             prevCharRef.current = normalized;
             charDirtyRef.current = false;
+            // A reload mid-run keeps the run's start marker but not its board (the
+            // save holds only the server's projection). Rebuild it from the server.
+            const recoverBoardlessHollowGateRun = () => {
+                if (normalized.hollowGateRun || !normalized.lastHollowGateStart?.token || normalized.hospitalized) return;
+                void recoverHollowGateRun({ character: normalized, setHollowGateRun, setHollowGateLog, setHollowGateEvent,
+                    setHollowGateHiddenChamber, setCharacter, setCurrentBiome, setCurrentWeather, setScreen, pushHollowGateLog });
+            };
             scopeSaveAuthorityToAccount(snap.character.name);
             const restoredPvpScope = {
                 ownerName: snap.character.name,
@@ -2782,7 +2790,8 @@ export default function App() {
                         // pointer below resumes the server-owned Solo PvE session.
                         void postBattleLock({ action: "resolve", playerName: normalized.name, battleId: bootLock.battleId });
                         if (normalized.hollowGateRun) setHollowGateRun(normalized.hollowGateRun);
-                        setScreen("hollowGateShrine");
+                        setScreen(normalized.hollowGateRun ? "hollowGateShrine" : safeFallbackScreen(isWildSector(Number(snap.currentSector ?? 0))));
+                        recoverBoardlessHollowGateRun();
                         return;
                     } else if (recovery === "dungeon") {
                         // A pre-cutover Warden snapshot must never revive the local
@@ -2896,6 +2905,7 @@ export default function App() {
                                 setScreen("hollowGateShrine");
                             } else {
                                 setScreen("village");
+                                recoverBoardlessHollowGateRun();
                             }
                         } else {
                             // arena (and other hospitalizing fights): the server
@@ -2949,6 +2959,7 @@ export default function App() {
                     target = safeFallbackScreen(isWildSector(Number(snap.currentSector ?? 0)));
                 }
                 setScreen(target);
+                recoverBoardlessHollowGateRun();
             })();
             // Re-hydrate the visible screen after restore. Preserve the valid
             // session manifest cache instead of forcing an eight-request reload.

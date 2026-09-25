@@ -324,7 +324,8 @@ export function attachStartedRun(res: HollowGateStartResult | null, opts: Hollow
             : prev,
     );
     const offers = res.augmentOffers ?? [];
-    if (offers.length === 0) return;
+    // A replayed start whose augment is already sealed has nothing left to pick.
+    if (offers.length === 0 || res.chosenAugmentId) return;
     presentAugmentPicker({ playerName: opts.playerName, token, offers, setRun: opts.setRun, setCharacter: opts.setCharacter, setEvent: opts.setEvent, pushLog: opts.pushLog });
 }
 

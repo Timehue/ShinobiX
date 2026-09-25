@@ -8,6 +8,7 @@ import { countItem } from "./inventory";
 import { currentDateKey } from "./utils";
 import { attunementDailyBonus } from "./hollow-gate-attunement";
 import { buildHollowGateRunFromStart, HOLLOW_GATE_FLOOR_LOAD_FAILED } from "./hollow-gate-run-build";
+import { recoverHollowGateRun } from "./hollow-gate-recovery";
 import { sealHollowGateFloor } from "./hollow-gate-event-api";
 import { startHollowGateServerRun, resumeHollowGateServerRun, attachStartedRun } from "./hollow-gate-server";
 import { hollowGateRunMaxFloor, hollowGateBossDisplayName, variantFromEventConfig } from "./hollow-gate-variant";
@@ -44,6 +45,14 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
     } = params;
     if (!requireServerSettlement("hollowGateRun")) return;
     if (!character) return;
+    // A live run whose board never reached the save (a reload mid-run): rebuild
+    // its current floor from the server instead of replaying the start, which
+    // could only redraw floor 1. The replay below stays the fallback when the
+    // server cannot be read, and covers a marker whose run has already ended.
+    if (!character.hollowGateRun && character.lastHollowGateStart?.token && await recoverHollowGateRun({
+        character, setHollowGateRun, setHollowGateLog, setHollowGateEvent, setHollowGateHiddenChamber,
+        setCharacter, setCurrentBiome, setCurrentWeather, setScreen, pushHollowGateLog,
+    }) === "recovered") return;
     // Event gates reshape the run (fewer floors / smaller board / bespoke
     // boss) and may relax the entry gates; the standard shrine when absent.
     const variant = eventCfg ? variantFromEventConfig(eventCfg) : undefined;
