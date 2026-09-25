@@ -120,6 +120,29 @@ export function hollowGateManifestNode(manifest: HollowGateFloorManifest | null 
     return manifest.nodes[String(index)] ?? (manifest.walkable[index] === '1' ? 'empty' : 'wall');
 }
 
+/**
+ * The run's per-floor record of stepped-on tiles: a '0'/'1' mask the shape of
+ * the manifest's walkable mask, keyed by floor. It is presentation memory, not
+ * gameplay authority. It lets a reload rebuild the explored board from the
+ * server instead of from a client-saved one. Returns `visited` unchanged when
+ * the tile is already marked or lies off the floor.
+ */
+export function hollowGateMarkVisited(
+    visited: Record<string, string> | undefined,
+    manifest: Pick<HollowGateFloorManifest, 'floor' | 'width' | 'height'>,
+    position: { x: number; y: number } | null | undefined,
+): Record<string, string> | undefined {
+    if (!position || !Number.isInteger(position.x) || !Number.isInteger(position.y)
+        || position.x < 0 || position.x >= manifest.width || position.y < 0 || position.y >= manifest.height) return visited;
+    const size = manifest.width * manifest.height;
+    const key = String(manifest.floor);
+    const current = visited?.[key];
+    const mask = typeof current === 'string' && current.length === size && /^[01]*$/.test(current) ? current : '0'.repeat(size);
+    const index = position.y * manifest.width + position.x;
+    if (mask[index] === '1' && mask === current) return visited;
+    return { ...(visited ?? {}), [key]: `${mask.slice(0, index)}1${mask.slice(index + 1)}` };
+}
+
 export function hollowGatePositionNodeId(
     manifest: HollowGateFloorManifest | null | undefined,
     position: { x: number; y: number } | null | undefined,

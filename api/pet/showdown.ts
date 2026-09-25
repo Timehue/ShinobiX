@@ -12,6 +12,12 @@ import { bumpSaveVersion } from '../save/_save-version.js';
 import { writeSaveProjected } from '../save/_projected-write.js';
 import { showdownBusyIssue } from './_showdown-readiness.js';
 import { startNaturalWandererShowdown } from './_wanderer-showdown.js';
+import {
+    mintHollowGatePetReceipt,
+    showdownHollowGateKey,
+    startHollowGatePetShowdown,
+    type ShowdownHollowGateBinding,
+} from './_hollow-gate-showdown.js';
 import { activeCarriedPets } from '../_entitlements.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 import {
@@ -49,16 +55,11 @@ import {
 } from './_authored-encounter.js';
 import { hollowGateRunKey, type HollowGateRunToken } from '../hollow-gate/_run-token.js';
 import {
-    HOLLOW_GATE_PET_AUTHORITY_VERSION,
     hollowGateCombatBindingKey,
     hollowGatePetAuthorityMatches,
     validateHollowGatePetClaim,
     type HollowGateCombatBinding,
-    type HollowGatePetResultReceipt,
 } from '../hollow-gate/_combat-session.js';
-import {
-    writeHollowGatePetResult,
-} from '../hollow-gate/_pet-authority.js';
 import { isHollowHoundEncounterId, type HollowGateHoundKind } from '../../shared/hollow-gate-contract.js';
 import {
     WORLD_CRISIS_80_ID,
@@ -103,6 +104,9 @@ import {
  *             ENGINE RUNS ONLY HERE on the server; the client is presentation.
  *   wanderer — validate a natural road beast, roll a fieldable 1v1/2v2/3v3
  *             format and random AI team, and enter an unpaid interactive fight.
+ *   hollow-gate — open or resume the Showdown duel a Pet-mode Hollow Gate
+ *             encounter names: the road draw's random 1v1/2v2/3v3 against the
+ *             run's own Hounds, unpaid here and settled by the Gate.
  *   turn    — submit one round of commands; the server resolves the round and
  *             returns the turn script + updated public state. The finishing
  *             turn also pays out (win only) under the save lock with an
@@ -146,9 +150,9 @@ const RECEIPT_HISTORY = Math.max(64, DAILY_ARENA_WIN_CAP);
 const PAID_RECEIPT_TTL_SECONDS = 24 * 60 * 60;
 
 // (No HOLLOW_GATE_PET_RECEIPT_TTL_SECONDS twin here, unlike pet/battle-result.ts:
-// mintHollowGatePetReceipt below writes the versioned receipt through
-// writeHollowGatePetResult, which owns that lifetime itself. The raw `ex:` write
-// it replaced was the constant's only reader.)
+// mintHollowGatePetReceipt (_hollow-gate-showdown.ts) writes the versioned
+// receipt through writeHollowGatePetResult, which owns that lifetime itself.
+// The raw `ex:` write it replaced was the constant's only reader.)
 
 const sessionKey = (playerName: string, sessionId: string) => `pet:showdown:${playerName}:${sessionId}`;
 const paidReceiptKey = (playerName: string, receipt: string) => `pet:battle-paid:${playerName}:${receipt}`;
@@ -216,10 +220,8 @@ function parseCommands(raw: unknown, maxCount: number): ShowdownCommand[] {
 /** Parent details stay BESIDE the session as server-only bookkeeping the client
  *  must never see. The session carries only a non-public binding kind so the
  *  endpoint can renew the right sidecar. Keyed by session id, the session is
- *  still the receipt handle. */
-interface ShowdownHollowGateBinding { runId: string; petIds: string[] }
-const showdownHollowGateKey = (playerName: string, sessionId: string) => `sd-hg:${playerName}:${sessionId}`;
-
+ *  still the receipt handle. (The Hollow Gate sidecar and its receipt writer
+ *  live in _hollow-gate-showdown.ts, beside the admission that creates them.) */
 interface ShowdownWorldCrisis80Binding {
     crisisId: typeof WORLD_CRISIS_80_ID;
     village: WorldCrisis80Village;
@@ -269,29 +271,6 @@ function isShowdownBindingMissing(
     return (session.bindingKind === 'hollow-gate' && !bindings.hollowGate)
         || (session.bindingKind === 'world-crisis-80' && !bindings.worldCrisis80)
         || (session.bindingKind === 'first-pact' && !bindings.firstPact);
-}
-
-/** Mint the exact versioned receipt Hollow Gate's settlement endpoint consumes.
- *  The writer accepts it only when the parent had already selected this
- *  Showdown session id; an unbound legacy parent cannot adopt a terminal
- *  session after its outcome is known. */
-async function mintHollowGatePetReceipt(
-    playerName: string,
-    sessionId: string,
-    binding: ShowdownHollowGateBinding,
-    outcome: 'win' | 'loss',
-): Promise<boolean> {
-    const receipt: HollowGatePetResultReceipt = {
-        version: HOLLOW_GATE_PET_AUTHORITY_VERSION,
-        engine: 'showdown',
-        proofId: sessionId,
-        playerName,
-        runId: binding.runId,
-        outcome,
-        playerPetIds: binding.petIds,
-        settledAt: Date.now(),
-    };
-    return writeHollowGatePetResult(receipt);
 }
 
 /** Win payout under the save lock. Exactly-once via the paired receipts. */
@@ -440,13 +419,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(403).json({ error: 'Can only battle with your own pets.' });
         }
 
-        // Hollow Gate is mounted on the cinematic Pet Coliseum. Older builds
-        // could smuggle a run binding through the paid Showdown request and mint
-        // a parallel child session. Retire only that unmounted admission shape;
-        // ordinary arena matchmaking below is unchanged, while state/turn still
-        // recover a Showdown session that an older server already issued.
+        // A Hollow Gate pet duel opens through its own `hollow-gate` entry below,
+        // where the parent binding names the session and the server draws the
+        // format and both teams. Older builds sent a run binding through the
+        // paid arena request instead, with a format and pets of their own
+        // choosing. Retire only that admission shape; ordinary arena matchmaking
+        // below is unchanged, while state/turn still recover any session.
         if (action === 'arena' && body.hollowGate != null) {
-            return res.status(409).json({ error: 'Hollow Gate pet encounters use the sealed cinematic duel.' });
+            return res.status(409).json({ error: 'Hollow Gate pet encounters open through their own sealed duel.' });
         }
 
         if (action === 'world-crisis-80') {
@@ -621,6 +601,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 petIds: started.petIds,
                 character: started.character,
                 _saveVersion: started._saveVersion,
+            });
+        }
+
+        if (action === 'hollow-gate') {
+            if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-showdown-hollowgate', 20, 60_000, identity.name))) return;
+            // The run's sealed encounter selects the format, both teams and the
+            // AI seed, exactly as a road beast does. Accept only its selector so
+            // no arena or practice field can steer it.
+            const extraFields = Object.keys(body).filter((field) => !['action', 'playerName', 'hollowGate'].includes(field));
+            if (extraFields.length) {
+                return res.status(400).json({ error: 'A Hollow Gate pet duel only accepts its run selector.' });
+            }
+            const started = await startHollowGatePetShowdown(playerName, body.hollowGate);
+            if (!started.ok) return res.status(started.status).json({ error: started.error });
+            if (started.kind === 'decided') {
+                // Nothing left to fight: the browser settles this receipt.
+                return res.status(200).json({ ok: true, decided: { petReceipt: started.petReceipt, outcome: started.outcome } });
+            }
+            if (!started.session.finished) await publishShowdownPresence(kv, playerName, started.session.sessionId);
+            return res.status(200).json({
+                ok: true,
+                state: viewOf(started.session),
+                petIds: started.petIds,
+                resumed: started.resumed,
             });
         }
 

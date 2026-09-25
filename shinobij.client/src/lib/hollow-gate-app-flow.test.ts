@@ -1,7 +1,15 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { HollowGateShrineRun } from "../types/character";
-import { hollowGateDescendUpdate, isSameHollowGateFloor } from "./hollow-gate-app-flow";
+import {
+    hollowGateDescendUpdate,
+    hollowGateRunAfterPetDefeat,
+    hollowGateRunAfterUnresolvedFight,
+    hollowGateShinobiFallback,
+    isSameHollowGateFloor,
+} from "./hollow-gate-app-flow";
 
 /**
  * A post-boss descend generates the next floor behind an `await` on the
@@ -83,11 +91,85 @@ describe("hollow gate descend — stale-write guard", () => {
         assert.equal(hollowGateDescendUpdate(null, run(), run({ floor: 3 })), null);
     });
 
+    it("re-points only an open pet duel at a shinobi fight for the same node", () => {
+        const petDuel = { runId: "hgcombat-pet", nodeId: "floor:2:tile:40", floor: 2, kind: "battle" as const, mode: "pet" as const };
+        const fallback = hollowGateShinobiFallback(run({ activeCombat: petDuel }));
+        assert.deepEqual(fallback?.activeCombat, { ...petDuel, mode: "pve" });
+        assert.equal(fallback?.floor, 2, "only the encounter's mode changes");
+
+        const shinobi = run({ activeCombat: { ...petDuel, mode: "pve" } });
+        assert.equal(hollowGateShinobiFallback(shinobi), shinobi);
+        const idle = run();
+        assert.equal(hollowGateShinobiFallback(idle), idle);
+        assert.equal(hollowGateShinobiFallback(null), null);
+    });
+
     it("never resurrects a run from a null live state, even with a matching token", () => {
         assert.equal(isSameHollowGateFloor(null, { runToken: "token-a", floor: 2 }), false);
         assert.equal(isSameHollowGateFloor(undefined, { runToken: "token-a", floor: 2 }), false);
         assert.equal(isSameHollowGateFloor(run(), { runToken: "token-a", floor: 2 }), true);
         assert.equal(isSameHollowGateFloor(run(), { runToken: "token-a", floor: 3 }), false);
         assert.equal(isSameHollowGateFloor(run(), { runToken: undefined, floor: 2 }), false);
+    });
+});
+
+describe("hollow gate pet defeat — the run the shrine keeps", () => {
+    const petDuel = { runId: "hgcombat-pet", nodeId: "floor:2:tile:4", floor: 2, kind: "battle" as const, mode: "pet" as const };
+    const board = [{ kind: "empty", terrain: "room_floor" }, { kind: "battle", terrain: "room_floor" }] as HollowGateShrineRun["tiles"];
+
+    it("keeps the live board when the settle reply carries only the server's projection", () => {
+        // What combat-settle returns mid-run: the save's projection, no board.
+        const saved = { floor: 2, runToken: "token-a", keys: 2, torch: 5, threat: 0, playerX: 1, playerY: 1 } as unknown as HollowGateShrineRun;
+        const kept = hollowGateRunAfterPetDefeat(run({ tiles: board, activeCombat: petDuel }), saved);
+        assert.equal(kept?.tiles, board, "the shrine still has a board to draw");
+        assert.equal(kept?.width, 3);
+        assert.equal(kept?.activeCombat, undefined);
+        assert.equal(kept?.threat, 0);
+    });
+
+    it("still adopts a complete saved board, as before", () => {
+        const saved = run({ tiles: board, playerX: 2, activeCombat: petDuel });
+        const kept = hollowGateRunAfterPetDefeat(run({ activeCombat: petDuel }), saved);
+        assert.equal(kept?.tiles, board);
+        assert.equal(kept?.playerX, 2);
+        assert.equal(kept?.activeCombat, undefined);
+        assert.equal(kept?.threat, 0);
+    });
+
+    it("falls back to the live board when the reply has no run, and never invents one", () => {
+        assert.equal(hollowGateRunAfterPetDefeat(run({ tiles: board }), undefined)?.tiles, board);
+        assert.equal(hollowGateRunAfterPetDefeat(null, { floor: 2, runToken: "token-a" } as unknown as HollowGateShrineRun), null);
+        assert.equal(hollowGateRunAfterPetDefeat(null, null), null);
+    });
+});
+
+describe("hollow gate shinobi escape and Second Wind — the run the shrine keeps", () => {
+    // A shinobi fight settles through the same combat-settle reply, so a fled
+    // fight or a Second Wind revival adopted the same board-less projection.
+    const shinobiFight = { runId: "hgcombat-pve", nodeId: "floor:2:tile:4", floor: 2, kind: "battle" as const, mode: "pve" as const };
+    const board = [{ kind: "empty", terrain: "room_floor" }, { kind: "battle", terrain: "room_floor" }] as HollowGateShrineRun["tiles"];
+    const projection = { floor: 2, runToken: "token-a", keys: 2, torch: 5, threat: 40, playerX: 1, playerY: 1 } as unknown as HollowGateShrineRun;
+
+    it("an escape keeps the live board and resets Threat", () => {
+        const kept = hollowGateRunAfterUnresolvedFight(run({ tiles: board, activeCombat: shinobiFight, threat: 40 }), projection);
+        assert.equal(kept?.tiles, board, "the shrine still has a board to draw");
+        assert.equal(kept?.activeCombat, undefined);
+        assert.equal(kept?.threat, 0);
+        assert.equal(kept?.secondWindArmed, true, "an escape spends no ward");
+    });
+
+    it("a Second Wind revival keeps the live board and spends the ward", () => {
+        const kept = hollowGateRunAfterUnresolvedFight(run({ tiles: board, activeCombat: shinobiFight }), projection, { secondWindArmed: false });
+        assert.equal(kept?.tiles, board);
+        assert.equal(kept?.activeCombat, undefined);
+        assert.equal(kept?.threat, 0);
+        assert.equal(kept?.secondWindArmed, false);
+    });
+
+    it("App adopts a settle reply's run only through the board guard", () => {
+        const app = readFileSync(join(process.cwd(), "shinobij.client", "src", "App.tsx"), "utf8");
+        assert.doesNotMatch(app, /hollowGateRun \?\? previous/, "a board-less saved run crashes the shrine");
+        assert.equal((app.match(/hollowGateRunAfterUnresolvedFight\(previous, result\.character\?\.hollowGateRun/g) ?? []).length, 2,
+            "the escape and Second Wind branches both use the guard");
     });
 });

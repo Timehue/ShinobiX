@@ -14,6 +14,8 @@ import {
     readPetRankedSeasonGateFresh,
     releaseExpiredQueuedPlayerRankedAdmissions,
     releaseQueuedPlayerRankedAdmission,
+    type PetRankedSeasonGate,
+    type PlayerRankedAdmission,
 } from '../pet/_ranked-preparation.js';
 import { recordCancelledPlayerRankedAdmission } from './_player-ranked-journal.js';
 import { recoverCompletedPlayerRankedFinalizations } from './_ranked-terminal-effects.js';
@@ -56,6 +58,28 @@ export function selectRankedOpponent(me: QueueEntry, others: QueueEntry[], _now:
 
 function queueEntryIsActive(entry: QueueEntry, now: number): boolean {
     return now - (entry.lastPolledAt ?? entry.joinedAt) < STALE_MS;
+}
+
+/**
+ * A player whose previous match still holds its season-gate admission cannot
+ * be matched: the gate admits one match per player, so a mint for them can
+ * only fail. `terminal` means that match is still settling (its claim, the
+ * queue's own recovery, or the server-side settlement sweep finishes it);
+ * `cancelled` means a no-contest is still being recorded.
+ */
+const RANKED_SETTLEMENT_PENDING_ERROR = 'Your last ranked match is still being settled. Queue again in a minute.';
+
+function admissionsByPlayer(gate: PetRankedSeasonGate | null): Map<string, PlayerRankedAdmission> {
+    const held = new Map<string, PlayerRankedAdmission>();
+    for (const admission of gate?.playerAdmissions ?? []) {
+        held.set(admission.a, admission);
+        held.set(admission.b, admission);
+    }
+    return held;
+}
+
+function isSettlingAdmission(admission: PlayerRankedAdmission | undefined): boolean {
+    return admission?.phase === 'terminal' || admission?.phase === 'cancelled';
 }
 
 function rankedPvpActionAllowedDuringSettlement(action: string): boolean {
@@ -230,7 +254,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
                 if (action === 'join') {
                     // Remove existing entry for this player, then add fresh
-                    const filtered = active.filter(e => e.name !== safeName(name));
+                    const player = safeName(name);
+                    const filtered = active.filter(e => e.name !== player);
+                    // One match per player. A held gate admission is never put
+                    // back into the pairing pool, where every opponent's mint
+                    // for this player could only fail.
+                    const held = admissionsByPlayer(await readPetRankedSeasonGateFresh(kv)).get(player);
+                    if (held) {
+                        if (filtered.length !== active.length) {
+                            await kv.set(QUEUE_KEY, filtered, { ex: KV_TTL_SECONDS });
+                        }
+                        if (isSettlingAdmission(held)) {
+                            return {
+                                status: 409,
+                                body: {
+                                    inQueue: false,
+                                    queueSize: filtered.length,
+                                    match: null,
+                                    errorCode: 'ranked-settlement-pending',
+                                    error: RANKED_SETTLEMENT_PENDING_ERROR,
+                                },
+                            };
+                        }
+                        // Queued or active: the match already exists. The poll
+                        // this answer starts restores it (and its battle) from
+                        // the gate, exactly as for a lost match mirror.
+                        return {
+                            status: 200,
+                            body: { inQueue: true, queueSize: filtered.length, match: null, resumingMatch: true },
+                        };
+                    }
                     const entry: QueueEntry = {
                         name: safeName(name),
                         level: serverLevel,
@@ -294,19 +347,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         await kv.set(matchKey(player), recoveredMatch, { ex: MATCH_TTL_SECONDS });
                         return { status: 200, body: { inQueue: false, queueSize: active.length, match: recoveredMatch } };
                     }
+                    if (isSettlingAdmission(admitted ?? undefined)) {
+                        // This player's last match still holds the gate. Leave
+                        // the pool with a reason instead of searching forever.
+                        const remaining = active.filter(e => e.name !== player);
+                        if (remaining.length !== active.length) {
+                            await kv.set(QUEUE_KEY, remaining, { ex: KV_TTL_SECONDS });
+                        }
+                        return {
+                            status: 409,
+                            body: {
+                                inQueue: false,
+                                queueSize: remaining.length,
+                                match: null,
+                                errorCode: 'ranked-settlement-pending',
+                                error: RANKED_SETTLEMENT_PENDING_ERROR,
+                            },
+                        };
+                    }
 
-                    const me = active.find(e => e.name === safeName(name));
+                    const me = active.find(e => e.name === player);
                     if (!me) return { status: 200, body: { inQueue: false, queueSize: active.length, match: null } };
 
-                    const others = active.filter(e => e.name !== me.name);
+                    // Never offer an opponent whose gate admission is still held
+                    // (settling, or a player back in the queue mid-match): the
+                    // mint below would refuse the pair and fail this poll.
+                    const held = admissionsByPlayer(gate);
+                    const others = active.filter(e => e.name !== me.name && !held.has(e.name));
                     const opponent = selectRankedOpponent(me, others, now);
-                    if (!opponent) {
-                        // Refresh liveness without resetting joinedAt: the latter is
-                        // the authoritative queue wait clock and Elo tie-breaker.
+                    // Refresh liveness without resetting joinedAt: the latter is
+                    // the authoritative queue wait clock and Elo tie-breaker.
+                    const keepSearching = async () => {
                         const refreshed = active.map(e => e.name === me.name ? { ...e, lastPolledAt: now } : e);
                         await kv.set(QUEUE_KEY, refreshed, { ex: KV_TTL_SECONDS });
                         return { status: 200, body: { inQueue: true, queueSize: active.length, match: null } };
-                    }
+                    };
+                    if (!opponent) return keepSearching();
                     const remaining = active.filter(e => e.name !== me.name && e.name !== opponent.name);
                     // Deterministic initiator (lexicographically smaller slug) so
                     // exactly ONE side creates the authoritative ranked session;
@@ -316,15 +392,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const initiatorName = me.name < opponent.name ? me.name : opponent.name;
                     // The season-gate admission is the first durable commit. If
                     // close wins its CAS first, no token or public match exists.
-                    const token = await mintPlayerRankedMatchToken({
-                        a: me.name,
-                        b: opponent.name,
-                        aLevel: me.level,
-                        bLevel: opponent.level,
-                        aRating: me.elo,
-                        bRating: opponent.elo,
-                        now,
-                    });
+                    let token: Awaited<ReturnType<typeof mintPlayerRankedMatchToken>>;
+                    try {
+                        token = await mintPlayerRankedMatchToken({
+                            a: me.name,
+                            b: opponent.name,
+                            aLevel: me.level,
+                            bLevel: opponent.level,
+                            aRating: me.elo,
+                            bRating: opponent.elo,
+                            now,
+                        });
+                    } catch (error) {
+                        // Admissions are only minted under this queue lock, so
+                        // only a lease that lapsed mid-poll can let another mint
+                        // land after the gate read above. Nothing was reserved
+                        // here; both players simply keep searching.
+                        if (error instanceof Error && error.message === 'player-ranked-player-already-admitted') {
+                            return keepSearching();
+                        }
+                        throw error;
+                    }
                     const common = {
                         createdAt: now,
                         matchId: token.matchId,

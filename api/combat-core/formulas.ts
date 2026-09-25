@@ -4,8 +4,6 @@ export const MAX_STAT = 2500;
 export const EP_MULTIPLIER = 32;
 export const JUTSU_MAX_LEVEL = 50;
 export const MASTERY_MIN_DAMAGE_FRAC = 0.3;
-/** Extra direct damage for ordinary hand and thrown weapon attacks. Pierce is exempt. */
-export const WEAPON_SWING_DAMAGE_MULTIPLIER = 1.3;
 
 export const JUTSU_LEVEL_CAP_ACADEMY = 10;
 export const JUTSU_LEVEL_CAP_GENIN = 20;
@@ -350,6 +348,19 @@ export function ampTagCapForRank(rank?: string | null): number {
  * best built-in mythic, never beat it (see the balanced-PvP pillar).
  */
 export const WEAPON_AMP_TAG_CAP = 35;
+
+/**
+ * The highest EP a player's weapon can carry. Owner rulings 2026-09-25: EP means
+ * the same thing on a weapon and a jutsu, so a swing resolves at the mastery its
+ * wielder's rank allows (see api/pvp/move.ts), and no weapon may out-hit a fully
+ * maxed 60-AP jutsu. The built-in 60-AP damage jutsu top out at EP 36, so this
+ * ceiling is 36. The catalog's mythic tier lands 3/4 of that hit (EP 24.5, and a
+ * half point of EP rounds up, so 25) and the other tiers scale from it. A new
+ * named forge rolls 24-27 (api/craft/_named.ts); the ones forged before keep
+ * 32-34 until the reset, under this ceiling.
+ * api/pvp/_weapon-damage.test.ts pins the ceiling and the mythic tier.
+ */
+export const WEAPON_EP_CEILING = 36;
 
 export function scaledTagPercent(
     rawPct: number,

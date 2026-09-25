@@ -43,7 +43,6 @@ import {
     shieldAmountForMastery,
     WEAPON_AMP_TAG_CAP,
     WEAPON_POISON_TAG_CAP,
-    WEAPON_SWING_DAMAGE_MULTIPLIER,
     statusDurationFor,
     weatherMultiplier,
     withDisciplineBonuses,
@@ -631,6 +630,16 @@ function isWeaponSwing(jutsu: Pick<Jutsu, 'weaponSwing'>): boolean {
     return jutsu.weaponSwing === true;
 }
 
+// A weapon has no mastery row to train, so its swing used to resolve its EP at
+// mastery 0: 30% of the hit a jutsu of the same EP lands once maxed. Owner ruling
+// 2026-09-25: EP means the same thing on a weapon and a jutsu. A swing's EP (and
+// its Pierce) now resolves at the highest mastery the wielder's rank allows,
+// which is where a fully trained jutsu sits. Its tag percents already resolve at
+// JUTSU_MAX_LEVEL; its Heal/Shield magnitude keeps the real mastery (0).
+function damageMasteryFor(self: PvpFighter, jutsu: Jutsu, masteryLevel: number): number {
+    return isWeaponSwing(jutsu) ? jutsuLevelCapForLevel(rankedCombatLevel(self.character)) : masteryLevel;
+}
+
 // ─── Jutsu application — resolved in explicit, fixed-order phases ─────────────
 // applyJutsu is the heart of PvP resolution. The resolution ORDER is load-bearing
 // (a reflect that ran before the shield block, or an amp that read a buff this
@@ -674,7 +683,7 @@ function resolveBaseDamage(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu,
         defenderStats: defStats,
         attackerCharacter: self.character as Record<string, unknown>,
         defenderCharacter: opponent.character as Record<string, unknown>,
-        masteryLevel,
+        masteryLevel: damageMasteryFor(self, jutsu, masteryLevel),
         wMult,
         biome,
         rawStatusDR: drContributionFor(self, opponent, round),
@@ -758,6 +767,8 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
     //
     // The flat Heal/Shield MAGNITUDE deliberately keeps the real mastery — a swing
     // heals its ~30% share, not a full jutsu's 750. See _weapon-damage.test.ts.
+    // (A swing's EP and Pierce are a separate carve-out: they resolve at the rank's
+    // mastery cap, in damageMasteryFor above.)
     const weaponSwing = isWeaponSwing(jutsu);
     const tagPercentMastery = weaponSwing ? JUTSU_MAX_LEVEL : masteryLevel;
     for (const tag of tags) {
@@ -910,7 +921,7 @@ function resolveDamageNumber(self: PvpFighter, opponent: PvpFighter, jutsu: Juts
         pierce,
         offenseComposite: getOffense(offenseStats, jutsu.type),
         jutsuAp: jutsu.ap ?? 40,
-        masteryLevel,
+        masteryLevel: damageMasteryFor(self, jutsu, masteryLevel),
         effectiveDR,
         ampMultiplier: ampMultiplierFor(self, opponent, round),
         guardDefensePct: opponent.character.guardDefensePct,
@@ -922,8 +933,9 @@ function resolveDamageNumber(self: PvpFighter, opponent: PvpFighter, jutsu: Juts
     if (pierce) return damage;
     if (attackerStatuses.some(status => status.source === 'item-smoke-bomb')) return 0;
     const defensePill = defenderStatuses.some(status => status.source === 'item-defense-pill') ? 0.85 : 1;
-    const weaponSwing = jutsu.weaponSwing === true ? WEAPON_SWING_DAMAGE_MULTIPLIER : 1;
-    return Math.max(0, Math.floor(damage * weaponSwing * attackPill * defensePill));
+    // A weapon's strength is its authored EP (the catalog ladder and the named
+    // forge's roll): there is no hidden per-swing damage multiplier.
+    return Math.max(0, Math.floor(damage * attackPill * defensePill));
 }
 
 // Phase 4 — the post-damage consequence pipeline. Resolution order is LOAD-BEARING
@@ -2603,21 +2615,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (serverItem.id === 'item-attack-pill' || serverItem.id === 'item-defense-pill' || serverItem.id === 'item-smoke-bomb') {
                     const id = serverItem.id;
                     const pct = id === 'item-smoke-bomb' ? 100 : 15;
-                    // A closer's cast would expire at the imminent round tick
-                    // before either player can attack through the smoke.
-                    const smokeRounds = role === roundOpenerFor(session) ? 1 : 2;
+                    // Like every other tag, the effect starts next round. Round
+                    // ticks age both fighters together, so a next-round status
+                    // covers the same whole rounds whichever seat used it; an
+                    // instant status covered one opponent turn fewer for the
+                    // round closer than for the opener.
+                    const activeRound = session.round + 1;
                     const status: PvpStatus = id === 'item-attack-pill'
-                        ? { name: 'Increase Damage Given', source: id, rounds: 2, percent: pct, kind: 'positive', activeRound: session.round }
+                        ? { name: 'Increase Damage Given', source: id, rounds: 2, percent: pct, kind: 'positive', activeRound }
                         : id === 'item-defense-pill'
-                            ? { name: 'Decrease Damage Taken', source: id, rounds: 2, percent: pct, kind: 'positive', activeRound: session.round }
-                            : { name: 'Decrease Damage Given', source: id, rounds: smokeRounds, percent: pct, kind: 'negative', activeRound: session.round };
+                            ? { name: 'Decrease Damage Taken', source: id, rounds: 2, percent: pct, kind: 'positive', activeRound }
+                            : { name: 'Decrease Damage Given', source: id, rounds: 1, percent: pct, kind: 'negative', activeRound };
                     const affectedMe = addStatus(me, status, session.round);
                     const affectedOpp = id === 'item-smoke-bomb' ? addStatus(opp, status, session.round) : opp;
                     lines.push(`${me.name} uses ${serverItem.name ?? 'Item'}: ${id === 'item-smoke-bomb'
-                        ? 'both fighters deal 0 ordinary damage for 1 round; Pierce bypasses the smoke.'
+                        ? 'next round, both fighters deal 0 ordinary damage; Pierce bypasses the smoke.'
                         : id === 'item-attack-pill'
-                            ? 'deals 15% more damage for 2 rounds.'
-                            : 'takes 15% less damage for 2 rounds.'}`);
+                            ? 'deals 15% more damage for 2 rounds, starting next round.'
+                            : 'takes 15% less damage for 2 rounds, starting next round.'}`);
                     result = commit(
                         affectedMe, affectedOpp, iApCost, iCd, iSpend.patch, undefined,
                         id === 'item-smoke-bomb'

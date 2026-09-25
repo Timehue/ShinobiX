@@ -3,6 +3,10 @@ import { NAMED_ITEM_LEVEL_REQ } from '../../shared/item-level-gate.js';
 import { debitNamedForgeWallet, NAMED_FORGE_COST } from '../../shared/named-forge-economy.js';
 import { WEAPON_POISON_TAG_CAP } from '../combat-core/formulas.js';
 
+// The named forge's weapon EP roll, inclusive at both ends.
+export const NAMED_WEAPON_EP_MIN = 24;
+export const NAMED_WEAPON_EP_MAX = 27;
+
 export { NAMED_FORGE_COST } from '../../shared/named-forge-economy.js';
 const WEAPON_TAGS = ['Siphon', 'Absorb', 'Poison', 'Wound', 'Reflect', 'Shield', 'Drain', 'Ignition', 'Heal', 'Increase Damage Given', 'Increase Generals', 'Decrease Damage Taken'];
 const ARMOR_SPECIALS = [
@@ -79,7 +83,11 @@ export function rollNamedForge(kind: 'weapon' | 'armor', slotRaw?: unknown): Nam
     if (kind === 'weapon') {
         const tags = shuffled(WEAPON_TAGS);
         const single = randomInt(2) === 0;
-        return { kind, ep: randomInt(30, 36), range: pick([3, 4, 5] as const), offenseVal: randomInt(168, 181), tags: single ? [forgedTag(tags[0], randomInt(35, 41))] : [forgedTag(tags[0], randomInt(15, 21)), forgedTag(tags[1], randomInt(15, 21))] };
+        // 24-27 EP (owner ruling 2026-09-25): around the mythic tier's 25, so a
+        // named blade lands 73-80% of a fully maxed 60-AP jutsu. Named weapons
+        // forged before this keep their 32-34 EP until the reset, which is why
+        // WEAPON_EP_CEILING (36) still bounds a player's saved weapon.
+        return { kind, ep: randomInt(NAMED_WEAPON_EP_MIN, NAMED_WEAPON_EP_MAX + 1), range: pick([3, 4, 5] as const), offenseVal: randomInt(168, 181), tags: single ? [forgedTag(tags[0], randomInt(35, 41))] : [forgedTag(tags[0], randomInt(15, 21)), forgedTag(tags[1], randomInt(15, 21))] };
     }
     const slot = SLOTS.includes(slotRaw as typeof SLOTS[number]) ? slotRaw as typeof SLOTS[number] : 'body';
     const special = pick(ARMOR_SPECIALS);

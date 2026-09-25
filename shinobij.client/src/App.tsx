@@ -489,14 +489,15 @@ import { hollowGateEncounterPresentation } from "./lib/hollow-gate-presentation"
 import { resumeHollowGateServerRun, settleHollowGateRunOnly, startHollowGateServerRun, attachStartedRun, clearHollowGateRunLocal, reportHollowGateRunError } from "./lib/hollow-gate-server";
 import { startHollowGateCombat, settleHollowGateCombat, type HollowGateCombatKind, type HollowGateCombatSettleResult, type HollowGateServerFight } from "./lib/hollow-gate-combat-api";
 import { hollowGateRewardLines, resolveHollowGateServerEvent, sealHollowGateFloor } from "./lib/hollow-gate-event-api";
-import { sealHollowGateStep } from "./lib/hollow-gate-step-api";
-import { startHollowGateCardAmbush, settleHollowGateCardAmbush } from "./lib/hollow-gate-card-api";
+import { sealHollowGateStep, hollowGateSealedCombatOpts } from "./lib/hollow-gate-step-api";
+import { startHollowGateCardAmbush, settleHollowGateCardAmbush, hollowGateCardAmbushLogLine } from "./lib/hollow-gate-card-api";
 import {
     formatHollowGateCombatReward,
     type HollowGatePveFightRef,
 } from "./lib/hollow-gate-pve";
-import { useHollowGateAppFlow } from "./lib/hollow-gate-app-flow";
-import { enterHollowGateShrineFlow } from "./lib/hollow-gate-entry";
+import { hollowGateRunAfterUnresolvedFight, useHollowGateAppFlow } from "./lib/hollow-gate-app-flow";
+import { enterHollowGateShrineFlow, reportHollowGateEntryFailure } from "./lib/hollow-gate-entry";
+import { recoverHollowGateRun } from "./lib/hollow-gate-recovery";
 import type { StoryBossSettleResult } from "./lib/story-combat-api";
 import { requestStoryBossFight } from "./lib/story-fight-theme";
 import { useSealedFightPresence } from "./lib/use-sealed-fight-presence";
@@ -1424,7 +1425,7 @@ export default function App() {
             if (!cancelled) reportHollowGateRunError(error, "The active encounter could not be resumed. Retry from the shrine.", () => clearHollowGateRunState(true)); // self-heal on run-expiry instead of locking the player in the shrine
         });
         return () => { cancelled = true; };
-    }, [screen, character?.name, hollowGateRun?.runToken, hollowGateRun?.activeCombat?.runId, hollowGatePveFight, hollowGatePetFight]);
+    }, [screen, character?.name, hollowGateRun?.runToken, hollowGateRun?.activeCombat?.runId, hollowGateRun?.activeCombat?.mode, hollowGatePveFight, hollowGatePetFight]);
 
     function savedJutsuPool(source: Partial<ReturnType<typeof buildPlayerSavePayload>>) { return restoredJutsuPool(source); }
 
@@ -1477,6 +1478,7 @@ export default function App() {
         leave: leaveHollowGateShrine,
         abandon: abandonHollowGateShrine,
         launchPetFight: launchHollowGatePetFight,
+        onPetFightUnavailable: onHollowGatePetFightUnavailable,
         onBattleWin: onHollowGateBattleWin,
         onPetBattleEnd: onHollowGatePetBattleEnd,
     } = useHollowGateAppFlow({
@@ -2646,6 +2648,13 @@ export default function App() {
             const normalized = normalizeAdminCharacter(snap.character);
             prevCharRef.current = normalized;
             charDirtyRef.current = false;
+            // A reload mid-run keeps the run's start marker but not its board (the
+            // save holds only the server's projection). Rebuild it from the server.
+            const recoverBoardlessHollowGateRun = () => {
+                if (normalized.hollowGateRun || !normalized.lastHollowGateStart?.token || normalized.hospitalized) return;
+                void recoverHollowGateRun({ character: normalized, setHollowGateRun, setHollowGateLog, setHollowGateEvent,
+                    setHollowGateHiddenChamber, setCharacter, setCurrentBiome, setCurrentWeather, setScreen, pushHollowGateLog });
+            };
             scopeSaveAuthorityToAccount(snap.character.name);
             const restoredPvpScope = {
                 ownerName: snap.character.name,
@@ -2781,7 +2790,8 @@ export default function App() {
                         // pointer below resumes the server-owned Solo PvE session.
                         void postBattleLock({ action: "resolve", playerName: normalized.name, battleId: bootLock.battleId });
                         if (normalized.hollowGateRun) setHollowGateRun(normalized.hollowGateRun);
-                        setScreen("hollowGateShrine");
+                        setScreen(normalized.hollowGateRun ? "hollowGateShrine" : safeFallbackScreen(isWildSector(Number(snap.currentSector ?? 0))));
+                        recoverBoardlessHollowGateRun();
                         return;
                     } else if (recovery === "dungeon") {
                         // A pre-cutover Warden snapshot must never revive the local
@@ -2895,6 +2905,7 @@ export default function App() {
                                 setScreen("hollowGateShrine");
                             } else {
                                 setScreen("village");
+                                recoverBoardlessHollowGateRun();
                             }
                         } else {
                             // arena (and other hospitalizing fights): the server
@@ -2948,6 +2959,7 @@ export default function App() {
                     target = safeFallbackScreen(isWildSector(Number(snap.currentSector ?? 0)));
                 }
                 setScreen(target);
+                recoverBoardlessHollowGateRun();
             })();
             // Re-hydrate the visible screen after restore. Preserve the valid
             // session manifest cache instead of forcing an eight-request reload.
@@ -4829,7 +4841,7 @@ export default function App() {
         return enterHollowGateShrineFlow({
             eventCfg, character, setHollowGateRun, setHollowGateLog, setHollowGateEvent, setHollowGateHiddenChamber,
             setCharacter, setCurrentBiome, setCurrentWeather, setScreen, setHollowGateIntroPage, pushHollowGateLog,
-        });
+        }).catch(reportHollowGateEntryFailure);
     }    // ── Admin-only ops for the Hollow Gate panel ──────────────────────────
     function adminHollowGateForceUnlock(unlock: boolean) {
         if (!character) return;
@@ -4937,7 +4949,7 @@ export default function App() {
                     });
                     return;
                 }
-                pushHollowGateLog("A Chronicle Keeper blocks the corridor. Win or withstand the card showdown to break the ambush seal.");
+                pushHollowGateLog(hollowGateCardAmbushLogLine(started));
                 setHollowGateCardAmbush({ token, nodeId: sealed.nodeId, matchId: started.matchId });
                 setHollowGateTileGameActive(true);
                 setScreen("hollowGateTiles");
@@ -4999,7 +5011,7 @@ export default function App() {
         if (!opts.forceMode && petReady && activePet) {
             setHollowGateEvent({
                 title: houndPresentation.name,
-                body: `${opts.isBoss ? "The Alpha seals the way forward." : `${houndPresentation.epithet} blocks the corridor.`}\n\nIts spectral chakra gathers into ${houndPresentation.signature}.\n\nChoose who enters combat. Shinobi combat uses the normal mission/explore PvE arena. Pet combat uses the tactical Pet Colosseum and ${activePet.name}; a pet defeat deals 20% max HP recoil but does not clear this encounter.`,
+                body: `${opts.isBoss ? "The Alpha seals the way forward." : `${houndPresentation.epithet} blocks the corridor.`}\n\nIts spectral chakra gathers into ${houndPresentation.signature}.\n\nChoose who enters combat. Shinobi combat uses the normal mission/explore PvE arena. Pet combat is a Pet Colosseum duel led by ${activePet.name}: 1v1, 2v2 or 3v3 at random, with partners from your ready carried pets. A pet defeat deals 20% max HP recoil but does not clear this encounter.`,
                 kind: opts.isBoss ? "boss" : "pet_battle",
                 choices: [
                     {
@@ -5079,16 +5091,10 @@ export default function App() {
             }
             onHollowGateBattleWin({ isBoss: fight.kind === "boss", isAmbush: fight.kind === "ambush", nodeId: fight.nodeId });
         } else if (result.escaped) {
-            setHollowGateRun((previous) => {
-                const run = result.character?.hollowGateRun ?? previous;
-                return run ? { ...run, activeCombat: undefined, threat: 0 } : null;
-            });
+            setHollowGateRun((previous) => hollowGateRunAfterUnresolvedFight(previous, result.character?.hollowGateRun));
             pushHollowGateLog("You withdraw from the Hollow Hound. The path remains open and Threat resets.");
         } else if (result.revived) {
-            setHollowGateRun((previous) => {
-                const run = result.character?.hollowGateRun ?? previous;
-                return run ? { ...run, activeCombat: undefined, secondWindArmed: false, threat: 0 } : null;
-            });
+            setHollowGateRun((previous) => hollowGateRunAfterUnresolvedFight(previous, result.character?.hollowGateRun, { secondWindArmed: false }));
             pushHollowGateLog("Second Wind pulls you back from defeat at half health.");
         } else {
             setHollowGateRun(null);
@@ -5139,7 +5145,7 @@ export default function App() {
         // chest / staircase / exit and simply nothing happens.
         const runtime = await loadHollowGateTileRuntime().catch(() => null);
         if (!runtime) {
-            pushHollowGateLog("The shrine could not read that tile — the connection dropped while loading it. Step off and back onto it to try again.");
+            pushHollowGateLog("The shrine could not read that tile because the connection dropped while loading it. Step off and back onto it to try again. If it still does not answer, reload the page; your run resumes where you stand.");
             return;
         }
         const { resolveHollowGateTile: resolveHollowGateTileImpl } = runtime;
@@ -5185,7 +5191,7 @@ export default function App() {
                     setHollowGateRun((previous) => previous && previous.runToken === hollowGateRun.runToken
                         ? { ...previous, activeCombat: step.activeCombat }
                         : previous);
-                }
+                } else if (step.sealedCombat) void startHollowGateBattle(hollowGateSealedCombatOpts(step.sealedCombat));
                 // The remaining queued origins were plotted from an unaccepted
                 // position. Discard them instead of replaying a string of 409s.
                 hollowGateMoveFxRef.current = [];
@@ -6060,24 +6066,19 @@ export default function App() {
                     token server-side and mints the receipt combat-settle
                     redeems, so detouring through the Pet Arena had nothing left
                     to do except run a second engine. */}
-                {!activeTriggeredEvent && screen === "hollowGateShrine" && character && hollowGatePetFight
-                    && (character.pets ?? []).some((pet) => pet.id === character.activePetId) && (
+                {!activeTriggeredEvent && screen === "hollowGateShrine" && character && hollowGatePetFight && (
                     <Suspense fallback={null}>
                         <HollowGatePetFight
                             key={hollowGatePetFight.runId}
                             character={character}
                             fight={hollowGatePetFight}
-                            activePet={(character.pets ?? []).find((pet) => pet.id === character.activePetId)!}
                             sharedImages={sharedImages}
                             onSettled={(result) => {
                                 const gate = hollowGatePetFight;
                                 if (result.character) commitVersionedCharacter(result.character, result._saveVersion);
                                 onHollowGatePetBattleEnd(result, gate);
                             }}
-                            onUnavailable={(reason) => {
-                                setHollowGatePetFight(null);
-                                pushHollowGateLog(`The seal refused the duel: ${reason}`);
-                            }}
+                            onUnavailable={onHollowGatePetFightUnavailable}
                         />
                     </Suspense>
                 )}

@@ -243,10 +243,13 @@ function bootServer() {
     return { child, log };
 }
 
-async function waitForHealth(timeoutMs = 60_000) {
+async function waitForHealth(timeoutMs = 60_000, child = null) {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
-        try { if ((await fetch(`${BASE}/health`)).ok) return true; } catch { /* not up */ }
+        // A server that died at boot will never answer, so stop waiting.
+        if (child && (child.exitCode !== null || child.signalCode !== null)) return false;
+        // A socket that accepts but never replies must not stall past the deadline.
+        try { if ((await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(2_000) })).ok) return true; } catch { /* not up */ }
         await sleep(400);
     }
     return false;
@@ -290,9 +293,16 @@ function watchServerResponsiveness() {
 
 async function main() {
     const server = EXTERNAL_URL ? null : bootServer();
-    if (!(await waitForHealth())) {
+    if (!(await waitForHealth(60_000, server?.child ?? null))) {
         console.error('[soak] server never became healthy');
-        if (server) server.child.kill();
+        if (server) {
+            // The captured output is the only record of why boot failed.
+            const { exitCode, signalCode } = server.child;
+            const ended = exitCode !== null ? ` (it exited with code ${exitCode})`
+                : signalCode !== null ? ` (it was killed by ${signalCode})` : ' (it was still running)';
+            console.error(`[soak] server output${ended}:\n${server.log.join('').slice(-8_000) || '(none)'}`);
+            server.child.kill();
+        }
         process.exitCode = 2;
         return;
     }
