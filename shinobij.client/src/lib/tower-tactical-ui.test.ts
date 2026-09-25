@@ -102,17 +102,19 @@ test("target forecast accounts for target shield before HP damage", () => {
     assert.equal(result.hpDamage, result.rawDamage - 150);
 });
 
-test("weapon forecast includes the ordinary weapon swing damage bonus", () => {
+test("weapon forecast uses the weapon's EP with no hidden swing multiplier", () => {
+    // Weapon strength lives in the EP ladder (api/pvp/_item-catalog.ts), not in
+    // a per-swing damage bonus, matching the server's resolveDamageNumber.
     const stats = { strength: 100, intelligence: 100, bukijutsuOffense: 100, bukijutsuDefense: 100 };
     const input = {
         attacker: { hp: 1000, maxHp: 1000, character: { stats, jutsuMastery: [{ jutsuId: "ordinary-jutsu", level: 50 }] } },
         target: { hp: 1000, maxHp: 1000, character: { stats } },
-        effectPower: 27,
+        effectPower: 40,
         type: "Bukijutsu",
     };
     const ordinary = estimateTowerActionDamage({ ...input, actionId: "ordinary-jutsu" });
     const weapon = estimateTowerActionDamage({ ...input, actionId: "weapon" });
-    assert.equal(weapon.rawDamage, Math.floor(ordinary.rawDamage * 1.3));
+    assert.equal(weapon.rawDamage, ordinary.rawDamage);
 });
 
 test("weapon forecast honors element ownership and canonical combat items", () => {

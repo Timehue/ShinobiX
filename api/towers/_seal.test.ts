@@ -3,6 +3,7 @@ import { strict as assert } from 'node:assert';
 import { sealTowerFighter, sealTowerItemCharges } from './_seal.js';
 import type { AdminCombatContent } from '../_admin-content.js';
 import { COMBAT_RESOURCES_V2 } from '../_xp-engine.js';
+import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
 
 describe('Battle Towers fighter sealing (P1.B)', () => {
     it('clamps tampered stats + vitals to the hard caps', () => {
@@ -181,7 +182,8 @@ describe('Battle Towers fighter sealing (P1.B)', () => {
         const pvpItems = sealed.pvpItems as Array<Record<string, unknown>>;
         const katana = pvpItems.find((i) => i.id === 'ashen-dragon-katana');
         assert.ok(katana, 'equipped weapon resolved from the catalog, not the client-claimed kunai');
-        assert.equal(katana!.weaponEp, 30, 'resolved weapon carries its authoritative catalog weaponEp');
+        assert.equal(katana!.weaponEp, ITEM_CATALOG['ashen-dragon-katana'].weaponEp, 'resolved weapon carries its authoritative catalog weaponEp');
+        assert.equal(katana!.weaponEp, 44, 'the mythic tier of the weapon ladder');
         assert.ok(!pvpItems.some((i) => i.id === 'kunai'), 'client-claimed weapon is ignored');
     });
 

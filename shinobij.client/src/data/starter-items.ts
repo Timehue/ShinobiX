@@ -430,8 +430,8 @@ export const starterItems: GameItem[] = [
         rarity: "common",
         cost: 400,
         image: "/items/shop-shuriken-v1.webp",
-        description: "Standard-issue throwing star. Deals 22 EP damage at range 4.",
-        weaponEp: 22,
+        description: "Standard-issue throwing star. Deals 33 EP damage at range 4.",
+        weaponEp: 33,
         apCost: 20,
         weaponCooldown: 5,
         bonuses: {},
@@ -470,9 +470,10 @@ export const starterItems: GameItem[] = [
     },
     // Ranked Format's fixed neutral throwable (api/pvp/_ranked-format.ts). Not
     // shop-purchasable (cost 0) — every ranked fighter is equipped with this
-    // regardless of what they own. 38 EP plus the shared weapon-swing bonus
-    // lands near 350 direct damage against equal maxed ranked armor. Its Wound
-    // rider remains unchanged.
+    // regardless of what they own. The ranked hand weapons (the legendary
+    // tier, 40 EP) sit 2 EP above this 38 EP throw, so the hand swing stays the
+    // stronger hit while the Kunai trades a little damage for half the AP and
+    // its Wound rider.
     {
         id: "ranked-format-kunai",
         name: "Kunai",
@@ -767,7 +768,7 @@ export const starterItems: GameItem[] = [
         armorQuality: "Rare", levelReq: 20,
         bonuses: { ninjutsuOffense: 20, taijutsuOffense: 20, bukijutsuOffense: 20, genjutsuOffense: 20, ninjutsuDefense: 20, taijutsuDefense: 20, bukijutsuDefense: 20, genjutsuDefense: 20 },
     },
-    // -- Common Weapons / Standard tier (Shop — ryo) — 18 EP -------------------------
+    // -- Common Weapons / Standard tier (Shop — ryo) — 28 EP -------------------------
     {
         id: "rustfang-kunai",
         name: "Rustfang Kunai",
@@ -775,8 +776,8 @@ export const starterItems: GameItem[] = [
         rarity: "common",
         cost: 225,
         image: "/items/starter-rustfang-kunai-v2.webp",
-        description: "A chipped beginner kunai. Deals damage and boosts your striking force. [Damage 18 EP | Increase Damage Given 10% | 40 AP | Range 4 | CD 5]",
-        weaponRange: 4, weaponCooldown: 5, weaponEp: 18, levelReq: 1, weaponEffect: "Increase Damage Given", weaponEffectValue: 10,
+        description: "A chipped beginner kunai. Deals damage and boosts your striking force. [Damage 28 EP | Increase Damage Given 10% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 28, levelReq: 1, weaponEffect: "Increase Damage Given", weaponEffectValue: 10,
         bonuses: { bukijutsuOffense: 55 },
     },
     {
@@ -786,8 +787,8 @@ export const starterItems: GameItem[] = [
         rarity: "common",
         cost: 240,
         image: "/items/shop-training-katana-v1.webp",
-        description: "A dull academy blade. Deals damage and reduces incoming hits. [Damage 18 EP | Decrease Damage Taken 10% | 40 AP | Range 4 | CD 5]",
-        weaponRange: 4, weaponCooldown: 5, weaponEp: 18, levelReq: 1, weaponEffect: "Decrease Damage Taken", weaponEffectValue: 10,
+        description: "A dull academy blade. Deals damage and reduces incoming hits. [Damage 28 EP | Decrease Damage Taken 10% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 28, levelReq: 1, weaponEffect: "Decrease Damage Taken", weaponEffectValue: 10,
         bonuses: { taijutsuOffense: 58 },
     },
     {
@@ -797,8 +798,8 @@ export const starterItems: GameItem[] = [
         rarity: "common",
         cost: 220,
         image: "/items/shop-ash-wrapped-tanto-v1.webp",
-        description: "A blade wrapped in ash cloth. Deals damage and lowers enemy striking power. [Damage 18 EP | Decrease Damage Given 10% | 40 AP | Range 4 | CD 5]",
-        weaponRange: 4, weaponCooldown: 5, weaponEp: 18, levelReq: 1, weaponEffect: "Decrease Damage Given", weaponEffectValue: 10,
+        description: "A blade wrapped in ash cloth. Deals damage and lowers enemy striking power. [Damage 28 EP | Decrease Damage Given 10% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 28, levelReq: 1, weaponEffect: "Decrease Damage Given", weaponEffectValue: 10,
         bonuses: { genjutsuOffense: 54 },
     },
     {
@@ -808,8 +809,8 @@ export const starterItems: GameItem[] = [
         rarity: "common",
         cost: 210,
         image: "/items/shop-rookie-chain-sickle-v1.webp",
-        description: "A chain-sickle that disrupts enemy momentum. Deals damage and increases damage the enemy takes. [Damage 18 EP | Increase Damage Taken 10% | 40 AP | Range 4 | CD 5]",
-        weaponRange: 4, weaponCooldown: 5, weaponEp: 18, levelReq: 1, weaponEffect: "Increase Damage Taken", weaponEffectValue: 10,
+        description: "A chain-sickle that disrupts enemy momentum. Deals damage and increases damage the enemy takes. [Damage 28 EP | Increase Damage Taken 10% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 28, levelReq: 1, weaponEffect: "Increase Damage Taken", weaponEffectValue: 10,
         bonuses: { ninjutsuOffense: 52 },
     },
     {
@@ -819,11 +820,11 @@ export const starterItems: GameItem[] = [
         rarity: "common",
         cost: 235,
         image: "/items/shop-cracked-bone-dagger-v1.webp",
-        description: "A bone dagger that opens deep wounds. Deals damage and applies bleed. [Damage 18 EP | Wound 10% | 40 AP | Range 4 | CD 5]",
-        weaponRange: 4, weaponCooldown: 5, weaponEp: 18, levelReq: 1, weaponEffect: "Wound", weaponEffectValue: 10,
+        description: "A bone dagger that opens deep wounds. Deals damage and applies bleed. [Damage 28 EP | Wound 10% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 28, levelReq: 1, weaponEffect: "Wound", weaponEffectValue: 10,
         bonuses: { bukijutsuOffense: 53 },
     },
-    // -- Rare Weapons / Reinforced tier (Shop — ryo) — 21 EP -------------------------
+    // -- Rare Weapons / Reinforced tier (Shop — ryo) — 32 EP -------------------------
     {
         id: "mistfang-tanto",
         name: "Mistfang Tanto",
@@ -831,8 +832,8 @@ export const starterItems: GameItem[] = [
         rarity: "rare",
         cost: 450,
         image: "/items/shop-mistfang-tanto-v1.webp",
-        description: "An assassin blade wreathed in mist chakra. Deals damage and empowers your strikes. [Damage 21 EP | Increase Damage Given 15% | 40 AP | Range 4 | CD 5]",
-        weaponRange: 4, weaponCooldown: 5, weaponEp: 21, levelReq: 10, weaponEffect: "Increase Damage Given", weaponEffectValue: 15,
+        description: "An assassin blade wreathed in mist chakra. Deals damage and empowers your strikes. [Damage 32 EP | Increase Damage Given 15% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 32, levelReq: 10, weaponEffect: "Increase Damage Given", weaponEffectValue: 15,
         bonuses: { ninjutsuOffense: 88 },
     },
     {
@@ -842,8 +843,8 @@ export const starterItems: GameItem[] = [
         rarity: "rare",
         cost: 480,
         image: "/items/shop-ashen-leaf-saber-v1.webp",
-        description: "A fire-forged sword from Ashen Leaf. Deals damage and reduces incoming hits. [Damage 21 EP | Decrease Damage Taken 15% | 40 AP | Range 4 | CD 5]",
-        weaponRange: 4, weaponCooldown: 5, weaponEp: 21, levelReq: 10, weaponEffect: "Decrease Damage Taken", weaponEffectValue: 15,
+        description: "A fire-forged sword from Ashen Leaf. Deals damage and reduces incoming hits. [Damage 32 EP | Decrease Damage Taken 15% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 32, levelReq: 10, weaponEffect: "Decrease Damage Taken", weaponEffectValue: 15,
         bonuses: { bukijutsuOffense: 90 },
     },
     {
@@ -853,8 +854,8 @@ export const starterItems: GameItem[] = [
         rarity: "rare",
         cost: 430,
         image: "/items/shop-riverbone-spear-v1.webp",
-        description: "A long riverbone spear. Deals damage and weakens enemy attack power. [Damage 21 EP | Decrease Damage Given 15% | 40 AP | Range 4 | CD 5]",
-        weaponRange: 4, weaponCooldown: 5, weaponEp: 21, levelReq: 10, weaponEffect: "Decrease Damage Given", weaponEffectValue: 15,
+        description: "A long riverbone spear. Deals damage and weakens enemy attack power. [Damage 32 EP | Decrease Damage Given 15% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 32, levelReq: 10, weaponEffect: "Decrease Damage Given", weaponEffectValue: 15,
         bonuses: { taijutsuOffense: 86 },
     },
     {
@@ -864,8 +865,8 @@ export const starterItems: GameItem[] = [
         rarity: "rare",
         cost: 510,
         image: "/items/shop-iron-fang-knuckles-v1.webp",
-        description: "Heavy iron knuckles. Deals damage and exposes the enemy to more punishment. [Damage 21 EP | Increase Damage Taken 15% | 40 AP | Range 4 | CD 5]",
-        weaponRange: 4, weaponCooldown: 5, weaponEp: 21, levelReq: 10, weaponEffect: "Increase Damage Taken", weaponEffectValue: 15,
+        description: "Heavy iron knuckles. Deals damage and exposes the enemy to more punishment. [Damage 32 EP | Increase Damage Taken 15% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 32, levelReq: 10, weaponEffect: "Increase Damage Taken", weaponEffectValue: 15,
         bonuses: { genjutsuOffense: 93 },
     },
     {
@@ -875,11 +876,11 @@ export const starterItems: GameItem[] = [
         rarity: "rare",
         cost: 420,
         image: "/items/shop-blue-thread-dagger-v1.webp",
-        description: "A dagger woven with blue chakra thread that tears through enemy defenses. [Damage 21 EP | Wound 15% | 40 AP | Range 4 | CD 5]",
-        weaponRange: 4, weaponCooldown: 5, weaponEp: 21, levelReq: 10, weaponEffect: "Wound", weaponEffectValue: 15,
+        description: "A dagger woven with blue chakra thread that tears through enemy defenses. [Damage 32 EP | Wound 15% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 32, levelReq: 10, weaponEffect: "Wound", weaponEffectValue: 15,
         bonuses: { ninjutsuOffense: 84 },
     },
-    // -- Epic Weapons / Rare tier (Shop — ryo) — 24 EP --------------------------------
+    // -- Epic Weapons / Rare tier (Shop — ryo) — 36 EP --------------------------------
     {
         id: "stormcoil-kusarigama",
         name: "Stormcoil Kusarigama",
@@ -887,8 +888,8 @@ export const starterItems: GameItem[] = [
         rarity: "epic",
         cost: 950,
         image: "/items/shop-stormcoil-kusarigama-v1.webp",
-        description: "A chained sickle charged with storm chakra that tightens defense on every strike. [Damage 24 EP | Decrease Damage Taken 20% | 40 AP | Range 4 | CD 5]",
-        weaponRange: 4, weaponCooldown: 5, weaponEp: 24, levelReq: 25, weaponEffect: "Decrease Damage Taken", weaponEffectValue: 20,
+        description: "A chained sickle charged with storm chakra that tightens defense on every strike. [Damage 36 EP | Decrease Damage Taken 20% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 36, levelReq: 25, weaponEffect: "Decrease Damage Taken", weaponEffectValue: 20,
         bonuses: { taijutsuOffense: 113 },
     },
     {
@@ -898,8 +899,8 @@ export const starterItems: GameItem[] = [
         rarity: "epic",
         cost: 900,
         image: "/items/shop-moonshadow-needleblade-v1.webp",
-        description: "A black blade coated in shadow chakra that leaves enemies vulnerable to punishment. [Damage 24 EP | Increase Damage Taken 20% | 40 AP | Range 4 | CD 5]",
-        weaponRange: 4, weaponCooldown: 5, weaponEp: 24, levelReq: 25, weaponEffect: "Increase Damage Taken", weaponEffectValue: 20,
+        description: "A black blade coated in shadow chakra that leaves enemies vulnerable to punishment. [Damage 36 EP | Increase Damage Taken 20% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 36, levelReq: 25, weaponEffect: "Increase Damage Taken", weaponEffectValue: 20,
         bonuses: { genjutsuOffense: 109 },
     },
     {
@@ -909,8 +910,8 @@ export const starterItems: GameItem[] = [
         rarity: "epic",
         cost: 980,
         image: "/items/shop-frostbite-cleaver-v1.webp",
-        description: "A frozen heavy blade that seizes enemy fighting rhythm on a clean hit. [Damage 24 EP | Decrease Damage Given 20% | 40 AP | Range 4 | CD 5]",
-        weaponRange: 4, weaponCooldown: 5, weaponEp: 24, levelReq: 25, weaponEffect: "Decrease Damage Given", weaponEffectValue: 20,
+        description: "A frozen heavy blade that seizes enemy fighting rhythm on a clean hit. [Damage 36 EP | Decrease Damage Given 20% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 36, levelReq: 25, weaponEffect: "Decrease Damage Given", weaponEffectValue: 20,
         bonuses: { ninjutsuOffense: 115 },
     },
     {
@@ -920,8 +921,8 @@ export const starterItems: GameItem[] = [
         rarity: "epic",
         cost: 1050,
         image: "/items/shop-ashglass-katana-v1.webp",
-        description: "A volcanic glass katana that sharpens the user's killing force on activation. [Damage 24 EP | Increase Damage Given 20% | 40 AP | Range 4 | CD 5]",
-        weaponRange: 4, weaponCooldown: 5, weaponEp: 24, levelReq: 25, weaponEffect: "Increase Damage Given", weaponEffectValue: 20,
+        description: "A volcanic glass katana that sharpens the user's killing force on activation. [Damage 36 EP | Increase Damage Given 20% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 36, levelReq: 25, weaponEffect: "Increase Damage Given", weaponEffectValue: 20,
         bonuses: { bukijutsuOffense: 118 },
     },
     {
@@ -931,11 +932,11 @@ export const starterItems: GameItem[] = [
         rarity: "epic",
         cost: 850,
         image: "/items/shop-spirit-leech-wakizashi-v1.webp",
-        description: "A spirit blade that tears through enemy defenses leaving a festering wound. [Damage 24 EP | Wound 20% | 40 AP | Range 4 | CD 5]",
-        weaponRange: 4, weaponCooldown: 5, weaponEp: 24, levelReq: 25, weaponEffect: "Wound", weaponEffectValue: 20,
+        description: "A spirit blade that tears through enemy defenses leaving a festering wound. [Damage 36 EP | Wound 20% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 36, levelReq: 25, weaponEffect: "Wound", weaponEffectValue: 20,
         bonuses: { taijutsuOffense: 104 },
     },
-    // -- Legendary Weapons (Grand Marketplace — fate shards) — 27 EP ------------------
+    // -- Legendary Weapons (Grand Marketplace — fate shards) — 40 EP ------------------
     {
         id: "frostfang-oathblade",
         name: "Frostfang Oathblade",
@@ -943,8 +944,8 @@ export const starterItems: GameItem[] = [
         rarity: "legendary",
         cost: 100,
         image: "/items/shop-frostfang-oathblade-v1.webp",
-        description: "A sacred Frostfang sword carried by warriors sworn to protect their clan. [Damage 27 EP | Shield 300 | 40 AP | Range 4 | CD 5]",
-        weaponRange: 4, weaponCooldown: 5, weaponEp: 27, levelReq: 40, weaponEffect: "Shield", weaponEffectValue: 300,
+        description: "A sacred Frostfang sword carried by warriors sworn to protect their clan. [Damage 40 EP | Shield 300 | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 40, levelReq: 40, weaponEffect: "Shield", weaponEffectValue: 300,
         bonuses: { taijutsuOffense: 136 },
     },
     {
@@ -954,8 +955,8 @@ export const starterItems: GameItem[] = [
         rarity: "legendary",
         cost: 100,
         image: "/items/shop-tempest-fang-blade-v1.webp",
-        description: "A chaotic Stormveil weapon that hurls enemy force back at them. [Damage 27 EP | Reflect 30% | 40 AP | Range 4 | CD 5]",
-        weaponRange: 4, weaponCooldown: 5, weaponEp: 27, levelReq: 40, weaponEffect: "Reflect", weaponEffectValue: 30,
+        description: "A chaotic Stormveil weapon that hurls enemy force back at them. [Damage 40 EP | Reflect 30% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 40, levelReq: 40, weaponEffect: "Reflect", weaponEffectValue: 30,
         bonuses: { bukijutsuOffense: 141 },
     },
     {
@@ -965,8 +966,8 @@ export const starterItems: GameItem[] = [
         rarity: "legendary",
         cost: 100,
         image: "/items/shop-black-lotus-dagger-v1.webp",
-        description: "A cursed Moonshadow dagger used by silent executioners, draining vitality from every strike. [Damage 27 EP | Lifesteal 30% | 40 AP | Range 4 | CD 5]",
-        weaponRange: 4, weaponCooldown: 5, weaponEp: 27, levelReq: 40, weaponEffect: "Lifesteal", weaponEffectValue: 30,
+        description: "A cursed Moonshadow dagger used by silent executioners, draining vitality from every strike. [Damage 40 EP | Lifesteal 30% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 40, levelReq: 40, weaponEffect: "Lifesteal", weaponEffectValue: 30,
         bonuses: { genjutsuOffense: 131 },
     },
     {
@@ -976,8 +977,8 @@ export const starterItems: GameItem[] = [
         rarity: "legendary",
         cost: 100,
         image: "/items/shop-elderbranch-katana-v1.webp",
-        description: "An Ashen Leaf relic blade carved from ancient chakra wood, absorbing incoming force. [Damage 27 EP | Absorb 30% | 40 AP | Range 4 | CD 5]",
-        weaponRange: 4, weaponCooldown: 5, weaponEp: 27, levelReq: 40, weaponEffect: "Absorb", weaponEffectValue: 30,
+        description: "An Ashen Leaf relic blade carved from ancient chakra wood, absorbing incoming force. [Damage 40 EP | Absorb 30% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 40, levelReq: 40, weaponEffect: "Absorb", weaponEffectValue: 30,
         bonuses: { ninjutsuOffense: 134 },
     },
     {
@@ -987,11 +988,11 @@ export const starterItems: GameItem[] = [
         rarity: "legendary",
         cost: 100,
         image: "/items/shop-embercoil-scythe-v1.webp",
-        description: "A curved weapon wrapped in burning chain links that siphons life with each swing. [Damage 27 EP | Lifesteal 30% | 40 AP | Range 4 | CD 5]",
-        weaponRange: 4, weaponCooldown: 5, weaponEp: 27, levelReq: 40, weaponEffect: "Lifesteal", weaponEffectValue: 30,
+        description: "A curved weapon wrapped in burning chain links that siphons life with each swing. [Damage 40 EP | Lifesteal 30% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 40, levelReq: 40, weaponEffect: "Lifesteal", weaponEffectValue: 30,
         bonuses: { taijutsuOffense: 128 },
     },
-    // -- Mythic Weapons (Grand Marketplace — fate shards) — 30 EP --
+    // -- Mythic Weapons (Grand Marketplace — fate shards) — 44 EP --
     {
         id: "worldsplitter-katana",
         name: "Worldsplitter Katana",
@@ -999,8 +1000,8 @@ export const starterItems: GameItem[] = [
         rarity: "mythic",
         cost: 100,
         image: "/items/shop-worldsplitter-katana-v1.webp",
-        description: "A forbidden black-blue katana said to cut through fate itself, deflecting what cannot be dodged. [Damage 30 EP | Reflect 35% | 40 AP | Range 4 | CD 5]",
-        weaponRange: 4, weaponCooldown: 5, weaponEp: 30, levelReq: 55, weaponEffect: "Reflect", weaponEffectValue: 35,
+        description: "A forbidden black-blue katana said to cut through fate itself, deflecting what cannot be dodged. [Damage 44 EP | Reflect 35% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 44, levelReq: 55, weaponEffect: "Reflect", weaponEffectValue: 35,
         bonuses: { bukijutsuOffense: 160 },
     },
     {
@@ -1010,8 +1011,8 @@ export const starterItems: GameItem[] = [
         rarity: "mythic",
         cost: 100,
         image: "/items/shop-eclipse-fang-dagger-v1.webp",
-        description: "A mythic assassin blade that drinks moonlight and drains the life of every enemy struck. [Damage 30 EP | Lifesteal 35% | 40 AP | Range 4 | CD 5]",
-        weaponRange: 4, weaponCooldown: 5, weaponEp: 30, levelReq: 55, weaponEffect: "Lifesteal", weaponEffectValue: 35,
+        description: "A mythic assassin blade that drinks moonlight and drains the life of every enemy struck. [Damage 44 EP | Lifesteal 35% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 44, levelReq: 55, weaponEffect: "Lifesteal", weaponEffectValue: 35,
         bonuses: { genjutsuOffense: 157 },
     },
     {
@@ -1021,8 +1022,8 @@ export const starterItems: GameItem[] = [
         rarity: "mythic",
         cost: 100,
         image: "/items/shop-glacier-king-cleaver-v1.webp",
-        description: "A massive frozen blade once carried by the first Frostfang warlord, raising an unbreakable shield on each blow. [Damage 30 EP | Shield 400 | 40 AP | Range 4 | CD 5]",
-        weaponRange: 4, weaponCooldown: 5, weaponEp: 30, levelReq: 55, weaponEffect: "Shield", weaponEffectValue: 400,
+        description: "A massive frozen blade once carried by the first Frostfang warlord, raising an unbreakable shield on each blow. [Damage 44 EP | Shield 400 | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 44, levelReq: 55, weaponEffect: "Shield", weaponEffectValue: 400,
         bonuses: { taijutsuOffense: 163 },
     },
     {
@@ -1032,8 +1033,8 @@ export const starterItems: GameItem[] = [
         rarity: "mythic",
         cost: 100,
         image: "/items/shop-ashen-dragon-katana-v1.webp",
-        description: "An ancient sword said to contain the soul of a fire dragon, absorbing the heat of every strike. [Damage 30 EP | Absorb 35% | 40 AP | Range 4 | CD 5]",
-        weaponRange: 4, weaponCooldown: 5, weaponEp: 30, levelReq: 55, weaponEffect: "Absorb", weaponEffectValue: 35,
+        description: "An ancient sword said to contain the soul of a fire dragon, absorbing the heat of every strike. [Damage 44 EP | Absorb 35% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 44, levelReq: 55, weaponEffect: "Absorb", weaponEffectValue: 35,
         bonuses: { ninjutsuOffense: 166 },
     },
     {
@@ -1043,8 +1044,8 @@ export const starterItems: GameItem[] = [
         rarity: "mythic",
         cost: 100,
         image: "/items/shop-void-leech-nodachi-v1.webp",
-        description: "A long cursed blade that leeches enemy chakra and life force through every strike. [Damage 30 EP | Lifesteal 35% | 40 AP | Range 4 | CD 5]",
-        weaponRange: 4, weaponCooldown: 5, weaponEp: 30, levelReq: 55, weaponEffect: "Lifesteal", weaponEffectValue: 35,
+        description: "A long cursed blade that leeches enemy chakra and life force through every strike. [Damage 44 EP | Lifesteal 35% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 44, levelReq: 55, weaponEffect: "Lifesteal", weaponEffectValue: 35,
         bonuses: { bukijutsuOffense: 168 },
     },
 ];

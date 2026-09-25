@@ -79,7 +79,9 @@ export function rollNamedForge(kind: 'weapon' | 'armor', slotRaw?: unknown): Nam
     if (kind === 'weapon') {
         const tags = shuffled(WEAPON_TAGS);
         const single = randomInt(2) === 0;
-        return { kind, ep: randomInt(30, 36), range: pick([3, 4, 5] as const), offenseVal: randomInt(168, 181), tags: single ? [forgedTag(tags[0], randomInt(35, 41))] : [forgedTag(tags[0], randomInt(15, 21)), forgedTag(tags[1], randomInt(15, 21))] };
+        // 44-51 EP: the old 30-35 roll moved with the weapon ladder (common
+        // 28 through mythic 44), keeping a named blade at or above mythic.
+        return { kind, ep: randomInt(44, 52), range: pick([3, 4, 5] as const), offenseVal: randomInt(168, 181), tags: single ? [forgedTag(tags[0], randomInt(35, 41))] : [forgedTag(tags[0], randomInt(15, 21)), forgedTag(tags[1], randomInt(15, 21))] };
     }
     const slot = SLOTS.includes(slotRaw as typeof SLOTS[number]) ? slotRaw as typeof SLOTS[number] : 'body';
     const special = pick(ARMOR_SPECIALS);
