@@ -49,7 +49,7 @@ const starterModelPaths = PET_COMBAT_MODEL_IDS.map((id) => `shinobij.client/publ
 
 test("every authored Warfront battle rig is shipped with its model manifest", () => {
     const entries = Object.values(WARFRONT_PET_LOD_MANIFEST);
-    assert.ok(entries.length >= 145, "the battle rig manifest must cover the approved roster");
+    assert.ok(entries.length >= 146, "the battle rig manifest must cover the approved roster");
     for (const entry of entries) {
         const model = entry.lodUrl.split("?")[0];
         assert.ok(existsSync(join(repoRoot, "shinobij.client/public", model)), `missing Warfront battle rig: ${model}`);
@@ -90,11 +90,11 @@ test("the approved roster models are allowlisted and present", () => {
     assert.ok(docker.has(wildcard), "roster GLB wildcard missing from .dockerignore");
     assert.ok(git.has(wildcard), "roster GLB wildcard missing from .gitignore");
 
-    // 145 = 50 standard + 50 rare + 30 legendary + 15 mythic. `approvedRosterCombatModel`
+    // 146 = 50 standard + 50 rare + 30 legendary + 16 mythic. `approvedRosterCombatModel`
     // returns a config for exactly these ids, so a missing file here is a 404
     // crash — unlike an UNapproved id, which correctly returns null and falls
     // back to the 2D standee.
-    assert.equal(APPROVED_ROSTER_MODEL_IDS.size, 145);
+    assert.equal(APPROVED_ROSTER_MODEL_IDS.size, 146);
     for (const id of APPROVED_ROSTER_MODEL_IDS) {
         assert.ok(
             existsSync(join(modelsDir, "roster", `${id}.glb`)),

@@ -747,6 +747,55 @@ function PetSignatureAura3D({ config, frame, quality, signature }: {
     );
 }
 
+function CelestialLionWindCurrent({ config, frame, quality }: {
+    config: PetCombatModelConfig;
+    frame: MutableRefObject<PetModelFrame>;
+    quality: PetVisualQualityConfig;
+}) {
+    const h = config.targetHeight;
+    const crown = useRef<THREE.Group>(null);
+    const rays = useRef<THREE.Group>(null);
+    const corona = useRef<THREE.MeshBasicMaterial>(null);
+    const rayMaterials = useRef<Array<THREE.MeshBasicMaterial | null>>([]);
+    const count = quality.id === "low" ? 6 : 10;
+
+    useFrame((state) => {
+        const pose = frame.current;
+        const alive = pose.motion !== "dead";
+        const active = pose.casting || pose.motion === "windup" || pose.motion === "strike" || pose.motion === "guard";
+        const time = Number.isFinite(pose.timeline) ? Number(pose.timeline) : state.clock.elapsedTime;
+        const intensity = alive ? active ? 0.85 : pose.victorious ? 0.72 : 0.32 : 0;
+        if (crown.current) {
+            crown.current.visible = alive;
+            const pulse = 1 + Math.sin(time * (active ? 5.4 : 1.8)) * (active ? 0.075 : 0.025);
+            crown.current.scale.setScalar(pulse);
+        }
+        if (rays.current) rays.current.rotation.z = time * (active ? 0.82 : 0.2);
+        if (corona.current) corona.current.opacity = intensity * 0.62;
+        rayMaterials.current.forEach((material, index) => {
+            if (material) material.opacity = intensity * (0.28 + (index % 3) * 0.05);
+        });
+    });
+
+    return (
+        <group ref={crown} position={[0, h * 0.86, -h * 0.18]}>
+            <mesh>
+                <torusGeometry args={[h * 0.2, h * 0.009, 6, 48, Math.PI * 1.62]} />
+                <meshBasicMaterial ref={corona} color="#c8fff0" transparent opacity={0.2} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+            </mesh>
+            <group ref={rays}>
+                {Array.from({ length: count }, (_, index) => {
+                    const angle = index / count * Math.PI * 2;
+                    return <mesh key={index} position={[Math.sin(angle) * h * 0.27, Math.cos(angle) * h * 0.27, 0]} rotation={[0, 0, angle + 0.55]}>
+                        <planeGeometry args={[h * 0.018, h * (index % 3 === 0 ? 0.1 : 0.065)]} />
+                        <meshBasicMaterial ref={(material) => { rayMaterials.current[index] = material; }} color={index % 4 === 0 ? "#e4d5a3" : index % 2 ? "#7de3ce" : "#edfff8"} transparent opacity={0.1} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+                    </mesh>;
+                })}
+            </group>
+        </group>
+    );
+}
+
 export function PetIdentityEffects3D({ config, frame, quality, elementColor = "#b9f6ff", signature }: {
     config: PetCombatModelConfig;
     frame: MutableRefObject<PetModelFrame>;
@@ -769,6 +818,7 @@ export function PetIdentityEffects3D({ config, frame, quality, elementColor = "#
     return (
         <>
             {identity}
+            {identityVisualId === "mythic-15" && <CelestialLionWindCurrent config={config} frame={frame} quality={quality} />}
             {signature && <PetSignatureAura3D config={config} frame={frame} quality={quality} signature={signature} />}
             {config.profile === "avian" && <AvianDiveAccent config={config} frame={frame} quality={quality} elementColor={elementColor} />}
         </>

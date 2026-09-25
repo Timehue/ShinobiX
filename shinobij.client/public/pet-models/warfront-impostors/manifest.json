@@ -84,7 +84,7 @@
       }
     ]
   },
-  "selectedCount": 159,
+  "selectedCount": 160,
   "complete": true,
   "entries": [
     {
@@ -4785,6 +4785,133 @@
       ],
       "trianglesPerFrame": 12000,
       "projectedAspect": 1.021126
+    },
+    {
+      "sourceUrl": "/pet-models/roster/mythic-15.glb",
+      "lodUrl": "/pet-models/warfront-lod/roster/mythic-15.glb?v=20260902-battle-lod-v1-568bc3dc23ba-tx1024-08e221b972f2",
+      "lodSha256": "08e221b972f2ea8b3ed50b64f863158b05ff804fee97fce08bb6f9deb473fa11",
+      "atlasUrl": "/pet-models/warfront-impostors/roster/mythic-15.webp",
+      "atlasSha256": "3691d017fd6c137be55416162999fa52c7b83e72cb8b4f7eb0a640874a5d68bf",
+      "atlasBytes": 95322,
+      "width": 512,
+      "height": 512,
+      "columns": 4,
+      "rows": 4,
+      "cellWidth": 128,
+      "cellHeight": 128,
+      "frames": [
+        {
+          "clip": "idle",
+          "progress": 0.1
+        },
+        {
+          "clip": "idle",
+          "progress": 0.35
+        },
+        {
+          "clip": "idle",
+          "progress": 0.6
+        },
+        {
+          "clip": "idle",
+          "progress": 0.85
+        },
+        {
+          "clip": "walk",
+          "progress": 0.2
+        },
+        {
+          "clip": "walk",
+          "progress": 0.7
+        },
+        {
+          "clip": "gallop",
+          "progress": 0.2
+        },
+        {
+          "clip": "gallop",
+          "progress": 0.7
+        },
+        {
+          "clip": "attack",
+          "progress": 0.2
+        },
+        {
+          "clip": "attack",
+          "progress": 0.5
+        },
+        {
+          "clip": "attack",
+          "progress": 0.8
+        },
+        {
+          "clip": "idle_hitreact1",
+          "progress": 0.35
+        },
+        {
+          "clip": "death",
+          "progress": 0.25
+        },
+        {
+          "clip": "death",
+          "progress": 0.6
+        },
+        {
+          "clip": "death",
+          "progress": 0.95
+        },
+        {
+          "clip": "cast",
+          "progress": 0.55
+        }
+      ],
+      "frameTimesSeconds": [
+        0.15586,
+        0.54551,
+        0.93516,
+        1.32481,
+        0.16624,
+        0.58184,
+        0.1039,
+        0.36365,
+        0.17318,
+        0.43295,
+        0.69272,
+        0.169715,
+        0.34075,
+        0.8178,
+        1.29485,
+        0.51436
+      ],
+      "clipDurationsSeconds": {
+        "idle": 1.5586,
+        "walk": 0.8312,
+        "gallop": 0.5195,
+        "attack": 0.8659,
+        "idle_hitreact1": 0.4849,
+        "death": 1.363,
+        "cast": 0.9352
+      },
+      "occupiedPixels": [
+        3066,
+        3062,
+        3054,
+        3058,
+        3093,
+        3022,
+        3064,
+        3084,
+        2929,
+        2990,
+        3013,
+        3111,
+        2913,
+        2354,
+        2254,
+        2989
+      ],
+      "trianglesPerFrame": 16948,
+      "projectedAspect": 1.38152
     },
     {
       "sourceUrl": "/pet-models/roster/mythic-2.glb",

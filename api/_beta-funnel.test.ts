@@ -6,12 +6,15 @@ import { recordBetaFunnelStep, betaFunnelSlug, type BetaFunnelDeps } from './_be
 import { applyBetaMetric, type BetaMetricInput } from './_beta-metrics.js';
 
 function gateKv() {
-    const keys = new Set<string>();
+    const values = new Map<string, unknown>();
     return {
-        keys,
-        async set(key: string, _v: unknown, opts?: { nx?: boolean }) {
-            if (opts?.nx && keys.has(key)) return null;
-            keys.add(key);
+        values,
+        async get<T = unknown>(key: string): Promise<T | null> {
+            return (values.get(key) as T | undefined) ?? null;
+        },
+        async set(key: string, value: unknown, opts?: { nx?: boolean }) {
+            if (opts?.nx && values.has(key)) return null;
+            values.set(key, value);
             return 'OK';
         },
     };
@@ -49,10 +52,28 @@ describe('beta onboarding funnel', () => {
 
     it('lets a repeatable step count once per step, not once per player', async () => {
         const { recorded, deps } = harness();
-        assert.equal(await recordBetaFunnelStep('academy.step.reached', 'alice', { ...deps, step: 'awaken' }), true);
-        assert.equal(await recordBetaFunnelStep('academy.step.reached', 'alice', { ...deps, step: 'first-jutsu' }), true);
-        assert.equal(await recordBetaFunnelStep('academy.step.reached', 'alice', { ...deps, step: 'awaken' }), false);
+        assert.equal(await recordBetaFunnelStep('academy.step.reached', 'alice', { ...deps, step: 'training' }), true);
+        assert.equal(await recordBetaFunnelStep('academy.step.reached', 'alice', { ...deps, step: 'jutsu' }), true);
+        assert.equal(await recordBetaFunnelStep('academy.step.reached', 'alice', { ...deps, step: 'training' }), false);
         assert.equal(recorded.length, 2);
+        assert.deepEqual(recorded.map((input) => input.academyStep), ['training', 'jutsu']);
+    });
+
+    it('carries the first Academy start UTC date onto later step reaches', async () => {
+        const { recorded, deps } = harness();
+        const startTs = Date.UTC(2026, 6, 7, 23, 50);
+        assert.equal(await recordBetaFunnelStep('academy.started', 'alice', { ...deps, ts: startTs }), true);
+        assert.equal(await recordBetaFunnelStep('academy.step.reached', 'alice', {
+            ...deps,
+            step: 'academyIntro',
+            ts: startTs,
+        }), true);
+        assert.equal(await recordBetaFunnelStep('academy.step.reached', 'alice', {
+            ...deps,
+            step: 'training',
+            ts: startTs + 20 * 60 * 60 * 1000,
+        }), true);
+        assert.deepEqual(recorded.slice(1).map((input) => input.academyCohortDate), ['2026-07-07', '2026-07-07']);
     });
 
     it('never emits the player name, and nothing identifying survives aggregation', async () => {
@@ -72,7 +93,7 @@ describe('beta onboarding funnel', () => {
             assert.equal(await recordBetaFunnelStep('training.first_started', name, deps), false, `should refuse ${JSON.stringify(name)}`);
         }
         assert.equal(recorded.length, 0);
-        assert.equal(kv.keys.size, 0);
+        assert.equal(kv.values.size, 0);
         assert.equal(betaFunnelSlug('a:b'), null);
         assert.equal(betaFunnelSlug('Alice'), 'alice');
     });
@@ -80,7 +101,10 @@ describe('beta onboarding funnel', () => {
     it('is best-effort: a telemetry outage never surfaces into the request', async () => {
         const recorded: BetaMetricInput[] = [];
         const result = await recordBetaFunnelStep('training.first_started', 'alice', {
-            kv: { async set() { throw new Error('kv down'); } },
+            kv: {
+                async get() { return null; },
+                async set() { throw new Error('kv down'); },
+            },
             record: (i) => { recorded.push(i); },
         });
         assert.equal(result, false);

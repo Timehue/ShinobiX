@@ -30,6 +30,12 @@ const SRC = fileURLToPath(new URL("..", import.meta.url));
  *  the same empty arena — in the tool used to review the battle's visuals. */
 const EXEMPT = new Set(["PetShowdownBattle.tsx"]);
 
+/** `import type …` and `export type … from` statements. TypeScript always erases
+ *  them, so borrowing a type from the battle loads and mounts nothing. Inline
+ *  `{ type X }` specifiers are left in and still count, which errs on the safe
+ *  side. */
+const TYPE_ONLY_STATEMENTS = /\b(?:import|export)\s+type\s+(?!from\b)[^;]*?\bfrom\s*["'][^"']*["']/g;
+
 function walk(dir: string): string[] {
     return readdirSync(dir).flatMap((entry) => {
         const full = join(dir, entry);
@@ -42,8 +48,8 @@ test("every module that mounts PetShowdownBattle warms its models first", () => 
     const mounters = walk(SRC)
         .map((file) => ({ file, src: readFileSync(file, "utf8") }))
         // An import of the component is the mount signal — it covers the lazy
-        // and the direct forms alike.
-        .filter(({ src }) => /import\s*\(?\s*["'][^"']*PetShowdownBattle["']|from\s+["'][^"']*PetShowdownBattle["']/.test(src))
+        // and the direct forms alike. Type-only statements are stripped first.
+        .filter(({ src }) => /import\s*\(?\s*["'][^"']*PetShowdownBattle["']|from\s+["'][^"']*PetShowdownBattle["']/.test(src.replace(TYPE_ONLY_STATEMENTS, "")))
         .filter(({ file }) => !EXEMPT.has(file.split(/[\\/]/).pop() ?? ""));
 
     assert.ok(mounters.length >= 4, `expected the known Showdown entries, found ${mounters.length}`);

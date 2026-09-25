@@ -34,7 +34,7 @@ function cast(session: ShowdownSession, side: Side, command: ShowdownCommand, re
     return action;
 }
 
-test("all 945 real move slots reach their assigned effects through live commands on both sides in all formats", () => {
+test("all 951 real move slots reach their assigned effects through live commands on both sides in all formats", () => {
     let actions = 0;
     const deliveries = new Set<string>();
     for (const template of Object.values(PET_CATALOG)) for (const format of ["1v1", "2v2", "3v3"] as const) for (const side of ["player", "enemy"] as const) {
@@ -70,7 +70,7 @@ test("all 945 real move slots reach their assigned effects through live commands
             actions++;
         }
     }
-    assert.equal(actions, 945 * 6);
+    assert.equal(actions, 951 * 6);
     assert.deepEqual([...deliveries].sort(), ["melee", "ranged", "self"]);
 });
 

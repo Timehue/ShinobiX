@@ -516,7 +516,7 @@ async function auditGlb(path, { requireRig, minimumAtlasBytes, minimumVertices =
 
 async function main() {
     const rosterFiles = (await readdir(rosterRoot)).filter(file => file.endsWith('.glb'));
-    invariant(rosterFiles.length === 145, 'expected 145 roster assets');
+    invariant(rosterFiles.length === 146, 'expected 146 roster assets');
     const roster = [], starters = [], failures = [];
     for (const { pet, model, path } of runtimePetModels) {
         try {

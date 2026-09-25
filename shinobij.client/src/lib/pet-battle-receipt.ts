@@ -23,7 +23,12 @@ export async function postPetBattleReceipt<T extends Receipt>(
     });
     const data = await response.json().catch(() => null) as T | null;
     const retryAfterMs = Number(data?.retryAfterMs);
-    if (response.status === 425 && Number.isFinite(retryAfterMs) && retryAfterMs > 0) {
+    // 425: the sealed settle clock has not been reached. 429 with a wait: the
+    // per-player settlement pace (one burst per 5s) refused an early resend. Both
+    // are "send this identical receipt again later", never a failed battle, so
+    // the arena waits and resends instead of stranding the player on a manual
+    // Retry behind a locked Leave button.
+    if ((response.status === 425 || response.status === 429) && Number.isFinite(retryAfterMs) && retryAfterMs > 0) {
         throw new PetSettlementRetryError(data?.error || "Beastbound Warfront is still in progress.", retryAfterMs);
     }
     if (!response.ok) throw new Error(data?.error || "The arena could not record this pet battle.");
