@@ -183,7 +183,7 @@ describe('Battle Towers fighter sealing (P1.B)', () => {
         const katana = pvpItems.find((i) => i.id === 'ashen-dragon-katana');
         assert.ok(katana, 'equipped weapon resolved from the catalog, not the client-claimed kunai');
         assert.equal(katana!.weaponEp, ITEM_CATALOG['ashen-dragon-katana'].weaponEp, 'resolved weapon carries its authoritative catalog weaponEp');
-        assert.equal(katana!.weaponEp, 36, 'the mythic tier of the weapon ladder, on the weapon EP ceiling');
+        assert.equal(katana!.weaponEp, 25, 'the mythic tier of the weapon ladder, 3/4 of a maxed 60-AP jutsu rounded up');
         assert.ok(!pvpItems.some((i) => i.id === 'kunai'), 'client-claimed weapon is ignored');
     });
 

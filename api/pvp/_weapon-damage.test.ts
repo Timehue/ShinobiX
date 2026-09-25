@@ -281,7 +281,7 @@ describe('a weapon swing hits like a fully trained jutsu of the same EP', () => 
     const trainedJutsu = (effectPower: number, level: number) =>
         hit({ id: 'trained', name: 'Trained Jutsu', ap: 60, effectPower }, level, [{ jutsuId: 'trained', level: JUTSU_MAX_LEVEL }]);
     // The strongest damaging 60-AP built-in, cast as a plain hit so only its EP is
-    // compared. The weapon ladder tops out on the same EP.
+    // compared. The weapon EP ceiling sits on the same EP.
     const maxed60ApEp = Math.max(...Object.values(JUTSU_CATALOG)
         .filter(jutsu => jutsu.ap === 60 && jutsu.effectPower > 0)
         .map(jutsu => jutsu.effectPower));
@@ -321,6 +321,22 @@ describe('a weapon swing hits like a fully trained jutsu of the same EP', () => 
 
     it('a weapon on the EP ceiling lands exactly the maxed 60-AP jutsu hit', () => {
         assert.equal(hit(swing('Ceiling Blade', WEAPON_EP_CEILING), 50), maxedHit);
+    });
+
+    // Owner rulings 2026-09-25: the mythic tier hits 3/4 of a fully maxed 60-AP
+    // jutsu, a half point of EP rounds up, and the rest of the catalog ladder
+    // scales from it.
+    it('every mythic hand weapon lands 3/4 of a fully maxed 60-AP jutsu, on a whole EP', () => {
+        const mythicEp = Math.round((maxed60ApEp + 10) * 3 / 4 - 10);
+        const mythic = Object.values(ITEM_CATALOG as Record<string, Record<string, unknown>>)
+            .filter(item => item.rarity === 'mythic' && item.slot === 'hand' && item.weaponEp != null);
+        assert.ok(mythic.length > 0, 'the catalog carries mythic hand weapons');
+        for (const item of mythic) {
+            assert.equal(Number(item.weaponEp), mythicEp, String(item.name));
+            // Within half an EP of an exact three quarters: 16 damage at 32 per EP.
+            const dealt = hit(swing(String(item.name), Number(item.weaponEp)), 50);
+            assert.ok(Math.abs(dealt - maxedHit * 3 / 4) <= 16, `${item.name} dealt ${dealt} against ${maxedHit * 3 / 4}`);
+        }
     });
 
     it('a Pierce swing uses the rank mastery too', () => {
