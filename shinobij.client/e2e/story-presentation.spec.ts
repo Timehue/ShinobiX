@@ -170,7 +170,9 @@ test('Ashen Leaf finale continues through personal consequence, epilogue and imm
     await page.route('**/api/story/settle', route => {
         settlements++;
         const saved = runtime.lastCommit() ? JSON.parse(runtime.lastCommit()!.postedState).character : initial.character;
-        const character = { ...saved, storyProgress: 9, titles: ['Root Liberator'], inventory: [...saved.inventory, 'hollow-gate-key'] };
+        // As applyStoryBossSettlement does: HP is what survived the fight + 25,
+        // so vitals regenerate afterwards and the regen tick runs every second.
+        const character = { ...saved, hp: session.player.hp + 25, storyProgress: 9, titles: ['Root Liberator'], inventory: [...saved.inventory, 'hollow-gate-key'] };
         const version = runtime.currentVersion() + 1;
         runtime.commitServerCharacter(character, version);
         return route.fulfill({ json: { ok: true, replayed: false, progress: 9, statPoints: 250, ryo: 7500, auraDust: 50,
@@ -191,6 +193,12 @@ test('Ashen Leaf finale continues through personal consequence, epilogue and imm
         } else if (await battle.count()) {
             await expect(battle).toBeEnabled();
             await screenshot(page, info, 'finale-decision');
+            // A player who pauses here gets an ordinary autosave, so settlement
+            // starts from a stored save without the battle choice, as the real
+            // server's would. Wait for it: this path used to run or not by timing.
+            await expect.poll(() => runtime.lastCommit()?.postedState ?? '').toContain(hub.choices![0].trait!);
+            expect(JSON.parse(runtime.lastCommit()!.postedState).character.storyChoices
+                .some((receipt: { battle?: boolean }) => receipt.battle)).toBe(false);
             // Same-frame repeated activation must record/start this finale once.
             await battle.evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click(); });
         } else await step(page);
@@ -209,6 +217,9 @@ test('Ashen Leaf finale continues through personal consequence, epilogue and imm
     await screenshot(page, info, 'finale-epilogue');
     for (let i = 0; i < 100 && await reader.count(); i++) await step(page);
     await expect(page.locator('.story-archive')).toBeVisible();
+    // Vitals are regenerating from the fight. The 15s interval restarted when
+    // the fight closed and lands after this poll, so only the 3s debounce saves
+    // the seen epilogue in time, and regen ticks must not restart it.
     await expect.poll(() => runtime.lastCommit()?.postedState ?? '').toContain('"status":"seen"');
     const entry = page.locator('.story-archive-entry').filter({ hasText: chapter.title });
     await entry.locator('.story-archive-toggle').click();
