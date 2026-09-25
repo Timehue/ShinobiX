@@ -102,6 +102,17 @@ class _ShellPageState extends State<ShellPage> with WidgetsBindingObserver {
         // The layout is built for CSS pixels; Android's font-size setting
         // must not inflate it past what the screens were designed for.
         textZoom: 100,
+        // Two Android WebView defaults Chrome does not have, both of which
+        // clipped and mis-sized the game on the first device test:
+        //  * overview mode zooms the WHOLE page out whenever any element is a
+        //    pixel wider than the screen;
+        //  * an 8px minimum font size enlarges the game's small labels (card
+        //    text, badges, HUD counters; 64 declarations sit under 8px) past
+        //    the boxes they were sized for.
+        // 1 is the lowest minimum Android accepts, which in practice is off.
+        loadWithOverviewMode: false,
+        minimumFontSize: 1,
+        minimumLogicalFontSize: 1,
         supportZoom: false,
         builtInZoomControls: false,
         displayZoomControls: false,
