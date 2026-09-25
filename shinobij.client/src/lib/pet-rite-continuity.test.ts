@@ -6,10 +6,12 @@ import {
     deterministicRiteCounterMove,
     isValidRitePlan,
     runWarfrontRite,
+    type RitePlan,
     type RiteResult,
 } from "./pet-warfront-rite";
 import {
     automaticRiteReformChoice,
+    finishAutomaticRite,
     lockRiteReform,
     riteHeldFormation,
 } from "./pet-rite-continuity";
@@ -113,4 +115,88 @@ test("an automatic seat answers a lost clash with the public counter and otherwi
         if (counter) assert.deepEqual(choice, { formation: counter.formation, deployment: counter.deployment }, label);
         else assert.equal(choice, held, `${label}: a winning or drawn seat holds its line`);
     }
+});
+
+const seeds = [7, 23, 42, 20260601];
+
+/** Openings whose first clash is lost by blue and is not the last clash: the
+ * cases where an automatic seat actually re-forms. */
+function reformingOpenings() {
+    const found: Array<{ label: string; seed: number; blue: Pet[]; red: Pet[] } & ReturnType<typeof spectatorOpening>> = [];
+    for (const seed of seeds) {
+        for (const [label, blue, red] of pairings) {
+            const opening = spectatorOpening(blue, red, seed);
+            if (opening.result.clashes.length > 1 && deterministicRiteCounterMove(opening.result.clashes[0], "blue")) {
+                found.push({ label, seed, blue, red, ...opening });
+            }
+        }
+    }
+    return found;
+}
+
+test("skipping a shared replay reaches the verdict its playback reaches, from any clash", async () => {
+    let reformed = 0;
+    for (const seed of seeds) {
+        for (const [label, blue, red] of pairings) {
+            const opening = spectatorOpening(blue, red, seed);
+            const resolve = async (next: RitePlan) => runWarfrontRite(blue, red, seed, next);
+            const skipped = await finishAutomaticRite({ ...opening, clashIndex: 0, bandSize: blue.length, sealed: false, resolve });
+            if (skipped.plan !== opening.plan) reformed += 1;
+            // The engine's own automatic seat applies the same public counter
+            // between clashes, so a skipped replay must land on its verdict.
+            assert.deepEqual(verdict(skipped.result), verdict(runWarfrontRite(blue, red, seed)), `${label} seed ${seed}`);
+            assert.ok(isValidRitePlan(skipped.plan));
+            assert.deepEqual(verdict(runWarfrontRite(blue, red, seed, skipped.plan)), verdict(skipped.result),
+                `${label} seed ${seed}: the returned plan replays to the returned result`);
+            if (opening.result.clashes.length < 2) continue;
+            // Skipping from the second clash — after the live interlude has
+            // already locked its automatic answer — lands on the same verdict.
+            const first = opening.result.clashes[0];
+            const locked = lockRiteReform(opening.plan, first, 0, blue.length,
+                automaticRiteReformChoice(first, riteHeldFormation(first, opening.plan, 4), false));
+            const midResult = locked.changed ? runWarfrontRite(blue, red, seed, locked.plan) : opening.result;
+            const fromMid = await finishAutomaticRite({ plan: locked.plan, result: midResult, clashIndex: 1, bandSize: blue.length, sealed: false, resolve });
+            assert.deepEqual(verdict(fromMid.result), verdict(skipped.result), `${label} seed ${seed}: skip from clash 2`);
+        }
+    }
+    assert.ok(reformed > 0, "the fixture must exercise at least one automatic re-form");
+});
+
+test("a re-form that cannot be prepared holds the line and still reaches the end", async () => {
+    const cases = reformingOpenings();
+    assert.ok(cases.length > 0, "the fixture must include a clash blue loses before the last");
+    for (const { label, seed, blue, ...opening } of cases) {
+        let attempts = 0;
+        const held = await finishAutomaticRite({
+            plan: opening.plan,
+            result: opening.result,
+            clashIndex: 0,
+            bandSize: blue.length,
+            sealed: false,
+            resolve: async () => { attempts += 1; throw new Error("Unable to prepare the battle. Please retry."); },
+        });
+        assert.ok(attempts >= 1, `${label} seed ${seed}: the re-form was attempted`);
+        assert.equal(held.plan, opening.plan, "no unresolved re-form enters the transcript");
+        assert.equal(held.result, opening.result, "the held line is the result already resolved");
+    }
+});
+
+test("a sealed replay skips straight to its recorded result, and leaving aborts a skip", async () => {
+    const [, blue, red] = pairings[1];
+    const opening = spectatorOpening(blue, red, 23);
+    let resolved = 0;
+    const sealed = await finishAutomaticRite({
+        ...opening, clashIndex: 0, bandSize: blue.length, sealed: true,
+        resolve: async () => { resolved += 1; return opening.result; },
+    });
+    assert.equal(sealed.result, opening.result);
+    assert.equal(sealed.plan, opening.plan);
+    assert.equal(resolved, 0, "a sealed replay never re-resolves");
+
+    const [reforming] = reformingOpenings();
+    assert.ok(reforming);
+    await assert.rejects(finishAutomaticRite({
+        plan: reforming.plan, result: reforming.result, clashIndex: 0, bandSize: reforming.blue.length, sealed: false,
+        resolve: async () => { throw new DOMException("Battle closed", "AbortError"); },
+    }), { name: "AbortError" });
 });

@@ -63,6 +63,7 @@ import { PetWarfrontRiteStage, preloadRitePetModels, type StageFighter } from ".
 import { resolveRite } from "../lib/pet-rite-worker-client";
 import {
     automaticRiteReformChoice,
+    finishAutomaticRite,
     lockRiteReform,
     riteHeldFormation,
     type RiteFormationChoice,
@@ -882,6 +883,12 @@ function WarfrontRiteMatch({
     const [preparationError, setPreparationError] = useState<string | null>(null);
     const simulationRef = useRef<AbortController | null>(null);
     useEffect(() => () => { simulationRef.current?.abort(); }, []);
+    // A replay viewer's jump to the verdict. Once taken, no interlude, lock or
+    // in-flight simulation may move the match again.
+    const skippedRef = useRef(false);
+    const skipControllerRef = useRef<AbortController | null>(null);
+    const [skipping, setSkipping] = useState(false);
+    useEffect(() => () => { skipControllerRef.current?.abort(); }, []);
     const resolveFormation = useCallback(async (chosen: RitePlan): Promise<RiteResult | null> => {
         if (simulationRef.current) return null;
         const controller = new AbortController();
@@ -996,12 +1003,12 @@ function WarfrontRiteMatch({
      * layout is appended to the replay transcript; a hold needs no combat
      * command but still passes through this explicit lock boundary. */
     const commitReform = useCallback(async (nextChoice: RiteFormationChoice) => {
-        if (!plan || !clash || simulationRef.current) return;
+        if (!plan || !clash || simulationRef.current || skippedRef.current) return;
         const locked = lockRiteReform(plan, clash, clashIndex, blueBand.length, nextChoice);
         let nextResult = result;
         if (locked.changed && !sealedReplay) {
             nextResult = await resolveFormation(locked.plan);
-            if (!nextResult) return;
+            if (!nextResult || skippedRef.current) return;
             setPlan(locked.plan);
             setResult(nextResult);
         }
@@ -1142,7 +1149,7 @@ function WarfrontRiteMatch({
         && clashIndex < result!.clashes.length - 1;
 
     useEffect(() => {
-        if (!spectator || !reformOpen || !clash || preparing) return;
+        if (!spectator || !reformOpen || !clash || preparing || skipping) return;
         // A seat that takes no decisions cannot be left waiting on one: when its
         // re-form could not be prepared, it holds the line it just fought.
         const choice = preparationError
@@ -1150,7 +1157,40 @@ function WarfrontRiteMatch({
             : automaticRiteReformChoice(clash, heldFormation, Boolean(sealedReplay));
         const id = window.setTimeout(() => commitReform(choice), reducedMotion ? 350 : 900);
         return () => window.clearTimeout(id);
-    }, [spectator, reformOpen, clash, heldFormation, commitReform, reducedMotion, sealedReplay, preparationError, preparing]);
+    }, [spectator, reformOpen, clash, heldFormation, commitReform, reducedMotion, sealedReplay, preparationError, preparing, skipping]);
+
+    /** Replays and shared spectating carry no settlement, so a viewer may jump
+     * straight to the verdict. The remaining interludes resolve exactly as they
+     * would have played (see finishAutomaticRite), so the verdict is the one the
+     * full playback reaches. The player's own Warfront never offers this. */
+    const skipToResult = useCallback(async () => {
+        if (!spectator || !result || !plan || skippedRef.current) return;
+        skippedRef.current = true;
+        setSkipping(true);
+        simulationRef.current?.abort();
+        simulationRef.current = null;
+        setPreparing(false);
+        setPreparationError(null);
+        const controller = new AbortController();
+        skipControllerRef.current = controller;
+        try {
+            const finished = await finishAutomaticRite({
+                plan,
+                result,
+                clashIndex,
+                bandSize: blueBand.length,
+                sealed: Boolean(sealedReplay),
+                resolve: (nextPlan) => resolveRite({ blue: blueBand, red: redBand, seed, bluePlan: nextPlan, redPlan: sealedRedPlan }, controller.signal),
+            });
+            if (controller.signal.aborted) return;
+            setPlan(finished.plan);
+            setResult(finished.result);
+            setClashIndex(finished.result.clashes.length - 1);
+            setPhase("result");
+        } catch {
+            // Only an abort reaches here: the viewer closed the replay.
+        }
+    }, [spectator, result, plan, clashIndex, blueBand, redBand, seed, sealedReplay, sealedRedPlan]);
 
     useEffect(() => {
         if (phase !== "interlude" || !result || reformOpen) return;
@@ -1335,6 +1375,20 @@ function WarfrontRiteMatch({
                 )
             ) : null}
 
+            {/* Replay and shared-spectator viewers only. This is not an exit:
+                it jumps to the same verdict the playback reaches, whose result
+                screen then offers Leave. A rewarded Warfront never shows it. */}
+            {spectator ? (
+                <button
+                    type="button"
+                    className="wfr-skip"
+                    onClick={() => { void skipToResult(); }}
+                    disabled={skipping}
+                    aria-busy={skipping}
+                >
+                    {skipping ? "Skipping…" : "Skip to result"}
+                </button>
+            ) : null}
         </div>
     );
 }
