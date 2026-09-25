@@ -732,7 +732,16 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // after adding the encounter battle, guided capture, seal artwork UI and
 // effects. 8.85 MB leaves 24,913 B of measured headroom; startup,
 // per-chunk, CSS and gzip gates stay unchanged.
-const TOTAL_JS_CSS_FAIL_BYTES = 8_850_000;
+// 2026-09-25: 8.85 -> 8.88 MB (owner-approved). The production image at
+// 72593576b (Luna handoff slices) measured 8,851,929 B, 1,929 B over, versus
+// 8,837,682 B for its passing parent a8ba2c978 (+14,247 B): mission outposts,
+// the field-trail refresh and next-objective navigation. No art was inlined
+// (510 B of base64 across the graph, all format probes in the Three.js vendor
+// chunk). PR #216 (MMORPG behavior rules) adds 3,437 B more. 8.88 MB leaves
+// about 28 KB of measured image headroom, about 24.6 KB after #216. The initial
+// graph passes its own gate (1,408,166 B raw in that image); startup,
+// per-chunk, CSS and gzip gates stay unchanged.
+const TOTAL_JS_CSS_FAIL_BYTES = 8_880_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
