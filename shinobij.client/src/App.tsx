@@ -497,7 +497,7 @@ import { hollowGateEncounterPresentation } from "./lib/hollow-gate-presentation"
 import { resumeHollowGateServerRun, settleHollowGateRunOnly, startHollowGateServerRun, attachStartedRun, clearHollowGateRunLocal, reportHollowGateRunError } from "./lib/hollow-gate-server";
 import { startHollowGateCombat, settleHollowGateCombat, type HollowGateCombatKind, type HollowGateCombatSettleResult, type HollowGateServerFight } from "./lib/hollow-gate-combat-api";
 import { hollowGateRewardLines, resolveHollowGateServerEvent, sealHollowGateFloor } from "./lib/hollow-gate-event-api";
-import { sealHollowGateStep } from "./lib/hollow-gate-step-api";
+import { sealHollowGateStep, hollowGateSealedCombatOpts } from "./lib/hollow-gate-step-api";
 import { startHollowGateCardAmbush, settleHollowGateCardAmbush, hollowGateCardAmbushLogLine } from "./lib/hollow-gate-card-api";
 import {
     formatHollowGateCombatReward,
@@ -5157,7 +5157,7 @@ export default function App() {
         // chest / staircase / exit and simply nothing happens.
         const runtime = await loadHollowGateTileRuntime().catch(() => null);
         if (!runtime) {
-            pushHollowGateLog("The shrine could not read that tile — the connection dropped while loading it. Step off and back onto it to try again.");
+            pushHollowGateLog("The shrine could not read that tile because the connection dropped while loading it. Step off and back onto it to try again. If it still does not answer, reload the page; your run resumes where you stand.");
             return;
         }
         const { resolveHollowGateTile: resolveHollowGateTileImpl } = runtime;
@@ -5203,7 +5203,7 @@ export default function App() {
                     setHollowGateRun((previous) => previous && previous.runToken === hollowGateRun.runToken
                         ? { ...previous, activeCombat: step.activeCombat }
                         : previous);
-                }
+                } else if (step.sealedCombat) void startHollowGateBattle(hollowGateSealedCombatOpts(step.sealedCombat));
                 // The remaining queued origins were plotted from an unaccepted
                 // position. Discard them instead of replaying a string of 409s.
                 hollowGateMoveFxRef.current = [];

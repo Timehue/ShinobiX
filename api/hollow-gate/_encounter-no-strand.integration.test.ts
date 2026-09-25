@@ -155,11 +155,18 @@ for (const exit of ['escape', 'second-wind'] as const) {
     });
 }
 
-test('an unresolved Hound the player never fought still holds the tile', async () => {
+test('an unresolved Hound the player never fought still holds the tile, and names itself so it can reopen', async () => {
+    // e.g. the fight's start request dropped after the step onto the tile
+    // committed. The tile will not fire again until it is stepped onto, so the
+    // refusal must tell the browser which encounter to open.
     await seed();
     const refused = await step([HOUND.x, HOUND.y], [HOUND.x - 1, HOUND.y]);
     assert.equal(refused.status, 409);
     assert.match(String(refused.body.error), /Resolve the sealed combat node/);
+    assert.deepEqual(refused.body.sealedCombat, { nodeId: HOUND.node, kind: 'battle' });
+    assert.deepEqual(refused.body.position, { x: HOUND.x, y: HOUND.y });
+    const reopened = await call('combatStart', { floor: 1, kind: 'battle', nodeId: HOUND.node, mode: 'pve' });
+    assert.equal(reopened.status, 200, JSON.stringify(reopened.body));
 });
 
 test('a pet duel that never began is fought as a shinobi instead, for the same encounter', async () => {
