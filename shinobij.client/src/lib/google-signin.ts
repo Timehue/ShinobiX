@@ -11,6 +11,7 @@
 // moment in the app: a fresh page load on a renegotiating mobile radio.
 
 import { sessionLoadFetch } from "./session-load-authority";
+import { isAppShell } from "./surface";
 
 /**
  * The nonce ties a completed sign-in back to the browser that started it.
@@ -46,6 +47,17 @@ export function forgetGoogleNonce(): void {
 }
 
 /**
+ * The start request's body. Inside the Flutter shell it also asks the server to
+ * send the finished sign-in back to the app: Google refuses to sign in inside a
+ * WebView, so the shell runs the Google pages in a Chrome Auth Tab, and only the
+ * app can catch the return and load it back into this WebView — where the nonce
+ * lives.
+ */
+export function googleStartBody(nonce: string, mode: "login" | "link"): { nonce: string; mode: "login" | "link"; client?: "android-app" } {
+    return isAppShell() ? { nonce, mode, client: "android-app" } : { nonce, mode };
+}
+
+/**
  * Begin sign-in: ask the server for an authorize URL, then hand the browser to
  * Google. `mode: "link"` attaches Google to the account already signed in, and
  * needs the request to carry auth headers — which is why this is a POST through
@@ -58,7 +70,7 @@ export async function startGoogleSignIn(mode: "login" | "link" = "login"): Promi
         const response = await sessionLoadFetch("/api/auth/google/start", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ nonce, mode }),
+            body: JSON.stringify(googleStartBody(nonce, mode)),
         });
         const data = await response.json().catch(() => null) as { url?: string; error?: string } | null;
         if (!response.ok || !data?.url) {

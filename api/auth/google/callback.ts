@@ -7,9 +7,10 @@ import { withKvLock } from '../../_lock.js';
 import { authKey, googleIdentityKey, type AuthRecord } from '../../player-auth.js';
 import {
     exchangeCodeForIdentity,
-    googleAppReturnUrl,
     googleAuthEnabled,
+    googleReturnTarget,
     newGoogleTicketId,
+    signedStateReturn,
     storeGoogleTicket,
     verifyState,
     type GoogleAuthState,
@@ -34,8 +35,12 @@ type Outcome =
     | 'expired'     // the session that authorised a link ended mid-flight
     | 'error';
 
-function bounce(res: VercelResponse, outcome: Outcome, ticket?: string) {
-    const base = googleAppReturnUrl();
+/**
+ * `base` is required so no path can forget it: a flow the Android app started
+ * must come back to the app on every outcome, errors included, or its sign-in
+ * tab is left showing the website.
+ */
+function bounce(res: VercelResponse, base: string, outcome: Outcome, ticket?: string) {
     const sep = base.includes('?') ? '&' : '?';
     const params = new URLSearchParams({ gauth: outcome });
     if (ticket) params.set('gticket', ticket);
@@ -108,21 +113,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'GET') return res.status(405).end();
-    if (!googleAuthEnabled()) return bounce(res, 'error');
+
+    const rawState = String(req.query?.state ?? '');
+    // Decided before anything can fail, so a cancel or an expired state still
+    // goes back to wherever the flow started. Only a validly signed state can
+    // choose the app, and the choice is between two constants.
+    const target = googleReturnTarget(signedStateReturn(rawState));
+
+    if (!googleAuthEnabled()) return bounce(res, target, 'error');
+    // A throttled callback still answers with JSON, even for the app. Thirty
+    // sign-ins a minute from one IP is not a flow worth returning anywhere.
     if (!enforceRateLimit(req, res, 'google-oauth-callback', 30, 60_000)) return;
 
     const code = String(req.query?.code ?? '');
-    const state = verifyState(String(req.query?.state ?? ''));
+    const state = verifyState(rawState);
     // A "user cancelled" bounce from Google arrives with ?error and no code.
-    if (!code || !state) return bounce(res, 'error');
+    if (!code || !state) return bounce(res, target, 'error');
 
     try {
         const identity = await exchangeCodeForIdentity(code, state.nonce);
-        if (!identity) return bounce(res, 'error');
+        if (!identity) return bounce(res, target, 'error');
 
         if (state.mode === 'link') {
             const outcome = await linkToAccount(state, identity);
-            if (outcome !== 'linked') return bounce(res, outcome);
+            if (outcome !== 'linked') return bounce(res, target, outcome);
             const ticket = newGoogleTicketId();
             await storeGoogleTicket(ticket, {
                 name: safeName(state.name ?? ''),
@@ -132,7 +146,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 nonce: state.nonce,
                 linked: true,
             });
-            return bounce(res, 'linked', ticket);
+            return bounce(res, target, 'linked', ticket);
         }
 
         const owner = await kv.get<{ name?: string }>(googleIdentityKey(identity.sub));
@@ -153,7 +167,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     suggestedName: '',
                     nonce: state.nonce,
                 });
-                return bounce(res, 'ok', ticket);
+                return bounce(res, target, 'ok', ticket);
             }
             await kv.del(googleIdentityKey(identity.sub));
         }
@@ -165,9 +179,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             suggestedName: suggestedNameFrom(identity),
             nonce: state.nonce,
         });
-        return bounce(res, 'signup', ticket);
+        return bounce(res, target, 'signup', ticket);
     } catch (err) {
         console.error('[auth/google/callback]', err);
-        return bounce(res, 'error');
+        return bounce(res, target, 'error');
     }
 }

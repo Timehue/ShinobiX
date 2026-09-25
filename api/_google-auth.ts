@@ -38,6 +38,24 @@ export function googleAppReturnUrl(): string {
 }
 
 /**
+ * Where a sign-in started inside the Android app returns instead.
+ *
+ * Google refuses to sign in inside an embedded WebView, so the Flutter shell
+ * (mobile/) runs the Google pages in a Chrome Auth Tab. That tab cannot finish
+ * the sign-in itself — the nonce lives in the WebView's sessionStorage — so the
+ * callback hands the result to the app, which loads it back into the WebView.
+ *
+ * A code constant, never env- or request-derived, so no caller can repoint it.
+ * The shell registers exactly this scheme and host; a test pins the two.
+ */
+export const GOOGLE_ANDROID_APP_RETURN_URL = 'shinobijourney://auth';
+
+/** The bounce target for a flow's `ret` flag: the app's scheme, or the website. */
+export function googleReturnTarget(ret: GoogleAuthState['ret']): string {
+    return ret === 'app' ? GOOGLE_ANDROID_APP_RETURN_URL : googleAppReturnUrl();
+}
+
+/**
  * Why the redirect URI is validated rather than trusted.
  *
  * Google matches it as an exact string against the one registered in the Cloud
@@ -145,6 +163,12 @@ export type GoogleAuthState = {
      * their own Google account onto the victim's shinobi.
      */
     nonce: string;
+    /**
+     * Set only when the Android app started the flow: the callback then returns
+     * to GOOGLE_ANDROID_APP_RETURN_URL instead of the website. Absent for every
+     * web flow, so a web state is byte-identical to what it was before.
+     */
+    ret?: 'app';
     exp: number;
 };
 
@@ -158,25 +182,44 @@ export function signState(state: Omit<GoogleAuthState, 'exp'>, ttlMs: number = S
     return `${encoded}.${sig}`;
 }
 
-/** Returns the state if it is authentic and unexpired, else null. */
-export function verifyState(state: string): GoogleAuthState | null {
+/** The payload of a state whose signature checks out, or null. Expiry is NOT checked. */
+function decodeSignedState(state: string): GoogleAuthState | null {
     const parts = String(state ?? '').split('.');
     if (parts.length !== 2) return null;
     const [encoded, sig] = parts;
     const expected = createHmac('sha256', stateSecret()).update(encoded).digest('base64url');
     if (!timingSafeEqualStr(sig, expected)) return null;
 
-    let parsed: GoogleAuthState;
     try {
-        parsed = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')) as GoogleAuthState;
+        return JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')) as GoogleAuthState;
     } catch {
         return null;
     }
+}
+
+/** Returns the state if it is authentic and unexpired, else null. */
+export function verifyState(state: string): GoogleAuthState | null {
+    const parsed = decodeSignedState(state);
     if (!parsed || (parsed.mode !== 'login' && parsed.mode !== 'link')) return null;
     if (typeof parsed.nonce !== 'string' || parsed.nonce.length < 16) return null;
+    if (parsed.ret !== undefined && parsed.ret !== 'app') return null;
     if (!Number.isFinite(parsed.exp) || Date.now() > parsed.exp) return null;
     if (parsed.mode === 'link' && (!parsed.name || !Number.isSafeInteger(parsed.epoch))) return null;
     return parsed;
+}
+
+/**
+ * The `ret` flag of an AUTHENTIC state, expired or not.
+ *
+ * The callback needs it before it knows whether the flow succeeded: a player
+ * who cancels at Google, or takes longer than the state's five minutes, must
+ * still be returned to the app rather than stranded on the website inside the
+ * app's sign-in tab. The signature is still required, so a forged state can
+ * never choose the target, and the value only ever selects between two
+ * constants for a bounce that carries no ticket.
+ */
+export function signedStateReturn(state: string): GoogleAuthState['ret'] {
+    return decodeSignedState(state)?.ret === 'app' ? 'app' : undefined;
 }
 
 // ─── Authorize / token endpoints ──────────────────────────────────────────────

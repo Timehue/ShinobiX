@@ -604,6 +604,28 @@ test("the Play app hardware-back stack returns across eligible routes", async ({
     expect(runtimeErrors, "eligible Play app history emitted runtime errors").toEqual([]);
 });
 
+test("the Android shell's User-Agent token alone keeps the web checkout out of the app", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "chromium-mobile", "the shell is Android-only; one project is enough");
+    // The Flutter WebView shell (mobile/) sends no android-app:// referrer and
+    // has no Digital Goods API. Its User-Agent token is the only thing telling
+    // the page it is inside a Play app, where a Tebex checkout breaks Play's
+    // payments policy.
+    await page.addInitScript(() => {
+        const shellUserAgent = `${navigator.userAgent} ShinobiJourneyApp/1`;
+        Object.defineProperty(Navigator.prototype, "userAgent", { configurable: true, get: () => shellUserAgent });
+    });
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(error.message));
+    const runtime = await installUiAuditRuntime(page);
+    await expectUiAuditBoot(page, runtime, "premiumShop");
+
+    await expect(page.getByText("Fate Shard purchases are not available in this version of the app yet", { exact: false })).toBeVisible();
+    await expect(page.getByRole("button", { name: /checkout|buy/i })).toHaveCount(0);
+    // The same verdict turns on the Android back-button history.
+    expect(await page.evaluate(() => window.sessionStorage.getItem("shinobix:surface.v1"))).toBe("play-app");
+    expect(pageErrors, "the shell surface threw").toEqual([]);
+});
+
 test("Inventory and Jutsu tabs keep selection, focus, and panels in sync", async ({ page }) => {
     const initialSave = uiAuditSave();
     initialSave.character = {
