@@ -264,6 +264,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const v = fullChar[k];
                         if (typeof v === 'string' && v) (character as Record<string, unknown>)[k] = v;
                     }
+                    // Hospital admission is server-owned and lives only in the
+                    // save; the slim presence character cannot carry it. Without
+                    // this an ONLINE patient's row said nothing about the stay —
+                    // and nearly every patient is online, since they were just
+                    // knocked out while playing. The save's HP comes with it:
+                    // admission zeroes it, and a presence frame can be stale.
+                    if (livePresence && fullChar.hospitalized === true) {
+                        const row = character as Record<string, unknown>;
+                        row.hospitalized = true;
+                        row.hp = fullChar.hp;
+                        if (fullChar.hospitalizedAt !== undefined) row.hospitalizedAt = fullChar.hospitalizedAt;
+                        if (fullChar.hospitalizedUntil !== undefined) row.hospitalizedUntil = fullChar.hospitalizedUntil;
+                    }
                 }
                 const savedSector = normalizeSector(save?.currentSector, 0);
                 const fullCharacter = save?.character as Record<string, unknown> | undefined;

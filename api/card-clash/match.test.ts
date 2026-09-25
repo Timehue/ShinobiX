@@ -8,6 +8,7 @@ import {
   CHRONICLE_CARD_CATALOG,
   CHRONICLE_RULES_VERSION,
   CHRONICLE_STARTER_CORE_IDS,
+  TURN_TIMEOUT_MS,
   createMatch,
 } from "../../shared/chronicle-duel.js";
 
@@ -293,6 +294,96 @@ test("an immediate Free-Play forfeit settles but grants no Legacy progress", asy
     reason: "participation",
   });
   assert.equal(store.get("legacy:stats:alpha"), undefined);
+});
+
+test("a Free-Play duelist who misses two turns in a row forfeits, and it earns no Legacy progress", async () => {
+  store.clear();
+  installPlayer("alpha", CHRONICLE_AI_DECKS.hard);
+  installPlayer("bravo", CHRONICLE_AI_DECKS.medium);
+  store.set(PAIR_KEY, { matchId: MATCH_ID, p1Name: "alpha", p2Name: "bravo", createdAt: Date.now() });
+  await call({ action: "join", matchId: MATCH_ID, playerName: "alpha", deck: CHRONICLE_AI_DECKS.hard });
+  await call({ action: "join", matchId: MATCH_ID, playerName: "bravo", deck: CHRONICLE_AI_DECKS.medium });
+
+  type Stored = {
+    p1Name: string; p2Name: string; status: string;
+    state: { activePlayer: "p1" | "p2"; winner: string | null; status: string; turnStartedAt: number; actedThisTurn?: boolean; afkStrikes?: Record<string, number> };
+    participation?: { endedBy?: string }; legacyCredit?: { status: string };
+  };
+  // The duelist on the clock has already missed one turn and has now let a
+  // second one run out without acting.
+  const seeded = store.get(SESSION_KEY) as Stored;
+  const absent = seeded.state.activePlayer;
+  const present = absent === "p1" ? "p2" : "p1";
+  const presentName = present === "p1" ? seeded.p1Name : seeded.p2Name;
+  seeded.state.afkStrikes = { [absent]: 1 };
+  seeded.state.actedThisTurn = false;
+  seeded.state.turnStartedAt = Date.now() - TURN_TIMEOUT_MS - 1_000;
+  store.set(SESSION_KEY, seeded);
+
+  // The player who stayed only has to keep the board open: their poll ends it.
+  assert.equal((await call({ action: "state", matchId: MATCH_ID, playerName: presentName })).statusCode, 200);
+  const session = store.get(SESSION_KEY) as Stored;
+  assert.equal(session.status, "done");
+  assert.equal(session.state.winner, present);
+  assert.equal(session.participation?.endedBy, "timeout", "a walk-out is not a played match");
+  assert.equal(session.legacyCredit?.status, "skipped");
+  assert.equal(store.get(`legacy:stats:${presentName}`), undefined);
+});
+
+type ClockStored = {
+  p1Name: string; p2Name: string; status: string;
+  state: { activePlayer: "p1" | "p2"; winner: string | null; turnStartedAt: number; actedThisTurn?: boolean; afkStrikes?: Record<string, number> };
+  participation?: { endedBy?: string }; legacyCredit?: { status: string };
+};
+
+/** A live Free-Play duel whose active duelist let this turn's clock run out
+ *  without acting, having already missed `strikes` turns in a row. */
+async function seedExpiredTurn(strikes: number) {
+  store.clear();
+  installPlayer("alpha", CHRONICLE_AI_DECKS.hard);
+  installPlayer("bravo", CHRONICLE_AI_DECKS.medium);
+  store.set(PAIR_KEY, { matchId: MATCH_ID, p1Name: "alpha", p2Name: "bravo", createdAt: Date.now() });
+  await call({ action: "join", matchId: MATCH_ID, playerName: "alpha", deck: CHRONICLE_AI_DECKS.hard });
+  await call({ action: "join", matchId: MATCH_ID, playerName: "bravo", deck: CHRONICLE_AI_DECKS.medium });
+  const seeded = store.get(SESSION_KEY) as ClockStored;
+  const absent = seeded.state.activePlayer;
+  seeded.state.afkStrikes = { [absent]: strikes };
+  seeded.state.actedThisTurn = false;
+  seeded.state.turnStartedAt = Date.now() - TURN_TIMEOUT_MS - 1_000;
+  store.set(SESSION_KEY, seeded);
+  return {
+    absent,
+    present: absent === "p1" ? "p2" as const : "p1" as const,
+    absentName: absent === "p1" ? seeded.p1Name : seeded.p2Name,
+  };
+}
+
+test("a move refused after the second missed turn still records the forfeit at once", async () => {
+  const { present, absentName } = await seedExpiredTurn(1);
+
+  // The absent duelist comes back and tries to play on. The clock has already
+  // ended the duel, so the move is refused, but the forfeit must not wait for
+  // somebody's next poll to be written down.
+  const late = await call({ action: "end-turn", matchId: MATCH_ID, playerName: absentName });
+  assert.equal(late.statusCode, 400);
+  assert.equal((late.body as { error?: string }).error, "The duel is over.");
+  const session = store.get(SESSION_KEY) as ClockStored;
+  assert.equal(session.status, "done");
+  assert.equal(session.state.winner, present);
+  assert.equal(session.participation?.endedBy, "timeout");
+  assert.equal(session.legacyCredit?.status, "skipped", "a walk-out still earns no Legacy progress");
+});
+
+test("a move refused after a first missed turn still records the passed turn", async () => {
+  const { absent, present, absentName } = await seedExpiredTurn(0);
+
+  const late = await call({ action: "end-turn", matchId: MATCH_ID, playerName: absentName });
+  assert.equal(late.statusCode, 400);
+  assert.equal((late.body as { error?: string }).error, "It is not your turn.");
+  const session = store.get(SESSION_KEY) as ClockStored;
+  assert.equal(session.status, "active");
+  assert.equal(session.state.activePlayer, present, "the clock passed the turn, and that is stored");
+  assert.equal(session.state.afkStrikes?.[absent], 1, "with the strike it cost");
 });
 
 test("a sub-threshold natural finish remains progression-neutral", async () => {

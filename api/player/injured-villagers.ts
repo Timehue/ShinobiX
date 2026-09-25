@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { professionRankForXp } from '../missions/_progress.js';
 import { battleLockFlagsForPlayers, settleSaveRecord } from '../_elapsed-state.js';
 import { parsePublicPlayerIndexEntry } from './_public-index.js';
+import { masteryHasCapstone } from '../_profession-mastery.js';
 
 // Rank 10 Healer perk: see all injured players in your village anywhere in
 // the world (HP < maxHp), not just those in the hospital. Returns a small
@@ -53,7 +54,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // setting professionRank=10 directly would otherwise leak
         // world-wide injured-villager data without the player earning it.
         const trustedRank = professionRankForXp('healer', Number(healerChar.professionXp ?? 0));
-        if (!identity.admin && trustedRank < HEALER_WORLDWIDE_RANK) {
+        // The Village Lifeline mastery capstone grants the same world-wide reach
+        // below Rank 10. /api/player/heal already honours it (heal.ts), so a
+        // capstone holder could heal these targets but had no way to find them.
+        const hasLifeline = masteryHasCapstone('healer', healerChar.masterySpec, 'village-lifeline');
+        if (!identity.admin && trustedRank < HEALER_WORLDWIDE_RANK && !hasLifeline) {
             return res.status(403).json({ error: `World-wide visibility unlocks at Rank ${HEALER_WORLDWIDE_RANK}.` });
         }
 

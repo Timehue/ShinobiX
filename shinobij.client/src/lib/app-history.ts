@@ -38,8 +38,10 @@ export type BackDecision =
     | { action: 'refuse'; reason: 'battle-unresolved' | 'unknown-target' }
     | { action: 'navigate'; screen: Screen; fellBack?: true };
 
-/** Where back lands when the popped entry is not safe to restore. Matches the */
-/** refresh path, which also "routed to the village" for unrestorable screens. */
+/** Where back lands when the popped entry is not safe to restore and the caller */
+/** did not say where the player is. The App passes the player's LOCATION instead */
+/** (worldMap in a wild sector), like the refresh path and the in-app goBack do: */
+/** a hardcoded village teleported a player out of the world on a back press. */
 const BACK_FALLBACK_SCREEN: Screen = 'village';
 
 /** `#/village` → `village`. Anything else yields an empty string. */
@@ -59,6 +61,8 @@ export function hashForScreen(screen: Screen): string {
 export function decideBack(opts: {
     targetHash: string;
     battleUnresolved: boolean;
+    /** Where the player IS (safeFallbackScreen). Defaults to the village. */
+    fallbackScreen?: Screen;
 }): BackDecision {
     // Checked FIRST and unconditionally: no target is worth leaving a live fight
     // for, so this cannot be reordered below the target checks.
@@ -75,7 +79,7 @@ export function decideBack(opts: {
     // village → petArena → village is an ordinary stack. Refusing there would
     // make back silently do nothing, which reads as a broken button.
     if (!DEEP_LINKABLE_SCREENS.has(target as Screen)) {
-        return { action: 'navigate', screen: BACK_FALLBACK_SCREEN, fellBack: true };
+        return { action: 'navigate', screen: opts.fallbackScreen ?? BACK_FALLBACK_SCREEN, fellBack: true };
     }
     return { action: 'navigate', screen: target as Screen };
 }
@@ -93,12 +97,15 @@ export function useAppHistory(
     screen: Screen,
     navigate: (next: Screen) => void,
     isBattleUnresolved: () => boolean,
+    /** Where the player is right now — read at press time, like the battle check. */
+    fallbackScreen?: () => Screen,
 ): void {
     // Refs so the popstate listener is installed once and still sees fresh
     // values; re-subscribing per screen change would drop in-flight presses.
     const screenRef = useRef(screen);
     const battleRef = useRef(isBattleUnresolved);
     const navigateRef = useRef(navigate);
+    const fallbackRef = useRef(fallbackScreen);
     // Written in an effect, never during render: a ref mutated mid-render is
     // torn by StrictMode's double invoke and by concurrent rendering. No dep
     // array, so every commit refreshes them — and a back press can only arrive
@@ -107,6 +114,7 @@ export function useAppHistory(
         screenRef.current = screen;
         battleRef.current = isBattleUnresolved;
         navigateRef.current = navigate;
+        fallbackRef.current = fallbackScreen;
     });
 
     // ── Shareable URL hash ──────────────────────────────────────────────
@@ -134,6 +142,7 @@ export function useAppHistory(
             const decision = decideBack({
                 targetHash: window.location.hash,
                 battleUnresolved: battleRef.current(),
+                fallbackScreen: fallbackRef.current?.(),
             });
             if (decision.action === 'navigate') {
                 navigateRef.current(decision.screen);

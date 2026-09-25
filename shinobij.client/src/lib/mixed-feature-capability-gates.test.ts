@@ -128,7 +128,9 @@ describe("mixed-feature public capability wiring", () => {
         assert.doesNotMatch(arena, /if \(fight && !weeklyBossActionsAvailable\)/, "a mutation freeze must not unmount the accepted fight");
         assert.match(arena, /if \(fight\)[\s\S]*!weeklyBossActionsAvailable[\s\S]*accepted fight stays mounted[\s\S]*<WeeklyBossFight/);
         assert.match(arena, /const acceptedFightRecoveryNeeded = lockedOut \|\| staminaBlocked \|\| !weeklyBossActionsAvailable/);
-        assert.match(arena, /acceptedFightRecoveryNeeded && \([\s\S]*disabled=\{startingFight \|\| !weeklyBossViewOpen\}[\s\S]*Check for interrupted fight/);
+        // Roaming mode has no fight button on this screen, so the read-only
+        // recovery probe is offered there unconditionally.
+        assert.match(arena, /\(roaming \|\| acceptedFightRecoveryNeeded\) && \([\s\S]*disabled=\{startingFight \|\| !weeklyBossViewOpen\}[\s\S]*Check for interrupted fight/);
         assert.doesNotMatch(arena, />Resume accepted fight</, "the probe must not claim a run exists before the server confirms it");
         assert.match(arena, /disabled=\{startingFight \|\| !weeklyBossActionsAvailable \|\| expired \|\| lockedOut \|\| contributionDisabled \|\| staminaBlocked\}/);
     });

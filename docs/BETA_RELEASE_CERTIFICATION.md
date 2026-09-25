@@ -15,6 +15,8 @@ This is the repeatable certification gate for a deployed staging or isolated-tes
 
 The evidence validator requires all 19 steps: register, login, character creation, first save, reload, intro/Academy, starter companion, stat training, jutsu equip, item equip, Academy spar, hospital/heal, first reward, Logbook, sector entry, village return, logout, second login, and final restore comparison.
 
+Losing the Academy spar no longer admits the player, because a spar never sends anyone to the Hospital (`docs/MMORPG_BEHAVIOR_PASS_2026-09-24.md`). Exercise hospital/heal with a real knockout instead, such as a lost sector ambush.
+
 For the final comparison, capture aggregate/state hashes or redacted field summaries for progression, inventory, training, companion, mission state, position, and currencies. Never place a password or bearer token in the evidence file. First-save and first-reward steps require request IDs.
 
 ## Hostile/retry cases

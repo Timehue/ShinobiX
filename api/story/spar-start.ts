@@ -9,6 +9,7 @@ import { writeSoloPveSession } from '../solo-pve/_store.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
 import { storyCombatBindingKey, STORY_COMBAT_SESSION_TTL_SECONDS } from './_authoritative-story-combat.js';
+import { isIncapacitated } from '../_elapsed-state.js';
 import {
     ACADEMY_SPAR_OPPONENT_ID,
     academySparEligibility,
@@ -44,6 +45,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const save = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${playerName}`));
         const char = save?.character as Record<string, unknown> | undefined;
         if (!save || !char) return res.status(404).json({ error: 'Player save not found.' });
+        // A spar can no longer put anyone in the hospital, but a player who is
+        // already admitted still starts no new fight (api/_elapsed-state.ts).
+        if (!identity.admin && isIncapacitated(char)) {
+            return res.status(409).json({ error: 'You are in the hospital. Recover before starting a fight.', errorCode: 'hospitalized' });
+        }
         // Gate the START on what the SETTLE will demand, so a sealed spar is
         // always one the player can actually be paid for.
         const eligibility = academySparEligibility(char);

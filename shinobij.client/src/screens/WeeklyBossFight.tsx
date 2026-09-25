@@ -17,9 +17,10 @@ import { capabilityAdmissionAllowed } from "../lib/live-capability-admission";
 // the Weekly Boss arena screen once the player returns, so the in-fight result card
 // stays deliberately simple.
 //
-// Both entry points share this wrapper: the roaming world-map challenge (App) and the
-// menu "Fight Boss" button (WeeklyBossArena). Each passes its own settleFn (both POST
-// /api/weekly-boss {kind:"logFight"}) and onExit.
+// Both entry points mount this wrapper inside WeeklyBossArena: the roaming world-map
+// "Stand & Fight" (staged through lib/weekly-boss-launch.ts) and the menu "Fight Boss"
+// button. Both POST /api/weekly-boss {kind:"logFight"} to settle; the arena decides
+// where onExit goes (back to the World Map for a roaming fight).
 export function WeeklyBossFight({
     character,
     sharedImages,
@@ -27,6 +28,7 @@ export function WeeklyBossFight({
     initialSession,
     settleFn,
     onExit,
+    exitLabel = "Return to the Arena",
 }: {
     character: Character;
     sharedImages?: Record<string, string>;
@@ -34,6 +36,7 @@ export function WeeklyBossFight({
     initialSession: SoloPveSession;
     settleFn: (runId: string, playerName: string) => Promise<unknown>;
     onExit: () => void;
+    exitLabel?: string;
 }) {
     const { mutationAvailability, viewAvailability } = useLiveCapabilities();
     const guardedTransport = useMemo(() => ({
@@ -78,7 +81,7 @@ export function WeeklyBossFight({
                             ) : (
                                 <p>Taking your damage off the shared world boss and banking it to this week&apos;s leaderboard…</p>
                             )}
-                            <button className="start-primary-btn" onClick={onExit}>Return to the Arena</button>
+                            <button className="start-primary-btn" onClick={onExit}>{exitLabel}</button>
                         </div>
                     </div>
                 );
