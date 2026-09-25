@@ -1,6 +1,7 @@
 import { kv, type KvLike } from './_storage.js';
 import { withTelemetryLock } from './_telemetry-lock.js';
 import { captureProductEventFromBetaMetric } from './_product-analytics.js';
+import { ACADEMY_PATH_STEPS } from '../shared/academy-path.js';
 
 export type BetaMetricEvent =
     | 'account.registered'
@@ -49,6 +50,10 @@ export interface BetaMetricDay {
     date: string;
     updatedAt: number;
     events: Record<string, number>;
+    /** Canonical Academy Path steps reached; aggregate only, with bounded keys. */
+    academySteps: Record<string, number>;
+    /** Step reaches grouped by UTC Academy start date; contains counts only. */
+    academyCohorts: Record<string, Record<string, number>>;
     levelBands: Record<string, number>;
     sources: Record<string, number>;
     rewardTotals: BetaRewardTotals;
@@ -61,6 +66,10 @@ export interface BetaMetricInput {
     playerName?: string;
     level?: number;
     source?: string;
+    /** Canonical Academy Path step, accepted only for academy.step.reached. */
+    academyStep?: string;
+    /** UTC date when this player's Academy path first started, if known. */
+    academyCohortDate?: string;
     xp?: number;
     ryo?: number;
     stamina?: number;
@@ -75,15 +84,33 @@ export interface BetaMetricInput {
 export interface BetaMetricsSnapshot {
     generatedAt: number;
     days: number;
-    daily: BetaMetricDay[];
-    totals: Omit<BetaMetricDay, 'date' | 'updatedAt'>;
+    /** Activity-day rows; cohort detail is returned once in academyCohorts. */
+    daily: Array<Omit<BetaMetricDay, 'academyCohorts'>>;
+    totals: Omit<BetaMetricDay, 'date' | 'updatedAt' | 'academyCohorts'>;
+    /** Cohort counts across retained metric days for Academy starts in the requested window. */
+    academyCohorts: Record<string, Record<string, number>>;
 }
 
 const BETA_METRICS_RETENTION_SECONDS = 120 * 24 * 60 * 60;
 const DEFAULT_DAYS = 14;
 const MAX_DAYS = 60;
 
-type BetaKv = Pick<KvLike, 'get' | 'set'>;
+// Bounded allowlist: step values come from save transitions, but are still
+// validated before becoming metric keys to keep stored dimensions predictable.
+const ACADEMY_METRIC_STEPS = new Set<string>(ACADEMY_PATH_STEPS);
+
+function validAcademyCohortDate(value: unknown, eventDate: string): string | null {
+    const cohortDate = String(value ?? '');
+    const cohortTs = Date.parse(`${cohortDate}T00:00:00.000Z`);
+    return /^\d{4}-\d{2}-\d{2}$/.test(cohortDate)
+        && Number.isFinite(cohortTs)
+        && new Date(cohortTs).toISOString().slice(0, 10) === cohortDate
+        && cohortDate <= eventDate
+        ? cohortDate
+        : null;
+}
+
+type BetaKv = Pick<KvLike, 'get' | 'set'> & Partial<Pick<KvLike, 'mget'>>;
 
 export function betaDateKey(ts = Date.now()): string {
     return new Date(ts).toISOString().slice(0, 10);
@@ -152,6 +179,8 @@ function emptyDay(date: string, updatedAt = 0): BetaMetricDay {
         date,
         updatedAt,
         events: {},
+        academySteps: {},
+        academyCohorts: {},
         levelBands: {},
         sources: {},
         rewardTotals: {},
@@ -180,6 +209,10 @@ export function applyBetaMetric(day: BetaMetricDay | null | undefined, input: Be
         date,
         updatedAt: ts,
         events: { ...(day?.events ?? {}) },
+        academySteps: { ...(day?.academySteps ?? {}) },
+        academyCohorts: Object.fromEntries(
+            Object.entries(day?.academyCohorts ?? {}).map(([cohortDate, counts]) => [cohortDate, { ...counts }]),
+        ),
         levelBands: { ...(day?.levelBands ?? {}) },
         sources: { ...(day?.sources ?? {}) },
         rewardTotals: { ...(day?.rewardTotals ?? {}) },
@@ -187,6 +220,24 @@ export function applyBetaMetric(day: BetaMetricDay | null | undefined, input: Be
     };
 
     inc(next.events, input.event, 1);
+    if (input.event === 'academy.started') {
+        const cohortDate = validAcademyCohortDate(input.academyCohortDate, date);
+        if (cohortDate) {
+            const cohort = next.academyCohorts[cohortDate] ?? {};
+            inc(cohort, 'started', 1);
+            next.academyCohorts[cohortDate] = cohort;
+        }
+    }
+    if (input.event === 'academy.step.reached' && ACADEMY_METRIC_STEPS.has(String(input.academyStep ?? ''))) {
+        const step = String(input.academyStep);
+        inc(next.academySteps, step, 1);
+        const cohortDate = validAcademyCohortDate(input.academyCohortDate, date);
+        if (cohortDate) {
+            const cohort = next.academyCohorts[cohortDate] ?? {};
+            inc(cohort, step, 1);
+            next.academyCohorts[cohortDate] = cohort;
+        }
+    }
     inc(next.levelBands, betaLevelBand(input.level), 1);
     const source = safeSource(input.source);
     if (source) inc(next.sources, source, 1);
@@ -313,13 +364,54 @@ export async function readBetaMetricsSnapshot(days = DEFAULT_DAYS, opts: { kv?: 
     const store = opts.kv ?? kv;
     const now = opts.now ?? Date.now();
     const dates = recentBetaDates(days, now);
-    const daily: BetaMetricDay[] = [];
-    for (const date of dates) {
-        const stored = await store.get<BetaMetricDay>(betaMetricKey(date)).catch(() => null);
-        daily.push(stored ? { ...emptyDay(date), ...stored, date } : emptyDay(date));
+    // Cohorts that started inside the requested window can continue progressing
+    // on later dates. Scan the metric retention window so their later steps are
+    // included, while returning the existing activity totals only for `days`.
+    const cohortWindow = new Set(dates);
+    const historyDates: string[] = [];
+    for (let i = 0; i < BETA_METRICS_RETENTION_SECONDS / (24 * 60 * 60); i++) {
+        historyDates.push(betaDateKey(now - i * 24 * 60 * 60 * 1000));
     }
-    const totals: Omit<BetaMetricDay, 'date' | 'updatedAt'> = {
+    const historyKeys = historyDates.map(betaMetricKey);
+    let history: Array<BetaMetricDay | null>;
+    if (store.mget) {
+        try {
+            history = await store.mget<BetaMetricDay[]>(...historyKeys);
+        } catch {
+            history = await Promise.all(historyKeys.map((key) => store.get<BetaMetricDay>(key).catch(() => null)));
+        }
+    } else {
+        history = await Promise.all(historyKeys.map((key) => store.get<BetaMetricDay>(key).catch(() => null)));
+    }
+    const byDate = new Map(historyDates.map((date, index) => [date, history[index] ?? null]));
+    const daily: BetaMetricsSnapshot['daily'] = dates.map((date) => {
+        const stored = byDate.get(date);
+        const day = stored ? { ...emptyDay(date), ...stored, date } : emptyDay(date);
+        return {
+            date: day.date,
+            updatedAt: day.updatedAt,
+            events: day.events,
+            academySteps: day.academySteps,
+            levelBands: day.levelBands,
+            sources: day.sources,
+            rewardTotals: day.rewardTotals,
+            rareGrants: day.rareGrants,
+        };
+    });
+    const academyCohorts: Record<string, Record<string, number>> = {};
+    for (const stored of history) {
+        for (const [cohortDate, steps] of Object.entries(stored?.academyCohorts ?? {})) {
+            if (!cohortWindow.has(cohortDate)) continue;
+            const merged = academyCohorts[cohortDate] ?? {};
+            for (const [step, count] of Object.entries(steps ?? {})) {
+                if (step === 'started' || ACADEMY_METRIC_STEPS.has(step)) inc(merged, step, count);
+            }
+            academyCohorts[cohortDate] = merged;
+        }
+    }
+    const totals: Omit<BetaMetricDay, 'date' | 'updatedAt' | 'academyCohorts'> = {
         events: {},
+        academySteps: {},
         levelBands: {},
         sources: {},
         rewardTotals: {},
@@ -327,10 +419,11 @@ export async function readBetaMetricsSnapshot(days = DEFAULT_DAYS, opts: { kv?: 
     };
     for (const day of daily) {
         mergeCounts(totals.events, day.events);
+        mergeCounts(totals.academySteps, day.academySteps);
         mergeCounts(totals.levelBands, day.levelBands);
         mergeCounts(totals.sources, day.sources);
         mergeCounts(totals.rewardTotals, day.rewardTotals);
         mergeCounts(totals.rareGrants, day.rareGrants);
     }
-    return { generatedAt: now, days: dates.length, daily, totals };
+    return { generatedAt: now, days: dates.length, daily, totals, academyCohorts };
 }
