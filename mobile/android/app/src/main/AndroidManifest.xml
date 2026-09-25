@@ -1,0 +1,91 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Declared here, in the main manifest: Flutter's template only grants
+         INTERNET to debug builds, which would ship a release that loads nothing. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- navigator.vibrate() in card packs, the hub and pet battles. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- No backup: the WebView's storage now holds the player's session token
+         and guest key, which must not be restored onto another device. -->
+    <application
+        android:label="Shinobi"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="false">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme"
+              />
+        </activity>
+
+        <!-- The old TWA's launcher was com.shinobijourney.app.LauncherActivity.
+             Keeping that name as the launcher entry means home-screen icons
+             players pinned to it survive the upgrade. -->
+        <activity-alias
+            android:name="com.shinobijourney.app.LauncherActivity"
+            android:targetActivity=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- Google sign-in return (flutter_web_auth_2). The server sends the
+             Auth Tab to shinobijourney://auth; only that host is accepted, and
+             the plugin ignores it unless this app started a sign-in. -->
+        <activity
+            android:name="com.linusu.flutter_web_auth_2.CallbackActivity"
+            android:exported="true"
+            android:taskAffinity="">
+            <intent-filter android:label="flutter_web_auth_2">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="shinobijourney" android:host="auth" />
+            </intent-filter>
+        </activity>
+
+        <!-- No https App Link filters on purpose: they would capture the Custom
+             Tab and Auth Tab's own navigations to shinobijourney.com. -->
+
+        <!-- Don't delete the meta-data below.
+             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+
+    <queries>
+        <!-- Custom Tabs and Auth Tabs for legal pages and Google sign-in. -->
+        <intent>
+            <action android:name="android.support.customtabs.action.CustomTabsService" />
+        </intent>
+        <!-- A browser for foreign links. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <!-- A mail app for mailto:support links. -->
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="mailto" />
+        </intent>
+        <!-- Required by Flutter's text-processing plugin. -->
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT"/>
+            <data android:mimeType="text/plain"/>
+        </intent>
+    </queries>
+</manifest>

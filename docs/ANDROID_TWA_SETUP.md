@@ -1,5 +1,12 @@
 # Android TWA setup (Google Play)
 
+> **Being replaced (2026-09-25).** The Play app is moving to a Flutter WebView
+> shell with the same package and upload key; see [mobile/README.md](../mobile/README.md).
+> This guide stays accurate for the TWA, which remains the rollback path until
+> the Flutter shell has production access. The Flutter shell's Google sign-in
+> works despite the WebView note below, because it runs Google's pages in a
+> Chrome Auth Tab.
+
 The Android app is a **Trusted Web Activity** — a thin Play-distributed shell
 that opens `https://shinobijourney.com` in the user's Chrome. There is no second
 codebase and no forked build: the shell renders the same live site, so a Railway
