@@ -1,5 +1,4 @@
 // Props and row shapes for WorldSectorCommandPanel.
-//
 // Split out of the component verbatim so the panel stays under the line
 // ratchet in screens/WorldMap.projection.test.ts. That budget exists to keep
 // commands and authority in WorldMap — type declarations are neither, so they
@@ -60,6 +59,7 @@ export type WorldSectorCommandHunt = Readonly<{
     requiredTracks: number;
     ready: boolean;
 }>;
+export type WorldSectorMissionOutpost = Readonly<{ missionId: string; missionName: string }>;
 export type WorldSectorCommandPanelProps = Readonly<{
     sector: number;
     /** False while scouting; command controls become read-only. */
@@ -87,6 +87,9 @@ export type WorldSectorCommandPanelProps = Readonly<{
     sectorGarrisonReady: boolean;
     players: readonly WorldSectorCommandPlayer[];
     hunt: WorldSectorCommandHunt | null;
+    missionOutpost?: WorldSectorMissionOutpost | null;
+    missionRaidCooldownMs?: number;
+    onStartMissionRaid?: () => void;
     onRaidEnemyVillage: () => void;
     onRaidControlledSector: () => void;
     onOpenSigns: () => void;

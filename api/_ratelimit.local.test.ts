@@ -21,8 +21,8 @@ function fakeReq(ip: string) {
     return { headers: { 'x-forwarded-for': ip }, socket: { remoteAddress: ip } };
 }
 function fakeRes() {
-    const out = { status: 200 };
-    const res = { status(code: number) { out.status = code; return { json: () => undefined }; } };
+    const out: { status: number; body?: unknown } = { status: 200 };
+    const res = { status(code: number) { out.status = code; return { json: (body: unknown) => { out.body = body; } }; } };
     return { res, out };
 }
 
@@ -62,4 +62,31 @@ test('a local window refuses with a retry hint and opens again in the next align
     await new Promise<void>((resolve) => setTimeout(resolve, window - (Date.now() % window) + 5));
     const third = fakeRes();
     assert.equal(await rl.enforceRateLimitKv(fakeReq('10.94.0.3'), third.res, 'local-reset', 1, window, name, { local: true }), true);
+});
+
+test('the local fast path and durable limit report the same reset boundary', async () => {
+    const realNow = Date.now;
+    const windowMs = 60_000;
+    let now = 12 * windowMs + windowMs - 50;
+    Date.now = () => now;
+    const name = `aligned-retry-${Math.random().toString(36).slice(2)}`;
+    try {
+        const first = fakeRes();
+        assert.equal(await rl.enforceRateLimitKv(fakeReq('10.94.0.4'), first.res, 'aligned-retry', 1, windowMs, name), true);
+        const blocked = fakeRes();
+        assert.equal(await rl.enforceRateLimitKv(fakeReq('10.94.0.4'), blocked.res, 'aligned-retry', 1, windowMs, name), false);
+        assert.equal(blocked.out.status, 429);
+        assert.equal((blocked.out.body as { retryAfterMs: number }).retryAfterMs, 50);
+        let localBlocked = fakeRes();
+        for (let i = 0; i < 4; i++) {
+            localBlocked = fakeRes();
+            assert.equal(await rl.enforceRateLimitKv(fakeReq('10.94.0.4'), localBlocked.res, 'aligned-retry', 1, windowMs, name), false);
+        }
+        assert.equal((localBlocked.out.body as { retryAfterMs: number }).retryAfterMs, 50);
+        now += 50;
+        const nextWindow = fakeRes();
+        assert.equal(await rl.enforceRateLimitKv(fakeReq('10.94.0.4'), nextWindow.res, 'aligned-retry', 1, windowMs, name), true);
+    } finally {
+        Date.now = realNow;
+    }
 });

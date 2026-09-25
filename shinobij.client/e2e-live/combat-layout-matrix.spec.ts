@@ -1,5 +1,5 @@
 import { mkdir, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { expect, type APIRequestContext, type Locator, type Page, type Request as BrowserRequest, type TestInfo } from '@playwright/test';
 import { AURA_SPHERE_ITEM_ID, AURA_SPHERE_VN_ID } from '../src/constants/game';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
@@ -1662,6 +1662,7 @@ async function writeArtifactWithRetry(page: Page, path: string, data: string | U
     let lastError: unknown;
     for (let attempt = 0; attempt < 6; attempt += 1) {
         try {
+            await mkdir(dirname(path), { recursive: true });
             await writeFile(path, data);
             return;
         } catch (error) {
