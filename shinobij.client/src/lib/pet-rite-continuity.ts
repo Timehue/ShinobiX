@@ -2,7 +2,7 @@
  * Beastbound Warfront — how a match moves from one clash to the next.
  *
  * These are the decisions the Rite makes between clashes, lifted out of the
- * component so every interlude runs the SAME policy:
+ * component so the live interlude and "Skip to result" run the SAME policy:
  *
  *   - `riteHeldFormation`       the line a band just fought. Holding it needs no
  *                               new simulation, so it is always available.
@@ -10,16 +10,20 @@
  *                               as the re-form panel always has.
  *   - `automaticRiteReformChoice` what a seat that takes no decisions (a
  *                               spectator or a sealed replay) locks.
+ *   - `finishAutomaticRite`     plays every remaining automatic interlude with
+ *                               no presentation, for a viewer skipping ahead.
  *
  * Nothing here changes the simulation, the seed or the plan contract: a plan
  * built here is byte-for-byte the plan the panel built before, and it is still
  * the server's replay of that plan that decides a rewarded match.
  */
 import {
+    RITE_BAND_SIZE,
     WARFRONT_DEFAULT_DEPLOYMENT,
     deterministicRiteCounterMove,
     type RiteClash,
     type RitePlan,
+    type RiteResult,
 } from "./pet-warfront-rite";
 
 export type RiteFormationChoice = { formation: number[]; deployment: number[] };
@@ -82,4 +86,42 @@ export function lockRiteReform(
 export function automaticRiteReformChoice(clash: RiteClash, held: RiteFormationChoice, sealed: boolean): RiteFormationChoice {
     const counter = sealed ? null : deterministicRiteCounterMove(clash, "blue");
     return counter ? { formation: counter.formation, deployment: counter.deployment } : held;
+}
+
+const isAbort = (error: unknown) => error instanceof DOMException && error.name === "AbortError";
+
+/**
+ * Play every remaining automatic interlude from `clashIndex` on, without
+ * presenting any of it, and return the final plan and result.
+ *
+ * Each step is the live interlude's: the automatic choice, locked with
+ * `lockRiteReform`, re-resolved only when it changed the line. A re-form that
+ * cannot be resolved holds the line, as the live interlude does, so this
+ * always reaches the match's end. Only an abort (the viewer left) propagates.
+ * `bandSize` is the fielded band's length, as the live lock uses it.
+ */
+export async function finishAutomaticRite(options: {
+    plan: RitePlan;
+    result: RiteResult;
+    clashIndex: number;
+    bandSize: number;
+    sealed: boolean;
+    resolve: (plan: RitePlan) => Promise<RiteResult>;
+}): Promise<{ plan: RitePlan; result: RiteResult }> {
+    let { plan, result } = options;
+    // Every recorded re-form of a sealed replay is already inside its result.
+    if (options.sealed) return { plan, result };
+    for (let index = Math.max(0, options.clashIndex); index < result.clashes.length - 1; index += 1) {
+        const clash = result.clashes[index];
+        const choice = automaticRiteReformChoice(clash, riteHeldFormation(clash, plan, RITE_BAND_SIZE), false);
+        const locked = lockRiteReform(plan, clash, index, options.bandSize, choice);
+        if (!locked.changed) continue;
+        try {
+            result = await options.resolve(locked.plan);
+            plan = locked.plan;
+        } catch (error) {
+            if (isAbort(error)) throw error;
+        }
+    }
+    return { plan, result };
 }
