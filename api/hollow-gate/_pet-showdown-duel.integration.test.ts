@@ -284,6 +284,28 @@ test('a won 3v3 duel resolves the encounter and pays its Hollow Gate reward exac
     assert.equal((await step([HOUND.x, HOUND.y], [HOUND.x - 1, HOUND.y])).status, 200);
 });
 
+test('only the pet the player sent spends its battle consumable; the drawn partners keep theirs', async () => {
+    const carrying = (owned: Record<string, unknown>) => ({ ...owned, loadout: { consumable: 'consum-second-wind' } });
+    await seed([carrying(LEAD), ...PARTNERS.map(carrying)]);
+    setFieldSizeRoll(() => 3);
+    const { runId } = await sendPet();
+    const { state, petIds } = (await openDuel(runId)).body;
+    assert.equal(petIds.length, 3);
+    await decide(state.sessionId, 'win');
+    assert.equal((await showdown({ action: 'turn', sessionId: state.sessionId, commands: [] })).status, 200);
+    const settled = await gate('combatSettle', { runId, petReceipt: state.sessionId });
+    assert.equal(settled.status, 200, JSON.stringify(settled.body));
+    type Carried = { id: string; loadout?: { consumable?: string } };
+    const pets = (await kv.get<{ character: { pets: Carried[] } }>(saveKey))!.character.pets;
+    const consumableOf = (id: string) => pets.find((owned) => owned.id === id)?.loadout?.consumable;
+    assert.equal(consumableOf(LEAD.id), undefined, 'the lead spends its consumable, as the 1v1 duel always did');
+    for (const partner of petIds.slice(1)) {
+        assert.equal(consumableOf(partner), 'consum-second-wind', `drawn partner ${partner} keeps its consumable, as on the road`);
+    }
+    const benched = PARTNERS.find((owned) => !petIds.includes(owned.id))!;
+    assert.equal(consumableOf(benched.id), 'consum-second-wind', 'a pet that never took the field keeps its consumable');
+});
+
 test('a lost duel withdraws the encounter unpaid, and the Hound can be raised again and won once', async () => {
     const run = await seed();
     setFieldSizeRoll(() => 1);
