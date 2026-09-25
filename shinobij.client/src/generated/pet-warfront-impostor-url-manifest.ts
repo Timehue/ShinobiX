@@ -37,6 +37,7 @@ export const WARFRONT_IMPOSTOR_ATLAS_REVISIONS = {
     "/pet-models/roster/mythic-12.glb": "988f95627d0c",
     "/pet-models/roster/mythic-13.glb": "ca790154d226",
     "/pet-models/roster/mythic-14.glb": "0f59ba2d571c",
+    "/pet-models/roster/mythic-15.glb": "3691d017fd6c",
     "/pet-models/roster/mythic-2.glb": "0c405685a810",
     "/pet-models/roster/mythic-3.glb": "6b9f6be31384",
     "/pet-models/roster/mythic-4.glb": "4a3d3fea875f",

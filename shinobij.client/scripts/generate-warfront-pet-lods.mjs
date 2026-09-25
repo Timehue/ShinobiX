@@ -36,13 +36,17 @@ const MAX_LOD_TRIANGLES = 15_000;
 // same silhouette gate while requiring at least 54% less geometry than source.
 const RAIJIN_MAX_LOD_TRIANGLES = 18_000;
 const RAIJIN_MIN_TRIANGLE_REDUCTION = 0.54;
+// Dawnmane's individually modeled feathers need more triangles to preserve
+// the three-view silhouette while retaining the skinned wing motion.
+const DAWNMANE_MAX_LOD_TRIANGLES = 25_000;
+const DAWNMANE_MIN_TRIANGLE_REDUCTION = 0.4;
 // Raijin's 2048px PBR maps are retained for close-ups. The distant rig needs
 // only 1024px maps, saving transfer bytes without changing its silhouette.
 const RAIJIN_LOD_TEXTURE_SIZE = 1024;
 // These five breeding rigs carry three 2048px PBR maps each. At battle
 // distance, keep their close-view sources intact and reduce only the LOD maps.
 const BREEDING_MYTHIC_TEXTURE_IDS = new Set([
-    "mythic-10", "mythic-11", "mythic-12", "mythic-13", "mythic-14",
+    "mythic-10", "mythic-11", "mythic-12", "mythic-13", "mythic-14", "mythic-15",
 ]);
 const BREEDING_MYTHIC_LOD_TEXTURE_SIZE = 1024;
 const MAX_ERROR = 0.05;
@@ -51,7 +55,7 @@ const MAX_BOUNDS_DELTA = 0.02;
 const MIN_SILHOUETTE_IOU = 0.975;
 const SILHOUETTE_SIZE = 96;
 const LOW_POLY_SOURCE_LIMIT = 25_000;
-const EXPECTED_RUNTIME_SOURCE_COUNT = 159;
+const EXPECTED_RUNTIME_SOURCE_COUNT = 160;
 const CRITICAL_BUILT_IN_FILES = new Set([
     "pet-models/roster/mythic-0.glb",
     "pet-models/roster/mythic-2.glb",
@@ -476,13 +480,14 @@ function silhouetteIoU(source, lod, sourceBounds) {
 function assertAssetPair(sourcePath, sourceStats, lodPath, lodStats, silhouettes, expectedTextures = sourceStats.textures) {
     const label = slash(relative(clientRoot, sourcePath));
     const detailedHound = sourcePath.endsWith('starter-lightning-l.glb');
-    const maxTriangles = detailedHound ? RAIJIN_MAX_LOD_TRIANGLES : MAX_LOD_TRIANGLES;
+    const dawnmane = sourcePath.endsWith('roster' + sep + 'mythic-15.glb');
+    const maxTriangles = detailedHound ? RAIJIN_MAX_LOD_TRIANGLES : dawnmane ? DAWNMANE_MAX_LOD_TRIANGLES : MAX_LOD_TRIANGLES;
     const reduction = 1 - lodStats.triangles / sourceStats.triangles;
     if (sourceStats.triangles <= LOW_POLY_SOURCE_LIMIT) {
         invariant(lodStats.triangles <= 12_000, `${label}: low-poly source exception still exceeds 12k`);
         invariant(reduction >= 0.3, `${label}: low-poly source reduction ${(reduction * 100).toFixed(1)}% < 30%`);
     } else {
-        const minimumReduction = detailedHound ? RAIJIN_MIN_TRIANGLE_REDUCTION : MIN_TRIANGLE_REDUCTION;
+        const minimumReduction = detailedHound ? RAIJIN_MIN_TRIANGLE_REDUCTION : dawnmane ? DAWNMANE_MIN_TRIANGLE_REDUCTION : MIN_TRIANGLE_REDUCTION;
         invariant(reduction >= minimumReduction, `${label}: triangle reduction ${(reduction * 100).toFixed(1)}% < ${(minimumReduction * 100).toFixed(0)}%`);
     }
     invariant(lodStats.triangles <= maxTriangles, `${label}: ${lodStats.triangles} LOD triangles exceeds ${maxTriangles}`);
@@ -559,8 +564,9 @@ async function processAsset(sourcePath) {
         let ratio = lowPolySource
             ? Math.min(0.7, 12_000 / sourceStats.triangles)
             : TARGET_LOD_TRIANGLES / sourceStats.triangles;
-        const maxTriangles = sourcePath.endsWith('starter-lightning-l.glb') ? RAIJIN_MAX_LOD_TRIANGLES : MAX_LOD_TRIANGLES;
-        const minReduction = sourcePath.endsWith('starter-lightning-l.glb') ? RAIJIN_MIN_TRIANGLE_REDUCTION : MIN_TRIANGLE_REDUCTION;
+        const dawnmane = sourcePath.endsWith('roster' + sep + 'mythic-15.glb');
+        const maxTriangles = detailedHound ? RAIJIN_MAX_LOD_TRIANGLES : dawnmane ? DAWNMANE_MAX_LOD_TRIANGLES : MAX_LOD_TRIANGLES;
+        const minReduction = detailedHound ? RAIJIN_MIN_TRIANGLE_REDUCTION : dawnmane ? DAWNMANE_MIN_TRIANGLE_REDUCTION : MIN_TRIANGLE_REDUCTION;
         const maxRatio = lowPolySource
             ? ratio
             : Math.min(maxTriangles / sourceStats.triangles, 1 - minReduction);
@@ -649,8 +655,13 @@ if (!criticalOnly) {
     // A targeted repair must update its checksums and runtime URL too. Preserve
     // all unselected entries rather than leaving a stale full-roster manifest.
     const previous = modelFilter ? JSON.parse(await readFile(jsonManifestPath, 'utf8')) : null;
-    const manifestEntries = previous ? previous.entries.map(entry => entries.find(updated => updated.sourceUrl === entry.sourceUrl) ?? entry) : entries;
-    if (previous) invariant(entries.length > 0 && entries.every(entry => previous.entries.some(old => old.sourceUrl === entry.sourceUrl)), 'Targeted LOD source missing from full manifest');
+    const manifestEntries = previous
+        ? [
+            ...previous.entries.map(entry => entries.find(updated => updated.sourceUrl === entry.sourceUrl) ?? entry),
+            ...entries.filter(entry => !previous.entries.some(old => old.sourceUrl === entry.sourceUrl)),
+        ].sort((a, b) => a.sourceUrl.localeCompare(b.sourceUrl))
+        : entries;
+    if (previous) invariant(entries.length > 0 && manifestEntries.length <= EXPECTED_RUNTIME_SOURCE_COUNT, 'Targeted LOD source count exceeds the runtime roster');
     const totals = manifestEntries.reduce((value, entry) => ({
         sourceBytes: value.sourceBytes + entry.sourceBytes,
         lodBytes: value.lodBytes + entry.lodBytes,
@@ -665,6 +676,8 @@ if (!criticalOnly) {
             maxLodTriangles: MAX_LOD_TRIANGLES,
             raijinMaxLodTriangles: RAIJIN_MAX_LOD_TRIANGLES,
             raijinMinTriangleReduction: RAIJIN_MIN_TRIANGLE_REDUCTION,
+            dawnmaneMaxLodTriangles: DAWNMANE_MAX_LOD_TRIANGLES,
+            dawnmaneMinTriangleReduction: DAWNMANE_MIN_TRIANGLE_REDUCTION,
             breedingMythicTextureSize: BREEDING_MYTHIC_LOD_TEXTURE_SIZE,
             breedingMythicTextureIds: [...BREEDING_MYTHIC_TEXTURE_IDS],
             maxError: MAX_ERROR,

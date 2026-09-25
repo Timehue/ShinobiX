@@ -108,8 +108,8 @@ const clientRelativeFileSet = new Set(clientRelativeFiles);
 // approved runtime manifests, including bytes, and reject retired full GLBs.
 const petLodManifest = JSON.parse(readFileSync(join(root, 'shinobij.client', 'public', 'pet-models', 'warfront-lod', 'manifest.json'), 'utf8'));
 const petImpostorManifest = JSON.parse(readFileSync(join(root, 'shinobij.client', 'public', 'pet-models', 'warfront-impostors', 'manifest.json'), 'utf8'));
-if (petLodManifest.entries?.length !== 159 || petImpostorManifest.entries?.length !== 159) {
-    fail('pet runtime manifests must each contain 159 selected models');
+if (petLodManifest.entries?.length !== 160 || petImpostorManifest.entries?.length !== 160) {
+    fail('pet runtime manifests must each contain 160 selected models');
 }
 const expectedPetFiles = new Map();
 function addExpectedPetFile(url, bytes, sha256) {
@@ -129,7 +129,7 @@ for (const entry of petLodManifest.entries) {
     }
     addExpectedPetFile(impostor.atlasUrl, impostor.atlasBytes, impostor.atlasSha256);
 }
-if (expectedPetFiles.size !== 477) fail(`expected 477 selected pet assets, found ${expectedPetFiles.size}`);
+if (expectedPetFiles.size !== 480) fail(`expected 480 selected pet assets, found ${expectedPetFiles.size}`);
 for (const [relativePath, expected] of expectedPetFiles) {
     if (!clientRelativeFileSet.has(relativePath)) fail(`client dist is missing ${relativePath}`);
     const file = join(clientDist, relativePath);
