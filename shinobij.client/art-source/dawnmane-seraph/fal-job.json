@@ -1,0 +1,14 @@
+{
+  "endpoint": "fal-ai/hunyuan-3d/v3.1/pro/image-to-3d",
+  "requestId": "01a0d627-3f27-7ee2-957c-2ecf97fc9176",
+  "statusUrl": "https://queue.fal.run/fal-ai/hunyuan-3d/requests/01a0d627-3f27-7ee2-957c-2ecf97fc9176/status",
+  "responseUrl": "https://queue.fal.run/fal-ai/hunyuan-3d/requests/01a0d627-3f27-7ee2-957c-2ecf97fc9176",
+  "state": "downloaded",
+  "submittedAt": "2026-09-25T01:21:31.330Z",
+  "checkedAt": "2026-09-25T01:25:37.224Z",
+  "output": {
+    "path": "art-source/dawnmane-seraph/fal-source.glb",
+    "bytes": 57073800,
+    "sha256": "bea4477357bd73c43267cb842c3c2826850c003245c998d88eec587030e96737"
+  }
+}

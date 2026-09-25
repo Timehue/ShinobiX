@@ -1,0 +1,20 @@
+{
+  "asset": "Celestial Lion",
+  "status": "downloaded",
+  "endpoint": "fal-ai/hunyuan-3d/v3.1/pro/image-to-3d",
+  "inputs": {
+    "input_image_url": "art-source/dawnmane-seraph/views/front.png",
+    "back_image_url": "art-source/dawnmane-seraph/views/back.png",
+    "left_image_url": "art-source/dawnmane-seraph/views/left.png",
+    "right_image_url": "art-source/dawnmane-seraph/views/right.png"
+  },
+  "settings": {
+    "generate_type": "Normal",
+    "enable_pbr": true
+  },
+  "estimatedCostUsd": 0.675,
+  "authorizedSpendCeilingUsd": 2,
+  "maxSubmissions": 1,
+  "output": "art-source/dawnmane-seraph/fal-source.glb",
+  "pricingSource": "https://fal.ai/models/fal-ai/hunyuan-3d/v3.1/pro/image-to-3d"
+}

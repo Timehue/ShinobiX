@@ -92,6 +92,7 @@ import { getAllItems } from "../lib/items";
 import type { Pet } from "../types/pet";
 import type { SavedBloodline, Jutsu, GameItem } from "../types/combat";
 import { unavailableCompanionSummonCopy } from "../lib/companion-summon-copy";
+import { playerSlug } from "../lib/utils";
 
 // The board token is a CIRCULAR orb (same treatment as the player/enemy), so the
 // pet's PORTRAIT is the right art. petCardImage reaches for the un-clipped
@@ -329,8 +330,11 @@ export function MissionArenaFight({
     const stingRef = useRef({ opened: false, finalPhase: false, victory: false });
 
     const me = character.name;
-    const meSlug = me.toLowerCase();
-    const ownedByMe = (slug: string | null) => !!slug && slug.toLowerCase() === meSlug;
+    // Server sessions store ownerSlug through api/_utils.ts safeName().
+    // Normalize both values the same way so display names with spaces or
+    // punctuation still match the player's canonical account key.
+    const meSlug = playerSlug(me);
+    const ownedByMe = (slug: string | null) => !!slug && playerSlug(slug) === meSlug;
 
     const w = session.map.width, h = session.map.height;
     const layer = useMemo(() => towerLayerSize(w, h), [w, h]);

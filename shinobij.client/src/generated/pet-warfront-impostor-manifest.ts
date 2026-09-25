@@ -2701,6 +2701,79 @@ export const WARFRONT_IMPOSTOR_MANIFEST = {
             }
         ]
     },
+    "/pet-models/roster/mythic-15.glb": {
+        "atlasUrl": "/pet-models/warfront-impostors/roster/mythic-15.webp",
+        "width": 512,
+        "height": 512,
+        "columns": 4,
+        "rows": 4,
+        "frames": [
+            {
+                "clip": "idle",
+                "progress": 0.1
+            },
+            {
+                "clip": "idle",
+                "progress": 0.35
+            },
+            {
+                "clip": "idle",
+                "progress": 0.6
+            },
+            {
+                "clip": "idle",
+                "progress": 0.85
+            },
+            {
+                "clip": "walk",
+                "progress": 0.2
+            },
+            {
+                "clip": "walk",
+                "progress": 0.7
+            },
+            {
+                "clip": "gallop",
+                "progress": 0.2
+            },
+            {
+                "clip": "gallop",
+                "progress": 0.7
+            },
+            {
+                "clip": "attack",
+                "progress": 0.2
+            },
+            {
+                "clip": "attack",
+                "progress": 0.5
+            },
+            {
+                "clip": "attack",
+                "progress": 0.8
+            },
+            {
+                "clip": "idle_hitreact1",
+                "progress": 0.35
+            },
+            {
+                "clip": "death",
+                "progress": 0.25
+            },
+            {
+                "clip": "death",
+                "progress": 0.6
+            },
+            {
+                "clip": "death",
+                "progress": 0.95
+            },
+            {
+                "clip": "cast",
+                "progress": 0.55
+            }
+        ]
+    },
     "/pet-models/roster/mythic-2.glb": {
         "atlasUrl": "/pet-models/warfront-impostors/roster/mythic-2.webp",
         "width": 512,
