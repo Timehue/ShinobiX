@@ -34,8 +34,12 @@ describe('_field-raid-progress', () => {
         // report-raid afterward has no battleId or raid-start token, so it cannot
         // be the receipt producer for this route.
         const source = fs.readFileSync(path.join(process.cwd(), 'api/missions/report-ai-fight.ts'), 'utf8');
-        assert.match(source, /import \{ settleRaidProgression,/);
-        assert.match(source, /paysReward && sealedBattleKind === 'raidAi' && sealedRaidTokenId/);
+        assert.match(source, /import \{ settleMissionOutpostRaid, settleRaidProgression,/);
+        assert.match(source, /outcome === 'win' && sealedBattleKind === 'raidAi' && sealedRaidTokenId/);
+        assert.match(source, /raidTokenRecord\?\.source === 'field-mission-raid'/);
+        assert.match(source, /sealedRaidMissionId = typeof peeked\?\.raidMissionId === 'string' \? peeked\.raidMissionId : ''/);
+        assert.match(source, /raidTokenRecord\.missionId !== missionId/);
+        assert.match(source, /settleMissionOutpostRaid\(\{/);
         assert.match(source, /const progression = await settleRaidProgression\(\{/);
         assert.match(source, /proofId: `ai-fight:\$\{aiFightToken\}`/);
     });
