@@ -348,7 +348,7 @@ export function resolveCinematicActorImage(
  * so replacing a cutout in place can otherwise leave players on the old matte
  * for days. Bump this revision whenever any cinematic portrait bytes change.
  */
-export const CINEMATIC_ACTOR_ASSET_REVISION = "891202c8e";
+export const CINEMATIC_ACTOR_ASSET_REVISION = "708b5c478";
 
 export function versionCinematicActorAsset(source: string): string {
     const trimmed = source.trim();

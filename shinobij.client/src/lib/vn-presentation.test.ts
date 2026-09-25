@@ -153,7 +153,7 @@ test("explicit page actor art wins over automatic storywide variants", () => {
             "tense",
             "/portraits/cinematic/storywide/kage-sable-nocturne-hollow.webp",
         ),
-        "/portraits/cinematic/storywide/kage-sable-nocturne-hollow.webp?v=891202c8e",
+        "/portraits/cinematic/storywide/kage-sable-nocturne-hollow.webp?v=708b5c478",
     );
 });
 
@@ -161,14 +161,14 @@ test("pilot recurring actors resolve to the cinematic package", () => {
     assert.equal(isPremiumVnEvent("story-interlude-ashen-leaf-village-20"), true);
     assert.equal(
         resolveCinematicActorImage("story-interlude-ashen-leaf-village-20", "Kite Harrow", "/fallback.webp"),
-        "/portraits/cinematic/kite-harrow.webp?v=891202c8e",
+        "/portraits/cinematic/kite-harrow.webp?v=708b5c478",
     );
 });
 
 test("cinematic actor URLs are revisioned without changing uploads or legacy fallbacks", () => {
     assert.equal(
         resolveCinematicActorImage("story-frostfang-village-50-4", "Elder Sova", "/fallback.webp"),
-        "/portraits/cinematic/storywide/elder-sova-canon.webp?v=891202c8e",
+        "/portraits/cinematic/storywide/elder-sova-canon.webp?v=708b5c478",
     );
     assert.equal(
         resolveCinematicActorImage(
@@ -178,7 +178,7 @@ test("cinematic actor URLs are revisioned without changing uploads or legacy fal
             "neutral",
             "/portraits/cinematic/storywide/elder-sova-canon.webp?crop=full#actor",
         ),
-        "/portraits/cinematic/storywide/elder-sova-canon.webp?crop=full&v=891202c8e#actor",
+        "/portraits/cinematic/storywide/elder-sova-canon.webp?crop=full&v=708b5c478#actor",
     );
     assert.equal(
         resolveCinematicActorImage(
@@ -188,7 +188,7 @@ test("cinematic actor URLs are revisioned without changing uploads or legacy fal
             "neutral",
             "/portraits/cinematic/storywide/elder-sova-canon.webp?v=old&crop=full",
         ),
-        "/portraits/cinematic/storywide/elder-sova-canon.webp?v=891202c8e&crop=full",
+        "/portraits/cinematic/storywide/elder-sova-canon.webp?v=708b5c478&crop=full",
     );
     assert.equal(resolveCinematicActorImage("creator-generic", "Guide", "/portraits/guide.webp"), "/portraits/guide.webp");
     assert.equal(resolveCinematicActorImage("story-preview", "Player", "data:image/webp;base64,avatar"), "data:image/webp;base64,avatar");
