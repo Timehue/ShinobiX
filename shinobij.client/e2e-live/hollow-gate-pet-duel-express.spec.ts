@@ -35,10 +35,11 @@ import { SHOWDOWN_FORMAT_SIZE, type ShowdownFormat } from '../../shared/pet-show
  *
  * A RELOAD DOES NOT REOPEN THE SHRINE BY ITSELF (seen 2026-09-25). The shrine
  * counts as an unresolved battle (lib/screen-guards.ts isUnresolvedBattle), so
- * the autosave never runs there (lib/use-capability-guarded-autosave.ts), and
- * the unload keepalive skips a save over 64 KiB, which this one is. The server
- * save therefore holds only the server's tile-less run projection. The boot
- * drops that (lib/normalize-character.ts) and lands on the village. The duel is
+ * the autosave never runs there (lib/use-capability-guarded-autosave.ts). The
+ * unload keepalive gives up on a save over 64 KiB (lib/save-unload.ts), and
+ * this diver's save is about 150 KB before any board. The server save
+ * therefore holds only the server's tile-less run projection. The boot drops
+ * that (lib/normalize-character.ts) and lands on the village. The duel is
  * still open on the server. The player gets back to it by entering the Hollow
  * Gate again: the entry recovery replays the paid start, redraws floor 1 from
  * the seed, and the server names the open duel. The reload test takes that
@@ -485,7 +486,9 @@ test('Send pet opens the server-drawn duel on the shrine, and a forfeit settles 
     expect(before.hollowGateRun?.runToken).toBe(dive.started.token);
     await forfeitTheDuel(page, dive);
 
-    // The shrine shows the defeat, and the run goes on.
+    // The shrine shows the defeat, and the run goes on. The settle reply's
+    // saved run has no board; drawing it crashed this screen until
+    // hollowGateRunAfterPetDefeat kept the live one.
     const shrine = page.locator('.hollow-gate-shrine');
     await expect(shrine.getByRole('grid', { name: 'Floor 1 dungeon grid' })).toBeVisible();
     const recoil = Math.max(1, Math.floor(before.maxHp * 0.2));
