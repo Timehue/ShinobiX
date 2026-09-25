@@ -163,6 +163,36 @@ describe('generic AI fight authority', () => {
         assert.equal((store.rows.get(key) as { status?: string }).status, 'settled');
     });
 
+    it('copies the mission identity from the server raid token, never the client body', async () => {
+        const store = memoryStore({
+            'raid-token:Raider:missionproof001': {
+                playerName: 'Raider', aiId: 'server-authored-test-profile', sector: 18,
+                source: 'field-mission-raid', sourceId: 'fetch-d-supply-trail',
+                missionId: 'fetch-d-supply-trail', missionRunId: 'fieldrunmission001', authorityVersion: 2, status: 'minted',
+            },
+        });
+        const authority = await resolveGenericAiFightAuthority({
+            store: store as never,
+            playerName: 'Raider',
+            body: { battleKind: 'raidAi', opponentId: 'client-choice', sector: 18, raidToken: 'missionproof001', missionId: 'forged-mission' },
+            character: { level: 1, serverFieldMissionRuns: {
+                'fetch-d-supply-trail': { missionId: 'fetch-d-supply-trail', runId: 'fieldrunmission001', acceptedAt: 1 },
+            } },
+            tokenTtlSeconds: 1800,
+        });
+        assert.equal(authority.raidMissionId, 'fetch-d-supply-trail');
+        await assert.rejects(() => resolveGenericAiFightAuthority({
+            store: store as never,
+            playerName: 'Raider',
+            body: { battleKind: 'raidAi', sector: 18, raidToken: 'missionproof001' },
+            character: { level: 1, serverFieldMissionRuns: {
+                'fetch-d-supply-trail': { missionId: 'fetch-d-supply-trail', runId: 'fieldrunreplacement01', acceptedAt: 2 },
+            } },
+            tokenTtlSeconds: 1800,
+        }), /earlier contract run/);
+        assert.equal(authority.opponentId, 'server-authored-test-profile');
+    });
+
     it('allows only this week\'s Apex and rejects generic dedicated-mode forgery', async () => {
         const apex = apexBeastForWeek(isoWeekKey(new Date())).apexAiId;
         const allowed = await resolveGenericAiFightAuthority({

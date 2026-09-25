@@ -1,49 +1,61 @@
-import { strict as assert } from "node:assert";
+import assert from "node:assert/strict";
 import test from "node:test";
-import type { Character } from "../types/character";
-import { commitAuthoritativeMissionClaim } from "./versioned-mission-claim";
+import { claimHttpFailureMessage, postClaimMission } from "./claim-mission";
+import { missionClaimActionScope, remainingActionDeadline } from "./action-deadline-store";
 
-const current = { name: "Alice", hp: 100, maxHp: 100, ryo: 5, inventory: [] } as Character;
-const authoritative = { ...current, hp: 37, ryo: 15 };
-const applied = {
-    ok: true,
-    applied: true,
-    reward: { xpBoosted: 0, ryo: 10, stamina: 0, territoryScrolls: 0, currency: {} },
-    completion: "daily",
-    character: authoritative,
-    _saveVersion: 12,
-};
-
-test("mission claim commits the exact authoritative character and save version", () => {
-    let committedCharacter: Character | undefined;
-    let committedVersion: unknown;
-    const accepted = commitAuthoritativeMissionClaim(applied, (character, version) => {
-        committedCharacter = character;
-        committedVersion = version;
-        return true;
-    });
-
-    assert.equal(accepted, true);
-    assert.equal(committedCharacter, authoritative);
-    assert.equal(committedVersion, 12);
-    assert.equal(committedCharacter?.hp, 37, "the claim cannot replace surviving combat HP with the stale client value");
+test("mission claims preserve HTTP rate-limit details and start a scoped deadline", { concurrency: false }, async () => {
+    const originalFetch = globalThis.fetch;
+    let body: Record<string, unknown> | null = null;
+    const playerName = `claim-http-${Date.now()}`;
+    globalThis.fetch = (async (_input, init) => {
+        body = JSON.parse(String(init?.body));
+        return new Response(JSON.stringify({
+            error: "You're going a little fast — try again in 2s.",
+            code: "RATE_LIMITED",
+            retryAfterMs: 2_000,
+            requestId: "claim-request-12345678",
+        }), { status: 429, headers: { "Content-Type": "application/json" } });
+    }) as typeof fetch;
+    try {
+        const result = await postClaimMission(playerName, "field", "fetch-d-supply-trail");
+        assert.ok(result && result.ok === false);
+        assert.equal(result.status, 429);
+        assert.equal(result.code, "RATE_LIMITED");
+        assert.equal(result.retryAfterMs, 2_000);
+        assert.equal(result.requestId, "claim-request-12345678");
+        assert.match(claimHttpFailureMessage(result), /cooling down.*2s/i);
+        assert.equal(body?.missionType, "field");
+        assert.ok(remainingActionDeadline(missionClaimActionScope(playerName), Date.now()) > 0);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
 });
 
-test("a rejected stale authoritative claim never falls through to legacy mirroring", () => {
-    let calls = 0;
-    const accepted = commitAuthoritativeMissionClaim(applied, () => {
-        calls += 1;
-        return false;
-    });
-
-    assert.equal(accepted, false);
-    assert.equal(calls, 1);
+test("mission claims retain non-rate-limit server reasons", { concurrency: false }, async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () => new Response(JSON.stringify({
+        error: "This contract is not accepted.",
+        reason: "not-accepted",
+        errorCode: "MISSION_STATE_INVALID",
+    }), { status: 409, headers: { "Content-Type": "application/json" } })) as typeof fetch;
+    try {
+        const result = await postClaimMission("claim-reason-player", "field", "fetch-d-supply-trail");
+        assert.ok(result && result.ok === false);
+        assert.equal(result.reason, "not-accepted");
+        assert.equal(result.code, "MISSION_STATE_INVALID");
+        assert.equal(result.error, "This contract is not accepted.");
+        assert.equal(claimHttpFailureMessage(result), "This contract is not accepted.");
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
 });
 
-test("only a response without a character selects the rolling-deploy fallback", () => {
-    const legacy = { ...applied, character: undefined, _saveVersion: undefined };
-    let called = false;
-    assert.equal(commitAuthoritativeMissionClaim(legacy, () => { called = true; return true; }), null);
-    assert.equal(called, false);
-
+test("claim network failures stay distinguishable from HTTP success", { concurrency: false }, async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () => { throw new Error("offline"); }) as typeof fetch;
+    try {
+        assert.equal(await postClaimMission("claim-offline-player", "field", "fetch-d-supply-trail"), null);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
 });
