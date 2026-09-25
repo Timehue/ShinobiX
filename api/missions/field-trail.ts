@@ -67,7 +67,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Not your mission.' });
-        if (!identity.admin && !(await enforceRateLimitKv(req, res, 'field-trail', 40, 60_000, identity.name))) return;
+        // State requests can repair legacy runs and clean claimed records, so
+        // they are bounded independently from contract mutations. The combined
+        // per-minute ceilings stay at the old 40 requests while reads can no
+        // longer consume the abandon/accept allowance.
+        const isStateRead = action === 'state';
+        const rateLimitBucket = isStateRead ? 'field-trail-state' : 'field-trail-mutation';
+        const rateLimit = isStateRead ? 30 : 10;
+        if (!identity.admin && !(await enforceRateLimitKv(req, res, rateLimitBucket, rateLimit, 60_000, identity.name))) return;
 
         const mission = fieldMissionById(missionId);
         if (!mission || huntMissionById(missionId)) return res.status(404).json({ error: 'Field mission not found.' });
