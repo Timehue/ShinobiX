@@ -1202,7 +1202,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     clanContribMonth: monthKey,
                 };
             }
-            if (academyTrialClaimed) next = { ...next, academyTrialClaimed: true };
+            if (academyTrialClaimed) next = {
+                ...next,
+                academyTrialClaimed: true,
+                // The reward and next tutorial instruction survive a refresh
+                // as one authoritative save mutation.
+                ...(next.onboardingStep === 'firstMission' ? { onboardingStep: 'logbook' } : {}),
+            };
             if (academyChecklistClaimed) next = { ...next, academyChecklistClaimed: true };
             // Stamp the week this Apex settled. Written INSIDE the same character
             // write as the payout, so the purse and the once-per-week lock land
