@@ -6,6 +6,7 @@ describe("slow-down notices", () => {
     it("recognises the server's rate-limit wording, the client's 429 paraphrases and save-lock retries", () => {
         for (const message of [
             "You're going a little fast — try again in 3s.",
+            "This action is temporarily unavailable. Try again in 3s.",
             "Rate limit exceeded.",
             "❌ Rate limit exceeded.",
             "Too many exploration requests. Wait a moment, then try again; your saved attempt will be reused.",
