@@ -30,6 +30,10 @@ shinobij.client/art-references
 shinobij.client/art-source
 shinobij.client/playwright*.ts
 shinobij.client/*preview.html
+# The Android app shell (Flutter) and the old TWA's native sources. Neither is
+# part of the website the image serves.
+mobile
+android
 
 # Docker
 Dockerfile

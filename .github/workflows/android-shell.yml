@@ -1,0 +1,45 @@
+name: Android shell
+
+# The Flutter WebView shell in mobile/. Runs only when the shell changes, or
+# when a website file it mirrors changes: test/parity_test.dart reads those
+# files, so a change on either side that breaks the other fails here.
+on:
+  pull_request:
+    paths:
+      - 'mobile/**'
+      - 'shinobij.client/src/lib/surface.ts'
+      - 'shinobij.client/src/lib/native-play.ts'
+      - 'api/_google-auth.ts'
+      - 'api/_canonical-domain.ts'
+      - '.github/workflows/android-shell.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+      - 'shinobij.client/src/lib/surface.ts'
+      - 'shinobij.client/src/lib/native-play.ts'
+      - 'api/_google-auth.ts'
+      - 'api/_canonical-domain.ts'
+      - '.github/workflows/android-shell.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2
+        with:
+          # Keep in step with the Flutter the release is built with (mobile/README.md).
+          flutter-version: 3.47.5
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
