@@ -958,6 +958,13 @@
     font: 500 10px/1.55 Inter, sans-serif;
 }
 
+.mission-hall .mh-field-next-step {
+    margin: 7px 0 0;
+    color: #dce9f5;
+    font: 600 11px/1.45 Inter, sans-serif;
+}
+.mission-hall .mh-field-next-step-mobile { display: none; }
+
 .mission-hall .mh-field-objectives {
     display: flex;
     gap: 7px;
@@ -1485,6 +1492,17 @@
         width: 64px;
         min-height: 44px;
         flex: none;
+    }
+    .mission-hall .mh-field-card .mh-field-next-step-desktop { display: none; }
+    .mission-hall .mh-field-card .mh-field-next-step-mobile {
+        display: block;
+        grid-column: 1 / -1;
+        grid-row: 2;
+        margin: 0;
+        padding: 7px 10px;
+        border-top: 1px solid rgba(129, 151, 177, 0.2);
+        font-size: 10px;
+        line-height: 1.3;
     }
 }
 

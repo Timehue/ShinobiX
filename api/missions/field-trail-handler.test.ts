@@ -11,18 +11,22 @@ type Out = { statusCode: number; body?: Record<string, unknown> };
 const MISSION_ID = 'fetch-d-supply-trail';
 let kv: typeof import('../_storage.js').kv;
 let issuePlayerToken: typeof import('../_auth.js').issuePlayerToken;
+let onlineStore: typeof import('../_realtime/online-store.js').onlineStore;
 let trailHandler: Handler;
 let progressHandler: Handler;
 let claimHandler: Handler;
-let creditFieldRaidProgress: typeof import('./_field-raid-progress.js').creditFieldRaidProgress;
+let raidStartHandler: Handler;
+let settleMissionOutpostRaid: typeof import('./_raid-progression.js').settleMissionOutpostRaid;
 
 before(async () => {
     ({ kv } = await import('../_storage.js'));
     ({ issuePlayerToken } = await import('../_auth.js'));
-    ({ creditFieldRaidProgress } = await import('./_field-raid-progress.js'));
+    ({ onlineStore } = await import('../_realtime/online-store.js'));
+    ({ settleMissionOutpostRaid } = await import('./_raid-progression.js'));
     trailHandler = (await import('./field-trail.js')).default as unknown as Handler;
     progressHandler = (await import('./record-progress.js')).default as unknown as Handler;
     claimHandler = (await import('./claim-mission.js')).default as unknown as Handler;
+    raidStartHandler = (await import('./raid-start.js')).default as unknown as Handler;
 });
 
 beforeEach(async () => {
@@ -36,6 +40,9 @@ beforeEach(async () => {
     ]) {
         const keys = await kv.keys(pattern);
         if (keys.length) await kv.del(...keys);
+    }
+    for (const player of onlineStore.list()) {
+        if (player.name.startsWith('fieldtrail')) onlineStore.remove(player.name);
     }
 });
 
@@ -123,6 +130,24 @@ async function addExploreReceipt(playerName: string, id: string, at: number) {
 }
 
 describe('authoritative field mission lifecycle', () => {
+    it('keeps state-read throttling from blocking a contract abandonment', async () => {
+        const player = 'fieldtrailratelimit';
+        await seedPlayer(player);
+        const accepted = await post(trailHandler, player, { missionId: MISSION_ID, action: 'accept' });
+        assert.equal(accepted.statusCode, 200);
+
+        for (let index = 0; index < 30; index += 1) {
+            const state = await post(trailHandler, player, { missionId: MISSION_ID, action: 'state' });
+            assert.equal(state.statusCode, 200);
+        }
+        const throttledRead = await post(trailHandler, player, { missionId: MISSION_ID, action: 'state' });
+        assert.equal(throttledRead.statusCode, 429);
+
+        const abandoned = await post(trailHandler, player, { missionId: MISSION_ID, action: 'abandon' });
+        assert.equal(abandoned.statusCode, 200, 'the state-read bucket must not consume the mutation allowance');
+        assert.deepEqual(abandoned.body?.acceptedMissionIds, []);
+    });
+
     it('accepts exactly once and legacy state recovery starts a neutral server run', async () => {
         const player = 'fieldtrailaccept';
         await seedPlayer(player);
@@ -192,7 +217,7 @@ describe('authoritative field mission lifecycle', () => {
 
     it('rejects stale runs, pays a completed run once, and clears acceptance authority', async () => {
         const player = 'fieldtrailclaim';
-        await seedPlayer(player);
+        await seedPlayer(player, { level: 1, village: 'Leaf' });
         const accepted = await post(trailHandler, player, { missionId: MISSION_ID, action: 'accept' });
         const firstRun = stateFrom(accepted);
         for (const [index, id] of ['fieldclaimexplore01', 'fieldclaimexplore02', 'fieldclaimexplore03'].entries()) {
@@ -205,14 +230,24 @@ describe('authoritative field mission lifecycle', () => {
             });
             assert.equal(recorded.body?.recorded, true);
         }
-        const saveBeforeRaid = await kv.get<Record<string, unknown>>(`save:${player}`);
-        assert.deepEqual(await creditFieldRaidProgress({
+        onlineStore.upsert({ name: player, sector: 18, character: { name: player, hp: 100, maxHp: 100 } });
+        const launched = await post(raidStartHandler, player, {
+            requestId: 'fieldtrailclaimraidstart01', missionId: MISSION_ID, sector: 18,
+        });
+        assert.equal(launched.statusCode, 200);
+        assert.equal(launched.body?.source, 'field-mission-raid');
+        assert.equal(launched.body?.opponentId, 'mission-outpost-d-supply-trail');
+        const sealed = await kv.get<Record<string, unknown>>(`raid-token:${player}:${launched.body?.token}`);
+        assert.equal(sealed?.missionRunId, firstRun.runId);
+        const victory = await settleMissionOutpostRaid({
             playerName: player,
-            save: saveBeforeRaid,
+            missionId: MISSION_ID,
+            missionRunId: firstRun.runId,
             proofId: 'sealed-field-raid-proof-01',
             proofAt: firstRun.acceptedAt + 10,
-            raidSector: 18,
-        }), [MISSION_ID]);
+            sector: 18,
+        });
+        assert.deepEqual(victory.fetchMissionsCredited, [MISSION_ID]);
 
         const recoveredState = await post(trailHandler, player, { missionId: MISSION_ID, action: 'state' });
         const recoveredProgress = recoveredState.body?.missionProgress as Record<string, unknown>;
