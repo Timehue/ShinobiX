@@ -8,14 +8,18 @@ export type HollowGateCombatKind = 'battle' | 'elite' | 'ambush' | 'beast' | 'bo
 
 export const HOLLOW_GATE_PET_AUTHORITY_VERSION = 1 as const;
 export type HollowGatePetEngine = 'cinematic' | 'showdown';
+/** The most pets one Hollow Gate pet duel fields: a Showdown 3v3. */
+export const HOLLOW_GATE_PET_MAX_FIELD = 3;
 
 /**
  * The one child combat proof allowed to decide a Pet-mode encounter.
  *
- * New encounters are mounted on the cinematic engine, so their proof id is
- * chosen with the parent binding before a client can ask either pet endpoint
- * to start work. `showdown` exists only so a session issued by an older server
- * can finish and be recovered without becoming a second authority.
+ * New encounters are mounted on the Showdown engine, the same random 1v1, 2v2
+ * or 3v3 Colosseum duel the road beasts fight. The proof id is chosen with the
+ * parent binding, before a client can ask a pet endpoint to start work, and it
+ * becomes the Showdown session id itself. `cinematic` remains only so a proof
+ * issued before that cutover can finish and be recovered without becoming a
+ * second authority.
  */
 export interface HollowGatePetAuthority {
     version: typeof HOLLOW_GATE_PET_AUTHORITY_VERSION;
@@ -120,7 +124,7 @@ export function createHollowGateCombatBinding(params: {
         ...(combatMode === 'pet' ? {
             petAuthority: {
                 version: HOLLOW_GATE_PET_AUTHORITY_VERSION,
-                engine: 'cinematic',
+                engine: 'showdown',
                 proofId: randomUUID().replace(/-/g, ''),
                 claimedAt: now,
             },
@@ -160,7 +164,7 @@ export function parseHollowGatePetResultReceipt(value: unknown): HollowGatePetRe
         playerName: receipt.playerName,
         runId: receipt.runId,
         outcome: receipt.outcome,
-        playerPetIds: receipt.playerPetIds.slice(0, 2),
+        playerPetIds: receipt.playerPetIds.slice(0, HOLLOW_GATE_PET_MAX_FIELD),
         settledAt: Number(receipt.settledAt),
     };
 }
@@ -228,9 +232,10 @@ export function validateHollowGateSoloPveSession(params: {
     return { ok: true, binding };
 }
 
-/** Validate a Pet Coliseum Hollow Hound duel against the same one-use run
- * encounter binding used by shinobi PvE. The pet result itself is verified by
- * api/pet/battle-result and consumed separately by combat-settle. */
+/** Validate a Hollow Hound pet duel against the same one-use run encounter
+ * binding used by shinobi PvE. The pet result itself is sealed as a receipt by
+ * the child duel (api/pet/showdown, or api/pet/battle-result for a cinematic
+ * proof issued before the Showdown cutover) and consumed by combat-settle. */
 export function validateHollowGatePetClaim(params: {
     binding: HollowGateCombatBinding | null | undefined;
     activeEncounter: HollowGateActiveEncounter | null | undefined;

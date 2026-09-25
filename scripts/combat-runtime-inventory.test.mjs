@@ -551,6 +551,7 @@ describe('executable multi-engine runtime registry', () => {
     const hollowGateSettleSource = readFileSync(join(ROOT, 'api', 'hollow-gate', 'combat-settle.ts'), 'utf8');
     const hollowGateCombatSource = readFileSync(join(ROOT, 'api', 'hollow-gate', '_combat-session.ts'), 'utf8');
     const hollowGatePetAuthoritySource = readFileSync(join(ROOT, 'api', 'hollow-gate', '_pet-authority.ts'), 'utf8');
+    const hollowGateShowdownSource = readFileSync(join(ROOT, 'api', 'pet', '_hollow-gate-showdown.ts'), 'utf8');
     const petShowdownSource = readFileSync(join(ROOT, 'api', 'pet', 'showdown.ts'), 'utf8');
     const rankedWatchSource = readFileSync(join(ROOT, 'api', 'pet', 'ranked-watch.ts'), 'utf8');
     const rankedDuelSource = readFileSync(join(ROOT, 'api', 'pet', '_ranked-duel.ts'), 'utf8');
@@ -662,14 +663,29 @@ describe('executable multi-engine runtime registry', () => {
     assert.match(petBattleResultSource, /resolveRankedPetDuel\(/);
     assert.match(rankedCompat.statusDetail, /Retained reciprocal one-pet proofs/);
 
-    const hollowGatePet = runtimeModeById('hollow-gate-pet-cinematic');
-    assert.equal(hollowGatePet.status, 'owner-decision');
-    assert.equal(hollowGatePet.authorityEngine, E.PET_CINEMATIC_DUEL);
-    assert.match(hollowGatePet.statusDetail, /preselects one exact cinematic proof/);
-    assert.match(hollowGatePet.statusDetail, /New Hollow Gate Showdown admission and adoption of unbound legacy Showdown siblings fail closed/);
-    assert.match(hollowGatePet.statusDetail, /unique exact active same-player\/run cinematic child/);
-    assert.match(hollowGatePet.statusDetail, /long-term replatform choice remains owner-controlled/);
-    assert.match(hollowGateCombatSource, /petAuthority:\s*\{[\s\S]*?engine: 'cinematic',[\s\S]*?proofId: randomUUID/);
+    // Owner ruling (2026-09-24): Send pet fights the road-beast Colosseum duel,
+    // a random 1v1/2v2/3v3 on Showdown. There is one Hollow Gate pet row, and
+    // the retired cinematic mount is not a second one.
+    const hollowGatePet = runtimeModeById('hollow-gate-pet-showdown');
+    assert.equal(runtimeModeById('hollow-gate-pet-cinematic'), undefined);
+    assert.equal(hollowGatePet.status, 'match');
+    assert.equal(hollowGatePet.authorityEngine, E.PET_SHOWDOWN);
+    assert.equal(hollowGatePet.rewardPolicy, 'parent-mode-settlement');
+    assert.match(hollowGatePet.statusDetail, /random 1v1, 2v2 or 3v3 capped by the ready carried pets/);
+    assert.match(hollowGatePet.statusDetail, /falls back to a shinobi fight/);
+    // The parent names the one child proof, and it is the Showdown session id.
+    assert.match(hollowGateCombatSource, /petAuthority:\s*\{[\s\S]*?engine: 'showdown',[\s\S]*?proofId: randomUUID/);
+    assert.match(hollowGateShowdownSource, /withKvLock\(bindingKey/);
+    assert.match(hollowGateShowdownSource, /const sessionId = authority\.proofId/);
+    assert.match(hollowGateShowdownSource, /rollShowdownTeam\(ready, \{ lead/, 'the road-beast draw picks format and team');
+    assert.match(hollowGateShowdownSource, /buildServerHollowHound\(/, 'the Hounds are the one server-built definition');
+    assert.match(hollowGateShowdownSource, /rewardEligible: false/);
+    assert.match(petShowdownSource, /if \(action === 'hollow-gate'\) \{/);
+    assert.match(petShowdownSource, /hollowGatePetAuthorityMatches\(parent, 'showdown', session\.sessionId\)/);
+    // The client-shaped arena admission (caller-chosen format and pets) stays shut.
+    assert.match(petShowdownSource, /action === 'arena' && body\.hollowGate != null/);
+    // A binding sealed before the cutover can still finish its exact cinematic
+    // proof, but no new admission ever selects that engine.
     assert.match(hollowGatePetAuthoritySource, /claimHollowGateCinematicAuthority/);
     assert.match(petBattleStartSource, /hollowGateCombatBindingKey\(runId\)/);
     assert.match(petBattleStartSource, /validateHollowGatePetClaim\(\{[\s\S]*?activeEncounter: run\?\.activeEncounter/);
@@ -677,8 +693,6 @@ describe('executable multi-engine runtime registry', () => {
     assert.match(petBattleResultSource, /replayCasualPetDuel/);
     assert.match(petBattleResultSource, /writeHollowGatePetResult\(hollowGatePetResult\)/);
     assert.match(petBattleResultSource, /reward: 0/);
-    assert.match(petShowdownSource, /action === 'arena' && body\.hollowGate != null/);
-    assert.match(petShowdownSource, /Hollow Gate pet encounters use the sealed cinematic duel/);
     assert.match(hollowGateSettleSource, /hollowGatePetResultKey\(playerName, petReceipt\)/);
     assert.match(hollowGateSettleSource, /verifiedPetResult\.proofId !== petReceipt/);
     assert.match(hollowGateSettleSource, /hollowGatePetReceiptMatchesBinding\(binding, verifiedPetResult, playerName\)/);

@@ -85,6 +85,10 @@ async function installPetEncounter(params: {
         runId: params.runId,
         now: Date.now(),
     });
+    // These cases exercise the cinematic child authority, which a binding
+    // carries only when it was sealed before the Showdown cutover. New
+    // bindings select a Showdown proof instead (_pet-showdown-duel tests).
+    binding.petAuthority = { ...binding.petAuthority!, engine: 'cinematic' };
     if (params.legacyUnclaimed) delete binding.petAuthority;
     const activeEncounter = {
         runId: binding.runId,
