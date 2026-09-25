@@ -45,6 +45,8 @@ export type AiFightToken = {
     worldExploreRequestId?: string;
     /** Exact raid-start authority reserved to this standalone session. */
     raidTokenId?: string;
+    /** Server-authored field mission carried by this sealed raid proof. */
+    raidMissionId?: string;
     /** Exact active Dungeon run whose Warden this session represents. */
     dungeonRunToken?: string;
     battleKind?: AiFightBattleKind;
@@ -76,7 +78,7 @@ export function createAiFightTokenRecord(
     playerName: string,
     tokenId: string,
     now = Date.now(),
-    context: { opponentId?: unknown; opponentLevel?: unknown; sector?: unknown; worldExploreRequestId?: unknown; raidTokenId?: unknown; dungeonRunToken?: unknown; baseXp?: unknown; baseRyo?: unknown; battleKind?: unknown; sessionRuntime?: unknown; sessionId?: unknown; worldContext?: WorldAiFightContext; rewardTrait?: unknown } = {},
+    context: { opponentId?: unknown; opponentLevel?: unknown; sector?: unknown; worldExploreRequestId?: unknown; raidTokenId?: unknown; raidMissionId?: unknown; dungeonRunToken?: unknown; baseXp?: unknown; baseRyo?: unknown; battleKind?: unknown; sessionRuntime?: unknown; sessionId?: unknown; worldContext?: WorldAiFightContext; rewardTrait?: unknown } = {},
 ): AiFightToken {
     const sessionIdRaw = typeof context.sessionId === 'string' ? context.sessionId.trim().slice(0, 96) : '';
     const sessionId = /^[A-Za-z0-9:_-]+$/.test(sessionIdRaw) ? sessionIdRaw : undefined;
@@ -112,6 +114,8 @@ export function createAiFightTokenRecord(
         : undefined;
     const raidTokenIdRaw = typeof context.raidTokenId === 'string' ? context.raidTokenId.trim().slice(0, 96) : '';
     const raidTokenId = /^[A-Za-z0-9_-]{8,96}$/.test(raidTokenIdRaw) ? raidTokenIdRaw : undefined;
+    const raidMissionIdRaw = typeof context.raidMissionId === 'string' ? context.raidMissionId.trim().slice(0, 96) : '';
+    const raidMissionId = /^[A-Za-z0-9_-]{1,96}$/.test(raidMissionIdRaw) ? raidMissionIdRaw : undefined;
     const dungeonRunTokenRaw = typeof context.dungeonRunToken === 'string' ? context.dungeonRunToken.trim().slice(0, 80) : '';
     const dungeonRunToken = /^[A-Za-z0-9_-]{8,80}$/.test(dungeonRunTokenRaw) ? dungeonRunTokenRaw : undefined;
     return {
@@ -130,6 +134,7 @@ export function createAiFightTokenRecord(
         ...(sector ? { sector } : {}),
         ...(worldExploreRequestId ? { worldExploreRequestId } : {}),
         ...(raidTokenId ? { raidTokenId } : {}),
+        ...(raidMissionId ? { raidMissionId } : {}),
         ...(dungeonRunToken ? { dungeonRunToken } : {}),
         ...(sessionRuntime && sessionId ? { sessionRuntime, sessionId } : {}),
         ...(rewardTrait ? { rewardTrait } : {}),

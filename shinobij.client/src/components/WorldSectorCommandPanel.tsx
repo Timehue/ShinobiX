@@ -36,6 +36,8 @@ export function WorldSectorCommandPanel({
     biome,
     weather,
     territory,
+    missionOutpost,
+    missionRaidCooldownMs = 0,
     gathering,
     contract,
     contractBusy,
@@ -53,6 +55,7 @@ export function WorldSectorCommandPanel({
     onOpenSectorContest,
     onFightSectorGarrison,
     onClaimContract,
+    onStartMissionRaid,
 }: WorldSectorCommandPanelProps) {
     // The shared pool decides whether Explore can do anything. `gather` is null
     // off a wild sector and `pending` pre-poll; neither may refuse the verb.
@@ -137,6 +140,18 @@ export function WorldSectorCommandPanel({
                             <span>Raid Controlled Sector</span>
                         </button>
                     )}
+                </section>
+            )}
+            {missionOutpost && (
+                <section className="summary-box sector-panel-card" aria-label="Field mission outpost">
+                    <div className="sector-panel-card-head"><h4><GiCrossedSwords aria-hidden="true" />Mission Outpost</h4></div>
+                    <p>{missionOutpost.missionName} · objective at this sector</p>
+                    <button type="button" className="danger-button sector-action-btn is-danger"
+                        disabled={!present || !onStartMissionRaid || missionRaidCooldownMs > 0} onClick={onStartMissionRaid}>
+                        <span className="sector-action-icon" aria-hidden="true"><GiCrossedSwords /></span>
+                        <span>Raid Mission Outpost</span>
+                    </button>
+                    {missionRaidCooldownMs > 0 && <small role="status">Available in {Math.max(1, Math.ceil(missionRaidCooldownMs / 1000))}s</small>}
                 </section>
             )}
             {contract && <SectorContractCard status={contract} busy={contractBusy} disabled={!present} onClaim={onClaimContract} />}
