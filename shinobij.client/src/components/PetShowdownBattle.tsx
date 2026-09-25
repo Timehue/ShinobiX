@@ -43,6 +43,7 @@ import * as THREE from "three";
 import { PetModel3D, DEFAULT_PET_MODEL_FRAME, type PetModelFrame } from "./PetModel3D";
 import { PetModelBoundary } from "./PetModelBoundary";
 import { WildBindingArenaFx, type WildBindingCinematic } from "./WildBindingArenaFx";
+import { PetSwitchSealFx } from "./pet-showdown/pet-switch-seal-fx";
 import { supportsPetWebGl2 } from "../lib/pet-webgl-capability";
 import { PetGraphicsQualityControl } from "./PetGraphicsQualityControl";
 import { petCombatModel, showdownFighterIdentity, type PetCombatModelConfig } from "../lib/pet-3d-models";
@@ -93,10 +94,7 @@ import {
     showdownMeleeRoute,
     showdownRoutePoint,
     type ShowdownMeleeRoute,
-    type ShowdownTravelRoute,
-    showdownReserveRoute,
-    showdownTravelProgress,
-    SHOWDOWN_SWITCH_TIMING,
+    type ShowdownSwitchCue,
     showdownPerformanceVariant,
     showdownReactionAge,
     showdownReactionRecoil,
@@ -267,7 +265,7 @@ function sceneRand(seed: number): () => number {
     };
 }
 
-function beatDurationMs(event: ShowdownEvent, speed: number): number {
+function beatDurationMs(event: ShowdownEvent, speed: number, reducedMotion: boolean): number {
     // Staged casts (signatures and heavies — the ones that earn a volumetric
     // set-piece) own their WHOLE choreography: the piece spawns at the shared
     // attack rhythm's contact point and runs 2100/1150ms, so the beat must hold
@@ -291,7 +289,7 @@ function beatDurationMs(event: ShowdownEvent, speed: number): number {
         : 2700)
         : event.t === "roundStart" ? 950
         : event.t === "skip" ? 900
-        : event.t === "switch" ? 1500
+        : event.t === "switch" ? (reducedMotion ? 1500 : event.reinforcement ? 2200 : 3000)
         : event.t === "confused" ? 1200
         : event.t === "dot" ? 850
         : event.t === "consumable" ? 900
@@ -314,14 +312,14 @@ function actionRhythm(event: ActionEvent) {
 
 // ─── Shared mutable scene state (refs — read per frame inside the Canvas) ────
 
-interface SceneBeat {
+export interface SceneBeat {
     presentation?: MovePresentation;
     event: ShowdownEvent | null;
     startedAt: number;
     durationMs: number;
     impact?: ShowdownImpactClock;
     meleeRoute?: ShowdownMeleeRoute;
-    switches?: ReadonlyMap<string, { route: ShowdownTravelRoute; start: number; end: number }>;
+    switches?: ReadonlyMap<string, ShowdownSwitchCue>;
     /** Queue position — the shot-variant seed. Deliberately NOT startedAt,
      *  which is a wall clock and would pick different framings on replay. */
     index: number;
@@ -377,8 +375,8 @@ function slotPositions(count: number, side: "player" | "enemy"): [number, number
     });
 }
 
-/** Who stands where. Fielded pets hold the front slots; the bench waits in a
- *  back row and pets physically RUN between rows on switches. */
+/** Who stands where. Fielded pets hold the front slots; sealed reserves wait
+ *  offstage until a Beast Seal releases one into the vacated field mark. */
 interface Lineup {
     playerField: string[];
     playerBench: string[];
@@ -399,12 +397,8 @@ function computeArrangement(lineup: Lineup): Map<string, [number, number, number
     const out = new Map<string, [number, number, number]>();
     const place = (ids: string[], side: "player" | "enemy", bench: boolean) => {
         if (bench) {
-            // The bench waits OFF-STAGE at the tunnel mouth (player left, enemy
-            // right), past the arena rim and outside every camera the director
-            // owns. Reserves used to stand in the wings on screen; now the
-            // roster only exists on the field — a chosen reserve GALLOPS in
-            // from the tunnel (the fighters' walk-home chase covers ~9 units
-            // in about a second), and a pulled pet gallops off and vanishes.
+            // The bench waits OFF-STAGE at the tunnel mouth, outside the
+            // camera. Beast Seal choreography owns the visible transition.
             ids.forEach((id, i) => {
                 const wing = side === "player" ? -1 : 1;
                 out.set(id, [wing * (10.4 + i * 1.2), FLOOR_Y, side === "player" ? 6.2 : -6.2]);
@@ -421,10 +415,8 @@ function computeArrangement(lineup: Lineup): Map<string, [number, number, number
     return out;
 }
 
-/** Moves a pet between the field and bench lists of its side. On a voluntary
- *  switch the outgoing pet walks to the bench row; on a reinforcement the
- *  fallen pet simply drops out of the arrangement (the body stays where it
- *  fell — fighters freeze when their id has no assigned position). */
+/** Moves a pet between the field and bench lists of its side. The incoming
+ *  pet inherits the outgoing pet's formation index and exact arena position. */
 function lineupAfterSwitch(lineup: Lineup, side: "player" | "enemy", outId: string, inId: string, reinforcement: boolean): Lineup {
     const fieldKey = side === "player" ? "playerField" : "enemyField";
     const benchKey = side === "player" ? "playerBench" : "enemyBench";
@@ -982,15 +974,19 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced, wildBinding }
                 }
             }
         } else if (!reduced && beat.event && beat.event.t === "switch") {
-            // The rotation is a beat of its own — track the arriving pet.
-            const inPos = posRef.current.get(beat.event.inId);
-            if (inPos) {
-                const p = new THREE.Vector3(...inPos);
+            // Hold on the actual exchange slot. The reserve waits offstage;
+            // framing that old bench position made the previous entrance feel
+            // like a run to a random point instead of a deliberate handoff.
+            const anchor = beat.switches?.get(beat.event.inId)?.position ?? posRef.current.get(beat.event.outId);
+            if (anchor) {
+                const p = new THREE.Vector3(...anchor);
                 bodies.push(p);
                 nextShot = `switch:${beat.index}`;
                 cutOnChange = true;
-                targetPos = p.clone().add(new THREE.Vector3(6.0, 3.7, 6.0));
-                targetLook = p.clone().setY(1.1);
+                // Raise the switch framing with the overhead Beast Seal so its
+                // larger paper silhouette stays in frame above the pet.
+                targetPos = p.clone().add(new THREE.Vector3(7.2, 5.8, 7.2));
+                targetLook = p.clone().setY(2.1);
             }
         } else if (!reduced && beat.event && beat.event.t === "end") {
             // Orbit the survivor under the result panel — beatRef is never
@@ -1150,8 +1146,8 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
     posRef: React.MutableRefObject<Map<string, [number, number, number]>>;
     /** Profile-aware visible body radii shared with the dash VFX layer. */
     radii: ReadonlyMap<string, number>;
-    /** ids currently on the bench — a reserve AT its off-stage park is not
-     *  drawn at all; it pops in the moment a switch starts it walking. */
+    /** Reserve ids stay hidden at their off-stage parks until a switch starts
+     *  their seal release onto the field. */
     benchedRef: React.MutableRefObject<ReadonlySet<string>>;
     /** Slot-paired live opponent. Resting fighters track this exact world point. */
     restingTargetId: string | null;
@@ -1173,9 +1169,8 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
     const guardMat = useRef<THREE.MeshBasicMaterial>(null);
     const reticle = useRef<THREE.Mesh>(null);
     const selRing = useRef<THREE.Mesh>(null);
-    /** Where this fighter currently stands — walks toward its assigned home. */
+    /** Where this fighter currently stands — switches hold a fixed field mark. */
     const standing = useRef<[number, number, number] | null>(null);
-    const switchLanding = useRef<ShowdownTravelRoute | null>(null);
     /** Hit-stop-aware presentation clock fed to the skeletal mixer. */
     const timeline = useRef(0);
     /** Opening pet entrance begins once the VS card clears. */
@@ -1237,42 +1232,56 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         const beat = beatRef.current;
         const fx = fxRef.current;
         const now = performance.now();
-        // Home = assigned slot; standing = where the body actually is. Living
-        // pets WALK home (switch-ins gallop across the arena); the fallen stay
-        // where they dropped.
+        // Home = assigned slot; standing = where the body actually is. Switches
+        // pin both companions to the outgoing pet's field mark while the seals
+        // perform the handoff. Fallen pets stay where they dropped.
         const home = posRef.current.get(info.view.id) ?? standing.current ?? info.basePos;
         if (!standing.current) standing.current = [home[0], home[1], home[2]];
         const stand = standing.current;
-        let walkX = 0, walkZ = 0, walking = false, walkSpeed = 7.2;
+        let walkX = 0, walkZ = 0, walking = false;
+        const walkSpeed = 7.2;
         const switchMotion = beat.switches?.get(info.view.id);
-        let waitingForEntry = false;
-        if (!switchMotion && switchLanding.current) {
-            const landing = showdownRoutePoint(switchLanding.current, 1);
-            stand[0] = landing.x; stand[2] = landing.z;
-            switchLanding.current = null;
-        }
+        const switchFraction = switchMotion ? showdownBeatProgress(beat, now) : 0;
+        let switchScale = 1, switchLift = 0, switchHidden = false;
         if (!ko && switchMotion) {
-            switchLanding.current = switchMotion.route;
-            const fraction = showdownBeatProgress(beat, now);
-            const progress = showdownTravelProgress((fraction - switchMotion.start) / (switchMotion.end - switchMotion.start));
-            const point = showdownRoutePoint(switchMotion.route, progress);
-            walkSpeed = Math.hypot(point.x - stand[0], point.z - stand[2]) / Math.max(0.001, delta);
-            stand[0] = point.x; stand[2] = point.z;
-            walkX = point.dx; walkZ = point.dz;
-            walking = fraction >= switchMotion.start && fraction < switchMotion.end;
-            waitingForEntry = fraction < switchMotion.start;
-        } else if (!ko) {
-            const dx = home[0] - stand[0];
-            const dz = home[2] - stand[2];
-            const dist = Math.hypot(dx, dz);
-            if (dist > 0.06) {
-                walking = true;
-                const step = Math.min(dist, delta * 7.2);
-                walkX = dx / dist; walkZ = dz / dist;
-                stand[0] += walkX * step;
-                stand[2] += walkZ * step;
+            stand[0] = switchMotion.position[0];
+            stand[2] = switchMotion.position[2];
+            if (switchMotion.role === "seal") {
+                const draw = reduced
+                    ? (switchFraction >= .44 ? 1 : 0)
+                    : THREE.MathUtils.smoothstep(switchFraction, .16, .5);
+                switchScale = Math.max(.02, 1 - draw * .98);
+                switchLift = reduced ? 0 : draw * .5;
+                switchHidden = switchFraction >= (reduced ? .48 : .52);
             } else {
-                stand[0] = home[0]; stand[2] = home[2];
+                const forcedRelease = beat.event?.t === "switch" && beat.event.reinforcement;
+                const releaseStart = forcedRelease ? .49 : .79;
+                const release = reduced
+                    ? (switchFraction >= (forcedRelease ? .4 : .52) ? 1 : 0)
+                    : THREE.MathUtils.smoothstep(switchFraction, releaseStart, releaseStart + .19);
+                switchScale = reduced ? 1 : Math.max(.02, release);
+                switchLift = reduced ? 0 : .56 * (1 - release) + Math.sin(Math.PI * release) * .24;
+                switchHidden = switchFraction < (reduced ? (forcedRelease ? .4 : .52) : releaseStart);
+            }
+        } else if (!ko) {
+            if (benchedRef.current.has(info.view.id)) {
+                // After the seal closes, the outgoing pet stays hidden at its
+                // reserve park instead of running through the arena.
+                stand[0] = home[0];
+                stand[2] = home[2];
+            } else {
+                const dx = home[0] - stand[0];
+                const dz = home[2] - stand[2];
+                const dist = Math.hypot(dx, dz);
+                if (dist > 0.06) {
+                    walking = true;
+                    const step = Math.min(dist, delta * 7.2);
+                    walkX = dx / dist; walkZ = dz / dist;
+                    stand[0] += walkX * step;
+                    stand[2] += walkZ * step;
+                } else {
+                    stand[0] = home[0]; stand[2] = home[2];
+                }
             }
         }
         let px = stand[0], pz = stand[2];
@@ -1320,13 +1329,12 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
             : 0;
         const withdrawn = koSink >= 1;
 
-        // A reserve parked at its off-stage tunnel is not drawn: the roster
-        // lives on the field, and the bench exists only as the gallop that
-        // brings one in. `walking` is the whole state machine — the pop-in
-        // happens exactly when a switch hands the reserve a field slot and the
-        // chase starts, and the pop-out when a pulled pet reaches the tunnel.
+        // A reserve parked at its off-stage tunnel is not drawn. During a
+        // switch, only the companion currently being sealed or released is
+        // visible; neither one walks to a different slot.
         if (group.current) {
-            group.current.visible = !(benchedRef.current.has(info.view.id) && !walking && !ko) && !withdrawn && !waitingForEntry;
+            const visibleForSwitch = switchMotion ? !switchHidden : !benchedRef.current.has(info.view.id) || walking || ko;
+            group.current.visible = visibleForSwitch && !withdrawn;
         }
 
         // Hit-stop-aware presentation clock: skeletal time crawls during the
@@ -1453,6 +1461,12 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
                     f.casting = ev.delivery !== "melee" && frac < rhythm.recoverEnd;
                 }
             }
+        } else if (switchMotion && !ko) {
+            f.motion = switchMotion.role === "seal" && switchFraction >= .2 && switchFraction < .59 ? "stagger" : "idle";
+            f.moveStyle = baseStyle;
+            f.moveName = undefined;
+            f.attackPace = undefined;
+            f.casting = switchMotion.role === "seal" && switchFraction < .6;
         } else if (reactionAge >= 0 && reactionAge < 520 && lastHit > 0) {
             f.motion = "stagger";
             f.hit = Math.max(0, 1 - reactionAge / 520);
@@ -1532,8 +1546,8 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
             // whatever pose the death clip left the rig in.
             const ease = koSink * koSink;
             const calibratedGround = info.model && !modelFailed ? modelCalibration?.groundOffset ?? 0 : 0;
-            group.current.position.set(px, py + calibratedGround - ease * 1.7 + pull * 2.35, pz);
-            group.current.scale.setScalar(Math.max(0.02, 1 - ease * 0.55) * (1 - pull * .98));
+            group.current.position.set(px, py + calibratedGround - ease * 1.7 + pull * 2.35 + switchLift, pz);
+            group.current.scale.setScalar(Math.max(0.02, 1 - ease * 0.55) * (1 - pull * .98) * switchScale);
             if (beingBound && bindingT > .91) group.current.visible = false;
         }
 
@@ -1583,7 +1597,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
                 Sized generously so a tap lands on a phone, and only interactive
                 while this pet is a legal pick (so it never steals a stray click
                 during playback). Attached to the moving group, so it tracks the
-                body through lunges and bench walks. */}
+                body through lunges and lineup repositioning. */}
             <mesh
                 position={[0, 1.05, 0]}
                 visible={false}
@@ -1928,14 +1942,11 @@ function useReclaimFocus(container: React.RefObject<HTMLElement | null>, index =
     }, [container]);
 }
 
-function ActionMenu({ rows, focus, onFocusRow, onSelect, commanderName, orderNumber, orderCount }: {
+function ActionMenu({ rows, focus, onFocusRow, onSelect }: {
     rows: MenuRowSpec[];
     focus: number;
     onFocusRow: (index: number) => void;
     onSelect: (action: MenuAction) => void;
-    commanderName: string;
-    orderNumber: number;
-    orderCount: number;
 }) {
     const rowsRef = useRef<HTMLDivElement>(null);
     useReclaimFocus(rowsRef, focus);
@@ -1993,10 +2004,6 @@ function ActionMenu({ rows, focus, onFocusRow, onSelect, commanderName, orderNum
     );
     return (
         <div className="showdown-menu" ref={rowsRef} onKeyDown={onKeyDown}>
-            <div className="showdown-command-heading">
-                <span><small>COMMANDING</small><strong>{commanderName}</strong></span>
-                <span className="showdown-command-step">ORDER <b>{orderNumber}/{orderCount}</b></span>
-            </div>
             <div className="showdown-tech-grid">
                 {rows.map((row, i) => (row.chip ? null : renderRow(row, i)))}
             </div>
@@ -2309,8 +2316,9 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const reducedMotion = motionPreference ?? prefersReducedMotion();
     const pillarDrive = useRef<PillarDrive>({ activeUntil: 0, startedAt: 0, x: 0, z: 0, color: "#fbbf24" });
 
-    // Who stands where — switches and reinforcements move pets between the
-    // front line and the bench row; fighters walk to their assigned spot.
+    // Lineup changes assign field slots and reserve parks. Pets ease to a new
+    // assignment when needed; switch partners hold the outgoing slot for the
+    // scroll handoff.
     const [lineup, setLineup] = useState<Lineup>(() => lineupFromState(initialState));
     const posRef = useRef<Map<string, [number, number, number]>>(computeArrangement(lineupFromState(initialState)));
     /** Who is benched right now, for the fighters' visibility check — a ref
@@ -2581,28 +2589,20 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             return clearTimers;
         }
         const event = queue[queueIndex];
-        let durationMs = beatDurationMs(event, speed);
+        let durationMs = beatDurationMs(event, speed, reducedMotion);
         let switches: SceneBeat["switches"];
         if (event.t === "switch") {
-            const next = computeArrangement(lineupAfterSwitch(lineup, event.side, event.outId, event.inId, event.reinforcement));
-            const neighbours = [...posRef.current]
-                .filter(([id]) => id !== event.inId && id !== event.outId && !benchedRef.current.has(id) && !display[id]?.ko)
-                .map(([id, position]) => ({ x: position[0], z: position[2], radius: fighterRadii.get(id) ?? 0.82 }));
-            const motions = new Map<string, { route: ShowdownTravelRoute; start: number; end: number }>();
-            for (const id of [event.outId, event.inId]) {
-                if (id === event.outId && event.reinforcement && id !== event.inId) continue;
-                const from = posRef.current.get(id), to = next.get(id);
-                if (!from || !to) continue;
-                const entering = id === event.inId;
-                const route = showdownReserveRoute({ x: from[0], z: from[2] }, { x: to[0], z: to[2] }, fighterRadii.get(id) ?? 0.82, neighbours, event.side);
-                const start = entering ? (event.reinforcement ? SHOWDOWN_SWITCH_TIMING.reinforcementStart : SHOWDOWN_SWITCH_TIMING.entryStart) : 0;
-                const end = entering ? SHOWDOWN_SWITCH_TIMING.entryEnd : SHOWDOWN_SWITCH_TIMING.exitEnd;
-                motions.set(id, { route, start, end });
-                // Match the exchange to its travel distance; a far reserve must
-                // be planted before an attack beat starts, even at 2x playback.
-                durationMs = Math.max(durationMs, 2200 / speed, route.length / (end - start) / 10 * 1000 / speed);
+            const anchor = posRef.current.get(event.outId) ?? posRef.current.get(event.inId);
+            const cues = new Map<string, ShowdownSwitchCue>();
+            if (anchor) {
+                const position: [number, number, number] = [anchor[0], anchor[1], anchor[2]];
+                if (!event.reinforcement && event.outId !== event.inId) {
+                    cues.set(event.outId, { position, role: "seal" });
+                }
+                cues.set(event.inId, { position, role: "release" });
+                durationMs = Math.max(durationMs, (reducedMotion ? 1500 : event.reinforcement ? 2200 : 3000) / speed);
             }
-            switches = motions;
+            switches = cues;
         }
         const presentation = event.t === "action" ? resolveMovePresentation(fighterMoves.get(event.actorId), event) : undefined;
         const primaryTargetId = event.t === "action" ? showdownActionTargetId(event) : undefined;
@@ -2630,7 +2630,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
         // screen reader, so the same numbers go out on the live region at the
         // moment of contact rather than when the beat opens.
         const spoken = describeBeat(event, stateView);
-        if (spoken) later(() => setAnnouncement(spoken), durationMs * (event.t === "action" ? actionRhythm(event).contact : 0.1));
+        if (spoken) later(() => setAnnouncement(spoken), durationMs * (event.t === "action" ? actionRhythm(event).contact : event.t === "switch" ? (event.reinforcement ? .64 : .77) : 0.1));
 
         if (event.t === "roundStart") {
             // The server expires one-round weather before emitting this beat,
@@ -2667,6 +2667,17 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 fxRef.current.hitDirection.delete(event.actorId);
             }, durationMs * 0.5);
         } else if (event.t === "switch") {
+            // Wait until the outgoing pet has vanished into its scroll before
+            // moving the reserve from the offstage roster to this field slot.
+            // The camera and the fighters both share the precomputed anchor.
+            const handoff = event.reinforcement ? .4 : .6;
+            const release = event.reinforcement ? .68 : .79;
+            const sealOpen = event.reinforcement ? .46 : .78;
+            later(() => setLineup((l) => lineupAfterSwitch(l, event.side, event.outId, event.inId, event.reinforcement)), durationMs * handoff);
+            if (!event.reinforcement) {
+                later(() => playPetSfx("sealClose", { gain: .72, channel: "pet-switch" }), durationMs * .4);
+            }
+            later(() => playPetSfx("sealOpen", { gain: .72, channel: "pet-switch" }), durationMs * sealOpen);
             later(() => {
                 const inName = nameOf(stateView, event.inId);
                 showBanner(
@@ -2674,16 +2685,11 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         ? (event.reinforcement ? `${inName} joins the fight!` : `Go, ${inName}!`)
                         : (event.reinforcement ? `The enemy sends in ${inName}!` : `They swap to ${inName}!`),
                     "status",
-                    durationMs * 0.8,
+                    durationMs * .2,
                 );
-                playPetSfx("move");
-                // Reassign slots — the fighters physically run the exchange.
-                setLineup((l) => lineupAfterSwitch(l, event.side, event.outId, event.inId, event.reinforcement));
-            }, 0);
-            // Entry theater: the gallop covers most of the beat — a dust pop
-            // greets the ARRIVAL, so planting on the line reads as a landing
-            // instead of a walk coming to a stop.
-            later(() => spawnFlipbook(event.inId, "impact", 1.5, 380 / speed, 0.18, 1, "#d9ccb8"), durationMs * SHOWDOWN_SWITCH_TIMING.entryEnd);
+                petHaptic(24);
+            }, durationMs * release);
+            playPetSfx("command", { gain: .48 });
         } else if (event.t === "dot") {
             later(() => {
                 addPopup(event.targetId, `-${event.damage}`, "dot");
@@ -3584,6 +3590,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     enemy={slots.get(wildBinding.enemyId)?.basePos ?? [0, FLOOR_Y, ENEMY_Z]}
                     reduced={reducedMotion}
                 />}
+                {!reducedMotion && <PetSwitchSealFx beatRef={beatRef} reducedMotion={reducedMotion} />}
                 <BeatDrivenVfx beatRef={beatRef} posRef={posRef} radii={fighterRadii} signatures={fighterSignatures} reducedMotion={reducedMotion} quality={renderQuality} />
                 <SuperPillar drive={pillarDrive} />
                 <ShowdownVfxLayer spawns={vfx} />
@@ -3860,9 +3867,6 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             ) : (
                                 <ActionMenu
                                     key={commander.id}
-                                    commanderName={commander.name}
-                                    orderNumber={draft.length + 1}
-                                    orderCount={promptable.length}
                                     rows={menuRows}
                                     focus={focusIndex}
                                     onFocusRow={setFocusRow}

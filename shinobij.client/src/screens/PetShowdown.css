@@ -668,26 +668,6 @@
     gap: 7px;
     animation: showdown-panel-in 0.16s var(--e-out) both;
 }
-.showdown-command-heading {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 6px 10px;
-    border-left: 2px solid #e7c477;
-    border-radius: 2px 8px 8px 2px;
-    background: linear-gradient(90deg, rgba(13, 16, 28, 0.96), rgba(13, 16, 28, 0.8));
-    color: #fff3d6;
-}
-.showdown-command-heading > span:first-child { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
-.showdown-command-heading small, .showdown-command-step { color: #c0b9a9; font-size: 0.56rem; letter-spacing: 0.06em; white-space: nowrap; }
-.showdown-command-heading strong { font-size: 0.78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.showdown-command-step b { color: #fde68a; font-variant-numeric: tabular-nums; }
-@media (max-width: 560px) {
-    .showdown-command-heading { padding: 5px 7px; }
-    .showdown-command-heading small { display: none; }
-    .showdown-command-heading strong { font-size: 0.69rem; }
-}
 @keyframes showdown-panel-in {
     from { opacity: 0; transform: translateY(10px); }
 }
@@ -727,6 +707,7 @@
     border-color: #fde9bd;
     box-shadow: 0 0 0 1px rgba(253, 233, 189, 0.7), 0 2px 10px rgba(0, 0, 0, 0.5);
     transform: translateY(-1px);
+    z-index: 1;
 }
 /* Selected but unavailable reads as grey, never as "press me". */
 .showdown-tech-pill.is-disabled { opacity: 0.45; cursor: not-allowed; }
@@ -816,9 +797,9 @@
     min-width: 0;
     font-weight: 700;
     font-size: 0.8rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1.08;
+    overflow-wrap: anywhere;
+    white-space: normal;
     text-shadow: 0 1px 3px #000;
 }
 .showdown-menu-note {
@@ -1695,6 +1676,10 @@
         overscroll-behavior: contain;
         scrollbar-width: thin;
         scrollbar-color: rgba(217, 180, 120, 0.5) transparent;
+        /* Keep the focused pill's outer ring inside the scrollport so the
+           first and last rows never have their highlight sheared off. */
+        padding: 5px 4px;
+        margin: -5px -4px;
     }
     .showdown-tech-pill { min-block-size: 40px; padding-block: 4px; }
     .showdown-stance-chip { min-block-size: 34px; }

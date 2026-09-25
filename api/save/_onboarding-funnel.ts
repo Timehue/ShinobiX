@@ -1,4 +1,7 @@
 import type { BetaFunnelEvent } from '../_beta-funnel.js';
+import { ACADEMY_PATH_STEPS, type AcademyPathStep } from '../../shared/academy-path.js';
+
+export { ACADEMY_PATH_STEPS } from '../../shared/academy-path.js';
 
 /*
  * Observes onboarding funnel crossings by comparing the previous save to the
@@ -24,13 +27,6 @@ import type { BetaFunnelEvent } from '../_beta-funnel.js';
  * shinobij.client/src/lib/onboarding-step.ts. A test pins this list against
  * that file, so the mirror cannot drift silently.
  */
-export const ACADEMY_PATH_STEPS = [
-    'academyIntro', 'starter', 'companionIntro', 'training', 'jutsu', 'jutsuLoadout',
-    'inventory', 'academySpar', 'cafeteria', 'firstMission', 'logbook', 'sectorReturn', 'done',
-] as const;
-
-export type AcademyPathStep = typeof ACADEMY_PATH_STEPS[number];
-
 export interface OnboardingFunnelObservation {
     event: BetaFunnelEvent;
     step?: string;
@@ -88,7 +84,8 @@ export function observeOnboardingFunnel(input: OnboardingFunnelInput): Onboardin
     // An ABSENT step means a pre-onboarding veteran, not a fresh recruit — the
     // client normalizer maps undefined to 'done'. Requiring a real `after` and a
     // change keeps veterans out of the funnel entirely.
-    if (after && after !== before) {
+    const enteringAcademy = after === ACADEMY_PATH_STEPS[0] && after !== before;
+    if (after && after !== before && (before !== null || enteringAcademy)) {
         if (after === ACADEMY_PATH_STEPS[0]) out.push({ event: 'academy.started', ...withLevel });
         // Every crossing is a step, including the first and the last, so the
         // step histogram stays complete on its own.
