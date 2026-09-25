@@ -2260,7 +2260,7 @@
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 157
+            "line": 158
           }
         ]
       },
@@ -2407,7 +2407,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/hub-screens-skin.css",
-            "line": 1491
+            "line": 1509
           }
         ]
       },
@@ -2422,11 +2422,11 @@
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 121
+            "line": 122
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 176
+            "line": 177
           }
         ]
       },
@@ -2437,7 +2437,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 165
+            "line": 166
           }
         ]
       },
@@ -2739,7 +2739,7 @@
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 165
+            "line": 166
           }
         ]
       },
@@ -2864,11 +2864,11 @@
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 121
+            "line": 122
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 176
+            "line": 177
           }
         ]
       },
@@ -3283,7 +3283,7 @@
           },
           {
             "source": "shinobij.client/src/styles/hub-screens-skin.css",
-            "line": 1102
+            "line": 1109
           },
           {
             "source": "shinobij.client/src/styles/pet-home.css",
@@ -4081,11 +4081,11 @@
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 165
+            "line": 166
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 176
+            "line": 177
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
@@ -4163,11 +4163,11 @@
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 121
+            "line": 122
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 129
+            "line": 130
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
@@ -4401,7 +4401,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/hub-screens-skin.css",
-            "line": 1098
+            "line": 1105
           },
           {
             "source": "shinobij.client/src/styles/jutsu-training-skin.css",
