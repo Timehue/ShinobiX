@@ -3966,8 +3966,8 @@ export function AdminPanel({
                                 <input type="number" min={0} max={20} value={itemWeaponCooldown} placeholder="e.g. 5"
                                     onChange={(e) => setItemWeaponCooldown(e.target.value === "" ? "" : Number(e.target.value))} />
 
-                                <label>Weapon Fixed EP (blank = stat-computed)</label>
-                                <input type="number" min={1} max={200} value={itemWeaponEp} placeholder="e.g. 60"
+                                <label>Weapon EP (blank = 15; mythic is 25, and 36 hits like a maxed 60 AP jutsu)</label>
+                                <input type="number" min={1} max={200} value={itemWeaponEp} placeholder="e.g. 25"
                                     onChange={(e) => setItemWeaponEp(e.target.value === "" ? "" : Number(e.target.value))} />
 
                                 <label>Weapon Special Effect (optional)</label>

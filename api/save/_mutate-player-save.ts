@@ -133,9 +133,18 @@ export async function writeVersionedPlayerSave(
     return out;
 }
 
+/** Options a domain mutation may pass to the versioned write. */
+export type PlayerSaveMutationOptions = Pick<VersionedWriteOptions, 'hollowGateCurrencySource'>;
+
 export async function mutatePlayerSave<T>(
     playerNameRaw: string,
     mutate: (ctx: PlayerSaveMutationContext) => Promise<PlayerSaveMutation<T>> | PlayerSaveMutation<T>,
+    // A Hollow Gate run reward that the caller also credits to the run ledger
+    // passes hollowGateCurrencySource 'run', exactly like the writers that call
+    // writeVersionedPlayerSaveWithStore directly. The default records a gain
+    // made during an open run as an 'external' credit, which death never claws
+    // back.
+    options: PlayerSaveMutationOptions = {},
 ): Promise<PlayerSaveMutationResult<T>> {
     const [{ kv }, { withKvLock }, { safeName }] = await Promise.all([
         import('../_storage.js'),
@@ -204,7 +213,10 @@ export async function mutatePlayerSave<T>(
         // `undefined` lets bumpSaveVersion fence the cursor to the exact write
         // instant (`_saveAt`), so the two stamps agree on a fence.
         const regenAt = vitalsTouched || regen.excluded || !regen.cursor ? undefined : regen.cursor;
-        const out = await writeVersionedPlayerSave(saveKey, record, decision.character, decision.recordPatch, { regenAt });
+        const out = await writeVersionedPlayerSave(saveKey, record, decision.character, decision.recordPatch, {
+            regenAt,
+            ...(options.hollowGateCurrencySource ? { hollowGateCurrencySource: options.hollowGateCurrencySource } : {}),
+        });
         return {
             ok: true as const,
             value: decision.value,

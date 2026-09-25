@@ -105,7 +105,8 @@ const FULL_LEGENDARY_DR = 0.35;
 // pieces. The hand (gloves) slot DOES carry the passive even without DR, so
 // the full set yields 6% in exactly one category.
 const SET_PASSIVE_PCT   = 6;
-const BEST_WEAPON_EP    = 30;
+// The catalog's mythic tier (3/4 of a maxed 60-AP jutsu, owner ruling 2026-09-25).
+const BEST_WEAPON_EP    = 25;
 const AP_PER_TURN       = 100;
 const COST_UTILITY      = 40;
 const COST_DAMAGE       = 60;

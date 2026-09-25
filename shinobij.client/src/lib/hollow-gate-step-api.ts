@@ -10,9 +10,29 @@ export type HollowGateStepResult = {
     ambush?: { nodeId: string; kind: "ambush" | "boss" | "card" } | null;
     pendingAmbush?: { nodeId: string; kind: "ambush" | "boss" | "card" } | null;
     activeCombat?: { runId: string; nodeId: string; floor: number; kind: "battle" | "elite" | "ambush" | "beast" | "boss"; mode: "pve" | "pet" };
+    /** The unresolved combat tile under the player that refused this step. */
+    sealedCombat?: HollowGateSealedCombat;
     _saveVersion?: number;
     error?: string;
 };
+
+export type HollowGateSealedCombat = { nodeId: string; kind: "battle" | "elite" | "beast" | "boss" };
+
+/**
+ * The startHollowGateBattle options that reopen a sealed combat tile. A step
+ * off an unresolved combat tile is refused, and a tile fires only when it is
+ * stepped onto, so a fight whose start failed would otherwise never reopen.
+ */
+export function hollowGateSealedCombatOpts(sealed: HollowGateSealedCombat): {
+    nodeId: string; isBoss?: boolean; isBeast?: boolean; isElite?: boolean;
+} {
+    return {
+        nodeId: sealed.nodeId,
+        ...(sealed.kind === "boss" ? { isBoss: true } : {}),
+        ...(sealed.kind === "beast" ? { isBeast: true } : {}),
+        ...(sealed.kind === "elite" ? { isElite: true } : {}),
+    };
+}
 
 export async function sealHollowGateStep(params: {
     playerName: string;
