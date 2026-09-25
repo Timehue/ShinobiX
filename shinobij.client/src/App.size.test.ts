@@ -494,7 +494,9 @@ import { readFileSync } from "node:fs";
 // lib/image-category-hydration.ts, which also hydrates the combat buckets off
 // the fight's DOM cover signal. App keeps the hoisted
 // loadScreenImageCategories its three post-mount callers already reference.
-const MAX_LINES = 6519;
+// → 6,470 after extracting synchronous Hollow Gate movement projection to
+// lib/hollow-gate-movement-projection.ts.
+const MAX_LINES = 6475;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
