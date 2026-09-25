@@ -350,11 +350,15 @@ export function ampTagCapForRank(rank?: string | null): number {
 export const WEAPON_AMP_TAG_CAP = 35;
 
 /**
- * The highest EP a player's weapon can carry. Owner ruling 2026-09-25: EP means
+ * The highest EP a player's weapon can carry. Owner rulings 2026-09-25: EP means
  * the same thing on a weapon and a jutsu, so a swing resolves at the mastery its
  * wielder's rank allows (see api/pvp/move.ts), and no weapon may out-hit a fully
- * maxed 60-AP jutsu. The built-in 60-AP damage jutsu top out at EP 36, so the
- * mythic tier and a named forge sit on 36. api/pvp/_weapon-damage.test.ts pins it.
+ * maxed 60-AP jutsu. The built-in 60-AP damage jutsu top out at EP 36, so this
+ * ceiling is 36. The catalog's mythic tier lands 3/4 of that hit (EP 24.5, and a
+ * half point of EP rounds up, so 25) and the other tiers scale from it. A new
+ * named forge rolls 24-27 (api/craft/_named.ts); the ones forged before keep
+ * 32-34 until the reset, under this ceiling.
+ * api/pvp/_weapon-damage.test.ts pins the ceiling and the mythic tier.
  */
 export const WEAPON_EP_CEILING = 36;
 

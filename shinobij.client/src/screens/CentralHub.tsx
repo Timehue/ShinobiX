@@ -1440,7 +1440,7 @@ export function CentralHub({
                     { name: "Aura Dust", cost: 50, desc: "+50 Aura Dust", itemId: "currency:aura-dust" },
                     { name: "Bone Charm", cost: 1000, desc: "+1 Bone Charm", itemId: "currency:bone-charm" },
                     // Thrown weapons
-                    { name: "Shuriken ×3", cost: 15, desc: "3× Shuriken (27 EP thrown)", itemId: "thrown-shuriken", per: 3 },
+                    { name: "Shuriken ×3", cost: 15, desc: "3× Shuriken (18 EP thrown)", itemId: "thrown-shuriken", per: 3 },
                     { name: "Senbon ×1", cost: 30, desc: "1× Senbon (300 dmg/round, 2 rounds)", itemId: "thrown-senbon", per: 1 },
                     { name: "Serpent Dust ×1", cost: 40, desc: "1× Serpent Dust (10% poison, 2 rounds)", itemId: "thrown-serpent-dust", per: 1 },
                     // Combat items
