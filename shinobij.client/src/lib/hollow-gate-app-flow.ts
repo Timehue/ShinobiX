@@ -3,14 +3,12 @@ import { gameConfirm } from "../components/GameAlert";
 import type { HollowGatePetFightRef } from "../components/HollowGatePetFight";
 import type { Character, HollowGateShrineRun, HollowGateTile, VersionedCharacterCommit } from "../types/character";
 import type { Screen } from "../types/core";
-import { hollowGateHoundName, hollowHoundEncounterId } from "../../../shared/hollow-gate-contract";
+import { hollowGateHoundName } from "../../../shared/hollow-gate-contract";
 import { applyAttunementToRun } from "./hollow-gate-attunement";
 import type { HollowGateCombatSettleResult } from "./hollow-gate-combat-api";
 // The procedural floor generator is loaded on demand — see
-// ./hollow-gate-generator-loader. hollowGatePetEncounterSeed is a pure hash and
-// stays eagerly available (it lives in ./hollow-gate-run).
+// ./hollow-gate-generator-loader.
 import { loadHollowGateGenerator } from "./hollow-gate-generator-loader";
-import { hollowGatePetEncounterSeed } from "./hollow-gate-run";
 import type { HollowGatePveFightRef } from "./hollow-gate-pve";
 import { hollowGateAlphaCinematicImage } from "./hollow-gate-presentation";
 import {
@@ -22,7 +20,6 @@ import {
     hollowGateBossDisplayName,
     hollowGateRunMaxFloor,
 } from "./hollow-gate-variant";
-import { isPetOnExpedition } from "./pet";
 
 type SetState<T> = (value: T | ((previous: T) => T)) => void;
 
@@ -76,6 +73,42 @@ export function hollowGateDescendUpdate(
         earnedFragments: from.earnedFragments,
         earnedVeils: from.earnedVeils,
     };
+}
+
+/**
+ * The open pet-duel encounter, re-pointed at a shinobi fight for the same node.
+ * Anything else is returned unchanged. See onPetFightUnavailable below.
+ */
+export function hollowGateShinobiFallback(run: HollowGateShrineRun | null): HollowGateShrineRun | null {
+    return run?.activeCombat?.mode === "pet"
+        ? { ...run, activeCombat: { ...run.activeCombat, mode: "pve" } }
+        : run;
+}
+
+/**
+ * The shrine run after a fight that leaves its encounter unresolved: a pet
+ * defeat, a shinobi escape, or a Second Wind revival. `saved` is the settle
+ * reply's `character.hollowGateRun`, and in a live run that is only the
+ * server's own projection, with no board: the autosave does not run inside the
+ * shrine, so the drawn tiles never reach the save. Rendering that projection
+ * crashed the shrine, so it replaces the live run only when it is a complete
+ * board. `patch` carries what else the outcome changes.
+ */
+export function hollowGateRunAfterUnresolvedFight(
+    live: HollowGateShrineRun | null,
+    saved: HollowGateShrineRun | null | undefined,
+    patch: Partial<HollowGateShrineRun> = {},
+): HollowGateShrineRun | null {
+    const current = saved && Array.isArray(saved.tiles) ? saved : live;
+    return current ? { ...current, activeCombat: undefined, threat: 0, ...patch } : null;
+}
+
+/** The shrine run after a pet defeat. See hollowGateRunAfterUnresolvedFight. */
+export function hollowGateRunAfterPetDefeat(
+    live: HollowGateShrineRun | null,
+    saved: HollowGateShrineRun | null | undefined,
+): HollowGateShrineRun | null {
+    return hollowGateRunAfterUnresolvedFight(live, saved);
 }
 
 export function useHollowGateAppFlow(params: {
@@ -196,36 +229,51 @@ export function useHollowGateAppFlow(params: {
     }
 
     /*
-     * A sealed pet duel now runs on the SHOWDOWN engine, bound to this run.
+     * A sealed pet duel runs on the SHOWDOWN engine, bound to this run, and is
+     * drawn like a road-beast challenge: a random 1v1, 2v2 or 3v3 led by the
+     * active pet. It stays on the shrine screen rather than detouring through
+     * the Pet Arena, because the encounter belongs to the run.
      *
-     * It used to hand the Pet Arena screen a hand-built Hound and a client seed;
-     * the arena minted a battle-start token and fought the legacy sim. The
-     * server has accepted a run-bound Showdown bout — with the identical
-     * `hg-pet-result` receipt — since the Gate port landed, but nothing called
-     * it. This is that caller, and it stays on the shrine screen rather than
-     * detouring through the arena, because the encounter belongs to the run.
-     *
-     * Nothing about the Hound is decided here any more. `houndId` is only the
-     * encounter's IDENTITY (its shape is checked server-side); the creature
-     * itself is built by the server from the run's own binding.
+     * Nothing about either team is decided here. The server draws the format,
+     * fields the pets and builds the run's own Hounds from the binding. It also
+     * decides whether the companion can fight: a new duel needs a ready active
+     * pet, while a duel that has begun resumes whatever that pet is doing now.
+     * A refusal comes back through onPetFightUnavailable below.
      */
     function launchPetFight(fight: HollowGatePveFightRef) {
         if (!character) return;
         const token = run?.runToken ?? character.hollowGateRun?.runToken;
-        const activePet = (character.pets ?? []).find((pet) => pet.id === character.activePetId);
-        if (!token || !activePet || !activePet.unlockedForPve || isPetOnExpedition(activePet)) {
+        if (!token) {
             window.alert("The active pet for this sealed duel is unavailable. Use Emergency Forfeit if the pet cannot be restored.");
             return;
         }
-        pushLog(`[Pet Duel] ${activePet.name} enters the seal against ${hollowGateHoundName(fight.floor, fight.kind)}.`);
+        const leadName = (character.pets ?? []).find((pet) => pet.id === character.activePetId)?.name ?? "Your companion";
+        pushLog(`[Pet Duel] ${leadName} enters the seal against ${hollowGateHoundName(fight.floor, fight.kind)}.`);
         setPetFight({
             token,
             runId: fight.runId,
             nodeId: fight.nodeId,
             floor: fight.floor,
             kind: fight.kind,
-            houndId: hollowHoundEncounterId(hollowGatePetEncounterSeed(fight.runId)),
         });
+    }
+
+    /*
+     * The pet duel could not open: the companion cannot fight, the encounter
+     * was sealed for an older duel, or the connection dropped. Leaving the
+     * encounter pointed at the pet made App's resume effect reopen the refused
+     * duel in a loop until rate limits cut it off, with movement sealed and
+     * Emergency Forfeit as the only exit.
+     *
+     * Point the open encounter at a shinobi fight instead. The resume effect
+     * then asks combat-start for the same node in PvE mode, and the server
+     * swaps out the untouched pet duel (retireUnstartedHollowGatePetBinding).
+     */
+    function onPetFightUnavailable() {
+        const petName = (character?.pets ?? []).find((pet) => pet.id === character?.activePetId)?.name ?? "Your companion";
+        setRun(hollowGateShinobiFallback);
+        setPetFight(null);
+        pushLog(`${petName} could not enter the seal, so you step into the fight yourself.`);
     }
 
     function markResolvedTile(tiles: HollowGateTile[], nodeId?: string): HollowGateTile[] {
@@ -341,11 +389,7 @@ export function useHollowGateAppFlow(params: {
             pushLog(`${hollowGateHoundName(gate.floor, gate.kind)} is driven back by your pet. The sealed path opens.`);
             return;
         }
-        setRun((previous) => {
-            const authoritative = result.character?.hollowGateRun;
-            const current = authoritative ?? previous;
-            return current ? { ...current, activeCombat: undefined, threat: 0 } : null;
-        });
+        setRun((previous) => hollowGateRunAfterPetDefeat(previous, result.character?.hollowGateRun));
         const recoil = Math.max(1, Math.floor((result.character?.maxHp ?? character?.maxHp ?? 1) * 0.20));
         pushLog(`The Hollow Hound wins the pet duel. ${recoil} HP recoils through the seal; the encounter remains unresolved.`);
     }
@@ -356,6 +400,7 @@ export function useHollowGateAppFlow(params: {
         leave,
         abandon,
         launchPetFight,
+        onPetFightUnavailable,
         onBattleWin,
         onPetBattleEnd,
     };

@@ -48,7 +48,30 @@ let currentTheme: BattleMusicTheme | null = null;
 let currentIntensity: BattleMusicIntensity = "calm";
 let duckRestoreTimer: number | null = null;
 const muteListeners = new Set<() => void>();
+const battleMusicListeners = new Set<() => void>();
 let unsubscribeLifecycle: (() => void) | null = null;
+
+/** True while a battle score owns the music (between start and stop). */
+export function isBattleMusicActive(): boolean {
+    return currentTheme !== null;
+}
+
+/** Called whenever a battle score starts or stops. The world score yields to
+ * it, so a pet battle shown on any screen never plays two tracks at once. */
+export function subscribeBattleMusic(callback: () => void): () => void {
+    battleMusicListeners.add(callback);
+    return () => { battleMusicListeners.delete(callback); };
+}
+
+function notifyBattleMusicListeners(): void {
+    for (const callback of battleMusicListeners) {
+        try {
+            callback();
+        } catch {
+            // Another audio subsystem failing must not stop the battle score.
+        }
+    }
+}
 
 function syncBattlePlayback(): void {
     if (!audioEl) return;
@@ -194,6 +217,7 @@ export function startBattleMusic(theme: BattleMusicTheme = "standard"): void {
     el.playbackRate = 1;
     applyBattleMix(currentIntensity);
     syncBattlePlayback();
+    notifyBattleMusicListeners();
 }
 
 /** Fade out and stop the current score. */
@@ -205,7 +229,9 @@ export function stopBattleMusic(): void {
         window.clearTimeout(duckRestoreTimer);
         duckRestoreTimer = null;
     }
+    const wasActive = currentTheme !== null;
     currentTheme = null;
+    if (wasActive) notifyBattleMusicListeners();
 
     if (isAudioMuted() || isAudioBackgrounded()) {
         el.pause();

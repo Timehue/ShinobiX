@@ -158,6 +158,11 @@ export interface HollowGateRunToken {
      * key into resolvedEncounterIds before another fight can start. */
     activeEncounter?: HollowGateActiveEncounter | null;
     resolvedEncounterIds?: string[];
+    /** Encounters the player left alive without clearing them: a verified
+     * escape, a Second Wind revive, or a pet defeat. The encounter stays
+     * unresolved (stepping back onto its tile fights it again), but its tile
+     * no longer pins the player in place. */
+    withdrawnEncounterIds?: string[];
     /** Server-owned dungeon resources and one-time non-combat event identities. */
     keys?: number;
     torch?: number;
@@ -173,6 +178,11 @@ export interface HollowGateRunToken {
     /** Chronicle AI match bound to the currently sealed card ambush. */
     cardAmbushMatchId?: string | null;
     floorManifests?: Record<string, HollowGateFloorManifest>;
+    /** Stepped-on tiles per floor, a '0'/'1' mask shaped like the manifest's
+     * walkable mask (hollowGateMarkVisited). Presentation memory only: resume
+     * rebuilds the explored board from it after a reload. Absent on runs that
+     * began before it existed. */
+    visitedTiles?: Record<string, string>;
     /** Currency already committed by authoritative combat. Final extraction
      * treats this as a stored baseline, so a stale browser cannot erase it. */
     serverCreditedCurrencies?: Partial<Record<HgCurrencyKey, number>>;

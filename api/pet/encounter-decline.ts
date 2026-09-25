@@ -30,23 +30,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const activeKey = petEncounterActiveKey(playerName);
         const receiptKey = `pet-encounter-declined:${playerName}:${token}`;
         const result = await withKvLock(activeKey, async () => {
-            const prior = await kv.get<{ requestId?: string }>(receiptKey);
+            const prior = await kv.get<{ requestId?: string; resolution?: string }>(receiptKey);
             const active = cleanPetEncounterPointer(await kv.get(activeKey));
             if (prior) {
                 const requestId = typeof prior.requestId === 'string' ? prior.requestId : active?.requestId;
                 if (requestId) {
                     const key = petEncounterRequestKey(playerName, requestId);
                     const request = await kv.get<Record<string, unknown>>(key);
-                    if (request) await kv.set(key, { ...request, resolvedAt: Date.now(), resolution: 'declined' }, { ex: PET_ENCOUNTER_POINTER_TTL_SECONDS });
+                    const resolution = prior.resolution === 'befriended' ? 'befriended' : 'declined';
+                    if (request) await kv.set(key, { ...request, resolvedAt: Date.now(), resolution }, { ex: PET_ENCOUNTER_POINTER_TTL_SECONDS });
                 }
                 await kv.del(`pet-encounter:${playerName}:${token}`).catch(() => undefined);
                 if (active?.token === token) await kv.del(activeKey).catch(() => undefined);
                 return { replayed: true };
             }
             const encounter = await kv.get<Record<string, unknown>>(`pet-encounter:${playerName}:${token}`);
-            if (encounter?.battleRequired === true && await kv.get(`pet:wild-binding:${playerName}:${token}`)) {
+            // A battle still in progress must be finished or forfeited first. A
+            // finished one only lost its discovery close (a failed lock or a
+            // restart after the battle saved), so leaving the trail completes
+            // it and records the battle's own outcome.
+            const battle = encounter?.battleRequired === true
+                ? await kv.get<{ finished?: boolean; wild?: { lastAttempt?: { success?: boolean } } }>(`pet:wild-binding:${playerName}:${token}`)
+                : null;
+            if (battle && battle.finished !== true) {
                 return { error: 'Finish or forfeit the active wild battle.' };
             }
+            const resolution = battle?.wild?.lastAttempt?.success === true ? 'befriended' : 'declined';
             if (!encounter || safeName(String(encounter.playerName ?? '')) !== playerName
                 || active?.outcome !== 'hit' || active.token !== token) {
                 return { error: 'invalid-or-spent-encounter' };
@@ -63,9 +72,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 mintedAt: active.mintedAt,
                 ...request,
                 resolvedAt: Date.now(),
-                resolution: 'declined',
+                resolution,
             }, { ex: PET_ENCOUNTER_POINTER_TTL_SECONDS });
-            await kv.set(receiptKey, { playerName, token, requestId, at: Date.now() }, { ex: PET_ENCOUNTER_POINTER_TTL_SECONDS });
+            await kv.set(receiptKey, { playerName, token, requestId, at: Date.now(), resolution }, { ex: PET_ENCOUNTER_POINTER_TTL_SECONDS });
             await kv.del(`pet-encounter:${playerName}:${token}`);
             await kv.del(activeKey);
             return { replayed: false };

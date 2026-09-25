@@ -691,6 +691,9 @@ test("spectator mode traverses the same report state with a deterministic auto-l
     await expect(page.getByRole("button", { name: "Leave the Warfront" })).toHaveCount(0);
     const leave = page.getByRole("button", { name: "Leave the Warfront", exact: true });
     await expect(leave).toBeEnabled({ timeout: 120_000 });
+    // Watching to the end reaches the verdict "Skip to result" lands on.
+    const expected = await page.getByTestId("rite-harness-settlement").getAttribute("data-expected-result-line");
+    await expect(page.locator(".wfr-result-line")).toHaveText(expected!);
     await leave.click();
     await expect(page.getByRole("button", { name: "Reopen Warfront" })).toBeVisible();
 });

@@ -8,7 +8,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { cors, mergePreservingImages, safeName } from '../_utils.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { hollowGateRunKey, type HollowGateRunToken } from './_run-token.js';
-import { hollowGateManifestNode, hollowGatePositionNodeId } from './_floor-manifest.js';
+import { hollowGateManifestNode, hollowGateMarkVisited, hollowGatePositionNodeId } from './_floor-manifest.js';
 import { hollowGateCombatBindingKey, type HollowGateCombatBinding } from './_combat-session.js';
 import { hollowGateEncounterRecovery } from './_encounter-recovery.js';
 
@@ -133,9 +133,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const currentKind = hollowGateManifestNode(manifest, currentNodeId);
             if (currentKind === 'battle' || currentKind === 'elite' || currentKind === 'boss' || currentKind === 'pet_battle') {
                 const expectedKind = currentKind === 'pet_battle' ? 'beast' : currentKind;
+                const encounterKey = `${floor}:${expectedKind}:${currentNodeId}`;
                 const resolved = Array.isArray(run.resolvedEncounterIds) ? run.resolvedEncounterIds : [];
-                if (!resolved.includes(`${floor}:${expectedKind}:${currentNodeId}`)) {
-                    return { status: 409, body: { error: 'Resolve the sealed combat node before moving.' } };
+                // A fight left alive (escape, Second Wind, pet defeat) keeps its
+                // tile unresolved but must not pin the player to it forever.
+                const withdrawn = Array.isArray(run.withdrawnEncounterIds) ? run.withdrawnEncounterIds : [];
+                if (!resolved.includes(encounterKey) && !withdrawn.includes(encounterKey)) {
+                    // Name the encounter so the browser can open it. A fight whose
+                    // start failed (a dropped request, a tile chunk that did not
+                    // load) left the player on this tile with nothing to trigger
+                    // it again, because a tile fires only when it is stepped onto.
+                    return { status: 409, body: {
+                        error: 'Resolve the sealed combat node before moving.',
+                        position: run.position,
+                        sealedCombat: { nodeId: currentNodeId, kind: expectedKind },
+                    } };
                 }
             }
             const torchDrains = randomInt(0, 5) === 0;
@@ -158,6 +170,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 stepVersion,
                 recentStepIds: [...recent, requestId].slice(-64),
                 pendingAmbush,
+                visitedTiles: hollowGateMarkVisited(run.visitedTiles, manifest, to),
             };
             await kv.set(runKey, next);
             let saveVersion = 0;

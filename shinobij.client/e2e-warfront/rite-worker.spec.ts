@@ -51,6 +51,10 @@ test('worker-backed spectator playback finishes the complete best-of-three match
     expect(clashes).toBeGreaterThanOrEqual(2);
     expect(clashes).toBeLessThanOrEqual(3);
     await expect(page.locator('.wfr-result-line')).toContainText(/Clashes (2–[01]|[01]–2)/);
+    // The watched verdict is the one "Skip to result" lands on
+    // (rite-progress.spec.ts): the engine's own automatic seat.
+    const expected = await page.getByTestId('rite-harness-settlement').getAttribute('data-expected-result-line');
+    await expect(page.locator('.wfr-result-line')).toHaveText(expected!);
     await expect.poll(() => page.workers().length).toBe(0);
     expect(errors).toEqual([]);
 });
