@@ -193,7 +193,15 @@ describe('mission legality, budgets, and progression', () => {
             const damage=simulate(initial,'damage').metrics;
             const response=simulate(initial,policy).metrics;
             assert.equal(response.outcome,'win');
-            assert.ok(response.hp>damage.hp,`${key} ${policy}: ${response.hp} > ${damage.hp}`);
+            // A response either ends with more HP, or it spends a round that pure
+            // damage did not need and still takes less damage per round. The S-rank
+            // Champion is the second case with the 28 EP starter blade: pure damage
+            // kills in 9 rounds, while clearing its shield and Reflect takes 10.
+            const lossPerRound=(m: typeof damage)=>(initial.player.maxHp-m.hp)/m.rounds;
+            assert.ok(
+                response.hp>damage.hp||(damage.rounds<response.rounds&&lossPerRound(response)<lossPerRound(damage)),
+                `${key} ${policy}: ${response.hp} hp in ${response.rounds} rounds vs ${damage.hp} hp in ${damage.rounds}`,
+            );
         }
     });
 });

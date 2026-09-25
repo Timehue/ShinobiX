@@ -4,8 +4,6 @@ export const MAX_STAT = 2500;
 export const EP_MULTIPLIER = 32;
 export const JUTSU_MAX_LEVEL = 50;
 export const MASTERY_MIN_DAMAGE_FRAC = 0.3;
-/** Extra direct damage for ordinary hand and thrown weapon attacks. Pierce is exempt. */
-export const WEAPON_SWING_DAMAGE_MULTIPLIER = 1.3;
 
 export const JUTSU_LEVEL_CAP_ACADEMY = 10;
 export const JUTSU_LEVEL_CAP_GENIN = 20;

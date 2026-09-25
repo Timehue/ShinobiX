@@ -43,7 +43,6 @@ import {
     shieldAmountForMastery,
     WEAPON_AMP_TAG_CAP,
     WEAPON_POISON_TAG_CAP,
-    WEAPON_SWING_DAMAGE_MULTIPLIER,
     statusDurationFor,
     weatherMultiplier,
     withDisciplineBonuses,
@@ -922,8 +921,9 @@ function resolveDamageNumber(self: PvpFighter, opponent: PvpFighter, jutsu: Juts
     if (pierce) return damage;
     if (attackerStatuses.some(status => status.source === 'item-smoke-bomb')) return 0;
     const defensePill = defenderStatuses.some(status => status.source === 'item-defense-pill') ? 0.85 : 1;
-    const weaponSwing = jutsu.weaponSwing === true ? WEAPON_SWING_DAMAGE_MULTIPLIER : 1;
-    return Math.max(0, Math.floor(damage * weaponSwing * attackPill * defensePill));
+    // A weapon's strength is its authored EP (the catalog ladder and the named
+    // forge's roll): there is no hidden per-swing damage multiplier.
+    return Math.max(0, Math.floor(damage * attackPill * defensePill));
 }
 
 // Phase 4 — the post-damage consequence pipeline. Resolution order is LOAD-BEARING
