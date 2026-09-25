@@ -16,7 +16,7 @@
  * save-lock replies that only ask for a retry. scripts/slow-down-notice-contract
  * .test.mjs fails if the server wording stops matching.
  */
-const SLOW_DOWN_PATTERN = /going a little fast|rate limit exceeded|too many (?:[a-z-]+ )?requests|\(rate limited\)|concurrent save in flight|change is saving\. retry/i;
+const SLOW_DOWN_PATTERN = /this action is temporarily unavailable\. try again in|going a little fast|rate limit exceeded|too many (?:[a-z-]+ )?requests|\(rate limited\)|concurrent save in flight|change is saving\. retry/i;
 
 export const SLOW_DOWN_TOAST_GAP_MS = 20_000;
 

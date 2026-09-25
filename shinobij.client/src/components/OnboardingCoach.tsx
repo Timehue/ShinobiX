@@ -250,10 +250,13 @@ export function OnboardingCoach({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [step, character.academyTrialClaimed]);
 
+    const logbookCommitInFlight = useRef(false);
     useEffect(() => {
-        if (step === "logbook" && screen === "logbook") {
-            updateCharacter({ ...character, onboardingStep: "sectorReturn" });
-        }
+        if (step !== "logbook" || screen !== "logbook" || logbookCommitInFlight.current) return;
+        logbookCommitInFlight.current = true;
+        void persistNarrativeAction("logbook")
+            .catch((error) => alert(error instanceof Error ? error.message : "The Academy Logbook step could not be saved."))
+            .finally(() => { logbookCommitInFlight.current = false; });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [step, screen]);
 
