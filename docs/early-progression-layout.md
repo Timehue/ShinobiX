@@ -1,5 +1,11 @@
 # Early-Game Progression — Master Layout
 
+> **Lifecycle:** historical design proposal, not a current-state implementation
+> map. Its first-session and onboarding proposals predate the companion-led
+> Academy Path. See [`first-session-20-30-minute-map.md`](./first-session-20-30-minute-map.md)
+> for the implemented tutorial and current improvement plan. The later level,
+> rank, and economy proposals below must be checked against runtime before use.
+
 The consolidated, refined plan for the new-player journey (creation → Genin →
 toward Chunin), built to **work within the systems already in the game**. This is
 the overview; detail lives in:
