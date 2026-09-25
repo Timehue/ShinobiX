@@ -623,11 +623,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Owner reads wait out the arrival settler instead of failing fast. The
         // heartbeat settles each arrival while HOLDING the lease lock, and this read
         // is exactly the 409-recovery refetch that follows a trip — so with the
-        // default ~775ms budget it collided with that settle, answered 503, and the
-        // client counted a failed recovery toward the red save-failure banner (two
-        // failures raise it). Same budget and reasoning as a waiting action
-        // (TRAVEL_ACTION_SETTLE_ATTEMPTS: last try ~3.2s, worst ~6.4s, well inside
-        // the client's 15s save-request timeout). Mutual exclusion is unchanged.
+        // default 5-attempt budget (last try ~375ms in) it collided with that
+        // settle, answered 503, and the client counted a failed recovery toward
+        // the red save-failure banner (two failures raise it). Same budget and
+        // reasoning as a waiting action (TRAVEL_ACTION_SETTLE_ATTEMPTS: last try
+        // ~3.2s, where the fail-closed lock gives up, well inside the client's 15s
+        // save-request timeout). Mutual exclusion is unchanged.
         if (ownerTravel && Date.now() >= ownerTravel.arrivalAt) {
             try {
                 const travel = await import('../_realtime/travel-lease.js');
@@ -1251,17 +1252,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         // replayed autosave carrying the same transition is inert,
                         // and a telemetry outage can never fail a save.
                         if (identityName && afterCharacter) {
-                            for (const step of observeOnboardingFunnel({
+                            const observations = observeOnboardingFunnel({
                                 beforeCharacter,
                                 afterCharacter,
                                 beforeTopLevel: existingObj as Record<string, unknown> | null,
                                 afterTopLevel: payload as Record<string, unknown>,
-                            })) {
-                                void recordBetaFunnelStep(step.event, identityName, {
-                                    ...(step.step ? { step: step.step } : {}),
-                                    ...(step.level === undefined ? {} : { level: step.level }),
-                                });
-                            }
+                            });
+                            // Preserve Academy start -> first step ordering so the
+                            // first step can read the UTC cohort date written by
+                            // the start gate. This remains detached from the save.
+                            void (async () => {
+                                for (const step of observations) {
+                                    await recordBetaFunnelStep(step.event, identityName, {
+                                        ...(step.step ? { step: step.step } : {}),
+                                        ...(step.level === undefined ? {} : { level: step.level }),
+                                    });
+                                }
+                            })();
                         }
                         if (identityName && beforeCharacter && afterCharacter && beforeLevel < WORLD_CRISIS_TRIGGER_LEVEL && afterLevel >= WORLD_CRISIS_TRIGGER_LEVEL) {
                             try {

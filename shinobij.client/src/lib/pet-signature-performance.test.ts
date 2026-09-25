@@ -12,8 +12,8 @@ const catalog = [
     ...STARTER_EVOLUTIONS,
 ];
 
-test("all 160 production pets receive stable, individually distinct performance direction", () => {
-    assert.equal(catalog.length, 160);
+test("all 161 production pets receive stable, individually distinct performance direction", () => {
+    assert.equal(catalog.length, 161);
     const signatures = catalog.map((pet) => {
         const profile = approvedRosterCombatModel(pet)?.profile
             ?? (pet.id.startsWith("starter-wind") ? "avian"
@@ -28,8 +28,8 @@ test("all 160 production pets receive stable, individually distinct performance 
             profile,
         });
     });
-    assert.equal(new Set(signatures.map((signature) => signature.key)).size, 160);
-    assert.equal(new Set(signatures.map((signature) => signature.seed)).size, 160);
+    assert.equal(new Set(signatures.map((signature) => signature.key)).size, 161);
+    assert.equal(new Set(signatures.map((signature) => signature.seed)).size, 161);
     assert.ok(signatures.every((signature) => signature.orbitCount >= 2 && signature.orbitCount <= 5));
     assert.ok(signatures.every((signature) => signature.impactRays >= 6 && signature.impactRays <= 9));
     assert.ok(signatures.every((signature) => signature.trailLanes >= 3 && signature.trailLanes <= 6));

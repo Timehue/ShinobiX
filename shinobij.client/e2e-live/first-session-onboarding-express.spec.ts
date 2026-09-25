@@ -3,6 +3,7 @@ import { openLandingLogin } from '../e2e/helpers/landing-navigation';
 
 type Session = {
     sessionId: string;
+    ownerSlug: string;
     version: number;
     status: 'active' | 'done';
     winner: 'player' | 'enemy' | 'draw' | null;
@@ -157,8 +158,16 @@ async function createCharacter(page: Page, playerName: string, password: string)
     await page.locator('#cc-password').fill(password);
     await page.locator('#cc-confirm-password').fill(password);
 
-    const firstSave = page.waitForResponse((response) => response.request().method() === 'POST'
-        && new URL(response.url()).pathname.toLowerCase() === `/api/save/${playerName.toLowerCase()}`);
+    // Same owner-slug rule as the test body; this helper cannot see its local.
+    const playerKey = playerName.toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32);
+    const firstSave = page.waitForResponse((response) => {
+        const url = new URL(response.url());
+        const requestedName = decodeURIComponent(url.pathname.split('/').pop() ?? '')
+            .toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32);
+        return response.request().method() === 'POST'
+            && url.pathname.toLowerCase().startsWith('/api/save/')
+            && requestedName === playerKey;
+    });
     await page.getByRole('button', { name: 'Enter the World' }).click();
     expect((await firstSave).status()).toBe(200);
     await expect(page.locator('.icx-root')).toBeVisible();
@@ -191,7 +200,9 @@ test(`a new player completes the full persisted Academy first session against bu
         });
     }
 
-    const playerName = `Journey${Date.now().toString(36).slice(-7)}`;
+    // Keep a space in this display name to exercise the client/server owner-slug boundary.
+    const playerName = `Journey ${Date.now().toString(36).slice(-7)}`;
+    const playerKey = playerName.toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32);
     const password = 'Journey!Pass1234';
     const runtimeErrors: string[] = [];
     const serverFailures: string[] = [];
@@ -321,6 +332,7 @@ test(`a new player completes the full persisted Academy first session against bu
     expect(sparStartHttp.status()).toBe(200);
     const started = await sparStartHttp.json() as { runId: string; session: Session };
     expect(started.session.sessionId).toBe(started.runId);
+    expect(started.session.ownerSlug).toBe(playerKey);
     await expect(page.locator('.mission-arena-fight')).toBeVisible();
 
     // Learn the actual command/target interaction before the persistence solver
@@ -328,6 +340,7 @@ test(`a new player completes the full persisted Academy first session against bu
     // cannot cover the vitals or the action tray on a phone.
     await expect(page.locator('.combat-action-notice .spar-coach-hint')).toContainText('Move');
     await expect(page.locator('body > .spar-coach-banner')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Move/ })).toBeEnabled();
     await page.getByRole('button', { name: /^Move/ }).click();
     const moveReply = page.waitForResponse(response => response.request().method() === 'POST'
         && new URL(response.url()).pathname === '/api/solo-pve/action');
@@ -484,7 +497,7 @@ test(`a new player completes the full persisted Academy first session against bu
     const mobileMenu = page.getByRole('dialog', { name: 'Shinobi menu' });
     await expect(mobileMenu).toBeVisible();
     const logoutSave = page.waitForResponse((response) => response.request().method() === 'POST'
-        && new URL(response.url()).pathname.toLowerCase() === `/api/save/${playerName.toLowerCase()}`);
+        && new URL(response.url()).pathname.toLowerCase() === `/api/save/${encodeURIComponent(playerName.toLowerCase())}`);
     await mobileMenu.getByRole('button', { name: 'Logout' }).click();
     expect((await logoutSave).status()).toBe(200);
     await expect(page.getByTestId('start-create')).toBeVisible();
@@ -494,7 +507,7 @@ test(`a new player completes the full persisted Academy first session against bu
     await page.getByLabel('Name').fill(playerName);
     await page.getByPlaceholder('Enter your password').fill(password);
     const loginSave = page.waitForResponse((response) => response.request().method() === 'GET'
-        && new URL(response.url()).pathname.toLowerCase() === `/api/save/${playerName.toLowerCase()}`);
+        && new URL(response.url()).pathname.toLowerCase() === `/api/save/${encodeURIComponent(playerName.toLowerCase())}`);
     await page.getByRole('button', { name: 'Enter Village' }).click();
     expect((await loginSave).status()).toBe(200);
     await expect(page.locator('.stormveil-village-screen')).toBeVisible();

@@ -42,6 +42,7 @@ import type { PetVisualQualityConfig } from "../lib/pet-visual-quality";
 import {
     moveAccentFamily,
     moveAccentVariant,
+    celestialLionTechniqueTint,
     type MoveAccentFamily,
 } from "../lib/showdown-vfx-map";
 
@@ -818,7 +819,8 @@ function AccentRing({ spawn, family }: { spawn: KindAccentSpawn; family: MoveAcc
             mm.opacity = (family === 25 ? 0.48 : 0.72) * (k < 0.2 ? k / 0.2 : (1 - k) / 0.8);
         });
     });
-    const tint = family === 24 ? "#6ee7a0"
+    const tint = spawn.moveName === "Cloudborne Mending" ? celestialLionTechniqueTint(spawn.moveName)!
+        : family === 24 ? "#6ee7a0"
         : family === 17 ? "#ffe08a"
             : family === 18 ? "#7dd3fc"
                 : family === 25 ? ELEMENT_GLOW[spawn.element] ?? "#dbeafe"
@@ -905,10 +907,11 @@ function AccentGeneric({ spawn, family }: { spawn: KindAccentSpawn; family: Move
         const rand = seededRand((spawn.key + moveAccentVariant(spawn.moveName) * 109) * 71 + 17);
         return Array.from({ length: COUNT }, () => ({ angle: rand() * Math.PI * 2, r: 0.35 + rand() * 0.75, phase: rand() }));
     }, [spawn.key, spawn.moveName]);
-    const glow = ELEMENT_GLOW[spawn.element] ?? "#ffe9c0";
+    const glow = celestialLionTechniqueTint(spawn.moveName) ?? ELEMENT_GLOW[spawn.element] ?? "#ffe9c0";
     const variant = moveAccentVariant(spawn.moveName);
     const weightScale = (spawn.weight === "heavy" ? 1.18 : spawn.weight === "light" ? 0.88 : 1) * (spawn.superMove ? 1.22 : 1);
-    const accent = family === 3 || family === 9 ? "#ff6678"
+    const accent = spawn.moveName === "Celestial Tempest: Lion's Descent" ? glow
+        : family === 3 || family === 9 ? "#ff6678"
         : family === 7 ? "#b17cff"
             : family === 8 ? "#ff9a55"
                 : family === 10 ? "#ffe86b"
@@ -1097,9 +1100,49 @@ function AccentGeneric({ spawn, family }: { spawn: KindAccentSpawn; family: Move
     );
 }
 
+function CelestialGaleBurst({ spawn }: { spawn: KindAccentSpawn }) {
+    const root = useRef<THREE.Group>(null);
+    const ring = useRef<THREE.MeshBasicMaterial>(null);
+    const rays = useRef<Array<THREE.MeshBasicMaterial | null>>([]);
+    const count = spawn.reducedMotion ? 6 : 10;
+    useFrame(({ camera }) => {
+        const t = accentT(spawn);
+        const visible = t >= 0 && t < 1;
+        if (!root.current) return;
+        root.current.visible = visible;
+        if (!visible) return;
+        const rise = 1 - (1 - Math.min(1, t)) ** 2;
+        root.current.position.set(spawn.x, 1.35 + rise * .3, spawn.z);
+        root.current.quaternion.copy(camera.quaternion);
+        root.current.rotateZ(t * 2.2);
+        root.current.scale.setScalar((.7 + rise * 1.15) * (spawn.reducedMotion ? .82 : 1));
+        const opacity = Math.sin(Math.PI * t);
+        if (ring.current) ring.current.opacity = opacity * .82;
+        rays.current.forEach((material, index) => {
+            if (material) material.opacity = opacity * (index % 3 === 0 ? .75 : .52);
+        });
+    });
+    return <group ref={root} visible={false}>
+        <mesh>
+            <torusGeometry args={[.36, .045, 6, 48, Math.PI * 1.7]} />
+            <meshBasicMaterial ref={ring} color="#d4fff1" {...ADDITIVE_MATERIAL_PROPS} side={THREE.DoubleSide} />
+        </mesh>
+        {Array.from({ length: count }, (_, index) => {
+            const angle = index * Math.PI * 2 / count;
+            return <mesh key={index} position={[Math.sin(angle) * .58, Math.cos(angle) * .58, 0]} rotation={[0, 0, angle + .55]}>
+                <planeGeometry args={[index % 3 === 0 ? .11 : .07, index % 3 === 0 ? .42 : .3]} />
+                <meshBasicMaterial ref={material => { rays.current[index] = material; }} color={index % 3 === 0 ? "#e8d9a3" : index % 2 ? "#80e7d3" : "#effff8"} {...ADDITIVE_MATERIAL_PROPS} side={THREE.DoubleSide} />
+            </mesh>;
+        })}
+    </group>;
+}
+
 export function KindAccentFx({ spawn }: { spawn: KindAccentSpawn }) {
     const family = moveAccentFamily(spawn.kind);
     if (!family) return null;
+    if (spawn.moveName === "Celestial Tempest: Lion's Descent") {
+        return <><AccentGeneric spawn={spawn} family={family} /><CelestialGaleBurst spawn={spawn} /></>;
+    }
     if (family === 20 || family === 21 || family === 26) return <AccentDefense spawn={spawn} family={family} />;
     if (family === 9 || family === 6) return <AccentSlash spawn={spawn} family={family} />;
     if (family === 17 || family === 18 || family === 24 || family === 25 || family === 13 || family === 15) {
@@ -1134,7 +1177,7 @@ function AccentDefense({ spawn, family }: { spawn: KindAccentSpawn; family: Move
         {Array.from({ length: count }, (_, i) => <group key={i} ref={node => { panels.current[i] = node; }}>
             <mesh>
                 {family === 20 ? <sphereGeometry args={[1.3, 24, 12, 0, Math.PI * 2, 0, Math.PI * .57]} /> : <circleGeometry args={[family === 26 ? .63 : .72, 6]} />}
-                <meshBasicMaterial color={ELEMENT_GLOW[spawn.element] ?? "#8ed8ff"} {...TRANSPARENT_MATERIAL_PROPS} side={THREE.DoubleSide} />
+                <meshBasicMaterial color={celestialLionTechniqueTint(spawn.moveName) ?? ELEMENT_GLOW[spawn.element] ?? "#8ed8ff"} {...TRANSPARENT_MATERIAL_PROPS} side={THREE.DoubleSide} />
             </mesh>
             <mesh userData={{ outline: true }}>
                 {family === 20 ? <sphereGeometry args={[1.32, 12, 6, 0, Math.PI * 2, 0, Math.PI * .57]} /> : <ringGeometry args={[family === 26 ? .57 : .66, family === 26 ? .63 : .72, 6]} />}
@@ -1213,7 +1256,7 @@ export function CastGlyphFx({ beatRef, posRef, reduced = false }: {
         const env = active && ev ? showdownChargeEnvelope(frac, showdownAttackRhythm({ weight: ev.weight, superMove: ev.super, delivery: ev.delivery })) : 0;
         const show = active && !!pos && env > 0;
         const scale = (ev?.super ? 2.9 : 2.05) * (0.85 + Math.min(1, frac * 2) * 0.15);
-        const tint = ELEMENT_GLOW[ev?.element ?? ""] ?? "#ffe9c0";
+        const tint = celestialLionTechniqueTint(ev?.moveName ?? "") ?? ELEMENT_GLOW[ev?.element ?? ""] ?? "#ffe9c0";
         if (inner.current && innerMat.current) {
             inner.current.visible = show;
             if (show && pos) {
@@ -1298,7 +1341,7 @@ export function ChargeOrbFx({ beatRef, posRef, onSun, quality, reduced = false }
         // The orb SWELLS toward the release.
         const charge = env;
         const base = (ev?.super ? 0.34 : 0.22) * (0.55 + charge * 0.75);
-        const tint = ELEMENT_GLOW[ev?.element ?? ""] ?? "#ffe9c0";
+        const tint = celestialLionTechniqueTint(ev?.moveName ?? "") ?? ELEMENT_GLOW[ev?.element ?? ""] ?? "#ffe9c0";
         const y = 1.25;
         const set = (m: THREE.Mesh | null, mm: THREE.MeshBasicMaterial | null, s: number, o: number) => {
             if (!m || !mm) return;

@@ -154,10 +154,13 @@ describe('shared sector gathering pool', () => {
         const { maxAttempts, baseBackoffMs, ttlSec, failClosed } = pool.SECTOR_POOL_LOCK;
         assert.equal(failClosed, true, 'two explorers must never both win the last slot');
         assert.ok(maxAttempts > 5, 'more attempts than withKvLock default');
-        // withLockCore backs off base * 2^attempt plus up to `base` of jitter.
-        const worstCaseMs = Array.from({ length: maxAttempts }, (_, i) => baseBackoffMs * 2 ** i + baseBackoffMs)
+        // withLockCore backs off base * 2^attempt plus up to `base` of jitter
+        // BETWEEN attempts; a fail-closed lock gives up right after its last try.
+        const worstCaseWaitMs = (attempts: number, base: number) => Array.from({ length: attempts - 1 }, (_, i) => base * 2 ** i + base)
             .reduce((sum, ms) => sum + ms, 0);
-        assert.ok(worstCaseMs > 775, `worst-case wait ${worstCaseMs}ms must beat the old 5 x 25ms budget (775ms)`);
+        const defaultWorstCaseMs = worstCaseWaitMs(5, 25);
+        const worstCaseMs = worstCaseWaitMs(maxAttempts, baseBackoffMs);
+        assert.ok(worstCaseMs > defaultWorstCaseMs, `worst-case wait ${worstCaseMs}ms must beat the default 5 x 25ms budget (${defaultWorstCaseMs}ms)`);
         assert.ok(worstCaseMs < 5_000, `worst-case wait ${worstCaseMs}ms must fit inside lock:save:<name>'s 5s TTL`);
         assert.ok(ttlSec >= 10, 'and the pool row lock itself gets generous headroom');
     });

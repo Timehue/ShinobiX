@@ -41,8 +41,9 @@ describe('onboarding funnel observation', () => {
         // A veteran has no stored step at all; the client normalizer reads that
         // as 'done'. They must not be counted as having completed onboarding.
         assert.deepEqual(events({ beforeCharacter: chr(), afterCharacter: chr() }), []);
-        assert.ok(!events({ beforeCharacter: chr(), afterCharacter: chr({ onboardingStep: 'done' }) })
-            .includes('academy.completed'));
+        assert.deepEqual(events({ beforeCharacter: chr(), afterCharacter: chr({ onboardingStep: 'done' }) }), []);
+        assert.deepEqual(events({ beforeCharacter: chr(), afterCharacter: chr({ onboardingStep: 'training' }) }), [],
+            'missing prior state only begins the funnel at the actual first beat');
     });
 
     it('normalizes the legacy step aliases instead of dropping those saves', () => {
@@ -125,6 +126,8 @@ describe('onboarding funnel stays wired and in sync', () => {
         const save = readFileSync(join(process.cwd(), 'api', 'save', '[name].ts'), 'utf8');
         assert.match(save, /observeOnboardingFunnel\(\{/);
         assert.match(save, /recordBetaFunnelStep\(step\.event, identityName/);
+        assert.match(save, /for \(const step of observations\) \{\s*await recordBetaFunnelStep/,
+            'start and first-step gates must run in order to propagate the cohort start date');
         assert.ok(save.indexOf('await Promise.all([') < save.indexOf('observeOnboardingFunnel({'),
             'the funnel must be observed after the save is persisted');
     });

@@ -154,6 +154,7 @@ const MYTHIC_ROLE: Record<string, { role: PetRole; subRole: PetSubRole }> = {
     "Turtle Duck": { role: "tracker", subRole: "control" },         // trickster — debuff/confuse/mark
     "Stormgod Raijin": { role: "assassin", subRole: "striker" },    // stun/haste burst
     "Worldroot Colossus": { role: "defender", subRole: "tank" },    // taunt + heal immovable
+    "Celestial Lion": { role: "defender", subRole: "tank" },        // ward + taunt + heal protector
 };
 
 /**

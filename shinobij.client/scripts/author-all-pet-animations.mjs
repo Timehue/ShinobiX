@@ -598,6 +598,27 @@ function bankFor(pet, family, profile, type) {
         ];
     }
     const bank = [...core, ...identityPresentationBank(core, tuning)];
+    if (pet.id === "mythic-15") {
+        // The lion uses the normal quadruped gait while its extra shoulder bones
+        // articulate the feathered wings in every combat state.
+        const wingDrive = {
+            idle: 0.08, idle_2: 0.15, walk: 0.11, gallop: 0.18,
+            gallop_jump: 0.45, attack: 0.27, idle_hitreact1: -0.12,
+            death: -0.42, entrance: 0.58, cast: 0.36, guard: 0.43,
+            rest: 0.04, victory: 0.52,
+        };
+        for (const take of bank) {
+            const drive = wingDrive[take.name] ?? 0.1;
+            const duration = take.times.at(-1);
+            const values = take.times.map((time) => take.name === "death"
+                ? time / duration : Math.sin(Math.PI * time / duration));
+            for (const side of ["L", "R"]) {
+                const sign = side === "L" ? -1 : 1;
+                take.tracks.push(r(`angel_wing_upper.${side}`, values.map((value) => [0, 0, sign * drive * value])));
+                take.tracks.push(r(`angel_wing_mid.${side}`, values.map((value) => [0, 0, -sign * drive * 0.42 * value])));
+            }
+        }
+    }
     return { bank, tuning };
 }
 
@@ -747,8 +768,8 @@ const catalog = [
     ...STARTER_PETS.map((option) => option.pet),
     ...STARTER_EVOLUTIONS,
 ];
-invariant(catalog.length === 160, `expected 160 production pets, found ${catalog.length}`);
-invariant(new Set(catalog.map((pet) => pet.id)).size === 160, "production pet ids must be unique");
+invariant(catalog.length === 161, `expected 161 production pets, found ${catalog.length}`);
+invariant(new Set(catalog.map((pet) => pet.id)).size === 161, "production pet ids must be unique");
 
 const selectedIds = new Set(process.argv.slice(2));
 const selected = catalog.filter((pet) => !INDIVIDUAL_PET_ANIMATION_MODEL_IDS.has(pet.id)

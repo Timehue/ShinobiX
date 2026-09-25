@@ -1,5 +1,5 @@
 import { kv as realKv } from './_storage.js';
-import { recordBetaMetric, type BetaMetricInput } from './_beta-metrics.js';
+import { betaDateKey, recordBetaMetric, type BetaMetricInput } from './_beta-metrics.js';
 
 /*
  * Once-per-PLAYER onboarding funnel steps.
@@ -31,7 +31,7 @@ export type BetaFunnelEvent =
     | 'combat.first_completed'
     | 'sector.first_entered';
 
-type FunnelKv = Pick<typeof realKv, 'set'>;
+type FunnelKv = Pick<typeof realKv, 'get' | 'set'>;
 type MetricRecorder = (input: BetaMetricInput) => void;
 
 export type BetaFunnelDeps = {
@@ -42,6 +42,8 @@ export type BetaFunnelDeps = {
     /** Level band only — the raw level is never stored. */
     level?: number;
     source?: string;
+    /** Event timestamp, mainly for deterministic cohort recording in tests. */
+    ts?: number;
 };
 
 /**
@@ -78,16 +80,26 @@ export async function recordBetaFunnelStep(
         const slug = betaFunnelSlug(playerName);
         if (!slug) return false;
         const store = deps.kv ?? realKv;
+        const ts = deps.ts ?? Date.now();
+        const academyCohortDate = event === 'academy.started'
+            ? betaDateKey(ts)
+            : event === 'academy.step.reached'
+                ? await store.get<string>(`beta:funnel:academy.started:${slug}`).catch(() => null)
+                : null;
         const gate = await store.set(
             `beta:funnel:${event}${stepSuffix(deps.step)}:${slug}`,
-            '1',
+            event === 'academy.started' ? betaDateKey(ts) : '1',
             { nx: true, ex: BETA_FUNNEL_TTL_SECONDS },
         );
         if (gate !== 'OK') return false;
         const input: BetaMetricInput = {
             event,
+            ...(event === 'academy.step.reached' && deps.step ? { academyStep: deps.step } : {}),
+            ...(event === 'academy.started' ? { academyCohortDate: betaDateKey(ts) } : {}),
+            ...(event === 'academy.step.reached' && academyCohortDate ? { academyCohortDate } : {}),
             ...(Number.isFinite(Number(deps.level)) ? { level: Number(deps.level) } : {}),
             ...(deps.source ? { source: deps.source } : {}),
+            ...(deps.ts === undefined ? {} : { ts }),
         };
         // Best-effort; the recorder catches its own storage failures.
         (deps.record ?? ((value) => { void recordBetaMetric(value); }))(input);

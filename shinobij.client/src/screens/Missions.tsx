@@ -196,6 +196,12 @@ export function Missions({
         return applied;
     }
 
+    // App passes a fresh onVersionedCharacter every render, so adoptFieldTrail
+    // changes identity every render too. Read it through a ref: with it in the
+    // deps, every App re-render re-synced every accepted contract, which spent
+    // the field-trail rate limit and made the next Abandon/Accept a 429.
+    const adoptFieldTrailRef = useRef(adoptFieldTrail);
+    useEffect(() => { adoptFieldTrailRef.current = adoptFieldTrail; }, [adoptFieldTrail]);
     useEffect(() => {
         const owner = character.name;
         const ids = acceptedFieldMissionKey ? acceptedFieldMissionKey.split("|") : [];
@@ -205,12 +211,12 @@ export function Missions({
             for (const missionId of ids) {
                 const result = await postFieldTrail({ playerName: owner, missionId, action: "state" });
                 if (cancelled) return;
-                if (!adoptFieldTrail(result)) continue;
+                if (!adoptFieldTrailRef.current(result)) continue;
                 if (result.migrated) window.setTimeout(() => alert("The Mission Hall recalibrated an older field contract onto its verified ledger."), 40);
             }
         })();
         return () => { cancelled = true; };
-    }, [acceptedFieldMissionKey, adoptFieldTrail, character.name]);
+    }, [acceptedFieldMissionKey, character.name]);
 
     if (authoritativeFight) {
         return (

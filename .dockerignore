@@ -27,6 +27,7 @@ release-audit
 **/*.spec.*
 shinobij.client/e2e*
 shinobij.client/art-references
+shinobij.client/art-source
 shinobij.client/playwright*.ts
 shinobij.client/*preview.html
 

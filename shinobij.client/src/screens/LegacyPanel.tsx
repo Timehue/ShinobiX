@@ -114,10 +114,16 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
         };
     }, []);
 
+    // App passes a fresh onVersionedCharacter every render. Read it through a
+    // ref so `reload` stays stable; otherwise the mount effect below re-fetched
+    // legacy status and definitions on every App render.
+    const commitRef = useRef(onVersionedCharacter);
+    useEffect(() => { commitRef.current = onVersionedCharacter; }, [onVersionedCharacter]);
     const reload = useCallback(() => {
         const request = ++statusRequestRef.current;
         void fetchLegacyStatus(character.name).then((s) => {
             if (!mountedRef.current || request !== statusRequestRef.current) return;
+            const onVersionedCharacter = commitRef.current;
             if (s?.character && typeof s._saveVersion === "number"
                 && onVersionedCharacter(s.character, s._saveVersion) === false) {
                 // The response belongs to this mounted account, but a newer
@@ -129,7 +135,7 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
             setStatus(s);
             setLoaded(true);
         });
-    }, [character.name, onVersionedCharacter]);
+    }, [character.name]);
 
     useEffect(() => {
         if (!enabled) return;

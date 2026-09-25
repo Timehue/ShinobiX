@@ -33,9 +33,9 @@ function parseGlb(path: string) {
     return JSON.parse(file.subarray(20, 20 + jsonLength).toString("utf8").replace(/[\0\s]+$/u, ""));
 }
 
-test("all 160 production pets have complete proper skeletal animation banks", () => {
-    assert.equal(catalog.length, 160);
-    assert.equal(new Set(catalog.map((pet) => pet.id)).size, 160);
+test("all 161 production pets have complete proper skeletal animation banks", () => {
+    assert.equal(catalog.length, 161);
+    assert.equal(new Set(catalog.map((pet) => pet.id)).size, 161);
     const families = new Set<string>();
     const rigs = new Set<string>();
     const signatureSeeds = new Set<number>();
@@ -89,7 +89,7 @@ test("all 160 production pets have complete proper skeletal animation banks", ()
 
         for (const animation of json.animations) {
             assert.ok(animation.channels.length >= 4, `${pet.id}/${animation.name}: take is too sparse`);
-            assert.ok(animation.channels.length <= (pet.id === "starter-lightning-l" ? 16 : 9), `${pet.id}/${animation.name}: excessive whole-rig animation channels`);
+            assert.ok(animation.channels.length <= (pet.id === "starter-lightning-l" ? 16 : pet.id === "mythic-15" ? 13 : 9), `${pet.id}/${animation.name}: excessive whole-rig animation channels`);
             assert.equal(animation.channels.length, animation.samplers.length);
             for (const sampler of animation.samplers) {
                 const input = json.accessors[sampler.input];
@@ -101,17 +101,17 @@ test("all 160 production pets have complete proper skeletal animation banks", ()
     }
 
     assert.equal(individual, 4);
-    assert.equal(identityAuthored, 156);
-    assert.equal(individual + identityAuthored, 160, "every production pet must be identity-directed");
-    assert.equal(signatureSeeds.size, 156, "every generated GLB needs a distinct identity signature");
-    assert.equal(identityFingerprints.size, 156, "every generated GLB needs a distinct performance fingerprint");
+    assert.equal(identityAuthored, 157);
+    assert.equal(individual + identityAuthored, 161, "every production pet must be identity-directed");
+    assert.equal(signatureSeeds.size, 157, "every generated GLB needs a distinct identity signature");
+    assert.equal(identityFingerprints.size, 157, "every generated GLB needs a distinct performance fingerprint");
     assert.equal(showcaseFingerprints.size, 4, "every bespoke showcase GLB needs a distinct performance fingerprint");
-    assert.equal(new Set([...identityFingerprints, ...showcaseFingerprints]).size, 160, "all production performances must be unique");
+    assert.equal(new Set([...identityFingerprints, ...showcaseFingerprints]).size, 161, "all production performances must be unique");
     assert.ok(families.size >= 12, "family coverage collapsed into too few motion styles");
     assert.deepEqual([...rigs].sort(), ["avian", "bat", "biped", "crab", "insect", "moth", "quadruped"]);
 });
 
-test("all 160 catalog identities resolve to a versioned runtime GLB with the full clip contract", () => {
+test("all 161 catalog identities resolve to a versioned runtime GLB with the full clip contract", () => {
     for (const pet of catalog) {
         const model = petCombatModel(pet);
         assert.ok(model, `${pet.id}: production model resolution failed`);
@@ -128,5 +128,20 @@ test("all 160 catalog identities resolve to a versioned runtime GLB with the ful
             IDENTITY_CLIPS,
             `${pet.id}: resolved runtime GLB has an incomplete state contract`,
         );
+    }
+});
+
+test("Celestial Lion has the full pet animation bank and animated wings in every clip", () => {
+    const pet = catalog.find((entry) => entry.id === "mythic-15");
+    assert.equal(pet?.name, "Celestial Lion");
+    assert.equal(pet?.element, "Wind");
+    const json = parseGlb(resolve(import.meta.dirname, "../../public/pet-models/roster/mythic-15.glb"));
+    assert.deepEqual(json.animations.map((animation: { name: string }) => animation.name), IDENTITY_CLIPS);
+    assert.equal(json.extras.properAnimationIdentity.key, "mythic-15:celestial lion");
+    assert.equal(json.extras.properAnimationIdentity.motif, "feather");
+    const wingRoots = ["angel_wing_upper.L", "angel_wing_mid.L", "angel_wing_upper.R", "angel_wing_mid.R"];
+    for (const take of json.animations) {
+        const animatedBones = new Set(take.channels.map((channel: { target: { node: number } }) => json.nodes[channel.target.node]?.name));
+        for (const bone of wingRoots) assert.ok(animatedBones.has(bone), `${take.name}: ${bone} has no motion`);
     }
 });
