@@ -29,7 +29,7 @@ const wrap: CSSProperties = {
     position: "fixed",
     left: 0,
     right: 0,
-    padding: "10px 14px",
+    padding: "8px 12px",
     background: "rgba(2, 6, 23, 0.95)",
     borderTop: "1px solid rgba(250, 204, 21, 0.28)",
     boxShadow: "0 -8px 30px rgba(0, 0, 0, 0.45)",
@@ -42,19 +42,19 @@ const inner: CSSProperties = {
     width: "min(1100px, 100%)",
     margin: "0 auto",
     display: "flex",
-    flexWrap: "wrap",
+    flexWrap: "nowrap",
     alignItems: "center",
     justifyContent: "center",
-    gap: "10px 20px",
+    gap: "8px 12px",
 };
 
 const text: CSSProperties = {
     margin: 0,
-    flex: "1 1 320px",
+    flex: "1 1 auto",
     minWidth: 0,
     color: "#cdd5e3",
-    fontSize: 13,
-    lineHeight: 1.5,
+    fontSize: 12,
+    lineHeight: 1.4,
 };
 
 const link: CSSProperties = {
@@ -66,8 +66,8 @@ const link: CSSProperties = {
 
 const button: CSSProperties = {
     flex: "0 0 auto",
-    minHeight: 38,
-    padding: "8px 22px",
+    minHeight: 34,
+    padding: "6px 15px",
     borderRadius: 8,
     border: "1px solid rgba(250, 204, 21, 0.6)",
     background: "linear-gradient(180deg, #d98a12, #7a350f)",

@@ -302,25 +302,34 @@ test('Warfront start mints its own resumable seed and a battle-result-compatible
     });
 
     const realDateNow = Date.now;
-    Date.now = () => realDateNow() + 6_000;
+    const submittedPlan = { formation: [2, 0, 3, 1], reformAfterClash: null, reform: null };
+    const expectedCommanded = runWarfrontRite(
+        authorityBand(sealedBlue), authorityBand(sealedRed), seed, submittedPlan,
+    );
+    // The receipt retires once the commanded fight could have been watched at
+    // real time (less 5s skew). The 60s anti-seed-shopping minute no longer
+    // holds the result; it paces the next kickoff instead (asserted below).
+    const commandedFloor = playbackStartedAt + Math.max(0, Math.ceil(expectedCommanded.totalSeconds * 1_000) - 5_000);
+    const kickoffPaceEnds = playbackStartedAt + 60_000;
+    assert.ok(commandedFloor < kickoffPaceEnds, 'fixture: this commanded fight is shorter than the kickoff minute');
     try {
-        const early = response();
-        await resultHandler(request({
-            playerName: PLAYER,
-            outcome: 'win',
-            reportKey,
-            battleToken: token,
-        }), early.res);
-        assert.equal(early.out.statusCode, 425, 'an instant loss/discard must not unlock a fresh seed');
-        assert.ok(await kv.get(`pet:battle-token:${PLAYER}:${token}`));
-        assert.equal(await kv.get(`pet:battle-active:${PLAYER}`), token);
+        if (commandedFloor > playbackStartedAt) {
+            Date.now = () => commandedFloor - 1;
+            const early = response();
+            await resultHandler(request({
+                playerName: PLAYER,
+                outcome: 'win',
+                reportKey,
+                battleToken: token,
+                warfrontPlan: submittedPlan,
+            }), early.res);
+            assert.equal(early.out.statusCode, 425, 'a receipt cannot retire before its commanded fight could have played');
+            assert.ok(await kv.get(`pet:battle-token:${PLAYER}:${token}`));
+            assert.equal(await kv.get(`pet:battle-active:${PLAYER}`), token);
+        }
 
-        Date.now = () => settleAfter + 1;
+        Date.now = () => commandedFloor + 1;
         const settled = response();
-        const submittedPlan = { formation: [2, 0, 3, 1], reformAfterClash: null, reform: null };
-        const expectedCommanded = runWarfrontRite(
-            authorityBand(sealedBlue), authorityBand(sealedRed), seed, submittedPlan,
-        );
         await resultHandler(request({
             playerName: PLAYER,
             outcome: 'loss', // deliberately forged; the server replay owns this value
@@ -344,8 +353,22 @@ test('Warfront start mints its own resumable seed and a battle-result-compatible
         assert.ok(settledPets.every((pet) => pet.chronicleArenaWins === 10));
         assert.equal(await kv.get(`pet:battle-token:${PLAYER}:${token}`), null);
         assert.equal(await kv.get(`pet:battle-active:${PLAYER}`), null);
+
+        // Settling early did not unlock a fresh seed: what is left of the
+        // kickoff minute now paces the next Warfront start.
+        const paced = response();
+        await startHandler(request({
+            playerName: PLAYER,
+            playerPetIds: [1, 2, 3, 4].map((index) => `warfront-pet-${index}`),
+        }), paced.res);
+        assert.equal(paced.out.statusCode, 429, 'an instant loss/discard must not unlock a fresh seed');
+        assert.equal(paced.out.body?.code, 'WARFRONT_KICKOFF_PACE');
+        const pacedWait = Number(paced.out.body?.retryAfterMs);
+        assert.ok(pacedWait > 0 && pacedWait <= kickoffPaceEnds - (commandedFloor + 1), `paced wait was ${pacedWait}ms`);
+        assert.equal(await kv.get(`pet:battle-active:${PLAYER}`), null, 'a paced kickoff mints nothing');
     } finally {
         Date.now = realDateNow;
+        await kv.del(`pet:warfront-next-start:${PLAYER}`);
     }
 
     const emptyProbe = response();
@@ -396,9 +419,12 @@ test('Warfront settlement follows the commanded formation replay and its authori
     const baselineDurationMs = Math.ceil(baseline.totalSeconds * 1_000);
     const commandedDurationMs = Math.ceil(commanded.totalSeconds * 1_000);
     const settleAfter = playbackStartedAt + Math.max(60_000, baselineDurationMs - 5_000);
-    const commandedSettleAfter = playbackStartedAt + Math.max(60_000, baselineDurationMs - 5_000, commandedDurationMs - 5_000);
-    assert.ok(commandedSettleAfter >= settleAfter,
-        'a commanded replay must never shorten the authoritative settlement clock');
+    // The receipt follows the fight the player actually commanded: it retires
+    // once THAT duel chain could have played at real time, less 5s skew.
+    const commandedSettleAfter = playbackStartedAt + Math.max(0, commandedDurationMs - 5_000);
+    assert.ok(commandedDurationMs > baselineDurationMs,
+        'fixture: the slowest commanded formation must outlast the sealed baseline, so a baseline clock would settle early');
+    assert.ok(commandedSettleAfter > playbackStartedAt + 1_000, 'fixture: the commanded fight must be long enough to probe early');
 
     const token = 'slowercommandedwarfront';
     const reportKey = `${replaySeed}:tactical-clock-regression`;
@@ -427,7 +453,7 @@ test('Warfront settlement follows the commanded formation replay and its authori
     await kv.set(`pet:battle-active:${PLAYER}`, token);
 
     const realDateNow = Date.now;
-    Date.now = () => playbackStartedAt + 30_000;
+    Date.now = () => commandedSettleAfter - 1;
     try {
         const early = response();
         await resultHandler(request({
@@ -456,10 +482,16 @@ test('Warfront settlement follows the commanded formation replay and its authori
         assert.equal(settled.out.statusCode, 200, `the actual commanded replay should settle on its own clock: ${JSON.stringify(settled.out.body)}`);
         assert.equal(settled.out.body?.outcome, commanded.winner === 'blue' ? 'win' : commanded.winner === 'red' ? 'loss' : 'draw');
         assert.equal(await kv.get(`pet:battle-token:${PLAYER}:${token}`), null);
+        const pace = await kv.get<{ notBefore?: number }>(`pet:warfront-next-start:${PLAYER}`);
+        if (commandedSettleAfter + 1 < playbackStartedAt + 60_000) {
+            assert.equal(pace?.notBefore, playbackStartedAt + 60_000,
+                'a receipt retired inside the kickoff minute must hand the rest of it to the next kickoff');
+        }
     } finally {
         Date.now = realDateNow;
         await kv.delIfEqual(`pet:battle-active:${PLAYER}`, token);
         await kv.del(`pet:battle-token:${PLAYER}:${token}`);
+        await kv.del(`pet:warfront-next-start:${PLAYER}`);
     }
 });
 
