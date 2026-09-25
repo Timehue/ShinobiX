@@ -208,9 +208,9 @@ function BattlePlan({ pets, size }: { pets: Pet[]; size: number }) {
                 <span>Elements <strong>{elements.size ? [...elements].map((e) => <ElIcon key={e} el={e} size={15} />) : "—"}</strong></span>
             </div>
             <div className="bp-tips">
-                <div>🏁 One ring, one duel at a time. Down all four of theirs to take the Rite.</div>
+                <div>🏁 All eight pets fight at once, four a side. Win two clashes to take the Rite.</div>
                 <div>🧠 Pets auto-fight by role — defenders tank, sages heal, trackers poke, assassins dive.</div>
-                <div>♜ The winner of a duel stays in wounded, so a narrow win is also your next problem.</div>
+                <div>♜ The opening clash reveals all four of their positions. Use that read when you re-form.</div>
             </div>
         </div>
     );
@@ -2305,7 +2305,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                                 <div><span>THE CLASH</span><strong>Control sight and space</strong><small>Owned cells prevent shoving; shoji, cover, smoke, range, and roles shape every route.</small></div>
                                                 <div><span>VICTORY</span><strong>Best of three</strong><small>First to two clashes. Bodies standing, then remaining health, decides each clash.</small></div>
                                             </div>
-                                            <p><span>♜ RE-FORM</span>Once per Rite, after the opening clash, you may move any pet to any open deployment cell.</p>
+                                            <p><span>♜ RE-FORM</span>Between clashes, you may move any pet to any open deployment cell.</p>
                                             <p><span>◐ ELEMENTS</span>Type advantage matters, but the band is yours to build — bring whatever you think wins.</p>
                                         </div>
 

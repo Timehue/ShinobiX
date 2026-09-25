@@ -16,6 +16,9 @@ class MemoryKv {
         this.data.set(key, value);
         return 'OK';
     }
+    async mget<T extends unknown[] = unknown[]>(...keys: string[]): Promise<(T[number] | null)[]> {
+        return keys.map((key) => (this.data.get(key) as T[number] | undefined) ?? null);
+    }
 }
 
 test('betaDateKey uses UTC calendar days', () => {
@@ -33,10 +36,12 @@ test('betaLevelBand buckets early beta progression gates', () => {
     assert.equal(betaLevelBand(undefined), 'unknown');
 });
 
-test('records aggregate beta events, level bands, sources, and reward totals', async () => {
+test('records aggregate beta events, canonical Academy steps, level bands, sources, and reward totals', async () => {
     const store = new MemoryKv();
     const now = Date.UTC(2026, 6, 7, 12);
     await recordBetaMetric({ event: 'account.registered', level: 1, source: 'auth', ts: now }, { kv: store });
+    await recordBetaMetric({ event: 'academy.step.reached', academyStep: 'training', level: 1, ts: now }, { kv: store });
+    await recordBetaMetric({ event: 'academy.step.reached', academyStep: 'free-text-is-rejected', ts: now }, { kv: store });
     await recordBetaMetric({
         event: 'mission.claimed',
         level: 14,
@@ -61,9 +66,13 @@ test('records aggregate beta events, level bands, sources, and reward totals', a
     assert.equal(snapshot.daily[0].date, '2026-07-07');
     assert.equal(snapshot.daily[1].date, '2026-07-06');
     assert.equal(snapshot.totals.events['account.registered'], 1);
+    assert.equal(snapshot.totals.events['academy.step.reached'], 2);
+    assert.deepEqual(snapshot.totals.academySteps, { training: 1 }, 'unknown step keys are not stored');
+    assert.deepEqual(snapshot.daily[0].academySteps, { training: 1 });
+    assert.equal('academyCohorts' in snapshot.daily[0], false, 'daily output must not repeat the cohort breakdown');
     assert.equal(snapshot.totals.events['mission.claimed'], 1);
     assert.equal(snapshot.totals.events['bank.interest.claimed'], 1);
-    assert.equal(snapshot.totals.levelBands['L1-9'], 1);
+    assert.equal(snapshot.totals.levelBands['L1-9'], 2);
     assert.equal(snapshot.totals.levelBands['L10-14'], 1);
     assert.equal(snapshot.totals.levelBands['L20-29'], 1);
     assert.equal(snapshot.totals.sources.field, 1);
@@ -86,4 +95,68 @@ test('concurrent beta metric records are serialized without lost updates', async
     const snapshot = await readBetaMetricsSnapshot(1, { kv: store, now });
     assert.equal(snapshot.totals.events['mission.claimed'], 40);
     assert.equal(snapshot.totals.rewardTotals.xp, 200);
+});
+
+test('Academy cohort reach includes later activity days only for starts in the requested window', async () => {
+    const store = new MemoryKv();
+    const startDay = Date.UTC(2026, 6, 7, 12);
+    const nextDay = startDay + 24 * 60 * 60 * 1000;
+    await recordBetaMetric({ event: 'academy.started', academyCohortDate: '2026-07-07', ts: startDay }, { kv: store });
+    await recordBetaMetric({
+        event: 'academy.step.reached',
+        academyStep: 'academyIntro',
+        academyCohortDate: '2026-07-07',
+        ts: startDay,
+    }, { kv: store });
+    await recordBetaMetric({
+        event: 'academy.step.reached',
+        academyStep: 'training',
+        academyCohortDate: '2026-07-07',
+        ts: nextDay,
+    }, { kv: store });
+    await recordBetaMetric({
+        event: 'academy.step.reached',
+        academyStep: 'jutsu',
+        academyCohortDate: '2026-07-06',
+        ts: nextDay,
+    }, { kv: store });
+    await recordBetaMetric({
+        event: 'academy.step.reached',
+        academyStep: 'inventory',
+        academyCohortDate: '2026-07-06',
+        ts: nextDay,
+    }, { kv: store });
+
+    const snapshot = await readBetaMetricsSnapshot(2, { kv: store, now: nextDay });
+    assert.deepEqual(snapshot.academyCohorts, {
+        '2026-07-07': { started: 1, academyIntro: 1, training: 1 },
+    });
+    assert.deepEqual(snapshot.totals.academySteps, { academyIntro: 1, training: 1, jutsu: 1, inventory: 1 });
+});
+
+test('invalid, noncanonical, and future Academy cohort dimensions are discarded', async () => {
+    const store = new MemoryKv();
+    const now = Date.UTC(2026, 6, 7, 12);
+    for (const [academyStep, academyCohortDate] of [
+        ['free-text', '2026-07-07'],
+        ['training', '2026-02-30'],
+        ['training', '2026-07-08'],
+    ]) {
+        await recordBetaMetric({ event: 'academy.step.reached', academyStep, academyCohortDate, ts: now }, { kv: store });
+    }
+    const snapshot = await readBetaMetricsSnapshot(1, { kv: store, now });
+    assert.deepEqual(snapshot.academyCohorts, {});
+    assert.deepEqual(snapshot.totals.academySteps, { training: 2 }, 'the all-time-window step tally is independent of cohort dimensions');
+});
+
+test('cohort aggregation keeps the legacy no-mget store fallback working', async () => {
+    const backing = new MemoryKv();
+    const now = Date.UTC(2026, 6, 7, 12);
+    await recordBetaMetric({ event: 'academy.started', academyCohortDate: '2026-07-07', ts: now }, { kv: backing });
+    const storeWithoutMget = {
+        get: backing.get.bind(backing),
+        set: backing.set.bind(backing),
+    };
+    const snapshot = await readBetaMetricsSnapshot(1, { kv: storeWithoutMget, now });
+    assert.deepEqual(snapshot.academyCohorts, { '2026-07-07': { started: 1 } });
 });

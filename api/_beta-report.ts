@@ -146,6 +146,21 @@ function mapLine(label: string, value: Record<string, number> | undefined): stri
     return `${label}: ${entries.length ? entries.map(([key, count]) => `${key}=${count}`).join(', ') : 'none'}`;
 }
 
+function academyCohortLine(cohorts: Record<string, Record<string, number>>): string {
+    const entries = Object.entries(cohorts).sort(([a], [b]) => a.localeCompare(b));
+    const value = entries.length
+        ? entries.map(([date, steps]) => {
+            const started = Number(steps.started ?? 0);
+            const counts = Object.entries(steps)
+                .filter(([step]) => step !== 'started')
+                .sort(([a], [b]) => a.localeCompare(b));
+            const reaches = counts.length ? counts.map(([step, count]) => `${step}=${count}`).join(', ') : 'none';
+            return `${date} [started=${started}; steps: ${reaches}]`;
+        }).join('; ')
+        : 'none';
+    return `Academy cohorts (UTC start day; started players / step reaches): ${value}`;
+}
+
 export function formatDailyBetaReport(report: DailyBetaReport): string {
     const events = report.metrics.totals.events;
     const rewards = report.metrics.totals.rewardTotals;
@@ -159,6 +174,8 @@ export function formatDailyBetaReport(report: DailyBetaReport): string {
         `ShinobiX beta report — ${new Date(report.generatedAt).toISOString()}`,
         `Window: ${report.metrics.days} day(s)`,
         mapLine('Events', events),
+        mapLine('Academy steps reached', report.metrics.totals.academySteps),
+        academyCohortLine(report.metrics.academyCohorts),
         mapLine('Reward totals', rewards),
         mapLine('Rare grants', rareGrants),
         mapLine('Event level bands', report.metrics.totals.levelBands),

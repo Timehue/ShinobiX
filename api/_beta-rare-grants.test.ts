@@ -79,7 +79,8 @@ describe('the daily report shows rare grants', () => {
         generatedAt: Date.UTC(2026, 7, 28, 12),
         days: 1,
         daily: [],
-        totals: { events: {}, levelBands: {}, sources: {}, rewardTotals: {}, rareGrants },
+        totals: { events: {}, academySteps: {}, levelBands: {}, sources: {}, rewardTotals: {}, rareGrants },
+        academyCohorts: {},
     });
 
     it('renders the tally on its own line, not folded into reward totals', () => {
