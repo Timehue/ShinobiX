@@ -409,10 +409,9 @@ function WorldMapContent({
     onVersionedCharacter: VersionedCharacterCommit;
     onOwnSaveRead: OwnSaveReadCommit;
     capturePvpCreateScope: (ownerName: string) => { signal: AbortSignal; isCurrent: () => boolean };
-    // Launch the REAL weekly-boss fight. The Phase 3 roaming encounter stages a
-    // launch (lib/weekly-boss-launch.ts) and opens the Weekly Boss screen, which
-    // starts the sealed fight — damage → the shared leaderboard and the 3-attempt
-    // cap — and returns the player here when it ends.
+    // Launch the REAL weekly-boss fight: the roaming encounter stages it
+    // (lib/weekly-boss-launch.ts) and the Weekly Boss screen starts the sealed
+    // fight (shared leaderboard, 3-attempt cap), then returns the player here.
     onLaunchWeeklyBoss?: (bossAiId: string, bossDisplayName?: string, returnScreen?: Screen) => void;
 }) {
     const legacyAvailable = useLegacyAvailability();
@@ -1022,12 +1021,9 @@ function WorldMapContent({
         // Brief back-off (~45s) so it doesn't instantly re-lunge on return — NOT a
         // long lockout. The boss stays present in its sector for your remaining
         // attempts (the hard 3-attempt cap is server-enforced). Only a fight that
-        // logs damage burns an attempt. Return to the world map (currentSector is
-        // untouched) so the hunt continues. The Weekly Boss screen takes the
-        // staged launch, starts the fight, and brings the player back here.
+        // logs damage burns an attempt. The fight returns here (currentSector is
+        // untouched) and reopens this sector's board, so the hunt continues.
         coolWeeklyBoss(WEEKLY_BOSS_ROAM_REENGAGE_COOLDOWN_MS);
-        // Reopen this sector's board on return, as the explore ambush and the
-        // wanderer duels do — not the world overview.
         setSectorReopen(selectedSector != null && isWildSector(selectedSector) ? selectedSector : null);
         stageWeeklyBossFight("worldMap");
         onLaunchWeeklyBoss?.(roamingBoss.aiId, roamingBoss.bossName, "worldMap");
