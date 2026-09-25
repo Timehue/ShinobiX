@@ -4,10 +4,10 @@ import type { Character } from "../types/character";
 import type { Pet } from "../types/pet";
 import { PetShowdownBattle } from "./PetShowdownBattle";
 import {
-    fetchShowdownState,
     forfeitShowdown,
-    startArenaBout,
+    startHollowGatePetDuel,
     submitShowdownTurn,
+    type HollowGatePetDuelStart,
     type ShowdownCommand,
     type ShowdownStateView,
 } from "../lib/pet-showdown-api";
@@ -19,29 +19,32 @@ import {
 import { warmShowdownModels } from "../lib/pet-model-preload";
 
 /*
- * A Hollow Gate pet encounter, fought on the Showdown engine.
+ * A Hollow Gate pet encounter, fought as the road beasts' Colosseum duel.
  *
- * The server side of this shipped first and then sat unused: /api/pet/showdown's
- * arena entry has always accepted a Hollow Gate binding, validated the run claim
- * and minted the run's `hg-pet-result` receipt — but nothing called it. The Gate
- * kept routing pet fights through the Pet Arena screen, which minted a
- * battle-start token and fought the legacy client sim. This component is the
- * caller that closes that gap.
+ * "Send pet" opens a server-authoritative Showdown bout drawn exactly like a
+ * road-beast challenge: a random 1v1, 2v2 or 3v3, capped by the ready carried
+ * pets, led by the pet the player sent, against the run's own Hounds. The
+ * server draws the format and both teams. The request carries the run token
+ * and the run id, nothing about either side.
  *
- * THE HANDSHAKE IS UNCHANGED, because it is the anti-cheat boundary:
- * /api/hollow-gate/combat-settle reads `hg-pet-result:<player>:<receipt>` and
- * checks playerName + runId. Only the PRODUCER moved. The receipt is keyed by
- * SESSION ID, so the bout the player actually fought is the handle they settle
- * with, and nothing client-supplied sits in between.
+ * THE SERVER IS THE RESUME POINTER. The encounter's binding names one Showdown
+ * session, so asking to open the duel again after a reload returns that same
+ * session: same format, same pets, same round. A duel that already finished is
+ * settled rather than resumed, which is where a result whose settle call was
+ * lost to the network sits.
  *
- * The opponent is not sent from here. The request carries the run token, the run
- * id and the encounter id; the server builds the Hound.
+ * THE HANDSHAKE IS THE ANTI-CHEAT BOUNDARY. The finishing turn (or a
+ * concession) mints `hg-pet-result:<player>:<session>`, and
+ * /api/hollow-gate/combat-settle pays from the run's own reward table after
+ * checking that receipt against the encounter's binding. The session the player
+ * fought is the handle they settle with.
  *
  * SETTLEMENT IS NOT OPTIONAL, and that shapes the exits. A decided encounter
- * that never reaches combat-settle leaves the run stuck on an unresolved node,
- * so this screen will not hand control back until the Gate has answered: Exit
- * retries a failed settle rather than walking away from it, and the Gate's own
- * Emergency Forfeit remains the escape hatch for a genuinely broken encounter.
+ * that never reaches combat-settle leaves the run on an unresolved node, so
+ * this screen will not hand control back until the Gate has answered: Exit
+ * retries a failed settle rather than walking away from it. A duel that cannot
+ * open at all goes to `onUnavailable`, and the shrine fights the same node as a
+ * shinobi instead.
  */
 
 export type HollowGatePetFightRef = {
@@ -50,100 +53,65 @@ export type HollowGatePetFightRef = {
     nodeId: string;
     floor: number;
     kind: HollowGateCombatKind;
-    /** Encounter identity, minted with the run — the server checks its shape. */
-    houndId: string;
 };
 
 type Phase = "starting" | "fighting" | "settling" | "settled" | "error";
 
-const crumbKeyFor = (runId: string) => `showdown.hollowGate.v1.${runId}`;
-
-function crumbSessionId(runId: string): string {
-    try {
-        return localStorage.getItem(crumbKeyFor(runId)) ?? "";
-    } catch {
-        return "";
-    }
+/** One retry for a busy or unreachable server before the duel is given up. */
+async function openDuel(playerName: string, fight: HollowGatePetFightRef): Promise<HollowGatePetDuelStart> {
+    const open = () => startHollowGatePetDuel(playerName, { token: fight.token, runId: fight.runId });
+    const first = await open();
+    if (!("error" in first) || !first.retryable) return first;
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    return open();
 }
 
-function writeCrumb(runId: string, sessionId: string | null): void {
-    try {
-        if (sessionId) localStorage.setItem(crumbKeyFor(runId), sessionId);
-        else localStorage.removeItem(crumbKeyFor(runId));
-    } catch { /* storage disabled — a refresh simply restarts the duel */ }
-}
-
-export function HollowGatePetFight({ character, fight, activePet, sharedImages, onSettled, onUnavailable }: {
+export function HollowGatePetFight({ character, fight, sharedImages, onSettled, onUnavailable }: {
     character: Character;
     fight: HollowGatePetFightRef;
-    /** The pet the run sends in. Sealed server-side from the roster by id. */
-    activePet: Pet;
     sharedImages: Record<string, string>;
     onSettled: (result: HollowGateCombatSettleResult) => void;
-    /** The bout could not start at all — nothing was decided, nothing settled. */
+    /** The duel could not open at all — nothing was decided, nothing settled. */
     onUnavailable: (reason: string) => void;
 }) {
     const [state, setState] = useState<ShowdownStateView | null>(null);
+    /** The pets the server fielded, for the renderer's models and art. */
+    const [fielded, setFielded] = useState<Pet[]>([]);
     const [phase, setPhase] = useState<Phase>("starting");
     const [message, setMessage] = useState("");
+    /** A decided duel with no session left to show: only its receipt remains. */
+    const [decidedReceipt, setDecidedReceipt] = useState("");
     const startedRef = useRef(false);
     const settleInFlight = useRef(false);
     const settledResult = useRef<HollowGateCombatSettleResult | null>(null);
 
-    /*
-     * RESUME BEFORE STARTING — otherwise a refresh is a reroll.
-     *
-     * The shrine re-launches this encounter whenever the run still has an
-     * `activeCombat`, so a player losing a sealed duel could reload and be
-     * handed a brand-new bout. (The retired client-local duel had the same
-     * hole; it is not a regression, but it is not something to carry forward
-     * either.) The crumb is keyed by RUN ID and lives in localStorage, like
-     * every other resume pointer in this client — sessionStorage dies with the
-     * tab, which is exactly the case it exists for.
-     *
-     * A crumb pointing at a FINISHED session is not resumed but settled: that is
-     * where a decided fight whose settle call was lost to the network sits.
-     */
     useEffect(() => {
         if (startedRef.current) return;
         startedRef.current = true;
         let cancelled = false;
         void (async () => {
-            const resumed = crumbSessionId(fight.runId);
-            if (resumed) {
-                const existing = await fetchShowdownState(character.name, resumed);
-                if (cancelled) return;
-                if (existing) {
-                    // Warm both bodies before the fight shows. An unwarmed GLB
-                    // suspends against a null fallback, so a cold Hound is not a
-                    // placeholder — it is an empty arena.
-                    if (!existing.finished) await warmShowdownModels(existing, [activePet]);
-                    if (cancelled) return;
-                    setState(existing);
-                    setPhase(existing.finished ? "settling" : "fighting");
-                    if (existing.finished) void settleSession(resumed);
-                    return;
-                }
-                writeCrumb(fight.runId, null);
-            }
-            const started = await startArenaBout(character.name, "1v1", [activePet.id], {
-                token: fight.token,
-                runId: fight.runId,
-                houndId: fight.houndId,
-            });
+            const started = await openDuel(character.name, fight);
             if (cancelled) return;
             if ("error" in started) {
                 onUnavailable(started.error);
                 return;
             }
-            writeCrumb(fight.runId, started.state.sessionId);
-            // `[activePet]` is exactly what this fight fields (see the
-            // playerPets prop below) — the raw roster would warm bodies the
-            // renderer never asks for and miss the entitlement projection.
-            await warmShowdownModels(started.state, [activePet]);
+            if ("decided" in started) {
+                setDecidedReceipt(started.decided.petReceipt);
+                void settleSession(started.decided.petReceipt);
+                return;
+            }
+            const pets = started.petIds
+                .map((id) => (character.pets ?? []).find((pet) => pet.id === id))
+                .filter((pet): pet is Pet => Boolean(pet));
+            // Warm every body before the fight shows. An unwarmed GLB suspends
+            // against a null fallback, so a cold Hound is an empty arena.
+            if (!started.state.finished) await warmShowdownModels(started.state, pets);
             if (cancelled) return;
+            setFielded(pets);
             setState(started.state);
-            setPhase("fighting");
+            setPhase(started.state.finished ? "settling" : "fighting");
+            if (started.state.finished) void settleSession(started.state.sessionId);
         })();
         return () => { cancelled = true; };
         // Mount-only: this is a one-shot kickoff, not a subscription.
@@ -162,8 +130,8 @@ export function HollowGatePetFight({ character, fight, activePet, sharedImages, 
      * it disagrees with is worse than no memo at all. PetShowdownBattle does not
      * memo on these props, so identity churn costs nothing. */
 
-    /** Redeem a bout's receipt against the Gate. Idempotent on the server (the
-     *  receipt is `nx` and combat-settle dedupes), so retrying is safe. Takes
+    /** Redeem a duel's receipt against the Gate. Idempotent on the server (the
+     *  receipt is exact and combat-settle dedupes), so retrying is safe. Takes
      *  the session id explicitly because the resume path settles a session it
      *  has only just read, before it is in state. */
     async function settleSession(id: string) {
@@ -180,7 +148,6 @@ export function HollowGatePetFight({ character, fight, activePet, sharedImages, 
                 petReceipt: id,
             });
             settledResult.current = result;
-            writeCrumb(fight.runId, null);
             setPhase("settled");
             onSettled(result);
         } catch (error) {
@@ -195,8 +162,8 @@ export function HollowGatePetFight({ character, fight, activePet, sharedImages, 
 
     /** Concede, then settle. The concession is what DECIDES the session and
      *  mints the receipt, so the order matters — settling first would redeem a
-     *  receipt that does not exist yet. Conceding an already-finished session is
-     *  a server-side no-op, so this is safe to call from Exit too. */
+     *  receipt that does not exist yet. Conceding an already-finished session
+     *  re-seals its real result, so this is safe to call from Exit too. */
     async function concede() {
         if (!sessionId) return;
         if (settledResult.current) { onSettled(settledResult.current); return; }
@@ -207,9 +174,14 @@ export function HollowGatePetFight({ character, fight, activePet, sharedImages, 
 
     if (!state) {
         return (
-            <div className="card cinematic-card">
+            <div className="card cinematic-card" role={phase === "error" ? "alert" : "status"}>
                 <h2>Sealed Duel</h2>
-                <p className="hint">The seal is opening…</p>
+                <p className="hint">{phase === "error"
+                    ? `${message} Your run is intact.`
+                    : phase === "settling" ? "Sealing the result with the Gate…" : "The seal is opening…"}</p>
+                {phase === "error" && decidedReceipt && (
+                    <button type="button" className="admin-button" onClick={() => { void settleSession(decidedReceipt); }}>Try Again</button>
+                )}
             </div>
         );
     }
@@ -218,7 +190,7 @@ export function HollowGatePetFight({ character, fight, activePet, sharedImages, 
         <>
             <PetShowdownBattle
                 initialState={state}
-                playerPets={[activePet]}
+                playerPets={fielded}
                 sharedImages={sharedImages}
                 submitTurn={submitTurn}
                 // A forfeit is a real Hollow Gate outcome, so it must still be
@@ -230,15 +202,17 @@ export function HollowGatePetFight({ character, fight, activePet, sharedImages, 
                 onForfeit={() => { void concede(); }}
                 onFinished={() => { void settleSession(sessionId); }}
                 // Exit is the retry, and it concedes rather than settling
-                // blind: a bout the player leaves mid-fight has no receipt yet,
+                // blind: a duel the player leaves mid-fight has no receipt yet,
                 // so settling it would fail forever. Conceding a session that
-                // already finished is a server-side no-op, so this is the safe
+                // already finished only re-seals its result, so this is the safe
                 // call in both cases.
                 onExit={() => {
                     if (settledResult.current) { onSettled(settledResult.current); return; }
                     void concede();
                 }}
-                onRematch={() => { /* a sealed encounter is fought once */ }}
+                // A sealed encounter is fought once.
+                hideRematch
+                onRematch={() => undefined}
             />
             {(phase === "settling" || phase === "error") && createPortal(
                 <div className="hollow-gate-settle-banner" role="status">

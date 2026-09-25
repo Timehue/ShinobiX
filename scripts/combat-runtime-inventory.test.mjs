@@ -552,6 +552,7 @@ describe('executable multi-engine runtime registry', () => {
     const hollowGateCombatSource = readFileSync(join(ROOT, 'api', 'hollow-gate', '_combat-session.ts'), 'utf8');
     const hollowGatePetAuthoritySource = readFileSync(join(ROOT, 'api', 'hollow-gate', '_pet-authority.ts'), 'utf8');
     const hollowGateShowdownSource = readFileSync(join(ROOT, 'api', 'pet', '_hollow-gate-showdown.ts'), 'utf8');
+    const hollowGatePetFightSource = clientSource('components/HollowGatePetFight.tsx');
     const petShowdownSource = readFileSync(join(ROOT, 'api', 'pet', 'showdown.ts'), 'utf8');
     const rankedWatchSource = readFileSync(join(ROOT, 'api', 'pet', 'ranked-watch.ts'), 'utf8');
     const rankedDuelSource = readFileSync(join(ROOT, 'api', 'pet', '_ranked-duel.ts'), 'utf8');
@@ -682,8 +683,11 @@ describe('executable multi-engine runtime registry', () => {
     assert.match(hollowGateShowdownSource, /rewardEligible: false/);
     assert.match(petShowdownSource, /if \(action === 'hollow-gate'\) \{/);
     assert.match(petShowdownSource, /hollowGatePetAuthorityMatches\(parent, 'showdown', session\.sessionId\)/);
-    // The client-shaped arena admission (caller-chosen format and pets) stays shut.
+    // The client-shaped arena admission (caller-chosen format and pets) stays
+    // shut, and the shrine opens the duel through the Gate's own entry.
     assert.match(petShowdownSource, /action === 'arena' && body\.hollowGate != null/);
+    assert.match(hollowGatePetFightSource, /startHollowGatePetDuel\(/);
+    assert.doesNotMatch(hollowGatePetFightSource, /startArenaBout\(/);
     // A binding sealed before the cutover can still finish its exact cinematic
     // proof, but no new admission ever selects that engine.
     assert.match(hollowGatePetAuthoritySource, /claimHollowGateCinematicAuthority/);

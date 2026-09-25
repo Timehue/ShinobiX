@@ -5017,7 +5017,7 @@ export default function App() {
         if (!opts.forceMode && petReady && activePet) {
             setHollowGateEvent({
                 title: houndPresentation.name,
-                body: `${opts.isBoss ? "The Alpha seals the way forward." : `${houndPresentation.epithet} blocks the corridor.`}\n\nIts spectral chakra gathers into ${houndPresentation.signature}.\n\nChoose who enters combat. Shinobi combat uses the normal mission/explore PvE arena. Pet combat uses the tactical Pet Colosseum and ${activePet.name}; a pet defeat deals 20% max HP recoil but does not clear this encounter.`,
+                body: `${opts.isBoss ? "The Alpha seals the way forward." : `${houndPresentation.epithet} blocks the corridor.`}\n\nIts spectral chakra gathers into ${houndPresentation.signature}.\n\nChoose who enters combat. Shinobi combat uses the normal mission/explore PvE arena. Pet combat is a Pet Colosseum duel led by ${activePet.name}: 1v1, 2v2 or 3v3 at random, with partners from your ready carried pets. A pet defeat deals 20% max HP recoil but does not clear this encounter.`,
                 kind: opts.isBoss ? "boss" : "pet_battle",
                 choices: [
                     {
@@ -6112,14 +6112,12 @@ export default function App() {
                     token server-side and mints the receipt combat-settle
                     redeems, so detouring through the Pet Arena had nothing left
                     to do except run a second engine. */}
-                {!activeTriggeredEvent && screen === "hollowGateShrine" && character && hollowGatePetFight
-                    && (character.pets ?? []).some((pet) => pet.id === character.activePetId) && (
+                {!activeTriggeredEvent && screen === "hollowGateShrine" && character && hollowGatePetFight && (
                     <Suspense fallback={null}>
                         <HollowGatePetFight
                             key={hollowGatePetFight.runId}
                             character={character}
                             fight={hollowGatePetFight}
-                            activePet={(character.pets ?? []).find((pet) => pet.id === character.activePetId)!}
                             sharedImages={sharedImages}
                             onSettled={(result) => {
                                 const gate = hollowGatePetFight;
