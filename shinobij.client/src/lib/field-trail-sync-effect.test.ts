@@ -8,14 +8,30 @@ import { describe, test } from "node:test";
 // re-POSTed a field-trail "state" for each accepted contract. That drained the
 // 40/min field-trail budget, and a player's next Abandon got "You're going a
 // little fast" (Nero, 2026-09-24).
+//
+// The Luna handoff slices (72593576b) added three triggers, all plain strings or
+// numbers that change only on a real event: the accepted contracts' run ids, a
+// scope string built from the player and both keys, and a refresh counter from
+// useFieldTrailRefreshVersion (throttled resume/online, plus an invalidation for
+// an accepted contract). The list stays exact, so a per-render value cannot join
+// it unnoticed.
 describe("accepted field contract sync", () => {
     for (const screen of ["Missions", "Logbook"]) {
-        test(`${screen} re-syncs only when the accepted set or the player changes`, () => {
+        test(`${screen} re-syncs only when the accepted set, its runs, the player or an explicit refresh changes`, () => {
             const src = readFileSync(new URL(`../screens/${screen}.tsx`, import.meta.url), "utf8");
             const effects = [...src.matchAll(/useEffect\(\(\) => \{\s*const owner = character\.name;\s*const ids = acceptedFieldMissionKey[\s\S]*?\n\s*\}, \[([^\]]*)\]\);/g)];
             assert.equal(effects.length, 1, `${screen} must have exactly one accepted-contract sync effect`);
             const deps = effects[0][1].split(",").map((dep) => dep.trim()).sort();
-            assert.deepEqual(deps, ["acceptedFieldMissionKey", "character.name"]);
+            assert.deepEqual(deps, ["acceptedFieldMissionKey", "acceptedFieldRunKey", "character.name", "fieldTrailRefreshVersion", "fieldTrailScope"]);
+            for (const perRender of ["onVersionedCharacter", "onServerVersion", "adoptFieldTrail"]) {
+                assert.ok(!deps.includes(perRender), `${screen}: per-render ${perRender} must not drive the sync`);
+            }
+            assert.match(src, /const acceptedFieldRunKey = acceptedFieldMissionIds[\s\S]{0,160}\.join\("\|"\);/,
+                `${screen}: the run key must stay a joined string`);
+            assert.match(src, /const fieldTrailScope = `\$\{character\.name[^`]*`;/,
+                `${screen}: the scope must stay a template string`);
+            assert.match(src, /const fieldTrailRefreshVersion = useFieldTrailRefreshVersion\(/,
+                `${screen}: the refresh version must come from its counter hook`);
             assert.match(effects[0][0], /adoptFieldTrailRef\.current\(result\)/);
         });
     }
