@@ -11,9 +11,11 @@ import { hollowGateRunKey, rewardMultiplierForToken, type HollowGateRunToken } f
 //  1. Leaving a Hound tile fight alive (a verified escape, or a Second Wind
 //     revive) kept the encounter unresolved, and step.ts refused every step off
 //     an unresolved combat tile.
-//  2. "Send pet" opened a pet duel whose Showdown admission is refused for
+//  2. "Send pet" opened a pet duel whose Showdown admission was refused for
 //     every Hollow Gate encounter, and combat-start refused any other fight
-//     for that node while the pet binding stayed active.
+//     for that node while the pet binding stayed active. The duel now opens
+//     (_pet-showdown-duel.integration.test.ts), and whenever it cannot, the
+//     same node can still be fought as a shinobi.
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -24,6 +26,7 @@ type Reply = { status: number; body: Record<string, unknown> };
 
 let kv: typeof import('../_storage.js').kv;
 let issuePlayerToken: typeof import('../_auth.js').issuePlayerToken;
+let resetRateLimits: () => void;
 const handlers: Record<string, Handler> = {};
 
 const PLAYER = 'gatewalker';
@@ -36,6 +39,7 @@ const saveKey = `save:${PLAYER}`;
 before(async () => {
     ({ kv } = await import('../_storage.js'));
     ({ issuePlayerToken } = await import('../_auth.js'));
+    ({ __resetRateLimitsForTest: resetRateLimits } = await import('../_ratelimit.js'));
     for (const [name, path] of [
         ['step', './step.js'], ['combatStart', './combat-start.js'], ['combatSettle', './combat-settle.js'],
     ] as const) {
@@ -46,6 +50,8 @@ before(async () => {
 beforeEach(async () => {
     const keys = await kv.keys('*');
     if (keys.length) await kv.del(...keys);
+    // Every case here is the same player, and combat-start allows 20 a minute.
+    resetRateLimits();
 });
 
 async function call(name: string, body: Record<string, unknown>): Promise<Reply> {
@@ -209,15 +215,21 @@ test('a threat-ambush pet duel falls back the same way', async () => {
     assert.equal((await call('combatStart', { floor: 1, kind: 'ambush', nodeId: 'floor:1:ambush:threat-v9', mode: 'pve' })).status, 409);
 });
 
-for (const evidence of ['lease', 'receipt'] as const) {
-    test(`a pet duel with a ${evidence} is never swapped for a shinobi fight`, async () => {
+// A binding sealed before the Showdown cutover carries a cinematic proof, whose
+// child evidence is a cinematic lease rather than a Showdown session.
+for (const [engine, evidence] of [['showdown', 'session'], ['showdown', 'receipt'], ['cinematic', 'lease'], ['cinematic', 'receipt']] as const) {
+    test(`a ${engine} pet duel with a ${evidence} is never swapped for a shinobi fight`, async () => {
         await seed();
         const pet = await call('combatStart', { floor: 1, kind: 'battle', nodeId: HOUND.node, mode: 'pet' });
         assert.equal(pet.status, 200, JSON.stringify(pet.body));
         const bindingKey = hollowGateCombatBindingKey(String(pet.body.runId));
-        const binding = (await kv.get<HollowGateCombatBinding>(bindingKey))!;
+        const issued = (await kv.get<HollowGateCombatBinding>(bindingKey))!;
+        assert.equal(issued.petAuthority?.engine, 'showdown', 'a new pet encounter is mounted on Showdown');
+        const binding: HollowGateCombatBinding = { ...issued, petAuthority: { ...issued.petAuthority!, engine } };
+        await kv.set(bindingKey, binding);
         const proofId = binding.petAuthority!.proofId;
-        if (evidence === 'lease') await kv.set(`pet:battle-token:${PLAYER}:${proofId}`, { playerName: PLAYER, hollowGate: { runId: binding.runId } });
+        if (evidence === 'session') await kv.set(`pet:showdown:${PLAYER}:${proofId}`, { sessionId: proofId, playerName: PLAYER, finished: false });
+        else if (evidence === 'lease') await kv.set(`pet:battle-token:${PLAYER}:${proofId}`, { playerName: PLAYER, hollowGate: { runId: binding.runId } });
         else await kv.set(hollowGatePetResultKey(PLAYER, proofId), { outcome: 'loss' });
 
         const refused = await call('combatStart', { floor: 1, kind: 'battle', nodeId: HOUND.node, mode: 'pve' });
@@ -226,3 +238,15 @@ for (const evidence of ['lease', 'receipt'] as const) {
         assert.equal((await kv.get<HollowGateRunToken>(runKey))!.activeEncounter?.runId, binding.runId);
     });
 }
+
+test('an untouched pet duel sealed before the Showdown cutover still falls back to a shinobi fight', async () => {
+    await seed();
+    const pet = await call('combatStart', { floor: 1, kind: 'battle', nodeId: HOUND.node, mode: 'pet' });
+    const bindingKey = hollowGateCombatBindingKey(String(pet.body.runId));
+    const issued = (await kv.get<HollowGateCombatBinding>(bindingKey))!;
+    await kv.set(bindingKey, { ...issued, petAuthority: { ...issued.petAuthority!, engine: 'cinematic' } });
+    const shinobi = await call('combatStart', { floor: 1, kind: 'battle', nodeId: HOUND.node, mode: 'pve' });
+    assert.equal(shinobi.status, 200, JSON.stringify(shinobi.body));
+    assert.equal(shinobi.body.combatMode, 'solo-pve');
+    assert.equal(await kv.get(bindingKey), null);
+});

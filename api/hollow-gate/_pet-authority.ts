@@ -8,16 +8,31 @@ import {
     isHollowGatePetAuthority,
     parseHollowGatePetResultReceipt,
     type HollowGateCombatBinding,
+    type HollowGatePetEngine,
     type HollowGatePetResultReceipt,
 } from './_combat-session.js';
 
 // A child result must remain redeemable for exactly as long as its parent
-// combat binding. Cinematic proofs live for 15 minutes and legacy Showdown
-// sessions for 45 minutes; this 24-hour envelope outlasts both recovery paths.
+// combat binding. Cinematic proofs live for 15 minutes and Showdown sessions
+// for 45 minutes; this 24-hour envelope outlasts both recovery paths.
 export const HOLLOW_GATE_PET_RESULT_TTL_SECONDS = HOLLOW_GATE_COMBAT_TTL_SECONDS;
 
 export function hollowGatePetResultKey(playerName: string, proofId: string): string {
     return `hg-pet-result:${playerName}:${proofId}`;
+}
+
+/** Where a child duel's live state sits while it is being fought: the
+ * cinematic seal, or the Showdown session whose id IS the proof id. */
+export function hollowGatePetChildKey(playerName: string, engine: HollowGatePetEngine, proofId: string): string {
+    return engine === 'cinematic'
+        ? `pet:battle-token:${playerName}:${proofId}`
+        : `pet:showdown:${playerName}:${proofId}`;
+}
+
+/** The server-only record kept beside a Showdown-mounted duel: which run its
+ * result settles, and which pets fought. It shares the session's lease. */
+export function hollowGateShowdownSidecarKey(playerName: string, sessionId: string): string {
+    return `sd-hg:${playerName}:${sessionId}`;
 }
 
 /** Retire only the short-lived cinematic lease. The durable HG result is the
@@ -35,10 +50,12 @@ export type HollowGatePetAuthorityClaim =
 
 /**
  * Atomically retain one already-issued CINEMATIC proof for a pre-cutover Pet
- * encounter. New bindings already carry their cinematic proof, so this is
- * normally an idempotent read. There is intentionally no generic/Showdown
- * claim API: an unbound legacy parent cannot safely choose among old sibling
- * sessions after their outcomes are known.
+ * encounter. A binding issued before the Showdown cutover already carries its
+ * cinematic proof, so this is normally an idempotent read; a binding issued
+ * since carries a Showdown proof and is refused as a different child
+ * authority. There is intentionally no generic claim API: an unbound legacy
+ * parent cannot safely choose among old sibling sessions after their outcomes
+ * are known.
  */
 export async function claimHollowGateCinematicAuthority(params: {
     runId: string;
@@ -110,23 +127,22 @@ export async function validateHollowGateCinematicPublication(params: {
 }
 
 /**
- * Retire a Pet-mode encounter whose pet duel never began, so the same node can
- * be fought as a shinobi instead.
+ * Retire a Pet-mode encounter whose pet duel never began, or whose duel lapsed
+ * without a result, so the same node can be fought as a shinobi instead.
  *
- * The browser's pet duel opens through /pet/showdown, which has refused new
- * Hollow Gate admission since the parent binding began preselecting a
- * cinematic proof. A player who chose "Send pet" was therefore left with an
- * encounter no client could fight, movement sealed, and Emergency Forfeit as
- * the only exit. Which engine the pet duel should run on is an open owner
- * decision (runtime-mode-registry `hollow-gate-pet-cinematic`); this only
- * guarantees the encounter can always be finished.
+ * This is the safety net behind "Send pet". The duel runs on Showdown
+ * (runtime-mode-registry `hollow-gate-pet-showdown`), and whenever the browser
+ * cannot open or resume it, it asks combat-start for a shinobi fight on the
+ * same node. Without this, a player whose duel could not open was left with
+ * movement sealed and Emergency Forfeit as the only exit.
  *
  * Runs under the binding lock that every pet admission path also takes
- * (claim, publication, result write), so no child proof can appear after this
- * returns true. It refuses whenever child evidence exists: a published
- * cinematic lease or a written result receipt, or a legacy/Showdown authority
- * whose children it cannot see. Nothing is paid or charged; the encounter
- * stays unresolved and is settled by the fight that replaces it.
+ * (Showdown admission, cinematic claim and publication, result write), so no
+ * child proof can appear after this returns true. It refuses whenever child
+ * evidence exists: a live Showdown session or cinematic lease, or a written
+ * result receipt. A legacy authority whose children it cannot see is refused
+ * too. Nothing is paid or charged; the encounter stays unresolved and is
+ * settled by the fight that replaces it.
  */
 export async function retireUnstartedHollowGatePetBinding(params: {
     runId: string;
@@ -144,12 +160,12 @@ export async function retireUnstartedHollowGatePetBinding(params: {
             return false;
         }
         const authority = isHollowGatePetAuthority(binding.petAuthority) ? binding.petAuthority : null;
-        if (!authority || authority.engine !== 'cinematic') return false;
-        const [lease, receipt] = await Promise.all([
-            kv.get(`pet:battle-token:${params.playerName}:${authority.proofId}`),
+        if (!authority) return false;
+        const [child, receipt] = await Promise.all([
+            kv.get(hollowGatePetChildKey(params.playerName, authority.engine, authority.proofId)),
             kv.get(hollowGatePetResultKey(params.playerName, authority.proofId)),
         ]);
-        if (lease || receipt) return false;
+        if (child || receipt) return false;
         await kv.del(bindingKey);
         return true;
     }, { failClosed: true });

@@ -23,7 +23,7 @@ import {
     isHollowGatePetAuthority,
     type HollowGateCombatBinding,
 } from './_combat-session.js';
-import { hollowGatePetResultKey } from './_pet-authority.js';
+import { hollowGatePetChildKey, hollowGatePetResultKey, hollowGateShowdownSidecarKey } from './_pet-authority.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
 import { soloPveSessionKey } from '../solo-pve/_store.js';
 import {
@@ -126,12 +126,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ? activeProof
                     : null;
                 const proofToRevoke = petAuthority?.proofId ?? retainedLegacyProof;
+                // A Showdown-mounted pet duel's child proof is its live session,
+                // which goes with the run record kept beside it.
+                const showdownProof = petAuthority?.engine === 'showdown' ? petAuthority.proofId : null;
                 await kv.del(
                     bindingKey,
                     soloPveSessionKey(abandonedRunId),
                     ...(proofToRevoke ? [
                         hollowGatePetResultKey(playerName, proofToRevoke),
                         `pet:battle-token:${playerName}:${proofToRevoke}`,
+                    ] : []),
+                    ...(showdownProof ? [
+                        hollowGatePetChildKey(playerName, 'showdown', showdownProof),
+                        hollowGateShowdownSidecarKey(playerName, showdownProof),
                     ] : []),
                 );
                 if (proofToRevoke) {
