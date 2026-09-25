@@ -86,18 +86,29 @@ export function hollowGateShinobiFallback(run: HollowGateShrineRun | null): Holl
 }
 
 /**
- * The shrine run after a pet defeat. `saved` is the settle reply's
- * `character.hollowGateRun`, and in a live run that is only the server's own
- * projection, with no board: the autosave does not run inside the shrine, so
- * the drawn tiles never reach the save. Rendering that projection crashed the
- * shrine, so it replaces the live run only when it is a complete board.
+ * The shrine run after a fight that leaves its encounter unresolved: a pet
+ * defeat, a shinobi escape, or a Second Wind revival. `saved` is the settle
+ * reply's `character.hollowGateRun`, and in a live run that is only the
+ * server's own projection, with no board: the autosave does not run inside the
+ * shrine, so the drawn tiles never reach the save. Rendering that projection
+ * crashed the shrine, so it replaces the live run only when it is a complete
+ * board. `patch` carries what else the outcome changes.
  */
+export function hollowGateRunAfterUnresolvedFight(
+    live: HollowGateShrineRun | null,
+    saved: HollowGateShrineRun | null | undefined,
+    patch: Partial<HollowGateShrineRun> = {},
+): HollowGateShrineRun | null {
+    const current = saved && Array.isArray(saved.tiles) ? saved : live;
+    return current ? { ...current, activeCombat: undefined, threat: 0, ...patch } : null;
+}
+
+/** The shrine run after a pet defeat. See hollowGateRunAfterUnresolvedFight. */
 export function hollowGateRunAfterPetDefeat(
     live: HollowGateShrineRun | null,
     saved: HollowGateShrineRun | null | undefined,
 ): HollowGateShrineRun | null {
-    const current = saved && Array.isArray(saved.tiles) ? saved : live;
-    return current ? { ...current, activeCombat: undefined, threat: 0 } : null;
+    return hollowGateRunAfterUnresolvedFight(live, saved);
 }
 
 export function useHollowGateAppFlow(params: {

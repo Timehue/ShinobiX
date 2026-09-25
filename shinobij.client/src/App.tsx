@@ -495,7 +495,7 @@ import {
     formatHollowGateCombatReward,
     type HollowGatePveFightRef,
 } from "./lib/hollow-gate-pve";
-import { useHollowGateAppFlow } from "./lib/hollow-gate-app-flow";
+import { hollowGateRunAfterUnresolvedFight, useHollowGateAppFlow } from "./lib/hollow-gate-app-flow";
 import { enterHollowGateShrineFlow, reportHollowGateEntryFailure } from "./lib/hollow-gate-entry";
 import type { StoryBossSettleResult } from "./lib/story-combat-api";
 import { requestStoryBossFight } from "./lib/story-fight-theme";
@@ -5078,16 +5078,10 @@ export default function App() {
             }
             onHollowGateBattleWin({ isBoss: fight.kind === "boss", isAmbush: fight.kind === "ambush", nodeId: fight.nodeId });
         } else if (result.escaped) {
-            setHollowGateRun((previous) => {
-                const run = result.character?.hollowGateRun ?? previous;
-                return run ? { ...run, activeCombat: undefined, threat: 0 } : null;
-            });
+            setHollowGateRun((previous) => hollowGateRunAfterUnresolvedFight(previous, result.character?.hollowGateRun));
             pushHollowGateLog("You withdraw from the Hollow Hound. The path remains open and Threat resets.");
         } else if (result.revived) {
-            setHollowGateRun((previous) => {
-                const run = result.character?.hollowGateRun ?? previous;
-                return run ? { ...run, activeCombat: undefined, secondWindArmed: false, threat: 0 } : null;
-            });
+            setHollowGateRun((previous) => hollowGateRunAfterUnresolvedFight(previous, result.character?.hollowGateRun, { secondWindArmed: false }));
             pushHollowGateLog("Second Wind pulls you back from defeat at half health.");
         } else {
             setHollowGateRun(null);
