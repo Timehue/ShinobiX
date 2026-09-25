@@ -13,10 +13,9 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { applyJutsu, characterOwnsElement } from './move.js';
-import { JUTSU_MAX_LEVEL, WEAPON_AMP_TAG_CAP } from '../combat-core/formulas.js';
+import { JUTSU_MAX_LEVEL, WEAPON_AMP_TAG_CAP, WEAPON_EP_CEILING } from '../combat-core/formulas.js';
 import { ITEM_CATALOG } from './_item-catalog.js';
 import { JUTSU_CATALOG } from './_jutsu-catalog.js';
-import { sanitizePvpItems } from './session.js';
 import type { PvpFighter } from './session.js';
 
 function fighter(name: string, hp = 1000): PvpFighter {
@@ -259,41 +258,53 @@ describe('weapon tag percents ignore jutsu mastery', () => {
 });
 
 /*
- * Owner ruling 2026-09-25: no weapon may hit harder than a fully maxed 60-AP
- * jutsu.
+ * Owner rulings 2026-09-25: EP means the same thing on a weapon and a jutsu (a
+ * higher EP always hits harder), and no weapon may hit harder than a fully maxed
+ * 60-AP jutsu.
  *
- * A swing has no jutsuMastery row, so its EP resolves at mastery 0, which is 30%
- * of (EP + 10). A 60-AP jutsu reaches its full (EP + 10) only at mastery 50, so the
- * strongest catalog weapon lands about a third of that hit. These guards fail if a
- * swing ever resolves at full mastery (the Battle Tower forecast assumed it did
- * until 2026-09-25), or if weapon EP outgrows the jutsu tier.
+ * A weapon cannot be trained, so a swing resolves its EP at the highest mastery its
+ * wielder's rank allows: Academy 10, Genin 20, Chunin 30, Jonin 50. That is where a
+ * fully trained jutsu sits, so at every rank a swing lands exactly what a jutsu of
+ * the same EP lands. Until 2026-09-25 a swing sat at mastery 0 (30% of that hit),
+ * so a 60 EP weapon hit for less than half of a 36 EP jutsu.
  */
-describe('no weapon out-hits a fully maxed 60-AP jutsu', () => {
-    // A level-50 caster, so the Jonin mastery cap never trims a mastery-50 row,
-    // against a target too big for any single hit to empty.
-    const hit = (jutsu: Record<string, unknown>, jutsuMastery: Array<{ jutsuId: string; level: number }> = []): number => {
+describe('a weapon swing hits like a fully trained jutsu of the same EP', () => {
+    // A target too big for any single hit to empty.
+    const hit = (jutsu: Record<string, unknown>, level: number, jutsuMastery: Array<{ jutsuId: string; level: number }> = []): number => {
         const self = fighter('A');
-        self.character = { name: 'A', level: 50, stats: {}, jutsuMastery };
+        self.character = { name: 'A', level, stats: {}, jutsuMastery };
         const target = { ...fighter('B'), hp: 1_000_000, maxHp: 1_000_000 };
         return 1_000_000 - applyJutsu(self, target, asJutsu(jutsu), 1, 'central', 1).opponent.hp;
     };
     const swing = (name: string, effectPower: number, ap = 40, tags: unknown[] = []) =>
         ({ id: 'weapon', name, isUtility: false, ap, effectPower, tags });
-    // The weakest damaging 60-AP built-in (the EP 30 bloodline casts sit below the
-    // EP 36 starters), cast as a plain hit so only its EP is compared.
-    const weakestEp = Math.min(...Object.values(JUTSU_CATALOG)
+    const trainedJutsu = (effectPower: number, level: number) =>
+        hit({ id: 'trained', name: 'Trained Jutsu', ap: 60, effectPower }, level, [{ jutsuId: 'trained', level: JUTSU_MAX_LEVEL }]);
+    // The strongest damaging 60-AP built-in, cast as a plain hit so only its EP is
+    // compared. The weapon ladder tops out on the same EP.
+    const maxed60ApEp = Math.max(...Object.values(JUTSU_CATALOG)
         .filter(jutsu => jutsu.ap === 60 && jutsu.effectPower > 0)
         .map(jutsu => jutsu.effectPower));
-    const maxedHit = hit({ id: 'maxed-60', name: 'Maxed 60-AP Jutsu', ap: 60, effectPower: weakestEp }, [{ jutsuId: 'maxed-60', level: JUTSU_MAX_LEVEL }]);
+    const maxedHit = trainedJutsu(maxed60ApEp, 50);
 
-    it('a swing resolves its EP at mastery 0, exactly like an untrained jutsu', () => {
-        assert.equal(
-            hit(swing('Probe Blade', 40)),
-            hit({ id: 'untrained', name: 'Untrained Jutsu', ap: 60, effectPower: 40 }),
-        );
+    it('the weapon EP ceiling is the strongest built-in 60-AP jutsu EP', () => {
+        assert.equal(WEAPON_EP_CEILING, maxed60ApEp);
     });
 
-    it('every built-in hand and thrown weapon hits softer than a maxed 60-AP jutsu', () => {
+    it('at every rank a swing lands exactly what a fully trained jutsu of the same EP lands', () => {
+        // Academy, Genin, Chunin and Jonin levels. A mastery-50 row is capped by rank.
+        for (const level of [1, 20, 40, 50]) {
+            assert.equal(hit(swing('Probe Blade', 30), level), trainedJutsu(30, level), `level ${level}`);
+        }
+        assert.ok(hit(swing('Probe Blade', 30), 20) < hit(swing('Probe Blade', 30), 50), 'a lower rank swings at a lower mastery');
+    });
+
+    it('a higher EP always hits harder, whether it is a weapon or a jutsu', () => {
+        assert.ok(hit(swing('Probe Blade', 37), 50) > trainedJutsu(36, 50));
+        assert.ok(hit(swing('Probe Blade', 35), 50) < trainedJutsu(36, 50));
+    });
+
+    it('no built-in hand or thrown weapon out-hits a fully maxed 60-AP jutsu', () => {
         const over: string[] = [];
         for (const [id, item] of Object.entries(ITEM_CATALOG as Record<string, Record<string, unknown>>)) {
             const slot = String(item.slot ?? '');
@@ -302,18 +313,29 @@ describe('no weapon out-hits a fully maxed 60-AP jutsu', () => {
             const tags = item.weaponEffect
                 ? [{ name: String(item.weaponEffect), percent: Number(item.weaponEffectValue ?? 0) }]
                 : [];
-            const dealt = hit(swing(String(item.name), Number(item.weaponEp ?? 15), Number(item.apCost ?? 40), tags));
+            const dealt = hit(swing(String(item.name), Number(item.weaponEp ?? 15), Number(item.apCost ?? 40), tags), 50);
             if (dealt > maxedHit) over.push(`${id} (${dealt} against ${maxedHit})`);
         }
         assert.deepEqual(over, [], `these weapons out-hit a maxed 60-AP jutsu: ${over.join(', ')}`);
     });
 
-    it('a weapon at the 60-EP combat ceiling, above every named forge roll, still hits softer', () => {
-        const [clamped] = sanitizePvpItems([{ weaponEp: 999_999 }]) as Array<{ weaponEp?: unknown }>;
-        const ceiling = Number(clamped?.weaponEp);
-        assert.equal(ceiling, 60, 'sanitizePvpItems clamps every weapon entering combat to 60 EP');
-        const dealt = hit(swing('Ceiling Blade', ceiling));
-        assert.ok(dealt < maxedHit, `a 60-EP swing dealt ${dealt} against the maxed jutsu's ${maxedHit}`);
+    it('a weapon on the EP ceiling lands exactly the maxed 60-AP jutsu hit', () => {
+        assert.equal(hit(swing('Ceiling Blade', WEAPON_EP_CEILING), 50), maxedHit);
+    });
+
+    it('a Pierce swing uses the rank mastery too', () => {
+        const pierceHit = (jutsu: Record<string, unknown>, jutsuMastery: Array<{ jutsuId: string; level: number }> = []) => {
+            const self = fighter('A');
+            // Low enough that the 100-900 true-damage clamp cannot hide the mastery.
+            self.character = { name: 'A', level: 50, stats: { bukijutsuOffense: 1500 }, jutsuMastery };
+            const target = { ...fighter('B'), hp: 1_000_000, maxHp: 1_000_000 };
+            return 1_000_000 - applyJutsu(self, target, asJutsu(jutsu), 1, 'central', 1).opponent.hp;
+        };
+        const tags = [{ name: 'Pierce' }];
+        assert.equal(
+            pierceHit(swing('Piercing Blade', 30, 60, tags)),
+            pierceHit({ id: 'trained', name: 'Piercing Jutsu', ap: 60, effectPower: 30, tags }, [{ jutsuId: 'trained', level: JUTSU_MAX_LEVEL }]),
+        );
     });
 });
 

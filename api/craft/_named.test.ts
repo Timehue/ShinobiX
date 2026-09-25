@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { buildNamedItem, debitNamedForge, makeNamedForgeReceipt, resolveNamedForgeReplay, rollNamedForge, shuffled } from './_named.js';
 import { NAMED_ITEM_LEVEL_REQ } from '../../shared/item-level-gate.js';
 import { NAMED_FORGE_CURRENCY_POINTS, namedForgePointTotal } from '../../shared/named-forge-economy.js';
+import { WEAPON_EP_CEILING } from '../combat-core/formulas.js';
 
 describe('named forge authority', () => {
     it('debits exactly 1000 points with the canonical shared currency values', () => {
@@ -33,6 +34,13 @@ describe('named forge authority', () => {
         const item = buildNamedItem({ kind: 'weapon', ep: 31, range: 4, offenseVal: 170, tags: [{ name: 'Wound', percent: 36 }] }, 'Blade', 'Lore');
         assert.equal(item.weaponEp, 31); assert.equal(item.apCost, 40); assert.equal(item.bonuses.ninjutsuOffense, 170);
         assert.equal(item.levelReq, NAMED_ITEM_LEVEL_REQ, 'named weapons carry the same Level 90 gate as named armor');
+    });
+
+    it('rolls a named blade onto the weapon EP ceiling, so it never out-hits a maxed 60-AP jutsu', () => {
+        for (let i = 0; i < 25; i += 1) {
+            const roll = rollNamedForge('weapon');
+            assert.ok(roll.kind === 'weapon' && roll.ep === WEAPON_EP_CEILING, `rolled ${JSON.stringify(roll)}`);
+        }
     });
 
     it('recovers the exact forged item from an idempotency receipt', () => {

@@ -2725,6 +2725,8 @@ function pveBandFor(session: TowerSession, actor: TowerActor): { enemyLevel: num
  *  level-derived mastery when the template carries no array. Estimate only. */
 function aiMasteryFor(actor: TowerActor, jutsu: JutsuLike): number {
     const level = rankedCombatLevel(actor.character);
+    // A weapon swing resolves its EP at the rank cap (api/pvp/move.ts damageMasteryFor).
+    if (jutsu.weaponSwing === true) return jutsuLevelCapForLevel(level);
     const entries = actor.character.jutsuMastery as Array<{ jutsuId?: unknown; level?: unknown }> | null | undefined;
     if (Array.isArray(entries)) {
         const hit = entries.find(m => String(m?.jutsuId ?? '') === String(jutsu.id ?? ''));
