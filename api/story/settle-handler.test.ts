@@ -18,6 +18,12 @@ let handler: Handler;
 let kv: typeof import('../_storage.js').kv;
 let token = '';
 let otherToken = '';
+// The settle handler returns characters through mutatePlayerSave, which settles
+// idle regeneration against Date.now() before the callback runs. A replay or a
+// committed receipt is not written back, so a regen tick crossed mid-test adds
+// 1 HP to the response but not to the stored save. Tests that compare exact
+// characters pin the clock to this instant, captured after the fixture writes.
+let NOW = 0;
 
 function response() {
     const out: Out = { statusCode: 200 };
@@ -102,6 +108,7 @@ before(async () => {
     };
     await store.writeSoloPveSession(completed);
     await kv.set(story.storyCombatBindingKey(RUN_ID), binding, { ex: story.STORY_COMBAT_SESSION_TTL_SECONDS });
+    NOW = Date.now();
 });
 
 after(async () => {
@@ -124,7 +131,8 @@ test('real story settle handler rejects another account before touching the seal
     assert.deepEqual(await kv.get(`save:${PLAYER}`), beforeSave);
 });
 
-test('real story settle handler grants one authoritative Chronicle record and replays exactly once', async () => {
+test('real story settle handler grants one authoritative Chronicle record and replays exactly once', async (t) => {
+    t.mock.method(Date, 'now', () => NOW);
     const first = response();
     await handler(request(RUN_ID, token), first.res);
     assert.equal(first.out.statusCode, 200);
@@ -151,7 +159,8 @@ test('real story settle handler grants one authoritative Chronicle record and re
     assert.deepEqual(await kv.get(`save:${PLAYER}`), stored, 'lost-response replay must not pay or version-bump twice');
 });
 
-test('committed reward remains visible when Legacy delivery fails, then reconciles without another grant', async () => {
+test('committed reward remains visible when Legacy delivery fails, then reconciles without another grant', async (t) => {
+    t.mock.method(Date, 'now', () => NOW);
     const originalGet = kv.get;
     process.env.ENABLE_LEGACY = '1';
     kv.get = (async (key: string) => {
@@ -185,7 +194,8 @@ test('committed reward remains visible when Legacy delivery fails, then reconcil
     } finally { delete process.env.ENABLE_LEGACY; }
 });
 
-test('a failed combat metadata write returns the committed receipt and remains repairable', async () => {
+test('a failed combat metadata write returns the committed receipt and remains repairable', async (t) => {
+    t.mock.method(Date, 'now', () => NOW);
     const bindingKey = `story-combat-binding:${RUN_ID}`;
     const binding = await kv.get<Record<string, unknown>>(bindingKey);
     const beforeSave = await kv.get<StoredSave>(`save:${PLAYER}`);
