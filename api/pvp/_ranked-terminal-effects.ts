@@ -5,12 +5,14 @@ import {
     completePlayerRankedAdmission,
     getPlayerRankedAdmission,
     readPetRankedSeasonGateFresh,
+    type PlayerRankedAdmission,
 } from '../pet/_ranked-preparation.js';
 import {
     settlePvpConsumablesDurably,
     type SaveLockRunner,
 } from './_consumable-settlement.js';
 import {
+    clearPlayerRankedSettlingPointer,
     publishPlayerRankedTerminal,
     settlePlayerRankedJournal,
     getPlayerRankedJournal,
@@ -29,7 +31,7 @@ import {
     hasDurableVanguardTerminalOutcome,
 } from './_vanguard-rewards.js';
 
-type RankedTerminalStore = Pick<KvLike, 'get' | 'set' | 'compareSet' | 'keys' | 'hset'>;
+type RankedTerminalStore = Pick<KvLike, 'get' | 'set' | 'compareSet' | 'keys' | 'hset' | 'del'>;
 
 /**
  * Exact proof that nothing can still need the discoverable terminal row: the
@@ -38,7 +40,7 @@ type RankedTerminalStore = Pick<KvLike, 'get' | 'set' | 'compareSet' | 'keys' | 
  * are the same facts season close requires before it finishes a terminal
  * admission whose session row has already been compacted away.
  */
-async function playerRankedTerminalIsSettled(
+export async function playerRankedTerminalIsSettled(
     store: RankedTerminalStore,
     journal: PlayerRankedJournal,
     battleId: string,
@@ -70,6 +72,8 @@ export async function compactSettledPlayerRankedSession(
 ): Promise<boolean> {
     if (!await playerRankedTerminalIsSettled(store, journal, session.battleId)) return false;
     await boundExactPvpSession(store, `pvp:${session.battleId}`, session, SESSION_TTL);
+    // Nothing is left for the settlement sweep to find.
+    await clearPlayerRankedSettlingPointer(store, journal.terminal.matchId);
     return true;
 }
 
@@ -187,24 +191,126 @@ export async function recoverCompletedPlayerRankedFinalizations(
                 continue;
             }
             if (admission.phase !== 'terminal') continue;
-            const journal = await getPlayerRankedJournal(store, admission.matchId);
-            if (!journal
-                || journal.state !== 'completed'
-                || !journal.confirmations.a
-                || !journal.confirmations.b
-                || !journal.items.a.confirmed
-                || !journal.items.b.confirmed
-                || journal.terminal.battleId !== admission.battleId
-                || journal.terminal.fingerprint !== admission.terminalFingerprint) {
-                throw new Error('player-ranked-admission-journal-conflict');
-            }
-            if (!(await hasDurableVanguardTerminalOutcome(store, journal.terminal))) {
-                throw new Error('player-ranked-vanguard-settlement-pending');
-            }
-            await completePlayerRankedAdmission(store, admission);
+            await completeSessionlessTerminalAdmission(store, admission);
         } catch (error) {
             if (!options.onFailure) throw error;
             options.onFailure(admission.matchId, error);
         }
     }
+}
+
+/**
+ * A terminal admission whose session row (and recovery snapshot) are gone may
+ * leave the gate only on exact proof that its whole saga already completed.
+ */
+async function completeSessionlessTerminalAdmission(
+    store: RankedTerminalStore,
+    admission: PlayerRankedAdmission,
+): Promise<void> {
+    const journal = await getPlayerRankedJournal(store, admission.matchId);
+    if (!journal
+        || journal.state !== 'completed'
+        || !journal.confirmations.a
+        || !journal.confirmations.b
+        || !journal.items.a.confirmed
+        || !journal.items.b.confirmed
+        || journal.terminal.battleId !== admission.battleId
+        || journal.terminal.fingerprint !== admission.terminalFingerprint) {
+        throw new Error('player-ranked-admission-journal-conflict');
+    }
+    if (!(await hasDurableVanguardTerminalOutcome(store, journal.terminal))) {
+        throw new Error('player-ranked-vanguard-settlement-pending');
+    }
+    await completePlayerRankedAdmission(store, admission);
+    await clearPlayerRankedSettlingPointer(store, admission.matchId);
+}
+
+function isPvpSessionRow(value: unknown, battleId: string): value is PvpSession {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    const row = value as Partial<PvpSession>;
+    return row.battleId === battleId
+        && (row.status === 'active' || row.status === 'done')
+        && !!row.p1
+        && !!row.p2;
+}
+
+/** The exact committed terminal row, else its sealed 48-hour recovery copy. */
+async function readRankedTerminalSession(
+    store: RankedTerminalStore,
+    battleId: string,
+): Promise<PvpSession | null> {
+    // Close/orphan/publication tombstones are control data, never a session.
+    const live = await store.get<unknown>(`pvp:${battleId}`);
+    if (isPvpSessionRow(live, battleId)) return live;
+    return loadPvpRewardRecoverySnapshot(store, battleId);
+}
+
+const sealedEligibility = async (): Promise<boolean> => {
+    // A journal or terminal admission already sealed eligibility once.
+    throw new Error('player-ranked-eligibility-recomputed');
+};
+
+export type PlayerRankedResumeOutcome =
+    /** The whole saga is proven: the same proof that compacts its session row. */
+    | 'settled'
+    /** No journal and no terminal/active admission: nothing could ever settle. */
+    | 'void';
+
+/**
+ * Drive one match's settlement forward from durable state alone — the unit of
+ * work for the server-side settlement sweep (api/cron/_player-ranked-settlement-sweep.ts).
+ *
+ * With a session row it runs exactly the terminal confirm path a claim, move,
+ * queue recovery or season close runs (confirmPlayerRankedTerminalEffects),
+ * with or without the gate admission: same locks, same receipts, so it may race
+ * any of them. Eligibility is sealed only for an admission still `active`, the
+ * same way those callers seal it; otherwise it was sealed long ago and must
+ * never be recomputed. Throws while any work remains so the caller can retry.
+ */
+export async function resumePlayerRankedSettlement(
+    store: RankedTerminalStore,
+    matchId: string,
+    options: {
+        lock: SaveLockRunner;
+        eligible: (a: string, b: string) => Promise<boolean>;
+        now?: number;
+    },
+): Promise<PlayerRankedResumeOutcome> {
+    const journal = await getPlayerRankedJournal(store, matchId);
+    const admission = await getPlayerRankedAdmission(store, matchId);
+    // A queued admission has no battle yet, and a cancelled one's no-contest
+    // belongs to close/orphan cleanup. Neither is terminal settlement work.
+    const settling = admission && (admission.phase === 'active' || admission.phase === 'terminal')
+        ? admission
+        : null;
+    if (!journal && !settling) return 'void';
+    const battleId = journal?.terminal.battleId ?? settling?.battleId ?? null;
+    if (!battleId) return 'void';
+    if (admission && admission.battleId !== battleId) throw new Error('player-ranked-admission-journal-conflict');
+    // A journal is only ever written after its admission's terminal CAS. A gate
+    // that shows `active` beside one was rolled back out of band; sealing a
+    // second terminal there would contradict the journal forever.
+    if (journal && settling?.phase === 'active') throw new Error('player-ranked-admission-journal-conflict');
+
+    const session = await readRankedTerminalSession(store, battleId);
+    if (session) {
+        if (session.status !== 'done') throw new Error('player-ranked-session-still-active');
+        if (!isPlayerRankedV2Session(session)
+            || session.rankedMatchId !== matchId
+            || (admission && !playerRankedSessionMatchesAdmission(session, admission))) {
+            throw new Error('player-ranked-terminal-session-conflict');
+        }
+        await confirmPlayerRankedTerminalEffects(store, session, {
+            eligible: settling?.phase === 'active' ? options.eligible : sealedEligibility,
+            lock: options.lock,
+            now: options.now,
+        });
+    } else if (settling) {
+        if (settling.phase !== 'terminal') throw new Error('player-ranked-terminal-session-missing');
+        await completeSessionlessTerminalAdmission(store, settling);
+    }
+
+    const current = await getPlayerRankedJournal(store, matchId);
+    if (current && await playerRankedTerminalIsSettled(store, current, battleId)) return 'settled';
+    throw new Error(session ? 'player-ranked-settlement-unproven' : 'player-ranked-terminal-session-missing');
 }

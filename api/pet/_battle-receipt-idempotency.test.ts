@@ -223,8 +223,8 @@ describe('every showdown action is rate limited', () => {
     // EVERY action belongs in this list — the two session-minting entries that
     // landed after it (arena, encounter) are the expensive ones, since each
     // writes a session and the authored entry also reads the admin content
-    // catalog.
-    const ACTIONS = ['start', 'arena', 'encounter', 'turn', 'state', 'forfeit'] as const;
+    // catalog. The Hollow Gate pet duel's entry mints a session too.
+    const ACTIONS = ['hollow-gate', 'start', 'arena', 'encounter', 'turn', 'state', 'forfeit'] as const;
 
     // Matched on each branch's full opening line, not a bare `action === 'x'`.
     // The Hollow Gate admission guard tests `action === 'arena'` as part of a

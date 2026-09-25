@@ -124,6 +124,14 @@ const _noCachePrefixes = [
     // distributed lock; a process-local snapshot at that point defeats the
     // lock and can apply a move against an already-advanced turn.
     'pvp:',
+    // Player-ranked settlement authority: the per-match terminal journal, its
+    // no-contest records, and the recovery sweep's pending pointers. A cached
+    // journal is the object this process wrote, in JS key order; every other
+    // reader (a restarted saga, the other deploy's worker, the sweep) gets the
+    // Postgres JSONB row with its keys reordered. That asymmetry is how a
+    // key-order-dependent fingerprint passed every uninterrupted saga yet
+    // failed every resumed one — keep all readers on the same stored bytes.
+    'player:ranked-',
     // Competitive war records are also lock-protected shared combat state.
     // Reports, challenges, mercenary damage, and reward claims must resolve
     // against the same latest war revision on every worker.

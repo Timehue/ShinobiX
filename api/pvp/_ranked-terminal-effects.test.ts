@@ -13,6 +13,7 @@ import type { PvpSession } from './session.js';
 import {
     getPlayerRankedJournal,
     playerRankedJournalKey,
+    playerRankedSettlingKey,
     publishPlayerRankedTerminal,
     settlePlayerRankedJournal,
 } from './_player-ranked-journal.js';
@@ -20,6 +21,7 @@ import { settlePvpConsumablesDurably } from './_consumable-settlement.js';
 import {
     confirmPlayerRankedTerminalEffects,
     recoverCompletedPlayerRankedFinalizations,
+    resumePlayerRankedSettlement,
 } from './_ranked-terminal-effects.js';
 
 const NOW = 1_850_000_000_000;
@@ -328,6 +330,76 @@ describe('unified player-ranked terminal saga', () => {
         });
         assert.equal(successor.a, 'alice');
         assert.equal(successor.b, 'bob');
+    });
+
+    it('a fully settled saga leaves no settlement pointer behind; an interrupted one keeps it', async () => {
+        const { store: base, session } = await setup();
+        let failed = false;
+        const interrupted: KvLike = {
+            ...base,
+            async compareSet(key, expected, value, options) {
+                if (key === 'save:bob' && !failed) {
+                    failed = true;
+                    throw new Error('loser-elo-precommit');
+                }
+                return base.compareSet(key, expected, value, options);
+            },
+        };
+        await assert.rejects(confirmPlayerRankedTerminalEffects(interrupted, session, {
+            eligible: async () => true, lock, now: NOW + 3,
+        }), /loser-elo-precommit/);
+        assert.ok(await base.get(playerRankedSettlingKey(MATCH)), 'unfinished work stays discoverable');
+
+        await confirmPlayerRankedTerminalEffects(base, session, { eligible: async () => true, lock, now: NOW + 4 });
+        assert.equal(await base.get(playerRankedSettlingKey(MATCH)), null);
+    });
+
+    it('resume finishes a pending journal whose admission is gone, and is void when nothing was sealed', async () => {
+        const { store: base, session } = await setup();
+        let failed = false;
+        const interrupted: KvLike = {
+            ...base,
+            async compareSet(key, expected, value, options) {
+                if (key === 'save:bob' && !failed) {
+                    failed = true;
+                    throw new Error('loser-elo-precommit');
+                }
+                return base.compareSet(key, expected, value, options);
+            },
+        };
+        await assert.rejects(confirmPlayerRankedTerminalEffects(interrupted, session, {
+            eligible: async () => true, lock, now: NOW + 3,
+        }), /loser-elo-precommit/);
+        const gate = await base.get<Record<string, any>>('ranked:season:authority');
+        await base.set('ranked:season:authority', { ...gate, playerAdmissions: [] });
+
+        const outcome = await resumePlayerRankedSettlement(base, MATCH, {
+            lock,
+            eligible: async () => { throw new Error('eligibility-must-stay-sealed'); },
+            now: NOW + 5,
+        });
+
+        assert.equal(outcome, 'settled');
+        assert.equal((await getPlayerRankedJournal(base, MATCH))?.state, 'completed');
+        assert.equal((await base.get<Record<string, any>>('save:alice'))?.character.rankedRating, 1012);
+        assert.equal((await base.get<Record<string, any>>('save:bob'))?.character.rankedRating, 988);
+        assert.equal(await base.get(playerRankedSettlingKey(MATCH)), null);
+        assert.equal(await resumePlayerRankedSettlement(base, 'player-ranked-f9345678-1234-4123-8123-1234567890ab', {
+            lock, eligible: async () => true,
+        }), 'void');
+    });
+
+    it('resume never settles part of a pending journal whose session is gone', async () => {
+        const { store, session } = await setup();
+        await publishPlayerRankedTerminal(store, session, { eligible: async () => true, now: NOW + 3 });
+        const gate = await store.get<Record<string, any>>('ranked:season:authority');
+        await store.set('ranked:season:authority', { ...gate, playerAdmissions: [] });
+        await store.del(`pvp:${BATTLE}`);
+
+        await assert.rejects(resumePlayerRankedSettlement(store, MATCH, { lock, eligible: async () => true }),
+            /player-ranked-terminal-session-missing/);
+        assert.equal((await getPlayerRankedJournal(store, MATCH))?.state, 'pending');
+        assert.equal((await store.get<Record<string, any>>('save:alice'))?.character.rankedRating, 1000);
     });
 
     it('queue traffic repairs bound-then-crash after TTL expiry and admits a successor', async () => {

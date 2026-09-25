@@ -39,8 +39,9 @@ export interface AiMatchSession {
    * (after the floor-unlock check) and read by the settle path, so the client
    * can never pick its encounter, opponent deck or reward after the fact. */
   echoes?: { encounterId: string };
-  /** Server-sealed Hollow Gate rift ambush. Only the matching run may redeem it. */
-  hollowGateCard?: { tokenDigest: string; nodeId: string };
+  /** Server-sealed Hollow Gate rift ambush. Only the matching run may redeem it.
+   * `loanerDeck` marks a match fought with the lent starter deck (card-start.ts). */
+  hollowGateCard?: { tokenDigest: string; nodeId: string; loanerDeck?: boolean };
   /** Display-only override for the AI deck's board name (campaign decks). */
   opponentDeckName?: string;
 }

@@ -70,6 +70,9 @@ export function sanitizeChallengeProgress(char: Record<string, unknown>, exChar:
                 nodeId: String(active.nodeId ?? '').slice(0, 96),
                 floor: Math.max(1, Math.min(50, Math.floor(Number(active.floor) || 1))),
                 kind: ['battle', 'elite', 'ambush', 'beast', 'boss'].includes(kind) ? kind : 'battle',
+                // Keep the fight's mode: without it a resumed pet duel is asked
+                // for as a shinobi fight, and combat-start refuses it.
+                ...(active.mode === 'pet' || active.mode === 'pve' ? { mode: active.mode } : {}),
             };
         }
         if (Array.isArray(run.augmentOffers) && (run.augmentOffers as unknown[]).length > 8) {

@@ -1215,11 +1215,15 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
             session.log.push(`${self.name} uses ${item.name ?? 'an item'}.`);
         } else if (item.id === 'item-attack-pill' || item.id === 'item-defense-pill' || item.id === 'item-smoke-bomb') {
             const smoke = item.id === 'item-smoke-bomb';
+            // Like every other tag, the effect starts next round (matching
+            // api/pvp/move.ts). Item statuses age at the round's end for both
+            // sides (endSoloPveTurn), so they cover whole rounds either way.
+            const activeRound = session.round + 1;
             const status: PvpStatus = smoke
-                ? { name: 'Decrease Damage Given', source: item.id, rounds: side === 'player' ? 1 : 2, percent: 100, kind: 'negative', activeRound: session.round }
+                ? { name: 'Decrease Damage Given', source: item.id, rounds: 1, percent: 100, kind: 'negative', activeRound }
                 : item.id === 'item-attack-pill'
-                    ? { name: 'Increase Damage Given', source: item.id, rounds: 2, percent: 15, kind: 'positive', activeRound: session.round }
-                    : { name: 'Decrease Damage Taken', source: item.id, rounds: 2, percent: 15, kind: 'positive', activeRound: session.round };
+                    ? { name: 'Increase Damage Given', source: item.id, rounds: 2, percent: 15, kind: 'positive', activeRound }
+                    : { name: 'Decrease Damage Taken', source: item.id, rounds: 2, percent: 15, kind: 'positive', activeRound };
             for (const recipient of (smoke ? ['player', 'enemy'] : [side]) as SoloPveSide[]) {
                 const target = fighter(session, recipient);
                 setFighter(session, recipient, {
@@ -1231,8 +1235,10 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
                 });
             }
             session.log.push(`${self.name} uses ${item.name ?? 'an item'}: ${smoke
-                ? 'both fighters deal 0 ordinary damage for 1 round; Pierce bypasses the smoke.'
-                : item.id === 'item-attack-pill' ? 'deals 15% more damage for 2 rounds.' : 'takes 15% less damage for 2 rounds.'}`);
+                ? 'next round, both fighters deal 0 ordinary damage; Pierce bypasses the smoke.'
+                : item.id === 'item-attack-pill'
+                    ? 'deals 15% more damage for 2 rounds, starting next round.'
+                    : 'takes 15% less damage for 2 rounds, starting next round.'}`);
         } else {
             const tags = item.weaponTags?.length ? item.weaponTags : item.weaponEffect ? [{ name: item.weaponEffect, percent: item.weaponEffectValue }] : [{ name: 'Heal' }];
             // weaponSwing: true mirrors the PvP item fix (api/pvp/move.ts) — a

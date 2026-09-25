@@ -47,6 +47,29 @@ function shufflePets(pets: Pet[]): Pet[] {
     return shuffled;
 }
 
+/** Rolls a field size from 1 to `maximum`, both inclusive. */
+export type ShowdownFieldSizeRoll = (maximum: number) => number;
+const rollFieldSize: ShowdownFieldSizeRoll = (maximum) => randomInt(1, maximum + 1);
+
+/**
+ * The road Colosseum's team draw: a random 1v1, 2v2 or 3v3, never larger than
+ * the ready pets can field, then a shuffled team of exactly that size with no
+ * bench. A `lead` always takes the field; the rest of the team is drawn at
+ * random from the other ready pets. The Hollow Gate pet duel uses this same
+ * draw, so the two encounters cannot drift apart.
+ */
+export function rollShowdownTeam(
+    ready: Pet[],
+    options: { lead?: Pet; roll?: ShowdownFieldSizeRoll } = {},
+): { format: ShowdownFormat; chosen: Pet[] } {
+    const { lead, roll = rollFieldSize } = options;
+    const others = lead ? ready.filter((pet) => pet.id !== lead.id) : ready;
+    const fieldable = others.length + (lead ? 1 : 0);
+    const format = wandererShowdownFormat(fieldable, roll(Math.max(1, Math.min(3, fieldable))));
+    const drawn = shufflePets(others);
+    return { format, chosen: (lead ? [lead, ...drawn] : drawn).slice(0, SHOWDOWN_FORMAT_SIZE[format]) };
+}
+
 function parseRef(value: unknown): WandererRef | null {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
     const ref = value as Record<string, unknown>;
@@ -104,8 +127,7 @@ export async function startNaturalWandererShowdown(playerName: string, rawRef: u
             if (!ready.length) {
                 return { ok: false as const, status: 409, error: 'You need a ready carried pet to answer this challenge.' };
             }
-            const format = wandererShowdownFormat(ready.length, randomInt(1, Math.min(3, ready.length) + 1));
-            const chosen = shufflePets(ready).slice(0, SHOWDOWN_FORMAT_SIZE[format]);
+            const { format, chosen } = rollShowdownTeam(ready);
             const seed = randomInt(1, 0x7fffffff);
             const built = buildColosseumAiTeam(chosen, chosen.length, 'warrior', seed, true);
             if (built.pets.length !== chosen.length) {
