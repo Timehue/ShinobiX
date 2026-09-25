@@ -312,3 +312,36 @@ test("structured events render a readable match timeline", () => {
   assert.match(html, /Akari activated Field Medicine/);
   assert.match(html, /Rules transcript/);
 });
+
+test("a timed board warns the duelist one missed turn from forfeiting, and tells their opponent", () => {
+  // Two turns in a row left to run out forfeit a PvP duel
+  // (shared/chronicle-duel.ts advanceExpiredChronicleTurn).
+  const state = createMatch(
+    "Akari",
+    CHRONICLE_FIXED_FALLBACK_DECK,
+    "Ren",
+    CHRONICLE_FIXED_FALLBACK_DECK,
+    () => 0,
+    1_000,
+  );
+  state.phase = "main1";
+  state.activePlayer = "p1";
+  state.afkStrikes = { p1: 1 };
+  const cardsById = Object.fromEntries(
+    CHRONICLE_CARD_CATALOG.map((card) => [card.id, card]),
+  ) as Record<string, ChronicleDisplayCard>;
+  const render = (viewer: "p1" | "p2", timedTurns = true) =>
+    renderToStaticMarkup(
+      React.createElement(ChronicleDuelBoard, {
+        state: projectMatchForViewer(state, viewer),
+        cardsById,
+        timedTurns,
+        onAction: () => undefined,
+      }),
+    );
+  assert.match(render("p1"), /You missed your last turn\. Miss this one too and you forfeit\./);
+  assert.match(render("p2"), /Akari missed their last turn\. If they miss this one too, you win\./);
+  assert.doesNotMatch(render("p1", false), /missed your last turn/, "an untimed (AI) board has no clock to warn about");
+  state.afkStrikes = { p1: 0 };
+  assert.doesNotMatch(render("p1"), /missed your last turn/, "acting cleared the streak");
+});

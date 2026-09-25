@@ -58,6 +58,7 @@ import { hydrateCharacterFromSave, sealItemCharges } from '../pvp/session.js';
 import { readSoloPveSession, soloPveSessionKey, writeSoloPveSession } from '../solo-pve/_store.js';
 import { withSoloPveSettlementReceipt } from '../solo-pve/_settlement.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
+import { isIncapacitated } from '../_elapsed-state.js';
 
 /*
  * /api/village/anbu-infiltration — POST only. The Anbu Vault Infiltration raid
@@ -217,6 +218,12 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
                 } };
             }
             await kv.del(activeKey);
+        }
+
+        // A run already on the board resumes above; a NEW one is not sealed for
+        // a hospitalized raider, and no daily attempt is spent refusing it.
+        if (!identity.admin && isIncapacitated(char)) {
+            return { status: 409 as const, body: { error: 'You are in the hospital. Recover before starting a fight.', errorCode: 'hospitalized' } };
         }
 
         if (!identity.admin && !await strongholdVaultReady(playerName, sector)) {

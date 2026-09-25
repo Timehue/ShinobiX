@@ -9,6 +9,7 @@ import {
   deckLimitForCard,
 } from "../../shared/chronicle-duel.js";
 import { dungeonCardMatchId } from "../dungeon/_encounter-proof.js";
+import { CARD_CLASH_AI_ACTIVE_TTL_SECONDS, CARD_CLASH_AI_TOKEN_TTL_SECONDS } from "./_ai-reward.js";
 
 process.env.ADMIN_PASSWORD = "cc-ai-test-admin";
 process.env.SUPABASE_URL ??= "http://localhost:1";
@@ -16,6 +17,9 @@ process.env.SUPABASE_SERVICE_KEY ??= "x";
 process.env.ENABLE_LEGACY = "1";
 
 const store = new Map<string, unknown>();
+/** The last expiry each key was written with. The map never expires anything,
+ *  so a test that depends on one key outliving another reads it here. */
+const ttlSeconds = new Map<string, number>();
 let failLegacyWrites = 0;
 let failCardSessionWrites = 0;
 const clone = (value: unknown) =>
@@ -58,7 +62,7 @@ before(async () => {
     unknown
   >;
   kv.get = async (key: string) => clone(store.get(key));
-  kv.set = async (key: string, value: unknown, options?: { nx?: boolean }) => {
+  kv.set = async (key: string, value: unknown, options?: { nx?: boolean; ex?: number }) => {
     if (key.startsWith("legacy:stats:") && failLegacyWrites > 0) {
       failLegacyWrites -= 1;
       throw new Error("injected AI Legacy write outage");
@@ -69,6 +73,7 @@ before(async () => {
     }
     if (options?.nx && store.has(key)) return null;
     store.set(key, clone(value));
+    if (options?.ex) ttlSeconds.set(key, options.ex);
     return "OK";
   };
   kv.compareSet = async (key: string, expected: unknown | null, value: unknown) => {
@@ -146,7 +151,7 @@ test("AI start grants starter utility once and creates current rules state", asy
     assert.ok(copies <= deckLimitForCard(id), `${id} starter copies must remain legal`);
 });
 
-test("immediate forfeit commits one durable zero-value receipt without economy or progression credit", async () => {
+test("an immediate forfeit counts as one loss, pays nothing and commits one durable receipt", async () => {
   store.clear();
   store.set("save:quit", {
     character: {
@@ -183,7 +188,9 @@ test("immediate forfeit commits one durable zero-value receipt without economy o
   const afterFirst = character("quit");
   assert.equal(afterFirst.ryo, 17);
   assert.equal(afterFirst.cardClashWins, 3);
-  assert.equal(afterFirst.cardClashLosses, 4);
+  // Owner rule 2026-09-24: leaving a game mode counts as a loss. A forfeit used
+  // to leave the record untouched, so walking out of a losing showdown was free.
+  assert.equal(afterFirst.cardClashLosses, 5, "the forfeit is a loss on the record");
   assert.equal(afterFirst.cardClashDraws, 2);
   assert.equal(store.get("legacy:stats:quit"), undefined);
   assert.equal(
@@ -205,6 +212,105 @@ test("immediate forfeit commits one durable zero-value receipt without economy o
   assert.equal(replay.statusCode, 200);
   assert.deepEqual(store.get("save:quit"), committedSave, "terminal replay cannot rewrite or progress the save");
   assert.equal(character("quit").ryo, 17, "terminal replay cannot pay");
+  assert.equal(character("quit").cardClashLosses, 5, "and cannot count the loss twice");
+});
+
+test("a new Card Hall showdown first forfeits the one its player walked away from", async () => {
+  store.clear();
+  store.set("save:leaver", {
+    character: {
+      name: "Leaver",
+      ryo: 5,
+      cardClashWins: 1,
+      cardClashLosses: 1,
+      cardClashDraws: 0,
+      tileCards: CHRONICLE_FIXED_FALLBACK_DECK,
+    },
+  });
+  const start = () => call(aiStart, { playerName: "leaver", difficulty: "medium", deck: CHRONICLE_FIXED_FALLBACK_DECK });
+  const first = await start();
+  const abandoned = (first.body as { matchId: string }).matchId;
+
+  // The tab closed mid-showdown, so no forfeit ever reached the server.
+  const second = await start();
+  assert.equal(second.statusCode, 200, JSON.stringify(second.body));
+  const old = store.get(`cc-ai:${abandoned}`) as { settledAt?: number; endedBy?: string };
+  assert.ok(old.settledAt, "the abandoned showdown is resolved, not left to expire");
+  assert.equal(old.endedBy, "forfeit");
+  assert.equal(character("leaver").cardClashLosses, 2, "walking away counts as a loss");
+  assert.equal(character("leaver").ryo, 5, "and never pays");
+
+  // The second showdown is abandoned too; the first is not charged again.
+  assert.equal((await start()).statusCode, 200);
+  assert.equal(character("leaver").cardClashLosses, 3);
+  assert.equal(character("leaver").cardClashWins, 1);
+});
+
+test("an external-stakes showdown is never swept up by a Card Hall start", async () => {
+  store.clear();
+  store.set("save:encounter", {
+    character: { name: "Encounter", ryo: 0, cardClashLosses: 0, tileCards: CHRONICLE_FIXED_FALLBACK_DECK },
+  });
+  const external = await call(aiStart, {
+    playerName: "encounter", difficulty: "medium", deck: CHRONICLE_FIXED_FALLBACK_DECK, externalStakes: true,
+  });
+  const encounterId = (external.body as { matchId: string }).matchId;
+  assert.equal((await call(aiStart, { playerName: "encounter", difficulty: "medium", deck: CHRONICLE_FIXED_FALLBACK_DECK })).statusCode, 200);
+  const encounter = store.get(`cc-ai:${encounterId}`) as { settledAt?: number; endedBy?: string };
+  assert.equal(encounter.settledAt, undefined, "the event or dungeon that owns it decides its ending");
+  assert.equal(character("encounter").cardClashLosses, 0);
+});
+
+test("a showdown left long enough to expire is still a loss at the next start", async () => {
+  store.clear();
+  store.set("save:drifter", {
+    character: { name: "Drifter", ryo: 5, cardClashWins: 0, cardClashLosses: 0, cardClashDraws: 0, tileCards: CHRONICLE_FIXED_FALLBACK_DECK },
+  });
+  const start = () => call(aiStart, { playerName: "drifter", difficulty: "medium", deck: CHRONICLE_FIXED_FALLBACK_DECK });
+  const abandoned = ((await start()).body as { matchId: string }).matchId;
+
+  // A match lives two hours after its last move. The pointer to it must outlive
+  // that, or closing the tab and waiting would still keep the record clean.
+  assert.ok(
+    (ttlSeconds.get("cc-ai-active:drifter") ?? 0) > (ttlSeconds.get(`cc-ai:${abandoned}`) ?? Infinity),
+    "the pointer outlives the match it names",
+  );
+  assert.equal(ttlSeconds.get("cc-ai-active:drifter"), CARD_CLASH_AI_ACTIVE_TTL_SECONDS);
+  assert.equal(ttlSeconds.get(`cc-ai:${abandoned}`), CARD_CLASH_AI_TOKEN_TTL_SECONDS);
+  store.delete(`cc-ai:${abandoned}`);
+
+  const next = await start();
+  assert.equal(next.statusCode, 200, JSON.stringify(next.body));
+  assert.equal(character("drifter").cardClashLosses, 1, "an expired walk-out is still a loss");
+  assert.equal(character("drifter").ryo, 5, "and never pays");
+  const body = next.body as { matchId: string; _saveVersion?: number; character?: { cardClashLosses?: number } };
+  assert.equal(body.character?.cardClashLosses, 1, "the start hands back the record it just changed");
+  assert.equal(
+    body._saveVersion,
+    (store.get("save:drifter") as { _saveVersion?: number })._saveVersion,
+    "with the save version as it stands after that write",
+  );
+  assert.equal(store.get("cc-ai-active:drifter"), body.matchId, "the pointer now names the new showdown");
+});
+
+test("a settled showdown is never counted again, even if its pointer outlives it", async () => {
+  store.clear();
+  store.set("save:finisher", {
+    character: { name: "Finisher", ryo: 0, cardClashWins: 0, cardClashLosses: 0, cardClashDraws: 0, tileCards: CHRONICLE_FIXED_FALLBACK_DECK },
+  });
+  const start = () => call(aiStart, { playerName: "finisher", difficulty: "medium", deck: CHRONICLE_FIXED_FALLBACK_DECK });
+  const matchId = ((await start()).body as { matchId: string }).matchId;
+  assert.equal(store.get("cc-ai-active:finisher"), matchId);
+  assert.equal((await call(aiMove, { matchId, action: "forfeit" })).statusCode, 200);
+  assert.equal(character("finisher").cardClashLosses, 1);
+  assert.equal(store.get("cc-ai-active:finisher"), undefined, "a settled showdown is no longer the open one");
+
+  // Model the best-effort clear being lost, and the settled match then expiring.
+  store.set("cc-ai-active:finisher", matchId);
+  store.delete(`cc-ai:${matchId}`);
+  const next = await start();
+  assert.equal(next.statusCode, 200, JSON.stringify(next.body));
+  assert.equal(character("finisher").cardClashLosses, 1, "the settlement receipt stops a second loss");
 });
 
 test("lost terminal responses reconcile from action and state replays", async () => {

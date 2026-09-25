@@ -4033,6 +4033,13 @@ export interface ChronicleMatch {
    * deterministic for replays, tests, and dispute audits. */
   rngState: number;
   turnStartedAt: number;
+  /** Consecutive turns each duelist let the clock run out on without acting
+   * (advanceExpiredChronicleTurn). Optional so a match persisted before the
+   * rule loads unchanged, with no rules-version bump. */
+  afkStrikes?: Partial<Record<ChronicleSideKey, number>>;
+  /** Whether the active duelist has acted this turn. `false` is written at every
+   * turn start; a match without it (persisted earlier) never earns a strike. */
+  actedThisTurn?: boolean;
 }
 
 export type ChronicleResult =
@@ -4140,6 +4147,7 @@ export function createMatch(
     iidCounter: 1,
     rngState: randomSeed || 0x9e3779b9,
     turnStartedAt: now,
+    actedThisTurn: false,
   };
   // Resolve the opening bookkeeping so a fresh duel begins at the first
   // decision point; later turns settle the same way through applyAction().
@@ -6448,6 +6456,78 @@ export function passExpiredResponse(
   );
 }
 
+/** Consecutive missed turns that forfeit a PvP card duel, like regular PvP's two skipped rounds. */
+export const CHRONICLE_AFK_STRIKE_LIMIT = 2;
+
+/** What the clock does for an absent duelist in each phase: move them toward End Turn. */
+function turnTimeoutIntent(phase: ChroniclePhase): ChronicleActionIntent {
+  if (phase === "draw" || phase === "standby") return { action: "advance-phase" };
+  if (phase === "battle") return { action: "enter-main-2" };
+  if (phase === "main1" || phase === "main2") return { action: "enter-end-phase" };
+  return { action: "end-turn" };
+}
+
+/**
+ * Run a PvP card duel's clock, and forfeit a duelist who has walked away.
+ *
+ * Every PvP host (Free Play and the Dojo Circuit trial, Clan War tile duels,
+ * Sector War tables) calls this at the top of every request, so the present
+ * player's own polling drives it. It used to be three copies of the same loop
+ * that passed an absent player's turns forever: the player who stayed had to sit
+ * through a full minute per absent turn, and a walk-out never counted as a loss.
+ *
+ *   1. An expired Snare response window is passed, as before. That is the clock
+ *      acting for the responder, so it neither strikes nor clears them.
+ *   2. An expired TURN strikes the active duelist only if they did nothing all
+ *      turn. Acting clears their streak, so a player who is present but slow is
+ *      never punished; their turn is passed exactly as before.
+ *   3. The CHRONICLE_AFK_STRIKE_LIMIT-th missed turn in a row forfeits the duel
+ *      through the engine's own forfeit action, so every host settles it exactly
+ *      like a manual forfeit (war damage, contest swing, no Free Play credit).
+ *
+ * Returns the same object when nothing had expired.
+ */
+export function advanceExpiredChronicleTurn(
+  state: ChronicleMatch,
+  now = Date.now(),
+): ChronicleMatch {
+  if (state.status !== "active") return state;
+  const strikes: Partial<Record<ChronicleSideKey, number>> = { ...(state.afkStrikes ?? {}) };
+  let next = state;
+  if (next.responseWindow && next.responseWindow.expiresAt <= now) {
+    const passed = passExpiredResponse(next, now);
+    if (passed.ok) next = passed.state;
+  }
+  if (next.status === "active" && !next.responseWindow && next.turnStartedAt + TURN_TIMEOUT_MS <= now) {
+    const actor = next.activePlayer;
+    const turnNumber = next.turnNumber;
+    const acted = next.actedThisTurn;
+    // Only an explicit `false` is a missed turn: a match persisted before this
+    // rule has no flag, and cannot prove its duelist was absent.
+    strikes[actor] = acted === false ? (strikes[actor] ?? 0) + 1 : 0;
+    if ((strikes[actor] ?? 0) >= CHRONICLE_AFK_STRIKE_LIMIT) {
+      const noted = clone(next);
+      noted.log.push(`${sideOf(noted, actor).name} let the turn clock run out ${CHRONICLE_AFK_STRIKE_LIMIT} turns in a row.`);
+      const forfeited = applyAction(noted, actor, { action: "forfeit" }, now);
+      if (forfeited.ok) next = forfeited.state;
+    } else {
+      for (let safety = 0; safety < 5 && next.status === "active" && next.activePlayer === actor; safety++) {
+        const advanced = applyAction(next, actor, turnTimeoutIntent(next.phase), now);
+        if (!advanced.ok) break;
+        next = advanced.state;
+      }
+      // A pass that could not hand the turn over must not read as the absent
+      // duelist having played it.
+      if (next !== state && next.activePlayer === actor && next.turnNumber === turnNumber) next.actedThisTurn = acted;
+    }
+  }
+  if (next === state) return state;
+  // The applyAction calls above acted AS the absent duelist, and applyAction
+  // clears an actor's streak. The streak computed here is written last.
+  next.afkStrikes = strikes;
+  return next;
+}
+
 export function enterMain2(
   state: ChronicleMatch,
   actor: ChronicleSideKey,
@@ -6514,6 +6594,7 @@ export function startTurn(
   next.phase = "draw";
   next.normalSummonUsed = false;
   next.turnStartedAt = now;
+  next.actedThisTurn = false;
   const side = sideOf(next, sideKey);
   if (side.deck.length === 0) {
     finish(
@@ -6674,6 +6755,9 @@ export interface ChronicleProjection {
   log: string[];
   events?: ChroniclePresentationEvent[];
   turnStartedAt: number;
+  /** Turns in a row each duelist let the clock run out on (advanceExpiredChronicleTurn).
+   * Present once anyone has missed a turn, so the board can warn before a forfeit. */
+  missedTurns?: { p1: number; p2: number };
 }
 
 export interface ChronicleBattlePreview {
@@ -7000,6 +7084,9 @@ export function projectMatchForViewer(
         }
       : {}),
     turnStartedAt: state.turnStartedAt,
+    ...(state.afkStrikes
+      ? { missedTurns: { p1: state.afkStrikes.p1 ?? 0, p2: state.afkStrikes.p2 ?? 0 } }
+      : {}),
   };
 }
 
@@ -7365,7 +7452,21 @@ export function applyAction(
   // the turn and the next duelist opens on Main Phase 1 with the Draw Phase
   // card already in hand. A pending response window stops the chain.
   const settled = advanceAutomaticPhases(result.state, now);
-  const after = settled.ok ? settled.state : result.state;
+  let after = settled.ok ? settled.state : result.state;
+  // Presence for the missed-turn rule (advanceExpiredChronicleTurn): a real action
+  // clears the actor's streak, and an action by the active duelist that leaves the
+  // turn in their hands marks the turn played. The clock pass acts AS an absent
+  // duelist through this same function, so it rewrites the streak afterwards.
+  const clearsStrikes = Boolean(after.afkStrikes?.[actor]);
+  const marksTurn = actor === state.activePlayer
+    && after.activePlayer === actor
+    && after.turnNumber === state.turnNumber
+    && after.actedThisTurn === false;
+  if (clearsStrikes || marksTurn) {
+    if (after === state) after = clone(after);
+    if (clearsStrikes) after.afkStrikes = { ...after.afkStrikes, [actor]: 0 };
+    if (marksTurn) after.actedThisTurn = true;
+  }
   appendActionPresentationEvents(state, after, actor, intent, now);
   return success(after);
 }

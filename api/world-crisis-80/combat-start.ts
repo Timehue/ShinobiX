@@ -8,6 +8,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { sealPveDifficultyBand } from '../_pve-band-seal.js';
+import { isIncapacitated } from '../_elapsed-state.js';
 import { sealPveAiMastery } from '../_pve-ai-mastery.js';
 import { claimTowerBattleLeases, releaseTowerBattleLeases } from '../towers/_battle-lease.js';
 import { initializeTowerActionVersion } from '../towers/_action-idempotency.js';
@@ -74,6 +75,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const record = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${playerName}`));
             const character = record?.character as Record<string, unknown> | undefined;
             if (!record || !character) return { status: 404, body: { error: 'Your save was not found.' } };
+            // The Tower engine seals the fighter at FULL vitals, so an admitted
+            // player would leave the hospital bed for this fight at full strength.
+            // The replay above still resolves a deployment that already started.
+            if (!identity.admin && isIncapacitated(character)) {
+                return { status: 409, body: { error: 'You are in the hospital. Recover before starting a fight.', errorCode: 'hospitalized' } };
+            }
             const encounter = await activeWorldCrisis80Encounter({ character, sourceId, path: 'shinobi' });
 
             const runId = `wcr80-${randomUUID().replace(/-/g, '')}`;

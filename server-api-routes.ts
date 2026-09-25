@@ -309,6 +309,7 @@ import jutsuTrainWithSealsHandler from './api/jutsu/train-with-seals.js';
 import professionChooseHandler from './api/profession/choose.js';
 // Player
 import injuredVillagersHandler from './api/player/injured-villagers.js';
+import hospitalWardHandler from './api/player/hospital-ward.js';
 // Weekly boss
 import weeklyBossHandler from './api/weekly-boss.js';
 import rankedSeasonHandler from './api/ranked-season.js';
@@ -791,6 +792,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
 
     // ─── Player: injured villagers (Hospital screen) ───────────────────────────────
     route('/player/injured-villagers', injuredVillagersHandler);
+    route('/player/hospital-ward', hospitalWardHandler);
 
     // ─── Weekly boss (Hall of Legends) ─────────────────────────────────────────────
     route('/weekly-boss', weeklyBossHandler);

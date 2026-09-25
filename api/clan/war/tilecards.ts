@@ -12,8 +12,8 @@ import {
 import { awardWarEndClanXp } from './_war-xp.js';
 import { resolveChronicleDeckWithSave, type ChronicleDeckResolution } from '../../card-clash/_deck.js';
 import {
-    CHRONICLE_RULES_VERSION, TURN_TIMEOUT_MS, applyAction, createMatch,
-    passExpiredResponse, projectMatchForViewer,
+    CHRONICLE_RULES_VERSION, advanceExpiredChronicleTurn, applyAction, createMatch,
+    projectMatchForViewer,
     type ChronicleActionIntent, type ChronicleMatch, type ChronicleSideKey,
 } from '../../../shared/chronicle-duel.js';
 
@@ -62,18 +62,13 @@ async function persistAndFinalize(session: Session) {
     });
     if (endedWar) await awardWarEndClanXp(endedWar).catch((error) => console.error('[clan/war/tilecards] clan-xp award failed', error));
 }
+// The shared clock: passes expired turns, and forfeits a duelist who misses two
+// in a row (shared/chronicle-duel.ts advanceExpiredChronicleTurn). The war then
+// settles that forfeit like any other result (persistAndFinalize).
 function advanceTimeout(session: Session, now: number): boolean {
     if (!session.state || session.state.status !== 'active') return false;
-    const originalState = session.state; let state = originalState;
-    if (state.responseWindow && state.responseWindow.expiresAt <= now) { const passed = passExpiredResponse(state, now); if (passed.ok) state = passed.state; }
-    if (!state.responseWindow && state.turnStartedAt + TURN_TIMEOUT_MS <= now) {
-        const actor = state.activePlayer;
-        for (let safety = 0; safety < 5 && state.activePlayer === actor; safety++) {
-            const timeoutAction: ChronicleActionIntent = state.phase === 'draw' || state.phase === 'standby' ? { action: 'advance-phase' } : state.phase === 'battle' ? { action: 'enter-main-2' } : state.phase === 'main1' || state.phase === 'main2' ? { action: 'enter-end-phase' } : { action: 'end-turn' };
-            const advanced = applyAction(state, actor, timeoutAction, now); if (!advanced.ok) break; state = advanced.state;
-        }
-    }
-    if (state === originalState) return false;
+    const state = advanceExpiredChronicleTurn(session.state, now);
+    if (state === session.state) return false;
     session.state = state; session.status = state.status === 'complete' ? 'done' : 'active'; session.updatedAt = now; return true;
 }
 function actionIntent(body: Record<string, unknown>, action: string): ChronicleActionIntent { return { action, handIndex:index(body.handIndex),zoneIndex:index(body.zoneIndex),tributeZoneIndexes:Array.isArray(body.tributeZoneIndexes)?body.tributeZoneIndexes.map(index).filter((n):n is number=>n!==undefined):undefined,attackerZoneIndex:index(body.attackerZoneIndex),targetZoneIndex:body.targetZoneIndex===null?null:index(body.targetZoneIndex),targetSide:body.targetSide==='p1'||body.targetSide==='p2'?body.targetSide:undefined,graveyardIndex:index(body.graveyardIndex),...(body.position==='attack'||body.position==='defense'?{position:body.position}:{})}; }
@@ -93,6 +88,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (session && session.rulesVersion !== CHRONICLE_RULES_VERSION) return { status:409 as const,body:{error:'This duel used retired rules; start a new duel.'} };
             const autoAdvanced = session ? advanceTimeout(session, now) : false;
             const viewer: ChronicleSideKey | null = session ? safeName(session.p1Name)===safeName(me)?'p1':session.p2Name&&safeName(session.p2Name)===safeName(me)?'p2':null : null;
+            // A duelist's (or an admin's) request keeps what the clock settled even when that request is refused below.
+            // Nobody else moves a duel's clock: their requests are refused and write nothing. A state poll persists it itself.
+            if (session && autoAdvanced && action !== 'state' && (viewer || identity.admin)) await persistAndFinalize(session);
             if (action === 'state') { if (!session) return {status:404 as const,body:{error:'No duel session yet.'}}; if (!viewer && !identity.admin) return {status:403 as const,body:{error:'Only duelists may inspect this duel.'}}; if (autoAdvanced) await persistAndFinalize(session); const side = viewer ?? 'p1'; return {status:200 as const,body:{session:session.state?projectMatchForViewer(session.state,side):{rulesVersion:CHRONICLE_RULES_VERSION,status:session.status,viewerSide:side}}}; }
             if (action === 'join' || action === 'submit-deck') {
                 const war = await kv.get<ClanWar>(`clan-war:${warId}`); if (!war) return {status:404 as const,body:{error:'War not found.'}};

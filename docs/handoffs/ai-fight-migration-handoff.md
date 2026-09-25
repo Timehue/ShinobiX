@@ -561,7 +561,9 @@ that list feeds `playableAis`, so it would become a selectable opponent.
 `/api/pve/fight-outcome` writes the session's surviving HP — both fire the
 moment the fight resolves. `settlementOwnsHpOnWin(session)` (keyed off
 `towerId === 'academy-spar'`) now skips the outcome write on a **win only**; a
-lost spar still reports, which is what hospitalizes a beginner.
+lost spar still reports. (Since 2026-09-24 that report no longer hospitalizes the
+beginner: a spar writes no physical consequence at all — `sessionIsSpar`, see
+`docs/MMORPG_BEHAVIOR_PASS_2026-09-24.md` — but it still consumes the token.)
 ⛔ Do NOT fix this in the client: `pve-outcome-wiring.test.ts` asserts the arena
 shell's outcome effect contains no `winner === "squad"`, because that gate is
 exactly how a lost fight stops costing anything. That guard caught the first
