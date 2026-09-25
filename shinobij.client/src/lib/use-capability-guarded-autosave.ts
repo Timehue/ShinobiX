@@ -2,6 +2,7 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { CapabilityAvailability } from "./live-capabilities";
 import { capabilityAdmissionAllowed } from "./live-capability-admission";
 import { AUTOSAVE_RETRY } from "./save-persistence";
+import { isIdleVitalsOnlyChange } from "./loaded-vitals";
 
 type MutableBox<T> = { current: T };
 
@@ -9,13 +10,34 @@ type MutableBox<T> = { current: T };
 const FLUSH_RETRY_MS = 1_000;
 const FLUSH_RETRY_MAX_MS = 8_000;
 
-type DebounceTriggers = Readonly<{
+export type DebounceTriggers = Readonly<{
     character: unknown;
     accountName: string;
     sector: unknown;
     pendingTravel: unknown;
     missionBattleActive: boolean;
 }>;
+
+/**
+ * True when the only debounce trigger that moved is one idle-regeneration tick.
+ *
+ * While any vital is below its maximum (after every fight, for up to
+ * REGEN_FULL_BAR_SEC), App's regen tick replaces the character object each
+ * second. The tick never dirties the save (isIdleVitalsOnlyChange), and it must
+ * not restart the 3s countdown either. If it did, the countdown would never
+ * finish, and a real change made while vitals refill, such as a seen finale
+ * epilogue or a story choice, would wait for the 15s interval instead. That
+ * interval also restarts whenever a fight opens or closes, so a change made
+ * just after a fight would wait the full 15s.
+ */
+export function isIdleRegenTickOnly(previous: DebounceTriggers | null, next: DebounceTriggers): boolean {
+    return !!previous
+        && previous.accountName === next.accountName
+        && Object.is(previous.sector, next.sector)
+        && Object.is(previous.pendingTravel, next.pendingTravel)
+        && previous.missionBattleActive === next.missionBattleActive
+        && isIdleVitalsOnlyChange(previous.character, next.character);
+}
 
 type ImmediateTriggers = Readonly<{
     activeTraining: unknown;
@@ -93,24 +115,44 @@ export function useCapabilityGuardedAutosave<T>({
         });
     });
 
+    const lastDebounceTriggersRef = useRef<DebounceTriggers | null>(null);
     useEffect(() => {
-        if (!enabled || !debounceTriggers.character || !debounceTriggers.accountName || !dirtyRef.current || intervalPresenceActive) return;
-        if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-        debounceTimerRef.current = setTimeout(() => {
-            debounceTimerRef.current = null;
-            persistDirtySnapshot();
-        }, 3000);
-        return () => {
+        const previous = lastDebounceTriggersRef.current;
+        const current: DebounceTriggers = {
+            character: debounceTriggers.character, accountName: debounceTriggers.accountName, sector: debounceTriggers.sector,
+            pendingTravel: debounceTriggers.pendingTravel, missionBattleActive: debounceTriggers.missionBattleActive,
+        };
+        lastDebounceTriggersRef.current = current;
+        const cancel = () => {
             if (debounceTimerRef.current) {
                 clearTimeout(debounceTimerRef.current);
                 debounceTimerRef.current = null;
             }
         };
+        if (!enabled || !current.character || !current.accountName || !dirtyRef.current || intervalPresenceActive) {
+            cancel();
+            return;
+        }
+        // Keep a running countdown through an idle-regen tick. See
+        // isIdleRegenTickOnly for why restarting it would starve the debounce.
+        if (debounceTimerRef.current && isIdleRegenTickOnly(previous, current)) return;
+        cancel();
+        debounceTimerRef.current = setTimeout(() => {
+            debounceTimerRef.current = null;
+            persistDirtySnapshot();
+        }, 3000);
     }, [
         debounceTimerRef, debounceTriggers.accountName, debounceTriggers.character,
         debounceTriggers.missionBattleActive, debounceTriggers.pendingTravel,
         debounceTriggers.sector, dirtyRef, enabled, intervalPresenceActive, latestSnapshotRef,
     ]);
+    // The countdown above now survives a re-run, so unmount clears it here.
+    useEffect(() => () => {
+        if (debounceTimerRef.current) {
+            clearTimeout(debounceTimerRef.current);
+            debounceTimerRef.current = null;
+        }
+    }, [debounceTimerRef]);
 
     useEffect(() => {
         if (!enabled) return;
