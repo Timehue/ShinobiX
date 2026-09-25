@@ -50,6 +50,19 @@ describe("Academy narrative milestones", () => {
         assert.equal(applyAcademyNarrativeAction(current, { currentSector: 2 }, "trace", 1).ok, false);
     });
 
+    it('persists the Logbook handoff only after the Academy Trial claim', () => {
+        const claimed = { onboardingStep: 'logbook', academyTrialClaimed: true, hp: 83 };
+        const advanced = applyAcademyNarrativeAction(claimed, {}, 'logbook');
+        assert.equal(advanced.ok, true);
+        if (!advanced.ok) return;
+        assert.deepEqual(advanced.character, { ...claimed, onboardingStep: 'sectorReturn' });
+        const replay = applyAcademyNarrativeAction(advanced.character, {}, 'logbook');
+        assert.equal(replay.ok && replay.changed, false);
+        assert.equal(applyAcademyNarrativeAction({ ...claimed, academyTrialClaimed: false }, {}, 'logbook').ok, false);
+        const veteran = applyAcademyNarrativeAction({ ...claimed, onboardingStep: 'done' }, {}, 'logbook');
+        assert.equal(veteran.ok && veteran.changed, false);
+    });
+
     it("requires the trace before the seal and the seal before completion", () => {
         const step = { onboardingStep: "sectorReturn" };
         assert.equal(applyAcademyNarrativeAction(step, {}, "seal").ok, false);
