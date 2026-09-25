@@ -497,7 +497,7 @@ test(`a new player completes the full persisted Academy first session against bu
     const mobileMenu = page.getByRole('dialog', { name: 'Shinobi menu' });
     await expect(mobileMenu).toBeVisible();
     const logoutSave = page.waitForResponse((response) => response.request().method() === 'POST'
-        && new URL(response.url()).pathname.toLowerCase() === `/api/save/${playerName.toLowerCase()}`);
+        && new URL(response.url()).pathname.toLowerCase() === `/api/save/${encodeURIComponent(playerName.toLowerCase())}`);
     await mobileMenu.getByRole('button', { name: 'Logout' }).click();
     expect((await logoutSave).status()).toBe(200);
     await expect(page.getByTestId('start-create')).toBeVisible();
@@ -507,7 +507,7 @@ test(`a new player completes the full persisted Academy first session against bu
     await page.getByLabel('Name').fill(playerName);
     await page.getByPlaceholder('Enter your password').fill(password);
     const loginSave = page.waitForResponse((response) => response.request().method() === 'GET'
-        && new URL(response.url()).pathname.toLowerCase() === `/api/save/${playerName.toLowerCase()}`);
+        && new URL(response.url()).pathname.toLowerCase() === `/api/save/${encodeURIComponent(playerName.toLowerCase())}`);
     await page.getByRole('button', { name: 'Enter Village' }).click();
     expect((await loginSave).status()).toBe(200);
     await expect(page.locator('.stormveil-village-screen')).toBeVisible();
