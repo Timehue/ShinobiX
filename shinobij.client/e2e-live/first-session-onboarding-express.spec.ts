@@ -158,6 +158,8 @@ async function createCharacter(page: Page, playerName: string, password: string)
     await page.locator('#cc-password').fill(password);
     await page.locator('#cc-confirm-password').fill(password);
 
+    // Same owner-slug rule as the test body; this helper cannot see its local.
+    const playerKey = playerName.toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32);
     const firstSave = page.waitForResponse((response) => {
         const url = new URL(response.url());
         const requestedName = decodeURIComponent(url.pathname.split('/').pop() ?? '')
