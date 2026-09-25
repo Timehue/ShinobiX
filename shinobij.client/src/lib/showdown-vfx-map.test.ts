@@ -13,6 +13,7 @@ import {
     moveAccentVariant,
     SHOWDOWN_MOVE_VFX_KINDS,
     vfxElementTint,
+    vfxMoveTint,
     VFX_ELEMENT_TINT,
 } from "./showdown-vfx-map";
 
@@ -55,6 +56,13 @@ test("every element is visually distinct — the tint is what carries it", () =>
     for (const el of ELEMENTS) assert.ok(VFX_ELEMENT_TINT[el], `${el} has a tint`);
     // An unknown element must not crash or come back blank.
     assert.ok(vfxElementTint("Nonsense"));
+});
+
+test("Celestial Lion's named techniques use Wind turquoise without recoloring other Wind moves", () => {
+    assert.equal(vfxMoveTint("Wind", "Celestial Tempest: Lion's Descent"), "#91f5dc");
+    assert.equal(vfxMoveTint("Wind", "Zephyr Aegis"), "#b7f9e8");
+    assert.equal(vfxMoveTint("Wind", "Heaven's Vortex"), vfxElementTint("Wind"));
+    assert.equal(vfxMoveTint("Water", "Tidal Coil"), vfxElementTint("Water"));
 });
 
 test("Rest never detonates the caster's element on its own head", () => {

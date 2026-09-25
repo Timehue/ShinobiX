@@ -22,6 +22,11 @@ export function useVillageTax(
     // One settlement attempt per player per mount. The server is the real guard;
     // this just avoids a redundant round-trip on every re-render.
     const settledFor = useRef<string>("");
+    // App passes onServerVersion as an inline arrow (new every render). With it
+    // in the deps, the next re-render cancelled the in-flight settlement and
+    // the settledFor guard blocked a retry, so the debit was never shown.
+    const callbacksRef = useRef({ onServerVersion, notify });
+    useEffect(() => { callbacksRef.current = { onServerVersion, notify }; }, [onServerVersion, notify]);
 
     useEffect(() => {
         const name = character?.name;
@@ -34,6 +39,7 @@ export function useVillageTax(
             if (cancelled || !result?.applied) return;
             // Adopt the authoritative post-debit balances.
             setCharacter((prev) => (prev ? { ...prev, ryo: result.ryo, bankRyo: result.bankRyo } : prev));
+            const { onServerVersion, notify } = callbacksRef.current;
             onServerVersion?.(result._saveVersion);
             notify?.(
                 `Occupation tax: −${result.taxed.toLocaleString()} ryo. `
@@ -43,5 +49,5 @@ export function useVillageTax(
         })();
 
         return () => { cancelled = true; };
-    }, [character?.name, setCharacter, onServerVersion, notify]);
+    }, [character?.name, setCharacter]);
 }

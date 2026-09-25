@@ -113,16 +113,20 @@ export async function getTravelLease(name: string): Promise<TravelLease | null> 
  * that a player is actively waiting on. Waiting costs nothing; failing costs
  * the player their move.
  *
- * ⚠ The backoff is EXPONENTIAL (25ms * 2^attempt) and `withLockCore` sleeps
- * once more after the FINAL failed attempt, so the ceiling climbs fast — do the
- * arithmetic before changing this number:
- *     attempts=5 (default) → last try  375ms, worst-case  775ms
- *     attempts=8           → last try 3175ms, worst-case 6375ms
- *     attempts=9           → last try 6375ms, worst-case 12775ms  ← TOO LONG
+ * ⚠ The backoff is EXPONENTIAL (25ms * 2^attempt, plus up to 25ms of jitter per
+ * step), so the ceiling climbs fast — do the arithmetic before changing this
+ * number. A fail-closed lock throws right after its LAST try (it used to sleep
+ * one more step first, which doubled every answer time below and bought no
+ * extra attempt):
+ *     attempts=5 (default) → last try  375ms
+ *     attempts=8           → last try 3175ms
+ *     attempts=9           → last try 6375ms
+ *     attempts=10          → last try 12775ms  ← TOO LONG
  * 8 is the ceiling worth having: the last acquire lands ~3.2s in, which covers a
- * settle holding the key across two KV round-trips, and the ~6.4s worst case
- * still fits inside the client's 12s AbortSignal — 9 would blow past it and
- * turn a recoverable wait into "Could not reach the travel server."
+ * settle holding the key across two KV round-trips, well inside the client's 12s
+ * AbortSignal. Every step past that doubles the wait for a lock that is
+ * probably wedged, until it turns a recoverable wait into "Could not reach the
+ * travel server."
  *
  * Mutual exclusion is UNCHANGED: this only affects how long we wait to ACQUIRE,
  * never whether the critical section is locked.

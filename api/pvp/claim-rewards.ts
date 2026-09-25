@@ -118,6 +118,10 @@ function claimKey(playerName: string, battleId: string): string {
     return `pvp:rewarded:${safeName(playerName)}:${battleId}`;
 }
 
+// Every claim-side replay runs after the claim has sealed (or loaded) the exact
+// terminal row's recovery snapshot, so the barrier may skip re-proving it.
+const SEALED_TERMINAL_REPLAY = { recoverySnapshotSealed: true } as const;
+
 // Lock a set of save keys in a deterministic (sorted) order before running fn,
 // so two concurrent claims that each touch BOTH fighters' saves (e.g. winner
 // and loser claiming at the same instant) can't acquire the two locks in
@@ -297,9 +301,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(503).json({ error: 'Battle recovery proof is still finalizing. Retry this claim.' });
             }
         }
+        // From here `session` IS the sealed recovery row (just sealed above, or
+        // loaded from that seal), so every replay below passes
+        // SEALED_TERMINAL_REPLAY and the barrier need not re-prove the seal.
 
         if (isCancelledUnstartedPvpDuel(session)) {
-            await replayCommittedPvpTerminalEffects(session);
+            await replayCommittedPvpTerminalEffects(session, SEALED_TERMINAL_REPLAY);
             return res.status(200).json({
                 ok: true,
                 alreadyClaimed: false,
@@ -341,7 +348,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         // first would reject the draw because no journal had
                         // been published yet. Replay the committed terminal
                         // saga first and require its exact draw journal.
-                        committedTerminalReplay = await replayCommittedPvpTerminalEffects(session);
+                        committedTerminalReplay = await replayCommittedPvpTerminalEffects(session, SEALED_TERMINAL_REPLAY);
                         if (!committedTerminalReplay.playerRankedJournal) {
                             throw new Error('player-ranked-draw-terminal-journal-missing');
                         }
@@ -352,7 +359,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             (saveKey, action) => withKvLock(saveKey, action, { failClosed: true }),
                             { legacyPlayerName: playerName },
                         );
-                        await replayCommittedPvpTerminalEffects(session);
+                        await replayCommittedPvpTerminalEffects(session, SEALED_TERMINAL_REPLAY);
                     }
                     const marked = await markPvpRewardServerCreditsCompleted(
                         kv,
@@ -406,7 +413,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // A claim may be the first retry after terminal-session CAS and
                 // process death. Replay every post-CAS terminal effect; the
                 // ranked helper propagates until its journal is fully durable.
-                committedTerminalReplay = await replayCommittedPvpTerminalEffects(session);
+                committedTerminalReplay = await replayCommittedPvpTerminalEffects(session, SEALED_TERMINAL_REPLAY);
                 playerRankedJournal = committedTerminalReplay.playerRankedJournal;
                 if (!playerRankedJournal) throw new Error('player-ranked-terminal-journal-missing');
             } else {
@@ -419,7 +426,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Legacy terminal effects are individually idempotent and can be
                 // repaired by either participant's claim after a move lost its
                 // post-CAS continuation.
-                committedTerminalReplay = await replayCommittedPvpTerminalEffects(session);
+                committedTerminalReplay = await replayCommittedPvpTerminalEffects(session, SEALED_TERMINAL_REPLAY);
             }
         } catch (error) {
             console.error('[pvp/claim-rewards] consumable settlement pending', error);
@@ -466,7 +473,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             && raidSector >= 1
             && raidSector <= 66) {
             try {
-                worldRaidProgression = await settleRaidProgressionWithDailyCap({
+                // The terminal barrier just settled this exact proof (same
+                // attacker, proof id, terminal time, sector and evidence) and a
+                // replay returns the same in-save receipt. Reuse its result; only
+                // when the barrier deferred it does the claim settle it here.
+                worldRaidProgression = committedTerminalReplay.worldSettlement?.raid ?? await settleRaidProgressionWithDailyCap({
                     playerName: worldAttacker.name,
                     proofId: `pvp-raid:${battleId}`,
                     proofAt: rewardEventAt,

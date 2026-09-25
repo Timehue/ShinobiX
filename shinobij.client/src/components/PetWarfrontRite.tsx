@@ -1172,15 +1172,27 @@ function WarfrontRiteMatch({
     }, [phase, clashIndex, result, reducedMotion, reformOpen]);
 
     // Settlement is reported exactly once, with the plan the player committed.
+    // The match is decided the moment its final clash ends — no re-form panel
+    // follows it, so the plan can no longer change — so report at the START of
+    // that closing interlude. The authority round trip then runs under the
+    // interlude's victory beat; it used to start only once the result card was
+    // up, which then sat on "Recording the result…" with Leave locked.
+    const finalClashDecided = Boolean(result) && ((phase === "interlude" && !reformOpen) || phase === "result");
     useEffect(() => {
         // A shared co-op replay settles nowhere — it has no reward token and no
         // per-client authority, so reporting from it would be meaningless.
-        if (spectator || phase !== "result" || !result || !plan || reportedRef.current) return;
+        if (spectator || !finalClashDecided || !result || !plan || reportedRef.current) return;
         reportedRef.current = true;
+        onResult?.(result, plan);
+    }, [finalClashDecided, result, plan, onResult, spectator]);
+
+    const resultCueRef = useRef(false);
+    useEffect(() => {
+        if (spectator || phase !== "result" || !result || resultCueRef.current) return;
+        resultCueRef.current = true;
         stopBattleMusic?.();
         playPetSfx(result.winner === "blue" ? "victory" : "crowd");
-        onResult?.(result, plan);
-    }, [phase, result, plan, onResult, spectator]);
+    }, [phase, result, spectator]);
 
     useEffect(() => () => { stopBattleMusic?.(); }, []);
 

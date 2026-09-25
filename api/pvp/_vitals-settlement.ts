@@ -194,6 +194,15 @@ async function settleFighterVitals(
     if (!slug) return;
     const saveKey = `save:${slug}`;
     const receiptKey = pvpVitalsReceiptKey(session.battleId, slug);
+    // The finishing move usually settles these vitals; every later replay of
+    // the saga (each player's claim, any recovery pass) used to take the
+    // fail-closed save lock and read the whole save only to find its receipt
+    // inside. This marker is written strictly AFTER the save write that applied
+    // the vitals, and the locked path below returns on it unconditionally too,
+    // so seeing it first is the same answer without the lock or the
+    // multi-hundred-KB read. A missing marker (expired, or its write failed)
+    // just falls through to the locked path and the in-save receipt.
+    if (await store.get(receiptKey)) return;
     await deps.lock(saveKey, async () => {
         const fresh = await store.get<Record<string, unknown>>(saveKey);
         const freshChar = fresh?.character as Record<string, unknown> | undefined;
@@ -214,8 +223,8 @@ async function settleFighterVitals(
         // and the fight's consequence never applied — and every replay then read
         // the claim as "already settled". The proof is now written IN the save,
         // in the same write as the consequence, so the two can only ever land
-        // together. The KV marker is kept purely for compatibility with rows
-        // settled by the previous generation, and is written AFTER the save.
+        // together. The KV marker is written AFTER the save; it serves rows
+        // settled by the previous generation and the lock-free check above.
         const legacyMarker = await store.get(receiptKey);
         if (legacyMarker) return;
         const identity = pvpVitalsReceiptIdentity(session, side);
@@ -239,9 +248,10 @@ async function settleFighterVitals(
         );
         const updated = { ...fresh, character: settled };
         await store.set(saveKey, mergePreservingImages(bumpSaveVersion<Record<string, unknown>>(updated), fresh));
-        // Compatibility marker for readers of the previous generation. The save
-        // above is already durable, so a failure here changes nothing: the next
-        // replay finds the in-save receipt and stops there.
+        // The marker the lock-free check above reads (and readers of the
+        // previous generation). The save above is already durable, so a failure
+        // here changes nothing: the next replay takes the lock, finds the
+        // in-save receipt and stops there.
         await store.set(receiptKey, { battleId: session.battleId, side, name: fighter.name, settledAt: now }, { ex: RECEIPT_TTL_SEC })
             .catch(() => undefined);
     });

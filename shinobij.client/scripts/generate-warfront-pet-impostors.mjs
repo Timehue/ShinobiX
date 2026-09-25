@@ -35,7 +35,7 @@ const tsManifestPath = resolve(clientRoot, "src/generated/pet-warfront-impostor-
 const tsUrlManifestPath = resolve(clientRoot, "src/generated/pet-warfront-impostor-url-manifest.ts");
 
 const REVISION = "20260902-warfront-impostor-v1";
-const EXPECTED_SOURCE_COUNT = 159;
+const EXPECTED_SOURCE_COUNT = 160;
 const CELL_SIZE = 128;
 const COLUMNS = 4;
 const ROWS = 4;
@@ -561,13 +561,16 @@ const manifest = {
 const jsonBytes = `${JSON.stringify(manifest, null, 2)}\n`;
 const tsBytes = tsManifest(manifestEntries);
 const tsUrlBytes = tsUrlManifest(manifestEntries);
+// Git may check generated text out with CRLF on Windows. Compare its logical
+// content so a clean checkout passes the same certification as Linux CI.
+const normalizeNewlines = (value) => value.replaceAll("\r\n", "\n");
 if (checkOnly) {
     const existingJsonBytes = await readFile(jsonManifestPath, "utf8");
     const existingManifest = JSON.parse(existingJsonBytes);
     if (results.length === EXPECTED_SOURCE_COUNT) {
-        invariant(existingJsonBytes === jsonBytes, "JSON impostor manifest is stale");
-        invariant(await readFile(tsManifestPath, "utf8") === tsBytes, "TypeScript impostor manifest is stale");
-        invariant(await readFile(tsUrlManifestPath, "utf8") === tsUrlBytes, "Impostor URL revisions are stale");
+        invariant(normalizeNewlines(existingJsonBytes) === jsonBytes, "JSON impostor manifest is stale");
+        invariant(normalizeNewlines(await readFile(tsManifestPath, "utf8")) === tsBytes, "TypeScript impostor manifest is stale");
+        invariant(normalizeNewlines(await readFile(tsUrlManifestPath, "utf8")) === tsUrlBytes, "Impostor URL revisions are stale");
     } else {
         const existingBySource = new Map(existingManifest.entries?.map((entry) => [entry.sourceUrl, entry]));
         for (const result of results) {
@@ -577,11 +580,11 @@ if (checkOnly) {
             );
         }
         invariant(
-            await readFile(tsManifestPath, "utf8") === tsManifest(existingManifest.entries ?? []),
+            normalizeNewlines(await readFile(tsManifestPath, "utf8")) === tsManifest(existingManifest.entries ?? []),
             "TypeScript impostor manifest is not synchronized with JSON",
         );
         invariant(
-            await readFile(tsUrlManifestPath, "utf8") === tsUrlManifest(existingManifest.entries ?? []),
+            normalizeNewlines(await readFile(tsUrlManifestPath, "utf8")) === tsUrlManifest(existingManifest.entries ?? []),
             "Impostor URL revisions are not synchronized with JSON",
         );
     }

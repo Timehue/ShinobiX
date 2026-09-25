@@ -954,7 +954,10 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                 aria-pressed={selectedPet?.id === pet.id}
                                 aria-label={`Select ${petDisplayName(pet)}${expeditionReady ? "; expedition ready to claim" : ""}`}
                             >
-                                <CompanionIdentity pet={pet} sharedImages={sharedImages} compact />
+                                {/* Phones show this roster as a sideways strip, and lazy art in its
+                                    off-screen cards would only start loading on a swipe. The few
+                                    carried pets load up front, as they did before. */}
+                                <CompanionIdentity pet={pet} sharedImages={sharedImages} compact loading="eager" />
                                 {!combatEligiblePetIds.has(pet.id) && <span className="pet-training-tag">Preserved overflow</span>}
                                 {character.activePetId === pet.id && <span className="pet-active-tag">Active</span>}
                                 {character.activePetId2v2 === pet.id && <span className="pet-2v2-tag">2v2</span>}

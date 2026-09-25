@@ -2474,7 +2474,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
-            "line": 1777
+            "line": 1762
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
@@ -2669,7 +2669,7 @@
           },
           {
             "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
-            "line": 1017
+            "line": 1018
           },
           {
             "source": "shinobij.client/src/styles/pet-arena-lobby.css",
@@ -2707,15 +2707,15 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
-            "line": 1162
+            "line": 1143
           },
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
-            "line": 1561
+            "line": 1542
           },
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
-            "line": 1909
+            "line": 1894
           },
           {
             "source": "shinobij.client/src/styles/index/36-clan-boss-operation.css",
@@ -2770,10 +2770,6 @@
           {
             "source": "shinobij.client/src/screens/PetLadder.css",
             "line": 150
-          },
-          {
-            "source": "shinobij.client/src/screens/PetShowdown.css",
-            "line": 686
           },
           {
             "source": "shinobij.client/src/screens/ProfessionPicker.css",
@@ -3241,7 +3237,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
-            "line": 1642
+            "line": 1623
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
@@ -3368,7 +3364,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
-            "line": 1909
+            "line": 1894
           }
         ]
       },
@@ -3993,7 +3989,7 @@
           },
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
-            "line": 1529
+            "line": 1510
           },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
@@ -4081,7 +4077,7 @@
           },
           {
             "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
-            "line": 988
+            "line": 989
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",

@@ -8,7 +8,7 @@ import { showdownAttackRhythm, showdownCastRelease } from "../lib/pet-showdown-c
 import { showdownBeatProgress } from "../lib/showdown-playback";
 import { showdownActionTargetId, showdownContactEffectKind, showdownProjectilePath } from "../lib/showdown-contact-vfx";
 import { techniquePhase } from "../lib/showdown-move-presentation";
-import { vfxElementTint } from "../lib/showdown-vfx-map";
+import { vfxMoveTint } from "../lib/showdown-vfx-map";
 
 // Continuous surfaces, actual ice/stone fragments and forked bolts carry the
 // primary shape. No opaque billboard borders, texture downloads or frame-time
@@ -109,7 +109,7 @@ export function PetShowdownTechniques({ beatRef, posRef, radii, quality, reduced
         const dx = a.toX - a.fromX, dz = a.toZ - a.fromZ, distance = Math.hypot(dx, dz);
         const motion = reducedMotion ? .35 : age;
         const strength = ev.super ? 1.2 : 1;
-        const tint = vfxElementTint(ev.element), element = ["Fire", "Water", "Wind", "Earth", "Lightning"].indexOf(ev.element);
+        const tint = vfxMoveTint(ev.element, ev.moveName), element = ["Fire", "Water", "Wind", "Earth", "Lightning"].indexOf(ev.element);
         r.root.visible = true;
         r.lane.position.set(a.fromX, 1.1, a.fromZ);
         r.lane.rotation.y = Math.atan2(dx, dz);

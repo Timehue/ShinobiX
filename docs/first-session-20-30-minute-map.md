@@ -4,6 +4,14 @@ Current-state implementation map for the first playable session. This refines
 the broader proposals in `early-progression.md` and `onboarding-tutorial.md`
 around the companion-led Academy flow that now exists in the game.
 
+> **Evidence note (2026-09-24):** the 20–30 minute core and 30–45 minute full
+> session ranges below are planning hypotheses, not measured player outcomes.
+> The beta report now shows step reach counts grouped by the UTC date the
+> Academy started. This supports same-start-day reach comparisons, but it does
+> not measure elapsed time, explain why a player stopped, or make an immature
+> cohort a reliable completion rate. First-time observation is still needed to
+> diagnose confusion; timing claims need a separate measurement design.
+
 ## Scope correction
 
 The current tutorial is intentionally deeper than a conventional 8–10 minute
@@ -136,7 +144,7 @@ so the companion bubble, checklist, Mission Hall, and Logbook cannot drift.
 
 ## Safety and rollout
 
-### Phase 1 — presentation only
+### Phase 1 — clarity, mobile fit, and a measurable baseline
 
 - Keep one next-action owner. **Implemented.**
 - Group the nine current coach beats into Prepare / Prove Yourself / Find
@@ -147,17 +155,37 @@ so the companion bubble, checklist, Mission Hall, and Logbook cannot drift.
   **Implemented.**
 - Group the broader destination menu into Now / Up next / Explore later.
   **Still proposed.**
-- Add funnel telemetry.
+- Record once-per-player Academy starts and canonical step reaches, grouped by
+  UTC start date. **Implemented.** Cohorts are counts only; the report does not
+  retain player identifiers or individual timelines.
+- Reduce the first-run storage notice's mobile height without hiding its copy,
+  learn-more link, or dismiss action. **Implemented and checked at phone and
+  desktop widths.**
 
-No save schema, gameplay, economy, or server changes.
+No player-save schema, gameplay, or economy change is required for this
+presentation work. Aggregate funnel metrics are an additive server-side change.
 
-### Phase 2 — shared objective configuration
+### Phase 2 — first-time player observation
+
+- Observe 5–8 people who have not played the game, using the live build on both
+  phone and desktop where possible. Treat this as formative evidence, not a
+  population estimate.
+- Ask each person to narrate what they think the current goal is, then let them
+  play without coaching. Record the first point where they hesitate, miss a
+  target, misunderstand a reward, or choose an unintended route.
+- For each issue, capture the exact screen/step, intended action, observed
+  action, severity, and a screenshot or short recording. Fix repeated or
+  progression-blocking issues first; leave preference differences as feedback.
+- Re-run the same tasks after each change. Keep the coach/checklist state
+  resumable across refresh and login, and retain a visible way to review help.
+
+### Phase 3 — shared objective configuration
 
 - Move coach/checklist/Logbook labels and target counts into one typed config.
 - Keep completion selectors pure and unit-tested.
 - Add resume tests for refresh/logout at every step.
 
-### Phase 3 — optional tuning, requires owner sign-off
+### Phase 4 — optional pacing changes, requires owner sign-off
 
 - Consider a first-only training duration shorter than 15 minutes.
 - Consider a first-only affordable shop purchase.
@@ -169,30 +197,53 @@ work.
 
 ## Funnel and acceptance checks
 
-Record one event at each boundary without player-entered text:
+The current privacy-preserving metric records one Academy start date and one
+reach count per canonical step per player. It does not include raw player names,
+per-player event sequences, or elapsed-time records. The report includes later
+step reaches for cohorts started within the selected date window, reading only
+the 120-day metric-retention period. Cohort measurement starts with new events;
+historical step reaches are not assigned a guessed start date. A storage outage
+can also undercount because these reports are best-effort telemetry.
 
-- account created
-- starter committed
-- training started
-- extra jutsu trained
-- fourth jutsu equipped
-- starter gear equipped
-- spar started / won / abandoned
-- Academy Trial claimed
-- Logbook opened
-- sector visited / returned
-- element awakened
-- first post-Academy choice
+Use the counts to compare reach within the same start-day group once it has had
+time to progress. Do not call an incomplete/recent cohort a completion rate,
+and do not set conversion targets before a baseline exists. Do not infer why a
+player stopped from a missing step. The current save-transition observations
+also rely on client-owned onboarding step/sector fields, so treat them as UX
+signals rather than anti-cheat evidence.
 
-Initial acceptance targets:
+Next measurement questions:
 
-- At least 90% of created accounts successfully commit a starter.
-- At least 80% of starter-committed players begin the spar.
-- At least 75% finish the companion tutorial.
-- Median companion-commit through Academy Trial claim is under 25 minutes.
-- Track full sector-return completion separately; do not optimize it by removing
-  tutorial depth.
-- No step has more than a 10-point abandonment jump versus the previous step.
+- How many new Academy starts reach the spar, claim the Academy Trial, and
+  complete the guide, by start day?
+- Which stages show repeatable confusion in first-time observation?
+- Do players understand the first post-Academy choice without the companion?
+- Is the 20–30 minute core actually reached in that time? Answer only after
+  designing and reviewing an aggregate timing method; current telemetry cannot
+  answer this.
 - No screen simultaneously presents two different “next” actions.
 - Refreshing or logging out/in cannot move a player backward or skip a required
   real action.
+
+## Research basis
+
+The plan uses these sources as guidance, not as proof that a specific duration
+or conversion target is correct:
+
+- [Apple: Onboarding for Games](https://developer.apple.com/app-store/onboarding-for-games/)
+  recommends short, clear steps that build on demonstrated competency, active
+  play, early self-directed play, optional skipping, contextual reminders, and
+  measurement of engagement and retention.
+- [GDC: Prime, Teach, Observe](https://www.gdcvault.com/play/1020512/Prime-Teach-Observe-Tutorializing-Innovative)
+  describes priming, helping players internalize mechanics, and iterating based
+  on observation.
+- [Game Accessibility Guidelines](https://gameaccessibilityguidelines.com/full-list/)
+  recommends simple language, player-paced prompts, interactive tutorials,
+  readable text, contextual guidance, visible objectives, and clear interactive
+  affordances.
+- [Nielsen Norman Group: Onboarding Tutorials vs. Contextual Help](https://www.nngroup.com/articles/onboarding-tutorials/)
+  reports that unsolicited walkthroughs can interrupt users, recommends
+  contextual help that is dismissible and recallable, and stresses user
+  research to determine when help is useful. This is general usability research,
+  so apply it as a hypothesis to validate in the game rather than a game-specific
+  rule.

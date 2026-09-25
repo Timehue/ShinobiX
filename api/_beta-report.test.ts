@@ -10,11 +10,13 @@ import type { BetaMetricsSnapshot } from './_beta-metrics.js';
 const metrics = (
     events: Record<string, number> = {},
     rareGrants: Record<string, number> = {},
+    academySteps: Record<string, number> = {},
 ): BetaMetricsSnapshot => ({
     generatedAt: Date.UTC(2026, 6, 14, 12),
     days: 1,
     daily: [],
-    totals: { events, levelBands: {}, sources: {}, rewardTotals: { xp: 50, ryo: 25 }, rareGrants },
+    totals: { events, academySteps, levelBands: {}, sources: {}, rewardTotals: { xp: 50, ryo: 25 }, rareGrants },
+    academyCohorts: {},
 });
 
 test('population report is aggregate-only and calculates progression/economy risk signals', () => {
@@ -49,4 +51,12 @@ test('daily report highlights duplicates, failures, unresolved sessions, and sav
     assert.match(text, /duplicate reward attempt/);
     assert.match(text, /unresolved combat session/);
     assert.match(text, /Saves scanned: 1 \(1 malformed\)/);
+});
+
+test('daily report lists Academy step reach counts', () => {
+    const snapshot = metrics({}, {}, { training: 8, academySpar: 5 });
+    snapshot.academyCohorts['2026-07-14'] = { started: 10, academyIntro: 10, training: 8 };
+    const report = buildDailyBetaReport(snapshot);
+    assert.match(formatDailyBetaReport(report), /Academy steps reached: academySpar=5, training=8/);
+    assert.match(formatDailyBetaReport(report), /Academy cohorts \(UTC start day; started players \/ step reaches\): 2026-07-14 \[started=10; steps: academyIntro=10, training=8\]/);
 });

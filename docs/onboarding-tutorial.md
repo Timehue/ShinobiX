@@ -9,8 +9,11 @@ choices is in [`competitor-early-game.md`](./competitor-early-game.md) — notab
 that ShinobiX's two closest genre twins (the genre leader, a sibling shinobi RPG) both give new
 players starter jutsu, making the auto-learn feature (§1) the genre norm.
 
-> **Status:** proposal / not yet implemented.
-> **Headline:** the whole flow is achievable as a **client-only** change. The
+> **Status:** historical implementation proposal; the Academy Path is now
+> implemented and this document is not a current-state map. Use
+> [`first-session-20-30-minute-map.md`](./first-session-20-30-minute-map.md)
+> for the current flow, evidence, and open improvements.
+> **Historical headline:** the whole flow was proposed as a **client-only** change. The
 > save sanitizer (`api/save/[name].ts`) does not validate or strip
 > `jutsuMastery`/`equippedJutsuIds`, so seeding starter jutsu at creation
 > persists with no Vercel/cPanel API work (verified — see §1.4).

@@ -1,11 +1,11 @@
 /*
- * rawPetPool — the canonical template list for all 145 built-in pets
+ * rawPetPool — the canonical template list for all 146 built-in pets
  * (original 70 + a 70-pet expansion appended to the same generators, so the
  * second batch shares the identical kit/stat treatment):
  *   50 standard (level 1 generic kit)
  *   50 rare     (damage + utility)
  *   30 legendary (buff + damage + utility)
- *   15 mythic    (full hand-crafted 5-jutsu kits with element; five breeding-only candidates)
+ *   16 mythic    (full hand-crafted 5-jutsu kits with element; five breeding-only candidates)
  *
  * The expansion pets keep numbering past the original count (standard-25…,
  * rare-25…, legendary-15…, mythic-5…). balanceBuiltInPetTemplate wraps the
@@ -639,6 +639,29 @@ export const rawPetPool: Pet[] = ([
             { name: "Mountainwake", power: 258, cooldown: 4, currentCooldown: 0, kind: "damage" },
             { name: "Deepstone Regen", power: 118, cooldown: 5, currentCooldown: 0, kind: "heal" },
             { name: "Faultstep", power: 0, cooldown: 3, currentCooldown: 0, kind: "move" },
+        ],
+    },
+    {
+        id: "mythic-15",
+        name: "Celestial Lion",
+        rarity: "mythic",
+        level: 1,
+        xp: 0,
+        maxLevel: 100,
+        hp: 1180,
+        attack: 128,
+        defense: 135,
+        speed: 108,
+        unlockedForPve: false,
+        element: "Wind",
+        wildSpawnable: true,
+        description: "A white, winged lion with gold horns and a celestial mark above its eyes. Its wings shelter allies in a circling gale before it strikes.",
+        jutsus: [
+            { name: "Zephyr Aegis", power: 116, cooldown: 4, currentCooldown: 0, kind: "barrier" },
+            { name: "Galeclaw Pounce", power: 185, cooldown: 2, currentCooldown: 0, kind: "damage" },
+            { name: "Tempest Roar", power: 265, cooldown: 4, currentCooldown: 0, kind: "damage" },
+            { name: "Cloudborne Mending", power: 106, cooldown: 5, currentCooldown: 0, kind: "heal" },
+            { name: "Skywing Leap", power: 0, cooldown: 3, currentCooldown: 0, kind: "move" },
         ],
     },
 ] as Pet[]).map((pet) => ({

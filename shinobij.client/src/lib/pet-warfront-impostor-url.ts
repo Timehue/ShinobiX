@@ -4,7 +4,7 @@ import { WARFRONT_IMPOSTOR_ATLAS_REVISIONS } from "../generated/pet-warfront-imp
  * Runtime atlas routing for an already-approved combat model. The generated
  * bank deliberately mirrors `/pet-models/**.glb` beneath
  * `/pet-models/warfront-impostors/**.webp`; keeping this tiny derivation apart
- * from the 159-entry QA metadata manifest saves the default battle from parsing
+ * from the 160-entry QA metadata manifest saves the default battle from parsing
  * frame/provenance data it never consumes. A missing file still trips the
  * stage's authored-rig fallback.
  */

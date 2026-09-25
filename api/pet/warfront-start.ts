@@ -15,6 +15,7 @@ import { petCombatBusyReason } from './_pet-busy.js';
 import { activeCarriedPets } from '../_entitlements.js';
 import { petArenaRyoRewardForTeam } from './_arena-reward.js';
 import { coordinateWarfrontStart } from './_warfront-start-coordinator.js';
+import { WARFRONT_KICKOFF_PACE_MS, warfrontKickoffWaitMs, warfrontNextStartKey } from './_warfront-pace.js';
 
 /*
  * /api/pet/warfront-start — POST only.
@@ -29,8 +30,8 @@ import { coordinateWarfrontStart } from './_warfront-start-coordinator.js';
  * sin/cos/atan2/hypot — see its header), and warfront-parity.test.ts proves the
  * server re-sim === the client render (streamed) === this full-auto run, so a
  * Firefox player's win reproduces here byte-for-byte. The minted seed is returned
- * to the renderer; one outstanding receipt plus a server settlement clock
- * prevents seed shopping. vs-AI reward matches LOCK the buy to a deterministic policy (never interactive
+ * to the renderer; one outstanding receipt plus the one-a-minute kickoff pace
+ * (./_warfront-pace.ts) prevents seed shopping. vs-AI reward matches LOCK the buy to a deterministic policy (never interactive
  * "off"), matching the PvP/co-op rule, so the match is a pure function of the
  * sealed inputs.
  */
@@ -78,9 +79,12 @@ const AI_STANCE: WfStance = 'balanced';
 const AI_DOCTRINE: WfDoctrine = 'vanguard';
 const AI_BUY_POLICY: WfBuyPolicy = 'balanced';
 // A scored Warfront lasts up to ten minutes. Do not let the result endpoint
-// become an instant seed oracle: even a surrender/loss must spend a meaningful
-// opening engagement before its receipt can be retired.
-const WARFRONT_MIN_SETTLE_MS = 60_000;
+// become an instant seed oracle: a player gets at most one fresh seed a minute.
+// The sealed settleAfter still carries this minute so older resolvers and the
+// resume path read the proof unchanged; the minute is enforced on the next
+// kickoff (./_warfront-pace.ts), and battle-result retires the receipt once the
+// commanded fight itself has had time to play.
+const WARFRONT_MIN_SETTLE_MS = WARFRONT_KICKOFF_PACE_MS;
 const WARFRONT_SETTLE_CLOCK_SKEW_MS = 5_000;
 // The route has a 30-second CPU ceiling. A two-minute lease leaves ample margin
 // while allowing a crashed initializer to recover promptly. The provisional
@@ -280,6 +284,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // client recover an existing receipt even when today's live roster no
         // longer satisfies the four-pet entry rule.
         if (resumeOnly) return res.status(204).end();
+
+        // One fresh seed a minute (./_warfront-pace.ts). A match that settled
+        // inside its kickoff's first minute left the remainder here.
+        const kickoffWaitMs = warfrontKickoffWaitMs(await kv.get<unknown>(warfrontNextStartKey(playerName)));
+        if (kickoffWaitMs > 0) {
+            res.setHeader('Retry-After', String(Math.max(1, Math.ceil(kickoffWaitMs / 1_000))));
+            return res.status(429).json({
+                error: 'The Warfront arena is resetting after your last Rite.',
+                code: 'WARFRONT_KICKOFF_PACE',
+                retryAfterMs: kickoffWaitMs,
+            });
+        }
 
         if (playerPetIds.length !== WARFRONT_TEAM_SIZE) {
             return res.status(400).json({ error: `Beastbound Warfront requires exactly ${WARFRONT_TEAM_SIZE} distinct pets.` });

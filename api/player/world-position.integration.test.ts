@@ -114,8 +114,9 @@ test('owner reads settle the durable journey and keep its arrival on later autos
 
 // REGRESSION (red "Couldn't save your progress" after travel): this GET is the
 // client's 409-recovery refetch, and it lands while the heartbeat's arrival
-// settle holds the lease lock. The default ~775ms budget answered 503, the
-// client counted a failed recovery, and two of those raised the banner.
+// settle holds the lease lock. The default 5-attempt budget (last try ~375ms
+// in) answered 503, the client counted a failed recovery, and two of those
+// raised the banner.
 test('an owner read outwaits an arrival settle holding the lease lock', async () => {
     await travel.setTravelLease(PLAYER, { originSector: 12, destinationSector: 13,
         arrivalAt: Date.now() - 10, arrivalTile: 44, moveId: 'owner-read-contended' });

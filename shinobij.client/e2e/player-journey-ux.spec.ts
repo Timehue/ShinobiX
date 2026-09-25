@@ -128,6 +128,9 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 390, height: 844 
             await expect(page.locator('.onboarding-coach-banner')).toBeVisible();
             const notice = page.getByRole('region', { name: 'Data storage notice' });
             await expect(notice).toBeVisible();
+            if ((page.viewportSize()?.width ?? 0) < 800) {
+                expect(await notice.evaluate(element => element.getBoundingClientRect().height)).toBeLessThanOrEqual(100);
+            }
             await capture(page, '19-academy-notice');
             const guideBounds = await page.locator('.onboarding-coach-banner').boundingBox();
             const noticeBounds = await notice.boundingBox();

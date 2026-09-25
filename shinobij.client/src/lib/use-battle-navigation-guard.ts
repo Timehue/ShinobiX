@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { Screen } from "../types/core";
 import {
     SCREEN_FIGHT_HOSTS,
@@ -67,7 +67,7 @@ export function useBattleNavigationGuard({
     // The latest signals, so an event-driven re-check (below) runs the SAME rule
     // with every signal, not just the one that changed.
     const signalsRef = useRef<BattleGuardSignals | null>(null);
-    useEffect(() => {
+    useLayoutEffect(() => {
         signalsRef.current = {
             screen,
             raidBattleKind,
