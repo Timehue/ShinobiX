@@ -13,8 +13,10 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { applyJutsu, characterOwnsElement } from './move.js';
-import { WEAPON_AMP_TAG_CAP } from '../combat-core/formulas.js';
+import { JUTSU_MAX_LEVEL, WEAPON_AMP_TAG_CAP } from '../combat-core/formulas.js';
 import { ITEM_CATALOG } from './_item-catalog.js';
+import { JUTSU_CATALOG } from './_jutsu-catalog.js';
+import { sanitizePvpItems } from './session.js';
 import type { PvpFighter } from './session.js';
 
 function fighter(name: string, hp = 1000): PvpFighter {
@@ -253,6 +255,65 @@ describe('weapon tag percents ignore jutsu mastery', () => {
         const healed = r.self.hp - 100;
         assert.ok(healed > 0, 'the swing still heals');
         assert.ok(healed < 750, `a weapon heal stays below the maxed-jutsu HEAL_FLAT, got ${healed}`);
+    });
+});
+
+/*
+ * Owner ruling 2026-09-25: no weapon may hit harder than a fully maxed 60-AP
+ * jutsu.
+ *
+ * A swing has no jutsuMastery row, so its EP resolves at mastery 0, which is 30%
+ * of (EP + 10). A 60-AP jutsu reaches its full (EP + 10) only at mastery 50, so the
+ * strongest catalog weapon lands about a third of that hit. These guards fail if a
+ * swing ever resolves at full mastery (the Battle Tower forecast assumed it did
+ * until 2026-09-25), or if weapon EP outgrows the jutsu tier.
+ */
+describe('no weapon out-hits a fully maxed 60-AP jutsu', () => {
+    // A level-50 caster, so the Jonin mastery cap never trims a mastery-50 row,
+    // against a target too big for any single hit to empty.
+    const hit = (jutsu: Record<string, unknown>, jutsuMastery: Array<{ jutsuId: string; level: number }> = []): number => {
+        const self = fighter('A');
+        self.character = { name: 'A', level: 50, stats: {}, jutsuMastery };
+        const target = { ...fighter('B'), hp: 1_000_000, maxHp: 1_000_000 };
+        return 1_000_000 - applyJutsu(self, target, asJutsu(jutsu), 1, 'central', 1).opponent.hp;
+    };
+    const swing = (name: string, effectPower: number, ap = 40, tags: unknown[] = []) =>
+        ({ id: 'weapon', name, isUtility: false, ap, effectPower, tags });
+    // The weakest damaging 60-AP built-in (the EP 30 bloodline casts sit below the
+    // EP 36 starters), cast as a plain hit so only its EP is compared.
+    const weakestEp = Math.min(...Object.values(JUTSU_CATALOG)
+        .filter(jutsu => jutsu.ap === 60 && jutsu.effectPower > 0)
+        .map(jutsu => jutsu.effectPower));
+    const maxedHit = hit({ id: 'maxed-60', name: 'Maxed 60-AP Jutsu', ap: 60, effectPower: weakestEp }, [{ jutsuId: 'maxed-60', level: JUTSU_MAX_LEVEL }]);
+
+    it('a swing resolves its EP at mastery 0, exactly like an untrained jutsu', () => {
+        assert.equal(
+            hit(swing('Probe Blade', 40)),
+            hit({ id: 'untrained', name: 'Untrained Jutsu', ap: 60, effectPower: 40 }),
+        );
+    });
+
+    it('every built-in hand and thrown weapon hits softer than a maxed 60-AP jutsu', () => {
+        const over: string[] = [];
+        for (const [id, item] of Object.entries(ITEM_CATALOG as Record<string, Record<string, unknown>>)) {
+            const slot = String(item.slot ?? '');
+            if (slot !== 'hand' && slot !== 'thrown' && slot !== 'weapon') continue;
+            // Mirrors the weapon synth: weaponEffect becomes the swing's tag.
+            const tags = item.weaponEffect
+                ? [{ name: String(item.weaponEffect), percent: Number(item.weaponEffectValue ?? 0) }]
+                : [];
+            const dealt = hit(swing(String(item.name), Number(item.weaponEp ?? 15), Number(item.apCost ?? 40), tags));
+            if (dealt > maxedHit) over.push(`${id} (${dealt} against ${maxedHit})`);
+        }
+        assert.deepEqual(over, [], `these weapons out-hit a maxed 60-AP jutsu: ${over.join(', ')}`);
+    });
+
+    it('a weapon at the 60-EP combat ceiling, above every named forge roll, still hits softer', () => {
+        const [clamped] = sanitizePvpItems([{ weaponEp: 999_999 }]) as Array<{ weaponEp?: unknown }>;
+        const ceiling = Number(clamped?.weaponEp);
+        assert.equal(ceiling, 60, 'sanitizePvpItems clamps every weapon entering combat to 60 EP');
+        const dealt = hit(swing('Ceiling Blade', ceiling));
+        assert.ok(dealt < maxedHit, `a 60-EP swing dealt ${dealt} against the maxed jutsu's ${maxedHit}`);
     });
 });
 

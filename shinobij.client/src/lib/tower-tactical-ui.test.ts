@@ -102,19 +102,30 @@ test("target forecast accounts for target shield before HP damage", () => {
     assert.equal(result.hpDamage, result.rawDamage - 150);
 });
 
-test("weapon forecast uses the weapon's EP with no hidden swing multiplier", () => {
-    // Weapon strength lives in the EP ladder (api/pvp/_item-catalog.ts), not in
-    // a per-swing damage bonus, matching the server's resolveDamageNumber.
+test("weapon forecast resolves the swing at mastery 0, like the server", () => {
+    // Weapon strength lives in the EP ladder (api/pvp/_item-catalog.ts), with no
+    // per-swing multiplier. A swing has no mastery row, so the server's applyJutsu
+    // resolves its EP at mastery 0 (api/pvp/_weapon-damage.test.ts). Until
+    // 2026-09-25 this forecast used mastery 50, which showed a weapon hit at
+    // 3.3 times what it landed.
     const stats = { strength: 100, intelligence: 100, bukijutsuOffense: 100, bukijutsuDefense: 100 };
     const input = {
-        attacker: { hp: 1000, maxHp: 1000, character: { stats, jutsuMastery: [{ jutsuId: "ordinary-jutsu", level: 50 }] } },
+        attacker: { hp: 1000, maxHp: 1000, character: { stats, jutsuMastery: [{ jutsuId: "maxed-jutsu", level: 50 }] } },
         target: { hp: 1000, maxHp: 1000, character: { stats } },
         effectPower: 40,
         type: "Bukijutsu",
     };
-    const ordinary = estimateTowerActionDamage({ ...input, actionId: "ordinary-jutsu" });
+    const untrained = estimateTowerActionDamage({ ...input, actionId: "untrained-jutsu" });
+    const maxed = estimateTowerActionDamage({ ...input, actionId: "maxed-jutsu" });
     const weapon = estimateTowerActionDamage({ ...input, actionId: "weapon" });
-    assert.equal(weapon.rawDamage, ordinary.rawDamage);
+    assert.equal(weapon.rawDamage, untrained.rawDamage);
+    assert.ok(weapon.rawDamage < maxed.rawDamage, "a swing never forecasts a fully mastered hit");
+    // Pierce scales with mastery too. The offense is high enough that the
+    // 100-900 true-damage clamp cannot hide the difference.
+    const pierceAttacker = { ...input.attacker, character: { ...input.attacker.character, stats: { ...stats, bukijutsuOffense: 2800 } } };
+    const pierce = (actionId: string) => estimateTowerActionDamage({ ...input, attacker: pierceAttacker, actionId, pierce: true, ap: 40 }).rawDamage;
+    assert.equal(pierce("weapon"), pierce("untrained-jutsu"));
+    assert.ok(pierce("weapon") < pierce("maxed-jutsu"), "a swing's Pierce never forecasts full mastery");
 });
 
 test("weapon forecast honors element ownership and canonical combat items", () => {
