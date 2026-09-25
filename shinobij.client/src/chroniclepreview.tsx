@@ -233,7 +233,7 @@ function gameplayMatch(scenario: string) {
         state.p2.monsterZones[0] = fieldMonster("p2", 0, low.id);
       }
       const result = applyAction(state, "p2", scenario === "effect-block" ? { action: "attack", attackerZoneIndex: 0, targetZoneIndex: null } : { action: "normal-summon", handIndex: 0, zoneIndex: 0 });
-      if (!result.ok) throw new Error(result.error);
+      if (result.ok === false) throw new Error(result.error);
       return result.state;
     }
     if (scenario === "tribute" || scenario === "target-jutsu" || scenario.includes("attack")) state.p1.monsterZones[0] = fieldMonster("p1",0,low.id);
@@ -268,7 +268,7 @@ function GameplayHarness() {
         if (params.has("refresh") && !result.state.responseWindow) window.setTimeout(() => {
           setMatch(current => structuredClone(current));
         }, 150);
-      } else setError(result.error);
+      } else if (result.ok === false) setError(result.error);
     }}/>
   </main>;
 }
@@ -297,10 +297,10 @@ function HostHarness() {
 function effectFixture() {
   const before = gameplayMatch("effect-pitfall");
   const next = applyAction(before, "p1", { action: "activate-trap", zoneIndex: 1 });
-  if (!next.ok) throw new Error(next.error);
+  if (next.ok === false) throw new Error(next.error);
   const finisher = gameplayMatch("finishing-attack");
   const finished = applyAction(finisher, "p1", { action: "attack", attackerZoneIndex: 0, targetZoneIndex: null });
-  if (!finished.ok) throw new Error(finished.error);
+  if (finished.ok === false) throw new Error(finished.error);
   return { before: projectMatchForViewer(before, "p1"), after: projectMatchForViewer(next.state, "p1"), finisher: projectMatchForViewer(finisher, "p1"), finished: projectMatchForViewer(finished.state, "p1") };
 }
 previewRoot.render(params.has("effect-fixture") ? <output data-testid="fixture">{JSON.stringify(effectFixture())}</output> : params.has("fixture") ? <output data-testid="fixture">{JSON.stringify(previewState)}</output> : params.has("tutorial") ? <CardClashTutorial onClose={()=>location.assign("?library=collection")}/> : <div className="app-shell" data-shell="adaptive"><div className="center-game">{params.has("host") ? <HostHarness /> : params.has("library") ? <LibraryHarness /> : params.has("scenario") ? <GameplayHarness /> : <Harness />}</div></div>);
