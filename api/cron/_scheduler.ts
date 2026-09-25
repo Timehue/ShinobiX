@@ -37,6 +37,7 @@ import { sweepClanBossPartyRegistry } from '../clan-boss/_party.js';
 import { clanBossWeekId } from '../clan-boss/_storage.js';
 import { runTerritoryLifecycleSweep } from '../_territory-lifecycle-store.js';
 import { runBattleLapseSweep } from './_battle-lapse-sweep.js';
+import { runPlayerRankedSettlementSweep } from './_player-ranked-settlement-sweep.js';
 
 const KAGE_CLOCK_TICK_MS = 15_000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -45,6 +46,9 @@ const SETTLEMENT_RECONCILIATION_TICK_MS = 5 * 60_000;
 const CLAN_BOSS_PARTY_SWEEP_TICK_MS = 5 * 60_000;
 const TERRITORY_LIFECYCLE_TICK_MS = 5 * 60_000;
 const BATTLE_LAPSE_TICK_MS = 10 * 60_000; // F08 backstop: fights nobody came back to
+// Player-ranked sagas nobody came back to finish (restart mid-saga, lost gate admission).
+const RANKED_SETTLEMENT_TICK_MS = 5 * 60_000;
+const RANKED_SETTLEMENT_BOOT_DELAY_MS = 60_000;
 const SNAPSHOT_RECOVERY_TICK_MS = 60 * 60_000;
 const SNAPSHOT_RECOVERY_RETRY_MS = 5 * 60_000;
 // The snapshot pass has a five-minute budget. Keep crash ownership only a little
@@ -68,6 +72,7 @@ const LEASE_TTL = {
     clanBossPartySweep: 4 * 60,
     territoryLifecycle: 4 * 60,
     battleLapse: 9 * 60,
+    rankedSettlement: 4 * 60,
     guestSweep: 20 * 60 * 60,
     kageInactivity: 20 * 60 * 60,
 } as const;
@@ -81,12 +86,17 @@ let _settlementInterval: ReturnType<typeof setInterval> | null = null;
 let _clanBossPartySweepInterval: ReturnType<typeof setInterval> | null = null;
 let _territoryLifecycleInterval: ReturnType<typeof setInterval> | null = null;
 let _battleLapseInterval: ReturnType<typeof setInterval> | null = null;
+let _rankedSettlementInterval: ReturnType<typeof setInterval> | null = null;
+let _rankedSettlementBootTimeout: ReturnType<typeof setTimeout> | null = null;
 let _snapshotRecoveryInterval: ReturnType<typeof setInterval> | null = null;
 let _snapshotRecoveryRetryTimeout: ReturnType<typeof setTimeout> | null = null;
 let _settlementScanRunning = false;
 let _clanBossPartySweepRunning = false;
 let _territoryLifecycleRunning = false;
 let _battleLapseRunning = false;
+let _rankedSettlementRunning = false;
+// Pre-pointer journals are discovered once per process until a pass completes.
+let _rankedSettlementDiscoveryPending = true;
 
 async function runLeasedJob<T>(jobName: string, ttlSec: number, fn: () => Promise<T>, holdLeaseWhen?: (value: T) => boolean): Promise<T | null> {
     const leased = await withScheduledJobLease(jobName, fn, { ttlSec, holdUntilExpiryOnSuccess: true, holdUntilExpiryWhen: holdLeaseWhen });
@@ -198,6 +208,44 @@ async function fireBattleLapseSweep(): Promise<void> {
         console.error('[cron-scheduler] battle lapse sweep threw:', (err as Error).message);
     } finally {
         _battleLapseRunning = false;
+    }
+}
+
+/**
+ * One leased player-ranked settlement tick (exported so tests drive the real
+ * entry point). The lease keeps the sweep single-owner across replicas and a
+ * deploy overlap; the sweep itself is safe to race live sagas.
+ */
+export async function fireRankedSettlementSweep(): Promise<void> {
+    if (_rankedSettlementRunning) return;
+    _rankedSettlementRunning = true;
+    try {
+        const discover = _rankedSettlementDiscoveryPending;
+        const leased = await withScheduledJobLease(
+            'player-ranked-settlement',
+            () => runPlayerRankedSettlementSweep({ discover }),
+            { ttlSec: LEASE_TTL.rankedSettlement, holdUntilExpiryOnSuccess: true },
+        );
+        if (!leased.acquired) return;
+        const result = leased.value;
+        // Discovery that reached the end (even with a journal held for review)
+        // is not repeated this process; a storage error above retries it.
+        if (result.discovery) _rankedSettlementDiscoveryPending = false;
+        const discovered = result.discovery?.published ?? 0;
+        if (result.settled.length || result.voided.length || result.failures.length
+            || result.gatePublished || discovered || result.discarded) {
+            console.log(`[cron-scheduler] ranked settlement sweep: ${result.settled.length} settled, ${result.voided.length} void, ${result.failures.length} retrying, ${result.deferred} waiting of ${result.pointers} pending${result.gatePublished ? `, ${result.gatePublished} stranded admissions found` : ''}${discovered ? `, ${discovered} older journals found` : ''}${result.truncated ? ' (budget reached; continuing next tick)' : ''}.`);
+        }
+        for (const failure of result.failures.slice(0, 5)) {
+            console.warn(`[cron-scheduler] ranked settlement ${failure.matchId} retrying (attempt ${failure.attempts}): ${failure.error}`);
+        }
+        if (result.discovery && !result.discovery.complete) {
+            console.warn(`[cron-scheduler] ranked settlement discovery left ${result.discovery.failures} unreadable journal(s) for review.`);
+        }
+    } catch (err) {
+        console.error('[cron-scheduler] ranked settlement sweep threw:', (err as Error).message);
+    } finally {
+        _rankedSettlementRunning = false;
     }
 }
 
@@ -405,6 +453,21 @@ export function startSnapshotCron(): void {
         // for fights to be left behind, and the sweep is cheap.
         setTimeout(() => void fireBattleLapseSweep(), 60_000).unref?.();
     }
+    if (!_rankedSettlementInterval) {
+        if (process.env.DISABLE_RANKED_SETTLEMENT_SWEEP !== '1') {
+            _rankedSettlementInterval = setInterval(() => void fireRankedSettlementSweep(), RANKED_SETTLEMENT_TICK_MS);
+            _rankedSettlementInterval.unref?.();
+            // A restart mid-saga is exactly what strands a ranked settlement,
+            // so the first pass (with discovery) follows boot closely.
+            _rankedSettlementBootTimeout = setTimeout(() => {
+                _rankedSettlementBootTimeout = null;
+                void fireRankedSettlementSweep();
+            }, RANKED_SETTLEMENT_BOOT_DELAY_MS);
+            _rankedSettlementBootTimeout.unref?.();
+        } else {
+            console.log('[cron-scheduler] ranked settlement sweep disabled via DISABLE_RANKED_SETTLEMENT_SWEEP=1');
+        }
+    }
     const snapshotDisabled = process.env.DISABLE_SNAPSHOT_CRON === '1';
     if (snapshotDisabled) {
         console.log('[cron-scheduler] save-snapshot cron disabled via DISABLE_SNAPSHOT_CRON=1');
@@ -454,9 +517,12 @@ export function stopSnapshotCron(): void {
     if (_clanBossPartySweepInterval) { clearInterval(_clanBossPartySweepInterval); _clanBossPartySweepInterval = null; }
     if (_territoryLifecycleInterval) { clearInterval(_territoryLifecycleInterval); _territoryLifecycleInterval = null; }
     if (_battleLapseInterval) { clearInterval(_battleLapseInterval); _battleLapseInterval = null; }
+    if (_rankedSettlementInterval) { clearInterval(_rankedSettlementInterval); _rankedSettlementInterval = null; }
+    if (_rankedSettlementBootTimeout) { clearTimeout(_rankedSettlementBootTimeout); _rankedSettlementBootTimeout = null; }
     if (_snapshotRecoveryInterval) { clearInterval(_snapshotRecoveryInterval); _snapshotRecoveryInterval = null; }
     if (_snapshotRecoveryRetryTimeout) { clearTimeout(_snapshotRecoveryRetryTimeout); _snapshotRecoveryRetryTimeout = null; }
     _settlementScanRunning = false;
     _clanBossPartySweepRunning = false;
     _territoryLifecycleRunning = false;
+    _rankedSettlementRunning = false;
 }

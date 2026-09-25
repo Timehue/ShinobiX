@@ -24,10 +24,13 @@ import {
     PLAYER_RANKED_SETTLEMENT_STAMP_LIMIT,
     PLAYER_RANKED_SETTLEMENT_STAMP_FIELD,
     getPlayerRankedJournal,
+    parsePlayerRankedSettlingPointer,
     playerRankedJournalKey,
+    playerRankedSettlingKey,
     publishPlayerRankedTerminal,
     settlePlayerRankedJournal,
 } from './_player-ranked-journal.js';
+import { confirmPlayerRankedTerminalEffects } from './_ranked-terminal-effects.js';
 
 const NOW = 1_800_000_000_000;
 const MATCH = 'player-ranked-12345678-1234-4123-8123-1234567890ab';
@@ -94,6 +97,20 @@ async function setup() {
 function char(record: unknown): Record<string, any> {
     return ((record as { character?: unknown })?.character ?? {}) as Record<string, any>;
 }
+
+/** The gate row loses this match's admission out of band. */
+async function dropAdmission(store: KvLike, matchId: string) {
+    const raw = await store.get<Record<string, any>>('ranked:season:authority');
+    assert.ok(raw);
+    const next = {
+        ...raw,
+        playerAdmissions: raw.playerAdmissions.filter((entry: { matchId: string }) => entry.matchId !== matchId),
+    };
+    assert.equal(await store.compareSet('ranked:season:authority', raw, next), true);
+    assert.equal(await getPlayerRankedAdmission(store, matchId), null);
+}
+
+const noLock = async <T>(_key: string, action: () => Promise<T>): Promise<T> => action();
 
 describe('player ranked terminal journal', () => {
     it('settles a journal whose database reordered its terminal fields', async () => {
@@ -532,6 +549,113 @@ describe('player ranked terminal journal', () => {
         assert.equal((await getPlayerRankedAdmission(store, MATCH))?.phase, 'cancelled');
         assert.equal(char(await store.get('save:alice')).rankedRating, 1000);
         assert.equal(char(await store.get('save:bob')).rankedRating, 1000);
+    });
+
+    it('publishes a pending journal whose gate admission was lost from its sealed terminal', async () => {
+        const { store, session } = await setup();
+        const sealed = await publishPlayerRankedTerminal(store, session, {
+            now: NOW + 3,
+            eligible: async () => true,
+        });
+        await dropAdmission(store, MATCH);
+
+        const republished = await publishPlayerRankedTerminal(store, session, {
+            now: NOW + 4,
+            eligible: async () => { throw new Error('must-not-recompute'); },
+        });
+
+        assert.deepEqual(republished, sealed, 'the sealed terminal is the authority, not a new one');
+        const settled = await settlePlayerRankedJournal(store, republished, NOW + 5, { completeAdmission: false });
+        assert.equal(settled.journal.state, 'completed');
+        assert.equal(char(await store.get('save:alice')).rankedRating, 1012);
+        assert.equal(char(await store.get('save:bob')).rankedRating, 988);
+        const replay = await settlePlayerRankedJournal(store, MATCH, NOW + 6);
+        assert.deepEqual(replay.ratings, { a: 1012, b: 988 }, 'a replay never applies the delta again');
+    });
+
+    it('never lets a session that disagrees with the sealed terminal publish without its admission', async () => {
+        const { store, session } = await setup();
+        await publishPlayerRankedTerminal(store, session, { now: NOW + 3, eligible: async () => true });
+        await dropAdmission(store, MATCH);
+        const retry = { now: NOW + 4, eligible: async () => { throw new Error('must-not-recompute'); } };
+        for (const forged of [
+            { ...session, winner: 'p2' },
+            { ...session, rankedSeasonEpoch: 2 },
+            { ...session, battleId: 'pvp-12345678-1234-4123-8123-1234567890ff' },
+            { ...session, p2: { name: 'Mallory' } },
+        ]) {
+            await assert.rejects(
+                publishPlayerRankedTerminal(store, forged as unknown as PvpSession, retry),
+                /player-ranked-(journal-conflict|item-session-conflict)/,
+            );
+        }
+        await assert.rejects(
+            publishPlayerRankedTerminal(store, { ...session, joined: { p1: true, p2: false } } as PvpSession, retry),
+            /player-ranked-terminal-participants-unconfirmed/,
+        );
+        assert.equal((await getPlayerRankedJournal(store, MATCH))?.state, 'pending');
+        assert.equal(char(await store.get('save:alice')).rankedRating, 1000);
+    });
+
+    it('reports a lost admission with no sealed terminal as void, and a recorded one as a no-contest', async () => {
+        const { store, session } = await setup();
+        await dropAdmission(store, MATCH);
+        const publish = () => publishPlayerRankedTerminal(store, session, { now: NOW + 3, eligible: async () => true });
+
+        await assert.rejects(publish(), /player-ranked-admission-missing/);
+        await store.set(`player:ranked-cancelled:${MATCH}`, {
+            matchId: MATCH, battleId: BATTLE, seasonId: 1, seasonEpoch: 1,
+            cancelledAt: NOW + 2, reason: 'season-close-no-contest',
+        });
+        await assert.rejects(publish(), /player-ranked-admission-cancelled/);
+        assert.equal(await getPlayerRankedJournal(store, MATCH), null);
+    });
+
+    it('a helper that settles the whole match mid-publication is not mistaken for a void', async () => {
+        const { store, session } = await setup();
+        let raced = false;
+        const journal = await publishPlayerRankedTerminal(store, session, {
+            now: NOW + 3,
+            // Runs after this publication read the admission and before its
+            // terminal CAS: another claim terminalizes, settles and removes it.
+            eligible: async () => {
+                raced = true;
+                await confirmPlayerRankedTerminalEffects(store, session, {
+                    eligible: async () => true,
+                    lock: noLock,
+                    now: NOW + 4,
+                });
+                return true;
+            },
+        });
+        assert.equal(raced, true);
+        assert.equal(journal.state, 'completed');
+        assert.equal(journal.terminal.terminalAt, NOW + 4, 'the winner\'s sealed terminal, not this attempt\'s');
+        assert.equal(await getPlayerRankedAdmission(store, MATCH), null);
+        assert.equal(char(await store.get('save:alice')).rankedRating, 1012);
+    });
+
+    it('publishes the settlement sweep pointer before the journal it describes', async () => {
+        const { store, session } = await setup();
+        const order: string[] = [];
+        const observed: KvLike = {
+            ...store,
+            async set(key, value, options) {
+                if (key === playerRankedSettlingKey(MATCH) || key === playerRankedJournalKey(MATCH)) order.push(key);
+                return store.set(key, value, options);
+            },
+        };
+        await publishPlayerRankedTerminal(observed, session, { now: NOW + 3, eligible: async () => true });
+        assert.deepEqual(order, [playerRankedSettlingKey(MATCH), playerRankedJournalKey(MATCH)]);
+        const pointer = parsePlayerRankedSettlingPointer(await store.get(playerRankedSettlingKey(MATCH)));
+        assert.deepEqual(pointer && {
+            matchId: pointer.matchId, battleId: pointer.battleId, since: pointer.since, attempts: pointer.attempts,
+        }, { matchId: MATCH, battleId: BATTLE, since: NOW + 3, attempts: 0 });
+
+        // A replayed publication never recreates or resets the pointer.
+        await store.del(playerRankedSettlingKey(MATCH));
+        await publishPlayerRankedTerminal(observed, session, { now: NOW + 4, eligible: async () => true });
+        assert.equal(await store.get(playerRankedSettlingKey(MATCH)), null);
     });
 
     it('completed replay after a season reset returns current ratings and never reapplies delta', async () => {

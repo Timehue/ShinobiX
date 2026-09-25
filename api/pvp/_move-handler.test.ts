@@ -6,7 +6,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { applyCombatResolveResultToPvpSession, pvpSessionToCombatBattleState } from '../combat-adapters/pvpAdapter.js';
 import { activeCombatStatuses } from '../combat-core/statuses.js';
 import { ITEM_CATALOG } from './_item-catalog.js';
-import { RANKED_FORMAT_MAX_HP, RANKED_FORMAT_MAX_STATS } from './_ranked-format.js';
+import { RANKED_FORMAT_LEGENDARY_WEAPON_IDS, RANKED_FORMAT_MAX_HP, RANKED_FORMAT_MAX_STATS } from './_ranked-format.js';
 import type { PvpFighter, PvpSession, PvpStatus } from './session.js';
 
 process.env.SUPABASE_URL ??= 'http://localhost:1';
@@ -1632,7 +1632,7 @@ test('ranked pills and smoke spend a charge without dealing item damage', async 
 test('the ranked Kunai uses the damaging thrown-weapon path and spends its charge', async () => {
     const id = 'ranked-format-kunai';
     const kunaiEp = ITEM_CATALOG[id]?.weaponEp;
-    assert.equal(kunaiEp, 38, 'the server catalog carries the tuned neutral Kunai');
+    assert.equal(kunaiEp, 20, 'the server catalog carries the tuned neutral Kunai');
     seed(session('ranked-kunai-damage', {
         p1: withEquippedItem(fighter('alice', 0), {
             id, name: 'Kunai', slot: 'thrown', apCost: 20,
@@ -1652,14 +1652,18 @@ test('the ranked Kunai uses the damaging thrown-weapon path and spends its charg
     assert.equal(after.itemsUsed?.p1[id], 1);
 });
 
-test('ordinary weapon swings gain 30%, while Pierce weapon swings stay fixed', () => {
-    const attacker = fighter('alice', 0);
+test('a weapon swing hits for its EP alone, like a fully trained technique: no hidden multiplier', () => {
+    // Weapon strength is authored in the EP ladder (api/pvp/_item-catalog.ts), with
+    // no per-swing multiplier. A weapon cannot be trained, so a swing resolves at
+    // the wielder's rank mastery cap (owner ruling 2026-09-25): it lands exactly
+    // what a technique of the same EP lands once trained to that cap, Pierce too.
+    const attacker = fighter('alice', 0, { character: { ...fighter('alice', 0).character, jutsuMastery: [{ jutsuId: 'trained-technique', level: 50 }] } });
     const defender = fighter('bob', 1);
-    const hand = { id: 'weapon', name: 'Test Blade', type: 'Bukijutsu', ap: 40,
-        effectPower: 27, isUtility: false, tags: [] as Array<{ name: string }> };
-    const dealt = (weaponSwing: boolean, tags: Array<{ name: string }> = []) =>
-        defender.hp - applyJutsu(attacker, defender, { ...hand, weaponSwing, tags }, 1, 'central', 1).opponent.hp;
-    assert.equal(dealt(true), Math.floor(dealt(false) * 1.3));
+    const hand = { name: 'Test Blade', type: 'Bukijutsu', ap: 40,
+        effectPower: 33, isUtility: false, tags: [] as Array<{ name: string }> };
+    const dealt = (weaponSwing: boolean, tags: Array<{ name: string }> = []) => defender.hp - applyJutsu(attacker, defender,
+        { ...hand, id: weaponSwing ? 'weapon' : 'trained-technique', weaponSwing, tags }, 1, 'central', 1).opponent.hp;
+    assert.equal(dealt(true), dealt(false));
     assert.equal(dealt(true, [{ name: 'Pierce' }]), dealt(false, [{ name: 'Pierce' }]));
 });
 
@@ -1684,7 +1688,15 @@ test('jutsu damage buffs and pills lift both hand swings and thrown Kunai, but n
     }
 });
 
-test('unbuffed ranked Kunai impact lands between 300 and 400 against maxed ranked armor', () => {
+test('the ranked hand weapons sit 2 EP above the ranked Kunai and out-hit it on maxed ranked armor', () => {
+    // Owner ruling 2026-09-24: no blanket weapon-swing bonus. The highest-damage
+    // weapons available in ranked (its legendary hand tier) carry 2 EP more than
+    // the neutral Kunai, and the rest of the weapon ladder scales from there.
+    const kunaiEp = ITEM_CATALOG['ranked-format-kunai']!.weaponEp!;
+    assert.equal(kunaiEp, 20);
+    for (const id of RANKED_FORMAT_LEGENDARY_WEAPON_IDS) {
+        assert.equal(ITEM_CATALOG[id]?.weaponEp, kunaiEp + 2, `${id} is the ranked hand tier`);
+    }
     const maxed = (name: string, pos: number): PvpFighter => {
         const base = fighter(name, pos);
         return { ...base, hp: RANKED_FORMAT_MAX_HP, maxHp: RANKED_FORMAT_MAX_HP,
@@ -1692,13 +1704,22 @@ test('unbuffed ranked Kunai impact lands between 300 and 400 against maxed ranke
     };
     const attacker = maxed('alice', 0);
     const defender = maxed('bob', 1);
-    const direct = defender.hp - applyJutsu(attacker, defender, {
-        id: 'weapon', name: 'Kunai', type: 'Bukijutsu', ap: 20, range: 4,
-        effectPower: ITEM_CATALOG['ranked-format-kunai']!.weaponEp!,
-        isUtility: false, weaponSwing: true, suppressBloodline: true,
-        tags: [{ name: 'Wound', percent: 300 }],
+    const direct = (name: string, effectPower: number, ap: number) => defender.hp - applyJutsu(attacker, defender, {
+        id: 'weapon', name, type: 'Bukijutsu', ap, range: 4, effectPower,
+        isUtility: false, weaponSwing: true, suppressBloodline: true, tags: [],
     }, 1, 'central', 1).opponent.hp;
-    assert.ok(direct >= 300 && direct <= 400, `Kunai impact was ${direct}`);
+    const kunai = direct('Kunai', kunaiEp, 20);
+    const hand = direct('Ranked blade', kunaiEp + 2, 40);
+    assert.ok(hand > kunai, `hand ${hand} must out-hit Kunai ${kunai}`);
+    // A swing resolves at the ranked mastery cap (owner ruling 2026-09-25), so the
+    // Kunai lands about two thirds of a maxed 36 EP jutsu and the hand blade stays
+    // below the mythic tier's three quarters.
+    assert.ok(kunai >= 530 && kunai <= 600, `Kunai impact was ${kunai}`);
+    const trained = { ...attacker, character: { ...attacker.character, jutsuMastery: [{ jutsuId: 'maxed-60', level: 50 }] } };
+    const maxedJutsu = defender.hp - applyJutsu(trained, defender, {
+        id: 'maxed-60', name: 'Maxed 60-AP Jutsu', type: 'Bukijutsu', ap: 60, range: 4, effectPower: 36, tags: [],
+    }, 1, 'central', 1).opponent.hp;
+    assert.ok(hand <= maxedJutsu, `hand ${hand} must not out-hit a maxed 60-AP jutsu (${maxedJutsu})`);
 });
 
 test('ranked pill percentages are exact and smoke blocks ordinary hits but not Pierce', () => {
@@ -1765,29 +1786,52 @@ test('Smoke Bomb leaves Wound, Drain, and Poison damage unchanged', () => {
     assert.equal(poisonSpendDamage(smoked, 100, 1), poisonSpendDamage(afflicted, 100, 1));
 });
 
-test('smoke cast by the round closer survives the round boundary', async () => {
-    const id = 'item-smoke-bomb';
-    seed(session('smoke-closer', {
-        roundOpener: 'p2', activePlayer: 'p1',
-        p1: withEquippedItem(fighter('alice', 0), {
-            id, name: 'Smoke Bomb', slot: 'item', apCost: 20,
-            weaponEffect: 'Decrease Damage Given', weaponEffectValue: 100,
-            weaponEffectTarget: 'both',
-        }, 'item1'),
-        itemCharges: { p1: { [id]: 2 }, p2: {} },
-    }));
-    assert.equal((await postMove('alice', {
-        battleId: 'smoke-closer', role: 'p1', action: 'item', itemId: id,
-        moveToken: 'smoke-closer-use',
-    })).statusCode, 200);
-    assert.equal((await postMove('alice', {
-        battleId: 'smoke-closer', role: 'p1', action: 'wait',
-        moveToken: 'smoke-closer-wait',
-    })).statusCode, 200);
-    const after = storedSession('smoke-closer');
-    assert.equal(after.round, 2);
-    assert.equal(after.p1.statuses.find(status => status.source === id)?.rounds, 1);
-    assert.equal(after.p2.statuses.find(status => status.source === id)?.rounds, 1);
+test('pills and smoke start next round and cover the same rounds from either seat', async () => {
+    // Like every other tag, the neutral items resolve next round. Round ticks
+    // age both fighters together, so the round opener and the round closer
+    // get exactly the same whole rounds of cover. An instant status gave the
+    // closer one opponent turn less.
+    for (const [id, effect, value, rounds] of [
+        ['item-attack-pill', 'Increase Damage Given', 15, [2, 3]],
+        ['item-defense-pill', 'Decrease Damage Taken', 15, [2, 3]],
+        ['item-smoke-bomb', 'Decrease Damage Given', 100, [2]],
+    ] as const) {
+        for (const seat of ['opener', 'closer'] as const) {
+            const battleId = `next-round-${id}-${seat}`;
+            seed(session(battleId, {
+                roundOpener: seat === 'opener' ? 'p1' : 'p2',
+                activePlayer: 'p1',
+                p1: withEquippedItem(fighter('alice', 0), {
+                    id, name: id, slot: 'item', apCost: 20, weaponCooldown: 5,
+                    weaponEffect: effect, weaponEffectValue: value,
+                    ...(id === 'item-smoke-bomb' ? { weaponEffectTarget: 'both' } : {}),
+                }, 'item1'),
+                itemCharges: { p1: { [id]: 2 }, p2: {} },
+            }));
+            assert.equal((await postMove('alice', {
+                battleId, role: 'p1', action: 'item', itemId: id, moveToken: `${battleId}-use`,
+            })).statusCode, 200);
+            const holders = id === 'item-smoke-bomb' ? ['p1', 'p2'] as const : ['p1'] as const;
+            const seen = new Map<string, Set<number>>(holders.map(role => [role, new Set<number>()]));
+            for (let turn = 1; turn <= 12; turn += 1) {
+                const now = storedSession(battleId);
+                if (now.round > 5) break;
+                for (const role of holders) {
+                    if (activeCombatStatuses(now[role].statuses, now.round).some(status => status.source === id)) {
+                        seen.get(role)!.add(now.round);
+                    }
+                }
+                const actor = now.activePlayer;
+                assert.equal((await postMove(actor === 'p1' ? 'alice' : 'bob', {
+                    battleId, role: actor, action: 'wait', moveToken: `${battleId}-wait-${turn}`,
+                })).statusCode, 200);
+            }
+            for (const role of holders) {
+                assert.deepEqual([...seen.get(role)!].sort((a, b) => a - b), [...rounds],
+                    `${id} used by the round ${seat} is active for ${role} in rounds ${rounds.join(' and ')} only`);
+            }
+        }
+    }
 });
 
 test('weapon cooldown blocks a same-turn reswing and is stored under a weapon:-namespaced key', async () => {

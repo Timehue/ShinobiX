@@ -16,6 +16,7 @@ let issuePlayerToken: typeof import('../_auth.js').issuePlayerToken;
 let wildHandler: Handler;
 let befriendHandler: Handler;
 let purchaseHandler: Handler;
+let declineHandler: Handler;
 let catalog: typeof import('./_catalog.js').PET_CATALOG;
 
 before(async () => {
@@ -25,7 +26,33 @@ before(async () => {
     wildHandler = (await import('./wild-binding.js')).default as unknown as Handler;
     befriendHandler = (await import('./befriend.js')).default as unknown as Handler;
     purchaseHandler = (await import('../shop/purchase.js')).default as unknown as Handler;
+    declineHandler = (await import('./encounter-decline.js')).default as unknown as Handler;
 });
+
+/** Capture the discovery's pet, but fail the discovery close once, the way a
+ * lock timeout or a restart after the battle saved would. */
+async function captureWithFailedDiscoveryClose(attemptId: string) {
+    assert.equal((await post(wildHandler, { action: 'start', petId: 'owned-fox-001' })).status, 200);
+    const realDel = kv.del.bind(kv);
+    let failed = false;
+    kv.del = (async (...keys: string[]) => {
+        if (!failed && keys.includes(`pet-encounter:${player}:${token}`)) {
+            failed = true;
+            throw new Error('simulated storage failure');
+        }
+        return realDel(...keys);
+    }) as typeof kv.del;
+    try {
+        const captured = await post(wildHandler, { action: 'capture', sealId: 'beast-seal-reinforced', attemptId });
+        assert.equal(captured.status, 500, 'the close failure surfaces as an error');
+    } finally {
+        kv.del = realDel;
+    }
+    assert.equal(failed, true);
+    const battle = await kv.get<Record<string, unknown>>(`pet:wild-binding:${player}:${token}`);
+    assert.equal(battle?.finished, true, 'the capture itself committed');
+    assert.ok(await kv.get(`pet-encounter-active:${player}`), 'the discovery is still open and blocking Explore');
+}
 
 beforeEach(async () => {
     const keys = await kv.keys('*');
@@ -174,6 +201,38 @@ describe('server-authoritative wild binding', { concurrency: false }, () => {
         const saved = (await kv.get<Record<string, unknown>>(`save:${player}`))?.character as Record<string, unknown>;
         assert.equal((saved.pets as unknown[]).length, 1);
         assert.deepEqual(saved.itemStacks, [{ itemId: 'beast-seal-reinforced', count: 1 }]);
+    });
+
+    it('closes a finished battle\'s discovery when the battle is reopened', async () => {
+        await captureWithFailedDiscoveryClose('reopenclosesdiscovery01');
+        const reopened = await post(wildHandler, { action: 'start', petId: 'owned-fox-001' });
+        assert.equal(reopened.status, 200);
+        assert.equal((reopened.body.state as Record<string, unknown>).finished, true);
+        assert.equal(await kv.get(`pet-encounter-active:${player}`), null, 'Explore is free again');
+        assert.equal(await kv.get(`pet-encounter:${player}:${token}`), null);
+        assert.equal((await kv.get<Record<string, unknown>>(`pet-encounter-request:${player}:${requestId}`))?.resolution, 'befriended');
+        const saved = (await kv.get<Record<string, unknown>>(`save:${player}`))?.character as Record<string, unknown>;
+        assert.equal((saved.pets as unknown[]).length, 2, 'the captured pet is kept exactly once');
+    });
+
+    it('lets the player leave the trail after a finished battle and records its real outcome', async () => {
+        await captureWithFailedDiscoveryClose('leavetrailafterbattle01');
+        const left = await post(declineHandler, {});
+        assert.equal(left.status, 200);
+        assert.equal(await kv.get(`pet-encounter-active:${player}`), null);
+        assert.equal((await kv.get<Record<string, unknown>>(`pet-encounter-request:${player}:${requestId}`))?.resolution, 'befriended');
+        const replay = await post(declineHandler, {});
+        assert.equal(replay.status, 200);
+        assert.equal(replay.body.replayed, true);
+        assert.equal((await kv.get<Record<string, unknown>>(`pet-encounter-request:${player}:${requestId}`))?.resolution, 'befriended',
+            'a replayed leave keeps the recorded outcome');
+    });
+
+    it('still refuses to leave the trail while the wild battle is in progress', async () => {
+        assert.equal((await post(wildHandler, { action: 'start', petId: 'owned-fox-001' })).status, 200);
+        const left = await post(declineHandler, {});
+        assert.equal(left.status, 409);
+        assert.ok(await kv.get(`pet-encounter-active:${player}`));
     });
 
     it('uses the sealed trait to shape Resolve during a real wild turn', async () => {

@@ -23,6 +23,7 @@ import { buildHollowGateSoloPveEncounter } from './_encounter.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
 import { hollowGateManifestNode, hollowGatePositionNodeId } from './_floor-manifest.js';
+import { retireUnstartedHollowGatePetBinding } from './_pet-authority.js';
 
 type StartOutcome =
     | { status: number; body: Record<string, unknown> }
@@ -74,6 +75,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return { status: 409, body: { error: 'The floor boss is not available before the sealed final floor.' } };
             }
 
+            // Set when this request re-seals an untouched pet duel as a shinobi
+            // fight for the same encounter (see _pet-authority.ts).
+            let replacedPetDuelRunId: string | null = null;
             if (run.activeEncounter) {
                 const active = run.activeEncounter;
                 const activeBinding = await kv.get<ReturnType<typeof createHollowGateCombatBinding>>(hollowGateCombatBindingKey(active.runId));
@@ -94,7 +98,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         },
                     };
                 }
-                if (activeBinding?.status === 'active') {
+                // The browser may ask to fight an open pet duel as a shinobi. It
+                // is checked below and retired only once this request can bind
+                // its replacement, so a refusal leaves the pet duel intact.
+                if (sameEncounter && combatMode === 'solo-pve'
+                    && activeBinding?.combatMode === 'pet' && activeBinding.status === 'active') {
+                    replacedPetDuelRunId = active.runId;
+                } else if (activeBinding?.status === 'active') {
                     return { status: 409, body: { error: 'Finish the active Hollow Gate encounter before moving.' } };
                 }
                 run.activeEncounter = null;
@@ -130,8 +140,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     || hollowGateManifestNode(manifest, nodeId) !== expectedTileKind) {
                     return { status: 409, body: { error: 'The encounter node does not match the sealed shrine floor.' } };
                 }
-            } else if (!run.pendingAmbush || run.pendingAmbush.nodeId !== nodeId || run.pendingAmbush.kind !== kind) {
+            } else if (!replacedPetDuelRunId
+                && (!run.pendingAmbush || run.pendingAmbush.nodeId !== nodeId || run.pendingAmbush.kind !== kind)) {
+                // (A replaced pet duel already consumed this sealed ambush when
+                // its own binding was created for the same node and kind.)
                 return { status: 409, body: { error: 'Only the server-sealed threat encounter may use a non-tile identity.' } };
+            }
+            if (replacedPetDuelRunId && !await retireUnstartedHollowGatePetBinding({ runId: replacedPetDuelRunId, playerName })) {
+                return { status: 409, body: { error: 'This pet duel has already begun. Finish it before fighting the encounter yourself.' } };
             }
             const binding = createHollowGateCombatBinding({
                 playerName,

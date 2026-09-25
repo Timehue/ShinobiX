@@ -45,7 +45,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const floor = Number(nodeId.match(/^floor:(\d+):/)?.[1]);
             const encounterKey = `${floor}:card:${nodeId}`;
             const resolved = run.resolvedEncounterIds ?? [];
-            if (!resolved.includes(encounterKey)
+            const alreadyResolved = resolved.includes(encounterKey);
+            if (!alreadyResolved
                 && (run.cardAmbushMatchId !== matchId || run.pendingAmbush?.kind !== 'card'
                     || run.pendingAmbush.nodeId !== nodeId || run.currentFloor !== floor)) {
                 return { status: 409, body: { error: 'The card result does not match the pending rift ambush.' } };
@@ -60,7 +61,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const credited = won
                 ? creditHollowGateLedger(run, `card:${encounterKey}`, { currencies: reward })
                 : null;
-            const nextRun: HollowGateRunToken = resolved.includes(encounterKey) ? run : {
+            const nextRun: HollowGateRunToken = alreadyResolved ? run : {
                 ...run,
                 pendingAmbush: null,
                 cardAmbushMatchId: null,
@@ -71,6 +72,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     serverCreditedCurrencies: credited.ledger.currencies,
                 } : {}),
             };
+            // The win is credited to the run ledger above, so it is run loot
+            // and the save write says so ('run'), like every other run-reward
+            // writer (combat-settle, event, use-consumable, settle). The default
+            // recorded it as an 'external' credit in the protected baseline,
+            // which the death clawback never reaches.
             const saved = await mutatePlayerSave(playerName, ({ character }) => {
                 const savedRun = character.hollowGateRun as Record<string, unknown> | undefined;
                 if (savedRun?.runToken !== token || hollowGateSavedTokenMismatch(character, token)) {
@@ -78,9 +84,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 // Use the existing protected Hollow Gate event receipt journal;
                 // generic saves cannot erase or forge an applied HP penalty.
-                const receiptId = `card:${matchId}`;
+                //
+                // One settlement per ambush ENCOUNTER. A Chronicle rules bump
+                // makes card-start mint a fresh match for the same encounter and
+                // leave the old one, possibly already won, behind. A receipt
+                // keyed only on the match let that old match settle the same
+                // ambush a second time. The match receipt is still written and
+                // honored, so a lost response replays idempotently and saves
+                // settled before this change keep resolving; the run's resolved
+                // list covers encounters that only carry a legacy match receipt.
+                const matchReceipt = `card:${matchId}`;
+                const encounterReceipt = `card:${encounterKey}`;
                 const receipts = Array.isArray(character.settledHollowGateEventIds) ? character.settledHollowGateEventIds as string[] : [];
-                if (receipts.includes(receiptId)) return { ok: true as const, character, value: null, write: false };
+                if (receipts.includes(matchReceipt)) return { ok: true as const, character, value: null, write: false };
+                if (alreadyResolved || receipts.includes(encounterReceipt)) {
+                    return { ok: false as const, status: 409, error: 'This rift card ambush was already settled.' };
+                }
                 const maxHp = Math.max(1, Math.floor(Number(character.maxHp) || 1));
                 const hp = Math.max(1, Math.floor(Number(character.hp) || maxHp));
                 return { ok: true as const, character: {
@@ -91,15 +110,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         auraDust: Math.max(0, Math.floor(Number(character.auraDust) || 0)) + reward.auraDust,
                     } : {}),
                     hollowGateRun: { ...savedRun, threat: 0 },
-                    settledHollowGateEventIds: [...receipts.slice(-511), receiptId],
+                    settledHollowGateEventIds: [...receipts.slice(-510), encounterReceipt, matchReceipt],
                     hollowGatePendingOperation: makeHollowGatePendingOperation({
-                        token, kind: 'event', id: receiptId, before: run, after: nextRun,
+                        token, kind: 'event', id: matchReceipt, before: run, after: nextRun,
                         response: { ok: true, won, reward },
                     }),
                 }, value: null };
-            });
+            }, { hollowGateCurrencySource: 'run' });
             if (!saved.ok) return { status: saved.status, body: { error: saved.error } };
-            if (!resolved.includes(encounterKey)) await recoverHollowGatePendingOperation(kv, runKey, run, playerName, token);
+            if (!alreadyResolved) await recoverHollowGatePendingOperation(kv, runKey, run, playerName, token);
             return { status: 200, body: { ok: true, won, reward, character: saved.character, _saveVersion: saved._saveVersion } };
         }, { failClosed: true, ttlSec: 10 });
         return res.status(result.status).json(result.body);

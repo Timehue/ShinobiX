@@ -1,4 +1,4 @@
-import { Component, useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type MutableRefObject, type ReactNode } from "react";
+import { Component, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type MutableRefObject, type ReactNode } from "react";
 import type { Pet } from "../types/pet";
 import { DUEL_TPS, type DuelObjectiveSnap, type DuelResult } from "../lib/pet-duel-sim";
 import { WARFRONT_ARENA_X, WARFRONT_ARENA_Y } from "../lib/pet-duel-cinematic";
@@ -34,6 +34,7 @@ import {
     type ActorPose,
 } from "../lib/pet-warfront-rite-presentation";
 import { WARFRONT_PREFLIGHT_THRESHOLD_MS, WARFRONT_ROUTE_STORAGE_KEY, warfront3dQaCanaryRequested, warfrontShouldAttempt3d } from "../lib/pet-warfront-render-budget";
+import { warfrontStageRoute } from "../lib/pet-warfront-stage-fallback";
 import { warfrontCanvasFrame } from "../lib/pet-warfront-camera";
 import { PET_ELEMENT_IMPACT_ATLAS_URL } from "../lib/pet-element-vfx";
 import type { PetVisualQualityConfig } from "../lib/pet-visual-quality";
@@ -1761,6 +1762,89 @@ class WarfrontRenderBoundary extends Component<{ children: ReactNode; onFail: ()
     render() { return this.state.failed ? null : this.props.children; }
 }
 
+/**
+ * The last presentation route: plain DOM, with no images, no canvas and no GPU.
+ *
+ * It exists so that a clash whose 3D and Canvas routes have both failed still
+ * PLAYS: nothing here loads, so it reports ready at once and the paused clock
+ * resumes. Clashes, re-form interludes, the result screen and settlement then
+ * run exactly as they would with full graphics — the verdict never depended on
+ * the renderer. Tokens and health are painted from the same authoritative
+ * snapshots as the HUD, by one rAF loop that writes the DOM directly.
+ */
+function ReducedBattleStage({ sceneKey, result, fighters, clockRef, onReady, onLoadProgress, onRendererAvailability, onRetryGraphics }: PetWarfrontRiteStageProps & Readonly<{ onRetryGraphics: () => void }>) {
+    const tokens = useRef<(HTMLSpanElement | null)[]>([]);
+    const standingOut = useRef<HTMLElement>(null);
+    const poses = useMemo(() => fighters.map(() => createActorPoseSample()), [fighters]);
+
+    useEffect(() => {
+        // Nothing to fetch or decode: the formation is complete with this commit.
+        onRendererAvailability?.(true);
+        onLoadProgress?.(fighters.length);
+        onReady?.();
+    }, [fighters.length, onLoadProgress, onReady, onRendererAvailability, sceneKey]);
+
+    // Layout effect: the first positions are written before the browser paints,
+    // so no token ever flashes at the board's corner.
+    useLayoutEffect(() => {
+        let frame = 0;
+        let standing = "";
+        const paint = () => {
+            const t = Math.max(0, Math.min(result.snapshots.length - 1, clockRef.current));
+            let blueUp = 0;
+            let redUp = 0;
+            fighters.forEach((fighter, index) => {
+                const pose = sampleActorInto(result, fighter.team, fighter.lane, t, poses[index]);
+                const down = pose.hp <= 0;
+                if (!down) {
+                    if (fighter.team === "player") blueUp += 1;
+                    else redUp += 1;
+                }
+                const token = tokens.current[index];
+                if (!token) return;
+                const health = pose.maxHp > 0 ? Math.max(0, Math.min(1, pose.hp / pose.maxHp)) * fighter.entryHp : 0;
+                token.style.left = `${((pose.x / WARFRONT_ARENA_X + 1) * 50).toFixed(2)}%`;
+                token.style.top = `${((pose.z / WARFRONT_ARENA_Y + 1) * 50).toFixed(2)}%`;
+                token.style.setProperty("--wfr-reduced-health", health.toFixed(3));
+                token.dataset.down = down ? "true" : "false";
+            });
+            const next = `${blueUp} – ${redUp}`;
+            if (next !== standing && standingOut.current) {
+                standing = next;
+                standingOut.current.textContent = next;
+            }
+            frame = requestAnimationFrame(paint);
+        };
+        paint();
+        return () => cancelAnimationFrame(frame);
+    }, [clockRef, fighters, poses, result]);
+
+    return (
+        <div className="wfr-reduced-stage" data-testid="wfr-reduced-stage">
+            {/* First, so it sits under the HUD and clear of the bottom-centre
+                formation-hold banner. */}
+            <div className="wfr-reduced-status">
+                <strong>REDUCED BATTLE VIEW</strong>
+                <span>Battle graphics could not load. The fight plays on.</span>
+                <span className="wfr-reduced-standing">Standing <b ref={standingOut} /></span>
+                <button type="button" className="wfr-btn-ghost" onClick={onRetryGraphics}>Retry full graphics</button>
+            </div>
+            <div className="wfr-reduced-board" role="img" aria-label="Reduced battle view of both formations">
+                {fighters.map((fighter, index) => (
+                    <span
+                        key={`${fighter.team}-${fighter.lane}`}
+                        ref={(node) => { tokens.current[index] = node; }}
+                        className={`wfr-reduced-token is-${fighter.team === "player" ? "blue" : "red"}`}
+                        title={fighter.pet.name}
+                    >
+                        {fighter.pet.name.slice(0, 1)}
+                    </span>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 export function PetWarfrontRiteStage(props: PetWarfrontRiteStageProps) {
     const atlasComplete = useMemo(() => props.fighters.every((fighter) => impostorUrl(fighter.pet) !== null), [props.fighters]);
     const requestedRoute = useMemo(() => stageRoute(), []);
@@ -1786,10 +1870,14 @@ export function PetWarfrontRiteStage(props: PetWarfrontRiteStageProps) {
     }, [onRendererAvailability, onRouteTransition]);
     const retryGraphics = useCallback(() => {
         // Retry the independent Canvas loader: GLTF/useLoader can cache a
-        // rejected request for the rest of this document's lifetime.
+        // rejected request for the rest of this document's lifetime. The veil
+        // closes first so the retried scene still reveals atomically; a second
+        // failure simply returns the reduced view, which is always ready.
+        onRouteTransition?.();
         setFailed(true);
         setCanvasFailed(false);
-    }, []);
+    }, [onRouteTransition]);
+    const route = warfrontStageRoute(wantsWebGl, { webgl: failed, canvas: canvasFailed });
     const useWebGl = wantsWebGl || canvasFailed;
     useEffect(() => {
         rendererReady.current = false;
@@ -1817,17 +1905,17 @@ export function PetWarfrontRiteStage(props: PetWarfrontRiteStageProps) {
         }).catch(() => { if (active) handleWebGlFailure(); });
         return () => { active = false; };
     }, [failed, handleWebGlFailure, module, useWebGl]);
-    if (failed && canvasFailed) return (
-        <div className="wfr-render-recovery is-failed" role="alert" data-testid="wfr-render-failure">
-            <strong>BATTLE GRAPHICS COULD NOT LOAD</strong>
-            <span>Your battle is paused. Retry when the connection is ready.</span>
-            <button type="button" className="wfr-btn-primary" onClick={retryGraphics}>Retry battle graphics</button>
-        </div>
+    // Every failure moves one route down; `reduced` has nothing to load, so no
+    // run of failures can leave the battle paused behind a retry button.
+    if (route === "reduced") return <ReducedBattleStage {...props} onRetryGraphics={retryGraphics} />;
+    if (route === "canvas") return (
+        <WarfrontRenderBoundary key="canvas" onFail={handleCanvasAssetFailure}>
+            <Canvas2DStage {...props} onAssetFailure={handleCanvasAssetFailure} />
+        </WarfrontRenderBoundary>
     );
-    if (!useWebGl || failed) return <Canvas2DStage {...props} onAssetFailure={handleCanvasAssetFailure} />;
     if (!module) {
         return <div className="wfr-canvas" data-rite-rig-chunk-status="loading" data-rite-rig-chunk-requested="true" aria-hidden="true" />;
     }
     const WebGlStage = module.PetWarfrontRiteStage3D;
-    return <WarfrontRenderBoundary onFail={handleWebGlFailure}><WebGlStage {...props} onReady={handleReady} onGraphicsFailure={handleWebGlFailure} /></WarfrontRenderBoundary>;
+    return <WarfrontRenderBoundary key="webgl" onFail={handleWebGlFailure}><WebGlStage {...props} onReady={handleReady} onGraphicsFailure={handleWebGlFailure} /></WarfrontRenderBoundary>;
 }

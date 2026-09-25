@@ -55,6 +55,7 @@ import {
     STACKABLE_STATUS,
 } from '../api/pvp/_tags.js';
 import { ITEM_CATALOG, type CatalogItem } from '../api/pvp/_item-catalog.js';
+import { NAMED_WEAPON_EP_MAX } from '../api/craft/_named.js';
 import { JUTSU_CATALOG } from '../api/pvp/_jutsu-catalog.js';
 import { deriveCombatMultipliers, deriveEquipmentStatBonuses } from '../api/pvp/_multipliers.js';
 import { pvpSessionHp } from '../api/pvp/_low-level-hp.js';
@@ -624,7 +625,8 @@ function namedWeapon(archetype: Archetype): CatalogItem {
         rarity: 'legendary',
         cost: 0,
         levelReq: 90,
-        weaponEp: 35,
+        // The named forge's max roll (api/craft/_named.ts rolls 24-27).
+        weaponEp: NAMED_WEAPON_EP_MAX,
         weaponRange: 5,
         weaponCooldown: 5,
         weaponElement: PROFILE[archetype].element,

@@ -1,7 +1,16 @@
 import type { Character } from "../types/character";
 
-type CardStartResult = { ok: boolean; matchId?: string; error?: string };
+/** `loanerDeck`: the player had no legal deck of their own (the Card Hall opens
+ * at 17), so the server lent its starter deck for this one match. */
+type CardStartResult = { ok: boolean; matchId?: string; loanerDeck?: boolean; error?: string };
 type CardSettleResult = { ok: boolean; won?: boolean; reward?: { ryo: number; auraDust: number }; character?: Character; _saveVersion?: number; error?: string };
+
+/** The run-log line for a card ambush that has just opened. */
+export function hollowGateCardAmbushLogLine(started: Pick<CardStartResult, "loanerDeck">): string {
+    return started.loanerDeck
+        ? "A Chronicle Keeper blocks the corridor and lends you a traveler's starter deck for the showdown. Win or withstand it to break the ambush seal."
+        : "A Chronicle Keeper blocks the corridor. Win or withstand the card showdown to break the ambush seal.";
+}
 
 export async function startHollowGateCardAmbush(playerName: string, token: string, nodeId: string): Promise<CardStartResult> {
     try {

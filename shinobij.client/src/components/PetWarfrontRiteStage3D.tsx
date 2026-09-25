@@ -92,6 +92,11 @@ import {
 import { warfrontImpostorAtlasUrl } from "../lib/pet-warfront-impostor-url";
 import { createWarfrontRendererResources } from "../lib/pet-warfront-renderer-lifecycle";
 import {
+    WARFRONT_CONTEXT_RESTORE_DEADLINE_SECONDS,
+    startWarfrontVisibleCountdown,
+    warfrontContextLossRecovery,
+} from "../lib/pet-warfront-stage-fallback";
+import {
     ATTACK_STREAK_DURATION_MS,
     BODY_KO_EXIT_DISTANCE,
     BODY_LUNGE_DISTANCE,
@@ -3975,7 +3980,7 @@ export type PetWarfrontRiteStage3DProps = {
 };
 
 export function PetWarfrontRiteStage3D(props: PetWarfrontRiteStage3DProps) {
-    const { quality, onReady, onRendererAvailability, sceneKey } = props;
+    const { quality, onReady, onRendererAvailability, onGraphicsFailure, sceneKey } = props;
     const [pageVisible, setPageVisible] = useState(() => !document.hidden);
     useEffect(() => {
         const handleVisibility = () => setPageVisible(!document.hidden);
@@ -3992,11 +3997,15 @@ export function PetWarfrontRiteStage3D(props: PetWarfrontRiteStage3DProps) {
     const contextStatusRef = useRef<"ready" | "lost" | "recovering">("ready");
     const restoreTimer = useRef<number | null>(null);
     const remountTimer = useRef<number | null>(null);
+    const cancelRestoreDeadline = useRef<(() => void) | null>(null);
+    const contextLosses = useRef(0);
     const clearRecoveryTimers = useCallback(() => {
         if (restoreTimer.current !== null) window.clearTimeout(restoreTimer.current);
         if (remountTimer.current !== null) window.clearTimeout(remountTimer.current);
+        cancelRestoreDeadline.current?.();
         restoreTimer.current = null;
         remountTimer.current = null;
+        cancelRestoreDeadline.current = null;
     }, []);
     const handleContextLost = useCallback(() => {
         if (contextStatusRef.current !== "ready") return;
@@ -4004,6 +4013,20 @@ export function PetWarfrontRiteStage3D(props: PetWarfrontRiteStage3DProps) {
         setContextStatus("lost");
         onRendererAvailability?.(false);
         clearRecoveryTimers();
+        contextLosses.current += 1;
+        // Combat is paused while the context is gone, so the restore must be
+        // bounded. A device that keeps dropping the battle, or cannot bring it
+        // back in time, hands the clash to the lighter routes (Canvas, then the
+        // reduced view), which resume the clock from this same tick.
+        if (warfrontContextLossRecovery(contextLosses.current) === "fall-back") {
+            onGraphicsFailure?.();
+            return;
+        }
+        cancelRestoreDeadline.current = startWarfrontVisibleCountdown(WARFRONT_CONTEXT_RESTORE_DEADLINE_SECONDS, () => {
+            cancelRestoreDeadline.current = null;
+            clearRecoveryTimers();
+            onGraphicsFailure?.();
+        });
         // Give the browser a short opportunity to restore in place. If it
         // cannot, unmount first; R3F then disconnects events, disposes render
         // lists/scene resources, and force-loses the old context before this
@@ -4017,7 +4040,7 @@ export function PetWarfrontRiteStage3D(props: PetWarfrontRiteStage3DProps) {
                 setCanvasMounted(true);
             }, 650);
         }, 900);
-    }, [clearRecoveryTimers, onRendererAvailability]);
+    }, [clearRecoveryTimers, onGraphicsFailure, onRendererAvailability]);
     const handleContextRestored = useCallback(() => {
         if (contextStatusRef.current !== "lost") return;
         clearRecoveryTimers();

@@ -20,7 +20,15 @@ export const PLAYER_RANKED_JOURNAL_VERSION = 'player-ranked-journal-v1' as const
 export const PLAYER_RANKED_SETTLEMENT_STAMP_FIELD = 'playerRankedSettlementStamp' as const;
 export const PLAYER_RANKED_JOURNAL_PREFIX = 'player:ranked-journal:';
 export const PLAYER_RANKED_CANCELLED_PREFIX = 'player:ranked-cancelled:';
-const JOURNAL_TTL_SECONDS = 400 * 24 * 60 * 60;
+/**
+ * Discovery pointers for the server-side settlement sweep. Deliberately NOT
+ * under PLAYER_RANKED_JOURNAL_PREFIX: every `player:ranked-journal:*` key must
+ * parse as a journal (listPendingPlayerRankedJournals, season close).
+ */
+export const PLAYER_RANKED_SETTLING_PREFIX = 'player:ranked-settling:';
+export const PLAYER_RANKED_SETTLING_VERSION = 'player-ranked-settling-v1' as const;
+export const PLAYER_RANKED_JOURNAL_TTL_SECONDS = 400 * 24 * 60 * 60;
+const JOURNAL_TTL_SECONDS = PLAYER_RANKED_JOURNAL_TTL_SECONDS;
 export const PLAYER_RANKED_SETTLEMENT_STAMP_LIMIT = 64;
 
 export type PlayerRankedTerminal = {
@@ -180,6 +188,88 @@ export async function getPlayerRankedJournal(
     return journal;
 }
 
+/**
+ * "This match may still owe settlement work." One small row per match, written
+ * before its journal is created and deleted once the whole saga is proven
+ * settled (compactSettledPlayerRankedSession). It carries no authority: the
+ * sweep re-derives everything from the journal, the gate and the session. It
+ * exists so a match stays discoverable after its gate admission is gone, and
+ * so an idle server can list outstanding work without reading every journal.
+ */
+export type PlayerRankedSettlingPointer = {
+    version: typeof PLAYER_RANKED_SETTLING_VERSION;
+    matchId: string;
+    battleId: string;
+    /** Terminal time. The sweep leaves younger work to the saga still running it. */
+    since: number;
+    /** Failed sweep attempts, for backoff. The saga itself never writes these. */
+    attempts: number;
+    nextAttemptAt: number;
+    lastError: string | null;
+};
+
+export function playerRankedSettlingKey(matchId: string): string {
+    return `${PLAYER_RANKED_SETTLING_PREFIX}${matchId}`;
+}
+
+export function parsePlayerRankedSettlingPointer(value: unknown): PlayerRankedSettlingPointer | null {
+    if (!isRecord(value) || !exactKeys(value, [
+        'version', 'matchId', 'battleId', 'since', 'attempts', 'nextAttemptAt', 'lastError',
+    ])) return null;
+    const pointer = value as PlayerRankedSettlingPointer;
+    if (pointer.version !== PLAYER_RANKED_SETTLING_VERSION
+        || typeof pointer.matchId !== 'string'
+        || !/^player-ranked-[0-9a-f-]{36}$/.test(pointer.matchId)
+        || typeof pointer.battleId !== 'string'
+        || !/^pvp-[0-9a-f-]{36}$/.test(pointer.battleId)
+        || !Number.isSafeInteger(pointer.since)
+        || pointer.since <= 0
+        || !Number.isSafeInteger(pointer.attempts)
+        || pointer.attempts < 0
+        || !Number.isSafeInteger(pointer.nextAttemptAt)
+        || pointer.nextAttemptAt <= 0
+        || (pointer.lastError !== null && typeof pointer.lastError !== 'string')) return null;
+    return pointer;
+}
+
+/**
+ * Publish discovery for one match; true when this call created it. NX: an
+ * existing pointer keeps the sweep's backoff state. Carries the journal TTL so
+ * an abandoned pointer can never outlive the journal it points at.
+ */
+export async function ensurePlayerRankedSettlingPointer(
+    store: Pick<KvLike, 'set'>,
+    input: { matchId: string; battleId: string; since: number },
+): Promise<boolean> {
+    const since = Math.max(1, Math.floor(input.since));
+    const pointer: PlayerRankedSettlingPointer = {
+        version: PLAYER_RANKED_SETTLING_VERSION,
+        matchId: input.matchId,
+        battleId: input.battleId,
+        since,
+        attempts: 0,
+        nextAttemptAt: since,
+        lastError: null,
+    };
+    if (!parsePlayerRankedSettlingPointer(pointer)) throw new Error('player-ranked-settling-pointer-invalid');
+    return await store.set(playerRankedSettlingKey(input.matchId), pointer, {
+        nx: true,
+        ex: JOURNAL_TTL_SECONDS,
+    }) === 'OK';
+}
+
+/** Best-effort: a pointer that survives only costs the sweep one re-verification. */
+export async function clearPlayerRankedSettlingPointer(
+    store: Pick<KvLike, 'del'>,
+    matchId: string,
+): Promise<void> {
+    try {
+        await store.del(playerRankedSettlingKey(matchId));
+    } catch {
+        // The sweep re-proves settlement before it deletes a leftover pointer.
+    }
+}
+
 function terminalFromAdmission(admission: PlayerRankedAdmission): PlayerRankedTerminal {
     if (admission.phase !== 'terminal'
         || !admission.battleId
@@ -230,6 +320,15 @@ async function materializeJournal(
         state: 'pending',
         updatedAt: terminal.terminalAt,
     };
+    // Discovery lands BEFORE the journal it describes, so no crash can leave a
+    // pending journal the server-side sweep cannot find — even if the gate
+    // admission is later lost. A pointer without a journal is harmless: the
+    // sweep finds the admission (or nothing) and clears it.
+    await ensurePlayerRankedSettlingPointer(store, {
+        matchId: terminal.matchId,
+        battleId: terminal.battleId,
+        since: terminal.terminalAt,
+    });
     try {
         if (await store.set(key, initial, { nx: true, ex: JOURNAL_TTL_SECONDS }) === 'OK') return initial;
     } catch (error) {
@@ -250,19 +349,24 @@ async function materializeJournal(
     return winner;
 }
 
+/** Map the session's p1/p2 result onto the sorted a/b sides of a match. */
+function sessionWinnerSide(session: PvpSession, a: string): PlayerRankedTerminal['winner'] {
+    const p1 = safeName(session.p1?.name ?? '');
+    const p2 = safeName(session.p2?.name ?? '');
+    return session.winner === 'draw'
+        ? 'draw'
+        : session.winner === 'p1'
+            ? (p1 === a ? 'a' : 'b')
+            : (p2 === a ? 'a' : 'b');
+}
+
 function sessionTerminalCore(
     session: PvpSession,
     admission: PlayerRankedAdmission,
     rankedEligible: boolean,
     terminalAt: number,
 ): Omit<PlayerRankedTerminal, 'fingerprint'> {
-    const p1 = safeName(session.p1?.name ?? '');
-    const p2 = safeName(session.p2?.name ?? '');
-    const winner = session.winner === 'draw'
-        ? 'draw'
-        : session.winner === 'p1'
-            ? (p1 === admission.a ? 'a' : 'b')
-            : (p2 === admission.a ? 'a' : 'b');
+    const winner = sessionWinnerSide(session, admission.a);
     return {
         matchId: admission.matchId,
         battleId: admission.battleId!,
@@ -350,6 +454,62 @@ function journalItemsFromSession(
 }
 
 /**
+ * The same session-to-authority checks publication makes through the gate
+ * admission (pair, battle, season, epoch) plus the sealed winner mapping, made
+ * against the journal's sealed terminal instead.
+ */
+function sessionMatchesTerminal(session: PvpSession, terminal: PlayerRankedTerminal): boolean {
+    const pair = [safeName(session.p1?.name ?? ''), safeName(session.p2?.name ?? '')].sort();
+    return isPlayerRankedV2Session(session)
+        && session.battleId === terminal.battleId
+        && session.rankedMatchId === terminal.matchId
+        && session.rankedSeasonId === terminal.seasonId
+        && session.rankedSeasonEpoch === terminal.seasonEpoch
+        && pair[0] === terminal.a
+        && pair[1] === terminal.b
+        && sessionWinnerSide(session, terminal.a) === terminal.winner;
+}
+
+/**
+ * Publication when the gate no longer holds this match's admission.
+ *
+ * A journal can only ever be created from a gate admission already sealed in
+ * the terminal phase (terminalFromAdmission), and parsing re-verifies that
+ * sealed terminal's fingerprint. Terminal admissions are never cancelled —
+ * close and orphan cleanup only cancel queued or active ones — and every
+ * ordinary path removes an admission only after its journal has completed. So
+ * once a journal exists the admission adds nothing to the outcome's authority:
+ * a PENDING journal whose admission is gone (a gate lost out of band) is still
+ * the one sealed result, and every effect downstream is fenced by receipts that
+ * do not involve the gate (Elo stamps in both saves, journal item/side
+ * confirmations, elder and Vanguard receipts, exact-CAS session compaction).
+ * The exact committed session must still match that sealed terminal.
+ */
+async function publishedJournalWithoutAdmission(
+    store: JournalStore,
+    session: PvpSession,
+    matchId: string,
+): Promise<PlayerRankedJournal> {
+    const journal = await getPlayerRankedJournal(store, matchId);
+    if (!journal) {
+        // Nothing was ever sealed for this match. Only a recorded no-contest
+        // explains that honestly; anything else has no result to settle.
+        const cancelled = await store.get<unknown>(`${PLAYER_RANKED_CANCELLED_PREFIX}${matchId}`);
+        throw new Error(cancelled !== null ? 'player-ranked-admission-cancelled' : 'player-ranked-admission-missing');
+    }
+    if (!sessionMatchesTerminal(session, journal.terminal)) throw new Error('player-ranked-journal-conflict');
+    if (journal.terminal.rankedEligible && !pvpSessionMayReward(session)) {
+        throw new Error('player-ranked-terminal-participants-unconfirmed');
+    }
+    const items = journalItemsFromSession(session, journal.terminal);
+    if (journal.items.a.usageFingerprint !== items.a.usageFingerprint
+        || journal.items.b.usageFingerprint !== items.b.usageFingerprint) {
+        throw new Error('player-ranked-journal-conflict');
+    }
+    return journal;
+}
+
+/**
  * Publish terminal authority after the durable session commit. The gate CAS
  * seals outcome/snapshots/eligibility first; the per-match journal is a durable
  * mirror that claim and cron can reconstruct after a crash or lost ack.
@@ -369,16 +529,7 @@ export async function publishPlayerRankedTerminal(
         || !session.battleId) throw new Error('player-ranked-session-not-terminal');
 
     const admission = await getPlayerRankedAdmission(store, session.rankedMatchId);
-    if (!admission) {
-        const completed = await getPlayerRankedJournal(store, session.rankedMatchId);
-        if (completed?.state === 'completed' && completed.terminal.battleId === session.battleId) {
-            const items = journalItemsFromSession(session, completed.terminal);
-            if (completed.items.a.usageFingerprint === items.a.usageFingerprint
-                && completed.items.b.usageFingerprint === items.b.usageFingerprint) return completed;
-            throw new Error('player-ranked-journal-conflict');
-        }
-        throw new Error('player-ranked-admission-missing');
-    }
+    if (!admission) return publishedJournalWithoutAdmission(store, session, session.rankedMatchId);
     const pair = [safeName(session.p1?.name ?? ''), safeName(session.p2?.name ?? '')].sort();
     if (admission.a !== pair[0]
         || admission.b !== pair[1]
@@ -402,17 +553,27 @@ export async function publishPlayerRankedTerminal(
         const terminalAt = Math.max(1, Math.floor(options.now ?? Date.now()));
         const core = sessionTerminalCore(session, admission, eligible, terminalAt);
         const fingerprint = playerRankedTerminalFingerprint(core);
-        terminalAdmission = await markPlayerRankedAdmissionTerminal(
-            store,
-            admission.matchId,
-            admission.battleId,
-            {
-                winner: core.winner,
-                rankedEligible: core.rankedEligible,
-                terminalAt,
-                terminalFingerprint: fingerprint,
-            },
-        );
+        try {
+            terminalAdmission = await markPlayerRankedAdmissionTerminal(
+                store,
+                admission.matchId,
+                admission.battleId,
+                {
+                    winner: core.winner,
+                    rankedEligible: core.rankedEligible,
+                    terminalAt,
+                    terminalFingerprint: fingerprint,
+                },
+            );
+        } catch (error) {
+            // A concurrent helper sealed and fully settled this match between
+            // the admission read above and this CAS, removing the admission.
+            // Its journal is the authority now; never report that as a void.
+            if (error instanceof Error && error.message === 'player-ranked-admission-missing') {
+                return publishedJournalWithoutAdmission(store, session, admission.matchId);
+            }
+            throw error;
+        }
     }
     const terminal = terminalFromAdmission(terminalAdmission);
     if (terminal.rankedEligible && !pvpSessionMayReward(session)) {
