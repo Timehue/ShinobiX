@@ -379,7 +379,7 @@ export function useHollowGateAppFlow(params: {
             return;
         }
         setRun((previous) => hollowGateRunAfterPetDefeat(previous, result.character?.hollowGateRun));
-        const recoil =Math.max(1, Math.floor((result.character?.maxHp ?? character?.maxHp ?? 1) * 0.20));
+        const recoil = Math.max(1, Math.floor((result.character?.maxHp ?? character?.maxHp ?? 1) * 0.20));
         pushLog(`The Hollow Hound wins the pet duel. ${recoil} HP recoils through the seal; the encounter remains unresolved.`);
     }
 
