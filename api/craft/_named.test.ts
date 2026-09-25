@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { buildNamedItem, debitNamedForge, makeNamedForgeReceipt, resolveNamedForgeReplay, rollNamedForge, shuffled } from './_named.js';
+import { buildNamedItem, debitNamedForge, makeNamedForgeReceipt, NAMED_WEAPON_EP_MAX, NAMED_WEAPON_EP_MIN, resolveNamedForgeReplay, rollNamedForge, shuffled } from './_named.js';
 import { NAMED_ITEM_LEVEL_REQ } from '../../shared/item-level-gate.js';
 import { NAMED_FORGE_CURRENCY_POINTS, namedForgePointTotal } from '../../shared/named-forge-economy.js';
 import { WEAPON_EP_CEILING } from '../combat-core/formulas.js';
@@ -36,11 +36,18 @@ describe('named forge authority', () => {
         assert.equal(item.levelReq, NAMED_ITEM_LEVEL_REQ, 'named weapons carry the same Level 90 gate as named armor');
     });
 
-    it('rolls a named blade onto the weapon EP ceiling, so it never out-hits a maxed 60-AP jutsu', () => {
-        for (let i = 0; i < 25; i += 1) {
+    it('rolls a named blade at 24-27 EP, whole numbers, both ends reachable (owner ruling 2026-09-25)', () => {
+        assert.deepEqual([NAMED_WEAPON_EP_MIN, NAMED_WEAPON_EP_MAX], [24, 27]);
+        assert.ok(NAMED_WEAPON_EP_MAX <= WEAPON_EP_CEILING, 'a new forge stays under the saved-weapon ceiling');
+        const seen = new Set<number>();
+        // 400 draws miss one of four values with odds near 1e-50.
+        for (let i = 0; i < 400; i += 1) {
             const roll = rollNamedForge('weapon');
-            assert.ok(roll.kind === 'weapon' && roll.ep === WEAPON_EP_CEILING, `rolled ${JSON.stringify(roll)}`);
+            assert.ok(roll.kind === 'weapon', `rolled ${JSON.stringify(roll)}`);
+            assert.ok(Number.isInteger(roll.ep) && roll.ep >= 24 && roll.ep <= 27, `rolled EP ${roll.ep}`);
+            seen.add(roll.ep);
         }
+        assert.deepEqual([...seen].sort(), [24, 25, 26, 27]);
     });
 
     it('recovers the exact forged item from an idempotency receipt', () => {

@@ -1632,7 +1632,7 @@ test('ranked pills and smoke spend a charge without dealing item damage', async 
 test('the ranked Kunai uses the damaging thrown-weapon path and spends its charge', async () => {
     const id = 'ranked-format-kunai';
     const kunaiEp = ITEM_CATALOG[id]?.weaponEp;
-    assert.equal(kunaiEp, 31, 'the server catalog carries the tuned neutral Kunai');
+    assert.equal(kunaiEp, 20, 'the server catalog carries the tuned neutral Kunai');
     seed(session('ranked-kunai-damage', {
         p1: withEquippedItem(fighter('alice', 0), {
             id, name: 'Kunai', slot: 'thrown', apCost: 20,
@@ -1693,7 +1693,7 @@ test('the ranked hand weapons sit 2 EP above the ranked Kunai and out-hit it on 
     // weapons available in ranked (its legendary hand tier) carry 2 EP more than
     // the neutral Kunai, and the rest of the weapon ladder scales from there.
     const kunaiEp = ITEM_CATALOG['ranked-format-kunai']!.weaponEp!;
-    assert.equal(kunaiEp, 31);
+    assert.equal(kunaiEp, 20);
     for (const id of RANKED_FORMAT_LEGENDARY_WEAPON_IDS) {
         assert.equal(ITEM_CATALOG[id]?.weaponEp, kunaiEp + 2, `${id} is the ranked hand tier`);
     }
@@ -1712,8 +1712,9 @@ test('the ranked hand weapons sit 2 EP above the ranked Kunai and out-hit it on 
     const hand = direct('Ranked blade', kunaiEp + 2, 40);
     assert.ok(hand > kunai, `hand ${hand} must out-hit Kunai ${kunai}`);
     // A swing resolves at the ranked mastery cap (owner ruling 2026-09-25), so the
-    // Kunai lands about 89% of a maxed 36 EP jutsu and the hand blade stays below it.
-    assert.ok(kunai >= 730 && kunai <= 810, `Kunai impact was ${kunai}`);
+    // Kunai lands about two thirds of a maxed 36 EP jutsu and the hand blade stays
+    // below the mythic tier's three quarters.
+    assert.ok(kunai >= 530 && kunai <= 600, `Kunai impact was ${kunai}`);
     const trained = { ...attacker, character: { ...attacker.character, jutsuMastery: [{ jutsuId: 'maxed-60', level: 50 }] } };
     const maxedJutsu = defender.hp - applyJutsu(trained, defender, {
         id: 'maxed-60', name: 'Maxed 60-AP Jutsu', type: 'Bukijutsu', ap: 60, range: 4, effectPower: 36, tags: [],
