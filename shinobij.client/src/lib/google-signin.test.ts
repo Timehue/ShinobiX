@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readGoogleRedirect } from "./google-signin";
+import { googleStartBody, readGoogleRedirect } from "./google-signin";
 
 /*
  * The ticket the OAuth callback hands back is credential-shaped: whoever holds
@@ -70,6 +70,14 @@ describe("readGoogleRedirect", () => {
         assert.equal(readGoogleRedirect(), null);
     });
 
+    it("keeps the Android shell's launch parameters when it strips the result", () => {
+        // The Flutter shell returns sign-ins as /?gauth…&gticket…&playNative=1&playReview=0,
+        // and the review prompt reads playNative later in the session.
+        installWindow("https://shinobijourney.com/?gauth=ok&gticket=abc123&playNative=1&playReview=0");
+        readGoogleRedirect();
+        assert.equal(replaced[0].url, "/?playNative=1&playReview=0");
+    });
+
     it("survives a history API that refuses to rewrite", () => {
         installWindow("https://shinobijourney.com/?gauth=ok&gticket=abc123");
         (globalThis as { window: { history: { replaceState: () => void } } }).window.history.replaceState = () => {
@@ -77,5 +85,28 @@ describe("readGoogleRedirect", () => {
         };
         // Failing to tidy the URL must not cost the player their sign-in.
         assert.deepEqual(readGoogleRedirect(), { outcome: "ok", ticket: "abc123" });
+    });
+});
+
+describe("googleStartBody", () => {
+    function withUserAgent(userAgent: string, run: () => void) {
+        const original = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+        Object.defineProperty(globalThis, "navigator", { configurable: true, value: { userAgent } });
+        try { run(); } finally {
+            if (original) Object.defineProperty(globalThis, "navigator", original);
+            else Reflect.deleteProperty(globalThis, "navigator");
+        }
+    }
+
+    it("sends only the nonce and mode from a normal browser", () => {
+        withUserAgent("Mozilla/5.0 (Linux; Android 16) Chrome/150.0.0.0 Mobile Safari/537.36", () => {
+            assert.deepEqual(googleStartBody("n".repeat(48), "login"), { nonce: "n".repeat(48), mode: "login" });
+        });
+    });
+
+    it("asks for the app return only inside the Flutter shell", () => {
+        withUserAgent("Mozilla/5.0 (Linux; Android 16; wv) Chrome/150.0.0.0 Mobile Safari/537.36 ShinobiJourneyApp/1", () => {
+            assert.deepEqual(googleStartBody("n".repeat(48), "link"), { nonce: "n".repeat(48), mode: "link", client: "android-app" });
+        });
     });
 });
