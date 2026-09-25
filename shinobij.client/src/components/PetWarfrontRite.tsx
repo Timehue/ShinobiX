@@ -41,7 +41,6 @@ import {
     WARFRONT_DEFAULT_DEPLOYMENT,
     WARFRONT_DEPLOYMENT_NODES,
     aiRitePlan,
-    deterministicRiteCounterMove,
     riteBandProblem,
     tryMoveRitePet,
     type RiteClash,
@@ -61,7 +60,13 @@ import {
 } from "../lib/pet-rite-playback";
 import { createActorPoseSample, RITE_REVEAL_FIGHTER_COUNT, riteTacticalReport, sampleActorInto } from "../lib/pet-warfront-rite-presentation";
 import { PetWarfrontRiteStage, preloadRitePetModels, type StageFighter } from "./PetWarfrontRiteStage";
-import { resolveRiteInWorker } from "../lib/pet-rite-worker-client";
+import { resolveRite } from "../lib/pet-rite-worker-client";
+import {
+    automaticRiteReformChoice,
+    lockRiteReform,
+    riteHeldFormation,
+    type RiteFormationChoice,
+} from "../lib/pet-rite-continuity";
 import "../styles/pet-warfront-rite.css";
 
 const ELEMENT_COLOR: Readonly<Record<string, string>> = {
@@ -755,15 +760,11 @@ function ReformPanel({ clash, band, enemyBand, formation, deployment, sharedImag
             </section>
             {automatic ? (
                 <div className="wfr-auto-reform">
-                    {preparationError ? <>
-                        <p role="alert">{preparationError}</p>
-                        <button type="button" className="wfr-btn-primary" disabled={preparing} onClick={() => {
-                            const counter = deterministicRiteCounterMove(clash, "blue");
-                            onCommit(counter
-                                ? { formation: counter.formation, deployment: counter.deployment }
-                                : { formation: [...formation], deployment: [...deployment] });
-                        }}>Retry rematch</button>
-                    </> : <p>{recorded ? "SEALED REPLAY · revealing the next recorded formation…" : "AUTO RE-FORM · locking a deterministic response from this public clash…"}</p>}
+                    {/* A seat that takes no decisions never waits on one: an
+                        unpreparable re-form holds the line it just fought. */}
+                    {preparationError
+                        ? <p role="alert">RE-FORM UNAVAILABLE · holding the current formation…</p>
+                        : <p>{recorded ? "SEALED REPLAY · revealing the next recorded formation…" : "AUTO RE-FORM · locking a deterministic response from this public clash…"}</p>}
                 </div>
             ) : (
                 <>
@@ -787,13 +788,17 @@ function ReformPanel({ clash, band, enemyBand, formation, deployment, sharedImag
                         healthBySlot={healthBySlot}
                     />
                     <div className="wfr-reform-footer">
-                        {preparationError ? <p className="wfr-problem" role="alert">{preparationError}</p> : null}
+                        {preparationError ? <p className="wfr-problem" role="alert">This formation could not be prepared. Hold the line you just fought to continue the match, or change it and lock again.</p> : null}
                         <output className="wfr-formation-diff" aria-live="polite">
                             <span>Changes vs previous formation</span>
                             {changes.length ? changes.map((entry) => <strong key={entry.pet.id}>{entry.pet.name}: {entry.from} → {entry.to}</strong>) : <strong>No changes — holding the line</strong>}
                         </output>
                         <div className="wfr-deploy-actions">
-                            <button type="button" className="wfr-btn-ghost" disabled={!changed} onClick={() => setNext([...deployment])}>Reset changes</button>
+                            {/* Holding needs no new simulation, so it is the
+                                way forward that cannot fail to prepare. */}
+                            {preparationError
+                                ? <button type="button" className="wfr-btn-ghost" disabled={preparing} onClick={() => onCommit({ formation: [...formation], deployment: [...deployment] })}>Hold formation</button>
+                                : <button type="button" className="wfr-btn-ghost" disabled={!changed} onClick={() => setNext([...deployment])}>Reset changes</button>}
                             <button type="button" className="wfr-btn-primary" disabled={preparing} aria-busy={preparing} onClick={() => onCommit({ formation: [...formation], deployment: [...next] })}>
                                 {preparing ? "Preparing rematch…" : "Lock & rematch"}
                             </button>
@@ -884,7 +889,7 @@ function WarfrontRiteMatch({
         setPreparing(true);
         setPreparationError(null);
         try {
-            const outcome = await resolveRiteInWorker({ blue: blueBand, red: redBand, seed, bluePlan: chosen, redPlan: sealedRedPlan }, controller.signal);
+            const outcome = await resolveRite({ blue: blueBand, red: redBand, seed, bluePlan: chosen, redPlan: sealedRedPlan }, controller.signal);
             return controller.signal.aborted ? null : outcome;
         } catch (error) {
             if (!controller.signal.aborted) setPreparationError(error instanceof Error ? error.message : "Unable to prepare the battle. Please retry.");
@@ -948,14 +953,15 @@ function WarfrontRiteMatch({
             ...clash.red.map((c) => ({ team: "enemy" as const, lane: c.lane, pet: redBand[c.slot], entryHp: c.entryHp })),
         ].filter((f) => Boolean(f.pet));
     }, [clash, blueBand, redBand]);
-    const currentFormation = useMemo(() => clash
-        ? [...clash.blue].sort((a, b) => a.lane - b.lane).map((combatant) => combatant.slot)
-        : [...(plan?.formation ?? defaultRitePlan().formation)], [clash, plan]);
-    const currentDeployment = useMemo(() => Array.from({ length: RITE_BAND_SIZE }, (_, slot) =>
-        clash?.blue.find((combatant) => combatant.slot === slot)?.node
-            ?? plan?.deployment?.[slot]
-            ?? WARFRONT_DEFAULT_DEPLOYMENT[slot],
-    ), [clash, plan]);
+    // The line the blue band just fought. Holding it needs no new simulation.
+    const heldFormation = useMemo<RiteFormationChoice>(() => clash
+        ? riteHeldFormation(clash, plan, RITE_BAND_SIZE)
+        : {
+            formation: [...(plan?.formation ?? defaultRitePlan().formation)],
+            deployment: Array.from({ length: RITE_BAND_SIZE }, (_, slot) => plan?.deployment?.[slot] ?? WARFRONT_DEFAULT_DEPLOYMENT[slot]),
+        }, [clash, plan]);
+    const currentFormation = heldFormation.formation;
+    const currentDeployment = heldFormation.deployment;
 
     const rounds = useMemo(() => {
         if (!result) return { blue: 0, red: 0 };
@@ -989,36 +995,18 @@ function WarfrontRiteMatch({
     /** Lock the current decision, then and only then start the rematch. A changed
      * layout is appended to the replay transcript; a hold needs no combat
      * command but still passes through this explicit lock boundary. */
-    const commitReform = useCallback(async (nextChoice: { formation: number[]; deployment: number[] }) => {
+    const commitReform = useCallback(async (nextChoice: RiteFormationChoice) => {
         if (!plan || !clash || simulationRef.current) return;
-        const previousDeployment = Array.from({ length: blueBand.length }, (_, slot) =>
-            clash.blue.find((combatant) => combatant.slot === slot)?.node ?? (plan.deployment?.[slot] ?? WARFRONT_DEFAULT_DEPLOYMENT[slot]),
-        );
-        const changed = nextChoice.deployment.some((node, slot) => node !== previousDeployment[slot]);
+        const locked = lockRiteReform(plan, clash, clashIndex, blueBand.length, nextChoice);
         let nextResult = result;
-        if (changed && !sealedReplay) {
-            const nextReform = {
-                afterClash: clashIndex,
-                formation: [...nextChoice.formation],
-                deployment: [...nextChoice.deployment],
-            };
-            const reforms = [...(plan.reforms ?? [])]
-                .filter((entry) => entry.afterClash !== clashIndex)
-                .concat(nextReform)
-                .sort((a, b) => a.afterClash - b.afterClash);
-            const hasLegacyReform = plan.reformAfterClash !== null && plan.reformAfterClash !== undefined;
-            const nextPlan = {
-                ...plan,
-                reforms,
-                reformAfterClash: hasLegacyReform ? plan.reformAfterClash : clashIndex,
-                reform: hasLegacyReform ? plan.reform : [...nextChoice.formation],
-                reformDeployment: hasLegacyReform ? plan.reformDeployment : [...nextChoice.deployment],
-            };
-            nextResult = await resolveFormation(nextPlan);
+        if (locked.changed && !sealedReplay) {
+            nextResult = await resolveFormation(locked.plan);
             if (!nextResult) return;
-            setPlan(nextPlan);
+            setPlan(locked.plan);
             setResult(nextResult);
         }
+        // Whatever failed to prepare before this lock no longer describes the match.
+        setPreparationError(null);
         if (!nextResult || clashIndex >= nextResult.clashes.length - 1) { setPhase("result"); return; }
         setClashIndex(clashIndex + 1);
         clockRef.current = 0;
@@ -1154,14 +1142,15 @@ function WarfrontRiteMatch({
         && clashIndex < result!.clashes.length - 1;
 
     useEffect(() => {
-        if (!spectator || !reformOpen || !clash) return;
-        const counter = sealedReplay ? null : deterministicRiteCounterMove(clash, "blue");
-        const choice = counter
-            ? { formation: counter.formation, deployment: counter.deployment }
-            : { formation: currentFormation, deployment: currentDeployment };
+        if (!spectator || !reformOpen || !clash || preparing) return;
+        // A seat that takes no decisions cannot be left waiting on one: when its
+        // re-form could not be prepared, it holds the line it just fought.
+        const choice = preparationError
+            ? heldFormation
+            : automaticRiteReformChoice(clash, heldFormation, Boolean(sealedReplay));
         const id = window.setTimeout(() => commitReform(choice), reducedMotion ? 350 : 900);
         return () => window.clearTimeout(id);
-    }, [spectator, reformOpen, clash, currentFormation, currentDeployment, commitReform, reducedMotion, sealedReplay]);
+    }, [spectator, reformOpen, clash, heldFormation, commitReform, reducedMotion, sealedReplay, preparationError, preparing]);
 
     useEffect(() => {
         if (phase !== "interlude" || !result || reformOpen) return;
