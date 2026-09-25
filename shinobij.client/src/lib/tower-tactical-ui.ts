@@ -106,12 +106,14 @@ export function estimateTowerActionDamage(input: {
         ? attackerCharacter.jutsuMastery as Array<{ jutsuId?: unknown; level?: unknown }>
         : [];
     const masteryRow = masteryRows.find(row => String(row.jutsuId ?? "") === String(input.actionId ?? ""));
-    const mastery = weaponSwing ? 50
-        : masteryRow ? Math.max(0, Math.min(50, Number(masteryRow.level) || 0)) : 0;
+    // A weapon swing has no mastery row, so the server's applyJutsu resolves its
+    // EP and Pierce at mastery 0. Only its tag percents use full mastery, and this
+    // estimate reads no tags.
+    const mastery = masteryRow ? Math.max(0, Math.min(50, Number(masteryRow.level) || 0)) : 0;
     if (input.pierce) {
         // Pierce ignores every damage modifier, including guard.
         const apFactor = Math.max(0.5, (Number(input.ap) || 60) / 60);
-        const masteryFactor = 1 + (weaponSwing ? 50 : mastery) * 0.005;
+        const masteryFactor = 1 + mastery * 0.005;
         const rawDamage = Math.floor(Math.max(100, Math.min(900, offense * 0.35 * apFactor * masteryFactor)));
         return { rawDamage, hpDamage: rawDamage, shieldAbsorbed: 0 };
     }
