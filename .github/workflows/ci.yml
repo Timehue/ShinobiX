@@ -889,6 +889,10 @@ jobs:
         run: npm run test:e2e:live --prefix shinobij.client -- village-stores-express.spec.ts first-session-onboarding-express.spec.ts server-route-smoke-express.spec.ts --project=chromium-desktop-live 2>&1 | tee .ci-evidence/e2e-village-stores/playwright.log
       - name: Live Express defeat and daily reward recovery on desktop and mobile
         run: npm run test:e2e:live --prefix shinobij.client -- first-defeat-recovery-express.spec.ts daily-login-recovery-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --workers=2 --output=test-results/defeat-recovery-ci 2>&1 | tee .ci-evidence/e2e-village-stores/defeat-recovery.log
+      # Its own step, so its own server: registration is limited to 25 accounts
+      # per IP per 15 minutes, and the recovery matrix above already registers 18.
+      - name: Live Express hospital ward and roaming Weekly Boss on desktop and mobile
+        run: npm run test:e2e:live --prefix shinobij.client -- mmorpg-behaviors-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --workers=2 --output=test-results/mmo-behaviors-ci 2>&1 | tee .ci-evidence/e2e-village-stores/mmo-behaviors.log
       - name: Live Express authored missions on desktop and mobile
         run: npm run test:e2e:live --prefix shinobij.client -- authored-missions-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --output=test-results/authored-missions-ci 2>&1 | tee .ci-evidence/e2e-village-stores/authored-missions.log
       - name: Live Express PvP cancellation, settlement, ranked and Kage journeys

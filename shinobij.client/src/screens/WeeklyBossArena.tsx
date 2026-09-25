@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/purity */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 // Compact local chrome glyphs shared with the rest of the game.
 import { GiOgre, GiTrophy, GiTombstone, GiPadlock, GiCrossedSwords } from "../components/icons/LightweightGameIcons";
 const WB_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
@@ -18,6 +18,8 @@ import {
     useLiveCapabilities,
 } from "../lib/live-capabilities-context";
 import { capabilityAdmissionAllowed } from "../lib/live-capability-admission";
+import { clearWeeklyBossLaunch, peekWeeklyBossLaunch } from "../lib/weekly-boss-launch";
+import { setScreenFightActive } from "../lib/screen-guards";
 
 // ─── Weekly Boss Arena ────────────────────────────────────────────────────────
 // Shared WORLD boss (one server HP pool; never dies — "Broken" at 0 HP, gone
@@ -55,6 +57,19 @@ export function WeeklyBossArena({
     const [error, setError] = useState("");
     const [startingFight, setStartingFight] = useState(false);
     const [fight, setFight] = useState<{ runId: string; session: SoloPveSession } | null>(null);
+    // "Stand & Fight" on the World Map stages a launch (lib/weekly-boss-launch).
+    // Roaming mode has no fight button here, so this is how the roaming boss is
+    // fought at all; the player goes back to where they stood when it ends.
+    const [launch] = useState(() => peekWeeklyBossLaunch());
+    const launchHandledRef = useRef(false);
+    const backScreen: Screen = launch?.returnScreen ?? "centralHub";
+
+    // The fight lives in this screen's state, which App's nav lock cannot see.
+    // Announce it so the menus cannot walk the player out of a live boss fight.
+    useEffect(() => {
+        setScreenFightActive("weeklyBoss", fight !== null);
+        return () => setScreenFightActive("weeklyBoss", false);
+    }, [fight]);
 
     const refresh = useCallback(async () => {
         // This return sits before the try/finally below, so it must settle the
@@ -181,6 +196,31 @@ export function WeeklyBossArena({
         return data;
     }
 
+    // Act on a staged "Stand & Fight" once the boss state has loaded. A refusal
+    // (no attempts left, too little stamina, admitted to the hospital) shows on
+    // this screen, whose Back returns to the map. Guarded by a ref so StrictMode's
+    // double effect run cannot start two fights.
+    useEffect(() => {
+        if (!launch || launchHandledRef.current || loading || fight) return;
+        launchHandledRef.current = true;
+        clearWeeklyBossLaunch(launch);
+        // One-shot, ref-guarded start of the fight the player chose on the map.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        if (bossState?.aiId) void launchAuthoritativeFight();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [launch, loading, fight, bossState]);
+
+    // Leaving a fight returns to where it began: the World Map for the roaming
+    // boss (same sector — the map never moved), otherwise this tracker. A
+    // knockout goes to the Hospital instead, as every other fight's exit does;
+    // `character` is the settled server state by the time the result shows.
+    function exitFight() {
+        setFight(null);
+        if (character.hospitalized) setScreen("hospital");
+        else if (launch) setScreen(launch.returnScreen);
+        else void refresh();
+    }
+
     if (fight) {
         return (
             <>
@@ -196,7 +236,8 @@ export function WeeklyBossArena({
                     runId={fight.runId}
                     initialSession={fight.session}
                     settleFn={settleAuthoritativeFight}
-                    onExit={() => { setFight(null); void refresh(); }}
+                    onExit={exitFight}
+                    exitLabel={character.hospitalized ? "Go to Hospital" : launch?.returnScreen === "worldMap" ? "Return to the World Map" : undefined}
                 />
             </>
         );
@@ -227,7 +268,7 @@ export function WeeklyBossArena({
                     tone="crimson"
                     statusLabel="Ritual status"
                     statusValue="Dormant"
-                    onBack={() => setScreen("centralHub")}
+                    onBack={() => setScreen(backScreen)}
                 />
                 <section className="weekly-boss-empty-state" aria-label="Weekly Boss status">
                     <span aria-hidden="true"><GiTombstone /></span>
@@ -303,7 +344,7 @@ export function WeeklyBossArena({
                 tone="crimson"
                 statusLabel={expired ? "Incursion" : "Time remaining"}
                 statusValue={countdown}
-                onBack={() => setScreen("centralHub")}
+                onBack={() => setScreen(backScreen)}
             />
             {error && <div style={{ color: "var(--red-400)", marginBottom: "0.5rem" }}>⚠ {error}</div>}
             {guardCycleAvailability !== "available" && (
@@ -408,7 +449,10 @@ export function WeeklyBossArena({
                     <GiPadlock style={WB_ICON} />New fights are paused. Leaderboard and attempt status remain readable.
                 </div>
             )}
-            {!roaming && !expired && acceptedFightRecoveryNeeded && (
+            {/* Roaming mode has no fight button on this screen, so a fight a reload
+                interrupted would otherwise be reachable only by finding the boss
+                on the map again. The probe is read-only and resumes, never starts. */}
+            {!expired && (roaming || acceptedFightRecoveryNeeded) && (
                 <button
                     type="button"
                     disabled={startingFight || !weeklyBossViewOpen}
@@ -456,7 +500,7 @@ export function WeeklyBossArena({
                                 : <><GiCrossedSwords style={WB_ICON} />Fight Boss ({attemptsLeft} left · 20 stamina)</>}
                     </button>
                 )}
-                <button className="back-btn" onClick={() => setScreen("centralHub")}>× Back</button>
+                <button className="back-btn" onClick={() => setScreen(backScreen)}>× Back</button>
             </div>
             <h3 style={{ marginTop: "1.2rem" }}>Top 25 Contributors</h3>
             <div style={{ display: "grid", gap: 4 }}>

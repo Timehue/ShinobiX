@@ -232,14 +232,27 @@ export function CardClashDuelScreen({
     }
   }
 
+  // Leaving a LIVE match is a forfeit, as in every other mode. It used to walk
+  // away and leave the match running: the opponent then had to sit through a
+  // 60-second turn clock for every absent turn to finish it, and if they left
+  // too, the match expired two hours later with no result for either side —
+  // a loss the leaver never took and a win the stayer never got.
   async function leaveTable() {
-    if (
-      view?.status === "active" &&
-      !(await gameConfirm(
-        "Leave this table? The authoritative turn clock will keep running, and you can return while the match remains active.",
-      ))
-    )
-      return;
+    if (view?.status === "active") {
+      const consequence = config.forfeitConfirm.split("? ").slice(1).join("? ");
+      if (!(await gameConfirm(`Leave the table? Leaving a live match forfeits it. ${consequence}`.trim())))
+        return;
+      actionInFlight.current = true;
+      setBusy(true);
+      try {
+        await post("forfeit");
+      } catch {
+        // The turn clock still finishes a match whose forfeit did not land.
+      } finally {
+        actionInFlight.current = false;
+        setBusy(false);
+      }
+    }
     setScreen(config.backScreen);
   }
 

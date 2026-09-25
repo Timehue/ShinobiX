@@ -294,21 +294,24 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
   // and log back in rather than restoring the fixture's local session again.
   await page.getByRole('button', { name: 'Travel', exact: true }).click();
   await expect(page.locator('.anime-world-map')).toBeVisible();
+  const beforeActivity = await save();
   const nextActivity = await request.post('/api/missions/ai-fight-start', { headers, data: { playerName: name, battleKind: 'practice', opponentId: 'builtin-ai-academy-sparring' } });
   const nextFight = await nextActivity.json();
   expect(nextActivity.status(), JSON.stringify(nextFight)).toBe(200);
-  // The established abandon action costs HP but need not hospitalize a survivor.
+  // The next activity is a practice bout, abandoned at once. A practice bout is a
+  // SPAR, and a spar never sends anyone to the hospital and costs no HP — the
+  // owner's 2026-09-24 rule, which ranked and PvP spars already followed. (What
+  // an abandoned REAL fight costs is pinned by the solo-PvE abandon tests.)
   const abandoned = await request.post('/api/solo-pve/action', { headers, data: { playerName: name, sessionId: nextFight.sessionId, expectedVersion: nextFight.session.version, moveToken: 'recovery-next-activity-abandon', type: 'abandon' } });
   expect(abandoned.status(), await abandoned.text()).toBe(200);
   await page.reload();
-  const survived = page.getByRole('dialog', { name: 'Fight lost', exact: true });
-  await expect(survived).toContainText('HP remaining');
-  await expect(survived).not.toContainText('brought to the hospital');
-  await survived.getByRole('button', { name: 'Return', exact: true }).click();
+  const sparred = page.getByRole('dialog', { name: 'Fight lost', exact: true });
+  await expect(sparred).toContainText('lost this spar');
+  await expect(sparred).not.toContainText('brought to the hospital');
+  await sparred.getByRole('button', { name: 'Return', exact: true }).click();
   const afterActivity = await save();
   expect(afterActivity.character.hospitalized).toBe(false);
-  expect(afterActivity.character.hp).toBeGreaterThan(0);
-  expect(afterActivity.character.hp).toBeLessThan(afterActivity.character.maxHp);
+  expect(afterActivity.character.hp, 'a spar costs no HP').toBeGreaterThanOrEqual(beforeActivity.character.hp);
   events.push({ moment: 'nextActivity', save: afterActivity });
   // Logout's required save can still meet the save-burst limit when an autosave
   // lands inside the wait. A 429 opens "Save temporarily paused" and any other

@@ -44,6 +44,8 @@ import {
 import { syncChronicleProgression } from "../lib/chronicle-progression-sync";
 import { chronicleResponseAuthority } from "../lib/chronicle-response-authority";
 import { chronicleReplayDelay } from "../lib/chronicle-presentation";
+import { gameConfirm } from "../components/GameAlert";
+import { setScreenFightActive } from "../lib/screen-guards";
 
 type Tab = "collection" | "packs" | "deck" | "play" | "pvp" | "rules";
 type AiDuelState = NonNullable<ChronicleAiResult["session"]>;
@@ -391,6 +393,21 @@ function CardHallInner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoStart]);
 
+  // Starting over abandons an interrupted showdown, and the server forfeits it
+  // (api/card-clash/ai-start.ts). Say so before it costs the player a loss.
+  async function startFreshShowdown() {
+    if (resumableMatchId && !(await gameConfirm("Start a new showdown? Your interrupted showdown will be forfeited and count as a loss."))) return;
+    await begin();
+  }
+
+  // A live AI showdown is a fight like any other: the menus lock
+  // (lib/screen-guards.ts) and the Hall's own exits forfeit it (leaveShowdown).
+  const liveShowdown = Boolean(matchId && duel && duel.status === "active");
+  useEffect(() => {
+    setScreenFightActive("shinobiTiles", liveShowdown);
+    return () => setScreenFightActive("shinobiTiles", false);
+  }, [liveShowdown]);
+
   async function act(intent: Parameters<typeof chronicleAiAction>[1]) {
     if (!matchId || busy) return;
     const originatingPlayerName = character.name;
@@ -437,12 +454,47 @@ function CardHallInner({
     setReward(undefined);
   }
 
+  /**
+   * Leave the board. A LIVE showdown is forfeited first: a loss on the record,
+   * never a reward (owner rule 2026-09-24: leaving a game mode counts as a
+   * loss). It used to pause the match, so walking out of a losing showdown was
+   * free. If the forfeit cannot reach the server, the next showdown this player
+   * starts forfeits it there (api/card-clash/ai-start.ts), so nothing is left
+   * without a result. A finished duel just closes. Resolves false when the
+   * player chose to stay.
+   */
+  async function leaveShowdown(): Promise<boolean> {
+    if (!liveShowdown || !matchId) {
+      if (duel) leaveActiveBoard();
+      return true;
+    }
+    if (!(await gameConfirm("Leave the showdown? Leaving forfeits it and counts as a loss."))) return false;
+    const originatingPlayerName = character.name;
+    setBusy(true);
+    try {
+      // Straight to the server: act() drops an intent while a Keeper replay holds busy.
+      const result = await chronicleAiAction(matchId, { action: "forfeit" });
+      // Adopt the settled record and save version, as any finished duel does.
+      if (result.ok && result.session) await presentSession(result, originatingPlayerName);
+    } catch {
+      /* the next Card Hall start resolves it */
+    } finally {
+      if (cardHallMountedRef.current) setBusy(false);
+    }
+    // A showdown that was left is not resumable, and the menus open again now,
+    // before the caller navigates.
+    syncResumableMatch(null);
+    setScreenFightActive("shinobiTiles", false);
+    leaveActiveBoard();
+    return true;
+  }
+
   return (
     <main
       className={`chronicle-shell ${duel && !resolutionReady ? "chronicle-shell--duel-active" : ""}`}
     >
       <header className="chronicle-header">
-        <button onClick={onBack}>Back</button>
+        <button onClick={() => void leaveShowdown().then((left) => { if (left) onBack(); })}>Back</button>
         <h1>
           Shinobi Chronicle Showdown
           <small>
@@ -617,7 +669,7 @@ function CardHallInner({
               busy={busy}
               aiActing={aiActing}
               error={error}
-              onExit={leaveActiveBoard}
+              onExit={() => void leaveShowdown()}
               exitLabel="Return to Hall"
               eventLabel={rememberedCircuitTrial(character.name) === 'cards' ? 'CIRCUIT' : undefined}
               onAction={(intent) => void act(intent)}
@@ -663,7 +715,7 @@ function CardHallInner({
                 </button>
               </p>
             ) : null}
-            <button onClick={() => void begin()} disabled={busy}>
+            <button onClick={() => void startFreshShowdown()} disabled={busy}>
               {busy ? "Preparing showdown…" : "Start Showdown vs AI"}
             </button>
             <button onClick={() => setTab("deck")} style={{ marginLeft: 8 }}>

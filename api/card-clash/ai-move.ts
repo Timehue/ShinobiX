@@ -10,12 +10,14 @@ import { bumpLegacyStats, legacyBootstrapBeforeCounterIncrement } from "../_lega
 import {
   CARD_CLASH_AI_MIN_WIN_DURATION_MS,
   CARD_CLASH_AI_TOKEN_TTL_SECONDS,
+  cardClashAiActiveKey,
   cardClashAiReward,
   cardClashAiTokenKey,
   utcDateKey,
 } from "./_ai-reward.js";
 import {
   CHRONICLE_RULES_VERSION,
+  type ChronicleMatch,
   type ChronicleProjection,
 } from "../../shared/chronicle-duel.js";
 import {
@@ -79,6 +81,11 @@ type StoredSession = AiMatchSession & {
   settledReward?: SettledReward;
   legacyCredit?: AiLegacyCredit;
   endedBy?: "forfeit";
+};
+/** Exactly what settle() reads. A stored session satisfies it, and so does the
+ *  record an expired, abandoned showdown is settled from. */
+type SettleInput = Pick<StoredSession, "playerName" | "createdAt" | "winner" | "endedBy" | "echoes"> & {
+  state: Pick<ChronicleMatch, "events">;
 };
 
 async function repairCircuitCredit(session: StoredSession, key: string) {
@@ -181,7 +188,7 @@ async function settleDungeonCard(
 }
 
 async function settle(
-  session: StoredSession,
+  session: SettleInput,
   now: number,
   // Stable per-session id (the session's KV key): the in-save receipt below is
   // keyed on it so a retry after a crash-between-payout-and-session-mark
@@ -244,8 +251,11 @@ async function settle(
         ...(reward.ryo > 0 ? { ryo: num(character.ryo) + reward.ryo } : {}),
         cardClashWins:
           num(character.cardClashWins) + (!forfeited && winner === "player" ? 1 : 0),
+        // A forfeit is a loss (owner rule 2026-09-24: leaving a game mode counts
+        // as a loss). It used to record nothing, so walking out of a losing
+        // showdown kept the record clean.
         cardClashLosses:
-          num(character.cardClashLosses) + (!forfeited && winner === "opponent" ? 1 : 0),
+          num(character.cardClashLosses) + (winner === "opponent" ? 1 : 0),
         cardClashDraws:
           num(character.cardClashDraws) + (!forfeited && winner === "draw" ? 1 : 0),
         cardClashDailyWinDate: reward.dailyBonus
@@ -366,6 +376,9 @@ async function persistOrSettle(
   ensureAiLegacyCredit(session, key);
   // Persist the terminal payout and pending Legacy outbox before delivery.
   await kv.set(key, session, { ex: CARD_CLASH_AI_TOKEN_TTL_SECONDS });
+  // A settled showdown is no longer the player's open one. Best effort: if this
+  // is lost, the in-save receipt still stops ai-start's sweep counting it again.
+  await kv.delIfEqual(cardClashAiActiveKey(session.playerName), session.matchId).catch(() => false);
   await repairCircuitCredit(session, key);
   if (session.legacyCredit?.status === "pending") {
     const delivered = await bumpLegacyStats(
@@ -398,6 +411,51 @@ async function persistOrSettle(
       ...steps,
     },
   };
+}
+
+/**
+ * Forfeit and settle a standard Card Hall showdown its player walked away from
+ * without a result (a closed tab, a lost forfeit request). ai-start calls this
+ * before dealing a new one, so leaving can never keep a record clean. It is the
+ * same lock and the same settlement as an explicit forfeit: a loss on the record,
+ * no reward, and a no-op for a match that already settled.
+ *
+ * A showdown left long enough to expire (two hours after its last move) is
+ * settled from the pointer alone, through the same receipt, so a match that
+ * settled before it expired is never counted twice. Resolves true when the
+ * player's record was settled, so the caller can hand back the fresh save.
+ */
+export async function forfeitAbandonedAiMatch(matchId: string, playerName: string): Promise<boolean> {
+  if (!MATCH_ID_RE.test(matchId)) return false;
+  const key = cardClashAiTokenKey(matchId);
+  return withKvLock(
+    key,
+    async () => {
+      const session = await kv.get<StoredSession>(key);
+      if (!session) {
+        // Only a standard Card Hall start writes the pointer, so this was one.
+        const expired = await settle(
+          { playerName, createdAt: 0, winner: "opponent", endedBy: "forfeit", state: { events: [] } },
+          Date.now(),
+          key,
+        );
+        return expired.ok;
+      }
+      if (session.playerName !== playerName || session.settledAt) return false;
+      if (session.settlementMode === "external") return false;
+      if (
+        session.rulesVersion !== CHRONICLE_RULES_VERSION ||
+        session.state?.rulesVersion !== CHRONICLE_RULES_VERSION
+      )
+        return false;
+      if (!isDone(session)) {
+        session.endedBy = "forfeit";
+        forfeit(session);
+      }
+      return (await persistOrSettle(session, key)).status === 200;
+    },
+    { failClosed: true },
+  );
 }
 
 /** Executes one current-rules intent; stats, legality, AI and settlement are server-owned. */
@@ -481,10 +539,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         if (action === "forfeit" || action === "retreat") {
           if (!isDone(session)) {
-            // Explicit surrender is economically neutral. Persisting the cause
-            // on the session lets settlement commit a durable zero-value replay
-            // receipt without turning rapid start/forfeit loops into a faucet or
-            // progression counter.
+            // Explicit surrender pays nothing and counts as a loss on the Card
+            // Hall record (never a win, a Legacy step or a Circuit credit).
+            // Persisting the cause lets settlement commit a durable zero-value
+            // replay receipt, so rapid start/forfeit loops are no faucet.
             session.endedBy = "forfeit";
             forfeit(session);
           }

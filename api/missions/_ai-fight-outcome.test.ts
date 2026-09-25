@@ -11,6 +11,7 @@ import {
     aiFightPlayerItemsUsed,
     isPveFightMember,
     resolveAiFightOutcome,
+    sessionIsSpar,
     settlementOwnsHpOnWin,
 } from './_ai-fight-outcome.js';
 
@@ -259,15 +260,21 @@ describe('settlementOwnsHpOnWin — who writes the winning HP', () => {
         assert.equal(settlementOwnsHpOnWin(null), false);
     });
 
-    it('is about the WIN only — a lost spar still costs, which is what hospitalizes a beginner', () => {
+    it('is about the WIN only — a lost spar reports normally, and as a spar it writes nothing', () => {
         // The predicate is deliberately outcome-blind; the endpoint pairs it with
-        // `outcome === 'win'`. This pins the pairing's premise: a lost spar run
-        // still resolves as a loss and still applies the KO.
+        // `outcome === 'win'`. A lost spar run still resolves as a loss and still
+        // reports. What keeps the beginner out of the hospital is the settlement's
+        // spar flag (sessionIsSpar), not this predicate.
         const lost = session({ towerId: 'academy-spar', winner: 'enemy' } as Partial<TowerSession>);
         assert.equal(resolveAiFightOutcome(lost), 'loss');
+        assert.equal(sessionIsSpar(lost), true);
         const downed = { ...actor({}), id: 'p1', side: 'squad', ai: false, hp: 0, maxHp: 300 } as TowerActor;
-        const after = applyAiFightOutcomeToCharacter({ maxHp: 300, hp: 300 }, 'loss', downed, 1_700_000_000_000);
-        assert.equal(after.hp, 0);
-        assert.equal(after.hospitalized, true);
+        const sparred = applyAiFightOutcomeToCharacter({ maxHp: 300, hp: 300 }, 'loss', downed, 1_700_000_000_000, false, sessionIsSpar(lost));
+        assert.equal(sparred.hp, 300);
+        assert.notEqual(sparred.hospitalized, true);
+        // The same knockout in a real fight still admits the player.
+        const real = applyAiFightOutcomeToCharacter({ maxHp: 300, hp: 300 }, 'loss', downed, 1_700_000_000_000);
+        assert.equal(real.hp, 0);
+        assert.equal(real.hospitalized, true);
     });
 });

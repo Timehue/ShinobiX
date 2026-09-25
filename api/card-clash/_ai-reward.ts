@@ -30,6 +30,20 @@ export function cardClashAiTokenKey(matchId: string): string {
     return `cc-ai:${matchId}`;
 }
 
+/**
+ * The player's most recent Card Hall showdown (a match id). Leaving a showdown
+ * forfeits it from the client, but a closed tab or a lost request can't; the next
+ * Card Hall start reads this and forfeits whatever was left unresolved, so no
+ * match is ever abandoned without a result. Settling a showdown clears it.
+ */
+export function cardClashAiActiveKey(playerName: string): string {
+    return `cc-ai-active:${playerName}`;
+}
+
+/** The pointer outlives its match on purpose: a showdown left long enough to
+ *  expire unsettled still goes on the record as a loss at the next start. */
+export const CARD_CLASH_AI_ACTIVE_TTL_SECONDS = 30 * 24 * 60 * 60;
+
 export function cleanCardClashAiResult(raw: unknown): CardClashAiResult | null {
     const result = String(raw ?? '');
     return result === 'player' || result === 'opponent' || result === 'draw' ? result : null;

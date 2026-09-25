@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
 import { readFileSync } from "node:fs";
-import { BATTLE_SCREENS, RESTORABLE_SCREENS, TRANSIENT_SCREEN_PARENT, isHospitalNavigationBlocked, isUnresolvedBattle, restoreScreenForSave, safeFallbackScreen, screenResetsSector, shouldRedirectToHospital, type BattleGuardSignals } from "./screen-guards";
+import { BATTLE_SCREENS, RESTORABLE_SCREENS, TRANSIENT_SCREEN_PARENT, isHospitalNavigationBlocked, isUnresolvedBattle, restoreScreenForSave, safeFallbackScreen, screenResetsSector, setScreenFightActive, shouldRedirectToHospital, type BattleGuardSignals } from "./screen-guards";
 
 const appSource = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
 const navigationGuardSource = readFileSync(new URL("./use-battle-navigation-guard.ts", import.meta.url), "utf8");
@@ -68,6 +68,31 @@ describe("screen navigation guards", () => {
         assert.equal(isUnresolvedBattle(signals({
             screen: "weeklyBoss",
         })), false);
+    });
+
+    it("locks the Weekly Boss screen only while a fight is mounted on it", () => {
+        setScreenFightActive("weeklyBoss", true);
+        try {
+            assert.equal(isUnresolvedBattle(signals({ screen: "weeklyBoss" })), true, "the menus cannot walk out of a live boss fight");
+            assert.equal(isUnresolvedBattle(signals({ screen: "village" })), false, "the flag is scoped to its own screen");
+        } finally {
+            setScreenFightActive("weeklyBoss", false);
+        }
+        assert.equal(isUnresolvedBattle(signals({ screen: "weeklyBoss" })), false, "the tracker is free again once the fight ends");
+    });
+
+    it("locks the Card Hall only while an AI showdown is live on it", () => {
+        // Leaving a live showdown forfeits it through the Hall's own exits
+        // (screens/CardHall.tsx leaveShowdown), like the PvP card duel screens.
+        assert.equal(isUnresolvedBattle(signals({ screen: "shinobiTiles" })), false, "collection, deck and packs stay free");
+        setScreenFightActive("shinobiTiles", true);
+        try {
+            assert.equal(isUnresolvedBattle(signals({ screen: "shinobiTiles" })), true, "the menus cannot walk out of a live showdown");
+            assert.equal(isUnresolvedBattle(signals({ screen: "weeklyBoss" })), false, "each host's flag is its own");
+        } finally {
+            setScreenFightActive("shinobiTiles", false);
+        }
+        assert.equal(isUnresolvedBattle(signals({ screen: "shinobiTiles" })), false);
     });
 
     it("blocks navigation only while a server-owned Endless wave is open", () => {

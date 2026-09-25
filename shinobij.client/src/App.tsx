@@ -896,7 +896,7 @@ export default function App() {
     // Shareable URL hash (both surfaces) + the Android hardware back button
     // (Play app only, refused mid-battle). Both write history, so they live
     // together in lib/app-history.
-    useAppHistory(screen, setScreen, isPresenceBattleActive);
+    useAppHistory(screen, setScreen, isPresenceBattleActive, () => safeFallbackScreen(isWildSector(currentSectorRef.current)));
     // ── Phase 0 load/refresh telemetry ──────────────────────────────────
     // Stamp boot milestones for the perf beacon (see
     // docs/load-and-refresh-perf-audit-2026-06-08.md). All three calls are
@@ -1924,7 +1924,7 @@ export default function App() {
     }, [pendingTravel, travelNow]);
 
     function isPresenceBattleActive(screenSnapshot: Screen = screenRef.current): boolean {
-        if (storyFightOpen) return true;
+        if (storyFightOpen || sealedFightEngagedRef.current) return true;
         return isUnresolvedBattle({
             screen: screenSnapshot,
             raidBattleKind,

@@ -191,6 +191,8 @@ export function buildSoloPveAiEncounter(params: {
     activeTtlSeconds?: number;
     /** Open-world encounter: seed from current vitals and settle them back. */
     continuousVitals?: boolean;
+    /** Consensual spar: settlement writes no HP change and never hospitalizes. */
+    spar?: boolean;
     encounter?: SoloPveEncounter;
     environment?: Partial<SoloPveEnvironment>;
     env?: NodeJS.ProcessEnv;
@@ -220,21 +222,24 @@ export function buildSoloPveAiEncounter(params: {
     );
     const enemy = buildEnemy(profile, params.admin, banded);
     const continuous = params.continuousVitals === true;
+    // The continuity and spar flags ride on the ENCOUNTER, so settlement can
+    // read them back out of a stored session without a schema change or a
+    // second source of truth. `kind` alone cannot carry them: ai-fight-start
+    // stamps 'generic-ai' for an explore ambush, a hunt, a practice spar AND a
+    // dungeon fight, which do not all share the rules.
+    const flags: Record<string, boolean> = {
+        ...(continuous ? { continuousVitals: true } : {}),
+        ...(params.spar === true ? { spar: true } : {}),
+    };
+    const encounter: SoloPveEncounter = params.encounter
+        ? { ...params.encounter, level: Number(enemy.character.level) || params.encounter.level }
+        : { kind: 'generic-ai', id: profile.id, sourceId: params.profile.id, level: Number(enemy.character.level) || 1 };
     return createSoloPveSession({
         sessionId: params.sessionId,
         ownerSlug: params.playerName,
-        // The continuity flag rides on the ENCOUNTER, so settlement can read it
-        // back out of a stored session without a schema change or a second
-        // source of truth. `kind` alone cannot carry it: ai-fight-start stamps
-        // 'generic-ai' for an explore ambush, a hunt, a practice spar AND a
-        // dungeon fight, which do not all share the rule.
-        encounter: continuous
-            ? (params.encounter
-                ? { ...params.encounter, level: Number(enemy.character.level) || params.encounter.level, metadata: { ...(params.encounter.metadata ?? {}), continuousVitals: true } }
-                : { kind: 'generic-ai', id: profile.id, sourceId: params.profile.id, level: Number(enemy.character.level) || 1, metadata: { continuousVitals: true } })
-            : (params.encounter
-                ? { ...params.encounter, level: Number(enemy.character.level) || params.encounter.level }
-                : { kind: 'generic-ai', id: profile.id, sourceId: params.profile.id, level: Number(enemy.character.level) || 1 }),
+        encounter: Object.keys(flags).length > 0
+            ? { ...encounter, metadata: { ...(encounter.metadata ?? {}), ...flags } }
+            : encounter,
         player: fighterFromHydratedCharacter(hydrated, 62, continuous),
         enemy,
         now: params.now,

@@ -14,7 +14,16 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useRef, useState } from "react";
 import { visiblePoll } from "../lib/poll";
+import { masteryHasCapstone } from "../lib/profession-mastery";
+import { serverNow } from "../lib/server-clock";
 import type { Character, PlayerRecord } from "../App";
+
+/** One patient in the caller's village hospital (api/player/hospital-ward.ts). */
+type WardPatient = { name: string; level: number; hp: number; maxHp: number; admittedAt: number; freeCheckoutAt: number };
+
+// The ward refreshes well inside an admission: a free checkout opens 60 s after
+// the knockout, so a Healer watching the ward sees a new patient within ~10 s.
+const WARD_POLL_MS = 10_000;
 
 // Mirror the server's HP_INJURED_THRESHOLD (0.99) from
 // api/player/injured-villagers.ts so the in-village list agrees with the
@@ -38,13 +47,39 @@ export function HealerInjuredList({
 }) {
     const isHealer = character.profession === "healer";
     const healerRank = isHealer ? (character.professionRank ?? 1) : 0;
-    const hasWorldwideVision = isHealer && healerRank >= 10;
+    // The Village Lifeline capstone grants the Rank-10 reach early; the server
+    // honours it for both the listing and the heal itself.
+    const hasWorldwideVision = isHealer && (healerRank >= 10 || masteryHasCapstone(character, "village-lifeline"));
 
     const [healMsg, setHealMsg] = useState<Record<string, string>>({});
     const [healed, setHealed] = useState<Set<string>>(new Set());
     const [healing, setHealing] = useState<Set<string>>(new Set());
     const [worldwideInjured, setWorldwideInjured] = useState<Array<{ name: string; level: number; hp: number; maxHp: number; hospitalized: boolean }>>([]);
+    // null until the ward has answered once; the roster fills in until then.
+    const [wardPatients, setWardPatients] = useState<WardPatient[] | null>(null);
+    // When this Healer treated each patient (server clock). A ward row stays
+    // hidden only for the admission that was treated: the same player knocked
+    // out again later has a newer admission and must show up again.
+    const [treatedAt, setTreatedAt] = useState<Record<string, number>>({});
     const pendingRequestIds = useRef<Record<string, string>>({});
+
+    // The admitted list comes from the saves, not the roster. An online
+    // patient's roster row is built from presence, which never carried the
+    // admission, and the roster is cached for over a minute — longer than the
+    // stay itself. So a player knocked out while playing never reached the ward.
+    useEffect(() => {
+        let cancelled = false;
+        async function fetchWard() {
+            try {
+                const res = await fetch(`/api/player/hospital-ward?playerName=${encodeURIComponent(character.name)}`);
+                if (!res.ok || cancelled) return;
+                const data = await res.json();
+                if (!cancelled && Array.isArray(data.patients)) setWardPatients(data.patients as WardPatient[]);
+            } catch { /* keep the last answer; the next poll retries */ }
+        }
+        const stop = visiblePoll(fetchWard, WARD_POLL_MS, 0.1, { immediate: true });
+        return () => { cancelled = true; stop(); };
+    }, [character.name]);
 
     useEffect(() => {
         if (!hasWorldwideVision) {
@@ -136,6 +171,7 @@ export function HealerInjuredList({
             setHealMsg(m => ({ ...m, [targetName]: msg }));
             // Hide the row locally until next roster refresh confirms.
             setHealed(s => new Set(s).add(targetName));
+            setTreatedAt(t => ({ ...t, [targetName.toLowerCase()]: serverNow() }));
         } catch {
             setHealMsg(m => ({ ...m, [targetName]: "❌ Network error" }));
         } finally {
@@ -145,14 +181,21 @@ export function HealerInjuredList({
 
     // Same-village admitted players are listed for ANY caller (the UI renders
     // the "Heal" button only for healers, but non-healers can see who's down).
-    const hospitalizedPlayers = playerRoster.filter(p =>
-        p.character.hospitalized
-        && p.name.toLowerCase() !== character.name.toLowerCase()
-        && !healed.has(p.name)
-        && p.character.village === character.village
-        && p.character.maxHp > 0
-        && p.character.hp / p.character.maxHp <= HP_INJURED_THRESHOLD
-    );
+    // The ward (saves) is the source once it has answered; the roster only
+    // fills the first poll, since it cannot see an online patient reliably.
+    const rosterPatients: WardPatient[] = playerRoster
+        .filter(p =>
+            p.character.hospitalized
+            && p.character.village === character.village
+            && p.character.maxHp > 0
+            && p.character.hp / p.character.maxHp <= HP_INJURED_THRESHOLD)
+        .map(p => ({ name: p.name, level: p.level, hp: p.character.hp, maxHp: p.character.maxHp, admittedAt: 0, freeCheckoutAt: 0 }));
+    const hospitalizedPlayers = (wardPatients ?? rosterPatients).filter(p => {
+        if (p.name.toLowerCase() === character.name.toLowerCase()) return false;
+        const treated = treatedAt[p.name.toLowerCase()];
+        // A roster row carries no admission stamp, so a treated one stays hidden.
+        return treated === undefined || (p.admittedAt > 0 && p.admittedAt > treated);
+    });
 
     return (
         <>
@@ -165,9 +208,9 @@ export function HealerInjuredList({
                         <div key={p.name} className="summary-box healer-patient-row" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
                             <div style={{ flex: 1 }}>
                                 <strong>{p.name}</strong>
-                                <span className="hint" style={{ marginLeft: 6 }}>Lv {p.level} · {p.village}</span>
+                                <span className="hint" style={{ marginLeft: 6 }}>Lv {p.level} · {character.village}</span>
                                 <span style={{ marginLeft: 8, color: "var(--red-400)", fontSize: "0.8rem" }}>
-                                    HP {p.character.hp}/{p.character.maxHp}
+                                    HP {p.hp}/{p.maxHp}
                                 </span>
                             </div>
                             {isHealer ? (

@@ -132,8 +132,9 @@ export function resolveAiFightOutcome(session: AiFightSession | null | undefined
  * currency, items or kill credit. Progression comes from missions, hunts, raids,
  * real PvP and training; a sealed sparring session is not a faucet.
  *
- * Practice still SETTLES, though: losing one costs the same hospital stay as
- * losing anything else, which is why this is a separate question from "did the
+ * Practice still SETTLES, though — its token is consumed and any consumable it
+ * burned stays spent — but as a spar it writes no physical consequence (see
+ * `sessionIsSpar`), which is why this is a separate question from "did the
  * fight resolve".
  */
 export function aiFightPaysReward(outcome: AiFightOutcome, battleKind: string | undefined): boolean {
@@ -157,11 +158,35 @@ const ACADEMY_SPAR_ENCOUNTER_KIND = 'academy-spar';
  *
  * Deliberately narrow, and keyed off the SESSION's towerId rather than anything
  * the caller says — a client cannot opt its fight out of paying for itself.
- * A LOST spar is untouched by this and reports normally, which is what puts a
- * knocked-out beginner in the Hospital.
+ * A LOST spar is untouched by this and still reports normally; as a spar
+ * (`sessionIsSpar`) that report leaves the beginner's HP as it was, so they can
+ * step straight back onto the mat instead of into a hospital bed.
  */
 export function settlementOwnsHpOnWin(session: AiFightSession | null | undefined): boolean {
     if (isSoloPveSession(session)) return session.encounter.kind === ACADEMY_SPAR_ENCOUNTER_KIND;
+    return session?.towerId === ACADEMY_SPAR_ENCOUNTER_KIND;
+}
+
+/**
+ * Is this fight a SPAR — a consensual practice bout rather than a real fight?
+ *
+ * Owner rule (2026-09-24): "when your HP hits 0 you go to the hospital unless
+ * it's a spar or ranked match". Ranked and player-vs-player spars already fight
+ * on a fresh pool and write nothing back (api/pvp/_vitals-settlement.ts). This
+ * is the same rule for the AI side: a practice bout (Arena spar, Dojo Circuit,
+ * the Logbook exams, the non-paying creator-event preview) and the Academy
+ * spar. A spar writes NO physical consequence at all — neither the hospital nor
+ * the damage — so losing one never costs less than winning it.
+ *
+ * Read from the SEALED session: the Academy spar by its encounter kind, a
+ * practice bout by the `spar` flag ai-fight-start stamps on its encounter. A
+ * caller cannot opt a real fight into it.
+ */
+export function sessionIsSpar(session: AiFightSession | null | undefined): boolean {
+    if (isSoloPveSession(session)) {
+        return session.encounter.kind === ACADEMY_SPAR_ENCOUNTER_KIND
+            || session.encounter.metadata?.spar === true;
+    }
     return session?.towerId === ACADEMY_SPAR_ENCOUNTER_KIND;
 }
 
@@ -189,8 +214,15 @@ export function applyAiFightOutcomeToCharacter(
     /** True only for an OPEN-WORLD encounter seeded from the player's current
      *  vitals. Defaults false so every existing caller keeps HP-only behaviour. */
     continuousVitals = false,
+    /** True for a spar (`sessionIsSpar`): no physical consequence is written. */
+    spar = false,
 ): Record<string, unknown> {
     if (outcome === 'unknown') return character;
+    // A spar is practice. Win, lose, draw or walk away, the player leaves with
+    // the HP they brought and never lands in the hospital — the same contract
+    // ranked and PvP spars already keep. Chakra and stamina are untouched too,
+    // since no spar is a continuous encounter.
+    if (spar) return character;
     // No actor to read means no evidence of what the fight cost. Guessing would
     // be worse than doing nothing. Mounted AI-fight settlement rejects this
     // shape; the guard remains for legacy/corrupt callers of this pure helper.
