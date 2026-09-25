@@ -308,7 +308,10 @@ export function resolveHollowGateTile(
                             // rather than adding to it.
                             const generator = await loadHollowGateGenerator().catch(() => null);
                             if (!generator) {
-                                pushHollowGateLog("The shrine could not draw the floor below this one because the connection dropped while it loaded. Nothing was spent. Try the staircase again.");
+                                // A timed-out load can succeed on a retry; one that FAILED
+                                // stays failed for this page (./lazyWithRetry), so name
+                                // the reload that actually recovers it.
+                                pushHollowGateLog("The shrine could not draw the floor below this one because the connection dropped while it loaded. Nothing was spent. Try the staircase again. If it fails again, reload the page; your run resumes on this floor.");
                                 return;
                             }
                             try {

@@ -138,7 +138,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // tile unresolved but must not pin the player to it forever.
                 const withdrawn = Array.isArray(run.withdrawnEncounterIds) ? run.withdrawnEncounterIds : [];
                 if (!resolved.includes(encounterKey) && !withdrawn.includes(encounterKey)) {
-                    return { status: 409, body: { error: 'Resolve the sealed combat node before moving.' } };
+                    // Name the encounter so the browser can open it. A fight whose
+                    // start failed (a dropped request, a tile chunk that did not
+                    // load) left the player on this tile with nothing to trigger
+                    // it again, because a tile fires only when it is stepped onto.
+                    return { status: 409, body: {
+                        error: 'Resolve the sealed combat node before moving.',
+                        position: run.position,
+                        sealedCombat: { nodeId: currentNodeId, kind: expectedKind },
+                    } };
                 }
             }
             const { torchBefore, torch, wardSteps, threat, stepVersion, pendingAmbush } = deriveHollowGateStepState(run, randomInt(0, 5) === 0);
