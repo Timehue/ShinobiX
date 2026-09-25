@@ -848,7 +848,11 @@ test("Mission Hall accepted Field cards keep their compact mobile action layout"
             nextStepBelowActions: Boolean(nextRect && secondaryRect && nextRect.top >= secondaryRect.bottom),
         };
     });
-    expect(metrics.cardHeight, "in-progress mobile Field cards should keep the next instruction compact").toBeLessThanOrEqual(130);
+    // Measured 2026-09-25 with Inter and Marcellus loaded: 124.5 px in Chromium
+    // mobile on Windows, 136.5 px in Linux CI (the same card, 12 px taller from
+    // font rendering). The budget is set from CI, which gates merges; one more
+    // wrapped line anywhere in the card still fails it.
+    expect(metrics.cardHeight, "in-progress mobile Field cards should keep the next instruction compact").toBeLessThanOrEqual(140);
     expect(metrics.nextStepBelowActions, "the next instruction should not sit under Abandon").toBe(true);
     expect(metrics.primaryTarget, "travel/claim rail should retain its 44px touch target").toBeGreaterThanOrEqual(44);
     expect(metrics.secondaryWidth, "Abandon should remain readable beside progress").toBeGreaterThanOrEqual(60);
