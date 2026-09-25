@@ -148,7 +148,7 @@ export function AcademyReturnCeremony(props: SharedProps & {
                         <button type="button" className="asm-primary" autoFocus disabled={saving} onClick={() => { void acceptSeal(); }}>{saving ? "Saving…" : "Accept the Field Seal"}</button>
                         <button type="button" className="asm-skip" onClick={props.onSkip}>Skip Academy</button>
                     </> : <>
-                        <p className="asm-body">The guided route ends here. Choose one first contract to make your own. You can change direction later; your Logbook keeps the whole road visible.</p>
+                        <p className="asm-body">Academy tutorial complete. Choose your first assignment. You can change direction later; your Logbook keeps the whole road visible.</p>
                         <FirstContractRoutes onChoose={(route) => { void finish(FIRST_CONTRACT_COPY[route].screen, route); }} busy={saving} hasCompanion={props.character.pets.length > 0} />
                         {handoff?.primary.intent === 'openAwakening' && <button type="button" className="asm-skip" disabled={saving} onClick={() => { void finish('centralHub', undefined, 'openAwakening'); }}>Visit the Awakening Stone</button>}
                         <button type="button" className="asm-skip" disabled={saving} onClick={() => { void finish("village"); }}>Stay in the village for now</button>

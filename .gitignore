@@ -486,6 +486,8 @@ shinobij.client/scripts/.restyle-board-done.json
 shinobij.client/scripts/.restyle-keyart-done.json
 
 # Local Codex worktrees and generated output
+shinobij.client/art-source/dawnmane-seraph/fal-source.glb
+shinobij.client/art-source/dawnmane-seraph/fal-replacement-source.glb
 /.codex-worktrees/
 /.worktrees/
 /output/

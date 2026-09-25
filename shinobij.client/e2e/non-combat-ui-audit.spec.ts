@@ -832,21 +832,28 @@ test("Mission Hall accepted Field cards keep their compact mobile action layout"
     const card = page.locator(".mh-field-card.mh-field-accepted").filter({ hasText: "D Rank Supply Trail Sweep" });
     await expect(card).toBeVisible();
     await expect(card.locator(".mh-fetch-progress-wrap")).toBeVisible();
-    await expect(card.getByRole("button", { name: "Go to Sector 18" })).toBeVisible();
+    await expect(card.getByRole("button", { name: "Explore Sector 18" })).toBeVisible();
     await expect(card.getByRole("button", { name: "Abandon" })).toBeVisible();
 
     const metrics = await card.evaluate((element) => {
         const cardRect = element.getBoundingClientRect();
         const primaryRect = element.querySelector(".mh-field-primary-action")?.getBoundingClientRect();
         const secondaryRect = element.querySelector(".mh-field-secondary-action")?.getBoundingClientRect();
+        const nextRect = element.querySelector(".mh-field-next-step-mobile")?.getBoundingClientRect();
         return {
             cardHeight: cardRect.height,
             primaryTarget: Math.min(primaryRect?.width ?? 0, primaryRect?.height ?? 0),
             secondaryWidth: secondaryRect?.width ?? 0,
             secondaryHeight: secondaryRect?.height ?? 0,
+            nextStepBelowActions: Boolean(nextRect && secondaryRect && nextRect.top >= secondaryRect.bottom),
         };
     });
-    expect(metrics.cardHeight, "in-progress mobile Field cards should remain compact").toBeLessThanOrEqual(110);
+    // Measured 2026-09-25 with Inter and Marcellus loaded: 124.5 px in Chromium
+    // mobile on Windows, 136.5 px in Linux CI (the same card, 12 px taller from
+    // font rendering). The budget is set from CI, which gates merges; one more
+    // wrapped line anywhere in the card still fails it.
+    expect(metrics.cardHeight, "in-progress mobile Field cards should keep the next instruction compact").toBeLessThanOrEqual(140);
+    expect(metrics.nextStepBelowActions, "the next instruction should not sit under Abandon").toBe(true);
     expect(metrics.primaryTarget, "travel/claim rail should retain its 44px touch target").toBeGreaterThanOrEqual(44);
     expect(metrics.secondaryWidth, "Abandon should remain readable beside progress").toBeGreaterThanOrEqual(60);
     expect(metrics.secondaryHeight, "Abandon should meet the audit's minimum control height").toBeGreaterThanOrEqual(24);

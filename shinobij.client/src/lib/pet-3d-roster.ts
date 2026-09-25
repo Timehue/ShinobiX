@@ -14,7 +14,7 @@ const ROSTER_RARITY_COUNTS = [
     ["standard", 50],
     ["rare", 50],
     ["legendary", 30],
-    ["mythic", 15],
+    ["mythic", 16],
 ] as const;
 
 const APPROVED_ROSTER_MODEL_ID_LIST: readonly string[] = Object.freeze(
@@ -40,7 +40,7 @@ function rosterModelUrl(id: string): string {
 
 // The three built-in Coliseum opponents predate the canonical pet roster, so
 // their persistent ids intentionally reuse the closest approved species rig.
-// Breeding-exclusive Mythics have dedicated production assets and therefore do
+// Additional Mythics have dedicated production assets and therefore do
 // not belong in this presentation-only alias map.
 const COLISEUM_MODEL_ALIASES: Readonly<Record<string, string>> = {
     "generic-ai-pet-sparrow": "standard-44",   // Glide Sparrow
@@ -72,7 +72,7 @@ const ROSTER_PROFILE_CODES = [
     ["standard", "qbbabbbabbabbhabqabbbqbbbqbhbqbhbabaaaaabbbaaqbqbb"],
     ["rare", "qbbabbbabqabqhabqabbbbqbqqqaqqbqqaqaaaaabbbbabbqbb"],
     ["legendary", "qaqqbqasqhasbhaqahssbaqqqbqhbh"],
-    ["mythic", "qqhqqasbbhasqqh"],
+    ["mythic", "qqhqqasbbhasqqhq"],
 ] as const;
 
 export const ROSTER_MODEL_PROFILES: Readonly<Record<string, PetCombatModelProfile>> = Object.fromEntries(

@@ -11,7 +11,9 @@ import { rewardSummary, statPointNote } from "../lib/currency";
 import { ClaimImpactNotice } from "../components/ClaimImpactNotice";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { dailyHuntsCompleted, hasDailyHuntSlot, dailyHuntCap } from "../lib/character-progress";
-import { postClaimMission, applyServerMissionReward, claimReasonMessage } from "../lib/claim-mission";
+import { postClaimMission, applyServerMissionReward, claimReasonMessage, claimHttpFailureMessage } from "../lib/claim-mission";
+import { missionClaimActionScope } from "../lib/action-deadline-store";
+import { useActionDeadline } from "../lib/use-action-deadline";
 import { commitAuthoritativeMissionClaim } from "../lib/versioned-mission-claim";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { starterItems } from "../data/starter-items";
@@ -69,6 +71,7 @@ export function HunterBoard({
     const [authoritativeHuntStates, setAuthoritativeHuntStates] = useState<Record<string, WorldHuntTrailView>>({});
     const huntClaimInFlight = useRef(false);
     const [claimingHuntId, setClaimingHuntId] = useState<string | null>(null);
+    const claimCooldownMs = useActionDeadline(missionClaimActionScope(character.name));
     const [lastClaim, setLastClaim] = useState<{ title: string; reward: string } | null>(null);
     const acceptedHuntKey = builtinHuntMissions
         .filter((mission) => acceptedMissionIds.includes(mission.id))
@@ -80,6 +83,11 @@ export function HunterBoard({
     // is pending at the sign's decision sector. Reconcile the same durable state
     // the World Map uses so Go To Sector and Claim never depend on a stale local
     // progress hash.
+    // App passes fresh onVersionedCharacter/onServerVersion functions every
+    // render; read them through a ref so a re-render doesn't re-sync every
+    // accepted hunt (spending the rate limit) and cancel the sync in flight.
+    const commitRef = useRef({ onVersionedCharacter, onServerVersion });
+    useEffect(() => { commitRef.current = { onVersionedCharacter, onServerVersion }; }, [onVersionedCharacter, onServerVersion]);
     useEffect(() => {
         let cancelled = false;
         const missionIds = acceptedHuntKey ? acceptedHuntKey.split("|") : [];
@@ -89,8 +97,8 @@ export function HunterBoard({
                 const result = await postWorldHunt({ playerName: character.name, action: "state", missionId });
                 if (cancelled || !result.ok) continue;
                 if (result.character) {
-                    if (!onVersionedCharacter(result.character, result._saveVersion)) continue;
-                } else if (!onServerVersion(result._saveVersion)) {
+                    if (!commitRef.current.onVersionedCharacter(result.character, result._saveVersion)) continue;
+                } else if (!commitRef.current.onServerVersion(result._saveVersion)) {
                     continue;
                 }
                 if (result.acceptedMissionIds) setAcceptedMissionIds(result.acceptedMissionIds);
@@ -107,7 +115,7 @@ export function HunterBoard({
             if (!cancelled) setAuthoritativeHuntStates(next);
         })();
         return () => { cancelled = true; };
-    }, [acceptedHuntKey, character.name, onServerVersion, onVersionedCharacter, setAcceptedMissionIds, setMissionProgress]);
+    }, [acceptedHuntKey, character.name, setAcceptedMissionIds, setMissionProgress]);
 
     function invCount(itemId: string) {
         return countItem(character, itemId);
@@ -200,6 +208,7 @@ export function HunterBoard({
     }
 
     async function claimHuntOnce(mission: CreatorMission) {
+        if (claimCooldownMs > 0) return;
         if (!requireServerSettlement("fieldHuntMissions")) return;
         let progress = missionProgress[mission.id] ?? 0;
         // A target WIN receipt may have committed just before a refresh while
@@ -233,6 +242,7 @@ export function HunterBoard({
         // Unknown/creator-authored hunt ids are rejected instead of paid locally.
         const result = await postClaimMission(character.name, "hunt", mission.id);
         if (result === null) return alert("Could not reach the server. Try again.");
+        if (result.ok === false) return alert(claimHttpFailureMessage(result));
         if (result.applied === true) {
             if (!applySuccessfulMissionClaim(result)) return;
             setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
@@ -334,8 +344,10 @@ export function HunterBoard({
      */
     async function claimApex() {
         if (!requireServerSettlement("fieldHuntMissions")) return;
+        if (claimCooldownMs > 0) return;
         const result = await postClaimMission(character.name, "apex", "apex-weekly");
         if (result === null) return alert("Could not reach the server. Try again.");
+        if (result.ok === false) return alert(claimHttpFailureMessage(result));
         if (result.applied === true) {
             if (!applySuccessfulMissionClaim(result)) return;
             alert(`Apex Contract complete! ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina, result.reward.currency, character, { items: materialNames(result.reward.items ?? []) })}.`);
@@ -422,8 +434,8 @@ export function HunterBoard({
                                     <button type="button" className="apex-fight" onClick={faceApex}>
                                         Face the Apex
                                     </button>
-                                    <button type="button" className="apex-claim" onClick={claimApex}>
-                                        Claim Purse
+                                    <button type="button" className="apex-claim" disabled={claimCooldownMs > 0} onClick={claimApex}>
+                                        {claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Purse"}
                                     </button>
                                 </>}
                         </div>
@@ -497,7 +509,7 @@ export function HunterBoard({
                                                     ? <button onClick={() => acceptHunt(mission)}>Accept Hunt</button>
                                                     : <>
                                                         {complete
-                                                            ? <button disabled={claimingHuntId !== null} onClick={() => { void claimHunt(mission); }}>{claimingHuntId === mission.id ? "Claimingâ€¦" : "Claim Reward"}</button>
+                                                            ? <button disabled={claimingHuntId !== null || claimCooldownMs > 0} onClick={() => { void claimHunt(mission); }}>{claimingHuntId === mission.id ? "Claimingâ€¦" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</button>
                                                             : <button onClick={() => { setSectorReopen(leadSector); setScreen("worldMap"); }}>Go To Sector {leadSector}</button>
                                                         }
                                                         <button className="danger-button" disabled={claimingHuntId !== null} onClick={() => void abandonHunt(mission)}>Give Up</button>

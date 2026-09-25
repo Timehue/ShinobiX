@@ -185,7 +185,7 @@ const StoryBoss = lazyWithRetry(() => import("./screens/StoryBoss").then(m => ({
 const TownHall = lazyWithRetry(() => import("./screens/TownHall").then(m => ({ default: m.TownHall })));
 const ClanHall = lazyWithRetry(() => import("./screens/ClanHall").then(m => ({ default: m.ClanHall })));
 import { BATTLE_LOCK_ID_KEY, BATTLE_LOCK_RESOLVED_KEY, postBattleLock, arenaStoryCtxKey, fetchBattleLockStatus, battleResumeStateExists, readArenaStoryContext, type ClientBattleLock } from "./lib/battle-save";
-import { postFieldTrail } from "./lib/field-trail-api";
+import { notifyFieldTrailStateChanged, postFieldTrail } from "./lib/field-trail-api";
 import { loadPlayerApi, warmPlayerApi } from "./lib/player-api-loader";
 const WorldMap = lazyWithRetry(() => import("./screens/WorldMap").then(m => ({ default: m.WorldMap })));
 const WorldCrisis = lazyWithRetry(() => import("./screens/WorldCrisis").then(m => ({ default: m.WorldCrisis })));
@@ -481,14 +481,6 @@ export type { CreatorEvent, PendingArenaStoryBattle, StoryStep };
 // HOLLOW_GATE_MAX_FLOOR moved to ./constants/game so ./lib/hollow-gate-dungeon
 // can read it without importing App (keeps the generator unit-testable).
 
-// Hollow Gate intro pages + flavor + tile-icon helpers from
-// ./data/hollow-gate-flavor (imported for internal use). External callers
-// (KenneyAtlasPicker) import hollowGateTileIconForKind directly from the
-// data module.
-import {
-    hollowGateFlavorFor,
-} from "./data/hollow-gate-flavor";
-
 // Shrine floor generation (ASCII layouts + BSP + maze, ./lib/hollow-gate-dungeon)
 // is loaded ON DEMAND — see ./lib/hollow-gate-generator-loader for why that is free.
 import { loadHollowGateTileRuntime, warmHollowGateGenerator } from "./lib/hollow-gate-generator-loader";
@@ -512,8 +504,7 @@ import { dismissStorySceneForSession } from "./lib/vn-session-dismissal";
 import { launchTriggeredEventBattle, type EventEncounterBattle, type PendingEventEncounter } from "./lib/triggered-event-battle";
 import { StoryBossFightHost } from "./components/StoryBossFightHost";
 import { AiFightHost } from "./components/AiFightHost";
-import { wingEntryEffect } from "./lib/hollow-gate-wings";
-import { markHollowGateSeen } from "./lib/hollow-gate-path";
+import { projectHollowGateMovement, type HollowGateMoveEffect } from "./lib/hollow-gate-movement-projection";
 import { useHollowGateWalk } from "./features/hollowGate/use-hollow-gate-walk";
 import { hollowGateRunMaxFloor, hollowGateBossDisplayName, variantFromEventConfig, normalizeHollowGateEventConfig } from "./lib/hollow-gate-variant";
 import { riftEventConfig, completeRiftRun } from "./lib/rift-run";
@@ -1311,6 +1302,10 @@ export default function App() {
 
     // ── Hollow Gate Shrine crawler state ──────────────────────────────────────
     const [hollowGateRun, setHollowGateRun] = useState<HollowGateShrineRun | null>(null);
+    // Keep a synchronous movement projection so rapid inputs plan from the
+    // latest tile even before React commits the next render.
+    const hollowGateMovementRunRef = useRef(hollowGateRun);
+    useLayoutEffect(() => { hollowGateMovementRunRef.current = hollowGateRun; }, [hollowGateRun]);
     const [hollowGateLog, setHollowGateLog] = useState<string[]>([]);
     const [hollowGatePveFight, setHollowGatePveFight] = useState<HollowGateServerFight | null>(null);
     const [hollowGateCombatStarting, setHollowGateCombatStarting] = useState(false);
@@ -1322,23 +1317,9 @@ export default function App() {
     // Shared event-gate config (admin-authored, distributed via the admin-save
     // content channel like creator content; lib/hollow-gate-variant normalizes).
 
-    // Move side-effect queue. moveHollowGatePlayer's step effects (tile fire /
-    // logs / ambush) MUST NOT be read from a local `let` right after
-    // setHollowGateRun — React only runs the state updater eagerly when its
-    // queue is empty, so during click-to-walk (rapid steps + log churn) the
-    // updater runs late and the local reads stale, silently DROPPING the tile
-    // fire ("walked over a chest and nothing happened"). Instead each step
-    // pushes its effects here from inside the updater, and a macrotask drain
-    // (which runs after React has flushed every queued updater) processes them.
-    const hollowGateMoveFxRef = useRef<Array<{
-        wallBump: boolean;
-        blockMessage?: string;
-        committedTheme?: string;
-        torchSputtered: boolean;
-        justResolved: { tile: HollowGateTile; nx: number; ny: number } | null;
-        ambushImmediate: boolean;
-        step?: { requestId: string; fromX: number; fromY: number; toX: number; toY: number };
-    }>>([]);
+    // Projection queues each step's effects synchronously; the drain seals
+    // them after React publishes the movement state.
+    const hollowGateMoveFxRef = useRef<HollowGateMoveEffect[]>([]);
     const [hollowGatePendingAmbush, setHollowGatePendingAmbush] = useState<{
         token: string; floor: number; nodeId: string; kind: "ambush" | "boss" | "card";
     } | null>(null);
@@ -1355,7 +1336,7 @@ export default function App() {
     // the WASD/arrow key handler, both owned by the walk hook. Every walked
     // step goes through moveHollowGatePlayer, so costs/events are identical
     // to manual movement.
-    const { walkTo: hollowGateWalkTo, walkTarget: hollowGateWalkTarget } = useHollowGateWalk({
+    const { walkTo: hollowGateWalkTo, stopWalk: stopHollowGateWalk, walkTarget: hollowGateWalkTarget } = useHollowGateWalk({
         active: screen === "hollowGateShrine",
         run: hollowGateRun,
         blocked: !!hollowGateEvent || !!hollowGateHiddenChamber || hollowGateIntroPage !== null || !!hollowGatePveFight || !!hollowGatePetFight || !!hollowGatePendingAmbush || !!hollowGateRun?.activeCombat || hollowGateCombatStarting || hollowGateCardStarting,
@@ -4336,6 +4317,7 @@ export default function App() {
                     ? { [raidProgressKey]: result.progress!.raidCount! }
                     : {}),
             }));
+            if (kind === "field-explore" || kind === "field-raid") notifyFieldTrailStateChanged(playerName, missionId);
             return true;
         } catch {
             // Stable explore receipt retries from WorldMap recovery.
@@ -4356,6 +4338,7 @@ export default function App() {
                     ...credited.map((entry) => [entry.missionId, Math.max(0, Math.floor(entry.exploreCount))]),
                 ]));
             }
+            for (const entry of credited) notifyFieldTrailStateChanged(owner, entry.missionId);
             return true;
         }
         const missionCatalog = await loadMissionCatalog().catch(() => null);
@@ -5211,8 +5194,9 @@ export default function App() {
             acceptExternalSaveVersion(step._saveVersion, character.name);
             setHollowGateRun((previous) => previous ? {
                 ...previous,
-                playerX: step.position?.x ?? fx.step!.toX,
-                playerY: step.position?.y ?? fx.step!.toY,
+                // The position is already projected locally, and later inputs
+                // may be ahead of this acknowledgment. Rewinding to this one
+                // server step made held keys and click-walk stutter on latency.
                 torch: step.torch ?? previous.torch,
                 threat: step.threat ?? previous.threat,
                 wardSteps: step.wardSteps ?? previous.wardSteps,
@@ -5221,6 +5205,18 @@ export default function App() {
             if (fx.justResolved) {
                 const { tile, nx, ny } = fx.justResolved;
                 await resolveHollowGateTile(tile, nx, ny);
+                // Stop a click-walk at interactions. The shrine can open a
+                // modal or start combat asynchronously, so queued steps must
+                // not continue through it before React publishes the blocker.
+                if (tile.kind !== "empty" && tile.kind !== "shard_vein") {
+                    stopHollowGateWalk();
+                    hollowGateMoveFxRef.current = [];
+                    setHollowGateRun((previous) => previous ? {
+                        ...previous,
+                        playerX: step.position?.x ?? nx,
+                        playerY: step.position?.y ?? ny,
+                    } : previous);
+                }
             }
             if (step.ambush) {
                 // A click-walk may have optimistically drawn one more tile while
@@ -5251,63 +5247,16 @@ export default function App() {
         // in-flight seal could stamp this floor's coordinates onto the next one.
         if (hollowGateDescending) return;
 
-        // Functional state update so rapid WASD presses queue against the latest
-        // run state (the closure form lost presses within a single render tick).
-        // Step side-effects are pushed to hollowGateMoveFxRef from INSIDE the
-        // updater (never a local `let` read right after — that races the eager
-        // updater and drops the tile fire during click-to-walk).
-        setHollowGateRun(prev => {
-            if (!prev) return prev;
-            const nx = prev.playerX + dx;
-            const ny = prev.playerY + dy;
-            if (nx < 0 || ny < 0 || nx >= prev.width || ny >= prev.height) return prev;
-            const idx = ny * prev.width + nx;
-            const tile = prev.tiles[idx];
-            // Walls are impassable. No state change, no threat/torch cost.
-            const isWall = tile.kind === "wall" || tile.terrain === "wall";
-            if (isWall) {
-                hollowGateMoveFxRef.current.push({ wallBump: true, torchSputtered: false, justResolved: null, ambushImmediate: false });
-                return prev;
-            }
-            // Branching wings: block entry to a sealed wing; entering a detour
-            // commits to it (sealing the other). Trial/hub are always open.
-            const wingEff = wingEntryEffect(prev, tile.wing);
-            if (wingEff.blocked) {
-                hollowGateMoveFxRef.current.push({ wallBump: true, blockMessage: wingEff.message, torchSputtered: false, justResolved: null, ambushImmediate: false });
-                return prev;
-            }
-            const tiles = prev.tiles.slice();
-            tiles[idx] = { ...tile, revealed: true, flavor: tile.flavor ?? hollowGateFlavorFor(tile.kind) };
-            // Fire the tile's event on every step onto an UNRESOLVED tile (gate on
-            // `resolved` only, never on revealed — so Leave/descend/locked/boss
-            // re-fire when re-entered; markResolved() still prevents double-grants).
-            const justResolved = !tile.resolved;
-            hollowGateMoveFxRef.current.push({
-                wallBump: false,
-                committedTheme: wingEff.committedTheme,
-                torchSputtered: false,
-                justResolved: justResolved ? { tile: { ...tile, revealed: true }, nx, ny } : null,
-                ambushImmediate: false,
-                step: {
-                    requestId: typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-                        ? crypto.randomUUID()
-                        : `hg-step-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-                    fromX: prev.playerX,
-                    fromY: prev.playerY,
-                    toX: nx,
-                    toY: ny,
-                },
-            });
-            // markHollowGateSeen stamps the new visibility flood as map memory
-            // (dim "explored" tiles after you leave a room; click-to-walk surface).
-            return markHollowGateSeen({
-                ...prev,
-                ...(wingEff.patch ?? {}),
-                playerX: nx,
-                playerY: ny,
-                tiles,
-            });
-        });
+        const prev = hollowGateMovementRunRef.current;
+        if (!prev) return;
+        const projected = projectHollowGateMovement(prev, dx, dy);
+        if (!projected) return;
+        hollowGateMoveFxRef.current.push(projected.effect);
+        if (projected.nextRun !== prev) {
+            // Later inputs must plan from this step before React renders.
+            hollowGateMovementRunRef.current = projected.nextRun;
+            setHollowGateRun(projected.nextRun);
+        }
 
         // Drain after the flush. A single scheduled drain empties the whole
         // queue, so back-to-back steps that batch into one flush are all
@@ -6043,9 +5992,9 @@ export default function App() {
                     />
                 )}
                 {!activeTriggeredEvent && screen === "jutsuTraining" && character && <JutsuTrainingHall character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} activeJutsuTraining={activeJutsuTraining} setActiveJutsuTraining={setActiveJutsuTrainingNow} onBack={goBack} />}
-                {!activeTriggeredEvent && screen === "missions" && character && <Missions key={character.name.trim().toLowerCase()} character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} creatorAis={playableAis} creatorMissions={creatorMissions} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setScreen={setScreen} onBack={goBack} onMissionBattleStart={() => setMissionBattleActive(true)} onMissionBattleEnd={() => setMissionBattleActive(false)} sharedImages={sharedImages} creatorItems={creatorItems} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} />}
+                {!activeTriggeredEvent && screen === "missions" && character && <Missions key={character.name.trim().toLowerCase()} character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} creatorAis={playableAis} creatorMissions={creatorMissions} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} currentSector={currentSector} setScreen={setScreen} onBack={goBack} onMissionBattleStart={() => setMissionBattleActive(true)} onMissionBattleEnd={() => setMissionBattleActive(false)} sharedImages={sharedImages} creatorItems={creatorItems} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} />}
                 {!activeTriggeredEvent && screen === "hunting" && character && <HunterBoard character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} creatorAis={playableAis} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setScreen={setScreen} />}
-                {!activeTriggeredEvent && screen === "logbook" && character && <Logbook character={character} updateCharacter={setCharacter} creatorAis={playableAis} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorMissions={creatorMissions} creatorEvents={creatorEvents} creatorRaids={creatorRaids} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setCurrentSector={setCurrentSector} setCurrentBiome={setCurrentBiome} setCurrentWeather={setCurrentWeather} setScreen={setScreen} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} />}
+                {!activeTriggeredEvent && screen === "logbook" && character && <Logbook character={character} updateCharacter={setCharacter} creatorAis={playableAis} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorMissions={creatorMissions} creatorEvents={creatorEvents} creatorRaids={creatorRaids} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} currentSector={currentSector} setScreen={(destination) => destination === "centralHub" ? navigate(destination) : setScreen(destination)} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} />}
                 {!activeTriggeredEvent && screen === "townHall" && character && <TownHall character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} creatorItems={creatorItems} allServerPlayers={allServerPlayers} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} sharedImages={sharedImages} setScreen={setScreen} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "clan" && character && <ClanHall character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} creatorItems={creatorItems} setScreen={setScreen} sharedImages={sharedImages} onRecordBattle={recordBattle} towerHostLoadout={(() => { const it = getAllItems(creatorItems); return { pvpItems: getPvpItemLoadout(character, it), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, it), armorRawDR: getCharacterArmorRawDR(character, it), itemDamagePct: getEquippedItemBonus(character, it, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(character, it, "absorbPercent"), itemReflectPct: getEquippedItemBonus(character, it, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(character, it, "lifeStealPercent"), itemShield: getEquippedItemBonus(character, it, "shield") }; })()} />}
                 {!activeTriggeredEvent && screen === "bank" && character && <Bank character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onBack={goBack} />}
@@ -6449,7 +6398,12 @@ export default function App() {
                             onWin={handlePvpWin}
                             onRewardClaim={handlePvpRewardClaim}
                             onCompletionConfirmed={() => setPvpCompletionConfirmed(true)}
-                            onExit={(target) => { markPvpSectorReturn(target, pvpBattleContext, currentSector); clearPvpBattleState(); setScreen(target); }}
+                            onExit={(target) => {
+                                markPvpSectorReturn(target, pvpBattleContext, currentSector);
+                                clearPvpBattleState();
+                                setRaidBattleKind("none");
+                                setScreen(target);
+                            }}
                             // PvP history is indexed from the server receipt.
                             // A second whole-save history write races settlement
                             // and must never gate completion or world movement.

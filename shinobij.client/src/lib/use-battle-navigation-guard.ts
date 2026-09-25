@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { Screen } from "../types/core";
 import {
     TOWER_FIGHT_STATE_EVENT,
@@ -62,7 +62,7 @@ export function useBattleNavigationGuard({
     }, [screen]);
 
     const inBattleRef = useRef(false);
-    useEffect(() => {
+    useLayoutEffect(() => {
         inBattleRef.current = isUnresolvedBattle({
             screen,
             raidBattleKind,

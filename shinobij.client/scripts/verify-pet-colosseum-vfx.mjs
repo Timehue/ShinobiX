@@ -47,6 +47,7 @@ const cases = [
     { id: "legendary-earth-serpentine", rosterPet: "legendary-7", enemyPet: "rare-24", quality: "medium", profile: "serpentine" },
     { id: "legendary-earth-heavy", rosterPet: "legendary-9", enemyPet: "rare-24", quality: "high", profile: "heavy" },
     { id: "mythic-lightning-biped", rosterPet: "mythic-8", enemyPet: "rare-24", quality: "high", profile: "biped" },
+    { id: "mythic-wind-winged-lion", rosterPet: "mythic-15", enemyPet: "rare-24", quality: "high", profile: "quadruped" },
 ].map((entry) => ({ ...entry, quality: qualityOverride ?? entry.quality }));
 
 const browser = await chromium.launch({ headless: true });

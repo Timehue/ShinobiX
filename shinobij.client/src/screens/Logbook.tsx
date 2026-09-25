@@ -1,9 +1,9 @@
 import { gainXp } from "../lib/character-level-projection";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import "../styles/hub-screens-skin.css";
 import type React from "react";
-import type { Biome, WeatherType, Screen } from "../types/core";
+import type { Screen } from "../types/core";
 import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
 import type { CreatorMission, CreatorRaid } from "../types/missions";
@@ -11,7 +11,8 @@ import type { Jutsu, SavedBloodline } from "../types/combat";
 import { CardVisual } from "../components/Marks";
 import { LogbookCareerRecord } from "../components/LogbookCareerRecord";
 import { DAILY_MISSION_LIMIT, FIELD_MISSION_STAT_POINTS } from "../constants/game";
-import { builtinFetchMissions, mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement } from "../data/missions";
+import { builtinFetchMissions, fieldMissionNextAction, mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement } from "../data/missions";
+import { writeFieldMissionNavigationIntent } from "../lib/field-mission-navigation";
 import { rewardSummary, statPointNote } from "../lib/currency";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { clampNumber, currentDateKey } from "../lib/utils";
@@ -19,18 +20,20 @@ import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { hasDailyMissionSlot } from "../lib/character-progress";
 import { getAllJutsus, liveEquippedJutsuIds } from "../lib/jutsu-loadout";
 import { buildLogbookObjectives, currentLogbookObjective, objectiveComplete, type LogbookObjective, type ObjectiveRequirement } from "../lib/logbook-objectives";
-import { postClaimMission, applyServerMissionReward, claimReasonMessage } from "../lib/claim-mission";
+import { postClaimMission, applyServerMissionReward, claimReasonMessage, claimHttpFailureMessage } from "../lib/claim-mission";
 import { commitAuthoritativeMissionClaim } from "../lib/versioned-mission-claim";
-import { weatherForBiome } from "../data/sectors";
 import {
     type CreatorEvent
 } from "../App";
-import { activeVillageWarsFor, applyVillageWarMissionDamage, loadVillageState, weatherForSector, VILLAGE_WAR_DAILY_MISSIONS, VILLAGE_WAR_MISSION_DAMAGE, VILLAGE_WAR_RAIDS_PER_MISSION } from "../lib/world-state";
+import { activeVillageWarsFor, applyVillageWarMissionDamage, loadVillageState, VILLAGE_WAR_DAILY_MISSIONS, VILLAGE_WAR_MISSION_DAMAGE, VILLAGE_WAR_RAIDS_PER_MISSION } from "../lib/world-state";
 import { requestAiFight } from "../lib/ai-fight-request";
-import { mintAiRaidToken } from "../lib/ai-raid-api";
+import { missionClaimActionScope } from "../lib/action-deadline-store";
+import { setSectorReopen } from "../lib/sector-return";
+import { useActionDeadline } from "../lib/use-action-deadline";
 import { claimWarMissionServer } from "../lib/world-reward-api";
 import { passRankExamServer } from "../lib/exam-api";
 import { postFieldTrail, type FieldTrailResult } from "../lib/field-trail-api";
+import { useFieldTrailRefreshVersion } from "../lib/use-field-trail-refresh";
 
 export function Logbook({
     character,
@@ -44,10 +47,8 @@ export function Logbook({
     acceptedMissionIds,
     setAcceptedMissionIds,
     missionProgress,
+    currentSector = 0,
     setMissionProgress,
-    setCurrentSector,
-    setCurrentBiome,
-    setCurrentWeather,
     setScreen,
     onVersionedCharacter,
     onServerVersion,
@@ -63,19 +64,19 @@ export function Logbook({
     acceptedMissionIds: string[];
     setAcceptedMissionIds: React.Dispatch<React.SetStateAction<string[]>>;
     missionProgress: Record<string, number>;
+    currentSector?: number;
     setMissionProgress: React.Dispatch<React.SetStateAction<Record<string, number>>>;
-    setCurrentSector: (sector: number) => void;
-    setCurrentBiome: (biome: Biome) => void;
-    setCurrentWeather: (weather: WeatherType) => void;
     setScreen: (screen: Screen) => void;
     onVersionedCharacter: VersionedCharacterCommit;
     onServerVersion: (version: unknown) => boolean;
     // Adopt the save version returned by the server-settled war-mission claim,
     // so the next autosave isn't rejected as stale.
 }) {
+    const onVersionedCharacterRef = useRef(onVersionedCharacter);
+    useLayoutEffect(() => { onVersionedCharacterRef.current = onVersionedCharacter; }, [onVersionedCharacter]);
     const [ceremony, setCeremony] = useState<{ title: string; prestige: boolean } | null>(null);
     const [warMissionPending, setWarMissionPending] = useState(false);
-    const raidLaunchInFlight = useRef(false);
+    const claimCooldownMs = useActionDeadline(missionClaimActionScope(character.name));
     const [fieldTrailPending, setFieldTrailPending] = useState<string | null>(null);
     const fieldClaimInFlight = useRef(false);
     const [claimingFieldMissionId, setClaimingFieldMissionId] = useState<string | null>(null);
@@ -89,6 +90,14 @@ export function Logbook({
         .filter((id) => builtinFetchMissions.some((mission) => mission.id === id))
         .sort()
         .join("|");
+    const acceptedFieldMissionIds = acceptedFieldMissionKey ? acceptedFieldMissionKey.split("|") : [];
+    const fieldTrailRefreshVersion = useFieldTrailRefreshVersion(character.name, acceptedFieldMissionIds);
+    const acceptedFieldRunKey = acceptedFieldMissionIds
+        .map((id) => `${id}:${character.serverFieldMissionRuns?.[id]?.runId ?? ""}`)
+        .join("|");
+    const fieldTrailScope = `${character.name.trim().toLowerCase()}|${acceptedFieldMissionKey}|${acceptedFieldRunKey}`;
+    const fieldTrailScopeRef = useRef(fieldTrailScope);
+    useLayoutEffect(() => { fieldTrailScopeRef.current = fieldTrailScope; }, [fieldTrailScope]);
     const dailyMissions = availableLogbookMissions.filter((mission) => mission.rank === "Daily");
     const logbookEvents = creatorEvents.filter((event) => (event.eventKind ?? "reward") !== "visualNovel");
     const logbookRaids = creatorRaids;
@@ -158,6 +167,7 @@ export function Logbook({
     }
 
     async function claimMissionOnce(mission: CreatorMission) {
+        if (claimCooldownMs > 0) return;
         const progress = missionProgress[mission.id] ?? 0;
         const raidReq = missionRaidRequirement(mission);
         const raidProgress = missionProgress[missionRaidProgressKey(mission.id)] ?? 0;
@@ -166,6 +176,7 @@ export function Logbook({
         if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`);
         const result = await postClaimMission(character.name, "field", mission.id);
         if (result === null) return alert("Could not reach the server. Try again.");
+        if (result.ok === false) return alert(claimHttpFailureMessage(result));
         if (result.applied === true) {
             if (!applySuccessfulMissionClaim(result)) return;
             setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
@@ -197,11 +208,11 @@ export function Logbook({
     }
 
     const adoptFieldTrail = useCallback((result: FieldTrailResult): boolean => {
-        if (!result.character || !onVersionedCharacter(result.character, result._saveVersion)) return false;
+        if (!result.character || !onVersionedCharacterRef.current(result.character, result._saveVersion)) return false;
         if (result.acceptedMissionIds) setAcceptedMissionIds(result.acceptedMissionIds);
         if (result.missionProgress) setMissionProgress(result.missionProgress);
         return true;
-    }, [onVersionedCharacter, setAcceptedMissionIds, setMissionProgress]);
+    }, [setAcceptedMissionIds, setMissionProgress]);
 
     async function acceptMission(mission: CreatorMission) {
         if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`);
@@ -220,7 +231,7 @@ export function Logbook({
             }
             if (!result.state) return alert("The Mission Hall did not issue an active run. Reopen the board before attempting this contract.");
             const raidReq = missionRaidRequirement(mission);
-            alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times${raidReq > 0 ? ` and raid the village ${raidReq} time(s)` : ""}.`);
+            alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times${raidReq > 0 ? ` and raid its mission outpost ${raidReq} time(s)` : ""}, then claim the reward.`);
         } finally {
             setFieldTrailPending(null);
         }
@@ -231,41 +242,16 @@ export function Logbook({
         alert(`${event.name} is narrative-only until its reward is published in the server catalog.`);
     }
 
-    async function startRaid(raid: CreatorRaid) {
+    function startRaid(raid: CreatorRaid) {
         if (character.level < raid.levelReq) return alert(`Requires level ${raid.levelReq}.`);
         if (!raid.targetSector || !raid.aiProfileId) return alert("This raid has not been published with a verified guard and sector.");
-        if (raidLaunchInFlight.current) return;
-        raidLaunchInFlight.current = true;
-        if (raid.targetSector) setCurrentSector(raid.targetSector);
-        setCurrentBiome(raid.biome);
-        setCurrentWeather(weatherForBiome(raid.biome));
-        try {
-            const raidProof = await mintAiRaidToken({
-                playerName: character.name,
-                opponentId: raid.aiProfileId,
-                sector: raid.targetSector,
-            });
-            if (!raidProof) return alert("The raid could not be verified. Try again in a moment.");
-            setCurrentSector(raidProof.sector);
-            if (!requestAiFight({
-                opponentId: raidProof.opponentId,
-                opponentLevel: raid.levelReq,
-                battleKind: "raidAi",
-                opponentName: raid.name,
-                sector: raidProof.sector,
-                raidToken: raidProof.token,
-            })) alert("The combat host is unavailable. Return to the Logbook and try again.");
-        } finally {
-            raidLaunchInFlight.current = false;
-        }
+        setSectorReopen(raid.targetSector);
+        setScreen("worldMap");
     }
 
     function goToWarGround() {
         if (!activeVillageWar) return alert("Your village is not in an active war.");
-        const biome = "central" as Biome;
-        setCurrentSector(activeVillageWar.warGroundSector);
-        setCurrentBiome(biome);
-        setCurrentWeather(weatherForSector(activeVillageWar.warGroundSector, biome));
+        setSectorReopen(activeVillageWar.warGroundSector);
         setScreen("worldMap");
     }
 
@@ -311,21 +297,31 @@ export function Logbook({
         }
     }
 
+    // Same trap as Missions: adoptFieldTrail changes identity every App render,
+    // so it is read through a ref to keep this sync from re-running (and
+    // spending the field-trail rate limit) on every render.
+    const adoptFieldTrailRef = useRef(adoptFieldTrail);
+    useEffect(() => { adoptFieldTrailRef.current = adoptFieldTrail; }, [adoptFieldTrail]);
     useEffect(() => {
         const owner = character.name;
         const ids = acceptedFieldMissionKey ? acceptedFieldMissionKey.split("|") : [];
         if (ids.length === 0) return;
         let cancelled = false;
+        const controller = new AbortController();
+        const requestScope = fieldTrailScope;
         void (async () => {
             for (const missionId of ids) {
-                const result = await postFieldTrail({ playerName: owner, missionId, action: "state" });
-                if (cancelled) return;
-                if (!adoptFieldTrail(result)) continue;
+                if (cancelled || fieldTrailScopeRef.current !== requestScope) return;
+                let result: FieldTrailResult;
+                try { result = await postFieldTrail({ playerName: owner, missionId, action: "state" }, controller.signal); }
+                catch { if (controller.signal.aborted) return; else continue; }
+                if (cancelled || fieldTrailScopeRef.current !== requestScope) return;
+                if (!adoptFieldTrailRef.current(result)) continue;
                 if (result.migrated) window.setTimeout(() => alert("The Mission Hall recalibrated an older field contract onto its verified ledger."), 40);
             }
         })();
-        return () => { cancelled = true; };
-    }, [acceptedFieldMissionKey, adoptFieldTrail, character.name]);
+        return () => { cancelled = true; controller.abort(); };
+    }, [acceptedFieldMissionKey, acceptedFieldRunKey, character.name, fieldTrailRefreshVersion, fieldTrailScope]);
 
     function startExamFight(aiId: string) {
         const ai = creatorAis.find((candidate) => candidate.id === aiId);
@@ -347,8 +343,10 @@ export function Logbook({
     // sealed reward (XP + ryo + stamina + Fate Shards), enforces the one-time
     // latch, and returns the amounts we mirror locally.
     async function claimAcademyReward() {
+        if (claimCooldownMs > 0) return;
         const result = await postClaimMission(character.name, "academy-checklist", "academy-checklist");
         if (result === null) return alert("Could not reach the server. Try again.");
+        if (result.ok === false) return alert(claimHttpFailureMessage(result));
         if (result.applied === false) return alert(claimReasonMessage(result.reason));
         if (!applySuccessfulMissionClaim(result)) return;
         const shards = result.reward.currency?.fateShards ?? 0;
@@ -426,7 +424,7 @@ export function Logbook({
                         <div className="logbook-requirement-grid">{academyChecklist.requirements.map(renderRequirement)}</div>
                         {academyComplete && (
                             <div className="menu">
-                                <button className="start-primary-btn academy-reward-btn" onClick={claimAcademyReward}>Claim Academy Reward</button>
+                                <button className="start-primary-btn academy-reward-btn" disabled={claimCooldownMs > 0} onClick={claimAcademyReward}>{claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Academy Reward"}</button>
                             </div>
                         )}
                     </section>
@@ -513,7 +511,7 @@ export function Logbook({
                                 <p>{mission.description}</p>
                                 <div className="mission-progress"><span style={{ width: `${progressPercent}%` }}></span></div>
                                 <div className="menu">
-                                    {!accepted ? <button disabled={fieldTrailPending !== null || claimingFieldMissionId !== null} onClick={() => { void acceptMission(mission); }}>Accept</button> : complete ? <button disabled={claimingFieldMissionId !== null} onClick={() => { void claimMission(mission); }}>{claimingFieldMissionId === mission.id ? "Claimingâ€¦" : "Claim Reward"}</button> : <button onClick={() => setScreen("worldMap")}>Go To Sector {mission.targetSector}</button>}
+                                    {!accepted ? <button disabled={fieldTrailPending !== null || claimingFieldMissionId !== null} onClick={() => { void acceptMission(mission); }}>Accept</button> : complete ? <button disabled={claimingFieldMissionId !== null || claimCooldownMs > 0} onClick={() => { void claimMission(mission); }}>{claimingFieldMissionId === mission.id ? "Claimingâ€¦" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</button> : <button onClick={() => setScreen("worldMap")}>Go To Sector {mission.targetSector}</button>}
                                 </div>
                             </div>
                         );
@@ -546,7 +544,7 @@ export function Logbook({
                                 <small>{raid.waves} waves | Lvl {raid.levelReq} | {raid.biome}</small>
                                 <small>Boss: {raidAi?.name ?? raid.aiProfileId ?? "Default arena AI"} | Reward: {rewardSummary(raid.ryoReward, raid.staminaReward, raid.currencyRewards, character)}</small>
                                 <p>{raid.description}</p>
-                                <div className="menu"><button onClick={() => startRaid(raid)}>Start Raid</button></div>
+                                <div className="menu"><button onClick={() => startRaid(raid)}>Go to raid sector</button></div>
                             </div>
                         );
                     })}</div>
@@ -566,6 +564,7 @@ export function Logbook({
                         const raidReq = missionRaidRequirement(mission);
                         const raidProgress = missionProgress[missionRaidProgressKey(mission.id)] ?? 0;
                         const complete = progress >= mission.exploreCount && raidProgress >= raidReq;
+                        const nextAction = fieldMissionNextAction(mission, progress, raidProgress, currentSector);
                         const progressPercent = Math.min(100, ((Math.min(mission.exploreCount, progress) + Math.min(raidReq, raidProgress)) / Math.max(1, mission.exploreCount + raidReq)) * 100);
                         const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus);
                         const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus);
@@ -576,9 +575,17 @@ export function Logbook({
                                 <small>Sector {mission.targetSector} | Explore {progress}/{mission.exploreCount}{raidReq > 0 ? ` | Raid ${raidProgress}/${raidReq}` : ""}</small>
                                 <small>Lvl {mission.levelReq} | {rewardSummary(boostedRyo, boostedStamina, mission.currencyRewards, character)}</small>
                                 <p>{mission.description}</p>
+                                <p><strong>Next:</strong> {nextAction.instruction}</p>
                                 <div className="mission-progress"><span style={{ width: `${progressPercent}%` }}></span></div>
                                 <div className="menu">
-                                    {complete ? <button disabled={claimingFieldMissionId !== null} onClick={() => { void claimMission(mission); }}>{claimingFieldMissionId === mission.id ? "Claimingâ€¦" : "Claim Reward"}</button> : <button onClick={() => setScreen("worldMap")}>Go To Sector {mission.targetSector}</button>}
+                                    {complete ? <button disabled={claimingFieldMissionId !== null || claimCooldownMs > 0} onClick={() => { void claimMission(mission); }}>{claimingFieldMissionId === mission.id ? "Claimingâ€¦" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</button> : <button onClick={() => {
+                                        writeFieldMissionNavigationIntent(character.name, {
+                                            missionId: mission.id,
+                                            targetSector: mission.targetSector,
+                                            objective: nextAction.objective,
+                                        });
+                                        setScreen("worldMap");
+                                    }}>{nextAction.label}</button>}
                                     <button className="danger-button" disabled={fieldTrailPending !== null || claimingFieldMissionId !== null} onClick={() => { void abandonMission(mission.id); }}>Abandon</button>
                                 </div>
                             </div>

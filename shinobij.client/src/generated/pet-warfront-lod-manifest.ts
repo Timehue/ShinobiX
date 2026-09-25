@@ -186,6 +186,11 @@ export const WARFRONT_PET_LOD_MANIFEST = {
         "sourceTriangles": 22328,
         "lodTriangles": 12000
     },
+    "/pet-models/roster/mythic-15.glb": {
+        "lodUrl": "/pet-models/warfront-lod/roster/mythic-15.glb?v=20260902-battle-lod-v1-568bc3dc23ba-tx1024-08e221b972f2",
+        "sourceTriangles": 39718,
+        "lodTriangles": 16948
+    },
     "/pet-models/roster/mythic-2.glb": {
         "lodUrl": "/pet-models/warfront-lod/roster/mythic-2.glb?v=20260902-battle-lod-v1",
         "sourceTriangles": 40000,
