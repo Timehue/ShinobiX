@@ -116,7 +116,7 @@ describe('refusals: a friendly 429 and a once-a-minute summary log', () => {
         assert.equal(rl.enforceRateLimit(req, res, bucket, 1, 60_000, 'kaya'), false);
         assert.equal(reply.status, 429);
         assert.equal(reply.body?.code, 'RATE_LIMITED');
-        assert.match(String(reply.body?.error), /^You're going a little fast — try again in \d+s\.$/);
+        assert.match(String(reply.body?.error), /^This action is temporarily unavailable\. Try again in \d+s\.$/);
         assert.equal(typeof reply.body?.retryAfterMs, 'number');
     });
 

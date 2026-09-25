@@ -1,6 +1,7 @@
 import { before, beforeEach, after, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { projectKvValue } from '../_storage-projection.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -105,6 +106,54 @@ describe('Sunscar Exchange market pages', { concurrency: false }, () => {
         const times = seen.map(id => Number.parseInt(id, 16));
         assert.deepEqual(times, [...times].sort((a, b) => b - a));
     });
+
+    for (const count of [100, 500, 2_000]) {
+        it(`measures projected browse reads at ${count} live listings`, async () => {
+            await seedListings(count);
+            const originalHgetall = kv.hgetall.bind(kv);
+            const originalMget = kv.mget.bind(kv);
+            const originalProjected = kv.mgetProjected;
+            const metrics = { indexReads: 0, projectedBatches: 0, projectedRows: 0, projectedBytes: 0, fullPageReads: 0, fullRows: 0, fullBytes: 0 };
+            kv.hgetall = (async <T>(key: string): Promise<T | null> => {
+                const value = await originalHgetall<T>(key);
+                if (key === 'sunscar-exchange:live') metrics.indexReads += 1;
+                return value;
+            }) as typeof kv.hgetall;
+            kv.mgetProjected = async (keys, projection) => {
+                metrics.projectedBatches += 1;
+                const values = await originalMget(...keys);
+                const projected = values.map((value) => projectKvValue(value, projection));
+                metrics.projectedRows += projected.length;
+                metrics.projectedBytes += Buffer.byteLength(JSON.stringify(projected));
+                return projected;
+            };
+            kv.mget = (async <T extends unknown[]>(...keys: string[]) => {
+                const values = await originalMget<T>(...keys);
+                if (keys.length > 0 && keys.every((key) => key.startsWith('sunscar-exchange:listing:'))) {
+                    metrics.fullPageReads += 1;
+                    metrics.fullRows += values.filter(Boolean).length;
+                    metrics.fullBytes += Buffer.byteLength(JSON.stringify(values));
+                }
+                return values;
+            }) as typeof kv.mget;
+            try {
+                const out = await market('shopper');
+                assert.equal(out.status, 200, JSON.stringify(out.body));
+                assert.equal(out.body.market.total, count);
+                assert.equal(metrics.indexReads, 1);
+                assert.equal(metrics.projectedRows, count);
+                assert.equal(metrics.projectedBatches, Math.ceil(count / 500));
+                assert.equal(metrics.fullPageReads, 1);
+                assert.equal(metrics.fullRows, Math.min(count, PAGE));
+                console.log(`[exchange-market-read-benchmark] live=${count} indexReads=${metrics.indexReads} projectedBatches=${metrics.projectedBatches} projectedRows=${metrics.projectedRows} projectedBytes=${metrics.projectedBytes} fullPageRows=${metrics.fullRows} fullPageBytes=${metrics.fullBytes}`);
+            } finally {
+                kv.hgetall = originalHgetall as typeof kv.hgetall;
+                kv.mget = originalMget as typeof kv.mget;
+                if (originalProjected) kv.mgetProjected = originalProjected;
+                else delete kv.mgetProjected;
+            }
+        });
+    }
 
     it('orders tied listings the same way on every request, so paging is stable', async () => {
         await seedListings(24, () => ({ price: 500, createdAt: 1_790_000_000_000, rarity: 'rare' }));

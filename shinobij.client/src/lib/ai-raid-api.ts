@@ -1,5 +1,6 @@
 import { newWorldRewardRequestId } from "./world-reward-api";
 import { playerSlug } from "./utils";
+import { raidStartActionScope, startActionDeadline } from "./action-deadline-store";
 
 type AiRaidLaunchStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
@@ -11,6 +12,7 @@ type PendingAiRaidLaunch = {
     playerName: string;
     opponentId: string;
     sector: number;
+    missionId?: string;
     createdAt: number;
     token?: string;
 };
@@ -23,6 +25,18 @@ export type AiRaidLaunchProof = {
     source?: string;
     replayed: boolean;
 };
+
+export type AiRaidLaunchResult =
+    | ({ ok: true } & AiRaidLaunchProof)
+    | {
+        ok: false;
+        status: number;
+        requestId: string;
+        reason: string;
+        code?: string;
+        retryAfterMs?: number;
+        error?: string;
+    };
 
 const volatileLaunches = new Map<string, PendingAiRaidLaunch[]>();
 const playerKey = (name: string) => playerSlug(name);
@@ -81,12 +95,13 @@ function beginAiRaidLaunch(
     playerName: string,
     opponentId: string,
     sector: number,
+    missionId?: string,
     storage: AiRaidLaunchStorage | null = defaultStorage(),
 ): PendingAiRaidLaunch {
     const launches = readLaunches(playerName, storage);
-    const prior = launches.find((entry) => entry.opponentId === opponentId && entry.sector === sector);
+    const prior = launches.find((entry) => entry.opponentId === opponentId && entry.sector === sector && entry.missionId === missionId);
     if (prior) return prior;
-    const launch = { requestId: newWorldRewardRequestId(), playerName, opponentId, sector, createdAt: Date.now() };
+    const launch = { requestId: newWorldRewardRequestId(), playerName, opponentId, sector, ...(missionId ? { missionId } : {}), createdAt: Date.now() };
     writeLaunches(playerName, [...launches, launch], storage);
     return launch;
 }
@@ -114,18 +129,24 @@ export async function mintAiRaidToken(params: {
     playerName: string;
     opponentId: string;
     sector: number;
-}): Promise<AiRaidLaunchProof | null> {
-    if (!params.playerName || !params.opponentId || !Number.isSafeInteger(params.sector)) return null;
-    const launch = beginAiRaidLaunch(params.playerName, params.opponentId, params.sector);
+    missionId?: string;
+}): Promise<AiRaidLaunchResult> {
+    const missionId = typeof params.missionId === "string" ? params.missionId.trim() : "";
+    const opponentKey = missionId ? `mission_${missionId}` : params.opponentId;
+    if (!params.playerName || !opponentKey || !Number.isSafeInteger(params.sector)
+        || (missionId && !/^[A-Za-z0-9_-]{1,96}$/.test(missionId))) {
+        return { ok: false, status: 0, requestId: "", reason: "invalid-request", code: "INVALID_REQUEST" };
+    }
+    const launch = beginAiRaidLaunch(params.playerName, opponentKey, params.sector, missionId || undefined);
     try {
         const response = await fetch("/api/missions/raid-start", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 playerName: params.playerName,
-                aiId: params.opponentId,
                 sector: params.sector,
                 requestId: launch.requestId,
+                ...(missionId ? { missionId } : { aiId: params.opponentId }),
             }),
         });
         const data = await response.json().catch(() => null) as {
@@ -137,24 +158,64 @@ export async function mintAiRaidToken(params: {
             source?: string;
             replayed?: boolean;
             reason?: string;
+            error?: string;
+            code?: string;
+            errorCode?: string;
+            retryAfterMs?: number;
         } | null;
         const sealedSector = Math.floor(Number(data?.sector));
+        const retryAfterMs = Number.isFinite(data?.retryAfterMs) && Number(data?.retryAfterMs) > 0
+            ? Math.ceil(Number(data?.retryAfterMs))
+            : undefined;
         if (!response.ok) {
             if (response.status === 409
                 && data?.requestId === launch.requestId
                 && (data.reason === "raid-launch-expired" || data.reason === "raid-launch-spent")) {
                 retireAiRaidLaunchRequest(params.playerName, launch.requestId);
             }
-            return null;
+            if (retryAfterMs) startActionDeadline(raidStartActionScope(params.playerName), retryAfterMs);
+            return {
+                ok: false,
+                status: response.status,
+                requestId: launch.requestId,
+                reason: data?.reason ?? data?.code ?? data?.errorCode ?? "raid-start-rejected",
+                ...(data?.code || data?.errorCode ? { code: data.code ?? data.errorCode } : {}),
+                ...(retryAfterMs ? { retryAfterMs } : {}),
+                ...(data?.error ? { error: data.error } : {}),
+            };
+        }
+        if (data?.reason === "daily-mint-cap" && data.token === null) {
+            retireAiRaidLaunchRequest(params.playerName, launch.requestId);
+            if (retryAfterMs) startActionDeadline(raidStartActionScope(params.playerName), retryAfterMs);
+            return {
+                ok: false,
+                status: response.status,
+                requestId: launch.requestId,
+                reason: data.reason,
+                ...(data.code ? { code: data.code } : {}),
+                ...(retryAfterMs ? { retryAfterMs } : {}),
+                ...(data.error ? { error: data.error } : {}),
+            };
         }
         if (data?.ok !== true || data.requestId !== launch.requestId
             || !data.token || !data.opponentId
-            || !Number.isSafeInteger(sealedSector) || sealedSector < 1) return null;
+            || !Number.isSafeInteger(sealedSector) || sealedSector < 1) {
+            return {
+                ok: false,
+                status: response.status,
+                requestId: launch.requestId,
+                reason: data?.reason ?? "malformed-response",
+                ...(data?.code || data?.errorCode ? { code: data.code ?? data.errorCode } : {}),
+                ...(retryAfterMs ? { retryAfterMs } : {}),
+                ...(data?.error ? { error: data.error } : {}),
+            };
+        }
         const launches = readLaunches(params.playerName);
         writeLaunches(params.playerName, launches.map((entry) => entry.requestId === launch.requestId
             ? { ...entry, token: data.token! }
             : entry), defaultStorage());
         return {
+            ok: true,
             requestId: launch.requestId,
             token: data.token,
             opponentId: data.opponentId,
@@ -163,6 +224,36 @@ export async function mintAiRaidToken(params: {
             replayed: data.replayed === true,
         };
     } catch {
-        return null;
+        return {
+            ok: false,
+            status: 0,
+            requestId: launch.requestId,
+            reason: "network-error",
+            code: "NETWORK_ERROR",
+        };
+    }
+}
+
+export function aiRaidLaunchFailureMessage(failure: Extract<AiRaidLaunchResult, { ok: false }>): string {
+    const retrySeconds = failure.retryAfterMs ? Math.max(1, Math.ceil(failure.retryAfterMs / 1000)) : 0;
+    if (failure.status === 429 || failure.code === "RATE_LIMITED") {
+        return `Raid launches are cooling down. Try again in ${retrySeconds || 1}s.`;
+    }
+    switch (failure.reason) {
+        case "mission-raid-encounter-unavailable": return "This field mission needs an authored outpost opponent before its raid can begin.";
+        case "mission-raid-not-accepted": return "Accept this field mission before raiding its outpost.";
+        case "mission-raid-sector-mismatch": return "Travel to this field mission's target sector before raiding its outpost.";
+        case "mission-raid-objective-not-ready": return "Complete the field sweeps before raiding this mission outpost.";
+        case "daily-mint-cap": return "Today's raid launch cap has been reached. It resets at midnight UTC.";
+        case "sector-mismatch": return "Travel to the raid's sector before launching it.";
+        case "no-presence": return "Your world location is still syncing. Wait a moment, then try the raid again.";
+        case "battle-active":
+        case "tower-battle-active": return "Finish or recover your active battle before starting a raid.";
+        case "raid-launch-expired": return "That raid launch expired before combat began. Start the raid again.";
+        case "raid-launch-spent": return "That raid launch has already been used. Start a new raid if you still want to continue.";
+        case "network-error": return "The server could not confirm the raid launch. Your request is saved; retrying will use the same launch identity.";
+        default:
+            if (failure.status >= 500 || failure.status === 0) return "The server could not verify the raid right now. Try again in a moment.";
+            return failure.error ?? "The raid could not be verified. Try again.";
     }
 }

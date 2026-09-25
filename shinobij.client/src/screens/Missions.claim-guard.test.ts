@@ -22,7 +22,10 @@ describe("Mission Hall claim guard", () => {
         // State updates are asynchronous: two taps in the same tick would both read the
         // stale value and both proceed. Only a ref flips synchronously.
         assert.match(missionsSource, /const claimInFlightRef = useRef\(false\);/);
-        assert.match(missionsSource, /if \(claimInFlightRef\.current\) return;\s*claimInFlightRef\.current = true;/);
+        assert.match(
+            missionsSource,
+            /if \(claimInFlightRef\.current \|\| claimCooldownMs > 0\) return;\s*claimInFlightRef\.current = true;/,
+        );
     });
 
     it("always releases the guard, including when a claim throws", () => {
@@ -57,7 +60,7 @@ describe("Mission Hall claim guard", () => {
         // Global rather than per-mission on purpose: each claim mutates the same
         // character and the same daily-mission counter, so two concurrent claims can
         // both pass hasDailyMissionSlot.
-        const disabled = missionsSource.match(/disabled=\{claimingKey !== null\}/g) ?? [];
+        const disabled = missionsSource.match(/disabled=\{claimingKey !== null \|\| claimCooldownMs > 0\}/g) ?? [];
         assert.equal(disabled.length, 3, "all three claim buttons must disable during a claim");
     });
 });

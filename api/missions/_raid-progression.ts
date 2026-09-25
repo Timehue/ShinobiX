@@ -320,3 +320,46 @@ export async function settleRaidProgression(params: {
         territory,
     };
 }
+
+/** A field mission outpost raid is mission progress only; it is never war raid progression. */
+export async function settleMissionOutpostRaid(params: {
+    playerName: string;
+    missionId: string;
+    missionRunId?: string;
+    proofId: string;
+    proofAt: number;
+    sector: number;
+}): Promise<RaidProgressionSettlement> {
+    const proofId = typeof params.proofId === 'string' ? params.proofId.trim().slice(0, 220) : '';
+    const missionId = typeof params.missionId === 'string' ? params.missionId.trim().slice(0, 96) : '';
+    const proofAt = Number(params.proofAt);
+    const sector = Math.floor(Number(params.sector));
+    if (!proofId || !/^[A-Za-z0-9_-]{1,96}$/.test(missionId)
+        || !Number.isSafeInteger(proofAt) || proofAt <= 0 || !Number.isSafeInteger(sector)) {
+        throw new Error('invalid-mission-outpost-raid-proof');
+    }
+    const save = await kv.get<Record<string, unknown>>(`save:${params.playerName}`);
+    if (!save?.character) throw new Error('raid-progression-save-missing');
+    const fetchMissionsCredited = await creditFieldRaidProgress({
+        playerName: params.playerName,
+        save,
+        proofId,
+        proofAt,
+        raidSector: sector,
+        missionId,
+        missionRunId: params.missionRunId,
+    });
+    return {
+        version: 1,
+        proofId,
+        proofAt,
+        fetchMissionsCredited,
+        xpAwarded: 0,
+        missionsCompleted: [],
+        bonusRyo: 0,
+        bonusSeals: 0,
+        territoryDamage: 0,
+        sector,
+        settledAt: Date.now(),
+    };
+}
