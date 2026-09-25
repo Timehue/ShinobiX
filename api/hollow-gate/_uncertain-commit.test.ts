@@ -185,7 +185,7 @@ for (const won of [false, true]) for (const commit of [false, true]) {
         const run = { ...f.run, activeEncounter: binding };
         await kv.set(f.runKey, run);
         await kv.set(hollowGateCombatBindingKey(binding.runId), binding);
-        await kv.set(hollowGatePetResultKey(f.name, proofId), { version: 1, engine: 'cinematic', proofId,
+        await kv.set(hollowGatePetResultKey(f.name, proofId), { version: 1, engine: binding.petAuthority!.engine, proofId,
             playerName: f.name, runId: binding.runId, outcome: won ? 'win' : 'loss', playerPetIds: [], settledAt: Date.now() });
         const combat = (await import('./combat-settle.js')).default as unknown as Handler;
         const assertFault = commit ? loseCommitAndFirstReadback(t, f.saveKey) : rejectBeforeCommit(t, f.saveKey);

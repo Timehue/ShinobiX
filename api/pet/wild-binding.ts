@@ -118,6 +118,16 @@ async function closeDiscovery(playerName: string, token: string, resolution: 'be
     }, { failClosed: true });
 }
 
+/** A finished battle's discovery close runs after the battle lock, so a lock
+ * timeout, storage error or restart there leaves the Explore hit "active" for
+ * its whole pointer TTL, blocking Explore. Every read of a finished battle
+ * retries the close. It only touches this token's rows, so repeating it after
+ * a success (or after a newer discovery) changes nothing. */
+async function closeFinishedDiscovery(playerName: string, token: string, session: WildSession) {
+    if (!session.finished) return;
+    await closeDiscovery(playerName, token, session.wild.lastAttempt?.success ? 'befriended' : 'declined');
+}
+
 function receiptFor(character: Record<string, unknown>, token: string, id: string) {
     const receipts = Array.isArray(character.redeemedPetEncounters)
         ? character.redeemedPetEncounters as string[] : [];
@@ -177,6 +187,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return { session: battle, character };
             }, { failClosed: true });
             if ('error' in result) return res.status(result.status ?? 409).json({ error: result.error });
+            await closeFinishedDiscovery(playerName, token, result.session);
             return res.status(200).json({ ok: true, ...publicView(result.session, result.character) });
         }
 
@@ -185,6 +196,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 kv.get<WildSession>(key), kv.get<Record<string, unknown>>(`save:${playerName}`),
             ]);
             if (!session || session.playerName !== playerName || !save?.character) return res.status(404).json({ error: 'No wild battle found.' });
+            await closeFinishedDiscovery(playerName, token, session);
             return res.status(200).json({ ok: true, ...publicView(session, save.character as Record<string, unknown>) });
         }
 
