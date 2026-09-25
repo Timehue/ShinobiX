@@ -51,6 +51,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 && previous.state?.rulesVersion === CHRONICLE_RULES_VERSION) {
                 return { status: 200, body: { ok: true, matchId: previousId, resumed: true } };
             }
+            const rawLevel = save.character.level;
+            const playerLevel = rawLevel == null ? 20 : Math.max(1, Math.floor(Number(rawLevel) || 1));
+            if (playerLevel < 20) {
+                return { status: 409, body: { error: 'Chronicle Rift ambushes unlock at level 20.' } };
+            }
             const deck = await resolveChronicleDeckWithSave(playerName, [], identity.admin);
             if (!deck) return { status: 409, body: { error: 'No legal Chronicle deck is available.' } };
             const matchId = randomUUID();
