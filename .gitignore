@@ -503,3 +503,9 @@ Desktop.ini
 # Generated storefront card art (upload artifacts, not source).
 # Regenerate with: node scripts/gen-store-art.mjs
 store-art/
+
+# Flutter Android shell (mobile/). Its template keeps a debug-only manifest in a
+# folder the Visual Studio `[Dd]ebug/` rule above would silently drop. Build
+# output and keystores are ignored by mobile/.gitignore and
+# mobile/android/.gitignore.
+!mobile/android/app/src/debug/
