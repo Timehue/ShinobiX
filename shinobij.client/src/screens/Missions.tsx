@@ -1,6 +1,6 @@
 import { gainXp } from "../lib/character-level-projection";
 import { gameToast } from "../components/GameToast";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import "../styles/hub-screens-skin.css";
 import type React from "react";
 import type { CSSProperties } from "react";
@@ -21,10 +21,13 @@ import { ClaimImpactNotice } from "../components/ClaimImpactNotice";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { dailyMissionsCompleted, hasDailyMissionSlot } from "../lib/character-progress";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
-import { builtinFetchMissions, mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement, sortFieldMissions } from "../data/missions";
+import { builtinFetchMissions, fieldMissionNextAction, mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement, sortFieldMissions } from "../data/missions";
+import { writeFieldMissionNavigationIntent } from "../lib/field-mission-navigation";
 import { COMBAT_MISSIONS, type CombatMission } from "../data/combat-missions";
 
-import { postClaimMission, applyServerMissionReward, claimReasonMessage } from "../lib/claim-mission";
+import { postClaimMission, applyServerMissionReward, claimReasonMessage, claimHttpFailureMessage } from "../lib/claim-mission";
+import { missionClaimActionScope } from "../lib/action-deadline-store";
+import { useActionDeadline } from "../lib/use-action-deadline";
 import { commitAuthoritativeMissionClaim } from "../lib/versioned-mission-claim";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { questbookEntry, questbookStage, metricLabel } from "../lib/questbook";
@@ -41,6 +44,7 @@ import type { GameItem, SavedBloodline, Jutsu } from "../types/combat";
 import { enqueueClaim, removeClaim } from "../lib/claim-outbox";
 import { queueCombatMissionClaim } from "../lib/mission-combat-claim";
 import { postFieldTrail, type FieldTrailResult } from "../lib/field-trail-api";
+import { useFieldTrailRefreshVersion } from "../lib/use-field-trail-refresh";
 import missionHallArt from "../assets/facilities/mission-hall.webp";
 import { sectorArtKey, sectorName, sectorRegionLabel } from "../../../shared/sector-geo";
 import { handleHorizontalTabKeyDown } from "../lib/tab-keyboard";
@@ -58,6 +62,7 @@ export function Missions({
     acceptedMissionIds,
     setAcceptedMissionIds,
     missionProgress,
+    currentSector = 0,
     setMissionProgress,
     setScreen,
     onBack,
@@ -77,6 +82,7 @@ export function Missions({
     acceptedMissionIds: string[];
     setAcceptedMissionIds: React.Dispatch<React.SetStateAction<string[]>>;
     missionProgress: Record<string, number>;
+    currentSector?: number;
     setMissionProgress: React.Dispatch<React.SetStateAction<Record<string, number>>>;
     setScreen: (screen: Screen) => void;
     onBack: () => void;
@@ -87,6 +93,9 @@ export function Missions({
     savedBloodlines?: SavedBloodline[];
     creatorJutsus?: Jutsu[];
 }) {
+    const onVersionedCharacterRef = useRef(onVersionedCharacter);
+    useLayoutEffect(() => { onVersionedCharacterRef.current = onVersionedCharacter; }, [onVersionedCharacter]);
+    const claimCooldownMs = useActionDeadline(missionClaimActionScope(character.name));
     const missionRewardBonus = getMissionRewardBonus(character) + getActiveAuraSphereBonuses(character).missionRewardPercent;
     const [authoritativeFight, setAuthoritativeFight] = useState<{ mission: CombatMission; runId: string; session: SoloPveSession } | null>(null);
     const onMissionBattleEndRef = useRef(onMissionBattleEnd);
@@ -119,7 +128,7 @@ export function Missions({
     const [claimingKey, setClaimingKey] = useState<string | null>(null);
     const [lastClaim, setLastClaim] = useState<{ title: string; reward: string } | null>(null);
     const runClaim = useCallback(async (key: string, claim: () => Promise<void>) => {
-        if (claimInFlightRef.current) return;
+        if (claimInFlightRef.current || claimCooldownMs > 0) return;
         claimInFlightRef.current = true;
         setClaimingKey(key);
         try {
@@ -130,17 +139,25 @@ export function Missions({
             claimInFlightRef.current = false;
             setClaimingKey(null);
         }
-    }, []);
+    }, [claimCooldownMs]);
     const adoptFieldTrail = useCallback((result: FieldTrailResult): boolean => {
-        if (!result.character || !onVersionedCharacter(result.character, result._saveVersion)) return false;
+        if (!result.character || !onVersionedCharacterRef.current(result.character, result._saveVersion)) return false;
         if (result.acceptedMissionIds) setAcceptedMissionIds(result.acceptedMissionIds);
         if (result.missionProgress) setMissionProgress(result.missionProgress);
         return true;
-    }, [onVersionedCharacter, setAcceptedMissionIds, setMissionProgress]);
+    }, [setAcceptedMissionIds, setMissionProgress]);
     const acceptedFieldMissionKey = acceptedMissionIds
         .filter((id) => builtinFetchMissions.some((mission) => mission.id === id))
         .sort()
         .join("|");
+    const acceptedFieldMissionIds = acceptedFieldMissionKey ? acceptedFieldMissionKey.split("|") : [];
+    const fieldTrailRefreshVersion = useFieldTrailRefreshVersion(character.name, acceptedFieldMissionIds);
+    const acceptedFieldRunKey = acceptedFieldMissionIds
+        .map((id) => `${id}:${character.serverFieldMissionRuns?.[id]?.runId ?? ""}`)
+        .join("|");
+    const fieldTrailScope = `${character.name.trim().toLowerCase()}|${acceptedFieldMissionKey}|${acceptedFieldRunKey}`;
+    const fieldTrailScopeRef = useRef(fieldTrailScope);
+    useLayoutEffect(() => { fieldTrailScopeRef.current = fieldTrailScope; }, [fieldTrailScope]);
 
     async function startMissionBattle(mission: CombatMission) {
         if (character.level < mission.min) return alert(`Requires level ${mission.min}.`);
@@ -207,16 +224,21 @@ export function Missions({
         const ids = acceptedFieldMissionKey ? acceptedFieldMissionKey.split("|") : [];
         if (ids.length === 0) return;
         let cancelled = false;
+        const controller = new AbortController();
+        const requestScope = fieldTrailScope;
         void (async () => {
             for (const missionId of ids) {
-                const result = await postFieldTrail({ playerName: owner, missionId, action: "state" });
-                if (cancelled) return;
+                if (cancelled || fieldTrailScopeRef.current !== requestScope) return;
+                let result: FieldTrailResult;
+                try { result = await postFieldTrail({ playerName: owner, missionId, action: "state" }, controller.signal); }
+                catch { if (controller.signal.aborted) return; else continue; }
+                if (cancelled || fieldTrailScopeRef.current !== requestScope) return;
                 if (!adoptFieldTrailRef.current(result)) continue;
                 if (result.migrated) window.setTimeout(() => alert("The Mission Hall recalibrated an older field contract onto its verified ledger."), 40);
             }
         })();
-        return () => { cancelled = true; };
-    }, [acceptedFieldMissionKey, character.name]);
+        return () => { cancelled = true; controller.abort(); };
+    }, [acceptedFieldMissionKey, acceptedFieldRunKey, character.name, fieldTrailRefreshVersion, fieldTrailScope]);
 
     if (authoritativeFight) {
         return (
@@ -266,6 +288,7 @@ export function Missions({
         if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`);
         const result = await postClaimMission(character.name, "combat", mission.key);
         if (result === null) return alert("Could not reach the server. Try again.");
+        if (result.ok === false) return alert(claimHttpFailureMessage(result));
         if (result.applied === false) {
             // Stale-flag trap: the server self-heals by clearing its durable pending
             // flag and returning this reason (the authority token expired / predates
@@ -286,8 +309,10 @@ export function Missions({
     // reward that teaches the do→return→claim loop. Sets academyTrialClaimed, which
     // advances the OnboardingCoach firstMission → logbook beat.
     async function claimAcademyTrial() {
+        if (claimCooldownMs > 0) return;
         const result = await postClaimMission(character.name, "academy-trial", "academy-trial");
         if (result === null) return alert("Could not reach the server. Try again.");
+        if (result.ok === false) return alert(claimHttpFailureMessage(result));
         if (result.applied === false) return alert(claimReasonMessage(result.reason));
         if (!applySuccessfulMissionClaim(result)) return;
         gameToast(`Academy Trial complete! ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character)}. Now open your Logbook to see your goals.`, { kind: "success" });
@@ -318,7 +343,7 @@ export function Missions({
             }
             if (!result.state) return alert("The Mission Hall did not issue an active run. Reopen the board before attempting this contract.");
             const raidReq = missionRaidRequirement(mission);
-            alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times${raidReq > 0 ? ` and raid the village ${raidReq} time(s)` : ""}, then return to the Mission Hall to claim the posted reward.`);
+            alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times${raidReq > 0 ? ` and raid its Mission Outpost ${raidReq} time(s)` : ""}. Claim the reward at the Mission Hall.`);
         } finally {
             setFieldTrailPending(null);
         }
@@ -351,6 +376,7 @@ export function Missions({
         if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`);
         const result = await postClaimMission(character.name, "field", mission.id);
         if (result === null) return alert("Could not reach the server. Try again.");
+        if (result.ok === false) return alert(claimHttpFailureMessage(result));
         if (result.applied === true) {
             if (!applySuccessfulMissionClaim(result)) return;
             setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
@@ -464,10 +490,10 @@ export function Missions({
                         className="start-primary-btn academy-click-target"
                         data-academy-hint="Next · claim reward"
                         data-academy-autoscroll="true"
-                        disabled={claimingKey !== null}
+                        disabled={claimingKey !== null || claimCooldownMs > 0}
                         onClick={() => { void runClaim("academy-trial", claimAcademyTrial); }}
                     >
-                        {claimingKey === "academy-trial" ? "Claiming…" : "Claim Academy Trial Reward"}
+                        {claimingKey === "academy-trial" ? "Claiming…" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Academy Trial Reward"}
                     </button>
                 </section>
             )}
@@ -583,10 +609,10 @@ export function Missions({
                                 {claimable
                                     ? <button
                                         className="mh-combat-btn mh-claim-btn"
-                                        disabled={claimingKey !== null}
+                                        disabled={claimingKey !== null || claimCooldownMs > 0}
                                         onClick={() => { void runClaim(`combat:${mission.key}`, () => claimCombatMission(mission)); }}
                                     >
-                                        <span className="mh-combat-btn-label">{claimingKey === `combat:${mission.key}` ? "Claiming…" : "✅ Claim Reward"}</span>
+                                        <span className="mh-combat-btn-label">{claimingKey === `combat:${mission.key}` ? "Claiming…" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "✅ Claim Reward"}</span>
                                         {/* The label is sr-only under 700px, where the button collapses to a
                                             44px glyph column. A check instead of the ordinary chevron is the
                                             only thing separating "collect" from "go" at that width. */}
@@ -629,6 +655,7 @@ export function Missions({
                             const complete = progress >= mission.exploreCount && raidProgress >= raidReq;
                             const totalRequired = mission.exploreCount + raidReq;
                             const totalProgress = Math.min(mission.exploreCount, progress) + Math.min(raidReq, raidProgress);
+                            const nextAction = fieldMissionNextAction(mission, progress, raidProgress, currentSector);
                             const progressPct = Math.min(100, (totalProgress / Math.max(1, totalRequired)) * 100);
                             const recommended = showRookieOrders && mission.id === "fetch-d-supply-trail" && !accepted;
                             const locked = character.level < mission.levelReq;
@@ -661,6 +688,7 @@ export function Missions({
                                         </div>
                                         {recommended && <span className="mh-recommended-badge">Recommended First Field Mission</span>}
                                         <p className="mh-field-description">{mission.description}</p>
+                                        {recommended && <p className="mh-field-next-step">Explore Sector 18 three times. Raid Mission Outpost there. Claim the reward at the Mission Hall.</p>}
                                         <div className="mh-field-objectives" aria-label="Mission objectives">
                                             <span><small>Sweep</small><strong>×{mission.exploreCount}</strong></span>
                                             {raidReq > 0 && <span><small>Raid</small><strong>×{raidReq}</strong></span>}
@@ -680,6 +708,7 @@ export function Missions({
                                                 </div>
                                             </div>
                                         )}
+                                        {accepted && <p className="mh-field-next-step mh-field-next-step-desktop"><strong>Next:</strong> {nextAction.instruction}</p>}
                                         <div className="mh-fetch-actions">
                                             {!accepted
                                                 ? <button className="mh-field-primary-action" disabled={fieldTrailPending !== null || locked} onClick={() => { void acceptFetchMission(mission); }}>
@@ -689,17 +718,24 @@ export function Missions({
                                                 : complete
                                                     ? <button
                                                         className="mh-claim-btn mh-field-primary-action"
-                                                        disabled={claimingKey !== null}
+                                                        disabled={claimingKey !== null || claimCooldownMs > 0}
                                                         onClick={() => { void runClaim(`field:${mission.id}`, () => claimFetchMission(mission)); }}
                                                     >
-                                                        <span className="mh-field-primary-label">{claimingKey === `field:${mission.id}` ? "Claiming…" : "Claim Reward"}</span>
+                                                        <span className="mh-field-primary-label">{claimingKey === `field:${mission.id}` ? "Claiming…" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</span>
                                                         {/* Same 44px mobile collapse as the combat card: the label and
                                                             the "Ready to claim" pill are both hidden under 700px, so the
                                                             glyph carries the difference between "collect" and "go". */}
                                                         <span className="mh-field-primary-arrow" aria-hidden="true">✓</span>
                                                     </button>
-                                                    : <button className="mh-field-primary-action" onClick={() => setScreen("worldMap")}>
-                                                        <span className="mh-field-primary-label">Go to Sector {mission.targetSector}</span>
+                                                    : <button className="mh-field-primary-action" onClick={() => {
+                                                        writeFieldMissionNavigationIntent(character.name, {
+                                                            missionId: mission.id,
+                                                            targetSector: mission.targetSector,
+                                                            objective: nextAction.objective,
+                                                        });
+                                                        setScreen("worldMap");
+                                                    }}>
+                                                        <span className="mh-field-primary-label">{nextAction.label}</span>
                                                         <span className="mh-field-primary-arrow" aria-hidden="true">›</span>
                                                     </button>}
                                             {accepted && <button className="danger-button mh-field-secondary-action" disabled={fieldTrailPending !== null} onClick={() => { void abandonFetchMission(mission); }}>Abandon</button>}
@@ -708,6 +744,7 @@ export function Missions({
                                             )}
                                         </div>
                                     </div>
+                                    {accepted && <p className="mh-field-next-step mh-field-next-step-mobile"><strong>Next:</strong> {nextAction.instruction}</p>}
                                 </article>
                             );
                         })}

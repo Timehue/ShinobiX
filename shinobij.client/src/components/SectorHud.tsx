@@ -63,6 +63,13 @@ export function SectorHud(props: WorldSectorCommandPanelProps & {
             {territory?.isOwned && !territory.breached && <span className="sector-hud-summary">{territory.ownerLabel}</span>}
             {hunt && <button type="button" disabled={!present} onClick={onHunt}>
                 {hunt.ready ? 'Fight' : 'Track'} {hunt.targetName}</button>}
+            {props.missionOutpost && <button type="button" className="sector-hud-mission-outpost"
+                disabled={!present || !props.onStartMissionRaid || (props.missionRaidCooldownMs ?? 0) > 0}
+                onClick={props.onStartMissionRaid}>
+                {(props.missionRaidCooldownMs ?? 0) > 0
+                    ? `Raid Mission Outpost · ${Math.max(1, Math.ceil((props.missionRaidCooldownMs ?? 0) / 1000))}s`
+                    : 'Raid Mission Outpost'}
+            </button>}
             {sectorContest && <button type="button" className="sector-hud-contest"
                 disabled={!present || !villageWarAdmissionOpen} onClick={onOpenSectorContest}>
                 Contested · {sectorContestLabel(sectorContest.winCondition)}</button>}

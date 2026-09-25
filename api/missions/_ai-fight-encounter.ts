@@ -23,6 +23,7 @@ import { safeLogValue } from '../_safe-log.js';
 import { loadAdminAiObjects } from '../_admin-ai-catalog.js';
 import { validateServerAiRules } from '../combat-core/ai-authoring.js';
 import { builtinAiProfile } from '../_ai-profile-catalog.js';
+import { missionOutpostProfile } from './_mission-outpost-opponents.js';
 
 export type AiFightProfile = Record<string, unknown> & { id: string };
 
@@ -43,7 +44,7 @@ function profileHasValidAiProgram(profile: AiFightProfile): boolean {
 export async function loadAiFightProfile(opponentId: unknown): Promise<AiFightProfile | null> {
     const id = typeof opponentId === 'string' ? opponentId.trim().slice(0, 96) : '';
     if (!id || !/^[A-Za-z0-9:_-]+$/.test(id)) return null;
-    const builtin = builtinAiProfile(id);
+    const builtin = missionOutpostProfile(id) ?? builtinAiProfile(id);
     if (builtin) return profileHasValidAiProgram(builtin as unknown as AiFightProfile) ? builtin as unknown as AiFightProfile : null;
     try {
         const current = (await loadAdminAiObjects()).get(id);
