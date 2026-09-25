@@ -114,6 +114,49 @@ export async function startFirstPactShowdown(
 }
 
 /**
+ * A Hollow Gate pet duel, BOUND to the encounter that named it.
+ *
+ * Only the run's own identifiers travel. The server validates the run token and
+ * the combat binding, then opens the Showdown session the binding already
+ * named, or resumes it after a reload. It draws the format the way a road beast
+ * does (a random 1v1, 2v2 or 3v3 capped by the ready carried pets, led by the
+ * active pet) and fields the run's own Hounds. Nothing about either team is
+ * sent from here.
+ *
+ * The duel pays nothing itself. Its terminal turn mints the receipt the Gate's
+ * settlement endpoint redeems. `decided` means the duel already ended and its
+ * session lapsed before the Gate settled it: settle that receipt, fight nothing.
+ */
+export type ShowdownHollowGateRef = { token: string; runId: string };
+export type HollowGatePetDuelStart =
+    | { state: ShowdownStateView; petIds: string[] }
+    | { decided: { petReceipt: string; outcome: string } }
+    | { error: string; retryable: boolean };
+
+export async function startHollowGatePetDuel(
+    playerName: string,
+    hollowGate: ShowdownHollowGateRef,
+): Promise<HollowGatePetDuelStart> {
+    const r = await post({ action: "hollow-gate", playerName, hollowGate: { token: hollowGate.token, runId: hollowGate.runId } });
+    if (!r) return { error: "Network error — the seal did not answer.", retryable: true };
+    const data = await r.json().catch(() => null) as {
+        state?: ShowdownStateView; petIds?: unknown; decided?: { petReceipt?: unknown; outcome?: unknown }; error?: string;
+    } | null;
+    if (r.ok && typeof data?.decided?.petReceipt === "string") {
+        return { decided: { petReceipt: data.decided.petReceipt, outcome: String(data.decided.outcome ?? "") } };
+    }
+    if (!r.ok || !data?.state || !Array.isArray(data.petIds) || !data.petIds.every((id) => typeof id === "string")) {
+        return {
+            error: data?.error ?? "The seal would not open the duel.",
+            // Only a busy or failing server is worth asking again. A refusal
+            // is the Gate's answer about this encounter.
+            retryable: r.status >= 500,
+        };
+    }
+    return { state: data.state, petIds: data.petIds };
+}
+
+/**
  * Start a PAID arena bout — the Coliseum's reward loop.
  *
  * Deliberately separate from `startShowdown`, which is unlimited practice and
@@ -122,24 +165,12 @@ export async function startFirstPactShowdown(
  * payout into the session. No tier is sent, because a chosen tier on a paying
  * path is a difficulty slider on a faucet.
  */
-/**
- * A Hollow Gate pet encounter, BOUND to the run that started it.
- *
- * Only the run's own identifiers travel: the server validates the run token and
- * the combat binding, then fields the run's OWN Hound (it does not take an
- * opponent from here). A bound bout pays no arena faucet and consumes no daily
- * cap — the Gate's settlement endpoint pays it, redeeming the receipt this bout
- * mints under the session id.
- */
-export type ShowdownHollowGateRef = { token: string; runId: string; houndId: string };
-
 export async function startArenaBout(
     playerName: string,
     format: ShowdownFormat,
     petIds: string[],
-    hollowGate?: ShowdownHollowGateRef,
 ): Promise<{ state: ShowdownStateView; dailyPetWins?: number; dailyCap?: number } | { error: string; capped?: boolean }> {
-    const r = await post({ action: "arena", playerName, format, petIds, ...(hollowGate ? { hollowGate } : {}) });
+    const r = await post({ action: "arena", playerName, format, petIds });
     if (!r) return { error: "Network error — could not reach the arena." };
     const data = await r.json().catch(() => null) as
         { state?: ShowdownStateView; error?: string; capped?: boolean; dailyPetWins?: number; dailyCap?: number } | null;
