@@ -51,7 +51,7 @@ import {
     isApexBeastForWeek,
     isoWeekKey,
 } from './_apex-contract.js';
-import { settleRaidProgression, type RaidProgressionSettlement } from './_raid-progression.js';
+import { settleMissionOutpostRaid, settleRaidProgression, type RaidProgressionSettlement } from './_raid-progression.js';
 import {
     aiFightDailyCounterKey,
     aiFightRedemptionFingerprint,
@@ -155,6 +155,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             : '';
         const sealedBattleKind = peeked?.battleKind ?? 'practice';
         const sealedRaidTokenId = typeof peeked?.raidTokenId === 'string' ? peeked.raidTokenId : '';
+        const sealedRaidMissionId = typeof peeked?.raidMissionId === 'string' ? peeked.raidMissionId : '';
         const sealedSector = Math.floor(Number(peeked?.sector));
         const sealedWorldContext: WorldAiFightContext | null = peeked?.worldContext ?? null;
         if (!sealedSessionId) {
@@ -191,7 +192,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const usage = await settleSoloPveTerminalUsage(sealedSession, playerName);
         if (!usage.ok) return res.status(usage.status).json({ error: usage.error, outcome });
         const settledUsageSession = usage.session;
-        const paysReward = aiFightPaysReward(outcome, sealedBattleKind);
+        // Mission outpost victories only stamp the accepted contract. The
+        // contract claim is their reward authority, not generic AI farming.
+        const paysReward = aiFightPaysReward(outcome, sealedBattleKind) && !sealedRaidMissionId;
         const requestedDailyDate = utcDateKey();
         let dailyCounterKey = aiFightDailyCounterKey(playerName, requestedDailyDate);
         const result = await mutatePlayerSave(playerName, async ({ character, record }) => {
@@ -333,7 +336,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const worldProgression = sealedWorldContext
                 ? applyWorldAiDurableProgression(record, nextCharacter, sealedWorldContext, outcome)
                 : { character: nextCharacter };
-            const redemption: AiFightRedemption = { token: aiFightToken, xp: reward.xp, ryo: reward.ryo, capped: reward.capped, dailyCount };
+            const redemption: AiFightRedemption = {
+                token: aiFightToken,
+                xp: reward.xp,
+                ryo: reward.ryo,
+                capped: reward.capped,
+                dailyCount,
+            };
             const withLegacyReceipt = { ...worldProgression.character, redeemedAiFightRewards: [...redeemed.slice(-99), redemption] };
             const worldHunt = sealedWorldContext?.kind === 'hunt-target'
                 && sealedWorldContext.missionId
@@ -402,7 +411,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // unreachable.
 
         let durableSideEffectError: unknown = null;
-        if (outcome === 'win' && settledUsageSession.terminalEvidence) {
+        if (outcome === 'win' && !sealedRaidMissionId && settledUsageSession.terminalEvidence) {
             try {
                 await recordCircuitCombatVictory(playerName, settledUsageSession.createdAt, settledUsageSession.terminalEvidence.finishedAt);
             } catch (error) {
@@ -453,18 +462,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let finalCharacter = result.character as Record<string, unknown>;
         let finalSaveVersion = result._saveVersion;
         try {
-            if (paysReward && sealedBattleKind === 'raidAi' && sealedRaidTokenId && !sealedWorldContext) {
-                const progression = await settleRaidProgression({
-                    playerName,
-                    proofId: `ai-fight:${aiFightToken}`,
-                    proofAt: Number(peeked?.mintedAt ?? 0),
-                    sector: sealedSector,
-                });
-                raidProgression = progression.settlement;
-                raidProgressionReplayed = progression.replayed;
-                fetchMissionsCredited = progression.settlement.fetchMissionsCredited;
-                finalCharacter = progression.character;
-                finalSaveVersion = progression._saveVersion;
+            if (outcome === 'win' && sealedBattleKind === 'raidAi' && sealedRaidTokenId && !sealedWorldContext) {
+                const raidTokenRecord = await kv.get<Record<string, unknown>>(`raid-token:${playerName}:${sealedRaidTokenId}`);
+                if (sealedRaidMissionId || raidTokenRecord?.source === 'field-mission-raid') {
+                    const missionId = sealedRaidMissionId || String(raidTokenRecord?.missionId ?? '');
+                    if (!raidTokenRecord
+                        || raidTokenRecord.playerName !== playerName
+                        || raidTokenRecord.aiFightToken !== aiFightToken
+                        || raidTokenRecord.sessionId !== sealedSessionId
+                        || raidTokenRecord.source !== 'field-mission-raid'
+                        || raidTokenRecord.missionId !== missionId) {
+                        throw new Error('mission-outpost-raid-token-binding-mismatch');
+                    }
+                    raidProgression = await settleMissionOutpostRaid({
+                        playerName,
+                        missionId,
+                        missionRunId: String(raidTokenRecord.missionRunId ?? ''),
+                        proofId: `ai-fight:${aiFightToken}`,
+                        proofAt: Number(peeked?.mintedAt ?? 0),
+                        sector: sealedSector,
+                    });
+                    fetchMissionsCredited = raidProgression.fetchMissionsCredited;
+                } else {
+                    const progression = await settleRaidProgression({
+                        playerName,
+                        proofId: `ai-fight:${aiFightToken}`,
+                        proofAt: Number(peeked?.mintedAt ?? 0),
+                        sector: sealedSector,
+                    });
+                    raidProgression = progression.settlement;
+                    raidProgressionReplayed = progression.replayed;
+                    fetchMissionsCredited = progression.settlement.fetchMissionsCredited;
+                    finalCharacter = progression.character;
+                    finalSaveVersion = progression._saveVersion;
+                }
             }
         } catch (error) {
             durableSideEffectError = error;

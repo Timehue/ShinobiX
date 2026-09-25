@@ -593,9 +593,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     sector: genericAuthority.sector,
                     worldExploreRequestId: genericAuthority.worldExploreRequestId,
                     raidTokenId: genericAuthority.raidTokenId,
+                    raidMissionId: genericAuthority.raidMissionId,
                     dungeonRunToken: genericAuthority.dungeonRunToken,
-                    baseXp: reward.xp,
-                    baseRyo: reward.ryo,
+                    // A mission outpost pays through its field contract claim.
+                    // Its easier encounter must not create a repeatable AI purse.
+                    baseXp: genericAuthority.raidMissionId ? 0 : reward.xp,
+                    baseRyo: genericAuthority.raidMissionId ? 0 : reward.ryo,
                     battleKind: genericAuthority.battleKind,
                     sessionRuntime: 'solo-pve',
                     sessionId: sealed.sessionId,
