@@ -109,7 +109,7 @@ export function estimateTowerActionDamage(input: {
     const mastery = weaponSwing ? 50
         : masteryRow ? Math.max(0, Math.min(50, Number(masteryRow.level) || 0)) : 0;
     if (input.pierce) {
-        // Pierce ignores every damage modifier, including the weapon swing bonus and guard.
+        // Pierce ignores every damage modifier, including guard.
         const apFactor = Math.max(0.5, (Number(input.ap) || 60) / 60);
         const masteryFactor = 1 + (weaponSwing ? 50 : mastery) * 0.005;
         const rawDamage = Math.floor(Math.max(100, Math.min(900, offense * 0.35 * apFactor * masteryFactor)));
@@ -157,8 +157,8 @@ export function estimateTowerActionDamage(input: {
     const rawDr = rawArmor + rawStatusDr;
     const effectiveDr = rawDr > 0 ? rawDr / (rawDr + 0.5) : 0;
     const guardMitigation = Math.min(0.5, Math.max(0, Number(defenderCharacter.guardDefensePct) || 0) / 100);
-    // Display-only mirror of api/combat-core/formulas.ts weapon swing bonus.
-    const rawDamage = Math.max(0, Math.floor(scaledEp * 32 * statFactor * terrain * bloodline * item * partyScale * amp * (1 - effectiveDr) * (1 - guardMitigation) * (weaponSwing ? 1.3 : 1) * attackPill * defensePill));
+    // A weapon's strength is its EP; like the server, no extra per-swing multiplier.
+    const rawDamage = Math.max(0, Math.floor(scaledEp * 32 * statFactor * terrain * bloodline * item * partyScale * amp * (1 - effectiveDr) * (1 - guardMitigation) * attackPill * defensePill));
     const shieldAbsorbed = Math.min(Math.max(0, Number(input.target.shield) || 0), rawDamage);
     return { rawDamage, hpDamage: Math.max(0, rawDamage - shieldAbsorbed), shieldAbsorbed };
 }

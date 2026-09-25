@@ -6,7 +6,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { applyCombatResolveResultToPvpSession, pvpSessionToCombatBattleState } from '../combat-adapters/pvpAdapter.js';
 import { activeCombatStatuses } from '../combat-core/statuses.js';
 import { ITEM_CATALOG } from './_item-catalog.js';
-import { RANKED_FORMAT_MAX_HP, RANKED_FORMAT_MAX_STATS } from './_ranked-format.js';
+import { RANKED_FORMAT_LEGENDARY_WEAPON_IDS, RANKED_FORMAT_MAX_HP, RANKED_FORMAT_MAX_STATS } from './_ranked-format.js';
 import type { PvpFighter, PvpSession, PvpStatus } from './session.js';
 
 process.env.SUPABASE_URL ??= 'http://localhost:1';
@@ -1652,14 +1652,16 @@ test('the ranked Kunai uses the damaging thrown-weapon path and spends its charg
     assert.equal(after.itemsUsed?.p1[id], 1);
 });
 
-test('ordinary weapon swings gain 30%, while Pierce weapon swings stay fixed', () => {
+test('a weapon swing hits for its EP alone: no hidden per-swing multiplier, Pierce unchanged', () => {
+    // Weapon strength is authored in the EP ladder (api/pvp/_item-catalog.ts),
+    // so a swing and an equal-EP technique resolve to the same direct damage.
     const attacker = fighter('alice', 0);
     const defender = fighter('bob', 1);
     const hand = { id: 'weapon', name: 'Test Blade', type: 'Bukijutsu', ap: 40,
-        effectPower: 27, isUtility: false, tags: [] as Array<{ name: string }> };
+        effectPower: 40, isUtility: false, tags: [] as Array<{ name: string }> };
     const dealt = (weaponSwing: boolean, tags: Array<{ name: string }> = []) =>
         defender.hp - applyJutsu(attacker, defender, { ...hand, weaponSwing, tags }, 1, 'central', 1).opponent.hp;
-    assert.equal(dealt(true), Math.floor(dealt(false) * 1.3));
+    assert.equal(dealt(true), dealt(false));
     assert.equal(dealt(true, [{ name: 'Pierce' }]), dealt(false, [{ name: 'Pierce' }]));
 });
 
@@ -1684,7 +1686,15 @@ test('jutsu damage buffs and pills lift both hand swings and thrown Kunai, but n
     }
 });
 
-test('unbuffed ranked Kunai impact lands between 300 and 400 against maxed ranked armor', () => {
+test('the ranked hand weapons sit 2 EP above the ranked Kunai and out-hit it on maxed ranked armor', () => {
+    // Owner ruling 2026-09-24: no blanket weapon-swing bonus. The highest-damage
+    // weapons available in ranked (its legendary hand tier) carry 2 EP more than
+    // the neutral Kunai, and the rest of the weapon ladder scales from there.
+    const kunaiEp = ITEM_CATALOG['ranked-format-kunai']!.weaponEp!;
+    assert.equal(kunaiEp, 38);
+    for (const id of RANKED_FORMAT_LEGENDARY_WEAPON_IDS) {
+        assert.equal(ITEM_CATALOG[id]?.weaponEp, kunaiEp + 2, `${id} is the ranked hand tier`);
+    }
     const maxed = (name: string, pos: number): PvpFighter => {
         const base = fighter(name, pos);
         return { ...base, hp: RANKED_FORMAT_MAX_HP, maxHp: RANKED_FORMAT_MAX_HP,
@@ -1692,13 +1702,14 @@ test('unbuffed ranked Kunai impact lands between 300 and 400 against maxed ranke
     };
     const attacker = maxed('alice', 0);
     const defender = maxed('bob', 1);
-    const direct = defender.hp - applyJutsu(attacker, defender, {
-        id: 'weapon', name: 'Kunai', type: 'Bukijutsu', ap: 20, range: 4,
-        effectPower: ITEM_CATALOG['ranked-format-kunai']!.weaponEp!,
-        isUtility: false, weaponSwing: true, suppressBloodline: true,
-        tags: [{ name: 'Wound', percent: 300 }],
+    const direct = (name: string, effectPower: number, ap: number) => defender.hp - applyJutsu(attacker, defender, {
+        id: 'weapon', name, type: 'Bukijutsu', ap, range: 4, effectPower,
+        isUtility: false, weaponSwing: true, suppressBloodline: true, tags: [],
     }, 1, 'central', 1).opponent.hp;
-    assert.ok(direct >= 300 && direct <= 400, `Kunai impact was ${direct}`);
+    const kunai = direct('Kunai', kunaiEp, 20);
+    const hand = direct('Ranked blade', kunaiEp + 2, 40);
+    assert.ok(hand > kunai, `hand ${hand} must out-hit Kunai ${kunai}`);
+    assert.ok(kunai >= 230 && kunai <= 310, `Kunai impact was ${kunai}`);
 });
 
 test('ranked pill percentages are exact and smoke blocks ordinary hits but not Pierce', () => {

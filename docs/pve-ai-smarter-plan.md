@@ -152,7 +152,7 @@ boss uses the full reactive toolkit. **Files:** combat-ai.ts (`aiJutsuLoadout`,
 3. The Phase-3 band gate attaches a weapon **only in the peer band**, so it's systemic:
    static peer enemies *and* re-leveled foes (missions, Hollow Gate) that land at 91+ gain one.
 
-All legendary weapons are 40 AP melee (hand), 27 EP, with a strong post-damage tag — a clean
+All legendary weapons are 40 AP melee (hand), 40 EP, with a strong post-damage tag — a clean
 extra 40 AP turn-option:
 
 | Weapon ID | Effect | Use on |

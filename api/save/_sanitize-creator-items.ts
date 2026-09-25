@@ -42,7 +42,7 @@ export function prepareCreatorItems(incoming: Record<string, unknown>, RAW_BLOOD
                 }
                 // Weapon numerics — match sanitizePvpItems bounds (api/pvp/session.ts).
                 // Match the authoritative PvP item ceiling. Named weapons roll
-                // 30-35 EP, so 60 preserves legitimate/custom headroom while
+                // 44-51 EP, so 60 preserves legitimate/custom headroom while
                 // preventing a persisted 600-EP item from dominating PvE modes.
                 if (out.weaponEp != null) out.weaponEp = Math.max(0, Math.min(60, Number(out.weaponEp) || 0));
                 if (out.weaponRange != null) out.weaponRange = Math.max(0, Math.min(30, Number(out.weaponRange) || 0));
