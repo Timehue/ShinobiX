@@ -30,3 +30,24 @@ describe("accepted field contract sync", () => {
         assert.match(effect[0], /commitRef\.current\.onVersionedCharacter\(/);
     });
 });
+
+// The same trap in callbacks and hooks whose effects fetch: the deps array
+// that drives the fetch must not name a per-render App callback.
+describe("fetching callbacks and hooks do not depend on per-render App callbacks", () => {
+    const cases: Array<{ file: string; anchor: string; allowed: string[] }> = [
+        { file: "../screens/LegacyPanel.tsx", anchor: "const reload = useCallback(", allowed: ["character.name"] },
+        { file: "../components/PetBreedingBarn.tsx", anchor: "const refresh = useCallback(", allowed: ["character.name"] },
+        { file: "./use-village-tax.ts", anchor: "const name = character?.name;", allowed: ["character?.name", "setCharacter"] },
+        { file: "./jutsu-training-queue.ts", anchor: "if (!isServerSettlementReady(\"timedJutsuTrainingQueue\")) return;", allowed: ["playerName", "activeJutsuTraining", "setActiveJutsuTraining"] },
+    ];
+    for (const { file, anchor, allowed } of cases) {
+        test(file, () => {
+            const src = readFileSync(new URL(file, import.meta.url), "utf8");
+            const start = src.indexOf(anchor);
+            assert.notEqual(start, -1, `${file} must keep ${anchor}`);
+            const deps = src.slice(start).match(/\n\s*\}, \[([^\]]*)\]\);/);
+            assert.ok(deps, `${file} deps array not found`);
+            assert.deepEqual(deps[1].split(",").map((dep) => dep.trim()).sort(), [...allowed].sort());
+        });
+    }
+});

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { JUTSU_TRAINING_CAP, jutsuLevelCapForLevel } from "../constants/game";
 import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { ActiveJutsuTraining } from "../types/combat";
@@ -69,6 +69,11 @@ export function useJutsuTrainingQueueRunner(
     setActiveJutsuTraining: (training: ActiveJutsuTraining | null) => void,
     commitCharacter: VersionedCharacterCommit,
 ): void {
+    // App's commitVersionedCharacter is a new function every render. With it in
+    // the deps, each re-render cancelled a due lesson's request, dropped the
+    // reply, reset the backoff and asked again, spending the jutsu-ryo budget.
+    const commitRef = useRef(commitCharacter);
+    useEffect(() => { commitRef.current = commitCharacter; }, [commitCharacter]);
     useEffect(() => {
         if (!isServerSettlementReady("timedJutsuTrainingQueue")) return;
         if (!activeJutsuTraining?.next && !activeJutsuTraining?.autoClaim) return;
@@ -89,7 +94,7 @@ export function useJutsuTrainingQueueRunner(
                 timer = window.setTimeout(() => { void reconcile(); }, delay);
                 return;
             }
-            if (!commitCharacter(result.character, result._saveVersion)) return;
+            if (!commitRef.current(result.character, result._saveVersion)) return;
             setActiveJutsuTraining(result.activeJutsuTraining ?? null);
         };
         // The first heartbeat may correct the clock after this effect mounts.
@@ -106,5 +111,5 @@ export function useJutsuTrainingQueueRunner(
             cancelled = true;
             window.clearTimeout(timer);
         };
-    }, [playerName, activeJutsuTraining, setActiveJutsuTraining, commitCharacter]);
+    }, [playerName, activeJutsuTraining, setActiveJutsuTraining]);
 }
