@@ -3,12 +3,13 @@ import { test } from 'node:test';
 import { PET_CATALOG } from '../api/pet/_catalog.ts';
 import { rollWildPet, grantWildPet } from '../api/pet/_encounter.ts';
 import { activeTrainingPetIds } from '../api/_entitlements.ts';
-import { settleFinishedTraining } from '../api/pet/_progress.ts';
+import { settleFinishedTraining, settleServerPetExpedition } from '../api/pet/_progress.ts';
 import { createShowdownSession, showdownStateView } from '../api/_pet-showdown/engine.ts';
 import { petCombatModel } from '../shinobij.client/src/lib/pet-3d-models.ts';
-import { alternateSpeciesPool } from '../api/pet/_breeding.ts';
+import { alternateSpeciesPool, selectOffspringTemplate } from '../api/pet/_breeding.ts';
+import { isBreedableTemplate, migrateOwnedPet, resolvePetTemplateId } from '../api/pet/_owned-pet.ts';
 
-test('Celestial Lion can be encountered, captured, trained, and fielded in the Colosseum', () => {
+test('Celestial Lion can be captured, bred, trained, sent on expedition, and fielded in the Colosseum', () => {
     const now = Date.UTC(2026, 8, 24);
     const rolls = [0.001, 0.999, 0.25];
     const wild = rollWildPet(() => rolls.shift() ?? 0.25, now);
@@ -22,6 +23,12 @@ test('Celestial Lion can be encountered, captured, trained, and fielded in the C
     assert.equal(pet.templateId, 'mythic-15');
     assert.equal(pet.origin, 'wild');
     assert.equal(pet.breedable, true);
+    assert.equal(resolvePetTemplateId(pet), 'mythic-15');
+    assert.equal(isBreedableTemplate(resolvePetTemplateId(pet)), true);
+    const reloaded = migrateOwnedPet('Tester', JSON.parse(JSON.stringify(pet))).pet;
+    assert.equal(reloaded.templateId, 'mythic-15');
+    assert.equal(reloaded.breedable, true);
+    assert.equal(selectOffspringTemplate(pet, PET_CATALOG['mythic-7'], 0).templateId, 'mythic-15');
     assert.ok(alternateSpeciesPool(PET_CATALOG['mythic-0'], PET_CATALOG['mythic-7'], 'mythic').includes('mythic-15'));
     assert.equal(captured.character.pets[0].id, pet.id);
     assert.deepEqual(activeTrainingPetIds(captured.character), [pet.id]);
@@ -33,6 +40,11 @@ test('Celestial Lion can be encountered, captured, trained, and fielded in the C
     assert.equal(trained.pet.training, undefined);
     assert.equal(trained.pet.level, 2);
     assert.equal(trained.pet.xp, 10);
+
+    const expedition = settleServerPetExpedition({ ...trained.pet, level: 20, expedition: { type: 'scout' } }, 'scout', 45, 1);
+    assert.equal(expedition.pet.expedition, undefined);
+    assert.ok(expedition.xp > 0);
+    assert.equal(resolvePetTemplateId(expedition.pet), 'mythic-15');
 
     const model = petCombatModel(trained.pet);
     assert.match(model?.url ?? '', /mythic-15\.glb/);
