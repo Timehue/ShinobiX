@@ -18,7 +18,7 @@ import type {
 
 /** This module is an intentional async boundary. Nothing in it may be imported
  * by the default exact-impostor scene except through `import()`: PetModel3D,
- * Drei's GLTF loader, meshopt, and the 159-entry LOD manifest belong here. */
+ * Drei's GLTF loader, meshopt, and the 160-entry LOD manifest belong here. */
 export const WARFRONT_SKINNED_RIG_CHUNK = true;
 
 function ModelReadySignal({ onReady }: { onReady: () => void }) {

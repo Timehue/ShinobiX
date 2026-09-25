@@ -311,6 +311,11 @@ export function Logbook({
         }
     }
 
+    // Same trap as Missions: adoptFieldTrail changes identity every App render,
+    // so it is read through a ref to keep this sync from re-running (and
+    // spending the field-trail rate limit) on every render.
+    const adoptFieldTrailRef = useRef(adoptFieldTrail);
+    useEffect(() => { adoptFieldTrailRef.current = adoptFieldTrail; }, [adoptFieldTrail]);
     useEffect(() => {
         const owner = character.name;
         const ids = acceptedFieldMissionKey ? acceptedFieldMissionKey.split("|") : [];
@@ -320,12 +325,12 @@ export function Logbook({
             for (const missionId of ids) {
                 const result = await postFieldTrail({ playerName: owner, missionId, action: "state" });
                 if (cancelled) return;
-                if (!adoptFieldTrail(result)) continue;
+                if (!adoptFieldTrailRef.current(result)) continue;
                 if (result.migrated) window.setTimeout(() => alert("The Mission Hall recalibrated an older field contract onto its verified ledger."), 40);
             }
         })();
         return () => { cancelled = true; };
-    }, [acceptedFieldMissionKey, adoptFieldTrail, character.name]);
+    }, [acceptedFieldMissionKey, character.name]);
 
     function startExamFight(aiId: string) {
         const ai = creatorAis.find((candidate) => candidate.id === aiId);

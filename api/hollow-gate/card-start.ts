@@ -25,9 +25,9 @@ const cardIds = (value: unknown): string[] => Array.isArray(value)
 /**
  * The deck a rift card ambush is fought with.
  *
- * A rift is entered at its quest level (12 for the first one), well before the
- * Chronicle Scribe opens the Card Hall at 17, so the ambush cannot demand a deck
- * the player had no way to build.
+ * Card ambushes open at level 20 (step.ts), but the Chronicle opens with the
+ * Scribe's starter-card claim, a story step a player can still have ahead of
+ * them. So the ambush cannot demand a deck the player had no way to build.
  * - Chronicle opened, or an admin: the player's own deck, resolved exactly as
  *   every other Chronicle start resolves it.
  * - Chronicle still sealed: the player's own saved deck when it is legal against
@@ -94,6 +94,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ok: true, matchId: previousId, resumed: true,
                     ...(previous.hollowGateCard.loanerDeck ? { loanerDeck: true } : {}),
                 } };
+            }
+            const rawLevel = save.character.level;
+            const playerLevel = rawLevel == null ? 20 : Math.max(1, Math.floor(Number(rawLevel) || 1));
+            if (playerLevel < 20) {
+                return { status: 409, body: { error: 'Chronicle Rift ambushes unlock at level 20.' } };
             }
             const deck = await riftAmbushDeck(playerName, save.character, identity.admin);
             const matchId = randomUUID();

@@ -20,6 +20,26 @@ export function vfxElementTint(element: string): string {
     return VFX_ELEMENT_TINT[element] ?? VFX_ELEMENT_TINT.None;
 }
 
+// Celestial Lion's authored techniques blend Wind turquoise with the ivory
+// and gold of its model. Common Wind moves retain their shared element tint.
+const CELESTIAL_LION_MOVE_TINT: Readonly<Record<string, string>> = {
+    "Zephyr Aegis": "#b7f9e8",
+    "Galeclaw Pounce": "#8cebd2",
+    "Tempest Roar": "#79e5d4",
+    "Cloudborne Mending": "#d9fff2",
+    "Skywing Leap": "#a6f4e2",
+    "Celestial Tempest: Lion's Descent": "#91f5dc",
+    "Gale Challenge": "#b4efe0",
+};
+
+export function celestialLionTechniqueTint(moveName: string): string | null {
+    return CELESTIAL_LION_MOVE_TINT[moveName] ?? null;
+}
+
+export function vfxMoveTint(element: string, moveName: string): string {
+    return celestialLionTechniqueTint(moveName) ?? vfxElementTint(element);
+}
+
 /** Every move kind the Showdown engine can put on an action event, including
  * the two synthesized commands. Keeping the presentation list exported makes
  * missing VFX a test failure instead of a silent generic fallback. */

@@ -47,6 +47,7 @@ async function persistRunProjection(playerName: string, token: string, run: Holl
 export function deriveHollowGateStepState(
     run: Pick<HollowGateRunToken, 'torch' | 'threat' | 'wardSteps' | 'stepVersion' | 'currentFloor' | 'floorDepth'> & Partial<Pick<HollowGateRunToken, 'variantId' | 'resolvedEncounterIds'>>,
     torchDrains: boolean,
+    playerLevel = 20,
 ) {
     const torchBefore = Math.max(0, Math.min(10, Math.floor(Number(run.torch) || 0)));
     const torch = Math.max(0, torchBefore - (torchDrains ? 1 : 0));
@@ -57,7 +58,7 @@ export function deriveHollowGateStepState(
     const stepVersion = Math.max(0, Math.floor(Number(run.stepVersion) || 0)) + 1;
     const floor = Math.max(1, Math.floor(Number(run.currentFloor) || 1));
     const cardAlreadyResolved = (run.resolvedEncounterIds ?? []).some((entry) => entry.includes(':card:floor:'));
-    const cardAmbush = run.variantId?.startsWith('rift-') === true && !cardAlreadyResolved;
+    const cardAmbush = run.variantId?.startsWith('rift-') === true && playerLevel >= 20 && !cardAlreadyResolved;
     const pendingAmbush = threat >= 100 ? {
         nodeId: `floor:${floor}:ambush:threat-v${stepVersion}`,
         kind: cardAmbush ? 'card' as const : floor >= run.floorDepth ? 'boss' as const : 'ambush' as const,
@@ -149,7 +150,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     } };
                 }
             }
-            const { torchBefore, torch, wardSteps, threat, stepVersion, pendingAmbush } = deriveHollowGateStepState(run, randomInt(0, 5) === 0);
+            const torchDrains = randomInt(0, 5) === 0;
+            let derived = deriveHollowGateStepState(run, torchDrains);
+            // Only load the character save when this step would otherwise open
+            // a Rift card ambush. Normal movement keeps its existing KV cost.
+            if (derived.pendingAmbush?.kind === 'card') {
+                const save = await kv.get<{ character?: Record<string, unknown> }>(`save:${playerName}`);
+                const rawLevel = save?.character?.level;
+                const playerLevel = rawLevel == null ? 20 : Math.max(1, Math.floor(Number(rawLevel) || 1));
+                if (playerLevel < 20) derived = deriveHollowGateStepState(run, torchDrains, playerLevel);
+            }
+            const { torchBefore, torch, wardSteps, threat, stepVersion, pendingAmbush } = derived;
             const next: HollowGateRunToken = {
                 ...run,
                 position: to,

@@ -55,6 +55,9 @@ test('only the first threat ambush in a rift is a card duel; the boss remains co
     const later = deriveHollowGateStepState({ ...base, resolvedEncounterIds: ['1:card:floor:1:ambush:threat-v9'] }, false);
     assert.equal(later.pendingAmbush?.kind, 'boss');
     assert.equal(deriveHollowGateStepState({ ...base, variantId: undefined }, false).pendingAmbush?.kind, 'boss');
+    // Card ambushes open at level 20; below that the threat raises a normal fight.
+    assert.equal(deriveHollowGateStepState(base, false, 20).pendingAmbush?.kind, 'card');
+    assert.equal(deriveHollowGateStepState(base, false, 19).pendingAmbush?.kind, 'boss');
 });
 
 test('starting a card ambush binds one resumable Chronicle match to the run', async () => {
@@ -102,8 +105,11 @@ test('a card ambush fights with the player\'s own legal deck and lends one only 
             chosenAugmentId: 'keen-edge', dailyRunOrdinal: 1, variantId: 'rift-legacy-echo',
             pendingAmbush: { nodeId, kind: 'card' },
         } satisfies HollowGateRunToken);
+        // Card ambushes open at level 20, and the Chronicle opens separately,
+        // with the Scribe's starter-card claim, so a level-20 player can still
+        // have it sealed.
         await kv.set('save:riftplayer', { _saveVersion: 1, character: {
-            name: 'riftplayer', level: 12, hollowGateRun: { runToken: token, floor: 1 }, ...entry.character,
+            name: 'riftplayer', level: 20, hollowGateRun: { runToken: token, floor: 1 }, ...entry.character,
         } });
         const before = await kv.get('save:riftplayer');
         const started = await call(start, { token, nodeId });
@@ -115,6 +121,22 @@ test('a card ambush fights with the player\'s own legal deck and lends one only 
             assert.deepEqual(await kv.get('save:riftplayer'), before, `${entry.label}: a sealed Chronicle is never written to`);
         }
     }
+
+    // Below level 20 a card ambush is refused and nothing is bound.
+    const token = 'card-deck-underleveled';
+    await kv.set(hollowGateRunKey('riftplayer', token), {
+        playerName: 'riftplayer', mintedAt: Date.now(), floorDepth: 1, currentFloor: 1,
+        seed: 'seed', entryCurrencies: {}, offeredAugmentIds: ['keen-edge'],
+        chosenAugmentId: 'keen-edge', dailyRunOrdinal: 1, variantId: 'rift-legacy-echo',
+        pendingAmbush: { nodeId, kind: 'card' },
+    } satisfies HollowGateRunToken);
+    await kv.set('save:riftplayer', { _saveVersion: 1, character: {
+        name: 'riftplayer', level: 19, hollowGateRun: { runToken: token, floor: 1 },
+    } });
+    const refused = await call(start, { token, nodeId });
+    assert.equal(refused.status, 409);
+    assert.match(String(refused.body?.error), /unlock at level 20/);
+    assert.equal((await kv.get<HollowGateRunToken>(hollowGateRunKey('riftplayer', token)))?.cardAmbushMatchId, undefined);
 });
 
 test('pending card ambush blocks staircase descent and normal extraction', async () => {
