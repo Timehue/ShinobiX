@@ -9145,6 +9145,86 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "subRole": "striker",
         "moveRange": 4
     },
+    "mythic-15": {
+        "id": "mythic-15",
+        "name": "Celestial Lion",
+        "rarity": "mythic",
+        "level": 1,
+        "xp": 0,
+        "maxLevel": 100,
+        "hp": 458,
+        "attack": 48,
+        "defense": 45,
+        "speed": 41,
+        "unlockedForPve": false,
+        "element": "Wind",
+        "wildSpawnable": true,
+        "description": "A white, winged lion with gold horns and a celestial mark above its eyes. Its wings shelter allies in a circling gale before it strikes.",
+        "jutsus": [
+            {
+                "name": "Zephyr Aegis",
+                "power": 82,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "barrier"
+            },
+            {
+                "name": "Galeclaw Pounce",
+                "power": 91,
+                "cooldown": 2,
+                "currentCooldown": 0,
+                "kind": "damage"
+            },
+            {
+                "name": "Tempest Roar",
+                "power": 96,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "damage"
+            },
+            {
+                "name": "Cloudborne Mending",
+                "power": 97,
+                "cooldown": 5,
+                "currentCooldown": 0,
+                "kind": "heal"
+            },
+            {
+                "name": "Skywing Leap",
+                "power": 0,
+                "cooldown": 3,
+                "currentCooldown": 0,
+                "kind": "move"
+            },
+            {
+                "name": "Heaven's Vortex",
+                "power": 85,
+                "cooldown": 5,
+                "currentCooldown": 0,
+                "kind": "confuse",
+                "rounds": 2
+            },
+            {
+                "name": "Celestial Tempest: Lion's Descent",
+                "power": 152,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "crush",
+                "signature": true
+            },
+            {
+                "name": "Gale Challenge",
+                "power": 0,
+                "cooldown": 4,
+                "currentCooldown": 0,
+                "kind": "taunt",
+                "rounds": 2
+            }
+        ],
+        "role": "defender",
+        "subRole": "tank",
+        "moveRange": 4
+    },
     "starter-fire": {
         "id": "starter-fire",
         "name": "Cinder Cub",

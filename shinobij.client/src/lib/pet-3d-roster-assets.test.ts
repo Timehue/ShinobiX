@@ -55,7 +55,7 @@ function parseGlb(file: Buffer): GltfDocument {
 test("all approved roster models are colored, skinned, animated single-pet assets", () => {
     const modelFiles = readdirSync(rosterDirectory).filter((file) => file.endsWith(".glb")).sort();
     const modelIds = modelFiles.map((file) => file.slice(0, -4));
-    assert.equal(modelIds.length, 145, "the complete production roster must be present");
+    assert.equal(modelIds.length, 146, "the complete production roster must be present");
     assert.deepEqual(modelIds, [...APPROVED_ROSTER_MODEL_IDS].sort(), "disk assets and the approval list must match");
     assert.deepEqual(Object.keys(manifest.entries).sort(), modelIds, "manifest and production assets must match");
 

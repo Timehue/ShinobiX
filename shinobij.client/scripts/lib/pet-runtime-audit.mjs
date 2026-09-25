@@ -6,7 +6,7 @@ import { petCombatModel } from '../../src/lib/pet-3d-models.ts';
 
 const clientRoot = resolve(import.meta.dirname, '../..');
 const catalog = [...rawPetPool, ...STARTER_PETS.map(option => option.pet), ...STARTER_EVOLUTIONS];
-if (catalog.length !== 160 || new Set(catalog.map(pet => pet.id)).size !== 160) throw new Error('Expected 160 unique production pet identities');
+if (catalog.length !== 161 || new Set(catalog.map(pet => pet.id)).size !== 161) throw new Error('Expected 161 unique production pet identities');
 
 /** Follow the combat renderer, including starter replacements and showcases. */
 export const runtimePetModels = catalog.map(pet => {

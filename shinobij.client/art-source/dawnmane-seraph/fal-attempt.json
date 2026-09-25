@@ -1,0 +1,33 @@
+{
+  "endpoint": "fal-ai/hunyuan-3d/v3.1/pro/image-to-3d",
+  "state": "submission_attempted",
+  "attemptedAt": "2026-09-25T01:21:27.803Z",
+  "estimatedCostUsd": 0.675,
+  "authorizedSpendCeilingUsd": 2,
+  "inputs": {
+    "input_image_url": {
+      "path": "art-source/dawnmane-seraph/views/front.png",
+      "bytes": 2948870,
+      "sha256": "d01cc824166f74cb739993a626522a1bb97062ea996f9132dca99b480bae72f7"
+    },
+    "back_image_url": {
+      "path": "art-source/dawnmane-seraph/views/back.png",
+      "bytes": 983507,
+      "sha256": "0cb87f69cb35578eef85d4431d91a1401bd5f7075b2875165ec90845d3e43102"
+    },
+    "left_image_url": {
+      "path": "art-source/dawnmane-seraph/views/left.png",
+      "bytes": 1031843,
+      "sha256": "f031222e5a2808b963c13e5e045a5b0e0211d7ce79f3ef0cb52990b7ea3d0177"
+    },
+    "right_image_url": {
+      "path": "art-source/dawnmane-seraph/views/right.png",
+      "bytes": 1021193,
+      "sha256": "8593d934f7bd36beca4214329ac5d54e3358de13ce9382b152a1647e94f3a35c"
+    }
+  },
+  "settings": {
+    "generate_type": "Normal",
+    "enable_pbr": true
+  }
+}
