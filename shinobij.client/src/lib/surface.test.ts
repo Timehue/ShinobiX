@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { surfaceFromReferrer, getSurface, canUsePlayBilling, resetSurfaceCacheForTests } from "./surface";
+import { surfaceFromReferrer, getSurface, canUsePlayBilling, isAppShell, APP_SHELL_UA_TOKEN, resetSurfaceCacheForTests } from "./surface";
 
 // ── Pure referrer parsing ───────────────────────────────────────────────────
 
@@ -112,6 +112,66 @@ test("Play Billing is unavailable without the Digital Goods API", () => {
 test("Play Billing is available when the TWA exposes getDigitalGoodsService", () => {
     (globalThis as Record<string, unknown>).window = { getDigitalGoodsService: () => {} };
     try { assert.equal(canUsePlayBilling(), true); } finally { clearFakeWindow(); }
+});
+
+// ── Flutter WebView shell (User-Agent token) ───────────────────────────────
+
+const SHELL_UA = `Mozilla/5.0 (Linux; Android 16; Pixel 9; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/150.0.0.0 Mobile Safari/537.36 ${APP_SHELL_UA_TOKEN}1`;
+const CHROME_UA = "Mozilla/5.0 (Linux; Android 16; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Mobile Safari/537.36";
+
+function withUserAgent(userAgent: string | undefined, run: () => void) {
+    const original = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+    Object.defineProperty(globalThis, "navigator", {
+        configurable: true,
+        value: userAgent === undefined ? undefined : { userAgent },
+    });
+    try { run(); } finally {
+        if (original) Object.defineProperty(globalThis, "navigator", original);
+        else Reflect.deleteProperty(globalThis, "navigator");
+    }
+}
+
+test("the shell's User-Agent token identifies the app with no referrer at all", () => {
+    withUserAgent(SHELL_UA, () => {
+        const state = installFakeWindow("");
+        try {
+            assert.equal(isAppShell(), true);
+            assert.equal(getSurface(), "play-app");
+            assert.equal(state.store.get("shinobix:surface.v1"), "play-app");
+        } finally { clearFakeWindow(); }
+    });
+});
+
+test("plain Android Chrome, and a missing navigator, are not the shell", () => {
+    withUserAgent(CHROME_UA, () => {
+        installFakeWindow("");
+        try {
+            assert.equal(isAppShell(), false);
+            assert.equal(getSurface(), "web");
+        } finally { clearFakeWindow(); }
+    });
+    withUserAgent(undefined, () => assert.equal(isAppShell(), false));
+});
+
+test("the shell still resolves when storage throws", () => {
+    withUserAgent(SHELL_UA, () => {
+        installFakeWindow("", { throwOnGet: true, throwOnSet: true });
+        try {
+            assert.equal(getSurface(), "play-app");
+        } finally { clearFakeWindow(); }
+    });
+});
+
+test("the shell has no Play Billing, so the shop cannot offer a purchase", () => {
+    // A WebView has no Digital Goods API. The app surface plus no billing is
+    // what makes shardRail() answer "blocked" instead of "web" (Tebex).
+    withUserAgent(SHELL_UA, () => {
+        installFakeWindow("");
+        try {
+            assert.equal(getSurface(), "play-app");
+            assert.equal(canUsePlayBilling(), false);
+        } finally { clearFakeWindow(); }
+    });
 });
 
 test("billing capability is independent of the surface flag", () => {

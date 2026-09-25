@@ -5,7 +5,7 @@ import { authedPlayer, playerSessionsEnabled, readPlayerSessionEpoch } from '../
 import { buildAuthorizeUrl, googleAuthEnabled, signState } from '../../_google-auth.js';
 
 /*
- * POST /api/auth/google/start  { nonce, mode?: 'login' | 'link' }
+ * POST /api/auth/google/start  { nonce, mode?: 'login' | 'link', client?: 'android-app' }
  *
  * Returns { url } for the client to navigate to. It returns JSON rather than a
  * 302 so the request can carry auth headers, which is what lets link mode know
@@ -15,6 +15,12 @@ import { buildAuthorizeUrl, googleAuthEnabled, signState } from '../../_google-a
  * `nonce` is generated and remembered by the calling browser. It rides through
  * Google and back, and must be echoed at claim time, so a flow completed in a
  * different browser produces a ticket nobody can redeem.
+ *
+ * `client: 'android-app'` comes from the Flutter shell. It seals `ret: 'app'`
+ * into the signed state so the callback returns to the app's fixed scheme
+ * rather than the website (see GOOGLE_ANDROID_APP_RETURN_URL). Any other value
+ * is refused: quietly treating it as web would strand the app's sign-in tab on
+ * the website.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -33,11 +39,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(503).json({ ok: false, error: 'Google sign-in is unavailable.' });
     }
 
-    const body = (req.body ?? {}) as { nonce?: unknown; mode?: unknown };
+    const body = (req.body ?? {}) as { nonce?: unknown; mode?: unknown; client?: unknown };
     const nonce = String(body.nonce ?? '');
     if (nonce.length < 16 || nonce.length > 128) {
         return res.status(400).json({ ok: false, error: 'Missing nonce.' });
     }
+    if (body.client !== undefined && body.client !== 'android-app') {
+        return res.status(400).json({ ok: false, error: 'Unknown client.' });
+    }
+    // Spread in only when set, so a web flow's state is exactly what it was.
+    const ret = body.client === 'android-app' ? { ret: 'app' as const } : {};
 
     if (body.mode === 'link') {
         // Linking mutates an existing account's credentials, so the caller must
@@ -48,12 +59,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const epoch = await readPlayerSessionEpoch(name);
         return res.status(200).json({
             ok: true,
-            url: buildAuthorizeUrl(signState({ mode: 'link', name, epoch, nonce }), nonce),
+            url: buildAuthorizeUrl(signState({ mode: 'link', name, epoch, nonce, ...ret }), nonce),
         });
     }
 
     return res.status(200).json({
         ok: true,
-        url: buildAuthorizeUrl(signState({ mode: 'login', nonce }), nonce),
+        url: buildAuthorizeUrl(signState({ mode: 'login', nonce, ...ret }), nonce),
     });
 }

@@ -7,17 +7,22 @@
  * and no fork.
  *
  * ⛔ NEVER an authority. The value is derived on the client and is therefore
- * forgeable, and the server cannot independently tell the surfaces apart — the
- * User-Agent is identical. Entitlements stay server-verified exactly as they are
- * today (see api/_subscription.ts): a Play purchase is trusted because its token
- * validates against Google's API, never because a client claimed to be the app.
+ * forgeable. The Flutter shell's User-Agent token (below) is set by the client
+ * too, so the server must not read it either. Entitlements stay server-verified
+ * exactly as they are today (see api/_subscription.ts): a Play purchase is
+ * trusted because its token validates against Google's API, never because a
+ * client claimed to be the app.
  *
  * DETECTION, in order of reliability:
- *  1. `document.referrer` starts with `android-app://<package>` — Chrome's
+ *  1. The User-Agent carries APP_SHELL_UA_TOKEN — the Flutter WebView shell
+ *     (mobile/) appends it before its first load, so it is present on every
+ *     document, reloads included, before any script runs.
+ *  2. `document.referrer` starts with `android-app://<package>` — Chrome's
  *     canonical TWA signal, set on the LAUNCH navigation. It does not survive a
  *     reload (including the boot-watchdog's "Reload latest game"), so the first
- *     answer is persisted for the tab and reused.
- *  2. Play Billing availability is a separate CAPABILITY check, not this flag —
+ *     answer is persisted for the tab and reused. Kept for installs of the older
+ *     TWA shell.
+ *  3. Play Billing availability is a separate CAPABILITY check, not this flag —
  *     see canUsePlayBilling(). Gate purchase UI on that, because if it is absent
  *     the purchase cannot work regardless of what surface we think we are on.
  *
@@ -34,6 +39,26 @@ export type Surface = 'play-app' | 'web';
 /** its lifetime, but a later browser visit must not inherit that verdict. */
 const SURFACE_KEY = 'shinobix:surface.v1';
 const ANDROID_APP_REFERRER = 'android-app://';
+
+/**
+ * Appended to the WebView's User-Agent by the Flutter shell. The same literal
+ * lives in mobile/lib/shell_config.dart; a test pins the two together.
+ */
+export const APP_SHELL_UA_TOKEN = 'ShinobiJourneyApp/';
+
+/**
+ * True inside the Flutter WebView shell. Read on every call rather than
+ * memoised: it is cheap, and it keeps the answer honest for code that runs
+ * before or outside getSurface().
+ */
+export function isAppShell(): boolean {
+    if (typeof navigator === 'undefined') return false;
+    try {
+        return String(navigator.userAgent ?? '').includes(APP_SHELL_UA_TOKEN);
+    } catch {
+        return false;
+    }
+}
 
 /**
  * Pure core: decide the surface from a referrer string.
@@ -72,7 +97,9 @@ export function getSurface(): Surface {
         return cached;
     }
 
-    const resolved = surfaceFromReferrer(document.referrer, EXPECTED_PACKAGE || undefined);
+    const resolved = isAppShell()
+        ? 'play-app'
+        : surfaceFromReferrer(document.referrer, EXPECTED_PACKAGE || undefined);
     // Only the positive verdict is persisted. A 'web' reading may simply be a
     // reload that lost the referrer, and writing it would permanently demote an
     // app tab; leaving it unwritten lets a later launch still be recognised.
