@@ -65,9 +65,9 @@ export function buildMercCharacter(level: number): Record<string, unknown> {
         jutsu,
         jutsuMastery: jutsu.map((j) => ({ jutsuId: j.id, level: 50 })),
         equipment: { hand: 'merc-blade' },
-        // An epic-tier blade on the catalog weapon ladder (common 28 … mythic 44).
+        // An epic-tier blade on the catalog weapon ladder (common 22 … mythic 36).
         pvpItems: [
-            { id: 'merc-blade', name: 'Mercenary Blade', slot: 'hand', weaponEp: 36, weaponElement: 'None', weaponRange: 1, apCost: 40, weaponTags: [] },
+            { id: 'merc-blade', name: 'Mercenary Blade', slot: 'hand', weaponEp: 29, weaponElement: 'None', weaponRange: 1, apCost: 40, weaponTags: [] },
         ],
         bloodlineMult: 1,   // no bloodline — kept fair/beatable
         itemDamagePct: 0,

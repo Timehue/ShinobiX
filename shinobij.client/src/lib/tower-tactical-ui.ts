@@ -1,3 +1,5 @@
+import { jutsuLevelCapForLevel } from "../constants/game";
+
 export type TowerPan = { x: number; y: number };
 
 export const TOWER_ZOOM_MIN = 1;
@@ -106,10 +108,12 @@ export function estimateTowerActionDamage(input: {
         ? attackerCharacter.jutsuMastery as Array<{ jutsuId?: unknown; level?: unknown }>
         : [];
     const masteryRow = masteryRows.find(row => String(row.jutsuId ?? "") === String(input.actionId ?? ""));
-    // A weapon swing has no mastery row, so the server's applyJutsu resolves its
-    // EP and Pierce at mastery 0. Only its tag percents use full mastery, and this
-    // estimate reads no tags.
-    const mastery = masteryRow ? Math.max(0, Math.min(50, Number(masteryRow.level) || 0)) : 0;
+    // A weapon cannot be trained, so the server resolves a swing's EP and Pierce
+    // at the highest mastery the wielder's rank allows (api/pvp/move.ts
+    // damageMasteryFor): EP means the same thing on a weapon and a jutsu.
+    const rankLevel = attackerCharacter.rankedFormatCombat === true ? 100 : Number(attackerCharacter.level) || 1;
+    const mastery = weaponSwing ? jutsuLevelCapForLevel(rankLevel)
+        : masteryRow ? Math.max(0, Math.min(50, Number(masteryRow.level) || 0)) : 0;
     if (input.pierce) {
         // Pierce ignores every damage modifier, including guard.
         const apFactor = Math.max(0.5, (Number(input.ap) || 60) / 60);

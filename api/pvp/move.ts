@@ -630,6 +630,16 @@ function isWeaponSwing(jutsu: Pick<Jutsu, 'weaponSwing'>): boolean {
     return jutsu.weaponSwing === true;
 }
 
+// A weapon has no mastery row to train, so its swing used to resolve its EP at
+// mastery 0: 30% of the hit a jutsu of the same EP lands once maxed. Owner ruling
+// 2026-09-25: EP means the same thing on a weapon and a jutsu. A swing's EP (and
+// its Pierce) now resolves at the highest mastery the wielder's rank allows,
+// which is where a fully trained jutsu sits. Its tag percents already resolve at
+// JUTSU_MAX_LEVEL; its Heal/Shield magnitude keeps the real mastery (0).
+function damageMasteryFor(self: PvpFighter, jutsu: Jutsu, masteryLevel: number): number {
+    return isWeaponSwing(jutsu) ? jutsuLevelCapForLevel(rankedCombatLevel(self.character)) : masteryLevel;
+}
+
 // ─── Jutsu application — resolved in explicit, fixed-order phases ─────────────
 // applyJutsu is the heart of PvP resolution. The resolution ORDER is load-bearing
 // (a reflect that ran before the shield block, or an amp that read a buff this
@@ -673,7 +683,7 @@ function resolveBaseDamage(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu,
         defenderStats: defStats,
         attackerCharacter: self.character as Record<string, unknown>,
         defenderCharacter: opponent.character as Record<string, unknown>,
-        masteryLevel,
+        masteryLevel: damageMasteryFor(self, jutsu, masteryLevel),
         wMult,
         biome,
         rawStatusDR: drContributionFor(self, opponent, round),
@@ -909,7 +919,7 @@ function resolveDamageNumber(self: PvpFighter, opponent: PvpFighter, jutsu: Juts
         pierce,
         offenseComposite: getOffense(offenseStats, jutsu.type),
         jutsuAp: jutsu.ap ?? 40,
-        masteryLevel,
+        masteryLevel: damageMasteryFor(self, jutsu, masteryLevel),
         effectiveDR,
         ampMultiplier: ampMultiplierFor(self, opponent, round),
         guardDefensePct: opponent.character.guardDefensePct,

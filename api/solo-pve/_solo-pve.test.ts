@@ -788,7 +788,9 @@ describe('solo-PvE engine', () => {
         const session = createSoloPveSession({
             sessionId: 'weapon-cooldown', ownerSlug: 'alice',
             encounter: { kind: 'test', id: 'weapon-cooldown' },
-            player, enemy: makeFighter('Rival', 63), now: NOW,
+            // Enough HP that the first swing, at the level-100 rank mastery,
+            // cannot end the fight before the reswing is tried.
+            player, enemy: makeFighter('Rival', 63, { hp: 100_000, maxHp: 100_000 }), now: NOW,
         });
 
         const first = applySoloPveAction(session, { type: 'weapon', itemId: 'test-kunai' });

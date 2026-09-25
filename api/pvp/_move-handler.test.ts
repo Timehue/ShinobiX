@@ -1632,7 +1632,7 @@ test('ranked pills and smoke spend a charge without dealing item damage', async 
 test('the ranked Kunai uses the damaging thrown-weapon path and spends its charge', async () => {
     const id = 'ranked-format-kunai';
     const kunaiEp = ITEM_CATALOG[id]?.weaponEp;
-    assert.equal(kunaiEp, 38, 'the server catalog carries the tuned neutral Kunai');
+    assert.equal(kunaiEp, 31, 'the server catalog carries the tuned neutral Kunai');
     seed(session('ranked-kunai-damage', {
         p1: withEquippedItem(fighter('alice', 0), {
             id, name: 'Kunai', slot: 'thrown', apCost: 20,
@@ -1652,15 +1652,17 @@ test('the ranked Kunai uses the damaging thrown-weapon path and spends its charg
     assert.equal(after.itemsUsed?.p1[id], 1);
 });
 
-test('a weapon swing hits for its EP alone: no hidden per-swing multiplier, Pierce unchanged', () => {
-    // Weapon strength is authored in the EP ladder (api/pvp/_item-catalog.ts),
-    // so a swing and an equal-EP technique resolve to the same direct damage.
-    const attacker = fighter('alice', 0);
+test('a weapon swing hits for its EP alone, like a fully trained technique: no hidden multiplier', () => {
+    // Weapon strength is authored in the EP ladder (api/pvp/_item-catalog.ts), with
+    // no per-swing multiplier. A weapon cannot be trained, so a swing resolves at
+    // the wielder's rank mastery cap (owner ruling 2026-09-25): it lands exactly
+    // what a technique of the same EP lands once trained to that cap, Pierce too.
+    const attacker = fighter('alice', 0, { character: { ...fighter('alice', 0).character, jutsuMastery: [{ jutsuId: 'trained-technique', level: 50 }] } });
     const defender = fighter('bob', 1);
-    const hand = { id: 'weapon', name: 'Test Blade', type: 'Bukijutsu', ap: 40,
-        effectPower: 40, isUtility: false, tags: [] as Array<{ name: string }> };
-    const dealt = (weaponSwing: boolean, tags: Array<{ name: string }> = []) =>
-        defender.hp - applyJutsu(attacker, defender, { ...hand, weaponSwing, tags }, 1, 'central', 1).opponent.hp;
+    const hand = { name: 'Test Blade', type: 'Bukijutsu', ap: 40,
+        effectPower: 33, isUtility: false, tags: [] as Array<{ name: string }> };
+    const dealt = (weaponSwing: boolean, tags: Array<{ name: string }> = []) => defender.hp - applyJutsu(attacker, defender,
+        { ...hand, id: weaponSwing ? 'weapon' : 'trained-technique', weaponSwing, tags }, 1, 'central', 1).opponent.hp;
     assert.equal(dealt(true), dealt(false));
     assert.equal(dealt(true, [{ name: 'Pierce' }]), dealt(false, [{ name: 'Pierce' }]));
 });
@@ -1691,7 +1693,7 @@ test('the ranked hand weapons sit 2 EP above the ranked Kunai and out-hit it on 
     // weapons available in ranked (its legendary hand tier) carry 2 EP more than
     // the neutral Kunai, and the rest of the weapon ladder scales from there.
     const kunaiEp = ITEM_CATALOG['ranked-format-kunai']!.weaponEp!;
-    assert.equal(kunaiEp, 38);
+    assert.equal(kunaiEp, 31);
     for (const id of RANKED_FORMAT_LEGENDARY_WEAPON_IDS) {
         assert.equal(ITEM_CATALOG[id]?.weaponEp, kunaiEp + 2, `${id} is the ranked hand tier`);
     }
@@ -1709,7 +1711,14 @@ test('the ranked hand weapons sit 2 EP above the ranked Kunai and out-hit it on 
     const kunai = direct('Kunai', kunaiEp, 20);
     const hand = direct('Ranked blade', kunaiEp + 2, 40);
     assert.ok(hand > kunai, `hand ${hand} must out-hit Kunai ${kunai}`);
-    assert.ok(kunai >= 230 && kunai <= 310, `Kunai impact was ${kunai}`);
+    // A swing resolves at the ranked mastery cap (owner ruling 2026-09-25), so the
+    // Kunai lands about 89% of a maxed 36 EP jutsu and the hand blade stays below it.
+    assert.ok(kunai >= 730 && kunai <= 810, `Kunai impact was ${kunai}`);
+    const trained = { ...attacker, character: { ...attacker.character, jutsuMastery: [{ jutsuId: 'maxed-60', level: 50 }] } };
+    const maxedJutsu = defender.hp - applyJutsu(trained, defender, {
+        id: 'maxed-60', name: 'Maxed 60-AP Jutsu', type: 'Bukijutsu', ap: 60, range: 4, effectPower: 36, tags: [],
+    }, 1, 'central', 1).opponent.hp;
+    assert.ok(hand <= maxedJutsu, `hand ${hand} must not out-hit a maxed 60-AP jutsu (${maxedJutsu})`);
 });
 
 test('ranked pill percentages are exact and smoke blocks ordinary hits but not Pierce', () => {

@@ -624,8 +624,8 @@ function namedWeapon(archetype: Archetype): CatalogItem {
         rarity: 'legendary',
         cost: 0,
         levelReq: 90,
-        // The named forge's max roll (api/craft/_named.ts rolls 44-51).
-        weaponEp: 51,
+        // The named forge's roll (api/craft/_named.ts), on the weapon EP ceiling.
+        weaponEp: 36,
         weaponRange: 5,
         weaponCooldown: 5,
         weaponElement: PROFILE[archetype].element,

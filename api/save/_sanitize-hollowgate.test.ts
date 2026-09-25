@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { sanitizeCharacterSave } from './[name].js';
+import { WEAPON_EP_CEILING } from '../combat-core/formulas.js';
 
 // These tests pin the bounded legacy sanitizer itself. Release mode defaults
 // to the stricter receipt-backed raw-save boundary and is covered separately.
@@ -326,6 +327,26 @@ test('creator items: persisted weapon EP matches the authoritative combat ceilin
     ) as Record<string, any>;
     assert.equal(out.creatorItems[0].weaponEp, 60, 'forged EP clamps to the PvP ceiling');
     assert.equal(out.creatorItems[1].weaponEp, 35, 'legitimate named-weapon EP is unchanged');
+});
+
+test('creator items: a player save clamps weapon EP to the weapon ceiling, so no weapon out-hits a maxed 60-AP jutsu', () => {
+    // A swing resolves at its wielder's rank mastery (api/pvp/move.ts), so a
+    // player's own weapon above WEAPON_EP_CEILING would out-hit a fully maxed 60-AP
+    // jutsu. The admin content slot above keeps 60 for the owner's custom items.
+    const out = sanitizeCharacterSave(
+        {
+            character: { name: 'Audit' },
+            creatorItems: [
+                { id: 'forged-weapon', slot: 'hand', weaponEp: 999_999 },
+                { id: 'named-at-ceiling', slot: 'hand', weaponEp: WEAPON_EP_CEILING },
+                { id: 'older-named-weapon', slot: 'hand', weaponEp: 34 },
+            ],
+        },
+        { character: { name: 'Audit' }, creatorItems: [] },
+    ) as Record<string, any>;
+    assert.equal(out.creatorItems[0].weaponEp, WEAPON_EP_CEILING, 'a hand-edited EP clamps to the ceiling');
+    assert.equal(out.creatorItems[1].weaponEp, WEAPON_EP_CEILING, 'a named forge on the ceiling is unchanged');
+    assert.equal(out.creatorItems[2].weaponEp, 34, 'an older forge below the ceiling is unchanged');
 });
 
 test('pendingCombatMissionClaims: client saves preserve server-owned claims but cannot mint or clear them', () => {
