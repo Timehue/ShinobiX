@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
 import type { HollowGateShrineRun } from "../types/character";
-import { hollowGateDescendUpdate, hollowGateShinobiFallback, isSameHollowGateFloor } from "./hollow-gate-app-flow";
+import { hollowGateDescendUpdate, hollowGateRunAfterPetDefeat, hollowGateShinobiFallback, isSameHollowGateFloor } from "./hollow-gate-app-flow";
 
 /**
  * A post-boss descend generates the next floor behind an `await` on the
@@ -102,5 +102,35 @@ describe("hollow gate descend — stale-write guard", () => {
         assert.equal(isSameHollowGateFloor(run(), { runToken: "token-a", floor: 2 }), true);
         assert.equal(isSameHollowGateFloor(run(), { runToken: "token-a", floor: 3 }), false);
         assert.equal(isSameHollowGateFloor(run(), { runToken: undefined, floor: 2 }), false);
+    });
+});
+
+describe("hollow gate pet defeat — the run the shrine keeps", () => {
+    const petDuel = { runId: "hgcombat-pet", nodeId: "floor:2:tile:4", floor: 2, kind: "battle" as const, mode: "pet" as const };
+    const board = [{ kind: "empty", terrain: "room_floor" }, { kind: "battle", terrain: "room_floor" }] as HollowGateShrineRun["tiles"];
+
+    it("keeps the live board when the settle reply carries only the server's projection", () => {
+        // What combat-settle returns mid-run: the save's projection, no board.
+        const saved = { floor: 2, runToken: "token-a", keys: 2, torch: 5, threat: 0, playerX: 1, playerY: 1 } as unknown as HollowGateShrineRun;
+        const kept = hollowGateRunAfterPetDefeat(run({ tiles: board, activeCombat: petDuel }), saved);
+        assert.equal(kept?.tiles, board, "the shrine still has a board to draw");
+        assert.equal(kept?.width, 3);
+        assert.equal(kept?.activeCombat, undefined);
+        assert.equal(kept?.threat, 0);
+    });
+
+    it("still adopts a complete saved board, as before", () => {
+        const saved = run({ tiles: board, playerX: 2, activeCombat: petDuel });
+        const kept = hollowGateRunAfterPetDefeat(run({ activeCombat: petDuel }), saved);
+        assert.equal(kept?.tiles, board);
+        assert.equal(kept?.playerX, 2);
+        assert.equal(kept?.activeCombat, undefined);
+        assert.equal(kept?.threat, 0);
+    });
+
+    it("falls back to the live board when the reply has no run, and never invents one", () => {
+        assert.equal(hollowGateRunAfterPetDefeat(run({ tiles: board }), undefined)?.tiles, board);
+        assert.equal(hollowGateRunAfterPetDefeat(null, { floor: 2, runToken: "token-a" } as unknown as HollowGateShrineRun), null);
+        assert.equal(hollowGateRunAfterPetDefeat(null, null), null);
     });
 });
