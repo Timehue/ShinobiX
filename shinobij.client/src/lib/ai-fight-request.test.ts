@@ -386,13 +386,24 @@ test("explore and raid starts carry their exact server proofs", () => {
     const worldMap = readFileSync(new URL("../screens/WorldMap.tsx", import.meta.url), "utf8");
     const logbook = readFileSync(new URL("../screens/Logbook.tsx", import.meta.url), "utf8");
     assert.match(worldMap, /battleKind: "explore",[\s\S]{0,180}worldExploreRequestId,/);
-    const worldRaid = worldMap.slice(worldMap.indexOf("async function launchAiGuardRaid"), worldMap.indexOf("function startWandererAttack"));
-    const logbookRaid = logbook.slice(logbook.indexOf("async function startRaid"), logbook.indexOf("function goToWarGround"));
-    for (const branch of [worldRaid, logbookRaid]) {
-        assert.match(branch, /mintAiRaidToken\(/);
-        assert.match(branch, /raidToken: raidProof\.token/);
-        assert.match(branch, /sector: raidProof\.sector/);
-    }
+    const raidStart = worldMap.indexOf("async function launchAiGuardRaid");
+    const raidEnd = worldMap.indexOf("function startWandererAttack");
+    assert.ok(raidStart >= 0 && raidEnd > raidStart, "WorldMap must keep launchAiGuardRaid ahead of startWandererAttack");
+    const worldRaid = worldMap.slice(raidStart, raidEnd);
+    assert.match(worldRaid, /mintAiRaidToken\(/);
+    assert.match(worldRaid, /raidToken: raidProof\.token/);
+    assert.match(worldRaid, /sector: raidProof\.sector/);
+    // Since the Luna handoff slices (72593576b) the Logbook no longer starts a
+    // raid fight itself. It walks the player to the raid's sector, and the World
+    // Map's guard raid above mints the proof. A second start path without that
+    // proof must not come back.
+    const logbookStart = logbook.indexOf("function startRaid");
+    const logbookEnd = logbook.indexOf("function goToWarGround");
+    assert.ok(logbookStart >= 0 && logbookEnd > logbookStart, "Logbook must keep its raid entry ahead of goToWarGround");
+    const logbookRaid = logbook.slice(logbookStart, logbookEnd);
+    assert.match(logbookRaid, /setSectorReopen\(raid\.targetSector\)/);
+    assert.match(logbookRaid, /setScreen\("worldMap"\)/);
+    assert.doesNotMatch(logbook, /mintAiRaidToken|raidProof/, "the Logbook must not start a raid fight of its own");
 });
 
 test("raid mission UI mirrors the server's exact credited mission ids", () => {
