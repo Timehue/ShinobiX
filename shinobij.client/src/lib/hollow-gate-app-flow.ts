@@ -85,6 +85,21 @@ export function hollowGateShinobiFallback(run: HollowGateShrineRun | null): Holl
         : run;
 }
 
+/**
+ * The shrine run after a pet defeat. `saved` is the settle reply's
+ * `character.hollowGateRun`, and in a live run that is only the server's own
+ * projection, with no board: the autosave does not run inside the shrine, so
+ * the drawn tiles never reach the save. Rendering that projection crashed the
+ * shrine, so it replaces the live run only when it is a complete board.
+ */
+export function hollowGateRunAfterPetDefeat(
+    live: HollowGateShrineRun | null,
+    saved: HollowGateShrineRun | null | undefined,
+): HollowGateShrineRun | null {
+    const current = saved && Array.isArray(saved.tiles) ? saved : live;
+    return current ? { ...current, activeCombat: undefined, threat: 0 } : null;
+}
+
 export function useHollowGateAppFlow(params: {
     character: Character | null;
     run: HollowGateShrineRun | null;
@@ -363,12 +378,8 @@ export function useHollowGateAppFlow(params: {
             pushLog(`${hollowGateHoundName(gate.floor, gate.kind)} is driven back by your pet. The sealed path opens.`);
             return;
         }
-        setRun((previous) => {
-            const authoritative = result.character?.hollowGateRun;
-            const current = authoritative ?? previous;
-            return current ? { ...current, activeCombat: undefined, threat: 0 } : null;
-        });
-        const recoil = Math.max(1, Math.floor((result.character?.maxHp ?? character?.maxHp ?? 1) * 0.20));
+        setRun((previous) => hollowGateRunAfterPetDefeat(previous, result.character?.hollowGateRun));
+        const recoil =Math.max(1, Math.floor((result.character?.maxHp ?? character?.maxHp ?? 1) * 0.20));
         pushLog(`The Hollow Hound wins the pet duel. ${recoil} HP recoils through the seal; the encounter remains unresolved.`);
     }
 
