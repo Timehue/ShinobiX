@@ -1,3 +1,5 @@
+import { isAppShell } from './surface';
+
 const REVIEW_GAP_MS = 90 * 24 * 60 * 60_000;
 const REVIEW_KEY = 'shinobij:play-review-v1';
 
@@ -11,10 +13,13 @@ export function reviewMilestoneEligible(input: { native: boolean; visible: boole
 export function maybeRequestPlayReview(level: number): void {
     if (typeof window === 'undefined') return;
     try {
+        // A WebView never applies the web manifest, so the Flutter shell is not
+        // `standalone`; its User-Agent token stands in for that check. The shell
+        // intercepts the intent URL below and runs the Play review itself.
         const native = /Android/i.test(navigator.userAgent)
             && new URL(location.href).searchParams.get('playNative') === '1'
             && new URL(location.href).searchParams.get('playReview') === '1'
-            && matchMedia('(display-mode: standalone)').matches;
+            && (isAppShell() || matchMedia('(display-mode: standalone)').matches);
         if (!native) return;
         const raw = JSON.parse(localStorage.getItem(REVIEW_KEY) || '{}') as { wins?: number; last?: number };
         const wins = Math.max(0, Number(raw.wins) || 0) + 1;
