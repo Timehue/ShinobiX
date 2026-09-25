@@ -370,6 +370,7 @@ export const COMBAT_ROUTE_CENSUS = deepFreeze({
     '/hollow-gate/event': 'Parent expedition event resolution, outside the embedded combat runtime.',
     '/hollow-gate/step': 'Parent expedition navigation, outside the embedded combat runtime.',
     '/hollow-gate/floor-seal': 'Parent expedition floor checkpoint, outside the embedded combat runtime.',
+    '/hollow-gate/resume': 'Parent expedition reload projection, outside the embedded combat runtime; an open fight still resumes through combat-start.',
     '/hollow-gate/attune': 'Parent expedition unlock/progression, outside the embedded combat runtime.',
     '/hollow-gate/forge-key': 'Parent expedition inventory crafting, outside the embedded combat runtime.',
     '/hollow-gate/locked-door': 'Parent expedition door event, outside the embedded combat runtime.',
