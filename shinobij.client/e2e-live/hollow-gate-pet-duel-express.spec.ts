@@ -33,18 +33,17 @@ import { SHOWDOWN_FORMAT_SIZE, type ShowdownFormat } from '../../shared/pet-show
  * is a real /api/hollow-gate/step), the shrine's fighter choice, the duel, the
  * forfeit, a step off the tile, and a reload mid-duel.
  *
- * A RELOAD DOES NOT REOPEN THE SHRINE BY ITSELF (seen 2026-09-25). The shrine
- * counts as an unresolved battle (lib/screen-guards.ts isUnresolvedBattle), so
- * the autosave never runs there (lib/use-capability-guarded-autosave.ts). The
- * unload keepalive gives up on a save over 64 KiB (lib/save-unload.ts), and
- * this diver's save is about 150 KB before any board. The server save
- * therefore holds only the server's tile-less run projection. The boot drops
- * that (lib/normalize-character.ts) and lands on the village. The duel is
- * still open on the server. The player gets back to it by entering the Hollow
- * Gate again: the entry recovery replays the paid start, redraws floor 1 from
- * the seed, and the server names the open duel. The reload test takes that
- * path when the reload lands outside the shrine and records where it landed,
- * so it keeps passing once the boot can restore the shrine directly.
+ * A RELOAD RETURNS TO THE SHRINE BY ITSELF. The drawn board never reaches the
+ * save: the shrine counts as an unresolved battle (lib/screen-guards.ts
+ * isUnresolvedBattle), so the autosave never runs there, and the unload
+ * keepalive gives up on a save over 64 KiB (lib/save-unload.ts), which this
+ * diver's save is. The server save holds only the server's tile-less run
+ * projection, and the boot drops that (lib/normalize-character.ts). Until
+ * 2026-09-25 that landed the player on the village, and walking back in
+ * redrew floor 1 from the start. Now the boot asks /api/hollow-gate/resume
+ * for the sealed run and rebuilds the same floor from the seed
+ * (lib/hollow-gate-recovery.ts): the walked path, the chosen augment, the
+ * position and the open duel all come back, without the World Map.
  *
  * The floor is generated from the server's seed, so the spec learns it from
  * the manifest /api/hollow-gate/floor-seal returns and plans the shortest walk
@@ -516,28 +515,42 @@ test('Send pet opens the server-drawn duel on the shrine, and a forfeit settles 
     expect(pageErrors, 'no uncaught page errors').toEqual([]);
 });
 
-test('a reload mid-duel reopens the same Showdown session', async ({ page, request }, info) => {
+type ResumeReply = {
+    live: boolean;
+    run: {
+        token: string;
+        floor: number;
+        position: { x: number; y: number } | null;
+        chosenAugmentId: string | null;
+        visited: string | null;
+        activeCombat: { runId: string; nodeId: string; floor: number; kind: string; mode?: string } | null;
+    };
+};
+
+test('a reload mid-duel returns to the shrine by itself and reopens the same Showdown session', async ({ page, request }, info) => {
     test.setTimeout(240_000);
     const { diver, pageErrors } = await startDiver(page, request, info);
     const dive = await sendPetFromTheShrine(page, info, diver);
 
-    // Both replies are awaited whichever way the reload comes back (below).
+    const resumeReply = apiReply(page, '/api/hollow-gate/resume', () => true, 150_000);
     const resumedEncounterReply = apiReply(page, '/api/hollow-gate/combat-start', (body) => body.mode === 'pet', 150_000);
     const resumedDuelReply = apiReply(page, '/api/pet/showdown', (body) => body.action === 'hollow-gate', 150_000);
     await page.reload({ waitUntil: 'domcontentloaded' });
-    // The boot shows "start" until it has routed the restored save.
-    const landed = page.locator('.app-shell:not([data-screen="start"])').first();
-    await expect(landed).toBeVisible({ timeout: 45_000 });
-    const landedOn = await landed.getAttribute('data-screen');
-    info.annotations.push({ type: 'hollow-gate-reload', description: `the reload landed on ${landedOn}` });
-    if (landedOn !== 'hollowGateShrine') {
-        // Today the reload lands outside the shrine; see the header. The
-        // player walks back in, and the entry recovery reopens the duel.
-        if (landedOn !== 'worldMap') await page.getByRole('button', { name: 'Enter World Map', exact: true }).click();
-        await expect(page.locator('.app-shell[data-screen="worldMap"]')).toBeVisible({ timeout: 30_000 });
-        await clearNotices(page);
-        await enterTheShrineFromTheMap(page, info);
-    }
+
+    // The boot rebuilds the run from the server's sealed state (see the header),
+    // with no World Map detour and no redrawn floor 1.
+    const resume = await jsonOf<ResumeReply>(await resumeReply, 'hollow-gate/resume');
+    expect(resume.live).toBe(true);
+    expect(resume.run.token).toBe(dive.started.token);
+    expect(resume.run.floor).toBe(1);
+    expect(resume.run.position, 'the diver still stands on the Hound tile').toEqual(dive.houndTile);
+    expect(resume.run.chosenAugmentId, 'the sealed augment comes back').toBe(dive.started.augmentOffers[0].id);
+    expect(resume.run.activeCombat, 'the open duel comes back as a pet duel').toEqual({
+        runId: dive.encounter.runId, nodeId: `floor:1:tile:${dive.hound}`, floor: 1, kind: dive.plan.kind, mode: 'pet',
+    });
+    for (const index of dive.plan.path) expect(resume.run.visited?.[index], `step ${index} of the walk is on record`).toBe('1');
+    await expect(page.locator('.app-shell[data-screen="hollowGateShrine"]')).toBeVisible({ timeout: 45_000 });
+
     const resumedEncounter = await jsonOf<Dive['encounter']>(await resumedEncounterReply, 'combat-start after reload');
     expect(resumedEncounter.resumed, 'the shrine resumes the open encounter').toBe(true);
     expect(resumedEncounter.combatMode).toBe('pet');
@@ -550,9 +563,26 @@ test('a reload mid-duel reopens the same Showdown session', async ({ page, reque
     expect(resumed.petIds, 'same fielded pets').toEqual(dive.opened.petIds);
     expect(resumed.state.enemy.map((fighter) => fighter.id), 'same Hounds').toEqual(dive.opened.state.enemy.map((fighter) => fighter.id));
     await expectDuelOnScreen(page, resumed.state, dive.size);
+    await expect(page.getByRole('dialog', { name: 'Choose Your Hollow Gate Augment', exact: true }),
+        'the sealed augment is not offered again').toHaveCount(0);
 
     // The reopened duel is the live one: conceding it settles the encounter.
     await forfeitTheDuel(page, dive);
     expect((await diver.readCharacter()).hollowGateRun?.runToken, 'the run survives the reload and the defeat').toBe(dive.started.token);
+
+    // The rebuilt board is the explored one: the diver where they stood, and
+    // every tile of the walk still known.
+    const shrine = page.locator('.hollow-gate-shrine');
+    await expect(shrine.getByRole('grid', { name: 'Floor 1 dungeon grid' })).toBeVisible();
+    await expect(shrine.getByRole('gridcell', {
+        name: `${diver.name}, current location, row ${dive.houndTile.y + 1}, column ${dive.houndTile.x + 1}`,
+    })).toBeVisible();
+    for (const index of dive.plan.path) {
+        const row = Math.floor(index / dive.manifest.width) + 1;
+        const column = (index % dive.manifest.width) + 1;
+        await expect(shrine.getByRole('gridcell', { name: `Unknown tile, row ${row}, column ${column}`, exact: true }),
+            `the walked tile at row ${row}, column ${column} is remembered`).toHaveCount(0);
+    }
+    await page.screenshot({ path: info.outputPath('hollow-gate-reload-restored-shrine.png'), animations: 'disabled' });
     expect(pageErrors, 'no uncaught page errors').toEqual([]);
 });
