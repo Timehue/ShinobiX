@@ -438,7 +438,7 @@ export function OnboardingCoach({
                 const equipped = academyEquippedItemCount(character.equipment);
                 return `Before we spar, put on the Rustfang Kunai and Shinobi Vest from your Inventory. That's ${Math.min(equipped, ACADEMY_STARTER_GEAR_TARGET)} of ${ACADEMY_STARTER_GEAR_TARGET} equipped.`;
             }
-            case "academySpar": return "That spar knocked you out. Get patched up at the Hospital, wait for free checkout, then we'll step back onto the mat.";
+            case "academySpar": return "You're too hurt to spar right now. Get patched up at the Hospital, wait for free checkout, then we'll step back onto the mat.";
             case "cafeteria": return character.hp >= character.maxHp
                 ? "You came through the spar at full HP, so there's nothing to patch up. Let's keep moving."
                 : "The spar cost you HP. Recover in the Noodle Den before we move on.";
@@ -654,14 +654,18 @@ export function OnboardingCoach({
     if (step === "academySpar") {
         // A knocked-out player cannot spar, so the blocking modal must stand down.
         //
-        // This beat is the only hard full-screen overlay in onboarding, and losing the
-        // spar sets { hp: 0, hospitalized: true } and returns to the village — where the
-        // modal covered everything again, offering only "Begin Your First Spar" (which
-        // re-entered at 0 HP and lost again) or "Skip Tutorial" (which permanently ends
-        // onboarding and forfeits the Academy Trial). Hospitalized players do not regen,
-        // the one recovery hint lives in the Daily Briefing (suppressed for the whole
-        // tutorial), and paid discharge costs 2,500 ryo against 100 starting ryo. So the
-        // only exit was to abandon the tutorial.
+        // Losing the spar itself no longer does this — a spar never hospitalizes
+        // (api/missions/_ai-fight-outcome.ts sessionIsSpar) — but a player admitted
+        // by any OTHER fight during this step still arrives here at 0 HP.
+        //
+        // This beat is the only hard full-screen overlay in onboarding, and an admitted
+        // player returns to the village — where the modal covered everything again,
+        // offering only "Begin Your First Spar" (which the server refuses while
+        // admitted) or "Skip Tutorial" (which permanently ends onboarding and forfeits
+        // the Academy Trial). Hospitalized players do not regen, the one recovery hint
+        // lives in the Daily Briefing (suppressed for the whole tutorial), and paid
+        // discharge costs 2,500 ryo against 100 starting ryo. So the only exit was to
+        // abandon the tutorial.
         //
         // Falling back to the NON-blocking banner is what actually unsticks it: the modal
         // is `position: fixed; inset: 0`, so it also covered the Hospital screen the

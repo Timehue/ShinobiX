@@ -77,6 +77,22 @@ test("an unrecognised screen name still resolves to a safe destination", () => {
     );
 });
 
+test("a fallback lands where the player IS, never teleporting a wild-sector player home", () => {
+    // WorldMap -> wanderer pet duel (petColiseum) -> back to the road (worldMap),
+    // then the hardware Back pops the stale duel entry. That used to land in the
+    // village and zero the player's sector; the App now passes their location.
+    assert.deepEqual(
+        decideBack({ targetHash: "#/petColiseum", battleUnresolved: false, fallbackScreen: "worldMap" }),
+        { action: "navigate", screen: "worldMap", fellBack: true },
+    );
+    // A deep-linkable target is still honoured as-is, and a live fight still refuses.
+    assert.deepEqual(
+        decideBack({ targetHash: "#/inventory", battleUnresolved: false, fallbackScreen: "worldMap" }),
+        { action: "navigate", screen: "inventory" },
+    );
+    assert.equal(decideBack({ targetHash: "#/petColiseum", battleUnresolved: true, fallbackScreen: "worldMap" }).action, "refuse");
+});
+
 test("a hash we never wrote is refused, so the app is not left on a foreign URL", () => {
     assert.deepEqual(
         decideBack({ targetHash: "", battleUnresolved: false }),

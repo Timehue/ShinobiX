@@ -213,6 +213,20 @@ test('required live Express CI runs defeat recovery on desktop and mobile withou
     assert.doesNotMatch(command, /--grep/, 'all recovery paths must run');
 });
 
+test('required live Express CI runs the hospital ward and roaming Weekly Boss journeys on a server of their own', () => {
+    // Neither had browser coverage — which is how the roaming boss's "Stand &
+    // Fight" shipped as a loop that never started a fight. Its own step means its
+    // own server: the recovery matrix alone registers 18 of the 25 accounts per
+    // IP that registration allows in 15 minutes.
+    const job = workflow.slice(workflow.indexOf('\n  e2e_village_stores:'), workflow.indexOf('\n  test_build:'));
+    const command = job.split('\n').find(line => line.trim().startsWith('run:') && line.includes('mmorpg-behaviors-express.spec.ts'));
+    assert.ok(command, 'the required live Express job must execute the MMO behaviour spec');
+    assert.ok(command.includes('--project=chromium-desktop-live') && command.includes('--project=chromium-mobile-live'));
+    assert.ok(!command.includes('first-defeat-recovery-express.spec.ts'), 'it must not share a server with the recovery matrix');
+    assert.ok(command.includes('--output=test-results/mmo-behaviors-ci'), 'it must not overwrite earlier journey evidence');
+    assert.doesNotMatch(command, /--grep/);
+});
+
 /*
  * The Node pin lives in exactly ONE place: .nvmrc.
  *

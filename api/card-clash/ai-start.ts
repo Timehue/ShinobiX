@@ -13,10 +13,13 @@ import {
   type ChronicleProjection,
 } from "../../shared/chronicle-duel.js";
 import {
+  CARD_CLASH_AI_ACTIVE_TTL_SECONDS,
   CARD_CLASH_AI_TOKEN_TTL_SECONDS,
+  cardClashAiActiveKey,
   cardClashAiTokenKey,
 } from "./_ai-reward.js";
 import { captureAiStep, createAiMatch, projectAiMatch } from "./_ai-engine.js";
+import { forfeitAbandonedAiMatch } from "./ai-move.js";
 import {
   resolveChronicleDeckMutation,
   resolveChronicleDeckWithSave,
@@ -459,6 +462,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // opt out of Card Hall rewards cannot grant value or alter duel rules.
     const settlementMode =
       body.externalStakes === true ? "external" : "standard";
+    // One live Card Hall showdown per player. Leaving forfeits from the client,
+    // but a closed tab or a lost request can't; whatever the last showdown left
+    // unresolved is forfeited here first (a loss on the record), so no match is
+    // ever abandoned without a result. A failure never blocks the new showdown.
+    let settledPrevious = false;
+    if (settlementMode === "standard") {
+      const previous = await kv.get<string>(cardClashAiActiveKey(playerName)).catch(() => null);
+      if (typeof previous === "string" && previous) {
+        settledPrevious = await forfeitAbandonedAiMatch(previous, playerName).catch((error) => {
+          console.error("[card-clash/ai-start] could not resolve the previous showdown", error);
+          return false;
+        });
+      }
+    }
     const aiSteps: ChronicleProjection[] = [];
     const session = createAiMatch(
       matchId,
@@ -473,6 +490,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await kv.set(cardClashAiTokenKey(matchId), session, {
       ex: CARD_CLASH_AI_TOKEN_TTL_SECONDS,
     });
+    if (settlementMode === "standard") {
+      await kv.set(cardClashAiActiveKey(playerName), matchId, {
+        ex: CARD_CLASH_AI_ACTIVE_TTL_SECONDS,
+      });
+    }
+    // Settling the previous showdown wrote the save after the deck resolution
+    // did, so hand back the record and version as they stand now.
+    const settledSnapshot = settledPrevious ? await authoritativePlayerSnapshot(playerName) : {};
     return res
       .status(200)
       .json({
@@ -484,6 +509,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ...(resolved.saveVersion === undefined
           ? {}
           : { _saveVersion: resolved.saveVersion }),
+        ...settledSnapshot,
       });
   } catch (err) {
     console.error("[card-clash/ai-start]", err);

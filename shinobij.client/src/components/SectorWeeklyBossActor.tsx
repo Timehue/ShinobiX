@@ -11,7 +11,8 @@
  * Forked from SectorWanderer (rather than reused) so the live wanderer system
  * (always on) is untouched, and so the boss can loom larger and
  * wear its own portrait. Renderer/movement only — the fight is launched by
- * <WorldMap> through launchWeeklyBossFight, so nothing here touches combat.
+ * <WorldMap>'s Stand & Fight prompt (lib/weekly-boss-launch.ts), so nothing
+ * here touches combat.
  */
 import { type CSSProperties, useEffect, useLayoutEffect, useRef } from "react";
 import type { Biome } from "../types/core";
@@ -28,6 +29,13 @@ const BASE_ANCHOR = SECTOR_MARKER_ANCHOR;
 const WALK_TILES_PER_SEC = 4.4; // a heavy, deliberate stalk
 const ENGAGE_TILES = 0.9;       // "it's upon you" distance → open the Stand/Flee prompt
 const ARM_DELAY_MS = 1400;      // a beat after you enter before it lunges
+// Reduced motion drops the ANIMATION, not the encounter — the fix SectorWanderer
+// already made. The boss used to stand frozen on its home tile in the top row,
+// where a phone's board edge mostly clips it, so those players never met the
+// roaming boss unless they found and tapped a sliver of it. It now stalks in
+// discrete steps: 4.4 tiles/s x 0.2 s = 0.88 of a tile, never a big jump.
+const REDUCED_STEP_MS = 200;
+const SMOOTH_MAX_DT = 0.05;
 
 const AURA: Record<Biome, string> = {
     snow: "#cfe8ff", volcano: "#ff8a3d", shadow: "#c9a2ff", forest: "#9bf0a6", central: "#ffe9a6",
@@ -65,6 +73,7 @@ export function SectorWeeklyBossActor({
     const sizeRef = useRef({ w: 0, h: 0 });
     const metricsRef = useRef({ padX: PAD, padY: PAD, gapX: GAP, gapY: GAP });
     const rafRef = useRef(0);
+    const stepTimerRef = useRef(0);
     const lastTsRef = useRef(0);
     const armedAtRef = useRef(0);
     const greetedRef = useRef(false);
@@ -119,12 +128,17 @@ export function SectorWeeklyBossActor({
 
     // The stalk loop — always hunts the player.
     useEffect(() => {
-        if (prefersReducedMotion()) { paint(); return; } // static placement, still interactive (click to engage)
+        const reduced = prefersReducedMotion();
+        const maxDt = reduced ? REDUCED_STEP_MS / 1000 : SMOOTH_MAX_DT;
+        const schedule = () => {
+            if (reduced) stepTimerRef.current = window.setTimeout(() => tick(performance.now()), REDUCED_STEP_MS);
+            else rafRef.current = requestAnimationFrame(tick);
+        };
         armedAtRef.current = performance.now() + ARM_DELAY_MS;
 
         const tick = (ts: number) => {
             if (!lastTsRef.current) lastTsRef.current = ts;
-            const dt = Math.min(0.05, (ts - lastTsRef.current) / 1000);
+            const dt = Math.min(maxDt, (ts - lastTsRef.current) / 1000);
             lastTsRef.current = ts;
 
             const p = posRef.current;
@@ -141,7 +155,7 @@ export function SectorWeeklyBossActor({
                 if (distPlayer <= ENGAGE_TILES) {
                     setWalking(false);
                     if (!greetedRef.current) { greetedRef.current = true; onEngageRef.current(); }
-                    rafRef.current = requestAnimationFrame(tick); // hold adjacent
+                    schedule(); // hold adjacent
                     return;
                 }
                 tCol = pcol; tRow = prow; // ALWAYS hunt toward the player
@@ -161,11 +175,17 @@ export function SectorWeeklyBossActor({
                 setWalking(true);
             }
             paint();
-            rafRef.current = requestAnimationFrame(tick);
+            schedule();
         };
 
-        rafRef.current = requestAnimationFrame(tick);
-        return () => cancelAnimationFrame(rafRef.current);
+        paint();
+        schedule();
+        // Both schedulers are torn down, or a reduced-motion timer would outlive
+        // the sector and keep stalking a player who has already travelled on.
+        return () => {
+            cancelAnimationFrame(rafRef.current);
+            window.clearTimeout(stepTimerRef.current);
+        };
     }, []);
 
     return (

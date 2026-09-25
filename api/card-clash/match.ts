@@ -19,10 +19,9 @@ import {
 } from "./_deck.js";
 import {
   CHRONICLE_RULES_VERSION,
-  TURN_TIMEOUT_MS,
+  advanceExpiredChronicleTurn,
   applyAction,
   createMatch,
-  passExpiredResponse,
   projectMatchForViewer,
   type ChronicleActionIntent,
   type ChronicleMatch,
@@ -104,31 +103,14 @@ async function persistTerminalAndRepair(
 
 function autoAdvance(session: FreePlaySession, now: number): boolean {
   if (!session.state || session.state.status !== "active") return false;
-  const originalState = session.state;
-  let state = originalState;
-  if (state.responseWindow && state.responseWindow.expiresAt <= now) {
-    const passed = passExpiredResponse(state, now);
-    if (passed.ok) state = passed.state;
-  }
-  if (!state.responseWindow && state.turnStartedAt + TURN_TIMEOUT_MS <= now) {
-    const actor = state.activePlayer;
-    for (let safety = 0; safety < 5 && state.activePlayer === actor; safety++) {
-      const timeoutAction: ChronicleActionIntent =
-        state.phase === "draw" || state.phase === "standby"
-          ? { action: "advance-phase" }
-          : state.phase === "battle"
-            ? { action: "enter-main-2" }
-            : state.phase === "main1" || state.phase === "main2"
-              ? { action: "enter-end-phase" }
-              : { action: "end-turn" };
-      const advanced = applyAction(state, actor, timeoutAction, now);
-      if (!advanced.ok) break;
-      state = advanced.state;
-    }
-  }
-  if (state === originalState) return false;
+  // The shared clock: passes expired turns, and forfeits a duelist who misses
+  // two in a row (shared/chronicle-duel.ts advanceExpiredChronicleTurn).
+  const state = advanceExpiredChronicleTurn(session.state, now);
+  if (state === session.state) return false;
   session.state = state;
   session.status = state.status === "complete" ? "done" : "active";
+  // A clock ending (including a walk-out forfeit) earns no Legacy or Circuit
+  // credit, the same as a manual forfeit.
   if (session.status === "done" && session.participation) session.participation.endedBy = "timeout";
   session.updatedAt = now;
   return true;
@@ -246,6 +228,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             body: { error: "This duel used retired rules; start a new duel." },
           };
         const autoAdvanced = autoAdvance(session, now);
+        // What the clock settled (a passed turn, or the two-miss forfeit) is
+        // kept even when the request that woke it is refused below, so the
+        // result never waits on another poll. A state poll persists it itself.
+        if (autoAdvanced && action !== "state") {
+          if (session.status === "done") await persistTerminalAndRepair(session, true);
+          else await saveSession(session);
+        }
 
         if (action === "state") {
           // State polls are read-only unless they create the short-lived pair

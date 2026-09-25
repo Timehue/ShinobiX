@@ -8,6 +8,7 @@ import { loadAdminCombatContent } from '../_admin-content.js';
 import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
+import { isIncapacitated } from '../_elapsed-state.js';
 import type { EndlessRun } from './_run.js';
 import {
     buildEndlessWaveEncounter,
@@ -67,6 +68,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             }
 
+            // Resuming the wave already on the board (above) stays open; sealing
+            // a NEW one while admitted does not. The wave seeds from the save's
+            // own HP, so it would start a knocked-out fighter at zero.
+            if (!identity.admin && isIncapacitated(char)) {
+                return { ok: false as const, error: 'You are in the hospital. Recover before starting a fight.', errorCode: 'hospitalized' };
+            }
             const runId = endlessWaveRunId();
             const now = Date.now();
             const built = buildEndlessWaveEncounter({
@@ -90,7 +97,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await kv.set(activeKey, { runId, wave }, { ex: ENDLESS_WAVE_TTL_SECONDS });
             return { ok: true as const, runId, wave, session: built.session, resumed: false };
         }, { failClosed: true });
-        if (!started.ok) return res.status(409).json({ error: started.error });
+        if (!started.ok) return res.status(409).json({ error: started.error, ...('errorCode' in started ? { errorCode: started.errorCode } : {}) });
         return res.status(200).json(started);
     } catch (err) {
         console.error('[endless/wave-start]', err);

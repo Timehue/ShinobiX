@@ -484,6 +484,16 @@ export function ChronicleDuelBoard({
   const deadline =
     state.responseWindow?.expiresAt ?? state.turnStartedAt + TURN_TIMEOUT_MS;
   const secondsRemaining = Math.max(0, Math.ceil((deadline - clock) / 1_000));
+  // Two turns in a row left to run out forfeit a PvP duel (shared/chronicle-duel.ts
+  // advanceExpiredChronicleTurn). Say so while one strike is on record.
+  const missedTurnNotice =
+    timedTurns && state.status === "active" && !state.responseWindow
+      ? state.activePlayer === meKey && (state.missedTurns?.[meKey] ?? 0) > 0
+        ? "You missed your last turn. Miss this one too and you forfeit."
+        : state.activePlayer === foeKey && (state.missedTurns?.[foeKey] ?? 0) > 0
+          ? `${foe.name} missed their last turn. If they miss this one too, you win.`
+          : null
+      : null;
   const fieldStyle = state.activeField
     ? ({
         "--chronicle-field-art": `url("${state.activeField.image}")`,
@@ -934,6 +944,7 @@ export function ChronicleDuelBoard({
             {timedTurns ? ` | ${secondsRemaining}s` : ""}
           </span>
           {state.responseWindow ? <em>SNARE RESPONSE</em> : null}
+          {missedTurnNotice ? <em role="status">{missedTurnNotice}</em> : null}
           {aiActing ? (
             <em className="chronicle-ai-acting" aria-live="polite">
               {foe.name} is acting

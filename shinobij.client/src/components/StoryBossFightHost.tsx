@@ -388,10 +388,10 @@ export function StoryBossFightHost({
     // The fight's physical cost. Fires on any resolution and on a forfeit exit —
     // a chapter boss that beat you must not leave you at full HP.
     //
-    // A WON spar reports too — the server, which owns the session, is what
-    // declines to overwrite the scripted post-spar HP (see
-    // sparSettlementOwnsHp in api/missions/_ai-fight-outcome.ts). The client
-    // never gates this call: doing so is how a lost fight stops costing anything.
+    // The spar reports too — the server, which owns the session, is what
+    // declines to write a spar's physical outcome (settlementOwnsHpOnWin and
+    // sessionIsSpar in api/missions/_ai-fight-outcome.ts). The client never
+    // gates this call: doing so is how a lost chapter fight stops costing anything.
     async function reportOutcome(runId: string, _settlingPlayer: string) {
         if (activePlayerKeyRef.current !== originatingPlayerKey) {
             throw new Error("This story battle belongs to a previous account.");
@@ -451,9 +451,11 @@ export function StoryBossFightHost({
                     const result = (settleResult as StoryBossSettleResult | null)
                         ?? (committedReward?.requestId === currentFight.requestId ? committedReward.result : null);
                     // The tutorial spar gets its own plain-language card: a new
-                    // player has no chapter context yet, and the loss path has to
-                    // point at the Hospital (the OnboardingCoach's recovery step)
-                    // rather than at a Story Hall they have not seen.
+                    // player has no chapter context yet. A lost spar costs no HP
+                    // and no hospital stay (spars never do — api/missions/
+                    // _ai-fight-outcome.ts sessionIsSpar), so the loss path sends
+                    // them straight back to the mat, not to a Story Hall they
+                    // have not seen.
                     if (isSpar) {
                         return (
                             <RequiredStoryResultDialog
@@ -467,7 +469,7 @@ export function StoryBossFightHost({
                                         ? (!result
                                             ? <p className="story-fight-complete-rewards">{settleState === "failed" ? "The sparring reward could not be verified. Your win still counts. Retry the reward now." : "Sealing your reward…"}</p>
                                             : <Suspense fallback={<p role="status">Personal reward committed.</p>}><StoryRewardSummary result={result} /></Suspense>)
-                                        : <p className="story-fight-complete-boss">The dummy got the better of you. Patch up at the Hospital and step back onto the mat.</p>}
+                                        : <p className="story-fight-complete-boss">The dummy got the better of you. It was only a spar, so there is no hospital stay. Step back onto the mat when you are ready.</p>}
                                     {/* escape-hatch-exempt — deliberate, unlike the PvP and AI-fight
                                         result screens. Those two keep a DURABLE handle on an unsettled
                                         reward (a 48h server receipt, or a retained token plus an active

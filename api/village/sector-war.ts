@@ -77,6 +77,7 @@ import { hydrateCharacterFromSave, sealItemCharges } from '../pvp/session.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
+import { isIncapacitated } from '../_elapsed-state.js';
 import { villageHasActiveWar, seedHomeSectorOwnership } from '../world-state.js';
 import {
     WAR_DECLARATION_FUNDING_FIELD,
@@ -1003,6 +1004,13 @@ async function doGarrisonStart(req: VercelRequest, res: VercelResponse, identity
                 } };
             }
             await kv.del(activeKey);
+        }
+
+        // An assault already on the board resumes above; a NEW one is not
+        // sealed for a hospitalized attacker. It would seed them at the save's
+        // zero HP and spend the garrison window on a fight they cannot play.
+        if (!identity.admin && isIncapacitated(char)) {
+            return { status: 409 as const, body: { error: 'You are in the hospital. Recover before starting a fight.', errorCode: 'hospitalized' } };
         }
 
         const anbuSlug = await pickAnbuDefender(contest.defenderVillage, appointees);
