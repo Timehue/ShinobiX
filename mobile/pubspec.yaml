@@ -4,7 +4,7 @@ publish_to: 'none'
 
 # <versionName>+<versionCode>. The Play track already holds versionCode 4 (the
 # old TWA shell); every upload needs a higher code than the last one.
-version: 2.0.0+5
+version: 2.0.1+6
 
 environment:
   sdk: ^3.13.4
