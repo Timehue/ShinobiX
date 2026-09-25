@@ -36,6 +36,18 @@ test("server-owned mission battles pause regeneration and every autosave timer",
     assert.match(app, /onMissionBattleStart=\{\(\) => setMissionBattleActive\(true\)\} onMissionBattleEnd=\{\(\) => setMissionBattleActive\(false\)\}/);
 });
 
+test("every sealed AI or story fight counts as an unresolved battle for back, regen and autosave", () => {
+    // An explore ambush, hunt or raid is a BODY-PORTAL fight: `screen` stays on
+    // the World Map underneath it, so the screen-keyed predicate alone said "no
+    // battle". The Play app's hardware Back reads this predicate and then sets the
+    // screen directly — so a press mid-ambush could put the village underneath
+    // the fight and zero the player's sector: a free teleport home from a wild
+    // sector. It also let idle regen and autosaves run during those fights.
+    assert.match(app, /function isPresenceBattleActive\([^)]*\): boolean \{\s*if \(storyFightOpen \|\| sealedFightEngagedRef\.current\) return true;/);
+    assert.match(app, /useAppHistory\(screen, setScreen, isPresenceBattleActive, \(\) => safeFallbackScreen\(isWildSector\(currentSectorRef\.current\)\)\);/,
+        "Back reads the same predicate, and falls back to where the player IS");
+});
+
 test("mission battle state clears on failed start, authoritative terminal resolution, exit, and unmount", () => {
     assert.match(missions, /if \(!fightMounted\) onMissionBattleEnd\?\.\(\);/);
     assert.match(missions, /onBattleResolved=\{onMissionBattleEnd\}/);

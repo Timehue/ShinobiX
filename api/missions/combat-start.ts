@@ -27,6 +27,7 @@ import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { captureServerProductEvent } from '../_product-analytics.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
 import { reconcileTerminalSoloPveOutcome } from '../pve/_fight-outcome-settlement.js';
+import { isIncapacitated } from '../_elapsed-state.js';
 
 /** Start or recover a sealed, server-resolved combat mission. Body: { playerName, missionId }. */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -80,6 +81,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             }
 
+            // A live mission fight resumes above whatever the player's state; a
+            // NEW one is not sealed for a hospitalized character. Read after the
+            // retry reconcile, which can itself be the defeat that admitted them.
+            if (!identity.admin && isIncapacitated(char)) {
+                return { ok: false as const, error: 'You are in the hospital. Recover before starting a fight.', errorCode: 'hospitalized' };
+            }
             const runId = `mission-${randomUUID().replace(/-/g, '')}`;
             const now = Date.now();
             const env = missionEnvironment(mission.key);
@@ -117,6 +124,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             return { ok: true as const, runId, session, resumed: false };
         }, { failClosed: true, ttlSec: 10 });
+        if (!started.ok) return res.status(409).json({ error: started.error, errorCode: started.errorCode });
         if (!started.resumed) {
             const level = Number(char.level ?? 0);
             captureServerProductEvent('mission_started', {

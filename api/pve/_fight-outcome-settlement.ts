@@ -14,6 +14,7 @@ import {
     applyAiFightOutcomeToCharacter,
     isPveFightMember,
     resolveAiFightOutcome,
+    sessionIsSpar,
     sessionUsesContinuousVitals,
     settlementOwnsHpOnWin,
     type AiFightOutcome,
@@ -167,6 +168,10 @@ export function applyPveOutcomeWithReceipt(params: {
             // price, and abandoning a losing open-world fight was cheaper in
             // the scarce resource than finishing it.
             sessionUsesContinuousVitals(params.session),
+            // Likewise sealed: a spar (the Academy spar, a practice bout) writes
+            // no physical consequence on any path, including the lapse
+            // reconciler's abandon of one the player walked away from.
+            sessionIsSpar(params.session),
         );
     // Caravan sessions are created only from the real current pools and held
     // behind the normal battle lock. Their terminal record includes legitimate

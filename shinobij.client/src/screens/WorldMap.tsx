@@ -178,6 +178,7 @@ import { useLiveSectorRoster, getLocalSectorTile, getLiveSectorRoster, useSector
 import { isSectorLivePeersEnabled } from "../components/sector-peers-flag";
 import type { SectorPeer } from "../components/SectorPeers";
 import { isWeeklyBossRoamEnabled, weeklyBossRoamState, weeklyBossRoamCooldownId, WEEKLY_BOSS_ROAM_REENGAGE_COOLDOWN_MS, type RoamingBoss } from "../lib/weekly-boss-roam";
+import { stageWeeklyBossFight } from "../lib/weekly-boss-launch";
 import { playerNameTile } from "../lib/sector-tile";
 import { fetchPlayerCombatSave, pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
 import { createPvpSessionWithRecovery, pvpStableBattleIdFromRequestBody } from "../lib/pvp-session-create";
@@ -405,9 +406,10 @@ function WorldMapContent({
     onVersionedCharacter: VersionedCharacterCommit;
     onOwnSaveRead: OwnSaveReadCommit;
     capturePvpCreateScope: (ownerName: string) => { signal: AbortSignal; isCurrent: () => boolean };
-    // Launch the REAL weekly-boss fight. The Phase 3 roaming encounter routes
-    // through App's launchWeeklyBossFight so damage → the shared leaderboard and
-    // the 3-attempt cap — same path as the "Fight Boss" button.
+    // Launch the REAL weekly-boss fight. The Phase 3 roaming encounter stages a
+    // launch (lib/weekly-boss-launch.ts) and opens the Weekly Boss screen, which
+    // starts the sealed fight — damage → the shared leaderboard and the 3-attempt
+    // cap — and returns the player here when it ends.
     onLaunchWeeklyBoss?: (bossAiId: string, bossDisplayName?: string, returnScreen?: Screen) => void;
 }) {
     const legacyAvailable = useLegacyAvailability();
@@ -996,8 +998,13 @@ function WorldMapContent({
         // long lockout. The boss stays present in its sector for your remaining
         // attempts (the hard 3-attempt cap is server-enforced). Only a fight that
         // logs damage burns an attempt. Return to the world map (currentSector is
-        // untouched) so the hunt continues.
+        // untouched) so the hunt continues. The Weekly Boss screen takes the
+        // staged launch, starts the fight, and brings the player back here.
         coolWeeklyBoss(WEEKLY_BOSS_ROAM_REENGAGE_COOLDOWN_MS);
+        // Reopen this sector's board on return, as the explore ambush and the
+        // wanderer duels do — not the world overview.
+        setSectorReopen(selectedSector != null && isWildSector(selectedSector) ? selectedSector : null);
+        stageWeeklyBossFight("worldMap");
         onLaunchWeeklyBoss?.(roamingBoss.aiId, roamingBoss.bossName, "worldMap");
     }
     function fleeBoss() {

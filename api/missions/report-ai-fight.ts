@@ -30,6 +30,7 @@ import {
     aiFightPlayerActor,
     aiFightPlayerItemsUsed,
     applyAiFightOutcomeToCharacter,
+    sessionIsSpar,
     sessionUsesContinuousVitals,
     resolveAiFightOutcome,
     type AiFightOutcome,
@@ -172,6 +173,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // open-world encounter was seeded from the player's real vitals, so its
         // leftovers are a genuine cost. A fresh-start session's are not.
         const continuousVitals = sessionUsesContinuousVitals(sealedSession);
+        // A spar writes no physical consequence. The token's sealed battle kind
+        // also answers it, so a practice session sealed before the encounter
+        // carried its `spar` flag still settles as the spar it was. Read off the
+        // peeked token itself, never `sealedBattleKind`'s 'practice' fallback,
+        // so a token that could not be read is never mistaken for a spar.
+        const spar = peeked?.battleKind === 'practice' || sessionIsSpar(sealedSession);
         const playerItemsUsed = aiFightPlayerItemsUsed(sealedSession);
         // A vanished session neither pays nor punishes — see _ai-fight-outcome.
         // 409 so the client's settle retry can pick it up if it was a slow read.
@@ -276,7 +283,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // consequence, but pays nothing and never touches the daily counter —
             // the counter is a REWARD counter, and a defeat earned no reward.
             if (!paysReward) {
-                const settled = applyAiFightOutcomeToCharacter(companionCharacter, outcome, playerActor, Date.now(), continuousVitals);
+                const settled = applyAiFightOutcomeToCharacter(companionCharacter, outcome, playerActor, Date.now(), continuousVitals, spar);
                 const dungeonSettled = sealedBattleKind === 'dungeon'
                     ? applyDungeonWardenSettlement({
                         character: settled,
@@ -319,7 +326,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // can never bank the reward while losing the damage it cost (or the
             // other way round). The player actor comes only from the mandatory
             // sealed Solo-PvE session.
-            const physicallySettled = applyAiFightOutcomeToCharacter(rewarded, outcome, playerActor, Date.now(), continuousVitals);
+            const physicallySettled = applyAiFightOutcomeToCharacter(rewarded, outcome, playerActor, Date.now(), continuousVitals, spar);
             const nextCharacter = sealedWorldContext
                 ? applyWorldAiFightSettlement(physicallySettled, sealedWorldContext, outcome, aiFightToken)
                 : physicallySettled;

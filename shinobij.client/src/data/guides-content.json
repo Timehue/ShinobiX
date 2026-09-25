@@ -23,7 +23,7 @@
     "quickTake": [
       "Follow the Academy checklist in order; each step introduces a screen you will use later.",
       "For the Academy route, equip four usable jutsu and both starter items.",
-      "If you lose the Academy spar, use the Hospital, adjust one thing, and try again."
+      "If you lose the Academy spar, adjust one thing and try again. A spar never sends you to the Hospital."
     ],
     "relatedGuideIds": [
       "progression",
@@ -110,7 +110,7 @@
           },
           {
             "type": "p",
-            "text": "If you are knocked out, you will wake up in the Hospital. Early on, use the free checkout after roughly a minute; a Healer can also help when one is available. Once you are back on your feet, change one part of the loadout and try again."
+            "text": "If a real fight knocks you out, you will wake up in the Hospital. A spar never does. Early on, use the free checkout after roughly a minute; a Healer can also help when one is available. Once you are back on your feet, change one part of the loadout and try again."
           },
           {
             "type": "callout",
@@ -452,7 +452,7 @@
         "blocks": [
           {
             "type": "p",
-            "text": "AI practice and direct player spars in the Battle Arena do not change your ranked rating. Team Arena is a four-player 2v2 mode with balanced teams, no consumables, and no rating, currency, or progression rewards. Queue solo; matchmaking finds three other live fighters and balances the teams."
+            "text": "AI practice and direct player spars in the Battle Arena do not change your ranked rating, and losing one never sends you to the Hospital. Team Arena is a four-player 2v2 mode with balanced teams, no consumables, and no rating, currency, or progression rewards. Queue solo; matchmaking finds three other live fighters and balances the teams."
           },
           {
             "type": "p",

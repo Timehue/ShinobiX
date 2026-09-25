@@ -56,9 +56,11 @@ test("the settle asks for an outcome — it never asserts one", async () => {
         "the body must carry ONLY the token — no amount, no outcome, nothing to inflate");
 });
 
-test("a practice bout still settles, so a practice defeat costs the same hospital stay", async () => {
-    // The server decides practice pays nothing; the client must NOT skip the
-    // call, or losing a practice bout would be free while losing a raid is not.
+test("a practice bout still settles, so the server closes it even though a spar costs nothing", async () => {
+    // The server decides practice pays nothing and, as a spar, costs no HP and
+    // no hospital stay. The client must still NOT skip the call: the report is
+    // what consumes the token, charges any consumable the bout burned, and
+    // closes the sealed session.
     const spy = hookSpy();
     respond = () => win({ ryo: 0 });
     const result = await settleAiFight({

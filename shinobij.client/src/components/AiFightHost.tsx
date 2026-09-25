@@ -622,6 +622,7 @@ export function AiFightHost({
                         settleResult={ctx.settleResult as AiFightSettleResult | null}
                         opponentName={opponentName}
                         worldEncounter={!!currentFight.worldContext}
+                        spar={!currentFight.worldContext && request.battleKind === "practice"}
                         onRetry={ctx.retry}
                         onExit={closeFight}
                     />
@@ -639,6 +640,7 @@ function AiFightResultCard({
     settleResult,
     opponentName,
     worldEncounter,
+    spar,
     onRetry,
     onExit,
 }: {
@@ -648,6 +650,8 @@ function AiFightResultCard({
     settleResult: AiFightSettleResult | null;
     opponentName: string;
     worldEncounter: boolean;
+    /** A practice bout: never a hospital stay, never an HP cost. */
+    spar: boolean;
     onRetry: () => void;
     onExit: () => void;
 }) {
@@ -655,10 +659,10 @@ function AiFightResultCard({
         return (
             <div className="story-fight-complete" role="dialog" aria-label={draw ? "Fight drawn" : "Fight lost"}>
                 <div className="story-fight-complete-card">
-                    <p className="story-fight-complete-kicker">{draw ? "Stalemate" : "Defeated"}</p>
+                    <p className="story-fight-complete-kicker">{draw ? "Stalemate" : spar ? "Spar lost" : "Defeated"}</p>
                     <h2>{opponentName}</h2>
                     <p className="story-fight-complete-boss" role={settleState === "failed" ? "alert" : "status"}>
-                        {aiFightNonWinMessage(settleState, settleResult?.character, draw)}
+                        {aiFightNonWinMessage(settleState, settleResult?.character, draw, spar)}
                     </p>
                     {/* "failed" must keep an EXIT, not just a Retry. The 12s-per-
                         attempt race above fixed the stalled-connection case, but a

@@ -8,6 +8,7 @@ import { buildSoloPveAiEncounter } from '../solo-pve/_ai-encounter.js';
 import { writeSoloPveSession } from '../solo-pve/_store.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
+import { isIncapacitated } from '../_elapsed-state.js';
 import {
     createStoryCombatBinding,
     storyBossEligibility,
@@ -44,6 +45,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const save = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${playerName}`));
         const char = save?.character as Record<string, unknown> | undefined;
         if (!save || !char) return res.status(404).json({ error: 'Player save not found.' });
+        // A hospitalized character starts no new fight — the same rule every
+        // other fight entry point applies (api/_elapsed-state.ts). The Hospital
+        // screen holds honest clients; this is the server's answer to the rest.
+        if (!identity.admin && isIncapacitated(char)) {
+            return res.status(409).json({ error: 'You are in the hospital. Recover before starting a fight.', errorCode: 'hospitalized' });
+        }
         const eligibility = storyBossEligibility(char);
         if (!eligibility.ok) return res.status(eligibility.status).json({ error: eligibility.error });
 

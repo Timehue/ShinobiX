@@ -25,6 +25,7 @@ import {
 } from './_storage.js';
 import { captureServerProductEvent } from '../_product-analytics.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
+import { isIncapacitated } from '../_elapsed-state.js';
 
 /*
  * POST /api/clan-boss/assault-start — begin a co-op assault on THIS week's clan boss.
@@ -108,11 +109,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ]);
         const recordsBySlug = new Map(allySlugs.map((slug, index) => [slug, allyRecords[index] ?? null]));
         const squad: SquadMemberInput[] = [];
+        // Tower-engine fighters are sealed at FULL vitals (towers/_encounter.ts),
+        // so an admitted member would walk out of the hospital into the boss at
+        // full strength and spend a weekly attempt doing it. Collected here and
+        // refused inside the reservation lock, on a NEW request only, so a replay
+        // of an already-reserved assault still resolves (hollow-gate/start's rule).
+        const admitted: string[] = [];
         for (let i = 0; i < partySlugs.length; i++) {
             const slug = partySlugs[i]!;
             const rec = await augmentSaveWithForgedDefs(slug === hostName ? hostRec : recordsBySlug.get(slug) ?? null);
             const char = rec?.character as Record<string, unknown> | undefined;
             if (!char) { if (slug === hostName) return res.status(400).json({ error: 'Your save was not found.' }); continue; }
+            if (!identity.admin && isIncapacitated(char)) admitted.push(slug);
             squad.push({
                 // Contiguous ids even when an ally save is skipped above.
                 id: `sq-${squad.length}`, name: String(char.name ?? slug), ownerSlug: slug, ai: false,
@@ -154,6 +162,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!replay.ok) return { ok: false as const, conflict: true as const, error: 'That request ID was already used for another Clan Boss party.' };
                 return { ok: true as const, replayed: true, receipt: replay.receipt };
             }
+            if (admitted.length) {
+                return {
+                    ok: false as const,
+                    conflict: true as const,
+                    errorCode: 'hospitalized',
+                    members: admitted,
+                    error: admitted.length === 1 && admitted[0] === hostName
+                        ? 'You are in the hospital. Recover before starting an assault. No attempt was used.'
+                        : 'One or more party members is in the hospital. No attempt was used.',
+                };
+            }
             if (progress.killedAt || progress.pool <= 0) return { ok: false as const, error: 'Your clan already defeated this week\'s boss.' };
             if (clanBossAttemptsLeft(progress, hostName) <= 0) return { ok: false as const, error: 'You\'ve used all your assaults this week.' };
             const receipt = {
@@ -169,7 +188,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }, { failClosed: true });
         if (!reserved.ok) {
             if (preparedParty) await reopenPartyStart(preparedParty.id, preparedParty.requestId);
-            return res.status('conflict' in reserved ? 409 : 400).json({ error: reserved.error });
+            return res.status('conflict' in reserved ? 409 : 400).json({
+                error: reserved.error,
+                ...('errorCode' in reserved ? { errorCode: reserved.errorCode, members: reserved.members } : {}),
+            });
         }
 
         // Mint the tower session on the clan-boss floor.
