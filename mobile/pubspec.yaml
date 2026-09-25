@@ -1,0 +1,35 @@
+name: shinobi_app
+description: "Shinobi Journey for Android: a native shell around https://shinobijourney.com."
+publish_to: 'none'
+
+# <versionName>+<versionCode>. The Play track already holds versionCode 4 (the
+# old TWA shell); every upload needs a higher code than the last one.
+version: 2.0.0+5
+
+environment:
+  sdk: ^3.13.4
+
+# Pinned exactly. The shell is rebuilt rarely (the game itself is the live
+# website), so a surprise upgrade is worse than a stale one. Upgrade on purpose,
+# then re-run the device checklist in README.md.
+dependencies:
+  flutter:
+    sdk: flutter
+  # The beta, not 6.1.5: 6.1.5's Android half does not build with Android
+  # Gradle Plugin 9 (it asks for the removed proguard-android.txt).
+  flutter_inappwebview: 6.2.0-beta.3
+  flutter_web_auth_2: 5.1.0
+  in_app_review: 2.0.12
+  in_app_update: 5.0.0
+  shared_preferences: 2.5.5
+  url_launcher: 6.3.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/splash_mark.png
