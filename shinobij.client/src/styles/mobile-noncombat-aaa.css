@@ -984,11 +984,8 @@
 
 /* Ambient help must not become a second bottom sheet. Mobile feature CSS used
    to expand this notice back over the page; keep the shared compact trigger
-   above the fixed navigation and leave every gameplay control exposed.
-   While the one-time storage notice is showing, the trigger joins the same
-   measured bottom stack as the Academy coach banner (adaptive-shell.css):
-   the single-row notice puts its "Got it" button at the right edge, right
-   under this trigger, and a phone tap there opened the tip instead. */
+   above the fixed navigation and leave every gameplay control exposed. It also
+   rides above the measured storage notice, whose button sits in this corner. */
 @media (max-width: 979px) {
   body:not(.in-battle):not(:has(> .combat-instance)) .screen-hint-banner.screen-hint-collapsed {
     right: max(8px, env(safe-area-inset-right, 0px)) !important;

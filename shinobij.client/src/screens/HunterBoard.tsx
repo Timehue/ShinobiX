@@ -80,6 +80,11 @@ export function HunterBoard({
     // is pending at the sign's decision sector. Reconcile the same durable state
     // the World Map uses so Go To Sector and Claim never depend on a stale local
     // progress hash.
+    // App passes fresh onVersionedCharacter/onServerVersion functions every
+    // render; read them through a ref so a re-render doesn't re-sync every
+    // accepted hunt (spending the rate limit) and cancel the sync in flight.
+    const commitRef = useRef({ onVersionedCharacter, onServerVersion });
+    useEffect(() => { commitRef.current = { onVersionedCharacter, onServerVersion }; }, [onVersionedCharacter, onServerVersion]);
     useEffect(() => {
         let cancelled = false;
         const missionIds = acceptedHuntKey ? acceptedHuntKey.split("|") : [];
@@ -89,8 +94,8 @@ export function HunterBoard({
                 const result = await postWorldHunt({ playerName: character.name, action: "state", missionId });
                 if (cancelled || !result.ok) continue;
                 if (result.character) {
-                    if (!onVersionedCharacter(result.character, result._saveVersion)) continue;
-                } else if (!onServerVersion(result._saveVersion)) {
+                    if (!commitRef.current.onVersionedCharacter(result.character, result._saveVersion)) continue;
+                } else if (!commitRef.current.onServerVersion(result._saveVersion)) {
                     continue;
                 }
                 if (result.acceptedMissionIds) setAcceptedMissionIds(result.acceptedMissionIds);
@@ -107,7 +112,7 @@ export function HunterBoard({
             if (!cancelled) setAuthoritativeHuntStates(next);
         })();
         return () => { cancelled = true; };
-    }, [acceptedHuntKey, character.name, onServerVersion, onVersionedCharacter, setAcceptedMissionIds, setMissionProgress]);
+    }, [acceptedHuntKey, character.name, setAcceptedMissionIds, setMissionProgress]);
 
     function invCount(itemId: string) {
         return countItem(character, itemId);

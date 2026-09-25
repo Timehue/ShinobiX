@@ -96,7 +96,16 @@ export function PetBreedingBarn({ character, updateCharacter, onVersionedCharact
     useEffect(() => () => {
         if (rareStingTimer.current !== null) window.clearTimeout(rareStingTimer.current);
     }, []);
+    // Home passes an inline onServerVersion and App a fresh onVersionedCharacter
+    // every render. Read them through a ref so `refresh` stays stable; otherwise
+    // the effects below re-fetched status (and restarted the poll, aborting the
+    // read in flight) on every App render.
+    const refreshDepsRef = useRef({ commitServerCharacter, onServerVersion, viewAvailability });
+    useEffect(() => {
+        refreshDepsRef.current = { commitServerCharacter, onServerVersion, viewAvailability };
+    }, [commitServerCharacter, onServerVersion, viewAvailability]);
     const refresh = useCallback(async (signal?: AbortSignal) => {
+        const { commitServerCharacter, onServerVersion, viewAvailability } = refreshDepsRef.current;
         if (!capabilityAdmissionAllowed(viewAvailability())) return;
         const requestNo = ++refreshRequestRef.current;
         try {
@@ -120,7 +129,7 @@ export function PetBreedingBarn({ character, updateCharacter, onVersionedCharact
         } catch (error) {
             if ((error as Error).name !== "AbortError") setMessage((error as Error).message);
         }
-    }, [character.name, commitServerCharacter, onServerVersion, viewAvailability]);
+    }, [character.name]);
     useEffect(() => {
         if (!breedingReadAvailable) return;
         const controller = new AbortController();

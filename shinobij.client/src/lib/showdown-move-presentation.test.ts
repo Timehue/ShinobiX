@@ -22,7 +22,7 @@ test("every actual sealed pet loadout has distinct primary geometry, including s
         }
         count++;
     }
-    assert.equal(count, 160, "wild pets, breeding exclusives and starter forms are all included");
+    assert.equal(count, 161, "wild pets, breeding exclusives and starter forms are all included");
 });
 
 test("a four-damage kit reserves the signature and gives the two elemental attacks different shapes", () => {

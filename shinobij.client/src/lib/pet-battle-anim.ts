@@ -56,6 +56,7 @@ const BREEDING_MYTHIC_PORTRAITS: Readonly<Record<string, string>> = {
     "mythic-12": "/pet-portraits/breeding-mythics/mythic-12.webp",
     "mythic-13": "/pet-portraits/breeding-mythics/mythic-13.webp",
     "mythic-14": "/pet-portraits/breeding-mythics/mythic-14.webp",
+    "mythic-15": "/pet-portraits/breeding-mythics/mythic-15.webp",
 };
 
 const STORM_GULL_CARD_PORTRAIT = "/pet-portraits/standard-17-card-v2.webp";

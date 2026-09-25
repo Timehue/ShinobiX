@@ -1,7 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { before, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CHRONICLE_FIXED_FALLBACK_DECK } from '../../shared/chronicle-duel.js';
 import { riftQuestRyo, riftTargetSector } from '../sector/_rift-quest.js';
 import { hollowGateCombatReward } from './_combat-session.js';
 import { hollowGateRunKey, rewardMultiplierForToken, type HollowGateRunToken } from './_run-token.js';
@@ -11,7 +10,9 @@ import { hollowGateRunKey, rewardMultiplierForToken, type HollowGateRunToken } f
 // the level-17 Scribe. Before this change the rift refused them at the door
 // (4 carried pets + a saved 40-card deck). Every encounter they can meet on the
 // way down must now resolve without leaving them stuck, and without paying
-// anything the server did not decide.
+// anything the server did not decide. Rift card ambushes open at level 20, so
+// this player's threat ambush is a shinobi fight; the card duel and its lent
+// starter deck are covered in _card-ambush.test.ts.
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -147,52 +148,36 @@ test('an unprepared level-12 player descends the intro rift and resolves every e
     const sealed = await call('floorSeal', { token, floor: 1, width: WIDTH, height: HEIGHT, playerX: 1, playerY: 1, tiles: riftBoard() });
     assert.equal(sealed.status, 200, JSON.stringify(sealed.body));
 
-    // ── 1. The Chronicle card ambush (the first threat ambush in a rift). ──
+    // ── 1. The first threat ambush. Card ambushes open at level 20, so a
+    //      level-12 player meets a shinobi fight here instead: on this
+    //      single-floor rift the threat raises the rift boss itself. ──
     // Fixture shortcut: raise the sealed threat instead of walking 25 tiles.
     await kv.set(hollowGateRunKey(PLAYER, token), { ...await readRun(token), threat: 96 });
     const ambushStep = await step(token, [1, 1], [2, 1]);
     assert.equal(ambushStep.status, 200, JSON.stringify(ambushStep.body));
     const ambush = ambushStep.body.ambush as { nodeId: string; kind: string };
-    assert.equal(ambush?.kind, 'card', 'the rift raises its card ambush');
+    assert.equal(ambush?.kind, 'boss', 'below level 20 the threat raises a shinobi fight, not a card duel');
+    assert.equal((await call('cardStart', { token, nodeId: ambush.nodeId })).status, 409, 'no card duel opens for it');
 
-    const beforeCard = await readSave();
-    const cardStart = await call('cardStart', { token, nodeId: ambush.nodeId });
-    assert.equal(cardStart.status, 200, JSON.stringify(cardStart.body));
-    assert.equal(cardStart.body.loanerDeck, true, 'a player without a deck borrows the starter deck');
-    const matchId = String(cardStart.body.matchId);
-    const afterCard = await readSave();
-    assert.deepEqual(afterCard, beforeCard, 'the loan writes nothing: no cards, no deck, no Scribe latch');
-    const { cardClashAiTokenKey } = await import('../card-clash/_ai-reward.js');
-    const match = (await kv.get<Record<string, any>>(cardClashAiTokenKey(matchId)))!;
-    assert.equal(match.hollowGateCard.loanerDeck, true);
-    const playerSide = match.state.p1.name === PLAYER ? match.state.p1 : match.state.p2;
-    const fallback = new Set(CHRONICLE_FIXED_FALLBACK_DECK);
-    assert.ok([...playerSide.hand, ...playerSide.deck].every((id: string) => fallback.has(id)),
-        'the lent deck is exactly the server starter deck');
-
-    // A refresh resumes the same match rather than dealing a new one.
-    const resumed = await call('cardStart', { token, nodeId: ambush.nodeId });
-    assert.equal(resumed.body.matchId, matchId);
-    assert.equal(resumed.body.loanerDeck, true);
-
-    // The Keeper wins. The loss is withstood: 20% max HP recoil, nothing paid.
-    await kv.set(cardClashAiTokenKey(matchId), { ...match, status: 'done', winner: 'opponent', settledAt: Date.now() });
-    const cardSettled = await call('cardSettle', { token, matchId });
-    assert.equal(cardSettled.status, 200, JSON.stringify(cardSettled.body));
-    assert.equal(cardSettled.body.won, false);
+    const bossStart = await call('combatStart', { token, floor: 1, kind: 'boss', nodeId: ambush.nodeId, mode: 'pve' });
+    assert.equal(bossStart.status, 200, JSON.stringify(bossStart.body));
+    assert.equal(bossStart.body.combatMode, 'solo-pve');
+    await finishFight(String(bossStart.body.runId), 'win');
+    const bossSettled = await call('combatSettle', { token, runId: bossStart.body.runId });
+    assert.equal(bossSettled.status, 200, JSON.stringify(bossSettled.body));
+    assert.equal(bossSettled.body.won, true);
+    const bossReward = Math.floor(hollowGateCombatReward(1, 'boss').ryo * multiplier);
     let save = await readSave();
-    assert.equal(save.character.hp, 240);
-    assert.equal(save.character.ryo, 250, 'a lost card ambush pays nothing');
-    assert.deepEqual(save.character.tileCards, [], 'the lent deck never joins the collection');
-    assert.equal(save.character.cardClashDeck, undefined);
+    assert.equal(save.character.ryo, 250 + bossReward, 'the boss pays its sealed reward once');
+    assert.ok(save.character.riftQuestBossReceipt, 'the boss kill is bound to the accepted rift');
+    assert.deepEqual(save.character.tileCards, [], 'no card is granted along the way');
     const run = await readRun(token);
     assert.equal(run.pendingAmbush, null);
     assert.equal(run.threat, 0);
-    assert.deepEqual(run.rewardLedger?.currencies ?? {}, {});
 
     // ── 2. A Hollow Hound tile fight, fought as a shinobi (no pet needed). ──
     const toHound = await step(token, [2, 1], [3, 1]);
-    assert.equal(toHound.status, 200, 'the card ambush no longer seals movement');
+    assert.equal(toHound.status, 200, 'the won ambush no longer seals movement');
     const houndNode = `floor:1:tile:${tileIndex(3, 1)}`;
     // An outmatched novice flees first. That must not pin them to the tile.
     const firstTry = await call('combatStart', { token, floor: 1, kind: 'battle', nodeId: houndNode, mode: 'pve' });
@@ -201,7 +186,7 @@ test('an unprepared level-12 player descends the intro rift and resolves every e
     const fled = await call('combatSettle', { token, runId: firstTry.body.runId });
     assert.equal(fled.status, 200, JSON.stringify(fled.body));
     assert.equal(fled.body.escaped, true);
-    assert.equal((await readSave()).character.ryo, 250, 'fleeing pays nothing');
+    assert.equal((await readSave()).character.ryo, 250 + bossReward, 'fleeing pays nothing');
     assert.equal((await step(token, [3, 1], [2, 1])).status, 200, 'a fled Hound no longer seals the tile');
     assert.equal((await step(token, [2, 1], [3, 1])).status, 200);
     const houndStart = await call('combatStart', { token, floor: 1, kind: 'battle', nodeId: houndNode, mode: 'pve' });
@@ -213,23 +198,18 @@ test('an unprepared level-12 player descends the intro rift and resolves every e
     assert.equal(houndSettled.body.won, true);
     const houndReward = Math.floor(hollowGateCombatReward(1, 'battle').ryo * multiplier);
     save = await readSave();
-    assert.equal(save.character.ryo, 250 + houndReward, 'the Hound pays its sealed reward once');
+    assert.equal(save.character.ryo, 250 + bossReward + houndReward, 'the Hound pays its sealed reward once');
 
-    // ── 3. The rift boss. ──
+    // ── 3. The boss tile. The boss already fell to the threat ambush, so the
+    //      player walks on to it freely and is not asked to fight it twice. ──
     assert.equal((await step(token, [3, 1], [4, 1])).status, 200, 'a won Hound tile lets the player move on');
     assert.equal((await step(token, [4, 1], [5, 1])).status, 200);
     assert.equal((await step(token, [5, 1], [6, 1])).status, 200);
     const bossNode = `floor:1:tile:${tileIndex(6, 1)}`;
-    const bossStart = await call('combatStart', { token, floor: 1, kind: 'boss', nodeId: bossNode, mode: 'pve' });
-    assert.equal(bossStart.status, 200, JSON.stringify(bossStart.body));
-    await finishFight(String(bossStart.body.runId), 'win');
-    const bossSettled = await call('combatSettle', { token, runId: bossStart.body.runId });
-    assert.equal(bossSettled.status, 200, JSON.stringify(bossSettled.body));
-    assert.equal(bossSettled.body.won, true);
-    const bossReward = Math.floor(hollowGateCombatReward(1, 'boss').ryo * multiplier);
-    save = await readSave();
-    assert.equal(save.character.ryo, 250 + houndReward + bossReward);
-    assert.ok(save.character.riftQuestBossReceipt, 'the boss kill is bound to the accepted rift');
+    const secondBoss = await call('combatStart', { token, floor: 1, kind: 'boss', nodeId: bossNode, mode: 'pve' });
+    assert.equal(secondBoss.status, 409, JSON.stringify(secondBoss.body));
+    assert.match(String(secondBoss.body.error), /already resolved/);
+    assert.equal((await readSave()).character.ryo, 250 + bossReward + houndReward, 'the boss pays once');
 
     // ── 4. The quest closes and the run extracts. ──
     const completed = await call('riftQuest', { action: 'complete', riftId: RIFT });
@@ -240,7 +220,7 @@ test('an unprepared level-12 player descends the intro rift and resolves every e
     const extracted = await call('settle', { token, action: 'extract' });
     assert.equal(extracted.status, 200, JSON.stringify(extracted.body));
     save = await readSave();
-    assert.equal(save.character.ryo, 250 + houndReward + bossReward + questRyo,
+    assert.equal(save.character.ryo, 250 + bossReward + houndReward + questRyo,
         'extraction keeps exactly the entry balance, the sealed run rewards and the quest payout');
     assert.equal(save.character.hollowGateRun, null);
     assert.equal(await kv.get(hollowGateRunKey(PLAYER, token)), null, 'the settled run token is consumed');

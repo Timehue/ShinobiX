@@ -204,13 +204,14 @@ const flagshipSignatureByName: Record<string, SignatureSpec> = {
     "Turtle Duck":        { name: "Heavenfall: Crow Tempest",            power: 152, cooldown: 4 },
     "Stormgod Raijin":    { name: "Raijin's Wrath: Thunder Apocalypse",  power: 152, cooldown: 4 },
     "Worldroot Colossus": { name: "World Devourer: Gaia's Embrace",      power: 152, cooldown: 4 },
-    // Breeding-only mythics — each keeps a bespoke flagship despite sharing
-    // an element with the two encounter mythics above.
+    // Later Mythics — each keeps a bespoke flagship despite sharing
+    // an element with the earlier encounter Mythics above.
     "Ash Crown Phoenix":  { name: "Ashen Coronation: Everflame Descent",   power: 152, cooldown: 4 },
     "Moonwell Leviathan": { name: "Moonwell Abyss: Tidal Sovereignty",     power: 152, cooldown: 4 },
     "Skyglass Kirin":     { name: "Skyglass Horizon: Celestial Stampede",  power: 152, cooldown: 4 },
     "Thunderbloom Kirin": { name: "Thunderbloom: Stormgarden Dominion",    power: 152, cooldown: 4 },
     "Gravepeak Behemoth": { name: "Gravepeak: Worldwake Cataclysm",        power: 152, cooldown: 4 },
+    "Celestial Lion":    { name: "Celestial Tempest: Lion's Descent",     power: 152, cooldown: 4 },
     // Apex legendaries (one iconic boss per element) — unique + stronger signature.
     "Inferno Chimera":    { name: "Triple Maw: Infernal Devour",         power: 142, cooldown: 4 },
     "Tidelord Leviathan": { name: "Abyssal Tide: Leviathan's Maw",       power: 142, cooldown: 4 },
@@ -358,6 +359,7 @@ const mythicMechByName: Record<string, MythicMechSpec> = {
     "Skyglass Kirin":      { kind: "haste", name: "Skyglass Passage",    cooldown: 4, power: 0,   rounds: 2 },
     "Thunderbloom Kirin":  { kind: "mark",  name: "Stormgarden Brand",   cooldown: 4, power: 0,   rounds: 2 },
     "Gravepeak Behemoth":  { kind: "taunt", name: "Gravepeak Challenge", cooldown: 4, power: 0,   rounds: 2 },
+    "Celestial Lion":     { kind: "taunt", name: "Gale Challenge",      cooldown: 4, power: 0,   rounds: 2 },
 };
 
 /** The signature Phase-12 mechanic appended to a mythic, or null for a name

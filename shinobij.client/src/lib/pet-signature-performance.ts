@@ -143,16 +143,19 @@ export function petSignaturePerformance({
 }): PetSignaturePerformance {
     const key = canonicalPetKey(id, name);
     const family = petCombatFamily({ name, profile });
-    const direction = FAMILY_DIRECTION[family];
+    const celestialLion = id.replace(/-\d{10,}$/u, "") === "mythic-15";
+    const direction = celestialLion
+        ? { ...FAMILY_DIRECTION[family], entrance: "descent" as const, victory: "roar" as const, motif: "feather" as const }
+        : FAMILY_DIRECTION[family];
     const tier = rarityPower(rarity);
     const elemental = elementTuning(element);
     const asymmetry = unit(key, "hand") < 0.5 ? -1 : 1;
-    const hue = (ELEMENT_HUE[element] ?? ELEMENT_HUE.None) + Math.round(centered(key, "hue") * 12);
+    const hue = celestialLion ? 158 : (ELEMENT_HUE[element] ?? ELEMENT_HUE.None) + Math.round(centered(key, "hue") * 12);
     const saturation = Math.round(78 + unit(key, "saturation") * 17);
     const light = Math.round(58 + unit(key, "light") * 10);
     const highlightLight = Math.min(92, light + 19);
-    const accent = `hsl(${hue} ${saturation}% ${light}%)`;
-    const highlight = `hsl(${hue + Math.round(centered(key, "highlight") * 8)} ${Math.min(100, saturation + 4)}% ${highlightLight}%)`;
+    const accent = celestialLion ? "#7bd9c7" : `hsl(${hue} ${saturation}% ${light}%)`;
+    const highlight = celestialLion ? "#effff8" : `hsl(${hue + Math.round(centered(key, "highlight") * 8)} ${Math.min(100, saturation + 4)}% ${highlightLight}%)`;
     const orbitCount = clamp(2 + Math.floor(unit(key, "orbit-count") * 3.999 + tier * 0.4), 2, 5) as 2 | 3 | 4 | 5;
     const impactRays = clamp(6 + Math.floor(unit(key, "impact-rays") * 3.999), 6, 9) as 6 | 7 | 8 | 9;
     const trailLanes = clamp(3 + Math.floor(unit(key, "trail-lanes") * 3.999), 3, 6) as 3 | 4 | 5 | 6;

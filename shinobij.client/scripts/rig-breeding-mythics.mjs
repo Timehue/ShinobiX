@@ -13,6 +13,7 @@ const PETS = Object.freeze([
     { id: "mythic-12", profile: "quadruped", pruneDetached: true },
     { id: "mythic-13", profile: "quadruped" },
     { id: "mythic-14", profile: "heavy", pruneDetached: true },
+    { id: "mythic-15", profile: "winged-quadruped" },
 ]);
 
 function invariant(condition, message) {
@@ -167,7 +168,7 @@ function topology(profile) {
         ["thigh.L", "pelvis"], ["shin.L", "thigh.L"], ["foot.L", "shin.L"],
         ["thigh.R", "pelvis"], ["shin.R", "thigh.R"], ["foot.R", "shin.R"],
     ];
-    return [
+    const quadruped = [
         ...common,
         ["front_upper.L", "chest"], ["front_lower.L", "front_upper.L"], ["front_paw.L", "front_lower.L"],
         ["front_upper.R", "chest"], ["front_lower.R", "front_upper.R"], ["front_paw.R", "front_lower.R"],
@@ -175,6 +176,11 @@ function topology(profile) {
         ["hind_upper.L", "pelvis"], ["hind_lower.L", "hind_upper.L"], ["hind_paw.L", "hind_lower.L"],
         ["hind_upper.R", "pelvis"], ["hind_lower.R", "hind_upper.R"], ["hind_paw.R", "hind_lower.R"],
     ];
+    return profile === "winged-quadruped" ? [
+        ...quadruped,
+        ["angel_wing_upper.L", "chest"], ["angel_wing_mid.L", "angel_wing_upper.L"], ["angel_wing_tip.L", "angel_wing_mid.L"],
+        ["angel_wing_upper.R", "chest"], ["angel_wing_mid.R", "angel_wing_upper.R"], ["angel_wing_tip.R", "angel_wing_mid.R"],
+    ] : quadruped;
 }
 
 function semanticTargets(profile, bounds) {
@@ -206,7 +212,7 @@ function semanticTargets(profile, bounds) {
         "thigh.R": p(0.14, -0.25, 0), "shin.R": p(0.14, -0.37, 0), "foot.R": p(0.14, -0.48, 0.08),
     };
     const serpentine = profile === "serpentine";
-    return {
+    const quadruped = {
         root: p(0, -0.47, 0), pelvis: p(0, serpentine ? -0.12 : 0, -0.2),
         spine: p(0, serpentine ? 0 : 0.04, -0.03), chest: p(0, serpentine ? 0.12 : 0.08, 0.18),
         neck: p(0, serpentine ? 0.25 : 0.18, 0.33), head: p(0, serpentine ? 0.38 : 0.28, 0.45),
@@ -215,6 +221,12 @@ function semanticTargets(profile, bounds) {
         tail_1: p(0, -0.1, -0.32), tail_2: p(0, -0.18, -0.43), tail_3: p(0, -0.27, -0.5),
         "hind_upper.L": p(-0.16, serpentine ? -0.1 : -0.02, -0.2), "hind_lower.L": p(-0.18, serpentine ? -0.16 : -0.27, -0.2), "hind_paw.L": p(-0.18, serpentine ? -0.2 : -0.47, -0.18),
         "hind_upper.R": p(0.16, serpentine ? -0.1 : -0.02, -0.2), "hind_lower.R": p(0.18, serpentine ? -0.16 : -0.27, -0.2), "hind_paw.R": p(0.18, serpentine ? -0.2 : -0.47, -0.18),
+    };
+    if (profile !== "winged-quadruped") return quadruped;
+    return {
+        ...quadruped,
+        "angel_wing_upper.L": p(-0.17, 0.26, -0.03), "angel_wing_mid.L": p(-0.34, 0.38, -0.04), "angel_wing_tip.L": p(-0.49, 0.24, -0.05),
+        "angel_wing_upper.R": p(0.17, 0.26, -0.03), "angel_wing_mid.R": p(0.34, 0.38, -0.04), "angel_wing_tip.R": p(0.49, 0.24, -0.05),
     };
 }
 
@@ -235,7 +247,7 @@ function animationPlan(profile, rootBind, worldToLocalDirection) {
     };
     const r = (values) => values.flatMap((value) => quaternion(...value));
     const t = (...values) => values.map((value) => translation(...value));
-    return [
+    const plan = [
         { name: "idle", times: [0, 0.6, 1.2, 1.8, 2.4], tracks: [
             ["root", "translation", t([0, 0, 0], [0, 0.018, 0], [0, 0, 0], [0, 0.014, 0], [0, 0, 0])],
             ["chest", "rotation", r([[0, 0, 0], [0.025, 0.012, 0.018], [0, 0, 0], [-0.018, -0.012, -0.018], [0, 0, 0]])],
@@ -291,6 +303,21 @@ function animationPlan(profile, rootBind, worldToLocalDirection) {
             ["head", "rotation", r([[0, 0, 0], [0.08, 0, 0], [0.24, 0, 0], [0.34, 0, 0], [0.4, 0, 0]])],
         ] },
     ];
+    if (profile === "winged-quadruped") {
+        for (const take of plan) {
+            const duration = take.times.at(-1);
+            const levels = take.times.map((time) => Math.sin(Math.PI * time / duration));
+            const spread = take.name === "gallop_jump" ? 0.35
+                : take.name === "attack" ? 0.26
+                    : take.name === "death" ? -0.42 : 0.11;
+            for (const side of ["L", "R"]) {
+                const sign = side === "L" ? -1 : 1;
+                take.tracks.push([`angel_wing_upper.${side}`, "rotation", r(levels.map((level) => [0, sign * spread * level, sign * 0.16 * level]))]);
+                take.tracks.push([`angel_wing_mid.${side}`, "rotation", r(levels.map((level) => [0, sign * spread * 0.6 * level, -sign * 0.12 * level]))]);
+            }
+        }
+    }
+    return plan;
 }
 
 function encodeGlb(json, binary) {
@@ -314,7 +341,9 @@ function encodeGlb(json, binary) {
 }
 
 async function rigPet({ id, profile, pruneDetached = false }) {
-    const sourcePath = new URL(`../public/pet-models/${id}.glb`, import.meta.url);
+    const sourcePath = id === "mythic-15"
+        ? new URL("../art-source/dawnmane-seraph/prepared-replacement-source.glb", import.meta.url)
+        : new URL(`../public/pet-models/${id}.glb`, import.meta.url);
     const outputPath = new URL(`../public/pet-models/roster/${id}.glb`, import.meta.url);
     const tempRoot = new URL(`../.tmp/breeding-mythic-rigs/`, import.meta.url);
     const authoringPath = new URL(`${id}-authoring.glb`, tempRoot);
@@ -345,7 +374,7 @@ async function rigPet({ id, profile, pruneDetached = false }) {
     }
 
     const bones = topology(profile);
-    invariant(bones.length === 21, `${id}: production combat rigs require 21 bones`);
+    invariant(bones.length === (profile === "winged-quadruped" ? 27 : 21), `${id}: unexpected production rig topology`);
     const boneIndex = new Map(bones.map(([name], index) => [name, index]));
     const targetsWorld = semanticTargets(profile, bounds);
     const targetsLocal = Object.fromEntries(Object.entries(targetsWorld).map(([name, point]) => [
