@@ -86,7 +86,6 @@
 }
 .wfr-render-recovery strong { color: #e7d09e; font-family: "Marcellus", Georgia, serif; letter-spacing: 0.16em; }
 .wfr-render-recovery span { color: #8fb6c6; font-size: 0.72rem; }
-.wfr-render-recovery.is-failed { pointer-events: auto; }
 
 /* The cold stage hydrates behind an opaque, explicitly non-gameplay curtain.
    It opens once, only after all eight GLTF rigs have painted at tick zero. */
@@ -137,6 +136,90 @@
 .wfr-fallback-band span { width: 42px; height: 42px; display: grid; place-items: center; border: 2px solid currentColor; border-radius: 50%; background: rgba(4, 12, 18, 0.82); font-weight: 900; }
 .wfr-fallback-band.is-blue { color: #4cc9f0; }
 .wfr-fallback-band.is-red { color: #ff5470; }
+
+/* The reduced battle view: where a clash plays when neither the 3D rigs nor
+   the Canvas impostors can load. Plain DOM tokens over the court plate, moved
+   by the stage's own rAF loop; nothing here can fail to load. */
+.wfr-reduced-stage {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    justify-items: stretch;
+    gap: 12px;
+    padding: 4px 4px 6px;
+}
+.wfr-reduced-board {
+    position: relative;
+    margin: 20px 24px 24px;
+    border: 1px solid rgba(223, 196, 133, 0.22);
+    border-radius: 6px;
+    background:
+        linear-gradient(90deg, rgba(76, 201, 240, 0.08), transparent 42% 58%, rgba(255, 84, 112, 0.08)),
+        rgba(3, 9, 13, 0.46);
+}
+.wfr-reduced-board::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    border-left: 1px dashed rgba(223, 196, 133, 0.3);
+}
+.wfr-reduced-token {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 36px;
+    height: 36px;
+    margin: -18px 0 0 -18px;
+    display: grid;
+    place-items: center;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    background: rgba(4, 12, 18, 0.9);
+    color: #4cc9f0;
+    font-weight: 900;
+    font-size: 0.9rem;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+    transition: opacity 240ms ease, filter 240ms ease;
+}
+.wfr-reduced-token.is-red { color: #ff5470; }
+.wfr-reduced-token::after {
+    content: "";
+    position: absolute;
+    left: 2px;
+    right: 2px;
+    bottom: -8px;
+    height: 4px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, currentColor calc(var(--wfr-reduced-health, 1) * 100%), rgba(6, 14, 20, 0.92) 0);
+}
+.wfr-reduced-token[data-down="true"] { opacity: 0.3; filter: grayscale(1); }
+.wfr-reduced-status {
+    justify-self: center;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 6px 14px;
+    max-width: min(620px, 100%);
+    padding: 8px 14px;
+    border: 1px solid rgba(223, 196, 133, 0.42);
+    border-radius: 12px;
+    background: rgba(4, 13, 18, 0.86);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.38);
+    text-align: center;
+}
+.wfr-reduced-status strong {
+    color: #e7d09e;
+    font-family: "Marcellus", Georgia, serif;
+    font-size: 0.8rem;
+    font-weight: 400;
+    letter-spacing: 0.14em;
+}
+.wfr-reduced-status > span { color: #b8d1da; font-size: 0.75rem; }
+.wfr-reduced-standing b { color: #e8f4f7; font-variant-numeric: tabular-nums; }
 
 .wfr-eyebrow {
     margin: 0;
@@ -777,11 +860,15 @@
     .wfr-deploy-actions { position: sticky; bottom: 0; padding-top: 8px; background: linear-gradient(to bottom, transparent, rgba(9, 18, 26, 0.99) 24%); }
     .wfr-deploy-actions > button { flex: 1 1 0; }
     .wfr-canvas-fallback { padding-top: 22vh; }
+    .wfr-reduced-board { margin: 16px 18px 20px; }
+    .wfr-reduced-token { width: 30px; height: 30px; margin: -15px 0 0 -15px; font-size: 0.8rem; }
+    .wfr-reduced-status { padding: 6px 10px; gap: 4px 10px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
     .wfr-stage-curtain.is-open { transition: none; }
     .wfr-formation-hold, .wfr-interlude { animation: none; }
+    .wfr-reduced-token { transition: none; }
 }
 
 
