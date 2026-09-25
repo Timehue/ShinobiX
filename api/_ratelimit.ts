@@ -114,9 +114,9 @@ export async function allowKv(key: string, limit: number, windowMs: number, stri
         }
         return { ok: true };
     } catch {
-        // KV unavailable. Strict callers fall back to a per-instance bucket so
-        // an outage can't unlock unlimited cost-bearing calls; others fail open.
-        if (strict) return allow(`kvfallback:${key}`, limit, windowMs);
+        // KV unavailable. Keep the fallback on the same aligned boundary as
+        // the durable window so a retry hint names the actual next allowance.
+        if (strict) return allowAlignedLocal(`kvfallback:${key}`, limit, windowMs);
         return { ok: true };
     }
 }
@@ -265,7 +265,7 @@ function chargeIpBackstop(
  */
 export function rateLimitBody(retryAfterMs: number): { error: string; code: 'RATE_LIMITED'; retryAfterMs: number } {
     const seconds = Math.max(1, Math.ceil(Math.max(0, retryAfterMs) / 1000));
-    return { error: `You're going a little fast — try again in ${seconds}s.`, code: 'RATE_LIMITED', retryAfterMs };
+    return { error: `This action is temporarily unavailable. Try again in ${seconds}s.`, code: 'RATE_LIMITED', retryAfterMs };
 }
 
 // ── Refusal log ─────────────────────────────────────────────────────────────
@@ -403,8 +403,10 @@ export async function enforceRateLimitKv(
         }
     }
     // Per-instance fast path — reject early on hot lambdas without a KV trip.
+    // It shares the durable window boundary; a separate first-hit window could
+    // promise an earlier retry while the durable bucket was still exhausted.
     const localBurstLimit = Math.max(limit, 5); // small local cushion
-    const localBurstDecision = allow(`local:${key}`, localBurstLimit, windowMs);
+    const localBurstDecision = allowAlignedLocal(`local:${key}`, localBurstLimit, windowMs);
     if (!localBurstDecision.ok) return refuse(res, bucket, refusalLabel(who), localBurstDecision.retryAfterMs);
     // Authoritative path — KV-backed window (or the same window in memory).
     const kvDecision = opts?.local
