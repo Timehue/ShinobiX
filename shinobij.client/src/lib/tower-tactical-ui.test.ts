@@ -102,30 +102,36 @@ test("target forecast accounts for target shield before HP damage", () => {
     assert.equal(result.hpDamage, result.rawDamage - 150);
 });
 
-test("weapon forecast resolves the swing at mastery 0, like the server", () => {
+test("weapon forecast resolves the swing at the rank's mastery cap, like the server", () => {
     // Weapon strength lives in the EP ladder (api/pvp/_item-catalog.ts), with no
-    // per-swing multiplier. A swing has no mastery row, so the server's applyJutsu
-    // resolves its EP at mastery 0 (api/pvp/_weapon-damage.test.ts). Until
-    // 2026-09-25 this forecast used mastery 50, which showed a weapon hit at
-    // 3.3 times what it landed.
+    // per-swing multiplier. A weapon cannot be trained, so the server resolves a
+    // swing at the highest mastery the wielder's rank allows, where a fully
+    // trained jutsu of the same EP sits (api/pvp/_weapon-damage.test.ts).
     const stats = { strength: 100, intelligence: 100, bukijutsuOffense: 100, bukijutsuDefense: 100 };
+    const mastery = [{ jutsuId: "genin-capped-jutsu", level: 20 }, { jutsuId: "maxed-jutsu", level: 50 }];
+    const attackerAt = (level: number, offense = 100) => ({
+        hp: 1000, maxHp: 1000,
+        character: { level, stats: { ...stats, bukijutsuOffense: offense }, jutsuMastery: mastery },
+    });
     const input = {
-        attacker: { hp: 1000, maxHp: 1000, character: { stats, jutsuMastery: [{ jutsuId: "maxed-jutsu", level: 50 }] } },
         target: { hp: 1000, maxHp: 1000, character: { stats } },
-        effectPower: 40,
+        effectPower: 36,
         type: "Bukijutsu",
     };
-    const untrained = estimateTowerActionDamage({ ...input, actionId: "untrained-jutsu" });
-    const maxed = estimateTowerActionDamage({ ...input, actionId: "maxed-jutsu" });
-    const weapon = estimateTowerActionDamage({ ...input, actionId: "weapon" });
-    assert.equal(weapon.rawDamage, untrained.rawDamage);
-    assert.ok(weapon.rawDamage < maxed.rawDamage, "a swing never forecasts a fully mastered hit");
+    const forecast = (level: number, actionId: string) =>
+        estimateTowerActionDamage({ ...input, attacker: attackerAt(level), actionId }).rawDamage;
+    // Jonin (level 50) reaches mastery 50; Genin (level 20) is capped at 20.
+    assert.equal(forecast(50, "weapon"), forecast(50, "maxed-jutsu"));
+    assert.equal(forecast(20, "weapon"), forecast(20, "genin-capped-jutsu"));
+    assert.ok(forecast(20, "weapon") < forecast(50, "weapon"), "a lower rank swings at a lower mastery");
+    assert.ok(forecast(50, "weapon") > forecast(50, "untrained-jutsu"), "a swing is not an untrained cast");
     // Pierce scales with mastery too. The offense is high enough that the
     // 100-900 true-damage clamp cannot hide the difference.
-    const pierceAttacker = { ...input.attacker, character: { ...input.attacker.character, stats: { ...stats, bukijutsuOffense: 2800 } } };
-    const pierce = (actionId: string) => estimateTowerActionDamage({ ...input, attacker: pierceAttacker, actionId, pierce: true, ap: 40 }).rawDamage;
-    assert.equal(pierce("weapon"), pierce("untrained-jutsu"));
-    assert.ok(pierce("weapon") < pierce("maxed-jutsu"), "a swing's Pierce never forecasts full mastery");
+    const pierce = (actionId: string) => estimateTowerActionDamage({
+        ...input, attacker: attackerAt(50, 2800), actionId, pierce: true, ap: 40,
+    }).rawDamage;
+    assert.equal(pierce("weapon"), pierce("maxed-jutsu"));
+    assert.ok(pierce("weapon") > pierce("untrained-jutsu"), "a swing's Pierce uses the rank's mastery");
 });
 
 test("weapon forecast honors element ownership and canonical combat items", () => {

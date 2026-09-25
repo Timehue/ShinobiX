@@ -306,7 +306,7 @@ export function sanitizeCharacterSave(
     sanitizeChallengeProgress(char, exChar);
     sanitizeCardsAndHistory(char, exChar);
     sanitizeClaimsAndHospital(char, exChar);
-    const { CREATOR_ITEM_CAP, sanitizedCreatorItems } = prepareCreatorItems(incoming, RAW_BLOODLINE_IMAGE_MAX_BYTES);
+    const { CREATOR_ITEM_CAP, sanitizedCreatorItems } = prepareCreatorItems(incoming, RAW_BLOODLINE_IMAGE_MAX_BYTES, opts.adminContentSlot === true);
 
     const finalChar = isFirstSave ? applyCanonicalFirstSave(char) : char;
     enforceRawSaveLedgerBoundary(finalChar, exChar, isFirstSave, inChar);

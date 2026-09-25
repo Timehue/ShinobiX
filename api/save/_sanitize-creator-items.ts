@@ -1,8 +1,9 @@
 import { sanitizeUserText, TEXT_LIMITS } from '../_text-moderation.js';
 import { KNOWN_TAG_NAMES, canonicalTagName } from '../pvp/_tags.js';
 import { budgetItemBonuses } from '../_item-budget.js';
+import { WEAPON_EP_CEILING } from '../combat-core/formulas.js';
 
-export function prepareCreatorItems(incoming: Record<string, unknown>, RAW_BLOODLINE_IMAGE_MAX_BYTES: number) {
+export function prepareCreatorItems(incoming: Record<string, unknown>, RAW_BLOODLINE_IMAGE_MAX_BYTES: number, adminContentSlot = false) {
 
     // ─── creatorItems normalization (top-level, persisted) ─────────────────────
     // Player-forged Named Weapons / armor live on the save at the TOP LEVEL
@@ -40,11 +41,15 @@ export function prepareCreatorItems(incoming: Record<string, unknown>, RAW_BLOOD
                     const img = out.image;
                     if (/^data:image\/svg/i.test(img) || img.length > RAW_BLOODLINE_IMAGE_MAX_BYTES) out.image = undefined;
                 }
-                // Weapon numerics — match sanitizePvpItems bounds (api/pvp/session.ts).
-                // Match the authoritative PvP item ceiling. Named weapons roll
-                // 44-51 EP, so 60 preserves legitimate/custom headroom while
-                // preventing a persisted 600-EP item from dominating PvE modes.
-                if (out.weaponEp != null) out.weaponEp = Math.max(0, Math.min(60, Number(out.weaponEp) || 0));
+                // Weapon numerics — match sanitizePvpItems bounds (api/pvp/session.ts),
+                // except a player's EP. A swing resolves at its wielder's rank
+                // mastery, so a player's own weapon stops at WEAPON_EP_CEILING, where
+                // the named forge rolls: above it, a hand-edited save would out-hit a
+                // fully maxed 60-AP jutsu. The admin content slots author the owner's
+                // custom items, which may exceed built-in gear, so they keep the PvP
+                // ceiling of 60.
+                const weaponEpCeiling = adminContentSlot ? 60 : WEAPON_EP_CEILING;
+                if (out.weaponEp != null) out.weaponEp = Math.max(0, Math.min(weaponEpCeiling, Number(out.weaponEp) || 0));
                 if (out.weaponRange != null) out.weaponRange = Math.max(0, Math.min(30, Number(out.weaponRange) || 0));
                 if (out.weaponCooldown != null) out.weaponCooldown = Math.max(0, Math.min(30, Number(out.weaponCooldown) || 0));
                 if (out.apCost != null) out.apCost = Math.max(0, Math.min(200, Number(out.apCost) || 40));

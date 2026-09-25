@@ -282,7 +282,7 @@ test('two ranked queue entries create a ranked-format PvP combat session', async
         assert.equal(fighter?.character?.equipment?.thrown, RANKED_FORMAT_NEUTRAL_EQUIPMENT.thrown);
         assert.equal(fighter?.character?.equipment?.item3, 'item-smoke-bomb');
         assert.ok(fighter?.character?.pvpItems?.some((item: { id: string }) => item.id === 'item-smoke-bomb'));
-        assert.equal(fighter?.character?.pvpItems?.find((item: { id: string }) => item.id === RANKED_FORMAT_NEUTRAL_EQUIPMENT.thrown)?.weaponEp, 38,
+        assert.equal(fighter?.character?.pvpItems?.find((item: { id: string }) => item.id === RANKED_FORMAT_NEUTRAL_EQUIPMENT.thrown)?.weaponEp, 31,
             'the queued ranked fighter receives the tuned server-catalog Kunai, not a stale client item');
         assert.equal(created.body?.session?.itemCharges?.[role]?.[RANKED_FORMAT_NEUTRAL_EQUIPMENT.thrown], 2);
         assert.equal(created.body?.session?.itemCharges?.[role]?.['item-smoke-bomb'], 2);
