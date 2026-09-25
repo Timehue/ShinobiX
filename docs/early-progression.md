@@ -4,7 +4,12 @@ Design doc for improving the new-player experience in Shinobi Journey, from
 account creation through the Genin gate (the first session and the path to
 "hooked"). Companion to `docs/professions.md`.
 
-> **Status:** proposal / not yet implemented.
+> **Status:** historical design proposal; not a current-state implementation map.
+> The companion-led Academy path and First Contract now exist. For the current
+> first-session flow, timing assumptions, and telemetry limits, use
+> [`first-session-20-30-minute-map.md`](./first-session-20-30-minute-map.md).
+> The progression and economy proposals below still require a fresh runtime
+> audit before implementation.
 > **Scope:** levels 1–20, first ~3 sessions.
 > **Key assumption (per direction):** design as if the `×45` XP "testing"
 > multiplier is gone — i.e. balance the *real* base curve
@@ -22,7 +27,8 @@ account creation through the Genin gate (the first session and the path to
 
 A code audit of the early game found two compounding problems:
 
-1. **The early curve is invisible.** `CHARACTER_XP_GAIN_MULTIPLIER = 45`
+1. **Historical audit finding — the early curve was invisible.**
+   `CHARACTER_XP_GAIN_MULTIPLIER = 45`
    (`shinobij.client/src/constants/game.ts:27`) multiplies *real* XP gain — it
    feeds `effectiveCharacterXpGain` (`api/_xp-engine.ts:131`) → `progressAfterXp`
    (`shinobij.client/src/lib/stats.ts:147`), and the Training UI even labels it
@@ -30,7 +36,7 @@ A code audit of the early game found two compounding problems:
    one D-rank mission (~80 XP × 45 = 3,600 effective) vaults a fresh character to
    ~level 9–10, and the level-20 Genin gate is ~4 missions away. The rank
    ceremonies and exam gates never land.
-2. **There is no onboarding at all.** No tutorial, no guided first quest, no
+2. **Historical audit finding — there was no onboarding at the time.** No tutorial, no guided first quest, no
    first-time flags, no contextual tooltips, no in-game glossary. After a
    one-time lore screen the player lands on the Village with **15 equal buttons**
    and no "do this first." This is the single most-cited D1-churn driver in the
@@ -66,19 +72,28 @@ These are settled and constrain everything below:
 
 ---
 
-## 1. Guiding principles (research-backed)
+## 1. Research-backed principles and unverified hypotheses
 
-| Principle | Source |
+The earlier version of this table attached precise retention claims and timing
+rules to sources that did not substantiate those claims. Treat its statements
+about a sub-60-second win, tutorials under five minutes, D1 churn causes, daily
+quests, and early reward pacing as **unverified hypotheses**, not research
+findings or acceptance criteria. The current plan in
+[`first-session-20-30-minute-map.md`](./first-session-20-30-minute-map.md)
+uses these directly supported principles instead:
+
+| Principle | Evidence |
 |---|---|
-| **Time-to-first-fun is seconds, not minutes.** First session caps all downstream retention; deliver a representative, *won* action in <60s before any shop/settings. | DoF "core loops"; Solsten D1/D7/D30 |
-| **Teach by doing, with progressive disclosure.** Reveal one system at a time, in context; tutorials <5 min and skippable. | Game Developer FTUE; UXPin progressive disclosure |
-| **Always show the next thing.** "No clear goal/feedback" is the top D1 churn cause; a never-empty to-do panel addresses it directly. | Game Developer FTUE; Schreiber L7 |
-| **Front-load fast level-ups, then taper — no early grind walls.** Many small wins beat one big one; power gained too slowly = churn. | Schreiber, Game Balance Concepts L7 |
-| **Layer variable-ratio excitement on reliable progression.** Guaranteed XP/levels + "maybe this one" loot drops. | Hopson, Behavioral Game Design |
-| **Don't end/interrupt the first session abruptly.** Generous early energy; route low-stamina players to a free parallel activity, not a wall. | Mobile Free To Play, energy systems |
-| **No premium pressure early; one meaningful, funded first upgrade.** Curate the first shop view; don't show a wall of unattainable items. | GameAnalytics FTUE tips |
-| **Daily quests are this genre's habit anchor.** Surface a simple scaffold from Day 1, not gated deep. | a rival shinobi browser game daily-missions writeup |
-| **Rank-ups as ceremonial gates** that celebrate + raise the ceiling + unlock the next system. | a rival shinobi browser game |
+| Teach the core loop in short, clear steps; increase complexity after the player demonstrates the basics. | [Apple: Onboarding for Games](https://developer.apple.com/app-store/onboarding-for-games/) |
+| Let players actively try the actions and reach self-directed play soon; consider a skip option and replayable help. | [Apple: Onboarding for Games](https://developer.apple.com/app-store/onboarding-for-games/) |
+| Provide contextual reminders and a way to review controls and concepts later. | [Apple: Onboarding for Games](https://developer.apple.com/app-store/onboarding-for-games/); [Game Accessibility Guidelines](https://gameaccessibilityguidelines.com/full-list/) |
+| Make guidance easy to dismiss and find again; use it at a relevant moment and validate that timing with user research. | [Nielsen Norman Group: Onboarding Tutorials vs. Contextual Help](https://www.nngroup.com/articles/onboarding-tutorials/) |
+| Check legibility, player-paced prompts, clear objectives, and interactive affordances as part of the tutorial. | [Game Accessibility Guidelines](https://gameaccessibilityguidelines.com/full-list/) |
+| Iterate teaching by observing whether players internalize and use the mechanic. | [GDC: Prime, Teach, Observe](https://www.gdcvault.com/play/1020512/Prime-Teach-Observe-Tutorializing-Innovative) |
+
+These are design references, not evidence that this game's session duration,
+conversion, or retention targets are correct. Those need observation and a valid
+baseline from this game.
 
 ---
 

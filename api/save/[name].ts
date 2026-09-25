@@ -1252,17 +1252,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         // replayed autosave carrying the same transition is inert,
                         // and a telemetry outage can never fail a save.
                         if (identityName && afterCharacter) {
-                            for (const step of observeOnboardingFunnel({
+                            const observations = observeOnboardingFunnel({
                                 beforeCharacter,
                                 afterCharacter,
                                 beforeTopLevel: existingObj as Record<string, unknown> | null,
                                 afterTopLevel: payload as Record<string, unknown>,
-                            })) {
-                                void recordBetaFunnelStep(step.event, identityName, {
-                                    ...(step.step ? { step: step.step } : {}),
-                                    ...(step.level === undefined ? {} : { level: step.level }),
-                                });
-                            }
+                            });
+                            // Preserve Academy start -> first step ordering so the
+                            // first step can read the UTC cohort date written by
+                            // the start gate. This remains detached from the save.
+                            void (async () => {
+                                for (const step of observations) {
+                                    await recordBetaFunnelStep(step.event, identityName, {
+                                        ...(step.step ? { step: step.step } : {}),
+                                        ...(step.level === undefined ? {} : { level: step.level }),
+                                    });
+                                }
+                            })();
                         }
                         if (identityName && beforeCharacter && afterCharacter && beforeLevel < WORLD_CRISIS_TRIGGER_LEVEL && afterLevel >= WORLD_CRISIS_TRIGGER_LEVEL) {
                             try {
