@@ -18,6 +18,9 @@ import {
   MAIN_DECK_SIZE,
   OPENING_HAND_SIZE,
   STARTING_LIFE_POINTS,
+  CHRONICLE_AFK_STRIKE_LIMIT,
+  TURN_TIMEOUT_MS,
+  advanceExpiredChronicleTurn,
   applyAction,
   advancePhase,
   activateMagic,
@@ -3730,4 +3733,97 @@ test("legacy deck migration is immutable, trims copies, grants starter core, and
       .length,
     1,
   );
+});
+
+// --- Missed-turn forfeit (advanceExpiredChronicleTurn) ----------------------
+// A PvP duelist who lets the clock run out two turns in a row, doing nothing,
+// forfeits. Before this the clock passed an absent player's turns forever: the
+// player who stayed sat through a minute per turn, and walking out never lost.
+
+const clockAfter = (state: ChronicleMatch) => state.turnStartedAt + TURN_TIMEOUT_MS;
+
+test("two turns in a row with no action forfeit the duel to the player who stayed", () => {
+  let state = match();
+  const absent = state.activePlayer;
+  const present: ChronicleSideKey = absent === "p1" ? "p2" : "p1";
+
+  state = advanceExpiredChronicleTurn(state, clockAfter(state));
+  assert.equal(state.status, "active", "one missed turn only passes the turn");
+  assert.equal(state.activePlayer, present);
+  assert.equal(state.afkStrikes?.[absent], 1);
+  assert.equal(projectMatchForViewer(state, present).missedTurns?.[absent], 1, "the board can warn before the forfeit");
+
+  const handedBack = applyAction(state, present, { action: "enter-end-phase" }, state.turnStartedAt + 5_000);
+  if (!handedBack.ok) assert.fail(handedBack.error);
+  state = handedBack.state;
+  assert.equal(state.activePlayer, absent);
+
+  const forfeited = advanceExpiredChronicleTurn(state, clockAfter(state));
+  assert.equal(forfeited.status, "complete");
+  assert.equal(forfeited.winner, present);
+  assert.ok(forfeited.log.some((line) => line.includes(`run out ${CHRONICLE_AFK_STRIKE_LIMIT} turns in a row`)));
+  assert.ok(forfeited.log.at(-1)?.includes("forfeits the duel"), "settled through the engine's own forfeit");
+  assert.ok(forfeited.events?.some((event) => event.kind === "duel-ended"));
+});
+
+test("a duelist who acts but runs out of time is passed, never struck, and acting clears their streak", () => {
+  let state = match();
+  const slow = state.activePlayer;
+  const other: ChronicleSideKey = slow === "p1" ? "p2" : "p1";
+  state = advanceExpiredChronicleTurn(state, clockAfter(state));
+  assert.equal(state.afkStrikes?.[slow], 1);
+  const handedBack = applyAction(state, other, { action: "enter-end-phase" }, state.turnStartedAt + 1_000);
+  if (!handedBack.ok) assert.fail(handedBack.error);
+  state = handedBack.state;
+
+  const acted = applyAction(state, slow, { action: "start-battle" }, state.turnStartedAt + 1_000);
+  if (!acted.ok) assert.fail(acted.error);
+  state = acted.state;
+  assert.equal(state.actedThisTurn, true);
+  assert.equal(state.afkStrikes?.[slow], 0, "acting clears the streak at once");
+
+  state = advanceExpiredChronicleTurn(state, clockAfter(state));
+  assert.equal(state.status, "active", "a slow turn is passed, never forfeited");
+  assert.equal(state.activePlayer, other);
+  assert.equal(state.afkStrikes?.[slow], 0);
+});
+
+test("the clock passing a Snare response neither strikes nor clears the absent responder", () => {
+  const state = summonReady("tc-01");
+  const actor = state.activePlayer;
+  const responder: ChronicleSideKey = actor === "p1" ? "p2" : "p1";
+  state.turnNumber = 3;
+  state[responder].magicTrapZones[0] = {
+    instanceId: "snare",
+    cardId: "chronicle-pitfall-tag-array",
+    owner: responder,
+    zoneIndex: 0,
+    faceUp: false,
+    setOnTurn: 1,
+  };
+  state.afkStrikes = { [responder]: 1 };
+  const summoned = applyAction(state, actor, { action: "normal-summon", handIndex: 0, zoneIndex: 0 }, 3_000);
+  if (!summoned.ok) assert.fail(summoned.error);
+  const window = summoned.state.responseWindow;
+  assert.ok(window, "the Summon opened a response window");
+
+  const passed = advanceExpiredChronicleTurn(summoned.state, window.expiresAt);
+  assert.equal(passed.responseWindow, null);
+  assert.equal(passed.afkStrikes?.[responder], 1, "the absent responder keeps the strike they had");
+  assert.equal(passed.activePlayer, actor, "the turn itself had not run out");
+});
+
+test("a match persisted before the rule cannot be struck on its first expiry", () => {
+  const state = match();
+  delete state.actedThisTurn;
+  const first = state.activePlayer;
+  const next = advanceExpiredChronicleTurn(state, clockAfter(state));
+  assert.equal(next.afkStrikes?.[first], 0);
+  assert.notEqual(next.activePlayer, first, "the turn still passes as it always did");
+  assert.equal(next.actedThisTurn, false, "the next turn is tracked");
+});
+
+test("returns the very same state when nothing has expired", () => {
+  const state = match();
+  assert.equal(advanceExpiredChronicleTurn(state, state.turnStartedAt + 1_000), state);
 });

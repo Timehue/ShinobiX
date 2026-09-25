@@ -209,6 +209,31 @@ export function hasActiveTowerFight(): boolean {
     }
 }
 
+// A screen that hosts its sealed fight in its OWN state, where App's guard
+// signals cannot see it — the Weekly Boss screen is a tracker until a fight
+// mounts on it. The screen announces the fight here, and the nav lock reads it
+// for THAT screen only, so a stale flag can never trap a player elsewhere.
+// Same same-tab event pattern as TOWER_FIGHT_STATE_EVENT: App's ref-backed guard
+// re-reads on the event, since mounting a fight changes none of its inputs.
+// Nothing is persisted: the fight state it mirrors does not survive a reload
+// either, and the screen's recovery button resumes the server session.
+export const SCREEN_FIGHT_STATE_EVENT = "shinobix:screen-fight-state";
+/** Screens that host a fight in their own state: the Weekly Boss tracker and the
+ * Card Hall, whose live AI showdown forfeits when left. */
+export const SCREEN_FIGHT_HOSTS: ReadonlySet<Screen> = new Set<Screen>(["weeklyBoss", "shinobiTiles"]);
+const screensWithLiveFight = new Set<Screen>();
+
+export function setScreenFightActive(screen: Screen, active: boolean): void {
+    const had = screensWithLiveFight.has(screen);
+    if (active) screensWithLiveFight.add(screen);
+    else screensWithLiveFight.delete(screen);
+    if (had !== active && typeof window !== "undefined") window.dispatchEvent(new Event(SCREEN_FIGHT_STATE_EVENT));
+}
+
+export function hasLiveScreenFight(screen: Screen): boolean {
+    return screensWithLiveFight.has(screen);
+}
+
 // True when a remaining non-session screen has mirrored an unresolved fight to
 // the compatibility lock. Sealed combat hosts use their own session ids, and
 // boot removes unsupported pre-cutover Arena markers instead of resuming them.
@@ -295,6 +320,14 @@ export function isUnresolvedBattle(s: BattleGuardSignals): boolean {
             return hasActiveTowerFight();
         case "worldCrisis":        // level-80 crisis hosts sealed Tower and Showdown fronts
             return hasActiveTowerFight();
+        case "weeklyBoss":         // tracker is free; the boss fight mounted on it is not.
+                                   // Walking out through the menus used to leave the run
+                                   // to lapse — the attempt spent, the damage unbanked.
+            return hasLiveScreenFight("weeklyBoss");
+        case "shinobiTiles":       // Card Hall is free; a live AI showdown on it is not.
+                                   // Its own exits forfeit it (a loss), like the PvP
+                                   // card duel screens above.
+            return hasLiveScreenFight("shinobiTiles");
         default:
             return false;
     }

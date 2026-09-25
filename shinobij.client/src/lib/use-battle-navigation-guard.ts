@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { Screen } from "../types/core";
 import {
+    SCREEN_FIGHT_HOSTS,
+    SCREEN_FIGHT_STATE_EVENT,
     TOWER_FIGHT_STATE_EVENT,
     hasActiveTowerFight,
     isUnresolvedBattle,
@@ -62,8 +64,11 @@ export function useBattleNavigationGuard({
     }, [screen]);
 
     const inBattleRef = useRef(false);
+    // The latest signals, so an event-driven re-check (below) runs the SAME rule
+    // with every signal, not just the one that changed.
+    const signalsRef = useRef<BattleGuardSignals | null>(null);
     useEffect(() => {
-        inBattleRef.current = isUnresolvedBattle({
+        signalsRef.current = {
             screen,
             raidBattleKind,
             pvpBattleId,
@@ -77,7 +82,8 @@ export function useBattleNavigationGuard({
             arenaBattleActive,
             petBattleActive,
             missionBattleActive,
-        });
+        };
+        inBattleRef.current = isUnresolvedBattle(signalsRef.current);
     }, [screen, raidBattleKind, pvpBattleId, pvpBattleResolved, endlessBattleActive, pendingArenaStoryBattle, pendingEventEncounter, activeDungeonEvent, hollowGateTileGameActive, pendingPetBattle, arenaBattleActive, petBattleActive, missionBattleActive]);
 
     useEffect(() => {
@@ -87,6 +93,17 @@ export function useBattleNavigationGuard({
         window.addEventListener(TOWER_FIGHT_STATE_EVENT, syncTowerFightGuard);
         return () => window.removeEventListener(TOWER_FIGHT_STATE_EVENT, syncTowerFightGuard);
     }, [screenRef]);
+
+    // Same idea for a fight a screen hosts in its own state (Weekly Boss, a Card
+    // Hall showdown). Scoped to those screens so a stale flag traps nobody else.
+    useEffect(() => {
+        const syncScreenFightGuard = () => {
+            const signals = signalsRef.current;
+            if (signals && SCREEN_FIGHT_HOSTS.has(signals.screen)) inBattleRef.current = isUnresolvedBattle(signals);
+        };
+        window.addEventListener(SCREEN_FIGHT_STATE_EVENT, syncScreenFightGuard);
+        return () => window.removeEventListener(SCREEN_FIGHT_STATE_EVENT, syncScreenFightGuard);
+    }, []);
 
     useEffect(() => {
         if (shouldRedirectToHospital(hospitalized, screen, inBattleRef.current)) setScreen("hospital");
