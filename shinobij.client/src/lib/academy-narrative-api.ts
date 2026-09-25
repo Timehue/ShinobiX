@@ -1,7 +1,7 @@
 import type { Character } from "../types/character";
 import type { FirstContractRoute } from '../../../shared/first-contract';
 
-export type AcademyNarrativeAction = "incident" | "trace" | "seal" | "complete" | "skip" | "combat" | "discovery" | "companion" | "contract-acknowledge" | "contract-return";
+export type AcademyNarrativeAction = "incident" | "trace" | "seal" | "logbook" | "complete" | "skip" | "combat" | "discovery" | "companion" | "contract-acknowledge" | "contract-return";
 
 export async function commitAcademyNarrativeAction(
     playerName: string,

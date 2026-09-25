@@ -111,9 +111,12 @@ test("WorldMap and its selected-sector leaves keep the projection line-budget ra
         // up the Rift and Sector Stronghold's per-sector placements itself. One prop
         // line; the placement data and the lookup live outside this file, in
         // data/sector-structure-placements.ts. Exact achieved count, no buffer.
-        // 5,286: shared stronghold entry, PvP callback and exterior suspension.
-        lineCount(worldMapSource) <= 5_286,
-        `WorldMap.tsx grew past 5,286 lines; retired overview layers must stay retired.`,
+        // 5,296 (+10): accepted mission outposts are independent of village war,
+        // and location-sensitive actions wait for the existing server travel
+        // lease to confirm arrival. These handlers add the mission target and
+        // confirmed-location gate without restoring a retired map layer.
+        lineCount(worldMapSource) <= 5_296,
+        `WorldMap.tsx grew past 5,296 lines; retired overview layers must stay retired.`,
     );
     assert.ok(
         lineCount(canvasSource) <= 220,

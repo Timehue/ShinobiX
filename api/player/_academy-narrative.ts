@@ -1,5 +1,5 @@
 import { offerFirstContract, readFirstContract, isFirstContractRoute, firstContractReturnedLater } from '../../shared/first-contract.js';
-export const ACADEMY_NARRATIVE_ACTIONS = ['incident', 'trace', 'seal', 'complete', 'skip', 'combat', 'discovery', 'companion', 'contract-acknowledge', 'contract-return'] as const;
+export const ACADEMY_NARRATIVE_ACTIONS = ['incident', 'trace', 'seal', 'logbook', 'complete', 'skip', 'combat', 'discovery', 'companion', 'contract-acknowledge', 'contract-return'] as const;
 export type AcademyNarrativeAction = typeof ACADEMY_NARRATIVE_ACTIONS[number];
 
 type Character = Record<string, unknown>;
@@ -62,6 +62,13 @@ export function applyAcademyNarrativeAction(
     if (action === "skip") {
         if (step === "done") return { ok: true, character, changed: false };
         return { ok: true, character: offerFirstContract({ ...character, onboardingStep: "done" }, 'skip'), changed: true };
+    }
+    if (action === 'logbook') {
+        if (step === 'sectorReturn' || step === 'done') return { ok: true, character, changed: false };
+        if ((step !== 'logbook' && step !== 'firstMission') || character.academyTrialClaimed !== true) {
+            return { ok: false, status: 409, error: 'Claim the Academy Trial before continuing through the Logbook.' };
+        }
+        return { ok: true, character: { ...character, onboardingStep: 'sectorReturn' }, changed: true };
     }
     if (action === "incident") {
         if (character.academyIncidentSeen === true) return { ok: true, character, changed: false };

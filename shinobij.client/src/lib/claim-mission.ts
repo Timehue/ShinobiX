@@ -15,6 +15,8 @@
 import { applyCurrencyRewards } from "./currency";
 import { markMissionCompleted, markHuntCompleted } from "./character-progress";
 import { currentMonthKey } from "./utils";
+import { notifyFieldTrailStateChanged } from "./field-trail-api";
+import { missionClaimActionScope, startActionDeadline } from "./action-deadline-store";
 import type { Character, CurrencyRewards } from "../types/character";
 
 export type MissionType = "combat" | "field" | "hunt" | "apex" | "academy-trial" | "academy-checklist";
@@ -56,7 +58,18 @@ export type ClaimMissionResult =
         // so an optimistic card that ran ahead of the server becomes doable again.
         serverProgress?: { exploreCount: number; raidCount: number };
     }
+    | ClaimMissionHttpFailure
     | null;
+
+export type ClaimMissionHttpFailure = {
+    ok: false;
+    status: number;
+    reason?: string;
+    code?: string;
+    retryAfterMs?: number;
+    requestId?: string;
+    error?: string;
+};
 
 export async function postClaimMission(
     playerName: string,
@@ -69,11 +82,43 @@ export async function postClaimMission(
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ playerName, missionType, missionId }),
         });
-        if (!r.ok) return null;
-        return (await r.json()) as ClaimMissionResult;
+        const payload = await r.json().catch(() => null) as Record<string, unknown> | null;
+        if (!r.ok) {
+            const retryAfterMs = Number.isFinite(payload?.retryAfterMs) && Number(payload?.retryAfterMs) > 0
+                ? Math.ceil(Number(payload?.retryAfterMs))
+                : undefined;
+            if (retryAfterMs) startActionDeadline(missionClaimActionScope(playerName), retryAfterMs);
+            return {
+                ok: false,
+                status: r.status,
+                ...(typeof payload?.reason === "string" ? { reason: payload.reason } : {}),
+                ...(typeof payload?.code === "string" || typeof payload?.errorCode === "string"
+                    ? { code: typeof payload?.code === "string" ? payload.code : payload.errorCode as string }
+                    : {}),
+                ...(retryAfterMs ? { retryAfterMs } : {}),
+                ...(typeof payload?.requestId === "string" ? { requestId: payload.requestId } : {}),
+                ...(typeof payload?.error === "string" ? { error: payload.error } : {}),
+            };
+        }
+        if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+            return { ok: false, status: r.status, reason: "malformed-response", error: "The claim response was malformed." };
+        }
+        const result = payload as unknown as Exclude<ClaimMissionResult, null>;
+        if (missionType === "field" && result?.ok === true && result.applied === true) {
+            notifyFieldTrailStateChanged(playerName, missionId);
+        }
+        return result;
     } catch {
         return null;
     }
+}
+
+export function claimHttpFailureMessage(failure: ClaimMissionHttpFailure): string {
+    if (failure.status === 429 || failure.code === "RATE_LIMITED") {
+        const seconds = Math.max(1, Math.ceil((failure.retryAfterMs ?? 1_000) / 1000));
+        return `Mission claims are cooling down. Try again in ${seconds}s.`;
+    }
+    return failure.error ?? "The Mission Hall could not verify that claim.";
 }
 
 /**

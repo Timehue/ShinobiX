@@ -19,6 +19,7 @@ import type { Character } from "../types/character";
 import { PROGRESSION_EXAM_HOLDS } from "../../../shared/progression-holds";
 import { baseStats, rankFromLevel } from "./stats";
 import { getCharacterElements } from "./elements";
+import { normalizeOnboardingStep } from "./onboarding-step";
 
 export interface ObjectiveRequirement {
     label: string;
@@ -88,6 +89,42 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
     } = ctx;
 
     const ownedElements = getCharacterElements(character);
+    const academyComplete = normalizeOnboardingStep(character.onboardingStep) === "done";
+    const academyAwakeningRequirement: ObjectiveRequirement = ownedElements.length > 0
+        ? {
+            label: "Awaken your first element",
+            progress: ownedElements.length,
+            target: 1,
+            detail: ownedElements[0],
+            goScreen: "centralHub",
+            goLabel: "Awakening Stone",
+        }
+        : !academyComplete
+            ? {
+                label: "Finish the guided Academy first",
+                progress: 0,
+                target: 1,
+                detail: "The Awakening Stone story follows the Academy handoff",
+                goScreen: "village",
+                goLabel: "Continue Academy",
+            }
+            : character.level < 2
+                ? {
+                    label: "Reach Level 2 to awaken your first element",
+                    progress: character.level,
+                    target: 2,
+                    detail: "The Awakening Stone story leads you there at Level 2",
+                    goScreen: "training",
+                    goLabel: "Go Train",
+                }
+                : {
+                    label: "Awaken your first element",
+                    progress: 0,
+                    target: 1,
+                    detail: "Free roll at Level 2",
+                    goScreen: "centralHub",
+                    goLabel: "Awakening Stone",
+                };
     const baseStatTotal = Object.values(baseStats()).reduce((sum, value) => sum + value, 0);
     const currentStatTotal = Object.values(character.stats).reduce((sum, value) => sum + value, 0);
     const statsTrained = Math.max(character.totalStatsTrained ?? 0, Math.max(0, currentStatTotal - baseStatTotal));
@@ -100,7 +137,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
     const academyPathOpen =
         character.academyChecklistClaimed ||
         character.academyTrialClaimed ||
-        character.onboardingStep === "done" ||
+        academyComplete ||
         character.level >= 3;
 
     const objectives: LogbookObjective[] = [];
@@ -116,7 +153,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
             summary: "Learn the basic growth loop before the village sends you into real work.",
             unlockLevel: 1,
             requirements: [
-                { label: "Awaken your first element", progress: ownedElements.length, target: 1, detail: ownedElements[0] ?? "Free roll at Level 2", goScreen: "centralHub", goLabel: "Awakening Stone" },
+                academyAwakeningRequirement,
                 { label: "Equip your jutsu loadout", progress: equippedJutsuCount, target: 4, detail: "Add a 4th jutsu", goScreen: "profile", goLabel: "Open Profile" },
                 { label: "Win your first combat mission", progress: totalAiKills, target: 1, detail: "Complete the E-Rank Drill or another Arena or hunt fight", goScreen: "battleArena", goLabel: "Go Arena" },
                 { label: "Train at the grounds", progress: statsTrained, target: 5, detail: "Train a stat at the Training Grounds", goScreen: "training", goLabel: "Go Train" },
