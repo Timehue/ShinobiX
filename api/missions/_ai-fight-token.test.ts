@@ -75,6 +75,17 @@ describe('_ai-fight-token', () => {
         assert.equal(token.sessionId, 'solo-ai-deadbeef');
     });
 
+    it('carries the server-authored field mission identity into the sealed fight token', () => {
+        const token = createAiFightTokenRecord('Player', 'abc123', 1, {
+            battleKind: 'raidAi',
+            raidTokenId: 'raidproof0001',
+            raidMissionId: 'fetch-d-supply-trail',
+        });
+        assert.equal(token.raidMissionId, 'fetch-d-supply-trail');
+        const malformed = createAiFightTokenRecord('Player', 'abc123', 1, { raidMissionId: 'bad/mission' });
+        assert.equal(malformed.raidMissionId, undefined);
+    });
+
     it('never stamps a solo runtime without a valid solo session id', () => {
         for (const sessionId of [undefined, '', 'bad/slash', 42]) {
             const token = createAiFightTokenRecord('Player', 'abc123', 1, { sessionRuntime: 'solo-pve', sessionId });

@@ -4,6 +4,7 @@ import { canTakeApex, isApexBeastForWeek, isoWeekKey } from './_apex-contract.js
 import { resolveDungeonAiFightAuthority } from '../dungeon/_ai-fight.js';
 import type { AiFightProfile, AiFightScaling } from './_ai-fight-encounter.js';
 import { cleanWorldExploreAuthorityReceipt, worldExploreAuthorityKey } from '../world/_explore-authority.js';
+import { serverFieldMissionRun } from './_field-trail.js';
 
 export type GenericAiFightBattleKind = 'practice' | 'explore' | 'raidAi' | 'dungeon';
 
@@ -14,6 +15,7 @@ export type GenericAiFightAuthority = {
     exploreReceiptKey?: string;
     worldExploreRequestId?: string;
     raidTokenId?: string;
+    raidMissionId?: string;
     raidTokenKey?: string;
     raidTokenRecord?: RaidAiTokenRecord;
     /** Server-built profile/scaling for a dedicated adapter. Never request data. */
@@ -265,6 +267,10 @@ export async function resolveGenericAiFightAuthority(params: {
             || (authority.status != null && authority.status !== 'minted')) {
             throw new Error('The AI-raid token does not match this opponent and sector.');
         }
+        if (authority.source === 'field-mission-raid' && typeof authority.missionRunId === 'string'
+            && serverFieldMissionRun(params.character, String(authority.missionId ?? ''))?.runId !== authority.missionRunId) {
+            throw new Error('That mission raid belongs to an earlier contract run. Start a new raid from the outpost.');
+        }
         // The token owns the opponent. `body.opponentId` is display-era input
         // only and cannot substitute a weaker profile.
         return {
@@ -272,6 +278,9 @@ export async function resolveGenericAiFightAuthority(params: {
             opponentId: authority.aiId,
             sector,
             raidTokenId: raidToken,
+            ...(authority.source === 'field-mission-raid' && typeof authority.missionId === 'string'
+                ? { raidMissionId: authority.missionId }
+                : {}),
             raidTokenKey: key,
             raidTokenRecord: authority,
         };

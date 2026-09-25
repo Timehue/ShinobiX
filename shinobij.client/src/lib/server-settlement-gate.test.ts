@@ -120,7 +120,7 @@ describe("server settlement policy", () => {
         assertGuardBefore(missions, "acceptFetchMission", "fieldHuntMissions", "postFieldTrail(");
         const fieldTrailAdoptionStart = missions.indexOf("const adoptFieldTrail = useCallback");
         const fieldTrailAdoption = missions.slice(fieldTrailAdoptionStart, missions.indexOf("const acceptedFieldMissionKey", fieldTrailAdoptionStart));
-        assert.match(fieldTrailAdoption, /!result\.character \|\| !onVersionedCharacter\(result\.character, result\._saveVersion\)/,
+        assert.match(fieldTrailAdoption, /!result\.character \|\| !onVersionedCharacterRef\.current\(result\.character, result\._saveVersion\)/,
             "field contracts must adopt the versioned character before projecting acceptance");
         assert.match(fieldTrailAdoption, /result\.acceptedMissionIds[\s\S]*setAcceptedMissionIds\(result\.acceptedMissionIds\)/);
         assert.match(fieldTrailAdoption, /result\.missionProgress[\s\S]*setMissionProgress\(result\.missionProgress\)/);
